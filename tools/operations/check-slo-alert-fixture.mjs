@@ -70,19 +70,19 @@ const alertCatalog = {
   ready_degraded: {
     severity: 'critical',
     impact: 'Traffic switch and release closeout are blocked because one or more readiness dependencies are not healthy.',
-    investigate: '/health/ready JSON, container logs, ProductionStartupValidator runtime task details, DB and Redis connectivity.',
+    investigate: '/health/ready status, /api/ops/health/ready-detail JSON, container logs, ProductionStartupValidator runtime task details, DB and Redis connectivity.',
     rollbackOrDegrade: 'Keep or remove gateway traffic from the candidate image; if this followed a rollout, switch back to the previous image tag.'
   },
   db_latency_high: {
     severity: 'warning',
     impact: 'Cache misses, authoring writes, article reads and migrations can stall behind PostgreSQL pressure.',
-    investigate: '/health/ready checks.postgres.latencyMs, DB concurrency gate snapshot, slow SQL logs, PostgreSQL connection usage.',
+    investigate: '/api/ops/health/ready-detail checks.postgres.latencyMs, DB concurrency gate snapshot, slow SQL logs, PostgreSQL connection usage.',
     rollbackOrDegrade: 'Reduce public traffic, pause non-essential admin writes and background jobs, then restore the prior image if latency started with the deploy.'
   },
   redis_latency_high: {
     severity: 'warning',
     impact: 'L2 cache, notification stream backlog replay and cache-control fanout can become slow or stale.',
-    investigate: '/health/ready checks.redis.latencyMs, Redis memory/eviction policy, network path and Redis command latency.',
+    investigate: '/api/ops/health/ready-detail checks.redis.latencyMs, Redis memory/eviction policy, network path and Redis command latency.',
     rollbackOrDegrade: 'Keep the app out of new traffic until latency recovers; allow public JSON fallback only when readiness is restored.'
   },
   aot_backfill_failed: {
@@ -100,7 +100,7 @@ const alertCatalog = {
   notification_stream_disconnect_spike: {
     severity: 'warning',
     impact: 'Notification streams can miss live updates and increase replay pressure for authenticated/admin clients.',
-    investigate: 'Notification stream slow disconnect metric, /health/ready runtime.notificationStreamConnections, gateway websocket buffering and slow consumer logs.',
+    investigate: 'Notification stream slow disconnect metric, /api/ops/health/ready-detail runtime.notificationStreamConnections, gateway websocket buffering and slow consumer logs.',
     rollbackOrDegrade: 'Lower gateway traffic or reconnect pressure, preserve polling/fetch fallback paths, and revert gateway changes that introduced buffering.'
   },
   cache_registry_missing_scan: {
@@ -199,7 +199,7 @@ function evaluateAlerts(fixture) {
         .filter(([, value]) => isUnhealthy(value))
         .map(([key]) => key),
       scheduledPublishStatus: scheduledPublish?.status ?? null
-    }, ['/health/ready']);
+    }, ['/health/ready status', '/api/ops/health/ready-detail']);
   }
 
   const postgresLatency = numberAt(postgres.latencyMs, -1);
@@ -207,7 +207,7 @@ function evaluateAlerts(fixture) {
     addAlert(alerts, 'db_latency_high', {
       latencyMs: postgresLatency,
       thresholdMs: thresholds.postgresLatencyMs
-    }, ['/health/ready checks.postgres.latencyMs']);
+    }, ['/api/ops/health/ready-detail checks.postgres.latencyMs']);
   }
 
   const redisLatency = numberAt(redis.latencyMs, -1);
@@ -215,21 +215,21 @@ function evaluateAlerts(fixture) {
     addAlert(alerts, 'redis_latency_high', {
       latencyMs: redisLatency,
       thresholdMs: thresholds.redisLatencyMs
-    }, ['/health/ready checks.redis.latencyMs']);
+    }, ['/api/ops/health/ready-detail checks.redis.latencyMs']);
   }
 
   if (isUnhealthy(aotTask) || aotFailures > 0) {
     addAlert(alerts, 'aot_backfill_failed', {
       startupTaskStatus: aotTask?.status ?? null,
       failuresLastHour: aotFailures
-    }, ['/health/ready runtime.startup.tasks.aotDiskCache', 'aotBackfill.failuresLastHour']);
+    }, ['/api/ops/health/ready-detail runtime.startup.tasks.aotDiskCache', 'aotBackfill.failuresLastHour']);
   }
 
   if (isUnhealthy(searchTask) || searchFailures > 0) {
     addAlert(alerts, 'search_rebuild_failed', {
       startupTaskStatus: searchTask?.status ?? null,
       failuresLastHour: searchFailures
-    }, ['/health/ready runtime.startup.tasks.searchIndex', 'search.rebuildFailuresLastHour']);
+    }, ['/api/ops/health/ready-detail runtime.startup.tasks.searchIndex', 'search.rebuildFailuresLastHour']);
   }
 
   if (notificationStreamSlowDisconnects > thresholds.notificationStreamSlowDisconnectsLast5m) {

@@ -50,7 +50,7 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 | 消息系统使用 binary 消息路径 | `/api/binary/messages/conversations` |
 | 管理端以 binary admin 资源路径区分 | `/api/binary/admin/users`、`/api/binary/stats` |
 | 作者工作台 legacy JSON 端点仅作后端兼容；生产前端使用 AEDS bridge | `/api/binary/author/drafts`、`/api/binary/author/audit`、`/api/binary/author/moderation/overview` |
-| 健康检查与通知独立于业务路径 | `/health/live`、`/api/notifications/stream` |
+| 健康检查与通知独立于业务路径 | `/health/live`、`/health/ready`、`/api/ops/health/ready-detail`、`/api/notifications/stream` |
 
 ---
 

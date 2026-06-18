@@ -67,9 +67,9 @@ If a release specifically needs public AOT disk cache invalidation, set `Lifecyc
 ## Daily Checks
 
 - `docker ps` health status is healthy.
-- `/health/ready` returns `ready` as `application/json`.
-- `/health/ready` runtime startup snapshot shows expected `schemaMigration` / `searchIndex` / `cacheInitializer` / `aotDiskCache` / `bootstrapRollback` task states for the current rollout. The snapshot is sourced from `StartupRuntimeState.CreateSnapshot()` and is independent from PublicAOT/AEDS payloads. `schemaMigration` should report `non_compensable`; `cacheInitializer` reports either `no_entries` or the number of rollback entries it can restore. The same runtime block exposes `scheduledPublish` with `lastPublishedCount`, `lastFailedCount`, `dueBacklog` and `lastError`; non-zero failures mean due scheduled articles remain queued for the next worker tick and should be investigated before release closeout.
-- `/health/ready` includes `observability` with service name/version, ActivitySource, Meter and whether OTLP export is enabled.
+- `/health/ready` returns public minimal readiness JSON with `status=ready` and `checkedAt`.
+- `/api/ops/health/ready-detail` runtime startup snapshot shows expected `schemaMigration` / `searchIndex` / `cacheInitializer` / `aotDiskCache` / `bootstrapRollback` task states for the current rollout. The snapshot is sourced from `StartupRuntimeState.CreateSnapshot()` and is independent from PublicAOT/AEDS payloads. `schemaMigration` should report `non_compensable`; `cacheInitializer` reports either `no_entries` or the number of rollback entries it can restore. The same runtime block exposes `scheduledPublish` with `lastPublishedCount`, `lastFailedCount`, `dueBacklog` and `lastError`; non-zero failures mean due scheduled articles remain queued for the next worker tick and should be investigated before release closeout.
+- `/api/ops/health/ready-detail` includes `observability` with service name/version, ActivitySource, Meter and whether OTLP export is enabled.
 - Disk usage for Docker volumes and container logs is below alert thresholds.
 - PostgreSQL connection usage leaves headroom for migrations and backups.
 - Redis memory and eviction policy are within expected bounds.
@@ -91,16 +91,16 @@ The release SLO fixture is executable:
 tools/operations/check-slo-alert-fixture.mjs
 ```
 
-It writes `.tmp/operations/slo-alert-fixture.json`. With no argument it uses an embedded synthetic incident and asserts that every required alert can fire. A production or CI fixture can be passed as the first argument; it should include `/health/ready` JSON, `notificationStream.slowDisconnectsLast5m`, security status report data and optional thresholds.
+It writes `.tmp/operations/slo-alert-fixture.json`. With no argument it uses an embedded synthetic incident and asserts that every required alert can fire. A production or CI fixture can be passed as the first argument; it should include `/api/ops/health/ready-detail` JSON, `notificationStream.slowDisconnectsLast5m`, security status report data and optional thresholds.
 
 | Alert | Impact | Investigation entry | Rollback or degradation action |
 |-------|--------|---------------------|--------------------------------|
-| `ready_degraded` | Candidate traffic switch and release closeout are blocked. | `/health/ready`, runtime startup tasks, scheduled publish snapshot, app logs. | Keep traffic away from the candidate image or switch back to the previous image tag. |
-| `db_latency_high` | Cache misses, authoring writes, reads and migrations can stall behind PostgreSQL pressure. | `/health/ready` `checks.postgres.latencyMs`, DB concurrency gate snapshot, slow SQL logs, PostgreSQL connection usage. | Reduce public traffic, pause non-essential writes/background work, then rollback if latency started with the deploy. |
-| `redis_latency_high` | L2 cache, WebSocket notification backlog replay and cache-control fanout can become slow or stale. | `/health/ready` `checks.redis.latencyMs`, Redis memory/eviction policy, network path and command latency. | Keep the app out of new traffic until Redis recovers; allow public fallback only after readiness is healthy. |
+| `ready_degraded` | Candidate traffic switch and release closeout are blocked. | `/health/ready` status, `/api/ops/health/ready-detail`, runtime startup tasks, scheduled publish snapshot, app logs. | Keep traffic away from the candidate image or switch back to the previous image tag. |
+| `db_latency_high` | Cache misses, authoring writes, reads and migrations can stall behind PostgreSQL pressure. | `/api/ops/health/ready-detail` `checks.postgres.latencyMs`, DB concurrency gate snapshot, slow SQL logs, PostgreSQL connection usage. | Reduce public traffic, pause non-essential writes/background work, then rollback if latency started with the deploy. |
+| `redis_latency_high` | L2 cache, WebSocket notification backlog replay and cache-control fanout can become slow or stale. | `/api/ops/health/ready-detail` `checks.redis.latencyMs`, Redis memory/eviction policy, network path and command latency. | Keep the app out of new traffic until Redis recovers; allow public fallback only after readiness is healthy. |
 | `aot_backfill_failed` | Public pages may fall back from server AOT shells to SPA rendering and lose first-load performance. | `runtime.startup.tasks.aotDiskCache`, PublicAOT worker logs, AOT cache directory permissions, `aotBackfill.failuresLastHour` if exported by the collector. | Disable one-shot AOT cache cleanup, keep SPA fallback enabled, and rerun backfill after fixing renderer or filesystem failures. |
 | `search_rebuild_failed` | Search results and distribution version coherence can be stale after article mutations or deployment. | `runtime.startup.tasks.searchIndex`, `search.rebuildFailuresLastHour`, search artifact directory and `SearchIndexService` logs. | Restore previous search artifacts or previous image, keep public reads online, and rebuild the index before closeout. |
-| `notification_stream_disconnect_spike` | Notification streams can miss live updates and increase replay pressure for authenticated/admin clients. | `fsus.notification_stream.slow_disconnects`, `/health/ready` `runtime.notificationStreamConnections`, gateway websocket buffering and slow consumer logs. | Lower gateway traffic or reconnect pressure, preserve polling/fetch fallbacks, and revert gateway changes that introduced buffering. |
+| `notification_stream_disconnect_spike` | Notification streams can miss live updates and increase replay pressure for authenticated/admin clients. | `fsus.notification_stream.slow_disconnects`, `/api/ops/health/ready-detail` `runtime.notificationStreamConnections`, gateway websocket buffering and slow consumer logs. | Lower gateway traffic or reconnect pressure, preserve polling/fetch fallbacks, and revert gateway changes that introduced buffering. |
 | `cache_registry_missing_scan` | Cache prefix invalidation has fallen back to Redis keyspace scan because registry membership is missing or stale. | `fsus.cache.operation.count` with `registry_missing_scan_recovered` / `registry_missing_scan_empty` / `registry_missing_scan_failed`, Redis `cache:registry:*` sets, `RemoveByPrefixAsync` warnings, cache governance catalog. | Treat repeated fallback as degraded cache-control behavior; rebuild registry through normal writes or clear the affected family during low traffic. Failed scans require Redis connectivity and ACL investigation before promotion. |
 | `security_blocker` | Production release is blocked by DAST, attack matrix, permission matrix or exposure evidence failures. | `.tmp/security/zap`, attack/permission matrix output, `.tmp/security/production-exposure-status.json` blockers. | Do not promote; keep the previous image and gateway config until every security blocker has passing evidence. |
 
@@ -287,7 +287,7 @@ Upload asset file deletion is opt-in and guarded. Set `FSUSBLOG_RETENTION_SCAN_U
 ## Incident Recovery
 
 - App fails liveness: inspect container logs, then restart the app container.
-- App fails readiness only: inspect `/health/ready` detail to distinguish DB, Redis, config, or resource failure.
+- App fails readiness only: inspect `/api/ops/health/ready-detail` to distinguish DB, Redis, config, or resource failure.
 - DB pressure: lower public traffic at the gateway, check DB concurrency gate detail, and inspect slow SQL logs.
 - Redis outage: keep the app isolated from new traffic until readiness returns; public hot paths may degrade without L2 cache.
 - WebSocket pressure: inspect readiness runtime detail and logs for slow consumer disconnects.

@@ -35,7 +35,7 @@ Required variables:
 - `FIDO2_SERVER_DOMAIN`
 - `REVERSE_PROXY_KNOWN_PROXIES` or `REVERSE_PROXY_KNOWN_NETWORKS`
 
-Production validation rejects default JWT secrets, placeholder secrets, empty Redis passwords, missing or disabled `FSUSBLOG_ANONYMOUS_IDENTITY_MODE`, HTTP CORS origins, non-HTTPS `SITE_BASEURL`, wildcard `AllowedHosts`, and missing reverse-proxy trust configuration. Invalid production validation marks `/health/ready` as `503`, and the hosted validation task reports the detailed degraded state in runtime health.
+Production validation rejects default JWT secrets, placeholder secrets, empty Redis passwords, missing or disabled `FSUSBLOG_ANONYMOUS_IDENTITY_MODE`, HTTP CORS origins, non-HTTPS `SITE_BASEURL`, wildcard `AllowedHosts`, and missing reverse-proxy trust configuration. Invalid production validation marks `/health/ready` as `503`; operators can inspect the detailed degraded state through `/api/ops/health/ready-detail`.
 
 `FSUSBLOG_ALLOW_INSECURE_STARTUP=true` is a local diagnostics escape hatch only. It must not be used for normal deployment and cannot bypass security-critical validation failures for JWT secrets, wildcard `AllowedHosts`, missing reverse-proxy trust, or HTTP production origins.
 
@@ -59,7 +59,8 @@ The compose file binds Kestrel to `127.0.0.1:8080:8080`. Do not change it back t
 ## Health Checks
 
 - `GET /health/live`: process/Kestrel liveness only; safe for Docker healthcheck; returns `application/json`.
-- `GET /health/ready`: readiness for rollout and operations; checks configuration, PostgreSQL, Redis, public webroot, IP2LOCATION data, DB gate snapshot, notification stream connection count, typed startup runtime snapshot, scheduled publish worker snapshot (`lastPublishedCount` / `lastFailedCount` / `dueBacklog`), and public hot-read snapshot state/version/error metadata; returns `application/json`.
+- `GET /health/ready`: public readiness for rollout probes; returns only `status` and `checkedAt` with HTTP `200`/`503`.
+- `GET /api/ops/health/ready-detail`: protected readiness detail for operators; requires admin principal `audit.read` permission and includes configuration, PostgreSQL, Redis, public webroot, IP2LOCATION data, DB gate snapshot, notification stream connection count, typed startup runtime snapshot, scheduled publish worker snapshot (`lastPublishedCount` / `lastFailedCount` / `dueBacklog`), and public hot-read snapshot state/version/error metadata.
 
 Health checks are an ops JSON protocol. They do not emit PublicAOT bootstrap frames or AEDS binary payloads, so rollout probes can evolve independently from public-page payload changes.
 
@@ -77,7 +78,7 @@ Before promoting a candidate release, generate the SLO alert fixture:
 tools/operations/check-slo-alert-fixture.mjs
 ```
 
-The default synthetic fixture proves that the alert definitions for readiness degradation, PostgreSQL latency, Redis latency, AOT backfill failure, search rebuild failure, notification stream slow-disconnect spikes and security blockers are still executable. For production evidence, pass a JSON fixture built from the current `/health/ready` response, the latest notification stream slow-disconnect metric window and `.tmp/security/production-exposure-status.json`.
+The default synthetic fixture proves that the alert definitions for readiness degradation, PostgreSQL latency, Redis latency, AOT backfill failure, search rebuild failure, notification stream slow-disconnect spikes and security blockers are still executable. For production evidence, pass a JSON fixture built from the current `/api/ops/health/ready-detail` response, the latest notification stream slow-disconnect metric window and `.tmp/security/production-exposure-status.json`.
 
 Traffic promotion is blocked while any `critical` alert is firing. `warning` alerts require an operator note in the release evidence manifest explaining impact, investigation result and the chosen rollback or degradation action. The detailed runbook and per-alert actions live in `docs/operations.md`.
 
@@ -87,7 +88,7 @@ The default compose file is tuned for a practical 2C/2G VPS baseline:
 
 - Kestrel serves static frontend assets directly.
 - L1 memory cache and Redis L2 absorb public hot reads.
-- Public hot-read L0 serves preencoded `.aeds` snapshots ahead of the normal pipeline; misses and not-ready responses are `no-store` and must be watched through `/health/ready` runtime metadata.
+- Public hot-read L0 serves preencoded `.aeds` snapshots ahead of the normal pipeline; misses and not-ready responses are `no-store` and must be watched through `/api/ops/health/ready-detail` runtime metadata.
 - DB concurrency gate protects PostgreSQL during cache misses and DB-heavy background jobs such as visit-log flush, view reconciliation, scheduled publish and PublicHot rebuild.
 - Article mutations, including scheduled-publish status flips, write `article_mutation_outbox` in the same DB transaction as the primary row change; the dispatcher replays cache/search/AEDS/PublicHot/notification stream side effects with bounded retry after a crash or inline side-effect failure.
 - Visit-log view projection is batched and periodically reconciled from `sys_visit_log`, so a projection failure after log persistence is repairable.
@@ -136,7 +137,7 @@ The host gateway must:
 - deny hidden files and backup/archive files,
 - disable buffering for `/api/notifications/stream`,
 - keep upload limits explicit,
-- proxy `/health/live` and `/health/ready`,
+- proxy `/health/live`, minimal `/health/ready`, and admin-protected `/api/ops/health/ready-detail`,
 - preserve immutable caching headers generated by Kestrel for hashed assets.
 
 If OpenResty/Nginx runs on the same host, keep `REVERSE_PROXY_KNOWN_PROXIES=127.0.0.1`. If it runs from a private gateway subnet, set `REVERSE_PROXY_KNOWN_NETWORKS` to the exact CIDR. Never use `0.0.0.0/0` or a public subnet as a trusted forwarded-header source.

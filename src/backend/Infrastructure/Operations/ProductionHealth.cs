@@ -71,6 +71,16 @@ public static class ProductionLivenessProbe
         };
 }
 
+public static class ProductionReadinessPublicReport
+{
+    public static IReadOnlyDictionary<string, object?> Create(ProductionHealthReport report)
+        => new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["status"] = report.Status,
+            ["checkedAt"] = report.CheckedAt
+        };
+}
+
 public sealed class ProductionReadinessProbe(
     IConfiguration configuration,
     IWebHostEnvironment environment,
@@ -263,8 +273,19 @@ public static class ProductionHealthEndpoints
             int statusCode = report.Status == "ready"
                 ? StatusCodes.Status200OK
                 : StatusCodes.Status503ServiceUnavailable;
-            return TypedResults.Json(report, statusCode: statusCode);
+            return TypedResults.Json(ProductionReadinessPublicReport.Create(report), statusCode: statusCode);
         }).AllowAnonymous();
+
+        endpoints.MapGet("/api/ops/health/ready-detail", async Task<IResult> (
+            ProductionReadinessProbe probe,
+            CancellationToken cancellationToken) =>
+        {
+            ProductionHealthReport report = await probe.CheckAsync(cancellationToken);
+            int statusCode = report.Status == "ready"
+                ? StatusCodes.Status200OK
+                : StatusCodes.Status503ServiceUnavailable;
+            return TypedResults.Json(report, statusCode: statusCode);
+        }).RequireAdminPermission(AdminPermissions.AuditRead);
 
         endpoints.MapGet("/api/ops/crawler-ranges/status", (CrawlerDetectorService detector) =>
         {

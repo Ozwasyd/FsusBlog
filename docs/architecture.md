@@ -320,7 +320,7 @@ Service Worker → 缓存 manifest/shard/patch 并按版本隔离旧索引
 
 文章实体现在显式记录 `Status`、`ScheduledPublishAt`、`PublishedAt`、`ArchivedAt`、`DeletedAt`。公开读链、feed、sitemap、related-reading、搜索 runtime fallback、search index rebuild、分类/标签计数必须只读取 `Status=Published` 且发布时间已到的文章；`IsDeleted` 继续保留原有回收站语义。
 
-`ScheduledPublishWorker` 每分钟按 `scheduled_publish_at, id` 扫描到期 `Scheduled` 文章，在同一事务内把文章转换为 `Published` 并写入 `article_mutation_outbox` 的 `scheduled-published` 事件；事务成功后仍同步尝试 search index、PublicAOT、HTTP/cache 失效与 `PublicHotArtifactUpdateQueue` 入队。若事务失败，文章保持可被后续扫描重试；若事务已提交但任一派生副作用失败，worker 记录 degraded，outbox dispatcher 会按 retry/backoff 重放 cache/search/AEDS/PublicHot/notification stream 派生更新并在成功后标记 processed。worker 每轮把 `lastPublishedCount`、`lastFailedCount`、`dueBacklog` 与最近错误写入 `ScheduledPublishRuntimeState`，`/health/ready` 的 runtime 区块会暴露该快照。创建、更新、删除、恢复、永久删除同样必须在同一文章事务内写入 `article_mutation_outbox`，请求内仍同步尝试派生更新；若进程在提交后崩溃，`ArticleMutationOutboxDispatcher` 会按 retry/backoff 重放派生更新并在成功后标记 processed。
+`ScheduledPublishWorker` 每分钟按 `scheduled_publish_at, id` 扫描到期 `Scheduled` 文章，在同一事务内把文章转换为 `Published` 并写入 `article_mutation_outbox` 的 `scheduled-published` 事件；事务成功后仍同步尝试 search index、PublicAOT、HTTP/cache 失效与 `PublicHotArtifactUpdateQueue` 入队。若事务失败，文章保持可被后续扫描重试；若事务已提交但任一派生副作用失败，worker 记录 degraded，outbox dispatcher 会按 retry/backoff 重放 cache/search/AEDS/PublicHot/notification stream 派生更新并在成功后标记 processed。worker 每轮把 `lastPublishedCount`、`lastFailedCount`、`dueBacklog` 与最近错误写入 `ScheduledPublishRuntimeState`，`/api/ops/health/ready-detail` 的 runtime 区块会暴露该快照。创建、更新、删除、恢复、永久删除同样必须在同一文章事务内写入 `article_mutation_outbox`，请求内仍同步尝试派生更新；若进程在提交后崩溃，`ArticleMutationOutboxDispatcher` 会按 retry/backoff 重放派生更新并在成功后标记 processed。
 
 Binary 文章列表缓存使用 `core:v3:{public|admin}:...:{status}` 身份隔离，HTTP OutputCache 的 ArticleList 策略也必须按 `page/size/categoryId/tagId/isDeleted/status` vary。匿名列表只缓存 public published 视图；admin 状态筛选可缓存 draft/scheduled/archived/deleted 视图，但 admin 详情读取未发布文章时绕过公开详情缓存，避免草稿负缓存或私有正文污染匿名 `/article/{id}` 读链。
 
@@ -346,7 +346,7 @@ Binary 文章列表缓存使用 `core:v3:{public|admin}:...:{status}` 身份隔�
 
 前端 `telemetryService` 采集公开页面 Core Web Vitals、hydration time、Wasm decode timing、Markdown render timing 与 navigation timing，只记录 `pageType`、`aotSource` 和数值指标；私有页面不发送 RUM 事件，敏感输入不进入 payload。匿名 `POST /api/binary/telemetry/rum` 使用 batched AEDS `RumMetricBatchRequest` frame、8192 bytes 帧上限、每批 16 条上限和低基数字段白名单，由 `RumTelemetryService` 净化后写入独立 `frontend_rum_metric` 表；旧 `/api/telemetry/rum` JSON endpoint 已移除。作者 dashboard 从该表聚合 P75/平均值、页面类型和 AOT 来源分布；RUM 不再占用 `sys_audit_log`。
 
-`sys_audit_log` 是结构化安全审计表，字段包括 `source/type/action/outcome/severity/actor/target`、trace/path/method、隐私 hash、`context_json` 和 tamper evidence。普通 Serilog 事件仍通过 bounded channel 异步落库；admin/security/audit 高价值事件由 `IAuditEventService` 直接同步写入，失败时落 `FSUSBLOG_DATA_ROOT/audit-fallback/critical-audit-*.jsonl`。`/health/ready` 的 `runtime.auditLog` 暴露 queued/dropped/writeFailure/fallback 计数；后台 `LogCleanupService` 保留 RUM 14 天、访问日志 30 天、普通审计 365 天，高价值或 critical 审计不自动清理。
+`sys_audit_log` 是结构化安全审计表，字段包括 `source/type/action/outcome/severity/actor/target`、trace/path/method、隐私 hash、`context_json` 和 tamper evidence。普通 Serilog 事件仍通过 bounded channel 异步落库；admin/security/audit 高价值事件由 `IAuditEventService` 直接同步写入，失败时落 `FSUSBLOG_DATA_ROOT/audit-fallback/critical-audit-*.jsonl`。`/api/ops/health/ready-detail` 的 `runtime.auditLog` 暴露 queued/dropped/writeFailure/fallback 计数；后台 `LogCleanupService` 保留 RUM 14 天、访问日志 30 天、普通审计 365 天，高价值或 critical 审计不自动清理。
 
 ## 安全链路概览
 
@@ -388,9 +388,10 @@ docker-compose.yml
 健康检查入口：
 
 - `GET /health/live`：存活探针（进程存活即返回 200，`application/json`）
-- `GET /health/ready`：就绪探针（Redis + DB 连通性，`application/json`）
+- `GET /health/ready`：公网最小就绪探针（只返回 `status` / `checkedAt`，HTTP 200/503 表示 ready/not ready）
+- `GET /api/ops/health/ready-detail`：受保护的详细就绪报告（admin principal + `audit.read`）
 
-Health/ops 协议独立于 PublicAOT 与 AEDS payload。`ProductionHealthEndpoints` 只返回 JSON 运维快照；readiness 的启动状态来自 `StartupRuntimeState.CreateSnapshot()`，定时发布后台状态来自 `ScheduledPublishRuntimeState.CreateSnapshot()`，因此生产启动校验、cache/bootstrap rollback、定时发布 backlog 与 PublicAOT 壳层协议可以分别演进。
+Health/ops 协议独立于 PublicAOT 与 AEDS payload。`ProductionHealthEndpoints` 的公网 readiness 只返回最小 JSON；详细运维快照只在受保护端点返回。readiness 的启动状态来自 `StartupRuntimeState.CreateSnapshot()`，定时发布后台状态来自 `ScheduledPublishRuntimeState.CreateSnapshot()`，因此生产启动校验、cache/bootstrap rollback、定时发布 backlog 与 PublicAOT 壳层协议可以分别演进。
 
 单作者后台运维面板位于 `/user/manage/ops`、`/user/manage/cache`、`/user/manage/integrity`，后端统一由 `AdminOperationsService` 聚合。`/api/binary/author/ops/health` 合并 readiness、审计 runtime、Crawler CIDR、PublicHotRead、Search manifest、备份 artifact、结构化最近错误和 `article_mutation_outbox` backlog；最近错误只在查询物化后做摘要清理和分组，避免 ORM projection 把 SQL 表达式泄露到 UI。`/api/binary/author/cache/diagnostics` 从 `PublicHotReadStore`、`PublicAotInvalidationTracker`、`CacheInvalidationRuntimeState`、search manifest 与实际 sitemap/feed 构建结果读取状态；`/api/binary/author/integrity` 做只读巡检，safe fix 只处理无效 `article_tag` 和注销用户 session 撤销，必须通过 diff、确认短语、admin step-up proof 和审计事件闭环。
 

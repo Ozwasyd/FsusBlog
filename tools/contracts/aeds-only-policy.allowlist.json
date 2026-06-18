@@ -15,9 +15,18 @@
       "classification": "allowed-exemption",
       "scope": "backend",
       "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
-      "patterns": ["TypedResults.Json(report"],
+      "patterns": ["ProductionReadinessPublicReport.Create(report)"],
       "routes": ["/health/ready"],
-      "reason": "Kubernetes/systemd/monitoring readiness probes require a JSON health document outside the internal application API surface."
+      "reason": "Kubernetes/systemd/monitoring readiness probes require a minimal JSON health document outside the internal application API surface."
+    },
+    {
+      "id": "ops-ready-detail-json",
+      "classification": "allowed-exemption",
+      "scope": "backend",
+      "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+      "patterns": ["TypedResults.Json(report"],
+      "routes": ["/api/ops/health/ready-detail"],
+      "reason": "Detailed readiness is an authenticated ops probe for operators; public /health/ready exposes only minimal status."
     },
     {
       "id": "ops-crawler-ranges-json",

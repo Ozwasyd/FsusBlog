@@ -34,10 +34,10 @@ error:    AedsFrameType.ApiError
 
 | 范围 | 路径 / contract | 理由 |
 |------|------------------|------|
-| Health | `/health/live`, `/health/ready` | Kubernetes/systemd/监控探针消费 JSON |
+| Health | `/health/live`, `/health/ready` | Kubernetes/systemd/监控探针消费 JSON；`/health/ready` 只暴露最小 `status` / `checkedAt` |
 | Feed | `/feed/rss.xml`, `/feed/atom.xml`, `/feed/feed.json` | RSS/Atom/JSON Feed 标准协议 |
 | SEO | `/sitemap.xml`, `/robots.txt` | 搜索引擎标准入口 |
-| Ops probe | `/api/ops/crawler-ranges/status` | admin-only 运维诊断；后台生产 UI 使用 `/api/binary/admin/security/anti-crawler/crawler-ranges/status` |
+| Ops probe | `/api/ops/health/ready-detail`, `/api/ops/crawler-ranges/status` | admin-only 运维诊断；公网 `/health/ready` 只返回最小状态，后台生产 UI 使用 AEDS 路径读取业务运维数据 |
 | PublicAOT tooling | `/internal/public-aot/manifest`、`/internal/public-aot/health` | 构建/backfill 工具 manifest 与 SSR worker 诊断，非浏览器运行时 API |
 | Internal bridge implementation | `/_fsus/internal/binary-bridge/author/**`, `/_fsus/internal/binary-bridge/admin/security/**` | 仅 `AuthoringBinaryBridgeMiddleware` / `SecurityBinaryBridgeMiddleware` 可达，外部 `/api/author/**` 与 `/api/admin/security/**` 已移除 |
 | Third-party moderation provider | HTTP JSON provider contract | 外部 provider 兼容协议 |

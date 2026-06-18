@@ -217,7 +217,8 @@ Binary 端点输出 AEDS v2 帧（`Content-Type: application/octet-stream`）。
 |------|------|------|------|
 | GET | `/api/notifications/stream` | WebSocket 通知通道（`fsus-aeds.v2`） | 🔓 |
 | GET | `/health/live` | JSON 存活探针 | 🔓 |
-| GET | `/health/ready` | JSON 就绪探针（Redis + DB + 启动状态）| 🔓 |
+| GET | `/health/ready` | JSON 最小就绪探针（仅 `status` / `checkedAt`）| 🔓 |
+| GET | `/api/ops/health/ready-detail` | JSON 详细就绪报告（配置、DB、Redis、runtime、observability） | 👑 |
 | GET | `/api/ops/crawler-ranges/status` | Crawler CIDR 同步状态 | 👑 |
 
 ---

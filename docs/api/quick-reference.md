@@ -340,7 +340,8 @@
 | POST | `/_fsus/testing/notification-stream/publish` | 🔓 | Development/Test-only notification resilience drill；需 `X-Fsus-Notification-Drill-Secret`，生产不映射 |
 | POST | `/api/binary/telemetry/rum` | 🔓🚦 | AEDS RUM 批量遥测入口 |
 | GET | `/health/live` | 🔓 | JSON 存活探针（仅检查进程） |
-| GET | `/health/ready` | 🔓 | JSON 就绪探针（检查配置、Observability、启动状态、DB、Redis） |
+| GET | `/health/ready` | 🔓 | JSON 最小就绪探针（仅 `status` / `checkedAt`，HTTP 200/503 表示 ready/not ready） |
+| GET | `/api/ops/health/ready-detail` | 👑 | 详细就绪报告（配置、Observability、启动状态、DB、Redis、runtime） |
 
 通知通道是 AEDS WebSocket notification stream，不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`。
 

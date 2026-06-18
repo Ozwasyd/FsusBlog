@@ -1,7 +1,9 @@
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +22,46 @@ public sealed class ProductionHealthTests
 
         Assert.Equal("live", report["status"]);
         Assert.True(report.ContainsKey("checkedAt"));
+    }
+
+    [Fact]
+    public void PublicReadinessReport_ContainsOnlyStatusAndCheckedAt()
+    {
+        var detailed = new ProductionHealthReport(
+            "not_ready",
+            DateTimeOffset.UtcNow,
+            new Dictionary<string, object?>
+            {
+                ["postgres"] = new ProductionDependencyHealthCheck("failed", Error: "PostgresException"),
+                ["redis"] = new ProductionDependencyHealthCheck("ok", LatencyMs: 1),
+                ["runtime"] = new RuntimeHealthSnapshot("ok", null, 5, 10, null, null, null, null),
+                ["resources"] = new ProductionResourceHealthCheck("failed", false, false, false, new PublicAotSsrWorkerResourceStatus("failed", true, false, null, null, null, "path"))
+            });
+
+        IReadOnlyDictionary<string, object?> report = ProductionReadinessPublicReport.Create(detailed);
+
+        Assert.Equal(["checkedAt", "status"], report.Keys.OrderBy(static key => key, StringComparer.Ordinal).ToArray());
+        Assert.Equal("not_ready", report["status"]);
+        Assert.Equal(detailed.CheckedAt, report["checkedAt"]);
+    }
+
+    [Fact]
+    public void ProductionHealthEndpoints_PublicReadyIsMinimalAndDetailRequiresAdmin()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Operations/ProductionHealth.cs");
+        string publicReady = ExtractBetween(
+            source,
+            "endpoints.MapGet(\"/health/ready\"",
+            "endpoints.MapGet(\"/api/ops/health/ready-detail\"");
+        string readyDetail = ExtractBetween(
+            source,
+            "endpoints.MapGet(\"/api/ops/health/ready-detail\"",
+            "endpoints.MapGet(\"/api/ops/crawler-ranges/status\"");
+
+        Assert.Contains("ProductionReadinessPublicReport.Create(report)", publicReady, StringComparison.Ordinal);
+        Assert.DoesNotContain("TypedResults.Json(report", publicReady, StringComparison.Ordinal);
+        Assert.Contains("TypedResults.Json(report", readyDetail, StringComparison.Ordinal);
+        Assert.Contains(".RequireAdminPermission(AdminPermissions.AuditRead)", readyDetail, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -113,5 +155,14 @@ public sealed class ProductionHealthTests
         public string EnvironmentName { get; set; } = environmentName;
         public string ContentRootPath { get; set; } = root;
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+
+    private static string ExtractBetween(string source, string start, string end)
+    {
+        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
+        int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
+        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
+        return source[startIndex..endIndex];
     }
 }
