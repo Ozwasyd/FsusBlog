@@ -78,6 +78,23 @@ public readonly struct UserSessionSummaryPod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct AdminSessionSummaryPod
+{
+    public readonly long CreatedAtUnixMs;
+    public readonly long LastSeenAtUnixMs;
+    public readonly long IdleExpiresAtUnixMs;
+    public readonly long AbsoluteExpiresAtUnixMs;
+    public readonly byte IsCurrent;
+    public readonly byte IsRevoked;
+    public readonly byte HasLastSeenAt;
+    public readonly byte Reserved;
+    public readonly Utf8Fixed64 SessionId;
+    public readonly Utf8Fixed128 DeviceFingerprint;
+    public readonly Utf8Fixed64 LastIp;
+    public readonly Utf8Fixed128 UserAgent;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct MfaSetupStartPod
 {
     public readonly byte Enabled;

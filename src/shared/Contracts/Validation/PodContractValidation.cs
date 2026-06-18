@@ -89,6 +89,7 @@ public static class PodContractValidation
             && IsReferenceFree<AuthUpdatePasswordRequestPod>()
             && IsReferenceFree<AuthDeleteAccountRequestPod>()
             && IsReferenceFree<UserSessionSummaryPod>()
+            && IsReferenceFree<AdminSessionSummaryPod>()
             && IsReferenceFree<MfaSetupStartPod>()
             && IsReferenceFree<MfaSetupVerifyPod>()
             && IsReferenceFree<MfaRecoveryCodePod>()

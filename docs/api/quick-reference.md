@@ -91,6 +91,10 @@
 | POST | `/api/binary/auth/admin/login/passkey/begin` | 🔓 🚦 📦 | admin Passkey 登录开始 |
 | POST | `/api/binary/auth/admin/login/passkey/complete` | 🔓 🚦 📦 | admin Passkey 登录完成并写入独立 admin Cookie |
 | GET | `/api/binary/auth/admin/me` | 👑 📦 | admin principal 会话探测，需要 `admin.manage` permission |
+| POST | `/api/binary/auth/admin/logout` | 👑 📦 | 登出当前 admin session，撤销 `admin_session` 并清理 admin Cookie |
+| GET | `/api/binary/auth/admin/sessions` | 👑 📦 | 获取当前 admin principal 的 session 列表 |
+| POST | `/api/binary/auth/admin/sessions/{sessionId}/revoke` | 👑 📦 | 撤销指定 admin session |
+| POST | `/api/binary/auth/admin/sessions/revoke-others` | 👑 📦 | 撤销除当前 session 外的其他 admin sessions |
 
 ---
 

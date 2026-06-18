@@ -214,6 +214,72 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    public static void WriteAdminSessions(IReadOnlyList<AdminSessionSummaryDto> sessions, IBufferWriter<byte> destination)
+    {
+        var writer = new BinaryPodWriter(destination);
+        writer.WriteInt32(sessions.Count);
+        foreach (AdminSessionSummaryDto session in sessions)
+        {
+            var mutable = new MutableAdminSessionSummaryPod
+            {
+                CreatedAtUnixMs = PodTimeCodec.ToUnixMs(session.CreatedAtUtc),
+                LastSeenAtUnixMs = session.LastSeenAtUtc.HasValue ? PodTimeCodec.ToUnixMs(session.LastSeenAtUtc.Value) : 0,
+                IdleExpiresAtUnixMs = PodTimeCodec.ToUnixMs(session.IdleExpiresAtUtc),
+                AbsoluteExpiresAtUnixMs = PodTimeCodec.ToUnixMs(session.AbsoluteExpiresAtUtc),
+                IsCurrent = session.IsCurrent ? (byte)1 : (byte)0,
+                IsRevoked = session.IsRevoked ? (byte)1 : (byte)0,
+                HasLastSeenAt = session.LastSeenAtUtc.HasValue ? (byte)1 : (byte)0,
+                Reserved = 0,
+                SessionId = PodUtf8Codec.ToFixed64(session.SessionId),
+                DeviceFingerprint = PodUtf8Codec.ToFixed128(session.DeviceFingerprint ?? string.Empty),
+                LastIp = PodUtf8Codec.ToFixed64(session.LastIp ?? string.Empty),
+                UserAgent = PodUtf8Codec.ToFixed128(session.UserAgent ?? string.Empty)
+            };
+            writer.WritePod(CastUserPod<MutableAdminSessionSummaryPod, AdminSessionSummaryPod>(mutable));
+        }
+    }
+
+    public static byte[] EncodeAdminSessions(IReadOnlyList<AdminSessionSummaryDto> sessions)
+        => EncodeToArray(sizeof(int) + sessions.Count * Marshal.SizeOf<AdminSessionSummaryPod>(), writer => WriteAdminSessions(sessions, writer));
+
+    public static bool TryDecodeAdminSessions(ReadOnlyMemory<byte> source, out IReadOnlyList<AdminSessionSummaryDto> sessions)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadInt32(out int count) || count < 0)
+        {
+            sessions = Array.Empty<AdminSessionSummaryDto>();
+            return false;
+        }
+
+        var items = new List<AdminSessionSummaryDto>(count);
+        for (int i = 0; i < count; i++)
+        {
+            if (!reader.TryReadPod(out AdminSessionSummaryPod pod) ||
+                pod.IsCurrent > 1 ||
+                pod.IsRevoked > 1 ||
+                pod.HasLastSeenAt > 1)
+            {
+                sessions = Array.Empty<AdminSessionSummaryDto>();
+                return false;
+            }
+
+            items.Add(new AdminSessionSummaryDto(
+                PodUtf8Codec.FromFixed64(pod.SessionId),
+                NullIfEmpty(PodUtf8Codec.FromFixed128(pod.DeviceFingerprint)),
+                NullIfEmpty(PodUtf8Codec.FromFixed64(pod.LastIp)),
+                NullIfEmpty(PodUtf8Codec.FromFixed128(pod.UserAgent)),
+                PodTimeCodec.FromUnixMs(pod.CreatedAtUnixMs),
+                pod.HasLastSeenAt == 1 ? PodTimeCodec.FromUnixMs(pod.LastSeenAtUnixMs) : null,
+                PodTimeCodec.FromUnixMs(pod.IdleExpiresAtUnixMs),
+                PodTimeCodec.FromUnixMs(pod.AbsoluteExpiresAtUnixMs),
+                pod.IsCurrent == 1,
+                pod.IsRevoked == 1));
+        }
+
+        sessions = items;
+        return reader.IsConsumed;
+    }
+
     public static void WriteMfaSetupStart(MfaSetupStartDto dto, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(512);
@@ -872,6 +938,23 @@ public static partial class PodBinaryCodec
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 DeviceFingerprint;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 LastIp;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 DeviceLabel;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableAdminSessionSummaryPod
+    {
+        public long CreatedAtUnixMs;
+        public long LastSeenAtUnixMs;
+        public long IdleExpiresAtUnixMs;
+        public long AbsoluteExpiresAtUnixMs;
+        public byte IsCurrent;
+        public byte IsRevoked;
+        public byte HasLastSeenAt;
+        public byte Reserved;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 SessionId;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 DeviceFingerprint;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 LastIp;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 UserAgent;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

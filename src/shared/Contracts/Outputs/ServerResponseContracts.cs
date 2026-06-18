@@ -565,3 +565,15 @@ public readonly record struct UserSessionSummaryDto(
     DateTime? LastSeenAt,
     bool IsCurrent,
     bool MfaVerified);
+
+public readonly record struct AdminSessionSummaryDto(
+    string SessionId,
+    string? DeviceFingerprint,
+    string? LastIp,
+    string? UserAgent,
+    DateTime CreatedAtUtc,
+    DateTime? LastSeenAtUtc,
+    DateTime IdleExpiresAtUtc,
+    DateTime AbsoluteExpiresAtUtc,
+    bool IsCurrent,
+    bool IsRevoked);

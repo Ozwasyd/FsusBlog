@@ -223,6 +223,80 @@ public static partial class BinaryEndpoints
             .RequireAdminPermission(AdminPermissions.AdminManage)
             .RequireNoStoreResponse();
 
+        group.MapPost("/auth/admin/logout", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IAdminPrincipalService adminPrincipals,
+            AuthCookieService authCookieService,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId))
+            {
+                authCookieService.ClearAdminSessionCookies(httpContext);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+            }
+
+            _ = await adminPrincipals.LogoutAdminSessionAsync(adminPrincipalId, adminSessionId, cancellationToken);
+            authCookieService.ClearAdminSessionCookies(httpContext);
+            return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
+        })
+        .RequireAdminPermission(AdminPermissions.AdminManage)
+        .RequireNoStoreResponse();
+
+        group.MapGet("/auth/admin/sessions", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IAdminPrincipalService adminPrincipals,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+            }
+
+            IReadOnlyList<AdminSessionSummaryDto> sessions = await adminPrincipals.GetAdminSessionsAsync(adminPrincipalId, adminSessionId, cancellationToken);
+            return BinaryResults.Frame(aeds, AedsFrameType.AdminSessionList, writer => PodBinaryCodec.WriteAdminSessions(sessions, writer));
+        })
+        .RequireAdminPermission(AdminPermissions.AdminManage)
+        .RequireNoStoreResponse();
+
+        group.MapPost("/auth/admin/sessions/{sessionId}/revoke", static async Task<BinaryFrameResult> (
+            string sessionId,
+            HttpContext httpContext,
+            IAdminPrincipalService adminPrincipals,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out _))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+            }
+
+            bool revoked = await adminPrincipals.RevokeAdminSessionAsync(adminPrincipalId, sessionId, "revoked_by_admin", cancellationToken);
+            return revoked
+                ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "admin_session_not_found"), aeds);
+        })
+        .RequireAdminPermission(AdminPermissions.AdminManage)
+        .RequireNoStoreResponse();
+
+        group.MapPost("/auth/admin/sessions/revoke-others", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IAdminPrincipalService adminPrincipals,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+            }
+
+            _ = await adminPrincipals.RevokeOtherAdminSessionsAsync(adminPrincipalId, adminSessionId, cancellationToken);
+            return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
+        })
+        .RequireAdminPermission(AdminPermissions.AdminManage)
+        .RequireNoStoreResponse();
+
         group.MapGet("/auth/me", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IUserAccountReader users,
@@ -1193,6 +1267,12 @@ public static partial class BinaryEndpoints
             string.Equals(error.Message, "RECOVERY_KEY_RATE_LIMITED", StringComparison.Ordinal)
                 ? StatusCodes.Status429TooManyRequests
                 : 0);
+
+    private static bool TryResolveAdminSessionContext(HttpContext context, out long adminPrincipalId, out string adminSessionId)
+    {
+        adminSessionId = context.User.GetAdminSessionId() ?? string.Empty;
+        return context.User.TryGetAdminPrincipalId(out adminPrincipalId) && !string.IsNullOrWhiteSpace(adminSessionId);
+    }
 
     private static string ReadHeader(HttpContext httpContext, string name)
         => httpContext.Request.Headers.TryGetValue(name, out var values)

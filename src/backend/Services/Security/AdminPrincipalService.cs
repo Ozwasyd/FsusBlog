@@ -9,6 +9,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.WebUtilities;
 using SqlSugar;
 
@@ -32,6 +33,27 @@ public interface IAdminPrincipalService
     Task<(bool Success, string Message, AdminSessionTokens? Tokens)> CompleteAdminAssertionAsync(
         PasskeyLoginCompleteCoreModel request,
         AdminAuthClientContext clientContext,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<AdminSessionSummaryDto>> GetAdminSessionsAsync(
+        long adminPrincipalId,
+        string currentSessionId,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> LogoutAdminSessionAsync(
+        long adminPrincipalId,
+        string sessionId,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> RevokeAdminSessionAsync(
+        long adminPrincipalId,
+        string sessionId,
+        string reason,
+        CancellationToken cancellationToken = default);
+
+    Task<int> RevokeOtherAdminSessionsAsync(
+        long adminPrincipalId,
+        string currentSessionId,
         CancellationToken cancellationToken = default);
 }
 
@@ -270,6 +292,81 @@ public sealed class AdminPrincipalService(
         AdminSessionTokens tokens = await CreateSessionAndTokenAsync(principal, clientContext, stepUpVerified: false, cancellationToken);
         await WriteAuditAsync(principal.Id, tokens.SessionId, "admin.login.completed", "success", clientContext, highImpact: true, cancellationToken);
         return (true, "Admin login completed", tokens);
+    }
+
+    public async Task<IReadOnlyList<AdminSessionSummaryDto>> GetAdminSessionsAsync(
+        long adminPrincipalId,
+        string currentSessionId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        List<AdminSession> sessions = await db.Queryable<AdminSession>()
+            .Where(s => s.AdminPrincipalId == adminPrincipalId)
+            .OrderBy(s => s.LastSeenAtUtc, OrderByType.Desc)
+            .OrderBy(s => s.CreatedAtUtc, OrderByType.Desc)
+            .ToListAsync();
+
+        return sessions.Select(session => new AdminSessionSummaryDto(
+            session.SessionId,
+            session.DeviceFingerprint,
+            session.LastIp,
+            session.UserAgent,
+            session.CreatedAtUtc,
+            session.LastSeenAtUtc,
+            session.IdleExpiresAtUtc,
+            session.AbsoluteExpiresAtUtc,
+            string.Equals(session.SessionId, currentSessionId, StringComparison.Ordinal),
+            session.RevokedAtUtc.HasValue)).ToArray();
+    }
+
+    public Task<bool> LogoutAdminSessionAsync(
+        long adminPrincipalId,
+        string sessionId,
+        CancellationToken cancellationToken = default)
+        => RevokeAdminSessionAsync(adminPrincipalId, sessionId, "logout", cancellationToken);
+
+    public async Task<bool> RevokeAdminSessionAsync(
+        long adminPrincipalId,
+        string sessionId,
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            return false;
+        }
+
+        DateTime now = DateTime.UtcNow;
+        int updated = await db.Updateable<AdminSession>()
+            .SetColumns(s => s.RevokedAtUtc == now)
+            .SetColumns(s => s.RevokeReason == NormalizeRevokeReason(reason))
+            .Where(s => s.AdminPrincipalId == adminPrincipalId &&
+                s.SessionId == sessionId &&
+                s.RevokedAtUtc == null)
+            .ExecuteCommandAsync();
+        return updated > 0;
+    }
+
+    public async Task<int> RevokeOtherAdminSessionsAsync(
+        long adminPrincipalId,
+        string currentSessionId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(currentSessionId))
+        {
+            return 0;
+        }
+
+        DateTime now = DateTime.UtcNow;
+        return await db.Updateable<AdminSession>()
+            .SetColumns(s => s.RevokedAtUtc == now)
+            .SetColumns(s => s.RevokeReason == "revoke_others")
+            .Where(s => s.AdminPrincipalId == adminPrincipalId &&
+                s.SessionId != currentSessionId &&
+                s.RevokedAtUtc == null)
+            .ExecuteCommandAsync();
     }
 
     private async Task<AdminSessionTokens> CreateSessionAndTokenAsync(
@@ -527,6 +624,11 @@ public sealed class AdminPrincipalService(
 
     private static string HashForStorage(string value)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    private static string NormalizeRevokeReason(string? reason)
+        => string.IsNullOrWhiteSpace(reason)
+            ? "revoked_by_admin"
+            : Truncate(reason.Trim(), 128) ?? "revoked_by_admin";
 
     private static string HashForLog(string? value)
         => string.IsNullOrWhiteSpace(value)

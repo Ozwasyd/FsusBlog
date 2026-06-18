@@ -53,6 +53,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `18`: AuthLoginFlow
 - `19`: CurrentUserSnapshot
 - `25`: AuthSessionList
+- `170`: AdminSessionList
 - `20`: UploadInit
 - `21`: UploadStatus
 - `22`: UploadPartAck
@@ -146,6 +147,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `AuthLoginFlow` payload: `AuthLoginFlowPod`.
 - `CurrentUserSnapshot` payload: `CurrentUserSnapshotPod`.
 - `AuthSessionList` payload: `int32 count` followed by `UserSessionSummaryPod[count]`.
+- `AdminSessionList` payload: `int32 count` followed by `AdminSessionSummaryPod[count]`.
 - `MfaSetupStart` payload: `MfaSetupStartPod` followed by blob payload for secret/OTP auth URL/issuer/account.
 - `MfaSetupVerify` payload: `MfaSetupVerifyPod` followed by `MfaRecoveryCodePod[count]`.
 - `MfaProfile` payload: `MfaProfilePod`.

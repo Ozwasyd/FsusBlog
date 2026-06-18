@@ -228,6 +228,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 24 | `UploadPartMap` | `UploadPartMapPod` | `GET /api/binary/upload/{id}/parts` |
 | 25 | `AuthSessionList` | session list payload | `GET /api/binary/auth/sessions` |
 | 26 | `SiteComplianceConfig` | `SiteComplianceConfigPod` | `GET /api/binary/system/compliance` |
+| 170 | `AdminSessionList` | `AdminSessionSummaryPod[count]` | `GET /api/binary/auth/admin/sessions` |
 | 30 | `PowChallenge` | `PowChallengePod` | `GET /api/binary/auth/pow-challenge` |
 | 31 | `UploadInitRequest` | `UploadInitRequestPod` | `POST /api/binary/upload/init` 请求体 |
 | 32 | `UploadCompleteRequest` | `UploadCompleteRequestPod` | `POST /api/binary/upload/{id}/complete` 请求体 |

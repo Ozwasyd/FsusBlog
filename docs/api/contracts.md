@@ -117,8 +117,14 @@ Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD
 | POST | `/api/binary/auth/admin/login/passkey/begin` | 响应 `PasskeyLoginBegin` | 匿名 |
 | POST | `/api/binary/auth/admin/login/passkey/complete` | 请求 `PasskeyLoginCompleteRequest`，响应 `EmptySuccess` | 匿名 |
 | GET | `/api/binary/auth/admin/me` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
+| POST | `/api/binary/auth/admin/logout` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
+| GET | `/api/binary/auth/admin/sessions` | 响应 `AdminSessionList` | admin principal + `admin.manage` |
+| POST | `/api/binary/auth/admin/sessions/{sessionId}/revoke` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
+| POST | `/api/binary/auth/admin/sessions/revoke-others` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
 
 admin 登录只接受 Passkey/Security Key assertion。成功会写入独立 `AdminAccessToken` / `AdminSessionId` Cookie；JWT 必须包含 `identity_kind=admin_principal`、`admin_id`、`admin_sid` 与多值 `admin_permission` claim。请求期认证必须按 `admin_sid` 回查 `admin_session` 并校验 principal active、session 未撤销、idle/absolute 未过期、`AccessTokenHash` 与当前 token 匹配、session principal id 与 `admin_id` 一致；失败返回未认证/未授权并删除 admin session cookies，成功更新 `LastSeenAtUtc`。TOTP 只作为敏感操作额外 step-up，不替代 Passkey 主认证，也不迁移或清空 legacy user MFA。
+
+`POST /api/binary/auth/admin/logout` 会把当前 `admin_session.RevokedAtUtc` 置为当前 UTC 时间、`RevokeReason=logout`，并只清理 `AdminAccessToken` / `AdminSessionId` 及 `__Host-*` admin Cookie，不触碰普通用户 Cookie。`POST /api/binary/auth/admin/sessions/revoke-others` 必须保留当前 `admin_sid` 对应 session。
 
 ### Recovery Key AEDS frames
 
@@ -263,6 +269,23 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
   "createdAt": "2026-01-01T00:00:00Z",
   "lastActiveAt": "2026-01-01T01:00:00Z",
   "isCurrent": true
+}
+```
+
+### `AdminSessionSummaryDto`（管理员会话列表项）
+
+```json
+{
+  "sessionId": "admin-session-id",
+  "deviceFingerprint": "sha256-or-client-fp",
+  "lastIp": "127.0.0.1",
+  "userAgent": "Mozilla/5.0 ...",
+  "createdAtUtc": "2026-01-01T00:00:00Z",
+  "lastSeenAtUtc": "2026-01-01T01:00:00Z",
+  "idleExpiresAtUtc": "2026-01-01T09:00:00Z",
+  "absoluteExpiresAtUtc": "2026-01-01T12:00:00Z",
+  "isCurrent": true,
+  "isRevoked": false
 }
 ```
 
