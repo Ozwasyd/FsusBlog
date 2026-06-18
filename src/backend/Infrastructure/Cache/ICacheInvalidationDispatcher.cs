@@ -179,10 +179,10 @@ public sealed class CacheInvalidationDispatcher(
         runtimeState?.Record("taxonomy", "category-tag");
     }
 
-    public async Task InvalidateCommentPolicyAsync(CancellationToken cancellationToken = default)
+    public Task InvalidateCommentPolicyAsync(CancellationToken cancellationToken = default)
     {
-        await httpCacheInvalidator.InvalidateAsync(CacheTag.Comment);
         runtimeState?.Record("comment_policy", "anonymous-comment-policy");
+        return Task.CompletedTask;
     }
 
     public async Task InvalidateCommentMutationAsync(CommentCacheInvalidationScope? scope = null, CancellationToken cancellationToken = default)

@@ -94,6 +94,13 @@ public sealed class RiskControlContextFactory : IRiskControlContextFactory
 
     private static RiskActionEndpointMetadata? ResolveAction(HttpContext context, out string status)
     {
+        if (context.Items.TryGetValue(RiskActionEndpointMetadata.HttpContextItemKey, out object? value)
+            && value is RiskActionEndpointMetadata dynamicMetadata)
+        {
+            status = RiskControlContextStatuses.Resolved;
+            return dynamicMetadata;
+        }
+
         if (RiskActionRegistry.Default.TryGetEndpointMetadata(context.GetEndpoint(), out RiskActionEndpointMetadata metadata))
         {
             status = RiskControlContextStatuses.Resolved;

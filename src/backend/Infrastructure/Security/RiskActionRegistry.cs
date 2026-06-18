@@ -65,7 +65,10 @@ public sealed record RiskAction
     }
 }
 
-public sealed record RiskActionEndpointMetadata(string ActionName, string RouteKey);
+public sealed record RiskActionEndpointMetadata(string ActionName, string RouteKey)
+{
+    public const string HttpContextItemKey = "__fsus_risk_action_metadata";
+}
 
 public sealed record RiskActionEndpointAuditFinding(string EndpointDisplayName, string Reason);
 

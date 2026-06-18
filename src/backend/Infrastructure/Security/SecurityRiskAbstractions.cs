@@ -20,7 +20,10 @@ public enum SecurityRiskReason
     SecurityChallengeRejected,
     AuthLoginFailed,
     PasskeyAssertionFailed,
-    PasskeyAssertionAccepted
+    PasskeyAssertionAccepted,
+    CommentRegionCompliance,
+    CommentSpamPattern,
+    CommentNullifierAbuse
 }
 
 public static class SecurityRiskSources

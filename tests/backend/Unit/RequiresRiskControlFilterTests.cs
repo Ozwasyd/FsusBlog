@@ -168,6 +168,35 @@ public sealed class RequiresRiskControlFilterTests
     }
 
     [Fact]
+    public async Task InvokeAsync_CommentQueueDecision_StoresDecisionContextAndEntersBusinessLogic()
+    {
+        SecurityRiskPolicySnapshotV2 policy = CreateCommentQueuePolicy();
+        FilterFixture fixture = CreateFixture(riskScore: 90, policy);
+        var context = CreateContext(RiskActionNames.CommentCreate, "comment.create");
+        bool nextCalled = false;
+
+        object? result = await fixture.Filter.InvokeAsync(
+            new TestEndpointFilterInvocationContext(context),
+            _ =>
+            {
+                nextCalled = true;
+                Assert.True(context.Items.TryGetValue(RiskControlDecisionContext.HttpContextItemKey, out object? value));
+                RiskControlDecisionContext decisionContext = Assert.IsType<RiskControlDecisionContext>(value);
+                Assert.Equal(RiskDecisionKind.QueueForModeration, decisionContext.Decision.Kind);
+                Assert.Equal(RiskActionNames.CommentCreate, decisionContext.Decision.ActionName);
+                return ValueTask.FromResult<object?>("queued");
+            });
+
+        Assert.True(nextCalled);
+        Assert.Equal("queued", result);
+        Assert.Empty(fixture.ProofService.ConsumeRequests);
+        SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
+        Assert.Equal(SecurityRiskSources.RiskControl, signal.Source);
+        Assert.Equal(RiskActionNames.CommentCreate, signal.Action);
+        Assert.Contains("risk_control_queue", signal.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RequiresPowFilter_RemainsLegacyPowWrapper()
     {
         Type[] constructorParameters = typeof(RequiresPowFilter)
@@ -183,9 +212,9 @@ public sealed class RequiresRiskControlFilterTests
         Assert.DoesNotContain(typeof(IRiskDecisionService), constructorParameters);
     }
 
-    private static FilterFixture CreateFixture(int riskScore)
+    private static FilterFixture CreateFixture(int riskScore, SecurityRiskPolicySnapshotV2? policy = null)
     {
-        SecurityRiskPolicySnapshotV2 policy = CreatePolicy();
+        policy ??= CreatePolicy();
         var riskSink = new CapturingRiskSink();
         var proof = new CapturingProofService();
         var filter = new RequiresRiskControlFilter(
@@ -282,6 +311,25 @@ public sealed class RequiresRiskControlFilterTests
             {
                 [SecurityRiskSources.RiskControl] = SecuritySystemModes.Enforce
             });
+    }
+
+    private static SecurityRiskPolicySnapshotV2 CreateCommentQueuePolicy()
+    {
+        var commentPolicy = new SecurityRiskActionPolicy(
+            RiskActionNames.CommentCreate,
+            new SecurityRiskActionThresholds(49, 50, 70, 90, 100),
+            Sha256PowChallengeProvider.WireKind,
+            1,
+            null,
+            AnonymousWriteAllowed: true);
+
+        return CreatePolicy() with
+        {
+            ActionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
+            {
+                [RiskActionNames.CommentCreate] = commentPolicy
+            }
+        };
     }
 
     private sealed record FilterFixture(

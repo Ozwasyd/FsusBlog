@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
@@ -31,7 +32,9 @@ public partial class CommentService(
     IAnonymousCommentPolicyService? anonymousCommentPolicyService = null,
     ICommentAnonymousNullifierService? anonymousNullifierService = null,
     ICommentModerationDispositionPolicy? commentModerationDispositionPolicy = null,
-    AuditLogChannel? auditLogChannel = null) : ICommentService, ICommentEndpointService
+    AuditLogChannel? auditLogChannel = null,
+    ISecurityRiskSignalSink? securityRiskSignalSink = null,
+    IHttpContextAccessor? httpContextAccessor = null) : ICommentService, ICommentEndpointService
 {
     private const int DefaultReplyPreviewLimit = 3;
     private const string DeletedPlaceholder = "该回复已删除";
@@ -230,9 +233,7 @@ public partial class CommentService(
             DeleteReason = null,
             DeleteTime = null,
             ModerationStatus = CommentModerationStatus.Pending,
-            ModerationReason = regionDecision.HideUntilReviewed
-                ? "region_policy:manual_review_no_public_display"
-                : "pending_review"
+            ModerationReason = BuildInitialModerationReason(regionDecision)
         };
 
         long generatedId = 0;
@@ -282,6 +283,7 @@ public partial class CommentService(
                     dto.ArticleId,
                     actor.AnonymousScope,
                     rejected.Status);
+                await RecordNullifierAbuseRiskSignalAsync(actor.AnonymousScope, rejected.Status, CancellationToken.None);
                 return false;
             }
 
@@ -345,6 +347,43 @@ public partial class CommentService(
             && (string.Equals(actor.AuthorMode, CommentAuthorModes.Anonymous, StringComparison.Ordinal)
                 || string.Equals(actor.AuthorMode, CommentAuthorModes.Pseudonymous, StringComparison.Ordinal)
                 || string.Equals(actor.AuthorMode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal));
+
+    private async ValueTask RecordNullifierAbuseRiskSignalAsync(
+        string? scope,
+        string status,
+        CancellationToken cancellationToken)
+    {
+        if (securityRiskSignalSink is null || httpContextAccessor?.HttpContext is not { } httpContext)
+        {
+            return;
+        }
+
+        await securityRiskSignalSink.AddRiskAsync(new SecurityRiskSignal(
+            httpContext,
+            SecurityRiskReason.CommentNullifierAbuse,
+            25,
+            TimeSpan.FromMinutes(30),
+            SecurityRiskSources.RiskControl,
+            ResolveCommentRiskAction(httpContext),
+            $"nullifier:{NormalizeNullable(status, 64) ?? "rejected"};scope:{NormalizeNullable(scope, 64) ?? "unknown"}"), cancellationToken);
+    }
+
+    private static string ResolveCommentRiskAction(HttpContext httpContext)
+        => httpContext.Items[RiskActionEndpointMetadata.HttpContextItemKey] is RiskActionEndpointMetadata metadata
+            ? metadata.ActionName
+            : RiskActionNames.CommentCreate;
+
+    private static string BuildInitialModerationReason(RegionModerationDecision decision)
+    {
+        if (decision.DecisionReason.Contains("risk_control_queue", StringComparison.Ordinal))
+        {
+            return NormalizeNullable(decision.DecisionReason, 256) ?? "risk_control_queue";
+        }
+
+        return decision.HideUntilReviewed
+            ? "region_policy:manual_review_no_public_display"
+            : "pending_review";
+    }
 
     private sealed class AnonymousNullifierRejectedException(string status, string message) : Exception(message)
     {

@@ -42,7 +42,8 @@ public sealed partial class RequiresRiskControlFilter(
             RiskDecisionKind.Allow => await next(context),
             RiskDecisionKind.Challenge or RiskDecisionKind.StepUp => await HandleChallengeAsync(context, next, riskContext, decision),
             RiskDecisionKind.Block => await RejectAsync(httpContext, decision, StatusCodes.Status429TooManyRequests, "risk_control_blocked", "请求已被风险策略拦截"),
-            RiskDecisionKind.QueueForModeration or RiskDecisionKind.Throttle => await RejectAsync(httpContext, decision, StatusCodes.Status429TooManyRequests, "risk_control_throttled", "请求已被风险策略延迟"),
+            RiskDecisionKind.QueueForModeration => await QueueForModerationAsync(context, next, decision),
+            RiskDecisionKind.Throttle => await RejectAsync(httpContext, decision, StatusCodes.Status429TooManyRequests, "risk_control_throttled", "请求已被风险策略延迟"),
             _ => await RejectAsync(httpContext, decision, StatusCodes.Status429TooManyRequests, "risk_control_rejected", "请求未通过风险策略")
         };
     }
@@ -92,6 +93,22 @@ public sealed partial class RequiresRiskControlFilter(
         LogChallengeProofRejected(logger, httpContext.TraceIdentifier, decision.ActionName, proof.Reason);
         await RecordRiskAsync(httpContext, $"challenge_proof_rejected:{proof.Reason}", decision.ActionName, httpContext.RequestAborted);
         return Error(httpContext, StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden, "RISK_CHALLENGE_PROOF_REJECTED");
+    }
+
+    private async ValueTask<object?> QueueForModerationAsync(
+        EndpointFilterInvocationContext context,
+        EndpointFilterDelegate next,
+        RiskDecision decision)
+    {
+        HttpContext httpContext = context.HttpContext;
+        if (decision.ActionName is not (RiskActionNames.CommentCreate or RiskActionNames.CommentReply))
+        {
+            return await RejectAsync(httpContext, decision, StatusCodes.Status429TooManyRequests, "risk_control_throttled", "请求已被风险策略延迟");
+        }
+
+        httpContext.Items[RiskControlDecisionContext.HttpContextItemKey] = new RiskControlDecisionContext(decision);
+        await RecordRiskAsync(httpContext, string.Join(',', decision.Reasons.Prepend("risk_control_queue")), decision.ActionName, httpContext.RequestAborted);
+        return await next(context);
     }
 
     private async ValueTask<object?> RejectAsync(

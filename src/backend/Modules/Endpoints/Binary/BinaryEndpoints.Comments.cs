@@ -12,6 +12,7 @@ using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
@@ -53,6 +54,7 @@ public static partial class BinaryEndpoints
             IContentFilterService contentFilterService,
             IClientRegionResolver regionResolver,
             IRegionLegalModerationService regionLegalModerationService,
+            ISecurityRiskSignalSink riskSignals,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -97,6 +99,13 @@ public static partial class BinaryEndpoints
             ContentValidationResult validation = contentFilterService.ValidateContent(content);
             if (!validation.IsValid)
             {
+                await RecordCommentRiskSignalAsync(
+                    httpContext,
+                    riskSignals,
+                    SecurityRiskReason.CommentSpamPattern,
+                    "content_filter",
+                    score: 10,
+                    cancellationToken);
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, validation.Message), aeds);
             }
 
@@ -112,10 +121,23 @@ public static partial class BinaryEndpoints
                 submitRegion.ClientIpHash,
                 httpContext.GetUserAgent(),
                 DateTime.UtcNow));
+            if (ShouldRecordRegionRiskSignal(regionDecision))
+            {
+                await RecordCommentRiskSignalAsync(
+                    httpContext,
+                    riskSignals,
+                    SecurityRiskReason.CommentRegionCompliance,
+                    regionDecision.DecisionReason,
+                    score: 8,
+                    cancellationToken);
+            }
+
             if (!regionDecision.CanPublish)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, regionDecision.PublicReason), aeds);
             }
+
+            regionDecision = ApplyRiskControlModerationDecision(httpContext, regionDecision);
 
             bool success;
             if (isV2Request)
@@ -145,6 +167,9 @@ public static partial class BinaryEndpoints
         })
         .RequireAuthorization()
         .RequireRateLimiting("fixed_ip")
+        .WithRiskAction(RiskActionNames.CommentCreate)
+        .AddEndpointFilter<CommentRiskActionFilter>()
+        .AddEndpointFilter<RequiresRiskControlFilter>()
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapGet("/comment/{articleId:int}", static async Task<IResult> (
@@ -269,6 +294,89 @@ public static partial class BinaryEndpoints
         => !string.IsNullOrWhiteSpace(content)
             && content.Length <= CommentLimits.ContentMaxChars
             && Encoding.UTF8.GetByteCount(content) <= CommentLimits.ContentMaxUtf8Bytes;
+
+    private static RegionModerationDecision ApplyRiskControlModerationDecision(
+        HttpContext httpContext,
+        RegionModerationDecision decision)
+    {
+        if (httpContext.Items[RiskControlDecisionContext.HttpContextItemKey] is not RiskControlDecisionContext { Decision.Kind: RiskDecisionKind.QueueForModeration } context)
+        {
+            return decision;
+        }
+
+        RiskDecision riskDecision = context.Decision;
+        string riskReason = $"risk_control_queue:{string.Join(',', riskDecision.Reasons)}";
+        List<string> riskLabels = AppendDistinct(
+            decision.RiskLabels,
+            [
+                "risk_control_queue",
+                $"risk_action:{riskDecision.ActionName}",
+                $"risk_score:{riskDecision.EffectiveRiskScore}"
+            ]);
+
+        return decision with
+        {
+            RiskLabels = riskLabels,
+            DecisionReason = NormalizeCommentRiskDetail(riskReason, 256),
+            RequiresManualReview = true,
+            HideUntilReviewed = true
+        };
+    }
+
+    private static async ValueTask RecordCommentRiskSignalAsync(
+        HttpContext httpContext,
+        ISecurityRiskSignalSink riskSignals,
+        SecurityRiskReason reason,
+        string? detail,
+        int score,
+        CancellationToken cancellationToken)
+    {
+        await riskSignals.AddRiskAsync(new SecurityRiskSignal(
+            httpContext,
+            reason,
+            score,
+            TimeSpan.FromMinutes(15),
+            SecurityRiskSources.RiskControl,
+            ResolveCommentRiskAction(httpContext),
+            NormalizeCommentRiskDetail(detail, 256)), cancellationToken);
+    }
+
+    private static bool ShouldRecordRegionRiskSignal(RegionModerationDecision decision)
+        => !decision.CanPublish
+            || decision.RequiresManualReview
+            || decision.HideUntilReviewed
+            || decision.RiskLabels.Count > 0;
+
+    private static string ResolveCommentRiskAction(HttpContext httpContext)
+        => httpContext.Items[RiskActionEndpointMetadata.HttpContextItemKey] is RiskActionEndpointMetadata metadata
+            ? metadata.ActionName
+            : RiskActionNames.CommentCreate;
+
+    private static List<string> AppendDistinct(IReadOnlyList<string> values, IReadOnlyList<string> additions)
+    {
+        var merged = new List<string>(values.Count + additions.Count);
+        foreach (string value in values.Concat(additions))
+        {
+            string normalized = value.Trim();
+            if (normalized.Length > 0 && !merged.Contains(normalized, StringComparer.Ordinal))
+            {
+                merged.Add(normalized);
+            }
+        }
+
+        return merged;
+    }
+
+    private static string NormalizeCommentRiskDetail(string? value, int maxLength)
+    {
+        string normalized = (value ?? string.Empty).Trim();
+        if (normalized.Length == 0)
+        {
+            return "comment_risk";
+        }
+
+        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
+    }
 
     private static CommentPolicySnapshotCoreModel ToCommentPolicyCore(AnonymousCommentPolicySnapshot snapshot)
         => new(

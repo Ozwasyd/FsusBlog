@@ -119,7 +119,7 @@ public sealed class CacheInvalidationDispatcherTests
     }
 
     [Fact]
-    public async Task InvalidateCommentPolicyAsync_InvalidatesCommentPolicyBoundary()
+    public async Task InvalidateCommentPolicyAsync_RecordsBoundaryWithoutGlobalCommentOutputTag()
     {
         var cache = Substitute.For<IUnifiedCache>();
         var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
@@ -128,7 +128,7 @@ public sealed class CacheInvalidationDispatcherTests
 
         await sut.InvalidateCommentPolicyAsync();
 
-        await httpCacheInvalidator.Received(1).InvalidateAsync(CacheTag.Comment);
+        await httpCacheInvalidator.DidNotReceive().InvalidateAsync(CacheTag.Comment);
         await cache.DidNotReceiveWithAnyArgs().RemoveAsync(default!, default!, default);
         await cache.DidNotReceiveWithAnyArgs().RemoveManyAsync(default!, default);
         Assert.Equal("comment_policy", runtimeState.Snapshot().LastKind);

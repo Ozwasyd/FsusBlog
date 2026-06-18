@@ -1,3 +1,4 @@
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Models.Security;
 
 namespace FsusBlog.Server.Infrastructure.Security;
@@ -22,6 +23,11 @@ public sealed record RiskDecision(
     IReadOnlyList<string> RequiredChallenges,
     string PolicyVersion,
     IReadOnlyList<string> Reasons);
+
+public sealed record RiskControlDecisionContext(RiskDecision Decision)
+{
+    public const string HttpContextItemKey = "__fsus_risk_decision_context";
+}
 
 public interface IRiskDecisionService
 {
@@ -172,6 +178,8 @@ public sealed class RiskDecisionService : IRiskDecisionService
             || challengeKind.Contains("stepup", StringComparison.OrdinalIgnoreCase));
 
     private static bool IsAnonymousWrite(RiskControlContext context)
-        => context.Actor.Status == RiskControlActorStatuses.Anonymous
-            && context.ActionName is RiskActionNames.CommentCreate or RiskActionNames.CommentReply;
+        => context.ActionName is RiskActionNames.CommentCreate or RiskActionNames.CommentReply
+            && (context.Actor.Status == RiskControlActorStatuses.Anonymous
+                || string.Equals(context.Actor.IdentityKind, RiskControlIdentityKinds.Anonymous, StringComparison.Ordinal)
+                || string.Equals(context.Actor.IdentityKind, AnonymousIdentityRuntime.AnonymousAccountKind, StringComparison.Ordinal));
 }
