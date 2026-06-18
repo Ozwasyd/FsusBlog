@@ -1,0 +1,177 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { decodePublicAotPayload, encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
+import { PUBLIC_RENDERER_VERSION } from '@/public-renderers/publicEntryCore'
+import type { PublicPageSeed } from '@/public-renderers/pageSeed'
+import type {
+  PublicAotBootstrapPayloadFor,
+  PublicHydrationPayloadFor
+} from '@/public-renderers/publicPayloadTypes'
+import {
+  consumePublicRouteSeed,
+  resetPublicRouteSeedStoreForTests
+} from '@/public-renderers/publicRouteSeedStore'
+import {
+  createPublicRoutePrewarmer,
+  resolvePublicRoutePrewarmTarget,
+  type PublicNavigationSnapshotEnvelope
+} from '@/router/publicRoutePreload'
+
+function snapshotBytes(envelope: PublicNavigationSnapshotEnvelope): Uint8Array {
+  return base64UrlToBytes(encodePublicAotPayload(envelope))
+}
+
+function base64UrlToBytes(text: string): Uint8Array {
+  const normalized = text.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
+  const binary = globalThis.atob(padded)
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0))
+}
+
+function createArchiveEnvelope(): PublicNavigationSnapshotEnvelope {
+  const bootstrap = {
+    kind: 'Archive',
+    pageKind: 'Archive',
+    routeKey: 'archive',
+    rendererVersion: PUBLIC_RENDERER_VERSION,
+    articles: [],
+    total: 0
+  } as PublicAotBootstrapPayloadFor<'Archive'>
+  const hydration = {
+    pageKind: 'Archive',
+    routeKey: 'archive',
+    rendererVersion: PUBLIC_RENDERER_VERSION,
+    title: 'Archive'
+  } as PublicHydrationPayloadFor<'Archive'>
+
+  return {
+    kind: 'public-navigation-snapshot',
+    pageKind: 'Archive',
+    pageId: 4,
+    routeKey: 'archive',
+    path: '/archive',
+    queryString: '',
+    fullPath: '/archive',
+    canonicalPath: '/archive',
+    rendererVersion: PUBLIC_RENDERER_VERSION,
+    frontendAssetVersion: 'test-assets',
+    payloadHash: 'sha256-test',
+    generatedAtUtc: '2026-06-18T00:00:00.0000000Z',
+    bootstrapPayload: encodePublicAotPayload(bootstrap),
+    hydrationPropsPayload: encodePublicAotPayload(hydration)
+  }
+}
+
+describe('public route prewarm', () => {
+  beforeEach(() => {
+    resetPublicRouteSeedStoreForTests()
+  })
+
+  it('deduplicates full-app, route component and snapshot seed work for the same target', async () => {
+    const events: string[] = []
+    const loadFullApp = vi.fn(async () => ({ bootstrapFullApp: vi.fn() }))
+    const loadArchiveComponent = vi.fn(async () => ({ default: {} }))
+    const fetchSnapshot = vi.fn(async () => snapshotBytes(createArchiveEnvelope()))
+    const prewarm = createPublicRoutePrewarmer({
+      loadFullApp,
+      routePreloads: [{
+        kind: 'Archive',
+        name: 'Archive',
+        match: (url) => url.pathname === '/archive',
+        preloadComponent: loadArchiveComponent,
+        criticalStyleHrefs: ['/assets/archive.css']
+      }],
+      fetchNavigationSnapshot: fetchSnapshot,
+      preloadStyle: vi.fn(async () => {}),
+      emitTelemetry: (name) => events.push(name)
+    })
+
+    const first = prewarm.prewarm('/archive', { reason: 'pointerenter', nowMs: 1_000 })
+    const second = prewarm.prewarm('/archive', { reason: 'focus', nowMs: 1_001 })
+
+    expect(first).toBe(second)
+    const [firstResult, secondResult] = await Promise.all([first, second])
+    expect(firstResult).toMatchObject({
+      status: 'ready',
+      fullAppReady: true,
+      routeComponentReady: true,
+      seedReady: true,
+      routeKind: 'Archive'
+    })
+    expect(secondResult).toBe(firstResult)
+    expect(loadFullApp).toHaveBeenCalledTimes(1)
+    expect(loadArchiveComponent).toHaveBeenCalledTimes(1)
+    expect(fetchSnapshot).toHaveBeenCalledTimes(1)
+    expect(events).toEqual([
+      'public_route_prewarm_start',
+      'public_route_prewarm_hit',
+      'public_route_prewarm_ready'
+    ])
+
+    const seed = consumePublicRouteSeed('Archive', { fullPath: '/archive' }, { nowMs: 1_002 })
+    expect(seed).toEqual({
+      bootstrap: decodePublicAotPayload(createArchiveEnvelope().bootstrapPayload),
+      hydration: decodePublicAotPayload(createArchiveEnvelope().hydrationPropsPayload)
+    } satisfies PublicPageSeed<'Archive'>)
+  })
+
+  it('cancels pending work when the public shell lifetime is aborted', async () => {
+    const events: string[] = []
+    const controller = new AbortController()
+    let markFetchStarted: () => void = () => {}
+    const fetchStarted = new Promise<void>((resolve) => {
+      markFetchStarted = resolve
+    })
+    const prewarm = createPublicRoutePrewarmer({
+      loadFullApp: vi.fn(async () => ({ bootstrapFullApp: vi.fn() })),
+      routePreloads: [{
+        kind: 'Archive',
+        name: 'Archive',
+        match: (url) => url.pathname === '/archive',
+        preloadComponent: vi.fn(async () => ({ default: {} }))
+      }],
+      fetchNavigationSnapshot: vi.fn((_target, signal) => new Promise<Uint8Array>((resolve, reject) => {
+        markFetchStarted()
+        signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true })
+      })),
+      emitTelemetry: (name) => events.push(name)
+    })
+
+    const task = prewarm.prewarm('/archive', {
+      reason: 'idle',
+      signal: controller.signal,
+      nowMs: 1_000
+    })
+    await fetchStarted
+    controller.abort('test')
+
+    await expect(task).resolves.toMatchObject({
+      status: 'cancelled',
+      fullAppReady: true,
+      routeComponentReady: true,
+      seedReady: false
+    })
+    expect(events).toContain('public_route_prewarm_cancel')
+    expect(consumePublicRouteSeed('Archive', { fullPath: '/archive' }, { nowMs: 1_001 })).toBeNull()
+  })
+
+  it('resolves only same-origin unmodified public route anchors', () => {
+    const anchor = document.createElement('a')
+    anchor.href = 'http://127.0.0.1/archive'
+
+    expect(resolvePublicRoutePrewarmTarget(anchor)).toBe('/archive')
+    expect(resolvePublicRoutePrewarmTarget(anchor, {
+      button: 0,
+      ctrlKey: true,
+      defaultPrevented: false,
+      metaKey: false,
+      shiftKey: false,
+      altKey: false
+    } as unknown as Event)).toBeNull()
+
+    anchor.href = 'https://example.test/archive'
+    expect(resolvePublicRoutePrewarmTarget(anchor)).toBeNull()
+
+    anchor.href = 'http://127.0.0.1/api/public/navigation-snapshot.aeds'
+    expect(resolvePublicRoutePrewarmTarget(anchor)).toBeNull()
+  })
+})

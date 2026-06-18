@@ -50,6 +50,14 @@ type PublicSeoRouteDefinition = Readonly<{
   meta?: RouteRecordRaw['meta']
 }>
 
+export type PublicRoutePreloadDefinition = Readonly<{
+  name: PublicSeoRouteName
+  kind: SharedSeoEligiblePublicPageKind
+  path: string
+  preloadComponent: () => Promise<unknown>
+  criticalStyleHrefs: readonly string[]
+}>
+
 type PublicShellOnlyRouteDefinition = Readonly<{
   name: PublicShellOnlyRouteName
   path: string
@@ -183,6 +191,15 @@ const PUBLIC_FILTER_ROUTE_MODES = Object.freeze({
   [PUBLIC_FILTER_ROUTE_NAMES.tag]: 'tag'
 } as const satisfies Record<PublicFilterRouteName, PublicFilterRouteMode>)
 
+const PUBLIC_ROUTE_CRITICAL_STYLE_HREFS = Object.freeze(
+  import.meta.env.DEV
+    ? [
+        '/src/assets/public-shell-critical.css?direct',
+        '/src/assets/public-page.css?direct'
+      ]
+    : []
+) as readonly string[]
+
 const SHARED_SEO_ROUTE_KINDS = Object.freeze(
   Object.values(PUBLIC_PAGE_MANIFEST)
     .filter((definition) => definition.seoEligible)
@@ -214,6 +231,16 @@ export const PUBLIC_BLOG_CHILD_ROUTES = Object.freeze(
     meta: definition.meta
   }))
 ) as readonly RouteRecordRaw[]
+
+export const PUBLIC_ROUTE_PRELOAD_DEFINITIONS = Object.freeze(
+  PUBLIC_SEO_ROUTE_DEFINITIONS.map((definition) => ({
+    name: definition.name,
+    kind: definition.kind,
+    path: definition.path,
+    preloadComponent: () => Promise.resolve((definition.component as () => unknown)()),
+    criticalStyleHrefs: PUBLIC_ROUTE_CRITICAL_STYLE_HREFS
+  }))
+) as readonly PublicRoutePreloadDefinition[]
 
 export function getPublicSeoRouteNamesByKind(kind: SharedSeoEligiblePublicPageKind): readonly PublicSeoRouteName[] {
   return seoRouteNamesByKind[kind]

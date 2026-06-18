@@ -36,6 +36,11 @@ import {
   getPublicRuntimeOwner,
   markPublicTakeoverFallback
 } from '@/bootstrap/publicTakeoverState'
+import {
+  prewarmPublicRoute,
+  resolvePublicRoutePrewarmTarget,
+  type PublicRoutePrewarmReason
+} from '@/router/publicRoutePreload'
 
 function isModifiedEvent(event: MouseEvent): boolean {
   return event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
@@ -397,6 +402,7 @@ let commentsFallbackTimer: number | null = null
 let commentsIntersectionObserver: IntersectionObserver | null = null
 let commentsActivationVersion = 0
 let publicTakeoverPromise: Promise<void> | null = null
+let publicRoutePrewarmIdleTask: number | null = null
 let publicShellNavigationRemountCount = 0
 let authResolutionVersion = 0
 let homeHotArticlesIslandModulePromise: Promise<typeof import('@/public-renderers/homeHotArticlesIsland')> | null = null
@@ -551,6 +557,40 @@ function currentPublicShellFullPath(): string {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`
 }
 
+function requestPublicRoutePrewarm(target: string | null, reason: PublicRoutePrewarmReason): void {
+  if (!target || getPublicRuntimeOwner() === 'spa') {
+    return
+  }
+
+  void prewarmPublicRoute(target, { reason }).catch(() => {})
+}
+
+function schedulePublicRouteIdlePrewarm(): void {
+  clearPublicRouteIdlePrewarm()
+  publicRoutePrewarmIdleTask = scheduleIdleTask(() => {
+    publicRoutePrewarmIdleTask = null
+    requestPublicRoutePrewarm(currentPublicShellFullPath(), 'idle')
+  })
+}
+
+function clearPublicRouteIdlePrewarm(): void {
+  clearIdleTask(publicRoutePrewarmIdleTask)
+  publicRoutePrewarmIdleTask = null
+}
+
+function requestPublicAnchorPrewarm(event: Event, reason: Extract<PublicRoutePrewarmReason, 'pointerenter' | 'focus'>): void {
+  if (!(event.target instanceof Element)) {
+    return
+  }
+
+  const anchor = event.target.closest('a')
+  if (!(anchor instanceof HTMLAnchorElement)) {
+    return
+  }
+
+  requestPublicRoutePrewarm(resolvePublicRoutePrewarmTarget(anchor, event), reason)
+}
+
 function storeInitialPublicRouteSeed(payload: PublicHydrationPayload): void {
   const kind = payload.pageKind as PublicRouteSeedKind
   putPublicRouteSeed({
@@ -633,7 +673,10 @@ export function schedulePublicTakeover(reason: 'pointerdown' | 'keydown' | 'scro
 
 function bindPublicTakeoverTriggers(): void {
   addPublicShellEventListener(window, 'fsus:public-shell:takeover', () => schedulePublicTakeover('click'))
-  addPublicShellEventListener(window, 'fsus:public-shell:search-focus', () => schedulePublicTakeover('search-focus'))
+  addPublicShellEventListener(window, 'fsus:public-shell:search-focus', () => {
+    requestPublicRoutePrewarm('/search', 'search-focus')
+    schedulePublicTakeover('search-focus')
+  })
 }
 
 function isPublicMicroRoute(href: string): boolean {
@@ -1213,6 +1256,12 @@ export function bindPreBootstrapNavigation(): void {
     event.preventDefault()
     void navigateWithinPublicShell(anchor.href)
   }, { passive: false })
+  addPublicShellEventListener(document, 'pointerenter', (event) => {
+    requestPublicAnchorPrewarm(event, 'pointerenter')
+  }, { capture: true, passive: true })
+  addPublicShellEventListener(document, 'focusin', (event) => {
+    requestPublicAnchorPrewarm(event, 'focus')
+  }, { passive: true })
 }
 
 export function bindPopStateNavigation(): void {
@@ -1268,6 +1317,7 @@ export async function bootstrapPublicShell(): Promise<void> {
   onPublicShellLifetimeAbort(() => {
     activeNavigationController?.abort()
     activeNavigationController = null
+    clearPublicRouteIdlePrewarm()
     clearDynamicIslands()
     preBootstrapNavigationBound = false
     popstateBound = false
@@ -1280,6 +1330,7 @@ export async function bootstrapPublicShell(): Promise<void> {
   bindPreBootstrapNavigation()
   bindPopStateNavigation()
   bindPublicTakeoverTriggers()
+  schedulePublicRouteIdlePrewarm()
   const hydrateTask = (async () => {
     await waitForDocumentInteractive()
     await hydratePublicShell()

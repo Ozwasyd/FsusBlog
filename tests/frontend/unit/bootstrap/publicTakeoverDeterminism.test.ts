@@ -250,4 +250,16 @@ describe('public takeover source contracts', () => {
       expect(source).not.toContain(':spa-navigation="true"')
     }
   })
+
+  it('wires public route prewarm to low-risk signals without replacing HTML micro-navigation', () => {
+    const publicShell = readRepoFile('src/frontend/src/bootstrap/publicShell.ts')
+
+    expect(publicShell).toContain('prewarmPublicRoute')
+    expect(publicShell).toContain('resolvePublicRoutePrewarmTarget')
+    expect(publicShell).toContain('schedulePublicRouteIdlePrewarm')
+    expect(publicShell).toContain("'pointerenter'")
+    expect(publicShell).toContain("'focusin'")
+    expect(publicShell).toContain("requestPublicRoutePrewarm('/search', 'search-focus')")
+    expect(publicShell).toContain('void navigateWithinPublicShell(anchor.href)')
+  })
 })
