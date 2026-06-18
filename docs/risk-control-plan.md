@@ -42,6 +42,10 @@ RiskControl action 名称集中由 `RiskActionNames` 定义。首批生产 actio
 
 `RiskDecisionService` 把 `RiskControlContext`、`SecurityRiskPolicySnapshotV2` 和当前风险分转换为 `RiskDecision`。业务 filter / middleware 不再内联阈值判断，只根据 `RiskDecisionKind` 执行已有 proof 校验、排队、限流或拦截。`RiskAwarePublicReadFilter` 是迁移期第一个接入点：verified crawler 与 social preview bot 继续直接 allow；public-read 低于 challenge 阈值 allow，达到阈值返回 challenge，达到 block 阈值返回 block；PoW proof 的签发与校验仍由旧 PoW 服务负责，后续 challenge orchestrator 再替换。
 
+## Challenge persistence baseline
+
+RiskControl challenge 的热路径一次性消费仍可使用 Redis，但生产审计真源必须落在 PostgreSQL。`security_challenge` 保存签发记录和当前状态，状态只允许 `issued`、`verified`、`expired`、`replayed`、`failed`、`revoked`；`security_challenge_attempt` 保存每次验证、失败、重放、过期或撤销 attempt。两张表只保存 kind、algorithm、action、routeKey、subjectHash、clientIpHash、deviceFpHash、policyVersion、payloadHash、traceId、traceparent 和时间戳等 metadata，不保存 challenge payload 原文、proof 原文、IP 原文或 device fingerprint 原文。`SecurityChallengePersistenceService` 是 provider / orchestrator 后续接入的持久化边界：`IssueAsync` 写入 `issued`，`RecordAttemptAsync` 在同一事务内写 attempt 并更新 challenge 状态，`ExpireAsync` / `RevokeAsync` 也写终态 attempt。
+
 ## Ordered implementation units
 
 | Order | Unit | Issue | Acceptance boundary |

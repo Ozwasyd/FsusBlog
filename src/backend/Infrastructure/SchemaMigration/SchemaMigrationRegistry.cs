@@ -23,6 +23,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAdminPrincipalPlaneMigration(),
         BuildAccountRecoveryKeyMigration(),
         BuildAnonymousCommentGovernanceMigration(),
+        BuildSecurityChallengePersistenceMigration(),
         BuildCommentActorMigration(),
         BuildAuditLogMigration(),
         BuildAuditLogStructuredFieldsPreCodeFirstMigration(),
@@ -894,6 +895,122 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_comment_nullifier_scope ON comment_anonymous_nullifier(nullifier_hash, scope);
                     CREATE INDEX IF NOT EXISTS idx_comment_nullifier_blocked ON comment_anonymous_nullifier(blocked);
                     """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildSecurityChallengePersistenceMigration()
+        => new SchemaMigrationDescriptor(
+            "20260618-post-security-challenge-persistence",
+            "Create auditable security challenge issuance and verification attempt storage.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "security_challenge",
+                    """
+                    CREATE TABLE IF NOT EXISTS security_challenge (
+                        id bigserial PRIMARY KEY,
+                        challenge_id varchar(64) NOT NULL,
+                        status varchar(32) NOT NULL DEFAULT 'issued',
+                        kind varchar(64) NOT NULL DEFAULT '',
+                        algorithm varchar(64) NOT NULL DEFAULT '',
+                        action varchar(96) NOT NULL DEFAULT '',
+                        route_key varchar(256) NOT NULL DEFAULT '',
+                        subject_hash varchar(64) NOT NULL DEFAULT '',
+                        client_ip_hash varchar(64) NOT NULL DEFAULT '',
+                        device_fp_hash varchar(64) NOT NULL DEFAULT '',
+                        policy_version varchar(64) NOT NULL DEFAULT '',
+                        payload_hash varchar(64) NOT NULL DEFAULT '',
+                        trace_id varchar(64) NULL,
+                        traceparent varchar(128) NULL,
+                        issued_at_utc timestamp NOT NULL DEFAULT now(),
+                        expires_at_utc timestamp NOT NULL DEFAULT now(),
+                        verified_at_utc timestamp NULL,
+                        revoked_at_utc timestamp NULL,
+                        created_at_utc timestamp NOT NULL DEFAULT now(),
+                        updated_at_utc timestamp NOT NULL DEFAULT now(),
+                        CONSTRAINT chk_security_challenge_status
+                            CHECK (status IN ('issued', 'verified', 'expired', 'replayed', 'failed', 'revoked'))
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_security_challenge_id ON security_challenge(challenge_id);
+                    CREATE INDEX IF NOT EXISTS idx_security_challenge_status_expiry ON security_challenge(status, expires_at_utc);
+                    CREATE INDEX IF NOT EXISTS idx_security_challenge_action_route ON security_challenge(action, route_key);
+                    CREATE INDEX IF NOT EXISTS idx_security_challenge_subject ON security_challenge(subject_hash);
+                    """),
+                new EnsureColumnStep("security_challenge", "challenge_id", "varchar(64) NOT NULL DEFAULT ''"),
+                new EnsureColumnStep("security_challenge", "status", "varchar(32) NOT NULL DEFAULT 'issued'"),
+                new EnsureColumnStep("security_challenge", "kind", "varchar(64) NOT NULL DEFAULT ''"),
+                new EnsureColumnStep("security_challenge", "algorithm", "varchar(64) NOT NULL DEFAULT ''"),
+                new EnsureColumnStep("security_challenge", "action", "varchar(96) NOT NULL DEFAULT ''"),
+                new EnsureColumnStep("security_challenge", "route_key", "varchar(256) NOT NULL DEFAULT ''"),
+                new EnsureColumnStep("security_challenge", "subject_hash", "varchar(64) NOT NULL DEFAULT ''"),
+                new EnsureColumnStep("security_challenge", "client_ip_hash", "varchar(64) NOT NULL DEFAULT ''"),
+                new EnsureColumnStep("security_challenge", "device_fp_hash", "varchar(64) NOT NULL DEFAULT ''"),
+                new EnsureColumnStep("security_challenge", "policy_version", "varchar(64) NOT NULL DEFAULT ''"),
+                new EnsureColumnStep("security_challenge", "payload_hash", "varchar(64) NOT NULL DEFAULT ''"),
+                new EnsureColumnStep("security_challenge", "trace_id", "varchar(64) NULL"),
+                new EnsureColumnStep("security_challenge", "traceparent", "varchar(128) NULL"),
+                new EnsureColumnStep("security_challenge", "issued_at_utc", "timestamp NOT NULL DEFAULT now()"),
+                new EnsureColumnStep("security_challenge", "expires_at_utc", "timestamp NOT NULL DEFAULT now()"),
+                new EnsureColumnStep("security_challenge", "verified_at_utc", "timestamp NULL"),
+                new EnsureColumnStep("security_challenge", "revoked_at_utc", "timestamp NULL"),
+                new EnsureColumnStep("security_challenge", "created_at_utc", "timestamp NOT NULL DEFAULT now()"),
+                new EnsureColumnStep("security_challenge", "updated_at_utc", "timestamp NOT NULL DEFAULT now()"),
+                new EnsureTableStep(
+                    "security_challenge_attempt",
+                    """
+                    CREATE TABLE IF NOT EXISTS security_challenge_attempt (
+                        id bigserial PRIMARY KEY,
+                        attempt_id varchar(64) NOT NULL,
+                        challenge_id varchar(64) NOT NULL,
+                        outcome varchar(32) NOT NULL,
+                        reason varchar(128) NULL,
+                        payload_hash varchar(64) NULL,
+                        client_ip_hash varchar(64) NULL,
+                        device_fp_hash varchar(64) NULL,
+                        trace_id varchar(64) NULL,
+                        traceparent varchar(128) NULL,
+                        attempted_at_utc timestamp NOT NULL DEFAULT now(),
+                        created_at_utc timestamp NOT NULL DEFAULT now(),
+                        CONSTRAINT chk_security_challenge_attempt_outcome
+                            CHECK (outcome IN ('verified', 'expired', 'replayed', 'failed', 'revoked'))
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_security_challenge_attempt_id ON security_challenge_attempt(attempt_id);
+                    CREATE INDEX IF NOT EXISTS idx_security_challenge_attempt_challenge ON security_challenge_attempt(challenge_id, attempted_at_utc DESC);
+                    CREATE INDEX IF NOT EXISTS idx_security_challenge_attempt_outcome ON security_challenge_attempt(outcome, attempted_at_utc DESC);
+                    """),
+                new EnsureColumnStep("security_challenge_attempt", "attempt_id", "varchar(64) NOT NULL DEFAULT ''"),
+                new EnsureColumnStep("security_challenge_attempt", "challenge_id", "varchar(64) NOT NULL DEFAULT ''"),
+                new EnsureColumnStep("security_challenge_attempt", "outcome", "varchar(32) NOT NULL DEFAULT 'failed'"),
+                new EnsureColumnStep("security_challenge_attempt", "reason", "varchar(128) NULL"),
+                new EnsureColumnStep("security_challenge_attempt", "payload_hash", "varchar(64) NULL"),
+                new EnsureColumnStep("security_challenge_attempt", "client_ip_hash", "varchar(64) NULL"),
+                new EnsureColumnStep("security_challenge_attempt", "device_fp_hash", "varchar(64) NULL"),
+                new EnsureColumnStep("security_challenge_attempt", "trace_id", "varchar(64) NULL"),
+                new EnsureColumnStep("security_challenge_attempt", "traceparent", "varchar(128) NULL"),
+                new EnsureColumnStep("security_challenge_attempt", "attempted_at_utc", "timestamp NOT NULL DEFAULT now()"),
+                new EnsureColumnStep("security_challenge_attempt", "created_at_utc", "timestamp NOT NULL DEFAULT now()"),
+                new CreateIndexStep(
+                    "unique_idx_security_challenge_id",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_security_challenge_id ON security_challenge(challenge_id);"),
+                new CreateIndexStep(
+                    "idx_security_challenge_status_expiry",
+                    "CREATE INDEX IF NOT EXISTS idx_security_challenge_status_expiry ON security_challenge(status, expires_at_utc);"),
+                new CreateIndexStep(
+                    "idx_security_challenge_action_route",
+                    "CREATE INDEX IF NOT EXISTS idx_security_challenge_action_route ON security_challenge(action, route_key);"),
+                new CreateIndexStep(
+                    "idx_security_challenge_subject",
+                    "CREATE INDEX IF NOT EXISTS idx_security_challenge_subject ON security_challenge(subject_hash);"),
+                new CreateIndexStep(
+                    "unique_idx_security_challenge_attempt_id",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_security_challenge_attempt_id ON security_challenge_attempt(attempt_id);"),
+                new CreateIndexStep(
+                    "idx_security_challenge_attempt_challenge",
+                    "CREATE INDEX IF NOT EXISTS idx_security_challenge_attempt_challenge ON security_challenge_attempt(challenge_id, attempted_at_utc DESC);"),
+                new CreateIndexStep(
+                    "idx_security_challenge_attempt_outcome",
+                    "CREATE INDEX IF NOT EXISTS idx_security_challenge_attempt_outcome ON security_challenge_attempt(outcome, attempted_at_utc DESC);")
             ]);
 
     private static ISchemaMigrationDescriptor BuildCommentActorMigration()

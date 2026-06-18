@@ -52,6 +52,8 @@
 
 统一安全风险由 `ISecurityRiskSignalSink`、`ISecurityRiskScoreReader` 和 `ISecurityRiskPolicyProvider` 抽象承载；旧 `CrawlerRiskService` 只是兼容实现，不再代表反爬虫子系统。Shield 写入 `anti-crawler` 来源信号，RateLimiter 写入 `rate-limiter`，PoW 写入 `pow`，HumanReadProof 写入 `human-read-proof`，公开读过滤器写入 `public-read`。风险分仍落在 `SecurityPowRisk` key 上以保持 `AdaptivePowGovernor` 兼容；策略主形态是 `SecurityRiskPolicySnapshotV2`，`RiskDecisionService` 负责把 risk context、V2 策略和当前风险分转换为 allow/challenge/block 等裁决，旧 `SecurityRiskPolicySnapshot` 仅作为迁移期兼容投影保留。`RiskAwarePublicReadFilter` 已接入该裁决服务：风险分达到 `RequireChallengeScore` 时引用 `security.pow` challenge，达到 `BlockScore` 时返回 429。该策略只作用于动态公开 API，不影响 PublicHotRead artifact 命中路径。
 
+RiskControl challenge 采用 Redis + PostgreSQL 双层职责：Redis 只承担一次性消费和低延迟热路径，PostgreSQL `security_challenge` / `security_challenge_attempt` 是签发、验证、失败、重放、过期和撤销的审计真源。持久化记录只保存 kind、algorithm、action、routeKey、subjectHash、clientIpHash、deviceFpHash、policyVersion、payloadHash、traceId、traceparent 和时间戳；不得保存 challenge payload 原文、proof 原文、客户端 IP 原文或设备指纹原文。状态集合固定为 `issued | verified | expired | replayed | failed | revoked`，provider / orchestrator 后续只能通过 `ISecurityChallengePersistenceService` 写入或转移状态，避免端点绕过审计链。
+
 RiskControl 生产控制面按 `Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof Verification -> Enforcement -> Audit / Metrics / Admin Policy` 演进；完整 tracking plan、子 issue 顺序与 binary-first 边界见 `docs/risk-control-plan.md`。
 
 管理后台新增 `/user/manage/security` 安全系统：

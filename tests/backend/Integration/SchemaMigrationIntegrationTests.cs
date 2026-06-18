@@ -80,6 +80,88 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    public async Task RunAsync_CreatesSecurityChallengePersistenceTablesOnEmptyDatabase()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "security_challenge"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "security_challenge_attempt"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "security_challenge", "payload_hash"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "security_challenge_attempt", "payload_hash"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "security_challenge", "payload"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "security_challenge_attempt", "payload"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_security_challenge_id"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_security_challenge_attempt_challenge"));
+    }
+
+    [Fact]
+    public async Task RunAsync_ExtendsExistingSecurityChallengePersistenceTables()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE security_challenge (
+                id bigserial PRIMARY KEY
+            );
+
+            CREATE TABLE security_challenge_attempt (
+                id bigserial PRIMARY KEY
+            );
+            """);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        foreach (string column in new[]
+        {
+            "challenge_id",
+            "status",
+            "kind",
+            "algorithm",
+            "action",
+            "route_key",
+            "subject_hash",
+            "client_ip_hash",
+            "device_fp_hash",
+            "policy_version",
+            "payload_hash",
+            "trace_id",
+            "traceparent",
+            "issued_at_utc",
+            "expires_at_utc"
+        })
+        {
+            Assert.True(
+                await fixture.ColumnExistsAsync(connectionString, "security_challenge", column),
+                $"security_challenge.{column} was not created");
+        }
+
+        foreach (string column in new[]
+        {
+            "attempt_id",
+            "challenge_id",
+            "outcome",
+            "reason",
+            "payload_hash",
+            "client_ip_hash",
+            "device_fp_hash",
+            "trace_id",
+            "traceparent",
+            "attempted_at_utc"
+        })
+        {
+            Assert.True(
+                await fixture.ColumnExistsAsync(connectionString, "security_challenge_attempt", column),
+                $"security_challenge_attempt.{column} was not created");
+        }
+    }
+
+    [Fact]
     public async Task RunAsync_UpgradesLegacy20260517EquivalentFixture_AndIsIdempotent()
     {
         string databaseName = await fixture.CreateDatabaseAsync();
