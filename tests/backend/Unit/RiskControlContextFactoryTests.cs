@@ -1,0 +1,160 @@
+using System.Net;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Security;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Patterns;
+
+namespace FsusBlog.Server.Tests.Unit;
+
+public sealed class RiskControlContextFactoryTests
+{
+    [Fact]
+    public void Create_AnonymousRequest_UsesNormalizedClientIpAndMissingDeviceState()
+    {
+        var context = CreateContext("198.51.100.17");
+        context.Request.Headers["X-Forwarded-For"] = "127.0.0.1";
+        context.Request.Headers["X-Real-IP"] = "127.0.0.1";
+        context.SetEndpoint(CreateEndpoint(RiskActionNames.PublicRead, "article:42"));
+
+        RiskControlContext result = new RiskControlContextFactory().Create(context);
+
+        Assert.Equal("198.51.100.17", result.ClientIp);
+        Assert.Equal("Unknown", result.UserAgent);
+        Assert.Equal(RiskControlContextStatuses.Missing, result.UserAgentStatus);
+        Assert.Equal(RiskActionNames.PublicRead, result.ActionName);
+        Assert.Equal("article:42", result.RouteKey);
+        Assert.Equal(RiskControlContextStatuses.Resolved, result.ActionStatus);
+        Assert.Equal(RiskControlActorStatuses.Anonymous, result.Actor.Status);
+        Assert.Equal(RiskControlIdentityKinds.Anonymous, result.Actor.IdentityKind);
+        Assert.Equal(RiskControlContextStatuses.Missing, result.DeviceFingerprint.Status);
+        Assert.Null(result.DeviceFingerprint.Sha256Hash);
+    }
+
+    [Fact]
+    public void Create_AuthenticatedUser_NormalizesActorRegionUserAgentAndDeviceFingerprint()
+    {
+        var context = CreateContext(
+            "203.0.113.9",
+            CreatePrincipal(
+                42,
+                new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind)));
+        context.Request.Headers.UserAgent = "  Mozilla/5.0  ";
+        context.Request.Headers["X-Fsus-Device-Fp"] = "abcDEF-1234_5678";
+        context.Request.Headers["X-Fsus-Region"] = " cn-mainland ";
+        context.SetEndpoint(CreateEndpoint(RiskActionNames.AuthLogin, "auth.login"));
+
+        RiskControlContext result = new RiskControlContextFactory().Create(context);
+
+        Assert.Equal(RiskControlActorStatuses.Authenticated, result.Actor.Status);
+        Assert.Equal(AnonymousIdentityRuntime.AnonymousAccountKind, result.Actor.IdentityKind);
+        Assert.Equal("42", result.Actor.UserId);
+        Assert.Null(result.Actor.AdminPrincipalId);
+        Assert.Equal("Mozilla/5.0", result.UserAgent);
+        Assert.Equal(RiskControlContextStatuses.Present, result.UserAgentStatus);
+        Assert.Equal(RiskControlContextStatuses.Present, result.DeviceFingerprint.Status);
+        Assert.Equal(16, result.DeviceFingerprint.Length);
+        Assert.Equal(Sha256Hex("abcDEF-1234_5678"), result.DeviceFingerprint.Sha256Hash);
+        Assert.Equal("CN-MAINLAND", result.Region.Region);
+        Assert.Equal(RiskControlContextStatuses.Present, result.Region.Status);
+        Assert.Equal("X-Fsus-Region", result.Region.Source);
+    }
+
+    [Fact]
+    public void Create_AdminPrincipal_ExtractsIndependentAdminIdentity()
+    {
+        var context = CreateContext(
+            "203.0.113.10",
+            CreatePrincipal(
+                7,
+                new Claim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
+                new Claim("admin_id", "7"),
+                new Claim("admin_sid", "sid-admin-1")));
+        context.SetEndpoint(CreateEndpoint(RiskActionNames.AdminSecurityWrite, "admin.security.write"));
+
+        RiskControlContext result = new RiskControlContextFactory().Create(context);
+
+        Assert.Equal(RiskControlActorStatuses.AdminPrincipal, result.Actor.Status);
+        Assert.Equal(AnonymousIdentityRuntime.AdminPrincipalKind, result.Actor.IdentityKind);
+        Assert.Equal("7", result.Actor.UserId);
+        Assert.Equal("7", result.Actor.AdminPrincipalId);
+        Assert.Equal("sid-admin-1", result.Actor.AdminSessionId);
+        Assert.Equal(RiskActionNames.AdminSecurityWrite, result.ActionName);
+        Assert.Equal("admin.security.write", result.RouteKey);
+    }
+
+    [Fact]
+    public void Create_CrawlerMarks_ReadsHttpContextItems()
+    {
+        var context = CreateContext("66.249.64.1");
+        context.Items["VerifiedCrawler"] = true;
+        context.Items["SocialPreviewBot"] = true;
+        context.SetEndpoint(CreateEndpoint(RiskActionNames.PublicRead, "article:preview"));
+
+        RiskControlContext result = new RiskControlContextFactory().Create(context);
+
+        Assert.True(result.VerifiedCrawler);
+        Assert.True(result.SocialPreviewBot);
+    }
+
+    [Theory]
+    [InlineData("short", "invalid_length")]
+    [InlineData("valid-length but invalid spaces", "invalid_charset")]
+    public void Create_InvalidDeviceFingerprint_RecordsInvalidStateWithoutRawValue(string rawFingerprint, string expectedReason)
+    {
+        var context = CreateContext("203.0.113.11");
+        context.Request.Headers["X-Fsus-Device-Fp"] = rawFingerprint;
+        context.SetEndpoint(CreateEndpoint(RiskActionNames.AuthLogin, "auth.login"));
+
+        RiskControlContext result = new RiskControlContextFactory().Create(context);
+
+        Assert.Equal(RiskControlContextStatuses.Invalid, result.DeviceFingerprint.Status);
+        Assert.Equal(expectedReason, result.DeviceFingerprint.Reason);
+        Assert.Equal(rawFingerprint.Length, result.DeviceFingerprint.Length);
+        Assert.Null(result.DeviceFingerprint.Sha256Hash);
+    }
+
+    [Fact]
+    public void Create_MissingAction_RecordsStateWithoutThrowing()
+    {
+        var context = CreateContext("203.0.113.12");
+        context.SetEndpoint(new RouteEndpointBuilder(_ => Task.CompletedTask, RoutePatternFactory.Parse("/api/binary/missing-action"), 0).Build());
+
+        RiskControlContext result = new RiskControlContextFactory().Create(context);
+
+        Assert.Equal(RiskControlContextStatuses.Missing, result.ActionStatus);
+        Assert.Equal(string.Empty, result.ActionName);
+        Assert.Equal(string.Empty, result.RouteKey);
+    }
+
+    private static DefaultHttpContext CreateContext(string remoteIp, ClaimsPrincipal? user = null)
+    {
+        var context = new DefaultHttpContext();
+        context.Connection.RemoteIpAddress = IPAddress.Parse(remoteIp);
+        context.User = user ?? new ClaimsPrincipal(new ClaimsIdentity());
+        return context;
+    }
+
+    private static ClaimsPrincipal CreatePrincipal(int id, params Claim[] additionalClaims)
+    {
+        Claim[] claims =
+        [
+            new(ClaimTypes.NameIdentifier, id.ToString()),
+            .. additionalClaims
+        ];
+        return new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
+    }
+
+    private static Endpoint CreateEndpoint(string actionName, string routeKey)
+    {
+        var builder = new RouteEndpointBuilder(_ => Task.CompletedTask, RoutePatternFactory.Parse($"/{routeKey}"), 0);
+        builder.Metadata.Add(RiskActionRegistry.Default.CreateMetadata(actionName, routeKey));
+        return builder.Build();
+    }
+
+    private static string Sha256Hex(string value)
+        => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+}

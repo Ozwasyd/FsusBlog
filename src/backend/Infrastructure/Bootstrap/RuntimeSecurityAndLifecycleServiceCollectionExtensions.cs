@@ -2,6 +2,7 @@ using Fido2NetLib;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Security;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -33,6 +34,7 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<ITotpService, TotpService>();
         services.AddScoped<IMfaChallengeService, MfaChallengeService>();
         services.AddScoped<IAuthRiskService, AuthRiskService>();
+        services.AddScoped<IRiskControlContextFactory, RiskControlContextFactory>();
 
         services.Configure<LifecycleBootstrapOptions>(configuration.GetSection(LifecycleBootstrapOptions.SectionName));
 

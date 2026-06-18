@@ -30,6 +30,10 @@ Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof V
 
 RiskControl action 名称集中由 `RiskActionNames` 定义。首批生产 action 为 `public.read`、`comment.create`、`comment.reply`、`auth.login`、`auth.passkey.begin`、`auth.passkey.complete`、`recovery-key.verify`、`notification.subscribe`、`admin.security.write` 和 `admin.comment.batch`。Endpoint 必须通过 `WithRiskAction(...)` 或等价 metadata 声明 action / routeKey；测试和开发环境可以用 `RiskActionRegistry.FindMissingActionMetadata(...)` 扫描受保护 endpoint 的缺失声明。
 
+## Context factory baseline
+
+`RiskControlContextFactory` 是后续 Risk Score / Decision 的唯一请求上下文抽取入口。它只读取 `HttpContext` 中已经归一或显式标记的字段：客户端 IP 使用 `GetClientIp()`，因此不会直接信任 raw `X-Forwarded-For` / `X-Real-IP`；UA 使用 `GetUserAgent()` 并保留 missing/present 状态；action / routeKey 来自 endpoint `RiskActionEndpointMetadata`；actor 从 `ClaimTypes.NameIdentifier`、`identity_kind`、`sid`、`admin_id` 和 `admin_sid` claim 解析；`VerifiedCrawler` / `SocialPreviewBot` 只读取 `HttpContext.Items` 中由反爬虫中间件设置的布尔标记。`X-Fsus-Device-Fp` 会先做长度和字符集校验，只输出状态、长度和 SHA-256 hash，不保留 raw 值；region 只作为请求 hint 归一为短字符串并带来源，不参与法律地区裁决。
+
 ## Ordered implementation units
 
 | Order | Unit | Issue | Acceptance boundary |
