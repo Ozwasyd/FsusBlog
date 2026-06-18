@@ -295,9 +295,9 @@ Secret 轮换、站点备份导出、数据巡检修复、批量封禁、密码�
 
 ## 生产安全检查清单
 
-生产环境通过 `ProductionStartupValidator`、`/health/ready` 与 `./tools/test.sh security` 执行以下校验。启动阶段校验失败会 fail-closed 阻止应用启动；只有显式设置危险开关 `FSUSBLOG_ALLOW_INSECURE_STARTUP=true` 时才允许降级启动并写出 critical 告警。readiness 仍会返回 `503` 并报告失败明细，发布流程必须把该状态视为阻断。
+生产环境通过 `ProductionStartupValidator`、`/health/ready` 与 `./tools/test.sh security` 执行以下校验。启动阶段校验失败会 fail-closed 阻止应用启动；危险开关 `FSUSBLOG_ALLOW_INSECURE_STARTUP=true` 仅限本地诊断，且不能绕过 JWT 默认/占位密钥、wildcard `AllowedHosts`、缺失反向代理信任边界或 HTTP 生产来源这类安全关键错误。允许降级的非关键项也必须写出 critical 告警，readiness 仍会返回 `503` 并报告失败明细，发布流程必须把该状态视为阻断。
 
-- [ ] JWT 密钥不为默认占位值（非 `your-secret-key` 类占位）
+- [ ] JWT 密钥来自部署 secret，不在共享配置中保存默认值，且不为默认/占位/短密钥
 - [ ] Redis 密码不为空
 - [ ] `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1`，生产不允许 legacy `sys_user.role=admin` 授予后台权限
 - [ ] `SITE_BASEURL` 以 `https://` 开头

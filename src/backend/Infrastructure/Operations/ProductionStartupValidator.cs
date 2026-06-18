@@ -104,6 +104,9 @@ public static class ProductionStartupValidator
     internal static IReadOnlyList<string> ValidateCore(IConfiguration configuration, bool enforceProductionRules)
         => CreateCachedValidationReport(configuration, enforceProductionRules).Errors;
 
+    internal static bool HasSecurityCriticalStartupError(IReadOnlyList<string> errors)
+        => errors.Any(IsSecurityCriticalStartupError);
+
     private static ProductionStartupValidationReport CreateCachedValidationReport(IConfiguration configuration, bool enforceProductionRules)
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -531,6 +534,14 @@ public static class ProductionStartupValidator
             || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "enabled", StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsSecurityCriticalStartupError(string error)
+        => error.Contains("Jwt:SecretKey", StringComparison.Ordinal)
+            || error.Contains("AllowedHosts must not use wildcard", StringComparison.Ordinal)
+            || error.Contains("ReverseProxy:KnownProxies or ReverseProxy:KnownNetworks", StringComparison.Ordinal)
+            || error.Contains("CORS_ALLOWED_HOSTS origin must use HTTPS", StringComparison.Ordinal)
+            || error.Contains("Seo:BaseUrl must use HTTPS", StringComparison.Ordinal)
+            || error.Contains("Fido2:Origins origin must use HTTPS", StringComparison.Ordinal);
+
     private static Uri? TryParseOriginLikeBaseUrl(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -592,7 +603,8 @@ internal sealed class ProductionStartupValidationHostedService(
         }
 
         string detail = string.Join("; ", report.Errors);
-        if (configuration.GetValue<bool>(AllowInsecureStartupKey))
+        if (configuration.GetValue<bool>(AllowInsecureStartupKey)
+            && !ProductionStartupValidator.HasSecurityCriticalStartupError(report.Errors))
         {
             runtimeState.ReportStartupTask(TaskName, "degraded", detail);
             logger.LogCritical(

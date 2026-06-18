@@ -134,7 +134,7 @@ dev 模式下，Vite 会通过 `transformIndexHtml` 注入 `public-shell-critica
     "InstanceName": "MyBlog_"
   },
   "Jwt": {
-    "SecretKey": "Were_I_you_I_would_get_high_like_some_airplanes",
+    "SecretKey": "use-dotnet-user-secrets-or-local-env-at-least-32-chars",
     "AccessTokenExpiresMinutes": 15
   },
   "Fido2": {
@@ -144,7 +144,7 @@ dev 模式下，Vite 会通过 `transformIndexHtml` 注入 `public-shell-critica
 }
 ```
 
-> **注意**：生产环境绝不使用上述默认密钥，`ProductionStartupValidator` 会在启动时强制检查。
+> **注意**：共享 `appsettings.json` 不再保存可复用 JWT 密钥。开发环境请使用 `dotnet user-secrets`、本机环境变量或未提交的 local-only 配置提供至少 32 字符的 `Jwt:SecretKey`；生产环境通过 `ProductionStartupValidator` 强制拒绝占位、默认或过短密钥。
 
 ### 前端代理配置
 

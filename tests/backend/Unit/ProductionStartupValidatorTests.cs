@@ -1,8 +1,14 @@
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Operations;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Net;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -58,6 +64,38 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains(errors, static error => error.Contains("Seo:BaseUrl", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Fido2:ServerDomain", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Fido2:Origins", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void SharedAppsettings_DoesNotContainReusableJwtSecret()
+    {
+        string appsettings = BackendTestPaths.ReadAllTextFromRoot("src/backend/appsettings.json");
+
+        Assert.DoesNotContain("Were_I_you_I_would_get_high_like_some_airplanes", appsettings, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"SecretKey\": \"Local_Release_Smoke_Key_For_FsusBlog_2026_Only\"", appsettings, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HostedService_DoesNotBypassDefaultJwtSecretEvenWhenInsecureStartupAllowed()
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            ["Jwt:SecretKey"] = "Were_I_you_I_would_get_high_like_some_airplanes",
+            ["FSUSBLOG_ALLOW_INSECURE_STARTUP"] = "true"
+        });
+        var runtimeState = new StartupRuntimeState();
+        var service = new ProductionStartupValidationHostedService(
+            configuration,
+            new TestWebHostEnvironment(Environments.Production),
+            runtimeState,
+            NullLogger<ProductionStartupValidationHostedService>.Instance);
+
+        ProductionStartupValidationException ex = await Assert.ThrowsAsync<ProductionStartupValidationException>(
+            () => service.StartAsync(CancellationToken.None));
+
+        Assert.Contains(ex.Errors, static error => error.Contains("Jwt:SecretKey", StringComparison.Ordinal));
+        StartupLifecycleTaskReport task = runtimeState.CreateSnapshot().Tasks["productionStartupValidation"];
+        Assert.Equal("failed", task.Status);
     }
 
     [Theory]
@@ -290,5 +328,15 @@ public sealed class ProductionStartupValidatorTests
         }
 
         return CreateConfiguration(values);
+    }
+
+    private sealed class TestWebHostEnvironment(string environmentName) : IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = "FsusBlog.Server";
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+        public string WebRootPath { get; set; } = Path.GetTempPath();
+        public string EnvironmentName { get; set; } = environmentName;
+        public string ContentRootPath { get; set; } = Path.GetTempPath();
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 }
