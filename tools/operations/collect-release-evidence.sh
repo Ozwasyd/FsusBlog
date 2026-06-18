@@ -154,7 +154,23 @@ fault_injection_status_or_missing() {
     (.status == "ok")
     and ((.caseCount // 0) > 0)
     and ((.cases // []) | length > 0)
+    and (([
+      "redis-restart",
+      "redis-reconnect",
+      "redis-latency"
+    ] - ([.cases[]?.case])) | length == 0)
     and all(.cases[]?; .status == "completed" and .actionStatus == "executed")
+    and all(.cases[]?; ((.case | startswith("redis-")) | not) or (
+      ((.actionStartedAt // "") | length > 0)
+      and ((.actionCompletedAt // "") | length > 0)
+      and ((.unavailableDurationMs // -1) >= 0)
+      and (((.recoveryDurationMs // .recoveryTimeMs // 0)) > 0)
+      and ((.publicReadResult.status // "") == "completed")
+      and ((.publicReadResult.sampleCount // 0) > 0)
+      and ((.finalHealthStatus // "") == "healthy")
+      and ((.authenticatedImpact.status // "") | length > 0)
+      and ((.notificationStreamImpact.status // "") | length > 0)
+    ))
   '
 }
 

@@ -5,6 +5,7 @@ import path from 'node:path'
 import process from 'node:process'
 
 const rootDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..')
+const requiredRedisFaultCases = ['redis-restart', 'redis-reconnect', 'redis-latency']
 
 const requiredStatusChecks = [
   ['image digest', (manifest) => manifest.evidenceSummary?.image?.status === 'present'],
@@ -148,7 +149,25 @@ function faultInjectionOk(manifest, context) {
   return report?.status === 'ok'
     && Number(report.caseCount ?? 0) > 0
     && Array.isArray(report.cases)
+    && includesAll(report.cases.map((item) => item.case), requiredRedisFaultCases)
     && report.cases.every((item) => item.status === 'completed' && item.actionStatus === 'executed')
+    && report.cases
+      .filter((item) => requiredRedisFaultCases.includes(item.case))
+      .every(redisFaultCaseOk)
+}
+
+function redisFaultCaseOk(item) {
+  return typeof item.actionStartedAt === 'string'
+    && item.actionStartedAt.length > 0
+    && typeof item.actionCompletedAt === 'string'
+    && item.actionCompletedAt.length > 0
+    && Number(item.unavailableDurationMs ?? -1) >= 0
+    && Number(item.recoveryDurationMs ?? item.recoveryTimeMs ?? 0) > 0
+    && item.publicReadResult?.status === 'completed'
+    && Number(item.publicReadResult?.sampleCount ?? 0) > 0
+    && item.finalHealthStatus === 'healthy'
+    && typeof item.authenticatedImpact?.status === 'string'
+    && typeof item.notificationStreamImpact?.status === 'string'
 }
 
 function shortSoakOk(manifest, context) {
@@ -389,8 +408,21 @@ function runSelfTest() {
   fs.mkdirSync(path.join(tmpDir, 'faultInjection'))
   fs.writeFileSync(path.join(tmpDir, 'faultInjection', 'summary.json'), JSON.stringify({
     status: 'ok',
-    caseCount: 1,
-    cases: [{ case: 'redis-restart', status: 'completed', actionStatus: 'executed', recoveryTimeMs: 1 }]
+    caseCount: 3,
+    cases: requiredRedisFaultCases.map((caseName, index) => ({
+      case: caseName,
+      status: 'completed',
+      actionStatus: 'executed',
+      actionStartedAt: `2026-06-18T00:00:0${index}Z`,
+      actionCompletedAt: `2026-06-18T00:00:1${index}Z`,
+      unavailableDurationMs: index,
+      recoveryDurationMs: 2 + index,
+      recoveryTimeMs: 2 + index,
+      publicReadResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+      authenticatedImpact: { status: 'not-configured' },
+      notificationStreamImpact: { status: 'not-configured' },
+      finalHealthStatus: 'healthy'
+    }))
   }))
   fs.mkdirSync(path.join(tmpDir, 'soak', 'short'), { recursive: true })
   fs.writeFileSync(path.join(tmpDir, 'soak', 'short', 'summary.json'), JSON.stringify({

@@ -312,7 +312,56 @@ printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$
 mkdir -p "$SECURITY_DIR/authenticated-dast" "$FUZZ_DIR/wasm" "$FAULT_DIR" "$SOAK_DIR/short"
 printf '{"status":"ok","activeScan":{"executed":true}}\n' > "$SECURITY_DIR/authenticated-dast/summary.json"
 printf '{"status":"ok","seedsRun":1,"crashes":[]}\n' > "$FUZZ_DIR/wasm/summary.json"
-printf '{"status":"ok","caseCount":1,"cases":[{"case":"redis-restart","status":"completed","actionStatus":"executed","recoveryTimeMs":1}]}\n' > "$FAULT_DIR/summary.json"
+cat > "$FAULT_DIR/summary.json" <<'JSON'
+{
+  "status": "ok",
+  "caseCount": 3,
+  "cases": [
+    {
+      "case": "redis-restart",
+      "status": "completed",
+      "actionStatus": "executed",
+      "actionStartedAt": "2026-06-18T00:00:00Z",
+      "actionCompletedAt": "2026-06-18T00:00:10Z",
+      "unavailableDurationMs": 1,
+      "recoveryDurationMs": 2,
+      "recoveryTimeMs": 2,
+      "publicReadResult": { "status": "completed", "sampleCount": 1, "p95Ms": 1 },
+      "authenticatedImpact": { "status": "not-configured" },
+      "notificationStreamImpact": { "status": "not-configured" },
+      "finalHealthStatus": "healthy"
+    },
+    {
+      "case": "redis-reconnect",
+      "status": "completed",
+      "actionStatus": "executed",
+      "actionStartedAt": "2026-06-18T00:01:00Z",
+      "actionCompletedAt": "2026-06-18T00:01:10Z",
+      "unavailableDurationMs": 0,
+      "recoveryDurationMs": 3,
+      "recoveryTimeMs": 3,
+      "publicReadResult": { "status": "completed", "sampleCount": 1, "p95Ms": 1 },
+      "authenticatedImpact": { "status": "not-configured" },
+      "notificationStreamImpact": { "status": "not-configured" },
+      "finalHealthStatus": "healthy"
+    },
+    {
+      "case": "redis-latency",
+      "status": "completed",
+      "actionStatus": "executed",
+      "actionStartedAt": "2026-06-18T00:02:00Z",
+      "actionCompletedAt": "2026-06-18T00:02:10Z",
+      "unavailableDurationMs": 1200,
+      "recoveryDurationMs": 4,
+      "recoveryTimeMs": 4,
+      "publicReadResult": { "status": "completed", "sampleCount": 1, "p95Ms": 1 },
+      "authenticatedImpact": { "status": "not-configured" },
+      "notificationStreamImpact": { "status": "not-configured" },
+      "finalHealthStatus": "healthy"
+    }
+  ]
+}
+JSON
 printf '{"status":"ok","mode":"short","durationSeconds":1,"sampleCount":1,"latencyMs":{"p95":1}}\n' > "$SOAK_DIR/short/summary.json"
 
 FSUSBLOG_RELEASE_STAMP=fixture \
@@ -325,9 +374,9 @@ FSUSBLOG_FAULT_EVIDENCE_DIR="$FAULT_DIR" \
 FSUSBLOG_SOAK_EVIDENCE_DIR="$SOAK_DIR" \
 FSUSBLOG_FUZZ_EVIDENCE_DIR="$FUZZ_DIR" \
 FSUSBLOG_GATE_LOG_SOURCE_DIR="$GATE_LOG_DIR" \
-  "$ROOT_DIR/tools/operations/collect-release-evidence.sh"
+  bash "$ROOT_DIR/tools/operations/collect-release-evidence.sh"
 
-"$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" "$OUT_DIR/manifest.json" >/dev/null
+node "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" "$OUT_DIR/manifest.json" >/dev/null
 
 jq -e '
   .releaseStamp == "fixture"

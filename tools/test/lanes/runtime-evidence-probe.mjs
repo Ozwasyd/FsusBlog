@@ -109,13 +109,13 @@ function optionalDeploymentLayerMetadata() {
   }
 }
 
-async function fetchSample(relativePath) {
+async function fetchSample(relativePath, options = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(new Error(`timeout after ${timeoutMs}ms`)), timeoutMs)
   const started = performance.now()
   try {
     const response = await fetch(`${baseUrl}${relativePath}`, {
-      headers: defaultHeaders,
+      headers: { ...defaultHeaders, ...(options.headers ?? {}) },
       signal: controller.signal
     })
     const body = await response.arrayBuffer()
@@ -150,7 +150,7 @@ async function runHttpProbe(paths, options = {}) {
       const index = next
       next += 1
       const relativePath = paths[index % paths.length]
-      samples.push(await fetchSample(relativePath))
+      samples.push(await fetchSample(relativePath, options))
     }
   }
 
@@ -223,6 +223,461 @@ function queryRedisDbSize() {
   return Number.isFinite(parsed)
     ? { available: true, value: parsed }
     : { available: false, error: `unexpected redis dbsize: ${result.stdout}` }
+}
+
+function nowIso() {
+  return new Date().toISOString()
+}
+
+function elapsedMs(started) {
+  return Number((performance.now() - started).toFixed(3))
+}
+
+function summarizeProbe(probe) {
+  return {
+    status: 'completed',
+    sampleCount: probe.sampleCount,
+    durationMs: probe.durationMs,
+    rps: probe.rps,
+    p95Ms: probe.latencyMs.p95,
+    statusCounts: probe.statusCounts,
+    paths: [...new Set(probe.samples.map((sample) => sample.path))]
+  }
+}
+
+async function runProbeResult(label, paths, options = {}) {
+  const startedAt = nowIso()
+  const started = performance.now()
+  try {
+    const runtime = await runHttpProbe(paths, options)
+    return {
+      status: 'completed',
+      label,
+      startedAt,
+      completedAt: nowIso(),
+      durationMs: elapsedMs(started),
+      runtime: summarizeProbe(runtime)
+    }
+  } catch (error) {
+    return {
+      status: 'failed',
+      label,
+      startedAt,
+      completedAt: nowIso(),
+      durationMs: elapsedMs(started),
+      error: error instanceof Error ? error.message : String(error)
+    }
+  }
+}
+
+function redisContainerName() {
+  return process.env.FSUSBLOG_REDIS_CONTAINER_NAME || process.env.FSUSBLOG_REDIS_CONTAINER || ''
+}
+
+function runRedisCli(container, args) {
+  return runDocker(['exec', '-i', container, 'redis-cli', ...args])
+}
+
+function scanBackendLogsForUnhandledExceptions() {
+  const container = process.env.FSUSBLOG_BACKEND_CONTAINER_NAME || process.env.FSUSBLOG_BACKEND_CONTAINER || ''
+  if (!container) {
+    return { status: 'not-configured', reason: 'backend container env missing' }
+  }
+
+  const result = runDocker(['logs', '--since', process.env.FSUSBLOG_REDIS_DRILL_LOG_SINCE || '10m', container])
+  if (!result.ok) {
+    return { status: 'blocked', target: container, error: result.error }
+  }
+
+  const patterns = [
+    /Unhandled exception/i,
+    /UnhandledException/i,
+    /StackExchange\.Redis.*(?:Fatal|Unhandled|timeout)/i,
+    /Redis.*(?:unhandled|fatal)/i
+  ]
+  const matched = patterns.find((pattern) => pattern.test(result.stdout))
+  return matched
+    ? { status: 'failed', target: container, matchedPattern: String(matched) }
+    : { status: 'ok', target: container, scannedBytes: result.stdout.length }
+}
+
+async function optionalAuthenticatedImpact() {
+  const cookie = process.env.FSUSBLOG_AUTH_COOKIE_HEADER || process.env.FSUSBLOG_AUTHENTICATED_COOKIE || ''
+  if (!cookie) {
+    return { status: 'not-configured', reason: 'FSUSBLOG_AUTH_COOKIE_HEADER missing' }
+  }
+  return await runProbeResult('authenticated session path', ['/api/binary/auth/sessions'], {
+    iterations: 1,
+    concurrency: 1,
+    headers: { Cookie: cookie }
+  })
+}
+
+async function optionalNotificationStreamImpact() {
+  const cookie = process.env.FSUSBLOG_AUTH_COOKIE_HEADER || process.env.FSUSBLOG_AUTHENTICATED_COOKIE || ''
+  const powQuery = process.env.FSUSBLOG_NOTIFICATION_STREAM_POW_QUERY || ''
+  if (!cookie && !powQuery) {
+    return {
+      status: 'not-configured',
+      reason: 'FSUSBLOG_AUTH_COOKIE_HEADER or FSUSBLOG_NOTIFICATION_STREAM_POW_QUERY missing'
+    }
+  }
+
+  const pathWithQuery = powQuery
+    ? `/api/notifications/stream/preflight?pow=${encodeURIComponent(powQuery)}`
+    : '/api/notifications/stream/preflight'
+  return await runProbeResult('notification stream preflight', [pathWithQuery], {
+    iterations: 1,
+    concurrency: 1,
+    headers: {
+      ...(cookie ? { Cookie: cookie } : {}),
+      'X-Fsus-Notification-Stream-Protocol': 'fsus-notification-stream.v1'
+    }
+  })
+}
+
+async function probeRedisFinalHealth() {
+  const publicReadResult = await runProbeResult('public binary endpoint', [
+    '/api/binary/system/seo',
+    '/api/binary/article/list/home/1/10.aeds'
+  ], { iterations: 4, concurrency: 1 })
+  if (publicReadResult.status !== 'completed') {
+    throw new Error(`public binary endpoint did not recover: ${publicReadResult.error}`)
+  }
+
+  const powResult = await runProbeResult('pow challenge path', ['/api/binary/auth/pow-challenge'], {
+    iterations: 2,
+    concurrency: 1
+  })
+  if (powResult.status !== 'completed') {
+    throw new Error(`PoW challenge path did not recover: ${powResult.error}`)
+  }
+
+  const cachePathResult = await runProbeResult('cache path', ['/api/binary/category', '/api/binary/tag'], {
+    iterations: 4,
+    concurrency: 1
+  })
+  if (cachePathResult.status !== 'completed') {
+    throw new Error(`cache path did not recover: ${cachePathResult.error}`)
+  }
+
+  const readyResult = await runProbeResult('health ready', ['/health/ready'], { iterations: 1, concurrency: 1 })
+  if (readyResult.status !== 'completed') {
+    throw new Error(`health ready did not recover: ${readyResult.error}`)
+  }
+
+  const authenticatedImpact = await optionalAuthenticatedImpact()
+  const notificationStreamImpact = await optionalNotificationStreamImpact()
+  const logScan = scanBackendLogsForUnhandledExceptions()
+  if (logScan.status === 'failed' || logScan.status === 'blocked') {
+    throw new Error(`backend log scan ${logScan.status}: ${logScan.error ?? logScan.matchedPattern}`)
+  }
+
+  return {
+    status: 'healthy',
+    generatedAt: nowIso(),
+    publicReadResult,
+    powSessionCache: {
+      powChallenge: powResult,
+      cachePath: cachePathResult,
+      session: authenticatedImpact
+    },
+    authenticatedImpact,
+    notificationStreamImpact,
+    healthReady: readyResult,
+    logScan
+  }
+}
+
+async function waitForRedisRecovery() {
+  const started = performance.now()
+  const startedAt = nowIso()
+  const attempts = []
+  const maxWaitMs = positiveInt(process.env.FSUSBLOG_REDIS_RECOVERY_WAIT_MS, 20000)
+  const intervalMs = positiveInt(process.env.FSUSBLOG_REDIS_RECOVERY_POLL_MS, 500)
+
+  do {
+    try {
+      const finalHealth = await probeRedisFinalHealth()
+      return {
+        status: 'completed',
+        startedAt,
+        completedAt: nowIso(),
+        recoveryDurationMs: elapsedMs(started),
+        attempts,
+        finalHealth
+      }
+    } catch (error) {
+      attempts.push({
+        at: nowIso(),
+        elapsedMs: elapsedMs(started),
+        error: error instanceof Error ? error.message : String(error)
+      })
+      if (performance.now() - started >= maxWaitMs) {
+        throw new Error(`Redis recovery did not complete within ${maxWaitMs}ms: ${attempts.at(-1)?.error}`)
+      }
+      await sleep(intervalMs)
+    }
+  } while (true)
+}
+
+async function executeRedisControlledAction(caseName, container) {
+  const startedAt = nowIso()
+  const started = performance.now()
+  const common = { status: 'executed', target: container, startedAt }
+
+  if (caseName === 'redis-restart') {
+    const stopped = runDocker(['stop', container])
+    if (!stopped.ok) {
+      return {
+        status: 'blocked',
+        target: container,
+        operation: 'docker stop/start',
+        startedAt,
+        completedAt: nowIso(),
+        error: stopped.error
+      }
+    }
+
+    const unavailableStarted = performance.now()
+    const unavailableStartedAt = nowIso()
+    const impact = await runProbeResult('redis-restart unavailable window', [
+      '/api/binary/system/seo',
+      '/api/binary/auth/pow-challenge'
+    ], { iterations: 2, concurrency: 1 })
+    const startedAgain = runDocker(['start', container])
+    const unavailableDurationMs = elapsedMs(unavailableStarted)
+    if (!startedAgain.ok) {
+      return {
+        status: 'failed',
+        target: container,
+        operation: 'docker stop/start',
+        startedAt,
+        completedAt: nowIso(),
+        unavailableStartedAt,
+        unavailableDurationMs,
+        duringWindow: impact,
+        error: startedAgain.error
+      }
+    }
+
+    return {
+      ...common,
+      operation: 'docker stop/start',
+      completedAt: nowIso(),
+      durationMs: elapsedMs(started),
+      unavailableStartedAt,
+      unavailableDurationMs,
+      duringWindow: impact,
+      stopOutput: stopped.stdout,
+      startOutput: startedAgain.stdout
+    }
+  }
+
+  if (caseName === 'redis-reconnect') {
+    const killed = runRedisCli(container, ['CLIENT', 'KILL', 'TYPE', 'normal'])
+    if (!killed.ok) {
+      return {
+        status: 'blocked',
+        target: container,
+        operation: 'redis-cli CLIENT KILL TYPE normal',
+        startedAt,
+        completedAt: nowIso(),
+        error: killed.error
+      }
+    }
+
+    const impact = await runProbeResult('redis-reconnect window', [
+      '/api/binary/system/seo',
+      '/api/binary/auth/pow-challenge'
+    ], { iterations: 2, concurrency: 1 })
+    return {
+      ...common,
+      operation: 'redis-cli CLIENT KILL TYPE normal',
+      completedAt: nowIso(),
+      durationMs: elapsedMs(started),
+      unavailableDurationMs: 0,
+      duringWindow: impact,
+      killedClients: Number.parseInt(killed.stdout, 10),
+      output: killed.stdout
+    }
+  }
+
+  if (caseName === 'redis-latency') {
+    const pauseMs = positiveInt(process.env.FSUSBLOG_REDIS_LATENCY_PAUSE_MS, 1200)
+    const paused = runRedisCli(container, ['CLIENT', 'PAUSE', String(pauseMs), 'ALL'])
+    if (!paused.ok) {
+      return {
+        status: 'blocked',
+        target: container,
+        operation: 'redis-cli CLIENT PAUSE',
+        startedAt,
+        completedAt: nowIso(),
+        unavailableDurationMs: pauseMs,
+        error: paused.error
+      }
+    }
+
+    const impact = await runProbeResult('redis-latency window', [
+      '/api/binary/system/seo',
+      '/api/binary/auth/pow-challenge'
+    ], { iterations: 2, concurrency: 1 })
+    return {
+      ...common,
+      operation: 'redis-cli CLIENT PAUSE',
+      completedAt: nowIso(),
+      durationMs: elapsedMs(started),
+      unavailableDurationMs: pauseMs,
+      duringWindow: impact,
+      pauseMs,
+      output: paused.stdout
+    }
+  }
+
+  return {
+    status: 'blocked',
+    target: container,
+    operation: 'unknown redis action',
+    startedAt,
+    completedAt: nowIso(),
+    reason: `no controlled Redis action implemented for ${caseName}`
+  }
+}
+
+async function runRedisFaultCase(caseName) {
+  let before = null
+  let action = { status: 'blocked', reason: `no controlled Redis action implemented for ${caseName}` }
+  let recovery = null
+  let resultStatus = 'blocked'
+  let failure = null
+
+  try {
+    before = await runHttpProbe(['/api/binary/system/seo', '/api/binary/auth/pow-challenge'], { iterations: 2, concurrency: 1 })
+    const container = redisContainerName()
+    if (!container) {
+      action = { status: 'blocked', reason: 'redis container env missing' }
+    } else {
+      action = await executeRedisControlledAction(caseName, container)
+      if (action.status === 'executed') {
+        recovery = await waitForRedisRecovery()
+        resultStatus = 'completed'
+      } else {
+        resultStatus = action.status === 'failed' ? 'failed' : 'blocked'
+      }
+    }
+  } catch (error) {
+    resultStatus = 'failed'
+    failure = error instanceof Error ? error.message : String(error)
+  }
+
+  const finalHealth = recovery?.finalHealth ?? {
+    status: resultStatus,
+    error: failure ?? action.reason ?? action.error ?? 'recovery check missing'
+  }
+  const publicReadResult = recovery?.finalHealth?.publicReadResult ?? null
+  const recoveryDurationMs = recovery?.recoveryDurationMs ?? null
+  return {
+    status: resultStatus,
+    case: caseName,
+    namespace,
+    actionStatus: action.status,
+    actionStartedAt: action.startedAt ?? null,
+    actionCompletedAt: action.completedAt ?? null,
+    unavailableDurationMs: action.unavailableDurationMs ?? null,
+    recoveryDurationMs,
+    publicReadResult,
+    authenticatedImpact: recovery?.finalHealth?.authenticatedImpact ?? null,
+    notificationStreamImpact: recovery?.finalHealth?.notificationStreamImpact ?? null,
+    preCheck: before
+      ? { status: 'completed', p95Ms: before.latencyMs.p95, sampleCount: before.sampleCount }
+      : { status: 'failed', error: failure ?? 'pre-check was not completed' },
+    controlledAction: action,
+    recoveryCheck: recovery
+      ? {
+          status: recovery.status,
+          startedAt: recovery.startedAt,
+          completedAt: recovery.completedAt,
+          recoveryDurationMs,
+          attempts: recovery.attempts.length
+        }
+      : { status: action.status === 'executed' ? 'failed' : 'blocked', error: failure ?? action.reason ?? action.error ?? 'controlled action was not executed' },
+    timeline: [
+      ...(before ? [{ event: 'pre-check', generatedAt: before.generatedAt, p95Ms: before.latencyMs.p95 }] : []),
+      { event: 'controlled-action', generatedAt: action.startedAt ?? nowIso(), status: action.status },
+      ...(action.duringWindow ? [{ event: 'during-unavailable-window', generatedAt: action.duringWindow.completedAt, status: action.duringWindow.status }] : []),
+      ...(recovery ? [{ event: 'recovery-check', generatedAt: recovery.completedAt, recoveryDurationMs }] : [])
+    ],
+    errorRate: action.duringWindow?.status === 'failed' ? 1 : 0,
+    recoveryTimeMs: recoveryDurationMs,
+    dataConsistency: resultStatus === 'completed' ? 'runtime-probe-ok' : 'not-verified',
+    resourceMetrics: {
+      redisContainer: redisContainerName() || null
+    },
+    finalHealth,
+    finalHealthSnapshot: finalHealth,
+    generatedAt: recovery?.completedAt ?? nowIso()
+  }
+}
+
+async function runBlockedFaultCase(caseName) {
+  let before = null
+  let failure = null
+  try {
+    before = await runHttpProbe(['/api/binary/system/seo'], { iterations: 2, concurrency: 1 })
+  } catch (error) {
+    failure = error instanceof Error ? error.message : String(error)
+  }
+
+  const action = { status: 'blocked', reason: `no controlled action implemented for ${caseName}` }
+  return {
+    status: failure ? 'failed' : 'blocked',
+    case: caseName,
+    namespace,
+    actionStatus: action.status,
+    preCheck: before
+      ? { status: 'completed', p95Ms: before.latencyMs.p95, sampleCount: before.sampleCount }
+      : { status: 'failed', error: failure ?? 'pre-check was not completed' },
+    controlledAction: action,
+    recoveryCheck: { status: 'blocked', error: action.reason },
+    timeline: [
+      ...(before ? [{ event: 'pre-check', generatedAt: before.generatedAt, p95Ms: before.latencyMs.p95 }] : []),
+      { event: 'controlled-action', generatedAt: nowIso(), status: action.status }
+    ],
+    errorRate: 1,
+    recoveryTimeMs: null,
+    dataConsistency: 'not-verified',
+    resourceMetrics: {},
+    finalHealth: { status: failure ? 'failed' : 'blocked', error: failure ?? action.reason },
+    finalHealthSnapshot: null,
+    generatedAt: nowIso()
+  }
+}
+
+function faultCaseSummary(item) {
+  return {
+    case: item.case,
+    status: item.status,
+    actionStatus: item.actionStatus,
+    actionStartedAt: item.actionStartedAt ?? item.controlledAction?.startedAt ?? null,
+    actionCompletedAt: item.actionCompletedAt ?? item.controlledAction?.completedAt ?? null,
+    unavailableDurationMs: item.unavailableDurationMs ?? item.controlledAction?.unavailableDurationMs ?? null,
+    recoveryDurationMs: item.recoveryDurationMs ?? item.recoveryTimeMs ?? null,
+    recoveryTimeMs: item.recoveryTimeMs,
+    publicReadResult: item.publicReadResult
+      ? {
+          status: item.publicReadResult.status,
+          sampleCount: item.publicReadResult.runtime?.sampleCount ?? null,
+          p95Ms: item.publicReadResult.runtime?.p95Ms ?? null
+        }
+      : null,
+    authenticatedImpact: item.authenticatedImpact
+      ? { status: item.authenticatedImpact.status }
+      : null,
+    notificationStreamImpact: item.notificationStreamImpact
+      ? { status: item.notificationStreamImpact.status }
+      : null,
+    finalHealthStatus: item.finalHealth?.status ?? null
+  }
 }
 
 async function backendQps(mode, outFile) {
@@ -344,72 +799,16 @@ async function dataScale(tier, outFile) {
 }
 
 async function faultInjection(outDir) {
-  const cases = ['redis-restart', 'redis-latency', 'postgres-readiness', 'notification-stream-slow-consumer', 'graceful-shutdown']
+  const redisCases = new Set(['redis-restart', 'redis-reconnect', 'redis-latency'])
+  const cases = ['redis-restart', 'redis-reconnect', 'redis-latency', 'postgres-readiness', 'notification-stream-slow-consumer', 'graceful-shutdown']
   fs.mkdirSync(outDir, { recursive: true })
   const results = []
   for (const caseName of cases) {
     const caseDir = path.join(outDir, caseName)
     fs.mkdirSync(path.join(caseDir, 'logs'), { recursive: true })
-    let before = null
-    let after = null
-    let action = { status: 'blocked', reason: `no controlled action implemented for ${caseName}` }
-    let resultStatus = 'blocked'
-    let failure = null
-
-    try {
-      before = await runHttpProbe(['/api/binary/system/seo'], { iterations: 2, concurrency: 1 })
-      if (caseName === 'redis-restart') {
-        const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER_NAME || process.env.FSUSBLOG_REDIS_CONTAINER || ''
-        if (!redisContainer) {
-          action = { status: 'blocked', reason: 'redis container env missing' }
-        } else {
-          const restarted = runDocker(['restart', redisContainer])
-          action = restarted.ok
-            ? { status: 'executed', target: redisContainer, operation: 'docker restart' }
-            : { status: 'blocked', target: redisContainer, error: restarted.error }
-          if (restarted.ok) {
-            await sleep(2000)
-          }
-        }
-      }
-
-      if (action.status === 'executed') {
-        after = await runHttpProbe(['/api/binary/system/seo', '/api/binary/article/list/home/1/10.aeds'], { iterations: 3, concurrency: 1 })
-        resultStatus = 'completed'
-      }
-    } catch (error) {
-      resultStatus = 'failed'
-      failure = error instanceof Error ? error.message : String(error)
-    }
-
-    const recoveryTimeMs = after?.latencyMs?.p95 ?? null
-    const result = {
-      status: resultStatus,
-      case: caseName,
-      namespace,
-      actionStatus: action.status,
-      preCheck: before
-        ? { status: 'completed', p95Ms: before.latencyMs.p95, sampleCount: before.sampleCount }
-        : { status: 'failed', error: failure ?? 'pre-check was not completed' },
-      controlledAction: action,
-      recoveryCheck: after
-        ? { status: 'completed', p95Ms: after.latencyMs.p95, sampleCount: after.sampleCount }
-        : { status: action.status === 'executed' ? 'failed' : 'blocked', error: failure ?? action.reason ?? action.error ?? 'controlled action was not executed' },
-      timeline: [
-        ...(before ? [{ event: 'pre-check', generatedAt: before.generatedAt, p95Ms: before.latencyMs.p95 }] : []),
-        { event: 'controlled-action', generatedAt: new Date().toISOString(), status: action.status },
-        ...(after ? [{ event: 'recovery-check', generatedAt: after.generatedAt, p95Ms: after.latencyMs.p95 }] : [])
-      ],
-      errorRate: resultStatus === 'completed' ? 0 : 1,
-      recoveryTimeMs,
-      dataConsistency: resultStatus === 'completed' ? 'runtime-probe-ok' : 'not-verified',
-      resourceMetrics: {},
-      finalHealth: after
-        ? { status: 'healthy', runtime: after }
-        : { status: resultStatus, error: failure ?? action.reason ?? action.error ?? 'recovery check missing' },
-      finalHealthSnapshot: after,
-      generatedAt: after?.generatedAt ?? new Date().toISOString()
-    }
+    const result = redisCases.has(caseName)
+      ? await runRedisFaultCase(caseName)
+      : await runBlockedFaultCase(caseName)
     writeJson(path.join(caseDir, 'summary.json'), result)
     writeJson(path.join(caseDir, 'timeline.json'), result.timeline)
     results.push(result)
@@ -424,12 +823,7 @@ async function faultInjection(outDir) {
     namespace,
     caseCount: results.length,
     generatedAt: new Date().toISOString(),
-    cases: results.map((item) => ({
-      case: item.case,
-      status: item.status,
-      actionStatus: item.actionStatus,
-      recoveryTimeMs: item.recoveryTimeMs
-    }))
+    cases: results.map(faultCaseSummary)
   })
   if (summaryStatus !== 'ok') {
     throw new Error(`fault-injection summary is ${summaryStatus}; all cases must complete real controlled actions`)

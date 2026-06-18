@@ -5,6 +5,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
+const requiredRedisFaultCases = ['redis-restart', 'redis-reconnect', 'redis-latency']
 
 function readJson(relativePath, optional = false) {
   const file = findEvidenceFile(relativePath)
@@ -68,6 +69,10 @@ function positiveNumber(value, label) {
   assert(typeof value === 'number' && Number.isFinite(value) && value > 0, `${label} must be > 0`)
 }
 
+function nonNegativeNumber(value, label) {
+  assert(typeof value === 'number' && Number.isFinite(value) && value >= 0, `${label} must be >= 0`)
+}
+
 function validateRuntimeProbe(probe, label) {
   assert(probe && typeof probe === 'object', `${label}.runtime missing`)
   assert(probe.measurementSource === 'runtime-http-probe', `${label}.runtime.measurementSource must be runtime-http-probe`)
@@ -124,13 +129,32 @@ function validateFaultInjectionSummary(summary, label) {
   assert(summary.status === 'ok', 'fault-injection.summary.status must be ok')
   positiveNumber(summary.caseCount, 'fault-injection.caseCount')
   assert(Array.isArray(summary.cases) && summary.cases.length === summary.caseCount, 'fault-injection.cases must match caseCount')
+  const caseNames = new Set(summary.cases.map((item) => item.case))
+  for (const required of requiredRedisFaultCases) {
+    assert(caseNames.has(required), `${label} must include ${required}`)
+  }
   for (const item of summary.cases) {
     assert(item.status === 'completed', `${label} ${item.case} must be completed`)
     assert(item.actionStatus === 'executed', `${label} ${item.case}.actionStatus must be executed`)
     assert(!['observed-only', 'scheduled'].includes(String(item.status)), `${label} ${item.case} must not be ${item.status}`)
     assert(!['observed-only', 'scheduled'].includes(String(item.actionStatus)), `${label} ${item.case}.actionStatus must not be ${item.actionStatus}`)
     positiveNumber(item.recoveryTimeMs, `fault-injection ${item.case}.recoveryTimeMs`)
+    if (requiredRedisFaultCases.includes(item.case)) {
+      validateRedisFaultCase(item, label)
+    }
   }
+}
+
+function validateRedisFaultCase(item, label) {
+  assert(typeof item.actionStartedAt === 'string' && item.actionStartedAt.length > 0, `${label} ${item.case}.actionStartedAt missing`)
+  assert(typeof item.actionCompletedAt === 'string' && item.actionCompletedAt.length > 0, `${label} ${item.case}.actionCompletedAt missing`)
+  nonNegativeNumber(item.unavailableDurationMs, `${label} ${item.case}.unavailableDurationMs`)
+  positiveNumber(item.recoveryDurationMs ?? item.recoveryTimeMs, `${label} ${item.case}.recoveryDurationMs`)
+  assert(item.publicReadResult?.status === 'completed', `${label} ${item.case}.publicReadResult must be completed`)
+  positiveNumber(item.publicReadResult?.sampleCount, `${label} ${item.case}.publicReadResult.sampleCount`)
+  assert(item.finalHealthStatus === 'healthy', `${label} ${item.case}.finalHealthStatus must be healthy`)
+  assert(item.authenticatedImpact && typeof item.authenticatedImpact.status === 'string', `${label} ${item.case}.authenticatedImpact missing`)
+  assert(item.notificationStreamImpact && typeof item.notificationStreamImpact.status === 'string', `${label} ${item.case}.notificationStreamImpact missing`)
 }
 
 function validateSoak() {
@@ -290,13 +314,21 @@ function runSelfTest() {
   assert(failedAsExpected, 'self-test scheduled fault-injection fixture must fail')
   validateFaultInjectionSummary({
     status: 'ok',
-    caseCount: 1,
-    cases: [{
-      case: 'redis-restart',
+    caseCount: 3,
+    cases: requiredRedisFaultCases.map((caseName, index) => ({
+      case: caseName,
       status: 'completed',
       actionStatus: 'executed',
-      recoveryTimeMs: 1
-    }]
+      actionStartedAt: `2026-06-18T00:00:0${index}Z`,
+      actionCompletedAt: `2026-06-18T00:00:1${index}Z`,
+      unavailableDurationMs: index,
+      recoveryDurationMs: 2 + index,
+      recoveryTimeMs: 2 + index,
+      publicReadResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+      authenticatedImpact: { status: 'not-configured' },
+      notificationStreamImpact: { status: 'not-configured' },
+      finalHealthStatus: 'healthy'
+    }))
   }, 'fault-injection-self-test')
   console.log('[evidence-metrics:self-test] ok')
 }
