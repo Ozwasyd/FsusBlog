@@ -4,11 +4,13 @@ import { describe, expect, it } from 'vitest'
 
 const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
 const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
+const vueTemplate = (source: string): string => source.match(/<template>([\s\S]*?)<\/template>/)?.[1] ?? ''
 
 describe('anonymous comment product rule contract', () => {
   const commentApi = readRepoFile('src/frontend/src/api/comment.ts')
   const detailComposable = readRepoFile('src/frontend/src/composables/useArticleDetailView.ts')
   const composer = readRepoFile('src/frontend/src/components/article/ArticleCommentComposer.vue')
+  const composerTemplate = vueTemplate(composer)
   const governance = readRepoFile('src/frontend/src/views/admin/moderation/AnonymousGovernancePlaceholder.vue')
 
   it('loads server CommentPolicySnapshot for article composer controls', () => {
@@ -30,11 +32,16 @@ describe('anonymous comment product rule contract', () => {
     expect(detailComposable).toContain("selectedAuthorMode === 'public' && !publicSendConfirmed.value")
     expect(detailComposable).toContain("selectedAuthorMode === 'anonymous' && !anonymousCommentsEnabled.value")
 
-    expect(composer).toContain('el-radio-button label="anonymous"')
-    expect(composer).toContain('el-radio-button label="public"')
-    expect(composer).toContain('el-checkbox')
-    expect(composer).toContain('我确认公开发送此评论')
-    expect(composer).toContain('匿名评论已被管理员关闭，当前只能公开发送。')
+    expect(composerTemplate).not.toContain('el-radio-button label="anonymous"')
+    expect(composerTemplate).not.toContain('el-radio-button label="public"')
+    expect(composerTemplate).not.toContain('zk_anonymous')
+    expect(composerTemplate).not.toContain('强匿名')
+    expect(composerTemplate.toLowerCase()).not.toContain('proof')
+    expect(composerTemplate).toContain('el-checkbox')
+    expect(composerTemplate).toContain('匿名发布')
+    expect(composerTemplate).toContain('公开显示我的名称')
+    expect(composerTemplate).toContain('公开发布后，其他人会看到你的公开名称。')
+    expect(composerTemplate).toContain('匿名发布暂不可用，可选择公开署名发布。')
 
     expect(governance).toContain("updatePolicy('anonymousCommentsEnabled'")
     expect(governance).toContain("updatePolicy('zkAnonymousEnabled'")

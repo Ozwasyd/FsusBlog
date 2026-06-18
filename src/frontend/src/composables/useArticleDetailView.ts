@@ -534,12 +534,12 @@ export function useArticleDetailView() {
 
     const selectedAuthorMode = resolveCommentAuthorModeForPolicy()
     if (selectedAuthorMode === 'anonymous' && !anonymousCommentsEnabled.value) {
-      showErrorToast('匿名评论已被管理员关闭，当前只能公开发送。')
+      showErrorToast('匿名发布暂不可用，可选择公开署名发布。')
       return
     }
 
     if (selectedAuthorMode === 'public' && !publicSendConfirmed.value) {
-      showErrorToast('公开发送前请先确认会展示你的公开身份。')
+      showErrorToast('请先勾选公开显示我的名称。')
       return
     }
 
@@ -549,7 +549,7 @@ export function useArticleDetailView() {
     }
 
     if (selectedAuthorMode === 'zk_anonymous' && !zkAnonymousEnabled.value) {
-      showErrorToast('强匿名证明暂未启用。')
+      showErrorToast('匿名发布暂不可用，请稍后再试。')
       return
     }
 

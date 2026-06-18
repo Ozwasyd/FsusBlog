@@ -11,44 +11,27 @@
     </div>
 
     <div class="mb-3 space-y-2 border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-3 py-3">
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <span class="text-xs font-semibold text-[var(--fsusblog-text-secondary)]">评论身份</span>
-        <el-radio-group
-          v-model="authorModeModel"
-          aria-label="选择评论身份"
-          size="small"
-        >
-          <el-radio-button label="anonymous" :disabled="anonymousControlsDisabled">匿名优先</el-radio-button>
-          <el-radio-button label="public" :disabled="!publicCommentsEnabled">公开发送</el-radio-button>
-          <el-radio-button v-if="zkAnonymousEnabled" label="zk_anonymous">强匿名</el-radio-button>
-        </el-radio-group>
-      </div>
-
-      <p v-if="anonymousControlsDisabled" class="text-xs text-[var(--fsusblog-text-muted)]">
-        匿名评论已被管理员关闭，当前只能公开发送。
-      </p>
-
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div class="space-y-1">
+          <span class="text-xs font-semibold text-[var(--fsusblog-text-secondary)]">评论身份</span>
+          <div class="flex flex-wrap items-center gap-2">
+            <el-tag v-if="anonymousCommentsEnabled" size="small" type="info">匿名发布</el-tag>
+            <el-tag v-else size="small" type="warning">匿名发布暂不可用</el-tag>
+          </div>
+        </div>
         <el-checkbox
-          v-if="authorModeModel === 'public'"
-          v-model="publicSendConfirmedModel"
-          :disabled="!publicCommentsEnabled"
+          v-model="publicIdentityModel"
+          :disabled="publicIdentityDisabled"
         >
-          我确认公开发送此评论
+          公开显示我的名称
         </el-checkbox>
-
-        <el-radio-group
-          v-model="displayLanguageModel"
-          aria-label="匿名展示语言"
-          size="small"
-        >
-          <el-radio-button label="zh-CN">中文</el-radio-button>
-          <el-radio-button label="en">English</el-radio-button>
-        </el-radio-group>
       </div>
 
-      <p v-if="authorModeModel === 'zk_anonymous'" class="text-xs text-[var(--fsusblog-text-muted)]">
-        强匿名证明按站点策略启用后可用。
+      <p v-if="anonymousUnavailableMessage" class="text-xs text-[var(--fsusblog-text-muted)]">
+        匿名发布暂不可用，可选择公开署名发布。
+      </p>
+      <p v-if="publicIdentityModel" class="text-xs text-[var(--fsusblog-text-muted)]">
+        公开发布后，其他人会看到你的公开名称。
       </p>
     </div>
 
@@ -141,35 +124,32 @@ const contentModel = computed({
   set: (value: string) => emit('update:modelValue', value)
 })
 
-const anonymousControlsDisabled = computed(() => !props.anonymousCommentsEnabled)
+const anonymousUnavailableMessage = computed(() => !props.anonymousCommentsEnabled && props.publicCommentsEnabled)
 
-const authorModeModel = computed<CommentAuthorMode>({
-  get: () => {
-    if (props.authorMode === 'anonymous' && !anonymousControlsDisabled.value) {
-      return 'anonymous'
-    }
-    if (props.authorMode === 'zk_anonymous' && props.zkAnonymousEnabled) {
-      return 'zk_anonymous'
-    }
+const authorModeModel = computed<CommentAuthorMode>(() => {
+  if (props.authorMode === 'public') {
     return 'public'
-  },
-  set: (value: CommentAuthorMode) => {
-    emit('update:authorMode', value)
-    if (value !== 'public') {
-      emit('update:publicSendConfirmed', false)
+  }
+  if (props.authorMode === 'zk_anonymous' && props.zkAnonymousEnabled) {
+    return 'zk_anonymous'
+  }
+  return props.anonymousCommentsEnabled ? 'anonymous' : 'public'
+})
+
+const publicIdentityModel = computed({
+  get: () => authorModeModel.value === 'public' && props.publicSendConfirmed,
+  set: (value: boolean) => {
+    if (value && !props.publicCommentsEnabled) {
+      return
     }
+    emit('update:authorMode', value ? 'public' : 'anonymous')
+    emit('update:publicSendConfirmed', value)
   }
 })
 
-const publicSendConfirmedModel = computed({
-  get: () => props.publicSendConfirmed,
-  set: (value: boolean) => emit('update:publicSendConfirmed', value)
-})
-
-const displayLanguageModel = computed<CommentDisplayLanguage>({
-  get: () => props.displayLanguage,
-  set: (value: CommentDisplayLanguage) => emit('update:displayLanguage', value)
-})
+const publicIdentityDisabled = computed(() =>
+  props.isBanned || props.isPowCalculating || props.isSubmitting || !props.publicCommentsEnabled
+)
 
 const composerUi = computed(() =>
   createCommentComposerUiContract(props.redirectPath, {
@@ -178,7 +158,7 @@ const composerUi = computed(() =>
     isSubmitting: props.isSubmitting,
     hasContent: Boolean(contentModel.value.trim()),
     authorMode: authorModeModel.value,
-    publicSendConfirmed: publicSendConfirmedModel.value,
+    publicSendConfirmed: publicIdentityModel.value,
     anonymousCommentsEnabled: props.anonymousCommentsEnabled,
     publicCommentsEnabled: props.publicCommentsEnabled,
     zkAnonymousEnabled: props.zkAnonymousEnabled

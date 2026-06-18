@@ -4,11 +4,13 @@ import { describe, expect, it } from 'vitest'
 
 const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
 const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
+const vueTemplate = (source: string): string => source.match(/<template>([\s\S]*?)<\/template>/)?.[1] ?? ''
 
 describe('anonymous identity cold-start quality gates', () => {
   const workspaceContext = readRepoFile('src/frontend/src/layouts/accountWorkspaceContext.ts')
   const accountNav = readRepoFile('src/frontend/src/layouts/accountNav.ts')
   const composer = readRepoFile('src/frontend/src/components/article/ArticleCommentComposer.vue')
+  const composerTemplate = vueTemplate(composer)
   const detailComposable = readRepoFile('src/frontend/src/composables/useArticleDetailView.ts')
   const composerContract = readRepoFile('src/frontend/src/view-contracts/commentDetail.ts')
   const commentApi = readRepoFile('src/frontend/src/api/comment.ts')
@@ -45,12 +47,17 @@ describe('anonymous identity cold-start quality gates', () => {
     expect(detailComposable).toContain('displayLanguage: commentDisplayLanguage.value')
     expect(detailComposable).toContain("commentAuthorMode.value = anonymousCommentsEnabled.value ? 'anonymous' : 'public'")
 
-    expect(composer).toContain('el-radio-group')
-    expect(composer).toContain('el-radio-button label="anonymous"')
-    expect(composer).toContain('el-radio-button label="public"')
-    expect(composer).toContain('el-checkbox')
-    expect(composer).toContain('我确认公开发送此评论')
-    expect(composer).toContain('匿名评论已被管理员关闭')
+    expect(composerTemplate).not.toContain('el-radio-group')
+    expect(composerTemplate).not.toContain('el-radio-button label="anonymous"')
+    expect(composerTemplate).not.toContain('el-radio-button label="public"')
+    expect(composerTemplate).not.toContain('zk_anonymous')
+    expect(composerTemplate).not.toContain('强匿名')
+    expect(composerTemplate.toLowerCase()).not.toContain('proof')
+    expect(composerTemplate).toContain('el-checkbox')
+    expect(composerTemplate).toContain('匿名发布')
+    expect(composerTemplate).toContain('公开显示我的名称')
+    expect(composerTemplate).toContain('公开发布后，其他人会看到你的公开名称。')
+    expect(composerTemplate).toContain('匿名发布暂不可用，可选择公开署名发布。')
 
     expect(composerContract).toContain('publicBlocked')
     expect(composerContract).toContain('anonymousBlocked')
@@ -69,7 +76,7 @@ describe('anonymous identity cold-start quality gates', () => {
       ['CommentCreateV2Request', 166],
       ['CommentAuthorView', 167]
     ] as const) {
-      expect(frameTypes).toContain(`${name} = ${value}`)
+      expect(frameTypes).toContain(`${name}: ${value}`)
     }
 
     expect(binaryIndex).toContain('[FrameType.RecoveryKeyCreateResponse]: mapRecoveryKeyCreateResponseFromPayload')
