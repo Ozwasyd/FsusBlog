@@ -264,9 +264,33 @@ function shortSoakOk(manifest, context) {
   const report = readArtifactJson(manifest, context, 'soak', 'short/summary.json')
   return report?.status === 'ok'
     && report.mode === 'short'
+    && report.executionMode === 'runtime'
+    && report.countsAsReleaseFinal === true
     && Number(report.durationSeconds ?? 0) > 0
     && Number(report.sampleCount ?? 0) > 0
     && Number(report.latencyMs?.p95 ?? 0) > 0
+    && Number(report.latencyMs?.p99 ?? 0) > 0
+    && Number.isFinite(report.errorRate)
+    && Number(report.errorRate) >= 0
+    && soakResourceEvidenceOk(report)
+}
+
+function soakResourceEvidenceOk(report) {
+  const resourceSummary = report?.resourceMetricSummary
+  if (!resourceSummary || typeof resourceSummary !== 'object') return false
+  const metrics = Array.isArray(resourceSummary.metrics) ? resourceSummary.metrics : []
+  const unavailable = Array.isArray(resourceSummary.unavailableMetrics) ? resourceSummary.unavailableMetrics : []
+  const metricOk = metrics.some((metric) =>
+    typeof metric?.name === 'string'
+      && metric.name.length > 0
+      && Number.isFinite(metric.startValue)
+      && Number.isFinite(metric.endValue)
+      && Number.isFinite(metric.maxValue)
+      && Number.isFinite(metric.delta))
+  const unavailableOk = unavailable.some((metric) =>
+    typeof metric?.reason === 'string'
+      && metric.reason.length > 0)
+  return metricOk || unavailableOk
 }
 
 function releaseResourceSummaryOk(manifest, context, artifactKey) {
@@ -648,13 +672,30 @@ function runSelfTest() {
     ]
   }))
   fs.mkdirSync(path.join(tmpDir, 'soak', 'short'), { recursive: true })
-  fs.writeFileSync(path.join(tmpDir, 'soak', 'short', 'summary.json'), JSON.stringify({
+  const validShortSoakSummary = {
     status: 'ok',
     mode: 'short',
+    executionMode: 'runtime',
+    countsAsReleaseFinal: true,
     durationSeconds: 1,
     sampleCount: 1,
-    latencyMs: { p95: 1 }
-  }))
+    latencyMs: { p95: 1, p99: 1 },
+    errorRate: 0,
+    resourceMetricSummary: {
+      status: 'ok',
+      metrics: [{
+        name: 'backend_rss_bytes',
+        unit: 'bytes',
+        startValue: 100,
+        endValue: 104,
+        maxValue: 104,
+        delta: 4,
+        status: 'observed'
+      }],
+      unavailableMetrics: []
+    }
+  }
+  fs.writeFileSync(path.join(tmpDir, 'soak', 'short', 'summary.json'), JSON.stringify(validShortSoakSummary))
   const resourceSummary = {
     status: 'ok',
     metrics: [{
@@ -684,6 +725,20 @@ function runSelfTest() {
   if (!ok.ok) {
     fail(`self-test expected ok manifest to pass: ${ok.errors.join('; ')}`)
   }
+
+  fs.writeFileSync(path.join(tmpDir, 'soak', 'short', 'summary.json'), JSON.stringify({
+    status: 'ok',
+    mode: 'short',
+    durationSeconds: 1,
+    sampleCount: 1,
+    latencyMs: { p95: 1, p99: 1 },
+    errorRate: 0
+  }))
+  const missingShortSoakResource = validateManifest(base, { manifestPath: manifestFile })
+  if (missingShortSoakResource.ok) {
+    fail('self-test expected short soak without resource evidence to fail')
+  }
+  fs.writeFileSync(path.join(tmpDir, 'soak', 'short', 'summary.json'), JSON.stringify(validShortSoakSummary))
 
   fs.writeFileSync(path.join(tmpDir, 'backupRestoreDrill.json'), JSON.stringify({
     status: 'ok',

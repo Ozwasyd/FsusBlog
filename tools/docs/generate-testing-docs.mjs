@@ -47,7 +47,9 @@ const groupDefinitions = [
       'backend-benchmark-regression',
       'browser-performance-regression',
       'fault-injection',
-      'soak',
+      'soak-short-runtime',
+      'soak-long-scheduled',
+      'soak-long-evidence-import',
       'ux-viewport-visual',
       'ux-viewport-boundaries'
     ].includes(tier.id)

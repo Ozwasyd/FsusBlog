@@ -240,9 +240,17 @@ short_soak_status_or_missing() {
   semantic_status_or_missing "$1" '
     (.status == "ok")
     and (.mode == "short")
+    and (.executionMode == "runtime")
+    and (.countsAsReleaseFinal == true)
     and ((.durationSeconds // 0) > 0)
     and ((.sampleCount // 0) > 0)
     and ((.latencyMs.p95 // 0) > 0)
+    and ((.latencyMs.p99 // 0) > 0)
+    and ((.errorRate // -1) >= 0)
+    and (
+      (((.resourceMetricSummary.metrics // []) | length) > 0)
+      or any((.resourceMetricSummary.unavailableMetrics // [])[]?; ((.reason // "") | length) > 0)
+    )
   '
 }
 

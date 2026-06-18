@@ -477,7 +477,36 @@ cat > "$FAULT_DIR/summary.json" <<'JSON'
   ]
 }
 JSON
-printf '{"status":"ok","mode":"short","durationSeconds":1,"sampleCount":1,"latencyMs":{"p95":1}}\n' > "$SOAK_DIR/short/summary.json"
+cat > "$SOAK_DIR/short/summary.json" <<'JSON'
+{
+  "status": "ok",
+  "mode": "short",
+  "executionMode": "runtime",
+  "countsAsReleaseFinal": true,
+  "durationSeconds": 1,
+  "sampleCount": 1,
+  "latencyMs": {
+    "p95": 1,
+    "p99": 1
+  },
+  "errorRate": 0,
+  "resourceMetricSummary": {
+    "status": "ok",
+    "metrics": [
+      {
+        "name": "backend_rss_bytes",
+        "unit": "bytes",
+        "startValue": 100,
+        "endValue": 104,
+        "maxValue": 104,
+        "delta": 4,
+        "status": "observed"
+      }
+    ],
+    "unavailableMetrics": []
+  }
+}
+JSON
 
 FSUSBLOG_RELEASE_STAMP=fixture \
 FSUSBLOG_RELEASE_EVIDENCE_DIR="$OUT_DIR" \

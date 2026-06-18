@@ -909,6 +909,114 @@ function buildResourceMetric(config, target, start, end) {
   }
 }
 
+function buildSoakResourceMetric(config, target, start, end) {
+  const readings = [
+    { phase: 'start', ...start },
+    { phase: 'end', ...end }
+  ]
+  const missing = readings.filter((reading) => reading.status !== 'ok')
+  if (missing.length > 0) {
+    return {
+      metric: null,
+      unavailable: missing.map((reading) => ({
+        name: config.name,
+        phase: reading.phase,
+        reason: reading.reason ?? `${config.name} unavailable`
+      }))
+    }
+  }
+
+  const startValue = start.value
+  const endValue = end.value
+  return {
+    metric: {
+      name: config.name,
+      unit: config.unit,
+      startValue,
+      endValue,
+      maxValue: Math.max(startValue, endValue),
+      delta: endValue - startValue,
+      status: 'observed',
+      source: {
+        pid: target.pid,
+        discovery: target.source,
+        start: start.source,
+        end: end.source
+      }
+    },
+    unavailable: []
+  }
+}
+
+function readSoakResourceReadings(target) {
+  return {
+    backend_rss_bytes: readProcessRssBytes(target.pid),
+    backend_open_file_descriptors: readProcessOpenFileDescriptors(target.pid)
+  }
+}
+
+function buildSoakUnavailableResourceSummary(reason) {
+  return {
+    status: 'unavailable',
+    metrics: [],
+    unavailableMetrics: [{
+      name: 'backend_process',
+      reason
+    }]
+  }
+}
+
+function buildSoakResourceSummary(target, start, end) {
+  if (target.status !== 'ok') {
+    return buildSoakUnavailableResourceSummary(target.reason ?? 'backend process unavailable')
+  }
+
+  const configs = [
+    releaseResourceModeConfig('memory-leak'),
+    releaseResourceModeConfig('open-handle')
+  ]
+  const metrics = []
+  const unavailableMetrics = []
+  for (const config of configs) {
+    const { metric, unavailable } = buildSoakResourceMetric(
+      config,
+      target,
+      start[config.name],
+      end[config.name]
+    )
+    if (metric) metrics.push(metric)
+    unavailableMetrics.push(...unavailable)
+  }
+
+  return {
+    status: metrics.length > 0 && unavailableMetrics.length === 0
+      ? 'ok'
+      : metrics.length > 0
+        ? 'partial'
+        : 'unavailable',
+    metrics,
+    unavailableMetrics
+  }
+}
+
+function soakResourceCurve(resourceMetricSummary) {
+  const byName = Object.fromEntries((resourceMetricSummary.metrics ?? []).map((metric) => [metric.name, metric]))
+  return {
+    rssDeltaBytes: byName.backend_rss_bytes?.delta ?? null,
+    rssMaxBytes: byName.backend_rss_bytes?.maxValue ?? null,
+    openFileDescriptorDelta: byName.backend_open_file_descriptors?.delta ?? null,
+    openFileDescriptorMax: byName.backend_open_file_descriptors?.maxValue ?? null,
+    rssSlope: null,
+    managedHeapSlope: null,
+    gcPauseMsP99: null,
+    threadCountMax: null,
+    socketCountMax: null,
+    dbPoolSaturationMs: null,
+    redisLatencyP99Ms: null,
+    notificationStreamReconnectSuccessRate: null
+  }
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -3609,43 +3717,73 @@ async function faultInjection(outDir) {
 
 async function soak(mode, outFile) {
   if (mode !== 'short') {
+    const importFile = process.env.FSUSBLOG_SOAK_LONG_EVIDENCE_FILE
+    if (importFile) {
+      const resolvedImportFile = path.resolve(root, importFile)
+      const imported = readOptionalJson(resolvedImportFile)
+      if (!imported) {
+        throw new Error(`long soak imported evidence file not found: ${resolvedImportFile}`)
+      }
+      if (imported.mode !== mode) {
+        throw new Error(`long soak imported evidence mode mismatch: expected ${mode}, got ${imported.mode}`)
+      }
+      writeJson(outFile, {
+        ...imported,
+        status: 'ok',
+        mode,
+        executionMode: 'imported',
+        countsAsReleaseFinal: true,
+        generatedAt: new Date().toISOString(),
+        importedEvidence: {
+          source: path.relative(root, resolvedImportFile),
+          importedAt: new Date().toISOString()
+        }
+      })
+      return
+    }
+
     writeJson(outFile, {
       status: 'scheduled',
       mode,
+      executionMode: 'scheduled',
+      countsAsReleaseFinal: false,
       namespace,
       reason: 'long soak modes are scheduled/manual only',
       generatedAt: new Date().toISOString()
     })
+    if (process.env.FSUSBLOG_SOAK_REQUIRE_IMPORTED_EVIDENCE === '1') {
+      throw new Error(`long soak ${mode} requires FSUSBLOG_SOAK_LONG_EVIDENCE_FILE`)
+    }
     return
   }
   const durationSeconds = positiveInt(process.env.FSUSBLOG_SOAK_SHORT_SECONDS, 300)
   const intervalMs = positiveInt(process.env.FSUSBLOG_SOAK_INTERVAL_MS, 5000)
   const deadline = Date.now() + durationSeconds * 1000
   const probes = []
+  const target = discoverBackendProcessTarget()
+  const startResources = target.status === 'ok' ? readSoakResourceReadings(target) : null
   do {
     probes.push(await runHttpProbe(safeBinaryPaths, { iterations: 4, concurrency: 2 }))
     if (Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, Math.min(intervalMs, Math.max(0, deadline - Date.now()))))
     }
   } while (Date.now() < deadline)
+  const endResources = target.status === 'ok' ? readSoakResourceReadings(target) : null
+  const resourceMetricSummary = target.status === 'ok'
+    ? buildSoakResourceSummary(target, startResources, endResources)
+    : buildSoakUnavailableResourceSummary(target.reason ?? 'backend process unavailable')
   const latencies = probes.flatMap((probe) => [probe.latencyMs.p50, probe.latencyMs.p95, probe.latencyMs.p99].filter((value) => value !== null))
   writeJson(outFile, {
     status: 'ok',
     mode,
+    executionMode: 'runtime',
+    countsAsReleaseFinal: true,
     namespace,
     scenarios: ['mixed-public-read', 'cache-churn', 'public-binary-contract'],
     durationSeconds,
     sampleCount: probes.reduce((total, probe) => total + probe.sampleCount, 0),
-    resourceCurve: {
-      rssSlope: null,
-      managedHeapSlope: null,
-      gcPauseMsP99: null,
-      threadCountMax: null,
-      socketCountMax: null,
-      dbPoolSaturationMs: null,
-      redisLatencyP99Ms: null,
-      notificationStreamReconnectSuccessRate: null
-    },
+    resourceMetricSummary,
+    resourceCurve: soakResourceCurve(resourceMetricSummary),
     latencyMs: {
       p50: percentile(latencies, 50),
       p95: percentile(latencies, 95),

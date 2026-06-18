@@ -466,6 +466,57 @@ function validateDiskArtifactFaultCase(item, label) {
   assert(item.finalHealthStatus === 'healthy', `${label} ${item.case}.finalHealthStatus must be healthy`)
 }
 
+function validateSoakResourceMetric(metric, label) {
+  assert(metric && typeof metric === 'object', `${label} missing`)
+  assert(typeof metric.name === 'string' && metric.name.length > 0, `${label}.name missing`)
+  for (const field of ['startValue', 'endValue', 'maxValue', 'delta']) {
+    assert(typeof metric[field] === 'number' && Number.isFinite(metric[field]), `${label}.${field} must be a finite number`)
+  }
+  assert(typeof metric.unit === 'string' && metric.unit.length > 0, `${label}.unit missing`)
+  assert(typeof metric.status === 'string' && metric.status.length > 0, `${label}.status missing`)
+}
+
+function validateSoakResourceEvidence(summary, label) {
+  const resourceSummary = summary.resourceMetricSummary
+  assert(resourceSummary && typeof resourceSummary === 'object', `${label}.resourceMetricSummary missing`)
+  const metrics = Array.isArray(resourceSummary.metrics) ? resourceSummary.metrics : []
+  const unavailable = Array.isArray(resourceSummary.unavailableMetrics) ? resourceSummary.unavailableMetrics : []
+  for (const [index, metric] of metrics.entries()) {
+    validateSoakResourceMetric(metric, `${label}.resourceMetricSummary.metrics[${index}]`)
+  }
+  for (const [index, metric] of unavailable.entries()) {
+    assert(typeof metric.reason === 'string' && metric.reason.length > 0, `${label}.resourceMetricSummary.unavailableMetrics[${index}].reason missing`)
+  }
+  assert(metrics.length > 0 || unavailable.length > 0, `${label}.resourceMetricSummary must include metrics or unavailable reasons`)
+}
+
+function validateShortSoakSummary(summary, label) {
+  assert(summary.status === 'ok', `${label}.status must be ok`)
+  assert(summary.mode === 'short', `${label}.mode must be short`)
+  assert(summary.executionMode === 'runtime', `${label}.executionMode must be runtime`)
+  assert(summary.countsAsReleaseFinal === true, `${label}.countsAsReleaseFinal must be true`)
+  positiveNumber(summary.durationSeconds, `${label}.durationSeconds`)
+  positiveNumber(summary.sampleCount, `${label}.sampleCount`)
+  positiveNumber(summary.latencyMs?.p95, `${label}.latencyMs.p95`)
+  positiveNumber(summary.latencyMs?.p99, `${label}.latencyMs.p99`)
+  nonNegativeNumber(summary.errorRate, `${label}.errorRate`)
+  validateSoakResourceEvidence(summary, label)
+}
+
+function validateImportedLongSoakSummary(summary, label, mode) {
+  assert(summary.status === 'ok', `${label}.status must be ok`)
+  assert(summary.mode === mode, `${label}.mode must be ${mode}`)
+  assert(summary.executionMode === 'imported', `${label}.executionMode must be imported`)
+  assert(summary.countsAsReleaseFinal === true, `${label}.countsAsReleaseFinal must be true`)
+  positiveNumber(summary.durationSeconds, `${label}.durationSeconds`)
+  positiveNumber(summary.sampleCount, `${label}.sampleCount`)
+  positiveNumber(summary.latencyMs?.p95, `${label}.latencyMs.p95`)
+  positiveNumber(summary.latencyMs?.p99, `${label}.latencyMs.p99`)
+  nonNegativeNumber(summary.errorRate, `${label}.errorRate`)
+  assert(typeof summary.importedEvidence?.source === 'string' && summary.importedEvidence.source.length > 0, `${label}.importedEvidence.source missing`)
+  validateSoakResourceEvidence(summary, label)
+}
+
 function validateSoak() {
   const summaries = findEvidenceFilesBySuffix('/summary.json')
     .filter((file) => file.includes(`${path.sep}.tmp${path.sep}soak${path.sep}`))
@@ -474,12 +525,16 @@ function validateSoak() {
     const summary = JSON.parse(fs.readFileSync(file, 'utf8'))
     if (summary.status === 'scheduled') {
       assert(mode !== 'short', 'short soak must be a runtime probe, not scheduled')
+      assert(summary.executionMode === 'scheduled', `soak ${mode}.executionMode must be scheduled`)
+      assert(summary.countsAsReleaseFinal === false, `soak ${mode}.countsAsReleaseFinal must be false`)
+      assert(typeof summary.reason === 'string' && summary.reason.length > 0, `soak ${mode}.reason missing`)
       continue
     }
-    assert(summary.status === 'ok', `soak ${mode}.status must be ok`)
-    positiveNumber(summary.durationSeconds, `soak ${mode}.durationSeconds`)
-    positiveNumber(summary.sampleCount, `soak ${mode}.sampleCount`)
-    positiveNumber(summary.latencyMs?.p95, `soak ${mode}.latencyMs.p95`)
+    if (mode === 'short') {
+      validateShortSoakSummary(summary, `soak ${mode}`)
+    } else {
+      validateImportedLongSoakSummary(summary, `soak ${mode}`, mode)
+    }
   }
 }
 
@@ -726,6 +781,33 @@ function runSelfTest() {
       statusCounts: { 200: 1 }
     }
   }, 'load-profile-self-test-valid')
+
+  const soakSummaryFile = path.join(root, '.tmp/soak/short/summary.json')
+  const previousSoakSummary = fs.existsSync(soakSummaryFile)
+    ? fs.readFileSync(soakSummaryFile, 'utf8')
+    : null
+  fs.mkdirSync(path.dirname(soakSummaryFile), { recursive: true })
+  fs.writeFileSync(soakSummaryFile, JSON.stringify({
+    status: 'ok',
+    mode: 'short',
+    durationSeconds: 1,
+    sampleCount: 1,
+    latencyMs: { p95: 1, p99: 1 },
+    errorRate: 0
+  }))
+  let shortSoakMissingResourceFailedAsExpected = false
+  try {
+    validateSoak()
+  } catch {
+    shortSoakMissingResourceFailedAsExpected = true
+  } finally {
+    if (previousSoakSummary === null) {
+      fs.rmSync(soakSummaryFile, { force: true })
+    } else {
+      fs.writeFileSync(soakSummaryFile, previousSoakSummary)
+    }
+  }
+  assert(shortSoakMissingResourceFailedAsExpected, 'self-test short soak missing resource evidence must fail')
 
   let emptyResourceMetricsFailedAsExpected = false
   try {

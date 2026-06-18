@@ -1574,9 +1574,9 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
-  - id: soak
+  - id: soak-short-runtime
     owner: ServerContractAgent
-    command: tools/test/lanes/soak.sh
+    command: FSUSBLOG_SOAK_MODE=short tools/test/lanes/soak.sh
     dependsOn: [bootstrap]
     services: [postgres, redis, backend, frontend]
     parallelizable: false
@@ -1585,21 +1585,76 @@ tiers:
     cost: high
     resourceClass: database
     maxParallel: 1
+    requiresBootstrap: full
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: none
+    cacheProfile: full
+    timeoutMinutes: 30
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [long-running-stability, soak-short-runtime]
+    artifacts: [.tmp/soak/short/summary.json]
+    evidence: [.tmp/soak/short/summary.json]
+    ciJob: backend-nightly
+    localOnly: false
+    nightlyOnly: true
+
+  - id: soak-long-scheduled
+    owner: ServerContractAgent
+    command: FSUSBLOG_SOAK_MODE=72h tools/test/lanes/soak.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 5
+    cost: low
+    resourceClass: io
+    maxParallel: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
     requiresPlaywright: none
     cacheProfile: none
-    timeoutMinutes: 30
+    timeoutMinutes: 5
     shardable: false
     defaultShards: 1
-    risk: critical
-    coverage: [long-running-stability]
-    artifacts: [.tmp/soak]
-    evidence: [.tmp/soak]
+    risk: medium
+    coverage: [soak-long-scheduled]
+    artifacts: [.tmp/soak/72h/summary.json]
+    evidence: [.tmp/soak/72h/summary.json]
     ciJob: backend-nightly
     localOnly: false
     nightlyOnly: true
+
+  - id: soak-long-evidence-import
+    owner: ServerContractAgent
+    command: FSUSBLOG_SOAK_MODE=72h FSUSBLOG_SOAK_REQUIRE_IMPORTED_EVIDENCE=1 tools/test/lanes/soak.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 5
+    cost: low
+    resourceClass: io
+    maxParallel: 1
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [soak-long-evidence-import]
+    artifacts: [.tmp/soak/72h/summary.json]
+    evidence: [.tmp/soak/72h/summary.json]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
 
   - id: security-authenticated-dast
     owner: ServerContractAgent
