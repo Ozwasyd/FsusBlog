@@ -149,16 +149,55 @@ public sealed class RiskDecisionServiceTests
         Assert.Contains(SecurityRiskPolicyOutcomes.HardChallenge, decision.Reasons);
     }
 
+    [Fact]
+    public void Decide_PoSpaceSubsystemDisabled_DowngradesToCaptcha()
+    {
+        SecurityRiskPolicySnapshotV2 policy = CreatePoSpacePolicy(SecuritySystemModes.Disabled);
+
+        RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.AuthLogin), policy, 75);
+
+        Assert.Equal(RiskDecisionKind.Challenge, decision.Kind);
+        Assert.Equal(["captchaV1"], decision.RequiredChallenges);
+        Assert.Contains("pospace_disabled_downgraded", decision.Reasons);
+    }
+
+    [Fact]
+    public void Decide_PoSpaceSubsystemEnabledOnDesktop_ReturnsPoSpace()
+    {
+        SecurityRiskPolicySnapshotV2 policy = CreatePoSpacePolicy(SecuritySystemModes.Enforce);
+
+        RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.AuthLogin), policy, 75);
+
+        Assert.Equal(RiskDecisionKind.Challenge, decision.Kind);
+        Assert.Equal(["argon2idPoSpaceV1"], decision.RequiredChallenges);
+    }
+
+    [Fact]
+    public void Decide_PoSpaceSubsystemEnabledOnMobile_DowngradesToCaptcha()
+    {
+        SecurityRiskPolicySnapshotV2 policy = CreatePoSpacePolicy(SecuritySystemModes.Enforce);
+
+        RiskDecision decision = _service.Decide(
+            CreateContext(RiskActionNames.AuthLogin, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)"),
+            policy,
+            75);
+
+        Assert.Equal(RiskDecisionKind.Challenge, decision.Kind);
+        Assert.Equal(["captchaV1"], decision.RequiredChallenges);
+        Assert.Contains("pospace_mobile_downgraded", decision.Reasons);
+    }
+
     private static RiskControlContext CreateContext(
         string actionName,
         bool verifiedCrawler = false,
-        bool socialPreviewBot = false)
+        bool socialPreviewBot = false,
+        string userAgent = "Mozilla/5.0")
         => new(
             actionName,
             actionName,
             RiskControlContextStatuses.Resolved,
             "198.51.100.17",
-            "Mozilla/5.0",
+            userAgent,
             RiskControlContextStatuses.Present,
             new RiskControlActorContext(
                 RiskControlActorStatuses.Anonymous,
@@ -228,4 +267,31 @@ public sealed class RiskDecisionServiceTests
             1,
             null,
             AnonymousWriteAllowed: false);
+
+    private static SecurityRiskPolicySnapshotV2 CreatePoSpacePolicy(string poSpaceMode)
+    {
+        SecurityRiskActionPolicy defaultAction = CreateActionPolicy("*", "security.pow");
+        SecurityRiskActionPolicy authPolicy = CreateCaptchaActionPolicy(RiskActionNames.AuthLogin) with
+        {
+            HardChallengeKinds = ["argon2idPoSpaceV1"],
+            HardChallengeEscalationLevel = 3
+        };
+        return new SecurityRiskPolicySnapshotV2(
+            "risk:test",
+            SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+            DateTimeOffset.UnixEpoch,
+            SecuritySystemModes.Enforce,
+            200,
+            125,
+            "risk:lkg",
+            defaultAction,
+            new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
+            {
+                [RiskActionNames.AuthLogin] = authPolicy
+            },
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [SecurityRiskSources.PoSpace] = poSpaceMode
+            });
+    }
 }

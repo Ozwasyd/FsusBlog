@@ -40,6 +40,7 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<ISecurityChallengeProofService, SecurityChallengeProofService>();
         services.AddScoped<ISecurityChallengeProvider, Sha256PowChallengeProvider>();
         services.AddScoped<ISecurityChallengeProvider, CaptchaV1ChallengeProvider>();
+        services.AddScoped<ISecurityChallengeProvider, Argon2idPoSpaceV1ChallengeProvider>();
         services.AddScoped<ISecurityChallengeOrchestrator, SecurityChallengeOrchestrator>();
 
         services.Configure<LifecycleBootstrapOptions>(configuration.GetSection(LifecycleBootstrapOptions.SectionName));

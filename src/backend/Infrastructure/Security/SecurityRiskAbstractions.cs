@@ -26,6 +26,7 @@ public static class SecurityRiskSources
     public const string Pow = "pow";
     public const string HumanReadProof = "human-read-proof";
     public const string PublicRead = "public-read";
+    public const string PoSpace = "pospace";
     public const string RiskControl = "risk-control";
 }
 

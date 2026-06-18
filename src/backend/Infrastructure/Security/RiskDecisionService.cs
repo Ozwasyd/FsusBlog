@@ -30,6 +30,9 @@ public interface IRiskDecisionService
 
 public sealed class RiskDecisionService : IRiskDecisionService
 {
+    private const string CaptchaV1ChallengeKind = "captchaV1";
+    private const string Argon2idPoSpaceV1ChallengeKind = "argon2idPoSpaceV1";
+
     public RiskDecision Decide(RiskControlContext context, SecurityRiskPolicySnapshotV2 policy, int currentRiskScore)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -50,8 +53,13 @@ public sealed class RiskDecisionService : IRiskDecisionService
             currentRiskScore,
             IsAnonymousWrite(context));
         RiskDecisionKind kind = MapKind(policyDecision);
-        IReadOnlyList<string> requiredChallenges = BuildRequiredChallenges(kind, policyDecision.RequiredChallengeKinds);
+        (IReadOnlyList<string> requiredChallenges, IReadOnlyList<string> challengeReasons) = BuildRequiredChallenges(
+            kind,
+            policyDecision.RequiredChallengeKinds,
+            context,
+            policy);
         List<string> reasons = [policyDecision.Reason];
+        reasons.AddRange(challengeReasons);
         if (context.ActionStatus == RiskControlContextStatuses.Missing)
         {
             reasons.Add("missing_action");
@@ -94,10 +102,69 @@ public sealed class RiskDecisionService : IRiskDecisionService
             _ => RiskDecisionKind.Throttle
         };
 
-    private static IReadOnlyList<string> BuildRequiredChallenges(RiskDecisionKind kind, IReadOnlyList<string> challengeKinds)
-        => kind is RiskDecisionKind.Challenge or RiskDecisionKind.StepUp
-            ? challengeKinds.Where(static challengeKind => !string.IsNullOrWhiteSpace(challengeKind)).ToArray()
-            : [];
+    private static (IReadOnlyList<string> RequiredChallenges, IReadOnlyList<string> Reasons) BuildRequiredChallenges(
+        RiskDecisionKind kind,
+        IReadOnlyList<string> challengeKinds,
+        RiskControlContext context,
+        SecurityRiskPolicySnapshotV2 policy)
+    {
+        if (kind is not (RiskDecisionKind.Challenge or RiskDecisionKind.StepUp))
+        {
+            return ([], []);
+        }
+
+        var required = new List<string>();
+        var reasons = new List<string>();
+        foreach (string rawKind in challengeKinds)
+        {
+            string challengeKind = (rawKind ?? string.Empty).Trim();
+            if (challengeKind.Length == 0)
+            {
+                continue;
+            }
+
+            if (string.Equals(challengeKind, Argon2idPoSpaceV1ChallengeKind, StringComparison.Ordinal))
+            {
+                string poSpaceMode = policy.SubsystemModes.TryGetValue(SecurityRiskSources.PoSpace, out string? mode)
+                    ? SecuritySystemModes.Normalize(mode)
+                    : SecuritySystemModes.Disabled;
+                if (!SecuritySystemModes.IsEnforcing(poSpaceMode))
+                {
+                    AddChallengeKind(required, CaptchaV1ChallengeKind);
+                    reasons.Add("pospace_disabled_downgraded");
+                    continue;
+                }
+
+                if (IsMobileUserAgent(context.UserAgent))
+                {
+                    AddChallengeKind(required, CaptchaV1ChallengeKind);
+                    reasons.Add("pospace_mobile_downgraded");
+                    continue;
+                }
+            }
+
+            AddChallengeKind(required, challengeKind);
+        }
+
+        return (required, reasons);
+    }
+
+    private static void AddChallengeKind(List<string> required, string challengeKind)
+    {
+        if (!required.Contains(challengeKind, StringComparer.Ordinal))
+        {
+            required.Add(challengeKind);
+        }
+    }
+
+    private static bool IsMobileUserAgent(string userAgent)
+    {
+        string value = userAgent ?? string.Empty;
+        return value.Contains("Android", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("iPhone", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("iPad", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("Mobile", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static bool IsStepUpChallenge(IReadOnlyList<string> challengeKinds)
         => challengeKinds.Any(static challengeKind =>

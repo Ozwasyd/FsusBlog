@@ -11,6 +11,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
 
         Assert.Equal(SecurityRiskPolicyOutcomes.Allow, snapshot.Evaluate(RiskActionNames.PublicRead, 49).Outcome);
+        Assert.Equal(SecuritySystemModes.Disabled, snapshot.SubsystemModes[SecurityRiskSources.PoSpace]);
         SecurityRiskPolicyDecision challenge = snapshot.Evaluate(RiskActionNames.PublicRead, 50);
         Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, challenge.Outcome);
         Assert.True(challenge.Enforced);

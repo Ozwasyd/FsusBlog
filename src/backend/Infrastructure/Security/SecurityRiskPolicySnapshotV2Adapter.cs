@@ -60,7 +60,8 @@ public static class SecurityRiskPolicySnapshotV2Adapter
         var subsystemModes = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             [SecurityRiskSources.AntiCrawler] = SecuritySystemModes.Normalize(options.Mode),
-            [SecurityRiskSources.Pow] = SecuritySystemModes.Normalize(pow?.Options.Mode ?? SecuritySystemModes.Enforce)
+            [SecurityRiskSources.Pow] = SecuritySystemModes.Normalize(pow?.Options.Mode ?? SecuritySystemModes.Enforce),
+            [SecurityRiskSources.PoSpace] = SecuritySystemModes.Disabled
         };
 
         return new SecurityRiskPolicySnapshotV2(
