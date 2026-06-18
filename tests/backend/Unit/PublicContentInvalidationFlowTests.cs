@@ -25,6 +25,33 @@ public sealed class PublicContentInvalidationFlowTests
     }
 
     [Fact]
+    public void OutboxReplay_UsesExplicitResultBeforeMarkingProcessed()
+    {
+        string sideEffects = ReadRepoFile("src/backend/Services/ArticleMutationSideEffects.cs");
+        string dispatcher = ReadRepoFile("src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs");
+        string replayMethod = Slice(sideEffects, "public async Task<ArticleMutationReplayResult> ReplayOutboxAsync", "    private async Task<Article?> LoadArticleWithContentAsync");
+        string processOne = Slice(dispatcher, "private async Task<bool> ProcessOneAsync", "private static async Task<ArticleMutationAotScope>");
+
+        Assert.Contains("public sealed record ArticleMutationReplayResult", sideEffects, StringComparison.Ordinal);
+        Assert.Contains("Task<ArticleMutationReplayResult> ReplayOutboxAsync", sideEffects, StringComparison.Ordinal);
+        Assert.DoesNotContain("BoundaryExecutor.ExecuteAsync", replayMethod, StringComparison.Ordinal);
+        Assert.Contains("ArticleMutationReplayResult replay = await coordinator.ReplayOutboxAsync", processOne, StringComparison.Ordinal);
+        Assert.Contains("if (!replay.IsSuccess)", processOne, StringComparison.Ordinal);
+        Assert.Contains("return await MarkRetryAsync", processOne, StringComparison.Ordinal);
+        Assert.Contains("\"article-outbox-retry\"", dispatcher, StringComparison.Ordinal);
+        Assert.Contains(".SetColumns(e => e.RetryCount == nextRetryCount)", dispatcher, StringComparison.Ordinal);
+        Assert.Contains(".SetColumns(e => e.NextRetryAt == nextRetryAt)", dispatcher, StringComparison.Ordinal);
+        Assert.Contains(".SetColumns(e => e.LastError == lastError)", dispatcher, StringComparison.Ordinal);
+
+        int replay = processOne.IndexOf("ArticleMutationReplayResult replay = await coordinator.ReplayOutboxAsync", StringComparison.Ordinal);
+        int resultGuard = processOne.IndexOf("if (!replay.IsSuccess)", StringComparison.Ordinal);
+        int complete = processOne.IndexOf("\"article-outbox-complete\"", StringComparison.Ordinal);
+        Assert.True(replay >= 0);
+        Assert.True(resultGuard > replay);
+        Assert.True(complete > resultGuard);
+    }
+
+    [Fact]
     public void ScheduledPublish_InvalidatesPublicAotForNewlyPublishedArticles()
     {
         string source = ReadRepoFile("src/backend/Services/Background/ScheduledPublishWorker.cs");

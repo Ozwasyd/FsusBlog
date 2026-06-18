@@ -123,8 +123,13 @@ public sealed class ArticleMutationOutboxDispatcher(
                 .ConfigureAwait(false);
             await cacheInvalidation.InvalidateArticleMutationAsync(item.AggregateId, cancellationToken)
                 .ConfigureAwait(false);
-            await coordinator.ReplayOutboxAsync(item.AggregateId, item.EventType, cancellationToken)
+            ArticleMutationReplayResult replay = await coordinator.ReplayOutboxAsync(item.AggregateId, item.EventType, cancellationToken)
                 .ConfigureAwait(false);
+            if (!replay.IsSuccess)
+            {
+                return await MarkRetryAsync(db, dbGate, item, replay.Error ?? "article mutation replay failed", null, cancellationToken)
+                    .ConfigureAwait(false);
+            }
 
             DateTime processedAt = timeProvider.GetUtcNow().UtcDateTime;
             await dbGate.ExecuteAsync(
@@ -145,31 +150,43 @@ public sealed class ArticleMutationOutboxDispatcher(
         }
         catch (Exception ex)
         {
-            int nextRetryCount = item.RetryCount + 1;
-            string status = nextRetryCount >= PoisonRetryThreshold ? "poison" : "pending";
-            DateTime nextRetryAt = timeProvider.GetUtcNow().UtcDateTime.Add(ComputeBackoff(nextRetryCount));
-            string lastError = ex.Message.Length <= 1024 ? ex.Message : ex.Message[..1024];
-            await dbGate.ExecuteAsync(
-                "article-outbox-retry",
-                gateCt => db.Updateable<ArticleMutationOutboxEvent>()
-                    .SetColumns(e => e.Status == status)
-                    .SetColumns(e => e.RetryCount == nextRetryCount)
-                    .SetColumns(e => e.NextRetryAt == nextRetryAt)
-                    .SetColumns(e => e.LastError == lastError)
-                    .Where(e => e.Id == item.Id)
-                    .ExecuteCommandAsync(gateCt),
-                _ => Task.FromResult(0),
-                cancellationToken).ConfigureAwait(false);
-            logger.LogWarning(
-                ex,
-                "article-mutation-outbox-retry {OutboxId} {ArticleId} {EventType} {RetryCount} {Status}",
-                item.Id,
-                item.AggregateId,
-                item.EventType,
-                nextRetryCount,
-                status);
-            return false;
+            return await MarkRetryAsync(db, dbGate, item, ex.Message, ex, cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    private async Task<bool> MarkRetryAsync(
+        ISqlSugarClient db,
+        IDbConcurrencyGate dbGate,
+        ArticleMutationOutboxEvent item,
+        string error,
+        Exception? exception,
+        CancellationToken cancellationToken)
+    {
+        int nextRetryCount = item.RetryCount + 1;
+        string status = nextRetryCount >= PoisonRetryThreshold ? "poison" : "pending";
+        DateTime nextRetryAt = timeProvider.GetUtcNow().UtcDateTime.Add(ComputeBackoff(nextRetryCount));
+        string lastError = NormalizeLastError(error);
+        await dbGate.ExecuteAsync(
+            "article-outbox-retry",
+            gateCt => db.Updateable<ArticleMutationOutboxEvent>()
+                .SetColumns(e => e.Status == status)
+                .SetColumns(e => e.RetryCount == nextRetryCount)
+                .SetColumns(e => e.NextRetryAt == nextRetryAt)
+                .SetColumns(e => e.LastError == lastError)
+                .Where(e => e.Id == item.Id)
+                .ExecuteCommandAsync(gateCt),
+            _ => Task.FromResult(0),
+            cancellationToken).ConfigureAwait(false);
+        logger.LogWarning(
+            exception,
+            "article-mutation-outbox-retry {OutboxId} {ArticleId} {EventType} {RetryCount} {Status} {Error}",
+            item.Id,
+            item.AggregateId,
+            item.EventType,
+            nextRetryCount,
+            status,
+            lastError);
+        return false;
     }
 
     private static async Task<ArticleMutationAotScope> LoadAotScopeAsync(
@@ -211,6 +228,9 @@ public sealed class ArticleMutationOutboxDispatcher(
 
     private static TimeSpan ComputeBackoff(int retryCount)
         => TimeSpan.FromSeconds(Math.Min(300, Math.Pow(2, Math.Clamp(retryCount, 1, 8))));
+
+    private static string NormalizeLastError(string error)
+        => error.Length <= 1024 ? error : error[..1024];
 
     private sealed record ArticleMutationAotScope(IReadOnlyList<int> CategoryIds, IReadOnlyList<int> TagIds)
     {
