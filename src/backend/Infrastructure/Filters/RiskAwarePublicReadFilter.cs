@@ -11,6 +11,8 @@ public sealed class RiskAwarePublicReadFilter(
     ISecurityRiskScoreReader riskScoreReader,
     ISecurityRiskSignalSink riskSignalSink,
     ISecurityRiskPolicyProvider riskPolicyProvider,
+    IRiskControlContextFactory riskContextFactory,
+    IRiskDecisionService riskDecisionService,
     ILogger<RiskAwarePublicReadFilter> logger,
     IPowService powService,
     AdaptivePowGovernor governor) : IEndpointFilter
@@ -20,24 +22,25 @@ public sealed class RiskAwarePublicReadFilter(
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         HttpContext httpContext = context.HttpContext;
-        if (httpContext.Items.TryGetValue("VerifiedCrawler", out object? verifiedCrawler) && verifiedCrawler is true)
+        RiskControlContext riskContext = riskContextFactory.Create(httpContext);
+        SecurityRiskPolicySnapshotV2 riskPolicy = riskPolicyProvider.CurrentRiskPolicyV2;
+        if (riskContext.VerifiedCrawler || riskContext.SocialPreviewBot)
         {
-            return await next(context);
-        }
-
-        if (httpContext.Items.TryGetValue("SocialPreviewBot", out object? socialPreview) && socialPreview is true)
-        {
-            return await next(context);
-        }
-
-        SecurityRiskPolicySnapshot riskPolicy = riskPolicyProvider.CurrentRiskPolicy;
-        if (!riskPolicy.PublicReadChallengeEnabled)
-        {
-            return await next(context);
+            RiskDecision crawlerDecision = riskDecisionService.Decide(riskContext, riskPolicy, 0);
+            if (crawlerDecision.Kind == RiskDecisionKind.Allow)
+            {
+                return await next(context);
+            }
         }
 
         int riskScore = await riskScoreReader.GetRiskScoreAsync(httpContext, httpContext.RequestAborted);
-        if (riskScore >= riskPolicy.BlockScore)
+        RiskDecision decision = riskDecisionService.Decide(riskContext, riskPolicy, riskScore);
+        if (decision.Kind == RiskDecisionKind.Allow)
+        {
+            return await next(context);
+        }
+
+        if (decision.Kind == RiskDecisionKind.Block)
         {
             await riskSignalSink.AddRiskAsync(new SecurityRiskSignal(
                 httpContext,
@@ -55,9 +58,22 @@ public sealed class RiskAwarePublicReadFilter(
                 httpContext);
         }
 
-        if (riskScore < riskPolicy.RequireChallengeScore)
+        if (decision.Kind is RiskDecisionKind.QueueForModeration or RiskDecisionKind.Throttle)
         {
-            return await next(context);
+            await riskSignalSink.AddRiskAsync(new SecurityRiskSignal(
+                httpContext,
+                SecurityRiskReason.PublicReadBlocked,
+                5,
+                TimeSpan.FromMinutes(10),
+                SecurityRiskSources.PublicRead,
+                "public_read_throttled",
+                string.Join(',', decision.Reasons)), httpContext.RequestAborted);
+            return EndpointFilterResults.FromActionResult(
+                new ObjectResult(ErrorDetail.Create(ErrorCode.Forbidden, "公开读取请求已被风险策略延迟", traceId: httpContext.TraceIdentifier))
+                {
+                    StatusCode = StatusCodes.Status429TooManyRequests
+                },
+                httpContext);
         }
 
         if (!httpContext.Request.Headers.TryGetValue(PowHeaderName, out var proof) || proof.Count != 1)

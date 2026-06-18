@@ -35,6 +35,7 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IMfaChallengeService, MfaChallengeService>();
         services.AddScoped<IAuthRiskService, AuthRiskService>();
         services.AddScoped<IRiskControlContextFactory, RiskControlContextFactory>();
+        services.AddScoped<IRiskDecisionService, RiskDecisionService>();
 
         services.Configure<LifecycleBootstrapOptions>(configuration.GetSection(LifecycleBootstrapOptions.SectionName));
 

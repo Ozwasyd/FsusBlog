@@ -38,6 +38,10 @@ RiskControl action 名称集中由 `RiskActionNames` 定义。首批生产 actio
 
 `SecurityRiskPolicySnapshotV2` 固定生产 RiskControl 的策略外形：全局模式为 `disabled`、`observe`、`enforce`、`strict` 或 `lockdown`；每个 action 可覆盖 allow / challenge / hardChallenge / queue / block 阈值、challenge kind、escalation level 和匿名写入锁定语义；snapshot 带 `PolicyVersion`、`LastKnownGoodSnapshotId`、子系统模式和 max risk score。迁移期 `SecurityRiskPolicySnapshotV2Adapter` 从现有 AntiCrawler / PoW runtime snapshot 生成 V2，并把 V2 投影回旧 `SecurityRiskPolicySnapshot`，保持 `RiskAwarePublicReadFilter` 的旧读取路径不变。默认 public-read 行为与旧逻辑等价：低于 `RequireChallengeScore` 放行，达到后要求 `security.pow`，达到 `BlockScore` 后 block；observe 只记录不执行挑战或拦截；strict 使用风险权重提前触发阈值；lockdown 在后续 filter 接入时用于关闭匿名写入。
 
+## Decision service baseline
+
+`RiskDecisionService` 把 `RiskControlContext`、`SecurityRiskPolicySnapshotV2` 和当前风险分转换为 `RiskDecision`。业务 filter / middleware 不再内联阈值判断，只根据 `RiskDecisionKind` 执行已有 proof 校验、排队、限流或拦截。`RiskAwarePublicReadFilter` 是迁移期第一个接入点：verified crawler 与 social preview bot 继续直接 allow；public-read 低于 challenge 阈值 allow，达到阈值返回 challenge，达到 block 阈值返回 block；PoW proof 的签发与校验仍由旧 PoW 服务负责，后续 challenge orchestrator 再替换。
+
 ## Ordered implementation units
 
 | Order | Unit | Issue | Acceptance boundary |

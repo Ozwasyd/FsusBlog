@@ -102,7 +102,9 @@ public sealed class AntiCrawlerSecurityContractTests
         Assert.Contains("ISecurityRiskSignalSink", pow, StringComparison.Ordinal);
         Assert.Contains("SecurityRiskSources.Pow", pow, StringComparison.Ordinal);
         Assert.Contains("SecurityRiskReason.PowInvalid", pow, StringComparison.Ordinal);
-        Assert.Contains("SecurityRiskPolicySnapshot", Read("src/backend/Infrastructure/Filters/RiskAwarePublicReadFilter.cs"), StringComparison.Ordinal);
+        string publicReadFilter = Read("src/backend/Infrastructure/Filters/RiskAwarePublicReadFilter.cs");
+        Assert.Contains("CurrentRiskPolicyV2", publicReadFilter, StringComparison.Ordinal);
+        Assert.Contains("IRiskDecisionService", publicReadFilter, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -161,6 +163,7 @@ public sealed class AntiCrawlerSecurityContractTests
         string abstractions = Read("src/backend/Infrastructure/Security/SecurityRiskAbstractions.cs");
         string service = Read("src/backend/Services/Security/SecurityAdminPolicyService.cs");
         string registration = Read("src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs");
+        string securityRegistration = Read("src/backend/Infrastructure/Bootstrap/RuntimeSecurityAndLifecycleServiceCollectionExtensions.cs");
 
         Assert.Contains("BinaryBridgeInternalRequest.SecurityPrefix", endpoints, StringComparison.Ordinal);
         Assert.Contains("AddEndpointFilter<BinaryBridgeInternalOnlyFilter>()", endpoints, StringComparison.Ordinal);
@@ -183,6 +186,7 @@ public sealed class AntiCrawlerSecurityContractTests
         Assert.Contains("security.pow", service, StringComparison.Ordinal);
         Assert.Contains("AddSingleton<ISecurityAdminPolicyService", registration, StringComparison.Ordinal);
         Assert.Contains("AddSingleton<ISecurityRiskSignalSink", registration, StringComparison.Ordinal);
+        Assert.Contains("IRiskDecisionService", securityRegistration, StringComparison.Ordinal);
     }
 
     [Fact]
