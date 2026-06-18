@@ -30,14 +30,46 @@ public interface IArticleMutationSideEffectCoordinator
         IReadOnlyDictionary<int, string> articleBodies,
         CancellationToken cancellationToken);
 
-    Task<ArticleMutationReplayResult> ReplayOutboxAsync(int articleId, string eventType, CancellationToken cancellationToken);
+    Task<ArticleMutationReplayResult> ReplayOutboxAsync(
+        int articleId,
+        string eventType,
+        IReadOnlySet<string> completedEdges,
+        CancellationToken cancellationToken);
 }
 
-public sealed record ArticleMutationReplayResult(bool IsSuccess, string? Error)
+public static class ArticleMutationReplayEdges
 {
-    public static ArticleMutationReplayResult Success { get; } = new(true, null);
+    public const string PublicAotInvalidation = "public-aot-invalidation";
+    public const string HttpCacheInvalidation = "http-cache-invalidation";
+    public const string SearchProjection = "search-projection";
+    public const string ArticleDetailAeds = "article-detail-aeds";
+    public const string PublicHotRead = "public-hot-read";
+    public const string Notification = "notification";
 
-    public static ArticleMutationReplayResult Failed(string error) => new(false, error);
+    public static readonly IReadOnlySet<string> Required = new HashSet<string>(StringComparer.Ordinal)
+    {
+        PublicAotInvalidation,
+        HttpCacheInvalidation,
+        SearchProjection,
+        ArticleDetailAeds,
+        PublicHotRead
+    };
+}
+
+public sealed record ArticleMutationReplayResult(
+    bool IsSuccess,
+    string? Error,
+    IReadOnlySet<string> CompletedEdges,
+    IReadOnlyDictionary<string, string> FailedEdges)
+{
+    public static ArticleMutationReplayResult Success(IReadOnlySet<string> completedEdges)
+        => new(true, null, completedEdges, new Dictionary<string, string>(StringComparer.Ordinal));
+
+    public static ArticleMutationReplayResult Failed(
+        string error,
+        IReadOnlySet<string> completedEdges,
+        IReadOnlyDictionary<string, string> failedEdges)
+        => new(false, error, completedEdges, failedEdges);
 }
 
 public sealed class ArticleSearchProjector(ISearchIndexService searchIndex)
@@ -205,31 +237,60 @@ public sealed class ArticleMutationSideEffectCoordinator(
             },
             "article-clear-trash-sync");
 
-    public async Task<ArticleMutationReplayResult> ReplayOutboxAsync(int articleId, string eventType, CancellationToken cancellationToken)
+    public async Task<ArticleMutationReplayResult> ReplayOutboxAsync(
+        int articleId,
+        string eventType,
+        IReadOnlySet<string> completedEdges,
+        CancellationToken cancellationToken)
     {
+        var completed = new HashSet<string>(completedEdges, StringComparer.Ordinal);
+        var completedDuringReplay = new HashSet<string>(StringComparer.Ordinal);
+        var failed = new Dictionary<string, string>(StringComparer.Ordinal);
+        async Task<bool> RunEdgeAsync(string edgeName, Func<Task> effect)
+        {
+            if (completed.Contains(edgeName))
+            {
+                return true;
+            }
+
+            try
+            {
+                await effect().ConfigureAwait(false);
+                completed.Add(edgeName);
+                completedDuringReplay.Add(edgeName);
+                return true;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                string error = NormalizeReplayError(ex);
+                failed[edgeName] = error;
+                logger.LogError(
+                    ex,
+                    "article-outbox-replay-edge-failed {ArticleId} {EventType} {EdgeName} {Error}",
+                    articleId,
+                    eventType,
+                    edgeName,
+                    error);
+                return false;
+            }
+        }
+
         try
         {
             string normalized = eventType.Trim().ToLowerInvariant();
             if (normalized is "deleted" or "permanently-deleted" or "trash-cleared")
             {
-                await RunSideEffectsSequentiallyAsync(
-                    () => searchProjector.DeleteAsync(articleId),
-                    () => articleDetailArtifacts.RemoveAsync(articleId, cancellationToken),
-                    () => QueuePublicHotUpdateAsync(articleId, $"outbox-{normalized}"),
-                    () => _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId),
-                    () => realtimeNotifier.PushChangedAsync(articleId, "Deleted"));
-                return ArticleMutationReplayResult.Success;
+                return await ReplayDeletedArticleEdgesAsync(normalized).ConfigureAwait(false);
             }
 
-            Article? article = await LoadArticleWithContentAsync(articleId);
+            Article? article = await LoadArticleWithContentAsync(articleId).ConfigureAwait(false);
             if (article is null)
             {
-                await RunSideEffectsSequentiallyAsync(
-                    () => searchProjector.DeleteAsync(articleId),
-                    () => articleDetailArtifacts.RemoveAsync(articleId, cancellationToken),
-                    () => QueuePublicHotUpdateAsync(articleId, $"outbox-{normalized}"),
-                    () => _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId));
-                return ArticleMutationReplayResult.Success;
+                return await ReplayMissingArticleEdgesAsync(normalized).ConfigureAwait(false);
             }
 
             string action = normalized switch
@@ -239,12 +300,31 @@ public sealed class ArticleMutationSideEffectCoordinator(
                 _ => "Updated"
             };
 
-            await RunSideEffectsSequentiallyAsync(
-                () => searchProjector.ProjectAsync(article),
-                () => articleDetailArtifacts.GenerateAndStoreAsync(articleId, cancellationToken),
-                () => QueuePublicHotUpdateAsync(articleId, $"outbox-{normalized}"),
-                () => realtimeNotifier.PushChangedAsync(articleId, action));
-            return ArticleMutationReplayResult.Success;
+            if (!await RunEdgeAsync(ArticleMutationReplayEdges.SearchProjection, () => searchProjector.ProjectAsync(article))
+                    .ConfigureAwait(false)
+                || !await RunEdgeAsync(
+                        ArticleMutationReplayEdges.ArticleDetailAeds,
+                        () => articleDetailArtifacts.GenerateAndStoreAsync(articleId, cancellationToken))
+                    .ConfigureAwait(false)
+                || !await RunEdgeAsync(
+                        ArticleMutationReplayEdges.PublicHotRead,
+                        async () =>
+                        {
+                            await QueuePublicHotUpdateAsync(articleId, $"outbox-{normalized}").ConfigureAwait(false);
+                            if (normalized == "restored")
+                            {
+                                await _redis.SortedSetAddAsync(RedisKey("blog:top_articles"), articleId, article.Views)
+                                    .ConfigureAwait(false);
+                            }
+                        })
+                    .ConfigureAwait(false)
+                || !await RunEdgeAsync(ArticleMutationReplayEdges.Notification, () => realtimeNotifier.PushChangedAsync(articleId, action))
+                    .ConfigureAwait(false))
+            {
+                return FailedResult();
+            }
+
+            return ArticleMutationReplayResult.Success(completedDuringReplay);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -254,7 +334,64 @@ public sealed class ArticleMutationSideEffectCoordinator(
         {
             string error = NormalizeReplayError(ex);
             logger.LogError(ex, "article-outbox-replay-failed {ArticleId} {EventType} {Error}", articleId, eventType, error);
-            return ArticleMutationReplayResult.Failed(error);
+            failed["article-outbox-replay"] = error;
+            return ArticleMutationReplayResult.Failed(error, completedDuringReplay, failed);
+        }
+
+        async Task<ArticleMutationReplayResult> ReplayDeletedArticleEdgesAsync(string normalized)
+        {
+            if (!await RunEdgeAsync(ArticleMutationReplayEdges.SearchProjection, () => searchProjector.DeleteAsync(articleId))
+                    .ConfigureAwait(false)
+                || !await RunEdgeAsync(
+                        ArticleMutationReplayEdges.ArticleDetailAeds,
+                        () => articleDetailArtifacts.RemoveAsync(articleId, cancellationToken))
+                    .ConfigureAwait(false)
+                || !await RunEdgeAsync(
+                        ArticleMutationReplayEdges.PublicHotRead,
+                        async () =>
+                        {
+                            await QueuePublicHotUpdateAsync(articleId, $"outbox-{normalized}").ConfigureAwait(false);
+                            await _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId).ConfigureAwait(false);
+                        })
+                    .ConfigureAwait(false)
+                || !await RunEdgeAsync(ArticleMutationReplayEdges.Notification, () => realtimeNotifier.PushChangedAsync(articleId, "Deleted"))
+                    .ConfigureAwait(false))
+            {
+                return FailedResult();
+            }
+
+            return ArticleMutationReplayResult.Success(completedDuringReplay);
+        }
+
+        async Task<ArticleMutationReplayResult> ReplayMissingArticleEdgesAsync(string normalized)
+        {
+            if (!await RunEdgeAsync(ArticleMutationReplayEdges.SearchProjection, () => searchProjector.DeleteAsync(articleId))
+                    .ConfigureAwait(false)
+                || !await RunEdgeAsync(
+                        ArticleMutationReplayEdges.ArticleDetailAeds,
+                        () => articleDetailArtifacts.RemoveAsync(articleId, cancellationToken))
+                    .ConfigureAwait(false)
+                || !await RunEdgeAsync(
+                        ArticleMutationReplayEdges.PublicHotRead,
+                        async () =>
+                        {
+                            await QueuePublicHotUpdateAsync(articleId, $"outbox-{normalized}").ConfigureAwait(false);
+                            await _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId).ConfigureAwait(false);
+                        })
+                    .ConfigureAwait(false))
+            {
+                return FailedResult();
+            }
+
+            return ArticleMutationReplayResult.Success(completedDuringReplay);
+        }
+
+        ArticleMutationReplayResult FailedResult()
+        {
+            string error = failed.Count == 0
+                ? "article mutation replay edge failed"
+                : string.Join("; ", failed.Select(static item => $"{item.Key}: {item.Value}"));
+            return ArticleMutationReplayResult.Failed(NormalizeReplayError(error), completedDuringReplay, failed);
         }
     }
 
@@ -289,7 +426,10 @@ public sealed class ArticleMutationSideEffectCoordinator(
         => runtimeKeyScope.PrefixKey(key);
 
     private static string NormalizeReplayError(Exception ex)
-        => ex.Message.Length <= 1024 ? ex.Message : ex.Message[..1024];
+        => NormalizeReplayError(ex.Message);
+
+    private static string NormalizeReplayError(string error)
+        => error.Length <= 1024 ? error : error[..1024];
 
     private Task QueuePublicHotUpdateAsync(int? articleId, string reason)
     {

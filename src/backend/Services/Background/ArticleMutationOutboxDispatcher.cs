@@ -113,21 +113,57 @@ public sealed class ArticleMutationOutboxDispatcher(
 
         try
         {
+            IReadOnlySet<string> completedEdges = await LoadCompletedEdgesAsync(db, dbGate, item.Id, cancellationToken)
+                .ConfigureAwait(false);
+            var completedAfterReplay = new HashSet<string>(completedEdges, StringComparer.Ordinal);
+
             ArticleMutationAotScope aotScope = await LoadAotScopeAsync(db, dbGate, item.AggregateId, cancellationToken)
                 .ConfigureAwait(false);
-            await publicAotInvalidation.InvalidateArticleMutationAsync(
-                    item.AggregateId,
-                    aotScope.CategoryIds,
-                    aotScope.TagIds,
-                    cancellationToken)
+            if (!await RunDispatcherEdgeAsync(
+                    db,
+                    dbGate,
+                    item,
+                    completedAfterReplay,
+                    ArticleMutationReplayEdges.PublicAotInvalidation,
+                    ct => publicAotInvalidation.InvalidateArticleMutationAsync(
+                        item.AggregateId,
+                        aotScope.CategoryIds,
+                        aotScope.TagIds,
+                        ct),
+                    cancellationToken).ConfigureAwait(false)
+                || !await RunDispatcherEdgeAsync(
+                    db,
+                    dbGate,
+                    item,
+                    completedAfterReplay,
+                    ArticleMutationReplayEdges.HttpCacheInvalidation,
+                    ct => cacheInvalidation.InvalidateArticleMutationAsync(item.AggregateId, ct),
+                    cancellationToken).ConfigureAwait(false))
+            {
+                return false;
+            }
+
+            ArticleMutationReplayResult replay = await coordinator.ReplayOutboxAsync(item.AggregateId, item.EventType, completedEdges, cancellationToken)
                 .ConfigureAwait(false);
-            await cacheInvalidation.InvalidateArticleMutationAsync(item.AggregateId, cancellationToken)
+            await RecordReplayEdgesAsync(db, dbGate, item.Id, replay, cancellationToken)
                 .ConfigureAwait(false);
-            ArticleMutationReplayResult replay = await coordinator.ReplayOutboxAsync(item.AggregateId, item.EventType, cancellationToken)
-                .ConfigureAwait(false);
+            completedAfterReplay.UnionWith(replay.CompletedEdges);
+            bool requiredEdgesComplete = ArticleMutationReplayEdges.Required.All(completedAfterReplay.Contains);
             if (!replay.IsSuccess)
             {
                 return await MarkRetryAsync(db, dbGate, item, replay.Error ?? "article mutation replay failed", null, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            if (!requiredEdgesComplete)
+            {
+                return await MarkRetryAsync(
+                        db,
+                        dbGate,
+                        item,
+                        "article mutation replay required edge incomplete",
+                        null,
+                        cancellationToken)
                     .ConfigureAwait(false);
             }
 
@@ -151,6 +187,54 @@ public sealed class ArticleMutationOutboxDispatcher(
         catch (Exception ex)
         {
             return await MarkRetryAsync(db, dbGate, item, ex.Message, ex, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<bool> RunDispatcherEdgeAsync(
+        ISqlSugarClient db,
+        IDbConcurrencyGate dbGate,
+        ArticleMutationOutboxEvent item,
+        HashSet<string> completedAfterReplay,
+        string edgeName,
+        Func<CancellationToken, Task> action,
+        CancellationToken cancellationToken)
+    {
+        if (completedAfterReplay.Contains(edgeName))
+        {
+            return true;
+        }
+
+        try
+        {
+            await action(cancellationToken).ConfigureAwait(false);
+            completedAfterReplay.Add(edgeName);
+            await RecordReplayEdgesAsync(
+                    db,
+                    dbGate,
+                    item.Id,
+                    ArticleMutationReplayResult.Success(new HashSet<string>(StringComparer.Ordinal) { edgeName }),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            string error = NormalizeLastError(ex.Message);
+            await RecordReplayEdgesAsync(
+                    db,
+                    dbGate,
+                    item.Id,
+                    ArticleMutationReplayResult.Failed(
+                        error,
+                        new HashSet<string>(StringComparer.Ordinal),
+                        new Dictionary<string, string>(StringComparer.Ordinal) { [edgeName] = error }),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return await MarkRetryAsync(db, dbGate, item, error, ex, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -187,6 +271,122 @@ public sealed class ArticleMutationOutboxDispatcher(
             status,
             lastError);
         return false;
+    }
+
+    private static async Task<IReadOnlySet<string>> LoadCompletedEdgesAsync(
+        ISqlSugarClient db,
+        IDbConcurrencyGate dbGate,
+        long outboxEventId,
+        CancellationToken cancellationToken)
+    {
+        List<ArticleMutationOutboxEdge> completedEdges = await dbGate.ExecuteAsync(
+                "article-outbox-edge-read",
+                gateCt => db.Queryable<ArticleMutationOutboxEdge>()
+                    .Where(edge => edge.OutboxEventId == outboxEventId
+                        && edge.Status == ArticleMutationOutboxEdgeStatus.Completed)
+                    .ToListAsync(gateCt),
+                _ => Task.FromResult(new List<ArticleMutationOutboxEdge>()),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return completedEdges
+            .Select(static edge => edge.EdgeName)
+            .Where(static edgeName => !string.IsNullOrWhiteSpace(edgeName))
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
+    private async Task RecordReplayEdgesAsync(
+        ISqlSugarClient db,
+        IDbConcurrencyGate dbGate,
+        long outboxEventId,
+        ArticleMutationReplayResult replay,
+        CancellationToken cancellationToken)
+    {
+        foreach (string edgeName in replay.CompletedEdges)
+        {
+            await RecordReplayEdgeAsync(
+                    db,
+                    dbGate,
+                    outboxEventId,
+                    edgeName,
+                    ArticleMutationOutboxEdgeStatus.Completed,
+                    null,
+                    incrementAttempt: true,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        foreach (KeyValuePair<string, string> failedEdge in replay.FailedEdges)
+        {
+            await RecordReplayEdgeAsync(
+                    db,
+                    dbGate,
+                    outboxEventId,
+                    failedEdge.Key,
+                    ArticleMutationOutboxEdgeStatus.Failed,
+                    failedEdge.Value,
+                    incrementAttempt: true,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private async Task RecordReplayEdgeAsync(
+        ISqlSugarClient db,
+        IDbConcurrencyGate dbGate,
+        long outboxEventId,
+        string edgeName,
+        string status,
+        string? lastError,
+        bool incrementAttempt,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(edgeName))
+        {
+            return;
+        }
+
+        string operation = status == ArticleMutationOutboxEdgeStatus.Completed
+            ? "article-outbox-edge-complete"
+            : "article-outbox-edge-failed";
+        DateTime updatedAt = timeProvider.GetUtcNow().UtcDateTime;
+        string? normalizedError = lastError is null ? null : NormalizeLastError(lastError);
+        await dbGate.ExecuteAsync(
+            operation,
+            async gateCt =>
+            {
+                ArticleMutationOutboxEdge? existing = await db.Queryable<ArticleMutationOutboxEdge>()
+                    .Where(edge => edge.OutboxEventId == outboxEventId && edge.EdgeName == edgeName)
+                    .FirstAsync(gateCt)
+                    .ConfigureAwait(false);
+                if (existing is null)
+                {
+                    await db.Insertable(new ArticleMutationOutboxEdge
+                        {
+                            OutboxEventId = outboxEventId,
+                            EdgeName = edgeName,
+                            Status = status,
+                            AttemptCount = incrementAttempt ? 1 : 0,
+                            LastError = normalizedError,
+                            UpdatedAt = updatedAt
+                        })
+                        .ExecuteCommandAsync(gateCt)
+                        .ConfigureAwait(false);
+                    return 1;
+                }
+
+                int nextAttemptCount = incrementAttempt ? existing.AttemptCount + 1 : existing.AttemptCount;
+                return await db.Updateable<ArticleMutationOutboxEdge>()
+                    .SetColumns(edge => edge.Status == status)
+                    .SetColumns(edge => edge.AttemptCount == nextAttemptCount)
+                    .SetColumns(edge => edge.LastError == normalizedError)
+                    .SetColumns(edge => edge.UpdatedAt == updatedAt)
+                    .Where(edge => edge.Id == existing.Id)
+                    .ExecuteCommandAsync(gateCt)
+                    .ConfigureAwait(false);
+            },
+            _ => Task.FromResult(0),
+            cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<ArticleMutationAotScope> LoadAotScopeAsync(

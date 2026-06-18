@@ -52,6 +52,55 @@ public sealed class PublicContentInvalidationFlowTests
     }
 
     [Fact]
+    public void OutboxReplay_TracksRequiredEdgesBeforeMarkingEventProcessed()
+    {
+        string entities = ReadRepoFile("src/backend/Entities/Article.cs");
+        string migrations = ReadRepoFile("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
+        string sideEffects = ReadRepoFile("src/backend/Services/ArticleMutationSideEffects.cs");
+        string dispatcher = ReadRepoFile("src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs");
+        string processOne = Slice(dispatcher, "private async Task<bool> ProcessOneAsync", "private static async Task<ArticleMutationAotScope>");
+
+        Assert.Contains("public class ArticleMutationOutboxEdge", entities, StringComparison.Ordinal);
+        Assert.Contains("[SugarTable(\"article_mutation_outbox_edge\")]", entities, StringComparison.Ordinal);
+        Assert.Contains("OutboxEventId", entities, StringComparison.Ordinal);
+        Assert.Contains("EdgeName", entities, StringComparison.Ordinal);
+        Assert.Contains("AttemptCount", entities, StringComparison.Ordinal);
+        Assert.Contains("LastError", entities, StringComparison.Ordinal);
+        Assert.Contains("UpdatedAt", entities, StringComparison.Ordinal);
+
+        Assert.Contains("CREATE TABLE IF NOT EXISTS article_mutation_outbox_edge", migrations, StringComparison.Ordinal);
+        Assert.Contains("ux_article_mutation_outbox_edge_event_name", migrations, StringComparison.Ordinal);
+
+        Assert.Contains("public static class ArticleMutationReplayEdges", sideEffects, StringComparison.Ordinal);
+        Assert.Contains("SearchProjection = \"search-projection\"", sideEffects, StringComparison.Ordinal);
+        Assert.Contains("ArticleDetailAeds = \"article-detail-aeds\"", sideEffects, StringComparison.Ordinal);
+        Assert.Contains("PublicHotRead = \"public-hot-read\"", sideEffects, StringComparison.Ordinal);
+        Assert.Contains("IReadOnlySet<string> completedEdges", sideEffects, StringComparison.Ordinal);
+        Assert.Contains("IReadOnlySet<string> CompletedEdges", sideEffects, StringComparison.Ordinal);
+        Assert.Contains("IReadOnlyDictionary<string, string> FailedEdges", sideEffects, StringComparison.Ordinal);
+
+        Assert.Contains("LoadCompletedEdgesAsync", processOne, StringComparison.Ordinal);
+        Assert.Contains("coordinator.ReplayOutboxAsync(item.AggregateId, item.EventType, completedEdges", processOne, StringComparison.Ordinal);
+        Assert.Contains("RecordReplayEdgesAsync", processOne, StringComparison.Ordinal);
+        Assert.Contains("ArticleMutationReplayEdges.Required.All(completedAfterReplay.Contains)", processOne, StringComparison.Ordinal);
+        Assert.Contains("!requiredEdgesComplete", processOne, StringComparison.Ordinal);
+        Assert.Contains("return await MarkRetryAsync", processOne, StringComparison.Ordinal);
+        Assert.Contains("\"article-outbox-edge-complete\"", dispatcher, StringComparison.Ordinal);
+        Assert.Contains("\"article-outbox-edge-failed\"", dispatcher, StringComparison.Ordinal);
+
+        int loadEdges = processOne.IndexOf("LoadCompletedEdgesAsync", StringComparison.Ordinal);
+        int replay = processOne.IndexOf("ArticleMutationReplayResult replay = await coordinator.ReplayOutboxAsync", StringComparison.Ordinal);
+        int recordEdges = processOne.IndexOf("RecordReplayEdgesAsync", StringComparison.Ordinal);
+        int requiredGuard = processOne.IndexOf("!requiredEdgesComplete", StringComparison.Ordinal);
+        int complete = processOne.IndexOf("\"article-outbox-complete\"", StringComparison.Ordinal);
+        Assert.True(loadEdges >= 0);
+        Assert.True(replay > loadEdges);
+        Assert.True(recordEdges > replay);
+        Assert.True(requiredGuard > recordEdges);
+        Assert.True(complete > requiredGuard);
+    }
+
+    [Fact]
     public void ScheduledPublish_InvalidatesPublicAotForNewlyPublishedArticles()
     {
         string source = ReadRepoFile("src/backend/Services/Background/ScheduledPublishWorker.cs");

@@ -246,6 +246,46 @@ public class ArticleMutationOutboxEvent
     public string? LastError { get; set; }
 }
 
+[SugarTable("article_mutation_outbox_edge")]
+[SugarIndex(
+    "ux_article_mutation_outbox_edge_event_name",
+    nameof(OutboxEventId),
+    OrderByType.Asc,
+    nameof(EdgeName),
+    OrderByType.Asc,
+    true)]
+[SugarIndex("idx_article_mutation_outbox_edge_status", nameof(Status), OrderByType.Asc, nameof(UpdatedAt), OrderByType.Desc)]
+public class ArticleMutationOutboxEdge
+{
+    [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
+    public long Id { get; set; }
+
+    [SugarColumn(ColumnName = "outbox_event_id")]
+    public long OutboxEventId { get; set; }
+
+    [SugarColumn(ColumnName = "edge_name", Length = 64)]
+    public string EdgeName { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "status", Length = 24)]
+    public string Status { get; set; } = ArticleMutationOutboxEdgeStatus.Pending;
+
+    [SugarColumn(ColumnName = "attempt_count")]
+    public int AttemptCount { get; set; }
+
+    [SugarColumn(ColumnName = "last_error", Length = 1024, IsNullable = true)]
+    public string? LastError { get; set; }
+
+    [SugarColumn(ColumnName = "updated_at")]
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public static class ArticleMutationOutboxEdgeStatus
+{
+    public const string Pending = "pending";
+    public const string Completed = "completed";
+    public const string Failed = "failed";
+}
+
 [SugarTable("asset_library_item")]
 [SugarIndex("idx_asset_library_hash", nameof(Sha256), OrderByType.Asc)]
 public class AssetLibraryItem
