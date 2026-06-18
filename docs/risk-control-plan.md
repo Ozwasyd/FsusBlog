@@ -54,6 +54,8 @@ RiskControl proof token 使用 `X-Fsus-Challenge-Proof` 传递，独立于 admin
 
 `ISecurityChallengeProvider` 是具体 challenge provider 的唯一接口，provider 必须声明稳定 `Kind` 并实现 `IssueAsync` / `VerifyAsync`。`SecurityChallengeOrchestrator` 通过 DI 注入全部 provider，按 kind 建立查找表，并根据 `RiskDecision.RequiredChallenges` 顺序签发 assignment；单次裁决可返回多个 challenge，例如 `captchaV1 + sha256PowV1`。provider 未注册、provider 返回失败、assignment 校验失败或 proof mint 失败都必须 fail closed，返回可观测 reason，并写 `risk-control` 来源的 `SecurityChallengeRejected` 风险事件。验证成功后 orchestrator 只负责调用 `ISecurityChallengeProofService.MintProofAsync` 签发统一 proof token，不直接放行业务写入。
 
+`Sha256PowChallengeProvider` 是第一个实际 provider，边界是复用旧 PoW 能力而不迁移 wire format：issue 生成 `sha256PowV1` assignment 和 `salt/difficulty/timestamp/signature` provider payload；verify 接受 legacy Base64 FPOW proof、复用 `IPowService` 与 `AdaptivePowGovernor`，并将成功、失败、重放类拒绝写入 challenge attempt。旧 `RequiresPowFilter` 和 `X-Fsus-Pow-Proof` header 仍作为兼容入口存在；统一 binary challenge endpoint 在 #469 单独完成。
+
 ## Ordered implementation units
 
 | Order | Unit | Issue | Acceptance boundary |

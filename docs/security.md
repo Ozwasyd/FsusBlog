@@ -58,6 +58,8 @@ RiskControl proof token 使用 `X-Fsus-Challenge-Proof` header，不能替代 ad
 
 RiskControl challenge provider 通过 `ISecurityChallengeProvider` 接入，不允许业务 filter 直接依赖 PoW、Captcha、PoSpace、HumanReadProof 或 Passkey step-up 的具体实现。`SecurityChallengeOrchestrator` 按 `RiskDecision.RequiredChallenges` 从 DI 中查找 provider，可一次返回多个 assignment；provider 未注册、provider 返回失败、assignment 无效或 proof mint 失败均 fail closed，写入 `SecurityChallengeRejected` 风险事件，且不进入业务 handler。provider verify 成功后只签发统一 proof token，业务是否放行仍由后续 filter 消费该 token 决定。
 
+`sha256PowV1` 由 `Sha256PowChallengeProvider` 提供，复用现有 `IPowService`、`AdaptivePowGovernor` 和 legacy FPOW 二进制 proof 解析逻辑。签发时 provider 返回统一 `SecurityChallengeAssignment`，并给后续 binary endpoint 提供 provider payload：`salt`、`difficulty`、`timestamp`、`signature`；持久化层只保存 payload hash，不保存原始 salt/signature 或 proof。验证时 provider 只接受 payload 中的 legacy Base64 FPOW proof，继续按客户端 IP 绑定、当前 difficulty、签名、过期时间和 Redis consume-once 规则校验；失败 attempt 写入 `security_challenge_attempt`。旧 `X-Fsus-Pow-Proof` / `RequiresPowFilter` 路径继续保留，统一 `/api/binary/security/challenge` 端点由后续 API issue 单独接入。
+
 RiskControl 生产控制面按 `Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof Verification -> Enforcement -> Audit / Metrics / Admin Policy` 演进；完整 tracking plan、子 issue 顺序与 binary-first 边界见 `docs/risk-control-plan.md`。
 
 管理后台新增 `/user/manage/security` 安全系统：

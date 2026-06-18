@@ -20,6 +20,7 @@ public interface ISecurityChallengeOrchestrator
 }
 
 public sealed record SecurityChallengeProviderIssueRequest(
+    HttpContext Context,
     string Kind,
     string Action,
     string RouteKey,
@@ -32,6 +33,7 @@ public sealed record SecurityChallengeProviderIssueRequest(
     string Traceparent);
 
 public sealed record SecurityChallengeProviderVerifyRequest(
+    HttpContext Context,
     string Kind,
     string ChallengeId,
     string Action,
@@ -45,13 +47,16 @@ public sealed record SecurityChallengeProviderVerifyRequest(
 public sealed record SecurityChallengeProviderIssueResult(
     bool Succeeded,
     string Reason,
-    SecurityChallengeAssignment? Assignment)
+    SecurityChallengeAssignment? Assignment,
+    IReadOnlyDictionary<string, string> ProviderPayload)
 {
-    public static SecurityChallengeProviderIssueResult Success(SecurityChallengeAssignment assignment)
-        => new(true, "ok", assignment);
+    private static readonly IReadOnlyDictionary<string, string> EmptyProviderPayload = new Dictionary<string, string>(0, StringComparer.Ordinal);
+
+    public static SecurityChallengeProviderIssueResult Success(SecurityChallengeAssignment assignment, IReadOnlyDictionary<string, string>? providerPayload = null)
+        => new(true, "ok", assignment, providerPayload ?? EmptyProviderPayload);
 
     public static SecurityChallengeProviderIssueResult Failed(string reason)
-        => new(false, NormalizeReason(reason), null);
+        => new(false, NormalizeReason(reason), null, EmptyProviderPayload);
 
     private static string NormalizeReason(string reason)
         => string.IsNullOrWhiteSpace(reason) ? "provider_failed" : reason.Trim();
@@ -93,13 +98,19 @@ public sealed record SecurityChallengeOrchestrationVerifyRequest(
 public sealed record SecurityChallengeOrchestrationIssueResult(
     bool Succeeded,
     string Reason,
-    SecurityChallengeEnvelope? Envelope)
+    SecurityChallengeEnvelope? Envelope,
+    IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> ProviderPayloads)
 {
-    public static SecurityChallengeOrchestrationIssueResult Success(SecurityChallengeEnvelope envelope)
-        => new(true, "ok", envelope);
+    private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> EmptyProviderPayloads =
+        new Dictionary<string, IReadOnlyDictionary<string, string>>(0, StringComparer.Ordinal);
+
+    public static SecurityChallengeOrchestrationIssueResult Success(
+        SecurityChallengeEnvelope envelope,
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? providerPayloads = null)
+        => new(true, "ok", envelope, providerPayloads ?? EmptyProviderPayloads);
 
     public static SecurityChallengeOrchestrationIssueResult Failed(string reason)
-        => new(false, string.IsNullOrWhiteSpace(reason) ? "challenge_issue_failed" : reason.Trim(), null);
+        => new(false, string.IsNullOrWhiteSpace(reason) ? "challenge_issue_failed" : reason.Trim(), null, EmptyProviderPayloads);
 }
 
 public sealed record SecurityChallengeOrchestrationVerifyResult(
@@ -138,6 +149,7 @@ public sealed class SecurityChallengeOrchestrator(
         }
 
         var assignments = new List<SecurityChallengeAssignment>(request.Decision.RequiredChallenges.Count);
+        var providerPayloads = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal);
         foreach (string rawKind in request.Decision.RequiredChallenges)
         {
             string kind = NormalizeKind(rawKind);
@@ -152,6 +164,7 @@ public sealed class SecurityChallengeOrchestrator(
             {
                 providerResult = await provider.IssueAsync(
                     new SecurityChallengeProviderIssueRequest(
+                        request.Context,
                         kind,
                         request.Decision.ActionName,
                         request.Decision.RouteKey,
@@ -185,13 +198,17 @@ public sealed class SecurityChallengeOrchestrator(
             }
 
             assignments.Add(providerResult.Assignment);
+            if (providerResult.ProviderPayload.Count > 0)
+            {
+                providerPayloads[providerResult.Assignment.ChallengeId] = providerResult.ProviderPayload;
+            }
         }
 
         var envelope = new SecurityChallengeEnvelope(
             SecurityChallengeContracts.CreateChallengeId(),
             NormalizeRequired(request.Decision.PolicyVersion, nameof(request.Decision.PolicyVersion), 64),
             assignments);
-        return SecurityChallengeOrchestrationIssueResult.Success(envelope);
+        return SecurityChallengeOrchestrationIssueResult.Success(envelope, providerPayloads);
     }
 
     public async Task<SecurityChallengeOrchestrationVerifyResult> VerifyAsync(SecurityChallengeOrchestrationVerifyRequest request, CancellationToken cancellationToken = default)
@@ -211,6 +228,7 @@ public sealed class SecurityChallengeOrchestrator(
         {
             providerResult = await provider.VerifyAsync(
                 new SecurityChallengeProviderVerifyRequest(
+                    request.Context,
                     kind,
                     NormalizeRequired(request.ChallengeId, nameof(request.ChallengeId), 64),
                     NormalizeRequired(request.Action, nameof(request.Action), 96),

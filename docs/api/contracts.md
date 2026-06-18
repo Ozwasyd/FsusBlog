@@ -102,7 +102,9 @@ challenge 签发与验证审计由 `security_challenge` 和 `security_challenge_
 
 成功完成 challenge provider 校验后，统一 proof token 使用 `X-Fsus-Challenge-Proof` header 传递。该 token 是 opaque 值；Redis `SecurityChallengeProof` cache 保存一次性 claims，并绑定 `challengeId`、`kind`、`action`、`routeKey`、`subjectHash`、`clientIpHash`、`deviceFpHash`、`issuedAt`、`expiresAt`、`nonce` 和 `policyVersion`。服务端消费时必须先执行 consume-once，再校验绑定字段；replay / Redis miss、action 或 route mismatch、IP/device mismatch、过期 proof 都不得进入业务写入，并必须写 challenge attempt。该 header 不替代 `X-Fsus-Mfa-Proof` 或 legacy `X-Fsus-Pow-Proof`。
 
-challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 与上表 `SecurityChallengeKind` 一致。`SecurityChallengeOrchestrator` 根据 `RiskDecision.RequiredChallenges` 调用 provider，可返回单个或多个 `SecurityChallengeAssignment`；provider missing、provider failure、assignment 无效或 proof mint failure 必须返回可观测错误并 fail closed，不得落入具体业务 endpoint 的 fallback 分支。
+challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 与上表 `SecurityChallengeKind` 一致。`SecurityChallengeOrchestrator` 根据 `RiskDecision.RequiredChallenges` 调用 provider，可返回单个或多个 `SecurityChallengeAssignment`，并可携带按 `challengeId` 分组的 provider payload 供 binary response 编码；provider missing、provider failure、assignment 无效或 proof mint failure 必须返回可观测错误并 fail closed，不得落入具体业务 endpoint 的 fallback 分支。
+
+`sha256PowV1` provider 的 issue payload 只包含 legacy PoW challenge 必需字段：`salt`、`difficulty`、`timestamp`、`signature`。verify payload 必须包含 `proof`，其值为旧 `X-Fsus-Pow-Proof` 使用的 Base64 FPOW binary proof；服务端复用同一解析器、`IPowService.VerifyAsync` 和 `AdaptivePowGovernor` difficulty 裁决。该 provider 不引入公开 JSON fallback，不改变现有 FPOW wire format，也不删除 `GET /api/binary/auth/pow-challenge` 或 `X-Fsus-Pow-Proof` legacy 路径。
 
 | FrameType | 值 | POD | 用途 |
 |-----------|----|-----|------|

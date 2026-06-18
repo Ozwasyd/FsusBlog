@@ -38,6 +38,7 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IRiskDecisionService, RiskDecisionService>();
         services.AddScoped<ISecurityChallengePersistenceService, SecurityChallengePersistenceService>();
         services.AddScoped<ISecurityChallengeProofService, SecurityChallengeProofService>();
+        services.AddScoped<ISecurityChallengeProvider, Sha256PowChallengeProvider>();
         services.AddScoped<ISecurityChallengeOrchestrator, SecurityChallengeOrchestrator>();
 
         services.Configure<LifecycleBootstrapOptions>(configuration.GetSection(LifecycleBootstrapOptions.SectionName));
