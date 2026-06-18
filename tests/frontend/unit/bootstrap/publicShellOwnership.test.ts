@@ -50,6 +50,14 @@ describe('public shell ownership boundary', () => {
     expect(publicShell).toContain("addPublicShellEventListener(window, 'popstate'")
   })
 
+  it('updates public auth through runtime state instead of mutating Vue-owned DOM', () => {
+    expect(publicShell).toContain('setPublicShellRuntimeAuthState')
+    expect(publicShell).toContain('resolvePublicShellRuntimeAuthState')
+    expect(publicShell).not.toContain("querySelectorAll<HTMLAnchorElement>('.el-public-shell__auth-link')")
+    expect(publicShell).not.toContain('textContent = authState.authLabel')
+    expect(publicShell).not.toContain("setAttribute('href', authState.authHref)")
+  })
+
   it('dispatches AOT action events through one shared helper', () => {
     expect(publicShell).toContain('dispatchAotActionEvent')
     expect(aotActionBridge).toContain('dispatchAotActionEvent')

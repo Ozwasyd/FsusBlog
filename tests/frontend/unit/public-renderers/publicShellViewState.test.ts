@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { ACCOUNT_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
 import {
   isPublicSearchRouteName,
@@ -7,6 +7,12 @@ import {
   resolvePublicPageKind
 } from '@/public-renderers/publicPageModel'
 import { createPublicShellViewState } from '@/public-renderers/publicShellViewState'
+import {
+  publicShellRuntimeAuthState,
+  resetPublicShellRuntimeAuthState,
+  resolvePublicShellRuntimeAuthState,
+  setPublicShellRuntimeAuthState
+} from '@/public-renderers/publicShellRuntimeState'
 
 describe('resolvePublicPageKind', () => {
   it('maps public route names to hydration kinds', () => {
@@ -120,5 +126,44 @@ describe('createPublicShellViewState', () => {
     expect(state.initialSearchQuery).toBe('vue hydration')
     expect(state.spaSearch).toBe(true)
     expect(state.showRuntime).toBe(true)
+  })
+})
+
+describe('publicShellRuntimeAuthState', () => {
+  beforeEach(() => {
+    resetPublicShellRuntimeAuthState()
+  })
+
+  it('starts and resets to the SSR-compatible anonymous auth action', () => {
+    expect(publicShellRuntimeAuthState.value).toEqual({
+      authLabel: '登录',
+      authHref: '/login'
+    })
+
+    setPublicShellRuntimeAuthState({
+      authLabel: '账户',
+      authHref: ACCOUNT_ROUTE_PATHS.profile
+    })
+    resetPublicShellRuntimeAuthState()
+
+    expect(publicShellRuntimeAuthState.value).toEqual({
+      authLabel: '登录',
+      authHref: '/login'
+    })
+  })
+
+  it('resolves anonymous, normal user, admin, and failed auth states', () => {
+    expect(resolvePublicShellRuntimeAuthState(null)).toEqual({
+      authLabel: '登录',
+      authHref: '/login'
+    })
+    expect(resolvePublicShellRuntimeAuthState({ role: 'user' })).toEqual({
+      authLabel: '账户',
+      authHref: ACCOUNT_ROUTE_PATHS.profile
+    })
+    expect(resolvePublicShellRuntimeAuthState({ role: 'admin' })).toEqual({
+      authLabel: '控制板',
+      authHref: '/user/manage'
+    })
   })
 })

@@ -15,10 +15,14 @@ import { emitRumMetric, emitTelemetry } from '@/services/telemetryBus'
 import { ensureThemeRuntime, setThemeMode, type ThemeMode } from '@/services/themeRuntime'
 import { bootstrapFullApp } from '@/bootstrap/fullApp'
 import { AEDS_BINARY_MEDIA_TYPE } from '@/api/contracts'
-import { getMe, type CurrentUserSnapshot } from '@/api/auth'
+import { getMe } from '@/api/auth'
 import { getPrefersReducedMotion, resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
-import { createPublicShellViewState } from '@/public-renderers/publicShellViewState'
 import { settlePublicNavigationMotionForShell } from '@/bootstrap/publicShellMotion'
+import {
+  resetPublicShellRuntimeAuthState,
+  resolvePublicShellRuntimeAuthState,
+  setPublicShellRuntimeAuthState
+} from '@/public-renderers/publicShellRuntimeState'
 import {
   addPublicShellEventListener,
   onPublicShellLifetimeAbort,
@@ -798,26 +802,6 @@ function scheduleDynamicIslands(payload: PublicHydrationPayload | null): void {
   }
 }
 
-function resolvePublicShellAuthState(user: CurrentUserSnapshot | null): { authLabel: string, authHref: string } {
-  const shellState = createPublicShellViewState({
-    isRuntimeAuthResolved: true,
-    isLoggedIn: Boolean(user),
-    isAdmin: user?.role === 'admin'
-  })
-
-  return {
-    authLabel: shellState.authLabel,
-    authHref: shellState.authHref
-  }
-}
-
-function applyPublicShellAuthState(authState: { authLabel: string, authHref: string }): void {
-  document.querySelectorAll<HTMLAnchorElement>('.el-public-shell__auth-link').forEach((link) => {
-    link.textContent = authState.authLabel
-    link.setAttribute('href', authState.authHref)
-  })
-}
-
 function refreshPublicShellAuthState(): void {
   const version = ++authResolutionVersion
   void getMe()
@@ -826,14 +810,14 @@ function refreshPublicShellAuthState(): void {
         return
       }
 
-      applyPublicShellAuthState(resolvePublicShellAuthState(user))
+      setPublicShellRuntimeAuthState(resolvePublicShellRuntimeAuthState(user))
     })
     .catch(() => {
       if (version !== authResolutionVersion || getPublicRuntimeOwner() === 'spa') {
         return
       }
 
-      applyPublicShellAuthState(resolvePublicShellAuthState(null))
+      setPublicShellRuntimeAuthState(resolvePublicShellRuntimeAuthState(null))
     })
 }
 
@@ -1260,6 +1244,7 @@ async function hydratePublicShell(): Promise<void> {
 
 export async function bootstrapPublicShell(): Promise<void> {
   resetPublicShellLifetime()
+  resetPublicShellRuntimeAuthState()
   onPublicShellLifetimeAbort(() => {
     activeNavigationController?.abort()
     activeNavigationController = null

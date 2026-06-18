@@ -68,11 +68,11 @@
           </form>
           <ThemeModeToggle visibility="desktop" />
           <a
-            :href="authHref"
+            :href="resolvedAuthHref"
             class="el-public-shell__action-link el-public-shell__auth-link"
             data-public-nav="auth"
           >
-            {{ authLabel }}
+            {{ resolvedAuthLabel }}
           </a>
         </template>
 
@@ -95,11 +95,11 @@
             :labels="PUBLIC_THEME_MODE_LABELS"
           />
           <a
-            :href="authHref"
+            :href="resolvedAuthHref"
             class="el-public-shell__action-link el-public-shell__auth-link el-public-shell__auth-link--mobile"
             data-public-nav="auth"
           >
-            {{ authLabel }}
+            {{ resolvedAuthLabel }}
           </a>
         </template>
 
@@ -191,6 +191,7 @@ import {
   providePublicSiteIdentity,
 } from '@/public-renderers/publicSiteIdentityContext'
 import { normalizePublicSiteDescription } from '@/public-renderers/publicSiteIdentity'
+import { publicShellRuntimeAuthState } from '@/public-renderers/publicShellRuntimeState'
 import type { SiteComplianceConfigPublic } from '@/api/system'
 
 const SHELL_DEFAULTS = {
@@ -310,6 +311,20 @@ const shellIdentity = computed(() =>
 )
 const mobileSearchButtonLabel = computed(() =>
   mobileSearchExpanded.value ? '取消' : '搜索',
+)
+const shouldUseRuntimeAuthState = computed(() =>
+  (props.authLabel?.trim() || SHELL_DEFAULTS.authLabel) === SHELL_DEFAULTS.authLabel
+  && (props.authHref?.trim() || SHELL_DEFAULTS.authHref) === SHELL_DEFAULTS.authHref
+)
+const resolvedAuthLabel = computed(() =>
+  shouldUseRuntimeAuthState.value
+    ? publicShellRuntimeAuthState.value.authLabel
+    : props.authLabel?.trim() || SHELL_DEFAULTS.authLabel
+)
+const resolvedAuthHref = computed(() =>
+  shouldUseRuntimeAuthState.value
+    ? publicShellRuntimeAuthState.value.authHref
+    : props.authHref?.trim() || SHELL_DEFAULTS.authHref
 )
 
 providePublicSiteIdentity(shellIdentity)
