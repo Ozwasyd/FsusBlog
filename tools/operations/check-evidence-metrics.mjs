@@ -118,8 +118,13 @@ function validateDataScale() {
   assert(summary.observed?.seedManifest?.observed?.articles === summary.observed?.db?.articleRows, 'data-scale probe article count must match seed observed')
   assert(summary.observed?.seedManifest?.observed?.comments === summary.observed?.db?.commentRows, 'data-scale probe comment count must match seed observed')
   assert(summary.observed?.db?.countsMatch === true, 'data-scale probe countsMatch must be true')
+  assert(typeof summary.observed?.search?.status === 'string', 'data-scale probe search status must be explicit')
+  assert(typeof summary.observed?.aot?.status === 'string', 'data-scale probe artifact status must be explicit')
   assert(summary.cleanup?.remaining?.articles === 0, 'data-scale cleanup must remove articles')
   assert(summary.cleanup?.remaining?.comments === 0, 'data-scale cleanup must remove comments')
+  assert(summary.cleanup?.search?.residualCount === 0, 'data-scale cleanup search residual count must be explicit zero')
+  assert(summary.cleanup?.artifacts?.residualCount === 0, 'data-scale cleanup artifact residual count must be explicit zero')
+  nonNegativeNumber(summary.cleanup?.durationMs, 'data-scale.cleanup.durationMs')
   validateRuntimeProbe(summary.observed?.runtime, 'data-scale')
   positiveNumber(summary.observed?.latencyMs?.p95, 'data-scale.latencyMs.p95')
 }

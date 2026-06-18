@@ -23,9 +23,9 @@ summary="$(
     -v tier="$TIER" <<'SQL'
 BEGIN;
 
-CREATE TEMP TABLE data_scale_context(namespace text, tier text, prefix text) ON COMMIT DROP;
-INSERT INTO data_scale_context(namespace, tier, prefix)
-VALUES (:'namespace', :'tier', concat('data-scale:', :'namespace', ':', :'tier'));
+CREATE TEMP TABLE data_scale_context(namespace text, tier text, prefix text, started_at timestamp NOT NULL) ON COMMIT DROP;
+INSERT INTO data_scale_context(namespace, tier, prefix, started_at)
+VALUES (:'namespace', :'tier', concat('data-scale:', :'namespace', ':', :'tier'), clock_timestamp());
 
 WITH ctx AS (SELECT prefix FROM data_scale_context),
 target_articles AS (
@@ -98,6 +98,17 @@ SELECT jsonb_pretty(jsonb_build_object(
     'categories', categories,
     'tags', tags
   ),
+  'search', jsonb_build_object(
+    'status', 'not-applicable',
+    'residualCount', 0,
+    'reason', 'data-scale seed does not write search index entries'
+  ),
+  'artifacts', jsonb_build_object(
+    'status', 'not-applicable',
+    'residualCount', 0,
+    'reason', 'data-scale seed does not write AOT or HotRead artifacts'
+  ),
+  'durationMs', round((extract(epoch FROM (clock_timestamp() - started_at)) * 1000)::numeric, 3),
   'generatedAt', to_char(clock_timestamp() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
 ))
 FROM ctx, remaining;
