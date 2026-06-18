@@ -276,7 +276,7 @@ Client
 
 - WebSocket 主通道仍固定为 `GET /api/notifications/stream` + `fsus-aeds.v2`。
 - 该通道不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`，每条消息都是完整 AEDS v2 binary frame。
-- Preflight 只验证认证、PoW、cursor 和协议语义，不要求 WebSocket upgrade。
+- Preflight 与正式 WebSocket 握手共用 `NotificationStreamHandshakeService`，先校验 Origin allowlist，再验证认证、PoW、cursor 和协议语义；preflight 不要求 WebSocket upgrade。
 - 握手失败统一写入 `X-Fsus-Notification-Stream-Error-Code` 与 `X-Fsus-Notification-Stream-Status-Code`，并返回 AEDS `ApiError` frame。
 - 通知握手只编排协议、PoW 与握手结果。账号封禁/注销准入下沉到 `NotificationStreamAdmissionService`，notification stream audience 分组下沉到 `NotificationStreamAudienceResolver`，消息域到 user/group route 的映射下沉到 `MessageNotificationStreamPort`。
 - Notification stream backlog 按 route 写入 Redis stream（`u:{id}` / `g:{group}`；multi-user target 展开为多个 user route），多目标 backlog 写入通过 Redis batch/pipeline 一次提交；replay 只读取当前连接可见的 user/group stream 后按 event id 合并，不再从全局流拉取后置过滤。

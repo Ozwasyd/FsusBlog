@@ -571,6 +571,7 @@ interface AdminTagItemResponse extends AdminCategoryItemResponse {
 - 消息类型：binary
 - 每条消息：完整 AEDS v2 frame
 - 传输语义：notification stream 不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`
+- Origin 语义：preflight 与正式 WebSocket 握手共用 allowlist 校验；允许 `Seo:BaseUrl`、`Fido2:Origins`、`CORS_ALLOWED_HOSTS` 与开发 localhost，生产跨站、非 HTTPS/WSS 或浏览器缺失 Origin 返回 AEDS `ApiError`，错误码 `origin_not_allowed`
 - 匿名连接：仍需 PoW，浏览器 WebSocket 使用 `pow` query 参数传递二进制 FPOW 证明的 base64 文本形式
 - 断线续传：使用 `cursor` query 参数传递最后确认的事件 ID
 

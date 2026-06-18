@@ -46,6 +46,8 @@ internal sealed class NotificationStreamHandshakeService(
     AdaptivePowGovernor powGovernor,
     INotificationStreamAdmissionService admissionService,
     INotificationStreamAudienceResolver audienceResolver,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
     ILoggerFactory loggerFactory) : INotificationStreamHandshakeService
 {
     private const string Protocol = "fsus-aeds.v2";
@@ -58,6 +60,12 @@ internal sealed class NotificationStreamHandshakeService(
         if (requireWebSocket && !context.WebSockets.IsWebSocketRequest)
         {
             return NotificationStreamHandshakeResult.Failure(StatusCodes.Status426UpgradeRequired, "websocket_required");
+        }
+
+        NotificationStreamHandshakeResult? originFailure = ValidateOrigin(context);
+        if (originFailure is not null)
+        {
+            return originFailure;
         }
 
         string requestedProtocol = context.Request.Headers.SecWebSocketProtocol.ToString();
@@ -102,6 +110,47 @@ internal sealed class NotificationStreamHandshakeService(
         return NotificationStreamHandshakeResult.Success(new NotificationStreamHandshake(Protocol, userId, groups));
     }
 
+    private NotificationStreamHandshakeResult? ValidateOrigin(HttpContext context)
+    {
+        string originHeader = context.Request.Headers.Origin.ToString();
+        if (string.IsNullOrWhiteSpace(originHeader))
+        {
+            return environment.IsProduction() && !IsInternalProbe(context)
+                ? NotificationStreamHandshakeResult.Failure(StatusCodes.Status403Forbidden, "origin_not_allowed")
+                : null;
+        }
+
+        if (!Uri.TryCreate(originHeader, UriKind.Absolute, out Uri? origin))
+        {
+            return NotificationStreamHandshakeResult.Failure(StatusCodes.Status403Forbidden, "origin_not_allowed");
+        }
+
+        if (IsDevelopmentLocalhostOrigin(origin))
+        {
+            return null;
+        }
+
+        if (environment.IsProduction() && !IsProductionSafeOriginScheme(origin.Scheme))
+        {
+            return NotificationStreamHandshakeResult.Failure(StatusCodes.Status403Forbidden, "origin_not_allowed");
+        }
+
+        HashSet<string> allowedOrigins = BuildAllowedOrigins();
+        string normalizedOrigin = NormalizeOrigin(origin);
+        if (!allowedOrigins.Contains(normalizedOrigin))
+        {
+            return NotificationStreamHandshakeResult.Failure(StatusCodes.Status403Forbidden, "origin_not_allowed");
+        }
+
+        HashSet<string> allowedHosts = BuildAllowedHosts(allowedOrigins);
+        if (!allowedHosts.Contains(origin.Host))
+        {
+            return NotificationStreamHandshakeResult.Failure(StatusCodes.Status403Forbidden, "origin_not_allowed");
+        }
+
+        return null;
+    }
+
     private static int ResolveStatusCode(IActionResult result, int fallback)
     {
         return result switch
@@ -133,5 +182,113 @@ internal sealed class NotificationStreamHandshakeService(
         }
 
         return false;
+    }
+
+    private HashSet<string> BuildAllowedOrigins()
+    {
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        AddOrigin(allowed, configuration["Seo:BaseUrl"]);
+        AddOriginList(allowed, configuration["CORS_ALLOWED_HOSTS"]);
+        AddOriginList(allowed, configuration["Fido2:Origins"]);
+        foreach (IConfigurationSection child in configuration.GetSection("Fido2:Origins").GetChildren())
+        {
+            AddOrigin(allowed, child.Value);
+        }
+
+        return allowed;
+    }
+
+    private HashSet<string> BuildAllowedHosts(HashSet<string> allowedOrigins)
+    {
+        var hosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string origin in allowedOrigins)
+        {
+            if (Uri.TryCreate(origin, UriKind.Absolute, out Uri? uri))
+            {
+                hosts.Add(uri.Host);
+            }
+        }
+
+        string? configuredHosts = configuration["AllowedHosts"];
+        if (!string.IsNullOrWhiteSpace(configuredHosts))
+        {
+            foreach (string host in configuredHosts.Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (host == "*")
+                {
+                    continue;
+                }
+
+                hosts.Add(host);
+            }
+        }
+
+        return hosts;
+    }
+
+    private static void AddOriginList(HashSet<string> allowed, string? origins)
+    {
+        if (string.IsNullOrWhiteSpace(origins))
+        {
+            return;
+        }
+
+        foreach (string origin in origins.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            AddOrigin(allowed, origin);
+        }
+    }
+
+    private static void AddOrigin(HashSet<string> allowed, string? origin)
+    {
+        if (string.IsNullOrWhiteSpace(origin) || !Uri.TryCreate(origin, UriKind.Absolute, out Uri? uri))
+        {
+            return;
+        }
+
+        allowed.Add(NormalizeOrigin(uri));
+    }
+
+    private bool IsDevelopmentLocalhostOrigin(Uri origin)
+        => environment.IsDevelopment()
+            && IsLocalhost(origin.Host)
+            && (origin.Scheme == Uri.UriSchemeHttp ||
+                origin.Scheme == Uri.UriSchemeHttps ||
+                origin.Scheme.Equals("ws", StringComparison.OrdinalIgnoreCase) ||
+                origin.Scheme.Equals("wss", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsProductionSafeOriginScheme(string scheme)
+        => scheme == Uri.UriSchemeHttps || scheme.Equals("wss", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsInternalProbe(HttpContext context)
+    {
+        if (context.Request.Headers.ContainsKey("Sec-Fetch-Site"))
+        {
+            return false;
+        }
+
+        string userAgent = context.Request.Headers.UserAgent.ToString();
+        if (userAgent.Contains("Mozilla", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return context.Connection.RemoteIpAddress is null || System.Net.IPAddress.IsLoopback(context.Connection.RemoteIpAddress);
+    }
+
+    private static bool IsLocalhost(string host)
+        => host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+            || host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
+            || host.Equals("::1", StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeOrigin(Uri origin)
+    {
+        string scheme = origin.Scheme.Equals("wss", StringComparison.OrdinalIgnoreCase)
+            ? Uri.UriSchemeHttps
+            : origin.Scheme.Equals("ws", StringComparison.OrdinalIgnoreCase)
+                ? Uri.UriSchemeHttp
+                : origin.Scheme.ToLowerInvariant();
+        string port = origin.IsDefaultPort ? string.Empty : $":{origin.Port}";
+        return $"{scheme}://{origin.IdnHost.ToLowerInvariant()}{port}";
     }
 }

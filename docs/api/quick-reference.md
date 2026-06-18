@@ -335,8 +335,8 @@
 
 | 方法 | 路径 | 权限 | 说明 |
 |------|------|------|------|
-| GET | `/api/notifications/stream/preflight` | 🔓 | WebSocket 通知握手预检，成功返回 204 |
-| GET | `/api/notifications/stream` | 🔓 | WebSocket 通知通道（子协议 `fsus-aeds.v2`） |
+| GET | `/api/notifications/stream/preflight` | 🔓 | WebSocket 通知握手预检；校验 Origin/协议/认证/PoW，成功返回 204 |
+| GET | `/api/notifications/stream` | 🔓 | WebSocket 通知通道（子协议 `fsus-aeds.v2`，握手校验 Origin） |
 | POST | `/_fsus/testing/notification-stream/publish` | 🔓 | Development/Test-only notification resilience drill；需 `X-Fsus-Notification-Drill-Secret`，生产不映射 |
 | POST | `/api/binary/telemetry/rum` | 🔓🚦 | AEDS RUM 批量遥测入口 |
 | GET | `/health/live` | 🔓 | JSON 存活探针（仅检查进程） |

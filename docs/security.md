@@ -84,6 +84,7 @@ AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关�
 
 - 通道：`/api/notifications/stream` 使用 WebSocket，子协议固定为 `fsus-aeds.v2`
 - 预检：`/api/notifications/stream/preflight` 复用认证、PoW、cursor 和协议校验，不要求 WebSocket upgrade；成功返回 204，失败返回 AEDS `ApiError` frame 与 `X-Fsus-Notification-Stream-*` 头
+- Origin：preflight 与正式 WebSocket 握手必须先执行同一套 Origin 校验，允许来源来自 `Seo:BaseUrl`、`Fido2:Origins`、`CORS_ALLOWED_HOSTS`，开发环境额外允许 localhost；生产环境跨站、非 HTTPS/WSS 或浏览器缺失 Origin 均返回 `403` + `origin_not_allowed`
 - 载荷：所有通知、心跳和正式 WebSocket 握手失败均为 AEDS binary frame；握手失败返回 `ApiError` frame
 - 匿名订阅：必须携带 `pow` query 参数，值为二进制 FPOW 证明的 base64 文本形式
 - 登录订阅：复用同站点认证 Cookie，不接受文本事件流降级

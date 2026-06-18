@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Net.WebSockets;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.NotificationStream;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using Microsoft.AspNetCore.Hosting;
@@ -90,6 +91,70 @@ public class NotificationStreamBoundaryTests
         Assert.Contains(NotificationStreamGroups.ContentFeed, groups);
         Assert.Contains(NotificationStreamGroups.AuthenticatedUsers, groups);
         Assert.Contains(NotificationStreamGroups.AdminUsers, groups);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Handshake_DeniesCrossSiteOriginForStreamAndPreflight(bool requireWebSocket)
+    {
+        NotificationStreamHandshakeService service = CreateHandshakeService(
+            new TestWebHostEnvironment { EnvironmentName = Environments.Production },
+            ["Seo:BaseUrl=https://fsus.blog", "CORS_ALLOWED_HOSTS=https://fsus.blog", "Fido2:Origins:0=https://fsus.blog"]);
+        DefaultHttpContext context = CreateHandshakeContext("https://evil.example", "fsus.blog");
+
+        NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None, requireWebSocket);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(StatusCodes.Status403Forbidden, result.StatusCode);
+        Assert.Equal("origin_not_allowed", result.ErrorCode);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Handshake_AllowsConfiguredOriginForStreamAndPreflight(bool requireWebSocket)
+    {
+        NotificationStreamHandshakeService service = CreateHandshakeService(
+            new TestWebHostEnvironment { EnvironmentName = Environments.Production },
+            ["Seo:BaseUrl=https://fsus.blog", "CORS_ALLOWED_HOSTS=https://fsus.blog", "Fido2:Origins:0=https://fsus.blog"]);
+        DefaultHttpContext context = CreateHandshakeContext("https://fsus.blog", "fsus.blog");
+
+        NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None, requireWebSocket);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("42", result.Handshake!.UserId);
+    }
+
+    [Fact]
+    public async Task Handshake_AllowsDevelopmentLocalhostOrigin()
+    {
+        NotificationStreamHandshakeService service = CreateHandshakeService(
+            new TestWebHostEnvironment { EnvironmentName = Environments.Development },
+            []);
+        DefaultHttpContext context = CreateHandshakeContext("http://localhost:5173", "localhost:7568");
+
+        NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
+    public void Handshake_SourceChecksOriginBeforeAnonymousPow()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamHandshakeService.cs"));
+        string validate = ExtractMethodBlock(source, "public async Task<NotificationStreamHandshakeResult> ValidateAsync");
+
+        Assert.Contains("ValidateOrigin(context)", validate, StringComparison.Ordinal);
+        Assert.Contains("origin_not_allowed", source, StringComparison.Ordinal);
+        Assert.True(
+            validate.IndexOf("ValidateOrigin(context)", StringComparison.Ordinal) <
+            validate.IndexOf("PowValidationLogic.ValidateFromQueryAsync", StringComparison.Ordinal));
+        Assert.Contains("Seo:BaseUrl", source, StringComparison.Ordinal);
+        Assert.Contains("Fido2:Origins", source, StringComparison.Ordinal);
+        Assert.Contains("CORS_ALLOWED_HOSTS", source, StringComparison.Ordinal);
+        Assert.Contains("IsDevelopment()", source, StringComparison.Ordinal);
+        Assert.Contains("localhost", source, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -224,6 +289,49 @@ public class NotificationStreamBoundaryTests
 
     private static StreamEntry StreamEntry(string id, byte[] payload)
         => new(id, [new NameValueEntry("f", payload)]);
+
+    private static NotificationStreamHandshakeService CreateHandshakeService(
+        IWebHostEnvironment environment,
+        IEnumerable<string> settings)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(settings.Select(static item =>
+            {
+                int separator = item.IndexOf('=', StringComparison.Ordinal);
+                return new KeyValuePair<string, string?>(
+                    item[..separator],
+                    item[(separator + 1)..]);
+            }))
+            .Build();
+        return new NotificationStreamHandshakeService(
+            Substitute.For<IPowService>(),
+            new AdaptivePowGovernor(Substitute.For<IUnifiedCache>()),
+            new AllowingAdmissionService(),
+            new NotificationStreamAudienceResolver(),
+            configuration,
+            environment,
+            NullLoggerFactory.Instance);
+    }
+
+    private static DefaultHttpContext CreateHandshakeContext(string origin, string host)
+    {
+        var context = new DefaultHttpContext();
+        context.Features.Set<IHttpWebSocketFeature>(new ThrowingWebSocketFeature());
+        context.Request.Headers.Origin = origin;
+        context.Request.Headers.Host = host;
+        context.Request.Headers.SecWebSocketProtocol = "fsus-aeds.v2";
+        context.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, "42")],
+            "test"));
+        return context;
+    }
+
+    private sealed class AllowingAdmissionService : INotificationStreamAdmissionService
+    {
+        public Task<NotificationStreamAdmissionResult> ValidateAsync(string? userId, CancellationToken cancellationToken)
+            => Task.FromResult(NotificationStreamAdmissionResult.Allowed);
+    }
+
     private static string ExtractMethodBlock(string source, string signature)
     {
         int start = source.IndexOf(signature, StringComparison.Ordinal);
