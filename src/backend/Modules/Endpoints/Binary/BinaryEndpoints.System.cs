@@ -50,7 +50,7 @@ public static partial class BinaryEndpoints
             var dto = SystemProjection.ToPublicDto(data);
             return BinaryResults.Frame(aeds, AedsFrameType.SeoConfig, writer => PodBinaryCodec.WriteSeoConfig(dto, writer));
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"));
+        .RequireAdminPermission(AdminPermissions.SystemConfig);
 
         group.MapPut("/system/seo", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -98,7 +98,7 @@ public static partial class BinaryEndpoints
             });
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapGet("/system/compliance", static async Task<BinaryFrameResult> (
@@ -120,7 +120,7 @@ public static partial class BinaryEndpoints
             var dto = SystemProjection.ToAdminDto(data);
             return BinaryResults.Frame(aeds, AedsFrameType.SiteComplianceConfig, writer => PodBinaryCodec.WriteSiteComplianceConfig(dto, writer));
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"));
+        .RequireAdminPermission(AdminPermissions.SystemConfig);
 
         group.MapPut("/system/compliance", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -158,7 +158,7 @@ public static partial class BinaryEndpoints
             });
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapGet("/system/page/{slug}", static async Task<BinaryFrameResult> (
@@ -209,7 +209,7 @@ public static partial class BinaryEndpoints
             var dto = SystemProjection.ToPublicDto(data);
             return BinaryResults.Frame(aeds, AedsFrameType.PageContent, writer => PodBinaryCodec.WritePageContent(dto, writer));
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"));
+        .RequireAdminPermission(AdminPermissions.SystemConfig);
 
         group.MapPut("/system/page", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -248,7 +248,7 @@ public static partial class BinaryEndpoints
 
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapPost("/system/page/refresh/{slug}", static async Task<BinaryFrameResult> (
@@ -272,7 +272,7 @@ public static partial class BinaryEndpoints
 
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .AddEndpointFilter<RequiresPowFilter>();
     }
 }

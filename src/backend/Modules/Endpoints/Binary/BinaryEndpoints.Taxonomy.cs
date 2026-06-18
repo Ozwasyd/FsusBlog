@@ -187,7 +187,7 @@ public static partial class BinaryEndpoints
             publicHotUpdates.TryEnqueue(null, "taxonomy-category-created");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapPut("/category/{id:int}", static async Task<BinaryFrameResult> (
@@ -238,7 +238,7 @@ public static partial class BinaryEndpoints
             publicHotUpdates.TryEnqueue(null, "taxonomy-category-updated");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapDelete("/category/{id:int}", static async Task<BinaryFrameResult> (
@@ -269,7 +269,7 @@ public static partial class BinaryEndpoints
             publicHotUpdates.TryEnqueue(null, "taxonomy-category-deleted");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapPost("/tag", static async Task<BinaryFrameResult> (
@@ -313,7 +313,7 @@ public static partial class BinaryEndpoints
             publicHotUpdates.TryEnqueue(null, "taxonomy-tag-created");
             return BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(newId, writer));
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapPut("/tag/{id:int}", static async Task<BinaryFrameResult> (
@@ -364,7 +364,7 @@ public static partial class BinaryEndpoints
             publicHotUpdates.TryEnqueue(null, "taxonomy-tag-updated");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapDelete("/tag/{id:int}", static async Task<BinaryFrameResult> (
@@ -395,7 +395,7 @@ public static partial class BinaryEndpoints
             publicHotUpdates.TryEnqueue(null, "taxonomy-tag-deleted");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();
     }
 }

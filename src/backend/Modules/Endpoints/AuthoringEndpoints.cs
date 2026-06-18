@@ -32,7 +32,6 @@ public static class AuthoringEndpoints
     {
         var group = app.MapGroup(BinaryBridgeInternalRequest.AuthoringPrefix)
             .WithTags("Authoring")
-            .RequireAuthorization(policy => policy.RequireRole("admin"))
             .AddEndpointFilter<BinaryBridgeInternalOnlyFilter>();
 
         group.MapPost("/drafts", async (
@@ -43,7 +42,8 @@ public static class AuthoringEndpoints
         {
             ServerDraftResponse saved = await service.SaveDraftAsync(context.GetUserId(), request, cancellationToken);
             return Results.Ok(JsonApiResponse<ServerDraftResponse>.Ok(saved));
-        });
+        })
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/drafts/{draftKey}", async (
             string draftKey,
@@ -53,7 +53,8 @@ public static class AuthoringEndpoints
         {
             ServerDraftResponse? draft = await service.GetDraftAsync(context.GetUserId(), draftKey, cancellationToken);
             return Results.Ok(JsonApiResponse<ServerDraftResponse?>.Ok(draft));
-        });
+        })
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapDelete("/drafts/{draftKey}", async (
             string draftKey,
@@ -63,10 +64,12 @@ public static class AuthoringEndpoints
         {
             bool discarded = await service.DiscardDraftAsync(context.GetUserId(), draftKey, cancellationToken);
             return Results.Ok(JsonApiResponse<object>.Ok(new { discarded }));
-        });
+        })
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapPost("/preview", async (ServerDraftSaveRequest request, AuthoringWorkflowService service) =>
-            Results.Ok(JsonApiResponse<ArticlePreviewResponse>.Ok(await service.PreviewAsync(request))));
+            Results.Ok(JsonApiResponse<ArticlePreviewResponse>.Ok(await service.PreviewAsync(request))))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapPost("/prepublish-check", (ServerDraftSaveRequest request, HttpContext context, AuthoringWorkflowService service) =>
             Results.Ok(JsonApiResponse<PrepublishCheckResponse>.Ok(
@@ -78,7 +81,8 @@ public static class AuthoringEndpoints
                     context.GetUserId(),
                     request.DraftKey,
                     request.ArticleId,
-                    request.WarningOverrideReason))));
+                    request.WarningOverrideReason))))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/articles/{articleId:int}/revisions", async (
             int articleId,
@@ -87,7 +91,8 @@ public static class AuthoringEndpoints
         {
             IReadOnlyList<ArticleRevisionSummaryResponse> revisions = await service.GetRevisionsAsync(articleId, cancellationToken);
             return Results.Ok(JsonApiResponse<IReadOnlyList<ArticleRevisionSummaryResponse>>.Ok(revisions));
-        });
+        })
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/articles/{articleId:int}/revisions/{revisionId:long}", async (
             int articleId,
@@ -99,7 +104,8 @@ public static class AuthoringEndpoints
             return revision is null
                 ? Results.NotFound(JsonApiResponse<ArticleRevisionDetailResponse>.Fail("revision_not_found"))
                 : Results.Ok(JsonApiResponse<ArticleRevisionDetailResponse>.Ok(revision));
-        });
+        })
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapPost("/articles/{articleId:int}/revisions/{revisionId:long}/rollback", async (
             int articleId,
@@ -112,7 +118,8 @@ public static class AuthoringEndpoints
             return rolledBack
                 ? Results.Ok(JsonApiResponse<object>.Ok(new { rolledBack }))
                 : Results.NotFound(JsonApiResponse<object>.Fail("revision_not_found"));
-        });
+        })
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapPost("/articles/{articleId:int}/assets/reindex", async (
             int articleId,
@@ -121,22 +128,28 @@ public static class AuthoringEndpoints
         {
             IReadOnlyList<AssetLibraryItemResponse> assets = await service.ReindexAssetsAsync(articleId, cancellationToken);
             return Results.Ok(JsonApiResponse<IReadOnlyList<AssetLibraryItemResponse>>.Ok(assets));
-        });
+        })
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/assets", async (AuthoringWorkflowService service, CancellationToken cancellationToken) =>
-            Results.Ok(JsonApiResponse<IReadOnlyList<AssetLibraryItemResponse>>.Ok(await service.ListAssetsAsync(cancellationToken))));
+            Results.Ok(JsonApiResponse<IReadOnlyList<AssetLibraryItemResponse>>.Ok(await service.ListAssetsAsync(cancellationToken))))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapDelete("/assets/orphans", async (AuthoringWorkflowService service, CancellationToken cancellationToken) =>
-            Results.Ok(JsonApiResponse<AssetCleanupResponse>.Ok(await service.CleanupOrphanAssetsAsync(cancellationToken))));
+            Results.Ok(JsonApiResponse<AssetCleanupResponse>.Ok(await service.CleanupOrphanAssetsAsync(cancellationToken))))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/taxonomy/categories", async (ISqlSugarClient db, CancellationToken cancellationToken) =>
-            Results.Ok(JsonApiResponse<IReadOnlyList<AdminCategoryItemResponse>>.Ok(await ListAdminCategoriesAsync(db, cancellationToken))));
+            Results.Ok(JsonApiResponse<IReadOnlyList<AdminCategoryItemResponse>>.Ok(await ListAdminCategoriesAsync(db, cancellationToken))))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/taxonomy/tags", async (ISqlSugarClient db, CancellationToken cancellationToken) =>
-            Results.Ok(JsonApiResponse<IReadOnlyList<AdminTagItemResponse>>.Ok(await ListAdminTagsAsync(db, cancellationToken))));
+            Results.Ok(JsonApiResponse<IReadOnlyList<AdminTagItemResponse>>.Ok(await ListAdminTagsAsync(db, cancellationToken))))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/analytics", async (AuthoringWorkflowService service, CancellationToken cancellationToken) =>
-            Results.Ok(JsonApiResponse<AuthorAnalyticsResponse>.Ok(await service.GetAnalyticsAsync(cancellationToken))));
+            Results.Ok(JsonApiResponse<AuthorAnalyticsResponse>.Ok(await service.GetAnalyticsAsync(cancellationToken))))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/moderation/overview", async (
             ISqlSugarClient db,
@@ -162,7 +175,8 @@ public static class AuthoringEndpoints
                 configuration["Moderation:AntiSpamModel:ContractVersion"] ?? AntiSpamModerationContract.DefaultVersion,
                 Math.Clamp(configuration.GetValue<int?>("Moderation:AntiSpamModel:TimeoutMs") ?? 800, 100, 10_000));
             return Results.Ok(JsonApiResponse<ModerationOverviewResponse>.Ok(response));
-        });
+        })
+        .RequireAdminPermission(AdminPermissions.CommentModerate);
 
         group.MapGet("/moderation/anonymous-comment-policy", (
             IAnonymousCommentPolicyService policyService) =>
@@ -288,10 +302,12 @@ public static class AuthoringEndpoints
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/moderation/dictionaries", (IModerationDictionaryService dictionaryService) =>
-            Results.Ok(JsonApiResponse<ModerationDictionaryRuntimeSnapshot>.Ok(dictionaryService.GetRuntimeSnapshot())));
+            Results.Ok(JsonApiResponse<ModerationDictionaryRuntimeSnapshot>.Ok(dictionaryService.GetRuntimeSnapshot())))
+        .RequireAdminPermission(AdminPermissions.SystemConfig);
 
         group.MapGet("/moderation/runtime/status", (IModerationRuntimeStateService runtimeState) =>
-            Results.Ok(JsonApiResponse<ModerationRuntimeStatusResponse>.Ok(ToModerationRuntimeStatusResponse(runtimeState.Current))));
+            Results.Ok(JsonApiResponse<ModerationRuntimeStatusResponse>.Ok(ToModerationRuntimeStatusResponse(runtimeState.Current))))
+        .RequireAdminPermission(AdminPermissions.SystemConfig);
 
         group.MapPost("/moderation/runtime/global-state", async (
             ModerationRuntimeGlobalStateRequest request,
@@ -324,6 +340,7 @@ public static class AuthoringEndpoints
                 request.Reason ?? request.State,
                 cancellationToken);
         })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/moderation/runtime/region-state", async (
@@ -359,6 +376,7 @@ public static class AuthoringEndpoints
                 request.Reason ?? request.State,
                 cancellationToken);
         })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/moderation/dictionaries/reload", async (
@@ -413,6 +431,7 @@ public static class AuthoringEndpoints
                     JsonApiResponse<ModerationDictionaryReloadResponse>.Fail("moderation_dictionary_reload_failed"),
                     statusCode: StatusCodes.Status500InternalServerError);
         })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/moderation/dictionaries/rollback", async (
@@ -460,6 +479,7 @@ public static class AuthoringEndpoints
                 JsonApiResponse<ModerationDictionaryRuntimeSnapshot>.Fail(result.Error.Message),
                 statusCode: ToHttpStatusCode(result.Error.Code));
         })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/moderation/dictionaries/{dictionaryId}/enable", async (
@@ -495,6 +515,7 @@ public static class AuthoringEndpoints
                 request.Reason ?? "dictionary_enable",
                 cancellationToken);
         })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/moderation/dictionaries/{dictionaryId}/disable", async (
@@ -530,6 +551,7 @@ public static class AuthoringEndpoints
                 request.Reason ?? "dictionary_disable",
                 cancellationToken);
         })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/moderation/policies", (IModerationDictionaryService dictionaryService) =>
@@ -544,25 +566,29 @@ public static class AuthoringEndpoints
                 policy.RuleCount,
                 BuildRegionPolicyChecks(policy)))];
             return Results.Ok(JsonApiResponse<IReadOnlyList<RegionPolicySummaryResponse>>.Ok(policies));
-        });
+        })
+        .RequireAdminPermission(AdminPermissions.SystemConfig);
 
         group.MapGet("/moderation/regions", (IModerationRegionCatalogService regionCatalog) =>
         {
             ModerationRegionCatalogSnapshot snapshot = regionCatalog.GetRuntimeSnapshot();
             return Results.Ok(JsonApiResponse<IReadOnlyList<ModerationRegionDefinition>>.Ok(snapshot.Regions));
-        });
+        })
+        .RequireAdminPermission(AdminPermissions.SystemConfig);
 
         group.MapGet("/moderation/region-groups", (IModerationRegionCatalogService regionCatalog) =>
         {
             ModerationRegionCatalogSnapshot snapshot = regionCatalog.GetRuntimeSnapshot();
             return Results.Ok(JsonApiResponse<IReadOnlyList<ModerationRegionGroupDefinition>>.Ok(snapshot.RegionGroups));
-        });
+        })
+        .RequireAdminPermission(AdminPermissions.SystemConfig);
 
         group.MapGet("/moderation/policy-templates", (IModerationRegionCatalogService regionCatalog) =>
         {
             ModerationRegionCatalogSnapshot snapshot = regionCatalog.GetRuntimeSnapshot();
             return Results.Ok(JsonApiResponse<IReadOnlyList<ModerationPolicyTemplateDefinition>>.Ok(snapshot.PolicyTemplates));
-        });
+        })
+        .RequireAdminPermission(AdminPermissions.SystemConfig);
 
         group.MapGet("/moderation/effective-policy/{regionCode}", async (
             string regionCode,
@@ -574,6 +600,7 @@ public static class AuthoringEndpoints
             await RecordEffectivePolicyPreviewAuditAsync(preview, auditEvents, cancellationToken);
             return Results.Ok(JsonApiResponse<ModerationEffectivePolicyPreview>.Ok(preview));
         })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/moderation/effective-policy/preview", async (
@@ -586,6 +613,7 @@ public static class AuthoringEndpoints
             await RecordEffectivePolicyPreviewAuditAsync(preview, auditEvents, cancellationToken);
             return Results.Ok(JsonApiResponse<ModerationEffectivePolicyPreview>.Ok(preview));
         })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/moderation/model/status", async (
@@ -632,7 +660,8 @@ public static class AuthoringEndpoints
                 latencies.Count > 0 ? Math.Round(latencies.Average(), 2) : 0d,
                 ResolveP95Latency(latencies));
             return Results.Ok(JsonApiResponse<ModerationModelStatusResponse>.Ok(response));
-        });
+        })
+        .RequireAdminPermission(AdminPermissions.SystemConfig);
 
         group.MapPost("/moderation/model/runtime", async (
             ModerationModelRuntimeRequest request,
@@ -666,6 +695,7 @@ public static class AuthoringEndpoints
                 request.Reason ?? request.Provider ?? "model_runtime",
                 cancellationToken);
         })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/moderation/model/reload", async (
@@ -693,6 +723,7 @@ public static class AuthoringEndpoints
                 "model_reload",
                 cancellationToken);
         })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/moderation/model/rollback", async (
@@ -720,6 +751,7 @@ public static class AuthoringEndpoints
                 "model_rollback",
                 cancellationToken);
         })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/moderation/replay/preview", async (
@@ -756,6 +788,7 @@ public static class AuthoringEndpoints
 
             return Results.Ok(JsonApiResponse<ModerationReplayPreviewResponse>.Ok(response));
         })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/comments/moderation", async (
@@ -880,7 +913,8 @@ public static class AuthoringEndpoints
                     ["exportedAt"] = response.ExportedAt
                 }), cancellationToken);
             return Results.Ok(JsonApiResponse<ContentBackupExportResponse>.Ok(response));
-        });
+        })
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/articles/{articleId:int}/export", async (
             int articleId,
@@ -908,7 +942,8 @@ public static class AuthoringEndpoints
             return exported is null
                 ? Results.NotFound(JsonApiResponse<ContentExportResponse>.Fail("article_not_found"))
                 : Results.Ok(JsonApiResponse<ContentExportResponse>.Ok(exported));
-        });
+        })
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapPost("/articles/import", async (
             ContentImportRequest request,
@@ -933,7 +968,8 @@ public static class AuthoringEndpoints
                     ["restoredRevisionCount"] = response.RestoredRevisionCount
                 }), cancellationToken);
             return Results.Ok(JsonApiResponse<ContentImportResponse>.Ok(response));
-        });
+        })
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/audit", async (
             int? page,
@@ -965,6 +1001,7 @@ public static class AuthoringEndpoints
                 Context: BuildAuditQueryContext(query)), cancellationToken);
             return Results.Ok(JsonApiResponse<AuditLogListResponse>.Ok(response));
         })
+        .RequireAdminPermission(AdminPermissions.AuditRead)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/audit/summary", async (
@@ -995,6 +1032,7 @@ public static class AuthoringEndpoints
                 Context: BuildAuditQueryContext(query)), cancellationToken);
             return Results.Ok(JsonApiResponse<AuditLogSummaryResponse>.Ok(response));
         })
+        .RequireAdminPermission(AdminPermissions.AuditRead)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/audit/{id:long}", async (
@@ -1017,6 +1055,7 @@ public static class AuthoringEndpoints
                 ? Results.NotFound(JsonApiResponse<AuditLogDetailResponse>.Fail("audit_log_not_found"))
                 : Results.Ok(JsonApiResponse<AuditLogDetailResponse>.Ok(response));
         })
+        .RequireAdminPermission(AdminPermissions.AuditRead)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/audit/{id:long}/verify", async (
@@ -1039,6 +1078,7 @@ public static class AuthoringEndpoints
                 ? Results.NotFound(JsonApiResponse<AuditTamperVerifyResponse>.Fail("audit_log_not_found"))
                 : Results.Ok(JsonApiResponse<AuditTamperVerifyResponse>.Ok(response));
         })
+        .RequireAdminPermission(AdminPermissions.AuditRead)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/ops/health", async (
@@ -1057,16 +1097,19 @@ public static class AuthoringEndpoints
                 TargetType: "ops_health"), cancellationToken);
             return Results.Ok(JsonApiResponse<OpsHealthResponse>.Ok(response));
         })
+        .RequireAdminPermission(AdminPermissions.AuditRead)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/ops/backup", (
             AdminOperationsService operations) =>
             Results.Ok(JsonApiResponse<BackupStatusResponse>.Ok(operations.GetBackupStatus())))
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/ops/dangerous-operations/policy", (
             AdminOperationsService operations) =>
             Results.Ok(JsonApiResponse<DangerousOperationPolicyResponse>.Ok(operations.GetDangerousOperationPolicy())))
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/cache/diagnostics", async (
@@ -1087,6 +1130,7 @@ public static class AuthoringEndpoints
                 TargetId: articleId?.ToString(System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
             return Results.Ok(JsonApiResponse<CacheDiagnosticsResponse>.Ok(response));
         })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/cache/actions", async (
@@ -1113,6 +1157,7 @@ public static class AuthoringEndpoints
                 }), cancellationToken);
             return Results.Ok(JsonApiResponse<AdminCacheActionResponse>.Ok(response));
         })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/integrity", async (
@@ -1136,12 +1181,14 @@ public static class AuthoringEndpoints
                 }), cancellationToken);
             return Results.Ok(JsonApiResponse<IntegrityReportResponse>.Ok(response));
         })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/integrity/fix-preview", async (
             AdminOperationsService operations,
             CancellationToken cancellationToken) =>
             Results.Ok(JsonApiResponse<IntegrityFixPreviewResponse>.Ok(await operations.PreviewIntegrityFixAsync(cancellationToken))))
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/integrity/fix", async (
@@ -1175,10 +1222,12 @@ public static class AuthoringEndpoints
                 }), cancellationToken);
             return Results.Ok(JsonApiResponse<IntegrityFixResponse>.Ok(response));
         })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/ai-assist", (AiAssistRequest request, HttpContext context, AuthoringWorkflowService service) =>
-            Results.Ok(JsonApiResponse<AiAssistResponse>.Ok(service.GenerateAiAssist(context.GetUserId(), request))));
+            Results.Ok(JsonApiResponse<AiAssistResponse>.Ok(service.GenerateAiAssist(context.GetUserId(), request))))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         return app;
     }

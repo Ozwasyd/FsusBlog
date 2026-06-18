@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Observability;
@@ -277,7 +278,7 @@ public static class ProductionHealthEndpoints
                 source = status.Source,
                 lastError = status.LastError
             });
-        }).RequireAuthorization(policy => policy.RequireRole("admin"));
+        }).RequireAdminPermission(AdminPermissions.AuditRead);
 
         return endpoints;
     }

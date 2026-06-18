@@ -211,6 +211,29 @@ public sealed class EndpointPolicyContractTests
     }
 
     [Fact]
+    public void AdminControlPlaneEndpoints_DoNotUseBareAdminRole()
+    {
+        string[] files =
+        [
+            .. Directory.EnumerateFiles(
+                BackendTestPaths.FromRoot("src", "backend", "Modules", "Endpoints", "Binary"),
+                "*.cs",
+                SearchOption.AllDirectories),
+            BackendTestPaths.FromRoot("src", "backend", "Modules", "Endpoints", "AuthoringEndpoints.cs"),
+            BackendTestPaths.FromRoot("src", "backend", "Modules", "Endpoints", "SecurityEndpoints.cs"),
+            BackendTestPaths.FromRoot("src", "backend", "Infrastructure", "Operations", "ProductionHealth.cs")
+        ];
+
+        foreach (string file in files)
+        {
+            string source = File.ReadAllText(file);
+
+            Assert.DoesNotContain("RequireRole(\"admin\")", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("RequireRole('admin')", source, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void CommentModerationAndAnonymousGovernancePermissions_DoNotReplaceEachOther()
     {
         string source = ReadRepoFile(

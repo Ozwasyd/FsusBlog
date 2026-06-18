@@ -93,7 +93,7 @@ public static partial class BinaryEndpoints
 
             return BinaryResults.FromResult(payloadResult.Result, aeds, AedsFrameType.ArticleList, static (value, writer) => PodBinaryCodec.WriteArticlePage(value, writer));
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"));
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/admin/article/{id:int}", static async Task<IResult> (
             int id,
@@ -112,7 +112,7 @@ public static partial class BinaryEndpoints
 
             var detail = result.Value.Value;
             return BinaryResults.Frame(aeds, AedsFrameType.ArticleDetail, writer => PodBinaryCodec.WriteArticleDetail(detail, writer));
-        }).RequireAuthorization(policy => policy.RequireRole("admin"));
+        }).RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/admin/article/hot", static async Task<IResult> (
             int? size,
@@ -134,7 +134,7 @@ public static partial class BinaryEndpoints
                 static (value, writer) => PodBinaryCodec.WritePopularArticles(value, writer),
                 "热门文章数据为空");
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"));
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/admin/article/featured", static async Task<BinaryFrameResult> (
             int? size,
@@ -152,7 +152,7 @@ public static partial class BinaryEndpoints
             IReadOnlyList<FeaturedArticleSummaryDto> featured = result.Value ?? [];
             return BinaryResults.Frame(aeds, AedsFrameType.ArticleFeatured, writer => PodBinaryCodec.WriteFeaturedArticles(featured, writer));
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"));
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapPost("/admin/article", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -177,7 +177,7 @@ public static partial class BinaryEndpoints
                 ? BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(id, writer))
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "发布失败：数据库操作异常"), aeds);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapPut("/admin/article/{id:int}", static async Task<BinaryFrameResult> (
@@ -204,7 +204,7 @@ public static partial class BinaryEndpoints
                 ? BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(id, writer))
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "更新失败：数据库操作异常"), aeds);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapDelete("/admin/article/trash", static async Task<BinaryFrameResult> (
@@ -225,7 +225,7 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("DestroyedCount", count));
             return BinaryResults.Frame(aeds, AedsFrameType.TrashClearResponse, writer => PodBinaryCodec.WriteTrashClearResponse(new TrashClearResponseDto(count), writer));
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapDelete("/admin/article/{id:int}", static async Task<BinaryFrameResult> (
@@ -239,7 +239,7 @@ public static partial class BinaryEndpoints
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "操作失败：资源不存在"), aeds);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapPut("/admin/article/restore/{id:int}", static async Task<BinaryFrameResult> (
@@ -253,7 +253,7 @@ public static partial class BinaryEndpoints
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "恢复失败：资源不存在"), aeds);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapDelete("/admin/article/permanent/{id:int}", static async Task<BinaryFrameResult> (
@@ -267,7 +267,7 @@ public static partial class BinaryEndpoints
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "操作失败：资源不存在"), aeds);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();
     }
 }

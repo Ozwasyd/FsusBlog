@@ -138,7 +138,7 @@ public static partial class BinaryEndpoints
             var data = await query.GetAdminConversationsAsync(pageNum, pageSize, filter);
             return BinaryResults.Frame(aeds, AedsFrameType.ConversationList, writer => PodBinaryCodec.WriteConversationList(data, writer));
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"));
+        .RequireAdminPermission(AdminPermissions.AdminManage);
 
         group.MapGet("/admin/messages/conversations/{id:long}", static async Task<BinaryFrameResult> (
             long id,
@@ -150,7 +150,7 @@ public static partial class BinaryEndpoints
                 ? BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "会话不存在"), aeds)
                 : BinaryResults.Frame(aeds, AedsFrameType.ConversationDetail, writer => PodBinaryCodec.WriteConversationDetail(detail, writer));
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"));
+        .RequireAdminPermission(AdminPermissions.AdminManage);
 
         group.MapPost("/admin/messages/conversations/{id:long}/reply", static async Task<BinaryFrameResult> (
             long id,
@@ -176,7 +176,7 @@ public static partial class BinaryEndpoints
                 ? BinaryResults.Frame(aeds, AedsFrameType.ConversationMessage, writer => PodBinaryCodec.WriteConversationMessage(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.AdminManage)
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapPost("/admin/messages/conversations/{id:long}/status", static async Task<BinaryFrameResult> (
@@ -203,7 +203,7 @@ public static partial class BinaryEndpoints
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(result.Error, aeds);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.AdminManage)
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapPost("/admin/messages/system-send", static async Task<BinaryFrameResult> (
@@ -234,7 +234,7 @@ public static partial class BinaryEndpoints
                 ? BinaryResults.Frame(aeds, AedsFrameType.ConversationDetail, writer => PodBinaryCodec.WriteConversationDetail(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.AdminManage)
         .AddEndpointFilter<RequiresPowFilter>();
     }
 }

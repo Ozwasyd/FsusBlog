@@ -259,7 +259,7 @@ public static partial class BinaryEndpoints
             var snapshot = new CurrentUserSnapshotDto(user.Value.Id, user.Value.Username, user.Value.Role, user.Value.Status, user.Value.BanReason, user.Value.DeletedAt);
             return BinaryResults.Frame(aeds, AedsFrameType.CurrentUserSnapshot, writer => PodBinaryCodec.WriteCurrentUserSnapshot(snapshot, writer));
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"));
+        .RequireAdminPermission(AdminPermissions.AdminManage);
 
         group.MapGet("/auth/find/{username}", static async Task<BinaryFrameResult> (
             string username,
@@ -275,7 +275,7 @@ public static partial class BinaryEndpoints
             var snapshot = new CurrentUserSnapshotDto(user.Value.Id, user.Value.Username, user.Value.Role, user.Value.Status, user.Value.BanReason, user.Value.DeletedAt);
             return BinaryResults.Frame(aeds, AedsFrameType.CurrentUserSnapshot, writer => PodBinaryCodec.WriteCurrentUserSnapshot(snapshot, writer));
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"));
+        .RequireAdminPermission(AdminPermissions.AdminManage);
 
         group.MapPut("/auth/update-username", static async Task<BinaryFrameResult> (
             HttpContext httpContext,

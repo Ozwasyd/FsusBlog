@@ -35,4 +35,10 @@ public static class AdminAuthorizationEndpointExtensions
             .RequireAuthenticatedUser()
             .RequireClaim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind)
             .RequireClaim(AdminPermissions.PermissionClaimType, permission));
+
+    public static RouteGroupBuilder RequireAdminPermission(this RouteGroupBuilder builder, string permission)
+        => builder.RequireAuthorization(policy => policy
+            .RequireAuthenticatedUser()
+            .RequireClaim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind)
+            .RequireClaim(AdminPermissions.PermissionClaimType, permission));
 }

@@ -59,7 +59,7 @@ public static partial class BinaryEndpoints
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "文件不存在或已被移除"), aeds);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();
     }
 }

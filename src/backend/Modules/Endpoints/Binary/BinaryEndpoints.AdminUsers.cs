@@ -44,7 +44,7 @@ public static partial class BinaryEndpoints
             var result = await core.GetAdminUserListAsync(pageValue, sizeValue, keyword, status);
             return BinaryResults.FromResult(result, aeds, AedsFrameType.AdminUserList, static (value, writer) => PodBinaryCodec.WriteAdminUserPage(value, writer));
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"));
+        .RequireAdminPermission(AdminPermissions.AdminManage);
 
         group.MapPut("/admin/users/status", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -103,7 +103,7 @@ public static partial class BinaryEndpoints
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.AdminManage)
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapPost("/admin/users/reset-pwd", static async Task<BinaryFrameResult> (
@@ -155,7 +155,7 @@ public static partial class BinaryEndpoints
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
         })
-        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .RequireAdminPermission(AdminPermissions.AdminManage)
         .AddEndpointFilter<RequiresPowFilter>();
     }
 }

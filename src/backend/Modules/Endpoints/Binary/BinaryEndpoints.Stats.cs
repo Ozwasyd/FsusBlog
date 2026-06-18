@@ -53,7 +53,7 @@ public static partial class BinaryEndpoints
             byte[] encodedFrame = aeds.Encode(AedsFrameType.AdminStats, payload);
             await cache.SetRawAsync(CachePolicyId.AdminStatsFrame, identity, encodedFrame, TimeSpan.FromMinutes(10));
             return BinaryResults.PreencodedFrame(encodedFrame);
-        }).RequireAuthorization(policy => policy.RequireRole("admin"));
+        }).RequireAdminPermission(AdminPermissions.AuditRead);
 
         group.MapGet("/stats/recent-comments", static async Task<BinaryFrameResult> (
             IStatsCoreService core,
@@ -66,7 +66,7 @@ public static partial class BinaryEndpoints
             }
 
             return BinaryResults.Frame(aeds, AedsFrameType.RecentCommentStats, writer => PodBinaryCodec.WriteRecentCommentStats(result.Value.RecentComments, writer));
-        }).RequireAuthorization(policy => policy.RequireRole("admin"));
+        }).RequireAdminPermission(AdminPermissions.AuditRead);
 
         group.MapGet("/stats/regions", static async Task<BinaryFrameResult> (
             IStatsCoreService core,
@@ -79,6 +79,6 @@ public static partial class BinaryEndpoints
             }
 
             return BinaryResults.Frame(aeds, AedsFrameType.RegionStats, writer => PodBinaryCodec.WriteRegionStats(result.Value.RegionDistributions, writer));
-        }).RequireAuthorization(policy => policy.RequireRole("admin"));
+        }).RequireAdminPermission(AdminPermissions.AuditRead);
     }
 }

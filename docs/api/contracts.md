@@ -108,7 +108,7 @@ Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD
 
 ### Independent admin principal AEDS endpoints
 
-后台控制面身份独立于 `sys_user`，只使用 admin principal / session / passkey 表。首次 root admin bootstrap 必须带 `X-Fsus-Admin-Bootstrap-Token`，该 token 只从 `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` 或 `Admin:BootstrapToken` 读取；存在 active root admin 后 bootstrap 端点固定拒绝。`X-Fsus-Admin-Handle` 只在 bootstrap begin 指定后台 handle，不写入匿名账号。
+后台控制面身份独立于 `sys_user`，只使用 admin principal / session / passkey 表。首次 root admin bootstrap 必须带 `X-Fsus-Admin-Bootstrap-Token`，该 token 只从 `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` 或 `Admin:BootstrapToken` 读取；存在 active root admin 后 bootstrap 端点固定拒绝。`X-Fsus-Admin-Handle` 只在 bootstrap begin 指定后台 handle，不写入匿名账号。所有后台控制面端点必须校验 `identity_kind=admin_principal` 与具体 `admin_permission` claim，不得接受 legacy `sys_user.role=admin`。
 
 | 方法 | 路径 | 请求 / 响应 frame | 权限 |
 |------|------|-------------------|------|
@@ -664,7 +664,7 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
 
 源码：`src/shared/Contracts/Outputs/ServerResponseContracts.cs`
 
-所有上传端点在 `/api/binary/upload/` 路径下，需要 admin 角色。`uploadId` 由服务端生成并返回，wire 格式固定为 32 位 GUID `N` 格式；status、part map、part upload、complete 和 abort 路由只接受该形态并规范化为小写 canonical 值，非法值返回 validation error，不会被当作文件系统路径继续解析。
+所有上传端点在 `/api/binary/upload/` 路径下，需要 admin principal + `article.write` 权限。`uploadId` 由服务端生成并返回，wire 格式固定为 32 位 GUID `N` 格式；status、part map、part upload、complete 和 abort 路由只接受该形态并规范化为小写 canonical 值，非法值返回 validation error，不会被当作文件系统路径继续解析。
 
 ### `UploadInitDto`（初始化响应）
 
@@ -1210,9 +1210,9 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 ### Admin 安全系统
 
-生产前端使用 `/api/binary/admin/security/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AntiCrawlerOptionsUpdateRequest`、`SecurityRiskResetRequest`、`AntiCrawlerRuleRequest`、`PowOptionsUpdateRequest`），响应使用 route-specific response frame（如 `SecurityOverview`、`AntiCrawlerPolicySnapshot`、`SecurityRiskEventList`、`PowPolicySnapshot`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。`SecurityBinaryBridgeMiddleware` 复用 security endpoint 逻辑的 admin role、MFA、fixed_ip rate limit、device fingerprint、审计和运行时策略更新边界；被复用的 JSON envelope 只挂在 `/_fsus/internal/binary-bridge/admin/security/**`，受 `BinaryBridgeInternalOnlyFilter` 保护。外部 `/api/admin/security/**` JSON endpoint 已移除。
+生产前端使用 `/api/binary/admin/security/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AntiCrawlerOptionsUpdateRequest`、`SecurityRiskResetRequest`、`AntiCrawlerRuleRequest`、`PowOptionsUpdateRequest`），响应使用 route-specific response frame（如 `SecurityOverview`、`AntiCrawlerPolicySnapshot`、`SecurityRiskEventList`、`PowPolicySnapshot`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。`SecurityBinaryBridgeMiddleware` 复用 security endpoint 逻辑的 admin principal + `system.config` permission、MFA、fixed_ip rate limit、device fingerprint、审计和运行时策略更新边界；被复用的 JSON envelope 只挂在 `/_fsus/internal/binary-bridge/admin/security/**`，受 `BinaryBridgeInternalOnlyFilter` 保护。外部 `/api/admin/security/**` JSON endpoint 已移除。
 
-`/api/binary/admin/security/**` 全部要求 admin 角色。写入型和高价值操作必须携带 action=`admin-sensitive` 的一次性 `X-Fsus-Mfa-Proof`，并写入高价值安全审计。`X-Fsus-Mfa-Proof` 与 PoW replay proof 共用 consume-once cache primitive：L1 先失效，Redis 删除成功后同一进程内也不能再次读取该 proof。
+`/api/binary/admin/security/**` 全部要求 admin principal + `system.config` 权限。写入型和高价值操作必须携带 action=`admin-sensitive` 的一次性 `X-Fsus-Mfa-Proof`，并写入高价值安全审计。`X-Fsus-Mfa-Proof` 与 PoW replay proof 共用 consume-once cache primitive：L1 先失效，Redis 删除成功后同一进程内也不能再次读取该 proof。
 
 安全系统 IA 与 API 边界：
 

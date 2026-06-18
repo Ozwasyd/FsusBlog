@@ -32,7 +32,7 @@ public static partial class BinaryEndpoints
     private static void MapBinaryUploadEndpoints(IEndpointRouteBuilder group)
     {
         var uploadGroup = group.MapGroup("/upload")
-            .RequireAuthorization(policy => policy.RequireRole("admin"))
+            .RequireAdminPermission(AdminPermissions.ArticleWrite)
             .AddEndpointFilter<RequiresPowFilter>();
 
         uploadGroup.MapPost("/init", static async Task<BinaryFrameResult> (

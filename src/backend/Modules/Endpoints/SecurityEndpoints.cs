@@ -1,5 +1,6 @@
 using System.Globalization;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
@@ -19,7 +20,7 @@ public static class SecurityEndpoints
     {
         var group = app.MapGroup(BinaryBridgeInternalRequest.SecurityPrefix)
             .WithTags("Security")
-            .RequireAuthorization(policy => policy.RequireRole("admin"))
+            .RequireAdminPermission(AdminPermissions.SystemConfig)
             .AddEndpointFilter<BinaryBridgeInternalOnlyFilter>();
 
         group.MapGet("/overview", (
