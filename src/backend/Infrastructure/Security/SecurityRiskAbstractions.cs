@@ -14,7 +14,8 @@ public enum SecurityRiskReason
     PowReplay,
     ReadProofRejected,
     PublicReadChallengeRequired,
-    PublicReadBlocked
+    PublicReadBlocked,
+    SecurityChallengeRejected
 }
 
 public static class SecurityRiskSources
@@ -24,6 +25,7 @@ public static class SecurityRiskSources
     public const string Pow = "pow";
     public const string HumanReadProof = "human-read-proof";
     public const string PublicRead = "public-read";
+    public const string RiskControl = "risk-control";
 }
 
 public sealed record SecurityRiskSignal(

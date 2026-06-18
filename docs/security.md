@@ -56,6 +56,8 @@ RiskControl challenge 采用 Redis + PostgreSQL 双层职责：Redis 只承担�
 
 RiskControl proof token 使用 `X-Fsus-Challenge-Proof` header，不能替代 admin-sensitive `X-Fsus-Mfa-Proof`，也不迁移 legacy `X-Fsus-Pow-Proof`。`ISecurityChallengeProofService.MintProofAsync` 生成 opaque proof token，Redis 只保存 claims 绑定：challengeId、kind、action、routeKey、subjectHash、clientIpHash、deviceFpHash、issuedAt、expiresAt、nonce 和 policyVersion。`ConsumeProofAsync` 必须通过 Redis GETDEL / consume-once 语义先消费 token，再比较所有绑定字段；replay、Redis miss、action/route/IP/device mismatch 或过期均返回拒绝并写入 `security_challenge_attempt`，调用方不得进入业务写入。
 
+RiskControl challenge provider 通过 `ISecurityChallengeProvider` 接入，不允许业务 filter 直接依赖 PoW、Captcha、PoSpace、HumanReadProof 或 Passkey step-up 的具体实现。`SecurityChallengeOrchestrator` 按 `RiskDecision.RequiredChallenges` 从 DI 中查找 provider，可一次返回多个 assignment；provider 未注册、provider 返回失败、assignment 无效或 proof mint 失败均 fail closed，写入 `SecurityChallengeRejected` 风险事件，且不进入业务 handler。provider verify 成功后只签发统一 proof token，业务是否放行仍由后续 filter 消费该 token 决定。
+
 RiskControl 生产控制面按 `Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof Verification -> Enforcement -> Audit / Metrics / Admin Policy` 演进；完整 tracking plan、子 issue 顺序与 binary-first 边界见 `docs/risk-control-plan.md`。
 
 管理后台新增 `/user/manage/security` 安全系统：

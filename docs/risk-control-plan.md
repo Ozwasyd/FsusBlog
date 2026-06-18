@@ -50,6 +50,10 @@ RiskControl challenge 的热路径一次性消费仍可使用 Redis，但生产�
 
 RiskControl proof token 使用 `X-Fsus-Challenge-Proof` 传递，独立于 admin-sensitive `X-Fsus-Mfa-Proof` 和 legacy `X-Fsus-Pow-Proof`。`SecurityChallengeProofService` 只签发 opaque token；Redis `SecurityChallengeProof` cache 保存绑定 claims 并通过 `ConsumeOnceAndGetAsync` 一次性消费。claims 必须绑定 challengeId、kind、action、routeKey、subjectHash、clientIpHash、deviceFpHash、issuedAt、expiresAt、nonce 和 policyVersion。消费后先删除 Redis 热路径状态，再校验所有绑定字段和过期时间；replay / Redis miss、字段 mismatch、过期和成功都通过 `SecurityChallengePersistenceService.RecordAttemptAsync` 写入 attempt。业务写入只能在 `ConsumeProofAsync.Accepted == true` 后继续。
 
+## Challenge orchestration baseline
+
+`ISecurityChallengeProvider` 是具体 challenge provider 的唯一接口，provider 必须声明稳定 `Kind` 并实现 `IssueAsync` / `VerifyAsync`。`SecurityChallengeOrchestrator` 通过 DI 注入全部 provider，按 kind 建立查找表，并根据 `RiskDecision.RequiredChallenges` 顺序签发 assignment；单次裁决可返回多个 challenge，例如 `captchaV1 + sha256PowV1`。provider 未注册、provider 返回失败、assignment 校验失败或 proof mint 失败都必须 fail closed，返回可观测 reason，并写 `risk-control` 来源的 `SecurityChallengeRejected` 风险事件。验证成功后 orchestrator 只负责调用 `ISecurityChallengeProofService.MintProofAsync` 签发统一 proof token，不直接放行业务写入。
+
 ## Ordered implementation units
 
 | Order | Unit | Issue | Acceptance boundary |
