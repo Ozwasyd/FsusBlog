@@ -9,7 +9,11 @@
           <h1 class="text-3xl sm:text-4xl font-bold text-[var(--fsusblog-text-primary)] tracking-normal leading-[1.1]">
             {{ siteTitleText }}
           </h1>
-          <p class="mt-6 text-base sm:text-lg text-[var(--fsusblog-text-tertiary)] max-w-xl leading-relaxed font-normal">
+          <span
+            class="mt-4 inline-block text-2xl leading-none text-[var(--fsusblog-text-subtle)] select-none"
+            aria-hidden="true"
+          >·</span>
+          <p class="mt-4 text-base sm:text-lg text-[var(--fsusblog-text-tertiary)] max-w-xl leading-relaxed font-normal">
             {{ siteDescriptionText }}
           </p>
         </header>

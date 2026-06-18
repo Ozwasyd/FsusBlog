@@ -145,43 +145,11 @@
             </div>
           </Transition>
 
-          <div
-            class="el-public-shell__mobile-nav-scrollbar"
-            role="presentation"
-          >
-            <div class="el-public-shell__mobile-nav-wrap">
-              <nav
-                ref="mobileNavRef"
-                class="el-public-shell__mobile-nav el-public-shell__mobile-nav-view"
-                :class="{ 'is-indicator-motion': activeNavIndicatorEnabled }"
-                aria-label="主导航"
-              >
-                <a
-                  v-for="item in PUBLIC_NAV_ITEMS"
-                  :key="item.key"
-                  :href="item.href"
-                  class="el-public-shell__nav-link"
-                  :class="{ 'is-active': item.key === activeNav }"
-                  :data-public-nav="item.key"
-                  @click="handleNavClick($event, item.href)"
-                >
-                  {{ item.label }}
-                </a>
-                <span
-                  v-if="activeNavIndicatorEnabled"
-                  class="el-public-shell__active-nav-indicator"
-                  aria-hidden="true"
-                  :data-active-nav="activeNavIndicatorKey"
-                />
-              </nav>
-            </div>
-          </div>
-
           <div class="el-public-shell__mobile-actions" />
         </template>
       </SiteChromeHeaderAdapter>
 
-      <main id="main-content" class="el-public-shell__main" tabindex="-1">
+      <main id="main-content" class="el-public-shell__main pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:pb-0" tabindex="-1">
         <slot />
       </main>
       <FullAppRuntime v-if="showRuntime" />
@@ -193,6 +161,26 @@
           :render-year="shellIdentity.renderYear"
         />
       </footer>
+
+      <nav
+        v-if="activeNavIndicatorEnabled"
+        class="el-public-shell__bottom-tab-bar sm:hidden"
+        aria-label="主导航"
+      >
+        <a
+          v-for="item in PUBLIC_NAV_ITEMS"
+          :key="`bottom-${item.key}`"
+          :href="item.href"
+          class="el-public-shell__bottom-tab-link"
+          :class="{ 'is-active': item.key === activeNav }"
+          :data-public-nav="item.key"
+          :aria-current="item.key === activeNav ? 'page' : undefined"
+          @click="handleNavClick($event, item.href)"
+        >
+          <span class="el-public-shell__bottom-tab-accent" aria-hidden="true" />
+          <span class="el-public-shell__bottom-tab-label">{{ item.label }}</span>
+        </a>
+      </nav>
     </div>
   </div>
 </template>
