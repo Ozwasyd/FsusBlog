@@ -52,6 +52,8 @@
 
 统一安全风险由 `ISecurityRiskSignalSink`、`ISecurityRiskScoreReader` 和 `ISecurityRiskPolicyProvider` 抽象承载；旧 `CrawlerRiskService` 只是兼容实现，不再代表反爬虫子系统。Shield 写入 `anti-crawler` 来源信号，RateLimiter 写入 `rate-limiter`，PoW 写入 `pow`，HumanReadProof 写入 `human-read-proof`，公开读过滤器写入 `public-read`。风险分仍落在 `SecurityPowRisk` key 上以保持 `AdaptivePowGovernor` 兼容；`RiskAwarePublicReadFilter` 只读取 `SecurityRiskPolicySnapshot`，在风险分达到 `RequireChallengeScore` 时引用 `security.pow` challenge，达到 `BlockScore` 时返回 429。该策略只作用于动态公开 API，不影响 PublicHotRead artifact 命中路径。
 
+RiskControl 生产控制面按 `Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof Verification -> Enforcement -> Audit / Metrics / Admin Policy` 演进；完整 tracking plan、子 issue 顺序与 binary-first 边界见 `docs/risk-control-plan.md`。
+
 管理后台新增 `/user/manage/security` 安全系统：
 
 - `/user/manage/security`：安全总览，展示 AntiCrawler、PoW 和统一风险信号摘要。

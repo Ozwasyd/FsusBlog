@@ -106,6 +106,52 @@ public sealed class AntiCrawlerSecurityContractTests
     }
 
     [Fact]
+    public void RiskControlTrackingPlan_DocumentsProductionRoadmap()
+    {
+        string security = Read("docs/security.md");
+        string plan = Read("docs/risk-control-plan.md");
+        string[] orderedSteps =
+        [
+            "Risk action registry",
+            "Risk control context factory",
+            "Risk policy snapshot v2",
+            "Risk decision service",
+            "Security challenge contract",
+            "Challenge persistence schema",
+            "Challenge proof token service",
+            "Challenge orchestrator",
+            "PoW provider migration",
+            "RequiresRiskControlFilter",
+            "CaptchaV1 backend",
+            "CaptchaV1 frontend",
+            "CaptchaV1 integration policy",
+            "PoSpace contract/provider",
+            "PoSpace frontend worker",
+            "HumanReadProof risk integration",
+            "Auth/recovery risk integration",
+            "Anonymous comment risk integration",
+            "Notification stream risk integration",
+            "Admin risk console",
+            "Risk simulator",
+            "Metrics/audit/readiness",
+            "Full test matrix",
+            "Production rollout gates"
+        ];
+
+        Assert.Contains("docs/risk-control-plan.md", security, StringComparison.Ordinal);
+        Assert.Contains("Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof Verification -> Enforcement -> Audit / Metrics / Admin Policy", plan, StringComparison.Ordinal);
+        Assert.Contains("AEDS / binary contract first", plan, StringComparison.Ordinal);
+        Assert.Contains("no public JSON fallback", plan, StringComparison.Ordinal);
+        int previous = -1;
+        foreach (string step in orderedSteps)
+        {
+            int current = plan.IndexOf(step, StringComparison.Ordinal);
+            Assert.True(current > previous, $"RiskControl step missing or out of order: {step}");
+            previous = current;
+        }
+    }
+
+    [Fact]
     public void SecurityAdminConsole_SeparatesAntiCrawlerPowAndSecurityRisk()
     {
         string endpoints = Read("src/backend/Modules/Endpoints/SecurityEndpoints.cs");

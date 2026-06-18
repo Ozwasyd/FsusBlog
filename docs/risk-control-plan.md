@@ -1,0 +1,62 @@
+# RiskControl production tracking plan
+
+本文档是 RiskControl Control Plane 的生产跟踪计划。它只固定架构、顺序和验收边界；具体实现仍由后续子 issue 独立交付、独立测试、独立验收。
+
+## Production architecture
+
+```text
+Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof Verification -> Enforcement -> Audit / Metrics / Admin Policy
+```
+
+最终目标是把 PoW、RateLimiter、AntiCrawler、HumanReadProof、Passkey step-up、匿名评论和 notification stream 的风险信号收敛到同一个决策面：
+
+- Risk Signal：按 action、source、reason、device fingerprint、viewer identity 和 route 汇总输入。
+- Risk Score：把事件窗口、历史失败、速率、设备可信度和 proof 结果转换为可解释风险分。
+- Risk Decision：输出 allow、challenge、step-up、block、shadow-audit 等裁决，不在端点里散落条件分支。
+- Challenge Orchestration：按策略选择 Sha256Pow、CaptchaV1、PoSpace、Passkey step-up 或后续 provider。
+- Proof Verification：所有 proof 一次性消费，绑定 action、subject、device、IP/UA hash、challenge id 和过期时间。
+- Enforcement：Minimal API filter / middleware 执行裁决；业务 handler 只处理已通过的请求。
+- Audit / Metrics / Admin Policy：策略版本、模拟器、事件、readiness、rollback 和审计全部进入后台安全控制面。
+
+## Contract rules
+
+- AEDS / binary contract first：新公开安全交互优先通过 `/api/binary/**` frame 暴露。
+- no public JSON fallback：不得为了 RiskControl 新增公开 JSON fallback；内部 bridge 仍必须保持 admin-only、binary-bridge internal-only。
+- 所有策略必须有 observe / enforce / strict 或等价降级路径；生产 readiness 必须能区分配置缺失、disabled 和 fail-closed。
+- 每个子 issue 只交付自己的最小实现单元，不抢跑后续 provider、UI 或策略持久化。
+- 子 issue 的测试必须覆盖匿名请求、登录请求、admin 请求、notification stream 和 binary 边界中与该 issue 有关的路径。
+
+## Ordered implementation units
+
+| Order | Unit | Issue | Acceptance boundary |
+|---:|---|---|---|
+| 1 | Risk action registry | #459 | Protected flows have stable action ids, owner, subject type, default policy and binary/admin labels. |
+| 2 | Risk control context factory | #460 | Request, viewer, device, route and admin context are normalized before scoring. |
+| 3 | Risk policy snapshot v2 | #461 | Versioned modes, thresholds, provider toggles and rollout metadata are represented without changing old public APIs. |
+| 4 | Risk decision service | #462 | Score inputs produce allow/challenge/block decisions with reason codes and no endpoint-specific scoring. |
+| 5 | Security challenge contract | #463 | Challenge assignment and proof envelopes have AEDS frame contracts and validation constants. |
+| 6 | Challenge persistence schema | #464 | Durable challenge state supports expiry, attempt limits, consumed state and audit-friendly metadata. |
+| 7 | Challenge proof token service | #465 | Proof token is one-time, action-bound and replay-resistant. |
+| 8 | Challenge orchestrator | #466 | Provider selection, assignment creation and verification flow through one service interface. |
+| 9 | PoW provider migration | #467 | Legacy PoW becomes Sha256Pow provider without changing existing proof semantics. |
+| 10 | RequiresRiskControlFilter | #468 | New filter executes RiskControl decisions; legacy RequiresPowFilter remains as compatibility wrapper. |
+| 11 | CaptchaV1 backend | #470 | Captcha provider is server-verifiable and disabled-by-default until policy enables it. |
+| 12 | CaptchaV1 frontend | #471 | FsusUI challenge component and worker can solve/display assignment without endpoint-specific glue. |
+| 13 | CaptchaV1 integration policy | #472 | Auth/comment escalation rules choose CaptchaV1 only through RiskControl policy. |
+| 14 | PoSpace contract/provider | #473 | Argon2idPoSpaceV1 provider is behind disabled-by-default policy and explicit resource limits. |
+| 15 | PoSpace frontend worker | #474 | Device capability gate and worker execution are isolated from business forms. |
+| 16 | HumanReadProof risk integration | #476 | Read proof lowers risk or adds negative signals only; it does not become identity proof. |
+| 17 | Auth/recovery risk integration | #478 | Login, passkey and recovery flows route through action ids and challenge decisions. |
+| 18 | Anonymous comment risk integration | #480 | Anonymous create/reply uses RiskControl before comment persistence. |
+| 19 | Notification stream risk integration | #481 | Anonymous stream gating uses RiskControl challenge policy while preserving AEDS/WebSocket semantics. |
+| 20 | Admin risk console | #490 | `/user/manage/security` exposes policy, events and challenges without bypassing admin principal checks. |
+| 21 | Risk simulator | #492 | Admin can simulate action/context inputs and see decision reasons without mutating state. |
+| 22 | Metrics/audit/readiness | #494 | RiskControl emits structured logs, metrics, audit events and readiness checks. |
+| 23 | Full test matrix | #495 | Unit, integration, E2E and performance gates cover the control plane and provider fallbacks. |
+| 24 | Production rollout gates | #498 | Rollout policy defines observe-first, emergency disable, fail-closed and rollback criteria. |
+
+## Dependency notes
+
+- #469 challenge issue/verify endpoints land after the core filter/orchestrator shape is clear and before Captcha/PoSpace providers depend on runtime assignment APIs.
+- Privacy/ZK anonymous comment work (#475, #477, #479, #482, #483-#503) depends on the RiskControl action/context/challenge foundation but keeps its own credential, ticket and proof acceptance criteria.
+- Later security changes must update this table if they insert a new prerequisite before an existing unit.
