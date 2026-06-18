@@ -454,6 +454,8 @@ UX_VIEWPORT_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/ux-viewp
 FRONTEND_RENDER_PRESSURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json" frontend-render-pressure-summary.json)"
 PUBLISH_ARTIFACTS_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json" publish-artifacts-summary.json)"
 BACKEND_QPS_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json" backend-qps-summary.json)"
+MEMORY_LEAK_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/memory-leak-summary.json" memory-leak-summary.json)"
+OPEN_HANDLE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/open-handle-summary.json" open-handle-summary.json)"
 AEDS_FRAME_COST_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aeds-frame-cost-summary.json" aeds-frame-cost-summary.json)"
 AEDS_COMPRESSION_PROFILE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aeds-compression-profile-summary.json" aeds-compression-profile-summary.json)"
 AEDS_DECODE_BUDGET_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aeds-decode-budget-summary.json" aeds-decode-budget-summary.json)"
@@ -507,6 +509,8 @@ UX_VIEWPORT_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evide
 FRONTEND_RENDER_PRESSURE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json")"
 PUBLISH_ARTIFACTS_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json")"
 BACKEND_QPS_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json")"
+MEMORY_LEAK_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/memory-leak-summary.json")"
+OPEN_HANDLE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/open-handle-summary.json")"
 AOT_CACHE_RESILIENCE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aot-cache-resilience-summary.json")"
 AEDS_FRAME_COST_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-frame-cost-summary.json")"
 AEDS_COMPRESSION_PROFILE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-compression-profile-summary.json")"
@@ -550,6 +554,8 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
   || "$PUBLIC_HYDRATION_SIDECAR_STATUS_VALUE" != "success" \
   || "$PUBLIC_HYDRATION_MATRIX_STATUS_VALUE" != "success" \
   || "$BACKEND_QPS_STATUS_VALUE" != "ok" \
+  || "$MEMORY_LEAK_STATUS_VALUE" != "ok" \
+  || "$OPEN_HANDLE_STATUS_VALUE" != "ok" \
   || "$DOC_SYNC_STATUS_VALUE" != "ok" \
   || "$IMAGE_DIGEST_STATUS" != "present" ]]; then
   MANIFEST_STATUS="collected-blocked"
@@ -610,6 +616,8 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "frontendRenderPressureSummary": $FRONTEND_RENDER_PRESSURE_SUMMARY,
     "publishArtifactsSummary": $PUBLISH_ARTIFACTS_SUMMARY,
     "backendQpsSummary": $BACKEND_QPS_SUMMARY,
+    "memoryLeakSummary": $MEMORY_LEAK_SUMMARY,
+    "openHandleSummary": $OPEN_HANDLE_SUMMARY,
     "aedsFrameCostSummary": $AEDS_FRAME_COST_SUMMARY,
     "aedsCompressionProfileSummary": $AEDS_COMPRESSION_PROFILE_SUMMARY,
     "aedsDecodeBudgetSummary": $AEDS_DECODE_BUDGET_SUMMARY,
@@ -679,7 +687,9 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     },
     "resilienceDepth": {
       "faultInjection": "$FAULT_STATUS_VALUE",
-      "soak": "$SOAK_STATUS_VALUE"
+      "soak": "$SOAK_STATUS_VALUE",
+      "memoryLeak": "$MEMORY_LEAK_STATUS_VALUE",
+      "openHandle": "$OPEN_HANDLE_STATUS_VALUE"
     },
     "externalExposure": {
       "status": "$PRODUCTION_STATUS_VALUE",

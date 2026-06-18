@@ -27,6 +27,8 @@ const requiredStatusChecks = [
   ['critical SLO alerts', (manifest) => Number(manifest.evidenceSummary?.operations?.sloCriticalFiring ?? 0) === 0],
   ['fault injection', (manifest, context) => manifest.evidenceSummary?.resilienceDepth?.faultInjection === 'ok' && faultInjectionOk(manifest, context)],
   ['short soak', (manifest, context) => manifest.evidenceSummary?.resilienceDepth?.soak === 'ok' && shortSoakOk(manifest, context)],
+  ['memory leak resource budget', (manifest, context) => manifest.evidenceSummary?.resilienceDepth?.memoryLeak === 'ok' && releaseResourceSummaryOk(manifest, context, 'memoryLeakSummary')],
+  ['open handle resource budget', (manifest, context) => manifest.evidenceSummary?.resilienceDepth?.openHandle === 'ok' && releaseResourceSummaryOk(manifest, context, 'openHandleSummary')],
   ['production status', (manifest) => manifest.evidenceSummary?.externalExposure?.status === 'ok'],
   ['firewall policy', (manifest) => manifest.evidenceSummary?.externalExposure?.firewallPolicy === 'present'],
   ['DNS readiness', (manifest) => manifest.evidenceSummary?.externalExposure?.dnsReadiness === 'ok'],
@@ -66,7 +68,9 @@ const requiredArtifacts = [
   'dnsReadiness',
   'dnsDelegation',
   'faultInjection',
-  'soak'
+  'soak',
+  'memoryLeakSummary',
+  'openHandleSummary'
 ]
 
 function fail(message) {
@@ -265,6 +269,26 @@ function shortSoakOk(manifest, context) {
     && Number(report.latencyMs?.p95 ?? 0) > 0
 }
 
+function releaseResourceSummaryOk(manifest, context, artifactKey) {
+  const report = readArtifactJson(manifest, context, artifactKey)
+  const metrics = Array.isArray(report?.metrics) ? report.metrics : []
+  return report?.status === 'ok'
+    && metrics.length > 0
+    && metrics.some((metric) => metric?.status === 'ok')
+    && metrics.every((metric) =>
+      typeof metric?.name === 'string'
+        && metric.name.length > 0
+        && Number.isFinite(metric.startValue)
+        && Number.isFinite(metric.endValue)
+        && Number.isFinite(metric.maxValue)
+        && Number.isFinite(metric.delta)
+        && Number.isFinite(metric.threshold)
+        && metric.status === 'ok'
+        && metric.thresholdOperator === '<='
+        && metric.thresholdField === 'delta'
+        && metric.delta <= metric.threshold)
+}
+
 function publicHydrationSidecarOk(manifest, context) {
   const report = readArtifactJson(manifest, context, 'publicHydrationSidecarSummary')
   const requiredKinds = ['Home', 'ArticleDetail', 'Archive', 'Filter', 'About', 'Privacy', 'Guidelines', 'Copyright']
@@ -417,7 +441,9 @@ function runSelfTest() {
       },
       resilienceDepth: {
         faultInjection: 'ok',
-        soak: 'ok'
+        soak: 'ok',
+        memoryLeak: 'ok',
+        openHandle: 'ok'
       },
       externalExposure: {
         status: 'ok',
@@ -432,6 +458,8 @@ function runSelfTest() {
   base.artifacts.fuzz = 'fuzz'
   base.artifacts.faultInjection = 'faultInjection'
   base.artifacts.soak = 'soak'
+  base.artifacts.memoryLeakSummary = 'memoryLeakSummary.json'
+  base.artifacts.openHandleSummary = 'openHandleSummary.json'
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-release-manifest-'))
   const manifestFile = path.join(tmpDir, 'manifest.json')
@@ -626,6 +654,30 @@ function runSelfTest() {
     durationSeconds: 1,
     sampleCount: 1,
     latencyMs: { p95: 1 }
+  }))
+  const resourceSummary = {
+    status: 'ok',
+    metrics: [{
+      name: 'backend_rss_bytes',
+      startValue: 100,
+      endValue: 104,
+      maxValue: 104,
+      delta: 4,
+      threshold: 64,
+      thresholdOperator: '<=',
+      thresholdField: 'delta',
+      status: 'ok'
+    }],
+    unavailableMetrics: []
+  }
+  fs.writeFileSync(path.join(tmpDir, 'memoryLeakSummary.json'), JSON.stringify(resourceSummary))
+  fs.writeFileSync(path.join(tmpDir, 'openHandleSummary.json'), JSON.stringify({
+    ...resourceSummary,
+    metrics: [{
+      ...resourceSummary.metrics[0],
+      name: 'backend_open_file_descriptors',
+      threshold: 16
+    }]
   }))
   fs.writeFileSync(manifestFile, JSON.stringify(base))
   const ok = validateManifest(base, { manifestPath: manifestFile })

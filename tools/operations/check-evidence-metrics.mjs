@@ -483,6 +483,43 @@ function validateSoak() {
   }
 }
 
+function validateReleaseResourceMetric(metric, label) {
+  assert(metric && typeof metric === 'object', `${label} missing`)
+  assert(typeof metric.name === 'string' && metric.name.length > 0, `${label}.name missing`)
+  for (const field of ['startValue', 'endValue', 'maxValue', 'threshold']) {
+    nonNegativeNumber(metric[field], `${label}.${field}`)
+  }
+  assert(typeof metric.delta === 'number' && Number.isFinite(metric.delta), `${label}.delta must be a finite number`)
+  assert(metric.status === 'ok', `${label}.status must be ok`)
+  assert(metric.thresholdOperator === '<=', `${label}.thresholdOperator must be <=`)
+  assert(metric.thresholdField === 'delta', `${label}.thresholdField must be delta`)
+  assert(metric.delta <= metric.threshold, `${label}.delta must not exceed threshold`)
+}
+
+function validateReleaseResourceSummary(summary, label) {
+  assert(summary && typeof summary === 'object', `${label} missing`)
+  assert(summary.status === 'ok', `${label}.status must be ok`)
+  assert(Array.isArray(summary.metrics) && summary.metrics.length > 0, `${label}.metrics must be non-empty`)
+  let okMetricCount = 0
+  for (const [index, metric] of summary.metrics.entries()) {
+    validateReleaseResourceMetric(metric, `${label}.metrics[${index}]`)
+    okMetricCount += metric.status === 'ok' ? 1 : 0
+  }
+  assert(okMetricCount > 0, `${label} must include at least one passing resource metric`)
+  const unavailableMetrics = Array.isArray(summary.unavailableMetrics) ? summary.unavailableMetrics : []
+  for (const [index, metric] of unavailableMetrics.entries()) {
+    assert(typeof metric.reason === 'string' && metric.reason.length > 0, `${label}.unavailableMetrics[${index}].reason missing`)
+  }
+}
+
+function validateReleaseResourceBudgets() {
+  for (const fileName of ['memory-leak-summary.json', 'open-handle-summary.json']) {
+    const summary = readJson(`.tmp/release-evidence/${fileName}`, true)
+    if (!summary) continue
+    validateReleaseResourceSummary(summary, fileName)
+  }
+}
+
 function validateCoverage() {
   const merged = readJson('.tmp/coverage/merged/Summary.json')
   const backend = readJson('.tmp/coverage/backend-merged/Summary.json')
@@ -597,6 +634,7 @@ function main() {
   validateLoadProfiles()
   validateFaultInjection()
   validateSoak()
+  validateReleaseResourceBudgets()
   validateCoverage()
   validateEndpointDepth()
   validateAedsFrameCost()
@@ -688,6 +726,54 @@ function runSelfTest() {
       statusCounts: { 200: 1 }
     }
   }, 'load-profile-self-test-valid')
+
+  let emptyResourceMetricsFailedAsExpected = false
+  try {
+    validateReleaseResourceSummary({
+      status: 'ok',
+      metrics: []
+    }, 'release-resource-empty-self-test')
+  } catch {
+    emptyResourceMetricsFailedAsExpected = true
+  }
+  assert(emptyResourceMetricsFailedAsExpected, 'self-test empty release resource metrics must fail')
+
+  let thresholdResourceMetricsFailedAsExpected = false
+  try {
+    validateReleaseResourceSummary({
+      status: 'ok',
+      metrics: [{
+        name: 'backend_rss_bytes',
+        startValue: 100,
+        endValue: 180,
+        maxValue: 180,
+        delta: 80,
+        threshold: 64,
+        thresholdOperator: '<=',
+        thresholdField: 'delta',
+        status: 'ok'
+      }]
+    }, 'release-resource-threshold-self-test')
+  } catch {
+    thresholdResourceMetricsFailedAsExpected = true
+  }
+  assert(thresholdResourceMetricsFailedAsExpected, 'self-test threshold-exceeding release resource metric must fail')
+
+  validateReleaseResourceSummary({
+    status: 'ok',
+    metrics: [{
+      name: 'backend_rss_bytes',
+      startValue: 100,
+      endValue: 104,
+      maxValue: 104,
+      delta: 4,
+      threshold: 64,
+      thresholdOperator: '<=',
+      thresholdField: 'delta',
+      status: 'ok'
+    }],
+    unavailableMetrics: []
+  }, 'release-resource-valid-self-test')
 
   const dataScaleSummaryFile = path.join(root, '.tmp/release-evidence/data-scale-summary.json')
   const previousDataScaleSummary = fs.existsSync(dataScaleSummaryFile)

@@ -690,6 +690,225 @@ function collectHotReadMetric(probe) {
   }
 }
 
+function nonNegativeIntEnv(name, fallback) {
+  if (process.env[name] === undefined || process.env[name] === '') {
+    return fallback
+  }
+  const parsed = Number.parseInt(String(process.env[name]), 10)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
+}
+
+function processExists(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return false
+  }
+
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function parsePid(value) {
+  const parsed = Number.parseInt(String(value ?? '').trim(), 10)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+function discoverBackendProcessTarget() {
+  if (process.env.FSUSBLOG_RELEASE_RESOURCE_FORCE_UNAVAILABLE === '1') {
+    return {
+      status: 'missing',
+      reason: 'forced unavailable by FSUSBLOG_RELEASE_RESOURCE_FORCE_UNAVAILABLE'
+    }
+  }
+
+  const explicitPid = parsePid(process.env.FSUSBLOG_RELEASE_RESOURCE_PID ?? process.env.FSUSBLOG_BACKEND_PID)
+  if (explicitPid) {
+    return processExists(explicitPid)
+      ? { status: 'ok', pid: explicitPid, source: 'env' }
+      : { status: 'missing', reason: `configured backend pid ${explicitPid} is not running` }
+  }
+
+  let port = ''
+  try {
+    port = new URL(baseUrl).port
+  } catch {
+    return { status: 'missing', reason: `baseUrl is not parseable: ${baseUrl}` }
+  }
+
+  if (!port) {
+    return { status: 'missing', reason: `baseUrl has no explicit port: ${baseUrl}` }
+  }
+
+  const lsof = spawnSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t'], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  if (lsof.status === 0) {
+    const pids = lsof.stdout
+      .split(/\s+/u)
+      .map(parsePid)
+      .filter((pid) => pid && processExists(pid))
+    if (pids.length > 0) {
+      return { status: 'ok', pid: pids[0], source: `lsof:tcp:${port}` }
+    }
+  }
+
+  return {
+    status: 'missing',
+    reason: `backend process listening on ${baseUrl} was not discoverable; set FSUSBLOG_RELEASE_RESOURCE_PID`
+  }
+}
+
+function readProcessRssBytes(pid) {
+  const procStatusFile = path.join('/proc', String(pid), 'status')
+  if (fs.existsSync(procStatusFile)) {
+    const match = fs.readFileSync(procStatusFile, 'utf8').match(/^VmRSS:\s+(\d+)\s+kB$/mu)
+    if (match) {
+      return { status: 'ok', value: Number(match[1]) * 1024, source: procStatusFile }
+    }
+  }
+
+  const ps = spawnSync('ps', ['-o', 'rss=', '-p', String(pid)], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  const rssKiB = Number.parseInt(ps.stdout.trim(), 10)
+  if (ps.status === 0 && Number.isFinite(rssKiB) && rssKiB > 0) {
+    return { status: 'ok', value: rssKiB * 1024, source: 'ps:rss' }
+  }
+
+  return {
+    status: 'missing',
+    reason: (ps.stderr || ps.stdout || `rss unavailable for pid ${pid}`).trim()
+  }
+}
+
+function readProcessOpenFileDescriptors(pid) {
+  const fdDir = path.join('/proc', String(pid), 'fd')
+  if (fs.existsSync(fdDir)) {
+    try {
+      return { status: 'ok', value: fs.readdirSync(fdDir).length, source: fdDir }
+    } catch (error) {
+      return {
+        status: 'missing',
+        reason: error instanceof Error ? error.message : String(error)
+      }
+    }
+  }
+
+  const lsof = spawnSync('lsof', ['-nP', '-p', String(pid)], {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024
+  })
+  if (lsof.status === 0) {
+    const count = lsof.stdout.split(/\r?\n/u).filter(Boolean).length - 1
+    if (count >= 0) {
+      return { status: 'ok', value: count, source: 'lsof:pid' }
+    }
+  }
+
+  return {
+    status: 'missing',
+    reason: (lsof.stderr || lsof.stdout || `open file descriptor count unavailable for pid ${pid}`).trim()
+  }
+}
+
+function releaseResourceModeConfig(mode) {
+  if (mode === 'memory-leak') {
+    return {
+      mode,
+      name: 'backend_rss_bytes',
+      unit: 'bytes',
+      threshold: nonNegativeIntEnv('FSUSBLOG_RELEASE_RESOURCE_RSS_DELTA_THRESHOLD_BYTES', 64 * 1024 * 1024),
+      thresholdKind: 'max_delta_bytes',
+      read: readProcessRssBytes
+    }
+  }
+
+  if (mode === 'open-handle') {
+    return {
+      mode,
+      name: 'backend_open_file_descriptors',
+      unit: 'count',
+      threshold: nonNegativeIntEnv('FSUSBLOG_RELEASE_RESOURCE_FD_DELTA_THRESHOLD', 16),
+      thresholdKind: 'max_delta_count',
+      read: readProcessOpenFileDescriptors
+    }
+  }
+
+  throw new Error(`unknown release resource budget mode: ${mode}`)
+}
+
+function buildUnavailableResourceSummary(mode, target, generatedAt = nowIso()) {
+  return {
+    status: 'failed',
+    mode,
+    namespace,
+    baseUrl,
+    generatedAt,
+    metrics: [],
+    resourceMetrics: {},
+    unavailableMetrics: [{
+      name: mode === 'open-handle' ? 'backend_open_file_descriptors' : 'backend_rss_bytes',
+      reason: target.reason ?? 'resource metric unavailable'
+    }],
+    thresholdEvaluation: {
+      status: 'fail',
+      reason: target.reason ?? 'resource metric unavailable'
+    }
+  }
+}
+
+function buildResourceMetric(config, target, start, end) {
+  const readings = [
+    { phase: 'start', ...start },
+    { phase: 'end', ...end }
+  ]
+  const missing = readings.filter((reading) => reading.status !== 'ok')
+  if (missing.length > 0) {
+    return {
+      metric: null,
+      unavailable: missing.map((reading) => ({
+        name: config.name,
+        phase: reading.phase,
+        reason: reading.reason ?? `${config.name} unavailable`
+      }))
+    }
+  }
+
+  const startValue = start.value
+  const endValue = end.value
+  const maxValue = Math.max(startValue, endValue)
+  const delta = endValue - startValue
+  const passed = delta <= config.threshold
+  return {
+    metric: {
+      name: config.name,
+      unit: config.unit,
+      startValue,
+      endValue,
+      maxValue,
+      delta,
+      threshold: config.threshold,
+      thresholdKind: config.thresholdKind,
+      thresholdOperator: '<=',
+      thresholdField: 'delta',
+      status: passed ? 'ok' : 'failed',
+      source: {
+        pid: target.pid,
+        discovery: target.source,
+        start: start.source,
+        end: end.source
+      }
+    },
+    unavailable: []
+  }
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -3271,6 +3490,68 @@ async function dataScale(tier, outFile) {
   }
 }
 
+async function releaseResourceBudget(mode, outFile) {
+  const config = releaseResourceModeConfig(mode)
+  const target = discoverBackendProcessTarget()
+  const started = performance.now()
+  const generatedAt = nowIso()
+
+  if (target.status !== 'ok') {
+    const summary = buildUnavailableResourceSummary(mode, target, generatedAt)
+    writeJson(outFile, summary)
+    throw new Error(`release resource ${mode} metric unavailable: ${target.reason}`)
+  }
+
+  const start = config.read(target.pid)
+  const probe = await runHttpProbe(safeBinaryPaths, {
+    iterations: positiveInt(process.env.FSUSBLOG_RELEASE_RESOURCE_REQUESTS, 12),
+    concurrency: positiveInt(process.env.FSUSBLOG_RELEASE_RESOURCE_CONCURRENCY, 2)
+  })
+  const end = config.read(target.pid)
+  const { metric, unavailable } = buildResourceMetric(config, target, start, end)
+  const metrics = metric ? [metric] : []
+  const okMetricCount = metrics.filter((item) => item.status === 'ok').length
+  const failedMetricCount = metrics.filter((item) => item.status !== 'ok').length
+  const status = okMetricCount > 0 && failedMetricCount === 0 && unavailable.length === 0
+    ? 'ok'
+    : 'failed'
+  const summary = {
+    status,
+    mode,
+    namespace,
+    baseUrl,
+    generatedAt,
+    durationMs: elapsedMs(started),
+    metricCount: metrics.length,
+    okMetricCount,
+    failedMetricCount,
+    unavailableMetricCount: unavailable.length,
+    metrics,
+    resourceMetrics: Object.fromEntries(metrics.map((item) => [item.name, item])),
+    unavailableMetrics: unavailable,
+    thresholdEvaluation: {
+      status: status === 'ok' ? 'pass' : 'fail',
+      checks: metrics.map((item) => ({
+        metric: item.name,
+        actual: item.delta,
+        operator: item.thresholdOperator,
+        threshold: item.threshold,
+        status: item.status === 'ok' ? 'pass' : 'fail'
+      })),
+      reason: status === 'ok'
+        ? null
+        : unavailable[0]?.reason ?? metrics.find((item) => item.status !== 'ok')?.name ?? 'resource budget failed'
+    },
+    runtime: probe,
+    performance_baseline: performanceBaselineMetadata(),
+    optional_deployment_layer: optionalDeploymentLayerMetadata()
+  }
+  writeJson(outFile, summary)
+  if (status !== 'ok') {
+    throw new Error(`release resource ${mode} failed threshold evaluation`)
+  }
+}
+
 async function faultInjection(outDir) {
   const redisCases = new Set(['redis-restart', 'redis-reconnect', 'redis-latency'])
   const postgresCases = new Set(['postgres-readiness', 'postgres-reconnect', 'postgres-lock-timeout'])
@@ -3387,6 +3668,7 @@ async function main() {
   if (command === 'backend-qps-sequential') return await backendQpsSequential(path.resolve(root, args[0]))
   if (command === 'load-profile') return await loadProfile(args[0], path.resolve(root, args[1]))
   if (command === 'data-scale') return await dataScale(args[0], path.resolve(root, args[1]))
+  if (command === 'release-resource-budget') return await releaseResourceBudget(args[0], path.resolve(root, args[1]))
   if (command === 'fault-injection') return await faultInjection(path.resolve(root, args[0]))
   if (command === 'soak') return await soak(args[0], path.resolve(root, args[1]))
   throw new Error(`unknown runtime evidence probe command: ${command}`)

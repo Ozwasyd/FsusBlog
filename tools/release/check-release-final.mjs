@@ -47,6 +47,61 @@ function listJsonFiles(dir) {
   return files.sort()
 }
 
+function isFiniteNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+function validateReleaseResourceSummary(summary, artifactKey) {
+  const errors = []
+  if (!summary || typeof summary !== 'object') {
+    return [`${artifactKey} release resource summary is missing`]
+  }
+
+  if (summary.status !== 'ok') {
+    errors.push(`${artifactKey}.status must be ok, got ${summary.status}`)
+  }
+
+  if (!Array.isArray(summary.metrics) || summary.metrics.length === 0) {
+    errors.push(`${artifactKey}.metrics must be non-empty`)
+  }
+
+  const unavailable = Array.isArray(summary.unavailableMetrics) ? summary.unavailableMetrics : []
+  for (const [index, item] of unavailable.entries()) {
+    if (!item || typeof item.reason !== 'string' || item.reason.length === 0) {
+      errors.push(`${artifactKey}.unavailableMetrics[${index}].reason missing`)
+    }
+  }
+
+  let okMetricCount = 0
+  for (const [index, metric] of (summary.metrics ?? []).entries()) {
+    const label = `${artifactKey}.metrics[${index}]`
+    if (!metric || typeof metric !== 'object') {
+      errors.push(`${label} must be an object`)
+      continue
+    }
+    if (typeof metric.name !== 'string' || metric.name.length === 0) errors.push(`${label}.name missing`)
+    for (const field of ['startValue', 'endValue', 'maxValue', 'delta', 'threshold']) {
+      if (!isFiniteNumber(metric[field])) errors.push(`${label}.${field} must be a finite number`)
+    }
+    if (metric.status !== 'ok') {
+      errors.push(`${label}.status must be ok, got ${metric.status}`)
+    } else {
+      okMetricCount += 1
+    }
+    if (metric.thresholdOperator !== '<=') errors.push(`${label}.thresholdOperator must be <=`)
+    if (metric.thresholdField !== 'delta') errors.push(`${label}.thresholdField must be delta`)
+    if (isFiniteNumber(metric.delta) && isFiniteNumber(metric.threshold) && metric.delta > metric.threshold) {
+      errors.push(`${label}.delta ${metric.delta} exceeds threshold ${metric.threshold}`)
+    }
+  }
+
+  if (okMetricCount === 0) {
+    errors.push(`${artifactKey} must include at least one passing resource metric`)
+  }
+
+  return errors
+}
+
 function validateManifest(manifest, manifestFile) {
   const errors = []
   if (manifest.status !== 'collected-ok') errors.push(`release-final requires collected-ok, got ${manifest.status}`)
@@ -79,6 +134,15 @@ function validateManifest(manifest, manifestFile) {
     }
   }
 
+  for (const artifactKey of ['memoryLeakSummary', 'openHandleSummary']) {
+    const file = artifactPath(manifestFile, manifest.artifacts?.[artifactKey])
+    if (!file || !fs.existsSync(file)) {
+      errors.push(`${artifactKey} release resource summary artifact is required`)
+      continue
+    }
+    errors.push(...validateReleaseResourceSummary(readJson(file), artifactKey))
+  }
+
   return errors
 }
 
@@ -93,12 +157,43 @@ function runSelfTest() {
     status: 'success',
     commit
   }))
+  const validResourceSummary = {
+    status: 'ok',
+    mode: 'memory-leak',
+    metrics: [{
+      name: 'backend_rss_bytes',
+      startValue: 100,
+      endValue: 104,
+      maxValue: 104,
+      delta: 4,
+      threshold: 64,
+      thresholdOperator: '<=',
+      thresholdField: 'delta',
+      status: 'ok'
+    }],
+    unavailableMetrics: []
+  }
+  fs.writeFileSync(path.join(tmp, 'memory-leak-summary.json'), JSON.stringify(validResourceSummary))
+  fs.writeFileSync(path.join(tmp, 'open-handle-summary.json'), JSON.stringify({
+    ...validResourceSummary,
+    mode: 'open-handle',
+    metrics: [{
+      ...validResourceSummary.metrics[0],
+      name: 'backend_open_file_descriptors',
+      threshold: 16
+    }]
+  }))
   const manifestFile = path.join(tmp, 'manifest.json')
   const manifest = {
     status: 'collected-ok',
     commitSha: commit,
     imageDigest: 'sha256:abc',
-    artifacts: { jobSummaries: 'job-summaries', visualGateSkip: null },
+    artifacts: {
+      jobSummaries: 'job-summaries',
+      memoryLeakSummary: 'memory-leak-summary.json',
+      openHandleSummary: 'open-handle-summary.json',
+      visualGateSkip: null
+    },
     artifactDigests: { productionExposureLive: { algorithm: 'sha256', value: 'a'.repeat(64) } },
     evidenceSummary: {
       coverage: { status: 'ok' },
@@ -109,6 +204,35 @@ function runSelfTest() {
   const errors = validateManifest(manifest, manifestFile)
   fs.rmSync(tmp, { recursive: true, force: true })
   if (errors.length > 0) fail([`self-test expected pass: ${errors.join('; ')}`])
+
+  const resourceTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-release-resource-final-'))
+  const resourceJobs = path.join(resourceTmp, 'job-summaries')
+  fs.mkdirSync(resourceJobs, { recursive: true })
+  fs.writeFileSync(path.join(resourceJobs, 'release-final.json'), JSON.stringify({
+    schema: 'fsusblog.ci.job-result.v1',
+    jobId: 'release-final',
+    status: 'success',
+    commit
+  }))
+  fs.writeFileSync(path.join(resourceTmp, 'memory-leak-summary.json'), JSON.stringify({
+    status: 'ok',
+    mode: 'memory-leak',
+    metrics: []
+  }))
+  const resourceManifestFile = path.join(resourceTmp, 'manifest.json')
+  const emptyResourceManifest = {
+    ...manifest,
+    artifacts: {
+      ...manifest.artifacts,
+      jobSummaries: 'job-summaries',
+      memoryLeakSummary: 'memory-leak-summary.json'
+    }
+  }
+  const resourceErrors = validateManifest(emptyResourceManifest, resourceManifestFile)
+  fs.rmSync(resourceTmp, { recursive: true, force: true })
+  if (!resourceErrors.some((error) => error.includes('memoryLeakSummary'))) {
+    fail(['self-test expected release-final to reject empty release resource metrics'])
+  }
   console.log('[release-final] self-test ok')
 }
 
