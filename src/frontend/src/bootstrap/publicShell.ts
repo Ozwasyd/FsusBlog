@@ -13,7 +13,7 @@ import {
 import { dispatchAotActionEvent } from '@/bootstrap/aotActionEvent'
 import { emitRumMetric, emitTelemetry } from '@/services/telemetryBus'
 import { ensureThemeRuntime, setThemeMode, type ThemeMode } from '@/services/themeRuntime'
-import { bootstrapFullApp } from '@/bootstrap/fullApp'
+import { bootstrapFullApp, commitPreparedFullApp, prepareFullApp } from '@/bootstrap/fullApp'
 import { AEDS_BINARY_MEDIA_TYPE } from '@/api/contracts'
 import { getMe } from '@/api/auth'
 import { getPrefersReducedMotion, resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
@@ -41,6 +41,11 @@ import {
   resolvePublicRoutePrewarmTarget,
   type PublicRoutePrewarmReason
 } from '@/router/publicRoutePreload'
+import {
+  classifyPublicNavigationIntent,
+  isPublicAtomicTakeoverEnabled,
+  type PublicAtomicNavigationIntent
+} from '@/bootstrap/publicNavigationIntent'
 
 function isModifiedEvent(event: MouseEvent): boolean {
   return event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
@@ -1097,6 +1102,10 @@ async function navigateWithinPublicShell(
   if ((options.historyMode ?? 'push') === 'push') {
     updateHistoryStateForCurrentScroll()
   }
+  emitTelemetry('public_navigation_legacy_start', {
+    historyMode: options.historyMode ?? 'push',
+    target: target.toString()
+  }, 'info')
   activeNavigationController?.abort()
   const controller = new AbortController()
   activeNavigationController = controller
@@ -1140,6 +1149,9 @@ async function navigateWithinPublicShell(
             reason: 'micro-navigation-complete',
             target: target.toString()
           })
+          emitTelemetry('public_navigation_legacy_completed', {
+            target: target.toString()
+          }, 'info')
         }
         return
       }
@@ -1172,6 +1184,81 @@ async function navigateWithinPublicShell(
   }
 }
 
+async function navigateWithAtomicPublicTakeover(intent: PublicAtomicNavigationIntent): Promise<void> {
+  const target = new URL(intent.href, window.location.origin)
+  updateHistoryStateForCurrentScroll()
+  activeNavigationController?.abort()
+  const controller = new AbortController()
+  activeNavigationController = controller
+  const navigationToken = ++activeNavigationToken
+
+  emitTelemetry('public_navigation_atomic_start', {
+    source: intent.source,
+    target: intent.fullPath
+  }, 'info')
+
+  try {
+    const prewarmResult = await prewarmPublicRoute(intent.fullPath, {
+      reason: 'atomic-navigation',
+      signal: controller.signal
+    })
+    if (controller.signal.aborted || navigationToken !== activeNavigationToken) {
+      return
+    }
+
+    if (prewarmResult.status !== 'ready') {
+      emitTelemetry('public_navigation_atomic_legacy_fallback', {
+        source: intent.source,
+        status: prewarmResult.status,
+        target: intent.fullPath
+      }, 'warn')
+      if (activeNavigationController === controller) {
+        activeNavigationController = null
+      }
+      await navigateWithinPublicShell(target.toString())
+      return
+    }
+
+    const prepared = prepareFullApp({
+      deferRuntime: true,
+      takeover: 'public-shell'
+    })
+    if (controller.signal.aborted || navigationToken !== activeNavigationToken) {
+      return
+    }
+
+    await commitPreparedFullApp(prepared, {
+      navigationIntent: {
+        to: intent.fullPath
+      }
+    })
+    emitTelemetry('public_navigation_atomic_completed', {
+      source: intent.source,
+      target: intent.fullPath
+    }, 'info')
+  } catch (error) {
+    if ((error as { name?: string } | null)?.name === 'AbortError' || controller.signal.aborted) {
+      return
+    }
+
+    markPublicTakeoverFallback({
+      reason: 'atomic-navigation-failed',
+      source: intent.source,
+      target: target.toString()
+    })
+    emitTelemetry('public_navigation_atomic_failed', {
+      error: error instanceof Error ? error.message : String(error),
+      source: intent.source,
+      target: intent.fullPath
+    }, 'warn')
+    navigateWithDocumentRequest(target.toString())
+  } finally {
+    if (activeNavigationController === controller) {
+      activeNavigationController = null
+    }
+  }
+}
+
 async function handleShellAction(actionNode: HTMLElement, anchor: HTMLAnchorElement | null): Promise<void> {
   const action = actionNode.dataset.aotAction ?? ''
   if (!action) {
@@ -1181,6 +1268,17 @@ async function handleShellAction(actionNode: HTMLElement, anchor: HTMLAnchorElem
   const actionHref = resolveShellActionNavigation(actionNode)
   if (actionHref) {
     dispatchAotActionEvent(actionNode)
+    const intent = classifyPublicNavigationIntent({
+      action,
+      currentHref: window.location.href,
+      href: actionHref,
+      source: 'pagination'
+    })
+    if (isPublicAtomicTakeoverEnabled() && intent.kind === 'atomic-public-route') {
+      await navigateWithAtomicPublicTakeover(intent)
+      return
+    }
+
     await navigateWithinPublicShell(actionHref)
     return
   }
@@ -1198,6 +1296,17 @@ async function handleShellAction(actionNode: HTMLElement, anchor: HTMLAnchorElem
 
   dispatchAotActionEvent(actionNode)
   if (anchor instanceof HTMLAnchorElement && isInternalAppLink(anchor) && isPublicMicroRoute(anchor.href)) {
+    const intent = classifyPublicNavigationIntent({
+      action,
+      anchor,
+      currentHref: window.location.href,
+      source: 'action'
+    })
+    if (isPublicAtomicTakeoverEnabled() && intent.kind === 'atomic-public-route') {
+      await navigateWithAtomicPublicTakeover(intent)
+      return
+    }
+
     await navigateWithinPublicShell(anchor.href)
   }
 }
@@ -1235,6 +1344,18 @@ export function bindPreBootstrapNavigation(): void {
       if (actionHref) {
         dispatchAotActionEvent(actionNode)
         event.preventDefault()
+        const intent = classifyPublicNavigationIntent({
+          action: actionNode.dataset.aotAction ?? '',
+          currentHref: window.location.href,
+          event,
+          href: actionHref,
+          source: 'pagination'
+        })
+        if (isPublicAtomicTakeoverEnabled() && intent.kind === 'atomic-public-route') {
+          void navigateWithAtomicPublicTakeover(intent)
+          return
+        }
+
         void navigateWithinPublicShell(actionHref)
         return
       }
@@ -1254,6 +1375,17 @@ export function bindPreBootstrapNavigation(): void {
     }
 
     event.preventDefault()
+    const intent = classifyPublicNavigationIntent({
+      anchor,
+      currentHref: window.location.href,
+      event,
+      source: 'link'
+    })
+    if (isPublicAtomicTakeoverEnabled() && intent.kind === 'atomic-public-route') {
+      void navigateWithAtomicPublicTakeover(intent)
+      return
+    }
+
     void navigateWithinPublicShell(anchor.href)
   }, { passive: false })
   addPublicShellEventListener(document, 'pointerenter', (event) => {

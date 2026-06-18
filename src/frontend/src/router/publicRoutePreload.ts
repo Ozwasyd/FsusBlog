@@ -15,7 +15,7 @@ import {
   type PublicRoutePreloadDefinition
 } from '@/public-renderers/publicRouteRegistry'
 
-export type PublicRoutePrewarmReason = 'idle' | 'pointerenter' | 'focus' | 'search-focus'
+export type PublicRoutePrewarmReason = 'idle' | 'pointerenter' | 'focus' | 'search-focus' | 'atomic-navigation'
 export type PublicRoutePrewarmStatus = 'ready' | 'miss' | 'cancelled' | 'timeout' | 'failure'
 
 export type PublicNavigationSnapshotEnvelope = Readonly<{
