@@ -13,6 +13,6 @@ jq -n \
   --arg profile "$PROFILE" \
   --arg file ".tmp/perf/load-$PROFILE/summary.json" \
   --slurpfile summary "$OUT_DIR/summary.json" \
-  '{status:"ok", profile:$profile, summary:$file, metrics:$summary[0].metrics, generatedAt: now | todate}' \
+  '{status:"ok", profile:$profile, summary:$file, policy:$summary[0].policy, declared:$summary[0].declared, effective:$summary[0].effective, overrideSource:$summary[0].overrideSource, overrideSources:$summary[0].overrideSources, metrics:$summary[0].metrics, generatedAt: now | todate}' \
   > "$ROOT_DIR/.tmp/release-evidence/perf-summary.json"
 printf '[load-profile] wrote %s\n' "$OUT_DIR/summary.json"

@@ -10,6 +10,7 @@ const requiredPostgresFaultCases = ['postgres-readiness', 'postgres-reconnect', 
 const requiredNotificationFaultCases = ['notification-stream-slow-consumer']
 const requiredGracefulShutdownFaultCases = ['graceful-shutdown']
 const requiredDiskArtifactFaultCases = ['disk-artifact-storage-write-failure']
+const perfPolicyRelativeFile = 'tests/perf/perf-policy.yml'
 
 function readJson(relativePath, optional = false) {
   const file = findEvidenceFile(relativePath)
@@ -79,6 +80,31 @@ function nonNegativeNumber(value, label) {
 
 function positiveInteger(value, label) {
   assert(Number.isInteger(value) && value > 0, `${label} must be a positive integer`)
+}
+
+function yamlSection(text, name, indent = 0) {
+  const prefix = ' '.repeat(indent)
+  const pattern = new RegExp(`(?:^|\\n)${prefix}${name}:\\n([\\s\\S]*?)(?=\\n${prefix}\\S|$)`, 'u')
+  return text.match(pattern)?.[1] ?? ''
+}
+
+function yamlScalarMap(text) {
+  const values = {}
+  for (const line of text.split(/\r?\n/u)) {
+    const match = line.match(/^\s*([A-Za-z][A-Za-z0-9_-]*):\s*(\d+)\s*$/u)
+    if (match) values[match[1]] = Number(match[2])
+  }
+  return values
+}
+
+function readLoadProfilePolicy(profile) {
+  const text = fs.readFileSync(path.join(root, perfPolicyRelativeFile), 'utf8')
+  const profiles = yamlSection(text, 'loadProfiles')
+  const declared = yamlScalarMap(yamlSection(profiles, profile, 2))
+  for (const key of ['concurrency', 'rounds', 'durationMs']) {
+    positiveInteger(declared[key], `perf-policy.${profile}.${key}`)
+  }
+  return declared
 }
 
 function validateRuntimeProbe(probe, label) {
@@ -254,11 +280,34 @@ function validateLoadProfiles() {
   for (const file of summaries) {
     const relative = path.relative(root, file)
     const summary = JSON.parse(fs.readFileSync(file, 'utf8'))
-    assert(summary.status === 'ok', `${relative}.status must be ok`)
-    positiveNumber(summary.metrics?.rps, `${relative}.metrics.rps`)
-    positiveNumber(summary.metrics?.p95Ms, `${relative}.metrics.p95Ms`)
-    validateRuntimeProbe(summary.runtime, relative)
+    validateLoadProfileSummary(summary, relative)
   }
+}
+
+function validateLoadProfileSummary(summary, label) {
+  assert(summary.status === 'ok', `${label}.status must be ok`)
+  const profile = summary.profileName ?? summary.profile
+  assert(typeof profile === 'string' && profile.length > 0, `${label}.profileName must be present`)
+  assert(summary.policy?.file === perfPolicyRelativeFile, `${label}.policy.file must be ${perfPolicyRelativeFile}`)
+  const policyDeclared = readLoadProfilePolicy(profile)
+  for (const key of ['concurrency', 'rounds', 'durationMs']) {
+    positiveInteger(summary.declared?.[key], `${label}.declared.${key}`)
+    positiveInteger(summary.effective?.[key], `${label}.effective.${key}`)
+    assert(summary.declared[key] === policyDeclared[key], `${label}.declared.${key} must match ${perfPolicyRelativeFile}`)
+    const source = summary.overrideSources?.[key]
+    assert(typeof source === 'string' && source.length > 0, `${label}.overrideSources.${key} missing`)
+    if (source === 'policy') {
+      assert(summary.effective[key] === summary.declared[key], `${label}.effective.${key} must match policy without override`)
+    } else {
+      assert(source === `env:FSUSBLOG_LOAD_PROFILE_${key === 'durationMs' ? 'DURATION_MS' : key.toUpperCase()}`, `${label}.overrideSources.${key} has unsupported source`)
+    }
+  }
+  const hasOverride = Object.values(summary.overrideSources).some((source) => source !== 'policy')
+  assert(summary.overrideSource === (hasOverride ? 'env' : 'policy'), `${label}.overrideSource mismatch`)
+  assert(summary.sampling?.totalRequests === summary.effective.concurrency * summary.effective.rounds, `${label}.sampling.totalRequests must be concurrency * rounds`)
+  positiveNumber(summary.metrics?.rps, `${label}.metrics.rps`)
+  positiveNumber(summary.metrics?.p95Ms, `${label}.metrics.p95Ms`)
+  validateRuntimeProbe(summary.runtime, label)
 }
 
 function validateFaultInjection() {
@@ -520,6 +569,51 @@ function main() {
 }
 
 function runSelfTest() {
+  let missingLoadPolicyFailedAsExpected = false
+  try {
+    validateLoadProfileSummary({
+      status: 'ok',
+      profile: 'baseline',
+      metrics: { rps: 1, p95Ms: 1 },
+      runtime: {
+        measurementSource: 'runtime-http-probe',
+        sampleCount: 1,
+        rps: 1,
+        bytes: 1,
+        latencyMs: { p50: 1, p95: 1 },
+        statusCounts: { 200: 1 }
+      }
+    }, 'load-profile-self-test')
+  } catch {
+    missingLoadPolicyFailedAsExpected = true
+  }
+  assert(missingLoadPolicyFailedAsExpected, 'self-test load profile missing policy metadata must fail')
+
+  validateLoadProfileSummary({
+    status: 'ok',
+    profile: 'baseline',
+    profileName: 'baseline',
+    policy: { file: perfPolicyRelativeFile, version: 'fsusblog-perf-policy-v1' },
+    declared: { concurrency: 10, rounds: 6, durationMs: 30000 },
+    effective: { concurrency: 2, rounds: 3, durationMs: 1000 },
+    overrideSource: 'env',
+    overrideSources: {
+      concurrency: 'env:FSUSBLOG_LOAD_PROFILE_CONCURRENCY',
+      rounds: 'env:FSUSBLOG_LOAD_PROFILE_ROUNDS',
+      durationMs: 'env:FSUSBLOG_LOAD_PROFILE_DURATION_MS'
+    },
+    sampling: { totalRequests: 6 },
+    metrics: { rps: 1, p95Ms: 1 },
+    runtime: {
+      measurementSource: 'runtime-http-probe',
+      sampleCount: 1,
+      rps: 1,
+      bytes: 1,
+      latencyMs: { p50: 1, p95: 1 },
+      statusCounts: { 200: 1 }
+    }
+  }, 'load-profile-self-test-valid')
+
   const dataScaleSummaryFile = path.join(root, '.tmp/release-evidence/data-scale-summary.json')
   const previousDataScaleSummary = fs.existsSync(dataScaleSummaryFile)
     ? fs.readFileSync(dataScaleSummaryFile, 'utf8')

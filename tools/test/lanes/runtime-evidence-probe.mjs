@@ -46,6 +46,8 @@ const safeBinaryPaths = [
   '/api/binary/article/hot/5.aeds',
   '/api/binary/article/featured/4.aeds'
 ]
+const perfPolicyRelativeFile = 'tests/perf/perf-policy.yml'
+const perfPolicyFile = path.join(root, perfPolicyRelativeFile)
 
 const backendQpsModes = [
   'view-count-flush',
@@ -90,6 +92,76 @@ function loadBootstrapEnv(namespaceValue) {
     if (process.env[key] === undefined) {
       process.env[key] = value
     }
+  }
+}
+
+function yamlSection(text, name, indent = 0) {
+  const prefix = ' '.repeat(indent)
+  const pattern = new RegExp(`(?:^|\\n)${prefix}${name}:\\n([\\s\\S]*?)(?=\\n${prefix}\\S|$)`, 'u')
+  return text.match(pattern)?.[1] ?? ''
+}
+
+function yamlScalarMap(text) {
+  const values = {}
+  for (const line of text.split(/\r?\n/u)) {
+    const match = line.match(/^\s*([A-Za-z][A-Za-z0-9_-]*):\s*(\d+)\s*$/u)
+    if (match) values[match[1]] = Number(match[2])
+  }
+  return values
+}
+
+function readPerfPolicy() {
+  const text = fs.readFileSync(perfPolicyFile, 'utf8')
+  return {
+    version: text.match(/^version:\s*(\S+)/mu)?.[1] ?? 'unknown',
+    text
+  }
+}
+
+function readLoadProfilePolicy(profile) {
+  const policy = readPerfPolicy()
+  const profiles = yamlSection(policy.text, 'loadProfiles')
+  const declared = yamlScalarMap(yamlSection(profiles, profile, 2))
+  for (const key of ['concurrency', 'rounds', 'durationMs']) {
+    if (!Number.isInteger(declared[key]) || declared[key] <= 0) {
+      throw new Error(`load profile ${profile} missing positive ${key} in ${perfPolicyRelativeFile}`)
+    }
+  }
+  return {
+    file: perfPolicyRelativeFile,
+    version: policy.version,
+    profileName: profile,
+    declared
+  }
+}
+
+function envOverrideInt(name) {
+  if (process.env[name] === undefined || process.env[name] === '') {
+    return null
+  }
+  return positiveInt(process.env[name], 0)
+}
+
+function resolveLoadProfilePolicy(profile) {
+  const policy = readLoadProfilePolicy(profile)
+  const overrideEnv = {
+    concurrency: 'FSUSBLOG_LOAD_PROFILE_CONCURRENCY',
+    rounds: 'FSUSBLOG_LOAD_PROFILE_ROUNDS',
+    durationMs: 'FSUSBLOG_LOAD_PROFILE_DURATION_MS'
+  }
+  const effective = {}
+  const overrideSources = {}
+  for (const [key, envName] of Object.entries(overrideEnv)) {
+    const override = envOverrideInt(envName)
+    effective[key] = override ?? policy.declared[key]
+    overrideSources[key] = override === null ? 'policy' : `env:${envName}`
+  }
+  const overrideSource = Object.values(overrideSources).every((source) => source === 'policy') ? 'policy' : 'env'
+  return {
+    ...policy,
+    effective,
+    overrideSource,
+    overrideSources
   }
 }
 
@@ -2880,21 +2952,29 @@ async function backendQpsSequential(outFile) {
 }
 
 async function loadProfile(profile, outFile) {
-  const settings = {
-    baseline: [16, 2],
-    'expected-peak': [24, 4],
-    '2x-peak': [36, 6],
-    burst: [24, 8]
-  }
-  const [iterations, concurrency] = settings[profile] ?? settings.baseline
+  const policy = resolveLoadProfilePolicy(profile)
+  const iterations = policy.effective.concurrency * policy.effective.rounds
   const probe = await runHttpProbe(safeBinaryPaths, {
-    iterations: process.env.FSUSBLOG_LOAD_PROFILE_REQUESTS || iterations,
-    concurrency: process.env.FSUSBLOG_LOAD_PROFILE_CONCURRENCY || concurrency
+    iterations,
+    concurrency: policy.effective.concurrency
   })
   writeJson(outFile, {
     status: 'ok',
     profile,
+    profileName: profile,
     namespace,
+    policy: {
+      file: policy.file,
+      version: policy.version
+    },
+    declared: policy.declared,
+    effective: policy.effective,
+    overrideSource: policy.overrideSource,
+    overrideSources: policy.overrideSources,
+    sampling: {
+      totalRequests: iterations,
+      paths: safeBinaryPaths
+    },
     performance_baseline: performanceBaselineMetadata(),
     optional_deployment_layer: optionalDeploymentLayerMetadata(),
     metrics: {
