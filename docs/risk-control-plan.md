@@ -36,7 +36,7 @@ RiskControl action 名称集中由 `RiskActionNames` 定义。首批生产 actio
 
 ## Policy snapshot v2 baseline
 
-`SecurityRiskPolicySnapshotV2` 固定生产 RiskControl 的策略外形：全局模式为 `disabled`、`observe`、`enforce`、`strict` 或 `lockdown`；每个 action 可覆盖 allow / challenge / hardChallenge / queue / block 阈值、challenge kind、escalation level 和匿名写入锁定语义；snapshot 带 `PolicyVersion`、`LastKnownGoodSnapshotId`、子系统模式和 max risk score。迁移期 `SecurityRiskPolicySnapshotV2Adapter` 从现有 AntiCrawler / PoW runtime snapshot 生成 V2，并把 V2 投影回旧 `SecurityRiskPolicySnapshot`，保持 `RiskAwarePublicReadFilter` 的旧读取路径不变。默认 public-read 行为与旧逻辑等价：低于 `RequireChallengeScore` 放行，达到后要求 `security.pow`，达到 `BlockScore` 后 block；observe 只记录不执行挑战或拦截；strict 使用风险权重提前触发阈值；lockdown 在后续 filter 接入时用于关闭匿名写入。
+`SecurityRiskPolicySnapshotV2` 固定生产 RiskControl 的策略外形：全局模式为 `disabled`、`observe`、`enforce`、`strict` 或 `lockdown`；每个 action 可覆盖 allow / challenge / hardChallenge / queue / block 阈值、challenge kind、hard challenge 组合、escalation level 和匿名写入锁定语义；snapshot 带 `PolicyVersion`、`LastKnownGoodSnapshotId`、子系统模式和 max risk score。迁移期 `SecurityRiskPolicySnapshotV2Adapter` 从现有 AntiCrawler / PoW runtime snapshot 生成 V2，并把 V2 投影回旧 `SecurityRiskPolicySnapshot`，保持 `RiskAwarePublicReadFilter` 的旧读取路径不变。默认 public-read 行为与旧逻辑等价：低于 `RequireChallengeScore` 放行，达到后要求 `security.pow`，达到 `BlockScore` 后 block。默认 auth/comment 行为是低风险放行，中风险 `captchaV1`，高风险 `captchaV1 + sha256PowV1`，达到 block 阈值后 block；observe 只记录不执行挑战或拦截；strict 使用风险权重提前触发阈值；lockdown 在后续 filter 接入时用于关闭匿名写入。
 
 ## Decision service baseline
 
@@ -56,7 +56,7 @@ RiskControl proof token 使用 `X-Fsus-Challenge-Proof` 传递，独立于 admin
 
 `Sha256PowChallengeProvider` 是第一个实际 provider，边界是复用旧 PoW 能力而不迁移 wire format：issue 生成 `sha256PowV1` assignment 和 `salt/difficulty/timestamp/signature` provider payload；verify 接受 legacy Base64 FPOW proof、复用 `IPowService` 与 `AdaptivePowGovernor`，并将成功、失败、重放类拒绝写入 challenge attempt。旧 `RequiresPowFilter` 和 `X-Fsus-Pow-Proof` header 仍作为兼容入口存在；统一 binary challenge endpoint 通过 `/api/binary/security/challenge` 与 `/api/binary/security/challenge/verify` 暴露。
 
-`CaptchaV1ChallengeProvider` 是第二个实际 provider，边界是服务端可验证但不直接接入业务策略：issue 生成 `captchaV1` assignment、Chebyshev noise seed/参数、HMAC signature 和 `SecurityCaptchaChallenge` 一次性 cache state；verify 校验签名、绑定字段、过期、一次性消费、答案、nonce、response token 与 solve duration。provider 不生成 PNG，不保存 seed/proof 原文，失败写 challenge attempt，并通过 `CaptchaInvalid`、`CaptchaReplay`、`CaptchaSolveTooFast` / `CaptchaSolveTooSlow` detail 写入 `risk-control` 风险事件。后续 #471 只负责前端渲染与 worker，#472 再决定哪些 action 选择 CaptchaV1。
+`CaptchaV1ChallengeProvider` 是第二个实际 provider，边界是服务端可验证但不直接接入业务 endpoint：issue 生成 `captchaV1` assignment、Chebyshev noise seed/参数、HMAC signature 和 `SecurityCaptchaChallenge` 一次性 cache state；verify 校验签名、绑定字段、过期、一次性消费、答案、nonce、response token 与 solve duration。provider 不生成 PNG，不保存 seed/proof 原文，失败写 challenge attempt，并通过 `CaptchaInvalid`、`CaptchaReplay`、`CaptchaSolveTooFast` / `CaptchaSolveTooSlow` detail 写入 `risk-control` 风险事件。`SecurityRiskPolicySnapshotV2Adapter` 已让 `auth.login`、`comment.create` 和 `comment.reply` 通过 RiskControl policy 选择 CaptchaV1，并在高风险时叠加 Sha256PoW。
 
 `RequiresRiskControlFilter` 是 enforcement baseline：读取 endpoint action / routeKey metadata，调用 `RiskDecisionService` 处理 allow / challenge / step-up / block / queue / throttle。challenge proof 使用 `X-Fsus-Challenge-Proof` 加 `X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 定位并消费绑定 claims；缺失或消费失败返回 428，block / throttle 返回 429，只有 proof consume 成功才进入业务 handler。旧 `RequiresPowFilter` 保持 legacy wrapper，避免一次性迁移现有 PoW endpoint。
 

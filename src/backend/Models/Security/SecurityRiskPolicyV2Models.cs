@@ -24,7 +24,12 @@ public sealed record SecurityRiskActionPolicy(
     string ChallengeKind,
     int EscalationLevel,
     string? ModeOverride,
-    bool AnonymousWriteAllowed);
+    bool AnonymousWriteAllowed)
+{
+    public IReadOnlyList<string> HardChallengeKinds { get; init; } = [];
+
+    public int HardChallengeEscalationLevel { get; init; } = 2;
+}
 
 public sealed record SecurityRiskPolicyDecision(
     string ActionName,
@@ -34,6 +39,7 @@ public sealed record SecurityRiskPolicyDecision(
     int RiskScore,
     int EffectiveRiskScore,
     string ChallengeKind,
+    IReadOnlyList<string> RequiredChallengeKinds,
     int EscalationLevel,
     string Reason);
 
@@ -113,20 +119,62 @@ public sealed record SecurityRiskPolicySnapshotV2(
         int riskScore,
         int effectiveRiskScore,
         string reason)
-        => new(
+    {
+        IReadOnlyList<string> requiredChallenges = ResolveRequiredChallenges(actionPolicy, outcome);
+        return new SecurityRiskPolicyDecision(
             actionPolicy.ActionName,
             mode,
             outcome,
             enforced,
             riskScore,
             effectiveRiskScore,
-            outcome is SecurityRiskPolicyOutcomes.Challenge or SecurityRiskPolicyOutcomes.HardChallenge
-                ? actionPolicy.ChallengeKind
-                : string.Empty,
-            outcome is SecurityRiskPolicyOutcomes.Challenge or SecurityRiskPolicyOutcomes.HardChallenge
-                ? actionPolicy.EscalationLevel
-                : 0,
+            requiredChallenges.Count > 0 ? requiredChallenges[0] : string.Empty,
+            requiredChallenges,
+            requiredChallenges.Count > 0 ? ResolveEscalationLevel(actionPolicy, outcome) : 0,
             reason);
+    }
+
+    private static IReadOnlyList<string> ResolveRequiredChallenges(SecurityRiskActionPolicy actionPolicy, string outcome)
+    {
+        if (outcome is not (SecurityRiskPolicyOutcomes.Challenge or SecurityRiskPolicyOutcomes.HardChallenge))
+        {
+            return [];
+        }
+
+        IReadOnlyList<string> configured = outcome == SecurityRiskPolicyOutcomes.HardChallenge
+            ? actionPolicy.HardChallengeKinds
+            : [];
+        if (configured.Count == 0)
+        {
+            configured = string.IsNullOrWhiteSpace(actionPolicy.ChallengeKind)
+                ? []
+                : [actionPolicy.ChallengeKind];
+        }
+
+        return NormalizeChallengeKinds(configured);
+    }
+
+    private static int ResolveEscalationLevel(SecurityRiskActionPolicy actionPolicy, string outcome)
+        => outcome == SecurityRiskPolicyOutcomes.HardChallenge && actionPolicy.HardChallengeKinds.Count > 0
+            ? Math.Max(actionPolicy.EscalationLevel, actionPolicy.HardChallengeEscalationLevel)
+            : actionPolicy.EscalationLevel;
+
+    private static IReadOnlyList<string> NormalizeChallengeKinds(IEnumerable<string> kinds)
+    {
+        var normalized = new List<string>();
+        foreach (string kind in kinds)
+        {
+            string value = (kind ?? string.Empty).Trim();
+            if (value.Length == 0 || normalized.Contains(value, StringComparer.Ordinal))
+            {
+                continue;
+            }
+
+            normalized.Add(value);
+        }
+
+        return normalized;
+    }
 
     private static string ResolveThresholdOutcome(int effectiveRiskScore, SecurityRiskActionThresholds thresholds)
     {

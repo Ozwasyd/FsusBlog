@@ -15,6 +15,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, challenge.Outcome);
         Assert.True(challenge.Enforced);
         Assert.Equal("security.pow", challenge.ChallengeKind);
+        Assert.Equal(["security.pow"], challenge.RequiredChallengeKinds);
         Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, snapshot.Evaluate(RiskActionNames.PublicRead, 99).Outcome);
         Assert.Equal(SecurityRiskPolicyOutcomes.Block, snapshot.Evaluate(RiskActionNames.PublicRead, 100).Outcome);
 
@@ -47,6 +48,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         Assert.False(decision.Enforced);
         Assert.Equal(SecurityRiskPolicyOutcomes.Block, decision.Reason);
         Assert.Equal(string.Empty, decision.ChallengeKind);
+        Assert.Empty(decision.RequiredChallengeKinds);
     }
 
     [Fact]
@@ -96,6 +98,36 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         Assert.Equal(SecurityRiskPolicyOutcomes.Allow, snapshot.Evaluate(RiskActionNames.PublicRead, 10).Outcome);
         Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, snapshot.Evaluate(RiskActionNames.AuthLogin, 10).Outcome);
         Assert.Equal(RiskActionNames.AuthLogin, snapshot.ResolveActionPolicy(RiskActionNames.AuthLogin).ActionName);
+    }
+
+    [Fact]
+    public void LegacyAdapter_MapsAuthAndCommentMediumRiskToCaptchaAndHighRiskToCombo()
+    {
+        SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
+
+        Assert.Equal(SecurityRiskPolicyOutcomes.Allow, snapshot.Evaluate(RiskActionNames.AuthLogin, 49).Outcome);
+
+        SecurityRiskPolicyDecision mediumLogin = snapshot.Evaluate(RiskActionNames.AuthLogin, 50);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, mediumLogin.Outcome);
+        Assert.Equal("captchaV1", mediumLogin.ChallengeKind);
+        Assert.Equal(["captchaV1"], mediumLogin.RequiredChallengeKinds);
+        Assert.Equal(1, mediumLogin.EscalationLevel);
+
+        SecurityRiskPolicyDecision highLogin = snapshot.Evaluate(RiskActionNames.AuthLogin, 75);
+        Assert.Equal(SecurityRiskPolicyOutcomes.HardChallenge, highLogin.Outcome);
+        Assert.Equal("captchaV1", highLogin.ChallengeKind);
+        Assert.Equal(["captchaV1", "sha256PowV1"], highLogin.RequiredChallengeKinds);
+        Assert.Equal(2, highLogin.EscalationLevel);
+
+        SecurityRiskPolicyDecision mediumComment = snapshot.Evaluate(RiskActionNames.CommentCreate, 50);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, mediumComment.Outcome);
+        Assert.Equal(["captchaV1"], mediumComment.RequiredChallengeKinds);
+
+        SecurityRiskPolicyDecision highReply = snapshot.Evaluate(RiskActionNames.CommentReply, 99);
+        Assert.Equal(SecurityRiskPolicyOutcomes.HardChallenge, highReply.Outcome);
+        Assert.Equal(["captchaV1", "sha256PowV1"], highReply.RequiredChallengeKinds);
+
+        Assert.Equal(SecurityRiskPolicyOutcomes.Block, snapshot.Evaluate(RiskActionNames.AuthLogin, 100).Outcome);
     }
 
     [Fact]

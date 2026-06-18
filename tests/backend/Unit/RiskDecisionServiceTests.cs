@@ -100,6 +100,55 @@ public sealed class RiskDecisionServiceTests
         Assert.Equal(["passkey.step-up"], decision.RequiredChallenges);
     }
 
+    [Fact]
+    public void Decide_AuthLoginCaptchaPolicy_ReturnsMediumCaptchaAndHighComboChallenge()
+    {
+        SecurityRiskActionPolicy authPolicy = CreateCaptchaActionPolicy(RiskActionNames.AuthLogin) with
+        {
+            HardChallengeKinds = ["captchaV1", "sha256PowV1"],
+            HardChallengeEscalationLevel = 2
+        };
+        var overrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
+        {
+            [RiskActionNames.AuthLogin] = authPolicy
+        };
+        SecurityRiskPolicySnapshotV2 policy = CreatePolicy(SecuritySystemModes.Enforce, overrides);
+
+        RiskDecision low = _service.Decide(CreateContext(RiskActionNames.AuthLogin), policy, 49);
+        RiskDecision medium = _service.Decide(CreateContext(RiskActionNames.AuthLogin), policy, 50);
+        RiskDecision high = _service.Decide(CreateContext(RiskActionNames.AuthLogin), policy, 75);
+
+        Assert.Equal(RiskDecisionKind.Allow, low.Kind);
+        Assert.Empty(low.RequiredChallenges);
+        Assert.Equal(RiskDecisionKind.Challenge, medium.Kind);
+        Assert.Equal(["captchaV1"], medium.RequiredChallenges);
+        Assert.Equal(1, medium.EscalationLevel);
+        Assert.Equal(RiskDecisionKind.Challenge, high.Kind);
+        Assert.Equal(["captchaV1", "sha256PowV1"], high.RequiredChallenges);
+        Assert.Equal(2, high.EscalationLevel);
+    }
+
+    [Fact]
+    public void Decide_ObserveModeWithCaptchaPolicy_RecordsOnlyWithoutRequiredChallenges()
+    {
+        SecurityRiskActionPolicy authPolicy = CreateCaptchaActionPolicy(RiskActionNames.AuthLogin) with
+        {
+            HardChallengeKinds = ["captchaV1", "sha256PowV1"],
+            HardChallengeEscalationLevel = 2
+        };
+        var overrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
+        {
+            [RiskActionNames.AuthLogin] = authPolicy
+        };
+        SecurityRiskPolicySnapshotV2 policy = CreatePolicy(SecuritySystemModes.Observe, overrides);
+
+        RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.AuthLogin), policy, 75);
+
+        Assert.Equal(RiskDecisionKind.Allow, decision.Kind);
+        Assert.Empty(decision.RequiredChallenges);
+        Assert.Contains(SecurityRiskPolicyOutcomes.HardChallenge, decision.Reasons);
+    }
+
     private static RiskControlContext CreateContext(
         string actionName,
         bool verifiedCrawler = false,
@@ -167,6 +216,15 @@ public sealed class RiskDecisionServiceTests
             actionName,
             new SecurityRiskActionThresholds(49, 50, 100, 100, 100),
             challengeKind,
+            1,
+            null,
+            AnonymousWriteAllowed: false);
+
+    private static SecurityRiskActionPolicy CreateCaptchaActionPolicy(string actionName)
+        => new(
+            actionName,
+            new SecurityRiskActionThresholds(49, 50, 75, 100, 100),
+            "captchaV1",
             1,
             null,
             AnonymousWriteAllowed: false);

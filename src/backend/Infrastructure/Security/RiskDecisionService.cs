@@ -50,7 +50,7 @@ public sealed class RiskDecisionService : IRiskDecisionService
             currentRiskScore,
             IsAnonymousWrite(context));
         RiskDecisionKind kind = MapKind(policyDecision);
-        IReadOnlyList<string> requiredChallenges = BuildRequiredChallenges(kind, policyDecision.ChallengeKind);
+        IReadOnlyList<string> requiredChallenges = BuildRequiredChallenges(kind, policyDecision.RequiredChallengeKinds);
         List<string> reasons = [policyDecision.Reason];
         if (context.ActionStatus == RiskControlContextStatuses.Missing)
         {
@@ -86,7 +86,7 @@ public sealed class RiskDecisionService : IRiskDecisionService
         {
             SecurityRiskPolicyOutcomes.Allow => RiskDecisionKind.Allow,
             SecurityRiskPolicyOutcomes.Observe => RiskDecisionKind.Allow,
-            SecurityRiskPolicyOutcomes.Challenge or SecurityRiskPolicyOutcomes.HardChallenge => IsStepUpChallenge(policyDecision.ChallengeKind)
+            SecurityRiskPolicyOutcomes.Challenge or SecurityRiskPolicyOutcomes.HardChallenge => IsStepUpChallenge(policyDecision.RequiredChallengeKinds)
                 ? RiskDecisionKind.StepUp
                 : RiskDecisionKind.Challenge,
             SecurityRiskPolicyOutcomes.Queue => RiskDecisionKind.QueueForModeration,
@@ -94,14 +94,15 @@ public sealed class RiskDecisionService : IRiskDecisionService
             _ => RiskDecisionKind.Throttle
         };
 
-    private static IReadOnlyList<string> BuildRequiredChallenges(RiskDecisionKind kind, string challengeKind)
-        => (kind is RiskDecisionKind.Challenge or RiskDecisionKind.StepUp) && !string.IsNullOrWhiteSpace(challengeKind)
-            ? [challengeKind]
+    private static IReadOnlyList<string> BuildRequiredChallenges(RiskDecisionKind kind, IReadOnlyList<string> challengeKinds)
+        => kind is RiskDecisionKind.Challenge or RiskDecisionKind.StepUp
+            ? challengeKinds.Where(static challengeKind => !string.IsNullOrWhiteSpace(challengeKind)).ToArray()
             : [];
 
-    private static bool IsStepUpChallenge(string challengeKind)
-        => challengeKind.Contains("step-up", StringComparison.OrdinalIgnoreCase)
-            || challengeKind.Contains("stepup", StringComparison.OrdinalIgnoreCase);
+    private static bool IsStepUpChallenge(IReadOnlyList<string> challengeKinds)
+        => challengeKinds.Any(static challengeKind =>
+            challengeKind.Contains("step-up", StringComparison.OrdinalIgnoreCase)
+            || challengeKind.Contains("stepup", StringComparison.OrdinalIgnoreCase));
 
     private static bool IsAnonymousWrite(RiskControlContext context)
         => context.Actor.Status == RiskControlActorStatuses.Anonymous

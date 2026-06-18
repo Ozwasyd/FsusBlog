@@ -6,6 +6,8 @@ public static class SecurityRiskPolicySnapshotV2Adapter
 {
     public const string DefaultPolicyVersion = "risk-policy-v2";
     private const string DefaultActionName = "*";
+    private const string CaptchaV1ChallengeKind = "captchaV1";
+    private const string Sha256PowV1ChallengeKind = "sha256PowV1";
 
     public static SecurityRiskPolicySnapshotV2 FromLegacy(AntiCrawlerPolicySnapshot antiCrawler, PowPolicySnapshot? pow = null)
     {
@@ -13,6 +15,7 @@ public static class SecurityRiskPolicySnapshotV2Adapter
 
         AntiCrawlerPolicyOptions options = antiCrawler.Options;
         var thresholds = BuildLegacyPublicReadThresholds(options.RequireChallengeScore, options.BlockScore);
+        var captchaThresholds = BuildCaptchaEscalationThresholds(options.RequireChallengeScore, options.BlockScore);
         var defaultPolicy = new SecurityRiskActionPolicy(
             DefaultActionName,
             thresholds,
@@ -20,6 +23,14 @@ public static class SecurityRiskPolicySnapshotV2Adapter
             1,
             null,
             AnonymousWriteAllowed: false);
+        var captchaEscalationPolicy = defaultPolicy with
+        {
+            Thresholds = captchaThresholds,
+            ChallengeKind = CaptchaV1ChallengeKind,
+            EscalationLevel = 1,
+            HardChallengeKinds = [CaptchaV1ChallengeKind, Sha256PowV1ChallengeKind],
+            HardChallengeEscalationLevel = 2
+        };
         var actionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
         {
             [RiskActionNames.PublicRead] = defaultPolicy with
@@ -28,9 +39,9 @@ public static class SecurityRiskPolicySnapshotV2Adapter
                 ModeOverride = options.PublicReadChallengeEnabled ? null : SecuritySystemModes.Disabled,
                 AnonymousWriteAllowed = true
             },
-            [RiskActionNames.CommentCreate] = defaultPolicy with { ActionName = RiskActionNames.CommentCreate },
-            [RiskActionNames.CommentReply] = defaultPolicy with { ActionName = RiskActionNames.CommentReply },
-            [RiskActionNames.AuthLogin] = defaultPolicy with { ActionName = RiskActionNames.AuthLogin },
+            [RiskActionNames.CommentCreate] = captchaEscalationPolicy with { ActionName = RiskActionNames.CommentCreate },
+            [RiskActionNames.CommentReply] = captchaEscalationPolicy with { ActionName = RiskActionNames.CommentReply },
+            [RiskActionNames.AuthLogin] = captchaEscalationPolicy with { ActionName = RiskActionNames.AuthLogin },
             [RiskActionNames.AuthPasskeyBegin] = defaultPolicy with { ActionName = RiskActionNames.AuthPasskeyBegin },
             [RiskActionNames.AuthPasskeyComplete] = defaultPolicy with { ActionName = RiskActionNames.AuthPasskeyComplete },
             [RiskActionNames.RecoveryKeyVerify] = defaultPolicy with { ActionName = RiskActionNames.RecoveryKeyVerify },
@@ -90,6 +101,22 @@ public static class SecurityRiskPolicySnapshotV2Adapter
             Math.Max(0, challenge - 1),
             challenge,
             block,
+            block,
+            block);
+    }
+
+    private static SecurityRiskActionThresholds BuildCaptchaEscalationThresholds(int requireChallengeScore, int blockScore)
+    {
+        int challenge = Math.Clamp(requireChallengeScore, 1, 1000);
+        int minimumBlock = Math.Min(1000, challenge + 2);
+        int block = Math.Clamp(blockScore, minimumBlock, 1000);
+        int hardChallenge = Math.Min(
+            block - 1,
+            challenge + Math.Max(1, (block - challenge) / 2));
+        return new SecurityRiskActionThresholds(
+            Math.Max(0, challenge - 1),
+            challenge,
+            hardChallenge,
             block,
             block);
     }

@@ -51,6 +51,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             new RiskControlContextFactory(),
             new RiskDecisionService(),
             orchestrator,
+            new NullRiskSink(),
             CancellationToken.None);
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
@@ -65,6 +66,46 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.NotNull(orchestrator.LastIssueRequest);
         Assert.Equal("security.pow", orchestrator.LastIssueRequest.Decision.RequiredChallenges[0]);
         Assert.Matches("^[0-9a-f]{64}$", orchestrator.LastIssueRequest.SubjectHash);
+    }
+
+    [Fact]
+    public async Task IssueAsync_CaptchaChallengeDecision_WritesCaptchaRequiredRiskSignal()
+    {
+        var aeds = new AedsEncoder();
+        var request = new SecurityChallengeIssueBinaryRequest("auth.login", "auth.login", "device-123456", "{}");
+        var context = CreateContext(
+            AedsFrameType.SecurityChallengeIssueRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeIssueRequest(request)));
+        var orchestrator = new FakeChallengeOrchestrator();
+        SecurityChallengeAssignment assignment = CreateAssignment(SecurityChallengeKind.CaptchaV1) with
+        {
+            Action = RiskActionNames.AuthLogin,
+            RouteKey = "auth.login"
+        };
+        orchestrator.IssueResult = SecurityChallengeOrchestrationIssueResult.Success(
+            new SecurityChallengeEnvelope(SecurityChallengeContracts.CreateChallengeId(), SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion, [assignment]));
+        var riskSink = new CapturingRiskSink();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeIssueAsync(
+            context,
+            aeds,
+            new FixedRiskScoreReader(50),
+            new FixedRiskPolicyProvider(CreatePolicy("captchaV1")),
+            new RiskControlContextFactory(),
+            new RiskDecisionService(),
+            orchestrator,
+            riskSink,
+            CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(AedsFrameType.SecurityChallengeIssueResponse, decoded.FrameType);
+        SecurityRiskSignal signal = Assert.Single(riskSink.Signals);
+        Assert.Equal(SecurityRiskReason.CaptchaChallengeRequired, signal.Reason);
+        Assert.Equal(SecurityRiskSources.RiskControl, signal.Source);
+        Assert.Equal(RiskActionNames.AuthLogin, signal.Action);
+        Assert.Equal("captchaV1", signal.Detail);
+        Assert.NotNull(orchestrator.LastIssueRequest);
+        Assert.Equal(["captchaV1"], orchestrator.LastIssueRequest.Decision.RequiredChallenges);
     }
 
     [Fact]
@@ -120,6 +161,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             new RiskControlContextFactory(),
             new RiskDecisionService(),
             new FakeChallengeOrchestrator(),
+            new NullRiskSink(),
             CancellationToken.None);
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
@@ -142,6 +184,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             new RiskControlContextFactory(),
             new RiskDecisionService(),
             new FakeChallengeOrchestrator(),
+            new NullRiskSink(),
             CancellationToken.None);
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
@@ -163,6 +206,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             new RiskControlContextFactory(),
             new RiskDecisionService(),
             new FakeChallengeOrchestrator(),
+            new NullRiskSink(),
             CancellationToken.None);
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
@@ -188,6 +232,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             new RiskControlContextFactory(),
             new RiskDecisionService(),
             new FakeChallengeOrchestrator(),
+            new NullRiskSink(),
             CancellationToken.None);
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
@@ -270,12 +315,12 @@ public sealed class SecurityChallengeBinaryEndpointTests
         return decoded.Value;
     }
 
-    private static SecurityChallengeAssignment CreateAssignment()
+    private static SecurityChallengeAssignment CreateAssignment(SecurityChallengeKind kind = SecurityChallengeKind.Sha256PowV1)
         => new(
             SecurityChallengeContracts.CreateChallengeId(),
             Traceparent,
             "tenant-main",
-            SecurityChallengeKind.Sha256PowV1,
+            kind,
             1,
             "public.read",
             "article:42",
@@ -334,6 +379,23 @@ public sealed class SecurityChallengeBinaryEndpointTests
         public SecurityRiskPolicySnapshot CurrentRiskPolicy => SecurityRiskPolicySnapshotV2Adapter.ToLegacy(policy);
 
         public SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2 => policy;
+    }
+
+    private sealed class NullRiskSink : ISecurityRiskSignalSink
+    {
+        public ValueTask AddRiskAsync(SecurityRiskSignal signal, CancellationToken cancellationToken = default)
+            => ValueTask.CompletedTask;
+    }
+
+    private sealed class CapturingRiskSink : ISecurityRiskSignalSink
+    {
+        public List<SecurityRiskSignal> Signals { get; } = [];
+
+        public ValueTask AddRiskAsync(SecurityRiskSignal signal, CancellationToken cancellationToken = default)
+        {
+            Signals.Add(signal);
+            return ValueTask.CompletedTask;
+        }
     }
 
     private sealed class FixedHotArticlesCacheVersionProvider : IHotArticlesCacheVersionProvider

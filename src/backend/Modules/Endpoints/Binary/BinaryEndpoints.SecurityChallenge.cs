@@ -28,6 +28,7 @@ public static partial class BinaryEndpoints
             IRiskControlContextFactory riskContextFactory,
             IRiskDecisionService riskDecisionService,
             ISecurityChallengeOrchestrator challengeOrchestrator,
+            ISecurityRiskSignalSink riskSignalSink,
             CancellationToken cancellationToken) =>
             await HandleSecurityChallengeIssueAsync(
                 httpContext,
@@ -37,6 +38,7 @@ public static partial class BinaryEndpoints
                 riskContextFactory,
                 riskDecisionService,
                 challengeOrchestrator,
+                riskSignalSink,
                 cancellationToken))
         .AllowAnonymous()
         .RequireRateLimiting("fixed_ip")
@@ -69,6 +71,7 @@ public static partial class BinaryEndpoints
         IRiskControlContextFactory riskContextFactory,
         IRiskDecisionService riskDecisionService,
         ISecurityChallengeOrchestrator challengeOrchestrator,
+        ISecurityRiskSignalSink riskSignalSink,
         CancellationToken cancellationToken)
     {
         if (!AcceptsBinaryResponse(httpContext.Request))
@@ -110,6 +113,11 @@ public static partial class BinaryEndpoints
         int riskScore = await riskScoreReader.GetRiskScoreAsync(httpContext, cancellationToken);
         SecurityRiskPolicySnapshotV2 policy = riskPolicyProvider.CurrentRiskPolicyV2;
         RiskDecision decision = riskDecisionService.Decide(riskContext, policy, riskScore);
+        if (DecisionRequiresCaptcha(decision))
+        {
+            await RecordCaptchaRequiredAsync(httpContext, riskSignalSink, decision, cancellationToken);
+        }
+
         if (decision.Kind is not (RiskDecisionKind.Challenge or RiskDecisionKind.StepUp))
         {
             var response = new SecurityChallengeIssueBinaryResponse(
@@ -279,6 +287,26 @@ public static partial class BinaryEndpoints
             RiskDecisionKind.Block => SecurityChallengeDecisionKind.Block,
             _ => SecurityChallengeDecisionKind.Unknown
         };
+
+    private static bool DecisionRequiresCaptcha(RiskDecision decision)
+        => decision.Kind is RiskDecisionKind.Challenge or RiskDecisionKind.StepUp
+            && decision.RequiredChallenges.Any(static challengeKind =>
+                SecurityChallengeContracts.TryParseKind(challengeKind, out SecurityChallengeKind parsed)
+                && parsed == SecurityChallengeKind.CaptchaV1);
+
+    private static ValueTask RecordCaptchaRequiredAsync(
+        HttpContext httpContext,
+        ISecurityRiskSignalSink riskSignalSink,
+        RiskDecision decision,
+        CancellationToken cancellationToken)
+        => riskSignalSink.AddRiskAsync(new SecurityRiskSignal(
+            httpContext,
+            SecurityRiskReason.CaptchaChallengeRequired,
+            5,
+            TimeSpan.FromMinutes(10),
+            SecurityRiskSources.RiskControl,
+            string.IsNullOrWhiteSpace(decision.ActionName) ? "risk_control" : decision.ActionName,
+            string.Join("+", decision.RequiredChallenges)), cancellationToken);
 
     private static bool TryDeserializeProviderPayload(string payloadJson, out IReadOnlyDictionary<string, string> payload)
     {
