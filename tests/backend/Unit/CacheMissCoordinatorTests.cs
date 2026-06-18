@@ -200,6 +200,9 @@ public sealed class CacheMissCoordinatorTests
         public Task<bool> ConsumeOnceAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
+        public Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
         public Task RemoveAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 

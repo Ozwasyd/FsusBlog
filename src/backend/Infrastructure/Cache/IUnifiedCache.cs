@@ -36,6 +36,7 @@ public interface IUnifiedCache
     Task<long> IncrementAsync(CachePolicyId policyId, string identity, long value = 1, CancellationToken cancellationToken = default);
     Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default);
     Task<bool> ConsumeOnceAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
+    Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default);
     Task RemoveAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
     Task RemoveManyAsync(IReadOnlyList<CacheKeyIdentity> keys, CancellationToken cancellationToken = default);
     Task RemoveByPrefixAsync(CachePolicyId policyId, string identityPrefix, CancellationToken cancellationToken = default);
@@ -284,6 +285,49 @@ public sealed class UnifiedCache(
 
         FsusObservability.RecordCacheOperation("consume_once", policyId.ToString(), "l2", ok ? "consumed" : "miss", FsusObservability.GetElapsed(startedAt));
         return ok;
+    }
+
+    public async Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(
+        CachePolicyId policyId,
+        string identity,
+        Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder,
+        CancellationToken cancellationToken = default)
+    {
+        long startedAt = Stopwatch.GetTimestamp();
+        using Activity? activity = FsusObservability.StartActivity("cache.consume_once_get", "cache", ActivityKind.Client);
+        FsusObservability.SetTag(activity, "fsus.cache.operation", "consume_once_get");
+        FsusObservability.SetTag(activity, "fsus.cache.policy", policyId.ToString());
+        cancellationToken.ThrowIfCancellationRequested();
+        string key = BuildKey(policyId, identity);
+        memoryCache.Remove(key);
+        cancellationToken.ThrowIfCancellationRequested();
+        RedisValue value = await _db.StringGetDeleteAsync(key).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!value.HasValue)
+        {
+            FsusObservability.RecordCacheOperation("consume_once_get", policyId.ToString(), "l2", "miss", FsusObservability.GetElapsed(startedAt));
+            return new CacheReadResult<T>(false, default);
+        }
+
+        byte[] bytes = (byte[])value!;
+        if (bytes.Length == 0)
+        {
+            await UnregisterKeyAsync(policyId, key, cancellationToken).ConfigureAwait(false);
+            FsusObservability.RecordCacheOperation("consume_once_get", policyId.ToString(), "l2", "hit_negative", FsusObservability.GetElapsed(startedAt));
+            return new CacheReadResult<T>(true, default);
+        }
+
+        var (success, decoded) = decoder(bytes);
+        if (!success)
+        {
+            await UnregisterKeyAsync(policyId, key, cancellationToken).ConfigureAwait(false);
+            FsusObservability.RecordCacheOperation("consume_once_get", policyId.ToString(), "l2", "decode_failed", FsusObservability.GetElapsed(startedAt));
+            return new CacheReadResult<T>(false, default);
+        }
+
+        await UnregisterKeyAsync(policyId, key, cancellationToken).ConfigureAwait(false);
+        FsusObservability.RecordCacheOperation("consume_once_get", policyId.ToString(), "l2", "consumed", FsusObservability.GetElapsed(startedAt));
+        return new CacheReadResult<T>(true, decoded);
     }
 
     public async Task RemoveAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)

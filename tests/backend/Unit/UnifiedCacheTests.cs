@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Cache;
+using System.Text;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -301,6 +302,79 @@ public sealed class UnifiedCacheTests
             Arg.Any<RedisKey>(),
             Arg.Any<RedisValue>(),
             Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
+    public async Task ConsumeOnceAndGetAsync_RemovesL1BeforeRedisGetDeleteAndReturnsPayload()
+    {
+        using var memory = new RemoveTrackingMemoryCache();
+        var db = Substitute.For<IDatabase>();
+        UnifiedCache cache = CreateCache(memory, db);
+        string key = cache.BuildKey(CachePolicyId.SecurityPasskeyAuthChallenge, "challenge-1");
+        db.StringGetDeleteAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
+            .Returns(_ =>
+            {
+                Assert.True(memory.Removed);
+                Assert.Equal(key, memory.RemovedKey);
+                return Task.FromResult((RedisValue)Encoding.UTF8.GetBytes("payload"));
+            });
+
+        CacheReadResult<string> read = await cache.ConsumeOnceAndGetAsync(
+            CachePolicyId.SecurityPasskeyAuthChallenge,
+            "challenge-1",
+            static bytes => (true, Encoding.UTF8.GetString(bytes.Span)));
+
+        Assert.True(read.Hit);
+        Assert.Equal("payload", read.Value);
+        await db.Received(1).StringGetDeleteAsync(
+            Arg.Is<RedisKey>(redisKey => redisKey.ToString() == key),
+            Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
+    public async Task ConsumeOnceAndGetAsync_RedisMissDoesNotDecodeOrUnregister()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        db.StringGetDeleteAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
+            .Returns(Task.FromResult(RedisValue.Null));
+        UnifiedCache cache = CreateCache(memory, db);
+        bool decoded = false;
+
+        CacheReadResult<string> read = await cache.ConsumeOnceAndGetAsync<string>(
+            CachePolicyId.SecurityPasskeyAuthChallenge,
+            "challenge-1",
+            bytes =>
+            {
+                decoded = true;
+                return (true, Encoding.UTF8.GetString(bytes.Span));
+            });
+
+        Assert.False(read.Hit);
+        Assert.False(decoded);
+        await db.DidNotReceive().SetRemoveAsync(
+            Arg.Any<RedisKey>(),
+            Arg.Any<RedisValue>(),
+            Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
+    public async Task ConsumeOnceAndGetAsync_PreCanceledTokenDoesNotCallRedis()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        UnifiedCache cache = CreateCache(memory, db);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => cache.ConsumeOnceAndGetAsync<string>(
+                CachePolicyId.SecurityPasskeyAuthChallenge,
+                "challenge-1",
+                static bytes => (true, Encoding.UTF8.GetString(bytes.Span)),
+                cts.Token));
+
+        await db.DidNotReceive().StringGetDeleteAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>());
     }
 
     [Fact]

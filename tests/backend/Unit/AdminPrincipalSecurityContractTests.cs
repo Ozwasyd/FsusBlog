@@ -72,6 +72,27 @@ public sealed class AdminPrincipalSecurityContractTests
     }
 
     [Fact]
+    public void AdminPasskeyChallenges_AreConsumedAtomicallyBeforeWebAuthn()
+    {
+        string cache = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Cache/IUnifiedCache.cs");
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");
+        string bootstrapComplete = ExtractMethodBlock(service, "public async Task<(bool Success, string Message, AdminSessionTokens? Tokens)> CompleteBootstrapPasskeyRegistrationAsync");
+        string loginComplete = ExtractMethodBlock(service, "public async Task<(bool Success, string Message, AdminSessionTokens? Tokens)> CompleteAdminAssertionAsync");
+        string stepUpComplete = ExtractMethodBlock(service, "public async Task<(bool Success, string Message, string? ProofToken)> CompleteAdminStepUpAssertionAsync");
+
+        Assert.Contains("ConsumeOnceAndGetAsync<T>", cache, StringComparison.Ordinal);
+        Assert.Contains("ConsumeChallengeAsync<AdminBootstrapChallenge>", bootstrapComplete, StringComparison.Ordinal);
+        Assert.Contains("ConsumeChallengeAsync<PasskeyLoginBeginCoreModel>", loginComplete, StringComparison.Ordinal);
+        Assert.Contains("ConsumeChallengeAsync<AdminStepUpChallenge>", stepUpComplete, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadChallengeAsync<", bootstrapComplete, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadChallengeAsync<", loginComplete, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadChallengeAsync<", stepUpComplete, StringComparison.Ordinal);
+        Assert.DoesNotContain("cache.RemoveAsync(CachePolicyId.SecurityPasskeyRegChallenge", bootstrapComplete, StringComparison.Ordinal);
+        Assert.DoesNotContain("cache.RemoveAsync(CachePolicyId.SecurityPasskeyAuthChallenge", loginComplete, StringComparison.Ordinal);
+        Assert.DoesNotContain("cache.RemoveAsync(CachePolicyId.SecurityPasskeyAuthChallenge", stepUpComplete, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AdminPrincipalPlane_AuditAndPermissionsAreExplicit()
     {
         string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");
@@ -131,5 +152,32 @@ public sealed class AdminPrincipalSecurityContractTests
             "principal-admin"));
 
         Assert.True(JwtServiceExtensions.ShouldPreferAdminCookie(principalAdminContext));
+    }
+
+    private static string ExtractMethodBlock(string source, string signature)
+    {
+        int start = source.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Unable to locate method signature: {signature}");
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart > start, $"Unable to locate method body: {signature}");
+
+        int depth = 0;
+        for (int i = braceStart; i < source.Length; i++)
+        {
+            if (source[i] == '{')
+            {
+                depth++;
+            }
+            else if (source[i] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[start..(i + 1)];
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
 }

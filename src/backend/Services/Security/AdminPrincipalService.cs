@@ -187,7 +187,7 @@ public sealed class AdminPrincipalService(
             return (false, "Root admin already exists", null);
         }
 
-        AdminBootstrapChallenge? challenge = await ReadChallengeAsync<AdminBootstrapChallenge>(
+        AdminBootstrapChallenge? challenge = await ConsumeChallengeAsync<AdminBootstrapChallenge>(
             CachePolicyId.SecurityPasskeyRegChallenge,
             CacheKey(BootstrapCachePrefix, request.SessionKey),
             cancellationToken);
@@ -195,8 +195,6 @@ public sealed class AdminPrincipalService(
         {
             return (false, "Admin bootstrap challenge expired", null);
         }
-
-        await cache.RemoveAsync(CachePolicyId.SecurityPasskeyRegChallenge, CacheKey(BootstrapCachePrefix, request.SessionKey), cancellationToken);
 
         RegisteredPublicKeyCredential result;
         try
@@ -261,7 +259,7 @@ public sealed class AdminPrincipalService(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        PasskeyLoginBeginCoreModel? cachedOptions = await ReadChallengeAsync<PasskeyLoginBeginCoreModel>(
+        PasskeyLoginBeginCoreModel? cachedOptions = await ConsumeChallengeAsync<PasskeyLoginBeginCoreModel>(
             CachePolicyId.SecurityPasskeyAuthChallenge,
             CacheKey(LoginCachePrefix, request.ChallengeToken),
             cancellationToken);
@@ -269,8 +267,6 @@ public sealed class AdminPrincipalService(
         {
             return (false, "Admin login challenge expired", null);
         }
-
-        await cache.RemoveAsync(CachePolicyId.SecurityPasskeyAuthChallenge, CacheKey(LoginCachePrefix, request.ChallengeToken), cancellationToken);
 
         AuthenticatorAssertionRawResponse assertionResponse = ToAssertionResponse(request);
         string credentialIdBase64 = assertionResponse.Id;
@@ -383,7 +379,7 @@ public sealed class AdminPrincipalService(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        AdminStepUpChallenge? challenge = await ReadChallengeAsync<AdminStepUpChallenge>(
+        AdminStepUpChallenge? challenge = await ConsumeChallengeAsync<AdminStepUpChallenge>(
             CachePolicyId.SecurityPasskeyAuthChallenge,
             CacheKey(StepUpCachePrefix, request.ChallengeToken),
             cancellationToken);
@@ -391,8 +387,6 @@ public sealed class AdminPrincipalService(
         {
             return (false, "Admin step-up challenge expired", null);
         }
-
-        await cache.RemoveAsync(CachePolicyId.SecurityPasskeyAuthChallenge, CacheKey(StepUpCachePrefix, request.ChallengeToken), cancellationToken);
 
         if (!challenge.IsFor(adminPrincipalId, adminSessionId, AdminSensitiveAction, request.ChallengeToken))
         {
@@ -763,10 +757,24 @@ public sealed class AdminPrincipalService(
             ClientExtensionResults = new AuthenticationExtensionsClientOutputs()
         };
 
-    private async Task<T?> ReadChallengeAsync<T>(CachePolicyId policyId, string key, CancellationToken cancellationToken)
+    private async Task<T?> ConsumeChallengeAsync<T>(CachePolicyId policyId, string key, CancellationToken cancellationToken)
     {
-        string? value = await cache.GetStringAsync(policyId, key, cancellationToken);
-        return string.IsNullOrWhiteSpace(value) ? default : JsonSerializer.Deserialize<T>(value);
+        CacheReadResult<T> read = await cache.ConsumeOnceAndGetAsync<T>(
+            policyId,
+            key,
+            static bytes =>
+            {
+                string value = Encoding.UTF8.GetString(bytes.Span);
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    return (false, default);
+                }
+
+                T? challenge = JsonSerializer.Deserialize<T>(value);
+                return challenge is null ? (false, default) : (true, challenge);
+            },
+            cancellationToken);
+        return read.Hit ? read.Value : default;
     }
 
     private static string CacheKey(string prefix, string identity)

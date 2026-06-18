@@ -218,6 +218,9 @@ public sealed class PowValidationLogicTests
         public Task<bool> ConsumeOnceAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
             => Task.FromResult(false);
 
+        public Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
+            => Task.FromResult(default(CacheReadResult<T>));
+
         public Task RemoveAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
