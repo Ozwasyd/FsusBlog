@@ -8,6 +8,7 @@ import { copyFile, cp, mkdir, readdir, rm, stat } from 'node:fs/promises';
 const clientRoot = process.cwd();
 const ensureWasmScript = fileURLToPath(new URL('./ensure-wasm.mjs', import.meta.url));
 const generatePublicPageManifestScript = fileURLToPath(new URL('./generate-public-page-manifest.mjs', import.meta.url));
+const generatePublicShellEmergencyScript = fileURLToPath(new URL('./generate-public-shell-emergency.mjs', import.meta.url));
 const buildPublicSsrBundleScript = fileURLToPath(new URL('./build-public-ssr-bundle.mjs', import.meta.url));
 const binExtension = process.platform === 'win32' ? '.cmd' : '';
 const vueTscBin = join(clientRoot, 'node_modules', '.bin', `vue-tsc${binExtension}`);
@@ -173,6 +174,7 @@ async function syncBackendWebRoot() {
 async function main() {
   log(`stage timeout=${stageTimeoutMs}ms`);
   await runStage('generate-public-page-manifest', process.execPath, [generatePublicPageManifestScript]);
+  await runStage('generate-public-shell-emergency', process.execPath, [generatePublicShellEmergencyScript]);
   if (process.env.FSUSBLOG_SKIP_ENSURE_WASM === '1') {
     log('skipping ensure-wasm because FSUSBLOG_SKIP_ENSURE_WASM=1');
   } else {

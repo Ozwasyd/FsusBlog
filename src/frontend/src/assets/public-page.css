@@ -2,6 +2,74 @@
 
 @reference "./tailwind.css";
 
+/* emergency:keep-start
+   Minimal public shell fallback generated into public/public-shell-emergency.css.
+   Keep this block restricted to first-paint variables and #fsus-aot-shell basics. */
+:root {
+  color-scheme: light dark;
+  --fsusblog-page-bg: var(--fsus-page, var(--el-bg-color-page, Canvas));
+  --fsusblog-text-primary: var(--fsus-ink, var(--el-text-color-primary, CanvasText));
+  --fsusblog-text-secondary: var(--el-text-color-regular, CanvasText);
+  --fsusblog-text-tertiary: var(--fsus-dot-gray, var(--el-text-color-secondary, GrayText));
+  --fsusblog-panel-border: var(--fsus-border, var(--el-border-color, ButtonBorder));
+}
+
+html.dark,
+html[data-theme-resolved='dark'] {
+  color-scheme: dark;
+}
+
+#fsus-aot-shell {
+  font-family: var(--font-sans, "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif);
+  background: var(--fsusblog-page-bg, Canvas);
+  color: var(--fsusblog-text-primary, CanvasText);
+  line-height: 1.6;
+}
+
+#fsus-aot-shell :where(.mono-link, .nav-link, .blog-link-state, [data-public-link]) {
+  color: var(--fsusblog-text-secondary, GrayText);
+  text-decoration: none;
+}
+
+#fsus-aot-shell .mono-link,
+#fsus-aot-shell .active-link {
+  font-size: .875rem;
+}
+
+#fsus-aot-shell .active-link {
+  color: var(--fsusblog-text-primary, CanvasText);
+  font-weight: 700;
+}
+
+#fsus-aot-shell .ui-article-card {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+#fsus-aot-shell .ui-article-title {
+  font-size: 1.35rem;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--fsusblog-text-primary, CanvasText);
+}
+
+#fsus-aot-shell .ui-article-summary {
+  font-size: .96rem;
+  line-height: 1.75;
+  color: var(--fsusblog-text-secondary, GrayText);
+}
+
+#fsus-aot-shell .ui-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--fsusblog-panel-border, ButtonBorder);
+}
+/* emergency:keep-end */
+
 :root {
   color-scheme: light dark;
   --fsus-page: #f8f9f7;

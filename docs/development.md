@@ -108,6 +108,8 @@ npm --prefix src/frontend run dev:ssr        # 仅调试后端 public shell SSR 
 
 dev 模式下，Vite 会通过 `transformIndexHtml` 注入 `public-shell-critical.css?direct` 与 `public-page.css?direct`，让公开页首屏 CSS 进入 Vite module graph，支持 source CSS HMR 并避免 hydration 后才补 link 的 FOUC。生产模式不使用 `?direct`，运行时只在没有可用样式表时启用 emergency fallback（`/public-shell-emergency.css`）。
 
+`public/public-shell-emergency.css` 由 `npm run generate:public-shell-emergency` 从 `src/assets/public-page.css` 里的 `emergency:keep` 区块生成，并同步写入 `dist/server/public-shell-emergency.css`。贡献者只应编辑源 CSS 中 `/* emergency:keep-start */` 与 `/* emergency:keep-end */` 之间的最小首屏规则；未标记的普通公开页规则不会进入 emergency fallback。
+
 ### 常用访问地址
 
 | 地址 | 用途 |
@@ -167,6 +169,7 @@ proxy: {
 | 命令 | 说明 |
 |------|------|
 | `npm run generate:public-page-manifest` | 从 `src/shared/Contracts/Outputs/PublicPageContracts.cs` 生成前端 public page manifest |
+| `npm run generate:public-shell-emergency` | 从 `src/assets/public-page.css` 的 `emergency:keep` 区块生成公开页 emergency CSS |
 | `npm run dev` | 启动 Vite 开发服务器（源码入口，适合前端样式与本地 FsusUI HMR） |
 | `npm run dev:debug` | 启动 Vite 开发服务器（源码入口，HMR，host 0.0.0.0:3000） |
 | `npm run dev:ssr` | 设置 `VITE_PUBLIC_SHELL_PROXY=1` 后启动后端 public shell SSR proxy 调试模式 |
