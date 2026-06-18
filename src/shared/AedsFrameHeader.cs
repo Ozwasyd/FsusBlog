@@ -197,6 +197,10 @@ public enum AedsFrameType : ushort
     AdminSessionList = 170,
     SecurityChallengeAssignment = 171,
     SecurityChallengeEnvelope = 172,
+    SecurityChallengeIssueRequest = 173,
+    SecurityChallengeVerifyRequest = 174,
+    SecurityChallengeIssueResponse = 175,
+    SecurityChallengeVerifyResponse = 176,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

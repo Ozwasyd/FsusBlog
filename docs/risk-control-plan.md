@@ -54,7 +54,7 @@ RiskControl proof token 使用 `X-Fsus-Challenge-Proof` 传递，独立于 admin
 
 `ISecurityChallengeProvider` 是具体 challenge provider 的唯一接口，provider 必须声明稳定 `Kind` 并实现 `IssueAsync` / `VerifyAsync`。`SecurityChallengeOrchestrator` 通过 DI 注入全部 provider，按 kind 建立查找表，并根据 `RiskDecision.RequiredChallenges` 顺序签发 assignment；单次裁决可返回多个 challenge，例如 `captchaV1 + sha256PowV1`。provider 未注册、provider 返回失败、assignment 校验失败或 proof mint 失败都必须 fail closed，返回可观测 reason，并写 `risk-control` 来源的 `SecurityChallengeRejected` 风险事件。验证成功后 orchestrator 只负责调用 `ISecurityChallengeProofService.MintProofAsync` 签发统一 proof token，不直接放行业务写入。
 
-`Sha256PowChallengeProvider` 是第一个实际 provider，边界是复用旧 PoW 能力而不迁移 wire format：issue 生成 `sha256PowV1` assignment 和 `salt/difficulty/timestamp/signature` provider payload；verify 接受 legacy Base64 FPOW proof、复用 `IPowService` 与 `AdaptivePowGovernor`，并将成功、失败、重放类拒绝写入 challenge attempt。旧 `RequiresPowFilter` 和 `X-Fsus-Pow-Proof` header 仍作为兼容入口存在；统一 binary challenge endpoint 在 #469 单独完成。
+`Sha256PowChallengeProvider` 是第一个实际 provider，边界是复用旧 PoW 能力而不迁移 wire format：issue 生成 `sha256PowV1` assignment 和 `salt/difficulty/timestamp/signature` provider payload；verify 接受 legacy Base64 FPOW proof、复用 `IPowService` 与 `AdaptivePowGovernor`，并将成功、失败、重放类拒绝写入 challenge attempt。旧 `RequiresPowFilter` 和 `X-Fsus-Pow-Proof` header 仍作为兼容入口存在；统一 binary challenge endpoint 通过 `/api/binary/security/challenge` 与 `/api/binary/security/challenge/verify` 暴露。
 
 `RequiresRiskControlFilter` 是 enforcement baseline：读取 endpoint action / routeKey metadata，调用 `RiskDecisionService` 处理 allow / challenge / step-up / block / queue / throttle。challenge proof 使用 `X-Fsus-Challenge-Proof` 加 `X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 定位并消费绑定 claims；缺失或消费失败返回 428，block / throttle 返回 429，只有 proof consume 成功才进入业务 handler。旧 `RequiresPowFilter` 保持 legacy wrapper，避免一次性迁移现有 PoW endpoint。
 
@@ -72,20 +72,21 @@ RiskControl proof token 使用 `X-Fsus-Challenge-Proof` 传递，独立于 admin
 | 8 | Challenge orchestrator | #466 | Provider selection, assignment creation and verification flow through one service interface. |
 | 9 | PoW provider migration | #467 | Legacy PoW becomes Sha256Pow provider without changing existing proof semantics. |
 | 10 | RequiresRiskControlFilter | #468 | New filter executes RiskControl decisions; legacy RequiresPowFilter remains as compatibility wrapper. |
-| 11 | CaptchaV1 backend | #470 | Captcha provider is server-verifiable and disabled-by-default until policy enables it. |
-| 12 | CaptchaV1 frontend | #471 | FsusUI challenge component and worker can solve/display assignment without endpoint-specific glue. |
-| 13 | CaptchaV1 integration policy | #472 | Auth/comment escalation rules choose CaptchaV1 only through RiskControl policy. |
-| 14 | PoSpace contract/provider | #473 | Argon2idPoSpaceV1 provider is behind disabled-by-default policy and explicit resource limits. |
-| 15 | PoSpace frontend worker | #474 | Device capability gate and worker execution are isolated from business forms. |
-| 16 | HumanReadProof risk integration | #476 | Read proof lowers risk or adds negative signals only; it does not become identity proof. |
-| 17 | Auth/recovery risk integration | #478 | Login, passkey and recovery flows route through action ids and challenge decisions. |
-| 18 | Anonymous comment risk integration | #480 | Anonymous create/reply uses RiskControl before comment persistence. |
-| 19 | Notification stream risk integration | #481 | Anonymous stream gating uses RiskControl challenge policy while preserving AEDS/WebSocket semantics. |
-| 20 | Admin risk console | #490 | `/user/manage/security` exposes policy, events and challenges without bypassing admin principal checks. |
-| 21 | Risk simulator | #492 | Admin can simulate action/context inputs and see decision reasons without mutating state. |
-| 22 | Metrics/audit/readiness | #494 | RiskControl emits structured logs, metrics, audit events and readiness checks. |
-| 23 | Full test matrix | #495 | Unit, integration, E2E and performance gates cover the control plane and provider fallbacks. |
-| 24 | Production rollout gates | #498 | Rollout policy defines observe-first, emergency disable, fail-closed and rollback criteria. |
+| 11 | Binary challenge endpoints | #469 | Runtime issue/verify APIs use AEDS frames, fail closed on unsupported kind, and mint one-time proof tokens. |
+| 12 | CaptchaV1 backend | #470 | Captcha provider is server-verifiable and disabled-by-default until policy enables it. |
+| 13 | CaptchaV1 frontend | #471 | FsusUI challenge component and worker can solve/display assignment without endpoint-specific glue. |
+| 14 | CaptchaV1 integration policy | #472 | Auth/comment escalation rules choose CaptchaV1 only through RiskControl policy. |
+| 15 | PoSpace contract/provider | #473 | Argon2idPoSpaceV1 provider is behind disabled-by-default policy and explicit resource limits. |
+| 16 | PoSpace frontend worker | #474 | Device capability gate and worker execution are isolated from business forms. |
+| 17 | HumanReadProof risk integration | #476 | Read proof lowers risk or adds negative signals only; it does not become identity proof. |
+| 18 | Auth/recovery risk integration | #478 | Login, passkey and recovery flows route through action ids and challenge decisions. |
+| 19 | Anonymous comment risk integration | #480 | Anonymous create/reply uses RiskControl before comment persistence. |
+| 20 | Notification stream risk integration | #481 | Anonymous stream gating uses RiskControl challenge policy while preserving AEDS/WebSocket semantics. |
+| 21 | Admin risk console | #490 | `/user/manage/security` exposes policy, events and challenges without bypassing admin principal checks. |
+| 22 | Risk simulator | #492 | Admin can simulate action/context inputs and see decision reasons without mutating state. |
+| 23 | Metrics/audit/readiness | #494 | RiskControl emits structured logs, metrics, audit events and readiness checks. |
+| 24 | Full test matrix | #495 | Unit, integration, E2E and performance gates cover the control plane and provider fallbacks. |
+| 25 | Production rollout gates | #498 | Rollout policy defines observe-first, emergency disable, fail-closed and rollback criteria. |
 
 ## Dependency notes
 

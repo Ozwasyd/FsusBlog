@@ -33,6 +33,53 @@ public sealed record class SecurityChallengeEnvelope(
     string PolicyVersion,
     IReadOnlyList<SecurityChallengeAssignment> Assignments);
 
+public enum SecurityChallengeDecisionKind : byte
+{
+    Unknown = 0,
+    Allow = 1,
+    Challenge = 2,
+    StepUp = 3,
+    QueueForModeration = 4,
+    Throttle = 5,
+    Block = 6
+}
+
+public sealed record class SecurityChallengeIssueBinaryRequest(
+    string Action,
+    string RouteKey,
+    string DeviceFingerprint,
+    string AttributesJson);
+
+public sealed record class SecurityChallengeVerifyBinaryRequest(
+    string ChallengeId,
+    SecurityChallengeKind Kind,
+    string Action,
+    string RouteKey,
+    string ProviderPayloadJson);
+
+public sealed record class SecurityChallengeProviderPayload(
+    string ChallengeId,
+    string PayloadJson);
+
+public sealed record class SecurityChallengeIssueBinaryResponse(
+    SecurityChallengeDecisionKind Decision,
+    int RiskScore,
+    int EffectiveRiskScore,
+    int EscalationLevel,
+    string PolicyVersion,
+    int RetryAfterMs,
+    SecurityChallengeEnvelope? Envelope,
+    IReadOnlyList<SecurityChallengeProviderPayload> ProviderPayloads);
+
+public sealed record class SecurityChallengeVerifyBinaryResponse(
+    bool Verified,
+    string ChallengeId,
+    SecurityChallengeKind Kind,
+    string PolicyVersion,
+    string ProofToken,
+    string Reason,
+    int RetryAfterMs);
+
 public sealed record SecurityChallengeValidationResult(bool IsValid, string ErrorCode)
 {
     public static SecurityChallengeValidationResult Valid { get; } = new(true, string.Empty);
@@ -65,6 +112,12 @@ public static class SecurityChallengeContracts
         if (normalized.Length == 0)
         {
             return false;
+        }
+
+        if (string.Equals(normalized, "security.pow", StringComparison.Ordinal))
+        {
+            kind = SecurityChallengeKind.Sha256PowV1;
+            return true;
         }
 
         foreach (SecurityChallengeKind candidate in SupportedKinds)

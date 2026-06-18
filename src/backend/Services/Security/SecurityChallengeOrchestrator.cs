@@ -296,7 +296,12 @@ public sealed class SecurityChallengeOrchestrator(
             detail), cancellationToken);
 
     private static string NormalizeKind(string? value)
-        => NormalizeRequired(value, nameof(value), 64);
+    {
+        string normalized = NormalizeRequired(value, nameof(value), 64);
+        return SecurityChallengeContracts.TryParseKind(normalized, out SecurityChallengeKind kind)
+            ? SecurityChallengeContracts.ToWireName(kind)
+            : normalized;
+    }
 
     private static string NormalizeRequired(string? value, string name, int maxLength)
     {

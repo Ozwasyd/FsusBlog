@@ -29,3 +29,58 @@ public readonly struct SecurityChallengeEnvelopePod
     public readonly Utf8Fixed64 EnvelopeId;
     public readonly Utf8Fixed64 PolicyVersion;
 }
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct SecurityChallengeIssueRequestPod
+{
+    public readonly Utf8SliceRef Action;
+    public readonly Utf8SliceRef RouteKey;
+    public readonly Utf8SliceRef DeviceFingerprint;
+    public readonly Utf8SliceRef AttributesJson;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct SecurityChallengeVerifyRequestPod
+{
+    public readonly byte Kind;
+    public readonly byte Reserved0;
+    public readonly ushort Reserved1;
+    public readonly Utf8SliceRef ChallengeId;
+    public readonly Utf8SliceRef Action;
+    public readonly Utf8SliceRef RouteKey;
+    public readonly Utf8SliceRef ProviderPayloadJson;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct SecurityChallengeIssueResponsePod
+{
+    public readonly byte Decision;
+    public readonly byte AssignmentCount;
+    public readonly ushort ProviderPayloadCount;
+    public readonly int RiskScore;
+    public readonly int EffectiveRiskScore;
+    public readonly int EscalationLevel;
+    public readonly int RetryAfterMs;
+    public readonly Utf8Fixed64 EnvelopeId;
+    public readonly Utf8Fixed64 PolicyVersion;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct SecurityChallengeProviderPayloadPod
+{
+    public readonly Utf8Fixed64 ChallengeId;
+    public readonly Utf8SliceRef PayloadJson;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct SecurityChallengeVerifyResponsePod
+{
+    public readonly byte Verified;
+    public readonly byte Kind;
+    public readonly ushort Reserved0;
+    public readonly int RetryAfterMs;
+    public readonly Utf8Fixed64 ChallengeId;
+    public readonly Utf8Fixed64 PolicyVersion;
+    public readonly Utf8SliceRef ProofToken;
+    public readonly Utf8SliceRef Reason;
+}

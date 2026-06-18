@@ -38,7 +38,7 @@
 - 真人阅读策略：`read_proof` 专门保护 `/api/binary/read-proof/challenge.aeds` 与 `/api/binary/read-proof/submit.aeds`，按 `IP + route` 或 `IP + deviceFp + route` 分区，避免匿名 challenge/submit 被无限打。旧 `/api/read-proof/**` JSON 路径已移除。
 - 超限响应：`429 Too Many Requests`，响应头携带 `Retry-After`，并通过 `ISecurityRiskSignalSink` 写入 `RateLimited` 风险事件。
 - 客户端 IP 提取：`GetClientIp()` 只读取 `ForwardedHeadersMiddleware` 按 `ReverseProxy:KnownProxies` / `ReverseProxy:KnownNetworks` 处理后的 `Connection.RemoteIpAddress`；业务代码不得直接信任原始 `X-Forwarded-For` / `X-Real-IP` 请求头。
-- 受保护端点：PoW 挑战、注册、密码登录、Token 续签、Passkey 登录开始/完成、评论审核队列和单条/批量审核写入、ReadProof challenge/submit、公开评论读取、公开 taxonomy 与 related-reading。
+- 受保护端点：PoW 挑战、注册、密码登录、Token 续签、Passkey 登录开始/完成、评论审核队列和单条/批量审核写入、ReadProof challenge/submit、RiskControl challenge issue/verify、公开评论读取、公开 taxonomy 与 related-reading。
 
 ## 防爬虫闭环
 
@@ -58,7 +58,7 @@ RiskControl proof token 使用 `X-Fsus-Challenge-Proof` header，不能替代 ad
 
 RiskControl challenge provider 通过 `ISecurityChallengeProvider` 接入，不允许业务 filter 直接依赖 PoW、Captcha、PoSpace、HumanReadProof 或 Passkey step-up 的具体实现。`SecurityChallengeOrchestrator` 按 `RiskDecision.RequiredChallenges` 从 DI 中查找 provider，可一次返回多个 assignment；provider 未注册、provider 返回失败、assignment 无效或 proof mint 失败均 fail closed，写入 `SecurityChallengeRejected` 风险事件，且不进入业务 handler。provider verify 成功后只签发统一 proof token，业务是否放行仍由后续 filter 消费该 token 决定。
 
-`sha256PowV1` 由 `Sha256PowChallengeProvider` 提供，复用现有 `IPowService`、`AdaptivePowGovernor` 和 legacy FPOW 二进制 proof 解析逻辑。签发时 provider 返回统一 `SecurityChallengeAssignment`，并给后续 binary endpoint 提供 provider payload：`salt`、`difficulty`、`timestamp`、`signature`；持久化层只保存 payload hash，不保存原始 salt/signature 或 proof。验证时 provider 只接受 payload 中的 legacy Base64 FPOW proof，继续按客户端 IP 绑定、当前 difficulty、签名、过期时间和 Redis consume-once 规则校验；失败 attempt 写入 `security_challenge_attempt`。旧 `X-Fsus-Pow-Proof` / `RequiresPowFilter` 路径继续保留，统一 `/api/binary/security/challenge` 端点由后续 API issue 单独接入。
+`sha256PowV1` 由 `Sha256PowChallengeProvider` 提供，复用现有 `IPowService`、`AdaptivePowGovernor` 和 legacy FPOW 二进制 proof 解析逻辑。签发时 provider 返回统一 `SecurityChallengeAssignment`，并通过 `/api/binary/security/challenge` 返回 provider payload：`salt`、`difficulty`、`timestamp`、`signature`；持久化层只保存 payload hash，不保存原始 salt/signature 或 proof。验证时 `/api/binary/security/challenge/verify` 只接受 payload 中的 legacy Base64 FPOW proof，继续按客户端 IP 绑定、当前 difficulty、签名、过期时间和 Redis consume-once 规则校验；成功后返回一次性 `proofToken`，失败 attempt 写入 `security_challenge_attempt`。旧 `X-Fsus-Pow-Proof` / `RequiresPowFilter` 路径继续保留。
 
 `RequiresRiskControlFilter` 是新业务入口的统一 enforcement filter。endpoint 必须通过 `WithRiskAction(action, routeKey)` 或等价 metadata 声明 action / routeKey；filter 读取 `RiskDecisionService` 输出，`allow` 才进入业务 handler，`challenge` / `step-up` 必须携带 `X-Fsus-Challenge-Proof`、`X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 并由 `ISecurityChallengeProofService.ConsumeProofAsync` 一次性消费后才放行，缺失、重放或 action/route/IP/device mismatch 返回 428。`block`、`queue`、`throttle` 不进入业务 handler，返回 429 并写 `risk-control` 来源的拒绝事件。`RequiresPowFilter` 保持 legacy wrapper，只处理旧 `X-Fsus-Pow-Proof`。
 

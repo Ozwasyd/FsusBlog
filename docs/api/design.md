@@ -2,7 +2,7 @@
 
 本文件说明 FsusBlog API 层的设计原则与约定，是所有 API 变更的**必读前提文件**。
 
-> 最近更新：2026-06-15 — 拆分 Public AOT 公开页约定，补齐 sentinel、实现入口和跨文档参见。
+> 最近更新：2026-06-18 — 补齐 RiskControl challenge issue / verify binary endpoint 与 proof header 约定。
 
 ---
 
@@ -123,6 +123,9 @@ Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AED
 | 安全强制 | `X-Fsus-Admin-Bootstrap-Token` | 请求 | 首次 root admin Passkey bootstrap 的显式环境守门 token；必须匹配 `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` / `Admin:BootstrapToken`，root admin 存在后不再生效。 |
 | 安全强制 | `X-Fsus-Admin-Handle` | 请求 | 首次 root admin Passkey bootstrap 的后台 handle；只用于 admin principal，不写入普通匿名账号。 |
 | 安全强制 | `X-Fsus-Pow-Proof` | 请求 | `public_read` 风险升级后的动态公开 API PoW proof；不用于 PublicHotRead L0 artifact 命中路径。 |
+| 安全强制 | `X-Fsus-Challenge-Proof` | 请求 | RiskControl challenge verify 成功后签发的一次性 opaque proof；业务 endpoint 只能由 `RequiresRiskControlFilter` 消费。 |
+| 安全强制 | `X-Fsus-Challenge-Id` | 请求 | 与 `X-Fsus-Challenge-Proof` 绑定的 challenge id；缺失、重放或 action / route / IP / device mismatch 返回 428。 |
+| 安全强制 | `X-Fsus-Challenge-Kind` | 请求 | 与 `X-Fsus-Challenge-Proof` 绑定的 provider kind，例如 `sha256PowV1`；legacy alias `security.pow` 只作为兼容输入规范化。 |
 | 安全强制 | `X-Fsus-Device-Fp` | 请求 | 认证、HumanReadProof、审计和风险信号使用的设备指纹；不得包含可逆身份信息。 |
 | 通知通道 | `X-Fsus-Notification-Stream-Protocol` | 请求 | notification preflight fallback 协议头；正式 WebSocket 仍使用 `Sec-WebSocket-Protocol: fsus-aeds.v2`。 |
 | 通知通道 | `X-Fsus-Notification-Stream-Error-Code` | 响应 | notification preflight / WebSocket 握手失败业务码，例如 `account_blocked`、`auth_failed`、`pow_failed`。 |

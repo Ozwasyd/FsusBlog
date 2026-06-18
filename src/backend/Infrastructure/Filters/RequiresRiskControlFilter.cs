@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Models.Security;
+using FsusBlog.Shared.Contracts.Security;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FsusBlog.Server.Infrastructure.Filters;
@@ -61,8 +62,9 @@ public sealed partial class RequiresRiskControlFilter(
             return Error(httpContext, StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden, "RISK_CHALLENGE_PROOF_REQUIRED");
         }
 
+        string canonicalChallengeKind = CanonicalChallengeKind(challengeKind);
         if (decision.RequiredChallenges.Count > 0
-            && !decision.RequiredChallenges.Contains(challengeKind, StringComparer.Ordinal))
+            && !decision.RequiredChallenges.Any(required => string.Equals(CanonicalChallengeKind(required), canonicalChallengeKind, StringComparison.Ordinal)))
         {
             await RecordRiskAsync(httpContext, $"challenge_kind_mismatch:{challengeKind}", decision.ActionName, httpContext.RequestAborted);
             return Error(httpContext, StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden, "RISK_CHALLENGE_KIND_MISMATCH");
@@ -73,7 +75,7 @@ public sealed partial class RequiresRiskControlFilter(
             new SecurityChallengeProofConsumeRequest(
                 proofToken,
                 challengeId,
-                challengeKind,
+                canonicalChallengeKind,
                 decision.ActionName,
                 decision.RouteKey,
                 binding.SubjectHash,
@@ -124,6 +126,11 @@ public sealed partial class RequiresRiskControlFilter(
         value = values[0]?.Trim() ?? string.Empty;
         return value.Length > 0;
     }
+
+    private static string CanonicalChallengeKind(string kind)
+        => SecurityChallengeContracts.TryParseKind(kind, out SecurityChallengeKind parsed)
+            ? SecurityChallengeContracts.ToWireName(parsed)
+            : kind.Trim();
 
     private static IResult Error(HttpContext context, int statusCode, ErrorCode code, string message)
         => EndpointFilterResults.FromActionResult(

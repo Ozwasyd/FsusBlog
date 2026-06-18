@@ -61,6 +61,7 @@ public static partial class BinaryEndpoints
         MapBinaryCommentEndpoints(group);
         MapBinaryStatsEndpoints(group);
         MapBinaryUploadEndpoints(group);
+        MapBinarySecurityChallengeEndpoints(group);
     }
 
     private static UploadStatusDto CreateAbortedUploadStatus(string uploadId)

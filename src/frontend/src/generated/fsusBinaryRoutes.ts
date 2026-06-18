@@ -169,6 +169,8 @@ export const fsusBinaryRoutes = {
   "binary_post_messages_conversations_id_long_reply": "/api/binary/messages/conversations/{id:long}/reply",
   "binary_post_read_proof_challenge_aeds": "/api/binary/read-proof/challenge.aeds",
   "binary_post_read_proof_submit_aeds": "/api/binary/read-proof/submit.aeds",
+  "binary_post_security_challenge": "/api/binary/security/challenge",
+  "binary_post_security_challenge_verify": "/api/binary/security/challenge/verify",
   "binary_post_subscriptions": "/api/binary/subscriptions",
   "binary_post_system_page_refresh_slug": "/api/binary/system/page/refresh/{slug}",
   "binary_post_tag": "/api/binary/tag",

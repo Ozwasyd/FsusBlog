@@ -129,10 +129,85 @@ public sealed class SecurityChallengeContractTests
     {
         Assert.Equal(171, (ushort)AedsFrameType.SecurityChallengeAssignment);
         Assert.Equal(172, (ushort)AedsFrameType.SecurityChallengeEnvelope);
+        Assert.Equal(173, (ushort)AedsFrameType.SecurityChallengeIssueRequest);
+        Assert.Equal(174, (ushort)AedsFrameType.SecurityChallengeVerifyRequest);
+        Assert.Equal(175, (ushort)AedsFrameType.SecurityChallengeIssueResponse);
+        Assert.Equal(176, (ushort)AedsFrameType.SecurityChallengeVerifyResponse);
         Assert.Equal((ushort)AedsFrameType.SecurityChallengeAssignment, (ushort)SharedFrameType.SecurityChallengeAssignment);
         Assert.Equal((ushort)AedsFrameType.SecurityChallengeEnvelope, (ushort)SharedFrameType.SecurityChallengeEnvelope);
+        Assert.Equal((ushort)AedsFrameType.SecurityChallengeIssueRequest, (ushort)SharedFrameType.SecurityChallengeIssueRequest);
+        Assert.Equal((ushort)AedsFrameType.SecurityChallengeVerifyRequest, (ushort)SharedFrameType.SecurityChallengeVerifyRequest);
+        Assert.Equal((ushort)AedsFrameType.SecurityChallengeIssueResponse, (ushort)SharedFrameType.SecurityChallengeIssueResponse);
+        Assert.Equal((ushort)AedsFrameType.SecurityChallengeVerifyResponse, (ushort)SharedFrameType.SecurityChallengeVerifyResponse);
         Assert.True(AedsProtocolMetadata.FrameTypes.ContainsKey(nameof(AedsFrameType.SecurityChallengeAssignment)));
         Assert.True(AedsProtocolMetadata.FrameTypes.ContainsKey(nameof(AedsFrameType.SecurityChallengeEnvelope)));
+        Assert.True(AedsProtocolMetadata.FrameTypes.ContainsKey(nameof(AedsFrameType.SecurityChallengeIssueRequest)));
+        Assert.True(AedsProtocolMetadata.FrameTypes.ContainsKey(nameof(AedsFrameType.SecurityChallengeVerifyRequest)));
+        Assert.True(AedsProtocolMetadata.FrameTypes.ContainsKey(nameof(AedsFrameType.SecurityChallengeIssueResponse)));
+        Assert.True(AedsProtocolMetadata.FrameTypes.ContainsKey(nameof(AedsFrameType.SecurityChallengeVerifyResponse)));
+    }
+
+    [Fact]
+    public void SecurityChallengeIssueAndVerifyContracts_RoundTrip()
+    {
+        var issue = new SecurityChallengeIssueBinaryRequest("public.read", "article:42", "device-123456", """{"locale":"zh-CN"}""");
+        byte[] issueEncoded = PodBinaryCodec.EncodeSecurityChallengeIssueRequest(issue);
+
+        Assert.True(PodBinaryCodec.TryDecodeSecurityChallengeIssueRequest(issueEncoded, out SecurityChallengeIssueBinaryRequest issueDecoded));
+        Assert.Equal(issue, issueDecoded);
+
+        var verify = new SecurityChallengeVerifyBinaryRequest(
+            SecurityChallengeContracts.CreateChallengeId(),
+            SecurityChallengeKind.Sha256PowV1,
+            "public.read",
+            "article:42",
+            """{"proof":"fpow"}""");
+        byte[] verifyEncoded = PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(verify);
+
+        Assert.True(PodBinaryCodec.TryDecodeSecurityChallengeVerifyRequest(verifyEncoded, out SecurityChallengeVerifyBinaryRequest verifyDecoded));
+        Assert.Equal(verify, verifyDecoded);
+    }
+
+    [Fact]
+    public void SecurityChallengeIssueAndVerifyResponses_RoundTrip()
+    {
+        SecurityChallengeAssignment assignment = CreateAssignment();
+        var envelope = new SecurityChallengeEnvelope(
+            SecurityChallengeContracts.CreateChallengeId(),
+            "risk-policy-v2",
+            [assignment]);
+        var issueResponse = new SecurityChallengeIssueBinaryResponse(
+            SecurityChallengeDecisionKind.Challenge,
+            50,
+            50,
+            1,
+            "risk-policy-v2",
+            0,
+            envelope,
+            [new SecurityChallengeProviderPayload(assignment.ChallengeId, """{"salt":"s","difficulty":"16"}""")]);
+
+        byte[] issueEncoded = PodBinaryCodec.EncodeSecurityChallengeIssueResponse(issueResponse);
+
+        Assert.True(PodBinaryCodec.TryDecodeSecurityChallengeIssueResponse(issueEncoded, out SecurityChallengeIssueBinaryResponse decodedIssue));
+        Assert.Equal(issueResponse.Decision, decodedIssue.Decision);
+        Assert.NotNull(decodedIssue.Envelope);
+        Assert.Equal(envelope.EnvelopeId, decodedIssue.Envelope.EnvelopeId);
+        Assert.Equal(envelope.PolicyVersion, decodedIssue.Envelope.PolicyVersion);
+        Assert.Equal(envelope.Assignments, decodedIssue.Envelope.Assignments);
+        Assert.Equal(issueResponse.ProviderPayloads, decodedIssue.ProviderPayloads);
+
+        var verifyResponse = new SecurityChallengeVerifyBinaryResponse(
+            true,
+            assignment.ChallengeId,
+            SecurityChallengeKind.Sha256PowV1,
+            "risk-policy-v2",
+            "fcp_token",
+            "ok",
+            0);
+        byte[] verifyEncoded = PodBinaryCodec.EncodeSecurityChallengeVerifyResponse(verifyResponse);
+
+        Assert.True(PodBinaryCodec.TryDecodeSecurityChallengeVerifyResponse(verifyEncoded, out SecurityChallengeVerifyBinaryResponse decodedVerify));
+        Assert.Equal(verifyResponse, decodedVerify);
     }
 
     private static SecurityChallengeAssignment CreateAssignment(SecurityChallengeKind kind = SecurityChallengeKind.Sha256PowV1)

@@ -624,6 +624,98 @@
         "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/readProofAdapter.ts"
       }
     },
+    "/api/binary/security/challenge": {
+      "post": {
+        "operationId": "binary_post_security_challenge",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "risk-control-challenge-issue",
+        "responses": {
+          "200": {
+            "description": "SecurityChallengeIssueResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "SecurityChallengeIssueRequest",
+        "x-fsus-response-frame": "SecurityChallengeIssueResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "risk-control-challenge-issue",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs"
+      }
+    },
+    "/api/binary/security/challenge/verify": {
+      "post": {
+        "operationId": "binary_post_security_challenge_verify",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "risk-control-challenge-verify",
+        "responses": {
+          "200": {
+            "description": "SecurityChallengeVerifyResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "SecurityChallengeVerifyRequest",
+        "x-fsus-response-frame": "SecurityChallengeVerifyResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "risk-control-challenge-verify",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs"
+      }
+    },
     "/api/binary/telemetry/rum": {
       "post": {
         "operationId": "binary_post_telemetry_rum",

@@ -3,7 +3,7 @@
 本文件是 FsusBlog 所有请求/响应 DTO、通知 WebSocket 信封与 AOT 契约的**完整参考**。
 所有定义的权威源码位于 `src/shared/Contracts/` 目录。
 
-> 最近更新：2026-06-18 — 同步 RiskControl challenge orchestration、持久化与 proof token 边界。
+> 最近更新：2026-06-18 — 同步 RiskControl challenge issue / verify endpoint、orchestration、持久化与 proof token 边界。
 
 ---
 
@@ -106,12 +106,61 @@ challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 
 
 `sha256PowV1` provider 的 issue payload 只包含 legacy PoW challenge 必需字段：`salt`、`difficulty`、`timestamp`、`signature`。verify payload 必须包含 `proof`，其值为旧 `X-Fsus-Pow-Proof` 使用的 Base64 FPOW binary proof；服务端复用同一解析器、`IPowService.VerifyAsync` 和 `AdaptivePowGovernor` difficulty 裁决。该 provider 不引入公开 JSON fallback，不改变现有 FPOW wire format，也不删除 `GET /api/binary/auth/pow-challenge` 或 `X-Fsus-Pow-Proof` legacy 路径。
 
+统一 challenge 签发与验证只通过 binary endpoint 暴露，不提供公开 JSON fallback。`POST /api/binary/security/challenge` 接收 `SecurityChallengeIssueRequest` (`173`) 并返回 `SecurityChallengeIssueResponse` (`175`)；`POST /api/binary/security/challenge/verify` 接收 `SecurityChallengeVerifyRequest` (`174`) 并返回 `SecurityChallengeVerifyResponse` (`176`)。两个端点均为匿名、`fixed_ip` 限流、`no-store` 响应，request `Content-Type` 必须是 `application/octet-stream`，response `Accept` 只接受空值、`*/*` 或 `application/octet-stream`；不匹配时返回 AEDS `ApiError`，`Accept` 不匹配使用 HTTP 406。请求 frame 上限为 64 KiB，所有业务失败、unsupported kind、provider missing、provider failure、proof replay / mismatch 均 fail closed 返回 `ApiError` frame。
+
+`SecurityChallengeIssueRequest` 字段：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `action` | string | RiskControl action，例如 `public.read`、`comment.create`；必填 |
+| `routeKey` | string | 业务 route key，例如 `article:42`；必填 |
+| `deviceFp` | string | 可选设备指纹；服务端只使用规范化状态和 SHA-256 hash |
+| `attributes` | string | 可选 JSON 字符串，当前仅作为 wire 契约预留，不进入持久化 payload 原文 |
+
+`SecurityChallengeIssueResponse` 字段：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `decision` | enum | `allow`、`challenge`、`stepUp`、`queueForModeration`、`throttle`、`block` 或 `unknown` |
+| `riskScore` / `effectiveRiskScore` | int | 原始风险分与策略模式调整后的风险分 |
+| `escalationLevel` | int | 策略要求的升级等级 |
+| `policyVersion` | string | 产生该裁决的 RiskControl policy version |
+| `retryAfterMs` | int | 限流 / 排队建议等待时间；当前 endpoint 返回 0 |
+| `envelope` | `SecurityChallengeEnvelope?` | `challenge` / `stepUp` 时返回 assignment 集合；非 challenge 裁决为空 |
+| `providerPayloads` | array | 按 `challengeId` 返回 provider payload JSON；`sha256PowV1` 包含 `salt`、`difficulty`、`timestamp`、`signature` |
+
+`SecurityChallengeVerifyRequest` 字段：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `challengeId` | string | issue response 中的 assignment id；必填 |
+| `kind` | enum | `SecurityChallengeKind`；未知或未支持 kind fail closed |
+| `action` | string | 必须与 issue / 后续业务 endpoint 绑定的 action 一致 |
+| `routeKey` | string | 必须与 issue / 后续业务 endpoint 绑定的 route key 一致 |
+| `payload` | string | provider payload JSON；`sha256PowV1` 必须包含 Base64 FPOW `proof` |
+
+`SecurityChallengeVerifyResponse` 字段：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `verified` | bool | provider 校验是否通过；成功响应固定为 `true` |
+| `challengeId` | string | 被验证的 challenge id |
+| `kind` | enum | 被验证的 provider kind |
+| `policyVersion` | string | proof 绑定的 policy version |
+| `proofToken` | string | 一次性 opaque proof，后续业务请求放入 `X-Fsus-Challenge-Proof` |
+| `reason` | string | 成功为 `ok`；失败走 `ApiError` frame |
+| `retryAfterMs` | int | 当前成功响应为 0 |
+
 受 `RequiresRiskControlFilter` 保护的 endpoint 必须具备 `RiskActionEndpointMetadata`，服务端用 action、routeKey、subjectHash、clientIpHash、deviceFpHash 和 policyVersion 消费统一 proof。客户端提交已签发 proof 时必须同时发送 `X-Fsus-Challenge-Proof`、`X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind`；缺 proof、proof 重放 / Redis miss、action 或 route mismatch、IP/device mismatch 均返回 428，block / throttle 类裁决返回 429。旧 `RequiresPowFilter` endpoint 仍使用 `X-Fsus-Pow-Proof`，不要求这些 RiskControl proof headers。
 
 | FrameType | 值 | POD | 用途 |
 |-----------|----|-----|------|
 | `SecurityChallengeAssignment` | 171 | `SecurityChallengeAssignmentPod` | 单个 challenge assignment |
 | `SecurityChallengeEnvelope` | 172 | `SecurityChallengeEnvelopePod` + `SecurityChallengeAssignmentPod[]` | 一次裁决返回的 challenge assignment 集合，最多 8 个 |
+| `SecurityChallengeIssueRequest` | 173 | `SecurityChallengeIssueRequestPod` + UTF-8 blob | RiskControl challenge 签发请求 |
+| `SecurityChallengeVerifyRequest` | 174 | `SecurityChallengeVerifyRequestPod` + UTF-8 blob | RiskControl challenge provider proof 验证请求 |
+| `SecurityChallengeIssueResponse` | 175 | `SecurityChallengeIssueResponsePod` + assignment / provider payload records + UTF-8 blob | RiskControl challenge 签发响应 |
+| `SecurityChallengeVerifyResponse` | 176 | `SecurityChallengeVerifyResponsePod` + UTF-8 blob | 一次性 proof token 响应 |
 
 ### Passkey AEDS frames
 

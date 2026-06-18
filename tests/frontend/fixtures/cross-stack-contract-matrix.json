@@ -478,6 +478,31 @@
       ]
     },
     {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs",
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/security/challenge",
+          "auth": "anonymous",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "SecurityChallengeIssueRequest",
+          "responseFrame": "SecurityChallengeIssueResponse",
+          "surface": "risk-control-challenge-issue"
+        },
+        {
+          "method": "POST",
+          "path": "/security/challenge/verify",
+          "auth": "anonymous",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "SecurityChallengeVerifyRequest",
+          "responseFrame": "SecurityChallengeVerifyResponse",
+          "surface": "risk-control-challenge-verify"
+        }
+      ]
+    },
+    {
       "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Telemetry.cs",
       "frontendWrapper": "src/frontend/src/services/telemetryService.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/telemetryAdapter.ts",
