@@ -947,6 +947,7 @@ jobs:
           path: |
             .tmp/perf/backend-qps/**
             .tmp/release-evidence/backend-qps-summary.json
+            .tmp/release-evidence/backend-qps-runtime-sequential-summary.json
             .tmp/release-evidence/jobs/**
 
   perf-regression:

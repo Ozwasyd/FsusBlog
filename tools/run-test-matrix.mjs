@@ -8,8 +8,11 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const matrixFile = path.join(root, 'tests/matrix.yml')
 const schemaFile = path.join(root, 'tests/matrix.schema.json')
+const coverageRegistryFile = path.join(root, 'tests/coverage-registry.json')
 const preflightLogFile = path.join(root, '.tmp/gate-logs/preflight.json')
 const summaryStages = ['setup', 'restore', 'install', 'bootstrap', 'test', 'artifact', 'summary']
+const coverageAssertionTypes = ['static', 'unit', 'integration', 'runtime', 'browser', 'perf', 'fuzz', 'mutation']
+const runtimeLikeCoverageAssertionTypes = new Set(['runtime', 'browser', 'perf', 'fuzz', 'mutation'])
 const aliases = new Map([
   ['coverage', 'coverage-gate'],
   ['backend-qps-runtime', 'backend-qps'],
@@ -111,6 +114,30 @@ function loadMatrix() {
   return parseMatrix(fs.readFileSync(matrixFile, 'utf8'))
 }
 
+function loadCoverageRegistry() {
+  if (!fs.existsSync(coverageRegistryFile)) {
+    return { errors: ['missing tests/coverage-registry.json'], entries: new Map() }
+  }
+  try {
+    const registry = JSON.parse(fs.readFileSync(coverageRegistryFile, 'utf8'))
+    if (registry?.schema !== 'fsusblog.coverage-registry.v1') {
+      return { errors: [`coverage registry schema must be fsusblog.coverage-registry.v1, got ${registry?.schema ?? 'missing'}`], entries: new Map() }
+    }
+    if (!Array.isArray(registry.entries)) {
+      return { errors: ['coverage registry entries must be an array'], entries: new Map() }
+    }
+    return {
+      errors: [],
+      entries: new Map(registry.entries.map((entry) => [entry.id, entry]))
+    }
+  } catch (error) {
+    return {
+      errors: [`coverage registry is not valid JSON: ${error.message}`],
+      entries: new Map()
+    }
+  }
+}
+
 function relativeToRoot(filePath) {
   return path.relative(root, filePath).replaceAll(path.sep, '/')
 }
@@ -151,6 +178,79 @@ function isExecutableCommand(command) {
   } catch {
     return false
   }
+}
+
+function isStaticOnlyEvidencePath(value) {
+  const normalized = String(value ?? '').replaceAll(path.sep, '/')
+  return normalized.startsWith('docs/')
+    || normalized.endsWith('.md')
+    || normalized.startsWith('tests/matrix')
+    || normalized.startsWith('tests/coverage-registry')
+    || normalized.startsWith('tests/backend/Fixtures/')
+    || normalized.startsWith('tests/frontend/fixtures/')
+    || normalized.startsWith('src/shared/Contracts/Validation/')
+    || normalized.startsWith('src/frontend/src/generated/')
+}
+
+function validateCoverageRegistry(matrix) {
+  const errors = []
+  const { errors: registryErrors, entries } = loadCoverageRegistry()
+  errors.push(...registryErrors)
+  if (registryErrors.length > 0) return errors
+
+  const coverageToTiers = new Map()
+  for (const tier of matrix.tiers ?? []) {
+    for (const coverageId of tier.coverage ?? []) {
+      if (!coverageToTiers.has(coverageId)) coverageToTiers.set(coverageId, [])
+      coverageToTiers.get(coverageId).push(tier)
+    }
+  }
+
+  for (const [coverageId, tiers] of coverageToTiers.entries()) {
+    const entry = entries.get(coverageId)
+    if (!entry) {
+      errors.push(`coverage ${coverageId} missing registry entry`)
+      continue
+    }
+
+    if (entry.id !== coverageId) errors.push(`coverage ${coverageId} registry id mismatch`)
+    if (typeof entry.description !== 'string' || entry.description.length === 0) errors.push(`coverage ${coverageId}.description missing`)
+    if (typeof entry.owner !== 'string' || entry.owner.length === 0) errors.push(`coverage ${coverageId}.owner missing`)
+    if (!['low', 'medium', 'high', 'critical'].includes(entry.risk)) errors.push(`coverage ${coverageId}.risk invalid: ${entry.risk}`)
+    if (!coverageAssertionTypes.includes(entry.assertionType)) errors.push(`coverage ${coverageId}.assertionType invalid: ${entry.assertionType}`)
+    if (typeof entry.failClosedRule !== 'string' || entry.failClosedRule.length === 0) errors.push(`coverage ${coverageId}.failClosedRule missing`)
+    if (typeof entry.minimumRequirement !== 'string' || entry.minimumRequirement.length === 0) errors.push(`coverage ${coverageId}.minimumRequirement missing`)
+    if (!Array.isArray(entry.evidencePaths) || entry.evidencePaths.length === 0) {
+      errors.push(`coverage ${coverageId}.evidencePaths must be non-empty`)
+      continue
+    }
+
+    const declaredPaths = new Set(tiers.flatMap((tier) => [...(tier.evidence ?? []), ...(tier.artifacts ?? [])]))
+    for (const evidencePath of entry.evidencePaths) {
+      if (typeof evidencePath !== 'string' || evidencePath.length === 0) {
+        errors.push(`coverage ${coverageId}.evidencePaths contains an invalid path`)
+      } else if (!declaredPaths.has(evidencePath)) {
+        errors.push(`coverage ${coverageId}.evidencePaths path is not declared by a covering tier: ${evidencePath}`)
+      }
+    }
+
+    for (const tier of tiers) {
+      const tierPaths = new Set([...(tier.evidence ?? []), ...(tier.artifacts ?? [])])
+      if (!entry.evidencePaths.some((evidencePath) => tierPaths.has(evidencePath))) {
+        errors.push(`coverage ${coverageId} has no registry evidence path for tier ${tier.id}`)
+      }
+    }
+
+    if (runtimeLikeCoverageAssertionTypes.has(entry.assertionType) && entry.evidencePaths.every(isStaticOnlyEvidencePath)) {
+      errors.push(`coverage ${coverageId} assertionType ${entry.assertionType} must not rely only on static docs/source evidence`)
+    }
+  }
+
+  for (const coverageId of entries.keys()) {
+    if (!coverageToTiers.has(coverageId)) errors.push(`coverage registry contains unused id: ${coverageId}`)
+  }
+
+  return errors
 }
 
 function validateMatrix(matrix) {
@@ -245,6 +345,8 @@ function validateMatrix(matrix) {
       errors.push(`${tier.id} is not shardable but defaultShards is ${tier.defaultShards}`)
     }
   }
+
+  errors.push(...validateCoverageRegistry(matrix))
 
   const visiting = new Set()
   const visited = new Set()
@@ -1263,6 +1365,7 @@ function preflight(matrix) {
   const checkedFiles = [
     'tests/matrix.yml',
     'tests/matrix.schema.json',
+    'tests/coverage-registry.json',
     '.github/workflows/quality-gate.yml',
     'tools/run-test-matrix.mjs',
     'tools/check-workflow-matrix-sync.mjs',
