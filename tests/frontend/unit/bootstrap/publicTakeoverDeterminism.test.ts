@@ -45,16 +45,16 @@ describe('public takeover site identity', () => {
     expect(PUBLIC_SITE_IDENTITY_DEFAULTS.manifestShortName).toBe('FsusBlog')
   })
 
-  it('keeps first-paint assets aligned to the public identity default', () => {
-    expect(indexHtml).toContain(`<title>${PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle}</title>`)
-    expect(indexHtml).toContain(`data-fsus-loader-title>${PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle}</span>`)
-    expect(indexHtml).toContain(`data-fsus-loader-status>正在加载 ${PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle}</span>`)
-    expect(indexHtml).not.toContain('>站点<')
-    expect(indexHtml).not.toContain('正在加载站点')
+  it('keeps first-paint assets neutral until runtime identity synchronization', () => {
+    expect(indexHtml).not.toContain(PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle)
+    expect(indexHtml).not.toContain(PUBLIC_SITE_IDENTITY_DEFAULTS.manifestShortName)
+    expect(indexHtml).toContain('<title>站点</title>')
+    expect(indexHtml).toContain('data-fsus-loader-title>站点</span>')
+    expect(indexHtml).toContain('data-fsus-loader-status>正在加载站点</span>')
 
-    expect(webManifest.name).toBe(PUBLIC_SITE_IDENTITY_DEFAULTS.manifestName)
-    expect(webManifest.short_name).toBe(PUBLIC_SITE_IDENTITY_DEFAULTS.manifestShortName)
-    expect(webManifest.description).toBe(PUBLIC_SITE_IDENTITY_DEFAULTS.siteDescription)
+    expect(webManifest.name).not.toBe(PUBLIC_SITE_IDENTITY_DEFAULTS.manifestName)
+    expect(webManifest.short_name).not.toBe(PUBLIC_SITE_IDENTITY_DEFAULTS.manifestShortName)
+    expect(webManifest.description).not.toBe(PUBLIC_SITE_IDENTITY_DEFAULTS.siteDescription)
 
     expect(publicShellPrimitives).toContain('PUBLIC_SITE_IDENTITY_DEFAULTS')
     expect(publicShellPrimitives).toContain('function readLoaderSiteIdentity')

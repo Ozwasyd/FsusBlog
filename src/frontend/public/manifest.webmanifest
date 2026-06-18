@@ -1,7 +1,7 @@
 {
-  "name": "Fsu's Blog",
-  "short_name": "FsusBlog",
-  "description": "工程记录、性能实验、UI 系统与 FsusBlog 构建过程。",
+  "name": "公开内容",
+  "short_name": "内容",
+  "description": "公共内容与离线阅读支持。",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

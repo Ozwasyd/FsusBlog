@@ -38,6 +38,7 @@ const articleDetail = read('src/frontend/src/components/public/pages/PublicArtic
 const homeFeedSurface = read('src/frontend/src/components/public/HomeFeedSurface.vue')
 const hotArticlesIsland = read('src/frontend/src/public-renderers/homeHotArticlesIsland.ts')
 const siteStore = read('src/frontend/src/store/site.ts')
+const siteIdentityDefaults = read('src/frontend/src/public-renderers/publicSiteIdentityDefaults.ts')
 const filterView = read('src/frontend/src/view-contracts/filterView.ts')
 const articleListView = read('src/frontend/src/view-contracts/articleList.ts')
 const homeEmptyState = read('src/frontend/src/components/home/HomeArticleEmptyState.vue')
@@ -124,10 +125,12 @@ expectNotIncludes(featured, 'fsusBlogMotionPresets.articleCards', 'FeaturedArtic
 expectIncludes(articleDetail, 'rounded-[var(--fsusblog-reading-radius-media)]', 'PublicArticleDetailPageContent.vue')
 expectIncludes(homeFeedSurface, 'rounded-[var(--fsusblog-reading-radius-panel)]', 'HomeFeedSurface.vue')
 expectIncludes(hotArticlesIsland, 'rounded-[var(--fsusblog-reading-radius-control)]', 'homeHotArticlesIsland.ts')
-expectIncludes(siteStore, '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。', 'site.ts default description')
-expectIncludes(siteStore, '.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog', 'site.ts default keywords')
-expectNotIncludes(siteStore, '极简主义个人内容发布系统', 'site.ts default description')
-expectNotIncludes(siteStore, 'Minimalism, Blog, Fsu', 'site.ts default keywords')
+expectIncludes(siteStore, 'PUBLIC_SITE_IDENTITY_DEFAULTS.siteKeywords', 'site.ts default keywords source')
+expectIncludes(siteStore, 'normalizePublicSiteDescription(payload?.siteDescription)', 'site.ts default description source')
+expectIncludes(siteIdentityDefaults, '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。', 'publicSiteIdentityDefaults.ts default description')
+expectIncludes(siteIdentityDefaults, '.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog', 'publicSiteIdentityDefaults.ts default keywords')
+expectNotIncludes(siteIdentityDefaults, '极简主义个人内容发布系统', 'publicSiteIdentityDefaults.ts default description')
+expectNotIncludes(siteIdentityDefaults, 'Minimalism, Blog, Fsu', 'publicSiteIdentityDefaults.ts default keywords')
 
 const publicStateCopySources = new Map([
   ['filterView.ts', filterView],

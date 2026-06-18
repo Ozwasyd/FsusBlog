@@ -223,7 +223,7 @@ const marketingTerms = [
 
 const requiredCopy = [
   {
-    path: 'src/frontend/src/store/site.ts',
+    path: 'src/frontend/src/public-renderers/publicSiteIdentityDefaults.ts',
     tokens: [
       '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。',
       '.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog'

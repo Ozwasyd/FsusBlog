@@ -190,6 +190,8 @@ npm --prefix src/frontend ci
 npm --prefix src/frontend run dev:debug
 ```
 
+`dev:debug` 默认由 Vite 直接服务 `/src` 资源，适合前端样式和本地 FsusUI HMR。需要验证后端 public shell SSR proxy 时，改用 `npm --prefix src/frontend run dev:ssr`，该脚本会设置 `VITE_PUBLIC_SHELL_PROXY=1`。
+
 **常用地址**
 
 | 地址 | 用途 |

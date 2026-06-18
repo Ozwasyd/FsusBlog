@@ -374,10 +374,7 @@ export default defineConfig(({ mode }) => {
         || process.env.FSUSBLOG_VITE_WARN_AS_ERROR?.toLowerCase() === 'true'
     const isPublicSsrBuild = process.env.FSUSBLOG_PUBLIC_SSR_BUILD === '1'
         || process.env.FSUSBLOG_PUBLIC_SSR_BUILD?.toLowerCase() === 'true'
-    const hasProxyFlag = typeof env.VITE_PUBLIC_SHELL_PROXY === 'string' && env.VITE_PUBLIC_SHELL_PROXY.trim().length > 0
-    const enablePublicShellProxy = hasProxyFlag
-        ? env.VITE_PUBLIC_SHELL_PROXY === '1' || env.VITE_PUBLIC_SHELL_PROXY?.toLowerCase() === 'true'
-        : true
+    const enablePublicShellProxy = env.VITE_PUBLIC_SHELL_PROXY?.trim() === '1'
     const disableLocalFsusUi = process.env.FSUSBLOG_USE_LOCAL_FSUSUI === '0'
         || process.env.FSUSBLOG_USE_LOCAL_FSUSUI?.toLowerCase() === 'false'
     const localFsusUiRoot = !disableLocalFsusUi

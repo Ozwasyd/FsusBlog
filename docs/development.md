@@ -99,7 +99,12 @@ dotnet run --project src/backend/FsusBlog.Server.csproj --urls http://127.0.0.1:
 ```bash
 npm --prefix src/frontend ci                 # 首次或依赖变更后需执行
 npm --prefix src/frontend run dev:debug      # Vite HMR，监听 0.0.0.0:3000
+npm --prefix src/frontend run dev:ssr        # 仅调试后端 public shell SSR proxy
 ```
+
+默认 `dev` / `dev:debug` 由 Vite 直接服务公开页入口与 `/src` 资源，适合编辑前端样式、公开页交互和本地 FsusUI HMR。不要在这类工作中启用后端 public shell SSR proxy。
+
+`dev:ssr` 会通过 `VITE_PUBLIC_SHELL_PROXY=1` 把公开 SEO 路由代理到本地后端，只用于验证后端 SSR 壳、AOT 回填和预编译公开页输出。使用前需要确认后端正在 `http://127.0.0.1:7568` 运行。
 
 ### 常用访问地址
 
@@ -160,10 +165,12 @@ proxy: {
 | 命令 | 说明 |
 |------|------|
 | `npm run generate:public-page-manifest` | 从 `src/shared/Contracts/Outputs/PublicPageContracts.cs` 生成前端 public page manifest |
-| `npm run dev:debug` | 启动 Vite 开发服务器（HMR，host 0.0.0.0:3000） |
+| `npm run dev` | 启动 Vite 开发服务器（源码入口，适合前端样式与本地 FsusUI HMR） |
+| `npm run dev:debug` | 启动 Vite 开发服务器（源码入口，HMR，host 0.0.0.0:3000） |
+| `npm run dev:ssr` | 设置 `VITE_PUBLIC_SHELL_PROXY=1` 后启动后端 public shell SSR proxy 调试模式 |
 | `npm run build:release` | 生产构建（输出到 `dist/`） |
 
-`dev`、`dev:debug`、`test:unit:*` 和 `build:release` 会自动先同步 public page manifest，避免前端 AOT 页面身份与 shared C# 契约漂移。
+`dev`、`dev:debug`、`dev:ssr`、`test:unit:*` 和 `build:release` 会自动先同步 public page manifest，避免前端 AOT 页面身份与 shared C# 契约漂移。
 
 ### Wasm
 
