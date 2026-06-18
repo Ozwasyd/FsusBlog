@@ -120,15 +120,6 @@
       @next="nextLightboxImage"
       @previous="previousLightboxImage"
     />
-
-    <ArticleMobileActionBar
-      v-if="canRenderBodyRuntime"
-      :has-toc="tocItems.length > 0"
-      @toc="tocMobileOpen = true"
-      @comments="navigateToComments"
-      @share="shareArticle"
-      @top="scrollToArticleTop"
-    />
   </template>
 
   <ArticleDetailNotFoundState
@@ -139,7 +130,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { runtimeReady } from '@/bootstrap/runtimeGate'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
 import ArticleCommentComposer from '@/components/article/ArticleCommentComposer.vue'
@@ -148,26 +139,21 @@ import ArticleDetailLoadingState from '@/components/article/ArticleDetailLoading
 import ArticleDetailErrorState from '@/components/article/ArticleDetailErrorState.vue'
 import ArticleDetailNotFoundState from '@/components/article/ArticleDetailNotFoundState.vue'
 import ArticleImageLightbox from '@/components/article/ArticleImageLightbox.vue'
-import ArticleMobileActionBar from '@/components/article/ArticleMobileActionBar.vue'
 import ArticleReadingProgress from '@/components/article/ArticleReadingProgress.vue'
 import ArticleShareActions from '@/components/article/ArticleShareActions.vue'
 import ArticleTocPanel from '@/components/article/ArticleTocPanel.vue'
 import PublicArticleDetailPageContent from '@/components/public/pages/PublicArticleDetailPageContent.vue'
 import { useArticleImageLightbox } from '@/composables/article/useArticleImageLightbox'
-import { scrollToArticleTarget } from '@/composables/article/useArticleReadingTarget'
-import { useArticleShare } from '@/composables/article/useArticleShare'
 import { useArticleToc } from '@/composables/article/useArticleToc'
 import { useCodeBlockCopy } from '@/composables/article/useCodeBlockCopy'
 import { useArticleDetailView } from '@/composables/useArticleDetailView'
 import { useHumanReadProof } from '@/composables/useHumanReadProof'
-import { resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
 import { readPublicHydrationSeed } from '@/public-renderers/pageSeed'
 import { buildPublicArticleRouteKey } from '@/public-renderers/publicRouteIdentity'
 import { useSiteStore } from '@/store/site'
 import { articleDetailStates } from '@/view-contracts/articleDetail'
 
 const siteStore = useSiteStore()
-const router = useRouter()
 const routeSeedLookup = useRoute()
 const initialArticlePayload = readPublicHydrationSeed('ArticleDetail', { fullPath: routeSeedLookup?.fullPath })
 
@@ -346,13 +332,6 @@ const {
   previous: previousLightboxImage
 } = useArticleImageLightbox(() => articleContentRoot.value)
 
-const {
-  shareOrCopy: shareArticle
-} = useArticleShare({
-  title: computed(() => pageDetailView.value.header.title),
-  canonicalUrl: articleCanonicalUrl
-})
-
 const refreshArticleEnhancements = async (): Promise<void> => {
   await nextTick()
   await Promise.all([
@@ -365,23 +344,6 @@ const refreshArticleEnhancements = async (): Promise<void> => {
 const handleArticleRenderComplete = (): void => {
   handleRenderComplete()
   void refreshArticleEnhancements()
-}
-
-const navigateToComments = (): void => {
-  const basePath = route.fullPath.split('#')[0] || route.path
-  void router.replace(`${basePath}#comments`)
-  const target = document.getElementById('fsus-comments-island') ?? document.getElementById('comments')
-  if (target instanceof HTMLElement) {
-    scrollToArticleTarget(target)
-  }
-}
-
-const scrollToArticleTop = (): void => {
-  window.history.replaceState(window.history.state, '', route.fullPath.split('#')[0] || route.path)
-  window.scrollTo({
-    top: 0,
-    behavior: resolveMotionScrollBehavior()
-  })
 }
 
 onMounted(() => {
