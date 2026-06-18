@@ -42,5 +42,6 @@ public enum CachePolicyId
     SystemCompliance = 37,
     SecurityRecoveryKeyAttempt = 38,
     SecurityRecoveryKeySession = 39,
-    SecurityChallengeProof = 40
+    SecurityChallengeProof = 40,
+    SecurityCaptchaChallenge = 41
 }

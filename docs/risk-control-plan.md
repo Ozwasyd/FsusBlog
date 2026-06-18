@@ -56,6 +56,8 @@ RiskControl proof token 使用 `X-Fsus-Challenge-Proof` 传递，独立于 admin
 
 `Sha256PowChallengeProvider` 是第一个实际 provider，边界是复用旧 PoW 能力而不迁移 wire format：issue 生成 `sha256PowV1` assignment 和 `salt/difficulty/timestamp/signature` provider payload；verify 接受 legacy Base64 FPOW proof、复用 `IPowService` 与 `AdaptivePowGovernor`，并将成功、失败、重放类拒绝写入 challenge attempt。旧 `RequiresPowFilter` 和 `X-Fsus-Pow-Proof` header 仍作为兼容入口存在；统一 binary challenge endpoint 通过 `/api/binary/security/challenge` 与 `/api/binary/security/challenge/verify` 暴露。
 
+`CaptchaV1ChallengeProvider` 是第二个实际 provider，边界是服务端可验证但不直接接入业务策略：issue 生成 `captchaV1` assignment、Chebyshev noise seed/参数、HMAC signature 和 `SecurityCaptchaChallenge` 一次性 cache state；verify 校验签名、绑定字段、过期、一次性消费、答案、nonce、response token 与 solve duration。provider 不生成 PNG，不保存 seed/proof 原文，失败写 challenge attempt，并通过 `CaptchaInvalid`、`CaptchaReplay`、`CaptchaSolveTooFast` / `CaptchaSolveTooSlow` detail 写入 `risk-control` 风险事件。后续 #471 只负责前端渲染与 worker，#472 再决定哪些 action 选择 CaptchaV1。
+
 `RequiresRiskControlFilter` 是 enforcement baseline：读取 endpoint action / routeKey metadata，调用 `RiskDecisionService` 处理 allow / challenge / step-up / block / queue / throttle。challenge proof 使用 `X-Fsus-Challenge-Proof` 加 `X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 定位并消费绑定 claims；缺失或消费失败返回 428，block / throttle 返回 429，只有 proof consume 成功才进入业务 handler。旧 `RequiresPowFilter` 保持 legacy wrapper，避免一次性迁移现有 PoW endpoint。
 
 ## Ordered implementation units

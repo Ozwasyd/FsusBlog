@@ -106,6 +106,8 @@ challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 
 
 `sha256PowV1` provider 的 issue payload 只包含 legacy PoW challenge 必需字段：`salt`、`difficulty`、`timestamp`、`signature`。verify payload 必须包含 `proof`，其值为旧 `X-Fsus-Pow-Proof` 使用的 Base64 FPOW binary proof；服务端复用同一解析器、`IPowService.VerifyAsync` 和 `AdaptivePowGovernor` difficulty 裁决。该 provider 不引入公开 JSON fallback，不改变现有 FPOW wire format，也不删除 `GET /api/binary/auth/pow-challenge` 或 `X-Fsus-Pow-Proof` legacy 路径。
 
+`captchaV1` provider 使用 `fsu.captcha/chebyshev-noise@v1` wire algorithm。issue payload 包含 `algorithm`、`polynomialSeedHex`、`noiseSeedHex`、`seedPayloadBase64`、`signatureHex`、`gridWidth`、`gridHeight`、`distortionLevel`、`powDifficultyBits`、`issuedAtUnixMs` 和 `expiresAtUnixMs`；服务端不生成 PNG、像素或图片字段，只下发可由客户端渲染的 seed 与参数。`seedPayloadBase64` 绑定 challengeId、action、routeKey、subject/client/device hash、policyVersion、seed、参数和时间窗口，`signatureHex` 为服务端 HMAC-SHA256 签名。verify payload 必须回传 issue payload 字段，并追加 `answerText`、`responseTokenHex`、`nonceHex`、`solveDurationMs`。服务端先验证签名和绑定字段，再通过 `SecurityCaptchaChallenge` cache 一次性消费 challenge，随后派生期望答案、校验 nonce 前导零证明、校验 response token 和 solve duration。错误答案、签名/seed 篡改、token/nonce 错误写 `CaptchaInvalid` 风险 detail；重放写 `CaptchaReplay`；过快 / 过慢分别写 `CaptchaSolveTooFast` / `CaptchaSolveTooSlow`。CaptchaV1 只作为 provider 注册，不直接接入业务 endpoint；是否启用由后续 RiskControl policy issue 决定。
+
 统一 challenge 签发与验证只通过 binary endpoint 暴露，不提供公开 JSON fallback。`POST /api/binary/security/challenge` 接收 `SecurityChallengeIssueRequest` (`173`) 并返回 `SecurityChallengeIssueResponse` (`175`)；`POST /api/binary/security/challenge/verify` 接收 `SecurityChallengeVerifyRequest` (`174`) 并返回 `SecurityChallengeVerifyResponse` (`176`)。两个端点均为匿名、`fixed_ip` 限流、`no-store` 响应，request `Content-Type` 必须是 `application/octet-stream`，response `Accept` 只接受空值、`*/*` 或 `application/octet-stream`；不匹配时返回 AEDS `ApiError`，`Accept` 不匹配使用 HTTP 406。请求 frame 上限为 64 KiB，所有业务失败、unsupported kind、provider missing、provider failure、proof replay / mismatch 均 fail closed 返回 `ApiError` frame。
 
 `SecurityChallengeIssueRequest` 字段：
@@ -137,7 +139,7 @@ challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 
 | `kind` | enum | `SecurityChallengeKind`；未知或未支持 kind fail closed |
 | `action` | string | 必须与 issue / 后续业务 endpoint 绑定的 action 一致 |
 | `routeKey` | string | 必须与 issue / 后续业务 endpoint 绑定的 route key 一致 |
-| `payload` | string | provider payload JSON；`sha256PowV1` 必须包含 Base64 FPOW `proof` |
+| `payload` | string | provider payload JSON；`sha256PowV1` 必须包含 Base64 FPOW `proof`，`captchaV1` 必须包含 issue payload 字段加 `answerText`、`responseTokenHex`、`nonceHex`、`solveDurationMs` |
 
 `SecurityChallengeVerifyResponse` 字段：
 
