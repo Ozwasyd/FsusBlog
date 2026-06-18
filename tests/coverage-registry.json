@@ -3,7 +3,7 @@
   "entries": [
     {
       "id": "aeds-full-frame-cache-hit",
-      "description": "Coverage contract for aeds-full-frame-cache-hit.",
+      "description": "AEDS Full Frame Cache Hit is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -11,14 +11,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-qps-cache-hit",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-qps-cache-hit"
       ]
     },
     {
       "id": "aeds-hot-read-precompression",
-      "description": "Coverage contract for aeds-hot-read-precompression.",
+      "description": "AEDS Hot Read Precompression is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -27,14 +27,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier aeds-compression-profile",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "aeds-compression-profile"
       ]
     },
     {
       "id": "aeds-single-buffer-copy-crc-cost",
-      "description": "Coverage contract for aeds-single-buffer-copy-crc-cost.",
+      "description": "AEDS Single Buffer Copy Crc Cost is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -43,14 +43,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier aeds-frame-cost",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "aeds-frame-cost"
       ]
     },
     {
       "id": "aeds-wasm-markdown-fuzz",
-      "description": "Coverage contract for aeds-wasm-markdown-fuzz.",
+      "description": "AEDS Wasm Markdown Fuzz is covered by fuzz summaries that exercise the named behavior.",
       "owner": "WasmEngineAgent",
       "risk": "high",
       "evidencePaths": [
@@ -58,14 +58,14 @@
       ],
       "assertionType": "fuzz",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "fuzz evidence declared by tier wasm-fuzz-regression",
+      "minimumRequirement": "Fuzz evidence must include the declared invalid-input summary and fail closed on decoder or contract regressions.",
       "tierIds": [
         "wasm-fuzz-regression"
       ]
     },
     {
       "id": "aot-hydration-pwa-seo",
-      "description": "Coverage contract for aot-hydration-pwa-seo.",
+      "description": "AOT Hydration PWA SEO is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -80,14 +80,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier release",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "release"
       ]
     },
     {
       "id": "article-detail-artifact-miss",
-      "description": "Coverage contract for article-detail-artifact-miss.",
+      "description": "Article Detail Artifact Miss is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -95,14 +95,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-qps-article-detail-miss",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-qps-article-detail-miss"
       ]
     },
     {
       "id": "auth-mfa-passkey-pow-permission-dast",
-      "description": "Coverage contract for auth-mfa-passkey-pow-permission-dast.",
+      "description": "Auth MFA Passkey Pow Permission DAST is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -110,14 +110,14 @@
       ],
       "assertionType": "runtime",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "runtime evidence declared by tier security",
+      "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
       "tierIds": [
         "security"
       ]
     },
     {
       "id": "authenticated-dast",
-      "description": "Coverage contract for authenticated-dast.",
+      "description": "Authenticated DAST is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -125,14 +125,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier security-authenticated-dast",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "security-authenticated-dast"
       ]
     },
     {
       "id": "backend-aeds-pod-golden",
-      "description": "Coverage contract for backend-aeds-pod-golden.",
+      "description": "Backend AEDS POD Golden is covered by declared repository evidence that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -140,29 +140,29 @@
       ],
       "assertionType": "unit",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "unit evidence declared by tier backend-golden",
+      "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
       "tierIds": [
         "backend-golden"
       ]
     },
     {
       "id": "backend-auth-mfa-pow-session-state-machine",
-      "description": "Coverage contract for backend-auth-mfa-pow-session-state-machine.",
+      "description": "Backend Auth MFA Pow Session State Machine is covered by unit/property tests that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
         "tests/backend/Unit/BackendAuthStateMachineTests.cs"
       ],
-      "assertionType": "static",
+      "assertionType": "unit",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier backend-auth-state-machine",
+      "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
       "tierIds": [
         "backend-auth-state-machine"
       ]
     },
     {
       "id": "backend-coverage",
-      "description": "Coverage contract for backend-coverage.",
+      "description": "Backend Coverage is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -170,14 +170,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier coverage-backend",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "coverage-backend"
       ]
     },
     {
       "id": "backend-endpoint-api-contract",
-      "description": "Coverage contract for backend-endpoint-api-contract.",
+      "description": "Backend Endpoint API Contract is covered by declared repository evidence that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -185,14 +185,14 @@
       ],
       "assertionType": "integration",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "integration evidence declared by tier backend-api-integration",
+      "minimumRequirement": "The referenced integration evidence must exercise the cross-boundary contract and be declared by the covering tier.",
       "tierIds": [
         "backend-api-integration"
       ]
     },
     {
       "id": "backend-exhaustive-nightly-readiness",
-      "description": "Coverage contract for backend-exhaustive-nightly-readiness.",
+      "description": "Backend Exhaustive Nightly Readiness is covered by declared repository evidence that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -200,14 +200,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier backend-nightly",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "backend-nightly"
       ]
     },
     {
       "id": "backend-fault-race-readiness",
-      "description": "Coverage contract for backend-fault-race-readiness.",
+      "description": "Backend Fault Race Readiness is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -216,14 +216,14 @@
       ],
       "assertionType": "runtime",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "runtime/backend-chaos artifact and backend test requirements fixture",
+      "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
       "tierIds": [
         "backend-chaos"
       ]
     },
     {
       "id": "backend-frontend-merged",
-      "description": "Coverage contract for backend-frontend-merged.",
+      "description": "Backend Frontend Merged is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -231,29 +231,29 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier coverage-gate",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "coverage-gate"
       ]
     },
     {
       "id": "backend-property-protocol-cache-upload",
-      "description": "Coverage contract for backend-property-protocol-cache-upload.",
+      "description": "Backend Property Protocol Cache Upload is covered by unit/property tests that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
         "tests/backend/Unit/BackendPropertyTests.cs"
       ],
-      "assertionType": "perf",
+      "assertionType": "unit",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-property",
+      "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
       "tierIds": [
         "backend-property"
       ]
     },
     {
       "id": "backend-qps-static-and-runtime-evidence",
-      "description": "Coverage contract for backend-qps-static-and-runtime-evidence.",
+      "description": "Backend QPS Static And Runtime Evidence is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -261,14 +261,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-qps",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-qps"
       ]
     },
     {
       "id": "backend-qps-warmed-runtime-sequential",
-      "description": "Coverage contract for backend-qps-warmed-runtime-sequential.",
+      "description": "Backend QPS Warmed Runtime Sequential is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "medium",
       "evidencePaths": [
@@ -276,29 +276,29 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-qps-runtime-sequential",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-qps-runtime-sequential"
       ]
     },
     {
       "id": "backend-race-idempotency-model",
-      "description": "Coverage contract for backend-race-idempotency-model.",
+      "description": "Backend Race Idempotency Model is covered by unit/property tests that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
         "tests/backend/Unit/BackendConcurrencyModelTests.cs"
       ],
-      "assertionType": "static",
+      "assertionType": "unit",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier backend-concurrency",
+      "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
       "tierIds": [
         "backend-concurrency"
       ]
     },
     {
       "id": "backend-static",
-      "description": "Coverage contract for backend-static.",
+      "description": "Backend Static is covered by declared repository evidence that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -306,14 +306,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier backend-fast",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "backend-fast"
       ]
     },
     {
       "id": "backend-stryker-core-security-binary-cache",
-      "description": "Coverage contract for backend-stryker-core-security-binary-cache.",
+      "description": "Backend Stryker Core Security Binary Cache is covered by mutation summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -321,14 +321,14 @@
       ],
       "assertionType": "mutation",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "mutation evidence declared by tier backend-mutation",
+      "minimumRequirement": "Mutation evidence must include the declared mutation summary for the critical slice and fail closed on surviving mutants beyond policy.",
       "tierIds": [
         "backend-mutation"
       ]
     },
     {
       "id": "backend-test-governance-static",
-      "description": "Coverage contract for backend-test-governance-static.",
+      "description": "Backend Test Governance Static is covered by declared repository evidence that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -336,14 +336,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier backend-test-governance",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "backend-test-governance"
       ]
     },
     {
       "id": "backend-unit",
-      "description": "Coverage contract for backend-unit.",
+      "description": "Backend Unit is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -353,7 +353,7 @@
       ],
       "assertionType": "unit",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "unit evidence declared by tier fast",
+      "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
       "tierIds": [
         "backend-fast",
         "fast"
@@ -361,7 +361,7 @@
     },
     {
       "id": "benchmarkdotnet-readiness",
-      "description": "Coverage contract for benchmarkdotnet-readiness.",
+      "description": "Benchmarkdotnet Readiness is covered by declared repository evidence that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -369,14 +369,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-perf",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-perf"
       ]
     },
     {
       "id": "benchmarkdotnet-regression",
-      "description": "Coverage contract for benchmarkdotnet-regression.",
+      "description": "Benchmarkdotnet Regression is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -384,14 +384,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-benchmark-regression",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-benchmark-regression"
       ]
     },
     {
       "id": "browser-performance-regression",
-      "description": "Coverage contract for browser-performance-regression.",
+      "description": "Browser Performance Regression is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -399,14 +399,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier browser-performance-regression",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "browser-performance-regression"
       ]
     },
     {
       "id": "cache-invalidation-batch-roundtrip-reduction",
-      "description": "Coverage contract for cache-invalidation-batch-roundtrip-reduction.",
+      "description": "Cache Invalidation Batch Roundtrip Reduction is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -414,14 +414,14 @@
       ],
       "assertionType": "runtime",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "runtime evidence declared by tier backend-cache-invalidation-batch",
+      "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
       "tierIds": [
         "backend-cache-invalidation-batch"
       ]
     },
     {
       "id": "cache-miss-singleflight",
-      "description": "Coverage contract for cache-miss-singleflight.",
+      "description": "Cache Miss Singleflight is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -429,14 +429,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-qps-cache-miss-singleflight",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-qps-cache-miss-singleflight"
       ]
     },
     {
       "id": "cache-registry-command-reduction",
-      "description": "Coverage contract for cache-registry-command-reduction.",
+      "description": "Cache Registry Command Reduction is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -444,14 +444,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-qps-cache-registry",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-qps-cache-registry"
       ]
     },
     {
       "id": "changed-code-coverage",
-      "description": "Coverage contract for changed-code-coverage.",
+      "description": "Changed Code Coverage is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -459,14 +459,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier changed-code-coverage",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "changed-code-coverage"
       ]
     },
     {
       "id": "comment-cursor-cache",
-      "description": "Coverage contract for comment-cursor-cache.",
+      "description": "Comment Cursor Cache is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -474,14 +474,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-qps-comment-cursor",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-qps-comment-cursor"
       ]
     },
     {
       "id": "content-boundary",
-      "description": "Coverage contract for content-boundary.",
+      "description": "Content Boundary is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -490,14 +490,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier ux-viewport-smoke",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "ux-viewport-smoke"
       ]
     },
     {
       "id": "content-boundary-full",
-      "description": "Coverage contract for content-boundary-full.",
+      "description": "Content Boundary Full is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -507,14 +507,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier ux-viewport-boundaries",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "ux-viewport-boundaries"
       ]
     },
     {
       "id": "contract-fuzz-invalid-inputs",
-      "description": "Coverage contract for contract-fuzz-invalid-inputs.",
+      "description": "Contract Fuzz Invalid Inputs is covered by fuzz summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -522,14 +522,14 @@
       ],
       "assertionType": "fuzz",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "fuzz evidence declared by tier contract-fuzz",
+      "minimumRequirement": "Fuzz evidence must include the declared invalid-input summary and fail closed on decoder or contract regressions.",
       "tierIds": [
         "contract-fuzz"
       ]
     },
     {
       "id": "contract-static",
-      "description": "Coverage contract for contract-static.",
+      "description": "Contract Static is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -538,14 +538,14 @@
       ],
       "assertionType": "integration",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "integration evidence declared by tier frontend-runtime-contracts",
+      "minimumRequirement": "The referenced integration evidence must exercise the cross-boundary contract and be declared by the covering tier.",
       "tierIds": [
         "frontend-runtime-contracts"
       ]
     },
     {
       "id": "coverage-threshold",
-      "description": "Coverage contract for coverage-threshold.",
+      "description": "Coverage Threshold is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -553,14 +553,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier coverage-threshold",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "coverage-threshold"
       ]
     },
     {
       "id": "cross-browser-smoke",
-      "description": "Coverage contract for cross-browser-smoke.",
+      "description": "Cross Browser Smoke is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -568,14 +568,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier cross-browser-smoke",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "cross-browser-smoke"
       ]
     },
     {
       "id": "csrf-browser-negative-matrix",
-      "description": "Coverage contract for csrf-browser-negative-matrix.",
+      "description": "CSRF Browser Negative Matrix is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -583,14 +583,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier csrf-browser-matrix",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "csrf-browser-matrix"
       ]
     },
     {
       "id": "db-index-plan",
-      "description": "Coverage contract for db-index-plan.",
+      "description": "Db Index Plan is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -598,14 +598,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-qps-index-plan",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-qps-index-plan"
       ]
     },
     {
       "id": "dom-budget",
-      "description": "Coverage contract for dom-budget.",
+      "description": "DOM Budget is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -617,14 +617,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier frontend-render-pressure",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "frontend-render-pressure"
       ]
     },
     {
       "id": "dom-depth-static",
-      "description": "Coverage contract for dom-depth-static.",
+      "description": "DOM Depth Static is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -636,14 +636,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier frontend-render-pressure",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "frontend-render-pressure"
       ]
     },
     {
       "id": "endpoint-role-protocol-status-cache-error-frame",
-      "description": "Coverage contract for endpoint-role-protocol-status-cache-error-frame.",
+      "description": "Endpoint Role Protocol Status Cache Error Frame is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -651,14 +651,14 @@
       ],
       "assertionType": "runtime",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "runtime evidence declared by tier endpoint-depth",
+      "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
       "tierIds": [
         "endpoint-depth"
       ]
     },
     {
       "id": "evidence-schema",
-      "description": "Coverage contract for evidence-schema.",
+      "description": "Evidence Schema is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -670,14 +670,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier static-governance",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "static-governance"
       ]
     },
     {
       "id": "fast-plus-integration",
-      "description": "Coverage contract for fast-plus-integration.",
+      "description": "Fast Plus Integration is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -686,14 +686,14 @@
       ],
       "assertionType": "runtime",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "runtime evidence declared by tier ci",
+      "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
       "tierIds": [
         "ci"
       ]
     },
     {
       "id": "frontend-backend-contract-coherence",
-      "description": "Coverage contract for frontend-backend-contract-coherence.",
+      "description": "Frontend Backend Contract Coherence is covered by declared repository evidence that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -704,14 +704,14 @@
       ],
       "assertionType": "integration",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "generated cross-stack contract fixtures and route/openapi coherence files",
+      "minimumRequirement": "The referenced integration evidence must exercise the cross-boundary contract and be declared by the covering tier.",
       "tierIds": [
         "cross-stack-contract"
       ]
     },
     {
       "id": "frontend-build",
-      "description": "Coverage contract for frontend-build.",
+      "description": "Frontend Build is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -720,14 +720,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths.",
-      "minimumRequirement": "build evidence declared by tier frontend-build",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "frontend-build"
       ]
     },
     {
       "id": "frontend-coverage",
-      "description": "Coverage contract for frontend-coverage.",
+      "description": "Frontend Coverage is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -735,14 +735,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier coverage-frontend",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "coverage-frontend"
       ]
     },
     {
       "id": "frontend-property",
-      "description": "Coverage contract for frontend-property.",
+      "description": "Frontend Property is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -752,14 +752,14 @@
       ],
       "assertionType": "unit",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "unit evidence declared by tier frontend-unit-shard",
+      "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
       "tierIds": [
         "frontend-unit-shard"
       ]
     },
     {
       "id": "frontend-static",
-      "description": "Coverage contract for frontend-static.",
+      "description": "Frontend Static is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -768,14 +768,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier frontend-static-governance",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "frontend-static-governance"
       ]
     },
     {
       "id": "frontend-unit",
-      "description": "Coverage contract for frontend-unit.",
+      "description": "Frontend Unit is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -785,14 +785,14 @@
       ],
       "assertionType": "unit",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "unit evidence declared by tier frontend-unit-shard",
+      "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
       "tierIds": [
         "frontend-unit-shard"
       ]
     },
     {
       "id": "frontend-unit-property-model-static",
-      "description": "Coverage contract for frontend-unit-property-model-static.",
+      "description": "Frontend Unit Property Model Static is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -801,14 +801,14 @@
       ],
       "assertionType": "unit",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "unit evidence declared by tier fast",
+      "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
       "tierIds": [
         "fast"
       ]
     },
     {
       "id": "full-release-evidence",
-      "description": "Coverage contract for full-release-evidence.",
+      "description": "Full Release Evidence is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -816,14 +816,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier production",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "production"
       ]
     },
     {
       "id": "gate-integrity",
-      "description": "Coverage contract for gate-integrity.",
+      "description": "Gate Integrity is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -835,14 +835,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier static-governance",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "static-governance"
       ]
     },
     {
       "id": "load-2x-peak",
-      "description": "Coverage contract for load-2x-peak.",
+      "description": "Load 2x Peak is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -850,14 +850,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier load-2x-peak",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "load-2x-peak"
       ]
     },
     {
       "id": "load-baseline",
-      "description": "Coverage contract for load-baseline.",
+      "description": "Load Baseline is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -865,14 +865,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier load-baseline",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "load-baseline"
       ]
     },
     {
       "id": "load-burst",
-      "description": "Coverage contract for load-burst.",
+      "description": "Load Burst is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -880,14 +880,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier load-burst",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "load-burst"
       ]
     },
     {
       "id": "load-peak",
-      "description": "Coverage contract for load-peak.",
+      "description": "Load Peak is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -895,14 +895,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier load-peak",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "load-peak"
       ]
     },
     {
       "id": "load-smoke",
-      "description": "Coverage contract for load-smoke.",
+      "description": "Load Smoke is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "medium",
       "evidencePaths": [
@@ -910,14 +910,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier load",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "load"
       ]
     },
     {
       "id": "long-running-stability",
-      "description": "Coverage contract for long-running-stability.",
+      "description": "Long Running Stability is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -925,14 +925,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier soak-short-runtime",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "soak-short-runtime"
       ]
     },
     {
       "id": "markdown-render-budget",
-      "description": "Coverage contract for markdown-render-budget.",
+      "description": "Markdown Render Budget is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -944,14 +944,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier frontend-render-pressure",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "frontend-render-pressure"
       ]
     },
     {
       "id": "matrix-integrity",
-      "description": "Coverage contract for matrix-integrity.",
+      "description": "Matrix Integrity is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -963,14 +963,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier static-governance",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "static-governance"
       ]
     },
     {
       "id": "merged-coverage",
-      "description": "Coverage contract for merged-coverage.",
+      "description": "Merged Coverage is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -978,14 +978,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier coverage-merge",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "coverage-merge"
       ]
     },
     {
       "id": "notification-pressure",
-      "description": "Coverage contract for notification-pressure.",
+      "description": "Notification Pressure is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "medium",
       "evidencePaths": [
@@ -993,14 +993,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier load",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "load"
       ]
     },
     {
       "id": "playwright-acceptance",
-      "description": "Coverage contract for playwright-acceptance.",
+      "description": "Playwright Acceptance is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1008,14 +1008,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier acceptance",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "acceptance"
       ]
     },
     {
       "id": "playwright-visual-aggregate",
-      "description": "Coverage contract for playwright-visual-aggregate.",
+      "description": "Playwright Visual Aggregate is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "medium",
       "evidencePaths": [
@@ -1024,14 +1024,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier visual",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "visual"
       ]
     },
     {
       "id": "playwright-visual-console",
-      "description": "Coverage contract for playwright-visual-console.",
+      "description": "Playwright Visual Console is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "medium",
       "evidencePaths": [
@@ -1040,14 +1040,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier visual-console",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "visual-console"
       ]
     },
     {
       "id": "playwright-visual-public",
-      "description": "Coverage contract for playwright-visual-public.",
+      "description": "Playwright Visual Public is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "medium",
       "evidencePaths": [
@@ -1056,14 +1056,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier visual-public",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "visual-public"
       ]
     },
     {
       "id": "public-aot-cache-resilience",
-      "description": "Coverage contract for public-aot-cache-resilience.",
+      "description": "Public AOT Cache Resilience is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1072,14 +1072,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier resilience",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "resilience"
       ]
     },
     {
       "id": "public-hot-read-taxonomy",
-      "description": "Coverage contract for public-hot-read-taxonomy.",
+      "description": "Public Hot Read Taxonomy is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1087,14 +1087,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-qps-hotread",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-qps-hotread"
       ]
     },
     {
       "id": "public-hydration-browser-env-matrix",
-      "description": "Coverage contract for public-hydration-browser-env-matrix.",
+      "description": "Public Hydration Browser Env Matrix is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1109,14 +1109,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier release",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "release"
       ]
     },
     {
       "id": "public-hydration-clock-matrix",
-      "description": "Coverage contract for public-hydration-clock-matrix.",
+      "description": "Public Hydration Clock Matrix is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1131,14 +1131,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier release",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "release"
       ]
     },
     {
       "id": "public-hydration-dom-diff",
-      "description": "Coverage contract for public-hydration-dom-diff.",
+      "description": "Public Hydration DOM Diff is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1153,14 +1153,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier release",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "release"
       ]
     },
     {
       "id": "public-hydration-fast-matrix",
-      "description": "Coverage contract for public-hydration-fast-matrix.",
+      "description": "Public Hydration Fast Matrix is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1168,14 +1168,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier public-hydration-fast",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "public-hydration-fast"
       ]
     },
     {
       "id": "public-hydration-governance",
-      "description": "Coverage contract for public-hydration-governance.",
+      "description": "Public Hydration Governance is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1183,14 +1183,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier public-hydration-fast",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "public-hydration-fast"
       ]
     },
     {
       "id": "public-hydration-matrix",
-      "description": "Coverage contract for public-hydration-matrix.",
+      "description": "Public Hydration Matrix is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1205,14 +1205,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier release",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "release"
       ]
     },
     {
       "id": "public-hydration-nightly-full-matrix",
-      "description": "Coverage contract for public-hydration-nightly-full-matrix.",
+      "description": "Public Hydration Nightly Full Matrix is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1220,14 +1220,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier public-hydration-nightly",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "public-hydration-nightly"
       ]
     },
     {
       "id": "public-hydration-payload-fixture-matrix",
-      "description": "Coverage contract for public-hydration-payload-fixture-matrix.",
+      "description": "Public Hydration Payload Fixture Matrix is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1242,14 +1242,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier release",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "release"
       ]
     },
     {
       "id": "public-hydration-shard-strategy",
-      "description": "Coverage contract for public-hydration-shard-strategy.",
+      "description": "Public Hydration Shard Strategy is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1257,14 +1257,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier public-hydration-nightly",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "public-hydration-nightly"
       ]
     },
     {
       "id": "public-hydration-sidecar",
-      "description": "Coverage contract for public-hydration-sidecar.",
+      "description": "Public Hydration Sidecar is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1279,14 +1279,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier release",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "release"
       ]
     },
     {
       "id": "public-list-deep-page",
-      "description": "Coverage contract for public-list-deep-page.",
+      "description": "Public List Deep Page is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1294,14 +1294,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-qps-list-pagination",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-qps-list-pagination"
       ]
     },
     {
       "id": "public-read-risk-filter",
-      "description": "Coverage contract for public-read-risk-filter.",
+      "description": "Public Read Risk Filter is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1309,14 +1309,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-qps-risk-filter",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-qps-risk-filter"
       ]
     },
     {
       "id": "redis-postgres-notification-stream-disk-shutdown-faults",
-      "description": "Coverage contract for redis-postgres-notification-stream-disk-shutdown-faults.",
+      "description": "Redis Postgres Notification Stream Disk Shutdown Faults is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1324,14 +1324,14 @@
       ],
       "assertionType": "runtime",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "runtime evidence declared by tier fault-injection",
+      "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
       "tierIds": [
         "fault-injection"
       ]
     },
     {
       "id": "related-reading-cache",
-      "description": "Coverage contract for related-reading-cache.",
+      "description": "Related Reading Cache is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1339,14 +1339,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-qps-related-reading",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-qps-related-reading"
       ]
     },
     {
       "id": "release-admin-console",
-      "description": "Coverage contract for release-admin-console.",
+      "description": "Release Admin Console is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1354,14 +1354,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier release-admin-console",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "release-admin-console"
       ]
     },
     {
       "id": "release-aot-consumption",
-      "description": "Coverage contract for release-aot-consumption.",
+      "description": "Release AOT Consumption is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1370,14 +1370,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier release-aot-consumption",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "release-aot-consumption"
       ]
     },
     {
       "id": "release-aot-generation",
-      "description": "Coverage contract for release-aot-generation.",
+      "description": "Release AOT Generation is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1385,14 +1385,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier release-aot-generation",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "release-aot-generation"
       ]
     },
     {
       "id": "release-auth-flow",
-      "description": "Coverage contract for release-auth-flow.",
+      "description": "Release Auth Flow is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1400,14 +1400,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier release-auth-flow",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "release-auth-flow"
       ]
     },
     {
       "id": "release-authoring-flow",
-      "description": "Coverage contract for release-authoring-flow.",
+      "description": "Release Authoring Flow is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1415,14 +1415,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier release-authoring-flow",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "release-authoring-flow"
       ]
     },
     {
       "id": "release-closeout-manifest-ok",
-      "description": "Coverage contract for release-closeout-manifest-ok.",
+      "description": "Release Closeout Manifest Ok is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1430,14 +1430,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier release-closeout",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "release-closeout"
       ]
     },
     {
       "id": "release-data-scale-m",
-      "description": "Coverage contract for release-data-scale-m.",
+      "description": "Release Data Scale M is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1445,14 +1445,14 @@
       ],
       "assertionType": "runtime",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "runtime evidence declared by tier release-data-scale-m",
+      "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
       "tierIds": [
         "release-data-scale-m"
       ]
     },
     {
       "id": "release-error-boundary",
-      "description": "Coverage contract for release-error-boundary.",
+      "description": "Release Error Boundary is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1460,14 +1460,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier release-error-boundary",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "release-error-boundary"
       ]
     },
     {
       "id": "release-evidence-manifest",
-      "description": "Coverage contract for release-evidence-manifest.",
+      "description": "Release Evidence Manifest is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1475,14 +1475,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier release-evidence",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "release-evidence"
       ]
     },
     {
       "id": "release-final-coverage-thresholds",
-      "description": "Coverage contract for release-final-coverage-thresholds.",
+      "description": "Release Final Coverage Thresholds is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1492,14 +1492,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier coverage-gate-strict",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "coverage-gate-strict"
       ]
     },
     {
       "id": "release-final-flaky-governance",
-      "description": "Coverage contract for release-final-flaky-governance.",
+      "description": "Release Final Flaky Governance is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1507,14 +1507,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier release-final-flaky-governance",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "release-final-flaky-governance"
       ]
     },
     {
       "id": "release-final-publish-credential",
-      "description": "Coverage contract for release-final-publish-credential.",
+      "description": "Release Final Publish Credential is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1522,14 +1522,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier release-final",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "release-final"
       ]
     },
     {
       "id": "release-final-shard-completeness",
-      "description": "Coverage contract for release-final-shard-completeness.",
+      "description": "Release Final Shard Completeness is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1537,14 +1537,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier release-final-shard-completeness",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "release-final-shard-completeness"
       ]
     },
     {
       "id": "release-load-burst",
-      "description": "Coverage contract for release-load-burst.",
+      "description": "Release Load Burst is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1552,14 +1552,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier release-load-burst",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "release-load-burst"
       ]
     },
     {
       "id": "release-load-peak",
-      "description": "Coverage contract for release-load-peak.",
+      "description": "Release Load Peak is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1567,14 +1567,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier release-load-peak",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "release-load-peak"
       ]
     },
     {
       "id": "release-memory-leak-budget",
-      "description": "Coverage contract for release-memory-leak-budget.",
+      "description": "Release Memory Leak Budget is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1582,14 +1582,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier release-memory-leak-budget",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "release-memory-leak-budget"
       ]
     },
     {
       "id": "release-mutation-critical-slice",
-      "description": "Coverage contract for release-mutation-critical-slice.",
+      "description": "Release Mutation Critical Slice is covered by mutation summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1597,14 +1597,14 @@
       ],
       "assertionType": "mutation",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "mutation evidence declared by tier release-mutation-critical-slice",
+      "minimumRequirement": "Mutation evidence must include the declared mutation summary for the critical slice and fail closed on surviving mutants beyond policy.",
       "tierIds": [
         "release-mutation-critical-slice"
       ]
     },
     {
       "id": "release-open-handle-budget",
-      "description": "Coverage contract for release-open-handle-budget.",
+      "description": "Release Open Handle Budget is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1612,14 +1612,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier release-open-handle-budget",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "release-open-handle-budget"
       ]
     },
     {
       "id": "release-preview-runtime",
-      "description": "Coverage contract for release-preview-runtime.",
+      "description": "Release Preview Runtime is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1634,14 +1634,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier release",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "release"
       ]
     },
     {
       "id": "release-private-preview",
-      "description": "Coverage contract for release-private-preview.",
+      "description": "Release Private Preview is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1649,14 +1649,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier release-private-preview",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "release-private-preview"
       ]
     },
     {
       "id": "release-rbac-negative",
-      "description": "Coverage contract for release-rbac-negative.",
+      "description": "Release RBAC Negative is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1664,14 +1664,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier release-rbac-negative",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "release-rbac-negative"
       ]
     },
     {
       "id": "release-soak-min",
-      "description": "Coverage contract for release-soak-min.",
+      "description": "Release Soak Min is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1679,14 +1679,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier release-soak-min",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "release-soak-min"
       ]
     },
     {
       "id": "release-static-asset-digest-coherence",
-      "description": "Coverage contract for release-static-asset-digest-coherence.",
+      "description": "Release Static Asset Digest Coherence is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1694,14 +1694,14 @@
       ],
       "assertionType": "runtime",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "runtime evidence declared by tier release-static-asset-digest-coherence",
+      "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
       "tierIds": [
         "release-static-asset-digest-coherence"
       ]
     },
     {
       "id": "responsive-layout",
-      "description": "Coverage contract for responsive-layout.",
+      "description": "Responsive Layout is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1710,14 +1710,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier ux-viewport-smoke",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "ux-viewport-smoke"
       ]
     },
     {
       "id": "route-render-pressure",
-      "description": "Coverage contract for route-render-pressure.",
+      "description": "Route Render Pressure is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1729,14 +1729,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier frontend-render-pressure",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "frontend-render-pressure"
       ]
     },
     {
       "id": "runtime-bootstrap",
-      "description": "Coverage contract for runtime-bootstrap.",
+      "description": "Runtime Bootstrap is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1744,14 +1744,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier bootstrap",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "bootstrap"
       ]
     },
     {
       "id": "runtime-contract-smoke",
-      "description": "Coverage contract for runtime-contract-smoke.",
+      "description": "Runtime Contract Smoke is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1759,14 +1759,14 @@
       ],
       "assertionType": "runtime",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "runtime evidence declared by tier integration",
+      "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
       "tierIds": [
         "integration"
       ]
     },
     {
       "id": "scale-l-nightly",
-      "description": "Coverage contract for scale-l-nightly.",
+      "description": "Scale L Nightly is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1774,14 +1774,14 @@
       ],
       "assertionType": "runtime",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "runtime evidence declared by tier data-scale-nightly",
+      "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
       "tierIds": [
         "data-scale-nightly"
       ]
     },
     {
       "id": "scale-m-10k-articles-100k-comments",
-      "description": "Coverage contract for scale-m-10k-articles-100k-comments.",
+      "description": "Scale M 10k Articles 100k Comments is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1789,14 +1789,14 @@
       ],
       "assertionType": "runtime",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "runtime evidence declared by tier data-scale-m",
+      "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
       "tierIds": [
         "data-scale-m"
       ]
     },
     {
       "id": "scale-s-100-articles-1k-comments",
-      "description": "Coverage contract for scale-s-100-articles-1k-comments.",
+      "description": "Scale S 100 Articles 1k Comments is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1804,14 +1804,14 @@
       ],
       "assertionType": "runtime",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "runtime evidence declared by tier data-scale-s",
+      "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
       "tierIds": [
         "data-scale-s"
       ]
     },
     {
       "id": "scale-xs-empty-single",
-      "description": "Coverage contract for scale-xs-empty-single.",
+      "description": "Scale Xs Empty Single is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1819,14 +1819,14 @@
       ],
       "assertionType": "runtime",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "runtime evidence declared by tier data-scale-xs",
+      "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
       "tierIds": [
         "data-scale-xs"
       ]
     },
     {
       "id": "screenshot-evidence",
-      "description": "Coverage contract for screenshot-evidence.",
+      "description": "Screenshot Evidence is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "medium",
       "evidencePaths": [
@@ -1836,14 +1836,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier ux-viewport-visual",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "ux-viewport-visual"
       ]
     },
     {
       "id": "soak-long-evidence-import",
-      "description": "Coverage contract for soak-long-evidence-import.",
+      "description": "Soak Long Evidence Import is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1851,14 +1851,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier soak-long-evidence-import",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "soak-long-evidence-import"
       ]
     },
     {
       "id": "soak-long-scheduled",
-      "description": "Coverage contract for soak-long-scheduled.",
+      "description": "Soak Long Scheduled is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "medium",
       "evidencePaths": [
@@ -1866,14 +1866,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier soak-long-scheduled",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "soak-long-scheduled"
       ]
     },
     {
       "id": "soak-short-runtime",
-      "description": "Coverage contract for soak-short-runtime.",
+      "description": "Soak Short Runtime is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1881,14 +1881,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier soak-short-runtime",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "soak-short-runtime"
       ]
     },
     {
       "id": "test-dag",
-      "description": "Coverage contract for test-dag.",
+      "description": "Test Dag is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1896,14 +1896,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier validate-matrix",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "validate-matrix"
       ]
     },
     {
       "id": "test-quality-lint",
-      "description": "Coverage contract for test-quality-lint.",
+      "description": "Test Quality Lint is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -1911,14 +1911,14 @@
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier test-quality-lint",
+      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "test-quality-lint"
       ]
     },
     {
       "id": "upload-search-notification-binary-resilience",
-      "description": "Coverage contract for upload-search-notification-binary-resilience.",
+      "description": "Upload Search Notification Binary Resilience is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1927,14 +1927,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier resilience",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "resilience"
       ]
     },
     {
       "id": "ux-viewport-boundary",
-      "description": "Coverage contract for ux-viewport-boundary.",
+      "description": "UX Viewport Boundary is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1943,14 +1943,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier ux-viewport-smoke",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "ux-viewport-smoke"
       ]
     },
     {
       "id": "ux-viewport-boundary-full",
-      "description": "Coverage contract for ux-viewport-boundary-full.",
+      "description": "UX Viewport Boundary Full is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1960,14 +1960,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier ux-viewport-boundaries",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "ux-viewport-boundaries"
       ]
     },
     {
       "id": "ux-viewport-visual",
-      "description": "Coverage contract for ux-viewport-visual.",
+      "description": "UX Viewport Visual is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
       "risk": "medium",
       "evidencePaths": [
@@ -1977,14 +1977,14 @@
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "browser evidence declared by tier ux-viewport-visual",
+      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "ux-viewport-visual"
       ]
     },
     {
       "id": "view-count-batch-flush",
-      "description": "Coverage contract for view-count-batch-flush.",
+      "description": "View Count Batch Flush is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -1992,14 +1992,14 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-qps-view-count-flush",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-qps-view-count-flush"
       ]
     },
     {
       "id": "visitlog-hot-stats-invalidation-coalescing",
-      "description": "Coverage contract for visitlog-hot-stats-invalidation-coalescing.",
+      "description": "Visitlog Hot Stats Invalidation Coalescing is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
@@ -2007,7 +2007,7 @@
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "perf evidence declared by tier backend-qps-visitlog-invalidation",
+      "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-qps-visitlog-invalidation"
       ]

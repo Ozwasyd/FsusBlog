@@ -15,6 +15,8 @@ const preflightLogFile = path.join(root, '.tmp/gate-logs/preflight.json')
 const summaryStages = ['setup', 'restore', 'install', 'bootstrap', 'test', 'artifact', 'summary']
 const coverageAssertionTypes = ['static', 'unit', 'integration', 'runtime', 'browser', 'perf', 'fuzz', 'mutation']
 const runtimeLikeCoverageAssertionTypes = new Set(['runtime', 'browser', 'perf', 'fuzz', 'mutation'])
+const coverageTemplateDescriptionPattern = /^Coverage contract for\b/i
+const genericCoverageMinimumRequirementPattern = /^(static|unit|integration|runtime|browser|perf|fuzz|mutation) evidence declared by tier\b/i
 const cadenceValues = ['pr', 'push', 'nightly', 'release-manual']
 const requiredForValues = ['fast', 'production', 'release-final', 'none']
 const aliases = new Map([
@@ -207,6 +209,13 @@ function isStaticOnlyEvidencePath(value) {
     || normalized.startsWith('src/frontend/src/generated/')
 }
 
+function unitTestEvidencePath(value) {
+  const normalized = String(value ?? '').replaceAll(path.sep, '/')
+  return /^tests\/backend\/Unit\/.+\.cs$/.test(normalized)
+    || /^tests\/frontend\/unit\/.+\.(test|spec)\.[cm]?[jt]sx?$/.test(normalized)
+    || /^tests\/frontend\/property\/.+\.(test|spec)\.[cm]?[jt]sx?$/.test(normalized)
+}
+
 function validateCoverageRegistry(matrix) {
   const errors = []
   const { errors: registryErrors, entries } = loadCoverageRegistry()
@@ -229,15 +238,27 @@ function validateCoverageRegistry(matrix) {
     }
 
     if (entry.id !== coverageId) errors.push(`coverage ${coverageId} registry id mismatch`)
-    if (typeof entry.description !== 'string' || entry.description.length === 0) errors.push(`coverage ${coverageId}.description missing`)
+    if (typeof entry.description !== 'string' || entry.description.length === 0) {
+      errors.push(`coverage ${coverageId}.description missing`)
+    } else if (coverageTemplateDescriptionPattern.test(entry.description)) {
+      errors.push(`coverage ${coverageId}.description must describe the covered behavior, not use the generic Coverage contract template`)
+    }
     if (typeof entry.owner !== 'string' || entry.owner.length === 0) errors.push(`coverage ${coverageId}.owner missing`)
     if (!['low', 'medium', 'high', 'critical'].includes(entry.risk)) errors.push(`coverage ${coverageId}.risk invalid: ${entry.risk}`)
     if (!coverageAssertionTypes.includes(entry.assertionType)) errors.push(`coverage ${coverageId}.assertionType invalid: ${entry.assertionType}`)
     if (typeof entry.failClosedRule !== 'string' || entry.failClosedRule.length === 0) errors.push(`coverage ${coverageId}.failClosedRule missing`)
-    if (typeof entry.minimumRequirement !== 'string' || entry.minimumRequirement.length === 0) errors.push(`coverage ${coverageId}.minimumRequirement missing`)
+    if (typeof entry.minimumRequirement !== 'string' || entry.minimumRequirement.length === 0) {
+      errors.push(`coverage ${coverageId}.minimumRequirement missing`)
+    } else if (genericCoverageMinimumRequirementPattern.test(entry.minimumRequirement)) {
+      errors.push(`coverage ${coverageId}.minimumRequirement must state the minimum assertion or evidence, not repeat the tier type`)
+    }
     if (!Array.isArray(entry.evidencePaths) || entry.evidencePaths.length === 0) {
       errors.push(`coverage ${coverageId}.evidencePaths must be non-empty`)
       continue
+    }
+
+    if (entry.evidencePaths.every(unitTestEvidencePath) && entry.assertionType !== 'unit') {
+      errors.push(`coverage ${coverageId}.assertionType must be unit because all evidence paths are unit/property test files`)
     }
 
     const declaredPaths = new Set(tiers.flatMap((tier) => [...(tier.evidence ?? []), ...(tier.artifacts ?? [])]))
