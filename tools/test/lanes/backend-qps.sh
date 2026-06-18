@@ -68,6 +68,13 @@ const summary = {
   artifactDir: '.tmp/perf/backend-qps',
   expectedModes,
   resultCount: results.length,
+  evidenceModel: 'static-implementation-plus-runtime-measurement',
+  staticEvidenceResults: results.map((item) => item.staticEvidence ?? null),
+  runtimeMeasurementResults: results.map((item) => item.runtimeMeasurement ?? null),
+  capacityConclusion: {
+    countedAsCapacity: false,
+    reason: 'backend-qps summary separates static implementation evidence from runtime probes; capacity conclusions come from load or benchmark lanes'
+  },
   results
 }
 
@@ -145,7 +152,7 @@ case "$MODE" in
     route="/api/binary/comment/{articleId}"
     checks=(comment-thread-frame-cache comment-reply-frame-cache user-comment-frame-cache invalidation-prefix)
     require_token "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs" "BuildCommentThreadFrameIdentity"
-    require_token "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs" "EncodeCommentReplyCursor"
+    require_token "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs" "WriteCommentReplyCursor"
     require_token "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "CommentCursorFrame"
     ;;
   hotread)
@@ -167,16 +174,17 @@ case "$MODE" in
   risk-filter)
     route="public_read:risk-filter"
     checks=(zero-risk-microcache no-public-read-lowercase stable-partition-key)
-    require_token "src/backend/Infrastructure/Security/CrawlerRiskService.cs" "ZeroRiskTtl"
+    require_token "src/backend/Infrastructure/Security/CrawlerRiskService.cs" "ZeroRiskCacheTtlSeconds"
     require_token "src/backend/Infrastructure/Security/CrawlerRiskService.cs" "zeroRiskCache"
     require_token "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs" "GetPublicReadPartitionPath"
     ;;
   related-reading)
-    route="/api/public/articles/{articleId}/related"
+    route="/api/binary/article/{articleId}/related.aeds"
     checks=(versioned-related-cache output-cache-tag)
     require_token "src/backend/Services/Distribution/RelatedReadingService.cs" "related-reading:"
     require_token "src/backend/Services/Distribution/RelatedReadingService.cs" "ArticleListVersion"
-    require_token "src/backend/Modules/Endpoints/DistributionEndpoints.cs" ".CacheOutput(static builder => builder"
+    require_token "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs" "AedsFrameType.ArticleRelatedReading"
+    require_token "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs" "CacheTag.ArticleList.ToOutputCacheTag()"
     ;;
   list-pagination)
     route="/api/binary/article/list/home/{page}/{size}.aeds"
@@ -250,6 +258,9 @@ jq \
     | .mode = $mode
     | .generatedAt = $generatedAt
     | .checks = $checks
+    | .staticEvidence.checks = $checks
+    | .runtimeMeasurement.requestPlan.route = $route
+    | .runtimeMeasurement.requestPlan.trafficMode = $mode
     | .staticImplementationChecks = ($checksCsv | split(",") | map(select(length > 0)))' \
   "$artifact" > "$tmp_artifact"
 mv "$tmp_artifact" "$artifact"

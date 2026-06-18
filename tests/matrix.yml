@@ -773,7 +773,7 @@ tiers:
     exclusiveResources: []
     phase: 3
     cost: medium
-    resourceClass: benchmark
+    resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -800,7 +800,7 @@ tiers:
     exclusiveResources: []
     phase: 3
     cost: medium
-    resourceClass: benchmark
+    resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -827,7 +827,7 @@ tiers:
     exclusiveResources: []
     phase: 3
     cost: medium
-    resourceClass: benchmark
+    resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -854,7 +854,7 @@ tiers:
     exclusiveResources: []
     phase: 3
     cost: medium
-    resourceClass: benchmark
+    resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -881,7 +881,7 @@ tiers:
     exclusiveResources: []
     phase: 3
     cost: medium
-    resourceClass: benchmark
+    resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -908,7 +908,7 @@ tiers:
     exclusiveResources: []
     phase: 3
     cost: medium
-    resourceClass: benchmark
+    resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -935,7 +935,7 @@ tiers:
     exclusiveResources: []
     phase: 3
     cost: medium
-    resourceClass: benchmark
+    resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -962,7 +962,7 @@ tiers:
     exclusiveResources: []
     phase: 3
     cost: medium
-    resourceClass: benchmark
+    resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -989,7 +989,7 @@ tiers:
     exclusiveResources: []
     phase: 3
     cost: medium
-    resourceClass: benchmark
+    resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -1016,7 +1016,7 @@ tiers:
     exclusiveResources: []
     phase: 3
     cost: medium
-    resourceClass: benchmark
+    resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -1043,7 +1043,7 @@ tiers:
     exclusiveResources: []
     phase: 3
     cost: medium
-    resourceClass: benchmark
+    resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -1097,7 +1097,7 @@ tiers:
     exclusiveResources: []
     phase: 3
     cost: medium
-    resourceClass: benchmark
+    resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -1135,7 +1135,7 @@ tiers:
     shardable: false
     defaultShards: 1
     risk: high
-    coverage: [backend-qps-implementation-evidence]
+    coverage: [backend-qps-static-and-runtime-evidence]
     artifacts: [.tmp/perf/backend-qps, .tmp/release-evidence/backend-qps-summary.json]
     evidence: [.tmp/release-evidence/backend-qps-summary.json]
     ciJob: backend-qps

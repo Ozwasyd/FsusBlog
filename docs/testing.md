@@ -87,7 +87,7 @@ Flaky 治理由 `tests/flaky.yml` 和 `tools/ci/check-flaky-registry.mjs` 控制
 
 性能证据默认采用项目内基线：single process、Kestrel-only、无 nginx、无 CDN、无 reverse-proxy cache、无代理压缩层计入结果。nginx/Caddy/CDN 可以作为生产部署层存在，但相关数据必须写入独立的 `optional_deployment_layer`，并标记 `counted_as_project_baseline=false`。
 
-Backend QPS/perf artifact 必须包含以下 metadata。`backend-qps` lane 由 `tools/test/lanes/runtime-evidence-probe.mjs` 写入该块，Docker/wrk 性能脚本也必须保持同一语义：
+Backend QPS/perf artifact 必须包含以下 metadata。`backend-qps` collector 只产出静态实现证据和小样本 runtime probe，不得被解读为容量 benchmark；Docker/wrk 或 BenchmarkDotNet 性能脚本也必须保持同一 baseline 语义：
 
 ```yaml
 performance_baseline:
@@ -115,6 +115,7 @@ optional_deployment_layer:
 未来性能 issue / perf evidence checklist：
 
 - 明确目标属于 `kestrel-only internal baseline` 还是 `optional deployment-layer`；未声明时默认前者。
+- `backend-qps` summary 必须拆分 `staticEvidenceResults` 与 `runtimeMeasurementResults`：前者是 source guard，后者是 warm runtime probe；release evidence 不得把 static guard 的 RPS 字段当作容量结论。
 - QPS、latency、cache hit、compression 和 static file 结论不得混用 Kestrel-only 与代理层结果。
 - 如果 `baseUrl` 指向 nginx/CDN/reverse proxy，必须在证据中保留 `optional_deployment_layer`，并另行说明代理缓存、压缩和 buffering 设置。
 - 项目内优化 issue 不得把 CDN、nginx proxy cache 或代理压缩计为验收收益。
@@ -310,9 +311,9 @@ data-scale lanes 必须生成真实、可查询、可清理的 fixture。`tools/
 
 `backend-perf` 在矩阵中是 BenchmarkDotNet build/readiness tier，只构建并确认 benchmark 项目可用；真实回归运行由 `backend-benchmark-regression` 负责并输出 release evidence。
 
-`backend-qps` 是运行时 HTTP probe 证据，默认命名口径为 `backend-qps-kestrel-only`：调用本仓库启动的 Kestrel 进程，证据中 `performance_baseline.mode=kestrel-only`。如果要对 nginx/CDN/reverse proxy 做部署层对比，使用单独 artifact 名称（例如 `backend-qps-deployment-proxy-optional`），并保持 `optional_deployment_layer.counted_as_project_baseline=false`。
+`backend-qps` 是静态实现证据加小样本运行时探针，不是吞吐容量基准。collector 会先执行源码结构 guard，再对本仓库启动的 Kestrel 进程做少量 HTTP probe；证据中 `performance_baseline.mode=kestrel-only`，顶层 `capacityConclusion.countedAsCapacity=false`。如果要对 nginx/CDN/reverse proxy 做部署层对比，使用单独 artifact 名称（例如 `backend-qps-deployment-proxy-optional`），并保持 `optional_deployment_layer.counted_as_project_baseline=false`。
 
-CI 将 `backend-qps` 拆为两个阶段：`backend-qps-collectors` 使用 matrix 并发运行 `backend-qps-*` collector tier，每个 collector 在独立 runner 中 bootstrap 本地 app stack 并只上传 `.tmp/perf/backend-qps/<mode>.json`；`backend-qps` aggregate job 等待 collectors 与 `integration-runtime`，下载 collector artifacts 后运行 `tools/test/lanes/backend-qps.sh aggregate`，统一写入 `.tmp/release-evidence/backend-qps-summary.json`。collector 不再各自写 summary，避免并发覆盖；本地 `./tools/test.sh backend-qps` 仍通过 matrix DAG 先完成 bootstrap 和 collectors，再执行 aggregate。
+CI 将 `backend-qps` 拆为两个阶段：`backend-qps-collectors` 使用 matrix 并发运行 `backend-qps-*` collector tier，每个 collector 在独立 runner 中 bootstrap 本地 app stack 并只上传 `.tmp/perf/backend-qps/<mode>.json`；`backend-qps` aggregate job 等待 collectors 与 `integration-runtime`，下载 collector artifacts 后运行 `tools/test/lanes/backend-qps.sh aggregate`，统一写入 `.tmp/release-evidence/backend-qps-summary.json`。summary 必须包含 `evidenceModel=static-implementation-plus-runtime-measurement`、`staticEvidenceResults`、`runtimeMeasurementResults` 和非容量结论；collector 不再各自写 summary，避免并发覆盖；本地 `./tools/test.sh backend-qps` 仍通过 matrix DAG 先完成 bootstrap 和 collectors，再执行 aggregate。
 
 CI 的 file-only checks 与 app-stack checks 必须分阶段：`cross-stack-contract` 只运行 `backend-api-integration` 与 `cross-stack-contract` 这类仓库文件/生成契约检查；`security-static-fuzz` 只运行 `wasm-fuzz-regression` 与 `contract-fuzz`；需要本地 app stack 的 `endpoint-depth-runtime`、`integration-runtime`、`security-runtime` 保持独立 job。新增检查时若 `services: []` 且 `requiresBootstrap: none`，优先放入对应 file-only job，不能塞回 runtime job。
 

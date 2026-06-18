@@ -77,6 +77,10 @@ function nonNegativeNumber(value, label) {
   assert(typeof value === 'number' && Number.isFinite(value) && value >= 0, `${label} must be >= 0`)
 }
 
+function positiveInteger(value, label) {
+  assert(Number.isInteger(value) && value > 0, `${label} must be a positive integer`)
+}
+
 function validateRuntimeProbe(probe, label) {
   assert(probe && typeof probe === 'object', `${label}.runtime missing`)
   assert(probe.measurementSource === 'runtime-http-probe', `${label}.runtime.measurementSource must be runtime-http-probe`)
@@ -88,17 +92,34 @@ function validateRuntimeProbe(probe, label) {
   assert(Object.keys(probe.statusCounts ?? {}).some((status) => status.startsWith('2') || status.startsWith('3')), `${label}.runtime.statusCounts must include 2xx/3xx`)
 }
 
+function validateDataScaleMetric(metric, label, countField, sizeField) {
+  assert(metric && typeof metric === 'object', `${label} missing`)
+  assert(['ok', 'missing', 'blocked'].includes(metric.status), `${label}.status must be ok/missing/blocked`)
+  assert(metric.status === 'ok', `${label}.status must be ok`)
+  positiveInteger(metric[countField], `${label}.${countField}`)
+  positiveNumber(metric[sizeField], `${label}.${sizeField}`)
+}
+
 function validateBackendQps() {
   const summary = readJson('.tmp/release-evidence/backend-qps-summary.json')
   assert(summary.status === 'ok', 'backend-qps-summary.status must be ok')
   assert(Array.isArray(summary.results) && summary.results.length > 0, 'backend-qps-summary.results must be non-empty')
+  assert(summary.evidenceModel === 'static-implementation-plus-runtime-measurement', 'backend-qps-summary.evidenceModel must separate static and runtime evidence')
+  assert(summary.capacityConclusion?.countedAsCapacity === false, 'backend-qps-summary must not be counted as capacity benchmark')
   for (const result of summary.results) {
     const label = `backend-qps:${result.scenario ?? 'unknown'}`
-    assert(result.evidenceType === 'runtime-http-probe', `${label}.evidenceType must be runtime-http-probe`)
-    positiveNumber(result.rps, `${label}.rps`)
-    positiveNumber(result.p50Ms, `${label}.p50Ms`)
-    positiveNumber(result.p95Ms, `${label}.p95Ms`)
-    validateRuntimeProbe(result.runtime, label)
+    assert(result.evidenceType === 'backend-qps-collector-evidence', `${label}.evidenceType must be backend-qps-collector-evidence`)
+    assert(result.staticEvidence?.evidenceType === 'static-implementation-evidence', `${label}.staticEvidence.evidenceType must be static-implementation-evidence`)
+    assert(Array.isArray(result.staticEvidence?.checks) && result.staticEvidence.checks.length > 0, `${label}.staticEvidence.checks must be non-empty`)
+    assert(result.runtimeMeasurement?.evidenceType === 'runtime-http-probe', `${label}.runtimeMeasurement.evidenceType must be runtime-http-probe`)
+    positiveNumber(result.runtimeMeasurement?.requestPlan?.requestCount, `${label}.runtimeMeasurement.requestPlan.requestCount`)
+    positiveNumber(result.runtimeMeasurement?.requestPlan?.concurrency, `${label}.runtimeMeasurement.requestPlan.concurrency`)
+    assert(result.runtimeMeasurement?.requestPlan?.thresholdPolicy?.countedAsCapacity === false, `${label}.runtimeMeasurement threshold must not be capacity benchmark`)
+    positiveNumber(result.runtimeMeasurement?.rps, `${label}.runtimeMeasurement.rps`)
+    positiveNumber(result.runtimeMeasurement?.p50Ms, `${label}.runtimeMeasurement.p50Ms`)
+    positiveNumber(result.runtimeMeasurement?.p95Ms, `${label}.runtimeMeasurement.p95Ms`)
+    assert(result.capacityConclusion?.countedAsCapacity === false, `${label}.capacityConclusion must be false`)
+    validateRuntimeProbe(result.runtimeMeasurement?.runtime, label)
   }
 }
 
@@ -117,9 +138,24 @@ function validateDataScale() {
   assert(summary.observed?.seedManifest?.declared?.comments === summary.observed?.db?.commentRows, 'data-scale probe comment count must match declared')
   assert(summary.observed?.seedManifest?.observed?.articles === summary.observed?.db?.articleRows, 'data-scale probe article count must match seed observed')
   assert(summary.observed?.seedManifest?.observed?.comments === summary.observed?.db?.commentRows, 'data-scale probe comment count must match seed observed')
+  assert(summary.observed?.expected?.articles === summary.expectedSeed?.articles, 'data-scale probe expected articles must match lane declaration')
+  assert(summary.observed?.expected?.comments === summary.expectedSeed?.comments, 'data-scale probe expected comments must match lane declaration')
+  assert(summary.observed?.observed?.articles === summary.expectedSeed?.articles, 'data-scale probe observed articles must match expected')
+  assert(summary.observed?.observed?.comments === summary.expectedSeed?.comments, 'data-scale probe observed comments must match expected')
+  assert(summary.observed?.observed?.categories >= summary.observed?.expected?.categoriesAtLeast, 'data-scale category count must meet expected minimum')
+  assert(summary.observed?.observed?.tags >= summary.observed?.expected?.tagsAtLeast, 'data-scale tag count must meet expected minimum')
+  assert(summary.observed?.observed?.rootComments === summary.observed?.expected?.rootComments, 'data-scale root comment count must match expected')
+  assert(summary.observed?.observed?.nestedComments === summary.observed?.expected?.nestedComments, 'data-scale nested comment count must match expected')
+  assert(summary.observed?.categoryDistribution?.status === 'ok', 'data-scale category distribution status must be ok')
+  assert(Array.isArray(summary.observed?.categoryDistribution?.buckets) && summary.observed.categoryDistribution.buckets.length > 0, 'data-scale category distribution buckets must be non-empty')
+  assert(summary.observed?.categoryDistribution?.totalArticles === summary.expectedSeed?.articles, 'data-scale category distribution total must match expected articles')
+  assert(summary.observed?.tagDistribution?.status === 'ok', 'data-scale tag distribution status must be ok')
+  assert(Array.isArray(summary.observed?.tagDistribution?.buckets) && summary.observed.tagDistribution.buckets.length > 0, 'data-scale tag distribution buckets must be non-empty')
+  assert(summary.observed?.tagDistribution?.totalArticleTags >= summary.expectedSeed?.articles, 'data-scale tag distribution total must cover expected articles')
   assert(summary.observed?.db?.countsMatch === true, 'data-scale probe countsMatch must be true')
-  assert(typeof summary.observed?.search?.status === 'string', 'data-scale probe search status must be explicit')
-  assert(typeof summary.observed?.aot?.status === 'string', 'data-scale probe artifact status must be explicit')
+  validateDataScaleMetric(summary.observed?.search, 'data-scale.search', 'entryCount', 'indexSizeBytes')
+  validateDataScaleMetric(summary.observed?.aot, 'data-scale.aot', 'artifactCount', 'cacheSizeBytes')
+  validateDataScaleMetric(summary.observed?.hotRead, 'data-scale.hotRead', 'artifactSampleCount', 'sampleBytes')
   assert(summary.cleanup?.remaining?.articles === 0, 'data-scale cleanup must remove articles')
   assert(summary.cleanup?.remaining?.comments === 0, 'data-scale cleanup must remove comments')
   assert(summary.cleanup?.search?.residualCount === 0, 'data-scale cleanup search residual count must be explicit zero')
@@ -400,6 +436,100 @@ function main() {
 }
 
 function runSelfTest() {
+  const dataScaleSummaryFile = path.join(root, '.tmp/release-evidence/data-scale-summary.json')
+  const previousDataScaleSummary = fs.existsSync(dataScaleSummaryFile)
+    ? fs.readFileSync(dataScaleSummaryFile, 'utf8')
+    : null
+  fs.mkdirSync(path.dirname(dataScaleSummaryFile), { recursive: true })
+  try {
+    fs.writeFileSync(dataScaleSummaryFile, `${JSON.stringify({
+      status: 'ok',
+      tier: 'scale-s',
+      expectedSeed: { articles: 100, comments: 1000 },
+      seed: {
+        status: 'ok',
+        declared: { articles: 100, comments: 1000 },
+        expected: { articles: 100, comments: 1000 },
+        observed: { articles: 100, comments: 1000 }
+      },
+      observed: {
+        status: 'ok',
+        expected: {
+          articles: 100,
+          comments: 1000,
+          categoriesAtLeast: 4,
+          tagsAtLeast: 8,
+          rootComments: 500,
+          nestedComments: 500
+        },
+        observed: {
+          articles: 100,
+          comments: 1000,
+          categories: 4,
+          tags: 8,
+          rootComments: 500,
+          nestedComments: 500
+        },
+        categoryDistribution: {
+          status: 'ok',
+          totalArticles: 100,
+          buckets: [{ categoryId: 1, articleCount: 100 }]
+        },
+        tagDistribution: {
+          status: 'ok',
+          totalArticleTags: 100,
+          buckets: [{ tagId: 1, articleCount: 100 }]
+        },
+        seedManifest: {
+          declared: { articles: 100, comments: 1000 },
+          observed: { articles: 100, comments: 1000 }
+        },
+        db: {
+          articleRows: 100,
+          commentRows: 1000,
+          countsMatch: true
+        },
+        search: { status: 'unknown' },
+        aot: { status: 'unknown' },
+        hotRead: {
+          status: 'ok',
+          artifactSampleCount: 1,
+          sampleBytes: 1
+        },
+        runtime: {
+          measurementSource: 'runtime-http-probe',
+          sampleCount: 1,
+          rps: 1,
+          bytes: 1,
+          latencyMs: { p50: 1, p95: 1 },
+          statusCounts: { 200: 1 }
+        },
+        latencyMs: { p95: 1 }
+      },
+      cleanup: {
+        status: 'ok',
+        remaining: { articles: 0, comments: 0 },
+        search: { residualCount: 0 },
+        artifacts: { residualCount: 0 },
+        durationMs: 0
+      }
+    }, null, 2)}\n`)
+
+    let missingSearchArtifactFailedAsExpected = false
+    try {
+      validateDataScale()
+    } catch {
+      missingSearchArtifactFailedAsExpected = true
+    }
+    assert(missingSearchArtifactFailedAsExpected, 'self-test data-scale unknown search/artifact fixture must fail')
+  } finally {
+    if (previousDataScaleSummary === null) {
+      fs.rmSync(dataScaleSummaryFile, { force: true })
+    } else {
+      fs.writeFileSync(dataScaleSummaryFile, previousDataScaleSummary)
+    }
+  }
+
   let failedAsExpected = false
   try {
     validateFaultInjectionSummary({

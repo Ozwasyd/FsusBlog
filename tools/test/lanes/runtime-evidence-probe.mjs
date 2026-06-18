@@ -302,8 +302,130 @@ function queryPostgresScalar(sql) {
   return { available: false, error: lastError }
 }
 
+function queryPostgresJson(sql) {
+  const containers = [
+    process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME,
+    process.env.FSUSBLOG_PG_CONTAINER,
+    'fsusblog-dev-postgres'
+  ].filter(Boolean)
+  const uniqueContainers = [...new Set(containers)]
+  let lastError = 'postgres container env missing'
+  for (const container of uniqueContainers) {
+    const result = runDocker(['exec', '-i', container, 'psql', '-U', 'fsusblog', '-d', 'fsusblog', '-t', '-A', '-c', sql])
+    if (!result.ok) {
+      lastError = result.error
+      continue
+    }
+    try {
+      return { available: true, value: JSON.parse(result.stdout) }
+    } catch (error) {
+      return {
+        available: false,
+        error: `unexpected psql json: ${error instanceof Error ? error.message : String(error)}`
+      }
+    }
+  }
+  return { available: false, error: lastError }
+}
+
 function sqlStringLiteral(value) {
   return `'${String(value).replace(/'/g, "''")}'`
+}
+
+function firstExistingDirectory(candidates) {
+  for (const candidate of candidates.filter(Boolean)) {
+    const resolved = path.resolve(root, candidate)
+    if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
+      return resolved
+    }
+  }
+  return null
+}
+
+function measureDirectoryTree(candidates, label) {
+  const source = firstExistingDirectory(candidates)
+  if (!source) {
+    return {
+      status: 'missing',
+      source: null,
+      fileCount: 0,
+      sizeBytes: 0,
+      reason: `${label} directory was not found`
+    }
+  }
+
+  let fileCount = 0
+  let sizeBytes = 0
+  const stack = [source]
+  while (stack.length > 0) {
+    const current = stack.pop()
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const next = path.join(current, entry.name)
+      if (entry.isDirectory()) {
+        stack.push(next)
+      } else if (entry.isFile()) {
+        fileCount += 1
+        sizeBytes += fs.statSync(next).size
+      }
+    }
+  }
+
+  return {
+    status: fileCount > 0 && sizeBytes > 0 ? 'ok' : 'missing',
+    source: path.relative(root, source),
+    fileCount,
+    sizeBytes,
+    reason: fileCount > 0 && sizeBytes > 0 ? null : `${label} directory is empty`
+  }
+}
+
+function backendWwwrootDir() {
+  return process.env.FSUSBLOG_BACKEND_WWWROOT_DIR
+    || process.env.FSUSBLOG_WEB_ROOT
+    || path.join(root, 'src/backend/wwwroot')
+}
+
+function collectSearchMetric() {
+  const measured = measureDirectoryTree([
+    process.env.FSUSBLOG_SEARCH_INDEX_DIR,
+    process.env.FSUSBLOG_SEARCH_DIR,
+    path.join(backendWwwrootDir(), 'search')
+  ], 'search index')
+  return {
+    status: measured.status,
+    source: measured.source,
+    entryCount: measured.fileCount,
+    indexSizeBytes: measured.sizeBytes,
+    reason: measured.reason
+  }
+}
+
+function collectAotMetric() {
+  const measured = measureDirectoryTree([
+    process.env.FSUSBLOG_AOT_CACHE_DIR,
+    process.env.FSUSBLOG_PUBLIC_AOT_CACHE_DIR,
+    path.join(backendWwwrootDir(), 'aot-cache')
+  ], 'AOT cache')
+  return {
+    status: measured.status,
+    source: measured.source,
+    artifactCount: measured.fileCount,
+    cacheSizeBytes: measured.sizeBytes,
+    reason: measured.reason
+  }
+}
+
+function collectHotReadMetric(probe) {
+  const samples = Array.isArray(probe.samples) ? probe.samples : []
+  const binarySamples = samples.filter((sample) => sample.ok && Number(sample.bytes) > 0)
+  const sampleBytes = binarySamples.reduce((total, sample) => total + Number(sample.bytes || 0), 0)
+  return {
+    status: binarySamples.length > 0 && sampleBytes > 0 ? 'ok' : 'missing',
+    source: 'runtime-http-probe',
+    artifactSampleCount: binarySamples.length,
+    sampleBytes,
+    reason: binarySamples.length > 0 && sampleBytes > 0 ? null : 'runtime HotRead binary samples were empty'
+  }
 }
 
 function sleep(ms) {
@@ -2466,14 +2588,16 @@ function faultCaseSummary(item) {
 
 async function backendQps(mode, outFile) {
   const paths = backendQpsPaths[mode] ?? safeBinaryPaths
+  const requestCount = positiveInt(process.env.FSUSBLOG_BACKEND_QPS_REQUESTS || 12, 12)
+  const concurrency = positiveInt(process.env.FSUSBLOG_BACKEND_QPS_CONCURRENCY || 2, 2)
   const probe = await runHttpProbe(paths, {
-    iterations: process.env.FSUSBLOG_BACKEND_QPS_REQUESTS || 12,
-    concurrency: process.env.FSUSBLOG_BACKEND_QPS_CONCURRENCY || 2
+    iterations: requestCount,
+    concurrency
   })
   writeJson(outFile, {
     status: 'ok',
     scenario: mode,
-    evidenceType: 'runtime-http-probe',
+    evidenceType: 'backend-qps-collector-evidence',
     performance_baseline: performanceBaselineMetadata(),
     optional_deployment_layer: optionalDeploymentLayerMetadata(),
     route: paths[0],
@@ -2482,6 +2606,45 @@ async function backendQps(mode, outFile) {
     commitSha: gitSha(),
     checks: [],
     artifact: path.relative(root, outFile),
+    staticEvidence: {
+      status: 'ok',
+      evidenceType: 'static-implementation-evidence',
+      checks: []
+    },
+    runtimeMeasurement: {
+      status: 'ok',
+      evidenceType: 'runtime-http-probe',
+      requestPlan: {
+        scenario: mode,
+        paths,
+        requestCount,
+        concurrency,
+        thresholdPolicy: {
+          status: 'observed-only',
+          countedAsCapacity: false,
+          reason: 'backend-qps collectors verify warm runtime behavior; capacity thresholds belong to load/benchmark lanes'
+        }
+      },
+      measuredCounters: {
+        httpSamples: probe.sampleCount,
+        bytes: probe.bytes,
+        cacheSignalRatio: probe.cacheSignalRatio,
+        allocBytesPerRequest: null,
+        dbCommandsPerRequest: null,
+        redisCommandsPerRequest: null,
+        cacheHitRatio: null,
+        aedsCrcComputesPerRequest: null
+      },
+      rps: probe.rps,
+      p50Ms: probe.latencyMs.p50,
+      p95Ms: probe.latencyMs.p95,
+      p99Ms: probe.latencyMs.p99,
+      runtime: probe
+    },
+    capacityConclusion: {
+      countedAsCapacity: false,
+      reason: 'runtime probe output is not a throughput benchmark or release capacity conclusion'
+    },
     rps: probe.rps,
     p50Ms: probe.latencyMs.p50,
     p95Ms: probe.latencyMs.p95,
@@ -2590,7 +2753,35 @@ async function dataScale(tier, outFile) {
   const articleTagRows = queryPostgresScalar(`select count(*) from article_tag at join article a on a.id = at.articleid where a.title like ${prefixLiteral} || ':article:%';`)
   const rootCommentRows = queryPostgresScalar(`select count(*) from "comment" where content like ${prefixLiteral} || ':comment:%' and parent_id is null;`)
   const nestedCommentRows = queryPostgresScalar(`select count(*) from "comment" where content like ${prefixLiteral} || ':comment:%' and parent_id is not null and root_id is not null;`)
+  const categoryDistribution = queryPostgresJson(`
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'categoryId', categoryid,
+      'articleCount', article_count
+    ) order by categoryid), '[]'::jsonb)::text
+    from (
+      select categoryid, count(*)::integer as article_count
+      from article
+      where title like ${prefixLiteral} || ':article:%'
+      group by categoryid
+    ) category_counts;
+  `)
+  const tagDistribution = queryPostgresJson(`
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'tagId', tagid,
+      'articleCount', article_count
+    ) order by tagid), '[]'::jsonb)::text
+    from (
+      select article_tag.tagid, count(*)::integer as article_count
+      from article_tag
+      join article on article.id = article_tag.articleid
+      where article.title like ${prefixLiteral} || ':article:%'
+      group by article_tag.tagid
+    ) tag_counts;
+  `)
   const redisKeys = queryRedisDbSize()
+  const searchMetric = collectSearchMetric()
+  const aotMetric = collectAotMetric()
+  const hotReadMetric = collectHotReadMetric(probe)
   const expectedRootComments = Math.ceil(comments / 2)
   const expectedNestedComments = comments - expectedRootComments
   const observedCounts = [
@@ -2605,23 +2796,71 @@ async function dataScale(tier, outFile) {
     articleBodyRows,
     articleTagRows,
     rootCommentRows,
-    nestedCommentRows
+    nestedCommentRows,
+    categoryDistribution,
+    tagDistribution
   ]
   const countQueriesAvailable = observedCounts.every((item) => item.available)
+  const categoryDistributionTotal = categoryDistribution.available
+    ? categoryDistribution.value.reduce((total, item) => total + Number(item.articleCount || 0), 0)
+    : 0
+  const tagDistributionTotal = tagDistribution.available
+    ? tagDistribution.value.reduce((total, item) => total + Number(item.articleCount || 0), 0)
+    : 0
   const countsMatch = countQueriesAvailable
     && articleRows.value === articles
     && commentRows.value === comments
     && articleBodyRows.value === articles
     && categoryRows.value >= Math.min(articles, 4)
     && tagRows.value >= Math.min(Math.max(articles, 1), 8)
+    && categoryDistribution.value.length > 0
+    && tagDistribution.value.length > 0
+    && categoryDistributionTotal === articles
+    && tagDistributionTotal >= articles
     && rootCommentRows.value === expectedRootComments
     && nestedCommentRows.value === expectedNestedComments
     && (articles === 1 || (publishedRows.value > 0 && scheduledRows.value > 0 && archivedRows.value > 0 && deletedRows.value > 0))
-  const summaryStatus = countsMatch ? 'ok' : 'failed'
+  const artifactMetricsReady = searchMetric.status === 'ok'
+    && aotMetric.status === 'ok'
+    && hotReadMetric.status === 'ok'
+  const summaryStatus = countsMatch && artifactMetricsReady
+    ? 'ok'
+    : countsMatch
+      ? 'blocked'
+      : 'failed'
+  const error = !countsMatch
+    ? 'data-scale observed counts did not match expected tier fixture counts'
+    : !artifactMetricsReady
+      ? 'data-scale search/AOT/HotRead metrics missing'
+      : null
   writeJson(outFile, {
     status: summaryStatus,
     tier,
     namespace,
+    expected: {
+      articles,
+      comments,
+      categoriesAtLeast: Math.min(articles, 4),
+      tagsAtLeast: Math.min(Math.max(articles, 1), 8),
+      rootComments: expectedRootComments,
+      nestedComments: expectedNestedComments
+    },
+    observed: {
+      articles: articleRows.available ? articleRows.value : null,
+      comments: commentRows.available ? commentRows.value : null,
+      categories: categoryRows.available ? categoryRows.value : null,
+      tags: tagRows.available ? tagRows.value : null,
+      articleBodies: articleBodyRows.available ? articleBodyRows.value : null,
+      articleTags: articleTagRows.available ? articleTagRows.value : null,
+      rootComments: rootCommentRows.available ? rootCommentRows.value : null,
+      nestedComments: nestedCommentRows.available ? nestedCommentRows.value : null
+    },
+    categoryDistribution: categoryDistribution.available
+      ? { status: 'ok', totalArticles: categoryDistributionTotal, buckets: categoryDistribution.value }
+      : { status: 'missing', totalArticles: null, buckets: [], reason: categoryDistribution.error },
+    tagDistribution: tagDistribution.available
+      ? { status: 'ok', totalArticleTags: tagDistributionTotal, buckets: tagDistribution.value }
+      : { status: 'missing', totalArticleTags: null, buckets: [], reason: tagDistribution.error },
     seedManifest: {
       file: path.relative(root, seedFile),
       declared,
@@ -2663,25 +2902,20 @@ async function dataScale(tier, outFile) {
       keyCountSource: redisKeys.available ? 'redis-dbsize' : redisKeys.error
     },
     search: {
-      status: seed.search?.status ?? seed.searchArtifactRebuild?.status ?? 'unknown',
-      reason: seed.search?.reason ?? seed.searchArtifactRebuild?.reason ?? null,
-      indexSizeBytes: null,
+      ...searchMetric,
       fixtureSearchToken: `${prefix}:article:1`
     },
-    aot: {
-      status: seed.artifacts?.status ?? seed.searchArtifactRebuild?.status ?? 'unknown',
-      reason: seed.artifacts?.reason ?? seed.searchArtifactRebuild?.reason ?? null,
-      cacheSizeBytes: null
-    },
+    aot: aotMetric,
+    hotRead: hotReadMetric,
     latencyMs: probe.latencyMs,
     resources: { cpuPercent: null, rssBytes: null, gcCount: null },
     cleanup: { status: 'pending', reason: 'tools/data-scale/cleanup.sh deletes namespace-prefixed fixture rows after probe' },
     runtime: probe,
-    error: countsMatch ? null : 'data-scale observed counts did not match expected tier fixture counts',
+    error,
     generatedAt: probe.generatedAt
   })
   if (summaryStatus !== 'ok') {
-    throw new Error('data-scale observed counts did not match expected tier fixture counts')
+    throw new Error(error ?? `data-scale status ${summaryStatus}`)
   }
 }
 
