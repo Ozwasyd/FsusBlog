@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, onUnmounted, watch } from 'vue'
-import { RouterView, useRouter, useRoute } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useHead } from '@unhead/vue'
 
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
@@ -8,17 +8,24 @@ import { useWindowEvents } from '@/composables/useWindowEvents'
 import { handleRootAotClick } from '@/bootstrap/aotActionBridge'
 import { SESSION_EXPIRED_EVENT, type SessionExpiredDetail } from '@/bootstrap/sessionExpiryBridge'
 import { runtimePhase, runtimeReady } from '@/bootstrap/runtimeGate'
-import { isPublicSeoRouteName, isPublicShellRouteName } from '@/public-renderers/publicPageModel'
+import { isPublicShellRouteName } from '@/public-renderers/publicPageModel'
 import { useThemeRuntime } from '@/services/themeRuntime'
 import { FSUSBLOG_RENDER_PIPELINE_CONFIG } from '@/fsusui/renderPipeline'
-import FsusBlogRouteTransition from '@/components/ui/FsusBlogRouteTransition.vue'
-import { FsuTransition, fsusBlogMotionPresets } from '@/fsusui/motion'
+import {
+  FsuTransition,
+  fsusBlogMotionPresets,
+  runMotion,
+  useMotionRouteCleanup,
+  type MotionPhase
+} from '@/fsusui/motion'
 
 const router = useRouter()
 const route = useRoute()
 const { userStore, siteStore, syncAuthPhase, setRuntimePhase } = useSessionBootstrap()
 const FullAppRuntime = defineAsyncComponent(() => import('@/components/runtime/AppRuntime.vue'))
 const { mode } = useThemeRuntime()
+const routeCleanup = useMotionRouteCleanup()
+const cleanupByElement = new WeakMap<HTMLElement, () => boolean>()
 const headConfig = computed(() => ({
   titleTemplate: (titleChunk: string | undefined) => {
     const siteTitle = siteStore.siteInfo.title
@@ -33,7 +40,7 @@ const headConfig = computed(() => ({
 
 useHead(headConfig)
 
-const isPublicSeoRoute = computed(() => isPublicSeoRouteName(route.name))
+const isPublicShellRoute = computed(() => isPublicShellRouteName(route.name))
 
 const handleSessionExpired = (event: Event): void => {
   const detail = (event as CustomEvent<SessionExpiredDetail>).detail
@@ -51,7 +58,7 @@ const handleSessionExpired = (event: Event): void => {
 }
 
 function shouldHandleSpaAnchor(anchor: HTMLAnchorElement): boolean {
-  if (!runtimeReady.value || !isPublicSeoRoute.value) {
+  if (!runtimeReady.value || !isPublicShellRoute.value) {
     return false
   }
 
@@ -106,6 +113,43 @@ const onDocumentClick = (event: MouseEvent): void => {
     .catch(() => {})
 }
 
+function runAppRouteMotion(el: Element, phase: MotionPhase, done: () => void): void {
+  if (typeof HTMLElement === 'undefined' || !(el instanceof HTMLElement)) {
+    done()
+    return
+  }
+
+  let settled = false
+  const finish = (): void => {
+    if (settled) {
+      return
+    }
+    settled = true
+    cleanupByElement.get(el)?.()
+    cleanupByElement.delete(el)
+    done()
+  }
+
+  const controls = runMotion(el, {
+    name: fsusBlogMotionPresets.route,
+    phase,
+    onFinish: finish
+  })
+  const removeCleanup = routeCleanup.add(() => {
+    controls.cancel()
+    finish()
+  })
+  cleanupByElement.set(el, removeCleanup)
+}
+
+function runAppRouteEnter(el: Element, done: () => void): void {
+  runAppRouteMotion(el, 'enter', done)
+}
+
+function runAppRouteLeave(el: Element, done: () => void): void {
+  runAppRouteMotion(el, 'leave', done)
+}
+
 useWindowEvents([{ name: SESSION_EXPIRED_EVENT, handler: handleSessionExpired }])
 
 watch(
@@ -127,12 +171,19 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => route.fullPath,
+  () => routeCleanup.cleanup(),
+  { flush: 'pre' }
+)
+
 onMounted(() => {
   document.addEventListener('click', onDocumentClick, { passive: false })
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', onDocumentClick)
+  routeCleanup.cleanup()
 })
 </script>
 
@@ -141,7 +192,16 @@ onUnmounted(() => {
     :theme-mode="mode"
     :render-pipeline="FSUSBLOG_RENDER_PIPELINE_CONFIG"
   >
-    <RouterView v-if="isPublicSeoRoute" />
+    <router-view v-if="isPublicShellRoute" v-slot="{ Component }">
+      <Transition
+        mode="out-in"
+        :css="false"
+        @enter="runAppRouteEnter"
+        @leave="runAppRouteLeave"
+      >
+        <component :is="Component" :key="route.fullPath" />
+      </Transition>
+    </router-view>
     <div v-else class="app-wrapper w-full min-h-screen flex flex-col overflow-x-hidden">
       <FsuTransition :name="fsusBlogMotionPresets.banner">
         <div
@@ -158,9 +218,14 @@ onUnmounted(() => {
       </FsuTransition>
 
       <router-view v-slot="{ Component }">
-        <FsusBlogRouteTransition :name="fsusBlogMotionPresets.route">
-          <component :is="Component" />
-        </FsusBlogRouteTransition>
+        <Transition
+          mode="out-in"
+          :css="false"
+          @enter="runAppRouteEnter"
+          @leave="runAppRouteLeave"
+        >
+          <component :is="Component" :key="route.fullPath" />
+        </Transition>
       </router-view>
       <FullAppRuntime v-if="runtimeReady" />
     </div>

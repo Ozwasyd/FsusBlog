@@ -81,7 +81,7 @@ export function encodeRumMetricBatchRequest(batch: RumMetricBatch): Uint8Array {
   }
 
   for (const item of metrics) {
-    for (const [key, value] of Object.entries(item.metrics ?? {}).slice(0, RUM_MAX_METRIC_VALUES)) {
+    for (const [, value] of Object.entries(item.metrics ?? {}).slice(0, RUM_MAX_METRIC_VALUES)) {
       view.setFloat64(cursor, value, true)
       writeSliceRef(view, cursor + 8, parts[partIndex++])
       cursor += RUM_METRIC_VALUE_SIZE
@@ -89,7 +89,8 @@ export function encodeRumMetricBatchRequest(batch: RumMetricBatch): Uint8Array {
   }
 
   for (const item of metrics) {
-    for (const [key, value] of Object.entries(item.dimensions ?? {}).slice(0, RUM_MAX_DIMENSIONS)) {
+    const dimensions = Object.entries(item.dimensions ?? {}).slice(0, RUM_MAX_DIMENSIONS)
+    for (let index = 0; index < dimensions.length; index += 1) {
       writeSliceRef(view, cursor, parts[partIndex++])
       writeSliceRef(view, cursor + 8, parts[partIndex++])
       cursor += RUM_METRIC_DIMENSION_SIZE

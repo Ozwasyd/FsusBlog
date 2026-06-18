@@ -58,7 +58,7 @@ function readSidecarUrl(): string | null {
 
 function cacheHydrationPayload(payload: PublicHydrationPayload | null): PublicHydrationPayload | null {
   cachedPayload = payload;
-  return cachedPayload;
+  return payload;
 }
 
 export function readPublicHydrationPayload(): PublicHydrationPayload | null {
@@ -83,7 +83,7 @@ export function readPublicHydrationPayload(): PublicHydrationPayload | null {
     cacheHydrationPayload(null);
   }
 
-  return cachedPayload;
+  return cachedPayload ?? null;
 }
 
 export async function readPublicHydrationPayloadFromUrl(
@@ -162,5 +162,5 @@ export function replacePublicHydrationPayloadBinary(rawPayload: string | null): 
     cacheHydrationPayload(null);
   }
 
-  return cachedPayload;
+  return cachedPayload ?? null;
 }

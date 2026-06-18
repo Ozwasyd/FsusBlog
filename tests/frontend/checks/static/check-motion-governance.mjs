@@ -123,9 +123,26 @@ for (const token of [
 
 expectIncludes('src/frontend/src/bootstrap/fullApp.ts', 'app.use(FsuMotion)', 'FsusUI motion plugin registration')
 
-const appVue = expectIncludes('src/frontend/src/App.vue', '<FsusBlogRouteTransition', 'FsusUI route transition wrapper')
-if (!appVue.includes('fsusBlogMotionPresets.route')) {
-  errors.push('src/frontend/src/App.vue: route transition must use fsusBlogMotionPresets.route')
+const appVue = expectIncludes('src/frontend/src/App.vue', '<Transition', 'Vue route transition host')
+for (const token of [
+  'isPublicShellRoute',
+  'v-if="isPublicShellRoute"',
+  'runAppRouteMotion',
+  'runMotion',
+  'useMotionRouteCleanup',
+  'fsusBlogMotionPresets.route',
+  '@enter="runAppRouteEnter"',
+  '@leave="runAppRouteLeave"',
+  ':key="route.fullPath"'
+]) {
+  if (!appVue.includes(token)) {
+    errors.push(`src/frontend/src/App.vue: missing ${token}`)
+  }
+}
+for (const forbidden of ['isPublicSeoRouteName', 'v-if="isPublicSeoRoute"', '<RouterView v-if="isPublicSeoRoute"']) {
+  if (appVue.includes(forbidden)) {
+    errors.push(`src/frontend/src/App.vue: public shell route transition must not split on ${forbidden}`)
+  }
 }
 
 const routeTransition = expectIncludes(
@@ -133,7 +150,7 @@ const routeTransition = expectIncludes(
   'useMotionRouteCleanup',
   'route motion cleanup'
 )
-for (const token of ['runMotion', 'mode="out-in"', "phase: MotionPhase"]) {
+for (const token of ['runMotion', "mode: 'out-in'", 'routeKey', 'cloneVNode']) {
   if (!routeTransition.includes(token)) {
     errors.push(`src/frontend/src/components/ui/FsusBlogRouteTransition.vue: missing ${token}`)
   }
@@ -141,13 +158,13 @@ for (const token of ['runMotion', 'mode="out-in"', "phase: MotionPhase"]) {
 
 const blogLayout = expectIncludes(
   'src/frontend/src/layouts/BlogLayout.vue',
-  '<FsusBlogRouteTransition',
-  'public SPA route transition wrapper'
+  '@navigate="handleNavigate"',
+  'public shell SPA navigation handoff'
 )
-if (!blogLayout.includes('fsusBlogMotionPresets.route')) {
-  errors.push('src/frontend/src/layouts/BlogLayout.vue: public SPA route transition must use fsusBlogMotionPresets.route')
+if (!blogLayout.includes(':spa-navigation="isMounted"')) {
+  errors.push('src/frontend/src/layouts/BlogLayout.vue: public shell must enable SPA navigation after mount')
 }
-for (const forbidden of ['name="fade-fast"', '.fade-fast-']) {
+for (const forbidden of ['name="fade-fast"', '.fade-fast-', 'FsusBlogRouteTransition', 'isPublicSeoRouteName', 'v-if="isSeoShellRoute"']) {
   if (blogLayout.includes(forbidden)) {
     errors.push(`src/frontend/src/layouts/BlogLayout.vue: remove local public route transition ${forbidden}`)
   }

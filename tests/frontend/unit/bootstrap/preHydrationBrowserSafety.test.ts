@@ -36,9 +36,9 @@ describe('pre-hydration browser API safety contracts', () => {
   })
 
   it('keeps full-app public takeover render-visible state gated until hydration completes', () => {
-    expect(fullApp.indexOf('beginPublicTakeoverHydration()')).toBeLessThan(fullApp.indexOf('app.mount'))
-    expect(fullApp.indexOf('completePublicTakeoverHydration()')).toBeGreaterThan(fullApp.indexOf('app.mount'))
-    expect(blogLayout).toContain("publicTakeoverPhaseState.value !== 'hydrated'")
+    expect(fullApp.indexOf('beginPublicTakeoverCommit({')).toBeLessThan(fullApp.indexOf('app.mount'))
+    expect(fullApp.indexOf('completePublicTakeoverCommit({')).toBeGreaterThan(fullApp.indexOf('app.mount'))
+    expect(blogLayout).toContain("publicTakeoverPhaseState.value !== 'spa-active'")
     expect(blogLayout).toContain('isRuntimeAuthResolved: isMounted.value && runtimeReady.value')
   })
 })

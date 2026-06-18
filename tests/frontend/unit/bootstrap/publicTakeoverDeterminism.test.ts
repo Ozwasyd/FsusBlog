@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import {
   createPublicTakeoverSeed,
   normalizePublicComplianceConfig,
@@ -8,6 +8,24 @@ import {
 } from '@/public-renderers/publicSiteIdentity'
 import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIdentityDefaults'
 import { PUBLIC_SHELL_DEFAULTS } from '@/public-renderers/publicShellState'
+import {
+  beginPublicTakeoverCommit,
+  beginPublicTakeoverNavigation,
+  beginPublicTakeoverPrewarm,
+  canTransitionPublicTakeoverPhase,
+  completePublicTakeoverCommit,
+  completePublicTakeoverNavigation,
+  getPublicRuntimeOwner,
+  getPublicTakeoverPhase,
+  markPublicTakeoverPrepared,
+  resetPublicTakeover,
+  transitionPublicTakeoverPhase
+} from '@/bootstrap/publicTakeoverState'
+import {
+  abortPublicShellLifetime,
+  getPublicShellLifetimeAbortCount,
+  resetPublicShellLifetime
+} from '@/bootstrap/publicShellLifetime'
 
 const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
 const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
@@ -139,6 +157,54 @@ describe('public takeover site identity', () => {
 })
 
 describe('public takeover source contracts', () => {
+  beforeEach(() => {
+    resetPublicTakeover({ reason: 'test-reset' })
+  })
+
+  it('uses one deterministic public takeover state machine', () => {
+    expect(getPublicTakeoverPhase()).toBe('aot-idle')
+    expect(getPublicRuntimeOwner()).toBe('aot')
+    expect(canTransitionPublicTakeoverPhase('aot-idle', 'prewarming')).toBe(true)
+    expect(canTransitionPublicTakeoverPhase('aot-idle', 'spa-active')).toBe(false)
+
+    expect(beginPublicTakeoverPrewarm({ reason: 'idle' })).toBe(true)
+    expect(getPublicTakeoverPhase()).toBe('prewarming')
+    expect(markPublicTakeoverPrepared({ reason: 'route-ready' })).toBe(true)
+    expect(getPublicTakeoverPhase()).toBe('prepared')
+    expect(beginPublicTakeoverCommit({ reason: 'click' })).toBe(true)
+    expect(getPublicRuntimeOwner()).toBe('spa')
+    expect(completePublicTakeoverCommit({ reason: 'mounted' })).toBe(true)
+    expect(getPublicTakeoverPhase()).toBe('spa-active')
+  })
+
+  it('rejects illegal public takeover transitions without moving owner state', () => {
+    expect(transitionPublicTakeoverPhase('spa-active', { reason: 'illegal-test' })).toBe(false)
+    expect(getPublicTakeoverPhase()).toBe('aot-idle')
+    expect(getPublicRuntimeOwner()).toBe('aot')
+  })
+
+  it('keeps legacy public micro-navigation under AOT ownership', () => {
+    expect(beginPublicTakeoverNavigation({ reason: 'micro-navigation' })).toBe(true)
+    expect(getPublicTakeoverPhase()).toBe('navigating')
+    expect(getPublicRuntimeOwner()).toBe('aot')
+    expect(completePublicTakeoverNavigation({ reason: 'done' })).toBe(true)
+    expect(getPublicTakeoverPhase()).toBe('aot-idle')
+  })
+
+  it('aborts public shell lifetime listeners exactly once', () => {
+    const signal = resetPublicShellLifetime()
+    let abortEvents = 0
+    signal.addEventListener('abort', () => {
+      abortEvents += 1
+    })
+
+    abortPublicShellLifetime('commit')
+    abortPublicShellLifetime('commit-again')
+
+    expect(abortEvents).toBe(1)
+    expect(getPublicShellLifetimeAbortCount()).toBe(1)
+  })
+
   it('renders public layout from an immutable takeover seed until takeover completes', () => {
     const blogLayout = readRepoFile('src/frontend/src/layouts/BlogLayout.vue')
 
@@ -150,7 +216,7 @@ describe('public takeover source contracts', () => {
   it('keeps API-backed site store props out of the first public takeover shell render', () => {
     const blogLayout = readRepoFile('src/frontend/src/layouts/BlogLayout.vue')
 
-    expect(blogLayout).toContain("publicTakeoverPhaseState.value !== 'hydrated'")
+    expect(blogLayout).toContain("publicTakeoverPhaseState.value !== 'spa-active'")
     expect(blogLayout).toContain('const activeSiteIdentity = computed(() => createPublicSiteIdentity({')
     expect(blogLayout).toContain('siteDescription: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.siteDescription : siteStore.siteInfo.description')
     expect(blogLayout).toContain('siteTitle: activeSiteIdentity.value.siteTitle')

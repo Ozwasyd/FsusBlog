@@ -182,7 +182,7 @@ export const getCommentPolicySnapshot = (config?: ApiRequestConfig) =>
 
 function sendCommentMutation(
   data: CommentDto | CommentCreateV2Dto,
-  frameType: FrameType.CommentCreateRequest | FrameType.CommentCreateV2Request,
+  frameType: typeof FrameType.CommentCreateRequest | typeof FrameType.CommentCreateV2Request,
   config?: ApiRequestConfig
 ) {
   const validation = validateCommentContent(data.content ?? '')

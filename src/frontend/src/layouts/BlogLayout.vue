@@ -1,18 +1,13 @@
 <template>
   <PublicBlogLayoutShell
     v-bind="shellState"
+    :spa-navigation="isMounted"
+    @navigate="handleNavigate"
     @search="handleSearch"
     @search-focus="handleSearchFocus"
   >
     <router-view v-slot="{ Component }">
-      <component
-        :is="Component"
-        v-if="isSeoShellRoute"
-        :key="routeComponentKey"
-      />
-      <FsusBlogRouteTransition v-else :name="fsusBlogMotionPresets.route">
-        <component :is="Component" :key="routeComponentKey" />
-      </FsusBlogRouteTransition>
+      <component :is="Component" :key="route.fullPath" />
     </router-view>
   </PublicBlogLayoutShell>
 </template>
@@ -26,11 +21,8 @@ import { readPublicHydrationPayload } from '@/bootstrap/publicHydrationBootstrap
 import { runtimeReady } from '@/bootstrap/runtimeGate'
 import { publicTakeoverPhaseState } from '@/bootstrap/publicTakeoverState'
 import PublicBlogLayoutShell from '@/components/public/PublicBlogLayoutShell.vue'
-import FsusBlogRouteTransition from '@/components/ui/FsusBlogRouteTransition.vue'
-import { fsusBlogMotionPresets } from '@/fsusui/motion'
 import {
   isPublicSearchRouteName,
-  isPublicSeoRouteName,
   resolvePublicPageKind
 } from '@/public-renderers/publicPageModel'
 import { PUBLIC_SEARCH_ROUTE_NAME } from '@/public-renderers/publicRouteRegistry'
@@ -62,10 +54,8 @@ const hydrationKind = computed(() => {
   return resolvePublicPageKind(route.name)
 })
 
-const isSeoShellRoute = computed(() => isPublicSeoRouteName(route.name))
 const isSearchRoute = computed(() => isPublicSearchRouteName(route.name))
-const routeComponentKey = computed(() => route.name ? String(route.name) : route.fullPath)
-const shouldUseTakeoverShellSeed = computed(() => takeoverShellSeed !== null && publicTakeoverPhaseState.value !== 'hydrated')
+const shouldUseTakeoverShellSeed = computed(() => takeoverShellSeed !== null && publicTakeoverPhaseState.value !== 'spa-active')
 const activeSiteIdentity = computed(() => createPublicSiteIdentity({
   siteTitle: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.siteTitle : siteStore.siteInfo.title,
   siteDescription: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.siteDescription : siteStore.siteInfo.description,
@@ -131,6 +121,10 @@ const handleSearch = async (query: string): Promise<void> => {
   }
 
   await router.push({ name: PUBLIC_SEARCH_ROUTE_NAME, query: { q: query } })
+}
+
+const handleNavigate = async (href: string): Promise<void> => {
+  await router.push(href)
 }
 
 const handleSearchFocus = (): void => {

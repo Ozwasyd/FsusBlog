@@ -171,7 +171,7 @@ class NotificationStreamRuntime {
       if (buffer) {
         decodeNotificationApiErrorFrame(buffer)
       }
-      return normalizeHandshakeFailure(errorCode, response.status, this.currentMode)
+      return normalizeHandshakeFailure(errorCode ?? undefined, response.status, this.currentMode)
     } catch {
       return NotificationStreamFailureCodes.NetworkError
     }

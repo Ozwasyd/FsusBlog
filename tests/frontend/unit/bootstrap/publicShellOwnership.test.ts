@@ -33,8 +33,21 @@ describe('public shell ownership boundary', () => {
     expect(publicShell).toContain('force?: boolean')
     expect(publicShell).toContain('!options.force && target.pathname === current.pathname')
     expect(publicShell).toContain('force: true')
-    expect(publicShell.indexOf("window.addEventListener('popstate'"))
+    expect(publicShell.indexOf("addPublicShellEventListener(window, 'popstate'"))
       .toBeLessThan(publicShell.indexOf('force: true'))
+  })
+
+  it('owns public shell listeners through an abortable lifetime during SPA commit', () => {
+    const lifetime = readRepoFile('src/frontend/src/bootstrap/publicShellLifetime.ts')
+
+    expect(lifetime).toContain('AbortController')
+    expect(lifetime).toContain('abortPublicShellLifetime')
+    expect(lifetime).toContain('signal: getPublicShellLifetimeSignal()')
+    expect(fullApp).toContain("abortPublicShellLifetime('full-app-bootstrap')")
+    expect(publicShell).toContain('resetPublicShellLifetime()')
+    expect(publicShell).toContain('onPublicShellLifetimeAbort')
+    expect(publicShell).toContain("addPublicShellEventListener(document, 'click'")
+    expect(publicShell).toContain("addPublicShellEventListener(window, 'popstate'")
   })
 
   it('dispatches AOT action events through one shared helper', () => {

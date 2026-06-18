@@ -5,5 +5,5 @@ import { publicTakeoverPhaseState } from '@/bootstrap/publicTakeoverState'
 const hasInitialPublicHydrationSeed = Boolean(readPublicHydrationPayload())
 
 export function usePublicSpaNavigationMode(): ComputedRef<boolean> {
-  return computed(() => !hasInitialPublicHydrationSeed || publicTakeoverPhaseState.value === 'hydrated')
+  return computed(() => !hasInitialPublicHydrationSeed || publicTakeoverPhaseState.value === 'spa-active')
 }

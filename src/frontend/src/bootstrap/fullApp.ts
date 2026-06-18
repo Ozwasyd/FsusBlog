@@ -12,10 +12,11 @@ import { scheduleFullAppRuntime } from '@/bootstrap/runtimeGate'
 import { removeGlobalLoader } from '@/bootstrap/publicShellPrimitives'
 import { disposePublicHydrationApp } from '@/public-renderers/clientHydrate'
 import {
-  beginPublicTakeoverHydration,
-  completePublicTakeoverHydration,
-  resetPublicTakeoverHydration
+  beginPublicTakeoverCommit,
+  completePublicTakeoverCommit,
+  resetPublicTakeover
 } from '@/bootstrap/publicTakeoverState'
+import { abortPublicShellLifetime } from '@/bootstrap/publicShellLifetime'
 import { markStartup, measureStartup } from '@/bootstrap/startupProfiler'
 import { authSessionRuntime } from '@/services/authSessionRuntime'
 import '@/assets/main.css'
@@ -67,7 +68,8 @@ export function bootstrapFullApp(options?: { deferRuntime?: boolean; hydrate?: b
     const isPublicShellTakeover = options?.takeover === 'public-shell'
 
     if (isPublicShellTakeover) {
-      beginPublicTakeoverHydration()
+      beginPublicTakeoverCommit({ reason: 'full-app-bootstrap' })
+      abortPublicShellLifetime('full-app-bootstrap')
       disposePublicShellForClientMount()
     }
     const app = createApp(App)
@@ -104,7 +106,7 @@ export function bootstrapFullApp(options?: { deferRuntime?: boolean; hydrate?: b
     await router.isReady()
     markStartup('full-app-bootstrap:router-ready')
     if (isPublicShellTakeover) {
-      completePublicTakeoverHydration()
+      completePublicTakeoverCommit({ reason: 'full-app-mounted' })
     } else {
       markDirectPublicShellReady()
     }
@@ -115,7 +117,7 @@ export function bootstrapFullApp(options?: { deferRuntime?: boolean; hydrate?: b
   })().catch((error) => {
     bootstrapPromise = null
     if (options?.takeover === 'public-shell') {
-      resetPublicTakeoverHydration()
+      resetPublicTakeover({ reason: 'full-app-bootstrap-failed' })
     }
     throw error
   })

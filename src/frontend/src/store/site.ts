@@ -14,7 +14,9 @@ import {
   normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity'
 
-export const DEFAULT_SITE_BRAND_CONFIG = {
+type SiteBrandConfig = Omit<SeoConfigPublic, 'title' | 'description' | 'keywords' | 'author' | 'ogImage' | 'baseUrl'>
+
+export const DEFAULT_SITE_BRAND_CONFIG: SiteBrandConfig = {
   faviconSvgUrl: '/favicon.svg',
   faviconIcoUrl: '/favicon.ico',
   faviconPngUrl: '',
@@ -33,9 +35,8 @@ export const DEFAULT_SITE_BRAND_CONFIG = {
   adminCollapsedIconUrl: '',
   loginLogoUrl: '',
   loginIconUrl: ''
-} as const
+}
 
-const DEFAULT_SITE_DESCRIPTION = PUBLIC_SITE_IDENTITY_DEFAULTS.siteDescription
 const DEFAULT_SITE_KEYWORDS = PUBLIC_SITE_IDENTITY_DEFAULTS.siteKeywords
 
 function resolveBaseUrl(): string {

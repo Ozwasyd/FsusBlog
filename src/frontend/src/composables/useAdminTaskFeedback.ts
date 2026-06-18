@@ -12,7 +12,7 @@ const DEFAULT_SETTLE_MS = 2_600
 
 function normalizeKeys(keys: FeedbackKeyInput): string[] {
   if (!keys) return []
-  return Array.isArray(keys) ? [...keys] : [keys]
+  return typeof keys === 'string' ? [keys] : [...keys]
 }
 
 function errorDetail(error: unknown, fallback: string): string {

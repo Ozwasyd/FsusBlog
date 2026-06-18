@@ -30,10 +30,10 @@ describe('usePublicSpaNavigationMode', () => {
 
     expect(spaNavigation.value).toBe(false)
 
-    takeoverState.beginPublicTakeoverHydration()
+    takeoverState.beginPublicTakeoverCommit()
     expect(spaNavigation.value).toBe(false)
 
-    takeoverState.completePublicTakeoverHydration()
+    takeoverState.completePublicTakeoverCommit()
     expect(spaNavigation.value).toBe(true)
   })
 

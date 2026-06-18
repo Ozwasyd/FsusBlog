@@ -8,7 +8,7 @@
     <WorkbenchPanel
       title="当前阶段"
       :caption="section.caption"
-      title-level="2"
+      :title-level="2"
     >
       <div class="identity-center-placeholder__body">
         <p>{{ section.body }}</p>

@@ -19,6 +19,17 @@ import { getMe, type CurrentUserSnapshot } from '@/api/auth'
 import { getPrefersReducedMotion, resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
 import { createPublicShellViewState } from '@/public-renderers/publicShellViewState'
 import { settlePublicNavigationMotionForShell } from '@/bootstrap/publicShellMotion'
+import {
+  addPublicShellEventListener,
+  onPublicShellLifetimeAbort,
+  resetPublicShellLifetime
+} from '@/bootstrap/publicShellLifetime'
+import {
+  beginPublicTakeoverNavigation,
+  completePublicTakeoverNavigation,
+  getPublicRuntimeOwner,
+  markPublicTakeoverFallback
+} from '@/bootstrap/publicTakeoverState'
 
 function isModifiedEvent(event: MouseEvent): boolean {
   return event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
@@ -379,11 +390,8 @@ let commentsIdleTask: number | null = null
 let commentsFallbackTimer: number | null = null
 let commentsIntersectionObserver: IntersectionObserver | null = null
 let commentsActivationVersion = 0
-let publicTakeoverStarted = false
-let publicTakeoverCompleted = false
 let publicTakeoverPromise: Promise<void> | null = null
 let publicShellNavigationRemountCount = 0
-let publicTakeoverTriggersBound = false
 let authResolutionVersion = 0
 let homeHotArticlesIslandModulePromise: Promise<typeof import('@/public-renderers/homeHotArticlesIsland')> | null = null
 let commentsIslandModulePromise: Promise<typeof import('@/public-renderers/commentsIsland')> | null = null
@@ -557,7 +565,7 @@ function waitForDocumentInteractive(): Promise<void> {
 }
 
 async function startPublicTakeover(reason: 'pointerdown' | 'keydown' | 'scroll' | 'search-focus' | 'click'): Promise<void> {
-  if (publicTakeoverCompleted) {
+  if (getPublicRuntimeOwner() === 'spa') {
     return
   }
 
@@ -565,16 +573,18 @@ async function startPublicTakeover(reason: 'pointerdown' | 'keydown' | 'scroll' 
     return await publicTakeoverPromise
   }
 
-  publicTakeoverStarted = true
   clearDynamicIslands()
   publicTakeoverPromise = bootstrapFullApp({
     deferRuntime: true,
     takeover: 'public-shell'
   }).then(() => {
-    publicTakeoverCompleted = true
     emitTelemetry('public_shell_takeover_completed', { reason }, 'info')
   }).catch((error) => {
-    publicTakeoverStarted = false
+    markPublicTakeoverFallback({
+      reason: 'full-app-takeover-failed',
+      source: reason,
+      target: window.location.href
+    })
     emitTelemetry('public_shell_takeover_failed', {
       reason,
       error: error instanceof Error ? error.message : String(error)
@@ -582,7 +592,7 @@ async function startPublicTakeover(reason: 'pointerdown' | 'keydown' | 'scroll' 
     navigateWithDocumentRequest(window.location.href)
     throw error
   }).finally(() => {
-    if (!publicTakeoverCompleted) {
+    if (getPublicRuntimeOwner() !== 'spa') {
       publicTakeoverPromise = null
     }
   })
@@ -591,7 +601,7 @@ async function startPublicTakeover(reason: 'pointerdown' | 'keydown' | 'scroll' 
 }
 
 export function schedulePublicTakeover(reason: 'pointerdown' | 'keydown' | 'scroll' | 'search-focus' | 'click'): void {
-  if (publicTakeoverStarted || publicTakeoverCompleted) {
+  if (publicTakeoverPromise || getPublicRuntimeOwner() === 'spa') {
     return
   }
 
@@ -599,13 +609,8 @@ export function schedulePublicTakeover(reason: 'pointerdown' | 'keydown' | 'scro
 }
 
 function bindPublicTakeoverTriggers(): void {
-  if (publicTakeoverTriggersBound) {
-    return
-  }
-
-  publicTakeoverTriggersBound = true
-  window.addEventListener('fsus:public-shell:takeover', () => schedulePublicTakeover('click'))
-  window.addEventListener('fsus:public-shell:search-focus', () => schedulePublicTakeover('search-focus'))
+  addPublicShellEventListener(window, 'fsus:public-shell:takeover', () => schedulePublicTakeover('click'))
+  addPublicShellEventListener(window, 'fsus:public-shell:search-focus', () => schedulePublicTakeover('search-focus'))
 }
 
 function isPublicMicroRoute(href: string): boolean {
@@ -817,14 +822,14 @@ function refreshPublicShellAuthState(): void {
   const version = ++authResolutionVersion
   void getMe()
     .then((user) => {
-      if (version !== authResolutionVersion || publicTakeoverStarted || publicTakeoverCompleted) {
+      if (version !== authResolutionVersion || getPublicRuntimeOwner() === 'spa') {
         return
       }
 
       applyPublicShellAuthState(resolvePublicShellAuthState(user))
     })
     .catch(() => {
-      if (version !== authResolutionVersion || publicTakeoverStarted || publicTakeoverCompleted) {
+      if (version !== authResolutionVersion || getPublicRuntimeOwner() === 'spa') {
         return
       }
 
@@ -1050,6 +1055,10 @@ async function navigateWithinPublicShell(
   const controller = new AbortController()
   activeNavigationController = controller
   const navigationToken = ++activeNavigationToken
+  beginPublicTakeoverNavigation({
+    reason: options.historyMode === 'replace' ? 'history-traversal' : 'micro-navigation',
+    target: target.toString()
+  })
 
   try {
     for (let attempt = 0; attempt <= PUBLIC_NAVIGATION_RETRY_DELAYS_MS.length; attempt += 1) {
@@ -1080,6 +1089,12 @@ async function navigateWithinPublicShell(
           options.popState,
           controller.signal
         )
+        if (activeNavigationController === controller) {
+          completePublicTakeoverNavigation({
+            reason: 'micro-navigation-complete',
+            target: target.toString()
+          })
+        }
         return
       }
 
@@ -1099,6 +1114,10 @@ async function navigateWithinPublicShell(
       return
     }
 
+    markPublicTakeoverFallback({
+      reason: 'micro-navigation-failed',
+      target: target.toString()
+    })
     navigateWithDocumentRequest(target.toString())
   } finally {
     if (activeNavigationController === controller) {
@@ -1143,8 +1162,8 @@ export function bindPreBootstrapNavigation(): void {
   }
 
   preBootstrapNavigationBound = true
-  document.addEventListener('click', (event) => {
-    if (publicTakeoverStarted || publicTakeoverCompleted) {
+  addPublicShellEventListener(document, 'click', (event) => {
+    if (getPublicRuntimeOwner() === 'spa') {
       return
     }
 
@@ -1203,8 +1222,8 @@ export function bindPopStateNavigation(): void {
     history.scrollRestoration = 'manual'
   }
 
-  window.addEventListener('popstate', (event) => {
-    if (publicTakeoverStarted || publicTakeoverCompleted) {
+  addPublicShellEventListener(window, 'popstate', (event) => {
+    if (getPublicRuntimeOwner() === 'spa') {
       return
     }
 
@@ -1240,6 +1259,15 @@ async function hydratePublicShell(): Promise<void> {
 }
 
 export async function bootstrapPublicShell(): Promise<void> {
+  resetPublicShellLifetime()
+  onPublicShellLifetimeAbort(() => {
+    activeNavigationController?.abort()
+    activeNavigationController = null
+    clearDynamicIslands()
+    preBootstrapNavigationBound = false
+    popstateBound = false
+  })
+
   ensureThemeRuntime()
   if (isPublicShellDocument()) {
     document.body.setAttribute('data-fsusblog-public-first-paint', 'true')

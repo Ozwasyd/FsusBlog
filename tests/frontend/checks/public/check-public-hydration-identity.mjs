@@ -57,7 +57,8 @@ async function main() {
   assert(routerSource.includes('createMemoryHistory'), 'router/index.ts must support SSR memory history')
 
   const appSource = await readUtf8(appPath)
-  assert(appSource.includes('<RouterView v-if="isPublicSeoRoute" />'), 'App.vue must continue to route public SEO pages through the real router tree')
+  assert(appSource.includes('v-if="isPublicShellRoute"'), 'App.vue must route all public shell pages through the real router tree')
+  assert(appSource.includes('<Transition'), 'App.vue must keep public shell pages inside route motion')
 
   console.log('[check-public-hydration-identity] ok')
 }

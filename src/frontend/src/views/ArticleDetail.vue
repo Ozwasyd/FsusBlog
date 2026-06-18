@@ -318,7 +318,10 @@ const articleContentRoot = computed<HTMLElement | null>(() => {
   if (typeof HTMLElement !== 'undefined' && exposed instanceof HTMLElement) {
     return exposed
   }
-  return exposed?.value ?? null
+  if (exposed && typeof exposed === 'object' && 'value' in exposed) {
+    return exposed.value ?? null
+  }
+  return null
 })
 
 const {
