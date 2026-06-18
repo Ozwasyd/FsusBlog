@@ -86,6 +86,9 @@ function tierRow(tier) {
     `\`${tier.ciJob}\``,
     localTierCommand(tier),
     String(tier.phase),
+    tier.risk,
+    tier.cadence,
+    tier.requiredFor,
     tier.resourceClass,
     tier.cost,
     String(tier.maxParallel),
@@ -106,8 +109,8 @@ function tierRow(tier) {
 
 function tableFor(tiers) {
   const lines = [
-    '| Tier | CI job | Local command | Phase | Resource | Cost | Max parallel | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
-    '|---|---|---|---:|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
+    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Resource | Cost | Max parallel | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
+    '|---|---|---|---:|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
   ]
   for (const tier of tiers) {
     lines.push(tierRow(tier))

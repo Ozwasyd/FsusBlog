@@ -39,6 +39,8 @@ Matrix 同时声明调度元数据：`phase` 表示 CI DAG 阶段，`cost` 表�
 
 `phase` 是可执行 DAG 契约：任一 tier 的 dependency phase 必须小于等于该 tier phase，`tools/run-test-matrix.mjs validate` 会拒绝 phase 倒挂。`requiresBootstrap != none` 也必须有明确来源：matrix 依赖链能到达 `bootstrap`，或 tier 自身声明 `selfBootstraps: true`，或由 GitHub Actions job 手工先跑 bootstrap 并在 tier 上声明 `workflowBootstraps: true`。`tools/check-workflow-matrix-sync.mjs` 会反向校验 workflow 的手工 bootstrap 与 `workflowBootstraps` 元数据一致。
 
+`risk` 表示失败影响或回归风险，不表示运行频率；运行频率由 `cadence` 单独声明：`pr` 进入普通 PR/push quality gate，`push` 表示本地或 push 级聚合语义，`nightly` 必须与 `nightlyOnly: true` 一致，`release-manual` 必须与 `manualOnly: true` 一致。`requiredFor` 表示该 tier 计入哪个覆盖口径：`fast`、`production`、`release-final` 或 `none`。因此 production coverage 不会隐含 manual-only / nightly-only lane 已完成；release-final 可以单独要求 `release-manual` 证据。
+
 Matrix 也声明 setup/cache 元数据：`requiresNode`、`requiresDotnet`、`requiresPlaywright` 表示运行时需求，`cacheProfile` 表示依赖缓存需求。`cacheProfile=frontend` 必须使用 `actions/setup-node` 的 npm cache，并固定 `cache-dependency-path: src/frontend/package-lock.json`；`cacheProfile=backend` 必须使用 `~/.nuget/packages`，key 固定由 `*.csproj`、`*.props`、`*.targets`、`global.json`、`NuGet.config` 共同计算；`full` 同时要求两者。Playwright tier 只安装声明的浏览器：`chromium` tier 只安装 Chromium，cross-browser tier 使用 `${{ matrix.browser }}`。
 
 ### Frontend fast Vitest sharding

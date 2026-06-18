@@ -163,6 +163,24 @@ expectWorkflowSyncFailure(
   'workflow manual bootstrap must be backed by matrix metadata'
 )
 
+expectMatrixValidateFailure(
+  matrixSourceText.replace(/\n    cadence: [^\n]+\n/, '\n'),
+  'validate-matrix missing cadence',
+  'validate must require explicit cadence metadata'
+)
+
+expectMatrixValidateFailure(
+  setTierBooleanField(matrixSourceText, 'ux-viewport-visual', 'cadence', 'pr'),
+  'ux-viewport-visual.manualOnly requires cadence=release-manual',
+  'manual-only tiers must use release-manual cadence'
+)
+
+expectMatrixValidateFailure(
+  setTierBooleanField(matrixSourceText, 'release-final', 'requiredFor', 'production'),
+  'release-final.manualOnly must not be requiredFor=production',
+  'manual-only tiers must not count as ordinary production coverage'
+)
+
 run(['preflight'])
 run(['validate'])
 run(['plan', 'production'])

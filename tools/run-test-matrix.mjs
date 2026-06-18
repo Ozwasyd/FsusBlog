@@ -15,6 +15,8 @@ const preflightLogFile = path.join(root, '.tmp/gate-logs/preflight.json')
 const summaryStages = ['setup', 'restore', 'install', 'bootstrap', 'test', 'artifact', 'summary']
 const coverageAssertionTypes = ['static', 'unit', 'integration', 'runtime', 'browser', 'perf', 'fuzz', 'mutation']
 const runtimeLikeCoverageAssertionTypes = new Set(['runtime', 'browser', 'perf', 'fuzz', 'mutation'])
+const cadenceValues = ['pr', 'push', 'nightly', 'release-manual']
+const requiredForValues = ['fast', 'production', 'release-final', 'none']
 const aliases = new Map([
   ['coverage', 'coverage-gate'],
   ['backend-qps-runtime', 'backend-qps'],
@@ -44,6 +46,8 @@ const requiredFields = [
   'shardable',
   'defaultShards',
   'risk',
+  'cadence',
+  'requiredFor',
   'coverage',
   'artifacts',
   'evidence',
@@ -312,6 +316,33 @@ function validateMatrix(matrix) {
     if (typeof tier.phase === 'number' && tier.phase < 0) errors.push(`${tier.id}.phase must be zero or greater`)
     if (!['low', 'medium', 'high', 'critical'].includes(tier.risk)) {
       errors.push(`${tier.id}.risk is invalid: ${tier.risk}`)
+    }
+    if (!cadenceValues.includes(tier.cadence)) {
+      errors.push(`${tier.id}.cadence is invalid: ${tier.cadence}`)
+    }
+    if (!requiredForValues.includes(tier.requiredFor)) {
+      errors.push(`${tier.id}.requiredFor is invalid: ${tier.requiredFor}`)
+    }
+    if (tier.manualOnly === true && tier.cadence !== 'release-manual') {
+      errors.push(`${tier.id}.manualOnly requires cadence=release-manual`)
+    }
+    if (tier.manualOnly !== true && tier.cadence === 'release-manual') {
+      errors.push(`${tier.id}.cadence=release-manual requires manualOnly=true`)
+    }
+    if (tier.nightlyOnly === true && tier.cadence !== 'nightly') {
+      errors.push(`${tier.id}.nightlyOnly requires cadence=nightly`)
+    }
+    if (tier.nightlyOnly !== true && tier.cadence === 'nightly') {
+      errors.push(`${tier.id}.cadence=nightly requires nightlyOnly=true`)
+    }
+    if (tier.localOnly === true && tier.requiredFor !== 'none') {
+      errors.push(`${tier.id}.localOnly must use requiredFor=none`)
+    }
+    if (tier.manualOnly === true && tier.requiredFor === 'production') {
+      errors.push(`${tier.id}.manualOnly must not be requiredFor=production`)
+    }
+    if ((tier.risk === 'high' || tier.risk === 'critical') && (tier.cadence === 'pr' || tier.cadence === 'push') && tier.localOnly !== true && tier.requiredFor === 'none') {
+      errors.push(`${tier.id}.risk=${tier.risk} with cadence=${tier.cadence} needs requiredFor other than none`)
     }
     if (!['low', 'medium', 'high', 'very-high'].includes(tier.cost)) {
       errors.push(`${tier.id}.cost is invalid: ${tier.cost}`)
@@ -1205,6 +1236,8 @@ function listTiers(matrix) {
     const tags = [
       `job=${tier.ciJob}`,
       `risk=${tier.risk}`,
+      `cadence=${tier.cadence}`,
+      `requiredFor=${tier.requiredFor}`,
       tier.parallelizable ? 'parallel' : 'serial',
       tier.shardable ? `shardable:${tier.defaultShards}` : 'single'
     ]
@@ -1305,8 +1338,8 @@ function docs(matrix, outFile) {
     '',
     `Version: \`${matrix.version}\``,
     '',
-    '| Tier | CI job | Local command | Phase | Resource | Cost | Max parallel | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
-    '|---|---|---|---:|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
+    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Resource | Cost | Max parallel | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
+    '|---|---|---|---:|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
   ]
   for (const tier of matrix.tiers) {
     lines.push([
@@ -1314,6 +1347,9 @@ function docs(matrix, outFile) {
       `\`${tier.ciJob}\``,
       `\`./tools/test.sh ci-tier ${tier.id}\``,
       String(tier.phase),
+      tier.risk,
+      tier.cadence,
+      tier.requiredFor,
       tier.resourceClass,
       tier.cost,
       String(tier.maxParallel),
@@ -1377,6 +1413,8 @@ function evidencePlan(matrix, outFile) {
       artifacts: tier.artifacts,
       evidence: tier.evidence,
       risk: tier.risk,
+      cadence: tier.cadence,
+      requiredFor: tier.requiredFor,
       localOnly: tier.localOnly,
       nightlyOnly: tier.nightlyOnly,
       manualOnly: tier.manualOnly === true
