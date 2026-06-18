@@ -31,6 +31,7 @@ public sealed partial class FileService : IFileService
     private readonly string _cleanSubFolderWeb;
     private readonly string _sandboxAbsolutePath;
     private readonly string _sessionRootPath;
+    private readonly string _sessionRootAbsolutePath;
     private readonly UploadSessionCleanupQueue? _cleanupQueue;
 
     private static readonly string[] _allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"];
@@ -49,12 +50,15 @@ public sealed partial class FileService : IFileService
 
         string webRoot = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
         _folderPath = Path.Combine(webRoot, _subFolder);
-        _sessionRootPath = Path.Combine(_env.ContentRootPath, ".upload-sessions");
+        _sessionRootPath = Path.GetFullPath(Path.Combine(_env.ContentRootPath, ".upload-sessions"));
 
         string absPath = Path.GetFullPath(_folderPath);
         _sandboxAbsolutePath = absPath.EndsWith(Path.DirectorySeparatorChar)
             ? absPath
             : absPath + Path.DirectorySeparatorChar;
+        _sessionRootAbsolutePath = _sessionRootPath.EndsWith(Path.DirectorySeparatorChar)
+            ? _sessionRootPath
+            : _sessionRootPath + Path.DirectorySeparatorChar;
 
         _cleanSubFolderWeb = "/" + _subFolder.Trim('/', '\\').Replace('\\', '/');
 
@@ -188,13 +192,18 @@ public sealed partial class FileService : IFileService
     {
         RequestUploadSessionCleanup();
 
-        var record = await LoadSessionAsync(uploadId, cancellationToken);
+        if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId))
+        {
+            return Result<UploadStatusDto>.Failure(ErrorCode.Validation, "上传会话标识非法");
+        }
+
+        var record = await LoadSessionAsync(normalizedUploadId, cancellationToken);
         if (record is null)
         {
             return Result<UploadStatusDto>.Failure(ErrorCode.NotFound, "上传会话不存在或已过期");
         }
 
-        long uploadedBytes = await ResolveUploadedBytesAsync(uploadId, record, cancellationToken);
+        long uploadedBytes = await ResolveUploadedBytesAsync(normalizedUploadId, record, cancellationToken);
         if (record.UploadedBytes != uploadedBytes)
         {
             record.UploadedBytes = uploadedBytes;
@@ -219,7 +228,12 @@ public sealed partial class FileService : IFileService
     {
         RequestUploadSessionCleanup();
 
-        var record = await LoadSessionAsync(uploadId, cancellationToken);
+        if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId))
+        {
+            return Result<UploadPartMapDto>.Failure(ErrorCode.Validation, "上传会话标识非法");
+        }
+
+        var record = await LoadSessionAsync(normalizedUploadId, cancellationToken);
         if (record is null)
         {
             return Result<UploadPartMapDto>.Failure(ErrorCode.NotFound, "上传会话不存在或已过期");
@@ -245,13 +259,18 @@ public sealed partial class FileService : IFileService
             return Result<UploadPartAckDto>.Failure(ErrorCode.Validation, "上传分片为空");
         }
 
-        await using SessionLockLease sessionLock = await AcquireSessionLockAsync(uploadId, cancellationToken);
+        if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId))
+        {
+            return Result<UploadPartAckDto>.Failure(ErrorCode.Validation, "上传会话标识非法");
+        }
+
+        await using SessionLockLease sessionLock = await AcquireSessionLockAsync(normalizedUploadId, cancellationToken);
         try
         {
-            var record = await LoadSessionAsync(uploadId, cancellationToken);
+            var record = await LoadSessionAsync(normalizedUploadId, cancellationToken);
             if (record is null)
             {
-                RetireSessionLock(uploadId);
+                RetireSessionLock(normalizedUploadId);
                 return Result<UploadPartAckDto>.Failure(ErrorCode.NotFound, "上传会话不存在或已过期");
             }
 
@@ -278,7 +297,7 @@ public sealed partial class FileService : IFileService
             }
 
             string expectedPayloadHash = NormalizeHash(payloadHash);
-            string partPath = GetPartPath(uploadId, partNumber);
+            string partPath = GetPartPath(normalizedUploadId, partNumber);
             Result<string> writeResult = await BoundaryExecutor.ExecuteResultAsync(
                 async () => await WritePartAndComputeHashAsync(
                     part,
@@ -287,7 +306,7 @@ public sealed partial class FileService : IFileService
                     cancellationToken),
                 _ => ErrorDetail.Create(ErrorCode.InfraFailure, "分片写入失败"),
                 _logger,
-                $"upload-part:{uploadId}:{partNumber}");
+                $"upload-part:{normalizedUploadId}:{partNumber}");
             if (!writeResult.IsSuccess)
             {
                 return Result<UploadPartAckDto>.Failure(writeResult.Error);
@@ -312,13 +331,13 @@ public sealed partial class FileService : IFileService
             record.ExpiresAt = DateTime.UtcNow.Add(SessionTtl);
             if (!isNewPart && record.UploadedBytes == 0 && uploadedParts.Count > 0)
             {
-                record.UploadedBytes = await ResolveUploadedBytesAsync(uploadId, record, cancellationToken);
+                record.UploadedBytes = await ResolveUploadedBytesAsync(normalizedUploadId, record, cancellationToken);
             }
 
             await SaveSessionAsync(record, cancellationToken);
             return Result<UploadPartAckDto>.Success(new UploadPartAckDto
             {
-                UploadId = uploadId,
+                UploadId = normalizedUploadId,
                 PartNumber = partNumber,
                 Offset = offset,
                 Size = checked((int)part.Length),
@@ -331,13 +350,18 @@ public sealed partial class FileService : IFileService
 
     public async Task<Result<UploadCompleteDto>> CompleteUploadAsync(string uploadId, string? sha256, CancellationToken cancellationToken = default)
     {
-        await using SessionLockLease sessionLock = await AcquireSessionLockAsync(uploadId, cancellationToken);
+        if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId))
+        {
+            return Result<UploadCompleteDto>.Failure(ErrorCode.Validation, "上传会话标识非法");
+        }
+
+        await using SessionLockLease sessionLock = await AcquireSessionLockAsync(normalizedUploadId, cancellationToken);
         try
         {
-            var record = await LoadSessionAsync(uploadId, cancellationToken);
+            var record = await LoadSessionAsync(normalizedUploadId, cancellationToken);
             if (record is null)
             {
-                RetireSessionLock(uploadId);
+                RetireSessionLock(normalizedUploadId);
                 return Result<UploadCompleteDto>.Failure(ErrorCode.NotFound, "上传会话不存在或已过期");
             }
 
@@ -350,7 +374,7 @@ public sealed partial class FileService : IFileService
             int[] orderedParts = [.. uploadedParts.OrderBy(static value => value)];
             foreach (int partNumber in orderedParts)
             {
-                string partPath = GetPartPath(uploadId, partNumber);
+                string partPath = GetPartPath(normalizedUploadId, partNumber);
                 if (!File.Exists(partPath))
                 {
                     return Result<UploadCompleteDto>.Failure(ErrorCode.Validation, "上传分片不完整");
@@ -361,7 +385,7 @@ public sealed partial class FileService : IFileService
             string fileName = $"{Guid.NewGuid():N}{extension}";
             string finalPath = Path.Combine(_folderPath, fileName);
             string relativeUrl = $"{_cleanSubFolderWeb}/{fileName}";
-            string tempPath = Path.Combine(GetSessionPath(uploadId), $"assembled{extension}");
+            string tempPath = Path.Combine(GetSessionPath(normalizedUploadId), $"assembled{extension}");
             string expectedHash = NormalizeHash(sha256);
             if (expectedHash.Length == 0)
             {
@@ -370,14 +394,14 @@ public sealed partial class FileService : IFileService
 
             Result<AssembledUploadFile> assembleResult = await BoundaryExecutor.ExecuteResultAsync(
                 async () => await AssembleUploadAsync(
-                    uploadId,
+                    normalizedUploadId,
                     orderedParts,
                     tempPath,
                     computeHash: expectedHash.Length > 0,
                     cancellationToken),
                 _ => ErrorDetail.Create(ErrorCode.InfraFailure, "上传文件合并失败"),
                 _logger,
-                $"upload-complete:{uploadId}");
+                $"upload-complete:{normalizedUploadId}");
             if (!assembleResult.IsSuccess)
             {
                 return Result<UploadCompleteDto>.Failure(assembleResult.Error);
@@ -404,11 +428,11 @@ public sealed partial class FileService : IFileService
             }
 
             File.Move(tempPath, finalPath, true);
-            await DeleteSessionDirectoryAsync(uploadId);
+            await DeleteSessionDirectoryAsync(normalizedUploadId);
 
             return Result<UploadCompleteDto>.Success(new UploadCompleteDto
             {
-                UploadId = uploadId,
+                UploadId = normalizedUploadId,
                 Url = relativeUrl,
                 RelativeUrl = relativeUrl,
                 MimeType = record.MimeType,
@@ -476,15 +500,20 @@ public sealed partial class FileService : IFileService
 
     public async Task<Result<bool>> AbortUploadAsync(string uploadId, CancellationToken cancellationToken = default)
     {
-        await using SessionLockLease sessionLock = await AcquireSessionLockAsync(uploadId, cancellationToken);
-        string sessionPath = GetSessionPath(uploadId);
+        if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId))
+        {
+            return Result<bool>.Failure(ErrorCode.Validation, "上传会话标识非法");
+        }
+
+        await using SessionLockLease sessionLock = await AcquireSessionLockAsync(normalizedUploadId, cancellationToken);
+        string sessionPath = GetSessionPath(normalizedUploadId);
         if (!Directory.Exists(sessionPath))
         {
-            RetireSessionLock(uploadId);
+            RetireSessionLock(normalizedUploadId);
             return Result<bool>.Failure(ErrorCode.NotFound, "上传会话不存在");
         }
 
-        await DeleteSessionDirectoryAsync(uploadId);
+        await DeleteSessionDirectoryAsync(normalizedUploadId);
         return Result<bool>.Success(true);
     }
 
@@ -544,6 +573,12 @@ public sealed partial class FileService : IFileService
 
     private static async Task<SessionLockLease> AcquireSessionLockAsync(string uploadId, CancellationToken cancellationToken)
     {
+        if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId)
+            || !string.Equals(uploadId, normalizedUploadId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Upload session id is invalid.");
+        }
+
         while (true)
         {
             SessionLockEntry entry = _sessionLocks.GetOrAdd(uploadId, static _ => new SessionLockEntry());
@@ -565,10 +600,64 @@ public sealed partial class FileService : IFileService
         }
     }
 
-    private string GetSessionPath(string uploadId) => Path.Combine(_sessionRootPath, uploadId);
-    private string GetPartsPath(string uploadId) => Path.Combine(GetSessionPath(uploadId), "parts");
-    private string GetManifestPath(string uploadId) => Path.Combine(GetSessionPath(uploadId), "manifest.aeds");
-    private string GetPartPath(string uploadId, int partNumber) => Path.Combine(GetPartsPath(uploadId), $"{partNumber:D8}.part");
+    private string GetSessionPath(string uploadId)
+    {
+        if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId)
+            || !string.Equals(uploadId, normalizedUploadId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Upload session id is invalid.");
+        }
+
+        string sessionPath = Path.GetFullPath(Path.Combine(_sessionRootPath, normalizedUploadId));
+        if (!IsPathUnderSessionRoot(sessionPath))
+        {
+            throw new InvalidOperationException("upload session path escaped sandbox.");
+        }
+
+        return sessionPath;
+    }
+
+    private string GetPartsPath(string uploadId) => GetSessionChildPath(uploadId, "parts");
+    private string GetManifestPath(string uploadId) => GetSessionChildPath(uploadId, "manifest.aeds");
+    private string GetPartPath(string uploadId, int partNumber)
+        => GetSessionChildPath(uploadId, Path.Combine("parts", $"{partNumber:D8}.part"));
+
+    private string GetSessionChildPath(string uploadId, string relativePath)
+    {
+        string childPath = Path.GetFullPath(Path.Combine(GetSessionPath(uploadId), relativePath));
+        if (!IsPathUnderSessionRoot(childPath))
+        {
+            throw new InvalidOperationException("upload session child path escaped sandbox.");
+        }
+
+        return childPath;
+    }
+
+    private bool IsPathUnderSessionRoot(string path)
+        => path.StartsWith(_sessionRootAbsolutePath, StringComparison.OrdinalIgnoreCase);
+
+    private static bool TryNormalizeUploadId(string? uploadId, out string normalizedUploadId)
+    {
+        normalizedUploadId = string.Empty;
+        if (string.IsNullOrWhiteSpace(uploadId))
+        {
+            return false;
+        }
+
+        string candidate = uploadId.Trim();
+        if (candidate.Length > 64 || candidate.Contains('\0', StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (!Guid.TryParseExact(candidate, "N", out Guid parsed) || parsed == Guid.Empty)
+        {
+            return false;
+        }
+
+        normalizedUploadId = parsed.ToString("N");
+        return true;
+    }
 
     private static string NormalizeHash(string? value)
         => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant();
@@ -680,7 +769,10 @@ public sealed partial class FileService : IFileService
         }
 
         UploadSessionRecord? record = await ReadSessionAsync(manifestPath, cancellationToken);
-        if (record is null || record.ExpiresAt <= DateTime.UtcNow)
+        if (record is null
+            || !TryNormalizeUploadId(record.UploadId, out string recordUploadId)
+            || !string.Equals(recordUploadId, uploadId, StringComparison.Ordinal)
+            || record.ExpiresAt <= DateTime.UtcNow)
         {
             await DeleteSessionDirectoryAsync(uploadId);
             return null;
@@ -691,9 +783,14 @@ public sealed partial class FileService : IFileService
 
     private async Task SaveSessionAsync(UploadSessionRecord record, CancellationToken cancellationToken)
     {
-        string manifestPath = GetManifestPath(record.UploadId);
+        if (!TryNormalizeUploadId(record.UploadId, out string normalizedUploadId))
+        {
+            throw new InvalidOperationException("Upload session id is invalid.");
+        }
+
+        string manifestPath = GetManifestPath(normalizedUploadId);
         string tempPath = manifestPath + ".tmp";
-        byte[] payload = EncodeSession(record);
+        byte[] payload = EncodeSession(record with { UploadId = normalizedUploadId });
         await File.WriteAllBytesAsync(tempPath, payload, cancellationToken);
 
         File.Move(tempPath, manifestPath, true);
@@ -877,6 +974,13 @@ public sealed partial class FileService : IFileService
         foreach (string sessionPath in Directory.EnumerateDirectories(_sessionRootPath))
         {
             cancellationToken.ThrowIfCancellationRequested();
+            string fullSessionPath = Path.GetFullPath(sessionPath);
+            string uploadId = Path.GetFileName(fullSessionPath);
+            if (!IsPathUnderSessionRoot(fullSessionPath) || !TryNormalizeUploadId(uploadId, out string normalizedUploadId))
+            {
+                continue;
+            }
+
             string manifestPath = Path.Combine(sessionPath, "manifest.aeds");
             if (!File.Exists(manifestPath))
             {
@@ -886,7 +990,7 @@ public sealed partial class FileService : IFileService
                 }
 
                 Directory.Delete(sessionPath, true);
-                RetireSessionLock(Path.GetFileName(sessionPath));
+                RetireSessionLock(normalizedUploadId);
                 continue;
             }
 
@@ -902,7 +1006,7 @@ public sealed partial class FileService : IFileService
             if (shouldDelete)
             {
                 Directory.Delete(sessionPath, true);
-                RetireSessionLock(Path.GetFileName(sessionPath));
+                RetireSessionLock(normalizedUploadId);
             }
         }
     }
@@ -921,6 +1025,12 @@ public sealed partial class FileService : IFileService
 
     private async Task DeleteSessionDirectoryAsync(string uploadId)
     {
+        if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId))
+        {
+            return;
+        }
+
+        uploadId = normalizedUploadId;
         string sessionPath = GetSessionPath(uploadId);
         if (Directory.Exists(sessionPath))
         {

@@ -379,6 +379,8 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 资产库是作者工作台内的复用索引，不是公开文件浏览 API。索引只记录 `/uploads/illustration/*` 的正文图片和文章封面、alt text、来源文章、hash 与引用计数；重建操作先把失去引用的行标成 `referenceCount=0`，作者确认后再通过孤儿清理删除资产库记录。孤儿清理不删除上传文件本体；物理删除必须通过独立的文件删除动作和二次确认完成。
 
+分片上传会话的 `uploadId` 是服务端能力 token，不是客户端可构造路径。所有 `/api/binary/upload/{uploadId}` 后续动作只接受可规范化为 32 位 GUID `N` 格式的值；服务层在进入 session lock、manifest、parts 和 abort cleanup 前统一规范化，并用 `.upload-sessions` full path containment 作为最终文件系统边界。非法 `uploadId` 只能得到 validation/not found，不得触发目录遍历、递归删除或物理路径泄露。
+
 ### 评论治理
 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)、[`RegionLegalModerationService.cs`](../../src/backend/Services/Moderation/RegionLegalModerationService.cs)。

@@ -146,10 +146,20 @@ public static partial class BinaryEndpoints
         {
             var result = await fileService.AbortUploadAsync(uploadId, cancellationToken);
             return result.IsSuccess
-                ? BinaryResults.Frame(aeds, AedsFrameType.UploadStatus, writer => PodBinaryCodec.WriteUploadStatus(CreateAbortedUploadStatus(uploadId), writer))
+                ? BinaryResults.Frame(
+                    aeds,
+                    AedsFrameType.UploadStatus,
+                    writer => PodBinaryCodec.WriteUploadStatus(
+                        CreateAbortedUploadStatus(NormalizeUploadIdForResponse(uploadId)),
+                        writer))
                 : BinaryResults.FromError(result.Error, aeds);
         });
     }
+
+    private static string NormalizeUploadIdForResponse(string uploadId)
+        => Guid.TryParseExact(uploadId.Trim(), "N", out Guid parsed)
+            ? parsed.ToString("N")
+            : uploadId;
 
     private sealed class RequestBodyFormFile(Stream body, long length, string name, string fileName) : IFormFile
     {

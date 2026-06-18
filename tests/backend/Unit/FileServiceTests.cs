@@ -14,6 +14,21 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class FileServiceTests
 {
+    public static IEnumerable<object[]> InvalidUploadIds()
+    {
+        yield return [""];
+        yield return ["   "];
+        yield return ["../victim"];
+        yield return ["..%2fvictim"];
+        yield return ["x/y"];
+        yield return [@"x\y"];
+        yield return ["."];
+        yield return [".."];
+        yield return [new string('a', 65)];
+        yield return [Guid.NewGuid().ToString("D")];
+        yield return ["{" + Guid.NewGuid().ToString("D") + "}"];
+    }
+
     [Fact]
     public async Task CompleteUploadAsync_ReleasesSessionLockAfterCompletion()
     {
@@ -493,8 +508,9 @@ public sealed class FileServiceTests
         try
         {
             var svc = CreateService(root);
-            var result = await svc.GetUploadStatusAsync("nonexistent-id-12345");
+            var result = await svc.GetUploadStatusAsync(Guid.NewGuid().ToString("N"));
             Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCode.NotFound, result.Error.Code);
         }
         finally { Directory.Delete(root, recursive: true); }
     }
@@ -506,8 +522,9 @@ public sealed class FileServiceTests
         try
         {
             var svc = CreateService(root);
-            var result = await svc.GetUploadPartMapAsync("nonexistent-id-12345");
+            var result = await svc.GetUploadPartMapAsync(Guid.NewGuid().ToString("N"));
             Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCode.NotFound, result.Error.Code);
         }
         finally { Directory.Delete(root, recursive: true); }
     }
@@ -519,10 +536,74 @@ public sealed class FileServiceTests
         try
         {
             var svc = CreateService(root);
-            var result = await svc.AbortUploadAsync("nonexistent-id-12345");
+            var result = await svc.AbortUploadAsync(Guid.NewGuid().ToString("N"));
             Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCode.NotFound, result.Error.Code);
         }
         finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Theory]
+    [MemberData(nameof(InvalidUploadIds))]
+    public async Task AbortUploadAsync_InvalidUploadId_DoesNotDeleteSessionRootOrOutsideDirectory(string uploadId)
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            var svc = CreateService(root);
+            string sessionRoot = Path.Combine(root, ".upload-sessions");
+            string victim = Path.Combine(root, "victim");
+            Directory.CreateDirectory(victim);
+            await File.WriteAllTextAsync(Path.Combine(victim, "sentinel.txt"), "keep");
+
+            Result<bool> result = await svc.AbortUploadAsync(uploadId);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCode.Validation, result.Error.Code);
+            Assert.True(Directory.Exists(sessionRoot));
+            Assert.True(Directory.Exists(victim));
+            Assert.True(File.Exists(Path.Combine(victim, "sentinel.txt")));
+            Assert.Equal(0, GetSessionLockCount());
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(InvalidUploadIds))]
+    public async Task UploadSessionReadAndWriteOperations_RejectInvalidUploadIdWithoutRetainingLock(string uploadId)
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            var svc = CreateService(root);
+            byte[] payload = [0x89, 0x50, 0x4E, 0x47];
+
+            Result<UploadStatusDto> status = await svc.GetUploadStatusAsync(uploadId);
+            Result<UploadPartMapDto> partMap = await svc.GetUploadPartMapAsync(uploadId);
+            Result<UploadPartAckDto> upload = await svc.UploadPartAsync(uploadId, 0, 0, CreateFormFile(payload, "chunk"), null);
+            Result<UploadCompleteDto> complete = await svc.CompleteUploadAsync(uploadId, null);
+
+            Assert.False(status.IsSuccess);
+            Assert.False(partMap.IsSuccess);
+            Assert.False(upload.IsSuccess);
+            Assert.False(complete.IsSuccess);
+            Assert.Equal(ErrorCode.Validation, status.Error.Code);
+            Assert.Equal(ErrorCode.Validation, partMap.Error.Code);
+            Assert.Equal(ErrorCode.Validation, upload.Error.Code);
+            Assert.Equal(ErrorCode.Validation, complete.Error.Code);
+            Assert.Equal(0, GetSessionLockCount());
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]

@@ -664,13 +664,13 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
 
 源码：`src/shared/Contracts/Outputs/ServerResponseContracts.cs`
 
-所有上传端点在 `/api/binary/upload/` 路径下，需要 admin 角色。
+所有上传端点在 `/api/binary/upload/` 路径下，需要 admin 角色。`uploadId` 由服务端生成并返回，wire 格式固定为 32 位 GUID `N` 格式；status、part map、part upload、complete 和 abort 路由只接受该形态并规范化为小写 canonical 值，非法值返回 validation error，不会被当作文件系统路径继续解析。
 
 ### `UploadInitDto`（初始化响应）
 
 ```json
 {
-  "uploadId": "uuid",
+  "uploadId": "32-char-guid-n",
   "partSize": 5242880,
   "totalParts": 3,
   "expiresAt": "2026-01-01T01:00:00Z"
