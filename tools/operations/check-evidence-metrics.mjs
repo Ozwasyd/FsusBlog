@@ -92,6 +92,21 @@ function validateRuntimeProbe(probe, label) {
   assert(Object.keys(probe.statusCounts ?? {}).some((status) => status.startsWith('2') || status.startsWith('3')), `${label}.runtime.statusCounts must include 2xx/3xx`)
 }
 
+function validateCounter(counter, label, requireOk = false) {
+  assert(counter && typeof counter === 'object', `${label} missing`)
+  assert(typeof counter.status === 'string' && counter.status.length > 0, `${label}.status missing`)
+  if (requireOk) {
+    assert(counter.status === 'ok', `${label}.status must be ok`)
+  }
+  if (counter.status === 'ok') {
+    const hasValue = Object.keys(counter).some((key) => key !== 'status' && key !== 'source' && key !== 'reason' && counter[key] !== null && counter[key] !== undefined)
+    assert(hasValue, `${label} ok counter must include a value`)
+  } else {
+    assert(['unsupported', 'disabled', 'probe-failed', 'not-collected', 'missing'].includes(counter.status), `${label}.status has unsupported value`)
+    assert(typeof counter.reason === 'string' && counter.reason.length > 0, `${label}.reason missing`)
+  }
+}
+
 function validateDataScaleMetric(metric, label, countField, sizeField) {
   assert(metric && typeof metric === 'object', `${label} missing`)
   assert(['ok', 'missing', 'blocked'].includes(metric.status), `${label}.status must be ok/missing/blocked`)
@@ -128,6 +143,21 @@ function validateBackendQps() {
     positiveNumber(result.runtimeMeasurement?.rps, `${label}.runtimeMeasurement.rps`)
     positiveNumber(result.runtimeMeasurement?.p50Ms, `${label}.runtimeMeasurement.p50Ms`)
     positiveNumber(result.runtimeMeasurement?.p95Ms, `${label}.runtimeMeasurement.p95Ms`)
+    const counters = result.runtimeMeasurement?.measuredCounters
+    assert(counters && typeof counters === 'object', `${label}.runtimeMeasurement.measuredCounters missing`)
+    validateCounter(counters.requestCount, `${label}.measuredCounters.requestCount`, true)
+    validateCounter(counters.statusDistribution, `${label}.measuredCounters.statusDistribution`, true)
+    validateCounter(counters.bytes, `${label}.measuredCounters.bytes`, true)
+    validateCounter(counters.cacheHitSignal, `${label}.measuredCounters.cacheHitSignal`, true)
+    validateCounter(counters.dbCommands, `${label}.measuredCounters.dbCommands`)
+    validateCounter(counters.redisCommands, `${label}.measuredCounters.redisCommands`)
+    validateCounter(counters.allocationEstimate, `${label}.measuredCounters.allocationEstimate`)
+    validateCounter(counters.threadPool, `${label}.measuredCounters.threadPool`)
+    validateCounter(counters.dbGatePressure, `${label}.measuredCounters.dbGatePressure`)
+    if (['cache-hit', 'hotread', 'cache-miss-singleflight'].includes(result.scenario)) {
+      validateCounter(counters.cacheHitSignal, `${label}.measuredCounters.cacheHitSignal`, true)
+      nonNegativeNumber(counters.cacheHitSignal.ratio, `${label}.measuredCounters.cacheHitSignal.ratio`)
+    }
     assert(result.capacityConclusion?.countedAsCapacity === false, `${label}.capacityConclusion must be false`)
     validateRuntimeProbe(result.runtimeMeasurement?.runtime, label)
   }

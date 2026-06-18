@@ -338,6 +338,30 @@ function backendQpsRequestPlan(mode) {
   }
 }
 
+function unavailableCounter(status, reason) {
+  return { status, reason }
+}
+
+function backendQpsMeasuredCounters(probe) {
+  return {
+    requestCount: { status: 'ok', value: probe.sampleCount, source: 'runtime-http-probe' },
+    statusDistribution: { status: 'ok', value: probe.statusCounts, source: 'runtime-http-probe' },
+    bytes: { status: 'ok', value: probe.bytes, source: 'runtime-http-probe' },
+    cacheHitSignal: {
+      status: 'ok',
+      ratio: probe.cacheSignalRatio,
+      signalCount: Math.round(probe.cacheSignalRatio * probe.sampleCount),
+      source: 'x-cache|etag|cache-control response headers'
+    },
+    dbCommands: unavailableCounter('not-collected', 'per-request DB command counter is not exposed to backend-qps probe'),
+    redisCommands: unavailableCounter('not-collected', 'per-request Redis command counter is not exposed to backend-qps probe'),
+    allocationEstimate: unavailableCounter('unsupported', 'per-request allocation estimate requires runtime instrumentation not available in this probe'),
+    threadPool: unavailableCounter('not-collected', 'thread pool pressure counter is not exposed to backend-qps probe'),
+    dbGatePressure: unavailableCounter('not-collected', 'DB gate waiting counter is not exposed to backend-qps probe'),
+    aedsCrcComputes: unavailableCounter('not-collected', 'AEDS CRC compute counter is not exposed to backend-qps probe')
+  }
+}
+
 function runDocker(args) {
   const result = spawnSync('docker', args, {
     cwd: root,
@@ -2702,6 +2726,7 @@ async function backendQps(mode, outFile) {
     concurrency,
     expectedByPath
   })
+  const measuredCounters = backendQpsMeasuredCounters(probe)
   writeJson(outFile, {
     status: 'ok',
     scenario: mode,
@@ -2734,16 +2759,7 @@ async function backendQps(mode, outFile) {
           reason: 'backend-qps collectors verify warm runtime behavior; capacity thresholds belong to load/benchmark lanes'
         }
       },
-      measuredCounters: {
-        httpSamples: probe.sampleCount,
-        bytes: probe.bytes,
-        cacheSignalRatio: probe.cacheSignalRatio,
-        allocBytesPerRequest: null,
-        dbCommandsPerRequest: null,
-        redisCommandsPerRequest: null,
-        cacheHitRatio: null,
-        aedsCrcComputesPerRequest: null
-      },
+      measuredCounters,
       rps: probe.rps,
       p50Ms: probe.latencyMs.p50,
       p95Ms: probe.latencyMs.p95,
@@ -2758,13 +2774,13 @@ async function backendQps(mode, outFile) {
     p50Ms: probe.latencyMs.p50,
     p95Ms: probe.latencyMs.p95,
     p99Ms: probe.latencyMs.p99,
-    allocBytesPerRequest: null,
-    dbCommandsPerRequest: null,
-    redisCommandsPerRequest: null,
-    cacheHitRatio: null,
-    aedsCrcComputesPerRequest: null,
-    threadPoolAvailableWorkerThreads: null,
-    dbGateWaiting: null,
+    allocBytesPerRequest: measuredCounters.allocationEstimate,
+    dbCommandsPerRequest: measuredCounters.dbCommands,
+    redisCommandsPerRequest: measuredCounters.redisCommands,
+    cacheHitRatio: measuredCounters.cacheHitSignal,
+    aedsCrcComputesPerRequest: measuredCounters.aedsCrcComputes,
+    threadPoolAvailableWorkerThreads: measuredCounters.threadPool,
+    dbGateWaiting: measuredCounters.dbGatePressure,
     runtime: probe
   })
 }
