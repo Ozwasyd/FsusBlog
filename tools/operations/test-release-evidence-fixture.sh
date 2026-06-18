@@ -315,7 +315,7 @@ printf '{"status":"ok","seedsRun":1,"crashes":[]}\n' > "$FUZZ_DIR/wasm/summary.j
 cat > "$FAULT_DIR/summary.json" <<'JSON'
 {
   "status": "ok",
-  "caseCount": 8,
+  "caseCount": 9,
   "cases": [
     {
       "case": "redis-restart",
@@ -446,6 +446,32 @@ cat > "$FAULT_DIR/summary.json" <<'JSON'
       "publicReadRecoveryResult": { "status": "completed", "sampleCount": 1, "p95Ms": 1 },
       "basicAuthRecoveryResult": { "status": "completed", "sampleCount": 1, "p95Ms": 1 },
       "backgroundWorkerState": { "status": "clean", "source": "log-scan" },
+      "finalHealthStatus": "healthy"
+    },
+    {
+      "case": "disk-artifact-storage-write-failure",
+      "status": "completed",
+      "actionStatus": "executed",
+      "actionStartedAt": "2026-06-18T00:08:00Z",
+      "actionCompletedAt": "2026-06-18T00:08:10Z",
+      "targetPath": ".tmp/fault-injection-storage/fixture/artifact-target/probe-artifact.json",
+      "expectedErrorClassification": "EACCES|EPERM|ENOSPC|EROFS",
+      "recoveryDurationMs": 100,
+      "recoveryTimeMs": 100,
+      "writeFailureResult": {
+        "status": "expected-error",
+        "code": "EACCES",
+        "targetPath": ".tmp/fault-injection-storage/fixture/artifact-target/probe-artifact.json"
+      },
+      "recoveryResult": {
+        "status": "completed",
+        "targetPath": ".tmp/fault-injection-storage/fixture/artifact-target/recovered-artifact.json",
+        "bytesWritten": 9
+      },
+      "cleanupResult": {
+        "status": "completed",
+        "targetPath": ".tmp/fault-injection-storage/fixture"
+      },
       "finalHealthStatus": "healthy"
     }
   ]

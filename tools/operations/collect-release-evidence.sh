@@ -162,7 +162,8 @@ fault_injection_status_or_missing() {
       "postgres-reconnect",
       "postgres-lock-timeout",
       "notification-stream-slow-consumer",
-      "graceful-shutdown"
+      "graceful-shutdown",
+      "disk-artifact-storage-write-failure"
     ] - ([.cases[]?.case])) | length == 0)
     and all(.cases[]?; .status == "completed" and .actionStatus == "executed")
     and all(.cases[]?; ((.case | startswith("redis-")) | not) or (
@@ -221,6 +222,15 @@ fault_injection_status_or_missing() {
       and ((.basicAuthRecoveryResult.status // "") == "completed")
       and ((.basicAuthRecoveryResult.sampleCount // 0) > 0)
       and ((.backgroundWorkerState.status // "") == "clean")
+      and ((.finalHealthStatus // "") == "healthy")
+    ))
+    and all(.cases[]?; (.case != "disk-artifact-storage-write-failure") or (
+      ((.targetPath // "") | length > 0)
+      and ((.expectedErrorClassification // "") | length > 0)
+      and ((.writeFailureResult.status // "") == "expected-error")
+      and ((.recoveryResult.status // "") == "completed")
+      and ((.cleanupResult.status // "") == "completed")
+      and (((.recoveryDurationMs // .recoveryTimeMs // 0)) > 0)
       and ((.finalHealthStatus // "") == "healthy")
     ))
   '

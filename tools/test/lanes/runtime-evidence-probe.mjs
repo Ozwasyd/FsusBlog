@@ -613,11 +613,49 @@ function baseUrlPort() {
 }
 
 function isProcessRunning(pid) {
+  const state = processState(pid)
+  if (state.status !== 'unknown') {
+    return state.running
+  }
+
   try {
     process.kill(pid, 0)
     return true
   } catch {
     return false
+  }
+}
+
+function processState(pid) {
+  const result = spawnSync('ps', ['-p', String(pid), '-o', 'stat='], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  if (result.status !== 0) {
+    return { status: 'missing', running: false, stat: null }
+  }
+
+  const stat = String(result.stdout || '').trim()
+  if (!stat) {
+    return { status: 'missing', running: false, stat: null }
+  }
+
+  if (stat.includes('Z')) {
+    return { status: 'zombie', running: false, stat }
+  }
+
+  return { status: 'running', running: true, stat }
+}
+
+function classifyArtifactWriteError(error) {
+  const code = typeof error?.code === 'string' && error.code.length > 0
+    ? error.code
+    : 'UNKNOWN'
+  const controlledCodes = new Set(['EACCES', 'EPERM', 'ENOSPC', 'EROFS'])
+  return {
+    status: controlledCodes.has(code) ? 'expected-error' : 'unexpected-error',
+    code,
+    message: error instanceof Error ? error.message : String(error)
   }
 }
 
@@ -867,13 +905,22 @@ async function stopBackendRuntime(target) {
       process.kill(target.pid, 'SIGKILL')
       forcedKill = true
       processStopResult = await waitForProcessStop(target.pid)
-    } catch {
+    } catch (error) {
+      if (error?.code === 'ESRCH') {
+        processStopResult = { status: 'stopped', exitObserved: true, durationMs: elapsedMs(started) }
+      } else {
+        processStopResult = {
+          ...processStopResult,
+          killError: error instanceof Error ? error.message : String(error)
+        }
+      }
     }
   }
 
   const serviceStopped = livenessDuringShutdown.status === 'unavailable'
+  const processStopped = processStopResult.status === 'stopped' && processStopResult.exitObserved === true
   return {
-    status: serviceStopped ? 'stopped' : 'failed',
+    status: serviceStopped && processStopped ? 'stopped' : 'failed',
     target: String(target.pid),
     mode: 'process-signal',
     signal: 'SIGTERM',
@@ -885,7 +932,7 @@ async function stopBackendRuntime(target) {
     forcedKill,
     processExit: processStopResult,
     livenessDuringShutdown,
-    error: serviceStopped
+    error: serviceStopped && processStopped
       ? null
       : `shutdown incomplete: health=${livenessDuringShutdown.status} process=${processStopResult.status}`
   }
@@ -1950,6 +1997,148 @@ async function runBlockedFaultCase(caseName) {
   }
 }
 
+async function runDiskArtifactStorageFaultCase() {
+  const caseName = 'disk-artifact-storage-write-failure'
+  const startedAt = nowIso()
+  const started = performance.now()
+  const storageRoot = path.join(root, '.tmp', 'fault-injection-storage', namespaceSlug(namespace), caseName)
+  const targetDir = path.join(storageRoot, 'artifact-target')
+  const targetFile = path.join(targetDir, 'probe-artifact.json')
+  const recoveryFile = path.join(targetDir, 'recovered-artifact.json')
+  const targetPath = path.relative(root, targetFile)
+  const recoveryPath = path.relative(root, recoveryFile)
+  let writeFailureResult = null
+  let recoveryResult = null
+  let cleanupResult = null
+  let finalHealth = null
+  let failure = null
+  let actionStatus = 'blocked'
+  const timeline = []
+
+  try {
+    fs.rmSync(storageRoot, { recursive: true, force: true })
+    fs.mkdirSync(targetDir, { recursive: true })
+    fs.chmodSync(targetDir, 0o555)
+    timeline.push({ event: 'artifact-target-made-unwritable', generatedAt: nowIso(), targetPath })
+
+    try {
+      fs.writeFileSync(targetFile, `${JSON.stringify({ generatedAt: nowIso(), case: caseName })}\n`)
+      writeFailureResult = {
+        status: 'unexpected-success',
+        targetPath,
+        bytesWritten: fs.statSync(targetFile).size
+      }
+      failure = 'artifact write unexpectedly succeeded while target directory was unwritable'
+    } catch (error) {
+      writeFailureResult = {
+        ...classifyArtifactWriteError(error),
+        targetPath
+      }
+      actionStatus = writeFailureResult.status === 'expected-error' ? 'executed' : 'failed'
+      if (writeFailureResult.status !== 'expected-error') {
+        failure = writeFailureResult.message
+      }
+    }
+    timeline.push({
+      event: 'artifact-write-failure',
+      generatedAt: nowIso(),
+      status: writeFailureResult.status,
+      code: writeFailureResult.code ?? null
+    })
+
+    fs.chmodSync(targetDir, 0o755)
+    const recoveryStarted = performance.now()
+    fs.writeFileSync(recoveryFile, `${JSON.stringify({ generatedAt: nowIso(), case: caseName, recovered: true })}\n`)
+    recoveryResult = {
+      status: 'completed',
+      targetPath: recoveryPath,
+      bytesWritten: fs.statSync(recoveryFile).size,
+      durationMs: elapsedMs(recoveryStarted)
+    }
+    timeline.push({ event: 'artifact-write-recovery', generatedAt: nowIso(), status: recoveryResult.status, targetPath: recoveryPath })
+
+    const finalHealthProbe = await runProbeResult('disk artifact storage final health', ['/health/live', '/api/binary/system/seo'], {
+      iterations: 2,
+      concurrency: 1
+    })
+    finalHealth = finalHealthProbe.status === 'completed'
+      ? { status: 'healthy', recovery: finalHealthProbe }
+      : { status: 'failed', error: finalHealthProbe.error }
+    if (finalHealth.status !== 'healthy') {
+      failure = finalHealth.error ?? 'final health probe failed'
+    }
+  } catch (error) {
+    failure = error instanceof Error ? error.message : String(error)
+  } finally {
+    try {
+      if (fs.existsSync(targetDir)) {
+        fs.chmodSync(targetDir, 0o755)
+      }
+      fs.rmSync(storageRoot, { recursive: true, force: true })
+      cleanupResult = {
+        status: 'completed',
+        targetPath: path.relative(root, storageRoot)
+      }
+    } catch (error) {
+      cleanupResult = {
+        status: 'failed',
+        targetPath: path.relative(root, storageRoot),
+        error: error instanceof Error ? error.message : String(error)
+      }
+      failure = cleanupResult.error
+    }
+    timeline.push({ event: 'artifact-cleanup', generatedAt: nowIso(), status: cleanupResult.status })
+  }
+
+  const resultStatus = !failure
+    && actionStatus === 'executed'
+    && writeFailureResult?.status === 'expected-error'
+    && recoveryResult?.status === 'completed'
+    && cleanupResult?.status === 'completed'
+    && finalHealth?.status === 'healthy'
+    ? 'completed'
+    : 'failed'
+
+  const recoveryDurationMs = recoveryResult?.durationMs ?? null
+  return {
+    status: resultStatus,
+    case: caseName,
+    namespace,
+    actionStatus,
+    actionStartedAt: startedAt,
+    actionCompletedAt: nowIso(),
+    targetPath,
+    targetDirectory: path.relative(root, targetDir),
+    actionMode: 'unwritable-temp-artifact-directory',
+    expectedErrorClassification: 'EACCES|EPERM|ENOSPC|EROFS',
+    writeFailureResult: writeFailureResult ?? { status: 'failed', targetPath, error: failure ?? 'write failure was not observed' },
+    recoveryResult: recoveryResult ?? { status: 'failed', targetPath: recoveryPath, error: failure ?? 'recovery write was not completed' },
+    cleanupResult: cleanupResult ?? { status: 'failed', targetPath: path.relative(root, storageRoot), error: failure ?? 'cleanup was not completed' },
+    recoveryDurationMs,
+    recoveryTimeMs: recoveryDurationMs,
+    controlledAction: {
+      status: actionStatus,
+      operation: 'artifact write into unwritable temp directory',
+      targetPath,
+      startedAt,
+      completedAt: nowIso()
+    },
+    timeline,
+    errorRate: resultStatus === 'completed' ? 0 : 1,
+    dataConsistency: resultStatus === 'completed' ? 'runtime-probe-ok' : 'not-verified',
+    resourceMetrics: {
+      targetPath,
+      targetDirectory: path.relative(root, targetDir)
+    },
+    finalHealth: finalHealth ?? { status: 'failed', error: failure ?? 'final health not verified' },
+    finalHealthSnapshot: finalHealth ?? null,
+    finalHealthStatus: finalHealth?.status ?? 'failed',
+    generatedAt: nowIso(),
+    durationMs: elapsedMs(started),
+    error: failure
+  }
+}
+
 async function runNotificationSlowConsumerFaultCase() {
   let before = null
   let action = { status: 'blocked', reason: 'notification drill secret missing' }
@@ -2209,6 +2398,28 @@ function faultCaseSummary(item) {
           source: item.backgroundWorkerState.source ?? null
         }
       : null,
+    targetPath: item.targetPath ?? null,
+    expectedErrorClassification: item.expectedErrorClassification ?? null,
+    writeFailureResult: item.writeFailureResult
+      ? {
+          status: item.writeFailureResult.status,
+          code: item.writeFailureResult.code ?? null,
+          targetPath: item.writeFailureResult.targetPath ?? null
+        }
+      : null,
+    recoveryResult: item.recoveryResult
+      ? {
+          status: item.recoveryResult.status,
+          targetPath: item.recoveryResult.targetPath ?? null,
+          bytesWritten: item.recoveryResult.bytesWritten ?? null
+        }
+      : null,
+    cleanupResult: item.cleanupResult
+      ? {
+          status: item.cleanupResult.status,
+          targetPath: item.cleanupResult.targetPath ?? null
+        }
+      : null,
     finalHealthStatus: item.finalHealth?.status ?? null
   }
 }
@@ -2336,6 +2547,7 @@ async function faultInjection(outDir) {
   const postgresCases = new Set(['postgres-readiness', 'postgres-reconnect', 'postgres-lock-timeout'])
   const notificationCases = new Set(['notification-stream-slow-consumer'])
   const gracefulShutdownCases = new Set(['graceful-shutdown'])
+  const diskArtifactCases = new Set(['disk-artifact-storage-write-failure'])
   const defaultCases = [
     'redis-restart',
     'redis-reconnect',
@@ -2344,7 +2556,8 @@ async function faultInjection(outDir) {
     'postgres-reconnect',
     'postgres-lock-timeout',
     'notification-stream-slow-consumer',
-    'graceful-shutdown'
+    'graceful-shutdown',
+    'disk-artifact-storage-write-failure'
   ]
   const cases = selectFaultCases(defaultCases)
   fs.mkdirSync(outDir, { recursive: true })
@@ -2360,7 +2573,9 @@ async function faultInjection(outDir) {
           ? await runNotificationSlowConsumerFaultCase()
           : gracefulShutdownCases.has(caseName)
             ? await runGracefulShutdownFaultCase()
-            : await runBlockedFaultCase(caseName)
+            : diskArtifactCases.has(caseName)
+              ? await runDiskArtifactStorageFaultCase()
+              : await runBlockedFaultCase(caseName)
     writeJson(path.join(caseDir, 'summary.json'), result)
     writeJson(path.join(caseDir, 'timeline.json'), result.timeline)
     results.push(result)

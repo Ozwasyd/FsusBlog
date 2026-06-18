@@ -9,6 +9,7 @@ const requiredRedisFaultCases = ['redis-restart', 'redis-reconnect', 'redis-late
 const requiredPostgresFaultCases = ['postgres-readiness', 'postgres-reconnect', 'postgres-lock-timeout']
 const requiredNotificationFaultCases = ['notification-stream-slow-consumer']
 const requiredGracefulShutdownFaultCases = ['graceful-shutdown']
+const requiredDiskArtifactFaultCases = ['disk-artifact-storage-write-failure']
 
 const requiredStatusChecks = [
   ['image digest', (manifest) => manifest.evidenceSummary?.image?.status === 'present'],
@@ -156,6 +157,7 @@ function faultInjectionOk(manifest, context) {
     && includesAll(report.cases.map((item) => item.case), requiredPostgresFaultCases)
     && includesAll(report.cases.map((item) => item.case), requiredNotificationFaultCases)
     && includesAll(report.cases.map((item) => item.case), requiredGracefulShutdownFaultCases)
+    && includesAll(report.cases.map((item) => item.case), requiredDiskArtifactFaultCases)
     && report.cases.every((item) => item.status === 'completed' && item.actionStatus === 'executed')
     && report.cases
       .filter((item) => requiredRedisFaultCases.includes(item.case))
@@ -169,6 +171,9 @@ function faultInjectionOk(manifest, context) {
     && report.cases
       .filter((item) => requiredGracefulShutdownFaultCases.includes(item.case))
       .every(gracefulShutdownFaultCaseOk)
+    && report.cases
+      .filter((item) => requiredDiskArtifactFaultCases.includes(item.case))
+      .every(diskArtifactFaultCaseOk)
 }
 
 function redisFaultCaseOk(item) {
@@ -236,6 +241,18 @@ function gracefulShutdownFaultCaseOk(item) {
     && item.basicAuthRecoveryResult?.status === 'completed'
     && Number(item.basicAuthRecoveryResult?.sampleCount ?? 0) > 0
     && item.backgroundWorkerState?.status === 'clean'
+    && item.finalHealthStatus === 'healthy'
+}
+
+function diskArtifactFaultCaseOk(item) {
+  return typeof item.targetPath === 'string'
+    && item.targetPath.length > 0
+    && typeof item.expectedErrorClassification === 'string'
+    && item.expectedErrorClassification.length > 0
+    && item.writeFailureResult?.status === 'expected-error'
+    && item.recoveryResult?.status === 'completed'
+    && item.cleanupResult?.status === 'completed'
+    && Number(item.recoveryDurationMs ?? item.recoveryTimeMs ?? 0) > 0
     && item.finalHealthStatus === 'healthy'
 }
 
@@ -571,6 +588,36 @@ function runSelfTest() {
     status: 'ok',
     caseCount: 8,
     cases: [...redisFaultFixtureCases, ...postgresFaultFixtureCases, notificationFaultFixtureCase, gracefulShutdownFaultFixtureCase]
+  }))
+  const missingDiskArtifactFault = validateManifest(base, { manifestPath: manifestFile })
+  if (missingDiskArtifactFault.ok || !missingDiskArtifactFault.missingRequired.includes('fault injection')) {
+    fail('self-test expected missing disk artifact storage fault case to block release closeout')
+  }
+  const diskArtifactFaultFixtureCase = {
+    case: 'disk-artifact-storage-write-failure',
+    status: 'completed',
+    actionStatus: 'executed',
+    actionStartedAt: '2026-06-18T00:04:00Z',
+    actionCompletedAt: '2026-06-18T00:04:10Z',
+    targetPath: '.tmp/fault-injection-storage/fixture/artifact-target',
+    expectedErrorClassification: 'EACCES',
+    recoveryDurationMs: 100,
+    recoveryTimeMs: 100,
+    writeFailureResult: { status: 'expected-error', code: 'EACCES' },
+    recoveryResult: { status: 'completed', bytesWritten: 9 },
+    cleanupResult: { status: 'completed' },
+    finalHealthStatus: 'healthy'
+  }
+  fs.writeFileSync(path.join(tmpDir, 'faultInjection', 'summary.json'), JSON.stringify({
+    status: 'ok',
+    caseCount: 9,
+    cases: [
+      ...redisFaultFixtureCases,
+      ...postgresFaultFixtureCases,
+      notificationFaultFixtureCase,
+      gracefulShutdownFaultFixtureCase,
+      diskArtifactFaultFixtureCase
+    ]
   }))
   fs.mkdirSync(path.join(tmpDir, 'soak', 'short'), { recursive: true })
   fs.writeFileSync(path.join(tmpDir, 'soak', 'short', 'summary.json'), JSON.stringify({

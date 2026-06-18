@@ -9,6 +9,7 @@ const requiredRedisFaultCases = ['redis-restart', 'redis-reconnect', 'redis-late
 const requiredPostgresFaultCases = ['postgres-readiness', 'postgres-reconnect', 'postgres-lock-timeout']
 const requiredNotificationFaultCases = ['notification-stream-slow-consumer']
 const requiredGracefulShutdownFaultCases = ['graceful-shutdown']
+const requiredDiskArtifactFaultCases = ['disk-artifact-storage-write-failure']
 
 function readJson(relativePath, optional = false) {
   const file = findEvidenceFile(relativePath)
@@ -145,6 +146,9 @@ function validateFaultInjectionSummary(summary, label) {
   for (const required of requiredGracefulShutdownFaultCases) {
     assert(caseNames.has(required), `${label} must include ${required}`)
   }
+  for (const required of requiredDiskArtifactFaultCases) {
+    assert(caseNames.has(required), `${label} must include ${required}`)
+  }
   for (const item of summary.cases) {
     assert(item.status === 'completed', `${label} ${item.case} must be completed`)
     assert(item.actionStatus === 'executed', `${label} ${item.case}.actionStatus must be executed`)
@@ -162,6 +166,9 @@ function validateFaultInjectionSummary(summary, label) {
     }
     if (requiredGracefulShutdownFaultCases.includes(item.case)) {
       validateGracefulShutdownFaultCase(item, label)
+    }
+    if (requiredDiskArtifactFaultCases.includes(item.case)) {
+      validateDiskArtifactFaultCase(item, label)
     }
   }
 }
@@ -222,6 +229,16 @@ function validateGracefulShutdownFaultCase(item, label) {
   assert(item.basicAuthRecoveryResult?.status === 'completed', `${label} ${item.case}.basicAuthRecoveryResult must be completed`)
   positiveNumber(item.basicAuthRecoveryResult?.sampleCount, `${label} ${item.case}.basicAuthRecoveryResult.sampleCount`)
   assert(item.backgroundWorkerState?.status === 'clean', `${label} ${item.case}.backgroundWorkerState.status must be clean`)
+  assert(item.finalHealthStatus === 'healthy', `${label} ${item.case}.finalHealthStatus must be healthy`)
+}
+
+function validateDiskArtifactFaultCase(item, label) {
+  assert(typeof item.targetPath === 'string' && item.targetPath.length > 0, `${label} ${item.case}.targetPath missing`)
+  assert(typeof item.expectedErrorClassification === 'string' && item.expectedErrorClassification.length > 0, `${label} ${item.case}.expectedErrorClassification missing`)
+  assert(item.writeFailureResult?.status === 'expected-error', `${label} ${item.case}.writeFailureResult.status must be expected-error`)
+  assert(item.recoveryResult?.status === 'completed', `${label} ${item.case}.recoveryResult must be completed`)
+  assert(item.cleanupResult?.status === 'completed', `${label} ${item.case}.cleanupResult must be completed`)
+  positiveNumber(item.recoveryDurationMs ?? item.recoveryTimeMs, `${label} ${item.case}.recoveryDurationMs`)
   assert(item.finalHealthStatus === 'healthy', `${label} ${item.case}.finalHealthStatus must be healthy`)
 }
 
@@ -484,9 +501,94 @@ function runSelfTest() {
     missingGracefulShutdownFailedAsExpected = true
   }
   assert(missingGracefulShutdownFailedAsExpected, 'self-test missing graceful shutdown fixture must fail')
+  let missingDiskArtifactFailedAsExpected = false
+  try {
+    validateFaultInjectionSummary({
+      status: 'ok',
+      caseCount: 8,
+      cases: [
+        ...requiredRedisFaultCases.map((caseName, index) => ({
+        case: caseName,
+        status: 'completed',
+        actionStatus: 'executed',
+        actionStartedAt: `2026-06-18T00:00:0${index}Z`,
+        actionCompletedAt: `2026-06-18T00:00:1${index}Z`,
+        unavailableDurationMs: index,
+        recoveryDurationMs: 2 + index,
+        recoveryTimeMs: 2 + index,
+        publicReadResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+        authenticatedImpact: { status: 'not-configured' },
+        notificationStreamImpact: { status: 'not-configured' },
+        finalHealthStatus: 'healthy'
+        })),
+        ...requiredPostgresFaultCases.map((caseName, index) => ({
+          case: caseName,
+          status: 'completed',
+          actionStatus: 'executed',
+          actionStartedAt: `2026-06-18T00:01:0${index}Z`,
+          actionCompletedAt: `2026-06-18T00:01:1${index}Z`,
+          affectedEndpoint: index === 2 ? '/api/binary/article/list/home/1/10.aeds' : '/health/ready',
+          unavailableDurationMs: index,
+          dbReconnectDurationMs: 3 + index,
+          recoveryDurationMs: 3 + index,
+          recoveryTimeMs: 3 + index,
+          publicReadRecoveryResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+          writePathRollbackResult: { status: index === 2 ? 'verified' : 'not-mutated' },
+          finalHealthStatus: 'healthy'
+        })),
+        {
+          case: 'notification-stream-slow-consumer',
+          status: 'completed',
+          actionStatus: 'executed',
+          actionStartedAt: '2026-06-18T00:02:00Z',
+          actionCompletedAt: '2026-06-18T00:02:10Z',
+          unavailableDurationMs: 0,
+          recoveryDurationMs: 5,
+          recoveryTimeMs: 5,
+          connectionCount: 3,
+          heartbeatFrameCount: 2,
+          businessFrameCount: 8,
+          deliveredFrameCount: 8,
+          droppedOrBackpressuredCount: 1,
+          reconnectSuccess: true,
+          replayedEventCount: 1,
+          closeObserved: true,
+          eventIds: [101, 102],
+          routeKey: 'g:ContentGovernanceGroup',
+          slowConsumerPolicy: 'controlled-degradation',
+          finalHealthStatus: 'healthy'
+        },
+        {
+          case: 'graceful-shutdown',
+          status: 'completed',
+          actionStatus: 'executed',
+          actionStartedAt: '2026-06-18T00:03:00Z',
+          actionCompletedAt: '2026-06-18T00:03:10Z',
+          shutdownRequestedAt: '2026-06-18T00:03:01Z',
+          drainDurationMs: 300,
+          restartRecoveryDurationMs: 500,
+          recoveryDurationMs: 800,
+          recoveryTimeMs: 800,
+          processStopResult: { status: 'stopped', signal: 'SIGTERM', exitObserved: true },
+          livenessBefore: { status: 'completed', sampleCount: 1 },
+          livenessDuringShutdown: { status: 'unavailable', statusCode: null },
+          notificationCloseObserved: true,
+          notificationCloseCode: 1001,
+          notificationReconnectSuccess: true,
+          publicReadRecoveryResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+          basicAuthRecoveryResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+          backgroundWorkerState: { status: 'clean', source: 'log-scan' },
+          finalHealthStatus: 'healthy'
+        }
+      ]
+    }, 'fault-injection-self-test')
+  } catch {
+    missingDiskArtifactFailedAsExpected = true
+  }
+  assert(missingDiskArtifactFailedAsExpected, 'self-test missing disk artifact storage fixture must fail')
   validateFaultInjectionSummary({
     status: 'ok',
-    caseCount: 8,
+    caseCount: 9,
     cases: [
       ...requiredRedisFaultCases.map((caseName, index) => ({
       case: caseName,
@@ -559,6 +661,21 @@ function runSelfTest() {
         publicReadRecoveryResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
         basicAuthRecoveryResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
         backgroundWorkerState: { status: 'clean', source: 'log-scan' },
+        finalHealthStatus: 'healthy'
+      },
+      {
+        case: 'disk-artifact-storage-write-failure',
+        status: 'completed',
+        actionStatus: 'executed',
+        actionStartedAt: '2026-06-18T00:04:00Z',
+        actionCompletedAt: '2026-06-18T00:04:10Z',
+        targetPath: '.tmp/fault-injection-storage/fixture/artifact-target/probe-artifact.json',
+        expectedErrorClassification: 'EACCES|EPERM|ENOSPC|EROFS',
+        recoveryDurationMs: 100,
+        recoveryTimeMs: 100,
+        writeFailureResult: { status: 'expected-error', code: 'EACCES', targetPath: '.tmp/fault-injection-storage/fixture/artifact-target/probe-artifact.json' },
+        recoveryResult: { status: 'completed', targetPath: '.tmp/fault-injection-storage/fixture/artifact-target/recovered-artifact.json', bytesWritten: 9 },
+        cleanupResult: { status: 'completed', targetPath: '.tmp/fault-injection-storage/fixture' },
         finalHealthStatus: 'healthy'
       }
     ]
