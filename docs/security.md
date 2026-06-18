@@ -33,6 +33,7 @@
 ## 速率限制（Rate Limiting）
 
 - 基础策略：`fixed_ip`（固定窗口，按客户端 IP 计数），作为认证、PoW、写入和审核端点的 fallback。
+- 管理后台兜底策略：`fixed_ip` 对 admin principal / admin role 不再返回无限制分区；后台写操作使用 `RateLimiting:AdminPermitLimit` / `RateLimiting:AdminQueueLimit` 的独立 fixed-window 分区，边缘网关同时用 `fsus_admin_limit` 保护 `/api/binary/admin/**` 与 `/api/binary/author/**`。
 - 公开读策略：`public_read` 按 `IP + path` 分区；verified search crawler 使用独立高额度分区，social preview bot 使用低额度公开 HTML/静态资源分区，普通匿名公开 API 使用中等配额。
 - 真人阅读策略：`read_proof` 专门保护 `/api/binary/read-proof/challenge.aeds` 与 `/api/binary/read-proof/submit.aeds`，按 `IP + route` 或 `IP + deviceFp + route` 分区，避免匿名 challenge/submit 被无限打。旧 `/api/read-proof/**` JSON 路径已移除。
 - 超限响应：`429 Too Many Requests`，响应头携带 `Retry-After`，并通过 `ISecurityRiskSignalSink` 写入 `RateLimited` 风险事件。
@@ -309,7 +310,7 @@ Secret 轮换、站点备份导出、数据巡检修复、批量封禁、密码�
 - [ ] `Fido2:Origins` 包含实际部署来源
 - [ ] `Fido2:Origins` 与 `SITE_BASEURL` / `CORS_ALLOWED_HOSTS` 对齐，且生产来源全部使用 HTTPS
 - [ ] Docker compose 不把 Kestrel `8080`、Redis `6379`、PostgreSQL `5432` 暴露到公网
-- [ ] 生产 OpenResty/Nginx 默认拒绝未知 Host，并为 `/login`、`/admin`、`/api/binary/auth` 配置限流
+- [ ] 生产 OpenResty/Nginx 默认拒绝未知 Host，并为 `/login`、`/admin`、`/api/binary/auth/**`、`/api/binary/admin/**`、`/api/binary/author/**` 配置认证/后台限流
 - [ ] 使用 `FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog FSUSBLOG_FIREWALL_POLICY_EVIDENCE=.tmp/security/production-firewall-policy.json FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE=.tmp/security/production-exposure-live.json tools/security/complete-production-exposure-closeout.sh`，确认生产 DNS 已解析、只有 `80/443` 对公网开放、SSH 仅允许固定管理 IP/VPN/私有管理网段、`6379/5432/8080` 不可公网访问，且所有生产域名 HTTPS + HSTS 正常；脚本验证通过后会写出 `status=ok`
 
 外部云安全组、防火墙和 Redis/PostgreSQL 私网访问控制仍需在基础设施层执行；仓库内检查只能防止应用配置和部署模板回退。

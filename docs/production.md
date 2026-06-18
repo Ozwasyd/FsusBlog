@@ -132,6 +132,7 @@ The host gateway must:
 - expose only `80/tcp` and `443/tcp` publicly,
 - keep Redis and PostgreSQL on private network/security-group reachability only,
 - rate-limit login/admin/global request paths,
+- apply `fsus_auth_limit` to `/api/binary/auth/**` and `fsus_admin_limit` to `/api/binary/admin/**` plus `/api/binary/author/**`, so AEDS auth/admin routes do not fall through to the global public-read budget,
 - deny hidden files and backup/archive files,
 - disable buffering for `/api/notifications/stream`,
 - keep upload limits explicit,

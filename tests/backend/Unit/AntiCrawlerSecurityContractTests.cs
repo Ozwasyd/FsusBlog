@@ -23,6 +23,28 @@ public sealed class AntiCrawlerSecurityContractTests
     }
 
     [Fact]
+    public void ProductionGateway_LimitsBinaryAuthAdminAndAuthorRoutes()
+    {
+        string gateway = Read("deploy/production-openresty.conf");
+
+        Assert.Contains("zone=fsus_admin_limit", gateway, StringComparison.Ordinal);
+        Assert.Contains("^/api/binary/auth(/|$)", gateway, StringComparison.Ordinal);
+        Assert.Contains("^/api/binary/admin(/|$)", gateway, StringComparison.Ordinal);
+        Assert.Contains("^/api/binary/author(/|$)", gateway, StringComparison.Ordinal);
+        Assert.DoesNotContain("^/api/(Auth|auth|admin)(/|$)", gateway, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FixedIpLimiter_DoesNotGiveAdminNoLimiterByRole()
+    {
+        string source = Read("src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs");
+
+        Assert.DoesNotContain("GetNoLimiter(\"admin\")", source, StringComparison.Ordinal);
+        Assert.Contains("RateLimiting:AdminPermitLimit", source, StringComparison.Ordinal);
+        Assert.Contains("fixed-ip:admin:", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Shield_SeparatesSearchCrawlerSocialPreviewAndHardAbort()
     {
         string source = Read("src/backend/Infrastructure/Middlewares/ShieldMiddleware.cs");

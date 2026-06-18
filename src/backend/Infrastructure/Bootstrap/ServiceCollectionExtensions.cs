@@ -148,10 +148,25 @@ public static class ServiceCollectionExtensions
             {
                 string clientIp = httpContext.GetClientIp();
                 var policy = httpContext.RequestServices.GetRequiredService<IAntiCrawlerPolicyProvider>().Current.Options;
+                var configuration = httpContext.RequestServices.GetRequiredService<IConfiguration>();
 
-                if (httpContext.User.IsInRole("admin") || clientIp == "127.0.0.1" || clientIp == "::1")
+                if (httpContext.User.IsInRole("admin"))
                 {
-                    return RateLimitPartition.GetNoLimiter("admin");
+                    int adminPermitLimit = Math.Clamp(
+                        configuration.GetValue("RateLimiting:AdminPermitLimit", 300),
+                        1,
+                        100_000);
+                    int adminQueueLimit = Math.Clamp(
+                        configuration.GetValue("RateLimiting:AdminQueueLimit", 0),
+                        0,
+                        10_000);
+
+                    return CreateFixedWindowPartition($"fixed-ip:admin:{clientIp}", adminPermitLimit, adminQueueLimit);
+                }
+
+                if (clientIp == "127.0.0.1" || clientIp == "::1")
+                {
+                    return RateLimitPartition.GetNoLimiter("loopback");
                 }
 
                 if (IsVerifiedCrawlerPublicRead(httpContext))
