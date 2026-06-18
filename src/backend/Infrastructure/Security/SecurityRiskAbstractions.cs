@@ -4,6 +4,7 @@ namespace FsusBlog.Server.Infrastructure.Security;
 
 public enum SecurityRiskReason
 {
+    VerifiedCrawler,
     FakeCrawler,
     UnknownBot,
     BlockedUserAgent,
@@ -54,4 +55,3 @@ public interface ISecurityRiskPolicyProvider
 {
     SecurityRiskPolicySnapshot CurrentRiskPolicy { get; }
 }
-

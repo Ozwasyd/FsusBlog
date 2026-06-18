@@ -87,11 +87,13 @@ public class ShieldMiddleware(
                             return;
                         }
                     }
-
-                    context.Items["VerifiedCrawler"] = true;
-                    string provider = ResolveSearchCrawlerProvider(ua ?? string.Empty);
-                    context.Items["CrawlerProvider"] = provider;
-                    await RecordRiskAsync(context, SecurityRiskReason.FakeCrawler, "verified_crawler", 0, options, SecurityRiskSources.AntiCrawler, $"verified_crawler:{provider}");
+                    else
+                    {
+                        context.Items["VerifiedCrawler"] = true;
+                        string provider = ResolveSearchCrawlerProvider(ua ?? string.Empty);
+                        context.Items["CrawlerProvider"] = provider;
+                        await RecordRiskAsync(context, SecurityRiskReason.VerifiedCrawler, "verified_crawler", 0, options, SecurityRiskSources.AntiCrawler, $"verified_crawler:{provider}");
+                    }
                 }
                 else
                 {

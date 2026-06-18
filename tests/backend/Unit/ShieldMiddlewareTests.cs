@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Caching.Memory;
@@ -131,6 +132,74 @@ public sealed class ShieldMiddlewareTests
         await sut.InvokeAsync(ctx);
 
         Assert.False(nextCalled);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ObserveModeUnverifiedSearchCrawler_CallsNextWithoutVerifiedCrawlerMarker()
+    {
+        bool nextCalled = false;
+        var riskSink = new CapturingSecurityRiskSink();
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            securityRisk: riskSink,
+            antiCrawlerPolicy: new TestAntiCrawlerPolicyProvider(SecuritySystemModes.Observe),
+            onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var ctx = BuildContext("/api/articles", "Mozilla/5.0 (compatible; Googlebot/2.1)");
+        ctx.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.42");
+
+        await sut.InvokeAsync(ctx);
+
+        Assert.True(nextCalled);
+        Assert.False(ctx.Items.ContainsKey("VerifiedCrawler"));
+        Assert.False(ctx.Items.ContainsKey("CrawlerProvider"));
+        Assert.Contains(riskSink.Signals, signal =>
+            signal.Reason == SecurityRiskReason.FakeCrawler
+            && signal.Detail == "fake_crawler");
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ObserveModeVerifiedSearchCrawler_CallsNextWithVerifiedCrawlerMarker()
+    {
+        bool nextCalled = false;
+        var riskSink = new CapturingSecurityRiskSink();
+        var crawlerDetector = CreateCrawlerDetector();
+        crawlerDetector.UpdateCidrLists(["66.249.64.0/19"], []);
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            crawlerDetector: crawlerDetector,
+            securityRisk: riskSink,
+            antiCrawlerPolicy: new TestAntiCrawlerPolicyProvider(SecuritySystemModes.Observe),
+            onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var ctx = BuildContext("/api/articles", "Mozilla/5.0 (compatible; Googlebot/2.1)");
+        ctx.Connection.RemoteIpAddress = IPAddress.Parse("66.249.64.1");
+
+        await sut.InvokeAsync(ctx);
+
+        Assert.True(nextCalled);
+        Assert.True(ctx.Items.TryGetValue("VerifiedCrawler", out object? verifiedCrawler) && verifiedCrawler is true);
+        Assert.Equal("google", ctx.Items["CrawlerProvider"]);
+        Assert.True(Enum.TryParse<SecurityRiskReason>("VerifiedCrawler", out var verifiedCrawlerReason));
+        Assert.Contains(riskSink.Signals, signal =>
+            signal.Reason == verifiedCrawlerReason
+            && signal.Detail == "verified_crawler:google"
+            && signal.Score == 0);
+        Assert.DoesNotContain(riskSink.Signals, signal => signal.Reason == SecurityRiskReason.FakeCrawler);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_EnforceModeUnverifiedSearchCrawler_RejectsWithoutVerifiedCrawlerMarker()
+    {
+        bool nextCalled = false;
+        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var ctx = BuildContext("/api/articles", "Mozilla/5.0 (compatible; Googlebot/2.1)");
+        ctx.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.42");
+
+        await sut.InvokeAsync(ctx);
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status403Forbidden, ctx.Response.StatusCode);
+        Assert.False(ctx.Items.ContainsKey("VerifiedCrawler"));
+        Assert.False(ctx.Items.ContainsKey("CrawlerProvider"));
     }
 
     // ─── Path traversal protection ────────────────────────────────────────
@@ -285,14 +354,25 @@ public sealed class ShieldMiddlewareTests
     private static ShieldMiddleware CreateMiddleware(
         IWebHostEnvironment env,
         AdaptivePowGovernor? governor = null,
+        CrawlerDetectorService? crawlerDetector = null,
+        ISecurityRiskSignalSink? securityRisk = null,
+        IAntiCrawlerPolicyProvider? antiCrawlerPolicy = null,
         Func<HttpContext, Task>? onNext = null)
     {
         RequestDelegate next = ctx => (onNext ?? (_ => Task.CompletedTask))(ctx);
-        var crawlerDetector = new CrawlerDetectorService(
+        return new ShieldMiddleware(
+            next,
+            governor ?? CreateFreshGovernor(),
+            crawlerDetector ?? CreateCrawlerDetector(),
+            securityRisk ?? new NullSecurityRiskSink(),
+            antiCrawlerPolicy ?? new TestAntiCrawlerPolicyProvider(SecuritySystemModes.Enforce),
+            env);
+    }
+
+    private static CrawlerDetectorService CreateCrawlerDetector()
+        => new(
             NullLogger<CrawlerDetectorService>.Instance,
             new MemoryCache(new MemoryCacheOptions()));
-        return new ShieldMiddleware(next, governor ?? CreateFreshGovernor(), crawlerDetector, new NullSecurityRiskSink(), new NullAntiCrawlerPolicyProvider(), env);
-    }
 
     private static DefaultHttpContext BuildContext(string path, string ua, string method = "GET")
     {
@@ -358,15 +438,28 @@ public sealed class ShieldMiddlewareTests
         public ValueTask AddRiskAsync(SecurityRiskSignal signal, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
     }
 
-    private sealed class NullAntiCrawlerPolicyProvider : IAntiCrawlerPolicyProvider
+    private sealed class CapturingSecurityRiskSink : ISecurityRiskSignalSink
     {
-        public AntiCrawlerPolicySnapshot Current { get; } = new(
+        public List<SecurityRiskSignal> Signals { get; } = [];
+
+        public ValueTask AddRiskAsync(SecurityRiskSignal signal, CancellationToken cancellationToken = default)
+        {
+            Signals.Add(signal);
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class TestAntiCrawlerPolicyProvider : IAntiCrawlerPolicyProvider
+    {
+        public TestAntiCrawlerPolicyProvider(string mode)
+        {
+            Current = new AntiCrawlerPolicySnapshot(
             "test",
             DateTimeOffset.UtcNow,
             "test",
             "test",
             new AntiCrawlerPolicyOptions(
-                SecuritySystemModes.Enforce,
+                mode,
                 true,
                 true,
                 true,
@@ -397,5 +490,8 @@ public sealed class ShieldMiddlewareTests
                 ["/", "/article/", "/assets/", "/uploads/", "/favicon.ico", "/robots.txt"],
                 ["python", "java", "curl", "wget", "httpclient", "axios", "go-http-client", "censys", "zgrab"],
                 "security.pow"));
+        }
+
+        public AntiCrawlerPolicySnapshot Current { get; }
     }
 }
