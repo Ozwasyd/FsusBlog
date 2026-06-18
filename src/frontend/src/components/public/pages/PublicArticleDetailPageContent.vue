@@ -1,6 +1,6 @@
 <template>
   <article
-    class="public-article-detail max-w-4xl mx-auto px-6 sm:px-12 min-h-screen pt-16 sm:pt-24 pb-32"
+    class="public-article-detail max-w-4xl mx-auto px-6 sm:px-12 min-h-screen pt-12 sm:pt-16 pb-24"
     itemscope
     itemtype="https://schema.org/BlogPosting"
   >
@@ -19,7 +19,7 @@
     <div
       v-if="detailView.header.coverImageUrl"
       v-scroll-reveal="fsusBlogScrollRevealMotion"
-      class="mb-16 blog-motion-state-change"
+      class="mb-12 sm:mb-16 blog-motion-state-change"
       data-fsus-motion-surface="article-cover"
     >
       <img
@@ -44,7 +44,7 @@
       <slot name="header-actions" />
     </header>
 
-    <section itemprop="articleBody" class="mt-20 sm:mt-24">
+    <section itemprop="articleBody" class="mt-12 sm:mt-16">
       <ArticleDetailBody>
         <ArticleReadingNotice
           :notice="detailView.body.notice"
@@ -71,7 +71,7 @@
 
     <footer
       v-if="detailView.header.tags.length > 0"
-      class="mt-24 sm:mt-32 pt-12 sm:pt-16 border-t border-[var(--fsusblog-panel-border)]"
+      class="mt-16 sm:mt-20 pt-8 sm:pt-12 border-t border-[var(--fsusblog-panel-border)]"
     >
       <ArticleDetailTagsFooter :view="detailView.header" :link-mode="linkMode" />
     </footer>
@@ -80,7 +80,7 @@
       v-if="hasRelatedReading"
       id="fsus-related-reading"
       data-public-related-reading="true"
-      class="mt-24 sm:mt-32 border-t border-[var(--fsusblog-panel-border)] pt-12 sm:pt-16"
+      class="mt-16 sm:mt-20 border-t border-[var(--fsusblog-panel-border)] pt-8 sm:pt-12"
       aria-labelledby="fsus-related-reading-heading"
     >
       <div class="flex flex-col gap-8">
@@ -170,7 +170,7 @@
 
     <section
       id="fsus-comments-island"
-      class="mt-32 border-t border-[var(--fsusblog-panel-border)] pt-16"
+      class="mt-20 sm:mt-24 border-t border-[var(--fsusblog-panel-border)] pt-12 sm:pt-16"
       :data-article-id="String(safeArticleId)"
     >
       <span id="comments" class="sr-only">评论</span>
