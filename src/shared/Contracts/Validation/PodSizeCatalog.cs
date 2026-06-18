@@ -34,6 +34,8 @@ public static class PodSizeCatalog
     public static readonly int HumanReadChallengeResponsePod = PodContractValidation.SizeOf<HumanReadChallengeResponsePod>();
     public static readonly int HumanReadSubmitRequestPod = PodContractValidation.SizeOf<HumanReadSubmitRequestPod>();
     public static readonly int HumanReadSubmitResponsePod = PodContractValidation.SizeOf<HumanReadSubmitResponsePod>();
+    public static readonly int SecurityChallengeAssignmentPod = PodContractValidation.SizeOf<SecurityChallengeAssignmentPod>();
+    public static readonly int SecurityChallengeEnvelopePod = PodContractValidation.SizeOf<SecurityChallengeEnvelopePod>();
     public static readonly int RumMetricBatchRequestPod = PodContractValidation.SizeOf<RumMetricBatchRequestPod>();
     public static readonly int RumMetricItemPod = PodContractValidation.SizeOf<RumMetricItemPod>();
     public static readonly int RumMetricValuePod = PodContractValidation.SizeOf<RumMetricValuePod>();

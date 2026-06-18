@@ -173,6 +173,8 @@ export const FrameType = {
   AnonymousGovernanceActionRequest: 168,
   AnonymousGovernanceActionResponse: 169,
   AdminSessionList: 170,
+  SecurityChallengeAssignment: 171,
+  SecurityChallengeEnvelope: 172,
   EmptySuccess: 240,
   MutationId: 241,
   ApiError: 251,

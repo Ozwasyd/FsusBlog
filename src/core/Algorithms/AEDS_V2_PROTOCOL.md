@@ -54,6 +54,8 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `19`: CurrentUserSnapshot
 - `25`: AuthSessionList
 - `170`: AdminSessionList
+- `171`: SecurityChallengeAssignment
+- `172`: SecurityChallengeEnvelope
 - `20`: UploadInit
 - `21`: UploadStatus
 - `22`: UploadPartAck
@@ -137,6 +139,8 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `RecoveryKeyVerifyRequest` payload: `RecoveryKeyVerifyRequestPod` followed by blob payload for the account Recovery Key. It carries `UserId`, `RevokeSessions` and `RevokePasskeys` flags and is accepted only by the anonymous recovery verification endpoint.
 - `RecoveryKeyVerifyResponse` payload: `RecoveryKeyVerifyResponsePod` with a short-lived recovery session token used only to bind a new Passkey after successful Recovery Key verification.
 - `RecoveryKeySessionRequest` payload: `StringMutationRequestPod` followed by blob payload for that recovery session token. Passkey recovery completion reuses `PasskeyRegisterCompleteRequest` and carries the recovery session token in `MfaProofToken`; this is a Recovery Key step-up, not a TOTP MFA recovery-code path.
+- `SecurityChallengeAssignment` payload: `SecurityChallengeAssignmentPod`; fields include challenge id, traceparent, tenant id, kind, escalation level, action, route key, subject/client IP/device fingerprint hashes, issued time and expiry time. Non-captcha challenge ids are UUID v7; captcha assignment decoding accepts UUID v4 or v7.
+- `SecurityChallengeEnvelope` payload: `SecurityChallengeEnvelopePod` followed by `SecurityChallengeAssignmentPod[count]`; count is capped by the shared contract.
 - `ConversationCreateRequest` payload: `ConversationCreateRequestPod` followed by blob payload for subject/body.
 - `ConversationReplyRequest` payload: `StringMutationRequestPod` followed by blob payload for body.
 - `ConversationStatusRequest` payload: `ConversationStatusRequestPod` (`0=open`, `1=pending`, `2=closed`).

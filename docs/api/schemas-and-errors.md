@@ -229,6 +229,8 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 25 | `AuthSessionList` | session list payload | `GET /api/binary/auth/sessions` |
 | 26 | `SiteComplianceConfig` | `SiteComplianceConfigPod` | `GET /api/binary/system/compliance` |
 | 170 | `AdminSessionList` | `AdminSessionSummaryPod[count]` | `GET /api/binary/auth/admin/sessions` |
+| 171 | `SecurityChallengeAssignment` | `SecurityChallengeAssignmentPod` | 单个 RiskControl challenge assignment |
+| 172 | `SecurityChallengeEnvelope` | `SecurityChallengeEnvelopePod` + `SecurityChallengeAssignmentPod[]` | 一次 RiskControl 裁决返回的 challenge 集合 |
 | 30 | `PowChallenge` | `PowChallengePod` | `GET /api/binary/auth/pow-challenge` |
 | 31 | `UploadInitRequest` | `UploadInitRequestPod` | `POST /api/binary/upload/init` 请求体 |
 | 32 | `UploadCompleteRequest` | `UploadCompleteRequestPod` | `POST /api/binary/upload/{id}/complete` 请求体 |
@@ -361,6 +363,13 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | `UploadInitRequestPod` | 428 |
 | `UploadCompleteRequestPod` | 64 |
 | `PowChallengePod` | 204 |
+
+### 安全挑战 POD
+
+| 类型 | 字节数 |
+|------|--------|
+| `SecurityChallengeAssignmentPod` | 664 |
+| `SecurityChallengeEnvelopePod` | 132 |
 
 > 精确值以 `PodSizeCatalog.cs` 为准；`PodContractValidation.AreAllPodModelsReferenceFree()` 在测试和启动时校验。
 

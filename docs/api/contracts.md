@@ -23,6 +23,7 @@
 - [管理端统计契约](#管理端统计契约)
 - [AOT 公开页契约](#aot-公开页契约)
 - [PoW 契约](#pow-契约)
+- [安全挑战契约](#安全挑战契约)
 
 ---
 
@@ -90,6 +91,17 @@ payload 字典化的第一阶段采用兼容 layout：ArticleList/ArticleSearch/
 | `RumMetricIngestResponse` | 76 | `RumMetricIngestResponsePod` | accepted / acceptedCount / rejectedCount |
 
 请求限制：单帧最大 8192 bytes，单批最多 16 条 metric，metric name 最多 64 bytes，单条最多 4 个数值字段和 4 个低基数字符串 dimension。服务端只接受 `web_vital_lcp`、`web_vital_cls`、`navigation_timing`、`hydration_time`、`wasm_decode_timing`、`markdown_render_timing`，数值字段只允许 `value/domInteractive/responseStart/durationMs`，dimension key/value 只能进入白名单低基数集合；不接受任意 JSON blob。
+
+### 安全挑战契约
+
+RiskControl challenge assignment 使用统一 AEDS 契约，不在 PoW、Captcha、PoSpace、HumanReadProof、Passkey step-up 或匿名 proof provider 中各自定义不同字段。`SecurityChallengeAssignment` 必须包含 `challengeId`、`traceparent`、`tenantId`、`kind`、`escalationLevel`、`action`、`routeKey`、`subjectHash`、`clientIpHash`、`deviceFpHash`、`issuedAtUnixMs` 和 `expiresAtUnixMs`；`expiresAtUnixMs` 必须大于 `issuedAtUnixMs`。`challengeId` 默认使用 UUID v7；`captchaV1` 读取端兼容 UUID v4/v7。`subjectHash`、`clientIpHash`、`deviceFpHash` 均为 64 字符 SHA-256 hex，不携带原文。
+
+支持的 `SecurityChallengeKind` wire name 为：`sha256PowV1`、`argon2idPoSpaceV1`、`captchaV1`、`humanReadProofV1`、`passkeyStepUpV1`、`adminPasskeyStepUpV1`、`recoveryKeyProofV1`、`anonymousCredentialProofV1`、`zkAnonymousCommentProofV1`。
+
+| FrameType | 值 | POD | 用途 |
+|-----------|----|-----|------|
+| `SecurityChallengeAssignment` | 171 | `SecurityChallengeAssignmentPod` | 单个 challenge assignment |
+| `SecurityChallengeEnvelope` | 172 | `SecurityChallengeEnvelopePod` + `SecurityChallengeAssignmentPod[]` | 一次裁决返回的 challenge assignment 集合，最多 8 个 |
 
 ### Passkey AEDS frames
 
