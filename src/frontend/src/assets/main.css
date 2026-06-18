@@ -5,3 +5,7 @@
 @import '@/assets/markdown.css';
 @import '@/assets/public-page.css';
 @import '@/assets/account-shell.css';
+/* fsus-theme product overrides — must be imported AFTER the base
+   element-plus dist/index.css above. See comment in
+   src/assets/public-shell-critical.css for the full rationale. */
+@import '@ozwasyd/element-plus/dist/el-fsus-theme.css';

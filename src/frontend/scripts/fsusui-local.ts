@@ -23,6 +23,12 @@ const requiredWasmAssets = [
 const requiredThemeCssAssets = [
   'index.css',
   'el-public-shell-critical.css',
+  // el-fsus-theme.css is required since src/assets/public-shell-critical.css
+  // and src/assets/main.css both @import '@ozwasyd/element-plus/dist/el-fsus-theme.css'
+  // (the new per-component CSS bundle for product-level overrides — see
+  // FsusUI theme-chalk gulpfile). Without this entry the alias falls back
+  // to the npm dist path, which doesn't exist pre-publish and 404s in dev.
+  'el-fsus-theme.css',
 ]
 
 const toVitePath = (value: string) => value.replace(/\\/g, '/')
@@ -99,6 +105,30 @@ export function createFsusUiAliases(localFsusUiRoot: string | null): AliasEntry[
       replacement: localThemeCssReady
         ? `${localThemeDist}/el-public-shell-critical.css`
         : `${packagedRoot}/dist/public-shell-critical.css`,
+    },
+    {
+      // fsus-theme.scss was extracted out of dist/index.css (see FsusUI
+      // theme-chalk/src/index.scss) so product-level overrides no longer
+      // collide with element-plus base rules by cascade order. Consumers
+      // (public-shell-critical.css, main.css) now @import this file
+      // explicitly AFTER any base CSS they want to override.
+      find: /^@ozwasyd\/element-plus\/dist\/el-fsus-theme\.css$/,
+      replacement: localThemeCssReady
+        ? `${localThemeDist}/el-fsus-theme.css`
+        : `${packagedRoot}/dist/el-fsus-theme.css`,
+    },
+    {
+      // Per-component CSS imports from src/assets/public-shell-critical.css
+      // (el-var.css, el-radio-group.css, el-radio-button.css,
+      // el-theme-mode-toggle.css) previously bypassed the local alias and
+      // resolved from npm — so FsusUI source fixes to those files never
+      // reached FsusBlog. This regex catches the whole family and points
+      // them at the local dist, giving dev the same HMR path that
+      // dist/index.css already had.
+      find: /^@ozwasyd\/element-plus\/theme-chalk\/(.+)\.css$/,
+      replacement: localThemeCssReady
+        ? `${localThemeDist}/$1.css`
+        : `${packagedRoot}/theme-chalk/$1.css`,
     },
     { find: /^@element-plus\/icons-vue$/, replacement: `${root}/packages/icons-vue/src/index.ts` },
     { find: /^@element-plus\/icons-vue\/(.+)$/, replacement: `${root}/packages/icons-vue/src/$1` },
