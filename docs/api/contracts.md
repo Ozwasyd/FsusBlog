@@ -875,6 +875,35 @@ AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相
 
 `dependencyKeys` 是预生成和失效收敛的稳定键：`article:{id}`、`category:{id}`、`tag:{id}`、`tag-name:{name}`、`article:list`、`seo`、`compliance`。内容变更后服务端会根据已知依赖主动调度 Home、Archive、ArticleDetail、Category/Tag Filter 与静态页的 AOT backfill；SEO 或 compliance 变更会按 manifest 调度所有 public routes。
 
+### Public Navigation Snapshot
+
+`GET /api/public/navigation-snapshot.aeds?path={publicPath}` 返回公开路由的原子接管快照，供 SPA 在路由切换前预取并写入 `PublicRouteSeedStore`。该端点匿名可读，`Accept` 允许空值、`*/*`、`application/octet-stream` 或 `application/vnd.fsus.aeds`；成功响应固定为 `Content-Type: application/vnd.fsus.aeds`，AEDS frame type 复用 `PublicAotBootstrap`。
+
+`path` 必须是同站相对 URL，可包含 query；服务端会丢弃 fragment，并通过 Public AOT route registry 校验目标。允许范围与 SEO/AOT 公开页一致：`/`、`/archive`、`/article/{id}`、`/category/{id}`、`/tag/{id|name}`、`/about`、`/privacy`、`/guidelines`、`/copyright`。`/account`、`/search`、`/admin`、空 path、协议相对 URL 和绝对外链必须 fail closed。
+
+成功 body 是 `PublicAotBootstrap` frame 包裹的对象：
+
+```json
+{
+  "kind": "public-navigation-snapshot",
+  "pageKind": "Archive",
+  "pageId": 4,
+  "routeKey": "archive",
+  "path": "/archive",
+  "queryString": "",
+  "fullPath": "/archive",
+  "canonicalPath": "/archive",
+  "rendererVersion": "public-app-ssr@2026-05-01-1",
+  "frontendAssetVersion": "manifest-sha256",
+  "payloadHash": "sha256-hex",
+  "generatedAtUtc": "2026-06-18T00:00:00.0000000Z",
+  "bootstrapPayload": "<base64url AEDS frame>",
+  "hydrationPropsPayload": "<base64url AEDS frame>"
+}
+```
+
+`bootstrapPayload` 与 `hydrationPropsPayload` 必须来自 `PublicAotRenderRequest` -> `PublicAotShellEntryContract` 的同一条 renderer 输出，不能由 endpoint 自行重建。成功响应写入 `ETag`、`Cache-Control: public, max-age=30, stale-while-revalidate=300`、`Vary: Accept`，并暴露 `X-Fsus-Public-Aot-Route-Key`、`X-Fsus-Public-Aot-Renderer-Version`、`X-Fsus-Public-Aot-Frontend-Asset-Version`。`If-None-Match` 命中返回 `304`。path 语法错误返回 `400`，不支持或不可公开的 route 返回 `404`，内容协商失败返回 `406`，renderer/provider/gate 失败返回 `503`；所有负响应固定 `Cache-Control: no-store`。
+
 ### `PublicAotShellEntryContract`
 
 ```text

@@ -163,6 +163,7 @@
 | GET `/api/binary/category.aeds` | 🔓 📦 | `CategoryList`(9) | 分类元数据 L0 artifact |
 | GET `/api/binary/tag.aeds` | 🔓 📦 | `TagList`(10) | 标签元数据 L0 artifact |
 | GET `/api/binary/article/html/{pathKey}.html` | 🔓 | `text/html` | AOT HTML 诊断/预览 artifact；不替代真实公开 URL |
+| GET `/api/public/navigation-snapshot.aeds?path={publicPath}` | 🔓 📦 | `PublicAotBootstrap`(71) | 公开路由切换快照；`Content-Type: application/vnd.fsus.aeds` |
 | GET `/api/binary/comment/{articleId}` | 🔓 📦 | `CommentArticleCursor`(5) | 文章评论 |
 | GET `/api/binary/comment/{articleId}/thread/{rootId}` | 🔓 📦 | `CommentThreadReplyCursor`(8) | 评论线程 |
 | GET `/api/binary/comment/me` | 🔑 📦 | `CommentUserCursor`(6) | 用户评论历史 |

@@ -318,6 +318,50 @@ public sealed class PublicAotShellServiceTests
         Assert.Contains("public_aot_provider_missing", ex.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task BuildNavigationSnapshotAsync_UsesRendererEntryPayloads_AndAddsEnvelopeMetadata()
+    {
+        var match = new PublicAotRouteMatch(
+            PublicPageKind.Archive,
+            PublicPageId.Archive,
+            "archive",
+            "/archive",
+            "/archive",
+            string.Empty);
+        var renderer = new NavigationSnapshotRenderer();
+        PublicAotShellService sut = CreateService(
+            match,
+            new RecordingAotCache(),
+            new RecordingBackfillScheduler(),
+            assetManifest: new FixedAssetManifestService("frontend-v1"),
+            entryRenderer: renderer,
+            dbConcurrencyGate: new ImmediateDbConcurrencyGate());
+        var context = new DefaultHttpContext();
+
+        Result<PublicAotNavigationSnapshot> result = await sut.BuildNavigationSnapshotAsync(context, match);
+
+        Assert.True(result.IsSuccess, result.Error.Message);
+        PublicAotNavigationSnapshot snapshot = result.Value!;
+        Assert.Equal("Archive", snapshot.PageKind);
+        Assert.Equal(PublicPageId.Archive, snapshot.PageId);
+        Assert.Equal("archive", snapshot.RouteKey);
+        Assert.Equal("/archive", snapshot.Path);
+        Assert.Equal("/archive", snapshot.CanonicalPath);
+        Assert.Equal(PublicAotShellService.PublicRendererVersion, snapshot.RendererVersion);
+        Assert.Equal("frontend-v1", snapshot.FrontendAssetVersion);
+        Assert.NotEmpty(snapshot.PayloadHash);
+        Assert.NotEmpty(snapshot.BootstrapPayload);
+        Assert.NotEmpty(snapshot.HydrationPropsPayload);
+        Assert.Single(renderer.Requests);
+
+        byte[] frame = snapshot.EncodeFrame();
+        Assert.True(PublicAotBinaryPayload.TryDecodeObject(frame, out Dictionary<string, object?> payload));
+        Assert.Equal("public-navigation-snapshot", payload["kind"]);
+        Assert.Equal("Archive", payload["pageKind"]);
+        Assert.Equal("archive", payload["routeKey"]);
+        Assert.Equal(snapshot.PayloadHash, payload["payloadHash"]);
+    }
+
     private static PublicAotRouteMatch HomeMatch()
         => new(
             PublicPageKind.Home,
@@ -461,6 +505,46 @@ public sealed class PublicAotShellServiceTests
 
         public Task<Result> ValidateBundleAsync(PublicAotShellBundleContract bundle, CancellationToken cancellationToken = default)
             => Task.FromResult(Result.Failure(ErrorCode.InfraFailure, message));
+    }
+
+    private sealed class NavigationSnapshotRenderer : IPublicAotEntryRenderer
+    {
+        public List<PublicAotRenderRequest> Requests { get; } = [];
+
+        public Task<Result<PublicAotShellEntryContract>> BuildEntryAsync(
+            PublicAotRenderRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            Requests.Add(request);
+            var bootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["kind"] = request.Match.Kind.ToString(),
+                ["pageKind"] = request.Match.Kind.ToString(),
+                ["routeKey"] = request.Match.RouteKey,
+                ["rendererVersion"] = PublicAotShellService.PublicRendererVersion
+            });
+            var hydrationPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["pageKind"] = request.Match.Kind.ToString(),
+                ["routeKey"] = request.Match.RouteKey,
+                ["rendererVersion"] = PublicAotShellService.PublicRendererVersion,
+                ["title"] = request.Match.Kind.ToString()
+            });
+
+            return Task.FromResult(Result<PublicAotShellEntryContract>.Success(new PublicAotShellEntryContract
+            {
+                PageId = request.Match.PageId,
+                RouteKey = request.Match.RouteKey,
+                Html = """<div id="fsus-aot-shell">snapshot</div>""",
+                BootstrapPayload = bootstrapPayload,
+                HydrationPropsPayload = hydrationPayload,
+                RendererVersion = PublicAotShellService.PublicRendererVersion,
+                Title = request.Match.Kind.ToString()
+            }));
+        }
+
+        public Task<Result> ValidateBundleAsync(PublicAotShellBundleContract bundle, CancellationToken cancellationToken = default)
+            => Task.FromResult(Result.Success());
     }
 
     private sealed class ImmediateDbConcurrencyGate : IDbConcurrencyGate

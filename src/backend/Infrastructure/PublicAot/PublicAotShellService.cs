@@ -45,6 +45,19 @@ public sealed class PublicAotShellService(
     public bool TryResolve(HttpContext context, out PublicAotRouteMatch match)
         => routeRegistry.TryResolve(context, out match);
 
+    public async Task<Result<PublicAotNavigationSnapshot>> BuildNavigationSnapshotAsync(
+        HttpContext context,
+        PublicAotRouteMatch match,
+        CancellationToken cancellationToken = default)
+    {
+        DateTimeOffset generatedAtUtc = DateTimeOffset.UtcNow;
+        return await dbConcurrencyGate.ExecuteAsync(
+            "public-aot-navigation-snapshot",
+            gateCt => BuildNavigationSnapshotCoreAsync(context, match, generatedAtUtc, gateCt),
+            _ => Task.FromResult(Result<PublicAotNavigationSnapshot>.Failure(ErrorCode.InfraFailure, "db-gate-timeout")),
+            cancellationToken);
+    }
+
     public async Task<PublicAotCacheEntry?> RenderAsync(HttpContext context, PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
         string documentCacheKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
@@ -101,6 +114,51 @@ public sealed class PublicAotShellService(
         }
 
         return null;
+    }
+
+    private async Task<Result<PublicAotNavigationSnapshot>> BuildNavigationSnapshotCoreAsync(
+        HttpContext context,
+        PublicAotRouteMatch match,
+        DateTimeOffset generatedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        if (!_bootstrapProviders.TryGetValue(match.Kind, out IPublicAotBootstrapProvider? provider))
+        {
+            return Result<PublicAotNavigationSnapshot>.Failure(ErrorCode.Validation, $"public_aot_provider_missing:{match.Kind}");
+        }
+
+        Result<PublicPageSnapshot> snapshot = await provider.BuildSnapshotAsync(match, cancellationToken);
+        if (snapshot.IsFailure || snapshot.Value is null)
+        {
+            return Result<PublicAotNavigationSnapshot>.Failure(snapshot.Error);
+        }
+
+        Result<PublicAotShellEntryContract> entry = await entryRenderer.BuildEntryAsync(
+            new PublicAotRenderRequest(match, snapshot.Value),
+            cancellationToken);
+        if (entry.IsFailure || entry.Value is null)
+        {
+            return Result<PublicAotNavigationSnapshot>.Failure(entry.Error);
+        }
+
+        PublicAotShellEntryContract renderedEntry = entry.Value;
+        if (!PublicAotShellContractRules.TryValidateEntry(renderedEntry, out string normalizedRouteKey, out string normalizedHtml, out string error))
+        {
+            return Result<PublicAotNavigationSnapshot>.Failure(ErrorCode.Validation, error);
+        }
+
+        PublicAotShellEntryContract normalizedEntry = renderedEntry with
+        {
+            RouteKey = normalizedRouteKey,
+            Html = normalizedHtml
+        };
+        string frontendAssetVersion = assetManifest.GetFrontendAssetVersion(context);
+        PublicAotNavigationSnapshot result = PublicAotNavigationSnapshot.Create(
+            match with { RouteKey = normalizedRouteKey },
+            normalizedEntry,
+            frontendAssetVersion,
+            generatedAtUtc);
+        return Result<PublicAotNavigationSnapshot>.Success(result);
     }
 
     private bool ScheduleBackfill(

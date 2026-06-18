@@ -242,6 +242,8 @@ AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行�
 
 公开页结构的 SSR 入口是 [`src/frontend/src/public-renderers/renderPublicPage.ts`](../../src/frontend/src/public-renderers/renderPublicPage.ts)，该入口向 server SSR worker 暴露 `buildPublicEntry`、payload codec 与 renderer version；具体页面组合由 `publicEntryRegistry.ts`、`pageAssemblies.ts` 与 `scaffold.ts` 维护。文档和实现不得再引入额外 helper 作为公开页结构真相源。服务端 AOT provider 只提供数据型 options，不手写 hydration props、不渲染 Markdown、不拼页面内部 HTML；Node/Vue SSR worker 负责生成 `html / bootstrapPayload / hydrationPropsPayload`，服务端只做文档包装、hydration `.aeds` sidecar 写出、缓存与降级。hydration sidecar 是 content-hash URL，使用 `application/vnd.fsus.aeds` 与 immutable cache；运行时 `/api/binary/**` 仍使用 `application/octet-stream`。
 
+`GET /api/public/navigation-snapshot.aeds?path={publicPath}` 是公开 SPA micro-navigation 的原子接管快照端点。它只接受同站相对路径，并通过 Public AOT route registry fail closed 校验首页、归档、文章详情、分类、标签和固定静态页；账号、搜索、admin、协议相对 URL 和绝对外链不进入快照链路。响应使用 `application/vnd.fsus.aeds`，AEDS frame 复用 `PublicAotBootstrap`，外层 envelope 的 `kind` 固定为 `public-navigation-snapshot`，内层 `bootstrapPayload` / `hydrationPropsPayload` 仍由同一个 Node/Vue SSR worker `buildEntry` 生成，避免 HTML、bootstrap 与 hydration 分裂为三套真相源。
+
 ### feed / sitemap / robots 缓存约束
 
 feed、sitemap 与 robots 等开放分发文本端点只负责生成标准格式正文、声明 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 并挂载 OutputCache ArticleList/Seo tag；端点本身不得按响应正文手写 ETag、解析 `If-None-Match` 或绕过统一缓存失效链路。
