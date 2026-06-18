@@ -21,6 +21,30 @@ import { markStartup, measureStartup } from '@/bootstrap/startupProfiler'
 import { authSessionRuntime } from '@/services/authSessionRuntime'
 import '@/assets/main.css'
 
+export type BootstrapFullAppOptions = {
+  deferRuntime?: boolean
+  hydrate?: boolean
+  takeover?: 'public-shell' | 'direct'
+}
+
+export type FullAppNavigationIntent = Readonly<{
+  to: string
+  replace?: boolean
+}>
+
+export type CommitPreparedFullAppOptions = Readonly<{
+  navigationIntent?: FullAppNavigationIntent
+}>
+
+export type PreparedFullApp = Readonly<{
+  app: ReturnType<typeof createApp>
+  pinia: ReturnType<typeof createPinia>
+  head: ReturnType<typeof createHead>
+  router: typeof router
+  options: BootstrapFullAppOptions
+  isPublicShellTakeover: boolean
+}>
+
 let bootstrapPromise: Promise<typeof router> | null = null
 
 function disposePublicShellForClientMount(): void {
@@ -58,54 +82,77 @@ async function syncRouterToCurrentLocationForClientMount(): Promise<void> {
   await router.replace(targetRoute).catch(() => {})
 }
 
-export function bootstrapFullApp(options?: { deferRuntime?: boolean; hydrate?: boolean; takeover?: 'public-shell' | 'direct' }): Promise<typeof router> {
-  if (bootstrapPromise) {
-    return bootstrapPromise
+function installFullAppPlugins(prepared: PreparedFullApp): void {
+  const { app, pinia, head } = prepared
+
+  // FsusUI 1.4 MessageBox reads `center` during its initial render before
+  // programmatic options are copied onto the instance.
+  app.config.globalProperties.center = false
+
+  app.use(head)
+  pinia.use(piniaPluginPersistedstate)
+  app.use(pinia)
+  app.use(router)
+  installFsusUiLoading(app)
+  app.use(FsuMotion)
+  provideFsusUiAppContext(app)
+}
+
+export function prepareFullApp(options: BootstrapFullAppOptions = {}): PreparedFullApp {
+  markStartup('full-app-bootstrap:start')
+  const prepared: PreparedFullApp = {
+    app: createApp(App),
+    pinia: createPinia(),
+    head: createHead(),
+    router,
+    options,
+    isPublicShellTakeover: options.takeover === 'public-shell'
   }
 
-  bootstrapPromise = (async () => {
-    markStartup('full-app-bootstrap:start')
-    const isPublicShellTakeover = options?.takeover === 'public-shell'
+  installFullAppPlugins(prepared)
+  return prepared
+}
 
-    if (isPublicShellTakeover) {
+async function replayNavigationIntent(intent: FullAppNavigationIntent | undefined): Promise<void> {
+  if (!intent) {
+    return
+  }
+
+  if (intent.replace) {
+    await router.replace(intent.to)
+    return
+  }
+
+  await router.push(intent.to)
+}
+
+export async function commitPreparedFullApp(
+  prepared: PreparedFullApp,
+  options: CommitPreparedFullAppOptions = {}
+): Promise<typeof router> {
+  try {
+    if (prepared.isPublicShellTakeover) {
       beginPublicTakeoverCommit({ reason: 'full-app-bootstrap' })
       abortPublicShellLifetime('full-app-bootstrap')
       disposePublicShellForClientMount()
-    }
-    const app = createApp(App)
-    const pinia = createPinia()
-    const head = createHead()
-
-    // FsusUI 1.4 MessageBox reads `center` during its initial render before
-    // programmatic options are copied onto the instance.
-    app.config.globalProperties.center = false
-
-    app.use(head)
-    pinia.use(piniaPluginPersistedstate)
-    app.use(pinia)
-    app.use(router)
-    installFsusUiLoading(app)
-    app.use(FsuMotion)
-    provideFsusUiAppContext(app)
-    authSessionRuntime.init(pinia)
-
-    if (isPublicShellTakeover) {
       await syncRouterToCurrentLocationForClientMount()
       await router.isReady()
       markStartup('full-app-bootstrap:router-ready-before-mount')
     }
 
-    app.mount('#app')
+    authSessionRuntime.init(prepared.pinia)
+    prepared.app.mount('#app')
     markStartup('full-app-bootstrap:mounted')
-    scheduleFullAppRuntime(Boolean(options?.deferRuntime), {
-      allowIdleActivation: !isPublicShellTakeover,
-      allowScrollActivation: !isPublicShellTakeover
+    scheduleFullAppRuntime(Boolean(prepared.options.deferRuntime), {
+      allowIdleActivation: !prepared.isPublicShellTakeover,
+      allowScrollActivation: !prepared.isPublicShellTakeover
     })
     scheduleNonCriticalResources()
 
     await router.isReady()
+    await replayNavigationIntent(options.navigationIntent)
     markStartup('full-app-bootstrap:router-ready')
-    if (isPublicShellTakeover) {
+    if (prepared.isPublicShellTakeover) {
       completePublicTakeoverCommit({ reason: 'full-app-mounted' })
     } else {
       markDirectPublicShellReady()
@@ -114,11 +161,25 @@ export function bootstrapFullApp(options?: { deferRuntime?: boolean; hydrate?: b
     measureStartup('router-ready-after-mount', 'full-app-bootstrap:mounted', 'full-app-bootstrap:router-ready')
     removeGlobalLoader()
     return router
-  })().catch((error) => {
-    bootstrapPromise = null
-    if (options?.takeover === 'public-shell') {
+  } catch (error) {
+    if (prepared.isPublicShellTakeover) {
       resetPublicTakeover({ reason: 'full-app-bootstrap-failed' })
     }
+
+    throw error
+  }
+}
+
+export function bootstrapFullApp(options?: BootstrapFullAppOptions): Promise<typeof router> {
+  if (bootstrapPromise) {
+    return bootstrapPromise
+  }
+
+  bootstrapPromise = (async () => {
+    const prepared = prepareFullApp(options)
+    return await commitPreparedFullApp(prepared)
+  })().catch((error) => {
+    bootstrapPromise = null
     throw error
   })
 
