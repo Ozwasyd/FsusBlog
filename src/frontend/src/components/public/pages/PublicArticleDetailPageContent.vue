@@ -101,16 +101,16 @@
           <a
             v-if="detailView.relatedReading.previous"
             :href="detailView.relatedReading.previous.href"
-            class="group blog-motion-state-change border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-5 py-4 hover:border-[var(--fsusblog-text-primary)]/40"
+            class="group blog-motion-state-change block py-4"
             data-related-role="previous"
           >
             <span class="block text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
               {{ detailView.relatedReading.previousLabel }}
             </span>
-            <span class="mt-2 block text-sm font-bold leading-6 text-[var(--fsusblog-text-primary)] group-hover:underline">
+            <span class="mt-2 block text-sm font-bold leading-6 text-[var(--fsusblog-text-primary)] border-b border-transparent group-hover:border-[var(--fsusblog-color-primary)] pb-1 transition-colors">
               {{ detailView.relatedReading.previous.title }}
             </span>
-            <span class="mt-2 block text-[11px] normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+            <span class="mt-1 block text-xs normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
               {{ detailView.relatedReading.previous.reason }} · {{ detailView.relatedReading.previous.displayTime }}
             </span>
           </a>
@@ -119,16 +119,16 @@
           <a
             v-if="detailView.relatedReading.next"
             :href="detailView.relatedReading.next.href"
-            class="group blog-motion-state-change border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-5 py-4 hover:border-[var(--fsusblog-text-primary)]/40 sm:text-right"
+            class="group blog-motion-state-change block py-4 sm:text-right"
             data-related-role="next"
           >
             <span class="block text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
               {{ detailView.relatedReading.nextLabel }}
             </span>
-            <span class="mt-2 block text-sm font-bold leading-6 text-[var(--fsusblog-text-primary)] group-hover:underline">
+            <span class="mt-2 block text-sm font-bold leading-6 text-[var(--fsusblog-text-primary)] border-b border-transparent group-hover:border-[var(--fsusblog-color-primary)] pb-1 transition-colors">
               {{ detailView.relatedReading.next.title }}
             </span>
-            <span class="mt-2 block text-[11px] normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+            <span class="mt-1 block text-xs normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
               {{ detailView.relatedReading.next.reason }} · {{ detailView.relatedReading.next.displayTime }}
             </span>
           </a>
@@ -152,7 +152,7 @@
                 <span class="block text-sm font-bold leading-6 text-[var(--fsusblog-text-primary)] group-hover:underline">
                   {{ item.title }}
                 </span>
-                <span class="mt-1 block text-[11px] normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+                <span class="mt-1 block text-xs normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
                   {{ item.reason }} · {{ item.displayTime }}
                 </span>
                 <span
