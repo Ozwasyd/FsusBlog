@@ -157,7 +157,10 @@ fault_injection_status_or_missing() {
     and (([
       "redis-restart",
       "redis-reconnect",
-      "redis-latency"
+      "redis-latency",
+      "postgres-readiness",
+      "postgres-reconnect",
+      "postgres-lock-timeout"
     ] - ([.cases[]?.case])) | length == 0)
     and all(.cases[]?; .status == "completed" and .actionStatus == "executed")
     and all(.cases[]?; ((.case | startswith("redis-")) | not) or (
@@ -170,6 +173,21 @@ fault_injection_status_or_missing() {
       and ((.finalHealthStatus // "") == "healthy")
       and ((.authenticatedImpact.status // "") | length > 0)
       and ((.notificationStreamImpact.status // "") | length > 0)
+    ))
+    and all(.cases[]?; ((.case | startswith("postgres-")) | not) or (
+      ((.actionStartedAt // "") | length > 0)
+      and ((.actionCompletedAt // "") | length > 0)
+      and ((.affectedEndpoint // "") | length > 0)
+      and ((.unavailableDurationMs // -1) >= 0)
+      and (((.dbReconnectDurationMs // .recoveryDurationMs // .recoveryTimeMs // 0)) > 0)
+      and ((.publicReadRecoveryResult.status // "") == "completed")
+      and ((.publicReadRecoveryResult.sampleCount // 0) > 0)
+      and (
+        ((.writePathRollbackResult.status // "") == "verified")
+        or ((.writePathRollbackResult.status // "") == "not-mutated")
+        or ((.writePathRollbackResult.status // "") == "idempotent")
+      )
+      and ((.finalHealthStatus // "") == "healthy")
     ))
   '
 }

@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { performance } from 'node:perf_hooks'
 import { fileURLToPath } from 'node:url'
 
@@ -619,6 +619,414 @@ async function runRedisFaultCase(caseName) {
   }
 }
 
+function postgresContainerName() {
+  return process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME || process.env.FSUSBLOG_PG_CONTAINER || ''
+}
+
+function runPostgresSql(container, sql) {
+  return runDocker(['exec', '-i', container, 'psql', '-U', 'fsusblog', '-d', 'fsusblog', '-v', 'ON_ERROR_STOP=1', '-t', '-A', '-c', sql])
+}
+
+function spawnPostgresSql(container, sql) {
+  const child = spawn('docker', [
+    'exec',
+    '-i',
+    container,
+    'psql',
+    '-U',
+    'fsusblog',
+    '-d',
+    'fsusblog',
+    '-v',
+    'ON_ERROR_STOP=1',
+    '-c',
+    sql
+  ], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
+
+  const chunks = { stdout: '', stderr: '' }
+  child.stdout.setEncoding('utf8')
+  child.stderr.setEncoding('utf8')
+  child.stdout.on('data', (chunk) => { chunks.stdout += chunk })
+  child.stderr.on('data', (chunk) => { chunks.stderr += chunk })
+  return { child, chunks }
+}
+
+function waitForSpawnResult(processHandle, timeoutMs) {
+  const { child, chunks } = processHandle
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      child.kill('SIGTERM')
+      resolve({
+        ok: false,
+        status: null,
+        stdout: chunks.stdout.trim(),
+        stderr: chunks.stderr.trim(),
+        error: `process timed out after ${timeoutMs}ms`
+      })
+    }, timeoutMs)
+
+    child.on('error', (error) => {
+      clearTimeout(timer)
+      resolve({
+        ok: false,
+        status: null,
+        stdout: chunks.stdout.trim(),
+        stderr: chunks.stderr.trim(),
+        error: error.message
+      })
+    })
+
+    child.on('close', (status) => {
+      clearTimeout(timer)
+      resolve({
+        ok: status === 0,
+        status,
+        stdout: chunks.stdout.trim(),
+        stderr: chunks.stderr.trim(),
+        error: status === 0 ? null : (chunks.stderr || chunks.stdout || `process exited ${status}`).trim()
+      })
+    })
+  })
+}
+
+async function probePostgresFinalHealth(container) {
+  const healthLive = await runProbeResult('health live', ['/health/live'], { iterations: 1, concurrency: 1 })
+  if (healthLive.status !== 'completed') {
+    throw new Error(`health live did not recover: ${healthLive.error}`)
+  }
+
+  const publicReadResult = await runProbeResult('public binary endpoint', [
+    '/api/binary/system/seo',
+    '/api/binary/article/list/home/1/10.aeds'
+  ], { iterations: 4, concurrency: 1 })
+  if (publicReadResult.status !== 'completed') {
+    throw new Error(`public binary endpoint did not recover: ${publicReadResult.error}`)
+  }
+
+  const healthReady = await runProbeResult('health ready', ['/health/ready'], { iterations: 1, concurrency: 1 })
+  if (healthReady.status !== 'completed') {
+    throw new Error(`health ready did not recover: ${healthReady.error}`)
+  }
+
+  const dbQuery = runPostgresSql(container, 'SELECT 1;')
+  if (!dbQuery.ok) {
+    throw new Error(`postgres follow-up query failed: ${dbQuery.error}`)
+  }
+
+  const logScan = scanBackendLogsForUnhandledExceptions()
+  if (logScan.status === 'failed' || logScan.status === 'blocked') {
+    throw new Error(`backend log scan ${logScan.status}: ${logScan.error ?? logScan.matchedPattern}`)
+  }
+
+  return {
+    status: 'healthy',
+    generatedAt: nowIso(),
+    healthLive,
+    publicReadResult,
+    healthReady,
+    connectionPool: {
+      status: 'ok',
+      appReady: healthReady,
+      dbQuery: {
+        status: 'completed',
+        output: dbQuery.stdout
+      }
+    },
+    logScan
+  }
+}
+
+async function waitForPostgresRecovery(container) {
+  const started = performance.now()
+  const startedAt = nowIso()
+  const attempts = []
+  const maxWaitMs = positiveInt(process.env.FSUSBLOG_POSTGRES_RECOVERY_WAIT_MS, 25000)
+  const intervalMs = positiveInt(process.env.FSUSBLOG_POSTGRES_RECOVERY_POLL_MS, 500)
+
+  do {
+    try {
+      const finalHealth = await probePostgresFinalHealth(container)
+      return {
+        status: 'completed',
+        startedAt,
+        completedAt: nowIso(),
+        recoveryDurationMs: elapsedMs(started),
+        attempts,
+        finalHealth
+      }
+    } catch (error) {
+      attempts.push({
+        at: nowIso(),
+        elapsedMs: elapsedMs(started),
+        error: error instanceof Error ? error.message : String(error)
+      })
+      if (performance.now() - started >= maxWaitMs) {
+        throw new Error(`PostgreSQL recovery did not complete within ${maxWaitMs}ms: ${attempts.at(-1)?.error}`)
+      }
+      await sleep(intervalMs)
+    }
+  } while (true)
+}
+
+async function executePostgresControlledAction(caseName, container) {
+  const startedAt = nowIso()
+  const started = performance.now()
+  const common = { status: 'executed', target: container, startedAt }
+
+  if (caseName === 'postgres-readiness') {
+    const stopped = runDocker(['stop', container])
+    if (!stopped.ok) {
+      return {
+        status: 'blocked',
+        target: container,
+        operation: 'docker stop/start',
+        affectedEndpoint: '/health/ready',
+        startedAt,
+        completedAt: nowIso(),
+        error: stopped.error
+      }
+    }
+
+    const unavailableStarted = performance.now()
+    const unavailableStartedAt = nowIso()
+    const impact = await runProbeResult('postgres-readiness unavailable window', [
+      '/health/ready',
+      '/api/binary/system/seo'
+    ], { iterations: 2, concurrency: 1 })
+    const startedAgain = runDocker(['start', container])
+    const unavailableDurationMs = elapsedMs(unavailableStarted)
+    if (!startedAgain.ok) {
+      return {
+        status: 'failed',
+        target: container,
+        operation: 'docker stop/start',
+        affectedEndpoint: '/health/ready',
+        startedAt,
+        completedAt: nowIso(),
+        unavailableStartedAt,
+        unavailableDurationMs,
+        duringWindow: impact,
+        error: startedAgain.error
+      }
+    }
+
+    return {
+      ...common,
+      operation: 'docker stop/start',
+      affectedEndpoint: '/health/ready',
+      completedAt: nowIso(),
+      durationMs: elapsedMs(started),
+      unavailableStartedAt,
+      unavailableDurationMs,
+      duringWindow: impact,
+      writePathRollbackResult: {
+        status: 'not-mutated',
+        reason: 'readiness drill exercises availability and follow-up read recovery'
+      },
+      stopOutput: stopped.stdout,
+      startOutput: startedAgain.stdout
+    }
+  }
+
+  if (caseName === 'postgres-reconnect') {
+    const terminated = runPostgresSql(container, `
+      SELECT count(pg_terminate_backend(pid))
+      FROM pg_stat_activity
+      WHERE datname = current_database()
+        AND pid <> pg_backend_pid();
+    `)
+    if (!terminated.ok) {
+      return {
+        status: 'blocked',
+        target: container,
+        operation: 'pg_terminate_backend active connections',
+        affectedEndpoint: '/health/ready',
+        startedAt,
+        completedAt: nowIso(),
+        error: terminated.error
+      }
+    }
+
+    const impact = await runProbeResult('postgres-reconnect window', [
+      '/health/ready',
+      '/api/binary/system/seo'
+    ], { iterations: 2, concurrency: 1 })
+    return {
+      ...common,
+      operation: 'pg_terminate_backend active connections',
+      affectedEndpoint: '/health/ready',
+      completedAt: nowIso(),
+      durationMs: elapsedMs(started),
+      unavailableDurationMs: 0,
+      duringWindow: impact,
+      terminatedConnections: Number.parseInt(terminated.stdout, 10),
+      writePathRollbackResult: {
+        status: 'not-mutated',
+        reason: 'connection reset drill terminates sessions without writing data'
+      },
+      output: terminated.stdout
+    }
+  }
+
+  if (caseName === 'postgres-lock-timeout') {
+    const beforeRows = queryPostgresScalar('select count(*) from article;')
+    if (!beforeRows.available) {
+      return {
+        status: 'blocked',
+        target: container,
+        operation: 'lock timeout simulation',
+        affectedEndpoint: '/api/binary/article/list/home/1/10.aeds',
+        startedAt,
+        completedAt: nowIso(),
+        error: beforeRows.error
+      }
+    }
+
+    const holder = spawnPostgresSql(container, 'BEGIN; LOCK TABLE article IN ACCESS EXCLUSIVE MODE; SELECT pg_sleep(3); COMMIT;')
+    await sleep(500)
+    const timeoutProbe = runPostgresSql(container, "SET lock_timeout = '500ms'; SELECT count(*) FROM article;")
+    const holderResult = await waitForSpawnResult(holder, 7000)
+    const afterRows = queryPostgresScalar('select count(*) from article;')
+    const timeoutObserved = !timeoutProbe.ok && /lock timeout|canceling statement due to lock timeout/i.test(timeoutProbe.error ?? '')
+    if (!holderResult.ok) {
+      return {
+        status: 'failed',
+        target: container,
+        operation: 'lock timeout simulation',
+        affectedEndpoint: '/api/binary/article/list/home/1/10.aeds',
+        startedAt,
+        completedAt: nowIso(),
+        unavailableDurationMs: elapsedMs(started),
+        error: holderResult.error
+      }
+    }
+    if (!timeoutObserved) {
+      return {
+        status: 'failed',
+        target: container,
+        operation: 'lock timeout simulation',
+        affectedEndpoint: '/api/binary/article/list/home/1/10.aeds',
+        startedAt,
+        completedAt: nowIso(),
+        unavailableDurationMs: elapsedMs(started),
+        error: timeoutProbe.ok ? 'lock timeout query unexpectedly succeeded' : timeoutProbe.error
+      }
+    }
+
+    return {
+      ...common,
+      operation: 'lock timeout simulation',
+      affectedEndpoint: '/api/binary/article/list/home/1/10.aeds',
+      completedAt: nowIso(),
+      durationMs: elapsedMs(started),
+      unavailableDurationMs: elapsedMs(started),
+      duringWindow: {
+        status: 'failed',
+        label: 'postgres-lock-timeout window',
+        error: timeoutProbe.error
+      },
+      writePathRollbackResult: {
+        status: afterRows.available && afterRows.value === beforeRows.value ? 'verified' : 'failed',
+        beforeArticleRows: beforeRows.value,
+        afterArticleRows: afterRows.available ? afterRows.value : null,
+        source: afterRows.available ? 'postgres-count' : afterRows.error,
+        timeoutObserved
+      },
+      holderResult: {
+        status: holderResult.status,
+        stdout: holderResult.stdout,
+        stderr: holderResult.stderr
+      }
+    }
+  }
+
+  return {
+    status: 'blocked',
+    target: container,
+    operation: 'unknown postgres action',
+    affectedEndpoint: '/health/ready',
+    startedAt,
+    completedAt: nowIso(),
+    reason: `no controlled PostgreSQL action implemented for ${caseName}`
+  }
+}
+
+async function runPostgresFaultCase(caseName) {
+  let before = null
+  let action = { status: 'blocked', reason: `no controlled PostgreSQL action implemented for ${caseName}` }
+  let recovery = null
+  let resultStatus = 'blocked'
+  let failure = null
+
+  try {
+    before = await runHttpProbe(['/health/live', '/api/binary/system/seo'], { iterations: 2, concurrency: 1 })
+    const container = postgresContainerName()
+    if (!container) {
+      action = { status: 'blocked', reason: 'postgres container env missing' }
+    } else {
+      action = await executePostgresControlledAction(caseName, container)
+      if (action.status === 'executed') {
+        recovery = await waitForPostgresRecovery(container)
+        resultStatus = action.writePathRollbackResult?.status === 'failed' ? 'failed' : 'completed'
+      } else {
+        resultStatus = action.status === 'failed' ? 'failed' : 'blocked'
+      }
+    }
+  } catch (error) {
+    resultStatus = 'failed'
+    failure = error instanceof Error ? error.message : String(error)
+  }
+
+  const finalHealth = recovery?.finalHealth ?? {
+    status: resultStatus,
+    error: failure ?? action.reason ?? action.error ?? 'recovery check missing'
+  }
+  const publicReadRecoveryResult = recovery?.finalHealth?.publicReadResult ?? null
+  const recoveryDurationMs = recovery?.recoveryDurationMs ?? null
+  return {
+    status: resultStatus,
+    case: caseName,
+    namespace,
+    actionStatus: action.status,
+    actionStartedAt: action.startedAt ?? null,
+    actionCompletedAt: action.completedAt ?? null,
+    affectedEndpoint: action.affectedEndpoint ?? null,
+    unavailableDurationMs: action.unavailableDurationMs ?? null,
+    dbReconnectDurationMs: recoveryDurationMs,
+    recoveryDurationMs,
+    publicReadRecoveryResult,
+    writePathRollbackResult: action.writePathRollbackResult ?? null,
+    preCheck: before
+      ? { status: 'completed', p95Ms: before.latencyMs.p95, sampleCount: before.sampleCount }
+      : { status: 'failed', error: failure ?? 'pre-check was not completed' },
+    controlledAction: action,
+    recoveryCheck: recovery
+      ? {
+          status: recovery.status,
+          startedAt: recovery.startedAt,
+          completedAt: recovery.completedAt,
+          dbReconnectDurationMs: recoveryDurationMs,
+          attempts: recovery.attempts.length
+        }
+      : { status: action.status === 'executed' ? 'failed' : 'blocked', error: failure ?? action.reason ?? action.error ?? 'controlled action was not executed' },
+    timeline: [
+      ...(before ? [{ event: 'pre-check', generatedAt: before.generatedAt, p95Ms: before.latencyMs.p95 }] : []),
+      { event: 'controlled-action', generatedAt: action.startedAt ?? nowIso(), status: action.status },
+      ...(action.duringWindow ? [{ event: 'during-unavailable-window', generatedAt: action.duringWindow.completedAt ?? nowIso(), status: action.duringWindow.status }] : []),
+      ...(recovery ? [{ event: 'recovery-check', generatedAt: recovery.completedAt, dbReconnectDurationMs: recoveryDurationMs }] : [])
+    ],
+    errorRate: action.duringWindow?.status === 'failed' ? 1 : 0,
+    recoveryTimeMs: recoveryDurationMs,
+    dataConsistency: resultStatus === 'completed' ? 'runtime-probe-ok' : 'not-verified',
+    resourceMetrics: {
+      postgresContainer: postgresContainerName() || null
+    },
+    finalHealth,
+    finalHealthSnapshot: finalHealth,
+    generatedAt: recovery?.completedAt ?? nowIso()
+  }
+}
+
 async function runBlockedFaultCase(caseName) {
   let before = null
   let failure = null
@@ -675,6 +1083,18 @@ function faultCaseSummary(item) {
       : null,
     notificationStreamImpact: item.notificationStreamImpact
       ? { status: item.notificationStreamImpact.status }
+      : null,
+    affectedEndpoint: item.affectedEndpoint ?? item.controlledAction?.affectedEndpoint ?? null,
+    dbReconnectDurationMs: item.dbReconnectDurationMs ?? null,
+    publicReadRecoveryResult: item.publicReadRecoveryResult
+      ? {
+          status: item.publicReadRecoveryResult.status,
+          sampleCount: item.publicReadRecoveryResult.runtime?.sampleCount ?? null,
+          p95Ms: item.publicReadRecoveryResult.runtime?.p95Ms ?? null
+        }
+      : null,
+    writePathRollbackResult: item.writePathRollbackResult
+      ? { status: item.writePathRollbackResult.status }
       : null,
     finalHealthStatus: item.finalHealth?.status ?? null
   }
@@ -800,7 +1220,17 @@ async function dataScale(tier, outFile) {
 
 async function faultInjection(outDir) {
   const redisCases = new Set(['redis-restart', 'redis-reconnect', 'redis-latency'])
-  const cases = ['redis-restart', 'redis-reconnect', 'redis-latency', 'postgres-readiness', 'notification-stream-slow-consumer', 'graceful-shutdown']
+  const postgresCases = new Set(['postgres-readiness', 'postgres-reconnect', 'postgres-lock-timeout'])
+  const cases = [
+    'redis-restart',
+    'redis-reconnect',
+    'redis-latency',
+    'postgres-readiness',
+    'postgres-reconnect',
+    'postgres-lock-timeout',
+    'notification-stream-slow-consumer',
+    'graceful-shutdown'
+  ]
   fs.mkdirSync(outDir, { recursive: true })
   const results = []
   for (const caseName of cases) {
@@ -808,7 +1238,9 @@ async function faultInjection(outDir) {
     fs.mkdirSync(path.join(caseDir, 'logs'), { recursive: true })
     const result = redisCases.has(caseName)
       ? await runRedisFaultCase(caseName)
-      : await runBlockedFaultCase(caseName)
+      : postgresCases.has(caseName)
+        ? await runPostgresFaultCase(caseName)
+        : await runBlockedFaultCase(caseName)
     writeJson(path.join(caseDir, 'summary.json'), result)
     writeJson(path.join(caseDir, 'timeline.json'), result.timeline)
     results.push(result)

@@ -6,6 +6,7 @@ import process from 'node:process'
 
 const rootDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..')
 const requiredRedisFaultCases = ['redis-restart', 'redis-reconnect', 'redis-latency']
+const requiredPostgresFaultCases = ['postgres-readiness', 'postgres-reconnect', 'postgres-lock-timeout']
 
 const requiredStatusChecks = [
   ['image digest', (manifest) => manifest.evidenceSummary?.image?.status === 'present'],
@@ -150,10 +151,14 @@ function faultInjectionOk(manifest, context) {
     && Number(report.caseCount ?? 0) > 0
     && Array.isArray(report.cases)
     && includesAll(report.cases.map((item) => item.case), requiredRedisFaultCases)
+    && includesAll(report.cases.map((item) => item.case), requiredPostgresFaultCases)
     && report.cases.every((item) => item.status === 'completed' && item.actionStatus === 'executed')
     && report.cases
       .filter((item) => requiredRedisFaultCases.includes(item.case))
       .every(redisFaultCaseOk)
+    && report.cases
+      .filter((item) => requiredPostgresFaultCases.includes(item.case))
+      .every(postgresFaultCaseOk)
 }
 
 function redisFaultCaseOk(item) {
@@ -168,6 +173,22 @@ function redisFaultCaseOk(item) {
     && item.finalHealthStatus === 'healthy'
     && typeof item.authenticatedImpact?.status === 'string'
     && typeof item.notificationStreamImpact?.status === 'string'
+}
+
+function postgresFaultCaseOk(item) {
+  return typeof item.actionStartedAt === 'string'
+    && item.actionStartedAt.length > 0
+    && typeof item.actionCompletedAt === 'string'
+    && item.actionCompletedAt.length > 0
+    && typeof item.affectedEndpoint === 'string'
+    && item.affectedEndpoint.length > 0
+    && Number(item.unavailableDurationMs ?? -1) >= 0
+    && Number(item.dbReconnectDurationMs ?? item.recoveryDurationMs ?? item.recoveryTimeMs ?? 0) > 0
+    && item.publicReadRecoveryResult?.status === 'completed'
+    && Number(item.publicReadRecoveryResult?.sampleCount ?? 0) > 0
+    && typeof item.writePathRollbackResult?.status === 'string'
+    && !['failed', 'scheduled', 'observed-only'].includes(item.writePathRollbackResult.status)
+    && item.finalHealthStatus === 'healthy'
 }
 
 function shortSoakOk(manifest, context) {
@@ -408,21 +429,38 @@ function runSelfTest() {
   fs.mkdirSync(path.join(tmpDir, 'faultInjection'))
   fs.writeFileSync(path.join(tmpDir, 'faultInjection', 'summary.json'), JSON.stringify({
     status: 'ok',
-    caseCount: 3,
-    cases: requiredRedisFaultCases.map((caseName, index) => ({
-      case: caseName,
-      status: 'completed',
-      actionStatus: 'executed',
-      actionStartedAt: `2026-06-18T00:00:0${index}Z`,
-      actionCompletedAt: `2026-06-18T00:00:1${index}Z`,
-      unavailableDurationMs: index,
-      recoveryDurationMs: 2 + index,
-      recoveryTimeMs: 2 + index,
-      publicReadResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
-      authenticatedImpact: { status: 'not-configured' },
-      notificationStreamImpact: { status: 'not-configured' },
-      finalHealthStatus: 'healthy'
-    }))
+    caseCount: 6,
+    cases: [
+      ...requiredRedisFaultCases.map((caseName, index) => ({
+        case: caseName,
+        status: 'completed',
+        actionStatus: 'executed',
+        actionStartedAt: `2026-06-18T00:00:0${index}Z`,
+        actionCompletedAt: `2026-06-18T00:00:1${index}Z`,
+        unavailableDurationMs: index,
+        recoveryDurationMs: 2 + index,
+        recoveryTimeMs: 2 + index,
+        publicReadResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+        authenticatedImpact: { status: 'not-configured' },
+        notificationStreamImpact: { status: 'not-configured' },
+        finalHealthStatus: 'healthy'
+      })),
+      ...requiredPostgresFaultCases.map((caseName, index) => ({
+        case: caseName,
+        status: 'completed',
+        actionStatus: 'executed',
+        actionStartedAt: `2026-06-18T00:01:0${index}Z`,
+        actionCompletedAt: `2026-06-18T00:01:1${index}Z`,
+        affectedEndpoint: index === 2 ? '/api/binary/article/list/home/1/10.aeds' : '/health/ready',
+        unavailableDurationMs: index,
+        dbReconnectDurationMs: 3 + index,
+        recoveryDurationMs: 3 + index,
+        recoveryTimeMs: 3 + index,
+        publicReadRecoveryResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+        writePathRollbackResult: { status: index === 2 ? 'verified' : 'not-mutated' },
+        finalHealthStatus: 'healthy'
+      }))
+    ]
   }))
   fs.mkdirSync(path.join(tmpDir, 'soak', 'short'), { recursive: true })
   fs.writeFileSync(path.join(tmpDir, 'soak', 'short', 'summary.json'), JSON.stringify({

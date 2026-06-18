@@ -315,7 +315,7 @@ printf '{"status":"ok","seedsRun":1,"crashes":[]}\n' > "$FUZZ_DIR/wasm/summary.j
 cat > "$FAULT_DIR/summary.json" <<'JSON'
 {
   "status": "ok",
-  "caseCount": 3,
+  "caseCount": 6,
   "cases": [
     {
       "case": "redis-restart",
@@ -357,6 +357,51 @@ cat > "$FAULT_DIR/summary.json" <<'JSON'
       "publicReadResult": { "status": "completed", "sampleCount": 1, "p95Ms": 1 },
       "authenticatedImpact": { "status": "not-configured" },
       "notificationStreamImpact": { "status": "not-configured" },
+      "finalHealthStatus": "healthy"
+    },
+    {
+      "case": "postgres-readiness",
+      "status": "completed",
+      "actionStatus": "executed",
+      "actionStartedAt": "2026-06-18T00:03:00Z",
+      "actionCompletedAt": "2026-06-18T00:03:10Z",
+      "affectedEndpoint": "/health/ready",
+      "unavailableDurationMs": 1,
+      "dbReconnectDurationMs": 5,
+      "recoveryDurationMs": 5,
+      "recoveryTimeMs": 5,
+      "publicReadRecoveryResult": { "status": "completed", "sampleCount": 1, "p95Ms": 1 },
+      "writePathRollbackResult": { "status": "not-mutated" },
+      "finalHealthStatus": "healthy"
+    },
+    {
+      "case": "postgres-reconnect",
+      "status": "completed",
+      "actionStatus": "executed",
+      "actionStartedAt": "2026-06-18T00:04:00Z",
+      "actionCompletedAt": "2026-06-18T00:04:10Z",
+      "affectedEndpoint": "/health/ready",
+      "unavailableDurationMs": 0,
+      "dbReconnectDurationMs": 6,
+      "recoveryDurationMs": 6,
+      "recoveryTimeMs": 6,
+      "publicReadRecoveryResult": { "status": "completed", "sampleCount": 1, "p95Ms": 1 },
+      "writePathRollbackResult": { "status": "not-mutated" },
+      "finalHealthStatus": "healthy"
+    },
+    {
+      "case": "postgres-lock-timeout",
+      "status": "completed",
+      "actionStatus": "executed",
+      "actionStartedAt": "2026-06-18T00:05:00Z",
+      "actionCompletedAt": "2026-06-18T00:05:10Z",
+      "affectedEndpoint": "/api/binary/article/list/home/1/10.aeds",
+      "unavailableDurationMs": 1200,
+      "dbReconnectDurationMs": 7,
+      "recoveryDurationMs": 7,
+      "recoveryTimeMs": 7,
+      "publicReadRecoveryResult": { "status": "completed", "sampleCount": 1, "p95Ms": 1 },
+      "writePathRollbackResult": { "status": "verified" },
       "finalHealthStatus": "healthy"
     }
   ]

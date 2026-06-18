@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const requiredRedisFaultCases = ['redis-restart', 'redis-reconnect', 'redis-latency']
+const requiredPostgresFaultCases = ['postgres-readiness', 'postgres-reconnect', 'postgres-lock-timeout']
 
 function readJson(relativePath, optional = false) {
   const file = findEvidenceFile(relativePath)
@@ -133,6 +134,9 @@ function validateFaultInjectionSummary(summary, label) {
   for (const required of requiredRedisFaultCases) {
     assert(caseNames.has(required), `${label} must include ${required}`)
   }
+  for (const required of requiredPostgresFaultCases) {
+    assert(caseNames.has(required), `${label} must include ${required}`)
+  }
   for (const item of summary.cases) {
     assert(item.status === 'completed', `${label} ${item.case} must be completed`)
     assert(item.actionStatus === 'executed', `${label} ${item.case}.actionStatus must be executed`)
@@ -141,6 +145,9 @@ function validateFaultInjectionSummary(summary, label) {
     positiveNumber(item.recoveryTimeMs, `fault-injection ${item.case}.recoveryTimeMs`)
     if (requiredRedisFaultCases.includes(item.case)) {
       validateRedisFaultCase(item, label)
+    }
+    if (requiredPostgresFaultCases.includes(item.case)) {
+      validatePostgresFaultCase(item, label)
     }
   }
 }
@@ -155,6 +162,19 @@ function validateRedisFaultCase(item, label) {
   assert(item.finalHealthStatus === 'healthy', `${label} ${item.case}.finalHealthStatus must be healthy`)
   assert(item.authenticatedImpact && typeof item.authenticatedImpact.status === 'string', `${label} ${item.case}.authenticatedImpact missing`)
   assert(item.notificationStreamImpact && typeof item.notificationStreamImpact.status === 'string', `${label} ${item.case}.notificationStreamImpact missing`)
+}
+
+function validatePostgresFaultCase(item, label) {
+  assert(typeof item.actionStartedAt === 'string' && item.actionStartedAt.length > 0, `${label} ${item.case}.actionStartedAt missing`)
+  assert(typeof item.actionCompletedAt === 'string' && item.actionCompletedAt.length > 0, `${label} ${item.case}.actionCompletedAt missing`)
+  assert(typeof item.affectedEndpoint === 'string' && item.affectedEndpoint.length > 0, `${label} ${item.case}.affectedEndpoint missing`)
+  nonNegativeNumber(item.unavailableDurationMs, `${label} ${item.case}.unavailableDurationMs`)
+  positiveNumber(item.dbReconnectDurationMs ?? item.recoveryDurationMs ?? item.recoveryTimeMs, `${label} ${item.case}.dbReconnectDurationMs`)
+  assert(item.publicReadRecoveryResult?.status === 'completed', `${label} ${item.case}.publicReadRecoveryResult must be completed`)
+  positiveNumber(item.publicReadRecoveryResult?.sampleCount, `${label} ${item.case}.publicReadRecoveryResult.sampleCount`)
+  assert(item.writePathRollbackResult && typeof item.writePathRollbackResult.status === 'string', `${label} ${item.case}.writePathRollbackResult missing`)
+  assert(!['failed', 'scheduled', 'observed-only'].includes(item.writePathRollbackResult.status), `${label} ${item.case}.writePathRollbackResult must not be ${item.writePathRollbackResult.status}`)
+  assert(item.finalHealthStatus === 'healthy', `${label} ${item.case}.finalHealthStatus must be healthy`)
 }
 
 function validateSoak() {
@@ -314,8 +334,9 @@ function runSelfTest() {
   assert(failedAsExpected, 'self-test scheduled fault-injection fixture must fail')
   validateFaultInjectionSummary({
     status: 'ok',
-    caseCount: 3,
-    cases: requiredRedisFaultCases.map((caseName, index) => ({
+    caseCount: 6,
+    cases: [
+      ...requiredRedisFaultCases.map((caseName, index) => ({
       case: caseName,
       status: 'completed',
       actionStatus: 'executed',
@@ -328,7 +349,23 @@ function runSelfTest() {
       authenticatedImpact: { status: 'not-configured' },
       notificationStreamImpact: { status: 'not-configured' },
       finalHealthStatus: 'healthy'
-    }))
+      })),
+      ...requiredPostgresFaultCases.map((caseName, index) => ({
+        case: caseName,
+        status: 'completed',
+        actionStatus: 'executed',
+        actionStartedAt: `2026-06-18T00:01:0${index}Z`,
+        actionCompletedAt: `2026-06-18T00:01:1${index}Z`,
+        affectedEndpoint: index === 2 ? '/api/binary/article/list/home/1/10.aeds' : '/health/ready',
+        unavailableDurationMs: index,
+        dbReconnectDurationMs: 3 + index,
+        recoveryDurationMs: 3 + index,
+        recoveryTimeMs: 3 + index,
+        publicReadRecoveryResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+        writePathRollbackResult: { status: index === 2 ? 'verified' : 'not-mutated' },
+        finalHealthStatus: 'healthy'
+      }))
+    ]
   }, 'fault-injection-self-test')
   console.log('[evidence-metrics:self-test] ok')
 }
