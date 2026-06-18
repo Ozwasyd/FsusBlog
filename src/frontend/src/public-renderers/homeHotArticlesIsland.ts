@@ -42,6 +42,11 @@ function removeMountedAsideContent(): void {
 }
 
 export async function mountHomeHotArticlesIsland(routeKey: string): Promise<void> {
+  // Hot articles are now surfaced by HomeTextFirstRecommendations in the
+  // main column on the homepage, so views/Home.vue passes showAside=false
+  // and HomeFeedSurface omits the fsus-home-hot-articles-slot-content
+  // placeholder. The early-return below keeps this loader safe to call from
+  // publicShell.ts when the slot is absent — no DOM mutation, no fetch.
   const slot = document.getElementById('fsus-home-hot-articles-slot-content')
   if (!slot) {
     return

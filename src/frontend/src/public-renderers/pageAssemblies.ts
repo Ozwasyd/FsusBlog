@@ -1,7 +1,6 @@
 import { createCommentVNode, h } from 'vue'
 import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article'
 import FeaturedArticlesSection from '@/components/home/FeaturedArticlesSection.vue'
-import HomeHotArticlesAside from '@/components/home/HomeHotArticlesAside.vue'
 import HomeTextFirstRecommendations from '@/components/home/HomeTextFirstRecommendations.vue'
 import PublicAboutPageContent from '@/components/public/pages/PublicAboutPageContent.vue'
 import PublicArchivePageContent from '@/components/public/pages/PublicArchivePageContent.vue'
@@ -26,7 +25,12 @@ export function createPublicHomePageAssembly(input: {
   const featuredArticles = [...input.featuredArticles]
   const hotArticles = [...input.hotArticles]
   const spotlightArticles = selectHomeSpotlightCandidates(featuredArticles)
-  const showAside = input.showAside ?? (spotlightArticles.length > 0 && hotArticles.length > 0)
+  // SSR path must stay in lock-step with views/Home.vue: the homepage no
+  // longer renders a right-side "热门文章" aside (HomeTextFirstRecommendations
+  // inside the main column already surfaces hotArticles under the same
+  // heading). Forcing showAside=false keeps the SSR HTML and client DOM
+  // identical so Vue hydration does not see a phantom aside node.
+  const showAside = false
 
   return {
     component: PublicHomePageContent,
@@ -54,15 +58,7 @@ export function createPublicHomePageAssembly(input: {
 
         return createCommentVNode('v-if', true)
       },
-      aside: () => {
-        if (hotArticles.length > 0) {
-          return h(HomeHotArticlesAside, {
-            articles: hotArticles
-          })
-        }
-
-        return createCommentVNode('v-if', true)
-      }
+      aside: () => createCommentVNode('v-if', true)
     }
   }
 }
