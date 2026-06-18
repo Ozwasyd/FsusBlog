@@ -95,13 +95,22 @@ public sealed class AuthCookieService
         context.Response.Cookies.Delete(AccessTokenCookieName, options);
         context.Response.Cookies.Delete(RefreshTokenCookieName, options);
         context.Response.Cookies.Delete(SessionIdCookieName, options);
-        context.Response.Cookies.Delete(AdminAccessTokenCookieName, options);
-        context.Response.Cookies.Delete(AdminSessionIdCookieName, options);
 
         CookieOptions hostOptions = CreateHostPrefixedDeleteOptions();
         context.Response.Cookies.Delete(HostAccessTokenCookieName, hostOptions);
         context.Response.Cookies.Delete(HostRefreshTokenCookieName, hostOptions);
         context.Response.Cookies.Delete(HostSessionIdCookieName, hostOptions);
+
+        ClearAdminSessionCookies(context);
+    }
+
+    public void ClearAdminSessionCookies(HttpContext context)
+    {
+        var options = new CookieOptions { Path = "/" };
+        context.Response.Cookies.Delete(AdminAccessTokenCookieName, options);
+        context.Response.Cookies.Delete(AdminSessionIdCookieName, options);
+
+        CookieOptions hostOptions = CreateHostPrefixedDeleteOptions();
         context.Response.Cookies.Delete(HostAdminAccessTokenCookieName, hostOptions);
         context.Response.Cookies.Delete(HostAdminSessionIdCookieName, hostOptions);
     }

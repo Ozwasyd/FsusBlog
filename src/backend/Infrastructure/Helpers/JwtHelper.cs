@@ -9,6 +9,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace FsusBlog.Server.Infrastructure.Helpers;
@@ -209,6 +210,29 @@ public static class JwtServiceExtensions
                         context.Token = token;
                     }
                     return Task.CompletedTask;
+                },
+                OnTokenValidated = async context =>
+                {
+                    if (context.Principal?.IsAdminPrincipal() != true)
+                    {
+                        return;
+                    }
+
+                    string accessToken = context.SecurityToken is JwtSecurityToken jwtToken
+                        ? jwtToken.RawData
+                        : string.Empty;
+                    if (string.IsNullOrWhiteSpace(accessToken))
+                    {
+                        AuthCookieService.TryReadAdminAccessToken(context.HttpContext, out accessToken);
+                    }
+
+                    var validator = context.HttpContext.RequestServices.GetRequiredService<IAdminSessionValidationService>();
+                    AdminSessionValidationResult result = await validator.ValidateAsync(context.Principal, accessToken, context.HttpContext.RequestAborted);
+                    if (!result.IsValid)
+                    {
+                        context.HttpContext.RequestServices.GetRequiredService<AuthCookieService>().ClearAdminSessionCookies(context.HttpContext);
+                        context.Fail(result.Reason);
+                    }
                 }
             };
         });

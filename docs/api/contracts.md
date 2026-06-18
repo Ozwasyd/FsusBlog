@@ -118,7 +118,7 @@ Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD
 | POST | `/api/binary/auth/admin/login/passkey/complete` | 请求 `PasskeyLoginCompleteRequest`，响应 `EmptySuccess` | 匿名 |
 | GET | `/api/binary/auth/admin/me` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
 
-admin 登录只接受 Passkey/Security Key assertion。成功会写入独立 `AdminAccessToken` / `AdminSessionId` Cookie；JWT 必须包含 `identity_kind=admin_principal`、`admin_id`、`admin_sid` 与多值 `admin_permission` claim。TOTP 只作为敏感操作额外 step-up，不替代 Passkey 主认证，也不迁移或清空 legacy user MFA。
+admin 登录只接受 Passkey/Security Key assertion。成功会写入独立 `AdminAccessToken` / `AdminSessionId` Cookie；JWT 必须包含 `identity_kind=admin_principal`、`admin_id`、`admin_sid` 与多值 `admin_permission` claim。请求期认证必须按 `admin_sid` 回查 `admin_session` 并校验 principal active、session 未撤销、idle/absolute 未过期、`AccessTokenHash` 与当前 token 匹配、session principal id 与 `admin_id` 一致；失败返回未认证/未授权并删除 admin session cookies，成功更新 `LastSeenAtUtc`。TOTP 只作为敏感操作额外 step-up，不替代 Passkey 主认证，也不迁移或清空 legacy user MFA。
 
 ### Recovery Key AEDS frames
 

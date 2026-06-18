@@ -21,6 +21,7 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         }));
         services.AddScoped<IPasskeyService, PasskeyService>();
         services.AddScoped<IAdminPrincipalService, AdminPrincipalService>();
+        services.AddScoped<IAdminSessionValidationService, AdminSessionValidationService>();
         services.AddScoped<IRecoveryKeyService, RecoveryKeyService>();
         services.TryAddSingleton<IZkProofVerifier, DisabledZkProofVerifier>();
         services.AddScoped<IZkAnonymousProofService, ZkAnonymousProofService>();
