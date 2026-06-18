@@ -47,6 +47,22 @@ const safeBinaryPaths = [
   '/api/binary/article/featured/4.aeds'
 ]
 
+const backendQpsModes = [
+  'view-count-flush',
+  'visitlog-invalidation',
+  'cache-hit',
+  'comment-cursor',
+  'hotread',
+  'cache-miss-singleflight',
+  'risk-filter',
+  'related-reading',
+  'list-pagination',
+  'article-detail-miss',
+  'cache-registry',
+  'cache-invalidation-batch',
+  'index-plan'
+]
+
 let notificationSupportPromise = null
 
 function namespaceSlug(value) {
@@ -2715,7 +2731,7 @@ function faultCaseSummary(item) {
   }
 }
 
-async function backendQps(mode, outFile) {
+async function collectBackendQpsMode(mode, artifact) {
   const requestSteps = backendQpsRequestPlan(mode)
   const paths = requestSteps.map((step) => step.path)
   const expectedByPath = Object.fromEntries(requestSteps.map((step) => [step.path, step]))
@@ -2727,7 +2743,7 @@ async function backendQps(mode, outFile) {
     expectedByPath
   })
   const measuredCounters = backendQpsMeasuredCounters(probe)
-  writeJson(outFile, {
+  return {
     status: 'ok',
     scenario: mode,
     evidenceType: 'backend-qps-collector-evidence',
@@ -2738,7 +2754,7 @@ async function backendQps(mode, outFile) {
     generatedAt: probe.generatedAt,
     commitSha: gitSha(),
     checks: [],
-    artifact: path.relative(root, outFile),
+    artifact,
     staticEvidence: {
       status: 'ok',
       evidenceType: 'static-implementation-evidence',
@@ -2782,6 +2798,84 @@ async function backendQps(mode, outFile) {
     threadPoolAvailableWorkerThreads: measuredCounters.threadPool,
     dbGateWaiting: measuredCounters.dbGatePressure,
     runtime: probe
+  }
+}
+
+async function backendQps(mode, outFile) {
+  writeJson(outFile, await collectBackendQpsMode(mode, path.relative(root, outFile)))
+}
+
+async function backendQpsSequential(outFile) {
+  const started = performance.now()
+  const warmupPlan = [
+    {
+      phase: 'public-read-warmup',
+      path: '/api/binary/article/list/home/1/10.aeds',
+      purpose: 'warm public article list and shared public read dependencies'
+    },
+    {
+      phase: 'binary-read-warmup',
+      path: '/api/binary/category',
+      purpose: 'warm binary taxonomy read path'
+    },
+    {
+      phase: 'cache-warmup',
+      path: '/api/binary/system/seo',
+      purpose: 'warm small binary cache path before measured cache-miss scenarios'
+    }
+  ]
+  const warmup = await runHttpProbe(warmupPlan.map((step) => step.path), {
+    iterations: positiveInt(process.env.FSUSBLOG_BACKEND_QPS_WARMUP_REQUESTS, 6),
+    concurrency: 1
+  })
+  const scenarioOrder = [...backendQpsModes]
+  const results = []
+  for (const mode of scenarioOrder) {
+    results.push(await collectBackendQpsMode(mode, `${path.relative(root, outFile)}#${mode}`))
+  }
+  const baseline = performanceBaselineMetadata({ mode: 'kestrel-only-sequential' })
+  writeJson(outFile, {
+    status: results.every((result) => result.status === 'ok') ? 'ok' : 'blocked',
+    evidenceType: 'backend-qps-runtime-sequential-summary',
+    evidenceModel: 'warmed-runtime-sequential-measurement',
+    runtimeId: `${baseUrl}|${namespace}|${gitSha()}`,
+    namespace,
+    baseUrl,
+    generatedAt: nowIso(),
+    warmup: {
+      status: 'ok',
+      durationMs: warmup.durationMs,
+      sampleCount: warmup.sampleCount,
+      phases: warmupPlan,
+      requestPlan: warmup.samples.map((sample) => sample.path),
+      runtime: warmup
+    },
+    warmupDurationMs: warmup.durationMs,
+    cacheMissSeparation: {
+      status: 'explicit',
+      policy: 'warmup uses public and binary hot paths; cache-miss behavior remains isolated in measured scenarios',
+      measuredScenarios: ['cache-miss-singleflight', 'list-pagination', 'article-detail-miss']
+    },
+    scenarioOrder,
+    scenarioCount: results.length,
+    performance_baseline: baseline,
+    machineMetadata: baseline.machine,
+    optional_deployment_layer: optionalDeploymentLayerMetadata(),
+    capacityConclusion: {
+      countedAsCapacity: false,
+      reason: 'sequential backend-qps is a warmed runtime measurement, not a release capacity benchmark'
+    },
+    durationMs: elapsedMs(started),
+    results: results.map((result) => ({
+      ...result,
+      checks: [],
+      staticEvidence: {
+        status: 'not-collected',
+        evidenceType: 'static-implementation-evidence',
+        checks: [],
+        reason: 'warmed sequential mode measures one runtime; static guards remain owned by backend-qps collector lanes'
+      }
+    }))
   })
 }
 
@@ -3157,6 +3251,7 @@ function gitSha() {
 async function main() {
   const [command, ...args] = process.argv.slice(2)
   if (command === 'backend-qps') return await backendQps(args[0], path.resolve(root, args[1]))
+  if (command === 'backend-qps-sequential') return await backendQpsSequential(path.resolve(root, args[0]))
   if (command === 'load-profile') return await loadProfile(args[0], path.resolve(root, args[1]))
   if (command === 'data-scale') return await dataScale(args[0], path.resolve(root, args[1]))
   if (command === 'fault-injection') return await faultInjection(path.resolve(root, args[0]))

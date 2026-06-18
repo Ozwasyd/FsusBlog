@@ -107,7 +107,7 @@
             <span class="block text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
               {{ detailView.relatedReading.previousLabel }}
             </span>
-            <span class="mt-2 block text-sm font-bold leading-6 text-[var(--fsusblog-text-primary)] border-b border-transparent group-hover:border-[var(--fsusblog-color-primary)] pb-1 transition-colors">
+            <span class="blog-link-underline mt-2 block text-sm font-bold leading-6 text-[var(--fsusblog-text-primary)]">
               {{ detailView.relatedReading.previous.title }}
             </span>
             <span class="mt-1 block text-xs normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
@@ -125,7 +125,7 @@
             <span class="block text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
               {{ detailView.relatedReading.nextLabel }}
             </span>
-            <span class="mt-2 block text-sm font-bold leading-6 text-[var(--fsusblog-text-primary)] border-b border-transparent group-hover:border-[var(--fsusblog-color-primary)] pb-1 transition-colors">
+            <span class="blog-link-underline mt-2 block text-sm font-bold leading-6 text-[var(--fsusblog-text-primary)]">
               {{ detailView.relatedReading.next.title }}
             </span>
             <span class="mt-1 block text-xs normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">

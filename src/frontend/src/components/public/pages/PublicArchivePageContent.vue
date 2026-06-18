@@ -87,7 +87,7 @@
                       {{ article.dayText }}
                     </time>
 
-                    <span class="safe-inline-wrap text-lg sm:text-xl font-medium text-[var(--fsusblog-text-tertiary)] group-hover:text-[var(--fsusblog-text-primary)] transition-[background-color,border-color,color,opacity,transform] leading-tight border-b border-transparent group-hover:border-[var(--fsusblog-color-primary)] pb-1">
+                    <span class="safe-inline-wrap blog-link-underline text-lg sm:text-xl font-medium text-[var(--fsusblog-text-tertiary)] group-hover:text-[var(--fsusblog-text-primary)] transition-colors leading-tight">
                       {{ article.title }}
                     </span>
                   </a>

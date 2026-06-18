@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 MODE="${1:-}"
 OUT_DIR="${FSUSBLOG_BACKEND_QPS_OUT_DIR:-$ROOT_DIR/.tmp/perf/backend-qps}"
 SUMMARY_FILE="${FSUSBLOG_BACKEND_QPS_SUMMARY_FILE:-$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json}"
+RUNTIME_SEQUENTIAL_SUMMARY_FILE="${FSUSBLOG_BACKEND_QPS_RUNTIME_SEQUENTIAL_SUMMARY_FILE:-$ROOT_DIR/.tmp/release-evidence/backend-qps-runtime-sequential-summary.json}"
 BACKEND_QPS_MODES=(
   view-count-flush
   visitlog-invalidation
@@ -26,7 +27,7 @@ if [[ -z "$MODE" ]]; then
   exit 2
 fi
 
-mkdir -p "$OUT_DIR" "$(dirname "$SUMMARY_FILE")"
+mkdir -p "$OUT_DIR" "$(dirname "$SUMMARY_FILE")" "$(dirname "$RUNTIME_SEQUENTIAL_SUMMARY_FILE")"
 
 aggregate_summary() {
   local generated_at
@@ -86,6 +87,14 @@ NODE
 
 if [[ "$MODE" == "aggregate" ]]; then
   aggregate_summary
+  exit 0
+fi
+
+if [[ "$MODE" == "backend-qps-runtime-sequential" || "$MODE" == "runtime-sequential" ]]; then
+  artifact="$OUT_DIR/runtime-sequential.json"
+  "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/lanes/runtime-evidence-probe.mjs" backend-qps-sequential "$artifact"
+  cp "$artifact" "$RUNTIME_SEQUENTIAL_SUMMARY_FILE"
+  printf '[backend-qps:%s] wrote %s and %s\n' "$MODE" "$artifact" "$RUNTIME_SEQUENTIAL_SUMMARY_FILE"
   exit 0
 fi
 

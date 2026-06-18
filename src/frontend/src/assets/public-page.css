@@ -285,6 +285,22 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
     transform var(--fsus-motion-control) var(--fsus-motion-standard);
 }
 
+/* Editorial title link: inline content that gains Scholarly Blue underline
+   on group hover/focus. Used inside <a class="group"> wrappers for archive
+   titles and related-reading titles. Differs from .blog-link-state:
+   - 1px underline (editorial) vs 2px (navigation)
+   - color stays primary (content is readable) vs muted→primary (navigation) */
+#fsus-aot-shell .blog-link-underline {
+  border-bottom: 1px solid transparent;
+  padding-bottom: 0.25rem;
+  transition: border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
+}
+
+#fsus-aot-shell .group:hover .blog-link-underline,
+#fsus-aot-shell .group:focus-visible .blog-link-underline {
+  border-bottom-color: var(--fsusblog-color-primary);
+}
+
 #fsus-aot-shell .nav-link:hover,
 #fsus-aot-shell .nav-link:focus-visible,
 #fsus-aot-shell .blog-link-state:hover,

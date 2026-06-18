@@ -1142,6 +1142,33 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
+  - id: backend-qps-runtime-sequential
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-qps.sh backend-qps-runtime-sequential
+    dependsOn: [bootstrap]
+    services: [postgres, redis, backend, frontend]
+    parallelizable: false
+    exclusiveResources: [backend-qps-runtime]
+    phase: 3
+    cost: medium
+    resourceClass: network
+    maxParallel: 1
+    requiresBootstrap: full
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: none
+    cacheProfile: full
+    timeoutMinutes: 45
+    shardable: false
+    defaultShards: 1
+    risk: medium
+    coverage: [backend-qps-warmed-runtime-sequential]
+    artifacts: [.tmp/perf/backend-qps/runtime-sequential.json, .tmp/release-evidence/backend-qps-runtime-sequential-summary.json]
+    evidence: [.tmp/release-evidence/backend-qps-runtime-sequential-summary.json]
+    ciJob: backend-qps
+    localOnly: false
+    nightlyOnly: true
+
   - id: aeds-frame-cost
     owner: ServerContractAgent
     command: tools/test/lanes/aeds-frame-cost.sh

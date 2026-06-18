@@ -115,6 +115,52 @@ function validateDataScaleMetric(metric, label, countField, sizeField) {
   positiveNumber(metric[sizeField], `${label}.${sizeField}`)
 }
 
+function validateBackendQpsCollectorResult(result, label, options = {}) {
+  const requireStaticChecks = options.requireStaticChecks ?? true
+  assert(result.evidenceType === 'backend-qps-collector-evidence', `${label}.evidenceType must be backend-qps-collector-evidence`)
+  assert(result.staticEvidence?.evidenceType === 'static-implementation-evidence', `${label}.staticEvidence.evidenceType must be static-implementation-evidence`)
+  if (requireStaticChecks) {
+    assert(Array.isArray(result.staticEvidence?.checks) && result.staticEvidence.checks.length > 0, `${label}.staticEvidence.checks must be non-empty`)
+  } else {
+    assert(result.staticEvidence?.status === 'not-collected', `${label}.staticEvidence.status must be not-collected for sequential runtime measurement`)
+    assert(typeof result.staticEvidence?.reason === 'string' && result.staticEvidence.reason.length > 0, `${label}.staticEvidence.reason missing`)
+  }
+  assert(result.runtimeMeasurement?.evidenceType === 'runtime-http-probe', `${label}.runtimeMeasurement.evidenceType must be runtime-http-probe`)
+  assert(Array.isArray(result.runtimeMeasurement?.requestPlan?.steps) && result.runtimeMeasurement.requestPlan.steps.length > 0, `${label}.runtimeMeasurement.requestPlan.steps must be non-empty`)
+  for (const [index, step] of result.runtimeMeasurement.requestPlan.steps.entries()) {
+    const stepLabel = `${label}.runtimeMeasurement.requestPlan.steps[${index}]`
+    assert(step.method === 'GET', `${stepLabel}.method must be GET`)
+    assert(typeof step.path === 'string' && step.path.startsWith('/'), `${stepLabel}.path must be an absolute app path`)
+    assert(step.expectedStatus === 200, `${stepLabel}.expectedStatus must be 200`)
+    assert(step.expectedContentType === 'application/octet-stream', `${stepLabel}.expectedContentType must be application/octet-stream`)
+    positiveNumber(step.expectedFrameType, `${stepLabel}.expectedFrameType`)
+    assert(typeof step.fixturePrerequisite === 'string' && step.fixturePrerequisite.length > 0, `${stepLabel}.fixturePrerequisite must be explicit`)
+  }
+  positiveNumber(result.runtimeMeasurement?.requestPlan?.requestCount, `${label}.runtimeMeasurement.requestPlan.requestCount`)
+  positiveNumber(result.runtimeMeasurement?.requestPlan?.concurrency, `${label}.runtimeMeasurement.requestPlan.concurrency`)
+  assert(result.runtimeMeasurement?.requestPlan?.thresholdPolicy?.countedAsCapacity === false, `${label}.runtimeMeasurement threshold must not be capacity benchmark`)
+  positiveNumber(result.runtimeMeasurement?.rps, `${label}.runtimeMeasurement.rps`)
+  positiveNumber(result.runtimeMeasurement?.p50Ms, `${label}.runtimeMeasurement.p50Ms`)
+  positiveNumber(result.runtimeMeasurement?.p95Ms, `${label}.runtimeMeasurement.p95Ms`)
+  const counters = result.runtimeMeasurement?.measuredCounters
+  assert(counters && typeof counters === 'object', `${label}.runtimeMeasurement.measuredCounters missing`)
+  validateCounter(counters.requestCount, `${label}.measuredCounters.requestCount`, true)
+  validateCounter(counters.statusDistribution, `${label}.measuredCounters.statusDistribution`, true)
+  validateCounter(counters.bytes, `${label}.measuredCounters.bytes`, true)
+  validateCounter(counters.cacheHitSignal, `${label}.measuredCounters.cacheHitSignal`, true)
+  validateCounter(counters.dbCommands, `${label}.measuredCounters.dbCommands`)
+  validateCounter(counters.redisCommands, `${label}.measuredCounters.redisCommands`)
+  validateCounter(counters.allocationEstimate, `${label}.measuredCounters.allocationEstimate`)
+  validateCounter(counters.threadPool, `${label}.measuredCounters.threadPool`)
+  validateCounter(counters.dbGatePressure, `${label}.measuredCounters.dbGatePressure`)
+  if (['cache-hit', 'hotread', 'cache-miss-singleflight'].includes(result.scenario)) {
+    validateCounter(counters.cacheHitSignal, `${label}.measuredCounters.cacheHitSignal`, true)
+    nonNegativeNumber(counters.cacheHitSignal.ratio, `${label}.measuredCounters.cacheHitSignal.ratio`)
+  }
+  assert(result.capacityConclusion?.countedAsCapacity === false, `${label}.capacityConclusion must be false`)
+  validateRuntimeProbe(result.runtimeMeasurement?.runtime, label)
+}
+
 function validateBackendQps() {
   const summary = readJson('.tmp/release-evidence/backend-qps-summary.json')
   assert(summary.status === 'ok', 'backend-qps-summary.status must be ok')
@@ -122,44 +168,41 @@ function validateBackendQps() {
   assert(summary.evidenceModel === 'static-implementation-plus-runtime-measurement', 'backend-qps-summary.evidenceModel must separate static and runtime evidence')
   assert(summary.capacityConclusion?.countedAsCapacity === false, 'backend-qps-summary must not be counted as capacity benchmark')
   for (const result of summary.results) {
-    const label = `backend-qps:${result.scenario ?? 'unknown'}`
-    assert(result.evidenceType === 'backend-qps-collector-evidence', `${label}.evidenceType must be backend-qps-collector-evidence`)
-    assert(result.staticEvidence?.evidenceType === 'static-implementation-evidence', `${label}.staticEvidence.evidenceType must be static-implementation-evidence`)
-    assert(Array.isArray(result.staticEvidence?.checks) && result.staticEvidence.checks.length > 0, `${label}.staticEvidence.checks must be non-empty`)
-    assert(result.runtimeMeasurement?.evidenceType === 'runtime-http-probe', `${label}.runtimeMeasurement.evidenceType must be runtime-http-probe`)
-    assert(Array.isArray(result.runtimeMeasurement?.requestPlan?.steps) && result.runtimeMeasurement.requestPlan.steps.length > 0, `${label}.runtimeMeasurement.requestPlan.steps must be non-empty`)
-    for (const [index, step] of result.runtimeMeasurement.requestPlan.steps.entries()) {
-      const stepLabel = `${label}.runtimeMeasurement.requestPlan.steps[${index}]`
-      assert(step.method === 'GET', `${stepLabel}.method must be GET`)
-      assert(typeof step.path === 'string' && step.path.startsWith('/'), `${stepLabel}.path must be an absolute app path`)
-      assert(step.expectedStatus === 200, `${stepLabel}.expectedStatus must be 200`)
-      assert(step.expectedContentType === 'application/octet-stream', `${stepLabel}.expectedContentType must be application/octet-stream`)
-      positiveNumber(step.expectedFrameType, `${stepLabel}.expectedFrameType`)
-      assert(typeof step.fixturePrerequisite === 'string' && step.fixturePrerequisite.length > 0, `${stepLabel}.fixturePrerequisite must be explicit`)
-    }
-    positiveNumber(result.runtimeMeasurement?.requestPlan?.requestCount, `${label}.runtimeMeasurement.requestPlan.requestCount`)
-    positiveNumber(result.runtimeMeasurement?.requestPlan?.concurrency, `${label}.runtimeMeasurement.requestPlan.concurrency`)
-    assert(result.runtimeMeasurement?.requestPlan?.thresholdPolicy?.countedAsCapacity === false, `${label}.runtimeMeasurement threshold must not be capacity benchmark`)
-    positiveNumber(result.runtimeMeasurement?.rps, `${label}.runtimeMeasurement.rps`)
-    positiveNumber(result.runtimeMeasurement?.p50Ms, `${label}.runtimeMeasurement.p50Ms`)
-    positiveNumber(result.runtimeMeasurement?.p95Ms, `${label}.runtimeMeasurement.p95Ms`)
-    const counters = result.runtimeMeasurement?.measuredCounters
-    assert(counters && typeof counters === 'object', `${label}.runtimeMeasurement.measuredCounters missing`)
-    validateCounter(counters.requestCount, `${label}.measuredCounters.requestCount`, true)
-    validateCounter(counters.statusDistribution, `${label}.measuredCounters.statusDistribution`, true)
-    validateCounter(counters.bytes, `${label}.measuredCounters.bytes`, true)
-    validateCounter(counters.cacheHitSignal, `${label}.measuredCounters.cacheHitSignal`, true)
-    validateCounter(counters.dbCommands, `${label}.measuredCounters.dbCommands`)
-    validateCounter(counters.redisCommands, `${label}.measuredCounters.redisCommands`)
-    validateCounter(counters.allocationEstimate, `${label}.measuredCounters.allocationEstimate`)
-    validateCounter(counters.threadPool, `${label}.measuredCounters.threadPool`)
-    validateCounter(counters.dbGatePressure, `${label}.measuredCounters.dbGatePressure`)
-    if (['cache-hit', 'hotread', 'cache-miss-singleflight'].includes(result.scenario)) {
-      validateCounter(counters.cacheHitSignal, `${label}.measuredCounters.cacheHitSignal`, true)
-      nonNegativeNumber(counters.cacheHitSignal.ratio, `${label}.measuredCounters.cacheHitSignal.ratio`)
-    }
-    assert(result.capacityConclusion?.countedAsCapacity === false, `${label}.capacityConclusion must be false`)
-    validateRuntimeProbe(result.runtimeMeasurement?.runtime, label)
+    validateBackendQpsCollectorResult(result, `backend-qps:${result.scenario ?? 'unknown'}`)
+  }
+}
+
+function validateBackendQpsSequential() {
+  const summary = readJson('.tmp/release-evidence/backend-qps-runtime-sequential-summary.json', true)
+  if (!summary) return
+  assert(summary.status === 'ok', 'backend-qps-runtime-sequential-summary.status must be ok')
+  assert(summary.evidenceType === 'backend-qps-runtime-sequential-summary', 'backend-qps-runtime-sequential-summary.evidenceType mismatch')
+  assert(summary.evidenceModel === 'warmed-runtime-sequential-measurement', 'backend-qps-runtime-sequential-summary.evidenceModel must be warmed sequential')
+  assert(typeof summary.runtimeId === 'string' && summary.runtimeId.length > 0, 'backend-qps-runtime-sequential-summary.runtimeId missing')
+  assert(typeof summary.namespace === 'string' && summary.namespace.length > 0, 'backend-qps-runtime-sequential-summary.namespace missing')
+  assert(typeof summary.baseUrl === 'string' && summary.baseUrl.length > 0, 'backend-qps-runtime-sequential-summary.baseUrl missing')
+  positiveNumber(summary.warmupDurationMs, 'backend-qps-runtime-sequential-summary.warmupDurationMs')
+  assert(summary.warmup?.status === 'ok', 'backend-qps-runtime-sequential-summary.warmup.status must be ok')
+  positiveNumber(summary.warmup?.durationMs, 'backend-qps-runtime-sequential-summary.warmup.durationMs')
+  positiveNumber(summary.warmup?.sampleCount, 'backend-qps-runtime-sequential-summary.warmup.sampleCount')
+  assert(Array.isArray(summary.warmup?.phases) && summary.warmup.phases.length >= 3, 'backend-qps-runtime-sequential-summary.warmup.phases must include warmup phases')
+  const warmupPhases = new Set(summary.warmup.phases.map((item) => item.phase))
+  for (const phase of ['public-read-warmup', 'binary-read-warmup', 'cache-warmup']) {
+    assert(warmupPhases.has(phase), `backend-qps-runtime-sequential-summary.warmup.phases missing ${phase}`)
+  }
+  assert(Array.isArray(summary.warmup?.requestPlan) && summary.warmup.requestPlan.every((item) => typeof item === 'string' && item.startsWith('/')), 'backend-qps-runtime-sequential-summary.warmup.requestPlan must use app paths')
+  validateRuntimeProbe(summary.warmup?.runtime, 'backend-qps-runtime-sequential-summary.warmup')
+  assert(summary.cacheMissSeparation?.status === 'explicit', 'backend-qps-runtime-sequential-summary.cacheMissSeparation must be explicit')
+  assert(Array.isArray(summary.cacheMissSeparation?.measuredScenarios) && summary.cacheMissSeparation.measuredScenarios.includes('cache-miss-singleflight'), 'backend-qps-runtime-sequential-summary.cacheMissSeparation must list cache miss scenarios')
+  assert(Array.isArray(summary.scenarioOrder) && summary.scenarioOrder.length > 0, 'backend-qps-runtime-sequential-summary.scenarioOrder must be non-empty')
+  assert(Array.isArray(summary.results) && summary.results.length === summary.scenarioOrder.length, 'backend-qps-runtime-sequential-summary.results must match scenarioOrder')
+  assert(summary.scenarioCount === summary.results.length, 'backend-qps-runtime-sequential-summary.scenarioCount must match results')
+  assert(summary.performance_baseline?.mode === 'kestrel-only-sequential', 'backend-qps-runtime-sequential-summary.performance_baseline.mode must be sequential')
+  assert(typeof summary.machineMetadata === 'string' && summary.machineMetadata.length > 0, 'backend-qps-runtime-sequential-summary.machineMetadata missing')
+  assert(summary.capacityConclusion?.countedAsCapacity === false, 'backend-qps-runtime-sequential-summary must not be capacity benchmark')
+  for (const [index, result] of summary.results.entries()) {
+    assert(result.scenario === summary.scenarioOrder[index], `backend-qps-runtime-sequential-summary.results[${index}].scenario must match scenarioOrder`)
+    validateBackendQpsCollectorResult(result, `backend-qps-runtime-sequential:${result.scenario ?? 'unknown'}`, { requireStaticChecks: false })
   }
 }
 
@@ -463,6 +506,7 @@ function main() {
     return
   }
   validateBackendQps()
+  validateBackendQpsSequential()
   validateDataScale()
   validateLoadProfiles()
   validateFaultInjection()
