@@ -4,18 +4,38 @@ loadProfiles:
     concurrency: 10
     rounds: 6
     durationMs: 30000
+    maxP95Ms: 2500
+    maxP99Ms: 5000
+    maxErrorRate: 0
+    maxTimeoutRate: 0
+    minRps: 1
   expected-peak:
     concurrency: 50
     rounds: 12
     durationMs: 60000
+    maxP95Ms: 3000
+    maxP99Ms: 6000
+    maxErrorRate: 0
+    maxTimeoutRate: 0
+    minRps: 1
   2x-peak:
     concurrency: 100
     rounds: 12
     durationMs: 60000
+    maxP95Ms: 4000
+    maxP99Ms: 8000
+    maxErrorRate: 0
+    maxTimeoutRate: 0
+    minRps: 1
   burst:
     concurrency: 160
     rounds: 4
     durationMs: 15000
+    maxP95Ms: 5000
+    maxP99Ms: 10000
+    maxErrorRate: 0
+    maxTimeoutRate: 0
+    minRps: 1
 notificationPressure:
   connections: 50
   durationMs: 30000

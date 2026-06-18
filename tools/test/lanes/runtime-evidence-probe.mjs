@@ -121,17 +121,35 @@ function readPerfPolicy() {
 function readLoadProfilePolicy(profile) {
   const policy = readPerfPolicy()
   const profiles = yamlSection(policy.text, 'loadProfiles')
-  const declared = yamlScalarMap(yamlSection(profiles, profile, 2))
+  const values = yamlScalarMap(yamlSection(profiles, profile, 2))
+  const declared = {
+    concurrency: values.concurrency,
+    rounds: values.rounds,
+    durationMs: values.durationMs
+  }
   for (const key of ['concurrency', 'rounds', 'durationMs']) {
     if (!Number.isInteger(declared[key]) || declared[key] <= 0) {
       throw new Error(`load profile ${profile} missing positive ${key} in ${perfPolicyRelativeFile}`)
+    }
+  }
+  const thresholds = {
+    maxP95Ms: values.maxP95Ms,
+    maxP99Ms: values.maxP99Ms,
+    maxErrorRate: values.maxErrorRate,
+    maxTimeoutRate: values.maxTimeoutRate,
+    ...(Number.isFinite(values.minRps) ? { minRps: values.minRps } : {})
+  }
+  for (const key of ['maxP95Ms', 'maxP99Ms', 'maxErrorRate', 'maxTimeoutRate']) {
+    if (!Number.isFinite(thresholds[key]) || thresholds[key] < 0) {
+      throw new Error(`load profile ${profile} missing non-negative threshold ${key} in ${perfPolicyRelativeFile}`)
     }
   }
   return {
     file: perfPolicyRelativeFile,
     version: policy.version,
     profileName: profile,
-    declared
+    declared,
+    thresholds
   }
 }
 
@@ -162,6 +180,33 @@ function resolveLoadProfilePolicy(profile) {
     effective,
     overrideSource,
     overrideSources
+  }
+}
+
+function thresholdCheck(metric, actual, operator, threshold) {
+  const passed = operator === '>=' ? actual >= threshold : actual <= threshold
+  return {
+    metric,
+    actual,
+    operator,
+    threshold,
+    status: passed ? 'pass' : 'fail'
+  }
+}
+
+function evaluateLoadProfileThresholds(metrics, thresholds) {
+  const checks = [
+    thresholdCheck('p95Ms', metrics.p95Ms, '<=', thresholds.maxP95Ms),
+    thresholdCheck('p99Ms', metrics.p99Ms, '<=', thresholds.maxP99Ms),
+    thresholdCheck('errorRate', metrics.errorRate, '<=', thresholds.maxErrorRate),
+    thresholdCheck('timeoutRate', metrics.timeoutRate, '<=', thresholds.maxTimeoutRate)
+  ]
+  if (Number.isFinite(thresholds.minRps)) {
+    checks.push(thresholdCheck('rps', metrics.rps, '>=', thresholds.minRps))
+  }
+  return {
+    status: checks.every((check) => check.status === 'pass') ? 'pass' : 'fail',
+    checks
   }
 }
 
@@ -2958,8 +3003,27 @@ async function loadProfile(profile, outFile) {
     iterations,
     concurrency: policy.effective.concurrency
   })
+  const metrics = {
+    rps: probe.rps,
+    p50Ms: probe.latencyMs.p50,
+    p95Ms: probe.latencyMs.p95,
+    p99Ms: probe.latencyMs.p99,
+    maxLatencyMs: probe.latencyMs.max,
+    errorRate: 0,
+    timeoutRate: 0,
+    cpuPercent: null,
+    rssBytes: null,
+    managedHeapBytes: null,
+    gcCount: null,
+    threadCount: null,
+    socketCount: null,
+    postgresPoolUsage: null,
+    redisLatencyMs: null
+  }
+  const thresholdEvaluation = evaluateLoadProfileThresholds(metrics, policy.thresholds)
+  const status = thresholdEvaluation.status === 'pass' ? 'ok' : 'failed'
   writeJson(outFile, {
-    status: 'ok',
+    status,
     profile,
     profileName: profile,
     namespace,
@@ -2969,6 +3033,8 @@ async function loadProfile(profile, outFile) {
     },
     declared: policy.declared,
     effective: policy.effective,
+    thresholds: policy.thresholds,
+    thresholdEvaluation,
     overrideSource: policy.overrideSource,
     overrideSources: policy.overrideSources,
     sampling: {
@@ -2977,26 +3043,13 @@ async function loadProfile(profile, outFile) {
     },
     performance_baseline: performanceBaselineMetadata(),
     optional_deployment_layer: optionalDeploymentLayerMetadata(),
-    metrics: {
-      rps: probe.rps,
-      p50Ms: probe.latencyMs.p50,
-      p95Ms: probe.latencyMs.p95,
-      p99Ms: probe.latencyMs.p99,
-      maxLatencyMs: probe.latencyMs.max,
-      errorRate: 0,
-      timeoutRate: 0,
-      cpuPercent: null,
-      rssBytes: null,
-      managedHeapBytes: null,
-      gcCount: null,
-      threadCount: null,
-      socketCount: null,
-      postgresPoolUsage: null,
-      redisLatencyMs: null
-    },
+    metrics,
     runtime: probe,
     generatedAt: probe.generatedAt
   })
+  if (status !== 'ok') {
+    throw new Error(`load profile ${profile} failed threshold evaluation`)
+  }
 }
 
 async function dataScale(tier, outFile) {

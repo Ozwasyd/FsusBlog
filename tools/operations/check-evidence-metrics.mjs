@@ -100,11 +100,26 @@ function yamlScalarMap(text) {
 function readLoadProfilePolicy(profile) {
   const text = fs.readFileSync(path.join(root, perfPolicyRelativeFile), 'utf8')
   const profiles = yamlSection(text, 'loadProfiles')
-  const declared = yamlScalarMap(yamlSection(profiles, profile, 2))
+  const values = yamlScalarMap(yamlSection(profiles, profile, 2))
+  const declared = {
+    concurrency: values.concurrency,
+    rounds: values.rounds,
+    durationMs: values.durationMs
+  }
   for (const key of ['concurrency', 'rounds', 'durationMs']) {
     positiveInteger(declared[key], `perf-policy.${profile}.${key}`)
   }
-  return declared
+  const thresholds = {
+    maxP95Ms: values.maxP95Ms,
+    maxP99Ms: values.maxP99Ms,
+    maxErrorRate: values.maxErrorRate,
+    maxTimeoutRate: values.maxTimeoutRate,
+    ...(Number.isFinite(values.minRps) ? { minRps: values.minRps } : {})
+  }
+  for (const key of ['maxP95Ms', 'maxP99Ms', 'maxErrorRate', 'maxTimeoutRate']) {
+    nonNegativeNumber(thresholds[key], `perf-policy.${profile}.${key}`)
+  }
+  return { declared, thresholds }
 }
 
 function validateRuntimeProbe(probe, label) {
@@ -289,11 +304,11 @@ function validateLoadProfileSummary(summary, label) {
   const profile = summary.profileName ?? summary.profile
   assert(typeof profile === 'string' && profile.length > 0, `${label}.profileName must be present`)
   assert(summary.policy?.file === perfPolicyRelativeFile, `${label}.policy.file must be ${perfPolicyRelativeFile}`)
-  const policyDeclared = readLoadProfilePolicy(profile)
+  const policy = readLoadProfilePolicy(profile)
   for (const key of ['concurrency', 'rounds', 'durationMs']) {
     positiveInteger(summary.declared?.[key], `${label}.declared.${key}`)
     positiveInteger(summary.effective?.[key], `${label}.effective.${key}`)
-    assert(summary.declared[key] === policyDeclared[key], `${label}.declared.${key} must match ${perfPolicyRelativeFile}`)
+    assert(summary.declared[key] === policy.declared[key], `${label}.declared.${key} must match ${perfPolicyRelativeFile}`)
     const source = summary.overrideSources?.[key]
     assert(typeof source === 'string' && source.length > 0, `${label}.overrideSources.${key} missing`)
     if (source === 'policy') {
@@ -302,12 +317,34 @@ function validateLoadProfileSummary(summary, label) {
       assert(source === `env:FSUSBLOG_LOAD_PROFILE_${key === 'durationMs' ? 'DURATION_MS' : key.toUpperCase()}`, `${label}.overrideSources.${key} has unsupported source`)
     }
   }
+  validateLoadProfileThresholds(summary, label, policy.thresholds)
   const hasOverride = Object.values(summary.overrideSources).some((source) => source !== 'policy')
   assert(summary.overrideSource === (hasOverride ? 'env' : 'policy'), `${label}.overrideSource mismatch`)
   assert(summary.sampling?.totalRequests === summary.effective.concurrency * summary.effective.rounds, `${label}.sampling.totalRequests must be concurrency * rounds`)
   positiveNumber(summary.metrics?.rps, `${label}.metrics.rps`)
   positiveNumber(summary.metrics?.p95Ms, `${label}.metrics.p95Ms`)
   validateRuntimeProbe(summary.runtime, label)
+}
+
+function validateLoadProfileThresholds(summary, label, policyThresholds) {
+  assert(summary.thresholds && typeof summary.thresholds === 'object', `${label}.thresholds missing`)
+  for (const key of ['maxP95Ms', 'maxP99Ms', 'maxErrorRate', 'maxTimeoutRate']) {
+    nonNegativeNumber(summary.thresholds[key], `${label}.thresholds.${key}`)
+    assert(summary.thresholds[key] === policyThresholds[key], `${label}.thresholds.${key} must match ${perfPolicyRelativeFile}`)
+  }
+  if (summary.thresholds.minRps !== undefined) {
+    nonNegativeNumber(summary.thresholds.minRps, `${label}.thresholds.minRps`)
+    assert(summary.thresholds.minRps === policyThresholds.minRps, `${label}.thresholds.minRps must match ${perfPolicyRelativeFile}`)
+  }
+  assert(summary.thresholdEvaluation?.status === 'pass', `${label}.thresholdEvaluation.status must be pass`)
+  assert(Array.isArray(summary.thresholdEvaluation?.checks) && summary.thresholdEvaluation.checks.length >= 4, `${label}.thresholdEvaluation.checks must be present`)
+  for (const check of summary.thresholdEvaluation.checks) {
+    assert(check.status === 'pass', `${label}.thresholdEvaluation.${check.metric}.status must be pass`)
+    assert(['<=', '>='].includes(check.operator), `${label}.thresholdEvaluation.${check.metric}.operator invalid`)
+    assert(typeof check.metric === 'string' && check.metric.length > 0, `${label}.thresholdEvaluation check metric missing`)
+    nonNegativeNumber(check.actual, `${label}.thresholdEvaluation.${check.metric}.actual`)
+    nonNegativeNumber(check.threshold, `${label}.thresholdEvaluation.${check.metric}.threshold`)
+  }
 }
 
 function validateFaultInjection() {
@@ -589,6 +626,33 @@ function runSelfTest() {
   }
   assert(missingLoadPolicyFailedAsExpected, 'self-test load profile missing policy metadata must fail')
 
+  let missingLoadThresholdFailedAsExpected = false
+  try {
+    validateLoadProfileSummary({
+      status: 'ok',
+      profile: 'baseline',
+      profileName: 'baseline',
+      policy: { file: perfPolicyRelativeFile, version: 'fsusblog-perf-policy-v1' },
+      declared: { concurrency: 10, rounds: 6, durationMs: 30000 },
+      effective: { concurrency: 10, rounds: 6, durationMs: 30000 },
+      overrideSource: 'policy',
+      overrideSources: { concurrency: 'policy', rounds: 'policy', durationMs: 'policy' },
+      sampling: { totalRequests: 60 },
+      metrics: { rps: 1, p95Ms: 1 },
+      runtime: {
+        measurementSource: 'runtime-http-probe',
+        sampleCount: 1,
+        rps: 1,
+        bytes: 1,
+        latencyMs: { p50: 1, p95: 1 },
+        statusCounts: { 200: 1 }
+      }
+    }, 'load-profile-threshold-self-test')
+  } catch {
+    missingLoadThresholdFailedAsExpected = true
+  }
+  assert(missingLoadThresholdFailedAsExpected, 'self-test load profile missing threshold metadata must fail')
+
   validateLoadProfileSummary({
     status: 'ok',
     profile: 'baseline',
@@ -596,6 +660,17 @@ function runSelfTest() {
     policy: { file: perfPolicyRelativeFile, version: 'fsusblog-perf-policy-v1' },
     declared: { concurrency: 10, rounds: 6, durationMs: 30000 },
     effective: { concurrency: 2, rounds: 3, durationMs: 1000 },
+    thresholds: { maxP95Ms: 2500, maxP99Ms: 5000, maxErrorRate: 0, maxTimeoutRate: 0, minRps: 1 },
+    thresholdEvaluation: {
+      status: 'pass',
+      checks: [
+        { metric: 'p95Ms', actual: 1, operator: '<=', threshold: 2500, status: 'pass' },
+        { metric: 'p99Ms', actual: 1, operator: '<=', threshold: 5000, status: 'pass' },
+        { metric: 'errorRate', actual: 0, operator: '<=', threshold: 0, status: 'pass' },
+        { metric: 'timeoutRate', actual: 0, operator: '<=', threshold: 0, status: 'pass' },
+        { metric: 'rps', actual: 1, operator: '>=', threshold: 1, status: 'pass' }
+      ]
+    },
     overrideSource: 'env',
     overrideSources: {
       concurrency: 'env:FSUSBLOG_LOAD_PROFILE_CONCURRENCY',
@@ -603,7 +678,7 @@ function runSelfTest() {
       durationMs: 'env:FSUSBLOG_LOAD_PROFILE_DURATION_MS'
     },
     sampling: { totalRequests: 6 },
-    metrics: { rps: 1, p95Ms: 1 },
+    metrics: { rps: 1, p95Ms: 1, p99Ms: 1, errorRate: 0, timeoutRate: 0 },
     runtime: {
       measurementSource: 'runtime-http-probe',
       sampleCount: 1,
