@@ -54,6 +54,8 @@
 
 RiskControl challenge 采用 Redis + PostgreSQL 双层职责：Redis 只承担一次性消费和低延迟热路径，PostgreSQL `security_challenge` / `security_challenge_attempt` 是签发、验证、失败、重放、过期和撤销的审计真源。持久化记录只保存 kind、algorithm、action、routeKey、subjectHash、clientIpHash、deviceFpHash、policyVersion、payloadHash、traceId、traceparent 和时间戳；不得保存 challenge payload 原文、proof 原文、客户端 IP 原文或设备指纹原文。状态集合固定为 `issued | verified | expired | replayed | failed | revoked`，provider / orchestrator 后续只能通过 `ISecurityChallengePersistenceService` 写入或转移状态，避免端点绕过审计链。
 
+RiskControl proof token 使用 `X-Fsus-Challenge-Proof` header，不能替代 admin-sensitive `X-Fsus-Mfa-Proof`，也不迁移 legacy `X-Fsus-Pow-Proof`。`ISecurityChallengeProofService.MintProofAsync` 生成 opaque proof token，Redis 只保存 claims 绑定：challengeId、kind、action、routeKey、subjectHash、clientIpHash、deviceFpHash、issuedAt、expiresAt、nonce 和 policyVersion。`ConsumeProofAsync` 必须通过 Redis GETDEL / consume-once 语义先消费 token，再比较所有绑定字段；replay、Redis miss、action/route/IP/device mismatch 或过期均返回拒绝并写入 `security_challenge_attempt`，调用方不得进入业务写入。
+
 RiskControl 生产控制面按 `Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof Verification -> Enforcement -> Audit / Metrics / Admin Policy` 演进；完整 tracking plan、子 issue 顺序与 binary-first 边界见 `docs/risk-control-plan.md`。
 
 管理后台新增 `/user/manage/security` 安全系统：

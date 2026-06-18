@@ -46,6 +46,10 @@ RiskControl action 名称集中由 `RiskActionNames` 定义。首批生产 actio
 
 RiskControl challenge 的热路径一次性消费仍可使用 Redis，但生产审计真源必须落在 PostgreSQL。`security_challenge` 保存签发记录和当前状态，状态只允许 `issued`、`verified`、`expired`、`replayed`、`failed`、`revoked`；`security_challenge_attempt` 保存每次验证、失败、重放、过期或撤销 attempt。两张表只保存 kind、algorithm、action、routeKey、subjectHash、clientIpHash、deviceFpHash、policyVersion、payloadHash、traceId、traceparent 和时间戳等 metadata，不保存 challenge payload 原文、proof 原文、IP 原文或 device fingerprint 原文。`SecurityChallengePersistenceService` 是 provider / orchestrator 后续接入的持久化边界：`IssueAsync` 写入 `issued`，`RecordAttemptAsync` 在同一事务内写 attempt 并更新 challenge 状态，`ExpireAsync` / `RevokeAsync` 也写终态 attempt。
 
+## Proof token baseline
+
+RiskControl proof token 使用 `X-Fsus-Challenge-Proof` 传递，独立于 admin-sensitive `X-Fsus-Mfa-Proof` 和 legacy `X-Fsus-Pow-Proof`。`SecurityChallengeProofService` 只签发 opaque token；Redis `SecurityChallengeProof` cache 保存绑定 claims 并通过 `ConsumeOnceAndGetAsync` 一次性消费。claims 必须绑定 challengeId、kind、action、routeKey、subjectHash、clientIpHash、deviceFpHash、issuedAt、expiresAt、nonce 和 policyVersion。消费后先删除 Redis 热路径状态，再校验所有绑定字段和过期时间；replay / Redis miss、字段 mismatch、过期和成功都通过 `SecurityChallengePersistenceService.RecordAttemptAsync` 写入 attempt。业务写入只能在 `ConsumeProofAsync.Accepted == true` 后继续。
+
 ## Ordered implementation units
 
 | Order | Unit | Issue | Acceptance boundary |

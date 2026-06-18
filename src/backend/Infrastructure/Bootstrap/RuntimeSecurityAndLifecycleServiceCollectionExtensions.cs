@@ -37,6 +37,7 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IRiskControlContextFactory, RiskControlContextFactory>();
         services.AddScoped<IRiskDecisionService, RiskDecisionService>();
         services.AddScoped<ISecurityChallengePersistenceService, SecurityChallengePersistenceService>();
+        services.AddScoped<ISecurityChallengeProofService, SecurityChallengeProofService>();
 
         services.Configure<LifecycleBootstrapOptions>(configuration.GetSection(LifecycleBootstrapOptions.SectionName));
 
