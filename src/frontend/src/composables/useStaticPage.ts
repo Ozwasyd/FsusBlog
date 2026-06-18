@@ -1,6 +1,7 @@
-import { computed, inject, onMounted, ref } from 'vue'
+import { computed, inject, nextTick, onMounted, ref } from 'vue'
 import { routeLocationKey } from 'vue-router'
 import { getPageData } from '@/api/system'
+import { markCurrentRouteContentReady, markCurrentRouteFailed } from '@/bootstrap/routeReadiness'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
 import { consumePublicPageSeed } from '@/public-renderers/pageSeed'
@@ -58,6 +59,12 @@ export function useStaticPage(options: {
       fetchTask.cancel()
     }
   })
+  const markRouteReady = (): void => {
+    markCurrentRouteContentReady(route)
+  }
+  const markRouteFailed = (): void => {
+    markCurrentRouteFailed(route)
+  }
 
   if (initialHydrationView) {
     rawMarkdown.value = initialHydrationView.body.content || FALLBACK_CONTENT
@@ -90,15 +97,21 @@ export function useStaticPage(options: {
     } catch (err: unknown) {
       if (!isAbortError(err)) {
         error.value = true
+        markRouteFailed()
       }
     } finally {
       loading.value = false
+      if (!error.value) {
+        markRouteReady()
+      }
     }
   }
 
   onMounted(() => {
     if (!hasInitialRouteSeed) {
       void fetchData()
+    } else {
+      void nextTick(markRouteReady)
     }
   })
 

@@ -8,6 +8,7 @@ import { getTags, type TagItem } from '@/api/tag'
 import { usePow } from '@/composables/usePow'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
+import { markCurrentRouteContentReady, markCurrentRouteFailed } from '@/bootstrap/routeReadiness'
 import { usePagedListState } from '@/composables/usePagedListState'
 import { consumePublicPageSeed } from '@/public-renderers/pageSeed'
 import { matchesCategoryFilter, matchesTagFilter, removeArticlePreview, upsertArticlePreview } from '@/services/notificationStreamArticlePatch'
@@ -190,6 +191,12 @@ export function useFilterView() {
       articleTask.cancel()
     }
   })
+  const markRouteReady = (): void => {
+    markCurrentRouteContentReady(route)
+  }
+  const markRouteFailed = (): void => {
+    markCurrentRouteFailed(route)
+  }
 
   const resolveCurrentTarget = async (signal: AbortSignal): Promise<ResolvedFilterTarget> => {
     const bootstrapMeta = resolveBootstrapFilterMeta()
@@ -335,6 +342,7 @@ export function useFilterView() {
         hasError.value = true
         articleItems.value = []
         setPageTotal(0)
+        markRouteFailed()
       }
     } finally {
       if (lifecycle.isActive() && !signal.aborted) {
@@ -391,6 +399,7 @@ export function useFilterView() {
       }
       loadingMeta.value = false
       bootstrapApplied = true
+      markRouteReady()
 
       return
     }
@@ -400,6 +409,9 @@ export function useFilterView() {
         await loadMetaName(signal)
         await loadArticles(true, signal)
       })
+      if (lifecycle.isActive() && !hasError.value) {
+        markRouteReady()
+      }
     } catch {
       // ignore abort
     }
@@ -560,6 +572,8 @@ export function useFilterView() {
   onMounted(() => {
     if (!hasInitialRouteSeed) {
       void init()
+    } else {
+      void Promise.resolve().then(markRouteReady)
     }
     if (preferHydrationView.value) {
       window.requestAnimationFrame(() => {

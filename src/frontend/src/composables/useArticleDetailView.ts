@@ -19,6 +19,7 @@ import { usePow } from '@/composables/usePow'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { useArticleCommentStream } from '@/composables/useArticleCommentStream'
 import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
+import { markCurrentRouteContentReady, markCurrentRouteFailed } from '@/bootstrap/routeReadiness'
 import { consumePublicPageSeed } from '@/public-renderers/pageSeed'
 import { validateCommentContent } from '@/utils/contentFilter'
 import { isAbortError } from '@/utils/errors'
@@ -120,6 +121,12 @@ export function useArticleDetailView() {
       commentSubmitTask.cancel()
     }
   })
+  const markRouteReady = (): void => {
+    markCurrentRouteContentReady(route)
+  }
+  const markRouteFailed = (): void => {
+    markCurrentRouteFailed(route)
+  }
 
   const {
     threads,
@@ -292,6 +299,7 @@ export function useArticleDetailView() {
       relatedReading.value = null
       isError.value = false
       loading.value = false
+      markRouteFailed()
       return
     }
 
@@ -325,6 +333,7 @@ export function useArticleDetailView() {
         if (!isAbortError(error) && lifecycle.isActive()) {
           console.error('[Article] Load failed:', error)
           isError.value = true
+          markRouteFailed()
         }
       }
     }
@@ -399,6 +408,7 @@ export function useArticleDetailView() {
 
     if (!article.value) {
       loading.value = false
+      markRouteFailed()
       return
     }
 
@@ -415,6 +425,7 @@ export function useArticleDetailView() {
     }
 
     spaReady.value = true
+    markRouteReady()
     await hydrateCommentStream()
     if (lifecycle.isActive() && initVersion === routeInitVersion && article.value) {
       powProvider.prewarm()

@@ -7,6 +7,7 @@ import { useNotificationStreamStore } from '@/store/notificationStream'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { usePagedListState } from '@/composables/usePagedListState'
 import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
+import { markCurrentRouteContentReady, markCurrentRouteFailed } from '@/bootstrap/routeReadiness'
 import { upsertArticlePreview, removeArticlePreview } from '@/services/notificationStreamArticlePatch'
 import type { ArticleUpdatePayload, NotificationStreamArticleRenderPatch } from '@/services/notificationStreamTypes'
 import { isAbortError } from '@/utils/errors'
@@ -121,6 +122,16 @@ export function useHomeView() {
       disconnectSecondaryListObserver()
     }
   })
+  const markRouteReadyIfSettled = (): void => {
+    if (isError.value) {
+      markCurrentRouteFailed(route)
+      return
+    }
+
+    if (!loading.value) {
+      markCurrentRouteContentReady(route)
+    }
+  }
 
   if (initialBootstrap) {
     articleItems.value = initialBootstrap.articles.map((article) => toBootstrapArticleListItem(article))
@@ -194,10 +205,14 @@ export function useHomeView() {
         setError(normalized.code === AppErrorCode.ProtocolFailure ? '文章数据结构没对上' : '文章列表没取回来')
         articleItems.value = []
         setPageTotal(0)
+        markCurrentRouteFailed(route)
       }
     } finally {
       if (lifecycle.isActive() && showLoading) {
         endLoading()
+      }
+      if (lifecycle.isActive()) {
+        markRouteReadyIfSettled()
       }
     }
   }
@@ -429,11 +444,14 @@ export function useHomeView() {
       initialViewItems.value = null
       void loadArticles()
     }
+
+    void nextTick(markRouteReadyIfSettled)
   })
 
   watch(
     () => [loading.value, isError.value, listView.value.items.length] as const,
     () => {
+      markRouteReadyIfSettled()
       void scheduleSecondaryListLoad()
     },
     { flush: 'post' }

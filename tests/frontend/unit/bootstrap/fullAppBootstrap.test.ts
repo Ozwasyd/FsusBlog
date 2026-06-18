@@ -33,6 +33,11 @@ const abortPublicShellLifetime = vi.fn()
 const markStartup = vi.fn()
 const measureStartup = vi.fn()
 const authSessionRuntimeInit = vi.fn()
+const beginPublicTakeoverVisualGuard = vi.fn((options: { navigationId: string; timeoutMs?: number }) => ({
+  navigationId: options.navigationId,
+  timeoutMs: options.timeoutMs ?? 5000
+}))
+const waitForPublicTakeoverVisualReady = vi.fn(async () => {})
 
 vi.mock('vue', () => ({ createApp }))
 vi.mock('pinia', () => ({ createPinia }))
@@ -58,6 +63,11 @@ vi.mock('@/services/authSessionRuntime', () => ({
   authSessionRuntime: {
     init: authSessionRuntimeInit
   }
+}))
+vi.mock('@/bootstrap/publicTakeoverController', () => ({
+  DEFAULT_PUBLIC_TAKEOVER_ROUTE_READY_TIMEOUT_MS: 5000,
+  beginPublicTakeoverVisualGuard,
+  waitForPublicTakeoverVisualReady
 }))
 vi.mock('@/assets/main.css', () => ({}))
 
@@ -102,9 +112,17 @@ describe('full app bootstrap prepare/commit', () => {
     expect(abortPublicShellLifetime).toHaveBeenCalledWith('full-app-bootstrap')
     expect(disposePublicHydrationApp).toHaveBeenCalledTimes(1)
     expect(appMount).toHaveBeenCalledWith('#app')
+    expect(beginPublicTakeoverVisualGuard).toHaveBeenCalledWith({
+      navigationId: '/archive',
+      timeoutMs: 5000
+    })
     expect(fakeRouter.replace).toHaveBeenCalledWith(currentRoute)
     expect(fakeRouter.push).toHaveBeenCalledWith('/archive')
     expect(fakeRouter.push.mock.invocationCallOrder[0]).toBeGreaterThan(appMount.mock.invocationCallOrder[0])
+    expect(waitForPublicTakeoverVisualReady).toHaveBeenCalledWith({
+      navigationId: '/archive',
+      timeoutMs: 5000
+    })
     expect(authSessionRuntimeInit).toHaveBeenCalledTimes(1)
     expect(completePublicTakeoverCommit).toHaveBeenCalledWith({ reason: 'full-app-mounted' })
     expect(scheduleFullAppRuntime).toHaveBeenCalledWith(true, {
@@ -135,6 +153,17 @@ describe('full app bootstrap prepare/commit', () => {
 
     const prepared = prepareFullApp({ takeover: 'public-shell' })
     await expect(commitPreparedFullApp(prepared)).rejects.toThrow('mount failed')
+
+    expect(resetPublicTakeover).toHaveBeenCalledWith({ reason: 'full-app-bootstrap-failed' })
+    expect(completePublicTakeoverCommit).not.toHaveBeenCalled()
+  })
+
+  it('resets public takeover state when route readiness times out during commit', async () => {
+    const { prepareFullApp, commitPreparedFullApp } = await import('@/bootstrap/fullApp')
+    waitForPublicTakeoverVisualReady.mockRejectedValueOnce(new Error('route readiness timeout'))
+
+    const prepared = prepareFullApp({ takeover: 'public-shell' })
+    await expect(commitPreparedFullApp(prepared)).rejects.toThrow('route readiness timeout')
 
     expect(resetPublicTakeover).toHaveBeenCalledWith({ reason: 'full-app-bootstrap-failed' })
     expect(completePublicTakeoverCommit).not.toHaveBeenCalled()

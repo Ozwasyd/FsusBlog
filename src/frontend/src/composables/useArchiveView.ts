@@ -1,6 +1,7 @@
-import { inject, onMounted, ref, shallowRef, watch } from 'vue'
+import { inject, nextTick, onMounted, ref, shallowRef, watch } from 'vue'
 import { routeLocationKey } from 'vue-router'
 import { getArticles, type ArticleListItemResponse } from '@/api/article'
+import { markCurrentRouteContentReady } from '@/bootstrap/routeReadiness'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
 import { toBootstrapArchiveArticleListItem } from '@/bootstrap/publicAotBootstrap'
@@ -35,6 +36,9 @@ export function useArchiveView() {
       loadTask.cancel()
     }
   })
+  const markRouteReady = (): void => {
+    markCurrentRouteContentReady(route)
+  }
   const buildArchiveStructure = (data: ArticleListItemResponse[]): void => {
     allArticles.value = [...data]
     archiveView.value = buildArchiveView(data, total.value)
@@ -76,6 +80,7 @@ export function useArchiveView() {
     } finally {
       if (lifecycle.isActive()) {
         loading.value = false
+        markRouteReady()
       }
     }
   }
@@ -156,6 +161,8 @@ export function useArchiveView() {
   onMounted(() => {
     if (!hasInitialRouteSeed) {
       void loadArticles()
+    } else {
+      void nextTick(markRouteReady)
     }
   })
 

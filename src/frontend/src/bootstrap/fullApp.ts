@@ -16,6 +16,11 @@ import {
   completePublicTakeoverCommit,
   resetPublicTakeover
 } from '@/bootstrap/publicTakeoverState'
+import {
+  DEFAULT_PUBLIC_TAKEOVER_ROUTE_READY_TIMEOUT_MS,
+  beginPublicTakeoverVisualGuard,
+  waitForPublicTakeoverVisualReady
+} from '@/bootstrap/publicTakeoverController'
 import { abortPublicShellLifetime } from '@/bootstrap/publicShellLifetime'
 import { markStartup, measureStartup } from '@/bootstrap/startupProfiler'
 import { authSessionRuntime } from '@/services/authSessionRuntime'
@@ -34,6 +39,7 @@ export type FullAppNavigationIntent = Readonly<{
 
 export type CommitPreparedFullAppOptions = Readonly<{
   navigationIntent?: FullAppNavigationIntent
+  routeReadinessTimeoutMs?: number
 }>
 
 export type PreparedFullApp = Readonly<{
@@ -126,11 +132,22 @@ async function replayNavigationIntent(intent: FullAppNavigationIntent | undefine
   await router.push(intent.to)
 }
 
+function resolvePublicTakeoverNavigationId(options: CommitPreparedFullAppOptions): string {
+  return options.navigationIntent?.to ?? readCurrentBrowserRoute()
+}
+
 export async function commitPreparedFullApp(
   prepared: PreparedFullApp,
   options: CommitPreparedFullAppOptions = {}
 ): Promise<typeof router> {
   try {
+    const visualGuard = prepared.isPublicShellTakeover
+      ? beginPublicTakeoverVisualGuard({
+          navigationId: resolvePublicTakeoverNavigationId(options),
+          timeoutMs: options.routeReadinessTimeoutMs ?? DEFAULT_PUBLIC_TAKEOVER_ROUTE_READY_TIMEOUT_MS
+        })
+      : null
+
     if (prepared.isPublicShellTakeover) {
       beginPublicTakeoverCommit({ reason: 'full-app-bootstrap' })
       abortPublicShellLifetime('full-app-bootstrap')
@@ -151,6 +168,7 @@ export async function commitPreparedFullApp(
 
     await router.isReady()
     await replayNavigationIntent(options.navigationIntent)
+    await waitForPublicTakeoverVisualReady(visualGuard)
     markStartup('full-app-bootstrap:router-ready')
     if (prepared.isPublicShellTakeover) {
       completePublicTakeoverCommit({ reason: 'full-app-mounted' })

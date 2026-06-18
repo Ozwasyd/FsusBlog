@@ -25,9 +25,11 @@ const viewports = UX_VIEWPORT_MATRIX.viewports
 const themes: ThemeMode[] = ['light', 'dark']
 
 const routes = [
-  { path: '/', label: 'public-home', primary: 'main header' },
-  { path: articlePath, label: 'public-article', primary: 'main' },
-  { path: '/login', label: 'public-login', primary: 'main' }
+  { path: '/', label: 'public-home', primary: 'main header', screenshot: true },
+  { path: '/archive', label: 'public-archive', primary: 'main', screenshot: false },
+  { path: articlePath, label: 'public-article', primary: 'main', screenshot: true },
+  { path: '/about', label: 'public-static-about', primary: 'main', screenshot: false },
+  { path: '/login', label: 'public-login', primary: 'main', screenshot: true }
 ] as const
 
 for (const viewport of viewports) {
@@ -55,7 +57,7 @@ for (const viewport of viewports) {
               await expect(session.page.locator('#fsus-comments-island')).toBeVisible()
             }
 
-            if (viewport.screenshot) {
+            if (viewport.screenshot && route.screenshot) {
               await expectStableScreenshot(
                 session.page,
                 primary,
