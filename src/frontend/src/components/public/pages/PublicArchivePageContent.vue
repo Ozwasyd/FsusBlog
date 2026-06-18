@@ -18,7 +18,7 @@
     </el-skeleton>
 
     <div v-else class="relative">
-      <header class="mb-14 border-b border-[var(--fsusblog-panel-border)] pb-10 sm:mb-20 sm:pb-12">
+      <header class="mb-10 border-b border-[var(--fsusblog-panel-border)] pb-6 sm:mb-12 sm:pb-8">
         <h1 class="mb-6 text-3xl font-bold tracking-normal text-[var(--fsusblog-text-primary)] sm:text-4xl">
           归档
         </h1>
@@ -27,7 +27,7 @@
         </div>
         <nav
           v-if="view.yearGroups.length > 1"
-          class="mt-10 flex flex-wrap gap-3"
+          class="mt-6 flex flex-wrap gap-3"
           aria-label="年份快速导航"
         >
           <a
@@ -42,20 +42,21 @@
         </nav>
       </header>
 
-      <div v-if="view.yearGroups.length > 0" class="space-y-16 pb-32 sm:space-y-20">
+      <div v-if="view.yearGroups.length > 0" class="space-y-12 pb-24 sm:space-y-16">
         <section
           v-for="yearGroup in view.yearGroups"
           :key="yearGroup.year"
           :id="`archive-year-${yearGroup.year}`"
           class="relative"
         >
-          <div class="sticky top-24 z-10 bg-[var(--fsusblog-page-bg)] py-6 mb-12 sm:mb-16 border-b border-[var(--fsusblog-panel-border)]/50">
+          <div class="sticky top-24 z-10 bg-[var(--fsusblog-page-bg)] pt-2 pb-3 mb-8 sm:mb-10 flex items-baseline gap-3">
+            <span class="text-[var(--fsusblog-text-subtle)] leading-none select-none" aria-hidden="true">·</span>
             <h2 class="text-2xl font-bold text-[var(--fsusblog-text-primary)] tabular-nums tracking-normal sm:text-3xl">
               {{ yearGroup.year }}
             </h2>
           </div>
 
-          <div class="space-y-16 sm:space-y-20">
+          <div class="space-y-10 sm:space-y-12">
             <div
               v-for="monthGroup in yearGroup.months"
               :key="monthGroup.month"
