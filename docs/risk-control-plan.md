@@ -26,6 +26,10 @@ Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof V
 - 每个子 issue 只交付自己的最小实现单元，不抢跑后续 provider、UI 或策略持久化。
 - 子 issue 的测试必须覆盖匿名请求、登录请求、admin 请求、notification stream 和 binary 边界中与该 issue 有关的路径。
 
+## Action registry baseline
+
+RiskControl action 名称集中由 `RiskActionNames` 定义。首批生产 action 为 `public.read`、`comment.create`、`comment.reply`、`auth.login`、`auth.passkey.begin`、`auth.passkey.complete`、`recovery-key.verify`、`notification.subscribe`、`admin.security.write` 和 `admin.comment.batch`。Endpoint 必须通过 `WithRiskAction(...)` 或等价 metadata 声明 action / routeKey；测试和开发环境可以用 `RiskActionRegistry.FindMissingActionMetadata(...)` 扫描受保护 endpoint 的缺失声明。
+
 ## Ordered implementation units
 
 | Order | Unit | Issue | Acceptance boundary |
