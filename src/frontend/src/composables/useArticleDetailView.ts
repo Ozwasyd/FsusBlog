@@ -73,7 +73,7 @@ export function useArticleDetailView() {
   const route = useRoute()
   const router = useRouter()
   const notificationStreamStore = useNotificationStreamStore()
-  const { bootstrap: initialBootstrap } = consumePublicPageSeed('ArticleDetail')
+  const { bootstrap: initialBootstrap } = consumePublicPageSeed('ArticleDetail', { fullPath: route?.fullPath })
   const userStore = useUserStore()
   const articleStore = useArticleBinaryStore()
   const powProvider = usePow()

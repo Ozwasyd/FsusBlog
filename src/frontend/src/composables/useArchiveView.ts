@@ -1,4 +1,5 @@
-import { onMounted, ref, shallowRef, watch } from 'vue'
+import { inject, onMounted, ref, shallowRef, watch } from 'vue'
+import { routeLocationKey } from 'vue-router'
 import { getArticles, type ArticleListItemResponse } from '@/api/article'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
@@ -11,9 +12,11 @@ import { isAbortError } from '@/utils/errors'
 import { createStableArchivePageViewContractBuilder, type ArchivePageViewContract } from '@/view-contracts/archive'
 
 export function useArchiveView() {
+  const route = inject(routeLocationKey, null)
   const notificationStreamStore = useNotificationStreamStore()
-  const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed('Archive')
+  const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed('Archive', { fullPath: route?.fullPath })
   const initialHydrationView = initialHydrationPayload?.view ?? null
+  const hasInitialRouteSeed = Boolean(initialBootstrap || initialHydrationView)
   const loading = ref(false)
   const total = ref(0)
   const allArticles = shallowRef<ArticleListItemResponse[]>([])
@@ -151,7 +154,7 @@ export function useArchiveView() {
   )
 
   onMounted(() => {
-    if (!initialBootstrap) {
+    if (!hasInitialRouteSeed) {
       void loadArticles()
     }
   })

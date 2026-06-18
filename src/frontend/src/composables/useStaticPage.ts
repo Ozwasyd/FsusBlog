@@ -1,4 +1,5 @@
-import { computed, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref } from 'vue'
+import { routeLocationKey } from 'vue-router'
 import { getPageData } from '@/api/system'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
@@ -33,9 +34,11 @@ export function useStaticPage(options: {
   slug: string
   title: string
 }) {
-  const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed(options.kind)
+  const route = inject(routeLocationKey, null)
+  const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed(options.kind, { fullPath: route?.fullPath })
   const initialHydrationView = initialHydrationPayload?.view ?? null
   const initialStaticPage = initialHydrationPayload?.staticPage ?? initialBootstrap?.staticPage
+  const hasInitialRouteSeed = Boolean(initialBootstrap || initialHydrationPayload)
   const initialBodyHtml = typeof initialHydrationPayload?.bodyHtml === 'string'
     ? initialHydrationPayload.bodyHtml
     : typeof initialBootstrap?.bodyHtml === 'string'
@@ -94,7 +97,7 @@ export function useStaticPage(options: {
   }
 
   onMounted(() => {
-    if (!initialBootstrap) {
+    if (!hasInitialRouteSeed) {
       void fetchData()
     }
   })

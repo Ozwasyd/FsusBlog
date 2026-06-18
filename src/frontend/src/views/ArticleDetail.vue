@@ -139,7 +139,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { runtimeReady } from '@/bootstrap/runtimeGate'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
 import ArticleCommentComposer from '@/components/article/ArticleCommentComposer.vue'
@@ -168,7 +168,8 @@ import { articleDetailStates } from '@/view-contracts/articleDetail'
 
 const siteStore = useSiteStore()
 const router = useRouter()
-const initialArticlePayload = readPublicHydrationSeed('ArticleDetail')
+const routeSeedLookup = useRoute()
+const initialArticlePayload = readPublicHydrationSeed('ArticleDetail', { fullPath: routeSeedLookup?.fullPath })
 
 const {
   route,

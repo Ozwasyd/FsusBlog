@@ -23,6 +23,8 @@ import {
   resolvePublicShellRuntimeAuthState,
   setPublicShellRuntimeAuthState
 } from '@/public-renderers/publicShellRuntimeState'
+import { putPublicRouteSeed, type PublicRouteSeedKind } from '@/public-renderers/publicRouteSeedStore'
+import type { PublicPageSeed } from '@/public-renderers/pageSeed'
 import {
   addPublicShellEventListener,
   onPublicShellLifetimeAbort,
@@ -543,6 +545,23 @@ function clearPublicFirstPaintFlag(): void {
 
 function isPublicShellDocument(): boolean {
   return document.body.hasAttribute('data-fsusblog-public-shell')
+}
+
+function currentPublicShellFullPath(): string {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`
+}
+
+function storeInitialPublicRouteSeed(payload: PublicHydrationPayload): void {
+  const kind = payload.pageKind as PublicRouteSeedKind
+  putPublicRouteSeed({
+    kind,
+    fullPath: currentPublicShellFullPath(),
+    routeKey: payload.routeKey,
+    seed: {
+      bootstrap: null,
+      hydration: payload
+    } as PublicPageSeed<PublicRouteSeedKind>
+  })
 }
 
 function waitForDocumentInteractive(): Promise<void> {
@@ -1230,6 +1249,7 @@ async function hydratePublicShell(): Promise<void> {
   }
 
   hydratedPayload = payload
+  storeInitialPublicRouteSeed(payload)
   const startedAt = performance.now()
   await hydratePublicPage(payload)
   refreshPublicShellAuthState()

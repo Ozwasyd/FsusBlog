@@ -47,7 +47,7 @@ export function useFilterView() {
   const router = useRouter()
   const notificationStreamStore = useNotificationStreamStore()
   const powProvider = usePow()
-  const { bootstrap: initialBootstrap, hydration: initialHydrationView } = consumePublicPageSeed('Filter')
+  const { bootstrap: initialBootstrap, hydration: initialHydrationView } = consumePublicPageSeed('Filter', { fullPath: route?.fullPath })
   const preferHydrationView = ref(Boolean(initialHydrationView?.view))
   const seedRenderTimeOptions = createPublicSeedRenderTimeOptions(initialHydrationView, initialBootstrap)
   const useSeedRenderTime = ref(Boolean(seedRenderTimeOptions))
@@ -177,6 +177,7 @@ export function useFilterView() {
   }
 
   let bootstrapApplied = primeInitialSeoState()
+  const hasInitialRouteSeed = Boolean(initialHydrationView?.view || bootstrapApplied)
   if (initialHydrationView?.view) {
     currentPage.value = Math.max(1, Number(initialHydrationView.view.pagination.currentPage) || currentPage.value)
     setPageTotal(Number(initialHydrationView.filter?.total ?? initialHydrationView.view.articles.length) || 0)
@@ -557,7 +558,9 @@ export function useFilterView() {
   )
 
   onMounted(() => {
-    void init()
+    if (!hasInitialRouteSeed) {
+      void init()
+    }
     if (preferHydrationView.value) {
       window.requestAnimationFrame(() => {
         preferHydrationView.value = false

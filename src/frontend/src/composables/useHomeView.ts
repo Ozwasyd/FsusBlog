@@ -33,8 +33,9 @@ export function useHomeView() {
   const route = useRoute()
   const router = useRouter()
   const notificationStreamStore = useNotificationStreamStore()
-  const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed('Home')
+  const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed('Home', { fullPath: route?.fullPath })
   const initialHydrationView = initialHydrationPayload?.view ?? null
+  const hasInitialRouteSeed = Boolean(initialBootstrap || initialHydrationView)
   const seedRenderTimeOptions = createPublicSeedRenderTimeOptions(initialHydrationPayload, initialBootstrap)
   const useSeedRenderTime = ref(Boolean(seedRenderTimeOptions))
   const initialFeaturedArticles = Array.isArray(initialHydrationPayload?.featuredArticles)
@@ -424,7 +425,7 @@ export function useHomeView() {
   onMounted(() => {
     void scheduleSecondaryListLoad()
 
-    if (!initialBootstrap || currentPage.value > 1) {
+    if (!hasInitialRouteSeed) {
       initialViewItems.value = null
       void loadArticles()
     }
