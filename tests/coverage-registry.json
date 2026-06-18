@@ -533,14 +533,14 @@
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
-        ".tmp/frontend",
-        "src/frontend/coverage"
+        ".tmp/frontend/frontend-runtime-contracts.json",
+        ".tmp/frontend/frontend-fast-groups.json"
       ],
       "assertionType": "integration",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "integration evidence declared by tier frontend-fast",
+      "minimumRequirement": "integration evidence declared by tier frontend-runtime-contracts",
       "tierIds": [
-        "frontend-fast"
+        "frontend-runtime-contracts"
       ]
     },
     {
@@ -710,6 +710,22 @@
       ]
     },
     {
+      "id": "frontend-build",
+      "description": "Coverage contract for frontend-build.",
+      "owner": "InteropGlueAgent",
+      "risk": "high",
+      "evidencePaths": [
+        ".tmp/frontend/frontend-build.json",
+        ".tmp/frontend/frontend-fast-groups.json"
+      ],
+      "assertionType": "static",
+      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths.",
+      "minimumRequirement": "build evidence declared by tier frontend-build",
+      "tierIds": [
+        "frontend-build"
+      ]
+    },
+    {
       "id": "frontend-coverage",
       "description": "Coverage contract for frontend-coverage.",
       "owner": "InteropGlueAgent",
@@ -730,14 +746,15 @@
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
-        ".tmp/frontend",
+        ".tmp/frontend/frontend-unit-shard.json",
+        ".tmp/frontend/frontend-fast-groups.json",
         "src/frontend/coverage"
       ],
       "assertionType": "unit",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "unit evidence declared by tier frontend-fast",
+      "minimumRequirement": "unit evidence declared by tier frontend-unit-shard",
       "tierIds": [
-        "frontend-fast"
+        "frontend-unit-shard"
       ]
     },
     {
@@ -746,14 +763,14 @@
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
-        ".tmp/frontend",
-        "src/frontend/coverage"
+        ".tmp/frontend/frontend-static-governance.json",
+        ".tmp/frontend/frontend-fast-groups.json"
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "static evidence declared by tier frontend-fast",
+      "minimumRequirement": "static evidence declared by tier frontend-static-governance",
       "tierIds": [
-        "frontend-fast"
+        "frontend-static-governance"
       ]
     },
     {
@@ -762,14 +779,15 @@
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
-        ".tmp/frontend",
+        ".tmp/frontend/frontend-unit-shard.json",
+        ".tmp/frontend/frontend-fast-groups.json",
         "src/frontend/coverage"
       ],
       "assertionType": "unit",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "unit evidence declared by tier frontend-fast",
+      "minimumRequirement": "unit evidence declared by tier frontend-unit-shard",
       "tierIds": [
-        "frontend-fast"
+        "frontend-unit-shard"
       ]
     },
     {

@@ -93,6 +93,15 @@ function setTierBooleanField(matrixText, tierId, field, value) {
   return matrixText.replace(tierText, updatedTierText)
 }
 
+function removeTier(matrixText, tierId) {
+  const tierPattern = new RegExp(`\\n  - id: ${tierId}\\n[\\s\\S]*?(?=\\n  - id: |\\n*$)`)
+  if (!tierPattern.test(matrixText)) {
+    console.error(`[test-matrix] missing ${tierId} in matrix fixture`)
+    process.exit(1)
+  }
+  return matrixText.replace(tierPattern, '')
+}
+
 function writeTempMatrix(matrixText) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-matrix-'))
   const tempMatrix = path.join(tempDir, 'matrix.yml')
@@ -181,6 +190,12 @@ expectMatrixValidateFailure(
   'manual-only tiers must not count as ordinary production coverage'
 )
 
+expectMatrixValidateFailure(
+  removeTier(matrixSourceText, 'frontend-build'),
+  'frontend fast split missing tier frontend-build',
+  'validate must reject missing frontend-fast split tiers'
+)
+
 run(['preflight'])
 run(['validate'])
 run(['plan', 'production'])
@@ -208,12 +223,29 @@ run(['ci-job-matrix', 'acceptance-playwright', '--out', '.tmp/docs/acceptance-pl
 run(['ci-job-matrix', 'visual-public-playwright', '--out', '.tmp/docs/visual-public-playwright-matrix.json'])
 run(['ci-job-matrix', 'visual-console-playwright', '--out', '.tmp/docs/visual-console-playwright-matrix.json'])
 run(['ci-job-matrix', 'ux-viewport-smoke', '--out', '.tmp/docs/ux-viewport-smoke-matrix.json'])
+for (const tierId of [
+  'frontend-build',
+  'frontend-unit-shard',
+  'frontend-runtime-contracts',
+  'frontend-static-governance',
+  'frontend-fast-summary'
+]) {
+  requireFileIncludes(
+    'tests/matrix.yml',
+    `id: ${tierId}\n`,
+    `frontend fast split must declare ${tierId}`
+  )
+}
 {
   const matrix = readJsonFile('.tmp/docs/fast-frontend-unit-matrix.json').matrix
+  requireCondition(
+    matrix.include.every((entry) => entry.tier === 'frontend-unit-shard'),
+    'fast-frontend-unit matrix must run only frontend-unit-shard shards'
+  )
   const shards = matrix.include.map((entry) => entry.shard).filter(Boolean)
   requireCondition(
     shards.length === 2 && shards.includes('1/2') && shards.includes('2/2'),
-    'fast-frontend-unit matrix must expand frontend-fast into 2 Vitest shards'
+    'fast-frontend-unit matrix must expand frontend-unit-shard into 2 Vitest shards'
   )
   requireCondition(
     matrix.include.every((entry) => /^fast-frontend-unit-\d-of-2$/.test(entry.artifact_name)),
@@ -262,7 +294,13 @@ for (const [jobId, file] of [
 run(['aggregate', 'fast-summary', '--dry-run', '--out', '.tmp/docs/fast-summary-aggregate-plan.json'])
 {
   const aggregatePlan = readJsonFile('.tmp/docs/fast-summary-aggregate-plan.json')
-  for (const summaryId of ['fast-frontend-unit-1-of-2', 'fast-frontend-unit-2-of-2']) {
+  for (const summaryId of [
+    'frontend-build',
+    'fast-frontend-unit-1-of-2',
+    'fast-frontend-unit-2-of-2',
+    'frontend-runtime-contracts',
+    'frontend-static-governance'
+  ]) {
     requireCondition(
       aggregatePlan.requiredJobSummaries.includes(summaryId),
       `fast-summary aggregate plan must require ${summaryId}`
@@ -273,7 +311,7 @@ run(['ci-tier', 'backend-fast', '--plan-only'])
 {
   const frontendPlan = output(['ci-job', 'fast-frontend-unit', '--plan-only'])
   process.stdout.write(frontendPlan)
-  if (!frontendPlan.includes('./tools/test.sh ci-tier frontend-fast --no-deps --shard 1/2')) {
+  if (!frontendPlan.includes('./tools/test.sh ci-tier frontend-unit-shard --no-deps --shard 1/2')) {
     console.error('[test-matrix] fast-frontend-unit plan must include a shard reproduction example')
     process.exit(1)
   }
@@ -361,43 +399,58 @@ requireFileIncludes(
 )
 requireFileIncludes(
   '.github/workflows/quality-gate.yml',
+  'frontend-build:',
+  'quality gate must run frontend build as an independent job'
+)
+requireFileIncludes(
+  '.github/workflows/quality-gate.yml',
+  'frontend-runtime-contracts:',
+  'quality gate must run frontend runtime contracts as an independent job'
+)
+requireFileIncludes(
+  '.github/workflows/quality-gate.yml',
+  'frontend-static-governance:',
+  'quality gate must run frontend static governance as an independent job'
+)
+requireFileIncludes(
+  '.github/workflows/quality-gate.yml',
   './tools/test.sh ci-tier ${{ matrix.tier }} --no-deps --shard ${{ matrix.shard }}',
   'fast-frontend-unit workflow must run generated frontend shard tiers'
 )
 requireFileIncludes(
   'docs/testing.md',
-  'Frontend fast Vitest sharding',
-  'docs/testing.md must document frontend-fast shard reproduction and artifacts'
+  'Frontend fast split',
+  'docs/testing.md must document frontend-fast split reproduction and artifacts'
 )
 requireFileIncludes(
   'tools/test/legacy-test.sh',
-  'run_frontend_fast_group build',
-  'frontend-fast must time the build group before post-build checks'
+  'run_frontend_fast_build_lane',
+  'frontend-fast split must expose a standalone build lane'
 )
 requireFileIncludes(
   'tools/test/legacy-test.sh',
-  'run_parallel "frontend-fast-post-build"',
-  'frontend-fast must run independent post-build groups in parallel'
+  'run_frontend_unit_shard_lane',
+  'frontend-fast split must expose a standalone unit shard lane'
 )
 requireFileIncludes(
   'tools/test/legacy-test.sh',
-  'tests::run_frontend_fast_tests_group',
-  'frontend-fast must expose a named tests group for failure localization'
+  'run_frontend_runtime_contracts_lane',
+  'frontend-fast split must expose a standalone runtime contracts lane'
 )
 requireFileIncludes(
   'tools/test/legacy-test.sh',
-  'runtime-contracts::run_frontend_fast_runtime_contracts_group',
-  'frontend-fast must expose a named runtime-contracts group for failure localization'
+  'run_frontend_static_governance_lane',
+  'frontend-fast split must expose a standalone static governance lane'
 )
 requireFileIncludes(
   'tools/test/legacy-test.sh',
-  'static-governance::run_frontend_fast_static_governance_group',
-  'frontend-fast must expose a named static-governance group for failure localization'
+  'run_frontend_fast_summary_lane',
+  'frontend-fast split must expose a standalone summary lane'
 )
 requireFileIncludes(
   'tools/run-test-matrix.mjs',
-  'groupDurationsMs',
-  'frontend-fast group durations must be copied into the job summary'
+  'frontendFastSplitIds',
+  'matrix validator must know the required frontend-fast split tiers'
 )
 requireFileIncludes(
   'tools/ci/summarize-quality-gate.mjs',
@@ -406,8 +459,8 @@ requireFileIncludes(
 )
 requireFileIncludes(
   'docs/testing.md',
-  'Frontend fast group parallelism',
-  'docs/testing.md must document frontend-fast group parallelism and group duration evidence'
+  '`fast-summary` 下载这些 artifacts',
+  'docs/testing.md must document frontend-fast split aggregate evidence'
 )
 requireFileIncludes(
   'tests/matrix.yml',

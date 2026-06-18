@@ -140,7 +140,10 @@ function annotateWorkflowJob(job) {
   job.usesMatrixPlaywrightWorkers = /FSUSBLOG_PLAYWRIGHT_WORKERS:\s*\$\{\{\s*matrix\.playwright_workers\s*\}\}/.test(text)
   job.playwrightWorkerEnvValues = new Set([...text.matchAll(/FSUSBLOG_PLAYWRIGHT_WORKERS:\s*['"]?(\d+)['"]?/g)].map((match) => Number(match[1])))
   job.downloadsFastBackendArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /pattern:\s*fast-backend-\*/.test(text)
+  job.downloadsFrontendBuildArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*frontend-build/.test(text)
   job.downloadsFastFrontendArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /pattern:\s*fast-frontend-unit-\*/.test(text)
+  job.downloadsFrontendRuntimeContractsArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*frontend-runtime-contracts/.test(text)
+  job.downloadsFrontendStaticGovernanceArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*frontend-static-governance/.test(text)
   job.downloadsFastStaticArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*fast-static-governance/.test(text)
   job.referencesValidateMatrixOutputs = /needs\.validate-matrix\.outputs\./.test(text)
   return job
@@ -371,8 +374,17 @@ function validateFastSummaryAggregate(workflowJob, planJob, errors) {
   if (!workflowJob.downloadsFastBackendArtifacts) {
     errors.push('workflow job fast-summary must download fast-backend-* artifacts before aggregating')
   }
+  if (!workflowJob.downloadsFrontendBuildArtifacts) {
+    errors.push('workflow job fast-summary must download frontend-build artifacts before aggregating')
+  }
   if (!workflowJob.downloadsFastFrontendArtifacts) {
     errors.push('workflow job fast-summary must download fast-frontend-unit artifacts before aggregating')
+  }
+  if (!workflowJob.downloadsFrontendRuntimeContractsArtifacts) {
+    errors.push('workflow job fast-summary must download frontend-runtime-contracts artifacts before aggregating')
+  }
+  if (!workflowJob.downloadsFrontendStaticGovernanceArtifacts) {
+    errors.push('workflow job fast-summary must download frontend-static-governance artifacts before aggregating')
   }
   if (!workflowJob.downloadsFastStaticArtifacts) {
     errors.push('workflow job fast-summary must download fast-static-governance artifacts before aggregating')

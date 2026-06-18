@@ -573,6 +573,31 @@ run_frontend_fast_build_group() {
   run_in_client env FSUSBLOG_SKIP_ENSURE_WASM=1 FSUSBLOG_VITE_WARN_AS_ERROR=1 npm run build
 }
 
+write_frontend_split_summary() {
+  local lane="$1"
+  local out_file="$ROOT_DIR/.tmp/frontend/${lane}.json"
+  mkdir -p "$(dirname "$out_file")"
+  node - "$out_file" "$lane" <<'NODE'
+const fs = require('node:fs')
+const outFile = process.argv[2]
+const lane = process.argv[3]
+
+fs.writeFileSync(outFile, `${JSON.stringify({
+  schema: 'fsusblog.frontend-fast.split-lane.v1',
+  lane,
+  status: 'success',
+  generatedAt: new Date().toISOString()
+}, null, 2)}\n`)
+NODE
+}
+
+run_frontend_fast_build_lane() {
+  prepare_frontend_fast_group_timings
+  run_frontend_fast_group build run_frontend_fast_build_group
+  write_frontend_fast_group_summary
+  write_frontend_split_summary frontend-build
+}
+
 run_frontend_fast_tests_group_body() {
   if node -e "const pkg=require(process.argv[1]); process.exit(pkg.scripts && pkg.scripts['test:unit:fast'] ? 0 : 1)" "$CLIENT_DIR/package.json"; then
     run_vitest_script test:unit:fast
@@ -587,6 +612,14 @@ run_frontend_fast_tests_group() {
   run_frontend_fast_group tests run_frontend_fast_tests_group_body
 }
 
+run_frontend_unit_shard_lane() {
+  configure_vitest_shard
+  prepare_frontend_fast_group_timings
+  run_frontend_fast_tests_group
+  write_frontend_fast_group_summary
+  write_frontend_split_summary frontend-unit-shard
+}
+
 run_frontend_fast_runtime_contracts_group_body() {
   run_in_client npm run check:worker-contracts
   run_in_client npm run check:a11y:deep
@@ -599,6 +632,13 @@ run_frontend_fast_runtime_contracts_group_body() {
 
 run_frontend_fast_runtime_contracts_group() {
   run_frontend_fast_group runtime-contracts run_frontend_fast_runtime_contracts_group_body
+}
+
+run_frontend_runtime_contracts_lane() {
+  prepare_frontend_fast_group_timings
+  run_frontend_fast_runtime_contracts_group
+  write_frontend_fast_group_summary
+  write_frontend_split_summary frontend-runtime-contracts
 }
 
 run_frontend_fast_static_governance_group_body() {
@@ -621,8 +661,6 @@ run_frontend_fast_static_governance_group_body() {
   run "$ROOT_DIR/tools/check-historical-residue.sh"
   run "$ROOT_DIR/tools/check-cache-governance.sh"
   run "$ROOT_DIR/tools/check-test-hygiene.sh"
-  run "$ROOT_DIR/tools/check-gate-integrity.sh" --self-test
-  run "$ROOT_DIR/tools/check-test-matrix.mjs"
   run "$ROOT_DIR/tools/operations/check-slo-definition.mjs"
   run "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" --self-test
   run "$ROOT_DIR/tools/operations/check-release-slo-alerts.mjs" --self-test
@@ -632,15 +670,24 @@ run_frontend_fast_static_governance_group() {
   run_frontend_fast_group static-governance run_frontend_fast_static_governance_group_body
 }
 
-run_fast_frontend_lane() {
-  configure_vitest_shard
+run_frontend_static_governance_lane() {
   prepare_frontend_fast_group_timings
-  run_frontend_fast_group build run_frontend_fast_build_group
-  run_parallel "frontend-fast-post-build" \
-    "tests::run_frontend_fast_tests_group" \
-    "runtime-contracts::run_frontend_fast_runtime_contracts_group" \
-    "static-governance::run_frontend_fast_static_governance_group"
+  run_frontend_fast_static_governance_group
   write_frontend_fast_group_summary
+  write_frontend_split_summary frontend-static-governance
+}
+
+run_frontend_fast_summary_lane() {
+  log "frontend-fast-summary | artifact-only aggregate tier; CI summary validates child job evidence"
+  write_frontend_split_summary frontend-fast-summary
+}
+
+run_fast_frontend_lane() {
+  run_frontend_fast_build_lane
+  run_frontend_unit_shard_lane
+  run_frontend_runtime_contracts_lane
+  run_frontend_static_governance_lane
+  run_frontend_fast_summary_lane
 }
 
 run_fast_only() {

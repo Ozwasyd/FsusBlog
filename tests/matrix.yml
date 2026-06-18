@@ -30,9 +30,38 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
-  - id: frontend-fast
+  - id: frontend-build
     owner: InteropGlueAgent
-    command: tools/test/lanes/frontend-fast.sh
+    command: tools/test/lanes/frontend-build.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 1
+    cost: medium
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: frontend
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: high
+    cadence: pr
+    requiredFor: fast
+    coverage: [frontend-build]
+    artifacts: [.tmp/frontend/frontend-build.json, .tmp/frontend/frontend-fast-groups.json, src/frontend/dist]
+    evidence: [.tmp/frontend/frontend-build.json, .tmp/frontend/frontend-fast-groups.json]
+    ciJob: frontend-build
+    localOnly: false
+    nightlyOnly: false
+
+  - id: frontend-unit-shard
+    owner: InteropGlueAgent
+    command: tools/test/lanes/frontend-unit-shard.sh
     dependsOn: []
     services: []
     parallelizable: true
@@ -46,16 +75,103 @@ tiers:
     requiresDotnet: false
     requiresPlaywright: none
     cacheProfile: frontend
-    timeoutMinutes: 35
+    timeoutMinutes: 25
     shardable: true
     defaultShards: 2
     risk: high
     cadence: pr
     requiredFor: fast
-    coverage: [frontend-unit, frontend-property, frontend-static, contract-static]
-    artifacts: [src/frontend/coverage, .tmp/frontend]
-    evidence: [src/frontend/coverage, .tmp/frontend]
+    coverage: [frontend-unit, frontend-property]
+    artifacts: [src/frontend/coverage, .tmp/frontend/frontend-unit-shard.json, .tmp/frontend/frontend-fast-groups.json]
+    evidence: [src/frontend/coverage, .tmp/frontend/frontend-unit-shard.json, .tmp/frontend/frontend-fast-groups.json]
     ciJob: fast-frontend-unit
+    localOnly: false
+    nightlyOnly: false
+
+  - id: frontend-runtime-contracts
+    owner: InteropGlueAgent
+    command: tools/test/lanes/frontend-runtime-contracts.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 1
+    cost: high
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: frontend
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: high
+    cadence: pr
+    requiredFor: fast
+    coverage: [contract-static]
+    artifacts: [.tmp/frontend/frontend-runtime-contracts.json, .tmp/frontend/frontend-fast-groups.json]
+    evidence: [.tmp/frontend/frontend-runtime-contracts.json, .tmp/frontend/frontend-fast-groups.json]
+    ciJob: frontend-runtime-contracts
+    localOnly: false
+    nightlyOnly: false
+
+  - id: frontend-static-governance
+    owner: InteropGlueAgent
+    command: tools/test/lanes/frontend-static-governance.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 1
+    cost: high
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: frontend
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: high
+    cadence: pr
+    requiredFor: fast
+    coverage: [frontend-static]
+    artifacts: [.tmp/frontend/frontend-static-governance.json, .tmp/frontend/frontend-fast-groups.json]
+    evidence: [.tmp/frontend/frontend-static-governance.json, .tmp/frontend/frontend-fast-groups.json]
+    ciJob: frontend-static-governance
+    localOnly: false
+    nightlyOnly: false
+
+  - id: frontend-fast-summary
+    owner: InteropGlueAgent
+    command: tools/test/lanes/noop.sh frontend-fast-summary
+    dependsOn: [frontend-build, frontend-unit-shard, frontend-runtime-contracts, frontend-static-governance]
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 1
+    cost: low
+    resourceClass: io
+    maxParallel: 4
+    requiresBootstrap: none
+    requiresNode: false
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: high
+    cadence: pr
+    requiredFor: fast
+    coverage: []
+    artifacts: [.tmp/frontend, src/frontend/coverage, src/frontend/dist]
+    evidence: [.tmp/frontend, src/frontend/coverage]
+    ciJob: fast-summary
     localOnly: false
     nightlyOnly: false
 
@@ -149,7 +265,7 @@ tiers:
   - id: fast
     owner: ServerContractAgent
     command: tools/test/lanes/noop.sh fast
-    dependsOn: [frontend-fast, backend-fast, static-governance, public-hydration-fast]
+    dependsOn: [frontend-fast-summary, backend-fast, static-governance, public-hydration-fast]
     services: []
     parallelizable: true
     exclusiveResources: []

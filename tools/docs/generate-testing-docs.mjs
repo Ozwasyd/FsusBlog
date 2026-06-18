@@ -9,7 +9,11 @@ const groupDefinitions = [
     title: 'Primary Release Tiers',
     match: (tier) => new Set([
       'validate-matrix',
-      'frontend-fast',
+      'frontend-build',
+      'frontend-unit-shard',
+      'frontend-runtime-contracts',
+      'frontend-static-governance',
+      'frontend-fast-summary',
       'backend-fast',
       'static-governance',
       'fast',

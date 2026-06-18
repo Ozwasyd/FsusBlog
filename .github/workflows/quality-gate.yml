@@ -212,11 +212,36 @@ jobs:
             .tmp/backend-property/**
             .tmp/release-evidence/jobs/**
 
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    needs: validate-matrix
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+      - run: ./tools/test.sh ci-tier frontend-build --no-deps
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: frontend-build
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/frontend/**
+            .tmp/release-evidence/jobs/**
+            src/frontend/dist/**
+
   fast-frontend-unit:
     name: Fast Frontend Unit ${{ matrix.shard_id }}
     runs-on: ubuntu-latest
     needs: validate-matrix
-    timeout-minutes: 35
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       max-parallel: ${{ fromJson(needs.validate-matrix.outputs.fast_frontend_unit_max_parallel) }}
@@ -240,6 +265,54 @@ jobs:
           retention-days: 14
           path: |
             src/frontend/coverage/**
+            .tmp/frontend/**
+            .tmp/release-evidence/jobs/**
+
+  frontend-runtime-contracts:
+    name: Frontend Runtime Contracts
+    runs-on: ubuntu-latest
+    needs: validate-matrix
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+      - run: ./tools/test.sh ci-tier frontend-runtime-contracts --no-deps
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: frontend-runtime-contracts
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/frontend/**
+            .tmp/release-evidence/jobs/**
+
+  frontend-static-governance:
+    name: Frontend Static Governance
+    runs-on: ubuntu-latest
+    needs: validate-matrix
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+      - run: ./tools/test.sh ci-tier frontend-static-governance --no-deps
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: frontend-static-governance
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
             .tmp/frontend/**
             .tmp/release-evidence/jobs/**
 
@@ -275,7 +348,7 @@ jobs:
   fast-summary:
     name: Fast Summary
     runs-on: ubuntu-latest
-    needs: [fast-backend, fast-frontend-unit, fast-static-governance]
+    needs: [fast-backend, frontend-build, fast-frontend-unit, frontend-runtime-contracts, frontend-static-governance, fast-static-governance]
     timeout-minutes: 50
     steps:
       - uses: actions/checkout@v6
@@ -289,9 +362,21 @@ jobs:
           merge-multiple: true
       - uses: actions/download-artifact@v7
         with:
+          name: frontend-build
+          path: .
+      - uses: actions/download-artifact@v7
+        with:
           pattern: fast-frontend-unit-*
           path: .
           merge-multiple: true
+      - uses: actions/download-artifact@v7
+        with:
+          name: frontend-runtime-contracts
+          path: .
+      - uses: actions/download-artifact@v7
+        with:
+          name: frontend-static-governance
+          path: .
       - uses: actions/download-artifact@v7
         with:
           name: fast-static-governance
@@ -308,8 +393,10 @@ jobs:
           retention-days: 14
           path: |
             .tmp/gate-logs/**
+            .tmp/frontend/**
             .tmp/release-evidence/jobs/**
             src/frontend/coverage/**
+            src/frontend/dist/**
 
   cross-stack-contract:
     name: Cross Stack Contract
@@ -994,7 +1081,10 @@ jobs:
     needs:
       - coverage-merge-threshold
       - fast-backend
+      - frontend-build
       - fast-frontend-unit
+      - frontend-runtime-contracts
+      - frontend-static-governance
       - fast-static-governance
       - fast-summary
       - cross-stack-contract
@@ -1040,7 +1130,10 @@ jobs:
       - coverage-frontend
       - coverage-merge-threshold
       - fast-backend
+      - frontend-build
       - fast-frontend-unit
+      - frontend-runtime-contracts
+      - frontend-static-governance
       - fast-static-governance
       - fast-summary
       - cross-stack-contract

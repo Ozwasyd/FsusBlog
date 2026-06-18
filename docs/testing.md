@@ -43,24 +43,24 @@ Matrix 同时声明调度元数据：`phase` 表示 CI DAG 阶段，`cost` 表�
 
 Matrix 也声明 setup/cache 元数据：`requiresNode`、`requiresDotnet`、`requiresPlaywright` 表示运行时需求，`cacheProfile` 表示依赖缓存需求。`cacheProfile=frontend` 必须使用 `actions/setup-node` 的 npm cache，并固定 `cache-dependency-path: src/frontend/package-lock.json`；`cacheProfile=backend` 必须使用 `~/.nuget/packages`，key 固定由 `*.csproj`、`*.props`、`*.targets`、`global.json`、`NuGet.config` 共同计算；`full` 同时要求两者。Playwright tier 只安装声明的浏览器：`chromium` tier 只安装 Chromium，cross-browser tier 使用 `${{ matrix.browser }}`。
 
-### Frontend fast Vitest sharding
+### Frontend fast split
 
-`frontend-fast` 是 shardable tier，默认 `defaultShards=2`。GitHub Actions 的 `fast-frontend-unit` job 使用 `node tools/run-test-matrix.mjs ci-job-matrix fast-frontend-unit` 生成 shard matrix，并分别运行：
+前端 fast gate 拆成独立 tier：`frontend-build`、`frontend-unit-shard`、`frontend-runtime-contracts`、`frontend-static-governance`、`frontend-fast-summary`。`frontend-build` 只运行一次并上传 `src/frontend/dist/**` 与 `.tmp/frontend/frontend-build.json`；`frontend-unit-shard` 保留 Vitest shard；`frontend-runtime-contracts` 单独覆盖 worker/a11y/binary/runtime/wasm checks；`frontend-static-governance` 单独覆盖前端静态治理，并把 `check-gate-integrity`、`check-test-matrix` 这类全局 static governance 留给 `static-governance` job，避免重复。
+
+本地复现命令：
 
 ```bash
-./tools/test.sh ci-tier frontend-fast --no-deps --shard 1/2
-./tools/test.sh ci-tier frontend-fast --no-deps --shard 2/2
+./tools/test.sh ci-tier frontend-build --no-deps
+./tools/test.sh ci-tier frontend-unit-shard --no-deps --shard 1/2
+./tools/test.sh ci-tier frontend-unit-shard --no-deps --shard 2/2
+./tools/test.sh ci-tier frontend-runtime-contracts --no-deps
+./tools/test.sh ci-tier frontend-static-governance --no-deps
+node tools/run-test-matrix.mjs aggregate fast-summary --dry-run
 ```
 
-`--shard i/n` 会注入 `FSUSBLOG_TEST_SHARD_INDEX/TOTAL`，`run_fast_frontend_lane()` 将其转换成 Vitest `--shard=i/n`，只传给 `test:unit:fast`、`test:property`、`check:frontend-state-machines` 和 `check:frontend-perf-regression`。build、static governance、contract checks 仍保持原命令；后续若要减少重复 setup，应通过独立 tier 拆分处理。
+`--shard i/n` 会注入 `FSUSBLOG_TEST_SHARD_INDEX/TOTAL`，`run_frontend_unit_shard_lane()` 将其转换成 Vitest `--shard=i/n`，只传给 `test:unit:fast`、`test:property`、`check:frontend-state-machines` 和 `check:frontend-perf-regression`。build、runtime-contracts、static-governance 不再随每个 unit shard 重复执行。
 
-每个 shard 上传独立 artifact：`fast-frontend-unit-1-of-2`、`fast-frontend-unit-2-of-2`。artifact 内容仍包含 `src/frontend/coverage/**`、`.tmp/frontend/**` 和 `.tmp/release-evidence/jobs/**`；fast-summary 通过 `fast-frontend-unit-*` pattern 合并下载。per-shard job summary 记录 `stageDurationsMs.test`，用于后续评估是否从 2 shards 提升到 4 shards。
-
-### Frontend fast group parallelism
-
-`frontend-fast` 先串行执行 `build` group，确保构建产物、manifest 与生成文件稳定后，再并行执行三个 post-build groups：`tests`、`runtime-contracts`、`static-governance`。`tests` group 内部仍按 unit/property/state/perf 顺序执行，避免多个 Vitest coverage/model/perf 进程竞争同一输出；`runtime-contracts` 覆盖 worker/a11y/binary/runtime/wasm checks；`static-governance` 覆盖 API parity、schema、copy/security/static policy 与 repo-root governance scripts。
-
-并行组失败会输出具体 group 名称，例如 `parallel group failed: frontend-fast-post-build/runtime-contracts`，避免只看到 frontend-fast 总失败。每个 group 会写入 `.tmp/frontend/frontend-fast-groups.jsonl`，成功完成时汇总为 `.tmp/frontend/frontend-fast-groups.json`；`run-test-matrix` 会把这些数据复制到 `fast-frontend-unit-*` job summary 的 `groupDurationsMs` / `groupResults` 字段中，CI summary 与 artifact 都能看到 build/tests/runtime-contracts/static-governance 的耗时。
+每个子 tier 都由 `run-test-matrix` 写入独立 `.tmp/release-evidence/jobs/<job>.json` job summary。CI artifacts 分别为 `frontend-build`、`fast-frontend-unit-1-of-2`、`fast-frontend-unit-2-of-2`、`frontend-runtime-contracts`、`frontend-static-governance`；`fast-summary` 下载这些 artifacts 和 `fast-static-governance`/`fast-backend-*` 后运行 artifact-only aggregate。matrix validator 会拒绝缺少任一 frontend fast 子 tier、`frontend-unit-shard` 失去 shard、或 `fast` 继续依赖旧 monolithic `frontend-fast`。
 
 ### Browser lane scaling policy
 

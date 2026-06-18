@@ -19,11 +19,20 @@ const cadenceValues = ['pr', 'push', 'nightly', 'release-manual']
 const requiredForValues = ['fast', 'production', 'release-final', 'none']
 const aliases = new Map([
   ['coverage', 'coverage-gate'],
+  ['frontend-fast', 'frontend-fast-summary'],
   ['backend-qps-runtime', 'backend-qps'],
   ['endpoint-depth-matrix-generate', 'endpoint-depth'],
   ['endpoint-depth-runtime-smoke', 'endpoint-depth'],
   ['endpoint-depth-runtime-full', 'endpoint-depth']
 ])
+const frontendFastSplitIds = [
+  'frontend-build',
+  'frontend-unit-shard',
+  'frontend-runtime-contracts',
+  'frontend-static-governance',
+  'frontend-fast-summary'
+]
+const frontendFastExecutableSplitIds = frontendFastSplitIds.filter((tierId) => tierId !== 'frontend-fast-summary')
 
 const requiredFields = [
   'id',
@@ -259,6 +268,69 @@ function validateCoverageRegistry(matrix) {
   return errors
 }
 
+function sameSet(left, right) {
+  if (left.size !== right.size) return false
+  for (const item of left) {
+    if (!right.has(item)) return false
+  }
+  return true
+}
+
+function validateFrontendFastSplit(matrix, byId) {
+  const errors = []
+  for (const tierId of frontendFastSplitIds) {
+    if (!byId.has(tierId)) errors.push(`frontend fast split missing tier ${tierId}`)
+  }
+
+  if (byId.has('frontend-fast')) {
+    errors.push('frontend-fast must stay split; use frontend-fast-summary alias instead of a monolithic tier')
+  }
+
+  const expectedCiJobs = new Map([
+    ['frontend-build', 'frontend-build'],
+    ['frontend-unit-shard', 'fast-frontend-unit'],
+    ['frontend-runtime-contracts', 'frontend-runtime-contracts'],
+    ['frontend-static-governance', 'frontend-static-governance'],
+    ['frontend-fast-summary', 'fast-summary']
+  ])
+  for (const [tierId, ciJob] of expectedCiJobs.entries()) {
+    const tier = byId.get(tierId)
+    if (tier && tier.ciJob !== ciJob) errors.push(`${tierId}.ciJob must be ${ciJob}`)
+  }
+
+  const unitShard = byId.get('frontend-unit-shard')
+  if (unitShard) {
+    if (unitShard.shardable !== true) errors.push('frontend-unit-shard must be shardable')
+    if (Number(unitShard.defaultShards) < 2) errors.push('frontend-unit-shard.defaultShards must be at least 2')
+  }
+
+  for (const tierId of ['frontend-build', 'frontend-runtime-contracts', 'frontend-static-governance']) {
+    const tier = byId.get(tierId)
+    if (tier?.shardable === true) errors.push(`${tierId} must run once and must not be shardable`)
+  }
+
+  const summary = byId.get('frontend-fast-summary')
+  if (summary) {
+    const actual = new Set(summary.dependsOn ?? [])
+    const expected = new Set(frontendFastExecutableSplitIds)
+    if (!sameSet(actual, expected)) {
+      errors.push(`frontend-fast-summary.dependsOn must be ${frontendFastExecutableSplitIds.join(',')}`)
+    }
+  }
+
+  const fast = byId.get('fast')
+  if (fast) {
+    if ((fast.dependsOn ?? []).includes('frontend-fast')) {
+      errors.push('fast must not depend on deprecated frontend-fast')
+    }
+    if (!(fast.dependsOn ?? []).includes('frontend-fast-summary')) {
+      errors.push('fast must depend on frontend-fast-summary')
+    }
+  }
+
+  return errors
+}
+
 function validateMatrix(matrix) {
   const errors = []
   const ids = new Set()
@@ -411,6 +483,7 @@ function validateMatrix(matrix) {
     }
   }
 
+  errors.push(...validateFrontendFastSplit(matrix, byId))
   errors.push(...validateCoverageRegistry(matrix))
 
   const visiting = new Set()
@@ -577,7 +650,7 @@ function mergeStageDurations(existing, stage, durationMs) {
 }
 
 function frontendFastGroupEvidence(tier) {
-  if (tier.id !== 'frontend-fast') return null
+  if (tier.id !== 'frontend-fast' && !frontendFastExecutableSplitIds.includes(tier.id)) return null
   const summaryFile = path.join(root, '.tmp/frontend/frontend-fast-groups.json')
   const jsonlFile = path.join(root, '.tmp/frontend/frontend-fast-groups.jsonl')
   try {
@@ -1067,13 +1140,14 @@ function generatedMatrixSummaryIds(matrix, jobId) {
   return tiers.map((tier) => `${jobId}-${tier.id}`)
 }
 
-function aggregateDependencyJobs(matrix, summaryTiers) {
+function aggregateDependencyJobs(matrix, summaryTiers, jobId) {
   const byId = tierMap(matrix)
   const jobs = new Set()
   for (const tier of summaryTiers) {
     for (const dependencyId of tier.dependsOn ?? []) {
       const dependency = byId.get(dependencyId)
       if (!dependency) throw new Error(`${tier.id} depends on missing tier ${dependencyId}`)
+      if (dependency.ciJob === jobId) continue
       jobs.add(dependency.ciJob)
     }
   }
@@ -1107,7 +1181,7 @@ function buildAggregatePlan(matrix, jobId) {
   if (summaryTiers.length === 0) throw new Error(`unknown aggregate CI job: ${jobId}`)
   if (ciJobExecutionMode(matrix, jobId) !== 'aggregate') throw new Error(`${jobId} is not an artifact-only aggregate job`)
 
-  const dependencyJobs = aggregateDependencyJobs(matrix, summaryTiers)
+  const dependencyJobs = aggregateDependencyJobs(matrix, summaryTiers, jobId)
   return {
     schema: 'fsusblog.ci.aggregate-plan.v1',
     jobId,
