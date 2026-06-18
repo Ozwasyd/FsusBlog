@@ -75,6 +75,41 @@ public sealed class AuditLogWriterWorkerTests
         Assert.Equal(1, probe.SuccessfulBatches);
     }
 
+    [Fact]
+    public async Task PersistSafelyAsync_DoesNotDegradeWhenServiceProviderWasDisposedDuringShutdown()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(new AuditStoreProbe());
+        services.AddScoped<IAuditLogStore, RecordingAuditLogStore>();
+
+        ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = true
+        });
+
+        IServiceScopeFactory scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
+        await provider.DisposeAsync();
+
+        var channel = new AuditLogChannel();
+        var runtimeState = new AuditLogRuntimeState(channel);
+        var fallbackWriter = new CountingAuditFallbackWriter();
+        var worker = new AuditLogWriterWorker(
+            channel,
+            scopeFactory,
+            runtimeState,
+            fallbackWriter,
+            NullLogger<AuditLogWriterWorker>.Instance);
+
+        await worker.PersistSafelyAsync(
+            [new AuditRecord("request", "audit", DateTime.UtcNow, "shutdown-drain", null, IsHighValue: true)],
+            CancellationToken.None);
+
+        AuditLogRuntimeSnapshot snapshot = runtimeState.Snapshot();
+        Assert.Equal(0, snapshot.WriteFailureCount);
+        Assert.Equal(0, fallbackWriter.WrittenRecords);
+    }
+
     private sealed class AuditStoreProbe
     {
         public ConcurrentQueue<Guid> ScopeIds { get; } = new();
@@ -124,5 +159,22 @@ public sealed class AuditLogWriterWorkerTests
 
         public Task WriteBatchAsync(IReadOnlyList<AuditRecord> records, Exception reason, CancellationToken cancellationToken)
             => Task.CompletedTask;
+    }
+
+    private sealed class CountingAuditFallbackWriter : IAuditFallbackWriter
+    {
+        public int WrittenRecords;
+
+        public Task WriteAsync(AuditRecord record, Exception reason, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref WrittenRecords);
+            return Task.CompletedTask;
+        }
+
+        public Task WriteBatchAsync(IReadOnlyList<AuditRecord> records, Exception reason, CancellationToken cancellationToken)
+        {
+            Interlocked.Add(ref WrittenRecords, records.Count);
+            return Task.CompletedTask;
+        }
     }
 }

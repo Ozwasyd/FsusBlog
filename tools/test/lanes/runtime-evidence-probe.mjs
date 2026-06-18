@@ -239,6 +239,42 @@ function runDocker(args) {
   return { ok: true, stdout: result.stdout.trim() }
 }
 
+function spawnCommand(command, args, options = {}) {
+  const child = spawn(command, args, {
+    cwd: options.cwd ?? root,
+    env: options.env ?? process.env,
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
+  const chunks = { stdout: '', stderr: '' }
+  child.stdout.setEncoding('utf8')
+  child.stderr.setEncoding('utf8')
+  child.stdout.on('data', (chunk) => { chunks.stdout += chunk })
+  child.stderr.on('data', (chunk) => { chunks.stderr += chunk })
+  return { child, chunks }
+}
+
+async function waitForProcessExit(pid, timeoutMs) {
+  const started = performance.now()
+  do {
+    if (!isProcessRunning(pid)) {
+      return {
+        status: 'stopped',
+        pid,
+        exitObserved: true,
+        durationMs: elapsedMs(started)
+      }
+    }
+    await sleep(100)
+  } while (performance.now() - started < timeoutMs)
+
+  return {
+    status: 'timeout',
+    pid,
+    exitObserved: false,
+    durationMs: elapsedMs(started)
+  }
+}
+
 function queryPostgresScalar(sql) {
   const container = process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME || process.env.FSUSBLOG_PG_CONTAINER || ''
   if (!container) return { available: false, error: 'postgres container env missing' }
@@ -545,6 +581,337 @@ async function runProbeResult(label, paths, options = {}) {
   }
 }
 
+function acceptanceTmpDir() {
+  return path.join(root, '.tmp', 'acceptance', namespaceSlug(namespace))
+}
+
+function backendPidFile() {
+  return process.env.FSUSBLOG_BACKEND_PID_FILE || path.join(acceptanceTmpDir(), 'backend.pid')
+}
+
+function backendLogFile() {
+  return process.env.FSUSBLOG_BACKEND_LOG_FILE || path.join(acceptanceTmpDir(), 'backend.log')
+}
+
+function readPositiveIntFile(file) {
+  try {
+    const value = Number.parseInt(fs.readFileSync(file, 'utf8').trim(), 10)
+    return Number.isFinite(value) && value > 0 ? value : null
+  } catch {
+    return null
+  }
+}
+
+function baseUrlPort() {
+  try {
+    const parsed = new URL(baseUrl)
+    if (parsed.port) return Number.parseInt(parsed.port, 10)
+    return parsed.protocol === 'https:' ? 443 : 80
+  } catch {
+    return null
+  }
+}
+
+function isProcessRunning(pid) {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function findListeningPid(port) {
+  if (!port) return null
+  const lsof = spawnSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t'], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  if (lsof.status === 0) {
+    const pid = Number.parseInt(String(lsof.stdout).trim().split(/\s+/u)[0], 10)
+    if (Number.isFinite(pid) && pid > 0) return pid
+  }
+
+  const ss = spawnSync('ss', ['-ltnp', `( sport = :${port} )`], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  if (ss.status === 0) {
+    const match = /pid=(\d+)/u.exec(ss.stdout)
+    if (match) {
+      const pid = Number.parseInt(match[1], 10)
+      if (Number.isFinite(pid) && pid > 0) return pid
+    }
+  }
+  return null
+}
+
+function backendContainerName() {
+  return process.env.FSUSBLOG_BACKEND_CONTAINER_NAME || process.env.FSUSBLOG_BACKEND_CONTAINER || ''
+}
+
+function resolveBackendRuntimeTarget() {
+  const container = backendContainerName()
+  if (container) {
+    return { kind: 'container', container }
+  }
+
+  const envPid = Number.parseInt(process.env.FSUSBLOG_BACKEND_PID || '', 10)
+  const pidCandidates = [
+    findListeningPid(baseUrlPort()),
+    Number.isFinite(envPid) && envPid > 0 ? envPid : null,
+    readPositiveIntFile(backendPidFile())
+  ].filter((candidate) => Number.isFinite(candidate) && candidate > 0)
+  const pid = pidCandidates.find((candidate) => isProcessRunning(candidate)) ?? null
+  return pid ? { kind: 'process', pid, pidFile: backendPidFile(), logFile: backendLogFile() } : null
+}
+
+async function fetchStatus(relativePath, options = {}) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(new Error(`timeout after ${positiveInt(options.timeoutMs, 1000)}ms`)), positiveInt(options.timeoutMs, 1000))
+  const started = performance.now()
+  try {
+    const response = await fetch(`${baseUrl}${relativePath}`, {
+      headers: { ...defaultHeaders, ...(options.headers ?? {}) },
+      signal: controller.signal
+    })
+    const body = await response.arrayBuffer()
+    return {
+      status: response.status >= 200 && response.status < 500 ? 'available' : 'unavailable',
+      statusCode: response.status,
+      ok: response.ok,
+      bytes: body.byteLength,
+      elapsedMs: elapsedMs(started)
+    }
+  } catch (error) {
+    return {
+      status: 'unavailable',
+      statusCode: null,
+      ok: false,
+      elapsedMs: elapsedMs(started),
+      error: error instanceof Error ? error.message : String(error)
+    }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function waitForHealthLiveUnavailable() {
+  const startedAt = nowIso()
+  const started = performance.now()
+  const attempts = []
+  const maxWaitMs = positiveInt(process.env.FSUSBLOG_GRACEFUL_SHUTDOWN_DRAIN_WAIT_MS, 30000)
+  const intervalMs = positiveInt(process.env.FSUSBLOG_GRACEFUL_SHUTDOWN_POLL_MS, 250)
+  do {
+    const probe = await fetchStatus('/health/live', { timeoutMs: 1000 })
+    attempts.push({ at: nowIso(), elapsedMs: elapsedMs(started), ...probe })
+    if (probe.status === 'unavailable') {
+      return {
+        status: 'unavailable',
+        startedAt,
+        completedAt: nowIso(),
+        durationMs: elapsedMs(started),
+        attempts
+      }
+    }
+    await sleep(intervalMs)
+  } while (performance.now() - started < maxWaitMs)
+
+  return {
+    status: 'available',
+    startedAt,
+    completedAt: nowIso(),
+    durationMs: elapsedMs(started),
+    attempts
+  }
+}
+
+async function waitForProcessStop(pid) {
+  const started = performance.now()
+  const maxWaitMs = positiveInt(process.env.FSUSBLOG_GRACEFUL_SHUTDOWN_PROCESS_WAIT_MS, 30000)
+  do {
+    if (!isProcessRunning(pid)) {
+      return { status: 'stopped', exitObserved: true, durationMs: elapsedMs(started) }
+    }
+    await sleep(250)
+  } while (performance.now() - started < maxWaitMs)
+  return { status: 'running', exitObserved: false, durationMs: elapsedMs(started) }
+}
+
+async function waitForNotificationClose(stats) {
+  const started = performance.now()
+  const maxWaitMs = positiveInt(process.env.FSUSBLOG_GRACEFUL_SHUTDOWN_SOCKET_WAIT_MS, 30000)
+  do {
+    if (stats?.closed) {
+      return {
+        status: 'closed',
+        closeObserved: true,
+        closeCode: stats.closeCode,
+        closeReason: stats.closeReason,
+        durationMs: elapsedMs(started)
+      }
+    }
+    await sleep(100)
+  } while (performance.now() - started < maxWaitMs)
+  return {
+    status: 'open',
+    closeObserved: false,
+    closeCode: stats?.closeCode ?? null,
+    closeReason: stats?.closeReason ?? null,
+    durationMs: elapsedMs(started)
+  }
+}
+
+function startManagedDebugBackend() {
+  const port = baseUrlPort()
+  if (!port) {
+    throw new Error(`cannot resolve backend port from ${baseUrl}`)
+  }
+
+  fs.mkdirSync(acceptanceTmpDir(), { recursive: true })
+  const logFile = backendLogFile()
+  const pidFile = backendPidFile()
+  const out = fs.openSync(logFile, 'a')
+  const env = {
+    ...process.env,
+    ASPNETCORE_URLS: process.env.ASPNETCORE_URLS || `http://127.0.0.1:${port}`,
+    ASPNETCORE_ENVIRONMENT: process.env.ASPNETCORE_ENVIRONMENT || 'Development'
+  }
+  const child = spawn('dotnet', ['run', '--project', 'src/backend/FsusBlog.Server.csproj', '--no-launch-profile', '--urls', `http://127.0.0.1:${port}`], {
+    cwd: root,
+    detached: true,
+    env,
+    stdio: ['ignore', out, out]
+  })
+  child.unref()
+  fs.closeSync(out)
+  fs.writeFileSync(pidFile, `${child.pid}\n`)
+  return { pid: child.pid, pidFile, logFile }
+}
+
+function startBackendRuntime(target) {
+  const startedAt = nowIso()
+  const started = performance.now()
+  if (target.kind === 'container') {
+    const result = runDocker(['start', target.container])
+    return {
+      status: result.ok ? 'started' : 'failed',
+      target: target.container,
+      mode: 'docker-start',
+      startedAt,
+      completedAt: nowIso(),
+      durationMs: elapsedMs(started),
+      error: result.ok ? null : result.error
+    }
+  }
+
+  const processInfo = startManagedDebugBackend()
+  return {
+    status: 'started',
+    target: String(processInfo.pid),
+    mode: 'managed-debug-process',
+    startedAt,
+    completedAt: nowIso(),
+    durationMs: elapsedMs(started),
+    pidFile: processInfo.pidFile,
+    logFile: processInfo.logFile
+  }
+}
+
+async function stopBackendRuntime(target) {
+  const startedAt = nowIso()
+  const started = performance.now()
+  if (target.kind === 'container') {
+    const result = runDocker(['stop', '--time', String(positiveInt(process.env.FSUSBLOG_GRACEFUL_SHUTDOWN_DOCKER_TIMEOUT_SECONDS, 30)), target.container])
+    const livenessDuringShutdown = await waitForHealthLiveUnavailable()
+    return {
+      status: result.ok ? 'stopped' : 'failed',
+      target: target.container,
+      mode: 'docker-stop',
+      signal: 'SIGTERM',
+      startedAt,
+      completedAt: nowIso(),
+      durationMs: elapsedMs(started),
+      drainDurationMs: livenessDuringShutdown.durationMs,
+      exitObserved: result.ok,
+      livenessDuringShutdown,
+      error: result.ok ? null : result.error
+    }
+  }
+
+  try {
+    process.kill(target.pid, 'SIGTERM')
+  } catch (error) {
+    return {
+      status: 'failed',
+      target: String(target.pid),
+      mode: 'process-signal',
+      signal: 'SIGTERM',
+      startedAt,
+      completedAt: nowIso(),
+      durationMs: elapsedMs(started),
+      drainDurationMs: elapsedMs(started),
+      exitObserved: false,
+      livenessDuringShutdown: { status: 'failed', error: error instanceof Error ? error.message : String(error) },
+      error: error instanceof Error ? error.message : String(error)
+    }
+  }
+
+  let [processStopResult, livenessDuringShutdown] = await Promise.all([
+    waitForProcessStop(target.pid),
+    waitForHealthLiveUnavailable()
+  ])
+  let forcedKill = false
+  if (processStopResult.status !== 'stopped' && livenessDuringShutdown.status === 'unavailable') {
+    try {
+      process.kill(target.pid, 'SIGKILL')
+      forcedKill = true
+      processStopResult = await waitForProcessStop(target.pid)
+    } catch {
+    }
+  }
+
+  const serviceStopped = livenessDuringShutdown.status === 'unavailable'
+  return {
+    status: serviceStopped ? 'stopped' : 'failed',
+    target: String(target.pid),
+    mode: 'process-signal',
+    signal: 'SIGTERM',
+    startedAt,
+    completedAt: nowIso(),
+    durationMs: elapsedMs(started),
+    drainDurationMs: livenessDuringShutdown.durationMs,
+    exitObserved: processStopResult.exitObserved,
+    forcedKill,
+    processExit: processStopResult,
+    livenessDuringShutdown,
+    error: serviceStopped
+      ? null
+      : `shutdown incomplete: health=${livenessDuringShutdown.status} process=${processStopResult.status}`
+  }
+}
+
+async function waitForCompletedProbe(label, paths, options = {}) {
+  const started = performance.now()
+  const attempts = []
+  const maxWaitMs = positiveInt(options.maxWaitMs, positiveInt(process.env.FSUSBLOG_GRACEFUL_SHUTDOWN_RESTART_WAIT_MS, 120000))
+  const intervalMs = positiveInt(options.intervalMs, 1000)
+  do {
+    const result = await runProbeResult(label, paths, {
+      iterations: options.iterations ?? 1,
+      concurrency: options.concurrency ?? 1,
+      headers: options.headers
+    })
+    if (result.status === 'completed') {
+      return { ...result, attempts }
+    }
+    attempts.push({ at: nowIso(), elapsedMs: elapsedMs(started), error: result.error })
+    await sleep(intervalMs)
+  } while (performance.now() - started < maxWaitMs)
+
+  throw new Error(`${label} did not recover within ${maxWaitMs}ms: ${attempts.at(-1)?.error ?? 'no successful probe'}`)
+}
+
 function redisContainerName() {
   return process.env.FSUSBLOG_REDIS_CONTAINER_NAME || process.env.FSUSBLOG_REDIS_CONTAINER || ''
 }
@@ -555,25 +922,37 @@ function runRedisCli(container, args) {
 
 function scanBackendLogsForUnhandledExceptions() {
   const container = process.env.FSUSBLOG_BACKEND_CONTAINER_NAME || process.env.FSUSBLOG_BACKEND_CONTAINER || ''
-  if (!container) {
-    return { status: 'not-configured', reason: 'backend container env missing' }
-  }
-
-  const result = runDocker(['logs', '--since', process.env.FSUSBLOG_REDIS_DRILL_LOG_SINCE || '10m', container])
-  if (!result.ok) {
-    return { status: 'blocked', target: container, error: result.error }
+  let source = null
+  let target = null
+  let content = ''
+  if (container) {
+    const result = runDocker(['logs', '--since', process.env.FSUSBLOG_FAULT_LOG_SINCE || process.env.FSUSBLOG_REDIS_DRILL_LOG_SINCE || '10m', container])
+    if (!result.ok) {
+      return { status: 'blocked', source: 'docker-logs', target: container, error: result.error }
+    }
+    source = 'docker-logs'
+    target = container
+    content = result.stdout
+  } else if (fs.existsSync(backendLogFile())) {
+    source = 'managed-backend-log'
+    target = backendLogFile()
+    content = fs.readFileSync(backendLogFile(), 'utf8').slice(-500000)
+  } else {
+    return { status: 'not-configured', reason: 'backend container env and managed backend log missing' }
   }
 
   const patterns = [
     /Unhandled exception/i,
     /UnhandledException/i,
+    /BackgroundService failed/i,
+    /Host terminated unexpectedly/i,
     /StackExchange\.Redis.*(?:Fatal|Unhandled|timeout)/i,
     /Redis.*(?:unhandled|fatal)/i
   ]
-  const matched = patterns.find((pattern) => pattern.test(result.stdout))
+  const matched = patterns.find((pattern) => pattern.test(content))
   return matched
-    ? { status: 'failed', target: container, matchedPattern: String(matched) }
-    : { status: 'ok', target: container, scannedBytes: result.stdout.length }
+    ? { status: 'failed', source, target, matchedPattern: String(matched) }
+    : { status: 'ok', source, target, scannedBytes: content.length }
 }
 
 async function optionalAuthenticatedImpact() {
@@ -1302,6 +1681,241 @@ async function runPostgresFaultCase(caseName) {
   }
 }
 
+async function runGracefulShutdownFaultCase() {
+  let livenessBefore = null
+  let publicReadBefore = null
+  let action = { status: 'blocked', reason: 'backend runtime target missing' }
+  let stopResult = null
+  let restartResult = null
+  let publicReadRecoveryResult = null
+  let basicAuthRecoveryResult = null
+  let finalHealthProbe = null
+  let backgroundWorkerState = null
+  let notification = null
+  let reconnect = null
+  let notificationClose = null
+  let backgroundActivity = null
+  let resultStatus = 'blocked'
+  let failure = null
+  let target = null
+  let runtimeStopped = false
+  let restartAttempted = false
+  const startedAt = nowIso()
+  const started = performance.now()
+
+  try {
+    livenessBefore = await runProbeResult('graceful shutdown liveness before', ['/health/live'], {
+      iterations: 1,
+      concurrency: 1
+    })
+    if (livenessBefore.status !== 'completed') {
+      throw new Error(`health/live was not available before shutdown: ${livenessBefore.error}`)
+    }
+
+    publicReadBefore = await runProbeResult('graceful shutdown public read before', ['/api/binary/system/seo'], {
+      iterations: 1,
+      concurrency: 1
+    })
+    if (publicReadBefore.status !== 'completed') {
+      throw new Error(`public read was not available before shutdown: ${publicReadBefore.error}`)
+    }
+
+    notification = await openNotificationSocket('graceful-shutdown')
+    if (notificationDrillSecret) {
+      const published = await publishNotificationDrill({
+        drillId: `graceful-shutdown-${namespace}-${Date.now()}`,
+        count: positiveInt(process.env.FSUSBLOG_GRACEFUL_SHUTDOWN_EVENT_COUNT, 8),
+        payloadBytes: positiveInt(process.env.FSUSBLOG_GRACEFUL_SHUTDOWN_PAYLOAD_BYTES, 256),
+        routeKey: 'content-feed'
+      })
+      await waitForCondition('graceful shutdown background notification frame', () => {
+        return countMatchingEventIds(notification.stats.eventIds, published.eventIds) > 0
+      }, { timeoutMs: Math.max(timeoutMs, 15000) })
+      backgroundActivity = {
+        status: 'completed',
+        operation: 'notification drill publish',
+        publishedCount: published.count,
+        eventIds: published.eventIds,
+        routeKey: published.routeKey
+      }
+    } else {
+      backgroundActivity = {
+        status: 'not-configured',
+        reason: 'FSUSBLOG_NOTIFICATION_DRILL_SECRET missing'
+      }
+    }
+
+    target = resolveBackendRuntimeTarget()
+    if (!target) {
+      action = {
+        status: 'blocked',
+        reason: 'backend runtime target missing',
+        startedAt,
+        completedAt: nowIso()
+      }
+    } else {
+      stopResult = await stopBackendRuntime(target)
+      runtimeStopped = stopResult.status === 'stopped'
+      notificationClose = await waitForNotificationClose(notification.stats)
+      action = {
+        status: stopResult.status === 'stopped' ? 'executed' : 'failed',
+        operation: 'graceful backend shutdown',
+        target: stopResult.target,
+        mode: stopResult.mode,
+        signal: stopResult.signal,
+        startedAt: stopResult.startedAt,
+        completedAt: stopResult.completedAt,
+        durationMs: stopResult.durationMs,
+        drainDurationMs: stopResult.drainDurationMs,
+        livenessDuringShutdown: stopResult.livenessDuringShutdown,
+        processStopResult: {
+          status: stopResult.status,
+          signal: stopResult.signal,
+          exitObserved: stopResult.exitObserved,
+          forcedKill: stopResult.forcedKill ?? false,
+          durationMs: stopResult.durationMs,
+          processExit: stopResult.processExit ?? null
+        },
+        notificationClose,
+        backgroundActivity,
+        error: stopResult.error
+      }
+      if (action.status !== 'executed') {
+        throw new Error(`graceful shutdown action failed: ${stopResult.error ?? stopResult.status}`)
+      }
+      if (!notificationClose.closeObserved) {
+        throw new Error('notification stream did not close during graceful shutdown')
+      }
+
+      const restartStarted = performance.now()
+      restartResult = startBackendRuntime(target)
+      restartAttempted = true
+      if (restartResult.status !== 'started') {
+        throw new Error(`backend restart failed: ${restartResult.error}`)
+      }
+
+      publicReadRecoveryResult = await waitForCompletedProbe('graceful shutdown public read recovery', ['/api/binary/system/seo'], {
+        iterations: 1,
+        concurrency: 1
+      })
+      basicAuthRecoveryResult = await waitForCompletedProbe('graceful shutdown auth challenge recovery', ['/api/binary/auth/pow-challenge'], {
+        iterations: 1,
+        concurrency: 1
+      })
+      finalHealthProbe = await waitForCompletedProbe('graceful shutdown final health', ['/health/live'], {
+        iterations: 1,
+        concurrency: 1
+      })
+      restartResult.recoveryDurationMs = elapsedMs(restartStarted)
+
+      reconnect = await openNotificationSocket('graceful-shutdown-reconnect')
+      backgroundWorkerState = (() => {
+        const logScan = scanBackendLogsForUnhandledExceptions()
+        return (logScan.status === 'ok' || logScan.status === 'not-configured')
+          ? { status: 'clean', source: logScan.source ?? 'not-configured', logScan }
+          : { status: 'failed', source: logScan.source ?? 'unknown', logScan }
+      })()
+      if (backgroundWorkerState.status !== 'clean') {
+        throw new Error(`background worker log scan ${backgroundWorkerState.logScan.status}`)
+      }
+
+      resultStatus = 'completed'
+    }
+  } catch (error) {
+    resultStatus = 'failed'
+    failure = error instanceof Error ? error.message : String(error)
+  } finally {
+    closeSocketQuietly(notification?.socket)
+    closeSocketQuietly(reconnect?.socket)
+    if (runtimeStopped && !restartAttempted && target) {
+      try {
+        restartResult = startBackendRuntime(target)
+        restartAttempted = true
+      } catch (error) {
+        failure = `${failure ?? 'graceful shutdown failed'}; restart after failure failed: ${error instanceof Error ? error.message : String(error)}`
+      }
+    }
+  }
+
+  const drainDurationMs = stopResult?.drainDurationMs ?? null
+  const restartRecoveryDurationMs = restartResult?.recoveryDurationMs ?? null
+  const recoveryDurationMs = drainDurationMs !== null && restartRecoveryDurationMs !== null
+    ? Number((drainDurationMs + restartRecoveryDurationMs).toFixed(3))
+    : restartRecoveryDurationMs
+  const finalHealth = resultStatus === 'completed'
+    ? { status: 'healthy', recovery: finalHealthProbe }
+    : { status: resultStatus, error: failure ?? action.reason ?? action.error ?? 'graceful shutdown drill incomplete' }
+
+  return {
+    status: resultStatus,
+    case: 'graceful-shutdown',
+    namespace,
+    actionStatus: action.status,
+    actionStartedAt: action.startedAt ?? startedAt,
+    actionCompletedAt: action.completedAt ?? nowIso(),
+    shutdownRequestedAt: action.startedAt ?? null,
+    drainDurationMs,
+    restartRecoveryDurationMs,
+    recoveryDurationMs,
+    processStopResult: action.processStopResult ?? null,
+    livenessBefore,
+    livenessDuringShutdown: action.livenessDuringShutdown ?? null,
+    notificationCloseObserved: notificationClose?.closeObserved === true,
+    notificationCloseCode: notificationClose?.closeCode ?? null,
+    notificationReconnectSuccess: reconnect?.stats?.opened === true && (reconnect?.stats?.heartbeats ?? 0) > 0,
+    publicReadRecoveryResult,
+    basicAuthRecoveryResult,
+    backgroundWorkerState,
+    preCheck: livenessBefore?.status === 'completed' && publicReadBefore?.status === 'completed'
+      ? { status: 'completed', healthLive: livenessBefore.runtime, publicRead: publicReadBefore.runtime }
+      : { status: 'failed', error: failure ?? 'pre-check was not completed' },
+    controlledAction: action,
+    restartAction: restartResult,
+    recoveryCheck: resultStatus === 'completed'
+      ? {
+          status: 'completed',
+          restartRecoveryDurationMs,
+          publicReadRecoveryResult: {
+            status: publicReadRecoveryResult.status,
+            sampleCount: publicReadRecoveryResult.runtime?.sampleCount ?? null
+          },
+          basicAuthRecoveryResult: {
+            status: basicAuthRecoveryResult.status,
+            sampleCount: basicAuthRecoveryResult.runtime?.sampleCount ?? null
+          },
+          notificationReconnectSuccess: reconnect?.stats?.opened === true
+        }
+      : { status: action.status === 'executed' ? 'failed' : 'blocked', error: failure ?? action.reason ?? action.error ?? 'controlled action was not executed' },
+    timeline: [
+      ...(livenessBefore ? [{ event: 'pre-check-live', generatedAt: livenessBefore.completedAt, status: livenessBefore.status }] : []),
+      ...(publicReadBefore ? [{ event: 'pre-check-public-read', generatedAt: publicReadBefore.completedAt, status: publicReadBefore.status }] : []),
+      { event: 'notification-connected', generatedAt: startedAt, status: notification?.stats?.heartbeats ? 'completed' : 'not-observed' },
+      { event: 'controlled-action', generatedAt: action.startedAt ?? nowIso(), status: action.status },
+      ...(action.livenessDuringShutdown ? [{ event: 'health-live-unavailable', generatedAt: action.livenessDuringShutdown.completedAt, status: action.livenessDuringShutdown.status }] : []),
+      ...(notificationClose ? [{ event: 'notification-close', generatedAt: action.completedAt ?? nowIso(), status: notificationClose.status, closeCode: notificationClose.closeCode }] : []),
+      ...(restartResult ? [{ event: 'restart', generatedAt: restartResult.completedAt, status: restartResult.status }] : []),
+      ...(publicReadRecoveryResult ? [{ event: 'public-read-recovery', generatedAt: publicReadRecoveryResult.completedAt, status: publicReadRecoveryResult.status }] : []),
+      ...(basicAuthRecoveryResult ? [{ event: 'auth-recovery', generatedAt: basicAuthRecoveryResult.completedAt, status: basicAuthRecoveryResult.status }] : []),
+      ...(finalHealthProbe ? [{ event: 'final-health', generatedAt: finalHealthProbe.completedAt, status: finalHealthProbe.status }] : [])
+    ],
+    errorRate: resultStatus === 'completed' ? 0 : 1,
+    recoveryTimeMs: recoveryDurationMs,
+    dataConsistency: resultStatus === 'completed' ? 'runtime-probe-ok' : 'not-verified',
+    resourceMetrics: {
+      backendTarget: target,
+      backgroundActivity,
+      notificationBeforeShutdown: notification?.stats ?? null,
+      notificationAfterRestart: reconnect?.stats ?? null
+    },
+    finalHealth,
+    finalHealthSnapshot: finalHealth,
+    finalHealthStatus: finalHealth.status,
+    generatedAt: finalHealthProbe?.completedAt ?? nowIso(),
+    durationMs: elapsedMs(started),
+    error: failure
+  }
+}
+
 async function runBlockedFaultCase(caseName) {
   let before = null
   let failure = null
@@ -1553,6 +2167,48 @@ function faultCaseSummary(item) {
     eventIds: item.eventIds ?? null,
     routeKey: item.routeKey ?? null,
     slowConsumerPolicy: item.slowConsumerPolicy ?? null,
+    shutdownRequestedAt: item.shutdownRequestedAt ?? null,
+    processStopResult: item.processStopResult
+      ? {
+          status: item.processStopResult.status,
+          targetType: item.processStopResult.targetType ?? null,
+          signal: item.processStopResult.signal ?? null,
+          exitObserved: item.processStopResult.exitObserved ?? null,
+          forcedKill: item.processStopResult.forcedKill ?? null,
+          durationMs: item.processStopResult.durationMs ?? null
+        }
+      : null,
+    drainDurationMs: item.drainDurationMs ?? null,
+    restartRecoveryDurationMs: item.restartRecoveryDurationMs ?? null,
+    livenessBefore: item.livenessBefore
+      ? {
+          status: item.livenessBefore.status,
+          sampleCount: item.livenessBefore.runtime?.sampleCount ?? item.livenessBefore.sampleCount ?? null
+        }
+      : null,
+    livenessDuringShutdown: item.livenessDuringShutdown
+      ? {
+          status: item.livenessDuringShutdown.status,
+          statusCode: item.livenessDuringShutdown.attempts?.at(-1)?.statusCode ?? item.livenessDuringShutdown.statusCode ?? null,
+          durationMs: item.livenessDuringShutdown.durationMs ?? null
+        }
+      : null,
+    notificationCloseObserved: item.notificationCloseObserved ?? null,
+    notificationCloseCode: item.notificationCloseCode ?? null,
+    notificationReconnectSuccess: item.notificationReconnectSuccess ?? null,
+    basicAuthRecoveryResult: item.basicAuthRecoveryResult
+      ? {
+          status: item.basicAuthRecoveryResult.status,
+          sampleCount: item.basicAuthRecoveryResult.runtime?.sampleCount ?? item.basicAuthRecoveryResult.sampleCount ?? null,
+          p95Ms: item.basicAuthRecoveryResult.runtime?.p95Ms ?? item.basicAuthRecoveryResult.p95Ms ?? null
+        }
+      : null,
+    backgroundWorkerState: item.backgroundWorkerState
+      ? {
+          status: item.backgroundWorkerState.status,
+          source: item.backgroundWorkerState.source ?? null
+        }
+      : null,
     finalHealthStatus: item.finalHealth?.status ?? null
   }
 }
@@ -1679,6 +2335,7 @@ async function faultInjection(outDir) {
   const redisCases = new Set(['redis-restart', 'redis-reconnect', 'redis-latency'])
   const postgresCases = new Set(['postgres-readiness', 'postgres-reconnect', 'postgres-lock-timeout'])
   const notificationCases = new Set(['notification-stream-slow-consumer'])
+  const gracefulShutdownCases = new Set(['graceful-shutdown'])
   const defaultCases = [
     'redis-restart',
     'redis-reconnect',
@@ -1701,7 +2358,9 @@ async function faultInjection(outDir) {
         ? await runPostgresFaultCase(caseName)
         : notificationCases.has(caseName)
           ? await runNotificationSlowConsumerFaultCase()
-          : await runBlockedFaultCase(caseName)
+          : gracefulShutdownCases.has(caseName)
+            ? await runGracefulShutdownFaultCase()
+            : await runBlockedFaultCase(caseName)
     writeJson(path.join(caseDir, 'summary.json'), result)
     writeJson(path.join(caseDir, 'timeline.json'), result.timeline)
     results.push(result)

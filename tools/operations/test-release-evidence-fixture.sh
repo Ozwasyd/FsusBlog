@@ -315,7 +315,7 @@ printf '{"status":"ok","seedsRun":1,"crashes":[]}\n' > "$FUZZ_DIR/wasm/summary.j
 cat > "$FAULT_DIR/summary.json" <<'JSON'
 {
   "status": "ok",
-  "caseCount": 7,
+  "caseCount": 8,
   "cases": [
     {
       "case": "redis-restart",
@@ -424,6 +424,28 @@ cat > "$FAULT_DIR/summary.json" <<'JSON'
       "eventIds": [101, 102],
       "routeKey": "g:ContentGovernanceGroup",
       "slowConsumerPolicy": "controlled-degradation",
+      "finalHealthStatus": "healthy"
+    },
+    {
+      "case": "graceful-shutdown",
+      "status": "completed",
+      "actionStatus": "executed",
+      "actionStartedAt": "2026-06-18T00:07:00Z",
+      "actionCompletedAt": "2026-06-18T00:07:10Z",
+      "shutdownRequestedAt": "2026-06-18T00:07:01Z",
+      "drainDurationMs": 300,
+      "restartRecoveryDurationMs": 500,
+      "recoveryDurationMs": 800,
+      "recoveryTimeMs": 800,
+      "processStopResult": { "status": "stopped", "signal": "SIGTERM", "exitObserved": true },
+      "livenessBefore": { "status": "completed", "sampleCount": 1 },
+      "livenessDuringShutdown": { "status": "unavailable", "statusCode": null },
+      "notificationCloseObserved": true,
+      "notificationCloseCode": 1001,
+      "notificationReconnectSuccess": true,
+      "publicReadRecoveryResult": { "status": "completed", "sampleCount": 1, "p95Ms": 1 },
+      "basicAuthRecoveryResult": { "status": "completed", "sampleCount": 1, "p95Ms": 1 },
+      "backgroundWorkerState": { "status": "clean", "source": "log-scan" },
       "finalHealthStatus": "healthy"
     }
   ]

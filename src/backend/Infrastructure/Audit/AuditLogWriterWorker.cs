@@ -115,6 +115,11 @@ public sealed class AuditLogWriterWorker(
         {
             await WriteBatchOnceAsync(batch, cancellationToken);
         }
+        catch (ObjectDisposedException ex) when (IsDisposedHostServiceProvider(ex))
+        {
+            using var _ = AuditLogScope.SkipPersistence();
+            _logger.LogInformation("audit-log shutdown drain skipped because the host service provider was already disposed. Count={Count}", batch.Count);
+        }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _runtimeState.RecordWriteFailure(batch.Count);
@@ -123,6 +128,9 @@ public sealed class AuditLogWriterWorker(
             _logger.LogWarning(ex, "audit-log degraded: batch write failed, records dropped. Count={Count}", batch.Count);
         }
     }
+
+    private static bool IsDisposedHostServiceProvider(ObjectDisposedException exception)
+        => string.Equals(exception.ObjectName, "IServiceProvider", StringComparison.Ordinal);
 
     private async ValueTask<AuditRecord> ReadRecordAsync(CancellationToken cancellationToken)
     {

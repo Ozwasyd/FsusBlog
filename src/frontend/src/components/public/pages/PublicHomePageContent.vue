@@ -10,7 +10,7 @@
             {{ siteTitleText }}
           </h1>
           <span
-            class="mt-4 inline-block text-2xl leading-none text-[var(--fsusblog-text-subtle)] select-none"
+            class="mt-4 inline-block text-base leading-none text-[var(--fsusblog-text-subtle)]"
             aria-hidden="true"
           >·</span>
           <p class="mt-4 text-base sm:text-lg text-[var(--fsusblog-text-tertiary)] max-w-xl leading-relaxed font-normal">

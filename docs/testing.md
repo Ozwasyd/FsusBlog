@@ -281,12 +281,15 @@ npx playwright test --update-snapshots
 **覆盖内容**：
 - **上传弹性**：分片上传中断后续传、过期上传清理
 - **通知弹性**：慢消费者断开、断线重连游标恢复
+- **停机弹性**：graceful shutdown drain、notification stream close、重启后 public/auth 恢复
 - **搜索弹性**：Service Worker 离线搜索降级
 - **Wasm 解码**：Binary 解码失败应暴露协议错误，不得回退到文本 API
 - **AEDS v2 兼容边界**：服务端、TypeScript adapter、Worker 与 Wasm decoder 均拒绝 v1 frame；记录列表类响应 raw bytes 与 decode ms 基线，4 KiB 以内走主线程 decode，大包走 Worker/Wasm
 - **Redis 短暂不可用**：L1 缓存兜底行为
 
 notification slow-consumer drill 由 `tools/test/lanes/runtime-evidence-probe.mjs fault-injection` 执行：bootstrap 会配置 `FSUSBLOG_NOTIFICATION_DRILL_SECRET` / `NotificationStream__DrillSecret`，probe 使用 `POST /_fsus/testing/notification-stream/publish` 发布测试事件，同时打开正常连接、带 `drillSlowConsumer=1&drillQueueCapacity=32` 的慢连接和 cursor replay 重连。证据必须包含 `connectionCount`、`heartbeatFrameCount`、`businessFrameCount`、`deliveredFrameCount`、`droppedOrBackpressuredCount`、`reconnectSuccess`、`replayedEventCount`、`closeObserved`、`eventIds`、`routeKey`、`slowConsumerPolicy` 与 `finalHealthStatus=healthy`；只有心跳 smoke 不算完成。
+
+graceful shutdown drill 同样由 `runtime-evidence-probe.mjs fault-injection` 执行。probe 会优先使用 `FSUSBLOG_BACKEND_CONTAINER_NAME` 做 `docker stop/start`；没有容器时使用当前 `FSUSBLOG_BASE_URL`/`ASPNETCORE_URLS` 端口的监听进程，发送 `SIGTERM` 后用同一开发环境变量重启 debug backend。证据必须包含 `shutdownRequestedAt`、`processStopResult.status=stopped`、`drainDurationMs`、`restartRecoveryDurationMs`、`livenessBefore.status=completed`、`livenessDuringShutdown.status=unavailable`、`notificationCloseObserved=true`、`notificationReconnectSuccess=true`、`publicReadRecoveryResult.status=completed`、`basicAuthRecoveryResult.status=completed`、`backgroundWorkerState.status=clean` 与 `finalHealthStatus=healthy`；只记录计划或 observed-only 状态不算完成。
 
 ---
 

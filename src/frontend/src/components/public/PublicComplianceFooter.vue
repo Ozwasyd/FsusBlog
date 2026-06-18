@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col gap-8 text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+  <div class="flex flex-col gap-8 text-xs font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
     <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
       <div class="min-w-0 space-y-3">
         <div class="text-[1.25rem] font-bold tracking-normal text-[var(--fsusblog-text-primary)]">

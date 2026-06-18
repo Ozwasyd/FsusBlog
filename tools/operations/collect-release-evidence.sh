@@ -161,7 +161,8 @@ fault_injection_status_or_missing() {
       "postgres-readiness",
       "postgres-reconnect",
       "postgres-lock-timeout",
-      "notification-stream-slow-consumer"
+      "notification-stream-slow-consumer",
+      "graceful-shutdown"
     ] - ([.cases[]?.case])) | length == 0)
     and all(.cases[]?; .status == "completed" and .actionStatus == "executed")
     and all(.cases[]?; ((.case | startswith("redis-")) | not) or (
@@ -203,6 +204,23 @@ fault_injection_status_or_missing() {
       and all(.eventIds[]?; . > 0)
       and ((.routeKey // "") | length > 0)
       and ((.slowConsumerPolicy // "") | length > 0)
+      and ((.finalHealthStatus // "") == "healthy")
+    ))
+    and all(.cases[]?; (.case != "graceful-shutdown") or (
+      ((.shutdownRequestedAt // "") | length > 0)
+      and ((.processStopResult.status // "") == "stopped")
+      and (((.drainDurationMs // .recoveryDurationMs // .recoveryTimeMs // 0)) > 0)
+      and (((.restartRecoveryDurationMs // .recoveryDurationMs // .recoveryTimeMs // 0)) > 0)
+      and ((.livenessBefore.status // "") == "completed")
+      and ((.livenessDuringShutdown.status // "") == "unavailable")
+      and (.notificationCloseObserved == true)
+      and ((.notificationCloseCode // null) != null)
+      and (.notificationReconnectSuccess == true)
+      and ((.publicReadRecoveryResult.status // "") == "completed")
+      and ((.publicReadRecoveryResult.sampleCount // 0) > 0)
+      and ((.basicAuthRecoveryResult.status // "") == "completed")
+      and ((.basicAuthRecoveryResult.sampleCount // 0) > 0)
+      and ((.backgroundWorkerState.status // "") == "clean")
       and ((.finalHealthStatus // "") == "healthy")
     ))
   '

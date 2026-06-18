@@ -8,6 +8,7 @@ const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url))
 const requiredRedisFaultCases = ['redis-restart', 'redis-reconnect', 'redis-latency']
 const requiredPostgresFaultCases = ['postgres-readiness', 'postgres-reconnect', 'postgres-lock-timeout']
 const requiredNotificationFaultCases = ['notification-stream-slow-consumer']
+const requiredGracefulShutdownFaultCases = ['graceful-shutdown']
 
 function readJson(relativePath, optional = false) {
   const file = findEvidenceFile(relativePath)
@@ -141,6 +142,9 @@ function validateFaultInjectionSummary(summary, label) {
   for (const required of requiredNotificationFaultCases) {
     assert(caseNames.has(required), `${label} must include ${required}`)
   }
+  for (const required of requiredGracefulShutdownFaultCases) {
+    assert(caseNames.has(required), `${label} must include ${required}`)
+  }
   for (const item of summary.cases) {
     assert(item.status === 'completed', `${label} ${item.case} must be completed`)
     assert(item.actionStatus === 'executed', `${label} ${item.case}.actionStatus must be executed`)
@@ -155,6 +159,9 @@ function validateFaultInjectionSummary(summary, label) {
     }
     if (requiredNotificationFaultCases.includes(item.case)) {
       validateNotificationFaultCase(item, label)
+    }
+    if (requiredGracefulShutdownFaultCases.includes(item.case)) {
+      validateGracefulShutdownFaultCase(item, label)
     }
   }
 }
@@ -197,6 +204,24 @@ function validateNotificationFaultCase(item, label) {
   assert(item.eventIds.every((eventId) => Number(eventId) > 0), `${label} ${item.case}.eventIds must be positive`)
   assert(typeof item.routeKey === 'string' && item.routeKey.length > 0, `${label} ${item.case}.routeKey missing`)
   assert(typeof item.slowConsumerPolicy === 'string' && item.slowConsumerPolicy.length > 0, `${label} ${item.case}.slowConsumerPolicy missing`)
+  assert(item.finalHealthStatus === 'healthy', `${label} ${item.case}.finalHealthStatus must be healthy`)
+}
+
+function validateGracefulShutdownFaultCase(item, label) {
+  assert(typeof item.shutdownRequestedAt === 'string' && item.shutdownRequestedAt.length > 0, `${label} ${item.case}.shutdownRequestedAt missing`)
+  assert(item.processStopResult?.status === 'stopped', `${label} ${item.case}.processStopResult.status must be stopped`)
+  positiveNumber(item.drainDurationMs ?? item.recoveryDurationMs ?? item.recoveryTimeMs, `${label} ${item.case}.drainDurationMs`)
+  positiveNumber(item.restartRecoveryDurationMs ?? item.recoveryDurationMs ?? item.recoveryTimeMs, `${label} ${item.case}.restartRecoveryDurationMs`)
+  assert(item.livenessBefore?.status === 'completed', `${label} ${item.case}.livenessBefore must be completed`)
+  assert(item.livenessDuringShutdown?.status === 'unavailable', `${label} ${item.case}.livenessDuringShutdown must be unavailable`)
+  assert(item.notificationCloseObserved === true, `${label} ${item.case}.notificationCloseObserved must be true`)
+  assert(Number.isFinite(Number(item.notificationCloseCode)), `${label} ${item.case}.notificationCloseCode missing`)
+  assert(item.notificationReconnectSuccess === true, `${label} ${item.case}.notificationReconnectSuccess must be true`)
+  assert(item.publicReadRecoveryResult?.status === 'completed', `${label} ${item.case}.publicReadRecoveryResult must be completed`)
+  positiveNumber(item.publicReadRecoveryResult?.sampleCount, `${label} ${item.case}.publicReadRecoveryResult.sampleCount`)
+  assert(item.basicAuthRecoveryResult?.status === 'completed', `${label} ${item.case}.basicAuthRecoveryResult must be completed`)
+  positiveNumber(item.basicAuthRecoveryResult?.sampleCount, `${label} ${item.case}.basicAuthRecoveryResult.sampleCount`)
+  assert(item.backgroundWorkerState?.status === 'clean', `${label} ${item.case}.backgroundWorkerState.status must be clean`)
   assert(item.finalHealthStatus === 'healthy', `${label} ${item.case}.finalHealthStatus must be healthy`)
 }
 
@@ -396,9 +421,72 @@ function runSelfTest() {
     missingNotificationFailedAsExpected = true
   }
   assert(missingNotificationFailedAsExpected, 'self-test missing notification slow-consumer fixture must fail')
+  let missingGracefulShutdownFailedAsExpected = false
+  try {
+    validateFaultInjectionSummary({
+      status: 'ok',
+      caseCount: 7,
+      cases: [
+        ...requiredRedisFaultCases.map((caseName, index) => ({
+          case: caseName,
+          status: 'completed',
+          actionStatus: 'executed',
+          actionStartedAt: `2026-06-18T00:00:0${index}Z`,
+          actionCompletedAt: `2026-06-18T00:00:1${index}Z`,
+          unavailableDurationMs: index,
+          recoveryDurationMs: 2 + index,
+          recoveryTimeMs: 2 + index,
+          publicReadResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+          authenticatedImpact: { status: 'not-configured' },
+          notificationStreamImpact: { status: 'not-configured' },
+          finalHealthStatus: 'healthy'
+        })),
+        ...requiredPostgresFaultCases.map((caseName, index) => ({
+          case: caseName,
+          status: 'completed',
+          actionStatus: 'executed',
+          actionStartedAt: `2026-06-18T00:01:0${index}Z`,
+          actionCompletedAt: `2026-06-18T00:01:1${index}Z`,
+          affectedEndpoint: index === 2 ? '/api/binary/article/list/home/1/10.aeds' : '/health/ready',
+          unavailableDurationMs: index,
+          dbReconnectDurationMs: 3 + index,
+          recoveryDurationMs: 3 + index,
+          recoveryTimeMs: 3 + index,
+          publicReadRecoveryResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+          writePathRollbackResult: { status: index === 2 ? 'verified' : 'not-mutated' },
+          finalHealthStatus: 'healthy'
+        })),
+        {
+          case: 'notification-stream-slow-consumer',
+          status: 'completed',
+          actionStatus: 'executed',
+          actionStartedAt: '2026-06-18T00:02:00Z',
+          actionCompletedAt: '2026-06-18T00:02:10Z',
+          unavailableDurationMs: 0,
+          recoveryDurationMs: 5,
+          recoveryTimeMs: 5,
+          connectionCount: 3,
+          heartbeatFrameCount: 2,
+          businessFrameCount: 8,
+          deliveredFrameCount: 8,
+          droppedOrBackpressuredCount: 1,
+          reconnectSuccess: true,
+          replayedEventCount: 1,
+          closeObserved: true,
+          eventIds: [101, 102],
+          routeKey: 'g:ContentGovernanceGroup',
+          slowConsumerPolicy: 'controlled-degradation',
+          finalHealthStatus: 'healthy'
+        }
+      ]
+    }, 'fault-injection-self-test')
+  } catch {
+    missingGracefulShutdownFailedAsExpected = true
+  }
+  assert(missingGracefulShutdownFailedAsExpected, 'self-test missing graceful shutdown fixture must fail')
   validateFaultInjectionSummary({
     status: 'ok',
-    caseCount: 7,
+    caseCount: 8,
     cases: [
       ...requiredRedisFaultCases.map((caseName, index) => ({
       case: caseName,
@@ -449,6 +537,28 @@ function runSelfTest() {
         eventIds: [101, 102],
         routeKey: 'g:ContentGovernanceGroup',
         slowConsumerPolicy: 'controlled-degradation',
+        finalHealthStatus: 'healthy'
+      },
+      {
+        case: 'graceful-shutdown',
+        status: 'completed',
+        actionStatus: 'executed',
+        actionStartedAt: '2026-06-18T00:03:00Z',
+        actionCompletedAt: '2026-06-18T00:03:10Z',
+        shutdownRequestedAt: '2026-06-18T00:03:01Z',
+        drainDurationMs: 300,
+        restartRecoveryDurationMs: 500,
+        recoveryDurationMs: 800,
+        recoveryTimeMs: 800,
+        processStopResult: { status: 'stopped', signal: 'SIGTERM', exitObserved: true },
+        livenessBefore: { status: 'completed', sampleCount: 1 },
+        livenessDuringShutdown: { status: 'unavailable', statusCode: null },
+        notificationCloseObserved: true,
+        notificationCloseCode: 1001,
+        notificationReconnectSuccess: true,
+        publicReadRecoveryResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+        basicAuthRecoveryResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+        backgroundWorkerState: { status: 'clean', source: 'log-scan' },
         finalHealthStatus: 'healthy'
       }
     ]

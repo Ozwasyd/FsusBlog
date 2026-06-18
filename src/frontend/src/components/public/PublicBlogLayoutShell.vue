@@ -165,6 +165,7 @@
       <nav
         v-if="activeNavIndicatorEnabled"
         class="el-public-shell__bottom-tab-bar sm:hidden"
+        data-fsus-material="glass"
         aria-label="主导航"
       >
         <a

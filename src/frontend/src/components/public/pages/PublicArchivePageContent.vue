@@ -50,7 +50,7 @@
           class="relative"
         >
           <div class="sticky top-24 z-10 bg-[var(--fsusblog-page-bg)] pt-2 pb-3 mb-8 sm:mb-10 flex items-baseline gap-3">
-            <span class="text-[var(--fsusblog-text-subtle)] leading-none select-none" aria-hidden="true">·</span>
+            <span class="text-[var(--fsusblog-text-subtle)] leading-none" aria-hidden="true">·</span>
             <h2 class="text-2xl font-bold text-[var(--fsusblog-text-primary)] tabular-nums tracking-normal sm:text-3xl">
               {{ yearGroup.year }}
             </h2>
@@ -142,7 +142,7 @@ function handleNavigate(event: MouseEvent, articleId: string): void {
 @reference "@/assets/main.css";
 
 @media (max-width: 640px) {
-  .sticky { top: 64px; }
+  .sticky { top: var(--fsusblog-public-header-height, 4rem); }
 }
 
 .tabular-nums { font-variant-numeric: tabular-nums; }

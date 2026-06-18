@@ -8,6 +8,7 @@ const rootDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '.
 const requiredRedisFaultCases = ['redis-restart', 'redis-reconnect', 'redis-latency']
 const requiredPostgresFaultCases = ['postgres-readiness', 'postgres-reconnect', 'postgres-lock-timeout']
 const requiredNotificationFaultCases = ['notification-stream-slow-consumer']
+const requiredGracefulShutdownFaultCases = ['graceful-shutdown']
 
 const requiredStatusChecks = [
   ['image digest', (manifest) => manifest.evidenceSummary?.image?.status === 'present'],
@@ -154,6 +155,7 @@ function faultInjectionOk(manifest, context) {
     && includesAll(report.cases.map((item) => item.case), requiredRedisFaultCases)
     && includesAll(report.cases.map((item) => item.case), requiredPostgresFaultCases)
     && includesAll(report.cases.map((item) => item.case), requiredNotificationFaultCases)
+    && includesAll(report.cases.map((item) => item.case), requiredGracefulShutdownFaultCases)
     && report.cases.every((item) => item.status === 'completed' && item.actionStatus === 'executed')
     && report.cases
       .filter((item) => requiredRedisFaultCases.includes(item.case))
@@ -164,6 +166,9 @@ function faultInjectionOk(manifest, context) {
     && report.cases
       .filter((item) => requiredNotificationFaultCases.includes(item.case))
       .every(notificationFaultCaseOk)
+    && report.cases
+      .filter((item) => requiredGracefulShutdownFaultCases.includes(item.case))
+      .every(gracefulShutdownFaultCaseOk)
 }
 
 function redisFaultCaseOk(item) {
@@ -212,6 +217,25 @@ function notificationFaultCaseOk(item) {
     && item.routeKey.length > 0
     && typeof item.slowConsumerPolicy === 'string'
     && item.slowConsumerPolicy.length > 0
+    && item.finalHealthStatus === 'healthy'
+}
+
+function gracefulShutdownFaultCaseOk(item) {
+  return typeof item.shutdownRequestedAt === 'string'
+    && item.shutdownRequestedAt.length > 0
+    && item.processStopResult?.status === 'stopped'
+    && Number(item.drainDurationMs ?? item.recoveryDurationMs ?? item.recoveryTimeMs ?? 0) > 0
+    && Number(item.restartRecoveryDurationMs ?? item.recoveryDurationMs ?? item.recoveryTimeMs ?? 0) > 0
+    && item.livenessBefore?.status === 'completed'
+    && item.livenessDuringShutdown?.status === 'unavailable'
+    && item.notificationCloseObserved === true
+    && Number.isFinite(Number(item.notificationCloseCode))
+    && item.notificationReconnectSuccess === true
+    && item.publicReadRecoveryResult?.status === 'completed'
+    && Number(item.publicReadRecoveryResult?.sampleCount ?? 0) > 0
+    && item.basicAuthRecoveryResult?.status === 'completed'
+    && Number(item.basicAuthRecoveryResult?.sampleCount ?? 0) > 0
+    && item.backgroundWorkerState?.status === 'clean'
     && item.finalHealthStatus === 'healthy'
 }
 
@@ -516,6 +540,37 @@ function runSelfTest() {
     status: 'ok',
     caseCount: 7,
     cases: [...redisFaultFixtureCases, ...postgresFaultFixtureCases, notificationFaultFixtureCase]
+  }))
+  const missingGracefulShutdownFault = validateManifest(base, { manifestPath: manifestFile })
+  if (missingGracefulShutdownFault.ok || !missingGracefulShutdownFault.missingRequired.includes('fault injection')) {
+    fail('self-test expected missing graceful shutdown fault case to block release closeout')
+  }
+  const gracefulShutdownFaultFixtureCase = {
+    case: 'graceful-shutdown',
+    status: 'completed',
+    actionStatus: 'executed',
+    actionStartedAt: '2026-06-18T00:03:00Z',
+    actionCompletedAt: '2026-06-18T00:03:10Z',
+    shutdownRequestedAt: '2026-06-18T00:03:01Z',
+    drainDurationMs: 300,
+    restartRecoveryDurationMs: 500,
+    recoveryDurationMs: 800,
+    recoveryTimeMs: 800,
+    processStopResult: { status: 'stopped', signal: 'SIGTERM', exitObserved: true },
+    livenessBefore: { status: 'completed', sampleCount: 1 },
+    livenessDuringShutdown: { status: 'unavailable', statusCode: null },
+    notificationCloseObserved: true,
+    notificationCloseCode: 1001,
+    notificationReconnectSuccess: true,
+    publicReadRecoveryResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+    basicAuthRecoveryResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+    backgroundWorkerState: { status: 'clean', source: 'log-scan' },
+    finalHealthStatus: 'healthy'
+  }
+  fs.writeFileSync(path.join(tmpDir, 'faultInjection', 'summary.json'), JSON.stringify({
+    status: 'ok',
+    caseCount: 8,
+    cases: [...redisFaultFixtureCases, ...postgresFaultFixtureCases, notificationFaultFixtureCase, gracefulShutdownFaultFixtureCase]
   }))
   fs.mkdirSync(path.join(tmpDir, 'soak', 'short'), { recursive: true })
   fs.writeFileSync(path.join(tmpDir, 'soak', 'short', 'summary.json'), JSON.stringify({
