@@ -21,6 +21,17 @@ const notificationStreamPath = '/api/notifications/stream'
 const notificationStreamProtocol = 'fsus-aeds.v2'
 const frameNotificationEvent = 69
 const frameNotificationHeartbeat = 70
+const aedsFrameTypes = {
+  ArticleList: 1,
+  ArticleDetail: 2,
+  ArticleHot: 3,
+  CommentArticleCursor: 5,
+  CategoryList: 9,
+  TagList: 10,
+  SeoConfig: 13,
+  ArticleFeatured: 15,
+  ArticleRelatedReading: 27
+}
 const defaultHeaders = {
   Accept: 'application/octet-stream',
   'User-Agent': 'FsusBlog runtime evidence probe',
@@ -64,22 +75,6 @@ function loadBootstrapEnv(namespaceValue) {
       process.env[key] = value
     }
   }
-}
-
-const backendQpsPaths = {
-  'view-count-flush': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/article/hot/5.aeds'],
-  'visitlog-invalidation': ['/api/binary/article/hot/5.aeds', '/api/binary/article/list/home/1/10.aeds'],
-  'cache-hit': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/system/seo'],
-  'comment-cursor': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/category'],
-  hotread: ['/api/binary/category', '/api/binary/tag', '/api/binary/system/seo'],
-  'cache-miss-singleflight': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/article/featured/4.aeds'],
-  'risk-filter': ['/api/binary/system/seo', '/api/binary/category'],
-  'related-reading': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/article/hot/5.aeds'],
-  'list-pagination': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/article/list/home/1/5.aeds'],
-  'article-detail-miss': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/article/featured/4.aeds'],
-  'cache-registry': ['/api/binary/category', '/api/binary/tag'],
-  'cache-invalidation-batch': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/system/seo'],
-  'index-plan': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/category']
 }
 
 function positiveInt(value, fallback) {
@@ -165,12 +160,16 @@ async function fetchSample(relativePath, options = {}) {
     })
     const body = await response.arrayBuffer()
     const elapsedMs = performance.now() - started
+    const frameType = body.byteLength >= 10 && (response.headers.get('content-type') ?? '').includes('application/octet-stream')
+      ? new DataView(body).getUint16(8, true)
+      : null
     return {
       path: relativePath,
       status: response.status,
       ok: response.status >= 200 && response.status < 400,
       elapsedMs: Number(elapsedMs.toFixed(3)),
       bytes: body.byteLength,
+      frameType,
       contentType: response.headers.get('content-type'),
       contentEncoding: response.headers.get('content-encoding'),
       cacheControl: response.headers.get('cache-control'),
@@ -206,6 +205,20 @@ async function runHttpProbe(paths, options = {}) {
     const first = failures[0]
     throw new Error(`runtime probe failed for ${first.path}: HTTP ${first.status}`)
   }
+  const expectedByPath = options.expectedByPath ?? {}
+  for (const sample of samples) {
+    const expected = expectedByPath[sample.path]
+    if (!expected) continue
+    if (expected.expectedStatus != null && sample.status !== expected.expectedStatus) {
+      throw new Error(`runtime probe status mismatch for ${sample.path}: expected ${expected.expectedStatus}, got ${sample.status}`)
+    }
+    if (expected.expectedContentType && !String(sample.contentType ?? '').includes(expected.expectedContentType)) {
+      throw new Error(`runtime probe content-type mismatch for ${sample.path}: expected ${expected.expectedContentType}, got ${sample.contentType}`)
+    }
+    if (expected.expectedFrameType != null && sample.frameType !== expected.expectedFrameType) {
+      throw new Error(`runtime probe frame type mismatch for ${sample.path}: expected ${expected.expectedFrameType}, got ${sample.frameType}`)
+    }
+  }
 
   const latencies = samples.map((sample) => sample.elapsedMs)
   const bytes = samples.reduce((total, sample) => total + sample.bytes, 0)
@@ -230,6 +243,98 @@ async function runHttpProbe(paths, options = {}) {
     },
     cacheSignalRatio: Number((cacheSignals / samples.length).toFixed(3)),
     samples: samples.slice(0, 10)
+  }
+}
+
+function firstPublicArticleId() {
+  const result = queryPostgresScalar(`
+    select id
+    from article
+    where status = 2 and coalesce(isdeleted, false) = false
+    order by coalesce(published_at, createtime) desc, id desc
+    limit 1;
+  `)
+  if (!result.available || result.value <= 0) {
+    throw new Error(`backend-qps fixture prerequisite missing: public article id (${result.error ?? 'no rows'})`)
+  }
+  return result.value
+}
+
+function backendQpsRequestPlan(mode) {
+  const publicArticleId = () => firstPublicArticleId()
+  const binary = (path, expectedFrameType, fixturePrerequisite = 'public runtime bootstrap') => ({
+    method: 'GET',
+    path,
+    headers: { Accept: 'application/octet-stream' },
+    expectedStatus: 200,
+    expectedContentType: 'application/octet-stream',
+    expectedFrameType,
+    fixturePrerequisite
+  })
+
+  switch (mode) {
+    case 'view-count-flush':
+      return [
+        binary('/api/binary/article/list/home/1/10.aeds', aedsFrameTypes.ArticleList),
+        binary('/api/binary/article/hot/5.aeds', aedsFrameTypes.ArticleHot)
+      ]
+    case 'visitlog-invalidation':
+      return [
+        binary('/api/binary/article/hot/5.aeds', aedsFrameTypes.ArticleHot),
+        binary('/api/binary/article/list/home/1/10.aeds', aedsFrameTypes.ArticleList)
+      ]
+    case 'cache-hit':
+      return [
+        binary('/api/binary/article/list/home/1/10.aeds', aedsFrameTypes.ArticleList),
+        binary('/api/binary/system/seo', aedsFrameTypes.SeoConfig)
+      ]
+    case 'comment-cursor': {
+      const articleId = publicArticleId()
+      return [binary(`/api/binary/comment/${articleId}`, aedsFrameTypes.CommentArticleCursor, 'published article with comment cursor support')]
+    }
+    case 'hotread':
+      return [
+        binary('/api/binary/category', aedsFrameTypes.CategoryList),
+        binary('/api/binary/tag', aedsFrameTypes.TagList),
+        binary('/api/binary/system/seo', aedsFrameTypes.SeoConfig)
+      ]
+    case 'cache-miss-singleflight':
+      return [
+        binary('/api/binary/article/list/home/1/10.aeds', aedsFrameTypes.ArticleList),
+        binary('/api/binary/article/featured/4.aeds', aedsFrameTypes.ArticleFeatured)
+      ]
+    case 'risk-filter':
+      return [
+        binary('/api/binary/system/seo', aedsFrameTypes.SeoConfig),
+        binary('/api/binary/category', aedsFrameTypes.CategoryList)
+      ]
+    case 'related-reading': {
+      const articleId = publicArticleId()
+      return [binary(`/api/binary/article/${articleId}/related.aeds`, aedsFrameTypes.ArticleRelatedReading, 'published article for related reading')]
+    }
+    case 'list-pagination':
+      return [
+        binary('/api/binary/article/list/home/1/10.aeds', aedsFrameTypes.ArticleList),
+        binary('/api/binary/article/list/home/1/5.aeds', aedsFrameTypes.ArticleList)
+      ]
+    case 'article-detail-miss': {
+      const articleId = publicArticleId()
+      return [binary(`/api/binary/article/${articleId}.aeds`, aedsFrameTypes.ArticleDetail, 'published article detail artifact')]
+    }
+    case 'cache-registry':
+      return [
+        binary('/api/binary/category', aedsFrameTypes.CategoryList),
+        binary('/api/binary/tag', aedsFrameTypes.TagList)
+      ]
+    case 'cache-invalidation-batch':
+      return [
+        binary('/api/binary/article/list/home/1/10.aeds', aedsFrameTypes.ArticleList),
+        binary('/api/binary/system/seo', aedsFrameTypes.SeoConfig)
+      ]
+    case 'index-plan':
+      return [binary('/api/binary/article/list/home/1/10.aeds', aedsFrameTypes.ArticleList, 'static index guard plus public list runtime smoke')]
+    default:
+      return safeBinaryPaths.map((path) => binary(path, null))
   }
 }
 
@@ -2587,12 +2692,15 @@ function faultCaseSummary(item) {
 }
 
 async function backendQps(mode, outFile) {
-  const paths = backendQpsPaths[mode] ?? safeBinaryPaths
+  const requestSteps = backendQpsRequestPlan(mode)
+  const paths = requestSteps.map((step) => step.path)
+  const expectedByPath = Object.fromEntries(requestSteps.map((step) => [step.path, step]))
   const requestCount = positiveInt(process.env.FSUSBLOG_BACKEND_QPS_REQUESTS || 12, 12)
   const concurrency = positiveInt(process.env.FSUSBLOG_BACKEND_QPS_CONCURRENCY || 2, 2)
   const probe = await runHttpProbe(paths, {
     iterations: requestCount,
-    concurrency
+    concurrency,
+    expectedByPath
   })
   writeJson(outFile, {
     status: 'ok',
@@ -2616,6 +2724,7 @@ async function backendQps(mode, outFile) {
       evidenceType: 'runtime-http-probe',
       requestPlan: {
         scenario: mode,
+        steps: requestSteps,
         paths,
         requestCount,
         concurrency,

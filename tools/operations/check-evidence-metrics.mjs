@@ -112,6 +112,16 @@ function validateBackendQps() {
     assert(result.staticEvidence?.evidenceType === 'static-implementation-evidence', `${label}.staticEvidence.evidenceType must be static-implementation-evidence`)
     assert(Array.isArray(result.staticEvidence?.checks) && result.staticEvidence.checks.length > 0, `${label}.staticEvidence.checks must be non-empty`)
     assert(result.runtimeMeasurement?.evidenceType === 'runtime-http-probe', `${label}.runtimeMeasurement.evidenceType must be runtime-http-probe`)
+    assert(Array.isArray(result.runtimeMeasurement?.requestPlan?.steps) && result.runtimeMeasurement.requestPlan.steps.length > 0, `${label}.runtimeMeasurement.requestPlan.steps must be non-empty`)
+    for (const [index, step] of result.runtimeMeasurement.requestPlan.steps.entries()) {
+      const stepLabel = `${label}.runtimeMeasurement.requestPlan.steps[${index}]`
+      assert(step.method === 'GET', `${stepLabel}.method must be GET`)
+      assert(typeof step.path === 'string' && step.path.startsWith('/'), `${stepLabel}.path must be an absolute app path`)
+      assert(step.expectedStatus === 200, `${stepLabel}.expectedStatus must be 200`)
+      assert(step.expectedContentType === 'application/octet-stream', `${stepLabel}.expectedContentType must be application/octet-stream`)
+      positiveNumber(step.expectedFrameType, `${stepLabel}.expectedFrameType`)
+      assert(typeof step.fixturePrerequisite === 'string' && step.fixturePrerequisite.length > 0, `${stepLabel}.fixturePrerequisite must be explicit`)
+    }
     positiveNumber(result.runtimeMeasurement?.requestPlan?.requestCount, `${label}.runtimeMeasurement.requestPlan.requestCount`)
     positiveNumber(result.runtimeMeasurement?.requestPlan?.concurrency, `${label}.runtimeMeasurement.requestPlan.concurrency`)
     assert(result.runtimeMeasurement?.requestPlan?.thresholdPolicy?.countedAsCapacity === false, `${label}.runtimeMeasurement threshold must not be capacity benchmark`)

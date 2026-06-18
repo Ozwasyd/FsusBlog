@@ -116,6 +116,7 @@ optional_deployment_layer:
 
 - 明确目标属于 `kestrel-only internal baseline` 还是 `optional deployment-layer`；未声明时默认前者。
 - `backend-qps` summary 必须拆分 `staticEvidenceResults` 与 `runtimeMeasurementResults`：前者是 source guard，后者是 warm runtime probe；release evidence 不得把 static guard 的 RPS 字段当作容量结论。
+- 每个 `backend-qps` runtime measurement 必须写入 request plan steps，包含 method、path、headers、expectedStatus、expectedContentType、expectedFrameType 与 fixturePrerequisite；probe 必须实际校验 status/content-type/AEDS frame type。
 - QPS、latency、cache hit、compression 和 static file 结论不得混用 Kestrel-only 与代理层结果。
 - 如果 `baseUrl` 指向 nginx/CDN/reverse proxy，必须在证据中保留 `optional_deployment_layer`，并另行说明代理缓存、压缩和 buffering 设置。
 - 项目内优化 issue 不得把 CDN、nginx proxy cache 或代理压缩计为验收收益。
