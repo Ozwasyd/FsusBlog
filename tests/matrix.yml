@@ -310,6 +310,7 @@ tiers:
     resourceClass: browser
     maxParallel: 1
     requiresBootstrap: full
+    selfBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -472,6 +473,7 @@ tiers:
     resourceClass: browser
     maxParallel: 4
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
@@ -500,6 +502,7 @@ tiers:
     resourceClass: browser
     maxParallel: 2
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
@@ -528,6 +531,7 @@ tiers:
     resourceClass: browser
     maxParallel: 2
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
@@ -583,6 +587,7 @@ tiers:
     resourceClass: browser
     maxParallel: 2
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
@@ -611,6 +616,7 @@ tiers:
     resourceClass: browser
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -667,6 +673,7 @@ tiers:
     resourceClass: browser
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -694,6 +701,7 @@ tiers:
     resourceClass: browser
     maxParallel: 2
     requiresBootstrap: frontend
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: false
     requiresPlaywright: all
@@ -776,6 +784,7 @@ tiers:
     resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -803,6 +812,7 @@ tiers:
     resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -830,6 +840,7 @@ tiers:
     resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -857,6 +868,7 @@ tiers:
     resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -884,6 +896,7 @@ tiers:
     resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -911,6 +924,7 @@ tiers:
     resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -938,6 +952,7 @@ tiers:
     resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -965,6 +980,7 @@ tiers:
     resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -992,6 +1008,7 @@ tiers:
     resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -1019,6 +1036,7 @@ tiers:
     resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -1046,6 +1064,7 @@ tiers:
     resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -1073,6 +1092,7 @@ tiers:
     resourceClass: cpu
     maxParallel: 4
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -1100,6 +1120,7 @@ tiers:
     resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -1235,6 +1256,7 @@ tiers:
     resourceClass: network
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -1668,6 +1690,7 @@ tiers:
     resourceClass: browser
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -1695,6 +1718,7 @@ tiers:
     resourceClass: browser
     maxParallel: 1
     requiresBootstrap: full
+    workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
@@ -1798,7 +1822,7 @@ tiers:
     services: []
     parallelizable: false
     exclusiveResources: [release-evidence]
-    phase: 2
+    phase: 4
     cost: high
     resourceClass: cpu
     maxParallel: 1

@@ -8,7 +8,9 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const defaultPlanPath = path.join(root, '.tmp/ci-plan.json')
 const defaultWorkflowPath = path.join(root, '.github/workflows/quality-gate.yml')
-const matrixPath = path.join(root, 'tests/matrix.yml')
+const matrixPath = process.env.FSUSBLOG_MATRIX_FILE
+  ? path.resolve(root, process.env.FSUSBLOG_MATRIX_FILE)
+  : path.join(root, 'tests/matrix.yml')
 
 function parseValue(raw) {
   const value = String(raw ?? '').trim()
@@ -310,6 +312,7 @@ function coveredTiersForWorkflowJob(job, tiersById, plannedTierIds = []) {
 
     const testMatch = command.match(/(?:^|\s)(?:\.\/)?tools\/test\.sh\s+(?:ci-tier\s+)?([A-Za-z0-9_-]+)/)
     if (!testMatch) continue
+    if (/\$\{\{\s*matrix\.tier\s*\}\}/.test(command)) continue
 
     const tierId = testMatch[1]
     const noDeps = /(?:^|\s)--no-deps(?:\s|$)/.test(command)
@@ -422,6 +425,45 @@ function bootstrapExecutionsForWorkflowJob(job, tiersById) {
   return count
 }
 
+function manualBootstrapExecutionsForWorkflowJob(job) {
+  return job.runs.filter((command) =>
+    /(?:^|\s)(?:\.\/)?tools\/test\.sh\s+(?:ci-tier\s+)?bootstrap\s+--no-deps(?:\s|$)/.test(command)
+  ).length
+}
+
+function planJobCoversBootstrap(planJob, tiersById) {
+  return (planJob?.tiers ?? []).some((tierId) => planTierClosure(tiersById, tierId, false).has('bootstrap'))
+}
+
+function workflowJobHasBootstrapSource(workflowJob, actualNeeds, planJobsById, tiersById) {
+  if (manualBootstrapExecutionsForWorkflowJob(workflowJob) > 0) return true
+  for (const need of actualNeeds) {
+    if (planJobCoversBootstrap(planJobsById.get(need), tiersById)) return true
+  }
+  return false
+}
+
+function validateWorkflowBootstrapMetadata(jobId, workflowJob, actualNeeds, planJobsById, tiersById, coveredTiers, errors) {
+  const manualBootstrapCount = manualBootstrapExecutionsForWorkflowJob(workflowJob)
+  if (manualBootstrapCount > 0) {
+    for (const tierId of coveredTiers) {
+      if (tierId === 'bootstrap') continue
+      const tier = tiersById.get(tierId)
+      if (tier?.requiresBootstrap !== 'none' && tier?.workflowBootstraps !== true) {
+        errors.push(`workflow job ${jobId} manually runs bootstrap but tier ${tierId} does not declare workflowBootstraps=true`)
+      }
+    }
+  }
+
+  const hasBootstrapSource = workflowJobHasBootstrapSource(workflowJob, actualNeeds, planJobsById, tiersById)
+  for (const tierId of coveredTiers) {
+    const tier = tiersById.get(tierId)
+    if (tier?.workflowBootstraps === true && !hasBootstrapSource) {
+      errors.push(`workflow job ${jobId} covers workflowBootstraps tier ${tierId} but has no manual bootstrap step or bootstrap-producing need`)
+    }
+  }
+}
+
 function validateWorkflowSetup(jobId, workflowJob, requirements, errors) {
   const needsFrontendCache = requirements.cacheProfile === 'frontend' || requirements.cacheProfile === 'full'
   const needsBackendCache = requirements.cacheProfile === 'backend' || requirements.cacheProfile === 'full'
@@ -507,6 +549,7 @@ function main() {
   }
 
   const requiredPlanJobs = plan.jobs.filter((job) => job.tiers.some(isWorkflowRequiredTier))
+  const planJobsById = new Map(plan.jobs.map((job) => [job.id, job]))
   const requiredJobIds = new Set(requiredPlanJobs.map((job) => job.id))
 
   if (requiredJobIds.has('fast-backend') && !workflowJobs.get('validate-matrix')?.generatesFastBackendMatrix) {
@@ -552,6 +595,7 @@ function main() {
       validateGeneratedFastBackendMatrix(workflowJob, job, tiersById, errors)
       validateFastSummaryAggregate(workflowJob, job, errors)
       const coveredTiers = coveredTiersForWorkflowJob(workflowJob, tiersById, job.tiers)
+      validateWorkflowBootstrapMetadata(job.id, workflowJob, actualNeeds, planJobsById, tiersById, coveredTiers, errors)
       validateWorkflowSetup(job.id, workflowJob, setupRequirementsForTiers(coveredTiers, tiersById), errors)
       const bootstrapCount = bootstrapExecutionsForWorkflowJob(workflowJob, tiersById)
       if (bootstrapCount > 1) {

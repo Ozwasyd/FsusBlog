@@ -107,7 +107,7 @@ Version: `fsusblog-test-matrix-v2`
 
 | Tier | CI job | Local command | Phase | Resource | Cost | Max parallel | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Shards | Timeout | Artifacts | Evidence |
 |---|---|---|---:|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|
-| `release-closeout` | `release-evidence` | `./tools/test.sh ci-tier release-closeout` | 2 | cpu | high | 1 | - | none | yes | no | none | none | `release-evidence` | - | 1 | 10m | `.tmp/release-evidence` | `.tmp/release-evidence` |
+| `release-closeout` | `release-evidence` | `./tools/test.sh ci-tier release-closeout` | 4 | cpu | high | 1 | - | none | yes | no | none | none | `release-evidence` | - | 1 | 10m | `.tmp/release-evidence` | `.tmp/release-evidence` |
 
 ## Other Governed Tiers
 

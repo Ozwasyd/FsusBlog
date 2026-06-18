@@ -6,7 +6,9 @@ import { spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
-const matrixFile = path.join(root, 'tests/matrix.yml')
+const matrixFile = process.env.FSUSBLOG_MATRIX_FILE
+  ? path.resolve(root, process.env.FSUSBLOG_MATRIX_FILE)
+  : path.join(root, 'tests/matrix.yml')
 const schemaFile = path.join(root, 'tests/matrix.schema.json')
 const coverageRegistryFile = path.join(root, 'tests/coverage-registry.json')
 const preflightLogFile = path.join(root, '.tmp/gate-logs/preflight.json')
@@ -258,6 +260,16 @@ function validateMatrix(matrix) {
   const ids = new Set()
   const byId = tierMap(matrix)
 
+  function hasBootstrapDependencyPath(tierId, seen = new Set()) {
+    if (seen.has(tierId)) return false
+    seen.add(tierId)
+    const tier = byId.get(tierId)
+    for (const dep of tier?.dependsOn ?? []) {
+      if (dep === 'bootstrap' || hasBootstrapDependencyPath(dep, seen)) return true
+    }
+    return false
+  }
+
   if (matrix.version !== 'fsusblog-test-matrix-v2') {
     errors.push(`version must be fsusblog-test-matrix-v2, got ${matrix.version ?? 'missing'}`)
   }
@@ -287,6 +299,12 @@ function validateMatrix(matrix) {
     }
     if ('manualOnly' in tier && typeof tier.manualOnly !== 'boolean') {
       errors.push(`${tier.id}.manualOnly must be boolean`)
+    }
+    if ('selfBootstraps' in tier && typeof tier.selfBootstraps !== 'boolean') {
+      errors.push(`${tier.id}.selfBootstraps must be boolean`)
+    }
+    if ('workflowBootstraps' in tier && typeof tier.workflowBootstraps !== 'boolean') {
+      errors.push(`${tier.id}.workflowBootstraps must be boolean`)
     }
     for (const field of ['timeoutMinutes', 'defaultShards', 'maxParallel']) {
       if (typeof tier[field] !== 'number' || tier[field] < 1) errors.push(`${tier.id}.${field} must be a positive number`)
@@ -334,7 +352,23 @@ function validateMatrix(matrix) {
       errors.push(`${tier.id} is not parallelizable but maxParallel is ${tier.maxParallel}`)
     }
     for (const dep of tier.dependsOn ?? []) {
-      if (!byId.has(dep)) errors.push(`${tier.id} depends on missing tier ${dep}`)
+      const depTier = byId.get(dep)
+      if (!depTier) {
+        errors.push(`${tier.id} depends on missing tier ${dep}`)
+      } else if (typeof tier.phase === 'number' && typeof depTier.phase === 'number' && depTier.phase > tier.phase) {
+        errors.push(`${tier.id} depends on ${dep} with later phase ${depTier.phase} > ${tier.phase}`)
+      }
+    }
+    if (
+      tier.requiresBootstrap !== 'none'
+      && !hasBootstrapDependencyPath(tier.id)
+      && tier.selfBootstraps !== true
+      && tier.workflowBootstraps !== true
+    ) {
+      errors.push(`${tier.id}.requiresBootstrap=${tier.requiresBootstrap} needs dependency path to bootstrap, selfBootstraps=true, or workflowBootstraps=true`)
+    }
+    if (tier.requiresBootstrap === 'none' && (tier.selfBootstraps === true || tier.workflowBootstraps === true)) {
+      errors.push(`${tier.id} declares bootstrap source metadata but requiresBootstrap=none`)
     }
     if (!pathExistsForCommand(tier.command)) {
       errors.push(`${tier.id} command path does not exist: ${tier.command}`)

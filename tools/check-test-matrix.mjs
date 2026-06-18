@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 import fs from 'node:fs'
 import { spawnSync } from 'node:child_process'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
+const matrixSourceText = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
 
 function requireFileIncludes(file, expected, message) {
   const text = fs.readFileSync(path.join(root, file), 'utf8')
@@ -67,6 +69,99 @@ function runTestSh(args) {
   if (result.stderr) process.stderr.write(result.stderr)
   if (result.status !== 0) process.exit(result.status ?? 1)
 }
+
+function replaceTierField(matrixText, tierId, field, value) {
+  const fieldPattern = new RegExp(`(  - id: ${tierId}\\n[\\s\\S]*?\\n    ${field}: )[^\\n]+`)
+  if (!fieldPattern.test(matrixText)) {
+    console.error(`[test-matrix] missing ${tierId}.${field} in matrix fixture`)
+    process.exit(1)
+  }
+  return matrixText.replace(fieldPattern, `$1${value}`)
+}
+
+function setTierBooleanField(matrixText, tierId, field, value) {
+  const tierPattern = new RegExp(`(  - id: ${tierId}\\n[\\s\\S]*?)(\\n  - id: |\\n$)`)
+  const match = matrixText.match(tierPattern)
+  if (!match) {
+    console.error(`[test-matrix] missing ${tierId} in matrix fixture`)
+    process.exit(1)
+  }
+  const tierText = match[1]
+  const updatedTierText = new RegExp(`\\n    ${field}: `).test(tierText)
+    ? tierText.replace(new RegExp(`(\\n    ${field}: )[^\\n]+`), `$1${value}`)
+    : tierText.replace(/(\n    requiresBootstrap: [^\n]+)/, `$1\n    ${field}: ${value}`)
+  return matrixText.replace(tierText, updatedTierText)
+}
+
+function writeTempMatrix(matrixText) {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-matrix-'))
+  const tempMatrix = path.join(tempDir, 'matrix.yml')
+  fs.writeFileSync(tempMatrix, matrixText)
+  return { tempDir, tempMatrix }
+}
+
+function expectMatrixValidateFailure(matrixText, expected, message) {
+  const { tempDir, tempMatrix } = writeTempMatrix(matrixText)
+  const result = spawnSync('node', ['tools/run-test-matrix.mjs', 'validate'], {
+    cwd: root,
+    env: { ...process.env, FSUSBLOG_MATRIX_FILE: tempMatrix },
+    encoding: 'utf8'
+  })
+  fs.rmSync(tempDir, { recursive: true, force: true })
+  const outputText = `${result.stdout ?? ''}${result.stderr ?? ''}`
+  if (result.status === 0 || !outputText.includes(expected)) {
+    console.error(`[test-matrix] ${message}`)
+    console.error(outputText)
+    process.exit(1)
+  }
+}
+
+function expectWorkflowSyncFailure(matrixText, expected, message) {
+  const { tempDir, tempMatrix } = writeTempMatrix(matrixText)
+  const planPath = path.join(tempDir, 'ci-plan.json')
+  const planResult = spawnSync('node', ['tools/run-test-matrix.mjs', 'ci-plan', '--format', 'github-actions', '--out', planPath], {
+    cwd: root,
+    env: { ...process.env, FSUSBLOG_MATRIX_FILE: tempMatrix },
+    encoding: 'utf8'
+  })
+  if (planResult.status !== 0) {
+    if (planResult.stdout) process.stdout.write(planResult.stdout)
+    if (planResult.stderr) process.stderr.write(planResult.stderr)
+    fs.rmSync(tempDir, { recursive: true, force: true })
+    process.exit(planResult.status ?? 1)
+  }
+
+  const result = spawnSync('node', ['tools/check-workflow-matrix-sync.mjs', planPath, '.github/workflows/quality-gate.yml'], {
+    cwd: root,
+    env: { ...process.env, FSUSBLOG_MATRIX_FILE: tempMatrix },
+    encoding: 'utf8'
+  })
+  fs.rmSync(tempDir, { recursive: true, force: true })
+  const outputText = `${result.stdout ?? ''}${result.stderr ?? ''}`
+  if (result.status === 0 || !outputText.includes(expected)) {
+    console.error(`[test-matrix] ${message}`)
+    console.error(outputText)
+    process.exit(1)
+  }
+}
+
+expectMatrixValidateFailure(
+  replaceTierField(matrixSourceText, 'coverage-backend', 'phase', '5'),
+  'coverage-merge depends on coverage-backend with later phase 5 > 4',
+  'validate must reject dependency phase inversion'
+)
+
+expectMatrixValidateFailure(
+  replaceTierField(matrixSourceText, 'integration', 'dependsOn', '[]'),
+  'integration.requiresBootstrap=full needs dependency path to bootstrap, selfBootstraps=true, or workflowBootstraps=true',
+  'validate must reject runtime tiers without an explicit bootstrap source'
+)
+
+expectWorkflowSyncFailure(
+  setTierBooleanField(matrixSourceText, 'backend-qps-view-count-flush', 'workflowBootstraps', 'false'),
+  'workflow job backend-qps-collectors manually runs bootstrap but tier backend-qps-view-count-flush does not declare workflowBootstraps=true',
+  'workflow manual bootstrap must be backed by matrix metadata'
+)
 
 run(['preflight'])
 run(['validate'])
