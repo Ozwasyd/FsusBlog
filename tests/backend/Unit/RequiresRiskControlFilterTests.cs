@@ -117,6 +117,33 @@ public sealed class RequiresRiskControlFilterTests
         Assert.Equal($"challenge_proof_rejected:{reason}", signal.Detail);
     }
 
+    [Theory]
+    [InlineData(RiskActionNames.CommentCreate, "comment.create")]
+    [InlineData(RiskActionNames.AuthLogin, "auth.login")]
+    [InlineData(RiskActionNames.AdminSecurityWrite, "admin.security.write")]
+    public async Task InvokeAsync_WriteChallengeWithHumanReadProofKind_Returns428WithoutConsumingProof(string actionName, string routeKey)
+    {
+        FilterFixture fixture = CreateFixture(riskScore: 50);
+        var context = CreateContext(actionName, routeKey);
+        AddProofHeaders(context, "human-read-proof", "humanReadProofV1");
+        bool nextCalled = false;
+
+        object? result = await fixture.Filter.InvokeAsync(
+            new TestEndpointFilterInvocationContext(context),
+            _ =>
+            {
+                nextCalled = true;
+                return ValueTask.FromResult<object?>("ok");
+            });
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status428PreconditionRequired, await ExecuteStatusAsync(result, context));
+        Assert.Empty(fixture.ProofService.ConsumeRequests);
+        SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
+        Assert.Equal($"challenge_kind_mismatch:humanReadProofV1", signal.Detail);
+        Assert.Equal(actionName, signal.Action);
+    }
+
     [Fact]
     public async Task InvokeAsync_BlockDecision_Returns429WithoutConsumingProofOrBusinessLogic()
     {
@@ -173,7 +200,9 @@ public sealed class RequiresRiskControlFilterTests
         return new FilterFixture(filter, proof, riskSink);
     }
 
-    private static DefaultHttpContext CreateContext()
+    private static DefaultHttpContext CreateContext(
+        string actionName = RiskActionNames.PublicRead,
+        string routeKey = "article:42")
     {
         var context = new DefaultHttpContext();
         context.RequestServices = new ServiceCollection()
@@ -182,7 +211,7 @@ public sealed class RequiresRiskControlFilterTests
         context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.17");
         context.Request.Headers.UserAgent = "Mozilla/5.0";
         context.Request.Headers["X-Fsus-Device-Fp"] = "device-123456";
-        context.SetEndpoint(CreateEndpoint(RiskActionNames.PublicRead, "article:42"));
+        context.SetEndpoint(CreateEndpoint(actionName, routeKey));
         return context;
     }
 
@@ -193,11 +222,11 @@ public sealed class RequiresRiskControlFilterTests
         return builder.Build();
     }
 
-    private static void AddProofHeaders(DefaultHttpContext context, string proof)
+    private static void AddProofHeaders(DefaultHttpContext context, string proof, string kind = Sha256PowChallengeProvider.WireKind)
     {
         context.Request.Headers[RequiresRiskControlFilter.ChallengeProofHeaderName] = proof;
         context.Request.Headers[RequiresRiskControlFilter.ChallengeIdHeaderName] = ChallengeId;
-        context.Request.Headers[RequiresRiskControlFilter.ChallengeKindHeaderName] = Sha256PowChallengeProvider.WireKind;
+        context.Request.Headers[RequiresRiskControlFilter.ChallengeKindHeaderName] = kind;
     }
 
     private static async Task<int> ExecuteStatusAsync(object? result, DefaultHttpContext context)

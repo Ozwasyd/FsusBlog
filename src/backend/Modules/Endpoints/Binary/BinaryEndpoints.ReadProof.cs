@@ -90,7 +90,18 @@ public static partial class BinaryEndpoints
         }
 
         HumanReadSubmitResponse response = await proofAdapter.SubmitAsync(httpContext, request, cancellationToken);
-        if (!response.Counted && ShouldScoreRejectedSubmit(response.Status))
+        if (response.Counted)
+        {
+            await riskSignalSink.AddRiskAsync(new SecurityRiskSignal(
+                httpContext,
+                SecurityRiskReason.ReadProofAccepted,
+                -20,
+                TimeSpan.FromMinutes(10),
+                SecurityRiskSources.HumanReadProof,
+                RiskActionNames.PublicRead,
+                response.Status), cancellationToken);
+        }
+        else if (ShouldScoreRejectedSubmit(response.Status))
         {
             await riskSignalSink.AddRiskAsync(new SecurityRiskSignal(
                 httpContext,

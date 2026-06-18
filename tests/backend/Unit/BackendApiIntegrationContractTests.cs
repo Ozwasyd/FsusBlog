@@ -71,10 +71,10 @@ public sealed partial class BackendApiIntegrationContractTests
         string auth = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
         string users = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AdminUsers.cs");
 
-        Assert.Contains(".RequireAuthorization(policy => policy.RequireRole(\"admin\"))", articles, StringComparison.Ordinal);
+        Assert.Contains(".RequireAdminPermission(AdminPermissions.ArticleWrite)", articles, StringComparison.Ordinal);
         Assert.Contains("AddEndpointFilter<RequiresPowFilter>()", articles, StringComparison.Ordinal);
         Assert.Contains("AddEndpointFilter<RequiresPowFilter>()", auth, StringComparison.Ordinal);
-        Assert.Contains(".RequireAuthorization(policy => policy.RequireRole(\"admin\"))", users, StringComparison.Ordinal);
+        Assert.Contains(".RequireAdminPermission(AdminPermissions.AdminManage)", users, StringComparison.Ordinal);
         Assert.Contains("AddEndpointFilter<RequiresPowFilter>()", users, StringComparison.Ordinal);
     }
 
@@ -113,6 +113,7 @@ public sealed partial class BackendApiIntegrationContractTests
         Assert.Contains("IHumanReadProofEndpointAdapter", readProof, StringComparison.Ordinal);
         Assert.Contains("ISecurityRiskSignalSink", readProof, StringComparison.Ordinal);
         Assert.Contains("SecurityRiskSources.HumanReadProof", readProof, StringComparison.Ordinal);
+        Assert.Contains("SecurityRiskReason.ReadProofAccepted", readProof, StringComparison.Ordinal);
         Assert.Contains("SecurityRiskReason.ReadProofRejected", readProof, StringComparison.Ordinal);
     }
 

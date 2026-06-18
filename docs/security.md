@@ -64,6 +64,8 @@ RiskControl challenge provider 通过 `ISecurityChallengeProvider` 接入，不�
 
 `argon2idPoSpaceV1` 由 `Argon2idPoSpaceV1ChallengeProvider` 提供，默认 `Security:PoSpaceV1:Mode=disabled`，不会被默认 V2 policy 签发。启用后仍受参数上限和移动端保护约束：`memoryKib` 只允许 `1024..65536`，移动 UA 最大 `8192`，`iterations` 只允许 `1..6`，`lanes` 只允许 `1..4`，`targetDurationMs` 只允许 `100..5000`。verify 使用一次性 `SecurityPoSpaceChallenge` cache，按 challengeId、action、routeKey、subject/client/device hash、policyVersion 和 client nonce 重新派生 Argon2id proof；payload/参数/proof 错误、replay 或 provider disabled 都 fail closed。RiskDecision 在 PoSpace 子系统 disabled 或移动 UA 时降级为 `captchaV1`，避免误伤弱设备。
 
+`humanReadProofV1` 由 `HumanReadProofV1ChallengeProvider` 提供，只允许 `public.read` action 使用。issue 复用现有 HumanReadProof challenge 生成逻辑并只持久化 payload hash；verify 复用现有 HumanReadProof submit 校验，成功后最多签发绑定 `public.read` / routeKey / subject / IP / device 的统一 proof token。provider 对 `comment.create`、`comment.reply`、`auth.*`、`admin.*` 等写操作一律 fail closed；即使客户端提交 `X-Fsus-Challenge-Kind: humanReadProofV1`，`RequiresRiskControlFilter` 也会因 required challenge kind 不匹配而返回 428，不会消费 proof 或进入业务 handler。HumanReadProof 成功还会写入 `ReadProofAccepted` 负分风险信号，用于降低后续 public-read 风险；失败继续写 `ReadProofRejected`，不得替代 PoW、Captcha 或 Passkey step-up。
+
 `RequiresRiskControlFilter` 是新业务入口的统一 enforcement filter。endpoint 必须通过 `WithRiskAction(action, routeKey)` 或等价 metadata 声明 action / routeKey；filter 读取 `RiskDecisionService` 输出，`allow` 才进入业务 handler，`challenge` / `step-up` 必须携带 `X-Fsus-Challenge-Proof`、`X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 并由 `ISecurityChallengeProofService.ConsumeProofAsync` 一次性消费后才放行，缺失、重放或 action/route/IP/device mismatch 返回 428。`block`、`queue`、`throttle` 不进入业务 handler，返回 429 并写 `risk-control` 来源的拒绝事件。`/api/binary/security/challenge` 在裁决包含 `captchaV1` 时额外写 `CaptchaChallengeRequired` 风险事件，用于区分 Captcha 阶梯触发和 provider/verify 拒绝。`RequiresPowFilter` 保持 legacy wrapper，只处理旧 `X-Fsus-Pow-Proof`。
 
 RiskControl 生产控制面按 `Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof Verification -> Enforcement -> Audit / Metrics / Admin Policy` 演进；完整 tracking plan、子 issue 顺序与 binary-first 边界见 `docs/risk-control-plan.md`。
@@ -89,7 +91,7 @@ AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关�
 - 客户端要求：SPA hydration 后，主内容进入视口并累计可见停留至少 8 秒，再携带 `X-Fsus-Device-Fp` 提交 proof。
 - 服务端绑定：HMAC token 绑定 scope、routeKey、articleId、设备指纹哈希、IP 哈希、UA 哈希、签发时间、过期时间、最小停留时间和 nonce。
 - 拒绝条件：无 JS/AOT 未 hydration、直接 API 请求、缺失 Fetch Metadata、跨站 Origin/Referer、爬虫 UA、已验证 crawler、停留不足、过期 token、篡改 token、重放 proof。
-- 拒绝与超限会以 `human-read-proof` 来源写入统一安全风险，但不会阻断公开内容访问；HumanReadProof 只决定阅读事件是否计数。
+- 成功提交会以 `human-read-proof` 来源写入 `ReadProofAccepted` 负分风险信号，仅用于降低 `public.read` 风险；拒绝与超限继续写入 `ReadProofRejected` 正分风险，但不会阻断公开内容访问；HumanReadProof 只决定阅读事件是否计数，不能授权 comment/auth/admin 写操作。
 - 降级开关：`HumanReadProof:Mode=paused` 暂停计数写入，但不影响内容读取。
 
 该机制提高浏览计数的真人口径，不用于身份认证，也不承诺识别所有未知自动化行为。

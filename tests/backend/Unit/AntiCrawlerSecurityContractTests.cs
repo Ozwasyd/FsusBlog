@@ -98,6 +98,7 @@ public sealed class AntiCrawlerSecurityContractTests
         Assert.Contains("RequireRateLimiting(\"read_proof\")", readProof, StringComparison.Ordinal);
         Assert.Contains("ISecurityRiskSignalSink", readProof, StringComparison.Ordinal);
         Assert.Contains("SecurityRiskSources.HumanReadProof", readProof, StringComparison.Ordinal);
+        Assert.Contains("SecurityRiskReason.ReadProofAccepted", readProof, StringComparison.Ordinal);
         Assert.Contains("SecurityRiskReason.ReadProofRejected", readProof, StringComparison.Ordinal);
         Assert.Contains("ISecurityRiskSignalSink", pow, StringComparison.Ordinal);
         Assert.Contains("SecurityRiskSources.Pow", pow, StringComparison.Ordinal);

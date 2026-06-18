@@ -12,6 +12,7 @@ public enum SecurityRiskReason
     RateLimited,
     PowInvalid,
     PowReplay,
+    ReadProofAccepted,
     ReadProofRejected,
     PublicReadChallengeRequired,
     CaptchaChallengeRequired,

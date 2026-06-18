@@ -90,6 +90,14 @@ public sealed class ReadProofBinaryEndpointTests
         Assert.True(body.Counted);
         Assert.Equal("counted", body.Status);
         Assert.Equal(request, proofAdapter.SubmitRequest);
+        await riskSink.Received(1).AddRiskAsync(
+            Arg.Is<SecurityRiskSignal>(signal =>
+                signal.Reason == SecurityRiskReason.ReadProofAccepted &&
+                signal.Source == SecurityRiskSources.HumanReadProof &&
+                signal.Action == RiskActionNames.PublicRead &&
+                signal.Score < 0 &&
+                signal.Detail == "counted"),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]

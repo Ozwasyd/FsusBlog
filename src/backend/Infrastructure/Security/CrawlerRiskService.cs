@@ -80,11 +80,19 @@ public sealed class CrawlerRiskService(
         TimeSpan effectiveTtl = signal.Ttl <= TimeSpan.Zero
             ? TimeSpan.FromSeconds(antiCrawlerOptions.DefaultRiskTtlSeconds)
             : signal.Ttl;
-        if (scoreDelta > 0)
+        if (scoreDelta != 0)
         {
-            zeroRiskCache.Remove(ZeroRiskCacheKey(ip));
             next = Math.Clamp(current + scoreDelta, 0, antiCrawlerOptions.MaxRiskScore);
-            await cache.SetStringAsync(CachePolicyId.SecurityPowRisk, ip, next.ToString(System.Globalization.CultureInfo.InvariantCulture), effectiveTtl, cancellationToken);
+            if (next > 0)
+            {
+                zeroRiskCache.Remove(ZeroRiskCacheKey(ip));
+                await cache.SetStringAsync(CachePolicyId.SecurityPowRisk, ip, next.ToString(System.Globalization.CultureInfo.InvariantCulture), effectiveTtl, cancellationToken);
+            }
+            else
+            {
+                await cache.RemoveAsync(CachePolicyId.SecurityPowRisk, ip, cancellationToken);
+                zeroRiskCache.Set(ZeroRiskCacheKey(ip), (byte)1, TimeSpan.FromSeconds(antiCrawlerOptions.ZeroRiskCacheTtlSeconds));
+            }
         }
 
         var riskEvent = new AntiCrawlerRiskEventResponse(

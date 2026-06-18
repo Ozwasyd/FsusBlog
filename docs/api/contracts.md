@@ -100,7 +100,7 @@ RiskControl challenge assignment 使用统一 AEDS 契约，不在 PoW、Captcha
 
 challenge 签发与验证审计由 `security_challenge` 和 `security_challenge_attempt` 持久化，Redis 只作为一次性消费 / 热路径缓存。持久化 metadata 对应 assignment 字段和策略上下文：kind、algorithm、action、routeKey、subjectHash、clientIpHash、deviceFpHash、policyVersion、payloadHash、traceId、traceparent、issued/expires 时间，以及 attempt outcome。payload / proof 原文不得进入持久化表；状态只允许 `issued | verified | expired | replayed | failed | revoked`。
 
-成功完成 challenge provider 校验后，统一 proof token 使用 `X-Fsus-Challenge-Proof` header 传递。该 token 是 opaque 值；Redis `SecurityChallengeProof` cache 保存一次性 claims，并绑定 `challengeId`、`kind`、`action`、`routeKey`、`subjectHash`、`clientIpHash`、`deviceFpHash`、`issuedAt`、`expiresAt`、`nonce` 和 `policyVersion`。服务端消费时必须先执行 consume-once，再校验绑定字段；replay / Redis miss、action 或 route mismatch、IP/device mismatch、过期 proof 都不得进入业务写入，并必须写 challenge attempt。该 header 不替代 `X-Fsus-Mfa-Proof` 或 legacy `X-Fsus-Pow-Proof`。
+成功完成 challenge provider 校验后，统一 proof token 使用 `X-Fsus-Challenge-Proof` header 传递。该 token 是 opaque 值；Redis `SecurityChallengeProof` cache 保存一次性 claims，并绑定 `challengeId`、`kind`、`action`、`routeKey`、`subjectHash`、`clientIpHash`、`deviceFpHash`、`issuedAt`、`expiresAt`、`nonce` 和 `policyVersion`。服务端消费时必须先执行 consume-once，再校验绑定字段；replay / Redis miss、action 或 route mismatch、IP/device mismatch、过期 proof 都不得进入业务写入，并必须写 challenge attempt。该 header 不替代 `X-Fsus-Mfa-Proof`、legacy `X-Fsus-Pow-Proof` 或 HumanReadProof 阅读计数 proof。
 
 challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 与上表 `SecurityChallengeKind` 一致。`SecurityChallengeOrchestrator` 根据 `RiskDecision.RequiredChallenges` 调用 provider，可返回单个或多个 `SecurityChallengeAssignment`，并可携带按 `challengeId` 分组的 provider payload 供 binary response 编码；provider missing、provider failure、assignment 无效或 proof mint failure 必须返回可观测错误并 fail closed，不得落入具体业务 endpoint 的 fallback 分支。
 
@@ -109,6 +109,8 @@ challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 
 `captchaV1` provider 使用 `fsu.captcha/chebyshev-noise@v1` wire algorithm。issue payload 包含 `algorithm`、`polynomialSeedHex`、`noiseSeedHex`、`seedPayloadBase64`、`signatureHex`、`gridWidth`、`gridHeight`、`distortionLevel`、`powDifficultyBits`、`issuedAtUnixMs` 和 `expiresAtUnixMs`；服务端不生成 PNG、像素或图片字段，只下发可由客户端渲染的 seed 与参数。`seedPayloadBase64` 绑定 challengeId、action、routeKey、subject/client/device hash、policyVersion、seed、参数和时间窗口，`signatureHex` 为服务端 HMAC-SHA256 签名。verify payload 必须回传 issue payload 字段，并追加 `answerText`、`responseTokenHex`、`nonceHex`、`solveDurationMs`。服务端先验证签名和绑定字段，再通过 `SecurityCaptchaChallenge` cache 一次性消费 challenge，随后派生期望答案、校验 nonce 前导零证明、校验 response token 和 solve duration。错误答案、签名/seed 篡改、token/nonce 错误写 `CaptchaInvalid` 风险 detail；重放写 `CaptchaReplay`；过快 / 过慢分别写 `CaptchaSolveTooFast` / `CaptchaSolveTooSlow`。CaptchaV1 只作为 provider 注册，不直接接入业务 endpoint；是否启用由后续 RiskControl policy issue 决定。
 
 `argon2idPoSpaceV1` provider 使用 `fsu.pospace/argon2id@v1` wire algorithm，默认 `Security:PoSpaceV1:Mode=disabled`，只有策略显式 enable 且 RiskDecision 选择该 kind 时才可签发。issue payload 包含 `algorithm`、`saltHex`、`memoryKib`、`iterations`、`lanes` 和 `targetDurationMs`；服务端约束 `memoryKib=1024..65536`、移动端最大 `8192`、`iterations=1..6`、`lanes=1..4`、`targetDurationMs=100..5000`。verify payload 必须回传 issue payload 字段，并追加 `nonceHex` 和 `proofHex`。服务端通过 `SecurityPoSpaceChallenge` cache 一次性消费 challenge，使用 challengeId/action/routeKey/subject/client/device/policyVersion/nonce 作为 Argon2id material 重新派生 proof；参数越界、payload 错误、proof mismatch 或 replay 均 fail closed 并写 `SecurityChallengeRejected` 风险事件。移动 UA 或 disabled policy 会由 RiskDecision 降级到 `captchaV1`，不得签发 PoSpace。
+
+`humanReadProofV1` provider 使用 `fsu.human-read-proof@v1` wire algorithm，且只允许 `action=public.read`。issue payload 包含 `algorithm`、`token`、`scope`、`routeKey`、`articleId`、`minDwellMs`、`issuedAtUnixMs` 和 `expiresAtUnixMs`；持久化层只保存 payload hash，不保存 token 原文。verify payload 必须提交 `token`、`scope`、`routeKey`、`articleId` 和 `dwellMs`，服务端复用 HumanReadProof submit 绑定校验；成功只签发绑定 public-read action / route / IP / device 的统一 proof token，并额外写 `ReadProofAccepted` 负分风险信号以降低后续 public-read 风险。`comment.*`、`auth.*`、`admin.*` 或任何非 public-read action 使用该 kind 都必须 fail closed；`RequiresRiskControlFilter` 也必须在 required kind 不匹配时返回 428，不得消费 HumanReadProof proof 或进入写操作 handler。
 
 统一 challenge 签发与验证只通过 binary endpoint 暴露，不提供公开 JSON fallback。`POST /api/binary/security/challenge` 接收 `SecurityChallengeIssueRequest` (`173`) 并返回 `SecurityChallengeIssueResponse` (`175`)；`POST /api/binary/security/challenge/verify` 接收 `SecurityChallengeVerifyRequest` (`174`) 并返回 `SecurityChallengeVerifyResponse` (`176`)。两个端点均为匿名、`fixed_ip` 限流、`no-store` 响应，request `Content-Type` 必须是 `application/octet-stream`，response `Accept` 只接受空值、`*/*` 或 `application/octet-stream`；不匹配时返回 AEDS `ApiError`，`Accept` 不匹配使用 HTTP 406。请求 frame 上限为 64 KiB，所有业务失败、unsupported kind、provider missing、provider failure、proof replay / mismatch 均 fail closed 返回 `ApiError` frame。
 
@@ -485,7 +487,7 @@ Article POD 为定长结构体，字段按 C++ 内存对齐排列：
 | `articleId` | int? | 与 challenge 绑定的 article id |
 | `dwellMs` | int | 客户端累计可见停留毫秒数 |
 
-Submit 同样受 `read_proof` 专用限流保护。`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid`、`fingerprint_missing` 等拒绝状态会写入 crawler risk；`duplicate_viewer` 只表示 24 小时去重，不计入风险。一次性 proof 消费必须先失效进程内 L1 cache，再执行 Redis consume-once transaction；请求取消后不得继续执行 registry 清理或留下可从 L1 再读取的 proof。
+Submit 同样受 `read_proof` 专用限流保护。`counted=true` 会写入 `ReadProofAccepted` 负分风险信号，仅用于降低后续 `public.read` 风险或避免重复 challenge；`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid`、`fingerprint_missing` 等拒绝状态会写入 crawler risk；`duplicate_viewer` 只表示 24 小时去重，不计入风险。一次性 proof 消费必须先失效进程内 L1 cache，再执行 Redis consume-once transaction；请求取消后不得继续执行 registry 清理或留下可从 L1 再读取的 proof。
 
 响应 frame：`HumanReadSubmitResponse` (`29`)
 
@@ -496,7 +498,7 @@ Submit 同样受 `read_proof` 专用限流保护。`proof_replayed`、`proof_bin
 
 旧 JSON 端点 `GET /api/read-proof/challenge` 与 `POST /api/read-proof/submit` 已移除；生产前端不得调用，也不得作为 AEDS 解码失败 fallback。
 
-`counted=false` 表示 proof 被拒绝或重复提交；内容读取不受影响。
+`counted=false` 表示 proof 被拒绝或重复提交；内容读取不受影响。HumanReadProof submit / `humanReadProofV1` challenge proof 都不能授权 comment/auth/admin 写操作。
 
 ---
 
