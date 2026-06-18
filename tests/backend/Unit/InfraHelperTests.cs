@@ -5,9 +5,11 @@ using FsusBlog.Core.Mapping.Codecs;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Middlewares;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Results;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -231,6 +233,24 @@ public class BackgroundWorkflowSourceTests
         Assert.Contains("article-view-projection-batch", projection, StringComparison.Ordinal);
         Assert.Contains("ArticleViewProjectionRepairWorker", repair, StringComparison.Ordinal);
         Assert.Contains("ViewProjectionRefreshInterval", publicHotQueue, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PublicHotUpdateQueue_ReturnsRejectedResultWhenCapacityIsFull()
+    {
+        var queue = new PublicHotArtifactUpdateQueue(Options.Create(new PublicHotReadOptions
+        {
+            UpdateQueueCapacity = 1
+        }));
+
+        PublicHotArtifactEnqueueResult first = queue.Enqueue(1, "article-updated");
+        PublicHotArtifactEnqueueResult second = queue.Enqueue(2, "article-updated");
+
+        Assert.True(first.Accepted);
+        Assert.Equal("accepted", first.Status);
+        Assert.False(second.Accepted);
+        Assert.Equal("queue-full-or-closed", second.Status);
+        Assert.False(queue.TryEnqueue(3, "article-updated"));
     }
 }
 

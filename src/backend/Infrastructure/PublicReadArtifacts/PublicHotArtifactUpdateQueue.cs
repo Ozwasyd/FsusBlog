@@ -14,6 +14,19 @@ public enum PublicHotArtifactDirtyReason
 
 public readonly record struct PublicHotArtifactUpdate(int? ArticleId, string Reason, PublicHotArtifactDirtyReason DirtyReason);
 
+public readonly record struct PublicHotArtifactEnqueueResult(
+    bool Accepted,
+    string Reason,
+    PublicHotArtifactDirtyReason DirtyReason,
+    string Status)
+{
+    public static PublicHotArtifactEnqueueResult AcceptedResult(string reason, PublicHotArtifactDirtyReason dirtyReason)
+        => new(true, reason, dirtyReason, "accepted");
+
+    public static PublicHotArtifactEnqueueResult Rejected(string reason, PublicHotArtifactDirtyReason dirtyReason)
+        => new(false, reason, dirtyReason, "queue-full-or-closed");
+}
+
 public sealed class PublicHotArtifactUpdateQueue
 {
     private readonly Channel<PublicHotArtifactUpdate> _channel;
@@ -23,16 +36,23 @@ public sealed class PublicHotArtifactUpdateQueue
         int capacity = Math.Clamp(options.Value.UpdateQueueCapacity, 1, 65_536);
         _channel = Channel.CreateBounded<PublicHotArtifactUpdate>(new BoundedChannelOptions(capacity)
         {
-            FullMode = BoundedChannelFullMode.DropOldest,
+            FullMode = BoundedChannelFullMode.Wait,
             SingleReader = true,
             SingleWriter = false
         });
     }
 
     public bool TryEnqueue(int? articleId, string reason)
+        => Enqueue(articleId, reason).Accepted;
+
+    public PublicHotArtifactEnqueueResult Enqueue(int? articleId, string reason)
     {
         string normalized = string.IsNullOrWhiteSpace(reason) ? "unknown" : reason;
-        return _channel.Writer.TryWrite(new PublicHotArtifactUpdate(articleId, normalized, ClassifyReason(normalized)));
+        PublicHotArtifactDirtyReason dirtyReason = ClassifyReason(normalized);
+        bool accepted = _channel.Writer.TryWrite(new PublicHotArtifactUpdate(articleId, normalized, dirtyReason));
+        return accepted
+            ? PublicHotArtifactEnqueueResult.AcceptedResult(normalized, dirtyReason)
+            : PublicHotArtifactEnqueueResult.Rejected(normalized, dirtyReason);
     }
 
     internal ChannelReader<PublicHotArtifactUpdate> Reader => _channel.Reader;

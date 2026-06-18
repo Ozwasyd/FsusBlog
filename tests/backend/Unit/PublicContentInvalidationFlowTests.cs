@@ -101,6 +101,28 @@ public sealed class PublicContentInvalidationFlowTests
     }
 
     [Fact]
+    public void OutboxReplay_TreatsPublicHotEnqueueFailureAsRequiredEdgeFailure()
+    {
+        string queue = ReadRepoFile("src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs");
+        string sideEffects = ReadRepoFile("src/backend/Services/ArticleMutationSideEffects.cs");
+        string replayMethod = Slice(sideEffects, "public async Task<ArticleMutationReplayResult> ReplayOutboxAsync", "    private async Task<Article?> LoadArticleWithContentAsync");
+        string queueMethod = Slice(sideEffects, "private Task<PublicHotArtifactEnqueueResult> QueuePublicHotUpdateAsync", "    private async Task EnsurePublicHotUpdateQueuedAsync");
+        string ensureMethod = Slice(sideEffects, "private async Task EnsurePublicHotUpdateQueuedAsync", "}");
+
+        Assert.Contains("public readonly record struct PublicHotArtifactEnqueueResult", queue, StringComparison.Ordinal);
+        Assert.Contains("public PublicHotArtifactEnqueueResult Enqueue", queue, StringComparison.Ordinal);
+        Assert.Contains("BoundedChannelFullMode.Wait", queue, StringComparison.Ordinal);
+        Assert.Contains("queue-full-or-closed", queue, StringComparison.Ordinal);
+
+        Assert.Contains("PublicHotArtifactEnqueueResult result = publicHotUpdates.Enqueue", queueMethod, StringComparison.Ordinal);
+        Assert.Contains("required ? \"required\" : \"best-effort\"", queueMethod, StringComparison.Ordinal);
+        Assert.Contains("EnsurePublicHotUpdateQueuedAsync", replayMethod, StringComparison.Ordinal);
+        Assert.Contains("required: true", ensureMethod, StringComparison.Ordinal);
+        Assert.Contains("throw new InvalidOperationException", ensureMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("QueuePublicHotUpdateAsync(articleId, $\"outbox-", replayMethod, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ScheduledPublish_InvalidatesPublicAotForNewlyPublishedArticles()
     {
         string source = ReadRepoFile("src/backend/Services/Background/ScheduledPublishWorker.cs");
