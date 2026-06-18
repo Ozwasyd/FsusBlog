@@ -1,4 +1,5 @@
 ﻿using FsusBlog.Server.Infrastructure.Results;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -36,6 +37,12 @@ public class BannedUserMiddleware(RequestDelegate _next)
         // 性能最大化：利用 Endpoint Routing 提供的内存元数据，O(1) 复杂度极速判定。
         var endpoint = context.GetEndpoint();
         if (endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() != null)
+        {
+            await _next(context);
+            return;
+        }
+
+        if (context.User.IsAdminPrincipal())
         {
             await _next(context);
             return;

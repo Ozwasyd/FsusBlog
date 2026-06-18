@@ -80,7 +80,7 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 
 可选反垃圾模型由 `AntiSpamModerationService` 承载，默认 `Moderation:AntiSpamModel:Enabled=false` 且处置模式为 `score-only`。评论创建成功并写入地区合规后，服务在短超时内调用 `none/mock/http-json/fsus-cli` provider selector；模型先写 `comment_moderation_signal` 风险信号，再由 `CommentModerationDispositionPolicy` 在显式配置的 `auto-low-risk-approve` / `auto-hide-high-risk` 模式下决定是否自动通过或隐藏。地区策略优先级高于模型：`RegionCanPublish=false`、`RegionRequiresManualReview=true` 或 `RegionHideUntilReviewed=true` 时模型不得自动通过；provider 失败写 `timeout/unavailable/error/contract_invalid` signal 并 fail-open。
 
-`BannedUserMiddleware` 是运行时封禁检查的唯一主实现；旧 `BannedUserFilter` 名称仅作为兼容别名保留，新增调用点必须使用 Middleware 命名。
+`BannedUserMiddleware` 是运行时封禁检查的唯一主实现；旧 `BannedUserFilter` 名称仅作为兼容别名保留，新增调用点必须使用 Middleware 命名。该中间件必须先按 `identity_kind` 分流：`admin_principal` 不读取普通 `sys_user` 状态或 blacklist，直接交给后续 admin authorization/session 语义；`anonymous_account` 与 legacy user 才进入普通用户删除/封禁写锁。
 
 受限账号安全收尾、认证响应 `no-store` 等端点级策略只允许通过 endpoint metadata 声明。`Infrastructure/Policies/EndpointPolicyMetadata.cs` 提供 `AllowRestrictedAccountAction(RestrictedAccountAction.*)` 与 `RequireNoStoreResponse()`，运行时中间件读取路由元数据执行策略，避免 `/api/...` 字符串匹配在路由迁移时失效；普通消息、评论、内容等业务写入不得声明受限账号放行 metadata。
 
