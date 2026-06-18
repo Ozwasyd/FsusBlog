@@ -54,4 +54,6 @@ public interface ISecurityRiskScoreReader
 public interface ISecurityRiskPolicyProvider
 {
     SecurityRiskPolicySnapshot CurrentRiskPolicy { get; }
+
+    SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2 { get; }
 }

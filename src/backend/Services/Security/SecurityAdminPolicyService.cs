@@ -49,20 +49,20 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
 
     public PowPolicySnapshot CurrentPow => Volatile.Read(ref _currentPow);
 
+    public SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2
+        => SecurityRiskPolicySnapshotV2Adapter.FromLegacy(Current, CurrentPow);
+
     public SecurityRiskPolicySnapshot CurrentRiskPolicy
     {
         get
         {
-            AntiCrawlerPolicySnapshot snapshot = Current;
-            AntiCrawlerPolicyOptions options = snapshot.Options;
-            return new SecurityRiskPolicySnapshot(
-                snapshot.SnapshotId,
-                options.RequireChallengeScore,
-                options.BlockScore,
-                options.MaxRiskScore,
-                options.PublicReadChallengeEnabled && SecuritySystemModes.IsEnforcing(options.Mode),
-                options.RiskScoringEnabled,
-                options.Mode);
+            AntiCrawlerPolicySnapshot current = Current;
+            SecurityRiskPolicySnapshot legacy = SecurityRiskPolicySnapshotV2Adapter.ToLegacy(
+                SecurityRiskPolicySnapshotV2Adapter.FromLegacy(current, CurrentPow));
+            return legacy with
+            {
+                RiskScoringEnabled = current.Options.RiskScoringEnabled
+            };
         }
     }
 

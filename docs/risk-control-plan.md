@@ -34,6 +34,10 @@ RiskControl action 名称集中由 `RiskActionNames` 定义。首批生产 actio
 
 `RiskControlContextFactory` 是后续 Risk Score / Decision 的唯一请求上下文抽取入口。它只读取 `HttpContext` 中已经归一或显式标记的字段：客户端 IP 使用 `GetClientIp()`，因此不会直接信任 raw `X-Forwarded-For` / `X-Real-IP`；UA 使用 `GetUserAgent()` 并保留 missing/present 状态；action / routeKey 来自 endpoint `RiskActionEndpointMetadata`；actor 从 `ClaimTypes.NameIdentifier`、`identity_kind`、`sid`、`admin_id` 和 `admin_sid` claim 解析；`VerifiedCrawler` / `SocialPreviewBot` 只读取 `HttpContext.Items` 中由反爬虫中间件设置的布尔标记。`X-Fsus-Device-Fp` 会先做长度和字符集校验，只输出状态、长度和 SHA-256 hash，不保留 raw 值；region 只作为请求 hint 归一为短字符串并带来源，不参与法律地区裁决。
 
+## Policy snapshot v2 baseline
+
+`SecurityRiskPolicySnapshotV2` 固定生产 RiskControl 的策略外形：全局模式为 `disabled`、`observe`、`enforce`、`strict` 或 `lockdown`；每个 action 可覆盖 allow / challenge / hardChallenge / queue / block 阈值、challenge kind、escalation level 和匿名写入锁定语义；snapshot 带 `PolicyVersion`、`LastKnownGoodSnapshotId`、子系统模式和 max risk score。迁移期 `SecurityRiskPolicySnapshotV2Adapter` 从现有 AntiCrawler / PoW runtime snapshot 生成 V2，并把 V2 投影回旧 `SecurityRiskPolicySnapshot`，保持 `RiskAwarePublicReadFilter` 的旧读取路径不变。默认 public-read 行为与旧逻辑等价：低于 `RequireChallengeScore` 放行，达到后要求 `security.pow`，达到 `BlockScore` 后 block；observe 只记录不执行挑战或拦截；strict 使用风险权重提前触发阈值；lockdown 在后续 filter 接入时用于关闭匿名写入。
+
 ## Ordered implementation units
 
 | Order | Unit | Issue | Acceptance boundary |

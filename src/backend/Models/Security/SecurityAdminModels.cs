@@ -6,17 +6,18 @@ public static class SecuritySystemModes
     public const string Observe = "observe";
     public const string Enforce = "enforce";
     public const string Strict = "strict";
+    public const string Lockdown = "lockdown";
 
     public static string Normalize(string? mode)
     {
         string value = string.IsNullOrWhiteSpace(mode)
             ? Enforce
             : mode.Trim().ToLowerInvariant();
-        return value is Disabled or Observe or Enforce or Strict ? value : Enforce;
+        return value is Disabled or Observe or Enforce or Strict or Lockdown ? value : Enforce;
     }
 
     public static bool IsEnforcing(string mode)
-        => Normalize(mode) is Enforce or Strict;
+        => Normalize(mode) is Enforce or Strict or Lockdown;
 }
 
 public sealed record AntiCrawlerPolicyOptions(
