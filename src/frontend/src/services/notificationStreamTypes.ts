@@ -113,7 +113,12 @@ export const NotificationStreamFailureCodes = {
   ServerError: 'server_error',
   AccountBlocked: 'account_blocked',
   AccountDeleted: 'account_deleted',
-  WebSocketRequired: 'websocket_required'
+  WebSocketRequired: 'websocket_required',
+  RiskChallengeRequired: 'risk_challenge_required',
+  RiskChallengeRejected: 'risk_challenge_rejected',
+  RiskChallengeKindMismatch: 'risk_challenge_kind_mismatch',
+  RiskControlBlocked: 'risk_control_blocked',
+  RiskControlThrottled: 'risk_control_throttled'
 } as const
 
 export type NotificationStreamFailureCode = typeof NotificationStreamFailureCodes[keyof typeof NotificationStreamFailureCodes]

@@ -132,6 +132,22 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    public void LegacyAdapter_MapsNotificationSubscribeToMandatoryRiskControlPowAndHighPoSpace()
+    {
+        SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
+
+        SecurityRiskPolicyDecision low = snapshot.Evaluate(RiskActionNames.NotificationSubscribe, 0);
+        SecurityRiskPolicyDecision high = snapshot.Evaluate(RiskActionNames.NotificationSubscribe, 75);
+
+        Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, low.Outcome);
+        Assert.Equal("sha256PowV1", low.ChallengeKind);
+        Assert.Equal(["sha256PowV1"], low.RequiredChallengeKinds);
+        Assert.Equal(SecurityRiskPolicyOutcomes.HardChallenge, high.Outcome);
+        Assert.Equal(["argon2idPoSpaceV1"], high.RequiredChallengeKinds);
+        Assert.True(snapshot.ResolveActionPolicy(RiskActionNames.NotificationSubscribe).AnonymousWriteAllowed);
+    }
+
+    [Fact]
     public void LegacyAdapter_ForcesRecoveryKeyVerifyCaptchaChallengeAtZeroRisk()
     {
         SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());

@@ -4,6 +4,9 @@ using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Security;
+using FsusBlog.Server.Services.Security;
+using FsusBlog.Shared.Contracts.Security;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
@@ -44,6 +47,12 @@ internal sealed record NotificationStreamHandshakeResult
 internal sealed class NotificationStreamHandshakeService(
     IPowService powService,
     AdaptivePowGovernor powGovernor,
+    ISecurityRiskScoreReader riskScoreReader,
+    ISecurityRiskPolicyProvider riskPolicyProvider,
+    IRiskControlContextFactory riskContextFactory,
+    IRiskDecisionService riskDecisionService,
+    ISecurityChallengeProofService challengeProofService,
+    ISecurityRiskSignalSink riskSignalSink,
     INotificationStreamAdmissionService admissionService,
     INotificationStreamAudienceResolver audienceResolver,
     IConfiguration configuration,
@@ -51,6 +60,13 @@ internal sealed class NotificationStreamHandshakeService(
     ILoggerFactory loggerFactory) : INotificationStreamHandshakeService
 {
     private const string Protocol = "fsus-aeds.v2";
+    private const string ChallengeProofHeaderName = "X-Fsus-Challenge-Proof";
+    private const string ChallengeIdHeaderName = "X-Fsus-Challenge-Id";
+    private const string ChallengeKindHeaderName = "X-Fsus-Challenge-Kind";
+    private const string ChallengeProofQueryName = "challengeProof";
+    private const string ChallengeIdQueryName = "challengeId";
+    private const string ChallengeKindQueryName = "challengeKind";
+    private static readonly TimeSpan RiskSignalTtl = TimeSpan.FromMinutes(10);
 
     public async Task<NotificationStreamHandshakeResult> ValidateAsync(
         HttpContext context,
@@ -88,11 +104,13 @@ internal sealed class NotificationStreamHandshakeService(
 
         if (!isAuthenticated)
         {
-            Microsoft.Extensions.Logging.ILogger powLogger = loggerFactory.CreateLogger("FsusBlog.NotificationStream.Pow");
-            IActionResult? powFailure = await PowValidationLogic.ValidateFromQueryAsync(context, powLogger, powService, powGovernor);
-            if (powFailure is not null)
+            NotificationStreamHandshakeResult? riskFailure = await ValidateAnonymousSubscribeGateAsync(
+                context,
+                cancellationToken,
+                consumeProof: requireWebSocket);
+            if (riskFailure is not null)
             {
-                return NotificationStreamHandshakeResult.Failure(ResolveStatusCode(powFailure, StatusCodes.Status401Unauthorized), "pow_failed");
+                return riskFailure;
             }
         }
 
@@ -108,6 +126,133 @@ internal sealed class NotificationStreamHandshakeService(
 
         IReadOnlySet<string> groups = audienceResolver.ResolveGroups(context.User, userId);
         return NotificationStreamHandshakeResult.Success(new NotificationStreamHandshake(Protocol, userId, groups));
+    }
+
+    private async Task<NotificationStreamHandshakeResult?> ValidateAnonymousSubscribeGateAsync(
+        HttpContext context,
+        CancellationToken cancellationToken,
+        bool consumeProof)
+    {
+        NotificationStreamHandshakeResult? legacyPowFailure = null;
+        if (context.Request.Query.ContainsKey("pow"))
+        {
+            if (!consumeProof)
+            {
+                return null;
+            }
+
+            Microsoft.Extensions.Logging.ILogger powLogger = loggerFactory.CreateLogger("FsusBlog.NotificationStream.Pow");
+            IActionResult? powFailure = await PowValidationLogic.ValidateFromQueryAsync(context, powLogger, powService, powGovernor);
+            if (powFailure is null)
+            {
+                return null;
+            }
+
+            legacyPowFailure = NotificationStreamHandshakeResult.Failure(
+                ResolveStatusCode(powFailure, StatusCodes.Status401Unauthorized),
+                "pow_failed");
+        }
+
+        context.Items[RiskActionEndpointMetadata.HttpContextItemKey] =
+            RiskActionRegistry.Default.CreateMetadata(RiskActionNames.NotificationSubscribe);
+        RiskControlContext riskContext = riskContextFactory.Create(context);
+        int riskScore = await riskScoreReader.GetRiskScoreAsync(context, cancellationToken);
+        SecurityRiskPolicySnapshotV2 policy = riskPolicyProvider.CurrentRiskPolicyV2;
+        RiskDecision decision = riskDecisionService.Decide(riskContext, policy, riskScore);
+
+        return decision.Kind switch
+        {
+            RiskDecisionKind.Allow => null,
+            RiskDecisionKind.Challenge or RiskDecisionKind.StepUp => await ValidateRiskControlProofAsync(
+                context,
+                riskContext,
+                decision,
+                legacyPowFailure,
+                consumeProof,
+                cancellationToken),
+            RiskDecisionKind.Block => await RejectRiskAsync(
+                context,
+                decision,
+                StatusCodes.Status429TooManyRequests,
+                "risk_control_blocked",
+                "risk_control_blocked",
+                cancellationToken),
+            RiskDecisionKind.QueueForModeration or RiskDecisionKind.Throttle => await RejectRiskAsync(
+                context,
+                decision,
+                StatusCodes.Status429TooManyRequests,
+                "risk_control_throttled",
+                "risk_control_throttled",
+                cancellationToken),
+            _ => await RejectRiskAsync(
+                context,
+                decision,
+                StatusCodes.Status429TooManyRequests,
+                "risk_control_rejected",
+                "risk_control_rejected",
+                cancellationToken)
+        };
+    }
+
+    private async Task<NotificationStreamHandshakeResult?> ValidateRiskControlProofAsync(
+        HttpContext context,
+        RiskControlContext riskContext,
+        RiskDecision decision,
+        NotificationStreamHandshakeResult? legacyPowFailure,
+        bool consumeProof,
+        CancellationToken cancellationToken)
+    {
+        if (!TryReadChallengeProof(context, out string proofToken, out string challengeId, out string challengeKind))
+        {
+            await RecordRiskAsync(context, "challenge_proof_missing", decision.ActionName, cancellationToken);
+            return legacyPowFailure ?? NotificationStreamHandshakeResult.Failure(StatusCodes.Status428PreconditionRequired, "risk_challenge_required");
+        }
+
+        string canonicalChallengeKind = CanonicalChallengeKind(challengeKind);
+        if (decision.RequiredChallenges.Count > 0
+            && !decision.RequiredChallenges.Any(required => string.Equals(CanonicalChallengeKind(required), canonicalChallengeKind, StringComparison.Ordinal)))
+        {
+            await RecordRiskAsync(context, $"challenge_kind_mismatch:{challengeKind}", decision.ActionName, cancellationToken);
+            return NotificationStreamHandshakeResult.Failure(StatusCodes.Status428PreconditionRequired, "risk_challenge_kind_mismatch");
+        }
+
+        if (!consumeProof)
+        {
+            return null;
+        }
+
+        RiskControlProofBinding binding = RiskControlProofBindingFactory.Create(riskContext);
+        SecurityChallengeProofConsumeResult proof = await challengeProofService.ConsumeProofAsync(
+            new SecurityChallengeProofConsumeRequest(
+                proofToken,
+                challengeId,
+                canonicalChallengeKind,
+                decision.ActionName,
+                decision.RouteKey,
+                binding.SubjectHash,
+                binding.ClientIpHash,
+                binding.DeviceFpHash,
+                decision.PolicyVersion),
+            cancellationToken);
+        if (proof.Accepted)
+        {
+            return null;
+        }
+
+        await RecordRiskAsync(context, $"challenge_proof_rejected:{proof.Reason}", decision.ActionName, cancellationToken);
+        return NotificationStreamHandshakeResult.Failure(StatusCodes.Status428PreconditionRequired, "risk_challenge_rejected");
+    }
+
+    private async Task<NotificationStreamHandshakeResult> RejectRiskAsync(
+        HttpContext context,
+        RiskDecision decision,
+        int statusCode,
+        string errorCode,
+        string detail,
+        CancellationToken cancellationToken)
+    {
+        await RecordRiskAsync(context, string.Join(',', decision.Reasons.Prepend(detail)), decision.ActionName, cancellationToken);
+        return NotificationStreamHandshakeResult.Failure(statusCode, errorCode);
     }
 
     private NotificationStreamHandshakeResult? ValidateOrigin(HttpContext context)
@@ -159,6 +304,96 @@ internal sealed class NotificationStreamHandshakeService(
             StatusCodeResult statusCodeResult => statusCodeResult.StatusCode,
             _ => fallback
         };
+    }
+
+    private static bool TryReadChallengeProof(
+        HttpContext context,
+        out string proofToken,
+        out string challengeId,
+        out string challengeKind)
+    {
+        if (TryReadChallengeProofHeaders(context, out proofToken, out challengeId, out challengeKind))
+        {
+            return true;
+        }
+
+        return TryReadChallengeProofQuery(context, out proofToken, out challengeId, out challengeKind);
+    }
+
+    private static bool TryReadChallengeProofHeaders(
+        HttpContext context,
+        out string proofToken,
+        out string challengeId,
+        out string challengeKind)
+    {
+        proofToken = string.Empty;
+        challengeId = string.Empty;
+        challengeKind = string.Empty;
+        return TryReadSingleHeader(context, ChallengeProofHeaderName, out proofToken)
+            && TryReadSingleHeader(context, ChallengeIdHeaderName, out challengeId)
+            && TryReadSingleHeader(context, ChallengeKindHeaderName, out challengeKind);
+    }
+
+    private static bool TryReadChallengeProofQuery(
+        HttpContext context,
+        out string proofToken,
+        out string challengeId,
+        out string challengeKind)
+    {
+        proofToken = string.Empty;
+        challengeId = string.Empty;
+        challengeKind = string.Empty;
+        return TryReadSingleQuery(context, ChallengeProofQueryName, out proofToken)
+            && TryReadSingleQuery(context, ChallengeIdQueryName, out challengeId)
+            && TryReadSingleQuery(context, ChallengeKindQueryName, out challengeKind);
+    }
+
+    private static bool TryReadSingleHeader(HttpContext context, string headerName, out string value)
+    {
+        value = string.Empty;
+        if (!context.Request.Headers.TryGetValue(headerName, out var values) || values.Count != 1)
+        {
+            return false;
+        }
+
+        value = values[0]?.Trim() ?? string.Empty;
+        return value.Length > 0;
+    }
+
+    private static bool TryReadSingleQuery(HttpContext context, string queryName, out string value)
+    {
+        value = string.Empty;
+        if (!context.Request.Query.TryGetValue(queryName, out var values) || values.Count != 1)
+        {
+            return false;
+        }
+
+        value = values[0]?.Trim() ?? string.Empty;
+        return value.Length > 0;
+    }
+
+    private static string CanonicalChallengeKind(string kind)
+        => SecurityChallengeContracts.TryParseKind(kind, out SecurityChallengeKind parsed)
+            ? SecurityChallengeContracts.ToWireName(parsed)
+            : kind.Trim();
+
+    private async ValueTask RecordRiskAsync(HttpContext context, string detail, string action, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await riskSignalSink.AddRiskAsync(new SecurityRiskSignal(
+                context,
+                SecurityRiskReason.SecurityChallengeRejected,
+                10,
+                RiskSignalTtl,
+                SecurityRiskSources.RiskControl,
+                string.IsNullOrWhiteSpace(action) ? RiskActionNames.NotificationSubscribe : action,
+                detail), cancellationToken);
+        }
+        catch
+        {
+            // Notification stream admission must not depend on risk telemetry persistence.
+        }
     }
 
     private static bool ContainsRequestedProtocol(string requestedProtocol)

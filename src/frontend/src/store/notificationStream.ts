@@ -33,7 +33,13 @@ function notificationStreamFailureCodeToAppErrorCode(code: NotificationStreamFai
       return AppErrorCode.Unauthorized
     case NotificationStreamFailureCodes.PowFailed:
     case NotificationStreamFailureCodes.AccountBlocked:
+    case NotificationStreamFailureCodes.RiskChallengeRequired:
+    case NotificationStreamFailureCodes.RiskChallengeRejected:
+    case NotificationStreamFailureCodes.RiskChallengeKindMismatch:
+    case NotificationStreamFailureCodes.RiskControlBlocked:
       return AppErrorCode.Forbidden
+    case NotificationStreamFailureCodes.RiskControlThrottled:
+      return AppErrorCode.RateLimited
     case NotificationStreamFailureCodes.AccountDeleted:
       return AppErrorCode.Unauthorized
     case NotificationStreamFailureCodes.ProtocolMismatch:

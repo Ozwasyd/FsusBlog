@@ -171,7 +171,7 @@ class NotificationStreamRuntime {
       if (buffer) {
         decodeNotificationApiErrorFrame(buffer)
       }
-      return normalizeHandshakeFailure(errorCode ?? undefined, response.status, this.currentMode)
+      return normalizeNotificationStreamHandshakeFailure(errorCode ?? undefined, response.status, this.currentMode)
     } catch {
       return NotificationStreamFailureCodes.NetworkError
     }
@@ -361,7 +361,7 @@ class NotificationStreamRuntime {
 
 export const notificationStreamRuntime = new NotificationStreamRuntime()
 
-function normalizeHandshakeFailure(
+export function normalizeNotificationStreamHandshakeFailure(
   errorCode: string | undefined,
   status: number,
   mode: 'auth' | 'guest'
@@ -373,6 +373,11 @@ function normalizeHandshakeFailure(
     case NotificationStreamFailureCodes.AccountBlocked:
     case NotificationStreamFailureCodes.AccountDeleted:
     case NotificationStreamFailureCodes.WebSocketRequired:
+    case NotificationStreamFailureCodes.RiskChallengeRequired:
+    case NotificationStreamFailureCodes.RiskChallengeRejected:
+    case NotificationStreamFailureCodes.RiskChallengeKindMismatch:
+    case NotificationStreamFailureCodes.RiskControlBlocked:
+    case NotificationStreamFailureCodes.RiskControlThrottled:
       return errorCode
     default:
       if (status === 401) {

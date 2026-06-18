@@ -269,16 +269,16 @@ FsusBlog 运行时 API 只维护 AEDS binary 链：
 
 ```text
 Client
-  → GET /api/notifications/stream/preflight（同 PoW/cursor/protocol 参数）
+  → GET /api/notifications/stream/preflight（同 RiskControl/legacy PoW/cursor/protocol 参数）
   → 204 No Content：再发 WebSocket upgrade 到 /api/notifications/stream
   → 非 204：读取 AEDS ApiError frame 与 X-Fsus-Notification-Stream-* 头，映射为前端失败码
 ```
 
 - WebSocket 主通道仍固定为 `GET /api/notifications/stream` + `fsus-aeds.v2`。
 - 该通道不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`，每条消息都是完整 AEDS v2 binary frame。
-- Preflight 与正式 WebSocket 握手共用 `NotificationStreamHandshakeService`，先校验 Origin allowlist，再验证认证、PoW、cursor 和协议语义；preflight 不要求 WebSocket upgrade。
+- Preflight 与正式 WebSocket 握手共用 `NotificationStreamHandshakeService`，先校验 Origin allowlist，再验证认证、RiskControl / legacy PoW、cursor 和协议语义；preflight 不要求 WebSocket upgrade，且只校验一次性 RiskControl proof 的存在性和 kind，正式 WebSocket 握手才消费 proof。
 - 握手失败统一写入 `X-Fsus-Notification-Stream-Error-Code` 与 `X-Fsus-Notification-Stream-Status-Code`，并返回 AEDS `ApiError` frame。
-- 通知握手只编排协议、PoW 与握手结果。账号封禁/注销准入下沉到 `NotificationStreamAdmissionService`，notification stream audience 分组下沉到 `NotificationStreamAudienceResolver`，消息域到 user/group route 的映射下沉到 `MessageNotificationStreamPort`。
+- 通知握手只编排协议、RiskControl / legacy PoW 与握手结果。账号封禁/注销准入下沉到 `NotificationStreamAdmissionService`，notification stream audience 分组下沉到 `NotificationStreamAudienceResolver`，消息域到 user/group route 的映射下沉到 `MessageNotificationStreamPort`。
 - Notification stream backlog 按 route 写入 Redis stream（`u:{id}` / `g:{group}`；multi-user target 展开为多个 user route），多目标 backlog 写入通过 Redis batch/pipeline 一次提交；replay 只读取当前连接可见的 user/group stream 后按 event id 合并，不再从全局流拉取后置过滤。
 - 业务发布路径只负责写 backlog 并把本地 fanout 意图放入 `NotificationStreamLocalFanoutQueue`，`NotificationStreamLocalFanoutWorker` 再遍历本机连接。慢连接仍由每连接队列和 slow-consumer 断开保护兜底，突变请求不随本机连接数线性放大。
 - Resilience drill 通过 Development/Test-only `/_fsus/testing/notification-stream/publish` 入口驱动同一 `INotificationStreamPublisher` 链路；`drillSlowConsumer=1` 只在 Development/Test WebSocket query 中启用发送延迟，`drillQueueCapacity` 可把该测试连接的 per-connection queue 降到 32，用来稳定触发背压关闭，不改变生产 pump 行为。

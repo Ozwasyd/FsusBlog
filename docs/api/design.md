@@ -130,7 +130,7 @@ Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AED
 | 安全强制 | `X-Fsus-Challenge-Kind` | 请求 | 与 `X-Fsus-Challenge-Proof` 绑定的 provider kind，例如 `sha256PowV1`；legacy alias `security.pow` 只作为兼容输入规范化。 |
 | 安全强制 | `X-Fsus-Device-Fp` | 请求 | 认证、HumanReadProof、审计和风险信号使用的设备指纹；不得包含可逆身份信息。 |
 | 通知通道 | `X-Fsus-Notification-Stream-Protocol` | 请求 | notification preflight fallback 协议头；正式 WebSocket 仍使用 `Sec-WebSocket-Protocol: fsus-aeds.v2`。 |
-| 通知通道 | `X-Fsus-Notification-Stream-Error-Code` | 响应 | notification preflight / WebSocket 握手失败业务码，例如 `account_blocked`、`auth_failed`、`pow_failed`。 |
+| 通知通道 | `X-Fsus-Notification-Stream-Error-Code` | 响应 | notification preflight / WebSocket 握手失败业务码，例如 `account_blocked`、`auth_failed`、`pow_failed`、`risk_challenge_required`。 |
 | 通知通道 | `X-Fsus-Notification-Stream-Status-Code` | 响应 | notification preflight / WebSocket 握手失败映射的 HTTP status。 |
 | 测试工具 | `X-Fsus-Notification-Drill-Secret` | 请求 | 仅 Development/Test 映射的 notification slow-consumer resilience drill 凭据；必须匹配 `FSUSBLOG_NOTIFICATION_DRILL_SECRET` / `NotificationStream:DrillSecret`。 |
 | AOT 运维 | `X-Fsus-Public-Aot-Token` | 请求 | `GET /internal/public-aot/manifest` 与 `GET /internal/public-aot/health` 在配置 `PublicAot:ManifestToken` 时要求的 tooling token。 |
@@ -142,13 +142,13 @@ Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AED
 
 ### FPOW proof 信封
 
-HTTP 动态公开 API 使用 `X-Fsus-Pow-Proof`，notification stream 匿名连接使用 `pow` query 参数；两者都承载同一种 base64 文本形式的二进制 FPOW 信封。前端实现位于 `src/frontend/src/services/powProofCodec.ts`。
+HTTP 动态公开 API 使用 `X-Fsus-Pow-Proof`，notification stream 匿名连接的 legacy 兼容路径使用 `pow` query 参数；两者都承载同一种 base64 文本形式的二进制 FPOW 信封。前端实现位于 `src/frontend/src/services/powProofCodec.ts`。
 
 FPOW 信封字段顺序为：`magic[4] = "FPOW"`（字节 `46 50 4f 57`）、`version:uint8 = 1`、`difficulty:int32LE`、`timestamp:int64LE`，随后是若干 `uint16LE length + utf8 bytes` 字段。HTTP header proof 字段为 `salt, nonce, signature, browserFp`；notification stream proof 字段为 `salt, nonce, signature, fp`。服务端按 proof 绑定的 challenge、时间戳、nonce、签名、设备指纹和 `ForwardedHeadersMiddleware` 规范化后的客户端 IP 校验，不接受旧文本 PoW answer/challenge 头，也不在 PoW 验证层回退到 raw remote IP、localhost 或 Docker bridge IP。
 
 RiskControl 新 challenge provider 不得自定义平行 assignment 结构。PoW、Captcha、PoSpace、HumanReadProof、Passkey step-up、匿名凭证和 ZK 匿名评论 proof 都必须使用 `SecurityChallengeAssignment` / `SecurityChallengeEnvelope` AEDS frame，统一携带 challengeId、traceparent、tenantId、kind、action、routeKey、subject/client IP/device fingerprint hash、issued/expires 和 escalationLevel；provider 只扩展自己的 proof 验证载荷。
 
-受 RiskControl 保护的业务请求不得把 provider proof 直接发给业务 endpoint；客户端必须先调用 `/api/binary/security/challenge/verify` 换取一次性 `X-Fsus-Challenge-Proof`，再与 `X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 一起提交到业务 endpoint。密码登录失败和 Passkey assertion 失败只能写风险信号，不改变登录响应 frame；Passkey assertion 成功可写负分风险信号，并继续以 Passkey 作为 MFA 已满足的登录凭据。
+受 RiskControl 保护的业务请求不得把 provider proof 直接发给业务 endpoint；客户端必须先调用 `/api/binary/security/challenge/verify` 换取一次性 `X-Fsus-Challenge-Proof`，再与 `X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 一起提交到业务 endpoint。notification stream 匿名订阅的 `notification.subscribe` action 同样走该 proof 绑定：preflight 可使用 `X-Fsus-Challenge-*` header，正式 WebSocket 因浏览器无法自定义握手 header，可使用 `challengeProof`、`challengeId`、`challengeKind` query 参数；preflight 不消费一次性 proof，只校验存在性和 kind，正式 WebSocket 握手才消费。密码登录失败和 Passkey assertion 失败只能写风险信号，不改变登录响应 frame；Passkey assertion 成功可写负分风险信号，并继续以 Passkey 作为 MFA 已满足的登录凭据。
 
 ---
 
@@ -209,11 +209,11 @@ AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行�
 
 ### 握手预检
 
-`GET /api/notifications/stream/preflight` 复用认证、匿名 PoW、cursor 和协议校验，但不要求 WebSocket upgrade；成功返回 `204`，失败返回 AEDS `ApiError` frame，并写入 `X-Fsus-Notification-Stream-Error-Code` / `X-Fsus-Notification-Stream-Status-Code`。匿名 preflight 和匿名正式 WebSocket 都必须通过 `pow` query 参数传递 base64 FPOW 信封；公开事件不绕过 PoW。
+`GET /api/notifications/stream/preflight` 复用认证、匿名 RiskControl / legacy PoW、cursor 和协议校验，但不要求 WebSocket upgrade；成功返回 `204`，失败返回 AEDS `ApiError` frame，并写入 `X-Fsus-Notification-Stream-Error-Code` / `X-Fsus-Notification-Stream-Status-Code`。匿名 preflight 可通过 `X-Fsus-Challenge-*` header 提交 `notification.subscribe` RiskControl proof，也继续兼容 `pow` query 参数；正式 WebSocket 可用 `challengeProof` / `challengeId` / `challengeKind` query 参数提交 RiskControl proof，或继续使用 legacy `pow` query 参数。公开事件不绕过匿名订阅准入。
 
 ### 匿名 vs 认证
 
-匿名连接只接收公开事件（GlobalNotice、CacheControl 等），但匿名不等于零门槛：`NotificationStreamHandshakeService` 在 `!isAuthenticated` 时调用 `PowValidationLogic.ValidateFromQueryAsync`，失败映射为 `pow_failed`。已认证用户额外接收私人事件（MessageReceived、InboxConversationUpsert 等）；如果请求携带认证头但认证失败，握手返回 `auth_failed`。
+匿名连接只接收公开事件（GlobalNotice、CacheControl 等），但匿名不等于零门槛：`NotificationStreamHandshakeService` 在 `!isAuthenticated` 时先接受有效 legacy `pow`，否则按 `notification.subscribe` RiskControl 裁决要求 proof、升级 PoSpaceV1 或阻断，失败映射为 `risk_challenge_required`、`risk_challenge_rejected`、`risk_control_blocked` 等握手失败码。已认证用户额外接收私人事件（MessageReceived、InboxConversationUpsert 等）；如果请求携带认证头但认证失败，握手返回 `auth_failed`。
 
 ### 错误码与持久化对照
 
@@ -223,6 +223,8 @@ AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行�
 | `protocol_mismatch` | `fsus-aeds.v2` 子协议 | 无 | 无 | `409` | `ApiError` |
 | `auth_failed` | JWT / cookie auth 结果 | 认证栈内部 | 认证栈处理 | `401` | `ApiError` |
 | `pow_failed` | PoW challenge / replay proof | SecurityPowProof / risk cache | PoW service 校验 | `401` 或 `400` | `ApiError` |
+| `risk_challenge_required` | RiskControl `notification.subscribe` 裁决 | SecurityChallengeProof / risk cache | RiskControl policy 校验 | `428` | `ApiError` |
+| `risk_control_blocked` | RiskControl `notification.subscribe` 裁决 | SecurityRisk | RiskControl policy 校验 | `429` | `ApiError` |
 | `account_blocked` | `sys_user.Status` / `BanReason` | Redis 黑名单快路径 | 必须回查 DB 并回填 | `423` | `ApiError` |
 | `account_deleted` | `sys_user` 不存在、删除或停用 | admission cache | 必须回查 DB | `401` | `ApiError` |
 
@@ -466,7 +468,7 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 - [`PublicHotReadFastPath.cs`](../../src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs) — PublicHotRead fast path、pathKey hash、L0 诊断头和 artifact HTTP 语义
 - [`PublicAotEndpoints.cs`](../../src/backend/Modules/Endpoints/PublicAotEndpoints.cs) — route manifest 与 `X-Fsus-Public-Aot-Token`
 - [`DistributionEndpoints.cs`](../../src/backend/Modules/Endpoints/DistributionEndpoints.cs) — RSS / Atom / JSON Feed / sitemap / robots 缓存约束
-- [`NotificationStreamHandshakeService.cs`](../../src/backend/Infrastructure/NotificationStream/NotificationStreamHandshakeService.cs) — notification stream protocol、匿名 PoW、认证和 admission 校验
+- [`NotificationStreamHandshakeService.cs`](../../src/backend/Infrastructure/NotificationStream/NotificationStreamHandshakeService.cs) — notification stream protocol、匿名 RiskControl / legacy PoW、认证和 admission 校验
 - [`NotificationStreamHandler.cs`](../../src/backend/Infrastructure/NotificationStream/NotificationStreamHandler.cs) — notification stream 握手失败头与 AEDS `ApiError` 写出
 - [`AuthoringBinaryBridgeMiddleware.cs`](../../src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs) — 作者工作台 AEDS bridge 转换边界
 - [`SecurityBinaryBridgeMiddleware.cs`](../../src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs) — 管理端 security AEDS bridge 转换边界

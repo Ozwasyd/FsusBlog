@@ -8,6 +8,7 @@ public static class SecurityRiskPolicySnapshotV2Adapter
     private const string DefaultActionName = "*";
     private const string CaptchaV1ChallengeKind = "captchaV1";
     private const string Sha256PowV1ChallengeKind = "sha256PowV1";
+    private const string Argon2idPoSpaceV1ChallengeKind = "argon2idPoSpaceV1";
 
     public static SecurityRiskPolicySnapshotV2 FromLegacy(AntiCrawlerPolicySnapshot antiCrawler, PowPolicySnapshot? pow = null)
     {
@@ -35,6 +36,16 @@ public static class SecurityRiskPolicySnapshotV2Adapter
         {
             Thresholds = BuildMandatoryChallengeThresholds(options.BlockScore)
         };
+        var notificationSubscribePolicy = defaultPolicy with
+        {
+            ActionName = RiskActionNames.NotificationSubscribe,
+            Thresholds = BuildMandatoryChallengeThresholds(options.BlockScore),
+            ChallengeKind = Sha256PowV1ChallengeKind,
+            EscalationLevel = 1,
+            HardChallengeKinds = [Argon2idPoSpaceV1ChallengeKind],
+            HardChallengeEscalationLevel = 2,
+            AnonymousWriteAllowed = true
+        };
         var actionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
         {
             [RiskActionNames.PublicRead] = defaultPolicy with
@@ -49,7 +60,7 @@ public static class SecurityRiskPolicySnapshotV2Adapter
             [RiskActionNames.AuthPasskeyBegin] = defaultPolicy with { ActionName = RiskActionNames.AuthPasskeyBegin },
             [RiskActionNames.AuthPasskeyComplete] = defaultPolicy with { ActionName = RiskActionNames.AuthPasskeyComplete },
             [RiskActionNames.RecoveryKeyVerify] = mandatoryCaptchaPolicy with { ActionName = RiskActionNames.RecoveryKeyVerify },
-            [RiskActionNames.NotificationSubscribe] = defaultPolicy with { ActionName = RiskActionNames.NotificationSubscribe },
+            [RiskActionNames.NotificationSubscribe] = notificationSubscribePolicy,
             [RiskActionNames.AdminSecurityWrite] = defaultPolicy with
             {
                 ActionName = RiskActionNames.AdminSecurityWrite,

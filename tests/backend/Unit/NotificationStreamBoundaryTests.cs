@@ -1,9 +1,13 @@
+using System.Buffers.Binary;
 using System.Security.Claims;
 using System.Net.WebSockets;
+using System.Text;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Security;
+using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -149,12 +153,110 @@ public class NotificationStreamBoundaryTests
         Assert.Contains("origin_not_allowed", source, StringComparison.Ordinal);
         Assert.True(
             validate.IndexOf("ValidateOrigin(context)", StringComparison.Ordinal) <
-            validate.IndexOf("PowValidationLogic.ValidateFromQueryAsync", StringComparison.Ordinal));
+            validate.IndexOf("ValidateAnonymousSubscribeGateAsync", StringComparison.Ordinal));
+        Assert.Contains("PowValidationLogic.ValidateFromQueryAsync", source, StringComparison.Ordinal);
         Assert.Contains("Seo:BaseUrl", source, StringComparison.Ordinal);
         Assert.Contains("Fido2:Origins", source, StringComparison.Ordinal);
         Assert.Contains("CORS_ALLOWED_HOSTS", source, StringComparison.Ordinal);
         Assert.Contains("IsDevelopment()", source, StringComparison.Ordinal);
         Assert.Contains("localhost", source, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Handshake_PreflightAcceptsRiskControlHeaderProofWithoutConsumingIt()
+    {
+        var proof = new CapturingProofService();
+        NotificationStreamHandshakeService service = CreateHandshakeService(
+            new TestWebHostEnvironment { EnvironmentName = Environments.Production },
+            ["Seo:BaseUrl=https://fsus.blog", "CORS_ALLOWED_HOSTS=https://fsus.blog", "Fido2:Origins:0=https://fsus.blog"],
+            riskScore: 50,
+            proof);
+        DefaultHttpContext context = CreateAnonymousHandshakeContext("https://fsus.blog", "fsus.blog");
+        AddRiskControlHeaders(context);
+
+        NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None, requireWebSocket: false);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(proof.ConsumeRequests);
+    }
+
+    [Fact]
+    public async Task Handshake_WebSocketConsumesRiskControlQueryProofForAnonymousSubscribe()
+    {
+        var proof = new CapturingProofService();
+        NotificationStreamHandshakeService service = CreateHandshakeService(
+            new TestWebHostEnvironment { EnvironmentName = Environments.Production },
+            ["Seo:BaseUrl=https://fsus.blog", "CORS_ALLOWED_HOSTS=https://fsus.blog", "Fido2:Origins:0=https://fsus.blog"],
+            riskScore: 50,
+            proof);
+        DefaultHttpContext context = CreateAnonymousHandshakeContext("https://fsus.blog", "fsus.blog");
+        AddRiskControlQuery(context);
+
+        NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        SecurityChallengeProofConsumeRequest request = Assert.Single(proof.ConsumeRequests);
+        Assert.Equal("proof-ok", request.ProofToken);
+        Assert.Equal("notification-challenge", request.ChallengeId);
+        Assert.Equal("sha256PowV1", request.Kind);
+        Assert.Equal(RiskActionNames.NotificationSubscribe, request.Action);
+        Assert.Equal("notification.subscribe", request.RouteKey);
+    }
+
+    [Fact]
+    public async Task Handshake_WebSocketAcceptsLegacyPowQueryForAnonymousSubscribe()
+    {
+        var powService = Substitute.For<IPowService>();
+        powService.VerifyAsync(Arg.Any<IPowRequest>(), "198.51.100.17").Returns(Task.FromResult(true));
+        var proof = new CapturingProofService();
+        NotificationStreamHandshakeService service = CreateHandshakeService(
+            new TestWebHostEnvironment { EnvironmentName = Environments.Production },
+            ["Seo:BaseUrl=https://fsus.blog", "CORS_ALLOWED_HOSTS=https://fsus.blog", "Fido2:Origins:0=https://fsus.blog"],
+            riskScore: 50,
+            proof,
+            powService);
+        DefaultHttpContext context = CreateAnonymousHandshakeContext("https://fsus.blog", "fsus.blog");
+        AddLegacyPowQuery(context);
+
+        NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(proof.ConsumeRequests);
+        await powService.Received(1).VerifyAsync(
+            Arg.Is<IPowRequest>(request =>
+                request.Difficulty == 16 &&
+                request.PowSalt == "salt" &&
+                request.PowNonce == "nonce" &&
+                request.PowSignature == "signature" &&
+                request.BrowserFp == "fp"),
+            "198.51.100.17");
+    }
+
+    [Fact]
+    public async Task Handshake_HighRiskAnonymousSubscribeWithoutProofReturnsRiskChallengeRequired()
+    {
+        NotificationStreamHandshakeService service = CreateHandshakeService(
+            new TestWebHostEnvironment { EnvironmentName = Environments.Production },
+            ["Seo:BaseUrl=https://fsus.blog", "CORS_ALLOWED_HOSTS=https://fsus.blog", "Fido2:Origins:0=https://fsus.blog"],
+            riskScore: 50);
+        DefaultHttpContext context = CreateAnonymousHandshakeContext("https://fsus.blog", "fsus.blog");
+
+        NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None, requireWebSocket: false);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(StatusCodes.Status428PreconditionRequired, result.StatusCode);
+        Assert.Equal("risk_challenge_required", result.ErrorCode);
+    }
+
+    [Fact]
+    public void Handshake_SourceKeepsLegacyPowCompatibilityAndNotificationRiskAction()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamHandshakeService.cs"));
+
+        Assert.Contains("PowValidationLogic.ValidateFromQueryAsync", source, StringComparison.Ordinal);
+        Assert.Contains("RiskActionNames.NotificationSubscribe", source, StringComparison.Ordinal);
+        Assert.Contains("X-Fsus-Challenge-Proof", source, StringComparison.Ordinal);
+        Assert.Contains("challengeProof", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -292,7 +394,10 @@ public class NotificationStreamBoundaryTests
 
     private static NotificationStreamHandshakeService CreateHandshakeService(
         IWebHostEnvironment environment,
-        IEnumerable<string> settings)
+        IEnumerable<string> settings,
+        int riskScore = 0,
+        CapturingProofService? proof = null,
+        IPowService? powService = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(settings.Select(static item =>
@@ -304,8 +409,14 @@ public class NotificationStreamBoundaryTests
             }))
             .Build();
         return new NotificationStreamHandshakeService(
-            Substitute.For<IPowService>(),
+            powService ?? Substitute.For<IPowService>(),
             new AdaptivePowGovernor(Substitute.For<IUnifiedCache>()),
+            new FixedRiskScoreReader(riskScore),
+            new FixedRiskPolicyProvider(CreateNotificationRiskPolicy()),
+            new RiskControlContextFactory(),
+            new RiskDecisionService(),
+            proof ?? new CapturingProofService(),
+            new CapturingRiskSink(),
             new AllowingAdmissionService(),
             new NotificationStreamAudienceResolver(),
             configuration,
@@ -326,10 +437,164 @@ public class NotificationStreamBoundaryTests
         return context;
     }
 
+    private static DefaultHttpContext CreateAnonymousHandshakeContext(string origin, string host)
+    {
+        var context = new DefaultHttpContext();
+        context.Features.Set<IHttpWebSocketFeature>(new ThrowingWebSocketFeature());
+        context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("198.51.100.17");
+        context.Request.Headers.Origin = origin;
+        context.Request.Headers.Host = host;
+        context.Request.Headers.SecWebSocketProtocol = "fsus-aeds.v2";
+        context.Request.Headers.UserAgent = "Mozilla/5.0";
+        return context;
+    }
+
+    private static void AddRiskControlHeaders(DefaultHttpContext context)
+    {
+        context.Request.Headers["X-Fsus-Challenge-Proof"] = "proof-ok";
+        context.Request.Headers["X-Fsus-Challenge-Id"] = "notification-challenge";
+        context.Request.Headers["X-Fsus-Challenge-Kind"] = "sha256PowV1";
+    }
+
+    private static void AddRiskControlQuery(DefaultHttpContext context)
+    {
+        context.Request.QueryString = new QueryString("?challengeProof=proof-ok&challengeId=notification-challenge&challengeKind=sha256PowV1");
+    }
+
+    private static void AddLegacyPowQuery(DefaultHttpContext context)
+    {
+        context.Request.QueryString = new QueryString($"?pow={Uri.EscapeDataString(CreateEncodedPowProof())}");
+    }
+
+    private static string CreateEncodedPowProof()
+    {
+        byte[] salt = Encoding.UTF8.GetBytes("salt");
+        byte[] nonce = Encoding.UTF8.GetBytes("nonce");
+        byte[] signature = Encoding.UTF8.GetBytes("signature");
+        byte[] browserFp = Encoding.UTF8.GetBytes("fp");
+        int length = 17
+            + sizeof(ushort) + salt.Length
+            + sizeof(ushort) + nonce.Length
+            + sizeof(ushort) + signature.Length
+            + sizeof(ushort) + browserFp.Length;
+        byte[] buffer = new byte[length];
+        buffer[0] = (byte)'F';
+        buffer[1] = (byte)'P';
+        buffer[2] = (byte)'O';
+        buffer[3] = (byte)'W';
+        buffer[4] = 1;
+        BinaryPrimitives.WriteInt32LittleEndian(buffer.AsSpan(5), 16);
+        BinaryPrimitives.WriteInt64LittleEndian(buffer.AsSpan(9), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        int offset = 17;
+        WriteString(buffer, salt, ref offset);
+        WriteString(buffer, nonce, ref offset);
+        WriteString(buffer, signature, ref offset);
+        WriteString(buffer, browserFp, ref offset);
+        return Convert.ToBase64String(buffer);
+    }
+
+    private static void WriteString(byte[] target, byte[] value, ref int offset)
+    {
+        BinaryPrimitives.WriteUInt16LittleEndian(target.AsSpan(offset), (ushort)value.Length);
+        offset += sizeof(ushort);
+        value.CopyTo(target.AsSpan(offset));
+        offset += value.Length;
+    }
+
+    private static SecurityRiskPolicySnapshotV2 CreateNotificationRiskPolicy()
+    {
+        var defaultAction = new SecurityRiskActionPolicy(
+            "*",
+            new SecurityRiskActionThresholds(49, 50, 100, 100, 100),
+            "sha256PowV1",
+            1,
+            null,
+            AnonymousWriteAllowed: true);
+        var notification = defaultAction with
+        {
+            ActionName = RiskActionNames.NotificationSubscribe,
+            Thresholds = new SecurityRiskActionThresholds(0, 0, 100, 100, 100)
+        };
+
+        return new SecurityRiskPolicySnapshotV2(
+            "risk:notification-test",
+            SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+            DateTimeOffset.UnixEpoch,
+            SecuritySystemModes.Enforce,
+            200,
+            125,
+            "risk:lkg",
+            defaultAction,
+            new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
+            {
+                [RiskActionNames.NotificationSubscribe] = notification
+            },
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [SecurityRiskSources.RiskControl] = SecuritySystemModes.Enforce,
+                [SecurityRiskSources.PoSpace] = SecuritySystemModes.Disabled
+            });
+    }
+
     private sealed class AllowingAdmissionService : INotificationStreamAdmissionService
     {
         public Task<NotificationStreamAdmissionResult> ValidateAsync(string? userId, CancellationToken cancellationToken)
             => Task.FromResult(NotificationStreamAdmissionResult.Allowed);
+    }
+
+    private sealed class FixedRiskScoreReader(int score) : ISecurityRiskScoreReader
+    {
+        public Task<int> GetRiskScoreAsync(SecurityRiskSubject subject, CancellationToken cancellationToken = default)
+            => Task.FromResult(score);
+
+        public Task<int> GetRiskScoreAsync(HttpContext context, CancellationToken cancellationToken = default)
+            => Task.FromResult(score);
+
+        public Task ResetRiskAsync(SecurityRiskSubject subject, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicySnapshotV2 policy) : ISecurityRiskPolicyProvider
+    {
+        public SecurityRiskPolicySnapshot CurrentRiskPolicy => SecurityRiskPolicySnapshotV2Adapter.ToLegacy(policy);
+
+        public SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2 => policy;
+    }
+
+    private sealed class CapturingRiskSink : ISecurityRiskSignalSink
+    {
+        public List<SecurityRiskSignal> Signals { get; } = [];
+
+        public ValueTask AddRiskAsync(SecurityRiskSignal signal, CancellationToken cancellationToken = default)
+        {
+            Signals.Add(signal);
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class CapturingProofService : ISecurityChallengeProofService
+    {
+        public List<SecurityChallengeProofConsumeRequest> ConsumeRequests { get; } = [];
+
+        public Task<SecurityChallengeProofMintResult> MintProofAsync(SecurityChallengeProofMintRequest request, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<SecurityChallengeProofConsumeResult> ConsumeProofAsync(SecurityChallengeProofConsumeRequest request, CancellationToken cancellationToken = default)
+        {
+            ConsumeRequests.Add(request);
+            return Task.FromResult(SecurityChallengeProofConsumeResult.Success(new SecurityChallengeProofClaims(
+                request.ChallengeId,
+                request.Kind,
+                request.Action,
+                request.RouteKey,
+                request.SubjectHash,
+                request.ClientIpHash,
+                request.DeviceFpHash,
+                DateTimeOffset.UtcNow.AddMinutes(-1),
+                DateTimeOffset.UtcNow.AddMinutes(5),
+                "nonce",
+                request.PolicyVersion)));
+        }
     }
 
     private static string ExtractMethodBlock(string source, string signature)

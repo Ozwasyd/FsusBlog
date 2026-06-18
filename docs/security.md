@@ -103,10 +103,10 @@ AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关�
 ## 实时通知通道
 
 - 通道：`/api/notifications/stream` 使用 WebSocket，子协议固定为 `fsus-aeds.v2`
-- 预检：`/api/notifications/stream/preflight` 复用认证、PoW、cursor 和协议校验，不要求 WebSocket upgrade；成功返回 204，失败返回 AEDS `ApiError` frame 与 `X-Fsus-Notification-Stream-*` 头
+- 预检：`/api/notifications/stream/preflight` 复用认证、RiskControl / legacy PoW、cursor 和协议校验，不要求 WebSocket upgrade；成功返回 204，失败返回 AEDS `ApiError` frame 与 `X-Fsus-Notification-Stream-*` 头
 - Origin：preflight 与正式 WebSocket 握手必须先执行同一套 Origin 校验，允许来源来自 `Seo:BaseUrl`、`Fido2:Origins`、`CORS_ALLOWED_HOSTS`，开发环境额外允许 localhost；生产环境跨站、非 HTTPS/WSS 或浏览器缺失 Origin 均返回 `403` + `origin_not_allowed`
 - 载荷：所有通知、心跳和正式 WebSocket 握手失败均为 AEDS binary frame；握手失败返回 `ApiError` frame
-- 匿名订阅：必须携带 `pow` query 参数，值为二进制 FPOW 证明的 base64 文本形式
+- 匿名订阅：优先通过 `notification.subscribe` RiskControl action 准入；preflight 可携带 `X-Fsus-Challenge-Proof`、`X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind`，正式 WebSocket 可携带等价的 `challengeProof`、`challengeId`、`challengeKind` query 参数，preflight 不消费一次性 proof，正式握手消费。旧 `pow` query 参数继续兼容，值为二进制 FPOW 证明的 base64 文本形式
 - 登录订阅：复用同站点认证 Cookie，不接受文本事件流降级
 - 续传：客户端用 `cursor` query 参数提交最后消费的事件 ID
 - 封禁/删除账号：握手层返回 `account_blocked` 或 `account_deleted`，前端必须停止重连并展示账户状态错误
@@ -303,7 +303,7 @@ Secret 轮换、站点备份导出、数据巡检修复、批量封禁、密码�
 - **认证 / 会话**：注册、登录、refresh、logout、MFA、Passkey、会话吊销、伪造 Cookie/JWT。
 - **鉴权 / RBAC**：匿名、普通登录用户、admin 对公开读、用户写、管理写、binary 路由的权限矩阵。
 - **输入攻击**：XSS-like、SQL-like（登录用户名、admin keyword、数值查询 / 路由边界）、路径穿越、双重编码、method override、超长 payload、错误 content-type。
-- **Binary / Notification Stream**：AEDS v2、截断 frame、错误 frame type、错误版本、WebSocket 非升级、错误子协议、匿名缺 PoW。
+- **Binary / Notification Stream**：AEDS v2、截断 frame、错误 frame type、错误版本、WebSocket 非升级、错误子协议、匿名缺 RiskControl / legacy PoW proof。
 - **真人计数**：无 proof 读取不增加浏览数，challenge 篡改、route/article 不匹配、停留不足、重放、直接 API、crawler/scanner 不写入计数事件。
 - **浏览器安全面**：CSP、X-Frame-Options、X-Content-Type-Options、Referrer-Policy、Permissions-Policy、CORS allow/deny/preflight、auth/PoW no-store。
 - **DAST**：OWASP ZAP baseline 对本地运行目标执行 spider + passive scan；FAIL 级告警会阻断发布，报告保存在 `.tmp/security/zap/`。

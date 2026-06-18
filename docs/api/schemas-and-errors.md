@@ -112,7 +112,12 @@ Notification stream preflight 与 WebSocket 握手失败会在 `X-Fsus-Notificat
 | `websocket_required` | 426 | 正式通知通道不是 WebSocket upgrade |
 | `protocol_mismatch` | 409 | 缺失或不接受 `fsus-aeds.v2` 子协议 |
 | `auth_failed` | 401 | 携带认证头但认证失败 |
-| `pow_failed` | 401/400 | 匿名连接缺失或提交了无效 PoW |
+| `pow_failed` | 401/400 | 匿名连接提交了无效 legacy PoW |
+| `risk_challenge_required` | 428 | 匿名 `notification.subscribe` 需要 RiskControl proof，且未提供 legacy `pow` 兼容 proof |
+| `risk_challenge_rejected` | 428 | RiskControl proof 缺失、过期、重放或绑定不匹配 |
+| `risk_challenge_kind_mismatch` | 428 | 提交的 challenge kind 与当前裁决要求不一致 |
+| `risk_control_blocked` | 429 | 当前风险裁决阻断匿名订阅 |
+| `risk_control_throttled` | 429 | 当前风险裁决要求限流 / 降速，通知订阅不进入业务通道 |
 | `account_blocked` | 423 | Notification stream 握手期登录用户处于封禁状态 |
 | `ACCOUNT_BANNED_WRITE_LOCKED` | 423 | 受限会话尝试普通业务写入，作为 Binary `ApiError.Details` 返回 |
 | `account_deleted` | 401 | 登录用户不存在、已删除或已停用 |
