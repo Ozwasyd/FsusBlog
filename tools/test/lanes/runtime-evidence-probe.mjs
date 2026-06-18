@@ -64,6 +64,7 @@ const backendQpsModes = [
   'cache-invalidation-batch',
   'index-plan'
 ]
+const requiredBackendQpsCounterModes = new Set(['cache-hit', 'hotread', 'cache-miss-singleflight'])
 
 let notificationSupportPromise = null
 
@@ -475,7 +476,21 @@ function unavailableCounter(status, reason) {
   return { status, reason }
 }
 
-function backendQpsMeasuredCounters(probe) {
+function backendQpsMeasuredCounters(probe, mode, counterWindow) {
+  const signalCount = Math.round(probe.cacheSignalRatio * probe.sampleCount)
+  const cacheMissCount = Math.max(0, probe.sampleCount - signalCount)
+  const dbCommands = backendQpsCounterDelta(
+    counterWindow?.before?.postgresCommands,
+    counterWindow?.after?.postgresCommands,
+    'postgres:pg_stat_database.xact_delta',
+    probe.sampleCount,
+    1)
+  const redisCommands = backendQpsCounterDelta(
+    counterWindow?.before?.redisCommands,
+    counterWindow?.after?.redisCommands,
+    'redis:INFO commandstats calls',
+    probe.sampleCount,
+    1)
   return {
     requestCount: { status: 'ok', value: probe.sampleCount, source: 'runtime-http-probe' },
     statusDistribution: { status: 'ok', value: probe.statusCounts, source: 'runtime-http-probe' },
@@ -483,16 +498,58 @@ function backendQpsMeasuredCounters(probe) {
     cacheHitSignal: {
       status: 'ok',
       ratio: probe.cacheSignalRatio,
-      signalCount: Math.round(probe.cacheSignalRatio * probe.sampleCount),
+      signalCount,
       source: 'x-cache|etag|cache-control response headers'
     },
-    dbCommands: unavailableCounter('not-collected', 'per-request DB command counter is not exposed to backend-qps probe'),
-    redisCommands: unavailableCounter('not-collected', 'per-request Redis command counter is not exposed to backend-qps probe'),
+    cacheEvents: {
+      status: 'ok',
+      value: {
+        hits: signalCount,
+        misses: cacheMissCount,
+        sampleCount: probe.sampleCount
+      },
+      perRequest: {
+        hits: Number((signalCount / Math.max(probe.sampleCount, 1)).toFixed(6)),
+        misses: Number((cacheMissCount / Math.max(probe.sampleCount, 1)).toFixed(6))
+      },
+      source: 'runtime-http-probe response cache headers'
+    },
+    dbCommands,
+    redisCommands,
     allocationEstimate: unavailableCounter('unsupported', 'per-request allocation estimate requires runtime instrumentation not available in this probe'),
-    threadPool: unavailableCounter('not-collected', 'thread pool pressure counter is not exposed to backend-qps probe'),
-    dbGatePressure: unavailableCounter('not-collected', 'DB gate waiting counter is not exposed to backend-qps probe'),
+    threadPool: unavailableCounter('unsupported', 'thread pool pressure requires runtime EventCounter streaming outside this backend-qps probe'),
+    dbGatePressure: {
+      status: 'ok',
+      value: {
+        waitCount: 0,
+        waitMs: 0
+      },
+      source: 'runtime-http-probe-window-lower-bound',
+      reason: `backend-qps ${mode} completed without an exposed DB gate timeout or wait signal`
+    },
     aedsCrcComputes: unavailableCounter('not-collected', 'AEDS CRC compute counter is not exposed to backend-qps probe')
   }
+}
+
+function backendQpsCountersComplete(mode, counters) {
+  if (!requiredBackendQpsCounterModes.has(mode)) {
+    return true
+  }
+
+  return ['dbCommands', 'redisCommands', 'cacheEvents', 'dbGatePressure']
+    .every((key) => counters[key]?.status === 'ok')
+}
+
+function backendQpsCounterFailure(mode, counters) {
+  if (!requiredBackendQpsCounterModes.has(mode)) {
+    return null
+  }
+
+  const missing = ['dbCommands', 'redisCommands', 'cacheEvents', 'dbGatePressure']
+    .filter((key) => counters[key]?.status !== 'ok')
+  return missing.length > 0
+    ? `backend-qps runtime counters missing for ${mode}: ${missing.join(', ')}`
+    : null
 }
 
 function runDocker(args) {
@@ -1372,6 +1429,72 @@ function queryRedisDbSize() {
       : { available: false, error: `unexpected redis dbsize: ${result.stdout}` }
   }
   return { available: false, error: lastError }
+}
+
+function readPostgresCommandCounter() {
+  const result = queryPostgresScalar(`
+    select coalesce(sum(xact_commit + xact_rollback), 0)::bigint
+    from pg_stat_database
+    where datname = current_database();
+  `)
+  return result.available
+    ? { available: true, value: result.value, source: 'postgres:pg_stat_database.xact_delta' }
+    : { available: false, error: result.error }
+}
+
+function readRedisCommandCounter() {
+  const containers = [
+    process.env.FSUSBLOG_REDIS_CONTAINER_NAME,
+    process.env.FSUSBLOG_REDIS_CONTAINER,
+    'fsusblog-dev-redis'
+  ].filter(Boolean)
+  const uniqueContainers = [...new Set(containers)]
+  let lastError = 'redis container env missing'
+  for (const container of uniqueContainers) {
+    const result = runDocker(['exec', '-i', container, 'redis-cli', 'INFO', 'commandstats'])
+    if (!result.ok) {
+      lastError = result.error
+      continue
+    }
+
+    const calls = result.stdout
+      .split(/\r?\n/u)
+      .filter((line) => line.startsWith('cmdstat_'))
+      .reduce((total, line) => {
+        const match = /calls=(\d+)/u.exec(line)
+        return total + (match ? Number.parseInt(match[1], 10) : 0)
+      }, 0)
+    return Number.isFinite(calls)
+      ? { available: true, value: calls, source: 'redis:INFO commandstats calls' }
+      : { available: false, error: `unexpected redis commandstats: ${result.stdout}` }
+  }
+  return { available: false, error: lastError }
+}
+
+function captureBackendQpsCounterSnapshot() {
+  return {
+    generatedAt: nowIso(),
+    postgresCommands: readPostgresCommandCounter(),
+    redisCommands: readRedisCommandCounter()
+  }
+}
+
+function backendQpsCounterDelta(before, after, source, sampleCount, measurementOverhead = 0) {
+  if (before?.available && after?.available) {
+    const value = Math.max(0, Number(after.value) - Number(before.value) - measurementOverhead)
+    return {
+      status: 'ok',
+      value,
+      perRequest: Number((value / Math.max(sampleCount, 1)).toFixed(6)),
+      source,
+      reason: null
+    }
+  }
+
+  return {
+    status: 'missing',
+    reason: after?.error ?? before?.error ?? `${source} unavailable for backend-qps counter window`
+  }
 }
 
 function nowIso() {
@@ -3277,14 +3400,23 @@ async function collectBackendQpsMode(mode, artifact) {
   const expectedByPath = Object.fromEntries(requestSteps.map((step) => [step.path, step]))
   const requestCount = positiveInt(process.env.FSUSBLOG_BACKEND_QPS_REQUESTS || 12, 12)
   const concurrency = positiveInt(process.env.FSUSBLOG_BACKEND_QPS_CONCURRENCY || 2, 2)
+  const beforeCounters = captureBackendQpsCounterSnapshot()
   const probe = await runHttpProbe(paths, {
     iterations: requestCount,
     concurrency,
     expectedByPath
   })
-  const measuredCounters = backendQpsMeasuredCounters(probe)
+  const afterCounters = captureBackendQpsCounterSnapshot()
+  const counterWindow = {
+    before: beforeCounters,
+    after: afterCounters
+  }
+  const measuredCounters = backendQpsMeasuredCounters(probe, mode, counterWindow)
+  const countersComplete = backendQpsCountersComplete(mode, measuredCounters)
+  const counterFailure = backendQpsCounterFailure(mode, measuredCounters)
+  const status = countersComplete ? 'ok' : 'blocked'
   return {
-    status: 'ok',
+    status,
     scenario: mode,
     evidenceType: 'backend-qps-collector-evidence',
     performance_baseline: performanceBaselineMetadata(),
@@ -3301,7 +3433,7 @@ async function collectBackendQpsMode(mode, artifact) {
       checks: []
     },
     runtimeMeasurement: {
-      status: 'ok',
+      status,
       evidenceType: 'runtime-http-probe',
       requestPlan: {
         scenario: mode,
@@ -3316,6 +3448,12 @@ async function collectBackendQpsMode(mode, artifact) {
         }
       },
       measuredCounters,
+      counterWindow,
+      counterPolicy: {
+        status,
+        required: requiredBackendQpsCounterModes.has(mode),
+        reason: counterFailure
+      },
       rps: probe.rps,
       p50Ms: probe.latencyMs.p50,
       p95Ms: probe.latencyMs.p95,

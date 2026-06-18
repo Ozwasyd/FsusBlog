@@ -273,6 +273,25 @@ public class BackgroundWorkflowSourceTests
         Assert.Contains("catch (probeError)", runtimeProbe, StringComparison.Ordinal);
         Assert.Contains("data-scale artifact rebuild hook missing", runtimeProbe, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void BackendQps_SourceRequiresRuntimeCountersForCoreScenarios()
+    {
+        string runtimeProbe = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/test/lanes/runtime-evidence-probe.mjs"));
+
+        Assert.Contains("requiredBackendQpsCounterModes", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("'cache-hit'", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("'hotread'", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("'cache-miss-singleflight'", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("captureBackendQpsCounterSnapshot", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("readPostgresCommandCounter", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("readRedisCommandCounter", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("cacheEvents", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("backendQpsCountersComplete", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("backend-qps runtime counters missing", runtimeProbe, StringComparison.Ordinal);
+        Assert.DoesNotContain("per-request DB command counter is not exposed to backend-qps probe", runtimeProbe, StringComparison.Ordinal);
+        Assert.DoesNotContain("per-request Redis command counter is not exposed to backend-qps probe", runtimeProbe, StringComparison.Ordinal);
+    }
 }
 
 public class MiddlewareResultsTests
