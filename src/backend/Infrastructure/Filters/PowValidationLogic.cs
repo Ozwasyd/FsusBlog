@@ -73,26 +73,11 @@ internal static partial class PowValidationLogic
                 return new ObjectResult(Fail(httpContext, ErrorCode.Forbidden, "算力凭证已失效，请重试")) { StatusCode = 403 };
             }
 
-            // [修复 2026-02-24] 核心重构：代理穿透与 IP 漂移自动修正逻辑
-            // 逻辑自洽：由于 Docker 桥接网络可能导致 WebSocket 握手时丢头，我们需要测试可能的候选 IP
             bool isValid = await powService.VerifyAsync(powRequest, clientIp);
 
             if (!isValid)
             {
-                var rawIp = httpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString();
-                int lastDot = clientIp.LastIndexOf('.');
-                string? gatewayIp = lastDot > 0 ? string.Concat(clientIp.AsSpan(0, lastDot + 1), "1") : null;
-
-                isValid = await TryProbeCandidateAsync(powService, powRequest, clientIp, rawIp, logger)
-                          || await TryProbeCandidateAsync(powService, powRequest, clientIp, gatewayIp, logger)
-                          || await TryProbeCandidateAsync(powService, powRequest, clientIp, "127.0.0.1", logger)
-                          || await TryProbeCandidateAsync(powService, powRequest, clientIp, "172.17.0.1", logger)
-                          || await TryProbeCandidateAsync(powService, powRequest, clientIp, "172.18.0.1", logger);
-            }
-
-            if (!isValid)
-            {
-                LogAccessDenied(logger, clientIp, "Signature/Nonce Verification Failed");
+                LogAccessDenied(logger, clientIp, httpContext.TraceIdentifier, "Signature/Nonce Verification Failed");
                 await AddRiskAsync(httpContext, SecurityRiskReason.PowInvalid, 10);
                 return new UnauthorizedObjectResult(Fail(httpContext, ErrorCode.Unauthorized, "安全校验未通过或凭证已过期"));
             }
@@ -191,30 +176,6 @@ internal static partial class PowValidationLogic
         return true;
     }
 
-    [LoggerMessage(EventId = 101, Level = LogLevel.Information, Message = "PoW 验证逻辑拒绝访问 | IP: {IP} | 原因: {Reason}")]
-    private static partial void LogAccessDenied(ILogger logger, string ip, string reason);
-
-    [LoggerMessage(EventId = 102, Level = LogLevel.Information, Message = "PoW 代理穿透修正成功 | 原始 IP: {RealIp} | 退化 IP: {ProxyIp}")]
-    private static partial void LogProxyDriftCorrected(ILogger logger, string realIp, string proxyIp);
-
-    private static async Task<bool> TryProbeCandidateAsync(
-        IPowService powService,
-        IPowRequest powRequest,
-        string currentIp,
-        string? candidateIp,
-        ILogger logger)
-    {
-        if (string.IsNullOrWhiteSpace(candidateIp) || string.Equals(candidateIp, currentIp, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        if (!await powService.VerifyAsync(powRequest, candidateIp))
-        {
-            return false;
-        }
-
-        LogProxyDriftCorrected(logger, candidateIp, currentIp);
-        return true;
-    }
+    [LoggerMessage(EventId = 101, Level = LogLevel.Information, Message = "PoW 验证逻辑拒绝访问 | IP: {IP} | TraceId: {TraceId} | 原因: {Reason}")]
+    private static partial void LogAccessDenied(ILogger logger, string ip, string traceId, string reason);
 }

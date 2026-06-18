@@ -139,7 +139,7 @@ Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AED
 
 HTTP 动态公开 API 使用 `X-Fsus-Pow-Proof`，notification stream 匿名连接使用 `pow` query 参数；两者都承载同一种 base64 文本形式的二进制 FPOW 信封。前端实现位于 `src/frontend/src/services/powProofCodec.ts`。
 
-FPOW 信封字段顺序为：`magic[4] = "FPOW"`（字节 `46 50 4f 57`）、`version:uint8 = 1`、`difficulty:int32LE`、`timestamp:int64LE`，随后是若干 `uint16LE length + utf8 bytes` 字段。HTTP header proof 字段为 `salt, nonce, signature, browserFp`；notification stream proof 字段为 `salt, nonce, signature, fp`。服务端按 proof 绑定的 challenge、时间戳、nonce、签名和设备指纹校验，不接受旧文本 PoW answer/challenge 头。
+FPOW 信封字段顺序为：`magic[4] = "FPOW"`（字节 `46 50 4f 57`）、`version:uint8 = 1`、`difficulty:int32LE`、`timestamp:int64LE`，随后是若干 `uint16LE length + utf8 bytes` 字段。HTTP header proof 字段为 `salt, nonce, signature, browserFp`；notification stream proof 字段为 `salt, nonce, signature, fp`。服务端按 proof 绑定的 challenge、时间戳、nonce、签名、设备指纹和 `ForwardedHeadersMiddleware` 规范化后的客户端 IP 校验，不接受旧文本 PoW answer/challenge 头，也不在 PoW 验证层回退到 raw remote IP、localhost 或 Docker bridge IP。
 
 ---
 

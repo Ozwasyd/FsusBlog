@@ -21,6 +21,7 @@
 - 挑战端点：`GET /api/binary/auth/pow-challenge`（匿名，IP 速率限制，AEDS `PowChallenge` frame）
 - 有效期：挑战存入 Redis，TTL 过期后自动失效
 - 服务端验证：注册 / 登录端点在执行业务逻辑前校验 PoW 解答，失败拒绝请求
+- IP 绑定：PoW proof 的 HMAC 签名和一次性 replay identity 只绑定 `GetClientIp()` 返回的规范化客户端 IP；PoW 层不探测 raw remote IP、localhost 或 Docker bridge gateway。代理迁移必须通过 `ForwardedHeadersMiddleware` 的 `ReverseProxy:KnownProxies` / `ReverseProxy:KnownNetworks` 配置修正。
 - 安全门控覆盖：缺失、篡改、重放形态的 PoW 请求不得产生 2xx，且不得写入业务状态。
 - 难度语义：`difficulty` 表示 SHA-256 摘要的 bit 级前导零数量，而不是半字节 / nibble 数；默认阶梯为 16/20/24/28 bits。
 - 客户端求解器：PoW 延迟优化只发生在 `src/frontend/wasm/pow` 的 C++23/Wasm 层，proof wire 格式与 Redis/HMAC 绑定语义不变。
