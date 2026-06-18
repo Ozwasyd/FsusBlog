@@ -1,5 +1,5 @@
 <template>
-  <div v-if="isLoggedIn" :class="commentDetailTokens.composer.loggedInShell">
+  <div v-if="isLoggedIn" ref="composerShell" :class="commentDetailTokens.composer.loggedInShell">
     <div v-if="replyTarget" class="mb-3 flex items-center justify-between border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-3 py-2 text-xs text-[var(--fsusblog-text-tertiary)]">
       <span>正在回复 @{{ replyTarget.author.displayName }}</span>
       <el-button
@@ -15,7 +15,7 @@
         <div class="space-y-1">
           <span class="text-xs font-semibold text-[var(--fsusblog-text-secondary)]">评论身份</span>
           <div class="flex flex-wrap items-center gap-2">
-            <el-tag v-if="anonymousCommentsEnabled" size="small" type="info">匿名发布</el-tag>
+            <el-tag v-if="effectiveAnonymousCommentsEnabled" size="small" type="info">{{ anonymousStatusText }}</el-tag>
             <el-tag v-else size="small" type="warning">匿名发布暂不可用</el-tag>
           </div>
         </div>
@@ -43,6 +43,7 @@
       aria-label="发表评论"
       :placeholder="placeholderText"
       :disabled="composerUi.disabled"
+      @focus="notifyPrivacyIntent"
       @keydown.ctrl.enter="requestSubmit"
       @keydown.meta.enter="requestSubmit"
     />
@@ -70,8 +71,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { CommentAuthorMode, CommentAuthorView, CommentDisplayLanguage } from '@/api/comment'
+import type { CommentPrivacyUiState } from '@/privacy/commentPrivacyTypes'
 import {
   commentDetailTokens,
   createCommentComposerUiContract
@@ -98,6 +100,7 @@ const props = withDefaults(defineProps<{
   anonymousCommentsEnabled: boolean;
   publicCommentsEnabled: boolean;
   zkAnonymousEnabled: boolean;
+  privacyState: CommentPrivacyUiState;
   displayLanguage: CommentDisplayLanguage;
   anonymousScope: string;
 }>(), {
@@ -106,6 +109,7 @@ const props = withDefaults(defineProps<{
   anonymousCommentsEnabled: true,
   publicCommentsEnabled: true,
   zkAnonymousEnabled: false,
+  privacyState: 'publicOnly',
   displayLanguage: 'zh-CN',
   anonymousScope: ''
 });
@@ -117,14 +121,28 @@ const emit = defineEmits<{
   (e: 'update:displayLanguage', value: CommentDisplayLanguage): void;
   (e: 'submit'): void;
   (e: 'cancel-reply'): void;
+  (e: 'privacy-intent'): void;
 }>()
+
+const composerShell = ref<HTMLElement | null>(null)
+let privacyObserver: IntersectionObserver | null = null
 
 const contentModel = computed({
   get: () => props.modelValue,
   set: (value: string) => emit('update:modelValue', value)
 })
 
-const anonymousUnavailableMessage = computed(() => !props.anonymousCommentsEnabled && props.publicCommentsEnabled)
+const effectiveAnonymousCommentsEnabled = computed(() =>
+  props.anonymousCommentsEnabled && props.privacyState !== 'unavailable'
+)
+
+const anonymousStatusText = computed(() =>
+  props.privacyState === 'preparing'
+    ? '匿名发布准备中'
+    : '匿名发布'
+)
+
+const anonymousUnavailableMessage = computed(() => !effectiveAnonymousCommentsEnabled.value && props.publicCommentsEnabled)
 
 const authorModeModel = computed<CommentAuthorMode>(() => {
   if (props.authorMode === 'public') {
@@ -133,7 +151,7 @@ const authorModeModel = computed<CommentAuthorMode>(() => {
   if (props.authorMode === 'zk_anonymous' && props.zkAnonymousEnabled) {
     return 'zk_anonymous'
   }
-  return props.anonymousCommentsEnabled ? 'anonymous' : 'public'
+  return effectiveAnonymousCommentsEnabled.value ? 'anonymous' : 'public'
 })
 
 const publicIdentityModel = computed({
@@ -159,19 +177,52 @@ const composerUi = computed(() =>
     hasContent: Boolean(contentModel.value.trim()),
     authorMode: authorModeModel.value,
     publicSendConfirmed: publicIdentityModel.value,
-    anonymousCommentsEnabled: props.anonymousCommentsEnabled,
+    anonymousCommentsEnabled: effectiveAnonymousCommentsEnabled.value,
     publicCommentsEnabled: props.publicCommentsEnabled,
     zkAnonymousEnabled: props.zkAnonymousEnabled
   })
 )
 
-const submitDisabled = computed(() => composerUi.value.disabled)
+const anonymousTicketPreparing = computed(() =>
+  authorModeModel.value === 'anonymous' && props.privacyState === 'preparing'
+)
+
+const submitDisabled = computed(() => composerUi.value.disabled || anonymousTicketPreparing.value)
 
 const requestSubmit = (): void => {
   if (!submitDisabled.value) {
     emit('submit')
   }
 }
+
+const notifyPrivacyIntent = (): void => {
+  if (props.isLoggedIn && effectiveAnonymousCommentsEnabled.value) {
+    emit('privacy-intent')
+  }
+}
+
+onMounted(() => {
+  if (typeof IntersectionObserver === 'undefined') {
+    queueMicrotask(notifyPrivacyIntent)
+    return
+  }
+
+  privacyObserver = new IntersectionObserver((entries) => {
+    if (entries.some((entry) => entry.isIntersecting)) {
+      notifyPrivacyIntent()
+      privacyObserver?.disconnect()
+      privacyObserver = null
+    }
+  })
+  if (composerShell.value) {
+    privacyObserver.observe(composerShell.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  privacyObserver?.disconnect()
+  privacyObserver = null
+})
 
 const placeholderText = computed(() =>
   props.replyTarget

@@ -29,6 +29,11 @@ import { requestGlobalConfirm } from '@/composables/useGlobalConfirm'
 import type { NotificationStreamArticleRenderPatch, NotificationStreamCommentRenderPatch } from '@/services/notificationStreamTypes'
 import { useNotificationStreamStore } from '@/store/notificationStream'
 import {
+  getCommentPrivacyRuntime,
+  type CommentPrivacyPreparedTicket,
+  type CommentPrivacyUiState
+} from '@/privacy/commentPrivacyRuntime'
+import {
   createArticleDetailPageViewContract,
   createArticleDetailHeaderViewContract,
   emptyArticleDetailHeaderView,
@@ -95,6 +100,7 @@ export function useArticleDetailView() {
   const relatedLoadTask = useAbortableTask()
   const commentPolicyTask = useAbortableTask()
   const commentSubmitTask = useAbortableTask()
+  const commentPrivacyRuntime = getCommentPrivacyRuntime()
 
   const articleRendererRef = ref<InstanceType<typeof MarkdownRenderer> | null>(null)
   const commentContent = ref('')
@@ -104,6 +110,7 @@ export function useArticleDetailView() {
   const anonymousCommentsEnabled = ref(true)
   const publicCommentsEnabled = ref(true)
   const zkAnonymousEnabled = ref(false)
+  const commentPrivacyUiState = ref<CommentPrivacyUiState>(commentPrivacyRuntime.getUiState())
   const submittingComment = ref(false)
   const replyTarget = ref<ReplyTarget>(null)
 
@@ -119,7 +126,11 @@ export function useArticleDetailView() {
       relatedLoadTask.cancel()
       commentPolicyTask.cancel()
       commentSubmitTask.cancel()
+      unsubscribeCommentPrivacyRuntime()
     }
+  })
+  const unsubscribeCommentPrivacyRuntime = commentPrivacyRuntime.subscribe((state) => {
+    commentPrivacyUiState.value = state
   })
   const markRouteReady = (): void => {
     markCurrentRouteContentReady(route)
@@ -429,6 +440,10 @@ export function useArticleDetailView() {
     await hydrateCommentStream()
     if (lifecycle.isActive() && initVersion === routeInitVersion && article.value) {
       powProvider.prewarm()
+      if (userStore.isLoggedIn && anonymousCommentsEnabled.value) {
+        void commentPrivacyRuntime.preloadPrivacyMetadata(article.value.id)
+        void commentPrivacyRuntime.prewarmProver()
+      }
     }
   }
 
@@ -553,6 +568,20 @@ export function useArticleDetailView() {
       return
     }
 
+    let privacyTicket: CommentPrivacyPreparedTicket | null = null
+    if (selectedAuthorMode === 'anonymous') {
+      privacyTicket = commentPrivacyRuntime.consumePreparedTicket(commentAnonymousScope.value)
+      if (!privacyTicket) {
+        await commentPrivacyRuntime.prepareAnonymousTicket(commentAnonymousScope.value)
+        privacyTicket = commentPrivacyRuntime.consumePreparedTicket(commentAnonymousScope.value)
+      }
+
+      if (!privacyTicket) {
+        showErrorToast('匿名发布暂不可用，可选择公开署名发布。')
+        return
+      }
+    }
+
     submittingComment.value = true
 
     commentSubmitTask.cancel()
@@ -570,7 +599,9 @@ export function useArticleDetailView() {
               authorMode: selectedAuthorMode,
               publicSendExplicitlySelected: publicSendConfirmed.value,
               anonymousScope: commentAnonymousScope.value,
-              displayLanguage: commentDisplayLanguage.value
+              displayLanguage: commentDisplayLanguage.value,
+              proofToken: privacyTicket?.proofToken ?? null,
+              zkProof: privacyTicket?.zkProof ?? null
             },
             { signal }
           )
@@ -606,6 +637,14 @@ export function useArticleDetailView() {
 
   const clearReplyTarget = (): void => {
     replyTarget.value = null
+  }
+
+  const prepareCommentPrivacyTicket = (): void => {
+    if (!userStore.isLoggedIn || !article.value || !anonymousCommentsEnabled.value) {
+      return
+    }
+
+    void commentPrivacyRuntime.prepareAnonymousTicket(commentAnonymousScope.value)
   }
 
   const handleRemoteAdd = (data: CommentAddedSignalPayload): void => {
@@ -757,6 +796,7 @@ export function useArticleDetailView() {
     anonymousCommentsEnabled,
     publicCommentsEnabled,
     zkAnonymousEnabled,
+    commentPrivacyUiState,
     submittingComment,
     threads,
     hasMore,
@@ -771,6 +811,7 @@ export function useArticleDetailView() {
     loadArticle,
     handleRenderComplete,
     submitComment,
+    prepareCommentPrivacyTicket,
     handleCommentDelete,
     spaReady
   }

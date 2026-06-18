@@ -56,8 +56,10 @@
           :anonymous-comments-enabled="anonymousCommentsEnabled"
           :public-comments-enabled="publicCommentsEnabled"
           :zk-anonymous-enabled="zkAnonymousEnabled"
+          :privacy-state="commentPrivacyUiState"
           :anonymous-scope="commentAnonymousScope"
           @submit="submitComment"
+          @privacy-intent="prepareCommentPrivacyTicket"
           @cancel-reply="clearReplyTarget"
         />
 
@@ -174,6 +176,7 @@ const {
   anonymousCommentsEnabled,
   publicCommentsEnabled,
   zkAnonymousEnabled,
+  commentPrivacyUiState,
   submittingComment,
   threads,
   hasMore,
@@ -188,6 +191,7 @@ const {
   loadArticle,
   handleRenderComplete,
   submitComment,
+  prepareCommentPrivacyTicket,
   handleCommentDelete,
 
   detailView,
