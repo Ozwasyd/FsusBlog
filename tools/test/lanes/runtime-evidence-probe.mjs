@@ -65,6 +65,7 @@ const backendQpsModes = [
   'index-plan'
 ]
 const requiredBackendQpsCounterModes = new Set(['cache-hit', 'hotread', 'cache-miss-singleflight'])
+const requiredExtendedObservabilityCategories = ['managedRuntime', 'threadOrConnection', 'storageOrCacheLatency']
 
 let notificationSupportPromise = null
 
@@ -357,7 +358,7 @@ async function runHttpProbe(paths, options = {}) {
   const latencies = samples.map((sample) => sample.elapsedMs)
   const bytes = samples.reduce((total, sample) => total + sample.bytes, 0)
   const cacheSignals = samples.filter((sample) => sample.xCache || sample.etag || sample.cacheControl).length
-  return {
+  const probe = {
     baseUrl,
     namespace,
     measurementSource: 'runtime-http-probe',
@@ -378,6 +379,7 @@ async function runHttpProbe(paths, options = {}) {
     cacheSignalRatio: Number((cacheSignals / samples.length).toFixed(3)),
     samples: samples.slice(0, 10)
   }
+  return attachExtendedObservability(probe)
 }
 
 function firstPublicArticleId() {
@@ -1503,6 +1505,129 @@ function nowIso() {
 
 function elapsedMs(started) {
   return Number((performance.now() - started).toFixed(3))
+}
+
+function unavailableExtendedMetric(status, reason, source = null) {
+  return { status, reason, source }
+}
+
+function okExtendedMetric(value, unit, source, extra = {}) {
+  return { status: 'ok', value, unit, source, ...extra }
+}
+
+function measurePostgresPingLatency() {
+  const started = performance.now()
+  const result = queryPostgresScalar('select 1;')
+  if (result.available && Number(result.value) === 1) {
+    return okExtendedMetric(elapsedMs(started), 'ms', 'postgres:select 1')
+  }
+  return unavailableExtendedMetric('missing', result.error ?? 'postgres ping unavailable', 'postgres:select 1')
+}
+
+function measureRedisPingLatency() {
+  const containers = [
+    process.env.FSUSBLOG_REDIS_CONTAINER_NAME,
+    process.env.FSUSBLOG_REDIS_CONTAINER,
+    'fsusblog-dev-redis'
+  ].filter(Boolean)
+  const uniqueContainers = [...new Set(containers)]
+  let lastError = 'redis container env missing'
+  for (const container of uniqueContainers) {
+    const started = performance.now()
+    const result = runDocker(['exec', '-i', container, 'redis-cli', 'PING'])
+    if (!result.ok) {
+      lastError = result.error
+      continue
+    }
+    if (result.stdout.trim() === 'PONG') {
+      return okExtendedMetric(elapsedMs(started), 'ms', 'redis:PING')
+    }
+    lastError = `unexpected redis PING response: ${result.stdout}`
+  }
+  return unavailableExtendedMetric('missing', lastError, 'redis:PING')
+}
+
+function activeHandleCount() {
+  return typeof process._getActiveHandles === 'function'
+    ? process._getActiveHandles().length
+    : null
+}
+
+function extendedCategoryStatus(fields) {
+  return Object.values(fields).some((field) => field?.status === 'ok') ? 'ok' : 'missing'
+}
+
+function extendedCategoryReason(fields) {
+  return Object.values(fields)
+    .filter((field) => field?.status !== 'ok')
+    .map((field) => field?.reason)
+    .filter(Boolean)
+    .join('; ') || null
+}
+
+function buildExtendedObservability(probe) {
+  const managedRuntimeFields = {
+    runtime: okExtendedMetric('dotnet-10', 'name', 'performance_baseline.runtime'),
+    nativeAot: okExtendedMetric(booleanEnv('FSUSBLOG_NATIVE_AOT') ?? false, 'boolean', 'env:FSUSBLOG_NATIVE_AOT'),
+    readyToRun: booleanEnv('DOTNET_ReadyToRun', 'COMPlus_ReadyToRun', 'FSUSBLOG_PERF_READYTORUN') === null
+      ? unavailableExtendedMetric('not-collected', 'ReadyToRun env flag was not set for this runtime probe', 'env')
+      : okExtendedMetric(booleanEnv('DOTNET_ReadyToRun', 'COMPlus_ReadyToRun', 'FSUSBLOG_PERF_READYTORUN'), 'boolean', 'env:DOTNET_ReadyToRun|COMPlus_ReadyToRun|FSUSBLOG_PERF_READYTORUN'),
+    tieredPgo: booleanEnv('DOTNET_TieredPGO', 'COMPlus_TieredPGO') === null
+      ? unavailableExtendedMetric('not-collected', 'TieredPGO env flag was not set for this runtime probe', 'env')
+      : okExtendedMetric(booleanEnv('DOTNET_TieredPGO', 'COMPlus_TieredPGO'), 'boolean', 'env:DOTNET_TieredPGO|COMPlus_TieredPGO')
+  }
+  const threadOrConnectionFields = {
+    configuredConcurrency: okExtendedMetric(probe.concurrency, 'count', 'runtime-http-probe.concurrency'),
+    sampleCount: okExtendedMetric(probe.sampleCount, 'count', 'runtime-http-probe.sampleCount'),
+    activeProbeHandles: activeHandleCount() === null
+      ? unavailableExtendedMetric('not-collected', 'Node active handle count is not available in this runtime', 'node:process._getActiveHandles')
+      : okExtendedMetric(activeHandleCount(), 'count', 'node:process._getActiveHandles')
+  }
+  const postgresPingLatency = measurePostgresPingLatency()
+  const redisPingLatency = measureRedisPingLatency()
+  const storageOrCacheLatencyFields = {
+    cacheBackedHttpP95: okExtendedMetric(probe.latencyMs.p95, 'ms', 'runtime-http-probe.latencyMs.p95', {
+      cacheSignalRatio: probe.cacheSignalRatio
+    }),
+    postgresPingLatency,
+    redisPingLatency
+  }
+  const categories = {
+    managedRuntime: {
+      status: extendedCategoryStatus(managedRuntimeFields),
+      fields: managedRuntimeFields,
+      reason: extendedCategoryReason(managedRuntimeFields)
+    },
+    threadOrConnection: {
+      status: extendedCategoryStatus(threadOrConnectionFields),
+      fields: threadOrConnectionFields,
+      reason: extendedCategoryReason(threadOrConnectionFields)
+    },
+    storageOrCacheLatency: {
+      status: extendedCategoryStatus(storageOrCacheLatencyFields),
+      fields: storageOrCacheLatencyFields,
+      reason: extendedCategoryReason(storageOrCacheLatencyFields)
+    }
+  }
+  const complete = requiredExtendedObservabilityCategories.every((category) => categories[category]?.status === 'ok')
+  return {
+    status: complete ? 'complete' : 'partial',
+    requiredCategories: requiredExtendedObservabilityCategories,
+    categories,
+    generatedAt: nowIso(),
+    reason: complete ? null : 'one or more extended observability categories were unavailable; see category reasons'
+  }
+}
+
+function attachExtendedObservability(probe) {
+  const extendedObservability = buildExtendedObservability(probe)
+  return {
+    ...probe,
+    observabilityLevel: extendedObservability.status === 'complete'
+      ? 'extended-runtime-evidence'
+      : 'basic-runtime-evidence',
+    extendedObservability
+  }
 }
 
 function summarizeProbe(probe) {

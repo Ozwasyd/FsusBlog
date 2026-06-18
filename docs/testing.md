@@ -131,6 +131,7 @@ optional_deployment_layer:
 - `backend-qps-runtime-sequential` 是可选 warmed runtime measurement：必须在同一个 bootstrapped runtime 中按固定顺序执行全部 measured scenarios，并记录 runtime id / namespace、warmup duration、scenario order、per-scenario counters、machine metadata 和 `capacityConclusion.countedAsCapacity=false`。
 - 每个 `backend-qps` runtime measurement 必须写入 request plan steps，包含 method、path、headers、expectedStatus、expectedContentType、expectedFrameType 与 fixturePrerequisite；probe 必须实际校验 status/content-type/AEDS frame type。
 - 每个 `backend-qps` runtime measurement 必须写入 `measuredCounters`：requestCount、statusDistribution、bytes、cacheHitSignal 必须为 `ok`；DB/Redis/allocation/threadPool/dbGate/AEDS CRC 等尚未接入的计数器必须写 `unsupported`、`disabled`、`probe-failed` 或 `not-collected` 以及 reason，不能静默写 null。
+- 每个 runtime probe 必须写入 `observabilityLevel` 与 `extendedObservability`。`extendedObservability.categories` 至少包含三类扩展字段：`managedRuntime`（托管运行时模式，例如 runtime、NativeAOT、ReadyToRun、TieredPGO）、`threadOrConnection`（线程或连接类读数，例如 probe concurrency、sampleCount、active handles）、`storageOrCacheLatency`（存储或缓存延迟，例如 cache-backed HTTP p95、Postgres ping、Redis ping）。每个字段都必须有 `status`；不可采集时必须写 `reason`。validator 会把三类均为 `ok` 的证据标为 `extended-runtime-evidence`，否则标为 `basic-runtime-evidence` 并要求缺失原因。
 - QPS、latency、cache hit、compression 和 static file 结论不得混用 Kestrel-only 与代理层结果。
 - 如果 `baseUrl` 指向 nginx/CDN/reverse proxy，必须在证据中保留 `optional_deployment_layer`，并另行说明代理缓存、压缩和 buffering 设置。
 - 项目内优化 issue 不得把 CDN、nginx proxy cache 或代理压缩计为验收收益。

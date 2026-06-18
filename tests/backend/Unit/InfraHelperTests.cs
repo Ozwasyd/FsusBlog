@@ -292,6 +292,31 @@ public class BackgroundWorkflowSourceTests
         Assert.DoesNotContain("per-request DB command counter is not exposed to backend-qps probe", runtimeProbe, StringComparison.Ordinal);
         Assert.DoesNotContain("per-request Redis command counter is not exposed to backend-qps probe", runtimeProbe, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void RuntimeEvidence_SourceCollectsExtendedObservabilityFields()
+    {
+        string runtimeProbe = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/test/lanes/runtime-evidence-probe.mjs"));
+        string evidenceValidator = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/operations/check-evidence-metrics.mjs"));
+        string testingDocs = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "docs/testing.md"));
+
+        Assert.Contains("buildExtendedObservability", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("extendedObservability", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("managedRuntime", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("threadOrConnection", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("storageOrCacheLatency", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("observabilityLevel", runtimeProbe, StringComparison.Ordinal);
+
+        Assert.Contains("validateExtendedObservability", evidenceValidator, StringComparison.Ordinal);
+        Assert.Contains("requiredExtendedObservabilityCategories", evidenceValidator, StringComparison.Ordinal);
+        Assert.Contains("basic-runtime-evidence", evidenceValidator, StringComparison.Ordinal);
+        Assert.Contains("extended-runtime-evidence", evidenceValidator, StringComparison.Ordinal);
+
+        Assert.Contains("extendedObservability", testingDocs, StringComparison.Ordinal);
+        Assert.Contains("managedRuntime", testingDocs, StringComparison.Ordinal);
+        Assert.Contains("threadOrConnection", testingDocs, StringComparison.Ordinal);
+        Assert.Contains("storageOrCacheLatency", testingDocs, StringComparison.Ordinal);
+    }
 }
 
 public class MiddlewareResultsTests

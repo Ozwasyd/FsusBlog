@@ -10,6 +10,7 @@ const requiredPostgresFaultCases = ['postgres-readiness', 'postgres-reconnect', 
 const requiredNotificationFaultCases = ['notification-stream-slow-consumer']
 const requiredGracefulShutdownFaultCases = ['graceful-shutdown']
 const requiredDiskArtifactFaultCases = ['disk-artifact-storage-write-failure']
+const requiredExtendedObservabilityCategories = ['managedRuntime', 'threadOrConnection', 'storageOrCacheLatency']
 const perfPolicyRelativeFile = 'tests/perf/perf-policy.yml'
 
 function readJson(relativePath, optional = false) {
@@ -33,7 +34,7 @@ function findEvidenceFile(relativePath) {
     const current = stack.pop()
     for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
       const next = path.join(current, entry.name)
-      if (entry.isDirectory()) {
+      if (isEvidenceDirectory(next, entry)) {
         stack.push(next)
       } else if (next.endsWith(suffix)) {
         return next
@@ -41,6 +42,20 @@ function findEvidenceFile(relativePath) {
     }
   }
   return null
+}
+
+function isEvidenceDirectory(entryPath, entry) {
+  if (entry.isDirectory()) {
+    return true
+  }
+  if (!entry.isSymbolicLink()) {
+    return false
+  }
+  try {
+    return fs.statSync(entryPath).isDirectory()
+  } catch {
+    return false
+  }
 }
 
 function findEvidenceFilesBySuffix(suffix) {
@@ -55,7 +70,7 @@ function findEvidenceFilesBySuffix(suffix) {
       const current = stack.pop()
       for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
         const next = path.join(current, entry.name)
-        if (entry.isDirectory()) {
+        if (isEvidenceDirectory(next, entry)) {
           stack.push(next)
         } else if (next.endsWith(suffix)) {
           files.push(next)
@@ -131,6 +146,53 @@ function validateRuntimeProbe(probe, label) {
   positiveNumber(probe.latencyMs?.p50, `${label}.runtime.latencyMs.p50`)
   positiveNumber(probe.latencyMs?.p95, `${label}.runtime.latencyMs.p95`)
   assert(Object.keys(probe.statusCounts ?? {}).some((status) => status.startsWith('2') || status.startsWith('3')), `${label}.runtime.statusCounts must include 2xx/3xx`)
+  validateExtendedObservability(probe, label)
+}
+
+function validateExtendedObservability(probe, label) {
+  assert(['basic-runtime-evidence', 'extended-runtime-evidence'].includes(probe.observabilityLevel), `${label}.runtime.observabilityLevel must distinguish basic-runtime-evidence or extended-runtime-evidence`)
+  const extended = probe.extendedObservability
+  assert(extended && typeof extended === 'object', `${label}.runtime.extendedObservability missing`)
+  assert(Array.isArray(extended.requiredCategories), `${label}.runtime.extendedObservability.requiredCategories missing`)
+  for (const category of requiredExtendedObservabilityCategories) {
+    assert(extended.requiredCategories.includes(category), `${label}.runtime.extendedObservability.requiredCategories missing ${category}`)
+    validateExtendedObservabilityCategory(extended.categories?.[category], `${label}.runtime.extendedObservability.categories.${category}`)
+  }
+  const complete = requiredExtendedObservabilityCategories
+    .every((category) => extended.categories?.[category]?.status === 'ok')
+  assert(extended.status === (complete ? 'complete' : 'partial'), `${label}.runtime.extendedObservability.status must match category completeness`)
+  const expectedLevel = complete ? 'extended-runtime-evidence' : 'basic-runtime-evidence'
+  assert(probe.observabilityLevel === expectedLevel, `${label}.runtime.observabilityLevel must be ${expectedLevel}`)
+  if (!complete) {
+    assert(typeof extended.reason === 'string' && extended.reason.length > 0, `${label}.runtime.extendedObservability.reason missing for partial evidence`)
+  }
+}
+
+function validateExtendedObservabilityCategory(category, label) {
+  assert(category && typeof category === 'object', `${label} missing`)
+  assert(['ok', 'missing', 'unsupported', 'disabled', 'probe-failed', 'not-collected'].includes(category.status), `${label}.status invalid`)
+  const fields = category.fields
+  assert(fields && typeof fields === 'object', `${label}.fields missing`)
+  assert(Object.keys(fields).length > 0, `${label}.fields must be non-empty`)
+  let okFieldCount = 0
+  for (const [name, field] of Object.entries(fields)) {
+    const fieldLabel = `${label}.fields.${name}`
+    assert(field && typeof field === 'object', `${fieldLabel} missing`)
+    assert(typeof field.status === 'string' && field.status.length > 0, `${fieldLabel}.status missing`)
+    if (field.status === 'ok') {
+      okFieldCount += 1
+      assert(Object.prototype.hasOwnProperty.call(field, 'value'), `${fieldLabel}.value missing`)
+      assert(typeof field.source === 'string' && field.source.length > 0, `${fieldLabel}.source missing`)
+    } else {
+      assert(['unsupported', 'disabled', 'probe-failed', 'not-collected', 'missing'].includes(field.status), `${fieldLabel}.status has unsupported value`)
+      assert(typeof field.reason === 'string' && field.reason.length > 0, `${fieldLabel}.reason missing`)
+    }
+  }
+  if (category.status === 'ok') {
+    assert(okFieldCount > 0, `${label} ok category must include at least one ok field`)
+  } else {
+    assert(typeof category.reason === 'string' && category.reason.length > 0, `${label}.reason missing`)
+  }
 }
 
 function validateCounter(counter, label, requireOk = false) {
@@ -678,6 +740,46 @@ function validateAedsDecodeBudget() {
   assert(Number.isFinite(summary.allocBytesPerDecode) && summary.allocBytesPerDecode >= 0, 'aeds-decode-budget.allocBytesPerDecode must be >= 0')
 }
 
+function selfTestRuntimeProbe() {
+  return {
+    measurementSource: 'runtime-http-probe',
+    sampleCount: 1,
+    rps: 1,
+    bytes: 1,
+    latencyMs: { p50: 1, p95: 1 },
+    statusCounts: { 200: 1 },
+    observabilityLevel: 'extended-runtime-evidence',
+    extendedObservability: {
+      status: 'complete',
+      requiredCategories: requiredExtendedObservabilityCategories,
+      categories: {
+        managedRuntime: {
+          status: 'ok',
+          fields: {
+            runtime: { status: 'ok', value: 'dotnet-10', unit: 'name', source: 'self-test' }
+          },
+          reason: null
+        },
+        threadOrConnection: {
+          status: 'ok',
+          fields: {
+            configuredConcurrency: { status: 'ok', value: 1, unit: 'count', source: 'self-test' }
+          },
+          reason: null
+        },
+        storageOrCacheLatency: {
+          status: 'ok',
+          fields: {
+            cacheBackedHttpP95: { status: 'ok', value: 1, unit: 'ms', source: 'self-test' }
+          },
+          reason: null
+        }
+      },
+      reason: null
+    }
+  }
+}
+
 function main() {
   if (process.argv.includes('--self-test')) {
     runSelfTest()
@@ -705,14 +807,7 @@ function runSelfTest() {
       status: 'ok',
       profile: 'baseline',
       metrics: { rps: 1, p95Ms: 1 },
-      runtime: {
-        measurementSource: 'runtime-http-probe',
-        sampleCount: 1,
-        rps: 1,
-        bytes: 1,
-        latencyMs: { p50: 1, p95: 1 },
-        statusCounts: { 200: 1 }
-      }
+      runtime: selfTestRuntimeProbe()
     }, 'load-profile-self-test')
   } catch {
     missingLoadPolicyFailedAsExpected = true
@@ -732,14 +827,7 @@ function runSelfTest() {
       overrideSources: { concurrency: 'policy', rounds: 'policy', durationMs: 'policy' },
       sampling: { totalRequests: 60 },
       metrics: { rps: 1, p95Ms: 1 },
-      runtime: {
-        measurementSource: 'runtime-http-probe',
-        sampleCount: 1,
-        rps: 1,
-        bytes: 1,
-        latencyMs: { p50: 1, p95: 1 },
-        statusCounts: { 200: 1 }
-      }
+      runtime: selfTestRuntimeProbe()
     }, 'load-profile-threshold-self-test')
   } catch {
     missingLoadThresholdFailedAsExpected = true
@@ -772,14 +860,7 @@ function runSelfTest() {
     },
     sampling: { totalRequests: 6 },
     metrics: { rps: 1, p95Ms: 1, p99Ms: 1, errorRate: 0, timeoutRate: 0 },
-    runtime: {
-      measurementSource: 'runtime-http-probe',
-      sampleCount: 1,
-      rps: 1,
-      bytes: 1,
-      latencyMs: { p50: 1, p95: 1 },
-      statusCounts: { 200: 1 }
-    }
+    runtime: selfTestRuntimeProbe()
   }, 'load-profile-self-test-valid')
 
   const soakSummaryFile = path.join(root, '.tmp/soak/short/summary.json')
@@ -917,14 +998,7 @@ function runSelfTest() {
           artifactSampleCount: 1,
           sampleBytes: 1
         },
-        runtime: {
-          measurementSource: 'runtime-http-probe',
-          sampleCount: 1,
-          rps: 1,
-          bytes: 1,
-          latencyMs: { p50: 1, p95: 1 },
-          statusCounts: { 200: 1 }
-        },
+        runtime: selfTestRuntimeProbe(),
         latencyMs: { p95: 1 }
       },
       cleanup: {
