@@ -2001,7 +2001,9 @@ async function runDiskArtifactStorageFaultCase() {
   const caseName = 'disk-artifact-storage-write-failure'
   const startedAt = nowIso()
   const started = performance.now()
-  const storageRoot = path.join(root, '.tmp', 'fault-injection-storage', namespaceSlug(namespace), caseName)
+  const storageBase = path.join(root, '.tmp', 'fault-injection-storage')
+  const namespaceRoot = path.join(storageBase, namespaceSlug(namespace))
+  const storageRoot = path.join(namespaceRoot, caseName)
   const targetDir = path.join(storageRoot, 'artifact-target')
   const targetFile = path.join(targetDir, 'probe-artifact.json')
   const recoveryFile = path.join(targetDir, 'recovered-artifact.json')
@@ -2075,6 +2077,13 @@ async function runDiskArtifactStorageFaultCase() {
         fs.chmodSync(targetDir, 0o755)
       }
       fs.rmSync(storageRoot, { recursive: true, force: true })
+      for (const dir of [namespaceRoot, storageBase]) {
+        try {
+          fs.rmdirSync(dir)
+        } catch {
+          // Ignore non-empty parent directories from concurrent or previous drills.
+        }
+      }
       cleanupResult = {
         status: 'completed',
         targetPath: path.relative(root, storageRoot)
