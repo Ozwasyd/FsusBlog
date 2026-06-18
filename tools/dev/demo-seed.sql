@@ -2,35 +2,35 @@
 
 begin;
 
-insert into sys_user ("Username", "Password", "Role", "CreateTime", "Status", "LastLoginIp", "LastLoginTime")
+insert into sys_user (username, password, role, createtime, status, lastloginip, lastlogintime)
 values
   ('demo-admin', '$2b$10$h6HrDB9mpbTVbqAKpeWwQODajJVoQS0z7ITrV7QA1a/IgSOAiRuK6', 'admin', '2026-06-01 09:00:00+00', 0, 'example-local', '2026-06-01 09:30:00+00'),
   ('demo-reader', '$2b$10$h6HrDB9mpbTVbqAKpeWwQODajJVoQS0z7ITrV7QA1a/IgSOAiRuK6', 'guest', '2026-06-01 09:05:00+00', 0, 'example-local', '2026-06-01 09:35:00+00')
-on conflict ("Username") do update set
-  "Password" = excluded."Password",
-  "Role" = excluded."Role",
-  "Status" = excluded."Status",
-  "LastLoginIp" = excluded."LastLoginIp",
-  "LastLoginTime" = excluded."LastLoginTime";
+on conflict (username) do update set
+  password = excluded.password,
+  role = excluded.role,
+  status = excluded.status,
+  lastloginip = excluded.lastloginip,
+  lastlogintime = excluded.lastlogintime;
 
-insert into "Category" ("Name")
+insert into category (name)
 values ('Public Preview'), ('Operations Notes')
-on conflict ("Name") do nothing;
+on conflict (name) do nothing;
 
-insert into "Tag" ("Name")
+insert into tag (name)
 values ('demo'), ('aeds'), ('public-aot'), ('moderation')
-on conflict ("Name") do nothing;
+on conflict (name) do nothing;
 
 delete from comment where id in (9100001, 9100002, 9100003);
-delete from article_tag where "ArticleId" in (910001, 910002);
+delete from article_tag where articleid in (910001, 910002);
 delete from article_body where article_id in (910001, 910002);
 delete from article where id in (910001, 910002);
 delete from sys_audit_log where source = 'demo-seed';
 
 with category as (
-  select "Id" as id from "Category" where "Name" = 'Public Preview'
+  select id from category where name = 'Public Preview'
 )
-insert into article (id, "Title", "Summary", "CoverImageUrl", "CategoryId", "Views", "CreateTime", status, published_at, "IsDeleted")
+insert into article (id, title, summary, coverimageurl, categoryid, views, createtime, status, published_at, isdeleted)
 select
   910001,
   'Public Preview Walkthrough',
@@ -45,9 +45,9 @@ select
 from category;
 
 with category as (
-  select "Id" as id from "Category" where "Name" = 'Operations Notes'
+  select id from category where name = 'Operations Notes'
 )
-insert into article (id, "Title", "Summary", "CoverImageUrl", "CategoryId", "Views", "CreateTime", status, published_at, "IsDeleted")
+insert into article (id, title, summary, coverimageurl, categoryid, views, createtime, status, published_at, isdeleted)
 select
   910002,
   'AEDS And Public AOT Notes',
@@ -74,21 +74,22 @@ This is deterministic fictional demo content for local development.
 
 This article gives the local UI enough content to render lists, details, search metadata, and moderation examples.', '2026-06-02 10:05:00+00');
 
-insert into article_tag ("ArticleId", "TagId")
-select 910001, "Id" from "Tag" where "Name" in ('demo', 'public-aot')
+insert into article_tag (articleid, tagid)
+select 910001, id from tag where name in ('demo', 'public-aot')
 on conflict do nothing;
 
-insert into article_tag ("ArticleId", "TagId")
-select 910002, "Id" from "Tag" where "Name" in ('demo', 'aeds')
+insert into article_tag (articleid, tagid)
+select 910002, id from tag where name in ('demo', 'aeds')
 on conflict do nothing;
 
-insert into comment (id, article_id, content, create_time, user_id, parent_id, root_id, reply_to_user_id, reply_to_comment_id, depth, is_deleted, moderation_status, moderation_reason, moderated_by_user_id, moderated_at)
+insert into comment (id, article_id, content, create_time, user_id, author_mode, parent_id, root_id, reply_to_user_id, reply_to_comment_id, depth, is_deleted, moderation_status, moderation_reason, moderated_by_user_id, moderated_at)
 select
   9100001,
   910001,
   '[demo] This approved comment is fictional and safe for screenshots.',
   '2026-06-01 11:00:00+00',
-  u."Id",
+  u.id,
+  'public',
   null,
   null,
   null,
@@ -97,18 +98,19 @@ select
   false,
   1,
   'demo-approved',
-  a."Id",
+  a.id,
   '2026-06-01 11:05:00+00'
 from sys_user u cross join sys_user a
-where u."Username" = 'demo-reader' and a."Username" = 'demo-admin';
+where u.username = 'demo-reader' and a.username = 'demo-admin';
 
-insert into comment (id, article_id, content, create_time, user_id, parent_id, root_id, reply_to_user_id, reply_to_comment_id, depth, is_deleted, moderation_status, moderation_reason, moderated_by_user_id, moderated_at)
+insert into comment (id, article_id, content, create_time, user_id, author_mode, parent_id, root_id, reply_to_user_id, reply_to_comment_id, depth, is_deleted, moderation_status, moderation_reason, moderated_by_user_id, moderated_at)
 select
   9100002,
   910002,
   '[demo] This pending moderation item is fictional and repeatable.',
   '2026-06-02 11:00:00+00',
-  u."Id",
+  u.id,
+  'public',
   null,
   null,
   null,
@@ -120,7 +122,7 @@ select
   null,
   null
 from sys_user u
-where u."Username" = 'demo-reader';
+where u.username = 'demo-reader';
 
 insert into sys_audit_log
   (source, type, occurred_at_utc, actor_type, actor_id, actor_role, action, target_type, target_id, outcome, severity, is_high_value, trace_id, request_path, request_method, ip_hash, user_agent_hash, session_id_hash, device_fingerprint_hash, reason_code, event_info, context_json)

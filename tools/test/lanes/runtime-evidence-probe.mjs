@@ -350,62 +350,90 @@ async function faultInjection(outDir) {
   for (const caseName of cases) {
     const caseDir = path.join(outDir, caseName)
     fs.mkdirSync(path.join(caseDir, 'logs'), { recursive: true })
-    const before = await runHttpProbe(['/api/binary/system/seo'], { iterations: 2, concurrency: 1 })
-    let injection = { status: 'observed-only' }
-    if (caseName === 'redis-restart') {
-      const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER_NAME || process.env.FSUSBLOG_REDIS_CONTAINER || ''
-      if (redisContainer) {
-        const restarted = runDocker(['restart', redisContainer])
-        injection = restarted.ok
-          ? { status: 'injected', target: redisContainer, operation: 'docker restart' }
-          : { status: 'blocked', target: redisContainer, error: restarted.error }
-        if (restarted.ok) {
-          await sleep(2000)
+    let before = null
+    let after = null
+    let action = { status: 'blocked', reason: `no controlled action implemented for ${caseName}` }
+    let resultStatus = 'blocked'
+    let failure = null
+
+    try {
+      before = await runHttpProbe(['/api/binary/system/seo'], { iterations: 2, concurrency: 1 })
+      if (caseName === 'redis-restart') {
+        const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER_NAME || process.env.FSUSBLOG_REDIS_CONTAINER || ''
+        if (!redisContainer) {
+          action = { status: 'blocked', reason: 'redis container env missing' }
+        } else {
+          const restarted = runDocker(['restart', redisContainer])
+          action = restarted.ok
+            ? { status: 'executed', target: redisContainer, operation: 'docker restart' }
+            : { status: 'blocked', target: redisContainer, error: restarted.error }
+          if (restarted.ok) {
+            await sleep(2000)
+          }
         }
       }
+
+      if (action.status === 'executed') {
+        after = await runHttpProbe(['/api/binary/system/seo', '/api/binary/article/list/home/1/10.aeds'], { iterations: 3, concurrency: 1 })
+        resultStatus = 'completed'
+      }
+    } catch (error) {
+      resultStatus = 'failed'
+      failure = error instanceof Error ? error.message : String(error)
     }
-    const after = await runHttpProbe(['/api/binary/system/seo', '/api/binary/article/list/home/1/10.aeds'], { iterations: 3, concurrency: 1 })
-    const resultStatus = injection.status === 'blocked'
-      ? 'blocked'
-      : injection.status === 'observed-only'
-        ? 'scheduled'
-        : 'ok'
+
+    const recoveryTimeMs = after?.latencyMs?.p95 ?? null
     const result = {
       status: resultStatus,
       case: caseName,
       namespace,
-      injection,
+      actionStatus: action.status,
+      preCheck: before
+        ? { status: 'completed', p95Ms: before.latencyMs.p95, sampleCount: before.sampleCount }
+        : { status: 'failed', error: failure ?? 'pre-check was not completed' },
+      controlledAction: action,
+      recoveryCheck: after
+        ? { status: 'completed', p95Ms: after.latencyMs.p95, sampleCount: after.sampleCount }
+        : { status: action.status === 'executed' ? 'failed' : 'blocked', error: failure ?? action.reason ?? action.error ?? 'controlled action was not executed' },
       timeline: [
-        { event: 'before-probe', generatedAt: before.generatedAt, p95Ms: before.latencyMs.p95 },
-        { event: 'after-probe', generatedAt: after.generatedAt, p95Ms: after.latencyMs.p95 }
+        ...(before ? [{ event: 'pre-check', generatedAt: before.generatedAt, p95Ms: before.latencyMs.p95 }] : []),
+        { event: 'controlled-action', generatedAt: new Date().toISOString(), status: action.status },
+        ...(after ? [{ event: 'recovery-check', generatedAt: after.generatedAt, p95Ms: after.latencyMs.p95 }] : [])
       ],
-      errorRate: 0,
-      recoveryTimeMs: after.latencyMs.p95,
-      dataConsistency: 'runtime-probe-ok',
+      errorRate: resultStatus === 'completed' ? 0 : 1,
+      recoveryTimeMs,
+      dataConsistency: resultStatus === 'completed' ? 'runtime-probe-ok' : 'not-verified',
       resourceMetrics: {},
+      finalHealth: after
+        ? { status: 'healthy', runtime: after }
+        : { status: resultStatus, error: failure ?? action.reason ?? action.error ?? 'recovery check missing' },
       finalHealthSnapshot: after,
-      generatedAt: after.generatedAt
+      generatedAt: after?.generatedAt ?? new Date().toISOString()
     }
     writeJson(path.join(caseDir, 'summary.json'), result)
     writeJson(path.join(caseDir, 'timeline.json'), result.timeline)
     results.push(result)
   }
+  const summaryStatus = results.every((item) => item.status === 'completed')
+    ? 'ok'
+    : results.some((item) => item.status === 'failed')
+      ? 'failed'
+      : 'blocked'
   writeJson(path.join(outDir, 'summary.json'), {
-    status: results.some((item) => item.status === 'blocked')
-      ? 'blocked'
-      : results.some((item) => item.status === 'scheduled')
-        ? 'scheduled'
-        : 'ok',
+    status: summaryStatus,
     namespace,
     caseCount: results.length,
     generatedAt: new Date().toISOString(),
     cases: results.map((item) => ({
       case: item.case,
       status: item.status,
-      injection: item.injection.status,
+      actionStatus: item.actionStatus,
       recoveryTimeMs: item.recoveryTimeMs
     }))
   })
+  if (summaryStatus !== 'ok') {
+    throw new Error(`fault-injection summary is ${summaryStatus}; all cases must complete real controlled actions`)
+  }
 }
 
 async function soak(mode, outFile) {

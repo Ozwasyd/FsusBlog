@@ -34,7 +34,11 @@
         :show-mobile-theme-toggle="false"
       >
         <template #desktop-nav>
-          <div class="el-public-shell__desktop-nav">
+          <div
+            ref="desktopNavRef"
+            class="el-public-shell__desktop-nav"
+            :class="{ 'is-indicator-motion': activeNavIndicatorEnabled }"
+          >
             <a
               v-for="item in PUBLIC_NAV_ITEMS"
               :key="item.key"
@@ -42,9 +46,16 @@
               class="el-public-shell__nav-link"
               :class="{ 'is-active': item.key === activeNav }"
               :data-public-nav="item.key"
+              @click="handleNavClick($event, item.href)"
             >
               {{ item.label }}
             </a>
+            <span
+              v-if="activeNavIndicatorEnabled"
+              class="el-public-shell__active-nav-indicator"
+              aria-hidden="true"
+              :data-active-nav="activeNavIndicatorKey"
+            />
           </div>
         </template>
 
@@ -140,7 +151,9 @@
           >
             <div class="el-public-shell__mobile-nav-wrap">
               <nav
+                ref="mobileNavRef"
                 class="el-public-shell__mobile-nav el-public-shell__mobile-nav-view"
+                :class="{ 'is-indicator-motion': activeNavIndicatorEnabled }"
                 aria-label="主导航"
               >
                 <a
@@ -150,9 +163,16 @@
                   class="el-public-shell__nav-link"
                   :class="{ 'is-active': item.key === activeNav }"
                   :data-public-nav="item.key"
+                  @click="handleNavClick($event, item.href)"
                 >
                   {{ item.label }}
                 </a>
+                <span
+                  v-if="activeNavIndicatorEnabled"
+                  class="el-public-shell__active-nav-indicator"
+                  aria-hidden="true"
+                  :data-active-nav="activeNavIndicatorKey"
+                />
               </nav>
             </div>
           </div>
@@ -178,7 +198,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
 import SiteChromeHeaderAdapter from '@/components/layout/SiteChromeHeaderAdapter.vue'
 import PublicComplianceFooter from '@/components/public/PublicComplianceFooter.vue'
@@ -208,6 +228,7 @@ const SHELL_DEFAULTS = {
   searchPlaceholder: '搜索文章、标签或关键词',
   initialSearchQuery: '',
   spaSearch: false,
+  spaNavigation: false,
   showRuntime: false,
   compliance: null,
   renderYear: null,
@@ -221,6 +242,7 @@ const SHELL_DEFAULTS = {
   searchPlaceholder: string
   initialSearchQuery: string
   spaSearch: boolean
+  spaNavigation: boolean
   showRuntime: boolean
   compliance: SiteComplianceConfigPublic | null
   renderYear: number | null
@@ -240,6 +262,7 @@ const props = withDefaults(
     searchPlaceholder?: string
     initialSearchQuery?: string
     spaSearch?: boolean
+    spaNavigation?: boolean
     showRuntime?: boolean
     compliance?: SiteComplianceConfigPublic | null
     renderYear?: number | null
@@ -257,6 +280,7 @@ const props = withDefaults(
     searchPlaceholder: '搜索文章、标签或关键词',
     initialSearchQuery: '',
     spaSearch: false,
+    spaNavigation: false,
     showRuntime: false,
     compliance: null,
     renderYear: null,
@@ -266,6 +290,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   (event: 'search-focus'): void
   (event: 'search', query: string): void
+  (event: 'navigate', href: string): void
 }>()
 
 const siteTitleText = computed(
@@ -280,6 +305,8 @@ const mobileSearchExpanded = ref(props.initialSearchQuery.trim().length > 0)
 const mobileSearchRowId = 'public-shell-mobile-search'
 const mobileSearchRowRef = ref<HTMLElement>()
 const mobileSearchTriggerRef = ref<HTMLButtonElement>()
+const desktopNavRef = ref<HTMLElement>()
+const mobileNavRef = ref<HTMLElement>()
 const FullAppRuntime = defineAsyncComponent(
   () => import('@/components/runtime/AppRuntime.vue'),
 )
@@ -316,6 +343,12 @@ const shellIdentity = computed(() =>
 const mobileSearchButtonLabel = computed(() =>
   mobileSearchExpanded.value ? '取消' : '搜索',
 )
+const activeNavIndicatorEnabled = computed(() =>
+  PUBLIC_NAV_ITEMS.some((item) => item.key === props.activeNav),
+)
+const activeNavIndicatorKey = computed(() =>
+  activeNavIndicatorEnabled.value ? props.activeNav : '',
+)
 const shouldUseRuntimeAuthState = computed(() =>
   (props.authLabel?.trim() || SHELL_DEFAULTS.authLabel) === SHELL_DEFAULTS.authLabel
   && (props.authHref?.trim() || SHELL_DEFAULTS.authHref) === SHELL_DEFAULTS.authHref
@@ -332,6 +365,72 @@ const resolvedAuthHref = computed(() =>
 )
 
 providePublicSiteIdentity(shellIdentity)
+
+function clearNavIndicator(nav: HTMLElement): void {
+  nav.style.removeProperty('--el-public-shell-active-nav-indicator-x')
+  nav.style.removeProperty('--el-public-shell-active-nav-indicator-width')
+  nav.style.setProperty('--el-public-shell-active-nav-indicator-opacity', '0')
+}
+
+function syncNavIndicator(nav: HTMLElement | undefined): void {
+  if (!nav) {
+    return
+  }
+
+  if (!activeNavIndicatorEnabled.value || !activeNavIndicatorKey.value) {
+    clearNavIndicator(nav)
+    return
+  }
+
+  const activeLink = Array.from(
+    nav.querySelectorAll<HTMLElement>('.el-public-shell__nav-link'),
+  ).find((link) => link.dataset.publicNav === activeNavIndicatorKey.value)
+
+  if (!activeLink) {
+    clearNavIndicator(nav)
+    return
+  }
+
+  const navRect = nav.getBoundingClientRect()
+  const linkRect = activeLink.getBoundingClientRect()
+  nav.style.setProperty(
+    '--el-public-shell-active-nav-indicator-x',
+    `${Math.max(0, linkRect.left - navRect.left + nav.scrollLeft)}px`,
+  )
+  nav.style.setProperty(
+    '--el-public-shell-active-nav-indicator-width',
+    `${Math.max(0, linkRect.width)}px`,
+  )
+  nav.style.setProperty('--el-public-shell-active-nav-indicator-opacity', '1')
+}
+
+async function syncNavIndicators(): Promise<void> {
+  await nextTick()
+  syncNavIndicator(desktopNavRef.value)
+  syncNavIndicator(mobileNavRef.value)
+}
+
+function handleIndicatorResize(): void {
+  void syncNavIndicators()
+}
+
+function isModifiedClick(event: MouseEvent): boolean {
+  return event.defaultPrevented
+    || event.button !== 0
+    || event.metaKey
+    || event.ctrlKey
+    || event.shiftKey
+    || event.altKey
+}
+
+function handleNavClick(event: MouseEvent, href: string): void {
+  if (!props.spaNavigation || isModifiedClick(event)) {
+    return
+  }
+
+  event.preventDefault()
+  emit('navigate', href)
+}
 
 function handleSearchInput(value: string | number): void {
   searchQuery.value = String(value).trim()
@@ -402,4 +501,20 @@ watch(
     mobileSearchExpanded.value = value.trim().length > 0
   },
 )
+
+watch(
+  () => props.activeNav,
+  () => {
+    void syncNavIndicators()
+  },
+)
+
+onMounted(() => {
+  void syncNavIndicators()
+  window.addEventListener('resize', handleIndicatorResize)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleIndicatorResize)
+})
 </script>

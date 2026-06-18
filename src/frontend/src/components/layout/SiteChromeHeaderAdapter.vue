@@ -119,15 +119,6 @@ export type SiteChromeThemeModeLabels = Readonly<{
 
 export type SiteChromeBrandContext = 'public' | 'auth' | 'account'
 
-const PUBLIC_THEME_MODE_LABELS: SiteChromeThemeModeLabels = {
-  light: '浅色',
-  dark: '深色',
-  system: '跟随系统',
-  lightShort: '浅',
-  darkShort: '深',
-  systemShort: '系统',
-}
-
 const props = withDefaults(
   defineProps<{
     siteTitle?: string | null
@@ -189,7 +180,14 @@ const props = withDefaults(
     activeNavLinkClass: '',
     showDesktopThemeToggle: true,
     showMobileThemeToggle: true,
-    themeModeLabels: () => PUBLIC_THEME_MODE_LABELS,
+    themeModeLabels: () => ({
+      light: '浅色',
+      dark: '深色',
+      system: '跟随系统',
+      lightShort: '浅',
+      darkShort: '深',
+      systemShort: '系统',
+    }),
   },
 )
 

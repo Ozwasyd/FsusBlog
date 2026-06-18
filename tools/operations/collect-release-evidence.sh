@@ -154,7 +154,7 @@ fault_injection_status_or_missing() {
     (.status == "ok")
     and ((.caseCount // 0) > 0)
     and ((.cases // []) | length > 0)
-    and all(.cases[]?; .status == "ok" and .injection == "injected")
+    and all(.cases[]?; .status == "completed" and .actionStatus == "executed")
   '
 }
 

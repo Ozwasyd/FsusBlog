@@ -74,6 +74,13 @@ describe('SiteChromeHeaderAdapter contract', () => {
     expect(adapterSource).toContain(':data-public-nav="item.key"')
   })
 
+  it('keeps defineProps defaults independent from script setup locals', () => {
+    expect(adapterSource).not.toContain(
+      'themeModeLabels: () => PUBLIC_THEME_MODE_LABELS',
+    )
+    expect(adapterSource).toContain('themeModeLabels: () => ({')
+  })
+
   it('includes the new primitive in the local FsusUI export contract', () => {
     expect(fsusUiExportContractSource).toContain('ElSiteHeader')
   })

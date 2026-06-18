@@ -45,7 +45,7 @@ mkdir -p "${EM_CACHE}"
 # /usr/share/emscripten/cache. Project builds need Emscripten ports such as
 # libjpeg for full wasm image-codec support, so use the writable project cache
 # above unless the caller explicitly overrides this knob.
-if [[ -v FSUSBLOG_EM_FROZEN_CACHE ]]; then
+if [[ "${FSUSBLOG_EM_FROZEN_CACHE+x}" == "x" ]]; then
   export EM_FROZEN_CACHE="${FSUSBLOG_EM_FROZEN_CACHE}"
 else
   export EM_FROZEN_CACHE=""
@@ -87,7 +87,7 @@ emcmake cmake --fresh .. \
   -DWASM_SIMD=ON \
   -DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE="${BUILD_IMAGE_CODEC}" \
   -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_SIMD_DIR}" \
-  "${USER_CMAKE_ARGS[@]}"
+  "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
 cmake --build .
 popd >/dev/null
 
@@ -97,7 +97,7 @@ emcmake cmake --fresh .. \
   -DWASM_SIMD=OFF \
   -DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE="${BUILD_IMAGE_CODEC}" \
   -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_BASIC_DIR}" \
-  "${USER_CMAKE_ARGS[@]}"
+  "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
 cmake --build .
 popd >/dev/null
 
@@ -106,7 +106,7 @@ emcmake cmake --fresh ../pow \
   -DCMAKE_BUILD_TYPE=Release \
   -DWASM_RELAXED_SIMD=ON \
   -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_RELAXED_POW_DIR}" \
-  "${USER_CMAKE_ARGS[@]}"
+  "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
 cmake --build .
 popd >/dev/null
 
@@ -115,7 +115,7 @@ emcmake cmake --fresh ../pow \
   -DCMAKE_BUILD_TYPE=Release \
   -DWASM_THREADS=ON \
   -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_THREADS_POW_DIR}" \
-  "${USER_CMAKE_ARGS[@]}"
+  "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
 cmake --build .
 popd >/dev/null
 

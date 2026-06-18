@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -104,7 +105,7 @@ public sealed record EnsureColumnStep(string TableName, string ColumnName, strin
 
     private static string NormalizeLegacyDynamicSqlLiteralEscapes(string columnDefinition)
         // Older descriptors pre-escaped default string literals for the EXECUTE wrapper.
-        => columnDefinition.Replace("''", "'", StringComparison.Ordinal);
+        => Regex.Replace(columnDefinition, "''([^']+)''", "'$1'");
 }
 
 public sealed record RenameTableStep(string OldTableName, string NewTableName) : SchemaMigrationStep

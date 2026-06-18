@@ -40,6 +40,39 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(shellSource).not.toContain('PublicMobileSearchTrigger')
   })
 
+  it('wires public nav active indicator motion into desktop and mobile nav', () => {
+    expect(shellSource).toContain('desktopNavRef')
+    expect(shellSource).toContain('mobileNavRef')
+    expect(shellSource).toContain('activeNavIndicatorEnabled')
+    expect(shellSource).toContain('syncNavIndicators')
+    expect(shellSource).toContain('el-public-shell__active-nav-indicator')
+    expect(shellSource).toContain("'is-indicator-motion': activeNavIndicatorEnabled")
+    expect(shellSource).toContain(':data-active-nav="activeNavIndicatorKey"')
+    expect(shellSource).toContain(
+      '--el-public-shell-active-nav-indicator-x',
+    )
+    expect(shellSource).toContain(
+      '--el-public-shell-active-nav-indicator-width',
+    )
+    expect(shellSource).toContain(
+      '--el-public-shell-active-nav-indicator-opacity',
+    )
+  })
+
+  it('keeps public nav as links but hands clicks to the SPA router when enabled', () => {
+    expect(shellSource).toContain('spaNavigation: false')
+    expect(shellSource).toContain("spaNavigation: boolean")
+    expect(shellSource).toContain("(event: 'navigate', href: string): void")
+    expect(shellSource).toContain('@click="handleNavClick($event, item.href)"')
+    expect(shellSource).toContain('function handleNavClick(event: MouseEvent, href: string): void')
+    expect(shellSource).toContain('if (!props.spaNavigation || isModifiedClick(event))')
+    expect(shellSource).toContain('event.preventDefault()')
+    expect(shellSource).toContain("emit('navigate', href)")
+    expect(blogLayoutSource).toContain('@navigate="handleNavigate"')
+    expect(blogLayoutSource).toContain('spa-navigation')
+    expect(blogLayoutSource).toContain('await router.push(href)')
+  })
+
   it('composes the public header through the Blog site chrome adapter', () => {
     expect(shellSource).toContain('SiteChromeHeaderAdapter')
     expect(shellSource).toContain(':site-title="shellIdentity.siteTitle"')
@@ -111,6 +144,7 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
       '.el-public-shell__mobile-search-row',
     )
     expect(publicShellCriticalCss).toContain('margin-top: 12px;')
+    expect(publicShellCriticalCss).toContain('margin-bottom: 12px;')
     expect(publicShellCriticalCss).toContain(
       '.el-public-shell__search--trigger',
     )

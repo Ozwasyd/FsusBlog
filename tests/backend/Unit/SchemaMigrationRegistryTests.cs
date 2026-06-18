@@ -92,6 +92,21 @@ public sealed class SchemaMigrationRegistryTests
     }
 
     [Fact]
+    public void GetDescriptors_AnonymousCommentGovernance_SeedsRequiredPolicyDefaults()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260616-post-anonymous-comment-governance");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Matches(
+            "INSERT INTO anonymous_comment_policy \\([\\s\\S]*snapshot_hash,\\s*changed_by,[\\s\\S]*VALUES \\(1, true, true, false, 'anonymous', 'zh-CN,en', '', 'system', now\\(\\)\\)",
+            fingerprint);
+    }
+
+    [Fact]
     public async Task EnsureColumnStep_EscapesColumnDefinitionsInsideDynamicSql()
     {
         var step = new EnsureColumnStep("comment", "author_mode", "varchar(32) NOT NULL DEFAULT 'anonymous'");
@@ -99,6 +114,17 @@ public sealed class SchemaMigrationRegistryTests
         string capturedSql = await CaptureEnsureColumnSqlAsync(step);
 
         Assert.Contains("DEFAULT ''anonymous''", capturedSql, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EnsureColumnStep_PreservesEmptyStringDefaultsInsideDynamicSql()
+    {
+        var step = new EnsureColumnStep("anonymous_comment_policy", "snapshot_hash", "varchar(64) NOT NULL DEFAULT ''");
+
+        string capturedSql = await CaptureEnsureColumnSqlAsync(step);
+
+        Assert.Contains("DEFAULT ''''", capturedSql, StringComparison.Ordinal);
+        Assert.DoesNotContain("DEFAULT ''';", capturedSql, StringComparison.Ordinal);
     }
 
     [Fact]

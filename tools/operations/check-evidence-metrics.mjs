@@ -117,11 +117,18 @@ function validateLoadProfiles() {
 function validateFaultInjection() {
   const summary = readJson('.tmp/fault-injection/summary.json', true)
   if (!summary) return
+  validateFaultInjectionSummary(summary, 'fault-injection')
+}
+
+function validateFaultInjectionSummary(summary, label) {
   assert(summary.status === 'ok', 'fault-injection.summary.status must be ok')
   positiveNumber(summary.caseCount, 'fault-injection.caseCount')
   assert(Array.isArray(summary.cases) && summary.cases.length === summary.caseCount, 'fault-injection.cases must match caseCount')
   for (const item of summary.cases) {
-    assert(item.status === 'ok', `fault-injection ${item.case} must be ok`)
+    assert(item.status === 'completed', `${label} ${item.case} must be completed`)
+    assert(item.actionStatus === 'executed', `${label} ${item.case}.actionStatus must be executed`)
+    assert(!['observed-only', 'scheduled'].includes(String(item.status)), `${label} ${item.case} must not be ${item.status}`)
+    assert(!['observed-only', 'scheduled'].includes(String(item.actionStatus)), `${label} ${item.case}.actionStatus must not be ${item.actionStatus}`)
     positiveNumber(item.recoveryTimeMs, `fault-injection ${item.case}.recoveryTimeMs`)
   }
 }
@@ -247,6 +254,10 @@ function validateAedsDecodeBudget() {
 }
 
 function main() {
+  if (process.argv.includes('--self-test')) {
+    runSelfTest()
+    return
+  }
   validateBackendQps()
   validateDataScale()
   validateLoadProfiles()
@@ -258,6 +269,36 @@ function main() {
   validateAedsCompressionProfile()
   validateAedsDecodeBudget()
   console.log('[evidence-metrics] ok')
+}
+
+function runSelfTest() {
+  let failedAsExpected = false
+  try {
+    validateFaultInjectionSummary({
+      status: 'scheduled',
+      caseCount: 1,
+      cases: [{
+        case: 'scheduled-fixture',
+        status: 'scheduled',
+        actionStatus: 'observed-only',
+        recoveryTimeMs: null
+      }]
+    }, 'fault-injection-self-test')
+  } catch {
+    failedAsExpected = true
+  }
+  assert(failedAsExpected, 'self-test scheduled fault-injection fixture must fail')
+  validateFaultInjectionSummary({
+    status: 'ok',
+    caseCount: 1,
+    cases: [{
+      case: 'redis-restart',
+      status: 'completed',
+      actionStatus: 'executed',
+      recoveryTimeMs: 1
+    }]
+  }, 'fault-injection-self-test')
+  console.log('[evidence-metrics:self-test] ok')
 }
 
 try {

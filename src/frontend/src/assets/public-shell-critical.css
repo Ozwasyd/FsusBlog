@@ -113,6 +113,7 @@ html[data-theme-resolved='dark'] {
   display: none;
   min-width: 0;
   margin-top: 12px;
+  margin-bottom: 12px;
 }
 
 #fsus-aot-shell .el-public-shell__mobile-search-row.is-expanded {

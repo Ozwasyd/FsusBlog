@@ -148,7 +148,7 @@ function faultInjectionOk(manifest, context) {
   return report?.status === 'ok'
     && Number(report.caseCount ?? 0) > 0
     && Array.isArray(report.cases)
-    && report.cases.every((item) => item.status === 'ok' && item.injection === 'injected')
+    && report.cases.every((item) => item.status === 'completed' && item.actionStatus === 'executed')
 }
 
 function shortSoakOk(manifest, context) {
@@ -390,7 +390,7 @@ function runSelfTest() {
   fs.writeFileSync(path.join(tmpDir, 'faultInjection', 'summary.json'), JSON.stringify({
     status: 'ok',
     caseCount: 1,
-    cases: [{ case: 'redis-restart', status: 'ok', injection: 'injected', recoveryTimeMs: 1 }]
+    cases: [{ case: 'redis-restart', status: 'completed', actionStatus: 'executed', recoveryTimeMs: 1 }]
   }))
   fs.mkdirSync(path.join(tmpDir, 'soak', 'short'), { recursive: true })
   fs.writeFileSync(path.join(tmpDir, 'soak', 'short', 'summary.json'), JSON.stringify({

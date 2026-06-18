@@ -312,7 +312,7 @@ printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$
 mkdir -p "$SECURITY_DIR/authenticated-dast" "$FUZZ_DIR/wasm" "$FAULT_DIR" "$SOAK_DIR/short"
 printf '{"status":"ok","activeScan":{"executed":true}}\n' > "$SECURITY_DIR/authenticated-dast/summary.json"
 printf '{"status":"ok","seedsRun":1,"crashes":[]}\n' > "$FUZZ_DIR/wasm/summary.json"
-printf '{"status":"ok","caseCount":1,"cases":[{"case":"redis-restart","status":"ok","injection":"injected","recoveryTimeMs":1}]}\n' > "$FAULT_DIR/summary.json"
+printf '{"status":"ok","caseCount":1,"cases":[{"case":"redis-restart","status":"completed","actionStatus":"executed","recoveryTimeMs":1}]}\n' > "$FAULT_DIR/summary.json"
 printf '{"status":"ok","mode":"short","durationSeconds":1,"sampleCount":1,"latencyMs":{"p95":1}}\n' > "$SOAK_DIR/short/summary.json"
 
 FSUSBLOG_RELEASE_STAMP=fixture \
