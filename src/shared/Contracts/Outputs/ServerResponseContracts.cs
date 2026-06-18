@@ -187,6 +187,84 @@ public record struct UserCommentResponse
     }
 }
 
+public sealed record class AnonymousCredentialIssueRequest(
+    long CredentialEpoch,
+    uint CircuitNumericId,
+    ushort PublicInputLayoutVersion,
+    string CircuitId,
+    string CredentialLevel,
+    byte[] BlindedRequest,
+    byte[] ClientNonce);
+
+public sealed record class AnonymousCredentialIssueResponse(
+    long CredentialEpoch,
+    long RootExpiresAtUnixMs,
+    uint CircuitNumericId,
+    ushort PublicInputLayoutVersion,
+    string CircuitId,
+    string CredentialLevel,
+    byte[] IssuerResponse,
+    byte[] CredentialCommitment);
+
+public sealed record class AnonymousCredentialRootSnapshot(
+    long CredentialEpoch,
+    long RootExpiresAtUnixMs,
+    uint CircuitNumericId,
+    ushort PublicInputLayoutVersion,
+    string CircuitId,
+    string VerifyingKeyHash,
+    byte[] CredentialRoot,
+    byte[] RevocationRoot,
+    byte[] CircuitMetadata);
+
+public sealed record class AnonymousCommentTicketRequest(
+    int ArticleId,
+    string? ParentId,
+    string? RootId,
+    string? ReplyToCommentId,
+    long CredentialEpoch,
+    uint CircuitNumericId,
+    ushort PublicInputLayoutVersion,
+    string AnonymousScope,
+    string DisplayLanguage,
+    string CircuitId,
+    byte[] NullifierHash,
+    byte[] ZkProof,
+    byte[] PublicInputs);
+
+public sealed record class AnonymousCommentTicketResponse(
+    long CredentialEpoch,
+    long TicketExpiresAtUnixMs,
+    string CredentialLevel,
+    byte[] Ticket,
+    byte[] ModerationSubjectHash,
+    byte[] AnonymousNullifierHash);
+
+public sealed record class AnonymousCommentCreateRequest(
+    int ArticleId,
+    string Content,
+    string? ParentId,
+    string? RootId,
+    string? ReplyToCommentId,
+    long CredentialEpoch,
+    string AnonymousScope,
+    string DisplayLanguage,
+    byte[] Ticket);
+
+public sealed record class AnonymousPrivacyStateSnapshot(
+    long CredentialEpoch,
+    long RootExpiresAtUnixMs,
+    long TicketExpiresAtUnixMs,
+    uint CircuitNumericId,
+    ushort PublicInputLayoutVersion,
+    bool HasActiveCredential,
+    bool CanIssueCredential,
+    bool CanSubmitAnonymousComment,
+    string CircuitId,
+    string VerifyingKeyHash,
+    string CredentialStatus,
+    string CredentialLevel);
+
 public sealed record class SeoConfigPublicDto
 {
     public string Title { get; init; } = PublicSiteIdentityDefaults.SiteTitle;

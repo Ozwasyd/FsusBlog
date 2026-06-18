@@ -183,6 +183,13 @@ public enum AedsFrameType : ushort
     SecurityChallengeVerifyRequest = 174,
     SecurityChallengeIssueResponse = 175,
     SecurityChallengeVerifyResponse = 176,
+    AnonymousCredentialIssueRequest = 177,
+    AnonymousCredentialIssueResponse = 178,
+    AnonymousCredentialRootSnapshot = 179,
+    AnonymousCommentTicketRequest = 180,
+    AnonymousCommentTicketResponse = 181,
+    AnonymousCommentCreateRequest = 182,
+    AnonymousPrivacyStateSnapshot = 183,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

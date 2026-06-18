@@ -61,6 +61,91 @@ export interface CommentPolicySnapshot {
   supportedDisplayLanguages: string[]
 }
 
+export interface AnonymousCredentialIssueRequestDto {
+  credentialEpoch: number
+  circuitNumericId: number
+  publicInputLayoutVersion: number
+  circuitId: string
+  credentialLevel: string
+  blindedRequest: Uint8Array | number[]
+  clientNonce: Uint8Array | number[]
+}
+
+export interface AnonymousCredentialIssueResponse {
+  credentialEpoch: number
+  rootExpiresAtUnixMs: number
+  circuitNumericId: number
+  publicInputLayoutVersion: number
+  circuitId: string
+  credentialLevel: string
+  issuerResponse: Uint8Array
+  credentialCommitment: Uint8Array
+}
+
+export interface AnonymousCredentialRootSnapshot {
+  credentialEpoch: number
+  rootExpiresAtUnixMs: number
+  circuitNumericId: number
+  publicInputLayoutVersion: number
+  circuitId: string
+  verifyingKeyHash: string
+  credentialRoot: Uint8Array
+  revocationRoot: Uint8Array
+  circuitMetadata: Uint8Array
+}
+
+export interface AnonymousCommentTicketRequestDto {
+  articleId: number
+  parentId?: string | null
+  rootId?: string | null
+  replyToCommentId?: string | null
+  credentialEpoch: number
+  circuitNumericId: number
+  publicInputLayoutVersion: number
+  anonymousScope: string
+  displayLanguage: string
+  circuitId: string
+  nullifierHash: Uint8Array | number[]
+  zkProof: Uint8Array | number[]
+  publicInputs: Uint8Array | number[]
+}
+
+export interface AnonymousCommentTicketResponse {
+  credentialEpoch: number
+  ticketExpiresAtUnixMs: number
+  credentialLevel: string
+  ticket: Uint8Array
+  moderationSubjectHash: Uint8Array
+  anonymousNullifierHash: Uint8Array
+}
+
+export interface AnonymousCommentCreateRequestDto {
+  articleId: number
+  content: string
+  parentId?: string | null
+  rootId?: string | null
+  replyToCommentId?: string | null
+  credentialEpoch: number
+  anonymousScope: string
+  displayLanguage: string
+  ticket: Uint8Array | number[]
+}
+
+export interface AnonymousPrivacyStateSnapshot {
+  credentialEpoch: number
+  rootExpiresAtUnixMs: number
+  ticketExpiresAtUnixMs: number
+  circuitNumericId: number
+  publicInputLayoutVersion: number
+  hasActiveCredential: boolean
+  canIssueCredential: boolean
+  canSubmitAnonymousComment: boolean
+  circuitId: string
+  verifyingKeyHash: string
+  credentialStatus: string
+  credentialLevel: string
+}
+
 /** 游标响应包装 */
 export interface CursorResponse<T> {
   data: T[]
@@ -339,6 +424,98 @@ export function encodeCommentCreateV2Request(data: CommentDto | CommentCreateV2D
   return bytes
 }
 
+export function encodeAnonymousCredentialIssueRequest(data: AnonymousCredentialIssueRequestDto): Uint8Array {
+  const circuitId = encodeText(data.circuitId ?? '')
+  const credentialLevel = encodeText(data.credentialLevel ?? '')
+  const blindedRequest = bytesFrom(data.blindedRequest)
+  const clientNonce = bytesFrom(data.clientNonce)
+  const blobLength = circuitId.byteLength + credentialLevel.byteLength + blindedRequest.byteLength + clientNonce.byteLength
+  const bytes = new Uint8Array(ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE + 4 + blobLength)
+  const view = new DataView(bytes.buffer)
+
+  view.setBigInt64(0, BigInt(data.credentialEpoch ?? 0), true)
+  view.setUint32(8, data.circuitNumericId ?? 0, true)
+  view.setUint16(12, data.publicInputLayoutVersion ?? 0, true)
+  view.setUint16(14, 0, true)
+
+  let offset = 0
+  offset = writeBlobPart(bytes, view, 16, ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, circuitId)
+  offset = writeBlobPart(bytes, view, 24, ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, credentialLevel)
+  offset = writeBlobPart(bytes, view, 32, ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, blindedRequest)
+  writeBlobPart(bytes, view, 40, ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, clientNonce)
+  view.setInt32(ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE, blobLength, true)
+  return bytes
+}
+
+export function encodeAnonymousCommentTicketRequest(data: AnonymousCommentTicketRequestDto): Uint8Array {
+  const anonymousScope = encodeText(data.anonymousScope ?? '')
+  const displayLanguage = encodeText(data.displayLanguage ?? '')
+  const circuitId = encodeText(data.circuitId ?? '')
+  const nullifierHash = bytesFrom(data.nullifierHash)
+  const zkProof = bytesFrom(data.zkProof)
+  const publicInputs = bytesFrom(data.publicInputs)
+  const blobLength = anonymousScope.byteLength + displayLanguage.byteLength + circuitId.byteLength + nullifierHash.byteLength + zkProof.byteLength + publicInputs.byteLength
+  const bytes = new Uint8Array(ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE + 4 + blobLength)
+  const view = new DataView(bytes.buffer)
+  const parentId = parseOptionalId(data.parentId)
+  const rootId = parseOptionalId(data.rootId)
+  const replyToCommentId = parseOptionalId(data.replyToCommentId)
+
+  view.setInt32(0, data.articleId, true)
+  bytes[4] = parentId === null ? 0 : 1
+  bytes[5] = rootId === null ? 0 : 1
+  bytes[6] = replyToCommentId === null ? 0 : 1
+  bytes[7] = 0
+  view.setBigInt64(8, parentId ?? 0n, true)
+  view.setBigInt64(16, rootId ?? 0n, true)
+  view.setBigInt64(24, replyToCommentId ?? 0n, true)
+  view.setBigInt64(32, BigInt(data.credentialEpoch ?? 0), true)
+  view.setUint32(40, data.circuitNumericId ?? 0, true)
+  view.setUint16(44, data.publicInputLayoutVersion ?? 0, true)
+  view.setUint16(46, 0, true)
+
+  let offset = 0
+  offset = writeBlobPart(bytes, view, 48, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, anonymousScope)
+  offset = writeBlobPart(bytes, view, 56, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, displayLanguage)
+  offset = writeBlobPart(bytes, view, 64, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, circuitId)
+  offset = writeBlobPart(bytes, view, 72, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, nullifierHash)
+  offset = writeBlobPart(bytes, view, 80, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, zkProof)
+  writeBlobPart(bytes, view, 88, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, publicInputs)
+  view.setInt32(ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE, blobLength, true)
+  return bytes
+}
+
+export function encodeAnonymousCommentCreateRequest(data: AnonymousCommentCreateRequestDto): Uint8Array {
+  const anonymousScope = encodeText(data.anonymousScope ?? '')
+  const displayLanguage = encodeText(data.displayLanguage ?? '')
+  const ticket = bytesFrom(data.ticket)
+  const content = encodeText(data.content ?? '')
+  const blobLength = anonymousScope.byteLength + displayLanguage.byteLength + ticket.byteLength + content.byteLength
+  const bytes = new Uint8Array(ANONYMOUS_COMMENT_CREATE_REQUEST_POD_SIZE + 4 + blobLength)
+  const view = new DataView(bytes.buffer)
+  const parentId = parseOptionalId(data.parentId)
+  const rootId = parseOptionalId(data.rootId)
+  const replyToCommentId = parseOptionalId(data.replyToCommentId)
+
+  view.setInt32(0, data.articleId, true)
+  bytes[4] = parentId === null ? 0 : 1
+  bytes[5] = rootId === null ? 0 : 1
+  bytes[6] = replyToCommentId === null ? 0 : 1
+  bytes[7] = 0
+  view.setBigInt64(8, parentId ?? 0n, true)
+  view.setBigInt64(16, rootId ?? 0n, true)
+  view.setBigInt64(24, replyToCommentId ?? 0n, true)
+  view.setBigInt64(32, BigInt(data.credentialEpoch ?? 0), true)
+
+  let offset = 0
+  offset = writeBlobPart(bytes, view, 40, ANONYMOUS_COMMENT_CREATE_REQUEST_BLOB_START, offset, anonymousScope)
+  offset = writeBlobPart(bytes, view, 48, ANONYMOUS_COMMENT_CREATE_REQUEST_BLOB_START, offset, displayLanguage)
+  offset = writeBlobPart(bytes, view, 56, ANONYMOUS_COMMENT_CREATE_REQUEST_BLOB_START, offset, ticket)
+  writeBlobPart(bytes, view, 64, ANONYMOUS_COMMENT_CREATE_REQUEST_BLOB_START, offset, content)
+  view.setInt32(ANONYMOUS_COMMENT_CREATE_REQUEST_POD_SIZE, blobLength, true)
+  return bytes
+}
+
 function usesCommentCreateV2(data: CommentDto): boolean {
   return data.authorMode !== undefined ||
     data.publicSendExplicitlySelected !== undefined ||
@@ -350,6 +527,10 @@ function usesCommentCreateV2(data: CommentDto): boolean {
 
 function encodeText(value: string): Uint8Array {
   return new TextEncoder().encode(value)
+}
+
+function bytesFrom(value: Uint8Array | number[] | null | undefined): Uint8Array {
+  return value instanceof Uint8Array ? value : new Uint8Array(value ?? [])
 }
 
 function writeBlobPart(bytes: Uint8Array, view: DataView, sliceOffset: number, blobStart: number, offset: number, value: Uint8Array): number {
@@ -393,3 +574,10 @@ function parseOptionalId(value?: string | null): bigint | null {
     return null
   }
 }
+
+const ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE = 48
+const ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START = ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE + 4
+const ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE = 96
+const ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START = ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE + 4
+const ANONYMOUS_COMMENT_CREATE_REQUEST_POD_SIZE = 72
+const ANONYMOUS_COMMENT_CREATE_REQUEST_BLOB_START = ANONYMOUS_COMMENT_CREATE_REQUEST_POD_SIZE + 4

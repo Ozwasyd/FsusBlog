@@ -53,6 +53,13 @@ public class PodSizeCatalogTests
         AssertPositiveSize(PodSizeCatalog.CommentPolicyUpdateRequestPod, nameof(PodSizeCatalog.CommentPolicyUpdateRequestPod));
         AssertPositiveSize(PodSizeCatalog.CommentCreateV2RequestPod, nameof(PodSizeCatalog.CommentCreateV2RequestPod));
         AssertPositiveSize(PodSizeCatalog.CommentAuthorViewPod, nameof(PodSizeCatalog.CommentAuthorViewPod));
+        AssertPositiveSize(PodSizeCatalog.AnonymousCredentialIssueRequestPod, nameof(PodSizeCatalog.AnonymousCredentialIssueRequestPod));
+        AssertPositiveSize(PodSizeCatalog.AnonymousCredentialIssueResponsePod, nameof(PodSizeCatalog.AnonymousCredentialIssueResponsePod));
+        AssertPositiveSize(PodSizeCatalog.AnonymousCredentialRootSnapshotPod, nameof(PodSizeCatalog.AnonymousCredentialRootSnapshotPod));
+        AssertPositiveSize(PodSizeCatalog.AnonymousCommentTicketRequestPod, nameof(PodSizeCatalog.AnonymousCommentTicketRequestPod));
+        AssertPositiveSize(PodSizeCatalog.AnonymousCommentTicketResponsePod, nameof(PodSizeCatalog.AnonymousCommentTicketResponsePod));
+        AssertPositiveSize(PodSizeCatalog.AnonymousCommentCreateRequestPod, nameof(PodSizeCatalog.AnonymousCommentCreateRequestPod));
+        AssertPositiveSize(PodSizeCatalog.AnonymousPrivacyStateSnapshotPod, nameof(PodSizeCatalog.AnonymousPrivacyStateSnapshotPod));
         AssertPositiveSize(PodSizeCatalog.CommentThreadItemPod, nameof(PodSizeCatalog.CommentThreadItemPod));
         AssertPositiveSize(PodSizeCatalog.CommentReplyItemPod, nameof(PodSizeCatalog.CommentReplyItemPod));
         AssertPositiveSize(PodSizeCatalog.CommentThreadCursorPod, nameof(PodSizeCatalog.CommentThreadCursorPod));

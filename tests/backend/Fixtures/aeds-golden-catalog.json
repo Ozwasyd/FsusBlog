@@ -183,6 +183,13 @@
     { "name": "SecurityChallengeVerifyRequest", "value": 174, "family": "security-challenge-request" },
     { "name": "SecurityChallengeIssueResponse", "value": 175, "family": "security-challenge-response" },
     { "name": "SecurityChallengeVerifyResponse", "value": 176, "family": "security-challenge-response" },
+    { "name": "AnonymousCredentialIssueRequest", "value": 177, "family": "anonymous-privacy-request" },
+    { "name": "AnonymousCredentialIssueResponse", "value": 178, "family": "anonymous-privacy-response" },
+    { "name": "AnonymousCredentialRootSnapshot", "value": 179, "family": "anonymous-privacy-response" },
+    { "name": "AnonymousCommentTicketRequest", "value": 180, "family": "anonymous-privacy-request" },
+    { "name": "AnonymousCommentTicketResponse", "value": 181, "family": "anonymous-privacy-response" },
+    { "name": "AnonymousCommentCreateRequest", "value": 182, "family": "anonymous-comment-request" },
+    { "name": "AnonymousPrivacyStateSnapshot", "value": 183, "family": "anonymous-privacy-response" },
     { "name": "EmptySuccess", "value": 240, "family": "common-response" },
     { "name": "MutationId", "value": 241, "family": "common-response" },
     { "name": "ApiError", "value": 251, "family": "error-response" }

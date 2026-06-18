@@ -187,6 +187,13 @@
     { "name": "SecurityChallengeVerifyRequest", "value": 174 },
     { "name": "SecurityChallengeIssueResponse", "value": 175 },
     { "name": "SecurityChallengeVerifyResponse", "value": 176 },
+    { "name": "AnonymousCredentialIssueRequest", "value": 177 },
+    { "name": "AnonymousCredentialIssueResponse", "value": 178 },
+    { "name": "AnonymousCredentialRootSnapshot", "value": 179 },
+    { "name": "AnonymousCommentTicketRequest", "value": 180 },
+    { "name": "AnonymousCommentTicketResponse", "value": 181 },
+    { "name": "AnonymousCommentCreateRequest", "value": 182 },
+    { "name": "AnonymousPrivacyStateSnapshot", "value": 183 },
     { "name": "EmptySuccess", "value": 240 },
     { "name": "MutationId", "value": 241 },
     { "name": "ApiError", "value": 251 }

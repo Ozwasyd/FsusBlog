@@ -2,7 +2,7 @@ import { FrameType } from '@wasm/protocol/frame';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import { mapEmptySuccessFromPayload, mapMutationIdFromPayload } from './commonAdapter';
 import { mapArticleDetailFromPodPayload, mapArticleFeaturedFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload, mapRelatedReadingFromPodPayload, mapTrashClearResponseFromPodPayload } from './articleAdapter';
-import { mapCommentCursorFromPodPayload, mapCommentPolicySnapshotFromPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from './commentAdapter';
+import { mapAnonymousCommentTicketResponseFromPayload, mapAnonymousCredentialIssueResponseFromPayload, mapAnonymousCredentialRootSnapshotFromPayload, mapAnonymousPrivacyStateSnapshotFromPayload, mapCommentCursorFromPodPayload, mapCommentPolicySnapshotFromPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from './commentAdapter';
 import { mapRecentCommentsFromPodPayload, mapRegionsFromPodPayload, mapSiteStatsFromPodPayload } from './statsAdapter';
 import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceConfigFromPayload } from './systemAdapter';
 import { mapCategoryListFromPayload, mapTagListFromPayload } from './taxonomyAdapter';
@@ -47,6 +47,10 @@ const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.CommentArticleCursor]: mapCommentCursorFromPodPayload,
   [FrameType.CommentUserCursor]: mapUserCommentCursorFromPodPayload,
   [FrameType.CommentThreadReplyCursor]: mapThreadReplyCursorFromPodPayload,
+  [FrameType.AnonymousCredentialIssueResponse]: mapAnonymousCredentialIssueResponseFromPayload,
+  [FrameType.AnonymousCredentialRootSnapshot]: mapAnonymousCredentialRootSnapshotFromPayload,
+  [FrameType.AnonymousCommentTicketResponse]: mapAnonymousCommentTicketResponseFromPayload,
+  [FrameType.AnonymousPrivacyStateSnapshot]: mapAnonymousPrivacyStateSnapshotFromPayload,
   [FrameType.AdminStats]: mapSiteStatsFromPodPayload,
   [FrameType.CategoryList]: mapCategoryListFromPayload,
   [FrameType.TagList]: mapTagListFromPayload,

@@ -65,6 +65,13 @@ public static class PodSizeCatalog
     public static readonly int CommentPolicyUpdateRequestPod = PodContractValidation.SizeOf<CommentPolicyUpdateRequestPod>();
     public static readonly int CommentCreateV2RequestPod = PodContractValidation.SizeOf<CommentCreateV2RequestPod>();
     public static readonly int CommentAuthorViewPod = PodContractValidation.SizeOf<CommentAuthorViewPod>();
+    public static readonly int AnonymousCredentialIssueRequestPod = PodContractValidation.SizeOf<AnonymousCredentialIssueRequestPod>();
+    public static readonly int AnonymousCredentialIssueResponsePod = PodContractValidation.SizeOf<AnonymousCredentialIssueResponsePod>();
+    public static readonly int AnonymousCredentialRootSnapshotPod = PodContractValidation.SizeOf<AnonymousCredentialRootSnapshotPod>();
+    public static readonly int AnonymousCommentTicketRequestPod = PodContractValidation.SizeOf<AnonymousCommentTicketRequestPod>();
+    public static readonly int AnonymousCommentTicketResponsePod = PodContractValidation.SizeOf<AnonymousCommentTicketResponsePod>();
+    public static readonly int AnonymousCommentCreateRequestPod = PodContractValidation.SizeOf<AnonymousCommentCreateRequestPod>();
+    public static readonly int AnonymousPrivacyStateSnapshotPod = PodContractValidation.SizeOf<AnonymousPrivacyStateSnapshotPod>();
     public static readonly int CommentThreadItemPod = PodContractValidation.SizeOf<CommentThreadItemPod>();
     public static readonly int CommentReplyItemPod = PodContractValidation.SizeOf<CommentReplyItemPod>();
     public static readonly int CommentThreadCursorPod = PodContractValidation.SizeOf<CommentThreadCursorPod>();

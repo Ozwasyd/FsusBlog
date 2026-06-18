@@ -1,15 +1,30 @@
 import { describe, it, expect } from 'vitest'
 import {
+  mapAnonymousCommentTicketResponseFromPayload,
+  mapAnonymousCredentialIssueResponseFromPayload,
+  mapAnonymousCredentialRootSnapshotFromPayload,
+  mapAnonymousPrivacyStateSnapshotFromPayload,
   mapCommentCursorFromPodPayload,
   mapCommentPolicySnapshotFromPayload,
   mapThreadReplyCursorFromPodPayload,
   mapUserCommentCursorFromPodPayload
 } from '@/adapters/binary/commentAdapter'
-import { COMMENT_THREAD_ITEM_POD_SIZE, COMMENT_REPLY_ITEM_POD_SIZE, USER_COMMENT_POD_SIZE } from '@/adapters/binary/types'
+import {
+  ANONYMOUS_COMMENT_TICKET_RESPONSE_POD_SIZE,
+  ANONYMOUS_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE,
+  ANONYMOUS_CREDENTIAL_ROOT_SNAPSHOT_POD_SIZE,
+  ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE,
+  COMMENT_THREAD_ITEM_POD_SIZE,
+  COMMENT_REPLY_ITEM_POD_SIZE,
+  USER_COMMENT_POD_SIZE
+} from '@/adapters/binary/types'
 
 function writeInt32(b: Uint8Array, off: number, v: number): void {
   b[off] = v & 0xff; b[off + 1] = (v >>> 8) & 0xff
   b[off + 2] = (v >>> 16) & 0xff; b[off + 3] = (v >>> 24) & 0xff
+}
+function writeUint16(b: Uint8Array, off: number, v: number): void {
+  b[off] = v & 0xff; b[off + 1] = (v >>> 8) & 0xff
 }
 function writeInt64(b: Uint8Array, off: number, v: bigint): void {
   let r = v & 0xffffffffffffffffn
@@ -36,10 +51,17 @@ function buildPayload(...parts: Uint8Array[]): Uint8Array {
 function int32Buf(v: number): Uint8Array { const b = new Uint8Array(4); writeInt32(b, 0, v); return b }
 function int64Buf(v: bigint): Uint8Array { const b = new Uint8Array(8); writeInt64(b, 0, v); return b }
 function byteBuf(v: number): Uint8Array { return new Uint8Array([v]) }
+function textBytes(text: string): Uint8Array { return new TextEncoder().encode(text) }
 function blobBuf(text: string): Uint8Array {
-  const enc = new TextEncoder().encode(text)
+  const enc = textBytes(text)
   const lenBuf = new Uint8Array(4); writeInt32(lenBuf, 0, enc.length)
   return buildPayload(lenBuf, enc)
+}
+
+function blobParts(...parts: Uint8Array[]): Uint8Array {
+  const blob = buildPayload(...parts)
+  const lenBuf = new Uint8Array(4); writeInt32(lenBuf, 0, blob.length)
+  return buildPayload(lenBuf, blob)
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +133,122 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
     const pod = new Uint8Array(12)
     pod[0] = 2
     expect(() => mapCommentPolicySnapshotFromPayload(buildPayload(pod, blobBuf('')))).toThrow()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// anonymous privacy POD response adapters
+// ---------------------------------------------------------------------------
+describe('anonymous privacy binary adapters', () => {
+  it('decodes credential issue response without exposing reversible identity', () => {
+    const pod = new Uint8Array(ANONYMOUS_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE)
+    const circuit = textBytes('zk-comment-v1')
+    const level = textBytes('strong_anonymous')
+    const issuer = new Uint8Array([7, 8, 9])
+    const commitment = new Uint8Array([10, 11, 12])
+    const blob = buildPayload(circuit, level, issuer, commitment)
+
+    writeInt64(pod, 0, 20260618n)
+    writeInt64(pod, 8, 1780000000000n)
+    writeInt32(pod, 16, 7)
+    writeUint16(pod, 20, 2)
+    writeSliceRef(pod, 24, 0, circuit.length)
+    writeSliceRef(pod, 32, circuit.length, level.length)
+    writeSliceRef(pod, 40, circuit.length + level.length, issuer.length)
+    writeSliceRef(pod, 48, circuit.length + level.length + issuer.length, commitment.length)
+
+    const result = mapAnonymousCredentialIssueResponseFromPayload(buildPayload(pod, blobParts(blob)))
+
+    expect(result.credentialEpoch).toBe(20260618)
+    expect(result.rootExpiresAtUnixMs).toBe(1780000000000)
+    expect(result.circuitNumericId).toBe(7)
+    expect(result.publicInputLayoutVersion).toBe(2)
+    expect(result.circuitId).toBe('zk-comment-v1')
+    expect(result.credentialLevel).toBe('strong_anonymous')
+    expect([...result.issuerResponse]).toEqual([7, 8, 9])
+    expect([...result.credentialCommitment]).toEqual([10, 11, 12])
+    expect(JSON.stringify(result)).not.toContain('userId')
+  })
+
+  it('decodes root snapshot, ticket response, and privacy state snapshots', () => {
+    const rootPod = new Uint8Array(ANONYMOUS_CREDENTIAL_ROOT_SNAPSHOT_POD_SIZE)
+    const circuit = textBytes('zk-comment-v1')
+    const vk = textBytes('vk-sha256')
+    const credentialRoot = new Uint8Array([1, 2])
+    const revocationRoot = new Uint8Array([3, 4])
+    const metadata = new Uint8Array([5, 6])
+    const rootBlob = buildPayload(circuit, vk, credentialRoot, revocationRoot, metadata)
+    writeInt64(rootPod, 0, 20260618n)
+    writeInt64(rootPod, 8, 1780000000000n)
+    writeInt32(rootPod, 16, 7)
+    writeUint16(rootPod, 20, 2)
+    writeSliceRef(rootPod, 24, 0, circuit.length)
+    writeSliceRef(rootPod, 32, circuit.length, vk.length)
+    writeSliceRef(rootPod, 40, circuit.length + vk.length, credentialRoot.length)
+    writeSliceRef(rootPod, 48, circuit.length + vk.length + credentialRoot.length, revocationRoot.length)
+    writeSliceRef(rootPod, 56, circuit.length + vk.length + credentialRoot.length + revocationRoot.length, metadata.length)
+
+    const root = mapAnonymousCredentialRootSnapshotFromPayload(buildPayload(rootPod, blobParts(rootBlob)))
+    expect(root.verifyingKeyHash).toBe('vk-sha256')
+    expect([...root.credentialRoot]).toEqual([1, 2])
+    expect([...root.revocationRoot]).toEqual([3, 4])
+    expect([...root.circuitMetadata]).toEqual([5, 6])
+
+    const ticketPod = new Uint8Array(ANONYMOUS_COMMENT_TICKET_RESPONSE_POD_SIZE)
+    const ticketLevel = textBytes('strong_anonymous')
+    const ticket = new Uint8Array([25, 26])
+    const moderationHash = new Uint8Array([27, 28])
+    const nullifier = new Uint8Array([29, 30])
+    const ticketBlob = buildPayload(ticketLevel, ticket, moderationHash, nullifier)
+    writeInt64(ticketPod, 0, 20260618n)
+    writeInt64(ticketPod, 8, 1780000005000n)
+    writeSliceRef(ticketPod, 16, 0, ticketLevel.length)
+    writeSliceRef(ticketPod, 24, ticketLevel.length, ticket.length)
+    writeSliceRef(ticketPod, 32, ticketLevel.length + ticket.length, moderationHash.length)
+    writeSliceRef(ticketPod, 40, ticketLevel.length + ticket.length + moderationHash.length, nullifier.length)
+
+    const ticketResponse = mapAnonymousCommentTicketResponseFromPayload(buildPayload(ticketPod, blobParts(ticketBlob)))
+    expect(ticketResponse.credentialLevel).toBe('strong_anonymous')
+    expect([...ticketResponse.ticket]).toEqual([25, 26])
+    expect([...ticketResponse.moderationSubjectHash]).toEqual([27, 28])
+    expect([...ticketResponse.anonymousNullifierHash]).toEqual([29, 30])
+
+    const statePod = new Uint8Array(ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE)
+    const status = textBytes('active')
+    const stateBlob = buildPayload(circuit, vk, status, ticketLevel)
+    writeInt64(statePod, 0, 20260618n)
+    writeInt64(statePod, 8, 1780000000000n)
+    writeInt64(statePod, 16, 1780000005000n)
+    writeInt32(statePod, 24, 7)
+    writeUint16(statePod, 28, 2)
+    writeByte(statePod, 30, 1)
+    writeByte(statePod, 31, 0)
+    writeByte(statePod, 32, 1)
+    writeSliceRef(statePod, 34, 0, circuit.length)
+    writeSliceRef(statePod, 42, circuit.length, vk.length)
+    writeSliceRef(statePod, 50, circuit.length + vk.length, status.length)
+    writeSliceRef(statePod, 58, circuit.length + vk.length + status.length, ticketLevel.length)
+
+    const state = mapAnonymousPrivacyStateSnapshotFromPayload(buildPayload(statePod, blobParts(stateBlob)))
+    expect(state.hasActiveCredential).toBe(true)
+    expect(state.canIssueCredential).toBe(false)
+    expect(state.canSubmitAnonymousComment).toBe(true)
+    expect(state.credentialStatus).toBe('active')
+  })
+
+  it('rejects malformed, trailing, and oversized anonymous privacy payloads', () => {
+    const pod = new Uint8Array(ANONYMOUS_COMMENT_TICKET_RESPONSE_POD_SIZE)
+    writeSliceRef(pod, 16, 99, 4)
+    expect(() => mapAnonymousCommentTicketResponseFromPayload(buildPayload(pod, blobBuf('ok')))).toThrow()
+
+    const validPod = new Uint8Array(ANONYMOUS_COMMENT_TICKET_RESPONSE_POD_SIZE)
+    writeSliceRef(validPod, 16, 0, 0)
+    expect(() => mapAnonymousCommentTicketResponseFromPayload(buildPayload(validPod, blobBuf(''), byteBuf(1)))).toThrow()
+
+    const oversizedBlob = new Uint8Array(20 * 1024)
+    const oversizedPod = new Uint8Array(ANONYMOUS_COMMENT_TICKET_RESPONSE_POD_SIZE)
+    writeSliceRef(oversizedPod, 24, 0, oversizedBlob.length)
+    expect(() => mapAnonymousCommentTicketResponseFromPayload(buildPayload(oversizedPod, blobParts(oversizedBlob)))).toThrow()
   })
 })
 

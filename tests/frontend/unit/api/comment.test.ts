@@ -13,6 +13,9 @@ import {
   getThreadReplies,
   getMyComments,
   deleteComment,
+  encodeAnonymousCommentCreateRequest,
+  encodeAnonymousCommentTicketRequest,
+  encodeAnonymousCredentialIssueRequest,
   resolveCommentAuthorView
 } from '@/api/comment'
 import { COMMENT_CONTENT_CONSTRAINT } from '@/utils/contentFilter'
@@ -106,6 +109,105 @@ describe('comment API', () => {
     const blob = payload.subarray(84)
     expect(readSliceText(payload, blob, 40)).toBe('article:10')
     expect(readSliceText(payload, blob, 48)).toBe('en')
+  })
+
+  it('encodeAnonymousCredentialIssueRequest writes a fixed POD and blob slices', () => {
+    const payload = encodeAnonymousCredentialIssueRequest({
+      credentialEpoch: 20260618,
+      circuitNumericId: 7,
+      publicInputLayoutVersion: 2,
+      circuitId: 'zk-comment-v1',
+      credentialLevel: 'strong_anonymous',
+      blindedRequest: new Uint8Array([1, 2, 3]),
+      clientNonce: new Uint8Array([4, 5])
+    })
+
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+    expect(view.getBigInt64(0, true)).toBe(20260618n)
+    expect(view.getUint32(8, true)).toBe(7)
+    expect(view.getUint16(12, true)).toBe(2)
+    const blob = payload.subarray(52)
+    expect(readSliceText(payload, blob, 16)).toBe('zk-comment-v1')
+    expect(readSliceText(payload, blob, 24)).toBe('strong_anonymous')
+    expect([...readSliceBytes(payload, blob, 32)]).toEqual([1, 2, 3])
+    expect([...readSliceBytes(payload, blob, 40)]).toEqual([4, 5])
+  })
+
+  it('encodeAnonymousCommentTicketRequest writes proof fields without public identity', () => {
+    const payload = encodeAnonymousCommentTicketRequest({
+      articleId: 42,
+      parentId: '100',
+      rootId: '90',
+      replyToCommentId: '80',
+      credentialEpoch: 20260618,
+      circuitNumericId: 7,
+      publicInputLayoutVersion: 2,
+      anonymousScope: 'article:42',
+      displayLanguage: 'zh-CN',
+      circuitId: 'zk-comment-v1',
+      nullifierHash: new Uint8Array([9, 10]),
+      zkProof: new Uint8Array([11, 12]),
+      publicInputs: new Uint8Array([13, 14]),
+      replyToUserId: 123,
+      publicHandle: 'alice'
+    } as never)
+
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+    expect(view.getInt32(0, true)).toBe(42)
+    expect(payload[4]).toBe(1)
+    expect(payload[5]).toBe(1)
+    expect(payload[6]).toBe(1)
+    expect(view.getBigInt64(8, true)).toBe(100n)
+    expect(view.getBigInt64(16, true)).toBe(90n)
+    expect(view.getBigInt64(24, true)).toBe(80n)
+    expect(view.getBigInt64(32, true)).toBe(20260618n)
+    expect(view.getUint32(40, true)).toBe(7)
+    expect(view.getUint16(44, true)).toBe(2)
+    const blob = payload.subarray(100)
+    expect(readSliceText(payload, blob, 48)).toBe('article:42')
+    expect(readSliceText(payload, blob, 56)).toBe('zh-CN')
+    expect(readSliceText(payload, blob, 64)).toBe('zk-comment-v1')
+    expect([...readSliceBytes(payload, blob, 72)]).toEqual([9, 10])
+    expect([...readSliceBytes(payload, blob, 80)]).toEqual([11, 12])
+    expect([...readSliceBytes(payload, blob, 88)]).toEqual([13, 14])
+    expect(new TextDecoder().decode(payload)).not.toContain('alice')
+  })
+
+  it('encodeAnonymousCommentCreateRequest has no user id, username, token, or public handle slot', () => {
+    const payload = encodeAnonymousCommentCreateRequest({
+      articleId: 42,
+      content: 'anonymous comment',
+      parentId: '100',
+      rootId: '90',
+      replyToCommentId: '80',
+      credentialEpoch: 20260618,
+      anonymousScope: 'article:42',
+      displayLanguage: 'en',
+      ticket: new Uint8Array([31, 32]),
+      userId: 7,
+      username: 'Alice',
+      authorization: 'Bearer token',
+      publicHandle: 'alice'
+    } as never)
+
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+    expect(view.getInt32(0, true)).toBe(42)
+    expect(payload[4]).toBe(1)
+    expect(payload[5]).toBe(1)
+    expect(payload[6]).toBe(1)
+    expect(view.getBigInt64(8, true)).toBe(100n)
+    expect(view.getBigInt64(16, true)).toBe(90n)
+    expect(view.getBigInt64(24, true)).toBe(80n)
+    expect(view.getBigInt64(32, true)).toBe(20260618n)
+    const blob = payload.subarray(76)
+    expect(readSliceText(payload, blob, 40)).toBe('article:42')
+    expect(readSliceText(payload, blob, 48)).toBe('en')
+    expect([...readSliceBytes(payload, blob, 56)]).toEqual([31, 32])
+    expect(readSliceText(payload, blob, 64)).toBe('anonymous comment')
+    const raw = new TextDecoder().decode(payload)
+    expect(raw).not.toContain('Alice')
+    expect(raw).not.toContain('Bearer token')
+    expect(raw).not.toContain('alice')
   })
 
   it('resolves legacy usernames through CommentAuthorView compatibility', () => {

@@ -222,7 +222,7 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 
 ### Anonymous identity and comment policy AEDS frames
 
-匿名身份不新增平行 Passkey 协议：注册、登录、credential list、rename、admin bootstrap 和 recovery bind 仍复用上面的 Passkey frame；账户恢复仍复用 `RecoveryKeyCreateResponse` / `RecoveryKeyVerifyRequest` / `RecoveryKeyVerifyResponse` / `RecoveryKeySessionRequest`。新增 frame 只覆盖账户快照、评论策略、CommentCreateV2 和作者展示投影。
+匿名身份不新增平行 Passkey 协议：注册、登录、credential list、rename、admin bootstrap 和 recovery bind 仍复用上面的 Passkey frame；账户恢复仍复用 `RecoveryKeyCreateResponse` / `RecoveryKeyVerifyRequest` / `RecoveryKeyVerifyResponse` / `RecoveryKeySessionRequest`。已发布运行时 frame 覆盖账户快照、评论策略、CommentCreateV2 和作者展示投影。177-183 是匿名凭证/root/ticket/匿名评论创建的 contract-only frame：本阶段只定义跨栈 POD/codec、AEDS 编号、前端 adapter 和 golden fixture，不注册业务 endpoint，也不把未实现路径写入 OpenAPI paths。
 
 | FrameType | POD | 用途 |
 |-----------|-----|------|
@@ -231,10 +231,21 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 | `CommentPolicyUpdateRequest` (`165`) | `CommentPolicyUpdateRequestPod` + UTF-8 blob | admin 匿名评论策略 patch；bool 字段用 `Has*` flag 表示未设置 |
 | `CommentCreateV2Request` (`166`) | `CommentCreateV2RequestPod` + UTF-8/blob payload | 新评论创建请求，包含 article/reply 上下文、author mode、public opt-in、anonymous scope、语言提示、proof token、ZK proof placeholder 和 content |
 | `CommentAuthorView` (`167`) | `CommentAuthorViewPod` + UTF-8 blob | 评论读取侧作者投影：mode、display name、display language、badge/status/scope label、credential level |
+| `AnonymousCredentialIssueRequest` (`177`) | `AnonymousCredentialIssueRequestPod` + shared blob | 匿名凭证签发请求契约：epoch、circuit id、credential level、blinded request、client nonce |
+| `AnonymousCredentialIssueResponse` (`178`) | `AnonymousCredentialIssueResponsePod` + shared blob | 匿名凭证签发响应契约：issuer response、credential commitment、root expiry；不返回可逆用户身份 |
+| `AnonymousCredentialRootSnapshot` (`179`) | `AnonymousCredentialRootSnapshotPod` + shared blob | 匿名凭证 root/verifying-key snapshot：epoch、root expiry、circuit id、verifying key hash、credential/revocation root |
+| `AnonymousCommentTicketRequest` (`180`) | `AnonymousCommentTicketRequestPod` + shared blob | 匿名评论 ticket 申请请求：article/reply 上下文、credential epoch、scope、nullifier hash、ZK proof/public inputs |
+| `AnonymousCommentTicketResponse` (`181`) | `AnonymousCommentTicketResponsePod` + shared blob | 匿名评论 ticket 响应：opaque ticket、moderation subject hash、anonymous nullifier hash；不得包含 user id、username 或 public handle |
+| `AnonymousCommentCreateRequest` (`182`) | `AnonymousCommentCreateRequestPod` + shared blob | 匿名评论创建请求：article/reply 上下文、credential epoch、scope、language、ticket、content；不携带用户身份或 Authorization token |
+| `AnonymousPrivacyStateSnapshot` (`183`) | `AnonymousPrivacyStateSnapshotPod` + shared blob | 前端隐私状态快照：active credential、issue/submit capability、root/ticket expiry、circuit/verifying-key/status/level |
 
 `CommentPolicySnapshot` 通过 `GET /api/binary/comment/policy` 公开读取，匿名访问、`public_read` 限流，用于让公开文章评论 composer 在渲染前应用当前服务端策略。`DefaultAuthorMode` byte 映射为 `1=anonymous`、`2=pseudonymous`、`3=public`、`4=zk_anonymous`；`0` 只作为读端兼容值并解释为 `anonymous`。`SupportedDisplayLanguages` 使用换行分隔文本，当前只允许 `zh-CN` 与 `en`。前端 binary adapter 必须能在评论 composer 渲染前解码该 frame，不得从组件内硬编码策略。
 
 `CommentCreateV2Request` 是旧 `CommentCreateRequest` 的并行新 frame，不改变旧 `CommentCreateRequestPod` 布局。`AuthorMode` 使用同一 byte 映射；`PublicSendExplicitlySelected` 只在 public mode opt-in 时为 `1`；`AnonymousScope` 用于 nullifier/scope 绑定；`DisplayLanguage` 是展示语言提示；`ProofToken` 预留普通 proof token；`ZkProof` 是二进制 proof placeholder，默认 verifier 未启用时服务端仍 fail closed。ZK strong-anonymous 模式必须保留为 `zk_anonymous`，不能降级成普通 `anonymous`。`POST /api/binary/comment` 同时接受旧 frame 和 V2 frame：旧 frame 不携带作者选择时，服务端按当前策略解析为默认 anonymous；需要 public opt-in、scope、language hint 或 ZK proof 的客户端必须使用 V2。
+
+匿名凭证与匿名评论 ticket frame 使用固定宽度 POD + shared blob，不走 JSON hot path。所有二进制字段都通过 `Utf8SliceRef` 指向 blob slice，包括 blinded request、issuer response、credential root、revocation root、ZK proof、public inputs 和 opaque ticket。公共元数据固定字段包括 `credentialEpoch:int64`、`rootExpiresAtUnixMs:int64`、`ticketExpiresAtUnixMs:int64`（仅 ticket/state）、`circuitNumericId:uint32`、`circuitId:Utf8SliceRef`、`verifyingKeyHash:Utf8SliceRef` 和 `publicInputLayoutVersion:uint16`。decoder 必须拒绝 malformed slice、尾随字节和超过 16 KiB 的匿名隐私 payload。
+
+`AnonymousCommentCreateRequest` 不包含 `userId`、`replyToUserId`、`username`、`Authorization` token 或 `publicHandle` 字段；服务端后续实现只能通过 ticket/nullifier 和策略上下文解析匿名 actor。`AnonymousCommentTicketResponse` 同样不得返回可逆用户身份，只能返回 opaque ticket、moderation subject hash、anonymous nullifier hash 和 credential level。旧 `CommentCreateV2RequestPod` 布局保持不变；需要完整匿名凭证/ticket 流程的客户端必须使用 177-183 对应新 frame，不得把新字段塞回 `CommentCreateV2Request`。
 
 评论写入不再把 `comment.user_id` 作为作者展示的必填外键。`CommentActor` 会写入 `author_mode`、`public_handle`、`anonymous_handle`、`anonymous_display_name`、`anonymous_display_language`、`anonymous_nullifier_hash`、`anonymous_scope`、`moderation_subject_hash`、`credential_level`、`reputation_bucket` 和 `account_age_bucket`。公开评论读取优先使用 `anonymous_display_name` / `public_handle`，再回退 legacy `sys_user.username`；匿名 display name 由服务端按 `zh-CN` / `en` 的内置常见姓名列表生成，并在 scope 内稳定，不暴露 account id、username、public handle、credential id 或 nullifier 原文。
 

@@ -119,6 +119,84 @@ public readonly record struct CommentCreateV2RequestCoreModel(
     string? ProofToken,
     byte[] ZkProof);
 
+public readonly record struct AnonymousCredentialIssueRequestCoreModel(
+    long CredentialEpoch,
+    uint CircuitNumericId,
+    ushort PublicInputLayoutVersion,
+    string CircuitId,
+    string CredentialLevel,
+    byte[] BlindedRequest,
+    byte[] ClientNonce);
+
+public readonly record struct AnonymousCredentialIssueResponseCoreModel(
+    long CredentialEpoch,
+    long RootExpiresAtUnixMs,
+    uint CircuitNumericId,
+    ushort PublicInputLayoutVersion,
+    string CircuitId,
+    string CredentialLevel,
+    byte[] IssuerResponse,
+    byte[] CredentialCommitment);
+
+public readonly record struct AnonymousCredentialRootSnapshotCoreModel(
+    long CredentialEpoch,
+    long RootExpiresAtUnixMs,
+    uint CircuitNumericId,
+    ushort PublicInputLayoutVersion,
+    string CircuitId,
+    string VerifyingKeyHash,
+    byte[] CredentialRoot,
+    byte[] RevocationRoot,
+    byte[] CircuitMetadata);
+
+public readonly record struct AnonymousCommentTicketRequestCoreModel(
+    int ArticleId,
+    string? ParentId,
+    string? RootId,
+    string? ReplyToCommentId,
+    long CredentialEpoch,
+    uint CircuitNumericId,
+    ushort PublicInputLayoutVersion,
+    string AnonymousScope,
+    string DisplayLanguage,
+    string CircuitId,
+    byte[] NullifierHash,
+    byte[] ZkProof,
+    byte[] PublicInputs);
+
+public readonly record struct AnonymousCommentTicketResponseCoreModel(
+    long CredentialEpoch,
+    long TicketExpiresAtUnixMs,
+    string CredentialLevel,
+    byte[] Ticket,
+    byte[] ModerationSubjectHash,
+    byte[] AnonymousNullifierHash);
+
+public readonly record struct AnonymousCommentCreateRequestCoreModel(
+    int ArticleId,
+    string Content,
+    string? ParentId,
+    string? RootId,
+    string? ReplyToCommentId,
+    long CredentialEpoch,
+    string AnonymousScope,
+    string DisplayLanguage,
+    byte[] Ticket);
+
+public readonly record struct AnonymousPrivacyStateSnapshotCoreModel(
+    long CredentialEpoch,
+    long RootExpiresAtUnixMs,
+    long TicketExpiresAtUnixMs,
+    uint CircuitNumericId,
+    ushort PublicInputLayoutVersion,
+    bool HasActiveCredential,
+    bool CanIssueCredential,
+    bool CanSubmitAnonymousComment,
+    string CircuitId,
+    string VerifyingKeyHash,
+    string CredentialStatus,
+    string CredentialLevel);
+
 public readonly record struct CommentAuthorViewCoreModel(
     string Mode,
     string DisplayName,

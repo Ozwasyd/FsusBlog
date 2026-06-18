@@ -255,6 +255,13 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 165 | `CommentPolicyUpdateRequest` | `CommentPolicyUpdateRequestPod` | admin 匿名评论策略 patch 请求体 |
 | 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | 新评论创建请求；包含匿名 scope、author mode、language hint、proof token/ZK proof placeholder |
 | 167 | `CommentAuthorView` | `CommentAuthorViewPod` | 评论作者展示投影；不依赖 `userName` 表示匿名显示名 |
+| 177 | `AnonymousCredentialIssueRequest` | `AnonymousCredentialIssueRequestPod` | 匿名凭证签发请求契约；contract-only，不注册业务 endpoint |
+| 178 | `AnonymousCredentialIssueResponse` | `AnonymousCredentialIssueResponsePod` | 匿名凭证签发响应契约；issuer response / commitment，不返回可逆身份 |
+| 179 | `AnonymousCredentialRootSnapshot` | `AnonymousCredentialRootSnapshotPod` | 匿名凭证 root/verifying-key snapshot |
+| 180 | `AnonymousCommentTicketRequest` | `AnonymousCommentTicketRequestPod` | 匿名评论 ticket 申请请求；proof/public inputs 使用 blob slice |
+| 181 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | 匿名评论 ticket 响应；opaque ticket 与匿名 hash，不返回用户身份 |
+| 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | 匿名评论创建请求；不包含 user id、username、Authorization token 或 public handle |
+| 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
 | 240 | `EmptySuccess` | `EmptySuccessPod` | 通用空成功响应 |
 | 241 | `MutationId` | `MutationIdPod` | 通用变更 ID 响应 |
 | 251 | `ApiError` | `ApiErrorPod` | 二进制错误响应 |
@@ -316,6 +323,13 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | `CommentPolicyUpdateRequestPod` | 16 |
 | `CommentCreateV2RequestPod` | 80 |
 | `CommentAuthorViewPod` | 36 |
+| `AnonymousCredentialIssueRequestPod` | 48 |
+| `AnonymousCredentialIssueResponsePod` | 56 |
+| `AnonymousCredentialRootSnapshotPod` | 64 |
+| `AnonymousCommentTicketRequestPod` | 96 |
+| `AnonymousCommentTicketResponsePod` | 48 |
+| `AnonymousCommentCreateRequestPod` | 72 |
+| `AnonymousPrivacyStateSnapshotPod` | 66 |
 
 ### 评论作者存储投影
 

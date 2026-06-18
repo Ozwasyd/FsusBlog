@@ -1,12 +1,26 @@
 import { describe, it, expect } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 import { mapFramePayloadToViewModel } from '@/adapters/binary/index'
+import { ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE } from '@/adapters/binary/types'
 
 function writeInt32(bytes: Uint8Array, offset: number, value: number): void {
   bytes[offset] = value & 0xff
   bytes[offset + 1] = (value >>> 8) & 0xff
   bytes[offset + 2] = (value >>> 16) & 0xff
   bytes[offset + 3] = (value >>> 24) & 0xff
+}
+
+function writeUint16(bytes: Uint8Array, offset: number, value: number): void {
+  bytes[offset] = value & 0xff
+  bytes[offset + 1] = (value >>> 8) & 0xff
+}
+
+function writeInt64(bytes: Uint8Array, offset: number, value: bigint): void {
+  let remaining = value & 0xffffffffffffffffn
+  for (let index = 0; index < 8; index++) {
+    bytes[offset + index] = Number(remaining & 0xffn)
+    remaining >>= 8n
+  }
 }
 
 function buildPayload(...parts: Uint8Array[]): Uint8Array {
@@ -24,6 +38,22 @@ function blobBuf(text: string): Uint8Array {
   const header = new Uint8Array(4)
   writeInt32(header, 0, encoded.byteLength)
   return buildPayload(header, encoded)
+}
+
+function blobParts(...parts: Uint8Array[]): Uint8Array {
+  const blob = buildPayload(...parts)
+  const header = new Uint8Array(4)
+  writeInt32(header, 0, blob.byteLength)
+  return buildPayload(header, blob)
+}
+
+function textBytes(text: string): Uint8Array {
+  return new TextEncoder().encode(text)
+}
+
+function writeSliceRef(bytes: Uint8Array, offset: number, sliceOffset: number, length: number): void {
+  writeInt32(bytes, offset, sliceOffset)
+  writeInt32(bytes, offset + 4, length)
 }
 
 function commentPolicyPayload(languages: string): Uint8Array {
@@ -143,6 +173,43 @@ describe('mapFramePayloadToViewModel', () => {
       zkAnonymousEnabled: true,
       defaultAuthorMode: 'zk_anonymous',
       supportedDisplayLanguages: ['zh-CN', 'en']
+    })
+  })
+
+  it('maps anonymous privacy state snapshot frames', () => {
+    const pod = new Uint8Array(ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE)
+    const circuit = textBytes('zk-comment-v1')
+    const verifyingKeyHash = textBytes('vk-sha256')
+    const status = textBytes('active')
+    const level = textBytes('strong_anonymous')
+    const blob = buildPayload(circuit, verifyingKeyHash, status, level)
+
+    writeInt64(pod, 0, 20260618n)
+    writeInt64(pod, 8, 1780000000000n)
+    writeInt64(pod, 16, 1780000005000n)
+    writeInt32(pod, 24, 7)
+    writeUint16(pod, 28, 2)
+    pod[30] = 1
+    pod[31] = 1
+    pod[32] = 0
+    writeSliceRef(pod, 34, 0, circuit.byteLength)
+    writeSliceRef(pod, 42, circuit.byteLength, verifyingKeyHash.byteLength)
+    writeSliceRef(pod, 50, circuit.byteLength + verifyingKeyHash.byteLength, status.byteLength)
+    writeSliceRef(pod, 58, circuit.byteLength + verifyingKeyHash.byteLength + status.byteLength, level.byteLength)
+
+    expect(mapFramePayloadToViewModel(FrameType.AnonymousPrivacyStateSnapshot, buildPayload(pod, blobParts(blob)))).toEqual({
+      credentialEpoch: 20260618,
+      rootExpiresAtUnixMs: 1780000000000,
+      ticketExpiresAtUnixMs: 1780000005000,
+      circuitNumericId: 7,
+      publicInputLayoutVersion: 2,
+      hasActiveCredential: true,
+      canIssueCredential: true,
+      canSubmitAnonymousComment: false,
+      circuitId: 'zk-comment-v1',
+      verifyingKeyHash: 'vk-sha256',
+      credentialStatus: 'active',
+      credentialLevel: 'strong_anonymous'
     })
   })
 

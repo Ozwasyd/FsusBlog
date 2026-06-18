@@ -95,6 +95,118 @@ public readonly struct CommentCreateV2RequestPod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct AnonymousCredentialIssueRequestPod
+{
+    public readonly long CredentialEpoch;
+    public readonly uint CircuitNumericId;
+    public readonly ushort PublicInputLayoutVersion;
+    public readonly ushort Reserved0;
+    public readonly Utf8SliceRef CircuitId;
+    public readonly Utf8SliceRef CredentialLevel;
+    public readonly Utf8SliceRef BlindedRequest;
+    public readonly Utf8SliceRef ClientNonce;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct AnonymousCredentialIssueResponsePod
+{
+    public readonly long CredentialEpoch;
+    public readonly long RootExpiresAtUnixMs;
+    public readonly uint CircuitNumericId;
+    public readonly ushort PublicInputLayoutVersion;
+    public readonly ushort Reserved0;
+    public readonly Utf8SliceRef CircuitId;
+    public readonly Utf8SliceRef CredentialLevel;
+    public readonly Utf8SliceRef IssuerResponse;
+    public readonly Utf8SliceRef CredentialCommitment;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct AnonymousCredentialRootSnapshotPod
+{
+    public readonly long CredentialEpoch;
+    public readonly long RootExpiresAtUnixMs;
+    public readonly uint CircuitNumericId;
+    public readonly ushort PublicInputLayoutVersion;
+    public readonly ushort Reserved0;
+    public readonly Utf8SliceRef CircuitId;
+    public readonly Utf8SliceRef VerifyingKeyHash;
+    public readonly Utf8SliceRef CredentialRoot;
+    public readonly Utf8SliceRef RevocationRoot;
+    public readonly Utf8SliceRef CircuitMetadata;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct AnonymousCommentTicketRequestPod
+{
+    public readonly int ArticleId;
+    public readonly byte HasParentId;
+    public readonly byte HasRootId;
+    public readonly byte HasReplyToCommentId;
+    public readonly byte Reserved0;
+    public readonly long ParentId;
+    public readonly long RootId;
+    public readonly long ReplyToCommentId;
+    public readonly long CredentialEpoch;
+    public readonly uint CircuitNumericId;
+    public readonly ushort PublicInputLayoutVersion;
+    public readonly ushort Reserved1;
+    public readonly Utf8SliceRef AnonymousScope;
+    public readonly Utf8SliceRef DisplayLanguage;
+    public readonly Utf8SliceRef CircuitId;
+    public readonly Utf8SliceRef NullifierHash;
+    public readonly Utf8SliceRef ZkProof;
+    public readonly Utf8SliceRef PublicInputs;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct AnonymousCommentTicketResponsePod
+{
+    public readonly long CredentialEpoch;
+    public readonly long TicketExpiresAtUnixMs;
+    public readonly Utf8SliceRef CredentialLevel;
+    public readonly Utf8SliceRef Ticket;
+    public readonly Utf8SliceRef ModerationSubjectHash;
+    public readonly Utf8SliceRef AnonymousNullifierHash;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct AnonymousCommentCreateRequestPod
+{
+    public readonly int ArticleId;
+    public readonly byte HasParentId;
+    public readonly byte HasRootId;
+    public readonly byte HasReplyToCommentId;
+    public readonly byte Reserved0;
+    public readonly long ParentId;
+    public readonly long RootId;
+    public readonly long ReplyToCommentId;
+    public readonly long CredentialEpoch;
+    public readonly Utf8SliceRef AnonymousScope;
+    public readonly Utf8SliceRef DisplayLanguage;
+    public readonly Utf8SliceRef Ticket;
+    public readonly Utf8SliceRef Content;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct AnonymousPrivacyStateSnapshotPod
+{
+    public readonly long CredentialEpoch;
+    public readonly long RootExpiresAtUnixMs;
+    public readonly long TicketExpiresAtUnixMs;
+    public readonly uint CircuitNumericId;
+    public readonly ushort PublicInputLayoutVersion;
+    public readonly byte HasActiveCredential;
+    public readonly byte CanIssueCredential;
+    public readonly byte CanSubmitAnonymousComment;
+    public readonly byte Reserved0;
+    public readonly Utf8SliceRef CircuitId;
+    public readonly Utf8SliceRef VerifyingKeyHash;
+    public readonly Utf8SliceRef CredentialStatus;
+    public readonly Utf8SliceRef CredentialLevel;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CommentAuthorViewPod
 {
     public readonly byte Mode;

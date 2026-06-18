@@ -99,12 +99,19 @@ public sealed class AnonymousIdentityColdStartQualityContractTests
             ("CommentPolicySnapshot", (ushort)164),
             ("CommentPolicyUpdateRequest", (ushort)165),
             ("CommentCreateV2Request", (ushort)166),
-            ("CommentAuthorView", (ushort)167)
+            ("CommentAuthorView", (ushort)167),
+            ("AnonymousCredentialIssueRequest", (ushort)177),
+            ("AnonymousCredentialIssueResponse", (ushort)178),
+            ("AnonymousCredentialRootSnapshot", (ushort)179),
+            ("AnonymousCommentTicketRequest", (ushort)180),
+            ("AnonymousCommentTicketResponse", (ushort)181),
+            ("AnonymousCommentCreateRequest", (ushort)182),
+            ("AnonymousPrivacyStateSnapshot", (ushort)183)
         })
         {
             Assert.Contains($"{name} = {value}", coreFrames, StringComparison.Ordinal);
             Assert.Contains($"{name} = {value}", sharedFrames, StringComparison.Ordinal);
-            Assert.Contains($"{name} = {value}", frontendFrames, StringComparison.Ordinal);
+            Assert.Contains($"{name}: {value}", frontendFrames, StringComparison.Ordinal);
         }
 
         foreach (string requiredCoverage in new[]
@@ -113,7 +120,10 @@ public sealed class AnonymousIdentityColdStartQualityContractTests
             "IdentityAccountSnapshot_RoundTrip_PreservesNullableHandleAndCredentialState",
             "CommentPolicySnapshotAndUpdate_RoundTrip_PreserveModesLanguagesAndPatchSemantics",
             "CommentCreateV2Request_RoundTrip_PreservesAnonymousFieldsWithoutChangingLegacyLayout",
-            "CommentAuthorView_RoundTrip_PreservesLocalizedAnonymousProjection"
+            "CommentAuthorView_RoundTrip_PreservesLocalizedAnonymousProjection",
+            "AnonymousPrivacyPods_RoundTrip_PreserveCredentialRootTicketAndComment",
+            "AnonymousPrivacyPods_RejectMalformedTrailingAndOversizedPayloads",
+            "AnonymousCommentCreateRequestContract_DoesNotCarryReversibleIdentity"
         })
         {
             Assert.Contains(requiredCoverage, podTests, StringComparison.Ordinal);
