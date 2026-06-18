@@ -20,21 +20,21 @@ describe('public shell ownership boundary', () => {
     expect(fullApp).not.toContain("app.mount('#app', shouldHydrate)")
   })
 
-  it('remounts public navigation documents after disposing the hydrated public app', () => {
+  it('keeps shell disposal inside SPA takeover instead of public HTML remounts', () => {
     expect(clientHydrate).toContain('disposePublicHydrationApp')
-    expect(publicShell).toContain('disposePublicHydrationApp')
-    expect(publicShell).toContain('replacePublicShellForNavigation')
-    expect(publicShell).toContain('data-public-shell-remount')
+    expect(fullApp).toContain('disposePublicHydrationApp')
+    expect(fullApp).toContain('disposePublicShellForClientMount')
+    expect(publicShell).not.toContain('replacePublicShellForNavigation')
+    expect(publicShell).not.toContain('data-public-shell-remount')
     expect(publicShell).not.toContain('function canPatchNode')
     expect(publicShell).not.toContain('replaceChild(')
   })
 
-  it('forces public shell navigation on browser history traversal', () => {
-    expect(publicShell).toContain('force?: boolean')
-    expect(publicShell).toContain('!options.force && target.pathname === current.pathname')
-    expect(publicShell).toContain('force: true')
-    expect(publicShell.indexOf("addPublicShellEventListener(window, 'popstate'"))
-      .toBeLessThan(publicShell.indexOf('force: true'))
+  it('leaves public route history traversal to Vue Router after takeover', () => {
+    expect(publicShell).not.toContain('force?: boolean')
+    expect(publicShell).not.toContain("addPublicShellEventListener(window, 'popstate'")
+    expect(publicShell).not.toContain('history.scrollRestoration')
+    expect(fullApp).toContain('router.push(intent.to)')
   })
 
   it('owns public shell listeners through an abortable lifetime during SPA commit', () => {
@@ -47,7 +47,8 @@ describe('public shell ownership boundary', () => {
     expect(publicShell).toContain('resetPublicShellLifetime()')
     expect(publicShell).toContain('onPublicShellLifetimeAbort')
     expect(publicShell).toContain("addPublicShellEventListener(document, 'click'")
-    expect(publicShell).toContain("addPublicShellEventListener(window, 'popstate'")
+    expect(publicShell).toContain("addPublicShellEventListener(window, 'fsus:public-shell:takeover'")
+    expect(publicShell).toContain("addPublicShellEventListener(window, 'fsus:public-shell:search-focus'")
   })
 
   it('updates public auth through runtime state instead of mutating Vue-owned DOM', () => {

@@ -9,10 +9,9 @@
  *   4. Post-click refresh – Reload destination route after SPA/public-shell navigation
  *
  * Checks for Vue hydration mismatch warnings, [public-hydration] errors,
- * uncaught JS errors, and unexpected shell remounts/rebuilds. Public shell
- * micro-navigation intentionally disposes and remounts the hydrated shell; the
- * test asserts that remount is explicit instead of silently replacing a
- * Vue-owned subtree.
+ * uncaught JS errors, and unexpected shell remounts/rebuilds. Public route
+ * clicks are expected to hand off to atomic SPA takeover; unsupported or failed
+ * routes fall back to a normal document request instead of detached HTML parsing.
  *
  * Usage:
  *   FSUSBLOG_BASE_URL=http://127.0.0.1:7568 node ../../tests/frontend/checks/public/check-public-refresh-hydration.mjs
@@ -113,7 +112,7 @@ const PUBLIC_SEO_SCENARIOS = [
     allowUnhydratedAotFallback: true,
     phases: [
       {
-        phase: 'micro-navigation',
+        phase: 'atomic-navigation',
         run: async (page, helpers) => {
           await helpers.clickPublicNav('archive', '/archive', 'Archive')
         },
@@ -719,44 +718,6 @@ async function assertUnhydratedAotFallbackRouteCell(page, route) {
   }
 }
 
-async function setShellProbe(page, marker) {
-  return await page.evaluate((probe) => {
-    const shell = document.querySelector('#fsus-aot-shell')
-    if (!(shell instanceof HTMLElement)) {
-      return false
-    }
-
-    shell.dataset.publicShellProbe = probe
-    return true
-  }, marker)
-}
-
-async function assertShellProbeDisposedByRemount(page, marker, expectedKind) {
-  const result = await page.evaluate((probe) => {
-    const app = document.getElementById('app')
-    const shell = app?.querySelector('#fsus-aot-shell')
-    return {
-      ok: Boolean(
-        app
-        && shell
-        && shell.parentElement === app
-        && shell.dataset.publicShellDisposedProbe === probe
-        && shell.dataset.publicShellRemount
-      ),
-      kind: shell?.getAttribute('data-public-hydration-kind') ?? null,
-      remount: shell?.dataset.publicShellRemount ?? null,
-    }
-  }, marker)
-
-  if (!result.ok) {
-    throw new Error(`shell probe ${marker} was not disposed by an explicit remount`)
-  }
-
-  if (expectedKind && result.kind !== expectedKind) {
-    throw new Error(`shell kind mismatch after interaction: expected ${expectedKind}, got ${String(result.kind)}`)
-  }
-}
-
 async function triggerFullSpaTakeover(page, expectedKind, expectedPath = null) {
   await page.evaluate(() => {
     window.dispatchEvent(new CustomEvent('fsus:public-shell:takeover'))
@@ -1039,10 +1000,8 @@ function createListToArticlePhases(options = {}) {
 
   return [
     {
-      phase: 'micro-navigation',
+      phase: 'atomic-navigation',
       run: async (page, helpers) => {
-        const marker = `${helpers.name}-list-to-article`
-        await helpers.markShellProbe(marker)
         const articlePath = await tryClickFirstArticleLink(page)
         if (!articlePath) {
           helpers.state.articlePath = null
@@ -1054,11 +1013,10 @@ function createListToArticlePhases(options = {}) {
         }
 
         helpers.state.articlePath = articlePath
-        await helpers.assertShellProbeDisposedByRemount(marker, 'ArticleDetail')
         return {
           targetPath: articlePath,
           targetKind: 'ArticleDetail',
-          assertions: ['public-shell-micro-navigation', 'explicit-shell-remount'],
+          assertions: ['atomic-public-route-takeover', 'spa-route-ready'],
         }
       },
     },
@@ -1068,7 +1026,7 @@ function createListToArticlePhases(options = {}) {
           run: async (page, helpers) => {
             const articlePath = helpers.state.articlePath
             if (!articlePath) {
-              throw new Error('missing articlePath from micro-navigation phase')
+              throw new Error('missing articlePath from atomic-navigation phase')
             }
 
             await page.goBack({ waitUntil: 'domcontentloaded', timeout: 30000 })
@@ -1121,7 +1079,7 @@ function createListToArticlePhases(options = {}) {
           run: async (_page, helpers) => {
             const articlePath = helpers.state.articlePath
             if (!articlePath) {
-              throw new Error('missing articlePath from micro-navigation phase')
+              throw new Error('missing articlePath from atomic-navigation phase')
             }
 
             await helpers.triggerFullSpaTakeover('ArticleDetail', articlePath)
@@ -1139,18 +1097,15 @@ function createListToArticlePhases(options = {}) {
 function createHomeNavigationPhases() {
   return [
     {
-      phase: 'micro-navigation',
+      phase: 'atomic-navigation',
       run: async (_page, helpers) => {
-        const marker = 'home-to-archive'
-        await helpers.markShellProbe(marker)
         await helpers.clickPublicNav('archive', '/archive', 'Archive')
         helpers.state.targetPath = '/archive'
         helpers.state.targetKind = 'Archive'
-        await helpers.assertShellProbeDisposedByRemount(marker, 'Archive')
         return {
           targetPath: '/archive',
           targetKind: 'Archive',
-          assertions: ['public-shell-micro-navigation', 'explicit-shell-remount'],
+          assertions: ['atomic-public-route-takeover', 'spa-route-ready'],
         }
       },
     },
@@ -1230,13 +1185,13 @@ function createStaticPagePhases() {
       },
     },
     {
-      phase: 'micro-navigation',
+      phase: 'atomic-navigation',
       run: async (_page, helpers) => {
         await helpers.clickPublicNav('home', '/', 'Home')
         return {
           targetPath: '/',
           targetKind: 'Home',
-          assertions: ['public-shell-micro-navigation'],
+          assertions: ['atomic-public-route-takeover'],
         }
       },
     },
@@ -1322,15 +1277,6 @@ async function runScenario(page, baseUrl, route) {
     routePathname,
     expectedKind: route.expectedKind,
     state: {},
-    async markShellProbe(marker) {
-      const applied = await setShellProbe(page, marker)
-      if (!applied) {
-        throw new Error(`failed to mark shell probe: ${marker}`)
-      }
-    },
-    async assertShellProbeDisposedByRemount(marker, expectedKind) {
-      await assertShellProbeDisposedByRemount(page, marker, expectedKind)
-    },
     async triggerFullSpaTakeover(expectedKind, expectedPath = null) {
       recorder.setStage(`${route.name}:interaction:full-spa-takeover`)
       await triggerFullSpaTakeover(page, expectedKind, expectedPath)

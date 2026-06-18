@@ -42,7 +42,6 @@ requireFile('src/frontend/src/assets/motion.css')
 requireFile('src/frontend/src/composables/useMotionPreference.ts')
 requireFile('src/frontend/src/fsusui/motion.ts')
 requireFile('src/frontend/src/components/ui/FsusBlogRouteTransition.vue')
-requireFile('src/frontend/src/bootstrap/publicShellMotion.ts')
 requireFile('docs/frontend/motion-guidelines.md')
 
 const mainCss = read('src/frontend/src/assets/main.css')
@@ -172,34 +171,21 @@ for (const forbidden of ['name="fade-fast"', '.fade-fast-', 'FsusBlogRouteTransi
 
 const publicShell = expectIncludes(
   'src/frontend/src/bootstrap/publicShell.ts',
-  'settlePublicNavigationMotionForShell(nextShell)',
-  'public route settle after shell replacement'
+  'navigateWithAtomicPublicTakeover',
+  'public route atomic takeover navigation'
 )
-const applyNavigationStart = publicShell.indexOf('async function applyPublicNavigationDocument')
-const shellReplaceIndex = publicShell.indexOf('const nextShell = replacePublicShellForNavigation', applyNavigationStart)
-const shellSettleIndex = publicShell.indexOf('settlePublicNavigationMotionForShell(nextShell)', applyNavigationStart)
-if (shellReplaceIndex < applyNavigationStart || shellSettleIndex <= shellReplaceIndex) {
-  errors.push('src/frontend/src/bootstrap/publicShell.ts: public route settle must run after replacing the shell')
+for (const token of ['commitPreparedFullApp', 'prewarmPublicRoute', 'navigateWithDocumentRequest']) {
+  if (!publicShell.includes(token)) {
+    errors.push(`src/frontend/src/bootstrap/publicShell.ts: missing ${token}`)
+  }
 }
-const initialHydrationStart = publicShell.indexOf('async function hydratePublicShell')
-const initialHydrationEnd = publicShell.indexOf('export async function bootstrapPublicShell')
-if (publicShell.slice(initialHydrationStart, initialHydrationEnd).includes('settlePublicNavigationMotionForShell')) {
-  errors.push('src/frontend/src/bootstrap/publicShell.ts: initial public hydration must not invoke route settle motion')
-}
-
-const publicShellMotion = expectIncludes(
-  'src/frontend/src/bootstrap/publicShellMotion.ts',
-  'runMotion',
-  'public shell route settle FsusUI motion runner'
-)
-for (const token of [
-  'fsusBlogMotionPresets.route',
-  'getPrefersReducedMotion',
-  'activePublicRouteSettleMotion?.cancel()',
-  '#main-content, main'
+for (const forbidden of [
+  'settlePublicNavigationMotionForShell',
+  'replacePublicShellForNavigation',
+  'applyPublicNavigationDocument'
 ]) {
-  if (!publicShellMotion.includes(token)) {
-    errors.push(`src/frontend/src/bootstrap/publicShellMotion.ts: missing ${token}`)
+  if (publicShell.includes(forbidden)) {
+    errors.push(`src/frontend/src/bootstrap/publicShell.ts: public route motion must be owned by SPA routing, found ${forbidden}`)
   }
 }
 

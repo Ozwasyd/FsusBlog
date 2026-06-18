@@ -62,7 +62,7 @@ describe('public hydration invariant guards', () => {
     for (const route of ['/privacy', '/guidelines', '/copyright', '/search?q=hydration', '/category/0', '/tag/0', '/article/0']) {
       expect(refreshHydrationCheck).toContain(route)
     }
-    for (const phase of ['direct-first-load', 'reload', 'micro-navigation', 'browser-back-forward', 'hash-navigation', 'full-spa-takeover', 'non-aot-search-fallback']) {
+    for (const phase of ['direct-first-load', 'reload', 'atomic-navigation', 'browser-back-forward', 'hash-navigation', 'full-spa-takeover', 'non-aot-search-fallback']) {
       expect(refreshHydrationCheck).toContain(phase)
     }
     for (const assertion of ['single-app-root', 'hydration-metrics-route-key', 'aot-head-nodes-unique', 'no-stale-public-hydration-payload']) {

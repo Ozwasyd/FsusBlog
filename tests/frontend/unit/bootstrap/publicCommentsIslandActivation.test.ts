@@ -5,6 +5,10 @@ const mountArticleCommentsIsland = vi.fn<(...args: unknown[]) => Promise<void>>(
 const unmountArticleCommentsIsland = vi.fn()
 const hydratePublicPage = vi.fn<(...args: unknown[]) => Promise<void>>()
 const getMe = vi.fn<() => Promise<null>>()
+const prewarmPublicRoute = vi.fn<(...args: unknown[]) => Promise<{ status: 'ready' }>>()
+const prepareFullApp = vi.fn<(...args: unknown[]) => unknown>()
+const commitPreparedFullApp = vi.fn<(...args: unknown[]) => Promise<void>>()
+const bootstrapFullApp = vi.fn<(...args: unknown[]) => Promise<void>>()
 
 const originalGlobals = {
   window: globalThis.window,
@@ -147,7 +151,13 @@ async function importPublicShell(): Promise<typeof import('@/bootstrap/publicShe
     setThemeMode: vi.fn()
   }))
   vi.doMock('@/bootstrap/fullApp', () => ({
-    bootstrapFullApp: vi.fn()
+    bootstrapFullApp,
+    commitPreparedFullApp,
+    prepareFullApp
+  }))
+  vi.doMock('@/router/publicRoutePreload', () => ({
+    prewarmPublicRoute,
+    resolvePublicRoutePrewarmTarget: vi.fn(() => null)
   }))
   vi.doMock('@/api/auth', () => ({
     getMe
@@ -167,8 +177,10 @@ async function importPublicShell(): Promise<typeof import('@/bootstrap/publicShe
 async function bootstrapAndSettleInitialStyles(): Promise<void> {
   const { bootstrapPublicShell } = await importPublicShell()
   const bootstrapTask = bootstrapPublicShell()
-  await vi.advanceTimersByTimeAsync(1_000)
+  vi.advanceTimersByTime(1_000)
+  await Promise.resolve()
   await bootstrapTask
+  await vi.dynamicImportSettled()
   expect(hydratePublicPage).toHaveBeenCalledTimes(1)
 }
 
@@ -180,14 +192,21 @@ describe.sequential('public comments island activation', () => {
     mountArticleCommentsIsland.mockResolvedValue(undefined)
     hydratePublicPage.mockResolvedValue(undefined)
     getMe.mockResolvedValue(null)
+    prewarmPublicRoute.mockResolvedValue({ status: 'ready' })
+    prepareFullApp.mockReturnValue({})
+    commitPreparedFullApp.mockResolvedValue(undefined)
+    bootstrapFullApp.mockResolvedValue(undefined)
     unmountArticleCommentsIsland.mockReset()
     mountArticleCommentsIsland.mockClear()
     hydratePublicPage.mockClear()
     getMe.mockClear()
+    prewarmPublicRoute.mockClear()
+    prepareFullApp.mockClear()
+    commitPreparedFullApp.mockClear()
+    bootstrapFullApp.mockClear()
     vi.stubGlobal('history', window.history)
     vi.stubGlobal('HTMLLinkElement', window.HTMLLinkElement)
     vi.stubGlobal('HTMLAnchorElement', window.HTMLAnchorElement)
-    vi.stubGlobal('DOMParser', window.DOMParser)
     vi.stubGlobal('IntersectionObserver', undefined)
     vi.spyOn(window, 'setTimeout').mockImplementation((handler: TimerHandler, timeout?: number, ...args: unknown[]) =>
       globalThis.setTimeout(handler, timeout, ...args) as unknown as number
@@ -217,44 +236,22 @@ describe.sequential('public comments island activation', () => {
     button.dataset.aotValue = '101'
     document.body.appendChild(button)
     button.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }))
-    await vi.advanceTimersByTimeAsync(0)
+    await Promise.resolve()
+    await vi.dynamicImportSettled()
 
     expect(mountArticleCommentsIsland).toHaveBeenCalledTimes(1)
     expect(mountArticleCommentsIsland).toHaveBeenCalledWith(101)
 
-    await vi.advanceTimersByTimeAsync(2_500)
+    vi.advanceTimersByTime(2_500)
     expect(mountArticleCommentsIsland).toHaveBeenCalledTimes(1)
-  })
+  }, 10_000)
 
-  it('cancels a scheduled no-IntersectionObserver fallback when public navigation replaces the article shell', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(`
-      <!doctype html>
-      <html>
-        <head><title>Home</title></head>
-        <body>
-          <div id="app"><div id="fsus-aot-shell"><main>Home</main></div></div>
-          <script id="fsus-aot-hydration-props" type="application/octet-stream">home-payload</script>
-        </body>
-      </html>
-    `, {
-      status: 200,
-      headers: { 'Content-Type': 'text/html' }
-    }))
+  it('cancels a scheduled no-IntersectionObserver fallback when SPA takeover aborts the public shell lifetime', async () => {
     await bootstrapAndSettleInitialStyles()
     expect(mountArticleCommentsIsland).not.toHaveBeenCalled()
 
-    const link = document.createElement('a')
-    link.href = '/'
-    link.textContent = 'Home'
-    document.body.appendChild(link)
-    link.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }))
-
-    await Promise.resolve()
-    await Promise.resolve()
-    await vi.advanceTimersByTimeAsync(0)
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1)
-    expect(hydratePublicPage).toHaveBeenCalledTimes(2)
+    const { abortPublicShellLifetime } = await import('@/bootstrap/publicShellLifetime')
+    abortPublicShellLifetime('test-spa-takeover')
 
     await vi.advanceTimersByTimeAsync(2_500)
 

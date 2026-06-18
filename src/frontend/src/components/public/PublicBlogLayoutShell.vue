@@ -134,24 +134,28 @@
             </div>
           </Transition>
 
-          <el-scrollbar
+          <div
             class="el-public-shell__mobile-nav-scrollbar"
-            wrap-class="el-public-shell__mobile-nav-wrap"
-            view-class="el-public-shell__mobile-nav-view"
+            role="presentation"
           >
-            <nav class="el-public-shell__mobile-nav" aria-label="主导航">
-              <a
-                v-for="item in PUBLIC_NAV_ITEMS"
-                :key="item.key"
-                :href="item.href"
-                class="el-public-shell__nav-link"
-                :class="{ 'is-active': item.key === activeNav }"
-                :data-public-nav="item.key"
+            <div class="el-public-shell__mobile-nav-wrap">
+              <nav
+                class="el-public-shell__mobile-nav el-public-shell__mobile-nav-view"
+                aria-label="主导航"
               >
-                {{ item.label }}
-              </a>
-            </nav>
-          </el-scrollbar>
+                <a
+                  v-for="item in PUBLIC_NAV_ITEMS"
+                  :key="item.key"
+                  :href="item.href"
+                  class="el-public-shell__nav-link"
+                  :class="{ 'is-active': item.key === activeNav }"
+                  :data-public-nav="item.key"
+                >
+                  {{ item.label }}
+                </a>
+              </nav>
+            </div>
+          </div>
 
           <div class="el-public-shell__mobile-actions" />
         </template>

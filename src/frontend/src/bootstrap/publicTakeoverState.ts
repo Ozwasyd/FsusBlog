@@ -8,7 +8,6 @@ export type PublicTakeoverPhase =
   | 'prewarming'
   | 'prepared'
   | 'committing'
-  | 'navigating'
   | 'spa-active'
   | 'fallback-navigation'
 
@@ -19,11 +18,10 @@ type PublicTakeoverTransitionDetail = Readonly<{
 }>
 
 const transitionMap: Record<PublicTakeoverPhase, readonly PublicTakeoverPhase[]> = {
-  'aot-idle': ['aot-idle', 'prewarming', 'committing', 'navigating', 'fallback-navigation'],
-  prewarming: ['aot-idle', 'prewarming', 'prepared', 'committing', 'navigating', 'fallback-navigation'],
-  prepared: ['aot-idle', 'committing', 'navigating', 'fallback-navigation'],
+  'aot-idle': ['aot-idle', 'prewarming', 'committing', 'fallback-navigation'],
+  prewarming: ['aot-idle', 'prewarming', 'prepared', 'committing', 'fallback-navigation'],
+  prepared: ['aot-idle', 'committing', 'fallback-navigation'],
   committing: ['spa-active', 'fallback-navigation'],
-  navigating: ['aot-idle', 'navigating', 'fallback-navigation'],
   'spa-active': ['spa-active'],
   'fallback-navigation': ['aot-idle', 'fallback-navigation']
 }
@@ -94,14 +92,6 @@ export function beginPublicTakeoverCommit(detail?: PublicTakeoverTransitionDetai
 
 export function completePublicTakeoverCommit(detail?: PublicTakeoverTransitionDetail): boolean {
   return transitionPublicTakeoverPhase('spa-active', detail)
-}
-
-export function beginPublicTakeoverNavigation(detail?: PublicTakeoverTransitionDetail): boolean {
-  return transitionPublicTakeoverPhase('navigating', detail)
-}
-
-export function completePublicTakeoverNavigation(detail?: PublicTakeoverTransitionDetail): boolean {
-  return transitionPublicTakeoverPhase('aot-idle', detail)
 }
 
 export function markPublicTakeoverFallback(detail?: PublicTakeoverTransitionDetail): boolean {

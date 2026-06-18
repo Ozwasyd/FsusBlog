@@ -7,15 +7,6 @@ function createAnchor(href: string): HTMLAnchorElement {
 }
 
 describe('public navigation intent', () => {
-  it('parses the explicit atomic takeover feature flag', async () => {
-    const { isPublicAtomicTakeoverEnabled } = await import('@/bootstrap/publicNavigationIntent')
-
-    expect(isPublicAtomicTakeoverEnabled({ VITE_PUBLIC_ATOMIC_TAKEOVER: '1' })).toBe(true)
-    expect(isPublicAtomicTakeoverEnabled({ VITE_PUBLIC_ATOMIC_TAKEOVER: 'true' })).toBe(true)
-    expect(isPublicAtomicTakeoverEnabled({ VITE_PUBLIC_ATOMIC_TAKEOVER: '0' })).toBe(false)
-    expect(isPublicAtomicTakeoverEnabled({})).toBe(false)
-  })
-
   it('classifies supported public AOT links for atomic takeover', async () => {
     const { classifyPublicNavigationIntent } = await import('@/bootstrap/publicNavigationIntent')
 

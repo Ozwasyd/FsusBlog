@@ -58,13 +58,6 @@ function resolveHref(input: PublicNavigationIntentInput): string {
   return input.href || input.anchor?.href || ''
 }
 
-export function isPublicAtomicTakeoverEnabled(
-  env: Partial<Record<string, unknown>> = import.meta.env
-): boolean {
-  const raw = String(env.VITE_PUBLIC_ATOMIC_TAKEOVER ?? '').trim().toLowerCase()
-  return raw === '1' || raw === 'true' || raw === 'yes'
-}
-
 export function classifyPublicNavigationIntent(input: PublicNavigationIntentInput): PublicNavigationIntent {
   if (input.action === 'activate-comments') {
     return { kind: 'comments-island' }

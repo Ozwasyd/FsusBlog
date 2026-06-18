@@ -1,11 +1,7 @@
 import {
-  readPublicHydrationPayloadAsync,
-  readPublicHydrationPayloadFromUrl,
-  replacePublicHydrationPayloadBinary,
-  replacePublicHydrationPayloadSnapshot
+  readPublicHydrationPayloadAsync
 } from '@/bootstrap/publicHydrationBootstrap'
 import { hydratePublicPage, type PublicHydrationPayload } from '@/public-renderers'
-import { disposePublicHydrationApp } from '@/public-renderers/clientHydrate'
 import {
   isPublicSeoPath,
   removeGlobalLoader
@@ -14,10 +10,7 @@ import { dispatchAotActionEvent } from '@/bootstrap/aotActionEvent'
 import { emitRumMetric, emitTelemetry } from '@/services/telemetryBus'
 import { ensureThemeRuntime, setThemeMode, type ThemeMode } from '@/services/themeRuntime'
 import { bootstrapFullApp, commitPreparedFullApp, prepareFullApp } from '@/bootstrap/fullApp'
-import { AEDS_BINARY_MEDIA_TYPE } from '@/api/contracts'
 import { getMe } from '@/api/auth'
-import { getPrefersReducedMotion, resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
-import { settlePublicNavigationMotionForShell } from '@/bootstrap/publicShellMotion'
 import {
   resetPublicShellRuntimeAuthState,
   resolvePublicShellRuntimeAuthState,
@@ -31,8 +24,6 @@ import {
   resetPublicShellLifetime
 } from '@/bootstrap/publicShellLifetime'
 import {
-  beginPublicTakeoverNavigation,
-  completePublicTakeoverNavigation,
   getPublicRuntimeOwner,
   markPublicTakeoverFallback
 } from '@/bootstrap/publicTakeoverState'
@@ -43,50 +34,11 @@ import {
 } from '@/router/publicRoutePreload'
 import {
   classifyPublicNavigationIntent,
-  isPublicAtomicTakeoverEnabled,
   type PublicAtomicNavigationIntent
 } from '@/bootstrap/publicNavigationIntent'
 
 function isModifiedEvent(event: MouseEvent): boolean {
   return event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
-}
-
-function resolveHashTarget(hash: string): HTMLElement | null {
-  if (!hash || hash === '#') {
-    return null
-  }
-
-  const rawId = hash.slice(1)
-  const id = (() => {
-    try {
-      return decodeURIComponent(rawId)
-    } catch {
-      return rawId
-    }
-  })()
-
-  const byId = document.getElementById(id)
-  if (byId) {
-    return byId
-  }
-
-  const named = document.getElementsByName(id)[0]
-  return named instanceof HTMLElement ? named : null
-}
-
-function scrollToHashOrTop(href: string): void {
-  const url = new URL(href, window.location.origin)
-  const target = resolveHashTarget(url.hash)
-  if (!target) {
-    window.scrollTo({ left: 0, top: 0, behavior: 'auto' })
-    return
-  }
-
-  window.scrollTo({
-    left: 0,
-    top: Math.max(0, window.scrollY + target.getBoundingClientRect().top - 88),
-    behavior: resolveMotionScrollBehavior(getPrefersReducedMotion())
-  })
 }
 
 function isInternalAppLink(anchor: HTMLAnchorElement): boolean {
@@ -120,10 +72,6 @@ type CriticalStyleLink = {
   href: string | null
   marker: string
   readiness: 'critical' | 'markdown' | 'background'
-}
-
-type CspNonceWindow = Window & {
-  __FSUSBLOG_CSP_NONCE__?: string
 }
 
 const CRITICAL_STYLE_READY_TIMEOUT_MS = 450
@@ -165,7 +113,6 @@ const PUBLIC_STYLE_FALLBACKS: CriticalStyleLink[] = [
     readiness: 'critical'
   }
 ]
-const PUBLIC_NAVIGATION_RETRY_DELAYS_MS = [250, 500, 750, 1000]
 
 function isFontOnlyStylesheet(link: HTMLLinkElement): boolean {
   const href = (link.getAttribute('href') ?? '').toLowerCase()
@@ -313,42 +260,6 @@ function ensureEmergencyPublicShellStyle(): void {
   document.head.appendChild(link)
 }
 
-function readCurrentCspNonce(): string {
-  const nonceSource = document.querySelector(
-    'script[nonce], style[nonce], meta[property="csp-nonce"]'
-  ) as (HTMLElement & { nonce?: string }) | null
-
-  return (window as CspNonceWindow).__FSUSBLOG_CSP_NONCE__
-    || nonceSource?.nonce
-    || nonceSource?.getAttribute('nonce')
-    || ''
-}
-
-function applyCurrentCspNonceToImportedHead(node: Node): void {
-  if (!(node instanceof Element)) {
-    return
-  }
-
-  const nonce = readCurrentCspNonce()
-  if (!nonce) {
-    return
-  }
-
-  const apply = (element: Element) => {
-    const tag = element.tagName.toLowerCase()
-    if (tag !== 'style' && tag !== 'script') {
-      return
-    }
-
-    const target = element as HTMLElement & { nonce?: string }
-    target.nonce = nonce
-    target.setAttribute('nonce', nonce)
-  }
-
-  apply(node)
-  node.querySelectorAll('style,script').forEach(apply)
-}
-
 export async function ensurePublicShellStylesReady(): Promise<void> {
   if (typeof document === 'undefined') {
     return
@@ -394,7 +305,6 @@ function validatePublicShellStylesheetsInBackground(styleLinks: HTMLLinkElement[
 }
 
 let preBootstrapNavigationBound = false
-let popstateBound = false
 let hydratedPayload: PublicHydrationPayload | null = null
 let activeNavigationController: AbortController | null = null
 let activeNavigationToken = 0
@@ -408,15 +318,9 @@ let commentsIntersectionObserver: IntersectionObserver | null = null
 let commentsActivationVersion = 0
 let publicTakeoverPromise: Promise<void> | null = null
 let publicRoutePrewarmIdleTask: number | null = null
-let publicShellNavigationRemountCount = 0
 let authResolutionVersion = 0
 let homeHotArticlesIslandModulePromise: Promise<typeof import('@/public-renderers/homeHotArticlesIsland')> | null = null
 let commentsIslandModulePromise: Promise<typeof import('@/public-renderers/commentsIsland')> | null = null
-
-type PublicSeedSnapshotWindow = Window & typeof globalThis & {
-  __FSUS_PUBLIC_AOT_BOOTSTRAP_RAW__?: string | null
-  __FSUS_PUBLIC_HYDRATION_RAW__?: string | null
-}
 
 type IdleWindow = Window & typeof globalThis & {
   requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
@@ -888,305 +792,8 @@ function refreshPublicShellAuthState(): void {
     })
 }
 
-function getCurrentShell(): HTMLElement | null {
-  return document.querySelector<HTMLElement>('#app > #fsus-aot-shell')
-}
-
-function replaceBinaryScript(id: string, rawPayload: string | null): void {
-  const existing = document.getElementById(id)
-  if (!rawPayload) {
-    existing?.remove()
-    if (id === 'fsus-aot-bootstrap') {
-      (window as PublicSeedSnapshotWindow).__FSUS_PUBLIC_AOT_BOOTSTRAP_RAW__ = null
-    }
-    if (id === 'fsus-aot-hydration-props') {
-      (window as PublicSeedSnapshotWindow).__FSUS_PUBLIC_HYDRATION_RAW__ = null
-    }
-    return
-  }
-
-  const target = existing ?? (() => {
-    const created = document.createElement('script')
-    created.id = id
-    created.type = AEDS_BINARY_MEDIA_TYPE
-    document.body.appendChild(created)
-    return created
-  })()
-
-  target.textContent = rawPayload
-  if (id === 'fsus-aot-bootstrap') {
-    (window as PublicSeedSnapshotWindow).__FSUS_PUBLIC_AOT_BOOTSTRAP_RAW__ = rawPayload
-  }
-  if (id === 'fsus-aot-hydration-props') {
-    (window as PublicSeedSnapshotWindow).__FSUS_PUBLIC_HYDRATION_RAW__ = rawPayload
-  }
-}
-
-function replacePublicShellForNavigation(currentShell: HTMLElement, targetShell: HTMLElement): HTMLElement {
-  const appRoot = currentShell.parentElement
-  if (!(appRoot instanceof HTMLElement) || appRoot.id !== 'app') {
-    throw new Error('invalid public shell root')
-  }
-
-  const previousProbe = currentShell.dataset.publicShellProbe
-  const nextShell = document.importNode(targetShell, true) as HTMLElement
-  nextShell.setAttribute('data-public-shell-remount', String(++publicShellNavigationRemountCount))
-  if (previousProbe) {
-    nextShell.setAttribute('data-public-shell-disposed-probe', previousProbe)
-  }
-  nextShell.removeAttribute('data-public-hydrated')
-
-  disposePublicHydrationApp()
-  appRoot.replaceChildren(nextShell)
-  return nextShell
-}
-
-function syncHeadFromDocument(targetDocument: Document): void {
-  if (targetDocument.title) {
-    document.title = targetDocument.title
-  }
-
-  document.head.querySelectorAll('[data-fsus-aot-head]').forEach((node) => node.remove())
-  targetDocument.head.querySelectorAll('[data-fsus-aot-head]').forEach((node) => {
-    const imported = document.importNode(node, true)
-    applyCurrentCspNonceToImportedHead(imported)
-    document.head.appendChild(imported)
-  })
-}
-
-function stripInlineStyleTagsForDetachedParse(html: string): string {
-  return html.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
-}
-
-function updateHistoryStateForCurrentScroll(): void {
-  const state = history.state && typeof history.state === 'object' ? history.state as Record<string, unknown> : {}
-  history.replaceState({
-    ...state,
-    __fsusPublicShell: true,
-    scrollX: window.scrollX,
-    scrollY: window.scrollY
-  }, '', window.location.href)
-}
-
-function getRestoreScrollPosition(state: unknown): { left: number; top: number } {
-  if (!state || typeof state !== 'object') {
-    return { left: 0, top: 0 }
-  }
-
-  const record = state as Record<string, unknown>
-  const left = Number(record.scrollX)
-  const top = Number(record.scrollY)
-  return {
-    left: Number.isFinite(left) ? Math.max(0, Math.trunc(left)) : 0,
-    top: Number.isFinite(top) ? Math.max(0, Math.trunc(top)) : 0
-  }
-}
-
-function readBinaryTextById(doc: Document, id: string): string | null {
-  const text = doc.getElementById(id)?.textContent?.trim()
-  return text ? text : null
-}
-
-function readBinarySidecarUrlById(doc: Document, id: string, baseUrl: string): string | null {
-  const element = doc.getElementById(id)
-  const raw = element?.getAttribute('data-aeds-src') || element?.getAttribute('src') || ''
-  return raw.trim() ? new URL(raw.trim(), baseUrl).toString() : null
-}
-
-function delay(ms: number, signal: AbortSignal): Promise<void> {
-  if (signal.aborted) {
-    return Promise.resolve()
-  }
-
-  return new Promise((resolve) => {
-    const timer = window.setTimeout(resolve, ms)
-    signal.addEventListener('abort', () => {
-      window.clearTimeout(timer)
-      resolve()
-    }, { once: true })
-  })
-}
-
-function isHydratablePublicDocument(doc: Document): boolean {
-  return Boolean(
-    doc.querySelector('#app > #fsus-aot-shell')
-    && (
-      readBinaryTextById(doc, 'fsus-aot-hydration-props')
-      || readBinarySidecarUrlById(doc, 'fsus-aot-hydration-props', window.location.href)
-    )
-  )
-}
-
-async function resolvePublicHydrationPayloadFromDocument(
-  targetDocument: Document,
-  href: string,
-  signal: AbortSignal
-): Promise<PublicHydrationPayload | null> {
-  const inlinePayload = readBinaryTextById(targetDocument, 'fsus-aot-hydration-props')
-  if (inlinePayload) {
-    return replacePublicHydrationPayloadBinary(inlinePayload)
-  }
-
-  const sidecarUrl = readBinarySidecarUrlById(targetDocument, 'fsus-aot-hydration-props', href)
-  if (!sidecarUrl) {
-    return null
-  }
-
-  return replacePublicHydrationPayloadSnapshot(await readPublicHydrationPayloadFromUrl(sidecarUrl, signal))
-}
-
-async function applyPublicNavigationDocument(
-  targetDocument: Document,
-  href: string,
-  historyMode: 'push' | 'replace' | 'none',
-  popState: unknown,
-  signal: AbortSignal
-): Promise<void> {
-  const targetShell = targetDocument.querySelector<HTMLElement>('#app > #fsus-aot-shell')
-  const currentShell = getCurrentShell()
-  if (!targetShell || !currentShell) {
-    throw new Error('invalid public shell document')
-  }
-
-  const payload = await resolvePublicHydrationPayloadFromDocument(targetDocument, href, signal)
-  if (!payload) {
-    throw new Error('invalid public hydration payload')
-  }
-
-  clearDynamicIslands()
-  syncHeadFromDocument(targetDocument)
-  const nextShell = replacePublicShellForNavigation(currentShell, targetShell)
-
-  replaceBinaryScript('fsus-aot-bootstrap', readBinaryTextById(targetDocument, 'fsus-aot-bootstrap'))
-
-  hydratedPayload = payload
-  await hydratePublicPage(payload)
-  refreshPublicShellAuthState()
-  scheduleDynamicIslands(payload)
-  clearPublicFirstPaintFlag()
-  settlePublicNavigationMotionForShell(nextShell)
-
-  if (historyMode === 'push') {
-    history.pushState({ __fsusPublicShell: true, scrollX: 0, scrollY: 0 }, '', href)
-    scrollToHashOrTop(href)
-  } else if (historyMode === 'replace') {
-    history.replaceState({ __fsusPublicShell: true, ...getRestoreScrollPosition(popState) }, '', href)
-    const { left, top } = getRestoreScrollPosition(popState)
-    if (new URL(href, window.location.origin).hash) {
-      scrollToHashOrTop(href)
-    } else {
-      window.scrollTo({ left, top, behavior: 'auto' })
-    }
-  }
-}
-
-async function navigateWithinPublicShell(
-  href: string,
-  options: {
-    historyMode?: 'push' | 'replace' | 'none'
-    popState?: unknown
-    force?: boolean
-  } = {}
-): Promise<void> {
-  const target = new URL(href, window.location.origin)
-  const current = new URL(window.location.href)
-  if (!options.force && target.pathname === current.pathname && target.search === current.search && target.hash === current.hash) {
-    return
-  }
-
-  if (!isPublicMicroRoute(target.toString())) {
-    navigateWithDocumentRequest(target.toString())
-    return
-  }
-
-  if ((options.historyMode ?? 'push') === 'push') {
-    updateHistoryStateForCurrentScroll()
-  }
-  emitTelemetry('public_navigation_legacy_start', {
-    historyMode: options.historyMode ?? 'push',
-    target: target.toString()
-  }, 'info')
-  activeNavigationController?.abort()
-  const controller = new AbortController()
-  activeNavigationController = controller
-  const navigationToken = ++activeNavigationToken
-  beginPublicTakeoverNavigation({
-    reason: options.historyMode === 'replace' ? 'history-traversal' : 'micro-navigation',
-    target: target.toString()
-  })
-
-  try {
-    for (let attempt = 0; attempt <= PUBLIC_NAVIGATION_RETRY_DELAYS_MS.length; attempt += 1) {
-      const response = await fetch(target.toString(), {
-        headers: {
-          Accept: 'text/html,application/xhtml+xml',
-          'X-Fsus-Public-Navigation': '1'
-        },
-        credentials: 'same-origin',
-        signal: controller.signal
-      })
-
-      if (!response.ok) {
-        throw new Error(`public navigation failed: ${response.status}`)
-      }
-
-      const html = await response.text()
-      if (controller.signal.aborted || navigationToken !== activeNavigationToken) {
-        return
-      }
-
-      const nextDocument = new DOMParser().parseFromString(stripInlineStyleTagsForDetachedParse(html), 'text/html')
-      if (isHydratablePublicDocument(nextDocument)) {
-        await applyPublicNavigationDocument(
-          nextDocument,
-          target.toString(),
-          options.historyMode ?? 'push',
-          options.popState,
-          controller.signal
-        )
-        if (activeNavigationController === controller) {
-          completePublicTakeoverNavigation({
-            reason: 'micro-navigation-complete',
-            target: target.toString()
-          })
-          emitTelemetry('public_navigation_legacy_completed', {
-            target: target.toString()
-          }, 'info')
-        }
-        return
-      }
-
-      const retryDelay = PUBLIC_NAVIGATION_RETRY_DELAYS_MS[attempt]
-      if (retryDelay == null) {
-        break
-      }
-      await delay(retryDelay, controller.signal)
-      if (controller.signal.aborted || navigationToken !== activeNavigationToken) {
-        return
-      }
-    }
-
-    throw new Error('public navigation shell was not ready')
-  } catch (error) {
-    if ((error as { name?: string } | null)?.name === 'AbortError') {
-      return
-    }
-
-    markPublicTakeoverFallback({
-      reason: 'micro-navigation-failed',
-      target: target.toString()
-    })
-    navigateWithDocumentRequest(target.toString())
-  } finally {
-    if (activeNavigationController === controller) {
-      activeNavigationController = null
-    }
-  }
-}
-
 async function navigateWithAtomicPublicTakeover(intent: PublicAtomicNavigationIntent): Promise<void> {
   const target = new URL(intent.href, window.location.origin)
-  updateHistoryStateForCurrentScroll()
   activeNavigationController?.abort()
   const controller = new AbortController()
   activeNavigationController = controller
@@ -1207,7 +814,12 @@ async function navigateWithAtomicPublicTakeover(intent: PublicAtomicNavigationIn
     }
 
     if (prewarmResult.status !== 'ready') {
-      emitTelemetry('public_navigation_atomic_legacy_fallback', {
+      markPublicTakeoverFallback({
+        reason: 'atomic-navigation-prewarm-not-ready',
+        source: intent.source,
+        target: target.toString()
+      })
+      emitTelemetry('public_navigation_atomic_document_fallback', {
         source: intent.source,
         status: prewarmResult.status,
         target: intent.fullPath
@@ -1215,7 +827,7 @@ async function navigateWithAtomicPublicTakeover(intent: PublicAtomicNavigationIn
       if (activeNavigationController === controller) {
         activeNavigationController = null
       }
-      await navigateWithinPublicShell(target.toString())
+      navigateWithDocumentRequest(target.toString())
       return
     }
 
@@ -1259,6 +871,23 @@ async function navigateWithAtomicPublicTakeover(intent: PublicAtomicNavigationIn
   }
 }
 
+async function navigateWithPublicIntent(
+  intent: ReturnType<typeof classifyPublicNavigationIntent>,
+  fallbackHref: string
+): Promise<boolean> {
+  if (intent.kind === 'atomic-public-route') {
+    await navigateWithAtomicPublicTakeover(intent)
+    return true
+  }
+
+  if (fallbackHref) {
+    navigateWithDocumentRequest(fallbackHref)
+    return true
+  }
+
+  return false
+}
+
 async function handleShellAction(actionNode: HTMLElement, anchor: HTMLAnchorElement | null): Promise<void> {
   const action = actionNode.dataset.aotAction ?? ''
   if (!action) {
@@ -1274,12 +903,7 @@ async function handleShellAction(actionNode: HTMLElement, anchor: HTMLAnchorElem
       href: actionHref,
       source: 'pagination'
     })
-    if (isPublicAtomicTakeoverEnabled() && intent.kind === 'atomic-public-route') {
-      await navigateWithAtomicPublicTakeover(intent)
-      return
-    }
-
-    await navigateWithinPublicShell(actionHref)
+    await navigateWithPublicIntent(intent, actionHref)
     return
   }
 
@@ -1302,12 +926,7 @@ async function handleShellAction(actionNode: HTMLElement, anchor: HTMLAnchorElem
       currentHref: window.location.href,
       source: 'action'
     })
-    if (isPublicAtomicTakeoverEnabled() && intent.kind === 'atomic-public-route') {
-      await navigateWithAtomicPublicTakeover(intent)
-      return
-    }
-
-    await navigateWithinPublicShell(anchor.href)
+    await navigateWithPublicIntent(intent, anchor.href)
   }
 }
 
@@ -1351,12 +970,7 @@ export function bindPreBootstrapNavigation(): void {
           href: actionHref,
           source: 'pagination'
         })
-        if (isPublicAtomicTakeoverEnabled() && intent.kind === 'atomic-public-route') {
-          void navigateWithAtomicPublicTakeover(intent)
-          return
-        }
-
-        void navigateWithinPublicShell(actionHref)
+        void navigateWithPublicIntent(intent, actionHref)
         return
       }
 
@@ -1374,19 +988,18 @@ export function bindPreBootstrapNavigation(): void {
       return
     }
 
-    event.preventDefault()
     const intent = classifyPublicNavigationIntent({
       anchor,
       currentHref: window.location.href,
       event,
       source: 'link'
     })
-    if (isPublicAtomicTakeoverEnabled() && intent.kind === 'atomic-public-route') {
-      void navigateWithAtomicPublicTakeover(intent)
+    if (intent.kind !== 'atomic-public-route') {
       return
     }
 
-    void navigateWithinPublicShell(anchor.href)
+    event.preventDefault()
+    void navigateWithAtomicPublicTakeover(intent)
   }, { passive: false })
   addPublicShellEventListener(document, 'pointerenter', (event) => {
     requestPublicAnchorPrewarm(event, 'pointerenter')
@@ -1394,33 +1007,6 @@ export function bindPreBootstrapNavigation(): void {
   addPublicShellEventListener(document, 'focusin', (event) => {
     requestPublicAnchorPrewarm(event, 'focus')
   }, { passive: true })
-}
-
-export function bindPopStateNavigation(): void {
-  if (popstateBound) {
-    return
-  }
-
-  popstateBound = true
-  if ('scrollRestoration' in history) {
-    history.scrollRestoration = 'manual'
-  }
-
-  addPublicShellEventListener(window, 'popstate', (event) => {
-    if (getPublicRuntimeOwner() === 'spa') {
-      return
-    }
-
-    if (!isPublicSeoPath(window.location.pathname)) {
-      return
-    }
-
-    void navigateWithinPublicShell(window.location.href, {
-      historyMode: 'replace',
-      popState: event.state,
-      force: true
-    })
-  })
 }
 
 async function hydratePublicShell(): Promise<void> {
@@ -1452,7 +1038,6 @@ export async function bootstrapPublicShell(): Promise<void> {
     clearPublicRouteIdlePrewarm()
     clearDynamicIslands()
     preBootstrapNavigationBound = false
-    popstateBound = false
   })
 
   ensureThemeRuntime()
@@ -1460,7 +1045,6 @@ export async function bootstrapPublicShell(): Promise<void> {
     document.body.setAttribute('data-fsusblog-public-first-paint', 'true')
   }
   bindPreBootstrapNavigation()
-  bindPopStateNavigation()
   bindPublicTakeoverTriggers()
   schedulePublicRouteIdlePrewarm()
   const hydrateTask = (async () => {

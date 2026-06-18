@@ -142,16 +142,19 @@ function assertStaticContracts() {
       fail(`Vite preview must serve public AOT hydration sidecars with release headers: ${token}`)
     }
   }
-  if (!publicShell.includes("querySelectorAll('[data-fsus-aot-head]')")) {
-    fail('public shell micro-navigation must replace all Public AOT-managed head nodes')
-  }
   if (!apiContracts.includes('PUBLIC_AOT_HYDRATION_MEDIA_TYPE') || !apiContracts.includes('application/vnd.fsus.aeds')) {
     fail('frontend API contracts must expose the public AOT hydration sidecar media type separately from runtime binary APIs')
   }
   for (const token of ['readBinarySidecarUrlById', 'readPublicHydrationPayloadFromUrl', 'replacePublicHydrationPayloadSnapshot']) {
-    if (!publicShell.includes(token)) {
-      fail(`public shell micro-navigation missing hydration sidecar token: ${token}`)
+    if (publicShell.includes(token)) {
+      fail(`public shell navigation must not own hydration sidecar replacement after atomic takeover: ${token}`)
     }
+  }
+  for (const token of ['DOMParser', 'applyPublicNavigationDocument', 'replacePublicShellForNavigation']) {
+    if (!publicShell.includes(token)) {
+      continue
+    }
+    fail(`public shell must not include legacy HTML micro-router token: ${token}`)
   }
   for (const token of ['readPublicHydrationPayloadAsync', 'readPublicHydrationPayloadFromUrl', 'dataset.aedsSrc', 'PUBLIC_AOT_HYDRATION_MEDIA_TYPE']) {
     if (!hydrationBootstrap.includes(token)) {

@@ -10,11 +10,9 @@ import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIden
 import { PUBLIC_SHELL_DEFAULTS } from '@/public-renderers/publicShellState'
 import {
   beginPublicTakeoverCommit,
-  beginPublicTakeoverNavigation,
   beginPublicTakeoverPrewarm,
   canTransitionPublicTakeoverPhase,
   completePublicTakeoverCommit,
-  completePublicTakeoverNavigation,
   getPublicRuntimeOwner,
   getPublicTakeoverPhase,
   markPublicTakeoverPrepared,
@@ -183,14 +181,6 @@ describe('public takeover source contracts', () => {
     expect(getPublicRuntimeOwner()).toBe('aot')
   })
 
-  it('keeps legacy public micro-navigation under AOT ownership', () => {
-    expect(beginPublicTakeoverNavigation({ reason: 'micro-navigation' })).toBe(true)
-    expect(getPublicTakeoverPhase()).toBe('navigating')
-    expect(getPublicRuntimeOwner()).toBe('aot')
-    expect(completePublicTakeoverNavigation({ reason: 'done' })).toBe(true)
-    expect(getPublicTakeoverPhase()).toBe('aot-idle')
-  })
-
   it('aborts public shell lifetime listeners exactly once', () => {
     const signal = resetPublicShellLifetime()
     let abortEvents = 0
@@ -251,7 +241,7 @@ describe('public takeover source contracts', () => {
     }
   })
 
-  it('wires public route prewarm to low-risk signals without replacing HTML micro-navigation', () => {
+  it('wires public route prewarm to low-risk signals without replacing HTML documents', () => {
     const publicShell = readRepoFile('src/frontend/src/bootstrap/publicShell.ts')
 
     expect(publicShell).toContain('prewarmPublicRoute')
@@ -260,6 +250,8 @@ describe('public takeover source contracts', () => {
     expect(publicShell).toContain("'pointerenter'")
     expect(publicShell).toContain("'focusin'")
     expect(publicShell).toContain("requestPublicRoutePrewarm('/search', 'search-focus')")
-    expect(publicShell).toContain('void navigateWithinPublicShell(anchor.href)')
+    expect(publicShell).toContain('void navigateWithAtomicPublicTakeover(intent)')
+    expect(publicShell).not.toContain('navigateWithinPublicShell')
+    expect(publicShell).not.toContain('DOMParser')
   })
 })
