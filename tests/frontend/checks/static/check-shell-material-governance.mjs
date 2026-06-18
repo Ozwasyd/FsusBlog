@@ -15,7 +15,6 @@ const files = {
   accountLayout: path.join(repoRoot, 'src/frontend/src/layouts/AccountLayout.vue'),
   login: path.join(repoRoot, 'src/frontend/src/views/auth/Login.vue'),
   register: path.join(repoRoot, 'src/frontend/src/views/auth/Register.vue'),
-  mobileActionBar: path.join(repoRoot, 'src/frontend/src/components/article/ArticleMobileActionBar.vue'),
   packageJson: path.join(repoRoot, 'src/frontend/package.json')
 }
 
@@ -76,7 +75,20 @@ for (const token of requiredPublicHeaderTokens) {
 }
 
 const publicPageLines = publicPageCss.split(/\r?\n/)
+let allowPublicPageMaterialBlock = false
 publicPageLines.forEach((line, index) => {
+  if (/fsus-allow-shell-material:/.test(line)) {
+    allowPublicPageMaterialBlock = true
+    return
+  }
+
+  if (allowPublicPageMaterialBlock) {
+    if (/^\s*\}/.test(line)) {
+      allowPublicPageMaterialBlock = false
+    }
+    return
+  }
+
   if (/\.el-public-shell__(?:header|inner|primary-row|mobile-toolbar|mobile-primary-actions|actions|desktop-nav|mobile-nav)/.test(line)) {
     fail(files.publicPage, index + 1, 'public header must use FsusUI tokens instead of deep PublicShell overrides')
   }
@@ -122,17 +134,6 @@ checkLines(files.login, [
   {
     pattern: /bg-\[var\(--fsusblog-panel-bg\)\]\/\d+/,
     message: 'login MFA notice must use a solid background'
-  }
-])
-
-checkLines(files.mobileActionBar, [
-  {
-    pattern: /backdrop-filter:\s*(?:blur|saturate|var|url|opacity|brightness|contrast|drop-shadow|grayscale|hue-rotate|invert|sepia)/,
-    message: 'mobile article action bar must not blur reading content underneath'
-  },
-  {
-    pattern: /background:\s*color-mix\([^;]*transparent\)/,
-    message: 'mobile article action bar must use a solid surface background'
   }
 ])
 

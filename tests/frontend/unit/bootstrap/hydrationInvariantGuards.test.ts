@@ -11,7 +11,6 @@ describe('public hydration invariant guards', () => {
   const themeRuntime = readRepoFile('src/frontend/src/services/themeRuntime.ts')
   const themeModeToggle = readRepoFile('src/frontend/src/components/ui/ThemeModeToggle.vue')
   const clientHydrate = readRepoFile('src/frontend/src/public-renderers/clientHydrate.ts')
-  const mobileActionBar = readRepoFile('src/frontend/src/components/article/ArticleMobileActionBar.vue')
   const homeView = readRepoFile('src/frontend/src/views/Home.vue')
   const homeSpotlight = readRepoFile('src/frontend/src/view-contracts/homeSpotlight.ts')
   const hydrationSmoke = readRepoFile('tests/frontend/checks/public/public-hydration-smoke.mjs')
@@ -163,7 +162,7 @@ describe('public hydration invariant guards', () => {
     expect(articleDetail).toContain('<template v-if="canRenderBodyRuntime" #body>')
     expect(articleDetail).toContain('<ArticleTocPanel\n      v-if="canRenderBodyRuntime"')
     expect(articleDetail).toContain('<ArticleImageLightbox\n      v-if="canRenderBodyRuntime"')
-    expect(articleDetail).toContain('<ArticleMobileActionBar\n      v-if="canRenderBodyRuntime"')
+    expect(articleDetail).not.toContain('<ArticleMobileActionBar')
   })
 
   it('documents and preserves public shell runtime gates', () => {
@@ -190,9 +189,8 @@ describe('public hydration invariant guards', () => {
     expect(homeSpotlight).toContain('resolveHomeSecondaryLayout')
   })
 
-  it('locally suppresses mobile action bar appear until FsusUI exposes a hydration-aware transition API', () => {
-    expect(mobileActionBar).toContain('Hydration invariant: do not use Transition appear')
-    expect(mobileActionBar).not.toContain('<FsuTransition :name="fsusBlogMotionPresets.mobileBar" appear')
-    expect(mobileActionBar).not.toContain('<FsuTransition :name="fsusBlogMotionPresets.mobileBar" :appear="true"')
+  it('keeps removed mobile action bar out of the hydration surface', () => {
+    expect(articleDetail).not.toContain('ArticleMobileActionBar')
+    expect(articleDetail).not.toContain('data-mobile-reading-actions')
   })
 })

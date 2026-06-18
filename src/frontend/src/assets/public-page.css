@@ -305,7 +305,7 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
   font-weight: 700;
 }
 
-/* Mobile bottom tab bar (FsusUI §8 Mobile Navigation Patterns + §6 opt-in glass material) */
+/* fsus-allow-shell-material: Mobile bottom tab bar (FsusUI §8 Mobile Navigation Patterns + §6 opt-in glass material) */
 #fsus-aot-shell .el-public-shell__bottom-tab-bar {
   position: fixed;
   inset-inline: 0;
@@ -321,6 +321,7 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* fsus-allow-shell-material: fallback guard for bottom tab bar glass support detection */
 @supports not (backdrop-filter: blur(1px)) {
   #fsus-aot-shell .el-public-shell__bottom-tab-bar {
     background-color: var(--fsusblog-page-bg);

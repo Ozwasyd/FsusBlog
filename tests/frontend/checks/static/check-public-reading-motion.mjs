@@ -31,7 +31,6 @@ const themeTokens = read('src/frontend/src/ui-tokens/themeTokens.ts')
 const accountLayout = read('src/frontend/src/layouts/AccountLayout.vue')
 const progress = read('src/frontend/src/components/article/ArticleReadingProgress.vue')
 const toc = read('src/frontend/src/components/article/ArticleTocPanel.vue')
-const mobileBar = read('src/frontend/src/components/article/ArticleMobileActionBar.vue')
 const lightbox = read('src/frontend/src/components/article/ArticleImageLightbox.vue')
 const shareActions = read('src/frontend/src/components/article/ArticleShareActions.vue')
 const targetHelper = read('src/frontend/src/composables/article/useArticleReadingTarget.ts')
@@ -148,21 +147,7 @@ expectNotMatches(
 )
 expectNotMatches(accountLayout, /backdrop-filter:\s*blur\(/, 'AccountLayout.vue default shell must not use blur')
 
-expectIncludes(mobileBar, 'data-mobile-reading-actions="true"', 'ArticleMobileActionBar.vue')
-expectIncludes(mobileBar, 'blog-motion-mobile-bar', 'ArticleMobileActionBar.vue')
-expectIncludes(mobileBar, 'env(safe-area-inset-bottom, 0px)', 'ArticleMobileActionBar.vue')
-expectIncludes(mobileBar, '<FsuTransition', 'ArticleMobileActionBar.vue')
-expectIncludes(mobileBar, 'fsusBlogMotionPresets.mobileBar', 'ArticleMobileActionBar.vue')
-expectIncludes(mobileBar, 'fsusBlogMotionPresets.backToTop', 'ArticleMobileActionBar.vue')
-expectIncludes(mobileBar, 'backdrop-filter: none;', 'ArticleMobileActionBar.vue')
-expectIncludes(
-  mobileBar,
-  'box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);',
-  'ArticleMobileActionBar.vue'
-)
-expectNotMatches(mobileBar, /translateY\(/, 'ArticleMobileActionBar.vue must not define local mobile bar translate motion')
-expectNotMatches(mobileBar, /backdrop-filter:\s*blur\(/, 'ArticleMobileActionBar.vue must not use blur')
-expectNotMatches(mobileBar, /outline:\s*1px/, 'ArticleMobileActionBar.vue focus must not use 1px outline')
+expectNotMatches(articleDetail, /ArticleMobileActionBar/, 'ArticleDetail.vue must not render removed mobile action bar')
 
 expectIncludes(lightbox, 'data-article-lightbox="true"', 'ArticleImageLightbox.vue')
 expectIncludes(lightbox, '<FsuTransition', 'ArticleImageLightbox.vue')
@@ -177,8 +162,7 @@ expectIncludes(targetHelper, 'ARTICLE_READING_TARGET_CLASS', 'useArticleReadingT
 expectIncludes(targetHelper, "target.focus({ preventScroll: true })", 'useArticleReadingTarget.ts')
 expectIncludes(targetHelper, 'highlightArticleReadingTarget', 'useArticleReadingTarget.ts')
 expectIncludes(tocComposable, 'scrollToArticleTarget(target)', 'useArticleToc.ts')
-expectIncludes(articleDetail, "document.getElementById('fsus-comments-island')", 'ArticleDetail.vue')
-expectIncludes(articleDetail, 'scrollToArticleTarget(target)', 'ArticleDetail.vue')
+expectNotMatches(articleDetail, /navigateToComments/, 'ArticleDetail.vue must not keep removed mobile comments shortcut')
 
 expectIncludes(codeCopy, 'fsus-code-copy-button--copied', 'useCodeBlockCopy.ts')
 expectIncludes(codeCopy, 'useScrollReveal', 'useCodeBlockCopy.ts')

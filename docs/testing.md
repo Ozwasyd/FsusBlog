@@ -293,6 +293,8 @@ graceful shutdown drill 同样由 `runtime-evidence-probe.mjs fault-injection` �
 
 disk/artifact storage write-failure drill 同样由 `runtime-evidence-probe.mjs fault-injection` 执行，case 名为 `disk-artifact-storage-write-failure`。probe 只在 `.tmp/fault-injection-storage/<namespace>/` 下创建临时 artifact 目录，将目标目录设为不可写，触发一次写入失败并分类为受控错误，然后恢复权限、验证写入恢复并清理目录。证据必须包含 `targetPath`、`expectedErrorClassification`、`writeFailureResult.status=expected-error`、`recoveryResult.status=completed`、`cleanupResult.status=completed`、`recoveryDurationMs` 与 `finalHealthStatus=healthy`；直接写生产目录、留下测试目录或只记录 observed-only 状态都不算完成。
 
+data-scale lanes 必须生成真实、可查询、可清理的 fixture。`tools/data-scale/seed.sh` 按 `FSUSBLOG_TEST_NAMESPACE` 写入 namespace 前缀数据：`scale-xs=1/0`、`scale-s=100/1,000`、`scale-m=10,000/100,000`、`scale-l-nightly=100,000/1,000,000`（article/comment）。seed summary 必须包含 `declared`、`expected`、`observed`、`coverage`、`search`、`artifacts` 和 `durationMs`；`runtime-evidence-probe.mjs data-scale` 必须读取该 seed summary，并按同一 namespace 前缀复核 PostgreSQL 中 article、comment、category、tag、article_body、article_tag、root comment 和 nested comment 数量。声明值、seed 实测值、probe 实测值任一不一致都必须失败。`tools/data-scale/cleanup.sh` 只删除同 namespace/tier 前缀数据，并在 `cleanup.json` 中证明 remaining 为 0；不能用全库 truncate 或只丢弃 manifest 代替清理。
+
 ---
 
 ### `load` — 轻量并发压测

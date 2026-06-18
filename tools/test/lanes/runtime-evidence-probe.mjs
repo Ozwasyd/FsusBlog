@@ -107,6 +107,11 @@ function writeJson(file, value) {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`)
 }
 
+function readOptionalJson(file) {
+  if (!fs.existsSync(file)) return null
+  return JSON.parse(fs.readFileSync(file, 'utf8'))
+}
+
 function booleanEnv(...names) {
   for (const name of names) {
     const value = process.env[name]
@@ -276,14 +281,29 @@ async function waitForProcessExit(pid, timeoutMs) {
 }
 
 function queryPostgresScalar(sql) {
-  const container = process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME || process.env.FSUSBLOG_PG_CONTAINER || ''
-  if (!container) return { available: false, error: 'postgres container env missing' }
-  const result = runDocker(['exec', '-i', container, 'psql', '-U', 'fsusblog', '-d', 'fsusblog', '-t', '-A', '-c', sql])
-  if (!result.ok) return { available: false, error: result.error }
-  const parsed = Number.parseInt(result.stdout, 10)
-  return Number.isFinite(parsed)
-    ? { available: true, value: parsed }
-    : { available: false, error: `unexpected psql scalar: ${result.stdout}` }
+  const containers = [
+    process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME,
+    process.env.FSUSBLOG_PG_CONTAINER,
+    'fsusblog-dev-postgres'
+  ].filter(Boolean)
+  const uniqueContainers = [...new Set(containers)]
+  let lastError = 'postgres container env missing'
+  for (const container of uniqueContainers) {
+    const result = runDocker(['exec', '-i', container, 'psql', '-U', 'fsusblog', '-d', 'fsusblog', '-t', '-A', '-c', sql])
+    if (!result.ok) {
+      lastError = result.error
+      continue
+    }
+    const parsed = Number.parseInt(result.stdout, 10)
+    return Number.isFinite(parsed)
+      ? { available: true, value: parsed }
+      : { available: false, error: `unexpected psql scalar: ${result.stdout}` }
+  }
+  return { available: false, error: lastError }
+}
+
+function sqlStringLiteral(value) {
+  return `'${String(value).replace(/'/g, "''")}'`
 }
 
 function sleep(ms) {
@@ -526,14 +546,25 @@ function selectFaultCases(defaultCases) {
 }
 
 function queryRedisDbSize() {
-  const container = process.env.FSUSBLOG_REDIS_CONTAINER_NAME || process.env.FSUSBLOG_REDIS_CONTAINER || ''
-  if (!container) return { available: false, error: 'redis container env missing' }
-  const result = runDocker(['exec', '-i', container, 'redis-cli', 'DBSIZE'])
-  if (!result.ok) return { available: false, error: result.error }
-  const parsed = Number.parseInt(result.stdout, 10)
-  return Number.isFinite(parsed)
-    ? { available: true, value: parsed }
-    : { available: false, error: `unexpected redis dbsize: ${result.stdout}` }
+  const containers = [
+    process.env.FSUSBLOG_REDIS_CONTAINER_NAME,
+    process.env.FSUSBLOG_REDIS_CONTAINER,
+    'fsusblog-dev-redis'
+  ].filter(Boolean)
+  const uniqueContainers = [...new Set(containers)]
+  let lastError = 'redis container env missing'
+  for (const container of uniqueContainers) {
+    const result = runDocker(['exec', '-i', container, 'redis-cli', 'DBSIZE'])
+    if (!result.ok) {
+      lastError = result.error
+      continue
+    }
+    const parsed = Number.parseInt(result.stdout, 10)
+    return Number.isFinite(parsed)
+      ? { available: true, value: parsed }
+      : { available: false, error: `unexpected redis dbsize: ${result.stdout}` }
+  }
+  return { available: false, error: lastError }
 }
 
 function nowIso() {
@@ -2514,41 +2545,144 @@ async function dataScale(tier, outFile) {
     'scale-l-nightly': [100000, 1000000]
   }
   const [articles, comments] = expected[tier] ?? expected['scale-xs']
+  const seedFile = path.join(root, '.tmp', 'scale', tier, 'seed.json')
+  const seed = readOptionalJson(seedFile)
+  const prefix = `data-scale:${namespace}:${tier}`
+  const prefixLiteral = sqlStringLiteral(prefix)
+  const declared = seed?.declared ?? { articles: seed?.expected?.articles, comments: seed?.expected?.comments }
+  const seedExpected = seed?.expected ?? declared
+  const seedObserved = seed?.observed ?? {}
+  const seedMatches = Boolean(seed)
+    && seed.status === 'ok'
+    && declared.articles === articles
+    && declared.comments === comments
+    && seedExpected.articles === articles
+    && seedExpected.comments === comments
+    && seedObserved.articles === articles
+    && seedObserved.comments === comments
+
+  if (!seedMatches) {
+    writeJson(outFile, {
+      status: 'failed',
+      tier,
+      namespace,
+      seedManifest: seed ?? null,
+      expected: { articles, comments },
+      error: `data-scale seed summary missing or mismatched: ${path.relative(root, seedFile)}`,
+      generatedAt: nowIso()
+    })
+    throw new Error(`data-scale seed summary missing or mismatched for ${tier}/${namespace}`)
+  }
+
   const probe = await runHttpProbe(['/api/binary/article/list/home/1/10.aeds', '/api/binary/category', '/api/binary/tag'], {
     iterations: process.env.FSUSBLOG_DATA_SCALE_REQUESTS || (tier === 'scale-xs' ? 6 : 12),
     concurrency: process.env.FSUSBLOG_DATA_SCALE_CONCURRENCY || 2
   })
-  const articleRows = queryPostgresScalar('select count(*) from article;')
-  const commentRows = queryPostgresScalar('select count(*) from "comment";')
+  const articleRows = queryPostgresScalar(`select count(*) from article where title like ${prefixLiteral} || ':article:%';`)
+  const commentRows = queryPostgresScalar(`select count(*) from "comment" where content like ${prefixLiteral} || ':comment:%';`)
+  const publishedRows = queryPostgresScalar(`select count(*) from article where title like ${prefixLiteral} || ':article:%' and status = 2 and isdeleted = false;`)
+  const scheduledRows = queryPostgresScalar(`select count(*) from article where title like ${prefixLiteral} || ':article:%' and status = 1 and isdeleted = false;`)
+  const archivedRows = queryPostgresScalar(`select count(*) from article where title like ${prefixLiteral} || ':article:%' and status = 3 and isdeleted = false;`)
+  const deletedRows = queryPostgresScalar(`select count(*) from article where title like ${prefixLiteral} || ':article:%' and (status = 4 or isdeleted = true);`)
+  const categoryRows = queryPostgresScalar(`select count(*) from category where name like ${prefixLiteral} || ':category:%';`)
+  const tagRows = queryPostgresScalar(`select count(*) from tag where name like ${prefixLiteral} || ':tag:%';`)
+  const articleBodyRows = queryPostgresScalar(`select count(*) from article_body b join article a on a.id = b.article_id where a.title like ${prefixLiteral} || ':article:%';`)
+  const articleTagRows = queryPostgresScalar(`select count(*) from article_tag at join article a on a.id = at.articleid where a.title like ${prefixLiteral} || ':article:%';`)
+  const rootCommentRows = queryPostgresScalar(`select count(*) from "comment" where content like ${prefixLiteral} || ':comment:%' and parent_id is null;`)
+  const nestedCommentRows = queryPostgresScalar(`select count(*) from "comment" where content like ${prefixLiteral} || ':comment:%' and parent_id is not null and root_id is not null;`)
   const redisKeys = queryRedisDbSize()
+  const expectedRootComments = Math.ceil(comments / 2)
+  const expectedNestedComments = comments - expectedRootComments
+  const observedCounts = [
+    articleRows,
+    commentRows,
+    publishedRows,
+    scheduledRows,
+    archivedRows,
+    deletedRows,
+    categoryRows,
+    tagRows,
+    articleBodyRows,
+    articleTagRows,
+    rootCommentRows,
+    nestedCommentRows
+  ]
+  const countQueriesAvailable = observedCounts.every((item) => item.available)
+  const countsMatch = countQueriesAvailable
+    && articleRows.value === articles
+    && commentRows.value === comments
+    && articleBodyRows.value === articles
+    && categoryRows.value >= Math.min(articles, 4)
+    && tagRows.value >= Math.min(Math.max(articles, 1), 8)
+    && rootCommentRows.value === expectedRootComments
+    && nestedCommentRows.value === expectedNestedComments
+    && (articles === 1 || (publishedRows.value > 0 && scheduledRows.value > 0 && archivedRows.value > 0 && deletedRows.value > 0))
+  const summaryStatus = countsMatch ? 'ok' : 'failed'
   writeJson(outFile, {
-    status: 'ok',
+    status: summaryStatus,
     tier,
     namespace,
     seedManifest: {
-      articles,
-      comments,
-      mode: 'bootstrap-fixture-plus-runtime-probe'
+      file: path.relative(root, seedFile),
+      declared,
+      expected: seedExpected,
+      observed: seedObserved,
+      coverage: seed.coverage ?? null,
+      search: seed.search ?? seed.searchArtifactRebuild ?? null,
+      artifacts: seed.artifacts ?? seed.searchArtifactRebuild ?? null,
+      durationMs: seed.durationMs ?? null,
+      mode: 'postgres-namespace-fixture-plus-runtime-probe',
+      prefix
     },
     db: {
       articleRows: articleRows.available ? articleRows.value : null,
       commentRows: commentRows.available ? commentRows.value : null,
+      publishedRows: publishedRows.available ? publishedRows.value : null,
+      scheduledRows: scheduledRows.available ? scheduledRows.value : null,
+      archivedRows: archivedRows.available ? archivedRows.value : null,
+      deletedRows: deletedRows.available ? deletedRows.value : null,
+      categoryRows: categoryRows.available ? categoryRows.value : null,
+      tagRows: tagRows.available ? tagRows.value : null,
+      articleBodyRows: articleBodyRows.available ? articleBodyRows.value : null,
+      articleTagRows: articleTagRows.available ? articleTagRows.value : null,
+      rootCommentRows: rootCommentRows.available ? rootCommentRows.value : null,
+      nestedCommentRows: nestedCommentRows.available ? nestedCommentRows.value : null,
       articleRowsSource: articleRows.available ? 'postgres-count' : articleRows.error,
       commentRowsSource: commentRows.available ? 'postgres-count' : commentRows.error,
-      sizeBytes: null
+      sizeBytes: null,
+      expected: {
+        articleRows: articles,
+        commentRows: comments,
+        rootCommentRows: expectedRootComments,
+        nestedCommentRows: expectedNestedComments
+      },
+      countsMatch
     },
     redis: {
       keyCount: redisKeys.available ? redisKeys.value : null,
       keyCountSource: redisKeys.available ? 'redis-dbsize' : redisKeys.error
     },
-    search: { indexSizeBytes: null },
-    aot: { cacheSizeBytes: null },
+    search: {
+      status: seed.search?.status ?? seed.searchArtifactRebuild?.status ?? 'unknown',
+      reason: seed.search?.reason ?? seed.searchArtifactRebuild?.reason ?? null,
+      indexSizeBytes: null,
+      fixtureSearchToken: `${prefix}:article:1`
+    },
+    aot: {
+      status: seed.artifacts?.status ?? seed.searchArtifactRebuild?.status ?? 'unknown',
+      reason: seed.artifacts?.reason ?? seed.searchArtifactRebuild?.reason ?? null,
+      cacheSizeBytes: null
+    },
     latencyMs: probe.latencyMs,
     resources: { cpuPercent: null, rssBytes: null, gcCount: null },
-    cleanup: { status: 'not-required', reason: 'bootstrap namespace is discarded after the lane' },
+    cleanup: { status: 'pending', reason: 'tools/data-scale/cleanup.sh deletes namespace-prefixed fixture rows after probe' },
     runtime: probe,
+    error: countsMatch ? null : 'data-scale observed counts did not match expected tier fixture counts',
     generatedAt: probe.generatedAt
   })
+  if (summaryStatus !== 'ok') {
+    throw new Error('data-scale observed counts did not match expected tier fixture counts')
+  }
 }
 
 async function faultInjection(outDir) {
