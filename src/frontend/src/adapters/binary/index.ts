@@ -13,7 +13,7 @@ import { mapConversationDetailFromPayload, mapConversationListFromPayload, mapCo
 import { mapPasskeyCredentialListFromPayload, mapPasskeyLoginBeginFromPayload, mapPasskeyRegisterBeginFromPayload } from './passkeyAdapter';
 import { mapHumanReadChallengeFromPayload, mapHumanReadSubmitFromPayload } from './readProofAdapter';
 import { mapAuthoringJsonFromPayload } from './authoringAdapter';
-import { mapSecurityJsonFromPayload } from './securityAdapter';
+import { mapSecurityChallengeIssueResponseFromPayload, mapSecurityChallengeVerifyResponseFromPayload, mapSecurityJsonFromPayload } from './securityAdapter';
 import { mapSiteSubscriptionResponseFromPayload } from './subscriptionAdapter';
 
 const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
@@ -120,6 +120,8 @@ const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.AntiCrawlerSimulationResult]: mapSecurityJsonFromPayload,
   [FrameType.PowOverview]: mapSecurityJsonFromPayload,
   [FrameType.PowPolicySnapshot]: mapSecurityJsonFromPayload,
+  [FrameType.SecurityChallengeIssueResponse]: mapSecurityChallengeIssueResponseFromPayload,
+  [FrameType.SecurityChallengeVerifyResponse]: mapSecurityChallengeVerifyResponseFromPayload,
   [FrameType.SiteSubscriptionResponse]: mapSiteSubscriptionResponseFromPayload,
   [FrameType.EmptySuccess]: mapEmptySuccessFromPayload,
   [FrameType.MutationId]: mapMutationIdFromPayload

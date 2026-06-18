@@ -2,9 +2,25 @@ import type { ApiRequestConfig } from './requestConfig'
 import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import { encodeAedsFrame } from './binaryFrame'
-import { encodeSecurityJsonRequest } from '@/adapters/binary/securityAdapter'
+import {
+  encodeSecurityChallengeIssueRequest,
+  encodeSecurityChallengeVerifyRequest,
+  encodeSecurityJsonRequest,
+  SecurityChallengeKind,
+  type SecurityChallengeIssueResponse,
+  type SecurityChallengeVerifyResponse
+} from '@/adapters/binary/securityAdapter'
 import { FSUS_HEADERS } from './contracts'
 import { getBrowserFp } from '@/utils/fingerprint'
+
+export { SecurityChallengeKind }
+export type {
+  SecurityChallengeAssignment,
+  SecurityChallengeEnvelope,
+  SecurityChallengeIssueResponse,
+  SecurityChallengeProviderPayload,
+  SecurityChallengeVerifyResponse
+} from '@/adapters/binary/securityAdapter'
 
 export type SecurityMode = 'disabled' | 'observe' | 'enforce' | 'strict'
 
@@ -258,6 +274,21 @@ type SecurityBinaryRequestOptions = {
   request?: unknown
 }
 
+export interface IssueSecurityChallengeRequest {
+  action: string
+  routeKey: string
+  attributes?: Record<string, unknown>
+  deviceFingerprint?: string
+}
+
+export interface VerifySecurityChallengeRequest {
+  challengeId: string
+  kind: SecurityChallengeKind
+  action: string
+  routeKey: string
+  providerPayload: Record<string, string>
+}
+
 const securityHeaders = (mfaProofToken?: string | null): Headers => {
   const headers = new Headers()
   headers.set(FSUS_HEADERS.deviceFingerprint, getBrowserFp())
@@ -269,6 +300,12 @@ const securityHeaders = (mfaProofToken?: string | null): Headers => {
 
 function securityBody(frameType: FrameType, request: unknown): ArrayBuffer {
   return encodeAedsFrame(frameType, encodeSecurityJsonRequest(request))
+}
+
+function securityChallengeHeaders(deviceFingerprint?: string): Headers {
+  const headers = new Headers()
+  headers.set(FSUS_HEADERS.deviceFingerprint, deviceFingerprint?.trim() || getBrowserFp())
+  return headers
 }
 
 function requestSecurityBinary<T>(
@@ -307,6 +344,49 @@ const query = (params: Record<string, string | number | null | undefined>): stri
 
 export const getSecurityOverview = (config?: ApiRequestConfig) =>
   requestSecurityBinary<SecurityOverviewResponse>('/overview', FrameType.SecurityOverview, config)
+
+export const issueSecurityChallenge = (request: IssueSecurityChallengeRequest, config?: ApiRequestConfig) =>
+  requestBinaryOnly<SecurityChallengeIssueResponse>({
+    binaryUrl: `${BINARY_API_PREFIX}/security/challenge`,
+    frameType: FrameType.SecurityChallengeIssueResponse,
+    requestOptions: {
+      method: 'POST',
+      credentials: 'include',
+      headers: securityChallengeHeaders(request.deviceFingerprint),
+      body: encodeAedsFrame(
+        FrameType.SecurityChallengeIssueRequest,
+        encodeSecurityChallengeIssueRequest({
+          action: request.action,
+          routeKey: request.routeKey,
+          deviceFingerprint: request.deviceFingerprint?.trim() || getBrowserFp(),
+          attributesJson: JSON.stringify(request.attributes ?? {})
+        })
+      )
+    },
+    signal: config?.signal as AbortSignal | undefined
+  })
+
+export const verifySecurityChallenge = (request: VerifySecurityChallengeRequest, config?: ApiRequestConfig) =>
+  requestBinaryOnly<SecurityChallengeVerifyResponse>({
+    binaryUrl: `${BINARY_API_PREFIX}/security/challenge/verify`,
+    frameType: FrameType.SecurityChallengeVerifyResponse,
+    requestOptions: {
+      method: 'POST',
+      credentials: 'include',
+      headers: securityChallengeHeaders(),
+      body: encodeAedsFrame(
+        FrameType.SecurityChallengeVerifyRequest,
+        encodeSecurityChallengeVerifyRequest({
+          challengeId: request.challengeId,
+          kind: request.kind,
+          action: request.action,
+          routeKey: request.routeKey,
+          providerPayloadJson: JSON.stringify(request.providerPayload)
+        })
+      )
+    },
+    signal: config?.signal as AbortSignal | undefined
+  })
 
 export const getAntiCrawlerOverview = (config?: ApiRequestConfig) =>
   requestSecurityBinary<AntiCrawlerOverviewResponse>('/anti-crawler/overview', FrameType.AntiCrawlerOverview, config)

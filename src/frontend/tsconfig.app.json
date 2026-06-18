@@ -25,6 +25,7 @@
     "src/**/*.tsx",
     "src/**/*.vue",
     "src/vite-env.d.ts",
+    "wasm/security/**/*.ts",
     "wasm/web/**/*.ts",
     "auto-imports.d.ts",
     "components.d.ts"
