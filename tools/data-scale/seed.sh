@@ -16,6 +16,7 @@ esac
 
 namespace="${FSUSBLOG_TEST_NAMESPACE:-local}"
 postgres_container="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-${FSUSBLOG_PG_CONTAINER:-fsusblog-dev-postgres}}"
+fixture_prefix="data-scale:$namespace:$TIER"
 
 if ! docker exec "$postgres_container" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
   printf '[data-scale:seed] postgres container is not ready: %s\n' "$postgres_container" >&2
@@ -438,16 +439,16 @@ SELECT jsonb_pretty(jsonb_build_object(
     'tag', tags >= 8
   ),
   'search', jsonb_build_object(
-    'status', 'not-triggered',
-    'reason', 'seed writes queryable source rows; search rebuild is executed by the runtime/search lane'
+    'status', 'unsupported',
+    'reason', 'data-scale seed writes queryable source rows; probe records search artifact evidence when a rebuild hook is configured'
   ),
   'artifacts', jsonb_build_object(
-    'status', 'not-triggered',
-    'reason', 'seed writes queryable source rows; artifact rebuild is executed by the runtime/artifact lane'
+    'status', 'probe-required',
+    'reason', 'data-scale probe must record artifact rebuild evidence for this fixture namespace'
   ),
   'searchArtifactRebuild', jsonb_build_object(
-    'status', 'not-triggered',
-    'reason', 'seed writes fixture data; runtime bootstrap or explicit operations rebuild search artifacts'
+    'status', 'unsupported',
+    'reason', 'search rebuild requires an explicit runtime hook outside the PostgreSQL seed step'
   ),
   'durationMs', round((extract(epoch FROM (clock_timestamp() - started_at)) * 1000)::numeric, 3),
   'generatedAt', to_char(clock_timestamp() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
@@ -465,4 +466,44 @@ if [[ "$(jq -r '.status // "failed"' "$OUT_DIR/seed.json")" != "ok" ]]; then
   exit 1
 fi
 
+jq -n \
+  --arg tier "$TIER" \
+  --arg namespace "$namespace" \
+  --arg prefix "$fixture_prefix" \
+  --arg summary ".tmp/scale/$TIER/summary.json" \
+  '{
+    status: "probe-required",
+    tier: $tier,
+    namespace: $namespace,
+    sourceFixtureNamespace: $namespace,
+    fixturePrefix: $prefix,
+    rebuildCommand: ("tools/data-scale/probe.sh " + $tier),
+    summary: $summary,
+    rebuilds: {
+      search: {
+        status: "unsupported",
+        command: null,
+        artifactCount: null,
+        sizeBytes: null,
+        reason: "search artifact rebuild hook is not configured for data-scale seed"
+      },
+      aot: {
+        status: "unsupported",
+        command: null,
+        artifactCount: null,
+        sizeBytes: null,
+        reason: "Public AOT rebuild hook is not configured for data-scale seed"
+      },
+      hotRead: {
+        status: "probe-required",
+        command: ("runtime-evidence-probe data-scale " + $tier + " " + $summary),
+        artifactCount: null,
+        sizeBytes: null,
+        reason: "probe performs runtime HotRead warmup against the seeded namespace"
+      }
+    },
+    generatedAt: now | todate
+  }' > "$OUT_DIR/artifact-rebuild.json"
+
 printf '[data-scale:seed] wrote %s\n' "$OUT_DIR/seed.json"
+printf '[data-scale:seed] wrote %s\n' "$OUT_DIR/artifact-rebuild.json"

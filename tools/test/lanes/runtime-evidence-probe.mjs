@@ -690,6 +690,102 @@ function collectHotReadMetric(probe) {
   }
 }
 
+function dataScaleArtifactMetric(kind, metric, seedEntry, command) {
+  const countFields = {
+    search: ['entryCount', 'indexSizeBytes'],
+    aot: ['artifactCount', 'cacheSizeBytes'],
+    hotRead: ['artifactSampleCount', 'sampleBytes']
+  }
+  const [countField, sizeField] = countFields[kind] ?? ['artifactCount', 'sizeBytes']
+  if (metric.status === 'ok') {
+    return {
+      status: 'ok',
+      command,
+      source: metric.source,
+      artifactCount: Number(metric[countField] ?? 0),
+      sizeBytes: Number(metric[sizeField] ?? 0),
+      reason: null
+    }
+  }
+
+  if (seedEntry?.status === 'unsupported') {
+    return {
+      status: 'unsupported',
+      command: seedEntry.command ?? null,
+      source: metric.source ?? null,
+      artifactCount: null,
+      sizeBytes: null,
+      reason: seedEntry.reason ?? metric.reason ?? `${kind} artifact rebuild is unsupported in this data-scale lane`
+    }
+  }
+
+  return {
+    status: 'missing',
+    command,
+    source: metric.source ?? null,
+    artifactCount: null,
+    sizeBytes: null,
+    reason: metric.reason ?? `${kind} artifact metric missing after data-scale rebuild hook`
+  }
+}
+
+function buildDataScaleArtifactEvidence({
+  tier,
+  namespace,
+  prefix,
+  outFile,
+  artifactEvidenceFile,
+  seedArtifactEvidence,
+  searchMetric,
+  aotMetric,
+  hotReadMetric,
+  generatedAt
+}) {
+  const seedMatches = Boolean(seedArtifactEvidence)
+    && seedArtifactEvidence.sourceFixtureNamespace === namespace
+    && seedArtifactEvidence.fixturePrefix === prefix
+  const seedRebuilds = seedMatches ? seedArtifactEvidence.rebuilds ?? {} : {}
+  const rebuilds = {
+    search: dataScaleArtifactMetric('search', searchMetric, seedRebuilds.search, seedRebuilds.search?.command ?? null),
+    aot: dataScaleArtifactMetric('aot', aotMetric, seedRebuilds.aot, seedRebuilds.aot?.command ?? null),
+    hotRead: dataScaleArtifactMetric(
+      'hotRead',
+      hotReadMetric,
+      seedRebuilds.hotRead,
+      `runtime-evidence-probe data-scale ${tier} ${path.relative(root, outFile)}`)
+  }
+  const entries = Object.entries(rebuilds)
+  const missing = entries.filter(([, value]) => value.status === 'missing').map(([key]) => key)
+  const ok = entries.filter(([, value]) => value.status === 'ok').map(([key]) => key)
+  const status = seedMatches && missing.length === 0 && ok.length > 0 ? 'ok' : 'missing'
+  const seedReason = seedMatches
+    ? null
+    : `data-scale artifact rebuild hook missing seed evidence for ${namespace}/${tier}`
+  const missingReason = missing.length > 0
+    ? `data-scale artifact rebuild hook missing: ${missing.join(', ')}`
+    : null
+
+  return {
+    status,
+    tier,
+    namespace,
+    sourceFixtureNamespace: namespace,
+    fixturePrefix: prefix,
+    evidenceFile: path.relative(root, artifactEvidenceFile),
+    seedEvidenceStatus: seedMatches ? 'ok' : 'missing',
+    seedEvidenceFile: seedArtifactEvidence ? path.relative(root, artifactEvidenceFile) : null,
+    rebuildCommand: `tools/data-scale/probe.sh ${tier}`,
+    rebuilds,
+    ok,
+    unsupported: entries.filter(([, value]) => value.status === 'unsupported').map(([key]) => key),
+    missing,
+    artifactCount: entries.reduce((total, [, value]) => total + Number(value.artifactCount ?? 0), 0),
+    sizeBytes: entries.reduce((total, [, value]) => total + Number(value.sizeBytes ?? 0), 0),
+    reason: seedReason ?? missingReason,
+    generatedAt
+  }
+}
+
 function nonNegativeIntEnv(name, fallback) {
   if (process.env[name] === undefined || process.env[name] === '') {
     return fallback
@@ -3388,7 +3484,11 @@ async function dataScale(tier, outFile) {
   }
   const [articles, comments] = expected[tier] ?? expected['scale-xs']
   const seedFile = path.join(root, '.tmp', 'scale', tier, 'seed.json')
+  const artifactEvidenceFile = process.env.FSUSBLOG_DATA_SCALE_ARTIFACT_EVIDENCE
+    ? path.resolve(root, process.env.FSUSBLOG_DATA_SCALE_ARTIFACT_EVIDENCE)
+    : path.join(root, '.tmp', 'scale', tier, 'artifact-rebuild.json')
   const seed = readOptionalJson(seedFile)
+  const seedArtifactEvidence = readOptionalJson(artifactEvidenceFile)
   const prefix = `data-scale:${namespace}:${tier}`
   const prefixLiteral = sqlStringLiteral(prefix)
   const declared = seed?.declared ?? { articles: seed?.expected?.articles, comments: seed?.expected?.comments }
@@ -3416,10 +3516,30 @@ async function dataScale(tier, outFile) {
     throw new Error(`data-scale seed summary missing or mismatched for ${tier}/${namespace}`)
   }
 
-  const probe = await runHttpProbe(['/api/binary/article/list/home/1/10.aeds', '/api/binary/category', '/api/binary/tag'], {
-    iterations: process.env.FSUSBLOG_DATA_SCALE_REQUESTS || (tier === 'scale-xs' ? 6 : 12),
-    concurrency: process.env.FSUSBLOG_DATA_SCALE_CONCURRENCY || 2
-  })
+  let probe
+  try {
+    probe = await runHttpProbe(['/api/binary/article/list/home/1/10.aeds', '/api/binary/category', '/api/binary/tag'], {
+      iterations: process.env.FSUSBLOG_DATA_SCALE_REQUESTS || (tier === 'scale-xs' ? 6 : 12),
+      concurrency: process.env.FSUSBLOG_DATA_SCALE_CONCURRENCY || 2
+    })
+  } catch (probeError) {
+    probe = {
+      baseUrl,
+      namespace,
+      measurementSource: 'runtime-http-probe',
+      status: 'blocked',
+      error: probeError instanceof Error ? probeError.message : String(probeError),
+      sampleCount: 0,
+      concurrency: Number(process.env.FSUSBLOG_DATA_SCALE_CONCURRENCY || 2),
+      durationMs: 0,
+      bytes: 0,
+      statusCounts: {},
+      latencyMs: null,
+      cacheSignalRatio: 0,
+      samples: [],
+      generatedAt: nowIso()
+    }
+  }
   const articleRows = queryPostgresScalar(`select count(*) from article where title like ${prefixLiteral} || ':article:%';`)
   const commentRows = queryPostgresScalar(`select count(*) from "comment" where content like ${prefixLiteral} || ':comment:%';`)
   const publishedRows = queryPostgresScalar(`select count(*) from article where title like ${prefixLiteral} || ':article:%' and status = 2 and isdeleted = false;`)
@@ -3461,6 +3581,19 @@ async function dataScale(tier, outFile) {
   const searchMetric = collectSearchMetric()
   const aotMetric = collectAotMetric()
   const hotReadMetric = collectHotReadMetric(probe)
+  const artifactEvidence = buildDataScaleArtifactEvidence({
+    tier,
+    namespace,
+    prefix,
+    outFile,
+    artifactEvidenceFile,
+    seedArtifactEvidence,
+    searchMetric,
+    aotMetric,
+    hotReadMetric,
+    generatedAt: probe.generatedAt
+  })
+  writeJson(artifactEvidenceFile, artifactEvidence)
   const expectedRootComments = Math.ceil(comments / 2)
   const expectedNestedComments = comments - expectedRootComments
   const observedCounts = [
@@ -3499,18 +3632,16 @@ async function dataScale(tier, outFile) {
     && rootCommentRows.value === expectedRootComments
     && nestedCommentRows.value === expectedNestedComments
     && (articles === 1 || (publishedRows.value > 0 && scheduledRows.value > 0 && archivedRows.value > 0 && deletedRows.value > 0))
-  const artifactMetricsReady = searchMetric.status === 'ok'
-    && aotMetric.status === 'ok'
-    && hotReadMetric.status === 'ok'
-  const summaryStatus = countsMatch && artifactMetricsReady
+  const artifactEvidenceReady = artifactEvidence.status === 'ok'
+  const summaryStatus = countsMatch && artifactEvidenceReady
     ? 'ok'
     : countsMatch
       ? 'blocked'
       : 'failed'
   const error = !countsMatch
     ? 'data-scale observed counts did not match expected tier fixture counts'
-    : !artifactMetricsReady
-      ? 'data-scale search/AOT/HotRead metrics missing'
+    : !artifactEvidenceReady
+      ? artifactEvidence.reason ?? 'data-scale artifact rebuild hook missing'
       : null
   writeJson(outFile, {
     status: summaryStatus,
@@ -3548,6 +3679,12 @@ async function dataScale(tier, outFile) {
       coverage: seed.coverage ?? null,
       search: seed.search ?? seed.searchArtifactRebuild ?? null,
       artifacts: seed.artifacts ?? seed.searchArtifactRebuild ?? null,
+      artifactEvidence: {
+        file: path.relative(root, artifactEvidenceFile),
+        status: artifactEvidence.status,
+        sourceFixtureNamespace: artifactEvidence.sourceFixtureNamespace,
+        fixturePrefix: artifactEvidence.fixturePrefix
+      },
       durationMs: seed.durationMs ?? null,
       mode: 'postgres-namespace-fixture-plus-runtime-probe',
       prefix
@@ -3586,6 +3723,7 @@ async function dataScale(tier, outFile) {
     },
     aot: aotMetric,
     hotRead: hotReadMetric,
+    artifactEvidence,
     latencyMs: probe.latencyMs,
     resources: { cpuPercent: null, rssBytes: null, gcCount: null },
     cleanup: { status: 'pending', reason: 'tools/data-scale/cleanup.sh deletes namespace-prefixed fixture rows after probe' },

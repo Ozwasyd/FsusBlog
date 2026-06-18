@@ -252,6 +252,27 @@ public class BackgroundWorkflowSourceTests
         Assert.Equal("queue-full-or-closed", second.Status);
         Assert.False(queue.TryEnqueue(3, "article-updated"));
     }
+
+    [Fact]
+    public void DataScale_SourceLinksSeedArtifactRebuildEvidenceToProbe()
+    {
+        string seed = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/data-scale/seed.sh"));
+        string probe = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/data-scale/probe.sh"));
+        string runtimeProbe = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/test/lanes/runtime-evidence-probe.mjs"));
+
+        Assert.Contains("artifact-rebuild.json", seed, StringComparison.Ordinal);
+        Assert.Contains("sourceFixtureNamespace", seed, StringComparison.Ordinal);
+        Assert.Contains("probe-required", seed, StringComparison.Ordinal);
+        Assert.DoesNotContain("'status', 'not-triggered'", seed, StringComparison.Ordinal);
+
+        Assert.Contains("artifact-rebuild.json", probe, StringComparison.Ordinal);
+        Assert.Contains("artifactEvidenceFile", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("sourceFixtureNamespace", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("artifactEvidenceReady", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("unsupported", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("catch (probeError)", runtimeProbe, StringComparison.Ordinal);
+        Assert.Contains("data-scale artifact rebuild hook missing", runtimeProbe, StringComparison.Ordinal);
+    }
 }
 
 public class MiddlewareResultsTests
