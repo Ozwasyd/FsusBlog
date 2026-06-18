@@ -656,6 +656,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         totpverifiedatutc timestamp NULL
                     );
                     CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_admin_principal_handle ON admin_principal(handle);
+                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_admin_principal_active_root ON admin_principal(isroot) WHERE isroot = true AND status = 'active';
                     CREATE INDEX IF NOT EXISTS idx_admin_principal_status ON admin_principal(status);
                     """),
                 new EnsureTableStep(

@@ -12,6 +12,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.WebUtilities;
+using Npgsql;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;
@@ -110,6 +111,7 @@ public sealed class AdminPrincipalService(
     private const string LoginCachePrefix = "admin-login";
     private const string StepUpCachePrefix = "admin-stepup";
     private const string AdminSensitiveAction = "admin-sensitive";
+    private const long RootBootstrapAdvisoryLockKey = 761245219401267874L;
     private static readonly TimeSpan ChallengeTtl = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan StepUpProofTtl = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan AdminIdleSessionTtl = TimeSpan.FromHours(8);
@@ -222,13 +224,40 @@ public sealed class AdminPrincipalService(
             Permissions = string.Join('\n', AdminPermissions.All),
             CreatedAtUtc = DateTime.UtcNow
         };
-        principal.Id = await db.Insertable(principal).ExecuteReturnIdentityAsync();
+        AdminSessionTokens? tokens = null;
+        var bootstrap = await db.Ado.UseTranAsync(async () =>
+        {
+            await AcquireRootBootstrapLockAsync(cancellationToken);
+            if (await RootAdminExistsAsync(cancellationToken))
+            {
+                return false;
+            }
 
-        var credential = CreateCredential(principal.Id, challenge.UserHandle, result, request.FriendlyName);
-        await db.Insertable(credential).ExecuteCommandAsync();
+            principal.Id = await db.Insertable(principal).ExecuteReturnIdentityAsync();
 
-        AdminSessionTokens tokens = await CreateSessionAndTokenAsync(principal, clientContext, stepUpVerified: false, cancellationToken);
-        await WriteAuditAsync(principal.Id, tokens.SessionId, "admin.bootstrap.completed", "success", clientContext, highImpact: true, cancellationToken);
+            var credential = CreateCredential(principal.Id, challenge.UserHandle, result, request.FriendlyName);
+            await db.Insertable(credential).ExecuteCommandAsync();
+
+            tokens = await CreateSessionAndTokenAsync(principal, clientContext, stepUpVerified: false, cancellationToken);
+            await WriteAuditAsync(principal.Id, tokens.SessionId, "admin.bootstrap.completed", "success", clientContext, highImpact: true, cancellationToken);
+            return true;
+        });
+        if (!bootstrap.IsSuccess)
+        {
+            if (IsUniqueViolation(bootstrap.ErrorException))
+            {
+                return (false, "Root admin already exists", null);
+            }
+
+            logger.LogError(bootstrap.ErrorException, "Admin bootstrap transaction failed.");
+            return (false, "Root admin bootstrap failed", null);
+        }
+
+        if (!bootstrap.Data || tokens is null)
+        {
+            return (false, "Root admin already exists", null);
+        }
+
         return (true, "Root admin bootstrapped", tokens);
     }
 
@@ -585,6 +614,18 @@ public sealed class AdminPrincipalService(
             .AnyAsync();
     }
 
+    private async Task AcquireRootBootstrapLockAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (db.CurrentConnectionConfig.DbType != DbType.PostgreSQL)
+        {
+            return;
+        }
+
+        await db.Ado.ExecuteCommandAsync($"SELECT pg_advisory_xact_lock({RootBootstrapAdvisoryLockKey});");
+        cancellationToken.ThrowIfCancellationRequested();
+    }
+
     private bool ValidateBootstrapToken(string? suppliedToken, out string error)
     {
         error = string.Empty;
@@ -659,6 +700,28 @@ public sealed class AdminPrincipalService(
             .Where(c => c.CredentialId == credId)
             .CountAsync();
         return count == 0;
+    }
+
+    private static bool IsUniqueViolation(Exception? exception)
+    {
+        while (exception is not null)
+        {
+            if (exception is PostgresException postgres &&
+                string.Equals(postgres.SqlState, PostgresErrorCodes.UniqueViolation, StringComparison.Ordinal) &&
+                string.Equals(postgres.ConstraintName, "unique_idx_admin_principal_active_root", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (exception.Message.Contains("unique_idx_admin_principal_active_root", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            exception = exception.InnerException;
+        }
+
+        return false;
     }
 
     private static PasskeyRegisterBeginCoreModel ToRegisterBeginCore(string sessionKey, CredentialCreateOptions options)

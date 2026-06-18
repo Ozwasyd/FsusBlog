@@ -93,6 +93,31 @@ public sealed class AdminPrincipalSecurityContractTests
     }
 
     [Fact]
+    public void RootAdminBootstrap_UsesDatabaseUniquenessAndTransaction()
+    {
+        string migrations = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");
+        string bootstrapComplete = ExtractMethodBlock(service, "public async Task<(bool Success, string Message, AdminSessionTokens? Tokens)> CompleteBootstrapPasskeyRegistrationAsync");
+
+        Assert.Contains(
+            "CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_admin_principal_active_root ON admin_principal(isroot) WHERE isroot = true AND status = 'active';",
+            migrations,
+            StringComparison.Ordinal);
+        Assert.Contains("db.Ado.UseTranAsync(async () =>", bootstrapComplete, StringComparison.Ordinal);
+        AssertContainsAfter(bootstrapComplete, "db.Ado.UseTranAsync(async () =>", "AcquireRootBootstrapLockAsync(cancellationToken)");
+        AssertContainsAfter(bootstrapComplete, "db.Ado.UseTranAsync(async () =>", "RootAdminExistsAsync(cancellationToken)");
+        AssertContainsAfter(bootstrapComplete, "db.Ado.UseTranAsync(async () =>", "db.Insertable(principal).ExecuteReturnIdentityAsync()");
+        AssertContainsAfter(bootstrapComplete, "db.Ado.UseTranAsync(async () =>", "db.Insertable(credential).ExecuteCommandAsync()");
+        AssertContainsAfter(bootstrapComplete, "db.Ado.UseTranAsync(async () =>", "CreateSessionAndTokenAsync(principal, clientContext, stepUpVerified: false, cancellationToken)");
+        AssertContainsAfter(bootstrapComplete, "db.Ado.UseTranAsync(async () =>", "WriteAuditAsync(principal.Id, tokens.SessionId, \"admin.bootstrap.completed\"");
+        Assert.Contains("if (!bootstrap.IsSuccess)", bootstrapComplete, StringComparison.Ordinal);
+        Assert.Contains("IsUniqueViolation(bootstrap.ErrorException)", bootstrapComplete, StringComparison.Ordinal);
+        Assert.Contains("return (false, \"Root admin already exists\", null);", bootstrapComplete, StringComparison.Ordinal);
+        Assert.Contains("pg_advisory_xact_lock", service, StringComparison.Ordinal);
+        Assert.Contains("private static bool IsUniqueViolation(Exception? exception)", service, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AdminPrincipalPlane_AuditAndPermissionsAreExplicit()
     {
         string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");
@@ -179,5 +204,13 @@ public sealed class AdminPrincipalSecurityContractTests
         }
 
         throw new InvalidOperationException($"Unable to extract method body: {signature}");
+    }
+
+    private static void AssertContainsAfter(string source, string marker, string expected)
+    {
+        int markerIndex = source.IndexOf(marker, StringComparison.Ordinal);
+        Assert.True(markerIndex >= 0, $"Unable to locate marker: {marker}");
+        int expectedIndex = source.IndexOf(expected, markerIndex, StringComparison.Ordinal);
+        Assert.True(expectedIndex > markerIndex, $"Expected to find '{expected}' after '{marker}'.");
     }
 }
