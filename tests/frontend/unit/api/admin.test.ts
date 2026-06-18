@@ -27,7 +27,7 @@ describe('admin API binary mutations', () => {
     }))
   })
 
-  it('adminChangeStatus sends binary status request with MFA proof', async () => {
+  it('adminChangeStatus sends binary status request with admin step-up proof', async () => {
     await adminChangeStatus({ userId: 10, status: 1, reason: 'spam' }, { mfaProofToken: 'proof-status' })
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryUrl: '/api/binary/admin/users/status',
@@ -43,7 +43,7 @@ describe('admin API binary mutations', () => {
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-status')
   })
 
-  it('adminResetPassword sends binary password reset request with MFA proof', async () => {
+  it('adminResetPassword sends binary password reset request with admin step-up proof', async () => {
     await adminResetPassword({ userId: 10, newPassword: 'P@ssw0rd!' }, { mfaProofToken: 'proof-reset' })
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryUrl: '/api/binary/admin/users/reset-pwd',

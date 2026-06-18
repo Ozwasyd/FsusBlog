@@ -285,7 +285,7 @@ public sealed class AdminOperationsService(
                 new DangerousOperationRuleResponse("normal-confirm", "confirm", ["刷新缓存", "重建搜索索引", "重新生成 sitemap/feed"]),
                 new DangerousOperationRuleResponse("strong-confirm", "二次确认", ["删除文件", "清理孤立资产", "清空 output cache"]),
                 new DangerousOperationRuleResponse("typed-confirm", "输入对象名", ["删除标签并解除关联", "删除分类并迁移文章"]),
-                new DangerousOperationRuleResponse("mfa-step-up", "MFA proof", ["批量封禁", "重置密码", "导出站点备份", "应用数据巡检修复"]),
+                new DangerousOperationRuleResponse("admin-step-up", "Admin step-up proof", ["批量封禁", "重置密码", "导出站点备份", "应用数据巡检修复"]),
                 new DangerousOperationRuleResponse("diff-preview", "展示 changed fields", ["系统设置保存", "内容导入", "revision rollback", "静态页面修改"])
             ],
             ["system-settings-save", "content-import", "revision-rollback", "taxonomy-update", "integrity-fix"],

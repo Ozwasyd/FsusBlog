@@ -94,12 +94,12 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
-    public void CommentModerationEndpoints_RequireRateLimitAndAdminSensitiveMfaProof()
+    public void CommentModerationEndpoints_RequireRateLimitAndAdminSensitiveAdminStepUpProof()
     {
         string source = ReadRepoFile("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
 
         Assert.Contains("RequireAdminSensitiveStepUpAsync", source);
-        Assert.Contains("ValidateAndConsumeProofTokenAsync(userId, AdminSensitiveAction, proofToken)", source);
+        Assert.Contains("ValidateAndConsumeAdminStepUpProofTokenAsync", source);
         Assert.Contains("StatusCodes.Status428PreconditionRequired", source);
         Assert.Contains("MFA_PROOF_REQUIRED", source);
         Assert.True(CountOccurrences(source, ".RequireRateLimiting(\"fixed_ip\")") >= 3);

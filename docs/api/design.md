@@ -119,7 +119,7 @@ Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AED
 
 | 类别 | 头部 | 方向 | 说明 |
 |------|------|------|------|
-| 安全强制 | `X-Fsus-Mfa-Proof` | 请求 | admin-sensitive、高价值作者/安全写操作的一次性 MFA proof；消费语义见 [contracts.md#admin-作者工作台](contracts.md#admin-作者工作台) 与 [contracts.md#admin-安全系统](contracts.md#admin-安全系统)。 |
+| 安全强制 | `X-Fsus-Mfa-Proof` | 请求 | admin-sensitive、高价值作者/安全写操作的一次性 admin step-up proof；消费语义见 [contracts.md#admin-作者工作台](contracts.md#admin-作者工作台) 与 [contracts.md#admin-安全系统](contracts.md#admin-安全系统)。 |
 | 安全强制 | `X-Fsus-Admin-Bootstrap-Token` | 请求 | 首次 root admin Passkey bootstrap 的显式环境守门 token；必须匹配 `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` / `Admin:BootstrapToken`，root admin 存在后不再生效。 |
 | 安全强制 | `X-Fsus-Admin-Handle` | 请求 | 首次 root admin Passkey bootstrap 的后台 handle；只用于 admin principal，不写入普通匿名账号。 |
 | 安全强制 | `X-Fsus-Pow-Proof` | 请求 | `public_read` 风险升级后的动态公开 API PoW proof；不用于 PublicHotRead L0 artifact 命中路径。 |
@@ -359,7 +359,7 @@ Public AOT document composer 只允许通过以下 5 个具名 sentinel 写入 A
 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AdminOperationsService.cs`](../../src/backend/Infrastructure/Operations/AdminOperationsService.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)。
 
-单作者运维能力也归入 `/api/binary/author/**`，不得新增多作者协作或复杂 RBAC。`/api/binary/author/ops/**` 只返回运行时健康、备份 artifact 状态、结构化最近错误和危险操作策略；最近错误必须在审计行物化后做摘要、清理和分组，不得在 ORM projection 内拼接格式化字符串或向前端泄露 SQL 表达式片段。`/api/binary/author/cache/**` 暴露 AOT/PublicHotRead/search/sitemap/feed/comment cache 诊断、VisitLog 驱动 HotArticles/Stats 失效合并状态与手动重建入口；`/api/binary/author/integrity/**` 暴露数据一致性巡检、diff 预览和带 MFA 的 safe-fix 应用。所有写入型维护动作必须写高价值审计；不可逆或跨表修复必须先返回 diff，并通过统一危险操作策略要求强确认或 MFA proof。
+单作者运维能力也归入 `/api/binary/author/**`，不得新增多作者协作或复杂 RBAC。`/api/binary/author/ops/**` 只返回运行时健康、备份 artifact 状态、结构化最近错误和危险操作策略；最近错误必须在审计行物化后做摘要、清理和分组，不得在 ORM projection 内拼接格式化字符串或向前端泄露 SQL 表达式片段。`/api/binary/author/cache/**` 暴露 AOT/PublicHotRead/search/sitemap/feed/comment cache 诊断、VisitLog 驱动 HotArticles/Stats 失效合并状态与手动重建入口；`/api/binary/author/integrity/**` 暴露数据一致性巡检、diff 预览和带 admin step-up 的 safe-fix 应用。所有写入型维护动作必须写高价值审计；不可逆或跨表修复必须先返回 diff，并通过统一危险操作策略要求强确认或 admin step-up proof。
 
 ### SEO 预览
 
@@ -385,7 +385,7 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)、[`RegionLegalModerationService.cs`](../../src/backend/Services/Moderation/RegionLegalModerationService.cs)。
 
-评论治理是公开讨论区前置门禁：新评论默认进入 `Pending`，公开评论线程和回复游标只读取 `Approved`，并按 viewer IP 解析出的地区过滤 `blocked_regions`。提交时服务端按 request IP 解析 submit region；submit region 违法时直接拒绝，合法但部分 viewer region 不可展示时写入 `comment_region_compliance.blocked_regions`。`CN-MAINLAND` 严格策略只作用于 `CN-MAINLAND` 提交者或浏览者，不因 `CN-HK`、`CN-MO`、`CN-TW` 或 `GREATER_CHINA` 分组自动外溢；submit region 未知时进入待审且公开页不展示，viewer region 未知时对存在 blocked regions 的评论采用保守隐藏。作者工作台通过 `/api/binary/author/comments/moderation` 读取待审、已拒绝、已隐藏和已通过队列，展示敏感词、HTML 风险、密集链接、重复刷屏、人工原因和地区策略结果；匿名评论还展示 author mode、display language、moderation subject hash、scope、credential level 和 reputation/account-age bucket，不反查真实账号身份。普通评论审核队列、单条审核和批量审核均要求 `comment.moderate`，单条或批量审核还写入审计并清理评论游标缓存。误判恢复只需要把评论重新置为 `Approved`，但 `can_publish=false` 的发布地违法评论不得被管理员放行；拒绝/隐藏时可选择联动封禁非 admin 用户。匿名治理动作使用独立 admin permission：策略开关走 `/api/binary/author/moderation/anonymous-comment-policy`，nullifier 封禁走 `/api/binary/author/comments/moderation/nullifiers/block`，匿名凭证撤销走 `/api/binary/author/comments/moderation/anonymous-credentials/{credentialId}/revoke`，三者均要求 MFA step-up 并写高价值审计；匿名治理权限不替代 `comment.moderate`。
+评论治理是公开讨论区前置门禁：新评论默认进入 `Pending`，公开评论线程和回复游标只读取 `Approved`，并按 viewer IP 解析出的地区过滤 `blocked_regions`。提交时服务端按 request IP 解析 submit region；submit region 违法时直接拒绝，合法但部分 viewer region 不可展示时写入 `comment_region_compliance.blocked_regions`。`CN-MAINLAND` 严格策略只作用于 `CN-MAINLAND` 提交者或浏览者，不因 `CN-HK`、`CN-MO`、`CN-TW` 或 `GREATER_CHINA` 分组自动外溢；submit region 未知时进入待审且公开页不展示，viewer region 未知时对存在 blocked regions 的评论采用保守隐藏。作者工作台通过 `/api/binary/author/comments/moderation` 读取待审、已拒绝、已隐藏和已通过队列，展示敏感词、HTML 风险、密集链接、重复刷屏、人工原因和地区策略结果；匿名评论还展示 author mode、display language、moderation subject hash、scope、credential level 和 reputation/account-age bucket，不反查真实账号身份。普通评论审核队列、单条审核和批量审核均要求 `comment.moderate`，单条或批量审核还写入审计并清理评论游标缓存。误判恢复只需要把评论重新置为 `Approved`，但 `can_publish=false` 的发布地违法评论不得被管理员放行；拒绝/隐藏时可选择联动封禁非 admin 用户。匿名治理动作使用独立 admin permission：策略开关走 `/api/binary/author/moderation/anonymous-comment-policy`，nullifier 封禁走 `/api/binary/author/comments/moderation/nullifiers/block`，匿名凭证撤销走 `/api/binary/author/comments/moderation/anonymous-credentials/{credentialId}/revoke`，三者均要求 admin Passkey step-up 并写高价值审计；匿名治理权限不替代 `comment.moderate`。
 
 ### 审核系统控制台
 

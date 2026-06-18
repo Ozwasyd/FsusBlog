@@ -76,7 +76,7 @@ describe('admin comment moderation workflow contract', () => {
     expect(queueComposable).toContain('filters.dateRange')
   })
 
-  it('keeps single, bulk, detail, history, audit, and MFA proof flows wired', () => {
+  it('keeps single, bulk, detail, history, audit, and admin step-up proof flows wired', () => {
     expect(queue).toContain('CommentModerationStatus.Approved')
     expect(queue).toContain('CommentModerationStatus.Rejected')
     expect(queue).toContain('CommentModerationStatus.Hidden')
@@ -94,8 +94,8 @@ describe('admin comment moderation workflow contract', () => {
     expect(queue).toContain('blog-scroll-x-safe')
     expect(queue).toContain('comment-moderation-table-scroll')
     expect(bulkActions).toContain('联动封禁用户')
-    expect(actionsComposable).toContain('startMfaChallenge(AdminSensitiveAction)')
-    expect(actionsComposable).toContain('verifyMfaChallenge')
+    expect(actionsComposable).toContain('useAdminSensitiveProof')
+    expect(actionsComposable).toContain('ensureAdminSensitiveProof()')
     expect(actionsComposable).toContain('moderateComment')
     expect(actionsComposable).toContain('moderateCommentsBulk')
     expect(actionsComposable).toContain("moderationErrorMessage(error, '评论审核操作失败')")

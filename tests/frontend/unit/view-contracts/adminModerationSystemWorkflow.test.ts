@@ -73,7 +73,8 @@ describe('admin moderation system workflow contract', () => {
     expect(dictionaries).toContain('rollbackModerationDictionaries')
     expect(dictionaries).toContain('disableModerationDictionary')
     expect(dictionaries).toContain('enableModerationDictionary')
-    expect(dictionaries).toContain('startMfaChallenge(AdminSensitiveAction)')
+    expect(dictionaries).toContain('useAdminSensitiveProof')
+    expect(dictionaries).toContain('ensureAdminSensitiveProof()')
     expect(dictionaries).not.toContain('.terms')
   })
 
@@ -91,7 +92,7 @@ describe('admin moderation system workflow contract', () => {
     expect(replay).toContain('previewModerationReplay')
     expect(replay).toContain('生成预览')
     expect(replay).toContain('回放执行当前不提供直接按钮')
-    expect(replay).toContain('MFA step-up')
+    expect(replay).toContain('admin passkey step-up')
   })
 
   it('indexes moderation audit actions and exposes backend endpoints', () => {

@@ -40,7 +40,7 @@ describe('security API binary transport', () => {
     expect((call?.requestOptions?.headers as Headers).get(FSUS_HEADERS.deviceFingerprint)).toBe('fp-security-test')
   })
 
-  it('updates anti-crawler options with an AEDS request frame and MFA proof', async () => {
+  it('updates anti-crawler options with an AEDS request frame and admin step-up proof', async () => {
     binaryMock.mockResolvedValue({ snapshotId: 'anti-1', options: { mode: 'observe' } })
 
     await updateAntiCrawlerOptions({ mode: 'observe', reason: 'tighten' }, { mfaProofToken: 'proof-anti' })

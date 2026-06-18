@@ -47,12 +47,12 @@ public static class SecurityEndpoints
         group.MapPut("/anti-crawler/options", async (
             AntiCrawlerOptionsUpdateRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -73,12 +73,12 @@ public static class SecurityEndpoints
 
         group.MapPost("/anti-crawler/options/rollback", async (
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -102,12 +102,12 @@ public static class SecurityEndpoints
 
         group.MapPost("/anti-crawler/crawler-ranges/sync", async (
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             ICrawlerRangeSyncService crawlerSync,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -163,12 +163,12 @@ public static class SecurityEndpoints
             string dimension,
             SecurityRiskResetRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             ISecurityRiskScoreReader riskScoreReader,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -201,12 +201,12 @@ public static class SecurityEndpoints
         group.MapPost("/anti-crawler/rules", async (
             AntiCrawlerRuleRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -221,12 +221,12 @@ public static class SecurityEndpoints
             string id,
             AntiCrawlerRuleRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -245,12 +245,12 @@ public static class SecurityEndpoints
         group.MapDelete("/anti-crawler/rules/{id}", async (
             string id,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -282,12 +282,12 @@ public static class SecurityEndpoints
         group.MapPut("/pow/options", async (
             PowOptionsUpdateRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -308,12 +308,12 @@ public static class SecurityEndpoints
 
         group.MapPost("/pow/options/rollback", async (
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -343,12 +343,12 @@ public static class SecurityEndpoints
         group.MapPost($"/anti-crawler/{routeName}", async (
             AntiCrawlerListEntryRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -362,12 +362,12 @@ public static class SecurityEndpoints
         group.MapDelete($"/anti-crawler/{routeName}/{{id}}", async (
             string id,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -381,24 +381,25 @@ public static class SecurityEndpoints
         }).RequireRateLimiting("fixed_ip");
     }
 
-    private static async Task<IResult?> RequireAdminSensitiveStepUpAsync(HttpContext context, IMfaChallengeService mfaChallengeService)
+    private static async Task<IResult?> RequireAdminSensitiveStepUpAsync(HttpContext context, IAdminPrincipalService adminPrincipals)
     {
-        int userId = context.GetUserId();
-        if (userId <= 0)
+        if (!context.User.TryGetAdminPrincipalId(out long adminPrincipalId) ||
+            string.IsNullOrWhiteSpace(context.User.GetAdminSessionId()))
         {
             return Results.Unauthorized();
         }
 
-        if (!context.User.IsMfaVerified())
-        {
-            return Results.Json(JsonApiResponse<object>.Fail("MFA_REQUIRED"), statusCode: StatusCodes.Status403Forbidden);
-        }
-
+        string adminSessionId = context.User.GetAdminSessionId()!;
         string proofToken = context.Request.Headers.TryGetValue(MfaProofHeader, out var values)
             ? values.ToString().Trim()
             : string.Empty;
         if (string.IsNullOrWhiteSpace(proofToken) ||
-            !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(userId, AdminSensitiveAction, proofToken))
+            !await adminPrincipals.ValidateAndConsumeAdminStepUpProofTokenAsync(
+                adminPrincipalId,
+                adminSessionId,
+                AdminSensitiveAction,
+                proofToken,
+                context.RequestAborted))
         {
             return Results.Json(JsonApiResponse<object>.Fail("MFA_PROOF_REQUIRED"), statusCode: StatusCodes.Status428PreconditionRequired);
         }

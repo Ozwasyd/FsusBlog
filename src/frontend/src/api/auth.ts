@@ -500,6 +500,25 @@ export const passkeyLoginComplete = (data: PasskeyLoginCompleteRequest, config?:
     }
   })
 
+export const adminStepUpPasskeyBegin = (config?: ApiRequestConfig) =>
+  requestBinaryOnly<PasskeyLoginBeginResponse>({
+    binaryUrl: '/api/binary/auth/admin/step-up/passkey/begin',
+    frameType: FrameType.PasskeyLoginBegin,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: { method: 'POST' }
+  })
+
+export const adminStepUpPasskeyComplete = (data: PasskeyLoginCompleteRequest, config?: ApiRequestConfig) =>
+  requestBinaryOnly<MfaChallengeResult>({
+    binaryUrl: '/api/binary/auth/admin/step-up/passkey/complete',
+    frameType: FrameType.MfaChallengeResult,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      method: 'POST',
+      body: encodeAedsFrame(FrameType.PasskeyLoginCompleteRequest, encodePasskeyLoginCompleteRequest(data))
+    }
+  })
+
 export const listPasskeys = (config?: ApiRequestConfig) =>
   requestBinaryOnly<PasskeyCredentialSummary[]>({
     binaryUrl: '/api/binary/auth/passkey/credentials',

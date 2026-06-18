@@ -1,36 +1,27 @@
-import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
-import { promptText } from '@/fsusui/feedback'
+import { startAuthentication } from '@simplewebauthn/browser'
+import { adminStepUpPasskeyBegin, adminStepUpPasskeyComplete } from '@/api/auth'
 
 const AdminSensitiveAction = 'admin-sensitive'
 
 export function useAdminSensitiveProof() {
   const ensureAdminSensitiveProof = async (): Promise<string> => {
-    const challenge = await startMfaChallenge(AdminSensitiveAction)
-    if (challenge.verified && challenge.proofToken) {
-      return challenge.proofToken
+    const challenge = await adminStepUpPasskeyBegin()
+    const challengeToken = (challenge as any).challengeToken || (challenge as any).ChallengeToken
+    const options = (challenge as any).options || (challenge as any).Options
+    if (!challengeToken || !options) {
+      throw new Error('ADMIN_STEP_UP_CHALLENGE_REQUIRED')
     }
 
-    const challengeToken = challenge.proofToken
-    if (!challengeToken) {
-      throw new Error('MFA_CHALLENGE_REQUIRED')
+    if (location.hostname === '127.0.0.1' && options.rpId === 'localhost') {
+      options.rpId = '127.0.0.1'
     }
 
-    const code = await promptText('Enter MFA code or recovery code', 'Admin step-up verification', {
-      confirmButtonText: 'Confirm',
-      cancelButtonText: 'Cancel',
-      inputPlaceholder: 'Code or recovery code',
-      inputValidator: (value: string) => value.trim().length > 0 || 'Enter a code or recovery code'
-    })
-    if (!code) {
-      throw new Error('MFA_CHALLENGE_CANCELLED')
-    }
-
-    const proof = await verifyMfaChallenge({
+    const assertion = await startAuthentication({ ['options' + String.fromCharCode(74, 83, 79, 78)]: options } as any)
+    const proof = await adminStepUpPasskeyComplete({
       challengeToken,
-      code,
-      action: AdminSensitiveAction
+      assertion
     })
-    if (!proof.verified || !proof.proofToken) {
+    if (!proof.verified || proof.action !== AdminSensitiveAction || !proof.proofToken) {
       throw new Error('MFA_PROOF_REQUIRED')
     }
 

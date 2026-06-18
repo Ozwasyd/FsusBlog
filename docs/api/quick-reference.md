@@ -90,6 +90,8 @@
 | POST | `/api/binary/auth/admin/bootstrap/passkey/complete` | 🔓 🚦 📦 | 首次 root admin Passkey 注册完成；root admin 已存在后拒绝 |
 | POST | `/api/binary/auth/admin/login/passkey/begin` | 🔓 🚦 📦 | admin Passkey 登录开始 |
 | POST | `/api/binary/auth/admin/login/passkey/complete` | 🔓 🚦 📦 | admin Passkey 登录完成并写入独立 admin Cookie |
+| POST | `/api/binary/auth/admin/step-up/passkey/begin` | 👑 🚦 📦 | 当前 admin session 的 Passkey step-up 开始，响应 `PasskeyLoginBegin` |
+| POST | `/api/binary/auth/admin/step-up/passkey/complete` | 👑 🚦 📦 | 完成 admin Passkey step-up，响应 action=`admin-sensitive` 的一次性 proof |
 | GET | `/api/binary/auth/admin/me` | 👑 📦 | admin principal 会话探测，需要 `admin.manage` permission |
 | POST | `/api/binary/auth/admin/logout` | 👑 📦 | 登出当前 admin session，撤销 `admin_session` 并清理 admin Cookie |
 | GET | `/api/binary/auth/admin/sessions` | 👑 📦 | 获取当前 admin principal 的 session 列表 |
@@ -324,7 +326,7 @@
 | POST | `/api/binary/author/cache/actions` | 👑🚦 | 手动重建 search/AOT 或清理 output cache |
 | GET | `/api/binary/author/integrity` | 👑🚦 | 数据一致性巡检报告 |
 | GET | `/api/binary/author/integrity/fix-preview` | 👑🚦 | 安全修复 diff 预览 |
-| POST | `/api/binary/author/integrity/fix` | 👑🚦 MFA | 应用安全修复，要求确认短语和 MFA proof |
+| POST | `/api/binary/author/integrity/fix` | 👑🚦 step-up | 应用安全修复，要求确认短语和 admin step-up proof |
 | POST | `/api/binary/author/ai-assist` | 👑 | 默认关闭的作者 AI 辅助 |
 
 ---

@@ -118,7 +118,7 @@ import {
   type ModerationOverviewResponse,
   type ModerationRuntimeStatusResponse
 } from '@/api/authoring'
-import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
+import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import { Connection, Refresh } from '@/fsusui/icons'
@@ -126,7 +126,6 @@ import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 
-const AdminSensitiveAction = 'admin-sensitive'
 
 const loading = shallowRef(false)
 const savingGlobalState = shallowRef(false)
@@ -225,38 +224,7 @@ const loadDashboard = async (): Promise<void> => {
   }
 }
 
-const ensureAdminSensitiveProof = async (): Promise<string> => {
-  const challenge = await startMfaChallenge(AdminSensitiveAction)
-  if (challenge.verified && challenge.proofToken) {
-    return challenge.proofToken
-  }
-
-  const challengeToken = challenge.proofToken
-  if (!challengeToken) {
-    throw new Error('MFA_CHALLENGE_REQUIRED')
-  }
-
-  const code = await promptText('输入 MFA 验证码或恢复码', '全局审核 runtime 验证', {
-    confirmButtonText: '确认',
-    cancelButtonText: '取消',
-    inputPlaceholder: '验证码或恢复码',
-    inputValidator: (value: string) => value.trim().length > 0 || '请输入验证码或恢复码'
-  })
-  if (!code) {
-    throw new Error('MFA_CHALLENGE_CANCELLED')
-  }
-
-  const proof = await verifyMfaChallenge({
-    challengeToken,
-    code,
-    action: AdminSensitiveAction
-  })
-  if (!proof.verified || !proof.proofToken) {
-    throw new Error('MFA_PROOF_REQUIRED')
-  }
-
-  return proof.proofToken
-}
+const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 
 const saveGlobalState = async (): Promise<void> => {
   savingGlobalState.value = true

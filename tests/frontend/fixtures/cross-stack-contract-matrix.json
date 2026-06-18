@@ -980,6 +980,23 @@
           "rateLimit": "fixed_ip"
         },
         {
+          "method": "POST",
+          "path": "/auth/admin/step-up/passkey/begin",
+          "auth": "admin",
+          "responseFrame": "PasskeyLoginBegin",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/admin/step-up/passkey/complete",
+          "auth": "admin",
+          "requestFrame": "PasskeyLoginCompleteRequest",
+          "responseFrame": "MfaChallengeResult",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
           "method": "GET",
           "path": "/auth/admin/me",
           "auth": "admin",

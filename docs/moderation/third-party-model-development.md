@@ -125,7 +125,7 @@ FsusBlog 审核链路的优先级固定为：
 安全要求：
 
 - 默认不传明文 IP。
-- 默认不传 email、手机号、cookie、session token、JWT、MFA proof。
+- 默认不传 email、手机号、cookie、session token、JWT、admin step-up proof。
 - `metadata` 不得包含认证凭据。
 - 如果需要 IP/User-Agent 上下文，只传 hash 或低精度匿名信号。
 

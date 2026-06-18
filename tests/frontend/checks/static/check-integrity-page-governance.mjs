@@ -32,6 +32,7 @@ const forbiddenTokens = [
   ':data="preview?.diffs ?? []"',
   'MFA proof',
   'MFA Proof',
+  'MFA step-up',
   'changed fields',
   '展示 changed fields',
   '> - <',

@@ -85,24 +85,23 @@ public static partial class BinaryEndpoints
 
     private static async Task<(ErrorDetail Error, int StatusCode)?> RequireAdminSensitiveStepUpAsync(
         HttpContext httpContext,
-        IMfaChallengeService mfaChallengeService)
+        IAdminPrincipalService adminPrincipals)
     {
-        int userId = httpContext.GetUserId();
-        if (userId <= 0)
+        if (!TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId))
         {
             return (ErrorDetail.Create(ErrorCode.Unauthorized, "UNAUTHORIZED"), StatusCodes.Status401Unauthorized);
-        }
-
-        if (!httpContext.User.IsMfaVerified())
-        {
-            return (ErrorDetail.Create(ErrorCode.Forbidden, "MFA_REQUIRED"), StatusCodes.Status403Forbidden);
         }
 
         string proofToken = httpContext.Request.Headers.TryGetValue(MfaProofHeader, out var values)
             ? values.ToString().Trim()
             : string.Empty;
         if (string.IsNullOrWhiteSpace(proofToken) ||
-            !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(userId, AdminSensitiveAction, proofToken))
+            !await adminPrincipals.ValidateAndConsumeAdminStepUpProofTokenAsync(
+                adminPrincipalId,
+                adminSessionId,
+                AdminSensitiveAction,
+                proofToken,
+                httpContext.RequestAborted))
         {
             return (ErrorDetail.Create(ErrorCode.Forbidden, "MFA_PROOF_REQUIRED"), StatusCodes.Status428PreconditionRequired);
         }

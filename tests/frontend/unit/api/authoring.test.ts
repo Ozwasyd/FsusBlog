@@ -82,7 +82,7 @@ describe('authoring API binary transport', () => {
     expect(call?.requestOptions?.body).toBeUndefined()
   })
 
-  it('keeps MFA proof on sensitive authoring mutations', async () => {
+  it('keeps admin step-up proof on sensitive authoring mutations', async () => {
     binaryMock.mockResolvedValue({ status: 'applied', appliedAt: '2026-06-10T00:00:00Z', appliedCount: 1, diffs: [] })
 
     await applyIntegrityFix({ codes: ['orphan-asset'], confirmPhrase: 'APPLY SAFE FIX' }, { mfaProofToken: 'proof-1' })

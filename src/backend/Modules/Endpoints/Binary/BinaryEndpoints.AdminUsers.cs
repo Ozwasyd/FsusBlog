@@ -50,11 +50,11 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             IUserService userService,
             IAuditEventService auditEvents,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, mfaChallengeService);
+            var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
             if (stepUp is { } stepUpError)
             {
                 return BinaryResults.FromError(stepUpError.Error, aeds, stepUpError.StatusCode);
@@ -110,11 +110,11 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             IUserService userService,
             IAuditEventService auditEvents,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, mfaChallengeService);
+            var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
             if (stepUp is { } stepUpError)
             {
                 return BinaryResults.FromError(stepUpError.Error, aeds, stepUpError.StatusCode);

@@ -187,12 +187,12 @@ public static class AuthoringEndpoints
         group.MapPut("/moderation/anonymous-comment-policy", async (
             AnonymousCommentPolicyUpdateRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             IAnonymousCommentPolicyService policyService,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -228,12 +228,12 @@ public static class AuthoringEndpoints
         group.MapPost("/comments/moderation/nullifiers/block", async (
             AnonymousNullifierBlockRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             ICommentAnonymousNullifierService nullifierService,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -267,12 +267,12 @@ public static class AuthoringEndpoints
             long credentialId,
             AnonymousCredentialRevokeRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             IAnonymousCredentialService credentialService,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -312,13 +312,13 @@ public static class AuthoringEndpoints
         group.MapPost("/moderation/runtime/global-state", async (
             ModerationRuntimeGlobalStateRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             IModerationRuntimeStateService runtimeState,
             IAuditEventService auditEvents,
             ICacheInvalidationDispatcher cacheInvalidation,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -346,13 +346,13 @@ public static class AuthoringEndpoints
         group.MapPost("/moderation/runtime/region-state", async (
             ModerationRuntimeRegionStateRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             IModerationRuntimeStateService runtimeState,
             IAuditEventService auditEvents,
             ICacheInvalidationDispatcher cacheInvalidation,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -381,13 +381,13 @@ public static class AuthoringEndpoints
 
         group.MapPost("/moderation/dictionaries/reload", async (
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             IModerationDictionaryService dictionaryService,
             IAuditEventService auditEvents,
             ICacheInvalidationDispatcher cacheInvalidation,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -436,13 +436,13 @@ public static class AuthoringEndpoints
 
         group.MapPost("/moderation/dictionaries/rollback", async (
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             IModerationDictionaryService dictionaryService,
             IAuditEventService auditEvents,
             ICacheInvalidationDispatcher cacheInvalidation,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -486,13 +486,13 @@ public static class AuthoringEndpoints
             string dictionaryId,
             ModerationDictionaryStateRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             IModerationRuntimeStateService runtimeState,
             IAuditEventService auditEvents,
             ICacheInvalidationDispatcher cacheInvalidation,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -522,13 +522,13 @@ public static class AuthoringEndpoints
             string dictionaryId,
             ModerationDictionaryStateRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             IModerationRuntimeStateService runtimeState,
             IAuditEventService auditEvents,
             ICacheInvalidationDispatcher cacheInvalidation,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -666,12 +666,12 @@ public static class AuthoringEndpoints
         group.MapPost("/moderation/model/runtime", async (
             ModerationModelRuntimeRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             IModerationRuntimeStateService runtimeState,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -700,12 +700,12 @@ public static class AuthoringEndpoints
 
         group.MapPost("/moderation/model/reload", async (
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             IModerationRuntimeStateService runtimeState,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -728,12 +728,12 @@ public static class AuthoringEndpoints
 
         group.MapPost("/moderation/model/rollback", async (
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             IModerationRuntimeStateService runtimeState,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -811,12 +811,12 @@ public static class AuthoringEndpoints
         group.MapPost("/comments/moderation/bulk", async (
             CommentModerationBulkRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             AuthoringWorkflowService service,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -850,12 +850,12 @@ public static class AuthoringEndpoints
             long commentId,
             CommentModerationRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             AuthoringWorkflowService service,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -887,11 +887,11 @@ public static class AuthoringEndpoints
         group.MapGet("/content/export", async (
             HttpContext context,
             AuthoringWorkflowService service,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -1194,12 +1194,12 @@ public static class AuthoringEndpoints
         group.MapPost("/integrity/fix", async (
             IntegrityFixRequest request,
             HttpContext context,
-            IMfaChallengeService mfaChallengeService,
+            IAdminPrincipalService adminPrincipals,
             AdminOperationsService operations,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -1843,26 +1843,25 @@ public static class AuthoringEndpoints
         return true;
     }
 
-    private static async Task<IResult?> RequireAdminSensitiveStepUpAsync(HttpContext context, IMfaChallengeService mfaChallengeService)
+    private static async Task<IResult?> RequireAdminSensitiveStepUpAsync(HttpContext context, IAdminPrincipalService adminPrincipals)
     {
-        int userId = context.GetUserId();
-        if (userId <= 0)
+        if (!context.User.TryGetAdminPrincipalId(out long adminPrincipalId) ||
+            string.IsNullOrWhiteSpace(context.User.GetAdminSessionId()))
         {
             return Results.Unauthorized();
         }
 
-        if (!context.User.IsMfaVerified())
-        {
-            return Results.Json(
-                JsonApiResponse<object>.Fail("MFA_REQUIRED"),
-                statusCode: StatusCodes.Status403Forbidden);
-        }
-
+        string adminSessionId = context.User.GetAdminSessionId()!;
         string proofToken = context.Request.Headers.TryGetValue(MfaProofHeader, out var values)
             ? values.ToString().Trim()
             : string.Empty;
         if (string.IsNullOrWhiteSpace(proofToken) ||
-            !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(userId, AdminSensitiveAction, proofToken))
+            !await adminPrincipals.ValidateAndConsumeAdminStepUpProofTokenAsync(
+                adminPrincipalId,
+                adminSessionId,
+                AdminSensitiveAction,
+                proofToken,
+                context.RequestAborted))
         {
             return Results.Json(
                 JsonApiResponse<object>.Fail("MFA_PROOF_REQUIRED"),

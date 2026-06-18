@@ -69,4 +69,4 @@ Audit context contains low-cardinality metadata such as comment id, provider, mo
 
 ## Queue Usage
 
-The admin comment moderation workbench shows model label, confidence, provider, severity, primary reason, raw reason, and whether the comment was model-auto-disposed. Local filters can narrow the current queue by model label or provider. Bulk and single manual moderation still require the existing MFA proof flow; model output is never an automatic final decision in the default `score-only` mode.
+The admin comment moderation workbench shows model label, confidence, provider, severity, primary reason, raw reason, and whether the comment was model-auto-disposed. Local filters can narrow the current queue by model label or provider. Bulk and single manual moderation still require the admin passkey step-up proof flow; model output is never an automatic final decision in the default `score-only` mode.

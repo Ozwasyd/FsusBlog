@@ -218,6 +218,71 @@ public static partial class BinaryEndpoints
         .RequireRateLimiting("fixed_ip")
         .RequireNoStoreResponse();
 
+        group.MapPost("/auth/admin/step-up/passkey/begin", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IAdminPrincipalService adminPrincipals,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+            }
+
+            var (success, message, data) = await adminPrincipals.BeginAdminStepUpAssertionAsync(adminPrincipalId, adminSessionId, cancellationToken);
+            return success && data != null
+                ? BinaryResults.Frame(aeds, AedsFrameType.PasskeyLoginBegin, writer => PodBinaryCodec.WritePasskeyLoginBegin(data.Options, writer))
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, message), aeds, StatusCodes.Status403Forbidden);
+        })
+        .RequireAdminPermission(AdminPermissions.AdminManage)
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
+        group.MapPost("/auth/admin/step-up/passkey/complete", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IAdminPrincipalService adminPrincipals,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+            }
+
+            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.PasskeyLoginCompleteRequest, cancellationToken);
+            if (!payload.IsSuccess)
+            {
+                return BinaryResults.FromError(payload.Error, aeds);
+            }
+
+            if (!PodBinaryCodec.TryDecodePasskeyLoginCompleteRequest(payload.Payload, out var request) ||
+                string.IsNullOrWhiteSpace(request.ChallengeToken) ||
+                request.RawId.Length == 0 ||
+                request.ClientDataBytes.Length == 0 ||
+                request.AuthenticatorData.Length == 0 ||
+                request.Signature.Length == 0)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "请求参数无效"), aeds);
+            }
+
+            var result = await adminPrincipals.CompleteAdminStepUpAssertionAsync(
+                adminPrincipalId,
+                adminSessionId,
+                request,
+                AdminAuthClientContext.From(httpContext),
+                cancellationToken);
+            if (!result.Success || string.IsNullOrWhiteSpace(result.ProofToken))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, result.Message), aeds, StatusCodes.Status401Unauthorized);
+            }
+
+            var proof = new MfaChallengeResultDto(true, AdminSensitiveAction, result.ProofToken, null);
+            return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(proof, writer));
+        })
+        .RequireAdminPermission(AdminPermissions.AdminManage)
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
         group.MapGet("/auth/admin/me", static (IAedsEncoder aeds) =>
             BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess))
             .RequireAdminPermission(AdminPermissions.AdminManage)

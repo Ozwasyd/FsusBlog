@@ -4,7 +4,7 @@
       <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
         <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略回放</div>
         <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">预览差异</h2>
-        <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">回放执行前必须先生成预览；执行需要 MFA step-up、确认短语和高价值审计。</p>
+        <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">回放执行前必须先生成预览；执行需要 admin passkey step-up、确认短语和高价值审计。</p>
       </div>
 
       <div class="grid gap-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-4 md:grid-cols-5">
@@ -72,7 +72,7 @@
     </section>
 
     <section class="border-l-4 border-[var(--el-color-warning)] bg-[var(--fsusblog-page-bg)] px-5 py-4 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
-      回放执行当前不提供直接按钮。执行流程必须基于上方预览，完成 MFA step-up、确认短语、高价值审计、可中断进度与失败重试后才能进入执行。
+      回放执行当前不提供直接按钮。执行流程必须基于上方预览，完成 admin passkey step-up、确认短语、高价值审计、可中断进度与失败重试后才能进入执行。
     </section>
   </div>
 </template>

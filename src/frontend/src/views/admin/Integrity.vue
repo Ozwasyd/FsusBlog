@@ -425,7 +425,7 @@ const formatDangerLevel = (level: string): string => {
     'normal-confirm': '普通确认',
     'strong-confirm': '二次确认',
     'typed-confirm': '确认短语',
-    'mfa-step-up': '二次验证凭据',
+    'admin-step-up': '管理员二次验证凭据',
     'diff-preview': '差异预览'
   }
   return labels[level] ?? level

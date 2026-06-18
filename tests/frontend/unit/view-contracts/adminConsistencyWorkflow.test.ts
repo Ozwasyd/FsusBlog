@@ -46,7 +46,7 @@ describe('admin consistency workflow contract', () => {
     expect(contentToolsPage).toContain('importArticleContent')
   })
 
-  it('requires admin-sensitive MFA proof for high-value admin user and backup operations', () => {
+  it('requires admin-sensitive admin step-up proof for high-value admin user and backup operations', () => {
     expect(userManageComposable).toContain('useAdminSensitiveProof')
     expect(userManageComposable).toContain('ensureAdminSensitiveProof()')
     expect(userManageComposable).toContain('mfaProofToken')

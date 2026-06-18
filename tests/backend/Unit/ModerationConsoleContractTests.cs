@@ -5,7 +5,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ModerationConsoleContractTests
 {
     [Fact]
-    public void AuthoringEndpoints_ExposeModerationConsoleSurfacesWithMfaForHighRiskReload()
+    public void AuthoringEndpoints_ExposeModerationConsoleSurfacesWithAdminStepUpForHighRiskReload()
     {
         string endpoints = ReadRepoFile("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
 
@@ -29,7 +29,7 @@ public sealed class ModerationConsoleContractTests
         Assert.Contains("MapPost(\"/moderation/model/runtime\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/moderation/model/reload\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/moderation/model/rollback\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("RequireAdminSensitiveStepUpAsync(context, mfaChallengeService)", endpoints, StringComparison.Ordinal);
+        Assert.Contains("RequireAdminSensitiveStepUpAsync(context, adminPrincipals)", endpoints, StringComparison.Ordinal);
         Assert.Contains("RecordHighValueAsync", endpoints, StringComparison.Ordinal);
         Assert.Contains("admin.moderation.dictionary_reloaded", endpoints, StringComparison.Ordinal);
         Assert.Contains("admin.moderation.replay_previewed", endpoints, StringComparison.Ordinal);

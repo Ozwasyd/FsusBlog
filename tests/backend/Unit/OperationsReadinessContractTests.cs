@@ -68,7 +68,7 @@ public sealed class OperationsReadinessContractTests
     }
 
     [Fact]
-    public void DangerousOperations_RequireDiffConfirmationMfaAndAudit()
+    public void DangerousOperations_RequireDiffConfirmationAdminStepUpAndAudit()
     {
         string root = BackendTestPaths.RepositoryRoot;
         string operationsService = File.ReadAllText(Path.Combine(root, "src/backend/Infrastructure/Operations/AdminOperationsService.cs"));
@@ -77,7 +77,7 @@ public sealed class OperationsReadinessContractTests
         Assert.Contains("APPLY_SAFE_FIXES", operationsService, StringComparison.Ordinal);
         Assert.Contains("DangerousOperationPolicyResponse", operationsService, StringComparison.Ordinal);
         Assert.Contains("diff-preview", operationsService, StringComparison.Ordinal);
-        Assert.Contains("mfa-step-up", operationsService, StringComparison.Ordinal);
+        Assert.Contains("admin-step-up", operationsService, StringComparison.Ordinal);
         Assert.Contains("RequireAdminSensitiveStepUpAsync", endpoints, StringComparison.Ordinal);
         Assert.Contains("admin.integrity.safe_fix_applied", endpoints, StringComparison.Ordinal);
         Assert.Contains("RecordHighValueAsync", endpoints, StringComparison.Ordinal);

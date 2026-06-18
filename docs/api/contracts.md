@@ -116,13 +116,17 @@ Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD
 | POST | `/api/binary/auth/admin/bootstrap/passkey/complete` | 请求 `PasskeyRegisterCompleteRequest`，响应 `EmptySuccess` | 匿名 + bootstrap token |
 | POST | `/api/binary/auth/admin/login/passkey/begin` | 响应 `PasskeyLoginBegin` | 匿名 |
 | POST | `/api/binary/auth/admin/login/passkey/complete` | 请求 `PasskeyLoginCompleteRequest`，响应 `EmptySuccess` | 匿名 |
+| POST | `/api/binary/auth/admin/step-up/passkey/begin` | 响应 `PasskeyLoginBegin` | admin principal + `admin.manage` |
+| POST | `/api/binary/auth/admin/step-up/passkey/complete` | 请求 `PasskeyLoginCompleteRequest`，响应 `MfaChallengeResult` | admin principal + `admin.manage` |
 | GET | `/api/binary/auth/admin/me` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
 | POST | `/api/binary/auth/admin/logout` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
 | GET | `/api/binary/auth/admin/sessions` | 响应 `AdminSessionList` | admin principal + `admin.manage` |
 | POST | `/api/binary/auth/admin/sessions/{sessionId}/revoke` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
 | POST | `/api/binary/auth/admin/sessions/revoke-others` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
 
-admin 登录只接受 Passkey/Security Key assertion。成功会写入独立 `AdminAccessToken` / `AdminSessionId` Cookie；JWT 必须包含 `identity_kind=admin_principal`、`admin_id`、`admin_sid` 与多值 `admin_permission` claim。请求期认证必须按 `admin_sid` 回查 `admin_session` 并校验 principal active、session 未撤销、idle/absolute 未过期、`AccessTokenHash` 与当前 token 匹配、session principal id 与 `admin_id` 一致；失败返回未认证/未授权并删除 admin session cookies，成功更新 `LastSeenAtUtc`。TOTP 只作为敏感操作额外 step-up，不替代 Passkey 主认证，也不迁移或清空 legacy user MFA。
+admin 登录只接受 Passkey/Security Key assertion。成功会写入独立 `AdminAccessToken` / `AdminSessionId` Cookie；JWT 必须包含 `identity_kind=admin_principal`、`admin_id`、`admin_sid` 与多值 `admin_permission` claim。请求期认证必须按 `admin_sid` 回查 `admin_session` 并校验 principal active、session 未撤销、idle/absolute 未过期、`AccessTokenHash` 与当前 token 匹配、session principal id 与 `admin_id` 一致；失败返回未认证/未授权并删除 admin session cookies，成功更新 `LastSeenAtUtc`。admin-sensitive step-up 只接受 `/api/binary/auth/admin/step-up/passkey/begin|complete` 的管理员 Passkey 再认证，不读取普通 `sys_user` MFA 状态，也不接受普通用户 MFA proof。
+
+admin step-up challenge 绑定 `identity_kind=admin_principal`、`admin_id`、当前 `admin_sid`、action=`admin-sensitive`、challenge token 和过期时间。complete 成功后返回 `MfaChallengeResult(verified=true, action=admin-sensitive, proofToken=...)`；proof 存储使用 `CachePolicyId.SecurityMfaProof`，key 形如 `admin:{adminId}:{adminSid}:admin-sensitive:{token}`，只能消费一次，不能跨 admin principal 或 session 使用。敏感写入继续通过 `X-Fsus-Mfa-Proof` 传递该 proof header；缺失、过期、复用或 session 不匹配返回 `428` + `MFA_PROOF_REQUIRED`。
 
 `POST /api/binary/auth/admin/logout` 会把当前 `admin_session.RevokedAtUtc` 置为当前 UTC 时间、`RevokeReason=logout`，并只清理 `AdminAccessToken` / `AdminSessionId` 及 `__Host-*` admin Cookie，不触碰普通用户 Cookie。`POST /api/binary/auth/admin/sessions/revoke-others` 必须保留当前 `admin_sid` 对应 session。
 
@@ -1205,7 +1209,7 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 | GET | `/api/binary/author/audit/{id}/verify` | 单条审计 `record_hash` / `record_mac` 与同链 `prev_hash` 前驱校验 |
 | GET | `/api/binary/author/ops/health` | 运维健康面板数据：PostgreSQL、Redis、audit、Crawler CIDR、备份、PublicHotRead、search、worker、队列和结构化最近错误 |
 | GET | `/api/binary/author/ops/backup` | 最近站点备份状态，扫描 database/uploads/DataProtection keyring/config/site-package/restore-drill artifacts |
-| GET | `/api/binary/author/ops/dangerous-operations/policy` | 管理端危险操作等级、MFA step-up、强确认和 diff 策略 |
+| GET | `/api/binary/author/ops/dangerous-operations/policy` | 管理端危险操作等级、admin passkey step-up、强确认和 diff 策略 |
 | GET | `/api/binary/author/cache/diagnostics?articleId={id}` | AOT/PublicHotRead/search/sitemap/feed/comment cache/output cache 诊断，可选单文章定位 |
 | POST | `/api/binary/author/cache/actions` | 手动维护动作：`search-rebuild`、`aot-rebuild`、`public-hot-rebuild`、`output-cache-clear`、`sitemap-feed-refresh` |
 | GET | `/api/binary/author/integrity` | 数据一致性巡检报告，覆盖文章正文/修订、taxonomy、评论链、session、uploads/assets、search/sitemap visibility |
@@ -1223,7 +1227,7 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 `ModerationEffectivePolicyPreview` 返回 `region/displayName/regionGroups/inheritance/rules/checksum/warnings`。继承顺序为 `GLOBAL baseline -> region group policy -> parent region policy -> concrete region policy -> operator overrides`，后者覆盖同 category 的前者。`GET /effective-policy/{regionCode}` 只使用当前 catalog 与地区策略 snapshot；`POST /effective-policy/preview` 可传 `operatorOverrides` 进行 dry-run，不写入配置、不重算历史评论。preview 会写普通审计 `admin.moderation.effective_policy_previewed`，执行型 replay 仍必须另走 MFA、确认短语和高价值审计。
 
-`ModerationDictionaryReloadResponse` 返回 `reloaded/snapshotId/checksum/error/reloadedAtUtc`。该端点是高风险写操作，必须先通过 action=`admin-sensitive` 的 MFA challenge 获取一次性 proof，并在请求头传入 `X-Fsus-Mfa-Proof`；失败时旧 snapshot 保持不变。
+`ModerationDictionaryReloadResponse` 返回 `reloaded/snapshotId/checksum/error/reloadedAtUtc`。该端点是高风险写操作，必须先通过 admin passkey step-up 获取 action=`admin-sensitive` 的一次性 proof，并在请求头传入 `X-Fsus-Mfa-Proof`；失败时旧 snapshot 保持不变。
 
 `ModerationReplayPreviewRequest` 包含可选 `region/policyVersion/dictionaryId/limit`。响应 `ModerationReplayPreviewResponse` 只返回 `scannedCount/affectedCommentCount/addedBlockedRegionCount/removedBlockedRegionCount/addedRiskLabelCount/removedRiskLabelCount/publishabilityChangedCount/manualReviewChangedCount/publicVisibilityChangedCount/highRiskChangeCount/items`，`items` 只含 comment id、policy version 和 diff，不返回评论正文或 raw terms。该 preview 不执行 replay；执行型 replay 必须另走 MFA、确认短语、高价值审计和可中断进度控制。
 
@@ -1235,7 +1239,7 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 生产前端使用 `/api/binary/admin/security/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AntiCrawlerOptionsUpdateRequest`、`SecurityRiskResetRequest`、`AntiCrawlerRuleRequest`、`PowOptionsUpdateRequest`），响应使用 route-specific response frame（如 `SecurityOverview`、`AntiCrawlerPolicySnapshot`、`SecurityRiskEventList`、`PowPolicySnapshot`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。`SecurityBinaryBridgeMiddleware` 复用 security endpoint 逻辑的 admin principal + `system.config` permission、MFA、fixed_ip rate limit、device fingerprint、审计和运行时策略更新边界；被复用的 JSON envelope 只挂在 `/_fsus/internal/binary-bridge/admin/security/**`，受 `BinaryBridgeInternalOnlyFilter` 保护。外部 `/api/admin/security/**` JSON endpoint 已移除。
 
-`/api/binary/admin/security/**` 全部要求 admin principal + `system.config` 权限。写入型和高价值操作必须携带 action=`admin-sensitive` 的一次性 `X-Fsus-Mfa-Proof`，并写入高价值安全审计。`X-Fsus-Mfa-Proof` 与 PoW replay proof 共用 consume-once cache primitive：L1 先失效，Redis 删除成功后同一进程内也不能再次读取该 proof。
+`/api/binary/admin/security/**` 全部要求 admin principal + `system.config` 权限。写入型和高价值操作必须携带 admin passkey step-up 产生的 action=`admin-sensitive` 一次性 `X-Fsus-Mfa-Proof`，并写入高价值安全审计。`X-Fsus-Mfa-Proof` 与 PoW replay proof 共用 consume-once cache primitive：L1 先失效，Redis 删除成功后同一进程内也不能再次读取该 proof。
 
 安全系统 IA 与 API 边界：
 
@@ -1277,7 +1281,7 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 评论创建默认进入 `CommentModerationStatus.Pending`，公开评论线程、回复预览和回复游标只返回 `Approved`；用户自己的评论历史只按非空 `user_id` 查询，匿名评论通过 actor projection 展示而不是强制绑定 `user_id`。公开评论 composer 必须先读取 `GET /api/binary/comment/policy` 的 `CommentPolicySnapshot`，admin 关闭匿名评论时前端隐藏匿名/强匿名入口，后端仍以 `IAnonymousCommentPolicyService` fail closed 拒绝匿名写入。旧 `CommentCreateRequest` 只保留 article/reply/content 布局；匿名 scope、public opt-in、language hint、proof token 和 ZK placeholder 必须使用 `CommentCreateV2Request`，不得塞回旧 frame。创建请求的 AEDS frame 上限为 16 KiB，`content` 先 trim，再在内容过滤前校验 `<=1000` 字符且 UTF-8 `<=4096` bytes；目标文章必须是未删除、已发布且发布时间/定时发布时间已到达的公开文章。回复必须引用同文章、未删除、已通过的父评论和根评论，回复展示使用 `reply_to_comment_id` 对应的作者投影，不要求父评论存在非空 `reply_to_user_id`。
 
-`CommentModerationItemResponse.id` 使用字符串承载 Snowflake ID，避免前端整数精度损失；响应同时包含文章、用户、内容、状态、审核原因、审核人、审核时间、`hitReasons`、`submitRegion`、`submitRegionConfidence`、`blockedRegions`、`regionPolicyVersion`、`regionDecisionReason`、`regionCanPublish`、`regionRequiresManualReview`、`regionHideUntilReviewed`。匿名作者投影字段包括 `authorMode`、`anonymousDisplayLanguage`、`moderationSubjectHash`、`anonymousNullifierHash`、`anonymousScope`、`credentialLevel`、`reputationBucket` 和 `accountAgeBucket`；这些字段用于审核解释、nullifier 封禁和本地队列过滤，不暴露 account id、username、public handle、credential commitment 或 nullifier 原文。启用可选反垃圾模型后，响应追加最新 `modelSignals` 及摘要字段 `modelLabel/modelConfidence/modelPrimaryReason/modelProvider/modelUnavailable`；这些字段只表示风险信号，不包含或代表最终审核动作。`hitReasons` 来自内容过滤器、HTML 风险、密集链接、重复刷屏、人工原因、地区风险标签和 `model:{category}`，用于解释敏感词/垃圾评论/地区策略/模型命中；管理端可按命中原因、blocked region、模型标签、provider 和匿名作者投影做本地队列过滤。审核读取和写入受 `fixed_ip` 限流，并显式要求 `comment.moderate`；该权限只覆盖普通评论审核，不覆盖匿名评论策略、nullifier 封禁或匿名凭证撤销。单条与批量审核需要先调用 `/api/binary/auth/mfa/challenge/start` / `/api/binary/auth/mfa/challenge` 获取 action=`admin-sensitive` 的一次性 proof，并在 JSON 请求头传入 `X-Fsus-Mfa-Proof`。proof 缺失、过期或已被消费时返回 `428` + `MFA_PROOF_REQUIRED`，当前 admin 会话未 MFA verified 时返回 `403` + `MFA_REQUIRED`。
+`CommentModerationItemResponse.id` 使用字符串承载 Snowflake ID，避免前端整数精度损失；响应同时包含文章、用户、内容、状态、审核原因、审核人、审核时间、`hitReasons`、`submitRegion`、`submitRegionConfidence`、`blockedRegions`、`regionPolicyVersion`、`regionDecisionReason`、`regionCanPublish`、`regionRequiresManualReview`、`regionHideUntilReviewed`。匿名作者投影字段包括 `authorMode`、`anonymousDisplayLanguage`、`moderationSubjectHash`、`anonymousNullifierHash`、`anonymousScope`、`credentialLevel`、`reputationBucket` 和 `accountAgeBucket`；这些字段用于审核解释、nullifier 封禁和本地队列过滤，不暴露 account id、username、public handle、credential commitment 或 nullifier 原文。启用可选反垃圾模型后，响应追加最新 `modelSignals` 及摘要字段 `modelLabel/modelConfidence/modelPrimaryReason/modelProvider/modelUnavailable`；这些字段只表示风险信号，不包含或代表最终审核动作。`hitReasons` 来自内容过滤器、HTML 风险、密集链接、重复刷屏、人工原因、地区风险标签和 `model:{category}`，用于解释敏感词/垃圾评论/地区策略/模型命中；管理端可按命中原因、blocked region、模型标签、provider 和匿名作者投影做本地队列过滤。审核读取和写入受 `fixed_ip` 限流，并显式要求 `comment.moderate`；该权限只覆盖普通评论审核，不覆盖匿名评论策略、nullifier 封禁或匿名凭证撤销。单条与批量审核需要先完成 `/api/binary/auth/admin/step-up/passkey/begin` / `/api/binary/auth/admin/step-up/passkey/complete`，再把返回的 action=`admin-sensitive` 一次性 proof 放入 `X-Fsus-Mfa-Proof`。proof 缺失、过期、跨 session 或已被消费时返回 `428` + `MFA_PROOF_REQUIRED`；普通用户 MFA proof 不能用于 admin-sensitive 操作。
 
 单条与批量审核都会写入 `comment-moderation` / `comment-moderation-bulk` 审计，服务层用旧 `ModerationStatus` 做 CAS 条件更新并限制状态机转换。`Pending/Rejected/Hidden -> Approved` 会通过 notification stream 推送 `CommentAdded`，但合规记录 `can_publish=false` 的发布地违法评论不能被批准；`Approved -> Rejected/Hidden` 和删除会推送 `CommentRemoved`。评论游标缓存按 article/root/user scope 清理，公开读取的 frame identity 额外包含 viewer region，不再全局清 `CacheTag.Comment`；当 `status=Rejected|Hidden` 且 `banUser(s)=true` 时，服务端会把非 admin、非注销用户更新为封禁状态并同步黑名单缓存。误判恢复使用 `status=Approved`，不会触发封禁联动。
 
