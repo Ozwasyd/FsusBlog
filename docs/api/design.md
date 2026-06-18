@@ -2,7 +2,7 @@
 
 本文件说明 FsusBlog API 层的设计原则与约定，是所有 API 变更的**必读前提文件**。
 
-> 最近更新：2026-06-18 — 补齐 RiskControl challenge issue / verify binary endpoint 与 proof header 约定。
+> 最近更新：2026-06-18 — 补齐 auth login / passkey / recovery-key verify 接入 RiskControl proof 的设计约定。
 
 ---
 
@@ -39,6 +39,8 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 ### 5. 认证一致性
 
 鉴权要求以 `/api/binary/**` 端点声明为准。公开、登录、admin、PoW、MFA、Passkey 等边界必须在 binary 端点内直接校验；不存在文本端点作为权限参照。
+
+高价值认证动作可以在既有 binary 路径上叠加 RiskControl proof，而不是新增平行登录 API。`auth.login`、`auth.passkey.begin`、`auth.passkey.complete`、`recovery-key.verify` 必须通过 endpoint metadata 声明 action，并统一用 `RequiresRiskControlFilter` 返回 AEDS `ApiError`；缺 challenge proof 返回 428，block/throttle 返回 429。叠加 RiskControl 不删除 legacy PoW、admin step-up 或 MFA proof 边界；需要两个 proof 的端点必须明确登记到 [contracts.md](contracts.md#安全挑战契约) 与本文件头部表。
 
 ---
 
@@ -122,7 +124,7 @@ Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AED
 | 安全强制 | `X-Fsus-Mfa-Proof` | 请求 | admin-sensitive、高价值作者/安全写操作的一次性 admin step-up proof；消费语义见 [contracts.md#admin-作者工作台](contracts.md#admin-作者工作台) 与 [contracts.md#admin-安全系统](contracts.md#admin-安全系统)。 |
 | 安全强制 | `X-Fsus-Admin-Bootstrap-Token` | 请求 | 首次 root admin Passkey bootstrap 的显式环境守门 token；必须匹配 `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` / `Admin:BootstrapToken`，root admin 存在后不再生效。 |
 | 安全强制 | `X-Fsus-Admin-Handle` | 请求 | 首次 root admin Passkey bootstrap 的后台 handle；只用于 admin principal，不写入普通匿名账号。 |
-| 安全强制 | `X-Fsus-Pow-Proof` | 请求 | `public_read` 风险升级后的动态公开 API PoW proof；不用于 PublicHotRead L0 artifact 命中路径。 |
+| 安全强制 | `X-Fsus-Pow-Proof` | 请求 | legacy PoW proof，用于注册、密码登录、Recovery Key verify、匿名 notification stream 或 `public_read` 风险升级后的动态公开 API；不用于 PublicHotRead L0 artifact 命中路径。 |
 | 安全强制 | `X-Fsus-Challenge-Proof` | 请求 | RiskControl challenge verify 成功后签发的一次性 opaque proof；业务 endpoint 只能由 `RequiresRiskControlFilter` 消费。 |
 | 安全强制 | `X-Fsus-Challenge-Id` | 请求 | 与 `X-Fsus-Challenge-Proof` 绑定的 challenge id；缺失、重放或 action / route / IP / device mismatch 返回 428。 |
 | 安全强制 | `X-Fsus-Challenge-Kind` | 请求 | 与 `X-Fsus-Challenge-Proof` 绑定的 provider kind，例如 `sha256PowV1`；legacy alias `security.pow` 只作为兼容输入规范化。 |
@@ -145,6 +147,8 @@ HTTP 动态公开 API 使用 `X-Fsus-Pow-Proof`，notification stream 匿名连�
 FPOW 信封字段顺序为：`magic[4] = "FPOW"`（字节 `46 50 4f 57`）、`version:uint8 = 1`、`difficulty:int32LE`、`timestamp:int64LE`，随后是若干 `uint16LE length + utf8 bytes` 字段。HTTP header proof 字段为 `salt, nonce, signature, browserFp`；notification stream proof 字段为 `salt, nonce, signature, fp`。服务端按 proof 绑定的 challenge、时间戳、nonce、签名、设备指纹和 `ForwardedHeadersMiddleware` 规范化后的客户端 IP 校验，不接受旧文本 PoW answer/challenge 头，也不在 PoW 验证层回退到 raw remote IP、localhost 或 Docker bridge IP。
 
 RiskControl 新 challenge provider 不得自定义平行 assignment 结构。PoW、Captcha、PoSpace、HumanReadProof、Passkey step-up、匿名凭证和 ZK 匿名评论 proof 都必须使用 `SecurityChallengeAssignment` / `SecurityChallengeEnvelope` AEDS frame，统一携带 challengeId、traceparent、tenantId、kind、action、routeKey、subject/client IP/device fingerprint hash、issued/expires 和 escalationLevel；provider 只扩展自己的 proof 验证载荷。
+
+受 RiskControl 保护的业务请求不得把 provider proof 直接发给业务 endpoint；客户端必须先调用 `/api/binary/security/challenge/verify` 换取一次性 `X-Fsus-Challenge-Proof`，再与 `X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 一起提交到业务 endpoint。密码登录失败和 Passkey assertion 失败只能写风险信号，不改变登录响应 frame；Passkey assertion 成功可写负分风险信号，并继续以 Passkey 作为 MFA 已满足的登录凭据。
 
 ---
 

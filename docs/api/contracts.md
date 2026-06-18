@@ -3,7 +3,7 @@
 本文件是 FsusBlog 所有请求/响应 DTO、通知 WebSocket 信封与 AOT 契约的**完整参考**。
 所有定义的权威源码位于 `src/shared/Contracts/` 目录。
 
-> 最近更新：2026-06-18 — 同步 RiskControl challenge issue / verify endpoint、orchestration、持久化与 proof token 边界。
+> 最近更新：2026-06-18 — 同步 auth login / passkey / recovery-key verify 接入 RiskControl challenge 与风险信号边界。
 
 ---
 
@@ -106,7 +106,7 @@ challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 
 
 `sha256PowV1` provider 的 issue payload 只包含 legacy PoW challenge 必需字段：`salt`、`difficulty`、`timestamp`、`signature`。verify payload 必须包含 `proof`，其值为旧 `X-Fsus-Pow-Proof` 使用的 Base64 FPOW binary proof；服务端复用同一解析器、`IPowService.VerifyAsync` 和 `AdaptivePowGovernor` difficulty 裁决。该 provider 不引入公开 JSON fallback，不改变现有 FPOW wire format，也不删除 `GET /api/binary/auth/pow-challenge` 或 `X-Fsus-Pow-Proof` legacy 路径。
 
-`captchaV1` provider 使用 `fsu.captcha/chebyshev-noise@v1` wire algorithm。issue payload 包含 `algorithm`、`polynomialSeedHex`、`noiseSeedHex`、`seedPayloadBase64`、`signatureHex`、`gridWidth`、`gridHeight`、`distortionLevel`、`powDifficultyBits`、`issuedAtUnixMs` 和 `expiresAtUnixMs`；服务端不生成 PNG、像素或图片字段，只下发可由客户端渲染的 seed 与参数。`seedPayloadBase64` 绑定 challengeId、action、routeKey、subject/client/device hash、policyVersion、seed、参数和时间窗口，`signatureHex` 为服务端 HMAC-SHA256 签名。verify payload 必须回传 issue payload 字段，并追加 `answerText`、`responseTokenHex`、`nonceHex`、`solveDurationMs`。服务端先验证签名和绑定字段，再通过 `SecurityCaptchaChallenge` cache 一次性消费 challenge，随后派生期望答案、校验 nonce 前导零证明、校验 response token 和 solve duration。错误答案、签名/seed 篡改、token/nonce 错误写 `CaptchaInvalid` 风险 detail；重放写 `CaptchaReplay`；过快 / 过慢分别写 `CaptchaSolveTooFast` / `CaptchaSolveTooSlow`。CaptchaV1 只作为 provider 注册，不直接接入业务 endpoint；是否启用由后续 RiskControl policy issue 决定。
+`captchaV1` provider 使用 `fsu.captcha/chebyshev-noise@v1` wire algorithm。issue payload 包含 `algorithm`、`polynomialSeedHex`、`noiseSeedHex`、`seedPayloadBase64`、`signatureHex`、`gridWidth`、`gridHeight`、`distortionLevel`、`powDifficultyBits`、`issuedAtUnixMs` 和 `expiresAtUnixMs`；服务端不生成 PNG、像素或图片字段，只下发可由客户端渲染的 seed 与参数。`seedPayloadBase64` 绑定 challengeId、action、routeKey、subject/client/device hash、policyVersion、seed、参数和时间窗口，`signatureHex` 为服务端 HMAC-SHA256 签名。verify payload 必须回传 issue payload 字段，并追加 `answerText`、`responseTokenHex`、`nonceHex`、`solveDurationMs`。服务端先验证签名和绑定字段，再通过 `SecurityCaptchaChallenge` cache 一次性消费 challenge，随后派生期望答案、校验 nonce 前导零证明、校验 response token 和 solve duration。错误答案、签名/seed 篡改、token/nonce 错误写 `CaptchaInvalid` 风险 detail；重放写 `CaptchaReplay`；过快 / 过慢分别写 `CaptchaSolveTooFast` / `CaptchaSolveTooSlow`。默认 V2 policy 中，`auth.login` 在中风险阈值触发 `captchaV1`，高风险阈值触发 `captchaV1 + sha256PowV1`；`recovery-key.verify` 从 0 风险分起要求 `captchaV1` proof，并在高风险时升级到组合 challenge。
 
 `argon2idPoSpaceV1` provider 使用 `fsu.pospace/argon2id@v1` wire algorithm，默认 `Security:PoSpaceV1:Mode=disabled`，只有策略显式 enable 且 RiskDecision 选择该 kind 时才可签发。issue payload 包含 `algorithm`、`saltHex`、`memoryKib`、`iterations`、`lanes` 和 `targetDurationMs`；服务端约束 `memoryKib=1024..65536`、移动端最大 `8192`、`iterations=1..6`、`lanes=1..4`、`targetDurationMs=100..5000`。verify payload 必须回传 issue payload 字段，并追加 `nonceHex` 和 `proofHex`。服务端通过 `SecurityPoSpaceChallenge` cache 一次性消费 challenge，使用 challengeId/action/routeKey/subject/client/device/policyVersion/nonce 作为 Argon2id material 重新派生 proof；参数越界、payload 错误、proof mismatch 或 replay 均 fail closed 并写 `SecurityChallengeRejected` 风险事件。移动 UA 或 disabled policy 会由 RiskDecision 降级到 `captchaV1`，不得签发 PoSpace。
 
@@ -157,7 +157,7 @@ challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 
 | `reason` | string | 成功为 `ok`；失败走 `ApiError` frame |
 | `retryAfterMs` | int | 当前成功响应为 0 |
 
-受 `RequiresRiskControlFilter` 保护的 endpoint 必须具备 `RiskActionEndpointMetadata`，服务端用 action、routeKey、subjectHash、clientIpHash、deviceFpHash 和 policyVersion 消费统一 proof。客户端提交已签发 proof 时必须同时发送 `X-Fsus-Challenge-Proof`、`X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind`；缺 proof、proof 重放 / Redis miss、action 或 route mismatch、IP/device mismatch 均返回 428，block / throttle 类裁决返回 429。旧 `RequiresPowFilter` endpoint 仍使用 `X-Fsus-Pow-Proof`，不要求这些 RiskControl proof headers。
+受 `RequiresRiskControlFilter` 保护的 endpoint 必须具备 `RiskActionEndpointMetadata`，服务端用 action、routeKey、subjectHash、clientIpHash、deviceFpHash 和 policyVersion 消费统一 proof。客户端提交已签发 proof 时必须同时发送 `X-Fsus-Challenge-Proof`、`X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind`；缺 proof、proof 重放 / Redis miss、action 或 route mismatch、IP/device mismatch 均返回 428，block / throttle 类裁决返回 429。当前 auth 高价值入口使用的 action 为：`POST /api/binary/auth/login` -> `auth.login`，`POST /api/binary/auth/passkey/login/begin` -> `auth.passkey.begin`，`POST /api/binary/auth/passkey/login/complete` -> `auth.passkey.complete`，`POST /api/binary/auth/recovery-key/verify` -> `recovery-key.verify`。旧 `RequiresPowFilter` endpoint 仍使用 `X-Fsus-Pow-Proof`；同时保留 PoW 的 auth endpoint 需要同时提交 legacy PoW proof 与 RiskControl proof。
 
 | FrameType | 值 | POD | 用途 |
 |-----------|----|-----|------|
@@ -172,7 +172,7 @@ challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 
 
 Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD，前端 adapter 将 POD 还原为浏览器 WebAuthn API 需要的选项对象；浏览器返回的 attestation/assertion 由前端编码为二进制 request POD。
 
-匿名身份模式下，`PasskeyRegisterBegin` 的 WebAuthn `user.id` 使用稳定的内部 account id 字节；`user.name` 使用 `fsus-account-{id}` 形式的非识别内部标签，`user.displayName` 仅在用户显式设置 `public_handle` 时使用公开 handle，否则同样使用内部标签。注册与 discoverable login 仍复用同一套 `passkey_credential` 表、challenge cache、sign-count 和 last-used 更新路径，不新增平行 Passkey 栈。匿名模式下删除最后一枚 Passkey 需要已启用 Recovery Key / recovery path；否则服务端返回 `409` + AEDS `ApiError`，错误消息为 `CannotRemoveLastCredentialWithoutRecovery`。
+匿名身份模式下，`PasskeyRegisterBegin` 的 WebAuthn `user.id` 使用稳定的内部 account id 字节；`user.name` 使用 `fsus-account-{id}` 形式的非识别内部标签，`user.displayName` 仅在用户显式设置 `public_handle` 时使用公开 handle，否则同样使用内部标签。注册与 discoverable login 仍复用同一套 `passkey_credential` 表、challenge cache、sign-count 和 last-used 更新路径，不新增平行 Passkey 栈。匿名模式下删除最后一枚 Passkey 需要已启用 Recovery Key / recovery path；否则服务端返回 `409` + AEDS `ApiError`，错误消息为 `CannotRemoveLastCredentialWithoutRecovery`。Passkey login begin/complete 受 RiskControl 保护；assertion 失败写 `PasskeyAssertionFailed` 正分风险信号，assertion 成功写 `PasskeyAssertionAccepted` 负分风险信号并以 `mfaVerified=true` 完成登录，不再额外要求普通 TOTP MFA。
 
 | FrameType | POD | 端点 / 用途 |
 |-----------|-----|-------------|
@@ -216,7 +216,7 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 | FrameType | POD | 端点 / 用途 |
 |-----------|-----|-------------|
 | `RecoveryKeyCreateResponse` (`159`) | `RecoveryKeyCreateResponsePod` | `POST /api/binary/auth/recovery-key/create` 和 `/rotate` 响应 |
-| `RecoveryKeyVerifyRequest` (`160`) | `RecoveryKeyVerifyRequestPod` | `POST /api/binary/auth/recovery-key/verify` 请求体；匿名、`fixed_ip` 限流、PoW、no-store |
+| `RecoveryKeyVerifyRequest` (`160`) | `RecoveryKeyVerifyRequestPod` | `POST /api/binary/auth/recovery-key/verify` 请求体；匿名、`fixed_ip` 限流、RiskControl challenge、PoW、no-store |
 | `RecoveryKeyVerifyResponse` (`161`) | `RecoveryKeyVerifyResponsePod` | verify 成功后返回短期 recovery session token |
 | `RecoveryKeySessionRequest` (`162`) | `StringMutationRequestPod` | `POST /api/binary/auth/recovery-key/passkey/register/begin` 请求体；complete 复用 `PasskeyRegisterCompleteRequest.MfaProofToken` 传 recovery session token |
 

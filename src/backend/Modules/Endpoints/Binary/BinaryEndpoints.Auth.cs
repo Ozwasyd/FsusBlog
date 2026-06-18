@@ -11,6 +11,7 @@ using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Policies;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.Pagination;
@@ -30,6 +31,8 @@ namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
 public static partial class BinaryEndpoints
 {
+    private static readonly TimeSpan AuthRiskSignalTtl = TimeSpan.FromMinutes(10);
+
     private static void MapBinaryAuthEndpoints(IEndpointRouteBuilder group)
     {
         group.MapGet("/auth/pow-challenge", static async Task<BinaryFrameResult> (
@@ -50,6 +53,7 @@ public static partial class BinaryEndpoints
             AuthBinaryApplicationFacade authFacade,
             IWebHostEnvironment env,
             AuthCookieService authCookieService,
+            ISecurityRiskSignalSink riskSignals,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -62,6 +66,7 @@ public static partial class BinaryEndpoints
             var result = await authFacade.LoginAsync(request.Value, AuthBinaryClientContext.From(httpContext), cancellationToken);
             if (!result.Success)
             {
+                await RecordAuthLoginFailureAsync(httpContext, riskSignals, cancellationToken);
                 return AuthBinaryResponseWriter.Error(aeds, result.Error);
             }
 
@@ -74,6 +79,8 @@ public static partial class BinaryEndpoints
         })
         .RequireRateLimiting("fixed_ip")
         .AllowAnonymous()
+        .WithRiskAction(RiskActionNames.AuthLogin)
+        .AddEndpointFilter<RequiresRiskControlFilter>()
         .AddEndpointFilter<RequiresPowFilter>()
         .RequireNoStoreResponse();
 
@@ -1037,6 +1044,8 @@ public static partial class BinaryEndpoints
         })
         .AllowAnonymous()
         .RequireRateLimiting("fixed_ip")
+        .WithRiskAction(RiskActionNames.RecoveryKeyVerify)
+        .AddEndpointFilter<RequiresRiskControlFilter>()
         .AddEndpointFilter<RequiresPowFilter>()
         .RequireNoStoreResponse();
 
@@ -1206,6 +1215,8 @@ public static partial class BinaryEndpoints
         })
         .AllowAnonymous()
         .RequireRateLimiting("fixed_ip")
+        .WithRiskAction(RiskActionNames.AuthPasskeyBegin)
+        .AddEndpointFilter<RequiresRiskControlFilter>()
         .RequireNoStoreResponse();
 
         group.MapPost("/auth/passkey/login/complete", static async Task<BinaryFrameResult> (
@@ -1214,6 +1225,7 @@ public static partial class BinaryEndpoints
             IUserLoginWorkflowService loginWorkflow,
             IWebHostEnvironment env,
             AuthCookieService authCookieService,
+            ISecurityRiskSignalSink riskSignals,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -1236,6 +1248,7 @@ public static partial class BinaryEndpoints
             var (success, message, user) = await passkeyService.CompleteAssertionAsync(request, cancellationToken);
             if (!success || user == null)
             {
+                await RecordPasskeyAssertionFailureAsync(httpContext, riskSignals, cancellationToken);
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, message), aeds);
             }
 
@@ -1248,6 +1261,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, login.Message), aeds);
             }
 
+            await RecordPasskeyAssertionAcceptedAsync(httpContext, riskSignals, cancellationToken);
             authCookieService.SetTokenCookies(
                 httpContext,
                 env,
@@ -1265,7 +1279,10 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.AuthLoginFlow, writer => PodBinaryCodec.WriteAuthLoginFlow(flow, writer));
         })
         .AllowAnonymous()
-        .RequireRateLimiting("fixed_ip");
+        .RequireRateLimiting("fixed_ip")
+        .WithRiskAction(RiskActionNames.AuthPasskeyComplete)
+        .AddEndpointFilter<RequiresRiskControlFilter>()
+        .RequireNoStoreResponse();
 
         group.MapGet("/auth/passkey/credentials", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -1332,6 +1349,45 @@ public static partial class BinaryEndpoints
             string.Equals(error.Message, "RECOVERY_KEY_RATE_LIMITED", StringComparison.Ordinal)
                 ? StatusCodes.Status429TooManyRequests
                 : 0);
+
+    private static ValueTask RecordAuthLoginFailureAsync(
+        HttpContext httpContext,
+        ISecurityRiskSignalSink riskSignals,
+        CancellationToken cancellationToken)
+        => riskSignals.AddRiskAsync(new SecurityRiskSignal(
+            httpContext,
+            SecurityRiskReason.AuthLoginFailed,
+            20,
+            AuthRiskSignalTtl,
+            SecurityRiskSources.Auth,
+            RiskActionNames.AuthLogin,
+            "credential_login_failed"), cancellationToken);
+
+    private static ValueTask RecordPasskeyAssertionFailureAsync(
+        HttpContext httpContext,
+        ISecurityRiskSignalSink riskSignals,
+        CancellationToken cancellationToken)
+        => riskSignals.AddRiskAsync(new SecurityRiskSignal(
+            httpContext,
+            SecurityRiskReason.PasskeyAssertionFailed,
+            25,
+            AuthRiskSignalTtl,
+            SecurityRiskSources.Passkey,
+            RiskActionNames.AuthPasskeyComplete,
+            "passkey_assertion_failed"), cancellationToken);
+
+    private static ValueTask RecordPasskeyAssertionAcceptedAsync(
+        HttpContext httpContext,
+        ISecurityRiskSignalSink riskSignals,
+        CancellationToken cancellationToken)
+        => riskSignals.AddRiskAsync(new SecurityRiskSignal(
+            httpContext,
+            SecurityRiskReason.PasskeyAssertionAccepted,
+            -20,
+            AuthRiskSignalTtl,
+            SecurityRiskSources.Passkey,
+            RiskActionNames.AuthPasskeyComplete,
+            "passkey_assertion_accepted"), cancellationToken);
 
     private static bool TryResolveAdminSessionContext(HttpContext context, out long adminPrincipalId, out string adminSessionId)
     {

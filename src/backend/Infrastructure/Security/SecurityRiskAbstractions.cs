@@ -17,15 +17,20 @@ public enum SecurityRiskReason
     PublicReadChallengeRequired,
     CaptchaChallengeRequired,
     PublicReadBlocked,
-    SecurityChallengeRejected
+    SecurityChallengeRejected,
+    AuthLoginFailed,
+    PasskeyAssertionFailed,
+    PasskeyAssertionAccepted
 }
 
 public static class SecurityRiskSources
 {
     public const string AntiCrawler = "anti-crawler";
+    public const string Auth = "auth";
     public const string RateLimiter = "rate-limiter";
     public const string Pow = "pow";
     public const string HumanReadProof = "human-read-proof";
+    public const string Passkey = "passkey";
     public const string PublicRead = "public-read";
     public const string PoSpace = "pospace";
     public const string RiskControl = "risk-control";

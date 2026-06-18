@@ -132,6 +132,20 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    public void LegacyAdapter_ForcesRecoveryKeyVerifyCaptchaChallengeAtZeroRisk()
+    {
+        SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
+
+        SecurityRiskPolicyDecision decision = snapshot.Evaluate(RiskActionNames.RecoveryKeyVerify, 0);
+
+        Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, decision.Outcome);
+        Assert.True(decision.Enforced);
+        Assert.Equal("captchaV1", decision.ChallengeKind);
+        Assert.Equal(["captchaV1"], decision.RequiredChallengeKinds);
+        Assert.Equal(1, decision.EscalationLevel);
+    }
+
+    [Fact]
     public void LegacyAdapter_DisabledPublicReadChallengeDisablesOnlyPublicReadOverride()
     {
         SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(

@@ -31,6 +31,10 @@ public static class SecurityRiskPolicySnapshotV2Adapter
             HardChallengeKinds = [CaptchaV1ChallengeKind, Sha256PowV1ChallengeKind],
             HardChallengeEscalationLevel = 2
         };
+        var mandatoryCaptchaPolicy = captchaEscalationPolicy with
+        {
+            Thresholds = BuildMandatoryChallengeThresholds(options.BlockScore)
+        };
         var actionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
         {
             [RiskActionNames.PublicRead] = defaultPolicy with
@@ -44,7 +48,7 @@ public static class SecurityRiskPolicySnapshotV2Adapter
             [RiskActionNames.AuthLogin] = captchaEscalationPolicy with { ActionName = RiskActionNames.AuthLogin },
             [RiskActionNames.AuthPasskeyBegin] = defaultPolicy with { ActionName = RiskActionNames.AuthPasskeyBegin },
             [RiskActionNames.AuthPasskeyComplete] = defaultPolicy with { ActionName = RiskActionNames.AuthPasskeyComplete },
-            [RiskActionNames.RecoveryKeyVerify] = defaultPolicy with { ActionName = RiskActionNames.RecoveryKeyVerify },
+            [RiskActionNames.RecoveryKeyVerify] = mandatoryCaptchaPolicy with { ActionName = RiskActionNames.RecoveryKeyVerify },
             [RiskActionNames.NotificationSubscribe] = defaultPolicy with { ActionName = RiskActionNames.NotificationSubscribe },
             [RiskActionNames.AdminSecurityWrite] = defaultPolicy with
             {
@@ -117,6 +121,18 @@ public static class SecurityRiskPolicySnapshotV2Adapter
         return new SecurityRiskActionThresholds(
             Math.Max(0, challenge - 1),
             challenge,
+            hardChallenge,
+            block,
+            block);
+    }
+
+    private static SecurityRiskActionThresholds BuildMandatoryChallengeThresholds(int blockScore)
+    {
+        int block = Math.Clamp(blockScore, 1, 1000);
+        int hardChallenge = Math.Min(block, Math.Max(1, block / 2));
+        return new SecurityRiskActionThresholds(
+            0,
+            0,
             hardChallenge,
             block,
             block);
