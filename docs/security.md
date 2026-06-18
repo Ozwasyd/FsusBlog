@@ -115,7 +115,7 @@ Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再
 
 **Anonymous identity cold-start reset**：切换到匿名身份模型时，旧 `sys_user`、`sys_user_session`、legacy Passkey、MFA secret/recovery-code hash、refresh/session 记录、历史评论、`comment_region_compliance`、`comment_moderation_signal` 和旧用户绑定的消息状态会被故意删除，并在事务提交后清理旧用户的 blacklist/blocking、未读消息和用户评论游标缓存。该 reset 只在 `FSUSBLOG_CONFIRM_IDENTITY_RESET=DELETE_LEGACY_USERS` 时运行；缺少确认值会在 destructive SQL 前失败。旧密码登录和旧 `role=admin` 账户不迁移、不可继续使用，必须按新的匿名身份/admin bootstrap 流程重建。
 
-**Anonymous identity mode**：设置 `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` 后，`sys_user` 只作为匿名账号容器使用，`public_handle` 与 `identity_kind=anonymous_account` 是展示/身份语义；`username/password` 仅为 legacy 兼容列且允许为空。该模式禁用旧密码注册、密码登录、改密、自助删号中的密码证明和管理员重置密码；TOTP 保留为可选 step-up，但旧 password proof 不再参与 TOTP rebind/disable/recovery-code regeneration。JWT 签发会把匿名账号的 `role=admin` 降级为 `authenticated`，因此 `sys_user.role=admin` 不再授予后端 admin authority；独立 admin principal 由后续 bootstrap/Passkey 流程提供。
+**Anonymous identity mode**：设置 `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` 后，`sys_user` 只作为匿名账号容器使用，`public_handle` 与 `identity_kind=anonymous_account` 是展示/身份语义；`username/password` 仅为 legacy 兼容列且允许为空。生产环境必须启用该模式，`ProductionStartupValidator` 和 `/health/ready` 会拒绝缺失、`0`、`false` 等关闭值，`FSUSBLOG_ALLOW_INSECURE_STARTUP=true` 只能让进程降级可观测启动，不能把 readiness 变成可上线状态。该模式禁用旧密码注册、密码登录、改密、自助删号中的密码证明和管理员重置密码；TOTP 保留为可选 step-up，但旧 password proof 不再参与 TOTP rebind/disable/recovery-code regeneration。JWT 签发会把匿名账号的 `role=admin` 降级为 `authenticated`，因此 `sys_user.role=admin` 不再授予后端 admin authority；独立 admin principal 由后续 bootstrap/Passkey 流程提供。
 
 **Independent admin principal plane**：后台控制面身份保存在 `admin_principal`、`admin_session`、`admin_passkey_credential` 和 `admin_audit_log`，不复用 `sys_user` / `sys_user_session`。首次 root admin 只能通过 `/api/binary/auth/admin/bootstrap/passkey/begin|complete` 创建，必须提供 `X-Fsus-Admin-Bootstrap-Token`，其值来自 `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` 或 `Admin:BootstrapToken`；一旦存在 active root admin，bootstrap 永久拒绝再次执行。admin 登录只走 `/api/binary/auth/admin/login/passkey/begin|complete` 的 Passkey/Security Key assertion，不接受 username/password。成功后只写独立 `AdminAccessToken` / `AdminSessionId` 或 `__Host-AdminAccessToken` / `__Host-AdminSessionId` Cookie，JWT claims 包含 `identity_kind=admin_principal`、`admin_id`、`admin_sid` 和多值 `admin_permission`。当前权限集合包括 `article.write`、`article.publish`、`comment.moderate`、`anonymous.comment.configure`、`anonymous.nullifier.block`、`anonymous.credential.revoke`、`audit.read`、`system.config`、`admin.manage`。bootstrap、login 和后续 admin MFA/reset 操作必须写入 `admin_audit_log`；TOTP 对 admin 只作为敏感操作附加 step-up，不替代 Passkey 主认证。
 
@@ -299,6 +299,7 @@ Secret 轮换、站点备份导出、数据巡检修复、批量封禁、密码�
 
 - [ ] JWT 密钥不为默认占位值（非 `your-secret-key` 类占位）
 - [ ] Redis 密码不为空
+- [ ] `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1`，生产不允许 legacy `sys_user.role=admin` 授予后台权限
 - [ ] `SITE_BASEURL` 以 `https://` 开头
 - [ ] `AllowedHosts` 显式列出生产域名，且不使用 `*`
 - [ ] `ReverseProxy:KnownProxies` 或 `ReverseProxy:KnownNetworks` 只包含真实网关 IP / 私网 CIDR

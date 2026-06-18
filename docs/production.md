@@ -28,13 +28,14 @@ Required variables:
 - `DB_NAME`
 - `REDIS_PASSWORD`
 - `Jwt__SecretKey`
+- `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1`
 - `SITE_BASEURL`
 - `CORS_ALLOWED_HOSTS`
 - `APP_ALLOWED_HOSTS`
 - `FIDO2_SERVER_DOMAIN`
 - `REVERSE_PROXY_KNOWN_PROXIES` or `REVERSE_PROXY_KNOWN_NETWORKS`
 
-Production validation rejects default JWT secrets, placeholder secrets, empty Redis passwords, HTTP CORS origins, non-HTTPS `SITE_BASEURL`, wildcard `AllowedHosts`, and missing reverse-proxy trust configuration. Invalid production validation marks `/health/ready` as `503`, and the hosted validation task reports the detailed degraded state in runtime health.
+Production validation rejects default JWT secrets, placeholder secrets, empty Redis passwords, missing or disabled `FSUSBLOG_ANONYMOUS_IDENTITY_MODE`, HTTP CORS origins, non-HTTPS `SITE_BASEURL`, wildcard `AllowedHosts`, and missing reverse-proxy trust configuration. Invalid production validation marks `/health/ready` as `503`, and the hosted validation task reports the detailed degraded state in runtime health.
 
 DataProtection keys are persisted by default under `FSUSBLOG_DATA_ROOT/data-protection-keys`; override with `DataProtection:KeyRingPath` or `FSUSBLOG_DATA_PROTECTION_KEY_RING` when running multiple instances or using a mounted secrets volume. Keep `DataProtection:ApplicationName=FsusBlog` consistent across rolling deployments so protected MFA/session payloads remain readable during restart and rollout windows.
 

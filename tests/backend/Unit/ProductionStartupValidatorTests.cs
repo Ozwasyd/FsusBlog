@@ -1,3 +1,4 @@
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Operations;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -21,7 +22,8 @@ public sealed class ProductionStartupValidatorTests
             ["Seo:BaseUrl"] = "https://fsus.blog",
             ["Fido2:ServerDomain"] = "fsus.blog",
             ["Fido2:Origins:0"] = "https://fsus.blog",
-            ["ReverseProxy:KnownProxies"] = "127.0.0.1"
+            ["ReverseProxy:KnownProxies"] = "127.0.0.1",
+            [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         });
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
@@ -56,6 +58,43 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains(errors, static error => error.Contains("Seo:BaseUrl", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Fido2:ServerDomain", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Fido2:Origins", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("0")]
+    [InlineData("false")]
+    public void ValidateCore_RejectsProductionWhenAnonymousIdentityModeIsMissingOrDisabled(string? modeValue)
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            [AnonymousIdentityRuntime.ModeEnvironmentVariable] = modeValue
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.Contains(
+            errors,
+            static error => error.Contains(AnonymousIdentityRuntime.ModeEnvironmentVariable, StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("true")]
+    [InlineData("enabled")]
+    public void ValidateCore_AcceptsProductionWhenAnonymousIdentityModeIsEnabled(string modeValue)
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            [AnonymousIdentityRuntime.ModeEnvironmentVariable] = modeValue
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.DoesNotContain(
+            errors,
+            static error => error.Contains(AnonymousIdentityRuntime.ModeEnvironmentVariable, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -119,11 +158,12 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(3, report.SchemaVersion);
+        Assert.Equal(4, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
             report.Requirements.Select(static requirement => requirement.Key).Order(StringComparer.Ordinal));
+        Assert.Contains(AnonymousIdentityRuntime.ModeEnvironmentVariable, ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Jwt:SecretKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AllowedHosts", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Fido2:ServerDomain", ProductionStartupValidator.CurrentSchema.RequiredSettings);
@@ -226,4 +266,29 @@ public sealed class ProductionStartupValidatorTests
         => new ConfigurationBuilder()
             .AddInMemoryCollection(values)
             .Build();
+
+    private static IConfiguration CreateValidProductionConfiguration(Dictionary<string, string?> overrides)
+    {
+        Dictionary<string, string?> values = new(StringComparer.Ordinal)
+        {
+            ["ConnectionStrings:DefaultConnection"] = "Host=db;Database=fsus;Username=fsus;Password=secret",
+            ["ConnectionStrings:Redis"] = "redis:6379,password=redis-secret,abortConnect=false",
+            ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
+            ["Jwt:SecretKey"] = "production-secret-key-with-at-least-thirty-two-chars",
+            ["AllowedHosts"] = "fsus.blog;www.fsus.blog",
+            ["CORS_ALLOWED_HOSTS"] = "https://fsus.blog,https://www.fsus.blog",
+            ["Seo:BaseUrl"] = "https://fsus.blog",
+            ["Fido2:ServerDomain"] = "fsus.blog",
+            ["Fido2:Origins:0"] = "https://fsus.blog",
+            ["ReverseProxy:KnownProxies"] = "127.0.0.1",
+            [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
+        };
+
+        foreach ((string key, string? value) in overrides)
+        {
+            values[key] = value;
+        }
+
+        return CreateConfiguration(values);
+    }
 }

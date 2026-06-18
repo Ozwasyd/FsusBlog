@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Auth;
 using Microsoft.Extensions.Primitives;
 using StackExchange.Redis;
 
@@ -46,7 +47,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 3;
+    private const int SchemaVersion = 4;
     private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object CoreValidationCacheLock = new();
     private static CoreValidationCacheEntry? s_coreValidationCache;
@@ -82,7 +83,8 @@ public static class ProductionStartupValidator
         Value("CORS_ALLOWED_HOSTS"),
         Value("Seo:BaseUrl"),
         Value("Fido2:ServerDomain"),
-        new("Fido2:Origins", ReadOriginList)
+        new("Fido2:Origins", ReadOriginList),
+        Value(AnonymousIdentityRuntime.ModeEnvironmentVariable)
     ];
 
     public static ProductionStartupValidationSchema CurrentSchema { get; } = new(
@@ -160,6 +162,7 @@ public static class ProductionStartupValidator
         string? seoBaseUrl = values["Seo:BaseUrl"];
         string? fido2ServerDomain = values["Fido2:ServerDomain"];
         string? fido2Origins = values["Fido2:Origins"];
+        string? anonymousIdentityMode = values[AnonymousIdentityRuntime.ModeEnvironmentVariable];
 
         if (!string.IsNullOrWhiteSpace(jwtSecret))
         {
@@ -187,6 +190,7 @@ public static class ProductionStartupValidator
         ValidateSeoBaseUrl(seoBaseUrl, enforceProductionRules, errors);
         ValidateFido2Settings(fido2ServerDomain, fido2Origins, seoBaseUrl, corsOrigins, enforceProductionRules, errors);
         ValidateAuthCookieSettings(configuration, enforceProductionRules, errors);
+        ValidateAnonymousIdentityMode(anonymousIdentityMode, enforceProductionRules, errors);
 
         return new ProductionStartupValidationReport(SchemaVersion, enforceProductionRules, requirements, errors);
     }
@@ -508,6 +512,24 @@ public static class ProductionStartupValidator
             errors.Add("AuthCookies:AllowInsecureTransportCookies must be false outside Development.");
         }
     }
+
+    private static void ValidateAnonymousIdentityMode(string? value, bool enforceProductionRules, List<string> errors)
+    {
+        if (!enforceProductionRules)
+        {
+            return;
+        }
+
+        if (!AnonymousIdentityModeEnabled(value))
+        {
+            errors.Add($"{AnonymousIdentityRuntime.ModeEnvironmentVariable} must be enabled in production so legacy sys_user admin roles cannot grant backend authority.");
+        }
+    }
+
+    private static bool AnonymousIdentityModeEnabled(string? value)
+        => string.Equals(value, "1", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "enabled", StringComparison.OrdinalIgnoreCase);
 
     private static Uri? TryParseOriginLikeBaseUrl(string? value)
     {
