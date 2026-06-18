@@ -362,21 +362,30 @@ request_summary_json() {
 coverage_summary_json() {
   local merged="$COVERAGE_DIR/merged/Summary.json"
   local backend="$COVERAGE_DIR/backend-merged/Summary.json"
+  local frontend="$COVERAGE_DIR/frontend/Summary.json"
+  local merged_input="$merged"
+  local backend_input="$backend"
+  local frontend_input="$frontend"
 
-  if [[ ! -f "$merged" && ! -f "$backend" ]]; then
-    jq -n '{status: "missing", merged: null, backend: null}'
+  if [[ ! -f "$merged" && ! -f "$backend" && ! -f "$frontend" ]]; then
+    jq -n '{status: "missing", merged: null, backend: null, frontend: null}'
     return
   fi
+  [[ -f "$merged_input" ]] || merged_input="/dev/null"
+  [[ -f "$backend_input" ]] || backend_input="/dev/null"
+  [[ -f "$frontend_input" ]] || frontend_input="/dev/null"
 
   jq -n \
-    --slurpfile merged "$merged" \
-    --slurpfile backend "$backend" '
+    --slurpfile merged "$merged_input" \
+    --slurpfile backend "$backend_input" \
+    --slurpfile frontend "$frontend_input" '
       def summary($value):
         if ($value | length) == 0 then null
         else {
           linecoverage: $value[0].summary.linecoverage,
           branchcoverage: $value[0].summary.branchcoverage,
           methodcoverage: $value[0].summary.methodcoverage,
+          functioncoverage: ($value[0].summary.functioncoverage // null),
           assemblies: $value[0].summary.assemblies,
           classes: $value[0].summary.classes,
           files: $value[0].summary.files,
@@ -388,16 +397,18 @@ coverage_summary_json() {
 
       (summary($merged)) as $mergedSummary
       | (summary($backend)) as $backendSummary
+      | (summary($frontend)) as $frontendSummary
       | {
           status: (
-            if ($mergedSummary == null or $backendSummary == null) then "partial"
-            elif (($mergedSummary.totals.lines.total // 0) > 0 and ($backendSummary.totals.lines.total // 0) > 0) then "ok"
+            if ($mergedSummary == null or $backendSummary == null or $frontendSummary == null) then "partial"
+            elif (($mergedSummary.totals.lines.total // 0) > 0 and ($backendSummary.totals.lines.total // 0) > 0 and ($frontendSummary.totals.lines.total // 0) > 0) then "ok"
             else "blocked" end
           ),
           merged: $mergedSummary,
-          backend: $backendSummary
+          backend: $backendSummary,
+          frontend: $frontendSummary
         }
-    ' 2>/dev/null || jq -n '{status: "invalid", merged: null, backend: null}'
+    ' 2>/dev/null || jq -n '{status: "invalid", merged: null, backend: null, frontend: null}'
 }
 
 runtime_tuning_json() {

@@ -6,6 +6,7 @@ SUMMARY_FILE="${FSUSBLOG_COVERAGE_SUMMARY_FILE:-}"
 LINE_THRESHOLD="${FSUSBLOG_COVERAGE_LINE_THRESHOLD:-100}"
 BRANCH_THRESHOLD="${FSUSBLOG_COVERAGE_BRANCH_THRESHOLD:-100}"
 METHOD_THRESHOLD="${FSUSBLOG_COVERAGE_METHOD_THRESHOLD:-100}"
+FUNCTION_THRESHOLD="${FSUSBLOG_COVERAGE_FUNCTION_THRESHOLD:-$METHOD_THRESHOLD}"
 
 if [[ "${1:-}" == "--dry-run" ]]; then
   SUMMARY_FILE="${SUMMARY_FILE:-.tmp/coverage/merged/Summary.json}"
@@ -23,18 +24,19 @@ if [[ -z "$SUMMARY_FILE" ]]; then
   exit 1
 fi
 
-"${FSUSBLOG_NODE:-node}" - "$SUMMARY_FILE" "$COVERAGE_LABEL" "$LINE_THRESHOLD" "$BRANCH_THRESHOLD" "$METHOD_THRESHOLD" <<'NODE'
+"${FSUSBLOG_NODE:-node}" - "$SUMMARY_FILE" "$COVERAGE_LABEL" "$LINE_THRESHOLD" "$BRANCH_THRESHOLD" "$FUNCTION_THRESHOLD" <<'NODE'
 const fs = require('node:fs');
-const [summaryFile, label, lineThreshold, branchThreshold, methodThreshold] = process.argv.slice(2);
+const [summaryFile, label, lineThreshold, branchThreshold, functionThreshold] = process.argv.slice(2);
 if (!fs.existsSync(summaryFile)) {
   console.error(`[coverage:${label}] missing summary: ${summaryFile}`);
   process.exit(1);
 }
 const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8')).summary ?? {};
+const functionCoverageKey = summary.functioncoverage === undefined ? 'methodcoverage' : 'functioncoverage';
 const checks = [
   ['linecoverage', Number(lineThreshold)],
   ['branchcoverage', Number(branchThreshold)],
-  ['methodcoverage', Number(methodThreshold)]
+  [functionCoverageKey, Number(functionThreshold)]
 ];
 const failures = checks.filter(([key, threshold]) => Number(summary[key] ?? 0) < threshold);
 if (failures.length > 0) {

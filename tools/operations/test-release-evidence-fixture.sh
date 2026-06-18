@@ -60,7 +60,7 @@ GATE_LOG_DIR="$TMP_ROOT/gate-logs"
 FAULT_DIR="$TMP_ROOT/fault-injection"
 SOAK_DIR="$TMP_ROOT/soak"
 FUZZ_DIR="$TMP_ROOT/fuzz"
-mkdir -p "$SECURITY_DIR/zap/run-1" "$SECURITY_DIR/supply-chain" "$SECURITY_DIR/sbom" "$OPERATIONS_DIR" "$COVERAGE_DIR/merged" "$COVERAGE_DIR/backend-merged" "$PERF_DIR" "$GATE_LOG_DIR"
+mkdir -p "$SECURITY_DIR/zap/run-1" "$SECURITY_DIR/supply-chain" "$SECURITY_DIR/sbom" "$OPERATIONS_DIR" "$COVERAGE_DIR/merged" "$COVERAGE_DIR/backend-merged" "$COVERAGE_DIR/frontend" "$PERF_DIR" "$GATE_LOG_DIR"
 
 printf '{"status":"blocked","requiredHosts":["fsus.blog"],"delegationDomains":["fsus.blog"],"blockers":[{"source":"fixture","message":"synthetic"}]}\n' > "$SECURITY_DIR/production-exposure-status.json"
 jq -n \
@@ -251,6 +251,7 @@ printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/slo-alert-fixture.json"
 printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/retention-cleanup.json"
 printf '{"summary":{"linecoverage":80,"branchcoverage":60,"methodcoverage":95,"assemblies":1,"classes":1,"files":1},"totals":{"lines":{"covered":80,"total":100},"branches":{"covered":60,"total":100},"methods":{"covered":95,"total":100}},"sources":{"mergeMethod":"covered-over-total-weighted"}}\n' > "$COVERAGE_DIR/merged/Summary.json"
 printf '{"summary":{"linecoverage":78,"branchcoverage":58,"methodcoverage":96,"assemblies":1,"classes":1,"files":1},"totals":{"lines":{"covered":78,"total":100},"branches":{"covered":58,"total":100},"methods":{"covered":96,"total":100}},"source":"backend-cobertura","reportPaths":["coverage/backend/fixture.cobertura.xml"]}\n' > "$COVERAGE_DIR/backend-merged/Summary.json"
+printf '{"summary":{"linecoverage":76,"branchcoverage":56,"functioncoverage":86,"assemblies":0,"classes":1,"files":1},"totals":{"lines":{"covered":76,"total":100},"branches":{"covered":56,"total":100},"methods":{"covered":86,"total":100}},"source":"frontend-vitest","reportPaths":["coverage/frontend/coverage-summary.json"]}\n' > "$COVERAGE_DIR/frontend/Summary.json"
 mkdir -p "$ROOT_DIR/.tmp/frontend" "$ROOT_DIR/.tmp/release-evidence"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json"
@@ -555,6 +556,8 @@ jq -e '
   and .artifactDigests.dnsDelegation.algorithm == "sha256"
   and .evidenceSummary.image.status == "missing"
   and .evidenceSummary.coverage.status == "ok"
+  and .evidenceSummary.coverage.frontend.linecoverage == 76
+  and .evidenceSummary.coverage.frontend.functioncoverage == 86
   and .evidenceSummary.externalExposure.status == "blocked"
   and .evidenceSummary.externalExposure.valid == false
   and .evidenceSummary.externalExposure.firewallPolicy == "present"
