@@ -315,7 +315,7 @@ printf '{"status":"ok","seedsRun":1,"crashes":[]}\n' > "$FUZZ_DIR/wasm/summary.j
 cat > "$FAULT_DIR/summary.json" <<'JSON'
 {
   "status": "ok",
-  "caseCount": 6,
+  "caseCount": 7,
   "cases": [
     {
       "case": "redis-restart",
@@ -402,6 +402,28 @@ cat > "$FAULT_DIR/summary.json" <<'JSON'
       "recoveryTimeMs": 7,
       "publicReadRecoveryResult": { "status": "completed", "sampleCount": 1, "p95Ms": 1 },
       "writePathRollbackResult": { "status": "verified" },
+      "finalHealthStatus": "healthy"
+    },
+    {
+      "case": "notification-stream-slow-consumer",
+      "status": "completed",
+      "actionStatus": "executed",
+      "actionStartedAt": "2026-06-18T00:06:00Z",
+      "actionCompletedAt": "2026-06-18T00:06:10Z",
+      "unavailableDurationMs": 0,
+      "recoveryDurationMs": 8,
+      "recoveryTimeMs": 8,
+      "connectionCount": 3,
+      "heartbeatFrameCount": 2,
+      "businessFrameCount": 8,
+      "deliveredFrameCount": 8,
+      "droppedOrBackpressuredCount": 1,
+      "reconnectSuccess": true,
+      "replayedEventCount": 1,
+      "closeObserved": true,
+      "eventIds": [101, 102],
+      "routeKey": "g:ContentGovernanceGroup",
+      "slowConsumerPolicy": "controlled-degradation",
       "finalHealthStatus": "healthy"
     }
   ]

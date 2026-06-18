@@ -603,6 +603,21 @@ binary-value payload
 int64 timestampUnixMs
 ```
 
+### Development/Test drill publish
+
+`POST /_fsus/testing/notification-stream/publish` 只在 Development/Test 环境映射，并要求 `X-Fsus-Notification-Drill-Secret` 匹配 `FSUSBLOG_NOTIFICATION_DRILL_SECRET` / `NotificationStream:DrillSecret`。请求体为 JSON tooling payload：
+
+```json
+{
+  "drillId": "notification-slow-consumer-...",
+  "count": 384,
+  "payloadBytes": 1024,
+  "routeKey": "content-feed"
+}
+```
+
+服务端通过真实 `INotificationStreamPublisher` 写入 backlog 并触发本机 fanout，响应包含 `status`、`drillId`、`routeKey`、`eventType`、`count` 与 `eventIds`。该入口只供 resilience evidence 使用，生产环境不映射，未配置 secret 时返回 `404`。
+
 ### `NotificationStreamEventType` 枚举
 
 | 值 | 名称 | 载荷类型 | 说明 |

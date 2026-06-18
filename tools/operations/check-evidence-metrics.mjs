@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const requiredRedisFaultCases = ['redis-restart', 'redis-reconnect', 'redis-latency']
 const requiredPostgresFaultCases = ['postgres-readiness', 'postgres-reconnect', 'postgres-lock-timeout']
+const requiredNotificationFaultCases = ['notification-stream-slow-consumer']
 
 function readJson(relativePath, optional = false) {
   const file = findEvidenceFile(relativePath)
@@ -137,6 +138,9 @@ function validateFaultInjectionSummary(summary, label) {
   for (const required of requiredPostgresFaultCases) {
     assert(caseNames.has(required), `${label} must include ${required}`)
   }
+  for (const required of requiredNotificationFaultCases) {
+    assert(caseNames.has(required), `${label} must include ${required}`)
+  }
   for (const item of summary.cases) {
     assert(item.status === 'completed', `${label} ${item.case} must be completed`)
     assert(item.actionStatus === 'executed', `${label} ${item.case}.actionStatus must be executed`)
@@ -148,6 +152,9 @@ function validateFaultInjectionSummary(summary, label) {
     }
     if (requiredPostgresFaultCases.includes(item.case)) {
       validatePostgresFaultCase(item, label)
+    }
+    if (requiredNotificationFaultCases.includes(item.case)) {
+      validateNotificationFaultCase(item, label)
     }
   }
 }
@@ -174,6 +181,22 @@ function validatePostgresFaultCase(item, label) {
   positiveNumber(item.publicReadRecoveryResult?.sampleCount, `${label} ${item.case}.publicReadRecoveryResult.sampleCount`)
   assert(item.writePathRollbackResult && typeof item.writePathRollbackResult.status === 'string', `${label} ${item.case}.writePathRollbackResult missing`)
   assert(!['failed', 'scheduled', 'observed-only'].includes(item.writePathRollbackResult.status), `${label} ${item.case}.writePathRollbackResult must not be ${item.writePathRollbackResult.status}`)
+  assert(item.finalHealthStatus === 'healthy', `${label} ${item.case}.finalHealthStatus must be healthy`)
+}
+
+function validateNotificationFaultCase(item, label) {
+  positiveNumber(item.connectionCount, `${label} ${item.case}.connectionCount`)
+  positiveNumber(item.heartbeatFrameCount, `${label} ${item.case}.heartbeatFrameCount`)
+  positiveNumber(item.businessFrameCount, `${label} ${item.case}.businessFrameCount`)
+  positiveNumber(item.deliveredFrameCount, `${label} ${item.case}.deliveredFrameCount`)
+  positiveNumber(item.droppedOrBackpressuredCount, `${label} ${item.case}.droppedOrBackpressuredCount`)
+  assert(item.reconnectSuccess === true, `${label} ${item.case}.reconnectSuccess must be true`)
+  positiveNumber(item.replayedEventCount, `${label} ${item.case}.replayedEventCount`)
+  assert(item.closeObserved === true, `${label} ${item.case}.closeObserved must be true`)
+  assert(Array.isArray(item.eventIds) && item.eventIds.length > 0, `${label} ${item.case}.eventIds missing`)
+  assert(item.eventIds.every((eventId) => Number(eventId) > 0), `${label} ${item.case}.eventIds must be positive`)
+  assert(typeof item.routeKey === 'string' && item.routeKey.length > 0, `${label} ${item.case}.routeKey missing`)
+  assert(typeof item.slowConsumerPolicy === 'string' && item.slowConsumerPolicy.length > 0, `${label} ${item.case}.slowConsumerPolicy missing`)
   assert(item.finalHealthStatus === 'healthy', `${label} ${item.case}.finalHealthStatus must be healthy`)
 }
 
@@ -332,9 +355,50 @@ function runSelfTest() {
     failedAsExpected = true
   }
   assert(failedAsExpected, 'self-test scheduled fault-injection fixture must fail')
+  let missingNotificationFailedAsExpected = false
+  try {
+    validateFaultInjectionSummary({
+      status: 'ok',
+      caseCount: 6,
+      cases: [
+        ...requiredRedisFaultCases.map((caseName, index) => ({
+          case: caseName,
+          status: 'completed',
+          actionStatus: 'executed',
+          actionStartedAt: `2026-06-18T00:00:0${index}Z`,
+          actionCompletedAt: `2026-06-18T00:00:1${index}Z`,
+          unavailableDurationMs: index,
+          recoveryDurationMs: 2 + index,
+          recoveryTimeMs: 2 + index,
+          publicReadResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+          authenticatedImpact: { status: 'not-configured' },
+          notificationStreamImpact: { status: 'not-configured' },
+          finalHealthStatus: 'healthy'
+        })),
+        ...requiredPostgresFaultCases.map((caseName, index) => ({
+          case: caseName,
+          status: 'completed',
+          actionStatus: 'executed',
+          actionStartedAt: `2026-06-18T00:01:0${index}Z`,
+          actionCompletedAt: `2026-06-18T00:01:1${index}Z`,
+          affectedEndpoint: index === 2 ? '/api/binary/article/list/home/1/10.aeds' : '/health/ready',
+          unavailableDurationMs: index,
+          dbReconnectDurationMs: 3 + index,
+          recoveryDurationMs: 3 + index,
+          recoveryTimeMs: 3 + index,
+          publicReadRecoveryResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+          writePathRollbackResult: { status: index === 2 ? 'verified' : 'not-mutated' },
+          finalHealthStatus: 'healthy'
+        }))
+      ]
+    }, 'fault-injection-self-test')
+  } catch {
+    missingNotificationFailedAsExpected = true
+  }
+  assert(missingNotificationFailedAsExpected, 'self-test missing notification slow-consumer fixture must fail')
   validateFaultInjectionSummary({
     status: 'ok',
-    caseCount: 6,
+    caseCount: 7,
     cases: [
       ...requiredRedisFaultCases.map((caseName, index) => ({
       case: caseName,
@@ -364,7 +428,29 @@ function runSelfTest() {
         publicReadRecoveryResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
         writePathRollbackResult: { status: index === 2 ? 'verified' : 'not-mutated' },
         finalHealthStatus: 'healthy'
-      }))
+      })),
+      {
+        case: 'notification-stream-slow-consumer',
+        status: 'completed',
+        actionStatus: 'executed',
+        actionStartedAt: '2026-06-18T00:02:00Z',
+        actionCompletedAt: '2026-06-18T00:02:10Z',
+        unavailableDurationMs: 0,
+        recoveryDurationMs: 5,
+        recoveryTimeMs: 5,
+        connectionCount: 3,
+        heartbeatFrameCount: 2,
+        businessFrameCount: 8,
+        deliveredFrameCount: 8,
+        droppedOrBackpressuredCount: 1,
+        reconnectSuccess: true,
+        replayedEventCount: 1,
+        closeObserved: true,
+        eventIds: [101, 102],
+        routeKey: 'g:ContentGovernanceGroup',
+        slowConsumerPolicy: 'controlled-degradation',
+        finalHealthStatus: 'healthy'
+      }
     ]
   }, 'fault-injection-self-test')
   console.log('[evidence-metrics:self-test] ok')

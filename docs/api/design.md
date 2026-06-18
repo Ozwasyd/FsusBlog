@@ -127,6 +127,7 @@ Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AED
 | 通知通道 | `X-Fsus-Notification-Stream-Protocol` | 请求 | notification preflight fallback 协议头；正式 WebSocket 仍使用 `Sec-WebSocket-Protocol: fsus-aeds.v2`。 |
 | 通知通道 | `X-Fsus-Notification-Stream-Error-Code` | 响应 | notification preflight / WebSocket 握手失败业务码，例如 `account_blocked`、`auth_failed`、`pow_failed`。 |
 | 通知通道 | `X-Fsus-Notification-Stream-Status-Code` | 响应 | notification preflight / WebSocket 握手失败映射的 HTTP status。 |
+| 测试工具 | `X-Fsus-Notification-Drill-Secret` | 请求 | 仅 Development/Test 映射的 notification slow-consumer resilience drill 凭据；必须匹配 `FSUSBLOG_NOTIFICATION_DRILL_SECRET` / `NotificationStream:DrillSecret`。 |
 | AOT 运维 | `X-Fsus-Public-Aot-Token` | 请求 | `GET /internal/public-aot/manifest` 与 `GET /internal/public-aot/health` 在配置 `PublicAot:ManifestToken` 时要求的 tooling token。 |
 | 可观测性 | `X-Fsus-Trace-Id` | 响应 | 与 `HttpContext.TraceIdentifier`、OpenTelemetry trace 和审计上下文对齐的排障 ID；不是认证凭据。 |
 | L0 artifact | `X-Fsus-Frame-Encoding` | 响应 | `.aeds` artifact 命中时标记 raw/br/gzip variant。 |
@@ -221,6 +222,10 @@ AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行�
 ### Heartbeat 与重连
 
 服务端用 `AedsFrameType.NotificationHeartbeat = 70` 发送 `int64 timestampUnixMs` 心跳；连接 pump 通过发送锁串行写业务 frame 与 heartbeat，避免并发写 WebSocket。客户端应存储最后收到的 cursor 值，断线重连时通过 `cursor` query 参数传递；`Last-Event-ID` 只作为兼容读取，不是首选浏览器 API。
+
+### 测试 drill 入口
+
+`POST /_fsus/testing/notification-stream/publish` 只在 `Development` / `Test` 环境映射，且必须携带 `X-Fsus-Notification-Drill-Secret`。它通过真实 `INotificationStreamPublisher` 发布 `CacheControl` 测试事件，返回发布 event id 与 route key，用于 resilience lane 验证慢消费者关闭、心跳未饿死、正常连接业务帧投递和 cursor backlog replay。该路径不属于生产业务 API；生产环境不映射，未配置 secret 时返回 `404`。
 
 ### 审计与缓存清理
 

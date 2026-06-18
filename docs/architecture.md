@@ -281,6 +281,7 @@ Client
 - 通知握手只编排协议、PoW 与握手结果。账号封禁/注销准入下沉到 `NotificationStreamAdmissionService`，notification stream audience 分组下沉到 `NotificationStreamAudienceResolver`，消息域到 user/group route 的映射下沉到 `MessageNotificationStreamPort`。
 - Notification stream backlog 按 route 写入 Redis stream（`u:{id}` / `g:{group}`；multi-user target 展开为多个 user route），多目标 backlog 写入通过 Redis batch/pipeline 一次提交；replay 只读取当前连接可见的 user/group stream 后按 event id 合并，不再从全局流拉取后置过滤。
 - 业务发布路径只负责写 backlog 并把本地 fanout 意图放入 `NotificationStreamLocalFanoutQueue`，`NotificationStreamLocalFanoutWorker` 再遍历本机连接。慢连接仍由每连接队列和 slow-consumer 断开保护兜底，突变请求不随本机连接数线性放大。
+- Resilience drill 通过 Development/Test-only `/_fsus/testing/notification-stream/publish` 入口驱动同一 `INotificationStreamPublisher` 链路；`drillSlowConsumer=1` 只在 Development/Test WebSocket query 中启用发送延迟，`drillQueueCapacity` 可把该测试连接的 per-connection queue 降到 32，用来稳定触发背压关闭，不改变生产 pump 行为。
 - 连接 pump 使用每连接一个 `PeriodicTimer` heartbeat loop；业务 frame 与 heartbeat 通过发送锁串行写 WebSocket，避免每轮 idle wait 创建 linked timeout CTS。
 - `CacheControl` 与 `SearchIndexUpdated` 的搜索索引版本字段以 `version / manifestUrl / generatedAt` 为唯一消费语义，Service Worker 不再从多个字段推导版本。
 

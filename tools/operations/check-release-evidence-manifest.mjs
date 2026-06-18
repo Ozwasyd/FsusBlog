@@ -7,6 +7,7 @@ import process from 'node:process'
 const rootDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..')
 const requiredRedisFaultCases = ['redis-restart', 'redis-reconnect', 'redis-latency']
 const requiredPostgresFaultCases = ['postgres-readiness', 'postgres-reconnect', 'postgres-lock-timeout']
+const requiredNotificationFaultCases = ['notification-stream-slow-consumer']
 
 const requiredStatusChecks = [
   ['image digest', (manifest) => manifest.evidenceSummary?.image?.status === 'present'],
@@ -152,6 +153,7 @@ function faultInjectionOk(manifest, context) {
     && Array.isArray(report.cases)
     && includesAll(report.cases.map((item) => item.case), requiredRedisFaultCases)
     && includesAll(report.cases.map((item) => item.case), requiredPostgresFaultCases)
+    && includesAll(report.cases.map((item) => item.case), requiredNotificationFaultCases)
     && report.cases.every((item) => item.status === 'completed' && item.actionStatus === 'executed')
     && report.cases
       .filter((item) => requiredRedisFaultCases.includes(item.case))
@@ -159,6 +161,9 @@ function faultInjectionOk(manifest, context) {
     && report.cases
       .filter((item) => requiredPostgresFaultCases.includes(item.case))
       .every(postgresFaultCaseOk)
+    && report.cases
+      .filter((item) => requiredNotificationFaultCases.includes(item.case))
+      .every(notificationFaultCaseOk)
 }
 
 function redisFaultCaseOk(item) {
@@ -188,6 +193,25 @@ function postgresFaultCaseOk(item) {
     && Number(item.publicReadRecoveryResult?.sampleCount ?? 0) > 0
     && typeof item.writePathRollbackResult?.status === 'string'
     && !['failed', 'scheduled', 'observed-only'].includes(item.writePathRollbackResult.status)
+    && item.finalHealthStatus === 'healthy'
+}
+
+function notificationFaultCaseOk(item) {
+  return Number(item.connectionCount ?? 0) > 0
+    && Number(item.heartbeatFrameCount ?? 0) > 0
+    && Number(item.businessFrameCount ?? 0) > 0
+    && Number(item.deliveredFrameCount ?? 0) > 0
+    && Number(item.droppedOrBackpressuredCount ?? 0) > 0
+    && item.reconnectSuccess === true
+    && Number(item.replayedEventCount ?? 0) > 0
+    && item.closeObserved === true
+    && Array.isArray(item.eventIds)
+    && item.eventIds.length > 0
+    && item.eventIds.every((eventId) => Number(eventId) > 0)
+    && typeof item.routeKey === 'string'
+    && item.routeKey.length > 0
+    && typeof item.slowConsumerPolicy === 'string'
+    && item.slowConsumerPolicy.length > 0
     && item.finalHealthStatus === 'healthy'
 }
 
@@ -369,6 +393,7 @@ function runSelfTest() {
   base.artifacts.soak = 'soak'
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-release-manifest-'))
+  const manifestFile = path.join(tmpDir, 'manifest.json')
   fs.writeFileSync(path.join(tmpDir, 'backupRestoreDrill.json'), JSON.stringify({
     status: 'ok',
     mode: 'real',
@@ -427,40 +452,70 @@ function runSelfTest() {
   fs.mkdirSync(path.join(tmpDir, 'fuzz', 'wasm'), { recursive: true })
   fs.writeFileSync(path.join(tmpDir, 'fuzz', 'wasm', 'summary.json'), JSON.stringify({ status: 'ok', seedsRun: 1 }))
   fs.mkdirSync(path.join(tmpDir, 'faultInjection'))
+  const redisFaultFixtureCases = requiredRedisFaultCases.map((caseName, index) => ({
+    case: caseName,
+    status: 'completed',
+    actionStatus: 'executed',
+    actionStartedAt: `2026-06-18T00:00:0${index}Z`,
+    actionCompletedAt: `2026-06-18T00:00:1${index}Z`,
+    unavailableDurationMs: index,
+    recoveryDurationMs: 2 + index,
+    recoveryTimeMs: 2 + index,
+    publicReadResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+    authenticatedImpact: { status: 'not-configured' },
+    notificationStreamImpact: { status: 'not-configured' },
+    finalHealthStatus: 'healthy'
+  }))
+  const postgresFaultFixtureCases = requiredPostgresFaultCases.map((caseName, index) => ({
+    case: caseName,
+    status: 'completed',
+    actionStatus: 'executed',
+    actionStartedAt: `2026-06-18T00:01:0${index}Z`,
+    actionCompletedAt: `2026-06-18T00:01:1${index}Z`,
+    affectedEndpoint: index === 2 ? '/api/binary/article/list/home/1/10.aeds' : '/health/ready',
+    unavailableDurationMs: index,
+    dbReconnectDurationMs: 3 + index,
+    recoveryDurationMs: 3 + index,
+    recoveryTimeMs: 3 + index,
+    publicReadRecoveryResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
+    writePathRollbackResult: { status: index === 2 ? 'verified' : 'not-mutated' },
+    finalHealthStatus: 'healthy'
+  }))
+  const notificationFaultFixtureCase = {
+    case: 'notification-stream-slow-consumer',
+    status: 'completed',
+    actionStatus: 'executed',
+    actionStartedAt: '2026-06-18T00:02:00Z',
+    actionCompletedAt: '2026-06-18T00:02:10Z',
+    unavailableDurationMs: 0,
+    recoveryDurationMs: 5,
+    recoveryTimeMs: 5,
+    connectionCount: 3,
+    heartbeatFrameCount: 2,
+    businessFrameCount: 8,
+    deliveredFrameCount: 8,
+    droppedOrBackpressuredCount: 1,
+    reconnectSuccess: true,
+    replayedEventCount: 1,
+    closeObserved: true,
+    eventIds: [101, 102],
+    routeKey: 'g:ContentGovernanceGroup',
+    slowConsumerPolicy: 'controlled-degradation',
+    finalHealthStatus: 'healthy'
+  }
   fs.writeFileSync(path.join(tmpDir, 'faultInjection', 'summary.json'), JSON.stringify({
     status: 'ok',
     caseCount: 6,
-    cases: [
-      ...requiredRedisFaultCases.map((caseName, index) => ({
-        case: caseName,
-        status: 'completed',
-        actionStatus: 'executed',
-        actionStartedAt: `2026-06-18T00:00:0${index}Z`,
-        actionCompletedAt: `2026-06-18T00:00:1${index}Z`,
-        unavailableDurationMs: index,
-        recoveryDurationMs: 2 + index,
-        recoveryTimeMs: 2 + index,
-        publicReadResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
-        authenticatedImpact: { status: 'not-configured' },
-        notificationStreamImpact: { status: 'not-configured' },
-        finalHealthStatus: 'healthy'
-      })),
-      ...requiredPostgresFaultCases.map((caseName, index) => ({
-        case: caseName,
-        status: 'completed',
-        actionStatus: 'executed',
-        actionStartedAt: `2026-06-18T00:01:0${index}Z`,
-        actionCompletedAt: `2026-06-18T00:01:1${index}Z`,
-        affectedEndpoint: index === 2 ? '/api/binary/article/list/home/1/10.aeds' : '/health/ready',
-        unavailableDurationMs: index,
-        dbReconnectDurationMs: 3 + index,
-        recoveryDurationMs: 3 + index,
-        recoveryTimeMs: 3 + index,
-        publicReadRecoveryResult: { status: 'completed', sampleCount: 1, p95Ms: 1 },
-        writePathRollbackResult: { status: index === 2 ? 'verified' : 'not-mutated' },
-        finalHealthStatus: 'healthy'
-      }))
-    ]
+    cases: [...redisFaultFixtureCases, ...postgresFaultFixtureCases]
+  }))
+  const missingNotificationFault = validateManifest(base, { manifestPath: manifestFile })
+  if (missingNotificationFault.ok || !missingNotificationFault.missingRequired.includes('fault injection')) {
+    fail('self-test expected missing notification slow-consumer fault case to block release closeout')
+  }
+  fs.writeFileSync(path.join(tmpDir, 'faultInjection', 'summary.json'), JSON.stringify({
+    status: 'ok',
+    caseCount: 7,
+    cases: [...redisFaultFixtureCases, ...postgresFaultFixtureCases, notificationFaultFixtureCase]
   }))
   fs.mkdirSync(path.join(tmpDir, 'soak', 'short'), { recursive: true })
   fs.writeFileSync(path.join(tmpDir, 'soak', 'short', 'summary.json'), JSON.stringify({
@@ -470,7 +525,6 @@ function runSelfTest() {
     sampleCount: 1,
     latencyMs: { p95: 1 }
   }))
-  const manifestFile = path.join(tmpDir, 'manifest.json')
   fs.writeFileSync(manifestFile, JSON.stringify(base))
   const ok = validateManifest(base, { manifestPath: manifestFile })
   if (!ok.ok) {

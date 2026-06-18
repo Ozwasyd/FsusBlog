@@ -1,6 +1,8 @@
 using System.Net.WebSockets;
+using System.Globalization;
 using System.Threading.Channels;
 using FsusBlog.Shared.Contracts.NotificationStream;
+using Microsoft.Extensions.Hosting;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
@@ -13,15 +15,24 @@ internal sealed class NotificationStreamSessionService(
     NotificationStreamConnectionManager manager,
     NotificationStreamBacklogStore backlogStore,
     INotificationFrameCodec frameCodec,
+    IWebHostEnvironment environment,
     ILogger<NotificationStreamSessionService> logger) : INotificationStreamSessionService
 {
     private static readonly TimeSpan HeartbeatWindow = TimeSpan.FromSeconds(25);
+    private static readonly TimeSpan DefaultDrillSendDelay = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan MinDrillSendDelay = TimeSpan.FromMilliseconds(25);
+    private static readonly TimeSpan MaxDrillSendDelay = TimeSpan.FromSeconds(5);
+    private const int DefaultDrillQueueCapacity = 32;
+    private const int MinDrillQueueCapacity = 32;
+    private const int MaxDrillQueueCapacity = 4096;
 
     public async Task RunAsync(HttpContext context, NotificationStreamHandshake handshake, CancellationToken cancellationToken)
     {
         string connectionId = Guid.NewGuid().ToString("N");
-        NotificationStreamConnection connection = manager.RegisterConnection(connectionId, handshake.UserId, handshake.Groups);
         NotificationStreamCursor cursor = ResolveCursor(context);
+        TimeSpan? drillSendDelay = ResolveDrillSendDelay(context);
+        int? drillQueueCapacity = ResolveDrillQueueCapacity(context);
+        NotificationStreamConnection connection = manager.RegisterConnection(connectionId, handshake.UserId, handshake.Groups, drillQueueCapacity);
 
         try
         {
@@ -30,7 +41,7 @@ internal sealed class NotificationStreamSessionService(
             using var sendGate = new SemaphoreSlim(1, 1);
             await SendHeartbeatAsync(socket, sendGate, cancellationToken);
             await SendReplayAsync(socket, replay.Frames, sendGate, cancellationToken);
-            await PumpConnectionAsync(socket, connection, sendGate, cancellationToken);
+            await PumpConnectionAsync(socket, connection, sendGate, drillSendDelay, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -73,7 +84,7 @@ internal sealed class NotificationStreamSessionService(
         }
     }
 
-    private async Task PumpConnectionAsync(WebSocket socket, NotificationStreamConnection connection, SemaphoreSlim sendGate, CancellationToken cancellationToken)
+    private async Task PumpConnectionAsync(WebSocket socket, NotificationStreamConnection connection, SemaphoreSlim sendGate, TimeSpan? drillSendDelay, CancellationToken cancellationToken)
     {
         using var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         Task heartbeatTask = RunHeartbeatLoopAsync(socket, connection, sendGate, heartbeatCts.Token);
@@ -94,8 +105,12 @@ internal sealed class NotificationStreamSessionService(
 
                 try
                 {
-                    await SendBinaryAsync(socket, frame.Memory, sendGate, cancellationToken);
-                    connection.MarkWriteActivity();
+                    if (connection.IsClosed)
+                    {
+                        break;
+                    }
+
+                    await SendQueuedFrameAsync(socket, connection, frame.Memory, sendGate, drillSendDelay, cancellationToken);
                 }
                 finally
                 {
@@ -112,8 +127,12 @@ internal sealed class NotificationStreamSessionService(
                 {
                     try
                     {
-                        await SendBinaryAsync(socket, frame.Memory, sendGate, cancellationToken);
-                        connection.MarkWriteActivity();
+                        if (connection.IsClosed)
+                        {
+                            break;
+                        }
+
+                        await SendQueuedFrameAsync(socket, connection, frame.Memory, sendGate, drillSendDelay, cancellationToken);
                     }
                     finally
                     {
@@ -135,6 +154,23 @@ internal sealed class NotificationStreamSessionService(
         }
 
         await CloseSocketAsync(socket, sendGate);
+    }
+
+    private static async Task SendQueuedFrameAsync(
+        WebSocket socket,
+        NotificationStreamConnection connection,
+        ReadOnlyMemory<byte> frame,
+        SemaphoreSlim sendGate,
+        TimeSpan? drillSendDelay,
+        CancellationToken cancellationToken)
+    {
+        if (drillSendDelay is { } delay)
+        {
+            await Task.Delay(delay, cancellationToken);
+        }
+
+        await SendBinaryAsync(socket, frame, sendGate, cancellationToken);
+        connection.MarkWriteActivity();
     }
 
     private async Task RunHeartbeatLoopAsync(WebSocket socket, NotificationStreamConnection connection, SemaphoreSlim sendGate, CancellationToken cancellationToken)
@@ -209,4 +245,50 @@ internal sealed class NotificationStreamSessionService(
             ? cursor
             : NotificationStreamCursor.Empty;
     }
+
+    private TimeSpan? ResolveDrillSendDelay(HttpContext context)
+    {
+        if (!environment.IsDevelopment() && !environment.IsEnvironment("Test"))
+        {
+            return null;
+        }
+
+        if (!IsEnabled(context.Request.Query["drillSlowConsumer"]))
+        {
+            return null;
+        }
+
+        if (!int.TryParse(context.Request.Query["drillReadDelayMs"], NumberStyles.None, CultureInfo.InvariantCulture, out int delayMs))
+        {
+            return DefaultDrillSendDelay;
+        }
+
+        long boundedMs = Math.Clamp(delayMs, (int)MinDrillSendDelay.TotalMilliseconds, (int)MaxDrillSendDelay.TotalMilliseconds);
+        return TimeSpan.FromMilliseconds(boundedMs);
+    }
+
+    private int? ResolveDrillQueueCapacity(HttpContext context)
+    {
+        if (!environment.IsDevelopment() && !environment.IsEnvironment("Test"))
+        {
+            return null;
+        }
+
+        if (!IsEnabled(context.Request.Query["drillSlowConsumer"]))
+        {
+            return null;
+        }
+
+        if (!int.TryParse(context.Request.Query["drillQueueCapacity"], NumberStyles.None, CultureInfo.InvariantCulture, out int capacity))
+        {
+            return DefaultDrillQueueCapacity;
+        }
+
+        return Math.Clamp(capacity, MinDrillQueueCapacity, MaxDrillQueueCapacity);
+    }
+
+    private static bool IsEnabled(string? value)
+        => string.Equals(value, "1", StringComparison.Ordinal)
+            || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase);
 }

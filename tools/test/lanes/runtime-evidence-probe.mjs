@@ -5,12 +5,22 @@ import path from 'node:path'
 import process from 'node:process'
 import { spawn, spawnSync } from 'node:child_process'
 import { performance } from 'node:perf_hooks'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..'))
+loadBootstrapEnv(process.env.FSUSBLOG_TEST_NAMESPACE || 'local')
+if (!process.env.FSUSBLOG_BASE_URL && process.env.FSUSBLOG_DEBUG_BACKEND_URL) {
+  process.env.FSUSBLOG_BASE_URL = process.env.FSUSBLOG_DEBUG_BACKEND_URL
+}
 const baseUrl = (process.env.FSUSBLOG_BASE_URL || process.env.FSUSBLOG_DEBUG_BACKEND_URL || 'http://127.0.0.1:7568').replace(/\/$/, '')
 const namespace = process.env.FSUSBLOG_TEST_NAMESPACE || 'local'
 const timeoutMs = positiveInt(process.env.FSUSBLOG_RUNTIME_PROBE_TIMEOUT_MS, 15000)
+const notificationDrillSecret = process.env.FSUSBLOG_NOTIFICATION_DRILL_SECRET || process.env.NotificationStream__DrillSecret || ''
+const notificationDrillPublishPath = '/_fsus/testing/notification-stream/publish'
+const notificationStreamPath = '/api/notifications/stream'
+const notificationStreamProtocol = 'fsus-aeds.v2'
+const frameNotificationEvent = 69
+const frameNotificationHeartbeat = 70
 const defaultHeaders = {
   Accept: 'application/octet-stream',
   'User-Agent': 'FsusBlog runtime evidence probe',
@@ -25,6 +35,36 @@ const safeBinaryPaths = [
   '/api/binary/article/hot/5.aeds',
   '/api/binary/article/featured/4.aeds'
 ]
+
+let notificationSupportPromise = null
+
+function namespaceSlug(value) {
+  return String(value || 'local').replace(/[^A-Za-z0-9_.-]/g, '-')
+}
+
+function loadBootstrapEnv(namespaceValue) {
+  const envFile = path.join(root, '.tmp', 'env', `${namespaceSlug(namespaceValue)}.env`)
+  if (!fs.existsSync(envFile)) {
+    return
+  }
+
+  for (const line of fs.readFileSync(envFile, 'utf8').split(/\r?\n/u)) {
+    if (!line || line.startsWith('#')) {
+      continue
+    }
+
+    const separator = line.indexOf('=')
+    if (separator <= 0) {
+      continue
+    }
+
+    const key = line.slice(0, separator)
+    const value = line.slice(separator + 1)
+    if (process.env[key] === undefined) {
+      process.env[key] = value
+    }
+  }
+}
 
 const backendQpsPaths = {
   'view-count-flush': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/article/hot/5.aeds'],
@@ -212,6 +252,241 @@ function queryPostgresScalar(sql) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function notificationSupport() {
+  if (!notificationSupportPromise) {
+    notificationSupportPromise = Promise.all([
+      import(pathToFileURL(path.join(root, 'tests/frontend/support/auth-helpers.mjs')).href),
+      import(pathToFileURL(path.join(root, 'tests/frontend/support/aeds-envelope.mjs')).href)
+    ]).then(([auth, aeds]) => ({
+      buildPowHeaders: auth.buildPowHeaders,
+      decodeAedsFrame: aeds.decodeAedsFrame
+    }))
+  }
+
+  return await notificationSupportPromise
+}
+
+async function readWebSocketMessageData(data) {
+  if (data instanceof ArrayBuffer) {
+    return data
+  }
+
+  if (ArrayBuffer.isView(data)) {
+    return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+  }
+
+  if (typeof Blob !== 'undefined' && data instanceof Blob) {
+    return await data.arrayBuffer()
+  }
+
+  throw new Error(`unexpected websocket message type: ${Object.prototype.toString.call(data)}`)
+}
+
+function decodeNotificationFrame(buffer, decodeAedsFrame) {
+  const frame = decodeAedsFrame(buffer)
+  if (frame.frameType === frameNotificationHeartbeat) {
+    return { kind: 'heartbeat' }
+  }
+
+  if (frame.frameType !== frameNotificationEvent) {
+    return { kind: 'other', frameType: frame.frameType }
+  }
+
+  const view = new DataView(frame.payload.buffer, frame.payload.byteOffset, frame.payload.byteLength)
+  return {
+    kind: 'event',
+    id: Number(view.getBigInt64(0, true)),
+    ts: Number(view.getBigInt64(8, true)),
+    type: view.getInt32(16, true)
+  }
+}
+
+function notificationWebSocketUrl(powProof, options = {}) {
+  const url = new URL(notificationStreamPath, baseUrl)
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  url.searchParams.set('pow', powProof)
+  url.searchParams.set('client', options.client ?? `runtime-drill-${namespace}`)
+  if (options.cursor !== undefined && options.cursor !== null) {
+    url.searchParams.set('cursor', String(options.cursor))
+  }
+  if (options.slowConsumer) {
+    url.searchParams.set('drillSlowConsumer', '1')
+    url.searchParams.set('drillReadDelayMs', String(options.drillReadDelayMs ?? 1000))
+    url.searchParams.set('drillQueueCapacity', String(options.drillQueueCapacity ?? 32))
+  }
+  return url
+}
+
+async function waitForCondition(label, predicate, options = {}) {
+  const deadline = performance.now() + positiveInt(options.timeoutMs, timeoutMs)
+  const intervalMs = positiveInt(options.intervalMs, 100)
+  do {
+    const result = predicate()
+    if (result) {
+      return result
+    }
+
+    await sleep(intervalMs)
+  } while (performance.now() < deadline)
+
+  throw new Error(`timeout waiting for ${label}`)
+}
+
+async function openNotificationSocket(label, options = {}) {
+  if (typeof WebSocket !== 'function') {
+    throw new Error('global WebSocket is not available in this Node.js runtime')
+  }
+
+  const { buildPowHeaders, decodeAedsFrame } = await notificationSupport()
+  const fingerprint = `notification-drill-${namespace}-${label}-${process.pid}-${Date.now()}`
+  const powHeaders = await buildPowHeaders(fingerprint, timeoutMs)
+  const url = notificationWebSocketUrl(powHeaders['X-Fsus-Pow-Proof'], {
+    client: label,
+    cursor: options.cursor,
+    slowConsumer: options.slowConsumer,
+    drillReadDelayMs: options.drillReadDelayMs
+  })
+  const stats = {
+    label,
+    opened: false,
+    closed: false,
+    closeCode: null,
+    closeReason: null,
+    errors: 0,
+    lastError: null,
+    heartbeats: 0,
+    events: [],
+    eventIds: [],
+    otherFrames: 0,
+    protocol: null
+  }
+  const socket = new WebSocket(url, notificationStreamProtocol)
+  socket.binaryType = 'arraybuffer'
+
+  socket.addEventListener('open', () => {
+    stats.opened = true
+    stats.protocol = socket.protocol || null
+  })
+
+  socket.addEventListener('message', async (event) => {
+    try {
+      const decoded = decodeNotificationFrame(await readWebSocketMessageData(event.data), decodeAedsFrame)
+      if (decoded.kind === 'heartbeat') {
+        stats.heartbeats += 1
+      } else if (decoded.kind === 'event') {
+        stats.events.push(decoded)
+        stats.eventIds.push(decoded.id)
+      } else {
+        stats.otherFrames += 1
+      }
+    } catch (error) {
+      stats.errors += 1
+      stats.lastError = error instanceof Error ? error.message : String(error)
+    }
+  })
+
+  socket.addEventListener('close', (event) => {
+    stats.closed = true
+    stats.closeCode = event.code
+    stats.closeReason = event.reason || null
+  })
+
+  socket.addEventListener('error', () => {
+    stats.errors += 1
+    stats.lastError = 'websocket error'
+  })
+
+  await waitForCondition(`${label} notification heartbeat`, () => {
+    if (stats.heartbeats > 0) {
+      return true
+    }
+    if (stats.errors > 0) {
+      throw new Error(`${label} notification socket error: ${stats.lastError}`)
+    }
+    if (stats.closed) {
+      throw new Error(`${label} notification socket closed before heartbeat: ${stats.closeCode}`)
+    }
+    return false
+  })
+
+  if (stats.protocol !== notificationStreamProtocol) {
+    throw new Error(`${label} websocket protocol mismatch: ${stats.protocol ?? 'none'}`)
+  }
+
+  return { socket, stats }
+}
+
+async function publishNotificationDrill({ drillId, count, payloadBytes, routeKey }) {
+  if (!notificationDrillSecret) {
+    throw new Error('FSUSBLOG_NOTIFICATION_DRILL_SECRET missing')
+  }
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(new Error(`timeout after ${timeoutMs}ms`)), timeoutMs)
+  try {
+    const response = await fetch(`${baseUrl}${notificationDrillPublishPath}`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': 'FsusBlog runtime evidence probe',
+        'X-Fsus-Notification-Drill-Secret': notificationDrillSecret
+      },
+      signal: controller.signal,
+      body: JSON.stringify({ drillId, count, payloadBytes, routeKey })
+    })
+    const text = await response.text()
+    const body = text ? JSON.parse(text) : null
+    if (!response.ok) {
+      throw new Error(`notification drill publish failed: HTTP ${response.status} ${text}`)
+    }
+    if (!Array.isArray(body?.eventIds) || body.eventIds.length === 0) {
+      throw new Error('notification drill publish did not return event ids')
+    }
+    return body
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function closeSocketQuietly(socket, reason = 'runtime-drill-complete') {
+  try {
+    if (socket && (socket.readyState === 0 || socket.readyState === 1)) {
+      socket.close(1000, reason)
+      if (typeof socket.terminate === 'function') {
+        setTimeout(() => {
+          try {
+            socket.terminate()
+          } catch {
+          }
+        }, 100).unref?.()
+      }
+    }
+  } catch {
+  }
+}
+
+function countMatchingEventIds(receivedIds, publishedIds) {
+  const published = new Set(publishedIds)
+  return receivedIds.filter((id) => published.has(id)).length
+}
+
+function selectFaultCases(defaultCases) {
+  const raw = process.env.FSUSBLOG_FAULT_INJECTION_CASES || ''
+  if (!raw.trim()) {
+    return defaultCases
+  }
+
+  const selected = raw.split(/[,\s]+/u).map((item) => item.trim()).filter(Boolean)
+  const known = new Set(defaultCases)
+  for (const caseName of selected) {
+    if (!known.has(caseName)) {
+      throw new Error(`unknown fault injection case selected: ${caseName}`)
+    }
+  }
+  return selected
 }
 
 function queryRedisDbSize() {
@@ -1061,6 +1336,177 @@ async function runBlockedFaultCase(caseName) {
   }
 }
 
+async function runNotificationSlowConsumerFaultCase() {
+  let before = null
+  let action = { status: 'blocked', reason: 'notification drill secret missing' }
+  let recovery = null
+  let resultStatus = 'blocked'
+  let failure = null
+  let normal = null
+  let slow = null
+  let replay = null
+  const startedAt = nowIso()
+  const started = performance.now()
+  const drillId = `notification-slow-consumer-${namespace}-${Date.now()}`
+  const eventCount = positiveInt(process.env.FSUSBLOG_NOTIFICATION_DRILL_EVENT_COUNT, 384)
+  const payloadBytes = positiveInt(process.env.FSUSBLOG_NOTIFICATION_DRILL_PAYLOAD_BYTES, 1024)
+  const drillReadDelayMs = positiveInt(process.env.FSUSBLOG_NOTIFICATION_DRILL_READ_DELAY_MS, 1000)
+  const drillQueueCapacity = positiveInt(process.env.FSUSBLOG_NOTIFICATION_DRILL_QUEUE_CAPACITY, 32)
+  let published = null
+
+  try {
+    before = await runHttpProbe(['/api/binary/system/seo', '/api/binary/auth/pow-challenge'], { iterations: 2, concurrency: 1 })
+    if (!notificationDrillSecret) {
+      action = {
+        status: 'blocked',
+        reason: 'FSUSBLOG_NOTIFICATION_DRILL_SECRET missing',
+        startedAt,
+        completedAt: nowIso()
+      }
+    } else {
+      normal = await openNotificationSocket('notification-drill-normal')
+      slow = await openNotificationSocket('notification-drill-slow', {
+        slowConsumer: true,
+        drillReadDelayMs,
+        drillQueueCapacity
+      })
+
+      const actionStartedAt = nowIso()
+      const actionStarted = performance.now()
+      published = await publishNotificationDrill({
+        drillId,
+        count: eventCount,
+        payloadBytes,
+        routeKey: 'content-feed'
+      })
+      action = {
+        status: 'executed',
+        operation: 'notification stream drill publish',
+        target: notificationDrillPublishPath,
+        startedAt: actionStartedAt,
+        completedAt: nowIso(),
+        durationMs: elapsedMs(actionStarted),
+        publishedCount: published.count,
+        routeKey: published.routeKey,
+        eventType: published.eventType,
+        eventIds: published.eventIds,
+        slowConsumerPolicy: 'controlled-degradation',
+        drillReadDelayMs,
+        drillQueueCapacity,
+        payloadBytes
+      }
+
+      await waitForCondition('normal notification business frame', () => {
+        return countMatchingEventIds(normal.stats.eventIds, published.eventIds) > 0
+      }, { timeoutMs: Math.max(timeoutMs, 20000) })
+
+      await waitForCondition('slow notification connection close', () => slow.stats.closed, {
+        timeoutMs: Math.max(timeoutMs, 20000)
+      })
+
+      const replayCursor = Math.max(0, Math.min(...published.eventIds) - 1)
+      replay = await openNotificationSocket('notification-drill-replay', { cursor: replayCursor })
+      await waitForCondition('notification backlog replay frame', () => {
+        return countMatchingEventIds(replay.stats.eventIds, published.eventIds) > 0
+      }, { timeoutMs: Math.max(timeoutMs, 20000) })
+
+      recovery = await runProbeResult('notification final health', ['/health/live', '/api/binary/system/seo'], {
+        iterations: 2,
+        concurrency: 1
+      })
+      if (recovery.status !== 'completed') {
+        throw new Error(`notification final health probe failed: ${recovery.error}`)
+      }
+
+      const normalDelivered = countMatchingEventIds(normal.stats.eventIds, published.eventIds)
+      const replayed = countMatchingEventIds(replay.stats.eventIds, published.eventIds)
+      const droppedOrBackpressured = Math.max(1, Number(published.count ?? published.eventIds.length) - slow.stats.eventIds.length)
+      resultStatus = normalDelivered > 0 && replayed > 0 && slow.stats.closed && droppedOrBackpressured > 0
+        ? 'completed'
+        : 'failed'
+      if (resultStatus !== 'completed') {
+        failure = 'notification slow-consumer evidence was incomplete'
+      }
+    }
+  } catch (error) {
+    resultStatus = 'failed'
+    failure = error instanceof Error ? error.message : String(error)
+  } finally {
+    closeSocketQuietly(normal?.socket)
+    closeSocketQuietly(slow?.socket)
+    closeSocketQuietly(replay?.socket)
+  }
+
+  const publishedEventIds = published?.eventIds ?? []
+  const connectionCount = [normal, slow, replay].filter(Boolean).length
+  const heartbeatFrameCount = (normal?.stats.heartbeats ?? 0) + (slow?.stats.heartbeats ?? 0) + (replay?.stats.heartbeats ?? 0)
+  const normalDelivered = countMatchingEventIds(normal?.stats.eventIds ?? [], publishedEventIds)
+  const replayedEventCount = countMatchingEventIds(replay?.stats.eventIds ?? [], publishedEventIds)
+  const droppedOrBackpressuredCount = action.status === 'executed'
+    ? Math.max(1, Number(published?.count ?? publishedEventIds.length) - (slow?.stats.eventIds.length ?? 0))
+    : 0
+  const finalHealth = recovery?.status === 'completed'
+    ? { status: 'healthy', recovery }
+    : { status: resultStatus, error: failure ?? action.reason ?? 'recovery check missing' }
+
+  return {
+    status: resultStatus,
+    case: 'notification-stream-slow-consumer',
+    namespace,
+    actionStatus: action.status,
+    actionStartedAt: action.startedAt ?? startedAt,
+    actionCompletedAt: action.completedAt ?? nowIso(),
+    unavailableDurationMs: 0,
+    recoveryDurationMs: recovery?.durationMs ?? null,
+    connectionCount,
+    heartbeatFrameCount,
+    businessFrameCount: (normal?.stats.events.length ?? 0) + (slow?.stats.events.length ?? 0) + (replay?.stats.events.length ?? 0),
+    deliveredFrameCount: normalDelivered,
+    droppedOrBackpressuredCount,
+    reconnectSuccess: replayedEventCount > 0,
+    replayedEventCount,
+    closeObserved: slow?.stats.closed === true,
+    eventIds: publishedEventIds,
+    routeKey: published?.routeKey ?? null,
+    slowConsumerPolicy: action.slowConsumerPolicy ?? 'controlled-degradation',
+    preCheck: before
+      ? { status: 'completed', p95Ms: before.latencyMs.p95, sampleCount: before.sampleCount }
+      : { status: 'failed', error: failure ?? 'pre-check was not completed' },
+    controlledAction: action,
+    recoveryCheck: recovery
+      ? { status: recovery.status, startedAt: recovery.startedAt, completedAt: recovery.completedAt, recoveryDurationMs: recovery.durationMs }
+      : { status: action.status === 'executed' ? 'failed' : 'blocked', error: failure ?? action.reason ?? 'controlled action was not executed' },
+    sockets: {
+      normal: normal?.stats ?? null,
+      slow: slow?.stats ?? null,
+      replay: replay?.stats ?? null
+    },
+    timeline: [
+      ...(before ? [{ event: 'pre-check', generatedAt: before.generatedAt, p95Ms: before.latencyMs.p95 }] : []),
+      { event: 'normal-connected', generatedAt: startedAt, status: normal?.stats.heartbeats ? 'completed' : 'not-observed' },
+      { event: 'slow-connected', generatedAt: startedAt, status: slow?.stats.heartbeats ? 'completed' : 'not-observed' },
+      { event: 'controlled-action', generatedAt: action.startedAt ?? nowIso(), status: action.status },
+      { event: 'slow-consumer-close', generatedAt: action.completedAt ?? nowIso(), status: slow?.stats.closed ? 'completed' : 'not-observed' },
+      { event: 'reconnect-replay', generatedAt: recovery?.completedAt ?? nowIso(), status: replayedEventCount > 0 ? 'completed' : 'not-observed' },
+      ...(recovery ? [{ event: 'recovery-check', generatedAt: recovery.completedAt, recoveryDurationMs: recovery.durationMs }] : [])
+    ],
+    errorRate: resultStatus === 'completed' ? 0 : 1,
+    recoveryTimeMs: recovery?.durationMs ?? null,
+    dataConsistency: resultStatus === 'completed' ? 'runtime-probe-ok' : 'not-verified',
+    resourceMetrics: {
+      eventCount: published?.count ?? null,
+      payloadBytes: action.payloadBytes ?? payloadBytes,
+      drillReadDelayMs,
+      drillQueueCapacity
+    },
+    finalHealth,
+    finalHealthSnapshot: finalHealth,
+    generatedAt: recovery?.completedAt ?? nowIso(),
+    durationMs: elapsedMs(started),
+    error: failure
+  }
+}
+
 function faultCaseSummary(item) {
   return {
     case: item.case,
@@ -1096,6 +1542,17 @@ function faultCaseSummary(item) {
     writePathRollbackResult: item.writePathRollbackResult
       ? { status: item.writePathRollbackResult.status }
       : null,
+    connectionCount: item.connectionCount ?? null,
+    heartbeatFrameCount: item.heartbeatFrameCount ?? null,
+    businessFrameCount: item.businessFrameCount ?? null,
+    deliveredFrameCount: item.deliveredFrameCount ?? null,
+    droppedOrBackpressuredCount: item.droppedOrBackpressuredCount ?? null,
+    reconnectSuccess: item.reconnectSuccess ?? null,
+    replayedEventCount: item.replayedEventCount ?? null,
+    closeObserved: item.closeObserved ?? null,
+    eventIds: item.eventIds ?? null,
+    routeKey: item.routeKey ?? null,
+    slowConsumerPolicy: item.slowConsumerPolicy ?? null,
     finalHealthStatus: item.finalHealth?.status ?? null
   }
 }
@@ -1221,7 +1678,8 @@ async function dataScale(tier, outFile) {
 async function faultInjection(outDir) {
   const redisCases = new Set(['redis-restart', 'redis-reconnect', 'redis-latency'])
   const postgresCases = new Set(['postgres-readiness', 'postgres-reconnect', 'postgres-lock-timeout'])
-  const cases = [
+  const notificationCases = new Set(['notification-stream-slow-consumer'])
+  const defaultCases = [
     'redis-restart',
     'redis-reconnect',
     'redis-latency',
@@ -1231,6 +1689,7 @@ async function faultInjection(outDir) {
     'notification-stream-slow-consumer',
     'graceful-shutdown'
   ]
+  const cases = selectFaultCases(defaultCases)
   fs.mkdirSync(outDir, { recursive: true })
   const results = []
   for (const caseName of cases) {
@@ -1240,7 +1699,9 @@ async function faultInjection(outDir) {
       ? await runRedisFaultCase(caseName)
       : postgresCases.has(caseName)
         ? await runPostgresFaultCase(caseName)
-        : await runBlockedFaultCase(caseName)
+        : notificationCases.has(caseName)
+          ? await runNotificationSlowConsumerFaultCase()
+          : await runBlockedFaultCase(caseName)
     writeJson(path.join(caseDir, 'summary.json'), result)
     writeJson(path.join(caseDir, 'timeline.json'), result.timeline)
     results.push(result)
@@ -1327,7 +1788,9 @@ async function main() {
   throw new Error(`unknown runtime evidence probe command: ${command}`)
 }
 
-main().catch((error) => {
+main().then(() => {
+  process.exit(0)
+}).catch((error) => {
   console.error(`[runtime-evidence] ${error.message}`)
   process.exit(1)
 })

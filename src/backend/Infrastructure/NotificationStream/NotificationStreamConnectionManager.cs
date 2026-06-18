@@ -5,21 +5,25 @@ namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
 public sealed class NotificationStreamConnectionManager(IConfiguration configuration, ILogger<NotificationStreamConnectionManager> logger)
 {
+    private const int MinQueueCapacity = 32;
+    private const int MaxQueueCapacity = 4096;
+
     private readonly ConcurrentDictionary<string, NotificationStreamConnection> _byConnectionId = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _byUserId = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _byGroup = new(StringComparer.Ordinal);
-    private readonly int _queueCapacity = Math.Clamp(configuration.GetValue<int?>("NotificationStream:QueueCapacity") ?? 256, 32, 4096);
+    private readonly int _queueCapacity = NormalizeQueueCapacity(configuration.GetValue<int?>("NotificationStream:QueueCapacity") ?? 256);
 
     public int ConnectionCount => _byConnectionId.Count;
 
-    public NotificationStreamConnection RegisterConnection(string connectionId, string? userId, IReadOnlyCollection<string> groups)
+    public NotificationStreamConnection RegisterConnection(string connectionId, string? userId, IReadOnlyCollection<string> groups, int? queueCapacityOverride = null)
     {
         if (_byConnectionId.ContainsKey(connectionId))
         {
             throw new InvalidOperationException($"Duplicate notification stream connection id: {connectionId}");
         }
 
-        var connection = new NotificationStreamConnection(connectionId, userId, groups, _queueCapacity);
+        int queueCapacity = queueCapacityOverride.HasValue ? NormalizeQueueCapacity(queueCapacityOverride.Value) : _queueCapacity;
+        var connection = new NotificationStreamConnection(connectionId, userId, groups, queueCapacity);
         if (!_byConnectionId.TryAdd(connectionId, connection))
         {
             connection.Complete();
@@ -61,6 +65,9 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
         logger.LogDebug("Notification stream connection registered. ConnectionId: {ConnectionId} | UserId: {UserId}", connectionId, userId);
         return connection;
     }
+
+    private static int NormalizeQueueCapacity(int value)
+        => Math.Clamp(value, MinQueueCapacity, MaxQueueCapacity);
 
     public void RemoveConnection(string connectionId)
     {
@@ -250,6 +257,8 @@ public sealed class NotificationStreamConnection
     public IReadOnlySet<string> Groups => _groups;
 
     public ChannelReader<SharedNotificationStreamFrame> Reader => _queue.Reader;
+
+    public bool IsClosed => Volatile.Read(ref _closed) == 1;
 
     public bool IsIdle(TimeSpan idleWindow)
         => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - Volatile.Read(ref _lastActivityUnixMs) >= (long)idleWindow.TotalMilliseconds;

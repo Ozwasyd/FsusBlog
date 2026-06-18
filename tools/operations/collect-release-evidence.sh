@@ -160,7 +160,8 @@ fault_injection_status_or_missing() {
       "redis-latency",
       "postgres-readiness",
       "postgres-reconnect",
-      "postgres-lock-timeout"
+      "postgres-lock-timeout",
+      "notification-stream-slow-consumer"
     ] - ([.cases[]?.case])) | length == 0)
     and all(.cases[]?; .status == "completed" and .actionStatus == "executed")
     and all(.cases[]?; ((.case | startswith("redis-")) | not) or (
@@ -187,6 +188,21 @@ fault_injection_status_or_missing() {
         or ((.writePathRollbackResult.status // "") == "not-mutated")
         or ((.writePathRollbackResult.status // "") == "idempotent")
       )
+      and ((.finalHealthStatus // "") == "healthy")
+    ))
+    and all(.cases[]?; (.case != "notification-stream-slow-consumer") or (
+      ((.connectionCount // 0) > 0)
+      and ((.heartbeatFrameCount // 0) > 0)
+      and ((.businessFrameCount // 0) > 0)
+      and ((.deliveredFrameCount // 0) > 0)
+      and ((.droppedOrBackpressuredCount // 0) > 0)
+      and (.reconnectSuccess == true)
+      and ((.replayedEventCount // 0) > 0)
+      and (.closeObserved == true)
+      and (((.eventIds // []) | length) > 0)
+      and all(.eventIds[]?; . > 0)
+      and ((.routeKey // "") | length > 0)
+      and ((.slowConsumerPolicy // "") | length > 0)
       and ((.finalHealthStatus // "") == "healthy")
     ))
   '

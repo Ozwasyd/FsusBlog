@@ -4,9 +4,12 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.NotificationStream;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using StackExchange.Redis;
@@ -96,7 +99,7 @@ public class NotificationStreamBoundaryTests
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase().Returns(Substitute.For<IDatabase>());
         var backlog = new NotificationStreamBacklogStore(redis, Substitute.For<IRuntimeKeyScope>(), NullLogger<NotificationStreamBacklogStore>.Instance);
-        var service = new NotificationStreamSessionService(manager, backlog, new TestNotificationFrameCodec(), NullLogger<NotificationStreamSessionService>.Instance);
+        var service = new NotificationStreamSessionService(manager, backlog, new TestNotificationFrameCodec(), new TestWebHostEnvironment(), NullLogger<NotificationStreamSessionService>.Instance);
         var context = new DefaultHttpContext();
         context.Features.Set<IHttpWebSocketFeature>(new ThrowingWebSocketFeature());
         var handshake = new NotificationStreamHandshake("fsus-aeds.v2", "42", new HashSet<string>(StringComparer.Ordinal));
@@ -163,8 +166,34 @@ public class NotificationStreamBoundaryTests
         string close = ExtractMethodBlock(source, "private static async Task CloseSocketAsync");
 
         Assert.Contains("CloseSocketAsync(socket, sendGate)", pump, StringComparison.Ordinal);
+        Assert.Contains("connection.IsClosed", pump, StringComparison.Ordinal);
         Assert.Contains("sendGate.WaitAsync", close, StringComparison.Ordinal);
         Assert.Contains("socket.CloseAsync", close, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DrillPublishEndpoint_SourceIsTestOnlyAndSecretProtected()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Modules", "Endpoints", "NotificationStreamDrillEndpoints.cs"));
+
+        Assert.Contains("IsDevelopment()", source, StringComparison.Ordinal);
+        Assert.Contains("IsEnvironment(\"Test\")", source, StringComparison.Ordinal);
+        Assert.Contains("X-Fsus-Notification-Drill-Secret", source, StringComparison.Ordinal);
+        Assert.Contains("INotificationStreamPublisher", source, StringComparison.Ordinal);
+        Assert.Contains("NotificationStreamTargetRouteCodec.TryEncode", source, StringComparison.Ordinal);
+        Assert.Contains("/_fsus/testing/notification-stream/publish", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SessionService_SourceGatesDrillSendDelayToDevelopmentOrTest()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamSessionService.cs"));
+
+        Assert.Contains("drillSlowConsumer", source, StringComparison.Ordinal);
+        Assert.Contains("drillQueueCapacity", source, StringComparison.Ordinal);
+        Assert.Contains("RegisterConnection(connectionId, handshake.UserId, handshake.Groups, drillQueueCapacity)", source, StringComparison.Ordinal);
+        Assert.Contains("IsDevelopment()", source, StringComparison.Ordinal);
+        Assert.Contains("IsEnvironment(\"Test\")", source, StringComparison.Ordinal);
     }
 
     private sealed class ThrowingWebSocketFeature : IHttpWebSocketFeature
@@ -173,6 +202,16 @@ public class NotificationStreamBoundaryTests
 
         public Task<WebSocket> AcceptAsync(WebSocketAcceptContext context)
             => Task.FromException<WebSocket>(new IOException("client disconnected before websocket accept completed"));
+    }
+
+    private sealed class TestWebHostEnvironment : IWebHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = Environments.Production;
+        public string ApplicationName { get; set; } = "FsusBlog.Server.Tests";
+        public string WebRootPath { get; set; } = string.Empty;
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+        public string ContentRootPath { get; set; } = BackendTestPaths.RepositoryRoot;
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 
     private sealed class TestNotificationFrameCodec : INotificationFrameCodec

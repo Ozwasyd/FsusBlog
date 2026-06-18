@@ -39,6 +39,7 @@ if [[ -f "$ENV_FILE" ]]; then
       FSUSBLOG_RELEASE_PREVIEW_URL) FSUSBLOG_RELEASE_PREVIEW_URL="$value" ;;
       FSUSBLOG_POSTGRES_CONTAINER_NAME) FSUSBLOG_POSTGRES_CONTAINER_NAME="$value" ;;
       FSUSBLOG_REDIS_CONTAINER_NAME) FSUSBLOG_REDIS_CONTAINER_NAME="$value" ;;
+      FSUSBLOG_NOTIFICATION_DRILL_SECRET) FSUSBLOG_NOTIFICATION_DRILL_SECRET="$value" ;;
       FSUSBLOG_DATA_ROOT) FSUSBLOG_DATA_ROOT="$value" ;;
     esac
   done < "$ENV_FILE"
@@ -59,6 +60,7 @@ REDIS_CONTAINER="${FSUSBLOG_REDIS_CONTAINER_NAME:-fsusblog-redis-$NS_SLUG}"
 TEST_DATA_ROOT="${FSUSBLOG_DATA_ROOT:-$ROOT_DIR/.tmp/data/$NS_SLUG}"
 POSTGRES_CONNECTION="Host=127.0.0.1;Port=${POSTGRES_PORT};Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Include Error Detail=true"
 REDIS_CONNECTION="127.0.0.1:${REDIS_PORT}"
+NOTIFICATION_DRILL_SECRET="${FSUSBLOG_NOTIFICATION_DRILL_SECRET:-fsus-notification-drill-$NS_SLUG}"
 FORCE_BOOTSTRAP="${FSUSBLOG_FORCE_BOOTSTRAP:-${CI:+1}}"
 RESET_SECURITY_TEST_STATE="${FSUSBLOG_RESET_SECURITY_TEST_STATE:-1}"
 POW_READY_MAX_DIFFICULTY="${FSUSBLOG_ACCEPTANCE_POW_MAX_DIFFICULTY:-20}"
@@ -76,11 +78,13 @@ FSUSBLOG_DEBUG_BACKEND_URL=$DEBUG_BACKEND_URL
 FSUSBLOG_RELEASE_PREVIEW_URL=$RELEASE_PREVIEW_URL
 FSUSBLOG_POSTGRES_CONTAINER_NAME=$POSTGRES_CONTAINER
 FSUSBLOG_REDIS_CONTAINER_NAME=$REDIS_CONTAINER
+FSUSBLOG_NOTIFICATION_DRILL_SECRET=$NOTIFICATION_DRILL_SECRET
 FSUSBLOG_DATA_ROOT=$TEST_DATA_ROOT
 ConnectionStrings__DefaultConnection=$POSTGRES_CONNECTION
 ConnectionStrings__Redis=$REDIS_CONNECTION
 RedisOptions__Configuration=$REDIS_CONNECTION
 RedisOptions__InstanceName=FsusBlog_${NS_SLUG}_
+NotificationStream__DrillSecret=$NOTIFICATION_DRILL_SECRET
 ASPNETCORE_URLS=http://127.0.0.1:$DEBUG_BACKEND_PORT
 ASPNETCORE_ENVIRONMENT=Development
 CORS_ALLOWED_HOSTS=$CORS_ALLOWED_HOSTS_VALUE
@@ -127,6 +131,16 @@ probe_url() {
 probe_binary_url() {
   local url="$1"
   curl -fsS --max-time 5 -H 'Accept: application/octet-stream' "$url" >/dev/null 2>&1
+}
+
+probe_notification_drill_url() {
+  curl -fsS --max-time 5 \
+    -X POST \
+    -H 'Accept: application/json' \
+    -H 'Content-Type: application/json' \
+    -H "X-Fsus-Notification-Drill-Secret: ${NOTIFICATION_DRILL_SECRET}" \
+    --data '{"drillId":"bootstrap-probe","count":1,"payloadBytes":0,"routeKey":"content-feed"}' \
+    "$DEBUG_BACKEND_URL/_fsus/testing/notification-stream/publish" >/dev/null 2>&1
 }
 
 can_reuse_processes() {
@@ -253,7 +267,7 @@ ensure_backend() {
   managed_pid="$(read_pid_file "$pid_file")"
   existing_pid="$(find_port_pid "$DEBUG_BACKEND_PORT")"
 
-  if can_reuse_processes && probe_binary_url "$DEBUG_BACKEND_URL/api/binary/system/seo" && probe_binary_url "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge"; then
+  if can_reuse_processes && probe_binary_url "$DEBUG_BACKEND_URL/api/binary/system/seo" && probe_binary_url "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" && probe_notification_drill_url; then
     log 'debug backend already healthy; reusing existing process'
     return
   fi
@@ -270,7 +284,7 @@ ensure_backend() {
   kill_pid_if_running "$managed_pid"
 
   log 'starting managed debug backend'
-  nohup setsid bash -lc "cd $(printf '%q' "$ROOT_DIR") && export FSUSBLOG_DATA_ROOT=$(printf '%q' "$TEST_DATA_ROOT") ConnectionStrings__DefaultConnection=$(printf '%q' "$POSTGRES_CONNECTION") ConnectionStrings__Redis=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__Configuration=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__InstanceName=$(printf '%q' "FsusBlog_${NS_SLUG}_") ASPNETCORE_URLS=http://127.0.0.1:${DEBUG_BACKEND_PORT} ASPNETCORE_ENVIRONMENT=Development CORS_ALLOWED_HOSTS=$(printf '%q' "$CORS_ALLOWED_HOSTS_VALUE") && exec ./tools/build-with-data-env.sh dotnet run --project src/backend/FsusBlog.Server.csproj --no-launch-profile" >"$log_file" 2>&1 < /dev/null &
+  nohup setsid bash -lc "cd $(printf '%q' "$ROOT_DIR") && export FSUSBLOG_DATA_ROOT=$(printf '%q' "$TEST_DATA_ROOT") ConnectionStrings__DefaultConnection=$(printf '%q' "$POSTGRES_CONNECTION") ConnectionStrings__Redis=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__Configuration=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__InstanceName=$(printf '%q' "FsusBlog_${NS_SLUG}_") FSUSBLOG_NOTIFICATION_DRILL_SECRET=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") NotificationStream__DrillSecret=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") ASPNETCORE_URLS=http://127.0.0.1:${DEBUG_BACKEND_PORT} ASPNETCORE_ENVIRONMENT=Development CORS_ALLOWED_HOSTS=$(printf '%q' "$CORS_ALLOWED_HOSTS_VALUE") && exec ./tools/build-with-data-env.sh dotnet run --project src/backend/FsusBlog.Server.csproj --no-launch-profile" >"$log_file" 2>&1 < /dev/null &
   echo $! >"$pid_file"
 
   wait_for_binary_url 'debug backend' "$DEBUG_BACKEND_URL/api/binary/system/seo" 120
