@@ -364,6 +364,35 @@ function applyDevelopmentSecurityHeaders() {
     }
 }
 
+const publicSourceCssDevLinks = [
+    {
+        href: '/src/assets/public-shell-critical.css?direct',
+        style: 'public-shell-critical'
+    },
+    {
+        href: '/src/assets/public-page.css?direct',
+        style: 'public-page'
+    }
+]
+
+function injectPublicSourceCssInDev() {
+    return {
+        name: 'inject-public-source-css-in-dev',
+        apply: 'serve' as const,
+        transformIndexHtml(html: string) {
+            const tags = publicSourceCssDevLinks
+                .filter((link) => !html.includes(`href="${link.href}"`))
+                .map((link) => `    <link rel="stylesheet" href="${link.href}" data-fsusblog-style="${link.style}" />`)
+
+            if (tags.length === 0 || !html.includes('</head>')) {
+                return html
+            }
+
+            return html.replace('</head>', `${tags.join('\n')}\n  </head>`)
+        }
+    }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd())
@@ -467,6 +496,7 @@ export default defineConfig(({ mode }) => {
         },
         plugins: [
             applyDevelopmentSecurityHeaders(),
+            injectPublicSourceCssInDev(),
             fixViteClientWorkerDocumentGuard(),
             serveFsusUiOptimizedWasmAssets(fsusUiWasmDist),
             servePublicAotHydrationSidecars(),

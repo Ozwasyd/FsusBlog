@@ -106,6 +106,8 @@ npm --prefix src/frontend run dev:ssr        # 仅调试后端 public shell SSR 
 
 `dev:ssr` 会通过 `VITE_PUBLIC_SHELL_PROXY=1` 把公开 SEO 路由代理到本地后端，只用于验证后端 SSR 壳、AOT 回填和预编译公开页输出。使用前需要确认后端正在 `http://127.0.0.1:7568` 运行。
 
+dev 模式下，Vite 会通过 `transformIndexHtml` 注入 `public-shell-critical.css?direct` 与 `public-page.css?direct`，让公开页首屏 CSS 进入 Vite module graph，支持 source CSS HMR 并避免 hydration 后才补 link 的 FOUC。生产模式不使用 `?direct`，运行时只在没有可用样式表时启用 emergency fallback（`/public-shell-emergency.css`）。
+
 ### 常用访问地址
 
 | 地址 | 用途 |

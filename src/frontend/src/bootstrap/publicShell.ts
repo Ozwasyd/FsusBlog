@@ -84,31 +84,31 @@ const COMMENTS_ISLAND_FALLBACK_DELAY_MS = 2500
 const PUBLIC_STYLE_FALLBACKS: CriticalStyleLink[] = [
   {
     key: 'public-shell-critical',
-    href: import.meta.env.DEV ? '/src/assets/public-shell-critical.css?direct' : null,
+    href: null,
     marker: 'public-shell-critical.css',
     readiness: 'critical'
   },
   {
     key: 'tailwind',
-    href: import.meta.env.DEV ? '/src/assets/tailwind.css?direct' : null,
+    href: null,
     marker: 'tailwind.css',
     readiness: 'critical'
   },
   {
     key: 'markdown',
-    href: import.meta.env.DEV ? '/src/assets/markdown.css?direct' : null,
+    href: null,
     marker: 'markdown.css',
     readiness: 'markdown'
   },
   {
     key: 'motion',
-    href: import.meta.env.DEV ? '/src/assets/motion.css?direct' : null,
+    href: null,
     marker: 'motion.css',
     readiness: 'background'
   },
   {
     key: 'public-page',
-    href: import.meta.env.DEV ? '/src/assets/public-page.css?direct' : null,
+    href: null,
     marker: 'public-page.css',
     readiness: 'critical'
   }
