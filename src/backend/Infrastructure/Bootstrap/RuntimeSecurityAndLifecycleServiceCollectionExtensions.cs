@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
-internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
+public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
 {
     public static IServiceCollection AddFsusRuntimeSecurityAndLifecycleServices(this IServiceCollection services, IConfiguration configuration)
     {
@@ -57,6 +57,8 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<ISecurityPolicySnapshotService, SecurityPolicySnapshotService>();
         services.AddScoped<ISecurityChallengePersistenceService, SecurityChallengePersistenceService>();
         services.AddScoped<ISecurityChallengeProofService, SecurityChallengeProofService>();
+        services.Configure<PerceptionSealedTokenOptions>(configuration.GetSection(PerceptionSealedTokenOptions.SectionName));
+        services.AddSingleton<IPerceptionSealedTokenService, PerceptionSealedTokenService>();
         services.AddScoped<ISecurityChallengeProvider, Sha256PowChallengeProvider>();
         services.AddScoped<ISecurityChallengeProvider, CaptchaV1ChallengeProvider>();
         services.AddScoped<ISecurityChallengeProvider, Argon2idPoSpaceV1ChallengeProvider>();
