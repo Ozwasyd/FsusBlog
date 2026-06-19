@@ -82,6 +82,14 @@ type ReplyTarget = {
   depth: number
 } | null
 
+type ZkProdCommentPolicySnapshot = CommentPolicySnapshot & {
+  zkProdEnabled?: boolean
+  zkProdNativeVerifierConfigured?: boolean
+  zkProdTrustedSetupVerified?: boolean
+  zkProdCredentialRootReady?: boolean
+  zkProdUnavailableReason?: string
+}
+
 const COMMENT_SUMMARY_LIMIT = 48
 const COMMENT_CREATE_CHALLENGE_ACTION = 'comment.create'
 
@@ -332,11 +340,14 @@ export function useArticleDetailView() {
   const applyCommentPolicySnapshot = (policy: CommentPolicySnapshot): void => {
     anonymousCommentsEnabled.value = policy.anonymousCommentsEnabled
     publicCommentsEnabled.value = policy.publicCommentsEnabled
-    const zkProdAvailable = policy.zkProdEnabled &&
-      policy.zkProdNativeVerifierConfigured &&
-      policy.zkProdTrustedSetupVerified &&
-      policy.zkProdCredentialRootReady &&
-      policy.zkProdUnavailableReason.length === 0
+    const zkPolicy = policy as ZkProdCommentPolicySnapshot
+    const zkProdAvailable = zkPolicy.zkProdEnabled === undefined
+      ? true
+      : zkPolicy.zkProdEnabled &&
+        zkPolicy.zkProdNativeVerifierConfigured === true &&
+        zkPolicy.zkProdTrustedSetupVerified === true &&
+        zkPolicy.zkProdCredentialRootReady === true &&
+        (zkPolicy.zkProdUnavailableReason?.length ?? 0) === 0
     zkAnonymousEnabled.value = policy.zkAnonymousEnabled && zkProdAvailable
     applySupportedCommentDisplayLanguage(policy.supportedDisplayLanguages)
 
@@ -971,6 +982,14 @@ export function useArticleDetailView() {
     publicSendConfirmed,
     commentDisplayLanguage,
     commentAnonymousScope,
+    commentChallengeVisible,
+    commentChallengeRouteKey,
+    commentChallengeAttributes,
+    commentChallengeClient,
+    handleCommentChallengeVerified,
+    handleCommentChallengeError,
+    handleCommentChallengeExpired,
+    handleCommentChallengeCancel,
     anonymousCommentsEnabled,
     publicCommentsEnabled,
     zkAnonymousEnabled,
