@@ -4,26 +4,41 @@ namespace FsusBlog.Server.Infrastructure.Security;
 
 public enum SecurityRiskReason
 {
-    VerifiedCrawler,
-    FakeCrawler,
-    UnknownBot,
-    BlockedUserAgent,
-    UserAgentMissing,
-    RateLimited,
-    PowInvalid,
-    PowReplay,
-    ReadProofAccepted,
-    ReadProofRejected,
-    PublicReadChallengeRequired,
-    CaptchaChallengeRequired,
-    PublicReadBlocked,
-    SecurityChallengeRejected,
-    AuthLoginFailed,
-    PasskeyAssertionFailed,
-    PasskeyAssertionAccepted,
-    CommentRegionCompliance,
-    CommentSpamPattern,
-    CommentNullifierAbuse
+    VerifiedCrawler = 0,
+    FakeCrawler = 1,
+    UnknownBot = 2,
+    BlockedUserAgent = 3,
+    UserAgentMissing = 4,
+    RateLimited = 5,
+    PowInvalid = 6,
+    PowReplay = 7,
+    ReadProofAccepted = 8,
+    ReadProofRejected = 9,
+    PublicReadChallengeRequired = 10,
+    CaptchaChallengeRequired = 11,
+    PublicReadBlocked = 12,
+    SecurityChallengeRejected = 13,
+    AuthLoginFailed = 14,
+    PasskeyAssertionFailed = 15,
+    PasskeyAssertionAccepted = 16,
+    CommentRegionCompliance = 17,
+    CommentSpamPattern = 18,
+    CommentNullifierAbuse = 19,
+    CaptchaInvalid = 20,
+    CaptchaReplay = 21,
+    CaptchaSolveTooFast = 22,
+    DeviceFingerprintMissing = 23,
+    DeviceFingerprintChanged = 24,
+    RegionPolicyHit = 25,
+    CommentSpamPatternHit = 26,
+    AnonymousNullifierAbuse = 27,
+    AuthFailureBurst = 28,
+    PasskeyAssertionFailure = 29,
+    AdminStepUpRequired = 30,
+    AdminStepUpFailed = 31,
+    ChallengeExpired = 32,
+    ChallengeKindMismatch = 33,
+    ChallengeSignatureInvalid = 34
 }
 
 public static class SecurityRiskSources
@@ -37,6 +52,11 @@ public static class SecurityRiskSources
     public const string PublicRead = "public-read";
     public const string PoSpace = "pospace";
     public const string RiskControl = "risk-control";
+    public const string Captcha = "captcha";
+    public const string DeviceFingerprint = "device-fingerprint";
+    public const string RegionPolicy = "region-policy";
+    public const string CommentGovernance = "comment-governance";
+    public const string AdminStepUp = "admin-step-up";
 }
 
 public sealed record SecurityRiskSignal(

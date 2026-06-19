@@ -3,7 +3,7 @@
 本文件是 FsusBlog 所有请求/响应 DTO、通知 WebSocket 信封与 AOT 契约的**完整参考**。
 所有定义的权威源码位于 `src/shared/Contracts/` 目录。
 
-> 最近更新：2026-06-18 — 同步匿名凭证签发端点、auth login / passkey / recovery-key verify 接入 RiskControl challenge 与风险信号边界。
+> 最近更新：2026-06-18 — 同步匿名凭证签发端点、RiskControl reason/source 词表、auth login / passkey / recovery-key verify challenge 边界。
 
 ---
 
@@ -98,6 +98,8 @@ payload 字典化的第一阶段采用兼容 layout：ArticleList/ArticleSearch/
 RiskControl challenge assignment 使用统一 AEDS 契约，不在 PoW、Captcha、PoSpace、HumanReadProof、Passkey step-up 或匿名 proof provider 中各自定义不同字段。`SecurityChallengeAssignment` 必须包含 `challengeId`、`traceparent`、`tenantId`、`kind`、`escalationLevel`、`action`、`routeKey`、`subjectHash`、`clientIpHash`、`deviceFpHash`、`issuedAtUnixMs` 和 `expiresAtUnixMs`；`expiresAtUnixMs` 必须大于 `issuedAtUnixMs`。`challengeId` 默认使用 UUID v7；`captchaV1` 读取端兼容 UUID v4/v7。`subjectHash`、`clientIpHash`、`deviceFpHash` 均为 64 字符 SHA-256 hex，不携带原文。
 
 支持的 `SecurityChallengeKind` wire name 为：`sha256PowV1`、`argon2idPoSpaceV1`、`captchaV1`、`humanReadProofV1`、`passkeyStepUpV1`、`adminPasskeyStepUpV1`、`recoveryKeyProofV1`、`anonymousCredentialProofV1`、`zkAnonymousCommentProofV1`。
+
+RiskControl 风险事件使用稳定 source wire value 与 reason enum 名称做跨端归因。旧 reason `VerifiedCrawler` 到 `CommentNullifierAbuse` 的枚举数值保持不变，新生产 challenge reason 只能追加：`CaptchaInvalid`、`CaptchaReplay`、`CaptchaSolveTooFast`、`DeviceFingerprintMissing`、`DeviceFingerprintChanged`、`RegionPolicyHit`、`CommentSpamPatternHit`、`AnonymousNullifierAbuse`、`AuthFailureBurst`、`PasskeyAssertionFailure`、`AdminStepUpRequired`、`AdminStepUpFailed`、`ChallengeExpired`、`ChallengeKindMismatch`、`ChallengeSignatureInvalid`。稳定 source wire value 包括 `anti-crawler`、`auth`、`rate-limiter`、`pow`、`human-read-proof`、`passkey`、`public-read`、`pospace`、`risk-control`、`captcha`、`device-fingerprint`、`region-policy`、`comment-governance` 和 `admin-step-up`。未知 reason 枚举值进入日志/事件时保留原始数值字符串，避免老节点读取新 reason 时失败。
 
 challenge 签发与验证审计由 `security_challenge` 和 `security_challenge_attempt` 持久化，Redis 只作为一次性消费 / 热路径缓存。持久化 metadata 对应 assignment 字段和策略上下文：kind、algorithm、action、routeKey、subjectHash、clientIpHash、deviceFpHash、policyVersion、payloadHash、traceId、traceparent、issued/expires 时间，以及 attempt outcome。payload / proof 原文不得进入持久化表；状态只允许 `issued | verified | expired | replayed | failed | revoked`。
 
