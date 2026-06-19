@@ -55,6 +55,16 @@ public sealed partial class RequiresRiskControlFilter(
         RiskDecision decision)
     {
         HttpContext httpContext = context.HttpContext;
+        if (IsAdminSensitiveRiskAction(decision.ActionName))
+        {
+            await RecordRiskAsync(
+                httpContext,
+                "ordinary_challenge_proof_not_allowed_for_admin_sensitive",
+                decision.ActionName,
+                httpContext.RequestAborted);
+            return Error(httpContext, StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden, "MFA_PROOF_REQUIRED");
+        }
+
         if (!TryReadSingleHeader(httpContext, ChallengeProofHeaderName, out string proofToken)
             || !TryReadSingleHeader(httpContext, ChallengeIdHeaderName, out string challengeId)
             || !TryReadSingleHeader(httpContext, ChallengeKindHeaderName, out string challengeKind))
@@ -148,6 +158,10 @@ public sealed partial class RequiresRiskControlFilter(
         => SecurityChallengeContracts.TryParseKind(kind, out SecurityChallengeKind parsed)
             ? SecurityChallengeContracts.ToWireName(parsed)
             : kind.Trim();
+
+    private static bool IsAdminSensitiveRiskAction(string action)
+        => string.Equals(action, RiskActionNames.AdminSecurityWrite, StringComparison.Ordinal)
+            || string.Equals(action, RiskActionNames.AdminCommentBatch, StringComparison.Ordinal);
 
     private static IResult Error(HttpContext context, int statusCode, ErrorCode code, string message)
         => EndpointFilterResults.FromActionResult(

@@ -1,4 +1,7 @@
 using System.Net;
+using System.Security.Claims;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
@@ -92,6 +95,112 @@ public sealed class RequiresRiskControlFilterTests
     }
 
     [Theory]
+    [InlineData(RiskActionNames.CommentCreate, "comment.create")]
+    [InlineData(RiskActionNames.AuthLogin, "auth.login")]
+    [InlineData(RiskActionNames.RecoveryKeyVerify, "recovery-key.verify")]
+    public async Task InvokeAsync_MatchingProofEntersBusinessLogicForBusinessRiskActions(string actionName, string routeKey)
+    {
+        RealProofFilterFixture fixture = CreateRealProofFixture(riskScore: 50);
+        var context = CreateContext(actionName, routeKey);
+        SecurityChallengeProofMintResult proof = await MintProofForContextAsync(fixture.ProofService, context);
+        AddProofHeaders(context, proof.ProofToken);
+        bool nextCalled = false;
+
+        object? result = await fixture.Filter.InvokeAsync(
+            new TestEndpointFilterInvocationContext(context),
+            _ =>
+            {
+                nextCalled = true;
+                return ValueTask.FromResult<object?>("business-ok");
+            });
+
+        Assert.True(nextCalled);
+        Assert.Equal("business-ok", result);
+        SecurityChallengeAttemptRequest attempt = Assert.Single(fixture.Persistence.Attempts);
+        Assert.Equal(SecurityChallengeAttemptOutcomes.Verified, attempt.Outcome);
+        Assert.Equal("ok", attempt.Reason);
+        Assert.Empty(fixture.RiskSink.Signals);
+    }
+
+    [Theory]
+    [InlineData(RiskActionNames.CommentCreate, "comment.create", RiskActionNames.AuthLogin, "auth.login", "device-123456", "action_mismatch")]
+    [InlineData(RiskActionNames.CommentCreate, "comment.create", RiskActionNames.CommentCreate, "comment.reply", "device-123456", "route_key_mismatch")]
+    [InlineData(RiskActionNames.AuthLogin, "auth.login", RiskActionNames.AuthLogin, "auth.login", "device-654321", "device_fp_hash_mismatch")]
+    public async Task InvokeAsync_RejectsProofBoundToDifferentBusinessRequest(
+        string mintedAction,
+        string mintedRouteKey,
+        string requestAction,
+        string requestRouteKey,
+        string requestDeviceFingerprint,
+        string expectedReason)
+    {
+        RealProofFilterFixture fixture = CreateRealProofFixture(riskScore: 50);
+        var mintContext = CreateContext(mintedAction, mintedRouteKey);
+        SecurityChallengeProofMintResult proof = await MintProofForContextAsync(fixture.ProofService, mintContext);
+        var requestContext = CreateContext(requestAction, requestRouteKey, requestDeviceFingerprint);
+        AddProofHeaders(requestContext, proof.ProofToken);
+        bool nextCalled = false;
+
+        object? result = await fixture.Filter.InvokeAsync(
+            new TestEndpointFilterInvocationContext(requestContext),
+            _ =>
+            {
+                nextCalled = true;
+                return ValueTask.FromResult<object?>("business-ok");
+            });
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status428PreconditionRequired, await ExecuteStatusAsync(result, requestContext));
+        SecurityChallengeAttemptRequest attempt = Assert.Single(fixture.Persistence.Attempts);
+        Assert.Equal(SecurityChallengeAttemptOutcomes.Failed, attempt.Outcome);
+        Assert.Equal(expectedReason, attempt.Reason);
+        SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
+        Assert.Equal($"challenge_proof_rejected:{expectedReason}", signal.Detail);
+        Assert.Equal(requestAction, signal.Action);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ReplayProofIsRejectedBeforeBusinessLogic()
+    {
+        RealProofFilterFixture fixture = CreateRealProofFixture(riskScore: 50);
+        var firstContext = CreateContext(RiskActionNames.AuthLogin, "auth.login");
+        SecurityChallengeProofMintResult proof = await MintProofForContextAsync(fixture.ProofService, firstContext);
+        AddProofHeaders(firstContext, proof.ProofToken);
+
+        object? firstResult = await fixture.Filter.InvokeAsync(
+            new TestEndpointFilterInvocationContext(firstContext),
+            _ => ValueTask.FromResult<object?>("first-ok"));
+
+        Assert.Equal("first-ok", firstResult);
+
+        var replayContext = CreateContext(RiskActionNames.AuthLogin, "auth.login");
+        AddProofHeaders(replayContext, proof.ProofToken);
+        bool replayNextCalled = false;
+
+        object? replayResult = await fixture.Filter.InvokeAsync(
+            new TestEndpointFilterInvocationContext(replayContext),
+            _ =>
+            {
+                replayNextCalled = true;
+                return ValueTask.FromResult<object?>("replay-ok");
+            });
+
+        Assert.False(replayNextCalled);
+        Assert.Equal(StatusCodes.Status428PreconditionRequired, await ExecuteStatusAsync(replayResult, replayContext));
+        Assert.Collection(
+            fixture.Persistence.Attempts,
+            attempt => Assert.Equal(SecurityChallengeAttemptOutcomes.Verified, attempt.Outcome),
+            attempt =>
+            {
+                Assert.Equal(SecurityChallengeAttemptOutcomes.Replayed, attempt.Outcome);
+                Assert.Equal("proof_replayed_or_missing", attempt.Reason);
+            });
+        SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
+        Assert.Equal("challenge_proof_rejected:proof_replayed_or_missing", signal.Detail);
+        Assert.Equal(RiskActionNames.AuthLogin, signal.Action);
+    }
+
+    [Theory]
     [InlineData("proof_replayed_or_missing")]
     [InlineData("action_mismatch")]
     public async Task InvokeAsync_RejectedProof_Returns428AndDoesNotEnterBusinessLogic(string reason)
@@ -117,10 +226,36 @@ public sealed class RequiresRiskControlFilterTests
         Assert.Equal($"challenge_proof_rejected:{reason}", signal.Detail);
     }
 
+    [Fact]
+    public async Task InvokeAsync_AdminSensitiveActionRejectsOrdinaryChallengeProofWithoutBusinessLogic()
+    {
+        FilterFixture fixture = CreateFixture(riskScore: 50);
+        fixture.ProofService.NextConsumeResult = SecurityChallengeProofConsumeResult.Success(CreateClaims(
+            RiskActionNames.AdminSecurityWrite,
+            "admin.security.write"));
+        var context = CreateContext(RiskActionNames.AdminSecurityWrite, "admin.security.write");
+        AddProofHeaders(context, "ordinary-v2-proof");
+        bool nextCalled = false;
+
+        object? result = await fixture.Filter.InvokeAsync(
+            new TestEndpointFilterInvocationContext(context),
+            _ =>
+            {
+                nextCalled = true;
+                return ValueTask.FromResult<object?>("admin-ok");
+            });
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status428PreconditionRequired, await ExecuteStatusAsync(result, context));
+        Assert.Empty(fixture.ProofService.ConsumeRequests);
+        SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
+        Assert.Equal("ordinary_challenge_proof_not_allowed_for_admin_sensitive", signal.Detail);
+        Assert.Equal(RiskActionNames.AdminSecurityWrite, signal.Action);
+    }
+
     [Theory]
     [InlineData(RiskActionNames.CommentCreate, "comment.create")]
     [InlineData(RiskActionNames.AuthLogin, "auth.login")]
-    [InlineData(RiskActionNames.AdminSecurityWrite, "admin.security.write")]
     public async Task InvokeAsync_WriteChallengeWithHumanReadProofKind_Returns428WithoutConsumingProof(string actionName, string routeKey)
     {
         FilterFixture fixture = CreateFixture(riskScore: 50);
@@ -256,9 +391,32 @@ public sealed class RequiresRiskControlFilterTests
         return new FilterFixture(filter, proof, riskSink);
     }
 
+    private static RealProofFilterFixture CreateRealProofFixture(int riskScore, SecurityRiskPolicySnapshotV2? policy = null)
+    {
+        policy ??= CreatePolicy();
+        var riskSink = new CapturingRiskSink();
+        var persistence = new RecordingChallengePersistence();
+        var proof = new SecurityChallengeProofService(
+            new MemoryProofCache(),
+            persistence,
+            new FixedTimeProvider(DateTimeOffset.UtcNow));
+        var filter = new RequiresRiskControlFilter(
+            new FixedRiskScoreReader(riskScore),
+            riskSink,
+            new FixedRiskPolicyProvider(policy),
+            new RiskControlContextFactory(),
+            new RiskDecisionService(),
+            proof,
+            NullLogger<RequiresRiskControlFilter>.Instance);
+
+        return new RealProofFilterFixture(filter, proof, persistence, riskSink);
+    }
+
     private static DefaultHttpContext CreateContext(
         string actionName = RiskActionNames.PublicRead,
-        string routeKey = "article:42")
+        string routeKey = "article:42",
+        string deviceFingerprint = "device-123456",
+        ClaimsPrincipal? user = null)
     {
         var context = new DefaultHttpContext();
         context.RequestServices = new ServiceCollection()
@@ -266,9 +424,34 @@ public sealed class RequiresRiskControlFilterTests
             .BuildServiceProvider();
         context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.17");
         context.Request.Headers.UserAgent = "Mozilla/5.0";
-        context.Request.Headers["X-Fsus-Device-Fp"] = "device-123456";
+        context.Request.Headers["X-Fsus-Device-Fp"] = deviceFingerprint;
+        if (user is not null)
+        {
+            context.User = user;
+        }
         context.SetEndpoint(CreateEndpoint(actionName, routeKey));
         return context;
+    }
+
+    private static async Task<SecurityChallengeProofMintResult> MintProofForContextAsync(
+        SecurityChallengeProofService proofService,
+        DefaultHttpContext context)
+    {
+        RiskControlContext riskContext = new RiskControlContextFactory().Create(context);
+        RiskControlProofBinding binding = RiskControlProofBindingFactory.Create(riskContext);
+        return await proofService.MintProofAsync(
+            new SecurityChallengeProofMintRequest(
+                ChallengeId,
+                Sha256PowChallengeProvider.WireKind,
+                riskContext.ActionName,
+                riskContext.RouteKey,
+                binding.SubjectHash,
+                binding.ClientIpHash,
+                binding.DeviceFpHash,
+                SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+                DateTimeOffset.UtcNow,
+                DateTimeOffset.UtcNow.AddMinutes(5)),
+            CancellationToken.None);
     }
 
     private static Endpoint CreateEndpoint(string actionName, string routeKey)
@@ -292,12 +475,14 @@ public sealed class RequiresRiskControlFilterTests
         return context.Response.StatusCode;
     }
 
-    private static SecurityChallengeProofClaims CreateClaims()
+    private static SecurityChallengeProofClaims CreateClaims(
+        string action = RiskActionNames.PublicRead,
+        string routeKey = "article:42")
         => new(
             ChallengeId,
             Sha256PowChallengeProvider.WireKind,
-            RiskActionNames.PublicRead,
-            "article:42",
+            action,
+            routeKey,
             new string('a', 64),
             new string('b', 64),
             new string('c', 64),
@@ -391,6 +576,12 @@ public sealed class RequiresRiskControlFilterTests
         CapturingProofService ProofService,
         CapturingRiskSink RiskSink);
 
+    private sealed record RealProofFilterFixture(
+        RequiresRiskControlFilter Filter,
+        SecurityChallengeProofService ProofService,
+        RecordingChallengePersistence Persistence,
+        CapturingRiskSink RiskSink);
+
     private sealed class TestEndpointFilterInvocationContext(HttpContext httpContext) : EndpointFilterInvocationContext
     {
         public override HttpContext HttpContext { get; } = httpContext;
@@ -444,5 +635,85 @@ public sealed class RequiresRiskControlFilterTests
             ConsumeRequests.Add(request);
             return Task.FromResult(NextConsumeResult);
         }
+    }
+
+    private sealed class MemoryProofCache : IUnifiedCache
+    {
+        private readonly Dictionary<string, byte[]> _values = new(StringComparer.Ordinal);
+
+        public Task SetRawAsync(CachePolicyId policyId, string identity, byte[] value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
+        {
+            _values[BuildKey(policyId, identity)] = value;
+            return Task.CompletedTask;
+        }
+
+        public Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(
+            CachePolicyId policyId,
+            string identity,
+            Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder,
+            CancellationToken cancellationToken = default)
+        {
+            string key = BuildKey(policyId, identity);
+            if (!_values.Remove(key, out byte[]? value))
+            {
+                return Task.FromResult(new CacheReadResult<T>(false, default));
+            }
+
+            var (success, decoded) = decoder(value);
+            return Task.FromResult(success
+                ? new CacheReadResult<T>(true, decoded)
+                : new CacheReadResult<T>(false, default));
+        }
+
+        public string BuildKey(CachePolicyId policyId, string identity, string? version = null)
+            => $"{policyId}:{identity}";
+
+        public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<CacheReadResult<ReadOnlyMemory<byte>>> TryGetRawReadonlyAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task SetNegativeAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<string?> GetStringAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task SetStringAsync(CachePolicyId policyId, string identity, string value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<long> IncrementAsync(CachePolicyId policyId, string identity, long value = 1, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> ConsumeOnceAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task RemoveAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task RemoveManyAsync(IReadOnlyList<CacheKeyIdentity> keys, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task RemoveByPrefixAsync(CachePolicyId policyId, string identityPrefix, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task RemoveByPrefixManyAsync(IReadOnlyList<CachePrefixIdentity> prefixes, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+
+    private sealed class RecordingChallengePersistence : ISecurityChallengePersistenceService
+    {
+        public List<SecurityChallengeAttemptRequest> Attempts { get; } = [];
+
+        public Task<SecurityChallenge> IssueAsync(SecurityChallengeIssueRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<SecurityChallengeAttempt> RecordAttemptAsync(SecurityChallengeAttemptRequest request, CancellationToken cancellationToken = default)
+        {
+            Attempts.Add(request);
+            return Task.FromResult(new SecurityChallengeAttempt
+            {
+                ChallengeId = request.ChallengeId,
+                Outcome = request.Outcome,
+                Reason = request.Reason,
+                PayloadHash = request.PayloadHash,
+                ClientIpHash = request.ClientIpHash,
+                DeviceFpHash = request.DeviceFpHash,
+                TraceId = request.TraceId,
+                Traceparent = request.Traceparent,
+                AttemptedAtUtc = request.AttemptedAtUtc ?? DateTime.UtcNow
+            });
+        }
+
+        public Task<bool> ExpireAsync(string challengeId, string? reason = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<bool> RevokeAsync(string challengeId, string? reason = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 }
