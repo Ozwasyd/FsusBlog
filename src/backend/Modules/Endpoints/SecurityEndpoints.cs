@@ -106,6 +106,94 @@ public static class SecurityEndpoints
             return Results.Ok(JsonApiResponse<RiskControlSimulationResponse>.Ok(response));
         }).RequireRateLimiting("fixed_ip");
 
+        group.MapGet("/risk-control/options", (ISecurityAdminPolicyService policy) =>
+            Results.Ok(JsonApiResponse<SecurityRiskPolicySnapshotV2>.Ok(policy.CurrentRiskPolicyV2)));
+
+        group.MapPut("/risk-control/options", async (
+            RiskControlPolicyUpdateRequest request,
+            HttpContext context,
+            IAdminPrincipalService adminPrincipals,
+            ISecurityAdminPolicyService policy,
+            ISecurityPolicySnapshotService policySnapshots,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
+            SecurityRiskPolicySnapshotV2 snapshot = policy.UpdateRiskControlPolicy(request, ResolveActor(context));
+            await policySnapshots.ActivateAsync(
+                SecurityPolicyIds.RiskControl,
+                snapshot.GlobalMode,
+                snapshot,
+                ResolveAdminPrincipalId(context),
+                request.Reason,
+                cancellationToken);
+            await RecordSecurityAuditAsync(
+                auditEvents,
+                "admin.security.risk_control.options_updated",
+                "管理员更新 RiskControl 运行策略",
+                "risk_control_options",
+                snapshot.SnapshotId,
+                request.Reason,
+                snapshot,
+                cancellationToken);
+            return Results.Ok(JsonApiResponse<SecurityRiskPolicySnapshotV2>.Ok(snapshot));
+        }).RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/risk-control/options/rollback", async (
+            HttpContext context,
+            IAdminPrincipalService adminPrincipals,
+            ISecurityAdminPolicyService policy,
+            ISecurityPolicySnapshotService policySnapshots,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
+            SecurityPolicyRollbackResult<SecurityRiskPolicySnapshotV2> rollback = await policySnapshots.RollbackAsync<SecurityRiskPolicySnapshotV2>(
+                SecurityPolicyIds.RiskControl,
+                targetVersion: null,
+                ResolveAdminPrincipalId(context),
+                "rollback",
+                cancellationToken);
+            SecurityRiskPolicySnapshotV2 snapshot;
+            if (rollback.Success && rollback.Document is not null)
+            {
+                snapshot = rollback.Document;
+                policy.ApplyRiskControlPolicySnapshot(snapshot);
+            }
+            else
+            {
+                snapshot = policy.RollbackRiskControlPolicy(ResolveActor(context));
+                await policySnapshots.ActivateAsync(
+                    SecurityPolicyIds.RiskControl,
+                    snapshot.GlobalMode,
+                    snapshot,
+                    ResolveAdminPrincipalId(context),
+                    "rollback",
+                    cancellationToken);
+            }
+
+            await RecordSecurityAuditAsync(
+                auditEvents,
+                "admin.security.risk_control.options_rolled_back",
+                "管理员回滚 RiskControl 运行策略",
+                "risk_control_options",
+                snapshot.SnapshotId,
+                "rollback",
+                snapshot,
+                cancellationToken);
+            return Results.Ok(JsonApiResponse<SecurityRiskPolicySnapshotV2>.Ok(snapshot));
+        }).RequireRateLimiting("fixed_ip");
+
         group.MapGet("/challenges/overview", async (
             string? kind,
             ISqlSugarClient db,
@@ -883,18 +971,22 @@ public static class SecurityEndpoints
                 ToNullableDateTimeOffset(item.RevokedAtUtc),
                 item.Reason))
             .ToList();
-        versions.Insert(0, new SecurityPolicyVersionSummaryResponse(
-            "risk-control",
-            0,
-            policy.CurrentRiskPolicyV2.GlobalMode,
-            true,
-            true,
-            null,
-            null,
-            policy.CurrentRiskPolicyV2.UpdatedAtUtc,
-            policy.CurrentRiskPolicyV2.UpdatedAtUtc,
-            null,
-            policy.CurrentRiskPolicyV2.PolicyVersion));
+        if (!versions.Any(static item => string.Equals(item.PolicyId, SecurityPolicyIds.RiskControl, StringComparison.Ordinal)))
+        {
+            versions.Insert(0, new SecurityPolicyVersionSummaryResponse(
+                SecurityPolicyIds.RiskControl,
+                0,
+                policy.CurrentRiskPolicyV2.GlobalMode,
+                true,
+                true,
+                null,
+                null,
+                policy.CurrentRiskPolicyV2.UpdatedAtUtc,
+                policy.CurrentRiskPolicyV2.UpdatedAtUtc,
+                null,
+                policy.CurrentRiskPolicyV2.PolicyVersion));
+        }
+
         return versions;
     }
 

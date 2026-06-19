@@ -39,6 +39,8 @@ public sealed class RiskDecisionService : IRiskDecisionService
 {
     private const string CaptchaV1ChallengeKind = "captchaV1";
     private const string Argon2idPoSpaceV1ChallengeKind = "argon2idPoSpaceV1";
+    private const string Sha256PowV1ChallengeKind = "sha256PowV1";
+    private const string LegacyPowChallengeKind = "security.pow";
 
     public RiskDecision Decide(RiskControlContext context, SecurityRiskPolicySnapshotV2 policy, int currentRiskScore)
     {
@@ -65,6 +67,12 @@ public sealed class RiskDecisionService : IRiskDecisionService
             policyDecision.RequiredChallengeKinds,
             context,
             policy);
+        if (kind is RiskDecisionKind.Challenge or RiskDecisionKind.StepUp && requiredChallenges.Count == 0)
+        {
+            kind = RiskDecisionKind.Allow;
+            challengeReasons = [.. challengeReasons, "challenge_subsystems_disabled"];
+        }
+
         List<string> reasons = [policyDecision.Reason];
         reasons.AddRange(challengeReasons);
         if (context.ActionStatus == RiskControlContextStatuses.Missing)
@@ -138,28 +146,40 @@ public sealed class RiskDecisionService : IRiskDecisionService
 
             if (string.Equals(challengeKind, Argon2idPoSpaceV1ChallengeKind, StringComparison.Ordinal))
             {
-                string poSpaceMode = policy.SubsystemModes.TryGetValue(SecurityRiskSources.PoSpace, out string? mode)
-                    ? SecuritySystemModes.Normalize(mode)
-                    : SecuritySystemModes.Disabled;
-                if (!SecuritySystemModes.IsEnforcing(poSpaceMode))
+                if (!IsChallengeSubsystemEnforcing(policy, challengeKind))
                 {
-                    AddChallengeKind(required, CaptchaV1ChallengeKind);
+                    AddChallengeKindIfEnabled(required, CaptchaV1ChallengeKind, policy, reasons);
                     reasons.Add("pospace_disabled_downgraded");
                     continue;
                 }
 
                 if (IsMobileUserAgent(context.UserAgent))
                 {
-                    AddChallengeKind(required, CaptchaV1ChallengeKind);
+                    AddChallengeKindIfEnabled(required, CaptchaV1ChallengeKind, policy, reasons);
                     reasons.Add("pospace_mobile_downgraded");
                     continue;
                 }
             }
 
-            AddChallengeKind(required, challengeKind);
+            AddChallengeKindIfEnabled(required, challengeKind, policy, reasons);
         }
 
         return (required, reasons);
+    }
+
+    private static void AddChallengeKindIfEnabled(
+        List<string> required,
+        string challengeKind,
+        SecurityRiskPolicySnapshotV2 policy,
+        List<string> reasons)
+    {
+        if (!IsChallengeSubsystemEnforcing(policy, challengeKind))
+        {
+            reasons.Add($"{NormalizeChallengeKindReason(challengeKind)}_disabled");
+            return;
+        }
+
+        AddChallengeKind(required, challengeKind);
     }
 
     private static void AddChallengeKind(List<string> required, string challengeKind)
@@ -183,6 +203,33 @@ public sealed class RiskDecisionService : IRiskDecisionService
         => challengeKinds.Any(static challengeKind =>
             challengeKind.Contains("step-up", StringComparison.OrdinalIgnoreCase)
             || challengeKind.Contains("stepup", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsChallengeSubsystemEnforcing(SecurityRiskPolicySnapshotV2 policy, string challengeKind)
+    {
+        string? subsystem = challengeKind switch
+        {
+            CaptchaV1ChallengeKind => SecurityRiskSources.Captcha,
+            Argon2idPoSpaceV1ChallengeKind => SecurityRiskSources.PoSpace,
+            Sha256PowV1ChallengeKind or LegacyPowChallengeKind => SecurityRiskSources.Pow,
+            _ => null
+        };
+        if (subsystem is null)
+        {
+            return true;
+        }
+
+        return !policy.SubsystemModes.TryGetValue(subsystem, out string? mode)
+            || SecuritySystemModes.IsEnforcing(mode);
+    }
+
+    private static string NormalizeChallengeKindReason(string challengeKind)
+        => challengeKind switch
+        {
+            CaptchaV1ChallengeKind => "captcha",
+            Argon2idPoSpaceV1ChallengeKind => "pospace",
+            Sha256PowV1ChallengeKind or LegacyPowChallengeKind => "pow",
+            _ => "challenge"
+        };
 
     private static bool IsAnonymousWrite(RiskControlContext context)
         => context.ActionName is RiskActionNames.CommentCreate or RiskActionNames.CommentReply

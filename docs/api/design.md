@@ -2,7 +2,7 @@
 
 本文件说明 FsusBlog API 层的设计原则与约定，是所有 API 变更的**必读前提文件**。
 
-> 最近更新：2026-06-19 — 补齐强匿名评论 ticket binary-only 边界。
+> 最近更新：2026-06-19 — 同步 RiskControl runtime options 热更新与 LKG 回滚边界。
 
 ---
 
@@ -32,7 +32,7 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 
 ### 4. 桥接隔离原则
 
-作者工作台 `/api/binary/author/**` 与管理端 security `/api/binary/admin/security/**` 的生产入口必须是 AEDS v2 frame；`AuthoringBinaryBridgeMiddleware` 与 `SecurityBinaryBridgeMiddleware` 只是在服务端内部复用受保护的 legacy JSON implementation，并把结果 flatten 回 route-specific AEDS response frame。RiskControl 控制面读取（`risk-control/overview`、`challenges/overview`、`policies/overview`）也只允许通过该 binary bridge 暴露，不能恢复 `/api/admin/security/**` JSON fallback。
+作者工作台 `/api/binary/author/**` 与管理端 security `/api/binary/admin/security/**` 的生产入口必须是 AEDS v2 frame；`AuthoringBinaryBridgeMiddleware` 与 `SecurityBinaryBridgeMiddleware` 只是在服务端内部复用受保护的 legacy JSON implementation，并把结果 flatten 回 route-specific AEDS response frame。RiskControl 控制面读取与运行态写入（`risk-control/overview`、`risk-control/options`、`risk-control/options/rollback`、`challenges/overview`、`policies/overview`）也只允许通过该 binary bridge 暴露，不能恢复 `/api/admin/security/**` JSON fallback。
 
 `JsonApiResponse<T>`、`Results.Ok(JsonApiResponse<...>)` 与 `/_fsus/internal/binary-bridge/**` 只允许出现在登记的 internal bridge implementation 中，且对应端点必须挂 `BinaryBridgeInternalOnlyFilter`。浏览器可达的 `/api/binary/**` 端点不得直接暴露 JSON envelope；新增业务端点默认按 [aeds-only-policy.md#内部应用-api-定义](aeds-only-policy.md#内部应用-api-定义) 设计，不把 bridge 模式当作新 endpoint 模板。装载点见 `src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs`，allowlist 见 [aeds-only-policy.md#允许豁免](aeds-only-policy.md#允许豁免)。
 
@@ -458,6 +458,8 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 - 路由速查表和端点列表：见 [`quick-reference.md#开放分发与作者工作台`](quick-reference.md#开放分发与作者工作台)。
 
 Admin security dry-run 端点只能复用生产决策服务，不得直接复制阈值逻辑或绕过审计。`/api/binary/admin/security/risk-control/simulate` 是控制面预演入口：它可读取当前风险分或使用请求给定 riskScore，输出 `riskScore/decision/reasons/requiredChallenges/policyVersion`，但不得签发 `security_challenge`、不得修改 `SecurityRisk`、不得变更 active policy。该类 dry-run 仍要求 admin principal + `system.config`，并写入 admin security audit；若未来扩展为其他安全模拟器，也必须保持“真实决策链 + 无业务状态写入”的边界。
+
+RiskControl 运行态写入只能使用 `/api/binary/admin/security/risk-control/options` 和 `/api/binary/admin/security/risk-control/options/rollback`。写入必须要求 admin principal、`system.config` 和一次性 `X-Fsus-Mfa-Proof`，并持久化 `security_policy_snapshot(policy_id=risk-control)`；active 损坏时启动加载只能回退 last-known-good，不得从请求路径临时拼装未审计策略。该写入只更新 RiskControl global mode、CaptchaV1 / PoSpaceV1 / PublicReadChallenge / CommentRiskControl / AuthRiskControl 开关和 strict multiplier，不改变 AntiCrawler mode 的语义。
 
 ---
 

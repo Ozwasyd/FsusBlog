@@ -120,6 +120,20 @@ public sealed class SecurityBinaryBridgeMiddlewareTests
             out var simulatorRoute));
         Assert.Equal(AedsFrameType.SecurityOverview, simulatorRoute.RequestFrame);
         Assert.Equal(AedsFrameType.SecurityOverview, simulatorRoute.ResponseFrame);
+
+        Assert.True(SecurityBinaryBridgeMiddleware.TryResolveRoute(
+            HttpMethods.Put,
+            new PathString("/risk-control/options"),
+            out var riskControlOptionsRoute));
+        Assert.Equal(AedsFrameType.SecurityOverview, riskControlOptionsRoute.RequestFrame);
+        Assert.Equal(AedsFrameType.SecurityOverview, riskControlOptionsRoute.ResponseFrame);
+
+        Assert.True(SecurityBinaryBridgeMiddleware.TryResolveRoute(
+            HttpMethods.Post,
+            new PathString("/risk-control/options/rollback"),
+            out var riskControlRollbackRoute));
+        Assert.Null(riskControlRollbackRoute.RequestFrame);
+        Assert.Equal(AedsFrameType.SecurityOverview, riskControlRollbackRoute.ResponseFrame);
     }
 
     [Fact]
@@ -128,6 +142,7 @@ public sealed class SecurityBinaryBridgeMiddlewareTests
         foreach (string path in new[]
         {
             "/risk-control/overview",
+            "/risk-control/options",
             "/challenges/overview",
             "/policies/overview"
         })

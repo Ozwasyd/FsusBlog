@@ -75,7 +75,11 @@ public static class SecurityRiskPolicySnapshotV2Adapter
         var subsystemModes = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             [SecurityRiskSources.AntiCrawler] = SecuritySystemModes.Normalize(options.Mode),
+            [SecurityRiskSources.Auth] = SecuritySystemModes.Enforce,
+            [SecurityRiskSources.Captcha] = SecuritySystemModes.Enforce,
+            [SecurityRiskSources.CommentGovernance] = SecuritySystemModes.Enforce,
             [SecurityRiskSources.Pow] = SecuritySystemModes.Normalize(pow?.Options.Mode ?? SecuritySystemModes.Enforce),
+            [SecurityRiskSources.PublicRead] = options.PublicReadChallengeEnabled ? SecuritySystemModes.Enforce : SecuritySystemModes.Disabled,
             [SecurityRiskSources.PoSpace] = SecuritySystemModes.Disabled
         };
 

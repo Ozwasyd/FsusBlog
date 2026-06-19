@@ -3,7 +3,7 @@
 本文件是 FsusBlog 所有请求/响应 DTO、通知 WebSocket 信封与 AOT 契约的**完整参考**。
 所有定义的权威源码位于 `src/shared/Contracts/` 目录。
 
-> 最近更新：2026-06-19 — 同步 admin security RiskControl 控制面、challenge 指标与策略版本 AEDS bridge 契约。
+> 最近更新：2026-06-19 — 同步 admin security RiskControl runtime options、challenge 指标与策略版本 AEDS bridge 契约。
 
 ---
 
@@ -1354,6 +1354,8 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 - `GET /api/binary/admin/security/overview` 返回 `SecurityOverviewResponse(status, checkedAtUtc, antiCrawler, pow, risk)`。
 - `GET /api/binary/admin/security/risk-control/overview` 返回 `RiskControlConsoleResponse(activePolicy, risk, riskEventAggregate, challengeMetrics, recentEvents, topRiskSnapshots)`；`activePolicy` 为 `SecurityRiskPolicySnapshotV2`，`riskEventAggregate` 按 `source/reason` 聚合最近风险事件，`challengeMetrics` 复用最近 24 小时 challenge attempt 成功 / 失败率。
+- `GET|PUT /api/binary/admin/security/risk-control/options` 读取或热更新 `SecurityRiskPolicySnapshotV2`。PUT 使用 `RiskControlPolicyUpdateRequest(globalMode?, captchaV1Enabled?, poSpaceV1Enabled?, publicReadChallengeEnabled?, commentRiskControlEnabled?, authRiskControlEnabled?, strictRiskMultiplierPercent?, reason?)`，要求 `X-Fsus-Mfa-Proof`，写入 `security_policy_snapshot(policy_id=risk-control)` 和高价值审计。`globalMode` 只接受 `disabled | observe | enforce | strict | lockdown` 语义；关闭 `captchaV1Enabled` 时不得签发 captcha challenge，关闭 `poSpaceV1Enabled` 时不得签发 Argon2id PoSpace challenge；关闭 public-read/comment/auth 开关会投影到对应 RiskControl action override。
+- `POST /api/binary/admin/security/risk-control/options/rollback` 回滚上一份 RiskControl last-known-good policy；优先从 `security_policy_snapshot` 读取 LKG，失败时回退内存上一版本，并写高价值审计。
 - `POST /api/binary/admin/security/risk-control/simulate` 使用 `SecurityOverview` request/response frame 承载 `RiskControlSimulationRequest(action?, routeKey?, subject?, riskScore?, clientIp?, userAgent?, deviceFingerprint?, region?, actorStatus?, identityKind?, verifiedCrawler?, socialPreviewBot?)`，返回 `RiskControlSimulationResponse(riskScore, effectiveRiskScore, decision, decisionKind, reasons, requiredChallenges, policyVersion, action, routeKey, subject, clientIp, actorStatus, identityKind, escalationLevel, simulated)`。该端点调用生产 `RiskDecisionService` 与当前 `SecurityRiskPolicySnapshotV2`，不签发 `security_challenge`，不修改策略或风险分；每次调用写入 admin security audit。
 - `GET /api/binary/admin/security/challenges/overview?kind={kind}` 返回 `SecurityChallengeMetricsResponse(kind, windowStartedAtUtc, totalIssued, totalAttempts, verified, failed, replayed, expired, revoked, successRate, failureRate, kindBreakdown, recentAttempts)`；`kind` 可传 `captchaV1` 或 `argon2idPoSpaceV1` 等 provider wire kind，不传则返回全部 challenge。
 - `GET /api/binary/admin/security/policies/overview` 返回 `SecurityPolicyConsoleResponse(activePolicy, antiCrawler, pow, policyVersions)`；`policyVersions` 来自 `security_policy_snapshot` 持久化表，并额外暴露当前派生 RiskControl policy version。
@@ -1372,7 +1374,7 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 `PowPolicyOptions` 独立包含 `mode/defaultDifficulty/adaptiveDifficultyEnabled/proofTtlSeconds/replayProtectionEnabled/riskScoreLinkEnabled/challengeEndpoint/verificationStrategy`。PoW 是安全系统下与 AntiCrawler 并列的 challenge 能力；反爬虫页面只展示 `securityChallengeReference`，不得把 PoW 作为反爬虫子配置。
 
-`RiskControlConsoleResponse`、`RiskControlSimulationResponse`、`SecurityChallengeMetricsResponse` 与 `SecurityPolicyConsoleResponse` 均为控制面 DTO，使用 `SecurityOverview` frame 承载 JSON payload，仍要求 admin principal + `system.config`，且不得提供公开 JSON fallback。`risk-control/simulate` 是 dry-run，只能读当前风险分或使用请求给定 riskScore，不调用 challenge orchestrator、不写 `security_challenge`、不调用 `ResetRiskAsync`。策略写入仍只通过 `anti-crawler/options`、`anti-crawler/options/rollback`、`pow/options`、`pow/options/rollback` 等既有写入口执行；这些写入口必须校验 `X-Fsus-Mfa-Proof`。
+`RiskControlConsoleResponse`、`RiskControlPolicyUpdateRequest`、`RiskControlSimulationResponse`、`SecurityChallengeMetricsResponse` 与 `SecurityPolicyConsoleResponse` 均为控制面 DTO，使用 `SecurityOverview` frame 承载 JSON payload，仍要求 admin principal + `system.config`，且不得提供公开 JSON fallback。`risk-control/simulate` 是 dry-run，只能读当前风险分或使用请求给定 riskScore，不调用 challenge orchestrator、不写 `security_challenge`、不调用 `ResetRiskAsync`。策略写入只通过 `risk-control/options`、`risk-control/options/rollback`、`anti-crawler/options`、`anti-crawler/options/rollback`、`pow/options`、`pow/options/rollback` 等登记写入口执行；这些写入口必须校验 `X-Fsus-Mfa-Proof`。
 
 统一风险抽象为 `SecurityRisk`：`ISecurityRiskSignalSink` 写入 `anti-crawler/rate-limiter/pow/human-read-proof/public-read/captcha/pospace/auth/passkey/risk-control` 来源事件，`ISecurityRiskScoreReader` 读取和重置主体风险分，`ISecurityRiskPolicyProvider` 提供 `SecurityRiskPolicySnapshot`。旧 `CrawlerRiskService` 作为 Redis 热路径兼容实现保留，但 API 与前端不再把 PoW、ReadProof、RateLimiter 归入 AntiCrawler。生产事件同时落到 PostgreSQL `security_risk_event`，可按 `source`、`reason`、`action`、`subjectHash`、`routeKey`、`clientIpHash` 和 `deviceFpHash` 聚合 / 查询；风险分在 Redis miss 时按未过期事件的剩余 TTL 线性衰减重算并回填热缓存。持久化失败只写 structured fallback log，不改变原业务判定。
 

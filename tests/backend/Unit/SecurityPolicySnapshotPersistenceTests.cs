@@ -165,7 +165,21 @@ public sealed class SecurityPolicySnapshotPersistenceTests
         Assert.Contains("ISecurityPolicySnapshotService policySnapshots", source, StringComparison.Ordinal);
         Assert.Contains("policySnapshots.ActivateAsync", source, StringComparison.Ordinal);
         Assert.Contains("policySnapshots.RollbackAsync", source, StringComparison.Ordinal);
+        Assert.Contains("SecurityPolicyIds.RiskControl", source, StringComparison.Ordinal);
+        Assert.Contains("/risk-control/options", source, StringComparison.Ordinal);
+        Assert.Contains("admin.security.risk_control.options_updated", source, StringComparison.Ordinal);
+        Assert.Contains("admin.security.risk_control.options_rolled_back", source, StringComparison.Ordinal);
         Assert.Contains("RequireAdminSensitiveStepUpAsync", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StartupLoader_LoadsRiskControlActiveOrLastKnownGoodPolicy()
+    {
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/SecurityPolicySnapshotService.cs");
+
+        Assert.Contains("public const string RiskControl = \"risk-control\"", service, StringComparison.Ordinal);
+        Assert.Contains("LoadActiveOrLastKnownGoodAsync<SecurityRiskPolicySnapshotV2>", service, StringComparison.Ordinal);
+        Assert.Contains("policy.ApplyRiskControlPolicySnapshot", service, StringComparison.Ordinal);
     }
 
     private static AntiCrawlerPolicySnapshot CreateAntiCrawlerSnapshot(string id, string mode)

@@ -187,6 +187,31 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    public void Decide_CaptchaSubsystemDisabled_DoesNotIssueCaptchaChallenge()
+    {
+        SecurityRiskActionPolicy authPolicy = CreateCaptchaActionPolicy(RiskActionNames.AuthLogin);
+        SecurityRiskPolicySnapshotV2 policy = CreatePolicy(
+            SecuritySystemModes.Enforce,
+            new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
+            {
+                [RiskActionNames.AuthLogin] = authPolicy
+            }) with
+        {
+            SubsystemModes = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [SecurityRiskSources.Captcha] = SecuritySystemModes.Disabled
+            }
+        };
+
+        RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.AuthLogin), policy, 50);
+
+        Assert.Equal(RiskDecisionKind.Allow, decision.Kind);
+        Assert.Empty(decision.RequiredChallenges);
+        Assert.Contains("captcha_disabled", decision.Reasons);
+        Assert.Contains("challenge_subsystems_disabled", decision.Reasons);
+    }
+
+    [Fact]
     public void Decide_PoSpaceSubsystemDisabled_DowngradesToCaptcha()
     {
         SecurityRiskPolicySnapshotV2 policy = CreatePoSpacePolicy(SecuritySystemModes.Disabled);
@@ -196,6 +221,27 @@ public sealed class RiskDecisionServiceTests
         Assert.Equal(RiskDecisionKind.Challenge, decision.Kind);
         Assert.Equal(["captchaV1"], decision.RequiredChallenges);
         Assert.Contains("pospace_disabled_downgraded", decision.Reasons);
+    }
+
+    [Fact]
+    public void Decide_PoSpaceAndCaptchaSubsystemsDisabled_DoesNotIssueFallbackChallenge()
+    {
+        SecurityRiskPolicySnapshotV2 policy = CreatePoSpacePolicy(SecuritySystemModes.Disabled) with
+        {
+            SubsystemModes = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [SecurityRiskSources.PoSpace] = SecuritySystemModes.Disabled,
+                [SecurityRiskSources.Captcha] = SecuritySystemModes.Disabled
+            }
+        };
+
+        RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.AuthLogin), policy, 75);
+
+        Assert.Equal(RiskDecisionKind.Allow, decision.Kind);
+        Assert.Empty(decision.RequiredChallenges);
+        Assert.Contains("pospace_disabled_downgraded", decision.Reasons);
+        Assert.Contains("captcha_disabled", decision.Reasons);
+        Assert.Contains("challenge_subsystems_disabled", decision.Reasons);
     }
 
     [Fact]

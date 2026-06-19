@@ -359,6 +359,12 @@ public sealed class SecurityBinaryBridgeMiddleware
             return Found(null, AedsFrameType.SecurityOverview, out route);
         if (HttpMethods.IsGet(method) && segments is ["risk-control", "overview"])
             return Found(null, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsGet(method) && segments is ["risk-control", "options"])
+            return Found(null, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsPut(method) && segments is ["risk-control", "options"])
+            return Found(AedsFrameType.SecurityOverview, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsPost(method) && segments is ["risk-control", "options", "rollback"])
+            return Found(null, AedsFrameType.SecurityOverview, out route);
         if (HttpMethods.IsPost(method) && segments is ["risk-control", "simulate"])
             return Found(AedsFrameType.SecurityOverview, AedsFrameType.SecurityOverview, out route);
         if (HttpMethods.IsGet(method) && segments is ["challenges", "overview"])

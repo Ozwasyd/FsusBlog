@@ -1,5 +1,7 @@
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
+using FsusBlog.Server.Services.Security;
+using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -175,6 +177,71 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         Assert.False(SecurityRiskPolicySnapshotV2Adapter.ToLegacy(snapshot).PublicReadChallengeEnabled);
     }
 
+    [Fact]
+    public void LegacyAdapter_InitializesRuntimeSubsystemModes()
+    {
+        SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
+
+        Assert.Equal(SecuritySystemModes.Enforce, snapshot.SubsystemModes[SecurityRiskSources.Captcha]);
+        Assert.Equal(SecuritySystemModes.Enforce, snapshot.SubsystemModes[SecurityRiskSources.Auth]);
+        Assert.Equal(SecuritySystemModes.Enforce, snapshot.SubsystemModes[SecurityRiskSources.CommentGovernance]);
+        Assert.Equal(SecuritySystemModes.Enforce, snapshot.SubsystemModes[SecurityRiskSources.PublicRead]);
+        Assert.Equal(SecuritySystemModes.Disabled, snapshot.SubsystemModes[SecurityRiskSources.PoSpace]);
+    }
+
+    [Fact]
+    public void SecurityAdminPolicyService_ReadsRiskControlEnvironmentFallbacks()
+    {
+        SecurityAdminPolicyService service = new(CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["Security:RiskControl:GlobalMode"] = SecuritySystemModes.Observe,
+            ["Security:RiskControl:CaptchaV1:Enabled"] = "false",
+            ["Security:RiskControl:PoSpaceV1:Enabled"] = "true",
+            ["Security:RiskControl:PublicReadChallenge:Enabled"] = "false",
+            ["Security:RiskControl:CommentRiskControl:Enabled"] = "false",
+            ["Security:RiskControl:AuthRiskControl:Enabled"] = "false",
+            ["Security:RiskControl:StrictRiskMultiplierPercent"] = "175"
+        }));
+
+        SecurityRiskPolicySnapshotV2 snapshot = service.CurrentRiskPolicyV2;
+
+        Assert.Equal(SecuritySystemModes.Observe, snapshot.GlobalMode);
+        Assert.Equal(175, snapshot.StrictRiskMultiplierPercent);
+        Assert.Equal(SecuritySystemModes.Disabled, snapshot.SubsystemModes[SecurityRiskSources.Captcha]);
+        Assert.Equal(SecuritySystemModes.Enforce, snapshot.SubsystemModes[SecurityRiskSources.PoSpace]);
+        Assert.Equal(SecuritySystemModes.Disabled, snapshot.ResolveActionPolicy(RiskActionNames.PublicRead).ModeOverride);
+        Assert.Equal(SecuritySystemModes.Disabled, snapshot.ResolveActionPolicy(RiskActionNames.CommentCreate).ModeOverride);
+        Assert.Equal(SecuritySystemModes.Disabled, snapshot.ResolveActionPolicy(RiskActionNames.AuthLogin).ModeOverride);
+    }
+
+    [Fact]
+    public void SecurityAdminPolicyService_UpdateRiskControlPolicy_ProjectsEmergencySwitchesAndLkg()
+    {
+        SecurityAdminPolicyService service = new(CreateConfiguration());
+        SecurityRiskPolicySnapshotV2 before = service.CurrentRiskPolicyV2;
+
+        SecurityRiskPolicySnapshotV2 updated = service.UpdateRiskControlPolicy(
+            new RiskControlPolicyUpdateRequest(
+                SecuritySystemModes.Lockdown,
+                CaptchaV1Enabled: false,
+                PoSpaceV1Enabled: false,
+                PublicReadChallengeEnabled: false,
+                CommentRiskControlEnabled: false,
+                AuthRiskControlEnabled: false,
+                StrictRiskMultiplierPercent: 150,
+                Reason: "incident"),
+            "admin:7");
+
+        Assert.Equal(SecuritySystemModes.Lockdown, updated.GlobalMode);
+        Assert.Equal(150, updated.StrictRiskMultiplierPercent);
+        Assert.Equal(before.SnapshotId, updated.LastKnownGoodSnapshotId);
+        Assert.Equal(SecuritySystemModes.Disabled, updated.SubsystemModes[SecurityRiskSources.Captcha]);
+        Assert.Equal(SecuritySystemModes.Disabled, updated.SubsystemModes[SecurityRiskSources.PoSpace]);
+        Assert.Equal(SecuritySystemModes.Disabled, updated.ResolveActionPolicy(RiskActionNames.PublicRead).ModeOverride);
+        Assert.Equal(SecuritySystemModes.Disabled, updated.ResolveActionPolicy(RiskActionNames.CommentReply).ModeOverride);
+        Assert.Equal(SecuritySystemModes.Disabled, updated.ResolveActionPolicy(RiskActionNames.RecoveryKeyVerify).ModeOverride);
+    }
+
     private static SecurityRiskPolicySnapshotV2 CreateSnapshot(
         string mode,
         IReadOnlyDictionary<string, SecurityRiskActionPolicy>? overrides = null)
@@ -269,4 +336,9 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
                 SocialPreviewAllowedPathPrefixes: ["/"],
                 BlockedUserAgentKeywords: [],
                 SecurityChallengeReference: "security.pow"));
+
+    private static IConfiguration CreateConfiguration(IReadOnlyDictionary<string, string?>? values = null)
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(values ?? new Dictionary<string, string?>())
+            .Build();
 }

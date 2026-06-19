@@ -14,6 +14,7 @@ public static class SecurityPolicyIds
 {
     public const string AntiCrawler = "anti-crawler";
     public const string Pow = "pow";
+    public const string RiskControl = "risk-control";
 }
 
 public sealed record SecurityPolicySnapshotRecord(
@@ -335,6 +336,13 @@ public sealed class SecurityPolicySnapshotHostedService(
             if (pow.Success && pow.Document is not null)
             {
                 policy.ApplyPowPolicySnapshot(pow.Document);
+            }
+
+            SecurityPolicyLoadResult<SecurityRiskPolicySnapshotV2> riskControl =
+                await snapshots.LoadActiveOrLastKnownGoodAsync<SecurityRiskPolicySnapshotV2>(SecurityPolicyIds.RiskControl, cancellationToken);
+            if (riskControl.Success && riskControl.Document is not null)
+            {
+                policy.ApplyRiskControlPolicySnapshot(riskControl.Document);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

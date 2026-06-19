@@ -14,6 +14,9 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     private AntiCrawlerPolicySnapshot? _previousAntiCrawler;
     private PowPolicySnapshot _currentPow;
     private PowPolicySnapshot? _previousPow;
+    private SecurityRiskPolicySnapshotV2 _currentRiskPolicy;
+    private SecurityRiskPolicySnapshotV2? _previousRiskPolicy;
+    private bool _riskPolicyExplicitlyManaged;
     private readonly RiskEventRingBuffer _riskEvents = new(MaxRuntimeEvents);
     private readonly Dictionary<string, SecurityRiskSnapshotResponse> _riskSnapshots = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<AntiCrawlerRuleResponse> _rules;
@@ -36,6 +39,10 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             "configuration",
             "startup",
             BuildDefaultPowOptions(configuration));
+        _currentRiskPolicy = ApplyRiskControlConfigurationFallbacks(
+            SecurityRiskPolicySnapshotV2Adapter.FromLegacy(_currentAntiCrawler, _currentPow),
+            configuration,
+            now);
         _rules =
         [
             CreateRule("fake-crawler", "伪造搜索引擎爬虫", true, "user-agent", "Googlebot|bingbot|Baiduspider|Sogou", "block", 30, "搜索引擎 UA 必须通过 CIDR 或 DNS 验证。", "configuration", now),
@@ -50,7 +57,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     public PowPolicySnapshot CurrentPow => Volatile.Read(ref _currentPow);
 
     public SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2
-        => SecurityRiskPolicySnapshotV2Adapter.FromLegacy(Current, CurrentPow);
+        => Volatile.Read(ref _currentRiskPolicy);
 
     public SecurityRiskPolicySnapshot CurrentRiskPolicy
     {
@@ -142,6 +149,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
                 next);
             _previousAntiCrawler = current;
             Volatile.Write(ref _currentAntiCrawler, snapshot);
+            RefreshDerivedRiskPolicyIfImplicit(now);
             return snapshot;
         }
     }
@@ -161,6 +169,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             };
             _previousAntiCrawler = _currentAntiCrawler;
             Volatile.Write(ref _currentAntiCrawler, snapshot);
+            RefreshDerivedRiskPolicyIfImplicit(now);
             return snapshot;
         }
     }
@@ -180,6 +189,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
                 next);
             _previousPow = current;
             Volatile.Write(ref _currentPow, snapshot);
+            RefreshDerivedRiskPolicyIfImplicit(now);
             return snapshot;
         }
     }
@@ -199,6 +209,45 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             };
             _previousPow = _currentPow;
             Volatile.Write(ref _currentPow, snapshot);
+            RefreshDerivedRiskPolicyIfImplicit(now);
+            return snapshot;
+        }
+    }
+
+    public SecurityRiskPolicySnapshotV2 UpdateRiskControlPolicy(RiskControlPolicyUpdateRequest request, string changedBy)
+    {
+        lock (_gate)
+        {
+            SecurityRiskPolicySnapshotV2 current = _currentRiskPolicy;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            SecurityRiskPolicySnapshotV2 snapshot = ApplyRiskControlUpdate(
+                current,
+                request,
+                now,
+                NormalizeActor(changedBy));
+            _previousRiskPolicy = current;
+            _riskPolicyExplicitlyManaged = true;
+            Volatile.Write(ref _currentRiskPolicy, snapshot);
+            return snapshot;
+        }
+    }
+
+    public SecurityRiskPolicySnapshotV2 RollbackRiskControlPolicy(string changedBy)
+    {
+        lock (_gate)
+        {
+            SecurityRiskPolicySnapshotV2 rollback = _previousRiskPolicy ?? _currentRiskPolicy;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            var snapshot = rollback with
+            {
+                SnapshotId = CreateSnapshotId("risk-control", now),
+                PolicyVersion = CreateSnapshotId("risk-policy-v2", now),
+                UpdatedAtUtc = now,
+                LastKnownGoodSnapshotId = rollback.SnapshotId
+            };
+            _previousRiskPolicy = _currentRiskPolicy;
+            _riskPolicyExplicitlyManaged = true;
+            Volatile.Write(ref _currentRiskPolicy, snapshot);
             return snapshot;
         }
     }
@@ -209,6 +258,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         {
             _previousAntiCrawler = _currentAntiCrawler;
             Volatile.Write(ref _currentAntiCrawler, snapshot);
+            RefreshDerivedRiskPolicyIfImplicit(snapshot.UpdatedAtUtc);
         }
     }
 
@@ -218,7 +268,129 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         {
             _previousPow = _currentPow;
             Volatile.Write(ref _currentPow, snapshot);
+            RefreshDerivedRiskPolicyIfImplicit(snapshot.UpdatedAtUtc);
         }
+    }
+
+    public void ApplyRiskControlPolicySnapshot(SecurityRiskPolicySnapshotV2 snapshot)
+    {
+        lock (_gate)
+        {
+            _previousRiskPolicy = _currentRiskPolicy;
+            _riskPolicyExplicitlyManaged = true;
+            Volatile.Write(ref _currentRiskPolicy, snapshot);
+        }
+    }
+
+    private void RefreshDerivedRiskPolicyIfImplicit(DateTimeOffset updatedAtUtc)
+    {
+        if (_riskPolicyExplicitlyManaged)
+        {
+            return;
+        }
+
+        SecurityRiskPolicySnapshotV2 snapshot = ApplyRiskControlConfigurationFallbacks(
+            SecurityRiskPolicySnapshotV2Adapter.FromLegacy(_currentAntiCrawler, _currentPow),
+            _configuration,
+            updatedAtUtc);
+        Volatile.Write(ref _currentRiskPolicy, snapshot);
+    }
+
+    private static SecurityRiskPolicySnapshotV2 ApplyRiskControlConfigurationFallbacks(
+        SecurityRiskPolicySnapshotV2 snapshot,
+        IConfiguration configuration,
+        DateTimeOffset updatedAtUtc)
+    {
+        var request = new RiskControlPolicyUpdateRequest(
+            ReadConfigurationValue(configuration, "Security:RiskControl:GlobalMode", "RiskControl:GlobalMode"),
+            ReadConfigurationBoolean(configuration, "Security:RiskControl:CaptchaV1:Enabled", "Security:RiskControl:CaptchaV1Enabled", "RiskControl:CaptchaV1Enabled"),
+            ReadConfigurationBoolean(configuration, "Security:RiskControl:PoSpaceV1:Enabled", "Security:RiskControl:PoSpaceV1Enabled", "RiskControl:PoSpaceV1Enabled"),
+            ReadConfigurationBoolean(configuration, "Security:RiskControl:PublicReadChallenge:Enabled", "Security:RiskControl:PublicReadChallengeEnabled", "RiskControl:PublicReadChallengeEnabled"),
+            ReadConfigurationBoolean(configuration, "Security:RiskControl:CommentRiskControl:Enabled", "Security:RiskControl:CommentRiskControlEnabled", "RiskControl:CommentRiskControlEnabled"),
+            ReadConfigurationBoolean(configuration, "Security:RiskControl:AuthRiskControl:Enabled", "Security:RiskControl:AuthRiskControlEnabled", "RiskControl:AuthRiskControlEnabled"),
+            ReadConfigurationInt(configuration, "Security:RiskControl:StrictRiskMultiplierPercent", "RiskControl:StrictRiskMultiplierPercent"),
+            "configuration");
+
+        SecurityRiskPolicySnapshotV2 updated = ApplyRiskControlUpdate(snapshot, request, updatedAtUtc, "configuration");
+        return updated with
+        {
+            SnapshotId = snapshot.SnapshotId,
+            PolicyVersion = snapshot.PolicyVersion,
+            LastKnownGoodSnapshotId = snapshot.LastKnownGoodSnapshotId
+        };
+    }
+
+    private static SecurityRiskPolicySnapshotV2 ApplyRiskControlUpdate(
+        SecurityRiskPolicySnapshotV2 current,
+        RiskControlPolicyUpdateRequest request,
+        DateTimeOffset updatedAtUtc,
+        string changedBy)
+    {
+        string snapshotId = CreateSnapshotId("risk-control", updatedAtUtc);
+        string policyVersion = CreateSnapshotId("risk-policy-v2", updatedAtUtc);
+        string globalMode = string.IsNullOrWhiteSpace(request.GlobalMode)
+            ? SecuritySystemModes.Normalize(current.GlobalMode)
+            : SecuritySystemModes.Normalize(request.GlobalMode);
+        var subsystemModes = new Dictionary<string, string>(current.SubsystemModes, StringComparer.Ordinal);
+        var actionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(current.ActionOverrides, StringComparer.Ordinal);
+
+        ApplySubsystemSwitch(subsystemModes, SecurityRiskSources.Captcha, request.CaptchaV1Enabled);
+        ApplySubsystemSwitch(subsystemModes, SecurityRiskSources.PoSpace, request.PoSpaceV1Enabled);
+        ApplySubsystemSwitch(subsystemModes, SecurityRiskSources.PublicRead, request.PublicReadChallengeEnabled);
+        ApplySubsystemSwitch(subsystemModes, SecurityRiskSources.CommentGovernance, request.CommentRiskControlEnabled);
+        ApplySubsystemSwitch(subsystemModes, SecurityRiskSources.Auth, request.AuthRiskControlEnabled);
+
+        ApplyActionSwitch(actionOverrides, current, RiskActionNames.PublicRead, request.PublicReadChallengeEnabled);
+        ApplyActionSwitch(actionOverrides, current, RiskActionNames.CommentCreate, request.CommentRiskControlEnabled);
+        ApplyActionSwitch(actionOverrides, current, RiskActionNames.CommentReply, request.CommentRiskControlEnabled);
+        ApplyActionSwitch(actionOverrides, current, RiskActionNames.AuthLogin, request.AuthRiskControlEnabled);
+        ApplyActionSwitch(actionOverrides, current, RiskActionNames.AuthPasskeyBegin, request.AuthRiskControlEnabled);
+        ApplyActionSwitch(actionOverrides, current, RiskActionNames.AuthPasskeyComplete, request.AuthRiskControlEnabled);
+        ApplyActionSwitch(actionOverrides, current, RiskActionNames.RecoveryKeyVerify, request.AuthRiskControlEnabled);
+
+        return current with
+        {
+            SnapshotId = snapshotId,
+            PolicyVersion = policyVersion,
+            UpdatedAtUtc = updatedAtUtc,
+            GlobalMode = globalMode,
+            StrictRiskMultiplierPercent = Math.Clamp(
+                request.StrictRiskMultiplierPercent ?? current.StrictRiskMultiplierPercent,
+                100,
+                1000),
+            LastKnownGoodSnapshotId = current.SnapshotId,
+            ActionOverrides = actionOverrides,
+            SubsystemModes = subsystemModes
+        };
+    }
+
+    private static void ApplySubsystemSwitch(IDictionary<string, string> subsystemModes, string subsystem, bool? enabled)
+    {
+        if (!enabled.HasValue)
+        {
+            return;
+        }
+
+        subsystemModes[subsystem] = enabled.Value ? SecuritySystemModes.Enforce : SecuritySystemModes.Disabled;
+    }
+
+    private static void ApplyActionSwitch(
+        IDictionary<string, SecurityRiskActionPolicy> actionOverrides,
+        SecurityRiskPolicySnapshotV2 current,
+        string actionName,
+        bool? enabled)
+    {
+        if (!enabled.HasValue)
+        {
+            return;
+        }
+
+        SecurityRiskActionPolicy action = current.ResolveActionPolicy(actionName);
+        actionOverrides[actionName] = action with
+        {
+            ActionName = actionName,
+            ModeOverride = enabled.Value ? null : SecuritySystemModes.Disabled
+        };
     }
 
     public void RecordRiskEvent(AntiCrawlerRiskEventResponse riskEvent)
@@ -1005,6 +1177,44 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
 
     private static bool ReadBool(IConfiguration configuration, string key, bool fallback)
         => configuration.GetValue<bool?>(key) ?? fallback;
+
+    private static string? ReadConfigurationValue(IConfiguration configuration, params string[] keys)
+    {
+        foreach (string key in keys)
+        {
+            string? value = configuration[key];
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return null;
+    }
+
+    private static bool? ReadConfigurationBoolean(IConfiguration configuration, params string[] keys)
+    {
+        string? value = ReadConfigurationValue(configuration, keys);
+        if (value is null)
+        {
+            return null;
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "1" or "true" or "enabled" or "enable" or "on" or "yes" => true,
+            "0" or "false" or "disabled" or "disable" or "off" or "no" => false,
+            _ => null
+        };
+    }
+
+    private static int? ReadConfigurationInt(IConfiguration configuration, params string[] keys)
+    {
+        string? value = ReadConfigurationValue(configuration, keys);
+        return int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int parsed)
+            ? parsed
+            : null;
+    }
 
     private static string CreateSnapshotId(string prefix, DateTimeOffset timestamp)
         => $"{prefix}-{timestamp:yyyyMMddHHmmssfff}-{Random.Shared.Next(1000, 9999)}";

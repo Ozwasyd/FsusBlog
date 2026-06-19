@@ -143,6 +143,16 @@ public sealed record RiskControlConsoleResponse(
     IReadOnlyList<AntiCrawlerRiskEventResponse> RecentEvents,
     IReadOnlyList<SecurityRiskSnapshotResponse> TopRiskSnapshots);
 
+public sealed record RiskControlPolicyUpdateRequest(
+    string? GlobalMode,
+    bool? CaptchaV1Enabled,
+    bool? PoSpaceV1Enabled,
+    bool? PublicReadChallengeEnabled,
+    bool? CommentRiskControlEnabled,
+    bool? AuthRiskControlEnabled,
+    int? StrictRiskMultiplierPercent,
+    string? Reason);
+
 public sealed record RiskControlSimulationRequest(
     string? Action,
     string? RouteKey,

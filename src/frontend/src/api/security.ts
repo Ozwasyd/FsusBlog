@@ -270,6 +270,17 @@ export interface SecurityRiskPolicySnapshotV2 {
   subsystemModes: Record<string, string>
 }
 
+export interface RiskControlPolicyUpdateRequest {
+  globalMode?: SecurityMode | string | null
+  captchaV1Enabled?: boolean | null
+  poSpaceV1Enabled?: boolean | null
+  publicReadChallengeEnabled?: boolean | null
+  commentRiskControlEnabled?: boolean | null
+  authRiskControlEnabled?: boolean | null
+  strictRiskMultiplierPercent?: number | null
+  reason?: string | null
+}
+
 export interface SecurityRiskEventAggregateResponse {
   source: string
   reason: string
@@ -501,6 +512,19 @@ export const getSecurityChallengeMetrics = (params: { kind?: string | null } = {
 
 export const getSecurityPolicyConsole = (config?: ApiRequestConfig) =>
   requestSecurityBinary<SecurityPolicyConsoleResponse>('/policies/overview', FrameType.SecurityOverview, config)
+
+export const getRiskControlOptions = (config?: ApiRequestConfig) =>
+  requestSecurityBinary<SecurityRiskPolicySnapshotV2>('/risk-control/options', FrameType.SecurityOverview, config)
+
+export const updateRiskControlOptions = (request: RiskControlPolicyUpdateRequest, config?: ApiRequestConfig) =>
+  requestSecurityBinary<SecurityRiskPolicySnapshotV2>('/risk-control/options', FrameType.SecurityOverview, config, {
+    method: 'PUT',
+    requestFrame: FrameType.SecurityOverview,
+    request
+  })
+
+export const rollbackRiskControlOptions = (config?: ApiRequestConfig) =>
+  requestSecurityBinary<SecurityRiskPolicySnapshotV2>('/risk-control/options/rollback', FrameType.SecurityOverview, config, { method: 'POST' })
 
 export const issueSecurityChallenge = (request: IssueSecurityChallengeRequest, config?: ApiRequestConfig) =>
   requestBinaryOnly<SecurityChallengeIssueResponse>({

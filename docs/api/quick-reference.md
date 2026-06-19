@@ -294,6 +294,9 @@
 
 | GET | `/api/binary/admin/security/overview` | 👑 | 安全系统总览：AntiCrawler、PoW、SecurityRisk |
 | GET | `/api/binary/admin/security/risk-control/overview` | 👑 | RiskControl active policy、风险事件聚合、challenge 成功/失败率 |
+| GET | `/api/binary/admin/security/risk-control/options` | 👑 | RiskControl active runtime policy snapshot |
+| PUT | `/api/binary/admin/security/risk-control/options` | 👑🚦 MFA | 更新 RiskControl mode、CaptchaV1/PoSpaceV1/PublicRead/Comment/Auth 开关和 strict multiplier |
+| POST | `/api/binary/admin/security/risk-control/options/rollback` | 👑🚦 MFA | 回滚上一份 RiskControl last-known-good policy |
 | POST | `/api/binary/admin/security/risk-control/simulate` | 👑🚦 | RiskControl dry-run：调用生产决策链返回 riskScore、decision、reasons、requiredChallenges、policyVersion，不签发 challenge、不改风险分 |
 | GET | `/api/binary/admin/security/challenges/overview?kind={kind}` | 👑 | challenge 签发、尝试、成功/失败率；`kind` 可筛选 `captchaV1` / `argon2idPoSpaceV1` |
 | GET | `/api/binary/admin/security/policies/overview` | 👑 | active RiskControl、AntiCrawler、PoW 与持久化策略版本 |

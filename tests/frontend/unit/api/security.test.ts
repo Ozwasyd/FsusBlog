@@ -5,13 +5,16 @@ import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import {
   createAntiCrawlerRule,
+  getRiskControlOptions,
   getRiskControlConsole,
   getSecurityChallengeMetrics,
   getSecurityOverview,
   getSecurityPolicyConsole,
+  rollbackRiskControlOptions,
   resetSecurityRisk,
   simulateRiskControl,
   updateAntiCrawlerOptions,
+  updateRiskControlOptions,
   updatePowOptions
 } from '@/api/security'
 import { FSUS_HEADERS } from '@/api/contracts'
@@ -77,6 +80,47 @@ describe('security API binary transport', () => {
     const call = binaryMock.mock.calls[0]?.[0]
     expect(call?.binaryUrl).toBe('/api/binary/admin/security/challenges/overview?kind=captchaV1')
     expect(call?.frameType).toBe(FrameType.SecurityOverview)
+  })
+
+  it('updates RiskControl runtime options with the security overview bridge frame and admin proof', async () => {
+    binaryMock.mockResolvedValueOnce({ policyVersion: 'risk-v3', globalMode: 'observe' })
+    binaryMock.mockResolvedValueOnce({ policyVersion: 'risk-v2', globalMode: 'enforce' })
+    binaryMock.mockResolvedValueOnce({ policyVersion: 'risk-v1', globalMode: 'enforce' })
+
+    await getRiskControlOptions()
+    await updateRiskControlOptions({
+      globalMode: 'observe',
+      captchaV1Enabled: false,
+      poSpaceV1Enabled: false,
+      publicReadChallengeEnabled: false,
+      commentRiskControlEnabled: false,
+      authRiskControlEnabled: false,
+      strictRiskMultiplierPercent: 150,
+      reason: 'incident'
+    }, { mfaProofToken: 'proof-risk-control' })
+    await rollbackRiskControlOptions({ mfaProofToken: 'proof-rollback' })
+
+    const readCall = binaryMock.mock.calls[0]?.[0]
+    expect(readCall?.binaryUrl).toBe('/api/binary/admin/security/risk-control/options')
+    expect(readCall?.frameType).toBe(FrameType.SecurityOverview)
+    expect(readCall?.requestOptions?.body).toBeUndefined()
+
+    const updateCall = binaryMock.mock.calls[1]?.[0]
+    expect(updateCall?.binaryUrl).toBe('/api/binary/admin/security/risk-control/options')
+    expect(updateCall?.frameType).toBe(FrameType.SecurityOverview)
+    expect(updateCall?.requestOptions?.method).toBe('PUT')
+    expect((updateCall?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-risk-control')
+    expectAedsJsonBody(updateCall?.requestOptions?.body, FrameType.SecurityOverview, {
+      globalMode: 'observe',
+      captchaV1Enabled: false,
+      reason: 'incident'
+    })
+
+    const rollbackCall = binaryMock.mock.calls[2]?.[0]
+    expect(rollbackCall?.binaryUrl).toBe('/api/binary/admin/security/risk-control/options/rollback')
+    expect(rollbackCall?.frameType).toBe(FrameType.SecurityOverview)
+    expect(rollbackCall?.requestOptions?.method).toBe('POST')
+    expect((rollbackCall?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-rollback')
   })
 
   it('updates anti-crawler options with an AEDS request frame and admin step-up proof', async () => {
