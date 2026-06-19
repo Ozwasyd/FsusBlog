@@ -304,7 +304,6 @@ public abstract class PerceptionChallengeV2ProviderBase(
     IPerceptionChallengeV2IssueService issueService,
     IPerceptionChallengeV2TokenProtector tokenProtector,
     IUnifiedCache cache,
-    ISecurityChallengePersistenceService persistence,
     IChallengeV2AuditEventWriter auditEventWriter,
     ISecurityRiskSignalSink riskSignalSink,
     TimeProvider timeProvider,
@@ -354,32 +353,6 @@ public abstract class PerceptionChallengeV2ProviderBase(
         SecurityChallengeAssignment assignment = issued.Assignment.Kind == challengeKind
             ? issued.Assignment
             : issued.Assignment with { Kind = challengeKind };
-        string payloadHash = HashPayload(issued.Payload);
-        DateTimeOffset issuedAt = DateTimeOffset.FromUnixTimeMilliseconds(assignment.IssuedAtUnixMs);
-        DateTimeOffset expiresAt = DateTimeOffset.FromUnixTimeMilliseconds(assignment.ExpiresAtUnixMs);
-        await persistence.IssueAsync(
-            new SecurityChallengeIssueRequest(
-                assignment.ChallengeId,
-                Kind,
-                PerceptionChallengeV2Constants.WireAlgorithm,
-                request.Action,
-                request.RouteKey,
-                request.SubjectHash,
-                request.ClientIpHash,
-                request.DeviceFpHash,
-                request.PolicyVersion,
-                payloadHash,
-                request.Context.TraceIdentifier,
-                request.Traceparent,
-                issuedAt.UtcDateTime,
-                expiresAt.UtcDateTime),
-            cancellationToken);
-        await cache.SetStringAsync(
-            CachePolicyId.SecurityPerceptionChallenge,
-            assignment.ChallengeId,
-            payloadHash,
-            expiresAt - issuedAt,
-            cancellationToken);
 
         IReadOnlyDictionary<string, string> providerPayload = ToProviderPayload(issued.Payload);
         FsusObservability.RecordSecurityChallengeV2Issued(
@@ -433,19 +406,15 @@ public abstract class PerceptionChallengeV2ProviderBase(
             return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
         }
 
-        bool consumed = await cache.ConsumeOnceAsync(CachePolicyId.SecurityPerceptionChallenge, request.ChallengeId, cancellationToken);
-        if (!consumed)
+        long attemptCount = await cache.IncrementAsync(
+            CachePolicyId.SecurityPerceptionChallenge,
+            AttemptIdentity(request.ChallengeId),
+            1,
+            cancellationToken);
+        if (attemptCount > claims.MaxAttempts)
         {
-            await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Replayed, "perception_replayed", "PerceptionReplay", payload.SealedToken, cancellationToken);
-            FsusObservability.RecordSecurityChallengeV2Replayed(
-                Kind,
-                request.Action,
-                "perception_replayed",
-                request.PolicyVersion,
-                PerceptionChallengeV2Contracts.ToWireTaskKind(taskKind),
-                payloadBytes,
-                FsusObservability.GetElapsed(startedAt),
-                solveDuration);
+            await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Failed, "perception_attempt_exceeded", "PerceptionAttemptExceeded", payload.SealedToken, cancellationToken);
+            RecordV2Failed(request, "perception_attempt_exceeded", payloadBytes, startedAt, solveDuration);
             return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
         }
 
@@ -460,6 +429,28 @@ public abstract class PerceptionChallengeV2ProviderBase(
         {
             await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Failed, answerReason!, "PerceptionInvalid", payload.SealedToken, cancellationToken);
             RecordV2Failed(request, answerReason!, payloadBytes, startedAt, solveDuration);
+            return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
+        }
+
+        TimeSpan consumeTtl = claims.ExpiresAt - timeProvider.GetUtcNow();
+        bool consumed = await cache.TryAcquireLeaseAsync(
+            CachePolicyId.SecurityPerceptionChallenge,
+            ConsumeIdentity(request.ChallengeId),
+            "1",
+            consumeTtl <= TimeSpan.Zero ? TimeSpan.FromSeconds(1) : consumeTtl,
+            cancellationToken);
+        if (!consumed)
+        {
+            await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Replayed, "perception_replayed", "PerceptionReplay", payload.SealedToken, cancellationToken);
+            FsusObservability.RecordSecurityChallengeV2Replayed(
+                Kind,
+                request.Action,
+                "perception_replayed",
+                request.PolicyVersion,
+                PerceptionChallengeV2Contracts.ToWireTaskKind(taskKind),
+                payloadBytes,
+                FsusObservability.GetElapsed(startedAt),
+                solveDuration);
             return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
         }
 
@@ -703,19 +694,14 @@ public abstract class PerceptionChallengeV2ProviderBase(
             cancellationToken).AsTask();
     }
 
+    private static string AttemptIdentity(string challengeId)
+        => $"{challengeId}:attempt";
+
+    private static string ConsumeIdentity(string challengeId)
+        => $"{challengeId}:consume";
+
     private static string? ResolveTraceparent(HttpContext context)
         => context.Request.Headers.TryGetValue("traceparent", out var values) ? values.ToString() : null;
-
-    private static string HashPayload(PerceptionChallengeV2IssuePayload payload)
-        => HashValue(string.Join('\n',
-            payload.Algorithm,
-            payload.KeyVersion,
-            PerceptionChallengeV2Contracts.ToWireTaskKind(payload.TaskKind),
-            payload.RecipeHashHex,
-            payload.SealedToken,
-            payload.SignatureHex,
-            payload.IssuedAtUnixMs.ToString(CultureInfo.InvariantCulture),
-            payload.ExpiresAtUnixMs.ToString(CultureInfo.InvariantCulture)));
 
     private static string HashValue(string value)
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
@@ -855,7 +841,6 @@ public sealed class PerceptionTextTaskV2Provider(
         issueService,
         tokenProtector,
         cache,
-        persistence,
         auditEventWriter,
         riskSignalSink,
         timeProvider,
@@ -866,7 +851,7 @@ public sealed class PerceptionTextTaskV2Provider(
     public const string WireKind = "perceptionTextTaskV2";
     public const string Algorithm = PerceptionChallengeV2Constants.WireAlgorithm;
 
-    public PerceptionTextTaskV2Provider(
+    internal PerceptionTextTaskV2Provider(
         IUnifiedCache cache,
         ISecurityChallengePersistenceService persistence,
         ISecurityRiskSignalSink riskSignalSink,
@@ -876,7 +861,7 @@ public sealed class PerceptionTextTaskV2Provider(
     {
     }
 
-    public PerceptionTextTaskV2Provider(
+    internal PerceptionTextTaskV2Provider(
         IUnifiedCache cache,
         ISecurityChallengePersistenceService persistence,
         IChallengeV2AuditEventWriter auditEventWriter,
@@ -918,7 +903,6 @@ public sealed class PerceptionLocalizationV2Provider(
         issueService,
         tokenProtector,
         cache,
-        persistence,
         auditEventWriter,
         riskSignalSink,
         timeProvider,
@@ -929,7 +913,7 @@ public sealed class PerceptionLocalizationV2Provider(
     public const string WireKind = "perceptionLocalizationV2";
     public const string Algorithm = PerceptionChallengeV2Constants.WireAlgorithm;
 
-    public PerceptionLocalizationV2Provider(
+    internal PerceptionLocalizationV2Provider(
         IUnifiedCache cache,
         ISecurityChallengePersistenceService persistence,
         ISecurityRiskSignalSink riskSignalSink,
@@ -939,7 +923,7 @@ public sealed class PerceptionLocalizationV2Provider(
     {
     }
 
-    public PerceptionLocalizationV2Provider(
+    internal PerceptionLocalizationV2Provider(
         IUnifiedCache cache,
         ISecurityChallengePersistenceService persistence,
         IChallengeV2AuditEventWriter auditEventWriter,
@@ -1016,7 +1000,6 @@ public sealed class PerceptionMicroInteractionV2Provider : PerceptionChallengeV2
             new FeatureGatedIssueService(issueService, configuration),
             tokenProtector,
             cache,
-            persistence,
             auditEventWriter,
             riskSignalSink,
             timeProvider,

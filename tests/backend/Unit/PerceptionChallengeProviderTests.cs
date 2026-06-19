@@ -36,6 +36,41 @@ public sealed class PerceptionChallengeProviderTests
     }
 
     [Fact]
+    public void RuntimeServices_PerceptionProvidersResolveWithoutAmbiguousConstructors()
+    {
+        var services = new ServiceCollection();
+        IConfiguration configuration = CreateConfiguration();
+        var clock = new MutableTimeProvider(BaselineNow);
+        IPerceptionChallengeV2IssueService issueService = CreateIssueService(
+            configuration,
+            clock,
+            out IPerceptionChallengeV2TokenProtector tokenProtector);
+
+        services.AddSingleton(configuration);
+        services.AddSingleton<TimeProvider>(clock);
+        services.AddSingleton<IUnifiedCache>(new RecordingCache());
+        services.AddSingleton<ISecurityChallengePersistenceService>(new RecordingChallengePersistence());
+        services.AddSingleton<IChallengeV2AuditEventWriter, NoopChallengeV2AuditEventWriter>();
+        services.AddSingleton<ISecurityRiskSignalSink>(new CapturingRiskSink());
+        services.AddSingleton(issueService);
+        services.AddSingleton(tokenProtector);
+        services.AddScoped<ISecurityChallengeProvider, PerceptionTextTaskV2Provider>();
+        services.AddScoped<ISecurityChallengeProvider, PerceptionLocalizationV2Provider>();
+
+        using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = true
+        });
+        using IServiceScope scope = provider.CreateScope();
+
+        ISecurityChallengeProvider[] resolved = scope.ServiceProvider.GetServices<ISecurityChallengeProvider>().ToArray();
+
+        Assert.Contains(resolved, static item => item is PerceptionTextTaskV2Provider);
+        Assert.Contains(resolved, static item => item is PerceptionLocalizationV2Provider);
+    }
+
+    [Fact]
     public void SecurityChallengeContracts_SupportPerceptionWireKinds()
     {
         Assert.True(SecurityChallengeContracts.TryParseKind("perceptionTextTaskV2", out SecurityChallengeKind textTask));
@@ -66,14 +101,9 @@ public sealed class PerceptionChallengeProviderTests
         Assert.Equal(PerceptionTextTaskV2Provider.Algorithm, result.ProviderPayload["algorithm"]);
         AssertValidRecipe(result.ProviderPayload, RenderRecipeV2TaskKind.Character);
         AssertNoPayloadLeak(result.ProviderPayload, "F7KA2");
-        Assert.True(fixture.Cache.HasIdentity(CachePolicyId.SecurityPerceptionChallenge, result.Assignment.ChallengeId));
-
-        SecurityChallengeIssueRequest issued = Assert.Single(fixture.Persistence.Issues);
-        Assert.Equal(result.Assignment.ChallengeId, issued.ChallengeId);
-        Assert.Equal(PerceptionTextTaskV2Provider.WireKind, issued.Kind);
-        Assert.Equal(PerceptionTextTaskV2Provider.Algorithm, issued.Algorithm);
-        Assert.Matches("^[0-9a-f]{64}$", issued.PayloadHash);
-        Assert.DoesNotContain("F7KA2", issued.PayloadHash, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(fixture.Persistence.Issues);
+        Assert.Empty(fixture.Cache.Strings);
+        Assert.Empty(fixture.Cache.Counters);
     }
 
     [Fact]
@@ -84,6 +114,9 @@ public sealed class PerceptionChallengeProviderTests
             CreateIssueRequest(PerceptionTextTaskV2Provider.WireKind, escalationLevel: 1),
             CancellationToken.None);
         Dictionary<string, string> payload = CreateTextVerifyPayload(issued.ProviderPayload, " f7 ka2 ", 2500);
+
+        Assert.Empty(fixture.Persistence.Issues);
+        Assert.Empty(fixture.Cache.Strings);
 
         SecurityChallengeProviderVerifyResult accepted = await fixture.Provider.VerifyAsync(
             CreateVerifyRequest(PerceptionTextTaskV2Provider.WireKind, issued.Assignment!.ChallengeId, payload),
@@ -98,6 +131,7 @@ public sealed class PerceptionChallengeProviderTests
         Assert.Equal(SecurityChallengeAttemptOutcomes.Verified, fixture.Persistence.Attempts[0].Outcome);
         Assert.Equal(SecurityChallengeAttemptOutcomes.Replayed, fixture.Persistence.Attempts[1].Outcome);
         Assert.Equal("PerceptionReplay", Assert.Single(fixture.RiskSink.Signals).Detail);
+        Assert.Equal(2, fixture.Cache.Counters[$"{CachePolicyId.SecurityPerceptionChallenge}:{issued.Assignment.ChallengeId}:attempt"]);
     }
 
     [Fact]
@@ -120,6 +154,37 @@ public sealed class PerceptionChallengeProviderTests
         Assert.Equal(SecurityChallengeAttemptOutcomes.Failed, attempt.Outcome);
         Assert.Equal("perception_text_answer_invalid", attempt.Reason);
         Assert.Equal("PerceptionInvalid", Assert.Single(fixture.RiskSink.Signals).Detail);
+    }
+
+    [Fact]
+    public async Task TextTask_VerifyAsync_RejectsAfterMaxAttemptsWithoutIssueCacheState()
+    {
+        ProviderFixture<PerceptionTextTaskV2Provider> fixture = CreateTextFixture();
+        SecurityChallengeProviderIssueResult issued = await fixture.Provider.IssueAsync(
+            CreateIssueRequest(PerceptionTextTaskV2Provider.WireKind, escalationLevel: 1),
+            CancellationToken.None);
+        SecurityChallengeProviderVerifyRequest request = CreateVerifyRequest(
+            PerceptionTextTaskV2Provider.WireKind,
+            issued.Assignment!.ChallengeId,
+            CreateTextVerifyPayload(issued.ProviderPayload, "WRONG", 2500));
+
+        for (int i = 0; i < PerceptionChallengeV2Constants.DefaultMaxAttempts; i++)
+        {
+            SecurityChallengeProviderVerifyResult failed = await fixture.Provider.VerifyAsync(request, CancellationToken.None);
+            AssertGenericFailed(failed);
+            Assert.Equal("perception_text_answer_invalid", fixture.Persistence.Attempts[i].Reason);
+        }
+
+        SecurityChallengeProviderVerifyResult exceeded = await fixture.Provider.VerifyAsync(request, CancellationToken.None);
+
+        AssertGenericFailed(exceeded);
+        Assert.Equal(
+            "perception_attempt_exceeded",
+            fixture.Persistence.Attempts[^1].Reason);
+        Assert.Equal("PerceptionAttemptExceeded", fixture.RiskSink.Signals[^1].Detail);
+        Assert.Equal(
+            PerceptionChallengeV2Constants.DefaultMaxAttempts + 1,
+            fixture.Cache.Counters[$"{CachePolicyId.SecurityPerceptionChallenge}:{issued.Assignment.ChallengeId}:attempt"]);
     }
 
     [Fact]
@@ -192,6 +257,8 @@ public sealed class PerceptionChallengeProviderTests
         Assert.False(result.ProviderPayload.ContainsKey("expectedY"));
         Assert.False(result.ProviderPayload.ContainsKey("targetX"));
         Assert.False(result.ProviderPayload.ContainsKey("targetY"));
+        Assert.Empty(fixture.Persistence.Issues);
+        Assert.Empty(fixture.Cache.Strings);
     }
 
     [Fact]
@@ -519,12 +586,19 @@ public sealed class PerceptionChallengeProviderTests
             Assert.DoesNotContain("expected", item.Key, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("glyph", item.Key, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("charId", item.Key, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain(secret, item.Value, StringComparison.OrdinalIgnoreCase);
+            if (!IsOpaqueBindingField(item.Key))
+            {
+                Assert.DoesNotContain(secret, item.Value, StringComparison.OrdinalIgnoreCase);
+            }
         }
 
         Assert.True(providerPayload.TryGetValue("sealedToken", out string? sealedToken));
         Assert.False(string.IsNullOrWhiteSpace(sealedToken));
     }
+
+    private static bool IsOpaqueBindingField(string key)
+        => string.Equals(key, "sealedToken", StringComparison.Ordinal)
+            || string.Equals(key, "signatureHex", StringComparison.Ordinal);
 
     private static void AssertGenericFailed(SecurityChallengeProviderVerifyResult result)
     {
@@ -622,6 +696,12 @@ public sealed class PerceptionChallengeProviderTests
         }
     }
 
+    private sealed class NoopChallengeV2AuditEventWriter : IChallengeV2AuditEventWriter
+    {
+        public ValueTask WriteAsync(ChallengeV2AuditEvent auditEvent, CancellationToken cancellationToken = default)
+            => ValueTask.CompletedTask;
+    }
+
     private sealed class RecordingChallengePersistence : ISecurityChallengePersistenceService
     {
         public List<SecurityChallengeIssueRequest> Issues { get; } = [];
@@ -680,6 +760,8 @@ public sealed class PerceptionChallengeProviderTests
     {
         public ConcurrentDictionary<string, string> Strings { get; } = new(StringComparer.Ordinal);
 
+        public ConcurrentDictionary<string, long> Counters { get; } = new(StringComparer.Ordinal);
+
         public bool HasIdentity(CachePolicyId policyId, string identity)
             => Strings.ContainsKey($"{policyId}:{identity}");
 
@@ -696,7 +778,7 @@ public sealed class PerceptionChallengeProviderTests
             => Task.FromResult(Strings.TryGetValue($"{policyId}:{identity}", out string? value) ? value : null);
 
         public Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default)
-            => Task.FromResult(false);
+            => Task.FromResult(Strings.TryAdd($"{policyId}:{identity}", value));
 
         public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
             => Task.FromResult(default(CacheReadResult<T>));
@@ -714,7 +796,7 @@ public sealed class PerceptionChallengeProviderTests
             => Task.CompletedTask;
 
         public Task<long> IncrementAsync(CachePolicyId policyId, string identity, long value = 1, CancellationToken cancellationToken = default)
-            => Task.FromResult(0L);
+            => Task.FromResult(Counters.AddOrUpdate($"{policyId}:{identity}", value, (_, current) => current + value));
 
         public Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
             => Task.FromResult(default(CacheReadResult<T>));
