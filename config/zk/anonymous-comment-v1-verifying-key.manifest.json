@@ -1,0 +1,32 @@
+{
+  "schema": "fsusblog.zk.verifying-key-config.v1",
+  "circuit_id": "fsus.anonymous.comment.v1",
+  "public_input_layout_version": 2,
+  "trusted_setup_manifest": "security/zk/comment-v1-trusted-setup.manifest.json",
+  "circuit_manifest": "security/zk/comment-v1-circuit.manifest.json",
+  "artifact_status": "missing-production-artifact",
+  "production_usable": false,
+  "verifying_key_path": "artifacts/zk/comment-v1/comment_v1_verifying_key.bin",
+  "verifying_key_hash": "",
+  "hash_algorithm": "sha256(canonical_verifying_key_bytes)",
+  "runtime_config_keys": {
+    "zkProdVerifyingKeyHash": "AnonymousIdentity:ZkProd:VerifyingKeyHash",
+    "zkVerifierVerifyingKeyHash": "AnonymousIdentity:ZkVerifier:VerifyingKeyHash",
+    "zkVerifierCircuitId": "AnonymousIdentity:ZkVerifier:CircuitId",
+    "zkVerifierPublicInputLayoutVersion": "AnonymousIdentity:ZkVerifier:PublicInputLayoutVersion"
+  },
+  "fail_closed_policy": {
+    "empty_verifying_key_hash_allowed_only_when_production_usable_false": true,
+    "placeholder_hashes_forbidden": [
+      "vk-sha256",
+      "placeholder",
+      "TODO",
+      "TBD"
+    ],
+    "requires_trusted_setup_verified_for_production": true
+  },
+  "handoff_consumers": [
+    "#545 native Groth16 verifier backend",
+    "#546 browser wasm prover"
+  ]
+}

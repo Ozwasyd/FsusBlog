@@ -8,6 +8,8 @@ import { spawnSync } from 'node:child_process'
 const checker = 'tools/crypto/check-zk-comment-v1-manifests.mjs'
 const circuitPath = 'security/zk/comment-v1-circuit.manifest.json'
 const tamperPath = 'security/zk/comment-v1-tamper-cases.manifest.json'
+const setupPath = 'security/zk/comment-v1-trusted-setup.manifest.json'
+const configPath = 'config/zk/anonymous-comment-v1-verifying-key.manifest.json'
 
 function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8'))
@@ -28,21 +30,29 @@ function withTempManifests(mutator) {
   const files = {
     circuit: path.join(dir, 'circuit.json'),
     tamper: path.join(dir, 'tamper.json'),
+    setup: path.join(dir, 'setup.json'),
+    config: path.join(dir, 'config.json'),
     out: path.join(dir, 'evidence.json')
   }
 
   const documents = {
     circuit: readJson(circuitPath),
-    tamper: readJson(tamperPath)
+    tamper: readJson(tamperPath),
+    setup: readJson(setupPath),
+    config: readJson(configPath)
   }
   mutator(documents)
 
   writeFileSync(files.circuit, `${JSON.stringify(documents.circuit, null, 2)}\n`)
   writeFileSync(files.tamper, `${JSON.stringify(documents.tamper, null, 2)}\n`)
+  writeFileSync(files.setup, `${JSON.stringify(documents.setup, null, 2)}\n`)
+  writeFileSync(files.config, `${JSON.stringify(documents.config, null, 2)}\n`)
 
   const result = runChecker({
     FSUSBLOG_ZK_CIRCUIT_MANIFEST: files.circuit,
     FSUSBLOG_ZK_TAMPER_MANIFEST: files.tamper,
+    FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST: files.setup,
+    FSUSBLOG_ZK_VERIFYING_KEY_CONFIG_MANIFEST: files.config,
     FSUSBLOG_ZK_MANIFEST_CHECK_OUT: files.out
   })
 
@@ -109,12 +119,31 @@ test('checker fails if identity fields are injected into public inputs', () => {
   assert.match(`${result.stdout}\n${result.stderr}`, /forbidden identity field userId/)
 })
 
-test('checker fails if a required tamper case is removed', () => {
+test('checker fails if verifying key hash uses a placeholder token', () => {
   const result = withTempManifests((documents) => {
-    documents.tamper.tamper_cases = documents.tamper.tamper_cases.filter(
-      (entry) => entry.id !== 'tamper-nullifier-hash')
+    documents.setup.verifying_key_hash = 'vk-sha256'
+    documents.config.verifying_key_hash = 'vk-sha256'
   })
 
   assert.notEqual(result.status, 0)
-  assert.match(`${result.stdout}\n${result.stderr}`, /tamper.tamper_cases missing tamper-nullifier-hash/)
+  assert.match(`${result.stdout}\n${result.stderr}`, /placeholder hash vk-sha256/)
+})
+
+test('checker fails if production usable is claimed without real setup artifacts', () => {
+  const result = withTempManifests((documents) => {
+    documents.setup.production_usable = true
+    documents.config.production_usable = true
+  })
+
+  assert.notEqual(result.status, 0)
+  assert.match(`${result.stdout}\n${result.stderr}`, /production_usable must remain false/)
+})
+
+test('checker fails if trusted setup hash drifts from the circuit manifest', () => {
+  const result = withTempManifests((documents) => {
+    documents.circuit.public_inputs[0].constraint = 'tampered layout discriminator'
+  })
+
+  assert.notEqual(result.status, 0)
+  assert.match(`${result.stdout}\n${result.stderr}`, /setup\.circuit_manifest_sha256 expected/)
 })

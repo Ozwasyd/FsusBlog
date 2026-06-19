@@ -15,6 +15,14 @@ const paths = {
   tamper: resolveInputPath(
     process.env.FSUSBLOG_ZK_TAMPER_MANIFEST,
     'security/zk/comment-v1-tamper-cases.manifest.json'
+  ),
+  setup: resolveInputPath(
+    process.env.FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST,
+    'security/zk/comment-v1-trusted-setup.manifest.json'
+  ),
+  config: resolveInputPath(
+    process.env.FSUSBLOG_ZK_VERIFYING_KEY_CONFIG_MANIFEST,
+    'config/zk/anonymous-comment-v1-verifying-key.manifest.json'
   )
 }
 
@@ -90,6 +98,12 @@ const expected = {
     'device_fingerprint',
     'cookie',
     'authorization'
+  ],
+  placeholderHashes: [
+    'vk-sha256',
+    'placeholder',
+    'todo',
+    'tbd'
   ]
 }
 
@@ -167,6 +181,21 @@ function hasNoForbiddenIdentity(label, actual) {
 function equals(label, actual, expectedValue) {
   if (actual !== expectedValue) {
     fail(`${label} expected ${expectedValue}, got ${actual}`)
+  }
+}
+
+function isBlank(value) {
+  return String(value ?? '').trim().length === 0
+}
+
+function isPlaceholder(value) {
+  const normalized = String(value ?? '').trim().toLowerCase()
+  return normalized.length > 0 && expected.placeholderHashes.some((token) => normalized.includes(token))
+}
+
+function assertNoPlaceholder(label, value) {
+  if (isPlaceholder(value)) {
+    fail(`${label} uses placeholder hash ${value}`)
   }
 }
 
@@ -262,6 +291,107 @@ function checkTamperManifest(tamper) {
   }
 }
 
+function checkSetup(setup, circuitHash) {
+  equals('setup.schema', setup.schema, 'fsusblog.zk.trusted-setup-manifest.v1')
+  equals('setup.circuit_id', setup.circuit_id, expected.circuitId)
+  equals('setup.public_input_layout_version', setup.public_input_layout_version, expected.layoutVersion)
+  equals('setup.circuit_manifest_path', setup.circuit_manifest_path, 'security/zk/comment-v1-circuit.manifest.json')
+  equals('setup.circuit_manifest_sha256', setup.circuit_manifest_sha256, circuitHash)
+
+  if (setup.production_usable !== false) {
+    fail('setup.production_usable must remain false until pk/vk/transcripts are committed and hashed')
+  }
+  if (setup.ceremony_status !== 'not-run') {
+    fail('setup.ceremony_status must be not-run for the current fail-closed manifest')
+  }
+
+  assertNoPlaceholder('setup.verifying_key_hash', setup.verifying_key_hash)
+  if (!isBlank(setup.verifying_key_hash)) {
+    fail('setup.verifying_key_hash must remain empty while production_usable=false')
+  }
+
+  const runtimeBinding = asArray(setup.hash_binding?.runtime_binding)
+  hasAll('setup.hash_binding.runtime_binding', runtimeBinding, [
+    'circuit_id',
+    'public_input_layout_version',
+    'verifying_key_hash'
+  ])
+
+  for (const phase of ['phase1', 'phase2']) {
+    if (setup[phase]?.status !== 'required') {
+      fail(`setup.${phase}.status must be required`)
+    }
+    if (String(setup[phase]?.verification_command ?? '').trim().length === 0) {
+      fail(`setup.${phase}.verification_command is required`)
+    }
+  }
+
+  const artifacts = setup.artifacts ?? {}
+  for (const key of ['r1cs', 'proving_key', 'verifying_key', 'verifying_key_json', 'wasm_prover_bundle']) {
+    const artifact = artifacts[key] ?? {}
+    if (artifact.status !== 'required') {
+      fail(`setup.artifacts.${key}.status must be required`)
+    }
+    if (String(artifact.path ?? '').trim().length === 0) {
+      fail(`setup.artifacts.${key}.path is required`)
+    }
+    if (!isBlank(artifact.sha256)) {
+      const artifactPath = path.join(root, artifact.path)
+      if (!fs.existsSync(artifactPath)) {
+        fail(`setup.artifacts.${key}.sha256 is set but file is missing: ${artifact.path}`)
+      } else if (sha256File(artifactPath) !== artifact.sha256) {
+        fail(`setup.artifacts.${key}.sha256 does not match ${artifact.path}`)
+      }
+    }
+  }
+
+  const upgradeRules = asArray(setup.public_input_layout_upgrade_rules).join('\n')
+  for (const token of ['name change', 'order change', 'encoding change', 'semantic change', 'new circuit-specific Groth16 ceremony']) {
+    if (!upgradeRules.includes(token)) {
+      fail(`setup.public_input_layout_upgrade_rules missing ${token}`)
+    }
+  }
+
+  const transcriptChecks = asArray(setup.transcript_consistency_checks).join('\n')
+  for (const token of ['phase1 transcript SHA-256', 'phase2 transcript SHA-256', 'final proving key SHA-256', 'canonical verifying key bytes SHA-256', 'verifying key hash matches']) {
+    if (!transcriptChecks.includes(token)) {
+      fail(`setup.transcript_consistency_checks missing ${token}`)
+    }
+  }
+}
+
+function checkConfig(config, setup) {
+  equals('config.schema', config.schema, 'fsusblog.zk.verifying-key-config.v1')
+  equals('config.circuit_id', config.circuit_id, expected.circuitId)
+  equals('config.public_input_layout_version', config.public_input_layout_version, expected.layoutVersion)
+  equals('config.trusted_setup_manifest', config.trusted_setup_manifest, 'security/zk/comment-v1-trusted-setup.manifest.json')
+  equals('config.circuit_manifest', config.circuit_manifest, 'security/zk/comment-v1-circuit.manifest.json')
+  equals('config.verifying_key_path', config.verifying_key_path, setup.artifacts?.verifying_key?.path)
+
+  if (config.production_usable !== false) {
+    fail('config.production_usable must remain false until trusted setup is complete')
+  }
+  assertNoPlaceholder('config.verifying_key_hash', config.verifying_key_hash)
+  if (!isBlank(config.verifying_key_hash)) {
+    fail('config.verifying_key_hash must remain empty while production_usable=false')
+  }
+  if (config.verifying_key_hash !== setup.verifying_key_hash) {
+    fail('config.verifying_key_hash must match setup.verifying_key_hash')
+  }
+
+  const runtimeKeys = config.runtime_config_keys ?? {}
+  for (const key of [
+    'zkProdVerifyingKeyHash',
+    'zkVerifierVerifyingKeyHash',
+    'zkVerifierCircuitId',
+    'zkVerifierPublicInputLayoutVersion'
+  ]) {
+    if (String(runtimeKeys[key] ?? '').trim().length === 0) {
+      fail(`config.runtime_config_keys.${key} is required`)
+    }
+  }
+}
+
 function writeEvidence(status) {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true })
   fs.writeFileSync(
@@ -275,11 +405,9 @@ function writeEvidence(status) {
       host: os.hostname(),
       manifests: {
         circuit: relative(paths.circuit),
-        tamper: relative(paths.tamper)
-      },
-      hashes: {
-        circuit_sha256: fs.existsSync(paths.circuit) ? sha256File(paths.circuit) : '',
-        tamper_sha256: fs.existsSync(paths.tamper) ? sha256File(paths.tamper) : ''
+        tamper: relative(paths.tamper),
+        trusted_setup: relative(paths.setup),
+        verifying_key_config: relative(paths.config)
       }
     }, null, 2)}\n`
   )
@@ -287,9 +415,14 @@ function writeEvidence(status) {
 
 const circuit = readJson(paths.circuit)
 const tamper = readJson(paths.tamper)
+const setup = readJson(paths.setup)
+const config = readJson(paths.config)
+const circuitHash = fs.existsSync(paths.circuit) ? sha256File(paths.circuit) : ''
 
 checkCircuit(circuit)
 checkTamperManifest(tamper)
+checkSetup(setup, circuitHash)
+checkConfig(config, setup)
 
 if (failures.length > 0) {
   for (const failure of failures) console.error(failure)

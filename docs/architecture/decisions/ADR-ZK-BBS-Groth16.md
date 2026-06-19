@@ -69,7 +69,21 @@ The `comment.v1` Groth16 circuit must constrain:
 
 The trusted setup artifact set for this circuit must include the canonical circuit source hash, proving key hash, verifying key bytes, verifying key hash, ceremony transcript hash, and reproducible build metadata. `verifying_key_hash` must be computed from canonical verifying key bytes plus `circuit_id` and `public_input_layout_version`, then stored in root metadata / production verifier configuration. If the trusted setup artifact is absent or the vk hash is not the final setup output, production remains fail-closed.
 
-The repository circuit contract for this decision is fixed at `docs/zk/anonymous-comment-v1-circuit.md`, `security/zk/comment-v1-circuit.manifest.json`, and `security/zk/comment-v1-tamper-cases.manifest.json`. These committed manifests are intentionally not production artifacts; they define the public input layout, private witness contract, soundness/tamper matrix, identity exclusions, nullifier binding, and future artifact paths. Until the real R1CS/proving/verifying artifacts are supplied and hashed, `production_usable=false`.
+The repository asset contract for this decision is fixed at:
+
+- `docs/zk/anonymous-comment-v1-circuit.md`
+- `docs/zk/trusted-setup-ceremony.md`
+- `security/zk/comment-v1-circuit.manifest.json`
+- `security/zk/comment-v1-tamper-cases.manifest.json`
+- `security/zk/comment-v1-trusted-setup.manifest.json`
+- `config/zk/anonymous-comment-v1-verifying-key.manifest.json`
+
+These committed manifests are intentionally not production artifacts. They
+define the public input layout, private witness contract, soundness/tamper
+matrix, transcript consistency rules, upgrade rules, and future pk/vk paths.
+Until the real R1CS, proving key, verifying key, Powers of Tau transcript and
+phase-2 transcript are supplied and hashed, `production_usable=false` and the
+runtime verifying key hash stays empty.
 
 ## Security Assertion Boundary
 

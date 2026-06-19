@@ -28,6 +28,23 @@ scenarios:
     evidence:
       - .tmp/security/zk-comment-v1-manifest.json
 
+  - id: PRIVACY-ZK-TRUSTED-SETUP
+    scenario: comment.v1 trusted setup and verifying key manifests are fail-closed until real pk/vk/transcripts are supplied
+    owner: ServerContractAgent
+    status: automated
+    requiredCases: [ceremony-manifest-fail-closed, vk-hash-binding, srs-transcript-consistency, public-input-layout-upgrade-new-ceremony, pk-vk-artifact-paths, placeholder-vk-hash-rejected]
+    localCommands: [check:privacy-zk-contract]
+    code:
+      - docs/zk/trusted-setup-ceremony.md
+      - security/zk/comment-v1-trusted-setup.manifest.json
+      - config/zk/anonymous-comment-v1-verifying-key.manifest.json
+      - tools/crypto/check-zk-comment-v1-manifests.mjs
+    tests:
+      - tests/security/zk-comment-v1-manifest.test.mjs
+      - tools/crypto/check-zk-comment-v1-manifests.mjs
+    evidence:
+      - .tmp/security/zk-comment-v1-manifest.json
+
   - id: PRIVACY-ZK-TRANSPORT
     scenario: anonymous submit keeps browser credentials out and rejects credential-bearing requests
     owner: InteropGlueAgent
