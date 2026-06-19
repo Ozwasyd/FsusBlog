@@ -14,7 +14,11 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['../../tests/frontend/unit/services/binaryTransport.test.ts', '../../tests/frontend/property/**/*.test.ts'],
+    include: [
+      '../../tests/frontend/unit/services/binaryTransport.test.ts',
+      '../../tests/frontend/unit/workers/**/*.test.ts',
+      '../../tests/frontend/property/**/*.test.ts'
+    ],
     setupFiles: [unitSetupFile],
     reporters: ['default'],
     coverage: {
