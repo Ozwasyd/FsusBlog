@@ -98,6 +98,12 @@ export function createPerceptionV2WorkerClient(options: PerceptionV2WorkerClient
     pending.clear()
   }
 
+  const resetWorker = (value: PerceptionV2ClientRenderError): void => {
+    resolveAll(value)
+    worker?.terminate()
+    worker = null
+  }
+
   return {
     render(recipe, options) {
       const activeWorker = ensureWorker()
@@ -117,11 +123,20 @@ export function createPerceptionV2WorkerClient(options: PerceptionV2WorkerClient
 
       return new Promise<PerceptionV2ClientRenderResult>((resolve) => {
         const timeoutId = setTimeout(() => {
-          pending.delete(id)
-          resolve({ ok: false, error: 'perception_v2_worker_timeout' })
+          if (!pending.has(id)) {
+            return
+          }
+          resetWorker({ ok: false, error: 'perception_v2_worker_timeout' })
         }, timeoutMs)
         pending.set(id, { resolve, timeoutId })
-        activeWorker.postMessage(request)
+        try {
+          activeWorker.postMessage(request)
+        } catch (error) {
+          resetWorker({
+            ok: false,
+            error: error instanceof Error && error.message ? error.message : 'perception_v2_worker_post_failed'
+          })
+        }
       })
     },
     dispose() {
@@ -145,5 +160,10 @@ function toRenderResult(response: PerceptionV2WorkerResponse): PerceptionV2Clien
 }
 
 function isWorker(value: Worker | PerceptionV2ClientRenderError): value is Worker {
-  return typeof Worker !== 'undefined' && value instanceof Worker
+  return Boolean(value)
+    && typeof value === 'object'
+    && 'postMessage' in value
+    && typeof (value as Worker).postMessage === 'function'
+    && 'terminate' in value
+    && typeof (value as Worker).terminate === 'function'
 }

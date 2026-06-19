@@ -127,15 +127,19 @@ async function renderInPerceptionWorker(
         : undefined
     })
     let ticks = 0
-    const interval = window.setInterval(() => {
-      ticks += 1
-    }, 0)
 
     try {
-      const response = await client.render(recipe, {
+      const renderPromise = client.render(recipe, {
         forceCanvasFallback: options.forceCanvasFallback === true,
         forceWorkerFailure: options.forceWorkerFailure === true
       })
+      await new Promise<void>((resolve) => {
+        window.setTimeout(() => {
+          ticks += 1
+          resolve()
+        }, 0)
+      })
+      const response = await renderPromise
 
       if (response.ok !== true) {
         return {
@@ -190,7 +194,6 @@ async function renderInPerceptionWorker(
         semanticIdsPresent: serializedRecipe.includes('glyphIds') || serializedRecipe.includes('charIds')
       }
     } finally {
-      window.clearInterval(interval)
       client.dispose()
     }
   }, { recipe: renderRecipe, options })

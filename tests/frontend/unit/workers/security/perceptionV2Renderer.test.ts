@@ -171,6 +171,79 @@ describe('PerceptionV2 worker renderer core', () => {
       error: 'perception_v2_worker_init_failed'
     })
   })
+
+  it('supports injected worker factories without a global Worker constructor', async () => {
+    const worker = new FakePerceptionWorker((message) => ({
+      v: 1,
+      type: 'rendered',
+      requestId: Number(message.requestId),
+      ok: true,
+      renderer: 'canvas-fallback',
+      result: {
+        kind: 'rgba-raster',
+        width: 1,
+        height: 1,
+        pixels: new Uint8ClampedArray([1, 2, 3, 255])
+      }
+    }))
+    const client = createPerceptionV2WorkerClient({
+      workerFactory: () => worker.asWorker()
+    })
+
+    await expect(client.render(completeRecipe)).resolves.toMatchObject({
+      ok: true,
+      renderer: 'canvas-fallback'
+    })
+    expect(worker.posted).toHaveLength(1)
+  })
+
+  it('returns recoverable errors for postMessage failures and worker timeouts', async () => {
+    const throwingWorker = new FakePerceptionWorker(() => {
+      throw new DOMException('clone failed', 'DataCloneError')
+    })
+    const postFailureClient = createPerceptionV2WorkerClient({
+      workerFactory: () => throwingWorker.asWorker()
+    })
+
+    await expect(postFailureClient.render(completeRecipe)).resolves.toMatchObject({
+      ok: false,
+      error: 'clone failed'
+    })
+    expect(throwingWorker.terminated).toBe(true)
+
+    const workers = [
+      new FakePerceptionWorker(() => undefined),
+      new FakePerceptionWorker((message) => ({
+        v: 1,
+        type: 'rendered',
+        requestId: Number(message.requestId),
+        ok: true,
+        renderer: 'canvas-fallback',
+        result: {
+          kind: 'rgba-raster',
+          width: 1,
+          height: 1,
+          pixels: new Uint8ClampedArray([4, 5, 6, 255])
+        }
+      }))
+    ]
+    let workerIndex = 0
+    const timeoutClient = createPerceptionV2WorkerClient({
+      timeoutMs: 1,
+      workerFactory: () => workers[workerIndex++].asWorker()
+    })
+
+    await expect(timeoutClient.render(completeRecipe)).resolves.toEqual({
+      ok: false,
+      error: 'perception_v2_worker_timeout'
+    })
+    expect(workers[0].terminated).toBe(true)
+    await expect(timeoutClient.render(completeRecipe)).resolves.toMatchObject({
+      ok: true,
+      renderer: 'canvas-fallback'
+    })
+    expect(workers[1].posted).toHaveLength(1)
+  })
 })
 
 function createFakeCanvas(bitmap: ImageBitmap): ReturnType<NonNullable<PerceptionV2RenderEnvironment['createOffscreenCanvas']>> {
@@ -188,4 +261,32 @@ function checksum(bytes: Uint8ClampedArray): number {
     result = (result + value) % 65535
   }
   return result
+}
+
+type FakeWorkerResponse = Parameters<NonNullable<Worker['onmessage']>>[0]['data']
+
+class FakePerceptionWorker {
+  onmessage: Worker['onmessage'] = null
+  onerror: Worker['onerror'] = null
+  onmessageerror: Worker['onmessageerror'] = null
+  posted: unknown[] = []
+  terminated = false
+
+  constructor(private readonly responder: (message: Record<string, unknown>) => FakeWorkerResponse | undefined) {}
+
+  postMessage(message: unknown): void {
+    this.posted.push(message)
+    const response = this.responder(message as Record<string, unknown>)
+    if (response) {
+      this.onmessage?.({ data: response } as MessageEvent)
+    }
+  }
+
+  terminate(): void {
+    this.terminated = true
+  }
+
+  asWorker(): Worker {
+    return this as unknown as Worker
+  }
 }
