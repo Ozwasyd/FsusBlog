@@ -47,6 +47,21 @@ public sealed class AnonymousPrivacyMatrixTests
         "check:privacy-zk"
     ];
 
+    private static readonly string[] RequiredCryptoDecisionTokens =
+    [
+        "BBS+",
+        "Groth16",
+        "fsus.anonymous.comment.v1",
+        "public_input_layout_version",
+        "verifying_key_hash",
+        "nullifier = PRF(credential_secret, action_context, scope)",
+        "credential root",
+        "revocation root",
+        "trusted setup",
+        "vk hash",
+        "fail-closed"
+    ];
+
     [Fact]
     public void PrivacyZkCommentMatrix_CoversRequiredPrivacyAndConcurrencyCases()
     {
@@ -63,6 +78,47 @@ public sealed class AnonymousPrivacyMatrixTests
         Assert.Contains("id: PRIVACY-ZK-MODERATION-LOGGING", matrix, StringComparison.Ordinal);
         Assert.Contains("id: PRIVACY-ZK-FRONTEND-RUNTIME", matrix, StringComparison.Ordinal);
         Assert.Contains("id: PRIVACY-ZK-CONCURRENCY", matrix, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PrivacyZkCryptoDecisionDocs_StayAlignedWithMatrixAndContractConstants()
+    {
+        string adrPath = BackendTestPaths.FromRoot("docs", "architecture", "decisions", "ADR-ZK-BBS-Groth16.md");
+        Assert.True(File.Exists(adrPath), "docs/architecture/decisions/ADR-ZK-BBS-Groth16.md must document the BBS+/Groth16 production ZK decision.");
+
+        string adr = File.ReadAllText(adrPath);
+        string security = BackendTestPaths.ReadAllTextFromRoot("docs/security.md");
+        string architecture = BackendTestPaths.ReadAllTextFromRoot("docs/architecture.md");
+        string matrix = BackendTestPaths.ReadAllTextFromRoot("security/privacy-zk-comment-matrix.yml");
+        string verifierContracts = BackendTestPaths.ReadAllTextFromRoot("tests/backend/Unit/ZkAnonymousProofVerifierContractTests.cs");
+
+        foreach (string token in RequiredCryptoDecisionTokens)
+        {
+            Assert.Contains(token, adr, StringComparison.Ordinal);
+            Assert.Contains(token, matrix, StringComparison.Ordinal);
+        }
+
+        foreach (string doc in new[] { security, architecture })
+        {
+            Assert.Contains("ADR-ZK-BBS-Groth16.md", doc, StringComparison.Ordinal);
+            Assert.Contains("BBS+", doc, StringComparison.Ordinal);
+            Assert.Contains("Groth16", doc, StringComparison.Ordinal);
+            Assert.Contains("fsus.anonymous.comment.v1", doc, StringComparison.Ordinal);
+            Assert.Contains("fail-closed", doc, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("valid credential", adr, StringComparison.Ordinal);
+        Assert.Contains("current credential root", adr, StringComparison.Ordinal);
+        Assert.Contains("not revoked", adr, StringComparison.Ordinal);
+        Assert.Contains("qualification", adr, StringComparison.Ordinal);
+        Assert.Contains("nullifier correctness", adr, StringComparison.Ordinal);
+        Assert.Contains("credential_level", adr, StringComparison.Ordinal);
+        Assert.Contains("account identity not disclosed", adr, StringComparison.Ordinal);
+        Assert.Contains("PS+Plonk", adr, StringComparison.Ordinal);
+        Assert.Contains("Semaphore-style", adr, StringComparison.Ordinal);
+        Assert.Contains("external hosted network", adr, StringComparison.Ordinal);
+        Assert.Contains("private const string CircuitId = \"fsus.anonymous.comment.v1\";", verifierContracts, StringComparison.Ordinal);
+        Assert.Contains("private const ushort PublicInputLayoutVersion = 2;", verifierContracts, StringComparison.Ordinal);
     }
 
     [Fact]

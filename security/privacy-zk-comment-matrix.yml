@@ -1,4 +1,15 @@
 version: privacy-zk-comment-matrix-v1
+cryptoDecision:
+  adr: docs/architecture/decisions/ADR-ZK-BBS-Groth16.md
+  credentialScheme: BBS+ credential issuance
+  proofSystem: Groth16 anonymous comment proof
+  circuit_id: fsus.anonymous.comment.v1
+  public_input_layout_version: 2
+  verifying_key_hash: trusted setup vk hash binding
+  nullifier: nullifier = PRF(credential_secret, action_context, scope)
+  credentialRoot: credential root membership for active or grace epoch
+  revocationRoot: revocation root non-revocation witness
+  productionMode: fail-closed until BBS+, Groth16, trusted setup and native verifier are complete
 scenarios:
   - id: PRIVACY-ZK-TRANSPORT
     scenario: anonymous submit keeps browser credentials out and rejects credential-bearing requests
