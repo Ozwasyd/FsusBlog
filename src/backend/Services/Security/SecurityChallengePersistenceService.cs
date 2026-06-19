@@ -1,4 +1,5 @@
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Observability;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;
@@ -91,7 +92,9 @@ public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : IS
         };
 
         await db.Insertable(entity).ExecuteCommandAsync();
-        return await db.Queryable<SecurityChallenge>().SingleAsync(item => item.ChallengeId == entity.ChallengeId);
+        SecurityChallenge stored = await db.Queryable<SecurityChallenge>().SingleAsync(item => item.ChallengeId == entity.ChallengeId);
+        FsusObservability.RecordSecurityChallengeIssued(stored.Kind, stored.Action, stored.PolicyVersion);
+        return stored;
     }
 
     public async Task<SecurityChallengeAttempt> RecordAttemptAsync(SecurityChallengeAttemptRequest request, CancellationToken cancellationToken = default)
@@ -147,7 +150,10 @@ public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : IS
             throw new InvalidOperationException("Security challenge attempt persistence failed.", transaction.ErrorException);
         }
 
-        return await db.Queryable<SecurityChallengeAttempt>().SingleAsync(item => item.AttemptId == attempt.AttemptId);
+        SecurityChallengeAttempt storedAttempt = await db.Queryable<SecurityChallengeAttempt>().SingleAsync(item => item.AttemptId == attempt.AttemptId);
+        SecurityChallenge storedChallenge = await db.Queryable<SecurityChallenge>().SingleAsync(item => item.ChallengeId == challengeId);
+        RecordAttemptMetric(storedChallenge, storedAttempt);
+        return storedAttempt;
     }
 
     public async Task<bool> ExpireAsync(string challengeId, string? reason = null, CancellationToken cancellationToken = default)
@@ -196,6 +202,27 @@ public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : IS
         {
             return false;
         }
+    }
+
+    private static void RecordAttemptMetric(SecurityChallenge challenge, SecurityChallengeAttempt attempt)
+    {
+        TimeSpan? solveDuration = attempt.AttemptedAtUtc >= challenge.IssuedAtUtc
+            ? attempt.AttemptedAtUtc - challenge.IssuedAtUtc
+            : null;
+        string reason = string.IsNullOrWhiteSpace(attempt.Reason) ? attempt.Outcome : attempt.Reason;
+        if (string.Equals(attempt.Outcome, SecurityChallengeAttemptOutcomes.Verified, StringComparison.Ordinal))
+        {
+            FsusObservability.RecordSecurityChallengeVerified(challenge.Kind, challenge.Action, challenge.PolicyVersion, solveDuration);
+            return;
+        }
+
+        if (string.Equals(attempt.Outcome, SecurityChallengeAttemptOutcomes.Replayed, StringComparison.Ordinal))
+        {
+            FsusObservability.RecordSecurityChallengeReplayed(challenge.Kind, challenge.Action, reason, challenge.PolicyVersion);
+            return;
+        }
+
+        FsusObservability.RecordSecurityChallengeFailed(challenge.Kind, challenge.Action, reason, challenge.PolicyVersion);
     }
 
     private static string NormalizeRequired(string? value, string name, int maxLength)

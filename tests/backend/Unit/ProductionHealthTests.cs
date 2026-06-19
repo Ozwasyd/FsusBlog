@@ -1,9 +1,14 @@
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Security;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -147,6 +152,84 @@ public sealed class ProductionHealthTests
         }
     }
 
+    [Fact]
+    public async Task ReadinessProbe_RiskControlCheck_ValidatesPolicyProvidersAndConsumeOnce()
+    {
+        string tempRoot = Path.Combine(Path.GetTempPath(), "fsusblog-health-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(tempRoot, "wwwroot"));
+        File.WriteAllText(Path.Combine(tempRoot, "wwwroot", "index.html"), "<html></html>");
+
+        try
+        {
+            var services = new ServiceCollection()
+                .AddSingleton<ISecurityRiskPolicyProvider>(new FixedRiskPolicyProvider(CreateRiskPolicy()))
+                .AddSingleton<IUnifiedCache, ConsumeOnceHealthCache>();
+            foreach (SecurityChallengeKind kind in SecurityChallengeContracts.SupportedKinds)
+            {
+                services.AddSingleton<ISecurityChallengeProvider>(new HealthChallengeProvider(SecurityChallengeContracts.ToWireName(kind)));
+            }
+
+            using ServiceProvider provider = services.BuildServiceProvider();
+            var probe = new ProductionReadinessProbe(
+                new ConfigurationBuilder().Build(),
+                new TestWebHostEnvironment(tempRoot, Environments.Development),
+                provider,
+                NullLogger<ProductionReadinessProbe>.Instance);
+
+            ProductionHealthReport report = await probe.CheckAsync(CancellationToken.None);
+
+            var riskControl = Assert.IsType<ProductionRiskControlHealthCheck>(report.Checks["riskControl"]);
+            Assert.Equal("ok", riskControl.Status);
+            Assert.True(riskControl.ActivePolicy);
+            Assert.True(riskControl.LastKnownGoodPolicy);
+            Assert.True(riskControl.RedisConsumeOnce);
+            Assert.True(riskControl.ChallengeProviderRegistry);
+            Assert.Equal(SecurityChallengeContracts.SupportedKinds.Count, riskControl.Providers.Count);
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ReadinessProbe_RiskControlCheck_FailsWhenActivePolicyMissing()
+    {
+        string tempRoot = Path.Combine(Path.GetTempPath(), "fsusblog-health-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(tempRoot, "wwwroot"));
+        File.WriteAllText(Path.Combine(tempRoot, "wwwroot", "index.html"), "<html></html>");
+
+        try
+        {
+            var services = new ServiceCollection()
+                .AddSingleton<IUnifiedCache, ConsumeOnceHealthCache>();
+            foreach (SecurityChallengeKind kind in SecurityChallengeContracts.SupportedKinds)
+            {
+                services.AddSingleton<ISecurityChallengeProvider>(new HealthChallengeProvider(SecurityChallengeContracts.ToWireName(kind)));
+            }
+
+            using ServiceProvider provider = services.BuildServiceProvider();
+            var probe = new ProductionReadinessProbe(
+                new ConfigurationBuilder().Build(),
+                new TestWebHostEnvironment(tempRoot, Environments.Development),
+                provider,
+                NullLogger<ProductionReadinessProbe>.Instance);
+
+            ProductionHealthReport report = await probe.CheckAsync(CancellationToken.None);
+
+            var riskControl = Assert.IsType<ProductionRiskControlHealthCheck>(report.Checks["riskControl"]);
+            Assert.Equal("failed", riskControl.Status);
+            Assert.False(riskControl.ActivePolicy);
+            Assert.False(riskControl.LastKnownGoodPolicy);
+            Assert.True(riskControl.RedisConsumeOnce);
+            Assert.True(riskControl.ChallengeProviderRegistry);
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
     private sealed class TestWebHostEnvironment(string root, string environmentName) : IWebHostEnvironment
     {
         public string ApplicationName { get; set; } = "FsusBlog.Server";
@@ -155,6 +238,107 @@ public sealed class ProductionHealthTests
         public string EnvironmentName { get; set; } = environmentName;
         public string ContentRootPath { get; set; } = root;
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+
+    private static SecurityRiskPolicySnapshotV2 CreateRiskPolicy()
+        => new(
+            "risk-policy-snapshot-1",
+            "risk-policy-v2",
+            DateTimeOffset.UtcNow,
+            SecuritySystemModes.Enforce,
+            100,
+            125,
+            "risk-policy-snapshot-1",
+            new SecurityRiskActionPolicy(
+                "*",
+                new SecurityRiskActionThresholds(10, 25, 50, 75, 90),
+                SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1),
+                1,
+                null,
+                AnonymousWriteAllowed: true),
+            new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal),
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [SecurityRiskSources.AntiCrawler] = SecuritySystemModes.Enforce,
+                [SecurityRiskSources.Pow] = SecuritySystemModes.Enforce,
+                [SecurityRiskSources.PoSpace] = SecuritySystemModes.Disabled
+            });
+
+    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicySnapshotV2 policy) : ISecurityRiskPolicyProvider
+    {
+        public SecurityRiskPolicySnapshot CurrentRiskPolicy => SecurityRiskPolicySnapshotV2Adapter.ToLegacy(policy);
+
+        public SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2 => policy;
+    }
+
+    private sealed class HealthChallengeProvider(string kind) : ISecurityChallengeProvider
+    {
+        public string Kind { get; } = kind;
+
+        public Task<SecurityChallengeProviderIssueResult> IssueAsync(SecurityChallengeProviderIssueRequest request, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<SecurityChallengeProviderVerifyResult> VerifyAsync(SecurityChallengeProviderVerifyRequest request, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+    }
+
+    private sealed class ConsumeOnceHealthCache : IUnifiedCache
+    {
+        private readonly HashSet<(CachePolicyId PolicyId, string Identity)> _keys = [];
+
+        public Task SetStringAsync(CachePolicyId policyId, string identity, string value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
+        {
+            _keys.Add((policyId, identity));
+            return Task.CompletedTask;
+        }
+
+        public Task<bool> ConsumeOnceAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => Task.FromResult(_keys.Remove((policyId, identity)));
+
+        public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<CacheReadResult<ReadOnlyMemory<byte>>> TryGetRawReadonlyAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task SetRawAsync(CachePolicyId policyId, string identity, byte[] value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task SetNegativeAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<string?> GetStringAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<long> IncrementAsync(CachePolicyId policyId, string identity, long value = 1, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task RemoveAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task RemoveManyAsync(IReadOnlyList<CacheKeyIdentity> keys, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task RemoveByPrefixAsync(CachePolicyId policyId, string identityPrefix, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task RemoveByPrefixManyAsync(IReadOnlyList<CachePrefixIdentity> prefixes, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public string BuildKey(CachePolicyId policyId, string identity, string? version = null)
+            => $"{policyId}:{identity}:{version}";
     }
 
     private static string ExtractBetween(string source, string start, string end)

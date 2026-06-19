@@ -1,6 +1,8 @@
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
+using System.Diagnostics.Metrics;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -38,6 +40,41 @@ public sealed class RiskDecisionServiceTests
         Assert.Equal(RiskDecisionKind.Block, decision.Kind);
         Assert.Empty(decision.RequiredChallenges);
         Assert.Contains(SecurityRiskPolicyOutcomes.Block, decision.Reasons);
+    }
+
+    [Fact]
+    public void Decide_ChallengeQueueAndBlock_RecordDecisionMetrics()
+    {
+        var measurements = new List<string>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (string.Equals(instrument.Meter.Name, FsusObservability.MeterName, StringComparison.Ordinal)
+                && string.Equals(instrument.Name, "fsus.security.decision.count", StringComparison.Ordinal))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.Start();
+        SecurityRiskPolicySnapshotV2 policy = CreatePolicy(
+            SecuritySystemModes.Enforce,
+            new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
+            {
+                [RiskActionNames.PublicRead] = new SecurityRiskActionPolicy(
+                    RiskActionNames.PublicRead,
+                    new SecurityRiskActionThresholds(9, 10, 20, 30, 40),
+                    "security.pow",
+                    1,
+                    null,
+                    AnonymousWriteAllowed: true)
+            });
+
+        Assert.Equal(RiskDecisionKind.Challenge, _service.Decide(CreateContext(RiskActionNames.PublicRead), policy, 10).Kind);
+        Assert.Equal(RiskDecisionKind.QueueForModeration, _service.Decide(CreateContext(RiskActionNames.PublicRead), policy, 30).Kind);
+        Assert.Equal(RiskDecisionKind.Block, _service.Decide(CreateContext(RiskActionNames.PublicRead), policy, 40).Kind);
+
+        Assert.True(measurements.Count(item => string.Equals(item, "fsus.security.decision.count", StringComparison.Ordinal)) >= 3);
     }
 
     [Theory]

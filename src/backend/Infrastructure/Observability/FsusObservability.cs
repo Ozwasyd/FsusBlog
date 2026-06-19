@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using FsusBlog.Server.Infrastructure.Security;
 
 namespace FsusBlog.Server.Infrastructure.Observability;
 
@@ -32,7 +33,12 @@ public static class FsusObservability
         "fsus.operation",
         "fsus.result",
         "fsus.route_kind",
+        "fsus.security.action",
+        "fsus.security.kind",
+        "fsus.security.outcome",
+        "fsus.security.policy_version",
         "fsus.security.reason",
+        "fsus.security.source",
         "fsus.search.mode",
         "fsus.notification_stream.operation"
     ];
@@ -46,6 +52,13 @@ public static class FsusObservability
     private static readonly Histogram<double> OperationDuration = Meter.CreateHistogram<double>("fsus.operation.duration", "ms");
     private static readonly Counter<long> CacheOperationCounter = Meter.CreateCounter<long>("fsus.cache.operation.count");
     private static readonly Counter<long> SecurityEventCounter = Meter.CreateCounter<long>("fsus.security.event.count");
+    private static readonly Counter<long> SecurityRiskEventCounter = Meter.CreateCounter<long>("fsus.security.risk.event.count");
+    private static readonly Counter<long> SecurityChallengeIssuedCounter = Meter.CreateCounter<long>("fsus.security.challenge.issued.count");
+    private static readonly Counter<long> SecurityChallengeVerifiedCounter = Meter.CreateCounter<long>("fsus.security.challenge.verified.count");
+    private static readonly Counter<long> SecurityChallengeFailedCounter = Meter.CreateCounter<long>("fsus.security.challenge.failed.count");
+    private static readonly Counter<long> SecurityChallengeReplayedCounter = Meter.CreateCounter<long>("fsus.security.challenge.replayed.count");
+    private static readonly Histogram<double> SecurityChallengeSolveDuration = Meter.CreateHistogram<double>("fsus.security.challenge.solve.duration", "ms");
+    private static readonly Counter<long> SecurityDecisionCounter = Meter.CreateCounter<long>("fsus.security.decision.count");
     private static readonly Histogram<double> CacheOperationDuration = Meter.CreateHistogram<double>("fsus.cache.operation.duration", "ms");
     private static readonly Histogram<double> DbOperationDuration = Meter.CreateHistogram<double>("fsus.db.operation.duration", "ms");
     private static readonly Histogram<double> AotRenderDuration = Meter.CreateHistogram<double>("fsus.aot.render.duration", "ms");
@@ -58,9 +71,13 @@ public static class FsusObservability
     private static readonly Counter<long> StatsDirtyCounter = Meter.CreateCounter<long>("fsus.cache.stats.dirty.count");
     private static readonly Counter<long> StatsFlushCounter = Meter.CreateCounter<long>("fsus.cache.stats.flush.count");
     private static long HotArticlesVersionValue;
+    private static string ActiveSecurityPolicyVersionValue = "unknown";
     private static readonly ObservableGauge<long> HotArticlesVersionGauge = Meter.CreateObservableGauge(
         "fsus.cache.hot_articles.version",
         static () => Volatile.Read(ref HotArticlesVersionValue));
+    private static readonly ObservableGauge<long> SecurityPolicyVersionActiveGauge = Meter.CreateObservableGauge(
+        "fsus.security.policy.version.active",
+        ObserveActiveSecurityPolicyVersion);
     private static readonly Counter<long> CacheRemoveManyKeyCounter = Meter.CreateCounter<long>("fsus.cache.remove_many.keys");
     private static readonly Counter<long> CacheRemoveManyRedisBatchCounter = Meter.CreateCounter<long>("fsus.cache.remove_many.redis_batches");
     private static readonly Histogram<double> CacheRemoveManyElapsed = Meter.CreateHistogram<double>("fsus.cache.remove_many.elapsed_ms", "ms");
@@ -175,6 +192,85 @@ public static class FsusObservability
         TagList tags = CreateBaseTags("security", operation, result);
         tags.Add("fsus.security.reason", reason);
         SecurityEventCounter.Add(1, tags);
+    }
+
+    public static void RecordSecurityRiskEvent(string source, string reason, string action, string result)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("security", "risk_event", NormalizeTelemetryValue(result, "received"));
+            tags.Add("fsus.security.source", NormalizeTelemetryValue(source, "unknown"));
+            tags.Add("fsus.security.reason", NormalizeTelemetryValue(reason, "unknown"));
+            tags.Add("fsus.security.action", NormalizeTelemetryValue(action, "unknown"));
+            SecurityRiskEventCounter.Add(1, tags);
+        });
+    }
+
+    public static void RecordSecurityDecision(RiskDecision decision)
+    {
+        ArgumentNullException.ThrowIfNull(decision);
+
+        RecordSecurityPolicyVersion(decision.PolicyVersion);
+        TryRecord(() =>
+        {
+            string outcome = NormalizeTelemetryValue(decision.Kind.ToString(), "unknown").ToLowerInvariant();
+            TagList tags = CreateBaseTags("security", "risk_decision", outcome);
+            tags.Add("fsus.security.action", NormalizeTelemetryValue(decision.ActionName, "unknown"));
+            tags.Add("fsus.security.outcome", outcome);
+            tags.Add("fsus.security.policy_version", NormalizeTelemetryValue(decision.PolicyVersion, "unknown"));
+            SecurityDecisionCounter.Add(1, tags);
+        });
+    }
+
+    public static void RecordSecurityPolicyVersion(string? policyVersion)
+    {
+        string normalized = NormalizeTelemetryValue(policyVersion, "unknown");
+        if (!string.Equals(normalized, "unknown", StringComparison.Ordinal))
+        {
+            Volatile.Write(ref ActiveSecurityPolicyVersionValue, normalized);
+        }
+    }
+
+    public static void RecordSecurityChallengeIssued(string kind, string action, string policyVersion)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateSecurityChallengeTags("challenge_issue", "issued", kind, action, policyVersion);
+            SecurityChallengeIssuedCounter.Add(1, tags);
+        });
+    }
+
+    public static void RecordSecurityChallengeVerified(string kind, string action, string policyVersion, TimeSpan? solveDuration = null)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateSecurityChallengeTags("challenge_verify", "verified", kind, action, policyVersion);
+            SecurityChallengeVerifiedCounter.Add(1, tags);
+            if (solveDuration is { } duration && duration >= TimeSpan.Zero)
+            {
+                SecurityChallengeSolveDuration.Record(duration.TotalMilliseconds, tags);
+            }
+        });
+    }
+
+    public static void RecordSecurityChallengeFailed(string kind, string action, string reason, string policyVersion)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateSecurityChallengeTags("challenge_verify", "failed", kind, action, policyVersion);
+            tags.Add("fsus.security.reason", NormalizeTelemetryValue(reason, "failed"));
+            SecurityChallengeFailedCounter.Add(1, tags);
+        });
+    }
+
+    public static void RecordSecurityChallengeReplayed(string kind, string action, string reason, string policyVersion)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateSecurityChallengeTags("challenge_verify", "replayed", kind, action, policyVersion);
+            tags.Add("fsus.security.reason", NormalizeTelemetryValue(reason, "replayed"));
+            SecurityChallengeReplayedCounter.Add(1, tags);
+        });
     }
 
     public static void RecordDbOperation(string operation, string result, TimeSpan duration)
@@ -312,5 +408,51 @@ public static class FsusObservability
         tags.Add("fsus.operation", operation);
         tags.Add("fsus.result", result);
         return tags;
+    }
+
+    private static TagList CreateSecurityChallengeTags(
+        string operation,
+        string result,
+        string kind,
+        string action,
+        string policyVersion)
+    {
+        RecordSecurityPolicyVersion(policyVersion);
+        TagList tags = CreateBaseTags("security", operation, result);
+        tags.Add("fsus.security.kind", NormalizeTelemetryValue(kind, "unknown"));
+        tags.Add("fsus.security.action", NormalizeTelemetryValue(action, "unknown"));
+        tags.Add("fsus.security.outcome", result);
+        tags.Add("fsus.security.policy_version", NormalizeTelemetryValue(policyVersion, "unknown"));
+        return tags;
+    }
+
+    private static Measurement<long> ObserveActiveSecurityPolicyVersion()
+    {
+        TagList tags = CreateBaseTags("security", "risk_policy", "active");
+        tags.Add("fsus.security.policy_version", Volatile.Read(ref ActiveSecurityPolicyVersionValue));
+        return new Measurement<long>(1, tags);
+    }
+
+    private static string NormalizeTelemetryValue(string? value, string fallback)
+    {
+        string normalized = (value ?? string.Empty).Trim();
+        if (normalized.Length == 0)
+        {
+            return fallback;
+        }
+
+        return normalized.Length <= 96 ? normalized : normalized[..96];
+    }
+
+    private static void TryRecord(Action record)
+    {
+        try
+        {
+            record();
+        }
+        catch
+        {
+            // Telemetry listeners/exporters must not affect RiskControl decisions.
+        }
     }
 }

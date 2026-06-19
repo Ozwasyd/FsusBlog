@@ -1,5 +1,7 @@
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Shared.Contracts.Security;
+using Microsoft.Extensions.Logging;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -125,10 +127,11 @@ public sealed record SecurityChallengeOrchestrationVerifyResult(
         => new(false, string.IsNullOrWhiteSpace(reason) ? "challenge_verify_failed" : reason.Trim(), null);
 }
 
-public sealed class SecurityChallengeOrchestrator(
+public sealed partial class SecurityChallengeOrchestrator(
     IEnumerable<ISecurityChallengeProvider> providers,
     ISecurityChallengeProofService proofService,
-    ISecurityRiskSignalSink riskSignalSink) : ISecurityChallengeOrchestrator
+    ISecurityRiskSignalSink riskSignalSink,
+    ILogger<SecurityChallengeOrchestrator>? logger = null) : ISecurityChallengeOrchestrator
 {
     private static readonly TimeSpan RiskSignalTtl = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan DefaultProofTtl = TimeSpan.FromMinutes(5);
@@ -144,6 +147,12 @@ public sealed class SecurityChallengeOrchestrator(
 
         if (request.Decision.RequiredChallenges.Count is <= 0 or > SecurityChallengeContracts.MaxAssignmentsPerEnvelope)
         {
+            RecordChallengeFailure(
+                "issue",
+                "none",
+                request.Decision.ActionName,
+                request.Decision.PolicyVersion,
+                "challenge_count_invalid");
             await RecordRiskAsync(request.Context, request.Decision.ActionName, "challenge_count_invalid", cancellationToken);
             return SecurityChallengeOrchestrationIssueResult.Failed("challenge_count_invalid");
         }
@@ -155,6 +164,7 @@ public sealed class SecurityChallengeOrchestrator(
             string kind = NormalizeKind(rawKind);
             if (!_providers.TryGetValue(kind, out ISecurityChallengeProvider? provider))
             {
+                RecordChallengeFailure("issue", kind, request.Decision.ActionName, request.Decision.PolicyVersion, "provider_missing");
                 await RecordRiskAsync(request.Context, request.Decision.ActionName, $"provider_missing:{kind}", cancellationToken);
                 return SecurityChallengeOrchestrationIssueResult.Failed("provider_missing");
             }
@@ -179,6 +189,7 @@ public sealed class SecurityChallengeOrchestrator(
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                RecordChallengeFailure("issue", kind, request.Decision.ActionName, request.Decision.PolicyVersion, "provider_exception", ex);
                 await RecordRiskAsync(request.Context, request.Decision.ActionName, $"provider_exception:{kind}", cancellationToken);
                 return SecurityChallengeOrchestrationIssueResult.Failed("provider_exception");
             }
@@ -186,6 +197,7 @@ public sealed class SecurityChallengeOrchestrator(
             if (!providerResult.Succeeded || providerResult.Assignment is null)
             {
                 string reason = providerResult.Reason;
+                RecordChallengeFailure("issue", kind, request.Decision.ActionName, request.Decision.PolicyVersion, reason);
                 await RecordRiskAsync(request.Context, request.Decision.ActionName, $"provider_failure:{kind}:{reason}", cancellationToken);
                 return SecurityChallengeOrchestrationIssueResult.Failed(reason);
             }
@@ -193,6 +205,7 @@ public sealed class SecurityChallengeOrchestrator(
             SecurityChallengeValidationResult validation = ValidateProviderAssignment(providerResult.Assignment, kind);
             if (!validation.IsValid)
             {
+                RecordChallengeFailure("issue", kind, request.Decision.ActionName, request.Decision.PolicyVersion, validation.ErrorCode);
                 await RecordRiskAsync(request.Context, request.Decision.ActionName, $"provider_assignment_invalid:{kind}:{validation.ErrorCode}", cancellationToken);
                 return SecurityChallengeOrchestrationIssueResult.Failed(validation.ErrorCode);
             }
@@ -208,6 +221,11 @@ public sealed class SecurityChallengeOrchestrator(
             SecurityChallengeContracts.CreateChallengeId(),
             NormalizeRequired(request.Decision.PolicyVersion, nameof(request.Decision.PolicyVersion), 64),
             assignments);
+        if (logger is not null)
+        {
+            LogChallengeIssueSucceeded(logger, request.Decision.ActionName, assignments.Count, request.Decision.PolicyVersion);
+        }
+
         return SecurityChallengeOrchestrationIssueResult.Success(envelope, providerPayloads);
     }
 
@@ -219,6 +237,7 @@ public sealed class SecurityChallengeOrchestrator(
         string kind = NormalizeKind(request.Kind);
         if (!_providers.TryGetValue(kind, out ISecurityChallengeProvider? provider))
         {
+            RecordChallengeFailure("verify", kind, request.Action, request.PolicyVersion, "provider_missing");
             await RecordRiskAsync(request.Context, request.Action, $"provider_missing:{kind}", cancellationToken);
             return SecurityChallengeOrchestrationVerifyResult.Failed("provider_missing");
         }
@@ -242,12 +261,14 @@ public sealed class SecurityChallengeOrchestrator(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            RecordChallengeFailure("verify", kind, request.Action, request.PolicyVersion, "provider_exception", ex);
             await RecordRiskAsync(request.Context, request.Action, $"provider_exception:{kind}", cancellationToken);
             return SecurityChallengeOrchestrationVerifyResult.Failed("provider_exception");
         }
 
         if (!providerResult.Succeeded)
         {
+            RecordChallengeFailure("verify", kind, request.Action, request.PolicyVersion, providerResult.Reason);
             await RecordRiskAsync(request.Context, request.Action, $"provider_verify_failed:{kind}:{providerResult.Reason}", cancellationToken);
             return SecurityChallengeOrchestrationVerifyResult.Failed(providerResult.Reason);
         }
@@ -271,10 +292,16 @@ public sealed class SecurityChallengeOrchestrator(
                     issuedAt,
                     expiresAt),
                 cancellationToken);
+            if (logger is not null)
+            {
+                LogChallengeVerifySucceeded(logger, request.Action, kind, request.PolicyVersion);
+            }
+
             return SecurityChallengeOrchestrationVerifyResult.Success(proof.ProofToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            RecordChallengeFailure("verify", kind, request.Action, request.PolicyVersion, "proof_mint_failed", ex);
             await RecordRiskAsync(request.Context, request.Action, $"proof_mint_failed:{kind}", cancellationToken);
             return SecurityChallengeOrchestrationVerifyResult.Failed("proof_mint_failed");
         }
@@ -294,6 +321,41 @@ public sealed class SecurityChallengeOrchestrator(
             SecurityRiskSources.RiskControl,
             string.IsNullOrWhiteSpace(action) ? "security_challenge" : action,
             detail), cancellationToken);
+
+    private void RecordChallengeFailure(
+        string phase,
+        string kind,
+        string action,
+        string policyVersion,
+        string reason,
+        Exception? exception = null)
+    {
+        FsusObservability.RecordSecurityChallengeFailed(kind, action, reason, policyVersion);
+        if (logger is null)
+        {
+            return;
+        }
+
+        if (string.Equals(phase, "issue", StringComparison.Ordinal))
+        {
+            LogChallengeIssueFailed(logger, exception, action, kind, reason, policyVersion);
+            return;
+        }
+
+        LogChallengeVerifyFailed(logger, exception, action, kind, reason, policyVersion);
+    }
+
+    [LoggerMessage(EventId = 1701, Level = LogLevel.Warning, Message = "security challenge issue failed action={Action} kind={Kind} reason={Reason} policyVersion={PolicyVersion}")]
+    private static partial void LogChallengeIssueFailed(ILogger logger, Exception? exception, string action, string kind, string reason, string policyVersion);
+
+    [LoggerMessage(EventId = 1702, Level = LogLevel.Warning, Message = "security challenge verify failed action={Action} kind={Kind} reason={Reason} policyVersion={PolicyVersion}")]
+    private static partial void LogChallengeVerifyFailed(ILogger logger, Exception? exception, string action, string kind, string reason, string policyVersion);
+
+    [LoggerMessage(EventId = 1703, Level = LogLevel.Information, Message = "security challenge issue succeeded action={Action} challengeCount={ChallengeCount} policyVersion={PolicyVersion}")]
+    private static partial void LogChallengeIssueSucceeded(ILogger logger, string action, int challengeCount, string policyVersion);
+
+    [LoggerMessage(EventId = 1704, Level = LogLevel.Information, Message = "security challenge verify succeeded action={Action} kind={Kind} policyVersion={PolicyVersion}")]
+    private static partial void LogChallengeVerifySucceeded(ILogger logger, string action, string kind, string policyVersion);
 
     private static string NormalizeKind(string? value)
     {

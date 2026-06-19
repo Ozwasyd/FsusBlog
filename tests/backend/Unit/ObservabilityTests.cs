@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Security;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -6,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 
 namespace FsusBlog.Server.Tests;
 
@@ -57,6 +59,71 @@ public sealed class ObservabilityTests
             string normalized = attribute.Replace("_", ".", StringComparison.Ordinal).ToLowerInvariant();
             Assert.DoesNotContain(forbiddenFragments, fragment => normalized.Contains(fragment, StringComparison.Ordinal));
         }
+    }
+
+    [Fact]
+    public void RiskControlMetrics_EmitNamedMeasurements()
+    {
+        var measurements = new List<string>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (string.Equals(instrument.Meter.Name, FsusObservability.MeterName, StringComparison.Ordinal)
+                && instrument.Name.StartsWith("fsus.security.", StringComparison.Ordinal))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.SetMeasurementEventCallback<double>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.Start();
+
+        FsusObservability.RecordSecurityRiskEvent("risk-control", "RateLimited", "public.read", "received");
+        FsusObservability.RecordSecurityChallengeIssued("sha256PowV1", "public.read", "risk-policy-v2");
+        FsusObservability.RecordSecurityChallengeVerified("sha256PowV1", "public.read", "risk-policy-v2", TimeSpan.FromSeconds(2));
+        FsusObservability.RecordSecurityChallengeFailed("sha256PowV1", "public.read", "proof_invalid", "risk-policy-v2");
+        FsusObservability.RecordSecurityChallengeReplayed("sha256PowV1", "public.read", "proof_replayed", "risk-policy-v2");
+        FsusObservability.RecordSecurityDecision(new RiskDecision(
+            RiskDecisionKind.Block,
+            "public.read",
+            "/article/42",
+            100,
+            100,
+            0,
+            [],
+            "risk-policy-v2",
+            ["blocked"]));
+        listener.RecordObservableInstruments();
+
+        Assert.Contains("fsus.security.risk.event.count", measurements);
+        Assert.Contains("fsus.security.challenge.issued.count", measurements);
+        Assert.Contains("fsus.security.challenge.verified.count", measurements);
+        Assert.Contains("fsus.security.challenge.failed.count", measurements);
+        Assert.Contains("fsus.security.challenge.replayed.count", measurements);
+        Assert.Contains("fsus.security.challenge.solve.duration", measurements);
+        Assert.Contains("fsus.security.decision.count", measurements);
+        Assert.Contains("fsus.security.policy.version.active", measurements);
+    }
+
+    [Fact]
+    public void RiskControlMetrics_DoNotPropagateListenerFailures()
+    {
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (string.Equals(instrument.Meter.Name, FsusObservability.MeterName, StringComparison.Ordinal)
+                && string.Equals(instrument.Name, "fsus.security.challenge.issued.count", StringComparison.Ordinal))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((_, _, _, _) => throw new InvalidOperationException("collector failed"));
+        listener.Start();
+
+        Exception? exception = Record.Exception(() =>
+            FsusObservability.RecordSecurityChallengeIssued("sha256PowV1", "public.read", "risk-policy-v2"));
+
+        Assert.Null(exception);
     }
 
     [Fact]

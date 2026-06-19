@@ -1,14 +1,18 @@
 using System.Diagnostics;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.NotificationStream;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Shared.Contracts.Security;
 using Npgsql;
 using StackExchange.Redis;
 
@@ -51,6 +55,16 @@ public sealed record ProductionObservabilityHealthCheck(
     int CustomAttributeCount,
     string? Error = null) : IProductionHealthCheck;
 
+public sealed record ProductionRiskControlHealthCheck(
+    string Status,
+    bool ActivePolicy,
+    bool LastKnownGoodPolicy,
+    bool RedisConsumeOnce,
+    bool ChallengeProviderRegistry,
+    string? PolicyVersion,
+    IReadOnlyList<string> Providers,
+    string? Error = null) : IProductionHealthCheck;
+
 public sealed record RuntimeHealthSnapshot(
     string Status,
     DbConcurrencyGateSnapshot? DbGate,
@@ -91,6 +105,7 @@ public sealed class ProductionReadinessProbe(
     {
         Task<ProductionDependencyHealthCheck> postgresTask = CheckPostgresAsync(cancellationToken);
         Task<ProductionDependencyHealthCheck> redisTask = CheckRedisAsync(cancellationToken);
+        Task<ProductionRiskControlHealthCheck> riskControlTask = CheckRiskControlAsync(cancellationToken);
         Dictionary<string, object?> checks = new(StringComparer.Ordinal)
         {
             ["configuration"] = CheckConfiguration(),
@@ -102,6 +117,7 @@ public sealed class ProductionReadinessProbe(
         await Task.WhenAll(postgresTask, redisTask);
         checks["postgres"] = postgresTask.Result;
         checks["redis"] = redisTask.Result;
+        checks["riskControl"] = await riskControlTask;
 
         bool healthy = checks.Values.All(IsHealthyCheck);
         return new ProductionHealthReport(
@@ -194,6 +210,100 @@ public sealed class ProductionReadinessProbe(
             scheduledPublish?.CreateSnapshot(),
             publicHotRead,
             auditLog);
+    }
+
+    private async Task<ProductionRiskControlHealthCheck> CheckRiskControlAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            SecurityRiskPolicySnapshotV2? policy = serviceProvider.GetService<ISecurityRiskPolicyProvider>()?.CurrentRiskPolicyV2;
+            string? policyVersion = policy?.PolicyVersion;
+            bool activePolicy = policy is not null
+                && !string.IsNullOrWhiteSpace(policy.SnapshotId)
+                && !string.IsNullOrWhiteSpace(policy.PolicyVersion)
+                && policy.DefaultAction is not null;
+            bool lastKnownGoodPolicy = policy is not null
+                && !string.IsNullOrWhiteSpace(policy.LastKnownGoodSnapshotId);
+            if (!string.IsNullOrWhiteSpace(policyVersion))
+            {
+                FsusObservability.RecordSecurityPolicyVersion(policyVersion);
+            }
+
+            IReadOnlyList<string> providers = ResolveChallengeProviders();
+            bool challengeProviderRegistry = ChallengeProviderRegistryReady(providers);
+            bool redisConsumeOnce = await CheckRedisConsumeOnceAsync(cancellationToken);
+            bool ok = activePolicy && lastKnownGoodPolicy && challengeProviderRegistry && redisConsumeOnce;
+            return new ProductionRiskControlHealthCheck(
+                ok ? "ok" : "failed",
+                activePolicy,
+                lastKnownGoodPolicy,
+                redisConsumeOnce,
+                challengeProviderRegistry,
+                policyVersion,
+                providers,
+                ok ? null : "risk_control_dependency_unavailable");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "risk-control readiness check failed");
+            return new ProductionRiskControlHealthCheck(
+                "failed",
+                ActivePolicy: false,
+                LastKnownGoodPolicy: false,
+                RedisConsumeOnce: false,
+                ChallengeProviderRegistry: false,
+                PolicyVersion: null,
+                Providers: [],
+                Error: ex.GetType().Name);
+        }
+    }
+
+    private IReadOnlyList<string> ResolveChallengeProviders()
+        => serviceProvider
+            .GetServices<ISecurityChallengeProvider>()
+            .Select(static provider => (provider.Kind ?? string.Empty).Trim())
+            .Where(static kind => kind.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static kind => kind, StringComparer.Ordinal)
+            .ToArray();
+
+    private static bool ChallengeProviderRegistryReady(IReadOnlyList<string> providers)
+    {
+        if (providers.Count == 0)
+        {
+            return false;
+        }
+
+        HashSet<string> registered = providers.ToHashSet(StringComparer.Ordinal);
+        foreach (SecurityChallengeKind kind in SecurityChallengeContracts.SupportedKinds)
+        {
+            if (!registered.Contains(SecurityChallengeContracts.ToWireName(kind)))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private async Task<bool> CheckRedisConsumeOnceAsync(CancellationToken cancellationToken)
+    {
+        IUnifiedCache? cache = serviceProvider.GetService<IUnifiedCache>();
+        if (cache is null)
+        {
+            return false;
+        }
+
+        string identity = "risk-control-readiness:" + Guid.NewGuid().ToString("N");
+        await cache.SetStringAsync(
+            CachePolicyId.SecurityChallengeProof,
+            identity,
+            "readiness",
+            TimeSpan.FromSeconds(5),
+            cancellationToken);
+        bool firstConsume = await cache.ConsumeOnceAsync(CachePolicyId.SecurityChallengeProof, identity, cancellationToken);
+        bool replayConsume = await cache.ConsumeOnceAsync(CachePolicyId.SecurityChallengeProof, identity, cancellationToken);
+        return firstConsume && !replayConsume;
     }
 
     private async Task<ProductionDependencyHealthCheck> CheckPostgresAsync(CancellationToken cancellationToken)

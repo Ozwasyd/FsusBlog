@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Models.Security;
 
 namespace FsusBlog.Server.Infrastructure.Security;
@@ -46,12 +47,12 @@ public sealed class RiskDecisionService : IRiskDecisionService
 
         if (context.VerifiedCrawler)
         {
-            return Allow(context, policy, currentRiskScore, "verified_crawler");
+            return RecordAndReturn(Allow(context, policy, currentRiskScore, "verified_crawler"));
         }
 
         if (context.SocialPreviewBot)
         {
-            return Allow(context, policy, currentRiskScore, "social_preview_bot");
+            return RecordAndReturn(Allow(context, policy, currentRiskScore, "social_preview_bot"));
         }
 
         SecurityRiskPolicyDecision policyDecision = policy.Evaluate(
@@ -71,7 +72,7 @@ public sealed class RiskDecisionService : IRiskDecisionService
             reasons.Add("missing_action");
         }
 
-        return new RiskDecision(
+        return RecordAndReturn(new RiskDecision(
             kind,
             context.ActionName,
             context.RouteKey,
@@ -80,7 +81,13 @@ public sealed class RiskDecisionService : IRiskDecisionService
             policyDecision.EscalationLevel,
             requiredChallenges,
             policy.PolicyVersion,
-            reasons);
+            reasons));
+    }
+
+    private static RiskDecision RecordAndReturn(RiskDecision decision)
+    {
+        FsusObservability.RecordSecurityDecision(decision);
+        return decision;
     }
 
     private static RiskDecision Allow(RiskControlContext context, SecurityRiskPolicySnapshotV2 policy, int currentRiskScore, string reason)
