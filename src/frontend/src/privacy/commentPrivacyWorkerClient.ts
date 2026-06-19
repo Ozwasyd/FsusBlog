@@ -1,4 +1,4 @@
-import type { CommentPrivacyProofRequest, CommentPrivacyWorkerClient } from './commentPrivacyTypes'
+import type { CommentPrivacyProofBundle, CommentPrivacyProofRequest, CommentPrivacyWorkerClient } from './commentPrivacyTypes'
 
 type CommentPrivacyWorkerRequest =
   | {
@@ -13,6 +13,16 @@ type CommentPrivacyWorkerRequest =
       scope: string
       rootVersion: string
       metadataBytes: ArrayBuffer
+      credentialEpoch?: number
+      circuitNumericId?: number
+      publicInputLayoutVersion?: number
+      circuitId?: string
+      credentialRoot?: ArrayBuffer
+      revocationRoot?: ArrayBuffer
+      circuitMetadata?: ArrayBuffer
+      credentialSecret?: ArrayBuffer
+      issuerSignature?: ArrayBuffer
+      revocationWitness?: ArrayBuffer
     }
 
 type CommentPrivacyWorkerResponse =
@@ -28,6 +38,8 @@ type CommentPrivacyWorkerResponse =
       requestId: number
       ok: true
       proofBytes: Uint8Array
+      publicInputs: Uint8Array
+      nullifierHash: Uint8Array
     }
   | {
       v: 1
@@ -41,6 +53,7 @@ type PendingRequest = {
   resolve: (value: unknown) => void
   reject: (reason?: unknown) => void
   timeoutId: ReturnType<typeof setTimeout>
+  abortCleanup?: () => void
 }
 
 type CommentPrivacyWorkerPostPayload =
@@ -52,6 +65,16 @@ type CommentPrivacyWorkerPostPayload =
       scope: string
       rootVersion: string
       metadataBytes: ArrayBuffer
+      credentialEpoch?: number
+      circuitNumericId?: number
+      publicInputLayoutVersion?: number
+      circuitId?: string
+      credentialRoot?: ArrayBuffer
+      revocationRoot?: ArrayBuffer
+      circuitMetadata?: ArrayBuffer
+      credentialSecret?: ArrayBuffer
+      issuerSignature?: ArrayBuffer
+      revocationWitness?: ArrayBuffer
     }
 
 export interface CommentPrivacyWorkerClientOptions {
@@ -105,12 +128,19 @@ export function createCommentPrivacyWorkerClient(options: CommentPrivacyWorkerCl
 
       pending.delete(response.requestId)
       clearTimeout(current.timeoutId)
+      current.abortCleanup?.()
       if (!response.ok) {
         current.reject(new Error(response.error))
         return
       }
 
-      current.resolve(response.type === 'proof' ? response.proofBytes : undefined)
+      current.resolve(response.type === 'proof'
+        ? {
+            proofBytes: response.proofBytes,
+            publicInputs: response.publicInputs,
+            nullifierHash: response.nullifierHash
+          }
+        : undefined)
     }
     worker.onerror = (event) => {
       const error = event instanceof ErrorEvent && event.message ? event.message : 'comment_privacy_worker_failed'
@@ -124,30 +154,50 @@ export function createCommentPrivacyWorkerClient(options: CommentPrivacyWorkerCl
   const rejectAll = (reason: unknown): void => {
     for (const current of pending.values()) {
       clearTimeout(current.timeoutId)
+      current.abortCleanup?.()
       current.reject(reason)
     }
     pending.clear()
   }
 
-  const postMessage = <T>(message: CommentPrivacyWorkerRequest, transfer: Transferable[] = []): Promise<T> => {
+  const postMessage = <T>(message: CommentPrivacyWorkerRequest, transfer: Transferable[] = [], signal?: AbortSignal): Promise<T> => {
     const activeWorker = ensureWorker()
     return new Promise<T>((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
+      if (signal?.aborted) {
+        reject(new DOMException('Aborted', 'AbortError'))
+        return
+      }
+
+      let abortCleanup: (() => void) | undefined
+      let timeoutId: ReturnType<typeof setTimeout>
+      const abortHandler = (): void => {
         pending.delete(message.requestId)
+        clearTimeout(timeoutId)
+        abortCleanup?.()
+        reject(new DOMException('Aborted', 'AbortError'))
+      }
+      timeoutId = setTimeout(() => {
+        pending.delete(message.requestId)
+        abortCleanup?.()
         reject(new Error('comment_privacy_worker_timeout'))
       }, timeoutMs)
+      abortCleanup = signal
+        ? () => signal.removeEventListener('abort', abortHandler)
+        : undefined
       pending.set(message.requestId, {
         resolve: (value: unknown) => resolve(value as T),
         reject,
-        timeoutId
+        timeoutId,
+        abortCleanup
       })
+      signal?.addEventListener('abort', abortHandler, { once: true })
       activeWorker.postMessage(message, transfer)
     })
   }
 
-  const post = <T>(message: CommentPrivacyWorkerPostPayload, transfer: Transferable[] = []): Promise<T> => {
+  const post = <T>(message: CommentPrivacyWorkerPostPayload, transfer: Transferable[] = [], signal?: AbortSignal): Promise<T> => {
     const id = ++requestId
-    return postMessage<T>({ v: 1, requestId: id, ...message } as CommentPrivacyWorkerRequest, transfer)
+    return postMessage<T>({ v: 1, requestId: id, ...message } as CommentPrivacyWorkerRequest, transfer, signal)
   }
 
   return {
@@ -155,20 +205,37 @@ export function createCommentPrivacyWorkerClient(options: CommentPrivacyWorkerCl
       if (signal?.aborted) {
         return Promise.resolve()
       }
-      return post<void>({ type: 'prewarm' })
+      return post<void>({ type: 'prewarm' }, [], signal)
     },
     prepareProof(request: CommentPrivacyProofRequest) {
       if (request.signal?.aborted) {
         return Promise.reject(new DOMException('Aborted', 'AbortError'))
       }
 
-      const metadataBytes = copyToTransferableBuffer(request.metadataBytes)
-      return post<Uint8Array>({
+      const transfers: Transferable[] = []
+      const metadataBytes = copyToTransferableBuffer(request.metadataBytes, transfers)
+      const credentialRoot = copyOptionalToTransferableBuffer(request.credentialRoot, transfers)
+      const revocationRoot = copyOptionalToTransferableBuffer(request.revocationRoot, transfers)
+      const circuitMetadata = copyOptionalToTransferableBuffer(request.circuitMetadata, transfers)
+      const credentialSecret = copyOptionalToTransferableBuffer(request.credentialSecret, transfers)
+      const issuerSignature = copyOptionalToTransferableBuffer(request.issuerSignature, transfers)
+      const revocationWitness = copyOptionalToTransferableBuffer(request.revocationWitness, transfers)
+      return post<CommentPrivacyProofBundle>({
         type: 'prepareProof',
         scope: request.scope,
         rootVersion: request.rootVersion,
-        metadataBytes
-      }, [metadataBytes])
+        metadataBytes,
+        credentialEpoch: request.credentialEpoch,
+        circuitNumericId: request.circuitNumericId,
+        publicInputLayoutVersion: request.publicInputLayoutVersion,
+        circuitId: request.circuitId,
+        credentialRoot,
+        revocationRoot,
+        circuitMetadata,
+        credentialSecret,
+        issuerSignature,
+        revocationWitness
+      }, transfers, request.signal)
     },
     dispose() {
       rejectAll(new Error('comment_privacy_worker_disposed'))
@@ -178,8 +245,13 @@ export function createCommentPrivacyWorkerClient(options: CommentPrivacyWorkerCl
   }
 }
 
-function copyToTransferableBuffer(bytes: Uint8Array): ArrayBuffer {
+function copyToTransferableBuffer(bytes: Uint8Array, transfers: Transferable[]): ArrayBuffer {
   const buffer = new ArrayBuffer(bytes.byteLength)
   new Uint8Array(buffer).set(bytes)
+  transfers.push(buffer)
   return buffer
+}
+
+function copyOptionalToTransferableBuffer(bytes: Uint8Array | undefined, transfers: Transferable[]): ArrayBuffer | undefined {
+  return bytes ? copyToTransferableBuffer(bytes, transfers) : undefined
 }

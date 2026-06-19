@@ -86,6 +86,7 @@ describe('comment privacy release gate', () => {
     const apiTest = readRepoFile('tests/frontend/unit/api/comment.test.ts')
     const runtimeTest = readRepoFile('tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts')
     const workerTest = readRepoFile('tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts')
+    const proverTest = readRepoFile('tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts')
     const authorWorkflow = readRepoFile('tests/frontend/unit/view-contracts/commentAnonymousAuthorWorkflow.test.ts')
 
     expect(apiTest).toContain("credentials: 'omit'")
@@ -94,9 +95,25 @@ describe('comment privacy release gate', () => {
     expect(runtimeTest).toContain('signals[0].aborted')
     expect(workerTest).toContain('transfers proof input buffers')
     expect(workerTest).toContain('transfer[0].byteLength')
+    expect(proverTest).toContain('comment_privacy_prover_artifact_unavailable')
     expect(authorWorkflow).toContain("not.toContain('zk_anonymous')")
     expect(authorWorkflow).toContain("not.toContain('强匿名')")
     expect(authorWorkflow.toLowerCase()).toContain('proof')
     expect('ui-no-zk-terms').toBe('ui-no-zk-terms')
+  })
+
+  it('removes the XOR placeholder prover and keeps wasm prover failures fail-closed', () => {
+    const packageJson = readRepoFile('src/frontend/package.json')
+    const worker = readRepoFile('src/frontend/src/workers/privacy/commentPrivacy.worker.ts')
+    const prover = readRepoFile('src/frontend/src/privacy/commentPrivacyWasmProver.ts')
+
+    expect(packageJson).toContain('commentPrivacyWasmProver.test.ts')
+    expect(worker).toContain('createCommentPrivacyWasmProver')
+    expect(worker).not.toContain('createPlaceholderProofBytes')
+    expect(worker).not.toContain('fromSeed ^ fromMetadata')
+    expect(prover).toContain('comment_privacy_prover_artifact_unavailable')
+    expect(prover).not.toContain('localStorage')
+    expect(prover).not.toContain('sessionStorage')
+    expect(prover).not.toMatch(/console\.(?:log|warn|error)/)
   })
 })

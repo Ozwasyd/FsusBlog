@@ -4,6 +4,7 @@ import {
 import type {
   CommentPrivacyAdapter,
   CommentPrivacyAdapterFailure,
+  CommentPrivacyCredentialMaterial,
   CommentPrivacyMetadata,
   CommentPrivacyPreparedTicket,
   CommentPrivacyUiState,
@@ -77,6 +78,7 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
   let activeTasks = 0
   let unavailable = false
   let credentialPrepared = false
+  let credentialMaterial: CommentPrivacyCredentialMaterial | null = null
   let activePreloadController: AbortController | null = null
   let activePrepareController: AbortController | null = null
 
@@ -160,6 +162,7 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
           return false
         }
 
+        credentialMaterial = result.credential ?? null
         credentialPrepared = true
         return true
       } catch {
@@ -217,6 +220,7 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
                 return
               }
 
+              credentialMaterial = credential.credential ?? null
               credentialPrepared = true
             }
 
@@ -256,6 +260,7 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
             return false
           }
 
+          credentialMaterial = credential.credential ?? null
           credentialPrepared = true
         }
 
@@ -265,16 +270,27 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
         }
 
         await workerClient.prewarm(controller.signal)
-        const proofBytes = await workerClient.prepareProof({
+        const proof = await workerClient.prepareProof({
           scope: normalizedScope,
           rootVersion: metadata.rootVersion,
           metadataBytes: metadata.metadataBytes,
+          credentialEpoch: metadata.credentialEpoch,
+          circuitNumericId: metadata.circuitNumericId,
+          publicInputLayoutVersion: metadata.publicInputLayoutVersion,
+          circuitId: metadata.circuitId,
+          credentialRoot: metadata.credentialRoot,
+          revocationRoot: metadata.revocationRoot,
+          circuitMetadata: metadata.circuitMetadata,
+          credentialSecret: credentialMaterial?.credentialSecret,
+          issuerSignature: credentialMaterial?.issuerSignature,
+          revocationWitness: credentialMaterial?.revocationWitness,
           signal: controller.signal
         })
         const ticket = await adapter.issueAnonymousTicket({
           scope: normalizedScope,
           metadata,
-          proofBytes,
+          proof,
+          proofBytes: proof.proofBytes,
           signal: controller.signal
         })
         if (!ticket.ok || ticket.ticket.expiresAtUnixMs <= now()) {

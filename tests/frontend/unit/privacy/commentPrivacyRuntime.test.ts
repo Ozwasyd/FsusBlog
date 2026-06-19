@@ -165,7 +165,11 @@ describe('CommentPrivacyRuntime', () => {
 function createWorker(): CommentPrivacyWorkerClient {
   return {
     prewarm: vi.fn().mockResolvedValue(undefined),
-    prepareProof: vi.fn().mockResolvedValue(new Uint8Array([9, 8, 7])),
+    prepareProof: vi.fn().mockResolvedValue({
+      proofBytes: new Uint8Array([9, 8, 7]),
+      publicInputs: new Uint8Array([6, 5, 4]),
+      nullifierHash: new Uint8Array([3, 2, 1])
+    }),
     dispose: vi.fn()
   }
 }
