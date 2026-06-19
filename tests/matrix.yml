@@ -2092,6 +2092,35 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
+  - id: perception-v2-redteam-pr
+    owner: ServerContractAgent
+    command: tools/test/lanes/perception-v2-redteam.sh pr
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 1
+    cost: low
+    resourceClass: benchmark
+    maxParallel: 4
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    cadence: pr
+    requiredFor: production
+    coverage: [perception-sealed-v2-redteam-pr]
+    artifacts: [.tmp/security/perception-v2/pr]
+    evidence: [.tmp/security/perception-v2/pr/perception-v2-report.json, .tmp/security/perception-v2/pr/perception-v2-report.md]
+    ciJob: security-static-fuzz
+    localOnly: false
+    nightlyOnly: false
+
   - id: release-evidence
     owner: ServerContractAgent
     command: tools/test/lanes/release-evidence.sh
@@ -2822,7 +2851,7 @@ tiers:
   - id: production
     owner: ServerContractAgent
     command: tools/test/lanes/noop.sh production
-    dependsOn: [fast, bootstrap, release, integration, endpoint-depth, security, wasm-fuzz-regression, contract-fuzz, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, frontend-render-pressure, resilience, load, backend-qps, release-evidence]
+    dependsOn: [fast, bootstrap, release, integration, endpoint-depth, security, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, frontend-render-pressure, resilience, load, backend-qps, release-evidence]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [production-runtime]
@@ -3105,6 +3134,35 @@ tiers:
     coverage: [backend-exhaustive-nightly-readiness]
     artifacts: [.tmp/backend-nightly, BenchmarkDotNet.Artifacts/results]
     evidence: [tests/backend/Fixtures/backend-test-requirements.json]
+    ciJob: backend-nightly
+    localOnly: false
+    nightlyOnly: true
+
+  - id: perception-v2-redteam-nightly
+    owner: ServerContractAgent
+    command: tools/test/lanes/perception-v2-redteam.sh nightly
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 5
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    cadence: nightly
+    requiredFor: none
+    coverage: [perception-sealed-v2-redteam-nightly]
+    artifacts: [.tmp/security/perception-v2/nightly]
+    evidence: [.tmp/security/perception-v2/nightly/perception-v2-report.json, .tmp/security/perception-v2/nightly/perception-v2-report.md]
     ciJob: backend-nightly
     localOnly: false
     nightlyOnly: true

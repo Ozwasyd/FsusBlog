@@ -580,8 +580,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
       - run: ./tools/test.sh wasm-fuzz-regression --no-deps
       - run: ./tools/test.sh contract-fuzz --no-deps
+      - run: ./tools/test.sh perception-v2-redteam-pr --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -590,6 +594,7 @@ jobs:
           retention-days: 14
           path: |
             .tmp/fuzz/**
+            .tmp/security/perception-v2/**
             .tmp/release-evidence/fuzz-seeds.json
             .tmp/release-evidence/jobs/**
 

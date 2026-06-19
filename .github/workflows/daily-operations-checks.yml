@@ -13,6 +13,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  perception-v2-redteam-nightly:
+    name: Perception V2 Red-Team Nightly
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+
+      - name: Run perception-sealed@v2 red-team benchmark
+        run: tools/test/lanes/perception-v2-redteam.sh nightly
+
+      - name: Upload perception red-team report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: perception-v2-redteam-nightly
+          if-no-files-found: error
+          retention-days: 14
+          path: .tmp/security/perception-v2/nightly/**
+
   operations:
     name: Operations Evidence Fixtures
     runs-on: ubuntu-latest

@@ -565,6 +565,38 @@
       ]
     },
     {
+      "id": "perception-sealed-v2-redteam-pr",
+      "description": "Perception sealed v2 PR red-team regression is covered by deterministic synthetic solver benchmarks that fail when aggregate bot success rises above configured thresholds.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        ".tmp/security/perception-v2/pr/perception-v2-report.json",
+        ".tmp/security/perception-v2/pr/perception-v2-report.md"
+      ],
+      "assertionType": "perf",
+      "failClosedRule": "matrix-validate requires the PR red-team lane to emit JSON and Markdown reports, and the runner exits non-zero when configured solver, render, verify, payload, human-success or solve-time thresholds fail.",
+      "minimumRequirement": "The PR profile must cover text-task, localization and micro-interaction samples across family/variant groups without production database input, and must fail closed on significant bot single-try or three-attempt success regressions.",
+      "tierIds": [
+        "perception-v2-redteam-pr"
+      ]
+    },
+    {
+      "id": "perception-sealed-v2-redteam-nightly",
+      "description": "Perception sealed v2 nightly red-team benchmark is covered by the larger deterministic synthetic benchmark report grouped by task kind, family and variant.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        ".tmp/security/perception-v2/nightly/perception-v2-report.json",
+        ".tmp/security/perception-v2/nightly/perception-v2-report.md"
+      ],
+      "assertionType": "perf",
+      "failClosedRule": "matrix-validate requires the nightly red-team lane to emit JSON and Markdown reports, and the scheduled workflow uploads the report artifact even on threshold failure.",
+      "minimumRequirement": "The nightly profile must run a larger synthetic sample set with configurable thresholds, aggregate by task kind/family/variant, and stay independent of production databases and production-path ML inference.",
+      "tierIds": [
+        "perception-v2-redteam-nightly"
+      ]
+    },
+    {
       "id": "contract-static",
       "description": "Contract Static is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
