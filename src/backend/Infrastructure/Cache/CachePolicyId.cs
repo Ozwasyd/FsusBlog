@@ -44,5 +44,6 @@ public enum CachePolicyId
     SecurityRecoveryKeySession = 39,
     SecurityChallengeProof = 40,
     SecurityCaptchaChallenge = 41,
-    SecurityPoSpaceChallenge = 42
+    SecurityPoSpaceChallenge = 42,
+    AnonymousCommentTicket = 43
 }

@@ -51,6 +51,7 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
     private const string CommentActionContext = "comment.create";
     private const int DefaultMaxProofBytes = 16 * 1024;
     private static readonly TimeSpan DefaultBackendTimeout = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan BackendCancellationObservationWindow = TimeSpan.FromMilliseconds(100);
 
     private readonly ProductionZkProofVerifierOptions _options;
     private readonly IAnonymousCredentialRootReader _rootReader;
@@ -104,11 +105,12 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(_options.BackendTimeout);
         bool entered = false;
+        Task<ProductionZkProofBackendResult>? backendTask = null;
         try
         {
             await _concurrencyGate.WaitAsync(timeout.Token);
             entered = true;
-            ProductionZkProofBackendResult backendResult = await _backend.VerifyAsync(
+            backendTask = _backend.VerifyAsync(
                     new ProductionZkProofBackendRequest(
                         request.ActionContext.Trim(),
                         request.Scope.Trim(),
@@ -121,8 +123,8 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
                         request.CredentialRoot.Trim(),
                         NormalizeNullable(request.ReputationBucket, 64),
                         request.Proof),
-                    timeout.Token)
-                .WaitAsync(_options.BackendTimeout, cancellationToken);
+                    timeout.Token);
+            ProductionZkProofBackendResult backendResult = await backendTask.WaitAsync(_options.BackendTimeout, cancellationToken);
 
             if (backendResult.Verified)
             {
@@ -140,6 +142,11 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
         catch (TimeoutException)
         {
             timeout.Cancel();
+            if (backendTask is not null)
+            {
+                await ObserveBackendCancellationAsync(backendTask);
+            }
+
             _logger.LogWarning("ZK proof backend timed out for configured backend {Backend}.", _options.Backend);
             return ZkProofVerificationResult.InvalidProof();
         }
@@ -159,6 +166,15 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
 
     public void Dispose()
         => _concurrencyGate.Dispose();
+
+    private static async Task ObserveBackendCancellationAsync(Task backendTask)
+    {
+        Task completed = await Task.WhenAny(backendTask, Task.Delay(BackendCancellationObservationWindow));
+        if (ReferenceEquals(completed, backendTask) && backendTask.IsFaulted)
+        {
+            _ = backendTask.Exception;
+        }
+    }
 
     private bool PassesCheapChecks(ZkProofVerificationRequest request)
     {

@@ -108,6 +108,11 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `74`: HumanReadSubmitRequest
 - `75`: RumMetricBatchRequest
 - `76`: RumMetricIngestResponse
+- `177`: AnonymousCredentialIssueRequest
+- `178`: AnonymousCredentialIssueResponse
+- `179`: AnonymousCredentialRootSnapshot
+- `180`: AnonymousCommentTicketRequest
+- `181`: AnonymousCommentTicketResponse
 - `240`: EmptySuccess
 - `241`: MutationId
 - `251`: ApiError
@@ -167,6 +172,8 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `PublicAotBootstrap` payload: one binary value payload encoded with the same tagged value layout used by notifications; HTML embeds the full AEDS frame as base64url text in `application/octet-stream` script nodes.
 - `RumMetricBatchRequest` payload: `RumMetricBatchRequestPod`, `RumMetricItemPod[count]`, `RumMetricValuePod[valueCount]`, `RumMetricDimensionPod[dimensionCount]`, followed by one UTF-8 blob for slices. The request frame is capped at 8192 bytes and carries only whitelisted names, numeric values and low-cardinality dimensions.
 - `RumMetricIngestResponse` payload: `RumMetricIngestResponsePod` (`Accepted`, `AcceptedCount`, `RejectedCount`).
+- `AnonymousCommentTicketRequest` payload: `AnonymousCommentTicketRequestPod` followed by blob payload for circuit id, nullifier hash, proof and public inputs. It is accepted only by `POST /api/binary/comment/anonymous-ticket`, capped at 32768 bytes, and must be submitted without Cookie, Authorization or session credentials.
+- `AnonymousCommentTicketResponse` payload: `AnonymousCommentTicketResponsePod` followed by blob payload for the opaque one-time ticket, moderation subject hash and anonymous nullifier hash. The server stores only `SHA256(ticket)` with a short TTL compact binary payload for consume-once anonymous submit.
 - `AuthorDraftSaveRequest`, `ArticlePreviewRequest`, `PrepublishCheckRequest`, `AiAssistRequest`, `AdminCacheActionRequest`, `IntegrityFixRequest`, `Moderation*Request`, `CommentModeration*Request` and `ContentImportRequest` payload: route-specific typed DTO encoded as UTF-8 JSON bytes inside an AEDS v2 request frame. These frames are accepted only by `/api/binary/author/**`, capped at 8 MiB, and do not use the legacy `JsonApiResponse<T>` envelope.
 - Authoring response frames (`AuthorDraftResponse`, `ArticlePreviewResponse`, `AuthorAnalytics`, `AuditLog*`, `OpsHealth`, `Moderation*`, `Content*`, `Integrity*` and related list/result frames) payload: route-specific typed DTO encoded as UTF-8 JSON bytes inside an AEDS v2 response frame. Failures are always `ApiError`.
 - `AntiCrawlerOptionsUpdateRequest`, `SecurityRiskResetRequest`, `AntiCrawlerRuleRequest`, `AntiCrawlerListEntryRequest`, `AntiCrawlerSimulationRequest`, `PowOptionsUpdateRequest` and admin security dry-run `SecurityOverview` requests payload: route-specific typed DTO encoded as UTF-8 JSON bytes inside an AEDS v2 request frame. These frames are accepted only by `/api/binary/admin/security/**`, capped at 1 MiB, and do not use the legacy `JsonApiResponse<T>` envelope.

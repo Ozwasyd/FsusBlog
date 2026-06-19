@@ -1122,6 +1122,15 @@
         },
         {
           "method": "POST",
+          "path": "/comment/anonymous-ticket",
+          "auth": "anonymous",
+          "cache": "no-store",
+          "rateLimit": "public_read",
+          "requestFrame": "AnonymousCommentTicketRequest",
+          "responseFrame": "AnonymousCommentTicketResponse"
+        },
+        {
+          "method": "POST",
           "path": "/comment",
           "auth": "user",
           "requestFrame": "CommentCreateRequest",

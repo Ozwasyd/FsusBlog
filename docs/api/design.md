@@ -2,7 +2,7 @@
 
 本文件说明 FsusBlog API 层的设计原则与约定，是所有 API 变更的**必读前提文件**。
 
-> 最近更新：2026-06-19 — 补齐 admin security RiskControl 控制面 binary-only 读取边界。
+> 最近更新：2026-06-19 — 补齐强匿名评论 ticket binary-only 边界。
 
 ---
 
@@ -45,6 +45,8 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 强匿名凭证签发是登录态到匿名态的单向领取边界：`POST /api/binary/anonymous-credential/issue` 只能验证当前账号领取资格和频率，响应必须 `no-store`，签发审计只能保存 `user_id` 维度的领取计数、epoch、不可逆 request hash 与结果状态。服务端不得把 `user_id` 与最终 credential commitment、nullifier、proof witness 或 credential secret 建立持久映射；后续匿名评论 ticket / submit 也不得依赖该端点留下可反查账号的状态。
 
 强匿名 root/circuit metadata 是公开读取边界：`GET /api/binary/anonymous-credential/root` 和 `/circuit` 只返回公开的 credential root、epoch、expiry、circuit id、verifying key hash、public input layout version 与 ZK/verifier 配置位。`verifierConfigured` 只来自生产 `IZkProofVerifier.IsConfigured`，用于告诉 prover 当前服务端是否有完整 verifier adapter，不在该读取路径验证 proof。该读取路径必须匿名、`public_read` 限流、AEDS-only，不读取 Cookie、session、Authorization 或当前账号；root 不可用时 fail closed 为 AEDS `anonymous_root_unavailable`。服务端缓存对象必须按 root version/TTL 失效，negative cache 只短暂吸收 miss，不承担 root rotation worker 职责。
+
+强匿名评论 ticket 是匿名评论写入前的无登录态准入边界：`POST /api/binary/comment/anonymous-ticket` 只接受 `AnonymousCommentTicketRequest` AEDS frame，必须 `AllowAnonymous`、`public_read` 限流并拒绝任何 Cookie/session/Authorization 污染。服务端先做 article/scope/hash/frame 大小等廉价校验，再使用当前 root snapshot 和 `IZkAnonymousProofService` 预验证 proof；通过后只返回一次 opaque ticket，缓存层只保存 ticket hash 对应的短 TTL 二进制 payload，并以 consume-once 语义交给后续匿名 submit。该端点不得写评论正文、不得建立 user id 到 nullifier/credential 的映射，也不得把 proof 失败细节返回给客户端。
 
 ---
 

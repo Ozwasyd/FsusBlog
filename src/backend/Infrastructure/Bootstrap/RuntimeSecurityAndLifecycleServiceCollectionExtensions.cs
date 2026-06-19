@@ -41,6 +41,7 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IAnonymousCredentialIssuerService, AnonymousCredentialIssuerService>();
         services.AddScoped<IAnonymousCredentialRootStore, AnonymousCredentialRootStore>();
         services.AddSingleton<IAnonymousCredentialRootService, AnonymousCredentialRootService>();
+        services.AddScoped<IAnonymousCommentTicketService, AnonymousCommentTicketService>();
         services.AddSingleton<AnonymousCredentialRootLifecycleService>();
         services.AddSingleton<IAnonymousCredentialRootReader>(sp => sp.GetRequiredService<AnonymousCredentialRootLifecycleService>());
         services.AddSingleton<IAnonymousCredentialRootWriter>(sp => sp.GetRequiredService<AnonymousCredentialRootLifecycleService>());

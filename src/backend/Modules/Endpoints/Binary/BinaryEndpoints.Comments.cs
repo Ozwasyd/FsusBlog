@@ -48,6 +48,16 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .RequireRateLimiting("public_read");
 
+        group.MapPost("/comment/anonymous-ticket", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IAedsEncoder aeds,
+            IAnonymousCommentTicketService ticketService,
+            CancellationToken cancellationToken) =>
+            await HandleAnonymousCommentTicketAsync(httpContext, aeds, ticketService, cancellationToken))
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .RequireStrongAnonymousRequest();
+
         group.MapPost("/comment", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             ICommentEndpointService commentService,
@@ -288,6 +298,37 @@ public static partial class BinaryEndpoints
         })
         .RequireAuthorization()
         .AddEndpointFilter<RequiresPowFilter>();
+    }
+
+    internal static async Task<BinaryFrameResult> HandleAnonymousCommentTicketAsync(
+        HttpContext httpContext,
+        IAedsEncoder aeds,
+        IAnonymousCommentTicketService ticketService,
+        CancellationToken cancellationToken)
+    {
+        var payload = await ReadBinaryRequestPayloadAsync(
+            httpContext,
+            aeds,
+            [AedsFrameType.AnonymousCommentTicketRequest],
+            cancellationToken,
+            AnonymousCommentTicketService.MaxRequestFrameBytes);
+        if (!payload.IsSuccess)
+        {
+            return BinaryResults.FromError(payload.Error, aeds);
+        }
+
+        if (!PodBinaryCodec.TryDecodeAnonymousCommentTicketRequest(payload.Payload, out AnonymousCommentTicketRequestCoreModel request))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "anonymous_comment_ticket_request_invalid"), aeds);
+        }
+
+        AnonymousCommentTicketIssueResult result = await ticketService.IssueAsync(request, cancellationToken);
+        return result.Issued
+            ? BinaryResults.Frame(
+                aeds,
+                AedsFrameType.AnonymousCommentTicketResponse,
+                writer => PodBinaryCodec.WriteAnonymousCommentTicketResponse(result.Response, writer))
+            : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.PublicMessage), aeds);
     }
 
     private static bool IsCommentContentWithinLimit(string content)
