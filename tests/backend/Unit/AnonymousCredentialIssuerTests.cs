@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
@@ -43,10 +44,15 @@ public sealed class AnonymousCredentialIssuerTests
         Assert.Contains("CREATE TABLE IF NOT EXISTS anonymous_credential_issuance_audit", fingerprint, StringComparison.Ordinal);
         Assert.Contains("user_id integer NOT NULL", fingerprint, StringComparison.Ordinal);
         Assert.Contains("epoch bigint NOT NULL", fingerprint, StringComparison.Ordinal);
-        Assert.Contains("request_hash varchar(64) NOT NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("status varchar(32) NOT NULL DEFAULT 'issued'", fingerprint, StringComparison.Ordinal);
         Assert.Contains("unique_idx_anonymous_credential_issuance_user_epoch", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("anonymous_credential_issuance_audit.request_hash", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("request_hash varchar", fingerprint, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(entityColumns, static column => column.Contains("RequestHash", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain("credential_commitment", fingerprint, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("commitment_hash", fingerprint, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("blinded_commitment", fingerprint, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("bbs_signature", fingerprint, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("nullifier", fingerprint, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("witness", fingerprint, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("secret", fingerprint, StringComparison.OrdinalIgnoreCase);
@@ -73,6 +79,11 @@ public sealed class AnonymousCredentialIssuerTests
         Assert.Equal(typeof(AnonymousCredentialIssuerService), issuer.ImplementationType);
         Assert.Equal(ServiceLifetime.Scoped, store.Lifetime);
         Assert.Equal(typeof(AnonymousCredentialIssuanceAuditStore), store.ImplementationType);
+        Assert.Contains(
+            services,
+            static item => item.ServiceType == typeof(IBbsBlindCredentialIssuer)
+                && item.ImplementationType == typeof(UnavailableBbsBlindCredentialIssuer)
+                && item.Lifetime == ServiceLifetime.Singleton);
     }
 
     [Fact]
@@ -100,7 +111,8 @@ public sealed class AnonymousCredentialIssuerTests
         CreateTables(db);
         SeedUser(db, status: 0);
         var auditEvents = new CapturingAuditEventService();
-        var service = CreateService(db, auditEvents);
+        var bbsIssuer = new CapturingBbsBlindCredentialIssuer();
+        var service = CreateService(db, auditEvents, bbsIssuer: bbsIssuer);
         AnonymousCredentialIssueRequestCoreModel request = CreateIssueRequest();
 
         Result<AnonymousCredentialIssueResponseCoreModel> issued = await service.IssueAsync(42, request, "trace-secret", CancellationToken.None);
@@ -112,19 +124,30 @@ public sealed class AnonymousCredentialIssuerTests
         Assert.Equal(request.PublicInputLayoutVersion, response.PublicInputLayoutVersion);
         Assert.Equal(AnonymousPrivacyContract.CircuitId, response.CircuitId);
         Assert.Equal(AnonymousCredentialLevels.StrongAnonymous, response.CredentialLevel);
-        Assert.Equal("issuer_key:local", response.IssuerPublicKeyId);
+        Assert.Equal(bbsIssuer.IssuerPublicKeyId, response.IssuerPublicKeyId);
         Assert.Equal(96, response.BbsSignature.Length);
+        Assert.Single(bbsIssuer.Requests);
+        BbsBlindCredentialIssueMaterial signedMaterial = bbsIssuer.Requests[0];
+        Assert.Equal(request.CredentialEpoch, signedMaterial.CredentialEpoch);
+        Assert.Equal(request.BlindedCommitment, signedMaterial.BlindedCommitment);
+        Assert.DoesNotContain(
+            Convert.ToHexString(request.ClientNonce),
+            Convert.ToHexString(signedMaterial.BlindedCommitment),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.True(bbsIssuer.VerifyBlindSignature(signedMaterial, response.BbsSignature));
 
         List<AnonymousCredentialIssuanceAudit> rows = await db.Queryable<AnonymousCredentialIssuanceAudit>().ToListAsync();
         AnonymousCredentialIssuanceAudit row = Assert.Single(rows);
         Assert.Equal(42, row.UserId);
         Assert.Equal(request.CredentialEpoch, row.Epoch);
-        Assert.Equal(64, row.RequestHash.Length);
         Assert.Equal(AnonymousCredentialIssuanceStatuses.Issued, row.Status);
         string[] dbColumns = db.DbMaintenance.GetColumnInfosByTableName("anonymous_credential_issuance_audit")
             .Select(static column => column.DbColumnName)
             .ToArray();
+        Assert.DoesNotContain(dbColumns, static column => column.Contains("request_hash", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(dbColumns, static column => column.Contains("credential_commitment", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(dbColumns, static column => column.Contains("blinded_commitment", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(dbColumns, static column => column.Contains("bbs_signature", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(dbColumns, static column => column.Contains("nullifier", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(dbColumns, static column => column.Contains("secret", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(dbColumns, static column => column.Contains("witness", StringComparison.OrdinalIgnoreCase));
@@ -139,7 +162,54 @@ public sealed class AnonymousCredentialIssuerTests
         Assert.DoesNotContain("blind-request-raw", auditText, StringComparison.Ordinal);
         Assert.DoesNotContain("credential-secret-token", auditText, StringComparison.Ordinal);
         Assert.DoesNotContain("request_hash", auditText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(Convert.ToHexString(request.BlindedCommitment), auditText, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(Convert.ToHexString(response.BbsSignature), auditText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task IssueAsync_SameAccountAcrossEpochs_ProducesUnlinkableBlindSignaturesWithoutStoredLinkingMaterial()
+    {
+        using SqlSugarClient db = CreateDb();
+        CreateTables(db);
+        SeedUser(db, status: 0);
+        var auditEvents = new CapturingAuditEventService();
+        var bbsIssuer = new CapturingBbsBlindCredentialIssuer();
+        var service = CreateService(db, auditEvents, bbsIssuer: bbsIssuer);
+
+        AnonymousCredentialIssueRequestCoreModel firstRequest = CreateIssueRequest(epoch: 2042) with
+        {
+            BlindedCommitment = Enumerable.Range(0, 64).Select(static value => (byte)(value + 1)).ToArray(),
+            ClientNonce = Encoding.UTF8.GetBytes("client-unblind-secret-a")
+        };
+        AnonymousCredentialIssueRequestCoreModel secondRequest = CreateIssueRequest(epoch: 2043) with
+        {
+            BlindedCommitment = Enumerable.Range(0, 64).Select(static value => (byte)(255 - value)).ToArray(),
+            ClientNonce = Encoding.UTF8.GetBytes("client-unblind-secret-b")
+        };
+
+        Result<AnonymousCredentialIssueResponseCoreModel> first = await service.IssueAsync(42, firstRequest, "trace-1", CancellationToken.None);
+        Result<AnonymousCredentialIssueResponseCoreModel> second = await service.IssueAsync(42, secondRequest, "trace-2", CancellationToken.None);
+
+        Assert.True(first.IsSuccess, first.Error.Message);
+        Assert.True(second.IsSuccess, second.Error.Message);
+        Assert.NotEqual(Convert.ToHexString(first.Value.BbsSignature), Convert.ToHexString(second.Value.BbsSignature));
+        Assert.Equal(2, bbsIssuer.Requests.Count);
+        Assert.True(bbsIssuer.VerifyBlindSignature(bbsIssuer.Requests[0], first.Value.BbsSignature));
+        Assert.True(bbsIssuer.VerifyBlindSignature(bbsIssuer.Requests[1], second.Value.BbsSignature));
+
+        List<AnonymousCredentialIssuanceAudit> rows = await db.Queryable<AnonymousCredentialIssuanceAudit>()
+            .OrderBy(static row => row.Epoch)
+            .ToListAsync();
+        Assert.Equal([2042, 2043], rows.Select(static row => row.Epoch).ToArray());
+        foreach (AuditEvent audit in auditEvents.Events)
+        {
+            string auditText = string.Join('|', audit.Context?.Select(static item => $"{item.Key}:{item.Value}") ?? []);
+            Assert.DoesNotContain(Convert.ToHexString(firstRequest.BlindedCommitment), auditText, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(Convert.ToHexString(secondRequest.BlindedCommitment), auditText, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(Convert.ToHexString(first.Value.BbsSignature), auditText, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(Convert.ToHexString(second.Value.BbsSignature), auditText, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("request_hash", auditText, StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     [Fact]
@@ -148,7 +218,7 @@ public sealed class AnonymousCredentialIssuerTests
         using SqlSugarClient db = CreateDb();
         CreateTables(db);
         SeedUser(db, status: 0);
-        var service = CreateService(db, new CapturingAuditEventService());
+        var service = CreateService(db, new CapturingAuditEventService(), bbsIssuer: new CapturingBbsBlindCredentialIssuer());
         AnonymousCredentialIssueRequestCoreModel request = CreateIssueRequest();
 
         Result<AnonymousCredentialIssueResponseCoreModel> first = await service.IssueAsync(42, request, "trace-1", CancellationToken.None);
@@ -174,11 +244,11 @@ public sealed class AnonymousCredentialIssuerTests
         var denied = CreateService(db, new CapturingAuditEventService(), new Dictionary<string, string?>
         {
             ["AnonymousCredentialIssuer:AllowBannedAccountIssuance"] = "false"
-        });
+        }, new CapturingBbsBlindCredentialIssuer());
         var allowed = CreateService(db, new CapturingAuditEventService(), new Dictionary<string, string?>
         {
             ["AnonymousCredentialIssuer:AllowBannedAccountIssuance"] = "true"
-        });
+        }, new CapturingBbsBlindCredentialIssuer());
 
         Result<AnonymousCredentialIssueResponseCoreModel> deniedResult = await denied.IssueAsync(42, CreateIssueRequest(1042), "trace-denied", CancellationToken.None);
         Result<AnonymousCredentialIssueResponseCoreModel> allowedResult = await allowed.IssueAsync(42, CreateIssueRequest(1043), "trace-allowed", CancellationToken.None);
@@ -187,6 +257,23 @@ public sealed class AnonymousCredentialIssuerTests
         Assert.Equal(ErrorCode.Forbidden, deniedResult.Error.Code);
         Assert.Equal("anonymous_credential_account_banned", deniedResult.Error.Message);
         Assert.True(allowedResult.IsSuccess, allowedResult.Error.Message);
+    }
+
+    [Fact]
+    public async Task IssueAsync_InactiveCredentialStatusIsRejectedBeforeBlindSigning()
+    {
+        using SqlSugarClient db = CreateDb();
+        CreateTables(db);
+        SeedUser(db, status: 0, credentialStatus: "disabled");
+        var bbsIssuer = new CapturingBbsBlindCredentialIssuer();
+        var service = CreateService(db, new CapturingAuditEventService(), bbsIssuer: bbsIssuer);
+
+        Result<AnonymousCredentialIssueResponseCoreModel> result = await service.IssueAsync(42, CreateIssueRequest(), "trace-disabled", CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorCode.Forbidden, result.Error.Code);
+        Assert.Equal("anonymous_credential_disabled", result.Error.Message);
+        Assert.Empty(bbsIssuer.Requests);
     }
 
     [Fact]
@@ -266,10 +353,12 @@ public sealed class AnonymousCredentialIssuerTests
     private static AnonymousCredentialIssuerService CreateService(
         SqlSugarClient db,
         CapturingAuditEventService auditEvents,
-        IReadOnlyDictionary<string, string?>? config = null)
+        IReadOnlyDictionary<string, string?>? config = null,
+        IBbsBlindCredentialIssuer? bbsIssuer = null)
         => new(
             db,
             new AnonymousCredentialIssuanceAuditStore(db),
+            bbsIssuer ?? new CapturingBbsBlindCredentialIssuer(),
             auditEvents,
             new ConfigurationBuilder()
                 .AddInMemoryCollection(config ?? new Dictionary<string, string?>
@@ -328,7 +417,6 @@ public sealed class AnonymousCredentialIssuerTests
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
                 epoch INTEGER NOT NULL,
-                request_hash TEXT NOT NULL,
                 status TEXT NOT NULL,
                 created_at_utc TEXT NOT NULL,
                 trace_id TEXT NULL,
@@ -337,7 +425,7 @@ public sealed class AnonymousCredentialIssuerTests
             """);
     }
 
-    private static void SeedUser(SqlSugarClient db, int status)
+    private static void SeedUser(SqlSugarClient db, int status, string credentialStatus = AnonymousCredentialStatuses.Active)
         => db.Ado.ExecuteCommand(
             """
             INSERT INTO sys_user
@@ -348,7 +436,7 @@ public sealed class AnonymousCredentialIssuerTests
             new SugarParameter("@Id", 42),
             new SugarParameter("@Status", status),
             new SugarParameter("@Level", AnonymousCredentialLevels.StrongAnonymous),
-            new SugarParameter("@CredentialStatus", AnonymousCredentialStatuses.Active));
+            new SugarParameter("@CredentialStatus", credentialStatus));
 
     private static DefaultHttpContext CreateEndpointContext(
         AedsFrameType expectedFrameType,
@@ -399,6 +487,64 @@ public sealed class AnonymousCredentialIssuerTests
         {
             Events.Add(auditEvent with { IsHighValue = true });
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class CapturingBbsBlindCredentialIssuer : IBbsBlindCredentialIssuer
+    {
+        private static readonly byte[] Key = "fsus-test-bbs-blind-signature-key"u8.ToArray();
+
+        public bool IsConfigured => true;
+        public string IssuerPublicKeyId { get; init; } = "issuer-key:local";
+        public string IssuerPublicKeyHash => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(IssuerPublicKeyId)));
+        public List<BbsBlindCredentialIssueMaterial> Requests { get; } = [];
+
+        public ValueTask<Result<BbsBlindCredentialIssueResult>> SignAsync(
+            BbsBlindCredentialIssueMaterial material,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var captured = material with { BlindedCommitment = [.. material.BlindedCommitment] };
+            Requests.Add(captured);
+            return ValueTask.FromResult(Result<BbsBlindCredentialIssueResult>.Success(new BbsBlindCredentialIssueResult(
+                IssuerPublicKeyId,
+                CreateSignature(captured))));
+        }
+
+        public bool VerifyBlindSignature(BbsBlindCredentialIssueMaterial material, byte[] signature)
+            => CryptographicOperations.FixedTimeEquals(CreateSignature(material), signature);
+
+        private static byte[] CreateSignature(BbsBlindCredentialIssueMaterial material)
+        {
+            byte[] seed = HMACSHA256.HashData(Key, Canonicalize(material));
+            byte[] signature = new byte[96];
+            for (int offset = 0, counter = 0; offset < signature.Length; counter++)
+            {
+                byte[] input = new byte[seed.Length + 1];
+                seed.CopyTo(input, 0);
+                input[^1] = (byte)counter;
+                byte[] block = HMACSHA256.HashData(Key, input);
+                int take = Math.Min(block.Length, signature.Length - offset);
+                block.AsSpan(0, take).CopyTo(signature.AsSpan(offset, take));
+                offset += take;
+            }
+
+            return signature;
+        }
+
+        private static byte[] Canonicalize(BbsBlindCredentialIssueMaterial material)
+        {
+            using var output = new MemoryStream();
+            using var writer = new BinaryWriter(output, Encoding.UTF8, leaveOpen: true);
+            writer.Write(material.CredentialEpoch);
+            writer.Write(material.CircuitNumericId);
+            writer.Write(material.PublicInputLayoutVersion);
+            writer.Write(material.CircuitId);
+            writer.Write(material.CredentialLevel);
+            writer.Write(material.BlindedCommitment.Length);
+            writer.Write(material.BlindedCommitment);
+            writer.Flush();
+            return output.ToArray();
         }
     }
 

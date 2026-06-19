@@ -17,9 +17,6 @@ public sealed class AnonymousCredentialIssuanceAudit
     [SugarColumn(ColumnName = "epoch")]
     public long Epoch { get; set; }
 
-    [SugarColumn(ColumnName = "request_hash", Length = 64)]
-    public string RequestHash { get; set; } = string.Empty;
-
     [SugarColumn(ColumnName = "status", Length = 32)]
     public string Status { get; set; } = AnonymousCredentialIssuanceStatuses.Issued;
 

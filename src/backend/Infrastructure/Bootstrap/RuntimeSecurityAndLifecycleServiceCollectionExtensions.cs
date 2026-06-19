@@ -46,6 +46,7 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IZkAnonymousProofService, ZkAnonymousProofService>();
         services.AddSingleton<IAnonymousCommentPolicyService, AnonymousCommentPolicyService>();
         services.AddScoped<IAnonymousCredentialService, AnonymousCredentialService>();
+        services.TryAddSingleton<IBbsBlindCredentialIssuer, UnavailableBbsBlindCredentialIssuer>();
         services.AddScoped<IAnonymousCredentialIssuanceAuditStore, AnonymousCredentialIssuanceAuditStore>();
         services.AddScoped<IAnonymousCredentialIssuerService, AnonymousCredentialIssuerService>();
         services.AddScoped<IAnonymousCredentialRootStore, AnonymousCredentialRootStore>();

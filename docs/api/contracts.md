@@ -210,7 +210,7 @@ perception-sealed@v2 的验证矩阵：
 
 响应 frame 为 `AnonymousCredentialIssueResponse` (`178`)：返回服务端签发骨架的 `issuerResponse`、当前 `credentialEpoch`、`rootExpiresAtUnixMs`、circuit metadata 与 `credentialCommitment`。`credentialCommitment` 只返回给客户端，不写入签发审计表。频率限制以 `anonymous_credential_issuance_audit(user_id, epoch)` 唯一约束作为真源；重复领取返回 `409` + `anonymous_credential_issue_rate_limited`。
 
-`anonymous_credential_issuance_audit` 只保存不可逆审计字段：`user_id`、`epoch`、`request_hash`、`status`、`created_at_utc`、`trace_id`。该表不得包含 `credential_commitment`、nullifier、proof witness、credential secret 或 blinded request 原文。高价值审计事件 `security.anonymous_credential.issued` 只记录签发 `status` 与 `epoch`，不记录 `request_hash`、blinded request、issuer response 或 credential commitment。
+`anonymous_credential_issuance_audit` 只保存不可逆审计字段：`user_id`、`epoch`、`status`、`created_at_utc`、`trace_id`。该表不得包含 `request_hash`、`credential_commitment`、nullifier、proof witness、credential secret、blinded commitment、BBS+ signature 或 issuer response 原文。高价值审计事件 `security.anonymous_credential.issued` 只记录签发 `status` 与 `epoch`，不记录 blinded request、issuer response、signature、request hash 或 credential commitment。
 
 `GET /api/binary/anonymous-credential/root` 与 `GET /api/binary/anonymous-credential/circuit` 是公开 root/circuit metadata 读取端点：匿名访问、`public_read` 限流、只接受 `Accept: application/octet-stream`，成功返回 `AnonymousCredentialRootSnapshot` (`179`)，失败返回 AEDS `ApiError` + `anonymous_root_unavailable`。端点不得读取 Cookie、session、Authorization 或当前账号；服务端通过 `IAnonymousCredentialRootService` 使用短 TTL immutable snapshot cache 和 negative cache 读取 `anonymous_credential_root`，直到显式 invalidation 或 TTL 过期才回源。
 

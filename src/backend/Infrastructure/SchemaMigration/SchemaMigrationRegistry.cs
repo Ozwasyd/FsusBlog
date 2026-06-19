@@ -917,7 +917,6 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         id bigserial PRIMARY KEY,
                         user_id integer NOT NULL,
                         epoch bigint NOT NULL,
-                        request_hash varchar(64) NOT NULL,
                         status varchar(32) NOT NULL DEFAULT 'issued',
                         created_at_utc timestamp NOT NULL DEFAULT now(),
                         trace_id varchar(64) NULL
@@ -925,7 +924,8 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     CREATE INDEX IF NOT EXISTS idx_anonymous_credential_issuance_user ON anonymous_credential_issuance_audit(user_id);
                     CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_issuance_user_epoch ON anonymous_credential_issuance_audit(user_id, epoch);
                     CREATE INDEX IF NOT EXISTS idx_anonymous_credential_issuance_epoch ON anonymous_credential_issuance_audit(epoch);
-                    """)
+                    """),
+                new DropColumnStep("anonymous_credential_issuance_audit", "request_hash")
             ]);
 
     private static ISchemaMigrationDescriptor BuildSecurityRiskEventPersistenceMigration()
