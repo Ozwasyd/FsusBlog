@@ -90,6 +90,7 @@ public static class AuditActionCatalog
     public const string AnonymousCommentPolicyUpdated = "admin.anonymous_comment.policy_updated";
     public const string AnonymousNullifierBlocked = "admin.anonymous_nullifier.blocked";
     public const string AnonymousCredentialRevoked = "admin.anonymous_credential.revoked";
+    public const string AnonymousCredentialIssued = "security.anonymous_credential.issued";
     public const string ContentExported = "admin.content.exported";
     public const string ArticleExported = "admin.article.exported";
     public const string ArticleImported = "admin.article.imported";

@@ -153,6 +153,8 @@ admin 登出和 session 管理只使用 `/api/binary/auth/admin/logout`、`/api/
 
 强匿名提交端点必须先挂 `RequireStrongAnonymousRequest()` / `RejectIdentifiedPrincipalFilter`，再组合 PoW、RiskControl 或业务 filter。该守卫只做 `Cookie`、`Authorization`、`X-Fsus-Access-Token`、`X-Fsus-Bearer-Token`、`X-Fsus-Session-Id`、future auth bridge header 的 presence check，并检查 `HttpContext.User.Identity.IsAuthenticated`；它不解析 cookie、不读取 header 原文、不访问数据库或 Redis。污染请求返回 AEDS `ApiError`，`Details=anonymous_identity_contaminated`，用户态文案固定为“匿名发布请求不能携带登录态，请刷新后重试。”；安全审计只记录 trace id、path、reason 和 presence flag。
 
+**Anonymous credential issuance**：`POST /api/binary/anonymous-credential/issue` 是登录用户领取强匿名凭证的唯一入口，登录态只用于校验账号未注销、可登录、匿名凭证状态和 epoch 频率；被封禁账号是否允许领取由 `AnonymousCredentialIssuer:AllowBannedAccountIssuance` 显式配置，默认拒绝。服务端通过 `anonymous_credential_issuance_audit(user_id, epoch)` 唯一约束做频率真源，表内只保存 `user_id`、`epoch`、不可逆 `request_hash`、`status`、`created_at_utc` 和 `trace_id`，不得保存 credential commitment、nullifier、proof witness、credential secret 或 blinded request 原文。高价值审计只记录签发状态和 epoch；后续匿名评论 ticket / submit 不得借该表反查真实账号。
+
 **Anonymous comment governance**：匿名评论策略由 `IAnonymousCommentPolicyService` 统一裁决，默认 author mode 是 `anonymous`，`public` 必须有显式 opt-in；当 `AnonymousIdentity:AnonymousCommentsEnabled=false` 或 admin policy 关闭匿名评论时，`anonymous`、`pseudonymous` 和 `zk_anonymous` 都必须拒绝。评论写入通过 `CommentActor` 落库：匿名模式写入 nullable `user_id`、scope 内稳定的服务端生成 display name、hash 后的 nullifier/subject projection，公开模式才写入真实 `user_id` 和 `public_handle`。`anonymous_credential` 保存 commitment、credential type/level/status 和 revoke 时间；`comment_anonymous_nullifier` 只保存 scope 内 nullifier 使用状态、首末评论 id 和 block 状态。普通审核 API 不提供 nullifier 到真实账号的反向查询，封禁/限流只能通过 credential level、nullifier block 和 moderation subject hash 等最小投影执行。
 
 ---

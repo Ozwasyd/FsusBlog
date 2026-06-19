@@ -479,6 +479,8 @@
     },
     {
       "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs",
+      "frontendWrapper": "src/frontend/src/api/security.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/securityAdapter.ts",
       "routes": [
         {
           "method": "POST",
@@ -499,6 +501,23 @@
           "requestFrame": "SecurityChallengeVerifyRequest",
           "responseFrame": "SecurityChallengeVerifyResponse",
           "surface": "risk-control-challenge-verify"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs",
+      "frontendWrapper": "src/frontend/src/api/comment.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/commentAdapter.ts",
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/anonymous-credential/issue",
+          "auth": "user",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "AnonymousCredentialIssueRequest",
+          "responseFrame": "AnonymousCredentialIssueResponse",
+          "surface": "anonymous-credential-issue"
         }
       ]
     },
@@ -1027,6 +1046,34 @@
           "auth": "admin",
           "responseFrame": "EmptySuccess",
           "cache": "no-store"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/admin/logout",
+          "auth": "admin",
+          "responseFrame": "EmptySuccess",
+          "cache": "no-store"
+        },
+        {
+          "method": "GET",
+          "path": "/auth/admin/sessions",
+          "auth": "admin",
+          "responseFrame": "AdminSessionList",
+          "cache": "no-store"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/admin/sessions/{sessionId}/revoke",
+          "auth": "admin",
+          "responseFrame": "EmptySuccess",
+          "cache": "no-store"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/admin/sessions/revoke-others",
+          "auth": "admin",
+          "responseFrame": "EmptySuccess",
+          "cache": "no-store"
         }
       ]
     },
@@ -1050,6 +1097,13 @@
       "frontendWrapper": "src/frontend/src/api/comment.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/commentAdapter.ts",
       "routes": [
+        {
+          "method": "GET",
+          "path": "/comment/policy",
+          "auth": "anonymous",
+          "rateLimit": "public_read",
+          "responseFrame": "CommentPolicySnapshot"
+        },
         {
           "method": "POST",
           "path": "/comment",
@@ -1963,5 +2017,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 192
+  "openapiOperationCount": 198
 }

@@ -42,6 +42,8 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 
 高价值认证动作可以在既有 binary 路径上叠加 RiskControl proof，而不是新增平行登录 API。`auth.login`、`auth.passkey.begin`、`auth.passkey.complete`、`recovery-key.verify` 必须通过 endpoint metadata 声明 action，并统一用 `RequiresRiskControlFilter` 返回 AEDS `ApiError`；缺 challenge proof 返回 428，block/throttle 返回 429。叠加 RiskControl 不删除 legacy PoW、admin step-up 或 MFA proof 边界；需要两个 proof 的端点必须明确登记到 [contracts.md](contracts.md#安全挑战契约) 与本文件头部表。
 
+强匿名凭证签发是登录态到匿名态的单向领取边界：`POST /api/binary/anonymous-credential/issue` 只能验证当前账号领取资格和频率，响应必须 `no-store`，签发审计只能保存 `user_id` 维度的领取计数、epoch、不可逆 request hash 与结果状态。服务端不得把 `user_id` 与最终 credential commitment、nullifier、proof witness 或 credential secret 建立持久映射；后续匿名评论 ticket / submit 也不得依赖该端点留下可反查账号的状态。
+
 ---
 
 ## URL 命名约定

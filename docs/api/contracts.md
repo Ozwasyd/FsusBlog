@@ -3,7 +3,7 @@
 本文件是 FsusBlog 所有请求/响应 DTO、通知 WebSocket 信封与 AOT 契约的**完整参考**。
 所有定义的权威源码位于 `src/shared/Contracts/` 目录。
 
-> 最近更新：2026-06-18 — 同步 auth login / passkey / recovery-key verify 接入 RiskControl challenge 与风险信号边界。
+> 最近更新：2026-06-18 — 同步匿名凭证签发端点、auth login / passkey / recovery-key verify 接入 RiskControl challenge 与风险信号边界。
 
 ---
 
@@ -24,6 +24,7 @@
 - [AOT 公开页契约](#aot-公开页契约)
 - [PoW 契约](#pow-契约)
 - [安全挑战契约](#安全挑战契约)
+- [匿名凭证签发契约](#匿名凭证签发契约)
 
 ---
 
@@ -167,6 +168,16 @@ challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 
 | `SecurityChallengeVerifyRequest` | 174 | `SecurityChallengeVerifyRequestPod` + UTF-8 blob | RiskControl challenge provider proof 验证请求 |
 | `SecurityChallengeIssueResponse` | 175 | `SecurityChallengeIssueResponsePod` + assignment / provider payload records + UTF-8 blob | RiskControl challenge 签发响应 |
 | `SecurityChallengeVerifyResponse` | 176 | `SecurityChallengeVerifyResponsePod` + UTF-8 blob | 一次性 proof token 响应 |
+
+### 匿名凭证签发契约
+
+`POST /api/binary/anonymous-credential/issue` 是强匿名评论凭证领取入口。该端点要求已登录普通用户会话、`fixed_ip` 限流、`Content-Type: application/octet-stream`、`Accept: application/octet-stream`，并声明 `RequireNoStoreResponse()`；失败统一返回 AEDS `ApiError` frame。该端点只完成“登录态证明领取资格”的最小闭环，不验证 ZK proof、不生成匿名评论 ticket，也不接入评论发布路径。
+
+请求 frame 为 `AnonymousCredentialIssueRequest` (`177`)：`credentialEpoch`、`circuitNumericId`、`publicInputLayoutVersion`、`circuitId`、`credentialLevel`、`blindedRequest`、`clientNonce`。服务端以当前账号的 `anonymous_credential_level/status` 和 `sys_user.Status/deleted_at` 判定资格；被封禁账号是否允许领取必须通过 `AnonymousCredentialIssuer:AllowBannedAccountIssuance` 显式配置，默认配置为 `false`。请求 frame 上限为 16 KiB，`blindedRequest` 默认最大 8192 bytes，`clientNonce` 默认最大 128 bytes。
+
+响应 frame 为 `AnonymousCredentialIssueResponse` (`178`)：返回服务端签发骨架的 `issuerResponse`、当前 `credentialEpoch`、`rootExpiresAtUnixMs`、circuit metadata 与 `credentialCommitment`。`credentialCommitment` 只返回给客户端，不写入签发审计表。频率限制以 `anonymous_credential_issuance_audit(user_id, epoch)` 唯一约束作为真源；重复领取返回 `409` + `anonymous_credential_issue_rate_limited`。
+
+`anonymous_credential_issuance_audit` 只保存不可逆审计字段：`user_id`、`epoch`、`request_hash`、`status`、`created_at_utc`、`trace_id`。该表不得包含 `credential_commitment`、nullifier、proof witness、credential secret 或 blinded request 原文。高价值审计事件 `security.anonymous_credential.issued` 只记录签发 `status` 与 `epoch`，不记录 `request_hash`、blinded request、issuer response 或 credential commitment。
 
 ### Passkey AEDS frames
 

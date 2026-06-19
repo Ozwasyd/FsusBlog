@@ -23,6 +23,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAdminPrincipalPlaneMigration(),
         BuildAccountRecoveryKeyMigration(),
         BuildAnonymousCommentGovernanceMigration(),
+        BuildAnonymousCredentialIssuanceAuditMigration(),
         BuildSecurityChallengePersistenceMigration(),
         BuildCommentActorMigration(),
         BuildAuditLogMigration(),
@@ -894,6 +895,32 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     );
                     CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_comment_nullifier_scope ON comment_anonymous_nullifier(nullifier_hash, scope);
                     CREATE INDEX IF NOT EXISTS idx_comment_nullifier_blocked ON comment_anonymous_nullifier(blocked);
+                    """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAnonymousCredentialIssuanceAuditMigration()
+        => new SchemaMigrationDescriptor(
+            "20260618-post-anonymous-credential-issuance-audit",
+            "Create unlinkable anonymous credential issuance audit table.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "anonymous_credential_issuance_audit",
+                    """
+                    CREATE TABLE IF NOT EXISTS anonymous_credential_issuance_audit (
+                        id bigserial PRIMARY KEY,
+                        user_id integer NOT NULL,
+                        epoch bigint NOT NULL,
+                        request_hash varchar(64) NOT NULL,
+                        status varchar(32) NOT NULL DEFAULT 'issued',
+                        created_at_utc timestamp NOT NULL DEFAULT now(),
+                        trace_id varchar(64) NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_anonymous_credential_issuance_user ON anonymous_credential_issuance_audit(user_id);
+                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_issuance_user_epoch ON anonymous_credential_issuance_audit(user_id, epoch);
+                    CREATE INDEX IF NOT EXISTS idx_anonymous_credential_issuance_epoch ON anonymous_credential_issuance_audit(epoch);
                     """)
             ]);
 
