@@ -21,6 +21,12 @@ const checks = [
     listKey: 'scenarios',
     idPattern: /^WEBAUTHN-[A-Z-]+$/,
     label: 'WebAuthn'
+  },
+  {
+    file: 'security/risk-control-test-matrix.yml',
+    listKey: 'scenarios',
+    idPattern: /^RISKCONTROL-[A-Z0-9-]+$/,
+    label: 'RiskControl'
   }
 ]
 
@@ -76,6 +82,83 @@ function parseEntries(text) {
   return entries
 }
 
+function verifyRiskControlMatrix(text) {
+  const requiredScenarioIds = [
+    'RISKCONTROL-DECISION-MODES',
+    'RISKCONTROL-PROVIDER-SURFACES',
+    'RISKCONTROL-PROOF-BINDING',
+    'RISKCONTROL-INTEGRATION-SURFACES',
+    'RISKCONTROL-E2E-FAILURE-MODES',
+    'RISKCONTROL-PERFORMANCE-BUDGETS',
+    'RISKCONTROL-FAULT-MODES'
+  ]
+  const requiredTokens = [
+    'allow',
+    'challenge',
+    'step-up',
+    'queue',
+    'throttle',
+    'block',
+    'sha256PowV1',
+    'captchaV1',
+    'argon2idPoSpaceV1',
+    'humanReadProofV1',
+    'passkeyStepUpV1',
+    'adminPasskeyStepUpV1',
+    'replay',
+    'expired',
+    'action-mismatch',
+    'route-mismatch',
+    'device-mismatch',
+    'auth',
+    'comment',
+    'public-read',
+    'notification',
+    'admin-policy',
+    'desktop',
+    'mobile',
+    'wasm-failure',
+    'canvas-fallback',
+    'worker-failure',
+    'slow-device',
+    'redis-unavailable',
+    'postgres-slow-write',
+    'provider-missing',
+    'policy-load-failure'
+  ]
+  const budgetLimits = {
+    decisionP99Ms: 10,
+    powVerifyP99Ms: 100,
+    captchaVerifyP99Ms: 100,
+    proofConsumeP99Ms: 25
+  }
+
+  for (const id of requiredScenarioIds) {
+    if (!text.includes(`id: ${id}`)) {
+      fail(`risk-control matrix missing scenario ${id}`)
+    }
+  }
+
+  for (const token of requiredTokens) {
+    if (!text.includes(token)) {
+      fail(`risk-control matrix missing required coverage token ${token}`)
+    }
+  }
+
+  for (const [budgetName, maxValue] of Object.entries(budgetLimits)) {
+    const match = text.match(new RegExp(`\\b${budgetName}:\\s+(\\d+)\\b`))
+    if (!match) {
+      fail(`risk-control matrix missing performance budget ${budgetName}`)
+      continue
+    }
+
+    const value = Number(match[1])
+    if (!Number.isFinite(value) || value <= 0 || value > maxValue) {
+      fail(`risk-control matrix budget ${budgetName}=${value} exceeds fail-closed max ${maxValue}`)
+    }
+  }
+}
+
 for (const check of checks) {
   const absolute = path.join(root, check.file)
   if (!fs.existsSync(absolute)) {
@@ -116,6 +199,10 @@ for (const check of checks) {
         fail(`${check.file} ${entry.id} references missing ${item.section} path: ${item.value}`)
       }
     }
+  }
+
+  if (check.label === 'RiskControl') {
+    verifyRiskControlMatrix(text)
   }
 }
 

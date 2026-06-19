@@ -77,7 +77,8 @@
         "BACKEND-TRACEABILITY",
         "BACKEND-TEST-IMPACT",
         "BACKEND-FLAKY-GOVERNANCE",
-        "BACKEND-TIME-BUDGETS"
+        "BACKEND-TIME-BUDGETS",
+        "BACKEND-RISKCONTROL-TEST-MATRIX"
       ],
       "evidencePaths": [
         "tools/check-backend-test-governance.mjs",
@@ -276,6 +277,17 @@
       ]
     },
     {
+      "id": "BACKEND-RISKCONTROL-TEST-MATRIX",
+      "risk": "critical",
+      "coverage": "RiskControl decision modes, provider surfaces, proof binding failures, integration surfaces, browser failure modes, performance p99 budgets and fault modes",
+      "evidencePaths": [
+        "security/risk-control-test-matrix.yml",
+        "tools/security/check-security-matrices.mjs",
+        "tools/test/lanes/risk-control-test-matrix.sh",
+        "tests/backend/Unit/RiskControlTestMatrixTests.cs"
+      ]
+    },
+    {
       "id": "BACKEND-AUDIT-GOLDEN",
       "risk": "medium",
       "coverage": "audit payload stability and no password/token/secret leakage",
@@ -327,6 +339,17 @@
       "evidencePaths": [
         "tests/backend/Unit/MessageCenterServiceTests.cs",
         "tests/backend/Unit/BackendConcurrencyModelTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-NOTIFICATION-STREAM",
+      "risk": "high",
+      "coverage": "notification stream handshake, binary framing, recipient routing, runtime checks and pressure evidence",
+      "evidencePaths": [
+        "tests/backend/Unit/NotificationStreamBoundaryTests.cs",
+        "tests/backend/Unit/NotificationStreamFramePumpTests.cs",
+        "tests/frontend/checks/runtime/check-notification-stream-runtime.mjs",
+        "tests/frontend/checks/load/check-notification-stream-pressure.mjs"
       ]
     },
     {
@@ -491,6 +514,13 @@
       ]
     },
     {
+      "path": "src/backend/Modules/Endpoints/NotificationStreamDrillEndpoints.cs",
+      "requirements": [
+        "BACKEND-NOTIFICATION-STREAM",
+        "BACKEND-SECURITY-MATRIX"
+      ]
+    },
+    {
       "path": "src/backend/Modules/Endpoints/PublicAotEndpoints.cs",
       "requirements": [
         "BACKEND-ENDPOINT-HTTP-PIPELINE",
@@ -527,6 +557,14 @@
       ]
     },
     {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-SECURITY-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
       "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs",
       "requirements": [
         "BACKEND-ENDPOINT-AUTH-MATRIX",
@@ -538,6 +576,14 @@
       "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.ReadProof.cs",
       "requirements": [
         "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-SECURITY-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs",
+      "requirements": [
+        "BACKEND-RISKCONTROL-TEST-MATRIX",
         "BACKEND-SECURITY-MATRIX",
         "BACKEND-AEDS-GOLDEN"
       ]

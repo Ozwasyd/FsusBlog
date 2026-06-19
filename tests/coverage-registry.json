@@ -131,6 +131,23 @@
       ]
     },
     {
+      "id": "risk-control-test-matrix",
+      "description": "RiskControl Test Matrix is covered by a fail-closed security matrix that maps decision, provider, proof, integration, browser, performance and fault coverage.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "security/risk-control-test-matrix.yml",
+        "tools/security/check-security-matrices.mjs",
+        "tools/test/lanes/risk-control-test-matrix.sh"
+      ],
+      "assertionType": "static",
+      "failClosedRule": "matrix-validate and risk-control-test-matrix require every required RiskControl scenario and p99 budget to be declared before CI can pass.",
+      "minimumRequirement": "The matrix must include allow/challenge/step-up/queue/throttle/block, PoW/Captcha/PoSpace/HumanReadProof/Passkey/AdminStepUp, replay/expired/mismatch failures, integration surfaces, browser failure modes, p99 budgets and fault modes.",
+      "tierIds": [
+        "risk-control-test-matrix"
+      ]
+    },
+    {
       "id": "backend-aeds-pod-golden",
       "description": "Backend AEDS POD Golden is covered by declared repository evidence that exercise the named behavior.",
       "owner": "ServerContractAgent",

@@ -1976,6 +1976,35 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
+  - id: risk-control-test-matrix
+    owner: ServerContractAgent
+    command: tools/test/lanes/risk-control-test-matrix.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 3
+    cost: low
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    cadence: pr
+    requiredFor: production
+    coverage: [risk-control-test-matrix]
+    artifacts: [.tmp/security/risk-control-test-matrix.json]
+    evidence: [security/risk-control-test-matrix.yml, tools/security/check-security-matrices.mjs, tools/test/lanes/risk-control-test-matrix.sh]
+    ciJob: security-runtime
+    localOnly: false
+    nightlyOnly: false
+
   - id: wasm-fuzz-regression
     owner: WasmEngineAgent
     command: tools/test/lanes/wasm-fuzz-regression.sh
