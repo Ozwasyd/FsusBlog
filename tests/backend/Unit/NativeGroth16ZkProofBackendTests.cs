@@ -13,6 +13,8 @@ public sealed class NativeGroth16ZkProofBackendTests
 {
     private const string CircuitId = "fsus.anonymous.comment.v1";
     private const string CredentialRoot = "credential-root-active";
+    private const string RevocationRoot = "revocation-root-active";
+    private static readonly string IssuerPublicKeyHash = new('f', 64);
     private const long CredentialEpoch = 7;
     private const ushort PublicInputLayoutVersion = 2;
     private const string NullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -275,7 +277,9 @@ public sealed class NativeGroth16ZkProofBackendTests
             CredentialCommitment: CredentialCommitment,
             CredentialRoot: CredentialRoot,
             ReputationBucket: "trusted",
-            Proof: proof);
+            Proof: proof,
+            RevocationRoot: RevocationRoot,
+            IssuerPublicKeyHash: IssuerPublicKeyHash);
 
     private static ZkProofVerificationRequest ValidVerificationRequest(byte[] proof, string verifyingKeyHash)
         => new(
@@ -289,7 +293,9 @@ public sealed class NativeGroth16ZkProofBackendTests
             CredentialCommitment: CredentialCommitment,
             CredentialRoot: CredentialRoot,
             ReputationBucket: "trusted",
-            Proof: proof);
+            Proof: proof,
+            RevocationRoot: RevocationRoot,
+            IssuerPublicKeyHash: IssuerPublicKeyHash);
 
     private static byte[] ComputeFixtureProof(
         ReadOnlySpan<byte> verifyingKey,
@@ -380,7 +386,7 @@ public sealed class NativeGroth16ZkProofBackendTests
     private sealed class FixedRootReader(string acceptedRoot, long acceptedEpoch) : IAnonymousCredentialRootReader
     {
         public AnonymousCredentialRootRuntimeSnapshot CurrentSnapshot { get; } = new(
-            [new AnonymousCredentialAcceptedRoot(acceptedEpoch, acceptedRoot, AnonymousCredentialRootStatuses.Active, DateTimeOffset.UtcNow.AddHours(1))],
+            [new AnonymousCredentialAcceptedRoot(acceptedEpoch, acceptedRoot, RevocationRoot, IssuerPublicKeyHash, AnonymousCredentialRootStatuses.Active, DateTimeOffset.UtcNow.AddHours(1))],
             1,
             DateTimeOffset.UtcNow);
 
@@ -391,7 +397,9 @@ public sealed class NativeGroth16ZkProofBackendTests
             => epoch == acceptedEpoch && string.Equals(rootHash, acceptedRoot, StringComparison.Ordinal);
 
         public bool IsRootAccepted(string rootHash, string revocationRootHash, string issuerPublicKeyHash, long epoch)
-            => IsRootAccepted(rootHash, epoch);
+            => IsRootAccepted(rootHash, epoch) &&
+                string.Equals(revocationRootHash, RevocationRoot, StringComparison.Ordinal) &&
+                string.Equals(issuerPublicKeyHash, IssuerPublicKeyHash, StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class CapturingLogger<T> : ILogger<T>

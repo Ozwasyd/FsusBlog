@@ -101,10 +101,13 @@ public sealed class AnonymousCommentTicketService(
         string nullifierHash = Convert.ToHexStringLower(request.NullifierHash);
         string credentialRoot = publicInputs.CredentialRoot ?? Convert.ToHexStringLower(request.CredentialRoot);
         string revocationRoot = publicInputs.RevocationRoot ?? Convert.ToHexStringLower(request.RevocationRoot);
+        string issuerPublicKeyHash = publicInputs.IssuerPublicKeyHash ?? root.IssuerPublicKeyHash;
         string credentialLevel = publicInputs.CredentialLevel ?? request.CredentialLevel;
         string credentialCommitment = publicInputs.CredentialCommitment
             ?? Convert.ToHexStringLower(SHA256.HashData(request.PublicInputs));
-        if (!IsHexHash(credentialCommitment, minLength: 32, maxLength: 128))
+        if (!IsHexHash(credentialCommitment, minLength: 32, maxLength: 128) ||
+            !IsHexHash(issuerPublicKeyHash, minLength: 32, maxLength: 128) ||
+            !string.Equals(issuerPublicKeyHash, root.IssuerPublicKeyHash, StringComparison.OrdinalIgnoreCase))
         {
             return AnonymousCommentTicketIssueResult.Failure(AnonymousCommentTicketStatuses.ValidationFailed);
         }
@@ -120,7 +123,9 @@ public sealed class AnonymousCommentTicketService(
             credentialCommitment,
             credentialRoot,
             publicInputs.ReputationBucket ?? DefaultReputationBucket,
-            [.. request.Groth16Proof]);
+            [.. request.Groth16Proof],
+            revocationRoot,
+            issuerPublicKeyHash);
         ZkProofVerificationResult proof = await proofService.VerifyCommentProofAsync(proofRequest, cancellationToken);
         if (!proof.Verified)
         {
@@ -282,6 +287,7 @@ internal sealed record AnonymousCommentTicketPublicInputs(
     string? CredentialCommitment,
     string? CredentialRoot,
     string? RevocationRoot,
+    string? IssuerPublicKeyHash,
     string? VerifyingKeyHash,
     string? CredentialLevel,
     string? ReputationBucket)
@@ -310,6 +316,7 @@ internal sealed record AnonymousCommentTicketPublicInputs(
             Normalize(entries.GetValueOrDefault("credential_commitment") ?? entries.GetValueOrDefault("credentialCommitment"), 128),
             Normalize(entries.GetValueOrDefault("credential_root") ?? entries.GetValueOrDefault("credentialRoot"), 128),
             Normalize(entries.GetValueOrDefault("revocation_root") ?? entries.GetValueOrDefault("revocationRoot"), 128),
+            Normalize(entries.GetValueOrDefault("issuer_public_key_hash") ?? entries.GetValueOrDefault("issuerPublicKeyHash"), 128),
             Normalize(entries.GetValueOrDefault("verifying_key_hash") ?? entries.GetValueOrDefault("verifyingKeyHash"), 128),
             Normalize(entries.GetValueOrDefault("credential_level") ?? entries.GetValueOrDefault("credentialLevel"), 32),
             Normalize(entries.GetValueOrDefault("reputation_bucket") ?? entries.GetValueOrDefault("reputationBucket"), 64));

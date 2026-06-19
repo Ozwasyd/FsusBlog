@@ -150,6 +150,8 @@ public sealed class ProductionReadinessProbe(
         bool rootReady = rootReader?.CurrentSnapshot.AcceptedRoots.Any(root =>
             root.GraceExpiresAtUtc > now &&
             !string.IsNullOrWhiteSpace(root.RootHash) &&
+            !string.IsNullOrWhiteSpace(root.RevocationRootHash) &&
+            !string.IsNullOrWhiteSpace(root.IssuerPublicKeyHash) &&
             (string.Equals(root.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
              string.Equals(root.Status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal))) == true;
         return new ZkProdRuntimeReadiness(verifier?.IsConfigured == true, rootReady);

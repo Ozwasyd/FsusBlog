@@ -68,7 +68,9 @@ public sealed record ZkProofVerificationRequest(
     string CredentialCommitment,
     string CredentialRoot,
     string? ReputationBucket,
-    byte[] Proof)
+    byte[] Proof,
+    string RevocationRoot = "",
+    string IssuerPublicKeyHash = "")
 {
     public bool HasRequiredCommentInputs =>
         !string.IsNullOrWhiteSpace(ActionContext) &&
@@ -80,6 +82,8 @@ public sealed record ZkProofVerificationRequest(
         !string.IsNullOrWhiteSpace(NullifierHash) &&
         !string.IsNullOrWhiteSpace(CredentialCommitment) &&
         !string.IsNullOrWhiteSpace(CredentialRoot) &&
+        !string.IsNullOrWhiteSpace(RevocationRoot) &&
+        !string.IsNullOrWhiteSpace(IssuerPublicKeyHash) &&
         Proof.Length > 0;
 }
 
@@ -144,7 +148,9 @@ public sealed record CommentActorResolveRequest(
     string? CircuitId = null,
     string? VerifyingKeyHash = null,
     ushort PublicInputLayoutVersion = 0,
-    string? ReputationBucket = null);
+    string? ReputationBucket = null,
+    string? RevocationRoot = null,
+    string? IssuerPublicKeyHash = null);
 
 public sealed record CommentActorResolveResult(
     bool Allowed,

@@ -24,7 +24,9 @@ public readonly record struct ProductionZkProofBackendRequest(
     string CredentialCommitment,
     string CredentialRoot,
     string? ReputationBucket,
-    ReadOnlyMemory<byte> Proof);
+    ReadOnlyMemory<byte> Proof,
+    string RevocationRoot = "",
+    string IssuerPublicKeyHash = "");
 
 public readonly record struct ProductionZkProofBackendResult(bool Verified, string Reason)
 {
@@ -97,7 +99,11 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
             return ZkProofVerificationResult.InvalidProof();
         }
 
-        if (!_rootReader.IsRootAccepted(request.CredentialRoot, request.CredentialEpoch))
+        if (!_rootReader.IsRootAccepted(
+            request.CredentialRoot,
+            request.RevocationRoot,
+            request.IssuerPublicKeyHash,
+            request.CredentialEpoch))
         {
             return ZkProofVerificationResult.InvalidProof();
         }
@@ -122,7 +128,9 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
                         request.CredentialCommitment.Trim(),
                         request.CredentialRoot.Trim(),
                         NormalizeNullable(request.ReputationBucket, 64),
-                        request.Proof),
+                        request.Proof,
+                        NormalizeToken(request.RevocationRoot, 128),
+                        NormalizeToken(request.IssuerPublicKeyHash, 128)),
                     timeout.Token);
             ProductionZkProofBackendResult backendResult = await backendTask.WaitAsync(_options.BackendTimeout, cancellationToken);
 
@@ -192,7 +200,9 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
         return IsScope(request.Scope) &&
             IsHexHash(request.NullifierHash, minLength: 32, maxLength: 128) &&
             IsHexHash(request.CredentialCommitment, minLength: 32, maxLength: 128) &&
-            IsToken(request.CredentialRoot, maxLength: 128);
+            IsToken(request.CredentialRoot, maxLength: 128) &&
+            IsToken(request.RevocationRoot, maxLength: 128) &&
+            IsHexHash(request.IssuerPublicKeyHash, minLength: 32, maxLength: 128);
     }
 
     private static ProductionZkProofVerifierOptions ResolveOptions(IConfiguration configuration)

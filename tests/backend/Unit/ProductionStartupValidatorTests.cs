@@ -480,6 +480,8 @@ public sealed class ProductionStartupValidatorTests
                         new AnonymousCredentialAcceptedRoot(
                             1,
                             "root-hash",
+                            "revocation-root-hash",
+                            new string('f', 64),
                             AnonymousCredentialRootStatuses.Active,
                             DateTimeOffset.UtcNow.AddHours(1))
                     ],
@@ -493,6 +495,9 @@ public sealed class ProductionStartupValidatorTests
         public Task RefreshAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public bool IsRootAccepted(string rootHash, long epoch) => CurrentSnapshot.AcceptedRoots.Count > 0;
+
+        public bool IsRootAccepted(string rootHash, string revocationRootHash, string issuerPublicKeyHash, long epoch)
+            => CurrentSnapshot.AcceptedRoots.Count > 0;
     }
 
     private sealed class TestWebHostEnvironment(string environmentName) : IWebHostEnvironment

@@ -181,7 +181,9 @@ public sealed class CommentActorResolver(
                     CredentialCommitment: publicInputs.CredentialCommitment,
                     CredentialRoot: publicInputs.CredentialRoot,
                     ReputationBucket: publicInputs.ReputationBucket,
-                    Proof: request.ZkProof ?? []),
+                    Proof: request.ZkProof ?? [],
+                    RevocationRoot: publicInputs.RevocationRoot,
+                    IssuerPublicKeyHash: publicInputs.IssuerPublicKeyHash),
                 cancellationToken);
             if (!proof.Verified)
             {
@@ -284,12 +286,16 @@ public sealed class CommentActorResolver(
         string? nullifierHash = NormalizeHexHash(request.NullifierHash, minLength: 32, maxLength: 128);
         string? credentialCommitment = NormalizeHexHash(request.CredentialCommitment, minLength: 32, maxLength: 128);
         string? credentialRoot = NormalizeRequiredToken(request.CredentialRoot, 128);
+        string? revocationRoot = NormalizeRequiredToken(request.RevocationRoot, 128);
+        string? issuerPublicKeyHash = NormalizeHexHash(request.IssuerPublicKeyHash, minLength: 32, maxLength: 128);
         string? circuitId = NormalizeRequiredToken(request.CircuitId, 128);
         string? verifyingKeyHash = NormalizeRequiredToken(request.VerifyingKeyHash, 128);
         string? reputationBucket = NormalizeToken(request.ReputationBucket, 64);
         if (nullifierHash is null ||
             credentialCommitment is null ||
             credentialRoot is null ||
+            revocationRoot is null ||
+            issuerPublicKeyHash is null ||
             circuitId is null ||
             verifyingKeyHash is null ||
             request.CredentialEpoch <= 0 ||
@@ -304,6 +310,8 @@ public sealed class CommentActorResolver(
             nullifierHash,
             credentialCommitment,
             credentialRoot,
+            revocationRoot,
+            issuerPublicKeyHash,
             request.CredentialEpoch,
             circuitId,
             verifyingKeyHash,
@@ -373,6 +381,8 @@ public sealed class CommentActorResolver(
         string NullifierHash,
         string CredentialCommitment,
         string CredentialRoot,
+        string RevocationRoot,
+        string IssuerPublicKeyHash,
         long CredentialEpoch,
         string CircuitId,
         string VerifyingKeyHash,

@@ -27,6 +27,9 @@ public sealed class AnonymousCredentialRoot
     [SugarColumn(ColumnName = "verifying_key_hash", Length = 128)]
     public string VerifyingKeyHash { get; set; } = string.Empty;
 
+    [SugarColumn(ColumnName = "issuer_public_key_hash", Length = 128)]
+    public string IssuerPublicKeyHash { get; set; } = string.Empty;
+
     [SugarColumn(ColumnName = "public_input_layout_version")]
     public int PublicInputLayoutVersion { get; set; }
 

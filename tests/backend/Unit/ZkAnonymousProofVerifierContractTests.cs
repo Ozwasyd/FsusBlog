@@ -18,6 +18,8 @@ public sealed class ZkAnonymousProofVerifierContractTests
     private const ushort PublicInputLayoutVersion = 2;
     private const long CredentialEpoch = 7;
     private const string CredentialRoot = "credential-root-active";
+    private const string RevocationRoot = "revocation-root-active";
+    private static readonly string IssuerPublicKeyHash = new('f', 64);
     private const string PublicInputNullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string CredentialCommitment = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
@@ -176,6 +178,8 @@ public sealed class ZkAnonymousProofVerifierContractTests
         Assert.Equal(PublicInputNullifierHash, proofService.LastRequest.NullifierHash);
         Assert.Equal(CredentialCommitment, proofService.LastRequest.CredentialCommitment);
         Assert.Equal(CredentialRoot, proofService.LastRequest.CredentialRoot);
+        Assert.Equal(RevocationRoot, proofService.LastRequest.RevocationRoot);
+        Assert.Equal(IssuerPublicKeyHash, proofService.LastRequest.IssuerPublicKeyHash);
         Assert.Equal(CredentialEpoch, proofService.LastRequest.CredentialEpoch);
         Assert.Equal(CircuitId, proofService.LastRequest.CircuitId);
         Assert.Equal(VerifyingKeyHash, proofService.LastRequest.VerifyingKeyHash);
@@ -186,6 +190,8 @@ public sealed class ZkAnonymousProofVerifierContractTests
     [Theory]
     [InlineData("nullifier")]
     [InlineData("credentialRoot")]
+    [InlineData("revocationRoot")]
+    [InlineData("issuerPublicKeyHash")]
     public async Task CommentActorResolver_ZkAnonymousMissingPublicInputIsRejectedBeforeVerifier(string missingField)
     {
         var proofService = new CapturingZkProofService(ZkProofVerificationResult.Success());
@@ -202,6 +208,8 @@ public sealed class ZkAnonymousProofVerifierContractTests
         {
             "nullifier" => ValidActorResolveRequest() with { NullifierHash = string.Empty },
             "credentialRoot" => ValidActorResolveRequest() with { CredentialRoot = string.Empty },
+            "revocationRoot" => ValidActorResolveRequest() with { RevocationRoot = string.Empty },
+            "issuerPublicKeyHash" => ValidActorResolveRequest() with { IssuerPublicKeyHash = string.Empty },
             _ => ValidActorResolveRequest()
         };
 
@@ -278,6 +286,8 @@ public sealed class ZkAnonymousProofVerifierContractTests
         Assert.Equal(CircuitId, backend.LastRequest.CircuitId);
         Assert.Equal(VerifyingKeyHash, backend.LastRequest.VerifyingKeyHash);
         Assert.Equal(PublicInputLayoutVersion, backend.LastRequest.PublicInputLayoutVersion);
+        Assert.Equal(RevocationRoot, backend.LastRequest.RevocationRoot);
+        Assert.Equal(IssuerPublicKeyHash, backend.LastRequest.IssuerPublicKeyHash);
     }
 
     [Theory]
@@ -314,6 +324,27 @@ public sealed class ZkAnonymousProofVerifierContractTests
             backend: backend);
 
         ZkProofVerificationResult result = await verifier.VerifyAsync(ValidRequest());
+
+        Assert.False(result.Verified);
+        Assert.Equal(ZkProofVerificationStatuses.InvalidProof, result.Status);
+        Assert.Equal(0, backend.CallCount);
+    }
+
+    [Theory]
+    [InlineData("revocation-root-other", null)]
+    [InlineData(null, "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")]
+    public async Task ProductionZkProofVerifier_RejectsRevocationRootOrIssuerMismatch(
+        string? revocationRoot,
+        string? issuerPublicKeyHash)
+    {
+        var backend = new RecordingProductionZkProofBackend();
+        var verifier = CreateProductionVerifier(backend: backend);
+
+        ZkProofVerificationResult result = await verifier.VerifyAsync(ValidRequest() with
+        {
+            RevocationRoot = revocationRoot ?? RevocationRoot,
+            IssuerPublicKeyHash = issuerPublicKeyHash ?? IssuerPublicKeyHash
+        });
 
         Assert.False(result.Verified);
         Assert.Equal(ZkProofVerificationStatuses.InvalidProof, result.Status);
@@ -473,7 +504,9 @@ public sealed class ZkAnonymousProofVerifierContractTests
             CredentialCommitment: CredentialCommitment,
             CredentialRoot: CredentialRoot,
             ReputationBucket: "trusted",
-            Proof: [1, 2, 3]);
+            Proof: [1, 2, 3],
+            RevocationRoot: RevocationRoot,
+            IssuerPublicKeyHash: IssuerPublicKeyHash);
 
     private static CommentActorResolveRequest ValidActorResolveRequest()
         => new(
@@ -493,7 +526,9 @@ public sealed class ZkAnonymousProofVerifierContractTests
             CircuitId: CircuitId,
             VerifyingKeyHash: VerifyingKeyHash,
             PublicInputLayoutVersion: PublicInputLayoutVersion,
-            ReputationBucket: "trusted");
+            ReputationBucket: "trusted",
+            RevocationRoot: RevocationRoot,
+            IssuerPublicKeyHash: IssuerPublicKeyHash);
 
     private static string ExtractBetween(string source, string start, string end)
     {
@@ -522,7 +557,7 @@ public sealed class ZkAnonymousProofVerifierContractTests
     private sealed class FixedRootReader(string acceptedRoot, long acceptedEpoch) : IAnonymousCredentialRootReader
     {
         public AnonymousCredentialRootRuntimeSnapshot CurrentSnapshot { get; } = new(
-            [new AnonymousCredentialAcceptedRoot(acceptedEpoch, acceptedRoot, AnonymousCredentialRootStatuses.Active, DateTimeOffset.UtcNow.AddHours(1))],
+            [new AnonymousCredentialAcceptedRoot(acceptedEpoch, acceptedRoot, RevocationRoot, IssuerPublicKeyHash, AnonymousCredentialRootStatuses.Active, DateTimeOffset.UtcNow.AddHours(1))],
             1,
             DateTimeOffset.UtcNow);
 
@@ -531,6 +566,12 @@ public sealed class ZkAnonymousProofVerifierContractTests
 
         public bool IsRootAccepted(string rootHash, long epoch)
             => epoch == acceptedEpoch && string.Equals(rootHash, acceptedRoot, StringComparison.Ordinal);
+
+        public bool IsRootAccepted(string rootHash, string revocationRootHash, string issuerPublicKeyHash, long epoch)
+            => epoch == acceptedEpoch &&
+                string.Equals(rootHash, acceptedRoot, StringComparison.Ordinal) &&
+                string.Equals(revocationRootHash, RevocationRoot, StringComparison.Ordinal) &&
+                string.Equals(issuerPublicKeyHash, IssuerPublicKeyHash, StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class CapturingZkProofService(ZkProofVerificationResult result) : IZkAnonymousProofService

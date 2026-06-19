@@ -1020,6 +1020,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         circuit_id varchar(96) NOT NULL,
                         circuit_numeric_id integer NOT NULL DEFAULT 0,
                         verifying_key_hash varchar(128) NOT NULL,
+                        issuer_public_key_hash varchar(128) NOT NULL DEFAULT '',
                         public_input_layout_version integer NOT NULL,
                         circuit_metadata text NULL,
                         created_at_utc timestamp NOT NULL DEFAULT now(),
@@ -1056,6 +1057,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_epoch_epoch ON anonymous_credential_epoch(epoch);
                     """),
                 new EnsureColumnStep("anonymous_credential_root", "activated_at_utc", "timestamp NULL"),
+                new EnsureColumnStep("anonymous_credential_root", "issuer_public_key_hash", "varchar(128) NOT NULL DEFAULT ''"),
                 new EnsureColumnStep("anonymous_credential_root", "revoked_at_utc", "timestamp NULL"),
                 new EnsureColumnStep("anonymous_credential_root", "updated_at_utc", "timestamp NOT NULL DEFAULT now()"),
                 new EnsureColumnStep("anonymous_credential_root", "revoke_reason", "varchar(128) NULL"),

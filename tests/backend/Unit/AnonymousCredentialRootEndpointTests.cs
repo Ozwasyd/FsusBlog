@@ -191,6 +191,7 @@ public sealed class AnonymousCredentialRootEndpointTests
             CircuitId: "fsus.anonymous.comment.v1",
             CircuitNumericId: 7,
             VerifyingKeyHash: "vk-sha256",
+            IssuerPublicKeyHash: new string('f', 64),
             PublicInputLayoutVersion: 2,
             CreatedAtUtc: BaselineNow.UtcDateTime,
             ExpiresAtUtc: BaselineNow.AddMinutes(60).UtcDateTime,

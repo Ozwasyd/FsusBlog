@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
+using FsusBlog.Shared.Contracts.Validation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SqlSugar;
@@ -32,6 +33,7 @@ public readonly record struct AnonymousCredentialRootRecord(
     string CircuitId,
     uint CircuitNumericId,
     string VerifyingKeyHash,
+    string IssuerPublicKeyHash,
     ushort PublicInputLayoutVersion,
     DateTime CreatedAtUtc,
     DateTime ExpiresAtUtc,
@@ -64,6 +66,7 @@ public sealed class AnonymousCredentialRootStore(ISqlSugarClient db) : IAnonymou
             Normalize(root.CircuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars),
             root.CircuitNumericId <= 0 ? 0U : (uint)root.CircuitNumericId,
             Normalize(root.VerifyingKeyHash, 128),
+            Normalize(root.IssuerPublicKeyHash, 128),
             root.PublicInputLayoutVersion <= 0 ? (ushort)0 : (ushort)Math.Min(root.PublicInputLayoutVersion, ushort.MaxValue),
             AsUtc(root.CreatedAtUtc),
             AsUtc(root.ExpiresAtUtc),
@@ -173,6 +176,7 @@ public sealed class AnonymousCredentialRootService(
         if (record is null ||
             !string.Equals(record.Value.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
             record.Value.CredentialRoot.Length == 0 ||
+            record.Value.RevocationRoot.Length == 0 ||
             record.Value.CircuitNumericId == 0 ||
             record.Value.PublicInputLayoutVersion == 0 ||
             string.IsNullOrWhiteSpace(record.Value.CircuitId) ||
@@ -197,15 +201,23 @@ public sealed class AnonymousCredentialRootService(
             verifier.IsConfigured,
             record.Value.CircuitId,
             record.Value.VerifyingKeyHash,
-            ResolveIssuerPublicKeyHash(configuration),
+            ResolveIssuerPublicKeyHash(record.Value.IssuerPublicKeyHash, configuration),
             [.. record.Value.CredentialRoot],
             [.. record.Value.RevocationRoot],
             [.. record.Value.CircuitMetadata]);
         return Result<AnonymousCredentialRootSnapshotCoreModel>.Success(snapshot);
     }
 
-    private static string ResolveIssuerPublicKeyHash(IConfiguration configuration)
+    private static string ResolveIssuerPublicKeyHash(string storedIssuerPublicKeyHash, IConfiguration configuration)
     {
+        string stored = storedIssuerPublicKeyHash.Trim();
+        if (stored.Length > 0)
+        {
+            return stored.Length <= AnonymousPrivacyContract.MaxIssuerPublicKeyHashBytes
+                ? stored.ToLowerInvariant()
+                : stored[..AnonymousPrivacyContract.MaxIssuerPublicKeyHashBytes].ToLowerInvariant();
+        }
+
         string issuerPublicKeyId = configuration["AnonymousCredentialIssuer:IssuerPublicKeyId"] ?? "issuer-key:local";
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(issuerPublicKeyId.Trim())));
     }

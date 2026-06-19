@@ -15,6 +15,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AnonymousCredentialRootLifecycleTests
 {
     private static readonly DateTimeOffset BaselineNow = DateTimeOffset.Parse("2026-06-19T00:00:00Z");
+    private static readonly string IssuerPublicKeyHash = new('f', 64);
 
     [Fact]
     public void Migration_CreatesRootLifecycleEpochRevocationTablesAndIndexes()
@@ -29,6 +30,7 @@ public sealed class AnonymousCredentialRootLifecycleTests
         Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
         Assert.Contains("CREATE TABLE IF NOT EXISTS anonymous_credential_epoch", fingerprint, StringComparison.Ordinal);
         Assert.Contains("CREATE TABLE IF NOT EXISTS anonymous_credential_revocation", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("issuer_public_key_hash", fingerprint, StringComparison.Ordinal);
         Assert.Contains("unique_idx_anonymous_credential_epoch_epoch", fingerprint, StringComparison.Ordinal);
         Assert.Contains("unique_idx_anonymous_credential_root_hash", fingerprint, StringComparison.Ordinal);
         Assert.Contains("unique_idx_anonymous_credential_root_single_active", fingerprint, StringComparison.Ordinal);
@@ -72,7 +74,10 @@ public sealed class AnonymousCredentialRootLifecycleTests
             Assert.True(first.IsSuccess, first.Error.Message);
             Assert.True(second.IsSuccess, second.Error.Message);
             Assert.True(reader.IsRootAccepted("aa01", 100));
-            Assert.True(reader.IsRootAccepted("bb02", 101));
+            Assert.True(reader.IsRootAccepted("aa01", RevocationRoot(100), IssuerPublicKeyHash, 100));
+            Assert.False(reader.IsRootAccepted("aa01", RevocationRoot(101), IssuerPublicKeyHash, 100));
+            Assert.False(reader.IsRootAccepted("aa01", RevocationRoot(100), new string('e', 64), 100));
+            Assert.True(reader.IsRootAccepted("bb02", RevocationRoot(101), IssuerPublicKeyHash, 101));
 
             using SqlSugarClient verifyDb = CreateDb(dbPath);
             Assert.Equal(1, await verifyDb.Queryable<AnonymousCredentialRoot>()
@@ -87,7 +92,7 @@ public sealed class AnonymousCredentialRootLifecycleTests
             await reader.RefreshAsync(CancellationToken.None);
 
             Assert.False(reader.IsRootAccepted("aa01", 100));
-            Assert.True(reader.IsRootAccepted("bb02", 101));
+            Assert.True(reader.IsRootAccepted("bb02", RevocationRoot(101), IssuerPublicKeyHash, 101));
         }
         finally
         {
@@ -110,7 +115,7 @@ public sealed class AnonymousCredentialRootLifecycleTests
 
             await reader.RefreshAsync(CancellationToken.None);
 
-            Assert.True(reader.IsRootAccepted("ee05", 150));
+            Assert.True(reader.IsRootAccepted("ee05", RevocationRoot(150), IssuerPublicKeyHash, 150));
             Assert.Contains(reader.CurrentSnapshot.AcceptedRoots, static root =>
                 root.Epoch == 150 &&
                 root.Status == AnonymousCredentialRootStatuses.Active);
@@ -136,11 +141,13 @@ public sealed class AnonymousCredentialRootLifecycleTests
             var revocations = provider.GetRequiredService<IAnonymousCredentialRevocationService>();
             var audit = provider.GetRequiredService<CapturingAuditEventService>();
 
+            string handleHash = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:200:unit");
+            string nextRoot = RevocationRoot(200, handleHash);
             Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(epoch: 200, rootHash: "cc03"), CancellationToken.None);
             Result revoked = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
                 Epoch: 200,
-                RevocationHandleHash: "handle-sha256",
-                RevocationRootHash: "revocation-root-v2",
+                RevocationHandleHash: handleHash,
+                RevocationRootHash: nextRoot,
                 Reason: "abuse",
                 ActorId: "admin:7"), CancellationToken.None);
 
@@ -153,12 +160,15 @@ public sealed class AnonymousCredentialRootLifecycleTests
                 .Where(static item => item.Epoch == 200)
                 .FirstAsync();
             AnonymousCredentialRevocation row = Assert.Single(await verifyDb.Queryable<AnonymousCredentialRevocation>().ToListAsync());
-            Assert.Equal("revocation-root-v2", root.RevocationRootHash);
-            Assert.Equal("handle-sha256", row.RevocationHandleHash);
+            Assert.Equal(nextRoot, root.RevocationRootHash);
+            Assert.Equal(handleHash, row.RevocationHandleHash);
             Assert.Equal(2, audit.Events.Count);
             Assert.All(audit.Events, static item => Assert.True(item.IsHighValue));
             string auditText = string.Join('|', audit.Events.SelectMany(static item =>
                 item.Context?.Select(static pair => $"{pair.Key}:{pair.Value}") ?? []));
+            Assert.DoesNotContain(handleHash, auditText, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("userId", auditText, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("42", auditText, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("secret", auditText, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("witness", auditText, StringComparison.OrdinalIgnoreCase);
         }
@@ -166,6 +176,107 @@ public sealed class AnonymousCredentialRootLifecycleTests
         {
             TryDelete(dbPath);
         }
+    }
+
+    [Fact]
+    public async Task Revocation_MismatchedAccumulatorRootAndRawUserHandleFailClosed()
+    {
+        string dbPath = BuildDbPath("root-lifecycle-revocation-failclosed");
+        try
+        {
+            using SqlSugarClient setup = CreateDb(dbPath);
+            CreateLifecycleTables(setup);
+
+            await using ServiceProvider provider = BuildProvider(dbPath, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
+            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+            var revocations = provider.GetRequiredService<IAnonymousCredentialRevocationService>();
+
+            Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(epoch: 201, rootHash: "dd05"), CancellationToken.None);
+            string handleHash = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:201:unit");
+            Result mismatchedRoot = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
+                Epoch: 201,
+                RevocationHandleHash: handleHash,
+                RevocationRootHash: new string('0', 64)), CancellationToken.None);
+            Result rawUserHandle = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
+                Epoch: 201,
+                RevocationHandleHash: "42",
+                RevocationRootHash: new string('1', 64)), CancellationToken.None);
+
+            Assert.True(rotated.IsSuccess, rotated.Error.Message);
+            Assert.True(mismatchedRoot.IsFailure);
+            Assert.Equal("anonymous_credential_revocation_root_mismatch", mismatchedRoot.Error.Message);
+            Assert.True(rawUserHandle.IsFailure);
+            Assert.Equal("anonymous_credential_revocation_invalid", rawUserHandle.Error.Message);
+
+            using SqlSugarClient verifyDb = CreateDb(dbPath);
+            Assert.Empty(await verifyDb.Queryable<AnonymousCredentialRevocation>().ToListAsync());
+        }
+        finally
+        {
+            TryDelete(dbPath);
+        }
+    }
+
+    [Fact]
+    public async Task Revocation_GraceExpiredRootFailsClosed()
+    {
+        string dbPath = BuildDbPath("root-lifecycle-revocation-grace");
+        try
+        {
+            using SqlSugarClient setup = CreateDb(dbPath);
+            CreateLifecycleTables(setup);
+            var clock = new MutableTimeProvider(BaselineNow);
+
+            await using ServiceProvider provider = BuildProvider(dbPath, clock, Substitute.For<IAnonymousCredentialRootService>());
+            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+            var revocations = provider.GetRequiredService<IAnonymousCredentialRevocationService>();
+
+            Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(epoch: 202, rootHash: "ee06", graceMinutes: 65), CancellationToken.None);
+            clock.Advance(TimeSpan.FromMinutes(66));
+            string handleHash = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:202:unit");
+            Result revoked = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
+                Epoch: 202,
+                RevocationHandleHash: handleHash,
+                RevocationRootHash: RevocationRoot(202, handleHash)), CancellationToken.None);
+
+            Assert.True(rotated.IsSuccess, rotated.Error.Message);
+            Assert.True(revoked.IsFailure);
+            Assert.Equal("anonymous_credential_root_not_found", revoked.Error.Message);
+        }
+        finally
+        {
+            TryDelete(dbPath);
+        }
+    }
+
+    [Fact]
+    public void RevocationAccumulator_NonMembershipWitnessRoundTripsAndRevokedHandleFails()
+    {
+        string revokedHandle = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:revoked");
+        string clearHandle = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:clear");
+        string root = RevocationRoot(300, revokedHandle);
+
+        Result<AnonymousCredentialNonMembershipWitness> clearWitness = AnonymousCredentialRevocationAccumulator.CreateNonMembershipWitness(
+            300,
+            root,
+            IssuerPublicKeyHash,
+            clearHandle,
+            [revokedHandle]);
+        Result<AnonymousCredentialNonMembershipWitness> revokedWitness = AnonymousCredentialRevocationAccumulator.CreateNonMembershipWitness(
+            300,
+            root,
+            IssuerPublicKeyHash,
+            revokedHandle,
+            [revokedHandle]);
+
+        Assert.True(clearWitness.IsSuccess, clearWitness.Error.Message);
+        Assert.True(AnonymousCredentialRevocationAccumulator.VerifyNonMembershipWitness(clearWitness.Value!, [revokedHandle]));
+        Assert.False(AnonymousCredentialRevocationAccumulator.VerifyNonMembershipWitness(clearWitness.Value! with
+        {
+            RevocationRootHash = new string('0', 64)
+        }, [revokedHandle]));
+        Assert.True(revokedWitness.IsFailure);
+        Assert.Equal("anonymous_credential_revoked", revokedWitness.Error.Message);
     }
 
     [Fact]
@@ -203,7 +314,7 @@ public sealed class AnonymousCredentialRootLifecycleTests
         => new(
             Epoch: epoch,
             RootHash: rootHash,
-            RevocationRootHash: $"revocation-{rootHash}",
+            RevocationRootHash: RevocationRoot(epoch),
             CircuitId: "fsus.anonymous.comment.v1",
             CircuitNumericId: 7,
             VerifyingKeyHash: "vk-sha256",
@@ -212,7 +323,18 @@ public sealed class AnonymousCredentialRootLifecycleTests
             GraceExpiresAtUtc: BaselineNow.AddMinutes(graceMinutes),
             CircuitMetadata: "{\"layout\":2}",
             Reason: "unit",
-            ActorId: "admin:42");
+            ActorId: "admin:42",
+            IssuerPublicKeyHash: IssuerPublicKeyHash);
+
+    private static string RevocationRoot(long epoch, params string[] revokedHandleHashes)
+    {
+        Result<string> result = AnonymousCredentialRevocationAccumulator.TryComputeRoot(
+            epoch,
+            IssuerPublicKeyHash,
+            revokedHandleHashes);
+        Assert.True(result.IsSuccess, result.Error.Message);
+        return result.Value!;
+    }
 
     private static ServiceProvider BuildProvider(
         string dbPath,
@@ -271,6 +393,7 @@ public sealed class AnonymousCredentialRootLifecycleTests
                 circuit_id TEXT NOT NULL,
                 circuit_numeric_id INTEGER NOT NULL DEFAULT 0,
                 verifying_key_hash TEXT NOT NULL,
+                issuer_public_key_hash TEXT NOT NULL DEFAULT '',
                 public_input_layout_version INTEGER NOT NULL,
                 circuit_metadata TEXT NULL,
                 created_at_utc TEXT NOT NULL,
@@ -307,10 +430,11 @@ public sealed class AnonymousCredentialRootLifecycleTests
         {
             Epoch = epoch,
             RootHash = rootHash,
-            RevocationRootHash = $"revocation-{rootHash}",
+            RevocationRootHash = RevocationRoot(epoch),
             CircuitId = "fsus.anonymous.comment.v1",
             CircuitNumericId = 7,
             VerifyingKeyHash = "vk-sha256",
+            IssuerPublicKeyHash = IssuerPublicKeyHash,
             PublicInputLayoutVersion = 2,
             CircuitMetadata = "{\"layout\":2}",
             CreatedAtUtc = BaselineNow.UtcDateTime,

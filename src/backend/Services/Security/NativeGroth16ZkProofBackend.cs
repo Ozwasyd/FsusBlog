@@ -325,6 +325,8 @@ internal static class NativeGroth16PublicInputCodec
         WriteString(writer, request.NullifierHash);
         WriteString(writer, request.CredentialCommitment);
         WriteString(writer, request.CredentialRoot);
+        WriteString(writer, request.RevocationRoot);
+        WriteString(writer, request.IssuerPublicKeyHash);
         WriteString(writer, request.ReputationBucket ?? string.Empty);
         return writer.WrittenMemory.ToArray();
     }

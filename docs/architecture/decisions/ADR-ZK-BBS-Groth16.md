@@ -47,11 +47,12 @@ The server only receives and checks a public nullifier hash / token. It must not
 
 ## Credential Root And Revocation
 
-The proof must bind the credential to a current credential root and a revocation root for the declared epoch.
+The proof must bind the credential to a current credential root, revocation root, and issuer public key hash for the declared epoch.
 
 - `credential root`: the membership accumulator / Merkle root for credentials accepted in the epoch.
-- `revocation root`: the accumulator root proving the credential or revocation handle is not revoked.
-- Active and grace roots may be accepted by the runtime root reader; expired, missing, mismatched, or malformed roots fail closed before ticket issuance.
+- `revocation root`: the accumulator root proving the credential-derived revocation handle is not revoked.
+- `issuer public key hash`: the BBS+ issuer key hash published with the root snapshot and bound into proof verification.
+- Active and grace roots may be accepted by the runtime root reader only when credential root, revocation root, and issuer public key hash all match; expired, missing, mismatched, or malformed roots fail closed before ticket issuance.
 - Root rotation and revocation are admin-governed operations and must not reveal a credential-to-account mapping to the comment verification path.
 
 ## Circuit And Trusted Setup
@@ -65,7 +66,7 @@ The `comment.v1` Groth16 circuit must constrain:
 - Membership in the current credential root for the declared epoch.
 - Non-revocation against the current revocation root.
 - `nullifier = PRF(credential_secret, action_context, scope)`.
-- Public input binding for `action_context`, scope, `circuit_id`, `verifying_key_hash`, `public_input_layout_version`, credential epoch, credential root, revocation root, nullifier, disclosed buckets, and comment policy context.
+- Public input binding for `action_context`, scope, `circuit_id`, `verifying_key_hash`, `public_input_layout_version`, credential epoch, credential root, revocation root, issuer public key hash, nullifier, disclosed buckets, and comment policy context.
 
 The trusted setup artifact set for this circuit must include the canonical circuit source hash, proving key hash, verifying key bytes, verifying key hash, ceremony transcript hash, and reproducible build metadata. `verifying_key_hash` must be computed from canonical verifying key bytes plus `circuit_id` and `public_input_layout_version`, then stored in root metadata / production verifier configuration. If the trusted setup artifact is absent or the vk hash is not the final setup output, production remains fail-closed.
 

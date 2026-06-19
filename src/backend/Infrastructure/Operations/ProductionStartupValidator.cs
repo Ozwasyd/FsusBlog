@@ -698,6 +698,8 @@ internal sealed class ProductionStartupValidationHostedService(
         return reader.CurrentSnapshot.AcceptedRoots.Any(root =>
             root.GraceExpiresAtUtc > now &&
             !string.IsNullOrWhiteSpace(root.RootHash) &&
+            !string.IsNullOrWhiteSpace(root.RevocationRootHash) &&
+            !string.IsNullOrWhiteSpace(root.IssuerPublicKeyHash) &&
             (string.Equals(root.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
              string.Equals(root.Status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal)));
     }
