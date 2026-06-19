@@ -15,6 +15,7 @@ using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Validation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -109,10 +110,10 @@ public sealed class AnonymousCredentialIssuerTests
         Assert.Equal(request.CredentialEpoch, response.CredentialEpoch);
         Assert.Equal(request.CircuitNumericId, response.CircuitNumericId);
         Assert.Equal(request.PublicInputLayoutVersion, response.PublicInputLayoutVersion);
-        Assert.Equal("fsus.anonymous.credential.v1", response.CircuitId);
+        Assert.Equal(AnonymousPrivacyContract.CircuitId, response.CircuitId);
         Assert.Equal(AnonymousCredentialLevels.StrongAnonymous, response.CredentialLevel);
-        Assert.Equal(64, response.IssuerResponse.Length);
-        Assert.Equal(32, response.CredentialCommitment.Length);
+        Assert.Equal("issuer_key:local", response.IssuerPublicKeyId);
+        Assert.Equal(96, response.BbsSignature.Length);
 
         List<AnonymousCredentialIssuanceAudit> rows = await db.Queryable<AnonymousCredentialIssuanceAudit>().ToListAsync();
         AnonymousCredentialIssuanceAudit row = Assert.Single(rows);
@@ -138,7 +139,7 @@ public sealed class AnonymousCredentialIssuerTests
         Assert.DoesNotContain("blind-request-raw", auditText, StringComparison.Ordinal);
         Assert.DoesNotContain("credential-secret-token", auditText, StringComparison.Ordinal);
         Assert.DoesNotContain("request_hash", auditText, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain(Convert.ToHexString(response.CredentialCommitment), auditText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(Convert.ToHexString(response.BbsSignature), auditText, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -209,7 +210,7 @@ public sealed class AnonymousCredentialIssuerTests
         Assert.True(PodBinaryCodec.TryDecodeAnonymousCredentialIssueResponse(decoded.Payload, out AnonymousCredentialIssueResponseCoreModel response));
         Assert.Equal(request.CredentialEpoch, response.CredentialEpoch);
         Assert.Equal(42, issuer.UserId);
-        Assert.Equal(request.BlindedRequest, issuer.Request.BlindedRequest);
+        Assert.Equal(request.BlindedCommitment, issuer.Request.BlindedCommitment);
         Assert.Equal(AnonymousCredentialIssuerLimits.MaxIssueRequestFrameBytes, context.RequestServices.GetRequiredService<FakeBinaryEndpointRequestContext>().MaxFrameBytes);
     }
 
@@ -285,10 +286,10 @@ public sealed class AnonymousCredentialIssuerTests
         => new(
             epoch,
             7,
-            1,
-            "fsus.anonymous.credential.v1",
+            AnonymousPrivacyContract.PublicInputLayoutVersion,
+            AnonymousPrivacyContract.CircuitId,
             AnonymousCredentialLevels.Basic,
-            Encoding.UTF8.GetBytes("blind-request-raw"),
+            [.. Enumerable.Range(0, 64).Select(static value => (byte)value)],
             Encoding.UTF8.GetBytes("credential-secret-token"));
 
     private static AnonymousCredentialIssueResponseCoreModel CreateIssueResponse(AnonymousCredentialIssueRequestCoreModel request)
@@ -299,8 +300,8 @@ public sealed class AnonymousCredentialIssuerTests
             request.PublicInputLayoutVersion,
             request.CircuitId,
             AnonymousCredentialLevels.StrongAnonymous,
-            [.. Enumerable.Range(0, 64).Select(static value => (byte)value)],
-            [.. Enumerable.Range(0, 32).Select(static value => (byte)(value + 64))]);
+            "issuer-key:test",
+            [.. Enumerable.Range(0, 96).Select(static value => (byte)value)]);
 
     private static SqlSugarClient CreateDb()
         => new(new ConnectionConfig

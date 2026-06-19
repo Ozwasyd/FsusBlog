@@ -1,4 +1,5 @@
 using System.Text;
+using System.Security.Cryptography;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
@@ -196,10 +197,17 @@ public sealed class AnonymousCredentialRootService(
             verifier.IsConfigured,
             record.Value.CircuitId,
             record.Value.VerifyingKeyHash,
+            ResolveIssuerPublicKeyHash(configuration),
             [.. record.Value.CredentialRoot],
             [.. record.Value.RevocationRoot],
             [.. record.Value.CircuitMetadata]);
         return Result<AnonymousCredentialRootSnapshotCoreModel>.Success(snapshot);
+    }
+
+    private static string ResolveIssuerPublicKeyHash(IConfiguration configuration)
+    {
+        string issuerPublicKeyId = configuration["AnonymousCredentialIssuer:IssuerPublicKeyId"] ?? "issuer-key:local";
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(issuerPublicKeyId.Trim())));
     }
 
     private static DateTimeOffset ResolveCacheExpiry(

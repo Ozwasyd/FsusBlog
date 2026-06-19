@@ -209,6 +209,7 @@ public sealed class AnonymousCredentialRootEndpointTests
             VerifierConfigured: true,
             CircuitId: "fsus.anonymous.comment.v1",
             VerifyingKeyHash: "vk-sha256",
+            IssuerPublicKeyHash: new('f', 64),
             CredentialRoot: [5, 6, 7],
             RevocationRoot: [8, 9],
             CircuitMetadata: [10]);

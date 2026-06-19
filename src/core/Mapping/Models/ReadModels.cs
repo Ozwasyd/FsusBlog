@@ -96,7 +96,13 @@ public readonly record struct CommentPolicySnapshotCoreModel(
     bool PublicCommentsEnabled,
     bool ZkAnonymousEnabled,
     string DefaultAuthorMode,
-    IReadOnlyList<string> SupportedDisplayLanguages);
+    IReadOnlyList<string> SupportedDisplayLanguages,
+    bool ZkProdEnabled = false,
+    bool ZkProdNativeVerifierConfigured = false,
+    bool ZkProdTrustedSetupVerified = false,
+    bool ZkProdBbsCredentialRequired = true,
+    bool ZkProdCredentialRootReady = false,
+    string ZkProdUnavailableReason = "disabled");
 
 public readonly record struct CommentPolicyUpdateRequestCoreModel(
     bool? AnonymousCommentsEnabled,
@@ -125,18 +131,18 @@ public readonly record struct AnonymousCredentialIssueRequestCoreModel(
     ushort PublicInputLayoutVersion,
     string CircuitId,
     string CredentialLevel,
-    byte[] BlindedRequest,
+    byte[] BlindedCommitment,
     byte[] ClientNonce);
 
 public readonly record struct AnonymousCredentialIssueResponseCoreModel(
     long CredentialEpoch,
-    long RootExpiresAtUnixMs,
+    long ExpiresAtUnixMs,
     uint CircuitNumericId,
     ushort PublicInputLayoutVersion,
     string CircuitId,
     string CredentialLevel,
-    byte[] IssuerResponse,
-    byte[] CredentialCommitment);
+    string IssuerPublicKeyId,
+    byte[] BbsSignature);
 
 public readonly record struct AnonymousCredentialRootSnapshotCoreModel(
     long CredentialEpoch,
@@ -148,6 +154,7 @@ public readonly record struct AnonymousCredentialRootSnapshotCoreModel(
     bool VerifierConfigured,
     string CircuitId,
     string VerifyingKeyHash,
+    string IssuerPublicKeyHash,
     byte[] CredentialRoot,
     byte[] RevocationRoot,
     byte[] CircuitMetadata);
@@ -160,11 +167,16 @@ public readonly record struct AnonymousCommentTicketRequestCoreModel(
     long CredentialEpoch,
     uint CircuitNumericId,
     ushort PublicInputLayoutVersion,
-    string AnonymousScope,
-    string DisplayLanguage,
+    string ActionContext,
+    string Scope,
     string CircuitId,
+    string VerifyingKeyHash,
     byte[] NullifierHash,
-    byte[] ZkProof,
+    byte[] CredentialRoot,
+    byte[] RevocationRoot,
+    string CredentialLevel,
+    string ReputationBucket,
+    byte[] Groth16Proof,
     byte[] PublicInputs);
 
 public readonly record struct AnonymousCommentTicketResponseCoreModel(
@@ -172,8 +184,7 @@ public readonly record struct AnonymousCommentTicketResponseCoreModel(
     long TicketExpiresAtUnixMs,
     string CredentialLevel,
     byte[] Ticket,
-    byte[] ModerationSubjectHash,
-    byte[] AnonymousNullifierHash);
+    byte[] ModerationSubjectHash);
 
 public readonly record struct AnonymousCommentCreateRequestCoreModel(
     int ArticleId,

@@ -193,18 +193,18 @@ public sealed record class AnonymousCredentialIssueRequest(
     ushort PublicInputLayoutVersion,
     string CircuitId,
     string CredentialLevel,
-    byte[] BlindedRequest,
+    byte[] BlindedCommitment,
     byte[] ClientNonce);
 
 public sealed record class AnonymousCredentialIssueResponse(
     long CredentialEpoch,
-    long RootExpiresAtUnixMs,
+    long ExpiresAtUnixMs,
     uint CircuitNumericId,
     ushort PublicInputLayoutVersion,
     string CircuitId,
     string CredentialLevel,
-    byte[] IssuerResponse,
-    byte[] CredentialCommitment);
+    string IssuerPublicKeyId,
+    byte[] BbsSignature);
 
 public sealed record class AnonymousCredentialRootSnapshot(
     long CredentialEpoch,
@@ -216,6 +216,7 @@ public sealed record class AnonymousCredentialRootSnapshot(
     bool VerifierConfigured,
     string CircuitId,
     string VerifyingKeyHash,
+    string IssuerPublicKeyHash,
     byte[] CredentialRoot,
     byte[] RevocationRoot,
     byte[] CircuitMetadata);
@@ -228,11 +229,16 @@ public sealed record class AnonymousCommentTicketRequest(
     long CredentialEpoch,
     uint CircuitNumericId,
     ushort PublicInputLayoutVersion,
-    string AnonymousScope,
-    string DisplayLanguage,
+    string ActionContext,
+    string Scope,
     string CircuitId,
+    string VerifyingKeyHash,
     byte[] NullifierHash,
-    byte[] ZkProof,
+    byte[] CredentialRoot,
+    byte[] RevocationRoot,
+    string CredentialLevel,
+    string ReputationBucket,
+    byte[] Groth16Proof,
     byte[] PublicInputs);
 
 public sealed record class AnonymousCommentTicketResponse(
@@ -240,8 +246,7 @@ public sealed record class AnonymousCommentTicketResponse(
     long TicketExpiresAtUnixMs,
     string CredentialLevel,
     byte[] Ticket,
-    byte[] ModerationSubjectHash,
-    byte[] AnonymousNullifierHash);
+    byte[] ModerationSubjectHash);
 
 public sealed record class AnonymousCommentCreateRequest(
     int ArticleId,

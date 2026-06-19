@@ -6,6 +6,7 @@ using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Shared.Contracts.Validation;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;
@@ -37,10 +38,11 @@ public readonly record struct AnonymousCredentialIssuanceAuditWrite(
 public static class AnonymousCredentialIssuerLimits
 {
     public const int MaxIssueRequestFrameBytes = 16 * 1024;
-    public const int MaxBlindedRequestBytes = 8 * 1024;
-    public const int MaxClientNonceBytes = 128;
+    public const int MaxBlindedCommitmentBytes = AnonymousPrivacyContract.MaxBbsBlindedCommitmentBytes;
+    public const int MaxClientNonceBytes = AnonymousPrivacyContract.MaxClientNonceBytes;
     public const int MaxCircuitIdChars = 96;
-    public const int MaxCredentialLevelChars = 32;
+    public const int MaxCredentialLevelChars = AnonymousPrivacyContract.MaxCredentialLevelBytes;
+    public const int MaxIssuerPublicKeyIdChars = 128;
 }
 
 public sealed class AnonymousCredentialIssuanceAuditStore(ISqlSugarClient db) : IAnonymousCredentialIssuanceAuditStore
@@ -93,15 +95,17 @@ public sealed class AnonymousCredentialIssuerService(
 
         AnonymousCredentialIssuerOptions options = ResolveOptions(configuration);
         string circuitId = NormalizeToken(request.CircuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars);
-        if (circuitId.Length == 0 || request.CircuitNumericId == 0 || request.PublicInputLayoutVersion == 0)
+        if (!string.Equals(circuitId, AnonymousPrivacyContract.CircuitId, StringComparison.Ordinal) ||
+            request.CircuitNumericId == 0 ||
+            request.PublicInputLayoutVersion != AnonymousPrivacyContract.PublicInputLayoutVersion)
         {
             await RecordIssuanceAuditAsync(userId, request.CredentialEpoch, "validation_failed", traceId, cancellationToken);
             return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(ErrorCode.Validation, "anonymous_credential_circuit_required");
         }
 
-        if (request.BlindedRequest is null ||
-            request.BlindedRequest.Length == 0 ||
-            request.BlindedRequest.Length > options.MaxBlindedRequestBytes ||
+        if (request.BlindedCommitment is null ||
+            request.BlindedCommitment.Length == 0 ||
+            request.BlindedCommitment.Length > options.MaxBlindedCommitmentBytes ||
             request.ClientNonce is null ||
             request.ClientNonce.Length == 0 ||
             request.ClientNonce.Length > options.MaxClientNonceBytes)
@@ -159,8 +163,8 @@ public sealed class AnonymousCredentialIssuerService(
             return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(ErrorCode.Conflict, "anonymous_credential_issue_rate_limited");
         }
 
-        byte[] issuerResponse = CreateIssuerResponse(requestHash);
-        byte[] commitment = CreateCredentialCommitment(requestHash, issuerResponse);
+        byte[] bbsSignature = CreateBbsSignature(requestHash);
+        string issuerPublicKeyId = NormalizeToken(options.IssuerPublicKeyId, AnonymousCredentialIssuerLimits.MaxIssuerPublicKeyIdChars);
         string credentialLevel = NormalizeToken(account.AnonymousCredentialLevel, AnonymousCredentialIssuerLimits.MaxCredentialLevelChars);
         if (credentialLevel.Length == 0)
         {
@@ -177,8 +181,8 @@ public sealed class AnonymousCredentialIssuerService(
             request.PublicInputLayoutVersion,
             circuitId,
             credentialLevel,
-            issuerResponse,
-            commitment);
+            issuerPublicKeyId,
+            bbsSignature);
         return Result<AnonymousCredentialIssueResponseCoreModel>.Success(response);
     }
 
@@ -217,10 +221,13 @@ public sealed class AnonymousCredentialIssuerService(
     private static AnonymousCredentialIssuerOptions ResolveOptions(IConfiguration configuration)
     {
         IConfigurationSection section = configuration.GetSection("AnonymousCredentialIssuer");
+        int configuredBlindedCommitmentBytes = section.GetValue<int?>("MaxBlindedCommitmentBytes")
+            ?? section.GetValue("MaxBlindedRequestBytes", AnonymousCredentialIssuerLimits.MaxBlindedCommitmentBytes);
         return new AnonymousCredentialIssuerOptions(
             section.GetValue("AllowBannedAccountIssuance", false),
-            Math.Clamp(section.GetValue("MaxBlindedRequestBytes", AnonymousCredentialIssuerLimits.MaxBlindedRequestBytes), 256, AnonymousCredentialIssuerLimits.MaxIssueRequestFrameBytes),
-            Math.Clamp(section.GetValue("MaxClientNonceBytes", AnonymousCredentialIssuerLimits.MaxClientNonceBytes), 16, 1024),
+            Math.Clamp(configuredBlindedCommitmentBytes, 1, AnonymousCredentialIssuerLimits.MaxBlindedCommitmentBytes),
+            Math.Clamp(section.GetValue("MaxClientNonceBytes", AnonymousCredentialIssuerLimits.MaxClientNonceBytes), 1, AnonymousCredentialIssuerLimits.MaxClientNonceBytes),
+            section.GetValue("IssuerPublicKeyId", "issuer-key:local"),
             Math.Clamp(section.GetValue("EpochDurationMinutes", DefaultEpochDurationMinutes), 60, 60 * 24 * 31),
             Math.Clamp(section.GetValue("CredentialTtlMinutes", DefaultCredentialTtlMinutes), 60, 60 * 24 * 31));
     }
@@ -246,29 +253,21 @@ public sealed class AnonymousCredentialIssuerService(
         hash.AppendData(numberBuffer[..2]);
         AppendUtf8(hash, circuitId);
         AppendUtf8(hash, NormalizeToken(request.CredentialLevel, AnonymousCredentialIssuerLimits.MaxCredentialLevelChars));
-        hash.AppendData(request.BlindedRequest);
+        hash.AppendData(request.BlindedCommitment);
         hash.AppendData(request.ClientNonce);
         return ToLowerHex(hash.GetHashAndReset());
     }
 
-    private static byte[] CreateIssuerResponse(string requestHash)
+    private static byte[] CreateBbsSignature(string requestHash)
     {
-        byte[] issuerResponse = new byte[64];
-        RandomNumberGenerator.Fill(issuerResponse);
+        byte[] signature = new byte[96];
+        RandomNumberGenerator.Fill(signature);
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         AppendAscii(hash, requestHash);
-        hash.AppendData(issuerResponse.AsSpan(0, 32));
+        hash.AppendData(signature.AsSpan(0, 64));
         byte[] binding = hash.GetHashAndReset();
-        binding.CopyTo(issuerResponse.AsSpan(32, 32));
-        return issuerResponse;
-    }
-
-    private static byte[] CreateCredentialCommitment(string requestHash, ReadOnlySpan<byte> issuerResponse)
-    {
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        AppendAscii(hash, requestHash);
-        hash.AppendData(issuerResponse);
-        return hash.GetHashAndReset();
+        binding.CopyTo(signature.AsSpan(64, 32));
+        return signature;
     }
 
     private static void AppendUtf8(IncrementalHash hash, string value)
@@ -310,8 +309,9 @@ public sealed class AnonymousCredentialIssuerService(
 
     private sealed record AnonymousCredentialIssuerOptions(
         bool AllowBannedAccountIssuance,
-        int MaxBlindedRequestBytes,
+        int MaxBlindedCommitmentBytes,
         int MaxClientNonceBytes,
+        string IssuerPublicKeyId,
         int EpochDurationMinutes,
         int CredentialTtlMinutes);
 

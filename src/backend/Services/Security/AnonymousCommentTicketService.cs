@@ -7,6 +7,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Models.CommentIdentity;
+using FsusBlog.Shared.Contracts.Validation;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -67,9 +68,9 @@ public sealed class AnonymousCommentTicketService(
     private const int TicketBytes = 32;
     private const int MinHashBytes = 16;
     private const int MaxHashBytes = 64;
-    private const int MaxProofBytes = 16 * 1024;
-    private const int MaxPublicInputsBytes = 4096;
-    private const int MaxScopeChars = 128;
+    private const int MaxProofBytes = AnonymousPrivacyContract.MaxGroth16ProofBytes;
+    private const int MaxPublicInputsBytes = AnonymousPrivacyContract.MaxAnonymousTicketPublicInputsBytes;
+    private const int MaxScopeChars = AnonymousPrivacyContract.MaxScopeBytes;
     private const string ActionContext = "comment.create";
     private const string DefaultCredentialLevel = "strong_anonymous";
     private const string DefaultReputationBucket = "unrated";
@@ -83,7 +84,7 @@ public sealed class AnonymousCommentTicketService(
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string scope = NormalizeScope(request.AnonymousScope, request.ArticleId);
+        string scope = NormalizeScope(request.Scope, request.ArticleId);
         if (!PassesCheapValidation(request, scope))
         {
             return AnonymousCommentTicketIssueResult.Failure(AnonymousCommentTicketStatuses.ValidationFailed);
@@ -98,7 +99,11 @@ public sealed class AnonymousCommentTicketService(
         AnonymousCredentialRootSnapshotCoreModel root = rootResult.Value;
         AnonymousCommentTicketPublicInputs publicInputs = AnonymousCommentTicketPublicInputs.Parse(request.PublicInputs);
         string nullifierHash = Convert.ToHexStringLower(request.NullifierHash);
-        string credentialCommitment = publicInputs.CredentialCommitment ?? Convert.ToHexStringLower(request.PublicInputs);
+        string credentialRoot = publicInputs.CredentialRoot ?? Convert.ToHexStringLower(request.CredentialRoot);
+        string revocationRoot = publicInputs.RevocationRoot ?? Convert.ToHexStringLower(request.RevocationRoot);
+        string credentialLevel = publicInputs.CredentialLevel ?? request.CredentialLevel;
+        string credentialCommitment = publicInputs.CredentialCommitment
+            ?? Convert.ToHexStringLower(SHA256.HashData(request.PublicInputs));
         if (!IsHexHash(credentialCommitment, minLength: 32, maxLength: 128))
         {
             return AnonymousCommentTicketIssueResult.Failure(AnonymousCommentTicketStatuses.ValidationFailed);
@@ -108,14 +113,14 @@ public sealed class AnonymousCommentTicketService(
             ActionContext,
             scope,
             request.CircuitId.Trim(),
-            publicInputs.VerifyingKeyHash ?? root.VerifyingKeyHash,
+            request.VerifyingKeyHash.Trim(),
             request.PublicInputLayoutVersion,
             request.CredentialEpoch,
             nullifierHash,
             credentialCommitment,
-            publicInputs.CredentialRoot ?? Convert.ToHexStringLower(root.CredentialRoot),
+            credentialRoot,
             publicInputs.ReputationBucket ?? DefaultReputationBucket,
-            [.. request.ZkProof]);
+            [.. request.Groth16Proof]);
         ZkProofVerificationResult proof = await proofService.VerifyCommentProofAsync(proofRequest, cancellationToken);
         if (!proof.Verified)
         {
@@ -136,7 +141,7 @@ public sealed class AnonymousCommentTicketService(
         DateTimeOffset expiresAt = now.Add(ttl);
         byte[] ticket = RandomNumberGenerator.GetBytes(TicketBytes);
         string ticketHash = HashTicket(ticket);
-        string credentialLevel = publicInputs.CredentialLevel ?? DefaultCredentialLevel;
+        credentialLevel = string.IsNullOrWhiteSpace(credentialLevel) ? DefaultCredentialLevel : credentialLevel;
         string reputationBucket = publicInputs.ReputationBucket ?? DefaultReputationBucket;
         var payload = new AnonymousCommentTicketPayload(
             request.ArticleId,
@@ -162,8 +167,7 @@ public sealed class AnonymousCommentTicketService(
             expiresAt.ToUnixTimeMilliseconds(),
             credentialLevel,
             ticket,
-            moderationSubjectHash,
-            [.. request.NullifierHash]);
+            moderationSubjectHash);
         return AnonymousCommentTicketIssueResult.Success(response);
     }
 
@@ -192,14 +196,22 @@ public sealed class AnonymousCommentTicketService(
             request.CredentialEpoch <= 0 ||
             request.CircuitNumericId == 0 ||
             request.PublicInputLayoutVersion == 0 ||
+            request.PublicInputLayoutVersion != AnonymousPrivacyContract.PublicInputLayoutVersion ||
+            !string.Equals(request.ActionContext, AnonymousPrivacyContract.CommentCreateActionContext, StringComparison.Ordinal) ||
             string.IsNullOrWhiteSpace(request.CircuitId) ||
+            !string.Equals(request.CircuitId, AnonymousPrivacyContract.CircuitId, StringComparison.Ordinal) ||
+            string.IsNullOrWhiteSpace(request.VerifyingKeyHash) ||
             !string.Equals(scope, $"article:{request.ArticleId}", StringComparison.Ordinal) ||
-            request.ZkProof is null ||
-            request.ZkProof.Length is 0 or > MaxProofBytes ||
+            request.Groth16Proof is null ||
+            request.Groth16Proof.Length is 0 or > MaxProofBytes ||
             request.PublicInputs is null ||
             request.PublicInputs.Length is 0 or > MaxPublicInputsBytes ||
             request.NullifierHash is null ||
             request.NullifierHash.Length is < MinHashBytes or > MaxHashBytes ||
+            request.CredentialRoot is null ||
+            request.CredentialRoot.Length is < MinHashBytes or > MaxHashBytes ||
+            request.RevocationRoot is null ||
+            request.RevocationRoot.Length is < MinHashBytes or > MaxHashBytes ||
             !TryParseOptionalCommentId(request.ParentId, out _) ||
             !TryParseOptionalCommentId(request.RootId, out _) ||
             !TryParseOptionalCommentId(request.ReplyToCommentId, out _))
@@ -217,6 +229,9 @@ public sealed class AnonymousCommentTicketService(
             root.CircuitNumericId == request.CircuitNumericId &&
             root.PublicInputLayoutVersion == request.PublicInputLayoutVersion &&
             string.Equals(root.CircuitId, request.CircuitId, StringComparison.Ordinal) &&
+            string.Equals(root.VerifyingKeyHash, request.VerifyingKeyHash, StringComparison.Ordinal) &&
+            root.CredentialRoot.AsSpan().SequenceEqual(request.CredentialRoot) &&
+            root.RevocationRoot.AsSpan().SequenceEqual(request.RevocationRoot) &&
             root.RootGraceExpiresAtUnixMs > timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
 
     private static string NormalizeScope(string? value, int articleId)
@@ -266,6 +281,7 @@ public sealed class AnonymousCommentTicketService(
 internal sealed record AnonymousCommentTicketPublicInputs(
     string? CredentialCommitment,
     string? CredentialRoot,
+    string? RevocationRoot,
     string? VerifyingKeyHash,
     string? CredentialLevel,
     string? ReputationBucket)
@@ -291,11 +307,12 @@ internal sealed record AnonymousCommentTicketPublicInputs(
         }
 
         return new AnonymousCommentTicketPublicInputs(
-            Normalize(entries.GetValueOrDefault("credentialCommitment"), 128),
-            Normalize(entries.GetValueOrDefault("credentialRoot"), 128),
-            Normalize(entries.GetValueOrDefault("verifyingKeyHash"), 128),
-            Normalize(entries.GetValueOrDefault("credentialLevel"), 32),
-            Normalize(entries.GetValueOrDefault("reputationBucket"), 64));
+            Normalize(entries.GetValueOrDefault("credential_commitment") ?? entries.GetValueOrDefault("credentialCommitment"), 128),
+            Normalize(entries.GetValueOrDefault("credential_root") ?? entries.GetValueOrDefault("credentialRoot"), 128),
+            Normalize(entries.GetValueOrDefault("revocation_root") ?? entries.GetValueOrDefault("revocationRoot"), 128),
+            Normalize(entries.GetValueOrDefault("verifying_key_hash") ?? entries.GetValueOrDefault("verifyingKeyHash"), 128),
+            Normalize(entries.GetValueOrDefault("credential_level") ?? entries.GetValueOrDefault("credentialLevel"), 32),
+            Normalize(entries.GetValueOrDefault("reputation_bucket") ?? entries.GetValueOrDefault("reputationBucket"), 64));
     }
 
     private static string? Normalize(string? value, int maxLength)

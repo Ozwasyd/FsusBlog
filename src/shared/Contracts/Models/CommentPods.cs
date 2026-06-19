@@ -55,7 +55,13 @@ public readonly struct CommentPolicySnapshotPod
     public readonly byte PublicCommentsEnabled;
     public readonly byte ZkAnonymousEnabled;
     public readonly byte DefaultAuthorMode;
+    public readonly byte ZkProdEnabled;
+    public readonly byte ZkProdNativeVerifierConfigured;
+    public readonly byte ZkProdTrustedSetupVerified;
+    public readonly byte ZkProdBbsCredentialRequired;
+    public readonly byte ZkProdCredentialRootReady;
     public readonly Utf8SliceRef SupportedDisplayLanguages;
+    public readonly Utf8SliceRef ZkProdUnavailableReason;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -103,7 +109,7 @@ public readonly struct AnonymousCredentialIssueRequestPod
     public readonly ushort Reserved0;
     public readonly Utf8SliceRef CircuitId;
     public readonly Utf8SliceRef CredentialLevel;
-    public readonly Utf8SliceRef BlindedRequest;
+    public readonly Utf8SliceRef BlindedCommitment;
     public readonly Utf8SliceRef ClientNonce;
 }
 
@@ -111,14 +117,14 @@ public readonly struct AnonymousCredentialIssueRequestPod
 public readonly struct AnonymousCredentialIssueResponsePod
 {
     public readonly long CredentialEpoch;
-    public readonly long RootExpiresAtUnixMs;
+    public readonly long ExpiresAtUnixMs;
     public readonly uint CircuitNumericId;
     public readonly ushort PublicInputLayoutVersion;
     public readonly ushort Reserved0;
     public readonly Utf8SliceRef CircuitId;
     public readonly Utf8SliceRef CredentialLevel;
-    public readonly Utf8SliceRef IssuerResponse;
-    public readonly Utf8SliceRef CredentialCommitment;
+    public readonly Utf8SliceRef IssuerPublicKeyId;
+    public readonly Utf8SliceRef BbsSignature;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -133,6 +139,7 @@ public readonly struct AnonymousCredentialRootSnapshotPod
     public readonly byte VerifierConfigured;
     public readonly Utf8SliceRef CircuitId;
     public readonly Utf8SliceRef VerifyingKeyHash;
+    public readonly Utf8SliceRef IssuerPublicKeyHash;
     public readonly Utf8SliceRef CredentialRoot;
     public readonly Utf8SliceRef RevocationRoot;
     public readonly Utf8SliceRef CircuitMetadata;
@@ -153,11 +160,16 @@ public readonly struct AnonymousCommentTicketRequestPod
     public readonly uint CircuitNumericId;
     public readonly ushort PublicInputLayoutVersion;
     public readonly ushort Reserved1;
-    public readonly Utf8SliceRef AnonymousScope;
-    public readonly Utf8SliceRef DisplayLanguage;
+    public readonly Utf8SliceRef ActionContext;
+    public readonly Utf8SliceRef Scope;
     public readonly Utf8SliceRef CircuitId;
+    public readonly Utf8SliceRef VerifyingKeyHash;
     public readonly Utf8SliceRef NullifierHash;
-    public readonly Utf8SliceRef ZkProof;
+    public readonly Utf8SliceRef CredentialRoot;
+    public readonly Utf8SliceRef RevocationRoot;
+    public readonly Utf8SliceRef CredentialLevel;
+    public readonly Utf8SliceRef ReputationBucket;
+    public readonly Utf8SliceRef Groth16Proof;
     public readonly Utf8SliceRef PublicInputs;
 }
 
@@ -169,7 +181,6 @@ public readonly struct AnonymousCommentTicketResponsePod
     public readonly Utf8SliceRef CredentialLevel;
     public readonly Utf8SliceRef Ticket;
     public readonly Utf8SliceRef ModerationSubjectHash;
-    public readonly Utf8SliceRef AnonymousNullifierHash;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

@@ -11,9 +11,12 @@ using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Validation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -21,7 +24,11 @@ public sealed class AnonymousCommentTicketServiceTests
 {
     private static readonly byte[] Nullifier = Enumerable.Repeat((byte)0xA1, 32).ToArray();
     private static readonly byte[] Proof = Enumerable.Repeat((byte)0xB2, 64).ToArray();
-    private static readonly byte[] PublicInputs = "credentialCommitment=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;credentialLevel=strong_anonymous;reputationBucket=rep:low"u8.ToArray();
+    private static readonly byte[] CredentialRoot = Enumerable.Repeat((byte)0xC3, 32).ToArray();
+    private static readonly byte[] RevocationRoot = Enumerable.Repeat((byte)0xD4, 32).ToArray();
+    private static readonly string VerifyingKeyHash = new('e', 64);
+    private static readonly byte[] PublicInputs = Encoding.UTF8.GetBytes(
+        $"action_context=comment.create;scope=article:42;credential_root={Convert.ToHexStringLower(CredentialRoot)};revocation_root={Convert.ToHexStringLower(RevocationRoot)};nullifier_hash={Convert.ToHexStringLower(Nullifier)};credential_level=strong_anonymous;reputation_bucket=rep:low");
 
     [Fact]
     public async Task IssueAsync_ValidProof_ReturnsTicketAndStoresOnlyHashPayload()
@@ -38,7 +45,7 @@ public sealed class AnonymousCommentTicketServiceTests
         Assert.Equal("strong_anonymous", result.Response.CredentialLevel);
         Assert.Equal(time.GetUtcNow().AddSeconds(120).ToUnixTimeMilliseconds(), result.Response.TicketExpiresAtUnixMs);
         Assert.Equal(32, result.Response.Ticket.Length);
-        Assert.Equal(Nullifier, result.Response.AnonymousNullifierHash);
+        Assert.Equal(ExpectedModerationSubjectHash(), result.Response.ModerationSubjectHash);
 
         CacheWrite write = Assert.Single(cache.Writes);
         string ticketHash = AnonymousCommentTicketService.HashTicket(result.Response.Ticket);
@@ -155,7 +162,7 @@ public sealed class AnonymousCommentTicketServiceTests
         Assert.Equal(AedsFrameType.AnonymousCommentTicketResponse, decoded.FrameType);
         Assert.True(PodBinaryCodec.TryDecodeAnonymousCommentTicketResponse(decoded.Payload, out var response));
         Assert.Equal(32, response.Ticket.Length);
-        Assert.Equal(Nullifier, response.AnonymousNullifierHash);
+        Assert.Equal(ExpectedModerationSubjectHash(), response.ModerationSubjectHash);
     }
 
     [Fact]
@@ -199,12 +206,17 @@ public sealed class AnonymousCommentTicketServiceTests
             ReplyToCommentId: null,
             CredentialEpoch: 20260619,
             CircuitNumericId: 7,
-            PublicInputLayoutVersion: 2,
-            AnonymousScope: "article:42",
-            DisplayLanguage: "zh-CN",
-            CircuitId: "zk-comment-v1",
+            PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
+            ActionContext: AnonymousPrivacyContract.CommentCreateActionContext,
+            Scope: "article:42",
+            CircuitId: AnonymousPrivacyContract.CircuitId,
+            VerifyingKeyHash: VerifyingKeyHash,
             NullifierHash: Nullifier,
-            ZkProof: Proof,
+            CredentialRoot: CredentialRoot,
+            RevocationRoot: RevocationRoot,
+            CredentialLevel: "strong_anonymous",
+            ReputationBucket: "rep:low",
+            Groth16Proof: Proof,
             PublicInputs: PublicInputs);
 
     private static AnonymousCredentialRootSnapshotCoreModel CreateRootSnapshot(TimeProvider time)
@@ -213,14 +225,18 @@ public sealed class AnonymousCommentTicketServiceTests
             RootExpiresAtUnixMs: time.GetUtcNow().AddMinutes(10).ToUnixTimeMilliseconds(),
             RootGraceExpiresAtUnixMs: time.GetUtcNow().AddMinutes(20).ToUnixTimeMilliseconds(),
             CircuitNumericId: 7,
-            PublicInputLayoutVersion: 2,
+            PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
             ZkAnonymousEnabled: true,
             VerifierConfigured: true,
-            CircuitId: "zk-comment-v1",
-            VerifyingKeyHash: "vk-sha256",
-            CredentialRoot: Convert.FromHexString("abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"),
-            RevocationRoot: [],
+            CircuitId: AnonymousPrivacyContract.CircuitId,
+            VerifyingKeyHash: VerifyingKeyHash,
+            IssuerPublicKeyHash: new('f', 64),
+            CredentialRoot: CredentialRoot,
+            RevocationRoot: RevocationRoot,
             CircuitMetadata: []);
+
+    private static byte[] ExpectedModerationSubjectHash()
+        => SHA256.HashData(Encoding.UTF8.GetBytes($"article:42:{Convert.ToHexStringLower(Nullifier)}"));
 
     private static IConfiguration BuildConfiguration()
         => new ConfigurationBuilder()
@@ -275,6 +291,14 @@ public sealed class AnonymousCommentTicketServiceTests
         public AnonymousCommentPolicySnapshot CurrentCommentPolicy => new(true, true, true, CommentAuthorModes.Anonymous, ["zh-CN"]);
 
         public ZkAnonymousPolicySnapshot CurrentZkPolicy => new(true, true, "comment.create", []);
+
+        public ZkProdPolicySnapshot CurrentZkProdPolicy { get; } = new(
+            false,
+            false,
+            false,
+            true,
+            false,
+            "disabled");
 
         public Task<ZkProofVerificationResult> VerifyCommentProofAsync(
             ZkProofVerificationRequest request,

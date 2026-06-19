@@ -12,6 +12,7 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.AuthSystem;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Shared.Contracts.Validation;
 using Microsoft.AspNetCore.Http;
 using NSubstitute;
 
@@ -623,57 +624,71 @@ public class PodBinaryCodecTests
     [Fact]
     public void AnonymousPrivacyPods_RoundTrip_PreserveCredentialRootTicketAndComment()
     {
+        byte[] blindedCommitment = Enumerable.Range(0, AnonymousPrivacyContract.MaxBbsBlindedCommitmentBytes)
+            .Select(static value => (byte)(value % 251))
+            .ToArray();
+        byte[] bbsSignature = Enumerable.Range(0, AnonymousPrivacyContract.MaxBbsSignatureBytes)
+            .Select(static value => (byte)((value + 7) % 251))
+            .ToArray();
+        byte[] groth16Proof = Enumerable.Range(0, 192)
+            .Select(static value => (byte)((value + 13) % 251))
+            .ToArray();
+        byte[] publicInputs = "action_context=comment.create;scope=article:42;credential_root=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;revocation_root=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb;nullifier_hash=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc;credential_epoch=20260618;credential_level=strong_anonymous;reputation_bucket=rep:low"u8.ToArray();
+
         var issue = new AnonymousCredentialIssueRequestCoreModel(
             CredentialEpoch: 20260618,
             CircuitNumericId: 7,
-            PublicInputLayoutVersion: 2,
-            CircuitId: "zk-comment-v1",
+            PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
+            CircuitId: AnonymousPrivacyContract.CircuitId,
             CredentialLevel: "strong_anonymous",
-            BlindedRequest: [1, 2, 3],
+            BlindedCommitment: blindedCommitment,
             ClientNonce: [4, 5, 6]);
         byte[] issueEncoded = PodBinaryCodec.EncodeAnonymousCredentialIssueRequest(issue);
         Assert.True(PodBinaryCodec.TryDecodeAnonymousCredentialIssueRequest(issueEncoded, out var issueDecoded));
-        Assert.Equal("zk-comment-v1", issueDecoded.CircuitId);
+        Assert.Equal(AnonymousPrivacyContract.CircuitId, issueDecoded.CircuitId);
+        Assert.Equal(AnonymousPrivacyContract.PublicInputLayoutVersion, issueDecoded.PublicInputLayoutVersion);
         Assert.Equal("strong_anonymous", issueDecoded.CredentialLevel);
-        Assert.Equal([1, 2, 3], issueDecoded.BlindedRequest);
+        Assert.Equal(blindedCommitment, issueDecoded.BlindedCommitment);
         Assert.Equal([4, 5, 6], issueDecoded.ClientNonce);
 
         var response = new AnonymousCredentialIssueResponseCoreModel(
             CredentialEpoch: 20260618,
-            RootExpiresAtUnixMs: 1780000000000,
+            ExpiresAtUnixMs: 1780000000000,
             CircuitNumericId: 7,
-            PublicInputLayoutVersion: 2,
-            CircuitId: "zk-comment-v1",
+            PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
+            CircuitId: AnonymousPrivacyContract.CircuitId,
             CredentialLevel: "strong_anonymous",
-            IssuerResponse: [7, 8, 9],
-            CredentialCommitment: [10, 11, 12]);
+            IssuerPublicKeyId: "issuer-key-2026q2",
+            BbsSignature: bbsSignature);
         byte[] responseEncoded = PodBinaryCodec.EncodeAnonymousCredentialIssueResponse(response);
         Assert.True(PodBinaryCodec.TryDecodeAnonymousCredentialIssueResponse(responseEncoded, out var responseDecoded));
-        Assert.Equal(1780000000000, responseDecoded.RootExpiresAtUnixMs);
-        Assert.Equal([7, 8, 9], responseDecoded.IssuerResponse);
-        Assert.Equal([10, 11, 12], responseDecoded.CredentialCommitment);
+        Assert.Equal(1780000000000, responseDecoded.ExpiresAtUnixMs);
+        Assert.Equal("issuer-key-2026q2", responseDecoded.IssuerPublicKeyId);
+        Assert.Equal(bbsSignature, responseDecoded.BbsSignature);
 
         var root = new AnonymousCredentialRootSnapshotCoreModel(
             CredentialEpoch: 20260618,
             RootExpiresAtUnixMs: 1780000000000,
             RootGraceExpiresAtUnixMs: 1780003600000,
             CircuitNumericId: 7,
-            PublicInputLayoutVersion: 2,
+            PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
             ZkAnonymousEnabled: true,
             VerifierConfigured: true,
-            CircuitId: "zk-comment-v1",
-            VerifyingKeyHash: "vk-sha256",
-            CredentialRoot: [13, 14],
-            RevocationRoot: [15, 16],
+            CircuitId: AnonymousPrivacyContract.CircuitId,
+            VerifyingKeyHash: new string('a', 64),
+            IssuerPublicKeyHash: new string('b', 64),
+            CredentialRoot: Enumerable.Repeat((byte)0x11, 32).ToArray(),
+            RevocationRoot: Enumerable.Repeat((byte)0x22, 32).ToArray(),
             CircuitMetadata: [17, 18]);
         byte[] rootEncoded = PodBinaryCodec.EncodeAnonymousCredentialRootSnapshot(root);
         Assert.True(PodBinaryCodec.TryDecodeAnonymousCredentialRootSnapshot(rootEncoded, out var rootDecoded));
         Assert.Equal(1780003600000, rootDecoded.RootGraceExpiresAtUnixMs);
         Assert.True(rootDecoded.ZkAnonymousEnabled);
         Assert.True(rootDecoded.VerifierConfigured);
-        Assert.Equal("vk-sha256", rootDecoded.VerifyingKeyHash);
-        Assert.Equal([13, 14], rootDecoded.CredentialRoot);
-        Assert.Equal([15, 16], rootDecoded.RevocationRoot);
+        Assert.Equal(new string('a', 64), rootDecoded.VerifyingKeyHash);
+        Assert.Equal(new string('b', 64), rootDecoded.IssuerPublicKeyHash);
+        Assert.Equal(Enumerable.Repeat((byte)0x11, 32), rootDecoded.CredentialRoot);
+        Assert.Equal(Enumerable.Repeat((byte)0x22, 32), rootDecoded.RevocationRoot);
         Assert.Equal([17, 18], rootDecoded.CircuitMetadata);
 
         var ticket = new AnonymousCommentTicketRequestCoreModel(
@@ -683,31 +698,38 @@ public class PodBinaryCodecTests
             ReplyToCommentId: "80",
             CredentialEpoch: 20260618,
             CircuitNumericId: 7,
-            PublicInputLayoutVersion: 2,
-            AnonymousScope: "article:42",
-            DisplayLanguage: "zh-CN",
-            CircuitId: "zk-comment-v1",
-            NullifierHash: [19, 20],
-            ZkProof: [21, 22],
-            PublicInputs: [23, 24]);
+            PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
+            ActionContext: "comment.create",
+            Scope: "article:42",
+            CircuitId: AnonymousPrivacyContract.CircuitId,
+            VerifyingKeyHash: new string('a', 64),
+            NullifierHash: Enumerable.Repeat((byte)0x33, 32).ToArray(),
+            CredentialRoot: Enumerable.Repeat((byte)0x11, 32).ToArray(),
+            RevocationRoot: Enumerable.Repeat((byte)0x22, 32).ToArray(),
+            CredentialLevel: "strong_anonymous",
+            ReputationBucket: "rep:low",
+            Groth16Proof: groth16Proof,
+            PublicInputs: publicInputs);
         byte[] ticketEncoded = PodBinaryCodec.EncodeAnonymousCommentTicketRequest(ticket);
         Assert.True(PodBinaryCodec.TryDecodeAnonymousCommentTicketRequest(ticketEncoded, out var ticketDecoded));
-        Assert.Equal("article:42", ticketDecoded.AnonymousScope);
-        Assert.Equal("zh-CN", ticketDecoded.DisplayLanguage);
-        Assert.Equal([21, 22], ticketDecoded.ZkProof);
+        Assert.Equal("comment.create", ticketDecoded.ActionContext);
+        Assert.Equal("article:42", ticketDecoded.Scope);
+        Assert.Equal(new string('a', 64), ticketDecoded.VerifyingKeyHash);
+        Assert.Equal("strong_anonymous", ticketDecoded.CredentialLevel);
+        Assert.Equal("rep:low", ticketDecoded.ReputationBucket);
+        Assert.Equal(groth16Proof, ticketDecoded.Groth16Proof);
+        Assert.Equal(publicInputs, ticketDecoded.PublicInputs);
 
         var ticketResponse = new AnonymousCommentTicketResponseCoreModel(
             CredentialEpoch: 20260618,
             TicketExpiresAtUnixMs: 1780000005000,
             CredentialLevel: "strong_anonymous",
             Ticket: [25, 26],
-            ModerationSubjectHash: [27, 28],
-            AnonymousNullifierHash: [29, 30]);
+            ModerationSubjectHash: [27, 28]);
         byte[] ticketResponseEncoded = PodBinaryCodec.EncodeAnonymousCommentTicketResponse(ticketResponse);
         Assert.True(PodBinaryCodec.TryDecodeAnonymousCommentTicketResponse(ticketResponseEncoded, out var ticketResponseDecoded));
         Assert.Equal([25, 26], ticketResponseDecoded.Ticket);
         Assert.Equal([27, 28], ticketResponseDecoded.ModerationSubjectHash);
-        Assert.Equal([29, 30], ticketResponseDecoded.AnonymousNullifierHash);
 
         var create = new AnonymousCommentCreateRequestCoreModel(
             ArticleId: 42,
@@ -735,8 +757,8 @@ public class PodBinaryCodecTests
             HasActiveCredential: true,
             CanIssueCredential: false,
             CanSubmitAnonymousComment: true,
-            CircuitId: "zk-comment-v1",
-            VerifyingKeyHash: "vk-sha256",
+            CircuitId: AnonymousPrivacyContract.CircuitId,
+            VerifyingKeyHash: new string('a', 64),
             CredentialStatus: "active",
             CredentialLevel: "strong_anonymous");
         byte[] stateEncoded = PodBinaryCodec.EncodeAnonymousPrivacyStateSnapshot(state);
@@ -777,15 +799,59 @@ public class PodBinaryCodecTests
             ReplyToCommentId: null,
             CredentialEpoch: 20260618,
             CircuitNumericId: 7,
-            PublicInputLayoutVersion: 2,
-            AnonymousScope: "article:42",
-            DisplayLanguage: "en",
-            CircuitId: "zk-comment-v1",
-            NullifierHash: [1],
-            ZkProof: new byte[20 * 1024],
+            PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
+            ActionContext: "comment.create",
+            Scope: "article:42",
+            CircuitId: AnonymousPrivacyContract.CircuitId,
+            VerifyingKeyHash: new string('a', 64),
+            NullifierHash: Enumerable.Repeat((byte)0x33, 32).ToArray(),
+            CredentialRoot: Enumerable.Repeat((byte)0x11, 32).ToArray(),
+            RevocationRoot: Enumerable.Repeat((byte)0x22, 32).ToArray(),
+            CredentialLevel: "strong_anonymous",
+            ReputationBucket: "rep:low",
+            Groth16Proof: new byte[AnonymousPrivacyContract.MaxGroth16ProofBytes + 1],
             PublicInputs: [2]);
         byte[] oversizedProofEncoded = PodBinaryCodec.EncodeAnonymousCommentTicketRequest(oversizedProof);
         Assert.False(PodBinaryCodec.TryDecodeAnonymousCommentTicketRequest(oversizedProofEncoded, out _));
+
+        var wrongLayout = oversizedProof with
+        {
+            PublicInputLayoutVersion = (ushort)(AnonymousPrivacyContract.PublicInputLayoutVersion + 1),
+            Groth16Proof = [1, 2, 3],
+            PublicInputs = "action_context=comment.create"u8.ToArray()
+        };
+        Assert.False(PodBinaryCodec.TryDecodeAnonymousCommentTicketRequest(
+            PodBinaryCodec.EncodeAnonymousCommentTicketRequest(wrongLayout),
+            out _));
+
+        var wrongCircuit = wrongLayout with
+        {
+            PublicInputLayoutVersion = AnonymousPrivacyContract.PublicInputLayoutVersion,
+            CircuitId = "zk-comment-v1"
+        };
+        Assert.False(PodBinaryCodec.TryDecodeAnonymousCommentTicketRequest(
+            PodBinaryCodec.EncodeAnonymousCommentTicketRequest(wrongCircuit),
+            out _));
+    }
+
+    [Fact]
+    public void AnonymousCredentialIssueResponseContract_UsesBbsSignatureAndNoShaCommitment()
+    {
+        Assert.Equal("fsus.anonymous.comment.v1", AnonymousPrivacyContract.CircuitId);
+        Assert.Equal(2, AnonymousPrivacyContract.PublicInputLayoutVersion);
+        Assert.Equal(256, AnonymousPrivacyContract.MaxBbsSignatureBytes);
+        Assert.Equal(256, AnonymousPrivacyContract.MaxBbsBlindedCommitmentBytes);
+        Assert.Equal(4096, AnonymousPrivacyContract.MaxGroth16ProofBytes);
+
+        string outputSource = BackendTestPaths.ReadAllTextFromRoot("src/shared/Contracts/Outputs/ServerResponseContracts.cs");
+        string podSource = BackendTestPaths.ReadAllTextFromRoot("src/shared/Contracts/Models/CommentPods.cs");
+        string responsePod = ExtractStructSource(podSource, "AnonymousCredentialIssueResponsePod");
+
+        Assert.Contains("BbsSignature", outputSource, StringComparison.Ordinal);
+        Assert.Contains("BbsSignature", responsePod, StringComparison.Ordinal);
+        Assert.Contains("IssuerPublicKeyId", responsePod, StringComparison.Ordinal);
+        Assert.DoesNotContain("CredentialCommitment", responsePod, StringComparison.Ordinal);
+        Assert.DoesNotContain("IssuerResponse", responsePod, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -852,13 +918,25 @@ public class PodBinaryCodecTests
             PublicCommentsEnabled: true,
             ZkAnonymousEnabled: true,
             DefaultAuthorMode: "zk_anonymous",
-            SupportedDisplayLanguages: ["zh-CN", "en"]);
+            SupportedDisplayLanguages: ["zh-CN", "en"],
+            ZkProdEnabled: true,
+            ZkProdNativeVerifierConfigured: true,
+            ZkProdTrustedSetupVerified: true,
+            ZkProdBbsCredentialRequired: true,
+            ZkProdCredentialRootReady: true,
+            ZkProdUnavailableReason: string.Empty);
 
         byte[] snapshotEncoded = PodBinaryCodec.EncodeCommentPolicySnapshot(snapshot);
         Assert.True(PodBinaryCodec.TryDecodeCommentPolicySnapshot(snapshotEncoded, out var snapshotDecoded));
         Assert.True(snapshotDecoded.AnonymousCommentsEnabled);
         Assert.True(snapshotDecoded.PublicCommentsEnabled);
         Assert.True(snapshotDecoded.ZkAnonymousEnabled);
+        Assert.True(snapshotDecoded.ZkProdEnabled);
+        Assert.True(snapshotDecoded.ZkProdNativeVerifierConfigured);
+        Assert.True(snapshotDecoded.ZkProdTrustedSetupVerified);
+        Assert.True(snapshotDecoded.ZkProdBbsCredentialRequired);
+        Assert.True(snapshotDecoded.ZkProdCredentialRootReady);
+        Assert.Equal(string.Empty, snapshotDecoded.ZkProdUnavailableReason);
         Assert.Equal("zk_anonymous", snapshotDecoded.DefaultAuthorMode);
         Assert.Equal(["zh-CN", "en"], snapshotDecoded.SupportedDisplayLanguages);
 
