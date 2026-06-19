@@ -75,7 +75,7 @@ RiskControl 可观测性集中在 `FsusObservability`：风险事件写 `fsus.se
 
 密码登录、Passkey login begin/complete 和 Recovery Key verify 都声明各自 RiskControl action：`auth.login`、`auth.passkey.begin`、`auth.passkey.complete`、`recovery-key.verify`。密码登录失败会写 `AuthLoginFailed` 正分风险信号，重复失败达到中风险阈值后由 `auth.login` policy 要求 `captchaV1` proof；Passkey assertion 失败写 `PasskeyAssertionFailed` 正分信号，Passkey assertion 成功写 `PasskeyAssertionAccepted` 负分信号并继续以 `mfaVerified=true` 完成登录，因此不再额外要求普通 TOTP MFA。Recovery Key verify 即使当前风险分为 0 也必须提交 RiskControl proof，同时保留 legacy PoW proof 和 no-store 响应；缺任一 proof 都不得进入 recovery key 验证或一次性使用状态变更。
 
-RiskControl 生产控制面按 `Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof Verification -> Enforcement -> Audit / Metrics / Admin Policy` 演进；完整 tracking plan、子 issue 顺序与 binary-first 边界见 `docs/risk-control-plan.md`。
+RiskControl 生产控制面按 `Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof Verification -> Enforcement -> Audit / Metrics / Admin Policy` 演进；完整 tracking plan、子 issue 顺序与 binary-first 边界见 `docs/risk-control-plan.md`，生产 rollout gates、故障矩阵、紧急开关和回滚流程见 `docs/risk-control-rollout.md`。
 
 RiskControl admin 模拟器位于 `/api/binary/admin/security/risk-control/simulate` 和 `/user/manage/security/simulator`。它只调用当前 `SecurityRiskPolicySnapshotV2` 与生产 `RiskDecisionService` 做 dry-run，返回 risk score、decision、reasons、required challenges 和 policy version；不会调用 challenge orchestrator、不会写入 `security_challenge`、不会 reset 或增加真实风险分，也不会修改 active policy。模拟器仍要求 admin principal + `system.config`，每次成功或参数拒绝都写入 admin security audit；它不是绕过 `RequiresRiskControlFilter` 的业务放行接口。
 

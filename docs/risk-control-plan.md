@@ -90,7 +90,7 @@ RiskControl enforcement filter 是统一执行业务风险裁决的 baseline：�
 | 22 | Risk simulator | #492 | Admin can simulate action/context inputs and see decision reasons without mutating state. |
 | 23 | Metrics/audit/readiness | #494 | RiskControl emits structured logs, metrics, audit events and readiness checks. |
 | 24 | Full test matrix | #495 | Unit, integration, E2E and performance gates cover the control plane and provider fallbacks. |
-| 25 | Production rollout gates | #498 | Rollout policy defines observe-first, emergency disable, fail-closed and rollback criteria. |
+| 25 | Production rollout gates | #498 | `docs/risk-control-rollout.md` defines observe-first, emergency disable, fail-closed and rollback criteria. |
 
 ## Dependency notes
 
