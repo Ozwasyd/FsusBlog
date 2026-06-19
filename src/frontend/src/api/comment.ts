@@ -338,15 +338,38 @@ export const getAnonymousCredentialRootSnapshot = (config?: ApiRequestConfig) =>
   requestBinaryOnly<AnonymousCredentialRootSnapshot>({
     binaryUrl: '/api/binary/anonymous-credential/root',
     frameType: FrameType.AnonymousCredentialRootSnapshot,
-    signal: config?.signal as AbortSignal | undefined
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      credentials: 'omit'
+    }
   })
 
 export const getAnonymousCredentialCircuitSnapshot = (config?: ApiRequestConfig) =>
   requestBinaryOnly<AnonymousCredentialRootSnapshot>({
     binaryUrl: '/api/binary/anonymous-credential/circuit',
     frameType: FrameType.AnonymousCredentialRootSnapshot,
-    signal: config?.signal as AbortSignal | undefined
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      credentials: 'omit'
+    }
   })
+
+export const issueAnonymousCommentTicket = (
+  data: AnonymousCommentTicketRequestDto,
+  config?: ApiRequestConfig
+) => {
+  const payload = encodeAnonymousCommentTicketRequest(data)
+  return requestBinaryOnly<AnonymousCommentTicketResponse>({
+    binaryUrl: '/api/binary/comment/anonymous-ticket',
+    frameType: FrameType.AnonymousCommentTicketResponse,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      method: 'POST',
+      credentials: 'omit',
+      body: encodeAedsFrame(FrameType.AnonymousCommentTicketRequest, payload)
+    }
+  })
+}
 
 function sendCommentMutation(
   data: CommentDto | CommentCreateV2Dto,

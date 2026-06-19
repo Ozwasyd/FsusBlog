@@ -84,6 +84,7 @@ describe('comment privacy release gate', () => {
 
   it('pins frontend privacy test evidence to transport, timers, worker transfer, Abort and ui-no-zk-terms', () => {
     const apiTest = readRepoFile('tests/frontend/unit/api/comment.test.ts')
+    const adapterTest = readRepoFile('tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts')
     const runtimeTest = readRepoFile('tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts')
     const workerTest = readRepoFile('tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts')
     const proverTest = readRepoFile('tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts')
@@ -91,6 +92,8 @@ describe('comment privacy release gate', () => {
 
     expect(apiTest).toContain("credentials: 'omit'")
     expect(apiTest).toContain('headers).toBeUndefined')
+    expect(adapterTest).toContain('comment_privacy_credential_unavailable')
+    expect(adapterTest).toContain("credentials: 'omit'")
     expect(runtimeTest).toContain('vi.useFakeTimers')
     expect(runtimeTest).toContain('signals[0].aborted')
     expect(workerTest).toContain('transfers proof input buffers')

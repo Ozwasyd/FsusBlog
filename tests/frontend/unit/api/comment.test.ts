@@ -16,6 +16,7 @@ import {
   getComments,
   getThreadReplies,
   getMyComments,
+  issueAnonymousCommentTicket,
   deleteComment,
   encodeAnonymousCommentCreateRequest,
   encodeAnonymousCommentTicketRequest,
@@ -311,24 +312,65 @@ describe('comment API', () => {
     expect(mockBinary).not.toHaveBeenCalled()
   })
 
-  it('getAnonymousCredentialRootSnapshot reads public root metadata without credentials options', async () => {
+  it('getAnonymousCredentialRootSnapshot reads public root metadata with omitted credentials', async () => {
     await getAnonymousCredentialRootSnapshot()
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryUrl: '/api/binary/anonymous-credential/root',
-      frameType: FrameType.AnonymousCredentialRootSnapshot
+      frameType: FrameType.AnonymousCredentialRootSnapshot,
+      requestOptions: expect.objectContaining({
+        credentials: 'omit'
+      })
     }))
-    expect(mockBinary.mock.calls[0][0].requestOptions).toBeUndefined()
+    expect(mockBinary.mock.calls[0][0].requestOptions?.headers).toBeUndefined()
   })
 
-  it('getAnonymousCredentialCircuitSnapshot reads the circuit metadata alias', async () => {
+  it('getAnonymousCredentialCircuitSnapshot reads the circuit metadata alias with omitted credentials', async () => {
     await getAnonymousCredentialCircuitSnapshot()
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryUrl: '/api/binary/anonymous-credential/circuit',
-      frameType: FrameType.AnonymousCredentialRootSnapshot
+      frameType: FrameType.AnonymousCredentialRootSnapshot,
+      requestOptions: expect.objectContaining({
+        credentials: 'omit'
+      })
     }))
-    expect(mockBinary.mock.calls[0][0].requestOptions).toBeUndefined()
+    expect(mockBinary.mock.calls[0][0].requestOptions?.headers).toBeUndefined()
+  })
+
+  it('issueAnonymousCommentTicket posts proof material with omitted credentials and no auth headers', async () => {
+    const signal = new AbortController().signal
+    await issueAnonymousCommentTicket({
+      articleId: 42,
+      parentId: '100',
+      rootId: '90',
+      replyToCommentId: '80',
+      credentialEpoch: 20260618,
+      circuitNumericId: 7,
+      publicInputLayoutVersion: 2,
+      anonymousScope: 'article:42',
+      displayLanguage: 'zh-CN',
+      circuitId: 'comment.v1',
+      nullifierHash: new Uint8Array([9, 10]),
+      zkProof: new Uint8Array([11, 12]),
+      publicInputs: new Uint8Array([13, 14])
+    }, { signal })
+
+    const call = mockBinary.mock.calls[0][0]
+    const body = call.requestOptions?.body as ArrayBuffer
+    expect(call).toEqual(expect.objectContaining({
+      binaryUrl: '/api/binary/comment/anonymous-ticket',
+      frameType: FrameType.AnonymousCommentTicketResponse,
+      signal,
+      requestOptions: expect.objectContaining({
+        method: 'POST',
+        credentials: 'omit',
+        body: expect.any(ArrayBuffer)
+      })
+    }))
+    expect(call.requestOptions?.requiresPow).toBeUndefined()
+    expect(call.requestOptions?.headers).toBeUndefined()
+    expect(readAedsFrameType(body)).toBe(FrameType.AnonymousCommentTicketRequest)
   })
 
   it('getComments calls requestBinaryOnly with articleId', async () => {

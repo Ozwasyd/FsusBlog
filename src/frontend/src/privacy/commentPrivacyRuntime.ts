@@ -1,6 +1,7 @@
 import {
   getCommentPrivacyWorkerClient
 } from './commentPrivacyWorkerClient'
+import { createCommentPrivacyAdapter } from './commentPrivacyAdapter'
 import type {
   CommentPrivacyAdapter,
   CommentPrivacyAdapterFailure,
@@ -39,18 +40,6 @@ export interface CommentPrivacyRuntimeOptions {
   scheduleIdleTask?: ScheduleIdleTask
 }
 
-const unavailableAdapter: CommentPrivacyAdapter = {
-  async ensureCredentialPrepared() {
-    return { ok: false, reason: 'comment_privacy_unavailable' }
-  },
-  async loadPrivacyMetadata() {
-    return { ok: false, reason: 'comment_privacy_metadata_unavailable' }
-  },
-  async issueAnonymousTicket() {
-    return { ok: false, reason: 'comment_privacy_ticket_unavailable' }
-  }
-}
-
 let singleton: CommentPrivacyRuntime | null = null
 
 export function getCommentPrivacyRuntime(): CommentPrivacyRuntime {
@@ -66,7 +55,7 @@ export function resetCommentPrivacyRuntimeForTests(): void {
 }
 
 export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOptions = {}): CommentPrivacyRuntime {
-  const adapter = options.adapter ?? unavailableAdapter
+  const adapter = options.adapter ?? createCommentPrivacyAdapter()
   const workerClient = options.workerClient ?? getCommentPrivacyWorkerClient()
   const now = options.now ?? (() => Date.now())
   const scheduleIdleTask = options.scheduleIdleTask ?? scheduleCommentPrivacyIdleTask
