@@ -1,0 +1,517 @@
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using SqlSugar;
+
+namespace FsusBlog.Server.Services.Security;
+
+public interface IAnonymousCredentialRootReader
+{
+    AnonymousCredentialRootRuntimeSnapshot CurrentSnapshot { get; }
+
+    Task RefreshAsync(CancellationToken cancellationToken = default);
+
+    bool IsRootAccepted(string rootHash, long epoch);
+}
+
+public interface IAnonymousCredentialRootWriter
+{
+    Task<Result<AnonymousCredentialRootRecord>> RotateAsync(
+        AnonymousCredentialRootRotationRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IAnonymousCredentialRevocationService
+{
+    Task<Result> RevokeAsync(
+        AnonymousCredentialRevocationRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed record AnonymousCredentialRootRotationRequest(
+    long Epoch,
+    string RootHash,
+    string RevocationRootHash,
+    string CircuitId,
+    uint CircuitNumericId,
+    string VerifyingKeyHash,
+    ushort PublicInputLayoutVersion,
+    DateTimeOffset ExpiresAtUtc,
+    DateTimeOffset GraceExpiresAtUtc,
+    string? CircuitMetadata = null,
+    string? Reason = null,
+    string? ActorId = null);
+
+public sealed record AnonymousCredentialRevocationRequest(
+    long Epoch,
+    string RevocationHandleHash,
+    string RevocationRootHash,
+    string? RootHash = null,
+    string? Reason = null,
+    string? ActorId = null);
+
+public sealed record AnonymousCredentialAcceptedRoot(
+    long Epoch,
+    string RootHash,
+    string Status,
+    DateTimeOffset GraceExpiresAtUtc);
+
+public sealed record AnonymousCredentialRootRuntimeSnapshot(
+    IReadOnlyList<AnonymousCredentialAcceptedRoot> AcceptedRoots,
+    long Version,
+    DateTimeOffset LoadedAtUtc)
+{
+    public static AnonymousCredentialRootRuntimeSnapshot Empty { get; } = new([], 0, DateTimeOffset.UnixEpoch);
+}
+
+public sealed class AnonymousCredentialRootLifecycleService(
+    IServiceScopeFactory scopeFactory,
+    IAnonymousCredentialRootService rootSnapshotCache,
+    TimeProvider timeProvider) : IAnonymousCredentialRootReader, IAnonymousCredentialRootWriter, IAnonymousCredentialRevocationService
+{
+    private AnonymousCredentialRootRuntimeSnapshot _snapshot = AnonymousCredentialRootRuntimeSnapshot.Empty;
+    private long _version;
+
+    public AnonymousCredentialRootRuntimeSnapshot CurrentSnapshot => Volatile.Read(ref _snapshot);
+
+    public async Task RefreshAsync(CancellationToken cancellationToken = default)
+    {
+        DateTimeOffset now = timeProvider.GetUtcNow();
+        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+        List<AnonymousCredentialRoot> roots = await db.Queryable<AnonymousCredentialRoot>()
+            .Where(item =>
+                (item.Status == AnonymousCredentialRootStatuses.Active ||
+                 item.Status == AnonymousCredentialRootStatuses.Grace) &&
+                item.RevokedAtUtc == null &&
+                item.GraceExpiresAtUtc > now.UtcDateTime)
+            .OrderBy(item => item.Epoch, OrderByType.Desc)
+            .ToListAsync(cancellationToken);
+
+        AnonymousCredentialAcceptedRoot[] accepted = roots
+            .Select(static item => new AnonymousCredentialAcceptedRoot(
+                item.Epoch,
+                NormalizeToken(item.RootHash, 128),
+                NormalizeToken(item.Status, 32),
+                ToUtcOffset(item.GraceExpiresAtUtc)))
+            .Where(item => item.RootHash.Length > 0)
+            .ToArray();
+        var snapshot = new AnonymousCredentialRootRuntimeSnapshot(
+            accepted,
+            Interlocked.Increment(ref _version),
+            now);
+        Volatile.Write(ref _snapshot, snapshot);
+    }
+
+    public bool IsRootAccepted(string rootHash, long epoch)
+    {
+        if (epoch <= 0)
+        {
+            return false;
+        }
+
+        string normalized = NormalizeToken(rootHash, 128);
+        if (normalized.Length == 0)
+        {
+            return false;
+        }
+
+        DateTimeOffset now = timeProvider.GetUtcNow();
+        AnonymousCredentialRootRuntimeSnapshot snapshot = CurrentSnapshot;
+        foreach (AnonymousCredentialAcceptedRoot root in snapshot.AcceptedRoots)
+        {
+            if (root.Epoch == epoch &&
+                root.GraceExpiresAtUtc > now &&
+                (string.Equals(root.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
+                 string.Equals(root.Status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal)) &&
+                string.Equals(root.RootHash, normalized, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public async Task<Result<AnonymousCredentialRootRecord>> RotateAsync(
+        AnonymousCredentialRootRotationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        Result<NormalizedRotation> normalizedResult = NormalizeRotation(request);
+        if (normalizedResult.IsFailure || normalizedResult.Value is null)
+        {
+            return Result<AnonymousCredentialRootRecord>.Failure(normalizedResult.Error);
+        }
+
+        NormalizedRotation rotation = normalizedResult.Value;
+        DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
+        AnonymousCredentialRoot? inserted = null;
+
+        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            await db.Updateable<AnonymousCredentialRoot>()
+                .SetColumns(static item => item.Status == AnonymousCredentialRootStatuses.Expired)
+                .SetColumns(item => item.UpdatedAtUtc == utcNow)
+                .Where(item =>
+                    item.Status == AnonymousCredentialRootStatuses.Grace &&
+                    item.GraceExpiresAtUtc <= utcNow)
+                .ExecuteCommandAsync(cancellationToken);
+
+            await db.Updateable<AnonymousCredentialRoot>()
+                .SetColumns(static item => item.Status == AnonymousCredentialRootStatuses.Grace)
+                .SetColumns(item => item.UpdatedAtUtc == utcNow)
+                .Where(static item => item.Status == AnonymousCredentialRootStatuses.Active)
+                .ExecuteCommandAsync(cancellationToken);
+
+            var epoch = new AnonymousCredentialEpoch
+            {
+                Epoch = rotation.Epoch,
+                Status = AnonymousCredentialRootStatuses.Active,
+                CreatedAtUtc = utcNow,
+                ActivatedAtUtc = utcNow,
+                ExpiresAtUtc = rotation.ExpiresAtUtc.UtcDateTime,
+                GraceExpiresAtUtc = rotation.GraceExpiresAtUtc.UtcDateTime,
+                ActiveRootHash = rotation.RootHash,
+                Reason = rotation.Reason
+            };
+            await db.Insertable(epoch).ExecuteCommandAsync(cancellationToken);
+
+            inserted = new AnonymousCredentialRoot
+            {
+                Epoch = rotation.Epoch,
+                RootHash = rotation.RootHash,
+                RevocationRootHash = rotation.RevocationRootHash,
+                CircuitId = rotation.CircuitId,
+                CircuitNumericId = (int)Math.Min(rotation.CircuitNumericId, int.MaxValue),
+                VerifyingKeyHash = rotation.VerifyingKeyHash,
+                PublicInputLayoutVersion = rotation.PublicInputLayoutVersion,
+                CircuitMetadata = rotation.CircuitMetadata,
+                CreatedAtUtc = utcNow,
+                ActivatedAtUtc = utcNow,
+                ExpiresAtUtc = rotation.ExpiresAtUtc.UtcDateTime,
+                GraceExpiresAtUtc = rotation.GraceExpiresAtUtc.UtcDateTime,
+                UpdatedAtUtc = utcNow,
+                Status = AnonymousCredentialRootStatuses.Active
+            };
+            await db.Insertable(inserted).ExecuteCommandAsync(cancellationToken);
+        });
+
+        if (!transaction.IsSuccess || inserted is null)
+        {
+            return Result<AnonymousCredentialRootRecord>.Failure(ErrorCode.Conflict, "anonymous_credential_root_rotation_conflict");
+        }
+
+        InvalidateSnapshots();
+        await RefreshAsync(cancellationToken);
+        await RecordAuditAsync(
+            scope,
+            AuditActionCatalog.AnonymousCredentialRootRotated,
+            AuditOutcomeCatalog.Success,
+            AuditSeverityCatalog.Info,
+            "anonymous credential root rotated",
+            "anonymous_credential_root",
+            rotation.RootHash,
+            rotation.ActorId,
+            rotation.Reason,
+            new Dictionary<string, object?>
+            {
+                ["epoch"] = rotation.Epoch,
+                ["root_hash"] = rotation.RootHash,
+                ["status"] = AnonymousCredentialRootStatuses.Active
+            },
+            cancellationToken);
+
+        return Result<AnonymousCredentialRootRecord>.Success(ToRecord(inserted));
+    }
+
+    public async Task<Result> RevokeAsync(
+        AnonymousCredentialRevocationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        Result<NormalizedRevocation> normalizedResult = NormalizeRevocation(request);
+        if (normalizedResult.IsFailure || normalizedResult.Value is null)
+        {
+            return Result.Failure(normalizedResult.Error);
+        }
+
+        NormalizedRevocation revocation = normalizedResult.Value;
+        DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
+
+        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+        AnonymousCredentialRoot? root = await db.Queryable<AnonymousCredentialRoot>()
+            .Where(item => item.Epoch == revocation.Epoch)
+            .WhereIF(revocation.RootHash is not null, item => item.RootHash == revocation.RootHash)
+            .OrderBy(item => item.Epoch, OrderByType.Desc)
+            .FirstAsync(cancellationToken);
+        if (root is null)
+        {
+            return Result.Failure(ErrorCode.NotFound, "anonymous_credential_root_not_found");
+        }
+
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            var row = new AnonymousCredentialRevocation
+            {
+                Epoch = revocation.Epoch,
+                RootHash = root.RootHash,
+                RevocationHandleHash = revocation.RevocationHandleHash,
+                RevocationRootHash = revocation.RevocationRootHash,
+                Reason = revocation.Reason,
+                ActorId = revocation.ActorId,
+                RevokedAtUtc = utcNow
+            };
+            await db.Insertable(row).ExecuteCommandAsync(cancellationToken);
+
+            await db.Updateable<AnonymousCredentialRoot>()
+                .SetColumns(item => item.RevocationRootHash == revocation.RevocationRootHash)
+                .SetColumns(item => item.UpdatedAtUtc == utcNow)
+                .Where(item => item.Epoch == root.Epoch)
+                .ExecuteCommandAsync(cancellationToken);
+        });
+
+        if (!transaction.IsSuccess)
+        {
+            return Result.Failure(ErrorCode.Conflict, "anonymous_credential_revocation_conflict");
+        }
+
+        InvalidateSnapshots();
+        await RefreshAsync(cancellationToken);
+        await RecordAuditAsync(
+            scope,
+            AuditActionCatalog.AnonymousCredentialRevoked,
+            AuditOutcomeCatalog.Success,
+            AuditSeverityCatalog.Warning,
+            "anonymous credential revocation accumulator updated",
+            "anonymous_credential_revocation",
+            root.RootHash,
+            revocation.ActorId,
+            revocation.Reason,
+            new Dictionary<string, object?>
+            {
+                ["epoch"] = revocation.Epoch,
+                ["root_hash"] = root.RootHash,
+                ["reason"] = revocation.Reason
+            },
+            cancellationToken);
+        return Result.Success();
+    }
+
+    private void InvalidateSnapshots()
+    {
+        rootSnapshotCache.Invalidate();
+        Volatile.Write(ref _snapshot, AnonymousCredentialRootRuntimeSnapshot.Empty);
+    }
+
+    private static async Task RecordAuditAsync(
+        AsyncServiceScope scope,
+        string action,
+        string outcome,
+        string severity,
+        string eventInfo,
+        string targetType,
+        string targetId,
+        string? actorId,
+        string? reason,
+        IReadOnlyDictionary<string, object?> context,
+        CancellationToken cancellationToken)
+    {
+        IAuditEventService? audit = scope.ServiceProvider.GetService<IAuditEventService>();
+        if (audit is null)
+        {
+            return;
+        }
+
+        await audit.RecordHighValueAsync(new AuditEvent(
+            AuditSourceCatalog.Security,
+            AuditTypeCatalog.Security,
+            action,
+            outcome,
+            severity,
+            eventInfo,
+            ActorType: string.IsNullOrWhiteSpace(actorId) ? AuditActorTypeCatalog.System : AuditActorTypeCatalog.Admin,
+            ActorId: actorId,
+            TargetType: targetType,
+            TargetId: targetId,
+            ReasonCode: reason,
+            Context: context,
+            IsHighValue: true), cancellationToken);
+    }
+
+    private static Result<NormalizedRotation> NormalizeRotation(AnonymousCredentialRootRotationRequest request)
+    {
+        string rootHash = NormalizeToken(request.RootHash, 128);
+        string revocationRoot = NormalizeToken(request.RevocationRootHash, 128);
+        string circuitId = NormalizeToken(request.CircuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars);
+        string verifyingKeyHash = NormalizeToken(request.VerifyingKeyHash, 128);
+        if (request.Epoch <= 0 ||
+            rootHash.Length == 0 ||
+            revocationRoot.Length == 0 ||
+            circuitId.Length == 0 ||
+            verifyingKeyHash.Length == 0 ||
+            request.CircuitNumericId == 0 ||
+            request.PublicInputLayoutVersion == 0 ||
+            request.ExpiresAtUtc >= request.GraceExpiresAtUtc)
+        {
+            return Result<NormalizedRotation>.Failure(ErrorCode.Validation, "anonymous_credential_root_rotation_invalid");
+        }
+
+        return Result<NormalizedRotation>.Success(new NormalizedRotation(
+            request.Epoch,
+            rootHash,
+            revocationRoot,
+            circuitId,
+            request.CircuitNumericId,
+            verifyingKeyHash,
+            request.PublicInputLayoutVersion,
+            request.ExpiresAtUtc.ToUniversalTime(),
+            request.GraceExpiresAtUtc.ToUniversalTime(),
+            NormalizeNullable(request.CircuitMetadata, 4096),
+            NormalizeNullable(request.Reason, 128),
+            NormalizeNullable(request.ActorId, 128)));
+    }
+
+    private static Result<NormalizedRevocation> NormalizeRevocation(AnonymousCredentialRevocationRequest request)
+    {
+        string handleHash = NormalizeToken(request.RevocationHandleHash, 128);
+        string revocationRoot = NormalizeToken(request.RevocationRootHash, 128);
+        if (request.Epoch <= 0 ||
+            handleHash.Length == 0 ||
+            revocationRoot.Length == 0)
+        {
+            return Result<NormalizedRevocation>.Failure(ErrorCode.Validation, "anonymous_credential_revocation_invalid");
+        }
+
+        return Result<NormalizedRevocation>.Success(new NormalizedRevocation(
+            request.Epoch,
+            handleHash,
+            revocationRoot,
+            NormalizeNullable(request.RootHash, 128),
+            NormalizeNullable(request.Reason, 128),
+            NormalizeNullable(request.ActorId, 128)));
+    }
+
+    private static AnonymousCredentialRootRecord ToRecord(AnonymousCredentialRoot root)
+        => new(
+            root.Epoch,
+            DecodePublicBytes(root.RootHash),
+            DecodePublicBytes(root.RevocationRootHash),
+            NormalizeToken(root.RootHash, 128),
+            NormalizeToken(root.CircuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars),
+            root.CircuitNumericId <= 0 ? 0U : (uint)root.CircuitNumericId,
+            NormalizeToken(root.VerifyingKeyHash, 128),
+            root.PublicInputLayoutVersion <= 0 ? (ushort)0 : (ushort)Math.Min(root.PublicInputLayoutVersion, ushort.MaxValue),
+            AsUtc(root.CreatedAtUtc),
+            AsUtc(root.ExpiresAtUtc),
+            AsUtc(root.GraceExpiresAtUtc),
+            NormalizeToken(root.Status, 32),
+            string.IsNullOrWhiteSpace(root.CircuitMetadata) ? [] : System.Text.Encoding.UTF8.GetBytes(root.CircuitMetadata));
+
+    private static string NormalizeToken(string? value, int maxLength)
+    {
+        string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
+    }
+
+    private static string? NormalizeNullable(string? value, int maxLength)
+    {
+        string normalized = NormalizeToken(value, maxLength);
+        return normalized.Length == 0 ? null : normalized;
+    }
+
+    private static DateTime AsUtc(DateTime value)
+        => value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
+
+    private static DateTimeOffset ToUtcOffset(DateTime value)
+    {
+        DateTime utc = AsUtc(value);
+        return new DateTimeOffset(utc);
+    }
+
+    private static byte[] DecodePublicBytes(string? value)
+    {
+        string normalized = NormalizeToken(value, 4096);
+        if (normalized.Length == 0)
+        {
+            return [];
+        }
+
+        string compact = normalized.Replace("0x", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal);
+        if (compact.Length > 0 &&
+            compact.Length % 2 == 0 &&
+            compact.All(static ch => Uri.IsHexDigit(ch)))
+        {
+            return Convert.FromHexString(compact);
+        }
+
+        return System.Text.Encoding.UTF8.GetBytes(normalized);
+    }
+
+    private sealed record NormalizedRotation(
+        long Epoch,
+        string RootHash,
+        string RevocationRootHash,
+        string CircuitId,
+        uint CircuitNumericId,
+        string VerifyingKeyHash,
+        ushort PublicInputLayoutVersion,
+        DateTimeOffset ExpiresAtUtc,
+        DateTimeOffset GraceExpiresAtUtc,
+        string? CircuitMetadata,
+        string? Reason,
+        string? ActorId);
+
+    private sealed record NormalizedRevocation(
+        long Epoch,
+        string RevocationHandleHash,
+        string RevocationRootHash,
+        string? RootHash,
+        string? Reason,
+        string? ActorId);
+}
+
+public sealed class AnonymousCredentialRootRefreshHostedService(
+    IAnonymousCredentialRootReader reader,
+    IConfiguration configuration,
+    ILogger<AnonymousCredentialRootRefreshHostedService> logger) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        TimeSpan interval = TimeSpan.FromSeconds(Math.Clamp(
+            configuration.GetValue("AnonymousCredentialRoot:RefreshIntervalSeconds", 60),
+            10,
+            3600));
+        using PeriodicTimer timer = new(interval);
+
+        await RefreshOnceAsync(stoppingToken);
+        while (await timer.WaitForNextTickAsync(stoppingToken))
+        {
+            await RefreshOnceAsync(stoppingToken);
+        }
+    }
+
+    private async Task RefreshOnceAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await reader.RefreshAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "anonymous credential root snapshot refresh failed");
+        }
+    }
+}

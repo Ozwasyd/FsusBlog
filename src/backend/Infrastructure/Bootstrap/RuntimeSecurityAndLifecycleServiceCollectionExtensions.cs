@@ -32,6 +32,10 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IAnonymousCredentialIssuerService, AnonymousCredentialIssuerService>();
         services.AddScoped<IAnonymousCredentialRootStore, AnonymousCredentialRootStore>();
         services.AddSingleton<IAnonymousCredentialRootService, AnonymousCredentialRootService>();
+        services.AddSingleton<AnonymousCredentialRootLifecycleService>();
+        services.AddSingleton<IAnonymousCredentialRootReader>(sp => sp.GetRequiredService<AnonymousCredentialRootLifecycleService>());
+        services.AddSingleton<IAnonymousCredentialRootWriter>(sp => sp.GetRequiredService<AnonymousCredentialRootLifecycleService>());
+        services.AddSingleton<IAnonymousCredentialRevocationService>(sp => sp.GetRequiredService<AnonymousCredentialRootLifecycleService>());
         services.AddScoped<ICommentAnonymousNullifierService, CommentAnonymousNullifierService>();
         services.AddSingleton<ICommentAnonymousDisplayNameGenerator, CommentAnonymousDisplayNameGenerator>();
         services.AddScoped<ICommentActorResolver, CommentActorResolver>();
@@ -61,6 +65,7 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         {
             services.AddHostedService<ProductionStartupValidationHostedService>();
             services.AddHostedService<LifecycleHostedBootstrapService>();
+            services.AddHostedService<AnonymousCredentialRootRefreshHostedService>();
         }
 
         return services;

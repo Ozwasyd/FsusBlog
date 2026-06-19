@@ -25,6 +25,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAnonymousCommentGovernanceMigration(),
         BuildAnonymousCredentialIssuanceAuditMigration(),
         BuildAnonymousCredentialRootMetadataMigration(),
+        BuildAnonymousCredentialRootLifecycleMigration(),
         BuildSecurityRiskEventPersistenceMigration(),
         BuildSecurityChallengePersistenceMigration(),
         BuildCommentActorMigration(),
@@ -992,6 +993,57 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     );
                     CREATE INDEX IF NOT EXISTS idx_anonymous_credential_root_status_expires ON anonymous_credential_root(status, root_grace_expires_at_utc);
                     CREATE INDEX IF NOT EXISTS idx_anonymous_credential_root_circuit ON anonymous_credential_root(circuit_id);
+                    """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAnonymousCredentialRootLifecycleMigration()
+        => new SchemaMigrationDescriptor(
+            "20260619-post-anonymous-credential-root-lifecycle",
+            "Create anonymous credential root lifecycle epoch and revocation storage.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "anonymous_credential_epoch",
+                    """
+                    CREATE TABLE IF NOT EXISTS anonymous_credential_epoch (
+                        epoch bigint PRIMARY KEY,
+                        status varchar(32) NOT NULL DEFAULT 'draft',
+                        created_at_utc timestamp NOT NULL DEFAULT now(),
+                        activated_at_utc timestamp NULL,
+                        expires_at_utc timestamp NOT NULL,
+                        root_grace_expires_at_utc timestamp NOT NULL,
+                        active_root_hash varchar(128) NULL,
+                        reason varchar(128) NULL
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_epoch_epoch ON anonymous_credential_epoch(epoch);
+                    """),
+                new EnsureColumnStep("anonymous_credential_root", "activated_at_utc", "timestamp NULL"),
+                new EnsureColumnStep("anonymous_credential_root", "revoked_at_utc", "timestamp NULL"),
+                new EnsureColumnStep("anonymous_credential_root", "updated_at_utc", "timestamp NOT NULL DEFAULT now()"),
+                new EnsureColumnStep("anonymous_credential_root", "revoke_reason", "varchar(128) NULL"),
+                new RawSqlStep("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_root_hash ON anonymous_credential_root(root_hash);
+                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_root_single_active ON anonymous_credential_root(status) WHERE status = 'active';
+                    CREATE INDEX IF NOT EXISTS idx_anonymous_credential_root_status_epoch ON anonymous_credential_root(status, epoch);
+                    """),
+                new EnsureTableStep(
+                    "anonymous_credential_revocation",
+                    """
+                    CREATE TABLE IF NOT EXISTS anonymous_credential_revocation (
+                        id bigserial PRIMARY KEY,
+                        epoch bigint NOT NULL,
+                        root_hash varchar(128) NOT NULL,
+                        revocation_handle_hash varchar(128) NOT NULL,
+                        revocation_root_hash varchar(128) NOT NULL,
+                        reason varchar(128) NULL,
+                        actor_id varchar(128) NULL,
+                        revoked_at_utc timestamp NOT NULL DEFAULT now()
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_revocation_epoch_handle
+                        ON anonymous_credential_revocation(epoch, revocation_handle_hash);
+                    CREATE INDEX IF NOT EXISTS idx_anonymous_credential_revocation_epoch ON anonymous_credential_revocation(epoch);
                     """)
             ]);
 

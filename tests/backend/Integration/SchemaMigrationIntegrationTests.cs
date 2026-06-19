@@ -152,8 +152,11 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             "circuit_numeric_id",
             "verifying_key_hash",
             "public_input_layout_version",
+            "activated_at_utc",
             "expires_at_utc",
             "root_grace_expires_at_utc",
+            "revoked_at_utc",
+            "updated_at_utc",
             "status"
         })
         {
@@ -164,6 +167,14 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 
         Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_anonymous_credential_root_status_expires"));
         Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_anonymous_credential_root_circuit"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_anonymous_credential_root_status_epoch"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_anonymous_credential_root_hash"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_anonymous_credential_root_single_active"));
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "anonymous_credential_epoch"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "anonymous_credential_revocation"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_anonymous_credential_epoch_epoch"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_anonymous_credential_revocation_epoch_handle"));
     }
 
     [Fact]
