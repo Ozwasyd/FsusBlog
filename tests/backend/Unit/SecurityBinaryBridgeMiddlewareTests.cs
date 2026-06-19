@@ -113,6 +113,13 @@ public sealed class SecurityBinaryBridgeMiddlewareTests
             out var powRoute));
         Assert.Equal(AedsFrameType.PowOptionsUpdateRequest, powRoute.RequestFrame);
         Assert.Equal(AedsFrameType.PowPolicySnapshot, powRoute.ResponseFrame);
+
+        Assert.True(SecurityBinaryBridgeMiddleware.TryResolveRoute(
+            HttpMethods.Post,
+            new PathString("/risk-control/simulate"),
+            out var simulatorRoute));
+        Assert.Equal(AedsFrameType.SecurityOverview, simulatorRoute.RequestFrame);
+        Assert.Equal(AedsFrameType.SecurityOverview, simulatorRoute.ResponseFrame);
     }
 
     [Fact]

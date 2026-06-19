@@ -292,6 +292,7 @@
 
 | GET | `/api/binary/admin/security/overview` | 👑 | 安全系统总览：AntiCrawler、PoW、SecurityRisk |
 | GET | `/api/binary/admin/security/risk-control/overview` | 👑 | RiskControl active policy、风险事件聚合、challenge 成功/失败率 |
+| POST | `/api/binary/admin/security/risk-control/simulate` | 👑🚦 | RiskControl dry-run：调用生产决策链返回 riskScore、decision、reasons、requiredChallenges、policyVersion，不签发 challenge、不改风险分 |
 | GET | `/api/binary/admin/security/challenges/overview?kind={kind}` | 👑 | challenge 签发、尝试、成功/失败率；`kind` 可筛选 `captchaV1` / `argon2idPoSpaceV1` |
 | GET | `/api/binary/admin/security/policies/overview` | 👑 | active RiskControl、AntiCrawler、PoW 与持久化策略版本 |
 | GET | `/api/binary/admin/security/anti-crawler/overview` | 👑 | 反爬虫总览、CIDR、风险事件、规则与 list |

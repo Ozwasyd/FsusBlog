@@ -22,6 +22,7 @@ const route = useRoute()
 const items = [
   { label: '安全总览', name: 'ManageSecurityDashboard' },
   { label: 'RiskControl', name: 'ManageSecurityRiskControl' },
+  { label: '模拟器', name: 'ManageSecuritySimulator' },
   { label: '挑战状态', name: 'ManageSecurityChallenges' },
   { label: '策略版本', name: 'ManageSecurityPolicies' },
   { label: '风险事件', name: 'ManageSecurityEvents' },

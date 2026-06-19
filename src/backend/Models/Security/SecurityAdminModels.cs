@@ -143,6 +143,37 @@ public sealed record RiskControlConsoleResponse(
     IReadOnlyList<AntiCrawlerRiskEventResponse> RecentEvents,
     IReadOnlyList<SecurityRiskSnapshotResponse> TopRiskSnapshots);
 
+public sealed record RiskControlSimulationRequest(
+    string? Action,
+    string? RouteKey,
+    string? Subject,
+    int? RiskScore,
+    string? ClientIp,
+    string? UserAgent,
+    string? DeviceFingerprint,
+    string? Region,
+    string? ActorStatus,
+    string? IdentityKind,
+    bool? VerifiedCrawler,
+    bool? SocialPreviewBot);
+
+public sealed record RiskControlSimulationResponse(
+    int RiskScore,
+    int EffectiveRiskScore,
+    string Decision,
+    string DecisionKind,
+    IReadOnlyList<string> Reasons,
+    IReadOnlyList<string> RequiredChallenges,
+    string PolicyVersion,
+    string Action,
+    string RouteKey,
+    string Subject,
+    string ClientIp,
+    string ActorStatus,
+    string IdentityKind,
+    int EscalationLevel,
+    bool Simulated);
+
 public sealed record SecurityRiskEventAggregateResponse(
     string Source,
     string Reason,

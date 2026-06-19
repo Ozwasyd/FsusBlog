@@ -455,6 +455,8 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 - 缓存分层、Public AOT 单一渲染链和请求路径：见 [`../architecture.md#public-aot-单一渲染链`](../architecture.md#public-aot-单一渲染链) 与 [`../architecture.md#缓存分层`](../architecture.md#缓存分层)。
 - 路由速查表和端点列表：见 [`quick-reference.md#开放分发与作者工作台`](quick-reference.md#开放分发与作者工作台)。
 
+Admin security dry-run 端点只能复用生产决策服务，不得直接复制阈值逻辑或绕过审计。`/api/binary/admin/security/risk-control/simulate` 是控制面预演入口：它可读取当前风险分或使用请求给定 riskScore，输出 `riskScore/decision/reasons/requiredChallenges/policyVersion`，但不得签发 `security_challenge`、不得修改 `SecurityRisk`、不得变更 active policy。该类 dry-run 仍要求 admin principal + `system.config`，并写入 admin security audit；若未来扩展为其他安全模拟器，也必须保持“真实决策链 + 无业务状态写入”的边界。
+
 ---
 
 ## 参见

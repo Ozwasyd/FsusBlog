@@ -72,10 +72,13 @@ RiskControl challenge provider 通过 `ISecurityChallengeProvider` 接入，不�
 
 RiskControl 生产控制面按 `Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof Verification -> Enforcement -> Audit / Metrics / Admin Policy` 演进；完整 tracking plan、子 issue 顺序与 binary-first 边界见 `docs/risk-control-plan.md`。
 
+RiskControl admin 模拟器位于 `/api/binary/admin/security/risk-control/simulate` 和 `/user/manage/security/simulator`。它只调用当前 `SecurityRiskPolicySnapshotV2` 与生产 `RiskDecisionService` 做 dry-run，返回 risk score、decision、reasons、required challenges 和 policy version；不会调用 challenge orchestrator、不会写入 `security_challenge`、不会 reset 或增加真实风险分，也不会修改 active policy。模拟器仍要求 admin principal + `system.config`，每次成功或参数拒绝都写入 admin security audit；它不是绕过 `RequiresRiskControlFilter` 的业务放行接口。
+
 管理后台新增 `/user/manage/security` 安全系统：
 
 - `/user/manage/security`：安全总览，展示 AntiCrawler、PoW 和统一风险信号摘要。
 - `/user/manage/security/crawler`：反爬虫系统，管理模式、局部开关、CIDR 更新、风险事件、allow/blocklist、规则和模拟器。
+- `/user/manage/security/simulator`：RiskControl dry-run，预演 allow、challenge、queue 和 block 决策，不执行业务写入。
 - `/user/manage/security/pow`：PoW 系统，管理独立模式、默认 difficulty、proof TTL、replay 防护和风险分联动。
 
 安全后台生产 API 全部使用 `/api/binary/admin/security/**` AEDS v2 frame；被 bridge 复用的 JSON envelope 只挂在受保护的 `/_fsus/internal/binary-bridge/admin/security/**`，外部 `/api/admin/security/**` 已移除。`SecurityBinaryBridgeMiddleware` 复用原 endpoint 的 admin principal + `AdminPermissions.SystemConfig` authorization、`fixed_ip` 限流、`X-Fsus-Mfa-Proof` admin passkey step-up、device fingerprint header 和高价值安全审计，失败统一编码为 `ApiError` frame。
@@ -273,7 +276,7 @@ FsusBlog 采用三级角色体系：
 - `site_subscription` 只保存 `SHA256(email)`、channel、启用状态和退订时间，不保存明文 email，不构建读者画像或社交关系链。默认实现不接入 SMTP、第三方邮件或 Web Push provider；RSS/Atom/JSON Feed 是主订阅通道，`channel=email` 仅记录显式订阅偏好，后续外发能力必须先补配置开关、退订 smoke 和安全评审。
 - PWA Service Worker 只缓存公开 shell 路由；`/user`、`/admin`、`/login` 和 `/api/binary/**` 不进入 shell cache。离线公开页必须带 `X-Fsus-Offline-Stale`。
 - RUM 仅采集公开页 `pageType`、`aotSource`、LCP、CLS、hydration time、Wasm decode/render timing、navigation timing 等匿名性能指标；私有页面不发送 Core Web Vitals，payload 不包含账号、email、token、cookie、正文输入。生产前端只调用 `POST /api/binary/telemetry/rum`，使用 `credentials: omit`、batched AEDS `RumMetricBatchRequest` frame、8192 bytes 帧上限和 `fixed_ip` 限流；服务端只允许固定 metric 名称、`value/domInteractive/responseStart/durationMs` 数值字段与低基数 dimension 白名单，未知字段会被丢弃或计入 rejectedCount。旧 `/api/telemetry/rum` JSON endpoint 已移除；净化后写入独立 `frontend_rum_metric` 表，不再混入安全审计表。
-- 安全后台 dashboard、AntiCrawler、PoW、风险分重置、规则与 allow/blocklist 管理只允许 admin 通过 `/api/binary/admin/security/**` 访问；策略更新、CIDR 手动同步、风险重置、规则/list 写入和 PoW 策略更新继续要求一次性 `X-Fsus-Mfa-Proof`，并写入 high-value security audit。外部 `/api/admin/security/**` JSON endpoint 已移除。
+- 安全后台 dashboard、RiskControl 模拟器、AntiCrawler、PoW、风险分重置、规则与 allow/blocklist 管理只允许 admin 通过 `/api/binary/admin/security/**` 访问；策略更新、CIDR 手动同步、风险重置、规则/list 写入和 PoW 策略更新继续要求一次性 `X-Fsus-Mfa-Proof`，并写入 high-value security audit。RiskControl 模拟器不要求 `X-Fsus-Mfa-Proof`，但必须写入 security audit 且不能修改 challenge、策略或风险状态。外部 `/api/admin/security/**` JSON endpoint 已移除。
 - 结构化审计写入 `sys_audit_log`：保留 `source/type/action/outcome/severity/actor/target`、trace/path/method、原因码和低基数 context；IP、User-Agent、session id、设备指纹只保存 SHA-256 hash。高价值 admin/security/audit 事件通过 `IAuditEventService` 同步写库，失败时写入 `FSUSBLOG_DATA_ROOT/audit-fallback/critical-audit-*.jsonl`，避免关键审计静默丢失。每条审计生成 `record_hash`，配置 `Audit:TamperEvidenceKey` 或 `Security:AuditTamperEvidenceKey` 时额外生成 `record_mac`；同一 `chain_id` 内写入时必须把当前行 `prev_hash` 链接到前一行 `record_hash`，批内和跨批都不能断链。`/user/manage/audit` 可查询详情并校验单条 hash/mac 以及同链前驱 hash，前驱缺失或重排会使校验失败。
 - OpenTelemetry 自定义属性只允许 `fsus.*` 枚举字段，覆盖 route kind、状态码、组件、缓存 policy、AOT source、搜索模式、后台任务计数等低基数维度；不得写入原始路径参数、请求/响应正文、Authorization、Cookie、token、email、用户名、IP 或 User-Agent。`X-Fsus-Trace-Id` 仅用于用户报告和日志/trace 关联，不表示认证身份。
 

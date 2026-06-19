@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -60,6 +62,49 @@ public static class SecurityEndpoints
                 snapshots.Take(25).ToArray());
             return Results.Ok(JsonApiResponse<RiskControlConsoleResponse>.Ok(response));
         });
+
+        group.MapPost("/risk-control/simulate", async (
+            RiskControlSimulationRequest request,
+            HttpContext context,
+            ISecurityRiskScoreReader riskScoreReader,
+            ISecurityAdminPolicyService policy,
+            IRiskDecisionService riskDecisionService,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            string? validationError = ValidateRiskControlSimulationRequest(request);
+            if (validationError is not null)
+            {
+                await RecordSecurityAuditAsync(
+                    auditEvents,
+                    "admin.security.risk_control.simulation_rejected",
+                    "管理员提交的 RiskControl 模拟参数无效",
+                    "risk_control_simulation",
+                    NormalizeNullable(request.Subject) ?? "invalid",
+                    validationError,
+                    request,
+                    cancellationToken);
+                return Results.BadRequest(JsonApiResponse<RiskControlSimulationResponse>.Fail(validationError));
+            }
+
+            RiskControlSimulationResponse response = await BuildRiskControlSimulationAsync(
+                request,
+                context,
+                riskScoreReader,
+                policy,
+                riskDecisionService,
+                cancellationToken);
+            await RecordSecurityAuditAsync(
+                auditEvents,
+                "admin.security.risk_control.simulated",
+                "管理员模拟 RiskControl 决策",
+                "risk_control_simulation",
+                response.Subject,
+                response.Decision,
+                response,
+                cancellationToken);
+            return Results.Ok(JsonApiResponse<RiskControlSimulationResponse>.Ok(response));
+        }).RequireRateLimiting("fixed_ip");
 
         group.MapGet("/challenges/overview", async (
             string? kind,
@@ -440,6 +485,78 @@ public static class SecurityEndpoints
         return app;
     }
 
+    internal static async Task<RiskControlSimulationResponse> BuildRiskControlSimulationAsync(
+        RiskControlSimulationRequest request,
+        HttpContext context,
+        ISecurityRiskScoreReader riskScoreReader,
+        ISecurityRiskPolicyProvider riskPolicyProvider,
+        IRiskDecisionService riskDecisionService,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(riskScoreReader);
+        ArgumentNullException.ThrowIfNull(riskPolicyProvider);
+        ArgumentNullException.ThrowIfNull(riskDecisionService);
+
+        string actionName = NormalizeNullable(request.Action) ?? RiskActionNames.CommentCreate;
+        if (!RiskActionRegistry.Default.TryGet(actionName, out RiskAction action))
+        {
+            throw new ArgumentException("risk_action_unknown", nameof(request));
+        }
+
+        string routeKey = NormalizeNullable(request.RouteKey) ?? action.DefaultRouteKey ?? string.Empty;
+        if (routeKey.Length == 0)
+        {
+            throw new ArgumentException("risk_route_key_required", nameof(request));
+        }
+
+        string clientIp = NormalizeNullable(request.ClientIp) ?? context.GetClientIp();
+        string subject = NormalizeNullable(request.Subject) ?? clientIp;
+        if (subject.Length == 0)
+        {
+            throw new ArgumentException("risk_subject_required", nameof(request));
+        }
+
+        int riskScore = request.RiskScore.HasValue
+            ? request.RiskScore.Value
+            : await riskScoreReader.GetRiskScoreAsync(new SecurityRiskSubject(subject), cancellationToken);
+        RiskControlContext riskContext = BuildSimulationRiskContext(request, actionName, routeKey, subject, clientIp, context);
+        RiskDecision decision = riskDecisionService.Decide(
+            riskContext,
+            riskPolicyProvider.CurrentRiskPolicyV2,
+            riskScore);
+
+        return new RiskControlSimulationResponse(
+            decision.RiskScore,
+            decision.EffectiveRiskScore,
+            ToDecisionWireValue(decision.Kind),
+            decision.Kind.ToString(),
+            decision.Reasons,
+            decision.RequiredChallenges,
+            decision.PolicyVersion,
+            decision.ActionName,
+            decision.RouteKey,
+            subject,
+            clientIp,
+            riskContext.Actor.Status,
+            riskContext.Actor.IdentityKind,
+            decision.EscalationLevel,
+            Simulated: true);
+    }
+
+    private static string? ValidateRiskControlSimulationRequest(RiskControlSimulationRequest request)
+    {
+        string actionName = NormalizeNullable(request.Action) ?? RiskActionNames.CommentCreate;
+        if (!RiskActionRegistry.Default.TryGet(actionName, out RiskAction action))
+        {
+            return "risk_action_unknown";
+        }
+
+        string routeKey = NormalizeNullable(request.RouteKey) ?? action.DefaultRouteKey ?? string.Empty;
+        return routeKey.Length == 0 ? "risk_route_key_required" : null;
+    }
+
     private static void MapListEndpoints(RouteGroupBuilder group, string routeName, string listType)
     {
         group.MapGet($"/anti-crawler/{routeName}", (ISecurityAdminPolicyService policy) =>
@@ -485,6 +602,130 @@ public static class SecurityEndpoints
                 : Results.NotFound(JsonApiResponse<object>.Fail("anti_crawler_list_entry_not_found"));
         }).RequireRateLimiting("fixed_ip");
     }
+
+    private static RiskControlContext BuildSimulationRiskContext(
+        RiskControlSimulationRequest request,
+        string actionName,
+        string routeKey,
+        string subject,
+        string clientIp,
+        HttpContext context)
+    {
+        string userAgent = NormalizeNullable(request.UserAgent) ?? context.GetUserAgent();
+        string actorStatus = NormalizeNullable(request.ActorStatus) ?? RiskControlActorStatuses.Anonymous;
+        string identityKind = NormalizeNullable(request.IdentityKind) ?? ResolveDefaultIdentityKind(actorStatus);
+        var actor = actorStatus switch
+        {
+            RiskControlActorStatuses.AdminPrincipal => new RiskControlActorContext(
+                RiskControlActorStatuses.AdminPrincipal,
+                AnonymousIdentityRuntime.AdminPrincipalKind,
+                subject,
+                null,
+                subject,
+                null),
+            RiskControlActorStatuses.Authenticated => new RiskControlActorContext(
+                RiskControlActorStatuses.Authenticated,
+                identityKind,
+                subject,
+                null,
+                null,
+                null),
+            _ => new RiskControlActorContext(
+                RiskControlActorStatuses.Anonymous,
+                RiskControlIdentityKinds.Anonymous,
+                null,
+                null,
+                null,
+                null)
+        };
+
+        return new RiskControlContext(
+            actionName,
+            routeKey,
+            RiskControlContextStatuses.Resolved,
+            clientIp,
+            userAgent,
+            string.IsNullOrWhiteSpace(userAgent) ? RiskControlContextStatuses.Missing : RiskControlContextStatuses.Present,
+            actor,
+            BuildDeviceFingerprintContext(request.DeviceFingerprint),
+            BuildRegionContext(request.Region),
+            request.VerifiedCrawler == true,
+            request.SocialPreviewBot == true);
+    }
+
+    private static RiskControlDeviceFingerprintContext BuildDeviceFingerprintContext(string? deviceFingerprint)
+    {
+        string? value = NormalizeNullable(deviceFingerprint);
+        if (value is null)
+        {
+            return new RiskControlDeviceFingerprintContext(RiskControlContextStatuses.Missing, 0, null, "missing");
+        }
+
+        if (value.Length is < 8 or > 128)
+        {
+            return new RiskControlDeviceFingerprintContext(RiskControlContextStatuses.Invalid, value.Length, null, "invalid_length");
+        }
+
+        for (int i = 0; i < value.Length; i++)
+        {
+            char ch = value[i];
+            if (!(char.IsLetterOrDigit(ch) || ch is '-' or '_' or '.' or ':'))
+            {
+                return new RiskControlDeviceFingerprintContext(RiskControlContextStatuses.Invalid, value.Length, null, "invalid_charset");
+            }
+        }
+
+        string hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+        return new RiskControlDeviceFingerprintContext(RiskControlContextStatuses.Present, value.Length, hash, null);
+    }
+
+    private static RiskControlRegionContext BuildRegionContext(string? region)
+    {
+        string? value = NormalizeNullable(region);
+        if (value is null)
+        {
+            return new RiskControlRegionContext(RiskControlContextStatuses.Missing, "UNKNOWN", null, "missing");
+        }
+
+        string normalized = value.Trim().ToUpperInvariant() switch
+        {
+            "CN" or "MAINLAND" => "CN-MAINLAND",
+            "HK" => "CN-HK",
+            "MO" => "CN-MO",
+            "TW" => "CN-TW",
+            var other => other
+        };
+        for (int i = 0; i < normalized.Length; i++)
+        {
+            char ch = normalized[i];
+            if (!(char.IsLetterOrDigit(ch) || ch is '-' or '_'))
+            {
+                return new RiskControlRegionContext(RiskControlContextStatuses.Invalid, "UNKNOWN", "simulator", "invalid_region");
+            }
+        }
+
+        return new RiskControlRegionContext(RiskControlContextStatuses.Present, normalized, "simulator", null);
+    }
+
+    private static string ResolveDefaultIdentityKind(string actorStatus)
+        => actorStatus switch
+        {
+            RiskControlActorStatuses.AdminPrincipal => AnonymousIdentityRuntime.AdminPrincipalKind,
+            RiskControlActorStatuses.Authenticated => RiskControlIdentityKinds.LegacyUser,
+            _ => RiskControlIdentityKinds.Anonymous
+        };
+
+    private static string ToDecisionWireValue(RiskDecisionKind kind)
+        => kind switch
+        {
+            RiskDecisionKind.Allow => "allow",
+            RiskDecisionKind.Challenge => "challenge",
+            RiskDecisionKind.StepUp => "step_up",
+            RiskDecisionKind.QueueForModeration => "queue_for_moderation",
+            RiskDecisionKind.Throttle => "throttle",
+            RiskDecisionKind.Block => "block",
+            _ => "unknown"
+        };
 
     private static async Task<SecurityChallengeMetricsResponse> BuildSecurityChallengeMetricsAsync(
         ISqlSugarClient db,

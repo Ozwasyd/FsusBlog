@@ -10,6 +10,7 @@ import {
   getSecurityOverview,
   getSecurityPolicyConsole,
   resetSecurityRisk,
+  simulateRiskControl,
   updateAntiCrawlerOptions,
   updatePowOptions
 } from '@/api/security'
@@ -106,6 +107,40 @@ describe('security API binary transport', () => {
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.SecurityRiskResetRequest, {
       subject: '127.0.0.1',
       reason: 'manual'
+    })
+  })
+
+  it('simulates RiskControl decisions through the admin binary bridge without MFA mutation proof', async () => {
+    binaryMock.mockResolvedValue({
+      riskScore: 50,
+      decision: 'challenge',
+      reasons: ['challenge'],
+      requiredChallenges: ['captchaV1'],
+      policyVersion: 'risk-v2'
+    })
+
+    await simulateRiskControl({
+      action: 'comment.create',
+      routeKey: 'comment.create',
+      subject: 'ip:203.0.113.10',
+      riskScore: 50,
+      clientIp: '203.0.113.10',
+      userAgent: 'Mozilla/5.0',
+      deviceFingerprint: 'device-123456',
+      region: 'CN',
+      actorStatus: 'anonymous',
+      identityKind: 'anonymous'
+    })
+
+    const call = binaryMock.mock.calls[0]?.[0]
+    expect(call?.binaryUrl).toBe('/api/binary/admin/security/risk-control/simulate')
+    expect(call?.frameType).toBe(FrameType.SecurityOverview)
+    expect(call?.requestOptions?.method).toBe('POST')
+    expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBeNull()
+    expectAedsJsonBody(call?.requestOptions?.body, FrameType.SecurityOverview, {
+      action: 'comment.create',
+      routeKey: 'comment.create',
+      riskScore: 50
     })
   })
 

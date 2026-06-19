@@ -19,6 +19,15 @@ function encodeJsonFrame(name: string, payload: unknown): Buffer {
   return Buffer.from(new Uint8Array(encodeAedsFrame(frameType(name), encoder.encode(JSON.stringify(payload)))))
 }
 
+function decodeJsonFramePayload(body: Buffer): { frameType: number; payload: Record<string, unknown> } {
+  const view = new DataView(body.buffer, body.byteOffset, body.byteLength)
+  const payloadLength = view.getUint32(10, true)
+  return {
+    frameType: view.getUint16(8, true),
+    payload: JSON.parse(new TextDecoder().decode(body.subarray(16, 16 + payloadLength)))
+  }
+}
+
 async function fulfillJsonFrame(route: Route, name: string, payload: unknown, status = 200): Promise<void> {
   await route.fulfill({
     status,
@@ -92,6 +101,78 @@ test.describe('RiskControl security console contract', () => {
       path: 'risk-control',
       permissions: ['system.config']
     })
+  })
+
+  test('simulator dry-run covers allow, challenge, queue and block decisions through the binary bridge', async ({ page }) => {
+    const publicJsonRequests: string[] = []
+    const simulatedDecisions: string[] = []
+    page.on('request', (request) => {
+      const pathname = new URL(request.url()).pathname
+      if (pathname.startsWith('/api/admin/security')) {
+        publicJsonRequests.push(pathname)
+      }
+    })
+    await openModuleHarness(page)
+    await page.route('**/api/binary/admin/security/risk-control/simulate', async (route, request) => {
+      expect(request.method()).toBe('POST')
+      expect(request.headers()['x-fsus-mfa-proof']).toBeUndefined()
+      const body = request.postDataBuffer()
+      expect(body).not.toBeNull()
+      const decoded = decodeJsonFramePayload(body!)
+      expect(decoded.frameType).toBe(frameType('SecurityOverview'))
+      const riskScore = Number(decoded.payload.riskScore ?? 0)
+      const decision = riskScore >= 120
+        ? 'block'
+        : riskScore >= 90
+          ? 'queue_for_moderation'
+          : riskScore >= 50
+            ? 'challenge'
+            : 'allow'
+      simulatedDecisions.push(decision)
+      await fulfillJsonFrame(route, 'SecurityOverview', {
+        riskScore,
+        effectiveRiskScore: riskScore,
+        decision,
+        decisionKind: decision,
+        reasons: [decision],
+        requiredChallenges: decision === 'challenge' ? ['captchaV1'] : [],
+        policyVersion: 'risk-v2',
+        action: decoded.payload.action,
+        routeKey: decoded.payload.routeKey,
+        subject: decoded.payload.subject,
+        clientIp: decoded.payload.clientIp,
+        actorStatus: decoded.payload.actorStatus,
+        identityKind: decoded.payload.identityKind,
+        escalationLevel: decision === 'challenge' ? 1 : 0,
+        simulated: true
+      })
+    })
+
+    const decisions = await page.evaluate(async () => {
+      const api = await import('/src/api/security.ts')
+      const scores = [10, 50, 90, 125]
+      const results = []
+      for (const riskScore of scores) {
+        const response = await api.simulateRiskControl({
+          action: 'comment.create',
+          routeKey: 'comment.create',
+          subject: `ip:203.0.113.${riskScore}`,
+          riskScore,
+          clientIp: `203.0.113.${riskScore}`,
+          userAgent: 'Mozilla/5.0',
+          deviceFingerprint: 'device-123456',
+          region: 'CN',
+          actorStatus: 'anonymous',
+          identityKind: 'anonymous'
+        })
+        results.push(response.decision)
+      }
+      return results
+    })
+
+    expect(decisions).toEqual(['allow', 'challenge', 'queue_for_moderation', 'block'])
+    expect(simulatedDecisions).toEqual(decisions)
+    expect(publicJsonRequests).toEqual([])
   })
 
   test('policy writes without admin-sensitive proof are rejected by binary endpoint', async ({ page }) => {

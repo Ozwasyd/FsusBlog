@@ -339,6 +339,39 @@ export interface RiskControlConsoleResponse {
   topRiskSnapshots: SecurityRiskSnapshotResponse[]
 }
 
+export interface RiskControlSimulationRequest {
+  action?: string | null
+  routeKey?: string | null
+  subject?: string | null
+  riskScore?: number | null
+  clientIp?: string | null
+  userAgent?: string | null
+  deviceFingerprint?: string | null
+  region?: string | null
+  actorStatus?: string | null
+  identityKind?: string | null
+  verifiedCrawler?: boolean | null
+  socialPreviewBot?: boolean | null
+}
+
+export interface RiskControlSimulationResponse {
+  riskScore: number
+  effectiveRiskScore: number
+  decision: string
+  decisionKind: string
+  reasons: string[]
+  requiredChallenges: string[]
+  policyVersion: string
+  action: string
+  routeKey: string
+  subject: string
+  clientIp: string
+  actorStatus: string
+  identityKind: string
+  escalationLevel: number
+  simulated: boolean
+}
+
 export interface SecurityPolicyConsoleResponse {
   activePolicy: SecurityRiskPolicySnapshotV2
   antiCrawler: AntiCrawlerPolicySnapshot
@@ -455,6 +488,13 @@ export const getSecurityOverview = (config?: ApiRequestConfig) =>
 
 export const getRiskControlConsole = (config?: ApiRequestConfig) =>
   requestSecurityBinary<RiskControlConsoleResponse>('/risk-control/overview', FrameType.SecurityOverview, config)
+
+export const simulateRiskControl = (request: RiskControlSimulationRequest, config?: ApiRequestConfig) =>
+  requestSecurityBinary<RiskControlSimulationResponse>('/risk-control/simulate', FrameType.SecurityOverview, config, {
+    method: 'POST',
+    requestFrame: FrameType.SecurityOverview,
+    request
+  })
 
 export const getSecurityChallengeMetrics = (params: { kind?: string | null } = {}, config?: ApiRequestConfig) =>
   requestSecurityBinary<SecurityChallengeMetricsResponse>(`/challenges/overview${query(params)}`, FrameType.SecurityOverview, config)

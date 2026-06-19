@@ -70,6 +70,7 @@ const overview = shallowRef<SecurityOverviewResponse | null>(null)
 
 const links = [
   { label: 'RiskControl 控制面', helper: 'active policy、风险聚合、挑战成功/失败率。', name: 'ManageSecurityRiskControl' },
+  { label: 'RiskControl 模拟器', helper: '用生产决策链预演 allow、challenge、queue、block。', name: 'ManageSecuritySimulator' },
   { label: '挑战状态', helper: 'Captcha、PoSpace 与通用 challenge 的签发和验证结果。', name: 'ManageSecurityChallenges' },
   { label: '策略版本', helper: '反爬虫、PoW 与 RiskControl 的当前策略和持久化版本。', name: 'ManageSecurityPolicies' },
   { label: '风险事件', helper: '统一风险总线的来源、原因和最近事件明细。', name: 'ManageSecurityEvents' },
