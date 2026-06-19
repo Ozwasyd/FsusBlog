@@ -1322,8 +1322,12 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 | GET | `/api/binary/author/moderation/overview` | 审核系统总览，返回队列计数、词库/地区策略数量、`CN-MAINLAND` strict policy 状态和模型配置摘要 |
 | GET | `/api/binary/author/moderation/anonymous-comment-policy` | 读取匿名评论策略 snapshot；要求 `anonymous.comment.configure` |
 | PUT | `/api/binary/author/moderation/anonymous-comment-policy` | 更新匿名评论 enable/disable、public/ZK 开关和默认 author mode；必须携带 `X-Fsus-Mfa-Proof` 并写高价值审计 |
-| POST | `/api/binary/author/comments/moderation/nullifiers/block` | 按 hash + scope 封禁匿名评论 nullifier；必须携带 `X-Fsus-Mfa-Proof`、要求 `anonymous.nullifier.block` |
-| POST | `/api/binary/author/comments/moderation/anonymous-credentials/{credentialId}/revoke` | 撤销匿名凭证；必须携带 `X-Fsus-Mfa-Proof`、要求 `anonymous.credential.revoke` |
+| POST | `/api/binary/author/comments/moderation/nullifiers/block` | 审核队列快捷封禁匿名评论 nullifier；必须携带 `X-Fsus-Mfa-Proof`、要求 `anonymous.nullifier.block` |
+| POST | `/api/binary/author/comments/moderation/anonymous-credentials/{credentialId}/revoke` | 审核队列快捷撤销匿名凭证；必须携带 `X-Fsus-Mfa-Proof`、要求 `anonymous.credential.revoke` |
+| GET | `/api/binary/admin/anonymous-governance/status` | 匿名治理后台状态，返回 root/verifier/revocation/comment 聚合；要求 `anonymous.comment.configure` 与 `X-Fsus-Mfa-Proof` |
+| GET | `/api/binary/admin/anonymous-governance/nullifiers` | 匿名 nullifier 治理列表，只返回 masked hash、scope、状态和封禁历史；要求 `anonymous.nullifier.block` 与 `X-Fsus-Mfa-Proof` |
+| POST | `/api/binary/admin/anonymous-governance/nullifiers/block` | 匿名治理后台封禁 nullifier，request 使用 hash + scope + reason；要求 `anonymous.nullifier.block` 与 `X-Fsus-Mfa-Proof`，高价值审计只记录 hash 摘要 |
+| POST | `/api/binary/admin/anonymous-governance/credentials/revoke` | 按 epoch/root/revocation handle/revocation root 撤销匿名凭证；要求 `anonymous.credential.revoke` 与 `X-Fsus-Mfa-Proof`，高价值审计只记录不可逆 target 摘要 |
 | GET | `/api/binary/author/moderation/dictionaries` | 只读词库/地区策略 snapshot metadata，不返回高风险词条明文 |
 | POST | `/api/binary/author/moderation/dictionaries/reload` | 手动 reload 词库/地区策略 snapshot；必须携带 `X-Fsus-Mfa-Proof`，写高价值审计 |
 | POST | `/api/binary/author/moderation/dictionaries/rollback` | 回滚上一份成功加载的词库/地区策略 snapshot；必须携带 `X-Fsus-Mfa-Proof`，写高价值审计 |
@@ -1376,6 +1380,8 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 `ModerationReplayPreviewRequest` 包含可选 `region/policyVersion/dictionaryId/limit`。响应 `ModerationReplayPreviewResponse` 只返回 `scannedCount/affectedCommentCount/addedBlockedRegionCount/removedBlockedRegionCount/addedRiskLabelCount/removedRiskLabelCount/publishabilityChangedCount/manualReviewChangedCount/publicVisibilityChangedCount/highRiskChangeCount/items`，`items` 只含 comment id、policy version 和 diff，不返回评论正文或 raw terms。该 preview 不执行 replay；执行型 replay 必须另走 MFA、确认短语、高价值审计和可中断进度控制。
 
 `ModerationModelStatusResponse` 返回模型配置与观测：`enabled/provider/mode/contractVersion/timeoutMs/failOpen/externalProviderAllowed/externalProviderReviewed/lastSuccessAtUtc/lastErrorCode/lastErrorAtUtc/averageLatencyMs/p95LatencyMs`。这些字段只描述模型风险信号层，不代表最终审核动作；地区法律策略、硬词库和人工审核状态优先级更高。
+
+匿名治理后台使用 `/api/binary/admin/anonymous-governance/**` 的 AEDS v2 端点接入，不再由前端 mock 数据驱动。所有端点都要求 admin principal、对应 `AdminPermissions.AnonymousCommentConfigure` / `AnonymousNullifierBlock` / `AnonymousCredentialRevoke`、`fixed_ip` 限流、device fingerprint 和 action=`admin-sensitive` 的一次性 `X-Fsus-Mfa-Proof`。响应 payload 复用 `AnonymousGovernanceActionResponse` frame 承载 JSON DTO；写操作 request 复用 `AnonymousGovernanceActionRequest` frame。DTO 不得包含真实 `userId`、`username`、`publicHandle`、credential commitment、proof、witness、secret 或 nullifier 到账号映射；UI 列表只能展示 `maskedHash`，action payload 可携带 raw nullifier hash 但不得渲染。
 
 `ModerationRuntimeStatusResponse` 返回 `snapshotId/globalState/regionStates/disabledDictionaryIds/model/changedAtUtc/changedBy/reason/expiresAtUtc/lastError`。`model` 是 `ModerationModelRuntimeResponse`，包含 `snapshotId/enabled/provider/modelProfile/thresholdProfile/contractVersion/configChecksum/loadedAtUtc/loadedBy/status/timeoutMs/failOpen/externalProviderAllowed/externalProviderReviewed/lastError`。全局状态支持 `enabled/read_only/disabled_to_pending/emergency_lockdown`，服务层仍能表达 `disabled_pass_through`，但 production 默认拒绝该状态；地区状态支持 `enabled/manual_review_only/no_public_display/read_only/disabled`。请求体包括：`ModerationRuntimeGlobalStateRequest(state, reason?, expiresAtUtc?)`、`ModerationRuntimeRegionStateRequest(region, state, reason?, expiresAtUtc?, confirmPhrase?)`、`ModerationDictionaryStateRequest(reason?, confirmPhrase?)`、`ModerationModelRuntimeRequest(enabled?, provider?, modelProfile?, thresholdProfile?, reason?)`。`CN-MAINLAND` 地区非 `enabled` 变更和强制词库禁用必须传 `confirmPhrase="CONFIRM CN-MAINLAND MODERATION CHANGE"`；`CN-MAINLAND` 地区状态不得设为 `disabled`。
 

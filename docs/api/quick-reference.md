@@ -270,6 +270,10 @@
 | PUT | `/api/binary/author/moderation/anonymous-comment-policy` | 👑🚦 MFA | 更新匿名评论策略 |
 | POST | `/api/binary/author/comments/moderation/nullifiers/block` | 👑🚦 MFA | 封禁匿名评论 nullifier |
 | POST | `/api/binary/author/comments/moderation/anonymous-credentials/{credentialId}/revoke` | 👑🚦 MFA | 撤销匿名凭证 |
+| GET | `/api/binary/admin/anonymous-governance/status` | 👑🚦 MFA | 匿名治理后台状态与 root/revocation 聚合 |
+| GET | `/api/binary/admin/anonymous-governance/nullifiers` | 👑🚦 MFA | 匿名 nullifier 治理列表，仅展示 masked hash |
+| POST | `/api/binary/admin/anonymous-governance/nullifiers/block` | 👑🚦 MFA | 匿名治理后台封禁 nullifier |
+| POST | `/api/binary/admin/anonymous-governance/credentials/revoke` | 👑🚦 MFA | 按 revocation handle 撤销匿名凭证 |
 | GET | `/api/binary/author/moderation/dictionaries` | 👑 | 只读审核词库和地区策略 snapshot metadata |
 | POST | `/api/binary/author/moderation/dictionaries/reload` | 👑🚦 MFA | 手动 reload 审核词库和地区策略 snapshot |
 | POST | `/api/binary/author/moderation/dictionaries/rollback` | 👑🚦 MFA | 回滚到上一份成功加载的词库/地区策略 snapshot |

@@ -88,6 +88,8 @@ public static class AuditActionCatalog
     public const string CommentModerated = "admin.comment.moderated";
     public const string CommentBulkModerated = "admin.comment.bulk_moderated";
     public const string AnonymousCommentPolicyUpdated = "admin.anonymous_comment.policy_updated";
+    public const string AnonymousGovernanceStatusRead = "admin.anonymous_governance.status_read";
+    public const string AnonymousGovernanceNullifiersRead = "admin.anonymous_governance.nullifiers_read";
     public const string AnonymousNullifierBlocked = "admin.anonymous_nullifier.blocked";
     public const string AnonymousCredentialRevoked = "admin.anonymous_credential.revoked";
     public const string AnonymousCredentialIssued = "security.anonymous_credential.issued";

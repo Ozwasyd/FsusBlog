@@ -7,6 +7,23 @@
     "frontendDecoder": "tests/frontend/support/aeds-envelope.mjs",
     "backendGolden": "tests/backend/Fixtures/aeds-golden-catalog.json"
   },
+  "anonymousPrivacyContract": {
+    "circuitId": "fsus.anonymous.comment.v1",
+    "publicInputLayoutVersion": 2,
+    "maxBbsSignatureBytes": 256,
+    "maxBbsBlindedCommitmentBytes": 256,
+    "maxGroth16ProofBytes": 4096,
+    "anonymousTicketPublicInputs": [
+      "action_context",
+      "scope",
+      "credential_root",
+      "revocation_root",
+      "nullifier_hash",
+      "credential_epoch",
+      "credential_level",
+      "reputation_bucket"
+    ]
+  },
   "negativeCases": [
     "wrong-accept",
     "wrong-content-type",
@@ -534,6 +551,51 @@
           "requestFrame": "AnonymousCredentialIssueRequest",
           "responseFrame": "AnonymousCredentialIssueResponse",
           "surface": "anonymous-credential-issue"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousGovernance.cs",
+      "frontendWrapper": "src/frontend/src/api/anonymousGovernance.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/authoringAdapter.ts",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/admin/anonymous-governance/status",
+          "auth": "admin",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "responseFrame": "AnonymousGovernanceActionResponse",
+          "surface": "anonymous-governance-status"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/anonymous-governance/nullifiers",
+          "auth": "admin",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "responseFrame": "AnonymousGovernanceActionResponse",
+          "surface": "anonymous-governance-nullifiers"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/anonymous-governance/nullifiers/block",
+          "auth": "admin",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "AnonymousGovernanceActionRequest",
+          "responseFrame": "AnonymousGovernanceActionResponse",
+          "surface": "anonymous-governance-nullifier-block"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/anonymous-governance/credentials/revoke",
+          "auth": "admin",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "AnonymousGovernanceActionRequest",
+          "responseFrame": "AnonymousGovernanceActionResponse",
+          "surface": "anonymous-governance-credential-revoke"
         }
       ]
     },
@@ -2051,5 +2113,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 202
+  "openapiOperationCount": 206
 }

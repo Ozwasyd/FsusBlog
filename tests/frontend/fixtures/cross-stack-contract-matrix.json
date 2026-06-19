@@ -555,6 +555,51 @@
       ]
     },
     {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousGovernance.cs",
+      "frontendWrapper": "src/frontend/src/api/anonymousGovernance.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/authoringAdapter.ts",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/admin/anonymous-governance/status",
+          "auth": "admin",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "responseFrame": "AnonymousGovernanceActionResponse",
+          "surface": "anonymous-governance-status"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/anonymous-governance/nullifiers",
+          "auth": "admin",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "responseFrame": "AnonymousGovernanceActionResponse",
+          "surface": "anonymous-governance-nullifiers"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/anonymous-governance/nullifiers/block",
+          "auth": "admin",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "AnonymousGovernanceActionRequest",
+          "responseFrame": "AnonymousGovernanceActionResponse",
+          "surface": "anonymous-governance-nullifier-block"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/anonymous-governance/credentials/revoke",
+          "auth": "admin",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "AnonymousGovernanceActionRequest",
+          "responseFrame": "AnonymousGovernanceActionResponse",
+          "surface": "anonymous-governance-credential-revoke"
+        }
+      ]
+    },
+    {
       "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Telemetry.cs",
       "frontendWrapper": "src/frontend/src/services/telemetryService.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/telemetryAdapter.ts",

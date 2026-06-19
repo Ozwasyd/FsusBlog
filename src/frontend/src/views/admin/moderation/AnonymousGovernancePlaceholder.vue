@@ -76,7 +76,7 @@
       :title-level="2"
     >
       <div class="blog-scroll-x-safe anonymous-governance-table-scroll">
-        <el-table :data="riskRows" row-key="subject" class="anonymous-governance-table">
+        <el-table v-loading="loadingStatus" :data="riskRows" row-key="subject" class="anonymous-governance-table">
           <el-table-column label="主体" min-width="190">
             <template #default="{ row }: { row: AnonymousRiskRow }">
               <div class="anonymous-governance-subject">
@@ -119,9 +119,9 @@
       :title-level="2"
     >
       <div class="blog-scroll-x-safe anonymous-governance-table-scroll">
-        <el-table :data="nullifierRows" row-key="hash" class="anonymous-governance-table">
+        <el-table v-loading="loadingNullifiers" :data="nullifierRows" row-key="key" class="anonymous-governance-table">
           <el-table-column prop="scope" label="scope" min-width="160" />
-          <el-table-column prop="hash" label="Nullifier" min-width="220" />
+          <el-table-column prop="maskedHash" label="Nullifier" min-width="220" />
           <el-table-column prop="status" label="状态" min-width="120" />
           <el-table-column label="操作" width="170" align="right">
             <template #default="{ row }: { row: AnonymousNullifierRow }">
@@ -129,7 +129,8 @@
                 type="danger"
                 plain
                 size="small"
-                :disabled="!canBlockAnonymousNullifier"
+                :disabled="!canBlockAnonymousNullifier || row.status === 'blocked'"
+                :loading="processingAction === row.key"
                 @click="previewNullifierBlock(row)"
               >
                 封禁 Nullifier
@@ -149,7 +150,7 @@
       :title-level="2"
     >
       <div class="blog-scroll-x-safe anonymous-governance-table-scroll">
-        <el-table :data="credentialRows" row-key="id" class="anonymous-governance-table">
+        <el-table v-loading="loadingStatus" :data="credentialRows" row-key="id" class="anonymous-governance-table">
           <el-table-column prop="id" label="credential" min-width="180" />
           <el-table-column prop="level" label="level" min-width="120" />
           <el-table-column prop="status" label="状态" min-width="120" />
@@ -161,6 +162,7 @@
                 plain
                 size="small"
                 :disabled="!canRevokeAnonymousCredential"
+                :loading="processingAction === row.id"
                 @click="previewCredentialRevoke(row)"
               >
                 撤销匿名凭证
@@ -191,16 +193,27 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import { useAdminStore, type AnonymousCommentPolicySnapshot } from '@/store/admin'
-import { showWarningToast } from '@/utils/errorPresentation'
+import {
+  blockAnonymousGovernanceNullifier,
+  getAnonymousGovernanceStatus,
+  listAnonymousGovernanceNullifiers,
+  revokeAnonymousGovernanceCredential,
+  type AnonymousGovernanceStatusResponse
+} from '@/api/anonymousGovernance'
+import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
+import { isAppError } from '@/utils/appError'
+import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
+import { promptText, toast } from '@/fsusui/feedback'
 
 const route = useRoute()
 const adminStore = useAdminStore()
+const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 
 const sections = {
   ManageAnonymousCommentPolicy: {
@@ -246,17 +259,29 @@ interface AnonymousRiskRow {
 }
 
 interface AnonymousNullifierRow {
+  key: string
   scope: string
-  hash: string
+  maskedHash: string
+  governanceHash: string
   status: string
+  useCount: number
 }
 
 interface AnonymousCredentialRow {
   id: string
+  epoch: number
+  rootHash: string
+  revocationRootHash: string
   level: string
   status: string
   revocation: string
 }
+
+const governanceStatus = ref<AnonymousGovernanceStatusResponse | null>(null)
+const nullifierRecords = ref<AnonymousNullifierRow[]>([])
+const loadingStatus = ref(false)
+const loadingNullifiers = ref(false)
+const processingAction = ref<string | null>(null)
 
 const section = computed(() => {
   const key = typeof route.name === 'string' && route.name in sections
@@ -286,62 +311,69 @@ const policySignals = computed(() => [
     helper: publicOnlyMode.value ? '匿名关闭时仍允许公开身份评论。' : '匿名策略按完整模式运行。'
   },
   {
+    label: 'Root epoch',
+    value: governanceStatus.value?.root.credentialEpoch ? String(governanceStatus.value.root.credentialEpoch) : '未就绪',
+    helper: governanceStatus.value?.root.maskedRootHash ? `root ${governanceStatus.value.root.maskedRootHash}` : '当前没有可用匿名 credential root。'
+  },
+  {
     label: 'ZK 匿名',
-    value: zkAnonymousEnabled.value ? '可用' : '未启用',
-    helper: zkAnonymousConfigurable.value ? '配置入口可见，且仅用于匿名评论。' : '当前环境隐藏配置入口。'
+    value: governanceStatus.value?.verifier.configured ? '可用' : '未启用',
+    helper: governanceStatus.value?.verifier.circuitStatus ?? (zkAnonymousConfigurable.value ? '配置入口可见，且仅用于匿名评论。' : '当前环境隐藏配置入口。')
   }
 ])
 
-const riskRows: AnonymousRiskRow[] = [
-  {
-    subject: 'subject:article-comment',
-    displayName: '强匿名评论者',
-    authorMode: '强匿名',
-    displayLanguage: 'zh-CN',
-    scope: 'scope：article-comment',
-    credential: 'credential：strong',
-    reputation: '声誉桶：new',
-    accountAge: '账号年龄桶：0-7d',
-    riskLabels: ['link-heavy', 'new-scope']
-  },
-  {
-    subject: 'subject:public-comment',
-    displayName: 'Anonymous commenter',
-    authorMode: '匿名',
-    displayLanguage: 'en',
-    scope: 'scope：public-comment',
-    credential: 'credential：basic',
-    reputation: '声誉桶：steady',
-    accountAge: '账号年龄桶：30d+',
-    riskLabels: ['manual-review']
+const riskRows = computed<AnonymousRiskRow[]>(() => {
+  const stats = governanceStatus.value?.commentStats
+  if (!stats) {
+    return []
   }
-]
 
-const nullifierRows: AnonymousNullifierRow[] = [
-  { scope: 'article-comment', hash: 'nul_8d2f9c4a***', status: '观察中' },
-  { scope: 'public-comment', hash: 'nul_42a91b7e***', status: '已封禁' }
-]
+  return [{
+    subject: 'anonymous-comment-governance',
+    displayName: '匿名评论主体',
+    authorMode: `匿名 ${stats.totalAnonymous}`,
+    displayLanguage: '按评论记录',
+    scope: `待审 ${stats.pendingAnonymous}`,
+    credential: `ZK ${stats.zkAnonymous}`,
+    reputation: `通过 ${stats.approvedAnonymous}`,
+    accountAge: `隐藏 ${stats.hiddenAnonymous}`,
+    riskLabels: [
+      `rejected:${stats.rejectedAnonymous}`,
+      `pending:${stats.pendingAnonymous}`
+    ]
+  }]
+})
 
-const credentialRows: AnonymousCredentialRow[] = [
-  { id: 'cred_strong_01', level: 'strong', status: 'active', revocation: '未撤销' },
-  { id: 'cred_basic_04', level: 'basic', status: 'active', revocation: '待复核' }
-]
+const nullifierRows = computed(() => nullifierRecords.value)
+
+const credentialRows = computed<AnonymousCredentialRow[]>(() =>
+  (governanceStatus.value?.credentials ?? []).map(item => ({
+    id: `epoch:${item.epoch}:${item.maskedRootHash}`,
+    epoch: item.epoch,
+    rootHash: item.rootHash,
+    revocationRootHash: item.revocationRootHash,
+    level: item.maskedRootHash,
+    status: item.status,
+    revocation: `${item.maskedRevocationRootHash} / ${item.revocationCount}`
+  })))
 
 const zkStatusRows = computed(() => [
   {
     label: 'Verifier',
-    value: zkAnonymousEnabled.value ? '已启用' : '未启用',
-    helper: '用于匿名评论证明校验，不参与登录认证。'
+    value: governanceStatus.value?.verifier.configured ? '已启用' : '未启用',
+    helper: governanceStatus.value?.verifier.circuitStatus ?? '用于匿名评论证明校验，不参与登录认证。'
   },
   {
-    label: 'public inputs',
-    value: 'scope / nullifier / credential commitment',
-    helper: '只展示证明所需字段，不展示账号身份。'
+    label: 'root',
+    value: governanceStatus.value?.root.maskedRootHash ?? '未就绪',
+    helper: governanceStatus.value?.root.circuitId ?? '只展示公开 root 状态，不展示账号身份。'
   },
   {
-    label: 'fail-closed',
-    value: zkAnonymousConfigurable.value ? '可配置' : '固定关闭',
-    helper: '证明不可用时由策略决定是否拒绝强匿名提交。'
+    label: 'revocation',
+    value: governanceStatus.value?.revocation.maskedRevocationRootHash ?? '未就绪',
+    helper: governanceStatus.value?.revocation.latestRevokedAtUtc
+      ? `最近撤销 ${formatDate(governanceStatus.value.revocation.latestRevokedAtUtc)}`
+      : '尚无撤销记录。'
   }
 ])
 
@@ -354,23 +386,177 @@ const updatePolicy = (key: PolicyBooleanKey, value: string | number | boolean): 
   adminStore.setAnonymousCommentPolicy({ [key]: Boolean(value) })
 }
 
-const previewNullifierBlock = (row: AnonymousNullifierRow): void => {
+const loadGovernanceStatus = async (): Promise<void> => {
+  if (!canConfigureAnonymousPolicy.value && !canRevokeAnonymousCredential.value) {
+    return
+  }
+
+  loadingStatus.value = true
+  try {
+    const mfaProofToken = await ensureAdminSensitiveProof()
+    governanceStatus.value = await getAnonymousGovernanceStatus({ mfaProofToken })
+  } catch (error) {
+    showErrorToast(governanceErrorMessage(error, '匿名治理状态加载失败'), '匿名治理')
+  } finally {
+    loadingStatus.value = false
+  }
+}
+
+const loadNullifiers = async (): Promise<void> => {
+  if (!canBlockAnonymousNullifier.value) {
+    nullifierRecords.value = []
+    return
+  }
+
+  loadingNullifiers.value = true
+  try {
+    const mfaProofToken = await ensureAdminSensitiveProof()
+    const response = await listAnonymousGovernanceNullifiers({ mfaProofToken })
+    nullifierRecords.value = response.items.map(item => ({
+      key: `${item.scope}:${item.maskedHash}`,
+      scope: item.scope,
+      maskedHash: item.maskedHash,
+      governanceHash: item.nullifierHash,
+      status: item.status,
+      useCount: item.useCount
+    }))
+  } catch (error) {
+    showErrorToast(governanceErrorMessage(error, 'Nullifier 治理列表加载失败'), 'Nullifier 治理')
+  } finally {
+    loadingNullifiers.value = false
+  }
+}
+
+const previewNullifierBlock = async (row: AnonymousNullifierRow): Promise<void> => {
   if (!canBlockAnonymousNullifier.value) {
     showWarningToast('当前管理员没有封禁匿名 Nullifier 的权限')
     return
   }
 
-  showWarningToast(`请在评论审核队列中选择真实匿名主体封禁 ${row.hash}；不会打开账号反查。`)
+  const reason = await promptText('输入处理原因', '封禁匿名 Nullifier', {
+    confirmButtonText: '封禁',
+    inputPlaceholder: '说明封禁原因'
+  })
+  if (reason === null) {
+    return
+  }
+
+  processingAction.value = row.key
+  try {
+    const mfaProofToken = await ensureAdminSensitiveProof()
+    const result = await blockAnonymousGovernanceNullifier({
+      nullifierHash: row.governanceHash,
+      scope: row.scope,
+      reason
+    }, { mfaProofToken })
+    if (!result.applied) {
+      throw new Error('ANONYMOUS_GOVERNANCE_NOT_APPLIED')
+    }
+
+    toast.success('匿名 Nullifier 已封禁')
+    await loadNullifiers()
+  } catch (error) {
+    showErrorToast(governanceErrorMessage(error, '匿名 Nullifier 封禁失败'), 'Nullifier 治理')
+  } finally {
+    processingAction.value = null
+  }
 }
 
-const previewCredentialRevoke = (row: AnonymousCredentialRow): void => {
+const previewCredentialRevoke = async (row: AnonymousCredentialRow): Promise<void> => {
   if (!canRevokeAnonymousCredential.value) {
     showWarningToast('当前管理员没有撤销匿名凭证的权限')
     return
   }
 
-  showWarningToast(`请在评论审核队列中选择真实匿名主体撤销 credential ${row.id}；不会打开账号反查。`)
+  const revocationHandleHash = await promptText('输入 revocation handle hash', '撤销匿名凭证资格', {
+    confirmButtonText: '继续',
+    inputPlaceholder: 'revocation handle hash'
+  })
+  if (revocationHandleHash === null) {
+    return
+  }
+
+  const revocationRootHash = await promptText('输入更新后的 revocation root', '撤销匿名凭证资格', {
+    confirmButtonText: '撤销',
+    inputPlaceholder: 'revocation root hash'
+  })
+  if (revocationRootHash === null) {
+    return
+  }
+
+  processingAction.value = row.id
+  try {
+    const mfaProofToken = await ensureAdminSensitiveProof()
+    const result = await revokeAnonymousGovernanceCredential({
+      epoch: row.epoch,
+      rootHash: row.rootHash,
+      revocationHandleHash,
+      revocationRootHash,
+      reason: 'revoked_by_admin'
+    }, { mfaProofToken })
+    if (!result.applied) {
+      throw new Error('ANONYMOUS_GOVERNANCE_NOT_APPLIED')
+    }
+
+    toast.success('匿名凭证资格已撤销')
+    await loadGovernanceStatus()
+  } catch (error) {
+    showErrorToast(governanceErrorMessage(error, '匿名凭证撤销失败'), '匿名凭证')
+  } finally {
+    processingAction.value = null
+  }
 }
+
+const governanceErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) {
+    if (error.message === 'MFA_PROOF_REQUIRED' || error.message === 'ADMIN_STEP_UP_CHALLENGE_REQUIRED') {
+      return '管理员验证已过期，请重新完成二次验证'
+    }
+    if (error.message === 'ANONYMOUS_GOVERNANCE_NOT_APPLIED') {
+      return '匿名治理动作未被应用，请刷新后重试'
+    }
+  }
+
+  if (!isAppError(error)) {
+    return fallback
+  }
+
+  if (error.status === 401) {
+    return '登录状态已失效，请重新登录'
+  }
+  if (error.status === 403) {
+    return '当前账号无权限执行匿名治理操作'
+  }
+  if (error.status === 428) {
+    return '管理员验证已过期，请重新完成二次验证'
+  }
+  if (error.status === 404) {
+    return '匿名治理对象不存在或已失效，请刷新'
+  }
+  if (error.status === 429) {
+    return '匿名治理操作过于频繁，请稍后再试'
+  }
+
+  return error.message || fallback
+}
+
+const formatDate = (value: string | null | undefined): string => {
+  if (!value) {
+    return '未记录'
+  }
+
+  return new Date(value).toLocaleString('zh-CN')
+}
+
+onMounted(() => {
+  void loadGovernanceStatus()
+  void loadNullifiers()
+})
+
+watch(() => route.name, () => {
+  void loadGovernanceStatus()
+  void loadNullifiers()
+})
 </script>
 
 <style scoped>

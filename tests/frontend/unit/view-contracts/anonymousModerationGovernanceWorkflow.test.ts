@@ -65,6 +65,12 @@ describe('anonymous moderation governance workflow contract', () => {
   })
 
   it('connects anonymous governance actions to real API calls and queue refresh', () => {
+    expect(governance).toContain('@/api/anonymousGovernance')
+    expect(governance).toContain('getAnonymousGovernanceStatus')
+    expect(governance).toContain('listAnonymousGovernanceNullifiers')
+    expect(governance).toContain('blockAnonymousGovernanceNullifier')
+    expect(governance).toContain('revokeAnonymousGovernanceCredential')
+    expect(governance).toContain('useAdminSensitiveProof')
     expect(authoringApi).toContain('blockAnonymousNullifier')
     expect(authoringApi).toContain('revokeAnonymousCredential')
     expect(actionComposable).toContain('applyBlockAnonymousNullifier')
@@ -83,6 +89,8 @@ describe('anonymous moderation governance workflow contract', () => {
     expect(commentModerationPage).not.toContain('Nullifier 封禁 API 尚未接入')
     expect(commentModerationPage).not.toContain('匿名凭证撤销 API 尚未接入')
     expect(governance).not.toContain('接口尚未接入')
+    expect(governance).not.toContain('nul_8d2f9c4a***')
+    expect(governance).not.toContain('cred_strong_01')
   })
 
   it('surfaces policy, ZK, risk, nullifier, and credential governance controls', () => {
@@ -101,6 +109,8 @@ describe('anonymous moderation governance workflow contract', () => {
     expect(governance).toContain('Nullifier')
     expect(governance).toContain('credential')
     expect(governance).toContain('撤销')
+    expect(governance).toContain('maskedHash')
+    expect(governance).not.toContain('row.nullifierHash')
     expect(governance).toContain(':title-level="2"')
     expect(governance).not.toMatch(/(^|\s)title-level="2"/u)
     expect(governance).not.toContain('reverseLookup')
