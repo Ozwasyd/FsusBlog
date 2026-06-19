@@ -133,6 +133,8 @@ L0 artifact fast path 的负响应不写 AEDS frame body，固定 `Cache-Control
 
 常规 AEDS binary 端点的业务失败使用 `AedsFrameType.ApiError = 251`；notification stream preflight / WebSocket 握手失败还会写 `X-Fsus-Notification-Stream-Error-Code` 与 `X-Fsus-Notification-Stream-Status-Code`。
 
+强匿名 ticket / submit endpoint 的登录态污染失败使用 AEDS `ApiError`，HTTP status 为 `403`，`Code=Forbidden`，`Details=anonymous_identity_contaminated`；用户态 message 固定为“匿名发布请求不能携带登录态，请刷新后重试。”。
+
 ## AEDS v2 帧格式
 
 权威规格：`src/core/Algorithms/AEDS_V2_PROTOCOL.md`（当前运行时只接受 v2 frame）

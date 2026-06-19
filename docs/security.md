@@ -151,6 +151,8 @@ admin 登出和 session 管理只使用 `/api/binary/auth/admin/logout`、`/api/
 
 **ZK strong-anonymous comment path**：ZK 只作为评论作者模式 `zk_anonymous` 的强匿名扩展点保留，不参与普通账号登录、Passkey 登录、admin Passkey 登录或 JWT/session 认证。默认 `IZkProofVerifier` 为 `DisabledZkProofVerifier`，`AnonymousIdentity:ZkAnonymousCommentsEnabled=false`；即使配置打开但没有真实 verifier，`IZkAnonymousProofService` 也返回 `verifier_unavailable` 并拒绝写评论。ZK proof 的 public inputs 预留 `action_context`、article/comment scope、nullifier、credential commitment/root 和 reputation bucket；缺失 proof、缺失 public inputs、verifier unavailable 或 invalid proof 都必须 fail closed，不写入评论。
 
+强匿名提交端点必须先挂 `RequireStrongAnonymousRequest()` / `RejectIdentifiedPrincipalFilter`，再组合 PoW、RiskControl 或业务 filter。该守卫只做 `Cookie`、`Authorization`、`X-Fsus-Access-Token`、`X-Fsus-Bearer-Token`、`X-Fsus-Session-Id`、future auth bridge header 的 presence check，并检查 `HttpContext.User.Identity.IsAuthenticated`；它不解析 cookie、不读取 header 原文、不访问数据库或 Redis。污染请求返回 AEDS `ApiError`，`Details=anonymous_identity_contaminated`，用户态文案固定为“匿名发布请求不能携带登录态，请刷新后重试。”；安全审计只记录 trace id、path、reason 和 presence flag。
+
 **Anonymous comment governance**：匿名评论策略由 `IAnonymousCommentPolicyService` 统一裁决，默认 author mode 是 `anonymous`，`public` 必须有显式 opt-in；当 `AnonymousIdentity:AnonymousCommentsEnabled=false` 或 admin policy 关闭匿名评论时，`anonymous`、`pseudonymous` 和 `zk_anonymous` 都必须拒绝。评论写入通过 `CommentActor` 落库：匿名模式写入 nullable `user_id`、scope 内稳定的服务端生成 display name、hash 后的 nullifier/subject projection，公开模式才写入真实 `user_id` 和 `public_handle`。`anonymous_credential` 保存 commitment、credential type/level/status 和 revoke 时间；`comment_anonymous_nullifier` 只保存 scope 内 nullifier 使用状态、首末评论 id 和 block 状态。普通审核 API 不提供 nullifier 到真实账号的反向查询，封禁/限流只能通过 credential level、nullifier block 和 moderation subject hash 等最小投影执行。
 
 ---
