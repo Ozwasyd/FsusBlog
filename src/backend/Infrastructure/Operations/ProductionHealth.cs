@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -132,10 +133,26 @@ public sealed class ProductionReadinessProbe(
 
     private ProductionConfigurationHealthCheck CheckConfiguration()
     {
-        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, environment.IsProduction());
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            environment.IsProduction(),
+            ResolveZkProdReadiness());
         return errors.Count == 0
             ? new ProductionConfigurationHealthCheck("ok", [])
             : new ProductionConfigurationHealthCheck("failed", errors);
+    }
+
+    private ZkProdRuntimeReadiness ResolveZkProdReadiness()
+    {
+        IZkProofVerifier? verifier = serviceProvider.GetService<IZkProofVerifier>();
+        IAnonymousCredentialRootReader? rootReader = serviceProvider.GetService<IAnonymousCredentialRootReader>();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        bool rootReady = rootReader?.CurrentSnapshot.AcceptedRoots.Any(root =>
+            root.GraceExpiresAtUtc > now &&
+            !string.IsNullOrWhiteSpace(root.RootHash) &&
+            (string.Equals(root.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
+             string.Equals(root.Status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal))) == true;
+        return new ZkProdRuntimeReadiness(verifier?.IsConfigured == true, rootReady);
     }
 
     private ProductionResourceHealthCheck CheckResources()

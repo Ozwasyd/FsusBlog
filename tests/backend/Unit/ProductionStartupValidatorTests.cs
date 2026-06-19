@@ -1,6 +1,9 @@
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Models.CommentIdentity;
+using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -87,6 +90,8 @@ public sealed class ProductionStartupValidatorTests
         var service = new ProductionStartupValidationHostedService(
             configuration,
             new TestWebHostEnvironment(Environments.Production),
+            new StaticZkProofVerifier(configured: false),
+            new StaticRootReader(rootReady: false),
             runtimeState,
             NullLogger<ProductionStartupValidationHostedService>.Instance);
 
@@ -196,7 +201,7 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(4, report.SchemaVersion);
+        Assert.Equal(5, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
@@ -300,6 +305,107 @@ public sealed class ProductionStartupValidatorTests
         Assert.Equal(2, options.KnownIPNetworks.Count);
     }
 
+    [Theory]
+    [InlineData("AnonymousIdentity:ZkProd:AllowDevVerifier")]
+    [InlineData("AnonymousIdentity:ZkProd:FallbackToLegacyAnonymous")]
+    public void ValidateCore_RejectsProductionZkProdUnsafeBypassFlagsEvenWhenZkProdDisabled(string key)
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            [key] = "true"
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            enforceProductionRules: true,
+            new ZkProdRuntimeReadiness(
+                NativeVerifierConfigured: false,
+                CredentialRootReady: false));
+
+        Assert.Contains(errors, error => error.Contains(key, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ValidateCore_RejectsProductionZkProdEnabledWithoutNativeVerifier()
+    {
+        IConfiguration configuration = CreateZkProdProductionConfiguration([]);
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            enforceProductionRules: true,
+            new ZkProdRuntimeReadiness(
+                NativeVerifierConfigured: false,
+                CredentialRootReady: true));
+
+        Assert.Contains(errors, static error => error.Contains("native verifier", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ValidateCore_RejectsProductionZkProdEnabledWithoutTrustedSetupVerification()
+    {
+        IConfiguration configuration = CreateZkProdProductionConfiguration(new Dictionary<string, string?>
+        {
+            ["AnonymousIdentity:ZkProd:TrustedSetupVerified"] = "false"
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            enforceProductionRules: true,
+            new ZkProdRuntimeReadiness(
+                NativeVerifierConfigured: true,
+                CredentialRootReady: true));
+
+        Assert.Contains(errors, static error => error.Contains("trusted setup", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ValidateCore_RejectsProductionZkProdEnabledWithoutCredentialRootReadiness()
+    {
+        IConfiguration configuration = CreateZkProdProductionConfiguration([]);
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            enforceProductionRules: true,
+            new ZkProdRuntimeReadiness(
+                NativeVerifierConfigured: true,
+                CredentialRootReady: false));
+
+        Assert.Contains(errors, static error => error.Contains("credential root", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ValidateCore_RejectsProductionZkProdEnabledWithoutBbsCredentialReadiness()
+    {
+        IConfiguration configuration = CreateZkProdProductionConfiguration(new Dictionary<string, string?>
+        {
+            ["AnonymousIdentity:ZkProd:BbsCredentialReady"] = "false"
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            enforceProductionRules: true,
+            new ZkProdRuntimeReadiness(
+                NativeVerifierConfigured: true,
+                CredentialRootReady: true));
+
+        Assert.Contains(errors, static error => error.Contains("BBS credential", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ValidateCore_AcceptsProductionZkProdWhenAllConfiguredReadinessGatesPass()
+    {
+        IConfiguration configuration = CreateZkProdProductionConfiguration([]);
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            enforceProductionRules: true,
+            new ZkProdRuntimeReadiness(
+                NativeVerifierConfigured: true,
+                CredentialRootReady: true));
+
+        Assert.DoesNotContain(errors, static error => error.Contains("AnonymousIdentity:ZkProd", StringComparison.Ordinal));
+    }
+
     private static IConfiguration CreateConfiguration(Dictionary<string, string?> values)
         => new ConfigurationBuilder()
             .AddInMemoryCollection(values)
@@ -328,6 +434,65 @@ public sealed class ProductionStartupValidatorTests
         }
 
         return CreateConfiguration(values);
+    }
+
+    private static IConfiguration CreateZkProdProductionConfiguration(Dictionary<string, string?> overrides)
+    {
+        Dictionary<string, string?> values = new(StringComparer.Ordinal)
+        {
+            ["AnonymousIdentity:ZkProd:Enabled"] = "true",
+            ["AnonymousIdentity:ZkProd:RequireNativeVerifier"] = "true",
+            ["AnonymousIdentity:ZkProd:RequireBbsCredential"] = "true",
+            ["AnonymousIdentity:ZkProd:RequireTrustedSetupVerified"] = "true",
+            ["AnonymousIdentity:ZkProd:AllowDevVerifier"] = "false",
+            ["AnonymousIdentity:ZkProd:FallbackToLegacyAnonymous"] = "false",
+            ["AnonymousIdentity:ZkProd:VerifierBackend"] = "native_groth16",
+            ["AnonymousIdentity:ZkProd:TrustedSetupVerified"] = "true",
+            ["AnonymousIdentity:ZkProd:BbsCredentialReady"] = "true",
+            ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = "vk-sha256"
+        };
+
+        foreach ((string key, string? value) in overrides)
+        {
+            values[key] = value;
+        }
+
+        return CreateValidProductionConfiguration(values);
+    }
+
+    private sealed class StaticZkProofVerifier(bool configured) : IZkProofVerifier
+    {
+        public bool IsConfigured { get; } = configured;
+
+        public Task<ZkProofVerificationResult> VerifyAsync(
+            ZkProofVerificationRequest request,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(ZkProofVerificationResult.VerifierUnavailable());
+    }
+
+    private sealed class StaticRootReader : IAnonymousCredentialRootReader
+    {
+        public StaticRootReader(bool rootReady)
+        {
+            CurrentSnapshot = rootReady
+                ? new AnonymousCredentialRootRuntimeSnapshot(
+                    [
+                        new AnonymousCredentialAcceptedRoot(
+                            1,
+                            "root-hash",
+                            AnonymousCredentialRootStatuses.Active,
+                            DateTimeOffset.UtcNow.AddHours(1))
+                    ],
+                    1,
+                    DateTimeOffset.UtcNow)
+                : AnonymousCredentialRootRuntimeSnapshot.Empty;
+        }
+
+        public AnonymousCredentialRootRuntimeSnapshot CurrentSnapshot { get; }
+
+        public Task RefreshAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public bool IsRootAccepted(string rootHash, long epoch) => CurrentSnapshot.AcceptedRoots.Count > 0;
     }
 
     private sealed class TestWebHostEnvironment(string environmentName) : IWebHostEnvironment

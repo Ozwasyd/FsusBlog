@@ -25,6 +25,7 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IAdminSessionValidationService, AdminSessionValidationService>();
         services.AddScoped<IRecoveryKeyService, RecoveryKeyService>();
         services.TryAddSingleton<IProductionZkProofBackend, UnavailableProductionZkProofBackend>();
+        services.Configure<ZkProdOptions>(configuration.GetSection(ZkProdOptions.SectionName));
         if (ProductionZkProofVerifier.IsEnabled(configuration))
         {
             services.TryAddSingleton<IZkProofVerifier, ProductionZkProofVerifier>();

@@ -14,6 +14,7 @@ import {
   ANONYMOUS_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE,
   ANONYMOUS_CREDENTIAL_ROOT_SNAPSHOT_POD_SIZE,
   ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE,
+  COMMENT_POLICY_SNAPSHOT_POD_SIZE,
   COMMENT_THREAD_ITEM_POD_SIZE,
   COMMENT_REPLY_ITEM_POD_SIZE,
   USER_COMMENT_POD_SIZE
@@ -108,12 +109,18 @@ describe('mapCommentCursorFromPodPayload', () => {
 // ---------------------------------------------------------------------------
 describe('mapCommentPolicySnapshotFromPayload', () => {
   it('decodes composer policy before rendering comment author controls', () => {
-    const pod = new Uint8Array(12)
+    const pod = new Uint8Array(COMMENT_POLICY_SNAPSHOT_POD_SIZE)
     pod[0] = 1 // anonymousCommentsEnabled
     pod[1] = 1 // publicCommentsEnabled
     pod[2] = 1 // zkAnonymousEnabled
     pod[3] = 4 // defaultAuthorMode = zk_anonymous
-    writeSliceRef(pod, 4, 0, 8)
+    pod[4] = 1 // zkProdEnabled
+    pod[5] = 1 // zkProdNativeVerifierConfigured
+    pod[6] = 1 // zkProdTrustedSetupVerified
+    pod[7] = 1 // zkProdBbsCredentialRequired
+    pod[8] = 1 // zkProdCredentialRootReady
+    writeSliceRef(pod, 9, 0, 8)
+    writeSliceRef(pod, 17, 8, 0)
 
     const result = mapCommentPolicySnapshotFromPayload(buildPayload(
       pod,
@@ -125,12 +132,18 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
       publicCommentsEnabled: true,
       zkAnonymousEnabled: true,
       defaultAuthorMode: 'zk_anonymous',
-      supportedDisplayLanguages: ['zh-CN', 'en']
+      supportedDisplayLanguages: ['zh-CN', 'en'],
+      zkProdEnabled: true,
+      zkProdNativeVerifierConfigured: true,
+      zkProdTrustedSetupVerified: true,
+      zkProdBbsCredentialRequired: true,
+      zkProdCredentialRootReady: true,
+      zkProdUnavailableReason: ''
     })
   })
 
   it('rejects invalid policy flag bytes', () => {
-    const pod = new Uint8Array(12)
+    const pod = new Uint8Array(COMMENT_POLICY_SNAPSHOT_POD_SIZE)
     pod[0] = 2
     expect(() => mapCommentPolicySnapshotFromPayload(buildPayload(pod, blobBuf('')))).toThrow()
   })

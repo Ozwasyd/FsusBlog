@@ -37,9 +37,12 @@ public static partial class BinaryEndpoints
     {
         group.MapGet("/comment/policy", static BinaryFrameResult (
             IAnonymousCommentPolicyService policyService,
+            IZkAnonymousProofService zkProofService,
             IAedsEncoder aeds) =>
         {
-            CommentPolicySnapshotCoreModel snapshot = ToCommentPolicyCore(policyService.Current);
+            CommentPolicySnapshotCoreModel snapshot = ToCommentPolicyCore(
+                policyService.Current,
+                zkProofService.CurrentZkProdPolicy);
             return BinaryResults.Frame(
                 aeds,
                 AedsFrameType.CommentPolicySnapshot,
@@ -524,13 +527,21 @@ public static partial class BinaryEndpoints
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
     }
 
-    private static CommentPolicySnapshotCoreModel ToCommentPolicyCore(AnonymousCommentPolicySnapshot snapshot)
+    private static CommentPolicySnapshotCoreModel ToCommentPolicyCore(
+        AnonymousCommentPolicySnapshot snapshot,
+        ZkProdPolicySnapshot zkProd)
         => new(
             snapshot.AnonymousCommentsEnabled,
             snapshot.PublicCommentsEnabled,
             snapshot.ZkAnonymousEnabled,
             snapshot.DefaultAuthorMode,
-            snapshot.SupportedDisplayLanguages);
+            snapshot.SupportedDisplayLanguages,
+            zkProd.Enabled,
+            zkProd.NativeVerifierConfigured,
+            zkProd.TrustedSetupVerified,
+            zkProd.BbsCredentialRequired,
+            zkProd.CredentialRootReady,
+            zkProd.UnavailableReason);
 
     private static byte[] EncodeCachedFrame(AedsFrameType frameType, Action<IBufferWriter<byte>> writePayload)
     {

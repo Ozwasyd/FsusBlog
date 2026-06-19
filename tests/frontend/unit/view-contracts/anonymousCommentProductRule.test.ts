@@ -22,7 +22,11 @@ describe('anonymous comment product rule contract', () => {
     expect(detailComposable).toContain('loadCommentPolicySnapshot')
     expect(detailComposable).toContain('anonymousCommentsEnabled.value = policy.anonymousCommentsEnabled')
     expect(detailComposable).toContain('publicCommentsEnabled.value = policy.publicCommentsEnabled')
-    expect(detailComposable).toContain('zkAnonymousEnabled.value = policy.zkAnonymousEnabled')
+    expect(detailComposable).toContain('zkProdAvailable')
+    expect(detailComposable).toContain('zkProdNativeVerifierConfigured')
+    expect(detailComposable).toContain('zkProdTrustedSetupVerified')
+    expect(detailComposable).toContain('zkProdCredentialRootReady')
+    expect(detailComposable).toContain('zkAnonymousEnabled.value = policy.zkAnonymousEnabled && zkProdAvailable')
     expect(detailComposable).toContain("commentAuthorMode.value = anonymousCommentsEnabled.value ? 'anonymous' : 'public'")
   })
 

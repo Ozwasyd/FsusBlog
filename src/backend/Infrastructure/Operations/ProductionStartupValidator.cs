@@ -1,5 +1,7 @@
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Services.Security;
 using Microsoft.Extensions.Primitives;
 using StackExchange.Redis;
 
@@ -47,7 +49,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 4;
+    private const int SchemaVersion = 5;
     private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object CoreValidationCacheLock = new();
     private static CoreValidationCacheEntry? s_coreValidationCache;
@@ -104,6 +106,12 @@ public static class ProductionStartupValidator
     internal static IReadOnlyList<string> ValidateCore(IConfiguration configuration, bool enforceProductionRules)
         => CreateCachedValidationReport(configuration, enforceProductionRules).Errors;
 
+    internal static IReadOnlyList<string> ValidateCore(
+        IConfiguration configuration,
+        bool enforceProductionRules,
+        ZkProdRuntimeReadiness zkProdReadiness)
+        => CreateValidationReport(configuration, enforceProductionRules, zkProdReadiness).Errors;
+
     internal static bool HasSecurityCriticalStartupError(IReadOnlyList<string> errors)
         => errors.Any(IsSecurityCriticalStartupError);
 
@@ -137,7 +145,10 @@ public static class ProductionStartupValidator
         return report;
     }
 
-    internal static ProductionStartupValidationReport CreateValidationReport(IConfiguration configuration, bool enforceProductionRules)
+    internal static ProductionStartupValidationReport CreateValidationReport(
+        IConfiguration configuration,
+        bool enforceProductionRules,
+        ZkProdRuntimeReadiness? zkProdReadiness = null)
     {
         List<string> errors = [];
         List<ProductionStartupValidationRequirement> requirements = new(RequiredSettings.Length);
@@ -194,6 +205,7 @@ public static class ProductionStartupValidator
         ValidateFido2Settings(fido2ServerDomain, fido2Origins, seoBaseUrl, corsOrigins, enforceProductionRules, errors);
         ValidateAuthCookieSettings(configuration, enforceProductionRules, errors);
         ValidateAnonymousIdentityMode(anonymousIdentityMode, enforceProductionRules, errors);
+        ValidateZkProdSettings(configuration, enforceProductionRules, zkProdReadiness ?? ZkProdRuntimeReadiness.Missing, errors);
 
         return new ProductionStartupValidationReport(SchemaVersion, enforceProductionRules, requirements, errors);
     }
@@ -534,13 +546,67 @@ public static class ProductionStartupValidator
             || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "enabled", StringComparison.OrdinalIgnoreCase);
 
+    private static void ValidateZkProdSettings(
+        IConfiguration configuration,
+        bool enforceProductionRules,
+        ZkProdRuntimeReadiness readiness,
+        List<string> errors)
+    {
+        if (!enforceProductionRules)
+        {
+            return;
+        }
+
+        ZkProdOptions options = ZkProdOptions.FromConfiguration(configuration);
+        if (options.AllowDevVerifier)
+        {
+            errors.Add("AnonymousIdentity:ZkProd:AllowDevVerifier must be false in production.");
+        }
+
+        if (options.FallbackToLegacyAnonymous)
+        {
+            errors.Add("AnonymousIdentity:ZkProd:FallbackToLegacyAnonymous must be false in production.");
+        }
+
+        if (!options.Enabled)
+        {
+            return;
+        }
+
+        if (options.RequireNativeVerifier && !ZkProdOptions.IsNativeVerifierBackend(options.VerifierBackend))
+        {
+            errors.Add("AnonymousIdentity:ZkProd:VerifierBackend must be native_groth16 when native verifier is required.");
+        }
+
+        if (options.RequireNativeVerifier && !readiness.NativeVerifierConfigured)
+        {
+            errors.Add("AnonymousIdentity:ZkProd:Enabled requires a configured native verifier in production.");
+        }
+
+        if (options.RequireTrustedSetupVerified && !ZkProdPolicySnapshotFactory.IsTrustedSetupVerified(options, configuration))
+        {
+            errors.Add("AnonymousIdentity:ZkProd:Enabled requires trusted setup verification and a verifying key hash in production.");
+        }
+
+        if (options.RequireBbsCredential && !options.BbsCredentialReady)
+        {
+            errors.Add("AnonymousIdentity:ZkProd:Enabled requires BBS credential readiness in production.");
+        }
+
+        if (!readiness.CredentialRootReady)
+        {
+            errors.Add("AnonymousIdentity:ZkProd:Enabled requires an anonymous credential root snapshot in production.");
+        }
+    }
+
     private static bool IsSecurityCriticalStartupError(string error)
         => error.Contains("Jwt:SecretKey", StringComparison.Ordinal)
             || error.Contains("AllowedHosts must not use wildcard", StringComparison.Ordinal)
             || error.Contains("ReverseProxy:KnownProxies or ReverseProxy:KnownNetworks", StringComparison.Ordinal)
             || error.Contains("CORS_ALLOWED_HOSTS origin must use HTTPS", StringComparison.Ordinal)
             || error.Contains("Seo:BaseUrl must use HTTPS", StringComparison.Ordinal)
-            || error.Contains("Fido2:Origins origin must use HTTPS", StringComparison.Ordinal);
+            || error.Contains("Fido2:Origins origin must use HTTPS", StringComparison.Ordinal)
+            || error.Contains("AnonymousIdentity:ZkProd:", StringComparison.Ordinal);
 
     private static Uri? TryParseOriginLikeBaseUrl(string? value)
     {
@@ -579,6 +645,8 @@ public static class ProductionStartupValidator
 internal sealed class ProductionStartupValidationHostedService(
     IConfiguration configuration,
     IWebHostEnvironment environment,
+    IZkProofVerifier zkProofVerifier,
+    IAnonymousCredentialRootReader rootReader,
     StartupRuntimeState runtimeState,
     ILogger<ProductionStartupValidationHostedService> logger) : IHostedService
 {
@@ -595,7 +663,10 @@ internal sealed class ProductionStartupValidationHostedService(
 
         ProductionStartupValidationReport report = ProductionStartupValidator.CreateValidationReport(
             configuration,
-            enforceProductionRules: true);
+            enforceProductionRules: true,
+            new ZkProdRuntimeReadiness(
+                zkProofVerifier.IsConfigured,
+                HasReadyCredentialRoot(rootReader)));
         if (report.Errors.Count == 0)
         {
             runtimeState.ReportStartupTask(TaskName, "completed", "生产启动校验通过");
@@ -620,4 +691,14 @@ internal sealed class ProductionStartupValidationHostedService(
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    private static bool HasReadyCredentialRoot(IAnonymousCredentialRootReader reader)
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        return reader.CurrentSnapshot.AcceptedRoots.Any(root =>
+            root.GraceExpiresAtUtc > now &&
+            !string.IsNullOrWhiteSpace(root.RootHash) &&
+            (string.Equals(root.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
+             string.Equals(root.Status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal)));
+    }
 }

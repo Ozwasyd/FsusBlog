@@ -77,6 +77,33 @@ public sealed class ZkAnonymousProofVerifierContractTests
     }
 
     [Fact]
+    public void ZkAnonymousProofService_ExposesCoarseZkProdPolicyReadiness()
+    {
+        var service = new ZkAnonymousProofService(
+            BuildConfiguration(new Dictionary<string, string?>
+            {
+                ["AnonymousIdentity:ZkProd:Enabled"] = "true",
+                ["AnonymousIdentity:ZkProd:RequireNativeVerifier"] = "true",
+                ["AnonymousIdentity:ZkProd:RequireBbsCredential"] = "true",
+                ["AnonymousIdentity:ZkProd:RequireTrustedSetupVerified"] = "true",
+                ["AnonymousIdentity:ZkProd:VerifierBackend"] = "native_groth16",
+                ["AnonymousIdentity:ZkProd:TrustedSetupVerified"] = "true",
+                ["AnonymousIdentity:ZkProd:BbsCredentialReady"] = "true",
+                ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = VerifyingKeyHash
+            }),
+            new DisabledZkProofVerifier());
+
+        ZkProdPolicySnapshot policy = service.CurrentZkProdPolicy;
+
+        Assert.True(policy.Enabled);
+        Assert.False(policy.NativeVerifierConfigured);
+        Assert.True(policy.TrustedSetupVerified);
+        Assert.True(policy.BbsCredentialRequired);
+        Assert.False(policy.CredentialRootReady);
+        Assert.Equal("native_verifier_unavailable", policy.UnavailableReason);
+    }
+
+    [Fact]
     public async Task ZkAnonymousProofService_RejectsMissingAndInvalidProof()
     {
         var verifier = new RecordingZkVerifier(configured: true, ZkProofVerificationResult.InvalidProof("bad proof"));
@@ -522,6 +549,14 @@ public sealed class ZkAnonymousProofVerifierContractTests
             true,
             "comment.create",
             []);
+
+        public ZkProdPolicySnapshot CurrentZkProdPolicy { get; } = new(
+            false,
+            false,
+            false,
+            false,
+            false,
+            "disabled");
 
         public Task<ZkProofVerificationResult> VerifyCommentProofAsync(
             ZkProofVerificationRequest request,

@@ -32,6 +32,12 @@ export type CommentPolicySnapshot = {
   zkAnonymousEnabled: boolean;
   defaultAuthorMode: CommentAuthorMode;
   supportedDisplayLanguages: string[];
+  zkProdEnabled: boolean;
+  zkProdNativeVerifierConfigured: boolean;
+  zkProdTrustedSetupVerified: boolean;
+  zkProdBbsCredentialRequired: boolean;
+  zkProdCredentialRootReady: boolean;
+  zkProdUnavailableReason: string;
 };
 
 export function mapCommentCursorFromPodPayload(payload: Uint8Array): CursorResponse<CommentThreadItem> {
@@ -52,10 +58,16 @@ export function mapCommentPolicySnapshotFromPayload(payload: Uint8Array): Commen
     publicCommentsEnabled: readBooleanByte(pod, 1, 'comment_policy_snapshot_public_flag_invalid'),
     zkAnonymousEnabled: readBooleanByte(pod, 2, 'comment_policy_snapshot_zk_flag_invalid'),
     defaultAuthorMode: decodeCommentAuthorMode(readByte(pod, 3)),
-    supportedDisplayLanguages: readSliceText(blob, readSliceRef(pod, 4))
+    zkProdEnabled: readBooleanByte(pod, 4, 'comment_policy_snapshot_zk_prod_flag_invalid'),
+    zkProdNativeVerifierConfigured: readBooleanByte(pod, 5, 'comment_policy_snapshot_zk_prod_verifier_flag_invalid'),
+    zkProdTrustedSetupVerified: readBooleanByte(pod, 6, 'comment_policy_snapshot_zk_prod_setup_flag_invalid'),
+    zkProdBbsCredentialRequired: readBooleanByte(pod, 7, 'comment_policy_snapshot_zk_prod_bbs_flag_invalid'),
+    zkProdCredentialRootReady: readBooleanByte(pod, 8, 'comment_policy_snapshot_zk_prod_root_flag_invalid'),
+    supportedDisplayLanguages: readSliceText(blob, readSliceRef(pod, 9))
       .split('\n')
       .map(language => language.trim())
-      .filter(Boolean)
+      .filter(Boolean),
+    zkProdUnavailableReason: readSliceText(blob, readSliceRef(pod, 17))
   };
 }
 

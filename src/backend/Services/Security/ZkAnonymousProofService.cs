@@ -1,4 +1,6 @@
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.CommentIdentity;
+using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -17,6 +19,8 @@ public interface IZkAnonymousProofService
 
     ZkAnonymousPolicySnapshot CurrentZkPolicy { get; }
 
+    ZkProdPolicySnapshot CurrentZkProdPolicy { get; }
+
     Task<ZkProofVerificationResult> VerifyCommentProofAsync(
         ZkProofVerificationRequest request,
         CancellationToken cancellationToken = default);
@@ -32,9 +36,7 @@ public sealed class DisabledZkProofVerifier : IZkProofVerifier
         => Task.FromResult(ZkProofVerificationResult.VerifierUnavailable());
 }
 
-public sealed class ZkAnonymousProofService(
-    IConfiguration configuration,
-    IZkProofVerifier verifier) : IZkAnonymousProofService
+public sealed class ZkAnonymousProofService : IZkAnonymousProofService
 {
     private const string CommentActionContext = "comment.create";
 
@@ -52,13 +54,39 @@ public sealed class ZkAnonymousProofService(
         "reputation_bucket"
     ];
 
+    private readonly IConfiguration _configuration;
+    private readonly IZkProofVerifier _verifier;
+    private readonly IOptionsMonitor<ZkProdOptions> _zkProdOptions;
+    private readonly IAnonymousCredentialRootReader? _rootReader;
+
+    public ZkAnonymousProofService(IConfiguration configuration, IZkProofVerifier verifier)
+        : this(
+            configuration,
+            verifier,
+            new StaticOptionsMonitor<ZkProdOptions>(ZkProdOptions.FromConfiguration(configuration)),
+            null)
+    {
+    }
+
+    public ZkAnonymousProofService(
+        IConfiguration configuration,
+        IZkProofVerifier verifier,
+        IOptionsMonitor<ZkProdOptions> zkProdOptions,
+        IAnonymousCredentialRootReader? rootReader = null)
+    {
+        _configuration = configuration;
+        _verifier = verifier;
+        _zkProdOptions = zkProdOptions;
+        _rootReader = rootReader;
+    }
+
     public AnonymousCommentPolicySnapshot CurrentCommentPolicy
     {
         get
         {
-            bool anonymousEnabled = configuration.GetValue("AnonymousIdentity:AnonymousCommentsEnabled", true);
-            bool publicEnabled = configuration.GetValue("AnonymousIdentity:PublicCommentsEnabled", true);
-            bool zkEnabled = configuration.GetValue("AnonymousIdentity:ZkAnonymousCommentsEnabled", false);
+            bool anonymousEnabled = _configuration.GetValue("AnonymousIdentity:AnonymousCommentsEnabled", true);
+            bool publicEnabled = _configuration.GetValue("AnonymousIdentity:PublicCommentsEnabled", true);
+            bool zkEnabled = _configuration.GetValue("AnonymousIdentity:ZkAnonymousCommentsEnabled", false);
             return new AnonymousCommentPolicySnapshot(
                 anonymousEnabled,
                 publicEnabled,
@@ -71,9 +99,15 @@ public sealed class ZkAnonymousProofService(
     public ZkAnonymousPolicySnapshot CurrentZkPolicy
         => new(
             CurrentCommentPolicy.ZkAnonymousEnabled,
-            verifier.IsConfigured,
+            _verifier.IsConfigured,
             CommentActionContext,
             ExpectedPublicInputs);
+
+    public ZkProdPolicySnapshot CurrentZkProdPolicy
+        => ZkProdPolicySnapshotFactory.Create(
+            _zkProdOptions.CurrentValue,
+            new ZkProdRuntimeReadiness(_verifier.IsConfigured, HasReadyCredentialRoot()),
+            _configuration);
 
     public async Task<ZkProofVerificationResult> VerifyCommentProofAsync(
         ZkProofVerificationRequest request,
@@ -86,7 +120,7 @@ public sealed class ZkAnonymousProofService(
             return ZkProofVerificationResult.Disabled();
         }
 
-        if (!verifier.IsConfigured)
+        if (!_verifier.IsConfigured)
         {
             return ZkProofVerificationResult.VerifierUnavailable();
         }
@@ -97,7 +131,31 @@ public sealed class ZkAnonymousProofService(
             return ZkProofVerificationResult.MissingProof();
         }
 
-        ZkProofVerificationResult result = await verifier.VerifyAsync(request, cancellationToken);
+        ZkProofVerificationResult result = await _verifier.VerifyAsync(request, cancellationToken);
         return result.Verified ? result : ZkProofVerificationResult.InvalidProof();
+    }
+
+    private bool HasReadyCredentialRoot()
+    {
+        if (_rootReader is null)
+        {
+            return false;
+        }
+
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        return _rootReader.CurrentSnapshot.AcceptedRoots.Any(root =>
+            root.GraceExpiresAtUtc > now &&
+            !string.IsNullOrWhiteSpace(root.RootHash) &&
+            (string.Equals(root.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
+             string.Equals(root.Status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal)));
+    }
+
+    private sealed class StaticOptionsMonitor<TOptions>(TOptions value) : IOptionsMonitor<TOptions>
+    {
+        public TOptions CurrentValue { get; } = value;
+
+        public TOptions Get(string? name) => CurrentValue;
+
+        public IDisposable? OnChange(Action<TOptions, string?> listener) => null;
     }
 }
