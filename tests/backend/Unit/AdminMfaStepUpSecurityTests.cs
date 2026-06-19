@@ -1,4 +1,5 @@
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Services.Security;
@@ -144,6 +145,45 @@ public sealed class AdminMfaStepUpSecurityTests
         Assert.False(await service.ValidateAndConsumeAdminStepUpProofTokenAsync(42, "sid-1", "admin-sensitive", "ordinary-proof", CancellationToken.None));
     }
 
+    [Fact]
+    public async Task OrdinaryRiskControlProof_CannotSatisfyAdminStepUp()
+    {
+        var cache = new DualProofCache();
+        var adminService = CreateAdminService(cache);
+        var challengeProofs = new SecurityChallengeProofService(cache, new RecordingChallengePersistence(), new FixedTimeProvider());
+        SecurityChallengeProofMintResult proof = await challengeProofs.MintProofAsync(CreateChallengeProofMintRequest(), CancellationToken.None);
+
+        bool accepted = await adminService.ValidateAndConsumeAdminStepUpProofTokenAsync(
+            42,
+            "sid-1",
+            "admin-sensitive",
+            proof.ProofToken,
+            CancellationToken.None);
+
+        Assert.False(accepted);
+    }
+
+    [Fact]
+    public async Task AdminStepUpProof_CannotSatisfyOrdinaryRiskControlChallengeProof()
+    {
+        var cache = new DualProofCache();
+        var adminService = CreateAdminService(cache);
+        var challengeProofs = new SecurityChallengeProofService(cache, new RecordingChallengePersistence(), new FixedTimeProvider());
+        string adminProof = await adminService.CreateAdminStepUpProofTokenAsync(
+            42,
+            "sid-1",
+            "admin-sensitive",
+            TimeSpan.FromMinutes(5),
+            CancellationToken.None);
+
+        SecurityChallengeProofConsumeResult result = await challengeProofs.ConsumeProofAsync(
+            CreateChallengeProofConsumeRequest(adminProof),
+            CancellationToken.None);
+
+        Assert.False(result.Accepted);
+        Assert.Equal("proof_replayed_or_missing", result.Reason);
+    }
+
     private static AdminPrincipalService CreateAdminService(IUnifiedCache cache)
         => new(
             Substitute.For<IFido2>(),
@@ -152,6 +192,31 @@ public sealed class AdminMfaStepUpSecurityTests
             Substitute.For<IJwtHelper>(),
             new ConfigurationBuilder().Build(),
             NullLogger<AdminPrincipalService>.Instance);
+
+    private static SecurityChallengeProofMintRequest CreateChallengeProofMintRequest()
+        => new(
+            "018ff2fe-7a68-7cc0-9e6c-111111111111",
+            "passkeyStepUpV1",
+            "profile.email.change",
+            "user:42:email",
+            new string('a', 64),
+            new string('b', 64),
+            new string('c', 64),
+            "risk-policy-v2",
+            FixedTimeProvider.UtcNow,
+            FixedTimeProvider.UtcNow.AddMinutes(5));
+
+    private static SecurityChallengeProofConsumeRequest CreateChallengeProofConsumeRequest(string proofToken)
+        => new(
+            proofToken,
+            "018ff2fe-7a68-7cc0-9e6c-111111111111",
+            "passkeyStepUpV1",
+            "profile.email.change",
+            "user:42:email",
+            new string('a', 64),
+            new string('b', 64),
+            new string('c', 64),
+            "risk-policy-v2");
 
     private static int CountOccurrences(string source, string value)
     {
@@ -177,4 +242,88 @@ public sealed class AdminMfaStepUpSecurityTests
 
     private static string ReadRepoFile(string relativePath)
         => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
+
+    private sealed class FixedTimeProvider : TimeProvider
+    {
+        public static readonly DateTimeOffset UtcNow = DateTimeOffset.Parse("2026-06-18T12:00:00Z");
+
+        public override DateTimeOffset GetUtcNow() => UtcNow;
+    }
+
+    private sealed class DualProofCache : IUnifiedCache
+    {
+        private readonly Dictionary<string, byte[]> _raw = new(StringComparer.Ordinal);
+        private readonly HashSet<string> _strings = new(StringComparer.Ordinal);
+
+        public Task SetRawAsync(CachePolicyId policyId, string identity, byte[] value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
+        {
+            _raw[BuildKey(policyId, identity)] = value;
+            return Task.CompletedTask;
+        }
+
+        public Task SetStringAsync(CachePolicyId policyId, string identity, string value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
+        {
+            _strings.Add(BuildKey(policyId, identity));
+            return Task.CompletedTask;
+        }
+
+        public Task<bool> ConsumeOnceAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => Task.FromResult(_strings.Remove(BuildKey(policyId, identity)));
+
+        public Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(
+            CachePolicyId policyId,
+            string identity,
+            Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder,
+            CancellationToken cancellationToken = default)
+        {
+            string key = BuildKey(policyId, identity);
+            if (!_raw.Remove(key, out byte[]? value))
+            {
+                return Task.FromResult(new CacheReadResult<T>(false, default));
+            }
+
+            var (success, decoded) = decoder(value);
+            return Task.FromResult(success
+                ? new CacheReadResult<T>(true, decoded)
+                : new CacheReadResult<T>(false, default));
+        }
+
+        public string BuildKey(CachePolicyId policyId, string identity, string? version = null)
+            => $"{policyId}:{identity}";
+
+        public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<CacheReadResult<ReadOnlyMemory<byte>>> TryGetRawReadonlyAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task SetNegativeAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<string?> GetStringAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<long> IncrementAsync(CachePolicyId policyId, string identity, long value = 1, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task RemoveAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task RemoveManyAsync(IReadOnlyList<CacheKeyIdentity> keys, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task RemoveByPrefixAsync(CachePolicyId policyId, string identityPrefix, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task RemoveByPrefixManyAsync(IReadOnlyList<CachePrefixIdentity> prefixes, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+
+    private sealed class RecordingChallengePersistence : ISecurityChallengePersistenceService
+    {
+        public Task<SecurityChallenge> IssueAsync(SecurityChallengeIssueRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<SecurityChallengeAttempt> RecordAttemptAsync(SecurityChallengeAttemptRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult(new SecurityChallengeAttempt
+            {
+                ChallengeId = request.ChallengeId,
+                Outcome = request.Outcome,
+                Reason = request.Reason,
+                PayloadHash = request.PayloadHash,
+                ClientIpHash = request.ClientIpHash,
+                DeviceFpHash = request.DeviceFpHash,
+                TraceId = request.TraceId,
+                Traceparent = request.Traceparent,
+                AttemptedAtUtc = request.AttemptedAtUtc ?? DateTime.UtcNow
+            });
+
+        public Task<bool> ExpireAsync(string challengeId, string? reason = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> RevokeAsync(string challengeId, string? reason = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
 }

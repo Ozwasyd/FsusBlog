@@ -122,19 +122,21 @@ public sealed class RiskDecisionServiceTests
         Assert.Contains("anonymous_write_lockdown", decision.Reasons);
     }
 
-    [Fact]
-    public void Decide_StepUpChallengeKind_ReturnsStepUp()
+    [Theory]
+    [InlineData("passkeyStepUpV1")]
+    [InlineData("adminPasskeyStepUpV1")]
+    public void Decide_StepUpChallengeKind_ReturnsStepUp(string challengeKind)
     {
         var overrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
         {
-            [RiskActionNames.AdminSecurityWrite] = CreateActionPolicy(RiskActionNames.AdminSecurityWrite, "passkey.step-up")
+            [RiskActionNames.AdminSecurityWrite] = CreateActionPolicy(RiskActionNames.AdminSecurityWrite, challengeKind)
         };
         SecurityRiskPolicySnapshotV2 policy = CreatePolicy(SecuritySystemModes.Enforce, overrides);
 
         RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.AdminSecurityWrite), policy, 50);
 
         Assert.Equal(RiskDecisionKind.StepUp, decision.Kind);
-        Assert.Equal(["passkey.step-up"], decision.RequiredChallenges);
+        Assert.Equal([challengeKind], decision.RequiredChallenges);
     }
 
     [Fact]

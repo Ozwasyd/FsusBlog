@@ -115,6 +115,10 @@ challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 
 
 `humanReadProofV1` provider 使用 `fsu.human-read-proof@v1` wire algorithm，且只允许 `action=public.read`。issue payload 包含 `algorithm`、`token`、`scope`、`routeKey`、`articleId`、`minDwellMs`、`issuedAtUnixMs` 和 `expiresAtUnixMs`；持久化层只保存 payload hash，不保存 token 原文。verify payload 必须提交 `token`、`scope`、`routeKey`、`articleId` 和 `dwellMs`，服务端复用 HumanReadProof submit 绑定校验；成功只签发绑定 public-read action / route / IP / device 的统一 proof token，并额外写 `ReadProofAccepted` 负分风险信号以降低后续 public-read 风险。`comment.*`、`auth.*`、`admin.*` 或任何非 public-read action 使用该 kind 都必须 fail closed；`RequiresRiskControlFilter` 也必须在 required kind 不匹配时返回 428，不得消费 HumanReadProof proof 或进入写操作 handler。
 
+`passkeyStepUpV1` provider 使用 `fsu.passkey-step-up@v1` wire algorithm，只接受普通已认证用户，不接受 `identity_kind=admin_principal`。issue payload 包含 `algorithm`、`challengeToken` 和 `optionsJson`，其中 `optionsJson` 为当前用户 allowCredentials 约束后的 `PasskeyLoginBeginCoreModel` JSON；verify payload 必须包含 `assertionJson`，其内容为 `PasskeyLoginCompleteCoreModel` JSON。verify 成功后 provider 不直接授权业务请求，只由 orchestrator 签发统一 `X-Fsus-Challenge-Proof`。
+
+`adminPasskeyStepUpV1` provider 使用 `fsu.admin-passkey-step-up@v1` wire algorithm，只接受 admin principal session。issue payload 同样包含 `algorithm`、`challengeToken` 和 `optionsJson`，verify payload 同样使用 `assertionJson`。该 provider 复用 admin Passkey step-up challenge 与 WebAuthn 校验，但只执行 verify-only 路径，不 mint、consume 或返回 `X-Fsus-Mfa-Proof`，也不写 `SecurityMfaProof` cache。admin-sensitive 作者/安全写操作仍必须先通过 `/api/binary/auth/admin/step-up/passkey/begin|complete` 获取 action=`admin-sensitive` 的一次性 `X-Fsus-Mfa-Proof`；`adminPasskeyStepUpV1` 换得的普通 `X-Fsus-Challenge-Proof` 不能替代它。
+
 统一 challenge 签发与验证只通过 binary endpoint 暴露，不提供公开 JSON fallback。`POST /api/binary/security/challenge` 接收 `SecurityChallengeIssueRequest` (`173`) 并返回 `SecurityChallengeIssueResponse` (`175`)；`POST /api/binary/security/challenge/verify` 接收 `SecurityChallengeVerifyRequest` (`174`) 并返回 `SecurityChallengeVerifyResponse` (`176`)。两个端点均为匿名、`fixed_ip` 限流、`no-store` 响应，request `Content-Type` 必须是 `application/octet-stream`，response `Accept` 只接受空值、`*/*` 或 `application/octet-stream`；不匹配时返回 AEDS `ApiError`，`Accept` 不匹配使用 HTTP 406。请求 frame 上限为 64 KiB，所有业务失败、unsupported kind、provider missing、provider failure、proof replay / mismatch 均 fail closed 返回 `ApiError` frame。
 
 `SecurityChallengeIssueRequest` 字段：
@@ -146,7 +150,7 @@ challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 
 | `kind` | enum | `SecurityChallengeKind`；未知或未支持 kind fail closed |
 | `action` | string | 必须与 issue / 后续业务 endpoint 绑定的 action 一致 |
 | `routeKey` | string | 必须与 issue / 后续业务 endpoint 绑定的 route key 一致 |
-| `payload` | string | provider payload JSON；`sha256PowV1` 必须包含 Base64 FPOW `proof`，`captchaV1` 必须包含 issue payload 字段加 `answerText`、`responseTokenHex`、`nonceHex`、`solveDurationMs` |
+| `payload` | string | provider payload JSON；`sha256PowV1` 必须包含 Base64 FPOW `proof`，`captchaV1` 必须包含 issue payload 字段加 `answerText`、`responseTokenHex`、`nonceHex`、`solveDurationMs`，`passkeyStepUpV1` / `adminPasskeyStepUpV1` 必须包含 `assertionJson` |
 
 `SecurityChallengeVerifyResponse` 字段：
 

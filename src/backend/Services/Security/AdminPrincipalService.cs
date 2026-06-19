@@ -49,6 +49,13 @@ public interface IAdminPrincipalService
         AdminAuthClientContext clientContext,
         CancellationToken cancellationToken = default);
 
+    Task<(bool Success, string Message)> VerifyAdminStepUpAssertionAsync(
+        long adminPrincipalId,
+        string adminSessionId,
+        PasskeyLoginCompleteCoreModel request,
+        AdminAuthClientContext clientContext,
+        CancellationToken cancellationToken = default);
+
     Task<string> CreateAdminStepUpProofTokenAsync(
         long adminPrincipalId,
         string adminSessionId,
@@ -469,6 +476,76 @@ public sealed class AdminPrincipalService(
         string proofToken = await CreateAdminStepUpProofTokenAsync(adminPrincipalId, adminSessionId, AdminSensitiveAction, StepUpProofTtl, cancellationToken);
         await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.completed", "success", clientContext, highImpact: true, cancellationToken);
         return (true, "Admin step-up completed", proofToken);
+    }
+
+    public async Task<(bool Success, string Message)> VerifyAdminStepUpAssertionAsync(
+        long adminPrincipalId,
+        string adminSessionId,
+        PasskeyLoginCompleteCoreModel request,
+        AdminAuthClientContext clientContext,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        AdminStepUpChallenge? challenge = await ConsumeChallengeAsync<AdminStepUpChallenge>(
+            CachePolicyId.SecurityPasskeyAuthChallenge,
+            CacheKey(StepUpCachePrefix, request.ChallengeToken),
+            cancellationToken);
+        if (challenge is null)
+        {
+            return (false, "Admin step-up challenge expired");
+        }
+
+        if (!challenge.IsFor(adminPrincipalId, adminSessionId, AdminSensitiveAction, request.ChallengeToken))
+        {
+            await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.challenge_mismatch", "failure", clientContext, highImpact: true, cancellationToken);
+            return (false, "Admin step-up challenge mismatch");
+        }
+
+        AuthenticatorAssertionRawResponse assertionResponse = ToAssertionResponse(request);
+        string credentialIdBase64 = assertionResponse.Id;
+        AdminPasskeyCredential? storedCred = await db.Queryable<AdminPasskeyCredential>()
+            .Where(c => c.CredentialId == credentialIdBase64)
+            .FirstAsync();
+        if (storedCred is null || storedCred.AdminPrincipalId != adminPrincipalId)
+        {
+            await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.credential_mismatch", "failure", clientContext, highImpact: true, cancellationToken);
+            return (false, "Admin Passkey credential not found");
+        }
+
+        AdminPrincipal? principal = await db.Queryable<AdminPrincipal>().InSingleAsync(adminPrincipalId);
+        if (principal is null || !string.Equals(principal.Status, AdminPrincipalStatus.Active, StringComparison.Ordinal))
+        {
+            return (false, "Admin principal is disabled");
+        }
+
+        VerifyAssertionResult verifyResult;
+        try
+        {
+            verifyResult = await fido2.MakeAssertionAsync(new MakeAssertionParams
+            {
+                AssertionResponse = assertionResponse,
+                OriginalOptions = ToAssertionOptions(challenge.Options),
+                StoredPublicKey = WebEncoders.Base64UrlDecode(storedCred.PublicKey),
+                StoredSignatureCounter = (uint)storedCred.SignCount,
+                IsUserHandleOwnerOfCredentialIdCallback = (param, ct) =>
+                    Task.FromResult(IsAdminUserHandleOwner(param.UserHandle, storedCred.UserHandle))
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Admin RiskControl step-up Passkey assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash}", HashForLog(request.ChallengeToken), HashForLog(credentialIdBase64));
+            await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.risk_control_passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
+            return (false, "Admin step-up Passkey assertion failed");
+        }
+
+        storedCred.SignCount = (long)verifyResult.SignCount;
+        storedCred.LastUsedAtUtc = DateTime.UtcNow;
+        await db.Updateable(storedCred)
+            .UpdateColumns(c => new { c.SignCount, c.LastUsedAtUtc })
+            .ExecuteCommandAsync();
+
+        await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.risk_control_verified", "success", clientContext, highImpact: true, cancellationToken);
+        return (true, "Admin step-up verified");
     }
 
     public async Task<string> CreateAdminStepUpProofTokenAsync(

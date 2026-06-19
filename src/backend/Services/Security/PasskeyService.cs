@@ -17,6 +17,8 @@ public interface IPasskeyService
     Task<(bool Success, string Message)> CompleteRegistrationAsync(int userId, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default);
     Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginAssertionAsync(CancellationToken cancellationToken = default);
     Task<(bool Success, string Message, User? User)> CompleteAssertionAsync(PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default);
+    Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginStepUpAssertionAsync(int userId, CancellationToken cancellationToken = default);
+    Task<(bool Success, string Message)> CompleteStepUpAssertionAsync(int userId, PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default);
     Task<IList<PasskeyCredentialSummaryDto>> GetCredentialsAsync(int userId, CancellationToken cancellationToken = default);
     Task<PasskeyCredentialMutationResult> RemoveCredentialAsync(int userId, int credId, CancellationToken cancellationToken = default);
     Task<bool> RenameCredentialAsync(int userId, int credId, string name, CancellationToken cancellationToken = default);
@@ -304,6 +306,124 @@ public sealed class PasskeyService(
         return (true, "验证成功", user);
     }
 
+    public async Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginStepUpAssertionAsync(
+        int userId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (userId <= 0)
+        {
+            return (false, "用户会话无效", null);
+        }
+
+        User? user = await db.Queryable<User>().InSingleAsync(userId);
+        if (user is null || user.DeletedAt.HasValue || user.Status == 2)
+        {
+            return (false, "账户不存在或已注销", null);
+        }
+
+        List<string> credentialIds = await db.Queryable<PasskeyCredential>()
+            .Where(c => c.UserId == userId)
+            .Select(c => c.CredentialId)
+            .ToListAsync();
+        if (credentialIds.Count == 0)
+        {
+            return (false, "账户未注册通行密钥", null);
+        }
+
+        var options = fido2.GetAssertionOptions(new GetAssertionOptionsParams
+        {
+            AllowedCredentials = [.. credentialIds.Select(static id => new PublicKeyCredentialDescriptor(Base64Url.DecodeFromChars(id)))],
+            UserVerification = UserVerificationRequirement.Required
+        });
+
+        string challengeToken = Convert.ToHexString(Guid.NewGuid().ToByteArray());
+        var coreOptions = ToLoginBeginCore(challengeToken, options);
+        await cache.SetRawAsync(
+            CachePolicyId.SecurityPasskeyAuthChallenge,
+            StepUpChallengeIdentity(challengeToken),
+            PodBinaryCodec.EncodePasskeyLoginBegin(coreOptions),
+            TimeSpan.FromMinutes(5),
+            cancellationToken);
+
+        return (true, "已生成 step-up 认证选项", new PasskeyAuthBeginData(coreOptions));
+    }
+
+    public async Task<(bool Success, string Message)> CompleteStepUpAssertionAsync(
+        int userId,
+        PasskeyLoginCompleteCoreModel request,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (userId <= 0)
+        {
+            return (false, "用户会话无效");
+        }
+
+        var cached = await cache.ConsumeOnceAndGetAsync<PasskeyLoginBeginCoreModel>(
+            CachePolicyId.SecurityPasskeyAuthChallenge,
+            StepUpChallengeIdentity(request.ChallengeToken),
+            static bytes => PodBinaryCodec.TryDecodePasskeyLoginBegin(bytes, out var options)
+                ? (true, options)
+                : (false, null),
+            cancellationToken);
+        if (!cached.Hit || cached.Value is null)
+        {
+            return (false, "step-up 认证会话已过期，请重新开始");
+        }
+
+        var options = ToAssertionOptions(cached.Value);
+        AuthenticatorAssertionRawResponse assertionResponse = ToAssertionResponse(request);
+        string credentialIdBase64 = assertionResponse.Id;
+        PasskeyCredential? storedCred = await db.Queryable<PasskeyCredential>()
+            .Where(c => c.CredentialId == credentialIdBase64 && c.UserId == userId)
+            .FirstAsync();
+        if (storedCred is null)
+        {
+            return (false, "未找到当前用户的通行密钥");
+        }
+
+        User? user = await db.Queryable<User>().InSingleAsync(userId);
+        if (user is null || user.Status == 2 || user.DeletedAt.HasValue)
+        {
+            return (false, "账户不存在或已注销");
+        }
+
+        byte[] storedPublicKey = Base64Url.DecodeFromChars(storedCred.PublicKey);
+        VerifyAssertionResult verifyResult;
+        try
+        {
+            verifyResult = await fido2.MakeAssertionAsync(new MakeAssertionParams
+            {
+                AssertionResponse = assertionResponse,
+                OriginalOptions = options,
+                StoredPublicKey = storedPublicKey,
+                StoredSignatureCounter = (uint)storedCred.SignCount,
+                IsUserHandleOwnerOfCredentialIdCallback = (param, ct) =>
+                    Task.FromResult(IsUserHandleOwnerOfCredential(param.UserHandle, storedCred.UserId))
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Passkey step-up assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash} UserId={UserId} ExceptionType={ExceptionType}",
+                HashForLog(request.ChallengeToken),
+                HashForLog(credentialIdBase64),
+                userId,
+                ex.GetType().Name);
+            return (false, "通行密钥 step-up 验证失败，请重试");
+        }
+
+        storedCred.SignCount = (long)verifyResult.SignCount;
+        storedCred.LastUsedAt = DateTime.UtcNow;
+        await db.Updateable(storedCred)
+            .UpdateColumns(c => new { c.SignCount, c.LastUsedAt })
+            .ExecuteCommandAsync();
+
+        return (true, "step-up 验证成功");
+    }
+
     private static PasskeyRegisterBeginCoreModel ToRegisterBeginCore(string sessionKey, CredentialCreateOptions options)
         => new()
         {
@@ -352,6 +472,9 @@ public sealed class PasskeyService(
             Challenge = options.Challenge,
             AllowCredentials = [.. options.AllowCredentials.Select(ToDescriptorCore)]
         };
+
+    private static string StepUpChallengeIdentity(string challengeToken)
+        => $"stepup:{challengeToken}";
 
     private static AssertionOptions ToAssertionOptions(PasskeyLoginBeginCoreModel value)
         => new()
