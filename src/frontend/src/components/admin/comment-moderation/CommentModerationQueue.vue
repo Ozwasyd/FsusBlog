@@ -49,6 +49,7 @@
                 <span>{{ (item as CommentModerationViewItem).credentialLevelLabel }}</span>
                 <span>{{ (item as CommentModerationViewItem).reputationBucketLabel }}</span>
                 <span>{{ (item as CommentModerationViewItem).accountAgeBucketLabel }}</span>
+                <span>{{ (item as CommentModerationViewItem).nullifierStatusLabel }}</span>
               </div>
               <div class="mt-4 recommendation-strip">
                 <span>{{ (item as CommentModerationViewItem).recommendedActionLabel }}</span>
@@ -144,6 +145,7 @@
                     <el-tag size="small" type="info">{{ row.credentialLevelLabel }}</el-tag>
                     <el-tag size="small" type="info">{{ row.reputationBucketLabel }}</el-tag>
                     <el-tag size="small" type="info">{{ row.accountAgeBucketLabel }}</el-tag>
+                    <el-tag size="small" type="info">{{ row.nullifierStatusLabel }}</el-tag>
                   </div>
                 </div>
               </template>

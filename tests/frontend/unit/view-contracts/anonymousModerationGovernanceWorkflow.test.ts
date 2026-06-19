@@ -37,6 +37,7 @@ describe('anonymous moderation governance workflow contract', () => {
     expect(queueComposable).toContain('credentialLevelLabel')
     expect(queueComposable).toContain('reputationBucketLabel')
     expect(queueComposable).toContain('accountAgeBucketLabel')
+    expect(queueComposable).toContain('nullifierStatusLabel')
     expect(queueComposable).toContain('riskLabels')
     expect(queueComposable).toContain('isStrongAnonymous')
     expect(queue).toContain('row.actorDisplayName')
@@ -46,8 +47,10 @@ describe('anonymous moderation governance workflow contract', () => {
     expect(queue).toContain('credentialLevelLabel')
     expect(queue).toContain('reputationBucketLabel')
     expect(queue).toContain('accountAgeBucketLabel')
+    expect(queue).toContain('nullifierStatusLabel')
     expect(queue).toContain('riskLabels')
     expect(queue).not.toContain('{{ row.userName }}')
+    expect(queue).not.toContain('row.nullifierHash')
   })
 
   it('keeps nullifier and credential actions permission-gated', () => {

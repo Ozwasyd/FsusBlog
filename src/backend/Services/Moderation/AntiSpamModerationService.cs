@@ -70,6 +70,31 @@ public sealed class AntiSpamModerationService(
         "contract_mismatch"
     };
 
+    private static readonly string[] ForbiddenProviderMetadataKeys =
+    [
+        "user_id",
+        "userid",
+        "user_name",
+        "username",
+        "public_handle",
+        "account_id",
+        "credential_commitment",
+        "credential_secret",
+        "credential_witness",
+        "proof",
+        "raw_nullifier",
+        "nullifier_hash",
+        "anonymous_nullifier_hash",
+        "ip",
+        "ip_hash",
+        "raw_ip",
+        "device_fingerprint",
+        "device_fp",
+        "fingerprint",
+        "authorization",
+        "cookie"
+    ];
+
     public async Task<AntiSpamModerationResult?> ScoreCommentAsync(AntiSpamCommentModerationContext context, CancellationToken cancellationToken = default)
     {
         ModerationModelRuntimeSnapshot? runtimeModel = runtimeState?.CurrentModel;
@@ -146,8 +171,6 @@ public sealed class AntiSpamModerationService(
         AddMetadata(metadata, "author_mode", context.AuthorMode);
         AddMetadata(metadata, "anonymous_display_language", context.AnonymousDisplayLanguage);
         AddMetadata(metadata, "moderation_subject_hash", context.ModerationSubjectHash);
-        AddMetadata(metadata, "anonymous_nullifier_hash", context.AnonymousNullifierHash);
-        AddMetadata(metadata, "anonymous_scope", context.AnonymousScope);
         AddMetadata(metadata, "credential_level", context.CredentialLevel);
         AddMetadata(metadata, "reputation_bucket", context.ReputationBucket);
         AddMetadata(metadata, "account_age_bucket", context.AccountAgeBucket);
@@ -159,11 +182,6 @@ public sealed class AntiSpamModerationService(
             content,
             "comment",
             configuration["Moderation:AntiSpamModel:Locale"] ?? "zh-CN",
-            context.UserId,
-            context.ArticleId,
-            context.ParentCommentId,
-            context.SubmitIpHash,
-            null,
             context.SubmittedAtUtc,
             context.RegionHint,
             runtimeModel?.ThresholdProfile ?? configuration["Moderation:AntiSpamModel:ThresholdProfile"],
@@ -191,7 +209,7 @@ public sealed class AntiSpamModerationService(
         IReadOnlyDictionary<string, string> resultMetadata)
     {
         var merged = new Dictionary<string, string>(requestMetadata, StringComparer.Ordinal);
-        foreach ((string key, string value) in resultMetadata)
+        foreach ((string key, string value) in SanitizeProviderMetadata(resultMetadata))
         {
             if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
             {
@@ -359,8 +377,41 @@ public sealed class AntiSpamModerationService(
             AntiSpamModerationStatuses.Ok,
             null,
             dto.ThresholdProfile,
-            dto.Metadata ?? new Dictionary<string, string>(StringComparer.Ordinal));
+            SanitizeProviderMetadata(dto.Metadata ?? new Dictionary<string, string>(StringComparer.Ordinal)));
     }
+
+    private static IReadOnlyDictionary<string, string> SanitizeProviderMetadata(IReadOnlyDictionary<string, string> metadata)
+    {
+        if (metadata.Count == 0)
+        {
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+        }
+
+        var sanitized = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach ((string key, string value) in metadata)
+        {
+            string normalizedKey = NormalizeMetadataKey(key);
+            if (string.IsNullOrWhiteSpace(normalizedKey) || IsForbiddenProviderMetadataKey(normalizedKey))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                sanitized[normalizedKey] = value.Trim();
+            }
+        }
+
+        return sanitized;
+    }
+
+    private static bool IsForbiddenProviderMetadataKey(string normalizedKey)
+        => ForbiddenProviderMetadataKeys.Any(forbidden =>
+            string.Equals(normalizedKey, forbidden, StringComparison.Ordinal)
+            || normalizedKey.Contains(forbidden, StringComparison.Ordinal));
+
+    private static string NormalizeMetadataKey(string key)
+        => key.Trim().ToLowerInvariant().Replace('-', '_');
 
     private async Task PersistSignalAsync(long commentId, AntiSpamModerationResult result, CancellationToken cancellationToken)
     {

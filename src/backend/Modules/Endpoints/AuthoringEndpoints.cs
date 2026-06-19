@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -249,11 +251,12 @@ public static class AuthoringEndpoints
                 applied ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Error,
                 "管理员封禁匿名评论 nullifier",
                 TargetType: "comment_anonymous_nullifier",
-                TargetId: request.NullifierHash,
+                TargetId: HashAuditTargetId("comment_anonymous_nullifier", request.NullifierHash),
                 ReasonCode: reason,
                 Context: new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
                     ["scope"] = request.Scope,
+                    ["nullifierTarget"] = HashAuditTargetId("comment_anonymous_nullifier", request.NullifierHash),
                     ["applied"] = applied
                 }), cancellationToken);
             return applied
@@ -287,11 +290,11 @@ public static class AuthoringEndpoints
                 revoked ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Error,
                 "管理员撤销匿名凭证",
                 TargetType: "anonymous_credential",
-                TargetId: credentialId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                TargetId: HashAuditTargetId("anonymous_credential", credentialId.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                 ReasonCode: request.Reason,
                 Context: new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    ["credentialId"] = credentialId,
+                    ["credentialTarget"] = HashAuditTargetId("anonymous_credential", credentialId.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                     ["revoked"] = revoked
                 }), cancellationToken);
             return revoked
@@ -1869,6 +1872,13 @@ public static class AuthoringEndpoints
         }
 
         return null;
+    }
+
+    private static string HashAuditTargetId(string kind, string value)
+    {
+        string normalized = $"{kind}:{value.Trim()}";
+        string hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
+        return $"{kind}:sha256:{hash}";
     }
 
     private static bool IsValidModerationStatus(CommentModerationStatus status)

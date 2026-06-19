@@ -39,6 +39,7 @@ export interface CommentModerationViewItem extends CommentModerationItemResponse
   credentialLevelLabel: string
   reputationBucketLabel: string
   accountAgeBucketLabel: string
+  nullifierStatusLabel: string
   riskLabels: string[]
   isAnonymousActor: boolean
   isStrongAnonymous: boolean
@@ -292,6 +293,14 @@ function bucketText(label: string, value: string | null | undefined): string {
   return `${label}：${cleanText(value) ?? '未记录'}`
 }
 
+function nullifierStatusText(item: CommentModerationItemResponse, isAnonymousActor: boolean): string {
+  if (!isAnonymousActor) {
+    return 'Nullifier：公开账号'
+  }
+
+  return cleanText(item.nullifierStatusLabel) ?? 'Nullifier：未记录'
+}
+
 function buildRecommendedAction(item: CommentModerationItemResponse): Pick<CommentModerationViewItem, 'recommendedStatus' | 'recommendedActionLabel' | 'recommendedActionReason'> {
   const modelLabel = item.modelLabel?.toLowerCase() ?? ''
   const modelConfidence = typeof item.modelConfidence === 'number' ? item.modelConfidence : 0
@@ -386,6 +395,7 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
     credentialLevelLabel: bucketText('credential', item.credentialLevel),
     reputationBucketLabel: bucketText('声誉桶', item.reputationBucket),
     accountAgeBucketLabel: bucketText('账号年龄桶', item.accountAgeBucket),
+    nullifierStatusLabel: nullifierStatusText(item, isAnonymousActor),
     riskLabels,
     isAnonymousActor,
     isStrongAnonymous,
@@ -495,7 +505,7 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
 
     return allItems.value.filter((item) => {
       if (keyword) {
-        const accountSearchText = item.isStrongAnonymous ? '' : `${item.userName ?? ''} ${item.userId ?? ''}`
+        const accountSearchText = item.isAnonymousActor ? '' : `${item.userName ?? ''} ${item.userId ?? ''}`
         const haystack = [
           item.id,
           item.content,
@@ -527,7 +537,7 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
         const userHaystack = [
           item.actorDisplayName,
           item.userLabel,
-          item.isStrongAnonymous ? '' : `${item.userName ?? ''} ${item.userId ?? ''}`
+          item.isAnonymousActor ? '' : `${item.userName ?? ''} ${item.userId ?? ''}`
         ].join(' ').toLowerCase()
         if (!userHaystack.includes(user)) {
           return false

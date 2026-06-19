@@ -137,8 +137,9 @@ public sealed record class CommentModerationItemResponse(
     string Id,
     int ArticleId,
     string ArticleTitle,
-    int UserId,
-    string UserName,
+    int? UserId,
+    string? UserName,
+    string AuthorDisplayName,
     string Content,
     DateTime CreateTime,
     CommentModerationStatus Status,
@@ -165,11 +166,15 @@ public sealed record class CommentModerationItemResponse(
     string? AuthorMode,
     string? AnonymousDisplayLanguage,
     string? ModerationSubjectHash,
-    string? AnonymousNullifierHash,
+    string? NullifierHash,
+    string? NullifierStatusLabel,
     string? AnonymousScope,
     string? CredentialLevel,
     string? ReputationBucket,
-    string? AccountAgeBucket);
+    string? AccountAgeBucket,
+    string? AnonymousCredentialId,
+    bool CanBlockAnonymousNullifier,
+    bool CanRevokeAnonymousCredential);
 
 public sealed record class CommentModerationQueueResponse(
     IReadOnlyList<CommentModerationItemResponse> Items,

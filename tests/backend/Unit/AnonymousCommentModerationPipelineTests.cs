@@ -10,7 +10,7 @@ public sealed class AnonymousCommentModerationPipelineTests
         string models = BackendTestPaths.ReadAllTextFromRoot("src/backend/Models/Moderation/AntiSpamModerationModels.cs");
         string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Moderation/AntiSpamModerationService.cs");
 
-        Assert.Contains("int? UserId", models, StringComparison.Ordinal);
+        Assert.Contains("AntiSpamCommentModerationContext", models, StringComparison.Ordinal);
         foreach (string requiredField in new[]
         {
             "AuthorMode",
@@ -33,8 +33,6 @@ public sealed class AnonymousCommentModerationPipelineTests
             "author_mode",
             "anonymous_display_language",
             "moderation_subject_hash",
-            "anonymous_nullifier_hash",
-            "anonymous_scope",
             "credential_level",
             "reputation_bucket",
             "account_age_bucket",
@@ -45,9 +43,36 @@ public sealed class AnonymousCommentModerationPipelineTests
             Assert.Contains(metadataKey, service, StringComparison.Ordinal);
         }
 
-        Assert.Contains("context.UserId", service, StringComparison.Ordinal);
-        Assert.DoesNotContain("user_name", service, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("public_handle", service, StringComparison.OrdinalIgnoreCase);
+        string requestRecord = models[models.IndexOf("public sealed record AntiSpamModerationRequest", StringComparison.Ordinal)..models.IndexOf("public sealed record AntiSpamModerationCategorySignal", StringComparison.Ordinal)];
+        Assert.DoesNotContain("context.UserId", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("AddMetadata(metadata, \"anonymous_nullifier_hash\"", service, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("IpHash", requestRecord, StringComparison.Ordinal);
+        Assert.DoesNotContain("AddMetadata(metadata, \"user_name\"", service, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("AddMetadata(metadata, \"public_handle\"", service, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void AntiSpamProviderRequest_UsesPrivacyAllowListAndSanitizesProviderMetadata()
+    {
+        string models = BackendTestPaths.ReadAllTextFromRoot("src/backend/Models/Moderation/AntiSpamModerationModels.cs");
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Moderation/AntiSpamModerationService.cs");
+        string requestRecord = models[models.IndexOf("public sealed record AntiSpamModerationRequest", StringComparison.Ordinal)..models.IndexOf("public sealed record AntiSpamModerationCategorySignal", StringComparison.Ordinal)];
+
+        Assert.DoesNotContain("UserId", requestRecord, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserName", requestRecord, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("PublicHandle", requestRecord, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("CredentialCommitment", requestRecord, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Proof", requestRecord, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Nullifier", requestRecord, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("IpHash", requestRecord, StringComparison.Ordinal);
+        Assert.DoesNotContain("DeviceFingerprint", requestRecord, StringComparison.OrdinalIgnoreCase);
+
+        Assert.Contains("SanitizeProviderMetadata", service, StringComparison.Ordinal);
+        Assert.Contains("ForbiddenProviderMetadataKeys", service, StringComparison.Ordinal);
+        Assert.Contains("moderation_subject_hash", service, StringComparison.Ordinal);
+        Assert.Contains("credential_level", service, StringComparison.Ordinal);
+        Assert.Contains("reputation_bucket", service, StringComparison.Ordinal);
+        Assert.Contains("account_age_bucket", service, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -134,16 +159,53 @@ public sealed class AnonymousCommentModerationPipelineTests
         foreach (string responseField in new[]
         {
             "AuthorMode",
+            "AuthorDisplayName",
             "AnonymousDisplayLanguage",
             "ModerationSubjectHash",
-            "AnonymousNullifierHash",
+            "NullifierHash",
+            "NullifierStatusLabel",
             "AnonymousScope",
             "CredentialLevel",
             "ReputationBucket",
-            "AccountAgeBucket"
+            "AccountAgeBucket",
+            "CanBlockAnonymousNullifier",
+            "CanRevokeAnonymousCredential"
         })
         {
             Assert.Contains(responseField, dto, StringComparison.Ordinal);
         }
+    }
+
+    [Fact]
+    public void ModerationQueue_DoesNotExposeRealUserIdForAnonymousRowsAndBatchesNullifierState()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string dto = BackendTestPaths.ReadAllTextFromRoot("src/backend/Models/Dtos/AuthoringDtos.cs");
+        string frontendQueue = BackendTestPaths.ReadAllTextFromRoot("src/frontend/src/composables/useCommentModerationQueue.ts");
+        string queueView = BackendTestPaths.ReadAllTextFromRoot("src/frontend/src/components/admin/comment-moderation/CommentModerationQueue.vue");
+
+        Assert.Contains("int? UserId", dto, StringComparison.Ordinal);
+        Assert.Contains("isAnonymousActor ? null : row.UserId", source, StringComparison.Ordinal);
+        Assert.Contains("AnonymousDisplayName = c.AnonymousDisplayName", source, StringComparison.Ordinal);
+        Assert.Contains("row.AnonymousDisplayName", source, StringComparison.Ordinal);
+        Assert.Contains("LoadAnonymousNullifierSummariesAsync", source, StringComparison.Ordinal);
+        Assert.Contains("CommentAnonymousNullifier", source, StringComparison.Ordinal);
+        Assert.Contains("NullifierStatusLabel", source, StringComparison.Ordinal);
+        Assert.Contains("item.isAnonymousActor ? ''", frontendQueue, StringComparison.Ordinal);
+        Assert.DoesNotContain("row.nullifierHash", queueView, StringComparison.Ordinal);
+        Assert.DoesNotContain("row.anonymousCredentialId", queueView, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnonymousGovernanceAudit_RecordsOnlyIrreversibleTargets()
+    {
+        string endpoints = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
+        string securityDocs = BackendTestPaths.ReadAllTextFromRoot("docs/security.md");
+
+        Assert.Contains("HashAuditTargetId", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("TargetId: request.NullifierHash", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("TargetId: credentialId.ToString", endpoints, StringComparison.Ordinal);
+        Assert.Contains("无 deanonymization 后门", securityDocs, StringComparison.Ordinal);
+        Assert.Contains("外部 anti-spam provider", securityDocs, StringComparison.Ordinal);
     }
 }

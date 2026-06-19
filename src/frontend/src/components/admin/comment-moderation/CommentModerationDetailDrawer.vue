@@ -38,6 +38,21 @@
         </div>
       </section>
 
+      <section class="border-y border-[var(--fsusblog-panel-border)]">
+        <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">匿名治理摘要</div>
+        </div>
+        <div class="grid grid-cols-1 gap-3">
+          <div class="bg-[var(--fsusblog-page-bg)] p-5">
+            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">身份与治理状态</div>
+            <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.authorModeLabel }} / {{ item.nullifierStatusLabel }}</div>
+            <div class="mt-2 break-words text-[12px] text-[var(--fsusblog-text-muted)]">
+              {{ item.credentialLevelLabel }} / {{ item.reputationBucketLabel }} / {{ item.accountAgeBucketLabel }}
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section>
         <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">命中原因</div>
         <div class="mt-3 flex flex-wrap gap-2">

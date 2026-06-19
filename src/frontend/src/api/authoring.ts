@@ -500,6 +500,7 @@ export interface CommentModerationItemResponse {
   accountAgeBucket?: string | null
   riskLabels?: string[] | null
   nullifierHash?: string | null
+  nullifierStatusLabel?: string | null
   anonymousCredentialId?: string | null
   canBlockAnonymousNullifier?: boolean | null
   canRevokeAnonymousCredential?: boolean | null

@@ -404,6 +404,7 @@ public sealed class AuthoringWorkflowService(
                 UserId = c.UserId,
                 UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.Username,
                 AuthorMode = c.AuthorMode,
+                AnonymousDisplayName = c.AnonymousDisplayName,
                 AnonymousDisplayLanguage = c.AnonymousDisplayLanguage,
                 ModerationSubjectHash = c.ModerationSubjectHash,
                 AnonymousNullifierHash = c.AnonymousNullifierHash,
@@ -429,6 +430,7 @@ public sealed class AuthoringWorkflowService(
                 RegionHideUntilReviewed = rc.HideUntilReviewed
             })
             .ToListAsync(cancellationToken);
+        await LoadAnonymousNullifierSummariesAsync(rows, cancellationToken);
         IReadOnlyDictionary<long, CommentModerationModelSignalResponse> latestSignals = await LoadLatestModelSignalsAsync(rows, cancellationToken);
         foreach (CommentModerationQueueRow row in rows)
         {
@@ -696,12 +698,16 @@ public sealed class AuthoringWorkflowService(
     private CommentModerationItemResponse ToCommentModerationItem(CommentModerationQueueRow row)
     {
         CommentModerationModelSignalResponse? latestSignal = row.ModelSignals.FirstOrDefault();
+        bool isAnonymousActor = IsAnonymousActor(row);
+        string authorDisplayName = ResolveModerationAuthorDisplayName(row, isAnonymousActor);
+        string? nullifierHash = isAnonymousActor ? NormalizeNullable(row.AnonymousNullifierHash, 128) : null;
         return new CommentModerationItemResponse(
             row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
             row.ArticleId,
             string.IsNullOrWhiteSpace(row.ArticleTitle) ? "未命名文章" : row.ArticleTitle,
-            row.UserId ?? 0,
-            string.IsNullOrWhiteSpace(row.UserName) ? "匿名用户" : row.UserName,
+            isAnonymousActor ? null : row.UserId,
+            isAnonymousActor ? null : row.UserName,
+            authorDisplayName,
             row.Content,
             row.CreateTime,
             row.Status,
@@ -732,11 +738,56 @@ public sealed class AuthoringWorkflowService(
             row.AuthorMode,
             row.AnonymousDisplayLanguage,
             row.ModerationSubjectHash,
-            row.AnonymousNullifierHash,
+            nullifierHash,
+            isAnonymousActor ? BuildNullifierStatusLabel(row) : null,
             row.AnonymousScope,
             row.CredentialLevel,
             row.ReputationBucket,
-            row.AccountAgeBucket);
+            row.AccountAgeBucket,
+            null,
+            !string.IsNullOrWhiteSpace(nullifierHash) && row.NullifierKnown && !row.NullifierBlocked,
+            false);
+    }
+
+    private static bool IsAnonymousActor(CommentModerationQueueRow row)
+    {
+        string mode = (row.AuthorMode ?? string.Empty).Trim().ToLowerInvariant();
+        return mode is "" or "anonymous" or "zk_anonymous" or "pseudonymous"
+            || !string.IsNullOrWhiteSpace(row.AnonymousNullifierHash)
+            || !string.IsNullOrWhiteSpace(row.ModerationSubjectHash);
+    }
+
+    private static string ResolveModerationAuthorDisplayName(CommentModerationQueueRow row, bool isAnonymousActor)
+    {
+        if (!isAnonymousActor)
+        {
+            return string.IsNullOrWhiteSpace(row.UserName) ? "未署名用户" : row.UserName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(row.AnonymousDisplayName))
+        {
+            return row.AnonymousDisplayName;
+        }
+
+        return string.Equals(row.AuthorMode, "zk_anonymous", StringComparison.OrdinalIgnoreCase)
+            ? "强匿名评论者"
+            : "匿名评论者";
+    }
+
+    private static string BuildNullifierStatusLabel(CommentModerationQueueRow row)
+    {
+        if (string.IsNullOrWhiteSpace(row.AnonymousNullifierHash))
+        {
+            return "Nullifier：未记录";
+        }
+
+        if (!row.NullifierKnown)
+        {
+            return "Nullifier：待同步";
+        }
+
+        string status = row.NullifierBlocked ? "已封禁" : "可治理";
+        return $"Nullifier：{status} / 使用 {Math.Max(0, row.NullifierUseCount ?? 0)} 次";
     }
 
     private static bool IsModelAutoModerated(CommentModerationQueueRow row)
@@ -816,6 +867,50 @@ public sealed class AuthoringWorkflowService(
                 group => ToModelSignalResponse(group.First()));
     }
 
+    private async Task LoadAnonymousNullifierSummariesAsync(
+        IReadOnlyList<CommentModerationQueueRow> rows,
+        CancellationToken cancellationToken)
+    {
+        string[] hashes = [.. rows
+            .Select(static row => NormalizeNullable(row.AnonymousNullifierHash, 128))
+            .OfType<string>()
+            .Distinct(StringComparer.Ordinal)];
+        if (hashes.Length == 0)
+        {
+            return;
+        }
+
+        List<CommentAnonymousNullifier> nullifiers = await db.Queryable<CommentAnonymousNullifier>()
+            .Where(item => hashes.Contains(item.NullifierHash))
+            .ToListAsync(cancellationToken);
+        Dictionary<string, CommentAnonymousNullifier> byKey = nullifiers.ToDictionary(
+            static item => BuildNullifierKey(item.NullifierHash, item.Scope),
+            static item => item,
+            StringComparer.Ordinal);
+
+        foreach (CommentModerationQueueRow row in rows)
+        {
+            string? hash = NormalizeNullable(row.AnonymousNullifierHash, 128);
+            string? scope = NormalizeNullable(row.AnonymousScope, 128);
+            if (hash is null || scope is null)
+            {
+                continue;
+            }
+
+            if (!byKey.TryGetValue(BuildNullifierKey(hash, scope), out CommentAnonymousNullifier? nullifier))
+            {
+                continue;
+            }
+
+            row.NullifierKnown = true;
+            row.NullifierBlocked = nullifier.Blocked;
+            row.NullifierUseCount = nullifier.UseCount;
+        }
+    }
+
+    private static string BuildNullifierKey(string nullifierHash, string scope)
+        => string.Concat(nullifierHash.Trim(), "\n", scope.Trim());
+
     private static CommentModerationModelSignalResponse ToModelSignalResponse(CommentModerationSignal signal)
         => new(
             signal.Provider,
@@ -844,7 +939,7 @@ public sealed class AuthoringWorkflowService(
         }
 
         List<int?> userIds = await db.Queryable<Comment>()
-            .Where(item => ids.Contains(item.Id))
+            .Where(item => ids.Contains(item.Id) && item.AuthorMode == "public")
             .Select(item => item.UserId)
             .ToListAsync(cancellationToken);
         int[] uniqueUserIds = [.. userIds
@@ -1498,6 +1593,7 @@ public sealed class AuthoringWorkflowService(
         public int? UserId { get; set; }
         public string? UserName { get; set; }
         public string? AuthorMode { get; set; }
+        public string? AnonymousDisplayName { get; set; }
         public string? AnonymousDisplayLanguage { get; set; }
         public string? ModerationSubjectHash { get; set; }
         public string? AnonymousNullifierHash { get; set; }
@@ -1521,6 +1617,9 @@ public sealed class AuthoringWorkflowService(
         public bool RegionCanPublish { get; set; }
         public bool RegionRequiresManualReview { get; set; }
         public bool RegionHideUntilReviewed { get; set; }
+        public bool NullifierKnown { get; set; }
+        public bool NullifierBlocked { get; set; }
+        public int? NullifierUseCount { get; set; }
         public IReadOnlyList<CommentModerationModelSignalResponse> ModelSignals { get; set; } = [];
     }
 
