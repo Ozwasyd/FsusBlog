@@ -393,7 +393,7 @@ docker-compose.yml
 - `GET /health/ready`：公网最小就绪探针（只返回 `status` / `checkedAt`，HTTP 200/503 表示 ready/not ready）
 - `GET /api/ops/health/ready-detail`：受保护的详细就绪报告（admin principal + `audit.read`）
 
-Health/ops 协议独立于 PublicAOT 与 AEDS payload。`ProductionHealthEndpoints` 的公网 readiness 只返回最小 JSON；详细运维快照只在受保护端点返回。readiness 的启动状态来自 `StartupRuntimeState.CreateSnapshot()`，定时发布后台状态来自 `ScheduledPublishRuntimeState.CreateSnapshot()`，RiskControl 状态来自 active/LKG policy、Redis consume-once 和 challenge provider registry 检查。因此生产启动校验、cache/bootstrap rollback、定时发布 backlog、RiskControl enforcement 与 PublicAOT 壳层协议可以分别演进。
+Health/ops 协议独立于 PublicAOT 与 AEDS payload。`ProductionHealthEndpoints` 的公网 readiness 只返回最小 JSON；详细运维快照只在受保护端点返回。readiness 的启动状态来自 `StartupRuntimeState.CreateSnapshot()`，定时发布后台状态来自 `ScheduledPublishRuntimeState.CreateSnapshot()`，RiskControl 状态来自 active/LKG policy、perception-sealed@v2 AEAD key、Redis consume-once、challenge provider registry 和 perception performance budget 检查。因此生产启动校验、cache/bootstrap rollback、定时发布 backlog、RiskControl enforcement 与 PublicAOT 壳层协议可以分别演进。
 
 单作者后台运维面板位于 `/user/manage/ops`、`/user/manage/cache`、`/user/manage/integrity`，后端统一由 `AdminOperationsService` 聚合。`/api/binary/author/ops/health` 合并 readiness、审计 runtime、Crawler CIDR、PublicHotRead、Search manifest、备份 artifact、结构化最近错误和 `article_mutation_outbox` backlog；最近错误只在查询物化后做摘要清理和分组，避免 ORM projection 把 SQL 表达式泄露到 UI。`/api/binary/author/cache/diagnostics` 从 `PublicHotReadStore`、`PublicAotInvalidationTracker`、`CacheInvalidationRuntimeState`、search manifest 与实际 sitemap/feed 构建结果读取状态；`/api/binary/author/integrity` 做只读巡检，safe fix 只处理无效 `article_tag` 和注销用户 session 撤销，必须通过 diff、确认短语、admin step-up proof 和审计事件闭环。
 

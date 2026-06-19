@@ -13,6 +13,7 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
+using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
 using StackExchange.Redis;
 
@@ -63,6 +64,9 @@ public sealed record ProductionRiskControlHealthCheck(
     bool ChallengeProviderRegistry,
     string? PolicyVersion,
     IReadOnlyList<string> Providers,
+    bool PerceptionAeadKey,
+    string PerceptionMode,
+    SecurityChallengeV2PerformanceBudgetSnapshot PerceptionPerformanceBudget,
     string? Error = null) : IProductionHealthCheck;
 
 public sealed record RuntimeHealthSnapshot(
@@ -232,7 +236,11 @@ public sealed class ProductionReadinessProbe(
             IReadOnlyList<string> providers = ResolveChallengeProviders();
             bool challengeProviderRegistry = ChallengeProviderRegistryReady(providers);
             bool redisConsumeOnce = await CheckRedisConsumeOnceAsync(cancellationToken);
-            bool ok = activePolicy && lastKnownGoodPolicy && challengeProviderRegistry && redisConsumeOnce;
+            bool perceptionAeadKey = CheckPerceptionAeadKey();
+            string perceptionMode = ResolvePerceptionMode(policy);
+            SecurityChallengeV2PerformanceBudgetSnapshot perceptionBudget =
+                FsusObservability.CreateSecurityChallengeV2PerformanceBudgetSnapshot();
+            bool ok = activePolicy && lastKnownGoodPolicy && challengeProviderRegistry && redisConsumeOnce && perceptionAeadKey;
             return new ProductionRiskControlHealthCheck(
                 ok ? "ok" : "failed",
                 activePolicy,
@@ -241,6 +249,9 @@ public sealed class ProductionReadinessProbe(
                 challengeProviderRegistry,
                 policyVersion,
                 providers,
+                perceptionAeadKey,
+                perceptionMode,
+                perceptionBudget,
                 ok ? null : "risk_control_dependency_unavailable");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -254,8 +265,109 @@ public sealed class ProductionReadinessProbe(
                 ChallengeProviderRegistry: false,
                 PolicyVersion: null,
                 Providers: [],
+                PerceptionAeadKey: false,
+                PerceptionMode: "unknown",
+                PerceptionPerformanceBudget: FsusObservability.CreateSecurityChallengeV2PerformanceBudgetSnapshot(),
                 Error: ex.GetType().Name);
         }
+    }
+
+    private string ResolvePerceptionMode(SecurityRiskPolicySnapshotV2? policy)
+    {
+        if (policy is null)
+        {
+            return "missing";
+        }
+
+        return SecuritySystemModes.Normalize(policy.GlobalMode);
+    }
+
+    private bool CheckPerceptionAeadKey()
+    {
+        const string sectionName = PerceptionSealedTokenOptions.SectionName;
+        string currentKeyVersion = (configuration[$"{sectionName}:CurrentKeyVersion"] ?? string.Empty).Trim();
+        if (currentKeyVersion.Length == 0)
+        {
+            return false;
+        }
+
+        string? key = configuration[$"{sectionName}:Keys:{currentKeyVersion}"];
+        return TryDecodePerceptionAeadKey(key, out _);
+    }
+
+    private static bool TryDecodePerceptionAeadKey(string? encodedKey, out byte[] key)
+    {
+        key = [];
+        string value = (encodedKey ?? string.Empty).Trim();
+        if (value.Length == 0)
+        {
+            return false;
+        }
+
+        if (value.StartsWith("hex:", StringComparison.OrdinalIgnoreCase))
+        {
+            return TryDecodeHexPerceptionAeadKey(value[4..], out key);
+        }
+
+        if (value.StartsWith("base64:", StringComparison.OrdinalIgnoreCase))
+        {
+            return TryDecodeBase64PerceptionAeadKey(value[7..], out key);
+        }
+
+        if (value.StartsWith("base64url:", StringComparison.OrdinalIgnoreCase))
+        {
+            return TryDecodeBase64UrlPerceptionAeadKey(value[10..], out key);
+        }
+
+        return value.Length == 64 && value.All(static ch => Uri.IsHexDigit(ch))
+            ? TryDecodeHexPerceptionAeadKey(value, out key)
+            : TryDecodeBase64PerceptionAeadKey(value, out key)
+              || TryDecodeBase64UrlPerceptionAeadKey(value, out key);
+    }
+
+    private static bool TryDecodeHexPerceptionAeadKey(string value, out byte[] key)
+    {
+        key = [];
+        try
+        {
+            key = Convert.FromHexString(value);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        return key.Length == 32;
+    }
+
+    private static bool TryDecodeBase64PerceptionAeadKey(string value, out byte[] key)
+    {
+        key = [];
+        try
+        {
+            key = Convert.FromBase64String(value);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        return key.Length == 32;
+    }
+
+    private static bool TryDecodeBase64UrlPerceptionAeadKey(string value, out byte[] key)
+    {
+        key = [];
+        try
+        {
+            key = WebEncoders.Base64UrlDecode(value);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        return key.Length == 32;
     }
 
     private IReadOnlyList<string> ResolveChallengeProviders()

@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using FsusBlog.Server.Infrastructure.Security;
@@ -6,6 +7,18 @@ using FsusBlog.Server.Infrastructure.Security;
 namespace FsusBlog.Server.Infrastructure.Observability;
 
 public sealed record FsusRouteKindMetadata(string RouteKind);
+
+public sealed record SecurityChallengeV2PerformanceBudgetSnapshot(
+    string Status,
+    double IssueP99Ms,
+    double VerifyP99Ms,
+    int PayloadP95Bytes,
+    double ClientRenderP95Ms,
+    int IssueP99BudgetMs,
+    int VerifyP99BudgetMs,
+    int PayloadP95BudgetBytes,
+    int ClientRenderP95BudgetMs,
+    IReadOnlyList<string> Warnings);
 
 public static class FsusObservability
 {
@@ -39,6 +52,7 @@ public static class FsusObservability
         "fsus.security.policy_version",
         "fsus.security.reason",
         "fsus.security.source",
+        "fsus.security.task_kind",
         "fsus.search.mode",
         "fsus.notification_stream.operation"
     ];
@@ -58,6 +72,16 @@ public static class FsusObservability
     private static readonly Counter<long> SecurityChallengeFailedCounter = Meter.CreateCounter<long>("fsus.security.challenge.failed.count");
     private static readonly Counter<long> SecurityChallengeReplayedCounter = Meter.CreateCounter<long>("fsus.security.challenge.replayed.count");
     private static readonly Histogram<double> SecurityChallengeSolveDuration = Meter.CreateHistogram<double>("fsus.security.challenge.solve.duration", "ms");
+    private static readonly Counter<long> SecurityChallengeV2IssuedCounter = Meter.CreateCounter<long>("fsus.security.challenge.v2.issued.count");
+    private static readonly Counter<long> SecurityChallengeV2VerifiedCounter = Meter.CreateCounter<long>("fsus.security.challenge.v2.verified.count");
+    private static readonly Counter<long> SecurityChallengeV2FailedCounter = Meter.CreateCounter<long>("fsus.security.challenge.v2.failed.count");
+    private static readonly Counter<long> SecurityChallengeV2ReplayedCounter = Meter.CreateCounter<long>("fsus.security.challenge.v2.replayed.count");
+    private static readonly Histogram<double> SecurityChallengeV2SolveDuration = Meter.CreateHistogram<double>("fsus.security.challenge.v2.solve.duration", "ms");
+    private static readonly Histogram<double> SecurityChallengeV2PayloadBytes = Meter.CreateHistogram<double>("fsus.security.challenge.v2.payload.bytes", "By");
+    private static readonly Histogram<double> SecurityChallengeV2VerifyDuration = Meter.CreateHistogram<double>("fsus.security.challenge.v2.verify.duration", "ms");
+    private static readonly Counter<long> SecurityChallengeV2TaskKindCounter = Meter.CreateCounter<long>("fsus.security.challenge.v2.task.kind.count");
+    private static readonly Histogram<double> SecurityChallengeV2IssueDuration = Meter.CreateHistogram<double>("fsus.security.challenge.v2.issue.duration", "ms");
+    private static readonly Histogram<double> SecurityChallengeV2ClientRenderDuration = Meter.CreateHistogram<double>("fsus.security.challenge.v2.client.render.duration", "ms");
     private static readonly Counter<long> SecurityDecisionCounter = Meter.CreateCounter<long>("fsus.security.decision.count");
     private static readonly Histogram<double> CacheOperationDuration = Meter.CreateHistogram<double>("fsus.cache.operation.duration", "ms");
     private static readonly Histogram<double> DbOperationDuration = Meter.CreateHistogram<double>("fsus.db.operation.duration", "ms");
@@ -95,6 +119,16 @@ public static class FsusObservability
     private static readonly Histogram<double> PublicAotInvalidationDuration = Meter.CreateHistogram<double>("public_aot_invalidation_duration_ms", "ms");
 
     public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
+
+    internal const int SecurityChallengeV2IssueP99BudgetMs = 100;
+    internal const int SecurityChallengeV2VerifyP99BudgetMs = 32;
+    internal const int SecurityChallengeV2PayloadP95BudgetBytes = 6200;
+    internal const int SecurityChallengeV2ClientRenderP95BudgetMs = 55;
+    private const int SecurityChallengeV2SampleLimit = 512;
+    private static readonly ConcurrentQueue<double> SecurityChallengeV2IssueSamples = new();
+    private static readonly ConcurrentQueue<double> SecurityChallengeV2VerifySamples = new();
+    private static readonly ConcurrentQueue<int> SecurityChallengeV2PayloadSamples = new();
+    private static readonly ConcurrentQueue<double> SecurityChallengeV2ClientRenderSamples = new();
 
     public static bool IsAllowedCustomAttribute(string name)
         => AllowedCustomAttributes.Contains(name);
@@ -273,6 +307,146 @@ public static class FsusObservability
         });
     }
 
+    public static void RecordSecurityChallengeV2Issued(
+        string kind,
+        string action,
+        string policyVersion,
+        string taskKind,
+        int payloadBytes,
+        TimeSpan issueDuration)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateSecurityChallengeV2Tags("challenge_v2_issue", "issued", kind, action, policyVersion, taskKind);
+            SecurityChallengeV2IssuedCounter.Add(1, tags);
+            SecurityChallengeV2TaskKindCounter.Add(1, tags);
+            RecordNonNegativeHistogram(SecurityChallengeV2PayloadBytes, payloadBytes, tags);
+            RecordNonNegativeHistogram(SecurityChallengeV2IssueDuration, issueDuration.TotalMilliseconds, tags);
+            AddBoundedSample(SecurityChallengeV2PayloadSamples, payloadBytes);
+            AddBoundedSample(SecurityChallengeV2IssueSamples, issueDuration.TotalMilliseconds);
+        });
+    }
+
+    public static void RecordSecurityChallengeV2Verified(
+        string kind,
+        string action,
+        string policyVersion,
+        string taskKind,
+        int payloadBytes,
+        TimeSpan verifyDuration,
+        TimeSpan? solveDuration)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateSecurityChallengeV2Tags("challenge_v2_verify", "verified", kind, action, policyVersion, taskKind);
+            SecurityChallengeV2VerifiedCounter.Add(1, tags);
+            RecordSecurityChallengeV2VerifyMeasurements(tags, payloadBytes, verifyDuration, solveDuration);
+        });
+    }
+
+    public static void RecordSecurityChallengeV2Failed(
+        string kind,
+        string action,
+        string reason,
+        string policyVersion,
+        string taskKind,
+        int payloadBytes,
+        TimeSpan verifyDuration,
+        TimeSpan? solveDuration)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateSecurityChallengeV2Tags("challenge_v2_verify", "failed", kind, action, policyVersion, taskKind);
+            tags.Add("fsus.security.reason", NormalizeTelemetryValue(reason, "failed"));
+            SecurityChallengeV2FailedCounter.Add(1, tags);
+            RecordSecurityChallengeV2VerifyMeasurements(tags, payloadBytes, verifyDuration, solveDuration);
+        });
+    }
+
+    public static void RecordSecurityChallengeV2Replayed(
+        string kind,
+        string action,
+        string reason,
+        string policyVersion,
+        string taskKind,
+        int payloadBytes,
+        TimeSpan verifyDuration,
+        TimeSpan? solveDuration)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateSecurityChallengeV2Tags("challenge_v2_verify", "replayed", kind, action, policyVersion, taskKind);
+            tags.Add("fsus.security.reason", NormalizeTelemetryValue(reason, "replayed"));
+            SecurityChallengeV2ReplayedCounter.Add(1, tags);
+            RecordSecurityChallengeV2VerifyMeasurements(tags, payloadBytes, verifyDuration, solveDuration);
+        });
+    }
+
+    public static void RecordSecurityChallengeV2ClientRender(string taskKind, TimeSpan renderDuration)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateSecurityChallengeV2Tags(
+                "challenge_v2_client_render",
+                "ok",
+                "perception",
+                "client-render",
+                "unknown",
+                taskKind);
+            RecordNonNegativeHistogram(SecurityChallengeV2ClientRenderDuration, renderDuration.TotalMilliseconds, tags);
+            AddBoundedSample(SecurityChallengeV2ClientRenderSamples, renderDuration.TotalMilliseconds);
+        });
+    }
+
+    public static SecurityChallengeV2PerformanceBudgetSnapshot CreateSecurityChallengeV2PerformanceBudgetSnapshot()
+    {
+        double issueP99 = Percentile(SecurityChallengeV2IssueSamples.ToArray(), 0.99);
+        double verifyP99 = Percentile(SecurityChallengeV2VerifySamples.ToArray(), 0.99);
+        int payloadP95 = Percentile(SecurityChallengeV2PayloadSamples.ToArray(), 0.95);
+        double clientRenderP95 = Percentile(SecurityChallengeV2ClientRenderSamples.ToArray(), 0.95);
+        List<string> warnings = [];
+
+        if (issueP99 > SecurityChallengeV2IssueP99BudgetMs)
+        {
+            warnings.Add("issue_p99_budget_exceeded");
+        }
+
+        if (verifyP99 > SecurityChallengeV2VerifyP99BudgetMs)
+        {
+            warnings.Add("verify_p99_budget_exceeded");
+        }
+
+        if (payloadP95 > SecurityChallengeV2PayloadP95BudgetBytes)
+        {
+            warnings.Add("payload_p95_budget_exceeded");
+        }
+
+        if (clientRenderP95 > SecurityChallengeV2ClientRenderP95BudgetMs)
+        {
+            warnings.Add("client_render_p95_budget_exceeded");
+        }
+
+        return new SecurityChallengeV2PerformanceBudgetSnapshot(
+            warnings.Count == 0 ? "ok" : "warning",
+            Math.Round(issueP99, 2, MidpointRounding.AwayFromZero),
+            Math.Round(verifyP99, 2, MidpointRounding.AwayFromZero),
+            payloadP95,
+            Math.Round(clientRenderP95, 2, MidpointRounding.AwayFromZero),
+            SecurityChallengeV2IssueP99BudgetMs,
+            SecurityChallengeV2VerifyP99BudgetMs,
+            SecurityChallengeV2PayloadP95BudgetBytes,
+            SecurityChallengeV2ClientRenderP95BudgetMs,
+            warnings);
+    }
+
+    internal static void ResetSecurityChallengeV2RuntimeMetricsForTests()
+    {
+        ClearQueue(SecurityChallengeV2IssueSamples);
+        ClearQueue(SecurityChallengeV2VerifySamples);
+        ClearQueue(SecurityChallengeV2PayloadSamples);
+        ClearQueue(SecurityChallengeV2ClientRenderSamples);
+    }
+
     public static void RecordDbOperation(string operation, string result, TimeSpan duration)
     {
         TagList tags = CreateBaseTags("db", operation, result);
@@ -425,6 +599,106 @@ public static class FsusObservability
         tags.Add("fsus.security.policy_version", NormalizeTelemetryValue(policyVersion, "unknown"));
         return tags;
     }
+
+    private static TagList CreateSecurityChallengeV2Tags(
+        string operation,
+        string result,
+        string kind,
+        string action,
+        string policyVersion,
+        string taskKind)
+    {
+        TagList tags = CreateSecurityChallengeTags(operation, result, kind, action, policyVersion);
+        tags.Add("fsus.security.task_kind", NormalizeTelemetryValue(taskKind, "unknown"));
+        return tags;
+    }
+
+    private static void RecordSecurityChallengeV2VerifyMeasurements(
+        TagList tags,
+        int payloadBytes,
+        TimeSpan verifyDuration,
+        TimeSpan? solveDuration)
+    {
+        RecordNonNegativeHistogram(SecurityChallengeV2PayloadBytes, payloadBytes, tags);
+        RecordNonNegativeHistogram(SecurityChallengeV2VerifyDuration, verifyDuration.TotalMilliseconds, tags);
+        AddBoundedSample(SecurityChallengeV2PayloadSamples, payloadBytes);
+        AddBoundedSample(SecurityChallengeV2VerifySamples, verifyDuration.TotalMilliseconds);
+        if (solveDuration is { } duration)
+        {
+            RecordNonNegativeHistogram(SecurityChallengeV2SolveDuration, duration.TotalMilliseconds, tags);
+        }
+    }
+
+    private static void RecordNonNegativeHistogram(Histogram<double> histogram, double value, TagList tags)
+    {
+        if (double.IsFinite(value) && value >= 0)
+        {
+            histogram.Record(value, tags);
+        }
+    }
+
+    private static void AddBoundedSample(ConcurrentQueue<double> queue, double value)
+    {
+        if (!double.IsFinite(value) || value < 0)
+        {
+            return;
+        }
+
+        queue.Enqueue(value);
+        TrimQueue(queue);
+    }
+
+    private static void AddBoundedSample(ConcurrentQueue<int> queue, int value)
+    {
+        if (value < 0)
+        {
+            return;
+        }
+
+        queue.Enqueue(value);
+        TrimQueue(queue);
+    }
+
+    private static void TrimQueue<T>(ConcurrentQueue<T> queue)
+    {
+        while (queue.Count > SecurityChallengeV2SampleLimit && queue.TryDequeue(out _))
+        {
+        }
+    }
+
+    private static void ClearQueue<T>(ConcurrentQueue<T> queue)
+    {
+        while (queue.TryDequeue(out _))
+        {
+        }
+    }
+
+    private static double Percentile(double[] values, double percentile)
+    {
+        if (values.Length == 0)
+        {
+            return 0;
+        }
+
+        Array.Sort(values);
+        int index = PercentileIndex(values.Length, percentile);
+        return values[index];
+    }
+
+    private static int Percentile(int[] values, double percentile)
+    {
+        if (values.Length == 0)
+        {
+            return 0;
+        }
+
+        Array.Sort(values);
+        int index = PercentileIndex(values.Length, percentile);
+        return values[index];
+    }
+
+    private static int PercentileIndex(int count, double percentile)
+        => Math.Clamp((int)Math.Ceiling(count * Math.Clamp(percentile, 0d, 1d)) - 1, 0, count - 1);
 
     private static Measurement<long> ObserveActiveSecurityPolicyVersion()
     {

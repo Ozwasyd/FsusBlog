@@ -3,7 +3,7 @@
 本文件是 FsusBlog 所有请求/响应 DTO、通知 WebSocket 信封与 AOT 契约的**完整参考**。
 所有定义的权威源码位于 `src/shared/Contracts/` 目录。
 
-> 最近更新：2026-06-19 — 同步 admin security RiskControl runtime options、challenge 指标与策略版本 AEDS bridge 契约。
+> 最近更新：2026-06-19 — 同步 perception-sealed@v2 metrics、readiness gate 与性能预算观测契约。
 
 ---
 
@@ -118,6 +118,8 @@ perception verify payload 为 `PerceptionSealedResultV2` (`185`)：`assignment`�
 perception-sealed@v2 payload 是 sealed perception challenge 契约，不是普通图片验证码契约。issue payload 禁止出现 `answerText`、`expectedAnswer`、`expectedX`、`expectedY`、`expectedStep`、`labelId`、`semanticId`、`objectClass`、`clientIp`、`deviceFp`、`userId`、raw UA、`proofToken`、`mfaProof`、admin session 或任何可直接推导解答的字段；verify payload 只能携带公共绑定字段、sealed token/signature、recipe hash、`solveDurationMs` 和按 task kind 编码后的响应。服务端 issue 路径不得生成 PNG、不得 rasterize、不得把解答真相写 PostgreSQL/Redis；verify 路径必须先解封 AEAD，再校验 assignment/action/route/subject/client/device/policy/recipe 绑定，最后通过 Redis attempt gate + consume-once 后才允许 orchestrator mint `X-Fsus-Challenge-Proof`。
 
 perception-sealed@v2 的配置名必须与运行时保持一致：AEAD key rotation 使用 `Security:PerceptionSealedToken:CurrentKeyVersion` 与 `Security:PerceptionSealedToken:Keys:{version}`；本地/测试 fallback signing material 使用 `Security:PerceptionV2:SigningKey`；固定测试任务只允许通过 `Security:PerceptionV2:TextTask:FixedText`、`Security:PerceptionV2:Localization:FixedX`、`Security:PerceptionV2:Localization:FixedY`、`Security:PerceptionV2:MicroInteraction:FixedSteps` 注入；micro-interaction 子系统开关为 `Security:PerceptionV2:MicroInteraction:Mode`。RiskControl rollout 不新增单独公开 JSON 配置面，只通过 `RiskControlPolicyUpdateRequest(globalMode?, captchaV1Enabled?, poSpaceV1Enabled?, publicReadChallengeEnabled?, commentRiskControlEnabled?, authRiskControlEnabled?, strictRiskMultiplierPercent?, reason?)` 与 `/api/binary/admin/security/risk-control/options|rollback` 调整。
+
+perception-sealed@v2 运行时 metrics 使用 `fsus.security.challenge.v2.*` 前缀：`issued.count`、`verified.count`、`failed.count`、`replayed.count`、`solve.duration`、`payload.bytes`、`verify.duration` 和 `task.kind.count`。所有记录路径必须把 metrics 写入视为 best-effort，collector/listener 失败不得改变 challenge verify 结果。受保护 readiness detail 的 `riskControl` 区块同时暴露 `perceptionAeadKey`、`perceptionMode` 和 `perceptionPerformanceBudget`；预算快照包含 issue p99、verify p99、payload p95、client render p95、对应阈值和 `warnings`，用于 rollout gate 告警而不替代业务 proof 消费。
 
 perception-sealed@v2 的验证矩阵：
 
@@ -1345,7 +1347,7 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 | GET | `/api/binary/author/audit/{id}` | 审计详情、context JSON 与防篡改校验结果 |
 | GET | `/api/binary/author/audit/{id}/verify` | 单条审计 `record_hash` / `record_mac` 与同链 `prev_hash` 前驱校验 |
 | GET | `/api/binary/author/ops/health` | 运维健康面板数据：PostgreSQL、Redis、audit、Crawler CIDR、备份、PublicHotRead、search、worker、队列和结构化最近错误 |
-| GET | `/api/ops/health/ready-detail` | 受保护详细 readiness JSON：配置、PostgreSQL、Redis、资源、runtime、observability；要求 admin principal `audit.read` |
+| GET | `/api/ops/health/ready-detail` | 受保护详细 readiness JSON：配置、PostgreSQL、Redis、资源、runtime、observability、RiskControl/perception-sealed@v2 gate；要求 admin principal `audit.read` |
 | GET | `/api/binary/author/ops/backup` | 最近站点备份状态，扫描 database/uploads/DataProtection keyring/config/site-package/restore-drill artifacts |
 | GET | `/api/binary/author/ops/dangerous-operations/policy` | 管理端危险操作等级、admin passkey step-up、强确认和 diff 策略 |
 | GET | `/api/binary/author/cache/diagnostics?articleId={id}` | AOT/PublicHotRead/search/sitemap/feed/comment cache/output cache 诊断，可选单文章定位 |

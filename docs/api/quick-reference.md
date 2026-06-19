@@ -181,8 +181,8 @@
 | GET `/api/binary/system/page/{slug}` | 🔓 📦 | `PageContent`(14) | 公开静态页内容，slug allowlist 同上 |
 | POST `/api/binary/read-proof/challenge.aeds` | 🔓 🚦 📦 | `HumanReadChallengeRequest`(73) → `HumanReadChallengeResponse`(28) | 真人阅读 challenge；受 `read_proof` 限流 |
 | POST `/api/binary/read-proof/submit.aeds` | 🔓 🚦 📦 | `HumanReadSubmitRequest`(74) → `HumanReadSubmitResponse`(29) | 真人阅读 proof 提交；拒绝状态写入统一风险信号 |
-| POST `/api/binary/security/challenge` | 🔓 🚦 📦 | `SecurityChallengeIssueRequest`(173) → `SecurityChallengeIssueResponse`(175) | RiskControl challenge 签发；不提供 JSON fallback |
-| POST `/api/binary/security/challenge/verify` | 🔓 🚦 📦 | `SecurityChallengeVerifyRequest`(174) → `SecurityChallengeVerifyResponse`(176) | Provider proof 验证，成功返回一次性 `proofToken` |
+| POST `/api/binary/security/challenge` | 🔓 🚦 📦 | `SecurityChallengeIssueRequest`(173) → `SecurityChallengeIssueResponse`(175) | RiskControl challenge 签发；perception-sealed@v2 记录 issue/payload/task metrics；不提供 JSON fallback |
+| POST `/api/binary/security/challenge/verify` | 🔓 🚦 📦 | `SecurityChallengeVerifyRequest`(174) → `SecurityChallengeVerifyResponse`(176) | Provider proof 验证，成功返回一次性 `proofToken`；perception-sealed@v2 metrics 失败不影响验证结果 |
 | GET `/api/binary/anonymous-credential/root` | 🔓 🚦 📦 | `AnonymousCredentialRootSnapshot`(179) | 公开 credential root / epoch / expiry / circuit metadata；`public_read` 限流 |
 | GET `/api/binary/anonymous-credential/circuit` | 🔓 🚦 📦 | `AnonymousCredentialRootSnapshot`(179) | 同 root snapshot，用于 prover 预热读取 circuit/verifying key metadata |
 | POST `/api/binary/anonymous-credential/issue` | 🔑 🚦 📦 | `AnonymousCredentialIssueRequest`(177) → `AnonymousCredentialIssueResponse`(178) | 登录态只用于领取强匿名凭证；响应 `no-store`，签发审计不保存 credential commitment |
@@ -355,7 +355,7 @@
 | POST | `/api/binary/telemetry/rum` | 🔓🚦 | AEDS RUM 批量遥测入口 |
 | GET | `/health/live` | 🔓 | JSON 存活探针（仅检查进程） |
 | GET | `/health/ready` | 🔓 | JSON 最小就绪探针（仅 `status` / `checkedAt`，HTTP 200/503 表示 ready/not ready） |
-| GET | `/api/ops/health/ready-detail` | 👑 | 详细就绪报告（配置、Observability、启动状态、DB、Redis、runtime） |
+| GET | `/api/ops/health/ready-detail` | 👑 | 详细就绪报告（配置、Observability、启动状态、DB、Redis、runtime、RiskControl/perception-sealed@v2 gate） |
 
 通知通道是 AEDS WebSocket notification stream，不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`。
 

@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
@@ -155,6 +156,7 @@ public sealed class ProductionHealthTests
     [Fact]
     public async Task ReadinessProbe_RiskControlCheck_ValidatesPolicyProvidersAndConsumeOnce()
     {
+        FsusObservability.ResetSecurityChallengeV2RuntimeMetricsForTests();
         string tempRoot = Path.Combine(Path.GetTempPath(), "fsusblog-health-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(tempRoot, "wwwroot"));
         File.WriteAllText(Path.Combine(tempRoot, "wwwroot", "index.html"), "<html></html>");
@@ -171,7 +173,7 @@ public sealed class ProductionHealthTests
 
             using ServiceProvider provider = services.BuildServiceProvider();
             var probe = new ProductionReadinessProbe(
-                new ConfigurationBuilder().Build(),
+                CreatePerceptionReadyConfiguration(),
                 new TestWebHostEnvironment(tempRoot, Environments.Development),
                 provider,
                 NullLogger<ProductionReadinessProbe>.Instance);
@@ -184,6 +186,9 @@ public sealed class ProductionHealthTests
             Assert.True(riskControl.LastKnownGoodPolicy);
             Assert.True(riskControl.RedisConsumeOnce);
             Assert.True(riskControl.ChallengeProviderRegistry);
+            Assert.True(riskControl.PerceptionAeadKey);
+            Assert.Equal("enforce", riskControl.PerceptionMode);
+            Assert.Empty(riskControl.PerceptionPerformanceBudget.Warnings);
             Assert.Equal(SecurityChallengeContracts.SupportedKinds.Count, riskControl.Providers.Count);
         }
         finally
@@ -210,7 +215,7 @@ public sealed class ProductionHealthTests
 
             using ServiceProvider provider = services.BuildServiceProvider();
             var probe = new ProductionReadinessProbe(
-                new ConfigurationBuilder().Build(),
+                CreatePerceptionReadyConfiguration(),
                 new TestWebHostEnvironment(tempRoot, Environments.Development),
                 provider,
                 NullLogger<ProductionReadinessProbe>.Instance);
@@ -221,6 +226,47 @@ public sealed class ProductionHealthTests
             Assert.Equal("failed", riskControl.Status);
             Assert.False(riskControl.ActivePolicy);
             Assert.False(riskControl.LastKnownGoodPolicy);
+            Assert.True(riskControl.RedisConsumeOnce);
+            Assert.True(riskControl.ChallengeProviderRegistry);
+            Assert.True(riskControl.PerceptionAeadKey);
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ReadinessProbe_RiskControlCheck_FailsWhenPerceptionAeadKeyMissing()
+    {
+        string tempRoot = Path.Combine(Path.GetTempPath(), "fsusblog-health-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(tempRoot, "wwwroot"));
+        File.WriteAllText(Path.Combine(tempRoot, "wwwroot", "index.html"), "<html></html>");
+
+        try
+        {
+            var services = new ServiceCollection()
+                .AddSingleton<ISecurityRiskPolicyProvider>(new FixedRiskPolicyProvider(CreateRiskPolicy()))
+                .AddSingleton<IUnifiedCache, ConsumeOnceHealthCache>();
+            foreach (SecurityChallengeKind kind in SecurityChallengeContracts.SupportedKinds)
+            {
+                services.AddSingleton<ISecurityChallengeProvider>(new HealthChallengeProvider(SecurityChallengeContracts.ToWireName(kind)));
+            }
+
+            using ServiceProvider provider = services.BuildServiceProvider();
+            var probe = new ProductionReadinessProbe(
+                new ConfigurationBuilder().Build(),
+                new TestWebHostEnvironment(tempRoot, Environments.Development),
+                provider,
+                NullLogger<ProductionReadinessProbe>.Instance);
+
+            ProductionHealthReport report = await probe.CheckAsync(CancellationToken.None);
+
+            var riskControl = Assert.IsType<ProductionRiskControlHealthCheck>(report.Checks["riskControl"]);
+            Assert.Equal("failed", riskControl.Status);
+            Assert.False(riskControl.PerceptionAeadKey);
+            Assert.True(riskControl.ActivePolicy);
+            Assert.True(riskControl.LastKnownGoodPolicy);
             Assert.True(riskControl.RedisConsumeOnce);
             Assert.True(riskControl.ChallengeProviderRegistry);
         }
@@ -263,6 +309,15 @@ public sealed class ProductionHealthTests
                 [SecurityRiskSources.Pow] = SecuritySystemModes.Enforce,
                 [SecurityRiskSources.PoSpace] = SecuritySystemModes.Disabled
             });
+
+    private static IConfiguration CreatePerceptionReadyConfiguration()
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Security:PerceptionSealedToken:CurrentKeyVersion"] = "k1",
+                ["Security:PerceptionSealedToken:Keys:k1"] = new string('a', 64)
+            })
+            .Build();
 
     private sealed class FixedRiskPolicyProvider(SecurityRiskPolicySnapshotV2 policy) : ISecurityRiskPolicyProvider
     {

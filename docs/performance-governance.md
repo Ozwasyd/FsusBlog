@@ -37,3 +37,7 @@ High-frequency info telemetry must not write to the production console by defaul
 ## Route render pressure
 
 `check:route-render-pressure` and `check:dom-budget` cover public, user, and admin domains. Admin moderation and security routes are included so new policy/model/security surfaces cannot grow without render-pressure evidence.
+
+## Perception-sealed v2 security budget
+
+perception-sealed@v2 challenge telemetry records issue p99, verify p99, payload p95, and client render p95. The readiness detail budget snapshot warns when issue p99 exceeds 100 ms, verify p99 exceeds 32 ms, payload p95 exceeds 6200 bytes, or client render p95 exceeds 55 ms. These warnings are rollout gates for security observability; metrics collector failures must remain best-effort and cannot change provider verify outcomes.

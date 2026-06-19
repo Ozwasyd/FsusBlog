@@ -60,9 +60,11 @@ The compose file binds Kestrel to `127.0.0.1:8080:8080`. Do not change it back t
 
 - `GET /health/live`: process/Kestrel liveness only; safe for Docker healthcheck; returns `application/json`.
 - `GET /health/ready`: public readiness for rollout probes; returns only `status` and `checkedAt` with HTTP `200`/`503`.
-- `GET /api/ops/health/ready-detail`: protected readiness detail for operators; requires admin principal `audit.read` permission and includes configuration, PostgreSQL, Redis, public webroot, IP2LOCATION data, DB gate snapshot, notification stream connection count, typed startup runtime snapshot, scheduled publish worker snapshot (`lastPublishedCount` / `lastFailedCount` / `dueBacklog`), and public hot-read snapshot state/version/error metadata.
+- `GET /api/ops/health/ready-detail`: protected readiness detail for operators; requires admin principal `audit.read` permission and includes configuration, PostgreSQL, Redis, public webroot, IP2LOCATION data, DB gate snapshot, notification stream connection count, typed startup runtime snapshot, scheduled publish worker snapshot (`lastPublishedCount` / `lastFailedCount` / `dueBacklog`), public hot-read snapshot state/version/error metadata, and RiskControl/perception-sealed@v2 gates for AEAD key rotation, active/LKG policy, provider registry, Redis consume-once, mode, and performance-budget warnings.
 
 Health checks are an ops JSON protocol. They do not emit PublicAOT bootstrap frames or AEDS binary payloads, so rollout probes can evolve independently from public-page payload changes.
+
+perception-sealed@v2 readiness fails closed when `Security:PerceptionSealedToken:CurrentKeyVersion` is missing or its `Security:PerceptionSealedToken:Keys:{version}` value is not a 32-byte hex/base64/base64url key. Performance-budget warnings in ready-detail are advisory rollout signals; they do not mark public `/health/ready` down unless a hard dependency gate fails.
 
 Use readiness before switching traffic:
 

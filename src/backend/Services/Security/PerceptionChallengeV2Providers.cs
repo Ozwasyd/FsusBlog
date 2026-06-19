@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -6,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Shared.Contracts.Security;
@@ -322,6 +324,7 @@ public abstract class PerceptionChallengeV2ProviderBase(
     {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
+        long startedAt = Stopwatch.GetTimestamp();
 
         if (requiresHighRiskEscalation && request.EscalationLevel < 2)
         {
@@ -378,7 +381,15 @@ public abstract class PerceptionChallengeV2ProviderBase(
             expiresAt - issuedAt,
             cancellationToken);
 
-        return SecurityChallengeProviderIssueResult.Success(assignment, ToProviderPayload(issued.Payload));
+        IReadOnlyDictionary<string, string> providerPayload = ToProviderPayload(issued.Payload);
+        FsusObservability.RecordSecurityChallengeV2Issued(
+            Kind,
+            request.Action,
+            request.PolicyVersion,
+            PerceptionChallengeV2Contracts.ToWireTaskKind(taskKind),
+            EstimateProviderPayloadBytes(providerPayload),
+            FsusObservability.GetElapsed(startedAt));
+        return SecurityChallengeProviderIssueResult.Success(assignment, providerPayload);
     }
 
     public async Task<SecurityChallengeProviderVerifyResult> VerifyAsync(
@@ -387,10 +398,14 @@ public abstract class PerceptionChallengeV2ProviderBase(
     {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
+        long startedAt = Stopwatch.GetTimestamp();
+        int payloadBytes = EstimateProviderPayloadBytes(request.ProviderPayload);
+        TimeSpan? solveDuration = ReadSolveDuration(request.ProviderPayload);
 
         if (!TryParseProviderPayload(request.ProviderPayload, out PerceptionChallengeV2ProviderPayload payload))
         {
             await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Failed, "perception_payload_invalid", "PerceptionInvalid", null, cancellationToken);
+            RecordV2Failed(request, "perception_payload_invalid", payloadBytes, startedAt, solveDuration);
             return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
         }
 
@@ -398,6 +413,7 @@ public abstract class PerceptionChallengeV2ProviderBase(
         if (!unsealed.Succeeded || unsealed.Claims is null)
         {
             await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Failed, "perception_token_invalid", "PerceptionInvalid", payload.SealedToken, cancellationToken);
+            RecordV2Failed(request, "perception_token_invalid", payloadBytes, startedAt, solveDuration);
             return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
         }
 
@@ -406,12 +422,14 @@ public abstract class PerceptionChallengeV2ProviderBase(
         if (bindingError is not null)
         {
             await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Failed, bindingError, "PerceptionInvalid", payload.SealedToken, cancellationToken);
+            RecordV2Failed(request, bindingError, payloadBytes, startedAt, solveDuration);
             return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
         }
 
         if (claims.ExpiresAt <= timeProvider.GetUtcNow())
         {
             await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Expired, "perception_expired", "PerceptionInvalid", payload.SealedToken, cancellationToken);
+            RecordV2Failed(request, "perception_expired", payloadBytes, startedAt, solveDuration);
             return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
         }
 
@@ -419,22 +437,41 @@ public abstract class PerceptionChallengeV2ProviderBase(
         if (!consumed)
         {
             await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Replayed, "perception_replayed", "PerceptionReplay", payload.SealedToken, cancellationToken);
+            FsusObservability.RecordSecurityChallengeV2Replayed(
+                Kind,
+                request.Action,
+                "perception_replayed",
+                request.PolicyVersion,
+                PerceptionChallengeV2Contracts.ToWireTaskKind(taskKind),
+                payloadBytes,
+                FsusObservability.GetElapsed(startedAt),
+                solveDuration);
             return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
         }
 
         if (!TryValidateDuration(request.ProviderPayload, out string? durationReason, out string? durationDetail))
         {
             await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Failed, durationReason!, durationDetail!, payload.SealedToken, cancellationToken);
+            RecordV2Failed(request, durationReason!, payloadBytes, startedAt, solveDuration);
             return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
         }
 
         if (!ValidateProviderAnswer(request.ProviderPayload, claims, out string? answerReason))
         {
             await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Failed, answerReason!, "PerceptionInvalid", payload.SealedToken, cancellationToken);
+            RecordV2Failed(request, answerReason!, payloadBytes, startedAt, solveDuration);
             return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
         }
 
         await RecordAttemptAsync(request, SecurityChallengeAttemptOutcomes.Verified, "ok", payload.SealedToken, cancellationToken);
+        FsusObservability.RecordSecurityChallengeV2Verified(
+            Kind,
+            request.Action,
+            request.PolicyVersion,
+            PerceptionChallengeV2Contracts.ToWireTaskKind(taskKind),
+            payloadBytes,
+            FsusObservability.GetElapsed(startedAt),
+            solveDuration);
         return SecurityChallengeProviderVerifyResult.Success(claims.ExpiresAt);
     }
 
@@ -583,6 +620,40 @@ public abstract class PerceptionChallengeV2ProviderBase(
         }
 
         return true;
+    }
+
+    private void RecordV2Failed(
+        SecurityChallengeProviderVerifyRequest request,
+        string reason,
+        int payloadBytes,
+        long startedAt,
+        TimeSpan? solveDuration)
+        => FsusObservability.RecordSecurityChallengeV2Failed(
+            Kind,
+            request.Action,
+            reason,
+            request.PolicyVersion,
+            PerceptionChallengeV2Contracts.ToWireTaskKind(taskKind),
+            payloadBytes,
+            FsusObservability.GetElapsed(startedAt),
+            solveDuration);
+
+    private static TimeSpan? ReadSolveDuration(IReadOnlyDictionary<string, string> providerPayload)
+        => TryGetInt(providerPayload, "solveDurationMs", out int solveDurationMs) && solveDurationMs >= 0
+            ? TimeSpan.FromMilliseconds(solveDurationMs)
+            : null;
+
+    private static int EstimateProviderPayloadBytes(IReadOnlyDictionary<string, string> payload)
+    {
+        int bytes = 2;
+        foreach (KeyValuePair<string, string> item in payload)
+        {
+            bytes += Encoding.UTF8.GetByteCount(item.Key);
+            bytes += Encoding.UTF8.GetByteCount(item.Value ?? string.Empty);
+            bytes += 6;
+        }
+
+        return bytes;
     }
 
     private async Task RecordRejectedAsync(

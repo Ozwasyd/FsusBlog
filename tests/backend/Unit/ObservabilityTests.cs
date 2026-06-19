@@ -127,6 +127,104 @@ public sealed class ObservabilityTests
     }
 
     [Fact]
+    public void PerceptionChallengeV2Metrics_EmitNamedMeasurementsAndBudgetWarnings()
+    {
+        FsusObservability.ResetSecurityChallengeV2RuntimeMetricsForTests();
+        var measurements = new List<string>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (string.Equals(instrument.Meter.Name, FsusObservability.MeterName, StringComparison.Ordinal)
+                && instrument.Name.StartsWith("fsus.security.challenge.v2.", StringComparison.Ordinal))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.SetMeasurementEventCallback<double>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.Start();
+
+        FsusObservability.RecordSecurityChallengeV2Issued(
+            "perceptionTextTaskV2",
+            "comment.create",
+            "risk-policy-v2",
+            "character",
+            payloadBytes: 9_200,
+            issueDuration: TimeSpan.FromMilliseconds(140));
+        FsusObservability.RecordSecurityChallengeV2Verified(
+            "perceptionTextTaskV2",
+            "comment.create",
+            "risk-policy-v2",
+            "character",
+            payloadBytes: 9_200,
+            verifyDuration: TimeSpan.FromMilliseconds(80),
+            solveDuration: TimeSpan.FromMilliseconds(2_400));
+        FsusObservability.RecordSecurityChallengeV2Failed(
+            "perceptionTextTaskV2",
+            "comment.create",
+            "perception_payload_invalid",
+            "risk-policy-v2",
+            "character",
+            payloadBytes: 9_200,
+            verifyDuration: TimeSpan.FromMilliseconds(85),
+            solveDuration: TimeSpan.FromMilliseconds(2_400));
+        FsusObservability.RecordSecurityChallengeV2Replayed(
+            "perceptionTextTaskV2",
+            "comment.create",
+            "perception_replayed",
+            "risk-policy-v2",
+            "character",
+            payloadBytes: 9_200,
+            verifyDuration: TimeSpan.FromMilliseconds(90),
+            solveDuration: TimeSpan.FromMilliseconds(2_400));
+        FsusObservability.RecordSecurityChallengeV2ClientRender("character", TimeSpan.FromMilliseconds(75));
+
+        SecurityChallengeV2PerformanceBudgetSnapshot snapshot =
+            FsusObservability.CreateSecurityChallengeV2PerformanceBudgetSnapshot();
+
+        Assert.Contains("fsus.security.challenge.v2.issued.count", measurements);
+        Assert.Contains("fsus.security.challenge.v2.verified.count", measurements);
+        Assert.Contains("fsus.security.challenge.v2.failed.count", measurements);
+        Assert.Contains("fsus.security.challenge.v2.replayed.count", measurements);
+        Assert.Contains("fsus.security.challenge.v2.solve.duration", measurements);
+        Assert.Contains("fsus.security.challenge.v2.payload.bytes", measurements);
+        Assert.Contains("fsus.security.challenge.v2.verify.duration", measurements);
+        Assert.Contains("fsus.security.challenge.v2.task.kind.count", measurements);
+        Assert.Contains("issue_p99_budget_exceeded", snapshot.Warnings);
+        Assert.Contains("verify_p99_budget_exceeded", snapshot.Warnings);
+        Assert.Contains("payload_p95_budget_exceeded", snapshot.Warnings);
+        Assert.Contains("client_render_p95_budget_exceeded", snapshot.Warnings);
+    }
+
+    [Fact]
+    public void PerceptionChallengeV2Metrics_DoNotPropagateListenerFailures()
+    {
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (string.Equals(instrument.Meter.Name, FsusObservability.MeterName, StringComparison.Ordinal)
+                && string.Equals(instrument.Name, "fsus.security.challenge.v2.verified.count", StringComparison.Ordinal))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((_, _, _, _) => throw new InvalidOperationException("collector failed"));
+        listener.Start();
+
+        Exception? exception = Record.Exception(() =>
+            FsusObservability.RecordSecurityChallengeV2Verified(
+                "perceptionTextTaskV2",
+                "comment.create",
+                "risk-policy-v2",
+                "character",
+                payloadBytes: 1024,
+                verifyDuration: TimeSpan.FromMilliseconds(12),
+                solveDuration: TimeSpan.FromMilliseconds(2_400)));
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
     public void AddFsusObservability_RegistersCollectorSwitchAndRuntimeState()
     {
         IConfiguration configuration = new ConfigurationBuilder()
