@@ -11,6 +11,23 @@ cryptoDecision:
   revocationRoot: revocation root non-revocation witness
   productionMode: fail-closed until BBS+, Groth16, trusted setup and native verifier are complete
 scenarios:
+  - id: PRIVACY-ZK-CIRCUIT-CONTRACT
+    scenario: comment.v1 Groth16 circuit contract fixes public inputs, private witness, soundness cases and identity non-disclosure
+    owner: ServerContractAgent
+    status: automated
+    requiredCases: [bbs-credential-possession, credential-root-membership, revocation-non-membership-witness, nullifier-secret-action-scope-binding, policy-bucket-legality, no-userId-username-inputs, tamper-nullifier-scope-root-revocation-reject]
+    localCommands: [check:privacy-zk-contract]
+    code:
+      - docs/zk/anonymous-comment-v1-circuit.md
+      - security/zk/comment-v1-circuit.manifest.json
+      - security/zk/comment-v1-tamper-cases.manifest.json
+      - tools/crypto/check-zk-comment-v1-manifests.mjs
+    tests:
+      - tests/security/zk-comment-v1-manifest.test.mjs
+      - tools/crypto/check-zk-comment-v1-manifests.mjs
+    evidence:
+      - .tmp/security/zk-comment-v1-manifest.json
+
   - id: PRIVACY-ZK-TRANSPORT
     scenario: anonymous submit keeps browser credentials out and rejects credential-bearing requests
     owner: InteropGlueAgent

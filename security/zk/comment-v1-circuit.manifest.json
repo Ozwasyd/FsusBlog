@@ -1,0 +1,189 @@
+{
+  "schema": "fsusblog.zk.circuit-manifest.v1",
+  "circuit_id": "fsus.anonymous.comment.v1",
+  "public_input_layout_version": 2,
+  "proof_system": "Groth16",
+  "curve": "bn254",
+  "credential_scheme": "BBS+",
+  "artifact_status": "contract-only",
+  "production_usable": false,
+  "action_context": "comment.create",
+  "domain_separators": {
+    "nullifier_prf": "fsus.anonymous.comment.v1:nullifier:v1",
+    "scope_binding": "fsus.anonymous.comment.v1:scope:v1",
+    "policy_binding": "fsus.anonymous.comment.v1:policy:v1"
+  },
+  "public_inputs": [
+    {
+      "name": "public_input_layout_version",
+      "type": "u16",
+      "constraint": "equals 2"
+    },
+    {
+      "name": "circuit_id",
+      "type": "domain-separated-field",
+      "constraint": "equals fsus.anonymous.comment.v1"
+    },
+    {
+      "name": "action_context",
+      "type": "domain-separated-field",
+      "constraint": "equals comment.create"
+    },
+    {
+      "name": "scope",
+      "type": "field-hash",
+      "constraint": "bound into nullifier PRF and policy hash"
+    },
+    {
+      "name": "nullifier_hash",
+      "type": "field",
+      "constraint": "Poseidon credential_secret/action_context/scope output"
+    },
+    {
+      "name": "credential_root",
+      "type": "field",
+      "constraint": "membership root for credential_epoch"
+    },
+    {
+      "name": "revocation_root",
+      "type": "field",
+      "constraint": "non-membership accumulator root"
+    },
+    {
+      "name": "credential_epoch",
+      "type": "u64",
+      "constraint": "signed credential epoch and accepted root epoch"
+    },
+    {
+      "name": "credential_level",
+      "type": "u16",
+      "constraint": "signed credential attribute in allowed catalog"
+    },
+    {
+      "name": "reputation_bucket",
+      "type": "u16",
+      "constraint": "signed credential attribute in allowed catalog"
+    },
+    {
+      "name": "issuer_public_key_hash",
+      "type": "field",
+      "constraint": "accepted issuer key bound by root metadata"
+    },
+    {
+      "name": "policy_hash",
+      "type": "field",
+      "constraint": "anonymous comment policy context"
+    },
+    {
+      "name": "verifying_key_hash",
+      "type": "sha256-hex",
+      "constraint": "SHA256 of canonical verifying key bytes"
+    }
+  ],
+  "private_witness": [
+    {
+      "name": "credential_secret",
+      "type": "field",
+      "purpose": "secret seed for nullifier PRF"
+    },
+    {
+      "name": "bbs_plus_issuer_signature",
+      "type": "signature",
+      "purpose": "prove accepted issuer signed credential attributes"
+    },
+    {
+      "name": "credential_opening",
+      "type": "commitment-opening",
+      "purpose": "open blinded credential commitment inside the circuit"
+    },
+    {
+      "name": "credential_membership_proof",
+      "type": "merkle-or-accumulator-witness",
+      "purpose": "prove credential is in credential_root"
+    },
+    {
+      "name": "revocation_non_membership_witness",
+      "type": "accumulator-non-membership-witness",
+      "purpose": "prove credential is not in revocation_root"
+    },
+    {
+      "name": "signed_credential_level",
+      "type": "attribute-field",
+      "purpose": "prove public credential_level is a signed attribute"
+    },
+    {
+      "name": "signed_reputation_bucket",
+      "type": "attribute-field",
+      "purpose": "prove public reputation_bucket is a signed attribute"
+    },
+    {
+      "name": "policy_comparison_witness",
+      "type": "range-and-set-membership-witness",
+      "purpose": "prove disclosed attributes satisfy policy"
+    }
+  ],
+  "nullifier_prf": {
+    "algorithm": "poseidon",
+    "formula": "Poseidon(domain_separator, credential_secret, action_context, scope)",
+    "binds": [
+      "credential_secret",
+      "action_context",
+      "scope"
+    ],
+    "stable_for_same_secret_and_scope": true,
+    "unlinkable_across_scope": true
+  },
+  "security_assertions": [
+    {
+      "id": "valid_bbs_credential",
+      "statement": "holder has a BBS+ credential signed by an accepted issuer key"
+    },
+    {
+      "id": "current_credential_root",
+      "statement": "credential belongs to credential_root for credential_epoch"
+    },
+    {
+      "id": "revocation_non_membership",
+      "statement": "credential is not present in revocation_root"
+    },
+    {
+      "id": "qualification_policy",
+      "statement": "credential_level and reputation_bucket satisfy comment eligibility policy"
+    },
+    {
+      "id": "nullifier_prf_binding",
+      "statement": "nullifier_hash is derived from credential_secret, action_context and scope"
+    },
+    {
+      "id": "credential_bucket_legality",
+      "statement": "credential_level and reputation_bucket are signed attributes in allowed catalogs"
+    },
+    {
+      "id": "identity_non_disclosure",
+      "statement": "account identity fields are absent from public inputs and private witness"
+    }
+  ],
+  "forbidden_identity_fields": [
+    "userId",
+    "user_id",
+    "username",
+    "public_handle",
+    "account_id",
+    "session_id",
+    "client_ip",
+    "device_fingerprint",
+    "cookie",
+    "authorization"
+  ],
+  "budgets": {
+    "proof_bytes_max": 1024,
+    "wasm_prover_p95_ms_max": 3000,
+    "native_verifier_p99_ms_max": 50
+  },
+  "artifact_paths": {
+    "r1cs": "artifacts/zk/comment-v1/comment_v1.r1cs",
+    "wasm": "artifacts/zk/comment-v1/comment_v1.wasm",
+    "symbol": "artifacts/zk/comment-v1/comment_v1.sym",
+    "source_archive": "artifacts/zk/comment-v1/comment_v1_source.tar.gz"
+  }
+}

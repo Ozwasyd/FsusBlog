@@ -1,0 +1,168 @@
+{
+  "schema": "fsusblog.zk.tamper-cases.v1",
+  "circuit_id": "fsus.anonymous.comment.v1",
+  "public_input_layout_version": 2,
+  "valid_case": {
+    "id": "valid-comment-v1-witness",
+    "expected": "accept",
+    "covers": [
+      "valid_bbs_credential",
+      "current_credential_root",
+      "revocation_non_membership",
+      "qualification_policy",
+      "nullifier_prf_binding",
+      "credential_bucket_legality",
+      "identity_non_disclosure"
+    ]
+  },
+  "tamper_cases": [
+    {
+      "id": "tamper-issuer-signature",
+      "expected": "reject",
+      "mutates": [
+        "bbs_plus_issuer_signature"
+      ],
+      "covers": [
+        "valid_bbs_credential"
+      ]
+    },
+    {
+      "id": "tamper-credential-root",
+      "expected": "reject",
+      "mutates": [
+        "credential_root",
+        "credential_membership_proof"
+      ],
+      "covers": [
+        "current_credential_root"
+      ]
+    },
+    {
+      "id": "tamper-revocation-root",
+      "expected": "reject",
+      "mutates": [
+        "revocation_root",
+        "revocation_non_membership_witness"
+      ],
+      "covers": [
+        "revocation_non_membership"
+      ]
+    },
+    {
+      "id": "tamper-policy-hash",
+      "expected": "reject",
+      "mutates": [
+        "policy_hash",
+        "policy_comparison_witness"
+      ],
+      "covers": [
+        "qualification_policy"
+      ]
+    },
+    {
+      "id": "tamper-nullifier-hash",
+      "expected": "reject",
+      "mutates": [
+        "nullifier_hash"
+      ],
+      "covers": [
+        "nullifier_prf_binding"
+      ]
+    },
+    {
+      "id": "tamper-scope",
+      "expected": "reject",
+      "mutates": [
+        "scope"
+      ],
+      "covers": [
+        "nullifier_prf_binding"
+      ]
+    },
+    {
+      "id": "tamper-action-context",
+      "expected": "reject",
+      "mutates": [
+        "action_context"
+      ],
+      "covers": [
+        "nullifier_prf_binding"
+      ]
+    },
+    {
+      "id": "tamper-credential-level",
+      "expected": "reject",
+      "mutates": [
+        "credential_level",
+        "signed_credential_level"
+      ],
+      "covers": [
+        "credential_bucket_legality",
+        "qualification_policy"
+      ]
+    },
+    {
+      "id": "tamper-reputation-bucket",
+      "expected": "reject",
+      "mutates": [
+        "reputation_bucket",
+        "signed_reputation_bucket"
+      ],
+      "covers": [
+        "credential_bucket_legality",
+        "qualification_policy"
+      ]
+    },
+    {
+      "id": "tamper-credential-epoch",
+      "expected": "reject",
+      "mutates": [
+        "credential_epoch"
+      ],
+      "covers": [
+        "current_credential_root"
+      ]
+    },
+    {
+      "id": "tamper-layout-version",
+      "expected": "reject",
+      "mutates": [
+        "public_input_layout_version"
+      ],
+      "covers": [
+        "identity_non_disclosure"
+      ]
+    },
+    {
+      "id": "tamper-verifying-key-hash",
+      "expected": "reject",
+      "mutates": [
+        "verifying_key_hash"
+      ],
+      "covers": [
+        "valid_bbs_credential",
+        "current_credential_root"
+      ]
+    },
+    {
+      "id": "inject-user-id-public-input",
+      "expected": "reject",
+      "mutates": [
+        "public_inputs.userId"
+      ],
+      "covers": [
+        "identity_non_disclosure"
+      ]
+    },
+    {
+      "id": "inject-username-private-witness",
+      "expected": "reject",
+      "mutates": [
+        "private_witness.username"
+      ],
+      "covers": [
+        "identity_non_disclosure"
+      ]
+    }
+  ]
+}

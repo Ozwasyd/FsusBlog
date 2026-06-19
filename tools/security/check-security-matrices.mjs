@@ -272,6 +272,7 @@ function verifyPerceptionV2Matrix(text) {
 
 function verifyPrivacyZkCommentMatrix(text) {
   const requiredScenarioIds = [
+    'PRIVACY-ZK-CIRCUIT-CONTRACT',
     'PRIVACY-ZK-TRANSPORT',
     'PRIVACY-ZK-FAIL-CLOSED',
     'PRIVACY-ZK-TICKET-NULLIFIER',
@@ -299,7 +300,14 @@ function verifyPrivacyZkCommentMatrix(text) {
     'provider-no-userId-username-proof-raw-nullifier',
     'log-redaction-proof-witness-credential-secret-raw-nullifier-cookie-authorization',
     'admin-no-account-reversal',
-    'public-signature-explicit-opt-in'
+    'public-signature-explicit-opt-in',
+    'bbs-credential-possession',
+    'credential-root-membership',
+    'revocation-non-membership-witness',
+    'nullifier-secret-action-scope-binding',
+    'policy-bucket-legality',
+    'no-userId-username-inputs',
+    'tamper-nullifier-scope-root-revocation-reject'
   ]
   const requiredConcurrencyCases = [
     'concurrent-same-nullifier-scope-policy-limit',
