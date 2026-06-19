@@ -23,12 +23,14 @@ describe('anonymous comment author workflow contract', () => {
     expect(api).toContain('export const createAnonymousComment')
     expect(api).toContain('export const createPublicComment')
     expect(api).toContain('resolveCommentAuthorView')
-    expect(api).toContain('fixture compatibility')
+    expect(api).toContain('comment_author_contract_missing')
+    expect(api).toContain('throw createAppError')
   })
 
   it('renders comment authors through CommentAuthorView instead of legacy username fields', () => {
     expect(adapter).toContain('resolveCommentAuthorView')
-    expect(adapter).toContain('author: resolveCommentAuthorView')
+    expect(adapter).toContain('readRequiredEmbeddedAuthorView')
+    expect(adapter).toContain('comment_author_contract_missing')
     expect(commentList).toContain('thread.author.displayName')
     expect(commentList).toContain('reply.author.displayName')
     expect(commentList).toContain('reply.replyToAuthor?.displayName')

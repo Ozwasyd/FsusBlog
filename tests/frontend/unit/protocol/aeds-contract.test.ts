@@ -650,8 +650,9 @@ describe('AEDS cross-stack contract fixture', () => {
             mode: 'public',
             displayName: 'alice',
             displayLanguage: 'zh-CN',
-            badge: 'legacy',
-            scopeLabel: 'fixture compatibility'
+            badge: null,
+            scopeLabel: null,
+            credentialLevel: null
           },
           userName: 'alice',
           rootId: '101',
@@ -667,8 +668,9 @@ describe('AEDS cross-stack contract fixture', () => {
                 mode: 'public',
                 displayName: 'bob',
                 displayLanguage: 'zh-CN',
-                badge: 'legacy',
-                scopeLabel: 'fixture compatibility'
+                badge: null,
+            scopeLabel: null,
+            credentialLevel: null
               },
               userName: 'bob',
               replyToUserName: 'alice',
@@ -676,8 +678,9 @@ describe('AEDS cross-stack contract fixture', () => {
                 mode: 'public',
                 displayName: 'alice',
                 displayLanguage: 'zh-CN',
-                badge: 'legacy',
-                scopeLabel: 'fixture compatibility'
+                badge: null,
+            scopeLabel: null,
+            credentialLevel: null
               },
               isDeleted: false
             }

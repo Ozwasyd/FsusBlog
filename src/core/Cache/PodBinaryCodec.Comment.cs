@@ -5,6 +5,7 @@ using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Validation;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 
 namespace FsusBlog.Core.Cache;
@@ -910,7 +911,7 @@ public static partial class PodBinaryCodec
                 item.HasMoreReplies,
                 item.RepliesPreview.Count,
                 out ReadOnlyMemory<byte> payload));
-            writer.WriteBytes(payload.Span);
+            writer.WriteBytes(BuildCommentItemPayload(payload, item.Author, null).Span);
 
             foreach (CommentReplyPreviewItemDto reply in item.RepliesPreview)
             {
@@ -922,7 +923,7 @@ public static partial class PodBinaryCodec
                     reply.ReplyToUserName,
                     reply.Content,
                 out ReadOnlyMemory<byte> replyPayload));
-                writer.WriteBytes(replyPayload.Span);
+                writer.WriteBytes(BuildCommentItemPayload(replyPayload, reply.Author, reply.ReplyToAuthor).Span);
             }
         }
     }
@@ -953,7 +954,7 @@ public static partial class PodBinaryCodec
                 reply.ReplyToUserName,
                 reply.Content,
                 out ReadOnlyMemory<byte> payload));
-            writer.WriteBytes(payload.Span);
+            writer.WriteBytes(BuildCommentItemPayload(payload, reply.Author, reply.ReplyToAuthor).Span);
         }
     }
 
@@ -965,6 +966,39 @@ public static partial class PodBinaryCodec
     private static long? ParseNullableLong(string? value) => long.TryParse(value, out long parsed) ? parsed : null;
 
     private static long ParseCursor(string? value) => long.TryParse(value, out long cursor) ? cursor : 0;
+
+    private static ReadOnlyMemory<byte> BuildCommentItemPayload(
+        ReadOnlyMemory<byte> contentPayload,
+        CommentAuthorViewDto author,
+        CommentAuthorViewDto? replyToAuthor)
+    {
+        var bytes = new ArrayBufferWriter<byte>(contentPayload.Length + 256);
+        bytes.Write(contentPayload.Span);
+        WriteLengthPrefixedPayload(bytes, EncodeCommentAuthorView(ToCoreCommentAuthorView(author)));
+        WriteLengthPrefixedPayload(
+            bytes,
+            replyToAuthor.HasValue
+                ? EncodeCommentAuthorView(ToCoreCommentAuthorView(replyToAuthor.Value))
+                : ReadOnlySpan<byte>.Empty);
+        return bytes.WrittenMemory;
+    }
+
+    private static void WriteLengthPrefixedPayload(IBufferWriter<byte> writer, ReadOnlySpan<byte> payload)
+    {
+        Span<byte> lengthSpan = writer.GetSpan(sizeof(int));
+        BinaryPrimitives.WriteInt32LittleEndian(lengthSpan, payload.Length);
+        writer.Advance(sizeof(int));
+        writer.Write(payload);
+    }
+
+    private static CommentAuthorViewCoreModel ToCoreCommentAuthorView(CommentAuthorViewDto author)
+        => new(
+            author.Mode,
+            author.DisplayName,
+            author.DisplayLanguage,
+            author.Badge,
+            author.ScopeLabel,
+            author.CredentialLevel);
 
     private static CommentCreateRequestPod CreateCommentCreateRequestPod(
         CommentCreateRequestCoreModel request,

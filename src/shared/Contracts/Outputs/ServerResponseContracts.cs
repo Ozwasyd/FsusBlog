@@ -364,13 +364,23 @@ public sealed record class PageContentAdminDto
 public readonly record struct CommentItemDto(string Id, string Content, DateTime CreateTime, string UserName);
 public readonly record struct CommentListResponseDto(List<CommentItemDto> Data, string? NextCursor, bool HasMore);
 
+public readonly record struct CommentAuthorViewDto(
+    string Mode,
+    string DisplayName,
+    string DisplayLanguage,
+    string? Badge,
+    string? ScopeLabel,
+    string? CredentialLevel);
+
 public readonly record struct CommentReplyItemDto(
     string Id,
     string Content,
     DateTime CreateTime,
     string UserName,
+    CommentAuthorViewDto Author,
     int? ReplyToUserId,
     string? ReplyToUserName,
+    CommentAuthorViewDto? ReplyToAuthor,
     string? ParentId,
     string RootId,
     string? ReplyToCommentId,
@@ -382,7 +392,9 @@ public readonly record struct CommentReplyPreviewItemDto(
     string Content,
     DateTime CreateTime,
     string UserName,
+    CommentAuthorViewDto Author,
     string? ReplyToUserName,
+    CommentAuthorViewDto? ReplyToAuthor,
     bool IsDeleted);
 
 public readonly record struct CommentThreadItemDto(
@@ -390,6 +402,7 @@ public readonly record struct CommentThreadItemDto(
     string Content,
     DateTime CreateTime,
     string UserName,
+    CommentAuthorViewDto Author,
     string RootId,
     bool IsDeleted,
     int ReplyCount,

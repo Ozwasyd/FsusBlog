@@ -121,6 +121,8 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `241`: MutationId
 - `251`: ApiError
 
+`CommentArticleCursor` and `CommentThreadReplyCursor` item blobs keep the fixed POD content slice unchanged, then append two length-prefixed `CommentAuthorView` payloads: required `author` and optional `replyToAuthor`. Decoders must reject missing author payloads instead of reconstructing display authors from `userName`.
+
 ## Common Response PODs
 
 - `EmptySuccess` payload: `EmptySuccessPod` (`Ok = 1`, remaining bytes reserved).

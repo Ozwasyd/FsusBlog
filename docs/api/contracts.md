@@ -282,7 +282,7 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 | `CommentPolicySnapshot` (`164`) | `CommentPolicySnapshotPod` + UTF-8 blob | `GET /api/binary/comment/policy` 响应；评论 composer 渲染前读取 anonymous/public/ZK 开关、ZK-Prod readiness、默认 author mode、支持语言 `zh-CN` / `en` |
 | `CommentPolicyUpdateRequest` (`165`) | `CommentPolicyUpdateRequestPod` + UTF-8 blob | admin 匿名评论策略 patch；bool 字段用 `Has*` flag 表示未设置 |
 | `CommentCreateV2Request` (`166`) | `CommentCreateV2RequestPod` + UTF-8/blob payload | 新评论创建请求，包含 article/reply 上下文、author mode、public opt-in、anonymous scope、语言提示、普通 proof token、ZK proof bytes 和 content；不再把 ProofToken 当作 credential commitment/root 占位 |
-| `CommentAuthorView` (`167`) | `CommentAuthorViewPod` + UTF-8 blob | 评论读取侧作者投影：mode、display name、display language、badge/status/scope label、credential level |
+| `CommentAuthorView` (`167`) | `CommentAuthorViewPod` + UTF-8 blob | 评论读取侧作者投影：mode、display name、display language、badge/status/scope label、credential level；评论 cursor item blob 必须内嵌该 payload，客户端不得从 `userName` 伪造 author |
 | `AnonymousCredentialIssueRequest` (`177`) | `AnonymousCredentialIssueRequestPod` + shared blob | 匿名凭证签发请求契约：epoch、`fsus.anonymous.comment.v1` circuit id、credential level、BBS+ blinded commitment、client nonce |
 | `AnonymousCredentialIssueResponse` (`178`) | `AnonymousCredentialIssueResponsePod` + shared blob | 匿名凭证签发响应契约：BBS+ signature、issuer public key id、credential epoch、expires_at、credential level；不再返回 SHA256 commitment |
 | `AnonymousCredentialRootSnapshot` (`179`) | `AnonymousCredentialRootSnapshotPod` + shared blob | 匿名凭证 root/verifying-key snapshot：epoch、root expiry/grace expiry、ZK/verifier flags、circuit id、verifying key hash、issuer public key hash、credential/revocation root |
@@ -587,15 +587,38 @@ Submit 同样受 `read_proof` 专用限流保护。`counted=true` 会写入 `Rea
 }
 ```
 
-### `CommentReplyItemDto`（回复）
+### `CommentAuthorViewDto`（评论作者展示）
 
-与 `CommentItemDto` 相同，额外增加：
+`CommentAuthorViewDto` 是公开评论列表、回复列表和实时推送的必备当前契约。`userName` 只保留为排序、通知和旧字段展示辅助，不允许客户端在缺少 `author` 时用 `userName` 构造显示作者。
 
 ```json
 {
-  "parentId": 1,
-  "rootId": 1,
-  "replyToAuthorName": "bob"
+  "mode": "public",
+  "displayName": "alice",
+  "displayLanguage": "zh-CN",
+  "badge": null,
+  "scopeLabel": null,
+  "credentialLevel": null
+}
+```
+
+### `CommentReplyItemDto`（回复）
+
+```json
+{
+  "id": "202",
+  "content": "回复内容",
+  "createTime": "2026-01-01T00:00:00Z",
+  "userName": "bob",
+  "author": { /* CommentAuthorViewDto */ },
+  "replyToUserId": 5,
+  "replyToUserName": "alice",
+  "replyToAuthor": { /* CommentAuthorViewDto */ },
+  "parentId": "101",
+  "rootId": "101",
+  "replyToCommentId": "101",
+  "depth": 2,
+  "isDeleted": false
 }
 ```
 
@@ -603,10 +626,22 @@ Submit 同样受 `read_proof` 专用限流保护。`counted=true` 会写入 `Rea
 
 ```json
 {
-  "root": { /* CommentItemDto */ },
-  "replies": { /* CursorResponse<CommentReplyItemDto> */ }
+  "id": "101",
+  "content": "评论内容",
+  "createTime": "2026-01-01T00:00:00Z",
+  "userName": "alice",
+  "author": { /* CommentAuthorViewDto */ },
+  "rootId": "101",
+  "isDeleted": false,
+  "replyCount": 3,
+  "hasMoreReplies": true,
+  "repliesPreview": [
+    { /* CommentReplyPreviewItemDto */ }
+  ]
 }
 ```
+
+`CommentArticleCursor` 与 `CommentThreadReplyCursor` 的二进制 item payload 保持原 content slice 起始语义，随后追加两个 `int32 length + CommentAuthorView payload` 段：第一个为必备 `author`，第二个为可空 `replyToAuthor`。缺少必备 author、`replyToUserName` 与 `replyToAuthor` 不一致，或 payload 尾部残留数据都必须被前端 adapter 视为 `ProtocolFailure`。
 
 公开评论读取会按 viewer IP 解析出的地区过滤 `comment_region_compliance.blocked_regions`，并把 viewer region 纳入 `CommentCursorFrame` cache identity。`CN-MAINLAND` 严格策略只对 `CN-MAINLAND` viewer 隐藏，不会自动套用到 `CN-HK`、`CN-MO`、`CN-TW`；viewer region 解析为 `UNKNOWN` 时，任意非空 `blocked_regions` 都会被保守隐藏。评论提交同样按 request IP 解析 submit region：submit region 为 `CN-MAINLAND` 且命中大陆严格类别时直接返回 validation error；其他地区可发布但会记录对应 blocked regions；submit region 为 `UNKNOWN` 时评论进入 `Pending`，同时标记 `hide_until_reviewed=true`。
 

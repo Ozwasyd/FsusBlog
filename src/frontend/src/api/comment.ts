@@ -4,6 +4,7 @@ import { FrameType } from '@wasm/protocol/frame';
 import { requestBinaryOnly } from '@/services/binaryTransport';
 import { encodeAedsFrame } from './binaryFrame';
 import { validateCommentContent } from '@/utils/contentFilter';
+import { AppErrorCode, createAppError } from '@/utils/appError';
 
 // =================================================================================
 // 1. 类型定义 (DTOs)
@@ -18,6 +19,7 @@ export interface CommentAuthorView {
   displayLanguage: 'zh-CN' | 'en'
   badge?: string | null
   scopeLabel?: string | null
+  credentialLevel?: string | null
 }
 
 /** * 发布评论所需的 DTO
@@ -235,27 +237,20 @@ export interface UserCommentResponse {
 
 export function resolveCommentAuthorView(input: {
   author?: CommentAuthorView | null
-  userName?: string | null
-  displayLanguage?: CommentDisplayLanguage | string | null
 }): CommentAuthorView {
   const author = input.author
   if (author?.displayName?.trim()) {
     return {
-      ...author,
       mode: normalizeCommentAuthorMode(author.mode),
       displayName: author.displayName.trim(),
-      displayLanguage: normalizeCommentDisplayLanguage(author.displayLanguage)
+      displayLanguage: normalizeCommentDisplayLanguage(author.displayLanguage),
+      badge: normalizeNullableAuthorField(author.badge),
+      scopeLabel: normalizeNullableAuthorField(author.scopeLabel),
+      credentialLevel: normalizeNullableAuthorField(author.credentialLevel)
     }
   }
 
-  const displayName = input.userName?.trim() || 'fixture compatibility'
-  return {
-    mode: 'public',
-    displayName,
-    displayLanguage: normalizeCommentDisplayLanguage(input.displayLanguage),
-    badge: 'legacy',
-    scopeLabel: 'fixture compatibility'
-  }
+  throw createAppError(AppErrorCode.ProtocolFailure, 'comment_author_contract_missing')
 }
 
 // =================================================================================
@@ -666,6 +661,11 @@ function normalizeCommentAuthorMode(mode: CommentAuthorView['mode'] | string | n
 
 function normalizeCommentDisplayLanguage(language: CommentDisplayLanguage | string | null | undefined): CommentDisplayLanguage {
   return language === 'en' ? 'en' : 'zh-CN'
+}
+
+function normalizeNullableAuthorField(value: string | null | undefined): string | null {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : null
 }
 
 function parseOptionalId(value?: string | null): bigint | null {

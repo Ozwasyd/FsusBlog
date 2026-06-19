@@ -686,6 +686,7 @@ public partial class CommentService(
                 ToDisplayContent(root.IsDeleted, root.Content),
                 root.CreateTime,
                 string.IsNullOrWhiteSpace(root.UserName) ? "匿名用户" : root.UserName,
+                BuildAuthorView(root.AuthorMode, root.UserName, root.AnonymousDisplayLanguage, root.AnonymousScope, root.CredentialLevel),
                 rootId.ToString(),
                 root.IsDeleted,
                 replyCount,
@@ -870,6 +871,10 @@ SELECT
     c.content AS "Content",
     c.create_time AS "CreateTime",
     COALESCE(NULLIF(c.anonymous_display_name, ''), NULLIF(c.public_handle, ''), u.username, '') AS "UserName",
+    c.author_mode AS "AuthorMode",
+    c.anonymous_display_language AS "AnonymousDisplayLanguage",
+    c.anonymous_scope AS "AnonymousScope",
+    c.credential_level AS "CredentialLevel",
     c.depth AS "Depth",
     c.is_deleted AS "IsDeleted"
 FROM comment c
@@ -907,6 +912,10 @@ WHERE c.article_id = @ArticleId
             int fContent = reader.GetOrdinal("Content");
             int fCreateTime = reader.GetOrdinal("CreateTime");
             int fUserName = reader.GetOrdinal("UserName");
+            int fAuthorMode = reader.GetOrdinal("AuthorMode");
+            int fAnonymousDisplayLanguage = reader.GetOrdinal("AnonymousDisplayLanguage");
+            int fAnonymousScope = reader.GetOrdinal("AnonymousScope");
+            int fCredentialLevel = reader.GetOrdinal("CredentialLevel");
             int fDepth = reader.GetOrdinal("Depth");
             int fIsDeleted = reader.GetOrdinal("IsDeleted");
 
@@ -919,6 +928,10 @@ WHERE c.article_id = @ArticleId
                     Content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent),
                     CreateTime = reader.GetDateTime(fCreateTime),
                     UserName = reader.IsDBNull(fUserName) ? string.Empty : reader.GetString(fUserName),
+                    AuthorMode = reader.IsDBNull(fAuthorMode) ? null : reader.GetString(fAuthorMode),
+                    AnonymousDisplayLanguage = reader.IsDBNull(fAnonymousDisplayLanguage) ? null : reader.GetString(fAnonymousDisplayLanguage),
+                    AnonymousScope = reader.IsDBNull(fAnonymousScope) ? null : reader.GetString(fAnonymousScope),
+                    CredentialLevel = reader.IsDBNull(fCredentialLevel) ? null : reader.GetString(fCredentialLevel),
                     Depth = reader.IsDBNull(fDepth) ? 1 : reader.GetInt32(fDepth),
                     IsDeleted = reader.GetBoolean(fIsDeleted)
                 });
@@ -975,7 +988,15 @@ SELECT
     c.content AS "Content",
     c.create_time AS "CreateTime",
     COALESCE(NULLIF(c.anonymous_display_name, ''), NULLIF(c.public_handle, ''), u.username, '') AS "UserName",
+    c.author_mode AS "AuthorMode",
+    c.anonymous_display_language AS "AnonymousDisplayLanguage",
+    c.anonymous_scope AS "AnonymousScope",
+    c.credential_level AS "CredentialLevel",
     COALESCE(NULLIF(pc.anonymous_display_name, ''), NULLIF(pc.public_handle, ''), ru.username, '') AS "ReplyToUserName",
+    pc.author_mode AS "ReplyToAuthorMode",
+    pc.anonymous_display_language AS "ReplyToAnonymousDisplayLanguage",
+    pc.anonymous_scope AS "ReplyToAnonymousScope",
+    pc.credential_level AS "ReplyToCredentialLevel",
     c.depth AS "Depth",
     c.is_deleted AS "IsDeleted"
 FROM comment c
@@ -1020,7 +1041,15 @@ WHERE c.article_id = @ArticleId
             int fContent = reader.GetOrdinal("Content");
             int fCreateTime = reader.GetOrdinal("CreateTime");
             int fUserName = reader.GetOrdinal("UserName");
+            int fAuthorMode = reader.GetOrdinal("AuthorMode");
+            int fAnonymousDisplayLanguage = reader.GetOrdinal("AnonymousDisplayLanguage");
+            int fAnonymousScope = reader.GetOrdinal("AnonymousScope");
+            int fCredentialLevel = reader.GetOrdinal("CredentialLevel");
             int fReplyToUserName = reader.GetOrdinal("ReplyToUserName");
+            int fReplyToAuthorMode = reader.GetOrdinal("ReplyToAuthorMode");
+            int fReplyToAnonymousDisplayLanguage = reader.GetOrdinal("ReplyToAnonymousDisplayLanguage");
+            int fReplyToAnonymousScope = reader.GetOrdinal("ReplyToAnonymousScope");
+            int fReplyToCredentialLevel = reader.GetOrdinal("ReplyToCredentialLevel");
             int fDepth = reader.GetOrdinal("Depth");
             int fIsDeleted = reader.GetOrdinal("IsDeleted");
 
@@ -1036,7 +1065,15 @@ WHERE c.article_id = @ArticleId
                     Content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent),
                     CreateTime = reader.GetDateTime(fCreateTime),
                     UserName = reader.IsDBNull(fUserName) ? string.Empty : reader.GetString(fUserName),
+                    AuthorMode = reader.IsDBNull(fAuthorMode) ? null : reader.GetString(fAuthorMode),
+                    AnonymousDisplayLanguage = reader.IsDBNull(fAnonymousDisplayLanguage) ? null : reader.GetString(fAnonymousDisplayLanguage),
+                    AnonymousScope = reader.IsDBNull(fAnonymousScope) ? null : reader.GetString(fAnonymousScope),
+                    CredentialLevel = reader.IsDBNull(fCredentialLevel) ? null : reader.GetString(fCredentialLevel),
                     ReplyToUserName = reader.IsDBNull(fReplyToUserName) ? null : reader.GetString(fReplyToUserName),
+                    ReplyToAuthorMode = reader.IsDBNull(fReplyToAuthorMode) ? null : reader.GetString(fReplyToAuthorMode),
+                    ReplyToAnonymousDisplayLanguage = reader.IsDBNull(fReplyToAnonymousDisplayLanguage) ? null : reader.GetString(fReplyToAnonymousDisplayLanguage),
+                    ReplyToAnonymousScope = reader.IsDBNull(fReplyToAnonymousScope) ? null : reader.GetString(fReplyToAnonymousScope),
+                    ReplyToCredentialLevel = reader.IsDBNull(fReplyToCredentialLevel) ? null : reader.GetString(fReplyToCredentialLevel),
                     Depth = reader.IsDBNull(fDepth) ? 2 : reader.GetInt32(fDepth),
                     IsDeleted = reader.GetBoolean(fIsDeleted)
                 });
@@ -1079,7 +1116,12 @@ WHERE c.article_id = @ArticleId
                 Content = c.Content,
                 CreateTime = c.CreateTime,
                 UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.Username,
+                AuthorMode = c.AuthorMode,
+                AnonymousDisplayLanguage = c.AnonymousDisplayLanguage,
+                AnonymousScope = c.AnonymousScope,
+                CredentialLevel = c.CredentialLevel,
                 ReplyToUserName = ru.Username,
+                ReplyToAuthorMode = CommentAuthorModes.Public,
                 Depth = c.Depth,
                 IsDeleted = c.IsDeleted
             })
@@ -1109,7 +1151,15 @@ SELECT
     x.content AS "Content",
     x.create_time AS "CreateTime",
     x.user_name AS "UserName",
+    x.author_mode AS "AuthorMode",
+    x.anonymous_display_language AS "AnonymousDisplayLanguage",
+    x.anonymous_scope AS "AnonymousScope",
+    x.credential_level AS "CredentialLevel",
     x.reply_to_user_name AS "ReplyToUserName",
+    x.reply_to_author_mode AS "ReplyToAuthorMode",
+    x.reply_to_anonymous_display_language AS "ReplyToAnonymousDisplayLanguage",
+    x.reply_to_anonymous_scope AS "ReplyToAnonymousScope",
+    x.reply_to_credential_level AS "ReplyToCredentialLevel",
     x.depth AS "Depth",
     x.is_deleted AS "IsDeleted"
 FROM (
@@ -1122,7 +1172,15 @@ FROM (
         c.content,
         c.create_time,
         COALESCE(NULLIF(c.anonymous_display_name, ''), NULLIF(c.public_handle, ''), u.username, '') AS user_name,
+        c.author_mode,
+        c.anonymous_display_language,
+        c.anonymous_scope,
+        c.credential_level,
         COALESCE(NULLIF(pc.anonymous_display_name, ''), NULLIF(pc.public_handle, ''), ru.username, '') AS reply_to_user_name,
+        pc.author_mode AS reply_to_author_mode,
+        pc.anonymous_display_language AS reply_to_anonymous_display_language,
+        pc.anonymous_scope AS reply_to_anonymous_scope,
+        pc.credential_level AS reply_to_credential_level,
         c.depth,
         c.is_deleted,
         ROW_NUMBER() OVER (PARTITION BY c.root_id ORDER BY c.id) AS rn
@@ -1185,7 +1243,15 @@ ORDER BY x.root_id, x.id;
             int fContent = reader.GetOrdinal("Content");
             int fCreateTime = reader.GetOrdinal("CreateTime");
             int fUserName = reader.GetOrdinal("UserName");
+            int fAuthorMode = reader.GetOrdinal("AuthorMode");
+            int fAnonymousDisplayLanguage = reader.GetOrdinal("AnonymousDisplayLanguage");
+            int fAnonymousScope = reader.GetOrdinal("AnonymousScope");
+            int fCredentialLevel = reader.GetOrdinal("CredentialLevel");
             int fReplyToUserName = reader.GetOrdinal("ReplyToUserName");
+            int fReplyToAuthorMode = reader.GetOrdinal("ReplyToAuthorMode");
+            int fReplyToAnonymousDisplayLanguage = reader.GetOrdinal("ReplyToAnonymousDisplayLanguage");
+            int fReplyToAnonymousScope = reader.GetOrdinal("ReplyToAnonymousScope");
+            int fReplyToCredentialLevel = reader.GetOrdinal("ReplyToCredentialLevel");
             int fDepth = reader.GetOrdinal("Depth");
             int fIsDeleted = reader.GetOrdinal("IsDeleted");
 
@@ -1201,7 +1267,15 @@ ORDER BY x.root_id, x.id;
                     Content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent),
                     CreateTime = reader.GetDateTime(fCreateTime),
                     UserName = reader.IsDBNull(fUserName) ? string.Empty : reader.GetString(fUserName),
+                    AuthorMode = reader.IsDBNull(fAuthorMode) ? null : reader.GetString(fAuthorMode),
+                    AnonymousDisplayLanguage = reader.IsDBNull(fAnonymousDisplayLanguage) ? null : reader.GetString(fAnonymousDisplayLanguage),
+                    AnonymousScope = reader.IsDBNull(fAnonymousScope) ? null : reader.GetString(fAnonymousScope),
+                    CredentialLevel = reader.IsDBNull(fCredentialLevel) ? null : reader.GetString(fCredentialLevel),
                     ReplyToUserName = reader.IsDBNull(fReplyToUserName) ? null : reader.GetString(fReplyToUserName),
+                    ReplyToAuthorMode = reader.IsDBNull(fReplyToAuthorMode) ? null : reader.GetString(fReplyToAuthorMode),
+                    ReplyToAnonymousDisplayLanguage = reader.IsDBNull(fReplyToAnonymousDisplayLanguage) ? null : reader.GetString(fReplyToAnonymousDisplayLanguage),
+                    ReplyToAnonymousScope = reader.IsDBNull(fReplyToAnonymousScope) ? null : reader.GetString(fReplyToAnonymousScope),
+                    ReplyToCredentialLevel = reader.IsDBNull(fReplyToCredentialLevel) ? null : reader.GetString(fReplyToCredentialLevel),
                     Depth = reader.GetInt32(fDepth),
                     IsDeleted = reader.GetBoolean(fIsDeleted)
                 });
@@ -1234,8 +1308,10 @@ ORDER BY x.root_id, x.id;
             ToDisplayContent(row.IsDeleted, row.Content),
             row.CreateTime,
             string.IsNullOrWhiteSpace(row.UserName) ? "匿名用户" : row.UserName,
+            BuildAuthorView(row.AuthorMode, row.UserName, row.AnonymousDisplayLanguage, row.AnonymousScope, row.CredentialLevel),
             row.ReplyToUserId,
             string.IsNullOrWhiteSpace(row.ReplyToUserName) ? null : row.ReplyToUserName,
+            BuildReplyToAuthorView(row),
             row.ParentId?.ToString(),
             resolvedRootId.ToString(),
             row.ReplyToCommentId?.ToString(),
@@ -1249,8 +1325,61 @@ ORDER BY x.root_id, x.id;
             ToDisplayContent(row.IsDeleted, row.Content),
             row.CreateTime,
             string.IsNullOrWhiteSpace(row.UserName) ? "匿名用户" : row.UserName,
+            BuildAuthorView(row.AuthorMode, row.UserName, row.AnonymousDisplayLanguage, row.AnonymousScope, row.CredentialLevel),
             string.IsNullOrWhiteSpace(row.ReplyToUserName) ? null : row.ReplyToUserName,
+            BuildReplyToAuthorView(row),
             row.IsDeleted);
+
+    private static CommentAuthorViewDto? BuildReplyToAuthorView(ReplyRow row)
+    {
+        if (string.IsNullOrWhiteSpace(row.ReplyToUserName))
+        {
+            return null;
+        }
+
+        string mode = string.IsNullOrWhiteSpace(row.ReplyToAuthorMode)
+            ? CommentAuthorModes.Public
+            : row.ReplyToAuthorMode;
+        return BuildAuthorView(
+            mode,
+            row.ReplyToUserName!,
+            row.ReplyToAnonymousDisplayLanguage,
+            row.ReplyToAnonymousScope,
+            row.ReplyToCredentialLevel);
+    }
+
+    private static CommentAuthorViewDto BuildAuthorView(
+        string? authorMode,
+        string? displayName,
+        string? displayLanguage,
+        string? anonymousScope,
+        string? credentialLevel)
+    {
+        string mode = NormalizeAuthorModeForView(authorMode);
+        string fallbackName = string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal)
+            ? "未署名用户"
+            : "匿名用户";
+        string resolvedDisplayName = NormalizeNullable(displayName, 96) ?? fallbackName;
+
+        return new CommentAuthorViewDto(
+            mode,
+            resolvedDisplayName,
+            NormalizeAuthorDisplayLanguage(displayLanguage),
+            null,
+            string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal) ? null : NormalizeNullable(anonymousScope, 128),
+            string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal) ? null : NormalizeNullable(credentialLevel, 32));
+    }
+
+    private static string NormalizeAuthorModeForView(string? authorMode)
+    {
+        string normalized = (authorMode ?? string.Empty).Trim().ToLowerInvariant().Replace('-', '_');
+        return normalized is CommentAuthorModes.Public or CommentAuthorModes.ZkAnonymous
+            ? normalized
+            : CommentAuthorModes.Anonymous;
+    }
+
+    private static string NormalizeAuthorDisplayLanguage(string? displayLanguage)
+        => string.Equals(displayLanguage, "en", StringComparison.OrdinalIgnoreCase) ? "en" : "zh-CN";
 
     private static string ToDisplayContent(bool isDeleted, string content)
         => isDeleted ? DeletedPlaceholder : content;
@@ -1341,6 +1470,10 @@ ORDER BY x.root_id, x.id;
         public string Content { get; init; } = string.Empty;
         public DateTime CreateTime { get; init; }
         public string UserName { get; init; } = string.Empty;
+        public string? AuthorMode { get; init; }
+        public string? AnonymousDisplayLanguage { get; init; }
+        public string? AnonymousScope { get; init; }
+        public string? CredentialLevel { get; init; }
         public int Depth { get; init; }
         public bool IsDeleted { get; init; }
     }
@@ -1355,7 +1488,15 @@ ORDER BY x.root_id, x.id;
         public string Content { get; init; } = string.Empty;
         public DateTime CreateTime { get; init; }
         public string UserName { get; init; } = string.Empty;
+        public string? AuthorMode { get; init; }
+        public string? AnonymousDisplayLanguage { get; init; }
+        public string? AnonymousScope { get; init; }
+        public string? CredentialLevel { get; init; }
         public string? ReplyToUserName { get; init; }
+        public string? ReplyToAuthorMode { get; init; }
+        public string? ReplyToAnonymousDisplayLanguage { get; init; }
+        public string? ReplyToAnonymousScope { get; init; }
+        public string? ReplyToCredentialLevel { get; init; }
         public int Depth { get; init; }
         public bool IsDeleted { get; init; }
     }

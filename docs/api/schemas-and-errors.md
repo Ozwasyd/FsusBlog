@@ -213,10 +213,10 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 2 | `ArticleDetail` | `ArticleDetailPod` | `GET /api/binary/article/{id}.aeds` |
 | 3 | `ArticleHot` | `ArticleListPod` | `GET /api/binary/article/hot/{size}.aeds` |
 | 4 | `ArticleSearch` | `ArticleListPod` | 搜索索引 / author cache 诊断，不暴露旧文本业务路径 |
-| 5 | `CommentArticleCursor` | `CommentPod` | `GET /api/binary/comment/{articleId}` |
+| 5 | `CommentArticleCursor` | `CommentThreadItemPod` + item blob | `GET /api/binary/comment/{articleId}`；每个 item blob 在 content 后追加必备 `CommentAuthorView` payload 与可空 `replyToAuthor` payload |
 | 6 | `CommentUserCursor` | `CommentPod` | `GET /api/binary/comment/me` |
 | 7 | `AdminStats` | `AdminStatsPod` | — |
-| 8 | `CommentThreadReplyCursor` | `CommentPod` | `GET /api/binary/comment/{articleId}/thread/{rootId}` |
+| 8 | `CommentThreadReplyCursor` | `CommentReplyItemPod` + item blob | `GET /api/binary/comment/{articleId}/thread/{rootId}`；每个 reply item blob 在 content 后追加必备 `CommentAuthorView` payload 与可空 `replyToAuthor` payload |
 | 9 | `CategoryList` | compact taxonomy records | `GET /api/binary/category.aeds` |
 | 10 | `TagList` | compact taxonomy records | `GET /api/binary/tag.aeds` |
 | 11 | `RecentCommentStats` | compact stats records | `GET /api/binary/stats/recent-comments` |
@@ -261,7 +261,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 164 | `CommentPolicySnapshot` | `CommentPolicySnapshotPod` | 评论 composer 渲染前策略：anonymous/public/ZK 开关、ZK-Prod readiness、默认 author mode、语言列表 |
 | 165 | `CommentPolicyUpdateRequest` | `CommentPolicyUpdateRequestPod` | admin 匿名评论策略 patch 请求体 |
 | 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | 新评论创建请求；包含匿名 scope、author mode、language hint、普通 proof token 和 ZK proof bytes；不得从 userId/ProofToken 派生 ZK nullifier |
-| 167 | `CommentAuthorView` | `CommentAuthorViewPod` | 评论作者展示投影；不依赖 `userName` 表示匿名显示名 |
+| 167 | `CommentAuthorView` | `CommentAuthorViewPod` | 评论作者展示投影；评论 cursor 必须显式携带，客户端不得从 `userName` 伪造匿名/公开显示名 |
 | 177 | `AnonymousCredentialIssueRequest` | `AnonymousCredentialIssueRequestPod` | `POST /api/binary/anonymous-credential/issue` 请求体；包含 BBS+ blinded commitment、client nonce 与 layout version |
 | 178 | `AnonymousCredentialIssueResponse` | `AnonymousCredentialIssueResponsePod` | 匿名凭证签发响应契约；BBS+ signature、issuer public key id、expires_at，不返回 SHA256 commitment 或可逆身份 |
 | 179 | `AnonymousCredentialRootSnapshot` | `AnonymousCredentialRootSnapshotPod` | 匿名凭证 root/verifying-key snapshot；包含 issuer public key hash、credential/revocation root；`GET /api/binary/anonymous-credential/root` 与 `/circuit` 响应 |
@@ -339,6 +339,20 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | `AnonymousCommentTicketResponsePod` | 48 |
 | `AnonymousCommentCreateRequestPod` | 72 |
 | `AnonymousPrivacyStateSnapshotPod` | 66 |
+
+### 评论 cursor item blob
+
+`CommentThreadItemPod`、`CommentReplyPreviewItemPod` 与 `CommentReplyItemPod` 的固定 POD 中仍只保存 content 的 slice ref；对应 blob 的布局为：
+
+```text
+content bytes
+authorLength:int32
+authorPayload:CommentAuthorViewPod + blobLength:int32 + blob
+replyToAuthorLength:int32
+replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
+```
+
+`authorLength` 必须大于 0。`replyToAuthorLength` 为 0 表示没有回复目标作者；当 `replyToUserName` 非空时必须同时提供 `replyToAuthorPayload`。前端 adapter 对缺失 author、长度越界或尾部多余 bytes 返回协议错误，不能回退到旧 username display。
 
 ### 评论作者存储投影
 

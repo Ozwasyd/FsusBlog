@@ -14,6 +14,7 @@ import {
   ANONYMOUS_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE,
   ANONYMOUS_CREDENTIAL_ROOT_SNAPSHOT_POD_SIZE,
   ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE,
+  COMMENT_AUTHOR_VIEW_POD_SIZE,
   COMMENT_POLICY_SNAPSHOT_POD_SIZE,
   COMMENT_THREAD_ITEM_POD_SIZE,
   COMMENT_REPLY_ITEM_POD_SIZE,
@@ -65,6 +66,31 @@ function blobParts(...parts: Uint8Array[]): Uint8Array {
   return buildPayload(lenBuf, blob)
 }
 
+function lengthPrefixed(payload: Uint8Array): Uint8Array {
+  const lenBuf = new Uint8Array(4); writeInt32(lenBuf, 0, payload.length)
+  return buildPayload(lenBuf, payload)
+}
+
+function commentAuthorPayload(displayName: string, mode: 'anonymous' | 'public' | 'zk_anonymous' = 'public'): Uint8Array {
+  const pod = new Uint8Array(COMMENT_AUTHOR_VIEW_POD_SIZE)
+  pod[0] = mode === 'public' ? 3 : mode === 'zk_anonymous' ? 4 : 1
+  const name = textBytes(displayName)
+  const language = textBytes('zh-CN')
+  writeSliceRef(pod, 4, 0, name.length)
+  writeSliceRef(pod, 12, name.length, language.length)
+  writeSliceRef(pod, 20, name.length + language.length, 0)
+  writeSliceRef(pod, 28, name.length + language.length, 0)
+  return buildPayload(pod, blobParts(name, language))
+}
+
+function commentItemBlob(content: string, displayName = 'alice', replyToDisplayName?: string): Uint8Array {
+  return blobParts(
+    textBytes(content),
+    lengthPrefixed(commentAuthorPayload(displayName)),
+    lengthPrefixed(replyToDisplayName ? commentAuthorPayload(replyToDisplayName) : new Uint8Array())
+  )
+}
+
 // ---------------------------------------------------------------------------
 // mapCommentCursorFromPodPayload
 // ---------------------------------------------------------------------------
@@ -93,14 +119,29 @@ describe('mapCommentCursorFromPodPayload', () => {
       byteBuf(1),       // hasMore = true
       int32Buf(1),      // count = 1
       threadPod,
-      blobBuf('')       // blob
+      commentItemBlob('', 'alice')
     )
     const result = mapCommentCursorFromPodPayload(payload)
     expect(result.nextCursor).toBe('777')
     expect(result.hasMore).toBe(true)
     expect(result.data).toHaveLength(1)
     expect(result.data[0].id).toBe('55')
-    expect(result.data[0].author.displayName).toBe('fixture compatibility')
+    expect(result.data[0].author.displayName).toBe('alice')
+  })
+
+  it('rejects comment cursors without the current author contract', () => {
+    const threadPod = new Uint8Array(COMMENT_THREAD_ITEM_POD_SIZE)
+    writeInt64(threadPod, 0, 55n)
+    writeInt64(threadPod, 16, 55n)
+    const payload = buildPayload(
+      int64Buf(777n),
+      byteBuf(1),
+      int32Buf(1),
+      threadPod,
+      blobBuf('')
+    )
+
+    expect(() => mapCommentCursorFromPodPayload(payload)).toThrow('comment_author_contract_missing')
   })
 })
 
@@ -308,11 +349,11 @@ describe('mapThreadReplyCursorFromPodPayload', () => {
       byteBuf(0),      // hasMore
       int32Buf(1),     // count = 1
       replyPod,
-      blobBuf('')
+      commentItemBlob('', 'alice')
     )
     const result = mapThreadReplyCursorFromPodPayload(payload)
     expect(result.data[0].rootId).toBe('42')
-    expect(result.data[0].author.displayName).toBe('fixture compatibility')
+    expect(result.data[0].author.displayName).toBe('alice')
   })
 
   it('keeps existing rootId when non-zero', () => {
@@ -321,7 +362,7 @@ describe('mapThreadReplyCursorFromPodPayload', () => {
     writeInt64(replyPod, 16, 99n)  // rootId = 99 → should be kept
     const payload = buildPayload(
       int64Buf(42n), int64Buf(0n), byteBuf(0), int32Buf(1),
-      replyPod, blobBuf('')
+      replyPod, commentItemBlob('', 'alice')
     )
     const result = mapThreadReplyCursorFromPodPayload(payload)
     expect(result.data[0].rootId).toBe('99')

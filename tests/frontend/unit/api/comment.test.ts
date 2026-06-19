@@ -286,23 +286,25 @@ describe('comment API', () => {
     expect(raw).not.toContain('alice')
   })
 
-  it('resolves legacy usernames through CommentAuthorView compatibility', () => {
-    expect(resolveCommentAuthorView({ userName: 'Alice' })).toEqual({
-      mode: 'public',
-      displayName: 'Alice',
-      displayLanguage: 'zh-CN',
-      badge: 'legacy',
-      scopeLabel: 'fixture compatibility'
-    })
+  it('requires CommentAuthorView instead of legacy username compatibility', () => {
+    expect(() => resolveCommentAuthorView({})).toThrow('comment_author_contract_missing')
     expect(resolveCommentAuthorView({
       author: {
         mode: 'anonymous',
         displayName: '匿名用户 王明',
         displayLanguage: 'zh-CN',
+        badge: '',
+        credentialLevel: 'strong_anonymous',
         scopeLabel: '本文'
-      },
-      userName: 'Alice'
-    }).displayName).toBe('匿名用户 王明')
+      }
+    })).toEqual({
+      mode: 'anonymous',
+      displayName: '匿名用户 王明',
+      displayLanguage: 'zh-CN',
+      badge: null,
+      scopeLabel: '本文',
+      credentialLevel: 'strong_anonymous'
+    })
   })
 
   it('createComment rejects over-limit content before opening binary transport', async () => {

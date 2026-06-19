@@ -801,8 +801,9 @@ describe('binaryTransport ApiError mapping', () => {
             mode: 'public',
             displayName: 'alice',
             displayLanguage: 'zh-CN',
-            badge: 'legacy',
-            scopeLabel: 'fixture compatibility'
+            badge: null,
+            scopeLabel: null,
+            credentialLevel: null
           },
           userName: 'alice',
           rootId: '101',
@@ -818,8 +819,9 @@ describe('binaryTransport ApiError mapping', () => {
                 mode: 'public',
                 displayName: 'bob',
                 displayLanguage: 'zh-CN',
-                badge: 'legacy',
-                scopeLabel: 'fixture compatibility'
+                badge: null,
+            scopeLabel: null,
+            credentialLevel: null
               },
               userName: 'bob',
               replyToUserName: 'alice',
@@ -827,8 +829,9 @@ describe('binaryTransport ApiError mapping', () => {
                 mode: 'public',
                 displayName: 'alice',
                 displayLanguage: 'zh-CN',
-                badge: 'legacy',
-                scopeLabel: 'fixture compatibility'
+                badge: null,
+            scopeLabel: null,
+            credentialLevel: null
               },
               isDeleted: false
             }
