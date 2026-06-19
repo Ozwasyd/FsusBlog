@@ -68,7 +68,6 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `34`: TagWriteRequest
 - `35`: SeoConfigUpdateRequest
 - `36`: PageContentUpdateRequest
-- `37`: CommentCreateRequest
 - `38`: FileDeleteRequest
 - `39`: AdminChangeUserStatusRequest
 - `40`: AdminResetUserPasswordRequest
@@ -108,6 +107,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `74`: HumanReadSubmitRequest
 - `75`: RumMetricBatchRequest
 - `76`: RumMetricIngestResponse
+- `166`: CommentCreateV2Request
 - `177`: AnonymousCredentialIssueRequest
 - `178`: AnonymousCredentialIssueResponse
 - `179`: AnonymousCredentialRootSnapshot
@@ -131,7 +131,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `CategoryWriteRequest` / `TagWriteRequest` payload: `NameMutationRequestPod` (`Utf8Fixed128 Name`).
 - `SeoConfigUpdateRequest` payload: same layout as `SeoConfig`.
 - `PageContentUpdateRequest` payload: same layout as `PageContent`.
-- `CommentCreateRequest` payload: `CommentCreateRequestPod` followed by blob payload for comment content.
+- `CommentCreateV2Request` payload: `CommentCreateV2RequestPod` followed by shared blob payload for anonymous scope, display language, proof token, ZK proof bytes, and comment content.
 - `FileDeleteRequest` payload: `StringMutationRequestPod` followed by blob payload for image URL.
 - `AdminChangeUserStatusRequest` payload: `AdminChangeUserStatusRequestPod` followed by blob payload for reason.
 - `AdminResetUserPasswordRequest` payload: `AdminResetUserPasswordRequestPod` followed by blob payload for password.

@@ -38,7 +38,6 @@ export const FrameType = {
   TagWriteRequest: 34,
   SeoConfigUpdateRequest: 35,
   PageContentUpdateRequest: 36,
-  CommentCreateRequest: 37,
   FileDeleteRequest: 38,
   AdminChangeUserStatusRequest: 39,
   AdminResetUserPasswordRequest: 40,

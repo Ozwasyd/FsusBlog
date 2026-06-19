@@ -119,7 +119,7 @@ public sealed class AnonymousIdentityColdStartQualityContractTests
             "RecoveryKeyPods_RoundTrip_PreserveFields",
             "IdentityAccountSnapshot_RoundTrip_PreservesNullableHandleAndCredentialState",
             "CommentPolicySnapshotAndUpdate_RoundTrip_PreserveModesLanguagesAndPatchSemantics",
-            "CommentCreateV2Request_RoundTrip_PreservesAnonymousFieldsWithoutChangingLegacyLayout",
+            "CommentCreateV2Request_RoundTrip_PreservesAnonymousFields",
             "CommentAuthorView_RoundTrip_PreservesLocalizedAnonymousProjection",
             "AnonymousPrivacyPods_RoundTrip_PreserveCredentialRootTicketAndComment",
             "AnonymousPrivacyPods_RejectMalformedTrailingAndOversizedPayloads",

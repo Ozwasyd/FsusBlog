@@ -60,7 +60,6 @@
     { "name": "TagWriteRequest", "value": 34 },
     { "name": "SeoConfigUpdateRequest", "value": 35 },
     { "name": "PageContentUpdateRequest", "value": 36 },
-    { "name": "CommentCreateRequest", "value": 37 },
     { "name": "FileDeleteRequest", "value": 38 },
     { "name": "AdminChangeUserStatusRequest", "value": 39 },
     { "name": "AdminResetUserPasswordRequest", "value": 40 },

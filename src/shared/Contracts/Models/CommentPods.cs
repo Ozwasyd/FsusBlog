@@ -34,21 +34,6 @@ public readonly struct UserCommentPod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct CommentCreateRequestPod
-{
-    public readonly int ArticleId;
-    public readonly int ReplyToUserId;
-    public readonly byte HasParentId;
-    public readonly byte HasRootId;
-    public readonly byte HasReplyToCommentId;
-    public readonly byte HasReplyToUserId;
-    public readonly long ParentId;
-    public readonly long RootId;
-    public readonly long ReplyToCommentId;
-    public readonly Utf8SliceRef Content;
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CommentPolicySnapshotPod
 {
     public readonly byte AnonymousCommentsEnabled;

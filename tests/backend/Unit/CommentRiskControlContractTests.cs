@@ -36,9 +36,7 @@ public sealed class CommentRiskControlContractTests
     {
         string source = ReadSource("src/backend/Infrastructure/Filters/CommentRiskActionFilter.cs");
 
-        Assert.Contains("AedsFrameType.CommentCreateRequest", source, StringComparison.Ordinal);
         Assert.Contains("AedsFrameType.CommentCreateV2Request", source, StringComparison.Ordinal);
-        Assert.Contains("TryDecodeCommentCreateRequest", source, StringComparison.Ordinal);
         Assert.Contains("TryDecodeCommentCreateV2Request", source, StringComparison.Ordinal);
         Assert.Contains("RiskActionNames.CommentReply", source, StringComparison.Ordinal);
         Assert.Contains("RiskActionNames.CommentCreate", source, StringComparison.Ordinal);
@@ -52,14 +50,20 @@ public sealed class CommentRiskControlContractTests
     {
         var aeds = new AedsEncoder();
         byte[] frame = aeds.Encode(
-            AedsFrameType.CommentCreateRequest,
-            PodBinaryCodec.EncodeCommentCreateRequest(new CommentCreateRequestCoreModel(
-                42,
-                "reply",
-                "100",
-                "100",
-                "100",
-                7)));
+            AedsFrameType.CommentCreateV2Request,
+            PodBinaryCodec.EncodeCommentCreateV2Request(new CommentCreateV2RequestCoreModel(
+                ArticleId: 42,
+                Content: "reply",
+                ParentId: "100",
+                RootId: "100",
+                ReplyToCommentId: "100",
+                ReplyToUserId: 7,
+                AuthorMode: "anonymous",
+                PublicSendExplicitlySelected: false,
+                AnonymousScope: null,
+                DisplayLanguage: null,
+                ProofToken: null,
+                ZkProof: [])));
         var context = new DefaultHttpContext();
         context.Request.Body = new MemoryStream(frame);
         context.Request.ContentLength = frame.Length;

@@ -73,14 +73,6 @@ public readonly record struct UserCommentCoreModel(
     string VisibilityReasonCode,
     bool IsPubliclyVisible);
 
-public readonly record struct CommentCreateRequestCoreModel(
-    int ArticleId,
-    string Content,
-    string? ParentId,
-    string? RootId,
-    string? ReplyToCommentId,
-    int? ReplyToUserId);
-
 public readonly record struct IdentityAccountSnapshotCoreModel(
     int AccountId,
     int InternalUserId,

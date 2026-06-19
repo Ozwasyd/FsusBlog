@@ -1204,7 +1204,7 @@
           "method": "POST",
           "path": "/comment",
           "auth": "user",
-          "requestFrame": "CommentCreateRequest",
+          "requestFrame": "CommentCreateV2Request",
           "responseFrame": "EmptySuccess"
         },
         {

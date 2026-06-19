@@ -105,7 +105,7 @@ public static partial class BinaryEndpoints
             var payload = await ReadBinaryRequestPayloadAsync(
                 httpContext,
                 aeds,
-                [AedsFrameType.CommentCreateRequest, AedsFrameType.CommentCreateV2Request],
+                [AedsFrameType.CommentCreateV2Request],
                 cancellationToken,
                 CommentLimits.CreatePayloadMaxBytes);
             if (!payload.IsSuccess)
@@ -113,22 +113,12 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(payload.Error, aeds);
             }
 
-            bool isV2Request = payload.FrameType == AedsFrameType.CommentCreateV2Request;
-            CommentCreateV2RequestCoreModel requestV2 = default;
-            CommentCreateRequestCoreModel requestLegacy = default;
-            if (isV2Request)
-            {
-                if (!PodBinaryCodec.TryDecodeCommentCreateV2Request(payload.Payload, out requestV2))
-                {
-                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "评论请求体非法"), aeds);
-                }
-            }
-            else if (!PodBinaryCodec.TryDecodeCommentCreateRequest(payload.Payload, out requestLegacy))
+            if (!PodBinaryCodec.TryDecodeCommentCreateV2Request(payload.Payload, out CommentCreateV2RequestCoreModel request))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "评论请求体非法"), aeds);
             }
 
-            string content = (isV2Request ? requestV2.Content : requestLegacy.Content)?.Trim() ?? string.Empty;
+            string content = request.Content?.Trim() ?? string.Empty;
             if (!IsCommentContentWithinLimit(content))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"评论内容不能超过 {CommentLimits.ContentMaxChars} 字或 {CommentLimits.ContentMaxUtf8Bytes} 字节"), aeds);
@@ -148,10 +138,9 @@ public static partial class BinaryEndpoints
             }
 
             ClientRegionResolution submitRegion = regionResolver.Resolve(httpContext);
-            int articleId = isV2Request ? requestV2.ArticleId : requestLegacy.ArticleId;
             RegionModerationDecision regionDecision = regionLegalModerationService.EvaluateOnSubmit(new RegionModerationRequest(
                 content,
-                articleId,
+                request.ArticleId,
                 userId,
                 submitRegion.Region,
                 submitRegion.Confidence,
@@ -177,27 +166,8 @@ public static partial class BinaryEndpoints
 
             regionDecision = ApplyRiskControlModerationDecision(httpContext, regionDecision);
 
-            bool success;
-            if (isV2Request)
-            {
-                requestV2 = requestV2 with { Content = content };
-                success = await commentService.CreateCommentV2Async(userId, requestV2, regionDecision);
-            }
-            else
-            {
-                var dto = new CommentDto
-                {
-                    ArticleId = requestLegacy.ArticleId,
-                    Content = content,
-                    ParentId = requestLegacy.ParentId,
-                    RootId = requestLegacy.RootId,
-                    ReplyToCommentId = requestLegacy.ReplyToCommentId,
-                    ReplyToUserId = requestLegacy.ReplyToUserId,
-                    RegionDecision = regionDecision
-                };
-
-                success = await commentService.CreateCommentAsync(userId, dto);
-            }
+            request = request with { Content = content };
+            bool success = await commentService.CreateCommentV2Async(userId, request, regionDecision);
 
             return success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)

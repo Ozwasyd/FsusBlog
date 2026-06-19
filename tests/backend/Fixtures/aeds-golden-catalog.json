@@ -43,7 +43,6 @@
     { "name": "TagWriteRequest", "value": 34, "family": "taxonomy-request" },
     { "name": "SeoConfigUpdateRequest", "value": 35, "family": "system-request" },
     { "name": "PageContentUpdateRequest", "value": 36, "family": "system-request" },
-    { "name": "CommentCreateRequest", "value": 37, "family": "comment-request" },
     { "name": "FileDeleteRequest", "value": 38, "family": "file-request" },
     { "name": "AdminChangeUserStatusRequest", "value": 39, "family": "admin-user-request" },
     { "name": "AdminResetUserPasswordRequest", "value": 40, "family": "admin-user-request" },

@@ -1151,32 +1151,8 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
-    public void CommentCreateRequest_RoundTrip_PreservesReplyContext()
+    public void CommentCreateV2Request_RoundTrip_PreservesAnonymousFields()
     {
-        var request = new CommentCreateRequestCoreModel(
-            9,
-            "Hello",
-            "100",
-            "90",
-            "80",
-            7);
-
-        byte[] encoded = PodBinaryCodec.EncodeCommentCreateRequest(request);
-        bool ok = PodBinaryCodec.TryDecodeCommentCreateRequest(encoded, out var decoded);
-
-        Assert.True(ok);
-        Assert.Equal(9, decoded.ArticleId);
-        Assert.Equal("Hello", decoded.Content);
-        Assert.Equal("100", decoded.ParentId);
-        Assert.Equal("90", decoded.RootId);
-        Assert.Equal("80", decoded.ReplyToCommentId);
-        Assert.Equal(7, decoded.ReplyToUserId);
-    }
-
-    [Fact]
-    public void CommentCreateV2Request_RoundTrip_PreservesAnonymousFieldsWithoutChangingLegacyLayout()
-    {
-        int legacySize = Marshal.SizeOf<CommentCreateRequestPod>();
         var request = new CommentCreateV2RequestCoreModel(
             ArticleId: 9,
             Content: "Hello anonymous mode",
@@ -1207,8 +1183,6 @@ public class PodBinaryCodecTests
         Assert.Equal("zh-CN", decoded.DisplayLanguage);
         Assert.Equal("proof-token", decoded.ProofToken);
         Assert.Equal([1, 2, 3, 4], decoded.ZkProof);
-        Assert.Equal(legacySize, Marshal.SizeOf<CommentCreateRequestPod>());
-        Assert.True(Marshal.SizeOf<CommentCreateV2RequestPod>() > legacySize);
 
         byte[] retiredAuthorMode = (byte[])encoded.Clone();
         retiredAuthorMode[12] = 2;

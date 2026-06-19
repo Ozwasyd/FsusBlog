@@ -33,7 +33,7 @@ describe('comment API', () => {
     mockBinary.mockResolvedValue({} as never)
   })
 
-  it('createComment sends binary mutation frame', async () => {
+  it('createComment sends CommentCreateV2 binary mutation frame', async () => {
     const dto = { articleId: 1, content: 'Hello', nonce: 'n', salt: 's', answer: 1 }
     await createComment(dto as never)
     const body = mockBinary.mock.calls[0][0].requestOptions?.body as ArrayBuffer
@@ -47,7 +47,7 @@ describe('comment API', () => {
         body: expect.any(ArrayBuffer)
       })
     }))
-    expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateRequest)
+    expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateV2Request)
   })
 
   it('createComment uses CommentCreateV2 for anonymous author fields', async () => {

@@ -27,7 +27,7 @@ const FRAME_POW_CHALLENGE = frameType('PowChallenge')
 const FRAME_UPLOAD_COMPLETE_REQUEST = frameType('UploadCompleteRequest')
 const FRAME_SEO_CONFIG_UPDATE_REQUEST = frameType('SeoConfigUpdateRequest')
 const FRAME_PAGE_CONTENT_UPDATE_REQUEST = frameType('PageContentUpdateRequest')
-const FRAME_COMMENT_CREATE_REQUEST = frameType('CommentCreateRequest')
+const FRAME_COMMENT_CREATE_V2_REQUEST = frameType('CommentCreateV2Request')
 const FRAME_ADMIN_CHANGE_USER_STATUS_REQUEST = frameType('AdminChangeUserStatusRequest')
 const FRAME_ADMIN_RESET_USER_PASSWORD_REQUEST = frameType('AdminResetUserPasswordRequest')
 const FRAME_MFA_SETUP_START = frameType('MfaSetupStart')
@@ -304,9 +304,14 @@ export function encodeAuthUpdatePasswordRequest(data) {
   return bytes
 }
 
-export function encodeCommentCreateRequest(data) {
+export function encodeCommentCreateV2Request(data) {
+  const anonymousScope = UTF8_ENCODER.encode(data.anonymousScope ?? '')
+  const displayLanguage = UTF8_ENCODER.encode(data.displayLanguage ?? '')
+  const proofToken = UTF8_ENCODER.encode(data.proofToken ?? '')
+  const zkProof = data.zkProof instanceof Uint8Array ? data.zkProof : new Uint8Array(data.zkProof ?? [])
   const content = UTF8_ENCODER.encode(data.content ?? '')
-  const bytes = new Uint8Array(48 + content.byteLength)
+  const blobLength = anonymousScope.byteLength + displayLanguage.byteLength + proofToken.byteLength + zkProof.byteLength + content.byteLength
+  const bytes = new Uint8Array(84 + blobLength)
   const view = new DataView(bytes.buffer)
   view.setInt32(0, data.articleId ?? 0, true)
   view.setInt32(4, data.replyToUserId ?? 0, true)
@@ -318,13 +323,20 @@ export function encodeCommentCreateRequest(data) {
   bytes[9] = rootId === null ? 0 : 1
   bytes[10] = replyToCommentId === null ? 0 : 1
   bytes[11] = data.replyToUserId === null || data.replyToUserId === undefined ? 0 : 1
-  view.setBigInt64(12, parentId ?? 0n, true)
-  view.setBigInt64(20, rootId ?? 0n, true)
-  view.setBigInt64(28, replyToCommentId ?? 0n, true)
-  view.setInt32(36, 0, true)
-  view.setInt32(40, content.byteLength, true)
-  view.setInt32(44, content.byteLength, true)
-  bytes.set(content, 48)
+  view.setUint8(12, encodeCommentAuthorMode(data.authorMode))
+  view.setUint8(13, data.publicSendExplicitlySelected ? 1 : 0)
+  view.setUint16(14, 0, true)
+  view.setBigInt64(16, parentId ?? 0n, true)
+  view.setBigInt64(24, rootId ?? 0n, true)
+  view.setBigInt64(32, replyToCommentId ?? 0n, true)
+
+  let offset = 0
+  offset = writeBytesSlice(bytes, view, 40, 84, offset, anonymousScope)
+  offset = writeBytesSlice(bytes, view, 48, 84, offset, displayLanguage)
+  offset = writeBytesSlice(bytes, view, 56, 84, offset, proofToken)
+  offset = writeBytesSlice(bytes, view, 64, 84, offset, zkProof)
+  writeBytesSlice(bytes, view, 72, 84, offset, content)
+  view.setInt32(80, blobLength, true)
   return bytes
 }
 
@@ -508,6 +520,26 @@ function parseOptionalBigInt(value) {
     return parsed > 0n ? parsed : null
   } catch {
     return null
+  }
+}
+
+function writeBytesSlice(bytes, view, sliceOffset, blobStart, offset, value) {
+  view.setInt32(sliceOffset, offset, true)
+  view.setInt32(sliceOffset + 4, value.byteLength, true)
+  bytes.set(value, blobStart + offset)
+  return offset + value.byteLength
+}
+
+function encodeCommentAuthorMode(mode) {
+  switch (String(mode ?? 'anonymous').trim().toLowerCase().replace('-', '_')) {
+    case 'anonymous':
+      return 1
+    case 'public':
+      return 3
+    case 'zk_anonymous':
+      return 4
+    default:
+      throw new Error('comment_author_mode_invalid')
   }
 }
 

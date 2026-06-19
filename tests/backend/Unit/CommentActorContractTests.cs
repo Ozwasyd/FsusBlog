@@ -44,8 +44,12 @@ public sealed class CommentActorContractTests
         string services = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Bootstrap/RuntimeSecurityAndLifecycleServiceCollectionExtensions.cs");
 
         Assert.Contains("AedsFrameType.CommentCreateV2Request", endpoint, StringComparison.Ordinal);
+        Assert.Contains("[AedsFrameType.CommentCreateV2Request]", endpoint, StringComparison.Ordinal);
         Assert.Contains("TryDecodeCommentCreateV2Request", endpoint, StringComparison.Ordinal);
         Assert.Contains("CreateCommentV2Async", endpoint, StringComparison.Ordinal);
+        Assert.DoesNotContain("AedsFrameType.CommentCreate" + "Request", endpoint, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryDecodeCommentCreate" + "Request", endpoint, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateCommentAsync(userId", endpoint, StringComparison.Ordinal);
 
         Assert.Contains("ICommentActorResolver", service, StringComparison.Ordinal);
         Assert.Contains("ResolveAsync", service, StringComparison.Ordinal);

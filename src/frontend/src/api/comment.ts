@@ -265,15 +265,11 @@ export function resolveCommentAuthorView(input: {
  * 安全性保障：启用 requiresPow 策略，物理隔离垃圾评论攻击
  */
 export const createComment = (data: CommentDto, config?: ApiRequestConfig) => {
-  return sendCommentMutation(
-    data,
-    usesCommentCreateV2(data) ? FrameType.CommentCreateV2Request : FrameType.CommentCreateRequest,
-    config
-  )
+  return sendCommentMutation(data, config)
 }
 
 export const createCommentV2 = (data: CommentCreateV2Dto, config?: ApiRequestConfig) => {
-  return sendCommentMutation(data, FrameType.CommentCreateV2Request, config)
+  return sendCommentMutation(data, config)
 }
 
 export const createAnonymousComment = (
@@ -317,7 +313,6 @@ export const createPublicComment = (data: PublicCommentDto, config?: ApiRequestC
       authorMode: 'public',
       publicSendExplicitlySelected: true
     },
-    FrameType.CommentCreateV2Request,
     config
   )
 }
@@ -368,7 +363,6 @@ export const issueAnonymousCommentTicket = (
 
 function sendCommentMutation(
   data: CommentDto | CommentCreateV2Dto,
-  frameType: typeof FrameType.CommentCreateRequest | typeof FrameType.CommentCreateV2Request,
   config?: ApiRequestConfig
 ) {
   const validation = validateCommentContent(data.content ?? '')
@@ -376,9 +370,7 @@ function sendCommentMutation(
     return Promise.reject(new Error(validation.message))
   }
 
-  const payload = frameType === FrameType.CommentCreateV2Request
-    ? encodeCommentCreateV2Request(data)
-    : encodeCommentCreateRequest(data)
+  const payload = encodeCommentCreateV2Request(data)
 
   return requestBinaryOnly<null>({
     binaryUrl: '/api/binary/comment',
@@ -387,7 +379,7 @@ function sendCommentMutation(
     requestOptions: {
       method: 'POST',
       requiresPow: true,
-      body: encodeAedsFrame(frameType, payload)
+      body: encodeAedsFrame(FrameType.CommentCreateV2Request, payload)
     }
   })
 }
@@ -464,30 +456,6 @@ export const deleteComment = (id: string, config?: ApiRequestConfig) =>
       requiresPow: true
     }
   })
-
-function encodeCommentCreateRequest(data: CommentDto): Uint8Array {
-  const content = new TextEncoder().encode(data.content ?? '')
-  const bytes = new Uint8Array(44 + 4 + content.byteLength)
-  const view = new DataView(bytes.buffer)
-  view.setInt32(0, data.articleId, true)
-  view.setInt32(4, data.replyToUserId ?? 0, true)
-
-  const parentId = parseOptionalId(data.parentId)
-  const rootId = parseOptionalId(data.rootId)
-  const replyToCommentId = parseOptionalId(data.replyToCommentId)
-  bytes[8] = parentId === null ? 0 : 1
-  bytes[9] = rootId === null ? 0 : 1
-  bytes[10] = replyToCommentId === null ? 0 : 1
-  bytes[11] = data.replyToUserId === null || data.replyToUserId === undefined ? 0 : 1
-  view.setBigInt64(12, parentId ?? 0n, true)
-  view.setBigInt64(20, rootId ?? 0n, true)
-  view.setBigInt64(28, replyToCommentId ?? 0n, true)
-  view.setInt32(36, 0, true)
-  view.setInt32(40, content.byteLength, true)
-  view.setInt32(44, content.byteLength, true)
-  bytes.set(content, 48)
-  return bytes
-}
 
 export function encodeCommentCreateV2Request(data: CommentDto | CommentCreateV2Dto): Uint8Array {
   const anonymousScope = encodeText(data.anonymousScope ?? '')
@@ -615,15 +583,6 @@ export function encodeAnonymousCommentCreateRequest(data: AnonymousCommentCreate
   writeBlobPart(bytes, view, 64, ANONYMOUS_COMMENT_CREATE_REQUEST_BLOB_START, offset, content)
   view.setInt32(ANONYMOUS_COMMENT_CREATE_REQUEST_POD_SIZE, blobLength, true)
   return bytes
-}
-
-function usesCommentCreateV2(data: CommentDto): boolean {
-  return data.authorMode !== undefined ||
-    data.publicSendExplicitlySelected !== undefined ||
-    data.anonymousScope !== undefined ||
-    data.displayLanguage !== undefined ||
-    data.proofToken !== undefined ||
-    data.zkProof !== undefined
 }
 
 function encodeText(value: string): Uint8Array {

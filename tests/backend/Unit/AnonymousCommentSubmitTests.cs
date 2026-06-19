@@ -227,8 +227,10 @@ public sealed class AnonymousCommentSubmitTests
         Assert.Contains("CreateAnonymousCommentAsync", source, StringComparison.Ordinal);
 
         Assert.Contains(".RequireAuthorization()", signedHandler, StringComparison.Ordinal);
+        Assert.Contains("[AedsFrameType.CommentCreateV2Request]", signedHandler, StringComparison.Ordinal);
         Assert.Contains("CreateCommentV2Async", signedHandler, StringComparison.Ordinal);
-        Assert.Contains("CreateCommentAsync(userId", signedHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("AedsFrameType.CommentCreate" + "Request", signedHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateCommentAsync(userId", signedHandler, StringComparison.Ordinal);
     }
 
     private static CommentService CreateService(

@@ -11,7 +11,7 @@ import {
   encodeAuthLoginRequest,
   encodeAuthRegisterRequest,
   encodeAuthUpdatePasswordRequest,
-  encodeCommentCreateRequest,
+  encodeCommentCreateV2Request,
   encodeConversationCreateRequest,
   encodeConversationStatusRequest,
   encodeMfaChallengeVerifyRequest,
@@ -43,7 +43,7 @@ const FRAME_UPLOAD_INIT_REQUEST = 31;
 const FRAME_UPLOAD_COMPLETE_REQUEST = 32;
 const FRAME_SEO_CONFIG_UPDATE_REQUEST = 35;
 const FRAME_PAGE_CONTENT_UPDATE_REQUEST = 36;
-const FRAME_COMMENT_CREATE_REQUEST = 37;
+const FRAME_COMMENT_CREATE_V2_REQUEST = 166;
 const FRAME_ADMIN_CHANGE_USER_STATUS_REQUEST = 39;
 const FRAME_ADMIN_RESET_USER_PASSWORD_REQUEST = 40;
 const FRAME_AUTH_UPDATE_PASSWORD_REQUEST = 46;
@@ -513,7 +513,7 @@ function encodeOptionalBody(path, body) {
   }
 
   if (path === '/api/Comment') {
-    return encodeAedsFrame(FRAME_COMMENT_CREATE_REQUEST, encodeCommentCreateRequest(body));
+    return encodeAedsFrame(FRAME_COMMENT_CREATE_V2_REQUEST, encodeCommentCreateV2Request(body));
   }
 
   if (path.endsWith('/update-password')) {

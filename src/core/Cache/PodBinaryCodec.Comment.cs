@@ -14,42 +14,6 @@ public static partial class PodBinaryCodec
 {
     private const int AnonymousPrivacyMaxPayloadBytes = 16 * 1024;
 
-    public static void WriteCommentCreateRequest(CommentCreateRequestCoreModel request, IBufferWriter<byte> destination)
-    {
-        CommentCreateRequestPod pod = CreateCommentCreateRequestPod(request, out ReadOnlyMemory<byte> payload);
-        var writer = new BinaryPodWriter(destination);
-        writer.WritePod(pod);
-        writer.WriteBytes(payload.Span);
-    }
-
-    public static byte[] EncodeCommentCreateRequest(CommentCreateRequestCoreModel request)
-        => EncodeToArray(512 + request.Content.Length, writer => WriteCommentCreateRequest(request, writer));
-
-    public static bool TryDecodeCommentCreateRequest(ReadOnlyMemory<byte> bytes, out CommentCreateRequestCoreModel request)
-    {
-        var reader = new BinaryPodReader(bytes.Span);
-        if (!reader.TryReadPod(out CommentCreateRequestPod pod) || !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
-        {
-            request = default;
-            return false;
-        }
-
-        if (pod.HasParentId > 1 || pod.HasRootId > 1 || pod.HasReplyToCommentId > 1 || pod.HasReplyToUserId > 1)
-        {
-            request = default;
-            return false;
-        }
-
-        request = new CommentCreateRequestCoreModel(
-            pod.ArticleId,
-            PodProjector.ReadSlice(pod.Content, payload),
-            pod.HasParentId == 1 ? pod.ParentId.ToString() : null,
-            pod.HasRootId == 1 ? pod.RootId.ToString() : null,
-            pod.HasReplyToCommentId == 1 ? pod.ReplyToCommentId.ToString() : null,
-            pod.HasReplyToUserId == 1 ? pod.ReplyToUserId : null);
-        return reader.IsConsumed;
-    }
-
     public static void WriteCommentPolicySnapshot(CommentPolicySnapshotCoreModel snapshot, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(128);
@@ -1000,32 +964,6 @@ public static partial class PodBinaryCodec
             author.ScopeLabel,
             author.CredentialLevel);
 
-    private static CommentCreateRequestPod CreateCommentCreateRequestPod(
-        CommentCreateRequestCoreModel request,
-        out ReadOnlyMemory<byte> payload)
-    {
-        var bytes = new ArrayBufferWriter<byte>(512);
-        bool hasParentId = TryParsePositive(request.ParentId, out long parentId);
-        bool hasRootId = TryParsePositive(request.RootId, out long rootId);
-        bool hasReplyToCommentId = TryParsePositive(request.ReplyToCommentId, out long replyToCommentId);
-        var mutable = new MutableCommentCreateRequestPod
-        {
-            ArticleId = request.ArticleId,
-            ReplyToUserId = request.ReplyToUserId ?? 0,
-            HasParentId = hasParentId ? (byte)1 : (byte)0,
-            HasRootId = hasRootId ? (byte)1 : (byte)0,
-            HasReplyToCommentId = hasReplyToCommentId ? (byte)1 : (byte)0,
-            HasReplyToUserId = request.ReplyToUserId.HasValue ? (byte)1 : (byte)0,
-            ParentId = parentId,
-            RootId = rootId,
-            ReplyToCommentId = replyToCommentId,
-            Content = PodUtf8Codec.AppendSlice(request.Content, bytes)
-        };
-
-        payload = bytes.WrittenMemory;
-        return MemoryMarshal.Read<CommentCreateRequestPod>(MemoryMarshal.AsBytes(new MutableCommentCreateRequestPod[] { mutable }));
-    }
-
     private static CommentCreateV2RequestPod CreateCommentCreateV2RequestPod(
         CommentCreateV2RequestCoreModel request,
         out ReadOnlyMemory<byte> payload)
@@ -1172,21 +1110,6 @@ public static partial class PodBinaryCodec
 
     private static string? NullCommentFieldIfEmpty(string value)
         => value.Length == 0 ? null : value;
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutableCommentCreateRequestPod
-    {
-        public int ArticleId;
-        public int ReplyToUserId;
-        public byte HasParentId;
-        public byte HasRootId;
-        public byte HasReplyToCommentId;
-        public byte HasReplyToUserId;
-        public long ParentId;
-        public long RootId;
-        public long ReplyToCommentId;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Content;
-    }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableCommentPolicySnapshotPod
