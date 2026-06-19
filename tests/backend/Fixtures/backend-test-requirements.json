@@ -292,14 +292,18 @@
     {
       "id": "BACKEND-PERCEPTION-V2-TEST-MATRIX",
       "risk": "critical",
-      "coverage": "perception-sealed@v2 contract, AEAD/O(1) verify, binding mismatch, hot path, Redis gate, async audit, frontend worker/mobile, performance budget and fault-mode matrix",
+      "coverage": "perception-sealed@v2 contract-only, provider-only and comment.create E2E runtime gates covering AEAD/O(1) verify, binding mismatch, hot path, Redis gate, async audit, frontend worker/mobile, performance budget and fault-mode matrix",
       "evidencePaths": [
         "security/perception-v2-test-matrix.yml",
         "tools/security/check-security-matrices.mjs",
+        "tools/security/check-perception-v2-e2e-evidence.mjs",
         "tools/test/lanes/perception-v2-test-matrix.sh",
         "tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs",
+        "tests/backend/Unit/PerceptionChallengeV2E2eTests.cs",
         "tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs",
         "tests/backend/Unit/PerceptionChallengeProviderTests.cs",
+        ".tmp/security/perception-v2-e2e-runtime.json",
+        ".tmp/release-evidence/perception-v2-release-evidence.json",
         "tests/security/perception-v2/perception-harness.test.mjs"
       ]
     },

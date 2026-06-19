@@ -11,6 +11,7 @@ public sealed class PerceptionSealedV2TestMatrixTests
         "PERCEPTION-V2-INTEGRATION-HOTPATH",
         "PERCEPTION-V2-GENERATOR-STRUCTURE",
         "PERCEPTION-V2-E2E-FRONTEND",
+        "PERCEPTION-V2-E2E-RUNTIME",
         "PERCEPTION-V2-PERFORMANCE-BUDGETS",
         "PERCEPTION-V2-FAILURE-MODES"
     ];
@@ -51,6 +52,16 @@ public sealed class PerceptionSealedV2TestMatrixTests
         "micro-interaction-enabled",
         "worker-failure",
         "mobile-fallback",
+        "contract-only",
+        "provider-only",
+        "e2e-runtime",
+        "comment.create",
+        "business-action-resume",
+        "wrong-answer",
+        "expired",
+        "duplicate-submit",
+        "route-mismatch",
+        "async-audit-queue-nonblocking",
         "redis-unavailable",
         "postgres-slow-write",
         "provider-missing",
@@ -100,8 +111,12 @@ public sealed class PerceptionSealedV2TestMatrixTests
 
         Assert.Contains("id: perception-v2-test-matrix", matrix, StringComparison.Ordinal);
         Assert.Contains("tools/test/lanes/perception-v2-test-matrix.sh", matrix, StringComparison.Ordinal);
+        Assert.Contains(".tmp/security/perception-v2-e2e-runtime.json", matrix, StringComparison.Ordinal);
+        Assert.Contains(".tmp/release-evidence/perception-v2-release-evidence.json", matrix, StringComparison.Ordinal);
         Assert.Contains("\"id\": \"perception-v2-test-matrix\"", coverage, StringComparison.Ordinal);
         Assert.Contains("\"BACKEND-PERCEPTION-V2-TEST-MATRIX\"", requirements, StringComparison.Ordinal);
+        Assert.Contains("tests/backend/Unit/PerceptionChallengeV2E2eTests.cs", requirements, StringComparison.Ordinal);
+        Assert.Contains("tools/security/check-perception-v2-e2e-evidence.mjs", requirements, StringComparison.Ordinal);
         Assert.Contains("./tools/test.sh perception-v2-test-matrix --no-deps", workflow, StringComparison.Ordinal);
     }
 }

@@ -149,19 +149,24 @@
     },
     {
       "id": "perception-v2-test-matrix",
-      "description": "Perception sealed v2 test matrix is covered by a fail-closed security matrix that maps contract, unit crypto, integration hot path, frontend E2E, performance budget and fault coverage.",
+      "description": "Perception sealed v2 test matrix is covered by a fail-closed security matrix that maps contract-only, provider-only and E2E runtime evidence for comment.create, performance budget and fault coverage.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
         "security/perception-v2-test-matrix.yml",
         "tools/security/check-security-matrices.mjs",
+        "tools/security/check-perception-v2-e2e-evidence.mjs",
         "tools/test/lanes/perception-v2-test-matrix.sh",
         "tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs",
-        "tests/security/perception-v2/perception-harness.test.mjs"
+        "tests/backend/Unit/PerceptionChallengeV2E2eTests.cs",
+        "tests/security/perception-v2/perception-harness.test.mjs",
+        "docs/release-evidence/perception-v2.md",
+        ".tmp/security/perception-v2-e2e-runtime.json",
+        ".tmp/release-evidence/perception-v2-release-evidence.json"
       ],
-      "assertionType": "unit",
-      "failClosedRule": "matrix-validate and perception-v2-test-matrix require every perception-sealed@v2 acceptance scenario and issue/verify/payload/render budget to be declared before CI can pass; red-team benchmark exits non-zero when configured budgets fail.",
-      "minimumRequirement": "The matrix must include AEDS frame contracts, forbidden payload leak checks, AEAD and constant-time binding failures, issue no DB/Redis write, Redis SETNX/INCR verify gate, async audit, frontend worker/mobile fallbacks, fault modes and performance budgets.",
+      "assertionType": "runtime",
+      "failClosedRule": "matrix-validate and perception-v2-test-matrix require every perception-sealed@v2 acceptance scenario, validation class and comment.create issue-render-verify-proof-resume E2E runtime artifact before CI can pass; red-team benchmark exits non-zero when configured budgets fail.",
+      "minimumRequirement": "The matrix must include AEDS frame contracts, forbidden payload leak checks, AEAD and constant-time binding failures, issue no DB/Redis write, Redis SETNX/INCR verify gate, async audit, frontend worker/mobile fallbacks, comment.create E2E resume, wrong-answer/expired/replay/action-route mismatch failures, fault modes and performance evidence.",
       "tierIds": [
         "perception-v2-test-matrix"
       ]
