@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Serilog.Events;
 using Serilog.Parsing;
 
@@ -98,6 +99,156 @@ public sealed class AuditLogEventMapperTests
         Assert.DoesNotContain("RequestBody", context.Keys);
     }
 
+    [Theory]
+    [InlineData("Proof")]
+    [InlineData("Groth16Proof")]
+    [InlineData("NullifierHash")]
+    [InlineData("Nullifier")]
+    [InlineData("RawNullifier")]
+    [InlineData("CredentialSecret")]
+    [InlineData("CredentialCommitment")]
+    [InlineData("CredentialWitness")]
+    [InlineData("BbsSignature")]
+    [InlineData("BlindedCommitment")]
+    [InlineData("IssuerResponse")]
+    [InlineData("Credential")]
+    public void Map_DropsZkSensitiveAuditContextPropertiesByExactName(string propertyName)
+    {
+        var mapper = new AuditLogEventMapper();
+        LogEvent logEvent = CreateLogEvent(
+            DateTimeOffset.UtcNow,
+            LogEventLevel.Information,
+            "zk audit event",
+            null,
+            new LogEventProperty("SafeTrace", new ScalarValue("safe-trace")),
+            new LogEventProperty(propertyName, new ScalarValue($"secret-{propertyName}")));
+
+        AuditRecord? record = mapper.Map(logEvent);
+
+        Assert.NotNull(record);
+        IReadOnlyDictionary<string, object?> context = DecodeContext(record!);
+        Assert.Equal("safe-trace", context["SafeTrace"]);
+        Assert.DoesNotContain(propertyName, context.Keys);
+        Assert.DoesNotContain($"secret-{propertyName}", FlattenContext(context), StringComparer.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("comment_proof_payload")]
+    [InlineData("anonymousNullifierValue")]
+    [InlineData("credential_commitment_hex")]
+    [InlineData("credential-secret-bytes")]
+    [InlineData("credential.witness.payload")]
+    [InlineData("bbs_signature_compact")]
+    [InlineData("blindedCommitmentPayload")]
+    public void Map_DropsZkSensitiveAuditContextPropertiesBySubstring(string propertyName)
+    {
+        var mapper = new AuditLogEventMapper();
+        LogEvent logEvent = CreateLogEvent(
+            DateTimeOffset.UtcNow,
+            LogEventLevel.Information,
+            "zk audit event",
+            null,
+            new LogEventProperty("SafeTrace", new ScalarValue("safe-trace")),
+            new LogEventProperty(propertyName, new ScalarValue($"secret-{propertyName}")));
+
+        AuditRecord? record = mapper.Map(logEvent);
+
+        Assert.NotNull(record);
+        IReadOnlyDictionary<string, object?> context = DecodeContext(record!);
+        Assert.Equal("safe-trace", context["SafeTrace"]);
+        Assert.DoesNotContain(propertyName, context.Keys);
+        Assert.DoesNotContain($"secret-{propertyName}", FlattenContext(context), StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public void Map_DropsNestedZkSensitiveAuditContextProperties()
+    {
+        var mapper = new AuditLogEventMapper();
+        LogEvent logEvent = CreateLogEvent(
+            DateTimeOffset.UtcNow,
+            LogEventLevel.Information,
+            "nested zk audit event",
+            null,
+            new LogEventProperty(
+                "ZkContext",
+                new StructureValue(
+                [
+                    new LogEventProperty("CredentialSecret", new ScalarValue("nested-credential-secret")),
+                    new LogEventProperty("safeDetail", new ScalarValue("safe-detail"))
+                ])),
+            new LogEventProperty(
+                "NestedDictionary",
+                new DictionaryValue(new Dictionary<ScalarValue, LogEventPropertyValue>
+                {
+                    [new ScalarValue("raw_nullifier_value")] = new ScalarValue("nested-nullifier-secret"),
+                    [new ScalarValue("safeKey")] = new ScalarValue("safe-value")
+                })));
+
+        AuditRecord? record = mapper.Map(logEvent);
+
+        Assert.NotNull(record);
+        IReadOnlyDictionary<string, object?> context = DecodeContext(record!);
+        var structure = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(context["ZkContext"]);
+        Assert.Equal("safe-detail", structure["safeDetail"]);
+        Assert.DoesNotContain("CredentialSecret", structure.Keys);
+
+        var dictionary = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(context["NestedDictionary"]);
+        Assert.Equal("safe-value", dictionary["safeKey"]);
+        Assert.DoesNotContain("raw_nullifier_value", dictionary.Keys);
+        Assert.DoesNotContain("nested-credential-secret", FlattenContext(context), StringComparer.Ordinal);
+        Assert.DoesNotContain("nested-nullifier-secret", FlattenContext(context), StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public void BackendLogTemplates_DoNotDirectlyLogZkSecrets()
+    {
+        string backendRoot = Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend");
+        string[] sensitiveTokens =
+        [
+            "Proof",
+            "Groth16Proof",
+            "NullifierHash",
+            "RawNullifier",
+            "CredentialSecret",
+            "CredentialCommitment",
+            "CredentialWitness",
+            "BbsSignature",
+            "BlindedCommitment",
+            "IssuerResponse"
+        ];
+        var violations = new List<string>();
+
+        foreach (string file in Directory.EnumerateFiles(backendRoot, "*.cs", SearchOption.AllDirectories))
+        {
+            int lineNumber = 0;
+            foreach (string line in File.ReadLines(file))
+            {
+                lineNumber++;
+                string trimmed = line.Trim();
+                if (!IsLoggingTemplateOrCall(trimmed)
+                    || !sensitiveTokens.Any(token => trimmed.Contains(token, StringComparison.Ordinal)))
+                {
+                    continue;
+                }
+
+                violations.Add($"{Path.GetRelativePath(BackendTestPaths.RepositoryRoot, file)}:{lineNumber}:{trimmed}");
+            }
+        }
+
+        Assert.Empty(violations);
+    }
+
+    private static bool IsLoggingTemplateOrCall(string trimmed)
+    {
+        if (trimmed.Contains("[LoggerMessage", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return trimmed.StartsWith("Log", StringComparison.Ordinal)
+            || trimmed.Contains(".Log", StringComparison.Ordinal);
+    }
+
     private static LogEvent CreateLogEvent(
         DateTimeOffset timestamp,
         LogEventLevel level,
@@ -116,5 +267,48 @@ public sealed class AuditLogEventMapperTests
         Assert.NotNull(record.ContextPayload);
         Assert.True(PublicAotBinaryPayload.TryDecodeObject(record.ContextPayload, out Dictionary<string, object?> payload));
         return payload;
+    }
+
+    private static IEnumerable<string> FlattenContext(IReadOnlyDictionary<string, object?> context)
+    {
+        foreach ((string key, object? value) in context)
+        {
+            yield return key;
+
+            if (value is IReadOnlyDictionary<string, object?> nested)
+            {
+                foreach (string item in FlattenContext(nested))
+                {
+                    yield return item;
+                }
+
+                continue;
+            }
+
+            if (value is IEnumerable<object?> items)
+            {
+                foreach (object? item in items)
+                {
+                    if (item is IReadOnlyDictionary<string, object?> nestedItem)
+                    {
+                        foreach (string nestedText in FlattenContext(nestedItem))
+                        {
+                            yield return nestedText;
+                        }
+                    }
+                    else if (item is not null)
+                    {
+                        yield return Convert.ToString(item) ?? string.Empty;
+                    }
+                }
+
+                continue;
+            }
+
+            if (value is not null)
+            {
+                yield return Convert.ToString(value) ?? string.Empty;
+            }
+        }
     }
 }

@@ -12,14 +12,43 @@ public sealed class AuditLogEventMapper
         "Body",
         "ClientIp",
         "Cookie",
+        "BbsSignature",
+        "BlindedCommitment",
+        "Credential",
+        "CredentialCommitment",
+        "CredentialSecret",
+        "CredentialWitness",
         "Email",
+        "Groth16Proof",
         "Ip",
+        "IssuerResponse",
+        "Nullifier",
+        "NullifierHash",
         "Password",
+        "Proof",
+        "RawNullifier",
         "RequestBody",
         "Token",
         "UserAgent",
         "Username"
     };
+
+    private static readonly string[] ForbiddenContextPropertySubstrings =
+    [
+        "body",
+        "clientip",
+        "cookie",
+        "email",
+        "proof",
+        "nullifier",
+        "token",
+        "useragent",
+        "credentialcommitment",
+        "credentialsecret",
+        "credentialwitness",
+        "bbssignature",
+        "blindedcommitment"
+    ];
 
     private static readonly string[] BackgroundLifecycleKeywords =
     [
@@ -270,13 +299,7 @@ public sealed class AuditLogEventMapper
                 continue;
             }
 
-            if (ForbiddenContextProperties.Contains(propertyName)
-                || propertyName.Contains("token", StringComparison.OrdinalIgnoreCase)
-                || propertyName.Contains("cookie", StringComparison.OrdinalIgnoreCase)
-                || propertyName.Contains("email", StringComparison.OrdinalIgnoreCase)
-                || propertyName.Contains("body", StringComparison.OrdinalIgnoreCase)
-                || propertyName.Contains("useragent", StringComparison.OrdinalIgnoreCase)
-                || propertyName.Contains("clientip", StringComparison.OrdinalIgnoreCase))
+            if (ShouldDropContextProperty(propertyName))
             {
                 continue;
             }
@@ -293,21 +316,73 @@ public sealed class AuditLogEventMapper
         return PublicAotBinaryPayload.EncodeObjectFrame(payload);
     }
 
+    private static bool ShouldDropContextProperty(string propertyName)
+    {
+        if (ForbiddenContextProperties.Contains(propertyName))
+        {
+            return true;
+        }
+
+        string normalized = NormalizeContextPropertyName(propertyName);
+        return ForbiddenContextPropertySubstrings.Any(keyword =>
+            normalized.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string NormalizeContextPropertyName(string propertyName)
+    {
+        Span<char> buffer = propertyName.Length <= 256
+            ? stackalloc char[propertyName.Length]
+            : new char[propertyName.Length];
+        int index = 0;
+        foreach (char c in propertyName)
+        {
+            if (char.IsLetterOrDigit(c))
+            {
+                buffer[index++] = char.ToLowerInvariant(c);
+            }
+        }
+
+        return new string(buffer[..index]);
+    }
+
     private static object? ConvertPropertyValue(LogEventPropertyValue value)
         => value switch
         {
             ScalarValue scalar => scalar.Value,
             SequenceValue sequence => sequence.Elements.Select(ConvertPropertyValue).ToArray(),
-            DictionaryValue dictionary => dictionary.Elements.ToDictionary(
-                static pair => Convert.ToString(ConvertPropertyValue(pair.Key), CultureInfo.InvariantCulture) ?? string.Empty,
-                static pair => ConvertPropertyValue(pair.Value),
-                StringComparer.Ordinal),
-            StructureValue structure => structure.Properties.ToDictionary(
-                static property => property.Name,
-                static property => ConvertPropertyValue(property.Value),
-                StringComparer.Ordinal),
+            DictionaryValue dictionary => ConvertDictionaryValue(dictionary),
+            StructureValue structure => ConvertStructureValue(structure),
             _ => value.ToString()
         };
+
+    private static Dictionary<string, object?> ConvertDictionaryValue(DictionaryValue dictionary)
+    {
+        var result = new Dictionary<string, object?>(StringComparer.Ordinal);
+        foreach (KeyValuePair<ScalarValue, LogEventPropertyValue> pair in dictionary.Elements)
+        {
+            string key = Convert.ToString(ConvertPropertyValue(pair.Key), CultureInfo.InvariantCulture) ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(key) && !ShouldDropContextProperty(key))
+            {
+                result[key] = ConvertPropertyValue(pair.Value);
+            }
+        }
+
+        return result;
+    }
+
+    private static Dictionary<string, object?> ConvertStructureValue(StructureValue structure)
+    {
+        var result = new Dictionary<string, object?>(StringComparer.Ordinal);
+        foreach (LogEventProperty property in structure.Properties)
+        {
+            if (!ShouldDropContextProperty(property.Name))
+            {
+                result[property.Name] = ConvertPropertyValue(property.Value);
+            }
+        }
+
+        return result;
+    }
 
     private static string? TryGetString(LogEvent logEvent, string propertyName)
         => logEvent.Properties.TryGetValue(propertyName, out LogEventPropertyValue? value)

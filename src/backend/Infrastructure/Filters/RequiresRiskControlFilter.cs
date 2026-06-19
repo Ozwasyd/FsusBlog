@@ -100,8 +100,9 @@ public sealed partial class RequiresRiskControlFilter(
             return await next(context);
         }
 
-        LogChallengeProofRejected(logger, httpContext.TraceIdentifier, decision.ActionName, proof.Reason);
-        await RecordRiskAsync(httpContext, $"challenge_proof_rejected:{proof.Reason}", decision.ActionName, httpContext.RequestAborted);
+        string rejectionReason = proof.Reason;
+        LogChallengeRejected(logger, httpContext.TraceIdentifier, decision.ActionName, rejectionReason);
+        await RecordRiskAsync(httpContext, $"challenge_proof_rejected:{rejectionReason}", decision.ActionName, httpContext.RequestAborted);
         return Error(httpContext, StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden, "RISK_CHALLENGE_PROOF_REJECTED");
     }
 
@@ -171,6 +172,6 @@ public sealed partial class RequiresRiskControlFilter(
             },
             context);
 
-    [LoggerMessage(EventId = 151, Level = LogLevel.Information, Message = "RiskControl challenge proof rejected | TraceId: {TraceId} | Action: {Action} | Reason: {Reason}")]
-    private static partial void LogChallengeProofRejected(ILogger logger, string traceId, string action, string reason);
+    [LoggerMessage(EventId = 151, Level = LogLevel.Information, Message = "RiskControl challenge rejected | TraceId: {TraceId} | Action: {Action} | Reason: {Reason}")]
+    private static partial void LogChallengeRejected(ILogger logger, string traceId, string action, string reason);
 }
