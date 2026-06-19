@@ -944,7 +944,7 @@ public class PodBinaryCodecTests
             AnonymousCommentsEnabled: false,
             PublicCommentsEnabled: null,
             ZkAnonymousEnabled: true,
-            DefaultAuthorMode: "pseudonymous",
+            DefaultAuthorMode: "public",
             SupportedDisplayLanguages: ["en"]);
 
         byte[] updateEncoded = PodBinaryCodec.EncodeCommentPolicyUpdateRequest(update);
@@ -952,8 +952,16 @@ public class PodBinaryCodecTests
         Assert.False(updateDecoded.AnonymousCommentsEnabled);
         Assert.Null(updateDecoded.PublicCommentsEnabled);
         Assert.True(updateDecoded.ZkAnonymousEnabled);
-        Assert.Equal("pseudonymous", updateDecoded.DefaultAuthorMode);
+        Assert.Equal("public", updateDecoded.DefaultAuthorMode);
         Assert.Equal(["en"], updateDecoded.SupportedDisplayLanguages);
+
+        byte[] retiredSnapshotMode = (byte[])snapshotEncoded.Clone();
+        retiredSnapshotMode[3] = 2;
+        Assert.False(PodBinaryCodec.TryDecodeCommentPolicySnapshot(retiredSnapshotMode, out _));
+
+        byte[] retiredUpdateMode = (byte[])updateEncoded.Clone();
+        retiredUpdateMode[7] = 2;
+        Assert.False(PodBinaryCodec.TryDecodeCommentPolicyUpdateRequest(retiredUpdateMode, out _));
     }
 
     [Fact]
@@ -1201,6 +1209,10 @@ public class PodBinaryCodecTests
         Assert.Equal([1, 2, 3, 4], decoded.ZkProof);
         Assert.Equal(legacySize, Marshal.SizeOf<CommentCreateRequestPod>());
         Assert.True(Marshal.SizeOf<CommentCreateV2RequestPod>() > legacySize);
+
+        byte[] retiredAuthorMode = (byte[])encoded.Clone();
+        retiredAuthorMode[12] = 2;
+        Assert.False(PodBinaryCodec.TryDecodeCommentCreateV2Request(retiredAuthorMode, out _));
     }
 
     [Fact]

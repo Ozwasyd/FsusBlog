@@ -111,11 +111,9 @@ public sealed class AnonymousCommentGovernanceContractTests
         }));
 
         CommentAuthorModeDecision anonymous = service.EvaluateAuthorMode(CommentAuthorModes.Anonymous, publicSendExplicitlySelected: false);
-        CommentAuthorModeDecision pseudonymous = service.EvaluateAuthorMode(CommentAuthorModes.Pseudonymous, publicSendExplicitlySelected: false);
         CommentAuthorModeDecision zk = service.EvaluateAuthorMode(CommentAuthorModes.ZkAnonymous, publicSendExplicitlySelected: false);
 
         Assert.False(anonymous.Allowed);
-        Assert.False(pseudonymous.Allowed);
         Assert.False(zk.Allowed);
         Assert.Equal("anonymous_comments_disabled", zk.Status);
     }
@@ -129,30 +127,28 @@ public sealed class AnonymousCommentGovernanceContractTests
             AnonymousCommentsEnabled: true,
             PublicCommentsEnabled: true,
             ZkAnonymousEnabled: true,
-            DefaultAuthorMode: CommentAuthorModes.Pseudonymous,
+            DefaultAuthorMode: CommentAuthorModes.ZkAnonymous,
             SupportedDisplayLanguages: ["zh-CN", "en", "fr"]));
 
         Assert.True(updated.ZkAnonymousEnabled);
-        Assert.Equal(CommentAuthorModes.Pseudonymous, updated.DefaultAuthorMode);
+        Assert.Equal(CommentAuthorModes.ZkAnonymous, updated.DefaultAuthorMode);
         Assert.Equal(["zh-CN", "en"], updated.SupportedDisplayLanguages);
     }
 
     [Fact]
-    public void AnonymousCommentPolicy_UpdateNormalizesInvalidAuthorModeToCurrentRuntimeSnapshot()
+    public void AnonymousCommentPolicy_UpdateRejectsInvalidAuthorMode()
     {
         var service = new AnonymousCommentPolicyService(BuildConfiguration([]));
 
-        AnonymousCommentPolicySnapshot updated = service.UpdatePolicy(new AnonymousCommentPolicyUpdateRequest(
+        ArgumentException ex = Assert.Throws<ArgumentException>(() => service.UpdatePolicy(new AnonymousCommentPolicyUpdateRequest(
             AnonymousCommentsEnabled: null,
             PublicCommentsEnabled: null,
             ZkAnonymousEnabled: null,
             DefaultAuthorMode: "invalid-mode",
             SupportedDisplayLanguages: ["fr", "zh-CN"],
-            Reason: "unit"));
+            Reason: "unit")));
 
-        Assert.Equal(CommentAuthorModes.Anonymous, updated.DefaultAuthorMode);
-        Assert.Equal(["zh-CN"], updated.SupportedDisplayLanguages);
-        Assert.NotEmpty(updated.SnapshotHash);
+        Assert.Equal("DefaultAuthorMode", ex.ParamName);
     }
 
     [Fact]
@@ -167,7 +163,7 @@ public sealed class AnonymousCommentGovernanceContractTests
                 AnonymousCommentsEnabled = false,
                 PublicCommentsEnabled = false,
                 ZkAnonymousEnabled = false,
-                DefaultAuthorMode = CommentAuthorModes.Pseudonymous,
+                DefaultAuthorMode = CommentAuthorModes.ZkAnonymous,
                 SupportedDisplayLanguages = "en",
                 ChangedBy = "seed",
                 UpdatedReason = "seeded",
@@ -192,14 +188,14 @@ public sealed class AnonymousCommentGovernanceContractTests
             Assert.False(initial.AnonymousCommentsEnabled);
             Assert.False(initial.PublicCommentsEnabled);
             Assert.False(initial.ZkAnonymousEnabled);
-            Assert.Equal(CommentAuthorModes.Pseudonymous, initial.DefaultAuthorMode);
+            Assert.Equal(CommentAuthorModes.ZkAnonymous, initial.DefaultAuthorMode);
             Assert.Equal(["en"], initial.SupportedDisplayLanguages);
 
             AnonymousCommentPolicySnapshot updated = service.UpdatePolicy(new AnonymousCommentPolicyUpdateRequest(
                 AnonymousCommentsEnabled: true,
                 PublicCommentsEnabled: true,
                 ZkAnonymousEnabled: true,
-                DefaultAuthorMode: "invalid-mode",
+                DefaultAuthorMode: CommentAuthorModes.Anonymous,
                 SupportedDisplayLanguages: ["fr", "zh-CN"],
                 Reason: "policy rollout"),
                 adminPrincipalId: 42);
@@ -207,7 +203,7 @@ public sealed class AnonymousCommentGovernanceContractTests
             Assert.True(updated.AnonymousCommentsEnabled);
             Assert.True(updated.PublicCommentsEnabled);
             Assert.True(updated.ZkAnonymousEnabled);
-            Assert.Equal(CommentAuthorModes.Pseudonymous, updated.DefaultAuthorMode);
+            Assert.Equal(CommentAuthorModes.Anonymous, updated.DefaultAuthorMode);
             Assert.Equal(["zh-CN"], updated.SupportedDisplayLanguages);
             Assert.Equal("admin:42", updated.ChangedBy);
             Assert.Equal("policy rollout", updated.Reason);
@@ -221,7 +217,7 @@ public sealed class AnonymousCommentGovernanceContractTests
             Assert.True(stored.AnonymousCommentsEnabled);
             Assert.True(stored.PublicCommentsEnabled);
             Assert.True(stored.ZkAnonymousEnabled);
-            Assert.Equal(CommentAuthorModes.Pseudonymous, stored.DefaultAuthorMode);
+            Assert.Equal(CommentAuthorModes.Anonymous, stored.DefaultAuthorMode);
             Assert.Equal("zh-CN", stored.SupportedDisplayLanguages);
             Assert.Equal("admin:42", stored.ChangedBy);
             Assert.Equal("policy rollout", stored.UpdatedReason);
@@ -240,7 +236,7 @@ public sealed class AnonymousCommentGovernanceContractTests
             Assert.True(reloaded.AnonymousCommentsEnabled);
             Assert.True(reloaded.PublicCommentsEnabled);
             Assert.True(reloaded.ZkAnonymousEnabled);
-            Assert.Equal(CommentAuthorModes.Pseudonymous, reloaded.DefaultAuthorMode);
+            Assert.Equal(CommentAuthorModes.Anonymous, reloaded.DefaultAuthorMode);
             Assert.Equal(["zh-CN"], reloaded.SupportedDisplayLanguages);
             Assert.Equal(updated.SnapshotHash, reloaded.SnapshotHash);
             Assert.Equal("admin:42", reloaded.ChangedBy);

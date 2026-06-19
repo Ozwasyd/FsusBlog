@@ -44,7 +44,6 @@ public sealed class AnonymousCommentProductRuleContractTests
         }));
 
         Assert.False(disabled.EvaluateAuthorMode(CommentAuthorModes.Anonymous, publicSendExplicitlySelected: false).Allowed);
-        Assert.False(disabled.EvaluateAuthorMode(CommentAuthorModes.Pseudonymous, publicSendExplicitlySelected: false).Allowed);
         Assert.False(disabled.EvaluateAuthorMode(CommentAuthorModes.ZkAnonymous, publicSendExplicitlySelected: false).Allowed);
         Assert.True(disabled.EvaluateAuthorMode(CommentAuthorModes.Public, publicSendExplicitlySelected: true).Allowed);
     }

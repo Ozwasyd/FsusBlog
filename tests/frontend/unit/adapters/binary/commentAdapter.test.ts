@@ -147,6 +147,16 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
     pod[0] = 2
     expect(() => mapCommentPolicySnapshotFromPayload(buildPayload(pod, blobBuf('')))).toThrow()
   })
+
+  it('rejects retired author mode bytes', () => {
+    const pod = new Uint8Array(COMMENT_POLICY_SNAPSHOT_POD_SIZE)
+    pod[0] = 1
+    pod[1] = 1
+    pod[2] = 1
+    pod[3] = 2
+
+    expect(() => mapCommentPolicySnapshotFromPayload(buildPayload(pod, blobBuf('')))).toThrow()
+  })
 })
 
 // ---------------------------------------------------------------------------

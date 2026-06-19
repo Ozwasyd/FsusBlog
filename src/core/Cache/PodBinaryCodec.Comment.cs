@@ -1030,20 +1030,22 @@ public static partial class PodBinaryCodec
         => long.TryParse(value, out parsed) && parsed > 0;
 
     private static byte EncodeCommentAuthorMode(string? mode)
-        => NormalizeCommentToken(mode) switch
+    {
+        string normalized = NormalizeCommentToken(mode);
+        return normalized switch
         {
-            "pseudonymous" => 2,
+            "" or "anonymous" => 1,
             "public" => 3,
             "zk_anonymous" => 4,
-            _ => 1
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), "comment_author_mode_invalid")
         };
+    }
 
     private static bool TryDecodeCommentAuthorMode(byte raw, out string mode)
     {
         mode = raw switch
         {
             0 or 1 => "anonymous",
-            2 => "pseudonymous",
             3 => "public",
             4 => "zk_anonymous",
             _ => string.Empty

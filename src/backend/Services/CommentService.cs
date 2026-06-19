@@ -444,7 +444,6 @@ public partial class CommentService(
         => !string.IsNullOrWhiteSpace(actor.AnonymousNullifierHash)
             && !string.IsNullOrWhiteSpace(actor.AnonymousScope)
             && (string.Equals(actor.AuthorMode, CommentAuthorModes.Anonymous, StringComparison.Ordinal)
-                || string.Equals(actor.AuthorMode, CommentAuthorModes.Pseudonymous, StringComparison.Ordinal)
                 || string.Equals(actor.AuthorMode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal));
 
     private CommentActor BuildAnonymousTicketActor(

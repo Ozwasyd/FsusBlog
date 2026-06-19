@@ -30,7 +30,7 @@ export interface CommentDto extends PowRequest {
   rootId?: string | null
   replyToCommentId?: string | null
   replyToUserId?: number | null
-  authorMode?: CommentAuthorMode | 'pseudonymous' | null
+  authorMode?: CommentAuthorMode | null
   publicSendExplicitlySelected?: boolean | null
   anonymousScope?: string | null
   displayLanguage?: string | null
@@ -77,7 +77,7 @@ export interface CommentPolicySnapshot {
   anonymousCommentsEnabled: boolean
   publicCommentsEnabled: boolean
   zkAnonymousEnabled: boolean
-  defaultAuthorMode: CommentAuthorMode | 'pseudonymous'
+  defaultAuthorMode: CommentAuthorMode
   supportedDisplayLanguages: string[]
 }
 
@@ -648,14 +648,14 @@ function writeBlobPart(bytes: Uint8Array, view: DataView, sliceOffset: number, b
 
 function encodeCommentAuthorMode(mode: CommentDto['authorMode'] | CommentCreateV2Dto['authorMode']): number {
   switch ((mode ?? 'anonymous').trim().toLowerCase().replace('-', '_')) {
-    case 'pseudonymous':
-      return 2
+    case 'anonymous':
+      return 1
     case 'public':
       return 3
     case 'zk_anonymous':
       return 4
     default:
-      return 1
+      throw new TypeError('comment_author_mode_invalid')
   }
 }
 

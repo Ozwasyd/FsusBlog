@@ -752,7 +752,7 @@ public sealed class AuthoringWorkflowService(
     private static bool IsAnonymousActor(CommentModerationQueueRow row)
     {
         string mode = (row.AuthorMode ?? string.Empty).Trim().ToLowerInvariant();
-        return mode is "" or "anonymous" or "zk_anonymous" or "pseudonymous"
+        return mode is "" or "anonymous" or "zk_anonymous"
             || !string.IsNullOrWhiteSpace(row.AnonymousNullifierHash)
             || !string.IsNullOrWhiteSpace(row.ModerationSubjectHash);
     }

@@ -27,7 +27,6 @@ public sealed class ZkAnonymousProofVerifierContractTests
     public void CommentAuthorModes_RetainZkAnonymousAsFirstClassMode()
     {
         Assert.Equal("anonymous", CommentAuthorModes.Anonymous);
-        Assert.Equal("pseudonymous", CommentAuthorModes.Pseudonymous);
         Assert.Equal("public", CommentAuthorModes.Public);
         Assert.Equal("zk_anonymous", CommentAuthorModes.ZkAnonymous);
     }

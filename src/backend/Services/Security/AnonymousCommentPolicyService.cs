@@ -41,12 +41,18 @@ public sealed class AnonymousCommentPolicyService(
         lock (_gate)
         {
             AnonymousCommentPolicySnapshot current = Current;
+            string defaultAuthorMode = current.DefaultAuthorMode;
+            if (request.DefaultAuthorMode is not null && !TryNormalizeAuthorMode(request.DefaultAuthorMode, out defaultAuthorMode))
+            {
+                throw new ArgumentException("author_mode_invalid", nameof(request.DefaultAuthorMode));
+            }
+
             AnonymousCommentPolicySnapshot next = BuildRuntimeSnapshot(
                 new AnonymousCommentPolicySnapshot(
                 request.AnonymousCommentsEnabled ?? current.AnonymousCommentsEnabled,
                 request.PublicCommentsEnabled ?? current.PublicCommentsEnabled,
                 request.ZkAnonymousEnabled ?? current.ZkAnonymousEnabled,
-                NormalizeAuthorMode(request.DefaultAuthorMode, current.DefaultAuthorMode),
+                defaultAuthorMode,
                 NormalizeLanguages(request.SupportedDisplayLanguages, current.SupportedDisplayLanguages)),
                 ChangedBy(adminPrincipalId),
                 NormalizeNullable(request.Reason, 256),
@@ -61,7 +67,16 @@ public sealed class AnonymousCommentPolicyService(
     public CommentAuthorModeDecision EvaluateAuthorMode(string? requestedAuthorMode, bool publicSendExplicitlySelected)
     {
         AnonymousCommentPolicySnapshot policy = Current;
-        string mode = NormalizeAuthorMode(requestedAuthorMode, policy.DefaultAuthorMode);
+        string mode;
+        if (string.IsNullOrWhiteSpace(requestedAuthorMode))
+        {
+            mode = NormalizeAuthorMode(policy.DefaultAuthorMode, CommentAuthorModes.Anonymous);
+        }
+        else if (!TryNormalizeAuthorMode(requestedAuthorMode, out mode))
+        {
+            return CommentAuthorModeDecision.Reject("invalid", "author_mode_invalid", "Author mode is invalid");
+        }
+
         if (string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal))
         {
             if (!publicSendExplicitlySelected)
@@ -250,13 +265,15 @@ public sealed class AnonymousCommentPolicyService(
 
     private static string NormalizeAuthorMode(string? value, string fallback)
     {
-        string normalized = (value ?? string.Empty).Trim().ToLowerInvariant().Replace('-', '_');
+        return TryNormalizeAuthorMode(value, out string normalized) ? normalized : fallback;
+    }
+
+    private static bool TryNormalizeAuthorMode(string? value, out string normalized)
+    {
+        normalized = (value ?? string.Empty).Trim().ToLowerInvariant().Replace('-', '_');
         return normalized is CommentAuthorModes.Anonymous or
-            CommentAuthorModes.Pseudonymous or
             CommentAuthorModes.Public or
-            CommentAuthorModes.ZkAnonymous
-            ? normalized
-            : fallback;
+            CommentAuthorModes.ZkAnonymous;
     }
 
     private static IReadOnlyList<string> NormalizeLanguages(IReadOnlyList<string>? values, IReadOnlyList<string> fallback)
@@ -270,8 +287,7 @@ public sealed class AnonymousCommentPolicyService(
     }
 
     private static bool IsAnonymousMode(string mode)
-        => string.Equals(mode, CommentAuthorModes.Anonymous, StringComparison.Ordinal) ||
-            string.Equals(mode, CommentAuthorModes.Pseudonymous, StringComparison.Ordinal);
+        => string.Equals(mode, CommentAuthorModes.Anonymous, StringComparison.Ordinal);
 
     private static string ChangedBy(long? adminPrincipalId)
         => adminPrincipalId.HasValue

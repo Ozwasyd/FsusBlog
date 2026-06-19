@@ -141,7 +141,6 @@ public sealed class AnonymousGovernanceService(
         ISugarQueryable<Comment> anonymous = db.Queryable<Comment>()
             .Where(static item =>
                 item.AuthorMode == CommentAuthorModes.Anonymous ||
-                item.AuthorMode == CommentAuthorModes.Pseudonymous ||
                 item.AuthorMode == CommentAuthorModes.ZkAnonymous ||
                 item.AnonymousNullifierHash != null ||
                 item.ModerationSubjectHash != null);

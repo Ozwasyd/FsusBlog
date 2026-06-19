@@ -3,7 +3,6 @@ namespace FsusBlog.Server.Models.CommentIdentity;
 public static class CommentAuthorModes
 {
     public const string Anonymous = "anonymous";
-    public const string Pseudonymous = "pseudonymous";
     public const string Public = "public";
     public const string ZkAnonymous = "zk_anonymous";
 }

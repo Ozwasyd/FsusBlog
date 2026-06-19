@@ -200,7 +200,16 @@ public static class AuthoringEndpoints
                 return stepUp;
             }
 
-            AnonymousCommentPolicySnapshot snapshot = policyService.UpdatePolicy(request, context.GetUserId());
+            AnonymousCommentPolicySnapshot snapshot;
+            try
+            {
+                snapshot = policyService.UpdatePolicy(request, context.GetUserId());
+            }
+            catch (ArgumentException ex) when (ex.ParamName == nameof(AnonymousCommentPolicyUpdateRequest.DefaultAuthorMode))
+            {
+                return Results.BadRequest(JsonApiResponse<object>.Fail("author_mode_invalid"));
+            }
+
             await auditEvents.RecordHighValueAsync(new AuditEvent(
                 AuditSourceCatalog.Admin,
                 AuditTypeCatalog.Audit,

@@ -22,7 +22,7 @@ import {
   USER_COMMENT_POD_SIZE
 } from './types';
 
-export type CommentAuthorMode = 'anonymous' | 'pseudonymous' | 'public' | 'zk_anonymous';
+export type CommentAuthorMode = 'anonymous' | 'public' | 'zk_anonymous';
 const ANONYMOUS_PRIVACY_MAX_PAYLOAD_BYTES = 16 * 1024;
 const decoder = new TextDecoder();
 
@@ -243,8 +243,6 @@ function decodeCommentAuthorMode(value: number): CommentAuthorMode {
     case 0:
     case 1:
       return 'anonymous';
-    case 2:
-      return 'pseudonymous';
     case 3:
       return 'public';
     case 4:
