@@ -260,7 +260,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 163 | `IdentityAccountSnapshot` | `IdentityAccountSnapshotPod` | 匿名身份 account/internal id、public handle、Passkey/Recovery/TOTP/anonymous credential 状态 |
 | 164 | `CommentPolicySnapshot` | `CommentPolicySnapshotPod` | 评论 composer 渲染前策略：anonymous/public/ZK 开关、默认 author mode、语言列表 |
 | 165 | `CommentPolicyUpdateRequest` | `CommentPolicyUpdateRequestPod` | admin 匿名评论策略 patch 请求体 |
-| 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | 新评论创建请求；包含匿名 scope、author mode、language hint、proof token/ZK proof placeholder |
+| 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | 新评论创建请求；包含匿名 scope、author mode、language hint、普通 proof token 和 ZK proof bytes；不得从 userId/ProofToken 派生 ZK nullifier |
 | 167 | `CommentAuthorView` | `CommentAuthorViewPod` | 评论作者展示投影；不依赖 `userName` 表示匿名显示名 |
 | 177 | `AnonymousCredentialIssueRequest` | `AnonymousCredentialIssueRequestPod` | `POST /api/binary/anonymous-credential/issue` 请求体；包含 blinded credential request |
 | 178 | `AnonymousCredentialIssueResponse` | `AnonymousCredentialIssueResponsePod` | 匿名凭证签发响应契约；issuer response / commitment，不返回可逆身份 |

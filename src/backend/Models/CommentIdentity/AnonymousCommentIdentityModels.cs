@@ -136,7 +136,15 @@ public sealed record CommentActorResolveRequest(
     string? DisplayLanguage,
     string? ProofToken,
     byte[]? ZkProof,
-    string? SubmitRegion);
+    string? SubmitRegion,
+    string? NullifierHash = null,
+    string? CredentialCommitment = null,
+    string? CredentialRoot = null,
+    long CredentialEpoch = 0,
+    string? CircuitId = null,
+    string? VerifyingKeyHash = null,
+    ushort PublicInputLayoutVersion = 0,
+    string? ReputationBucket = null);
 
 public sealed record CommentActorResolveResult(
     bool Allowed,

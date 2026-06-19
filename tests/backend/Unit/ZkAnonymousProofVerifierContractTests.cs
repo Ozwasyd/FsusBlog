@@ -6,6 +6,8 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NSubstitute;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -16,6 +18,8 @@ public sealed class ZkAnonymousProofVerifierContractTests
     private const ushort PublicInputLayoutVersion = 2;
     private const long CredentialEpoch = 7;
     private const string CredentialRoot = "credential-root-active";
+    private const string PublicInputNullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    private const string CredentialCommitment = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
     [Fact]
     public void CommentAuthorModes_RetainZkAnonymousAsFirstClassMode()
@@ -91,6 +95,110 @@ public sealed class ZkAnonymousProofVerifierContractTests
         Assert.False(invalid.Verified);
         Assert.Equal(ZkProofVerificationStatuses.InvalidProof, invalid.Status);
         Assert.Equal(1, verifier.CallCount);
+    }
+
+    [Fact]
+    public async Task ZkAnonymousProofService_RejectsMissingPublicInputFieldsBeforeVerifier()
+    {
+        var verifier = new RecordingZkVerifier(configured: true, ZkProofVerificationResult.Success());
+        var service = new ZkAnonymousProofService(
+            BuildConfiguration(new Dictionary<string, string?>
+            {
+                ["AnonymousIdentity:ZkAnonymousCommentsEnabled"] = "true"
+            }),
+            verifier);
+
+        ZkProofVerificationResult missingNullifier = await service.VerifyCommentProofAsync(ValidRequest() with { NullifierHash = string.Empty });
+        ZkProofVerificationResult missingRoot = await service.VerifyCommentProofAsync(ValidRequest() with { CredentialRoot = string.Empty });
+
+        Assert.False(missingNullifier.Verified);
+        Assert.False(missingRoot.Verified);
+        Assert.Equal(ZkProofVerificationStatuses.MissingProof, missingNullifier.Status);
+        Assert.Equal(ZkProofVerificationStatuses.MissingProof, missingRoot.Status);
+        Assert.Equal(0, verifier.CallCount);
+    }
+
+    [Fact]
+    public async Task CommentActorResolver_ZkAnonymousUsesPublicInputNullifierWithoutUserOrProofTokenDerivation()
+    {
+        ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
+        var proofService = new CapturingZkProofService(ZkProofVerificationResult.Success());
+        var resolver = new CommentActorResolver(
+            db,
+            new AnonymousCommentPolicyService(BuildConfiguration(new Dictionary<string, string?>
+            {
+                ["AnonymousIdentity:ZkAnonymousCommentsEnabled"] = "true"
+            })),
+            new CommentAnonymousDisplayNameGenerator(),
+            new ThrowingCredentialService(),
+            proofService);
+
+        CommentActorResolveResult result = await resolver.ResolveAsync(ValidActorResolveRequest() with
+        {
+            UserId = 42,
+            ProofToken = "proof-token-must-not-be-used"
+        });
+
+        Assert.True(result.Allowed, result.Message);
+        Assert.NotNull(result.Actor);
+        Assert.Null(result.Actor.UserId);
+        Assert.Equal(CommentAuthorModes.ZkAnonymous, result.Actor.AuthorMode);
+        Assert.Equal(PublicInputNullifierHash, result.Actor.AnonymousNullifierHash);
+        Assert.Equal("article:42", result.Actor.AnonymousScope);
+        Assert.Equal(AnonymousCredentialLevels.StrongAnonymous, result.Actor.CredentialLevel);
+        Assert.Equal(PublicInputNullifierHash, proofService.LastRequest.NullifierHash);
+        Assert.Equal(CredentialCommitment, proofService.LastRequest.CredentialCommitment);
+        Assert.Equal(CredentialRoot, proofService.LastRequest.CredentialRoot);
+        Assert.Equal(CredentialEpoch, proofService.LastRequest.CredentialEpoch);
+        Assert.Equal(CircuitId, proofService.LastRequest.CircuitId);
+        Assert.Equal(VerifyingKeyHash, proofService.LastRequest.VerifyingKeyHash);
+        Assert.Equal(PublicInputLayoutVersion, proofService.LastRequest.PublicInputLayoutVersion);
+        Assert.Empty(db.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData("nullifier")]
+    [InlineData("credentialRoot")]
+    public async Task CommentActorResolver_ZkAnonymousMissingPublicInputIsRejectedBeforeVerifier(string missingField)
+    {
+        var proofService = new CapturingZkProofService(ZkProofVerificationResult.Success());
+        var resolver = new CommentActorResolver(
+            Substitute.For<ISqlSugarClient>(),
+            new AnonymousCommentPolicyService(BuildConfiguration(new Dictionary<string, string?>
+            {
+                ["AnonymousIdentity:ZkAnonymousCommentsEnabled"] = "true"
+            })),
+            new CommentAnonymousDisplayNameGenerator(),
+            new ThrowingCredentialService(),
+            proofService);
+        CommentActorResolveRequest request = missingField switch
+        {
+            "nullifier" => ValidActorResolveRequest() with { NullifierHash = string.Empty },
+            "credentialRoot" => ValidActorResolveRequest() with { CredentialRoot = string.Empty },
+            _ => ValidActorResolveRequest()
+        };
+
+        CommentActorResolveResult result = await resolver.ResolveAsync(request);
+
+        Assert.False(result.Allowed);
+        Assert.Equal(ZkProofVerificationStatuses.MissingProof, result.Status);
+        Assert.Equal(0, proofService.CallCount);
+    }
+
+    [Fact]
+    public void CommentActorResolver_ZkAnonymousSourceDoesNotDeriveNullifierFromUserOrProofToken()
+    {
+        string resolver = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CommentActorResolver.cs");
+        string zkBlock = ExtractBetween(
+            resolver,
+            "if (string.Equals(decision.EffectiveAuthorMode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal))",
+            "string credentialLevel =");
+
+        Assert.DoesNotContain("account:{request.UserId", zkBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("proof:{request.ProofToken", zkBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("CredentialCommitment: string.Empty", zkBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("CredentialRoot: string.Empty", zkBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("string.Join", zkBlock, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -260,6 +368,21 @@ public sealed class ZkAnonymousProofVerifierContractTests
     }
 
     [Fact]
+    public async Task ProductionZkProofVerifier_DoesNotLogRawNullifierHash()
+    {
+        var logger = new CapturingLogger<ProductionZkProofVerifier>();
+        var verifier = CreateProductionVerifier(
+            backend: new RecordingProductionZkProofBackend(ProductionZkProofBackendResult.Rejected(PublicInputNullifierHash)),
+            logger: logger);
+
+        _ = await verifier.VerifyAsync(ValidRequest() with { NullifierHash = PublicInputNullifierHash });
+
+        string logs = string.Join('\n', logger.Messages);
+        Assert.NotEmpty(logger.Messages);
+        Assert.DoesNotContain(PublicInputNullifierHash, logs, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void NormalLoginAndAdminLogin_DoNotDependOnZkVerifier()
     {
         string userService = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
@@ -319,11 +442,40 @@ public sealed class ZkAnonymousProofVerifierContractTests
             VerifyingKeyHash: VerifyingKeyHash,
             PublicInputLayoutVersion: PublicInputLayoutVersion,
             CredentialEpoch: CredentialEpoch,
-            NullifierHash: new string('a', 64),
-            CredentialCommitment: new string('b', 64),
+            NullifierHash: PublicInputNullifierHash,
+            CredentialCommitment: CredentialCommitment,
             CredentialRoot: CredentialRoot,
             ReputationBucket: "trusted",
             Proof: [1, 2, 3]);
+
+    private static CommentActorResolveRequest ValidActorResolveRequest()
+        => new(
+            UserId: null,
+            ArticleId: 42,
+            AuthorMode: CommentAuthorModes.ZkAnonymous,
+            PublicSendExplicitlySelected: false,
+            AnonymousScope: "article:42",
+            DisplayLanguage: "en",
+            ProofToken: null,
+            ZkProof: [1, 2, 3],
+            SubmitRegion: "SG",
+            NullifierHash: PublicInputNullifierHash,
+            CredentialCommitment: CredentialCommitment,
+            CredentialRoot: CredentialRoot,
+            CredentialEpoch: CredentialEpoch,
+            CircuitId: CircuitId,
+            VerifyingKeyHash: VerifyingKeyHash,
+            PublicInputLayoutVersion: PublicInputLayoutVersion,
+            ReputationBucket: "trusted");
+
+    private static string ExtractBetween(string source, string start, string end)
+    {
+        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
+        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
+        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
+        return source[startIndex..endIndex];
+    }
 
     private sealed class RecordingZkVerifier(bool configured, ZkProofVerificationResult result) : IZkProofVerifier
     {
@@ -352,6 +504,60 @@ public sealed class ZkAnonymousProofVerifierContractTests
 
         public bool IsRootAccepted(string rootHash, long epoch)
             => epoch == acceptedEpoch && string.Equals(rootHash, acceptedRoot, StringComparison.Ordinal);
+    }
+
+    private sealed class CapturingZkProofService(ZkProofVerificationResult result) : IZkAnonymousProofService
+    {
+        public int CallCount { get; private set; }
+
+        public ZkProofVerificationRequest LastRequest { get; private set; } = null!;
+
+        public AnonymousCommentPolicySnapshot CurrentCommentPolicy { get; } = AnonymousCommentPolicySnapshot.Default with
+        {
+            ZkAnonymousEnabled = true
+        };
+
+        public ZkAnonymousPolicySnapshot CurrentZkPolicy { get; } = new(
+            true,
+            true,
+            "comment.create",
+            []);
+
+        public Task<ZkProofVerificationResult> VerifyCommentProofAsync(
+            ZkProofVerificationRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            LastRequest = request;
+            return Task.FromResult(result);
+        }
+    }
+
+    private sealed class ThrowingCredentialService : IAnonymousCredentialService
+    {
+        public Task<AnonymousCredential> IssueAsync(
+            int? userId,
+            string commitmentHash,
+            string credentialType = AnonymousCredentialTypes.AccountBound,
+            string credentialLevel = AnonymousCredentialLevels.Basic,
+            string metadataJson = "{}",
+            CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("ZK actor resolve must not issue credentials");
+
+        public Task<AnonymousCredential?> GetActiveCredentialAsync(
+            int? userId,
+            string? commitmentHash = null,
+            CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("ZK actor resolve must not query credentials");
+
+        public Task<string?> GetCredentialLevelAsync(
+            int? userId,
+            string? commitmentHash = null,
+            CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("ZK actor resolve must not query credential level");
+
+        public Task<bool> RevokeAsync(long credentialId, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("ZK actor resolve must not revoke credentials");
     }
 
     private sealed class AcceptingProductionZkProofBackend : IProductionZkProofBackend

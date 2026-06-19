@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Entities;
@@ -159,46 +160,78 @@ public sealed class CommentActorResolver(
         }
 
         string scope = NormalizeScope(request.AnonymousScope, request.ArticleId);
-        string nullifierSeed = string.Join(
-            '|',
-            decision.EffectiveAuthorMode,
-            scope,
-            request.UserId is > 0 ? $"account:{request.UserId.Value}" : "account:none",
-            string.IsNullOrWhiteSpace(request.ProofToken) ? "proof:none" : $"proof:{request.ProofToken.Trim()}");
-        string nullifierHash = Sha256Hex($"comment:nullifier:{nullifierSeed}");
-
         if (string.Equals(decision.EffectiveAuthorMode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal))
         {
+            if (!TryNormalizeZkPublicInputs(request, out ZkAnonymousPublicInputs publicInputs))
+            {
+                return CommentActorResolveResult.Reject(
+                    ZkProofVerificationStatuses.MissingProof,
+                    ZkProofVerificationResult.MissingProof().Message);
+            }
+
             ZkProofVerificationResult proof = await zkProofService.VerifyCommentProofAsync(
                 new ZkProofVerificationRequest(
                     ActionContext: "comment.create",
                     Scope: scope,
-                    CircuitId: string.Empty,
-                    VerifyingKeyHash: string.Empty,
-                    PublicInputLayoutVersion: 0,
-                    CredentialEpoch: 0,
-                    NullifierHash: nullifierHash,
-                    CredentialCommitment: string.Empty,
-                    CredentialRoot: string.Empty,
-                    ReputationBucket: AnonymousCredentialLevels.StrongAnonymous,
+                    CircuitId: publicInputs.CircuitId,
+                    VerifyingKeyHash: publicInputs.VerifyingKeyHash,
+                    PublicInputLayoutVersion: publicInputs.PublicInputLayoutVersion,
+                    CredentialEpoch: publicInputs.CredentialEpoch,
+                    NullifierHash: publicInputs.NullifierHash,
+                    CredentialCommitment: publicInputs.CredentialCommitment,
+                    CredentialRoot: publicInputs.CredentialRoot,
+                    ReputationBucket: publicInputs.ReputationBucket,
                     Proof: request.ZkProof ?? []),
                 cancellationToken);
             if (!proof.Verified)
             {
                 return CommentActorResolveResult.Reject(proof.Status, proof.Message);
             }
+
+            return CommentActorResolveResult.Allow(BuildAnonymousActor(
+                decision.EffectiveAuthorMode,
+                scope,
+                language,
+                publicInputs.NullifierHash,
+                AnonymousCredentialLevels.StrongAnonymous,
+                publicInputs.ReputationBucket ?? ResolveReputationBucket(AnonymousCredentialLevels.StrongAnonymous),
+                "credential_bound"));
         }
 
+        string nullifierHash = DeriveEngineeringNullifierHash(
+            decision.EffectiveAuthorMode,
+            scope,
+            request.UserId,
+            request.ProofToken);
         string credentialLevel = await ResolveCredentialLevelAsync(request.UserId, cancellationToken);
-        string moderationSubjectHash = Sha256Hex($"comment:moderation:{decision.EffectiveAuthorMode}:{scope}:{nullifierHash}");
+        return CommentActorResolveResult.Allow(BuildAnonymousActor(
+            decision.EffectiveAuthorMode,
+            scope,
+            language,
+            nullifierHash,
+            credentialLevel,
+            ResolveReputationBucket(credentialLevel),
+            request.UserId is > 0 ? "account_bound" : "unbound"));
+    }
+
+    private CommentActor BuildAnonymousActor(
+        string authorMode,
+        string scope,
+        string language,
+        string nullifierHash,
+        string credentialLevel,
+        string reputationBucket,
+        string accountAgeBucket)
+    {
+        string moderationSubjectHash = Sha256Hex($"comment:moderation:{authorMode}:{scope}:{nullifierHash}");
         CommentAnonymousDisplayName display = displayNameGenerator.Generate(new CommentAnonymousDisplayNameRequest(
             language,
             scope,
             nullifierHash));
 
-        return CommentActorResolveResult.Allow(new CommentActor(
+        return new CommentActor(
             UserId: null,
-            AuthorMode: decision.EffectiveAuthorMode,
+            AuthorMode: authorMode,
             PublicHandle: null,
             AnonymousHandle: $"anon-{nullifierHash[..12]}",
             DisplayName: display.DisplayName,
@@ -207,8 +240,8 @@ public sealed class CommentActorResolver(
             AnonymousScope: scope,
             ModerationSubjectHash: moderationSubjectHash,
             CredentialLevel: credentialLevel,
-            ReputationBucket: ResolveReputationBucket(credentialLevel),
-            AccountAgeBucket: request.UserId is > 0 ? "account_bound" : "unbound"));
+            ReputationBucket: reputationBucket,
+            AccountAgeBucket: accountAgeBucket);
     }
 
     private async Task<string> ResolveCredentialLevelAsync(int? userId, CancellationToken cancellationToken)
@@ -230,6 +263,55 @@ public sealed class CommentActorResolver(
             _ => "basic"
         };
 
+    private static string DeriveEngineeringNullifierHash(
+        string authorMode,
+        string scope,
+        int? userId,
+        string? proofToken)
+    {
+        string account = userId is > 0
+            ? userId.Value.ToString(CultureInfo.InvariantCulture)
+            : "none";
+        string proof = NormalizeToken(proofToken, 256) ?? "none";
+        return Sha256Hex($"comment:nullifier:{authorMode}|{scope}|account:{account}|proof:{proof}");
+    }
+
+    private static bool TryNormalizeZkPublicInputs(
+        CommentActorResolveRequest request,
+        out ZkAnonymousPublicInputs publicInputs)
+    {
+        publicInputs = default;
+        string? nullifierHash = NormalizeHexHash(request.NullifierHash, minLength: 32, maxLength: 128);
+        string? credentialCommitment = NormalizeHexHash(request.CredentialCommitment, minLength: 32, maxLength: 128);
+        string? credentialRoot = NormalizeRequiredToken(request.CredentialRoot, 128);
+        string? circuitId = NormalizeRequiredToken(request.CircuitId, 128);
+        string? verifyingKeyHash = NormalizeRequiredToken(request.VerifyingKeyHash, 128);
+        string? reputationBucket = NormalizeToken(request.ReputationBucket, 64);
+        if (nullifierHash is null ||
+            credentialCommitment is null ||
+            credentialRoot is null ||
+            circuitId is null ||
+            verifyingKeyHash is null ||
+            request.CredentialEpoch <= 0 ||
+            request.PublicInputLayoutVersion == 0 ||
+            request.ZkProof is null ||
+            request.ZkProof.Length == 0)
+        {
+            return false;
+        }
+
+        publicInputs = new ZkAnonymousPublicInputs(
+            nullifierHash,
+            credentialCommitment,
+            credentialRoot,
+            request.CredentialEpoch,
+            circuitId,
+            verifyingKeyHash,
+            request.PublicInputLayoutVersion,
+            reputationBucket);
+        return true;
+    }
+
     private static string NormalizeScope(string? value, int articleId)
     {
         string normalized = NormalizeToken(value, 128) ?? $"article:{Math.Max(articleId, 0)}";
@@ -247,6 +329,53 @@ public sealed class CommentActorResolver(
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
     }
 
+    private static string? NormalizeHexHash(string? value, int minLength, int maxLength)
+    {
+        string? normalized = NormalizeRequiredToken(value, maxLength);
+        if (normalized is null ||
+            normalized.Length < minLength ||
+            !IsHexHash(normalized.AsSpan()))
+        {
+            return null;
+        }
+
+        return normalized.ToLowerInvariant();
+    }
+
+    private static string? NormalizeRequiredToken(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        string normalized = value.Trim();
+        return normalized.Length <= maxLength ? normalized : null;
+    }
+
+    private static bool IsHexHash(ReadOnlySpan<char> value)
+    {
+        foreach (char ch in value)
+        {
+            if (!Uri.IsHexDigit(ch))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private static string Sha256Hex(string value)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
+
+    private readonly record struct ZkAnonymousPublicInputs(
+        string NullifierHash,
+        string CredentialCommitment,
+        string CredentialRoot,
+        long CredentialEpoch,
+        string CircuitId,
+        string VerifyingKeyHash,
+        ushort PublicInputLayoutVersion,
+        string? ReputationBucket);
 }
