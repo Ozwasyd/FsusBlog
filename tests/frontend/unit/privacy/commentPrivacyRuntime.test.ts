@@ -22,8 +22,8 @@ describe('CommentPrivacyRuntime', () => {
         ok: true,
         ticket: {
           scope,
-          proofToken: 'ticket-1',
-          zkProof: proofBytes,
+          credentialEpoch: 20260618,
+          ticket: proofBytes,
           expiresAtUnixMs: now + 30_000
         }
       })
@@ -62,8 +62,8 @@ describe('CommentPrivacyRuntime', () => {
     expect(states).toContain('ready')
 
     const ticket = runtime.consumePreparedTicket('article:42')
-    expect(ticket?.proofToken).toBe('ticket-1')
-    expect([...(ticket?.zkProof ?? [])]).toEqual([9, 8, 7])
+    expect(ticket?.credentialEpoch).toBe(20260618)
+    expect([...(ticket?.ticket ?? [])]).toEqual([9, 8, 7])
     expect(runtime.consumePreparedTicket('article:42')).toBeNull()
 
     now += 30_001
@@ -147,8 +147,8 @@ function createAdapter(overrides: {
       ok: true,
       ticket: {
         scope,
-        proofToken: 'ticket',
-        zkProof: proofBytes,
+        credentialEpoch: 20260618,
+        ticket: proofBytes,
         expiresAtUnixMs: Date.now() + 30_000
       }
     })))

@@ -3,7 +3,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { getRelatedReading, type ArticleDetailResponse, type RelatedReadingResponse } from '@/api/article'
 import { toBootstrapArticleDetail } from '@/bootstrap/publicAotBootstrap'
 import {
-  createCommentV2,
+  createAnonymousComment,
+  createPublicComment,
   deleteComment,
   getCommentPolicySnapshot,
   type CommentAuthorMode,
@@ -101,6 +102,7 @@ export function useArticleDetailView() {
   const commentPolicyTask = useAbortableTask()
   const commentSubmitTask = useAbortableTask()
   const commentPrivacyRuntime = getCommentPrivacyRuntime()
+  const anonymousSubmitScopesInFlight = new Set<string>()
 
   const articleRendererRef = ref<InstanceType<typeof MarkdownRenderer> | null>(null)
   const commentContent = ref('')
@@ -126,6 +128,7 @@ export function useArticleDetailView() {
       relatedLoadTask.cancel()
       commentPolicyTask.cancel()
       commentSubmitTask.cancel()
+      anonymousSubmitScopesInFlight.clear()
       unsubscribeCommentPrivacyRuntime()
     }
   })
@@ -549,7 +552,7 @@ export function useArticleDetailView() {
 
     const selectedAuthorMode = resolveCommentAuthorModeForPolicy()
     if (selectedAuthorMode === 'anonymous' && !anonymousCommentsEnabled.value) {
-      showErrorToast('匿名发布暂不可用，可选择公开署名发布。')
+      showErrorToast('匿名发布暂不可用，请稍后重试。')
       return
     }
 
@@ -564,22 +567,24 @@ export function useArticleDetailView() {
     }
 
     if (selectedAuthorMode === 'zk_anonymous' && !zkAnonymousEnabled.value) {
-      showErrorToast('匿名发布暂不可用，请稍后再试。')
+      showErrorToast('匿名发布暂不可用，请稍后重试。')
       return
     }
 
-    let privacyTicket: CommentPrivacyPreparedTicket | null = null
-    if (selectedAuthorMode === 'anonymous') {
-      privacyTicket = commentPrivacyRuntime.consumePreparedTicket(commentAnonymousScope.value)
-      if (!privacyTicket) {
-        await commentPrivacyRuntime.prepareAnonymousTicket(commentAnonymousScope.value)
-        privacyTicket = commentPrivacyRuntime.consumePreparedTicket(commentAnonymousScope.value)
-      }
+    if (selectedAuthorMode === 'zk_anonymous') {
+      showErrorToast('匿名发布暂不可用，请稍后重试。')
+      return
+    }
 
-      if (!privacyTicket) {
-        showErrorToast('匿名发布暂不可用，可选择公开署名发布。')
-        return
-      }
+    const anonymousSubmitScope = selectedAuthorMode === 'anonymous'
+      ? commentAnonymousScope.value
+      : null
+    if (anonymousSubmitScope && anonymousSubmitScopesInFlight.has(anonymousSubmitScope)) {
+      return
+    }
+
+    if (anonymousSubmitScope) {
+      anonymousSubmitScopesInFlight.add(anonymousSubmitScope)
     }
 
     submittingComment.value = true
@@ -588,23 +593,50 @@ export function useArticleDetailView() {
 
     try {
       await commentSubmitTask.run(
-        async (signal) =>
-          await createCommentV2(
+        async (signal) => {
+          if (selectedAuthorMode === 'anonymous') {
+            let privacyTicket: CommentPrivacyPreparedTicket | null =
+              commentPrivacyRuntime.consumePreparedTicket(commentAnonymousScope.value)
+            if (!privacyTicket) {
+              await commentPrivacyRuntime.prepareAnonymousTicket(commentAnonymousScope.value)
+              privacyTicket = commentPrivacyRuntime.consumePreparedTicket(commentAnonymousScope.value)
+            }
+
+            if (!privacyTicket) {
+              throw new Error('anonymous_comment_ticket_unavailable')
+            }
+
+            await createAnonymousComment(
+              {
+                articleId: article.value!.id,
+                content: commentContent.value,
+                parentId: replyTarget.value?.id ?? null,
+                rootId: replyTarget.value?.rootId ?? null,
+                replyToCommentId: replyTarget.value?.id ?? null,
+                anonymousScope: commentAnonymousScope.value,
+                displayLanguage: commentDisplayLanguage.value
+              },
+              privacyTicket,
+              { signal }
+            )
+            return
+          }
+
+          await createPublicComment(
             {
               articleId: article.value!.id,
               content: commentContent.value,
               parentId: replyTarget.value?.id ?? null,
               rootId: replyTarget.value?.rootId ?? null,
               replyToCommentId: replyTarget.value?.id ?? null,
-              authorMode: selectedAuthorMode,
-              publicSendExplicitlySelected: publicSendConfirmed.value,
+              authorMode: 'public',
+              publicSendExplicitlySelected: true,
               anonymousScope: commentAnonymousScope.value,
-              displayLanguage: commentDisplayLanguage.value,
-              proofToken: privacyTicket?.proofToken ?? null,
-              zkProof: privacyTicket?.zkProof ?? null
+              displayLanguage: commentDisplayLanguage.value
             },
             { signal }
           )
+        }
       )
 
       if (lifecycle.isActive()) {
@@ -616,10 +648,17 @@ export function useArticleDetailView() {
       }
     } catch (error: unknown) {
       if (!isAbortError(error)) {
-        console.error('[Comment] Submit failed:', error)
-        showErrorToast(error, '评论发布失败')
+        if (selectedAuthorMode === 'anonymous') {
+          showErrorToast('匿名发布暂不可用，请稍后重试。')
+        } else {
+          console.error('[Comment] Submit failed:', error)
+          showErrorToast(error, '评论发布失败')
+        }
       }
     } finally {
+      if (anonymousSubmitScope) {
+        anonymousSubmitScopesInFlight.delete(anonymousSubmitScope)
+      }
       if (lifecycle.isActive()) {
         submittingComment.value = false
       }

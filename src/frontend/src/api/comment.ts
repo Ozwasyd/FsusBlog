@@ -53,6 +53,26 @@ export interface CommentCreateV2Dto extends PowRequest {
   zkProof?: Uint8Array | number[] | null
 }
 
+export interface AnonymousCommentSubmitDto {
+  articleId: number
+  content: string
+  parentId?: string | null
+  rootId?: string | null
+  replyToCommentId?: string | null
+  anonymousScope: string
+  displayLanguage: CommentDisplayLanguage | string
+}
+
+export interface AnonymousCommentSubmitTicket {
+  credentialEpoch: number
+  ticket: Uint8Array | number[]
+}
+
+export type PublicCommentDto = Omit<CommentCreateV2Dto, 'authorMode' | 'publicSendExplicitlySelected'> & {
+  authorMode?: CommentAuthorMode | null
+  publicSendExplicitlySelected?: boolean | null
+}
+
 export interface CommentPolicySnapshot {
   anonymousCommentsEnabled: boolean
   publicCommentsEnabled: boolean
@@ -259,6 +279,52 @@ export const createComment = (data: CommentDto, config?: ApiRequestConfig) => {
 
 export const createCommentV2 = (data: CommentCreateV2Dto, config?: ApiRequestConfig) => {
   return sendCommentMutation(data, FrameType.CommentCreateV2Request, config)
+}
+
+export const createAnonymousComment = (
+  data: AnonymousCommentSubmitDto,
+  ticket: AnonymousCommentSubmitTicket,
+  config?: ApiRequestConfig
+) => {
+  const validation = validateCommentContent(data.content ?? '')
+  if (!validation.isValid) {
+    return Promise.reject(new Error(validation.message))
+  }
+
+  const payload = encodeAnonymousCommentCreateRequest({
+    articleId: data.articleId,
+    content: data.content,
+    parentId: data.parentId ?? null,
+    rootId: data.rootId ?? null,
+    replyToCommentId: data.replyToCommentId ?? null,
+    credentialEpoch: ticket.credentialEpoch,
+    anonymousScope: data.anonymousScope,
+    displayLanguage: data.displayLanguage,
+    ticket: ticket.ticket
+  })
+
+  return requestBinaryOnly<null>({
+    binaryUrl: '/api/binary/comment/anonymous',
+    frameType: FrameType.EmptySuccess,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      method: 'POST',
+      credentials: 'omit',
+      body: encodeAedsFrame(FrameType.AnonymousCommentCreateRequest, payload)
+    }
+  })
+}
+
+export const createPublicComment = (data: PublicCommentDto, config?: ApiRequestConfig) => {
+  return sendCommentMutation(
+    {
+      ...data,
+      authorMode: 'public',
+      publicSendExplicitlySelected: true
+    },
+    FrameType.CommentCreateV2Request,
+    config
+  )
 }
 
 export const getCommentPolicySnapshot = (config?: ApiRequestConfig) =>

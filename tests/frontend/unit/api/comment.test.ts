@@ -7,8 +7,10 @@ vi.mock('@/services/binaryTransport', () => ({
 
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import {
+  createAnonymousComment,
   createComment,
   createCommentV2,
+  createPublicComment,
   getAnonymousCredentialCircuitSnapshot,
   getAnonymousCredentialRootSnapshot,
   getComments,
@@ -111,6 +113,77 @@ describe('comment API', () => {
     const blob = payload.subarray(84)
     expect(readSliceText(payload, blob, 40)).toBe('article:10')
     expect(readSliceText(payload, blob, 48)).toBe('en')
+  })
+
+  it('createAnonymousComment posts an AnonymousCommentCreateRequest with omitted credentials', async () => {
+    const signal = new AbortController().signal
+    await createAnonymousComment(
+      {
+        articleId: 42,
+        content: 'anonymous comment',
+        parentId: '100',
+        rootId: '90',
+        replyToCommentId: '80',
+        anonymousScope: 'article:42',
+        displayLanguage: 'zh-CN'
+      },
+      {
+        credentialEpoch: 20260618,
+        ticket: new Uint8Array([31, 32])
+      },
+      { signal }
+    )
+
+    const call = mockBinary.mock.calls[0][0]
+    const body = call.requestOptions?.body as ArrayBuffer
+    expect(call).toEqual(expect.objectContaining({
+      binaryUrl: '/api/binary/comment/anonymous',
+      frameType: FrameType.EmptySuccess,
+      signal,
+      requestOptions: expect.objectContaining({
+        method: 'POST',
+        credentials: 'omit',
+        body: expect.any(ArrayBuffer)
+      })
+    }))
+    expect(call.requestOptions?.requiresPow).toBeUndefined()
+    expect(call.requestOptions?.headers).toBeUndefined()
+    expect(readAedsFrameType(body)).toBe(FrameType.AnonymousCommentCreateRequest)
+
+    const payload = readAedsPayload(body)
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+    expect(view.getInt32(0, true)).toBe(42)
+    expect(payload[4]).toBe(1)
+    expect(payload[5]).toBe(1)
+    expect(payload[6]).toBe(1)
+    expect(view.getBigInt64(8, true)).toBe(100n)
+    expect(view.getBigInt64(16, true)).toBe(90n)
+    expect(view.getBigInt64(24, true)).toBe(80n)
+    expect(view.getBigInt64(32, true)).toBe(20260618n)
+    const blob = payload.subarray(76)
+    expect(readSliceText(payload, blob, 40)).toBe('article:42')
+    expect(readSliceText(payload, blob, 48)).toBe('zh-CN')
+    expect([...readSliceBytes(payload, blob, 56)]).toEqual([31, 32])
+    expect(readSliceText(payload, blob, 64)).toBe('anonymous comment')
+  })
+
+  it('createPublicComment forces public author mode and explicit opt-in', async () => {
+    await createPublicComment({
+      articleId: 10,
+      content: 'Public comment with explicit consent',
+      authorMode: 'anonymous',
+      publicSendExplicitlySelected: false,
+      anonymousScope: 'article:10',
+      displayLanguage: 'en'
+    } as never)
+
+    const call = mockBinary.mock.calls[0][0]
+    const body = call.requestOptions?.body as ArrayBuffer
+    expect(call.binaryUrl).toBe('/api/binary/comment')
+    expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateV2Request)
+    const payload = readAedsPayload(body)
+    expect(payload[12]).toBe(3)
+    expect(payload[13]).toBe(1)
   })
 
   it('encodeAnonymousCredentialIssueRequest writes a fixed POD and blob slices', () => {

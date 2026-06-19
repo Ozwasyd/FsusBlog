@@ -78,6 +78,10 @@ function decodePowChallenge(buffer: ArrayBuffer): { salt: string; difficulty: nu
 async function binaryRequestResult(url: string, options?: BinaryRequestOptions): Promise<AppResult<ArrayBuffer>> {
   const powHeaders = await buildPowHeadersIfNeeded(url, options)
   const headers = new Headers(options?.headers)
+  if (options?.credentials === 'omit') {
+    headers.delete('authorization')
+    headers.delete('cookie')
+  }
   applyBinaryRequestHeaders(headers, options?.body !== undefined)
   for (const [key, value] of Object.entries(powHeaders)) {
     headers.set(key, value)

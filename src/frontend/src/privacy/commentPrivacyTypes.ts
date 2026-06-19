@@ -8,9 +8,10 @@ export interface CommentPrivacyMetadata {
 
 export interface CommentPrivacyPreparedTicket {
   scope: string
-  proofToken: string
-  zkProof: Uint8Array
+  credentialEpoch: number
+  ticket: Uint8Array
   expiresAtUnixMs: number
+  credentialLevel?: string
 }
 
 export interface CommentPrivacyCredentialSuccess {
