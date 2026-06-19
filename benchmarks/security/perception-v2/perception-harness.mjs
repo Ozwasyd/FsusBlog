@@ -24,6 +24,7 @@ const PROFILE_DEFAULTS = {
       minHumanSuccessRate: 0.82,
       maxBotSingleTrySuccessRate: 0.34,
       maxBotThreeAttemptSuccessRate: 0.52,
+      maxIssueP99Ms: 8,
       maxClientRenderP95Ms: 55,
       maxServerVerifyP99Ms: 32,
       maxPayloadP95Bytes: 6200,
@@ -37,6 +38,7 @@ const PROFILE_DEFAULTS = {
       minHumanSuccessRate: 0.84,
       maxBotSingleTrySuccessRate: 0.34,
       maxBotThreeAttemptSuccessRate: 0.49,
+      maxIssueP99Ms: 7,
       maxClientRenderP95Ms: 50,
       maxServerVerifyP99Ms: 30,
       maxPayloadP95Bytes: 6000,
@@ -91,6 +93,7 @@ export function generateSyntheticDataset({ seed = 521, samples = PROFILE_DEFAULT
       decoyAnswers: buildDecoys(expectedAnswer, seed, index),
       expectedHumanSuccessRate: round(clamp(0.975 - difficulty * 0.13 - localeShift * 0.04, 0.8, 0.99), 4),
       medianHumanSolveTimeMs: Math.round(4200 + difficulty * 7300 + localeShift * 1600),
+      issueMs: round(1.2 + textEntropy * 1.3 + spatialEntropy * 1.2 + temporalEntropy * 0.9, 3),
       clientRenderMs: round(7 + spatialEntropy * 20 + temporalEntropy * 13 + decoyDensity * 7, 3),
       serverVerifyMs: round(2.5 + textEntropy * 5 + spatialEntropy * 4 + temporalEntropy * 3, 3),
       payloadBytes: Math.round(960 + textEntropy * 1450 + spatialEntropy * 1550 + temporalEntropy * 1150 + decoyDensity * 850),
@@ -199,6 +202,7 @@ export function formatMarkdownReport(report) {
       `${Math.round(group.medianSolveTimeMs)} ms`,
       formatRate(group.botSingleTrySuccessRate),
       formatRate(group.botThreeAttemptSuccessRate),
+      `${Math.round(group.issueP99Ms)} ms`,
       `${Math.round(group.clientRenderP95Ms)} ms`,
       `${Math.round(group.serverVerifyP99Ms)} ms`,
       `${Math.round(group.payloadP95Bytes)} B`
@@ -225,6 +229,7 @@ export function formatMarkdownReport(report) {
     `- Median solve time: ${Math.round(report.metrics.medianSolveTimeMs)} ms`,
     `- Bot single-try success: ${formatRate(report.metrics.botSingleTrySuccessRate)}`,
     `- Bot three-attempt success: ${formatRate(report.metrics.botThreeAttemptSuccessRate)}`,
+    `- Issue p99: ${Math.round(report.metrics.issueP99Ms)} ms`,
     `- Client render p95: ${Math.round(report.metrics.clientRenderP95Ms)} ms`,
     `- Server verify p99: ${Math.round(report.metrics.serverVerifyP99Ms)} ms`,
     `- Payload p95: ${Math.round(report.metrics.payloadP95Bytes)} B`,
@@ -243,8 +248,8 @@ export function formatMarkdownReport(report) {
     '',
     '## Task / Family / Variant Groups',
     '',
-    '| task kind | family | variant | samples | human success | median solve | bot single try | bot three attempts | render p95 | verify p99 | payload p95 |',
-    '| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    '| task kind | family | variant | samples | human success | median solve | bot single try | bot three attempts | issue p99 | render p95 | verify p99 | payload p95 |',
+    '| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
     groupRows,
     ''
   ].join('\n');
@@ -318,6 +323,7 @@ function aggregateMetrics(dataset, evaluations) {
     medianSolveTimeMs: round(quantile(dataset.map((sample) => sample.medianHumanSolveTimeMs), 0.5), 3),
     botSingleTrySuccessRate: round(rate(evaluations, (evaluation) => evaluation.botSingleTrySuccess), 4),
     botThreeAttemptSuccessRate: round(rate(evaluations, (evaluation) => evaluation.botThreeAttemptSuccess), 4),
+    issueP99Ms: round(quantile(dataset.map((sample) => sample.issueMs), 0.99), 3),
     clientRenderP95Ms: round(quantile(dataset.map((sample) => sample.clientRenderMs), 0.95), 3),
     serverVerifyP99Ms: round(quantile(dataset.map((sample) => sample.serverVerifyMs), 0.99), 3),
     payloadP95Bytes: round(quantile(dataset.map((sample) => sample.payloadBytes), 0.95), 3)
@@ -355,6 +361,7 @@ function aggregateGroups(dataset, evaluations) {
       medianSolveTimeMs: round(quantile(bucket.samples.map((sample) => sample.medianHumanSolveTimeMs), 0.5), 3),
       botSingleTrySuccessRate: round(rate(bucket.evaluations, (evaluation) => evaluation.botSingleTrySuccess), 4),
       botThreeAttemptSuccessRate: round(rate(bucket.evaluations, (evaluation) => evaluation.botThreeAttemptSuccess), 4),
+      issueP99Ms: round(quantile(bucket.samples.map((sample) => sample.issueMs), 0.99), 3),
       clientRenderP95Ms: round(quantile(bucket.samples.map((sample) => sample.clientRenderMs), 0.95), 3),
       serverVerifyP99Ms: round(quantile(bucket.samples.map((sample) => sample.serverVerifyMs), 0.99), 3),
       payloadP95Bytes: round(quantile(bucket.samples.map((sample) => sample.payloadBytes), 0.95), 3)
@@ -389,6 +396,7 @@ function evaluateThresholds(metrics, thresholds, profile) {
     ['medianSolveTimeMs', metrics.medianSolveTimeMs, '<=', normalized.maxMedianSolveTimeMs],
     ['botSingleTrySuccessRate', metrics.botSingleTrySuccessRate, '<=', normalized.maxBotSingleTrySuccessRate],
     ['botThreeAttemptSuccessRate', metrics.botThreeAttemptSuccessRate, '<=', normalized.maxBotThreeAttemptSuccessRate],
+    ['issueP99Ms', metrics.issueP99Ms, '<=', normalized.maxIssueP99Ms],
     ['clientRenderP95Ms', metrics.clientRenderP95Ms, '<=', normalized.maxClientRenderP95Ms],
     ['serverVerifyP99Ms', metrics.serverVerifyP99Ms, '<=', normalized.maxServerVerifyP99Ms],
     ['payloadP95Bytes', metrics.payloadP95Bytes, '<=', normalized.maxPayloadP95Bytes]
@@ -411,6 +419,7 @@ function normalizeThresholds(thresholds, profile = 'pr') {
     minHumanSuccessRate: numberOrDefault(thresholds?.minHumanSuccessRate, defaults.minHumanSuccessRate),
     maxBotSingleTrySuccessRate: numberOrDefault(thresholds?.maxBotSingleTrySuccessRate, defaults.maxBotSingleTrySuccessRate),
     maxBotThreeAttemptSuccessRate: numberOrDefault(thresholds?.maxBotThreeAttemptSuccessRate, defaults.maxBotThreeAttemptSuccessRate),
+    maxIssueP99Ms: numberOrDefault(thresholds?.maxIssueP99Ms, defaults.maxIssueP99Ms),
     maxClientRenderP95Ms: numberOrDefault(thresholds?.maxClientRenderP95Ms, defaults.maxClientRenderP95Ms),
     maxServerVerifyP99Ms: numberOrDefault(thresholds?.maxServerVerifyP99Ms, defaults.maxServerVerifyP99Ms),
     maxPayloadP95Bytes: numberOrDefault(thresholds?.maxPayloadP95Bytes, defaults.maxPayloadP95Bytes),

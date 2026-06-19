@@ -29,6 +29,12 @@ const checks = [
     label: 'RiskControl'
   },
   {
+    file: 'security/perception-v2-test-matrix.yml',
+    listKey: 'scenarios',
+    idPattern: /^PERCEPTION-V2-[A-Z0-9-]+$/,
+    label: 'PerceptionV2'
+  },
+  {
     file: 'security/privacy-zk-comment-matrix.yml',
     listKey: 'scenarios',
     idPattern: /^PRIVACY-ZK-[A-Z0-9-]+$/,
@@ -165,6 +171,89 @@ function verifyRiskControlMatrix(text) {
   }
 }
 
+function verifyPerceptionV2Matrix(text) {
+  const requiredScenarioIds = [
+    'PERCEPTION-V2-CONTRACTS',
+    'PERCEPTION-V2-UNIT-CRYPTO',
+    'PERCEPTION-V2-INTEGRATION-HOTPATH',
+    'PERCEPTION-V2-E2E-FRONTEND',
+    'PERCEPTION-V2-PERFORMANCE-BUDGETS',
+    'PERCEPTION-V2-FAILURE-MODES'
+  ]
+  const requiredTokens = [
+    'AEDS frame',
+    'forbidden-fields',
+    'answer',
+    'glyphIds',
+    'charIds',
+    'expectedPoint',
+    'recipeHash',
+    'sealedToken',
+    'AEAD',
+    'O(1) verify',
+    'constant-time compare',
+    'challengeId-mismatch',
+    'action-mismatch',
+    'routeKey-mismatch',
+    'subjectHash-mismatch',
+    'clientIpHash-mismatch',
+    'deviceFpHash-mismatch',
+    'policyVersion-mismatch',
+    'recipeHash-mismatch',
+    'solveDuration',
+    'issue-no-db-redis-write',
+    'verify-redis-setnx-incr',
+    'async-audit',
+    'verify-no-image-recompute',
+    'text-task',
+    'localization',
+    'micro-interaction-disabled',
+    'micro-interaction-enabled',
+    'worker-failure',
+    'mobile-fallback',
+    'issue-p99',
+    'verify-p99',
+    'payload-size',
+    'client-render-p95',
+    'budget-ci-fail',
+    'redis-unavailable',
+    'postgres-slow-write',
+    'provider-missing',
+    'policy-load-failure'
+  ]
+  const perceptionBudgetLimits = {
+    issueP99Ms: 8,
+    verifyP99Ms: 32,
+    payloadP95Bytes: 6200,
+    clientRenderP95Ms: 55
+  }
+
+  for (const id of requiredScenarioIds) {
+    if (!text.includes(`id: ${id}`)) {
+      fail(`perception-v2 matrix missing scenario ${id}`)
+    }
+  }
+
+  for (const token of requiredTokens) {
+    if (!text.includes(token)) {
+      fail(`perception-v2 matrix missing required coverage token ${token}`)
+    }
+  }
+
+  for (const [budgetName, maxValue] of Object.entries(perceptionBudgetLimits)) {
+    const match = text.match(new RegExp(`\\b${budgetName}:\\s+(\\d+)\\b`))
+    if (!match) {
+      fail(`perception-v2 matrix missing performance budget ${budgetName}`)
+      continue
+    }
+
+    const value = Number(match[1])
+    if (!Number.isFinite(value) || value <= 0 || value > maxValue) {
+      fail(`perception-v2 matrix budget ${budgetName}=${value} exceeds fail-closed max ${maxValue}`)
+    }
+  }
+}
+
 function verifyPrivacyZkCommentMatrix(text) {
   const requiredScenarioIds = [
     'PRIVACY-ZK-TRANSPORT',
@@ -280,6 +369,9 @@ for (const check of checks) {
 
   if (check.label === 'RiskControl') {
     verifyRiskControlMatrix(text)
+  }
+  if (check.label === 'PerceptionV2') {
+    verifyPerceptionV2Matrix(text)
   }
   if (check.label === 'PrivacyZK') {
     verifyPrivacyZkCommentMatrix(text)

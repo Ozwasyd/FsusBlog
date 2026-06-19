@@ -2005,6 +2005,35 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
+  - id: perception-v2-test-matrix
+    owner: ServerContractAgent
+    command: tools/test/lanes/perception-v2-test-matrix.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 3
+    cost: low
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    cadence: pr
+    requiredFor: production
+    coverage: [perception-v2-test-matrix]
+    artifacts: [.tmp/security/perception-v2-test-matrix.json]
+    evidence: [security/perception-v2-test-matrix.yml, tools/security/check-security-matrices.mjs, tools/test/lanes/perception-v2-test-matrix.sh, tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs, tests/security/perception-v2/perception-harness.test.mjs]
+    ciJob: security-runtime
+    localOnly: false
+    nightlyOnly: false
+
   - id: privacy-zk-comment-matrix
     owner: ServerContractAgent
     command: tools/test/lanes/privacy-zk-comment-matrix.sh

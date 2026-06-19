@@ -43,6 +43,7 @@ test('benchmark report aggregates by task kind, family, and variant without prod
   assert.equal(report.profile, 'pr');
   assert.equal(report.totals.sampleCount, 90);
   assert.equal(report.environment.productionDatabaseRequired, false);
+  assert.ok(report.metrics.issueP99Ms > 0);
   assert.ok(report.metrics.clientRenderP95Ms > 0);
   assert.ok(report.metrics.serverVerifyP99Ms > 0);
   assert.ok(report.metrics.payloadP95Bytes > 0);
@@ -87,6 +88,28 @@ test('benchmark produces configurable regression failures when solver success ri
   assert.equal(report.status, 'fail');
   assert.ok(report.failures.some((failure) => failure.metric === 'botSingleTrySuccessRate'));
   assert.ok(report.failures.some((failure) => failure.metric === 'botThreeAttemptSuccessRate'));
+});
+
+test('benchmark fails closed when issue, verify, payload, or render budgets are exceeded', () => {
+  const dataset = generateSyntheticDataset({ seed: 521, samples: 36 });
+  const report = runPerceptionBenchmark({
+    dataset,
+    profile: 'pr',
+    generatedAt: '2026-06-19T00:00:00.000Z',
+    thresholds: {
+      ...createDefaultThresholds('pr'),
+      maxIssueP99Ms: 1,
+      maxServerVerifyP99Ms: 1,
+      maxPayloadP95Bytes: 1,
+      maxClientRenderP95Ms: 1
+    }
+  });
+
+  assert.equal(report.status, 'fail');
+  assert.ok(report.failures.some((failure) => failure.metric === 'issueP99Ms'));
+  assert.ok(report.failures.some((failure) => failure.metric === 'serverVerifyP99Ms'));
+  assert.ok(report.failures.some((failure) => failure.metric === 'payloadP95Bytes'));
+  assert.ok(report.failures.some((failure) => failure.metric === 'clientRenderP95Ms'));
 });
 
 test('nightly profile defaults pass the deterministic synthetic baseline', () => {

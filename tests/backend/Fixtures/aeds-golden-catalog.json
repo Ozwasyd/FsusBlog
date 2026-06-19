@@ -190,6 +190,8 @@
     { "name": "AnonymousCommentTicketResponse", "value": 181, "family": "anonymous-privacy-response" },
     { "name": "AnonymousCommentCreateRequest", "value": 182, "family": "anonymous-comment-request" },
     { "name": "AnonymousPrivacyStateSnapshot", "value": 183, "family": "anonymous-privacy-response" },
+    { "name": "PerceptionSealedChallengeV2", "value": 184, "family": "security-challenge-response" },
+    { "name": "PerceptionSealedResultV2", "value": 185, "family": "security-challenge-request" },
     { "name": "EmptySuccess", "value": 240, "family": "common-response" },
     { "name": "MutationId", "value": 241, "family": "common-response" },
     { "name": "ApiError", "value": 251, "family": "error-response" }

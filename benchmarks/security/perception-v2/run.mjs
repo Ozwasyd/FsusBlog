@@ -39,7 +39,7 @@ const written = await writeBenchmarkReport(report, resolve(outputDir));
 console.log(`perception-sealed@v2 ${profile}: ${report.status}`);
 console.log(`samples=${report.totals.sampleCount} seed=${seed} solvers=${report.totals.solverCount} attempts=${report.totals.attemptsPerSolver}`);
 console.log(`bot_single_try=${formatRate(report.metrics.botSingleTrySuccessRate)} bot_three_attempt=${formatRate(report.metrics.botThreeAttemptSuccessRate)}`);
-console.log(`client_render_p95_ms=${report.metrics.clientRenderP95Ms} server_verify_p99_ms=${report.metrics.serverVerifyP99Ms} payload_p95_bytes=${report.metrics.payloadP95Bytes}`);
+console.log(`issue_p99_ms=${report.metrics.issueP99Ms} client_render_p95_ms=${report.metrics.clientRenderP95Ms} server_verify_p99_ms=${report.metrics.serverVerifyP99Ms} payload_p95_bytes=${report.metrics.payloadP95Bytes}`);
 console.log(`json=${written.json}`);
 console.log(`markdown=${written.markdown}`);
 
@@ -100,6 +100,9 @@ function parseArgs(argv) {
       case 'max-bot-three-attempt':
         parsed.maxBotThreeAttemptSuccessRate = parseNumber(value, rawKey);
         break;
+      case 'max-issue-p99-ms':
+        parsed.maxIssueP99Ms = parseNumber(value, rawKey);
+        break;
       case 'max-client-render-p95-ms':
         parsed.maxClientRenderP95Ms = parseNumber(value, rawKey);
         break;
@@ -124,6 +127,7 @@ function thresholdOverridesFromArgs(parsed) {
     minHumanSuccessRate: parsed.minHumanSuccessRate,
     maxBotSingleTrySuccessRate: parsed.maxBotSingleTrySuccessRate,
     maxBotThreeAttemptSuccessRate: parsed.maxBotThreeAttemptSuccessRate,
+    maxIssueP99Ms: parsed.maxIssueP99Ms,
     maxClientRenderP95Ms: parsed.maxClientRenderP95Ms,
     maxServerVerifyP99Ms: parsed.maxServerVerifyP99Ms,
     maxPayloadP95Bytes: parsed.maxPayloadP95Bytes,
@@ -136,6 +140,7 @@ function thresholdOverridesFromEnv() {
     minHumanSuccessRate: numberFromEnv('FSUSBLOG_PERCEPTION_V2_MIN_HUMAN_SUCCESS'),
     maxBotSingleTrySuccessRate: numberFromEnv('FSUSBLOG_PERCEPTION_V2_MAX_BOT_SINGLE_TRY'),
     maxBotThreeAttemptSuccessRate: numberFromEnv('FSUSBLOG_PERCEPTION_V2_MAX_BOT_THREE_ATTEMPT'),
+    maxIssueP99Ms: numberFromEnv('FSUSBLOG_PERCEPTION_V2_MAX_ISSUE_P99_MS'),
     maxClientRenderP95Ms: numberFromEnv('FSUSBLOG_PERCEPTION_V2_MAX_CLIENT_RENDER_P95_MS'),
     maxServerVerifyP99Ms: numberFromEnv('FSUSBLOG_PERCEPTION_V2_MAX_SERVER_VERIFY_P99_MS'),
     maxPayloadP95Bytes: numberFromEnv('FSUSBLOG_PERCEPTION_V2_MAX_PAYLOAD_P95_BYTES'),
@@ -196,6 +201,7 @@ Options:
   --min-human-success <rate>
   --max-bot-single-try <rate>
   --max-bot-three-attempt <rate>
+  --max-issue-p99-ms <ms>
   --max-client-render-p95-ms <ms>
   --max-server-verify-p99-ms <ms>
   --max-payload-p95-bytes <bytes>

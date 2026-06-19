@@ -79,6 +79,7 @@
         "BACKEND-FLAKY-GOVERNANCE",
         "BACKEND-TIME-BUDGETS",
         "BACKEND-RISKCONTROL-TEST-MATRIX",
+        "BACKEND-PERCEPTION-V2-TEST-MATRIX",
         "BACKEND-PRIVACY-ZK-COMMENT-GATE"
       ],
       "evidencePaths": [
@@ -286,6 +287,20 @@
         "tools/security/check-security-matrices.mjs",
         "tools/test/lanes/risk-control-test-matrix.sh",
         "tests/backend/Unit/RiskControlTestMatrixTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-PERCEPTION-V2-TEST-MATRIX",
+      "risk": "critical",
+      "coverage": "perception-sealed@v2 contract, AEAD/O(1) verify, binding mismatch, hot path, Redis gate, async audit, frontend worker/mobile, performance budget and fault-mode matrix",
+      "evidencePaths": [
+        "security/perception-v2-test-matrix.yml",
+        "tools/security/check-security-matrices.mjs",
+        "tools/test/lanes/perception-v2-test-matrix.sh",
+        "tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs",
+        "tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs",
+        "tests/backend/Unit/PerceptionChallengeProviderTests.cs",
+        "tests/security/perception-v2/perception-harness.test.mjs"
       ]
     },
     {

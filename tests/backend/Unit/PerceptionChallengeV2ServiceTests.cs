@@ -217,11 +217,13 @@ public sealed class PerceptionChallengeV2ServiceTests
     [Theory]
     [InlineData("keyVersion", "key_version_mismatch")]
     [InlineData("taskKind", "task_kind_mismatch")]
+    [InlineData("challengeId", "challenge_id_mismatch")]
     [InlineData("action", "action_mismatch")]
     [InlineData("routeKey", "route_key_mismatch")]
     [InlineData("subjectHash", "subject_hash_mismatch")]
     [InlineData("clientIpHash", "client_ip_hash_mismatch")]
     [InlineData("deviceFpHash", "device_fp_hash_mismatch")]
+    [InlineData("policyVersion", "policy_version_mismatch")]
     [InlineData("recipeHash", "recipe_hash_mismatch")]
     public async Task VerifyAsync_RejectsSealedTokenBindingMismatches(string field, string expectedReason)
     {
@@ -482,11 +484,13 @@ public sealed class PerceptionChallengeV2ServiceTests
         {
             "keyVersion" => claims with { KeyVersion = "k2" },
             "taskKind" => claims with { TaskKind = RenderRecipeV2TaskKind.Localization },
+            "challengeId" => claims with { ChallengeId = "challenge-2" },
             "action" => claims with { Action = "comment.reply" },
             "routeKey" => claims with { RouteKey = "article:99" },
             "subjectHash" => claims with { SubjectHash = HashB },
             "clientIpHash" => claims with { ClientIpHash = HashA },
             "deviceFpHash" => claims with { DeviceFpHash = HashA },
+            "policyVersion" => claims with { PolicyVersion = "risk-policy-v3" },
             "recipeHash" => claims with { RecipeHashHex = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" },
             _ => claims
         };

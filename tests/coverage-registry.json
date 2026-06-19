@@ -148,6 +148,25 @@
       ]
     },
     {
+      "id": "perception-v2-test-matrix",
+      "description": "Perception sealed v2 test matrix is covered by a fail-closed security matrix that maps contract, unit crypto, integration hot path, frontend E2E, performance budget and fault coverage.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "security/perception-v2-test-matrix.yml",
+        "tools/security/check-security-matrices.mjs",
+        "tools/test/lanes/perception-v2-test-matrix.sh",
+        "tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs",
+        "tests/security/perception-v2/perception-harness.test.mjs"
+      ],
+      "assertionType": "unit",
+      "failClosedRule": "matrix-validate and perception-v2-test-matrix require every perception-sealed@v2 acceptance scenario and issue/verify/payload/render budget to be declared before CI can pass; red-team benchmark exits non-zero when configured budgets fail.",
+      "minimumRequirement": "The matrix must include AEDS frame contracts, forbidden payload leak checks, AEAD and constant-time binding failures, issue no DB/Redis write, Redis SETNX/INCR verify gate, async audit, frontend worker/mobile fallbacks, fault modes and performance budgets.",
+      "tierIds": [
+        "perception-v2-test-matrix"
+      ]
+    },
+    {
       "id": "privacy-zk-comment-matrix",
       "description": "Privacy ZK Comment Matrix is covered by a fail-closed release gate that maps anonymous transport, proof failure, ticket/nullifier, moderation redaction, frontend runtime and concurrency coverage.",
       "owner": "ServerContractAgent",
