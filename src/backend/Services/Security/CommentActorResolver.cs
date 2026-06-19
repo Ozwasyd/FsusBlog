@@ -171,13 +171,17 @@ public sealed class CommentActorResolver(
         {
             ZkProofVerificationResult proof = await zkProofService.VerifyCommentProofAsync(
                 new ZkProofVerificationRequest(
-                    "comment.create",
-                    scope,
-                    nullifierHash,
-                    NormalizeToken(request.ProofToken, 128) ?? string.Empty,
-                    NormalizeToken(request.ProofToken, 128) ?? string.Empty,
-                    AnonymousCredentialLevels.StrongAnonymous,
-                    request.ZkProof ?? []),
+                    ActionContext: "comment.create",
+                    Scope: scope,
+                    CircuitId: string.Empty,
+                    VerifyingKeyHash: string.Empty,
+                    PublicInputLayoutVersion: 0,
+                    CredentialEpoch: 0,
+                    NullifierHash: nullifierHash,
+                    CredentialCommitment: string.Empty,
+                    CredentialRoot: string.Empty,
+                    ReputationBucket: AnonymousCredentialLevels.StrongAnonymous,
+                    Proof: request.ZkProof ?? []),
                 cancellationToken);
             if (!proof.Verified)
             {

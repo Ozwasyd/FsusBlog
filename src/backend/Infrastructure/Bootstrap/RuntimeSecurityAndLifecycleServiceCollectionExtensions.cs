@@ -24,7 +24,16 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IAdminPrincipalService, AdminPrincipalService>();
         services.AddScoped<IAdminSessionValidationService, AdminSessionValidationService>();
         services.AddScoped<IRecoveryKeyService, RecoveryKeyService>();
-        services.TryAddSingleton<IZkProofVerifier, DisabledZkProofVerifier>();
+        services.TryAddSingleton<IProductionZkProofBackend, UnavailableProductionZkProofBackend>();
+        if (ProductionZkProofVerifier.IsEnabled(configuration))
+        {
+            services.TryAddSingleton<IZkProofVerifier, ProductionZkProofVerifier>();
+        }
+        else
+        {
+            services.TryAddSingleton<IZkProofVerifier, DisabledZkProofVerifier>();
+        }
+
         services.AddScoped<IZkAnonymousProofService, ZkAnonymousProofService>();
         services.AddSingleton<IAnonymousCommentPolicyService, AnonymousCommentPolicyService>();
         services.AddScoped<IAnonymousCredentialService, AnonymousCredentialService>();

@@ -60,6 +60,10 @@ public sealed record ZkAnonymousPolicySnapshot(
 public sealed record ZkProofVerificationRequest(
     string ActionContext,
     string Scope,
+    string CircuitId,
+    string VerifyingKeyHash,
+    ushort PublicInputLayoutVersion,
+    long CredentialEpoch,
     string NullifierHash,
     string CredentialCommitment,
     string CredentialRoot,
@@ -69,6 +73,10 @@ public sealed record ZkProofVerificationRequest(
     public bool HasRequiredCommentInputs =>
         !string.IsNullOrWhiteSpace(ActionContext) &&
         !string.IsNullOrWhiteSpace(Scope) &&
+        !string.IsNullOrWhiteSpace(CircuitId) &&
+        !string.IsNullOrWhiteSpace(VerifyingKeyHash) &&
+        PublicInputLayoutVersion > 0 &&
+        CredentialEpoch > 0 &&
         !string.IsNullOrWhiteSpace(NullifierHash) &&
         !string.IsNullOrWhiteSpace(CredentialCommitment) &&
         !string.IsNullOrWhiteSpace(CredentialRoot) &&

@@ -42,6 +42,10 @@ public sealed class ZkAnonymousProofService(
     [
         "action_context",
         "article_or_comment_scope",
+        "circuit_id",
+        "verifying_key_hash",
+        "public_input_layout_version",
+        "credential_epoch",
         "nullifier_hash",
         "credential_commitment",
         "credential_root",
@@ -94,6 +98,6 @@ public sealed class ZkAnonymousProofService(
         }
 
         ZkProofVerificationResult result = await verifier.VerifyAsync(request, cancellationToken);
-        return result.Verified ? result : ZkProofVerificationResult.InvalidProof(result.Message);
+        return result.Verified ? result : ZkProofVerificationResult.InvalidProof();
     }
 }
