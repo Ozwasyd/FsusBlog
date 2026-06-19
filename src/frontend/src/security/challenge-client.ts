@@ -16,7 +16,7 @@ import {
   type SecurityChallengeProof
 } from './challenge-proof-store'
 
-export type ChallengeKindGroup = 'captcha' | 'pow' | 'pospace' | 'passkey' | 'unsupported'
+export type ChallengeKindGroup = 'captcha' | 'pow' | 'pospace' | 'passkey' | 'perception' | 'unsupported'
 export type ChallengeIssueStatus = 'verified' | 'allow' | 'challenge' | 'unsupported' | 'failed'
 export type ChallengeVerifyStatus = 'verified' | 'failed'
 
@@ -63,6 +63,12 @@ export interface SecurityChallengeClientOptions {
 }
 
 const DEFAULT_PROOF_TTL_MS = 5 * 60 * 1000
+
+export const securityBusinessChallengeGates = {
+  'comment.create': 'perception-v2',
+  'auth.login': 'fallback',
+  'recovery-key.verify': 'fallback'
+} as const
 
 export function createSecurityChallengeClient(options: SecurityChallengeClientOptions = {}): SecurityChallengeClient {
   const issueChallenge = options.issueChallenge ?? issueSecurityChallenge
@@ -218,6 +224,11 @@ export function getChallengeKindGroup(kind: SecurityChallengeKind): ChallengeKin
     case SecurityChallengeKind.AnonymousCredentialProofV1:
     case SecurityChallengeKind.ZkAnonymousCommentProofV1:
       return 'passkey'
+    case SecurityChallengeKind.PerceptionCharacterV2:
+    case SecurityChallengeKind.PerceptionTextTaskV2:
+    case SecurityChallengeKind.PerceptionLocalizationV2:
+    case SecurityChallengeKind.PerceptionMicroInteractionV2:
+      return 'perception'
     default:
       return 'unsupported'
   }

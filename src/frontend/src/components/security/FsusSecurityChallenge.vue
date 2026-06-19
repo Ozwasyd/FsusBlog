@@ -37,6 +37,27 @@
       @refresh="emit('refresh')"
     />
 
+    <FsusPerceptionChallenge
+      v-else-if="kindGroup === 'perception' && perceptionRuntime"
+      :challenge="perceptionRuntime.challenge"
+      :renderer="perceptionRuntime.renderer"
+      :client="perceptionRuntime.client"
+      title="完成安全验证"
+      eyebrow="Perception v2"
+      refresh-label="刷新"
+      retry-label="重试"
+      cancel-label="取消"
+      loading-text="正在准备安全验证"
+      failed-text="验证未通过，请重试。"
+      expired-text="验证已过期，请重试。"
+      @verified="handlePerceptionVerified"
+      @error="setError"
+      @refresh="refreshChallenge"
+      @retry="refreshChallenge"
+      @expired="handlePerceptionExpired"
+      @cancel="handlePerceptionCancel"
+    />
+
     <FsusPowChallenge
       v-else-if="kindGroup === 'pow'"
       :assignment="assignment"
@@ -83,7 +104,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   SecurityChallengeKind,
   type IssueSecurityChallengeRequest,
@@ -93,6 +114,7 @@ import {
   type SecurityChallengeVerifyResponse,
   type VerifySecurityChallengeRequest
 } from '@/api/security'
+import { FsusPerceptionChallenge, type PerceptionChallengeVerifyResult } from '@/fsusui/perceptionChallenge'
 import FsusCaptchaChallenge from './FsusCaptchaChallenge.vue'
 import FsusPasskeyStepUpChallenge from './FsusPasskeyStepUpChallenge.vue'
 import FsusPoSpaceChallenge from './FsusPoSpaceChallenge.vue'
@@ -106,6 +128,11 @@ import {
   type SecurityChallengeIssueResult
 } from '@/security/challenge-client'
 import type { SecurityChallengeProof } from '@/security/challenge-proof-store'
+import {
+  createPerceptionChallengeRuntime,
+  isPerceptionChallengeKind,
+  type PerceptionChallengeRuntime
+} from '@/services/securityPerceptionChallengeFlow'
 
 const props = withDefaults(defineProps<{
   action: string
@@ -128,6 +155,8 @@ const emit = defineEmits<{
   unsupported: [value: SecurityChallengeIssueResult]
   error: [value: string]
   refresh: []
+  expired: []
+  cancel: []
 }>()
 
 const defaultClient = createSecurityChallengeClient()
@@ -138,6 +167,7 @@ const assignment = ref<SecurityChallengeAssignment | null>(null)
 const providerPayload = ref<SecurityChallengeProviderPayload | null>(null)
 const preloadedIssueResponse = ref<SecurityChallengeIssueResponse | null>(null)
 const captchaKey = ref(0)
+const perceptionRuntime = ref<PerceptionChallengeRuntime | null>(null)
 
 const title = computed(() => props.title)
 const disabled = computed(() => props.disabled === true)
@@ -184,6 +214,7 @@ async function refreshChallenge(): Promise<void> {
 }
 
 function applyIssueResult(result: SecurityChallengeIssueResult): void {
+  resetPerceptionRuntime()
   emit('issued', result)
   assignment.value = result.assignment
   providerPayload.value = result.providerPayload
@@ -209,6 +240,19 @@ function applyIssueResult(result: SecurityChallengeIssueResult): void {
   }
   if (result.kindGroup === 'captcha') {
     captchaKey.value += 1
+  }
+}
+
+async function verifyPerceptionChallenge(request: VerifySecurityChallengeRequest): Promise<SecurityChallengeVerifyResponse> {
+  const result = await client().verify(context(), request)
+  return result.response ?? {
+    verified: false,
+    challengeId: request.challengeId,
+    kind: request.kind,
+    policyVersion: '',
+    proofToken: '',
+    reason: result.reason ?? 'security_challenge_verify_failed',
+    retryAfterMs: result.retryAfterMs
   }
 }
 
@@ -253,9 +297,62 @@ function handleVerified(value: SecurityChallengeVerifyResponse): void {
   emit('verified', value)
 }
 
+function handlePerceptionVerified(value: PerceptionChallengeVerifyResult): void {
+  const currentAssignment = assignment.value
+  if (!value.verified || !currentAssignment) {
+    setError('验证未通过，请重试。')
+    return
+  }
+
+  emit('verified', {
+    verified: true,
+    challengeId: currentAssignment.challengeId,
+    kind: currentAssignment.kind,
+    policyVersion: preloadedIssueResponse.value?.policyVersion ?? '',
+    proofToken: value.proofToken ?? '',
+    reason: '',
+    retryAfterMs: value.retryAfterMs ?? 0
+  })
+}
+
+function handlePerceptionExpired(): void {
+  client().clearProof(context())
+  setError('验证已过期，请重试。')
+  emit('expired')
+}
+
+function handlePerceptionCancel(): void {
+  client().clearProof(context())
+  setError('验证已取消。')
+  emit('cancel')
+}
+
 function setError(message: string): void {
   errorMessage.value = message
   emit('error', message)
+}
+
+function resetPerceptionRuntime(): void {
+  perceptionRuntime.value?.dispose()
+  perceptionRuntime.value = null
+}
+
+function rebuildPerceptionRuntime(): void {
+  resetPerceptionRuntime()
+  if (
+    kindGroup.value !== 'perception' ||
+    !assignment.value ||
+    !providerPayload.value ||
+    !isPerceptionChallengeKind(assignment.value.kind)
+  ) {
+    return
+  }
+
+  perceptionRuntime.value = createPerceptionChallengeRuntime({
+    assignment: assignment.value,
+    providerPayload: providerPayload.value,
+    verifyChallenge: verifyPerceptionChallenge
+  })
 }
 
 onMounted(() => {
@@ -263,6 +360,12 @@ onMounted(() => {
     void ensureChallenge()
   }
 })
+
+onBeforeUnmount(() => {
+  resetPerceptionRuntime()
+})
+
+watch([assignment, providerPayload, kindGroup], rebuildPerceptionRuntime)
 </script>
 
 <style scoped>

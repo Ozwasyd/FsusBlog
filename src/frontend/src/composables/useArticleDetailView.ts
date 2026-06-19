@@ -27,6 +27,14 @@ import { isAbortError } from '@/utils/errors'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { alertInfo } from '@/fsusui/feedback'
 import { requestGlobalConfirm } from '@/composables/useGlobalConfirm'
+import {
+  createSecurityChallengeClient,
+  securityBusinessChallengeGates,
+  type SecurityChallengeClient,
+  type SecurityChallengeContext,
+  type SecurityChallengeIssueResult
+} from '@/security/challenge-client'
+import type { SecurityChallengeProof } from '@/security/challenge-proof-store'
 import type { NotificationStreamArticleRenderPatch, NotificationStreamCommentRenderPatch } from '@/services/notificationStreamTypes'
 import { useNotificationStreamStore } from '@/store/notificationStream'
 import {
@@ -75,6 +83,7 @@ type ReplyTarget = {
 } | null
 
 const COMMENT_SUMMARY_LIMIT = 48
+const COMMENT_CREATE_CHALLENGE_ACTION = 'comment.create'
 
 export function useArticleDetailView() {
   const route = useRoute()
@@ -102,6 +111,7 @@ export function useArticleDetailView() {
   const commentPolicyTask = useAbortableTask()
   const commentSubmitTask = useAbortableTask()
   const commentPrivacyRuntime = getCommentPrivacyRuntime()
+  const baseCommentChallengeClient = createSecurityChallengeClient()
   const anonymousSubmitScopesInFlight = new Set<string>()
 
   const articleRendererRef = ref<InstanceType<typeof MarkdownRenderer> | null>(null)
@@ -115,6 +125,8 @@ export function useArticleDetailView() {
   const commentPrivacyUiState = ref<CommentPrivacyUiState>(commentPrivacyRuntime.getUiState())
   const submittingComment = ref(false)
   const replyTarget = ref<ReplyTarget>(null)
+  const commentChallengeVisible = ref(false)
+  const commentChallengePreload = ref<SecurityChallengeIssueResult | null>(null)
 
   let bootstrapApplied = Boolean(initialBootstrapArticle)
   let routeInitVersion = 0
@@ -128,6 +140,7 @@ export function useArticleDetailView() {
       relatedLoadTask.cancel()
       commentPolicyTask.cancel()
       commentSubmitTask.cancel()
+      clearCommentChallenge()
       anonymousSubmitScopesInFlight.clear()
       unsubscribeCommentPrivacyRuntime()
     }
@@ -168,6 +181,43 @@ export function useArticleDetailView() {
 
   const totalCommentCount = computed(() => threads.value.reduce((acc, item) => acc + 1 + item.replyCount, 0))
   const commentAnonymousScope = computed(() => article.value ? `article:${article.value.id}` : 'article')
+  const commentChallengeRouteKey = computed(() => article.value ? `article:${article.value.id}` : '')
+  const commentChallengeAttributes = computed<Record<string, unknown>>(() => ({
+    surface: 'article-detail-comment',
+    authorMode: resolveCommentAuthorModeForPolicy(),
+    reply: Boolean(replyTarget.value)
+  }))
+
+  const commentChallengeContext = (): SecurityChallengeContext => ({
+    action: COMMENT_CREATE_CHALLENGE_ACTION,
+    routeKey: commentChallengeRouteKey.value,
+    attributes: commentChallengeAttributes.value
+  })
+
+  const commentChallengeClient: SecurityChallengeClient = {
+    async issue(context, options = {}) {
+      if (!options.forceRefresh && commentChallengePreload.value) {
+        const preloaded = commentChallengePreload.value
+        commentChallengePreload.value = null
+        return preloaded
+      }
+
+      return baseCommentChallengeClient.issue(context, options)
+    },
+    refresh(context) {
+      commentChallengePreload.value = null
+      return baseCommentChallengeClient.refresh(context)
+    },
+    verify(context, request) {
+      return baseCommentChallengeClient.verify(context, request)
+    },
+    getCachedProof(context) {
+      return baseCommentChallengeClient.getCachedProof(context)
+    },
+    clearProof(context) {
+      baseCommentChallengeClient.clearProof(context)
+    }
+  }
 
   const detailView = computed(() =>
     article.value
@@ -282,7 +332,12 @@ export function useArticleDetailView() {
   const applyCommentPolicySnapshot = (policy: CommentPolicySnapshot): void => {
     anonymousCommentsEnabled.value = policy.anonymousCommentsEnabled
     publicCommentsEnabled.value = policy.publicCommentsEnabled
-    zkAnonymousEnabled.value = policy.zkAnonymousEnabled
+    const zkProdAvailable = policy.zkProdEnabled &&
+      policy.zkProdNativeVerifierConfigured &&
+      policy.zkProdTrustedSetupVerified &&
+      policy.zkProdCredentialRootReady &&
+      policy.zkProdUnavailableReason.length === 0
+    zkAnonymousEnabled.value = policy.zkAnonymousEnabled && zkProdAvailable
     applySupportedCommentDisplayLanguage(policy.supportedDisplayLanguages)
 
     if (
@@ -535,6 +590,81 @@ export function useArticleDetailView() {
     return 'public'
   }
 
+  const clearCommentChallenge = (): void => {
+    commentChallengeVisible.value = false
+    commentChallengePreload.value = null
+  }
+
+  const ensureCommentCreateChallengeProof = async (
+    selectedAuthorMode: CommentAuthorMode,
+    signal: AbortSignal
+  ): Promise<SecurityChallengeProof | null | 'pending'> => {
+    if (
+      selectedAuthorMode !== 'public' ||
+      securityBusinessChallengeGates[COMMENT_CREATE_CHALLENGE_ACTION] !== 'perception-v2'
+    ) {
+      return null
+    }
+
+    const routeKey = commentChallengeRouteKey.value
+    if (!routeKey) {
+      return 'pending'
+    }
+
+    const context = commentChallengeContext()
+    const cached = commentChallengeClient.getCachedProof(context)
+    if (cached) {
+      clearCommentChallenge()
+      return cached
+    }
+
+    const result = await commentChallengeClient.issue(context)
+    if (signal.aborted) {
+      return 'pending'
+    }
+
+    if (result.status === 'verified' && result.proof) {
+      clearCommentChallenge()
+      return result.proof
+    }
+
+    if (result.status === 'allow') {
+      clearCommentChallenge()
+      return null
+    }
+
+    if (result.status === 'challenge') {
+      commentChallengePreload.value = result
+      commentChallengeVisible.value = true
+      return 'pending'
+    }
+
+    commentChallengeVisible.value = false
+    showErrorToast('安全验证暂不可用，请稍后重试。')
+    return 'pending'
+  }
+
+  const handleCommentChallengeVerified = (): void => {
+    clearCommentChallenge()
+    void submitComment()
+  }
+
+  const handleCommentChallengeError = (): void => {
+    showErrorToast('验证未通过，请重试。')
+  }
+
+  const handleCommentChallengeExpired = (): void => {
+    commentChallengeClient.clearProof(commentChallengeContext())
+    commentChallengePreload.value = null
+    showErrorToast('验证已过期，请重试。')
+  }
+
+  const handleCommentChallengeCancel = (): void => {
+    commentChallengeClient.clearProof(commentChallengeContext())
+    clearCommentChallenge()
+    showErrorToast('验证已取消。')
+  }
+
   const submitComment = async (): Promise<void> => {
     if (!commentContent.value.trim() || !article.value) {
       return
@@ -590,6 +720,7 @@ export function useArticleDetailView() {
     submittingComment.value = true
 
     commentSubmitTask.cancel()
+    let commentMutationSubmitted = false
 
     try {
       await commentSubmitTask.run(
@@ -619,6 +750,12 @@ export function useArticleDetailView() {
               privacyTicket,
               { signal }
             )
+            commentMutationSubmitted = true
+            return
+          }
+
+          const challengeProof = await ensureCommentCreateChallengeProof(selectedAuthorMode, signal)
+          if (challengeProof === 'pending') {
             return
           }
 
@@ -632,14 +769,16 @@ export function useArticleDetailView() {
               authorMode: 'public',
               publicSendExplicitlySelected: true,
               anonymousScope: commentAnonymousScope.value,
-              displayLanguage: commentDisplayLanguage.value
+              displayLanguage: commentDisplayLanguage.value,
+              proofToken: challengeProof?.proofToken ?? null
             },
             { signal }
           )
+          commentMutationSubmitted = true
         }
       )
 
-      if (lifecycle.isActive()) {
+      if (lifecycle.isActive() && commentMutationSubmitted) {
         toast.success('已提交审核')
         commentContent.value = ''
         commentAuthorMode.value = anonymousCommentsEnabled.value ? 'anonymous' : 'public'

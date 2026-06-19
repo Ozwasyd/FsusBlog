@@ -63,6 +63,19 @@
           @cancel-reply="clearReplyTarget"
         />
 
+        <FsusSecurityChallenge
+          v-if="commentChallengeVisible"
+          action="comment.create"
+          :route-key="commentChallengeRouteKey"
+          :attributes="commentChallengeAttributes"
+          :client="commentChallengeClient"
+          title="完成评论安全验证"
+          @verified="handleCommentChallengeVerified"
+          @error="handleCommentChallengeError"
+          @expired="handleCommentChallengeExpired"
+          @cancel="handleCommentChallengeCancel"
+        />
+
         <ArticleCommentsVirtualList
           class="space-y-8"
           aria-live="polite"
@@ -145,6 +158,7 @@ import ArticleReadingProgress from '@/components/article/ArticleReadingProgress.
 import ArticleShareActions from '@/components/article/ArticleShareActions.vue'
 import ArticleTocPanel from '@/components/article/ArticleTocPanel.vue'
 import PublicArticleDetailPageContent from '@/components/public/pages/PublicArticleDetailPageContent.vue'
+import FsusSecurityChallenge from '@/components/security/FsusSecurityChallenge.vue'
 import { useArticleImageLightbox } from '@/composables/article/useArticleImageLightbox'
 import { useArticleToc } from '@/composables/article/useArticleToc'
 import { useCodeBlockCopy } from '@/composables/article/useCodeBlockCopy'
@@ -173,6 +187,14 @@ const {
   publicSendConfirmed,
   commentDisplayLanguage,
   commentAnonymousScope,
+  commentChallengeVisible,
+  commentChallengeRouteKey,
+  commentChallengeAttributes,
+  commentChallengeClient,
+  handleCommentChallengeVerified,
+  handleCommentChallengeError,
+  handleCommentChallengeExpired,
+  handleCommentChallengeCancel,
   anonymousCommentsEnabled,
   publicCommentsEnabled,
   zkAnonymousEnabled,

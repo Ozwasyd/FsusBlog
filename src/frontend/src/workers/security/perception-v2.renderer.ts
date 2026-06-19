@@ -12,6 +12,7 @@ export type PerceptionV2Color = string | readonly [number, number, number] | rea
 
 export type PerceptionV2Layer = {
   kind?: 'rect' | 'ellipse' | 'line' | 'polyline'
+  shape?: 'rect' | 'ellipse' | 'line' | 'polyline' | 'polygon'
   x?: number
   y?: number
   width?: number
@@ -20,26 +21,38 @@ export type PerceptionV2Layer = {
   radiusY?: number
   points?: PerceptionV2Point[]
   color?: PerceptionV2Color
+  colorRgba?: PerceptionV2Color
   alpha?: number
+  opacity?: number
+  strokeSegments?: PerceptionV2StrokeSegment[]
+  noiseFields?: PerceptionV2NoiseField[]
+  warpFields?: PerceptionV2WarpField[]
+  occluders?: PerceptionV2Occluder[]
 }
 
 export type PerceptionV2StrokeSegment = {
   points: PerceptionV2Point[]
   width?: number
   color?: PerceptionV2Color
+  colorRgba?: PerceptionV2Color
   alpha?: number
 }
 
 export type PerceptionV2NoiseField = {
-  seed?: number
+  seed?: number | string
+  seedHex?: string
   density?: number
+  intensity?: number
   alpha?: number
   color?: PerceptionV2Color
+  colorRgba?: PerceptionV2Color
   cellSize?: number
+  scale?: number
 }
 
 export type PerceptionV2WarpField = {
-  seed?: number
+  seed?: number | string
+  seedHex?: string
   amplitude?: number
   frequency?: number
   axis?: 'x' | 'y'
@@ -47,6 +60,7 @@ export type PerceptionV2WarpField = {
 
 export type PerceptionV2Occluder = {
   kind?: 'rect' | 'ellipse' | 'line'
+  shape?: 'rect' | 'ellipse' | 'line' | 'polygon'
   x?: number
   y?: number
   width?: number
@@ -55,22 +69,28 @@ export type PerceptionV2Occluder = {
   radiusY?: number
   points?: PerceptionV2Point[]
   color?: PerceptionV2Color
+  colorRgba?: PerceptionV2Color
   alpha?: number
+  opacity?: number
 }
 
 export type RenderRecipeV2 = {
+  schema?: string
+  taskKind?: PerceptionV2TaskKind | 'character' | 'microInteraction'
   v?: 2
-  width: number
-  height: number
+  width?: number
+  height?: number
   background?: PerceptionV2Color
   layers?: PerceptionV2Layer[]
   strokeSegments?: PerceptionV2StrokeSegment[]
   noiseFields?: PerceptionV2NoiseField[]
   warpFields?: PerceptionV2WarpField[]
   occluders?: PerceptionV2Occluder[]
-  presentationHints?: {
+  presentationHints?: Record<string, string | number | undefined> & {
     taskKind?: PerceptionV2TaskKind
     devicePixelRatio?: number
+    canvasWidth?: number | string
+    canvasHeight?: number | string
   }
 }
 
@@ -248,22 +268,85 @@ function isPerceptionV2WorkerRequest(value: unknown): value is PerceptionV2Worke
 
 function normalizeRecipe(recipe: RenderRecipeV2): NormalizedRecipe {
   assertNoSemanticFields(recipe)
-  const width = toInteger(recipe.width)
-  const height = toInteger(recipe.height)
+  const width = resolveRecipeDimension(recipe, 'width', 'canvasWidth')
+  const height = resolveRecipeDimension(recipe, 'height', 'canvasHeight')
   if (width < 1 || height < 1 || width > MAX_DIMENSION || height > MAX_DIMENSION || width * height > MAX_PIXELS) {
     throw new Error('perception_v2_invalid_dimensions')
   }
 
+  const flattened = flattenRecipeLayers(recipe.layers)
   return {
     width,
     height,
     background: parseColor(recipe.background, [13, 19, 27, 255]),
-    layers: Array.isArray(recipe.layers) ? recipe.layers : [],
-    strokeSegments: Array.isArray(recipe.strokeSegments) ? recipe.strokeSegments : [],
-    noiseFields: Array.isArray(recipe.noiseFields) ? recipe.noiseFields : [],
-    warpFields: Array.isArray(recipe.warpFields) ? recipe.warpFields : [],
-    occluders: Array.isArray(recipe.occluders) ? recipe.occluders : []
+    layers: flattened.layers,
+    strokeSegments: [
+      ...(Array.isArray(recipe.strokeSegments) ? recipe.strokeSegments : []),
+      ...flattened.strokeSegments
+    ],
+    noiseFields: [
+      ...(Array.isArray(recipe.noiseFields) ? recipe.noiseFields : []),
+      ...flattened.noiseFields
+    ],
+    warpFields: [
+      ...(Array.isArray(recipe.warpFields) ? recipe.warpFields : []),
+      ...flattened.warpFields
+    ],
+    occluders: [
+      ...(Array.isArray(recipe.occluders) ? recipe.occluders : []),
+      ...flattened.occluders
+    ]
   }
+}
+
+function resolveRecipeDimension(recipe: RenderRecipeV2, dimensionKey: 'width' | 'height', hintKey: 'canvasWidth' | 'canvasHeight'): number {
+  if (recipe[dimensionKey] !== undefined) {
+    return toInteger(recipe[dimensionKey])
+  }
+  if (recipe.presentationHints?.[hintKey] !== undefined) {
+    return toInteger(recipe.presentationHints[hintKey])
+  }
+  return dimensionKey === 'width' ? 320 : 180
+}
+
+function flattenRecipeLayers(layers: PerceptionV2Layer[] | undefined): Pick<NormalizedRecipe, 'layers' | 'strokeSegments' | 'noiseFields' | 'warpFields' | 'occluders'> {
+  const result: Pick<NormalizedRecipe, 'layers' | 'strokeSegments' | 'noiseFields' | 'warpFields' | 'occluders'> = {
+    layers: [],
+    strokeSegments: [],
+    noiseFields: [],
+    warpFields: [],
+    occluders: []
+  }
+  if (!Array.isArray(layers)) {
+    return result
+  }
+
+  for (const layer of layers) {
+    if (isDrawableLayer(layer)) {
+      result.layers.push(layer)
+    }
+    const inheritedAlpha = layer.opacity ?? layer.alpha
+    result.strokeSegments.push(...withInheritedAlpha(layer.strokeSegments, inheritedAlpha))
+    result.noiseFields.push(...withInheritedAlpha(layer.noiseFields, inheritedAlpha))
+    result.warpFields.push(...(Array.isArray(layer.warpFields) ? layer.warpFields : []))
+    result.occluders.push(...withInheritedAlpha(layer.occluders, inheritedAlpha))
+  }
+  return result
+}
+
+function isDrawableLayer(layer: PerceptionV2Layer): boolean {
+  return Boolean(layer.kind || layer.shape || layer.x !== undefined || layer.y !== undefined || layer.points)
+}
+
+function withInheritedAlpha<T extends { alpha?: number; opacity?: number }>(items: T[] | undefined, alpha: number | undefined): T[] {
+  if (!Array.isArray(items) || alpha === undefined) {
+    return Array.isArray(items) ? items : []
+  }
+
+  return items.map((item) => ({
+    ...item,
+    alpha: item.alpha ?? item.opacity ?? alpha
+  }))
 }
 
 function assertNoSemanticFields(value: unknown, path = 'recipe'): void {
@@ -396,7 +479,7 @@ function drawShape(
   shape: PerceptionV2Layer | PerceptionV2Occluder,
   fallbackColor: Rgba
 ): void {
-  const kind = shape.kind ?? 'rect'
+  const kind = shape.kind ?? (shape.shape === 'polygon' ? 'polyline' : shape.shape) ?? 'rect'
   if (kind === 'ellipse') {
     drawEllipse(pixels, width, height, shape, fallbackColor)
     return
@@ -417,11 +500,11 @@ function drawRect(
   shape: PerceptionV2Layer | PerceptionV2Occluder,
   fallbackColor: Rgba
 ): void {
-  const color = withAlpha(parseColor(shape.color, fallbackColor), shape.alpha)
-  const startX = clampInteger(shape.x ?? 0, 0, width)
-  const startY = clampInteger(shape.y ?? 0, 0, height)
-  const endX = clampInteger(startX + Math.max(0, shape.width ?? width), 0, width)
-  const endY = clampInteger(startY + Math.max(0, shape.height ?? height), 0, height)
+  const color = withAlpha(parseColor(shape.color ?? shape.colorRgba, fallbackColor), shape.alpha ?? shape.opacity)
+  const startX = clampInteger(resolveCoordinate(shape.x ?? 0, width), 0, width)
+  const startY = clampInteger(resolveCoordinate(shape.y ?? 0, height), 0, height)
+  const endX = clampInteger(startX + Math.max(0, resolveLength(shape.width ?? width, width, width)), 0, width)
+  const endY = clampInteger(startY + Math.max(0, resolveLength(shape.height ?? height, height, height)), 0, height)
 
   for (let y = startY; y < endY; y += 1) {
     for (let x = startX; x < endX; x += 1) {
@@ -437,11 +520,11 @@ function drawEllipse(
   shape: PerceptionV2Layer | PerceptionV2Occluder,
   fallbackColor: Rgba
 ): void {
-  const color = withAlpha(parseColor(shape.color, fallbackColor), shape.alpha)
-  const centerX = finiteNumber(shape.x, width / 2)
-  const centerY = finiteNumber(shape.y, height / 2)
-  const radiusX = Math.max(1, finiteNumber(shape.radiusX, finiteNumber(shape.width, width / 4) / 2))
-  const radiusY = Math.max(1, finiteNumber(shape.radiusY, finiteNumber(shape.height, height / 4) / 2))
+  const color = withAlpha(parseColor(shape.color ?? shape.colorRgba, fallbackColor), shape.alpha ?? shape.opacity)
+  const centerX = resolveCoordinate(shape.x, width, width / 2)
+  const centerY = resolveCoordinate(shape.y, height, height / 2)
+  const radiusX = Math.max(1, resolveLength(shape.radiusX, width, resolveLength(shape.width, width, width / 4) / 2))
+  const radiusY = Math.max(1, resolveLength(shape.radiusY, height, resolveLength(shape.height, height, height / 4) / 2))
   const startX = clampInteger(Math.floor(centerX - radiusX), 0, width)
   const endX = clampInteger(Math.ceil(centerX + radiusX), 0, width)
   const startY = clampInteger(Math.floor(centerY - radiusY), 0, height)
@@ -465,13 +548,13 @@ function drawShapeLine(
   shape: PerceptionV2Layer | PerceptionV2Occluder,
   fallbackColor: Rgba
 ): void {
-  const points = normalizePoints(shape.points)
+  const points = normalizePoints(shape.points, width, height)
   if (points.length < 2) {
     return
   }
 
-  const color = withAlpha(parseColor(shape.color, fallbackColor), shape.alpha)
-  const strokeWidth = Math.max(1, finiteNumber(shape.width, 1))
+  const color = withAlpha(parseColor(shape.color ?? shape.colorRgba, fallbackColor), shape.alpha ?? shape.opacity)
+  const strokeWidth = Math.max(1, resolveLength(shape.width, Math.min(width, height), 1))
   drawPolyline(pixels, width, height, points, color, strokeWidth)
 }
 
@@ -481,13 +564,13 @@ function drawStrokeSegment(
   height: number,
   segment: PerceptionV2StrokeSegment
 ): void {
-  const points = normalizePoints(segment.points)
+  const points = normalizePoints(segment.points, width, height)
   if (points.length < 2) {
     return
   }
 
-  const color = withAlpha(parseColor(segment.color, [242, 186, 73, 255]), segment.alpha)
-  drawPolyline(pixels, width, height, points, color, Math.max(1, finiteNumber(segment.width, 2)))
+  const color = withAlpha(parseColor(segment.color ?? segment.colorRgba, [242, 186, 73, 255]), segment.alpha)
+  drawPolyline(pixels, width, height, points, color, Math.max(1, resolveLength(segment.width, Math.min(width, height), 2)))
 }
 
 function drawPolyline(
@@ -555,10 +638,10 @@ function drawNoiseField(
   height: number,
   field: PerceptionV2NoiseField
 ): void {
-  const seed = toInteger(field.seed ?? 1)
-  const density = clamp(finiteNumber(field.density, 0.08), 0, 1)
-  const cellSize = clampInteger(field.cellSize ?? 1, 1, 16)
-  const color = withAlpha(parseColor(field.color, [255, 255, 255, 255]), field.alpha ?? 0.12)
+  const seed = toSeed(field.seed ?? field.seedHex ?? 1)
+  const density = clamp(finiteNumber(field.density ?? field.intensity, 0.08), 0, 1)
+  const cellSize = clampInteger(resolveLength(field.cellSize ?? field.scale, Math.min(width, height), 1), 1, 16)
+  const color = withAlpha(parseColor(field.color ?? field.colorRgba, [255, 255, 255, 255]), field.alpha ?? 0.12)
 
   for (let y = 0; y < height; y += cellSize) {
     for (let x = 0; x < width; x += cellSize) {
@@ -589,7 +672,7 @@ function applyWarpFields(
     }
 
     const frequency = clamp(finiteNumber(field.frequency, 0.08), 0.001, 1)
-    const seed = finiteNumber(field.seed, 0)
+    const seed = toSeed(field.seed ?? field.seedHex ?? 0)
     const next = createPixelBuffer(current.length)
     for (let y = 0; y < height; y += 1) {
       for (let x = 0; x < width; x += 1) {
@@ -625,15 +708,15 @@ function copySample(
   target[targetIndex + 3] = source[sourceIndex + 3]
 }
 
-function normalizePoints(points: PerceptionV2Point[] | undefined): PerceptionV2Point[] {
+function normalizePoints(points: PerceptionV2Point[] | undefined, width: number, height: number): PerceptionV2Point[] {
   if (!Array.isArray(points)) {
     return []
   }
 
   return points
     .map((point) => ({
-      x: finiteNumber(point.x, 0),
-      y: finiteNumber(point.y, 0)
+      x: resolveCoordinate(point.x, width),
+      y: resolveCoordinate(point.y, height)
     }))
     .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
 }
@@ -694,6 +777,15 @@ function parseColor(value: PerceptionV2Color | undefined, fallback: Rgba): Rgba 
     ]
   }
 
+  if (/^#[0-9a-f]{8}$/i.test(normalized)) {
+    return [
+      Number.parseInt(normalized.slice(1, 3), 16),
+      Number.parseInt(normalized.slice(3, 5), 16),
+      Number.parseInt(normalized.slice(5, 7), 16),
+      Number.parseInt(normalized.slice(7, 9), 16)
+    ]
+  }
+
   return fallback
 }
 
@@ -710,11 +802,42 @@ function finiteNumber(value: unknown, fallback: number): number {
 }
 
 function toInteger(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? Math.trunc(value) : 0
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.trunc(value)
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? Math.trunc(parsed) : 0
+  }
+  return 0
 }
 
 function clampInteger(value: unknown, min: number, max: number): number {
   return Math.trunc(clamp(finiteNumber(value, min), min, max))
+}
+
+function resolveCoordinate(value: unknown, size: number, fallback = 0): number {
+  const numeric = finiteNumber(value, fallback)
+  return numeric > 0 && numeric <= 1 ? numeric * size : numeric
+}
+
+function resolveLength(value: unknown, size: number, fallback: number): number {
+  const numeric = finiteNumber(value, fallback)
+  return numeric > 0 && numeric <= 1 ? numeric * size : numeric
+}
+
+function toSeed(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.trunc(value)
+  }
+  if (typeof value === 'string' && value.trim()) {
+    let seed = 0
+    for (let index = 0; index < value.length; index += 1) {
+      seed = Math.imul(seed ^ value.charCodeAt(index), 16777619)
+    }
+    return seed || 1
+  }
+  return 1
 }
 
 function clamp(value: number, min: number, max: number): number {

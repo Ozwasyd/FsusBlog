@@ -16,7 +16,11 @@ export const SecurityChallengeKind = {
   AdminPasskeyStepUpV1: 6,
   RecoveryKeyProofV1: 7,
   AnonymousCredentialProofV1: 8,
-  ZkAnonymousCommentProofV1: 9
+  ZkAnonymousCommentProofV1: 9,
+  PerceptionCharacterV2: 10,
+  PerceptionLocalizationV2: 11,
+  PerceptionMicroInteractionV2: 12,
+  PerceptionTextTaskV2: 13
 } as const;
 
 export type SecurityChallengeKind = typeof SecurityChallengeKind[keyof typeof SecurityChallengeKind];
@@ -231,7 +235,7 @@ function parseProviderPayloadJson(value: string): Record<string, string> {
   try {
     const parsed = JSON.parse(value) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error('not_object');
+      throw createAppError(AppErrorCode.ProtocolFailure, 'security_challenge_provider_payload_not_object');
     }
     const result: Record<string, string> = {};
     for (const [key, raw] of Object.entries(parsed)) {

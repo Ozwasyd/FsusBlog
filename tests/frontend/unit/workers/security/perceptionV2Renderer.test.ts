@@ -127,7 +127,7 @@ describe('PerceptionV2 worker renderer core', () => {
       v: 1,
       type: 'render',
       requestId: 8,
-      recipe: { v: 2, width: 0, height: 40 }
+      recipe: { v: 2, width: 2048, height: 40 }
     })
 
     expect(invalid?.response).toMatchObject({
