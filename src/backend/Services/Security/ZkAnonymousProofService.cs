@@ -51,6 +51,8 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
         "nullifier_hash",
         "credential_commitment",
         "credential_root",
+        "revocation_root",
+        "issuer_public_key_hash",
         "reputation_bucket"
     ];
 

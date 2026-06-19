@@ -71,9 +71,13 @@ Before release, run the strong privacy gate:
 
 ```bash
 npm --prefix src/frontend run check:privacy-zk
+npm --prefix src/frontend run check:privacy-zk-prod-smoke
+npm --prefix src/frontend run check:privacy-zk-prod-release
 ```
 
 The gate is backed by `security/privacy-zk-comment-matrix.yml` and covers anonymous transport without Cookie or Authorization, strong-anonymous request rejection when credentials are present, fail-closed ZK proof/root/verifier handling, one-shot ticket consumption, scoped nullifier behavior, provider and log redaction, admin non-reversibility, explicit public opt-in, frontend fake-timer/worker/Abort coverage, and deterministic high-concurrency pressure cases.
+
+`check:privacy-zk-prod-smoke` writes `.tmp/security/privacy-zk-prod-smoke.json`. When `AnonymousIdentity:ZkProd:Enabled=false` or the browser prover artifact is not present, the smoke result must be `expected_unavailable` with a trace id and business state. When real Groth16 / BBS+ artifacts are available, pass sanitized real evidence with `--real-evidence` and `--require-real`; the evidence must prove native verifier, wasm prover, BBS credential, ticket issue, anonymous submit pending state, omitted identity headers, and sensitive payload redaction. The smoke summary must never contain proof, ticket, credential secret, or nullifier secret material.
 
 ## Required Evidence
 
@@ -87,3 +91,4 @@ Attach the smoke notes to the issue or release evidence with:
 - public opt-in submission id
 - anonymous-disabled rejection status
 - moderation review screenshot or exported queue item with nullable user id and actor signals
+- ZK-Prod smoke summary path, trace id, business state, and either expected-unavailable reason or sanitized real proof -> ticket -> submit -> pending evidence

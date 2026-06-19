@@ -151,3 +151,24 @@ scenarios:
       - tests/backend/Unit/AnonymousPrivacyMatrixTests.cs
     evidence:
       - .tmp/security/privacy-zk-comment-matrix.json
+
+  - id: PRIVACY-ZK-PROD-SMOKE
+    scenario: production ZK smoke validates native verifier, browser prover evidence, ticket issue, anonymous submit and pending DB state without identity headers or sensitive payload logs
+    owner: ServerContractAgent
+    status: optional-gate
+    requiredCases: [happy-path-smoke, cookie-contamination-negative-smoke, ticket-replay-negative-smoke, tampered-proof-negative-smoke, feature-flag-off-expected-unavailable, cross-scope-nullifier-independence-smoke, real-native-verifier-wasm-prover-evidence, proof-ticket-credential-redacted]
+    localCommands: [check:privacy-zk-prod-smoke, check:privacy-zk-prod-release]
+    code:
+      - tools/security/run-privacy-zk-prod-smoke.mjs
+      - src/backend/Services/Security/ProductionZkProofVerifier.cs
+      - src/backend/Services/Security/AnonymousCommentTicketService.cs
+      - src/backend/Services/CommentService.cs
+      - src/frontend/src/privacy/commentPrivacyWasmProver.ts
+    tests:
+      - tests/backend/Unit/AnonymousZkProdSmokeTests.cs
+      - tests/backend/Unit/RejectIdentifiedPrincipalFilterTests.cs
+      - tests/security/privacy-zk-prod-smoke.test.mjs
+      - tests/security/privacy-zk-prod-release.test.mjs
+      - tests/backend/Unit/AnonymousPrivacyMatrixTests.cs
+    evidence:
+      - .tmp/security/privacy-zk-prod-smoke.json

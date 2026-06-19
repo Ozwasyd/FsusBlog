@@ -25,7 +25,15 @@ public sealed class AnonymousPrivacyMatrixTests
         "provider-no-userId-username-proof-raw-nullifier",
         "log-redaction-proof-witness-credential-secret-raw-nullifier-cookie-authorization",
         "admin-no-account-reversal",
-        "public-signature-explicit-opt-in"
+        "public-signature-explicit-opt-in",
+        "happy-path-smoke",
+        "cookie-contamination-negative-smoke",
+        "ticket-replay-negative-smoke",
+        "tampered-proof-negative-smoke",
+        "feature-flag-off-expected-unavailable",
+        "cross-scope-nullifier-independence-smoke",
+        "real-native-verifier-wasm-prover-evidence",
+        "proof-ticket-credential-redacted"
     ];
 
     private static readonly string[] RequiredConcurrencyCases =
@@ -44,6 +52,7 @@ public sealed class AnonymousPrivacyMatrixTests
         "check:privacy-zk-frontend",
         "check:privacy-zk-backend",
         "check:privacy-zk-concurrency",
+        "check:privacy-zk-prod-smoke",
         "check:privacy-zk"
     ];
 
@@ -78,6 +87,7 @@ public sealed class AnonymousPrivacyMatrixTests
         Assert.Contains("id: PRIVACY-ZK-MODERATION-LOGGING", matrix, StringComparison.Ordinal);
         Assert.Contains("id: PRIVACY-ZK-FRONTEND-RUNTIME", matrix, StringComparison.Ordinal);
         Assert.Contains("id: PRIVACY-ZK-CONCURRENCY", matrix, StringComparison.Ordinal);
+        Assert.Contains("id: PRIVACY-ZK-PROD-SMOKE", matrix, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -160,12 +170,19 @@ public sealed class AnonymousPrivacyMatrixTests
     public void PrivacyZkCommentEvidence_PointsAtExecutableBackendAndFrontendTests()
     {
         string backendConcurrency = BackendTestPaths.ReadAllTextFromRoot("tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs");
+        string backendProdSmoke = BackendTestPaths.ReadAllTextFromRoot("tests/backend/Unit/AnonymousZkProdSmokeTests.cs");
+        string prodSmokeGate = BackendTestPaths.ReadAllTextFromRoot("tests/security/privacy-zk-prod-smoke.test.mjs");
         string frontendGate = BackendTestPaths.ReadAllTextFromRoot("tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts");
         string runtimeTest = BackendTestPaths.ReadAllTextFromRoot("tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts");
 
         Assert.Contains("Task.WhenAll", backendConcurrency, StringComparison.Ordinal);
         Assert.Contains("Barrier", backendConcurrency, StringComparison.Ordinal);
         Assert.Contains("SemaphoreSlim", backendConcurrency, StringComparison.Ordinal);
+        Assert.Contains("ProductionZkProofVerifier", backendProdSmoke, StringComparison.Ordinal);
+        Assert.Contains("NativeGroth16ZkProofBackend", backendProdSmoke, StringComparison.Ordinal);
+        Assert.Contains("CommentModerationStatus.Pending", backendProdSmoke, StringComparison.Ordinal);
+        Assert.Contains("featureFlagOffExpectedUnavailable", prodSmokeGate, StringComparison.Ordinal);
+        Assert.Contains("sensitivePayloadRedacted", prodSmokeGate, StringComparison.Ordinal);
         Assert.Contains("vi.useFakeTimers", runtimeTest, StringComparison.Ordinal);
         Assert.Contains("credentials: 'omit'", frontendGate, StringComparison.Ordinal);
         Assert.Contains("transfers proof input buffers", frontendGate, StringComparison.Ordinal);

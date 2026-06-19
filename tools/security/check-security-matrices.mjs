@@ -279,7 +279,8 @@ function verifyPrivacyZkCommentMatrix(text) {
     'PRIVACY-ZK-TICKET-NULLIFIER',
     'PRIVACY-ZK-MODERATION-LOGGING',
     'PRIVACY-ZK-FRONTEND-RUNTIME',
-    'PRIVACY-ZK-CONCURRENCY'
+    'PRIVACY-ZK-CONCURRENCY',
+    'PRIVACY-ZK-PROD-SMOKE'
   ]
   const requiredPrivacyCases = [
     'no-cookie',
@@ -314,7 +315,15 @@ function verifyPrivacyZkCommentMatrix(text) {
     'srs-transcript-consistency',
     'public-input-layout-upgrade-new-ceremony',
     'pk-vk-artifact-paths',
-    'placeholder-vk-hash-rejected'
+    'placeholder-vk-hash-rejected',
+    'happy-path-smoke',
+    'cookie-contamination-negative-smoke',
+    'ticket-replay-negative-smoke',
+    'tampered-proof-negative-smoke',
+    'feature-flag-off-expected-unavailable',
+    'cross-scope-nullifier-independence-smoke',
+    'real-native-verifier-wasm-prover-evidence',
+    'proof-ticket-credential-redacted'
   ]
   const requiredConcurrencyCases = [
     'concurrent-same-nullifier-scope-policy-limit',
@@ -328,7 +337,8 @@ function verifyPrivacyZkCommentMatrix(text) {
     'check:privacy-zk-contract',
     'check:privacy-zk-frontend',
     'check:privacy-zk-backend',
-    'check:privacy-zk-concurrency'
+    'check:privacy-zk-concurrency',
+    'check:privacy-zk-prod-smoke'
   ]
 
   for (const id of requiredScenarioIds) {
