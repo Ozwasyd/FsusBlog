@@ -84,3 +84,39 @@ public readonly struct SecurityChallengeVerifyResponsePod
     public readonly Utf8SliceRef ProofToken;
     public readonly Utf8SliceRef Reason;
 }
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct PerceptionSealedChallengeV2Pod
+{
+    public readonly SecurityChallengeAssignmentPod Assignment;
+    public readonly byte TaskKind;
+    public readonly byte Reserved0;
+    public readonly ushort Reserved1;
+    public readonly int GridWidth;
+    public readonly int GridHeight;
+    public readonly long IssuedAtUnixMs;
+    public readonly long ExpiresAtUnixMs;
+    public readonly Utf8Fixed64 Algorithm;
+    public readonly Utf8Fixed64 RecipeHashHex;
+    public readonly Utf8Fixed64 SignatureHex;
+    public readonly Utf8SliceRef RenderRecipeBase64;
+    public readonly Utf8SliceRef SealedTokenBase64;
+    public readonly Utf8SliceRef Family;
+    public readonly Utf8SliceRef Variant;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct PerceptionSealedResultV2Pod
+{
+    public readonly SecurityChallengeAssignmentPod Assignment;
+    public readonly byte TaskKind;
+    public readonly byte PayloadKind;
+    public readonly ushort Reserved0;
+    public readonly long IssuedAtUnixMs;
+    public readonly long ExpiresAtUnixMs;
+    public readonly Utf8Fixed64 Algorithm;
+    public readonly Utf8Fixed64 RecipeHashHex;
+    public readonly Utf8Fixed64 SignatureHex;
+    public readonly Utf8SliceRef ResponsePayloadBase64;
+    public readonly Utf8SliceRef SealedTokenBase64;
+}

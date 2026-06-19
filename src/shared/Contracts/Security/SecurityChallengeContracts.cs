@@ -11,7 +11,11 @@ public enum SecurityChallengeKind : byte
     AdminPasskeyStepUpV1 = 6,
     RecoveryKeyProofV1 = 7,
     AnonymousCredentialProofV1 = 8,
-    ZkAnonymousCommentProofV1 = 9
+    ZkAnonymousCommentProofV1 = 9,
+    PerceptionCharacterV2 = 10,
+    PerceptionLocalizationV2 = 11,
+    PerceptionMicroInteractionV2 = 12,
+    PerceptionTextTaskV2 = 13
 }
 
 public sealed record class SecurityChallengeAssignment(
@@ -99,7 +103,10 @@ public static class SecurityChallengeContracts
         SecurityChallengeKind.AdminPasskeyStepUpV1,
         SecurityChallengeKind.RecoveryKeyProofV1,
         SecurityChallengeKind.AnonymousCredentialProofV1,
-        SecurityChallengeKind.ZkAnonymousCommentProofV1
+        SecurityChallengeKind.ZkAnonymousCommentProofV1,
+        SecurityChallengeKind.PerceptionCharacterV2,
+        SecurityChallengeKind.PerceptionLocalizationV2,
+        SecurityChallengeKind.PerceptionMicroInteractionV2
     };
 
     public static string CreateChallengeId()
@@ -117,6 +124,12 @@ public static class SecurityChallengeContracts
         if (string.Equals(normalized, "security.pow", StringComparison.Ordinal))
         {
             kind = SecurityChallengeKind.Sha256PowV1;
+            return true;
+        }
+
+        if (string.Equals(normalized, "perceptionTextTaskV2", StringComparison.Ordinal))
+        {
+            kind = SecurityChallengeKind.PerceptionTextTaskV2;
             return true;
         }
 
@@ -144,6 +157,10 @@ public static class SecurityChallengeContracts
             SecurityChallengeKind.RecoveryKeyProofV1 => "recoveryKeyProofV1",
             SecurityChallengeKind.AnonymousCredentialProofV1 => "anonymousCredentialProofV1",
             SecurityChallengeKind.ZkAnonymousCommentProofV1 => "zkAnonymousCommentProofV1",
+            SecurityChallengeKind.PerceptionTextTaskV2 => "perceptionTextTaskV2",
+            SecurityChallengeKind.PerceptionCharacterV2 => "perceptionCharacterV2",
+            SecurityChallengeKind.PerceptionLocalizationV2 => "perceptionLocalizationV2",
+            SecurityChallengeKind.PerceptionMicroInteractionV2 => "perceptionMicroInteractionV2",
             _ => "unknown"
         };
 
@@ -159,7 +176,7 @@ public static class SecurityChallengeContracts
         if (IsMissing(assignment.ChallengeId)) return Invalid("challenge_id_missing");
         if (IsMissing(assignment.Traceparent)) return Invalid("traceparent_missing");
         if (IsMissing(assignment.TenantId)) return Invalid("tenant_id_missing");
-        if (assignment.Kind == SecurityChallengeKind.Unknown || !SupportedKinds.Contains(assignment.Kind)) return Invalid("kind_invalid");
+        if (assignment.Kind == SecurityChallengeKind.Unknown || !IsSupportedKind(assignment.Kind)) return Invalid("kind_invalid");
         if (expectedKind.HasValue && assignment.Kind != expectedKind.Value) return Invalid("kind_mismatch");
         if (assignment.EscalationLevel < 0) return Invalid("escalation_level_invalid");
         if (IsMissing(assignment.Action)) return Invalid("action_missing");
@@ -204,6 +221,9 @@ public static class SecurityChallengeContracts
             ? version is '4' or '7'
             : version == '7';
     }
+
+    private static bool IsSupportedKind(SecurityChallengeKind kind)
+        => SupportedKinds.Contains(kind) || kind == SecurityChallengeKind.PerceptionTextTaskV2;
 
     private static bool IsSha256Hex(string? value)
     {

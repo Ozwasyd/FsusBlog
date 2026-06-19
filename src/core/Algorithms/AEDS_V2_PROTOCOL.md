@@ -113,6 +113,10 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `179`: AnonymousCredentialRootSnapshot
 - `180`: AnonymousCommentTicketRequest
 - `181`: AnonymousCommentTicketResponse
+- `182`: AnonymousCommentCreateRequest
+- `183`: AnonymousPrivacyStateSnapshot
+- `184`: PerceptionSealedChallengeV2
+- `185`: PerceptionSealedResultV2
 - `240`: EmptySuccess
 - `241`: MutationId
 - `251`: ApiError
@@ -146,6 +150,8 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `RecoveryKeySessionRequest` payload: `StringMutationRequestPod` followed by blob payload for that recovery session token. Passkey recovery completion reuses `PasskeyRegisterCompleteRequest` and carries the recovery session token in `MfaProofToken`; this is a Recovery Key step-up, not a TOTP MFA recovery-code path.
 - `SecurityChallengeAssignment` payload: `SecurityChallengeAssignmentPod`; fields include challenge id, traceparent, tenant id, kind, escalation level, action, route key, subject/client IP/device fingerprint hashes, issued time and expiry time. Non-captcha challenge ids are UUID v7; captcha assignment decoding accepts UUID v4 or v7.
 - `SecurityChallengeEnvelope` payload: `SecurityChallengeEnvelopePod` followed by `SecurityChallengeAssignmentPod[count]`; count is capped by the shared contract.
+- `PerceptionSealedChallengeV2` payload: `PerceptionSealedChallengeV2Pod` followed by blob payload for render recipe base64, sealed token base64, family and variant. `Algorithm` is fixed to `fsu.challenge/perception-sealed@v2`; `TaskKind` maps to `perceptionCharacterV2`, `perceptionLocalizationV2` or `perceptionMicroInteractionV2`.
+- `PerceptionSealedResultV2` payload: `PerceptionSealedResultV2Pod` followed by blob payload for response payload base64 and sealed token base64. `PayloadKind` supports character, coordinates and steps response payloads and must match `TaskKind`.
 - `ConversationCreateRequest` payload: `ConversationCreateRequestPod` followed by blob payload for subject/body.
 - `ConversationReplyRequest` payload: `StringMutationRequestPod` followed by blob payload for body.
 - `ConversationStatusRequest` payload: `ConversationStatusRequestPod` (`0=open`, `1=pending`, `2=closed`).

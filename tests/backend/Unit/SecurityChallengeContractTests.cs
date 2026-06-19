@@ -1,5 +1,6 @@
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
+using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Security;
 using FsusBlog.Shared.Contracts.Validation;
 using SharedFrameType = FsusBlog.Shared.AedsFrameType;
@@ -24,7 +25,10 @@ public sealed class SecurityChallengeContractTests
             "adminPasskeyStepUpV1",
             "recoveryKeyProofV1",
             "anonymousCredentialProofV1",
-            "zkAnonymousCommentProofV1"
+            "zkAnonymousCommentProofV1",
+            "perceptionCharacterV2",
+            "perceptionLocalizationV2",
+            "perceptionMicroInteractionV2"
         ];
 
         Assert.Equal(expected.Length, SecurityChallengeContracts.SupportedKinds.Count);
@@ -147,6 +151,102 @@ public sealed class SecurityChallengeContractTests
         Assert.True(AedsProtocolMetadata.FrameTypes.ContainsKey(nameof(AedsFrameType.SecurityChallengeVerifyResponse)));
     }
 
+    [Theory]
+    [InlineData(SecurityChallengeKind.PerceptionCharacterV2, "perceptionCharacterV2", PerceptionSealedTaskKind.Character)]
+    [InlineData(SecurityChallengeKind.PerceptionLocalizationV2, "perceptionLocalizationV2", PerceptionSealedTaskKind.Localization)]
+    [InlineData(SecurityChallengeKind.PerceptionMicroInteractionV2, "perceptionMicroInteractionV2", PerceptionSealedTaskKind.MicroInteraction)]
+    public void PerceptionSealedKinds_HaveStableWireNamesAndTaskMapping(
+        SecurityChallengeKind kind,
+        string wireName,
+        PerceptionSealedTaskKind taskKind)
+    {
+        Assert.True(SecurityChallengeContracts.TryParseKind(wireName, out SecurityChallengeKind parsed));
+        Assert.Equal(kind, parsed);
+        Assert.Equal(wireName, SecurityChallengeContracts.ToWireName(kind));
+        Assert.Equal(taskKind, PerceptionSealedChallengeV2Contracts.ToTaskKind(kind));
+        Assert.Equal(kind, PerceptionSealedChallengeV2Contracts.ToChallengeKind(taskKind));
+    }
+
+    [Fact]
+    public void AedsFrameTypes_RegisterPerceptionSealedFrames()
+    {
+        Assert.Equal(184, (ushort)AedsFrameType.PerceptionSealedChallengeV2);
+        Assert.Equal(185, (ushort)AedsFrameType.PerceptionSealedResultV2);
+        Assert.Equal((ushort)AedsFrameType.PerceptionSealedChallengeV2, (ushort)SharedFrameType.PerceptionSealedChallengeV2);
+        Assert.Equal((ushort)AedsFrameType.PerceptionSealedResultV2, (ushort)SharedFrameType.PerceptionSealedResultV2);
+        Assert.True(AedsProtocolMetadata.FrameTypes.ContainsKey(nameof(AedsFrameType.PerceptionSealedChallengeV2)));
+        Assert.True(AedsProtocolMetadata.FrameTypes.ContainsKey(nameof(AedsFrameType.PerceptionSealedResultV2)));
+    }
+
+    [Theory]
+    [InlineData(SecurityChallengeKind.PerceptionCharacterV2, PerceptionSealedTaskKind.Character)]
+    [InlineData(SecurityChallengeKind.PerceptionLocalizationV2, PerceptionSealedTaskKind.Localization)]
+    [InlineData(SecurityChallengeKind.PerceptionMicroInteractionV2, PerceptionSealedTaskKind.MicroInteraction)]
+    public void PerceptionSealedChallengeV2_ValidatesThreeTaskKinds(SecurityChallengeKind kind, PerceptionSealedTaskKind taskKind)
+    {
+        var challenge = new PerceptionSealedChallengeV2(
+            CreateAssignment(kind),
+            PerceptionSealedChallengeV2Contracts.Algorithm,
+            taskKind,
+            "eyJ2IjoxfQ==",
+            Hash,
+            "c2VhbGVkLXRva2Vu",
+            Hash,
+            4,
+            4,
+            "latin",
+            "baseline",
+            1000,
+            2000);
+
+        PerceptionSealedContractValidationResult result = PerceptionSealedChallengeV2Contracts.ValidateChallenge(challenge);
+
+        Assert.True(result.IsValid, result.ErrorCode);
+    }
+
+    [Theory]
+    [InlineData(SecurityChallengeKind.PerceptionCharacterV2, PerceptionSealedTaskKind.Character, PerceptionSealedResultPayloadKind.Character)]
+    [InlineData(SecurityChallengeKind.PerceptionLocalizationV2, PerceptionSealedTaskKind.Localization, PerceptionSealedResultPayloadKind.Coordinates)]
+    [InlineData(SecurityChallengeKind.PerceptionMicroInteractionV2, PerceptionSealedTaskKind.MicroInteraction, PerceptionSealedResultPayloadKind.Steps)]
+    public void PerceptionSealedResultV2_ValidatesThreePayloadKinds(
+        SecurityChallengeKind kind,
+        PerceptionSealedTaskKind taskKind,
+        PerceptionSealedResultPayloadKind payloadKind)
+    {
+        var resultFrame = new PerceptionSealedResultV2(
+            CreateAssignment(kind),
+            PerceptionSealedChallengeV2Contracts.Algorithm,
+            taskKind,
+            payloadKind,
+            "eyJ2IjoxfQ==",
+            Hash,
+            "c2VhbGVkLXRva2Vu",
+            Hash,
+            1000,
+            2000);
+
+        PerceptionSealedContractValidationResult result = PerceptionSealedChallengeV2Contracts.ValidateResult(resultFrame);
+
+        Assert.True(result.IsValid, result.ErrorCode);
+    }
+
+    [Fact]
+    public void PerceptionSealedContracts_DoNotExposeForbiddenSemanticFields()
+    {
+        string[] names =
+        [
+            .. typeof(PerceptionSealedChallengeV2).GetProperties().Select(static property => property.Name),
+            .. typeof(PerceptionSealedResultV2).GetProperties().Select(static property => property.Name),
+            .. typeof(PerceptionSealedChallengeV2Pod).GetFields().Select(static field => field.Name),
+            .. typeof(PerceptionSealedResultV2Pod).GetFields().Select(static field => field.Name)
+        ];
+
+        Assert.DoesNotContain(names, ContainsForbiddenPerceptionFieldName);
+        Assert.True(PodContractValidation.AreAllPodModelsReferenceFree());
+        Assert.True(PodSizeCatalog.PerceptionSealedChallengeV2Pod > PodSizeCatalog.SecurityChallengeAssignmentPod);
+        Assert.True(PodSizeCatalog.PerceptionSealedResultV2Pod > PodSizeCatalog.SecurityChallengeAssignmentPod);
+    }
+
     [Fact]
     public void SecurityChallengeIssueAndVerifyContracts_RoundTrip()
     {
@@ -224,4 +324,12 @@ public sealed class SecurityChallengeContractTests
             Hash,
             1000,
             2000);
+
+    private static bool ContainsForbiddenPerceptionFieldName(string name)
+    {
+        string normalized = new(name.Where(char.IsAsciiLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+        return normalized.Contains("answer", StringComparison.Ordinal) ||
+               normalized.Contains("glyphids", StringComparison.Ordinal) ||
+               normalized.Contains("charids", StringComparison.Ordinal);
+    }
 }

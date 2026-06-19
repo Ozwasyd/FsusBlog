@@ -190,6 +190,8 @@ public enum AedsFrameType : ushort
     AnonymousCommentTicketResponse = 181,
     AnonymousCommentCreateRequest = 182,
     AnonymousPrivacyStateSnapshot = 183,
+    PerceptionSealedChallengeV2 = 184,
+    PerceptionSealedResultV2 = 185,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

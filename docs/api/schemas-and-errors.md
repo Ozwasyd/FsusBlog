@@ -269,6 +269,8 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 181 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | 匿名评论 ticket 响应；opaque ticket 与匿名 hash，不返回用户身份 |
 | 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | `POST /api/binary/comment/anonymous` 请求体；不包含 user id、username、Authorization token 或 public handle |
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
+| 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；覆盖 Character、Localization、MicroInteraction 三类 perception task |
+| 185 | `PerceptionSealedResultV2` | `PerceptionSealedResultV2Pod` | `fsu.challenge/perception-sealed@v2` verify payload；支持 character、coordinates、steps response payload |
 | 240 | `EmptySuccess` | `EmptySuccessPod` | 通用空成功响应 |
 | 241 | `MutationId` | `MutationIdPod` | 通用变更 ID 响应 |
 | 251 | `ApiError` | `ApiErrorPod` | 二进制错误响应 |
@@ -391,6 +393,8 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 |------|--------|
 | `SecurityChallengeAssignmentPod` | 664 |
 | `SecurityChallengeEnvelopePod` | 132 |
+| `PerceptionSealedChallengeV2Pod` | 916 |
+| `PerceptionSealedResultV2Pod` | 892 |
 
 > 精确值以 `PodSizeCatalog.cs` 为准；`PodContractValidation.AreAllPodModelsReferenceFree()` 在测试和启动时校验。
 
