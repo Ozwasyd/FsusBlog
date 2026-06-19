@@ -13,8 +13,6 @@ public class ModernAcAutomaton
 {
     private const int RootState = 1;
     private const int NoTransition = 0;
-    private const string LegacyFeatureSwitchName = "FsusBlog.Security.ModernAcAutomaton.UseLegacyChildRange";
-    private const string LegacyFeatureEnvName = "FSUSBLOG_SECURITY_MODERN_AC_USE_LEGACY_CHILD_RANGE";
 
     private struct FlatRule
     {
@@ -37,7 +35,6 @@ public class ModernAcAutomaton
     private int[] _componentRuleIds = [];
     private bool[] _isSingleWord = [];
     private int _totalWordCount = 0;
-    private LegacyModernAcAutomaton? _legacyFallback;
 
     private const int MaxThreadStaticRuleScratchLength = 8192;
 
@@ -51,16 +48,6 @@ public class ModernAcAutomaton
 
     public void Build(string[] keywords)
     {
-        if (UseLegacyChildRangeAutomaton())
-        {
-            var legacy = new LegacyModernAcAutomaton();
-            legacy.Build(keywords);
-            _legacyFallback = legacy;
-            ResetToEmpty();
-            return;
-        }
-
-        _legacyFallback = null;
         if (keywords == null || keywords.Length == 0)
         {
             ResetToEmpty();
@@ -503,11 +490,6 @@ public class ModernAcAutomaton
 
     internal bool ValidateSortedChildRangesForTests()
     {
-        if (_legacyFallback is { } legacy)
-        {
-            return legacy.ValidateSortedChildRangesForTests();
-        }
-
         if (_base.Length != _check.Length ||
             _failure.Length != _check.Length ||
             _outputLink.Length != _check.Length ||
@@ -541,11 +523,6 @@ public class ModernAcAutomaton
     [SkipLocalsInit]
     public bool ContainsAny(ReadOnlySpan<char> text)
     {
-        if (_legacyFallback is { } legacy)
-        {
-            return legacy.ContainsAny(text);
-        }
-
         if (_check.Length <= RootState || text.IsEmpty) return false;
 
         int bitMapLength = (_totalWordCount + 31) >> 5;
@@ -775,17 +752,6 @@ public class ModernAcAutomaton
             ruleRemaining[ruleId] = 0;
             touchedRules[i] = 0;
         }
-    }
-
-    private static bool UseLegacyChildRangeAutomaton()
-    {
-        if (AppContext.TryGetSwitch(LegacyFeatureSwitchName, out bool enabled))
-        {
-            return enabled;
-        }
-
-        string? value = Environment.GetEnvironmentVariable(LegacyFeatureEnvName);
-        return bool.TryParse(value, out enabled) && enabled;
     }
 
     private sealed class BuilderNode

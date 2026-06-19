@@ -257,7 +257,7 @@ public class ModernAcAutomatonTests
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "Helpers", "Security", "ModernAcAutomaton.cs"));
         int containsStart = source.IndexOf("public bool ContainsAny", StringComparison.Ordinal);
-        int containsEnd = source.IndexOf("private static bool UseLegacyChildRangeAutomaton", containsStart, StringComparison.Ordinal);
+        int containsEnd = source.IndexOf("private int NextState", containsStart, StringComparison.Ordinal);
         Assert.True(containsStart >= 0);
         Assert.True(containsEnd > containsStart);
         string containsAnySource = source[containsStart..containsEnd];
@@ -270,6 +270,9 @@ public class ModernAcAutomatonTests
         Assert.DoesNotContain("FindChildFast", source, StringComparison.Ordinal);
         Assert.DoesNotContain("ChildrenOffset", source, StringComparison.Ordinal);
         Assert.DoesNotContain("ChildrenCount", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(string.Concat("Legacy", "ModernAcAutomaton"), source, StringComparison.Ordinal);
+        Assert.DoesNotContain(string.Concat("UseLegacy", "ChildRange"), source, StringComparison.Ordinal);
+        Assert.DoesNotContain(string.Concat("FSUSBLOG_SECURITY_MODERN_AC_USE_", "LEGACY_CHILD_RANGE"), source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -277,14 +280,15 @@ public class ModernAcAutomatonTests
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "Helpers", "Security", "ModernAcAutomaton.cs"));
         int containsStart = source.IndexOf("public bool ContainsAny", StringComparison.Ordinal);
-        int containsEnd = source.IndexOf("private static bool UseLegacyChildRangeAutomaton", containsStart, StringComparison.Ordinal);
+        int containsEnd = source.IndexOf("private int NextState", containsStart, StringComparison.Ordinal);
         Assert.True(containsStart >= 0);
         Assert.True(containsEnd > containsStart);
         string containsAnySource = source[containsStart..containsEnd];
 
         Assert.Contains("_componentRuleOffsets", source, StringComparison.Ordinal);
         Assert.Contains("_componentRuleIds", source, StringComparison.Ordinal);
-        Assert.Contains("TryMarkCompositeComponent", containsAnySource, StringComparison.Ordinal);
+        Assert.Contains("ProcessMatches(", containsAnySource, StringComparison.Ordinal);
+        Assert.Contains("TryMarkCompositeComponent", source, StringComparison.Ordinal);
         Assert.DoesNotContain("i < _multiWordRules.Length", containsAnySource, StringComparison.Ordinal);
     }
 
