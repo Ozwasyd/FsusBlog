@@ -2005,6 +2005,35 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
+  - id: privacy-zk-comment-matrix
+    owner: ServerContractAgent
+    command: tools/test/lanes/privacy-zk-comment-matrix.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: none
+    cacheProfile: full
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    cadence: pr
+    requiredFor: production
+    coverage: [privacy-zk-comment-matrix]
+    artifacts: [.tmp/security/privacy-zk-comment-matrix.json]
+    evidence: [security/privacy-zk-comment-matrix.yml, tools/security/check-security-matrices.mjs, tools/test/lanes/privacy-zk-comment-matrix.sh, tests/backend/Unit/AnonymousPrivacyMatrixTests.cs, tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs, tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts]
+    ciJob: security-runtime
+    localOnly: false
+    nightlyOnly: false
+
   - id: wasm-fuzz-regression
     owner: WasmEngineAgent
     command: tools/test/lanes/wasm-fuzz-regression.sh

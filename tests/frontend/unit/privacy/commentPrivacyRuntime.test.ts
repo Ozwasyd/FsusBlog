@@ -7,6 +7,43 @@ import {
 } from '@/privacy/commentPrivacyRuntime'
 
 describe('CommentPrivacyRuntime', () => {
+  it('uses fake timers to expire prepared tickets by TTL', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-06-18T00:00:00Z'))
+      const adapter = createAdapter({
+        ticket: async ({ scope, proofBytes }) => ({
+          ok: true,
+          ticket: {
+            scope,
+            credentialEpoch: 20260618,
+            ticket: proofBytes,
+            expiresAtUnixMs: Date.now() + 1_000
+          }
+        })
+      })
+      const runtime = createCommentPrivacyRuntime({
+        adapter,
+        workerClient: createWorker(),
+        now: () => Date.now(),
+        scheduleIdleTask: (task) => {
+          task()
+          return () => {}
+        }
+      })
+
+      await runtime.prepareAnonymousTicket('article:42')
+      expect(runtime.consumePreparedTicket('article:42')).not.toBeNull()
+
+      await runtime.prepareAnonymousTicket('article:42')
+      vi.advanceTimersByTime(1_001)
+
+      expect(runtime.consumePreparedTicket('article:42')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('preloads article metadata, prepares a short-lived ticket, and consumes it once', async () => {
     let now = 1_000
     const adapter = createAdapter({

@@ -27,6 +27,12 @@ const checks = [
     listKey: 'scenarios',
     idPattern: /^RISKCONTROL-[A-Z0-9-]+$/,
     label: 'RiskControl'
+  },
+  {
+    file: 'security/privacy-zk-comment-matrix.yml',
+    listKey: 'scenarios',
+    idPattern: /^PRIVACY-ZK-[A-Z0-9-]+$/,
+    label: 'PrivacyZK'
   }
 ]
 
@@ -159,6 +165,77 @@ function verifyRiskControlMatrix(text) {
   }
 }
 
+function verifyPrivacyZkCommentMatrix(text) {
+  const requiredScenarioIds = [
+    'PRIVACY-ZK-TRANSPORT',
+    'PRIVACY-ZK-FAIL-CLOSED',
+    'PRIVACY-ZK-TICKET-NULLIFIER',
+    'PRIVACY-ZK-MODERATION-LOGGING',
+    'PRIVACY-ZK-FRONTEND-RUNTIME',
+    'PRIVACY-ZK-CONCURRENCY'
+  ]
+  const requiredPrivacyCases = [
+    'no-cookie',
+    'no-authorization',
+    'cookie-rejected',
+    'authorization-rejected',
+    'comment.user_id:null',
+    'zk-failure-no-anonymous-downgrade',
+    'zk-failure-no-public-publish',
+    'verifier-unavailable-fail-closed',
+    'root-expired-fail-closed',
+    'proof-invalid-fail-closed',
+    'ticket-consume-once',
+    'ticket-expired-rejected',
+    'same-article-scope-stable-nullifier',
+    'different-article-scope-different-nullifier',
+    'blocked-nullifier-rejected',
+    'scope-limit-exceeded-rejected',
+    'provider-no-userId-username-proof-raw-nullifier',
+    'log-redaction-proof-witness-credential-secret-raw-nullifier-cookie-authorization',
+    'admin-no-account-reversal',
+    'public-signature-explicit-opt-in'
+  ]
+  const requiredConcurrencyCases = [
+    'concurrent-same-nullifier-scope-policy-limit',
+    'concurrent-ticket-consume-once',
+    'root-snapshot-cached-high-frequency',
+    'verifier-bounded-concurrency',
+    'anonymous-ticket-cheap-reject',
+    'comment-submit-invalidation-nonblocking'
+  ]
+  const requiredCommands = [
+    'check:privacy-zk-contract',
+    'check:privacy-zk-frontend',
+    'check:privacy-zk-backend',
+    'check:privacy-zk-concurrency'
+  ]
+
+  for (const id of requiredScenarioIds) {
+    if (!text.includes(`id: ${id}`)) {
+      fail(`privacy-zk matrix missing scenario ${id}`)
+    }
+  }
+
+  for (const token of requiredPrivacyCases) {
+    if (!text.includes(token)) {
+      fail(`privacy-zk matrix missing required case ${token}`)
+    }
+  }
+
+  for (const token of requiredConcurrencyCases) {
+    if (!text.includes(token)) {
+      fail(`privacy-zk matrix missing concurrency case ${token}`)
+    }
+  }
+
+  for (const command of requiredCommands) {
+    if (!text.includes(command)) {
+      fail(`privacy-zk matrix missing local command ${command}`)
+    }
+  }
+}
+
 for (const check of checks) {
   const absolute = path.join(root, check.file)
   if (!fs.existsSync(absolute)) {
@@ -203,6 +280,9 @@ for (const check of checks) {
 
   if (check.label === 'RiskControl') {
     verifyRiskControlMatrix(text)
+  }
+  if (check.label === 'PrivacyZK') {
+    verifyPrivacyZkCommentMatrix(text)
   }
 }
 

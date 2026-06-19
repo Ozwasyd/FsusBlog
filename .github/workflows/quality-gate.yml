@@ -560,6 +560,8 @@ jobs:
       - run: ./tools/test.sh security
       - run: ./tools/test.sh security-authenticated-dast --no-deps
       - run: ./tools/test.sh csrf-browser-matrix --no-deps
+      - run: ./tools/test.sh risk-control-test-matrix --no-deps
+      - run: ./tools/test.sh privacy-zk-comment-matrix --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
         with:

@@ -148,6 +148,26 @@
       ]
     },
     {
+      "id": "privacy-zk-comment-matrix",
+      "description": "Privacy ZK Comment Matrix is covered by a fail-closed release gate that maps anonymous transport, proof failure, ticket/nullifier, moderation redaction, frontend runtime and concurrency coverage.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "security/privacy-zk-comment-matrix.yml",
+        "tools/security/check-security-matrices.mjs",
+        "tools/test/lanes/privacy-zk-comment-matrix.sh",
+        "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
+        "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+        "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts"
+      ],
+      "assertionType": "unit",
+      "failClosedRule": "matrix-validate and privacy-zk-comment-matrix require every required privacy case, concurrency case and local gate command to be declared before CI can pass.",
+      "minimumRequirement": "The matrix must include no Cookie/Authorization anonymous submit, credential-bearing reject, nullable comment.user_id, fail-closed proof/root/verifier handling, ticket/nullifier lifetime and scope checks, provider/log/admin privacy boundaries, explicit public opt-in, frontend fake timers/worker/Abort evidence and deterministic concurrency pressure tests.",
+      "tierIds": [
+        "privacy-zk-comment-matrix"
+      ]
+    },
+    {
       "id": "backend-aeds-pod-golden",
       "description": "Backend AEDS POD Golden is covered by declared repository evidence that exercise the named behavior.",
       "owner": "ServerContractAgent",

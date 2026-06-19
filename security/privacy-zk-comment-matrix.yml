@@ -1,0 +1,108 @@
+version: privacy-zk-comment-matrix-v1
+scenarios:
+  - id: PRIVACY-ZK-TRANSPORT
+    scenario: anonymous submit keeps browser credentials out and rejects credential-bearing requests
+    owner: InteropGlueAgent
+    status: automated
+    requiredCases: [no-cookie, no-authorization, cookie-rejected, authorization-rejected, comment.user_id:null]
+    localCommands: [check:privacy-zk-contract, check:privacy-zk-frontend, check:privacy-zk-backend, check:privacy-zk-concurrency]
+    code:
+      - src/frontend/src/api/comment.ts
+      - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs
+      - src/backend/Infrastructure/Filters/RejectIdentifiedPrincipalFilter.cs
+    tests:
+      - tests/frontend/unit/api/comment.test.ts
+      - tests/backend/Unit/RejectIdentifiedPrincipalFilterTests.cs
+      - tests/backend/Unit/AnonymousCommentSubmitTests.cs
+      - tests/backend/Unit/AnonymousPrivacyMatrixTests.cs
+    evidence:
+      - .tmp/security/privacy-zk-comment-matrix.json
+
+  - id: PRIVACY-ZK-FAIL-CLOSED
+    scenario: zk failures fail closed without anonymous or public downgrade
+    owner: ServerContractAgent
+    status: automated
+    requiredCases: [zk-failure-no-anonymous-downgrade, zk-failure-no-public-publish, verifier-unavailable-fail-closed, root-expired-fail-closed, proof-invalid-fail-closed]
+    code:
+      - src/backend/Services/Security/ZkAnonymousProofService.cs
+      - src/backend/Services/Security/AnonymousCommentTicketService.cs
+      - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs
+    tests:
+      - tests/backend/Unit/ZkAnonymousProofVerifierContractTests.cs
+      - tests/backend/Unit/AnonymousCommentTicketServiceTests.cs
+      - tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs
+      - tests/backend/Unit/AnonymousPrivacyMatrixTests.cs
+    evidence:
+      - .tmp/security/privacy-zk-comment-matrix.json
+
+  - id: PRIVACY-ZK-TICKET-NULLIFIER
+    scenario: ticket and nullifier lifetimes are one-shot, scoped, blocked and limit-aware
+    owner: ServerContractAgent
+    status: automated
+    requiredCases: [ticket-consume-once, ticket-expired-rejected, same-article-scope-stable-nullifier, different-article-scope-different-nullifier, blocked-nullifier-rejected, scope-limit-exceeded-rejected]
+    code:
+      - src/backend/Services/Security/AnonymousCommentTicketService.cs
+      - src/backend/Services/Security/CommentAnonymousNullifierService.cs
+      - src/frontend/src/privacy/commentPrivacyRuntime.ts
+    tests:
+      - tests/backend/Unit/AnonymousCommentTicketServiceTests.cs
+      - tests/backend/Unit/AnonymousCommentSubmitTests.cs
+      - tests/backend/Unit/PodBinaryCodecTests.cs
+      - tests/backend/Unit/BackendGoldenCatalogTests.cs
+      - tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts
+      - tests/backend/Unit/AnonymousPrivacyMatrixTests.cs
+    evidence:
+      - .tmp/security/privacy-zk-comment-matrix.json
+
+  - id: PRIVACY-ZK-MODERATION-LOGGING
+    scenario: moderation, provider and logging surfaces cannot re-identify anonymous accounts
+    owner: ServerContractAgent
+    status: automated
+    requiredCases: [provider-no-userId-username-proof-raw-nullifier, log-redaction-proof-witness-credential-secret-raw-nullifier-cookie-authorization, admin-no-account-reversal, public-signature-explicit-opt-in]
+    code:
+      - src/backend/Services/Moderation/AntiSpamModerationService.cs
+      - src/backend/Models/Moderation/AntiSpamModerationModels.cs
+      - src/backend/Infrastructure/Audit/AuditEventService.cs
+      - src/frontend/src/components/admin/comment-moderation/CommentModerationDetailDrawer.vue
+    tests:
+      - tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs
+      - tests/frontend/unit/view-contracts/anonymousModerationGovernanceWorkflow.test.ts
+      - tests/frontend/unit/view-contracts/commentAnonymousAuthorWorkflow.test.ts
+      - tests/backend/Unit/AnonymousPrivacyMatrixTests.cs
+    evidence:
+      - .tmp/security/privacy-zk-comment-matrix.json
+
+  - id: PRIVACY-ZK-FRONTEND-RUNTIME
+    scenario: frontend privacy runtime uses fake timers, mocked transport, worker transfers, abort races and non-ZK public copy
+    owner: InteropGlueAgent
+    status: automated
+    requiredCases: [fake-timers-ticket-ttl, mocked-fetch-credentials-omit, worker-transferable-payload, article-switch-abort-race, ui-no-zk-terms]
+    code:
+      - src/frontend/src/privacy/commentPrivacyRuntime.ts
+      - src/frontend/src/privacy/commentPrivacyWorkerClient.ts
+      - src/frontend/src/components/article/ArticleCommentComposer.vue
+      - src/frontend/src/composables/useArticleDetailView.ts
+    tests:
+      - tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts
+      - tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts
+      - tests/frontend/unit/api/comment.test.ts
+      - tests/frontend/unit/view-contracts/commentAnonymousAuthorWorkflow.test.ts
+      - tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts
+    evidence:
+      - .tmp/security/privacy-zk-comment-matrix.json
+
+  - id: PRIVACY-ZK-CONCURRENCY
+    scenario: high concurrency paths are deterministic, bounded and nonblocking
+    owner: ServerContractAgent
+    status: automated
+    requiredCases: [concurrent-same-nullifier-scope-policy-limit, concurrent-ticket-consume-once, root-snapshot-cached-high-frequency, verifier-bounded-concurrency, anonymous-ticket-cheap-reject, comment-submit-invalidation-nonblocking]
+    code:
+      - src/backend/Services/Security/AnonymousCommentTicketService.cs
+      - src/backend/Services/Security/CommentAnonymousNullifierService.cs
+      - src/backend/Services/Security/ZkAnonymousProofService.cs
+      - src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs
+    tests:
+      - tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs
+      - tests/backend/Unit/AnonymousPrivacyMatrixTests.cs
+    evidence:
+      - .tmp/security/privacy-zk-comment-matrix.json

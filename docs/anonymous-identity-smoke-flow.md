@@ -65,6 +65,16 @@ Disable anonymous comments from the admin anonymous-comment policy surface. Conf
 
 Open the moderation queue and confirm each item can be reviewed without a required `userName`. Anonymous items must show actor display name, author mode, display language, anonymous scope, credential level, reputation bucket, account age bucket, and nullifier/credential actions when the admin principal has the required permissions.
 
+### privacy/ZK release gate
+
+Before release, run the strong privacy gate:
+
+```bash
+npm --prefix src/frontend run check:privacy-zk
+```
+
+The gate is backed by `security/privacy-zk-comment-matrix.yml` and covers anonymous transport without Cookie or Authorization, strong-anonymous request rejection when credentials are present, fail-closed ZK proof/root/verifier handling, one-shot ticket consumption, scoped nullifier behavior, provider and log redaction, admin non-reversibility, explicit public opt-in, frontend fake-timer/worker/Abort coverage, and deterministic high-concurrency pressure cases.
+
 ## Required Evidence
 
 Attach the smoke notes to the issue or release evidence with:
