@@ -55,8 +55,9 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             IAedsEncoder aeds,
             IAnonymousCommentTicketService ticketService,
+            IZkAnonymousProofService zkProofService,
             CancellationToken cancellationToken) =>
-            await HandleAnonymousCommentTicketAsync(httpContext, aeds, ticketService, cancellationToken))
+            await HandleAnonymousCommentTicketAsync(httpContext, aeds, ticketService, zkProofService, cancellationToken))
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .RequireStrongAnonymousRequest();
@@ -329,8 +330,17 @@ public static partial class BinaryEndpoints
         HttpContext httpContext,
         IAedsEncoder aeds,
         IAnonymousCommentTicketService ticketService,
+        IZkAnonymousProofService zkProofService,
         CancellationToken cancellationToken)
     {
+        if (!IsZkProdTicketReady(zkProofService.CurrentZkProdPolicy))
+        {
+            return BinaryResults.FromError(
+                ErrorDetail.Create(ErrorCode.InfraFailure, "anonymous_comment_ticket_unavailable"),
+                aeds,
+                StatusCodes.Status503ServiceUnavailable);
+        }
+
         var payload = await ReadBinaryRequestPayloadAsync(
             httpContext,
             aeds,
@@ -355,6 +365,14 @@ public static partial class BinaryEndpoints
                 writer => PodBinaryCodec.WriteAnonymousCommentTicketResponse(result.Response, writer))
             : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.PublicMessage), aeds);
     }
+
+    private static bool IsZkProdTicketReady(ZkProdPolicySnapshot policy)
+        => policy.Enabled &&
+            policy.NativeVerifierConfigured &&
+            policy.TrustedSetupVerified &&
+            policy.BbsCredentialRequired &&
+            policy.CredentialRootReady &&
+            string.IsNullOrWhiteSpace(policy.UnavailableReason);
 
     internal static async Task<BinaryFrameResult> HandleAnonymousCommentCreateAsync(
         HttpContext httpContext,

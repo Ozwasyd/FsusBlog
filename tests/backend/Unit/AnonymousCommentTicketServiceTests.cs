@@ -27,6 +27,20 @@ public sealed class AnonymousCommentTicketServiceTests
     private static readonly byte[] CredentialRoot = Enumerable.Repeat((byte)0xC3, 32).ToArray();
     private static readonly byte[] RevocationRoot = Enumerable.Repeat((byte)0xD4, 32).ToArray();
     private static readonly string VerifyingKeyHash = new('e', 64);
+    private static readonly ZkProdPolicySnapshot ReadyZkProdPolicy = new(
+        true,
+        true,
+        true,
+        true,
+        true,
+        string.Empty);
+    private static readonly ZkProdPolicySnapshot DisabledZkProdPolicy = new(
+        false,
+        false,
+        false,
+        true,
+        false,
+        "disabled");
     private static readonly byte[] PublicInputs = Encoding.UTF8.GetBytes(
         $"action_context=comment.create;scope=article:42;credential_root={Convert.ToHexStringLower(CredentialRoot)};revocation_root={Convert.ToHexStringLower(RevocationRoot)};nullifier_hash={Convert.ToHexStringLower(Nullifier)};credential_level=strong_anonymous;reputation_bucket=rep:low");
 
@@ -147,6 +161,7 @@ public sealed class AnonymousCommentTicketServiceTests
     {
         var aeds = new AedsEncoder();
         var service = CreateService();
+        var proofService = new RecordingProofService(ZkProofVerificationResult.Success(), ReadyZkProdPolicy);
         DefaultHttpContext context = CreateContext(
             aeds,
             AedsFrameType.AnonymousCommentTicketRequest,
@@ -156,6 +171,7 @@ public sealed class AnonymousCommentTicketServiceTests
             context,
             aeds,
             service,
+            proofService,
             CancellationToken.None);
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
@@ -166,6 +182,28 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    public async Task BinaryEndpoint_ZkProdUnavailableFailsClosedBeforePayloadDecodeOrTicketIssue()
+    {
+        var aeds = new AedsEncoder();
+        DefaultHttpContext context = CreateContext(aeds, AedsFrameType.CommentCreateRequest, "not-ticket"u8.ToArray());
+        var proofService = new RecordingProofService(ZkProofVerificationResult.Success(), DisabledZkProdPolicy);
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCommentTicketAsync(
+            context,
+            aeds,
+            new ThrowingTicketService(),
+            proofService,
+            CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, context.Response.StatusCode);
+        Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var error));
+        Assert.Equal("anonymous_comment_ticket_unavailable", PodBinaryCodec.ToErrorDetail(error).Message);
+        Assert.Empty(proofService.Requests);
+    }
+
+    [Fact]
     public void BinaryEndpoint_RequiresStrongAnonymousAndBinaryFrames()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
@@ -173,6 +211,8 @@ public sealed class AnonymousCommentTicketServiceTests
         Assert.Contains("MapPost(\"/comment/anonymous-ticket\"", source, StringComparison.Ordinal);
         Assert.Contains("AllowAnonymous()", source, StringComparison.Ordinal);
         Assert.Contains("RequireStrongAnonymousRequest()", source, StringComparison.Ordinal);
+        Assert.Contains("CurrentZkProdPolicy", source, StringComparison.Ordinal);
+        Assert.Contains("anonymous_comment_ticket_unavailable", source, StringComparison.Ordinal);
         Assert.Contains("AedsFrameType.AnonymousCommentTicketRequest", source, StringComparison.Ordinal);
         Assert.Contains("AedsFrameType.AnonymousCommentTicketResponse", source, StringComparison.Ordinal);
     }
@@ -284,7 +324,9 @@ public sealed class AnonymousCommentTicketServiceTests
         }
     }
 
-    private sealed class RecordingProofService(ZkProofVerificationResult result) : IZkAnonymousProofService
+    private sealed class RecordingProofService(
+        ZkProofVerificationResult result,
+        ZkProdPolicySnapshot? zkProdPolicy = null) : IZkAnonymousProofService
     {
         public List<ZkProofVerificationRequest> Requests { get; } = [];
 
@@ -292,13 +334,7 @@ public sealed class AnonymousCommentTicketServiceTests
 
         public ZkAnonymousPolicySnapshot CurrentZkPolicy => new(true, true, "comment.create", []);
 
-        public ZkProdPolicySnapshot CurrentZkProdPolicy { get; } = new(
-            false,
-            false,
-            false,
-            true,
-            false,
-            "disabled");
+        public ZkProdPolicySnapshot CurrentZkProdPolicy { get; } = zkProdPolicy ?? ReadyZkProdPolicy;
 
         public Task<ZkProofVerificationResult> VerifyCommentProofAsync(
             ZkProofVerificationRequest request,
@@ -307,6 +343,19 @@ public sealed class AnonymousCommentTicketServiceTests
             Requests.Add(request);
             return Task.FromResult(result);
         }
+    }
+
+    private sealed class ThrowingTicketService : IAnonymousCommentTicketService
+    {
+        public Task<AnonymousCommentTicketIssueResult> IssueAsync(
+            AnonymousCommentTicketRequestCoreModel request,
+            CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("ticket service must not be called when ZK-Prod is unavailable");
+
+        public Task<CacheReadResult<AnonymousCommentTicketPayload>> ConsumeTicketAsync(
+            byte[] ticket,
+            CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("ticket consume must not be called from issue endpoint");
     }
 
     private sealed class RecordingNullifierService(NullifierReservationResult? result = null) : ICommentAnonymousNullifierService
