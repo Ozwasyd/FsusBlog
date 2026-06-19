@@ -5,35 +5,52 @@ let mountedAsideContent: HTMLElement | null = null
 let loadController: AbortController | null = null
 let mountedRouteKey: string | null = null
 
-function createAsideHtml(items: Array<{ id: number; title: string; views: number }>): string {
+function createAsideElement(items: Array<{ id: number; title: string; views: number }>): HTMLElement {
   const numberFormatter = new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' })
-  const list = items
-    .slice(0, 5)
-    .map((article, index) => `
-      <li class="group flex items-start gap-6">
-        <span class="flex-none text-sm tabular-nums font-medium text-[var(--fsusblog-text-subtle)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors duration-[var(--fsus-motion-control)] w-6 pt-0.5">
-          ${String(index + 1).padStart(2, '0')}
-        </span>
-        <div class="flex-auto flex flex-col gap-1.5">
-          <a href="${buildPublicArticleHref(article.id)}" class="rounded-[var(--fsusblog-reading-radius-control)] text-sm font-medium text-[var(--fsusblog-text-primary)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors duration-[var(--fsus-motion-control)] leading-relaxed line-clamp-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]">
-            ${article.title}
-          </a>
-          <p class="text-xs text-[var(--fsusblog-text-muted)] font-medium">
-            ${numberFormatter.format(article.views)} 次打开
-          </p>
-        </div>
-      </li>
-    `)
-    .join('')
 
-  return `
-    <section class="space-y-16" data-dynamic-island="home-hot-articles">
-      <div>
-        <h2 class="text-xs font-bold text-[var(--fsusblog-text-muted)] normal-case mb-8">热门文章</h2>
-        <ol role="list" class="space-y-6">${list}</ol>
-      </div>
-    </section>
-  `
+  const section = document.createElement('section')
+  section.className = 'space-y-16'
+  section.dataset.dynamicIsland = 'home-hot-articles'
+
+  const container = document.createElement('div')
+
+  const heading = document.createElement('h2')
+  heading.className = 'text-xs font-bold text-[var(--fsusblog-text-muted)] normal-case mb-8'
+  heading.textContent = '热门文章'
+
+  const list = document.createElement('ol')
+  list.setAttribute('role', 'list')
+  list.className = 'space-y-6'
+
+  items.slice(0, 5).forEach((article, index) => {
+    const item = document.createElement('li')
+    item.className = 'group flex items-start gap-6'
+
+    const rank = document.createElement('span')
+    rank.className = 'flex-none text-sm tabular-nums font-medium text-[var(--fsusblog-text-subtle)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors duration-[var(--fsus-motion-control)] w-6 pt-0.5'
+    rank.textContent = String(index + 1).padStart(2, '0')
+
+    const body = document.createElement('div')
+    body.className = 'flex-auto flex flex-col gap-1.5'
+
+    const link = document.createElement('a')
+    link.setAttribute('href', buildPublicArticleHref(article.id))
+    link.className = 'rounded-[var(--fsusblog-reading-radius-control)] text-sm font-medium text-[var(--fsusblog-text-primary)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors duration-[var(--fsus-motion-control)] leading-relaxed line-clamp-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]'
+    link.textContent = article.title
+
+    const views = document.createElement('p')
+    views.className = 'text-xs text-[var(--fsusblog-text-muted)] font-medium'
+    views.textContent = `${numberFormatter.format(article.views)} 次打开`
+
+    body.append(link, views)
+    item.append(rank, body)
+    list.append(item)
+  })
+
+  container.append(heading, list)
+  section.append(container)
+
+  return section
 }
 
 function removeMountedAsideContent(): void {
@@ -67,17 +84,11 @@ export async function mountHomeHotArticlesIsland(routeKey: string): Promise<void
     }
 
     removeMountedAsideContent()
-    const wrapper = document.createElement('div')
-    wrapper.innerHTML = createAsideHtml(articles.map((article) => ({
+    const aside = createAsideElement(articles.map((article) => ({
       id: article.id,
       title: article.title,
       views: article.views
-    }))).trim()
-
-    const aside = wrapper.firstElementChild
-    if (!(aside instanceof HTMLElement)) {
-      return
-    }
+    })))
 
     slot.replaceChildren(aside)
     mountedAsideContent = slot

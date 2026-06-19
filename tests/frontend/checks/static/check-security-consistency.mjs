@@ -25,6 +25,10 @@ const trustedHtmlImportWhitelist = new Set([
   'views/ArticleDetail.vue'
 ])
 
+// Public renderer HTML sinks must be explicitly audited through trustedHtml
+// before a path can be added here.
+const publicRendererInnerHtmlWhitelist = new Set()
+
 const violations = []
 
 function walk(dir) {
@@ -61,6 +65,14 @@ function walk(dir) {
       && !trustedHtmlImportWhitelist.has(relativePath)
     ) {
       violations.push(`${relativePath}: trustedHtml import is not in the audited whitelist`)
+    }
+
+    if (
+      relativePath.startsWith('public-renderers/')
+      && /\.innerHTML\s*=/.test(content)
+      && !publicRendererInnerHtmlWhitelist.has(relativePath)
+    ) {
+      violations.push(`${relativePath}: public renderer innerHTML sink is not in the audited whitelist`)
     }
   }
 }
