@@ -18,6 +18,7 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -168,6 +169,7 @@ public sealed class AnonymousCommentSubmitTests
             new FixedClientRegionResolver(),
             new RegionLegalModerationService(),
             new NullRiskSignalSink(),
+            FixedZkAnonymousProofService.Available(),
             aeds,
             CancellationToken.None);
 
@@ -175,6 +177,34 @@ public sealed class AnonymousCommentSubmitTests
         Assert.Equal(AedsFrameType.EmptySuccess, decoded.FrameType);
         Assert.Equal("hello anonymous", commentService.Request.Content);
         Assert.Equal(RegionCodes.Singapore, commentService.RegionDecision!.SubmitRegion);
+        Assert.Equal(1, commentService.AnonymousCreateCalls);
+    }
+
+    [Fact]
+    public async Task AnonymousCommentCreateEndpoint_ZkProdUnavailable_ReturnsApiErrorWithoutSubmit()
+    {
+        var aeds = new AedsEncoder();
+        var commentService = new CapturingCommentEndpointService();
+        DefaultHttpContext context = CreateEndpointContext(
+            AedsFrameType.AnonymousCommentCreateRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeAnonymousCommentCreateRequest(CreateRequest(content: "hello anonymous"))));
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCommentCreateAsync(
+            context,
+            commentService,
+            new AllowingContentFilter(),
+            new FixedClientRegionResolver(),
+            new RegionLegalModerationService(),
+            new NullRiskSignalSink(),
+            FixedZkAnonymousProofService.Unavailable("native verifier disabled"),
+            aeds,
+            CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out ApiErrorPod errorPod));
+        Assert.Equal("anonymous_comment_submit_unavailable", PodBinaryCodec.ToErrorDetail(errorPod).Message);
+        Assert.Equal(0, commentService.AnonymousCreateCalls);
     }
 
     [Fact]
@@ -478,11 +508,14 @@ public sealed class AnonymousCommentSubmitTests
 
         public RegionModerationDecision? RegionDecision { get; private set; }
 
+        public int AnonymousCreateCalls { get; private set; }
+
         public Task<bool> CreateAnonymousCommentAsync(
             AnonymousCommentCreateRequestCoreModel request,
             RegionModerationDecision? regionDecision = null,
             CancellationToken cancellationToken = default)
         {
+            AnonymousCreateCalls++;
             Request = request;
             RegionDecision = regionDecision;
             return Task.FromResult(true);
@@ -544,5 +577,40 @@ public sealed class AnonymousCommentSubmitTests
             proofToken = string.Empty;
             return false;
         }
+    }
+
+    private sealed class FixedZkAnonymousProofService(ZkProdPolicySnapshot policy) : IZkAnonymousProofService
+    {
+        public AnonymousCommentPolicySnapshot CurrentCommentPolicy { get; } = AnonymousCommentPolicySnapshot.Default with
+        {
+            ZkAnonymousEnabled = true
+        };
+
+        public ZkAnonymousPolicySnapshot CurrentZkPolicy { get; } = new(true, true, "comment.create", []);
+
+        public ZkProdPolicySnapshot CurrentZkProdPolicy { get; } = policy;
+
+        public static FixedZkAnonymousProofService Available()
+            => new(new ZkProdPolicySnapshot(
+                Enabled: true,
+                NativeVerifierConfigured: true,
+                TrustedSetupVerified: true,
+                BbsCredentialRequired: true,
+                CredentialRootReady: true,
+                UnavailableReason: string.Empty));
+
+        public static FixedZkAnonymousProofService Unavailable(string reason)
+            => new(new ZkProdPolicySnapshot(
+                Enabled: true,
+                NativeVerifierConfigured: false,
+                TrustedSetupVerified: true,
+                BbsCredentialRequired: true,
+                CredentialRootReady: true,
+                UnavailableReason: reason));
+
+        public Task<ZkProofVerificationResult> VerifyCommentProofAsync(
+            ZkProofVerificationRequest request,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(ZkProofVerificationResult.VerifierUnavailable());
     }
 }

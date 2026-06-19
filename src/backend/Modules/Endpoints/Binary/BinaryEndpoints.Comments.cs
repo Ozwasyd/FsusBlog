@@ -69,6 +69,7 @@ public static partial class BinaryEndpoints
             IClientRegionResolver regionResolver,
             IRegionLegalModerationService regionLegalModerationService,
             ISecurityRiskSignalSink riskSignals,
+            IZkAnonymousProofService zkProofService,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
             await HandleAnonymousCommentCreateAsync(
@@ -78,6 +79,7 @@ public static partial class BinaryEndpoints
                 regionResolver,
                 regionLegalModerationService,
                 riskSignals,
+                zkProofService,
                 aeds,
                 cancellationToken))
         .AllowAnonymous()
@@ -381,9 +383,18 @@ public static partial class BinaryEndpoints
         IClientRegionResolver regionResolver,
         IRegionLegalModerationService regionLegalModerationService,
         ISecurityRiskSignalSink riskSignals,
+        IZkAnonymousProofService zkProofService,
         IAedsEncoder aeds,
         CancellationToken cancellationToken)
     {
+        if (!IsZkProdTicketReady(zkProofService.CurrentZkProdPolicy))
+        {
+            return BinaryResults.FromError(
+                ErrorDetail.Create(ErrorCode.InfraFailure, "anonymous_comment_submit_unavailable"),
+                aeds,
+                StatusCodes.Status503ServiceUnavailable);
+        }
+
         var payload = await ReadBinaryRequestPayloadAsync(
             httpContext,
             aeds,
