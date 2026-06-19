@@ -86,6 +86,8 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 
 生产启动校验通过 `ProductionStartupValidationHostedService` 纳入 DI 生命周期。生产环境校验失败时写入 `StartupRuntimeState` 的 `productionStartupValidation=degraded` 并记录日志，进程保持可观测；就绪探针仍由 DB/Redis 连通性决定。非生产环境报告 `skipped`。
 
+安全运行策略由 `ISecurityAdminPolicyService` 暴露进程内 immutable 快照，公开读、PoW、RiskControl 和后台概览只读该内存状态。后台 `/api/binary/admin/security/**` 修改 AntiCrawler/PoW 策略时，在原有 admin principal、`system.config`、`X-Fsus-Mfa-Proof` 和高价值审计边界内额外写入 `security_policy_snapshot` 版本化记录；启动期 `SecurityPolicySnapshotHostedService` 必须排在 `LifecycleHostedBootstrapService` 之后，从 active 策略加载内存快照，active 反序列化失败时回退到最近 last-known-good 版本。请求热路径不得为了读取策略同步查询 PostgreSQL；持久化写失败会让管理写请求失败并保留日志诊断，下一次启动仍以最后可用的 active/LKG 持久化快照恢复运行时策略。
+
 运行时可观测性由 `Infrastructure/Observability` 统一管理。`FsusObservability` 暴露 `ActivitySource=FsusBlog.Server` 与 `Meter=FsusBlog.Server`，并把自定义属性限制为低基数 `fsus.*` 白名单。ASP.NET Core、HttpClient、runtime、Npgsql、notification stream meter、cache、PublicAOT、search 和 scheduled-publish worker 都进入同一 trace/metric 面；`ObservabilityCorrelationMiddleware` 把 `Activity.TraceId` 写回 `HttpContext.TraceIdentifier` 和 `X-Fsus-Trace-Id`，使错误响应、Serilog/audit 与标准 collector trace 能按同一 ID 关联。OTLP exporter 默认关闭，只有 `Observability:ExporterEnabled`/`OTEL_EXPORTER_OTLP_ENDPOINT` 打开后才向 collector 导出。
 
 缓存治理清单由 `tools/cache/export-cache-governance.mjs` 从 `CachePolicyRegistry`、`CacheTag`、`HttpCachePolicyCatalog` 生成到 `docs/cache-governance.catalog.json`。`tools/check-cache-governance.sh` 会在 fast gate 中校验该清单，防止 cache key/tag/catalog 与文档证据漂移。

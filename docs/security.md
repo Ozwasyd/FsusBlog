@@ -80,6 +80,8 @@ RiskControl 生产控制面按 `Risk Signal -> Risk Score -> Risk Decision -> Ch
 
 安全后台生产 API 全部使用 `/api/binary/admin/security/**` AEDS v2 frame；被 bridge 复用的 JSON envelope 只挂在受保护的 `/_fsus/internal/binary-bridge/admin/security/**`，外部 `/api/admin/security/**` 已移除。`SecurityBinaryBridgeMiddleware` 复用原 endpoint 的 admin principal + `AdminPermissions.SystemConfig` authorization、`fixed_ip` 限流、`X-Fsus-Mfa-Proof` admin passkey step-up、device fingerprint header 和高价值安全审计，失败统一编码为 `ApiError` frame。
 
+AntiCrawler 与 PoW 管理写操作会同步写入 PostgreSQL `security_policy_snapshot`，以 `policy_id + version` 保留不可变历史版本，并用单 active partial unique index 约束每个策略只有一个生效版本。写入、激活和回滚仍要求 admin principal、`system.config` 权限和一次性 `X-Fsus-Mfa-Proof`；缺失或无效 proof 返回 `428 + MFA_PROOF_REQUIRED`，不得进入策略写入。启动时 `SecurityPolicySnapshotHostedService` 在 schema bootstrap 后加载 active 快照；active 文档损坏或无法反序列化时，只回退到最近 `is_last_known_good=true` 的历史版本并写 warning，不从请求路径同步查 DB。策略表只保存策略 JSON、版本、mode、admin principal id、时间戳和回滚元数据，不保存 proof token、session token、客户端 IP 原文或设备指纹原文。
+
 AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关闭 crawler 类处置和 crawler 风险写入，不关闭 PoW、认证、授权、CORS、Fetch Metadata、路径穿越硬拦截等基础安全能力；`observe` 记录事件但不拦截、不触发 public read challenge 升级；`enforce` 是生产默认策略；`strict` 会提高 crawler 类风险分。局部开关包括 public read challenge、search crawler verification、social preview guard、risk scoring、event persistence、dashboard aggregation、CIDR auto update 和 illegal path hard abort。PoW 使用独立 `PowPolicySnapshot`，不受 AntiCrawler mode 直接控制。
 
 ---

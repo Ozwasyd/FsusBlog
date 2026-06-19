@@ -49,6 +49,7 @@ public static class SecurityEndpoints
             HttpContext context,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
+            ISecurityPolicySnapshotService policySnapshots,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
@@ -59,6 +60,13 @@ public static class SecurityEndpoints
             }
 
             AntiCrawlerPolicySnapshot snapshot = policy.UpdateAntiCrawlerOptions(request, ResolveActor(context));
+            await policySnapshots.ActivateAsync(
+                SecurityPolicyIds.AntiCrawler,
+                snapshot.Options.Mode,
+                snapshot,
+                ResolveAdminPrincipalId(context),
+                snapshot.Reason,
+                cancellationToken);
             await RecordSecurityAuditAsync(
                 auditEvents,
                 "admin.security.anti_crawler.options_updated",
@@ -75,6 +83,7 @@ public static class SecurityEndpoints
             HttpContext context,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
+            ISecurityPolicySnapshotService policySnapshots,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
@@ -84,7 +93,29 @@ public static class SecurityEndpoints
                 return stepUp;
             }
 
-            AntiCrawlerPolicySnapshot snapshot = policy.RollbackAntiCrawlerOptions(ResolveActor(context));
+            SecurityPolicyRollbackResult<AntiCrawlerPolicySnapshot> rollback = await policySnapshots.RollbackAsync<AntiCrawlerPolicySnapshot>(
+                SecurityPolicyIds.AntiCrawler,
+                targetVersion: null,
+                ResolveAdminPrincipalId(context),
+                "rollback",
+                cancellationToken);
+            AntiCrawlerPolicySnapshot snapshot;
+            if (rollback.Success && rollback.Document is not null)
+            {
+                snapshot = rollback.Document;
+                policy.ApplyAntiCrawlerPolicySnapshot(snapshot);
+            }
+            else
+            {
+                snapshot = policy.RollbackAntiCrawlerOptions(ResolveActor(context));
+                await policySnapshots.ActivateAsync(
+                    SecurityPolicyIds.AntiCrawler,
+                    snapshot.Options.Mode,
+                    snapshot,
+                    ResolveAdminPrincipalId(context),
+                    "rollback",
+                    cancellationToken);
+            }
             await RecordSecurityAuditAsync(
                 auditEvents,
                 "admin.security.anti_crawler.options_rolled_back",
@@ -284,6 +315,7 @@ public static class SecurityEndpoints
             HttpContext context,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
+            ISecurityPolicySnapshotService policySnapshots,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
@@ -294,6 +326,13 @@ public static class SecurityEndpoints
             }
 
             PowPolicySnapshot snapshot = policy.UpdatePowOptions(request, ResolveActor(context));
+            await policySnapshots.ActivateAsync(
+                SecurityPolicyIds.Pow,
+                snapshot.Options.Mode,
+                snapshot,
+                ResolveAdminPrincipalId(context),
+                snapshot.Reason,
+                cancellationToken);
             await RecordSecurityAuditAsync(
                 auditEvents,
                 "admin.security.pow.options_updated",
@@ -310,6 +349,7 @@ public static class SecurityEndpoints
             HttpContext context,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
+            ISecurityPolicySnapshotService policySnapshots,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
@@ -319,7 +359,29 @@ public static class SecurityEndpoints
                 return stepUp;
             }
 
-            PowPolicySnapshot snapshot = policy.RollbackPowOptions(ResolveActor(context));
+            SecurityPolicyRollbackResult<PowPolicySnapshot> rollback = await policySnapshots.RollbackAsync<PowPolicySnapshot>(
+                SecurityPolicyIds.Pow,
+                targetVersion: null,
+                ResolveAdminPrincipalId(context),
+                "rollback",
+                cancellationToken);
+            PowPolicySnapshot snapshot;
+            if (rollback.Success && rollback.Document is not null)
+            {
+                snapshot = rollback.Document;
+                policy.ApplyPowPolicySnapshot(snapshot);
+            }
+            else
+            {
+                snapshot = policy.RollbackPowOptions(ResolveActor(context));
+                await policySnapshots.ActivateAsync(
+                    SecurityPolicyIds.Pow,
+                    snapshot.Options.Mode,
+                    snapshot,
+                    ResolveAdminPrincipalId(context),
+                    "rollback",
+                    cancellationToken);
+            }
             await RecordSecurityAuditAsync(auditEvents, "admin.security.pow.options_rolled_back", "管理员回滚 PoW 运行策略", "pow_options", snapshot.SnapshotId, "rollback", snapshot, cancellationToken);
             return Results.Ok(JsonApiResponse<PowPolicySnapshot>.Ok(snapshot));
         }).RequireRateLimiting("fixed_ip");
@@ -433,4 +495,7 @@ public static class SecurityEndpoints
 
     private static string ResolveActor(HttpContext context)
         => context.GetUserId().ToString(CultureInfo.InvariantCulture);
+
+    private static long? ResolveAdminPrincipalId(HttpContext context)
+        => context.User.TryGetAdminPrincipalId(out long adminPrincipalId) ? adminPrincipalId : null;
 }

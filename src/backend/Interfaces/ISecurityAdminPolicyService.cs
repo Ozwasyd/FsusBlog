@@ -40,6 +40,10 @@ public interface ISecurityAdminPolicyService :
 
     PowPolicySnapshot RollbackPowOptions(string changedBy);
 
+    void ApplyAntiCrawlerPolicySnapshot(AntiCrawlerPolicySnapshot snapshot);
+
+    void ApplyPowPolicySnapshot(PowPolicySnapshot snapshot);
+
     void RecordRiskEvent(AntiCrawlerRiskEventResponse riskEvent);
 
     void UpsertRiskSnapshot(SecurityRiskSnapshotResponse snapshot);

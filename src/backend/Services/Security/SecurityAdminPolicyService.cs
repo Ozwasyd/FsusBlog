@@ -203,6 +203,24 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         }
     }
 
+    public void ApplyAntiCrawlerPolicySnapshot(AntiCrawlerPolicySnapshot snapshot)
+    {
+        lock (_gate)
+        {
+            _previousAntiCrawler = _currentAntiCrawler;
+            Volatile.Write(ref _currentAntiCrawler, snapshot);
+        }
+    }
+
+    public void ApplyPowPolicySnapshot(PowPolicySnapshot snapshot)
+    {
+        lock (_gate)
+        {
+            _previousPow = _currentPow;
+            Volatile.Write(ref _currentPow, snapshot);
+        }
+    }
+
     public void RecordRiskEvent(AntiCrawlerRiskEventResponse riskEvent)
     {
         AntiCrawlerPolicyOptions options = Current.Options;

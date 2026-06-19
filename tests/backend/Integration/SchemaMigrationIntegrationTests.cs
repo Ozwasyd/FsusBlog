@@ -134,6 +134,41 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    public async Task RunAsync_CreatesSecurityPolicySnapshotTableOnEmptyDatabase()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "security_policy_snapshot"));
+        foreach (string column in new[]
+        {
+            "policy_id",
+            "version",
+            "mode",
+            "document",
+            "created_by_admin_id",
+            "created_at_utc",
+            "activated_at_utc",
+            "revoked_at_utc",
+            "is_last_known_good",
+            "rollback_of_version",
+            "reason"
+        })
+        {
+            Assert.True(
+                await fixture.ColumnExistsAsync(connectionString, "security_policy_snapshot", column),
+                $"security_policy_snapshot.{column} was not created");
+        }
+
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_security_policy_snapshot_policy_version"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_security_policy_snapshot_active"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_security_policy_snapshot_lkg"));
+    }
+
+    [Fact]
     public async Task RunAsync_CreatesAnonymousCredentialRootMetadataTableOnEmptyDatabase()
     {
         string databaseName = await fixture.CreateDatabaseAsync();

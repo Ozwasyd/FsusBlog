@@ -27,6 +27,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAnonymousCredentialRootMetadataMigration(),
         BuildAnonymousCredentialRootLifecycleMigration(),
         BuildSecurityRiskEventPersistenceMigration(),
+        BuildSecurityPolicySnapshotMigration(),
         BuildSecurityChallengePersistenceMigration(),
         BuildCommentActorMigration(),
         BuildAuditLogMigration(),
@@ -963,6 +964,41 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     CREATE INDEX IF NOT EXISTS idx_security_risk_event_client_ip ON security_risk_event(client_ip_hash);
                     CREATE INDEX IF NOT EXISTS idx_security_risk_event_device ON security_risk_event(device_fp_hash);
                     CREATE INDEX IF NOT EXISTS idx_security_risk_event_expires ON security_risk_event(expires_at_utc);
+                    """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildSecurityPolicySnapshotMigration()
+        => new SchemaMigrationDescriptor(
+            "20260619-post-security-policy-snapshot",
+            "Create versioned RiskControl security policy snapshot storage.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "security_policy_snapshot",
+                    """
+                    CREATE TABLE IF NOT EXISTS security_policy_snapshot (
+                        id bigserial PRIMARY KEY,
+                        policy_id varchar(64) NOT NULL,
+                        version bigint NOT NULL,
+                        mode varchar(32) NOT NULL,
+                        document text NOT NULL,
+                        created_by_admin_id bigint NULL,
+                        created_at_utc timestamp NOT NULL DEFAULT now(),
+                        activated_at_utc timestamp NULL,
+                        revoked_at_utc timestamp NULL,
+                        is_last_known_good boolean NOT NULL DEFAULT false,
+                        rollback_of_version bigint NULL,
+                        reason varchar(128) NULL
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_security_policy_snapshot_policy_version
+                        ON security_policy_snapshot(policy_id, version);
+                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_security_policy_snapshot_active
+                        ON security_policy_snapshot(policy_id)
+                        WHERE activated_at_utc IS NOT NULL AND revoked_at_utc IS NULL;
+                    CREATE INDEX IF NOT EXISTS idx_security_policy_snapshot_lkg
+                        ON security_policy_snapshot(policy_id, is_last_known_good, version DESC);
                     """)
             ]);
 

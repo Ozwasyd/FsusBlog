@@ -44,6 +44,7 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IAuthRiskService, AuthRiskService>();
         services.AddScoped<IRiskControlContextFactory, RiskControlContextFactory>();
         services.AddScoped<IRiskDecisionService, RiskDecisionService>();
+        services.AddScoped<ISecurityPolicySnapshotService, SecurityPolicySnapshotService>();
         services.AddScoped<ISecurityChallengePersistenceService, SecurityChallengePersistenceService>();
         services.AddScoped<ISecurityChallengeProofService, SecurityChallengeProofService>();
         services.AddScoped<ISecurityChallengeProvider, Sha256PowChallengeProvider>();
@@ -65,6 +66,7 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         {
             services.AddHostedService<ProductionStartupValidationHostedService>();
             services.AddHostedService<LifecycleHostedBootstrapService>();
+            services.AddHostedService<SecurityPolicySnapshotHostedService>();
             services.AddHostedService<AnonymousCredentialRootRefreshHostedService>();
         }
 
