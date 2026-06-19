@@ -47,7 +47,7 @@ for file in "${changed_files[@]}"; do
       ;;
   esac
   case "$file" in
-    src/backend/Infrastructure/Auth/*|src/backend/Infrastructure/Filters/BannedUserFilter.cs|src/backend/Infrastructure/Helpers/JwtHelper.cs|src/backend/Infrastructure/Security/*|src/backend/Modules/Endpoints/Auth/*|src/shared/Contracts/Security/*|tests/backend/*Auth*|tests/backend/*Security*)
+    src/backend/Infrastructure/Auth/*|src/backend/Infrastructure/Filters/BannedUserMiddleware.cs|src/backend/Infrastructure/Helpers/JwtHelper.cs|src/backend/Infrastructure/Security/*|src/backend/Modules/Endpoints/Auth/*|src/shared/Contracts/Security/*|tests/backend/*Auth*|tests/backend/*Security*)
       auth_security_sensitive=1
       requires_full=1
       ;;

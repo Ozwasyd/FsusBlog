@@ -269,7 +269,7 @@ npx playwright test --update-snapshots
 | PoW 验证 | 无 PoW 头的注册/登录请求被拒绝 |
 | MFA 流程 | 启用 MFA 后登录触发挑战；恢复码单次有效 |
 | Passkey 流程 | 注册上限（5枚）、断言失败处理 |
-| 封禁用户 | `BannedUserFilter` 拦截写操作 |
+| 封禁用户 | `BannedUserMiddleware` 拦截写操作 |
 | 会话吊销 | 吊销后的 Refresh Token 无法续签 |
 | Binary 鉴权一致性 | `/api/binary/**` 端点自身声明并验证公开/登录/admin/PoW 边界 |
 | 通知鉴权 | WebSocket 私人事件仅已认证连接接收 |
@@ -394,7 +394,7 @@ GitHub Actions 中 `Quality Gate` 会在 `pull_request`、`main` / `master` push
 
 - 无变更或只改前端、文档、非 backend 路径时，记录 `selection=affected effective=skip` 并跳过 non-integration backend tests。
 - `src/backend/`、`src/shared/`、`src/core/`、`tests/backend/`、solution/build props、`global.json` 等 backend/shared/core/test 或构建输入变更时，升级为 `selection=affected effective=full`。
-- 鉴权、安全、权限相关路径，例如 `Infrastructure/Auth`、`BannedUserFilter`、`JwtHelper`、`Infrastructure/Security`、`Modules/Endpoints/Auth`、`src/shared/Contracts/Security` 以及 backend auth/security 测试变更，会记录 `reason=auth-security-sensitive` 并运行完整 non-integration backend tests；fast-backend 的独立 auth state-machine tier 仍照常运行。
+- 鉴权、安全、权限相关路径，例如 `Infrastructure/Auth`、`BannedUserMiddleware`、`JwtHelper`、`Infrastructure/Security`、`Modules/Endpoints/Auth`、`src/shared/Contracts/Security` 以及 backend auth/security 测试变更，会记录 `reason=auth-security-sensitive` 并运行完整 non-integration backend tests；fast-backend 的独立 auth state-machine tier 仍照常运行。
 
 日志必须同时能看出请求策略和最终策略：`run_fast_backend_lane()` 输出 `backend-fast selection=affected|full`，affected 脚本输出 `effective=skip|full` 与 `reason=...`。
 

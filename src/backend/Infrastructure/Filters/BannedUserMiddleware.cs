@@ -121,8 +121,3 @@ public class BannedUserMiddleware(RequestDelegate _next)
         return snapshot;
     }
 }
-
-[Obsolete("Use BannedUserMiddleware. The type remains only for binary/source compatibility with older tests.")]
-public sealed class BannedUserFilter(RequestDelegate next) : BannedUserMiddleware(next)
-{
-}

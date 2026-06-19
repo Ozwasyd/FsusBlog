@@ -107,7 +107,7 @@ public sealed class EndpointPolicyContractTests
             "backend",
             "Infrastructure",
             "Filters",
-            "BannedUserFilter.cs");
+            "BannedUserMiddleware.cs");
 
         Assert.Contains("RestrictedAccountActionMetadata", source, StringComparison.Ordinal);
         Assert.Contains("ACCOUNT_BANNED_WRITE_LOCKED", source, StringComparison.Ordinal);
