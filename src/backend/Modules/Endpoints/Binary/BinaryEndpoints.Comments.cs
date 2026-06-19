@@ -58,6 +58,28 @@ public static partial class BinaryEndpoints
         .RequireRateLimiting("public_read")
         .RequireStrongAnonymousRequest();
 
+        group.MapPost("/comment/anonymous", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            ICommentEndpointService commentService,
+            IContentFilterService contentFilterService,
+            IClientRegionResolver regionResolver,
+            IRegionLegalModerationService regionLegalModerationService,
+            ISecurityRiskSignalSink riskSignals,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+            await HandleAnonymousCommentCreateAsync(
+                httpContext,
+                commentService,
+                contentFilterService,
+                regionResolver,
+                regionLegalModerationService,
+                riskSignals,
+                aeds,
+                cancellationToken))
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .RequireStrongAnonymousRequest();
+
         group.MapPost("/comment", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             ICommentEndpointService commentService,
@@ -329,6 +351,89 @@ public static partial class BinaryEndpoints
                 AedsFrameType.AnonymousCommentTicketResponse,
                 writer => PodBinaryCodec.WriteAnonymousCommentTicketResponse(result.Response, writer))
             : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.PublicMessage), aeds);
+    }
+
+    internal static async Task<BinaryFrameResult> HandleAnonymousCommentCreateAsync(
+        HttpContext httpContext,
+        ICommentEndpointService commentService,
+        IContentFilterService contentFilterService,
+        IClientRegionResolver regionResolver,
+        IRegionLegalModerationService regionLegalModerationService,
+        ISecurityRiskSignalSink riskSignals,
+        IAedsEncoder aeds,
+        CancellationToken cancellationToken)
+    {
+        var payload = await ReadBinaryRequestPayloadAsync(
+            httpContext,
+            aeds,
+            AedsFrameType.AnonymousCommentCreateRequest,
+            cancellationToken,
+            CommentLimits.CreatePayloadMaxBytes);
+        if (!payload.IsSuccess)
+        {
+            return BinaryResults.FromError(payload.Error, aeds);
+        }
+
+        if (!PodBinaryCodec.TryDecodeAnonymousCommentCreateRequest(payload.Payload, out AnonymousCommentCreateRequestCoreModel request))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "anonymous_comment_create_request_invalid"), aeds);
+        }
+
+        string content = request.Content?.Trim() ?? string.Empty;
+        if (!IsCommentContentWithinLimit(content))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"评论内容不能超过 {CommentLimits.ContentMaxChars} 字或 {CommentLimits.ContentMaxUtf8Bytes} 字节"), aeds);
+        }
+
+        ContentValidationResult validation = contentFilterService.ValidateContent(content);
+        if (!validation.IsValid)
+        {
+            await RecordCommentRiskSignalAsync(
+                httpContext,
+                riskSignals,
+                SecurityRiskReason.CommentSpamPattern,
+                "anonymous_content_filter",
+                score: 10,
+                cancellationToken);
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, validation.Message), aeds);
+        }
+
+        ClientRegionResolution submitRegion = regionResolver.Resolve(httpContext);
+        RegionModerationDecision regionDecision = regionLegalModerationService.EvaluateOnSubmit(new RegionModerationRequest(
+            content,
+            request.ArticleId,
+            0,
+            submitRegion.Region,
+            submitRegion.Confidence,
+            submitRegion.Provider,
+            submitRegion.ClientIpHash,
+            httpContext.GetUserAgent(),
+            DateTime.UtcNow));
+        if (ShouldRecordRegionRiskSignal(regionDecision))
+        {
+            await RecordCommentRiskSignalAsync(
+                httpContext,
+                riskSignals,
+                SecurityRiskReason.CommentRegionCompliance,
+                regionDecision.DecisionReason,
+                score: 8,
+                cancellationToken);
+        }
+
+        if (!regionDecision.CanPublish)
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, regionDecision.PublicReason), aeds);
+        }
+
+        regionDecision = ApplyRiskControlModerationDecision(httpContext, regionDecision);
+        bool success = await commentService.CreateAnonymousCommentAsync(
+            request with { Content = content },
+            regionDecision,
+            cancellationToken);
+
+        return success
+            ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
+            : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "anonymous_comment_submit_failed"), aeds);
     }
 
     private static bool IsCommentContentWithinLimit(string content)

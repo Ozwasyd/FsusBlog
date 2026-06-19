@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FsusBlog.Core.Mapping.Models;
@@ -34,7 +35,9 @@ public partial class CommentService(
     ICommentModerationDispositionPolicy? commentModerationDispositionPolicy = null,
     AuditLogChannel? auditLogChannel = null,
     ISecurityRiskSignalSink? securityRiskSignalSink = null,
-    IHttpContextAccessor? httpContextAccessor = null) : ICommentService, ICommentEndpointService
+    IHttpContextAccessor? httpContextAccessor = null,
+    IAnonymousCommentTicketService? anonymousCommentTicketService = null,
+    ICommentAnonymousDisplayNameGenerator? anonymousDisplayNameGenerator = null) : ICommentService, ICommentEndpointService
 {
     private const int DefaultReplyPreviewLimit = 3;
     private const string DeletedPlaceholder = "该回复已删除";
@@ -57,19 +60,6 @@ public partial class CommentService(
 
         string normalizedContent = NormalizeCommentContent(dto.Content);
         if (!IsCommentContentWithinLimit(normalizedContent))
-        {
-            return false;
-        }
-
-        DateTime now = DateTime.UtcNow;
-        bool articleExists = await db.Queryable<Article>()
-            .Where(a => a.Id == dto.ArticleId
-                && !a.IsDeleted
-                && a.Status == ArticleStatus.Published
-                && (a.PublishedAt == null || a.PublishedAt <= now)
-                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
-            .AnyAsync();
-        if (!articleExists)
         {
             return false;
         }
@@ -112,16 +102,124 @@ public partial class CommentService(
         }
 
         CommentActor actor = actorResult.Actor;
-        bool enforceAnonymousNullifier = RequiresAnonymousNullifierEnforcement(actor);
-        if (enforceAnonymousNullifier && anonymousNullifierService is null)
+        return await CreateResolvedCommentAsync(
+            dto.ArticleId,
+            normalizedContent,
+            dto.ParentId,
+            dto.RootId,
+            dto.ReplyToCommentId,
+            actor,
+            regionDecision,
+            CancellationToken.None);
+    }
+
+    public async Task<bool> CreateAnonymousCommentAsync(
+        AnonymousCommentCreateRequestCoreModel request,
+        RegionModerationDecision? regionDecision = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (request.ArticleId <= 0)
         {
-            logger.LogWarning("匿名评论 nullifier enforcement 未注册，拒绝评论写入 | Article: {ArticleId} | Scope: {Scope}", dto.ArticleId, actor.AnonymousScope);
             return false;
         }
 
-        bool hasReplyContext = !string.IsNullOrWhiteSpace(dto.ParentId)
-            || !string.IsNullOrWhiteSpace(dto.RootId)
-            || !string.IsNullOrWhiteSpace(dto.ReplyToCommentId);
+        string normalizedContent = NormalizeCommentContent(request.Content);
+        if (!IsCommentContentWithinLimit(normalizedContent))
+        {
+            return false;
+        }
+
+        if (anonymousCommentTicketService is null)
+        {
+            logger.LogWarning("匿名评论 ticket service 未注册，拒绝匿名评论写入 | Article: {ArticleId}", request.ArticleId);
+            return false;
+        }
+
+        CacheReadResult<AnonymousCommentTicketPayload> consumed = await anonymousCommentTicketService.ConsumeTicketAsync(
+            request.Ticket,
+            cancellationToken);
+        if (!consumed.Hit || consumed.Value is null)
+        {
+            return false;
+        }
+
+        AnonymousCommentTicketPayload ticket = consumed.Value;
+        if (!AnonymousTicketMatchesRequest(ticket, request))
+        {
+            logger.LogInformation(
+                "匿名评论 ticket 绑定校验失败 | Article: {ArticleId} | Scope: {Scope}",
+                request.ArticleId,
+                NormalizeAnonymousScope(request.AnonymousScope, request.ArticleId));
+            return false;
+        }
+
+        RegionModerationDecision effectiveRegionDecision = regionDecision ?? regionLegalModerationService.EvaluateOnSubmit(new RegionModerationRequest(
+            normalizedContent,
+            request.ArticleId,
+            0,
+            RegionCodes.Unknown,
+            0d,
+            "fallback",
+            null,
+            null,
+            DateTime.UtcNow));
+        if (!effectiveRegionDecision.CanPublish)
+        {
+            return false;
+        }
+
+        CommentActor actor = BuildAnonymousTicketActor(ticket, request.DisplayLanguage, effectiveRegionDecision.SubmitRegion);
+        return await CreateResolvedCommentAsync(
+            request.ArticleId,
+            normalizedContent,
+            request.ParentId,
+            request.RootId,
+            request.ReplyToCommentId,
+            actor,
+            effectiveRegionDecision,
+            cancellationToken);
+    }
+
+    private async Task<bool> CreateResolvedCommentAsync(
+        int articleId,
+        string normalizedContent,
+        string? requestedParentId,
+        string? requestedRootIdRaw,
+        string? requestedReplyToCommentIdRaw,
+        CommentActor actor,
+        RegionModerationDecision regionDecision,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        DateTime now = DateTime.UtcNow;
+        bool articleExists = await db.Queryable<Article>()
+            .Where(a => a.Id == articleId
+                && !a.IsDeleted
+                && a.Status == ArticleStatus.Published
+                && (a.PublishedAt == null || a.PublishedAt <= now)
+                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
+            .AnyAsync();
+        if (!articleExists)
+        {
+            return false;
+        }
+
+        if (!regionDecision.CanPublish)
+        {
+            return false;
+        }
+
+        bool enforceAnonymousNullifier = RequiresAnonymousNullifierEnforcement(actor);
+        if (enforceAnonymousNullifier && anonymousNullifierService is null)
+        {
+            logger.LogWarning("匿名评论 nullifier enforcement 未注册，拒绝评论写入 | Article: {ArticleId} | Scope: {Scope}", articleId, actor.AnonymousScope);
+            return false;
+        }
+
+        bool hasReplyContext = !string.IsNullOrWhiteSpace(requestedParentId)
+            || !string.IsNullOrWhiteSpace(requestedRootIdRaw)
+            || !string.IsNullOrWhiteSpace(requestedReplyToCommentIdRaw);
         long? parentId = null;
         long? rootId = null;
         int? replyToUserId = null;
@@ -130,15 +228,15 @@ public partial class CommentService(
 
         if (hasReplyContext)
         {
-            if (!TryParsePositiveCommentId(dto.ParentId, out long parsedParentId))
+            if (!TryParsePositiveCommentId(requestedParentId, out long parsedParentId))
             {
                 return false;
             }
 
             long? requestedRootId = null;
-            if (!string.IsNullOrWhiteSpace(dto.RootId))
+            if (!string.IsNullOrWhiteSpace(requestedRootIdRaw))
             {
-                if (!TryParsePositiveCommentId(dto.RootId, out long parsedRootId))
+                if (!TryParsePositiveCommentId(requestedRootIdRaw, out long parsedRootId))
                 {
                     return false;
                 }
@@ -147,9 +245,9 @@ public partial class CommentService(
             }
 
             long? requestedReplyToCommentId = null;
-            if (!string.IsNullOrWhiteSpace(dto.ReplyToCommentId))
+            if (!string.IsNullOrWhiteSpace(requestedReplyToCommentIdRaw))
             {
-                if (!TryParsePositiveCommentId(dto.ReplyToCommentId, out long parsedReplyToCommentId))
+                if (!TryParsePositiveCommentId(requestedReplyToCommentIdRaw, out long parsedReplyToCommentId))
                 {
                     return false;
                 }
@@ -159,7 +257,7 @@ public partial class CommentService(
 
             var parent = await db.Queryable<Comment>()
                 .Where(c => c.Id == parsedParentId
-                    && c.ArticleId == dto.ArticleId
+                    && c.ArticleId == articleId
                     && c.ModerationStatus == CommentModerationStatus.Approved
                     && !c.IsDeleted)
                 .Select(c => new
@@ -173,7 +271,7 @@ public partial class CommentService(
                 })
                 .FirstAsync();
 
-            if (parent is null || parent.ArticleId != dto.ArticleId)
+            if (parent is null || parent.ArticleId != articleId)
             {
                 return false;
             }
@@ -187,7 +285,7 @@ public partial class CommentService(
 
             bool rootIsVisible = await db.Queryable<Comment>()
                 .Where(c => c.Id == rootId.Value
-                    && c.ArticleId == dto.ArticleId
+                    && c.ArticleId == articleId
                     && c.ParentId == null
                     && c.ModerationStatus == CommentModerationStatus.Approved
                     && !c.IsDeleted)
@@ -209,7 +307,7 @@ public partial class CommentService(
 
         var comment = new Comment
         {
-            ArticleId = dto.ArticleId,
+            ArticleId = articleId,
             Content = normalizedContent,
             UserId = actor.UserId,
             AuthorMode = actor.AuthorMode,
@@ -244,7 +342,7 @@ public partial class CommentService(
                 NullifierReservationResult reservation = await anonymousNullifierService!.CheckAndReserveAsync(
                     actor.AnonymousNullifierHash!,
                     actor.AnonymousScope!,
-                    CancellationToken.None);
+                    cancellationToken);
                 if (!reservation.Allowed)
                 {
                     throw new AnonymousNullifierRejectedException(reservation.Status, reservation.Message);
@@ -265,7 +363,7 @@ public partial class CommentService(
                     actor.AnonymousNullifierHash!,
                     actor.AnonymousScope!,
                     generatedId,
-                    CancellationToken.None);
+                    cancellationToken);
                 if (!incremented)
                 {
                     throw new AnonymousNullifierRejectedException(
@@ -280,14 +378,14 @@ public partial class CommentService(
             {
                 logger.LogInformation(
                     "匿名评论 nullifier enforcement 拒绝写入 | Article: {ArticleId} | Scope: {Scope} | Status: {Status}",
-                    dto.ArticleId,
+                    articleId,
                     actor.AnonymousScope,
                     rejected.Status);
-                await RecordNullifierAbuseRiskSignalAsync(actor.AnonymousScope, rejected.Status, CancellationToken.None);
+                await RecordNullifierAbuseRiskSignalAsync(actor.AnonymousScope, rejected.Status, cancellationToken);
                 return false;
             }
 
-            logger.LogWarning(insertResult.ErrorException, "评论创建或地区合规记录写入失败 | Article: {ArticleId} | User: {UserId}", dto.ArticleId, userId);
+            logger.LogWarning(insertResult.ErrorException, "评论创建或地区合规记录写入失败 | Article: {ArticleId} | User: {UserId}", articleId, actor.UserId);
             return false;
         }
 
@@ -316,11 +414,11 @@ public partial class CommentService(
                     regionDecision.SubmitRegion,
                     regionDecision.PolicyVersion,
                     comment.CreateTime),
-                CancellationToken.None);
+                cancellationToken);
             if (modelResult is not null && commentModerationDispositionPolicy is not null)
             {
                 CommentModerationDisposition disposition = commentModerationDispositionPolicy.Decide(comment, regionDecision, modelResult);
-                await ApplyAutomaticModerationDispositionAsync(comment, disposition, CancellationToken.None);
+                await ApplyAutomaticModerationDispositionAsync(comment, disposition, cancellationToken);
             }
         }
 
@@ -330,10 +428,11 @@ public partial class CommentService(
                 RootId: comment.RootId ?? comment.Id,
                 UserId: actor.UserId,
                 PublicArticleChanged: comment.ModerationStatus == CommentModerationStatus.Approved,
-                UserCommentsChanged: true));
+                UserCommentsChanged: actor.UserId is > 0),
+            cancellationToken);
 
         logger.LogInformation("评论已进入审核队列 | Article: {ArticleId} | CommentId: {CommentId} | Root: {RootId} | Parent: {ParentId}",
-            dto.ArticleId,
+            articleId,
             comment.Id,
             comment.RootId ?? comment.Id,
             comment.ParentId);
@@ -347,6 +446,80 @@ public partial class CommentService(
             && (string.Equals(actor.AuthorMode, CommentAuthorModes.Anonymous, StringComparison.Ordinal)
                 || string.Equals(actor.AuthorMode, CommentAuthorModes.Pseudonymous, StringComparison.Ordinal)
                 || string.Equals(actor.AuthorMode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal));
+
+    private CommentActor BuildAnonymousTicketActor(
+        AnonymousCommentTicketPayload ticket,
+        string? displayLanguage,
+        string? submitRegion)
+    {
+        string language = CommentAnonymousDisplayNameGenerator.NormalizeDisplayLanguage(displayLanguage, submitRegion);
+        ICommentAnonymousDisplayNameGenerator generator = anonymousDisplayNameGenerator ?? new CommentAnonymousDisplayNameGenerator();
+        CommentAnonymousDisplayName display = generator.Generate(new CommentAnonymousDisplayNameRequest(
+            language,
+            ticket.Scope,
+            ticket.NullifierHash));
+        string credentialLevel = NormalizeNullable(ticket.CredentialLevel, 32) ?? AnonymousCredentialLevels.StrongAnonymous;
+        string reputationBucket = NormalizeNullable(ticket.ReputationBucket, 32) ?? "unrated";
+        return new CommentActor(
+            UserId: null,
+            AuthorMode: CommentAuthorModes.ZkAnonymous,
+            PublicHandle: null,
+            AnonymousHandle: $"anon-{ticket.NullifierHash[..Math.Min(ticket.NullifierHash.Length, 12)]}",
+            DisplayName: display.DisplayName,
+            DisplayLanguage: display.DisplayLanguage,
+            AnonymousNullifierHash: ticket.NullifierHash,
+            AnonymousScope: ticket.Scope,
+            ModerationSubjectHash: Sha256Hex($"comment:moderation:{CommentAuthorModes.ZkAnonymous}:{ticket.Scope}:{ticket.NullifierHash}"),
+            CredentialLevel: credentialLevel,
+            ReputationBucket: reputationBucket,
+            AccountAgeBucket: "credential_bound");
+    }
+
+    private static bool AnonymousTicketMatchesRequest(
+        AnonymousCommentTicketPayload ticket,
+        AnonymousCommentCreateRequestCoreModel request)
+    {
+        if (!TryParseOptionalPositiveCommentId(request.ParentId, out long? parentId) ||
+            !TryParseOptionalPositiveCommentId(request.RootId, out long? rootId) ||
+            !TryParseOptionalPositiveCommentId(request.ReplyToCommentId, out long? replyToCommentId))
+        {
+            return false;
+        }
+
+        return ticket.ArticleId == request.ArticleId
+            && ticket.CredentialEpoch == request.CredentialEpoch
+            && ticket.ExpiresAtUnixMs > DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            && string.Equals(ticket.Scope, NormalizeAnonymousScope(request.AnonymousScope, request.ArticleId), StringComparison.Ordinal)
+            && ticket.ParentId == parentId
+            && ticket.RootId == rootId
+            && ticket.ReplyToCommentId == replyToCommentId;
+    }
+
+    private static string NormalizeAnonymousScope(string? value, int articleId)
+    {
+        string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+        return normalized.Length == 0 ? $"article:{articleId}" : normalized;
+    }
+
+    private static bool TryParseOptionalPositiveCommentId(string? raw, out long? value)
+    {
+        value = null;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return true;
+        }
+
+        if (TryParsePositiveCommentId(raw, out long parsed))
+        {
+            value = parsed;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string Sha256Hex(string value)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
 
     private async ValueTask RecordNullifierAbuseRiskSignalAsync(
         string? scope,

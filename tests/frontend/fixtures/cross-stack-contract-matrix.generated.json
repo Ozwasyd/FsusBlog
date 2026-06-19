@@ -1131,6 +1131,15 @@
         },
         {
           "method": "POST",
+          "path": "/comment/anonymous",
+          "auth": "anonymous",
+          "cache": "no-store",
+          "rateLimit": "public_read",
+          "requestFrame": "AnonymousCommentCreateRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
           "path": "/comment",
           "auth": "user",
           "requestFrame": "CommentCreateRequest",
@@ -2042,5 +2051,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 201
+  "openapiOperationCount": 202
 }

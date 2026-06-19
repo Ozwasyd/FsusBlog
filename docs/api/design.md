@@ -46,7 +46,7 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 
 强匿名 root/circuit metadata 是公开读取边界：`GET /api/binary/anonymous-credential/root` 和 `/circuit` 只返回公开的 credential root、epoch、expiry、circuit id、verifying key hash、public input layout version 与 ZK/verifier 配置位。`verifierConfigured` 只来自生产 `IZkProofVerifier.IsConfigured`，用于告诉 prover 当前服务端是否有完整 verifier adapter，不在该读取路径验证 proof。该读取路径必须匿名、`public_read` 限流、AEDS-only，不读取 Cookie、session、Authorization 或当前账号；root 不可用时 fail closed 为 AEDS `anonymous_root_unavailable`。服务端缓存对象必须按 root version/TTL 失效，negative cache 只短暂吸收 miss，不承担 root rotation worker 职责。
 
-强匿名评论 ticket 是匿名评论写入前的无登录态准入边界：`POST /api/binary/comment/anonymous-ticket` 只接受 `AnonymousCommentTicketRequest` AEDS frame，必须 `AllowAnonymous`、`public_read` 限流并拒绝任何 Cookie/session/Authorization 污染。服务端先做 article/scope/hash/frame 大小等廉价校验，再使用当前 root snapshot 和 `IZkAnonymousProofService` 预验证 proof；通过后只返回一次 opaque ticket，缓存层只保存 ticket hash 对应的短 TTL 二进制 payload，并以 consume-once 语义交给后续匿名 submit。该端点不得写评论正文、不得建立 user id 到 nullifier/credential 的映射，也不得把 proof 失败细节返回给客户端。
+强匿名评论 ticket 是匿名评论写入前的无登录态准入边界：`POST /api/binary/comment/anonymous-ticket` 只接受 `AnonymousCommentTicketRequest` AEDS frame，必须 `AllowAnonymous`、`public_read` 限流并拒绝任何 Cookie/session/Authorization 污染。服务端先做 article/scope/hash/reply context/frame 大小等廉价校验，再使用当前 root snapshot 和 `IZkAnonymousProofService` 预验证 proof；通过后只返回一次 opaque ticket，缓存层只保存 ticket hash 对应的短 TTL 二进制 payload，并以 consume-once 语义交给 `POST /api/binary/comment/anonymous`。匿名 submit 只接受 `AnonymousCommentCreateRequest`，同样拒绝登录态污染；成功后写入 `comment.user_id = null`、`author_mode = zk_anonymous`、匿名治理字段、地区合规记录和 Pending 审核状态，不把 ticket/proof/credential 原文写入评论。ticket 端点不得写评论正文、不得建立 user id 到 nullifier/credential 的映射，也不得把 proof 失败细节返回给客户端。
 
 ---
 
@@ -188,7 +188,7 @@ L0 artifact 的 `400` / `404` / `405` / `406` / `416` / `503` 负响应固定 `C
 
 AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行时只接受 AEDS v2 header；AEDS v1 frame、未知版本和错误 header length 直接拒绝，服务端和前端不保留 v1 fallback。未来 wire-level 破兼容必须先进入 `aeds-protocol.json`、`schemas-and-errors.md`、golden fixture、TypeScript/Worker/Wasm decoder 与负向 contract matrix。
 
-匿名身份与评论作者模式扩展使用新增 AEDS frame，而不是改写已发布 payload layout。`CommentCreateRequest` 只保留旧的 article/reply/content 请求语义；匿名 scope、public opt-in、语言提示、proof token 和 ZK placeholder 必须走 `CommentCreateV2Request`。匿名凭证、root snapshot、匿名评论 ticket 和匿名评论创建请求使用 177-183 的独立 contract-only frame；这些 frame 只定义跨栈 POD/codec，不代表业务 endpoint 已注册。评论 composer 必须先从 `GET /api/binary/comment/policy` 解码 `CommentPolicySnapshot`，以服务端策略决定 anonymous/public/ZK author mode，而不是在组件内硬编码默认策略。服务端写入时统一通过 `CommentActor` 解析作者，默认 anonymous，public/real-name 只在显式 opt-in 后写入 `public_handle`，匿名展示名由服务端按 posting language/region 生成。Passkey 和 Recovery Key 仍复用现有 frame，匿名身份不得新增平行 Passkey 协议栈。
+匿名身份与评论作者模式扩展使用新增 AEDS frame，而不是改写已发布 payload layout。`CommentCreateRequest` 只保留旧的 article/reply/content 请求语义；匿名 scope、public opt-in、语言提示、proof token 和 ZK placeholder 必须走 `CommentCreateV2Request`。匿名凭证、root snapshot、匿名评论 ticket 和匿名评论创建请求使用 177-183 的独立 frame；root/circuit/policy/ticket/submit 已注册的路径必须在 quick reference 中登记，未注册的 frame 仍只代表跨栈 POD/codec 契约。评论 composer 必须先从 `GET /api/binary/comment/policy` 解码 `CommentPolicySnapshot`，以服务端策略决定 anonymous/public/ZK author mode，而不是在组件内硬编码默认策略。服务端写入时统一通过 `CommentActor` 或匿名 ticket payload 解析作者，默认 anonymous，public/real-name 只在显式 opt-in 后写入 `public_handle`，匿名展示名由服务端按 posting language/region 生成。Passkey 和 Recovery Key 仍复用现有 frame，匿名身份不得新增平行 Passkey 协议栈。
 
 不视为 Breaking Change 的变更：
 - 新增响应字段（客户端应忽略未知字段）

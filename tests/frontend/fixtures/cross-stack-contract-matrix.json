@@ -1131,6 +1131,15 @@
         },
         {
           "method": "POST",
+          "path": "/comment/anonymous",
+          "auth": "anonymous",
+          "cache": "no-store",
+          "rateLimit": "public_read",
+          "requestFrame": "AnonymousCommentCreateRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
           "path": "/comment",
           "auth": "user",
           "requestFrame": "CommentCreateRequest",

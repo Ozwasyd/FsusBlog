@@ -172,6 +172,7 @@ export const fsusBinaryRoutes = {
   "binary_post_author_preview": "/api/binary/author/preview",
   "binary_post_category": "/api/binary/category",
   "binary_post_comment": "/api/binary/comment",
+  "binary_post_comment_anonymous": "/api/binary/comment/anonymous",
   "binary_post_comment_anonymous_ticket": "/api/binary/comment/anonymous-ticket",
   "binary_post_messages_conversations": "/api/binary/messages/conversations",
   "binary_post_messages_conversations_id_long_read": "/api/binary/messages/conversations/{id:long}/read",

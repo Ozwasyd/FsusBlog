@@ -23,6 +23,9 @@ public static class AnonymousCommentTicketStatuses
 public sealed record AnonymousCommentTicketPayload(
     int ArticleId,
     string Scope,
+    long? ParentId,
+    long? RootId,
+    long? ReplyToCommentId,
     string NullifierHash,
     long CredentialEpoch,
     string CredentialLevel,
@@ -138,6 +141,9 @@ public sealed class AnonymousCommentTicketService(
         var payload = new AnonymousCommentTicketPayload(
             request.ArticleId,
             scope,
+            TryParseOptionalCommentId(request.ParentId, out long? parentId) ? parentId : null,
+            TryParseOptionalCommentId(request.RootId, out long? rootId) ? rootId : null,
+            TryParseOptionalCommentId(request.ReplyToCommentId, out long? replyToCommentId) ? replyToCommentId : null,
             nullifierHash,
             request.CredentialEpoch,
             credentialLevel,
@@ -193,7 +199,10 @@ public sealed class AnonymousCommentTicketService(
             request.PublicInputs is null ||
             request.PublicInputs.Length is 0 or > MaxPublicInputsBytes ||
             request.NullifierHash is null ||
-            request.NullifierHash.Length is < MinHashBytes or > MaxHashBytes)
+            request.NullifierHash.Length is < MinHashBytes or > MaxHashBytes ||
+            !TryParseOptionalCommentId(request.ParentId, out _) ||
+            !TryParseOptionalCommentId(request.RootId, out _) ||
+            !TryParseOptionalCommentId(request.ReplyToCommentId, out _))
         {
             return false;
         }
@@ -225,6 +234,23 @@ public sealed class AnonymousCommentTicketService(
     private static bool IsScope(string value)
         => value.Length is > 0 and <= MaxScopeChars &&
             value.All(static ch => char.IsLetterOrDigit(ch) || ch is ':' or '-' or '_' or '.');
+
+    private static bool TryParseOptionalCommentId(string? raw, out long? value)
+    {
+        value = null;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return true;
+        }
+
+        if (long.TryParse(raw, out long parsed) && parsed > 0)
+        {
+            value = parsed;
+            return true;
+        }
+
+        return false;
+    }
 
     private static bool IsHexHash(string value, int minLength, int maxLength)
     {
@@ -281,8 +307,10 @@ internal sealed record AnonymousCommentTicketPublicInputs(
 
 internal static class AnonymousCommentTicketPayloadCodec
 {
-    private const byte Version = 1;
-    private const int FixedBytes = 1 + 4 + 8 + 8;
+    private const byte Version = 2;
+    private const byte LegacyVersion = 1;
+    private const int FixedBytes = 1 + 4 + 1 + 8 + 8 + 8 + 8 + 8;
+    private const int LegacyFixedBytes = 1 + 4 + 8 + 8;
 
     public static byte[] Encode(AnonymousCommentTicketPayload payload)
     {
@@ -295,6 +323,29 @@ internal static class AnonymousCommentTicketPayloadCodec
         buffer[offset++] = Version;
         BinaryPrimitives.WriteInt32LittleEndian(buffer.AsSpan(offset, 4), payload.ArticleId);
         offset += 4;
+        byte replyFlags = 0;
+        if (payload.ParentId.HasValue)
+        {
+            replyFlags |= 1;
+        }
+
+        if (payload.RootId.HasValue)
+        {
+            replyFlags |= 1 << 1;
+        }
+
+        if (payload.ReplyToCommentId.HasValue)
+        {
+            replyFlags |= 1 << 2;
+        }
+
+        buffer[offset++] = replyFlags;
+        BinaryPrimitives.WriteInt64LittleEndian(buffer.AsSpan(offset, 8), payload.ParentId ?? 0);
+        offset += 8;
+        BinaryPrimitives.WriteInt64LittleEndian(buffer.AsSpan(offset, 8), payload.RootId ?? 0);
+        offset += 8;
+        BinaryPrimitives.WriteInt64LittleEndian(buffer.AsSpan(offset, 8), payload.ReplyToCommentId ?? 0);
+        offset += 8;
         BinaryPrimitives.WriteInt64LittleEndian(buffer.AsSpan(offset, 8), payload.CredentialEpoch);
         offset += 8;
         BinaryPrimitives.WriteInt64LittleEndian(buffer.AsSpan(offset, 8), payload.ExpiresAtUnixMs);
@@ -309,7 +360,7 @@ internal static class AnonymousCommentTicketPayloadCodec
     public static (bool Success, AnonymousCommentTicketPayload? Value) TryDecode(ReadOnlyMemory<byte> bytes)
     {
         ReadOnlySpan<byte> span = bytes.Span;
-        if (span.Length < FixedBytes || span[0] != Version)
+        if (span.Length < LegacyFixedBytes || (span[0] != Version && span[0] != LegacyVersion))
         {
             return (false, null);
         }
@@ -317,6 +368,31 @@ internal static class AnonymousCommentTicketPayloadCodec
         int offset = 1;
         int articleId = BinaryPrimitives.ReadInt32LittleEndian(span.Slice(offset, 4));
         offset += 4;
+        long? parentId = null;
+        long? rootId = null;
+        long? replyToCommentId = null;
+        if (span[0] == Version)
+        {
+            if (span.Length < FixedBytes)
+            {
+                return (false, null);
+            }
+
+            byte replyFlags = span[offset++];
+            long rawParentId = BinaryPrimitives.ReadInt64LittleEndian(span.Slice(offset, 8));
+            offset += 8;
+            long rawRootId = BinaryPrimitives.ReadInt64LittleEndian(span.Slice(offset, 8));
+            offset += 8;
+            long rawReplyToCommentId = BinaryPrimitives.ReadInt64LittleEndian(span.Slice(offset, 8));
+            offset += 8;
+            if (!DecodeOptionalId(replyFlags, 0, rawParentId, out parentId) ||
+                !DecodeOptionalId(replyFlags, 1, rawRootId, out rootId) ||
+                !DecodeOptionalId(replyFlags, 2, rawReplyToCommentId, out replyToCommentId))
+            {
+                return (false, null);
+            }
+        }
+
         long credentialEpoch = BinaryPrimitives.ReadInt64LittleEndian(span.Slice(offset, 8));
         offset += 8;
         long expiresAt = BinaryPrimitives.ReadInt64LittleEndian(span.Slice(offset, 8));
@@ -333,6 +409,9 @@ internal static class AnonymousCommentTicketPayloadCodec
         return (true, new AnonymousCommentTicketPayload(
             articleId,
             scope,
+            parentId,
+            rootId,
+            replyToCommentId,
             nullifierHash,
             credentialEpoch,
             credentialLevel,
@@ -349,6 +428,24 @@ internal static class AnonymousCommentTicketPayloadCodec
         offset += 2;
         bytes.CopyTo(buffer.AsSpan(offset, bytes.Length));
         offset += bytes.Length;
+    }
+
+    private static bool DecodeOptionalId(byte flags, int bit, long rawValue, out long? value)
+    {
+        value = null;
+        bool hasValue = (flags & (1 << bit)) != 0;
+        if (!hasValue)
+        {
+            return rawValue == 0;
+        }
+
+        if (rawValue <= 0)
+        {
+            return false;
+        }
+
+        value = rawValue;
+        return true;
     }
 
     private static bool TryReadString(ReadOnlySpan<byte> source, ref int offset, out string value)
