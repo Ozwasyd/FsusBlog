@@ -51,6 +51,21 @@ scenarios:
     evidence:
       - .tmp/security/perception-v2-test-matrix.json
 
+  - id: PERCEPTION-V2-GENERATOR-STRUCTURE
+    scenario: family-structural-builders, variant-structural-delta, localization-target-visual-binding and recipeHash-structural-tamper are covered
+    owner: ServerContractAgent
+    status: automated
+    requiredCases: [family-structural-builders, variant-structural-delta, localization-target-visual-binding, recipeHash-structural-tamper]
+    code:
+      - src/backend/Services/Security/PerceptionChallengeV2GeneratorPolicy.cs
+      - src/backend/Services/Security/PerceptionChallengeV2Providers.cs
+      - src/shared/Contracts/Security/RenderRecipeV2Contracts.cs
+    tests:
+      - tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs
+      - tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs
+    evidence:
+      - .tmp/security/perception-v2-test-matrix.json
+
   - id: PERCEPTION-V2-E2E-FRONTEND
     scenario: text-task, localization, micro-interaction disabled/enabled, worker-failure and mobile-fallback are covered
     owner: InteropGlueAgent

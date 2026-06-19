@@ -9,6 +9,7 @@ public sealed class PerceptionSealedV2TestMatrixTests
         "PERCEPTION-V2-CONTRACTS",
         "PERCEPTION-V2-UNIT-CRYPTO",
         "PERCEPTION-V2-INTEGRATION-HOTPATH",
+        "PERCEPTION-V2-GENERATOR-STRUCTURE",
         "PERCEPTION-V2-E2E-FRONTEND",
         "PERCEPTION-V2-PERFORMANCE-BUDGETS",
         "PERCEPTION-V2-FAILURE-MODES"
@@ -40,6 +41,10 @@ public sealed class PerceptionSealedV2TestMatrixTests
         "verify-redis-setnx-incr",
         "async-audit",
         "verify-no-image-recompute",
+        "family-structural-builders",
+        "variant-structural-delta",
+        "localization-target-visual-binding",
+        "recipeHash-structural-tamper",
         "text-task",
         "localization",
         "micro-interaction-disabled",

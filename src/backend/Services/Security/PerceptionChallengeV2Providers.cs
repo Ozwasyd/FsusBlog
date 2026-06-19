@@ -136,24 +136,30 @@ public sealed class DefaultPerceptionChallengeV2TaskSource(IConfiguration config
 {
     private const int CanvasWidth = 320;
     private const int CanvasHeight = 180;
+    private const string FixedRecipeSeedKey = "Security:PerceptionV2:Generator:FixedSeed";
 
     public Task<PerceptionChallengeV2TaskMaterial> CreateAsync(
         PerceptionChallengeV2TaskSourceRequest request,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        string family = PerceptionChallengeV2GeneratorFamilyRegistry.NormalizeFamily(request.Family);
+        string variant = NormalizeVariant(family, request.Variant);
         PerceptionChallengeV2TaskMaterial material = request.TaskKind switch
         {
-            RenderRecipeV2TaskKind.Character => CreateCharacterMaterial(),
-            RenderRecipeV2TaskKind.Localization => CreateLocalizationMaterial(),
-            RenderRecipeV2TaskKind.MicroInteraction => CreateMicroInteractionMaterial(),
-            _ => CreateCharacterMaterial()
+            RenderRecipeV2TaskKind.Character => CreateCharacterMaterial(request, family, variant),
+            RenderRecipeV2TaskKind.Localization => CreateLocalizationMaterial(request, family, variant),
+            RenderRecipeV2TaskKind.MicroInteraction => CreateMicroInteractionMaterial(request, family, variant),
+            _ => CreateCharacterMaterial(request, family, variant)
         };
 
         return Task.FromResult(material);
     }
 
-    private PerceptionChallengeV2TaskMaterial CreateCharacterMaterial()
+    private PerceptionChallengeV2TaskMaterial CreateCharacterMaterial(
+        PerceptionChallengeV2TaskSourceRequest request,
+        string family,
+        string variant)
     {
         string? answer = configuration["Security:PerceptionV2:TextTask:FixedText"];
         if (string.IsNullOrWhiteSpace(answer))
@@ -161,9 +167,10 @@ public sealed class DefaultPerceptionChallengeV2TaskSource(IConfiguration config
             answer = GenerateTextTaskAnswer();
         }
 
+        string seed = ResolveRecipeSeed(request, family, variant, answer);
         return new PerceptionChallengeV2TaskMaterial(
             RenderRecipeV2TaskKind.Character,
-            CreateRecipe(RenderRecipeV2TaskKind.Character, answer),
+            CreateRecipe(RenderRecipeV2TaskKind.Character, family, variant, seed),
             answer,
             null,
             null,
@@ -171,21 +178,28 @@ public sealed class DefaultPerceptionChallengeV2TaskSource(IConfiguration config
             null);
     }
 
-    private PerceptionChallengeV2TaskMaterial CreateLocalizationMaterial()
+    private PerceptionChallengeV2TaskMaterial CreateLocalizationMaterial(
+        PerceptionChallengeV2TaskSourceRequest request,
+        string family,
+        string variant)
     {
         double x = ReadCoordinate("Security:PerceptionV2:Localization:FixedX", 0.60, CanvasWidth);
         double y = ReadCoordinate("Security:PerceptionV2:Localization:FixedY", 0.55, CanvasHeight);
+        string seed = ResolveRecipeSeed(request, family, variant, string.Create(CultureInfo.InvariantCulture, $"{x:0.######},{y:0.######}"));
         return new PerceptionChallengeV2TaskMaterial(
             RenderRecipeV2TaskKind.Localization,
-            CreateRecipe(RenderRecipeV2TaskKind.Localization, "loc"),
+            CreateRecipe(RenderRecipeV2TaskKind.Localization, family, variant, seed, x, y),
             null,
             x,
             y,
-            10d / CanvasWidth,
+            ResolveCoordinateTolerance(family, variant, 10d / CanvasWidth),
             null);
     }
 
-    private PerceptionChallengeV2TaskMaterial CreateMicroInteractionMaterial()
+    private PerceptionChallengeV2TaskMaterial CreateMicroInteractionMaterial(
+        PerceptionChallengeV2TaskSourceRequest request,
+        string family,
+        string variant)
     {
         string? step = configuration["Security:PerceptionV2:MicroInteraction:FixedSteps"];
         if (string.IsNullOrWhiteSpace(step))
@@ -194,63 +208,466 @@ public sealed class DefaultPerceptionChallengeV2TaskSource(IConfiguration config
         }
 
         (double x, double y) = ResolveFinalStepPoint(step);
+        string seed = ResolveRecipeSeed(request, family, variant, step);
         return new PerceptionChallengeV2TaskMaterial(
             RenderRecipeV2TaskKind.MicroInteraction,
-            CreateRecipe(RenderRecipeV2TaskKind.MicroInteraction, "micro"),
+            CreateRecipe(RenderRecipeV2TaskKind.MicroInteraction, family, variant, seed, x, y),
             null,
             x,
             y,
-            8d / CanvasWidth,
+            ResolveCoordinateTolerance(family, variant, 8d / CanvasWidth),
             step);
     }
 
-    private static RenderRecipeV2 CreateRecipe(RenderRecipeV2TaskKind taskKind, string seed)
+    private string ResolveRecipeSeed(
+        PerceptionChallengeV2TaskSourceRequest request,
+        string family,
+        string variant,
+        string truthSeed)
     {
-        byte[] digest = SHA256.HashData(Encoding.UTF8.GetBytes($"{taskKind}:{seed}"));
-        string seedHex = Convert.ToHexStringLower(digest);
-        double a = 0.10 + (digest[0] / 255d * 0.20);
-        double b = 0.30 + (digest[1] / 255d * 0.20);
-        double c = 0.60 + (digest[2] / 255d * 0.20);
-        var layer = new RenderRecipeV2Layer(
-            "ink-main",
-            0.92,
-            [
-                new RenderStrokeSegmentV2(
-                    "stroke-a",
-                    "round",
-                    "#172033ff",
-                    0.035,
-                    [
-                        new RenderPointV2(a, 0.22),
-                        new RenderPointV2(b, 0.50),
-                        new RenderPointV2(c, 0.34)
-                    ]),
-                new RenderStrokeSegmentV2(
-                    "stroke-b",
-                    "calligraphic",
-                    "#31415eff",
-                    0.026,
-                    [
-                        new RenderPointV2(0.18, 0.70),
-                        new RenderPointV2(0.48, 0.60),
-                        new RenderPointV2(0.78, 0.74)
-                    ])
-            ],
-            [new RenderNoiseFieldV2("grain-a", seedHex, 0.22, 0.35)],
-            [new RenderWarpFieldV2("warp-a", seedHex, 0.08, 9.0)],
-            [new RenderOccluderV2("mask-a", "rect", 0.36, 0.42, 0.18, 0.08, 8, "#f8fafccc")]);
+        string? fixedSeed = configuration[FixedRecipeSeedKey];
+        string root = string.IsNullOrWhiteSpace(fixedSeed) ? "runtime" : fixedSeed.Trim();
+        return string.Join(
+            '|',
+            root,
+            request.TaskKind,
+            request.Action,
+            request.RouteKey,
+            request.PolicyVersion,
+            family,
+            variant,
+            truthSeed);
+    }
 
+    private static RenderRecipeV2 CreateRecipe(
+        RenderRecipeV2TaskKind taskKind,
+        string family,
+        string variant,
+        string seed,
+        double? targetX = null,
+        double? targetY = null)
+    {
+        RecipeBuildContext context = RecipeBuildContext.Create(taskKind, family, variant, seed, targetX, targetY);
+        IReadOnlyList<RenderRecipeV2Layer> layers = family switch
+        {
+            PerceptionChallengeV2GeneratorFamilyRegistry.SplineField => BuildSplineField(context),
+            PerceptionChallengeV2GeneratorFamilyRegistry.FourierField => BuildFourierField(context),
+            PerceptionChallengeV2GeneratorFamilyRegistry.PiecewiseWarp => BuildPiecewiseWarp(context),
+            PerceptionChallengeV2GeneratorFamilyRegistry.TopologyCut => BuildTopologyCut(context),
+            PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField => BuildLocalizationField(context),
+            _ => BuildTextStroke(context)
+        };
         return new RenderRecipeV2(
             RenderRecipeV2Contracts.Schema,
             taskKind,
-            [layer],
+            layers,
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["canvasWidth"] = CanvasWidth.ToString(CultureInfo.InvariantCulture),
                 ["canvasHeight"] = CanvasHeight.ToString(CultureInfo.InvariantCulture),
                 ["inputMode"] = taskKind == RenderRecipeV2TaskKind.Character ? "text" : "pointer",
-                ["motionProfile"] = "static"
+                ["motionProfile"] = ResolveMotionProfile(family, variant),
+                ["palette"] = ResolvePalette(family),
+                ["contrast"] = IsDenseVariant(variant) ? "high" : "normal"
             });
+    }
+
+    private static IReadOnlyList<RenderRecipeV2Layer> BuildTextStroke(RecipeBuildContext context)
+    {
+        double density = IsDenseVariant(context.Variant) ? 1.35 : 1d;
+        return
+        [
+            new RenderRecipeV2Layer(
+                "ink-main",
+                0.92,
+                [
+                    Stroke(
+                        "stroke-a",
+                        "round",
+                        "#172033ff",
+                        0.030 * density,
+                        context.Points((0.14, 0.24), (0.34, 0.46), (0.62, 0.34))),
+                    Stroke(
+                        "stroke-b",
+                        IsDenseVariant(context.Variant) ? "texture" : "calligraphic",
+                        "#31415eff",
+                        0.024 * density,
+                        context.Points((0.18, 0.70), (0.48, 0.58), (0.78, 0.74)))
+                ],
+                [
+                    new RenderNoiseFieldV2("grain-a", context.SeedHex("grain-a"), 0.18 + context.ByteUnit(4) * 0.10 * density, 0.28 + context.ByteUnit(5) * 0.16)
+                ],
+                [
+                    new RenderWarpFieldV2("warp-a", context.SeedHex("warp-a"), 0.055 + context.ByteUnit(6) * 0.050 * density, 6.0 + context.ByteUnit(7) * 5.0)
+                ],
+                IsDenseVariant(context.Variant)
+                    ? [
+                        Mask("mask-a", "rect", 0.36, 0.42, 0.18, 0.08, 8, "#f8fafccc"),
+                        Mask("mask-b", "ellipse", 0.58, 0.36, 0.12, 0.07, -12, "#e2e8f0bb")
+                    ]
+                    : [
+                        Mask("mask-a", "rect", 0.36, 0.42, 0.16, 0.07, 8, "#f8fafccc")
+                    ])
+        ];
+    }
+
+    private static IReadOnlyList<RenderRecipeV2Layer> BuildSplineField(RecipeBuildContext context)
+    {
+        bool split = context.Variant.Contains("split", StringComparison.OrdinalIgnoreCase) ||
+                     context.Variant.Contains("curve-b", StringComparison.OrdinalIgnoreCase);
+        IReadOnlyList<RenderStrokeSegmentV2> foreground = split
+            ? [
+                Stroke("spline-a", "calligraphic", "#172033ff", 0.030, context.Points((0.08, 0.30), (0.24, 0.54), (0.42, 0.42), (0.62, 0.66))),
+                Stroke("spline-b", "round", "#475569ff", 0.022, context.Points((0.18, 0.20), (0.40, 0.35), (0.68, 0.28), (0.88, 0.50)))
+            ]
+            : [
+                Stroke("spline-a", "calligraphic", "#172033ff", 0.027, context.Points((0.10, 0.34), (0.32, 0.52), (0.56, 0.44), (0.82, 0.62)))
+            ];
+
+        return
+        [
+            new RenderRecipeV2Layer(
+                "spline-foreground",
+                0.90,
+                foreground,
+                [new RenderNoiseFieldV2("spline-grain", context.SeedHex("spline-grain"), split ? 0.20 : 0.13, split ? 0.26 : 0.18)],
+                [new RenderWarpFieldV2("spline-warp", context.SeedHex("spline-warp"), split ? 0.075 : 0.045, split ? 12.0 : 7.0)],
+                split
+                    ? [Mask("spline-gap", "ellipse", 0.50, 0.48, 0.15, 0.10, 18, "#f8fafcbb")]
+                    : []),
+            new RenderRecipeV2Layer(
+                "spline-guide",
+                split ? 0.50 : 0.34,
+                [
+                    Stroke("guide-a", "round", "#94a3b8aa", split ? 0.012 : 0.010, context.Points((0.12, 0.78), (0.44, 0.70), (0.80, 0.78)))
+                ],
+                [],
+                [],
+                [])
+        ];
+    }
+
+    private static IReadOnlyList<RenderRecipeV2Layer> BuildFourierField(RecipeBuildContext context)
+    {
+        bool shifted = context.Variant.Contains("shift", StringComparison.OrdinalIgnoreCase) ||
+                       context.Variant.Contains("phase-b", StringComparison.OrdinalIgnoreCase);
+        double phase = shifted ? 0.12 + context.ByteUnit(8) * 0.10 : context.ByteUnit(8) * 0.06;
+        return
+        [
+            new RenderRecipeV2Layer(
+                "fourier-wave",
+                0.88,
+                [
+                    Stroke("wave-a", "round", "#0f172aff", 0.024, WavePoints(context, 0.30 + phase, shifted ? 0.12 : 0.08, 0.0)),
+                    Stroke("wave-b", "texture", "#334155dd", 0.018, WavePoints(context, 0.56 - phase, shifted ? 0.10 : 0.06, 0.33))
+                ],
+                [
+                    new RenderNoiseFieldV2("phase-grain-a", context.SeedHex("phase-grain-a"), shifted ? 0.24 : 0.16, shifted ? 0.36 : 0.24),
+                    new RenderNoiseFieldV2("phase-grain-b", context.SeedHex("phase-grain-b"), shifted ? 0.12 : 0.08, shifted ? 0.12 : 0.18)
+                ],
+                [
+                    new RenderWarpFieldV2("phase-warp-a", context.SeedHex("phase-warp-a"), shifted ? 0.11 : 0.06, shifted ? 18.0 : 9.0),
+                    new RenderWarpFieldV2("phase-warp-b", context.SeedHex("phase-warp-b"), shifted ? 0.04 : 0.025, shifted ? 32.0 : 16.0)
+                ],
+                shifted
+                    ? [Mask("phase-mask", "rect", 0.44, 0.50, 0.22, 0.08, -16, "#f1f5f9aa")]
+                    : [Mask("phase-mask", "ellipse", 0.62, 0.40, 0.16, 0.09, 0, "#f8fafcaa")])
+        ];
+    }
+
+    private static IReadOnlyList<RenderRecipeV2Layer> BuildPiecewiseWarp(RecipeBuildContext context)
+    {
+        bool tiled = context.Variant.Contains("tile", StringComparison.OrdinalIgnoreCase) ||
+                     context.Variant.Contains("warp-b", StringComparison.OrdinalIgnoreCase);
+        return
+        [
+            new RenderRecipeV2Layer(
+                "warp-bands",
+                0.82,
+                [
+                    Stroke("band-a", "square", "#1e293bff", tiled ? 0.026 : 0.032, context.Points((0.12, 0.26), (0.36, 0.30), (0.60, 0.26), (0.84, 0.34))),
+                    Stroke("band-b", "round", "#475569ee", tiled ? 0.020 : 0.024, context.Points((0.10, 0.62), (0.32, 0.58), (0.56, 0.66), (0.82, 0.60)))
+                ],
+                [
+                    new RenderNoiseFieldV2("warp-grain", context.SeedHex("warp-grain"), tiled ? 0.26 : 0.18, tiled ? 0.16 : 0.28)
+                ],
+                tiled
+                    ? [
+                        new RenderWarpFieldV2("warp-tile-x", context.SeedHex("warp-tile-x"), 0.10, 24.0),
+                        new RenderWarpFieldV2("warp-tile-y", context.SeedHex("warp-tile-y"), 0.07, 36.0)
+                    ]
+                    : [
+                        new RenderWarpFieldV2("warp-band-top", context.SeedHex("warp-band-top"), 0.08, 10.0),
+                        new RenderWarpFieldV2("warp-band-bottom", context.SeedHex("warp-band-bottom"), 0.05, 6.0)
+                    ],
+                tiled
+                    ? [
+                        Mask("tile-a", "rect", 0.30, 0.46, 0.12, 0.10, 0, "#e2e8f0bb"),
+                        Mask("tile-b", "rect", 0.66, 0.52, 0.13, 0.11, 0, "#f8fafcbb")
+                    ]
+                    : [
+                        Mask("band-cut", "polygon", 0.52, 0.48, 0.24, 0.08, 22, "#f8fafccc")
+                    ]),
+            new RenderRecipeV2Layer(
+                "warp-register",
+                tiled ? 0.42 : 0.32,
+                [Stroke("register-a", "round", "#64748baa", 0.011, context.Points((0.20, 0.80), (0.50, 0.76), (0.80, 0.82)))],
+                [],
+                [],
+                [])
+        ];
+    }
+
+    private static IReadOnlyList<RenderRecipeV2Layer> BuildTopologyCut(RecipeBuildContext context)
+    {
+        bool island = context.Variant.Contains("island", StringComparison.OrdinalIgnoreCase) ||
+                      context.Variant.Contains("cut-b", StringComparison.OrdinalIgnoreCase);
+        return
+        [
+            new RenderRecipeV2Layer(
+                "topology-ink",
+                0.90,
+                [
+                    Stroke("topology-a", "texture", "#111827ff", island ? 0.026 : 0.030, context.Points((0.14, 0.22), (0.34, 0.48), (0.54, 0.30), (0.76, 0.58))),
+                    Stroke("topology-b", "calligraphic", "#334155ee", island ? 0.019 : 0.023, context.Points((0.18, 0.72), (0.38, 0.56), (0.62, 0.72), (0.84, 0.50)))
+                ],
+                [new RenderNoiseFieldV2("topology-grain", context.SeedHex("topology-grain"), island ? 0.22 : 0.16, 0.20)],
+                [new RenderWarpFieldV2("topology-warp", context.SeedHex("topology-warp"), island ? 0.070 : 0.050, island ? 14.0 : 8.0)],
+                island
+                    ? [
+                        Mask("island-a", "ellipse", 0.40, 0.44, 0.16, 0.15, 0, "#f8fafccc"),
+                        Mask("island-b", "ellipse", 0.62, 0.58, 0.12, 0.12, 0, "#e2e8f0cc")
+                    ]
+                    : [
+                        Mask("bridge-cut", "rect", 0.50, 0.48, 0.28, 0.08, -18, "#f8fafccc")
+                    ]),
+            new RenderRecipeV2Layer(
+                island ? "topology-islands" : "topology-bridge",
+                island ? 0.46 : 0.38,
+                island
+                    ? [
+                        Stroke("island-ring-a", "round", "#64748baa", 0.010, context.Points((0.32, 0.42), (0.42, 0.34), (0.52, 0.44))),
+                        Stroke("island-ring-b", "round", "#64748baa", 0.010, context.Points((0.54, 0.60), (0.66, 0.50), (0.74, 0.62)))
+                    ]
+                    : [
+                        Stroke("bridge-a", "square", "#64748baa", 0.012, context.Points((0.26, 0.50), (0.74, 0.50)))
+                    ],
+                [],
+                [],
+                [])
+        ];
+    }
+
+    private static IReadOnlyList<RenderRecipeV2Layer> BuildLocalizationField(RecipeBuildContext context)
+    {
+        bool region = context.Variant.Contains("region", StringComparison.OrdinalIgnoreCase) ||
+                      context.Variant.Contains("anchor-b", StringComparison.OrdinalIgnoreCase);
+        double x = context.TargetX;
+        double y = context.TargetY;
+        return
+        [
+            new RenderRecipeV2Layer(
+                "anchor-field",
+                0.88,
+                [
+                    Stroke("anchor-cross-a", "round", "#0f172aff", region ? 0.018 : 0.014, context.BoundPoints((x - 0.10, y), (x - 0.025, y), (x + 0.09, y))),
+                    Stroke("anchor-cross-b", "round", "#0f172aff", region ? 0.018 : 0.014, context.BoundPoints((x, y - 0.10), (x, y - 0.025), (x, y + 0.09))),
+                    Stroke("anchor-ring", "calligraphic", "#334155dd", region ? 0.016 : 0.012, context.BoundPoints((x - 0.07, y - 0.04), (x, y - 0.07), (x + 0.07, y - 0.04), (x + 0.04, y + 0.06), (x - 0.05, y + 0.05)))
+                ],
+                [
+                    new RenderNoiseFieldV2("anchor-grain", context.SeedHex("anchor-grain"), region ? 0.18 : 0.12, region ? 0.18 : 0.30)
+                ],
+                [
+                    new RenderWarpFieldV2("anchor-warp", context.SeedHex("anchor-warp"), region ? 0.045 : 0.025, region ? 10.0 : 5.0)
+                ],
+                region
+                    ? [
+                        Mask("anchor-region-mask", "ellipse", ClampUnit(x + 0.04), ClampUnit(y - 0.03), 0.18, 0.13, 12, "#f8fafc99")
+                    ]
+                    : [
+                        Mask("anchor-grid-mask", "rect", ClampUnit(x - 0.05), ClampUnit(y + 0.04), 0.12, 0.08, -8, "#f1f5f999")
+                    ]),
+            new RenderRecipeV2Layer(
+                region ? "anchor-region" : "anchor-grid",
+                region ? 0.44 : 0.36,
+                [
+                    Stroke("reference-a", "square", "#94a3b8aa", 0.010, context.BoundPoints((0.16, y), (0.84, y))),
+                    Stroke("reference-b", "square", "#94a3b8aa", 0.010, context.BoundPoints((x, 0.18), (x, 0.82)))
+                ],
+                [],
+                [],
+                [])
+        ];
+    }
+
+    private static IReadOnlyList<RenderPointV2> WavePoints(RecipeBuildContext context, double centerY, double amplitude, double phase)
+    {
+        var points = new List<RenderPointV2>(8);
+        for (int i = 0; i < 8; i++)
+        {
+            double x = 0.08 + i * 0.12;
+            double y = centerY + Math.Sin((x + phase) * Math.PI * 4d) * amplitude + context.Jitter(i + 20, 0.02);
+            points.Add(new RenderPointV2(ClampUnit(x), ClampUnit(y)));
+        }
+
+        return points;
+    }
+
+    private static RenderStrokeSegmentV2 Stroke(
+        string id,
+        string brush,
+        string color,
+        double width,
+        IReadOnlyList<RenderPointV2> points)
+        => new(id, brush, color, Math.Clamp(width, 0.004, 0.12), points);
+
+    private static RenderOccluderV2 Mask(
+        string id,
+        string shape,
+        double x,
+        double y,
+        double width,
+        double height,
+        double rotation,
+        string color)
+        => new(id, shape, ClampUnit(x), ClampUnit(y), Math.Clamp(width, 0.01, 1), Math.Clamp(height, 0.01, 1), rotation, color);
+
+    private static string ResolveMotionProfile(string family, string variant)
+        => family switch
+        {
+            PerceptionChallengeV2GeneratorFamilyRegistry.FourierField => variant.Contains("shift", StringComparison.OrdinalIgnoreCase) ? "phase-shift" : "wave",
+            PerceptionChallengeV2GeneratorFamilyRegistry.PiecewiseWarp => variant.Contains("tile", StringComparison.OrdinalIgnoreCase) ? "tiled" : "banded",
+            PerceptionChallengeV2GeneratorFamilyRegistry.TopologyCut => variant.Contains("island", StringComparison.OrdinalIgnoreCase) ? "island-cut" : "bridge-cut",
+            PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField => variant.Contains("region", StringComparison.OrdinalIgnoreCase) ? "anchored-region" : "anchored-grid",
+            PerceptionChallengeV2GeneratorFamilyRegistry.SplineField => variant.Contains("split", StringComparison.OrdinalIgnoreCase) ? "split-curve" : "soft-curve",
+            _ => IsDenseVariant(variant) ? "dense-stroke" : "static"
+        };
+
+    private static string ResolvePalette(string family)
+        => family switch
+        {
+            PerceptionChallengeV2GeneratorFamilyRegistry.FourierField => "wave",
+            PerceptionChallengeV2GeneratorFamilyRegistry.PiecewiseWarp => "warp",
+            PerceptionChallengeV2GeneratorFamilyRegistry.TopologyCut => "topology",
+            PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField => "anchor",
+            PerceptionChallengeV2GeneratorFamilyRegistry.SplineField => "curve",
+            _ => "ink"
+        };
+
+    private static double ResolveCoordinateTolerance(string family, string variant, double fallback)
+    {
+        if (family == PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField)
+        {
+            return variant.Contains("region", StringComparison.OrdinalIgnoreCase) ? 12d / CanvasWidth : 8d / CanvasWidth;
+        }
+
+        if (family == PerceptionChallengeV2GeneratorFamilyRegistry.TopologyCut)
+        {
+            return 9d / CanvasWidth;
+        }
+
+        return fallback;
+    }
+
+    private static bool IsDenseVariant(string variant)
+        => variant.Contains("dense", StringComparison.OrdinalIgnoreCase) ||
+           variant.Contains("split", StringComparison.OrdinalIgnoreCase) ||
+           variant.Contains("island", StringComparison.OrdinalIgnoreCase) ||
+           variant.Contains("tiled", StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeVariant(string family, string? variant)
+    {
+        string normalized = (variant ?? string.Empty).Trim();
+        if (normalized.Length == 0 || normalized.Length > 64 || !IsSafeToken(normalized))
+        {
+            return PerceptionChallengeV2GeneratorFamilyRegistry.DefaultVariant(family);
+        }
+
+        return normalized;
+    }
+
+    private static bool IsSafeToken(string value)
+    {
+        for (int i = 0; i < value.Length; i++)
+        {
+            char ch = value[i];
+            if (!((ch >= 'a' && ch <= 'z') ||
+                  (ch >= 'A' && ch <= 'Z') ||
+                  (ch >= '0' && ch <= '9') ||
+                  ch is '-' or '_' or ':' or '.'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static double ClampUnit(double value)
+        => double.IsFinite(value) ? Math.Clamp(value, 0d, 1d) : 0d;
+
+    private sealed record RecipeBuildContext(
+        RenderRecipeV2TaskKind TaskKind,
+        string Family,
+        string Variant,
+        byte[] Digest,
+        string RootSeedHex,
+        double TargetX,
+        double TargetY)
+    {
+        public static RecipeBuildContext Create(
+            RenderRecipeV2TaskKind taskKind,
+            string family,
+            string variant,
+            string seed,
+            double? targetX,
+            double? targetY)
+        {
+            byte[] digest = SHA256.HashData(Encoding.UTF8.GetBytes($"{taskKind}:{family}:{variant}:{seed}"));
+            double fallbackX = 0.36 + digest[0] / 255d * 0.28;
+            double fallbackY = 0.34 + digest[1] / 255d * 0.26;
+            return new RecipeBuildContext(
+                taskKind,
+                family,
+                variant,
+                digest,
+                Convert.ToHexStringLower(digest),
+                ClampUnit(targetX ?? fallbackX),
+                ClampUnit(targetY ?? fallbackY));
+        }
+
+        public double ByteUnit(int index)
+            => Digest[index % Digest.Length] / 255d;
+
+        public double Jitter(int index, double span)
+            => (ByteUnit(index) - 0.5d) * span;
+
+        public string SeedHex(string salt)
+            => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{RootSeedHex}:{salt}")));
+
+        public IReadOnlyList<RenderPointV2> Points(params (double X, double Y)[] points)
+        {
+            var result = new List<RenderPointV2>(points.Length);
+            for (int i = 0; i < points.Length; i++)
+            {
+                result.Add(new RenderPointV2(
+                    ClampUnit(points[i].X + Jitter(i, 0.05)),
+                    ClampUnit(points[i].Y + Jitter(i + 9, 0.05))));
+            }
+
+            return result;
+        }
+
+        public IReadOnlyList<RenderPointV2> BoundPoints(params (double X, double Y)[] points)
+        {
+            var result = new List<RenderPointV2>(points.Length);
+            foreach ((double x, double y) in points)
+            {
+                result.Add(new RenderPointV2(ClampUnit(x), ClampUnit(y)));
+            }
+
+            return result;
+        }
     }
 
     private static string GenerateTextTaskAnswer()

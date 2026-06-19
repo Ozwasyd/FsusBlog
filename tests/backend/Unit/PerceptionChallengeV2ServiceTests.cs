@@ -9,6 +9,7 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using StackExchange.Redis;
@@ -184,6 +185,120 @@ public sealed class PerceptionChallengeV2ServiceTests
         Assert.Equal("cut-b", riskSelection.Variant);
         Assert.Contains(fallbackSelection.Family, PerceptionChallengeV2GeneratorFamilyRegistry.SupportedFamilies);
         Assert.False(string.IsNullOrWhiteSpace(fallbackSelection.Variant));
+    }
+
+    [Fact]
+    public async Task DefaultTaskSource_BuildsDistinctRecipeStructuresForSupportedFamilies()
+    {
+        var source = new DefaultPerceptionChallengeV2TaskSource(CreatePerceptionGeneratorConfiguration());
+        var hashes = new HashSet<string>(StringComparer.Ordinal);
+        var signatures = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (string family in PerceptionChallengeV2GeneratorFamilyRegistry.SupportedFamilies)
+        {
+            string variant = PerceptionChallengeV2GeneratorFamilyRegistry.DefaultVariant(family);
+            RenderRecipeV2TaskKind taskKind = family == PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField
+                ? RenderRecipeV2TaskKind.Localization
+                : RenderRecipeV2TaskKind.Character;
+
+            PerceptionChallengeV2TaskMaterial material = await source.CreateAsync(
+                CreateTaskSourceRequest(taskKind, family, variant),
+                CancellationToken.None);
+            RenderRecipeV2ValidationResult validation = RenderRecipeV2Contracts.ValidateRecipe(material.Recipe);
+
+            Assert.True(validation.IsValid, $"{family}:{validation.ErrorCode}");
+            Assert.Equal(taskKind, material.TaskKind);
+            Assert.True(hashes.Add(validation.RecipeHashHex), $"duplicate recipe hash for {family}");
+            Assert.True(signatures.Add(RecipeStructuralSignature(material.Recipe)), $"duplicate recipe structure for {family}");
+            AssertFamilySpecificStructure(family, material);
+        }
+    }
+
+    [Fact]
+    public async Task DefaultTaskSource_VariantChangesStructureAndRecipeHash()
+    {
+        var source = new DefaultPerceptionChallengeV2TaskSource(CreatePerceptionGeneratorConfiguration());
+
+        foreach (string family in PerceptionChallengeV2GeneratorFamilyRegistry.SupportedFamilies)
+        {
+            string[] variants = PerceptionChallengeV2GeneratorFamilyRegistry.DefaultVariants(family)
+                .Select(static variant => variant.Variant)
+                .Take(2)
+                .ToArray();
+            Assert.True(variants.Length >= 2, $"{family} must expose at least two variants");
+            RenderRecipeV2TaskKind taskKind = family == PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField
+                ? RenderRecipeV2TaskKind.Localization
+                : RenderRecipeV2TaskKind.Character;
+
+            PerceptionChallengeV2TaskMaterial first = await source.CreateAsync(
+                CreateTaskSourceRequest(taskKind, family, variants[0]),
+                CancellationToken.None);
+            PerceptionChallengeV2TaskMaterial second = await source.CreateAsync(
+                CreateTaskSourceRequest(taskKind, family, variants[1]),
+                CancellationToken.None);
+            string firstHash = RenderRecipeV2Contracts.ComputeRecipeHashHex(first.Recipe);
+            string secondHash = RenderRecipeV2Contracts.ComputeRecipeHashHex(second.Recipe);
+
+            Assert.NotEqual(firstHash, secondHash);
+            Assert.NotEqual(RecipeStructuralSignature(first.Recipe), RecipeStructuralSignature(second.Recipe));
+            Assert.True(RenderRecipeV2Contracts.ValidateRecipe(first.Recipe, firstHash).IsValid);
+            Assert.True(RenderRecipeV2Contracts.ValidateRecipe(second.Recipe, secondHash).IsValid);
+        }
+    }
+
+    [Fact]
+    public async Task DefaultTaskSource_LocalizationTargetIsBoundToVisualMaterialWithoutMetadataLeak()
+    {
+        var source = new DefaultPerceptionChallengeV2TaskSource(CreatePerceptionGeneratorConfiguration());
+
+        PerceptionChallengeV2TaskMaterial material = await source.CreateAsync(
+            CreateTaskSourceRequest(
+                RenderRecipeV2TaskKind.Localization,
+                PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField,
+                "anchor-region"),
+            CancellationToken.None);
+
+        Assert.Equal(0.62, material.ExpectedX!.Value);
+        Assert.Equal(0.45, material.ExpectedY!.Value);
+        Assert.True(HasPrimitiveNear(material.Recipe, material.ExpectedX!.Value, material.ExpectedY!.Value, 0.03));
+        string recipeJson = JsonSerializer.Serialize(material.Recipe);
+        Assert.DoesNotContain("expected", recipeJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("target", recipeJson, StringComparison.OrdinalIgnoreCase);
+        Assert.True(RenderRecipeV2Contracts.ValidateRecipe(material.Recipe).IsValid);
+    }
+
+    [Fact]
+    public async Task DefaultTaskSource_RecipeHashRejectsStructuralTampering()
+    {
+        var source = new DefaultPerceptionChallengeV2TaskSource(CreatePerceptionGeneratorConfiguration());
+        PerceptionChallengeV2TaskMaterial material = await source.CreateAsync(
+            CreateTaskSourceRequest(
+                RenderRecipeV2TaskKind.Character,
+                PerceptionChallengeV2GeneratorFamilyRegistry.PiecewiseWarp,
+                "warp-tiled"),
+            CancellationToken.None);
+        string recipeHash = RenderRecipeV2Contracts.ComputeRecipeHashHex(material.Recipe);
+        RenderRecipeV2Layer firstLayer = material.Recipe.Layers[0];
+        RenderRecipeV2 tampered = material.Recipe with
+        {
+            Layers =
+            [
+                firstLayer with
+                {
+                    WarpFields =
+                    [
+                        firstLayer.WarpFields[0] with { Amplitude = firstLayer.WarpFields[0].Amplitude + 0.01 },
+                        .. firstLayer.WarpFields.Skip(1)
+                    ]
+                },
+                .. material.Recipe.Layers.Skip(1)
+            ]
+        };
+
+        RenderRecipeV2ValidationResult result = RenderRecipeV2Contracts.ValidateRecipe(tampered, recipeHash);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("recipe_hash_mismatch", result.ErrorCode);
     }
 
     [Fact]
@@ -409,6 +524,96 @@ public sealed class PerceptionChallengeV2ServiceTests
             HashC,
             "risk-policy-v2",
             payload);
+
+    private static PerceptionChallengeV2TaskSourceRequest CreateTaskSourceRequest(
+        RenderRecipeV2TaskKind taskKind,
+        string family,
+        string variant)
+        => new(
+            CreateContext(),
+            taskKind,
+            "comment.create",
+            "article:42",
+            "risk-policy-v2")
+        {
+            Family = family,
+            Variant = variant
+        };
+
+    private static IConfiguration CreatePerceptionGeneratorConfiguration()
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["Security:PerceptionV2:TextTask:FixedText"] = "K7M2",
+                ["Security:PerceptionV2:Localization:FixedX"] = "0.62",
+                ["Security:PerceptionV2:Localization:FixedY"] = "0.45",
+                ["Security:PerceptionV2:MicroInteraction:FixedSteps"] = "drag:0.68,0.36",
+                ["Security:PerceptionV2:Generator:FixedSeed"] = "unit-perception-seed"
+            })
+            .Build();
+
+    private static string RecipeStructuralSignature(RenderRecipeV2 recipe)
+        => string.Join(
+            '|',
+            recipe.Layers.Count,
+            string.Join(
+                ';',
+                recipe.Layers.Select(static layer => string.Join(
+                    ',',
+                    layer.LayerId,
+                    layer.StrokeSegments.Count,
+                    layer.StrokeSegments.Sum(static stroke => stroke.Points.Count),
+                    layer.StrokeSegments.Sum(static stroke => stroke.Width).ToString("0.0000", CultureInfo.InvariantCulture),
+                    layer.NoiseFields.Count,
+                    layer.NoiseFields.Sum(static field => field.Intensity).ToString("0.0000", CultureInfo.InvariantCulture),
+                    layer.WarpFields.Count,
+                    layer.WarpFields.Sum(static field => field.Amplitude + field.Frequency / 100d).ToString("0.0000", CultureInfo.InvariantCulture),
+                    layer.Occluders.Count,
+                    string.Join("+", layer.Occluders.Select(static mask => mask.Shape))))),
+            recipe.PresentationHints["motionProfile"],
+            recipe.PresentationHints["palette"],
+            recipe.PresentationHints["contrast"]);
+
+    private static void AssertFamilySpecificStructure(string family, PerceptionChallengeV2TaskMaterial material)
+    {
+        RenderRecipeV2 recipe = material.Recipe;
+        switch (family)
+        {
+            case PerceptionChallengeV2GeneratorFamilyRegistry.TextStroke:
+                Assert.Single(recipe.Layers);
+                Assert.Equal("ink-main", recipe.Layers[0].LayerId);
+                Assert.True(recipe.Layers[0].StrokeSegments.Count >= 2);
+                break;
+            case PerceptionChallengeV2GeneratorFamilyRegistry.SplineField:
+                Assert.Equal(2, recipe.Layers.Count);
+                Assert.Contains(recipe.Layers, static layer => layer.LayerId == "spline-guide");
+                break;
+            case PerceptionChallengeV2GeneratorFamilyRegistry.FourierField:
+                Assert.True(recipe.Layers[0].WarpFields.Count >= 2);
+                Assert.Contains(recipe.Layers[0].StrokeSegments, static stroke => stroke.SegmentId.StartsWith("wave-", StringComparison.Ordinal));
+                break;
+            case PerceptionChallengeV2GeneratorFamilyRegistry.PiecewiseWarp:
+                Assert.True(recipe.Layers[0].WarpFields.Count >= 2);
+                Assert.Contains("warp", recipe.Layers[0].LayerId, StringComparison.Ordinal);
+                break;
+            case PerceptionChallengeV2GeneratorFamilyRegistry.TopologyCut:
+                Assert.Equal(2, recipe.Layers.Count);
+                Assert.NotEmpty(recipe.Layers.SelectMany(static layer => layer.Occluders));
+                break;
+            case PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField:
+                Assert.Equal(RenderRecipeV2TaskKind.Localization, recipe.TaskKind);
+                Assert.True(HasPrimitiveNear(recipe, material.ExpectedX!.Value, material.ExpectedY!.Value, 0.03));
+                break;
+        }
+    }
+
+    private static bool HasPrimitiveNear(RenderRecipeV2 recipe, double x, double y, double tolerance)
+        => recipe.Layers.Any(layer =>
+            layer.StrokeSegments.SelectMany(static stroke => stroke.Points).Any(point => IsNear(point.X, point.Y, x, y, tolerance)) ||
+            layer.Occluders.Any(mask => IsNear(mask.X, mask.Y, x, y, tolerance)));
+
+    private static bool IsNear(double actualX, double actualY, double expectedX, double expectedY, double tolerance)
+        => Math.Abs(actualX - expectedX) <= tolerance && Math.Abs(actualY - expectedY) <= tolerance;
 
     private static DefaultHttpContext CreateContext()
     {

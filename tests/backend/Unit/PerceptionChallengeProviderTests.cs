@@ -656,7 +656,8 @@ public sealed class PerceptionChallengeProviderTests
 
     private static bool IsOpaqueBindingField(string key)
         => string.Equals(key, "sealedToken", StringComparison.Ordinal)
-            || string.Equals(key, "signatureHex", StringComparison.Ordinal);
+            || string.Equals(key, "signatureHex", StringComparison.Ordinal)
+            || string.Equals(key, "recipeHashHex", StringComparison.Ordinal);
 
     private static void AssertGenericFailed(SecurityChallengeProviderVerifyResult result)
     {
