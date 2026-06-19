@@ -24,6 +24,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAccountRecoveryKeyMigration(),
         BuildAnonymousCommentGovernanceMigration(),
         BuildAnonymousCredentialIssuanceAuditMigration(),
+        BuildSecurityRiskEventPersistenceMigration(),
         BuildSecurityChallengePersistenceMigration(),
         BuildCommentActorMigration(),
         BuildAuditLogMigration(),
@@ -921,6 +922,45 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     CREATE INDEX IF NOT EXISTS idx_anonymous_credential_issuance_user ON anonymous_credential_issuance_audit(user_id);
                     CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_issuance_user_epoch ON anonymous_credential_issuance_audit(user_id, epoch);
                     CREATE INDEX IF NOT EXISTS idx_anonymous_credential_issuance_epoch ON anonymous_credential_issuance_audit(epoch);
+                    """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildSecurityRiskEventPersistenceMigration()
+        => new SchemaMigrationDescriptor(
+            "20260618-post-security-risk-event-persistence",
+            "Create durable RiskControl event audit table.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "security_risk_event",
+                    """
+                    CREATE TABLE IF NOT EXISTS security_risk_event (
+                        id varchar(64) PRIMARY KEY,
+                        occurred_at_utc timestamp NOT NULL,
+                        source varchar(64) NOT NULL,
+                        reason varchar(64) NOT NULL,
+                        action varchar(96) NOT NULL,
+                        score_delta integer NOT NULL,
+                        total_score integer NOT NULL,
+                        ttl_seconds integer NOT NULL,
+                        expires_at_utc timestamp NOT NULL,
+                        subject_hash varchar(64) NULL,
+                        route_key varchar(160) NULL,
+                        client_ip_hash varchar(64) NULL,
+                        device_fp_hash varchar(64) NULL,
+                        path varchar(256) NULL,
+                        method varchar(16) NULL,
+                        user_agent varchar(256) NULL,
+                        detail varchar(256) NULL,
+                        trace_id varchar(64) NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_security_risk_event_source_reason_action ON security_risk_event(source, reason, action);
+                    CREATE INDEX IF NOT EXISTS idx_security_risk_event_subject ON security_risk_event(subject_hash);
+                    CREATE INDEX IF NOT EXISTS idx_security_risk_event_client_ip ON security_risk_event(client_ip_hash);
+                    CREATE INDEX IF NOT EXISTS idx_security_risk_event_device ON security_risk_event(device_fp_hash);
+                    CREATE INDEX IF NOT EXISTS idx_security_risk_event_expires ON security_risk_event(expires_at_utc);
                     """)
             ]);
 

@@ -78,9 +78,13 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<IPowPolicyProvider>(sp => sp.GetRequiredService<ISecurityAdminPolicyService>());
         services.AddSingleton<ISecurityRiskPolicyProvider>(sp => sp.GetRequiredService<ISecurityAdminPolicyService>());
         services.AddSingleton<CrawlerDetectorService>();
-        services.AddSingleton<ICrawlerRiskService, CrawlerRiskService>();
-        services.AddSingleton<ISecurityRiskSignalSink>(sp => (CrawlerRiskService)sp.GetRequiredService<ICrawlerRiskService>());
-        services.AddSingleton<ISecurityRiskScoreReader>(sp => (CrawlerRiskService)sp.GetRequiredService<ICrawlerRiskService>());
+        services.AddSingleton<CrawlerRiskService>();
+        services.AddSingleton<ICrawlerRiskService>(sp => sp.GetRequiredService<CrawlerRiskService>());
+        services.AddScoped<ISecurityRiskEventStore, SecurityRiskEventStore>();
+        services.AddScoped<IRiskScoreEngine, RiskScoreEngine>();
+        services.AddSingleton<SecurityRiskEventSink>();
+        services.AddSingleton<ISecurityRiskSignalSink>(sp => sp.GetRequiredService<SecurityRiskEventSink>());
+        services.AddSingleton<ISecurityRiskScoreReader>(sp => sp.GetRequiredService<SecurityRiskEventSink>());
         services.AddSingleton<CrawlerUpdateWorker>();
         services.AddSingleton<ICrawlerRangeSyncService>(sp => sp.GetRequiredService<CrawlerUpdateWorker>());
         if (!OpenApiExportMode.IsEnabled())

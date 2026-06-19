@@ -66,7 +66,11 @@ public sealed record SecurityRiskSignal(
     TimeSpan Ttl,
     string Source,
     string Action,
-    string? Detail = null);
+    string? Detail = null,
+    string? SubjectHash = null,
+    string? RouteKey = null,
+    string? ClientIpHash = null,
+    string? DeviceFpHash = null);
 
 public sealed record SecurityRiskSubject(string Identity);
 

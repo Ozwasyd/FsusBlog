@@ -99,6 +99,41 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    public async Task RunAsync_CreatesSecurityRiskEventPersistenceTableOnEmptyDatabase()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "security_risk_event"));
+        foreach (string column in new[]
+        {
+            "source",
+            "reason",
+            "action",
+            "score_delta",
+            "ttl_seconds",
+            "expires_at_utc",
+            "subject_hash",
+            "route_key",
+            "client_ip_hash",
+            "device_fp_hash"
+        })
+        {
+            Assert.True(
+                await fixture.ColumnExistsAsync(connectionString, "security_risk_event", column),
+                $"security_risk_event.{column} was not created");
+        }
+
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_security_risk_event_source_reason_action"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_security_risk_event_subject"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_security_risk_event_client_ip"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_security_risk_event_expires"));
+    }
+
+    [Fact]
     public async Task RunAsync_ExtendsExistingSecurityChallengePersistenceTables()
     {
         string databaseName = await fixture.CreateDatabaseAsync();
