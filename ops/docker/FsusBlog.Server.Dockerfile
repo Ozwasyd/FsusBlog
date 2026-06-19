@@ -101,6 +101,16 @@ RUN sh -lc 'for i in 1 2 3; do dotnet publish "./FsusBlog.Server.csproj" \
     /p:TieredCompilation=true \
     /p:PublishReadyToRun=false && exit 0; echo "dotnet publish retry $i failed"; sleep 5; done; exit 1'
 
+ARG ZK_NATIVE_ARTIFACT_DIR=build/artifacts/native-zk
+RUN sh -lc 'set -eu; \
+  artifact_dir="/src/${ZK_NATIVE_ARTIFACT_DIR}/${TARGET_RUNTIME}"; \
+  if [ -d "$artifact_dir" ]; then \
+    mkdir -p /app/publish/native/zk; \
+    cp -a "$artifact_dir"/. /app/publish/native/zk/; \
+  else \
+    echo "ZK native artifacts not found; native Groth16 verifier remains fail-closed"; \
+  fi'
+
 ## =========================================================================
 # 阶段 2.5：Debug 发布 (后端专用，不构建前端)
 ## =========================================================================
@@ -160,6 +170,7 @@ RUN npm run build:release
 ## =========================================================================
 FROM base AS final
 WORKDIR /app
+ENV FSUSBLOG_ZK_GROTH16_NATIVE_LIBRARY=/app/native/zk/libfsus_zk_groth16.so
 
 COPY --from=publish --chown=$APP_UID:$APP_UID /app/publish .
 COPY --from=frontend-build --chown=$APP_UID:$APP_UID /app/dist ./wwwroot

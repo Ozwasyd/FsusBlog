@@ -24,7 +24,15 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IAdminPrincipalService, AdminPrincipalService>();
         services.AddScoped<IAdminSessionValidationService, AdminSessionValidationService>();
         services.AddScoped<IRecoveryKeyService, RecoveryKeyService>();
-        services.TryAddSingleton<IProductionZkProofBackend, UnavailableProductionZkProofBackend>();
+        if (ShouldUseNativeGroth16ZkProofBackend(configuration))
+        {
+            services.TryAddSingleton<IProductionZkProofBackend, NativeGroth16ZkProofBackend>();
+        }
+        else
+        {
+            services.TryAddSingleton<IProductionZkProofBackend, UnavailableProductionZkProofBackend>();
+        }
+
         services.Configure<ZkProdOptions>(configuration.GetSection(ZkProdOptions.SectionName));
         if (ProductionZkProofVerifier.IsEnabled(configuration))
         {
@@ -98,5 +106,12 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         }
 
         return services;
+    }
+
+    private static bool ShouldUseNativeGroth16ZkProofBackend(IConfiguration configuration)
+    {
+        ZkProdOptions options = ZkProdOptions.FromConfiguration(configuration);
+        return options.Enabled &&
+            ZkProdOptions.IsNativeVerifierBackend(options.VerifierBackend);
     }
 }

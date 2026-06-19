@@ -111,6 +111,8 @@ build/**
 !build/artifacts/
 !build/artifacts/wasm-release/
 !build/artifacts/wasm-release/**
+!build/artifacts/native-zk/
+!build/artifacts/native-zk/**
 bin/
 obj/
 wwwroot/

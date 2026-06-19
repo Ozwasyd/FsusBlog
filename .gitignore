@@ -29,6 +29,8 @@ Thumbs.db
 /build/artifacts/*
 !/build/artifacts/wasm-release/
 !/build/artifacts/wasm-release/**
+!/build/artifacts/native-zk/
+!/build/artifacts/native-zk/**
 /data/
 **/bin/
 **/obj/

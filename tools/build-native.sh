@@ -8,6 +8,7 @@ TARGET_RUNTIME="${FSUSBLOG_NATIVE_RUNTIME:-linux-musl-x64}"
 BUILD_CONFIGURATION="${FSUSBLOG_NATIVE_CONFIGURATION:-Release}"
 BUILD_CONFIGURATION_LOWER="$(printf '%s' "${BUILD_CONFIGURATION}" | tr '[:upper:]' '[:lower:]')"
 OUTPUT_DIR="${ROOT_DIR}/build/native/${TARGET_RUNTIME}/${BUILD_CONFIGURATION_LOWER}"
+ZK_NATIVE_ARTIFACT_DIR="${FSUSBLOG_ZK_NATIVE_ARTIFACT_DIR:-${ROOT_DIR}/build/artifacts/native-zk/${TARGET_RUNTIME}}"
 
 log() {
   printf '[build-native] %s\n' "$1"
@@ -64,6 +65,15 @@ log "syncing frontend dist into wwwroot"
 rm -rf "${OUTPUT_DIR}/wwwroot"
 mkdir -p "${OUTPUT_DIR}/wwwroot"
 cp -a "${CLIENT_DIR}/dist/." "${OUTPUT_DIR}/wwwroot/"
+
+if [[ -d "${ZK_NATIVE_ARTIFACT_DIR}" ]]; then
+  log "syncing ZK native artifacts from ${ZK_NATIVE_ARTIFACT_DIR}"
+  rm -rf "${OUTPUT_DIR}/native/zk"
+  mkdir -p "${OUTPUT_DIR}/native/zk"
+  cp -a "${ZK_NATIVE_ARTIFACT_DIR}/." "${OUTPUT_DIR}/native/zk/"
+else
+  log "ZK native artifacts not found; native Groth16 verifier will remain fail-closed"
+fi
 
 log "packaging client runtime for Node SSR worker"
 rm -rf "${OUTPUT_DIR}/FsusBlog.ClientRuntime"
