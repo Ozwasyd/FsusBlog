@@ -187,7 +187,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     }
 
     [Fact]
-    public async Task VerifyAsync_AcceptsCharacterAnswerThroughAttemptGateAndMintsProof()
+    public async Task VerifyAsync_AcceptsCharacterAnswerThroughAttemptGateAndReturnsProofExpiry()
     {
         PerceptionChallengeV2TokenClaims claims = CreateClaims(RenderRecipeV2TaskKind.Character) with
         {
@@ -203,28 +203,24 @@ public sealed class PerceptionChallengeV2ServiceTests
             CancellationToken.None);
 
         Assert.True(result.Verified, result.Reason);
-        Assert.Equal("proof-token", result.ProofToken);
-        Assert.NotNull(fixture.Proof.LastMintRequest);
-        Assert.Equal(claims.ChallengeId, fixture.Proof.LastMintRequest.ChallengeId);
-        Assert.Equal(PerceptionChallengeV2Constants.WireKind, fixture.Proof.LastMintRequest.Kind);
-        Assert.Equal(claims.Action, fixture.Proof.LastMintRequest.Action);
-        Assert.Equal(claims.RouteKey, fixture.Proof.LastMintRequest.RouteKey);
+        Assert.Equal(claims.ExpiresAt, result.ProofExpiresAt);
         Assert.Equal([claims.ChallengeId], fixture.Gate.AttemptChallengeIds);
         Assert.Equal([claims.ChallengeId], fixture.Gate.ConsumeChallengeIds);
+        Assert.Equal("ok", Assert.Single(fixture.Audit.Events).Attempt.Reason);
         Assert.Empty(fixture.RiskSink.Signals);
     }
 
     [Theory]
-    [InlineData("keyVersion", "key_version_mismatch")]
-    [InlineData("taskKind", "task_kind_mismatch")]
-    [InlineData("challengeId", "challenge_id_mismatch")]
-    [InlineData("action", "action_mismatch")]
-    [InlineData("routeKey", "route_key_mismatch")]
-    [InlineData("subjectHash", "subject_hash_mismatch")]
-    [InlineData("clientIpHash", "client_ip_hash_mismatch")]
-    [InlineData("deviceFpHash", "device_fp_hash_mismatch")]
-    [InlineData("policyVersion", "policy_version_mismatch")]
-    [InlineData("recipeHash", "recipe_hash_mismatch")]
+    [InlineData("keyVersion", "perception_key_version_mismatch")]
+    [InlineData("taskKind", "perception_task_kind_mismatch")]
+    [InlineData("challengeId", "perception_challenge_id_mismatch")]
+    [InlineData("action", "perception_action_mismatch")]
+    [InlineData("routeKey", "perception_route_key_mismatch")]
+    [InlineData("subjectHash", "perception_subject_hash_mismatch")]
+    [InlineData("clientIpHash", "perception_client_ip_hash_mismatch")]
+    [InlineData("deviceFpHash", "perception_device_fp_hash_mismatch")]
+    [InlineData("policyVersion", "perception_policy_version_mismatch")]
+    [InlineData("recipeHash", "perception_recipe_hash_mismatch")]
     public async Task VerifyAsync_RejectsSealedTokenBindingMismatches(string field, string expectedReason)
     {
         PerceptionChallengeV2TokenClaims claims = CreateClaims(RenderRecipeV2TaskKind.Character) with
@@ -242,8 +238,8 @@ public sealed class PerceptionChallengeV2ServiceTests
 
         Assert.False(result.Verified);
         Assert.Equal(expectedReason, result.Reason);
-        Assert.Null(fixture.Proof.LastMintRequest);
         Assert.Empty(fixture.Gate.ConsumeChallengeIds);
+        Assert.Equal(expectedReason, Assert.Single(fixture.Audit.Events).Attempt.Reason);
     }
 
     [Fact]
@@ -291,10 +287,13 @@ public sealed class PerceptionChallengeV2ServiceTests
     }
 
     [Theory]
-    [InlineData("attempt_exceeded", "perception_attempt_exceeded")]
-    [InlineData("redis_unavailable", "perception_redis_unavailable")]
-    [InlineData("challenge_replayed", "perception_challenge_replayed")]
-    public async Task VerifyAsync_RedisAttemptAndReplayFailuresFailClosedAndWriteRisk(string gateReason, string riskDetail)
+    [InlineData("attempt_exceeded", "perception_attempt_exceeded", "PerceptionAttemptExceeded")]
+    [InlineData("redis_unavailable", "perception_redis_unavailable", "PerceptionRedisUnavailable")]
+    [InlineData("challenge_replayed", "perception_replayed", "PerceptionReplay")]
+    public async Task VerifyAsync_RedisAttemptAndReplayFailuresFailClosedAndWriteRisk(
+        string gateReason,
+        string expectedReason,
+        string riskDetail)
     {
         PerceptionChallengeV2TokenClaims claims = CreateClaims(RenderRecipeV2TaskKind.Character) with
         {
@@ -319,9 +318,9 @@ public sealed class PerceptionChallengeV2ServiceTests
             CancellationToken.None);
 
         Assert.False(result.Verified);
-        Assert.Equal(gateReason, result.Reason);
-        Assert.Null(fixture.Proof.LastMintRequest);
+        Assert.Equal(expectedReason, result.Reason);
         Assert.Contains(fixture.RiskSink.Signals, signal => signal.Detail == riskDetail);
+        Assert.Equal(expectedReason, Assert.Single(fixture.Audit.Events).Attempt.Reason);
     }
 
     [Fact]
@@ -401,6 +400,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     private static PerceptionChallengeV2VerifyRequest CreateVerifyRequest(IReadOnlyDictionary<string, string> payload)
         => new(
             CreateContext(),
+            PerceptionChallengeV2Constants.WireKind,
             "challenge-1",
             "comment.create",
             "article:42",
@@ -459,7 +459,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     private static PerceptionChallengeV2TokenClaims CreateClaims(RenderRecipeV2TaskKind taskKind)
         => new(
             "challenge-1",
-            PerceptionChallengeV2Constants.WireKind,
+            SecurityChallengeContracts.ToWireName(PerceptionChallengeV2Contracts.ToChallengeKind(taskKind)),
             PerceptionChallengeV2Constants.WireAlgorithm,
             "k1",
             taskKind,
@@ -518,20 +518,20 @@ public sealed class PerceptionChallengeV2ServiceTests
     {
         var protector = new FakeTokenProtector { ClaimsToUnseal = claims };
         var gate = new FakeRedisGate();
-        var proof = new FakeProofService();
         var riskSink = new CapturingRiskSink();
         var taskSource = new FakeTaskSource(CreateTaskMaterial(claims.TaskKind));
-        var service = new PerceptionChallengeV2VerifyService(protector, gate, proof, riskSink, new MutableTimeProvider(BaselineNow));
-        return new VerifyFixture(service, protector, gate, proof, riskSink, taskSource);
+        var audit = new RecordingAuditWriter();
+        var service = new PerceptionChallengeV2VerifyService(protector, gate, riskSink, audit, new MutableTimeProvider(BaselineNow));
+        return new VerifyFixture(service, protector, gate, riskSink, taskSource, audit);
     }
 
     private sealed record VerifyFixture(
         PerceptionChallengeV2VerifyService Service,
         FakeTokenProtector Protector,
         FakeRedisGate Gate,
-        FakeProofService Proof,
         CapturingRiskSink RiskSink,
-        FakeTaskSource TaskSource);
+        FakeTaskSource TaskSource,
+        RecordingAuditWriter Audit);
 
     private sealed class FakeTaskSource(PerceptionChallengeV2TaskMaterial material) : IPerceptionChallengeV2TaskSource
     {
@@ -581,32 +581,6 @@ public sealed class PerceptionChallengeV2ServiceTests
         }
     }
 
-    private sealed class FakeProofService : ISecurityChallengeProofService
-    {
-        public SecurityChallengeProofMintRequest? LastMintRequest { get; private set; }
-
-        public Task<SecurityChallengeProofMintResult> MintProofAsync(SecurityChallengeProofMintRequest request, CancellationToken cancellationToken = default)
-        {
-            LastMintRequest = request;
-            var claims = new SecurityChallengeProofClaims(
-                request.ChallengeId,
-                request.Kind,
-                request.Action,
-                request.RouteKey,
-                request.SubjectHash,
-                request.ClientIpHash,
-                request.DeviceFpHash,
-                request.IssuedAt,
-                request.ExpiresAt,
-                "nonce",
-                request.PolicyVersion);
-            return Task.FromResult(new SecurityChallengeProofMintResult("proof-token", claims));
-        }
-
-        public Task<SecurityChallengeProofConsumeResult> ConsumeProofAsync(SecurityChallengeProofConsumeRequest request, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-    }
-
     private sealed class CapturingRiskSink : ISecurityRiskSignalSink
     {
         public List<SecurityRiskSignal> Signals { get; } = [];
@@ -614,6 +588,17 @@ public sealed class PerceptionChallengeV2ServiceTests
         public ValueTask AddRiskAsync(SecurityRiskSignal signal, CancellationToken cancellationToken = default)
         {
             Signals.Add(signal);
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class RecordingAuditWriter : IChallengeV2AuditEventWriter
+    {
+        public List<ChallengeV2AuditEvent> Events { get; } = [];
+
+        public ValueTask WriteAsync(ChallengeV2AuditEvent auditEvent, CancellationToken cancellationToken = default)
+        {
+            Events.Add(auditEvent);
             return ValueTask.CompletedTask;
         }
     }

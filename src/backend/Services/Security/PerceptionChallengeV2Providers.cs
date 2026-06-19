@@ -302,17 +302,12 @@ public sealed class DefaultPerceptionChallengeV2TaskSource(IConfiguration config
 
 public abstract class PerceptionChallengeV2ProviderBase(
     IPerceptionChallengeV2IssueService issueService,
-    IPerceptionChallengeV2TokenProtector tokenProtector,
-    IUnifiedCache cache,
-    IChallengeV2AuditEventWriter auditEventWriter,
-    ISecurityRiskSignalSink riskSignalSink,
-    TimeProvider timeProvider,
+    IPerceptionChallengeV2VerifyService verifyService,
     RenderRecipeV2TaskKind taskKind,
     SecurityChallengeKind challengeKind,
     bool requiresHighRiskEscalation) : ISecurityChallengeProvider
 {
     private const string GenericFailure = "perception_challenge_failed";
-    private static readonly TimeSpan RiskSignalTtl = TimeSpan.FromMinutes(10);
     private static readonly JsonSerializerOptions RenderRecipeJsonOptions = CreateRenderRecipeJsonOptions();
 
     public string Kind => SecurityChallengeContracts.ToWireName(challengeKind);
@@ -375,86 +370,25 @@ public abstract class PerceptionChallengeV2ProviderBase(
         int payloadBytes = EstimateProviderPayloadBytes(request.ProviderPayload);
         TimeSpan? solveDuration = ReadSolveDuration(request.ProviderPayload);
 
-        if (!TryParseProviderPayload(request.ProviderPayload, out PerceptionChallengeV2ProviderPayload payload))
-        {
-            await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Failed, "perception_payload_invalid", "PerceptionInvalid", null, cancellationToken);
-            RecordV2Failed(request, "perception_payload_invalid", payloadBytes, startedAt, solveDuration);
-            return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
-        }
-
-        PerceptionChallengeV2UnsealResult unsealed = await tokenProtector.UnsealAsync(payload.SealedToken, payload.SignatureHex, cancellationToken);
-        if (!unsealed.Succeeded || unsealed.Claims is null)
-        {
-            await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Failed, "perception_token_invalid", "PerceptionInvalid", payload.SealedToken, cancellationToken);
-            RecordV2Failed(request, "perception_token_invalid", payloadBytes, startedAt, solveDuration);
-            return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
-        }
-
-        PerceptionChallengeV2TokenClaims claims = unsealed.Claims;
-        string? bindingError = ValidateProviderBinding(request, payload, claims);
-        if (bindingError is not null)
-        {
-            await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Failed, bindingError, "PerceptionInvalid", payload.SealedToken, cancellationToken);
-            RecordV2Failed(request, bindingError, payloadBytes, startedAt, solveDuration);
-            return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
-        }
-
-        if (claims.ExpiresAt <= timeProvider.GetUtcNow())
-        {
-            await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Expired, "perception_expired", "PerceptionInvalid", payload.SealedToken, cancellationToken);
-            RecordV2Failed(request, "perception_expired", payloadBytes, startedAt, solveDuration);
-            return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
-        }
-
-        long attemptCount = await cache.IncrementAsync(
-            CachePolicyId.SecurityPerceptionChallenge,
-            AttemptIdentity(request.ChallengeId),
-            1,
-            cancellationToken);
-        if (attemptCount > claims.MaxAttempts)
-        {
-            await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Failed, "perception_attempt_exceeded", "PerceptionAttemptExceeded", payload.SealedToken, cancellationToken);
-            RecordV2Failed(request, "perception_attempt_exceeded", payloadBytes, startedAt, solveDuration);
-            return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
-        }
-
-        if (!TryValidateDuration(request.ProviderPayload, out string? durationReason, out string? durationDetail))
-        {
-            await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Failed, durationReason!, durationDetail!, payload.SealedToken, cancellationToken);
-            RecordV2Failed(request, durationReason!, payloadBytes, startedAt, solveDuration);
-            return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
-        }
-
-        if (!ValidateProviderAnswer(request.ProviderPayload, claims, out string? answerReason))
-        {
-            await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Failed, answerReason!, "PerceptionInvalid", payload.SealedToken, cancellationToken);
-            RecordV2Failed(request, answerReason!, payloadBytes, startedAt, solveDuration);
-            return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
-        }
-
-        TimeSpan consumeTtl = claims.ExpiresAt - timeProvider.GetUtcNow();
-        bool consumed = await cache.TryAcquireLeaseAsync(
-            CachePolicyId.SecurityPerceptionChallenge,
-            ConsumeIdentity(request.ChallengeId),
-            "1",
-            consumeTtl <= TimeSpan.Zero ? TimeSpan.FromSeconds(1) : consumeTtl,
-            cancellationToken);
-        if (!consumed)
-        {
-            await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Replayed, "perception_replayed", "PerceptionReplay", payload.SealedToken, cancellationToken);
-            FsusObservability.RecordSecurityChallengeV2Replayed(
-                Kind,
+        PerceptionChallengeV2VerifyResult verified = await verifyService.VerifyAsync(
+            new PerceptionChallengeV2VerifyRequest(
+                request.Context,
+                request.Kind,
+                request.ChallengeId,
                 request.Action,
-                "perception_replayed",
+                request.RouteKey,
+                request.SubjectHash,
+                request.ClientIpHash,
+                request.DeviceFpHash,
                 request.PolicyVersion,
-                PerceptionChallengeV2Contracts.ToWireTaskKind(taskKind),
-                payloadBytes,
-                FsusObservability.GetElapsed(startedAt),
-                solveDuration);
+                request.ProviderPayload),
+            cancellationToken);
+        if (!verified.Verified)
+        {
+            RecordV2Failed(request, verified.Reason, payloadBytes, startedAt, solveDuration);
             return SecurityChallengeProviderVerifyResult.Failed(GenericFailure);
         }
 
-        await RecordAttemptAsync(request, SecurityChallengeAttemptOutcomes.Verified, "ok", payload.SealedToken, cancellationToken);
         FsusObservability.RecordSecurityChallengeV2Verified(
             Kind,
             request.Action,
@@ -463,7 +397,7 @@ public abstract class PerceptionChallengeV2ProviderBase(
             payloadBytes,
             FsusObservability.GetElapsed(startedAt),
             solveDuration);
-        return SecurityChallengeProviderVerifyResult.Success(claims.ExpiresAt);
+        return SecurityChallengeProviderVerifyResult.Success(verified.ProofExpiresAt);
     }
 
     protected static bool IsEnabled(IConfiguration configuration, string key)
@@ -491,126 +425,6 @@ public abstract class PerceptionChallengeV2ProviderBase(
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false));
         return options;
-    }
-
-    private string? ValidateProviderBinding(
-        SecurityChallengeProviderVerifyRequest request,
-        PerceptionChallengeV2ProviderPayload payload,
-        PerceptionChallengeV2TokenClaims claims)
-    {
-        if (claims.TaskKind != taskKind) return "perception_task_kind_mismatch";
-        if (!FixedEquals(request.ChallengeId, claims.ChallengeId)) return "perception_challenge_id_mismatch";
-        if (!FixedEquals(request.Action, claims.Action)) return "perception_action_mismatch";
-        if (!FixedEquals(request.RouteKey, claims.RouteKey)) return "perception_route_key_mismatch";
-        if (!FixedEquals(request.SubjectHash, claims.SubjectHash)) return "perception_subject_hash_mismatch";
-        if (!FixedEquals(request.ClientIpHash, claims.ClientIpHash)) return "perception_client_ip_hash_mismatch";
-        if (!FixedEquals(request.DeviceFpHash, claims.DeviceFpHash)) return "perception_device_hash_mismatch";
-        if (!FixedEquals(request.PolicyVersion, claims.PolicyVersion)) return "perception_policy_version_mismatch";
-        if (!PerceptionChallengeV2Hashing.FixedTimeEqualsHex(payload.RecipeHashHex, claims.RecipeHashHex)) return "perception_recipe_hash_mismatch";
-        return null;
-    }
-
-    private static bool ValidateProviderAnswer(
-        IReadOnlyDictionary<string, string> providerPayload,
-        PerceptionChallengeV2TokenClaims claims,
-        out string? reason)
-    {
-        reason = null;
-        return claims.TaskKind switch
-        {
-            RenderRecipeV2TaskKind.Character => ValidateTextAnswer(providerPayload, claims, out reason),
-            RenderRecipeV2TaskKind.Localization => ValidatePoint(providerPayload, claims, false, out reason),
-            RenderRecipeV2TaskKind.MicroInteraction => ValidatePoint(providerPayload, claims, true, out reason),
-            _ => Fail("perception_task_kind_invalid", out reason)
-        };
-    }
-
-    private static bool ValidateTextAnswer(IReadOnlyDictionary<string, string> providerPayload, PerceptionChallengeV2TokenClaims claims, out string? reason)
-    {
-        reason = null;
-        if (!TryGet(providerPayload, "answerText", out string answer) ||
-            string.IsNullOrWhiteSpace(claims.ExpectedAnswerHashHex) ||
-            !PerceptionChallengeV2Hashing.FixedTimeEqualsHex(PerceptionChallengeV2Hashing.HashAnswerHex(answer), claims.ExpectedAnswerHashHex))
-        {
-            reason = "perception_text_answer_invalid";
-            return false;
-        }
-
-        return true;
-    }
-
-    private static bool ValidatePoint(
-        IReadOnlyDictionary<string, string> providerPayload,
-        PerceptionChallengeV2TokenClaims claims,
-        bool requireStep,
-        out string? reason)
-    {
-        reason = null;
-        if (!TryGetDouble(providerPayload, "x", out double x) ||
-            !TryGetDouble(providerPayload, "y", out double y) ||
-            claims.ExpectedX is not { } expectedX ||
-            claims.ExpectedY is not { } expectedY ||
-            claims.CoordinateTolerance is not { } tolerance)
-        {
-            reason = "perception_coordinate_invalid";
-            return false;
-        }
-
-        if (x > 1) x /= 320d;
-        if (y > 1) y /= 180d;
-
-        double dx = x - expectedX;
-        double dy = y - expectedY;
-        if (Math.Sqrt((dx * dx) + (dy * dy)) > tolerance)
-        {
-            reason = "perception_coordinate_invalid";
-            return false;
-        }
-
-        if (requireStep)
-        {
-            string stepKey = providerPayload.ContainsKey("step") ? "step" : "stepSummary";
-            if (!TryGet(providerPayload, stepKey, out string step) ||
-                string.IsNullOrWhiteSpace(claims.ExpectedStepHashHex) ||
-                !PerceptionChallengeV2Hashing.FixedTimeEqualsHex(PerceptionChallengeV2Hashing.HashStepHex(step), claims.ExpectedStepHashHex))
-            {
-                reason = "perception_steps_invalid";
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static bool TryValidateDuration(
-        IReadOnlyDictionary<string, string> payload,
-        out string? reason,
-        out string? detail)
-    {
-        reason = null;
-        detail = null;
-        if (!TryGetInt(payload, "solveDurationMs", out int solveDurationMs))
-        {
-            reason = "perception_solve_duration_invalid";
-            detail = "PerceptionInvalid";
-            return false;
-        }
-
-        if (solveDurationMs < 750)
-        {
-            reason = "perception_solve_too_fast";
-            detail = "PerceptionSolveTooFast";
-            return false;
-        }
-
-        if (solveDurationMs > 60_000)
-        {
-            reason = "perception_solve_too_slow";
-            detail = "PerceptionSolveTooSlow";
-            return false;
-        }
-
-        return true;
     }
 
     private void RecordV2Failed(
@@ -647,86 +461,6 @@ public abstract class PerceptionChallengeV2ProviderBase(
         return bytes;
     }
 
-    private async Task RecordRejectedAsync(
-        SecurityChallengeProviderVerifyRequest request,
-        string outcome,
-        string reason,
-        string riskDetail,
-        string? sealedToken,
-        CancellationToken cancellationToken)
-    {
-        await RecordAttemptAsync(request, outcome, reason, sealedToken, cancellationToken);
-        await riskSignalSink.AddRiskAsync(
-            new SecurityRiskSignal(
-                request.Context,
-                SecurityRiskReason.SecurityChallengeRejected,
-                10,
-                RiskSignalTtl,
-                SecurityRiskSources.RiskControl,
-                string.IsNullOrWhiteSpace(request.Action) ? "security_challenge" : request.Action,
-                riskDetail),
-            cancellationToken);
-    }
-
-    private Task RecordAttemptAsync(
-        SecurityChallengeProviderVerifyRequest request,
-        string outcome,
-        string reason,
-        string? sealedToken,
-        CancellationToken cancellationToken)
-    {
-        var attempt = new SecurityChallengeAttemptRequest(
-                request.ChallengeId,
-                outcome,
-                reason,
-                string.IsNullOrWhiteSpace(sealedToken) ? null : HashValue(sealedToken),
-                request.ClientIpHash,
-                request.DeviceFpHash,
-                request.Context.TraceIdentifier,
-                ResolveTraceparent(request.Context),
-                timeProvider.GetUtcNow().UtcDateTime);
-        return auditEventWriter.WriteAsync(
-            ChallengeV2AuditEvent.FromAttempt(
-                attempt,
-                ChallengeV2EventKind.FromAttempt(outcome, reason, request.Action),
-                request.Kind,
-                request.Action),
-            cancellationToken).AsTask();
-    }
-
-    private static string AttemptIdentity(string challengeId)
-        => $"{challengeId}:attempt";
-
-    private static string ConsumeIdentity(string challengeId)
-        => $"{challengeId}:consume";
-
-    private static string? ResolveTraceparent(HttpContext context)
-        => context.Request.Headers.TryGetValue("traceparent", out var values) ? values.ToString() : null;
-
-    private static string HashValue(string value)
-        => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
-
-    private static bool TryParseProviderPayload(
-        IReadOnlyDictionary<string, string> payload,
-        out PerceptionChallengeV2ProviderPayload parsed)
-    {
-        parsed = default;
-        if (!TryGet(payload, "algorithm", out string algorithm) ||
-            !TryGet(payload, "keyVersion", out string keyVersion) ||
-            !TryGet(payload, "taskKind", out string taskKindValue) ||
-            !TryGet(payload, "recipeHashHex", out string recipeHashHex) ||
-            !TryGet(payload, "sealedToken", out string sealedToken) ||
-            !TryGet(payload, "signatureHex", out string signatureHex) ||
-            !PerceptionChallengeV2Contracts.TryParseWireTaskKind(taskKindValue, out RenderRecipeV2TaskKind parsedTaskKind) ||
-            !string.Equals(algorithm, PerceptionChallengeV2Constants.WireAlgorithm, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        parsed = new PerceptionChallengeV2ProviderPayload(keyVersion, parsedTaskKind, recipeHashHex, sealedToken, signatureHex);
-        return true;
-    }
-
     private static bool TryGet(IReadOnlyDictionary<string, string> payload, string key, out string value)
     {
         value = string.Empty;
@@ -746,33 +480,6 @@ public abstract class PerceptionChallengeV2ProviderBase(
                int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out value);
     }
 
-    private static bool TryGetDouble(IReadOnlyDictionary<string, string> payload, string key, out double value)
-    {
-        value = 0;
-        return TryGet(payload, key, out string raw) &&
-               double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out value) &&
-               double.IsFinite(value);
-    }
-
-    private static bool FixedEquals(string left, string right)
-    {
-        byte[] leftBytes = Encoding.UTF8.GetBytes(left ?? string.Empty);
-        byte[] rightBytes = Encoding.UTF8.GetBytes(right ?? string.Empty);
-        return leftBytes.Length == rightBytes.Length && CryptographicOperations.FixedTimeEquals(leftBytes, rightBytes);
-    }
-
-    private static bool Fail(string failReason, out string? reason)
-    {
-        reason = failReason;
-        return false;
-    }
-
-    private readonly record struct PerceptionChallengeV2ProviderPayload(
-        string KeyVersion,
-        RenderRecipeV2TaskKind TaskKind,
-        string RecipeHashHex,
-        string SealedToken,
-        string SignatureHex);
 }
 
 internal static class PerceptionChallengeV2StandaloneFactory
@@ -831,126 +538,30 @@ internal static class PerceptionChallengeV2StandaloneFactory
 
 public sealed class PerceptionTextTaskV2Provider(
     IPerceptionChallengeV2IssueService issueService,
-    IPerceptionChallengeV2TokenProtector tokenProtector,
-    IUnifiedCache cache,
-    ISecurityChallengePersistenceService persistence,
-    IChallengeV2AuditEventWriter auditEventWriter,
-    ISecurityRiskSignalSink riskSignalSink,
-    TimeProvider timeProvider)
+    IPerceptionChallengeV2VerifyService verifyService)
     : PerceptionChallengeV2ProviderBase(
         issueService,
-        tokenProtector,
-        cache,
-        auditEventWriter,
-        riskSignalSink,
-        timeProvider,
+        verifyService,
         RenderRecipeV2TaskKind.Character,
         SecurityChallengeKind.PerceptionTextTaskV2,
         false)
 {
     public const string WireKind = "perceptionTextTaskV2";
     public const string Algorithm = PerceptionChallengeV2Constants.WireAlgorithm;
-
-    internal PerceptionTextTaskV2Provider(
-        IUnifiedCache cache,
-        ISecurityChallengePersistenceService persistence,
-        ISecurityRiskSignalSink riskSignalSink,
-        IConfiguration configuration,
-        TimeProvider timeProvider)
-        : this(cache, persistence, new DirectChallengeV2AuditEventWriter(persistence), riskSignalSink, configuration, timeProvider)
-    {
-    }
-
-    internal PerceptionTextTaskV2Provider(
-        IUnifiedCache cache,
-        ISecurityChallengePersistenceService persistence,
-        IChallengeV2AuditEventWriter auditEventWriter,
-        ISecurityRiskSignalSink riskSignalSink,
-        IConfiguration configuration,
-        TimeProvider timeProvider)
-        : this(
-            PerceptionChallengeV2StandaloneFactory.CreateIssueService(configuration, timeProvider),
-            PerceptionChallengeV2StandaloneFactory.CreateTokenProtector(configuration, timeProvider),
-            cache,
-            persistence,
-            auditEventWriter,
-            riskSignalSink,
-            timeProvider)
-    {
-    }
-
-    public PerceptionTextTaskV2Provider(
-        IPerceptionChallengeV2IssueService issueService,
-        IPerceptionChallengeV2TokenProtector tokenProtector,
-        IUnifiedCache cache,
-        ISecurityChallengePersistenceService persistence,
-        ISecurityRiskSignalSink riskSignalSink,
-        TimeProvider timeProvider)
-        : this(issueService, tokenProtector, cache, persistence, new DirectChallengeV2AuditEventWriter(persistence), riskSignalSink, timeProvider)
-    {
-    }
 }
 
 public sealed class PerceptionLocalizationV2Provider(
     IPerceptionChallengeV2IssueService issueService,
-    IPerceptionChallengeV2TokenProtector tokenProtector,
-    IUnifiedCache cache,
-    ISecurityChallengePersistenceService persistence,
-    IChallengeV2AuditEventWriter auditEventWriter,
-    ISecurityRiskSignalSink riskSignalSink,
-    TimeProvider timeProvider)
+    IPerceptionChallengeV2VerifyService verifyService)
     : PerceptionChallengeV2ProviderBase(
         issueService,
-        tokenProtector,
-        cache,
-        auditEventWriter,
-        riskSignalSink,
-        timeProvider,
+        verifyService,
         RenderRecipeV2TaskKind.Localization,
         SecurityChallengeKind.PerceptionLocalizationV2,
         false)
 {
     public const string WireKind = "perceptionLocalizationV2";
     public const string Algorithm = PerceptionChallengeV2Constants.WireAlgorithm;
-
-    internal PerceptionLocalizationV2Provider(
-        IUnifiedCache cache,
-        ISecurityChallengePersistenceService persistence,
-        ISecurityRiskSignalSink riskSignalSink,
-        IConfiguration configuration,
-        TimeProvider timeProvider)
-        : this(cache, persistence, new DirectChallengeV2AuditEventWriter(persistence), riskSignalSink, configuration, timeProvider)
-    {
-    }
-
-    internal PerceptionLocalizationV2Provider(
-        IUnifiedCache cache,
-        ISecurityChallengePersistenceService persistence,
-        IChallengeV2AuditEventWriter auditEventWriter,
-        ISecurityRiskSignalSink riskSignalSink,
-        IConfiguration configuration,
-        TimeProvider timeProvider)
-        : this(
-            PerceptionChallengeV2StandaloneFactory.CreateIssueService(configuration, timeProvider),
-            PerceptionChallengeV2StandaloneFactory.CreateTokenProtector(configuration, timeProvider),
-            cache,
-            persistence,
-            auditEventWriter,
-            riskSignalSink,
-            timeProvider)
-    {
-    }
-
-    public PerceptionLocalizationV2Provider(
-        IPerceptionChallengeV2IssueService issueService,
-        IPerceptionChallengeV2TokenProtector tokenProtector,
-        IUnifiedCache cache,
-        ISecurityChallengePersistenceService persistence,
-        ISecurityRiskSignalSink riskSignalSink,
-        TimeProvider timeProvider)
-        : this(issueService, tokenProtector, cache, persistence, new DirectChallengeV2AuditEventWriter(persistence), riskSignalSink, timeProvider)
-    {
-    }
 }
 
 public sealed class PerceptionMicroInteractionV2Provider : PerceptionChallengeV2ProviderBase
@@ -959,73 +570,15 @@ public sealed class PerceptionMicroInteractionV2Provider : PerceptionChallengeV2
     public const string Algorithm = PerceptionChallengeV2Constants.WireAlgorithm;
 
     public PerceptionMicroInteractionV2Provider(
-        IUnifiedCache cache,
-        ISecurityChallengePersistenceService persistence,
-        IChallengeV2AuditEventWriter auditEventWriter,
-        ISecurityRiskSignalSink riskSignalSink,
-        IConfiguration configuration,
-        TimeProvider timeProvider)
-        : this(
-            PerceptionChallengeV2StandaloneFactory.CreateIssueService(configuration, timeProvider),
-            PerceptionChallengeV2StandaloneFactory.CreateTokenProtector(configuration, timeProvider),
-            cache,
-            persistence,
-            auditEventWriter,
-            riskSignalSink,
-            timeProvider,
-            configuration)
-    {
-    }
-
-    public PerceptionMicroInteractionV2Provider(
-        IUnifiedCache cache,
-        ISecurityChallengePersistenceService persistence,
-        ISecurityRiskSignalSink riskSignalSink,
-        IConfiguration configuration,
-        TimeProvider timeProvider)
-        : this(cache, persistence, new DirectChallengeV2AuditEventWriter(persistence), riskSignalSink, configuration, timeProvider)
-    {
-    }
-
-    public PerceptionMicroInteractionV2Provider(
         IPerceptionChallengeV2IssueService issueService,
-        IPerceptionChallengeV2TokenProtector tokenProtector,
-        IUnifiedCache cache,
-        ISecurityChallengePersistenceService persistence,
-        IChallengeV2AuditEventWriter auditEventWriter,
-        ISecurityRiskSignalSink riskSignalSink,
-        TimeProvider timeProvider,
+        IPerceptionChallengeV2VerifyService verifyService,
         IConfiguration configuration)
         : base(
             new FeatureGatedIssueService(issueService, configuration),
-            tokenProtector,
-            cache,
-            auditEventWriter,
-            riskSignalSink,
-            timeProvider,
+            verifyService,
             RenderRecipeV2TaskKind.MicroInteraction,
             SecurityChallengeKind.PerceptionMicroInteractionV2,
             true)
-    {
-    }
-
-    public PerceptionMicroInteractionV2Provider(
-        IPerceptionChallengeV2IssueService issueService,
-        IPerceptionChallengeV2TokenProtector tokenProtector,
-        IUnifiedCache cache,
-        ISecurityChallengePersistenceService persistence,
-        ISecurityRiskSignalSink riskSignalSink,
-        TimeProvider timeProvider,
-        IConfiguration configuration)
-        : this(
-            issueService,
-            tokenProtector,
-            cache,
-            persistence,
-            new DirectChallengeV2AuditEventWriter(persistence),
-            riskSignalSink,
-            timeProvider,
-            configuration)
     {
     }
 

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
@@ -137,6 +138,7 @@ public sealed record PerceptionChallengeV2IssueRequest(
 
 public sealed record PerceptionChallengeV2VerifyRequest(
     HttpContext Context,
+    string Kind,
     string ChallengeId,
     string Action,
     string RouteKey,
@@ -235,10 +237,10 @@ public sealed record PerceptionChallengeV2IssueResult(
         => string.IsNullOrWhiteSpace(reason) ? "perception_issue_failed" : reason.Trim();
 }
 
-public sealed record PerceptionChallengeV2VerifyResult(bool Verified, string Reason, string? ProofToken)
+public sealed record PerceptionChallengeV2VerifyResult(bool Verified, string Reason, DateTimeOffset? ProofExpiresAt)
 {
-    public static PerceptionChallengeV2VerifyResult Success(string proofToken)
-        => new(true, "ok", proofToken);
+    public static PerceptionChallengeV2VerifyResult Success(DateTimeOffset? proofExpiresAt = null)
+        => new(true, "ok", proofExpiresAt);
 
     public static PerceptionChallengeV2VerifyResult Failed(string reason)
         => new(false, string.IsNullOrWhiteSpace(reason) ? "perception_verify_failed" : reason.Trim(), null);
@@ -426,8 +428,8 @@ public sealed class PerceptionChallengeV2IssueService(
 public sealed class PerceptionChallengeV2VerifyService(
     IPerceptionChallengeV2TokenProtector tokenProtector,
     IPerceptionChallengeV2RedisGate redisGate,
-    ISecurityChallengeProofService proofService,
     ISecurityRiskSignalSink riskSignalSink,
+    IChallengeV2AuditEventWriter auditEventWriter,
     TimeProvider timeProvider) : IPerceptionChallengeV2VerifyService
 {
     public async Task<PerceptionChallengeV2VerifyResult> VerifyAsync(PerceptionChallengeV2VerifyRequest request, CancellationToken cancellationToken = default)
@@ -437,29 +439,54 @@ public sealed class PerceptionChallengeV2VerifyService(
 
         if (!TryParseCommonPayload(request.ProviderPayload, out PerceptionChallengeV2VerifyPayload payload))
         {
-            await RecordRiskAsync(request, "perception_payload_invalid", cancellationToken);
-            return PerceptionChallengeV2VerifyResult.Failed("payload_invalid");
+            await RecordRejectedAsync(
+                request,
+                SecurityChallengeAttemptOutcomes.Failed,
+                "perception_payload_invalid",
+                "PerceptionInvalid",
+                null,
+                cancellationToken);
+            return PerceptionChallengeV2VerifyResult.Failed("perception_payload_invalid");
         }
 
         PerceptionChallengeV2UnsealResult unsealed = await tokenProtector.UnsealAsync(payload.SealedToken, payload.SignatureHex, cancellationToken);
         if (!unsealed.Succeeded || unsealed.Claims is null)
         {
-            await RecordRiskAsync(request, "perception_token_invalid", cancellationToken);
-            return PerceptionChallengeV2VerifyResult.Failed(unsealed.Reason);
+            await RecordRejectedAsync(
+                request,
+                SecurityChallengeAttemptOutcomes.Failed,
+                "perception_token_invalid",
+                "PerceptionInvalid",
+                payload.SealedToken,
+                cancellationToken);
+            return PerceptionChallengeV2VerifyResult.Failed("perception_token_invalid");
         }
 
         PerceptionChallengeV2TokenClaims claims = unsealed.Claims;
         string? bindingMismatch = ValidateBinding(request, payload, claims);
         if (bindingMismatch is not null)
         {
-            await RecordRiskAsync(request, $"perception_{bindingMismatch}", cancellationToken);
-            return PerceptionChallengeV2VerifyResult.Failed(bindingMismatch);
+            string reason = $"perception_{bindingMismatch}";
+            await RecordRejectedAsync(
+                request,
+                SecurityChallengeAttemptOutcomes.Failed,
+                reason,
+                "PerceptionInvalid",
+                payload.SealedToken,
+                cancellationToken);
+            return PerceptionChallengeV2VerifyResult.Failed(reason);
         }
 
         if (claims.ExpiresAt <= timeProvider.GetUtcNow())
         {
-            await RecordRiskAsync(request, "perception_token_expired", cancellationToken);
-            return PerceptionChallengeV2VerifyResult.Failed("token_expired");
+            await RecordRejectedAsync(
+                request,
+                SecurityChallengeAttemptOutcomes.Expired,
+                "perception_expired",
+                "PerceptionInvalid",
+                payload.SealedToken,
+                cancellationToken);
+            return PerceptionChallengeV2VerifyResult.Failed("perception_expired");
         }
 
         PerceptionChallengeV2AttemptGateResult attempt = await redisGate.RegisterAttemptAsync(
@@ -469,47 +496,76 @@ public sealed class PerceptionChallengeV2VerifyService(
             cancellationToken);
         if (!attempt.Allowed)
         {
-            await RecordRiskAsync(request, MapGateRiskDetail(attempt.Reason), cancellationToken);
-            return PerceptionChallengeV2VerifyResult.Failed(attempt.Reason);
+            string reason = MapAttemptGateReason(attempt.Reason);
+            await RecordRejectedAsync(
+                request,
+                SecurityChallengeAttemptOutcomes.Failed,
+                reason,
+                MapRiskDetail(reason),
+                payload.SealedToken,
+                cancellationToken);
+            return PerceptionChallengeV2VerifyResult.Failed(reason);
         }
 
         if (!TryValidateSolveDuration(request.ProviderPayload, claims, out string? durationReason))
         {
-            await RecordRiskAsync(request, $"perception_{durationReason}", cancellationToken);
-            return PerceptionChallengeV2VerifyResult.Failed(durationReason ?? "solve_duration_invalid");
+            string reason = durationReason ?? "perception_solve_duration_invalid";
+            await RecordRejectedAsync(
+                request,
+                SecurityChallengeAttemptOutcomes.Failed,
+                reason,
+                MapRiskDetail(reason),
+                payload.SealedToken,
+                cancellationToken);
+            return PerceptionChallengeV2VerifyResult.Failed(reason);
         }
 
         if (!ValidateTaskAnswer(request.ProviderPayload, claims, out string? answerReason))
         {
-            await RecordRiskAsync(request, $"perception_{answerReason}", cancellationToken);
-            return PerceptionChallengeV2VerifyResult.Failed(answerReason ?? "answer_invalid");
+            string reason = answerReason ?? "perception_answer_invalid";
+            await RecordRejectedAsync(
+                request,
+                SecurityChallengeAttemptOutcomes.Failed,
+                reason,
+                "PerceptionInvalid",
+                payload.SealedToken,
+                cancellationToken);
+            return PerceptionChallengeV2VerifyResult.Failed(reason);
         }
 
         PerceptionChallengeV2ConsumeResult consume = await redisGate.TryConsumeOnceAsync(claims.ChallengeId, claims.ExpiresAt, cancellationToken);
         if (!consume.Consumed)
         {
-            await RecordRiskAsync(request, consume.Reason == "challenge_replayed" ? "perception_challenge_replayed" : "perception_redis_unavailable", cancellationToken);
-            return PerceptionChallengeV2VerifyResult.Failed(consume.Reason);
+            string reason = MapConsumeReason(consume.Reason);
+            await RecordRejectedAsync(
+                request,
+                reason == "perception_replayed" ? SecurityChallengeAttemptOutcomes.Replayed : SecurityChallengeAttemptOutcomes.Failed,
+                reason,
+                MapRiskDetail(reason),
+                payload.SealedToken,
+                cancellationToken);
+            return PerceptionChallengeV2VerifyResult.Failed(reason);
         }
 
-        SecurityChallengeProofMintResult proof = await proofService.MintProofAsync(
-            new SecurityChallengeProofMintRequest(
-                claims.ChallengeId,
-                claims.Kind,
-                claims.Action,
-                claims.RouteKey,
-                claims.SubjectHash,
-                claims.ClientIpHash,
-                claims.DeviceFpHash,
-                claims.PolicyVersion,
-                timeProvider.GetUtcNow(),
-                claims.ExpiresAt),
+        await RecordAttemptAsync(
+            request,
+            SecurityChallengeAttemptOutcomes.Verified,
+            "ok",
+            payload.SealedToken,
             cancellationToken);
-        return PerceptionChallengeV2VerifyResult.Success(proof.ProofToken);
+        return PerceptionChallengeV2VerifyResult.Success(claims.ExpiresAt);
     }
 
-    private ValueTask RecordRiskAsync(PerceptionChallengeV2VerifyRequest request, string detail, CancellationToken cancellationToken)
-        => riskSignalSink.AddRiskAsync(
+    private async Task RecordRejectedAsync(
+        PerceptionChallengeV2VerifyRequest request,
+        string outcome,
+        string reason,
+        string riskDetail,
+        string? sealedToken,
+        CancellationToken cancellationToken)
+    {
+        await RecordAttemptAsync(request, outcome, reason, sealedToken, cancellationToken);
+        await riskSignalSink.AddRiskAsync(
             new SecurityRiskSignal(
                 request.Context,
                 SecurityRiskReason.SecurityChallengeRejected,
@@ -517,8 +573,35 @@ public sealed class PerceptionChallengeV2VerifyService(
                 TimeSpan.FromMinutes(10),
                 SecurityRiskSources.RiskControl,
                 string.IsNullOrWhiteSpace(request.Action) ? "security_challenge" : request.Action,
-                detail),
+                riskDetail),
             cancellationToken);
+    }
+
+    private ValueTask RecordAttemptAsync(
+        PerceptionChallengeV2VerifyRequest request,
+        string outcome,
+        string reason,
+        string? sealedToken,
+        CancellationToken cancellationToken)
+    {
+        var attempt = new SecurityChallengeAttemptRequest(
+            request.ChallengeId,
+            outcome,
+            reason,
+            string.IsNullOrWhiteSpace(sealedToken) ? null : HashValue(sealedToken),
+            request.ClientIpHash,
+            request.DeviceFpHash,
+            request.Context.TraceIdentifier,
+            ResolveTraceparent(request.Context),
+            timeProvider.GetUtcNow().UtcDateTime);
+        return auditEventWriter.WriteAsync(
+            ChallengeV2AuditEvent.FromAttempt(
+                attempt,
+                ChallengeV2EventKind.FromAttempt(outcome, reason, request.Action),
+                request.Kind,
+                request.Action),
+            cancellationToken);
+    }
 
     private static string? ValidateBinding(
         PerceptionChallengeV2VerifyRequest request,
@@ -547,25 +630,25 @@ public sealed class PerceptionChallengeV2VerifyService(
         reason = null;
         if (!TryGetInt(providerPayload, "solveDurationMs", out int solveDurationMs))
         {
-            reason = "solve_duration_invalid";
+            reason = "perception_solve_duration_invalid";
             return false;
         }
 
         if (solveDurationMs < 0)
         {
-            reason = "solve_duration_invalid";
+            reason = "perception_solve_duration_invalid";
             return false;
         }
 
         if (solveDurationMs < PerceptionChallengeV2Constants.MinSolveDurationMs)
         {
-            reason = "solve_too_fast";
+            reason = "perception_solve_too_fast";
             return false;
         }
 
         if (solveDurationMs > PerceptionChallengeV2Constants.MaxSolveDurationMs)
         {
-            reason = "solve_too_slow";
+            reason = "perception_solve_too_slow";
             return false;
         }
 
@@ -583,7 +666,7 @@ public sealed class PerceptionChallengeV2VerifyService(
             RenderRecipeV2TaskKind.Character => ValidateCharacter(providerPayload, claims, out reason),
             RenderRecipeV2TaskKind.Localization => ValidateCoordinates(providerPayload, claims, requireStep: false, out reason),
             RenderRecipeV2TaskKind.MicroInteraction => ValidateCoordinates(providerPayload, claims, requireStep: true, out reason),
-            _ => Fail("task_kind_invalid", out reason)
+            _ => Fail("perception_task_kind_invalid", out reason)
         };
     }
 
@@ -593,7 +676,7 @@ public sealed class PerceptionChallengeV2VerifyService(
         if (!TryGet(providerPayload, "answerText", out string answer) ||
             string.IsNullOrWhiteSpace(claims.ExpectedAnswerHashHex))
         {
-            reason = "answer_invalid";
+            reason = "perception_text_answer_invalid";
             return false;
         }
 
@@ -601,7 +684,7 @@ public sealed class PerceptionChallengeV2VerifyService(
                 PerceptionChallengeV2Hashing.HashAnswerHex(answer),
                 claims.ExpectedAnswerHashHex))
         {
-            reason = "answer_invalid";
+            reason = "perception_text_answer_invalid";
             return false;
         }
 
@@ -621,27 +704,31 @@ public sealed class PerceptionChallengeV2VerifyService(
             claims.ExpectedY is not { } expectedY ||
             claims.CoordinateTolerance is not { } tolerance)
         {
-            reason = "coordinate_invalid";
+            reason = "perception_coordinate_invalid";
             return false;
         }
+
+        if (x > 1) x /= 320d;
+        if (y > 1) y /= 180d;
 
         double dx = x - expectedX;
         double dy = y - expectedY;
         if (Math.Sqrt((dx * dx) + (dy * dy)) > tolerance)
         {
-            reason = "coordinate_invalid";
+            reason = "perception_coordinate_invalid";
             return false;
         }
 
         if (requireStep)
         {
-            if (!TryGet(providerPayload, "step", out string step) ||
+            string stepKey = providerPayload.ContainsKey("step") ? "step" : "stepSummary";
+            if (!TryGet(providerPayload, stepKey, out string step) ||
                 string.IsNullOrWhiteSpace(claims.ExpectedStepHashHex) ||
                 !PerceptionChallengeV2Hashing.FixedTimeEqualsHex(
                     PerceptionChallengeV2Hashing.HashStepHex(step),
                     claims.ExpectedStepHashHex))
             {
-                reason = "steps_invalid";
+                reason = "perception_steps_invalid";
                 return false;
             }
         }
@@ -649,12 +736,33 @@ public sealed class PerceptionChallengeV2VerifyService(
         return true;
     }
 
-    private static string MapGateRiskDetail(string reason)
+    private static string MapAttemptGateReason(string reason)
         => reason switch
         {
             "attempt_exceeded" => "perception_attempt_exceeded",
             "redis_unavailable" => "perception_redis_unavailable",
+            "challenge_expired" => "perception_expired",
             _ => "perception_attempt_rejected"
+        };
+
+    private static string MapConsumeReason(string reason)
+        => reason switch
+        {
+            "challenge_replayed" => "perception_replayed",
+            "redis_unavailable" => "perception_redis_unavailable",
+            "challenge_expired" => "perception_expired",
+            _ => "perception_consume_failed"
+        };
+
+    private static string MapRiskDetail(string reason)
+        => reason switch
+        {
+            "perception_attempt_exceeded" => "PerceptionAttemptExceeded",
+            "perception_replayed" => "PerceptionReplay",
+            "perception_solve_too_fast" => "PerceptionSolveTooFast",
+            "perception_solve_too_slow" => "PerceptionSolveTooSlow",
+            "perception_redis_unavailable" => "PerceptionRedisUnavailable",
+            _ => "PerceptionInvalid"
         };
 
     private static bool TryParseCommonPayload(IReadOnlyDictionary<string, string> payload, out PerceptionChallengeV2VerifyPayload parsed)
@@ -666,7 +774,8 @@ public sealed class PerceptionChallengeV2VerifyService(
             !TryGet(payload, "recipeHashHex", out string recipeHashHex) ||
             !TryGet(payload, "sealedToken", out string sealedToken) ||
             !TryGet(payload, "signatureHex", out string signatureHex) ||
-            !PerceptionChallengeV2Contracts.TryParseWireTaskKind(taskKindValue, out RenderRecipeV2TaskKind taskKind))
+            !PerceptionChallengeV2Contracts.TryParseWireTaskKind(taskKindValue, out RenderRecipeV2TaskKind taskKind) ||
+            !string.Equals(algorithm, PerceptionChallengeV2Constants.WireAlgorithm, StringComparison.Ordinal))
         {
             return false;
         }
@@ -714,6 +823,12 @@ public sealed class PerceptionChallengeV2VerifyService(
         byte[] rightBytes = Encoding.UTF8.GetBytes(right ?? string.Empty);
         return leftBytes.Length == rightBytes.Length && CryptographicOperations.FixedTimeEquals(leftBytes, rightBytes);
     }
+
+    private static string? ResolveTraceparent(HttpContext context)
+        => context.Request.Headers.TryGetValue("traceparent", out var values) ? values.ToString() : null;
+
+    private static string HashValue(string value)
+        => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
     private static bool Fail(string failReason, out string? reason)
     {

@@ -48,12 +48,13 @@ public sealed class PerceptionChallengeProviderTests
 
         services.AddSingleton(configuration);
         services.AddSingleton<TimeProvider>(clock);
-        services.AddSingleton<IUnifiedCache>(new RecordingCache());
         services.AddSingleton<ISecurityChallengePersistenceService>(new RecordingChallengePersistence());
         services.AddSingleton<IChallengeV2AuditEventWriter, NoopChallengeV2AuditEventWriter>();
         services.AddSingleton<ISecurityRiskSignalSink>(new CapturingRiskSink());
+        services.AddSingleton<IPerceptionChallengeV2RedisGate>(new RecordingPerceptionRedisGate());
         services.AddSingleton(issueService);
         services.AddSingleton(tokenProtector);
+        services.AddScoped<IPerceptionChallengeV2VerifyService, PerceptionChallengeV2VerifyService>();
         services.AddScoped<ISecurityChallengeProvider, PerceptionTextTaskV2Provider>();
         services.AddScoped<ISecurityChallengeProvider, PerceptionLocalizationV2Provider>();
 
@@ -102,8 +103,46 @@ public sealed class PerceptionChallengeProviderTests
         AssertValidRecipe(result.ProviderPayload, RenderRecipeV2TaskKind.Character);
         AssertNoPayloadLeak(result.ProviderPayload, "F7KA2");
         Assert.Empty(fixture.Persistence.Issues);
-        Assert.Empty(fixture.Cache.Strings);
-        Assert.Empty(fixture.Cache.Counters);
+        Assert.Empty(fixture.Gate.AttemptChallengeIds);
+        Assert.Empty(fixture.Gate.ConsumeChallengeIds);
+    }
+
+    [Fact]
+    public async Task TextTask_VerifyAsync_DelegatesToUnifiedVerifyServiceAndMasksFailureReason()
+    {
+        IConfiguration configuration = CreateConfiguration();
+        var clock = new MutableTimeProvider(BaselineNow);
+        IPerceptionChallengeV2IssueService issueService = CreateIssueService(
+            configuration,
+            clock,
+            out _);
+        var verifyService = new RecordingPerceptionVerifyService
+        {
+            Result = PerceptionChallengeV2VerifyResult.Failed("perception_text_answer_invalid")
+        };
+        var provider = new PerceptionTextTaskV2Provider(issueService, verifyService);
+        IReadOnlyDictionary<string, string> payload = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["algorithm"] = PerceptionTextTaskV2Provider.Algorithm,
+            ["keyVersion"] = "current",
+            ["taskKind"] = "character",
+            ["recipeHashHex"] = HashA,
+            ["sealedToken"] = "sealed-token",
+            ["signatureHex"] = "sig-hex",
+            ["answerText"] = "WRONG",
+            ["solveDurationMs"] = "2400"
+        };
+
+        SecurityChallengeProviderVerifyResult result = await provider.VerifyAsync(
+            CreateVerifyRequest(PerceptionTextTaskV2Provider.WireKind, "challenge-1", payload),
+            CancellationToken.None);
+
+        AssertGenericFailed(result);
+        PerceptionChallengeV2VerifyRequest delegated = Assert.Single(verifyService.Requests);
+        Assert.Equal("challenge-1", delegated.ChallengeId);
+        Assert.Equal("auth.login", delegated.Action);
+        Assert.Equal("/api/binary/auth/login", delegated.RouteKey);
+        Assert.Same(payload, delegated.ProviderPayload);
     }
 
     [Fact]
@@ -116,7 +155,7 @@ public sealed class PerceptionChallengeProviderTests
         Dictionary<string, string> payload = CreateTextVerifyPayload(issued.ProviderPayload, " f7 ka2 ", 2500);
 
         Assert.Empty(fixture.Persistence.Issues);
-        Assert.Empty(fixture.Cache.Strings);
+        Assert.Empty(fixture.Gate.AttemptChallengeIds);
 
         SecurityChallengeProviderVerifyResult accepted = await fixture.Provider.VerifyAsync(
             CreateVerifyRequest(PerceptionTextTaskV2Provider.WireKind, issued.Assignment!.ChallengeId, payload),
@@ -131,7 +170,7 @@ public sealed class PerceptionChallengeProviderTests
         Assert.Equal(SecurityChallengeAttemptOutcomes.Verified, fixture.Persistence.Attempts[0].Outcome);
         Assert.Equal(SecurityChallengeAttemptOutcomes.Replayed, fixture.Persistence.Attempts[1].Outcome);
         Assert.Equal("PerceptionReplay", Assert.Single(fixture.RiskSink.Signals).Detail);
-        Assert.Equal(2, fixture.Cache.Counters[$"{CachePolicyId.SecurityPerceptionChallenge}:{issued.Assignment.ChallengeId}:attempt"]);
+        Assert.Equal(2, fixture.Gate.AttemptCounts[issued.Assignment.ChallengeId]);
     }
 
     [Fact]
@@ -184,22 +223,23 @@ public sealed class PerceptionChallengeProviderTests
         Assert.Equal("PerceptionAttemptExceeded", fixture.RiskSink.Signals[^1].Detail);
         Assert.Equal(
             PerceptionChallengeV2Constants.DefaultMaxAttempts + 1,
-            fixture.Cache.Counters[$"{CachePolicyId.SecurityPerceptionChallenge}:{issued.Assignment.ChallengeId}:attempt"]);
+            fixture.Gate.AttemptCounts[issued.Assignment.ChallengeId]);
     }
 
     [Fact]
     public async Task TextTask_VerifyAsync_QueuesAuditAttemptWithoutAwaitingPersistence()
     {
-        var cache = new RecordingCache();
         var persistence = new RecordingChallengePersistence();
         var riskSink = new CapturingRiskSink();
+        var gate = new RecordingPerceptionRedisGate();
         var clock = new MutableTimeProvider(BaselineNow);
         IConfiguration configuration = CreateConfiguration();
         IPerceptionChallengeV2IssueService issueService = CreateIssueService(configuration, clock, out IPerceptionChallengeV2TokenProtector tokenProtector);
         var queue = new ChallengeV2AuditEventQueue(
             Options.Create(new ChallengeV2EventWriterOptions { Capacity = 4, HighValueCapacity = 4, BatchSize = 2, FlushWindowMs = 10 }),
             new CapturingLogger<ChallengeV2AuditEventQueue>());
-        var provider = new PerceptionTextTaskV2Provider(issueService, tokenProtector, cache, persistence, queue, riskSink, clock);
+        var verifyService = new PerceptionChallengeV2VerifyService(tokenProtector, gate, riskSink, queue, clock);
+        var provider = new PerceptionTextTaskV2Provider(issueService, verifyService);
         SecurityChallengeProviderIssueResult issued = await provider.IssueAsync(
             CreateIssueRequest(PerceptionTextTaskV2Provider.WireKind, escalationLevel: 1),
             CancellationToken.None);
@@ -258,7 +298,7 @@ public sealed class PerceptionChallengeProviderTests
         Assert.False(result.ProviderPayload.ContainsKey("targetX"));
         Assert.False(result.ProviderPayload.ContainsKey("targetY"));
         Assert.Empty(fixture.Persistence.Issues);
-        Assert.Empty(fixture.Cache.Strings);
+        Assert.Empty(fixture.Gate.AttemptChallengeIds);
     }
 
     [Fact]
@@ -327,7 +367,7 @@ public sealed class PerceptionChallengeProviderTests
         Assert.False(result.Succeeded);
         Assert.Equal("perception_micro_interaction_disabled", result.Reason);
         Assert.Empty(fixture.Persistence.Issues);
-        Assert.Empty(fixture.Cache.Strings);
+        Assert.Empty(fixture.Gate.AttemptChallengeIds);
     }
 
     [Fact]
@@ -397,38 +437,56 @@ public sealed class PerceptionChallengeProviderTests
 
     private static ProviderFixture<PerceptionTextTaskV2Provider> CreateTextFixture()
     {
-        var cache = new RecordingCache();
         var persistence = new RecordingChallengePersistence();
         var riskSink = new CapturingRiskSink();
+        var gate = new RecordingPerceptionRedisGate();
         var clock = new MutableTimeProvider(BaselineNow);
         IConfiguration configuration = CreateConfiguration();
         IPerceptionChallengeV2IssueService issueService = CreateIssueService(configuration, clock, out IPerceptionChallengeV2TokenProtector tokenProtector);
-        var provider = new PerceptionTextTaskV2Provider(issueService, tokenProtector, cache, persistence, riskSink, clock);
-        return new ProviderFixture<PerceptionTextTaskV2Provider>(provider, cache, persistence, riskSink, clock);
+        var verifyService = new PerceptionChallengeV2VerifyService(
+            tokenProtector,
+            gate,
+            riskSink,
+            new DirectChallengeV2AuditEventWriter(persistence),
+            clock);
+        var provider = new PerceptionTextTaskV2Provider(issueService, verifyService);
+        return new ProviderFixture<PerceptionTextTaskV2Provider>(provider, gate, persistence, riskSink, clock);
     }
 
     private static ProviderFixture<PerceptionLocalizationV2Provider> CreateLocalizationFixture()
     {
-        var cache = new RecordingCache();
         var persistence = new RecordingChallengePersistence();
         var riskSink = new CapturingRiskSink();
+        var gate = new RecordingPerceptionRedisGate();
         var clock = new MutableTimeProvider(BaselineNow);
         IConfiguration configuration = CreateConfiguration();
         IPerceptionChallengeV2IssueService issueService = CreateIssueService(configuration, clock, out IPerceptionChallengeV2TokenProtector tokenProtector);
-        var provider = new PerceptionLocalizationV2Provider(issueService, tokenProtector, cache, persistence, riskSink, clock);
-        return new ProviderFixture<PerceptionLocalizationV2Provider>(provider, cache, persistence, riskSink, clock);
+        var verifyService = new PerceptionChallengeV2VerifyService(
+            tokenProtector,
+            gate,
+            riskSink,
+            new DirectChallengeV2AuditEventWriter(persistence),
+            clock);
+        var provider = new PerceptionLocalizationV2Provider(issueService, verifyService);
+        return new ProviderFixture<PerceptionLocalizationV2Provider>(provider, gate, persistence, riskSink, clock);
     }
 
     private static ProviderFixture<PerceptionMicroInteractionV2Provider> CreateMicroFixture(bool enabled)
     {
-        var cache = new RecordingCache();
         var persistence = new RecordingChallengePersistence();
         var riskSink = new CapturingRiskSink();
+        var gate = new RecordingPerceptionRedisGate();
         var clock = new MutableTimeProvider(BaselineNow);
         IConfiguration configuration = CreateConfiguration(enabled);
         IPerceptionChallengeV2IssueService issueService = CreateIssueService(configuration, clock, out IPerceptionChallengeV2TokenProtector tokenProtector);
-        var provider = new PerceptionMicroInteractionV2Provider(issueService, tokenProtector, cache, persistence, riskSink, clock, configuration);
-        return new ProviderFixture<PerceptionMicroInteractionV2Provider>(provider, cache, persistence, riskSink, clock);
+        var verifyService = new PerceptionChallengeV2VerifyService(
+            tokenProtector,
+            gate,
+            riskSink,
+            new DirectChallengeV2AuditEventWriter(persistence),
+            clock);
+        var provider = new PerceptionMicroInteractionV2Provider(issueService, verifyService, configuration);
+        return new ProviderFixture<PerceptionMicroInteractionV2Provider>(provider, gate, persistence, riskSink, clock);
     }
 
     private static IPerceptionChallengeV2IssueService CreateIssueService(
@@ -670,7 +728,7 @@ public sealed class PerceptionChallengeProviderTests
 
     private sealed record ProviderFixture<TProvider>(
         TProvider Provider,
-        RecordingCache Cache,
+        RecordingPerceptionRedisGate Gate,
         RecordingChallengePersistence Persistence,
         CapturingRiskSink RiskSink,
         MutableTimeProvider Clock)
@@ -700,6 +758,61 @@ public sealed class PerceptionChallengeProviderTests
     {
         public ValueTask WriteAsync(ChallengeV2AuditEvent auditEvent, CancellationToken cancellationToken = default)
             => ValueTask.CompletedTask;
+    }
+
+    private sealed class RecordingPerceptionVerifyService : IPerceptionChallengeV2VerifyService
+    {
+        public List<PerceptionChallengeV2VerifyRequest> Requests { get; } = [];
+
+        public PerceptionChallengeV2VerifyResult Result { get; init; } =
+            PerceptionChallengeV2VerifyResult.Success(BaselineNow.AddMinutes(5));
+
+        public Task<PerceptionChallengeV2VerifyResult> VerifyAsync(
+            PerceptionChallengeV2VerifyRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            Requests.Add(request);
+            return Task.FromResult(Result);
+        }
+    }
+
+    private sealed class RecordingPerceptionRedisGate : IPerceptionChallengeV2RedisGate
+    {
+        private readonly HashSet<string> _consumed = new(StringComparer.Ordinal);
+
+        public Dictionary<string, long> AttemptCounts { get; } = new(StringComparer.Ordinal);
+
+        public List<string> AttemptChallengeIds { get; } = [];
+
+        public List<string> ConsumeChallengeIds { get; } = [];
+
+        public Task<PerceptionChallengeV2AttemptGateResult> RegisterAttemptAsync(
+            string challengeId,
+            DateTimeOffset expiresAt,
+            int maxAttempts,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            AttemptChallengeIds.Add(challengeId);
+            AttemptCounts.TryGetValue(challengeId, out long current);
+            long next = current + 1;
+            AttemptCounts[challengeId] = next;
+            return Task.FromResult(next <= Math.Max(1, maxAttempts)
+                ? PerceptionChallengeV2AttemptGateResult.Accepted(next)
+                : PerceptionChallengeV2AttemptGateResult.Rejected("attempt_exceeded", next));
+        }
+
+        public Task<PerceptionChallengeV2ConsumeResult> TryConsumeOnceAsync(
+            string challengeId,
+            DateTimeOffset expiresAt,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ConsumeChallengeIds.Add(challengeId);
+            return Task.FromResult(_consumed.Add(challengeId)
+                ? PerceptionChallengeV2ConsumeResult.ConsumedOnce
+                : PerceptionChallengeV2ConsumeResult.Replayed);
+        }
     }
 
     private sealed class RecordingChallengePersistence : ISecurityChallengePersistenceService
