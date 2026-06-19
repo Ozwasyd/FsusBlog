@@ -571,6 +571,7 @@ jobs:
           retention-days: 14
           path: |
             .tmp/release-evidence/security-depth-summary.json
+            .tmp/release-evidence/perception-v2-release-evidence.json
             .tmp/release-evidence/jobs/**
             .tmp/security/**
             src/frontend/test-results/playwright/security/**

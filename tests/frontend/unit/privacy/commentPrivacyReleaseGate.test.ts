@@ -50,6 +50,7 @@ describe('comment privacy release gate', () => {
     expect(packageJson).toContain('"check:privacy-zk-frontend"')
     expect(packageJson).toContain('"check:privacy-zk-backend"')
     expect(packageJson).toContain('"check:privacy-zk-concurrency"')
+    expect(packageJson).toContain('"check:privacy-zk-prod-release"')
     expect(packageJson).toContain('"check:privacy-zk"')
   })
 
@@ -59,10 +60,26 @@ describe('comment privacy release gate', () => {
     const checker = readRepoFile('tools/security/check-security-matrices.mjs')
 
     expect(workflow).toContain('./tools/test.sh privacy-zk-comment-matrix --no-deps')
+    expect(workflow).toContain('.tmp/release-evidence/perception-v2-release-evidence.json')
     expect(testMatrix).toContain('id: privacy-zk-comment-matrix')
     expect(testMatrix).toContain('tools/test/lanes/privacy-zk-comment-matrix.sh')
     expect(checker).toContain('security/privacy-zk-comment-matrix.yml')
     expect(checker).toContain('verifyPrivacyZkCommentMatrix')
+  })
+
+  it('pins the ZK production release gate to fail-closed checks and rollback docs', () => {
+    const script = readRepoFile('tools/security/check-privacy-zk-prod-release.mjs')
+    const docs = readRepoFile('docs/security.md')
+
+    expect(script).toContain('native-verifier-library')
+    expect(script).toContain('trusted-setup-manifest')
+    expect(script).toContain('bbs-issuer-public-key')
+    expect(script).toContain('zk-prod-smoke-evidence')
+    expect(script).toContain('AllowDevVerifier')
+    expect(script).toContain('FallbackToLegacyAnonymous')
+    expect(docs).toContain('check:privacy-zk-prod-release')
+    expect(docs).toContain('AnonymousIdentity:ZkProd:Enabled=false')
+    expect(docs).toContain('不删除已写入的匿名评论')
   })
 
   it('pins frontend privacy test evidence to transport, timers, worker transfer, Abort and ui-no-zk-terms', () => {
