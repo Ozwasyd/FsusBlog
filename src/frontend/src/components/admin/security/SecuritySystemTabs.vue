@@ -21,8 +21,13 @@ const route = useRoute()
 
 const items = [
   { label: '安全总览', name: 'ManageSecurityDashboard' },
+  { label: 'RiskControl', name: 'ManageSecurityRiskControl' },
+  { label: '挑战状态', name: 'ManageSecurityChallenges' },
+  { label: '策略版本', name: 'ManageSecurityPolicies' },
+  { label: '风险事件', name: 'ManageSecurityEvents' },
+  { label: 'Captcha', name: 'ManageSecurityCaptcha' },
+  { label: 'PoSpace', name: 'ManageSecurityPoSpace' },
   { label: '反爬虫系统', name: 'ManageSecurityCrawler' },
   { label: 'PoW 系统', name: 'ManageSecurityPow' }
 ] as const
 </script>
-

@@ -2,7 +2,7 @@
 
 本文件说明 FsusBlog API 层的设计原则与约定，是所有 API 变更的**必读前提文件**。
 
-> 最近更新：2026-06-18 — 补齐匿名凭证、匿名评论 ticket 与匿名评论创建 AEDS 契约边界。
+> 最近更新：2026-06-19 — 补齐 admin security RiskControl 控制面 binary-only 读取边界。
 
 ---
 
@@ -32,7 +32,7 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 
 ### 4. 桥接隔离原则
 
-作者工作台 `/api/binary/author/**` 与管理端 security `/api/binary/admin/security/**` 的生产入口必须是 AEDS v2 frame；`AuthoringBinaryBridgeMiddleware` 与 `SecurityBinaryBridgeMiddleware` 只是在服务端内部复用受保护的 legacy JSON implementation，并把结果 flatten 回 route-specific AEDS response frame。
+作者工作台 `/api/binary/author/**` 与管理端 security `/api/binary/admin/security/**` 的生产入口必须是 AEDS v2 frame；`AuthoringBinaryBridgeMiddleware` 与 `SecurityBinaryBridgeMiddleware` 只是在服务端内部复用受保护的 legacy JSON implementation，并把结果 flatten 回 route-specific AEDS response frame。RiskControl 控制面读取（`risk-control/overview`、`challenges/overview`、`policies/overview`）也只允许通过该 binary bridge 暴露，不能恢复 `/api/admin/security/**` JSON fallback。
 
 `JsonApiResponse<T>`、`Results.Ok(JsonApiResponse<...>)` 与 `/_fsus/internal/binary-bridge/**` 只允许出现在登记的 internal bridge implementation 中，且对应端点必须挂 `BinaryBridgeInternalOnlyFilter`。浏览器可达的 `/api/binary/**` 端点不得直接暴露 JSON envelope；新增业务端点默认按 [aeds-only-policy.md#内部应用-api-定义](aeds-only-policy.md#内部应用-api-定义) 设计，不把 bridge 模式当作新 endpoint 模板。装载点见 `src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs`，allowlist 见 [aeds-only-policy.md#允许豁免](aeds-only-policy.md#允许豁免)。
 

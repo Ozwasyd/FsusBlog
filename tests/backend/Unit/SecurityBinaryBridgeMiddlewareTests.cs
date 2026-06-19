@@ -115,6 +115,25 @@ public sealed class SecurityBinaryBridgeMiddlewareTests
         Assert.Equal(AedsFrameType.PowPolicySnapshot, powRoute.ResponseFrame);
     }
 
+    [Fact]
+    public void TryResolveRoute_KnowsRiskControlConsoleReadRoutes()
+    {
+        foreach (string path in new[]
+        {
+            "/risk-control/overview",
+            "/challenges/overview",
+            "/policies/overview"
+        })
+        {
+            Assert.True(SecurityBinaryBridgeMiddleware.TryResolveRoute(
+                HttpMethods.Get,
+                new PathString(path),
+                out var route));
+            Assert.Null(route.RequestFrame);
+            Assert.Equal(AedsFrameType.SecurityOverview, route.ResponseFrame);
+        }
+    }
+
     private static DefaultHttpContext CreateContext(string path, string method, byte[]? body = null)
     {
         var context = new DefaultHttpContext();

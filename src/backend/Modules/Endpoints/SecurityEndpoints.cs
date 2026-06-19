@@ -1,4 +1,5 @@
 using System.Globalization;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Filters;
@@ -8,6 +9,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
+using SqlSugar;
 
 namespace FsusBlog.Server.Modules.Endpoints;
 
@@ -39,6 +41,47 @@ public static class SecurityEndpoints
         {
             return Results.Ok(JsonApiResponse<AntiCrawlerOverviewResponse>.Ok(
                 policy.BuildAntiCrawlerOverview(detector.GetRangeStatus(), crawlerSync.GetStatus())));
+        });
+
+        group.MapGet("/risk-control/overview", async (
+            ISecurityAdminPolicyService policy,
+            ISqlSugarClient db,
+            CancellationToken cancellationToken) =>
+        {
+            IReadOnlyList<AntiCrawlerRiskEventResponse> events = policy.ListRiskEvents(null, null, 200);
+            IReadOnlyList<SecurityRiskSnapshotResponse> snapshots = policy.ListRiskSnapshots(50);
+            SecurityChallengeMetricsResponse challengeMetrics = await BuildSecurityChallengeMetricsAsync(db, null, cancellationToken);
+            var response = new RiskControlConsoleResponse(
+                policy.CurrentRiskPolicyV2,
+                BuildRiskOverview(events, snapshots),
+                BuildRiskEventAggregate(events),
+                challengeMetrics,
+                events.Take(50).ToArray(),
+                snapshots.Take(25).ToArray());
+            return Results.Ok(JsonApiResponse<RiskControlConsoleResponse>.Ok(response));
+        });
+
+        group.MapGet("/challenges/overview", async (
+            string? kind,
+            ISqlSugarClient db,
+            CancellationToken cancellationToken) =>
+        {
+            SecurityChallengeMetricsResponse response = await BuildSecurityChallengeMetricsAsync(db, kind, cancellationToken);
+            return Results.Ok(JsonApiResponse<SecurityChallengeMetricsResponse>.Ok(response));
+        });
+
+        group.MapGet("/policies/overview", async (
+            ISecurityAdminPolicyService policy,
+            ISqlSugarClient db,
+            CancellationToken cancellationToken) =>
+        {
+            IReadOnlyList<SecurityPolicyVersionSummaryResponse> versions = await BuildPolicyVersionsAsync(db, policy, cancellationToken);
+            var response = new SecurityPolicyConsoleResponse(
+                policy.CurrentRiskPolicyV2,
+                policy.Current,
+                policy.CurrentPow,
+                versions);
+            return Results.Ok(JsonApiResponse<SecurityPolicyConsoleResponse>.Ok(response));
         });
 
         group.MapGet("/anti-crawler/options", (IAntiCrawlerPolicyProvider policy) =>
@@ -442,6 +485,203 @@ public static class SecurityEndpoints
                 : Results.NotFound(JsonApiResponse<object>.Fail("anti_crawler_list_entry_not_found"));
         }).RequireRateLimiting("fixed_ip");
     }
+
+    private static async Task<SecurityChallengeMetricsResponse> BuildSecurityChallengeMetricsAsync(
+        ISqlSugarClient db,
+        string? kind,
+        CancellationToken cancellationToken)
+    {
+        string? normalizedKind = NormalizeNullable(kind);
+        DateTimeOffset windowStartedAt = DateTimeOffset.UtcNow.AddDays(-1);
+        DateTime windowStartedUtc = windowStartedAt.UtcDateTime;
+        List<SecurityChallenge> challenges = await db.Queryable<SecurityChallenge>()
+            .Where(item => item.CreatedAtUtc >= windowStartedUtc)
+            .WhereIF(normalizedKind is not null, item => item.Kind == normalizedKind)
+            .OrderBy(item => item.CreatedAtUtc, OrderByType.Desc)
+            .Take(2000)
+            .ToListAsync(cancellationToken);
+        List<SecurityChallengeAttempt> attempts = await db.Queryable<SecurityChallengeAttempt>()
+            .Where(item => item.AttemptedAtUtc >= windowStartedUtc)
+            .OrderBy(item => item.AttemptedAtUtc, OrderByType.Desc)
+            .Take(2000)
+            .ToListAsync(cancellationToken);
+
+        Dictionary<string, SecurityChallenge> challengeById = challenges
+            .GroupBy(static item => item.ChallengeId, StringComparer.Ordinal)
+            .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.Ordinal);
+        List<(SecurityChallengeAttempt Attempt, SecurityChallenge? Challenge)> scopedAttempts = attempts
+            .Select(item => (Attempt: item, Challenge: challengeById.GetValueOrDefault(item.ChallengeId)))
+            .Where(item => normalizedKind is null || string.Equals(item.Challenge?.Kind, normalizedKind, StringComparison.Ordinal))
+            .ToList();
+        int verified = CountOutcomes(scopedAttempts, SecurityChallengeAttemptOutcomes.Verified);
+        int failed = CountOutcomes(scopedAttempts, SecurityChallengeAttemptOutcomes.Failed);
+        int replayed = CountOutcomes(scopedAttempts, SecurityChallengeAttemptOutcomes.Replayed);
+        int expired = CountOutcomes(scopedAttempts, SecurityChallengeAttemptOutcomes.Expired);
+        int revoked = CountOutcomes(scopedAttempts, SecurityChallengeAttemptOutcomes.Revoked);
+        int totalAttempts = scopedAttempts.Count;
+        IReadOnlyList<SecurityChallengeKindBreakdownResponse> breakdown = BuildChallengeKindBreakdown(challenges, scopedAttempts);
+        IReadOnlyList<SecurityChallengeAttemptSummaryResponse> recentAttempts = scopedAttempts
+            .OrderByDescending(static item => item.Attempt.AttemptedAtUtc)
+            .Take(25)
+            .Select(static item => new SecurityChallengeAttemptSummaryResponse(
+                item.Attempt.AttemptId,
+                item.Attempt.ChallengeId,
+                NormalizeDisplayValue(item.Challenge?.Kind),
+                item.Attempt.Outcome,
+                item.Attempt.Reason,
+                NormalizeDisplayValue(item.Challenge?.Action),
+                NormalizeDisplayValue(item.Challenge?.RouteKey),
+                new DateTimeOffset(DateTime.SpecifyKind(item.Attempt.AttemptedAtUtc, DateTimeKind.Utc))))
+            .ToArray();
+
+        return new SecurityChallengeMetricsResponse(
+            normalizedKind,
+            windowStartedAt,
+            challenges.Count,
+            totalAttempts,
+            verified,
+            failed,
+            replayed,
+            expired,
+            revoked,
+            Rate(verified, totalAttempts),
+            Rate(failed + replayed + expired + revoked, totalAttempts),
+            breakdown,
+            recentAttempts);
+    }
+
+    private static IReadOnlyList<SecurityChallengeKindBreakdownResponse> BuildChallengeKindBreakdown(
+        IReadOnlyList<SecurityChallenge> challenges,
+        IReadOnlyList<(SecurityChallengeAttempt Attempt, SecurityChallenge? Challenge)> attempts)
+        => challenges
+            .GroupBy(static item => NormalizeDisplayValue(item.Kind), StringComparer.Ordinal)
+            .Select(group =>
+            {
+                int issued = group.Count();
+                List<(SecurityChallengeAttempt Attempt, SecurityChallenge? Challenge)> kindAttempts = attempts
+                    .Where(item => string.Equals(NormalizeDisplayValue(item.Challenge?.Kind), group.Key, StringComparison.Ordinal))
+                    .ToList();
+                int verified = CountOutcomes(kindAttempts, SecurityChallengeAttemptOutcomes.Verified);
+                int failed = kindAttempts.Count - verified;
+                return new SecurityChallengeKindBreakdownResponse(
+                    group.Key,
+                    issued,
+                    kindAttempts.Count,
+                    verified,
+                    failed,
+                    Rate(verified, kindAttempts.Count),
+                    Rate(failed, kindAttempts.Count));
+            })
+            .OrderByDescending(static item => item.TotalIssued)
+            .ThenBy(static item => item.Kind, StringComparer.Ordinal)
+            .ToArray();
+
+    private static IReadOnlyList<SecurityRiskEventAggregateResponse> BuildRiskEventAggregate(
+        IReadOnlyList<AntiCrawlerRiskEventResponse> events)
+        => events
+            .GroupBy(static item => new { item.Source, item.Reason })
+            .Select(static group => new SecurityRiskEventAggregateResponse(
+                group.Key.Source,
+                group.Key.Reason,
+                group.Count(),
+                group.Sum(static item => item.ScoreDelta),
+                group.Max(static item => item.TotalScore),
+                group.Max(static item => item.OccurredAtUtc)))
+            .OrderByDescending(static item => item.Count)
+            .ThenByDescending(static item => item.LastOccurredAtUtc)
+            .Take(20)
+            .ToArray();
+
+    private static SecurityRiskOverviewResponse BuildRiskOverview(
+        IReadOnlyList<AntiCrawlerRiskEventResponse> events,
+        IReadOnlyList<SecurityRiskSnapshotResponse> snapshots)
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        DateTimeOffset lastHour = now.AddHours(-1);
+        DateTimeOffset lastDay = now.AddDays(-1);
+        string topReason = events
+            .GroupBy(static item => item.Reason)
+            .OrderByDescending(static group => group.Count())
+            .Select(static group => group.Key)
+            .FirstOrDefault() ?? "none";
+        string topSource = events
+            .GroupBy(static item => item.Source)
+            .OrderByDescending(static group => group.Count())
+            .Select(static group => group.Key)
+            .FirstOrDefault() ?? "none";
+        return new SecurityRiskOverviewResponse(
+            events.Count(item => item.OccurredAtUtc >= lastHour),
+            events.Count(item => item.OccurredAtUtc >= lastDay),
+            snapshots.Count,
+            snapshots.Count(static item => item.Score >= 100),
+            topReason,
+            topSource);
+    }
+
+    private static async Task<IReadOnlyList<SecurityPolicyVersionSummaryResponse>> BuildPolicyVersionsAsync(
+        ISqlSugarClient db,
+        ISecurityAdminPolicyService policy,
+        CancellationToken cancellationToken)
+    {
+        List<SecurityPolicySnapshot> rows = await db.Queryable<SecurityPolicySnapshot>()
+            .OrderBy(static item => item.PolicyId)
+            .OrderBy(static item => item.Version, OrderByType.Desc)
+            .Take(100)
+            .ToListAsync(cancellationToken);
+        List<SecurityPolicyVersionSummaryResponse> versions = rows
+            .Select(static item => new SecurityPolicyVersionSummaryResponse(
+                item.PolicyId,
+                item.Version,
+                item.Mode,
+                item.ActivatedAtUtc is not null && item.RevokedAtUtc is null,
+                item.IsLastKnownGood,
+                item.RollbackOfVersion,
+                item.CreatedByAdminId,
+                ToDateTimeOffset(item.CreatedAtUtc),
+                ToNullableDateTimeOffset(item.ActivatedAtUtc),
+                ToNullableDateTimeOffset(item.RevokedAtUtc),
+                item.Reason))
+            .ToList();
+        versions.Insert(0, new SecurityPolicyVersionSummaryResponse(
+            "risk-control",
+            0,
+            policy.CurrentRiskPolicyV2.GlobalMode,
+            true,
+            true,
+            null,
+            null,
+            policy.CurrentRiskPolicyV2.UpdatedAtUtc,
+            policy.CurrentRiskPolicyV2.UpdatedAtUtc,
+            null,
+            policy.CurrentRiskPolicyV2.PolicyVersion));
+        return versions;
+    }
+
+    private static int CountOutcomes(
+        IEnumerable<(SecurityChallengeAttempt Attempt, SecurityChallenge? Challenge)> attempts,
+        string outcome)
+        => attempts.Count(item => string.Equals(item.Attempt.Outcome, outcome, StringComparison.Ordinal));
+
+    private static double Rate(int numerator, int denominator)
+        => denominator <= 0 ? 0 : Math.Round((double)numerator / denominator, 4, MidpointRounding.AwayFromZero);
+
+    private static string? NormalizeNullable(string? value)
+    {
+        string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+        return normalized.Length == 0 ? null : normalized;
+    }
+
+    private static string NormalizeDisplayValue(string? value)
+    {
+        string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+        return normalized.Length == 0 ? "unknown" : normalized;
+    }
+
+    private static DateTimeOffset ToDateTimeOffset(DateTime value)
+        => new(DateTime.SpecifyKind(value, DateTimeKind.Utc));
+
+    private static DateTimeOffset? ToNullableDateTimeOffset(DateTime? value)
+        => value.HasValue ? ToDateTimeOffset(value.Value) : null;
 
     private static async Task<IResult?> RequireAdminSensitiveStepUpAsync(HttpContext context, IAdminPrincipalService adminPrincipals)
     {

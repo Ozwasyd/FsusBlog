@@ -3,7 +3,7 @@
 本文件是 FsusBlog 所有请求/响应 DTO、通知 WebSocket 信封与 AOT 契约的**完整参考**。
 所有定义的权威源码位于 `src/shared/Contracts/` 目录。
 
-> 最近更新：2026-06-18 — 同步匿名凭证签发端点、RiskControl reason/source 词表、auth login / passkey / recovery-key verify challenge 边界。
+> 最近更新：2026-06-19 — 同步 admin security RiskControl 控制面、challenge 指标与策略版本 AEDS bridge 契约。
 
 ---
 
@@ -1351,6 +1351,9 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 安全系统 IA 与 API 边界：
 
 - `GET /api/binary/admin/security/overview` 返回 `SecurityOverviewResponse(status, checkedAtUtc, antiCrawler, pow, risk)`。
+- `GET /api/binary/admin/security/risk-control/overview` 返回 `RiskControlConsoleResponse(activePolicy, risk, riskEventAggregate, challengeMetrics, recentEvents, topRiskSnapshots)`；`activePolicy` 为 `SecurityRiskPolicySnapshotV2`，`riskEventAggregate` 按 `source/reason` 聚合最近风险事件，`challengeMetrics` 复用最近 24 小时 challenge attempt 成功 / 失败率。
+- `GET /api/binary/admin/security/challenges/overview?kind={kind}` 返回 `SecurityChallengeMetricsResponse(kind, windowStartedAtUtc, totalIssued, totalAttempts, verified, failed, replayed, expired, revoked, successRate, failureRate, kindBreakdown, recentAttempts)`；`kind` 可传 `captchaV1` 或 `argon2idPoSpaceV1` 等 provider wire kind，不传则返回全部 challenge。
+- `GET /api/binary/admin/security/policies/overview` 返回 `SecurityPolicyConsoleResponse(activePolicy, antiCrawler, pow, policyVersions)`；`policyVersions` 来自 `security_policy_snapshot` 持久化表，并额外暴露当前派生 RiskControl policy version。
 - `GET /api/binary/admin/security/anti-crawler/overview` 返回 `AntiCrawlerOverviewResponse(policy, summary, crawlerRanges, recentEvents, rules, allowlist, blocklist)`。
 - `GET|PUT /api/binary/admin/security/anti-crawler/options` 读取或更新 `AntiCrawlerPolicySnapshot`。
 - `POST /api/binary/admin/security/anti-crawler/options/rollback` 回滚上一份反爬虫策略快照。
@@ -1365,6 +1368,8 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 `AntiCrawlerPolicyOptions` 包含 `mode`（`disabled|observe|enforce|strict`）、局部开关 `publicReadChallengeEnabled/searchCrawlerVerificationEnabled/socialPreviewGuardEnabled/riskScoringEnabled/eventPersistenceEnabled/dashboardAggregationEnabled/cidrAutoUpdateEnabled/illegalPathHardAbortEnabled`、阈值 `requireChallengeScore/blockScore/maxRiskScore`、TTL、crawler-aware rate limiter 额度、CIDR 更新时间和 Google/Bing URL。`disabled` 只关闭 crawler 类处置，不关闭 PoW、认证、授权、CORS、Fetch Metadata 或基础路径安全；`observe` 记录事件但不拦截、不触发 public read challenge 升级；`strict` 提高 crawler 类风险分。更新时间运行时热更新，最小间隔默认 30 分钟。
 
 `PowPolicyOptions` 独立包含 `mode/defaultDifficulty/adaptiveDifficultyEnabled/proofTtlSeconds/replayProtectionEnabled/riskScoreLinkEnabled/challengeEndpoint/verificationStrategy`。PoW 是安全系统下与 AntiCrawler 并列的 challenge 能力；反爬虫页面只展示 `securityChallengeReference`，不得把 PoW 作为反爬虫子配置。
+
+`RiskControlConsoleResponse`、`SecurityChallengeMetricsResponse` 与 `SecurityPolicyConsoleResponse` 均为只读控制面 DTO，使用 `SecurityOverview` response frame 承载 JSON payload，仍要求 admin principal + `system.config`，且不得提供公开 JSON fallback。策略写入仍只通过 `anti-crawler/options`、`anti-crawler/options/rollback`、`pow/options`、`pow/options/rollback` 等既有写入口执行；这些写入口必须校验 `X-Fsus-Mfa-Proof`。
 
 统一风险抽象为 `SecurityRisk`：`ISecurityRiskSignalSink` 写入 `anti-crawler/rate-limiter/pow/human-read-proof/public-read/captcha/pospace/auth/passkey/risk-control` 来源事件，`ISecurityRiskScoreReader` 读取和重置主体风险分，`ISecurityRiskPolicyProvider` 提供 `SecurityRiskPolicySnapshot`。旧 `CrawlerRiskService` 作为 Redis 热路径兼容实现保留，但 API 与前端不再把 PoW、ReadProof、RateLimiter 归入 AntiCrawler。生产事件同时落到 PostgreSQL `security_risk_event`，可按 `source`、`reason`、`action`、`subjectHash`、`routeKey`、`clientIpHash` 和 `deviceFpHash` 聚合 / 查询；风险分在 Redis miss 时按未过期事件的剩余 TTL 线性衰减重算并回填热缓存。持久化失败只写 structured fallback log，不改变原业务判定。
 

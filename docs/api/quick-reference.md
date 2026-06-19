@@ -291,6 +291,9 @@
 > Admin security 生产前端使用 `/api/binary/admin/security/**` AEDS v2 入口；被 bridge 复用的 JSON envelope 只挂在受保护的 `/_fsus/internal/binary-bridge/admin/security/**`，外部 `/api/admin/security/**` 已移除。
 
 | GET | `/api/binary/admin/security/overview` | 👑 | 安全系统总览：AntiCrawler、PoW、SecurityRisk |
+| GET | `/api/binary/admin/security/risk-control/overview` | 👑 | RiskControl active policy、风险事件聚合、challenge 成功/失败率 |
+| GET | `/api/binary/admin/security/challenges/overview?kind={kind}` | 👑 | challenge 签发、尝试、成功/失败率；`kind` 可筛选 `captchaV1` / `argon2idPoSpaceV1` |
+| GET | `/api/binary/admin/security/policies/overview` | 👑 | active RiskControl、AntiCrawler、PoW 与持久化策略版本 |
 | GET | `/api/binary/admin/security/anti-crawler/overview` | 👑 | 反爬虫总览、CIDR、风险事件、规则与 list |
 | GET | `/api/binary/admin/security/anti-crawler/options` | 👑 | 反爬虫运行策略快照 |
 | PUT | `/api/binary/admin/security/anti-crawler/options` | 👑🚦 MFA | 更新 AntiCrawler mode、局部开关、阈值、限流额度和 CIDR 更新配置 |

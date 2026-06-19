@@ -146,6 +146,12 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
         meta: manageMeta('安全系统', ['system.config']),
         children: [
           { path: '', name: 'ManageSecurityDashboard', component: () => import('@/views/admin/security/SecurityDashboard.vue'), meta: manageMeta('安全系统', ['system.config']) },
+          { path: 'risk-control', name: 'ManageSecurityRiskControl', component: () => import('@/views/admin/security/SecurityRiskControl.vue'), meta: manageMeta('RiskControl 控制面', ['system.config']) },
+          { path: 'challenges', name: 'ManageSecurityChallenges', component: () => import('@/views/admin/security/SecurityChallenges.vue'), meta: manageMeta('挑战状态', ['system.config']) },
+          { path: 'policies', name: 'ManageSecurityPolicies', component: () => import('@/views/admin/security/SecurityPolicies.vue'), meta: manageMeta('策略版本', ['system.config']) },
+          { path: 'events', name: 'ManageSecurityEvents', component: () => import('@/views/admin/security/SecurityEvents.vue'), meta: manageMeta('风险事件', ['system.config']) },
+          { path: 'captcha', name: 'ManageSecurityCaptcha', component: () => import('@/views/admin/security/SecurityCaptcha.vue'), meta: manageMeta('Captcha 挑战', ['system.config']) },
+          { path: 'pospace', name: 'ManageSecurityPoSpace', component: () => import('@/views/admin/security/SecurityPoSpace.vue'), meta: manageMeta('PoSpace 挑战', ['system.config']) },
           { path: 'crawler', name: 'ManageSecurityCrawler', component: () => import('@/views/admin/security/SecurityCrawler.vue'), meta: manageMeta('反爬虫系统', ['system.config']) },
           { path: 'pow', name: 'ManageSecurityPow', component: () => import('@/views/admin/security/SecurityPow.vue'), meta: manageMeta('PoW 系统', ['system.config']) }
         ]

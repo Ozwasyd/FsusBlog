@@ -135,6 +135,75 @@ public sealed record SecurityOverviewResponse(
     PowOverviewResponse Pow,
     SecurityRiskOverviewResponse Risk);
 
+public sealed record RiskControlConsoleResponse(
+    SecurityRiskPolicySnapshotV2 ActivePolicy,
+    SecurityRiskOverviewResponse Risk,
+    IReadOnlyList<SecurityRiskEventAggregateResponse> RiskEventAggregate,
+    SecurityChallengeMetricsResponse ChallengeMetrics,
+    IReadOnlyList<AntiCrawlerRiskEventResponse> RecentEvents,
+    IReadOnlyList<SecurityRiskSnapshotResponse> TopRiskSnapshots);
+
+public sealed record SecurityRiskEventAggregateResponse(
+    string Source,
+    string Reason,
+    int Count,
+    int ScoreDeltaSum,
+    int MaxTotalScore,
+    DateTimeOffset LastOccurredAtUtc);
+
+public sealed record SecurityChallengeMetricsResponse(
+    string? Kind,
+    DateTimeOffset WindowStartedAtUtc,
+    int TotalIssued,
+    int TotalAttempts,
+    int Verified,
+    int Failed,
+    int Replayed,
+    int Expired,
+    int Revoked,
+    double SuccessRate,
+    double FailureRate,
+    IReadOnlyList<SecurityChallengeKindBreakdownResponse> KindBreakdown,
+    IReadOnlyList<SecurityChallengeAttemptSummaryResponse> RecentAttempts);
+
+public sealed record SecurityChallengeKindBreakdownResponse(
+    string Kind,
+    int TotalIssued,
+    int TotalAttempts,
+    int Verified,
+    int Failed,
+    double SuccessRate,
+    double FailureRate);
+
+public sealed record SecurityChallengeAttemptSummaryResponse(
+    string AttemptId,
+    string ChallengeId,
+    string Kind,
+    string Outcome,
+    string? Reason,
+    string Action,
+    string RouteKey,
+    DateTimeOffset AttemptedAtUtc);
+
+public sealed record SecurityPolicyConsoleResponse(
+    SecurityRiskPolicySnapshotV2 ActivePolicy,
+    AntiCrawlerPolicySnapshot AntiCrawler,
+    PowPolicySnapshot Pow,
+    IReadOnlyList<SecurityPolicyVersionSummaryResponse> PolicyVersions);
+
+public sealed record SecurityPolicyVersionSummaryResponse(
+    string PolicyId,
+    long Version,
+    string Mode,
+    bool Active,
+    bool LastKnownGood,
+    long? RollbackOfVersion,
+    long? CreatedByAdminId,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? ActivatedAtUtc,
+    DateTimeOffset? RevokedAtUtc,
+    string? Reason);
+
 public sealed record AntiCrawlerOverviewSummary(
     string Mode,
     bool Enabled,

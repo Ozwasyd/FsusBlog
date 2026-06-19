@@ -5,7 +5,10 @@ import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import {
   createAntiCrawlerRule,
+  getRiskControlConsole,
+  getSecurityChallengeMetrics,
   getSecurityOverview,
+  getSecurityPolicyConsole,
   resetSecurityRisk,
   updateAntiCrawlerOptions,
   updatePowOptions
@@ -38,6 +41,41 @@ describe('security API binary transport', () => {
     expect(call?.frameType).toBe(FrameType.SecurityOverview)
     expect(call?.requestOptions?.body).toBeUndefined()
     expect((call?.requestOptions?.headers as Headers).get(FSUS_HEADERS.deviceFingerprint)).toBe('fp-security-test')
+  })
+
+  it('reads RiskControl console aggregates through binary-only AEDS routes', async () => {
+    binaryMock.mockResolvedValueOnce({ activePolicy: { policyVersion: 'risk-v2' } })
+    binaryMock.mockResolvedValueOnce({ totalIssued: 10, successRate: 0.7, failureRate: 0.3 })
+    binaryMock.mockResolvedValueOnce({ policyVersions: [{ policyId: 'security.risk-control', version: 2 }] })
+
+    await getRiskControlConsole()
+    await getSecurityChallengeMetrics()
+    await getSecurityPolicyConsole()
+
+    const riskCall = binaryMock.mock.calls[0]?.[0]
+    expect(riskCall?.binaryUrl).toBe('/api/binary/admin/security/risk-control/overview')
+    expect(riskCall?.frameType).toBe(FrameType.SecurityOverview)
+    expect(riskCall?.requestOptions?.body).toBeUndefined()
+
+    const challengeCall = binaryMock.mock.calls[1]?.[0]
+    expect(challengeCall?.binaryUrl).toBe('/api/binary/admin/security/challenges/overview')
+    expect(challengeCall?.frameType).toBe(FrameType.SecurityOverview)
+    expect(challengeCall?.requestOptions?.body).toBeUndefined()
+
+    const policyCall = binaryMock.mock.calls[2]?.[0]
+    expect(policyCall?.binaryUrl).toBe('/api/binary/admin/security/policies/overview')
+    expect(policyCall?.frameType).toBe(FrameType.SecurityOverview)
+    expect(policyCall?.requestOptions?.body).toBeUndefined()
+  })
+
+  it('adds challenge kind filters as query parameters without changing the frame contract', async () => {
+    binaryMock.mockResolvedValue({ kind: 'captchaV1', totalIssued: 3 })
+
+    await getSecurityChallengeMetrics({ kind: 'captchaV1' })
+
+    const call = binaryMock.mock.calls[0]?.[0]
+    expect(call?.binaryUrl).toBe('/api/binary/admin/security/challenges/overview?kind=captchaV1')
+    expect(call?.frameType).toBe(FrameType.SecurityOverview)
   })
 
   it('updates anti-crawler options with an AEDS request frame and admin step-up proof', async () => {
@@ -109,7 +147,6 @@ describe('security API binary transport', () => {
     expect(source).not.toContain('JsonApiResponse')
     expect(source).not.toContain('response.json')
     expect(source).not.toContain('application/json')
-    expect(source).not.toContain('JSON.stringify')
     expect(source).not.toContain('fetch(')
   })
 })

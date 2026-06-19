@@ -22,7 +22,7 @@ export type {
   SecurityChallengeVerifyResponse
 } from '@/adapters/binary/securityAdapter'
 
-export type SecurityMode = 'disabled' | 'observe' | 'enforce' | 'strict'
+export type SecurityMode = 'disabled' | 'observe' | 'enforce' | 'strict' | 'lockdown'
 
 export interface AntiCrawlerPolicyOptions {
   mode: SecurityMode
@@ -238,6 +238,114 @@ export interface SecurityOverviewResponse {
   risk: SecurityRiskOverviewResponse
 }
 
+export interface SecurityRiskActionThresholds {
+  allowScore: number
+  challengeScore: number
+  hardChallengeScore: number
+  queueScore: number
+  blockScore: number
+}
+
+export interface SecurityRiskActionPolicy {
+  actionName: string
+  thresholds: SecurityRiskActionThresholds
+  challengeKind: string
+  escalationLevel: number
+  modeOverride: SecurityMode | string | null
+  anonymousWriteAllowed: boolean
+  hardChallengeKinds: string[]
+  hardChallengeEscalationLevel: number
+}
+
+export interface SecurityRiskPolicySnapshotV2 {
+  snapshotId: string
+  policyVersion: string
+  updatedAtUtc: string
+  globalMode: SecurityMode | string
+  maxRiskScore: number
+  strictRiskMultiplierPercent: number
+  lastKnownGoodSnapshotId: string | null
+  defaultAction: SecurityRiskActionPolicy
+  actionOverrides: Record<string, SecurityRiskActionPolicy>
+  subsystemModes: Record<string, string>
+}
+
+export interface SecurityRiskEventAggregateResponse {
+  source: string
+  reason: string
+  count: number
+  scoreDeltaSum: number
+  maxTotalScore: number
+  lastOccurredAtUtc: string
+}
+
+export interface SecurityChallengeKindBreakdownResponse {
+  kind: string
+  totalIssued: number
+  totalAttempts: number
+  verified: number
+  failed: number
+  successRate: number
+  failureRate: number
+}
+
+export interface SecurityChallengeAttemptSummaryResponse {
+  attemptId: string
+  challengeId: string
+  kind: string
+  outcome: string
+  reason: string | null
+  action: string
+  routeKey: string
+  attemptedAtUtc: string
+}
+
+export interface SecurityChallengeMetricsResponse {
+  kind: string | null
+  windowStartedAtUtc: string
+  totalIssued: number
+  totalAttempts: number
+  verified: number
+  failed: number
+  replayed: number
+  expired: number
+  revoked: number
+  successRate: number
+  failureRate: number
+  kindBreakdown: SecurityChallengeKindBreakdownResponse[]
+  recentAttempts: SecurityChallengeAttemptSummaryResponse[]
+}
+
+export interface SecurityPolicyVersionSummaryResponse {
+  policyId: string
+  version: number
+  mode: SecurityMode | string
+  active: boolean
+  lastKnownGood: boolean
+  rollbackOfVersion: number | null
+  createdByAdminId: number | null
+  createdAtUtc: string
+  activatedAtUtc: string | null
+  revokedAtUtc: string | null
+  reason: string | null
+}
+
+export interface RiskControlConsoleResponse {
+  activePolicy: SecurityRiskPolicySnapshotV2
+  risk: SecurityRiskOverviewResponse
+  riskEventAggregate: SecurityRiskEventAggregateResponse[]
+  challengeMetrics: SecurityChallengeMetricsResponse
+  recentEvents: AntiCrawlerRiskEventResponse[]
+  topRiskSnapshots: SecurityRiskSnapshotResponse[]
+}
+
+export interface SecurityPolicyConsoleResponse {
+  activePolicy: SecurityRiskPolicySnapshotV2
+  antiCrawler: AntiCrawlerPolicySnapshot
+  pow: PowPolicySnapshot
+  policyVersions: SecurityPolicyVersionSummaryResponse[]
+}
+
 export interface AntiCrawlerOverviewResponse {
   policy: AntiCrawlerPolicySnapshot
   summary: AntiCrawlerOverviewSummary
@@ -344,6 +452,15 @@ const query = (params: Record<string, string | number | null | undefined>): stri
 
 export const getSecurityOverview = (config?: ApiRequestConfig) =>
   requestSecurityBinary<SecurityOverviewResponse>('/overview', FrameType.SecurityOverview, config)
+
+export const getRiskControlConsole = (config?: ApiRequestConfig) =>
+  requestSecurityBinary<RiskControlConsoleResponse>('/risk-control/overview', FrameType.SecurityOverview, config)
+
+export const getSecurityChallengeMetrics = (params: { kind?: string | null } = {}, config?: ApiRequestConfig) =>
+  requestSecurityBinary<SecurityChallengeMetricsResponse>(`/challenges/overview${query(params)}`, FrameType.SecurityOverview, config)
+
+export const getSecurityPolicyConsole = (config?: ApiRequestConfig) =>
+  requestSecurityBinary<SecurityPolicyConsoleResponse>('/policies/overview', FrameType.SecurityOverview, config)
 
 export const issueSecurityChallenge = (request: IssueSecurityChallengeRequest, config?: ApiRequestConfig) =>
   requestBinaryOnly<SecurityChallengeIssueResponse>({
