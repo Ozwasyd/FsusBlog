@@ -141,8 +141,11 @@ public readonly record struct AnonymousCredentialIssueResponseCoreModel(
 public readonly record struct AnonymousCredentialRootSnapshotCoreModel(
     long CredentialEpoch,
     long RootExpiresAtUnixMs,
+    long RootGraceExpiresAtUnixMs,
     uint CircuitNumericId,
     ushort PublicInputLayoutVersion,
+    bool ZkAnonymousEnabled,
+    bool VerifierConfigured,
     string CircuitId,
     string VerifyingKeyHash,
     byte[] CredentialRoot,

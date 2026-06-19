@@ -264,7 +264,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 167 | `CommentAuthorView` | `CommentAuthorViewPod` | 评论作者展示投影；不依赖 `userName` 表示匿名显示名 |
 | 177 | `AnonymousCredentialIssueRequest` | `AnonymousCredentialIssueRequestPod` | `POST /api/binary/anonymous-credential/issue` 请求体；包含 blinded credential request |
 | 178 | `AnonymousCredentialIssueResponse` | `AnonymousCredentialIssueResponsePod` | 匿名凭证签发响应契约；issuer response / commitment，不返回可逆身份 |
-| 179 | `AnonymousCredentialRootSnapshot` | `AnonymousCredentialRootSnapshotPod` | 匿名凭证 root/verifying-key snapshot |
+| 179 | `AnonymousCredentialRootSnapshot` | `AnonymousCredentialRootSnapshotPod` | 匿名凭证 root/verifying-key snapshot；`GET /api/binary/anonymous-credential/root` 与 `/circuit` 响应 |
 | 180 | `AnonymousCommentTicketRequest` | `AnonymousCommentTicketRequestPod` | 匿名评论 ticket 申请请求；proof/public inputs 使用 blob slice |
 | 181 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | 匿名评论 ticket 响应；opaque ticket 与匿名 hash，不返回用户身份 |
 | 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | 匿名评论创建请求；不包含 user id、username、Authorization token 或 public handle |
@@ -332,7 +332,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | `CommentAuthorViewPod` | 36 |
 | `AnonymousCredentialIssueRequestPod` | 48 |
 | `AnonymousCredentialIssueResponsePod` | 56 |
-| `AnonymousCredentialRootSnapshotPod` | 64 |
+| `AnonymousCredentialRootSnapshotPod` | 72 |
 | `AnonymousCommentTicketRequestPod` | 96 |
 | `AnonymousCommentTicketResponsePod` | 48 |
 | `AnonymousCommentCreateRequestPod` | 72 |

@@ -36,6 +36,8 @@ export const fsusBinaryRoutes = {
   "binary_get_admin_security_risk_events": "/api/binary/admin/security/risk/events",
   "binary_get_admin_security_risk_snapshots": "/api/binary/admin/security/risk/snapshots",
   "binary_get_admin_users": "/api/binary/admin/users",
+  "binary_get_anonymous_credential_circuit": "/api/binary/anonymous-credential/circuit",
+  "binary_get_anonymous_credential_root": "/api/binary/anonymous-credential/root",
   "binary_get_article_articleId_int_related_aeds": "/api/binary/article/{articleId:int}/related.aeds",
   "binary_get_article_id_aeds": "/api/binary/article/{id}.aeds",
   "binary_get_article_featured_size_aeds": "/api/binary/article/featured/{size}.aeds",

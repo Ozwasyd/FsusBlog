@@ -155,6 +155,8 @@ admin 登出和 session 管理只使用 `/api/binary/auth/admin/logout`、`/api/
 
 **Anonymous credential issuance**：`POST /api/binary/anonymous-credential/issue` 是登录用户领取强匿名凭证的唯一入口，登录态只用于校验账号未注销、可登录、匿名凭证状态和 epoch 频率；被封禁账号是否允许领取由 `AnonymousCredentialIssuer:AllowBannedAccountIssuance` 显式配置，默认拒绝。服务端通过 `anonymous_credential_issuance_audit(user_id, epoch)` 唯一约束做频率真源，表内只保存 `user_id`、`epoch`、不可逆 `request_hash`、`status`、`created_at_utc` 和 `trace_id`，不得保存 credential commitment、nullifier、proof witness、credential secret 或 blinded request 原文。高价值审计只记录签发状态和 epoch；后续匿名评论 ticket / submit 不得借该表反查真实账号。
 
+**Anonymous credential root metadata**：`GET /api/binary/anonymous-credential/root` 与 `/circuit` 是公开 metadata 端点，只返回 root/circuit/verifying-key/public-input-layout/ZK 配置位，不签发凭证、不验证 proof、不读取 user session、Cookie、Authorization 或当前账号。`anonymous_credential_root` 表不得包含 user/account/session 映射字段；root miss、过期或 verifier/root 未配置时返回 AEDS `anonymous_root_unavailable`，避免以 JSON 或登录态错误泄漏内部状态。
+
 **Anonymous comment governance**：匿名评论策略由 `IAnonymousCommentPolicyService` 统一裁决，默认 author mode 是 `anonymous`，`public` 必须有显式 opt-in；当 `AnonymousIdentity:AnonymousCommentsEnabled=false` 或 admin policy 关闭匿名评论时，`anonymous`、`pseudonymous` 和 `zk_anonymous` 都必须拒绝。评论写入通过 `CommentActor` 落库：匿名模式写入 nullable `user_id`、scope 内稳定的服务端生成 display name、hash 后的 nullifier/subject projection，公开模式才写入真实 `user_id` 和 `public_handle`。`anonymous_credential` 保存 commitment、credential type/level/status 和 revoke 时间；`comment_anonymous_nullifier` 只保存 scope 内 nullifier 使用状态、首末评论 id 和 block 状态。普通审核 API 不提供 nullifier 到真实账号的反向查询，封禁/限流只能通过 credential level、nullifier block 和 moderation subject hash 等最小投影执行。
 
 ---

@@ -181,6 +181,10 @@ challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 
 
 `anonymous_credential_issuance_audit` 只保存不可逆审计字段：`user_id`、`epoch`、`request_hash`、`status`、`created_at_utc`、`trace_id`。该表不得包含 `credential_commitment`、nullifier、proof witness、credential secret 或 blinded request 原文。高价值审计事件 `security.anonymous_credential.issued` 只记录签发 `status` 与 `epoch`，不记录 `request_hash`、blinded request、issuer response 或 credential commitment。
 
+`GET /api/binary/anonymous-credential/root` 与 `GET /api/binary/anonymous-credential/circuit` 是公开 root/circuit metadata 读取端点：匿名访问、`public_read` 限流、只接受 `Accept: application/octet-stream`，成功返回 `AnonymousCredentialRootSnapshot` (`179`)，失败返回 AEDS `ApiError` + `anonymous_root_unavailable`。端点不得读取 Cookie、session、Authorization 或当前账号；服务端通过 `IAnonymousCredentialRootService` 使用短 TTL immutable snapshot cache 和 negative cache 读取 `anonymous_credential_root`，直到显式 invalidation 或 TTL 过期才回源。
+
+`AnonymousCredentialRootSnapshot` (`179`) 返回字段为 `credentialRoot`、`revocationRoot`、`credentialEpoch`、`rootExpiresAtUnixMs`、`rootGraceExpiresAtUnixMs`、`circuitNumericId`、`circuitId`、`verifyingKeyHash`、`publicInputLayoutVersion`、`zkAnonymousEnabled`、`verifierConfigured` 和 `circuitMetadata`。`anonymous_credential_root` 只保存公开 root/circuit 元数据：`epoch`、`root_hash`、`revocation_root_hash`、`circuit_id`、`circuit_numeric_id`、`verifying_key_hash`、`public_input_layout_version`、`circuit_metadata`、`created_at_utc`、`expires_at_utc`、`root_grace_expires_at_utc`、`status`；不得包含 user/session/cookie/account 映射。
+
 ### Passkey AEDS frames
 
 Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD，前端 adapter 将 POD 还原为浏览器 WebAuthn API 需要的选项对象；浏览器返回的 attestation/assertion 由前端编码为二进制 request POD。
@@ -246,7 +250,7 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 | `CommentAuthorView` (`167`) | `CommentAuthorViewPod` + UTF-8 blob | 评论读取侧作者投影：mode、display name、display language、badge/status/scope label、credential level |
 | `AnonymousCredentialIssueRequest` (`177`) | `AnonymousCredentialIssueRequestPod` + shared blob | 匿名凭证签发请求契约：epoch、circuit id、credential level、blinded request、client nonce |
 | `AnonymousCredentialIssueResponse` (`178`) | `AnonymousCredentialIssueResponsePod` + shared blob | 匿名凭证签发响应契约：issuer response、credential commitment、root expiry；不返回可逆用户身份 |
-| `AnonymousCredentialRootSnapshot` (`179`) | `AnonymousCredentialRootSnapshotPod` + shared blob | 匿名凭证 root/verifying-key snapshot：epoch、root expiry、circuit id、verifying key hash、credential/revocation root |
+| `AnonymousCredentialRootSnapshot` (`179`) | `AnonymousCredentialRootSnapshotPod` + shared blob | 匿名凭证 root/verifying-key snapshot：epoch、root expiry、root grace expiry、ZK/verifier flags、circuit id、verifying key hash、credential/revocation root |
 | `AnonymousCommentTicketRequest` (`180`) | `AnonymousCommentTicketRequestPod` + shared blob | 匿名评论 ticket 申请请求：article/reply 上下文、credential epoch、scope、nullifier hash、ZK proof/public inputs |
 | `AnonymousCommentTicketResponse` (`181`) | `AnonymousCommentTicketResponsePod` + shared blob | 匿名评论 ticket 响应：opaque ticket、moderation subject hash、anonymous nullifier hash；不得包含 user id、username 或 public handle |
 | `AnonymousCommentCreateRequest` (`182`) | `AnonymousCommentCreateRequestPod` + shared blob | 匿名评论创建请求：article/reply 上下文、credential epoch、scope、language、ticket、content；不携带用户身份或 Authorization token |
@@ -256,7 +260,7 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 
 `CommentCreateV2Request` 是旧 `CommentCreateRequest` 的并行新 frame，不改变旧 `CommentCreateRequestPod` 布局。`AuthorMode` 使用同一 byte 映射；`PublicSendExplicitlySelected` 只在 public mode opt-in 时为 `1`；`AnonymousScope` 用于 nullifier/scope 绑定；`DisplayLanguage` 是展示语言提示；`ProofToken` 预留普通 proof token；`ZkProof` 是二进制 proof placeholder，默认 verifier 未启用时服务端仍 fail closed。ZK strong-anonymous 模式必须保留为 `zk_anonymous`，不能降级成普通 `anonymous`。`POST /api/binary/comment` 同时接受旧 frame 和 V2 frame：旧 frame 不携带作者选择时，服务端按当前策略解析为默认 anonymous；需要 public opt-in、scope、language hint 或 ZK proof 的客户端必须使用 V2。
 
-匿名凭证与匿名评论 ticket frame 使用固定宽度 POD + shared blob，不走 JSON hot path。所有二进制字段都通过 `Utf8SliceRef` 指向 blob slice，包括 blinded request、issuer response、credential root、revocation root、ZK proof、public inputs 和 opaque ticket。公共元数据固定字段包括 `credentialEpoch:int64`、`rootExpiresAtUnixMs:int64`、`ticketExpiresAtUnixMs:int64`（仅 ticket/state）、`circuitNumericId:uint32`、`circuitId:Utf8SliceRef`、`verifyingKeyHash:Utf8SliceRef` 和 `publicInputLayoutVersion:uint16`。decoder 必须拒绝 malformed slice、尾随字节和超过 16 KiB 的匿名隐私 payload。
+匿名凭证与匿名评论 ticket frame 使用固定宽度 POD + shared blob，不走 JSON hot path。所有二进制字段都通过 `Utf8SliceRef` 指向 blob slice，包括 blinded request、issuer response、credential root、revocation root、ZK proof、public inputs 和 opaque ticket。公共元数据固定字段包括 `credentialEpoch:int64`、`rootExpiresAtUnixMs:int64`、`rootGraceExpiresAtUnixMs:int64`（root snapshot）、`ticketExpiresAtUnixMs:int64`（仅 ticket/state）、`circuitNumericId:uint32`、`circuitId:Utf8SliceRef`、`verifyingKeyHash:Utf8SliceRef`、`publicInputLayoutVersion:uint16`、`zkAnonymousEnabled:bool` 和 `verifierConfigured:bool`（root snapshot）。decoder 必须拒绝 malformed slice、尾随字节和超过 16 KiB 的匿名隐私 payload。
 
 `AnonymousCommentCreateRequest` 不包含 `userId`、`replyToUserId`、`username`、`Authorization` token 或 `publicHandle` 字段；服务端后续实现只能通过 ticket/nullifier 和策略上下文解析匿名 actor。所有强匿名 ticket / submit endpoint 必须挂 `RequireStrongAnonymousRequest()`，拒绝 `Cookie`、`Authorization`、session/bearer bridge header 和已认证 principal；拒绝时返回 AEDS `ApiError`，`Details=anonymous_identity_contaminated`。`AnonymousCommentTicketResponse` 同样不得返回可逆用户身份，只能返回 opaque ticket、moderation subject hash、anonymous nullifier hash 和 credential level。旧 `CommentCreateV2RequestPod` 布局保持不变；需要完整匿名凭证/ticket 流程的客户端必须使用 177-183 对应新 frame，不得把新字段塞回 `CommentCreateV2Request`。
 

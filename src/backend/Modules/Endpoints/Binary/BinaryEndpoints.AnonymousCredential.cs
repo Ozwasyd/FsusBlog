@@ -14,6 +14,24 @@ public static partial class BinaryEndpoints
 {
     private static void MapBinaryAnonymousCredentialEndpoints(IEndpointRouteBuilder group)
     {
+        group.MapGet("/anonymous-credential/root", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IAedsEncoder aeds,
+            IAnonymousCredentialRootService rootService,
+            CancellationToken cancellationToken) =>
+            await HandleAnonymousCredentialRootAsync(httpContext, aeds, rootService, cancellationToken))
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read");
+
+        group.MapGet("/anonymous-credential/circuit", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IAedsEncoder aeds,
+            IAnonymousCredentialRootService rootService,
+            CancellationToken cancellationToken) =>
+            await HandleAnonymousCredentialRootAsync(httpContext, aeds, rootService, cancellationToken))
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read");
+
         group.MapPost("/anonymous-credential/issue", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IAedsEncoder aeds,
@@ -23,6 +41,33 @@ public static partial class BinaryEndpoints
         .RequireAuthorization()
         .RequireRateLimiting("fixed_ip")
         .RequireNoStoreResponse();
+    }
+
+    internal static async Task<BinaryFrameResult> HandleAnonymousCredentialRootAsync(
+        HttpContext httpContext,
+        IAedsEncoder aeds,
+        IAnonymousCredentialRootService rootService,
+        CancellationToken cancellationToken)
+    {
+        if (!AcceptsBinaryResponse(httpContext.Request))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, StatusCodes.Status406NotAcceptable);
+        }
+
+        Result<AnonymousCredentialRootSnapshotCoreModel> root = await rootService.GetCurrentSnapshotAsync(cancellationToken);
+        if (!root.IsSuccess)
+        {
+            return BinaryResults.FromError(
+                ErrorDetail.Create(root.Error.Code, string.IsNullOrWhiteSpace(root.Error.Message) ? "anonymous_root_unavailable" : root.Error.Message),
+                aeds,
+                StatusCodes.Status503ServiceUnavailable);
+        }
+
+        AnonymousCredentialRootSnapshotCoreModel snapshot = root.Value;
+        return BinaryResults.Frame(
+            aeds,
+            AedsFrameType.AnonymousCredentialRootSnapshot,
+            writer => PodBinaryCodec.WriteAnonymousCredentialRootSnapshot(snapshot, writer));
     }
 
     internal static async Task<BinaryFrameResult> HandleAnonymousCredentialIssueAsync(

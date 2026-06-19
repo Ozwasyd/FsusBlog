@@ -134,6 +134,39 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    public async Task RunAsync_CreatesAnonymousCredentialRootMetadataTableOnEmptyDatabase()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "anonymous_credential_root"));
+        foreach (string column in new[]
+        {
+            "epoch",
+            "root_hash",
+            "revocation_root_hash",
+            "circuit_id",
+            "circuit_numeric_id",
+            "verifying_key_hash",
+            "public_input_layout_version",
+            "expires_at_utc",
+            "root_grace_expires_at_utc",
+            "status"
+        })
+        {
+            Assert.True(
+                await fixture.ColumnExistsAsync(connectionString, "anonymous_credential_root", column),
+                $"anonymous_credential_root.{column} was not created");
+        }
+
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_anonymous_credential_root_status_expires"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_anonymous_credential_root_circuit"));
+    }
+
+    [Fact]
     public async Task RunAsync_ExtendsExistingSecurityChallengePersistenceTables()
     {
         string databaseName = await fixture.CreateDatabaseAsync();

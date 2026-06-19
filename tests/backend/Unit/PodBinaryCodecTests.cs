@@ -656,8 +656,11 @@ public class PodBinaryCodecTests
         var root = new AnonymousCredentialRootSnapshotCoreModel(
             CredentialEpoch: 20260618,
             RootExpiresAtUnixMs: 1780000000000,
+            RootGraceExpiresAtUnixMs: 1780003600000,
             CircuitNumericId: 7,
             PublicInputLayoutVersion: 2,
+            ZkAnonymousEnabled: true,
+            VerifierConfigured: true,
             CircuitId: "zk-comment-v1",
             VerifyingKeyHash: "vk-sha256",
             CredentialRoot: [13, 14],
@@ -665,6 +668,9 @@ public class PodBinaryCodecTests
             CircuitMetadata: [17, 18]);
         byte[] rootEncoded = PodBinaryCodec.EncodeAnonymousCredentialRootSnapshot(root);
         Assert.True(PodBinaryCodec.TryDecodeAnonymousCredentialRootSnapshot(rootEncoded, out var rootDecoded));
+        Assert.Equal(1780003600000, rootDecoded.RootGraceExpiresAtUnixMs);
+        Assert.True(rootDecoded.ZkAnonymousEnabled);
+        Assert.True(rootDecoded.VerifierConfigured);
         Assert.Equal("vk-sha256", rootDecoded.VerifyingKeyHash);
         Assert.Equal([13, 14], rootDecoded.CredentialRoot);
         Assert.Equal([15, 16], rootDecoded.RevocationRoot);

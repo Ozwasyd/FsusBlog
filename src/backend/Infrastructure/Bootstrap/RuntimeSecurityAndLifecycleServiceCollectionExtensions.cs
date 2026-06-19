@@ -30,6 +30,8 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IAnonymousCredentialService, AnonymousCredentialService>();
         services.AddScoped<IAnonymousCredentialIssuanceAuditStore, AnonymousCredentialIssuanceAuditStore>();
         services.AddScoped<IAnonymousCredentialIssuerService, AnonymousCredentialIssuerService>();
+        services.AddScoped<IAnonymousCredentialRootStore, AnonymousCredentialRootStore>();
+        services.AddSingleton<IAnonymousCredentialRootService, AnonymousCredentialRootService>();
         services.AddScoped<ICommentAnonymousNullifierService, CommentAnonymousNullifierService>();
         services.AddSingleton<ICommentAnonymousDisplayNameGenerator, CommentAnonymousDisplayNameGenerator>();
         services.AddScoped<ICommentActorResolver, CommentActorResolver>();

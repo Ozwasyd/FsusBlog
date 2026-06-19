@@ -85,8 +85,11 @@ export interface AnonymousCredentialIssueResponse {
 export interface AnonymousCredentialRootSnapshot {
   credentialEpoch: number
   rootExpiresAtUnixMs: number
+  rootGraceExpiresAtUnixMs: number
   circuitNumericId: number
   publicInputLayoutVersion: number
+  zkAnonymousEnabled: boolean
+  verifierConfigured: boolean
   circuitId: string
   verifyingKeyHash: string
   credentialRoot: Uint8Array
@@ -262,6 +265,20 @@ export const getCommentPolicySnapshot = (config?: ApiRequestConfig) =>
   requestBinaryOnly<CommentPolicySnapshot>({
     binaryUrl: '/api/binary/comment/policy',
     frameType: FrameType.CommentPolicySnapshot,
+    signal: config?.signal as AbortSignal | undefined
+  })
+
+export const getAnonymousCredentialRootSnapshot = (config?: ApiRequestConfig) =>
+  requestBinaryOnly<AnonymousCredentialRootSnapshot>({
+    binaryUrl: '/api/binary/anonymous-credential/root',
+    frameType: FrameType.AnonymousCredentialRootSnapshot,
+    signal: config?.signal as AbortSignal | undefined
+  })
+
+export const getAnonymousCredentialCircuitSnapshot = (config?: ApiRequestConfig) =>
+  requestBinaryOnly<AnonymousCredentialRootSnapshot>({
+    binaryUrl: '/api/binary/anonymous-credential/circuit',
+    frameType: FrameType.AnonymousCredentialRootSnapshot,
     signal: config?.signal as AbortSignal | undefined
   })
 

@@ -209,8 +209,11 @@ public sealed record class AnonymousCredentialIssueResponse(
 public sealed record class AnonymousCredentialRootSnapshot(
     long CredentialEpoch,
     long RootExpiresAtUnixMs,
+    long RootGraceExpiresAtUnixMs,
     uint CircuitNumericId,
     ushort PublicInputLayoutVersion,
+    bool ZkAnonymousEnabled,
+    bool VerifierConfigured,
     string CircuitId,
     string VerifyingKeyHash,
     byte[] CredentialRoot,

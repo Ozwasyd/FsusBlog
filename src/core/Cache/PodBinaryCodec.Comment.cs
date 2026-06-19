@@ -312,9 +312,11 @@ public static partial class PodBinaryCodec
         {
             CredentialEpoch = snapshot.CredentialEpoch,
             RootExpiresAtUnixMs = snapshot.RootExpiresAtUnixMs,
+            RootGraceExpiresAtUnixMs = snapshot.RootGraceExpiresAtUnixMs,
             CircuitNumericId = snapshot.CircuitNumericId,
             PublicInputLayoutVersion = snapshot.PublicInputLayoutVersion,
-            Reserved0 = 0,
+            ZkAnonymousEnabled = snapshot.ZkAnonymousEnabled ? (byte)1 : (byte)0,
+            VerifierConfigured = snapshot.VerifierConfigured ? (byte)1 : (byte)0,
             CircuitId = PodUtf8Codec.AppendSlice(snapshot.CircuitId, payload),
             VerifyingKeyHash = PodUtf8Codec.AppendSlice(snapshot.VerifyingKeyHash, payload),
             CredentialRoot = AppendBytes(snapshot.CredentialRoot ?? [], payload),
@@ -334,6 +336,8 @@ public static partial class PodBinaryCodec
     {
         var reader = new BinaryPodReader(bytes.Span);
         if (!reader.TryReadPod(out AnonymousCredentialRootSnapshotPod pod) ||
+            pod.ZkAnonymousEnabled > 1 ||
+            pod.VerifierConfigured > 1 ||
             !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
         {
             snapshot = default;
@@ -357,8 +361,11 @@ public static partial class PodBinaryCodec
         snapshot = new AnonymousCredentialRootSnapshotCoreModel(
             pod.CredentialEpoch,
             pod.RootExpiresAtUnixMs,
+            pod.RootGraceExpiresAtUnixMs,
             pod.CircuitNumericId,
             pod.PublicInputLayoutVersion,
+            pod.ZkAnonymousEnabled == 1,
+            pod.VerifierConfigured == 1,
             PodProjector.ReadSlice(pod.CircuitId, payload),
             PodProjector.ReadSlice(pod.VerifyingKeyHash, payload),
             ReadBytes(pod.CredentialRoot, payload),
@@ -1130,9 +1137,11 @@ public static partial class PodBinaryCodec
     {
         public long CredentialEpoch;
         public long RootExpiresAtUnixMs;
+        public long RootGraceExpiresAtUnixMs;
         public uint CircuitNumericId;
         public ushort PublicInputLayoutVersion;
-        public ushort Reserved0;
+        public byte ZkAnonymousEnabled;
+        public byte VerifierConfigured;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CircuitId;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef VerifyingKeyHash;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CredentialRoot;

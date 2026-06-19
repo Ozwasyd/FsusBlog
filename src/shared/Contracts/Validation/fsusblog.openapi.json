@@ -720,6 +720,102 @@
         "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
       }
     },
+    "/api/binary/anonymous-credential/root": {
+      "get": {
+        "operationId": "binary_get_anonymous_credential_root",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "anonymous-credential-root",
+        "responses": {
+          "200": {
+            "description": "AnonymousCredentialRootSnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AnonymousCredentialRootSnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "public-read",
+        "x-fsus-rate-limit": "public_read",
+        "x-fsus-test-surface": "anonymous-credential-root",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/comment.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/commentAdapter.ts"
+      }
+    },
+    "/api/binary/anonymous-credential/circuit": {
+      "get": {
+        "operationId": "binary_get_anonymous_credential_circuit",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "anonymous-credential-circuit",
+        "responses": {
+          "200": {
+            "description": "AnonymousCredentialRootSnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AnonymousCredentialRootSnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "public-read",
+        "x-fsus-rate-limit": "public_read",
+        "x-fsus-test-surface": "anonymous-credential-circuit",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/comment.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/commentAdapter.ts"
+      }
+    },
     "/api/binary/anonymous-credential/issue": {
       "post": {
         "operationId": "binary_post_anonymous_credential_issue",

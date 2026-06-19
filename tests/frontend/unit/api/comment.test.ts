@@ -9,6 +9,8 @@ import { requestBinaryOnly } from '@/services/binaryTransport'
 import {
   createComment,
   createCommentV2,
+  getAnonymousCredentialCircuitSnapshot,
+  getAnonymousCredentialRootSnapshot,
   getComments,
   getThreadReplies,
   getMyComments,
@@ -234,6 +236,26 @@ describe('comment API', () => {
 
     await expect(createComment(dto as never)).rejects.toThrow(COMMENT_CONTENT_CONSTRAINT.charLengthMessage)
     expect(mockBinary).not.toHaveBeenCalled()
+  })
+
+  it('getAnonymousCredentialRootSnapshot reads public root metadata without credentials options', async () => {
+    await getAnonymousCredentialRootSnapshot()
+
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/anonymous-credential/root',
+      frameType: FrameType.AnonymousCredentialRootSnapshot
+    }))
+    expect(mockBinary.mock.calls[0][0].requestOptions).toBeUndefined()
+  })
+
+  it('getAnonymousCredentialCircuitSnapshot reads the circuit metadata alias', async () => {
+    await getAnonymousCredentialCircuitSnapshot()
+
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/anonymous-credential/circuit',
+      frameType: FrameType.AnonymousCredentialRootSnapshot
+    }))
+    expect(mockBinary.mock.calls[0][0].requestOptions).toBeUndefined()
   })
 
   it('getComments calls requestBinaryOnly with articleId', async () => {

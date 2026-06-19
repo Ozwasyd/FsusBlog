@@ -126,9 +126,11 @@ public readonly struct AnonymousCredentialRootSnapshotPod
 {
     public readonly long CredentialEpoch;
     public readonly long RootExpiresAtUnixMs;
+    public readonly long RootGraceExpiresAtUnixMs;
     public readonly uint CircuitNumericId;
     public readonly ushort PublicInputLayoutVersion;
-    public readonly ushort Reserved0;
+    public readonly byte ZkAnonymousEnabled;
+    public readonly byte VerifierConfigured;
     public readonly Utf8SliceRef CircuitId;
     public readonly Utf8SliceRef VerifyingKeyHash;
     public readonly Utf8SliceRef CredentialRoot;

@@ -80,13 +80,16 @@ export function mapAnonymousCredentialRootSnapshotFromPayload(payload: Uint8Arra
   return {
     credentialEpoch: readInt64Number(pod, 0),
     rootExpiresAtUnixMs: readInt64Number(pod, 8),
-    circuitNumericId: readUint32(pod, 16),
-    publicInputLayoutVersion: readUint16(pod, 20),
-    circuitId: readAnonymousSliceText(blob, readSliceRef(pod, 24), 'anonymous_credential_root_snapshot_circuit_invalid'),
-    verifyingKeyHash: readAnonymousSliceText(blob, readSliceRef(pod, 32), 'anonymous_credential_root_snapshot_verifying_key_invalid'),
-    credentialRoot: readAnonymousSliceBytes(blob, readSliceRef(pod, 40), 'anonymous_credential_root_snapshot_root_invalid'),
-    revocationRoot: readAnonymousSliceBytes(blob, readSliceRef(pod, 48), 'anonymous_credential_root_snapshot_revocation_invalid'),
-    circuitMetadata: readAnonymousSliceBytes(blob, readSliceRef(pod, 56), 'anonymous_credential_root_snapshot_metadata_invalid')
+    rootGraceExpiresAtUnixMs: readInt64Number(pod, 16),
+    circuitNumericId: readUint32(pod, 24),
+    publicInputLayoutVersion: readUint16(pod, 28),
+    zkAnonymousEnabled: readBooleanByte(pod, 30, 'anonymous_credential_root_snapshot_zk_flag_invalid'),
+    verifierConfigured: readBooleanByte(pod, 31, 'anonymous_credential_root_snapshot_verifier_flag_invalid'),
+    circuitId: readAnonymousSliceText(blob, readSliceRef(pod, 32), 'anonymous_credential_root_snapshot_circuit_invalid'),
+    verifyingKeyHash: readAnonymousSliceText(blob, readSliceRef(pod, 40), 'anonymous_credential_root_snapshot_verifying_key_invalid'),
+    credentialRoot: readAnonymousSliceBytes(blob, readSliceRef(pod, 48), 'anonymous_credential_root_snapshot_root_invalid'),
+    revocationRoot: readAnonymousSliceBytes(blob, readSliceRef(pod, 56), 'anonymous_credential_root_snapshot_revocation_invalid'),
+    circuitMetadata: readAnonymousSliceBytes(blob, readSliceRef(pod, 64), 'anonymous_credential_root_snapshot_metadata_invalid')
   };
 }
 

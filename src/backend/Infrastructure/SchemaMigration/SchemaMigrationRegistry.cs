@@ -24,6 +24,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAccountRecoveryKeyMigration(),
         BuildAnonymousCommentGovernanceMigration(),
         BuildAnonymousCredentialIssuanceAuditMigration(),
+        BuildAnonymousCredentialRootMetadataMigration(),
         BuildSecurityRiskEventPersistenceMigration(),
         BuildSecurityChallengePersistenceMigration(),
         BuildCommentActorMigration(),
@@ -961,6 +962,36 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     CREATE INDEX IF NOT EXISTS idx_security_risk_event_client_ip ON security_risk_event(client_ip_hash);
                     CREATE INDEX IF NOT EXISTS idx_security_risk_event_device ON security_risk_event(device_fp_hash);
                     CREATE INDEX IF NOT EXISTS idx_security_risk_event_expires ON security_risk_event(expires_at_utc);
+                    """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAnonymousCredentialRootMetadataMigration()
+        => new SchemaMigrationDescriptor(
+            "20260618-post-anonymous-credential-root-metadata",
+            "Create public anonymous credential root and circuit metadata table.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "anonymous_credential_root",
+                    """
+                    CREATE TABLE IF NOT EXISTS anonymous_credential_root (
+                        epoch bigint PRIMARY KEY,
+                        root_hash varchar(128) NOT NULL,
+                        revocation_root_hash varchar(128) NOT NULL DEFAULT '',
+                        circuit_id varchar(96) NOT NULL,
+                        circuit_numeric_id integer NOT NULL DEFAULT 0,
+                        verifying_key_hash varchar(128) NOT NULL,
+                        public_input_layout_version integer NOT NULL,
+                        circuit_metadata text NULL,
+                        created_at_utc timestamp NOT NULL DEFAULT now(),
+                        expires_at_utc timestamp NOT NULL,
+                        root_grace_expires_at_utc timestamp NOT NULL,
+                        status varchar(32) NOT NULL DEFAULT 'active'
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_anonymous_credential_root_status_expires ON anonymous_credential_root(status, root_grace_expires_at_utc);
+                    CREATE INDEX IF NOT EXISTS idx_anonymous_credential_root_circuit ON anonymous_credential_root(circuit_id);
                     """)
             ]);
 
