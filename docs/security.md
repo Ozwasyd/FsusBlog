@@ -59,6 +59,36 @@ RiskControl proof token 使用 `X-Fsus-Challenge-Proof` header，不能替代 ad
 
 perception-sealed@v2 的服务端真相使用 `IPerceptionSealedTokenService` 生成 AEAD sealed token；sealed payload 包含 challenge、task、action、route、subject/client/device/UA hash、algorithm/family/variant、recipe hash、expected answer/point/step hash、容差、时长、attempt、nonce、keyVersion 和 policyVersion。token envelope 只明文携带解密所需的非 secret AAD 字段：challengeId、algorithm、taskKind、action、routeKey、recipeHashHex、issuedAtUnixMs、expiresAtUnixMs 和 keyVersion；answer、coordinate、expected step 及其 hash 只在密文内。`Security:PerceptionSealedToken:CurrentKeyVersion` 和 `Security:PerceptionSealedToken:Keys:{version}` 支持 key rotation；验证时按 envelope keyVersion 选择 key，未知 keyVersion、AAD 篡改、密文篡改或过期均 fail closed。该 sealed token 只保护 challenge 解答真相，不提供 Redis consume-once 语义，也不能替代 `X-Fsus-Challenge-Proof` 或 admin `X-Fsus-Mfa-Proof`。
 
+### perception-sealed@v2 威胁模型、协议与上线
+
+`fsu.challenge/perception-sealed@v2` 是 sealed perception challenge，不是普通图片验证码。它的目标是在 RiskControl 已经判定需要 challenge 时，用客户端可渲染、服务端可验证的 perception task 提高脚本化提交、离线 replay、payload tamper、label oracle 和低成本批量尝试的成本；它不识别自然人身份，不授予 session / role / admin 权限，不替代 PoW、PoSpace、Passkey 或 AdminPasskeyStepUp。
+
+可信边界如下：客户端 renderer、worker、DOM event、pointer 坐标、solve duration、device fingerprint 原文和 provider verify payload 全部视为攻击者可控；服务端只信任 `SecurityChallengeAssignment` 绑定字段、AEAD sealed token、Redis attempt/consume-once 结果、RiskControl policy snapshot 和后续由 orchestrator 签发的一次性 `X-Fsus-Challenge-Proof`。公开 issue payload 禁止包含 `answerText`、`expectedAnswer`、`expectedX`、`expectedY`、`expectedStep`、`labelId`、`semanticId`、`objectClass`、`clientIp`、`deviceFp`、`userId`、raw UA、proof token、admin session、MFA proof 或可反推解答的字段；只允许传递 render recipe、recipe hash、sealed token、signature、task/family/variant、assignment 和时间窗口。
+
+协议热路径分为两段：
+
+| 阶段 | 允许 | 禁止 | 失败行为 |
+|------|------|------|----------|
+| issue | 根据 RiskControl decision 选择 `perceptionTextTaskV2` / `perceptionCharacterV2`、`perceptionLocalizationV2` 或 `perceptionMicroInteractionV2`；生成非语义 render recipe；用 AEAD sealed token 封存期望答案、坐标或步骤；返回 AEDS `PerceptionSealedChallengeV2` | 服务端渲染 PNG / canvas / 图片；在 sealed truth 生成路径写 PostgreSQL 或 Redis；把答案、坐标、语义标签、原始 IP/设备指纹写入 payload | provider missing、recipe invalid、token seal failure 或 assignment invalid 均 fail closed；`observe` 模式只记录裁决，不签发实际 challenge |
+| verify | 解封 AEAD；校验 challengeId/action/routeKey/subjectHash/clientIpHash/deviceFpHash/policyVersion/recipeHash/keyVersion；校验 `solveDurationMs`、答案/坐标/步骤；用 Redis `INCR` 做 attempt gate，用 Redis `SETNX` 做 consume-once；成功后只 mint `X-Fsus-Challenge-Proof` | 直接把 provider proof 交给业务 endpoint；把普通 challenge proof 当 MFA proof；verify 时查询 PostgreSQL 作为授权真相；在 Redis 不可用时默默放行写操作 | AEAD key missing/unknown、token tamper、AAD mismatch、过期、绑定不匹配、answer invalid、attempt exceeded、Redis unavailable 或 replay 均 fail closed |
+
+三类 task 的强度递进必须保持可解释：text-task / Character challenge 只要求读出或输入 recipe 中的短文本，适合中风险；Localization 要求在客户端渲染图形上定位目标点，通常与 `sha256PowV1` 组合用于高风险；Micro-interaction 要求完成短步骤或最终 pointer 位置，仅用于可选的极高风险/strict 阶段，且默认由 `Security:PerceptionV2:MicroInteraction:Mode` 控制为 disabled。`perceptionTextTaskV2` 是 policy-facing wire kind，AEDS sealed task 仍按 `character` payload 解析；`perceptionCharacterV2` 是同一类 task 的 contract kind。
+
+RiskControl 的关系保持分层：V2 provider 只证明某个 challenge 被解决，业务放行仍由 `RequiresRiskControlFilter` 消费 `X-Fsus-Challenge-Proof`、`X-Fsus-Challenge-Id` 和 `X-Fsus-Challenge-Kind` 后决定。HumanReadProof 只用于 `public.read` 阅读计数和 public-read 风险降分，不能授权 `comment.*`、`auth.*` 或 `admin.*` 写操作。`adminPasskeyStepUpV1` 只产生普通 RiskControl proof；admin-sensitive 写入仍必须通过 `/api/binary/auth/admin/step-up/passkey/begin|complete` 获取 action=`admin-sensitive` 的 `X-Fsus-Mfa-Proof`，普通 `X-Fsus-Challenge-Proof` 不得替代。
+
+运行和回滚矩阵：
+
+| 场景 | 行为 |
+|------|------|
+| `Security:RiskControl:GlobalMode=disabled` | 不签发 RiskControl challenge，业务按基础鉴权/PoW/MFA/RBAC 继续执行 |
+| `Security:RiskControl:GlobalMode=observe` | 记录 perception-sealed@v2 裁决、risk score 和原因，不拦截、不挑战，适合首阶段观测 |
+| text-task enforce | 中风险 band 启用 `perceptionTextTaskV2` / `perceptionCharacterV2`；回滚为 `observe` 或关闭对应 action 的 `commentRiskControlEnabled` / `authRiskControlEnabled` |
+| localization enforce | 高风险 band 启用 `perceptionLocalizationV2 + sha256PowV1`；Redis、AEAD key 或 provider 异常必须 fail closed，必要时回滚到 text-task 或 `captchaV1` / `sha256PowV1` 组合 |
+| micro-interaction optional | 只在 `Security:PerceptionV2:MicroInteraction:Mode=enforce|strict|lockdown` 且高升级等级命中时签发；异常时立即切回 disabled，不影响 text-task/localization |
+| `strict` / `lockdown` | `strictRiskMultiplierPercent` 放大风险分，`lockdown` 额外阻断不允许的匿名写；回滚只通过 `/api/binary/admin/security/risk-control/options` 或 `/rollback`，必须携带 admin principal、`system.config` 和 `X-Fsus-Mfa-Proof` |
+
+故障预算按安全优先级分层：Redis attempt/consume-once 不可用时，写操作、auth、admin、notification subscription 的 enforced challenge 一律 fail closed；PostgreSQL 只承载审计、聚合和 policy snapshot，challenge 解答真相不得依赖请求期 PostgreSQL 查询，持久化失败会降低审计完整性并影响 readiness/admin 写入，但不得成为 verify 放行依据；AEAD key 不存在、keyVersion 未知或 key rotation 未覆盖旧 key 时，相关 token 只能失败，不能降级到明文答案或客户端自证。性能预算是 issue 端 O(1) CPU、零服务端 rasterize、sealed truth 路径零 DB/Redis 写；verify 端 O(1) AEAD + hash compare + Redis `INCR`/`SETNX`，不进入昂贵 renderer、不扫表、不按 payload 大小做非线性工作。安全预算是 fail-closed 优先、单次 proof、低基数指标、无原始 IP/设备指纹/答案落库，且所有 bypass 都必须表现为显式 `observe` / `disabled` 策略而不是隐式异常放行。
+
 RiskControl challenge provider 通过 `ISecurityChallengeProvider` 接入，不允许业务 filter 直接依赖 PoW、Captcha、PoSpace、HumanReadProof 或 Passkey step-up 的具体实现。`SecurityChallengeOrchestrator` 按 `RiskDecision.RequiredChallenges` 从 DI 中查找 provider，可一次返回多个 assignment；provider 未注册、provider 返回失败、assignment 无效或 proof mint 失败均 fail closed，写入 `SecurityChallengeRejected` 风险事件，且不进入业务 handler。provider verify 成功后只签发统一 proof token，业务是否放行仍由后续 filter 消费该 token 决定。
 
 RiskControl 可观测性集中在 `FsusObservability`：风险事件写 `fsus.security.risk.event.count`，裁决写 `fsus.security.decision.count`，当前策略版本通过 `fsus.security.policy.version.active` gauge 暴露。编排层记录 provider missing / provider exception / proof mint failure 的 structured log 与失败指标；metrics/listener/exporter 异常必须在 observability 层吞掉，不得改变 allow/challenge/block/queue 裁决或业务错误码。`/api/ops/health/ready-detail` 的 `riskControl` 检查同时验证 active policy、last-known-good policy、Redis consume-once 能力和 challenge provider registry；缺 active policy 或 Redis 一次性消费不可用时 readiness 返回 `not_ready`。Redis 不可用时写类 challenge fail closed，公开读仍只按当前策略允许的降级路径处理。

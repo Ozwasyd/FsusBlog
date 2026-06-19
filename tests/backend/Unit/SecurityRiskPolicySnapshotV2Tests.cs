@@ -12,19 +12,21 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     {
         SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
 
-        Assert.Equal(SecurityRiskPolicyOutcomes.Allow, snapshot.Evaluate(RiskActionNames.PublicRead, 49).Outcome);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Allow, snapshot.Evaluate(RiskActionNames.PublicRead, 19).Outcome);
         Assert.Equal(SecuritySystemModes.Disabled, snapshot.SubsystemModes[SecurityRiskSources.PoSpace]);
-        SecurityRiskPolicyDecision challenge = snapshot.Evaluate(RiskActionNames.PublicRead, 50);
+        SecurityRiskPolicyDecision challenge = snapshot.Evaluate(RiskActionNames.PublicRead, 20);
         Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, challenge.Outcome);
         Assert.True(challenge.Enforced);
-        Assert.Equal("security.pow", challenge.ChallengeKind);
-        Assert.Equal(["security.pow"], challenge.RequiredChallengeKinds);
-        Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, snapshot.Evaluate(RiskActionNames.PublicRead, 99).Outcome);
-        Assert.Equal(SecurityRiskPolicyOutcomes.Block, snapshot.Evaluate(RiskActionNames.PublicRead, 100).Outcome);
+        Assert.Equal("sha256PowV1", challenge.ChallengeKind);
+        Assert.Equal(["sha256PowV1"], challenge.RequiredChallengeKinds);
+        Assert.Equal(["perceptionTextTaskV2"], snapshot.Evaluate(RiskActionNames.PublicRead, 40).RequiredChallengeKinds);
+        Assert.Equal(["perceptionLocalizationV2", "sha256PowV1"], snapshot.Evaluate(RiskActionNames.PublicRead, 60).RequiredChallengeKinds);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Throttle, snapshot.Evaluate(RiskActionNames.PublicRead, 80).Outcome);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Block, snapshot.Evaluate(RiskActionNames.PublicRead, 90).Outcome);
 
         SecurityRiskPolicySnapshot legacy = SecurityRiskPolicySnapshotV2Adapter.ToLegacy(snapshot);
-        Assert.Equal(50, legacy.RequireChallengeScore);
-        Assert.Equal(100, legacy.BlockScore);
+        Assert.Equal(20, legacy.RequireChallengeScore);
+        Assert.Equal(90, legacy.BlockScore);
         Assert.True(legacy.PublicReadChallengeEnabled);
     }
 
@@ -104,48 +106,98 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
-    public void LegacyAdapter_MapsAuthAndCommentMediumRiskToCaptchaAndHighRiskToCombo()
+    public void LegacyAdapter_MapsAuthAndCommentRiskToPerceptionSealedV2Bands()
     {
         SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
 
-        Assert.Equal(SecurityRiskPolicyOutcomes.Allow, snapshot.Evaluate(RiskActionNames.AuthLogin, 49).Outcome);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Allow, snapshot.Evaluate(RiskActionNames.AuthLogin, 19).Outcome);
 
-        SecurityRiskPolicyDecision mediumLogin = snapshot.Evaluate(RiskActionNames.AuthLogin, 50);
-        Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, mediumLogin.Outcome);
-        Assert.Equal("captchaV1", mediumLogin.ChallengeKind);
-        Assert.Equal(["captchaV1"], mediumLogin.RequiredChallengeKinds);
-        Assert.Equal(1, mediumLogin.EscalationLevel);
+        SecurityRiskPolicyDecision powLogin = snapshot.Evaluate(RiskActionNames.AuthLogin, 20);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, powLogin.Outcome);
+        Assert.Equal("sha256PowV1", powLogin.ChallengeKind);
+        Assert.Equal(["sha256PowV1"], powLogin.RequiredChallengeKinds);
+        Assert.Equal(1, powLogin.EscalationLevel);
 
-        SecurityRiskPolicyDecision highLogin = snapshot.Evaluate(RiskActionNames.AuthLogin, 75);
+        SecurityRiskPolicyDecision textLogin = snapshot.Evaluate(RiskActionNames.AuthLogin, 40);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, textLogin.Outcome);
+        Assert.Equal(["perceptionTextTaskV2"], textLogin.RequiredChallengeKinds);
+        Assert.Equal(2, textLogin.EscalationLevel);
+
+        SecurityRiskPolicyDecision highLogin = snapshot.Evaluate(RiskActionNames.AuthLogin, 60);
         Assert.Equal(SecurityRiskPolicyOutcomes.HardChallenge, highLogin.Outcome);
-        Assert.Equal("captchaV1", highLogin.ChallengeKind);
-        Assert.Equal(["captchaV1", "sha256PowV1"], highLogin.RequiredChallengeKinds);
-        Assert.Equal(2, highLogin.EscalationLevel);
+        Assert.Equal("perceptionLocalizationV2", highLogin.ChallengeKind);
+        Assert.Equal(["perceptionLocalizationV2", "sha256PowV1"], highLogin.RequiredChallengeKinds);
+        Assert.Equal(3, highLogin.EscalationLevel);
 
-        SecurityRiskPolicyDecision mediumComment = snapshot.Evaluate(RiskActionNames.CommentCreate, 50);
-        Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, mediumComment.Outcome);
-        Assert.Equal(["captchaV1"], mediumComment.RequiredChallengeKinds);
+        SecurityRiskPolicyDecision queuedComment = snapshot.Evaluate(RiskActionNames.CommentCreate, 80);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Queue, queuedComment.Outcome);
+        Assert.Empty(queuedComment.RequiredChallengeKinds);
 
-        SecurityRiskPolicyDecision highReply = snapshot.Evaluate(RiskActionNames.CommentReply, 99);
-        Assert.Equal(SecurityRiskPolicyOutcomes.HardChallenge, highReply.Outcome);
-        Assert.Equal(["captchaV1", "sha256PowV1"], highReply.RequiredChallengeKinds);
-
-        Assert.Equal(SecurityRiskPolicyOutcomes.Block, snapshot.Evaluate(RiskActionNames.AuthLogin, 100).Outcome);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Block, snapshot.Evaluate(RiskActionNames.AuthLogin, 90).Outcome);
     }
 
     [Fact]
-    public void LegacyAdapter_MapsNotificationSubscribeToMandatoryRiskControlPowAndHighPoSpace()
+    public void LegacyAdapter_UsesPerceptionSealedV2DefaultDecisionMatrix()
+    {
+        SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
+        SecurityRiskActionPolicy commentPolicy = snapshot.ResolveActionPolicy(RiskActionNames.CommentCreate);
+
+        Assert.Equal(SecurityRiskPolicySnapshotV2Adapter.PerceptionSealedV2Matrix, commentPolicy.DecisionMatrix);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Allow, snapshot.Evaluate(RiskActionNames.CommentCreate, 19).Outcome);
+
+        SecurityRiskPolicyDecision pow = snapshot.Evaluate(RiskActionNames.CommentCreate, 20);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, pow.Outcome);
+        Assert.Equal(["sha256PowV1"], pow.RequiredChallengeKinds);
+
+        SecurityRiskPolicyDecision textTask = snapshot.Evaluate(RiskActionNames.CommentCreate, 40);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, textTask.Outcome);
+        Assert.Equal(["perceptionTextTaskV2"], textTask.RequiredChallengeKinds);
+
+        SecurityRiskPolicyDecision localization = snapshot.Evaluate(RiskActionNames.CommentCreate, 60);
+        Assert.Equal(SecurityRiskPolicyOutcomes.HardChallenge, localization.Outcome);
+        Assert.Equal(["perceptionLocalizationV2", "sha256PowV1"], localization.RequiredChallengeKinds);
+
+        SecurityRiskPolicyDecision queue = snapshot.Evaluate(RiskActionNames.CommentCreate, 80);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Queue, queue.Outcome);
+        Assert.Empty(queue.RequiredChallengeKinds);
+
+        SecurityRiskPolicyDecision block = snapshot.Evaluate(RiskActionNames.CommentCreate, 90);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Block, block.Outcome);
+        Assert.Empty(block.RequiredChallengeKinds);
+    }
+
+    [Theory]
+    [InlineData(RiskActionNames.PublicRead, SecurityRiskPolicyOutcomes.Throttle)]
+    [InlineData(RiskActionNames.CommentCreate, SecurityRiskPolicyOutcomes.Queue)]
+    [InlineData(RiskActionNames.AuthLogin, SecurityRiskPolicyOutcomes.Throttle)]
+    [InlineData(RiskActionNames.RecoveryKeyVerify, SecurityRiskPolicyOutcomes.Throttle)]
+    [InlineData(RiskActionNames.NotificationSubscribe, SecurityRiskPolicyOutcomes.HardChallenge)]
+    [InlineData(RiskActionNames.AdminSecurityWrite, SecurityRiskPolicyOutcomes.HardChallenge)]
+    public void LegacyAdapter_AddsPerceptionSealedV2ActionOverrides(string actionName, string expectedOutcomeAt80)
+    {
+        SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
+        SecurityRiskActionPolicy action = snapshot.ResolveActionPolicy(actionName);
+
+        Assert.Equal(SecurityRiskPolicySnapshotV2Adapter.PerceptionSealedV2Matrix, action.DecisionMatrix);
+        Assert.Equal(expectedOutcomeAt80, snapshot.Evaluate(actionName, 80).Outcome);
+    }
+
+    [Fact]
+    public void LegacyAdapter_MapsNotificationSubscribeToMandatoryPowAndCriticalPoSpace()
     {
         SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
 
         SecurityRiskPolicyDecision low = snapshot.Evaluate(RiskActionNames.NotificationSubscribe, 0);
-        SecurityRiskPolicyDecision high = snapshot.Evaluate(RiskActionNames.NotificationSubscribe, 75);
+        SecurityRiskPolicyDecision high = snapshot.Evaluate(RiskActionNames.NotificationSubscribe, 60);
+        SecurityRiskPolicyDecision critical = snapshot.Evaluate(RiskActionNames.NotificationSubscribe, 80);
 
         Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, low.Outcome);
         Assert.Equal("sha256PowV1", low.ChallengeKind);
         Assert.Equal(["sha256PowV1"], low.RequiredChallengeKinds);
         Assert.Equal(SecurityRiskPolicyOutcomes.HardChallenge, high.Outcome);
-        Assert.Equal(["argon2idPoSpaceV1"], high.RequiredChallengeKinds);
+        Assert.Equal(["perceptionLocalizationV2", "sha256PowV1"], high.RequiredChallengeKinds);
+        Assert.Equal(SecurityRiskPolicyOutcomes.HardChallenge, critical.Outcome);
+        Assert.Equal(["argon2idPoSpaceV1"], critical.RequiredChallengeKinds);
         Assert.True(snapshot.ResolveActionPolicy(RiskActionNames.NotificationSubscribe).AnonymousWriteAllowed);
     }
 
@@ -240,6 +292,75 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         Assert.Equal(SecuritySystemModes.Disabled, updated.ResolveActionPolicy(RiskActionNames.PublicRead).ModeOverride);
         Assert.Equal(SecuritySystemModes.Disabled, updated.ResolveActionPolicy(RiskActionNames.CommentReply).ModeOverride);
         Assert.Equal(SecuritySystemModes.Disabled, updated.ResolveActionPolicy(RiskActionNames.RecoveryKeyVerify).ModeOverride);
+    }
+
+    [Fact]
+    public void SecurityAdminPolicyService_ReadsPerceptionV2EnvironmentFallbacks()
+    {
+        SecurityAdminPolicyService service = new(CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["Security:PerceptionV2:Enabled"] = "false",
+            ["Security:PerceptionV2:TextTask:Enabled"] = "false",
+            ["Security:PerceptionV2:Localization:Enabled"] = "true",
+            ["Security:PerceptionV2:MicroInteraction:Enabled"] = "true",
+            ["Security:PerceptionV2:PoSpaceFallback:Enabled"] = "true",
+            ["Security:PerceptionV2:EarlyRejectThreshold"] = "87",
+            ["Security:PerceptionV2:MaxAttempts"] = "5",
+            ["Security:PerceptionV2:MinSolveDurationMs"] = "1200",
+            ["Security:PerceptionV2:MaxSolveDurationMs"] = "45000"
+        }));
+
+        PerceptionSealedV2PolicySnapshot snapshot = service.CurrentPerceptionSealedV2;
+
+        Assert.False(snapshot.Options.Enabled);
+        Assert.False(snapshot.Options.TextTaskEnabled);
+        Assert.True(snapshot.Options.LocalizationEnabled);
+        Assert.True(snapshot.Options.MicroInteractionEnabled);
+        Assert.True(snapshot.Options.PoSpaceFallbackEnabled);
+        Assert.Equal(87, snapshot.Options.EarlyRejectThreshold);
+        Assert.Equal(5, snapshot.Options.MaxAttempts);
+        Assert.Equal(1200, snapshot.Options.MinSolveDurationMs);
+        Assert.Equal(45000, snapshot.Options.MaxSolveDurationMs);
+    }
+
+    [Fact]
+    public void SecurityAdminPolicyService_UpdatePerceptionV2Policy_ProjectsRuntimeSwitchesAndLkg()
+    {
+        SecurityAdminPolicyService service = new(CreateConfiguration());
+        PerceptionSealedV2PolicySnapshot before = service.CurrentPerceptionSealedV2;
+
+        PerceptionSealedV2PolicySnapshot updated = service.UpdatePerceptionSealedV2Policy(
+            new PerceptionSealedV2PolicyUpdateRequest(
+                Enabled: true,
+                TextTaskEnabled: false,
+                LocalizationEnabled: true,
+                MicroInteractionEnabled: true,
+                PoSpaceFallbackEnabled: true,
+                EarlyRejectThreshold: 88,
+                MaxAttempts: 6,
+                MinSolveDurationMs: 1000,
+                MaxSolveDurationMs: 45000,
+                Reason: "rollout"),
+            "admin:7");
+
+        Assert.Equal(before.SnapshotId, updated.LastKnownGoodSnapshotId);
+        Assert.Equal("admin:7", updated.UpdatedBy);
+        Assert.Equal("rollout", updated.Reason);
+        Assert.True(updated.Options.Enabled);
+        Assert.False(updated.Options.TextTaskEnabled);
+        Assert.True(updated.Options.LocalizationEnabled);
+        Assert.True(updated.Options.MicroInteractionEnabled);
+        Assert.True(updated.Options.PoSpaceFallbackEnabled);
+        Assert.Equal(88, updated.Options.EarlyRejectThreshold);
+        Assert.Equal(6, updated.Options.MaxAttempts);
+        Assert.Equal(1000, updated.Options.MinSolveDurationMs);
+        Assert.Equal(45000, updated.Options.MaxSolveDurationMs);
+
+        SecurityRiskPolicySnapshotV2 riskPolicy = service.CurrentRiskPolicyV2;
+        Assert.Equal(SecuritySystemModes.Disabled, riskPolicy.SubsystemModes[SecurityRiskSources.PerceptionTextTask]);
+        Assert.Equal(SecuritySystemModes.Enforce, riskPolicy.SubsystemModes[SecurityRiskSources.PerceptionLocalization]);
+        Assert.Equal(SecuritySystemModes.Enforce, riskPolicy.SubsystemModes[SecurityRiskSources.PerceptionMicroInteraction]);
+        Assert.Equal(SecuritySystemModes.Enforce, riskPolicy.SubsystemModes[SecurityRiskSources.PoSpace]);
     }
 
     private static SecurityRiskPolicySnapshotV2 CreateSnapshot(

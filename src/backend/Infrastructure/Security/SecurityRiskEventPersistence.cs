@@ -277,6 +277,7 @@ public sealed class SecurityRiskEventSink(
     CrawlerRiskService hotPath,
     IUnifiedCache cache,
     ISecurityAdminPolicyService policy,
+    SecurityRiskEventWriteQueue eventQueue,
     IServiceScopeFactory scopeFactory,
     ILogger<SecurityRiskEventSink> logger,
     TimeProvider timeProvider) : ISecurityRiskSignalSink, ISecurityRiskScoreReader
@@ -292,10 +293,12 @@ public sealed class SecurityRiskEventSink(
 
         try
         {
-            using IServiceScope scope = scopeFactory.CreateScope();
-            ISecurityRiskEventStore store = scope.ServiceProvider.GetRequiredService<ISecurityRiskEventStore>();
             int totalScore = await TryReadHotCacheAsync(signal.Context.GetClientIp(), cancellationToken);
-            await store.AppendAsync(BuildWrite(signal, totalScore), cancellationToken);
+            SecurityRiskEventWrite write = BuildWrite(signal, totalScore);
+            if (!eventQueue.TryWrite(write))
+            {
+                FsusObservability.RecordSecurityRiskEvent(signal.Source, signal.Reason.ToString(), signal.Action, "queue_full");
+            }
         }
         catch (Exception ex)
         {

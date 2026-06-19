@@ -26,6 +26,8 @@ public interface ISecurityAdminPolicyService :
     IPowPolicyProvider,
     ISecurityRiskPolicyProvider
 {
+    PerceptionSealedV2PolicySnapshot CurrentPerceptionSealedV2 { get; }
+
     SecurityOverviewResponse BuildSecurityOverview(CrawlerRangeStatus ranges, CrawlerRangesAdminStatus syncStatus);
 
     AntiCrawlerOverviewResponse BuildAntiCrawlerOverview(CrawlerRangeStatus ranges, CrawlerRangesAdminStatus syncStatus);
@@ -44,11 +46,17 @@ public interface ISecurityAdminPolicyService :
 
     SecurityRiskPolicySnapshotV2 RollbackRiskControlPolicy(string changedBy);
 
+    PerceptionSealedV2PolicySnapshot UpdatePerceptionSealedV2Policy(PerceptionSealedV2PolicyUpdateRequest request, string changedBy);
+
+    PerceptionSealedV2PolicySnapshot RollbackPerceptionSealedV2Policy(string changedBy);
+
     void ApplyAntiCrawlerPolicySnapshot(AntiCrawlerPolicySnapshot snapshot);
 
     void ApplyPowPolicySnapshot(PowPolicySnapshot snapshot);
 
     void ApplyRiskControlPolicySnapshot(SecurityRiskPolicySnapshotV2 snapshot);
+
+    void ApplyPerceptionSealedV2PolicySnapshot(PerceptionSealedV2PolicySnapshot snapshot);
 
     void RecordRiskEvent(AntiCrawlerRiskEventResponse riskEvent);
 

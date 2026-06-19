@@ -217,6 +217,108 @@ public static class SecurityEndpoints
             return Results.Ok(JsonApiResponse<SecurityPolicyConsoleResponse>.Ok(response));
         });
 
+        group.MapGet("/perception-v2/overview", async (
+            ISecurityAdminPolicyService policy,
+            ISqlSugarClient db,
+            CancellationToken cancellationToken) =>
+        {
+            PerceptionSealedV2MetricsResponse metrics = await BuildPerceptionSealedV2MetricsAsync(db, cancellationToken);
+            var response = new PerceptionSealedV2ConsoleResponse(
+                policy.CurrentPerceptionSealedV2,
+                metrics,
+                policy.CurrentRiskPolicyV2);
+            return Results.Ok(JsonApiResponse<PerceptionSealedV2ConsoleResponse>.Ok(response));
+        });
+
+        group.MapGet("/perception-v2/options", (ISecurityAdminPolicyService policy) =>
+            Results.Ok(JsonApiResponse<PerceptionSealedV2PolicySnapshot>.Ok(policy.CurrentPerceptionSealedV2)));
+
+        group.MapPut("/perception-v2/options", async (
+            PerceptionSealedV2PolicyUpdateRequest request,
+            HttpContext context,
+            IAdminPrincipalService adminPrincipals,
+            ISecurityAdminPolicyService policy,
+            ISecurityPolicySnapshotService policySnapshots,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
+            PerceptionSealedV2PolicySnapshot snapshot = policy.UpdatePerceptionSealedV2Policy(request, ResolveActor(context));
+            await policySnapshots.ActivateAsync(
+                SecurityPolicyIds.PerceptionSealedV2,
+                snapshot.Options.Enabled ? SecuritySystemModes.Enforce : SecuritySystemModes.Disabled,
+                snapshot,
+                ResolveAdminPrincipalId(context),
+                snapshot.Reason,
+                cancellationToken);
+            await RecordSecurityAuditAsync(
+                auditEvents,
+                "admin.security.perception_v2.options_updated",
+                "管理员更新 perception-sealed@v2 策略",
+                "perception_v2_options",
+                snapshot.SnapshotId,
+                snapshot.Reason,
+                snapshot,
+                cancellationToken);
+            return Results.Ok(JsonApiResponse<PerceptionSealedV2PolicySnapshot>.Ok(snapshot));
+        }).RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/perception-v2/options/rollback", async (
+            HttpContext context,
+            IAdminPrincipalService adminPrincipals,
+            ISecurityAdminPolicyService policy,
+            ISecurityPolicySnapshotService policySnapshots,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
+            SecurityPolicyRollbackResult<PerceptionSealedV2PolicySnapshot> rollback =
+                await policySnapshots.RollbackAsync<PerceptionSealedV2PolicySnapshot>(
+                    SecurityPolicyIds.PerceptionSealedV2,
+                    targetVersion: null,
+                    ResolveAdminPrincipalId(context),
+                    "rollback",
+                    cancellationToken);
+            PerceptionSealedV2PolicySnapshot snapshot;
+            if (rollback.Success && rollback.Document is not null)
+            {
+                snapshot = rollback.Document;
+                policy.ApplyPerceptionSealedV2PolicySnapshot(snapshot);
+            }
+            else
+            {
+                snapshot = policy.RollbackPerceptionSealedV2Policy(ResolveActor(context));
+                await policySnapshots.ActivateAsync(
+                    SecurityPolicyIds.PerceptionSealedV2,
+                    snapshot.Options.Enabled ? SecuritySystemModes.Enforce : SecuritySystemModes.Disabled,
+                    snapshot,
+                    ResolveAdminPrincipalId(context),
+                    "rollback",
+                    cancellationToken);
+            }
+
+            await RecordSecurityAuditAsync(
+                auditEvents,
+                "admin.security.perception_v2.options_rolled_back",
+                "管理员回滚 perception-sealed@v2 策略",
+                "perception_v2_options",
+                snapshot.SnapshotId,
+                "rollback",
+                snapshot,
+                cancellationToken);
+            return Results.Ok(JsonApiResponse<PerceptionSealedV2PolicySnapshot>.Ok(snapshot));
+        }).RequireRateLimiting("fixed_ip");
+
         group.MapGet("/anti-crawler/options", (IAntiCrawlerPolicyProvider policy) =>
             Results.Ok(JsonApiResponse<AntiCrawlerPolicySnapshot>.Ok(policy.Current)));
 
@@ -812,6 +914,180 @@ public static class SecurityEndpoints
             RiskDecisionKind.QueueForModeration => "queue_for_moderation",
             RiskDecisionKind.Throttle => "throttle",
             RiskDecisionKind.Block => "block",
+            _ => "unknown"
+        };
+
+    private static async Task<PerceptionSealedV2MetricsResponse> BuildPerceptionSealedV2MetricsAsync(
+        ISqlSugarClient db,
+        CancellationToken cancellationToken)
+    {
+        DateTimeOffset windowStartedAt = DateTimeOffset.UtcNow.AddDays(-1);
+        DateTime windowStartedUtc = windowStartedAt.UtcDateTime;
+        List<SecurityChallenge> challenges = await db.Queryable<SecurityChallenge>()
+            .Where(item => item.CreatedAtUtc >= windowStartedUtc)
+            .Where(item => item.Kind == "perceptionTextTaskV2"
+                || item.Kind == "perceptionCharacterV2"
+                || item.Kind == "perceptionLocalizationV2"
+                || item.Kind == "perceptionMicroInteractionV2")
+            .OrderBy(item => item.CreatedAtUtc, OrderByType.Desc)
+            .Take(2000)
+            .ToListAsync(cancellationToken);
+        List<SecurityChallengeAttempt> attempts = await db.Queryable<SecurityChallengeAttempt>()
+            .Where(item => item.AttemptedAtUtc >= windowStartedUtc)
+            .OrderBy(item => item.AttemptedAtUtc, OrderByType.Desc)
+            .Take(2000)
+            .ToListAsync(cancellationToken);
+
+        Dictionary<string, SecurityChallenge> challengeById = challenges
+            .GroupBy(static item => item.ChallengeId, StringComparer.Ordinal)
+            .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.Ordinal);
+        List<(SecurityChallengeAttempt Attempt, SecurityChallenge Challenge)> scopedAttempts = attempts
+            .Select(item => (Attempt: item, Challenge: challengeById.GetValueOrDefault(item.ChallengeId)))
+            .Where(static item => item.Challenge is not null)
+            .Select(static item => (item.Attempt, item.Challenge!))
+            .ToList();
+
+        int verified = CountPerceptionOutcomes(scopedAttempts, SecurityChallengeAttemptOutcomes.Verified);
+        int failed = CountPerceptionOutcomes(scopedAttempts, SecurityChallengeAttemptOutcomes.Failed);
+        int replayed = CountPerceptionOutcomes(scopedAttempts, SecurityChallengeAttemptOutcomes.Replayed);
+        int terminalFailures = failed
+            + replayed
+            + CountPerceptionOutcomes(scopedAttempts, SecurityChallengeAttemptOutcomes.Expired)
+            + CountPerceptionOutcomes(scopedAttempts, SecurityChallengeAttemptOutcomes.Revoked);
+        double[] solveDurations = SolveDurations(scopedAttempts);
+        int[] payloadBytes = challenges.Select(EstimatePayloadBytes).Where(static value => value > 0).Order().ToArray();
+        IReadOnlyList<PerceptionSealedV2TaskKindMetricResponse> taskKindDistribution = BuildPerceptionTaskKindDistribution(challenges, scopedAttempts);
+        IReadOnlyList<SecurityChallengeAttemptSummaryResponse> recentAttempts = scopedAttempts
+            .OrderByDescending(static item => item.Attempt.AttemptedAtUtc)
+            .Take(25)
+            .Select(static item => new SecurityChallengeAttemptSummaryResponse(
+                item.Attempt.AttemptId,
+                item.Attempt.ChallengeId,
+                item.Challenge.Kind,
+                item.Attempt.Outcome,
+                item.Attempt.Reason,
+                NormalizeDisplayValue(item.Challenge.Action),
+                NormalizeDisplayValue(item.Challenge.RouteKey),
+                new DateTimeOffset(DateTime.SpecifyKind(item.Attempt.AttemptedAtUtc, DateTimeKind.Utc))))
+            .ToArray();
+
+        return new PerceptionSealedV2MetricsResponse(
+            windowStartedAt,
+            challenges.Count,
+            verified,
+            failed,
+            replayed,
+            Rate(verified, scopedAttempts.Count),
+            Rate(terminalFailures, scopedAttempts.Count),
+            Average(solveDurations),
+            Percentile(solveDurations, 0.95),
+            (int)Math.Round(Average(payloadBytes.Select(static value => (double)value).ToArray()), MidpointRounding.AwayFromZero),
+            Percentile(payloadBytes, 0.95),
+            taskKindDistribution,
+            recentAttempts);
+    }
+
+    private static IReadOnlyList<PerceptionSealedV2TaskKindMetricResponse> BuildPerceptionTaskKindDistribution(
+        IReadOnlyList<SecurityChallenge> challenges,
+        IReadOnlyList<(SecurityChallengeAttempt Attempt, SecurityChallenge Challenge)> attempts)
+        => challenges
+            .GroupBy(static item => new { TaskKind = ToPerceptionTaskKind(item.Kind), ChallengeKind = item.Kind })
+            .Select(group =>
+            {
+                List<(SecurityChallengeAttempt Attempt, SecurityChallenge Challenge)> kindAttempts = attempts
+                    .Where(item => string.Equals(item.Challenge.Kind, group.Key.ChallengeKind, StringComparison.Ordinal))
+                    .ToList();
+                int verified = CountPerceptionOutcomes(kindAttempts, SecurityChallengeAttemptOutcomes.Verified);
+                int failed = CountPerceptionOutcomes(kindAttempts, SecurityChallengeAttemptOutcomes.Failed);
+                int replayed = CountPerceptionOutcomes(kindAttempts, SecurityChallengeAttemptOutcomes.Replayed);
+                double[] solveDurations = SolveDurations(kindAttempts);
+                int[] payloadBytes = group.Select(EstimatePayloadBytes).Where(static value => value > 0).ToArray();
+                return new PerceptionSealedV2TaskKindMetricResponse(
+                    group.Key.TaskKind,
+                    group.Key.ChallengeKind,
+                    group.Count(),
+                    verified,
+                    failed,
+                    replayed,
+                    Rate(verified, kindAttempts.Count),
+                    Rate(failed + replayed, kindAttempts.Count),
+                    Average(solveDurations),
+                    (int)Math.Round(Average(payloadBytes.Select(static value => (double)value).ToArray()), MidpointRounding.AwayFromZero));
+            })
+            .OrderByDescending(static item => item.Issued)
+            .ThenBy(static item => item.TaskKind, StringComparer.Ordinal)
+            .ToArray();
+
+    private static int CountPerceptionOutcomes(
+        IEnumerable<(SecurityChallengeAttempt Attempt, SecurityChallenge Challenge)> attempts,
+        string outcome)
+        => attempts.Count(item => string.Equals(item.Attempt.Outcome, outcome, StringComparison.Ordinal));
+
+    private static double[] SolveDurations(
+        IEnumerable<(SecurityChallengeAttempt Attempt, SecurityChallenge Challenge)> attempts)
+        => attempts
+            .Select(static item => EstimateSolveDurationMs(item.Attempt))
+            .Where(static value => value > 0)
+            .Order()
+            .ToArray();
+
+    private static double EstimateSolveDurationMs(SecurityChallengeAttempt attempt)
+    {
+        string reason = attempt.Reason ?? string.Empty;
+        const string marker = "solve_duration_ms:";
+        int markerIndex = reason.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (markerIndex < 0)
+        {
+            return 0;
+        }
+
+        string tail = reason[(markerIndex + marker.Length)..];
+        int separatorIndex = tail.IndexOfAny([';', ',', ' ']);
+        string number = separatorIndex >= 0 ? tail[..separatorIndex] : tail;
+        return double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) && double.IsFinite(value)
+            ? value
+            : 0;
+    }
+
+    private static int EstimatePayloadBytes(SecurityChallenge challenge)
+        => string.IsNullOrWhiteSpace(challenge.PayloadHash)
+            ? 0
+            : Encoding.UTF8.GetByteCount(challenge.PayloadHash);
+
+    private static double Average(IReadOnlyList<double> values)
+        => values.Count == 0 ? 0 : Math.Round(values.Average(), 2, MidpointRounding.AwayFromZero);
+
+    private static int Percentile(IReadOnlyList<int> values, double percentile)
+    {
+        if (values.Count == 0)
+        {
+            return 0;
+        }
+
+        int index = PercentileIndex(values.Count, percentile);
+        return values.Order().ElementAt(index);
+    }
+
+    private static double Percentile(IReadOnlyList<double> values, double percentile)
+    {
+        if (values.Count == 0)
+        {
+            return 0;
+        }
+
+        int index = PercentileIndex(values.Count, percentile);
+        return Math.Round(values.Order().ElementAt(index), 2, MidpointRounding.AwayFromZero);
+    }
+
+    private static int PercentileIndex(int count, double percentile)
+        => Math.Clamp((int)Math.Ceiling(count * Math.Clamp(percentile, 0d, 1d)) - 1, 0, count - 1);
+
+    private static string ToPerceptionTaskKind(string kind)
+        => kind switch
+        {
+            "perceptionTextTaskV2" or "perceptionCharacterV2" => "character",
+            "perceptionLocalizationV2" => "localization",
+            "perceptionMicroInteractionV2" => "microInteraction",
             _ => "unknown"
         };
 

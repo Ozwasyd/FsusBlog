@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Models.Security;
 using FsusBlog.Shared.Contracts.Security;
 using Microsoft.Extensions.Logging;
 
@@ -32,7 +33,15 @@ public sealed record SecurityChallengeProviderIssueRequest(
     string DeviceFpHash,
     string PolicyVersion,
     int EscalationLevel,
-    string Traceparent);
+    string Traceparent)
+{
+    public int RiskScore { get; init; }
+
+    public int EffectiveRiskScore { get; init; }
+
+    public PerceptionChallengeGeneratorDistributionPolicy GeneratorDistributionPolicy { get; init; } =
+        PerceptionChallengeGeneratorDistributionPolicy.Default;
+}
 
 public sealed record SecurityChallengeProviderVerifyRequest(
     HttpContext Context,
@@ -184,7 +193,12 @@ public sealed partial class SecurityChallengeOrchestrator(
                         NormalizeHash(request.DeviceFpHash, nameof(request.DeviceFpHash)),
                         request.Decision.PolicyVersion,
                         request.Decision.EscalationLevel,
-                        NormalizeRequired(request.Traceparent, nameof(request.Traceparent), 128)),
+                        NormalizeRequired(request.Traceparent, nameof(request.Traceparent), 128))
+                    {
+                        RiskScore = request.Decision.RiskScore,
+                        EffectiveRiskScore = request.Decision.EffectiveRiskScore,
+                        GeneratorDistributionPolicy = request.Decision.PerceptionGeneratorPolicy
+                    },
                     cancellationToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

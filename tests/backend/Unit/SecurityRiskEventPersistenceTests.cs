@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using SqlSugar;
 
@@ -107,7 +108,16 @@ public sealed class SecurityRiskEventPersistenceTests
             .AddScoped<ISecurityRiskEventStore, ThrowingRiskEventStore>()
             .BuildServiceProvider();
         var logger = new CapturingLogger<SecurityRiskEventSink>();
-        var sink = new SecurityRiskEventSink(hotPath, cache, policy, services.GetRequiredService<IServiceScopeFactory>(), logger, new MutableTimeProvider(BaselineNow));
+        var queue = new SecurityRiskEventWriteQueue(
+            Options.Create(new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 }),
+            new CapturingLogger<SecurityRiskEventWriteQueue>());
+        var sink = new SecurityRiskEventSink(hotPath, cache, policy, queue, services.GetRequiredService<IServiceScopeFactory>(), logger, new MutableTimeProvider(BaselineNow));
+        var workerLogger = new CapturingLogger<SecurityRiskEventWriterWorker>();
+        var worker = new SecurityRiskEventWriterWorker(
+            queue,
+            services.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(new SecurityRiskEventWriterOptions { BatchSize = 2, FlushWindowMs = 10 }),
+            workerLogger);
         DefaultHttpContext context = CreateContext("198.51.100.20");
 
         await sink.AddRiskAsync(
@@ -126,9 +136,88 @@ public sealed class SecurityRiskEventPersistenceTests
             item.Reason == nameof(SecurityRiskReason.CaptchaInvalid) &&
             item.ScoreDelta == 5 &&
             item.TotalScore == 8));
-        Assert.Contains(logger.Messages, static message =>
+        Assert.Equal(1, queue.Snapshot().QueuedCount);
+
+        int flushed = await worker.FlushOnceAsync(CancellationToken.None);
+
+        Assert.Equal(1, flushed);
+        Assert.Contains(workerLogger.Messages, static message =>
             message.Contains("security-risk-persist-failed", StringComparison.Ordinal) &&
             message.Contains(nameof(SecurityRiskReason.CaptchaInvalid), StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task SecurityRiskEventSink_AddRiskAsync_EnqueuesPersistenceWithoutAwaitingStore()
+    {
+        IUnifiedCache cache = Substitute.For<IUnifiedCache>();
+        cache.GetStringAsync(CachePolicyId.SecurityPowRisk, "198.51.100.22", Arg.Any<CancellationToken>())
+            .Returns("3");
+        ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
+        policy.Current.Returns(CreatePolicySnapshot());
+        using var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
+        var hotPath = new CrawlerRiskService(cache, zeroRiskCache, policy, new CapturingLogger<CrawlerRiskService>());
+        IServiceProvider services = new ServiceCollection()
+            .AddScoped<ISecurityRiskEventStore, NeverCompletingRiskEventStore>()
+            .BuildServiceProvider();
+        NeverCompletingRiskEventStore.AppendStarted = false;
+        var queue = new SecurityRiskEventWriteQueue(
+            Options.Create(new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 }),
+            new CapturingLogger<SecurityRiskEventWriteQueue>());
+        var sink = new SecurityRiskEventSink(
+            hotPath,
+            cache,
+            policy,
+            queue,
+            services.GetRequiredService<IServiceScopeFactory>(),
+            new CapturingLogger<SecurityRiskEventSink>(),
+            new MutableTimeProvider(BaselineNow));
+        DefaultHttpContext context = CreateContext("198.51.100.22");
+
+        await sink.AddRiskAsync(
+            new SecurityRiskSignal(
+                context,
+                SecurityRiskReason.SecurityChallengeRejected,
+                5,
+                TimeSpan.FromMinutes(5),
+                SecurityRiskSources.RiskControl,
+                RiskActionNames.AuthLogin,
+                "perception_text_answer_invalid"),
+            CancellationToken.None);
+
+        SecurityRiskEventWriteQueueSnapshot snapshot = queue.Snapshot();
+        Assert.Equal(1, snapshot.QueuedCount);
+        Assert.Equal(0, snapshot.DroppedCount);
+        Assert.False(NeverCompletingRiskEventStore.AppendStarted);
+    }
+
+    [Fact]
+    public async Task SecurityRiskEventWriterWorker_FlushOnceAsync_PersistsQueuedRiskEvents()
+    {
+        var store = new RecordingRiskEventStore();
+        await using ServiceProvider provider = new ServiceCollection()
+            .AddScoped<ISecurityRiskEventStore>(_ => store)
+            .BuildServiceProvider(new ServiceProviderOptions
+            {
+                ValidateOnBuild = true,
+                ValidateScopes = true
+            });
+        var queue = new SecurityRiskEventWriteQueue(
+            Options.Create(new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 }),
+            new CapturingLogger<SecurityRiskEventWriteQueue>());
+        var worker = new SecurityRiskEventWriterWorker(
+            queue,
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(new SecurityRiskEventWriterOptions { BatchSize = 2, FlushWindowMs = 10 }),
+            new CapturingLogger<SecurityRiskEventWriterWorker>());
+
+        Assert.True(queue.TryWrite(CreateWrite(SecurityRiskIdentity.HashIdentity("subject-1"), "auth:login", 5)));
+        Assert.True(queue.TryWrite(CreateWrite(SecurityRiskIdentity.HashIdentity("subject-2"), "auth:login", 7)));
+
+        int flushed = await worker.FlushOnceAsync(CancellationToken.None);
+
+        Assert.Equal(2, flushed);
+        Assert.Equal(2, store.Writes.Count);
+        Assert.Equal(0, queue.Snapshot().QueuedCount);
     }
 
     [Fact]
@@ -162,6 +251,9 @@ public sealed class SecurityRiskEventPersistenceTests
             hotPath,
             cache,
             policy,
+            new SecurityRiskEventWriteQueue(
+                Options.Create(new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 }),
+                new CapturingLogger<SecurityRiskEventWriteQueue>()),
             services.GetRequiredService<IServiceScopeFactory>(),
             new CapturingLogger<SecurityRiskEventSink>(),
             clock);
@@ -298,6 +390,40 @@ public sealed class SecurityRiskEventPersistenceTests
     {
         public Task AppendAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("store down");
+
+        public Task<IReadOnlyList<SecurityRiskEventRecord>> QueryAsync(SecurityRiskEventQuery query, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<SecurityRiskEventRecord>>([]);
+
+        public Task<IReadOnlyList<SecurityRiskEventRecord>> ListActiveForScoreAsync(SecurityRiskScoreQuery query, DateTimeOffset now, int limit, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<SecurityRiskEventRecord>>([]);
+    }
+
+    private sealed class NeverCompletingRiskEventStore : ISecurityRiskEventStore
+    {
+        public static bool AppendStarted;
+
+        public Task AppendAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken = default)
+        {
+            AppendStarted = true;
+            return Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        }
+
+        public Task<IReadOnlyList<SecurityRiskEventRecord>> QueryAsync(SecurityRiskEventQuery query, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<SecurityRiskEventRecord>>([]);
+
+        public Task<IReadOnlyList<SecurityRiskEventRecord>> ListActiveForScoreAsync(SecurityRiskScoreQuery query, DateTimeOffset now, int limit, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<SecurityRiskEventRecord>>([]);
+    }
+
+    private sealed class RecordingRiskEventStore : ISecurityRiskEventStore
+    {
+        public List<SecurityRiskEventWrite> Writes { get; } = [];
+
+        public Task AppendAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken = default)
+        {
+            Writes.Add(write);
+            return Task.CompletedTask;
+        }
 
         public Task<IReadOnlyList<SecurityRiskEventRecord>> QueryAsync(SecurityRiskEventQuery query, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<SecurityRiskEventRecord>>([]);

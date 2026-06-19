@@ -57,14 +57,25 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<ISecurityPolicySnapshotService, SecurityPolicySnapshotService>();
         services.AddScoped<ISecurityChallengePersistenceService, SecurityChallengePersistenceService>();
         services.AddScoped<ISecurityChallengeProofService, SecurityChallengeProofService>();
+        services.Configure<ChallengeV2EventWriterOptions>(configuration.GetSection(ChallengeV2EventWriterOptions.SectionName));
+        services.AddSingleton<ChallengeV2AuditEventQueue>();
+        services.AddSingleton<IChallengeV2AuditEventWriter>(sp => sp.GetRequiredService<ChallengeV2AuditEventQueue>());
         services.Configure<PerceptionSealedTokenOptions>(configuration.GetSection(PerceptionSealedTokenOptions.SectionName));
         services.AddSingleton<IPerceptionSealedTokenService, PerceptionSealedTokenService>();
+        services.TryAddScoped<IPerceptionChallengeV2TaskSource, DefaultPerceptionChallengeV2TaskSource>();
+        services.AddScoped<IPerceptionChallengeV2TokenProtector, PerceptionChallengeV2TokenProtector>();
+        services.AddScoped<IPerceptionChallengeV2RedisGate, RedisPerceptionChallengeV2Gate>();
+        services.AddScoped<IPerceptionChallengeV2IssueService, PerceptionChallengeV2IssueService>();
+        services.AddScoped<IPerceptionChallengeV2VerifyService, PerceptionChallengeV2VerifyService>();
         services.AddScoped<ISecurityChallengeProvider, Sha256PowChallengeProvider>();
         services.AddScoped<ISecurityChallengeProvider, CaptchaV1ChallengeProvider>();
         services.AddScoped<ISecurityChallengeProvider, Argon2idPoSpaceV1ChallengeProvider>();
         services.AddScoped<ISecurityChallengeProvider, HumanReadProofV1ChallengeProvider>();
         services.AddScoped<ISecurityChallengeProvider, PasskeyStepUpV1ChallengeProvider>();
         services.AddScoped<ISecurityChallengeProvider, AdminPasskeyStepUpV1ChallengeProvider>();
+        services.AddScoped<ISecurityChallengeProvider, PerceptionTextTaskV2Provider>();
+        services.AddScoped<ISecurityChallengeProvider, PerceptionLocalizationV2Provider>();
+        services.AddScoped<ISecurityChallengeProvider, PerceptionMicroInteractionV2Provider>();
         services.AddScoped<ISecurityChallengeOrchestrator, SecurityChallengeOrchestrator>();
 
         services.Configure<LifecycleBootstrapOptions>(configuration.GetSection(LifecycleBootstrapOptions.SectionName));
@@ -82,6 +93,7 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
             services.AddHostedService<LifecycleHostedBootstrapService>();
             services.AddHostedService<SecurityPolicySnapshotHostedService>();
             services.AddHostedService<AnonymousCredentialRootRefreshHostedService>();
+            services.AddHostedService<ChallengeV2AuditEventWriterWorker>();
         }
 
         return services;

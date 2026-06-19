@@ -115,6 +115,25 @@ challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 
 
 perception verify payload 为 `PerceptionSealedResultV2` (`185`)：`assignment`、`algorithm`、`taskKind`、`payloadKind`、`responsePayloadBase64`、`recipeHashHex`、`sealedTokenBase64`、`signatureHex`、`issuedAtUnixMs` 和 `expiresAtUnixMs`。`payloadKind` 只允许 `character`、`coordinates` 或 `steps`，并分别对应 Character、Localization、MicroInteraction task；响应内容统一放入 `responsePayloadBase64`，以便后续 provider 在 sealed token 校验后解释，不在公共 schema 中展开语义字段。该契约只登记 AEDS payload 与 kind；不实现 AEAD、renderer、provider、Redis gate 或业务 endpoint wiring，也不新增公开 JSON fallback。
 
+perception-sealed@v2 payload 是 sealed perception challenge 契约，不是普通图片验证码契约。issue payload 禁止出现 `answerText`、`expectedAnswer`、`expectedX`、`expectedY`、`expectedStep`、`labelId`、`semanticId`、`objectClass`、`clientIp`、`deviceFp`、`userId`、raw UA、`proofToken`、`mfaProof`、admin session 或任何可直接推导解答的字段；verify payload 只能携带公共绑定字段、sealed token/signature、recipe hash、`solveDurationMs` 和按 task kind 编码后的响应。服务端 issue 路径不得生成 PNG、不得 rasterize、不得把解答真相写 PostgreSQL/Redis；verify 路径必须先解封 AEAD，再校验 assignment/action/route/subject/client/device/policy/recipe 绑定，最后通过 Redis attempt gate + consume-once 后才允许 orchestrator mint `X-Fsus-Challenge-Proof`。
+
+perception-sealed@v2 的配置名必须与运行时保持一致：AEAD key rotation 使用 `Security:PerceptionSealedToken:CurrentKeyVersion` 与 `Security:PerceptionSealedToken:Keys:{version}`；本地/测试 fallback signing material 使用 `Security:PerceptionV2:SigningKey`；固定测试任务只允许通过 `Security:PerceptionV2:TextTask:FixedText`、`Security:PerceptionV2:Localization:FixedX`、`Security:PerceptionV2:Localization:FixedY`、`Security:PerceptionV2:MicroInteraction:FixedSteps` 注入；micro-interaction 子系统开关为 `Security:PerceptionV2:MicroInteraction:Mode`。RiskControl rollout 不新增单独公开 JSON 配置面，只通过 `RiskControlPolicyUpdateRequest(globalMode?, captchaV1Enabled?, poSpaceV1Enabled?, publicReadChallengeEnabled?, commentRiskControlEnabled?, authRiskControlEnabled?, strictRiskMultiplierPercent?, reason?)` 与 `/api/binary/admin/security/risk-control/options|rollback` 调整。
+
+perception-sealed@v2 的验证矩阵：
+
+| 输入 / 依赖 | 预期行为 |
+|-------------|----------|
+| `algorithm` 不是 `fsu.challenge/perception-sealed@v2` | AEDS `ApiError`，fail closed |
+| `taskKind` / `payloadKind` 不匹配 | AEDS `ApiError`，fail closed |
+| sealed token keyVersion 未配置、AAD mismatch、密文篡改或 token 过期 | AEDS `ApiError`，fail closed |
+| challengeId、action、routeKey、subjectHash、clientIpHash、deviceFpHash、policyVersion 或 recipeHash 不匹配 | AEDS `ApiError`，fail closed，不进入业务 endpoint |
+| Redis `INCR` attempt gate 失败、attempt exceeded、Redis `SETNX` consume-once 失败或 replay | AEDS `ApiError`，fail closed；不得把 Postgres audit 当作消费真相 |
+| PostgreSQL audit / aggregation 写入失败 | 不作为 verify 放行依据；应以 structured log、readiness/admin surface 暴露，不能写入 payload 原文或 proof 原文 |
+| HumanReadProof proof 用于 `comment.*`、`auth.*`、`admin.*` | required kind mismatch，返回 428，不消费 proof |
+| `adminPasskeyStepUpV1` proof 尝试替代 `X-Fsus-Mfa-Proof` | 返回 428 / `MFA_PROOF_REQUIRED`，不执行 admin-sensitive 写入 |
+
+上线顺序固定为 `observe -> text-task enforce -> localization enforce -> micro-interaction optional -> strict/lockdown`。回滚时优先把 `globalMode` 调回 `observe`，或关闭对应 action 的 `publicReadChallengeEnabled`、`commentRiskControlEnabled`、`authRiskControlEnabled`；PoSpace 只能通过 `poSpaceV1Enabled` 与 `Security:PoSpaceV1:Mode` 进入 notification / high-risk 分支；AdminPasskeyStepUp 与 `X-Fsus-Mfa-Proof` 始终保留独立授权边界。
+
 `argon2idPoSpaceV1` provider 使用 `fsu.pospace/argon2id@v1` wire algorithm，默认 `Security:PoSpaceV1:Mode=disabled`，只有策略显式 enable 且 RiskDecision 选择该 kind 时才可签发。issue payload 包含 `algorithm`、`saltHex`、`memoryKib`、`iterations`、`lanes` 和 `targetDurationMs`；服务端约束 `memoryKib=1024..65536`、移动端最大 `8192`、`iterations=1..6`、`lanes=1..4`、`targetDurationMs=100..5000`。verify payload 必须回传 issue payload 字段，并追加 `nonceHex` 和 `proofHex`。服务端通过 `SecurityPoSpaceChallenge` cache 一次性消费 challenge，使用 challengeId/action/routeKey/subject/client/device/policyVersion/nonce 作为 Argon2id material 重新派生 proof；参数越界、payload 错误、proof mismatch 或 replay 均 fail closed 并写 `SecurityChallengeRejected` 风险事件。移动 UA 或 disabled policy 会由 RiskDecision 降级到 `captchaV1`，不得签发 PoSpace。
 
 `humanReadProofV1` provider 使用 `fsu.human-read-proof@v1` wire algorithm，且只允许 `action=public.read`。issue payload 包含 `algorithm`、`token`、`scope`、`routeKey`、`articleId`、`minDwellMs`、`issuedAtUnixMs` 和 `expiresAtUnixMs`；持久化层只保存 payload hash，不保存 token 原文。verify payload 必须提交 `token`、`scope`、`routeKey`、`articleId` 和 `dwellMs`，服务端复用 HumanReadProof submit 绑定校验；成功只签发绑定 public-read action / route / IP / device 的统一 proof token，并额外写 `ReadProofAccepted` 负分风险信号以降低后续 public-read 风险。`comment.*`、`auth.*`、`admin.*` 或任何非 public-read action 使用该 kind 都必须 fail closed；`RequiresRiskControlFilter` 也必须在 required kind 不匹配时返回 428，不得消费 HumanReadProof proof 或进入写操作 handler。

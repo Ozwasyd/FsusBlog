@@ -281,6 +281,67 @@ export interface RiskControlPolicyUpdateRequest {
   reason?: string | null
 }
 
+export interface PerceptionSealedV2PolicyOptions {
+  enabled: boolean
+  textTaskEnabled: boolean
+  localizationEnabled: boolean
+  microInteractionEnabled: boolean
+  poSpaceFallbackEnabled: boolean
+  earlyRejectThreshold: number
+  maxAttempts: number
+  minSolveDurationMs: number
+  maxSolveDurationMs: number
+}
+
+export type PerceptionSealedV2PolicyUpdateRequest = Partial<PerceptionSealedV2PolicyOptions> & {
+  reason?: string | null
+}
+
+export interface PerceptionSealedV2PolicySnapshot {
+  snapshotId: string
+  policyVersion: string
+  updatedAtUtc: string
+  updatedBy: string
+  reason: string | null
+  lastKnownGoodSnapshotId: string | null
+  options: PerceptionSealedV2PolicyOptions
+}
+
+export interface PerceptionSealedV2TaskKindMetricResponse {
+  taskKind: string
+  challengeKind: string
+  issued: number
+  verified: number
+  failed: number
+  replayed: number
+  successRate: number
+  failureRate: number
+  averageSolveDurationMs: number
+  averagePayloadBytes: number
+}
+
+export interface PerceptionSealedV2MetricsResponse {
+  windowStartedAtUtc: string
+  issued: number
+  verified: number
+  failed: number
+  replayed: number
+  successRate: number
+  failureRate: number
+  averageSolveDurationMs: number
+  p95SolveDurationMs: number
+  averagePayloadBytes: number
+  p95PayloadBytes: number
+  taskKindDistribution: PerceptionSealedV2TaskKindMetricResponse[]
+  recentAttempts: SecurityChallengeAttemptSummaryResponse[]
+}
+
+export interface PerceptionSealedV2ConsoleResponse {
+  policy: PerceptionSealedV2PolicySnapshot
+  metrics: PerceptionSealedV2MetricsResponse
+  activeRiskPolicy: SecurityRiskPolicySnapshotV2
+}
+
 export interface SecurityRiskEventAggregateResponse {
   source: string
   reason: string
@@ -525,6 +586,22 @@ export const updateRiskControlOptions = (request: RiskControlPolicyUpdateRequest
 
 export const rollbackRiskControlOptions = (config?: ApiRequestConfig) =>
   requestSecurityBinary<SecurityRiskPolicySnapshotV2>('/risk-control/options/rollback', FrameType.SecurityOverview, config, { method: 'POST' })
+
+export const getPerceptionSealedV2Console = (config?: ApiRequestConfig) =>
+  requestSecurityBinary<PerceptionSealedV2ConsoleResponse>('/perception-v2/overview', FrameType.SecurityOverview, config)
+
+export const getPerceptionSealedV2Options = (config?: ApiRequestConfig) =>
+  requestSecurityBinary<PerceptionSealedV2PolicySnapshot>('/perception-v2/options', FrameType.SecurityOverview, config)
+
+export const updatePerceptionSealedV2Options = (request: PerceptionSealedV2PolicyUpdateRequest, config?: ApiRequestConfig) =>
+  requestSecurityBinary<PerceptionSealedV2PolicySnapshot>('/perception-v2/options', FrameType.SecurityOverview, config, {
+    method: 'PUT',
+    requestFrame: FrameType.SecurityOverview,
+    request
+  })
+
+export const rollbackPerceptionSealedV2Options = (config?: ApiRequestConfig) =>
+  requestSecurityBinary<PerceptionSealedV2PolicySnapshot>('/perception-v2/options/rollback', FrameType.SecurityOverview, config, { method: 'POST' })
 
 export const issueSecurityChallenge = (request: IssueSecurityChallengeRequest, config?: ApiRequestConfig) =>
   requestBinaryOnly<SecurityChallengeIssueResponse>({

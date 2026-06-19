@@ -371,6 +371,14 @@ public sealed class SecurityBinaryBridgeMiddleware
             return Found(null, AedsFrameType.SecurityOverview, out route);
         if (HttpMethods.IsGet(method) && segments is ["policies", "overview"])
             return Found(null, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsGet(method) && segments is ["perception-v2", "overview"])
+            return Found(null, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsGet(method) && segments is ["perception-v2", "options"])
+            return Found(null, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsPut(method) && segments is ["perception-v2", "options"])
+            return Found(AedsFrameType.SecurityOverview, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsPost(method) && segments is ["perception-v2", "options", "rollback"])
+            return Found(null, AedsFrameType.SecurityOverview, out route);
         if (HttpMethods.IsGet(method) && segments is ["anti-crawler", "overview"])
             return Found(null, AedsFrameType.AntiCrawlerOverview, out route);
         if (HttpMethods.IsGet(method) && segments is ["anti-crawler", "options"])

@@ -197,6 +197,33 @@ public sealed class RequiresRiskControlFilterTests
     }
 
     [Fact]
+    public async Task InvokeAsync_CriticalAuthThrottle_RecordsRiskControlEventWithoutProofOrBusinessLogic()
+    {
+        SecurityRiskPolicySnapshotV2 policy = CreateCriticalAuthThrottlePolicy();
+        FilterFixture fixture = CreateFixture(riskScore: 80, policy);
+        var context = CreateContext(RiskActionNames.AuthLogin, "auth.login");
+        AddProofHeaders(context, "proof-unused");
+        bool nextCalled = false;
+
+        object? result = await fixture.Filter.InvokeAsync(
+            new TestEndpointFilterInvocationContext(context),
+            _ =>
+            {
+                nextCalled = true;
+                return ValueTask.FromResult<object?>("ok");
+            });
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status429TooManyRequests, await ExecuteStatusAsync(result, context));
+        Assert.Empty(fixture.ProofService.ConsumeRequests);
+        SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
+        Assert.Equal(SecurityRiskSources.RiskControl, signal.Source);
+        Assert.Equal(RiskActionNames.AuthLogin, signal.Action);
+        Assert.Contains("risk_control_throttled", signal.Detail, StringComparison.Ordinal);
+        Assert.Contains("perception_sealed_v2_auth_throttle", signal.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RequiresPowFilter_RemainsLegacyPowWrapper()
     {
         Type[] constructorParameters = typeof(RequiresPowFilter)
@@ -328,6 +355,33 @@ public sealed class RequiresRiskControlFilterTests
             ActionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
             {
                 [RiskActionNames.CommentCreate] = commentPolicy
+            }
+        };
+    }
+
+    private static SecurityRiskPolicySnapshotV2 CreateCriticalAuthThrottlePolicy()
+    {
+        var authPolicy = new SecurityRiskActionPolicy(
+            RiskActionNames.AuthLogin,
+            new SecurityRiskActionThresholds(19, 20, 60, 80, 90),
+            Sha256PowChallengeProvider.WireKind,
+            1,
+            null,
+            AnonymousWriteAllowed: false)
+        {
+            DecisionMatrix = SecurityRiskPolicySnapshotV2Adapter.PerceptionSealedV2Matrix,
+            DecisionBands =
+            [
+                new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Allow, 0, 19, [], 0, "perception_sealed_v2_allow"),
+                new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Throttle, 80, 89, [], 0, "perception_sealed_v2_auth_throttle")
+            ]
+        };
+
+        return CreatePolicy() with
+        {
+            ActionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
+            {
+                [RiskActionNames.AuthLogin] = authPolicy
             }
         };
     }

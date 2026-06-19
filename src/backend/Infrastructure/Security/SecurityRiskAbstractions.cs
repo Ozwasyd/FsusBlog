@@ -57,6 +57,9 @@ public static class SecurityRiskSources
     public const string RegionPolicy = "region-policy";
     public const string CommentGovernance = "comment-governance";
     public const string AdminStepUp = "admin-step-up";
+    public const string PerceptionTextTask = "perception-text-task";
+    public const string PerceptionLocalization = "perception-localization";
+    public const string PerceptionMicroInteraction = "perception-micro-interaction";
 }
 
 public sealed record SecurityRiskSignal(

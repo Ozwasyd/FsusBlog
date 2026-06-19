@@ -153,6 +153,7 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
           { path: 'events', name: 'ManageSecurityEvents', component: () => import('@/views/admin/security/SecurityEvents.vue'), meta: manageMeta('风险事件', ['system.config']) },
           { path: 'captcha', name: 'ManageSecurityCaptcha', component: () => import('@/views/admin/security/SecurityCaptcha.vue'), meta: manageMeta('Captcha 挑战', ['system.config']) },
           { path: 'pospace', name: 'ManageSecurityPoSpace', component: () => import('@/views/admin/security/SecurityPoSpace.vue'), meta: manageMeta('PoSpace 挑战', ['system.config']) },
+          { path: 'perception-v2', name: 'ManageSecurityPerceptionV2', component: () => import('@/views/admin/security/SecurityPerceptionV2.vue'), meta: manageMeta('Perception V2', ['system.config']) },
           { path: 'crawler', name: 'ManageSecurityCrawler', component: () => import('@/views/admin/security/SecurityCrawler.vue'), meta: manageMeta('反爬虫系统', ['system.config']) },
           { path: 'pow', name: 'ManageSecurityPow', component: () => import('@/views/admin/security/SecurityPow.vue'), meta: manageMeta('PoW 系统', ['system.config']) }
         ]

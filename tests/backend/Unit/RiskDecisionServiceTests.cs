@@ -168,6 +168,70 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    public void Decide_PerceptionSealedV2Matrix_CoversRiskBandsWithoutIssuingCriticalChallenges()
+    {
+        SecurityRiskPolicySnapshotV2 policy = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
+
+        RiskDecision low = _service.Decide(CreateContext(RiskActionNames.CommentCreate), policy, 19);
+        RiskDecision pow = _service.Decide(CreateContext(RiskActionNames.CommentCreate), policy, 20);
+        RiskDecision textTask = _service.Decide(CreateContext(RiskActionNames.CommentCreate), policy, 40);
+        RiskDecision localization = _service.Decide(CreateContext(RiskActionNames.CommentCreate), policy, 60);
+        RiskDecision queue = _service.Decide(CreateContext(RiskActionNames.CommentCreate), policy, 80);
+        RiskDecision block = _service.Decide(CreateContext(RiskActionNames.CommentCreate), policy, 90);
+
+        Assert.Equal(RiskDecisionKind.Allow, low.Kind);
+        Assert.Empty(low.RequiredChallenges);
+        Assert.Equal(RiskDecisionKind.Challenge, pow.Kind);
+        Assert.Equal(["sha256PowV1"], pow.RequiredChallenges);
+        Assert.Equal(RiskDecisionKind.Challenge, textTask.Kind);
+        Assert.Equal(["perceptionTextTaskV2"], textTask.RequiredChallenges);
+        Assert.Equal(RiskDecisionKind.Challenge, localization.Kind);
+        Assert.Equal(["perceptionLocalizationV2", "sha256PowV1"], localization.RequiredChallenges);
+        Assert.Equal(RiskDecisionKind.QueueForModeration, queue.Kind);
+        Assert.Empty(queue.RequiredChallenges);
+        Assert.Equal(RiskDecisionKind.Block, block.Kind);
+        Assert.Empty(block.RequiredChallenges);
+    }
+
+    [Fact]
+    public void Decide_CriticalRiskRouting_UsesActionSpecificEarlyControl()
+    {
+        SecurityRiskPolicySnapshotV2 policy = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot()) with
+        {
+            SubsystemModes = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [SecurityRiskSources.Pow] = SecuritySystemModes.Enforce,
+                [SecurityRiskSources.PoSpace] = SecuritySystemModes.Enforce
+            }
+        };
+
+        Assert.Equal(RiskDecisionKind.Throttle, _service.Decide(CreateContext(RiskActionNames.PublicRead), policy, 80).Kind);
+        Assert.Equal(RiskDecisionKind.QueueForModeration, _service.Decide(CreateContext(RiskActionNames.CommentCreate), policy, 80).Kind);
+        Assert.Equal(RiskDecisionKind.Throttle, _service.Decide(CreateContext(RiskActionNames.AuthLogin), policy, 80).Kind);
+        Assert.Equal(RiskDecisionKind.Throttle, _service.Decide(CreateContext(RiskActionNames.RecoveryKeyVerify), policy, 80).Kind);
+
+        RiskDecision notification = _service.Decide(CreateContext(RiskActionNames.NotificationSubscribe), policy, 80);
+        Assert.Equal(RiskDecisionKind.Challenge, notification.Kind);
+        Assert.Equal(["argon2idPoSpaceV1"], notification.RequiredChallenges);
+
+        RiskDecision admin = _service.Decide(CreateContext(RiskActionNames.AdminSecurityWrite), policy, 80);
+        Assert.Equal(RiskDecisionKind.StepUp, admin.Kind);
+        Assert.Equal(["adminPasskeyStepUpV1"], admin.RequiredChallenges);
+    }
+
+    [Fact]
+    public void Decide_CriticalNotificationSubscribe_RejectsWhenPoSpaceCannotRoute()
+    {
+        SecurityRiskPolicySnapshotV2 policy = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
+
+        RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.NotificationSubscribe), policy, 80);
+
+        Assert.Equal(RiskDecisionKind.Block, decision.Kind);
+        Assert.Empty(decision.RequiredChallenges);
+        Assert.Contains("pospace_disabled_rejected", decision.Reasons);
+    }
+
+    [Fact]
     public void Decide_ObserveModeWithCaptchaPolicy_RecordsOnlyWithoutRequiredChallenges()
     {
         SecurityRiskActionPolicy authPolicy = CreateCaptchaActionPolicy(RiskActionNames.AuthLogin) with
@@ -295,6 +359,45 @@ public sealed class RiskDecisionServiceTests
             new RiskControlRegionContext(RiskControlContextStatuses.Missing, "UNKNOWN", null, "missing"),
             verifiedCrawler,
             socialPreviewBot);
+
+    private static AntiCrawlerPolicySnapshot CreateLegacySnapshot()
+        => new(
+            "anti:test",
+            DateTimeOffset.UnixEpoch,
+            "test",
+            "unit",
+            new AntiCrawlerPolicyOptions(
+                SecuritySystemModes.Enforce,
+                PublicReadChallengeEnabled: true,
+                SearchCrawlerVerificationEnabled: true,
+                SocialPreviewGuardEnabled: true,
+                RiskScoringEnabled: true,
+                EventPersistenceEnabled: true,
+                DashboardAggregationEnabled: true,
+                CidrAutoUpdateEnabled: true,
+                IllegalPathHardAbortEnabled: true,
+                RequireChallengeScore: 50,
+                BlockScore: 100,
+                MaxRiskScore: 200,
+                DefaultRiskTtlSeconds: 600,
+                ZeroRiskCacheTtlSeconds: 3,
+                FixedIpPermitLimit: 100,
+                FixedIpQueueLimit: 2,
+                VerifiedCrawlerFixedIpPermitLimit: 1000,
+                PublicReadPermitLimit: 120,
+                PublicReadQueueLimit: 2,
+                VerifiedCrawlerPublicReadPermitLimit: 1000,
+                SocialPreviewPublicReadPermitLimit: 30,
+                ReadProofPermitLimit: 30,
+                CidrUpdateIntervalMinutes: 1440,
+                CidrInitialDelaySeconds: 0,
+                CidrMinUpdateIntervalMinutes: 30,
+                GoogleCrawlerRangesUrl: "https://example.invalid/googlebot.json",
+                BingCrawlerRangesUrl: "https://example.invalid/bingbot.json",
+                SnapshotPath: null,
+                SocialPreviewAllowedPathPrefixes: ["/"],
+                BlockedUserAgentKeywords: [],
+                SecurityChallengeReference: "security.pow"));
 
     private static SecurityRiskPolicySnapshotV2 CreatePolicy(
         string mode,

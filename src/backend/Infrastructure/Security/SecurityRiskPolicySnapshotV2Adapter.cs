@@ -5,67 +5,99 @@ namespace FsusBlog.Server.Infrastructure.Security;
 public static class SecurityRiskPolicySnapshotV2Adapter
 {
     public const string DefaultPolicyVersion = "risk-policy-v2";
+    public const string PerceptionSealedV2Matrix = "perception-sealed@v2";
     private const string DefaultActionName = "*";
     private const string CaptchaV1ChallengeKind = "captchaV1";
     private const string Sha256PowV1ChallengeKind = "sha256PowV1";
     private const string Argon2idPoSpaceV1ChallengeKind = "argon2idPoSpaceV1";
+    private const string TextTaskV2ChallengeKind = "perceptionTextTaskV2";
+    private const string LocalizationV2ChallengeKind = "perceptionLocalizationV2";
+    private const string MicroInteractionV2ChallengeKind = "perceptionMicroInteractionV2";
+    private const string AdminPasskeyStepUpV1ChallengeKind = "adminPasskeyStepUpV1";
 
     public static SecurityRiskPolicySnapshotV2 FromLegacy(AntiCrawlerPolicySnapshot antiCrawler, PowPolicySnapshot? pow = null)
     {
         ArgumentNullException.ThrowIfNull(antiCrawler);
 
         AntiCrawlerPolicyOptions options = antiCrawler.Options;
-        var thresholds = BuildLegacyPublicReadThresholds(options.RequireChallengeScore, options.BlockScore);
-        var captchaThresholds = BuildCaptchaEscalationThresholds(options.RequireChallengeScore, options.BlockScore);
-        var defaultPolicy = new SecurityRiskActionPolicy(
+        var defaultPolicy = CreatePerceptionSealedV2Policy(
             DefaultActionName,
-            thresholds,
-            options.SecurityChallengeReference,
-            1,
-            null,
+            SecurityRiskPolicyOutcomes.HardChallenge,
+            [MicroInteractionV2ChallengeKind],
+            4,
+            "perception_sealed_v2_micro_interaction",
             AnonymousWriteAllowed: false);
-        var captchaEscalationPolicy = defaultPolicy with
-        {
-            Thresholds = captchaThresholds,
-            ChallengeKind = CaptchaV1ChallengeKind,
-            EscalationLevel = 1,
-            HardChallengeKinds = [CaptchaV1ChallengeKind, Sha256PowV1ChallengeKind],
-            HardChallengeEscalationLevel = 2
-        };
-        var mandatoryCaptchaPolicy = captchaEscalationPolicy with
-        {
-            Thresholds = BuildMandatoryChallengeThresholds(options.BlockScore)
-        };
-        var notificationSubscribePolicy = defaultPolicy with
-        {
-            ActionName = RiskActionNames.NotificationSubscribe,
-            Thresholds = BuildMandatoryChallengeThresholds(options.BlockScore),
-            ChallengeKind = Sha256PowV1ChallengeKind,
-            EscalationLevel = 1,
-            HardChallengeKinds = [Argon2idPoSpaceV1ChallengeKind],
-            HardChallengeEscalationLevel = 2,
-            AnonymousWriteAllowed = true
-        };
+        var publicReadPolicy = CreatePerceptionSealedV2Policy(
+            RiskActionNames.PublicRead,
+            SecurityRiskPolicyOutcomes.Throttle,
+            [],
+            0,
+            "perception_sealed_v2_public_read_throttle",
+            AnonymousWriteAllowed: true);
+        var commentCreatePolicy = CreatePerceptionSealedV2Policy(
+            RiskActionNames.CommentCreate,
+            SecurityRiskPolicyOutcomes.Queue,
+            [],
+            0,
+            "perception_sealed_v2_comment_queue",
+            AnonymousWriteAllowed: false);
+        var authLoginPolicy = CreatePerceptionSealedV2Policy(
+            RiskActionNames.AuthLogin,
+            SecurityRiskPolicyOutcomes.Throttle,
+            [],
+            0,
+            "perception_sealed_v2_auth_throttle",
+            AnonymousWriteAllowed: false);
+        var recoveryKeyVerifyPolicy = CreatePerceptionSealedV2Policy(
+            RiskActionNames.RecoveryKeyVerify,
+            SecurityRiskPolicyOutcomes.Throttle,
+            [],
+            0,
+            "perception_sealed_v2_recovery_throttle",
+            AnonymousWriteAllowed: false,
+            lowBand: new SecurityRiskDecisionBand(
+                SecurityRiskPolicyOutcomes.Challenge,
+                0,
+                19,
+                [CaptchaV1ChallengeKind],
+                1,
+                "recovery_key_mandatory_captcha"));
+        var notificationSubscribePolicy = CreatePerceptionSealedV2Policy(
+            RiskActionNames.NotificationSubscribe,
+            SecurityRiskPolicyOutcomes.HardChallenge,
+            [Argon2idPoSpaceV1ChallengeKind],
+            4,
+            "perception_sealed_v2_notification_pospace",
+            AnonymousWriteAllowed: true,
+            lowBand: new SecurityRiskDecisionBand(
+                SecurityRiskPolicyOutcomes.Challenge,
+                0,
+                19,
+                [Sha256PowV1ChallengeKind],
+                1,
+                "notification_subscribe_mandatory_pow"));
+        var adminSecurityWritePolicy = CreatePerceptionSealedV2Policy(
+            RiskActionNames.AdminSecurityWrite,
+            SecurityRiskPolicyOutcomes.HardChallenge,
+            [AdminPasskeyStepUpV1ChallengeKind],
+            4,
+            "perception_sealed_v2_admin_step_up",
+            AnonymousWriteAllowed: true);
         var actionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
         {
-            [RiskActionNames.PublicRead] = defaultPolicy with
+            [RiskActionNames.PublicRead] = publicReadPolicy with
             {
-                ActionName = RiskActionNames.PublicRead,
                 ModeOverride = options.PublicReadChallengeEnabled ? null : SecuritySystemModes.Disabled,
                 AnonymousWriteAllowed = true
             },
-            [RiskActionNames.CommentCreate] = captchaEscalationPolicy with { ActionName = RiskActionNames.CommentCreate },
-            [RiskActionNames.CommentReply] = captchaEscalationPolicy with { ActionName = RiskActionNames.CommentReply },
-            [RiskActionNames.AuthLogin] = captchaEscalationPolicy with { ActionName = RiskActionNames.AuthLogin },
+            [RiskActionNames.CommentCreate] = commentCreatePolicy,
+            [RiskActionNames.CommentReply] = commentCreatePolicy with { ActionName = RiskActionNames.CommentReply },
+            [RiskActionNames.AuthLogin] = authLoginPolicy,
             [RiskActionNames.AuthPasskeyBegin] = defaultPolicy with { ActionName = RiskActionNames.AuthPasskeyBegin },
             [RiskActionNames.AuthPasskeyComplete] = defaultPolicy with { ActionName = RiskActionNames.AuthPasskeyComplete },
-            [RiskActionNames.RecoveryKeyVerify] = mandatoryCaptchaPolicy with { ActionName = RiskActionNames.RecoveryKeyVerify },
+            [RiskActionNames.RecoveryKeyVerify] = recoveryKeyVerifyPolicy,
             [RiskActionNames.NotificationSubscribe] = notificationSubscribePolicy,
-            [RiskActionNames.AdminSecurityWrite] = defaultPolicy with
-            {
-                ActionName = RiskActionNames.AdminSecurityWrite,
-                AnonymousWriteAllowed = true
-            },
+            [RiskActionNames.AdminSecurityWrite] = adminSecurityWritePolicy,
             [RiskActionNames.AdminCommentBatch] = defaultPolicy with
             {
                 ActionName = RiskActionNames.AdminCommentBatch,
@@ -80,7 +112,10 @@ public static class SecurityRiskPolicySnapshotV2Adapter
             [SecurityRiskSources.CommentGovernance] = SecuritySystemModes.Enforce,
             [SecurityRiskSources.Pow] = SecuritySystemModes.Normalize(pow?.Options.Mode ?? SecuritySystemModes.Enforce),
             [SecurityRiskSources.PublicRead] = options.PublicReadChallengeEnabled ? SecuritySystemModes.Enforce : SecuritySystemModes.Disabled,
-            [SecurityRiskSources.PoSpace] = SecuritySystemModes.Disabled
+            [SecurityRiskSources.PoSpace] = SecuritySystemModes.Disabled,
+            [SecurityRiskSources.PerceptionTextTask] = SecuritySystemModes.Enforce,
+            [SecurityRiskSources.PerceptionLocalization] = SecuritySystemModes.Enforce,
+            [SecurityRiskSources.PerceptionMicroInteraction] = SecuritySystemModes.Disabled
         };
 
         return new SecurityRiskPolicySnapshotV2(
@@ -113,43 +148,41 @@ public static class SecurityRiskPolicySnapshotV2Adapter
             mode);
     }
 
-    private static SecurityRiskActionThresholds BuildLegacyPublicReadThresholds(int requireChallengeScore, int blockScore)
-    {
-        int challenge = Math.Clamp(requireChallengeScore, 1, 1000);
-        int block = Math.Clamp(blockScore, challenge, 1000);
-        return new SecurityRiskActionThresholds(
-            Math.Max(0, challenge - 1),
-            challenge,
-            block,
-            block,
-            block);
-    }
+    private static SecurityRiskActionPolicy CreatePerceptionSealedV2Policy(
+        string actionName,
+        string band80Outcome,
+        IReadOnlyList<string> band80ChallengeKinds,
+        int band80EscalationLevel,
+        string band80Reason,
+        bool AnonymousWriteAllowed,
+        SecurityRiskDecisionBand? lowBand = null)
+        => new(
+            actionName,
+            BuildPerceptionSealedV2Thresholds(),
+            Sha256PowV1ChallengeKind,
+            1,
+            null,
+            AnonymousWriteAllowed)
+        {
+            HardChallengeKinds = [LocalizationV2ChallengeKind, Sha256PowV1ChallengeKind],
+            HardChallengeEscalationLevel = 3,
+            DecisionMatrix = PerceptionSealedV2Matrix,
+            DecisionBands =
+            [
+                lowBand ?? new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Allow, 0, 19, [], 0, "perception_sealed_v2_allow"),
+                new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Challenge, 20, 39, [Sha256PowV1ChallengeKind], 1, "perception_sealed_v2_pow"),
+                new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Challenge, 40, 59, [TextTaskV2ChallengeKind], 2, "perception_sealed_v2_text_task"),
+                new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.HardChallenge, 60, 79, [LocalizationV2ChallengeKind, Sha256PowV1ChallengeKind], 3, "perception_sealed_v2_localization_pow"),
+                new SecurityRiskDecisionBand(band80Outcome, 80, 89, band80ChallengeKinds, band80EscalationLevel, band80Reason),
+                new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Block, 90, 1000, [], 0, "perception_sealed_v2_block")
+            ]
+        };
 
-    private static SecurityRiskActionThresholds BuildCaptchaEscalationThresholds(int requireChallengeScore, int blockScore)
-    {
-        int challenge = Math.Clamp(requireChallengeScore, 1, 1000);
-        int minimumBlock = Math.Min(1000, challenge + 2);
-        int block = Math.Clamp(blockScore, minimumBlock, 1000);
-        int hardChallenge = Math.Min(
-            block - 1,
-            challenge + Math.Max(1, (block - challenge) / 2));
-        return new SecurityRiskActionThresholds(
-            Math.Max(0, challenge - 1),
-            challenge,
-            hardChallenge,
-            block,
-            block);
-    }
-
-    private static SecurityRiskActionThresholds BuildMandatoryChallengeThresholds(int blockScore)
-    {
-        int block = Math.Clamp(blockScore, 1, 1000);
-        int hardChallenge = Math.Min(block, Math.Max(1, block / 2));
-        return new SecurityRiskActionThresholds(
-            0,
-            0,
-            hardChallenge,
-            block,
-            block);
-    }
+    private static SecurityRiskActionThresholds BuildPerceptionSealedV2Thresholds()
+        => new(
+            AllowScore: 19,
+            ChallengeScore: 20,
+            HardChallengeScore: 60,
+            QueueScore: 80,
+            BlockScore: 90);
 }

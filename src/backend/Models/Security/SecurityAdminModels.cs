@@ -143,6 +143,70 @@ public sealed record RiskControlConsoleResponse(
     IReadOnlyList<AntiCrawlerRiskEventResponse> RecentEvents,
     IReadOnlyList<SecurityRiskSnapshotResponse> TopRiskSnapshots);
 
+public sealed record PerceptionSealedV2PolicyOptions(
+    bool Enabled,
+    bool TextTaskEnabled,
+    bool LocalizationEnabled,
+    bool MicroInteractionEnabled,
+    bool PoSpaceFallbackEnabled,
+    int EarlyRejectThreshold,
+    int MaxAttempts,
+    int MinSolveDurationMs,
+    int MaxSolveDurationMs);
+
+public sealed record PerceptionSealedV2PolicyUpdateRequest(
+    bool? Enabled,
+    bool? TextTaskEnabled,
+    bool? LocalizationEnabled,
+    bool? MicroInteractionEnabled,
+    bool? PoSpaceFallbackEnabled,
+    int? EarlyRejectThreshold,
+    int? MaxAttempts,
+    int? MinSolveDurationMs,
+    int? MaxSolveDurationMs,
+    string? Reason);
+
+public sealed record PerceptionSealedV2PolicySnapshot(
+    string SnapshotId,
+    string PolicyVersion,
+    DateTimeOffset UpdatedAtUtc,
+    string UpdatedBy,
+    string? Reason,
+    string? LastKnownGoodSnapshotId,
+    PerceptionSealedV2PolicyOptions Options);
+
+public sealed record PerceptionSealedV2ConsoleResponse(
+    PerceptionSealedV2PolicySnapshot Policy,
+    PerceptionSealedV2MetricsResponse Metrics,
+    SecurityRiskPolicySnapshotV2 ActiveRiskPolicy);
+
+public sealed record PerceptionSealedV2MetricsResponse(
+    DateTimeOffset WindowStartedAtUtc,
+    int Issued,
+    int Verified,
+    int Failed,
+    int Replayed,
+    double SuccessRate,
+    double FailureRate,
+    double AverageSolveDurationMs,
+    double P95SolveDurationMs,
+    int AveragePayloadBytes,
+    int P95PayloadBytes,
+    IReadOnlyList<PerceptionSealedV2TaskKindMetricResponse> TaskKindDistribution,
+    IReadOnlyList<SecurityChallengeAttemptSummaryResponse> RecentAttempts);
+
+public sealed record PerceptionSealedV2TaskKindMetricResponse(
+    string TaskKind,
+    string ChallengeKind,
+    int Issued,
+    int Verified,
+    int Failed,
+    int Replayed,
+    double SuccessRate,
+    double FailureRate,
+    double AverageSolveDurationMs,
+    int AveragePayloadBytes);
+
 public sealed record RiskControlPolicyUpdateRequest(
     string? GlobalMode,
     bool? CaptchaV1Enabled,

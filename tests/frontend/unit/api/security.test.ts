@@ -5,15 +5,19 @@ import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import {
   createAntiCrawlerRule,
+  getPerceptionSealedV2Console,
+  getPerceptionSealedV2Options,
   getRiskControlOptions,
   getRiskControlConsole,
   getSecurityChallengeMetrics,
   getSecurityOverview,
   getSecurityPolicyConsole,
+  rollbackPerceptionSealedV2Options,
   rollbackRiskControlOptions,
   resetSecurityRisk,
   simulateRiskControl,
   updateAntiCrawlerOptions,
+  updatePerceptionSealedV2Options,
   updateRiskControlOptions,
   updatePowOptions
 } from '@/api/security'
@@ -121,6 +125,55 @@ describe('security API binary transport', () => {
     expect(rollbackCall?.frameType).toBe(FrameType.SecurityOverview)
     expect(rollbackCall?.requestOptions?.method).toBe('POST')
     expect((rollbackCall?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-rollback')
+  })
+
+  it('reads and updates perception-sealed@v2 admin policy through binary-only AEDS routes', async () => {
+    binaryMock.mockResolvedValueOnce({ policy: { options: { enabled: true } }, metrics: { totalIssued: 2 } })
+    binaryMock.mockResolvedValueOnce({ snapshotId: 'perception-1', options: { enabled: true } })
+    binaryMock.mockResolvedValueOnce({ snapshotId: 'perception-2', options: { enabled: false } })
+    binaryMock.mockResolvedValueOnce({ snapshotId: 'perception-1', options: { enabled: true } })
+
+    await getPerceptionSealedV2Console()
+    await getPerceptionSealedV2Options()
+    await updatePerceptionSealedV2Options({
+      enabled: false,
+      textTaskEnabled: true,
+      localizationEnabled: true,
+      microInteractionEnabled: false,
+      poSpaceFallbackEnabled: true,
+      earlyRejectThreshold: 90,
+      maxAttempts: 4,
+      minSolveDurationMs: 800,
+      maxSolveDurationMs: 60000,
+      reason: 'rollout'
+    }, { mfaProofToken: 'proof-perception' })
+    await rollbackPerceptionSealedV2Options({ mfaProofToken: 'proof-perception-rollback' })
+
+    const consoleCall = binaryMock.mock.calls[0]?.[0]
+    expect(consoleCall?.binaryUrl).toBe('/api/binary/admin/security/perception-v2/overview')
+    expect(consoleCall?.frameType).toBe(FrameType.SecurityOverview)
+    expect(consoleCall?.requestOptions?.body).toBeUndefined()
+
+    const readCall = binaryMock.mock.calls[1]?.[0]
+    expect(readCall?.binaryUrl).toBe('/api/binary/admin/security/perception-v2/options')
+    expect(readCall?.frameType).toBe(FrameType.SecurityOverview)
+
+    const updateCall = binaryMock.mock.calls[2]?.[0]
+    expect(updateCall?.binaryUrl).toBe('/api/binary/admin/security/perception-v2/options')
+    expect(updateCall?.frameType).toBe(FrameType.SecurityOverview)
+    expect(updateCall?.requestOptions?.method).toBe('PUT')
+    expect((updateCall?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-perception')
+    expectAedsJsonBody(updateCall?.requestOptions?.body, FrameType.SecurityOverview, {
+      enabled: false,
+      earlyRejectThreshold: 90,
+      reason: 'rollout'
+    })
+
+    const rollbackCall = binaryMock.mock.calls[3]?.[0]
+    expect(rollbackCall?.binaryUrl).toBe('/api/binary/admin/security/perception-v2/options/rollback')
+    expect(rollbackCall?.frameType).toBe(FrameType.SecurityOverview)
+    expect(rollbackCall?.requestOptions?.method).toBe('POST')
+    expect((rollbackCall?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-perception-rollback')
   })
 
   it('updates anti-crawler options with an AEDS request frame and admin step-up proof', async () => {

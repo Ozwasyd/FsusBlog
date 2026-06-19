@@ -23,7 +23,11 @@ public sealed record RiskDecision(
     int EscalationLevel,
     IReadOnlyList<string> RequiredChallenges,
     string PolicyVersion,
-    IReadOnlyList<string> Reasons);
+    IReadOnlyList<string> Reasons)
+{
+    public PerceptionChallengeGeneratorDistributionPolicy PerceptionGeneratorPolicy { get; init; } =
+        PerceptionChallengeGeneratorDistributionPolicy.Default;
+}
 
 public sealed record RiskControlDecisionContext(RiskDecision Decision)
 {
@@ -41,6 +45,9 @@ public sealed class RiskDecisionService : IRiskDecisionService
     private const string Argon2idPoSpaceV1ChallengeKind = "argon2idPoSpaceV1";
     private const string Sha256PowV1ChallengeKind = "sha256PowV1";
     private const string LegacyPowChallengeKind = "security.pow";
+    private const string TextTaskV2ChallengeKind = "perceptionTextTaskV2";
+    private const string LocalizationV2ChallengeKind = "perceptionLocalizationV2";
+    private const string MicroInteractionV2ChallengeKind = "perceptionMicroInteractionV2";
 
     public RiskDecision Decide(RiskControlContext context, SecurityRiskPolicySnapshotV2 policy, int currentRiskScore)
     {
@@ -62,6 +69,23 @@ public sealed class RiskDecisionService : IRiskDecisionService
             currentRiskScore,
             IsAnonymousWrite(context));
         RiskDecisionKind kind = MapKind(policyDecision);
+        if (TryResolvePoSpaceRouteRejection(context, policyDecision, policy, out string poSpaceRejectReason))
+        {
+            return RecordAndReturn(new RiskDecision(
+                RiskDecisionKind.Block,
+                context.ActionName,
+                context.RouteKey,
+                policyDecision.RiskScore,
+                policyDecision.EffectiveRiskScore,
+                policyDecision.EscalationLevel,
+                [],
+                policy.PolicyVersion,
+                [policyDecision.Reason, poSpaceRejectReason])
+            {
+                PerceptionGeneratorPolicy = policy.PerceptionGeneratorPolicy
+            });
+        }
+
         (IReadOnlyList<string> requiredChallenges, IReadOnlyList<string> challengeReasons) = BuildRequiredChallenges(
             kind,
             policyDecision.RequiredChallengeKinds,
@@ -89,7 +113,10 @@ public sealed class RiskDecisionService : IRiskDecisionService
             policyDecision.EscalationLevel,
             requiredChallenges,
             policy.PolicyVersion,
-            reasons));
+            reasons)
+        {
+            PerceptionGeneratorPolicy = policy.PerceptionGeneratorPolicy
+        });
     }
 
     private static RiskDecision RecordAndReturn(RiskDecision decision)
@@ -119,6 +146,7 @@ public sealed class RiskDecisionService : IRiskDecisionService
                 ? RiskDecisionKind.StepUp
                 : RiskDecisionKind.Challenge,
             SecurityRiskPolicyOutcomes.Queue => RiskDecisionKind.QueueForModeration,
+            SecurityRiskPolicyOutcomes.Throttle => RiskDecisionKind.Throttle,
             SecurityRiskPolicyOutcomes.Block or SecurityRiskPolicyOutcomes.LockdownBlock => RiskDecisionKind.Block,
             _ => RiskDecisionKind.Throttle
         };
@@ -204,6 +232,34 @@ public sealed class RiskDecisionService : IRiskDecisionService
             challengeKind.Contains("step-up", StringComparison.OrdinalIgnoreCase)
             || challengeKind.Contains("stepup", StringComparison.OrdinalIgnoreCase));
 
+    private static bool TryResolvePoSpaceRouteRejection(
+        RiskControlContext context,
+        SecurityRiskPolicyDecision policyDecision,
+        SecurityRiskPolicySnapshotV2 policy,
+        out string reason)
+    {
+        reason = string.Empty;
+        if (context.ActionName != RiskActionNames.NotificationSubscribe
+            || !policyDecision.RequiredChallengeKinds.Contains(Argon2idPoSpaceV1ChallengeKind, StringComparer.Ordinal))
+        {
+            return false;
+        }
+
+        if (!IsChallengeSubsystemEnforcing(policy, Argon2idPoSpaceV1ChallengeKind))
+        {
+            reason = "pospace_disabled_rejected";
+            return true;
+        }
+
+        if (IsMobileUserAgent(context.UserAgent))
+        {
+            reason = "pospace_mobile_rejected";
+            return true;
+        }
+
+        return false;
+    }
+
     private static bool IsChallengeSubsystemEnforcing(SecurityRiskPolicySnapshotV2 policy, string challengeKind)
     {
         string? subsystem = challengeKind switch
@@ -211,6 +267,9 @@ public sealed class RiskDecisionService : IRiskDecisionService
             CaptchaV1ChallengeKind => SecurityRiskSources.Captcha,
             Argon2idPoSpaceV1ChallengeKind => SecurityRiskSources.PoSpace,
             Sha256PowV1ChallengeKind or LegacyPowChallengeKind => SecurityRiskSources.Pow,
+            TextTaskV2ChallengeKind => SecurityRiskSources.PerceptionTextTask,
+            LocalizationV2ChallengeKind => SecurityRiskSources.PerceptionLocalization,
+            MicroInteractionV2ChallengeKind => SecurityRiskSources.PerceptionMicroInteraction,
             _ => null
         };
         if (subsystem is null)
@@ -228,6 +287,9 @@ public sealed class RiskDecisionService : IRiskDecisionService
             CaptchaV1ChallengeKind => "captcha",
             Argon2idPoSpaceV1ChallengeKind => "pospace",
             Sha256PowV1ChallengeKind or LegacyPowChallengeKind => "pow",
+            TextTaskV2ChallengeKind => "perception_text_task",
+            LocalizationV2ChallengeKind => "perception_localization",
+            MicroInteractionV2ChallengeKind => "perception_micro_interaction",
             _ => "challenge"
         };
 

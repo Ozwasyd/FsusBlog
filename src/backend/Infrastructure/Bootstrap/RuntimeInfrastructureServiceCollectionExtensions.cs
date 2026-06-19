@@ -30,7 +30,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<StartupRuntimeState>();
         services.AddBinaryRuntime();
         services.AddNotificationRuntime();
-        services.AddCrawlerAndSearchRuntime();
+        services.AddCrawlerAndSearchRuntime(configuration);
         services.AddFileAndAuthRuntime();
         services.AddAuditRuntime();
         services.AddMessagingRuntime();
@@ -71,8 +71,9 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddCrawlerAndSearchRuntime(this IServiceCollection services)
+    private static IServiceCollection AddCrawlerAndSearchRuntime(this IServiceCollection services, IConfiguration configuration)
     {
+        services.Configure<SecurityRiskEventWriterOptions>(configuration.GetSection(SecurityRiskEventWriterOptions.SectionName));
         services.AddSingleton<ISecurityAdminPolicyService, SecurityAdminPolicyService>();
         services.AddSingleton<IAntiCrawlerPolicyProvider>(sp => sp.GetRequiredService<ISecurityAdminPolicyService>());
         services.AddSingleton<IPowPolicyProvider>(sp => sp.GetRequiredService<ISecurityAdminPolicyService>());
@@ -82,6 +83,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<ICrawlerRiskService>(sp => sp.GetRequiredService<CrawlerRiskService>());
         services.AddScoped<ISecurityRiskEventStore, SecurityRiskEventStore>();
         services.AddScoped<IRiskScoreEngine, RiskScoreEngine>();
+        services.AddSingleton<SecurityRiskEventWriteQueue>();
         services.AddSingleton<SecurityRiskEventSink>();
         services.AddSingleton<ISecurityRiskSignalSink>(sp => sp.GetRequiredService<SecurityRiskEventSink>());
         services.AddSingleton<ISecurityRiskScoreReader>(sp => sp.GetRequiredService<SecurityRiskEventSink>());
@@ -89,6 +91,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<ICrawlerRangeSyncService>(sp => sp.GetRequiredService<CrawlerUpdateWorker>());
         if (!OpenApiExportMode.IsEnabled())
         {
+            services.AddHostedService<SecurityRiskEventWriterWorker>();
             services.AddHostedService(sp => sp.GetRequiredService<CrawlerUpdateWorker>());
         }
         services.AddSingleton<ISearchIndexService, SearchIndexService>();

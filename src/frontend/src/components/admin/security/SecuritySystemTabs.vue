@@ -28,6 +28,7 @@ const items = [
   { label: '风险事件', name: 'ManageSecurityEvents' },
   { label: 'Captcha', name: 'ManageSecurityCaptcha' },
   { label: 'PoSpace', name: 'ManageSecurityPoSpace' },
+  { label: 'Perception V2', name: 'ManageSecurityPerceptionV2' },
   { label: '反爬虫系统', name: 'ManageSecurityCrawler' },
   { label: 'PoW 系统', name: 'ManageSecurityPow' }
 ] as const

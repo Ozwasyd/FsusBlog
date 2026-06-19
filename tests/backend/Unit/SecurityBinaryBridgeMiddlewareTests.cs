@@ -144,7 +144,9 @@ public sealed class SecurityBinaryBridgeMiddlewareTests
             "/risk-control/overview",
             "/risk-control/options",
             "/challenges/overview",
-            "/policies/overview"
+            "/policies/overview",
+            "/perception-v2/overview",
+            "/perception-v2/options"
         })
         {
             Assert.True(SecurityBinaryBridgeMiddleware.TryResolveRoute(
@@ -154,6 +156,24 @@ public sealed class SecurityBinaryBridgeMiddlewareTests
             Assert.Null(route.RequestFrame);
             Assert.Equal(AedsFrameType.SecurityOverview, route.ResponseFrame);
         }
+    }
+
+    [Fact]
+    public void TryResolveRoute_KnowsPerceptionV2PolicyMutationRoutes()
+    {
+        Assert.True(SecurityBinaryBridgeMiddleware.TryResolveRoute(
+            HttpMethods.Put,
+            new PathString("/perception-v2/options"),
+            out var updateRoute));
+        Assert.Equal(AedsFrameType.SecurityOverview, updateRoute.RequestFrame);
+        Assert.Equal(AedsFrameType.SecurityOverview, updateRoute.ResponseFrame);
+
+        Assert.True(SecurityBinaryBridgeMiddleware.TryResolveRoute(
+            HttpMethods.Post,
+            new PathString("/perception-v2/options/rollback"),
+            out var rollbackRoute));
+        Assert.Null(rollbackRoute.RequestFrame);
+        Assert.Equal(AedsFrameType.SecurityOverview, rollbackRoute.ResponseFrame);
     }
 
     private static DefaultHttpContext CreateContext(string path, string method, byte[]? body = null)

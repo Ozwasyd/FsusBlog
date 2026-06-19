@@ -16,6 +16,8 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     private PowPolicySnapshot? _previousPow;
     private SecurityRiskPolicySnapshotV2 _currentRiskPolicy;
     private SecurityRiskPolicySnapshotV2? _previousRiskPolicy;
+    private PerceptionSealedV2PolicySnapshot _currentPerceptionV2;
+    private PerceptionSealedV2PolicySnapshot? _previousPerceptionV2;
     private bool _riskPolicyExplicitlyManaged;
     private readonly RiskEventRingBuffer _riskEvents = new(MaxRuntimeEvents);
     private readonly Dictionary<string, SecurityRiskSnapshotResponse> _riskSnapshots = new(StringComparer.OrdinalIgnoreCase);
@@ -39,10 +41,19 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             "configuration",
             "startup",
             BuildDefaultPowOptions(configuration));
+        _currentPerceptionV2 = new PerceptionSealedV2PolicySnapshot(
+            CreateSnapshotId("perception-v2", now),
+            CreateSnapshotId("perception-v2-policy", now),
+            now,
+            "configuration",
+            "startup",
+            null,
+            BuildDefaultPerceptionV2Options(configuration));
         _currentRiskPolicy = ApplyRiskControlConfigurationFallbacks(
             SecurityRiskPolicySnapshotV2Adapter.FromLegacy(_currentAntiCrawler, _currentPow),
             configuration,
             now);
+        _currentRiskPolicy = ApplyPerceptionV2Projection(_currentRiskPolicy, _currentPerceptionV2, now);
         _rules =
         [
             CreateRule("fake-crawler", "伪造搜索引擎爬虫", true, "user-agent", "Googlebot|bingbot|Baiduspider|Sogou", "block", 30, "搜索引擎 UA 必须通过 CIDR 或 DNS 验证。", "configuration", now),
@@ -58,6 +69,9 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
 
     public SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2
         => Volatile.Read(ref _currentRiskPolicy);
+
+    public PerceptionSealedV2PolicySnapshot CurrentPerceptionSealedV2
+        => Volatile.Read(ref _currentPerceptionV2);
 
     public SecurityRiskPolicySnapshot CurrentRiskPolicy
     {
@@ -225,6 +239,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
                 request,
                 now,
                 NormalizeActor(changedBy));
+            snapshot = ApplyPerceptionV2Projection(snapshot, _currentPerceptionV2, now);
             _previousRiskPolicy = current;
             _riskPolicyExplicitlyManaged = true;
             Volatile.Write(ref _currentRiskPolicy, snapshot);
@@ -247,7 +262,51 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             };
             _previousRiskPolicy = _currentRiskPolicy;
             _riskPolicyExplicitlyManaged = true;
-            Volatile.Write(ref _currentRiskPolicy, snapshot);
+            Volatile.Write(ref _currentRiskPolicy, ApplyPerceptionV2Projection(snapshot, _currentPerceptionV2, now));
+            return snapshot;
+        }
+    }
+
+    public PerceptionSealedV2PolicySnapshot UpdatePerceptionSealedV2Policy(PerceptionSealedV2PolicyUpdateRequest request, string changedBy)
+    {
+        lock (_gate)
+        {
+            PerceptionSealedV2PolicySnapshot current = _currentPerceptionV2;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            PerceptionSealedV2PolicyOptions next = ApplyPerceptionV2Options(current.Options, request);
+            var snapshot = new PerceptionSealedV2PolicySnapshot(
+                CreateSnapshotId("perception-v2", now),
+                CreateSnapshotId("perception-v2-policy", now),
+                now,
+                NormalizeActor(changedBy),
+                NormalizeReason(request.Reason),
+                current.SnapshotId,
+                next);
+            _previousPerceptionV2 = current;
+            Volatile.Write(ref _currentPerceptionV2, snapshot);
+            Volatile.Write(ref _currentRiskPolicy, ApplyPerceptionV2Projection(_currentRiskPolicy, snapshot, now));
+            return snapshot;
+        }
+    }
+
+    public PerceptionSealedV2PolicySnapshot RollbackPerceptionSealedV2Policy(string changedBy)
+    {
+        lock (_gate)
+        {
+            PerceptionSealedV2PolicySnapshot rollback = _previousPerceptionV2 ?? _currentPerceptionV2;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            var snapshot = rollback with
+            {
+                SnapshotId = CreateSnapshotId("perception-v2", now),
+                PolicyVersion = CreateSnapshotId("perception-v2-policy", now),
+                UpdatedAtUtc = now,
+                UpdatedBy = NormalizeActor(changedBy),
+                Reason = "rollback",
+                LastKnownGoodSnapshotId = rollback.SnapshotId
+            };
+            _previousPerceptionV2 = _currentPerceptionV2;
+            Volatile.Write(ref _currentPerceptionV2, snapshot);
+            Volatile.Write(ref _currentRiskPolicy, ApplyPerceptionV2Projection(_currentRiskPolicy, snapshot, now));
             return snapshot;
         }
     }
@@ -278,7 +337,17 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         {
             _previousRiskPolicy = _currentRiskPolicy;
             _riskPolicyExplicitlyManaged = true;
-            Volatile.Write(ref _currentRiskPolicy, snapshot);
+            Volatile.Write(ref _currentRiskPolicy, ApplyPerceptionV2Projection(snapshot, _currentPerceptionV2, snapshot.UpdatedAtUtc));
+        }
+    }
+
+    public void ApplyPerceptionSealedV2PolicySnapshot(PerceptionSealedV2PolicySnapshot snapshot)
+    {
+        lock (_gate)
+        {
+            _previousPerceptionV2 = _currentPerceptionV2;
+            Volatile.Write(ref _currentPerceptionV2, snapshot);
+            Volatile.Write(ref _currentRiskPolicy, ApplyPerceptionV2Projection(_currentRiskPolicy, snapshot, snapshot.UpdatedAtUtc));
         }
     }
 
@@ -293,7 +362,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             SecurityRiskPolicySnapshotV2Adapter.FromLegacy(_currentAntiCrawler, _currentPow),
             _configuration,
             updatedAtUtc);
-        Volatile.Write(ref _currentRiskPolicy, snapshot);
+        Volatile.Write(ref _currentRiskPolicy, ApplyPerceptionV2Projection(snapshot, _currentPerceptionV2, updatedAtUtc));
     }
 
     private static SecurityRiskPolicySnapshotV2 ApplyRiskControlConfigurationFallbacks(
@@ -363,6 +432,85 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             SubsystemModes = subsystemModes
         };
     }
+
+    private static SecurityRiskPolicySnapshotV2 ApplyPerceptionV2Projection(
+        SecurityRiskPolicySnapshotV2 current,
+        PerceptionSealedV2PolicySnapshot perception,
+        DateTimeOffset updatedAtUtc)
+    {
+        PerceptionSealedV2PolicyOptions options = perception.Options;
+        var subsystemModes = new Dictionary<string, string>(current.SubsystemModes, StringComparer.Ordinal);
+        subsystemModes[SecurityRiskSources.PerceptionTextTask] = ToSubsystemMode(options.Enabled && options.TextTaskEnabled);
+        subsystemModes[SecurityRiskSources.PerceptionLocalization] = ToSubsystemMode(options.Enabled && options.LocalizationEnabled);
+        subsystemModes[SecurityRiskSources.PerceptionMicroInteraction] = ToSubsystemMode(options.Enabled && options.MicroInteractionEnabled);
+        if (options.Enabled && options.PoSpaceFallbackEnabled)
+        {
+            subsystemModes[SecurityRiskSources.PoSpace] = SecuritySystemModes.Enforce;
+        }
+
+        var actionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(current.ActionOverrides.Count, StringComparer.Ordinal);
+        foreach (KeyValuePair<string, SecurityRiskActionPolicy> item in current.ActionOverrides)
+        {
+            actionOverrides[item.Key] = ProjectPerceptionV2Action(item.Value, options);
+        }
+
+        return current with
+        {
+            UpdatedAtUtc = updatedAtUtc,
+            DefaultAction = ProjectPerceptionV2Action(current.DefaultAction, options),
+            ActionOverrides = actionOverrides,
+            SubsystemModes = subsystemModes
+        };
+    }
+
+    private static SecurityRiskActionPolicy ProjectPerceptionV2Action(
+        SecurityRiskActionPolicy action,
+        PerceptionSealedV2PolicyOptions options)
+    {
+        if (!string.Equals(action.DecisionMatrix, SecurityRiskPolicySnapshotV2Adapter.PerceptionSealedV2Matrix, StringComparison.Ordinal)
+            || action.DecisionBands.Count == 0)
+        {
+            return action;
+        }
+
+        int earlyRejectThreshold = Math.Clamp(options.EarlyRejectThreshold, 60, 90);
+        var bands = new List<SecurityRiskDecisionBand>(action.DecisionBands.Count);
+        foreach (SecurityRiskDecisionBand band in action.DecisionBands)
+        {
+            if (string.Equals(band.Outcome, SecurityRiskPolicyOutcomes.Block, StringComparison.Ordinal)
+                && band.MaxScore >= 90)
+            {
+                bands.Add(band with
+                {
+                    MinScore = earlyRejectThreshold,
+                    MaxScore = Math.Max(earlyRejectThreshold, band.MaxScore),
+                    Reason = string.IsNullOrWhiteSpace(band.Reason) ? "perception_sealed_v2_block" : band.Reason
+                });
+                continue;
+            }
+
+            if (band.MinScore < earlyRejectThreshold && band.MaxScore >= earlyRejectThreshold)
+            {
+                int max = Math.Max(band.MinScore, earlyRejectThreshold - 1);
+                bands.Add(band with { MaxScore = max });
+                continue;
+            }
+
+            bands.Add(band);
+        }
+
+        return action with
+        {
+            DecisionBands = bands,
+            Thresholds = action.Thresholds with
+            {
+                BlockScore = Math.Min(action.Thresholds.BlockScore, earlyRejectThreshold)
+            }
+        };
+    }
+
+    private static string ToSubsystemMode(bool enabled)
+        => enabled ? SecuritySystemModes.Enforce : SecuritySystemModes.Disabled;
 
     private static void ApplySubsystemSwitch(IDictionary<string, string> subsystemModes, string subsystem, bool? enabled)
     {
@@ -934,6 +1082,18 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             "/api/binary/auth/pow-challenge",
             "RedisPowService");
 
+    private static PerceptionSealedV2PolicyOptions BuildDefaultPerceptionV2Options(IConfiguration configuration)
+        => new(
+            ReadBool(configuration, "Security:PerceptionV2:Enabled", true),
+            ReadBool(configuration, "Security:PerceptionV2:TextTask:Enabled", true),
+            ReadBool(configuration, "Security:PerceptionV2:Localization:Enabled", true),
+            ReadBool(configuration, "Security:PerceptionV2:MicroInteraction:Enabled", false),
+            ReadBool(configuration, "Security:PerceptionV2:PoSpaceFallback:Enabled", false),
+            Math.Clamp(ReadInt(configuration, "Security:PerceptionV2:EarlyRejectThreshold", 90), 60, 90),
+            Math.Clamp(ReadInt(configuration, "Security:PerceptionV2:MaxAttempts", 3), 1, 10),
+            Math.Clamp(ReadInt(configuration, "Security:PerceptionV2:MinSolveDurationMs", 750), 0, 10_000),
+            Math.Clamp(ReadInt(configuration, "Security:PerceptionV2:MaxSolveDurationMs", 60_000), 1_000, 300_000));
+
     private AntiCrawlerPolicyOptions ApplyAntiCrawlerOptions(AntiCrawlerPolicyOptions current, AntiCrawlerOptionsUpdateRequest request)
     {
         int minInterval = Math.Clamp(request.CidrMinUpdateIntervalMinutes ?? current.CidrMinUpdateIntervalMinutes, 30, 24 * 60);
@@ -983,6 +1143,26 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             ReplayProtectionEnabled = request.ReplayProtectionEnabled ?? current.ReplayProtectionEnabled,
             RiskScoreLinkEnabled = request.RiskScoreLinkEnabled ?? current.RiskScoreLinkEnabled
         };
+
+    private static PerceptionSealedV2PolicyOptions ApplyPerceptionV2Options(
+        PerceptionSealedV2PolicyOptions current,
+        PerceptionSealedV2PolicyUpdateRequest request)
+    {
+        int minSolve = Math.Clamp(request.MinSolveDurationMs ?? current.MinSolveDurationMs, 0, 10_000);
+        int maxSolve = Math.Clamp(request.MaxSolveDurationMs ?? current.MaxSolveDurationMs, Math.Max(minSolve + 1, 1_000), 300_000);
+        return current with
+        {
+            Enabled = request.Enabled ?? current.Enabled,
+            TextTaskEnabled = request.TextTaskEnabled ?? current.TextTaskEnabled,
+            LocalizationEnabled = request.LocalizationEnabled ?? current.LocalizationEnabled,
+            MicroInteractionEnabled = request.MicroInteractionEnabled ?? current.MicroInteractionEnabled,
+            PoSpaceFallbackEnabled = request.PoSpaceFallbackEnabled ?? current.PoSpaceFallbackEnabled,
+            EarlyRejectThreshold = Math.Clamp(request.EarlyRejectThreshold ?? current.EarlyRejectThreshold, 60, 90),
+            MaxAttempts = Math.Clamp(request.MaxAttempts ?? current.MaxAttempts, 1, 10),
+            MinSolveDurationMs = minSolve,
+            MaxSolveDurationMs = maxSolve
+        };
+    }
 
     private List<AntiCrawlerListEntryResponse> ResolveList(string listType)
         => NormalizeListType(listType) == "allow" ? _allowlist : _blocklist;

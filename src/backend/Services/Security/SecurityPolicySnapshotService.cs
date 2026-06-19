@@ -15,6 +15,7 @@ public static class SecurityPolicyIds
     public const string AntiCrawler = "anti-crawler";
     public const string Pow = "pow";
     public const string RiskControl = "risk-control";
+    public const string PerceptionSealedV2 = "perception-sealed-v2";
 }
 
 public sealed record SecurityPolicySnapshotRecord(
@@ -343,6 +344,13 @@ public sealed class SecurityPolicySnapshotHostedService(
             if (riskControl.Success && riskControl.Document is not null)
             {
                 policy.ApplyRiskControlPolicySnapshot(riskControl.Document);
+            }
+
+            SecurityPolicyLoadResult<PerceptionSealedV2PolicySnapshot> perceptionV2 =
+                await snapshots.LoadActiveOrLastKnownGoodAsync<PerceptionSealedV2PolicySnapshot>(SecurityPolicyIds.PerceptionSealedV2, cancellationToken);
+            if (perceptionV2.Success && perceptionV2.Document is not null)
+            {
+                policy.ApplyPerceptionSealedV2PolicySnapshot(perceptionV2.Document);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

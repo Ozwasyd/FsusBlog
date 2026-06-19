@@ -17,6 +17,7 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SecurityChallengeBinaryEndpointTests
 {
+    private const int SecurityChallengeVerifyDefaultMaxAttempts = 3;
     private const string HashA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string HashB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     private const string HashC = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
@@ -133,6 +134,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             new FixedRiskPolicyProvider(CreatePolicy(Sha256PowChallengeProvider.WireKind)),
             new RiskControlContextFactory(),
             orchestrator,
+            new NullRiskSink(),
             CancellationToken.None);
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
@@ -144,6 +146,97 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal(challengeId, orchestrator.LastVerifyRequest.ChallengeId);
         Assert.Equal(Sha256PowChallengeProvider.WireKind, orchestrator.LastVerifyRequest.Kind);
         Assert.Equal("fpow", orchestrator.LastVerifyRequest.ProviderPayload["proof"]);
+    }
+
+    [Theory]
+    [InlineData("perception_text_answer_invalid")]
+    [InlineData("perception_coordinate_invalid")]
+    [InlineData("perception_steps_invalid")]
+    [InlineData("perception_expired")]
+    [InlineData("perception_replayed")]
+    public async Task VerifyAsync_ProviderFailure_ReturnsGenericChallengeFailedApiError(string internalReason)
+    {
+        var aeds = new AedsEncoder();
+        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        var request = new SecurityChallengeVerifyBinaryRequest(
+            challengeId,
+            SecurityChallengeKind.PerceptionCharacterV2,
+            "auth.login",
+            "auth.login",
+            """{"answerText":"wrong","solveDurationMs":"2400"}""");
+        var context = CreateContext(
+            AedsFrameType.SecurityChallengeVerifyRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request)));
+        var orchestrator = new FakeChallengeOrchestrator
+        {
+            VerifyResult = SecurityChallengeOrchestrationVerifyResult.Failed(internalReason)
+        };
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
+            context,
+            aeds,
+            new FixedRiskPolicyProvider(CreatePolicy("perceptionCharacterV2")),
+            new RiskControlContextFactory(),
+            orchestrator,
+            new NullRiskSink(),
+            CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(StatusCodes.Status428PreconditionRequired, context.Response.StatusCode);
+        Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
+        ErrorDetail error = PodBinaryCodec.ToErrorDetail(errorPod);
+        Assert.Equal(ErrorCode.Forbidden, error.Code);
+        Assert.Equal("challenge_failed", error.Message);
+        Assert.DoesNotContain(internalReason, error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(internalReason, error.Details ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_RepeatedCompositeFailures_ReturnGenericFailureWithoutCallingOrchestratorAfterMaxAttempts()
+    {
+        var aeds = new AedsEncoder();
+        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        var request = new SecurityChallengeVerifyBinaryRequest(
+            challengeId,
+            SecurityChallengeKind.PerceptionCharacterV2,
+            "auth.login",
+            "auth.login",
+            """{"answerText":"wrong","solveDurationMs":"2400"}""");
+        var orchestrator = new FakeChallengeOrchestrator
+        {
+            VerifyResult = SecurityChallengeOrchestrationVerifyResult.Failed("perception_text_answer_invalid")
+        };
+        var riskSink = new CapturingRiskSink();
+
+        for (int i = 0; i < SecurityChallengeVerifyDefaultMaxAttempts + 1; i++)
+        {
+            var context = CreateContext(
+                AedsFrameType.SecurityChallengeVerifyRequest,
+                BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request)));
+
+            BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
+                context,
+                aeds,
+                new FixedRiskPolicyProvider(CreatePolicy("perceptionCharacterV2")),
+                new RiskControlContextFactory(),
+                orchestrator,
+                riskSink,
+                CancellationToken.None);
+
+            AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+            Assert.Equal(StatusCodes.Status428PreconditionRequired, context.Response.StatusCode);
+            Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
+            Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
+            Assert.Equal("challenge_failed", PodBinaryCodec.ToErrorDetail(errorPod).Message);
+        }
+
+        Assert.Equal(SecurityChallengeVerifyDefaultMaxAttempts, orchestrator.VerifyCallCount);
+        SecurityRiskSignal signal = Assert.Single(riskSink.Signals);
+        Assert.Equal(SecurityRiskReason.SecurityChallengeRejected, signal.Reason);
+        Assert.Equal(SecurityRiskSources.RiskControl, signal.Source);
+        Assert.Equal("auth.login", signal.Action);
+        Assert.Equal("challenge_verify_rate_limited", signal.Detail);
     }
 
     [Fact]
@@ -261,6 +354,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             new FixedRiskPolicyProvider(CreatePolicy("security.pow")),
             new RiskControlContextFactory(),
             new FakeChallengeOrchestrator(),
+            new NullRiskSink(),
             CancellationToken.None);
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
@@ -412,6 +506,8 @@ public sealed class SecurityChallengeBinaryEndpointTests
 
         public SecurityChallengeOrchestrationVerifyRequest? LastVerifyRequest { get; private set; }
 
+        public int VerifyCallCount { get; private set; }
+
         public SecurityChallengeOrchestrationIssueResult IssueResult { get; set; } = SecurityChallengeOrchestrationIssueResult.Failed("provider_missing");
 
         public SecurityChallengeOrchestrationVerifyResult VerifyResult { get; set; } = SecurityChallengeOrchestrationVerifyResult.Failed("provider_missing");
@@ -425,6 +521,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         public Task<SecurityChallengeOrchestrationVerifyResult> VerifyAsync(SecurityChallengeOrchestrationVerifyRequest request, CancellationToken cancellationToken = default)
         {
             LastVerifyRequest = request;
+            VerifyCallCount++;
             return Task.FromResult(VerifyResult);
         }
     }

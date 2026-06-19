@@ -20,6 +20,8 @@ Valid system modes are exactly `disabled`, `observe`, `enforce`, `strict` and `l
 - `strict`: enforcing mode with higher effective risk weighting.
 - `lockdown`: enforcing mode that can block anonymous writes when `AnonymousWriteAllowed=false`.
 
+Default `SecurityRiskPolicySnapshotV2` action policies use the `perception-sealed@v2` decision matrix. The base score bands are 0-19 allow, 20-39 `sha256PowV1`, 40-59 `perceptionTextTaskV2`, 60-79 `perceptionLocalizationV2 + sha256PowV1`, 80-89 action-specific critical routing, and 90+ block. The 80-89 band routes `public.read`, `auth.login` and `recovery-key.verify` to throttle, `comment.create` / `comment.reply` to moderation queue, `notification.subscribe` to `argon2idPoSpaceV1` only when PoSpace is enforcing, and `admin.security.write` to RiskControl admin step-up. `recovery-key.verify` still has a 0-score `captchaV1` requirement, and anonymous `notification.subscribe` still has a 0-score `sha256PowV1` requirement.
+
 ## Rollout order
 
 Move one stage at a time. Do not advance while the previous stage has elevated 4xx, provider error, replay, timeout or readiness regressions.
@@ -58,7 +60,7 @@ Move one stage at a time. Do not advance while the previous stage has elevated 4
 | Active policy missing or corrupt | Readiness `not_ready`; runtime may use loaded last-known-good only if available. | Same. | Same. | Same. | Restore last-known-good `security_policy_snapshot`; do not invent inline defaults in endpoints. |
 | No last-known-good policy | Readiness `not_ready`; do not promote. | Same. | Same. | Same. | Recreate policy snapshot through admin-controlled migration/runbook before exposing traffic. |
 | Captcha provider missing or signing key invalid | Fail closed for actions requiring `captchaV1`. | Fail closed for `auth.login` / recovery when `captchaV1` is required. | Fail closed for comment challenge; queue only if policy chooses queue without challenge. | Fail closed if required. | Remove `captchaV1` from active policy or switch affected actions to `observe`; fix `Security:CaptchaV1:SigningKey`. |
-| PoSpace provider unavailable or disabled | `argon2idPoSpaceV1` falls back to `captchaV1` in decision service when PoSpace subsystem is not enforcing. | Same. | Same. | Same. | Keep `Security:PoSpaceV1:Mode=disabled` unless capacity tests pass. |
+| PoSpace provider unavailable or disabled | Non-notification PoSpace challenge can fall back before issue; `notification.subscribe` critical route rejects instead of downgrading. | Same. | Same. | Same. | Keep `Security:PoSpaceV1:Mode=disabled` unless capacity tests pass; expect notification critical traffic to block while disabled. |
 | PoSpace parameter out of bounds | Fail closed for PoSpace verify; decision should fall back before issue when subsystem disabled. | Same. | Same. | Same. | Restore valid `Security:PoSpaceV1:*` values or disable subsystem. |
 | HumanReadProof unavailable | Public reads still render; read event proof may not lower risk or count views. | Not applicable. | Must not authorize writes. | Must not authorize writes. | Use `HumanReadProof:Mode=paused` only for read counting; never add it to write challenge requirements. |
 | Challenge kind mismatch / expired / replayed proof | 428 when proof is required; no handler execution. | 428; no auth state change. | 428 before comment write. | 428 before policy write. | Treat as attack signal; do not retry with relaxed binding. |
@@ -69,7 +71,7 @@ Move one stage at a time. Do not advance while the previous stage has elevated 4
 
 - Switch observe: activate a new `security_policy_snapshot` with `GlobalMode=observe` or targeted action `ModeOverride=observe`. This is the preferred live rollback because it preserves risk scoring, metrics and audit without requiring a process restart.
 - Disable CaptchaV1: there is no `Security:CaptchaV1:Mode` runtime switch. Remove `captchaV1` from `ChallengeKind` / `HardChallengeKinds` or set affected actions to `observe`, then fix `Security:CaptchaV1:SigningKey` before re-enabling.
-- Disable PoSpace: set `Security:PoSpaceV1:Mode=disabled` and keep `SubsystemModes["pospace"]="disabled"` in the active policy. The decision service will prefer `captchaV1` fallback for PoSpace-required decisions.
+- Disable PoSpace: set `Security:PoSpaceV1:Mode=disabled` and keep `SubsystemModes["pospace"]="disabled"` in the active policy. The decision service can prefer `captchaV1` fallback for non-notification PoSpace-required decisions, but `notification.subscribe` critical routing rejects rather than issuing a substitute challenge.
 - Pause HumanReadProof counting: set `HumanReadProof:Mode=paused`. This pauses read-event writes only; it does not grant write authorization and does not replace RiskControl challenge proof.
 - Restore last-known-good policy: activate the snapshot referenced by `LastKnownGoodSnapshotId` or the most recent `is_last_known_good=true` record. Keep the rollback audit reason explicit and verify readiness after activation.
 - AntiCrawler emergency observe: set `AntiCrawler:Mode=observe` or `Security:AntiCrawler:Mode=observe` for config fallback, or update the active policy subsystem/action mode if policy snapshots are already active.
