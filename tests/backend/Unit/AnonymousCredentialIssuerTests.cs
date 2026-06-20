@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -20,12 +21,19 @@ using FsusBlog.Shared.Contracts.Validation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AnonymousCredentialIssuerTests
 {
+    private const string BbsFixtureSecretKeyHex = "60e55110f76883a13d030b2f6bd11883422d5abde717569fc0731f51237169fc";
+    private const string BbsCommittedMessageScalarHex = "5982967821da3c5983496214df36aa5e58de6fa25314af4cf4c00400779f08c3";
+    private const string BbsProverBlindHex = "1b6f406b17aaf92dc7deb911c7cae49756a6623b5c385b5ae6214d7e3d9597f7";
+    private const string BbsBlindTildeHex = "0b71f3e3fc1517bd763b180dc4f6d269da8c96fb5307653b77205c31e40c521e";
+    private const string BbsMessageTildeHex = "2b8c33fb06580d8dffdc72212967ae75838859096abeea973cc0d9e80ac1946c";
+
     [Fact]
     public void Migration_CreatesIssuanceAuditWithoutCredentialMapping()
     {
@@ -101,6 +109,134 @@ public sealed class AnonymousCredentialIssuerTests
 
             Assert.Contains("\"AnonymousCredentialIssuer\"", source, StringComparison.Ordinal);
             Assert.Contains("\"AllowBannedAccountIssuance\": false", source, StringComparison.Ordinal);
+            Assert.Contains("\"Backend\": \"managed_bbs_blind_v1\"", source, StringComparison.Ordinal);
+            Assert.Contains("\"Enabled\": false", source, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void ManagedBbsBlindCredentialSigner_OfficialFixture_VerifiesCommitmentDomainAndSignature()
+    {
+        Assert.True(ManagedBbsBlindCredentialSigner.VerifyOfficialNoMessageFixtureForTests());
+    }
+
+    [Fact]
+    public async Task ProductionBbsBlindCredentialIssuer_ConfiguredManagedBackend_SignsAndVerifiesCredentialCommitment()
+    {
+        string tempRoot = Path.Combine(Path.GetTempPath(), $"fsus-bbs-issuer-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+        try
+        {
+            IConfiguration configuration = CreateManagedBbsIssuerConfiguration(tempRoot, out BbsBlindCredentialIssuerOptions bbsOptions);
+            using var issuer = new ProductionBbsBlindCredentialIssuer(
+                configuration,
+                NullLogger<ProductionBbsBlindCredentialIssuer>.Instance);
+            byte[] commitment = CreateManagedBbsCommitmentWithProof();
+            var material = CreateManagedBbsIssueMaterial(commitment);
+
+            Result<BbsBlindCredentialIssueResult> issued = await issuer.SignAsync(material, CancellationToken.None);
+
+            Assert.True(issuer.IsConfigured);
+            Assert.True(issued.IsSuccess, issued.Error.Message);
+            Assert.Equal("issuer-key:test", issued.Value.IssuerPublicKeyId);
+            Assert.Equal(ManagedBbsBlindCredentialSigner.SignatureSizeBytes, issued.Value.BbsSignature.Length);
+            Assert.True(ManagedBbsBlindCredentialSigner.TryCreate(
+                bbsOptions,
+                out ManagedBbsBlindCredentialSigner? verifier,
+                out _,
+                out string reason), reason);
+            Assert.True(verifier!.VerifySignatureForTests(material, issued.Value.BbsSignature));
+
+            byte[] tamperedCommitment = [.. commitment];
+            tamperedCommitment[^1] ^= 0x01;
+            Result<BbsBlindCredentialIssueResult> rejected = await issuer.SignAsync(
+                material with { BlindedCommitment = tamperedCommitment },
+                CancellationToken.None);
+
+            Assert.True(rejected.IsFailure);
+            Assert.Equal(ErrorCode.Validation, rejected.Error.Code);
+            Assert.Equal("anonymous_credential_blinded_commitment_invalid", rejected.Error.Message);
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ProductionBbsBlindCredentialIssuer_PublicKeyHashMismatch_FailsClosed()
+    {
+        string tempRoot = Path.Combine(Path.GetTempPath(), $"fsus-bbs-issuer-mismatch-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+        try
+        {
+            IConfiguration configuration = CreateManagedBbsIssuerConfiguration(
+                tempRoot,
+                out _,
+                publicKeyHashOverride: new string('0', 64));
+            using var issuer = new ProductionBbsBlindCredentialIssuer(
+                configuration,
+                NullLogger<ProductionBbsBlindCredentialIssuer>.Instance);
+
+            Result<BbsBlindCredentialIssueResult> issued = await issuer.SignAsync(
+                CreateManagedBbsIssueMaterial(CreateManagedBbsCommitmentWithProof()),
+                CancellationToken.None);
+
+            Assert.False(issuer.IsConfigured);
+            Assert.True(issued.IsFailure);
+            Assert.Equal(ErrorCode.InfraFailure, issued.Error.Code);
+            Assert.Equal("anonymous_credential_issuer_unavailable", issued.Error.Message);
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ProductionBbsBlindCredentialIssuer_UsesBoundedConcurrencyAndDoesNotLogPayloads()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialIssuerService.cs");
+
+        Assert.Contains("SemaphoreSlim", source, StringComparison.Ordinal);
+        Assert.Contains("MaxConcurrentSignatures", source, StringComparison.Ordinal);
+        Assert.Contains("WaitAsync(queueTimeout, cancellationToken)", source, StringComparison.Ordinal);
+        Assert.Contains("TimeoutMs", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("LogInformation", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("LogDebug", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("material.BlindedCommitment", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("signature}", source, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ProductionBbsBlindCredentialIssuer_PerfSmoke_CompletesWithinBudget()
+    {
+        string tempRoot = Path.Combine(Path.GetTempPath(), $"fsus-bbs-issuer-perf-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+        try
+        {
+            IConfiguration configuration = CreateManagedBbsIssuerConfiguration(tempRoot, out _);
+            using var issuer = new ProductionBbsBlindCredentialIssuer(
+                configuration,
+                NullLogger<ProductionBbsBlindCredentialIssuer>.Instance);
+            var material = CreateManagedBbsIssueMaterial(CreateManagedBbsCommitmentWithProof());
+
+            const int operationCount = 16;
+            var stopwatch = Stopwatch.StartNew();
+            for (int i = 0; i < operationCount; i++)
+            {
+                Result<BbsBlindCredentialIssueResult> issued = await issuer.SignAsync(material, CancellationToken.None);
+                Assert.True(issued.IsSuccess, issued.Error.Message);
+            }
+
+            stopwatch.Stop();
+            Assert.True(
+                stopwatch.Elapsed < TimeSpan.FromSeconds(5),
+                $"Managed Blind BBS signer took {stopwatch.Elapsed.TotalMilliseconds:F1} ms for {operationCount} signatures.");
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
         }
     }
 
@@ -391,6 +527,51 @@ public sealed class AnonymousCredentialIssuerTests
             AnonymousCredentialLevels.StrongAnonymous,
             "issuer-key:test",
             [.. Enumerable.Range(0, 96).Select(static value => (byte)value)]);
+
+    private static IConfiguration CreateManagedBbsIssuerConfiguration(
+        string tempRoot,
+        out BbsBlindCredentialIssuerOptions bbsOptions,
+        string? publicKeyHashOverride = null)
+    {
+        string privateKeyPath = Path.Combine(tempRoot, "issuer.sk.hex");
+        string publicKeyPath = Path.Combine(tempRoot, "issuer.pk.hex");
+        byte[] publicKey = ManagedBbsBlindCredentialSigner.DerivePublicKeyForTests(BbsFixtureSecretKeyHex);
+        File.WriteAllText(privateKeyPath, BbsFixtureSecretKeyHex);
+        File.WriteAllText(publicKeyPath, Convert.ToHexStringLower(publicKey));
+        string publicKeyHash = publicKeyHashOverride ?? Convert.ToHexStringLower(SHA256.HashData(publicKey));
+
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AnonymousCredentialIssuer:IssuerPublicKeyId"] = "issuer-key:test",
+                ["AnonymousCredentialIssuer:Bbs:Enabled"] = "true",
+                ["AnonymousCredentialIssuer:Bbs:Backend"] = BbsBlindCredentialIssuerOptions.ManagedBbsBlindBackend,
+                ["AnonymousCredentialIssuer:Bbs:IssuerPrivateKeyPath"] = privateKeyPath,
+                ["AnonymousCredentialIssuer:Bbs:IssuerPublicKeyPath"] = publicKeyPath,
+                ["AnonymousCredentialIssuer:Bbs:IssuerPublicKeyHash"] = publicKeyHash,
+                ["AnonymousCredentialIssuer:Bbs:MaxConcurrentSignatures"] = "2",
+                ["AnonymousCredentialIssuer:Bbs:TimeoutMs"] = "2000"
+            })
+            .Build();
+        bbsOptions = BbsBlindCredentialIssuerOptions.FromConfiguration(configuration);
+        return configuration;
+    }
+
+    private static byte[] CreateManagedBbsCommitmentWithProof()
+        => ManagedBbsBlindCredentialSigner.CreateCommitmentWithProofForTests(
+            BbsCommittedMessageScalarHex,
+            BbsProverBlindHex,
+            BbsBlindTildeHex,
+            BbsMessageTildeHex);
+
+    private static BbsBlindCredentialIssueMaterial CreateManagedBbsIssueMaterial(byte[] commitment)
+        => new(
+            CredentialEpoch: 2042,
+            CircuitNumericId: 7,
+            PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
+            CircuitId: AnonymousPrivacyContract.CircuitId,
+            CredentialLevel: AnonymousCredentialLevels.StrongAnonymous,
+            BlindedCommitment: commitment);
 
     private static SqlSugarClient CreateDb()
         => new(new ConnectionConfig

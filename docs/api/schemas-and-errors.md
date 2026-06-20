@@ -262,8 +262,8 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 165 | `CommentPolicyUpdateRequest` | `CommentPolicyUpdateRequestPod` | admin 匿名评论策略 patch 请求体 |
 | 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | 新评论创建请求；包含匿名 scope、author mode、language hint、普通 proof token 和 ZK proof bytes；不得从 userId/ProofToken 派生 ZK nullifier |
 | 167 | `CommentAuthorView` | `CommentAuthorViewPod` | 评论作者展示投影；评论 cursor 必须显式携带，客户端不得从 `userName` 伪造匿名/公开显示名 |
-| 177 | `AnonymousCredentialIssueRequest` | `AnonymousCredentialIssueRequestPod` | `POST /api/binary/anonymous-credential/issue` 请求体；包含 BBS+ blinded commitment、client nonce 与 layout version |
-| 178 | `AnonymousCredentialIssueResponse` | `AnonymousCredentialIssueResponsePod` | 匿名凭证签发响应契约；BBS+ signature、issuer public key id、expires_at，不返回 SHA256 commitment 或可逆身份 |
+| 177 | `AnonymousCredentialIssueRequest` | `AnonymousCredentialIssueRequestPod` | `POST /api/binary/anonymous-credential/issue` 请求体；包含 Blind BBS `commitment_with_proof`、client nonce 与 layout version |
+| 178 | `AnonymousCredentialIssueResponse` | `AnonymousCredentialIssueResponsePod` | 匿名凭证签发响应契约；80 bytes Blind BBS issuer signature、issuer public key id、expires_at，不返回 SHA256 commitment 或可逆身份 |
 | 179 | `AnonymousCredentialRootSnapshot` | `AnonymousCredentialRootSnapshotPod` | 匿名凭证 root/verifying-key snapshot；包含 issuer public key hash、credential/revocation root；`GET /api/binary/anonymous-credential/root` 与 `/circuit` 响应 |
 | 180 | `AnonymousCommentTicketRequest` | `AnonymousCommentTicketRequestPod` | `POST /api/binary/comment/anonymous-ticket` 请求体；action/scope/nullifier/root/credential metadata、Groth16 proof 与 public inputs 使用 blob slice |
 | 181 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | 匿名评论 ticket 响应；one-time opaque ticket、expires_at、credential level 与 moderation subject hash，不返回用户身份或 nullifier 原文 |

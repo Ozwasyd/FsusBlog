@@ -6,6 +6,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Shared.Contracts.Validation;
+using Microsoft.Extensions.Logging;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;
@@ -86,27 +87,103 @@ public sealed class UnavailableBbsBlindCredentialIssuer(IConfiguration configura
     }
 }
 
-public sealed class ProductionBbsBlindCredentialIssuer(IConfiguration configuration) : IBbsBlindCredentialIssuer
+public sealed class ProductionBbsBlindCredentialIssuer : IBbsBlindCredentialIssuer, IDisposable
 {
-    private readonly BbsBlindCredentialIssuerConfigurationStatus _status =
-        BbsBlindCredentialIssuerOptions.FromConfiguration(configuration).ValidateConfiguration();
+    private readonly BbsBlindCredentialIssuerOptions _options;
+    private readonly BbsBlindCredentialIssuerConfigurationStatus _status;
+    private readonly ManagedBbsBlindCredentialSigner? _signer;
+    private readonly SemaphoreSlim _signatureSlots;
+    private readonly ILogger<ProductionBbsBlindCredentialIssuer> _logger;
+
+    public ProductionBbsBlindCredentialIssuer(
+        IConfiguration configuration,
+        ILogger<ProductionBbsBlindCredentialIssuer> logger)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        _logger = logger;
+        _options = BbsBlindCredentialIssuerOptions.FromConfiguration(configuration);
+        _status = _options.ValidateConfiguration(out _signer);
+        _signatureSlots = new SemaphoreSlim(_options.MaxConcurrentSignatures, _options.MaxConcurrentSignatures);
+        IssuerPublicKeyId = AnonymousCredentialIssuerService.ResolveIssuerPublicKeyId(configuration);
+
+        if (_options.Enabled && !IsConfigured)
+        {
+            _logger.LogWarning(
+                "Managed BBS blind credential issuer is enabled but not configured. backend={Backend} supported={Supported} hasPrivateKey={HasPrivateKey} hasPublicKey={HasPublicKey} publicKeyHashMatches={PublicKeyHashMatches} backendLoaded={BackendLoaded}",
+                _options.Backend,
+                _status.HasSupportedBackend,
+                _status.HasPrivateKey,
+                _status.HasPublicKey,
+                _status.PublicKeyHashMatches,
+                _status.HasRealSigningBackend);
+        }
+    }
 
     public bool IsConfigured => _status.CanIssueBlindSignatures;
 
-    public string IssuerPublicKeyId => AnonymousCredentialIssuerService.ResolveIssuerPublicKeyId(configuration);
+    public string IssuerPublicKeyId { get; }
 
     public string IssuerPublicKeyHash => _status.IssuerPublicKeyHash.Length > 0
         ? _status.IssuerPublicKeyHash
         : Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(IssuerPublicKeyId)));
 
-    public ValueTask<Result<BbsBlindCredentialIssueResult>> SignAsync(
+    public async ValueTask<Result<BbsBlindCredentialIssueResult>> SignAsync(
         BbsBlindCredentialIssueMaterial material,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return ValueTask.FromResult(Result<BbsBlindCredentialIssueResult>.Failure(
+        if (_signer is null || !IsConfigured)
+        {
+            return Result<BbsBlindCredentialIssueResult>.Failure(
+                ErrorCode.InfraFailure,
+                "anonymous_credential_issuer_unavailable");
+        }
+
+        TimeSpan queueTimeout = TimeSpan.FromMilliseconds(_options.TimeoutMs);
+        if (!await _signatureSlots.WaitAsync(queueTimeout, cancellationToken).ConfigureAwait(false))
+        {
+            _logger.LogWarning(
+                "Managed BBS blind credential issuer queue timed out after {TimeoutMs} ms.",
+                _options.TimeoutMs);
+            return Result<BbsBlindCredentialIssueResult>.Failure(
+                ErrorCode.InfraFailure,
+                "anonymous_credential_issuer_unavailable");
+        }
+
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!_signer.TrySign(material, out byte[] signature, out string reason))
+            {
+                return MapSigningFailure(reason);
+            }
+
+            return Result<BbsBlindCredentialIssueResult>.Success(new BbsBlindCredentialIssueResult(
+                IssuerPublicKeyId,
+                signature));
+        }
+        finally
+        {
+            _signatureSlots.Release();
+        }
+    }
+
+    public void Dispose() => _signatureSlots.Dispose();
+
+    private static Result<BbsBlindCredentialIssueResult> MapSigningFailure(string reason)
+    {
+        if (string.Equals(reason, "blinded_commitment_invalid", StringComparison.Ordinal))
+        {
+            return Result<BbsBlindCredentialIssueResult>.Failure(
+                ErrorCode.Validation,
+                "anonymous_credential_blinded_commitment_invalid");
+        }
+
+        return Result<BbsBlindCredentialIssueResult>.Failure(
             ErrorCode.InfraFailure,
-            "anonymous_credential_issuer_unavailable"));
+            "anonymous_credential_issuer_unavailable");
     }
 }
 
@@ -120,7 +197,7 @@ internal sealed record BbsBlindCredentialIssuerOptions(
     int TimeoutMs)
 {
     public const string SectionName = "AnonymousCredentialIssuer:Bbs";
-    public const string NativeBbsPlusBackend = "native_bbs_plus";
+    public const string ManagedBbsBlindBackend = "managed_bbs_blind_v1";
     private const int DefaultMaxConcurrentSignatures = 2;
     private const int DefaultTimeoutMs = 2_000;
 
@@ -141,19 +218,24 @@ internal sealed record BbsBlindCredentialIssuerOptions(
     }
 
     public BbsBlindCredentialIssuerConfigurationStatus ValidateConfiguration()
+        => ValidateConfiguration(out _);
+
+    internal BbsBlindCredentialIssuerConfigurationStatus ValidateConfiguration(
+        out ManagedBbsBlindCredentialSigner? signer)
     {
-        bool privateKeyReadable = HasReadableFile(IssuerPrivateKeyPath);
-        bool publicKeyReadable = TryReadFile(IssuerPublicKeyPath, out byte[] publicKey);
+        signer = null;
+        bool privateKeyReadable = ManagedBbsBlindCredentialSigner.TryReadPrivateKeyFileForValidation(IssuerPrivateKeyPath);
+        bool publicKeyReadable = ManagedBbsBlindCredentialSigner.TryReadPublicKeyFileForValidation(IssuerPublicKeyPath, out byte[] publicKey);
         string actualPublicKeyHash = publicKeyReadable
             ? Convert.ToHexStringLower(SHA256.HashData(publicKey))
             : string.Empty;
         bool publicKeyHashMatches = IssuerPublicKeyHash.Length > 0 &&
             string.Equals(actualPublicKeyHash, IssuerPublicKeyHash, StringComparison.Ordinal);
-        bool supportedBackend = string.Equals(Backend, NativeBbsPlusBackend, StringComparison.Ordinal);
-
-        // A real BBS+ blind-signing backend is intentionally not bundled in this slice.
-        // Keep production readiness false rather than synthesizing placeholder signatures.
-        const bool realSigningBackendLoaded = false;
+        bool supportedBackend = string.Equals(Backend, ManagedBbsBlindBackend, StringComparison.Ordinal);
+        bool realSigningBackendLoaded = Enabled &&
+            supportedBackend &&
+            publicKeyHashMatches &&
+            ManagedBbsBlindCredentialSigner.TryCreate(this, out signer, out _, out _);
         return new BbsBlindCredentialIssuerConfigurationStatus(
             Enabled,
             supportedBackend,
@@ -192,28 +274,6 @@ internal sealed record BbsBlindCredentialIssuerOptions(
         return normalized.ToLowerInvariant();
     }
 
-    private static bool HasReadableFile(string path)
-        => TryReadFile(path, out byte[] bytes) && bytes.Length > 0;
-
-    private static bool TryReadFile(string path, out byte[] bytes)
-    {
-        bytes = [];
-        if (path.Length == 0 || !File.Exists(path))
-        {
-            return false;
-        }
-
-        try
-        {
-            bytes = File.ReadAllBytes(path);
-            return bytes.Length > 0;
-        }
-        catch
-        {
-            bytes = [];
-            return false;
-        }
-    }
 }
 
 internal readonly record struct BbsBlindCredentialIssuerConfigurationStatus(
