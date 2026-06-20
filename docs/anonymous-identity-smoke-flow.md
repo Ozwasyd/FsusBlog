@@ -1,6 +1,6 @@
 # Anonymous Identity Smoke Flow
 
-This runbook verifies cold-start anonymous identity mode after the legacy identity cutover. The reset is destructive by design: old users and historical comments are intentionally cleared, including legacy sessions, legacy Passkey rows, MFA recovery-code hashes, comment moderation rows, and user-bound message state.
+This runbook verifies cold-start anonymous identity mode after the legacy identity cutover. The reset is destructive by design: old users and historical comments are intentionally cleared, including legacy sessions, legacy Passkey rows, recovery-key rows, anonymous credential rows, credential issuance audit rows, MFA recovery-code hashes, comment nullifier/moderation rows, and user-bound message state.
 
 Run these checks first against an isolated restored database. Do not run the production cold-start reset until the rehearsal result has been accepted.
 
@@ -21,12 +21,18 @@ Start the backend once with `FSUSBLOG_CONFIRM_IDENTITY_RESET=DELETE_LEGACY_USERS
 - `sys_user`
 - `sys_user_session`
 - `passkey_credential`
+- `account_recovery_key`
+- `anonymous_credential`
+- `anonymous_credential_issuance_audit`
 - `comment`
+- `comment_anonymous_nullifier`
 - `comment_region_compliance`
 - `comment_moderation_signal`
 - `msg_participant_state`
 - user-bound `msg_message`
 - user-bound `msg_conversation`
+
+Do not treat public ZK circuit/root metadata as legacy identity residue. `anonymous_credential_root`, `anonymous_credential_epoch`, and `anonymous_credential_revocation` are preserved or rebuilt by the anonymous credential root lifecycle, not by deleting old users.
 
 Restart without `FSUSBLOG_CONFIRM_IDENTITY_RESET` and confirm the reset no longer runs. A missing or different confirmation value must fail before destructive SQL starts.
 

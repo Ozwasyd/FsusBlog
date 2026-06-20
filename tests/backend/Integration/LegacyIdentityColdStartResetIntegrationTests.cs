@@ -30,6 +30,10 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
         Assert.Equal(1, await CountRowsAsync(connectionString, "sys_user"));
         Assert.Equal(1, await CountRowsAsync(connectionString, "sys_user_session"));
         Assert.Equal(1, await CountRowsAsync(connectionString, "passkey_credential"));
+        Assert.Equal(1, await CountRowsAsync(connectionString, "account_recovery_key"));
+        Assert.Equal(1, await CountRowsAsync(connectionString, "anonymous_credential"));
+        Assert.Equal(1, await CountRowsAsync(connectionString, "anonymous_credential_issuance_audit"));
+        Assert.Equal(1, await CountRowsAsync(connectionString, "comment_anonymous_nullifier"));
         Assert.Equal(2, await CountRowsAsync(connectionString, "comment"));
         Assert.Equal(1, await CountRowsAsync(connectionString, "comment_region_compliance"));
         Assert.Equal(1, await CountRowsAsync(connectionString, "comment_moderation_signal"));
@@ -54,6 +58,10 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
         Assert.Equal(1, result.UsersDeleted);
         Assert.Equal(1, result.SessionsDeleted);
         Assert.Equal(1, result.PasskeyCredentialsDeleted);
+        Assert.Equal(1, result.AccountRecoveryKeysDeleted);
+        Assert.Equal(1, result.AnonymousCredentialsDeleted);
+        Assert.Equal(1, result.AnonymousCredentialIssuanceAuditsDeleted);
+        Assert.Equal(1, result.CommentAnonymousNullifiersDeleted);
         Assert.Equal(2, result.CommentsDeleted);
         Assert.Equal(1, result.CommentRegionComplianceDeleted);
         Assert.Equal(1, result.CommentModerationSignalsDeleted);
@@ -64,6 +72,10 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
         Assert.Equal(0, await CountRowsAsync(connectionString, "sys_user"));
         Assert.Equal(0, await CountRowsAsync(connectionString, "sys_user_session"));
         Assert.Equal(0, await CountRowsAsync(connectionString, "passkey_credential"));
+        Assert.Equal(0, await CountRowsAsync(connectionString, "account_recovery_key"));
+        Assert.Equal(0, await CountRowsAsync(connectionString, "anonymous_credential"));
+        Assert.Equal(0, await CountRowsAsync(connectionString, "anonymous_credential_issuance_audit"));
+        Assert.Equal(0, await CountRowsAsync(connectionString, "comment_anonymous_nullifier"));
         Assert.Equal(0, await CountRowsAsync(connectionString, "comment"));
         Assert.Equal(0, await CountRowsAsync(connectionString, "comment_region_compliance"));
         Assert.Equal(0, await CountRowsAsync(connectionString, "comment_moderation_signal"));
@@ -74,6 +86,10 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
         Assert.True(await fixture.TableExistsAsync(connectionString, "sys_user"));
         Assert.True(await fixture.TableExistsAsync(connectionString, "sys_user_session"));
         Assert.True(await fixture.TableExistsAsync(connectionString, "passkey_credential"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "account_recovery_key"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "anonymous_credential"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "anonymous_credential_issuance_audit"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "comment_anonymous_nullifier"));
         Assert.True(await fixture.TableExistsAsync(connectionString, "comment"));
         Assert.True(await fixture.TableExistsAsync(connectionString, "comment_region_compliance"));
         Assert.True(await fixture.TableExistsAsync(connectionString, "comment_moderation_signal"));
@@ -93,6 +109,10 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
             typeof(FsusBlog.Server.Entities.User),
             typeof(FsusBlog.Server.Entities.UserSession),
             typeof(FsusBlog.Server.Entities.PasskeyCredential),
+            typeof(FsusBlog.Server.Entities.RecoveryKeyCredential),
+            typeof(FsusBlog.Server.Entities.AnonymousCredential),
+            typeof(FsusBlog.Server.Entities.AnonymousCredentialIssuanceAudit),
+            typeof(FsusBlog.Server.Entities.CommentAnonymousNullifier),
             typeof(FsusBlog.Server.Entities.Comment),
             typeof(FsusBlog.Server.Entities.CommentRegionCompliance),
             typeof(FsusBlog.Server.Entities.CommentModerationSignal),
@@ -133,6 +153,30 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
                 true, true, TIMESTAMP '2024-01-01 00:00:00'
             );
 
+            INSERT INTO account_recovery_key(
+                id, user_id, key_hash, key_version, created_at, used_at, revoked_at
+            )
+            VALUES (
+                11, 42, 'legacy-recovery-key-hash', 1,
+                TIMESTAMP '2024-01-01 00:00:00', NULL, NULL
+            );
+
+            INSERT INTO anonymous_credential(
+                id, user_id, commitment_hash, credential_type, credential_level,
+                status, issued_at_utc, revoked_at_utc, metadata_json
+            )
+            VALUES (
+                12, 42, 'legacy-credential-commitment', 'account_bound', 'basic',
+                'active', TIMESTAMP '2024-01-01 00:00:00', NULL, '{}'
+            );
+
+            INSERT INTO anonymous_credential_issuance_audit(
+                id, user_id, epoch, status, created_at_utc, trace_id
+            )
+            VALUES (
+                13, 42, 20260620, 'issued', TIMESTAMP '2024-01-01 00:00:00', 'legacy-trace'
+            );
+
             INSERT INTO comment(
                 id, article_id, content, create_time, user_id, parent_id, root_id,
                 reply_to_user_id, reply_to_comment_id, depth, is_deleted, moderation_status,
@@ -148,6 +192,15 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
                     1002, 9, 'legacy reply', TIMESTAMP '2024-01-02 00:01:00', 42, 1001, 1001, 42, 1001, 1, false, 1,
                     'public', 'legacy-admin', 'legacy admin', 'en', 'legacy-subject-reply', 'basic', 'legacy', 'known'
                 );
+
+            INSERT INTO comment_anonymous_nullifier(
+                id, nullifier_hash, scope, use_count, first_comment_id, last_comment_id,
+                blocked, block_reason, created_at_utc, updated_at_utc
+            )
+            VALUES (
+                14, 'legacy-nullifier', 'article:9', 2, 1001, 1002,
+                false, NULL, TIMESTAMP '2024-01-02 00:00:00', TIMESTAMP '2024-01-02 00:01:00'
+            );
 
             INSERT INTO comment_region_compliance(
                 id, comment_id, submit_region, submit_region_confidence, region_provider,

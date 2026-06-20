@@ -23,7 +23,11 @@ public sealed class AnonymousIdentityColdStartQualityContractTests
         {
             "DELETE FROM comment_moderation_signal",
             "DELETE FROM comment_region_compliance",
+            "DELETE FROM comment_anonymous_nullifier",
             "DELETE FROM comment",
+            "DELETE FROM anonymous_credential_issuance_audit",
+            "DELETE FROM anonymous_credential",
+            "DELETE FROM account_recovery_key",
             "DELETE FROM msg_participant_state",
             "DELETE FROM msg_message",
             "DELETE FROM msg_conversation",
@@ -51,11 +55,22 @@ public sealed class AnonymousIdentityColdStartQualityContractTests
         Assert.Contains("RunAsync_FailsBeforeDeletingRows_WhenConfirmationIsMissing", integrationTests, StringComparison.Ordinal);
         Assert.Contains("RunAsync_DeletesLegacyIdentityCommentsAndUserBoundMessages_WhenConfirmationMatches", integrationTests, StringComparison.Ordinal);
         Assert.Contains("Assert.Equal(0, await CountRowsAsync(connectionString, \"comment\"))", integrationTests, StringComparison.Ordinal);
+        Assert.Contains("Assert.Equal(0, await CountRowsAsync(connectionString, \"account_recovery_key\"))", integrationTests, StringComparison.Ordinal);
+        Assert.Contains("Assert.Equal(0, await CountRowsAsync(connectionString, \"anonymous_credential\"))", integrationTests, StringComparison.Ordinal);
+        Assert.Contains("Assert.Equal(0, await CountRowsAsync(connectionString, \"anonymous_credential_issuance_audit\"))", integrationTests, StringComparison.Ordinal);
+        Assert.Contains("Assert.Equal(0, await CountRowsAsync(connectionString, \"comment_anonymous_nullifier\"))", integrationTests, StringComparison.Ordinal);
         Assert.Contains("Assert.True(await fixture.TableExistsAsync(connectionString, \"comment\"))", integrationTests, StringComparison.Ordinal);
 
         Assert.Contains("intentionally deletes legacy users and historical comments", migrationRunbook, StringComparison.Ordinal);
         Assert.Contains("FSUSBLOG_CONFIRM_IDENTITY_RESET=DELETE_LEGACY_USERS", migrationRunbook, StringComparison.Ordinal);
+        Assert.Contains("account_recovery_key", migrationRunbook, StringComparison.Ordinal);
+        Assert.Contains("anonymous_credential", migrationRunbook, StringComparison.Ordinal);
+        Assert.Contains("anonymous_credential_issuance_audit", migrationRunbook, StringComparison.Ordinal);
+        Assert.Contains("comment_anonymous_nullifier", migrationRunbook, StringComparison.Ordinal);
         Assert.Contains("legacy Passkey", securityRunbook, StringComparison.Ordinal);
+        Assert.Contains("account_recovery_key", securityRunbook, StringComparison.Ordinal);
+        Assert.Contains("anonymous_credential", securityRunbook, StringComparison.Ordinal);
+        Assert.Contains("comment_anonymous_nullifier", securityRunbook, StringComparison.Ordinal);
         Assert.True(
             securityRunbook.Contains("历史评论", StringComparison.Ordinal) ||
             securityRunbook.Contains("historical comments", StringComparison.Ordinal),

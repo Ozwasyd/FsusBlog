@@ -9,6 +9,10 @@ public sealed record LegacyIdentityColdStartResetResult(
     int UsersDeleted,
     int SessionsDeleted,
     int PasskeyCredentialsDeleted,
+    int AccountRecoveryKeysDeleted,
+    int AnonymousCredentialsDeleted,
+    int AnonymousCredentialIssuanceAuditsDeleted,
+    int CommentAnonymousNullifiersDeleted,
     int CommentsDeleted,
     int CommentRegionComplianceDeleted,
     int CommentModerationSignalsDeleted,
@@ -68,8 +72,24 @@ public sealed class LegacyIdentityColdStartResetOperation(
             int regionComplianceDeleted = await DeleteAndCountAsync(
                 "DELETE FROM comment_region_compliance",
                 cancellationToken);
+            int commentAnonymousNullifiersDeleted = await DeleteAndCountIfTableExistsAsync(
+                "comment_anonymous_nullifier",
+                "DELETE FROM comment_anonymous_nullifier",
+                cancellationToken);
             int commentsDeleted = await DeleteAndCountAsync(
                 "DELETE FROM comment",
+                cancellationToken);
+            int anonymousCredentialIssuanceAuditsDeleted = await DeleteAndCountIfTableExistsAsync(
+                "anonymous_credential_issuance_audit",
+                "DELETE FROM anonymous_credential_issuance_audit",
+                cancellationToken);
+            int anonymousCredentialsDeleted = await DeleteAndCountIfTableExistsAsync(
+                "anonymous_credential",
+                "DELETE FROM anonymous_credential",
+                cancellationToken);
+            int accountRecoveryKeysDeleted = await DeleteAndCountIfTableExistsAsync(
+                "account_recovery_key",
+                "DELETE FROM account_recovery_key",
                 cancellationToken);
             int participantStatesDeleted = await DeleteAndCountAsync(
                 """
@@ -113,6 +133,10 @@ public sealed class LegacyIdentityColdStartResetOperation(
                 usersDeleted,
                 sessionsDeleted,
                 passkeyCredentialsDeleted,
+                accountRecoveryKeysDeleted,
+                anonymousCredentialsDeleted,
+                anonymousCredentialIssuanceAuditsDeleted,
+                commentAnonymousNullifiersDeleted,
                 commentsDeleted,
                 regionComplianceDeleted,
                 moderationSignalsDeleted,
@@ -130,10 +154,14 @@ public sealed class LegacyIdentityColdStartResetOperation(
             ?? throw new InvalidOperationException("Legacy identity cold-start reset produced no result.");
         await RemoveLegacyUserCachesAsync(resetUserIds, cancellationToken);
         _logger.LogWarning(
-            "Legacy identity cold-start reset deleted users={UsersDeleted}, sessions={SessionsDeleted}, passkeys={PasskeyCredentialsDeleted}, comments={CommentsDeleted}.",
+            "Legacy identity cold-start reset deleted users={UsersDeleted}, sessions={SessionsDeleted}, passkeys={PasskeyCredentialsDeleted}, recoveryKeys={AccountRecoveryKeysDeleted}, anonymousCredentials={AnonymousCredentialsDeleted}, credentialAudits={AnonymousCredentialIssuanceAuditsDeleted}, commentNullifiers={CommentAnonymousNullifiersDeleted}, comments={CommentsDeleted}.",
             committed.UsersDeleted,
             committed.SessionsDeleted,
             committed.PasskeyCredentialsDeleted,
+            committed.AccountRecoveryKeysDeleted,
+            committed.AnonymousCredentialsDeleted,
+            committed.AnonymousCredentialIssuanceAuditsDeleted,
+            committed.CommentAnonymousNullifiersDeleted,
             committed.CommentsDeleted);
 
         return committed;
@@ -162,6 +190,36 @@ public sealed class LegacyIdentityColdStartResetOperation(
             """);
 
         return Convert.ToInt32(table.Rows[0][0]);
+    }
+
+    private async Task<int> DeleteAndCountIfTableExistsAsync(
+        string tableName,
+        string deleteSql,
+        CancellationToken cancellationToken)
+    {
+        if (!await TableExistsAsync(tableName, cancellationToken))
+        {
+            return 0;
+        }
+
+        return await DeleteAndCountAsync(deleteSql, cancellationToken);
+    }
+
+    private async Task<bool> TableExistsAsync(string tableName, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        DataTable table = await _db.Ado.GetDataTableAsync(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.tables
+                WHERE table_schema = current_schema()
+                  AND table_name = @TableName
+            )::boolean;
+            """,
+            new SugarParameter("@TableName", tableName));
+
+        return table.Rows.Count > 0 && Convert.ToBoolean(table.Rows[0][0]);
     }
 
     private async Task<List<int>> ReadResetUserIdsAsync(CancellationToken cancellationToken)

@@ -118,12 +118,16 @@ public sealed class LifecycleHostedBootstrapServiceTests
                     UsersDeleted: 1,
                     SessionsDeleted: 2,
                     PasskeyCredentialsDeleted: 3,
+                    AccountRecoveryKeysDeleted: 4,
+                    AnonymousCredentialsDeleted: 5,
+                    AnonymousCredentialIssuanceAuditsDeleted: 6,
+                    CommentAnonymousNullifiersDeleted: 7,
                     CommentsDeleted: 4,
-                    CommentRegionComplianceDeleted: 5,
-                    CommentModerationSignalsDeleted: 6,
-                    MessageParticipantStatesDeleted: 7,
-                    UserBoundMessagesDeleted: 8,
-                    UserBoundConversationsDeleted: 9)));
+                    CommentRegionComplianceDeleted: 8,
+                    CommentModerationSignalsDeleted: 9,
+                    MessageParticipantStatesDeleted: 10,
+                    UserBoundMessagesDeleted: 11,
+                    UserBoundConversationsDeleted: 12)));
 
             var service = new LifecycleHostedBootstrapService(
                 services,
@@ -369,6 +373,10 @@ public sealed class LifecycleHostedBootstrapServiceTests
                 UsersDeleted: 0,
                 SessionsDeleted: 0,
                 PasskeyCredentialsDeleted: 0,
+                AccountRecoveryKeysDeleted: 0,
+                AnonymousCredentialsDeleted: 0,
+                AnonymousCredentialIssuanceAuditsDeleted: 0,
+                CommentAnonymousNullifiersDeleted: 0,
                 CommentsDeleted: 0,
                 CommentRegionComplianceDeleted: 0,
                 CommentModerationSignalsDeleted: 0,

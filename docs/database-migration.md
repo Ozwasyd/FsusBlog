@@ -45,11 +45,12 @@ Run the reset only against an isolated restored database first:
 
 1. Create a full site backup and restore it to an isolated PostgreSQL database.
 2. Start the server once with `FSUSBLOG_CONFIRM_IDENTITY_RESET=DELETE_LEGACY_USERS`.
-3. Confirm `sys_user`, `sys_user_session`, `passkey_credential`, `comment`, `comment_region_compliance`, and `comment_moderation_signal` all contain zero rows.
+3. Confirm `sys_user`, `sys_user_session`, `passkey_credential`, `account_recovery_key`, `anonymous_credential`, `anonymous_credential_issuance_audit`, `comment`, `comment_anonymous_nullifier`, `comment_region_compliance`, and `comment_moderation_signal` all contain zero legacy/user-bound rows.
 4. Confirm user-bound `msg_participant_state`, `msg_message`, and `msg_conversation` rows have been removed.
-5. Repeat the same guarded startup on the production cold-start database only after the rehearsal result is accepted.
+5. Confirm public ZK circuit/root metadata such as `anonymous_credential_root`, `anonymous_credential_epoch`, and `anonymous_credential_revocation` is either preserved for the new anonymous system or rebuilt by the root lifecycle process; it is not deleted as legacy user data.
+6. Repeat the same guarded startup on the production cold-start database only after the rehearsal result is accepted.
 
-If `FSUSBLOG_CONFIRM_IDENTITY_RESET` is missing or has any other value, `LegacyIdentityColdStartResetOperation` fails before opening the destructive transaction. The operation keeps table structures in place for CodeFirst compatibility and deletes rows in dependency order: comment-derived rows, comments, user-bound messages, passkey credentials, sessions, then users. After the database transaction commits, it clears legacy user cache entries for blacklist/blocking, unread-message counts, and user-comment cursors. Rollback is backup based; do not run this operation without a fresh restore point.
+If `FSUSBLOG_CONFIRM_IDENTITY_RESET` is missing or has any other value, `LegacyIdentityColdStartResetOperation` fails before opening the destructive transaction. The operation keeps table structures in place for CodeFirst compatibility and deletes rows in dependency order: comment-derived rows, comments, user-bound recovery keys, anonymous credentials, credential issuance audit rows, user-bound messages, passkey credentials, sessions, then users. After the database transaction commits, it clears legacy user cache entries for blacklist/blocking, unread-message counts, and user-comment cursors. Rollback is backup based; do not run this operation without a fresh restore point.
 
 The anonymous account schema migration keeps `sys_user` but changes its meaning after reset:
 
