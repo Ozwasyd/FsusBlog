@@ -9,14 +9,14 @@ public sealed class ZkProdOptions
 
     public bool Enabled { get; init; }
     public bool RequireNativeVerifier { get; init; } = true;
-    public bool RequireBbsCredential { get; init; } = true;
+    public bool RequireCredential { get; init; } = true;
     public bool RequireTrustedSetupVerified { get; init; } = true;
     public bool AllowDevVerifier { get; init; }
     public bool FallbackToLegacyAnonymous { get; init; }
     public string VerifierBackend { get; init; } = NativeGroth16Backend;
     public string? VerifyingKeyHash { get; init; }
     public bool TrustedSetupVerified { get; init; }
-    public bool BbsCredentialReady { get; init; }
+    public bool CredentialReady { get; init; }
 
     public static ZkProdOptions FromConfiguration(IConfiguration configuration)
     {
@@ -25,14 +25,14 @@ public sealed class ZkProdOptions
         {
             Enabled = section.GetValue(nameof(Enabled), false),
             RequireNativeVerifier = section.GetValue(nameof(RequireNativeVerifier), true),
-            RequireBbsCredential = section.GetValue(nameof(RequireBbsCredential), true),
+            RequireCredential = section.GetValue(nameof(RequireCredential), true),
             RequireTrustedSetupVerified = section.GetValue(nameof(RequireTrustedSetupVerified), true),
             AllowDevVerifier = section.GetValue(nameof(AllowDevVerifier), false),
             FallbackToLegacyAnonymous = section.GetValue(nameof(FallbackToLegacyAnonymous), false),
             VerifierBackend = Normalize(section[nameof(VerifierBackend)], NativeGroth16Backend, 64),
             VerifyingKeyHash = NormalizeNullable(section[nameof(VerifyingKeyHash)], 128),
             TrustedSetupVerified = section.GetValue(nameof(TrustedSetupVerified), false),
-            BbsCredentialReady = section.GetValue(nameof(BbsCredentialReady), false)
+            CredentialReady = section.GetValue(nameof(CredentialReady), false)
         };
     }
 
@@ -64,7 +64,7 @@ public sealed class ZkProdOptions
 public readonly record struct ZkProdRuntimeReadiness(
     bool NativeVerifierConfigured,
     bool CredentialRootReady,
-    bool BbsIssuerConfigured = false)
+    bool CredentialIssuerConfigured = false)
 {
     public static ZkProdRuntimeReadiness Missing { get; } = new(false, false, false);
 }
@@ -73,7 +73,7 @@ public sealed record ZkProdPolicySnapshot(
     bool Enabled,
     bool NativeVerifierConfigured,
     bool TrustedSetupVerified,
-    bool BbsCredentialRequired,
+    bool CredentialRequired,
     bool CredentialRootReady,
     string UnavailableReason);
 
@@ -90,7 +90,7 @@ public static class ZkProdPolicySnapshotFactory
             options.Enabled,
             readiness.NativeVerifierConfigured,
             trustedSetupVerified,
-            options.RequireBbsCredential,
+            options.RequireCredential,
             readiness.CredentialRootReady,
             unavailableReason);
     }
@@ -134,14 +134,14 @@ public static class ZkProdPolicySnapshotFactory
             return "trusted_setup_unverified";
         }
 
-        if (options.RequireBbsCredential && !options.BbsCredentialReady)
+        if (options.RequireCredential && !options.CredentialReady)
         {
-            return "bbs_credential_unready";
+            return "credential_unready";
         }
 
-        if (options.RequireBbsCredential && !readiness.BbsIssuerConfigured)
+        if (options.RequireCredential && !readiness.CredentialIssuerConfigured)
         {
-            return "bbs_issuer_unavailable";
+            return "credential_issuer_unavailable";
         }
 
         if (!readiness.CredentialRootReady)

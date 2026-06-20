@@ -342,7 +342,7 @@ public static partial class BinaryEndpoints
         => policy.Enabled &&
             policy.NativeVerifierConfigured &&
             policy.TrustedSetupVerified &&
-            policy.BbsCredentialRequired &&
+            policy.CredentialRequired &&
             policy.CredentialRootReady &&
             string.IsNullOrWhiteSpace(policy.UnavailableReason);
 
@@ -538,7 +538,7 @@ public static partial class BinaryEndpoints
             zkProd.Enabled,
             zkProd.NativeVerifierConfigured,
             zkProd.TrustedSetupVerified,
-            zkProd.BbsCredentialRequired,
+            zkProd.CredentialRequired,
             zkProd.CredentialRootReady,
             zkProd.UnavailableReason);
 

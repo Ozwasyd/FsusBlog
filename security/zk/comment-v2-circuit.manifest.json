@@ -1,28 +1,28 @@
 {
   "schema": "fsusblog.zk.circuit-manifest.v1",
-  "circuit_id": "fsus.anonymous.comment.v1",
-  "public_input_layout_version": 2,
+  "circuit_id": "fsus.anonymous.comment.v2",
+  "public_input_layout_version": 3,
   "proof_system": "Groth16",
   "curve": "bn254",
-  "credential_scheme": "BBS+",
+  "credential_scheme": "circuit-native-credential-v2",
   "artifact_status": "contract-only",
   "production_usable": false,
   "action_context": "comment.create",
   "domain_separators": {
-    "nullifier_prf": "fsus.anonymous.comment.v1:nullifier:v1",
-    "scope_binding": "fsus.anonymous.comment.v1:scope:v1",
-    "policy_binding": "fsus.anonymous.comment.v1:policy:v1"
+    "nullifier_prf": "fsus.anonymous.comment.v2:nullifier:v1",
+    "scope_binding": "fsus.anonymous.comment.v2:scope:v1",
+    "policy_binding": "fsus.anonymous.comment.v2:policy:v1"
   },
   "public_inputs": [
     {
       "name": "public_input_layout_version",
       "type": "u16",
-      "constraint": "equals 2"
+      "constraint": "equals 3"
     },
     {
       "name": "circuit_id",
       "type": "domain-separated-field",
-      "constraint": "equals fsus.anonymous.comment.v1"
+      "constraint": "equals fsus.anonymous.comment.v2"
     },
     {
       "name": "action_context",
@@ -87,9 +87,14 @@
       "purpose": "secret seed for nullifier PRF"
     },
     {
-      "name": "bbs_plus_issuer_signature",
-      "type": "signature",
-      "purpose": "prove accepted issuer signed credential attributes"
+      "name": "circuit_native_issuer_signature",
+      "type": "poseidon-schnorr-signature",
+      "purpose": "prove accepted issuer signed credential attributes on the circuit-native curve"
+    },
+    {
+      "name": "issuer_signature_public_key",
+      "type": "jubjub-public-key",
+      "purpose": "verify the circuit-native issuer signature inside the circuit"
     },
     {
       "name": "credential_opening",
@@ -135,8 +140,8 @@
   },
   "security_assertions": [
     {
-      "id": "valid_bbs_credential",
-      "statement": "holder has a BBS+ credential signed by an accepted issuer key"
+      "id": "valid_circuit_native_credential",
+      "statement": "holder has a circuit-native credential signed by an accepted issuer key"
     },
     {
       "id": "current_credential_root",
@@ -181,9 +186,9 @@
     "native_verifier_p99_ms_max": 50
   },
   "artifact_paths": {
-    "r1cs": "artifacts/zk/comment-v1/comment_v1.r1cs",
-    "wasm": "artifacts/zk/comment-v1/comment_v1.wasm",
-    "symbol": "artifacts/zk/comment-v1/comment_v1.sym",
-    "source_archive": "artifacts/zk/comment-v1/comment_v1_source.tar.gz"
+    "r1cs": "artifacts/zk/comment-v2/comment_v2.r1cs",
+    "wasm": "artifacts/zk/comment-v2/comment_v2.wasm",
+    "symbol": "artifacts/zk/comment-v2/comment_v2.sym",
+    "source_archive": "artifacts/zk/comment-v2/comment_v2_source.tar.gz"
   }
 }

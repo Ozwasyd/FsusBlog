@@ -10,7 +10,7 @@ const DEFAULT_CONFIGS = [
 ]
 const DEFAULT_SUMMARY = '.tmp/security/privacy-zk-prod-smoke.json'
 const DEFAULT_PROVER_MANIFEST = 'src/frontend/public/wasm/comment-privacy-prover.manifest.json'
-const DEFAULT_TRUSTED_SETUP = 'security/zk/comment-v1-trusted-setup.manifest.json'
+const DEFAULT_TRUSTED_SETUP = 'security/zk/comment-v2-trusted-setup.manifest.json'
 
 const args = parseArgs(process.argv.slice(2))
 const summaryPath = resolveRepoPath(args.summary ?? DEFAULT_SUMMARY)
@@ -25,7 +25,7 @@ const configuration = configPaths
 
 const zkProd = readSection(configuration, ['AnonymousIdentity', 'ZkProd'])
 const zkVerifier = readSection(configuration, ['AnonymousIdentity', 'ZkVerifier'])
-const bbsIssuer = readSection(configuration, ['AnonymousIdentity', 'BbsIssuer'])
+const credentialIssuer = readSection(configuration, ['AnonymousCredentialIssuer', 'CircuitNative'])
 const enabled = readBoolEnv('FSUSBLOG_ZK_PROD_ENABLED') ?? readBool(zkProd.Enabled) ?? false
 const traceId = `zk-prod-smoke-${Date.now().toString(36)}`
 const realEvidence = args.realEvidence ? readRealEvidence(args.realEvidence) : null
@@ -75,7 +75,7 @@ const summary = {
   featureFlagOffExpectedUnavailable: !enabled,
   nativeVerifier: realEvidence?.nativeVerifier === true || artifactState.nativeVerifier,
   wasmProver: realEvidence?.wasmProver === true || artifactState.wasmProver,
-  bbsCredential: realEvidence?.bbsCredential === true || artifactState.bbsCredential,
+  credential: realEvidence?.credential === true || artifactState.credential,
   ticketIssued: realEvidence?.ticketIssued === true,
   anonymousSubmitPending: realEvidence?.anonymousSubmitPending === true,
   identityHeadersOmitted: realEvidence?.identityHeadersOmitted === true || status === 'expected_unavailable',
@@ -117,14 +117,14 @@ function inspectArtifacts() {
   const proverManifest = readOptionalJson(proverManifestPath)
   const wasmProver = hasUsableBrowserProver(proverManifest)
 
-  const bbsCredential = readBool(zkProd.BbsCredentialReady) === true ||
-    normalizeString(process.env.FSUSBLOG_ZK_BBS_ISSUER_PUBLIC_KEY ?? bbsIssuer.PublicKeyPath ?? zkProd.BbsIssuerPublicKeyPath).length > 0
+  const credential = readBool(zkProd.CredentialReady) === true ||
+    normalizeString(process.env.FSUSBLOG_ZK_ISSUER_PUBLIC_KEY ?? credentialIssuer.IssuerPublicKeyPath ?? zkProd.IssuerPublicKeyPath).length > 0
 
   const safeArtifacts = {
     nativeVerifierConfigured: nativeVerifier,
     trustedSetupProductionUsable: trustedSetupReady,
     browserProverArtifactAvailable: wasmProver,
-    bbsCredentialReady: bbsCredential,
+    credentialReady: credential,
     proverManifest: existsSync(resolveRepoPath(proverManifestPath)) ? toRepoRelative(resolveRepoPath(proverManifestPath)) : null,
     trustedSetupManifest: existsSync(resolveRepoPath(trustedSetupPath)) ? toRepoRelative(resolveRepoPath(trustedSetupPath)) : null
   }
@@ -132,7 +132,7 @@ function inspectArtifacts() {
   return {
     nativeVerifier,
     wasmProver,
-    bbsCredential,
+    credential,
     safeArtifacts
   }
 }
@@ -157,7 +157,7 @@ function validateRealEvidence(evidence) {
   for (const key of [
     'nativeVerifier',
     'wasmProver',
-    'bbsCredential',
+    'credential',
     'ticketIssued',
     'anonymousSubmitPending',
     'identityHeadersOmitted',

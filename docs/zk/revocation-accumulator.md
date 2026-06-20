@@ -3,7 +3,7 @@
 Status: backend accumulator implemented; circuit/prover consumption still gated.
 
 This document records the revocation accumulator boundary for
-`fsus.anonymous.comment.v1`. The repository keeps the deterministic legacy
+`fsus.anonymous.comment.v2`. The repository keeps the deterministic legacy
 SHA-256 accumulator for backend governance and migration checks, and adds the
 production metadata slot `circuit-friendly-non-membership.v1` for a circuit
 friendly sparse Merkle non-membership accumulator.

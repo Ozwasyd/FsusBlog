@@ -6,10 +6,10 @@
     "version": 2
   },
   "anonymousPrivacyContract": {
-    "circuitId": "fsus.anonymous.comment.v1",
-    "publicInputLayoutVersion": 2,
-    "maxBbsSignatureBytes": 256,
-    "maxBbsBlindedCommitmentBytes": 256,
+    "circuitId": "fsus.anonymous.comment.v2",
+    "publicInputLayoutVersion": 3,
+    "maxCircuitNativeIssuerSignatureBytes": 256,
+    "maxCircuitNativeCredentialRequestBytes": 256,
     "maxGroth16ProofBytes": 4096,
     "anonymousTicketPublicInputs": [
       "action_context",

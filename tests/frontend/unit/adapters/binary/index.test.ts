@@ -178,7 +178,7 @@ describe('mapFramePayloadToViewModel', () => {
 
   it('maps anonymous privacy state snapshot frames', () => {
     const pod = new Uint8Array(ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE)
-    const circuit = textBytes('zk-comment-v1')
+    const circuit = textBytes('zk-comment-v2')
     const verifyingKeyHash = textBytes('vk-sha256')
     const status = textBytes('active')
     const level = textBytes('strong_anonymous')
@@ -188,7 +188,7 @@ describe('mapFramePayloadToViewModel', () => {
     writeInt64(pod, 8, 1780000000000n)
     writeInt64(pod, 16, 1780000005000n)
     writeInt32(pod, 24, 7)
-    writeUint16(pod, 28, 2)
+    writeUint16(pod, 28, 3)
     pod[30] = 1
     pod[31] = 1
     pod[32] = 0
@@ -202,11 +202,11 @@ describe('mapFramePayloadToViewModel', () => {
       rootExpiresAtUnixMs: 1780000000000,
       ticketExpiresAtUnixMs: 1780000005000,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 2,
+      publicInputLayoutVersion: 3,
       hasActiveCredential: true,
       canIssueCredential: true,
       canSubmitAnonymousComment: false,
-      circuitId: 'zk-comment-v1',
+      circuitId: 'zk-comment-v2',
       verifyingKeyHash: 'vk-sha256',
       credentialStatus: 'active',
       credentialLevel: 'strong_anonymous'

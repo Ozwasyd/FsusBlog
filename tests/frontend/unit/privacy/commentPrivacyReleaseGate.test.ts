@@ -73,7 +73,7 @@ describe('comment privacy release gate', () => {
 
     expect(script).toContain('native-verifier-library')
     expect(script).toContain('trusted-setup-manifest')
-    expect(script).toContain('bbs-issuer-public-key')
+    expect(script).toContain('credential-issuer-public-key')
     expect(script).toContain('zk-prod-smoke-evidence')
     expect(script).toContain('AllowDevVerifier')
     expect(script).toContain('FallbackToLegacyAnonymous')

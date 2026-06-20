@@ -193,7 +193,7 @@ public sealed record class AnonymousCredentialIssueRequest(
     ushort PublicInputLayoutVersion,
     string CircuitId,
     string CredentialLevel,
-    byte[] BlindedCommitment,
+    byte[] CredentialRequest,
     byte[] ClientNonce);
 
 public sealed record class AnonymousCredentialIssueResponse(
@@ -204,7 +204,7 @@ public sealed record class AnonymousCredentialIssueResponse(
     string CircuitId,
     string CredentialLevel,
     string IssuerPublicKeyId,
-    byte[] BbsSignature);
+    byte[] IssuerSignature);
 
 public sealed record class AnonymousCredentialRootSnapshot(
     long CredentialEpoch,

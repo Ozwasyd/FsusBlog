@@ -60,7 +60,7 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
     private readonly IZkProofVerifier _verifier;
     private readonly IOptionsMonitor<ZkProdOptions> _zkProdOptions;
     private readonly IAnonymousCredentialRootReader? _rootReader;
-    private readonly IBbsBlindCredentialIssuer? _bbsIssuer;
+    private readonly ICircuitNativeCredentialIssuer? _credentialIssuer;
 
     public ZkAnonymousProofService(IConfiguration configuration, IZkProofVerifier verifier)
         : this(
@@ -77,13 +77,13 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
         IZkProofVerifier verifier,
         IOptionsMonitor<ZkProdOptions> zkProdOptions,
         IAnonymousCredentialRootReader? rootReader = null,
-        IBbsBlindCredentialIssuer? bbsIssuer = null)
+        ICircuitNativeCredentialIssuer? credentialIssuer = null)
     {
         _configuration = configuration;
         _verifier = verifier;
         _zkProdOptions = zkProdOptions;
         _rootReader = rootReader;
-        _bbsIssuer = bbsIssuer;
+        _credentialIssuer = credentialIssuer;
     }
 
     public AnonymousCommentPolicySnapshot CurrentCommentPolicy
@@ -115,7 +115,7 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
             new ZkProdRuntimeReadiness(
                 _verifier.IsConfigured,
                 HasReadyCredentialRoot(),
-                _bbsIssuer?.IsConfigured == true),
+                _credentialIssuer?.IsConfigured == true),
             _configuration);
 
     public async Task<ZkProofVerificationResult> VerifyCommentProofAsync(

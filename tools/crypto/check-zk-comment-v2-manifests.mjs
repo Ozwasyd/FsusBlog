@@ -10,37 +10,37 @@ const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url))
 const paths = {
   circuit: resolveInputPath(
     process.env.FSUSBLOG_ZK_CIRCUIT_MANIFEST,
-    'security/zk/comment-v1-circuit.manifest.json'
+    'security/zk/comment-v2-circuit.manifest.json'
   ),
   tamper: resolveInputPath(
     process.env.FSUSBLOG_ZK_TAMPER_MANIFEST,
-    'security/zk/comment-v1-tamper-cases.manifest.json'
+    'security/zk/comment-v2-tamper-cases.manifest.json'
   ),
   setup: resolveInputPath(
     process.env.FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST,
-    'security/zk/comment-v1-trusted-setup.manifest.json'
+    'security/zk/comment-v2-trusted-setup.manifest.json'
   ),
   config: resolveInputPath(
     process.env.FSUSBLOG_ZK_VERIFYING_KEY_CONFIG_MANIFEST,
-    'config/zk/anonymous-comment-v1-verifying-key.manifest.json'
+    'config/zk/anonymous-comment-v2-verifying-key.manifest.json'
   ),
   feasibility: resolveInputPath(
     process.env.FSUSBLOG_ZK_FEASIBILITY_MANIFEST,
-    'security/zk/comment-v1-feasibility.manifest.json'
+    'security/zk/comment-v2-feasibility.manifest.json'
   )
 }
 
 const outputPath = resolveOutputPath(
   process.env.FSUSBLOG_ZK_MANIFEST_CHECK_OUT,
-  '.tmp/security/zk-comment-v1-manifest.json'
+  '.tmp/security/zk-comment-v2-manifest.json'
 )
 
 const expected = {
-  circuitId: 'fsus.anonymous.comment.v1',
-  layoutVersion: 2,
+  circuitId: 'fsus.anonymous.comment.v2',
+  layoutVersion: 3,
   actionContext: 'comment.create',
   proofSystem: 'Groth16',
-  credentialScheme: 'BBS+',
+  credentialScheme: 'circuit-native-credential-v2',
   requiredPublicInputs: [
     'public_input_layout_version',
     'circuit_id',
@@ -58,7 +58,8 @@ const expected = {
   ],
   requiredPrivateWitness: [
     'credential_secret',
-    'bbs_plus_issuer_signature',
+    'circuit_native_issuer_signature',
+    'issuer_signature_public_key',
     'credential_opening',
     'credential_membership_proof',
     'revocation_non_membership_witness',
@@ -67,7 +68,7 @@ const expected = {
     'policy_comparison_witness'
   ],
   requiredAssertions: [
-    'valid_bbs_credential',
+    'valid_circuit_native_credential',
     'current_credential_root',
     'revocation_non_membership',
     'qualification_policy',
@@ -117,7 +118,8 @@ const expected = {
     'production-ready',
     'verified-production-artifacts'
   ],
-  unresolvedFeasibilityStatus: 'blocked-pending-design-decision'
+  feasibilityStatus: 'resolved',
+  selectedCandidate: 'circuit-native-credential-v2'
 }
 
 const failures = []
@@ -139,7 +141,7 @@ function resolveOutputPath(value, fallback) {
 }
 
 function fail(message) {
-  failures.push(`[zk-comment-v1-manifest] ${message}`)
+  failures.push(`[zk-comment-v2-manifest] ${message}`)
 }
 
 function readJson(file) {
@@ -375,7 +377,7 @@ function checkSetup(setup, circuitHash) {
   equals('setup.schema', setup.schema, 'fsusblog.zk.trusted-setup-manifest.v1')
   equals('setup.circuit_id', setup.circuit_id, expected.circuitId)
   equals('setup.public_input_layout_version', setup.public_input_layout_version, expected.layoutVersion)
-  equals('setup.circuit_manifest_path', setup.circuit_manifest_path, 'security/zk/comment-v1-circuit.manifest.json')
+  equals('setup.circuit_manifest_path', setup.circuit_manifest_path, 'security/zk/comment-v2-circuit.manifest.json')
   equals('setup.circuit_manifest_sha256', setup.circuit_manifest_sha256, circuitHash)
 
   if (setup.production_usable !== false) {
@@ -444,8 +446,8 @@ function checkConfig(config, setup) {
   equals('config.schema', config.schema, 'fsusblog.zk.verifying-key-config.v1')
   equals('config.circuit_id', config.circuit_id, expected.circuitId)
   equals('config.public_input_layout_version', config.public_input_layout_version, expected.layoutVersion)
-  equals('config.trusted_setup_manifest', config.trusted_setup_manifest, 'security/zk/comment-v1-trusted-setup.manifest.json')
-  equals('config.circuit_manifest', config.circuit_manifest, 'security/zk/comment-v1-circuit.manifest.json')
+  equals('config.trusted_setup_manifest', config.trusted_setup_manifest, 'security/zk/comment-v2-trusted-setup.manifest.json')
+  equals('config.circuit_manifest', config.circuit_manifest, 'security/zk/comment-v2-circuit.manifest.json')
   equals('config.verifying_key_path', config.verifying_key_path, setup.artifacts?.verifying_key?.path)
 
   if (config.production_usable !== false) {
@@ -477,13 +479,16 @@ function findCandidate(feasibility, id) {
 }
 
 function checkFeasibility(feasibility, circuit) {
-  equals('feasibility.schema', feasibility.schema, 'fsusblog.zk.comment-v1-feasibility.v1')
+  equals('feasibility.schema', feasibility.schema, 'fsusblog.zk.comment-v2-feasibility.v1')
   equals('feasibility.circuit_id', feasibility.circuit_id, expected.circuitId)
   equals('feasibility.public_input_layout_version', feasibility.public_input_layout_version, expected.layoutVersion)
 
   const status = String(feasibility.status ?? '').trim()
-  if (circuit.production_usable === false && status !== expected.unresolvedFeasibilityStatus) {
-    fail(`feasibility.status must be ${expected.unresolvedFeasibilityStatus} while circuit production_usable=false`)
+  if (status !== expected.feasibilityStatus) {
+    fail(`feasibility.status must be ${expected.feasibilityStatus} after the comment.v2 design decision`)
+  }
+  if (String(feasibility.selected_candidate ?? '').trim() !== expected.selectedCandidate) {
+    fail(`feasibility.selected_candidate must be ${expected.selectedCandidate}`)
   }
 
   const isProductionReady = expected.productionReadyCircuitStatuses.includes(String(circuit.artifact_status ?? '').trim())
@@ -498,7 +503,8 @@ function checkFeasibility(feasibility, circuit) {
   }
 
   const boundary = feasibility.current_boundary ?? {}
-  equals('feasibility.current_boundary.credential_curve', boundary.credential_curve, 'BLS12-381')
+  equals('feasibility.current_boundary.credential_scheme', boundary.credential_scheme, expected.credentialScheme)
+  equals('feasibility.current_boundary.credential_curve', boundary.credential_curve, 'bn254')
   equals('feasibility.current_boundary.groth16_curve', boundary.groth16_curve, 'bn254')
   equals('feasibility.current_boundary.proof_system', boundary.proof_system, expected.proofSystem)
   if (Number(boundary.wasm_prover_p95_ms_max) > 3000 || Number(boundary.wasm_prover_p95_ms_max) <= 0) {
@@ -518,7 +524,7 @@ function checkFeasibility(feasibility, circuit) {
   }
 
   const splitProof = findCandidate(feasibility, 'split-bbs-proof-bound-to-circuit-native-proof')
-  equals('feasibility.split_proof.decision', splitProof.decision, 'pending-design-decision')
+  equals('feasibility.split_proof.decision', splitProof.decision, 'rejected-no-compatibility-layer')
   hasAll('feasibility.split_proof.required_binding_proofs', asArray(splitProof.required_binding_proofs), [
     'same hidden credential secret is committed in the BBS proof and Groth16 proof',
     'issuer public key hash, credential epoch, credential level and reputation bucket match both proof systems',
@@ -526,15 +532,22 @@ function checkFeasibility(feasibility, circuit) {
   ])
 
   const nativeCredential = findCandidate(feasibility, 'circuit-native-credential-v2')
-  equals('feasibility.circuit_native_credential.decision', nativeCredential.decision, 'pending-design-decision')
+  equals('feasibility.circuit_native_credential.decision', nativeCredential.decision, 'selected')
+  equals('feasibility.circuit_native_credential.credential_curve', nativeCredential.credential_curve, 'bn254')
+  if (Number(nativeCredential.performance?.constraints_estimate) > 250000) {
+    fail('feasibility.circuit_native_credential.performance.constraints_estimate must stay within the comment.v2 budget')
+  }
+  if (Number(nativeCredential.performance?.proving_key_bytes_estimate) > 256000000) {
+    fail('feasibility.circuit_native_credential.performance.proving_key_bytes_estimate must stay within the comment.v2 budget')
+  }
 }
 
-function writeEvidence(status, feasibilityStatus) {
+function writeEvidence(status, feasibilityStatus, selectedCandidate) {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true })
   fs.writeFileSync(
     outputPath,
     `${JSON.stringify({
-      schema: 'fsusblog.zk.comment-v1-manifest-check.v1',
+      schema: 'fsusblog.zk.comment-v2-manifest-check.v1',
       status,
       circuit_id: expected.circuitId,
       public_input_layout_version: expected.layoutVersion,
@@ -547,7 +560,8 @@ function writeEvidence(status, feasibilityStatus) {
         verifying_key_config: relative(paths.config),
         feasibility: relative(paths.feasibility)
       },
-      feasibility_status: feasibilityStatus
+      feasibility_status: feasibilityStatus,
+      selected_candidate: selectedCandidate
     }, null, 2)}\n`
   )
 }
@@ -570,5 +584,5 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-writeEvidence('ok', String(feasibility.status ?? '').trim())
-console.log(`[zk-comment-v1-manifest] ok evidence=${relative(outputPath)}`)
+writeEvidence('ok', String(feasibility.status ?? '').trim(), String(feasibility.selected_candidate ?? '').trim())
+console.log(`[zk-comment-v2-manifest] ok evidence=${relative(outputPath)}`)

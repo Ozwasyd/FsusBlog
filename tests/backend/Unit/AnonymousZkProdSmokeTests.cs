@@ -34,7 +34,7 @@ public sealed class AnonymousZkProdSmokeTests
     private const uint CircuitNumericId = 7;
     private static readonly byte[] CredentialRoot = Enumerable.Repeat((byte)0xC3, 32).ToArray();
     private static readonly byte[] RevocationRoot = Enumerable.Repeat((byte)0xD4, 32).ToArray();
-    private static readonly byte[] CredentialCommitment = SHA256.HashData("fixture-blinded-bbs-credential-commitment"u8.ToArray());
+    private static readonly byte[] CredentialCommitment = SHA256.HashData("fixture-circuit-native-credential-commitment"u8.ToArray());
     private static readonly string IssuerPublicKeyHash = new('f', 64);
 
     [Fact]
@@ -347,7 +347,7 @@ public sealed class AnonymousZkProdSmokeTests
                 ["AnonymousIdentity:ZkProd:VerifierBackend"] = ZkProdOptions.NativeGroth16Backend,
                 ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = verifyingKeyHash,
                 ["AnonymousIdentity:ZkProd:TrustedSetupVerified"] = "true",
-                ["AnonymousIdentity:ZkProd:BbsCredentialReady"] = "true"
+                ["AnonymousIdentity:ZkProd:CredentialReady"] = "true"
             })
             .Build();
 
@@ -663,7 +663,7 @@ public sealed class AnonymousZkProdSmokeTests
         {
             DirectoryPath = directoryPath;
             VerifyingKeyBytes = verifyingKeyBytes;
-            VerifyingKeyPath = Path.Combine(directoryPath, "comment.v1.vk");
+            VerifyingKeyPath = Path.Combine(directoryPath, "comment.v2.vk");
             NativeLibraryPath = Path.Combine(directoryPath, "libfsus_zk_groth16.so");
             VerifyingKeySha256 = Hex(SHA256.HashData(verifyingKeyBytes));
             Directory.CreateDirectory(directoryPath);

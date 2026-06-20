@@ -43,7 +43,7 @@ public readonly struct CommentPolicySnapshotPod
     public readonly byte ZkProdEnabled;
     public readonly byte ZkProdNativeVerifierConfigured;
     public readonly byte ZkProdTrustedSetupVerified;
-    public readonly byte ZkProdBbsCredentialRequired;
+    public readonly byte ZkProdCredentialRequired;
     public readonly byte ZkProdCredentialRootReady;
     public readonly Utf8SliceRef SupportedDisplayLanguages;
     public readonly Utf8SliceRef ZkProdUnavailableReason;
@@ -94,7 +94,7 @@ public readonly struct AnonymousCredentialIssueRequestPod
     public readonly ushort Reserved0;
     public readonly Utf8SliceRef CircuitId;
     public readonly Utf8SliceRef CredentialLevel;
-    public readonly Utf8SliceRef BlindedCommitment;
+    public readonly Utf8SliceRef CredentialRequest;
     public readonly Utf8SliceRef ClientNonce;
 }
 
@@ -109,7 +109,7 @@ public readonly struct AnonymousCredentialIssueResponsePod
     public readonly Utf8SliceRef CircuitId;
     public readonly Utf8SliceRef CredentialLevel;
     public readonly Utf8SliceRef IssuerPublicKeyId;
-    public readonly Utf8SliceRef BbsSignature;
+    public readonly Utf8SliceRef IssuerSignature;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

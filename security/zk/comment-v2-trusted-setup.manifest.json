@@ -1,9 +1,9 @@
 {
   "schema": "fsusblog.zk.trusted-setup-manifest.v1",
-  "circuit_id": "fsus.anonymous.comment.v1",
-  "public_input_layout_version": 2,
-  "circuit_manifest_path": "security/zk/comment-v1-circuit.manifest.json",
-  "circuit_manifest_sha256": "7bdb6a5d7b89207a344522efd55c1d1a74b15a7d49dd7efbdd2ab6c0cd7a0d26",
+  "circuit_id": "fsus.anonymous.comment.v2",
+  "public_input_layout_version": 3,
+  "circuit_manifest_path": "security/zk/comment-v2-circuit.manifest.json",
+  "circuit_manifest_sha256": "002a58f7966424153a92a0075e7ef42e0ece1c0628e1b857f968bdfbfbb49e1d",
   "ceremony_status": "not-run",
   "production_usable": false,
   "fail_closed_reason": "real Groth16 R1CS, proving key, verifying key, SRS and transcripts are not present",
@@ -26,41 +26,41 @@
     "curve": "bn254",
     "status": "required",
     "minimum_contributions": 3,
-    "transcript_path": "artifacts/zk/comment-v1/phase1/powers_of_tau_final.ptau",
+    "transcript_path": "artifacts/zk/comment-v2/phase1/powers_of_tau_final.ptau",
     "transcript_sha256": "",
-    "verification_command": "snarkjs powersoftau verify artifacts/zk/comment-v1/phase1/powers_of_tau_final.ptau"
+    "verification_command": "snarkjs powersoftau verify artifacts/zk/comment-v2/phase1/powers_of_tau_final.ptau"
   },
   "phase2": {
     "protocol": "Groth16 circuit-specific setup",
     "status": "required",
     "minimum_contributions": 3,
-    "transcript_path": "artifacts/zk/comment-v1/phase2/comment_v1_ceremony_transcript.json",
+    "transcript_path": "artifacts/zk/comment-v2/phase2/comment_v2_ceremony_transcript.json",
     "transcript_sha256": "",
-    "verification_command": "snarkjs zkey verify artifacts/zk/comment-v1/comment_v1.r1cs artifacts/zk/comment-v1/phase1/powers_of_tau_final.ptau artifacts/zk/comment-v1/comment_v1_final.zkey"
+    "verification_command": "snarkjs zkey verify artifacts/zk/comment-v2/comment_v2.r1cs artifacts/zk/comment-v2/phase1/powers_of_tau_final.ptau artifacts/zk/comment-v2/comment_v2_final.zkey"
   },
   "artifacts": {
     "r1cs": {
-      "path": "artifacts/zk/comment-v1/comment_v1.r1cs",
+      "path": "artifacts/zk/comment-v2/comment_v2.r1cs",
       "sha256": "",
       "status": "required"
     },
     "proving_key": {
-      "path": "artifacts/zk/comment-v1/comment_v1_final.zkey",
+      "path": "artifacts/zk/comment-v2/comment_v2_final.zkey",
       "sha256": "",
       "status": "required"
     },
     "verifying_key": {
-      "path": "artifacts/zk/comment-v1/comment_v1_verifying_key.bin",
+      "path": "artifacts/zk/comment-v2/comment_v2_verifying_key.bin",
       "sha256": "",
       "status": "required"
     },
     "verifying_key_json": {
-      "path": "artifacts/zk/comment-v1/comment_v1_verifying_key.json",
+      "path": "artifacts/zk/comment-v2/comment_v2_verifying_key.json",
       "sha256": "",
       "status": "required"
     },
     "wasm_prover_bundle": {
-      "path": "artifacts/zk/comment-v1/comment_v1_prover_wasm.tar.gz",
+      "path": "artifacts/zk/comment-v2/comment_v2_prover_wasm.tar.gz",
       "sha256": "",
       "status": "required"
     }
@@ -80,7 +80,7 @@
     "phase2 transcript references circuit_manifest_sha256",
     "final proving key SHA-256 matches artifacts.proving_key.sha256",
     "canonical verifying key bytes SHA-256 equals verifying_key_hash",
-    "verifying key hash matches config/zk/anonymous-comment-v1-verifying-key.manifest.json"
+    "verifying key hash matches config/zk/anonymous-comment-v2-verifying-key.manifest.json"
   ],
   "handoff_consumers": [
     "#545 native Groth16 verifier backend",

@@ -480,13 +480,13 @@ public sealed class AnonymousCredentialRootLifecycleTests
     }
 
     private const string LegacyRevocationAccumulatorMetadata =
-        "{\"layout\":2,\"revocationAccumulator\":{\"algorithm\":\"legacy-sha256-hash-tree.v1\",\"productionZkReady\":false}}";
+        "{\"layout\":3,\"revocationAccumulator\":{\"algorithm\":\"legacy-sha256-hash-tree.v1\",\"productionZkReady\":false}}";
 
     private const string LegacyRevocationAccumulatorMarkedProductionReadyMetadata =
-        "{\"layout\":2,\"revocationAccumulator\":{\"algorithm\":\"legacy-sha256-hash-tree.v1\",\"productionZkReady\":true}}";
+        "{\"layout\":3,\"revocationAccumulator\":{\"algorithm\":\"legacy-sha256-hash-tree.v1\",\"productionZkReady\":true}}";
 
     private const string CircuitFriendlyRevocationAccumulatorMetadata =
-        "{\"layout\":2,\"revocationAccumulator\":{\"algorithm\":\"circuit-friendly-non-membership.v1\",\"productionZkReady\":true,\"hash\":\"mimc7-bn254.v1\",\"tree\":\"sparse-merkle.v1\",\"depth\":128}}";
+        "{\"layout\":3,\"revocationAccumulator\":{\"algorithm\":\"circuit-friendly-non-membership.v1\",\"productionZkReady\":true,\"hash\":\"mimc7-bn254.v1\",\"tree\":\"sparse-merkle.v1\",\"depth\":128}}";
 
     private static AnonymousCredentialRootRotationRequest CreateRotation(
         long epoch,
@@ -498,13 +498,13 @@ public sealed class AnonymousCredentialRootLifecycleTests
             Epoch: epoch,
             RootHash: rootHash,
             RevocationRootHash: revocationRootHash ?? RevocationRoot(epoch),
-            CircuitId: "fsus.anonymous.comment.v1",
+            CircuitId: "fsus.anonymous.comment.v2",
             CircuitNumericId: 7,
             VerifyingKeyHash: "vk-sha256",
-            PublicInputLayoutVersion: 2,
+            PublicInputLayoutVersion: 3,
             ExpiresAtUtc: BaselineNow.AddMinutes(60),
             GraceExpiresAtUtc: BaselineNow.AddMinutes(graceMinutes),
-            CircuitMetadata: circuitMetadata ?? "{\"layout\":2}",
+            CircuitMetadata: circuitMetadata ?? "{\"layout\":3}",
             Reason: "unit",
             ActorId: "admin:42",
             IssuerPublicKeyHash: IssuerPublicKeyHash);
@@ -630,12 +630,12 @@ public sealed class AnonymousCredentialRootLifecycleTests
             Epoch = epoch,
             RootHash = rootHash,
             RevocationRootHash = RevocationRoot(epoch),
-            CircuitId = "fsus.anonymous.comment.v1",
+            CircuitId = "fsus.anonymous.comment.v2",
             CircuitNumericId = 7,
             VerifyingKeyHash = "vk-sha256",
             IssuerPublicKeyHash = IssuerPublicKeyHash,
-            PublicInputLayoutVersion = 2,
-            CircuitMetadata = circuitMetadata ?? "{\"layout\":2}",
+            PublicInputLayoutVersion = 3,
+            CircuitMetadata = circuitMetadata ?? "{\"layout\":3}",
             CreatedAtUtc = BaselineNow.UtcDateTime,
             ActivatedAtUtc = BaselineNow.UtcDateTime,
             ExpiresAtUtc = BaselineNow.AddMinutes(60).UtcDateTime,

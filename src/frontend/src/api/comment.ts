@@ -89,7 +89,7 @@ export interface AnonymousCredentialIssueRequestDto {
   publicInputLayoutVersion: number
   circuitId: string
   credentialLevel: string
-  blindedRequest: Uint8Array | number[]
+  credentialRequest: Uint8Array | number[]
   clientNonce: Uint8Array | number[]
 }
 
@@ -101,7 +101,7 @@ export interface AnonymousCredentialIssueResponse {
   circuitId: string
   credentialLevel: string
   issuerPublicKeyId: string
-  bbsSignature: Uint8Array
+  issuerSignature: Uint8Array
 }
 
 export interface AnonymousCredentialRootSnapshot {
@@ -536,9 +536,9 @@ export function encodeCommentCreateV2Request(data: CommentDto | CommentCreateV2D
 export function encodeAnonymousCredentialIssueRequest(data: AnonymousCredentialIssueRequestDto): Uint8Array {
   const circuitId = encodeText(data.circuitId ?? '')
   const credentialLevel = encodeText(data.credentialLevel ?? '')
-  const blindedRequest = bytesFrom(data.blindedRequest)
+  const credentialRequest = bytesFrom(data.credentialRequest)
   const clientNonce = bytesFrom(data.clientNonce)
-  const blobLength = circuitId.byteLength + credentialLevel.byteLength + blindedRequest.byteLength + clientNonce.byteLength
+  const blobLength = circuitId.byteLength + credentialLevel.byteLength + credentialRequest.byteLength + clientNonce.byteLength
   const bytes = new Uint8Array(ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE + 4 + blobLength)
   const view = new DataView(bytes.buffer)
 
@@ -550,7 +550,7 @@ export function encodeAnonymousCredentialIssueRequest(data: AnonymousCredentialI
   let offset = 0
   offset = writeBlobPart(bytes, view, 16, ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, circuitId)
   offset = writeBlobPart(bytes, view, 24, ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, credentialLevel)
-  offset = writeBlobPart(bytes, view, 32, ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, blindedRequest)
+  offset = writeBlobPart(bytes, view, 32, ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, credentialRequest)
   writeBlobPart(bytes, view, 40, ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, clientNonce)
   view.setInt32(ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE, blobLength, true)
   return bytes

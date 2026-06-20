@@ -1,50 +1,50 @@
 version: privacy-zk-comment-matrix-v1
 cryptoDecision:
-  adr: docs/architecture/decisions/ADR-ZK-BBS-Groth16.md
-  credentialScheme: BBS+ credential issuance
+  adr: docs/architecture/decisions/ADR-ZK-CircuitNative-Groth16.md
+  credentialScheme: circuit-native-credential-v2
   proofSystem: Groth16 anonymous comment proof
-  circuit_id: fsus.anonymous.comment.v1
-  public_input_layout_version: 2
+  circuit_id: fsus.anonymous.comment.v2
+  public_input_layout_version: 3
   verifying_key_hash: trusted setup vk hash binding
   nullifier: nullifier = PRF(credential_secret, action_context, scope)
   credentialRoot: credential root membership for active or grace epoch
   revocationRoot: revocation root non-revocation witness
-  productionMode: fail-closed until BBS+, Groth16, trusted setup and native verifier are complete
+  productionMode: fail-closed until circuit-native issuer, Groth16, trusted setup and native verifier are complete
 scenarios:
   - id: PRIVACY-ZK-CIRCUIT-CONTRACT
-    scenario: comment.v1 Groth16 circuit contract fixes public inputs, private witness, soundness cases and identity non-disclosure
+    scenario: comment.v2 Groth16 circuit contract fixes public inputs, private witness, soundness cases and identity non-disclosure
     owner: ServerContractAgent
     status: automated
-    requiredCases: [bbs-credential-possession, credential-root-membership, revocation-non-membership-witness, nullifier-secret-action-scope-binding, policy-bucket-legality, no-userId-username-inputs, tamper-nullifier-scope-root-revocation-reject]
+    requiredCases: [circuit-native-credential-possession, credential-root-membership, revocation-non-membership-witness, nullifier-secret-action-scope-binding, policy-bucket-legality, no-userId-username-inputs, tamper-nullifier-scope-root-revocation-reject]
     localCommands: [check:privacy-zk-contract]
     code:
-      - docs/zk/anonymous-comment-v1-circuit.md
-      - security/zk/comment-v1-circuit.manifest.json
-      - security/zk/comment-v1-tamper-cases.manifest.json
-      - security/zk/comment-v1-feasibility.manifest.json
-      - tools/crypto/check-zk-comment-v1-manifests.mjs
+      - docs/zk/anonymous-comment-v2-circuit.md
+      - security/zk/comment-v2-circuit.manifest.json
+      - security/zk/comment-v2-tamper-cases.manifest.json
+      - security/zk/comment-v2-feasibility.manifest.json
+      - tools/crypto/check-zk-comment-v2-manifests.mjs
     tests:
-      - tests/security/zk-comment-v1-manifest.test.mjs
-      - tools/crypto/check-zk-comment-v1-manifests.mjs
+      - tests/security/zk-comment-v2-manifest.test.mjs
+      - tools/crypto/check-zk-comment-v2-manifests.mjs
     evidence:
-      - .tmp/security/zk-comment-v1-manifest.json
+      - .tmp/security/zk-comment-v2-manifest.json
 
   - id: PRIVACY-ZK-TRUSTED-SETUP
-    scenario: comment.v1 trusted setup and verifying key manifests are fail-closed until real pk/vk/transcripts are supplied
+    scenario: comment.v2 trusted setup and verifying key manifests are fail-closed until real pk/vk/transcripts are supplied
     owner: ServerContractAgent
     status: automated
     requiredCases: [ceremony-manifest-fail-closed, vk-hash-binding, srs-transcript-consistency, public-input-layout-upgrade-new-ceremony, pk-vk-artifact-paths, placeholder-vk-hash-rejected]
     localCommands: [check:privacy-zk-contract]
     code:
       - docs/zk/trusted-setup-ceremony.md
-      - security/zk/comment-v1-trusted-setup.manifest.json
-      - config/zk/anonymous-comment-v1-verifying-key.manifest.json
-      - tools/crypto/check-zk-comment-v1-manifests.mjs
+      - security/zk/comment-v2-trusted-setup.manifest.json
+      - config/zk/anonymous-comment-v2-verifying-key.manifest.json
+      - tools/crypto/check-zk-comment-v2-manifests.mjs
     tests:
-      - tests/security/zk-comment-v1-manifest.test.mjs
-      - tools/crypto/check-zk-comment-v1-manifests.mjs
+      - tests/security/zk-comment-v2-manifest.test.mjs
+      - tools/crypto/check-zk-comment-v2-manifests.mjs
     evidence:
-      - .tmp/security/zk-comment-v1-manifest.json
+      - .tmp/security/zk-comment-v2-manifest.json
 
   - id: PRIVACY-ZK-TRANSPORT
     scenario: anonymous submit keeps browser credentials out and rejects credential-bearing requests

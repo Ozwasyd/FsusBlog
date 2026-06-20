@@ -6,12 +6,12 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 
-const checker = 'tools/crypto/check-zk-comment-v1-manifests.mjs'
-const circuitPath = 'security/zk/comment-v1-circuit.manifest.json'
-const tamperPath = 'security/zk/comment-v1-tamper-cases.manifest.json'
-const setupPath = 'security/zk/comment-v1-trusted-setup.manifest.json'
-const configPath = 'config/zk/anonymous-comment-v1-verifying-key.manifest.json'
-const feasibilityPath = 'security/zk/comment-v1-feasibility.manifest.json'
+const checker = 'tools/crypto/check-zk-comment-v2-manifests.mjs'
+const circuitPath = 'security/zk/comment-v2-circuit.manifest.json'
+const tamperPath = 'security/zk/comment-v2-tamper-cases.manifest.json'
+const setupPath = 'security/zk/comment-v2-trusted-setup.manifest.json'
+const configPath = 'config/zk/anonymous-comment-v2-verifying-key.manifest.json'
+const feasibilityPath = 'security/zk/comment-v2-feasibility.manifest.json'
 
 function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8'))
@@ -32,7 +32,7 @@ function runChecker(env = {}) {
 }
 
 function withTempManifests(mutator) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'fsusblog-zk-comment-v1-'))
+  const dir = mkdtempSync(path.join(tmpdir(), 'fsusblog-zk-comment-v2-'))
   const files = {
     circuit: path.join(dir, 'circuit.json'),
     tamper: path.join(dir, 'tamper.json'),
@@ -70,19 +70,20 @@ function withTempManifests(mutator) {
   return result
 }
 
-test('comment v1 zk manifests pass the static contract checker', () => {
+test('comment v2 zk manifests pass the static contract checker', () => {
   const result = runChecker()
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
-  assert.match(result.stdout, /\[zk-comment-v1-manifest] ok/)
+  assert.match(result.stdout, /\[zk-comment-v2-manifest] ok/)
 })
 
-test('comment v1 feasibility manifest records the unresolved BLS12-in-bn254 production blocker', () => {
+test('comment v2 feasibility manifest records the selected circuit-native credential boundary', () => {
   const feasibility = readJson(feasibilityPath)
 
-  assert.equal(feasibility.schema, 'fsusblog.zk.comment-v1-feasibility.v1')
-  assert.equal(feasibility.circuit_id, 'fsus.anonymous.comment.v1')
-  assert.equal(feasibility.status, 'blocked-pending-design-decision')
-  assert.equal(feasibility.current_boundary.credential_curve, 'BLS12-381')
+  assert.equal(feasibility.schema, 'fsusblog.zk.comment-v2-feasibility.v1')
+  assert.equal(feasibility.circuit_id, 'fsus.anonymous.comment.v2')
+  assert.equal(feasibility.status, 'resolved')
+  assert.equal(feasibility.selected_candidate, 'circuit-native-credential-v2')
+  assert.equal(feasibility.current_boundary.credential_scheme, 'circuit-native-credential-v2')
   assert.equal(feasibility.current_boundary.groth16_curve, 'bn254')
 
   const inCircuitBls = feasibility.candidates.find((entry) => entry.id === 'in-circuit-bls12-381-bbs-on-bn254')
@@ -90,10 +91,16 @@ test('comment v1 feasibility manifest records the unresolved BLS12-in-bn254 prod
   assert.ok(inCircuitBls.performance.constraints_estimate >= 19_000_000)
   assert.ok(inCircuitBls.performance.proving_key_bytes_estimate >= 12_000_000_000)
   assert.match(inCircuitBls.license_boundary.reference_license, /GPL-3.0/)
+
+  const selected = feasibility.candidates.find((entry) => entry.id === 'circuit-native-credential-v2')
+  assert.equal(selected.decision, 'selected')
+  assert.equal(selected.credential_curve, 'bn254')
+  assert.ok(selected.performance.constraints_estimate <= 250_000)
+  assert.ok(selected.performance.proving_key_bytes_estimate <= 256_000_000)
 })
 
-test('checker evidence includes the feasibility manifest and unresolved design status', () => {
-  const dir = mkdtempSync(path.join(tmpdir(), 'fsusblog-zk-comment-v1-evidence-'))
+test('checker evidence includes the feasibility manifest and selected design status', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'fsusblog-zk-comment-v2-evidence-'))
   const out = path.join(dir, 'evidence.json')
   const result = runChecker({
     FSUSBLOG_ZK_MANIFEST_CHECK_OUT: out
@@ -104,10 +111,11 @@ test('checker evidence includes the feasibility manifest and unresolved design s
   rmSync(dir, { recursive: true, force: true })
   assert.equal(evidence.status, 'ok')
   assert.equal(evidence.manifests.feasibility, feasibilityPath)
-  assert.equal(evidence.feasibility_status, 'blocked-pending-design-decision')
+  assert.equal(evidence.feasibility_status, 'resolved')
+  assert.equal(evidence.selected_candidate, 'circuit-native-credential-v2')
 })
 
-test('comment v1 circuit contract has required public inputs, witness and no identity fields', () => {
+test('comment v2 circuit contract has required public inputs, witness and no identity fields', () => {
   const circuit = readJson(circuitPath)
   const publicInputs = circuit.public_inputs.map((entry) => entry.name)
   const privateWitness = circuit.private_witness.map((entry) => entry.name)
@@ -128,7 +136,8 @@ test('comment v1 circuit contract has required public inputs, witness and no ide
     'verifying_key_hash'
   ]))
   assert.ok(privateWitness.includes('credential_secret'))
-  assert.ok(privateWitness.includes('bbs_plus_issuer_signature'))
+  assert.ok(privateWitness.includes('circuit_native_issuer_signature'))
+  assert.ok(privateWitness.includes('issuer_signature_public_key'))
   assert.ok(privateWitness.includes('credential_membership_proof'))
   assert.ok(privateWitness.includes('revocation_non_membership_witness'))
 

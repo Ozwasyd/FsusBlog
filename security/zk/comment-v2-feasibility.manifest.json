@@ -1,0 +1,67 @@
+{
+  "schema": "fsusblog.zk.comment-v2-feasibility.v1",
+  "circuit_id": "fsus.anonymous.comment.v2",
+  "public_input_layout_version": 3,
+  "status": "resolved",
+  "selected_candidate": "circuit-native-credential-v2",
+  "reason": "comment.v2 removes the BBS compatibility layer and uses a circuit-native credential signature so browser proving stays inside the committed Groth16 performance budget",
+  "current_boundary": {
+    "credential_scheme": "circuit-native-credential-v2",
+    "credential_curve": "bn254",
+    "groth16_curve": "bn254",
+    "proof_system": "Groth16",
+    "wasm_prover_p95_ms_max": 3000
+  },
+  "candidates": [
+    {
+      "id": "in-circuit-bls12-381-bbs-on-bn254",
+      "description": "Implement BLS12-381 pairing and BBS credential verification directly inside the bn254 Groth16 circuit.",
+      "decision": "rejected-for-current-performance-budget",
+      "performance": {
+        "constraints_estimate": 19200000,
+        "witness_generation_ms_estimate": 156000,
+        "proving_key_bytes_estimate": 12000000000,
+        "source": "circom-pairing BLS verify example benchmark"
+      },
+      "license_boundary": {
+        "reference": "https://github.com/yi-sun/circom-pairing",
+        "reference_license": "GPL-3.0 reference only; do not copy source",
+        "reuse_policy": "self-write only if this path is explicitly reapproved with a new performance budget"
+      }
+    },
+    {
+      "id": "split-bbs-proof-bound-to-circuit-native-proof",
+      "description": "Verify the BBS credential proof outside Groth16 and bind it to a circuit-native proof.",
+      "decision": "rejected-no-compatibility-layer",
+      "required_binding_proofs": [
+        "same hidden credential secret is committed in the BBS proof and Groth16 proof",
+        "issuer public key hash, credential epoch, credential level and reputation bucket match both proof systems",
+        "revocation handle derives from the same committed credential material"
+      ],
+      "risk": "keeps a second credential proof boundary and increases implementation surface"
+    },
+    {
+      "id": "circuit-native-credential-v2",
+      "description": "Replace the comment.v1 BBS credential proof with a circuit-native issuer signature verified in the Groth16 circuit.",
+      "decision": "selected",
+      "credential_curve": "bn254",
+      "performance": {
+        "constraints_estimate": 180000,
+        "witness_generation_ms_estimate": 750,
+        "proving_key_bytes_estimate": 192000000,
+        "source": "Poseidon hash and circuit-native Schnorr signature budget model"
+      },
+      "required_changes": [
+        "new circuit id fsus.anonymous.comment.v2",
+        "public input layout version 3",
+        "replace BBS issuer and frontend blind-signing provider",
+        "run a fresh trusted setup for comment.v2"
+      ]
+    }
+  ],
+  "production_ready_gate": {
+    "requires_status": "resolved",
+    "requires_selected_candidate": true,
+    "requires_issue_update": "#551-#555 acceptance is fulfilled against comment.v2 rather than the retired comment.v1 BBS boundary"
+  }
+}

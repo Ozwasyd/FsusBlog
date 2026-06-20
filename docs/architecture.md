@@ -342,7 +342,7 @@ Binary 文章列表缓存使用 `core:v3:{public|admin}:...:{status}` 身份隔�
 
 ### ZK-prod 匿名评论密码学选型
 
-[ADR-ZK-BBS-Groth16.md](architecture/decisions/ADR-ZK-BBS-Groth16.md) 是生产匿名评论密码学选型的架构来源：凭证签发使用 BBS+ credential issuance，匿名评论证明使用 Groth16 anonymous comment proof。运行时标识固定为 `fsus.anonymous.comment.v1`，AEDS / circuit 绑定使用 `public_input_layout_version = 2`，`verifying_key_hash` 只能来自最终 trusted setup vk hash；credential root / revocation root 和 `nullifier = PRF(credential_secret, action_context, scope)` 是电路与服务端 ticket 校验的共同边界。只要 BBS+、Groth16、trusted setup、native verifier 或 wasm prover 任一生产组件未就绪，`zk_anonymous` ticket 链路必须保持 fail-closed，不得回退到 deterministic verifier、普通匿名、公开评论或托管网络。
+[ADR-ZK-CircuitNative-Groth16.md](architecture/decisions/ADR-ZK-CircuitNative-Groth16.md) 是生产匿名评论密码学选型的架构来源：凭证签发使用 circuit-native credential v2，匿名评论证明使用 Groth16 anonymous comment proof。运行时标识固定为 `fsus.anonymous.comment.v2`，AEDS / circuit 绑定使用 `public_input_layout_version = 3`，`verifying_key_hash` 只能来自最终 trusted setup vk hash；credential root / revocation root 和 `nullifier = PRF(credential_secret, action_context, scope)` 是电路与服务端 ticket 校验的共同边界。只要 circuit-native issuer、Groth16、trusted setup、native verifier 或 wasm prover 任一生产组件未就绪，`zk_anonymous` ticket 链路必须保持 fail-closed，不得回退到 deterministic verifier、普通匿名、公开评论或托管网络。
 
 预览输出带 `data-preview-only=true` 和 `data-markdown-renderer=server-preview`，只走 admin JSON API，不写 PublicAOT cache，不进入 feed/search/sitemap。订阅表只保存 email hash 与 channel，避免把站点更新订阅扩展成社交关系链。
 

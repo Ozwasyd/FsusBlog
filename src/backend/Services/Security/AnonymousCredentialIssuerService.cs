@@ -34,40 +34,40 @@ public readonly record struct AnonymousCredentialIssuanceAuditWrite(
     DateTime CreatedAtUtc,
     string? TraceId);
 
-public interface IBbsBlindCredentialIssuer
+public interface ICircuitNativeCredentialIssuer
 {
     bool IsConfigured { get; }
     string IssuerPublicKeyId { get; }
     string IssuerPublicKeyHash { get; }
 
-    ValueTask<Result<BbsBlindCredentialIssueResult>> SignAsync(
-        BbsBlindCredentialIssueMaterial material,
+    ValueTask<Result<CircuitNativeCredentialIssueResult>> SignAsync(
+        CircuitNativeCredentialIssueMaterial material,
         CancellationToken cancellationToken = default);
 }
 
-public readonly record struct BbsBlindCredentialIssueMaterial(
+public readonly record struct CircuitNativeCredentialIssueMaterial(
     long CredentialEpoch,
     uint CircuitNumericId,
     ushort PublicInputLayoutVersion,
     string CircuitId,
     string CredentialLevel,
-    byte[] BlindedCommitment);
+    byte[] CredentialRequest);
 
-public readonly record struct BbsBlindCredentialIssueResult(
+public readonly record struct CircuitNativeCredentialIssueResult(
     string IssuerPublicKeyId,
-    byte[] BbsSignature);
+    byte[] IssuerSignature);
 
 public static class AnonymousCredentialIssuerLimits
 {
     public const int MaxIssueRequestFrameBytes = 16 * 1024;
-    public const int MaxBlindedCommitmentBytes = AnonymousPrivacyContract.MaxBbsBlindedCommitmentBytes;
+    public const int MaxCredentialRequestBytes = AnonymousPrivacyContract.MaxCircuitNativeCredentialRequestBytes;
     public const int MaxClientNonceBytes = AnonymousPrivacyContract.MaxClientNonceBytes;
     public const int MaxCircuitIdChars = 96;
     public const int MaxCredentialLevelChars = AnonymousPrivacyContract.MaxCredentialLevelBytes;
     public const int MaxIssuerPublicKeyIdChars = 128;
 }
 
-public sealed class UnavailableBbsBlindCredentialIssuer(IConfiguration configuration) : IBbsBlindCredentialIssuer
+public sealed class UnavailableCircuitNativeCredentialIssuer(IConfiguration configuration) : ICircuitNativeCredentialIssuer
 {
     public bool IsConfigured => false;
 
@@ -76,42 +76,41 @@ public sealed class UnavailableBbsBlindCredentialIssuer(IConfiguration configura
     public string IssuerPublicKeyHash => Convert.ToHexStringLower(
         SHA256.HashData(Encoding.UTF8.GetBytes(IssuerPublicKeyId)));
 
-    public ValueTask<Result<BbsBlindCredentialIssueResult>> SignAsync(
-        BbsBlindCredentialIssueMaterial material,
+    public ValueTask<Result<CircuitNativeCredentialIssueResult>> SignAsync(
+        CircuitNativeCredentialIssueMaterial material,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return ValueTask.FromResult(Result<BbsBlindCredentialIssueResult>.Failure(
+        return ValueTask.FromResult(Result<CircuitNativeCredentialIssueResult>.Failure(
             ErrorCode.InfraFailure,
             "anonymous_credential_issuer_unavailable"));
     }
 }
 
-public sealed class ProductionBbsBlindCredentialIssuer : IBbsBlindCredentialIssuer, IDisposable
+public sealed class ProductionCircuitNativeCredentialIssuer : ICircuitNativeCredentialIssuer, IDisposable
 {
-    private readonly BbsBlindCredentialIssuerOptions _options;
-    private readonly BbsBlindCredentialIssuerConfigurationStatus _status;
-    private readonly ManagedBbsBlindCredentialSigner? _signer;
+    private readonly CircuitNativeCredentialIssuerOptions _options;
+    private readonly CircuitNativeCredentialIssuerConfigurationStatus _status;
     private readonly SemaphoreSlim _signatureSlots;
-    private readonly ILogger<ProductionBbsBlindCredentialIssuer> _logger;
+    private readonly ILogger<ProductionCircuitNativeCredentialIssuer> _logger;
 
-    public ProductionBbsBlindCredentialIssuer(
+    public ProductionCircuitNativeCredentialIssuer(
         IConfiguration configuration,
-        ILogger<ProductionBbsBlindCredentialIssuer> logger)
+        ILogger<ProductionCircuitNativeCredentialIssuer> logger)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(logger);
 
         _logger = logger;
-        _options = BbsBlindCredentialIssuerOptions.FromConfiguration(configuration);
-        _status = _options.ValidateConfiguration(out _signer);
+        _options = CircuitNativeCredentialIssuerOptions.FromConfiguration(configuration);
+        _status = _options.ValidateConfiguration();
         _signatureSlots = new SemaphoreSlim(_options.MaxConcurrentSignatures, _options.MaxConcurrentSignatures);
         IssuerPublicKeyId = AnonymousCredentialIssuerService.ResolveIssuerPublicKeyId(configuration);
 
         if (_options.Enabled && !IsConfigured)
         {
             _logger.LogWarning(
-                "Managed BBS blind credential issuer is enabled but not configured. backend={Backend} supported={Supported} hasPrivateKey={HasPrivateKey} hasPublicKey={HasPublicKey} publicKeyHashMatches={PublicKeyHashMatches} backendLoaded={BackendLoaded}",
+                "Managed circuit-native credential issuer is enabled but not configured. backend={Backend} supported={Supported} hasPrivateKey={HasPrivateKey} hasPublicKey={HasPublicKey} publicKeyHashMatches={PublicKeyHashMatches} backendLoaded={BackendLoaded}",
                 _options.Backend,
                 _status.HasSupportedBackend,
                 _status.HasPrivateKey,
@@ -121,7 +120,7 @@ public sealed class ProductionBbsBlindCredentialIssuer : IBbsBlindCredentialIssu
         }
     }
 
-    public bool IsConfigured => _status.CanIssueBlindSignatures;
+    public bool IsConfigured => _status.CanIssueCredentials;
 
     public string IssuerPublicKeyId { get; }
 
@@ -129,14 +128,14 @@ public sealed class ProductionBbsBlindCredentialIssuer : IBbsBlindCredentialIssu
         ? _status.IssuerPublicKeyHash
         : Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(IssuerPublicKeyId)));
 
-    public async ValueTask<Result<BbsBlindCredentialIssueResult>> SignAsync(
-        BbsBlindCredentialIssueMaterial material,
+    public async ValueTask<Result<CircuitNativeCredentialIssueResult>> SignAsync(
+        CircuitNativeCredentialIssueMaterial material,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (_signer is null || !IsConfigured)
+        if (!IsConfigured)
         {
-            return Result<BbsBlindCredentialIssueResult>.Failure(
+            return Result<CircuitNativeCredentialIssueResult>.Failure(
                 ErrorCode.InfraFailure,
                 "anonymous_credential_issuer_unavailable");
         }
@@ -145,9 +144,9 @@ public sealed class ProductionBbsBlindCredentialIssuer : IBbsBlindCredentialIssu
         if (!await _signatureSlots.WaitAsync(queueTimeout, cancellationToken).ConfigureAwait(false))
         {
             _logger.LogWarning(
-                "Managed BBS blind credential issuer queue timed out after {TimeoutMs} ms.",
+                "Managed circuit-native credential issuer queue timed out after {TimeoutMs} ms.",
                 _options.TimeoutMs);
-            return Result<BbsBlindCredentialIssueResult>.Failure(
+            return Result<CircuitNativeCredentialIssueResult>.Failure(
                 ErrorCode.InfraFailure,
                 "anonymous_credential_issuer_unavailable");
         }
@@ -155,14 +154,9 @@ public sealed class ProductionBbsBlindCredentialIssuer : IBbsBlindCredentialIssu
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!_signer.TrySign(material, out byte[] signature, out string reason))
-            {
-                return MapSigningFailure(reason);
-            }
-
-            return Result<BbsBlindCredentialIssueResult>.Success(new BbsBlindCredentialIssueResult(
-                IssuerPublicKeyId,
-                signature));
+            return Result<CircuitNativeCredentialIssueResult>.Failure(
+                ErrorCode.InfraFailure,
+                "anonymous_credential_issuer_unavailable");
         }
         finally
         {
@@ -171,23 +165,9 @@ public sealed class ProductionBbsBlindCredentialIssuer : IBbsBlindCredentialIssu
     }
 
     public void Dispose() => _signatureSlots.Dispose();
-
-    private static Result<BbsBlindCredentialIssueResult> MapSigningFailure(string reason)
-    {
-        if (string.Equals(reason, "blinded_commitment_invalid", StringComparison.Ordinal))
-        {
-            return Result<BbsBlindCredentialIssueResult>.Failure(
-                ErrorCode.Validation,
-                "anonymous_credential_blinded_commitment_invalid");
-        }
-
-        return Result<BbsBlindCredentialIssueResult>.Failure(
-            ErrorCode.InfraFailure,
-            "anonymous_credential_issuer_unavailable");
-    }
 }
 
-internal sealed record BbsBlindCredentialIssuerOptions(
+internal sealed record CircuitNativeCredentialIssuerOptions(
     bool Enabled,
     string IssuerPrivateKeyPath,
     string IssuerPublicKeyPath,
@@ -196,15 +176,15 @@ internal sealed record BbsBlindCredentialIssuerOptions(
     int MaxConcurrentSignatures,
     int TimeoutMs)
 {
-    public const string SectionName = "AnonymousCredentialIssuer:Bbs";
-    public const string ManagedBbsBlindBackend = "managed_bbs_blind_v1";
+    public const string SectionName = "AnonymousCredentialIssuer:CircuitNative";
+    public const string ManagedCircuitNativeBackend = "managed_circuit_native_v2";
     private const int DefaultMaxConcurrentSignatures = 2;
     private const int DefaultTimeoutMs = 2_000;
 
-    public static BbsBlindCredentialIssuerOptions FromConfiguration(IConfiguration configuration)
+    public static CircuitNativeCredentialIssuerOptions FromConfiguration(IConfiguration configuration)
     {
         IConfigurationSection section = configuration.GetSection(SectionName);
-        return new BbsBlindCredentialIssuerOptions(
+        return new CircuitNativeCredentialIssuerOptions(
             section.GetValue(nameof(Enabled), false),
             NormalizePath(section[nameof(IssuerPrivateKeyPath)]),
             NormalizePath(section[nameof(IssuerPublicKeyPath)]),
@@ -217,33 +197,47 @@ internal sealed record BbsBlindCredentialIssuerOptions(
             Math.Clamp(section.GetValue(nameof(TimeoutMs), DefaultTimeoutMs), 100, 30_000));
     }
 
-    public BbsBlindCredentialIssuerConfigurationStatus ValidateConfiguration()
-        => ValidateConfiguration(out _);
-
-    internal BbsBlindCredentialIssuerConfigurationStatus ValidateConfiguration(
-        out ManagedBbsBlindCredentialSigner? signer)
+    public CircuitNativeCredentialIssuerConfigurationStatus ValidateConfiguration()
     {
-        signer = null;
-        bool privateKeyReadable = ManagedBbsBlindCredentialSigner.TryReadPrivateKeyFileForValidation(IssuerPrivateKeyPath);
-        bool publicKeyReadable = ManagedBbsBlindCredentialSigner.TryReadPublicKeyFileForValidation(IssuerPublicKeyPath, out byte[] publicKey);
+        bool privateKeyReadable = File.Exists(IssuerPrivateKeyPath);
+        bool publicKeyReadable = TryReadPublicKeyFileForValidation(IssuerPublicKeyPath, out byte[] publicKey);
         string actualPublicKeyHash = publicKeyReadable
             ? Convert.ToHexStringLower(SHA256.HashData(publicKey))
             : string.Empty;
         bool publicKeyHashMatches = IssuerPublicKeyHash.Length > 0 &&
             string.Equals(actualPublicKeyHash, IssuerPublicKeyHash, StringComparison.Ordinal);
-        bool supportedBackend = string.Equals(Backend, ManagedBbsBlindBackend, StringComparison.Ordinal);
-        bool realSigningBackendLoaded = Enabled &&
-            supportedBackend &&
-            publicKeyHashMatches &&
-            ManagedBbsBlindCredentialSigner.TryCreate(this, out signer, out _, out _);
-        return new BbsBlindCredentialIssuerConfigurationStatus(
+        bool supportedBackend = string.Equals(Backend, ManagedCircuitNativeBackend, StringComparison.Ordinal);
+        return new CircuitNativeCredentialIssuerConfigurationStatus(
             Enabled,
             supportedBackend,
             privateKeyReadable,
             publicKeyReadable,
             publicKeyHashMatches,
             publicKeyHashMatches ? actualPublicKeyHash : IssuerPublicKeyHash,
-            realSigningBackendLoaded);
+            HasRealSigningBackend: false);
+    }
+
+    private static bool TryReadPublicKeyFileForValidation(string path, out byte[] publicKey)
+    {
+        publicKey = [];
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            return false;
+        }
+
+        try
+        {
+            publicKey = File.ReadAllBytes(path);
+            return publicKey.Length is > 0 and <= 4096;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private static string NormalizePath(string? value)
@@ -276,7 +270,7 @@ internal sealed record BbsBlindCredentialIssuerOptions(
 
 }
 
-internal readonly record struct BbsBlindCredentialIssuerConfigurationStatus(
+internal readonly record struct CircuitNativeCredentialIssuerConfigurationStatus(
     bool Enabled,
     bool HasSupportedBackend,
     bool HasPrivateKey,
@@ -285,7 +279,7 @@ internal readonly record struct BbsBlindCredentialIssuerConfigurationStatus(
     string IssuerPublicKeyHash,
     bool HasRealSigningBackend)
 {
-    public bool CanIssueBlindSignatures =>
+    public bool CanIssueCredentials =>
         Enabled &&
         HasSupportedBackend &&
         HasPrivateKey &&
@@ -321,7 +315,7 @@ public sealed class AnonymousCredentialIssuanceAuditStore(ISqlSugarClient db) : 
 public sealed class AnonymousCredentialIssuerService(
     ISqlSugarClient db,
     IAnonymousCredentialIssuanceAuditStore issuanceAudit,
-    IBbsBlindCredentialIssuer bbsIssuer,
+    ICircuitNativeCredentialIssuer credentialIssuer,
     IAuditEventService auditEvents,
     IConfiguration configuration) : IAnonymousCredentialIssuerService
 {
@@ -352,9 +346,9 @@ public sealed class AnonymousCredentialIssuerService(
             return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(ErrorCode.Validation, "anonymous_credential_circuit_required");
         }
 
-        if (request.BlindedCommitment is null ||
-            request.BlindedCommitment.Length == 0 ||
-            request.BlindedCommitment.Length > options.MaxBlindedCommitmentBytes ||
+        if (request.CredentialRequest is null ||
+            request.CredentialRequest.Length == 0 ||
+            request.CredentialRequest.Length > options.MaxCredentialRequestBytes ||
             request.ClientNonce is null ||
             request.ClientNonce.Length == 0 ||
             request.ClientNonce.Length > options.MaxClientNonceBytes)
@@ -403,7 +397,7 @@ public sealed class AnonymousCredentialIssuerService(
             credentialLevel = AnonymousCredentialLevels.Basic;
         }
 
-        if (!bbsIssuer.IsConfigured)
+        if (!credentialIssuer.IsConfigured)
         {
             await RecordIssuanceAuditAsync(userId, epoch, "issuer_unavailable", traceId, cancellationToken);
             return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(
@@ -411,25 +405,27 @@ public sealed class AnonymousCredentialIssuerService(
                 "anonymous_credential_issuer_unavailable");
         }
 
-        var material = new BbsBlindCredentialIssueMaterial(
+        var material = new CircuitNativeCredentialIssueMaterial(
             epoch,
             request.CircuitNumericId,
             request.PublicInputLayoutVersion,
             circuitId,
             credentialLevel,
-            [.. request.BlindedCommitment]);
-        Result<BbsBlindCredentialIssueResult> blindSignature = await bbsIssuer.SignAsync(material, cancellationToken);
-        if (!blindSignature.IsSuccess)
+            [.. request.CredentialRequest]);
+        Result<CircuitNativeCredentialIssueResult> issuerSignatureResult = await credentialIssuer.SignAsync(material, cancellationToken);
+        if (!issuerSignatureResult.IsSuccess)
         {
             await RecordIssuanceAuditAsync(userId, epoch, "issuer_unavailable", traceId, cancellationToken);
-            return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(blindSignature.Error.Code, blindSignature.Error.Message);
+            return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(
+                issuerSignatureResult.Error.Code,
+                issuerSignatureResult.Error.Message);
         }
 
-        string issuerPublicKeyId = NormalizeIssuerPublicKeyId(blindSignature.Value.IssuerPublicKeyId);
-        byte[] bbsSignature = [.. blindSignature.Value.BbsSignature];
+        string issuerPublicKeyId = NormalizeIssuerPublicKeyId(issuerSignatureResult.Value.IssuerPublicKeyId);
+        byte[] issuerSignature = [.. issuerSignatureResult.Value.IssuerSignature];
         if (issuerPublicKeyId.Length == 0 ||
-            bbsSignature.Length == 0 ||
-            bbsSignature.Length > AnonymousPrivacyContract.MaxBbsSignatureBytes)
+            issuerSignature.Length == 0 ||
+            issuerSignature.Length > AnonymousPrivacyContract.MaxCircuitNativeIssuerSignatureBytes)
         {
             await RecordIssuanceAuditAsync(userId, epoch, "issuer_invalid_response", traceId, cancellationToken);
             return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(
@@ -462,7 +458,7 @@ public sealed class AnonymousCredentialIssuerService(
             circuitId,
             credentialLevel,
             issuerPublicKeyId,
-            bbsSignature);
+            issuerSignature);
         return Result<AnonymousCredentialIssueResponseCoreModel>.Success(response);
     }
 
@@ -501,11 +497,10 @@ public sealed class AnonymousCredentialIssuerService(
     private static AnonymousCredentialIssuerOptions ResolveOptions(IConfiguration configuration)
     {
         IConfigurationSection section = configuration.GetSection("AnonymousCredentialIssuer");
-        int configuredBlindedCommitmentBytes = section.GetValue<int?>("MaxBlindedCommitmentBytes")
-            ?? section.GetValue("MaxBlindedRequestBytes", AnonymousCredentialIssuerLimits.MaxBlindedCommitmentBytes);
+        int configuredCredentialRequestBytes = section.GetValue("MaxCredentialRequestBytes", AnonymousCredentialIssuerLimits.MaxCredentialRequestBytes);
         return new AnonymousCredentialIssuerOptions(
             section.GetValue("AllowBannedAccountIssuance", false),
-            Math.Clamp(configuredBlindedCommitmentBytes, 1, AnonymousCredentialIssuerLimits.MaxBlindedCommitmentBytes),
+            Math.Clamp(configuredCredentialRequestBytes, 1, AnonymousCredentialIssuerLimits.MaxCredentialRequestBytes),
             Math.Clamp(section.GetValue("MaxClientNonceBytes", AnonymousCredentialIssuerLimits.MaxClientNonceBytes), 1, AnonymousCredentialIssuerLimits.MaxClientNonceBytes),
             Math.Clamp(section.GetValue("EpochDurationMinutes", DefaultEpochDurationMinutes), 60, 60 * 24 * 31),
             Math.Clamp(section.GetValue("CredentialTtlMinutes", DefaultCredentialTtlMinutes), 60, 60 * 24 * 31));
@@ -557,7 +552,7 @@ public sealed class AnonymousCredentialIssuerService(
 
     private sealed record AnonymousCredentialIssuerOptions(
         bool AllowBannedAccountIssuance,
-        int MaxBlindedCommitmentBytes,
+        int MaxCredentialRequestBytes,
         int MaxClientNonceBytes,
         int EpochDurationMinutes,
         int CredentialTtlMinutes);

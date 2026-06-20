@@ -25,7 +25,7 @@ describe('commentPrivacyWorkerClient', () => {
       credentialEpoch: 20260618,
       circuitNumericId: 7,
       publicInputLayoutVersion: 2,
-      circuitId: 'comment.v1',
+      circuitId: 'comment.v2',
       credentialRoot: new Uint8Array([4]),
       revocationRoot: new Uint8Array([5]),
       circuitMetadata: new Uint8Array([6])

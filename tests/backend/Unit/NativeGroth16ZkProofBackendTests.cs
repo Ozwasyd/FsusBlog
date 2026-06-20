@@ -11,12 +11,12 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class NativeGroth16ZkProofBackendTests
 {
-    private const string CircuitId = "fsus.anonymous.comment.v1";
+    private const string CircuitId = "fsus.anonymous.comment.v2";
     private const string CredentialRoot = "credential-root-active";
     private const string RevocationRoot = "revocation-root-active";
     private static readonly string IssuerPublicKeyHash = new('f', 64);
     private const long CredentialEpoch = 7;
-    private const ushort PublicInputLayoutVersion = 2;
+    private const ushort PublicInputLayoutVersion = 3;
     private const string NullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string CredentialCommitment = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
@@ -137,9 +137,11 @@ public sealed class NativeGroth16ZkProofBackendTests
             Delay = TimeSpan.FromMilliseconds(100)
         };
         var backend = CreateFixtureBackend(temp, nativeLibrary);
+        var logger = new CapturingLogger<ProductionZkProofVerifier>();
         using ProductionZkProofVerifier verifier = CreateProductionVerifier(
             temp,
             backend,
+            logger,
             overrides: new Dictionary<string, string?>
             {
                 ["AnonymousIdentity:ZkVerifier:BackendTimeoutMs"] = "5"
@@ -149,7 +151,7 @@ public sealed class NativeGroth16ZkProofBackendTests
 
         Assert.False(result.Verified);
         Assert.Equal(ZkProofVerificationStatuses.InvalidProof, result.Status);
-        Assert.True(nativeLibrary.CallCount >= 1);
+        Assert.Contains(logger.Messages, static message => message.Contains("timed out", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -433,7 +435,7 @@ public sealed class NativeGroth16ZkProofBackendTests
         {
             DirectoryPath = directoryPath;
             VerifyingKeyBytes = verifyingKeyBytes;
-            VerifyingKeyPath = Path.Combine(directoryPath, "comment.v1.vk");
+            VerifyingKeyPath = Path.Combine(directoryPath, "comment.v2.vk");
             NativeLibraryPath = Path.Combine(directoryPath, "libfsus_zk_groth16.so");
             VerifyingKeySha256 = Convert.ToHexString(SHA256.HashData(verifyingKeyBytes)).ToLowerInvariant();
             Directory.CreateDirectory(directoryPath);

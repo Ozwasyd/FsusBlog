@@ -37,7 +37,7 @@ export type CommentPolicySnapshot = {
   zkProdEnabled: boolean;
   zkProdNativeVerifierConfigured: boolean;
   zkProdTrustedSetupVerified: boolean;
-  zkProdBbsCredentialRequired: boolean;
+  zkProdCredentialRequired: boolean;
   zkProdCredentialRootReady: boolean;
   zkProdUnavailableReason: string;
 };
@@ -63,7 +63,7 @@ export function mapCommentPolicySnapshotFromPayload(payload: Uint8Array): Commen
     zkProdEnabled: readBooleanByte(pod, 4, 'comment_policy_snapshot_zk_prod_flag_invalid'),
     zkProdNativeVerifierConfigured: readBooleanByte(pod, 5, 'comment_policy_snapshot_zk_prod_verifier_flag_invalid'),
     zkProdTrustedSetupVerified: readBooleanByte(pod, 6, 'comment_policy_snapshot_zk_prod_setup_flag_invalid'),
-    zkProdBbsCredentialRequired: readBooleanByte(pod, 7, 'comment_policy_snapshot_zk_prod_bbs_flag_invalid'),
+    zkProdCredentialRequired: readBooleanByte(pod, 7, 'comment_policy_snapshot_zk_prod_credential_flag_invalid'),
     zkProdCredentialRootReady: readBooleanByte(pod, 8, 'comment_policy_snapshot_zk_prod_root_flag_invalid'),
     supportedDisplayLanguages: readSliceText(blob, readSliceRef(pod, 9))
       .split('\n')
@@ -84,7 +84,7 @@ export function mapAnonymousCredentialIssueResponseFromPayload(payload: Uint8Arr
     circuitId: readAnonymousSliceText(blob, readSliceRef(pod, 24), 'anonymous_credential_issue_response_circuit_invalid'),
     credentialLevel: readAnonymousSliceText(blob, readSliceRef(pod, 32), 'anonymous_credential_issue_response_level_invalid'),
     issuerPublicKeyId: readAnonymousSliceText(blob, readSliceRef(pod, 40), 'anonymous_credential_issue_response_issuer_invalid'),
-    bbsSignature: readAnonymousSliceBytes(blob, readSliceRef(pod, 48), 'anonymous_credential_issue_response_signature_invalid')
+    issuerSignature: readAnonymousSliceBytes(blob, readSliceRef(pod, 48), 'anonymous_credential_issue_response_signature_invalid')
   };
 }
 

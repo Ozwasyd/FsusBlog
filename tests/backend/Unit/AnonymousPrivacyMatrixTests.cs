@@ -58,9 +58,9 @@ public sealed class AnonymousPrivacyMatrixTests
 
     private static readonly string[] RequiredCryptoDecisionTokens =
     [
-        "BBS+",
+        "circuit-native-credential-v2",
         "Groth16",
-        "fsus.anonymous.comment.v1",
+        "fsus.anonymous.comment.v2",
         "public_input_layout_version",
         "verifying_key_hash",
         "nullifier = PRF(credential_secret, action_context, scope)",
@@ -93,8 +93,8 @@ public sealed class AnonymousPrivacyMatrixTests
     [Fact]
     public void PrivacyZkCryptoDecisionDocs_StayAlignedWithMatrixAndContractConstants()
     {
-        string adrPath = BackendTestPaths.FromRoot("docs", "architecture", "decisions", "ADR-ZK-BBS-Groth16.md");
-        Assert.True(File.Exists(adrPath), "docs/architecture/decisions/ADR-ZK-BBS-Groth16.md must document the BBS+/Groth16 production ZK decision.");
+        string adrPath = BackendTestPaths.FromRoot("docs", "architecture", "decisions", "ADR-ZK-CircuitNative-Groth16.md");
+        Assert.True(File.Exists(adrPath), "docs/architecture/decisions/ADR-ZK-CircuitNative-Groth16.md must document the circuit-native/Groth16 production ZK decision.");
 
         string adr = File.ReadAllText(adrPath);
         string security = BackendTestPaths.ReadAllTextFromRoot("docs/security.md");
@@ -110,10 +110,10 @@ public sealed class AnonymousPrivacyMatrixTests
 
         foreach (string doc in new[] { security, architecture })
         {
-            Assert.Contains("ADR-ZK-BBS-Groth16.md", doc, StringComparison.Ordinal);
-            Assert.Contains("BBS+", doc, StringComparison.Ordinal);
+            Assert.Contains("ADR-ZK-CircuitNative-Groth16.md", doc, StringComparison.Ordinal);
+            Assert.Contains("circuit-native credential v2", doc, StringComparison.Ordinal);
             Assert.Contains("Groth16", doc, StringComparison.Ordinal);
-            Assert.Contains("fsus.anonymous.comment.v1", doc, StringComparison.Ordinal);
+            Assert.Contains("fsus.anonymous.comment.v2", doc, StringComparison.Ordinal);
             Assert.Contains("fail-closed", doc, StringComparison.Ordinal);
         }
 
@@ -124,11 +124,11 @@ public sealed class AnonymousPrivacyMatrixTests
         Assert.Contains("nullifier correctness", adr, StringComparison.Ordinal);
         Assert.Contains("credential_level", adr, StringComparison.Ordinal);
         Assert.Contains("account identity not disclosed", adr, StringComparison.Ordinal);
-        Assert.Contains("PS+Plonk", adr, StringComparison.Ordinal);
-        Assert.Contains("Semaphore-style", adr, StringComparison.Ordinal);
-        Assert.Contains("external hosted network", adr, StringComparison.Ordinal);
-        Assert.Contains("private const string CircuitId = \"fsus.anonymous.comment.v1\";", verifierContracts, StringComparison.Ordinal);
-        Assert.Contains("private const ushort PublicInputLayoutVersion = 2;", verifierContracts, StringComparison.Ordinal);
+        Assert.Contains("circuit-native credential v2", adr, StringComparison.Ordinal);
+        Assert.Contains("compatibility layer", adr, StringComparison.Ordinal);
+        Assert.Contains("External hosted network", adr, StringComparison.Ordinal);
+        Assert.Contains("private const string CircuitId = \"fsus.anonymous.comment.v2\";", verifierContracts, StringComparison.Ordinal);
+        Assert.Contains("private const ushort PublicInputLayoutVersion = 3;", verifierContracts, StringComparison.Ordinal);
     }
 
     [Fact]

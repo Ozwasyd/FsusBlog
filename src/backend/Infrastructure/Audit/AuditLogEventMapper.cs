@@ -12,15 +12,15 @@ public sealed class AuditLogEventMapper
         "Body",
         "ClientIp",
         "Cookie",
-        "BbsSignature",
-        "BlindedCommitment",
         "Credential",
         "CredentialCommitment",
+        "CredentialRequest",
         "CredentialSecret",
         "CredentialWitness",
         "Email",
         "Groth16Proof",
         "Ip",
+        "IssuerSignature",
         "IssuerResponse",
         "Nullifier",
         "NullifierHash",
@@ -44,10 +44,10 @@ public sealed class AuditLogEventMapper
         "token",
         "useragent",
         "credentialcommitment",
+        "credentialrequest",
         "credentialsecret",
         "credentialwitness",
-        "bbssignature",
-        "blindedcommitment"
+        "issuersignature"
     ];
 
     private static readonly string[] BackgroundLifecycleKeywords =

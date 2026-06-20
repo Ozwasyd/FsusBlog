@@ -57,14 +57,14 @@ public sealed class BackendGoldenCatalogTests
     }
 
     [Fact]
-    public void AnonymousPrivacyContractMatrix_RegistersBbsGroth16ProductionLayout()
+    public void AnonymousPrivacyContractMatrix_RegistersCircuitNativeGroth16ProductionLayout()
     {
         string matrix = BackendTestPaths.ReadAllTextFromRoot("tests/frontend/fixtures/cross-stack-contract-matrix.json");
 
-        Assert.Contains("\"circuitId\": \"fsus.anonymous.comment.v1\"", matrix, StringComparison.Ordinal);
-        Assert.Contains("\"publicInputLayoutVersion\": 2", matrix, StringComparison.Ordinal);
-        Assert.Contains("\"maxBbsSignatureBytes\": 256", matrix, StringComparison.Ordinal);
-        Assert.Contains("\"maxBbsBlindedCommitmentBytes\": 256", matrix, StringComparison.Ordinal);
+        Assert.Contains("\"circuitId\": \"fsus.anonymous.comment.v2\"", matrix, StringComparison.Ordinal);
+        Assert.Contains("\"publicInputLayoutVersion\": 3", matrix, StringComparison.Ordinal);
+        Assert.Contains("\"maxCircuitNativeIssuerSignatureBytes\": 256", matrix, StringComparison.Ordinal);
+        Assert.Contains("\"maxCircuitNativeCredentialRequestBytes\": 256", matrix, StringComparison.Ordinal);
         Assert.Contains("\"maxGroth16ProofBytes\": 4096", matrix, StringComparison.Ordinal);
         Assert.Contains("\"anonymousTicketPublicInputs\"", matrix, StringComparison.Ordinal);
         Assert.Contains("\"credential_root\"", matrix, StringComparison.Ordinal);

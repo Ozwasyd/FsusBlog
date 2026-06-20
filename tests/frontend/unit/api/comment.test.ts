@@ -193,19 +193,19 @@ describe('comment API', () => {
     const payload = encodeAnonymousCredentialIssueRequest({
       credentialEpoch: 20260618,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 2,
-      circuitId: 'zk-comment-v1',
+      publicInputLayoutVersion: 3,
+      circuitId: 'zk-comment-v2',
       credentialLevel: 'strong_anonymous',
-      blindedRequest: new Uint8Array([1, 2, 3]),
+      credentialRequest: new Uint8Array([1, 2, 3]),
       clientNonce: new Uint8Array([4, 5])
     })
 
     const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
     expect(view.getBigInt64(0, true)).toBe(20260618n)
     expect(view.getUint32(8, true)).toBe(7)
-    expect(view.getUint16(12, true)).toBe(2)
+    expect(view.getUint16(12, true)).toBe(3)
     const blob = payload.subarray(52)
-    expect(readSliceText(payload, blob, 16)).toBe('zk-comment-v1')
+    expect(readSliceText(payload, blob, 16)).toBe('zk-comment-v2')
     expect(readSliceText(payload, blob, 24)).toBe('strong_anonymous')
     expect([...readSliceBytes(payload, blob, 32)]).toEqual([1, 2, 3])
     expect([...readSliceBytes(payload, blob, 40)]).toEqual([4, 5])
@@ -215,8 +215,8 @@ describe('comment API', () => {
     const payload = encodeAnonymousCredentialRevocationWitnessRequest({
       credentialEpoch: 20260618,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 2,
-      circuitId: 'zk-comment-v1',
+      publicInputLayoutVersion: 3,
+      circuitId: 'zk-comment-v2',
       issuerPublicKeyHash: 'issuer-hash',
       revocationRoot: new Uint8Array([1, 2, 3]),
       revocationHandleHash: new Uint8Array([4, 5, 6])
@@ -225,9 +225,9 @@ describe('comment API', () => {
     const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
     expect(view.getBigInt64(0, true)).toBe(20260618n)
     expect(view.getUint32(8, true)).toBe(7)
-    expect(view.getUint16(12, true)).toBe(2)
+    expect(view.getUint16(12, true)).toBe(3)
     const blob = payload.subarray(52)
-    expect(readSliceText(payload, blob, 16)).toBe('zk-comment-v1')
+    expect(readSliceText(payload, blob, 16)).toBe('zk-comment-v2')
     expect(readSliceText(payload, blob, 24)).toBe('issuer-hash')
     expect([...readSliceBytes(payload, blob, 32)]).toEqual([1, 2, 3])
     expect([...readSliceBytes(payload, blob, 40)]).toEqual([4, 5, 6])
@@ -241,10 +241,10 @@ describe('comment API', () => {
       replyToCommentId: '80',
       credentialEpoch: 20260618,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 2,
+      publicInputLayoutVersion: 3,
       anonymousScope: 'article:42',
       displayLanguage: 'zh-CN',
-      circuitId: 'zk-comment-v1',
+      circuitId: 'zk-comment-v2',
       nullifierHash: new Uint8Array([9, 10]),
       zkProof: new Uint8Array([11, 12]),
       publicInputs: new Uint8Array([13, 14]),
@@ -262,11 +262,11 @@ describe('comment API', () => {
     expect(view.getBigInt64(24, true)).toBe(80n)
     expect(view.getBigInt64(32, true)).toBe(20260618n)
     expect(view.getUint32(40, true)).toBe(7)
-    expect(view.getUint16(44, true)).toBe(2)
+    expect(view.getUint16(44, true)).toBe(3)
     const blob = payload.subarray(100)
     expect(readSliceText(payload, blob, 48)).toBe('article:42')
     expect(readSliceText(payload, blob, 56)).toBe('zh-CN')
-    expect(readSliceText(payload, blob, 64)).toBe('zk-comment-v1')
+    expect(readSliceText(payload, blob, 64)).toBe('zk-comment-v2')
     expect([...readSliceBytes(payload, blob, 72)]).toEqual([9, 10])
     expect([...readSliceBytes(payload, blob, 80)]).toEqual([11, 12])
     expect([...readSliceBytes(payload, blob, 88)]).toEqual([13, 14])
@@ -373,10 +373,10 @@ describe('comment API', () => {
       replyToCommentId: '80',
       credentialEpoch: 20260618,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 2,
+      publicInputLayoutVersion: 3,
       anonymousScope: 'article:42',
       displayLanguage: 'zh-CN',
-      circuitId: 'comment.v1',
+      circuitId: 'comment.v2',
       nullifierHash: new Uint8Array([9, 10]),
       zkProof: new Uint8Array([11, 12]),
       publicInputs: new Uint8Array([13, 14])
@@ -404,8 +404,8 @@ describe('comment API', () => {
     await getAnonymousCredentialRevocationWitness({
       credentialEpoch: 20260618,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 2,
-      circuitId: 'comment.v1',
+      publicInputLayoutVersion: 3,
+      circuitId: 'comment.v2',
       issuerPublicKeyHash: 'issuer-hash',
       revocationRoot: new Uint8Array([1, 2]),
       revocationHandleHash: new Uint8Array([3, 4])

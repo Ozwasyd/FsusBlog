@@ -26,7 +26,7 @@ public static partial class PodBinaryCodec
             ZkProdEnabled = snapshot.ZkProdEnabled ? (byte)1 : (byte)0,
             ZkProdNativeVerifierConfigured = snapshot.ZkProdNativeVerifierConfigured ? (byte)1 : (byte)0,
             ZkProdTrustedSetupVerified = snapshot.ZkProdTrustedSetupVerified ? (byte)1 : (byte)0,
-            ZkProdBbsCredentialRequired = snapshot.ZkProdBbsCredentialRequired ? (byte)1 : (byte)0,
+            ZkProdCredentialRequired = snapshot.ZkProdCredentialRequired ? (byte)1 : (byte)0,
             ZkProdCredentialRootReady = snapshot.ZkProdCredentialRootReady ? (byte)1 : (byte)0,
             SupportedDisplayLanguages = PodUtf8Codec.AppendSlice(JoinDisplayLanguages(snapshot.SupportedDisplayLanguages), payload),
             ZkProdUnavailableReason = PodUtf8Codec.AppendSlice(NormalizeZkProdUnavailableReason(snapshot.ZkProdUnavailableReason), payload)
@@ -50,7 +50,7 @@ public static partial class PodBinaryCodec
             pod.ZkProdEnabled > 1 ||
             pod.ZkProdNativeVerifierConfigured > 1 ||
             pod.ZkProdTrustedSetupVerified > 1 ||
-            pod.ZkProdBbsCredentialRequired > 1 ||
+            pod.ZkProdCredentialRequired > 1 ||
             pod.ZkProdCredentialRootReady > 1 ||
             !TryDecodeCommentAuthorMode(pod.DefaultAuthorMode, out string defaultAuthorMode) ||
             !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
@@ -68,7 +68,7 @@ public static partial class PodBinaryCodec
             pod.ZkProdEnabled == 1,
             pod.ZkProdNativeVerifierConfigured == 1,
             pod.ZkProdTrustedSetupVerified == 1,
-            pod.ZkProdBbsCredentialRequired == 1,
+            pod.ZkProdCredentialRequired == 1,
             pod.ZkProdCredentialRootReady == 1,
             PodProjector.ReadSlice(pod.ZkProdUnavailableReason, payload));
         return reader.IsConsumed;
@@ -174,7 +174,7 @@ public static partial class PodBinaryCodec
 
     public static void WriteAnonymousCredentialIssueRequest(AnonymousCredentialIssueRequestCoreModel request, IBufferWriter<byte> destination)
     {
-        var payload = new ArrayBufferWriter<byte>(512 + (request.BlindedCommitment?.Length ?? 0));
+        var payload = new ArrayBufferWriter<byte>(512 + (request.CredentialRequest?.Length ?? 0));
         var mutable = new MutableAnonymousCredentialIssueRequestPod
         {
             CredentialEpoch = request.CredentialEpoch,
@@ -183,7 +183,7 @@ public static partial class PodBinaryCodec
             Reserved0 = 0,
             CircuitId = PodUtf8Codec.AppendSlice(request.CircuitId, payload),
             CredentialLevel = PodUtf8Codec.AppendSlice(request.CredentialLevel, payload),
-            BlindedCommitment = AppendBytes(request.BlindedCommitment ?? [], payload),
+            CredentialRequest = AppendBytes(request.CredentialRequest ?? [], payload),
             ClientNonce = AppendBytes(request.ClientNonce ?? [], payload)
         };
 
@@ -193,7 +193,7 @@ public static partial class PodBinaryCodec
     }
 
     public static byte[] EncodeAnonymousCredentialIssueRequest(AnonymousCredentialIssueRequestCoreModel request)
-        => EncodeToArray(Marshal.SizeOf<AnonymousCredentialIssueRequestPod>() + 512 + (request.BlindedCommitment?.Length ?? 0), writer => WriteAnonymousCredentialIssueRequest(request, writer));
+        => EncodeToArray(Marshal.SizeOf<AnonymousCredentialIssueRequestPod>() + 512 + (request.CredentialRequest?.Length ?? 0), writer => WriteAnonymousCredentialIssueRequest(request, writer));
 
     public static bool TryDecodeAnonymousCredentialIssueRequest(ReadOnlyMemory<byte> bytes, out AnonymousCredentialIssueRequestCoreModel request)
     {
@@ -209,12 +209,12 @@ public static partial class PodBinaryCodec
         {
             pod.CircuitId,
             pod.CredentialLevel,
-            pod.BlindedCommitment,
+            pod.CredentialRequest,
             pod.ClientNonce
         };
         if (!ValidateAnonymousPayload(payload, slices) ||
             !IsProductionAnonymousLayout(pod.CircuitId, pod.PublicInputLayoutVersion, payload) ||
-            !SliceLengthAtMost(pod.BlindedCommitment, AnonymousPrivacyContract.MaxBbsBlindedCommitmentBytes) ||
+            !SliceLengthAtMost(pod.CredentialRequest, AnonymousPrivacyContract.MaxCircuitNativeCredentialRequestBytes) ||
             !SliceLengthAtMost(pod.ClientNonce, AnonymousPrivacyContract.MaxClientNonceBytes) ||
             !SliceLengthAtMost(pod.CredentialLevel, AnonymousPrivacyContract.MaxCredentialLevelBytes))
         {
@@ -228,14 +228,14 @@ public static partial class PodBinaryCodec
             pod.PublicInputLayoutVersion,
             PodProjector.ReadSlice(pod.CircuitId, payload),
             PodProjector.ReadSlice(pod.CredentialLevel, payload),
-            ReadBytes(pod.BlindedCommitment, payload),
+            ReadBytes(pod.CredentialRequest, payload),
             ReadBytes(pod.ClientNonce, payload));
         return reader.IsConsumed;
     }
 
     public static void WriteAnonymousCredentialIssueResponse(AnonymousCredentialIssueResponseCoreModel response, IBufferWriter<byte> destination)
     {
-        var payload = new ArrayBufferWriter<byte>(512 + (response.BbsSignature?.Length ?? 0));
+        var payload = new ArrayBufferWriter<byte>(512 + (response.IssuerSignature?.Length ?? 0));
         var mutable = new MutableAnonymousCredentialIssueResponsePod
         {
             CredentialEpoch = response.CredentialEpoch,
@@ -246,7 +246,7 @@ public static partial class PodBinaryCodec
             CircuitId = PodUtf8Codec.AppendSlice(response.CircuitId, payload),
             CredentialLevel = PodUtf8Codec.AppendSlice(response.CredentialLevel, payload),
             IssuerPublicKeyId = PodUtf8Codec.AppendSlice(response.IssuerPublicKeyId, payload),
-            BbsSignature = AppendBytes(response.BbsSignature ?? [], payload)
+            IssuerSignature = AppendBytes(response.IssuerSignature ?? [], payload)
         };
 
         var writer = new BinaryPodWriter(destination);
@@ -255,7 +255,7 @@ public static partial class PodBinaryCodec
     }
 
     public static byte[] EncodeAnonymousCredentialIssueResponse(AnonymousCredentialIssueResponseCoreModel response)
-        => EncodeToArray(Marshal.SizeOf<AnonymousCredentialIssueResponsePod>() + 512 + (response.BbsSignature?.Length ?? 0), writer => WriteAnonymousCredentialIssueResponse(response, writer));
+        => EncodeToArray(Marshal.SizeOf<AnonymousCredentialIssueResponsePod>() + 512 + (response.IssuerSignature?.Length ?? 0), writer => WriteAnonymousCredentialIssueResponse(response, writer));
 
     public static bool TryDecodeAnonymousCredentialIssueResponse(ReadOnlyMemory<byte> bytes, out AnonymousCredentialIssueResponseCoreModel response)
     {
@@ -272,13 +272,13 @@ public static partial class PodBinaryCodec
             pod.CircuitId,
             pod.CredentialLevel,
             pod.IssuerPublicKeyId,
-            pod.BbsSignature
+            pod.IssuerSignature
         };
         if (!ValidateAnonymousPayload(payload, slices) ||
             !IsProductionAnonymousLayout(pod.CircuitId, pod.PublicInputLayoutVersion, payload) ||
             !SliceLengthAtMost(pod.CredentialLevel, AnonymousPrivacyContract.MaxCredentialLevelBytes) ||
             !SliceLengthAtMost(pod.IssuerPublicKeyId, AnonymousPrivacyContract.MaxIssuerPublicKeyIdBytes) ||
-            !SliceLengthAtMost(pod.BbsSignature, AnonymousPrivacyContract.MaxBbsSignatureBytes))
+            !SliceLengthAtMost(pod.IssuerSignature, AnonymousPrivacyContract.MaxCircuitNativeIssuerSignatureBytes))
         {
             response = default;
             return false;
@@ -292,7 +292,7 @@ public static partial class PodBinaryCodec
             PodProjector.ReadSlice(pod.CircuitId, payload),
             PodProjector.ReadSlice(pod.CredentialLevel, payload),
             PodProjector.ReadSlice(pod.IssuerPublicKeyId, payload),
-            ReadBytes(pod.BbsSignature, payload));
+            ReadBytes(pod.IssuerSignature, payload));
         return reader.IsConsumed;
     }
 
@@ -1278,7 +1278,7 @@ public static partial class PodBinaryCodec
         public byte ZkProdEnabled;
         public byte ZkProdNativeVerifierConfigured;
         public byte ZkProdTrustedSetupVerified;
-        public byte ZkProdBbsCredentialRequired;
+        public byte ZkProdCredentialRequired;
         public byte ZkProdCredentialRootReady;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef SupportedDisplayLanguages;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ZkProdUnavailableReason;
@@ -1329,7 +1329,7 @@ public static partial class PodBinaryCodec
         public ushort Reserved0;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CircuitId;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CredentialLevel;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef BlindedCommitment;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CredentialRequest;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ClientNonce;
     }
 
@@ -1344,7 +1344,7 @@ public static partial class PodBinaryCodec
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CircuitId;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CredentialLevel;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef IssuerPublicKeyId;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef BbsSignature;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef IssuerSignature;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

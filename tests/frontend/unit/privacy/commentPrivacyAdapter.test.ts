@@ -18,7 +18,7 @@ const rootSnapshot = {
   rootExpiresAtUnixMs: Date.now() + 60_000,
   circuitNumericId: 7,
   publicInputLayoutVersion: 2,
-  circuitId: 'comment.v1',
+  circuitId: 'comment.v2',
   verifyingKeyHash: 'vk-hash',
   credentialRoot: new Uint8Array([1, 2]),
   revocationRoot: new Uint8Array([3, 4]),
@@ -97,7 +97,7 @@ describe('commentPrivacyAdapter', () => {
       circuitNumericId: 7,
       publicInputLayoutVersion: 2,
       anonymousScope: 'article:42',
-      circuitId: 'comment.v1',
+      circuitId: 'comment.v2',
       nullifierHash: new Uint8Array([16, 17]),
       zkProof: new Uint8Array([12, 13]),
       publicInputs: new Uint8Array([14, 15])

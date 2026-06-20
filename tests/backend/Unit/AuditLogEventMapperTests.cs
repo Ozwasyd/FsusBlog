@@ -108,8 +108,8 @@ public sealed class AuditLogEventMapperTests
     [InlineData("CredentialSecret")]
     [InlineData("CredentialCommitment")]
     [InlineData("CredentialWitness")]
-    [InlineData("BbsSignature")]
-    [InlineData("BlindedCommitment")]
+    [InlineData("CredentialRequest")]
+    [InlineData("IssuerSignature")]
     [InlineData("IssuerResponse")]
     [InlineData("Credential")]
     public void Map_DropsZkSensitiveAuditContextPropertiesByExactName(string propertyName)
@@ -138,8 +138,8 @@ public sealed class AuditLogEventMapperTests
     [InlineData("credential_commitment_hex")]
     [InlineData("credential-secret-bytes")]
     [InlineData("credential.witness.payload")]
-    [InlineData("bbs_signature_compact")]
-    [InlineData("blindedCommitmentPayload")]
+    [InlineData("issuer_signature_compact")]
+    [InlineData("credentialRequestPayload")]
     public void Map_DropsZkSensitiveAuditContextPropertiesBySubstring(string propertyName)
     {
         var mapper = new AuditLogEventMapper();
@@ -212,8 +212,8 @@ public sealed class AuditLogEventMapperTests
             "CredentialSecret",
             "CredentialCommitment",
             "CredentialWitness",
-            "BbsSignature",
-            "BlindedCommitment",
+            "CredentialRequest",
+            "IssuerSignature",
             "IssuerResponse"
         ];
         var violations = new List<string>();

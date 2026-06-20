@@ -9,7 +9,7 @@ const DEFAULT_CONFIGS = [
   'src/backend/appsettings.json',
   'src/backend/appsettings.Production.json'
 ]
-const DEFAULT_TRUSTED_SETUP = 'security/zk/comment-v1-trusted-setup.manifest.json'
+const DEFAULT_TRUSTED_SETUP = 'security/zk/comment-v2-trusted-setup.manifest.json'
 const DEFAULT_SMOKE_EVIDENCE = '.tmp/security/privacy-zk-prod-smoke.json'
 const DEFAULT_ROOT_BOOTSTRAP_EVIDENCE = '.tmp/security/anonymous-credential-root-bootstrap.json'
 const DEFAULT_SUMMARY = '.tmp/security/privacy-zk-prod-release.json'
@@ -27,7 +27,7 @@ const configuration = configPaths
 
 const zkProd = readSection(configuration, ['AnonymousIdentity', 'ZkProd'])
 const zkVerifier = readSection(configuration, ['AnonymousIdentity', 'ZkVerifier'])
-const bbsIssuer = readSection(configuration, ['AnonymousIdentity', 'BbsIssuer'])
+const credentialIssuer = readSection(configuration, ['AnonymousCredentialIssuer', 'CircuitNative'])
 
 const enabled = readBoolEnv('FSUSBLOG_ZK_PROD_ENABLED')
   ?? readBool(zkProd.Enabled)
@@ -76,9 +76,9 @@ console.log(`[privacy-zk-prod-release] ok summary=${toRepoRelative(summaryPath)}
 function checkEnabledProductionReadiness() {
   checkTrue('AnonymousIdentity:ZkProd:RequireNativeVerifier', zkProd.RequireNativeVerifier)
   checkTrue('AnonymousIdentity:ZkProd:RequireTrustedSetupVerified', zkProd.RequireTrustedSetupVerified)
-  checkTrue('AnonymousIdentity:ZkProd:RequireBbsCredential', zkProd.RequireBbsCredential)
+  checkTrue('AnonymousIdentity:ZkProd:RequireCredential', zkProd.RequireCredential)
   checkTrue('AnonymousIdentity:ZkProd:TrustedSetupVerified', zkProd.TrustedSetupVerified)
-  checkTrue('AnonymousIdentity:ZkProd:BbsCredentialReady', zkProd.BbsCredentialReady)
+  checkTrue('AnonymousIdentity:ZkProd:CredentialReady', zkProd.CredentialReady)
 
   const backend = normalizeString(zkProd.VerifierBackend ?? zkVerifier.Backend)
   if (backend !== 'native_groth16') {
@@ -112,10 +112,10 @@ function checkEnabledProductionReadiness() {
   }
 
   const issuerPublicKeyPath = normalizeString(
-    process.env.FSUSBLOG_ZK_BBS_ISSUER_PUBLIC_KEY
-      ?? bbsIssuer.PublicKeyPath
-      ?? zkProd.BbsIssuerPublicKeyPath)
-  checkExistingFile('bbs-issuer-public-key', issuerPublicKeyPath)
+    process.env.FSUSBLOG_ZK_ISSUER_PUBLIC_KEY
+      ?? credentialIssuer.IssuerPublicKeyPath
+      ?? zkProd.IssuerPublicKeyPath)
+  checkExistingFile('credential-issuer-public-key', issuerPublicKeyPath)
 
   const smokeEvidencePath = normalizeString(
     args.smokeEvidence
@@ -171,11 +171,11 @@ function checkTrustedSetupManifest(rawPath) {
   if (!absolute) return null
 
   const manifest = JSON.parse(readFileSync(absolute, 'utf8'))
-  if (manifest.circuit_id !== 'fsus.anonymous.comment.v1') {
-    errors.push('trusted setup manifest circuit_id must be fsus.anonymous.comment.v1.')
+  if (manifest.circuit_id !== 'fsus.anonymous.comment.v2') {
+    errors.push('trusted setup manifest circuit_id must be fsus.anonymous.comment.v2.')
   }
-  if (Number(manifest.public_input_layout_version) !== 2) {
-    errors.push('trusted setup manifest public_input_layout_version must be 2.')
+  if (Number(manifest.public_input_layout_version) !== 3) {
+    errors.push('trusted setup manifest public_input_layout_version must be 3.')
   }
   if (manifest.production_usable !== true) {
     errors.push('trusted setup manifest must be production_usable=true when ZkProd is enabled.')
@@ -204,7 +204,7 @@ function checkSmokeEvidence(rawPath) {
   for (const key of [
     'nativeVerifier',
     'wasmProver',
-    'bbsCredential',
+    'credential',
     'credentialRootActive',
     'ticketIssued',
     'anonymousSubmitPending',
@@ -245,11 +245,11 @@ function checkRootBootstrapEvidence(rawPath, expectedVkHash, setup) {
   const snapshot = evidence.rootSnapshot && typeof evidence.rootSnapshot === 'object'
     ? evidence.rootSnapshot
     : {}
-  if (snapshot.circuitId !== 'fsus.anonymous.comment.v1') {
-    errors.push('root-bootstrap-evidence circuitId must be fsus.anonymous.comment.v1.')
+  if (snapshot.circuitId !== 'fsus.anonymous.comment.v2') {
+    errors.push('root-bootstrap-evidence circuitId must be fsus.anonymous.comment.v2.')
   }
-  if (Number(snapshot.publicInputLayoutVersion) !== 2) {
-    errors.push('root-bootstrap-evidence publicInputLayoutVersion must be 2.')
+  if (Number(snapshot.publicInputLayoutVersion) !== 3) {
+    errors.push('root-bootstrap-evidence publicInputLayoutVersion must be 3.')
   }
   if (!Number.isSafeInteger(Number(snapshot.epoch)) || Number(snapshot.epoch) <= 0) {
     errors.push('root-bootstrap-evidence epoch must be a positive integer.')
@@ -317,7 +317,7 @@ function checkNoSensitiveEvidence(value, pathSegments = []) {
 }
 
 function isSensitiveEvidenceKey(key) {
-  return /(?:credentialSecret|credential_secret|issuerSignature|issuer_signature|blindOpening|blind_opening|revocationWitness|revocation_witness|proofBytes|proof_bytes|rawProof|raw_proof|nullifierSecret|nullifier_secret)/u.test(key)
+  return /(?:credentialSecret|credential_secret|issuerSignature|issuer_signature|credentialOpening|credential_opening|revocationWitness|revocation_witness|proofBytes|proof_bytes|rawProof|raw_proof|nullifierSecret|nullifier_secret)/u.test(key)
 }
 
 function checkRollbackDocument() {

@@ -39,8 +39,8 @@ public sealed class AnonymousCredentialRevocationWitnessServiceTests
             var request = new AnonymousCredentialRevocationWitnessRequestCoreModel(
                 CredentialEpoch: Epoch,
                 CircuitNumericId: 7,
-                PublicInputLayoutVersion: 2,
-                CircuitId: "fsus.anonymous.comment.v1",
+                PublicInputLayoutVersion: 3,
+                CircuitId: "fsus.anonymous.comment.v2",
                 IssuerPublicKeyHash: IssuerPublicKeyHash,
                 RevocationRoot: Convert.FromHexString(revocationRoot),
                 RevocationHandleHash: Convert.FromHexString(CandidateHandleHash));
@@ -88,10 +88,10 @@ public sealed class AnonymousCredentialRevocationWitnessServiceTests
             RootExpiresAtUnixMs: DateTimeOffset.UtcNow.AddMinutes(30).ToUnixTimeMilliseconds(),
             RootGraceExpiresAtUnixMs: DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeMilliseconds(),
             CircuitNumericId: 7,
-            PublicInputLayoutVersion: 2,
+            PublicInputLayoutVersion: 3,
             ZkAnonymousEnabled: true,
             VerifierConfigured: true,
-            CircuitId: "fsus.anonymous.comment.v1",
+            CircuitId: "fsus.anonymous.comment.v2",
             VerifyingKeyHash: "vk-sha256",
             IssuerPublicKeyHash: IssuerPublicKeyHash,
             CredentialRoot: Convert.FromHexString(new string('c', 64)),

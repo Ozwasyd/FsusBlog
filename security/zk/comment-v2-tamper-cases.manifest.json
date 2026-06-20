@@ -1,12 +1,12 @@
 {
   "schema": "fsusblog.zk.tamper-cases.v1",
-  "circuit_id": "fsus.anonymous.comment.v1",
-  "public_input_layout_version": 2,
+  "circuit_id": "fsus.anonymous.comment.v2",
+  "public_input_layout_version": 3,
   "valid_case": {
-    "id": "valid-comment-v1-witness",
+    "id": "valid-comment-v2-witness",
     "expected": "accept",
     "covers": [
-      "valid_bbs_credential",
+      "valid_circuit_native_credential",
       "current_credential_root",
       "revocation_non_membership",
       "qualification_policy",
@@ -20,10 +20,10 @@
       "id": "tamper-issuer-signature",
       "expected": "reject",
       "mutates": [
-        "bbs_plus_issuer_signature"
+        "circuit_native_issuer_signature"
       ],
       "covers": [
-        "valid_bbs_credential"
+        "valid_circuit_native_credential"
       ]
     },
     {
@@ -140,7 +140,7 @@
         "verifying_key_hash"
       ],
       "covers": [
-        "valid_bbs_credential",
+        "valid_circuit_native_credential",
         "current_credential_root"
       ]
     },

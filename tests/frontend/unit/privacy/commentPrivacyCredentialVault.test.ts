@@ -52,7 +52,7 @@ describe('commentPrivacyCredentialVault', () => {
 function partition(issuerPublicKeyHash: string): CommentPrivacyCredentialVaultPartition {
   return {
     credentialEpoch: 20260620,
-    circuitId: 'fsus.anonymous.comment.v1',
+    circuitId: 'fsus.anonymous.comment.v2',
     issuerPublicKeyHash
   }
 }

@@ -13,7 +13,7 @@ import {
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import { FrameType } from '@wasm/protocol/frame'
 import type { CommentPrivacyCredentialMaterial } from './commentPrivacyTypes'
-import { createManagedBbsBlindCredentialSuite } from './commentPrivacyBbsBlindSuite'
+import { createManagedCircuitNativeCredentialSuite } from './commentPrivacyCircuitNativeSuite'
 import {
   createCommentPrivacyCredentialVault,
   type CommentPrivacyCredentialVault,
@@ -57,24 +57,24 @@ export type CommentPrivacyRevocationWitnessLoader = (
   config: { signal: AbortSignal }
 ) => Promise<Uint8Array | null>
 
-export interface CommentPrivacyBlindIssuanceRequest {
-  blindedRequest: Uint8Array
-  blindOpening: Uint8Array
+export interface CommentPrivacyCredentialIssuePayload {
+  credentialRequest: Uint8Array
+  credentialOpening: Uint8Array
 }
 
-export interface CommentPrivacyBlindCredentialSuite {
-  createBlindIssuanceRequest(input: {
+export interface CommentPrivacyCredentialSuite {
+  createCredentialRequest(input: {
     credentialSecret: Uint8Array
     clientNonce: Uint8Array
     metadata: CommentPrivacyCredentialIssuerMetadata
     signal: AbortSignal
-  }): Promise<CommentPrivacyBlindIssuanceRequest | null>
-  unblindIssuerResponse(input: {
+  }): Promise<CommentPrivacyCredentialIssuePayload | null>
+  acceptIssuerResponse(input: {
     credentialSecret: Uint8Array
     clientNonce: Uint8Array
-    blindOpening: Uint8Array
+    credentialOpening: Uint8Array
     issuerPublicKeyId: string
-    bbsSignature: Uint8Array
+    issuerSignature: Uint8Array
     metadata: CommentPrivacyCredentialIssuerMetadata
     response: AnonymousCredentialIssueResponse
     signal: AbortSignal
@@ -86,7 +86,7 @@ export interface CommentPrivacyCredentialProviderOptions {
   loadMetadata?: CommentPrivacyCredentialMetadataLoader
   issueCredential?: CommentPrivacyCredentialIssuer
   loadRevocationWitness?: CommentPrivacyRevocationWitnessLoader
-  blindCredentialSuite?: CommentPrivacyBlindCredentialSuite | null
+  credentialSuite?: CommentPrivacyCredentialSuite | null
   crypto?: Pick<Crypto, 'getRandomValues'> | null
   now?: () => number
   unavailableCacheTtlMs?: number
@@ -106,9 +106,9 @@ export function createCommentPrivacyCredentialProvider(
   const loadMetadata = options.loadMetadata ?? loadDefaultCredentialMetadata
   const issueCredential = options.issueCredential ?? issueAnonymousCredential
   const loadRevocationWitness = options.loadRevocationWitness ?? loadAnonymousCredentialRevocationWitness
-  const blindCredentialSuite = options.blindCredentialSuite === undefined && cryptoSource
-    ? createManagedBbsBlindCredentialSuite({ crypto: cryptoSource })
-    : options.blindCredentialSuite ?? null
+  const credentialSuite = options.credentialSuite === undefined && cryptoSource
+    ? createManagedCircuitNativeCredentialSuite({ crypto: cryptoSource })
+    : options.credentialSuite ?? null
   const now = options.now ?? (() => Date.now())
   const unavailableCacheTtlMs = options.unavailableCacheTtlMs ?? DEFAULT_FAILURE_CACHE_TTL_MS
   const credentialSecretBytes = options.credentialSecretBytes ?? DEFAULT_CREDENTIAL_SECRET_BYTES
@@ -147,13 +147,13 @@ export function createCommentPrivacyCredentialProvider(
           return cloneCredentialMaterial(cached)
         }
 
-        if (!blindCredentialSuite) {
+        if (!credentialSuite) {
           return failClosed(signal)
         }
 
         const credentialSecret = randomBytes(cryptoSource, credentialSecretBytes)
         const clientNonce = randomBytes(cryptoSource, clientNonceBytes)
-        const blindRequest = await blindCredentialSuite.createBlindIssuanceRequest({
+        const credentialIssuePayload = await credentialSuite.createCredentialRequest({
           credentialSecret: cloneBytes(credentialSecret),
           clientNonce: cloneBytes(clientNonce),
           metadata,
@@ -162,7 +162,7 @@ export function createCommentPrivacyCredentialProvider(
         if (signal.aborted) {
           return null
         }
-        if (!isUsableBlindRequest(blindRequest)) {
+        if (!isUsableCredentialIssuePayload(credentialIssuePayload)) {
           return failClosed(signal)
         }
 
@@ -172,7 +172,7 @@ export function createCommentPrivacyCredentialProvider(
           publicInputLayoutVersion: metadata.publicInputLayoutVersion,
           circuitId: metadata.circuitId,
           credentialLevel: metadata.credentialLevel,
-          blindedRequest: cloneBytes(blindRequest.blindedRequest),
+          credentialRequest: cloneBytes(credentialIssuePayload.credentialRequest),
           clientNonce: cloneBytes(clientNonce)
         }, { signal })
         if (signal.aborted) {
@@ -182,12 +182,12 @@ export function createCommentPrivacyCredentialProvider(
           return failClosed(signal)
         }
 
-        const material = await blindCredentialSuite.unblindIssuerResponse({
+        const material = await credentialSuite.acceptIssuerResponse({
           credentialSecret: cloneBytes(credentialSecret),
           clientNonce: cloneBytes(clientNonce),
-          blindOpening: cloneBytes(blindRequest.blindOpening),
+          credentialOpening: cloneBytes(credentialIssuePayload.credentialOpening),
           issuerPublicKeyId: issuerResponse.issuerPublicKeyId,
-          bbsSignature: cloneBytes(issuerResponse.bbsSignature),
+          issuerSignature: cloneBytes(issuerResponse.issuerSignature),
           metadata,
           response: issuerResponse,
           signal
@@ -343,14 +343,14 @@ function metadataPartition(
   }
 }
 
-function isUsableBlindRequest(
-  request: CommentPrivacyBlindIssuanceRequest | null
-): request is CommentPrivacyBlindIssuanceRequest {
+function isUsableCredentialIssuePayload(
+  request: CommentPrivacyCredentialIssuePayload | null
+): request is CommentPrivacyCredentialIssuePayload {
   return Boolean(request) &&
-    request?.blindedRequest instanceof Uint8Array &&
-    request.blindedRequest.byteLength > 0 &&
-    request.blindOpening instanceof Uint8Array &&
-    request.blindOpening.byteLength > 0
+    request?.credentialRequest instanceof Uint8Array &&
+    request.credentialRequest.byteLength > 0 &&
+    request.credentialOpening instanceof Uint8Array &&
+    request.credentialOpening.byteLength > 0
 }
 
 function matchesMetadata(
@@ -363,8 +363,8 @@ function matchesMetadata(
     response.circuitId === metadata.circuitId &&
     typeof response.issuerPublicKeyId === 'string' &&
     response.issuerPublicKeyId.trim().length > 0 &&
-    response.bbsSignature instanceof Uint8Array &&
-    response.bbsSignature.byteLength > 0
+    response.issuerSignature instanceof Uint8Array &&
+    response.issuerSignature.byteLength > 0
 }
 
 function isUsableCredentialMaterial(

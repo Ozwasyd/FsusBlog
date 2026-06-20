@@ -588,14 +588,14 @@ public static class ProductionStartupValidator
             errors.Add("AnonymousIdentity:ZkProd:Enabled requires trusted setup verification and a verifying key hash in production.");
         }
 
-        if (options.RequireBbsCredential && !options.BbsCredentialReady)
+        if (options.RequireCredential && !options.CredentialReady)
         {
-            errors.Add("AnonymousIdentity:ZkProd:Enabled requires BBS credential readiness in production.");
+            errors.Add("AnonymousIdentity:ZkProd:Enabled requires circuit-native credential readiness in production.");
         }
 
-        if (options.RequireBbsCredential && options.BbsCredentialReady && !readiness.BbsIssuerConfigured)
+        if (options.RequireCredential && options.CredentialReady && !readiness.CredentialIssuerConfigured)
         {
-            errors.Add("AnonymousIdentity:ZkProd:BbsCredentialReady requires a configured BBS issuer backend in production.");
+            errors.Add("AnonymousIdentity:ZkProd:CredentialReady requires a configured circuit-native issuer backend in production.");
         }
 
         if (!readiness.CredentialRootReady)
@@ -652,7 +652,7 @@ internal sealed class ProductionStartupValidationHostedService(
     IWebHostEnvironment environment,
     IZkProofVerifier zkProofVerifier,
     IAnonymousCredentialRootReader rootReader,
-    IBbsBlindCredentialIssuer bbsIssuer,
+    ICircuitNativeCredentialIssuer credentialIssuer,
     StartupRuntimeState runtimeState,
     ILogger<ProductionStartupValidationHostedService> logger) : IHostedService
 {
@@ -673,7 +673,7 @@ internal sealed class ProductionStartupValidationHostedService(
             new ZkProdRuntimeReadiness(
                 zkProofVerifier.IsConfigured,
                 HasReadyCredentialRoot(rootReader),
-                bbsIssuer.IsConfigured));
+                credentialIssuer.IsConfigured));
         if (report.Errors.Count == 0)
         {
             runtimeState.ReportStartupTask(TaskName, "completed", "生产启动校验通过");

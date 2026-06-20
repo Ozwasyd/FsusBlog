@@ -13,9 +13,9 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ZkAnonymousProofVerifierContractTests
 {
-    private const string CircuitId = "fsus.anonymous.comment.v1";
+    private const string CircuitId = "fsus.anonymous.comment.v2";
     private const string VerifyingKeyHash = "vk-sha256";
-    private const ushort PublicInputLayoutVersion = 2;
+    private const ushort PublicInputLayoutVersion = 3;
     private const long CredentialEpoch = 7;
     private const string CredentialRoot = "credential-root-active";
     private const string RevocationRoot = "revocation-root-active";
@@ -85,11 +85,11 @@ public sealed class ZkAnonymousProofVerifierContractTests
             {
                 ["AnonymousIdentity:ZkProd:Enabled"] = "true",
                 ["AnonymousIdentity:ZkProd:RequireNativeVerifier"] = "true",
-                ["AnonymousIdentity:ZkProd:RequireBbsCredential"] = "true",
+                ["AnonymousIdentity:ZkProd:RequireCredential"] = "true",
                 ["AnonymousIdentity:ZkProd:RequireTrustedSetupVerified"] = "true",
                 ["AnonymousIdentity:ZkProd:VerifierBackend"] = "native_groth16",
                 ["AnonymousIdentity:ZkProd:TrustedSetupVerified"] = "true",
-                ["AnonymousIdentity:ZkProd:BbsCredentialReady"] = "true",
+                ["AnonymousIdentity:ZkProd:CredentialReady"] = "true",
                 ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = VerifyingKeyHash
             }),
             new DisabledZkProofVerifier());
@@ -99,7 +99,7 @@ public sealed class ZkAnonymousProofVerifierContractTests
         Assert.True(policy.Enabled);
         Assert.False(policy.NativeVerifierConfigured);
         Assert.True(policy.TrustedSetupVerified);
-        Assert.True(policy.BbsCredentialRequired);
+        Assert.True(policy.CredentialRequired);
         Assert.False(policy.CredentialRootReady);
         Assert.Equal("native_verifier_unavailable", policy.UnavailableReason);
     }

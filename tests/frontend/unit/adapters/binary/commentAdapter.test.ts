@@ -160,7 +160,7 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
     pod[4] = 1 // zkProdEnabled
     pod[5] = 1 // zkProdNativeVerifierConfigured
     pod[6] = 1 // zkProdTrustedSetupVerified
-    pod[7] = 1 // zkProdBbsCredentialRequired
+    pod[7] = 1 // zkProdCredentialRequired
     pod[8] = 1 // zkProdCredentialRootReady
     writeSliceRef(pod, 9, 0, 8)
     writeSliceRef(pod, 17, 8, 0)
@@ -179,7 +179,7 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
       zkProdEnabled: true,
       zkProdNativeVerifierConfigured: true,
       zkProdTrustedSetupVerified: true,
-      zkProdBbsCredentialRequired: true,
+      zkProdCredentialRequired: true,
       zkProdCredentialRootReady: true,
       zkProdUnavailableReason: ''
     })
@@ -208,38 +208,38 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
 describe('anonymous privacy binary adapters', () => {
   it('decodes credential issue response without exposing reversible identity', () => {
     const pod = new Uint8Array(ANONYMOUS_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE)
-    const circuit = textBytes('zk-comment-v1')
+    const circuit = textBytes('zk-comment-v2')
     const level = textBytes('strong_anonymous')
     const issuerPublicKeyId = textBytes('issuer-key-2026q2')
-    const bbsSignature = new Uint8Array([7, 8, 9])
-    const blob = buildPayload(circuit, level, issuerPublicKeyId, bbsSignature)
+    const issuerSignature = new Uint8Array([7, 8, 9])
+    const blob = buildPayload(circuit, level, issuerPublicKeyId, issuerSignature)
 
     writeInt64(pod, 0, 20260618n)
     writeInt64(pod, 8, 1780000000000n)
     writeInt32(pod, 16, 7)
-    writeUint16(pod, 20, 2)
+    writeUint16(pod, 20, 3)
     writeSliceRef(pod, 24, 0, circuit.length)
     writeSliceRef(pod, 32, circuit.length, level.length)
     writeSliceRef(pod, 40, circuit.length + level.length, issuerPublicKeyId.length)
-    writeSliceRef(pod, 48, circuit.length + level.length + issuerPublicKeyId.length, bbsSignature.length)
+    writeSliceRef(pod, 48, circuit.length + level.length + issuerPublicKeyId.length, issuerSignature.length)
 
     const result = mapAnonymousCredentialIssueResponseFromPayload(buildPayload(pod, blobParts(blob)))
 
     expect(result.credentialEpoch).toBe(20260618)
     expect(result.rootExpiresAtUnixMs).toBe(1780000000000)
     expect(result.circuitNumericId).toBe(7)
-    expect(result.publicInputLayoutVersion).toBe(2)
-    expect(result.circuitId).toBe('zk-comment-v1')
+    expect(result.publicInputLayoutVersion).toBe(3)
+    expect(result.circuitId).toBe('zk-comment-v2')
     expect(result.credentialLevel).toBe('strong_anonymous')
     expect(result.issuerPublicKeyId).toBe('issuer-key-2026q2')
-    expect([...result.bbsSignature]).toEqual([7, 8, 9])
+    expect([...result.issuerSignature]).toEqual([7, 8, 9])
     expect(JSON.stringify(result)).not.toContain('userId')
     expect(JSON.stringify(result)).not.toContain('credentialCommitment')
   })
 
   it('decodes root snapshot, ticket response, and privacy state snapshots', () => {
     const rootPod = new Uint8Array(ANONYMOUS_CREDENTIAL_ROOT_SNAPSHOT_POD_SIZE)
-    const circuit = textBytes('zk-comment-v1')
+    const circuit = textBytes('zk-comment-v2')
     const vk = textBytes('vk-sha256')
     const issuerPublicKeyHash = textBytes('issuer-public-key-hash')
     const credentialRoot = new Uint8Array([1, 2])
@@ -250,7 +250,7 @@ describe('anonymous privacy binary adapters', () => {
     writeInt64(rootPod, 8, 1780000000000n)
     writeInt64(rootPod, 16, 1780003600000n)
     writeInt32(rootPod, 24, 7)
-    writeUint16(rootPod, 28, 2)
+    writeUint16(rootPod, 28, 3)
     writeByte(rootPod, 30, 1)
     writeByte(rootPod, 31, 1)
     writeSliceRef(rootPod, 32, 0, circuit.length)
@@ -296,7 +296,7 @@ describe('anonymous privacy binary adapters', () => {
     writeInt64(statePod, 8, 1780000000000n)
     writeInt64(statePod, 16, 1780000005000n)
     writeInt32(statePod, 24, 7)
-    writeUint16(statePod, 28, 2)
+    writeUint16(statePod, 28, 3)
     writeByte(statePod, 30, 1)
     writeByte(statePod, 31, 0)
     writeByte(statePod, 32, 1)
@@ -324,7 +324,7 @@ describe('anonymous privacy binary adapters', () => {
     const blob = buildPayload(algorithm, revocationRoot, issuerPublicKeyHash, handle, leafKey, witnessHash, siblings)
 
     writeInt64(pod, 0, 20260618n)
-    writeUint16(pod, 8, 2)
+    writeUint16(pod, 8, 3)
     writeUint16(pod, 10, 0)
     writeInt32(pod, 12, 2)
     writeSliceRef(pod, 16, 0, algorithm.length)

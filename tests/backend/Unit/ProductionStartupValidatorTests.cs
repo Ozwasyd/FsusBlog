@@ -92,7 +92,7 @@ public sealed class ProductionStartupValidatorTests
             new TestWebHostEnvironment(Environments.Production),
             new StaticZkProofVerifier(configured: false),
             new StaticRootReader(rootReady: false),
-            new UnavailableBbsBlindCredentialIssuer(configuration),
+            new UnavailableCircuitNativeCredentialIssuer(configuration),
             runtimeState,
             NullLogger<ProductionStartupValidationHostedService>.Instance);
 
@@ -375,11 +375,11 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
-    public void ValidateCore_RejectsProductionZkProdEnabledWithoutBbsCredentialReadiness()
+    public void ValidateCore_RejectsProductionZkProdEnabledWithoutCredentialReadiness()
     {
         IConfiguration configuration = CreateZkProdProductionConfiguration(new Dictionary<string, string?>
         {
-            ["AnonymousIdentity:ZkProd:BbsCredentialReady"] = "false"
+            ["AnonymousIdentity:ZkProd:CredentialReady"] = "false"
         });
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
@@ -389,15 +389,15 @@ public sealed class ProductionStartupValidatorTests
                 NativeVerifierConfigured: true,
                 CredentialRootReady: true));
 
-        Assert.Contains(errors, static error => error.Contains("BBS credential", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(errors, static error => error.Contains("circuit-native credential", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
-    public void ValidateCore_RejectsProductionZkProdReadyWhenBbsIssuerUnavailable()
+    public void ValidateCore_RejectsProductionZkProdReadyWhenCredentialIssuerUnavailable()
     {
         IConfiguration configuration = CreateZkProdProductionConfiguration(new Dictionary<string, string?>
         {
-            ["AnonymousCredentialIssuer:Bbs:Enabled"] = "false"
+            ["AnonymousCredentialIssuer:CircuitNative:Enabled"] = "false"
         });
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
@@ -407,7 +407,7 @@ public sealed class ProductionStartupValidatorTests
                 NativeVerifierConfigured: true,
                 CredentialRootReady: true));
 
-        Assert.Contains(errors, static error => error.Contains("BBS issuer", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(errors, static error => error.Contains("circuit-native issuer", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -421,7 +421,7 @@ public sealed class ProductionStartupValidatorTests
             new ZkProdRuntimeReadiness(
                 NativeVerifierConfigured: true,
                 CredentialRootReady: true,
-                BbsIssuerConfigured: true));
+                CredentialIssuerConfigured: true));
 
         Assert.DoesNotContain(errors, static error => error.Contains("AnonymousIdentity:ZkProd", StringComparison.Ordinal));
     }
@@ -462,13 +462,13 @@ public sealed class ProductionStartupValidatorTests
         {
             ["AnonymousIdentity:ZkProd:Enabled"] = "true",
             ["AnonymousIdentity:ZkProd:RequireNativeVerifier"] = "true",
-            ["AnonymousIdentity:ZkProd:RequireBbsCredential"] = "true",
+            ["AnonymousIdentity:ZkProd:RequireCredential"] = "true",
             ["AnonymousIdentity:ZkProd:RequireTrustedSetupVerified"] = "true",
             ["AnonymousIdentity:ZkProd:AllowDevVerifier"] = "false",
             ["AnonymousIdentity:ZkProd:FallbackToLegacyAnonymous"] = "false",
             ["AnonymousIdentity:ZkProd:VerifierBackend"] = "native_groth16",
             ["AnonymousIdentity:ZkProd:TrustedSetupVerified"] = "true",
-            ["AnonymousIdentity:ZkProd:BbsCredentialReady"] = "true",
+            ["AnonymousIdentity:ZkProd:CredentialReady"] = "true",
             ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = "vk-sha256"
         };
 

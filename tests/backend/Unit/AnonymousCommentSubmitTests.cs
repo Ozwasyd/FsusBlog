@@ -597,7 +597,7 @@ public sealed class AnonymousCommentSubmitTests
                 Enabled: true,
                 NativeVerifierConfigured: true,
                 TrustedSetupVerified: true,
-                BbsCredentialRequired: true,
+                CredentialRequired: true,
                 CredentialRootReady: true,
                 UnavailableReason: string.Empty));
 
@@ -606,7 +606,7 @@ public sealed class AnonymousCommentSubmitTests
                 Enabled: true,
                 NativeVerifierConfigured: false,
                 TrustedSetupVerified: true,
-                BbsCredentialRequired: true,
+                CredentialRequired: true,
                 CredentialRootReady: true,
                 UnavailableReason: reason));
 

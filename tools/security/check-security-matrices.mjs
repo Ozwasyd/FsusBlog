@@ -303,7 +303,7 @@ function verifyPrivacyZkCommentMatrix(text) {
     'log-redaction-proof-witness-credential-secret-raw-nullifier-cookie-authorization',
     'admin-no-account-reversal',
     'public-signature-explicit-opt-in',
-    'bbs-credential-possession',
+    'circuit-native-credential-possession',
     'credential-root-membership',
     'revocation-non-membership-witness',
     'nullifier-secret-action-scope-binding',

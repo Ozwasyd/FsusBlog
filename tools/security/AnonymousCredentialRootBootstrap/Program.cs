@@ -16,8 +16,8 @@ namespace FsusBlog.Tools.Security.AnonymousCredentialRootBootstrap;
 
 internal static partial class Program
 {
-    private const string ExpectedCircuitId = "fsus.anonymous.comment.v1";
-    private const ushort ExpectedLayoutVersion = 2;
+    private const string ExpectedCircuitId = "fsus.anonymous.comment.v2";
+    private const ushort ExpectedLayoutVersion = 3;
     private const string TrustedSetupSchema = "fsusblog.zk.trusted-setup-manifest.v1";
     private const string VerifyingKeySchema = "fsusblog.zk.verifying-key-config.v1";
     private const string EvidenceSchema = "fsusblog.anonymous-credential-root-bootstrap-evidence.v1";
@@ -585,7 +585,7 @@ internal static partial class Program
     [GeneratedRegex("^[0-9a-f]{64}$", RegexOptions.CultureInvariant)]
     private static partial Regex Sha256Regex();
 
-    [GeneratedRegex("(?:issuerPrivateKey|issuer_private_key|privateKey|private_key|credentialSecret|credential_secret|proofWitness|proof_witness|witness|bbsSignature|bbs_signature|blindOpening|blind_opening|credentialOpening|credential_opening)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("(?:issuerPrivateKey|issuer_private_key|privateKey|private_key|credentialSecret|credential_secret|proofWitness|proof_witness|witness|issuerSignature|issuer_signature|credentialOpening|credential_opening)", RegexOptions.CultureInvariant)]
     private static partial Regex SensitiveKeyRegex();
 
     private sealed record CliOptions(
@@ -807,8 +807,8 @@ internal static partial class Program
                 },
                 [
                     "hash-format-valid",
-                    "circuit-id-fsus.anonymous.comment.v1",
-                    "public-input-layout-version-2",
+                    "circuit-id-fsus.anonymous.comment.v2",
+                    "public-input-layout-version-3",
                     "verifying-key-hash-bound-to-trusted-setup",
                     "verifying-key-hash-bound-to-config-manifest",
                     "root-lifecycle-rotate-called",

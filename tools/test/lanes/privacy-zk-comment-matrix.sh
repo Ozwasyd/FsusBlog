@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-node "$ROOT_DIR/tools/crypto/check-zk-comment-v1-manifests.mjs"
+node "$ROOT_DIR/tools/crypto/check-zk-comment-v2-manifests.mjs"
 npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk
 npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-prod-smoke
 mkdir -p "$ROOT_DIR/.tmp/security"

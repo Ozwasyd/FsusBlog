@@ -1,18 +1,17 @@
-# fsus.anonymous.comment.v1 circuit contract
+# fsus.anonymous.comment.v2 circuit contract
 
 Status: repository contract only. This document and its manifests define the
-Groth16 circuit boundary for #543. They do not claim that a real R1CS, proving
-key, verifying key, or browser prover artifact exists yet. Production remains
-fail-closed until the trusted setup manifest is switched to real audited
-artifacts.
+Groth16 circuit boundary for the circuit-native anonymous comment path. They do
+not claim that a real R1CS, proving key, verifying key, or browser prover
+artifact exists yet. Production remains fail-closed until the trusted setup
+manifest is switched to real audited artifacts.
 
 ## Issue #551 production circuit status
 
-`comment.v1` still does not have a repository-pinned Circom/snarkjs or
-equivalent circuit build toolchain, and this checkout has no real
-`circuits/anonymous-comment-v1` source tree or `artifacts/zk/comment-v1`
-R1CS/Groth16 outputs. A manifest, documentation page, or hash fixture is not a
-production circuit.
+`comment.v2` replaces the retired `comment.v1` BBS credential boundary with a
+circuit-native issuer signature verified inside the Groth16 circuit. The
+repository contract has selected the cryptographic boundary, but this checkout
+still has no production-ready circuit artifacts under `artifacts/zk/comment-v2`.
 
 The manifest checker enforces that boundary:
 
@@ -25,22 +24,19 @@ The manifest checker enforces that boundary:
 - both files must exist in the repository checkout and match their SHA-256
   digests before the checker will accept the production-ready claim.
 
-Until those source and artifact hashes exist, #551 is blocked on real circuit
-implementation and setup work rather than complete.
-
 ## Canonical Assets
 
 | Asset | Path |
 | --- | --- |
-| Circuit manifest | `security/zk/comment-v1-circuit.manifest.json` |
-| Tamper and soundness cases | `security/zk/comment-v1-tamper-cases.manifest.json` |
-| Feasibility and design decision gate | `security/zk/comment-v1-feasibility.manifest.json` |
-| Trusted setup manifest | `security/zk/comment-v1-trusted-setup.manifest.json` |
-| Verifying key config manifest | `config/zk/anonymous-comment-v1-verifying-key.manifest.json` |
-| Static checker | `tools/crypto/check-zk-comment-v1-manifests.mjs` |
+| Circuit manifest | `security/zk/comment-v2-circuit.manifest.json` |
+| Tamper and soundness cases | `security/zk/comment-v2-tamper-cases.manifest.json` |
+| Feasibility and design decision gate | `security/zk/comment-v2-feasibility.manifest.json` |
+| Trusted setup manifest | `security/zk/comment-v2-trusted-setup.manifest.json` |
+| Verifying key config manifest | `config/zk/anonymous-comment-v2-verifying-key.manifest.json` |
+| Static checker | `tools/crypto/check-zk-comment-v2-manifests.mjs` |
 
-The circuit id is `fsus.anonymous.comment.v1`. The public input layout version
-is `2`. Any change to public input order, meaning, encoding, or count requires a
+The circuit id is `fsus.anonymous.comment.v2`. The public input layout version
+is `3`. Any change to public input order, meaning, encoding, or count requires a
 new layout version and a new circuit-specific ceremony.
 
 ## Public Inputs
@@ -49,8 +45,8 @@ The public input list is intentionally coarse and identity-free:
 
 | Name | Meaning |
 | --- | --- |
-| `public_input_layout_version` | Constant layout discriminator, currently `2`. |
-| `circuit_id` | `fsus.anonymous.comment.v1`. |
+| `public_input_layout_version` | Constant layout discriminator, currently `3`. |
+| `circuit_id` | `fsus.anonymous.comment.v2`. |
 | `action_context` | Must equal `comment.create`. |
 | `scope` | Comment replay scope, for example `article:42`. |
 | `nullifier_hash` | Public nullifier constrained by the private credential secret and scope. |
@@ -71,8 +67,9 @@ address, device fingerprint, and cookies are not public inputs.
 The witness contract is:
 
 - `credential_secret`
-- BBS+ issuer signature over the credential attributes
-- credential opening / blind-signature opening material
+- circuit-native issuer signature over the credential attributes
+- issuer signature public key used inside the circuit
+- credential opening material
 - credential membership proof for `credential_root`
 - revocation non-membership witness for `revocation_root`
 - signed credential attributes for `credential_level`, `reputation_bucket`, and epoch
@@ -83,7 +80,7 @@ not witness inputs and must not be used to derive nullifiers.
 
 ## Revocation Non-Membership
 
-`comment.v1` uses `circuit-friendly-non-membership.v1` for production
+`comment.v2` uses `circuit-friendly-non-membership.v1` for production
 revocation roots. The backend contract is frozen in
 `docs/zk/revocation-accumulator.md`:
 
@@ -91,8 +88,7 @@ revocation roots. The backend contract is frozen in
 - hash: MiMC7 over BN254 Fr, 91 rounds, repository domain-separated constants
 - root/public input encoding: 32-byte lower-case hex field element
 - leaf key: first 128 bits of `revocation_handle_hash`
-- private witness order: `leafKey`, then `siblingHashes[0..127]` from leaf to
-  root
+- private witness order: `leafKey`, then `siblingHashes[0..127]` from leaf to root
 
 The circuit must reconstruct `revocation_root` from the empty leaf at `leafKey`
 and the sibling path, and it must reject a witness for a revoked handle. The
@@ -103,8 +99,8 @@ helper and is excluded from production root snapshots.
 
 The circuit must prove exactly these assertions for the ticket path:
 
-1. The prover holds a valid BBS+ anonymous credential signed by an accepted
-   issuer key.
+1. The prover holds a valid circuit-native anonymous credential signed by an
+   accepted issuer key.
 2. The credential belongs to the current credential root for the declared epoch.
 3. The credential is not revoked according to the revocation accumulator.
 4. The disclosed `credential_level` and `reputation_bucket` satisfy the comment
@@ -120,11 +116,11 @@ acceptability, admin authorization, account login status, or rate-limit state.
 
 ## Nullifier PRF
 
-`comment.v1` uses a circuit-friendly PRF, recorded in the manifest as Poseidon:
+`comment.v2` uses a circuit-friendly PRF, recorded in the manifest as Poseidon:
 
 ```text
 nullifier_hash = Poseidon(
-  domain = "fsus.anonymous.comment.v1:nullifier:v1",
+  domain = "fsus.anonymous.comment.v2:nullifier:v1",
   credential_secret,
   action_context,
   scope
@@ -138,7 +134,7 @@ session, proof token, issuer audit rows, IP address, or device state.
 
 ## Soundness Matrix
 
-`security/zk/comment-v1-tamper-cases.manifest.json` is the executable contract
+`security/zk/comment-v2-tamper-cases.manifest.json` is the executable contract
 for positive and negative cases. It requires at least one reject case for each
 security assertion, including nullifier tamper, scope tamper, root tamper,
 revocation tamper, unsigned policy bucket tamper, issuer-key tamper, layout
@@ -155,7 +151,7 @@ The repository contract sets production targets, not current measurements:
 - proof bytes: at most 1024 bytes
 - wasm prover p95: at most 3000 ms on the supported browser profile
 - native verifier p99: at most 50 ms before endpoint overhead
-- public input layout: stable version `2`
+- public input layout: stable version `3`
 
 Until real artifacts exist, these budgets are enforced as required manifest
 fields only. No benchmark in this slice claims real prover performance.

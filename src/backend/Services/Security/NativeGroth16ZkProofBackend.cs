@@ -173,7 +173,7 @@ internal sealed record NativeGroth16ZkProofBackendOptions(
     }
 
     private static string DefaultVerifyingKeyPath()
-        => Path.Combine(AppContext.BaseDirectory, "native", "zk", "comment.v1.vk");
+        => Path.Combine(AppContext.BaseDirectory, "native", "zk", "comment.v2.vk");
 
     private static string NormalizePath(string? configured, string? environment, string fallback)
     {
@@ -310,7 +310,7 @@ internal sealed class UnavailableNativeGroth16VerifierLibrary : INativeGroth16Ve
 
 internal static class NativeGroth16PublicInputCodec
 {
-    private const string TranscriptDomain = "fsus.anonymous.comment.v1.public-inputs";
+    private const string TranscriptDomain = "fsus.anonymous.comment.v2.public-inputs";
 
     public static ReadOnlyMemory<byte> Encode(ProductionZkProofBackendRequest request)
     {

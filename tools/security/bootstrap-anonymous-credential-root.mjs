@@ -5,12 +5,12 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
-const DEFAULT_TRUSTED_SETUP = 'security/zk/comment-v1-trusted-setup.manifest.json'
-const DEFAULT_VERIFYING_KEY = 'config/zk/anonymous-comment-v1-verifying-key.manifest.json'
+const DEFAULT_TRUSTED_SETUP = 'security/zk/comment-v2-trusted-setup.manifest.json'
+const DEFAULT_VERIFYING_KEY = 'config/zk/anonymous-comment-v2-verifying-key.manifest.json'
 const DEFAULT_EVIDENCE = '.tmp/security/anonymous-credential-root-bootstrap.json'
-const EXPECTED_CIRCUIT_ID = 'fsus.anonymous.comment.v1'
-const EXPECTED_LAYOUT_VERSION = 2
-const SENSITIVE_KEYS = /(?:issuerPrivateKey|issuer_private_key|privateKey|private_key|credentialSecret|credential_secret|proofWitness|proof_witness|witness|bbsSignature|bbs_signature|blindOpening|blind_opening|credentialOpening|credential_opening)/u
+const EXPECTED_CIRCUIT_ID = 'fsus.anonymous.comment.v2'
+const EXPECTED_LAYOUT_VERSION = 3
+const SENSITIVE_KEYS = /(?:issuerPrivateKey|issuer_private_key|privateKey|private_key|credentialSecret|credential_secret|proofWitness|proof_witness|witness|issuerSignature|issuer_signature|credentialOpening|credential_opening)/u
 const PLACEHOLDER_HASHES = ['vk-sha256', 'placeholder', 'todo', 'tbd']
 const ALLOWED_INPUT_KEYS = new Set([
   'schema',
@@ -214,8 +214,8 @@ function buildEvidence({ input, trustedSetupPath, verifyingKeyPath }) {
     },
     checks: [
       'hash-format-valid',
-      'circuit-id-fsus.anonymous.comment.v1',
-      'public-input-layout-version-2',
+      'circuit-id-fsus.anonymous.comment.v2',
+      'public-input-layout-version-3',
       'verifying-key-hash-bound-to-trusted-setup',
       'verifying-key-hash-bound-to-config-manifest',
       'sensitive-input-fields-rejected',

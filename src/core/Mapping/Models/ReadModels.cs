@@ -92,7 +92,7 @@ public readonly record struct CommentPolicySnapshotCoreModel(
     bool ZkProdEnabled = false,
     bool ZkProdNativeVerifierConfigured = false,
     bool ZkProdTrustedSetupVerified = false,
-    bool ZkProdBbsCredentialRequired = true,
+    bool ZkProdCredentialRequired = true,
     bool ZkProdCredentialRootReady = false,
     string ZkProdUnavailableReason = "disabled");
 
@@ -123,7 +123,7 @@ public readonly record struct AnonymousCredentialIssueRequestCoreModel(
     ushort PublicInputLayoutVersion,
     string CircuitId,
     string CredentialLevel,
-    byte[] BlindedCommitment,
+    byte[] CredentialRequest,
     byte[] ClientNonce);
 
 public readonly record struct AnonymousCredentialIssueResponseCoreModel(
@@ -134,7 +134,7 @@ public readonly record struct AnonymousCredentialIssueResponseCoreModel(
     string CircuitId,
     string CredentialLevel,
     string IssuerPublicKeyId,
-    byte[] BbsSignature);
+    byte[] IssuerSignature);
 
 public readonly record struct AnonymousCredentialRootSnapshotCoreModel(
     long CredentialEpoch,
