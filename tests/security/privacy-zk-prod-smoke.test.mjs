@@ -43,7 +43,7 @@ test('privacy ZK production smoke fails require-real when real prover evidence i
       AnonymousIdentity: {
         ZkProd: {
           Enabled: true,
-          BbsCredentialReady: true
+          CredentialReady: true
         },
         ZkVerifier: {
           NativeLibraryPath: path.join(dir, 'missing-native.so')
@@ -72,14 +72,8 @@ test('privacy ZK production smoke accepts sanitized real full-chain evidence', (
       }
     })
     const realEvidence = writeJson(dir, 'real-evidence.json', {
+      ...completeRealEvidence(),
       status: 'ok',
-      nativeVerifier: true,
-      wasmProver: true,
-      bbsCredential: true,
-      ticketIssued: true,
-      anonymousSubmitPending: true,
-      identityHeadersOmitted: true,
-      sensitivePayloadRedacted: true,
       proofRaw: sensitiveSamples[0],
       ticket: sensitiveSamples[1],
       credentialSecret: sensitiveSamples[2],
@@ -98,12 +92,52 @@ test('privacy ZK production smoke accepts sanitized real full-chain evidence', (
     assert.equal(parsed.status, 'ok')
     assert.equal(parsed.nativeVerifier, true)
     assert.equal(parsed.wasmProver, true)
-    assert.equal(parsed.bbsCredential, true)
+    assert.equal(parsed.credential, true)
     assert.equal(parsed.ticketIssued, true)
     assert.equal(parsed.anonymousSubmitPending, true)
     assert.equal(parsed.identityHeadersOmitted, true)
     assert.equal(parsed.sensitivePayloadRedacted, true)
+    assert.equal(parsed.realEvidenceKind, 'real-groth16-cross-stack')
+    assert.equal(parsed.circuitId, 'fsus.anonymous.comment.v2')
+    assert.equal(parsed.publicInputLayoutVersion, 3)
+    assert.equal(parsed.proofSystem, 'Groth16')
+    assert.equal(parsed.artifactHashes.wasmProverSha256, hex('4'))
     assertNoSensitivePayload(result.stdout + result.stderr + JSON.stringify(parsed))
+  })
+})
+
+test('privacy ZK production smoke rejects boolean-only or hashing-only real evidence', () => {
+  withTempDir((dir) => {
+    const config = writeJson(dir, 'enabled.json', {
+      AnonymousIdentity: {
+        ZkProd: {
+          Enabled: true
+        }
+      }
+    })
+    const realEvidence = writeJson(dir, 'hashing-only.json', {
+      status: 'ok',
+      nativeVerifier: true,
+      wasmProver: true,
+      credential: true,
+      ticketIssued: true,
+      anonymousSubmitPending: true,
+      identityHeadersOmitted: true,
+      sensitivePayloadRedacted: true,
+      evidenceKind: 'hashing-fixture',
+      hashingFixtureUsed: true
+    })
+
+    const result = runSmoke(
+      '--config', config,
+      '--real-evidence', realEvidence,
+      '--summary', path.join(dir, 'summary.json'),
+      '--require-real')
+
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /real-groth16-cross-stack/)
+    assert.match(result.stderr, /hashingFixtureUsed/)
+    assertNoSensitivePayload(result.stdout + result.stderr)
   })
 })
 
@@ -133,4 +167,40 @@ function writeJson(dir, name, value) {
   const file = path.join(dir, name)
   writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`)
   return file
+}
+
+function completeRealEvidence() {
+  return {
+    evidenceKind: 'real-groth16-cross-stack',
+    circuitId: 'fsus.anonymous.comment.v2',
+    publicInputLayoutVersion: 3,
+    proofSystem: 'Groth16',
+    verifyingKeyHash: hex('a'),
+    nativeVerifier: true,
+    wasmProver: true,
+    credential: true,
+    credentialRootActive: true,
+    ticketIssued: true,
+    anonymousSubmitPending: true,
+    identityHeadersOmitted: true,
+    sensitivePayloadRedacted: true,
+    artifactHashes: {
+      r1csSha256: hex('1'),
+      provingKeySha256: hex('2'),
+      verifyingKeySha256: hex('a'),
+      nativeVerifierSha256: hex('3'),
+      wasmProverSha256: hex('4')
+    },
+    crossStack: {
+      frontendProofGenerated: true,
+      backendProofVerified: true,
+      publicInputsMatch: true,
+      tamperCasesRejected: true,
+      hashingFixtureUsed: false
+    }
+  }
+}
+
+function hex(ch) {
+  return ch.repeat(64)
 }

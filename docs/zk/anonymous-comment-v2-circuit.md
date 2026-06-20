@@ -152,6 +152,22 @@ The static checker validates the manifest coverage now. When real Groth16
 artifacts land, the same cases must become proof-generation and verifier tests:
 valid witness accepts; any single tamper rejects.
 
+## Real Cross-Stack Evidence Gate
+
+Production smoke evidence must not use the native hashing fixture as readiness
+proof. `tools/security/run-privacy-zk-prod-smoke.mjs --real-evidence
+--require-real` and `tools/security/check-privacy-zk-prod-release.mjs` require
+`evidenceKind=real-groth16-cross-stack`, `circuitId=fsus.anonymous.comment.v2`,
+layout version `3`, `proofSystem=Groth16`, a 64-char `verifyingKeyHash`, and
+SHA-256 bindings for the R1CS, proving key, canonical verifying key bytes,
+native verifier, and wasm prover artifact.
+
+The same evidence must state that the frontend wasm prover generated the proof,
+the backend native verifier accepted it, public inputs matched byte-for-byte,
+all tamper cases rejected, and `hashingFixtureUsed=false`. Release checks bind
+the evidence `verifyingKeyHash` to production config, trusted setup manifest,
+and the verifying-key artifact hash before ZK-Prod can be enabled.
+
 ## Budgets
 
 The repository contract sets production targets, not current measurements:

@@ -11,6 +11,14 @@ const DEFAULT_CONFIGS = [
 const DEFAULT_SUMMARY = '.tmp/security/privacy-zk-prod-smoke.json'
 const DEFAULT_PROVER_MANIFEST = 'src/frontend/public/wasm/comment-privacy-prover.manifest.json'
 const DEFAULT_TRUSTED_SETUP = 'security/zk/comment-v2-trusted-setup.manifest.json'
+const REAL_EVIDENCE_KIND = 'real-groth16-cross-stack'
+const REQUIRED_ARTIFACT_HASHES = [
+  'r1csSha256',
+  'provingKeySha256',
+  'verifyingKeySha256',
+  'nativeVerifierSha256',
+  'wasmProverSha256'
+]
 
 const args = parseArgs(process.argv.slice(2))
 const summaryPath = resolveRepoPath(args.summary ?? DEFAULT_SUMMARY)
@@ -80,6 +88,12 @@ const summary = {
   anonymousSubmitPending: realEvidence?.anonymousSubmitPending === true,
   identityHeadersOmitted: realEvidence?.identityHeadersOmitted === true || status === 'expected_unavailable',
   sensitivePayloadRedacted: true,
+  realEvidenceKind: realEvidence ? normalizeString(realEvidence.evidenceKind) : null,
+  circuitId: realEvidence ? normalizeString(realEvidence.circuitId) : null,
+  publicInputLayoutVersion: realEvidence ? Number(realEvidence.publicInputLayoutVersion) : null,
+  proofSystem: realEvidence ? normalizeString(realEvidence.proofSystem) : null,
+  verifyingKeyHash: realEvidence ? normalizeString(realEvidence.verifyingKeyHash).toLowerCase() : null,
+  artifactHashes: realEvidence ? sanitizeArtifactHashes(realEvidence.artifactHashes) : {},
   artifacts: artifactState.safeArtifacts,
   checks,
   errors
@@ -168,7 +182,65 @@ function validateRealEvidence(evidence) {
     }
   }
 
+  validateRealGroth16Evidence(evidence)
   checks.push({ id: 'real-smoke-evidence', status: 'checked' })
+}
+
+function validateRealGroth16Evidence(evidence) {
+  if (normalizeString(evidence.evidenceKind) !== REAL_EVIDENCE_KIND) {
+    errors.push(`real smoke evidence must declare evidenceKind=${REAL_EVIDENCE_KIND}.`)
+  }
+  if (normalizeString(evidence.circuitId) !== 'fsus.anonymous.comment.v2') {
+    errors.push('real smoke evidence circuitId must be fsus.anonymous.comment.v2.')
+  }
+  if (Number(evidence.publicInputLayoutVersion) !== 3) {
+    errors.push('real smoke evidence publicInputLayoutVersion must be 3.')
+  }
+  if (normalizeString(evidence.proofSystem) !== 'Groth16') {
+    errors.push('real smoke evidence proofSystem must be Groth16.')
+  }
+  if (!isSha256Hex(normalizeString(evidence.verifyingKeyHash).toLowerCase())) {
+    errors.push('real smoke evidence verifyingKeyHash must be a 64-char SHA-256 hex digest.')
+  }
+
+  const artifactHashes = isObject(evidence.artifactHashes) ? evidence.artifactHashes : {}
+  for (const key of REQUIRED_ARTIFACT_HASHES) {
+    const value = normalizeString(artifactHashes[key]).toLowerCase()
+    if (!isSha256Hex(value)) {
+      errors.push(`real smoke evidence artifactHashes.${key} must be a 64-char SHA-256 hex digest.`)
+    }
+  }
+
+  const verifyingKeyHash = normalizeString(evidence.verifyingKeyHash).toLowerCase()
+  const verifyingKeyArtifactHash = normalizeString(artifactHashes.verifyingKeySha256).toLowerCase()
+  if (isSha256Hex(verifyingKeyHash) && isSha256Hex(verifyingKeyArtifactHash) && verifyingKeyHash !== verifyingKeyArtifactHash) {
+    errors.push('real smoke evidence verifyingKeyHash must match artifactHashes.verifyingKeySha256.')
+  }
+
+  const crossStack = isObject(evidence.crossStack) ? evidence.crossStack : {}
+  for (const key of [
+    'frontendProofGenerated',
+    'backendProofVerified',
+    'publicInputsMatch',
+    'tamperCasesRejected'
+  ]) {
+    if (crossStack[key] !== true) {
+      errors.push(`real smoke evidence crossStack.${key}=true is required.`)
+    }
+  }
+  if (evidence.hashingFixtureUsed === true || crossStack.hashingFixtureUsed === true) {
+    errors.push('real smoke evidence must not use hashingFixtureUsed=true.')
+  }
+}
+
+function sanitizeArtifactHashes(value) {
+  const source = isObject(value) ? value : {}
+  const output = {}
+  for (const key of REQUIRED_ARTIFACT_HASHES) {
+    const hash = normalizeString(source[key]).toLowerCase()
+    if (isSha256Hex(hash)) output[key] = hash
+  }
+  return output
 }
 
 function readRealEvidence(rawPath) {
@@ -307,6 +379,10 @@ function readBoolEnv(name) {
 
 function normalizeString(value) {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function isSha256Hex(value) {
+  return /^[0-9a-f]{64}$/u.test(value)
 }
 
 function isObject(value) {

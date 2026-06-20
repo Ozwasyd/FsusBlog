@@ -51,13 +51,14 @@ test('privacy ZK production release gate rejects bypass flags even when disabled
 
 test('privacy ZK production release gate fails closed when enabled smoke evidence is missing', () => {
   withTempDir((dir) => {
+    const verifyingKeyHash = hex('a')
     const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
-    const bbsPublicKey = writeText(dir, 'bbs-public.key', 'issuer')
-    const setup = writeJson(dir, 'trusted-setup.json', setupManifest('abc123'))
+    const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
+    const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
     const config = writeJson(dir, 'enabled.json', enabledConfig({
       nativeLibrary,
-      bbsPublicKey,
-      verifyingKeyHash: 'abc123'
+      issuerPublicKey,
+      verifyingKeyHash
     }))
 
     const result = runGate(
@@ -73,21 +74,24 @@ test('privacy ZK production release gate fails closed when enabled smoke evidenc
 
 test('privacy ZK production release gate fails when credential root is not active', () => {
   withTempDir((dir) => {
+    const verifyingKeyHash = hex('a')
     const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
-    const bbsPublicKey = writeText(dir, 'bbs-public.key', 'issuer')
-    const setup = writeJson(dir, 'trusted-setup.json', setupManifest('abc123'))
+    const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
+    const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
     const smoke = writeJson(dir, 'smoke.json', completeSmokeEvidence({ credentialRootActive: false }))
     const config = writeJson(dir, 'enabled.json', enabledConfig({
       nativeLibrary,
-      bbsPublicKey,
-      verifyingKeyHash: 'abc123',
+      issuerPublicKey,
+      verifyingKeyHash,
       smoke
     }))
+    const rootBootstrap = writeJson(dir, 'root-bootstrap.json', rootBootstrapEvidence(verifyingKeyHash))
 
     const result = runGate(
       '--config', config,
       '--trusted-setup-manifest', setup,
       '--smoke-evidence', smoke,
+      '--root-bootstrap-evidence', rootBootstrap,
       '--summary', path.join(dir, 'summary.json'))
 
     assert.notEqual(result.status, 0)
@@ -97,14 +101,15 @@ test('privacy ZK production release gate fails when credential root is not activ
 
 test('privacy ZK production release gate fails when root bootstrap evidence is missing', () => {
   withTempDir((dir) => {
+    const verifyingKeyHash = hex('a')
     const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
-    const bbsPublicKey = writeText(dir, 'bbs-public.key', 'issuer')
-    const setup = writeJson(dir, 'trusted-setup.json', setupManifest('abc123'))
+    const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
+    const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
     const smoke = writeJson(dir, 'smoke.json', completeSmokeEvidence())
     const config = writeJson(dir, 'enabled.json', enabledConfig({
       nativeLibrary,
-      bbsPublicKey,
-      verifyingKeyHash: 'abc123',
+      issuerPublicKey,
+      verifyingKeyHash,
       smoke
     }))
 
@@ -122,9 +127,10 @@ test('privacy ZK production release gate fails when root bootstrap evidence is m
 
 test('privacy ZK production release gate rejects sensitive smoke evidence fields', () => {
   withTempDir((dir) => {
+    const verifyingKeyHash = hex('a')
     const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
-    const bbsPublicKey = writeText(dir, 'bbs-public.key', 'issuer')
-    const setup = writeJson(dir, 'trusted-setup.json', setupManifest('abc123'))
+    const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
+    const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
     const smoke = writeJson(dir, 'smoke.json', {
       ...completeSmokeEvidence(),
       debug: {
@@ -133,15 +139,17 @@ test('privacy ZK production release gate rejects sensitive smoke evidence fields
     })
     const config = writeJson(dir, 'enabled.json', enabledConfig({
       nativeLibrary,
-      bbsPublicKey,
-      verifyingKeyHash: 'abc123',
+      issuerPublicKey,
+      verifyingKeyHash,
       smoke
     }))
+    const rootBootstrap = writeJson(dir, 'root-bootstrap.json', rootBootstrapEvidence(verifyingKeyHash))
 
     const result = runGate(
       '--config', config,
       '--trusted-setup-manifest', setup,
       '--smoke-evidence', smoke,
+      '--root-bootstrap-evidence', rootBootstrap,
       '--summary', path.join(dir, 'summary.json'))
 
     assert.notEqual(result.status, 0)
@@ -149,11 +157,51 @@ test('privacy ZK production release gate rejects sensitive smoke evidence fields
   })
 })
 
+test('privacy ZK production release gate rejects hashing-only smoke evidence', () => {
+  withTempDir((dir) => {
+    const verifyingKeyHash = hex('a')
+    const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
+    const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
+    const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
+    const smoke = writeJson(dir, 'smoke.json', {
+      status: 'ok',
+      nativeVerifier: true,
+      wasmProver: true,
+      credential: true,
+      credentialRootActive: true,
+      ticketIssued: true,
+      anonymousSubmitPending: true,
+      identityHeadersOmitted: true,
+      sensitivePayloadRedacted: true,
+      evidenceKind: 'hashing-fixture',
+      hashingFixtureUsed: true
+    })
+    const config = writeJson(dir, 'enabled.json', enabledConfig({
+      nativeLibrary,
+      issuerPublicKey,
+      verifyingKeyHash,
+      smoke
+    }))
+    const rootBootstrap = writeJson(dir, 'root-bootstrap.json', rootBootstrapEvidence(verifyingKeyHash))
+
+    const result = runGate(
+      '--config', config,
+      '--trusted-setup-manifest', setup,
+      '--smoke-evidence', smoke,
+      '--root-bootstrap-evidence', rootBootstrap,
+      '--summary', path.join(dir, 'summary.json'))
+
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /real-groth16-cross-stack/)
+    assert.match(result.stderr, /hashingFixtureUsed/)
+  })
+})
+
 test('privacy ZK production release gate rejects offline-only root bootstrap evidence when enabled', () => {
   withTempDir((dir) => {
     const verifyingKeyHash = hex('a')
     const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
-    const bbsPublicKey = writeText(dir, 'bbs-public.key', 'issuer')
+    const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
     const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
     const smoke = writeJson(dir, 'smoke.json', completeSmokeEvidence())
     const rootBootstrap = writeJson(dir, 'root-bootstrap.json', rootBootstrapEvidence(verifyingKeyHash, {
@@ -163,7 +211,7 @@ test('privacy ZK production release gate rejects offline-only root bootstrap evi
     }))
     const config = writeJson(dir, 'enabled.json', enabledConfig({
       nativeLibrary,
-      bbsPublicKey,
+      issuerPublicKey,
       verifyingKeyHash,
       smoke
     }))
@@ -185,13 +233,13 @@ test('privacy ZK production release gate accepts complete enabled fixture', () =
   withTempDir((dir) => {
     const verifyingKeyHash = hex('a')
     const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
-    const bbsPublicKey = writeText(dir, 'bbs-public.key', 'issuer')
+    const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
     const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
     const smoke = writeJson(dir, 'smoke.json', completeSmokeEvidence())
     const rootBootstrap = writeJson(dir, 'root-bootstrap.json', rootBootstrapEvidence(verifyingKeyHash))
     const config = writeJson(dir, 'enabled.json', enabledConfig({
       nativeLibrary,
-      bbsPublicKey,
+      issuerPublicKey,
       verifyingKeyHash,
       smoke
     }))
@@ -212,33 +260,56 @@ test('privacy ZK production release gate accepts complete enabled fixture', () =
 })
 
 function completeSmokeEvidence(overrides = {}) {
+  const artifactHashes = {
+    r1csSha256: hex('1'),
+    provingKeySha256: hex('2'),
+    verifyingKeySha256: overrides.verifyingKeyHash ?? hex('a'),
+    nativeVerifierSha256: hex('3'),
+    wasmProverSha256: hex('4'),
+    ...(overrides.artifactHashes ?? {})
+  }
+
   return {
+    evidenceKind: 'real-groth16-cross-stack',
+    circuitId: 'fsus.anonymous.comment.v2',
+    publicInputLayoutVersion: 3,
+    proofSystem: 'Groth16',
+    verifyingKeyHash: artifactHashes.verifyingKeySha256,
     status: 'ok',
     nativeVerifier: true,
     wasmProver: true,
-    bbsCredential: true,
+    credential: true,
     credentialRootActive: true,
     ticketIssued: true,
     anonymousSubmitPending: true,
     identityHeadersOmitted: true,
     sensitivePayloadRedacted: true,
-    ...overrides
+    ...overrides,
+    artifactHashes,
+    crossStack: {
+      frontendProofGenerated: true,
+      backendProofVerified: true,
+      publicInputsMatch: true,
+      tamperCasesRejected: true,
+      hashingFixtureUsed: false,
+      ...(overrides.crossStack ?? {})
+    }
   }
 }
 
-function enabledConfig({ nativeLibrary, bbsPublicKey, verifyingKeyHash, smoke }) {
+function enabledConfig({ nativeLibrary, issuerPublicKey, verifyingKeyHash, smoke }) {
   return {
     AnonymousIdentity: {
       ZkProd: {
         Enabled: true,
         RequireNativeVerifier: true,
-        RequireBbsCredential: true,
+        RequireCredential: true,
         RequireTrustedSetupVerified: true,
         AllowDevVerifier: false,
         FallbackToLegacyAnonymous: false,
         VerifierBackend: 'native_groth16',
         TrustedSetupVerified: true,
-        BbsCredentialReady: true,
+        CredentialReady: true,
         VerifyingKeyHash: verifyingKeyHash,
         SmokeEvidencePath: smoke
       },
@@ -246,9 +317,11 @@ function enabledConfig({ nativeLibrary, bbsPublicKey, verifyingKeyHash, smoke })
         Backend: 'native_groth16',
         VerifyingKeyHash: verifyingKeyHash,
         NativeLibraryPath: nativeLibrary
-      },
-      BbsIssuer: {
-        PublicKeyPath: bbsPublicKey
+      }
+    },
+    AnonymousCredentialIssuer: {
+      CircuitNative: {
+        IssuerPublicKeyPath: issuerPublicKey
       }
     }
   }
@@ -257,8 +330,8 @@ function enabledConfig({ nativeLibrary, bbsPublicKey, verifyingKeyHash, smoke })
 function setupManifest(verifyingKeyHash) {
   return {
     schema: 'fsusblog.zk.trusted-setup-manifest.v1',
-    circuit_id: 'fsus.anonymous.comment.v1',
-    public_input_layout_version: 2,
+    circuit_id: 'fsus.anonymous.comment.v2',
+    public_input_layout_version: 3,
     production_usable: true,
     ceremony_status: 'verified',
     verifying_key_hash: verifyingKeyHash
@@ -276,9 +349,9 @@ function rootBootstrapEvidence(verifyingKeyHash, overrides = {}) {
       credentialRootHash: hex('1'),
       revocationRootHash: hex('2'),
       issuerPublicKeyHash: hex('3'),
-      circuitId: 'fsus.anonymous.comment.v1',
+      circuitId: 'fsus.anonymous.comment.v2',
       circuitNumericId: 7,
-      publicInputLayoutVersion: 2,
+      publicInputLayoutVersion: 3,
       verifyingKeyHash,
       expiresAtUtc: '2099-07-20T00:00:00Z',
       graceExpiresAtUtc: '2099-07-27T00:00:00Z'

@@ -13,6 +13,14 @@ const DEFAULT_TRUSTED_SETUP = 'security/zk/comment-v2-trusted-setup.manifest.jso
 const DEFAULT_SMOKE_EVIDENCE = '.tmp/security/privacy-zk-prod-smoke.json'
 const DEFAULT_ROOT_BOOTSTRAP_EVIDENCE = '.tmp/security/anonymous-credential-root-bootstrap.json'
 const DEFAULT_SUMMARY = '.tmp/security/privacy-zk-prod-release.json'
+const REAL_EVIDENCE_KIND = 'real-groth16-cross-stack'
+const REQUIRED_ARTIFACT_HASHES = [
+  'r1csSha256',
+  'provingKeySha256',
+  'verifyingKeySha256',
+  'nativeVerifierSha256',
+  'wasmProverSha256'
+]
 
 const args = parseArgs(process.argv.slice(2))
 const configPaths = args.config.length > 0 ? args.config : DEFAULT_CONFIGS
@@ -122,7 +130,7 @@ function checkEnabledProductionReadiness() {
       ?? process.env.FSUSBLOG_ZK_PROD_SMOKE_EVIDENCE
       ?? zkProd.SmokeEvidencePath
       ?? DEFAULT_SMOKE_EVIDENCE)
-  checkSmokeEvidence(smokeEvidencePath)
+  checkSmokeEvidence(smokeEvidencePath, expectedVkHash, setup)
 
   const rootBootstrapEvidencePath = normalizeString(
     args.rootBootstrapEvidence
@@ -191,7 +199,7 @@ function checkTrustedSetupManifest(rawPath) {
   return manifest
 }
 
-function checkSmokeEvidence(rawPath) {
+function checkSmokeEvidence(rawPath, expectedVkHash, setup) {
   const absolute = checkExistingFile('zk-prod-smoke-evidence', rawPath)
   if (!absolute) return
 
@@ -216,8 +224,68 @@ function checkSmokeEvidence(rawPath) {
     }
   }
 
+  checkRealGroth16SmokeEvidence(evidence, expectedVkHash, setup)
   checkNoSensitiveEvidence(evidence)
   checks.push({ id: 'zk-prod-smoke-evidence', status: 'checked', path: toRepoRelative(absolute) })
+}
+
+function checkRealGroth16SmokeEvidence(evidence, expectedVkHash, setup) {
+  if (normalizeString(evidence.evidenceKind) !== REAL_EVIDENCE_KIND) {
+    errors.push(`ZK-Prod smoke evidence must declare evidenceKind=${REAL_EVIDENCE_KIND}.`)
+  }
+  if (normalizeString(evidence.circuitId) !== 'fsus.anonymous.comment.v2') {
+    errors.push('ZK-Prod smoke evidence circuitId must be fsus.anonymous.comment.v2.')
+  }
+  if (Number(evidence.publicInputLayoutVersion) !== 3) {
+    errors.push('ZK-Prod smoke evidence publicInputLayoutVersion must be 3.')
+  }
+  if (normalizeString(evidence.proofSystem) !== 'Groth16') {
+    errors.push('ZK-Prod smoke evidence proofSystem must be Groth16.')
+  }
+
+  const evidenceVkHash = normalizeString(evidence.verifyingKeyHash).toLowerCase()
+  if (!isSha256Hex(evidenceVkHash)) {
+    errors.push('ZK-Prod smoke evidence verifyingKeyHash must be a 64-char hex SHA-256 digest.')
+  }
+  if (expectedVkHash && evidenceVkHash && evidenceVkHash !== expectedVkHash.toLowerCase()) {
+    errors.push('ZK-Prod smoke evidence verifyingKeyHash does not match production configuration.')
+  }
+
+  const trustedVkHash = normalizeString(setup?.verifying_key_hash).toLowerCase()
+  if (trustedVkHash && evidenceVkHash && evidenceVkHash !== trustedVkHash) {
+    errors.push('ZK-Prod smoke evidence verifyingKeyHash does not match trusted setup manifest.')
+  }
+
+  const artifactHashes = evidence.artifactHashes && typeof evidence.artifactHashes === 'object' && !Array.isArray(evidence.artifactHashes)
+    ? evidence.artifactHashes
+    : {}
+  for (const key of REQUIRED_ARTIFACT_HASHES) {
+    const value = normalizeString(artifactHashes[key]).toLowerCase()
+    if (!isSha256Hex(value)) {
+      errors.push(`ZK-Prod smoke evidence artifactHashes.${key} must be a 64-char hex SHA-256 digest.`)
+    }
+  }
+  const artifactVkHash = normalizeString(artifactHashes.verifyingKeySha256).toLowerCase()
+  if (isSha256Hex(evidenceVkHash) && isSha256Hex(artifactVkHash) && artifactVkHash !== evidenceVkHash) {
+    errors.push('ZK-Prod smoke evidence artifactHashes.verifyingKeySha256 must match verifyingKeyHash.')
+  }
+
+  const crossStack = evidence.crossStack && typeof evidence.crossStack === 'object' && !Array.isArray(evidence.crossStack)
+    ? evidence.crossStack
+    : {}
+  for (const key of [
+    'frontendProofGenerated',
+    'backendProofVerified',
+    'publicInputsMatch',
+    'tamperCasesRejected'
+  ]) {
+    if (crossStack[key] !== true) {
+      errors.push(`ZK-Prod smoke evidence crossStack.${key}=true is required.`)
+    }
+  }
+  if (evidence.hashingFixtureUsed === true || crossStack.hashingFixtureUsed === true) {
+    errors.push('ZK-Prod smoke evidence must not use hashingFixtureUsed=true.')
+  }
 }
 
 function checkRootBootstrapEvidence(rawPath, expectedVkHash, setup) {

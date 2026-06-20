@@ -50,8 +50,8 @@ test('anonymous credential root bootstrap writes sanitized offline evidence for 
     const parsed = JSON.parse(readFileSync(evidence, 'utf8'))
     assert.equal(parsed.status, 'validated_offline')
     assert.equal(parsed.stagingDbRotateSatisfied, false)
-    assert.equal(parsed.rootSnapshot.circuitId, 'fsus.anonymous.comment.v1')
-    assert.equal(parsed.rootSnapshot.publicInputLayoutVersion, 2)
+    assert.equal(parsed.rootSnapshot.circuitId, 'fsus.anonymous.comment.v2')
+    assert.equal(parsed.rootSnapshot.publicInputLayoutVersion, 3)
     assert.equal(parsed.rootSnapshot.verifyingKeyHash, hex('a'))
     assert.equal(parsed.rotateContract.dotnetService, 'AnonymousCredentialRootLifecycleService.RotateAsync')
     assertNoSensitiveEvidence(result.stdout + result.stderr + JSON.stringify(parsed))
@@ -120,8 +120,8 @@ test('anonymous credential root bootstrap rejects invalid circuit identity and l
     const trustedSetup = writeJson(dir, 'trusted-setup.json', trustedSetupManifest(hex('a')))
     const verifyingKey = writeJson(dir, 'verifying-key.json', verifyingKeyManifest(hex('a')))
     const input = writeJson(dir, 'bootstrap-input.json', bootstrapInput({
-      circuitId: 'fsus.anonymous.comment.v2',
-      publicInputLayoutVersion: 3
+      circuitId: 'fsus.anonymous.comment.v1',
+      publicInputLayoutVersion: 2
     }))
     const evidence = path.join(dir, 'evidence.json')
 
@@ -132,8 +132,8 @@ test('anonymous credential root bootstrap rejects invalid circuit identity and l
       '--evidence', evidence)
 
     assert.notEqual(result.status, 0)
-    assert.match(`${result.stdout}\n${result.stderr}`, /circuit_id must be fsus\.anonymous\.comment\.v1/)
-    assert.match(`${result.stdout}\n${result.stderr}`, /public_input_layout_version must be 2/)
+    assert.match(`${result.stdout}\n${result.stderr}`, /circuit_id must be fsus\.anonymous\.comment\.v2/)
+    assert.match(`${result.stdout}\n${result.stderr}`, /public_input_layout_version must be 3/)
     assert.equal(existsSync(evidence), false)
   })
 })
@@ -200,9 +200,9 @@ function bootstrapInput(overrides = {}) {
     credentialRootHash: hex('1'),
     revocationRootHash: hex('2'),
     issuerPublicKeyHash: hex('3'),
-    circuitId: 'fsus.anonymous.comment.v1',
+    circuitId: 'fsus.anonymous.comment.v2',
     circuitNumericId: 1,
-    publicInputLayoutVersion: 2,
+    publicInputLayoutVersion: 3,
     verifyingKeyHash: hex('a'),
     expiresAt: '2026-07-20T00:00:00Z',
     graceExpiresAt: '2026-07-27T00:00:00Z',
@@ -215,8 +215,8 @@ function bootstrapInput(overrides = {}) {
 function trustedSetupManifest(verifyingKeyHash) {
   return {
     schema: 'fsusblog.zk.trusted-setup-manifest.v1',
-    circuit_id: 'fsus.anonymous.comment.v1',
-    public_input_layout_version: 2,
+    circuit_id: 'fsus.anonymous.comment.v2',
+    public_input_layout_version: 3,
     production_usable: true,
     ceremony_status: 'verified',
     verifying_key_hash: verifyingKeyHash
@@ -226,8 +226,8 @@ function trustedSetupManifest(verifyingKeyHash) {
 function verifyingKeyManifest(verifyingKeyHash) {
   return {
     schema: 'fsusblog.zk.verifying-key-config.v1',
-    circuit_id: 'fsus.anonymous.comment.v1',
-    public_input_layout_version: 2,
+    circuit_id: 'fsus.anonymous.comment.v2',
+    public_input_layout_version: 3,
     production_usable: true,
     verifying_key_hash: verifyingKeyHash
   }

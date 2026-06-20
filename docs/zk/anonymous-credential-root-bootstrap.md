@@ -35,7 +35,7 @@ Prepare a JSON request with this public material only:
   "issuerPublicKeyHash": "<64-char-hex>",
   "circuitId": "fsus.anonymous.comment.v2",
   "circuitNumericId": 7,
-  "publicInputLayoutVersion": 2,
+  "publicInputLayoutVersion": 3,
   "verifyingKeyHash": "<64-char-hex>",
   "expiresAt": "2026-07-20T00:00:00Z",
   "graceExpiresAt": "2026-07-27T00:00:00Z",

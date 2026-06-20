@@ -24,8 +24,8 @@ describe('commentPrivacyWorkerClient', () => {
       metadataBytes: new Uint8Array([1, 2, 3]),
       credentialEpoch: 20260618,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 2,
-      circuitId: 'comment.v2',
+      publicInputLayoutVersion: 3,
+      circuitId: 'fsus.anonymous.comment.v2',
       credentialRoot: new Uint8Array([4]),
       revocationRoot: new Uint8Array([5]),
       circuitMetadata: new Uint8Array([6])
