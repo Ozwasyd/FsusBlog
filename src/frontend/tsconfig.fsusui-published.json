@@ -9,7 +9,7 @@
       "vue": ["./node_modules/vue"],
       "@vue/*": ["./node_modules/@vue/*"],
       "@ozwasyd/element-plus": ["./node_modules/@ozwasyd/element-plus"],
-      "@ozwasyd/element-plus/*": ["./node_modules/@ozwasyd/element-plus/*"]
+      "@ozwasyd/element-plus/theme": ["./node_modules/@ozwasyd/element-plus/es/theme.d.ts"]
     }
   },
   "include": [

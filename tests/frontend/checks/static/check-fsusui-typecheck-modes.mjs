@@ -43,22 +43,25 @@ for (const file of [
   localTsconfigPath,
   viteAliasPath,
   localRunnerPath,
-  augmentationPath,
   contractPath,
   docsPath,
 ]) {
   requireFile(file)
 }
 
+if (fs.existsSync(augmentationPath)) {
+  failures.push('src/frontend/src/fsusui/elementPlusAugmentations.d.ts: temporary package augmentation must be removed')
+}
+
 if (failures.length === 0) {
   const pkg = readJson(packageJsonPath)
   const scripts = pkg.scripts ?? {}
   const published = readJson(publishedTsconfigPath)
+  const publishedPaths = published.compilerOptions?.paths ?? {}
   const local = readJson(localTsconfigPath)
   const localPaths = local.compilerOptions?.paths ?? {}
   const viteAliases = read(viteAliasPath)
   const localRunner = read(localRunnerPath)
-  const augmentation = read(augmentationPath)
   const contract = read(contractPath)
   const docs = read(docsPath)
 
@@ -80,6 +83,22 @@ if (failures.length === 0) {
   }
   if (published.include?.some((entry) => entry.includes('elementPlusAugmentations'))) {
     failures.push('src/frontend/tsconfig.fsusui-published.json: must not include Blog-local package augmentations')
+  }
+  if (publishedPaths['@ozwasyd/element-plus/*']) {
+    failures.push('src/frontend/tsconfig.fsusui-published.json: published mode must not use a wildcard @ozwasyd/element-plus mapping')
+  }
+  for (const [alias, expected] of [
+    ['@ozwasyd/element-plus', './node_modules/@ozwasyd/element-plus'],
+    ['@ozwasyd/element-plus/theme', './node_modules/@ozwasyd/element-plus/es/theme.d.ts'],
+  ]) {
+    if (!publishedPaths[alias]?.includes(expected)) {
+      failures.push(`src/frontend/tsconfig.fsusui-published.json: missing published path mapping ${alias} -> ${expected}`)
+    }
+  }
+  for (const paths of Object.values(publishedPaths)) {
+    if (paths.some((entry) => entry.includes('../../../FsusUI') || entry.includes('elementPlusAugmentations'))) {
+      failures.push('src/frontend/tsconfig.fsusui-published.json: published mode must not reference local FsusUI source or Blog-local augmentations')
+    }
   }
 
   for (const [alias, expected] of [
@@ -111,19 +130,17 @@ if (failures.length === 0) {
   }
   for (const token of [
     'ElEmptyState',
+    'ElSiteHeader',
+    'FsusPerceptionChallenge',
+    'FsusTextTaskChallenge',
+    'PerceptionChallengeAssignment',
+    'PerceptionChallengeClient',
     'ElMarkdownEditor',
     'FsuMotion',
     'MotionPresetName',
     '@ozwasyd/element-plus/theme',
   ]) {
     expectIncludes(contractPath, contract, token, `export contract token ${token}`)
-  }
-  for (const token of [
-    'Temporary compatibility shim',
-    'Cleanup condition',
-    'root .d.ts exports ElEmptyState directly',
-  ]) {
-    expectIncludes(augmentationPath, augmentation, token, `augmentation cleanup token ${token}`)
   }
   for (const token of [
     'typecheck:published-fsusui',

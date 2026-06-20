@@ -203,7 +203,7 @@
     "@fontsource/noto-sans-sc": "^5.2.9",
     "@fontsource/noto-sans-tc": "^5.2.9",
     "@noble/hashes": "^2.2.0",
-    "@ozwasyd/element-plus": "1.5.0",
+    "@ozwasyd/element-plus": "1.5.1",
     "@simplewebauthn/browser": "^13.3.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.2.4",
