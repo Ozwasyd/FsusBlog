@@ -94,14 +94,25 @@ public sealed class ReadModelProjectionHotPathContractTests
         string userService = ReadRepoFile("src/backend/Services/UserService.cs");
 
         Assert.Contains("private async Task<List<ThreadRootRow>> QueryThreadRootsAsync", commentService, StringComparison.Ordinal);
+        Assert.Contains("private async Task<List<ReplyRow>> QueryThreadRepliesAsync", commentService, StringComparison.Ordinal);
         Assert.Contains("GetDataReaderAsync(sql.ToString(), parameters)", commentService, StringComparison.Ordinal);
         Assert.Contains("rows.Add(new ThreadRootRow", commentService, StringComparison.Ordinal);
-        Assert.Contains(".Select((c, u, ru) => new ReplyRow", commentService, StringComparison.Ordinal);
+        Assert.Contains("rows.Add(new ReplyRow", commentService, StringComparison.Ordinal);
         Assert.DoesNotContain("u.Password", commentService, StringComparison.Ordinal);
         Assert.DoesNotContain("ru.Password", commentService, StringComparison.Ordinal);
 
-        string adminListMethod = ExtractMethodBlock(userService, "public async Task<PageResult<UserListDto>> GetAdminUserListAsync");
+        string adminListMethod = ExtractMethodBlock(userService, "public async Task<PageResult<AdminAccountListItemDto>> GetAdminUserListAsync");
         Assert.Contains(".Select(u => new", adminListMethod, StringComparison.Ordinal);
+        Assert.Contains("u.IdentityKind", adminListMethod, StringComparison.Ordinal);
+        Assert.Contains("u.PublicHandle", adminListMethod, StringComparison.Ordinal);
+        Assert.Contains("u.PasskeyEnabled", adminListMethod, StringComparison.Ordinal);
+        Assert.Contains("u.RecoveryEnabled", adminListMethod, StringComparison.Ordinal);
+        Assert.Contains("u.AnonymousCredentialStatus", adminListMethod, StringComparison.Ordinal);
+        Assert.Contains("u.AnonymousCredentialLevel", adminListMethod, StringComparison.Ordinal);
+        Assert.Contains("u.RiskFlags", adminListMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("u.Username.Contains", adminListMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("u.Role", adminListMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("u.LastLoginIp", adminListMethod, StringComparison.Ordinal);
         Assert.DoesNotContain("Password", adminListMethod, StringComparison.Ordinal);
         Assert.DoesNotContain("MfaSecret", adminListMethod, StringComparison.Ordinal);
     }

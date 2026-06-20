@@ -30,7 +30,6 @@ const FRAME_SEO_CONFIG_UPDATE_REQUEST = frameType('SeoConfigUpdateRequest')
 const FRAME_PAGE_CONTENT_UPDATE_REQUEST = frameType('PageContentUpdateRequest')
 const FRAME_COMMENT_CREATE_V2_REQUEST = frameType('CommentCreateV2Request')
 const FRAME_ADMIN_CHANGE_USER_STATUS_REQUEST = frameType('AdminChangeUserStatusRequest')
-const FRAME_ADMIN_RESET_USER_PASSWORD_REQUEST = frameType('AdminResetUserPasswordRequest')
 const FRAME_MFA_SETUP_START = frameType('MfaSetupStart')
 const FRAME_MFA_SETUP_VERIFY = frameType('MfaSetupVerify')
 const FRAME_MFA_PROFILE = frameType('MfaProfile')
@@ -472,19 +471,6 @@ export function encodeAdminChangeStatusRequest(data) {
   view.setInt32(12, reason.byteLength, true)
   view.setInt32(16, reason.byteLength, true)
   bytes.set(reason, 20)
-  return bytes
-}
-
-export function encodeAdminResetPasswordRequest(data) {
-  const password = UTF8_ENCODER.encode(data.newPassword ?? '')
-  const bytes = new Uint8Array(20 + password.byteLength)
-  const view = new DataView(bytes.buffer)
-  view.setInt32(0, data.userId ?? 0, true)
-  view.setInt32(4, 0, true)
-  view.setInt32(8, 0, true)
-  view.setInt32(12, password.byteLength, true)
-  view.setInt32(16, password.byteLength, true)
-  bytes.set(password, 20)
   return bytes
 }
 

@@ -35,7 +35,7 @@ Use `FsusBlog.Shared.Contracts.Validation.PodSizeCatalog` values as authoritativ
 - article: `ArticleListItemPod`, `ArticleDetailPod`, `TagPod`, `TagWithCountPod`, `CategoryPod`, `ArticleNoticePod`, `ArticleMutationResponsePod`, `TrashClearResponsePod`
 - comment: `CommentItemPod`, `UserCommentPod`
 - message: `MessageInboxPod`, `CommentPushPod`, `CommentAddedNotifyPod`, `GlobalNoticePayloadPod`, `MessageRevokedPayloadPod`, `UserStatusPayloadPod`, `NoticePayloadPod`, `CommentRemovedPayloadPod`
-- user/auth: `TokenResponsePod`, `LoginResponsePod`, `UserListItemPod`
+- user/auth: `TokenResponsePod`, `LoginResponsePod`, `UserListItemPod` (anonymous account list row)
 - system: `SeoConfigPod`, `PageContentPod`
 - stats: `PopularArticlePod`, `RecentCommentPod`, `RegionDistributionPod`, `SiteStatsPod`
 - file/pow: `FileUploadOutputPod`, `PowChallengePod`

@@ -225,7 +225,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 14 | `PageContent` | `PageContentPod` | `GET /api/binary/system/page/{slug}` |
 | 15 | `ArticleFeatured` | compact article records | `GET /api/binary/article/featured/{size}.aeds` |
 | 16 | `TrashClearResponse` | `TrashClearResponsePod` | `DELETE /api/binary/admin/article/trash` |
-| 17 | `AdminUserList` | compact user records | `GET /api/binary/admin/users` |
+| 17 | `AdminUserList` | compact anonymous account records | `GET /api/binary/admin/users` |
 | 18 | `AuthLoginFlow` | auth session flow payload | `POST /api/binary/auth/anonymous/bootstrap`, `POST /api/binary/auth/passkey/login/complete` |
 | 19 | `CurrentUserSnapshot` | legacy/admin user snapshot payload | admin-only legacy lookup / refresh-token compatibility |
 | 20 | `UploadInit` | `UploadInitPod` | `POST /api/binary/upload/init` |
@@ -444,8 +444,8 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 
 | 用途 | 固定宽度类型 |
 |------|------------|
-| 用户名 | `Utf8Fixed64` |
-| 角色名 | `Utf8Fixed32` |
+| 匿名账号 public handle | `Utf8Fixed64` |
+| identity kind / anonymous credential status / level | `Utf8Fixed32` |
 | 分类名 / 标签名 / 地区 | `Utf8Fixed128` |
 | 文章标题 / 简短 ID | `Utf8Fixed256` |
 | URL / Base URL | `Utf8Fixed256` |

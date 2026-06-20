@@ -90,7 +90,7 @@ Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AED
 
 ### 基于页码的分页（`PageResponse<T>`）
 
-适用于：文章列表、用户列表等需要总数的场景。
+适用于：文章列表、匿名账号治理列表等需要总数的场景。
 
 ```json
 {

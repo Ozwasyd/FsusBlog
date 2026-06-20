@@ -1342,54 +1342,6 @@
         "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/userAdapter.ts"
       }
     },
-    "/api/binary/admin/users/reset-pwd": {
-      "post": {
-        "operationId": "binary_post_admin_users_reset_pwd",
-        "tags": [
-          "Binary"
-        ],
-        "summary": "/admin/users/reset-pwd",
-        "responses": {
-          "200": {
-            "description": "EmptySuccess AEDS frame",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "ApiError AEDS frame",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          }
-        },
-        "x-fsus-protocol": "AEDS",
-        "x-fsus-aeds-version": 2,
-        "x-fsus-request-frame": "AdminResetUserPasswordRequest",
-        "x-fsus-response-frame": "EmptySuccess",
-        "x-fsus-error-frame": "ApiError",
-        "x-fsus-auth": "admin",
-        "x-fsus-pow": true,
-        "x-fsus-content-type": "application/octet-stream",
-        "x-fsus-success-status": 200,
-        "x-fsus-cache": "no-store",
-        "x-fsus-rate-limit": "authenticated",
-        "x-fsus-test-surface": "/admin/users/reset-pwd",
-        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AdminUsers.cs",
-        "x-fsus-frontend-wrapper": "src/frontend/src/api/admin.ts",
-        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/userAdapter.ts"
-      }
-    },
     "/api/binary/stats": {
       "get": {
         "operationId": "binary_get_stats",

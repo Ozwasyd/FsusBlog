@@ -65,7 +65,7 @@ public sealed class UserCoreGateway(UserService service) : IUserCoreGateway
 
     public async Task<AdminUserPageContract> GetAdminUserListAsync(int page, int pageSize, string? keyword, int? status)
     {
-        PageResult<UserListDto> result = await service.GetAdminUserListAsync(new UserQueryDto
+        PageResult<AdminAccountListItemDto> result = await service.GetAdminUserListAsync(new UserQueryDto
         {
             Page = page,
             PageSize = pageSize,
@@ -73,18 +73,22 @@ public sealed class UserCoreGateway(UserService service) : IUserCoreGateway
             Status = status
         });
 
-        var items = new List<UserListItemContract>(result.Items.Count);
+        var items = new List<AdminAccountListItemContract>(result.Items.Count);
         for (int i = 0; i < result.Items.Count; i++)
         {
             var item = result.Items[i];
-            items.Add(new UserListItemContract(
-                item.Id,
-                item.Username,
-                item.Role,
+            items.Add(new AdminAccountListItemContract(
+                item.AccountId,
+                item.IdentityKind,
+                item.PublicHandle,
+                item.PasskeyInitialized,
+                item.RecoveryInitialized,
+                item.PrivacyInitializedAt,
+                item.AnonymousCredentialStatus,
+                item.AnonymousCredentialLevel,
+                item.RiskFlags,
                 item.Status,
                 item.CreateTime,
-                item.LastLoginIp,
-                item.LastLoginTime,
                 item.DeletedAt));
         }
 
@@ -97,9 +101,6 @@ public sealed class UserCoreGateway(UserService service) : IUserCoreGateway
 
     public Task<(bool Success, string Message)> AdminChangeStatusAsync(int userId, int status, string? reason)
         => service.AdminChangeStatusAsync(new AdminChangeStatusDto { UserId = userId, Status = status, Reason = reason });
-
-    public Task<(bool Success, string Message)> AdminResetPasswordAsync(int userId, string newPassword)
-        => service.AdminResetPasswordAsync(new AdminResetPwdDto { UserId = userId, NewPassword = newPassword });
 
     private static UserSnapshotContract ToUserSnapshot(User user)
         => new(

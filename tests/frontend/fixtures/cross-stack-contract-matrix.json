@@ -668,14 +668,6 @@
           "pow": true,
           "requestFrame": "AdminChangeUserStatusRequest",
           "responseFrame": "EmptySuccess"
-        },
-        {
-          "method": "POST",
-          "path": "/admin/users/reset-pwd",
-          "auth": "admin",
-          "pow": true,
-          "requestFrame": "AdminResetUserPasswordRequest",
-          "responseFrame": "EmptySuccess"
         }
       ]
     },

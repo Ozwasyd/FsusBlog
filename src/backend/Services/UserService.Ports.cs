@@ -238,12 +238,9 @@ public sealed class UserMfaCommandService(UserService users) : IUserMfaCommandSe
 
 public sealed class UserAdminModerationService(UserService users) : IUserAdminModerationService
 {
-    public Task<PageResult<UserListDto>> GetAdminUserListAsync(UserQueryDto dto)
+    public Task<PageResult<AdminAccountListItemDto>> GetAdminUserListAsync(UserQueryDto dto)
         => users.GetAdminUserListAsync(dto);
 
     public Task<(bool Success, string Message)> AdminChangeStatusAsync(AdminChangeStatusDto dto)
         => users.AdminChangeStatusAsync(dto);
-
-    public Task<(bool Success, string Message)> AdminResetPasswordAsync(AdminResetPwdDto dto)
-        => users.AdminResetPasswordAsync(dto);
 }

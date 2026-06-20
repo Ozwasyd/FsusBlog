@@ -57,7 +57,6 @@ public interface IUserService
     /// <returns>是否操作成功</returns>
     Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
 
-    Task<PageResult<UserListDto>> GetAdminUserListAsync(UserQueryDto dto);
+    Task<PageResult<AdminAccountListItemDto>> GetAdminUserListAsync(UserQueryDto dto);
     Task<(bool Success, string Message)> AdminChangeStatusAsync(AdminChangeStatusDto dto);
-    Task<(bool Success, string Message)> AdminResetPasswordAsync(AdminResetPwdDto dto);
 }

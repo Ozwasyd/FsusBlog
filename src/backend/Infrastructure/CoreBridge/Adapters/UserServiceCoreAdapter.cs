@@ -71,48 +71,46 @@ public sealed class UserServiceCoreAdapter(IUserCoreService core) : IUserService
     public async Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
         => (await core.RevokeRefreshTokenAsync(refreshToken, cancellationToken)).IsSuccess;
 
-    public async Task<PageResult<UserListDto>> GetAdminUserListAsync(UserQueryDto dto)
+    public async Task<PageResult<AdminAccountListItemDto>> GetAdminUserListAsync(UserQueryDto dto)
     {
         var result = await core.GetAdminUserListAsync(dto.Page, dto.PageSize, dto.Keyword, dto.Status);
         if (!result.IsSuccess)
         {
-            return new PageResult<UserListDto> { Total = 0, Items = [] };
+            return new PageResult<AdminAccountListItemDto> { Total = 0, Items = [] };
         }
 
         var page = result.Value;
         if (page is null)
         {
-            return new PageResult<UserListDto> { Total = 0, Items = [] };
+            return new PageResult<AdminAccountListItemDto> { Total = 0, Items = [] };
         }
 
-        var items = new List<UserListDto>(page.Items.Count);
+        var items = new List<AdminAccountListItemDto>(page.Items.Count);
         for (int i = 0; i < page.Items.Count; i++)
         {
             var item = page.Items[i];
-            items.Add(new UserListDto(
-                item.Id,
-                item.Username,
-                item.Role,
+            items.Add(new AdminAccountListItemDto(
+                item.AccountId,
+                item.IdentityKind,
+                item.PublicHandle,
+                item.PasskeyInitialized,
+                item.RecoveryInitialized,
+                item.PrivacyInitializedAt,
+                item.AnonymousCredentialStatus,
+                item.AnonymousCredentialLevel,
+                item.RiskFlags,
                 item.Status,
                 item.CreateTime,
-                item.LastLoginIp,
-                item.LastLoginTime,
                 item.DeletedAt));
         }
 
-        return new PageResult<UserListDto> { Total = page.Total, Items = items };
+        return new PageResult<AdminAccountListItemDto> { Total = page.Total, Items = items };
     }
 
     public async Task<(bool Success, string Message)> AdminChangeStatusAsync(AdminChangeStatusDto dto)
     {
         var result = await core.AdminChangeStatusAsync(dto.UserId, dto.Status, dto.Reason);
         return result.IsSuccess ? (true, "状态更新成功") : (false, result.Error.Message);
-    }
-
-    public async Task<(bool Success, string Message)> AdminResetPasswordAsync(AdminResetPwdDto dto)
-    {
-        var result = await core.AdminResetPasswordAsync(dto.UserId, dto.NewPassword);
-        return result.IsSuccess ? (true, "密码重置成功") : (false, result.Error.Message);
     }
 
     private static User ToUserEntity(UserSnapshotContract snapshot)

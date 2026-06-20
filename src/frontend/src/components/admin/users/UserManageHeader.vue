@@ -1,15 +1,15 @@
 <template>
-  <section class="mb-12" aria-label="用户筛选">
+  <section class="mb-12" aria-label="账号筛选">
     <div class="flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between px-8">
       <div class="min-w-0">
         <h2 class="flex flex-wrap items-center gap-4 text-[15px] font-bold tracking-normal text-[var(--fsusblog-text-primary)]">
-          用户筛选
+          账号筛选
           <span class="text-xs tabular-nums font-bold text-[var(--fsusblog-text-muted)] bg-[var(--fsusblog-panel-bg-soft)] px-3 py-1 normal-case tracking-normal">
             共 {{ total }}
           </span>
         </h2>
         <p class="mt-3 max-w-2xl text-[12px] text-[var(--fsusblog-text-tertiary)] leading-relaxed normal-case tracking-normal font-bold">
-          封禁与重置密码会触发强制算力校验。
+          封禁与解封会触发强制算力校验。
         </p>
       </div>
 
@@ -18,7 +18,7 @@
           <el-select
             :model-value="status"
             name="userStatusFilter"
-            aria-label="用户状态筛选"
+            aria-label="账号状态筛选"
             placeholder="状态"
             clearable
             :disabled="loading"
@@ -34,8 +34,8 @@
           <el-input
             :model-value="keyword"
             name="userKeyword"
-            aria-label="搜索用户名"
-            placeholder="搜用户名..."
+            aria-label="搜索账号标识"
+            placeholder="搜账号 ID / public handle..."
             clearable
             :disabled="loading"
             @update:model-value="onKeywordChange"

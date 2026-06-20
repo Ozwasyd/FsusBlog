@@ -86,68 +86,16 @@ public static partial class BinaryEndpoints
             await auditEvents.RecordHighValueAsync(new AuditEvent(
                 AuditSourceCatalog.Admin,
                 AuditTypeCatalog.Security,
-                AuditActionCatalog.UserStatusChanged,
+                AuditActionCatalog.AnonymousAccountStatusChanged,
                 success ? AuditOutcomeCatalog.Success : AuditOutcomeCatalog.Failure,
                 success ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Error,
-                "管理员变更用户状态",
-                TargetType: "user",
+                "管理员变更匿名账号状态",
+                TargetType: "anonymous_account",
                 TargetId: request.UserId.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 ReasonCode: request.Reason,
                 Context: new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
                     ["status"] = request.Status,
-                    ["message"] = message
-                }), cancellationToken);
-
-            return success
-                ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
-        })
-        .RequireAdminPermission(AdminPermissions.AdminManage)
-        .AddEndpointFilter<RequiresPowFilter>();
-
-        group.MapPost("/admin/users/reset-pwd", static async Task<BinaryFrameResult> (
-            HttpContext httpContext,
-            IUserService userService,
-            IAuditEventService auditEvents,
-            IAdminPrincipalService adminPrincipals,
-            IAedsEncoder aeds,
-            CancellationToken cancellationToken) =>
-        {
-            var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
-            if (stepUp is { } stepUpError)
-            {
-                return BinaryResults.FromError(stepUpError.Error, aeds, stepUpError.StatusCode);
-            }
-
-            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.AdminResetUserPasswordRequest, cancellationToken);
-            if (!payload.IsSuccess)
-            {
-                return BinaryResults.FromError(payload.Error, aeds);
-            }
-
-            if (!PodBinaryCodec.TryDecodeAdminResetUserPasswordRequest(payload.Payload, out var request))
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "用户密码重置请求体非法"), aeds);
-            }
-
-            var (success, message) = await userService.AdminResetPasswordAsync(new AdminResetPwdDto
-            {
-                UserId = request.UserId,
-                NewPassword = request.NewPassword
-            });
-
-            await auditEvents.RecordHighValueAsync(new AuditEvent(
-                AuditSourceCatalog.Admin,
-                AuditTypeCatalog.Security,
-                AuditActionCatalog.UserPasswordReset,
-                success ? AuditOutcomeCatalog.Success : AuditOutcomeCatalog.Failure,
-                success ? AuditSeverityCatalog.Critical : AuditSeverityCatalog.Error,
-                "管理员强制重置用户密码",
-                TargetType: "user",
-                TargetId: request.UserId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                Context: new Dictionary<string, object?>(StringComparer.Ordinal)
-                {
                     ["message"] = message
                 }), cancellationToken);
 

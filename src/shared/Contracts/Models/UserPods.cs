@@ -242,17 +242,21 @@ public readonly struct AuthDeleteAccountRequestPod
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UserListItemPod
 {
-    public readonly int Id;
+    public readonly int AccountId;
     public readonly int Status;
+    public readonly int RiskFlags;
+    public readonly int Reserved;
     public readonly long CreateTimeUnixMs;
-    public readonly long LastLoginTimeUnixMs;
-    public readonly Utf8Fixed64 Username;
-    public readonly Utf8Fixed32 Role;
-    public readonly Utf8Fixed64 LastLoginIp;
-    public readonly byte HasLastLoginIp;
-    public readonly byte HasLastLoginTime;
-    public readonly ushort Reserved;
+    public readonly long PrivacyInitializedAtUnixMs;
     public readonly long DeletedAtUnixMs;
+    public readonly Utf8Fixed32 IdentityKind;
+    public readonly Utf8Fixed64 PublicHandle;
+    public readonly Utf8Fixed32 AnonymousCredentialStatus;
+    public readonly Utf8Fixed32 AnonymousCredentialLevel;
+    public readonly byte HasPublicHandle;
+    public readonly byte PasskeyInitialized;
+    public readonly byte RecoveryInitialized;
+    public readonly byte HasPrivacyInitializedAt;
     public readonly byte HasDeletedAt;
     public readonly byte Reserved2;
     public readonly ushort Reserved3;

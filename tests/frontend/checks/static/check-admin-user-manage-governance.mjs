@@ -13,6 +13,7 @@ const pagePath = path.join(repoRoot, 'src/frontend/src/views/admin/UserManage.vu
 const headerPath = path.join(repoRoot, 'src/frontend/src/components/admin/users/UserManageHeader.vue')
 const tablePath = path.join(repoRoot, 'src/frontend/src/components/admin/users/UserManageTable.vue')
 const composablePath = path.join(repoRoot, 'src/frontend/src/composables/useAdminUserManage.ts')
+const adminApiPath = path.join(repoRoot, 'src/frontend/src/api/admin.ts')
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 
 function fail(file, line, message) {
@@ -32,6 +33,7 @@ const page = read(pagePath)
 const header = read(headerPath)
 const table = read(tablePath)
 const composable = read(composablePath)
+const adminApi = read(adminApiPath)
 
 for (const [file, source, tokens] of [
   [pagePath, page, ['account-page-eyebrow', '执行封禁、解封与密码重置等高风险操作']],
@@ -46,12 +48,38 @@ for (const [file, source, tokens] of [
   }
 }
 
+for (const [file, source] of [
+  [pagePath, page],
+  [headerPath, header],
+  [tablePath, table],
+  [composablePath, composable],
+  [adminApiPath, adminApi]
+]) {
+  for (const token of [
+    'reset-pwd',
+    'AdminResetPwdDto',
+    'AdminResetUserPasswordRequest',
+    'adminResetPassword',
+    'encodeAdminResetPasswordRequest',
+    'UserResetPasswordDialog',
+    'resetDialog',
+    'canSubmitResetPassword',
+    'handleResetSubmit',
+    '重置密码',
+    '新密码'
+  ]) {
+    if (source.includes(token)) {
+      fail(file, lineOf(source, token), `Admin anonymous account governance must not include ${token}`)
+    }
+  }
+}
+
 const requiredPageTokens = [
-  '管理账户状态、密码重置与封禁操作。',
+  '管理匿名账号容器、凭据状态与封禁操作。',
   "const userTableHasActiveFilters = computed(() => activeFilterChips.value.length > 0)",
-  "userTableEmptyTitle = computed(() => userTableHasActiveFilters.value ? '没有匹配的用户' : '暂无用户记录')",
+  "userTableEmptyTitle = computed(() => userTableHasActiveFilters.value ? '没有匹配的账号' : '暂无匿名账号记录')",
   "userTableHasActiveFilters.value",
-  '创建或导入用户后会显示在这里。',
+  '匿名账号初始化后会显示在这里。',
   ':has-active-filters="userTableHasActiveFilters"',
   '@reset-filters="resetFilters"'
 ]
@@ -63,9 +91,9 @@ for (const token of requiredPageTokens) {
 }
 
 const requiredHeaderTokens = [
-  '用户筛选',
+  '账号筛选',
   'text-[15px]',
-  '强制算力校验'
+  '封禁与解封会触发强制算力校验'
 ]
 
 for (const token of requiredHeaderTokens) {
@@ -82,9 +110,11 @@ const requiredTableTokens = [
   'role="listitem"',
   'user-resource-list',
   'user-resource-list-item',
-  '重置用户密码：',
-  '变更用户状态：',
-  'row.lastLoginText'
+  '变更匿名账号状态：',
+  'row.displayHandle',
+  'row.identityKindLabel',
+  'row.credentialSummary',
+  'row.riskFlagsText'
 ]
 
 for (const token of requiredTableTokens) {
@@ -94,14 +124,32 @@ for (const token of requiredTableTokens) {
 }
 
 const requiredComposableTokens = [
-  "lastLoginText: item.lastLoginTime ? TimeUtils.toFullLocalString(item.lastLoginTime) : '从未登录'",
+  'displayHandle',
+  'identityKindLabel',
+  'credentialSummary',
+  'riskFlagsText',
   'statusText: `${statusLabel} / ${statusCode}`',
-  "return '用户'"
+  "return '账号'"
 ]
 
 for (const token of requiredComposableTokens) {
   if (!composable.includes(token)) {
     fail(composablePath, 1, `Admin user management composable contract is missing ${token}`)
+  }
+}
+
+for (const token of [
+  'accountId: number',
+  'identityKind: string',
+  'publicHandle?: string',
+  'passkeyInitialized: boolean',
+  'recoveryInitialized: boolean',
+  'anonymousCredentialStatus: string',
+  'anonymousCredentialLevel: string',
+  'riskFlags: number'
+]) {
+  if (!adminApi.includes(token)) {
+    fail(adminApiPath, 1, `Admin API anonymous account contract is missing ${token}`)
   }
 }
 

@@ -799,21 +799,25 @@ public static partial class PodBinaryCodec
         writer.WriteInt32(page.Total);
         writer.WriteInt32(page.Items.Count);
 
-        foreach (UserListItemContract item in page.Items)
+        foreach (AdminAccountListItemContract item in page.Items)
         {
             var mutable = new MutableUserListItemPod
             {
-                Id = item.Id,
+                AccountId = item.AccountId,
                 Status = item.Status,
-                CreateTimeUnixMs = PodTimeCodec.ToUnixMs(item.CreateTime),
-                LastLoginTimeUnixMs = item.LastLoginTime.HasValue ? PodTimeCodec.ToUnixMs(item.LastLoginTime.Value) : 0,
-                Username = PodUtf8Codec.ToFixed64(item.Username),
-                Role = PodUtf8Codec.ToFixed32(item.Role),
-                LastLoginIp = PodUtf8Codec.ToFixed64(item.LastLoginIp ?? string.Empty),
-                HasLastLoginIp = string.IsNullOrWhiteSpace(item.LastLoginIp) ? (byte)0 : (byte)1,
-                HasLastLoginTime = item.LastLoginTime.HasValue ? (byte)1 : (byte)0,
+                RiskFlags = item.RiskFlags,
                 Reserved = 0,
+                CreateTimeUnixMs = PodTimeCodec.ToUnixMs(item.CreateTime),
+                PrivacyInitializedAtUnixMs = item.PrivacyInitializedAt.HasValue ? PodTimeCodec.ToUnixMs(item.PrivacyInitializedAt.Value) : 0,
                 DeletedAtUnixMs = item.DeletedAt.HasValue ? PodTimeCodec.ToUnixMs(item.DeletedAt.Value) : 0,
+                IdentityKind = PodUtf8Codec.ToFixed32(item.IdentityKind),
+                PublicHandle = PodUtf8Codec.ToFixed64(item.PublicHandle ?? string.Empty),
+                AnonymousCredentialStatus = PodUtf8Codec.ToFixed32(item.AnonymousCredentialStatus),
+                AnonymousCredentialLevel = PodUtf8Codec.ToFixed32(item.AnonymousCredentialLevel),
+                HasPublicHandle = string.IsNullOrWhiteSpace(item.PublicHandle) ? (byte)0 : (byte)1,
+                PasskeyInitialized = item.PasskeyInitialized ? (byte)1 : (byte)0,
+                RecoveryInitialized = item.RecoveryInitialized ? (byte)1 : (byte)0,
+                HasPrivacyInitializedAt = item.PrivacyInitializedAt.HasValue ? (byte)1 : (byte)0,
                 HasDeletedAt = item.DeletedAt.HasValue ? (byte)1 : (byte)0,
                 Reserved2 = 0,
                 Reserved3 = 0
@@ -834,26 +838,32 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        var items = new List<UserListItemContract>(count);
+        var items = new List<AdminAccountListItemContract>(count);
         for (int i = 0; i < count; i++)
         {
             if (!reader.TryReadPod(out UserListItemPod pod) ||
-                pod.HasLastLoginIp > 1 ||
-                pod.HasLastLoginTime > 1 ||
+                pod.HasPublicHandle > 1 ||
+                pod.PasskeyInitialized > 1 ||
+                pod.RecoveryInitialized > 1 ||
+                pod.HasPrivacyInitializedAt > 1 ||
                 pod.HasDeletedAt > 1)
             {
                 page = new AdminUserPageContract();
                 return false;
             }
 
-            items.Add(new UserListItemContract(
-                pod.Id,
-                PodUtf8Codec.FromFixed64(pod.Username),
-                PodUtf8Codec.FromFixed32(pod.Role),
+            items.Add(new AdminAccountListItemContract(
+                pod.AccountId,
+                PodUtf8Codec.FromFixed32(pod.IdentityKind),
+                pod.HasPublicHandle == 1 ? PodUtf8Codec.FromFixed64(pod.PublicHandle) : null,
+                pod.PasskeyInitialized == 1,
+                pod.RecoveryInitialized == 1,
+                pod.HasPrivacyInitializedAt == 1 ? PodTimeCodec.FromUnixMs(pod.PrivacyInitializedAtUnixMs) : null,
+                PodUtf8Codec.FromFixed32(pod.AnonymousCredentialStatus),
+                PodUtf8Codec.FromFixed32(pod.AnonymousCredentialLevel),
+                pod.RiskFlags,
                 pod.Status,
                 PodTimeCodec.FromUnixMs(pod.CreateTimeUnixMs),
-                pod.HasLastLoginIp == 1 ? PodUtf8Codec.FromFixed64(pod.LastLoginIp) : null,
-                pod.HasLastLoginTime == 1 ? PodTimeCodec.FromUnixMs(pod.LastLoginTimeUnixMs) : null,
                 pod.HasDeletedAt == 1 ? PodTimeCodec.FromUnixMs(pod.DeletedAtUnixMs) : null));
         }
 
@@ -1161,17 +1171,21 @@ public static partial class PodBinaryCodec
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableUserListItemPod
     {
-        public int Id;
+        public int AccountId;
         public int Status;
+        public int RiskFlags;
+        public int Reserved;
         public long CreateTimeUnixMs;
-        public long LastLoginTimeUnixMs;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 Username;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 Role;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 LastLoginIp;
-        public byte HasLastLoginIp;
-        public byte HasLastLoginTime;
-        public ushort Reserved;
+        public long PrivacyInitializedAtUnixMs;
         public long DeletedAtUnixMs;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 IdentityKind;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 PublicHandle;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 AnonymousCredentialStatus;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 AnonymousCredentialLevel;
+        public byte HasPublicHandle;
+        public byte PasskeyInitialized;
+        public byte RecoveryInitialized;
+        public byte HasPrivacyInitializedAt;
         public byte HasDeletedAt;
         public byte Reserved2;
         public ushort Reserved3;

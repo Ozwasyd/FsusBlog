@@ -534,11 +534,6 @@ async function assertRoleUserForbiddenMatrix(userSession, adminSession, articleI
       requiresPow: true,
       body: { userId: 1, status: 1, reason: marker }
     }],
-    ['role=user admin reset password attack probe', '/api/admin/users/reset-pwd', {
-      method: 'POST',
-      requiresPow: true,
-      body: { userId: 1, newPassword: 'PermissionPass123!' }
-    }],
     ['role=user admin messages list attack probe', '/api/binary/admin/messages/conversations?page=1&size=10', {
       method: 'GET'
     }],

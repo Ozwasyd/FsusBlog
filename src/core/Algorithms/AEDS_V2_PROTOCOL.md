@@ -70,7 +70,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `36`: PageContentUpdateRequest
 - `38`: FileDeleteRequest
 - `39`: AdminChangeUserStatusRequest
-- `40`: AdminResetUserPasswordRequest
+- `40`: AdminResetUserPasswordRequest (retired; codec compatibility only, no production endpoint)
 - `41`: ArticleWriteRequest
 - `42`: ArticleAotBundleRequest (reserved legacy value; client AOT bundle uploads are no longer accepted)
 - `43`: AuthLoginRequest (reserved legacy password login request; no production server route)
@@ -136,7 +136,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `CommentCreateV2Request` payload: `CommentCreateV2RequestPod` followed by shared blob payload for anonymous scope, display language, proof token, ZK proof bytes, and comment content.
 - `FileDeleteRequest` payload: `StringMutationRequestPod` followed by blob payload for image URL.
 - `AdminChangeUserStatusRequest` payload: `AdminChangeUserStatusRequestPod` followed by blob payload for reason.
-- `AdminResetUserPasswordRequest` payload: `AdminResetUserPasswordRequestPod` followed by blob payload for password.
+- `AdminResetUserPasswordRequest` payload: retired compatibility frame. Production endpoints must not accept this frame or expose an admin password reset route.
 - `ArticleWriteRequest` payload: `ArticleWriteRequestPod`, `int32 tagIds[count]`, blob payload for title/content/summary/cover URL slices, then optional lifecycle tail `int32 status`, `int64 scheduledPublishAtUnixMs`. Missing lifecycle tail is decoded as `Published` with no schedule.
 - `ArticleAotBundleRequest` payload: reserved legacy `PublicAotBundlePod`, `PublicAotEntryPod[count]`, followed by blob payload for entry strings. No server route accepts this frame.
 - `AuthLoginRequest` payload: reserved legacy `AuthLoginRequestPod` followed by blob payload for username/password. No production server route accepts this frame.
@@ -190,7 +190,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - Authoring response frames (`AuthorDraftResponse`, `ArticlePreviewResponse`, `AuthorAnalytics`, `AuditLog*`, `OpsHealth`, `Moderation*`, `Content*`, `Integrity*` and related list/result frames) payload: route-specific typed DTO encoded as UTF-8 JSON bytes inside an AEDS v2 response frame. Failures are always `ApiError`.
 - `AntiCrawlerOptionsUpdateRequest`, `SecurityRiskResetRequest`, `AntiCrawlerRuleRequest`, `AntiCrawlerListEntryRequest`, `AntiCrawlerSimulationRequest`, `PowOptionsUpdateRequest` and admin security dry-run `SecurityOverview` requests payload: route-specific typed DTO encoded as UTF-8 JSON bytes inside an AEDS v2 request frame. These frames are accepted only by `/api/binary/admin/security/**`, capped at 1 MiB, and do not use the legacy `JsonApiResponse<T>` envelope.
 - Security response frames (`SecurityOverview`, `AntiCrawlerOverview`, `AntiCrawlerPolicySnapshot`, `CrawlerRangesAdminStatus`, `SecurityRisk*`, `AntiCrawlerRule*`, `AntiCrawlerListEntry*`, `AntiCrawlerSimulationResult`, `PowOverview` and `PowPolicySnapshot`) payload: route-specific typed DTO encoded as UTF-8 JSON bytes inside an AEDS v2 response frame. `SecurityOverview` also carries RiskControl dry-run responses for `/api/binary/admin/security/risk-control/simulate`. Failures are always `ApiError`.
-- `AdminUserList` payload: `int32 total`, `int32 count`, followed by `UserListItemPod[count]`.
+- `AdminUserList` payload: `int32 total`, `int32 count`, followed by `UserListItemPod[count]` carrying anonymous account id, identity kind, public handle, Passkey/Recovery initialization state, anonymous credential status/level, risk flags and account status.
 - `ArticleList` payload: `int32 total`, `int32 count`, `int32 tagRecordCount`, shared UTF-8 blob, `76B articleRecord[count]`, `12B tagRecord[tagRecordCount]`. The final 20 bytes of each article record are `int32 status`, `int64 scheduledPublishAtUnixMs`, `int64 publishedAtUnixMs`.
 - `ArticleDetail` payload: `ArticleDetailPod`, `int32 tagCount`, `TagPod[tagCount]`, text blob, cover blob, `byte isDeleted`, then optional lifecycle tail `int32 status`, `int64 scheduledPublishAtUnixMs`, `int64 publishedAtUnixMs`.
 - `ArticleSearch` payload: `int32 total`, `int32 count`, `int32 tagRecordCount`, shared UTF-8 blob, `52B searchRecord[count]`, `12B tagRecord[tagRecordCount]`.

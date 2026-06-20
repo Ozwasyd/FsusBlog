@@ -17,17 +17,21 @@ export interface PageResult<T> {
 }
 
 /**
- * 用户列表项
- * 对应后端: UserListDto
+ * 匿名账号治理列表项
+ * 对应后端: AdminAccountListItemDto
  */
-export interface UserListItem {
-  id: number
-  username: string
-  role: string
+export interface AdminAccountListItem {
+  accountId: number
+  identityKind: string
+  publicHandle?: string | null
+  passkeyInitialized: boolean
+  recoveryInitialized: boolean
+  privacyInitializedAt?: string | null
+  anonymousCredentialStatus: string
+  anonymousCredentialLevel: string
+  riskFlags: number
   status: number // 0:正常, 1:封禁, 2:已注销
   createTime: string
-  lastLoginIp?: string
-  lastLoginTime?: string
   deletedAt?: string | null
 }
 
@@ -65,15 +69,6 @@ export interface AdminChangeStatusDto extends PowBaseDto {
   reason?: string // 封禁理由
 }
 
-/**
- * 重置密码参数
- * 对应后端: AdminResetPwdDto
- */
-export interface AdminResetPwdDto extends PowBaseDto {
-  userId: number
-  newPassword: string
-}
-
 // ================= API 方法定义 =================
 
 /**
@@ -81,20 +76,20 @@ export interface AdminResetPwdDto extends PowBaseDto {
  */
 
 /**
- * 获取用户列表
+ * 获取匿名账号列表
  * 逻辑：解码 AEDS 二进制分页载荷，返回 PageResult
  */
 export const getAdminUserList = async (
   params: UserQueryDto,
   config?: ApiRequestConfig
-): Promise<PageResult<UserListItem>> => {
+): Promise<PageResult<AdminAccountListItem>> => {
   const search = new URLSearchParams()
   search.set('page', String(params.page))
   search.set('pageSize', String(params.pageSize))
   if (params.keyword) search.set('keyword', params.keyword)
   if (params.status !== undefined) search.set('status', String(params.status))
 
-  return requestBinaryOnly<PageResult<UserListItem>>({
+  return requestBinaryOnly<PageResult<AdminAccountListItem>>({
     binaryUrl: `/api/binary/admin/users?${search.toString()}`,
     frameType: FrameType.AdminUserList,
     signal: config?.signal as AbortSignal | undefined
@@ -102,7 +97,7 @@ export const getAdminUserList = async (
 }
 
 /**
- * 封禁/解封用户
+ * 封禁/解封匿名账号
  * 安全性保障：标记为 requiresPow，拦截器将自动处理算力注入
  */
 export const adminChangeStatus = async (
@@ -118,27 +113,6 @@ export const adminChangeStatus = async (
       requiresPow: true,
       headers: adminHeaders(config?.mfaProofToken),
       body: encodeAedsFrame(FrameType.AdminChangeUserStatusRequest, encodeAdminChangeStatusRequest(data))
-    }
-  })
-}
-
-/**
- * 强制重置密码
- * 安全性保障：强制算力校验，防止针对管理员 Token 泄露后的暴力改密攻击
- */
-export const adminResetPassword = async (
-  data: AdminResetPwdDto,
-  config?: ApiRequestConfig
-) => {
-  return requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/admin/users/reset-pwd',
-    frameType: FrameType.EmptySuccess,
-    signal: config?.signal as AbortSignal | undefined,
-    requestOptions: {
-      method: 'POST',
-      requiresPow: true,
-      headers: adminHeaders(config?.mfaProofToken),
-      body: encodeAedsFrame(FrameType.AdminResetUserPasswordRequest, encodeAdminResetPasswordRequest(data))
     }
   })
 }
@@ -164,18 +138,5 @@ function encodeAdminChangeStatusRequest(data: AdminChangeStatusDto): Uint8Array 
   view.setInt32(12, reason.byteLength, true)
   view.setInt32(16, reason.byteLength, true)
   bytes.set(reason, 20)
-  return bytes
-}
-
-function encodeAdminResetPasswordRequest(data: AdminResetPwdDto): Uint8Array {
-  const password = new TextEncoder().encode(data.newPassword)
-  const bytes = new Uint8Array(16 + 4 + password.byteLength)
-  const view = new DataView(bytes.buffer)
-  view.setInt32(0, data.userId, true)
-  view.setInt32(4, 0, true)
-  view.setInt32(8, 0, true)
-  view.setInt32(12, password.byteLength, true)
-  view.setInt32(16, password.byteLength, true)
-  bytes.set(password, 20)
   return bytes
 }

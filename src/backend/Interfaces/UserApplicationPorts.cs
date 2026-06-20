@@ -118,9 +118,7 @@ public interface IUserMfaCommandService
 
 public interface IUserAdminModerationService
 {
-    Task<PageResult<UserListDto>> GetAdminUserListAsync(UserQueryDto dto);
+    Task<PageResult<AdminAccountListItemDto>> GetAdminUserListAsync(UserQueryDto dto);
 
     Task<(bool Success, string Message)> AdminChangeStatusAsync(AdminChangeStatusDto dto);
-
-    Task<(bool Success, string Message)> AdminResetPasswordAsync(AdminResetPwdDto dto);
 }

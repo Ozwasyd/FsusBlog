@@ -668,14 +668,6 @@
           "pow": true,
           "requestFrame": "AdminChangeUserStatusRequest",
           "responseFrame": "EmptySuccess"
-        },
-        {
-          "method": "POST",
-          "path": "/admin/users/reset-pwd",
-          "auth": "admin",
-          "pow": true,
-          "requestFrame": "AdminResetUserPasswordRequest",
-          "responseFrame": "EmptySuccess"
         }
       ]
     },
@@ -2124,5 +2116,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 207
+  "openapiOperationCount": 206
 }

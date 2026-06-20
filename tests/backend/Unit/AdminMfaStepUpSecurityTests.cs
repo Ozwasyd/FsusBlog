@@ -46,7 +46,7 @@ public sealed class AdminMfaStepUpSecurityTests
         Assert.Contains("adminPrincipalId", binaryCore, StringComparison.Ordinal);
         Assert.Contains("adminSessionId", binaryCore, StringComparison.Ordinal);
         Assert.DoesNotContain("IsMfaVerified()", binaryCore, StringComparison.Ordinal);
-        Assert.True(CountOccurrences(adminUsers, "RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals)") >= 2);
+        Assert.True(CountOccurrences(adminUsers, "RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals)") >= 1);
         Assert.Contains("RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds)", authoring, StringComparison.Ordinal);
         Assert.Contains("RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds)", security, StringComparison.Ordinal);
         Assert.DoesNotContain("RequireAdminSensitiveStepUpAsync(context, mfaChallengeService)", authoring, StringComparison.Ordinal);

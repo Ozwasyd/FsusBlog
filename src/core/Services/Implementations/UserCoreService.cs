@@ -98,12 +98,4 @@ public sealed class UserCoreService(IUserCoreGateway gateway) : IUserCoreService
             ? Result.Success()
             : Result.Failure(ErrorCode.Validation, result.Message);
     }
-
-    public async Task<Result> AdminResetPasswordAsync(int userId, string newPassword)
-    {
-        var result = await gateway.AdminResetPasswordAsync(userId, newPassword);
-        return result.Success
-            ? Result.Success()
-            : Result.Failure(ErrorCode.Validation, result.Message);
-    }
 }

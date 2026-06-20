@@ -1197,18 +1197,18 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
-    public void AdminUserPage_RoundTrip_PreservesNullableFields()
+    public void AdminUserPage_RoundTrip_PreservesAnonymousAccountGovernanceFields()
     {
         var created = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
-        var lastLogin = new DateTime(2026, 1, 3, 3, 4, 5, DateTimeKind.Utc);
+        var privacyInitialized = new DateTime(2026, 1, 3, 3, 4, 5, DateTimeKind.Utc);
         var deleted = new DateTime(2026, 1, 4, 3, 4, 5, DateTimeKind.Utc);
         var page = new AdminUserPageContract
         {
             Total = 2,
             Items =
             [
-                new UserListItemContract(7, "alice", "admin", 1, created, "127.0.0.1", lastLogin, deleted),
-                new UserListItemContract(8, "bob", "user", 0, created, null, null, null)
+                new AdminAccountListItemContract(7, "anonymous_account", "alice-public", true, true, privacyInitialized, "active", "basic", 3, 1, created, deleted),
+                new AdminAccountListItemContract(8, "anonymous_account", null, false, false, null, "revoked", "elevated", 0, 0, created, null)
             ]
         };
 
@@ -1218,12 +1218,21 @@ public class PodBinaryCodecTests
         Assert.True(ok);
         Assert.Equal(2, decoded.Total);
         Assert.Equal(2, decoded.Items.Count);
-        Assert.Equal("alice", decoded.Items[0].Username);
-        Assert.Equal("127.0.0.1", decoded.Items[0].LastLoginIp);
-        Assert.Equal(lastLogin, decoded.Items[0].LastLoginTime);
+        Assert.Equal(7, decoded.Items[0].AccountId);
+        Assert.Equal("anonymous_account", decoded.Items[0].IdentityKind);
+        Assert.Equal("alice-public", decoded.Items[0].PublicHandle);
+        Assert.True(decoded.Items[0].PasskeyInitialized);
+        Assert.True(decoded.Items[0].RecoveryInitialized);
+        Assert.Equal(privacyInitialized, decoded.Items[0].PrivacyInitializedAt);
+        Assert.Equal("active", decoded.Items[0].AnonymousCredentialStatus);
+        Assert.Equal("basic", decoded.Items[0].AnonymousCredentialLevel);
+        Assert.Equal(3, decoded.Items[0].RiskFlags);
+        Assert.Equal(1, decoded.Items[0].Status);
         Assert.Equal(deleted, decoded.Items[0].DeletedAt);
-        Assert.Null(decoded.Items[1].LastLoginIp);
-        Assert.Null(decoded.Items[1].LastLoginTime);
+        Assert.Null(decoded.Items[1].PublicHandle);
+        Assert.False(decoded.Items[1].PasskeyInitialized);
+        Assert.False(decoded.Items[1].RecoveryInitialized);
+        Assert.Null(decoded.Items[1].PrivacyInitializedAt);
         Assert.Null(decoded.Items[1].DeletedAt);
     }
 

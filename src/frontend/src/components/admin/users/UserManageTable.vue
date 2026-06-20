@@ -5,16 +5,16 @@
       class="user-table"
       v-loading="loading"
       :data="tableRows"
-      :row-key="(row: UserListViewItem) => String(row.id)"
+      :row-key="(row: UserListViewItem) => String(row.accountId)"
       :row-class-name="rowClassName"
     >
-      <el-table-column prop="id" label="ID" min-width="80" align="center">
+      <el-table-column prop="accountId" label="Account" min-width="88" align="center">
         <template #default="{ row }: { row: UserListViewItem }">
-          <span class="tabular-nums">{{ row.id }}</span>
+          <span class="tabular-nums">{{ row.accountId }}</span>
         </template>
       </el-table-column>
 
-      <el-table-column label="用户" :min-width="userColumnWidth">
+      <el-table-column label="匿名账号" :min-width="accountColumnWidth">
         <template #default="{ row }: { row: UserListViewItem }">
           <div
             class="flex items-center overflow-hidden"
@@ -27,12 +27,12 @@
             </div>
             <p class="min-w-0 flex flex-col justify-center overflow-hidden">
               <span class="truncate text-sm font-bold leading-tight text-[var(--fsusblog-text-primary)]">
-                {{ row.username }}
+                {{ row.displayHandle }}
               </span>
               <SemanticTime
                 v-if="!props.isMobile"
                 :value="row.createTime"
-                :text="`${row.createdAtText} 注册`"
+                :text="`${row.createdAtText} 初始化`"
                 class="mt-0.5 tabular-nums text-[11px] tabular-nums text-[var(--fsusblog-text-muted)] normal-case tracking-normal"
               />
             </p>
@@ -40,24 +40,20 @@
         </template>
       </el-table-column>
 
-      <el-table-column prop="role" label="角色" :width="roleColumnWidth" align="center">
+      <el-table-column prop="identityKind" label="身份" :width="identityColumnWidth" align="center">
         <template #default="{ row }: { row: UserListViewItem }">
-          <span class="text-xs font-semibold italic normal-case tracking-normal" :class="row.roleClass">
-            {{ row.roleLabel }}
+          <span class="text-xs font-semibold italic normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+            {{ row.identityKindLabel }}
           </span>
         </template>
       </el-table-column>
 
-      <el-table-column v-if="hasWideTable" label="最后活动" width="160">
+      <el-table-column v-if="hasWideTable" label="凭据" min-width="220">
         <template #default="{ row }: { row: UserListViewItem }">
-          <div v-if="row.lastLoginTime" class="flex flex-col whitespace-nowrap tabular-nums">
-            <span class="text-[12px] text-[var(--fsusblog-text-tertiary)] tabular-nums font-bold">{{ row.lastLoginText }}</span>
-            <span class="text-[11px] text-[var(--fsusblog-text-subtle)] tabular-nums flex items-center gap-1">
-              <span class="text-[11px]" aria-hidden="true"><el-icon><Location /></el-icon></span> {{ row.lastLoginIp }}
-            </span>
-            <SemanticTime :value="row.lastLoginTime" class="sr-only" />
+          <div class="flex flex-col whitespace-nowrap">
+            <span class="text-[12px] text-[var(--fsusblog-text-tertiary)] font-bold">{{ row.credentialSummary }}</span>
+            <span class="text-[11px] text-[var(--fsusblog-text-subtle)]">{{ row.riskFlagsText }}</span>
           </div>
-          <span v-else class="text-[var(--fsusblog-text-subtle)] text-[11px] italic">{{ row.lastLoginText }}</span>
         </template>
       </el-table-column>
 
@@ -75,34 +71,21 @@
       <el-table-column label="操作" :width="actionColumnWidth" align="right" :fixed="hasWideTable ? 'right' : false">
         <template #default="{ row }: { row: UserListViewItem }">
           <div
-            v-if="!row.isAdmin && !row.isDeleted"
+            v-if="!row.isDeleted"
             class="flex items-center justify-end gap-2 pr-2"
           >
             <el-button
               link
-              type="primary"
-              :icon="Key"
-              :disabled="isProcessing"
-              size="small"
-              :aria-label="`重置用户密码：${row.username}`"
-              @click="emit('open-reset', row)"
-            >
-              重置密码
-            </el-button>
-            <el-divider direction="vertical" />
-            <el-button
-              link
               :type="row.status === 0 ? 'danger' : 'success'"
               size="small"
-              :loading="isProcessing && processingId === row.id"
-              :aria-label="`变更用户状态：${row.username}`"
+              :loading="isProcessing && processingId === row.accountId"
+              :aria-label="`变更匿名账号状态：${row.displayHandle}`"
               @click="emit('toggle-status', row)"
             >
               {{ row.status === 0 ? '封禁' : '解封' }}
             </el-button>
           </div>
           <span v-else-if="row.isDeleted" class="text-[var(--fsusblog-text-subtle)] text-xs font-semibold normal-case italic tracking-normal pr-4">已注销</span>
-          <span v-else class="text-[var(--fsusblog-text-subtle)] text-xs font-semibold normal-case italic tracking-normal pr-4">受保护</span>
         </template>
       </el-table-column>
 
@@ -120,15 +103,15 @@
       v-loading="loading"
       class="user-resource-list divide-y divide-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]"
       role="list"
-      aria-label="用户列表"
+      aria-label="匿名账号列表"
     >
       <article
         v-for="row in list"
-        :key="row.id"
+        :key="row.accountId"
         class="user-resource-list-item bg-[var(--fsusblog-page-bg)] px-4 py-5"
-        :class="rowMotionClass(row.id)"
+        :class="rowMotionClass(row.accountId)"
         role="listitem"
-        v-memo="[row.id, row.username, row.status, row.lastLoginTime, rowMotionClass(row.id)]"
+        v-memo="[row.accountId, row.displayHandle, row.status, row.riskFlags, rowMotionClass(row.accountId)]"
       >
         <div class="flex items-center gap-4 mb-6">
           <div class="shrink-0">
@@ -139,17 +122,18 @@
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-3">
               <span class="truncate text-sm font-bold text-[var(--fsusblog-text-primary)]">
-                {{ row.username }}
+                {{ row.displayHandle }}
               </span>
-              <span class="text-xs font-semibold italic normal-case tracking-normal px-2 py-0.5 bg-[var(--fsusblog-panel-bg-soft)]" :class="row.roleClass">
-                {{ row.roleLabel }}
+              <span class="text-xs font-semibold italic normal-case tracking-normal px-2 py-0.5 bg-[var(--fsusblog-panel-bg-soft)] text-[var(--fsusblog-text-muted)]">
+                {{ row.identityKindLabel }}
               </span>
             </div>
             <div class="mt-2 flex flex-wrap items-center gap-3 text-[11px] tabular-nums text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
               <SemanticTime :value="row.createTime" :text="row.createdAtText" />
               <span class="text-[var(--fsusblog-text-subtle)]">/</span>
-              <SemanticTime v-if="row.lastLoginTime" :value="row.lastLoginTime" :text="row.lastLoginText" />
-              <span v-else class="text-[var(--fsusblog-text-subtle)]">{{ row.lastLoginText }}</span>
+              <span>{{ row.credentialSummary }}</span>
+              <span class="text-[var(--fsusblog-text-subtle)]">/</span>
+              <span>{{ row.riskFlagsText }}</span>
             </div>
           </div>
           <div class="shrink-0 flex flex-col items-center">
@@ -160,25 +144,18 @@
           </div>
         </div>
 
-        <div v-if="!row.isAdmin && !row.isDeleted" class="grid grid-cols-2 gap-2" aria-label="用户高风险操作">
-          <el-button
-            :disabled="isProcessing"
-            :aria-label="`重置用户密码：${row.username}`"
-            @click="emit('open-reset', row)"
-          >
-            重置密码
-          </el-button>
+        <div v-if="!row.isDeleted" class="grid grid-cols-1 gap-2" aria-label="匿名账号高风险操作">
           <el-button
             :type="row.status === 0 ? 'danger' : 'success'"
-            :loading="isProcessing && processingId === row.id"
-            :aria-label="`变更用户状态：${row.username}`"
+            :loading="isProcessing && processingId === row.accountId"
+            :aria-label="`变更匿名账号状态：${row.displayHandle}`"
             @click="emit('toggle-status', row)"
           >
             {{ row.status === 0 ? '封禁' : '解封' }}
           </el-button>
         </div>
         <div v-else class="text-center py-3 bg-[var(--fsusblog-panel-bg-soft)] text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
-          {{ row.isDeleted ? '已注销账户' : '受保护账户' }}
+          已注销账户
         </div>
       </article>
 
@@ -210,10 +187,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Key, Location } from '@/fsusui/icons'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
-import type { UserListItem } from '@/api/admin'
 import type { UserListViewItem } from '@/composables/useAdminUserManage'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 
@@ -233,24 +208,23 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  emptyTitle: '暂无用户记录',
-  emptyDescription: '创建或导入用户后会显示在这里。',
+  emptyTitle: '暂无匿名账号记录',
+  emptyDescription: '匿名账号初始化后会显示在这里。',
   hasActiveFilters: false
 })
 
-const userColumnWidth = computed(() => (props.isMobile ? 136 : 220))
-const roleColumnWidth = computed(() => (props.isMobile ? 44 : 116))
+const accountColumnWidth = computed(() => (props.isMobile ? 136 : 220))
+const identityColumnWidth = computed(() => (props.isMobile ? 72 : 128))
 const statusColumnWidth = computed(() => (props.isMobile ? 56 : 124))
-const actionColumnWidth = computed(() => (props.isMobile ? 56 : 172))
+const actionColumnWidth = computed(() => (props.isMobile ? 56 : 124))
 const hasWideTable = useMediaQuery('(min-width: 1024px)', true)
 const tableRows = computed(() => props.list)
 const rowMotionClass = (id: number): string => props.rowMotionClass?.(id) ?? 'blog-motion-row-state'
-const rowClassName = ({ row }: { row: UserListViewItem }): string => rowMotionClass(row.id)
+const rowClassName = ({ row }: { row: UserListViewItem }): string => rowMotionClass(row.accountId)
 
 const emit = defineEmits<{
   refresh: []
-  'open-reset': [row: UserListItem]
-  'toggle-status': [row: UserListItem]
+  'toggle-status': [row: UserListViewItem]
   'reset-filters': []
   'update:current-page': [value: number]
   'update:page-size': [value: number]

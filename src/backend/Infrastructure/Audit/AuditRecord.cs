@@ -84,7 +84,7 @@ public static class AuditActionCatalog
 {
     public const string LogRecorded = "log.recorded";
     public const string UserStatusChanged = "admin.user.status_changed";
-    public const string UserPasswordReset = "admin.user.password_reset";
+    public const string AnonymousAccountStatusChanged = "admin.anonymous_account.status_changed";
     public const string CommentModerated = "admin.comment.moderated";
     public const string CommentBulkModerated = "admin.comment.bulk_moderated";
     public const string AnonymousCommentPolicyUpdated = "admin.anonymous_comment.policy_updated";

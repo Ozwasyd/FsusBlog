@@ -63,12 +63,6 @@ public sealed record class AdminChangeStatusDto
     public string? Reason { get; init; }
 }
 
-public sealed record class AdminResetPwdDto
-{
-    public int UserId { get; init; }
-    public required string NewPassword { get; init; }
-}
-
 public readonly record struct RefreshRequestDto(string RefreshToken);
 
 public sealed record class MfaSetupVerifyRequestDto

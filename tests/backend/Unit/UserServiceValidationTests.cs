@@ -339,22 +339,6 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public async Task AdminResetPasswordAsync_AnonymousIdentityMode_DisablesLegacyPasswordReset()
-    {
-        using var _ = SetAnonymousIdentityMode("1");
-        var svc = BuildService();
-
-        var (success, message) = await svc.AdminResetPasswordAsync(new AdminResetPwdDto
-        {
-            UserId = 1,
-            NewPassword = "NewPass123!"
-        });
-
-        Assert.False(success);
-        Assert.Contains("anonymous identity", message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
     public async Task GetByUsernameAsync_EmptyUsername_ReturnsNull()
     {
         var svc = BuildService();

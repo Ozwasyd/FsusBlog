@@ -16,20 +16,24 @@ public readonly record struct AuthLoginResultContract(
     TokenPairContract Token,
     UserSnapshotContract User);
 
-public readonly record struct UserListItemContract(
-    int Id,
-    string Username,
-    string Role,
+public readonly record struct AdminAccountListItemContract(
+    int AccountId,
+    string IdentityKind,
+    string? PublicHandle,
+    bool PasskeyInitialized,
+    bool RecoveryInitialized,
+    DateTime? PrivacyInitializedAt,
+    string AnonymousCredentialStatus,
+    string AnonymousCredentialLevel,
+    int RiskFlags,
     int Status,
     DateTime CreateTime,
-    string? LastLoginIp,
-    DateTime? LastLoginTime,
     DateTime? DeletedAt);
 
 public sealed record class AdminUserPageContract
 {
     public int Total { get; init; }
-    public List<UserListItemContract> Items { get; init; } = [];
+    public List<AdminAccountListItemContract> Items { get; init; } = [];
 }
 
 public readonly record struct SeoConfigContract(

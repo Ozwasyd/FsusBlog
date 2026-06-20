@@ -14,5 +14,4 @@ public interface IUserCoreGateway
     Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
     Task<AdminUserPageContract> GetAdminUserListAsync(int page, int pageSize, string? keyword, int? status);
     Task<(bool Success, string Message)> AdminChangeStatusAsync(int userId, int status, string? reason);
-    Task<(bool Success, string Message)> AdminResetPasswordAsync(int userId, string newPassword);
 }

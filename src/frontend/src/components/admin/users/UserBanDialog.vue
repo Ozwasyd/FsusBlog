@@ -9,7 +9,7 @@
       <div class="mb-8 flex items-center gap-6 rounded-[var(--fsus-radius-popover)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)]/80 p-5">
         <el-avatar :size="40">{{ targetInitials }}</el-avatar>
         <div class="min-w-0">
-          <span class="block truncate text-base font-bold text-[var(--fsusblog-text-secondary)]">{{ targetUsername }}</span>
+          <span class="block truncate text-base font-bold text-[var(--fsusblog-text-secondary)]">{{ targetAccountLabel }}</span>
           <span class="mt-1 block text-[11px] font-bold text-[var(--fsusblog-color-warning-text)] normal-case tracking-normal">
             当前封禁为永久封禁，需要管理员手动解封。
           </span>
@@ -18,11 +18,11 @@
 
       <div class="mb-8 border border-[var(--fsusblog-color-warning-border)] bg-[var(--fsusblog-color-warning-bg)] p-5 text-[12px] leading-relaxed text-[var(--fsusblog-color-warning-text)]">
         <p class="font-bold mb-2">封禁影响</p>
-        <p>用户将无法登录，当前在线会话将失效，封禁原因将展示给用户，并写入审计日志。</p>
+        <p>账号容器将无法登录，当前在线会话将失效，封禁原因将展示给账号持有者，并写入审计日志。</p>
       </div>
 
       <el-form label-position="top">
-        <el-form-item label="封禁原因 (将公示给用户)">
+        <el-form-item label="封禁原因 (将公示给账号持有者)">
           <div class="w-full">
             <el-select
               :model-value="reason"
@@ -36,7 +36,7 @@
               <el-option v-for="item in quickReasons" :key="item" :label="item" :value="item" />
             </el-select>
             <div class="mt-3 space-y-2 text-[11px] font-bold normal-case tracking-normal">
-              <p class="text-[var(--fsusblog-text-muted)]">用户可见文案预览：{{ validation.preview }}</p>
+              <p class="text-[var(--fsusblog-text-muted)]">账号持有者可见文案预览：{{ validation.preview }}</p>
               <p v-if="validation.isTooLong || validation.hasUnsafeChars" class="text-[var(--fsusblog-color-error)]">
                 原因过长或包含危险字符。
               </p>
@@ -44,14 +44,14 @@
           </div>
         </el-form-item>
 
-        <el-form-item label="确认目标用户" required>
+        <el-form-item label="确认目标账号" required>
           <el-input
-            :model-value="confirmUsername"
-            name="banConfirmUsername"
-            :placeholder="`请输入 ${targetUsername} 以确认`"
+            :model-value="confirmAccountLabel"
+            name="banConfirmAccountLabel"
+            :placeholder="`请输入 ${targetAccountLabel} 以确认`"
             autocomplete="off"
-            aria-label="输入用户名确认封禁"
-            @update:model-value="emit('update:confirm-username', $event)"
+            aria-label="输入账号标识确认封禁"
+            @update:model-value="emit('update:confirm-account-label', $event)"
           />
         </el-form-item>
       </el-form>
@@ -74,9 +74,9 @@ interface Props {
   quickReasons: readonly string[]
   isProcessing: boolean
   isCalculating: boolean
-  targetUsername: string
+  targetAccountLabel: string
   targetInitials: string
-  confirmUsername: string
+  confirmAccountLabel: string
   validation: {
     isEmpty: boolean
     isTooLong: boolean
@@ -92,6 +92,6 @@ const emit = defineEmits<{
   submit: []
   'update:visible': [value: boolean]
   'update:reason': [value: string]
-  'update:confirm-username': [value: string]
+  'update:confirm-account-label': [value: string]
 }>()
 </script>

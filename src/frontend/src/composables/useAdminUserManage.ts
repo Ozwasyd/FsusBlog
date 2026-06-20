@@ -1,6 +1,6 @@
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { adminChangeStatus, adminResetPassword, getAdminUserList, type UserListItem, type UserQueryDto } from '@/api/admin'
+import { adminChangeStatus, getAdminUserList, type AdminAccountListItem, type UserQueryDto } from '@/api/admin'
 import { usePow } from '@/composables/usePow'
 import { useMutationFlow } from '@/composables/useMutationFlow'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
@@ -9,21 +9,21 @@ import { useMediaQuery } from '@/composables/useMediaQuery'
 import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { TimeUtils } from '@/utils/time'
 import { showWarningToast } from '@/utils/errorPresentation'
-import { toast } from '@/fsusui/feedback'
 
-export interface UserListViewItem extends UserListItem {
+export interface UserListViewItem extends AdminAccountListItem {
   initials: string
+  id: number
+  displayHandle: string
+  identityKindLabel: string
   createdAtText: string
-  lastLoginText: string
-  roleShort: 'ADM' | 'USR'
-  roleLabel: string
-  roleClass: string
+  privacyInitializedText: string
+  credentialSummary: string
+  riskFlagsText: string
   statusText: string
   statusLabel: string
   statusCode: 'NORMAL' | 'BANNED' | 'DELETED'
   statusClass: string
   statusDotClass: string
-  isAdmin: boolean
   isDeleted: boolean
 }
 
@@ -32,29 +32,34 @@ export function useAdminUserManage() {
   const route = useRoute()
   const router = useRouter()
 
-  const list = shallowRef<UserListItem[]>([])
+  const list = shallowRef<AdminAccountListItem[]>([])
   const listView = computed<UserListViewItem[]>(() =>
     list.value.map((item) => {
-      const isAdmin = item.role === 'admin'
       const isDeleted = item.status === 2
       const isBanned = item.status === 1
       const statusCode = isDeleted ? 'DELETED' : isBanned ? 'BANNED' : 'NORMAL'
       const statusLabel = isDeleted ? '已注销' : isBanned ? '已封禁' : '正常'
-      const roleShort = isAdmin ? 'ADM' : 'USR'
+      const displayHandle = item.publicHandle?.trim() || `account-${item.accountId}`
+      const identityKindLabel = item.identityKind === 'anonymous_account' ? '匿名账号' : item.identityKind
+      const passkeyText = item.passkeyInitialized ? 'Passkey 已初始化' : 'Passkey 未初始化'
+      const recoveryText = item.recoveryInitialized ? 'Recovery 已初始化' : 'Recovery 未初始化'
+      const anonymousCredentialText = `匿名凭据 ${item.anonymousCredentialStatus}/${item.anonymousCredentialLevel}`
+      const credentialSummary = `${passkeyText} / ${recoveryText} / ${anonymousCredentialText}`
       return {
         ...item,
-        initials: item.username.substring(0, 2).toUpperCase(),
+        id: item.accountId,
+        initials: displayHandle.substring(0, 2).toUpperCase(),
+        displayHandle,
+        identityKindLabel,
         createdAtText: TimeUtils.toFullLocalString(item.createTime),
-        lastLoginText: item.lastLoginTime ? TimeUtils.toFullLocalString(item.lastLoginTime) : '从未登录',
-        roleShort,
-        roleLabel: isAdmin ? '管理员' : '用户',
-        roleClass: isAdmin ? 'text-[var(--fsusblog-color-error)]' : 'text-[var(--fsusblog-text-muted)]',
+        privacyInitializedText: item.privacyInitializedAt ? TimeUtils.toFullLocalString(item.privacyInitializedAt) : '未完成隐私初始化',
+        credentialSummary,
+        riskFlagsText: item.riskFlags === 0 ? '无风险标记' : `风险标记 ${item.riskFlags}`,
         statusText: `${statusLabel} / ${statusCode}`,
         statusLabel,
         statusCode,
         statusClass: isDeleted ? 'text-[var(--fsusblog-text-muted)]' : isBanned ? 'text-[var(--fsusblog-color-error)]' : 'text-[var(--fsusblog-color-success)]',
         statusDotClass: isDeleted ? 'bg-[var(--fsusblog-panel-border-strong)]' : isBanned ? 'bg-[var(--fsusblog-color-error)]' : 'bg-[var(--fsusblog-color-success)]',
-        isAdmin,
         isDeleted
       }
     })
@@ -80,20 +85,11 @@ export function useAdminUserManage() {
   const isProcessing = computed(() => submitting.value || powProvider.isCalculating.value)
   const isCalculating = computed(() => powProvider.isCalculating.value)
 
-  const resetDialog = reactive({
-    visible: false,
-    targetUser: null as UserListItem | null,
-    form: {
-      newPassword: '',
-      confirmUsername: ''
-    }
-  })
-
   const banDialog = reactive({
     visible: false,
-    targetUser: null as UserListItem | null,
+    targetUser: null as UserListViewItem | null,
     reason: '',
-    confirmUsername: '',
+    confirmAccountLabel: '',
     quickReasons: ['发布违规内容', '恶意刷屏/垃圾信息', '账号安全异常', '违反社区准则']
   })
 
@@ -166,43 +162,6 @@ export function useAdminUserManage() {
     return chips
   })
 
-  const resetPasswordPolicy = computed(() => {
-    const password = resetDialog.form.newPassword
-    const username = resetDialog.targetUser?.username ?? ''
-    const normalizedPassword = password.toLowerCase()
-    const normalizedUsername = username.toLowerCase()
-    const checks = [
-      password.length >= 10,
-      !/\s/.test(password),
-      !normalizedUsername || !normalizedPassword.includes(normalizedUsername),
-      /[A-Z]/.test(password),
-      /[a-z]/.test(password),
-      /\d/.test(password),
-      /[^A-Za-z0-9]/.test(password)
-    ]
-    const passed = checks.filter(Boolean).length
-
-    return {
-      passed,
-      level: passed >= 7 ? '强' : passed >= 5 ? '中' : '弱',
-      hasWhitespace: /\s/.test(password),
-      isTooShort: password.length > 0 && password.length < 10,
-      containsUsername: Boolean(normalizedUsername && normalizedPassword.includes(normalizedUsername))
-    }
-  })
-
-  const canSubmitResetPassword = computed(() => {
-    const targetUsername = resetDialog.targetUser?.username ?? ''
-    return Boolean(
-      targetUsername &&
-      resetDialog.form.confirmUsername.trim() === targetUsername &&
-      resetPasswordPolicy.value.passed >= 5 &&
-      !resetPasswordPolicy.value.hasWhitespace &&
-      !resetPasswordPolicy.value.isTooShort &&
-      !resetPasswordPolicy.value.containsUsername
-    )
-  })
-
   const banReasonValidation = computed(() => {
     const reason = banDialog.reason.trim()
     return {
@@ -214,45 +173,21 @@ export function useAdminUserManage() {
   })
 
   const canSubmitBan = computed(() => {
-    const targetUsername = banDialog.targetUser?.username ?? ''
+    const targetAccountLabel = banDialog.targetUser?.displayHandle ?? ''
     return Boolean(
-      targetUsername &&
-      banDialog.confirmUsername.trim() === targetUsername &&
+      targetAccountLabel &&
+      banDialog.confirmAccountLabel.trim() === targetAccountLabel &&
       !banReasonValidation.value.isEmpty &&
       !banReasonValidation.value.isTooLong &&
       !banReasonValidation.value.hasUnsafeChars
     )
   })
 
-  const generateStrongPassword = (): void => {
-    const groups = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!@#$%^&*']
-    const chars = groups.join('')
-    const bytes = new Uint8Array(18 - groups.length)
-    crypto.getRandomValues(bytes)
-    const suffix = Array.from(bytes, (value) => chars[value % chars.length])
-    const seed = groups.map((group) => group[crypto.getRandomValues(new Uint8Array(1))[0] % group.length])
-    resetDialog.form.newPassword = [...seed, ...suffix].sort(() => crypto.getRandomValues(new Uint8Array(1))[0] - 128).join('')
-  }
-
-  const copyResetPassword = async (): Promise<void> => {
-    if (!resetDialog.form.newPassword) {
-      showWarningToast('请先生成或输入新密码')
-      return
-    }
-
-    try {
-      await navigator.clipboard.writeText(resetDialog.form.newPassword)
-      toast.success('新密码已复制')
-    } catch {
-      showWarningToast('当前浏览器不允许复制，请手动复制新密码')
-    }
-  }
-
   const fetchData = async (): Promise<boolean> => {
     const res = await loadTask.run(
       async (signal) => await getAdminUserList(queryParams, buildSignalConfig(signal)),
       {
-        fallbackMessage: '用户列表加载失败',
+        fallbackMessage: '账号列表加载失败',
         onError: (error) => {
         console.error('[Admin Users] Load failed:', error)
           list.value = []
@@ -264,7 +199,7 @@ export function useAdminUserManage() {
     if (res) {
       list.value = res.items
       total.value = res.total
-      rowMotion.markUpdated(res.items.slice(0, 20).map((item) => item.id), `用户列表已刷新：${res.items.length} 条可见记录`)
+      rowMotion.markUpdated(res.items.slice(0, 20).map((item) => item.accountId), `账号列表已刷新：${res.items.length} 条可见记录`)
     }
 
     return res !== undefined
@@ -294,16 +229,8 @@ export function useAdminUserManage() {
     banDialog.reason = reason
   }
 
-  const onResetPasswordChange = (password: string): void => {
-    resetDialog.form.newPassword = password
-  }
-
-  const onResetPasswordConfirmChange = (value: string): void => {
-    resetDialog.form.confirmUsername = value
-  }
-
   const onBanConfirmChange = (value: string): void => {
-    banDialog.confirmUsername = value
+    banDialog.confirmAccountLabel = value
   }
 
   const handleSearch = (): void => {
@@ -328,7 +255,7 @@ export function useAdminUserManage() {
     void syncQueryToRoute().then(fetchData)
   }
 
-  const handleToggleStatus = async (row: UserListItem): Promise<void> => {
+  const handleToggleStatus = async (row: UserListViewItem): Promise<void> => {
     if (isProcessing.value) {
       return
     }
@@ -341,28 +268,28 @@ export function useAdminUserManage() {
     if (row.status === 0) {
       banDialog.targetUser = row
       banDialog.reason = ''
-      banDialog.confirmUsername = ''
+      banDialog.confirmAccountLabel = ''
       banDialog.visible = true
       return
     }
 
-    processingId.value = row.id
+    processingId.value = row.accountId
     submitting.value = true
-    rowMotion.markPending(row.id, '正在变更用户状态')
+    rowMotion.markPending(row.accountId, '正在变更匿名账号状态')
 
     let completed = false
     try {
       await mutation.confirmThenRun({
-        message: `确定要为用户 "${row.username}" 解除封禁吗？当前接口未返回封禁原因，请确认已核对审计记录。`,
+        message: `确定要为匿名账号 "${row.displayHandle}" 解除封禁吗？当前接口未返回封禁原因，请确认已核对审计记录。`,
         title: '操作确认',
         confirmButtonText: '立即解封'
       }, async (signal) => {
         const mfaProofToken = await ensureAdminSensitiveProof()
-        await adminChangeStatus({ userId: row.id, status: 0 }, { ...buildSignalConfig(signal), mfaProofToken })
+        await adminChangeStatus({ userId: row.accountId, status: 0 }, { ...buildSignalConfig(signal), mfaProofToken })
       }, {
         fallbackMessage: '操作失败',
-        successMessage: `用户 ${row.username} 已解封`,
-        postSuccessWarningMessage: `用户 ${row.username} 已解封，但列表同步失败，请稍后刷新`,
+        successMessage: `账号 ${row.displayHandle} 已解封`,
+        postSuccessWarningMessage: `账号 ${row.displayHandle} 已解封，但列表同步失败，请稍后刷新`,
         onSuccess: async () => {
           completed = true
           return await fetchData()
@@ -370,7 +297,7 @@ export function useAdminUserManage() {
       })
     } finally {
       if (!completed) {
-        rowMotion.clear(row.id)
+        rowMotion.clear(row.accountId)
       }
       processingId.value = null
       submitting.value = false
@@ -388,13 +315,13 @@ export function useAdminUserManage() {
       return
     }
     if (!canSubmitBan.value) {
-      showWarningToast('请输入目标用户名以确认封禁操作')
+      showWarningToast('请输入目标账号标识以确认封禁操作')
       return
     }
 
-    processingId.value = targetUser.id
+    processingId.value = targetUser.accountId
     submitting.value = true
-    rowMotion.markPending(targetUser.id, '正在封禁用户')
+    rowMotion.markPending(targetUser.accountId, '正在封禁匿名账号')
 
     let completed = false
     try {
@@ -402,7 +329,7 @@ export function useAdminUserManage() {
         const mfaProofToken = await ensureAdminSensitiveProof()
         await adminChangeStatus(
           {
-            userId: targetUser.id,
+            userId: targetUser.accountId,
             status: 1,
             reason: banDialog.reason.trim()
           },
@@ -410,8 +337,8 @@ export function useAdminUserManage() {
         )
       }, {
         fallbackMessage: '封禁操作失败',
-        successMessage: `用户 ${targetUser.username} 已封禁`,
-        postSuccessWarningMessage: `用户 ${targetUser.username} 已封禁，但列表同步失败，请稍后刷新`,
+        successMessage: `账号 ${targetUser.displayHandle} 已封禁`,
+        postSuccessWarningMessage: `账号 ${targetUser.displayHandle} 已封禁，但列表同步失败，请稍后刷新`,
         onSuccess: async () => {
           completed = true
           banDialog.visible = false
@@ -420,78 +347,18 @@ export function useAdminUserManage() {
       })
     } finally {
       if (!completed) {
-        rowMotion.clear(targetUser.id)
+        rowMotion.clear(targetUser.accountId)
       }
       processingId.value = null
       submitting.value = false
     }
   }
 
-  const openResetDialog = (row: UserListItem): void => {
-    resetDialog.targetUser = row
-    resetDialog.form.newPassword = ''
-    resetDialog.form.confirmUsername = ''
-    resetDialog.visible = true
-  }
-
-  const handleResetSubmit = async (): Promise<void> => {
-    const newPassword = resetDialog.form.newPassword
-    if (/\s/.test(newPassword)) {
-      showWarningToast('密码不能包含空白字符')
-      return
+  const getTargetInitials = (targetUser: UserListViewItem | null): string => {
+    if (!targetUser?.displayHandle) {
+      return '账号'
     }
-    if (newPassword.length < 10 || resetPasswordPolicy.value.passed < 5) {
-      showWarningToast('密码安全性不足（需10位以上并包含多种字符）')
-      return
-    }
-
-    const targetUser = resetDialog.targetUser
-    if (!targetUser) {
-      return
-    }
-    if (!canSubmitResetPassword.value) {
-      showWarningToast('请输入目标用户名以确认重置密码')
-      return
-    }
-
-    processingId.value = targetUser.id
-    submitting.value = true
-    rowMotion.markPending(targetUser.id, '正在重置密码')
-
-    let completed = false
-    try {
-      await mutation.run(async (signal) => {
-        const mfaProofToken = await ensureAdminSensitiveProof()
-        await adminResetPassword(
-          {
-            userId: targetUser.id,
-            newPassword
-          },
-          { ...buildSignalConfig(signal), mfaProofToken }
-        )
-      }, {
-        fallbackMessage: '操作失败',
-        successMessage: '密码已重置，用户已强制下线',
-        onSuccess: () => {
-          completed = true
-          rowMotion.markUpdated(targetUser.id, '密码已重置')
-          resetDialog.visible = false
-        }
-      })
-    } finally {
-      if (!completed) {
-        rowMotion.clear(targetUser.id)
-      }
-      processingId.value = null
-      submitting.value = false
-    }
-  }
-
-  const getTargetInitials = (targetUser: UserListItem | null): string => {
-    if (!targetUser?.username) {
-      return '用户'
-    }
-    return targetUser.username.substring(0, 2).toUpperCase()
+    return targetUser.displayHandle.substring(0, 2).toUpperCase()
   }
 
   watch(() => route.query, () => {
@@ -525,13 +392,10 @@ export function useAdminUserManage() {
     isCalculating,
     processingId,
     isProcessing,
-    resetDialog,
     banDialog,
     statusFilterLabel,
     activeFilterChips,
     rowMotion,
-    resetPasswordPolicy,
-    canSubmitResetPassword,
     banReasonValidation,
     canSubmitBan,
     fetchData,
@@ -540,18 +404,12 @@ export function useAdminUserManage() {
     onPageChange,
     onPageSizeChange,
     onBanReasonChange,
-    onResetPasswordChange,
-    onResetPasswordConfirmChange,
     onBanConfirmChange,
     handleSearch,
     resetFilters,
     removeFilter,
     handleToggleStatus,
     handleBanSubmit,
-    openResetDialog,
-    handleResetSubmit,
-    generateStrongPassword,
-    copyResetPassword,
     getTargetInitials
   }
 }

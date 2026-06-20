@@ -213,18 +213,4 @@ public class UserCoreServiceTests
         Assert.Equal(ErrorCode.Validation, (await Svc().AdminChangeStatusAsync(1, 1, null)).Error.Code);
     }
 
-    // AdminResetPasswordAsync
-    [Fact]
-    public async Task AdminResetPassword_GatewaySuccess()
-    {
-        _gw.AdminResetPasswordAsync(1, "new").Returns(Task.FromResult((true, "ok")));
-        Assert.True((await Svc().AdminResetPasswordAsync(1, "new")).IsSuccess);
-    }
-
-    [Fact]
-    public async Task AdminResetPassword_GatewayFailure()
-    {
-        _gw.AdminResetPasswordAsync(1, "new").Returns(Task.FromResult((false, "error")));
-        Assert.Equal(ErrorCode.Validation, (await Svc().AdminResetPasswordAsync(1, "new")).Error.Code);
-    }
 }

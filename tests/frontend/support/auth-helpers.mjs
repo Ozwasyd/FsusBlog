@@ -5,7 +5,6 @@ import { readFile } from 'node:fs/promises';
 import {
   decodeAedsFrame,
   encodeAdminChangeStatusRequest,
-  encodeAdminResetPasswordRequest,
   encodeAedsFrame,
   encodeArticleWriteRequest,
   encodeAuthLoginRequest,
@@ -45,7 +44,6 @@ const FRAME_SEO_CONFIG_UPDATE_REQUEST = 35;
 const FRAME_PAGE_CONTENT_UPDATE_REQUEST = 36;
 const FRAME_COMMENT_CREATE_V2_REQUEST = 166;
 const FRAME_ADMIN_CHANGE_USER_STATUS_REQUEST = 39;
-const FRAME_ADMIN_RESET_USER_PASSWORD_REQUEST = 40;
 const FRAME_AUTH_UPDATE_PASSWORD_REQUEST = 46;
 const FRAME_MFA_SETUP_VERIFY_REQUEST = 52;
 const FRAME_MFA_PASSWORD_PROOF_REQUEST = 53;
@@ -530,10 +528,6 @@ function encodeOptionalBody(path, body) {
 
   if (path.endsWith('/admin/users/status')) {
     return encodeAedsFrame(FRAME_ADMIN_CHANGE_USER_STATUS_REQUEST, encodeAdminChangeStatusRequest(body));
-  }
-
-  if (path.endsWith('/admin/users/reset-pwd')) {
-    return encodeAedsFrame(FRAME_ADMIN_RESET_USER_PASSWORD_REQUEST, encodeAdminResetPasswordRequest(body));
   }
 
   if (path.endsWith('/messages/conversations')) {

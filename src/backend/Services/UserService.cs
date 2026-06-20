@@ -427,7 +427,7 @@ public partial class UserService(
         return sessionUpdated > 0;
     }
 
-    public async Task<PageResult<UserListDto>> GetAdminUserListAsync(UserQueryDto dto)
+    public async Task<PageResult<AdminAccountListItemDto>> GetAdminUserListAsync(UserQueryDto dto)
     {
         var page = dto.Page < 1 ? 1 : dto.Page;
         var pageSize = dto.PageSize switch
@@ -437,60 +437,77 @@ public partial class UserService(
             _ => dto.PageSize
         };
 
-        var query = _db.Queryable<User>()
-            .WhereIF(!string.IsNullOrWhiteSpace(dto.Keyword), u => u.Username.Contains(dto.Keyword!))
-            .WhereIF(dto.Status.HasValue, u => u.Status == dto.Status);
+        string? keyword = dto.Keyword?.Trim();
+        var query = _db.Queryable<User>();
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            query = int.TryParse(keyword, out int accountId) && accountId > 0
+                ? query.Where(u => u.Id == accountId || u.PublicHandle!.Contains(keyword) || u.IdentityKind.Contains(keyword))
+                : query.Where(u => u.PublicHandle!.Contains(keyword) || u.IdentityKind.Contains(keyword));
+        }
+
+        query = query.WhereIF(dto.Status.HasValue, u => u.Status == dto.Status);
 
         int total = await query.CountAsync();
-        if (total == 0) return new PageResult<UserListDto> { Total = 0, Items = [] };
+        if (total == 0) return new PageResult<AdminAccountListItemDto> { Total = 0, Items = [] };
 
         var sqlObj = query
             .OrderByDescending(u => u.CreateTime)
             .Select(u => new
             {
                 u.Id,
-                u.Username,
-                u.Role,
+                u.IdentityKind,
+                u.PublicHandle,
+                u.PasskeyEnabled,
+                u.RecoveryEnabled,
+                u.PrivacyInitializedAt,
+                u.AnonymousCredentialStatus,
+                u.AnonymousCredentialLevel,
+                u.RiskFlags,
                 u.Status,
                 u.CreateTime,
-                u.LastLoginIp,
-                u.LastLoginTime,
                 u.DeletedAt
             })
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToSql();
 
-        var list = new List<UserListDto>(pageSize);
+        var list = new List<AdminAccountListItemDto>(pageSize);
 
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
         {
             int fId = reader.GetOrdinal("Id");
-            int fName = reader.GetOrdinal("Username");
-            int fRole = reader.GetOrdinal("Role");
+            int fIdentityKind = reader.GetOrdinal("IdentityKind");
+            int fPublicHandle = reader.GetOrdinal("PublicHandle");
+            int fPasskeyEnabled = reader.GetOrdinal("PasskeyEnabled");
+            int fRecoveryEnabled = reader.GetOrdinal("RecoveryEnabled");
+            int fPrivacyInitializedAt = reader.GetOrdinal("PrivacyInitializedAt");
+            int fAnonymousCredentialStatus = reader.GetOrdinal("AnonymousCredentialStatus");
+            int fAnonymousCredentialLevel = reader.GetOrdinal("AnonymousCredentialLevel");
+            int fRiskFlags = reader.GetOrdinal("RiskFlags");
             int fStatus = reader.GetOrdinal("Status");
             int fTime = reader.GetOrdinal("CreateTime");
-            int fIp = reader.GetOrdinal("LastLoginIp");
-            int fLastTime = reader.GetOrdinal("LastLoginTime");
             int fDeletedAt = reader.GetOrdinal("DeletedAt");
 
             while (await reader.ReadAsync())
             {
-                list.Add(new UserListDto
-                {
-                    Id = reader.GetInt32(fId),
-                    Username = reader.GetString(fName),
-                    Role = reader.GetString(fRole),
-                    Status = reader.GetInt32(fStatus),
-                    CreateTime = reader.GetDateTime(fTime),
-                    LastLoginIp = reader.IsDBNull(fIp) ? null : reader.GetString(fIp),
-                    LastLoginTime = reader.IsDBNull(fLastTime) ? null : reader.GetDateTime(fLastTime),
-                    DeletedAt = reader.IsDBNull(fDeletedAt) ? null : reader.GetDateTime(fDeletedAt)
-                });
+                list.Add(new AdminAccountListItemDto(
+                    reader.GetInt32(fId),
+                    reader.IsDBNull(fIdentityKind) ? AnonymousIdentityRuntime.AnonymousAccountKind : reader.GetString(fIdentityKind),
+                    reader.IsDBNull(fPublicHandle) ? null : reader.GetString(fPublicHandle),
+                    reader.GetBoolean(fPasskeyEnabled),
+                    reader.GetBoolean(fRecoveryEnabled),
+                    reader.IsDBNull(fPrivacyInitializedAt) ? null : reader.GetDateTime(fPrivacyInitializedAt),
+                    reader.IsDBNull(fAnonymousCredentialStatus) ? "unknown" : reader.GetString(fAnonymousCredentialStatus),
+                    reader.IsDBNull(fAnonymousCredentialLevel) ? "basic" : reader.GetString(fAnonymousCredentialLevel),
+                    reader.GetInt32(fRiskFlags),
+                    reader.GetInt32(fStatus),
+                    reader.GetDateTime(fTime),
+                    reader.IsDBNull(fDeletedAt) ? null : reader.GetDateTime(fDeletedAt)));
             }
         }
 
-        return new PageResult<UserListDto>
+        return new PageResult<AdminAccountListItemDto>
         {
             Total = total,
             Items = list
@@ -529,36 +546,6 @@ public partial class UserService(
         }
 
         return (true, dto.Status == UserStatusBanned ? "用户已封禁" : "用户已解封");
-    }
-
-    public async Task<(bool Success, string Message)> AdminResetPasswordAsync(AdminResetPwdDto dto)
-    {
-        if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
-        {
-            return (false, AnonymousIdentityRuntime.LegacyPasswordDisabledMessage);
-        }
-
-        var user = await _db.Queryable<User>().InSingleAsync(dto.UserId);
-        if (user == null) return (false, "用户不存在");
-        if (!IsPasswordLengthValid(dto.NewPassword)) return (false, "新密码长度必须在 8-128 位之间");
-
-        string newHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
-
-        await _db.Updateable<User>()
-                 .SetColumns(u => u.Password == newHash)
-                 .Where(u => u.Id == dto.UserId)
-                 .ExecuteCommandAsync();
-
-        await _db.Updateable<UserSession>()
-            .SetColumns(s => s.RevokedAt == DateTime.UtcNow)
-            .SetColumns(s => s.RevokeReason == "admin_password_reset")
-            .Where(s => s.UserId == dto.UserId && s.RevokedAt == null)
-            .ExecuteCommandAsync();
-
-        await _cache.SetStringAsync(CachePolicyId.SecurityBlockedUser, dto.UserId.ToString(), "pwd_reset", TimeSpan.FromMinutes(20));
-        _ = NotifyPasswordResetAsync(dto.UserId);
-
-        return (true, "密码已重置，用户已强制登出");
     }
 
     public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync(
@@ -1205,9 +1192,6 @@ public partial class UserService(
 
     private Task NotifyUserUnbannedAsync(int userId)
         => ExecuteNotificationAsync(static (svc, uid, _) => svc.SendUserUnbannedNoticeAsync(uid), userId, string.Empty);
-
-    private Task NotifyPasswordResetAsync(int userId)
-        => ExecuteStatusNotificationAsync(userId, "管理员重置了您的密码");
 
     private async Task ExecuteNotificationAsync(Func<IMessageCommandService, int, string, Task> sender, int userId, string payload)
     {

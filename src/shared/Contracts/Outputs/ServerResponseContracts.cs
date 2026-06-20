@@ -450,14 +450,18 @@ public readonly record struct AuthLoginFlowDto(
     string? MfaMode,
     string? ChallengeToken);
 public readonly record struct CurrentUserSnapshotDto(int Id, string Username, string Role, int Status, string? BanReason, DateTime? DeletedAt);
-public readonly record struct UserListDto(
-    int Id,
-    string Username,
-    string Role,
+public readonly record struct AdminAccountListItemDto(
+    int AccountId,
+    string IdentityKind,
+    string? PublicHandle,
+    bool PasskeyInitialized,
+    bool RecoveryInitialized,
+    DateTime? PrivacyInitializedAt,
+    string AnonymousCredentialStatus,
+    string AnonymousCredentialLevel,
+    int RiskFlags,
     int Status,
     DateTime CreateTime,
-    string? LastLoginIp,
-    DateTime? LastLoginTime,
     DateTime? DeletedAt);
 
 public enum ConversationStatusValue
