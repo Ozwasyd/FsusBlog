@@ -83,7 +83,8 @@
     "verifying key hash matches config/zk/anonymous-comment-v2-verifying-key.manifest.json"
   ],
   "handoff_consumers": [
-    "#545 native Groth16 verifier backend",
-    "#546 browser wasm prover"
+    "#552 trusted setup ceremony artifacts",
+    "#553 browser wasm prover bundle",
+    "#555 native verifier / prover cross-stack fixture"
   ]
 }

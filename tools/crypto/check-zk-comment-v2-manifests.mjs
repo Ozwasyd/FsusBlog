@@ -120,7 +120,16 @@ const expected = {
     'verified-production-artifacts'
   ],
   feasibilityStatus: 'resolved',
-  selectedCandidate: 'circuit-native-credential-v2'
+  selectedCandidate: 'circuit-native-credential-v2',
+  handoffConsumers: [
+    '#552 trusted setup ceremony artifacts',
+    '#553 browser wasm prover bundle',
+    '#555 native verifier / prover cross-stack fixture'
+  ],
+  retiredHandoffConsumerIssues: [
+    '#545',
+    '#546'
+  ]
 }
 
 const failures = []
@@ -194,6 +203,17 @@ function hasNoForbiddenIdentity(label, actual) {
     const normalized = item.toLowerCase()
     if (expected.forbiddenIdentityNames.includes(normalized)) {
       fail(`${label} contains forbidden identity field ${item}`)
+    }
+  }
+}
+
+function checkHandoffConsumers(label, value) {
+  const consumers = asArray(value).map((item) => String(item).trim()).filter(Boolean)
+  hasAll(label, consumers, expected.handoffConsumers)
+  const joined = consumers.join('\n')
+  for (const retired of expected.retiredHandoffConsumerIssues) {
+    if (joined.includes(retired)) {
+      fail(`${label} references retired issue ${retired}`)
     }
   }
 }
@@ -460,6 +480,8 @@ function checkSetup(setup, circuitHash) {
       fail(`setup.transcript_consistency_checks missing ${token}`)
     }
   }
+
+  checkHandoffConsumers('setup.handoff_consumers', setup.handoff_consumers)
 }
 
 function checkConfig(config, setup) {
@@ -492,6 +514,8 @@ function checkConfig(config, setup) {
       fail(`config.runtime_config_keys.${key} is required`)
     }
   }
+
+  checkHandoffConsumers('config.handoff_consumers', config.handoff_consumers)
 }
 
 function findCandidate(feasibility, id) {

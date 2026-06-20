@@ -26,7 +26,8 @@
     "requires_trusted_setup_verified_for_production": true
   },
   "handoff_consumers": [
-    "#545 native Groth16 verifier backend",
-    "#546 browser wasm prover"
+    "#552 trusted setup ceremony artifacts",
+    "#553 browser wasm prover bundle",
+    "#555 native verifier / prover cross-stack fixture"
   ]
 }

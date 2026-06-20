@@ -166,7 +166,7 @@ scenarios:
       - src/backend/Services/CommentService.cs
       - src/frontend/src/privacy/commentPrivacyWasmProver.ts
     tests:
-      - tests/backend/Unit/AnonymousZkProdSmokeTests.cs
+      - tests/backend/Unit/AnonymousZkProdWrapperFixtureTests.cs
       - tests/backend/Unit/RejectIdentifiedPrincipalFilterTests.cs
       - tests/security/privacy-zk-prod-smoke.test.mjs
       - tests/security/privacy-zk-prod-release.test.mjs

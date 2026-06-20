@@ -1,6 +1,6 @@
 # comment.v2 trusted setup ceremony contract
 
-Status: fail-closed manifest contract for #544. No production Groth16 proving
+Status: fail-closed manifest contract for #552. No production Groth16 proving
 key, verifying key, Powers of Tau transcript, or phase-2 transcript is present
 in this repository yet.
 
@@ -16,7 +16,8 @@ Future verifier/prover work must read the same manifest paths:
 | Checker | `tools/crypto/check-zk-comment-v2-manifests.mjs` |
 
 The manifest names are stable. Artifact paths inside the setup manifest are the
-handoff contract for #545 native verifier and #546 browser wasm prover.
+handoff contract for #552 trusted setup artifacts, #553 browser wasm prover
+bundle, and #555 native verifier / prover cross-stack fixture evidence.
 
 ## Ceremony Requirements
 

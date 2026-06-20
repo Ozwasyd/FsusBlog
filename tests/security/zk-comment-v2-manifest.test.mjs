@@ -179,6 +179,17 @@ test('comment v2 circuit source and generated R1CS artifact are hash-bound', () 
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
 })
 
+test('comment v2 handoff consumers point to the active unversioned issue set', () => {
+  const setup = readJson(setupPath)
+  const config = readJson(configPath)
+  const handoff = [...setup.handoff_consumers, ...config.handoff_consumers].join('\n')
+
+  assert.match(handoff, /#552/)
+  assert.match(handoff, /#553/)
+  assert.match(handoff, /#555/)
+  assert.doesNotMatch(handoff, /#545|#546/)
+})
+
 test('tamper manifest rejects every security assertion', () => {
   const circuit = readJson(circuitPath)
   const tamper = readJson(tamperPath)
