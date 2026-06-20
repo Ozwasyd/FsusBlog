@@ -183,7 +183,7 @@
           "witnessHash"
         ],
         "path_depth": 128,
-        "sibling_digest_algorithm": "sha256-outside-circuit",
+        "sibling_digest_algorithm": "mimc7-bn254.v1",
         "witness_hash_circuit_input": false,
         "witness_hash_role": "fixture_integrity_only"
       }
@@ -221,7 +221,7 @@
   ],
   "schema": "fsusblog.zk.r1cs-ir.v1",
   "source_path": "circuits/anonymous-comment-v2/comment_v2.circuit.json",
-  "source_sha256": "c09d1c7de47e3f557bb0d380f87a736670f580f50bde424375369315464aede8",
+  "source_sha256": "4cb33f7cfbf69e82b753bce8ed209c68fc2722188fcbb0cda54c1336bbed3328",
   "tamper_case_bindings": {
     "inject-user-id-public-input": "identity-field-absence",
     "inject-username-private-witness": "identity-field-absence",

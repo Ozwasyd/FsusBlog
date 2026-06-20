@@ -98,8 +98,8 @@ database-backed check is not part of the Groth16 witness.
 The Groth16 circuit shape is narrower than the backend fixture verifier:
 `leafKey` and `siblingHashes[0..127]` are the circuit witness fields that
 reconstruct `revocationRootHash`. `witnessHash` binds the fixture for backend and
-cross-stack evidence integrity only; it includes a SHA-256 sibling digest and is
-not a circuit input or in-circuit constraint. The circuit source records this as
+cross-stack evidence integrity only; it includes a MiMC7 BN254 sibling digest and
+is not a circuit input or in-circuit constraint. The circuit source records this as
 `witness_hash_role=fixture_integrity_only` and
 `witness_hash_circuit_input=false`.
 

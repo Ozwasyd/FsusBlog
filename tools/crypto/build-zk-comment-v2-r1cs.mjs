@@ -160,6 +160,7 @@ function validateRevocationWitnessShape(source) {
     'revocation_non_membership.witness_shape.circuit_fields must bind leafKey and 128 siblings')
   assert(shape.witness_hash_role === 'fixture_integrity_only', 'revocation_non_membership.witness_hash_role must be fixture_integrity_only')
   assert(shape.witness_hash_circuit_input === false, 'revocation_non_membership.witness_hash_circuit_input must be false')
+  assert(shape.sibling_digest_algorithm === 'mimc7-bn254.v1', 'revocation_non_membership.sibling_digest_algorithm must be mimc7-bn254.v1')
 }
 
 function buildArtifact(source, sourceSha256, normalized) {

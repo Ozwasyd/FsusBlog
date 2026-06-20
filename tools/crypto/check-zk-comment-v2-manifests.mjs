@@ -391,6 +391,9 @@ function checkCircuitSource(source) {
   if (shape.witness_hash_circuit_input !== false) {
     fail('source.revocation_non_membership.witness_hash_circuit_input must be false')
   }
+  if (shape.sibling_digest_algorithm !== 'mimc7-bn254.v1') {
+    fail('source.revocation_non_membership.sibling_digest_algorithm must be mimc7-bn254.v1')
+  }
 }
 
 function checkTamperManifest(tamper) {

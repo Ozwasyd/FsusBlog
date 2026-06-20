@@ -3,7 +3,7 @@
   "circuit_id": "fsus.anonymous.comment.v2",
   "public_input_layout_version": 3,
   "circuit_manifest_path": "security/zk/comment-v2-circuit.manifest.json",
-  "circuit_manifest_sha256": "c84abefb0f29d590adc47972428f142291f2def0580233d2422afadbbf9edc1b",
+  "circuit_manifest_sha256": "ee6da240cb85ca57bab9850c0d502db9e564e854ee0fab94c93273b684db92ec",
   "ceremony_status": "not-run",
   "production_usable": false,
   "fail_closed_reason": "Groth16 binary R1CS, proving key, verifying key, SRS and ceremony transcripts are not present",
@@ -41,7 +41,7 @@
   "artifacts": {
     "r1cs": {
       "path": "artifacts/zk/comment-v2/comment_v2.r1cs",
-      "sha256": "cc388075ddbce1ef2fd7ec9bd7369539d876e4ccd485feed2e9d019c6d4424a1",
+      "sha256": "0791cb18906c83168f619b35c1a170e8630073ffe72b73f1ca7f0a785a1eea54",
       "status": "required",
       "format": "fsusblog.zk.r1cs-ir.v1",
       "ceremony_input": false

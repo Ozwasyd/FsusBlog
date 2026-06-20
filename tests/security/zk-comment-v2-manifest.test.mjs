@@ -214,6 +214,7 @@ test('comment v2 revocation witness shape keeps fixture hash outside circuit inp
   ])
   assert.equal(witnessShape.witness_hash_role, 'fixture_integrity_only')
   assert.equal(witnessShape.witness_hash_circuit_input, false)
+  assert.equal(witnessShape.sibling_digest_algorithm, 'mimc7-bn254.v1')
 })
 
 test('comment v2 handoff consumers point to the active unversioned issue set', () => {

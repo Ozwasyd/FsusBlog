@@ -95,7 +95,7 @@
         ],
         "witness_hash_role": "fixture_integrity_only",
         "witness_hash_circuit_input": false,
-        "sibling_digest_algorithm": "sha256-outside-circuit"
+        "sibling_digest_algorithm": "mimc7-bn254.v1"
       }
     }
   },

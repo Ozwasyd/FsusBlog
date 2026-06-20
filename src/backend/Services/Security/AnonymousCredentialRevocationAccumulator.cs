@@ -48,6 +48,7 @@ public static class AnonymousCredentialRevocationAccumulator
     private const string CircuitFriendlyNodeDomain = "fsus.anonymous.revocation.circuit.node.v1";
     private const string CircuitFriendlyWitnessDomain = "fsus.anonymous.revocation.circuit.nonmembership.v1";
     private const string CircuitFriendlyEmptyLeafDomain = "fsus.anonymous.revocation.circuit.empty.v1";
+    private const string CircuitFriendlySiblingDigestDomain = "fsus.anonymous.revocation.circuit.sibling-digest.v1";
     private const string CircuitFriendlyMimcRoundDomain = "fsus.anonymous.revocation.circuit.mimc7.bn254.round.v1";
     private const int CircuitFriendlyTreeDepth = 128;
     private const int CircuitFriendlyMimcRounds = 91;
@@ -578,15 +579,18 @@ public static class AnonymousCredentialRevocationAccumulator
 
     private static string ComputeSiblingDigest(IEnumerable<string> siblings)
     {
-        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        BigInteger state = FieldFromToken(CircuitFriendlySiblingDigestDomain);
+        int index = 0;
         foreach (string sibling in siblings)
         {
-            byte[] bytes = Encoding.UTF8.GetBytes(NormalizeHexToken(sibling, 128));
-            hash.AppendData(bytes);
-            hash.AppendData([0]);
+            state = CircuitFriendlyMiMCPermute(Mod(
+                state +
+                FieldFromToken(index.ToString(CultureInfo.InvariantCulture)) +
+                FieldFromToken(NormalizeHexToken(sibling, 128))));
+            index++;
         }
 
-        return Convert.ToHexStringLower(hash.GetHashAndReset());
+        return FormatField(state);
     }
 
     private static string[] BuildCircuitFriendlyDefaultSparseRoots()
