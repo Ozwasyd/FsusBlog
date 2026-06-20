@@ -130,7 +130,16 @@ const expected = {
       'Nethereum.ZkProofs',
       'Newtonsoft.Json'
     ],
-    requiredDecision: 'rejected-transitive-high-vulnerability'
+    requiredDecision: 'rejected-transitive-high-vulnerability',
+    mclVersion: '1.0.5',
+    requiredMclRuntimeAssets: [
+      ['linux-x64', 'runtimes/linux-x64/native/libmcl.so'],
+      ['linux-arm64', 'runtimes/linux-arm64/native/libmcl.so'],
+      ['osx-x64', 'runtimes/osx-x64/native/libmcl.dylib'],
+      ['osx-arm64', 'runtimes/osx-arm64/native/libmcl.dylib'],
+      ['win-x64', 'runtimes/win-x64/native/mcl.dll'],
+      ['win-arm64', 'runtimes/win-arm64/native/mcl.dll']
+    ]
   },
   handoffConsumers: [
     '#552 trusted setup ceremony artifacts',
@@ -308,6 +317,13 @@ function checkCircuitArtifactStatus(circuit, setup) {
     const r1csReady = checkRealFileHash('setup.artifacts.r1cs', r1cs.path, r1cs.sha256)
     if (r1csReady && circuit.artifact_hashes?.r1cs_sha256 !== r1cs.sha256) {
       fail('circuit.artifact_hashes.r1cs_sha256 must match setup.artifacts.r1cs.sha256')
+    }
+    const groth16R1cs = setup.artifacts?.groth16_r1cs ?? {}
+    if (!isBlank(groth16R1cs.sha256)) {
+      checkRealFileHash('setup.artifacts.groth16_r1cs', groth16R1cs.path, groth16R1cs.sha256)
+      if (circuit.artifact_hashes?.groth16_r1cs_sha256 !== groth16R1cs.sha256) {
+        fail('circuit.artifact_hashes.groth16_r1cs_sha256 must match setup.artifacts.groth16_r1cs.sha256')
+      }
     }
 
     if (isProductionReady && (!sourceReady || !r1csReady)) {
@@ -681,6 +697,30 @@ function checkDependencyPolicy(policy) {
   const mclLicense = String(mcl.license ?? '')
   if (!mclLicense.includes('MIT') || !mclLicense.includes('BSD-3-Clause')) {
     fail('Nethermind.MclBindings license must record MIT and BSD-3-Clause boundaries')
+  }
+  equals('feasibility.dependency_policy.mcl.version', mcl.version, expected.dependencyPolicy.mclVersion)
+
+  const runtimeAssetGate = mcl.runtime_asset_gate ?? {}
+  equals('feasibility.dependency_policy.mcl.runtime_asset_gate.package', runtimeAssetGate.package, 'Nethermind.MclBindings')
+  equals(
+    'feasibility.dependency_policy.mcl.runtime_asset_gate.package_version',
+    runtimeAssetGate.package_version,
+    expected.dependencyPolicy.mclVersion
+  )
+  const mainstreamRids = asArray(runtimeAssetGate.mainstream_server_rids)
+  const requiredRids = expected.dependencyPolicy.requiredMclRuntimeAssets.map(([rid]) => rid)
+  hasAll('feasibility.dependency_policy.mcl.runtime_asset_gate.mainstream_server_rids', mainstreamRids, requiredRids)
+  const assetMap = new Map(asArray(runtimeAssetGate.required_assets).map((entry) => [entry?.rid, entry?.path]))
+  for (const [rid, assetPath] of expected.dependencyPolicy.requiredMclRuntimeAssets) {
+    if (assetMap.get(rid) !== assetPath) {
+      fail(`Nethermind.MclBindings runtime asset gate must include ${rid} -> ${assetPath}`)
+    }
+  }
+  if (!String(runtimeAssetGate.asset_check_command ?? '').includes('check-mcl-platform-assets.mjs')) {
+    fail('Nethermind.MclBindings runtime asset gate must record check-mcl-platform-assets.mjs')
+  }
+  if (!String(runtimeAssetGate.unsupported_runtime_note ?? '').includes('linux-musl')) {
+    fail('Nethermind.MclBindings runtime asset gate must explicitly call out linux-musl/alpine as unsupported')
   }
 }
 

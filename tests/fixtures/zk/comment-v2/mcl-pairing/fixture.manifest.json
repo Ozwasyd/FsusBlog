@@ -1,0 +1,30 @@
+{
+  "schema": "fsusblog.zk.comment-v2-cross-stack-fixture.v1",
+  "circuit_id": "fsus.anonymous.comment.v2",
+  "public_input_layout_version": 3,
+  "evidence_kind": "mcl-groth16-pairing-equation",
+  "backend_verifier": "managed:mcl",
+  "hashing_fixture_used": false,
+  "production_usable": false,
+  "performance": {
+    "native_verifier_p99_ms_max": 50
+  },
+  "artifacts": {
+    "verifying_key": {
+      "path": "tests/fixtures/zk/comment-v2/mcl-pairing/comment_v2_mcl_pairing.vk",
+      "sha256": "83d32fac0298fc836e6fa8a8944a0aef1e8a9011c0bd0043e717dd7c2d12941d"
+    },
+    "proof": {
+      "path": "tests/fixtures/zk/comment-v2/mcl-pairing/comment_v2_mcl_pairing.proof",
+      "sha256": "8d6ed3bc3ff7b2051e89d57ec4c5a1a4c7471841c759ea975afe18f0ef54d0f3"
+    },
+    "public_inputs": {
+      "path": "tests/fixtures/zk/comment-v2/mcl-pairing/comment_v2_mcl_pairing.public_inputs",
+      "sha256": "5c6a11257f797f8a97cc423afa8acf9ca8957755cb72e52b1043516d227b54f0"
+    },
+    "tamper_cases": {
+      "path": "tests/fixtures/zk/comment-v2/mcl-pairing/tamper-cases.json",
+      "sha256": "a14ab2744dc83d6e3d2b2db4eaada5e1caddacb6b01cf8fa59ea7e4de4ce4ec3"
+    }
+  }
+}

@@ -1,8 +1,9 @@
 # fsus.anonymous.comment.v2 circuit contract
 
-Status: circuit source and deterministic R1CS IR exist; trusted setup is still
-not run. The committed `comment_v2.r1cs` file is a repository IR artifact, not a
-binary Groth16 ceremony input. This document and its manifests define the
+Status: circuit source, deterministic R1CS IR, and binary Groth16 R1CS handoff
+artifact exist; trusted setup is still not run. The committed `comment_v2.r1cs`
+file is a repository IR artifact, not a binary Groth16 ceremony input. This
+document and its manifests define the
 Groth16 circuit boundary for the circuit-native anonymous comment path. They do
 not claim that a binary Groth16 R1CS, proving key, verifying key, SRS transcript,
 ceremony transcript, or browser prover artifact exists yet. Production remains
@@ -16,8 +17,9 @@ circuit-native issuer signature verified inside the Groth16 circuit. The
 repository now contains the self-authored circuit source at
 `circuits/anonymous-comment-v2/comment_v2.circuit.json` and a deterministic
 R1CS IR artifact at `artifacts/zk/comment-v2/comment_v2.r1cs`. This checkout
-still has no production-ready trusted setup artifacts and no binary Groth16 R1CS
-input for a phase-2 ceremony.
+still has no production-ready trusted setup artifacts, but it now includes the
+binary Groth16 R1CS input for a phase-2 ceremony at
+`artifacts/zk/comment-v2/comment_v2_groth16.r1cs`.
 
 The manifest checker enforces that boundary:
 
@@ -29,6 +31,8 @@ The manifest checker enforces that boundary:
   `circuit.r1cs_source.path` plus `circuit.r1cs_source.sha256`;
 - the trusted setup manifest must also provide a real
   `artifacts.r1cs.path` plus `artifacts.r1cs.sha256`;
+- `artifacts.groth16_r1cs.path` must exist and match
+  `artifacts.groth16_r1cs.sha256`;
 - both files must exist in the repository checkout and match their SHA-256
   digests before the checker will accept the production-ready claim.
 - `setup.artifacts.r1cs` is marked `format=fsusblog.zk.r1cs-ir.v1` and
@@ -49,6 +53,7 @@ The manifest checker enforces that boundary:
 | Future Groth16 R1CS input | `artifacts/zk/comment-v2/comment_v2_groth16.r1cs` |
 | R1CS IR builder | `tools/crypto/build-zk-comment-v2-r1cs.mjs` |
 | Static checker | `tools/crypto/check-zk-comment-v2-manifests.mjs` |
+| MCL platform asset checker | `tools/security/check-mcl-platform-assets.mjs` |
 
 The circuit id is `fsus.anonymous.comment.v2`. The public input layout version
 is `3`. Any change to public input order, meaning, encoding, or count requires a
@@ -180,6 +185,15 @@ tamper, verifying-key-hash tamper, and identity-field injection.
 The static checker validates the manifest coverage now. When real Groth16
 artifacts land, the same cases must become proof-generation and verifier tests:
 valid witness accepts; any single tamper rejects.
+
+`tests/fixtures/zk/comment-v2/circuit-ir/fixture.manifest.json` is the current
+executable repository witness fixture for this fail-closed stage. It is generated
+by `tools/crypto/build-zk-comment-v2-circuit-fixture.mjs`, binds the committed
+source and tamper manifest, materializes a deterministic positive witness, and
+records rejection results for every tamper case. It is intentionally marked
+`groth16_proof=false` and `groth16_ceremony_input=false`; it covers the #551
+circuit IR witness/tamper acceptance path but does not replace the future binary
+Groth16 R1CS, ceremony, proving key, or browser prover.
 
 ## Real Cross-Stack Evidence Gate
 

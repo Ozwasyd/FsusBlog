@@ -204,7 +204,8 @@
     "estimated_wasm_prover_p95_ms": 2400
   },
   "artifact_hashes": {
-    "r1cs_sha256": "0791cb18906c83168f619b35c1a170e8630073ffe72b73f1ca7f0a785a1eea54"
+    "r1cs_sha256": "0791cb18906c83168f619b35c1a170e8630073ffe72b73f1ca7f0a785a1eea54",
+    "groth16_r1cs_sha256": "89e31970f35a67d6bf6b7655ccba7439d0af4f0acf7e5a40205a83d808ce41aa"
   },
   "artifact_paths": {
     "r1cs": "artifacts/zk/comment-v2/comment_v2.r1cs",

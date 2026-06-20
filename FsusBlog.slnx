@@ -20,6 +20,7 @@
     <Project Path="ops/docker/docker-compose.dcproj">
       <Build />
     </Project>
+    <Project Path="tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj" />
     <File Path="ops/docker/docker-compose.yml" />
     <File Path="ops/docker/docker-compose.dev.yml" />
     <File Path="ops/docker/docker-compose.local-proxy.yml" />

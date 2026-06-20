@@ -1,8 +1,9 @@
 # comment.v2 trusted setup ceremony contract
 
-Status: fail-closed manifest contract for #552. No production binary Groth16
-R1CS, proving key, verifying key, Powers of Tau transcript, or phase-2
-transcript is present in this repository yet.
+Status: fail-closed manifest contract for #552. A deterministic binary Groth16
+R1CS handoff file is present for phase-2 input, but no production proving key,
+verifying key, Powers of Tau transcript, or phase-2 transcript is present in
+this repository yet.
 
 ## Canonical Paths
 
@@ -20,7 +21,8 @@ handoff contract for #552 trusted setup artifacts, #553 browser wasm prover
 bundle, and #555 native verifier / prover cross-stack fixture evidence.
 `artifacts.r1cs` is the deterministic repository IR
 `fsusblog.zk.r1cs-ir.v1` and is explicitly `ceremony_input=false`; phase-2
-commands must consume `artifacts.groth16_r1cs.path`.
+commands must consume `artifacts.groth16_r1cs.path`, whose SHA-256 is committed
+in the trusted setup manifest before the ceremony starts.
 
 ## Ceremony Requirements
 
@@ -49,7 +51,7 @@ The committed manifests deliberately use:
 - `ceremony_status: "not-run"`
 - `production_usable: false`
 - empty `verifying_key_hash`
-- missing artifact hashes for binary Groth16 R1CS, pk, vk, and transcript files
+- missing artifact hashes for pk, vk, SRS, and transcript files
 
 That state is valid for repository planning and static contract tests. It is not
 valid for production. `AnonymousIdentity:ZkProd:Enabled=true` still requires a
@@ -75,9 +77,27 @@ Current static verification:
 
 ```bash
 node tools/crypto/check-zk-comment-v2-manifests.mjs
+node tools/security/check-mcl-platform-assets.mjs
+node tools/crypto/build-zk-comment-v2-circuit-fixture.mjs --check
+node --test tests/security/zk-comment-v2-circuit-fixture.test.mjs
+node --test tests/security/zk-comment-v2-cross-stack-fixture.test.mjs
+dotnet test tests/backend/FsusBlog.Server.Tests.csproj --filter FullyQualifiedName~ZkCommentV2CrossStackFixtureTests
 node --test tests/security/zk-comment-v2-manifest.test.mjs
 node tools/security/check-security-matrices.mjs
 ```
+
+`tests/fixtures/zk/comment-v2/mcl-pairing` is a repository MCL pairing fixture
+for #555 backend verifier coverage only. It proves the managed native verifier
+can load committed vk/proof/public input bytes, bind the canonical transcript,
+and reject tampered proof or scope. It is not a phase-1/phase-2 ceremony output,
+does not include a browser wasm prover artifact, and does not change
+`production_usable=false`.
+
+The MCL platform gate is intentionally scoped to mainstream server deployment
+RIDs: `linux-x64`, `linux-arm64`, `osx-x64`, `osx-arm64`, `win-x64`, and
+`win-arm64`. `check-mcl-platform-assets.mjs` reads the restored NuGet package
+and fails if any required native asset is absent; `linux-musl`/Alpine, mobile
+and browser wasm remain outside this native distribution promise.
 
 Future production verification must add the real crypto commands recorded in
 `security/zk/comment-v2-trusted-setup.manifest.json`, including SRS transcript

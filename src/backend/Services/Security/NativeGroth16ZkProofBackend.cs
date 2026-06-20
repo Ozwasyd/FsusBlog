@@ -351,17 +351,21 @@ internal sealed unsafe class MclGroth16VerifierLibrary : INativeGroth16VerifierL
             var publicInputCommitment = new mclBnG1();
             Mcl.mclBnG1_add(ref publicInputCommitment, in inputConstant, in scaledInput);
 
-            var left = new mclBnGT();
-            Mcl.mclBn_pairing(ref left, in proofA, in proofB);
+            var leftLine = new mclBnGT();
+            Mcl.mclBn_millerLoop(ref leftLine, in proofA, in proofB);
 
+            var rightLine = new mclBnGT();
+            Mcl.mclBn_millerLoop(ref rightLine, in alphaG1, in betaG2);
+            var termLine = new mclBnGT();
+            Mcl.mclBn_millerLoop(ref termLine, in publicInputCommitment, in gammaG2);
+            Mcl.mclBnGT_mul(ref rightLine, in rightLine, in termLine);
+            Mcl.mclBn_millerLoop(ref termLine, in proofC, in deltaG2);
+            Mcl.mclBnGT_mul(ref rightLine, in rightLine, in termLine);
+
+            var left = new mclBnGT();
+            Mcl.mclBn_finalExp(ref left, in leftLine);
             var right = new mclBnGT();
-            Mcl.mclBn_pairing(ref right, in alphaG1, in betaG2);
-            var publicInputPairing = new mclBnGT();
-            Mcl.mclBn_pairing(ref publicInputPairing, in publicInputCommitment, in gammaG2);
-            Mcl.mclBnGT_mul(ref right, in right, in publicInputPairing);
-            var proofPairing = new mclBnGT();
-            Mcl.mclBn_pairing(ref proofPairing, in proofC, in deltaG2);
-            Mcl.mclBnGT_mul(ref right, in right, in proofPairing);
+            Mcl.mclBn_finalExp(ref right, in rightLine);
 
             return Mcl.mclBnGT_isEqual(in left, in right) == 1
                 ? NativeGroth16VerifierCallResult.Accepted()

@@ -54,6 +54,10 @@ before import.
 because it publishes MIT/BSD-3-Clause licensing and targets .NET 10. It only
 covers pairing/arithmetic verification; it does not by itself satisfy the
 trusted setup, browser wasm prover, or cross-stack evidence issues.
+The selected version is pinned to `1.0.5`, and CI must verify restored native
+assets for the mainstream server RIDs `linux-x64`, `linux-arm64`, `osx-x64`,
+`osx-arm64`, `win-x64`, and `win-arm64`; `linux-musl`/Alpine, mobile, and
+browser wasm are outside this native verifier distribution promise.
 `Groth16.Net` / `Bn254.Net` remain blocked until license expression, native
 binary provenance, and CI evidence are reviewed.
 

@@ -52,6 +52,9 @@ describe('comment privacy release gate', () => {
     expect(packageJson).toContain('"check:privacy-zk-concurrency"')
     expect(packageJson).toContain('"check:privacy-zk-prod-release"')
     expect(packageJson).toContain('"check:privacy-zk"')
+    expect(packageJson).toContain('zk-comment-v2-circuit-fixture.test.mjs')
+    expect(packageJson).toContain('zk-comment-v2-cross-stack-fixture.test.mjs')
+    expect(packageJson).toContain('check-mcl-platform-assets.mjs')
   })
 
   it('makes CI execute the privacy lane and fail closed matrix checker', () => {

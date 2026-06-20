@@ -13,6 +13,14 @@ const tamperPath = 'security/zk/comment-v2-tamper-cases.manifest.json'
 const setupPath = 'security/zk/comment-v2-trusted-setup.manifest.json'
 const configPath = 'config/zk/anonymous-comment-v2-verifying-key.manifest.json'
 const feasibilityPath = 'security/zk/comment-v2-feasibility.manifest.json'
+const requiredMclRuntimeAssets = [
+  ['linux-x64', 'runtimes/linux-x64/native/libmcl.so'],
+  ['linux-arm64', 'runtimes/linux-arm64/native/libmcl.so'],
+  ['osx-x64', 'runtimes/osx-x64/native/libmcl.dylib'],
+  ['osx-arm64', 'runtimes/osx-arm64/native/libmcl.dylib'],
+  ['win-x64', 'runtimes/win-x64/native/mcl.dll'],
+  ['win-arm64', 'runtimes/win-arm64/native/mcl.dll']
+]
 
 function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8'))
@@ -107,6 +115,29 @@ test('comment v2 feasibility manifest records the selected circuit-native creden
   assert.equal(mcl.decision, 'selected-for-backend-verifier-kernel')
   assert.match(mcl.license, /MIT/)
   assert.match(mcl.license, /BSD-3-Clause/)
+  assert.equal(mcl.version, '1.0.5')
+  assert.equal(mcl.runtime_asset_gate.package, 'Nethermind.MclBindings')
+  assert.equal(mcl.runtime_asset_gate.package_version, '1.0.5')
+  assert.match(mcl.runtime_asset_gate.unsupported_runtime_note, /linux-musl/)
+
+  const assets = new Map(mcl.runtime_asset_gate.required_assets.map((entry) => [entry.rid, entry.path]))
+  for (const [rid, assetPath] of requiredMclRuntimeAssets) {
+    assert.equal(assets.get(rid), assetPath)
+  }
+})
+
+test('checker fails if MCL native runtime coverage drops a mainstream server RID', () => {
+  const result = withTempManifests((documents) => {
+    const mcl = documents.feasibility.dependency_policy.evaluated_candidates.find(
+      (entry) => entry.name === 'Nethermind.MclBindings'
+    )
+    mcl.runtime_asset_gate.required_assets = mcl.runtime_asset_gate.required_assets.filter(
+      (entry) => entry.rid !== 'linux-arm64'
+    )
+  })
+
+  assert.notEqual(result.status, 0)
+  assert.match(`${result.stdout}\n${result.stderr}`, /linux-arm64/)
 })
 
 test('checker evidence includes the feasibility manifest and selected design status', () => {
@@ -186,7 +217,9 @@ test('comment v2 circuit source and generated R1CS artifact are hash-bound', () 
   assert.equal(groth16R1cs.format, 'rank1cs-binary')
   assert.equal(groth16R1cs.ceremony_input, true)
   assert.ok(groth16R1cs.path, 'setup.artifacts.groth16_r1cs.path is required')
-  assert.equal(groth16R1cs.sha256, '')
+  assert.match(groth16R1cs.sha256, /^[a-f0-9]{64}$/u)
+  assert.ok(existsSync(groth16R1cs.path), `${groth16R1cs.path} must exist`)
+  assert.equal(sha256File(groth16R1cs.path), groth16R1cs.sha256)
   assert.match(setup.phase2.verification_command, /comment_v2_groth16\.r1cs/)
   assert.doesNotMatch(setup.phase2.verification_command, /comment_v2\.r1cs/)
 
@@ -195,6 +228,7 @@ test('comment v2 circuit source and generated R1CS artifact are hash-bound', () 
   assert.equal(sha256File(source.path), source.sha256)
   assert.equal(sha256File(r1cs.path), r1cs.sha256)
   assert.equal(r1cs.sha256, circuit.artifact_hashes?.r1cs_sha256)
+  assert.equal(groth16R1cs.sha256, circuit.artifact_hashes?.groth16_r1cs_sha256)
 
   const sourceDocument = readJson(source.path)
   assert.equal(sourceDocument.schema, 'fsusblog.zk.comment-v2-circuit-source.v1')

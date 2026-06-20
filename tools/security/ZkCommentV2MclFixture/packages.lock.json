@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "Nethermind.MclBindings": {
+        "type": "Direct",
+        "requested": "[1.0.5, )",
+        "resolved": "1.0.5",
+        "contentHash": "GVzsykooi0PAydDuhdWB7ugFyHPYYkwiBFGy5sVMlKeXsqBqUdvOgqnT/29bf74b3Uhm76gfC6fiW9nEW0xA3Q=="
+      }
+    }
+  }
+}

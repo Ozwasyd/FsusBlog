@@ -1,0 +1,210 @@
+{
+  "cases": [
+    {
+      "covers": [
+        "valid_circuit_native_credential"
+      ],
+      "id": "tamper-issuer-signature",
+      "mutates": [
+        "circuit_native_issuer_signature"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "issuer-signature-verification",
+      "status": "rejected"
+    },
+    {
+      "covers": [
+        "current_credential_root"
+      ],
+      "id": "tamper-credential-root",
+      "mutates": [
+        "credential_root",
+        "credential_membership_proof"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "credential-root-membership",
+      "status": "rejected"
+    },
+    {
+      "covers": [
+        "valid_circuit_native_credential",
+        "current_credential_root"
+      ],
+      "id": "tamper-credential-commitment",
+      "mutates": [
+        "credential_commitment",
+        "credential_opening"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "valid_circuit_native_credential",
+      "status": "rejected"
+    },
+    {
+      "covers": [
+        "revocation_non_membership"
+      ],
+      "id": "tamper-revocation-root",
+      "mutates": [
+        "revocation_root",
+        "revocation_non_membership_witness"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "revocation-non-membership",
+      "status": "rejected"
+    },
+    {
+      "covers": [
+        "qualification_policy"
+      ],
+      "id": "tamper-policy-hash",
+      "mutates": [
+        "policy_hash",
+        "policy_comparison_witness"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "policy-bucket-legality",
+      "status": "rejected"
+    },
+    {
+      "covers": [
+        "nullifier_prf_binding"
+      ],
+      "id": "tamper-nullifier-hash",
+      "mutates": [
+        "nullifier_hash"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "nullifier-prf-binding",
+      "status": "rejected"
+    },
+    {
+      "covers": [
+        "nullifier_prf_binding"
+      ],
+      "id": "tamper-scope",
+      "mutates": [
+        "scope"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "nullifier-prf-binding",
+      "status": "rejected"
+    },
+    {
+      "covers": [
+        "nullifier_prf_binding"
+      ],
+      "id": "tamper-action-context",
+      "mutates": [
+        "action_context"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "layout-and-domain-constants",
+      "status": "rejected"
+    },
+    {
+      "covers": [
+        "credential_bucket_legality",
+        "qualification_policy"
+      ],
+      "id": "tamper-credential-level",
+      "mutates": [
+        "credential_level",
+        "signed_credential_level"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "policy-bucket-legality",
+      "status": "rejected"
+    },
+    {
+      "covers": [
+        "credential_bucket_legality",
+        "qualification_policy"
+      ],
+      "id": "tamper-reputation-bucket",
+      "mutates": [
+        "reputation_bucket",
+        "signed_reputation_bucket"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "policy-bucket-legality",
+      "status": "rejected"
+    },
+    {
+      "covers": [
+        "current_credential_root"
+      ],
+      "id": "tamper-credential-epoch",
+      "mutates": [
+        "credential_epoch"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "issuer-signature-verification",
+      "status": "rejected"
+    },
+    {
+      "covers": [
+        "identity_non_disclosure"
+      ],
+      "id": "tamper-layout-version",
+      "mutates": [
+        "public_input_layout_version"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "layout-and-domain-constants",
+      "status": "rejected"
+    },
+    {
+      "covers": [
+        "valid_circuit_native_credential",
+        "current_credential_root"
+      ],
+      "id": "tamper-verifying-key-hash",
+      "mutates": [
+        "verifying_key_hash"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "layout-and-domain-constants",
+      "status": "rejected"
+    },
+    {
+      "covers": [
+        "identity_non_disclosure"
+      ],
+      "id": "inject-user-id-public-input",
+      "mutates": [
+        "public_inputs.userId"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "identity-field-absence",
+      "status": "rejected"
+    },
+    {
+      "covers": [
+        "identity_non_disclosure"
+      ],
+      "id": "inject-username-private-witness",
+      "mutates": [
+        "private_witness.username"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "identity-field-absence",
+      "status": "rejected"
+    }
+  ],
+  "circuit_id": "fsus.anonymous.comment.v2",
+  "public_input_layout_version": 3,
+  "schema": "fsusblog.zk.comment-v2-circuit-ir-tamper-results.v1",
+  "valid_case": {
+    "covers": [
+      "valid_circuit_native_credential",
+      "current_credential_root",
+      "revocation_non_membership",
+      "qualification_policy",
+      "nullifier_prf_binding",
+      "credential_bucket_legality",
+      "identity_non_disclosure"
+    ],
+    "id": "valid-comment-v2-witness",
+    "status": "accepted"
+  }
+}

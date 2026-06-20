@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..'))
 const sourcePath = resolvePath(process.env.FSUSBLOG_ZK_COMMENT_V2_CIRCUIT_SOURCE, 'circuits/anonymous-comment-v2/comment_v2.circuit.json')
 const outputPath = resolvePath(process.env.FSUSBLOG_ZK_COMMENT_V2_R1CS_OUT, 'artifacts/zk/comment-v2/comment_v2.r1cs')
+const groth16OutputPath = resolvePath(process.env.FSUSBLOG_ZK_COMMENT_V2_GROTH16_R1CS_OUT, 'artifacts/zk/comment-v2/comment_v2_groth16.r1cs')
 const args = new Set(process.argv.slice(2))
 const checkOnly = args.has('--check')
 
@@ -196,24 +197,62 @@ function buildArtifact(source, sourceSha256, normalized) {
   }
 }
 
+function buildGroth16R1cs(source, sourceSha256, normalized) {
+  const payload = Buffer.from(stringifyStable({
+    schema: 'fsusblog.zk.groth16-r1cs-binary.v1',
+    generated_by: 'tools/crypto/build-zk-comment-v2-r1cs.mjs',
+    source_path: relative(sourcePath),
+    source_sha256: sourceSha256,
+    circuit_id: source.circuit_id,
+    public_input_layout_version: source.public_input_layout_version,
+    proof_system: source.proof_system,
+    curve: source.curve,
+    field_modulus: source.field_modulus,
+    public_inputs: normalized.publicInputs,
+    private_witness: normalized.privateWitness,
+    constraint_count: normalized.groups.reduce((sum, group) => sum + group.constraint_count, 0),
+    constraint_groups: normalized.groups.map((group) => ({
+      id: group.id,
+      rank1_template: group.rank1_template,
+      constraint_count: group.constraint_count
+    })),
+    production_usable: false,
+    trusted_setup_required: true
+  }), 'utf8')
+  const header = Buffer.alloc(32)
+  header.write('FSG16R1CS1', 0, 'ascii')
+  header.writeUInt32LE(1, 12)
+  header.writeUInt32LE(payload.length, 16)
+  header.writeUInt32LE(normalized.publicInputs.length, 20)
+  header.writeUInt32LE(normalized.privateWitness.length, 24)
+  header.writeUInt32LE(normalized.groups.length, 28)
+  return Buffer.concat([header, payload])
+}
+
 function main() {
   const source = readJson(sourcePath)
   const normalized = validateSource(source)
   const sourceBytes = fs.readFileSync(sourcePath)
   const sourceSha256 = sha256Bytes(sourceBytes)
   const artifactText = stringifyStable(buildArtifact(source, sourceSha256, normalized))
+  const groth16R1cs = buildGroth16R1cs(source, sourceSha256, normalized)
 
   if (checkOnly) {
     assert(fs.existsSync(outputPath), `missing generated R1CS artifact ${relative(outputPath)}`)
+    assert(fs.existsSync(groth16OutputPath), `missing generated Groth16 R1CS artifact ${relative(groth16OutputPath)}`)
     const current = fs.readFileSync(outputPath, 'utf8')
     assert(current === artifactText, `${relative(outputPath)} is out of date; run node tools/crypto/build-zk-comment-v2-r1cs.mjs`)
-    console.log(`[zk-comment-v2-r1cs] ok ${relative(outputPath)} sha256=${sha256File(outputPath)}`)
+    const currentGroth16 = fs.readFileSync(groth16OutputPath)
+    assert(currentGroth16.equals(groth16R1cs), `${relative(groth16OutputPath)} is out of date; run node tools/crypto/build-zk-comment-v2-r1cs.mjs`)
+    console.log(`[zk-comment-v2-r1cs] ok ${relative(outputPath)} sha256=${sha256File(outputPath)} groth16=${sha256File(groth16OutputPath)}`)
     return
   }
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true })
   fs.writeFileSync(outputPath, artifactText)
-  console.log(`[zk-comment-v2-r1cs] wrote ${relative(outputPath)} sha256=${sha256File(outputPath)}`)
+  fs.mkdirSync(path.dirname(groth16OutputPath), { recursive: true })
+  fs.writeFileSync(groth16OutputPath, groth16R1cs)
+  console.log(`[zk-comment-v2-r1cs] wrote ${relative(outputPath)} sha256=${sha256File(outputPath)} groth16=${sha256File(groth16OutputPath)}`)
 }
 
 try {
