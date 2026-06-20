@@ -1,22 +1,27 @@
 # fsus.anonymous.comment.v2 circuit contract
 
-Status: repository contract only. This document and its manifests define the
-Groth16 circuit boundary for the circuit-native anonymous comment path. They do
-not claim that a real R1CS, proving key, verifying key, or browser prover
-artifact exists yet. Production remains fail-closed until the trusted setup
-manifest is switched to real audited artifacts.
+Status: circuit source and deterministic R1CS IR exist; trusted setup is still
+not run. This document and its manifests define the Groth16 circuit boundary for
+the circuit-native anonymous comment path. They do not claim that a proving key,
+verifying key, SRS transcript, ceremony transcript, or browser prover artifact
+exists yet. Production remains fail-closed until the trusted setup manifest is
+switched to real audited artifacts.
 
 ## Issue #551 production circuit status
 
 `comment.v2` replaces the retired `comment.v1` BBS credential boundary with a
 circuit-native issuer signature verified inside the Groth16 circuit. The
-repository contract has selected the cryptographic boundary, but this checkout
-still has no production-ready circuit artifacts under `artifacts/zk/comment-v2`.
+repository now contains the self-authored circuit source at
+`circuits/anonymous-comment-v2/comment_v2.circuit.json` and a deterministic
+R1CS IR artifact at `artifacts/zk/comment-v2/comment_v2.r1cs`. This checkout
+still has no production-ready trusted setup artifacts.
 
 The manifest checker enforces that boundary:
 
 - the current circuit manifest must keep an explicit fail-closed
-  `artifact_status`, such as `contract-only`;
+  `artifact_status`, currently `source-and-r1cs`;
+- `node tools/crypto/build-zk-comment-v2-r1cs.mjs --check` must reproduce the
+  committed R1CS IR from the committed source;
 - any future `production-ready` circuit status must include a real
   `circuit.r1cs_source.path` plus `circuit.r1cs_source.sha256`;
 - the trusted setup manifest must also provide a real
@@ -33,6 +38,9 @@ The manifest checker enforces that boundary:
 | Feasibility and design decision gate | `security/zk/comment-v2-feasibility.manifest.json` |
 | Trusted setup manifest | `security/zk/comment-v2-trusted-setup.manifest.json` |
 | Verifying key config manifest | `config/zk/anonymous-comment-v2-verifying-key.manifest.json` |
+| Circuit source | `circuits/anonymous-comment-v2/comment_v2.circuit.json` |
+| R1CS IR artifact | `artifacts/zk/comment-v2/comment_v2.r1cs` |
+| R1CS IR builder | `tools/crypto/build-zk-comment-v2-r1cs.mjs` |
 | Static checker | `tools/crypto/check-zk-comment-v2-manifests.mjs` |
 
 The circuit id is `fsus.anonymous.comment.v2`. The public input layout version
@@ -154,4 +162,5 @@ The repository contract sets production targets, not current measurements:
 - public input layout: stable version `3`
 
 Until real artifacts exist, these budgets are enforced as required manifest
-fields only. No benchmark in this slice claims real prover performance.
+fields and source metadata only. No benchmark in this slice claims real prover
+performance.

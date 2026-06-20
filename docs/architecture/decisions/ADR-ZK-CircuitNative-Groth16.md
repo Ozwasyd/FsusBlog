@@ -95,9 +95,10 @@ The repository asset contract for this decision is:
 - `security/zk/comment-v2-trusted-setup.manifest.json`
 - `config/zk/anonymous-comment-v2-verifying-key.manifest.json`
 
-Until real R1CS, proving key, verifying key, Powers of Tau transcript and
-phase-2 transcript are supplied and hashed, `production_usable=false` and the
-runtime verifying key hash stays empty.
+The repository now includes self-authored circuit source and a deterministic
+R1CS IR artifact for `comment.v2`. Until the proving key, verifying key, Powers
+of Tau transcript and phase-2 transcript are supplied and hashed,
+`production_usable=false` and the runtime verifying key hash stays empty.
 
 ## Security Assertion Boundary
 

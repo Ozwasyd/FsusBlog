@@ -112,6 +112,7 @@ const expected = {
   ],
   failClosedCircuitStatuses: [
     'contract-only',
+    'source-and-r1cs',
     'missing-production-artifact'
   ],
   productionReadyCircuitStatuses: [
@@ -263,18 +264,22 @@ function checkCircuitArtifactStatus(circuit, setup) {
   const status = String(circuit.artifact_status ?? '').trim()
   const isFailClosed = expected.failClosedCircuitStatuses.includes(status)
   const isProductionReady = expected.productionReadyCircuitStatuses.includes(status)
+  const hasSourceAndR1cs = status === 'source-and-r1cs'
 
   if (circuit.production_usable === false && !isFailClosed) {
     fail('circuit.artifact_status must be an explicit fail-closed status while production_usable=false')
   }
 
-  if (isProductionReady) {
+  if (hasSourceAndR1cs || isProductionReady) {
     const source = circuit.r1cs_source ?? circuit.source ?? {}
     const r1cs = setup.artifacts?.r1cs ?? {}
     const sourceReady = checkRealFileHash('circuit.r1cs_source', source.path, source.sha256)
     const r1csReady = checkRealFileHash('setup.artifacts.r1cs', r1cs.path, r1cs.sha256)
+    if (r1csReady && circuit.artifact_hashes?.r1cs_sha256 !== r1cs.sha256) {
+      fail('circuit.artifact_hashes.r1cs_sha256 must match setup.artifacts.r1cs.sha256')
+    }
 
-    if (!sourceReady || !r1csReady) {
+    if (isProductionReady && (!sourceReady || !r1csReady)) {
       fail('circuit.artifact_status cannot claim production-ready without real R1CS source and artifact hashes')
     }
   }

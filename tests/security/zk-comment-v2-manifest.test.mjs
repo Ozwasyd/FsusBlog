@@ -1,12 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 
 const checker = 'tools/crypto/check-zk-comment-v2-manifests.mjs'
+const builder = 'tools/crypto/build-zk-comment-v2-r1cs.mjs'
 const circuitPath = 'security/zk/comment-v2-circuit.manifest.json'
 const tamperPath = 'security/zk/comment-v2-tamper-cases.manifest.json'
 const setupPath = 'security/zk/comment-v2-trusted-setup.manifest.json'
@@ -15,6 +16,10 @@ const feasibilityPath = 'security/zk/comment-v2-feasibility.manifest.json'
 
 function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8'))
+}
+
+function sha256File(file) {
+  return createHash('sha256').update(readFileSync(file)).digest('hex')
 }
 
 function manifestHash(document) {
@@ -145,6 +150,35 @@ test('comment v2 circuit contract has required public inputs, witness and no ide
   assert.doesNotMatch(combinedNames, /userId|user_id|username|public_handle|account_id|session_id/)
 })
 
+test('comment v2 circuit source and generated R1CS artifact are hash-bound', () => {
+  const circuit = readJson(circuitPath)
+  const setup = readJson(setupPath)
+  const source = circuit.r1cs_source ?? {}
+  const r1cs = setup.artifacts?.r1cs ?? {}
+
+  assert.equal(circuit.artifact_status, 'source-and-r1cs')
+  assert.ok(source.path, 'circuit.r1cs_source.path is required')
+  assert.ok(source.sha256, 'circuit.r1cs_source.sha256 is required')
+  assert.ok(r1cs.path, 'setup.artifacts.r1cs.path is required')
+  assert.ok(r1cs.sha256, 'setup.artifacts.r1cs.sha256 is required')
+
+  assert.ok(existsSync(source.path), `${source.path} must exist`)
+  assert.ok(existsSync(r1cs.path), `${r1cs.path} must exist`)
+  assert.equal(sha256File(source.path), source.sha256)
+  assert.equal(sha256File(r1cs.path), r1cs.sha256)
+  assert.equal(r1cs.sha256, circuit.artifact_hashes?.r1cs_sha256)
+
+  const sourceDocument = readJson(source.path)
+  assert.equal(sourceDocument.schema, 'fsusblog.zk.comment-v2-circuit-source.v1')
+  assert.equal(sourceDocument.circuit_id, 'fsus.anonymous.comment.v2')
+  assert.equal(sourceDocument.public_input_layout_version, 3)
+  assert.equal(sourceDocument.proof_system, 'Groth16')
+  assert.equal(sourceDocument.curve, 'bn254')
+
+  const result = spawnSync(process.execPath, [builder, '--check'], { encoding: 'utf8' })
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+})
+
 test('tamper manifest rejects every security assertion', () => {
   const circuit = readJson(circuitPath)
   const tamper = readJson(tamperPath)
@@ -198,7 +232,7 @@ test('checker fails if circuit claims production-ready without real R1CS source 
   assert.notEqual(result.status, 0)
   assert.match(
     `${result.stdout}\n${result.stderr}`,
-    /cannot claim production-ready without real R1CS source and artifact hashes/
+    /circuit\.artifact_status must be an explicit fail-closed status/
   )
 })
 

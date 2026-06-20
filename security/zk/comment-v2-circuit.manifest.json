@@ -5,7 +5,7 @@
   "proof_system": "Groth16",
   "curve": "bn254",
   "credential_scheme": "circuit-native-credential-v2",
-  "artifact_status": "contract-only",
+  "artifact_status": "source-and-r1cs",
   "production_usable": false,
   "action_context": "comment.create",
   "domain_separators": {
@@ -184,6 +184,22 @@
     "proof_bytes_max": 1024,
     "wasm_prover_p95_ms_max": 3000,
     "native_verifier_p99_ms_max": 50
+  },
+  "r1cs_source": {
+    "path": "circuits/anonymous-comment-v2/comment_v2.circuit.json",
+    "sha256": "b685bd3759f4b309d255b6760062533839a2d3efe51cb202f754563376d19b60",
+    "builder": "tools/crypto/build-zk-comment-v2-r1cs.mjs",
+    "check_command": "node tools/crypto/build-zk-comment-v2-r1cs.mjs --check"
+  },
+  "constraint_metrics": {
+    "estimated_constraints": 125920,
+    "estimated_witness_signals": 53320,
+    "estimated_public_inputs": 13,
+    "estimated_proving_key_bytes": 192000000,
+    "estimated_wasm_prover_p95_ms": 2400
+  },
+  "artifact_hashes": {
+    "r1cs_sha256": "eb73ed91e2ff6a5569186e9a1abdb50e038164346bfd6c9744a19c9d7eef64ba"
   },
   "artifact_paths": {
     "r1cs": "artifacts/zk/comment-v2/comment_v2.r1cs",
