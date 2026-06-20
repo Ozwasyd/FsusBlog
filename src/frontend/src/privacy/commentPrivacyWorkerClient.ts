@@ -17,9 +17,14 @@ type CommentPrivacyWorkerRequest =
       circuitNumericId?: number
       publicInputLayoutVersion?: number
       circuitId?: string
+      verifyingKeyHash?: string
+      issuerPublicKeyHash?: string
+      credentialCommitment?: ArrayBuffer
       credentialRoot?: ArrayBuffer
       revocationRoot?: ArrayBuffer
       circuitMetadata?: ArrayBuffer
+      credentialLevel?: string
+      reputationBucket?: string
       credentialSecret?: ArrayBuffer
       issuerSignature?: ArrayBuffer
       revocationWitness?: ArrayBuffer
@@ -69,9 +74,14 @@ type CommentPrivacyWorkerPostPayload =
       circuitNumericId?: number
       publicInputLayoutVersion?: number
       circuitId?: string
+      verifyingKeyHash?: string
+      issuerPublicKeyHash?: string
+      credentialCommitment?: ArrayBuffer
       credentialRoot?: ArrayBuffer
       revocationRoot?: ArrayBuffer
       circuitMetadata?: ArrayBuffer
+      credentialLevel?: string
+      reputationBucket?: string
       credentialSecret?: ArrayBuffer
       issuerSignature?: ArrayBuffer
       revocationWitness?: ArrayBuffer
@@ -214,6 +224,7 @@ export function createCommentPrivacyWorkerClient(options: CommentPrivacyWorkerCl
 
       const transfers: Transferable[] = []
       const metadataBytes = copyToTransferableBuffer(request.metadataBytes, transfers)
+      const credentialCommitment = copyOptionalToTransferableBuffer(request.credentialCommitment, transfers)
       const credentialRoot = copyOptionalToTransferableBuffer(request.credentialRoot, transfers)
       const revocationRoot = copyOptionalToTransferableBuffer(request.revocationRoot, transfers)
       const circuitMetadata = copyOptionalToTransferableBuffer(request.circuitMetadata, transfers)
@@ -229,9 +240,14 @@ export function createCommentPrivacyWorkerClient(options: CommentPrivacyWorkerCl
         circuitNumericId: request.circuitNumericId,
         publicInputLayoutVersion: request.publicInputLayoutVersion,
         circuitId: request.circuitId,
+        verifyingKeyHash: request.verifyingKeyHash,
+        issuerPublicKeyHash: request.issuerPublicKeyHash,
+        credentialCommitment,
         credentialRoot,
         revocationRoot,
         circuitMetadata,
+        credentialLevel: request.credentialLevel,
+        reputationBucket: request.reputationBucket,
         credentialSecret,
         issuerSignature,
         revocationWitness

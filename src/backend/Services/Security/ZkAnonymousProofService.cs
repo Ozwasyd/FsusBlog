@@ -53,6 +53,7 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
         "credential_root",
         "revocation_root",
         "issuer_public_key_hash",
+        "credential_level",
         "reputation_bucket"
     ];
 

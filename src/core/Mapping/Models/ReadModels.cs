@@ -184,6 +184,7 @@ public readonly record struct AnonymousCommentTicketRequestCoreModel(
     string CircuitId,
     string VerifyingKeyHash,
     byte[] NullifierHash,
+    byte[] CredentialCommitment,
     byte[] CredentialRoot,
     byte[] RevocationRoot,
     string CredentialLevel,

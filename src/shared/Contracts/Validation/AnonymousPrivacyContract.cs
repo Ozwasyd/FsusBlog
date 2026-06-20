@@ -20,6 +20,7 @@ public static class AnonymousPrivacyContract
     public const int MaxRevocationWitnessSiblingHashesBytes = MaxRevocationWitnessPathDepth * 32;
     public const int MaxRevocationWitnessAlgorithmIdBytes = 64;
     public const int MaxNullifierHashBytes = 64;
+    public const int MaxCredentialCommitmentBytes = 64;
     public const int MaxGroth16ProofBytes = 4096;
     public const int MaxAnonymousTicketPublicInputsBytes = 4096;
     public const int MaxCircuitMetadataBytes = 4096;

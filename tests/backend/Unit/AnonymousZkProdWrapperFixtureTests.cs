@@ -259,6 +259,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: temp.VerifyingKeySha256,
             NullifierHash: nullifier,
+            CredentialCommitment: CredentialCommitment,
             CredentialRoot: CredentialRoot,
             RevocationRoot: RevocationRoot,
             CredentialLevel: "strong_anonymous",
@@ -279,8 +280,21 @@ public sealed class AnonymousZkProdWrapperFixtureTests
             [.. ticket]);
 
     private static byte[] PublicInputs(int articleId, byte[] nullifier, string verifyingKeyHash)
-        => Encoding.UTF8.GetBytes(
-            $"action_context=comment.create;scope=article:{articleId};circuit_id={AnonymousPrivacyContract.CircuitId};verifying_key_hash={verifyingKeyHash};public_input_layout_version={AnonymousPrivacyContract.PublicInputLayoutVersion};credential_epoch={CredentialEpoch};credential_commitment={Hex(CredentialCommitment)};credential_root={Hex(CredentialRoot)};revocation_root={Hex(RevocationRoot)};issuer_public_key_hash={IssuerPublicKeyHash};nullifier_hash={Hex(nullifier)};credential_level=strong_anonymous;reputation_bucket=rep-low");
+        => NativeGroth16PublicInputCodec.Encode(new ProductionZkProofBackendRequest(
+            ActionContext: "comment.create",
+            Scope: $"article:{articleId}",
+            CircuitId: AnonymousPrivacyContract.CircuitId,
+            VerifyingKeyHash: verifyingKeyHash,
+            PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
+            CredentialEpoch: CredentialEpoch,
+            NullifierHash: Hex(nullifier),
+            CredentialCommitment: Hex(CredentialCommitment),
+            CredentialRoot: Hex(CredentialRoot),
+            CredentialLevel: "strong_anonymous",
+            ReputationBucket: "rep-low",
+            Proof: ReadOnlyMemory<byte>.Empty,
+            RevocationRoot: Hex(RevocationRoot),
+            IssuerPublicKeyHash: IssuerPublicKeyHash)).ToArray();
 
     private static byte[] ComputeFixtureProof(TempNativeZkFixture temp, int articleId, byte[] nullifier)
     {
@@ -294,6 +308,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests
             NullifierHash: Hex(nullifier),
             CredentialCommitment: Hex(CredentialCommitment),
             CredentialRoot: Hex(CredentialRoot),
+            CredentialLevel: "strong_anonymous",
             ReputationBucket: "rep-low",
             Proof: ReadOnlyMemory<byte>.Empty,
             RevocationRoot: Hex(RevocationRoot),

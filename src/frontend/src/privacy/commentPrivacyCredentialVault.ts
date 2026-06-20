@@ -14,7 +14,6 @@ export interface CommentPrivacyStoredCredential
   extends CommentPrivacyCredentialVaultPartition,
     CommentPrivacyCredentialMaterial {
   expiresAtUnixMs: number
-  credentialLevel?: string
   issuerPublicKeyId?: string
 }
 
@@ -155,10 +154,13 @@ function toStoredRecord(credential: CommentPrivacyStoredCredential): StoredCrede
     circuitId: credential.circuitId,
     issuerPublicKeyHash: credential.issuerPublicKeyHash,
     credentialSecret: cloneBytes(credential.credentialSecret),
+    credentialCommitment: cloneBytes(credential.credentialCommitment),
     issuerSignature: cloneBytes(credential.issuerSignature),
     revocationWitness: cloneBytes(credential.revocationWitness),
+    revocationHandleHash: credential.revocationHandleHash ? cloneBytes(credential.revocationHandleHash) : undefined,
     expiresAtUnixMs: credential.expiresAtUnixMs,
     credentialLevel: credential.credentialLevel,
+    reputationBucket: credential.reputationBucket,
     issuerPublicKeyId: credential.issuerPublicKeyId
   }
 }
@@ -169,10 +171,13 @@ function cloneCredentialRecord(record: StoredCredentialRecord): CommentPrivacySt
     circuitId: record.circuitId,
     issuerPublicKeyHash: record.issuerPublicKeyHash,
     credentialSecret: cloneBytes(record.credentialSecret),
+    credentialCommitment: cloneBytes(record.credentialCommitment),
     issuerSignature: cloneBytes(record.issuerSignature),
     revocationWitness: cloneBytes(record.revocationWitness),
+    revocationHandleHash: record.revocationHandleHash ? cloneBytes(record.revocationHandleHash) : undefined,
     expiresAtUnixMs: record.expiresAtUnixMs,
     credentialLevel: record.credentialLevel,
+    reputationBucket: record.reputationBucket,
     issuerPublicKeyId: record.issuerPublicKeyId
   }
 }
@@ -195,8 +200,11 @@ function isStoredCredentialRecord(value: unknown): value is StoredCredentialReco
     typeof record.circuitId === 'string' &&
     typeof record.issuerPublicKeyHash === 'string' &&
     record.credentialSecret instanceof Uint8Array &&
+    record.credentialCommitment instanceof Uint8Array &&
     record.issuerSignature instanceof Uint8Array &&
     record.revocationWitness instanceof Uint8Array &&
+    typeof record.credentialLevel === 'string' &&
+    typeof record.reputationBucket === 'string' &&
     Number.isFinite(record.expiresAtUnixMs)
 }
 

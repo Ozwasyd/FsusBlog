@@ -18,9 +18,14 @@ type CommentPrivacyWorkerRequest =
       circuitNumericId?: number
       publicInputLayoutVersion?: number
       circuitId?: string
+      verifyingKeyHash?: string
+      issuerPublicKeyHash?: string
+      credentialCommitment?: ArrayBuffer
       credentialRoot?: ArrayBuffer
       revocationRoot?: ArrayBuffer
       circuitMetadata?: ArrayBuffer
+      credentialLevel?: string
+      reputationBucket?: string
       credentialSecret?: ArrayBuffer
       issuerSignature?: ArrayBuffer
       revocationWitness?: ArrayBuffer
@@ -108,9 +113,14 @@ function toProofRequest(request: Extract<CommentPrivacyWorkerRequest, { type: 'p
     circuitNumericId: request.circuitNumericId,
     publicInputLayoutVersion: request.publicInputLayoutVersion,
     circuitId: request.circuitId,
+    verifyingKeyHash: request.verifyingKeyHash,
+    issuerPublicKeyHash: request.issuerPublicKeyHash,
+    credentialCommitment: toBytes(request.credentialCommitment),
     credentialRoot: toBytes(request.credentialRoot),
     revocationRoot: toBytes(request.revocationRoot),
     circuitMetadata: toBytes(request.circuitMetadata),
+    credentialLevel: request.credentialLevel,
+    reputationBucket: request.reputationBucket,
     credentialSecret: toBytes(request.credentialSecret),
     issuerSignature: toBytes(request.issuerSignature),
     revocationWitness: toBytes(request.revocationWitness)

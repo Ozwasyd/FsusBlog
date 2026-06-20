@@ -502,6 +502,7 @@ public sealed class ZkAnonymousProofVerifierContractTests
             NullifierHash: PublicInputNullifierHash,
             CredentialCommitment: CredentialCommitment,
             CredentialRoot: CredentialRoot,
+            CredentialLevel: AnonymousCredentialLevels.StrongAnonymous,
             ReputationBucket: "trusted",
             Proof: [1, 2, 3],
             RevocationRoot: RevocationRoot,

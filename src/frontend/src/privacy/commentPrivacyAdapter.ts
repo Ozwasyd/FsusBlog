@@ -16,6 +16,9 @@ import type {
   CommentPrivacyTicketResult
 } from './commentPrivacyTypes'
 
+const DEFAULT_CREDENTIAL_LEVEL = 'strong_anonymous'
+const DEFAULT_REPUTATION_BUCKET = 'unrated'
+
 export interface CommentPrivacyAdapterOptions {
   credentialProvider?: CommentPrivacyCredentialProvider
 }
@@ -73,10 +76,16 @@ export function createCommentPrivacyAdapter(options: CommentPrivacyAdapterOption
           credentialEpoch: metadata.credentialEpoch,
           circuitNumericId: metadata.circuitNumericId,
           publicInputLayoutVersion: metadata.publicInputLayoutVersion,
+          actionContext: 'comment.create',
           anonymousScope: scope,
-          displayLanguage: 'zh-CN',
           circuitId: metadata.circuitId,
+          verifyingKeyHash: metadata.verifyingKeyHash,
           nullifierHash: proof.nullifierHash,
+          credentialCommitment: metadata.credentialCommitment,
+          credentialRoot: metadata.credentialRoot,
+          revocationRoot: metadata.revocationRoot,
+          credentialLevel: metadata.credentialLevel,
+          reputationBucket: metadata.reputationBucket,
           zkProof: proof.proofBytes,
           publicInputs: proof.publicInputs
         }, { signal, credentials: 'omit' })
@@ -107,6 +116,7 @@ function toPrivacyMetadata(
     publicInputLayoutVersion: number
     circuitId: string
     verifyingKeyHash: string
+    issuerPublicKeyHash: string
     credentialRoot: Uint8Array
     revocationRoot: Uint8Array
     circuitMetadata: Uint8Array
@@ -124,9 +134,13 @@ function toPrivacyMetadata(
     circuitNumericId: root.circuitNumericId,
     publicInputLayoutVersion: root.publicInputLayoutVersion,
     circuitId: root.circuitId,
+    verifyingKeyHash: root.verifyingKeyHash,
+    issuerPublicKeyHash: root.issuerPublicKeyHash,
     credentialRoot: new Uint8Array(root.credentialRoot),
     revocationRoot: new Uint8Array(root.revocationRoot),
-    circuitMetadata: new Uint8Array(circuitMetadata)
+    circuitMetadata: new Uint8Array(circuitMetadata),
+    credentialLevel: DEFAULT_CREDENTIAL_LEVEL,
+    reputationBucket: DEFAULT_REPUTATION_BUCKET
   }
 }
 
@@ -135,11 +149,26 @@ function hasTicketMetadata(metadata: CommentPrivacyMetadata): metadata is Commen
   circuitNumericId: number
   publicInputLayoutVersion: number
   circuitId: string
+  verifyingKeyHash: string
+  credentialCommitment: Uint8Array
+  credentialRoot: Uint8Array
+  revocationRoot: Uint8Array
+  credentialLevel: string
+  reputationBucket: string
 } {
   return Number.isFinite(metadata.credentialEpoch) &&
     Number.isFinite(metadata.circuitNumericId) &&
     Number.isFinite(metadata.publicInputLayoutVersion) &&
-    Boolean(metadata.circuitId)
+    Boolean(metadata.circuitId) &&
+    Boolean(metadata.verifyingKeyHash) &&
+    metadata.credentialCommitment instanceof Uint8Array &&
+    metadata.credentialCommitment.byteLength > 0 &&
+    metadata.credentialRoot instanceof Uint8Array &&
+    metadata.credentialRoot.byteLength > 0 &&
+    metadata.revocationRoot instanceof Uint8Array &&
+    metadata.revocationRoot.byteLength > 0 &&
+    Boolean(metadata.credentialLevel) &&
+    Boolean(metadata.reputationBucket)
 }
 
 function parseArticleIdFromScope(scope: string): number | null {
@@ -154,7 +183,11 @@ function parseArticleIdFromScope(scope: string): number | null {
 function cloneCredentialMaterial(material: CommentPrivacyCredentialMaterial): CommentPrivacyCredentialMaterial {
   return {
     credentialSecret: new Uint8Array(material.credentialSecret),
+    credentialCommitment: new Uint8Array(material.credentialCommitment),
     issuerSignature: new Uint8Array(material.issuerSignature),
-    revocationWitness: new Uint8Array(material.revocationWitness)
+    revocationWitness: new Uint8Array(material.revocationWitness),
+    revocationHandleHash: material.revocationHandleHash ? new Uint8Array(material.revocationHandleHash) : undefined,
+    credentialLevel: material.credentialLevel,
+    reputationBucket: material.reputationBucket
   }
 }

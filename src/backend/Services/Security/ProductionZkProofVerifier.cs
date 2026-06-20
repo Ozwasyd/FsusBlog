@@ -23,7 +23,8 @@ public readonly record struct ProductionZkProofBackendRequest(
     string NullifierHash,
     string CredentialCommitment,
     string CredentialRoot,
-    string? ReputationBucket,
+    string CredentialLevel,
+    string ReputationBucket,
     ReadOnlyMemory<byte> Proof,
     string RevocationRoot = "",
     string IssuerPublicKeyHash = "");
@@ -127,7 +128,8 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
                         request.NullifierHash.Trim(),
                         request.CredentialCommitment.Trim(),
                         request.CredentialRoot.Trim(),
-                        NormalizeNullable(request.ReputationBucket, 64),
+                        NormalizeToken(request.CredentialLevel, 32),
+                        NormalizeToken(request.ReputationBucket, 64),
                         request.Proof,
                         NormalizeToken(request.RevocationRoot, 128),
                         NormalizeToken(request.IssuerPublicKeyHash, 128)),
@@ -202,7 +204,9 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
             IsHexHash(request.CredentialCommitment, minLength: 32, maxLength: 128) &&
             IsToken(request.CredentialRoot, maxLength: 128) &&
             IsToken(request.RevocationRoot, maxLength: 128) &&
-            IsHexHash(request.IssuerPublicKeyHash, minLength: 32, maxLength: 128);
+            IsHexHash(request.IssuerPublicKeyHash, minLength: 32, maxLength: 128) &&
+            IsToken(request.CredentialLevel, maxLength: 32) &&
+            IsToken(request.ReputationBucket, maxLength: 64);
     }
 
     private static ProductionZkProofVerifierOptions ResolveOptions(IConfiguration configuration)
@@ -288,12 +292,6 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
     {
         string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
-    }
-
-    private static string? NormalizeNullable(string? value, int maxLength)
-    {
-        string normalized = NormalizeToken(value, maxLength);
-        return normalized.Length == 0 ? null : normalized;
     }
 
     private readonly record struct ProductionZkProofVerifierOptions(

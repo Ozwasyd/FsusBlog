@@ -15,21 +15,32 @@ const manifest: CommentPrivacyProverManifest = {
   provingKeySha256: '787c798e39a5bc1910355bae6d0cd87a36b2e10fd0202a83e3bb6b005da83472'
 }
 
+const verifyingKeyHash = 'a'.repeat(64)
+const issuerPublicKeyHash = 'b'.repeat(64)
+
 const proofRequest = {
   scope: 'article:42',
-  rootVersion: 'root-v1',
+  rootVersion: `20260618:${verifyingKeyHash}`,
   metadataBytes: new Uint8Array([1, 2, 3]),
   credentialEpoch: 20260618,
   circuitNumericId: 7,
   publicInputLayoutVersion: 3,
   circuitId: 'fsus.anonymous.comment.v2',
+  verifyingKeyHash,
+  issuerPublicKeyHash,
+  credentialCommitment: new Uint8Array(32).fill(0x55),
   credentialRoot: new Uint8Array([4, 5]),
   revocationRoot: new Uint8Array([6, 7]),
   circuitMetadata: new Uint8Array([8, 9]),
+  credentialLevel: 'strong_anonymous',
+  reputationBucket: 'rep:low',
   credentialSecret: new Uint8Array([10, 11]),
   issuerSignature: new Uint8Array([12, 13]),
   revocationWitness: new Uint8Array([14, 15])
 }
+
+const expectedNullifierHash = new Uint8Array(32).fill(0x41)
+const expectedPublicInputs = encodeExpectedPublicInputs(proofRequest, expectedNullifierHash)
 
 describe('commentPrivacyWasmProver', () => {
   it('fails closed when the browser prover artifact manifest is unavailable', async () => {
@@ -107,8 +118,8 @@ describe('commentPrivacyWasmProver', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     const prepareProof = vi.fn().mockResolvedValue({
       proofBytes: new Uint8Array([21, 22, 23]),
-      publicInputs: new Uint8Array([31, 32]),
-      nullifierHash: new Uint8Array([41, 42])
+      publicInputs: expectedPublicInputs,
+      nullifierHash: expectedNullifierHash
     })
     const prewarm = vi.fn().mockResolvedValue(undefined)
     const prover = createCommentPrivacyWasmProver({
@@ -131,8 +142,8 @@ describe('commentPrivacyWasmProver', () => {
         revocationWitness: expect.any(Uint8Array)
       }))
       expect(result.proofBytes).toEqual(new Uint8Array([21, 22, 23]))
-      expect(result.publicInputs).toEqual(new Uint8Array([31, 32]))
-      expect(result.nullifierHash).toEqual(new Uint8Array([41, 42]))
+      expect(result.publicInputs).toEqual(expectedPublicInputs)
+      expect(result.nullifierHash).toEqual(expectedNullifierHash)
       expect(consoleLog).not.toHaveBeenCalled()
       expect(consoleWarn).not.toHaveBeenCalled()
       expect(consoleError).not.toHaveBeenCalled()
@@ -143,7 +154,7 @@ describe('commentPrivacyWasmProver', () => {
     }
   })
 
-  it('strips witness material returned by the delegate from the proof bundle', async () => {
+  it('fails closed when the wasm prover returns public inputs that do not match the backend transcript', async () => {
     const prover = createCommentPrivacyWasmProver({
       loadManifest: vi.fn().mockResolvedValue(manifest),
       loadArtifact: createArtifactLoader(),
@@ -151,7 +162,23 @@ describe('commentPrivacyWasmProver', () => {
         prepareProof: vi.fn().mockResolvedValue({
           proofBytes: new Uint8Array([21, 22, 23]),
           publicInputs: new Uint8Array([31, 32]),
-          nullifierHash: new Uint8Array([41, 42]),
+          nullifierHash: expectedNullifierHash
+        })
+      })
+    })
+
+    await expect(prover.prepareProof(proofRequest)).rejects.toThrow('comment_privacy_prover_artifact_invalid')
+  })
+
+  it('strips witness material returned by the delegate from the proof bundle', async () => {
+    const prover = createCommentPrivacyWasmProver({
+      loadManifest: vi.fn().mockResolvedValue(manifest),
+      loadArtifact: createArtifactLoader(),
+      loadModule: vi.fn().mockResolvedValue({
+        prepareProof: vi.fn().mockResolvedValue({
+          proofBytes: new Uint8Array([21, 22, 23]),
+          publicInputs: expectedPublicInputs,
+          nullifierHash: expectedNullifierHash,
           witness: new Uint8Array([51, 52]),
           credentialSecret: new Uint8Array([61, 62]),
           issuerSignature: new Uint8Array([63, 64]),
@@ -164,10 +191,61 @@ describe('commentPrivacyWasmProver', () => {
 
     expect(Object.keys(result).sort()).toEqual(['nullifierHash', 'proofBytes', 'publicInputs'])
     expect(result.proofBytes).toEqual(new Uint8Array([21, 22, 23]))
-    expect(result.publicInputs).toEqual(new Uint8Array([31, 32]))
-    expect(result.nullifierHash).toEqual(new Uint8Array([41, 42]))
+    expect(result.publicInputs).toEqual(expectedPublicInputs)
+    expect(result.nullifierHash).toEqual(expectedNullifierHash)
   })
 })
+
+function encodeExpectedPublicInputs(
+  request: typeof proofRequest,
+  nullifierHash: Uint8Array
+): Uint8Array {
+  const chunks: Uint8Array[] = []
+  const writeString = (value: string): void => {
+    const bytes = new TextEncoder().encode(value)
+    const length = new Uint8Array(4)
+    new DataView(length.buffer).setInt32(0, bytes.byteLength, true)
+    chunks.push(length, bytes)
+  }
+  const writeUInt16 = (value: number): void => {
+    const bytes = new Uint8Array(2)
+    new DataView(bytes.buffer).setUint16(0, value, true)
+    chunks.push(bytes)
+  }
+  const writeInt64 = (value: number): void => {
+    const bytes = new Uint8Array(8)
+    new DataView(bytes.buffer).setBigInt64(0, BigInt(value), true)
+    chunks.push(bytes)
+  }
+
+  writeString('fsus.anonymous.comment.v2.public-inputs')
+  writeString('comment.create')
+  writeString(request.scope)
+  writeString(request.circuitId)
+  writeString(request.verifyingKeyHash)
+  writeUInt16(request.publicInputLayoutVersion)
+  writeInt64(request.credentialEpoch)
+  writeString(bytesToHex(nullifierHash))
+  writeString(bytesToHex(request.credentialCommitment))
+  writeString(bytesToHex(request.credentialRoot))
+  writeString(bytesToHex(request.revocationRoot))
+  writeString(request.issuerPublicKeyHash)
+  writeString(request.credentialLevel)
+  writeString(request.reputationBucket)
+
+  const total = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0)
+  const output = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    output.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return output
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+}
 
 function createArtifactLoader(options: { missing?: string[] } = {}) {
   return vi.fn(async ({ artifactUrl }: { artifactUrl: string }) => {

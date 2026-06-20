@@ -257,19 +257,25 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
         if (!metadata) {
           return false
         }
+        const ticketMetadata = attachCredentialMaterial(metadata, credentialMaterial)
 
         await workerClient.prewarm(controller.signal)
         const proof = await workerClient.prepareProof({
           scope: normalizedScope,
-          rootVersion: metadata.rootVersion,
-          metadataBytes: metadata.metadataBytes,
-          credentialEpoch: metadata.credentialEpoch,
-          circuitNumericId: metadata.circuitNumericId,
-          publicInputLayoutVersion: metadata.publicInputLayoutVersion,
-          circuitId: metadata.circuitId,
-          credentialRoot: metadata.credentialRoot,
-          revocationRoot: metadata.revocationRoot,
-          circuitMetadata: metadata.circuitMetadata,
+          rootVersion: ticketMetadata.rootVersion,
+          metadataBytes: ticketMetadata.metadataBytes,
+          credentialEpoch: ticketMetadata.credentialEpoch,
+          circuitNumericId: ticketMetadata.circuitNumericId,
+          publicInputLayoutVersion: ticketMetadata.publicInputLayoutVersion,
+          circuitId: ticketMetadata.circuitId,
+          verifyingKeyHash: ticketMetadata.verifyingKeyHash,
+          issuerPublicKeyHash: ticketMetadata.issuerPublicKeyHash,
+          credentialCommitment: ticketMetadata.credentialCommitment,
+          credentialRoot: ticketMetadata.credentialRoot,
+          revocationRoot: ticketMetadata.revocationRoot,
+          circuitMetadata: ticketMetadata.circuitMetadata,
+          credentialLevel: ticketMetadata.credentialLevel,
+          reputationBucket: ticketMetadata.reputationBucket,
           credentialSecret: credentialMaterial?.credentialSecret,
           issuerSignature: credentialMaterial?.issuerSignature,
           revocationWitness: credentialMaterial?.revocationWitness,
@@ -277,7 +283,7 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
         })
         const ticket = await adapter.issueAnonymousTicket({
           scope: normalizedScope,
-          metadata,
+          metadata: ticketMetadata,
           proof,
           proofBytes: proof.proofBytes,
           signal: controller.signal
@@ -360,6 +366,22 @@ function parseArticleIdFromScope(scope: string): number | null {
 
   const parsed = Number(scope.slice('article:'.length))
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+function attachCredentialMaterial(
+  metadata: CommentPrivacyMetadata,
+  credential: CommentPrivacyCredentialMaterial | null
+): CommentPrivacyMetadata {
+  if (!credential) {
+    return metadata
+  }
+
+  return {
+    ...metadata,
+    credentialCommitment: new Uint8Array(credential.credentialCommitment),
+    credentialLevel: credential.credentialLevel || metadata.credentialLevel,
+    reputationBucket: credential.reputationBucket || metadata.reputationBucket
+  }
 }
 
 function scheduleCommentPrivacyIdleTask(task: () => void): () => void {

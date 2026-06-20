@@ -97,14 +97,13 @@ public sealed class AnonymousCommentTicketService(
         }
 
         AnonymousCredentialRootSnapshotCoreModel root = rootResult.Value;
-        AnonymousCommentTicketPublicInputs publicInputs = AnonymousCommentTicketPublicInputs.Parse(request.PublicInputs);
         string nullifierHash = Convert.ToHexStringLower(request.NullifierHash);
-        string credentialRoot = publicInputs.CredentialRoot ?? Convert.ToHexStringLower(request.CredentialRoot);
-        string revocationRoot = publicInputs.RevocationRoot ?? Convert.ToHexStringLower(request.RevocationRoot);
-        string issuerPublicKeyHash = publicInputs.IssuerPublicKeyHash ?? root.IssuerPublicKeyHash;
-        string credentialLevel = publicInputs.CredentialLevel ?? request.CredentialLevel;
-        string credentialCommitment = publicInputs.CredentialCommitment
-            ?? Convert.ToHexStringLower(SHA256.HashData(request.PublicInputs));
+        string credentialCommitment = Convert.ToHexStringLower(request.CredentialCommitment);
+        string credentialRoot = Convert.ToHexStringLower(request.CredentialRoot);
+        string revocationRoot = Convert.ToHexStringLower(request.RevocationRoot);
+        string issuerPublicKeyHash = root.IssuerPublicKeyHash;
+        string credentialLevel = NormalizeRequiredToken(request.CredentialLevel, DefaultCredentialLevel, 32);
+        string reputationBucket = NormalizeRequiredToken(request.ReputationBucket, DefaultReputationBucket, 64);
         if (!IsHexHash(credentialCommitment, minLength: 32, maxLength: 128) ||
             !IsHexHash(issuerPublicKeyHash, minLength: 32, maxLength: 128) ||
             !string.Equals(issuerPublicKeyHash, root.IssuerPublicKeyHash, StringComparison.OrdinalIgnoreCase))
@@ -122,10 +121,16 @@ public sealed class AnonymousCommentTicketService(
             nullifierHash,
             credentialCommitment,
             credentialRoot,
-            publicInputs.ReputationBucket ?? DefaultReputationBucket,
+            credentialLevel,
+            reputationBucket,
             [.. request.Groth16Proof],
             revocationRoot,
             issuerPublicKeyHash);
+        if (!PublicInputsMatchProofRequest(request.PublicInputs, proofRequest))
+        {
+            return AnonymousCommentTicketIssueResult.Failure(AnonymousCommentTicketStatuses.ValidationFailed);
+        }
+
         ZkProofVerificationResult proof = await proofService.VerifyCommentProofAsync(proofRequest, cancellationToken);
         if (!proof.Verified)
         {
@@ -147,7 +152,6 @@ public sealed class AnonymousCommentTicketService(
         byte[] ticket = RandomNumberGenerator.GetBytes(TicketBytes);
         string ticketHash = HashTicket(ticket);
         credentialLevel = string.IsNullOrWhiteSpace(credentialLevel) ? DefaultCredentialLevel : credentialLevel;
-        string reputationBucket = publicInputs.ReputationBucket ?? DefaultReputationBucket;
         var payload = new AnonymousCommentTicketPayload(
             request.ArticleId,
             scope,
@@ -213,10 +217,14 @@ public sealed class AnonymousCommentTicketService(
             request.PublicInputs.Length is 0 or > MaxPublicInputsBytes ||
             request.NullifierHash is null ||
             request.NullifierHash.Length is < MinHashBytes or > MaxHashBytes ||
+            request.CredentialCommitment is null ||
+            request.CredentialCommitment.Length is < MinHashBytes or > MaxHashBytes ||
             request.CredentialRoot is null ||
             request.CredentialRoot.Length is < MinHashBytes or > MaxHashBytes ||
             request.RevocationRoot is null ||
             request.RevocationRoot.Length is < MinHashBytes or > MaxHashBytes ||
+            string.IsNullOrWhiteSpace(request.CredentialLevel) ||
+            string.IsNullOrWhiteSpace(request.ReputationBucket) ||
             !TryParseOptionalCommentId(request.ParentId, out _) ||
             !TryParseOptionalCommentId(request.RootId, out _) ||
             !TryParseOptionalCommentId(request.ReplyToCommentId, out _))
@@ -243,6 +251,32 @@ public sealed class AnonymousCommentTicketService(
     {
         string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
         return normalized.Length == 0 ? $"article:{articleId}" : normalized;
+    }
+
+    private static bool PublicInputsMatchProofRequest(byte[] publicInputs, ZkProofVerificationRequest proofRequest)
+    {
+        ReadOnlyMemory<byte> expected = NativeGroth16PublicInputCodec.Encode(new ProductionZkProofBackendRequest(
+            proofRequest.ActionContext,
+            proofRequest.Scope,
+            proofRequest.CircuitId,
+            proofRequest.VerifyingKeyHash,
+            proofRequest.PublicInputLayoutVersion,
+            proofRequest.CredentialEpoch,
+            proofRequest.NullifierHash,
+            proofRequest.CredentialCommitment,
+            proofRequest.CredentialRoot,
+            proofRequest.CredentialLevel,
+            proofRequest.ReputationBucket,
+            proofRequest.Proof,
+            proofRequest.RevocationRoot,
+            proofRequest.IssuerPublicKeyHash));
+        return expected.Span.SequenceEqual(publicInputs);
+    }
+
+    private static string NormalizeRequiredToken(string? value, string fallback, int maxLength)
+    {
+        string normalized = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
     }
 
     private TimeSpan ResolveTicketTtl()
@@ -280,52 +314,6 @@ public sealed class AnonymousCommentTicketService(
         }
 
         return value.All(static ch => Uri.IsHexDigit(ch));
-    }
-}
-
-internal sealed record AnonymousCommentTicketPublicInputs(
-    string? CredentialCommitment,
-    string? CredentialRoot,
-    string? RevocationRoot,
-    string? IssuerPublicKeyHash,
-    string? VerifyingKeyHash,
-    string? CredentialLevel,
-    string? ReputationBucket)
-{
-    public static AnonymousCommentTicketPublicInputs Parse(byte[] bytes)
-    {
-        string value = Encoding.UTF8.GetString(bytes ?? []);
-        var entries = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (string segment in value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            int separator = segment.IndexOf('=');
-            if (separator <= 0 || separator >= segment.Length - 1)
-            {
-                continue;
-            }
-
-            string key = segment[..separator].Trim();
-            string entryValue = segment[(separator + 1)..].Trim();
-            if (key.Length > 0 && entryValue.Length > 0)
-            {
-                entries[key] = entryValue;
-            }
-        }
-
-        return new AnonymousCommentTicketPublicInputs(
-            Normalize(entries.GetValueOrDefault("credential_commitment") ?? entries.GetValueOrDefault("credentialCommitment"), 128),
-            Normalize(entries.GetValueOrDefault("credential_root") ?? entries.GetValueOrDefault("credentialRoot"), 128),
-            Normalize(entries.GetValueOrDefault("revocation_root") ?? entries.GetValueOrDefault("revocationRoot"), 128),
-            Normalize(entries.GetValueOrDefault("issuer_public_key_hash") ?? entries.GetValueOrDefault("issuerPublicKeyHash"), 128),
-            Normalize(entries.GetValueOrDefault("verifying_key_hash") ?? entries.GetValueOrDefault("verifyingKeyHash"), 128),
-            Normalize(entries.GetValueOrDefault("credential_level") ?? entries.GetValueOrDefault("credentialLevel"), 32),
-            Normalize(entries.GetValueOrDefault("reputation_bucket") ?? entries.GetValueOrDefault("reputationBucket"), 64));
-    }
-
-    private static string? Normalize(string? value, int maxLength)
-    {
-        string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
-        return normalized.Length == 0 ? null : normalized[..Math.Min(normalized.Length, maxLength)];
     }
 }
 

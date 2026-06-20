@@ -19,7 +19,8 @@ const rootSnapshot = {
   circuitNumericId: 7,
   publicInputLayoutVersion: 3,
   circuitId: 'fsus.anonymous.comment.v2',
-  verifyingKeyHash: 'vk-hash',
+  verifyingKeyHash: 'a'.repeat(64),
+  issuerPublicKeyHash: 'b'.repeat(64),
   credentialRoot: new Uint8Array([1, 2]),
   revocationRoot: new Uint8Array([3, 4]),
   circuitMetadata: new Uint8Array([5, 6]),
@@ -62,8 +63,11 @@ describe('commentPrivacyAdapter', () => {
         async prepareCredential() {
           return {
             credentialSecret: new Uint8Array([9]),
+            credentialCommitment: new Uint8Array([18, 19]),
             issuerSignature: new Uint8Array([10]),
-            revocationWitness: new Uint8Array([11])
+            revocationWitness: new Uint8Array([11]),
+            credentialLevel: 'strong_anonymous',
+            reputationBucket: 'rep:low'
           }
         }
       }
@@ -77,9 +81,15 @@ describe('commentPrivacyAdapter', () => {
       throw new Error('metadata unavailable')
     }
 
+    const ticketMetadata = {
+      ...metadata.metadata,
+      credentialCommitment: new Uint8Array([18, 19]),
+      credentialLevel: 'strong_anonymous',
+      reputationBucket: 'rep:low'
+    }
     const ticket = await adapter.issueAnonymousTicket({
       scope: 'article:42',
-      metadata: metadata.metadata,
+      metadata: ticketMetadata,
       proof: {
         proofBytes: new Uint8Array([12, 13]),
         publicInputs: new Uint8Array([14, 15]),
@@ -96,9 +106,16 @@ describe('commentPrivacyAdapter', () => {
       credentialEpoch: 20260619,
       circuitNumericId: 7,
       publicInputLayoutVersion: 3,
+      actionContext: 'comment.create',
       anonymousScope: 'article:42',
       circuitId: 'fsus.anonymous.comment.v2',
+      verifyingKeyHash: 'a'.repeat(64),
       nullifierHash: new Uint8Array([16, 17]),
+      credentialCommitment: new Uint8Array([18, 19]),
+      credentialRoot: new Uint8Array([1, 2]),
+      revocationRoot: new Uint8Array([3, 4]),
+      credentialLevel: 'strong_anonymous',
+      reputationBucket: 'rep:low',
       zkProof: new Uint8Array([12, 13]),
       publicInputs: new Uint8Array([14, 15])
     }), { signal, credentials: 'omit' })

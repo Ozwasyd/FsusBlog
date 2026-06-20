@@ -8,6 +8,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
 using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Core.Services.Implementations;
+using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.AuthSystem;
 using FsusBlog.Shared.Contracts.Models;
@@ -635,7 +636,22 @@ public class PodBinaryCodecTests
         byte[] groth16Proof = Enumerable.Range(0, 192)
             .Select(static value => (byte)((value + 13) % 251))
             .ToArray();
-        byte[] publicInputs = "action_context=comment.create;scope=article:42;credential_root=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;revocation_root=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb;nullifier_hash=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc;credential_epoch=20260618;credential_level=strong_anonymous;reputation_bucket=rep:low"u8.ToArray();
+        byte[] credentialCommitment = Enumerable.Repeat((byte)0x44, 32).ToArray();
+        byte[] publicInputs = NativeGroth16PublicInputCodec.Encode(new ProductionZkProofBackendRequest(
+            ActionContext: "comment.create",
+            Scope: "article:42",
+            CircuitId: AnonymousPrivacyContract.CircuitId,
+            VerifyingKeyHash: new string('a', 64),
+            PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
+            CredentialEpoch: 20260618,
+            NullifierHash: Convert.ToHexStringLower(Enumerable.Repeat((byte)0x33, 32).ToArray()),
+            CredentialCommitment: Convert.ToHexStringLower(credentialCommitment),
+            CredentialRoot: Convert.ToHexStringLower(Enumerable.Repeat((byte)0x11, 32).ToArray()),
+            CredentialLevel: "strong_anonymous",
+            ReputationBucket: "rep:low",
+            Proof: ReadOnlyMemory<byte>.Empty,
+            RevocationRoot: Convert.ToHexStringLower(Enumerable.Repeat((byte)0x22, 32).ToArray()),
+            IssuerPublicKeyHash: new string('b', 64))).ToArray();
 
         var issue = new AnonymousCredentialIssueRequestCoreModel(
             CredentialEpoch: 20260618,
@@ -706,6 +722,7 @@ public class PodBinaryCodecTests
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: new string('a', 64),
             NullifierHash: Enumerable.Repeat((byte)0x33, 32).ToArray(),
+            CredentialCommitment: credentialCommitment,
             CredentialRoot: Enumerable.Repeat((byte)0x11, 32).ToArray(),
             RevocationRoot: Enumerable.Repeat((byte)0x22, 32).ToArray(),
             CredentialLevel: "strong_anonymous",
@@ -717,6 +734,7 @@ public class PodBinaryCodecTests
         Assert.Equal("comment.create", ticketDecoded.ActionContext);
         Assert.Equal("article:42", ticketDecoded.Scope);
         Assert.Equal(new string('a', 64), ticketDecoded.VerifyingKeyHash);
+        Assert.Equal(credentialCommitment, ticketDecoded.CredentialCommitment);
         Assert.Equal("strong_anonymous", ticketDecoded.CredentialLevel);
         Assert.Equal("rep:low", ticketDecoded.ReputationBucket);
         Assert.Equal(groth16Proof, ticketDecoded.Groth16Proof);
@@ -847,6 +865,7 @@ public class PodBinaryCodecTests
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: new string('a', 64),
             NullifierHash: Enumerable.Repeat((byte)0x33, 32).ToArray(),
+            CredentialCommitment: Enumerable.Repeat((byte)0x44, 32).ToArray(),
             CredentialRoot: Enumerable.Repeat((byte)0x11, 32).ToArray(),
             RevocationRoot: Enumerable.Repeat((byte)0x22, 32).ToArray(),
             CredentialLevel: "strong_anonymous",

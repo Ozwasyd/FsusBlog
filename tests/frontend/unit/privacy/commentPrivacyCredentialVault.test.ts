@@ -19,15 +19,21 @@ describe('commentPrivacyCredentialVault', () => {
     await vault.put({
       ...expiredPartition,
       credentialSecret: new Uint8Array([1, 2, 3]),
+      credentialCommitment: new Uint8Array([21, 22, 23]),
       issuerSignature: new Uint8Array([4, 5, 6]),
       revocationWitness: new Uint8Array([7, 8, 9]),
+      credentialLevel: 'strong_anonymous',
+      reputationBucket: 'rep:low',
       expiresAtUnixMs: 1_500
     })
     await vault.put({
       ...activePartition,
       credentialSecret: new Uint8Array([10, 11, 12]),
+      credentialCommitment: new Uint8Array([24, 25, 26]),
       issuerSignature: new Uint8Array([13, 14, 15]),
       revocationWitness: new Uint8Array([16, 17, 18]),
+      credentialLevel: 'strong_anonymous',
+      reputationBucket: 'rep:low',
       expiresAtUnixMs: 5_000
     })
 
@@ -38,8 +44,11 @@ describe('commentPrivacyCredentialVault', () => {
 
     const active = await vault.get(activePartition)
     expect([...(active?.credentialSecret ?? [])]).toEqual([10, 11, 12])
+    expect([...(active?.credentialCommitment ?? [])]).toEqual([24, 25, 26])
     expect([...(active?.issuerSignature ?? [])]).toEqual([13, 14, 15])
     expect([...(active?.revocationWitness ?? [])]).toEqual([16, 17, 18])
+    expect(active?.credentialLevel).toBe('strong_anonymous')
+    expect(active?.reputationBucket).toBe('rep:low')
 
     await vault.clear(activePartition)
 

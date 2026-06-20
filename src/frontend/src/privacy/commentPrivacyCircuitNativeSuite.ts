@@ -10,6 +10,7 @@ const REQUEST_MAGIC = new TextEncoder().encode('fsus-circuit-native-request-v2')
 const OPENING_MAGIC = new TextEncoder().encode('fsus-circuit-native-opening-v2')
 const WITNESS_MAGIC = new TextEncoder().encode('fsus-circuit-native-witness-v2')
 const REVOCATION_HANDLE_DOMAIN = 'fsus.anonymous.revocation.handle.v2'
+const DEFAULT_REPUTATION_BUCKET = 'unrated'
 
 export interface ManagedCircuitNativeCredentialSuiteOptions {
   crypto: Pick<Crypto, 'getRandomValues'>
@@ -62,14 +63,18 @@ export function createManagedCircuitNativeCredentialSuite(
         issuerSignature: input.issuerSignature,
         credentialOpening: input.credentialOpening
       })
+      const credentialCommitment = sha256(witness)
 
       return {
         credentialSecret: new Uint8Array(input.credentialSecret),
+        credentialCommitment,
         issuerSignature: new Uint8Array(input.issuerSignature),
         revocationWitness: witness,
         revocationHandleHash: deriveRevocationHandleHash(
           input.metadata.issuerPublicKeyHash,
-          bytesToHex(sha256(witness)))
+          bytesToHex(credentialCommitment)),
+        credentialLevel: input.response.credentialLevel || input.metadata.credentialLevel,
+        reputationBucket: input.metadata.reputationBucket || DEFAULT_REPUTATION_BUCKET
       }
     }
   }
@@ -104,6 +109,7 @@ function digestMetadata(metadata: CommentPrivacyCredentialIssuerMetadata): Uint8
     String(metadata.publicInputLayoutVersion),
     metadata.circuitId,
     metadata.credentialLevel,
+    metadata.reputationBucket,
     metadata.issuerPublicKeyHash
   ].join('\n')))
 }

@@ -234,6 +234,7 @@ public sealed record class AnonymousCommentTicketRequest(
     string CircuitId,
     string VerifyingKeyHash,
     byte[] NullifierHash,
+    byte[] CredentialCommitment,
     byte[] CredentialRoot,
     byte[] RevocationRoot,
     string CredentialLevel,

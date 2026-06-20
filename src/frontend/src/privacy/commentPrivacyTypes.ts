@@ -8,9 +8,14 @@ export interface CommentPrivacyMetadata {
   circuitNumericId?: number
   publicInputLayoutVersion?: number
   circuitId?: string
+  verifyingKeyHash?: string
+  issuerPublicKeyHash?: string
+  credentialCommitment?: Uint8Array
   credentialRoot?: Uint8Array
   revocationRoot?: Uint8Array
   circuitMetadata?: Uint8Array
+  credentialLevel?: string
+  reputationBucket?: string
 }
 
 export interface CommentPrivacyPreparedTicket {
@@ -23,9 +28,12 @@ export interface CommentPrivacyPreparedTicket {
 
 export interface CommentPrivacyCredentialMaterial {
   credentialSecret: Uint8Array
+  credentialCommitment: Uint8Array
   issuerSignature: Uint8Array
   revocationWitness: Uint8Array
   revocationHandleHash?: Uint8Array
+  credentialLevel: string
+  reputationBucket: string
 }
 
 export interface CommentPrivacyCredentialSuccess {
@@ -84,9 +92,14 @@ export interface CommentPrivacyProofRequest {
   circuitNumericId?: number
   publicInputLayoutVersion?: number
   circuitId?: string
+  verifyingKeyHash?: string
+  issuerPublicKeyHash?: string
+  credentialCommitment?: Uint8Array
   credentialRoot?: Uint8Array
   revocationRoot?: Uint8Array
   circuitMetadata?: Uint8Array
+  credentialLevel?: string
+  reputationBucket?: string
   credentialSecret?: Uint8Array
   issuerSignature?: Uint8Array
   revocationWitness?: Uint8Array

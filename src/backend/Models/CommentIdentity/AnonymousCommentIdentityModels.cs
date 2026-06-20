@@ -66,7 +66,8 @@ public sealed record ZkProofVerificationRequest(
     string NullifierHash,
     string CredentialCommitment,
     string CredentialRoot,
-    string? ReputationBucket,
+    string CredentialLevel,
+    string ReputationBucket,
     byte[] Proof,
     string RevocationRoot = "",
     string IssuerPublicKeyHash = "")
@@ -81,6 +82,8 @@ public sealed record ZkProofVerificationRequest(
         !string.IsNullOrWhiteSpace(NullifierHash) &&
         !string.IsNullOrWhiteSpace(CredentialCommitment) &&
         !string.IsNullOrWhiteSpace(CredentialRoot) &&
+        !string.IsNullOrWhiteSpace(CredentialLevel) &&
+        !string.IsNullOrWhiteSpace(ReputationBucket) &&
         !string.IsNullOrWhiteSpace(RevocationRoot) &&
         !string.IsNullOrWhiteSpace(IssuerPublicKeyHash) &&
         Proof.Length > 0;

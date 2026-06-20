@@ -24,6 +24,7 @@ public sealed class AnonymousCommentTicketServiceTests
 {
     private static readonly byte[] Nullifier = Enumerable.Repeat((byte)0xA1, 32).ToArray();
     private static readonly byte[] Proof = Enumerable.Repeat((byte)0xB2, 64).ToArray();
+    private static readonly byte[] CredentialCommitment = Enumerable.Repeat((byte)0xB3, 32).ToArray();
     private static readonly byte[] CredentialRoot = Enumerable.Repeat((byte)0xC3, 32).ToArray();
     private static readonly byte[] RevocationRoot = Enumerable.Repeat((byte)0xD4, 32).ToArray();
     private static readonly string VerifyingKeyHash = new('e', 64);
@@ -41,8 +42,21 @@ public sealed class AnonymousCommentTicketServiceTests
         true,
         false,
         "disabled");
-    private static readonly byte[] PublicInputs = Encoding.UTF8.GetBytes(
-        $"action_context=comment.create;scope=article:42;credential_root={Convert.ToHexStringLower(CredentialRoot)};revocation_root={Convert.ToHexStringLower(RevocationRoot)};nullifier_hash={Convert.ToHexStringLower(Nullifier)};credential_level=strong_anonymous;reputation_bucket=rep:low");
+    private static readonly byte[] PublicInputs = NativeGroth16PublicInputCodec.Encode(new ProductionZkProofBackendRequest(
+        ActionContext: AnonymousPrivacyContract.CommentCreateActionContext,
+        Scope: "article:42",
+        CircuitId: AnonymousPrivacyContract.CircuitId,
+        VerifyingKeyHash: VerifyingKeyHash,
+        PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
+        CredentialEpoch: 20260619,
+        NullifierHash: Convert.ToHexStringLower(Nullifier),
+        CredentialCommitment: Convert.ToHexStringLower(CredentialCommitment),
+        CredentialRoot: Convert.ToHexStringLower(CredentialRoot),
+        CredentialLevel: "strong_anonymous",
+        ReputationBucket: "rep:low",
+        Proof: ReadOnlyMemory<byte>.Empty,
+        RevocationRoot: Convert.ToHexStringLower(RevocationRoot),
+        IssuerPublicKeyHash: new('f', 64))).ToArray();
 
     [Fact]
     public async Task IssueAsync_ValidProof_ReturnsTicketAndStoresOnlyHashPayload()
@@ -111,6 +125,23 @@ public sealed class AnonymousCommentTicketServiceTests
         Assert.Empty(nullifiers.Reservations);
         Assert.Empty(cache.Writes);
         Assert.Equal("anonymous_comment_ticket_denied", result.PublicMessage);
+    }
+
+    [Fact]
+    public async Task IssueAsync_PublicInputsMismatchFailsClosedBeforeProofVerification()
+    {
+        var proof = new RecordingProofService(ZkProofVerificationResult.Success());
+        var service = CreateService(proofService: proof);
+        AnonymousCommentTicketRequestCoreModel request = ValidRequest() with
+        {
+            PublicInputs = [0x01, 0x02, 0x03]
+        };
+
+        AnonymousCommentTicketIssueResult result = await service.IssueAsync(request, CancellationToken.None);
+
+        Assert.False(result.Issued);
+        Assert.Equal(AnonymousCommentTicketStatuses.ValidationFailed, result.Status);
+        Assert.Empty(proof.Requests);
     }
 
     [Theory]
@@ -252,6 +283,7 @@ public sealed class AnonymousCommentTicketServiceTests
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: VerifyingKeyHash,
             NullifierHash: Nullifier,
+            CredentialCommitment: CredentialCommitment,
             CredentialRoot: CredentialRoot,
             RevocationRoot: RevocationRoot,
             CredentialLevel: "strong_anonymous",

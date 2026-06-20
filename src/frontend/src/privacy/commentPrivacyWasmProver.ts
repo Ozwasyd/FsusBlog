@@ -37,6 +37,8 @@ const DEFAULT_MANIFEST_URL = '/wasm/comment-privacy-prover.manifest.json'
 const ARTIFACT_UNAVAILABLE = 'comment_privacy_prover_artifact_unavailable'
 const ARTIFACT_INVALID = 'comment_privacy_prover_artifact_invalid'
 const PROOF_FAILED = 'comment_privacy_prover_failed'
+const PUBLIC_INPUT_TRANSCRIPT_DOMAIN = 'fsus.anonymous.comment.v2.public-inputs'
+const COMMENT_ACTION_CONTEXT = 'comment.create'
 
 export function createCommentPrivacyWasmProver(options: CommentPrivacyWasmProverOptions = {}): CommentPrivacyWasmProver {
   const manifestUrl = options.manifestUrl ?? DEFAULT_MANIFEST_URL
@@ -79,7 +81,7 @@ export function createCommentPrivacyWasmProver(options: CommentPrivacyWasmProver
       assertManifestMatchesRequest(loaded.manifest, request)
       try {
         const result = await loaded.delegate.prepareProof({ ...request, manifest: loaded.manifest })
-        return normalizeProofBundle(result)
+        return normalizeProofBundle(result, request)
       } catch (error) {
         throw sanitizeProverError(error, PROOF_FAILED)
       }
@@ -282,16 +284,27 @@ function getFunction(record: Record<string, unknown>, key: string): ((...args: n
   return typeof record[key] === 'function' ? record[key] as (...args: never[]) => unknown : undefined
 }
 
-function normalizeProofBundle(result: unknown): CommentPrivacyProofBundle {
+function normalizeProofBundle(result: unknown, request: CommentPrivacyProofRequest): CommentPrivacyProofBundle {
   const record = asRecord(result)
   const proofBytes = toRequiredBytes(record.proofBytes, 'proofBytes')
   const publicInputs = toRequiredBytes(record.publicInputs, 'publicInputs')
   const nullifierHash = toRequiredBytes(record.nullifierHash, 'nullifierHash')
+  const expectedPublicInputs = encodeNativeGroth16PublicInputs(request, nullifierHash)
+  if (!bytesEqual(publicInputs, expectedPublicInputs)) {
+    throw new Error(ARTIFACT_INVALID)
+  }
+
   return { proofBytes, publicInputs, nullifierHash }
 }
 
 function assertProofRequest(request: CommentPrivacyProofRequest): void {
-  if (!isNonEmptyString(request.scope) || !isNonEmptyString(request.rootVersion) || !isNonEmptyString(request.circuitId)) {
+  if (!isNonEmptyString(request.scope) ||
+    !isNonEmptyString(request.rootVersion) ||
+    !isNonEmptyString(request.circuitId) ||
+    !isNonEmptyString(request.verifyingKeyHash) ||
+    !isNonEmptyString(request.issuerPublicKeyHash) ||
+    !isNonEmptyString(request.credentialLevel) ||
+    !isNonEmptyString(request.reputationBucket)) {
     throw new Error(ARTIFACT_INVALID)
   }
   if (!Number.isFinite(request.credentialEpoch) || !Number.isFinite(request.circuitNumericId) || !Number.isFinite(request.publicInputLayoutVersion)) {
@@ -299,12 +312,81 @@ function assertProofRequest(request: CommentPrivacyProofRequest): void {
   }
 
   toRequiredBytes(request.metadataBytes, 'metadataBytes')
+  toRequiredBytes(request.credentialCommitment, 'credentialCommitment')
   toRequiredBytes(request.credentialRoot, 'credentialRoot')
   toRequiredBytes(request.revocationRoot, 'revocationRoot')
   toRequiredBytes(request.circuitMetadata, 'circuitMetadata')
   toRequiredBytes(request.credentialSecret, 'credentialSecret')
   toRequiredBytes(request.issuerSignature, 'issuerSignature')
   toRequiredBytes(request.revocationWitness, 'revocationWitness')
+}
+
+function encodeNativeGroth16PublicInputs(
+  request: CommentPrivacyProofRequest,
+  nullifierHash: Uint8Array
+): Uint8Array {
+  const chunks: Uint8Array[] = []
+  writeString(chunks, PUBLIC_INPUT_TRANSCRIPT_DOMAIN)
+  writeString(chunks, COMMENT_ACTION_CONTEXT)
+  writeString(chunks, request.scope)
+  writeString(chunks, request.circuitId ?? '')
+  writeString(chunks, request.verifyingKeyHash ?? '')
+  writeUInt16(chunks, request.publicInputLayoutVersion ?? 0)
+  writeInt64(chunks, request.credentialEpoch ?? 0)
+  writeString(chunks, bytesToHex(nullifierHash))
+  writeString(chunks, bytesToHex(toRequiredBytes(request.credentialCommitment, 'credentialCommitment')))
+  writeString(chunks, bytesToHex(toRequiredBytes(request.credentialRoot, 'credentialRoot')))
+  writeString(chunks, bytesToHex(toRequiredBytes(request.revocationRoot, 'revocationRoot')))
+  writeString(chunks, request.issuerPublicKeyHash ?? '')
+  writeString(chunks, request.credentialLevel ?? '')
+  writeString(chunks, request.reputationBucket ?? '')
+  return concatChunks(chunks)
+}
+
+function writeString(chunks: Uint8Array[], value: string): void {
+  const bytes = new TextEncoder().encode(value)
+  writeInt32(chunks, bytes.byteLength)
+  chunks.push(bytes)
+}
+
+function writeInt32(chunks: Uint8Array[], value: number): void {
+  const bytes = new Uint8Array(4)
+  new DataView(bytes.buffer).setInt32(0, value, true)
+  chunks.push(bytes)
+}
+
+function writeUInt16(chunks: Uint8Array[], value: number): void {
+  const bytes = new Uint8Array(2)
+  new DataView(bytes.buffer).setUint16(0, value, true)
+  chunks.push(bytes)
+}
+
+function writeInt64(chunks: Uint8Array[], value: number): void {
+  const bytes = new Uint8Array(8)
+  new DataView(bytes.buffer).setBigInt64(0, BigInt(Math.trunc(value)), true)
+  chunks.push(bytes)
+}
+
+function concatChunks(chunks: Uint8Array[]): Uint8Array {
+  const output = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.byteLength, 0))
+  let offset = 0
+  for (const chunk of chunks) {
+    output.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return output
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.byteLength !== right.byteLength) {
+    return false
+  }
+
+  let diff = 0
+  for (let index = 0; index < left.byteLength; index += 1) {
+    diff |= left[index] ^ right[index]
+  }
+  return diff === 0
 }
 
 function assertManifestMatchesRequest(manifest: CommentPrivacyProverManifest, request: CommentPrivacyProofRequest): void {

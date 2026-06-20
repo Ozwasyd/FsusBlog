@@ -233,7 +233,7 @@ describe('comment API', () => {
     expect([...readSliceBytes(payload, blob, 40)]).toEqual([4, 5, 6])
   })
 
-  it('encodeAnonymousCommentTicketRequest writes proof fields without public identity', () => {
+  it('encodeAnonymousCommentTicketRequest writes the full comment.v2 ticket POD without public identity', () => {
     const payload = encodeAnonymousCommentTicketRequest({
       articleId: 42,
       parentId: '100',
@@ -243,9 +243,15 @@ describe('comment API', () => {
       circuitNumericId: 7,
       publicInputLayoutVersion: 3,
       anonymousScope: 'article:42',
-      displayLanguage: 'zh-CN',
       circuitId: 'zk-comment-v2',
+      actionContext: 'comment.create',
+      verifyingKeyHash: 'a'.repeat(64),
       nullifierHash: new Uint8Array([9, 10]),
+      credentialCommitment: new Uint8Array([21, 22]),
+      credentialRoot: new Uint8Array([23, 24]),
+      revocationRoot: new Uint8Array([25, 26]),
+      credentialLevel: 'strong_anonymous',
+      reputationBucket: 'rep:low',
       zkProof: new Uint8Array([11, 12]),
       publicInputs: new Uint8Array([13, 14]),
       replyToUserId: 123,
@@ -263,13 +269,19 @@ describe('comment API', () => {
     expect(view.getBigInt64(32, true)).toBe(20260618n)
     expect(view.getUint32(40, true)).toBe(7)
     expect(view.getUint16(44, true)).toBe(3)
-    const blob = payload.subarray(100)
-    expect(readSliceText(payload, blob, 48)).toBe('article:42')
-    expect(readSliceText(payload, blob, 56)).toBe('zh-CN')
+    const blob = payload.subarray(148)
+    expect(readSliceText(payload, blob, 48)).toBe('comment.create')
+    expect(readSliceText(payload, blob, 56)).toBe('article:42')
     expect(readSliceText(payload, blob, 64)).toBe('zk-comment-v2')
-    expect([...readSliceBytes(payload, blob, 72)]).toEqual([9, 10])
-    expect([...readSliceBytes(payload, blob, 80)]).toEqual([11, 12])
-    expect([...readSliceBytes(payload, blob, 88)]).toEqual([13, 14])
+    expect(readSliceText(payload, blob, 72)).toBe('a'.repeat(64))
+    expect([...readSliceBytes(payload, blob, 80)]).toEqual([9, 10])
+    expect([...readSliceBytes(payload, blob, 88)]).toEqual([21, 22])
+    expect([...readSliceBytes(payload, blob, 96)]).toEqual([23, 24])
+    expect([...readSliceBytes(payload, blob, 104)]).toEqual([25, 26])
+    expect(readSliceText(payload, blob, 112)).toBe('strong_anonymous')
+    expect(readSliceText(payload, blob, 120)).toBe('rep:low')
+    expect([...readSliceBytes(payload, blob, 128)]).toEqual([11, 12])
+    expect([...readSliceBytes(payload, blob, 136)]).toEqual([13, 14])
     expect(new TextDecoder().decode(payload)).not.toContain('alice')
   })
 
@@ -375,9 +387,15 @@ describe('comment API', () => {
       circuitNumericId: 7,
       publicInputLayoutVersion: 3,
       anonymousScope: 'article:42',
-      displayLanguage: 'zh-CN',
       circuitId: 'comment.v2',
+      actionContext: 'comment.create',
+      verifyingKeyHash: 'a'.repeat(64),
       nullifierHash: new Uint8Array([9, 10]),
+      credentialCommitment: new Uint8Array([21, 22]),
+      credentialRoot: new Uint8Array([23, 24]),
+      revocationRoot: new Uint8Array([25, 26]),
+      credentialLevel: 'strong_anonymous',
+      reputationBucket: 'rep:low',
       zkProof: new Uint8Array([11, 12]),
       publicInputs: new Uint8Array([13, 14])
     }, { signal })

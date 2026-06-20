@@ -130,8 +130,11 @@ describe('CommentPrivacyRuntime', () => {
           ok: true,
           credential: {
             credentialSecret: new Uint8Array([11, 12, 13]),
+            credentialCommitment: new Uint8Array([14, 15, 16]),
             issuerSignature: new Uint8Array([21, 22, 23]),
-            revocationWitness: new Uint8Array([31, 32, 33])
+            revocationWitness: new Uint8Array([31, 32, 33]),
+            credentialLevel: 'strong_anonymous',
+            reputationBucket: 'rep:low'
           }
         })
       }),
@@ -142,8 +145,11 @@ describe('CommentPrivacyRuntime', () => {
 
     expect(worker.prepareProof).toHaveBeenCalledWith(expect.objectContaining({
       credentialSecret: new Uint8Array([11, 12, 13]),
+      credentialCommitment: new Uint8Array([14, 15, 16]),
       issuerSignature: new Uint8Array([21, 22, 23]),
-      revocationWitness: new Uint8Array([31, 32, 33])
+      revocationWitness: new Uint8Array([31, 32, 33]),
+      credentialLevel: 'strong_anonymous',
+      reputationBucket: 'rep:low'
     }))
   })
 

@@ -26,9 +26,14 @@ describe('commentPrivacyWorkerClient', () => {
       circuitNumericId: 7,
       publicInputLayoutVersion: 3,
       circuitId: 'fsus.anonymous.comment.v2',
+      verifyingKeyHash: 'a'.repeat(64),
+      issuerPublicKeyHash: 'b'.repeat(64),
+      credentialCommitment: new Uint8Array([3]),
       credentialRoot: new Uint8Array([4]),
       revocationRoot: new Uint8Array([5]),
-      circuitMetadata: new Uint8Array([6])
+      circuitMetadata: new Uint8Array([6]),
+      credentialLevel: 'strong_anonymous',
+      reputationBucket: 'rep:low'
     })
 
     expect(created).toHaveLength(1)
@@ -36,11 +41,14 @@ describe('commentPrivacyWorkerClient', () => {
     expect(proof.publicInputs).toEqual(new Uint8Array([10, 11]))
     expect(proof.nullifierHash).toEqual(new Uint8Array([12, 13]))
     expect(created[0].messages).toHaveLength(2)
-    expect(created[0].messages[1].transfer).toHaveLength(4)
+    expect(created[0].messages[1].transfer).toHaveLength(5)
     expect(created[0].messages[1].transfer[0].byteLength).toBe(3)
     expect(created[0].messages[1].transfer[1].byteLength).toBe(1)
     expect(created[0].messages[1].transfer[2].byteLength).toBe(1)
     expect(created[0].messages[1].transfer[3].byteLength).toBe(1)
+    expect(created[0].messages[1].transfer[4].byteLength).toBe(1)
+    expect(created[0].messages[1].message.verifyingKeyHash).toBe('a'.repeat(64))
+    expect(created[0].messages[1].message.credentialLevel).toBe('strong_anonymous')
     expect(Object.keys(proof).sort()).toEqual(['nullifierHash', 'proofBytes', 'publicInputs'])
 
     client.dispose()

@@ -26,6 +26,7 @@ const DEFAULT_CREDENTIAL_SECRET_BYTES = 32
 const DEFAULT_CLIENT_NONCE_BYTES = 32
 const DEFAULT_FAILURE_CACHE_TTL_MS = 30_000
 const DEFAULT_CREDENTIAL_LEVEL = 'strong_anonymous'
+const DEFAULT_REPUTATION_BUCKET = 'unrated'
 const REVOCATION_WITNESS_MAGIC = new TextEncoder().encode('fsus-revocation-witness-v1')
 
 export interface CommentPrivacyCredentialProvider {
@@ -39,6 +40,7 @@ export interface CommentPrivacyCredentialIssuerMetadata {
   publicInputLayoutVersion: number
   circuitId: string
   credentialLevel: string
+  reputationBucket: string
   issuerPublicKeyHash: string
   revocationRoot: Uint8Array
 }
@@ -228,13 +230,14 @@ export function createCommentPrivacyCredentialProvider(
 
         const credential = cloneCredentialMaterial({
           ...material,
-          revocationWitness: cloneBytes(revocationWitness)
+          revocationWitness: cloneBytes(revocationWitness),
+          credentialLevel: issuerResponse.credentialLevel || material.credentialLevel || metadata.credentialLevel,
+          reputationBucket: material.reputationBucket || metadata.reputationBucket || DEFAULT_REPUTATION_BUCKET
         })
         await vault.put({
           ...partition,
           ...credential,
           expiresAtUnixMs,
-          credentialLevel: issuerResponse.credentialLevel,
           issuerPublicKeyId: issuerResponse.issuerPublicKeyId
         })
 
@@ -298,6 +301,7 @@ async function loadDefaultCredentialMetadata(
     publicInputLayoutVersion: root.publicInputLayoutVersion,
     circuitId,
     credentialLevel: DEFAULT_CREDENTIAL_LEVEL,
+    reputationBucket: DEFAULT_REPUTATION_BUCKET,
     issuerPublicKeyHash,
     revocationRoot: cloneBytes(root.revocationRoot)
   }
@@ -328,6 +332,7 @@ function isUsableMetadata(
     Number.isFinite(metadata.publicInputLayoutVersion) &&
     Boolean(metadata.circuitId) &&
     Boolean(metadata.credentialLevel) &&
+    Boolean(metadata.reputationBucket) &&
     Boolean(metadata.issuerPublicKeyHash) &&
     metadata.revocationRoot instanceof Uint8Array &&
     metadata.revocationRoot.byteLength > 0
@@ -373,10 +378,16 @@ function isUsableCredentialMaterial(
   return Boolean(material) &&
     material?.credentialSecret instanceof Uint8Array &&
     material.credentialSecret.byteLength > 0 &&
+    material.credentialCommitment instanceof Uint8Array &&
+    material.credentialCommitment.byteLength > 0 &&
     material.issuerSignature instanceof Uint8Array &&
     material.issuerSignature.byteLength > 0 &&
     material.revocationWitness instanceof Uint8Array &&
-    material.revocationWitness.byteLength > 0
+    material.revocationWitness.byteLength > 0 &&
+    typeof material.credentialLevel === 'string' &&
+    material.credentialLevel.length > 0 &&
+    typeof material.reputationBucket === 'string' &&
+    material.reputationBucket.length > 0
 }
 
 function randomBytes(
@@ -391,8 +402,11 @@ function randomBytes(
 function cloneCredentialMaterial(material: CommentPrivacyCredentialMaterial): CommentPrivacyCredentialMaterial {
   const cloned: CommentPrivacyCredentialMaterial = {
     credentialSecret: cloneBytes(material.credentialSecret),
+    credentialCommitment: cloneBytes(material.credentialCommitment),
     issuerSignature: cloneBytes(material.issuerSignature),
-    revocationWitness: cloneBytes(material.revocationWitness)
+    revocationWitness: cloneBytes(material.revocationWitness),
+    credentialLevel: material.credentialLevel,
+    reputationBucket: material.reputationBucket
   }
   if (material.revocationHandleHash instanceof Uint8Array && material.revocationHandleHash.byteLength > 0) {
     cloned.revocationHandleHash = cloneBytes(material.revocationHandleHash)

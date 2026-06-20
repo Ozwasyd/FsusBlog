@@ -85,10 +85,14 @@ describe('commentPrivacyCredentialProvider', () => {
       issuerPublicKeyId: 'issuer-key-test',
       expiresAtUnixMs: 5_000,
       credentialSecret: new Uint8Array([1, 2, 3]),
+      credentialCommitment: new Uint8Array([14, 15, 16]),
       issuerSignature: new Uint8Array([4, 5, 6]),
-      revocationWitness: new Uint8Array([71, 72, 73])
+      revocationWitness: new Uint8Array([71, 72, 73]),
+      credentialLevel: 'strong_anonymous',
+      reputationBucket: 'rep:low'
     }))
     expect([...(material?.credentialSecret ?? [])]).toEqual([1, 2, 3])
+    expect([...(material?.credentialCommitment ?? [])]).toEqual([14, 15, 16])
     expect([...(material?.issuerSignature ?? [])]).toEqual([4, 5, 6])
     expect([...(material?.revocationWitness ?? [])]).toEqual([71, 72, 73])
     expect(globalThis.localStorage.length).toBe(0)
@@ -145,6 +149,8 @@ describe('commentPrivacyCredentialProvider', () => {
     expect(issueRequest.clientNonce).toBeInstanceOf(Uint8Array)
     expect(issueRequest.clientNonce).toHaveLength(32)
     expect(material?.issuerSignature).toEqual(issued.issuerSignature)
+    expect(material?.credentialCommitment).toBeInstanceOf(Uint8Array)
+    expect(material?.credentialCommitment).toHaveLength(32)
     expect(material?.credentialSecret).toBeInstanceOf(Uint8Array)
     expect(material?.credentialSecret).toHaveLength(32)
     expect(material?.revocationWitness).toEqual(new Uint8Array([61, 62, 63]))
@@ -159,7 +165,10 @@ describe('commentPrivacyCredentialProvider', () => {
     expect(vault.put).toHaveBeenCalledWith(expect.objectContaining({
       issuerPublicKeyId: 'issuer-key-test',
       issuerSignature: issued.issuerSignature,
-      revocationWitness: new Uint8Array([61, 62, 63])
+      credentialCommitment: expect.any(Uint8Array),
+      revocationWitness: new Uint8Array([61, 62, 63]),
+      credentialLevel: 'strong_anonymous',
+      reputationBucket: 'rep:low'
     }))
     expect(globalThis.localStorage.length).toBe(0)
     expect(globalThis.sessionStorage.length).toBe(0)
@@ -246,6 +255,7 @@ function createMetadata() {
     publicInputLayoutVersion: 3,
     circuitId: 'fsus.anonymous.comment.v2',
     credentialLevel: 'strong_anonymous',
+    reputationBucket: 'rep:low',
     issuerPublicKeyHash: 'issuer-public-key-hash',
     revocationRoot: new Uint8Array([51, 52])
   }
@@ -259,9 +269,12 @@ function createCredentialSuite(): CommentPrivacyCredentialSuite {
     }),
     acceptIssuerResponse: vi.fn().mockResolvedValue({
       credentialSecret: new Uint8Array([1, 2, 3]),
+      credentialCommitment: new Uint8Array([14, 15, 16]),
       issuerSignature: new Uint8Array([4, 5, 6]),
       revocationWitness: new Uint8Array([7, 8, 9]),
-      revocationHandleHash: new Uint8Array([91, 92])
+      revocationHandleHash: new Uint8Array([91, 92]),
+      credentialLevel: 'strong_anonymous',
+      reputationBucket: 'rep:low'
     })
   }
 }

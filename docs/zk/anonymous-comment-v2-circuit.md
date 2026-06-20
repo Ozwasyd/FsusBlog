@@ -58,6 +58,7 @@ The public input list is intentionally coarse and identity-free:
 | `action_context` | Must equal `comment.create`. |
 | `scope` | Comment replay scope, for example `article:42`. |
 | `nullifier_hash` | Public nullifier constrained by the private credential secret and scope. |
+| `credential_commitment` | Public commitment to the held anonymous credential. |
 | `credential_root` | Active or grace credential membership root for the epoch. |
 | `revocation_root` | Revocation accumulator root for non-membership. |
 | `credential_epoch` | Epoch bound to the root snapshot and credential. |
@@ -69,6 +70,20 @@ The public input list is intentionally coarse and identity-free:
 
 `userId`, `user_id`, `username`, public handle, account id, session id, IP
 address, device fingerprint, and cookies are not public inputs.
+
+The runtime native verifier transcript is the byte output of
+`NativeGroth16PublicInputCodec`: domain
+`fsus.anonymous.comment.v2.public-inputs`, then length-prefixed UTF-8 /
+little-endian scalar fields for `action_context`, `scope`, `circuit_id`,
+`verifying_key_hash`, `public_input_layout_version`, `credential_epoch`,
+`nullifier_hash`, `credential_commitment`, `credential_root`,
+`revocation_root`, `issuer_public_key_hash`, `credential_level`, and
+`reputation_bucket`. The browser wasm prover must return exactly those bytes as
+`publicInputs`; the ticket service rebuilds the transcript from the POD fields
+and rejects mismatches before native verification. The circuit source still
+declares `policy_hash`; production remains fail-closed until real cross-stack
+evidence binds the exported comment policy snapshot hash into the same
+Groth16 public input layout.
 
 ## Private Witness
 
