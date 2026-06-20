@@ -659,6 +659,7 @@ run_frontend_fast_static_governance_group_body() {
   run_in_client npm run check:views-constraints
   run "$ROOT_DIR/tools/check-public-hot-read-fastpath.sh"
   run "$ROOT_DIR/tools/check-historical-residue.sh"
+  run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tests/frontend/checks/static/check-historical-residue-fixture.mjs"
   run "$ROOT_DIR/tools/check-cache-governance.sh"
   run "$ROOT_DIR/tools/check-test-hygiene.sh"
   run "$ROOT_DIR/tools/operations/check-slo-definition.mjs"
