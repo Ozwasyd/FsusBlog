@@ -249,7 +249,7 @@ public readonly record struct AuthAnonymousBootstrapRequestCoreModel(string? Pub
 
 public readonly record struct AuthUpdatePasswordRequestCoreModel(string OldPassword, string NewPassword, string ConfirmPassword);
 
-public readonly record struct AuthDeleteAccountRequestCoreModel(string Password, string ConfirmText, string? Code, string? RecoveryCode);
+public readonly record struct AuthDeleteAccountRequestCoreModel(string ConfirmText);
 
 public readonly record struct MfaPasswordProofRequestCoreModel(string Password, string? Code, string? RecoveryCode);
 

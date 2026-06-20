@@ -42,6 +42,21 @@
           <p>公开发送选项：{{ identityAccountSnapshot.publicSendOptionEnabled ? '可显式 opt-in' : '当前不可用' }}</p>
         </div>
       </WorkbenchPanel>
+
+      <WorkbenchPanel
+        class="mt-6"
+        title="账号生命周期"
+        caption="注销账户前需要完成匿名账号敏感操作校验。"
+        :title-level="2"
+      >
+        <div class="identity-copy-block">
+          <p>注销后当前会话、通行密钥、Recovery Key 与匿名凭据状态都会失效。</p>
+        </div>
+        <div v-if="deleteAccountError" class="identity-error-state mt-4" role="alert">{{ deleteAccountError }}</div>
+        <div class="mt-5">
+          <el-button type="danger" :loading="deleteAccountLoading" @click="deleteCurrentAccount">注销账户</el-button>
+        </div>
+      </WorkbenchPanel>
     </template>
 
     <WorkbenchPanel
@@ -328,6 +343,7 @@ import {
 } from '@/components/user/ProfileSettingsPrimitives'
 import {
   createRecoveryKey,
+  deleteAccount,
   getMfaProfile,
   listSessions,
   revokeOtherSessions as revokeOtherSessionsApi,
@@ -431,6 +447,8 @@ const publicHandleDraft = ref('')
 const publicHandleSaving = ref(false)
 const publicHandleError = ref('')
 const explicitPublicSendOptIn = ref(false)
+const deleteAccountLoading = ref(false)
+const deleteAccountError = ref('')
 
 const currentRouteName = computed<IdentityRouteName>(() => {
   const name = typeof route.name === 'string' ? route.name : ''
@@ -641,6 +659,38 @@ const savePublicHandle = async (): Promise<void> => {
 const clearPublicHandle = async (): Promise<void> => {
   publicHandleDraft.value = ''
   await savePublicHandle()
+}
+
+const deleteCurrentAccount = async (): Promise<void> => {
+  const confirmed = await confirmDanger(
+    '注销后账号相关会话、通行密钥、Recovery Key 与匿名凭据都会失效。确认继续？',
+    '注销账户',
+    { confirmButtonText: '确认注销', cancelButtonText: '取消' }
+  )
+  if (!confirmed) {
+    return
+  }
+
+  deleteAccountLoading.value = true
+  deleteAccountError.value = ''
+  try {
+    const proof = await startMfaChallenge('account.delete') as MfaChallengeResult
+    if (!proof.verified || !proof.proofToken) {
+      deleteAccountError.value = '请先完成匿名账号敏感操作校验。'
+      return
+    }
+
+    await deleteAccount({
+      confirmText: 'DELETE',
+      mfaProofToken: proof.proofToken
+    })
+    toast.success('账号已注销')
+    await userStore.logout()
+  } catch (error) {
+    deleteAccountError.value = toAppError(error, '账号注销失败').message || '账号注销失败'
+  } finally {
+    deleteAccountLoading.value = false
+  }
 }
 
 const revokeSessionDevice = async (sessionId: string): Promise<void> => {

@@ -551,6 +551,7 @@ public static partial class BinaryEndpoints
         group.MapPost("/auth/delete-account", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IUserProfileCommandService profileCommands,
+            IUserSecurityStepUpService stepUp,
             AuthCookieService authCookieService,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
@@ -567,12 +568,29 @@ public static partial class BinaryEndpoints
             }
 
             int userId = httpContext.GetUserId();
+            if (!TryReadMfaProof(httpContext, out string proofToken))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_STEP_UP_PROOF_REQUIRED"),
+                    aeds,
+                    StatusCodes.Status428PreconditionRequired);
+            }
+
+            var stepUpResult = await RequireUserSecurityStepUpAsync(
+                httpContext,
+                stepUp,
+                UserSecurityStepUpActions.AccountDelete,
+                aeds,
+                allowPasswordBody: false,
+                cancellationToken);
+            if (stepUpResult is { } rejected)
+            {
+                return BinaryResults.FromError(rejected.Error, aeds, rejected.StatusCode);
+            }
+
             var result = await profileCommands.DeleteAccountAsync(userId, new DeleteAccountRequestDto
             {
-                Password = request.Password,
-                ConfirmText = request.ConfirmText,
-                Code = request.Code,
-                RecoveryCode = request.RecoveryCode
+                ConfirmText = request.ConfirmText
             }, cancellationToken);
             if (!result.Success)
             {

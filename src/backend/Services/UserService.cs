@@ -842,11 +842,6 @@ public partial class UserService(
 
     public async Task<(bool Success, string Message)> DeleteAccountAsync(int userId, DeleteAccountRequestDto dto)
     {
-        if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
-        {
-            return (false, AnonymousIdentityRuntime.LegacyPasswordDisabledMessage);
-        }
-
         if (!string.Equals(dto.ConfirmText?.Trim(), "DELETE", StringComparison.Ordinal))
         {
             return (false, "确认文本不匹配");
@@ -868,22 +863,6 @@ public partial class UserService(
             return (false, "账户已注销");
         }
 
-        if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.Password))
-        {
-            return (false, "密码验证失败");
-        }
-
-        if (user.MfaEnabled)
-        {
-            bool passed = await VerifyMfaOrRecoveryCodeAsync(user, dto.Code, dto.RecoveryCode, persistRecoveryConsumption: true);
-            if (!passed)
-            {
-                return (false, "多因素验证失败");
-            }
-        }
-
-        string anonymizedUsername = BuildDeletedUsername(user.Id);
-        string replacementPassword = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N"));
         DateTime deletedAt = DateTime.UtcNow;
 
         var tran = await _db.Ado.UseTranAsync(async () =>
@@ -894,10 +873,29 @@ public partial class UserService(
                 .Where(s => s.UserId == userId && s.RevokedAt == null)
                 .ExecuteCommandAsync();
 
+            await _db.Deleteable<PasskeyCredential>()
+                .Where(p => p.UserId == userId)
+                .ExecuteCommandAsync();
+
+            await _db.Updateable<RecoveryKeyCredential>()
+                .SetColumns(k => k.RevokedAt == deletedAt)
+                .Where(k => k.UserId == userId && k.RevokedAt == null)
+                .ExecuteCommandAsync();
+
+            await _db.Updateable<AnonymousCredential>()
+                .SetColumns(c => c.Status == AnonymousCredentialStatuses.Revoked)
+                .SetColumns(c => c.RevokedAtUtc == deletedAt)
+                .Where(c => c.UserId == userId && c.RevokedAtUtc == null)
+                .ExecuteCommandAsync();
+
             await _db.Updateable<User>()
                 .SetColumns(u => u.Status == UserStatusDeleted)
-                .SetColumns(u => u.Username == anonymizedUsername)
-                .SetColumns(u => u.Password == replacementPassword)
+                .SetColumns(u => u.Password == string.Empty)
+                .SetColumns(u => u.PublicHandle == null)
+                .SetColumns(u => u.IdentityKind == AnonymousIdentityRuntime.AnonymousAccountKind)
+                .SetColumns(u => u.PasskeyEnabled == false)
+                .SetColumns(u => u.RecoveryEnabled == false)
+                .SetColumns(u => u.AnonymousCredentialStatus == AnonymousCredentialStatuses.Revoked)
                 .SetColumns(u => u.MfaEnabled == false)
                 .SetColumns(u => u.MfaSecretEncrypted == null)
                 .SetColumns(u => u.MfaPendingSecretEncrypted == null)
@@ -921,12 +919,6 @@ public partial class UserService(
         await _blacklistService.UnbanUserAsync(userId);
         await _cache.RemoveAsync(CachePolicyId.SecurityBlockedUser, userId.ToString());
         return (true, "账户已注销");
-    }
-
-    private static string BuildDeletedUsername(int userId)
-    {
-        string suffix = Guid.NewGuid().ToString("N")[..8];
-        return $"deleted_{userId}_{suffix}";
     }
 
     public async Task<MfaProfileDto?> GetMfaProfileAsync(int userId)

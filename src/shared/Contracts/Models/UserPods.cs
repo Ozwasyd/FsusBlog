@@ -233,10 +233,7 @@ public readonly struct AuthUpdatePasswordRequestPod
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AuthDeleteAccountRequestPod
 {
-    public readonly Utf8SliceRef Password;
     public readonly Utf8SliceRef ConfirmText;
-    public readonly Utf8SliceRef Code;
-    public readonly Utf8SliceRef RecoveryCode;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

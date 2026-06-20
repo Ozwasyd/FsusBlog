@@ -188,6 +188,15 @@ public sealed class EndpointPolicyContractTests
                 @"MapPost\(""/auth/delete-account""[\s\S]*?AllowRestrictedAccountAction\(RestrictedAccountAction\.DeleteOwnAccount\)",
                 RegexOptions.CultureInvariant),
             authSource);
+        string deleteAccount = ExtractBetween(
+            authSource,
+            "group.MapPost(\"/auth/delete-account\"",
+            "group.MapGet(\"/auth/sessions\"");
+        Assert.Contains("IUserSecurityStepUpService stepUp", deleteAccount, StringComparison.Ordinal);
+        Assert.Contains("RequireUserSecurityStepUpAsync(", deleteAccount, StringComparison.Ordinal);
+        Assert.Contains("UserSecurityStepUpActions.AccountDelete", deleteAccount, StringComparison.Ordinal);
+        Assert.Contains("TryReadMfaProof(httpContext, out string proofToken)", deleteAccount, StringComparison.Ordinal);
+        Assert.DoesNotContain("Password = request.Password", deleteAccount, StringComparison.Ordinal);
         Assert.Matches(
             new Regex(
                 @"MapPost\(""/auth/logout""[\s\S]*?AllowRestrictedAccountAction\(RestrictedAccountAction\.Logout\)",

@@ -491,17 +491,21 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
-    public void AuthDeleteAccountRequest_RoundTrip_PreservesOptionalCodes()
+    public void AuthDeleteAccountRequest_RoundTrip_PreservesConfirmTextWithoutPassword()
     {
-        var request = new AuthDeleteAccountRequestCoreModel("pw", "DELETE", "123456", null);
+        Assert.DoesNotContain(
+            typeof(AuthDeleteAccountRequestCoreModel).GetProperties(),
+            static property => property.Name == "Password");
+        Assert.DoesNotContain(
+            typeof(AuthDeleteAccountRequestPod).GetFields(),
+            static field => field.Name == "Password");
+
+        var request = new AuthDeleteAccountRequestCoreModel("DELETE");
         byte[] encoded = PodBinaryCodec.EncodeAuthDeleteAccountRequest(request);
         bool ok = PodBinaryCodec.TryDecodeAuthDeleteAccountRequest(encoded, out var decoded);
 
         Assert.True(ok);
-        Assert.Equal("pw", decoded.Password);
         Assert.Equal("DELETE", decoded.ConfirmText);
-        Assert.Equal("123456", decoded.Code);
-        Assert.Null(decoded.RecoveryCode);
     }
 
     [Fact]

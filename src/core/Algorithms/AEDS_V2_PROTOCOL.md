@@ -144,7 +144,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `AuthUpdateUsernameRequest` payload: `StringMutationRequestPod` followed by blob payload for the new username.
 - `AuthUpdatePublicHandleRequest` payload: `StringMutationRequestPod` followed by blob payload for the new public handle; an empty string clears the handle.
 - `AuthUpdatePasswordRequest` payload: `AuthUpdatePasswordRequestPod` followed by blob payload for old/new/confirm password.
-- `AuthDeleteAccountRequest` payload: `AuthDeleteAccountRequestPod` followed by blob payload for password/confirm text/MFA code/recovery code.
+- `AuthDeleteAccountRequest` payload: `AuthDeleteAccountRequestPod` followed by blob payload for confirm text only. Account deletion step-up proof is carried by `X-Fsus-Mfa-Proof`, not by password, TOTP code, or recovery-code fields.
 - `MfaSetupVerifyRequest` payload: `StringMutationRequestPod` followed by blob payload for the TOTP code.
 - `MfaPasswordProofRequest` payload: `MfaPasswordProofRequestPod` followed by blob payload for password/TOTP/recovery code.
 - `MfaChallengeStartRequest` payload: `StringMutationRequestPod` followed by blob payload for action.

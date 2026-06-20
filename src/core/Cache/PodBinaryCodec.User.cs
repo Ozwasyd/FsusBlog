@@ -762,10 +762,7 @@ public static partial class PodBinaryCodec
         var payload = new ArrayBufferWriter<byte>(256);
         var mutable = new MutableAuthDeleteAccountRequestPod
         {
-            Password = PodUtf8Codec.AppendSlice(request.Password, payload),
-            ConfirmText = PodUtf8Codec.AppendSlice(request.ConfirmText, payload),
-            Code = PodUtf8Codec.AppendSlice(request.Code ?? string.Empty, payload),
-            RecoveryCode = PodUtf8Codec.AppendSlice(request.RecoveryCode ?? string.Empty, payload)
+            ConfirmText = PodUtf8Codec.AppendSlice(request.ConfirmText, payload)
         };
 
         var writer = new BinaryPodWriter(destination);
@@ -786,10 +783,7 @@ public static partial class PodBinaryCodec
         }
 
         request = new AuthDeleteAccountRequestCoreModel(
-            PodProjector.ReadSlice(pod.Password, payload),
-            PodProjector.ReadSlice(pod.ConfirmText, payload),
-            NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.Code, payload)),
-            NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.RecoveryCode, payload)));
+            PodProjector.ReadSlice(pod.ConfirmText, payload));
         return reader.IsConsumed;
     }
 
@@ -1162,10 +1156,7 @@ public static partial class PodBinaryCodec
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableAuthDeleteAccountRequestPod
     {
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Password;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ConfirmText;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Code;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RecoveryCode;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

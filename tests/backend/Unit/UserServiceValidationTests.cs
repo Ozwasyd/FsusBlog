@@ -9,6 +9,7 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.Fixtures;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SqlSugar;
@@ -344,6 +345,28 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    public void DeleteAccountAsync_SourceUsesAnonymousTombstoneAndRevokesAccountAssets()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+        string method = ExtractUserServiceMethod(
+            source,
+            "public async Task<(bool Success, string Message)> DeleteAccountAsync",
+            "public async Task<MfaProfileDto?> GetMfaProfileAsync");
+
+        Assert.DoesNotContain("LegacyPasswordDisabledMessage", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("BCrypt.Net.BCrypt.Verify(dto.Password", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildDeletedUsername", method, StringComparison.Ordinal);
+        Assert.Contains("IdentityKind == AnonymousIdentityRuntime.AnonymousAccountKind", method, StringComparison.Ordinal);
+        Assert.Contains("PublicHandle == null", method, StringComparison.Ordinal);
+        Assert.Contains("PasskeyEnabled == false", method, StringComparison.Ordinal);
+        Assert.Contains("RecoveryEnabled == false", method, StringComparison.Ordinal);
+        Assert.Contains("AnonymousCredentialStatus == AnonymousCredentialStatuses.Revoked", method, StringComparison.Ordinal);
+        Assert.Contains("Updateable<RecoveryKeyCredential>()", method, StringComparison.Ordinal);
+        Assert.Contains("Updateable<AnonymousCredential>()", method, StringComparison.Ordinal);
+        Assert.Contains("Deleteable<PasskeyCredential>()", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task StartMfaSetupAsync_AnonymousIdentityMode_UsesStableAccountLabelWithoutUsername()
     {
         using var _ = SetAnonymousIdentityMode("1");
@@ -584,6 +607,15 @@ public class UserServiceValidationTests
     private static IDisposable SetAnonymousIdentityMode(string? value)
         => new EnvironmentVariableScope(AnonymousIdentityRuntime.ModeEnvironmentVariable, value);
 
+    private static string ExtractUserServiceMethod(string source, string start, string end)
+    {
+        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
+        int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
+        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
+        return source[startIndex..endIndex];
+    }
+
     private sealed class EnvironmentVariableScope : IDisposable
     {
         private readonly string _name;
@@ -654,10 +686,11 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public void BuildDeletedUsername_HasExpectedFormat()
+    public void DeleteAccountAsync_DoesNotUseLegacyDeletedUsernameRewrite()
     {
-        var result = InvokePrivateStatic<string>("BuildDeletedUsername", [42]);
-        Assert.StartsWith("deleted_42_", result);
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+        Assert.DoesNotContain("BuildDeletedUsername", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("deleted_", source, StringComparison.Ordinal);
     }
 
     [Theory]

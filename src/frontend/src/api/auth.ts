@@ -136,10 +136,8 @@ export interface AdminPrincipalSnapshot {
 }
 
 export interface DeleteAccountRequest {
-  password: string
   confirmText: string
-  code?: string
-  recoveryCode?: string
+  mfaProofToken?: string | null
 }
 
 // ================= API 方法定义 =================
@@ -236,6 +234,7 @@ export const deleteAccount = (data: DeleteAccountRequest, config?: ApiRequestCon
     requestOptions: {
       method: 'POST',
       requiresPow: true,
+      headers: mfaProofHeaders(data.mfaProofToken ?? config?.mfaProofToken),
       body: encodeAedsFrame(FrameType.AuthDeleteAccountRequest, encodeAuthDeleteAccountRequest(data))
     }
   })
@@ -582,13 +581,10 @@ function encodeAuthUpdatePasswordRequest(data: UpdatePasswordDto): Uint8Array {
 }
 
 function encodeAuthDeleteAccountRequest(data: DeleteAccountRequest): Uint8Array {
-  const { bytes, refs, blobLength } = encodeStringBlob([data.password, data.confirmText, data.code ?? '', data.recoveryCode ?? ''])
+  const { bytes, refs, blobLength } = encodeStringBlob([data.confirmText])
   const view = new DataView(bytes.buffer)
   writeSliceRef(view, 0, refs[0])
-  writeSliceRef(view, 8, refs[1])
-  writeSliceRef(view, 16, refs[2])
-  writeSliceRef(view, 24, refs[3])
-  view.setInt32(32, blobLength, true)
+  view.setInt32(8, blobLength, true)
   return bytes
 }
 

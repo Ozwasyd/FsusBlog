@@ -45,6 +45,12 @@ public sealed class UserSecurityStepUpServiceTests
     }
 
     [Fact]
+    public void AccountDelete_IsCredentialMutationAction()
+    {
+        Assert.True(UserSecurityStepUpActions.IsCredentialMutation(UserSecurityStepUpActions.AccountDelete));
+    }
+
+    [Fact]
     public async Task MfaEnabledAccount_DoesNotAcceptPasswordFallback()
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();

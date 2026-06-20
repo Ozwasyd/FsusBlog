@@ -92,17 +92,23 @@ describe('auth API binary base session flow', () => {
     }))
   })
 
-  it('deleteAccount sends binary delete request with PoW', async () => {
-    await deleteAccount({ password: 'pw', confirmText: 'DELETE' })
+  it('deleteAccount sends anonymous delete request with step-up proof and no password payload', async () => {
+    await deleteAccount({ confirmText: 'DELETE', mfaProofToken: 'proof-delete' })
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryUrl: '/api/binary/auth/delete-account',
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
         method: 'POST',
         requiresPow: true,
+        headers: expect.any(Headers),
         body: expect.any(ArrayBuffer)
       })
     }))
+    const call = mockBinary.mock.calls.at(-1)?.[0]
+    expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-delete')
+    const bytes = new Uint8Array(call?.requestOptions?.body as ArrayBuffer)
+    expect(new TextDecoder().decode(bytes)).toContain('DELETE')
+    expect(new TextDecoder().decode(bytes)).not.toContain('pw')
   })
 
   it('listSessions uses binary session list frame', async () => {

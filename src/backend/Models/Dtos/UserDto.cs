@@ -90,13 +90,7 @@ public sealed record class MfaDisableRequestDto
 public sealed record class DeleteAccountRequestDto
 {
     [Required]
-    public required string Password { get; init; }
-
-    [Required]
     public required string ConfirmText { get; init; }
-
-    public string? Code { get; init; }
-    public string? RecoveryCode { get; init; }
 }
 
 // ==========================================
