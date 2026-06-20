@@ -68,6 +68,7 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<ISecurityPolicySnapshotService, SecurityPolicySnapshotService>();
         services.AddScoped<ISecurityChallengePersistenceService, SecurityChallengePersistenceService>();
         services.AddScoped<ISecurityChallengeProofService, SecurityChallengeProofService>();
+        services.AddScoped<ISecurityChallengeVerifyRateLimiter, SecurityChallengeVerifyRateLimiter>();
         services.Configure<ChallengeV2EventWriterOptions>(configuration.GetSection(ChallengeV2EventWriterOptions.SectionName));
         services.AddSingleton<ChallengeV2AuditEventQueue>();
         services.AddSingleton<IChallengeV2AuditEventWriter>(sp => sp.GetRequiredService<ChallengeV2AuditEventQueue>());

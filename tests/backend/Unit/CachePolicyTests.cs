@@ -114,4 +114,20 @@ public class CachePolicyRegistryTests
 
         Assert.Equal(Timeout.InfiniteTimeSpan, policy.L2Ttl);
     }
+
+    [Fact]
+    public void SecurityChallengeVerifyRateLimit_UsesSecurityCriticalTtlPolicy()
+    {
+        Assert.True(
+            Enum.TryParse("SecurityChallengeVerifyRateLimit", out CachePolicyId policyId),
+            "CachePolicyId.SecurityChallengeVerifyRateLimit must exist.");
+
+        Assert.True(_registry.TryGet(policyId, out CachePolicy policy));
+        Assert.Equal("sec", policy.Domain);
+        Assert.Equal("challenge-verify-rate", policy.Resource);
+        Assert.Equal(TimeSpan.Zero, policy.L1Ttl);
+        Assert.True(policy.L2Ttl >= TimeSpan.FromMinutes(1));
+        Assert.True(policy.SecurityCritical);
+        Assert.False(policy.RegisterKeysForPrefixInvalidation);
+    }
 }

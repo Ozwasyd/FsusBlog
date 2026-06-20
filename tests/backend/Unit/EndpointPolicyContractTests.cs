@@ -24,6 +24,25 @@ public sealed class EndpointPolicyContractTests
     }
 
     [Fact]
+    public void SecurityChallengeVerifyRateLimiter_DoesNotUseStaticConcurrentDictionary()
+    {
+        string source = ReadRepoFile(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "Binary",
+            "BinaryEndpoints.SecurityChallenge.cs");
+
+        Assert.DoesNotContain("SecurityChallengeVerifyRateBuckets", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ConcurrentDictionary<string, SecurityChallengeVerifyRateBucket>", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("PruneSecurityChallengeVerifyRateBuckets", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("SecurityChallengeVerifyRateBucket", source, StringComparison.Ordinal);
+        Assert.Contains("ISecurityChallengeVerifyRateLimiter", source, StringComparison.Ordinal);
+        Assert.Contains("verifyRateLimiter.TryAcquireAsync", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BinaryArticleAdminRoutes_AreUnderAdminPrefix()
     {
         string source = ReadRepoFile(

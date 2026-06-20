@@ -134,6 +134,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             new FixedRiskPolicyProvider(CreatePolicy(Sha256PowChallengeProvider.WireKind)),
             new RiskControlContextFactory(),
             orchestrator,
+            new AllowingSecurityChallengeVerifyRateLimiter(),
             new NullRiskSink(),
             CancellationToken.None);
 
@@ -178,6 +179,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             new FixedRiskPolicyProvider(CreatePolicy("perceptionCharacterV2")),
             new RiskControlContextFactory(),
             orchestrator,
+            new AllowingSecurityChallengeVerifyRateLimiter(),
             new NullRiskSink(),
             CancellationToken.None);
 
@@ -208,6 +210,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             VerifyResult = SecurityChallengeOrchestrationVerifyResult.Failed("perception_text_answer_invalid")
         };
         var riskSink = new CapturingRiskSink();
+        var verifyRateLimiter = new CountingSecurityChallengeVerifyRateLimiter(SecurityChallengeVerifyDefaultMaxAttempts);
 
         for (int i = 0; i < SecurityChallengeVerifyDefaultMaxAttempts + 1; i++)
         {
@@ -221,6 +224,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
                 new FixedRiskPolicyProvider(CreatePolicy("perceptionCharacterV2")),
                 new RiskControlContextFactory(),
                 orchestrator,
+                verifyRateLimiter,
                 riskSink,
                 CancellationToken.None);
 
@@ -354,6 +358,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             new FixedRiskPolicyProvider(CreatePolicy("security.pow")),
             new RiskControlContextFactory(),
             new FakeChallengeOrchestrator(),
+            new AllowingSecurityChallengeVerifyRateLimiter(),
             new NullRiskSink(),
             CancellationToken.None);
 
@@ -490,6 +495,20 @@ public sealed class SecurityChallengeBinaryEndpointTests
             Signals.Add(signal);
             return ValueTask.CompletedTask;
         }
+    }
+
+    private sealed class AllowingSecurityChallengeVerifyRateLimiter : ISecurityChallengeVerifyRateLimiter
+    {
+        public Task<bool> TryAcquireAsync(HttpContext httpContext, string challengeId, string action, CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
+    }
+
+    private sealed class CountingSecurityChallengeVerifyRateLimiter(int maxAttempts) : ISecurityChallengeVerifyRateLimiter
+    {
+        private int _attempts;
+
+        public Task<bool> TryAcquireAsync(HttpContext httpContext, string challengeId, string action, CancellationToken cancellationToken = default)
+            => Task.FromResult(Interlocked.Increment(ref _attempts) <= maxAttempts);
     }
 
     private sealed class FixedHotArticlesCacheVersionProvider : IHotArticlesCacheVersionProvider

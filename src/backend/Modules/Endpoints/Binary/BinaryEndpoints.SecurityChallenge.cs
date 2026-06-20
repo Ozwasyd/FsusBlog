@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Text.Json;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
@@ -19,10 +18,6 @@ public static partial class BinaryEndpoints
     private const int SecurityChallengeMaxFrameBytes = 64 * 1024;
     private const string SecurityChallengeTenantId = "tenant-main";
     private const string SecurityChallengeVerifyGenericFailure = "challenge_failed";
-    private const int SecurityChallengeVerifyMaxAttempts = 3;
-    private static readonly TimeSpan SecurityChallengeVerifyRateWindow = TimeSpan.FromMinutes(1);
-    private static readonly ConcurrentDictionary<string, SecurityChallengeVerifyRateBucket> SecurityChallengeVerifyRateBuckets = new(StringComparer.Ordinal);
-    private static int _securityChallengeVerifyRatePruneCounter;
 
     private static void MapBinarySecurityChallengeEndpoints(IEndpointRouteBuilder group)
     {
@@ -56,6 +51,7 @@ public static partial class BinaryEndpoints
             ISecurityRiskPolicyProvider riskPolicyProvider,
             IRiskControlContextFactory riskContextFactory,
             ISecurityChallengeOrchestrator challengeOrchestrator,
+            ISecurityChallengeVerifyRateLimiter verifyRateLimiter,
             ISecurityRiskSignalSink riskSignalSink,
             CancellationToken cancellationToken) =>
             await HandleSecurityChallengeVerifyAsync(
@@ -64,6 +60,7 @@ public static partial class BinaryEndpoints
                 riskPolicyProvider,
                 riskContextFactory,
                 challengeOrchestrator,
+                verifyRateLimiter,
                 riskSignalSink,
                 cancellationToken))
         .AllowAnonymous()
@@ -177,6 +174,7 @@ public static partial class BinaryEndpoints
         ISecurityRiskPolicyProvider riskPolicyProvider,
         IRiskControlContextFactory riskContextFactory,
         ISecurityChallengeOrchestrator challengeOrchestrator,
+        ISecurityChallengeVerifyRateLimiter verifyRateLimiter,
         ISecurityRiskSignalSink riskSignalSink,
         CancellationToken cancellationToken)
     {
@@ -219,7 +217,7 @@ public static partial class BinaryEndpoints
             return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "security_challenge_payload_invalid"), aeds);
         }
 
-        if (!TryAcquireSecurityChallengeVerifyPermit(httpContext, challengeId, action))
+        if (!await verifyRateLimiter.TryAcquireAsync(httpContext, challengeId, action, cancellationToken))
         {
             await RecordSecurityChallengeVerifyRejectedAsync(httpContext, riskSignalSink, action, "challenge_verify_rate_limited", cancellationToken);
             return CreateSecurityChallengeVerifyGenericFailure(aeds);
@@ -269,77 +267,6 @@ public static partial class BinaryEndpoints
             ErrorDetail.Create(ErrorCode.Forbidden, SecurityChallengeVerifyGenericFailure),
             aeds,
             StatusCodes.Status428PreconditionRequired);
-
-    private static bool TryAcquireSecurityChallengeVerifyPermit(HttpContext httpContext, string challengeId, string action)
-    {
-        long nowTicks = DateTimeOffset.UtcNow.Ticks;
-        long windowTicks = SecurityChallengeVerifyRateWindow.Ticks;
-        long windowStartTicks = nowTicks - (nowTicks % windowTicks);
-        string key = BuildSecurityChallengeVerifyRateKey(httpContext, challengeId, action);
-        SecurityChallengeVerifyRateBucket bucket = SecurityChallengeVerifyRateBuckets.GetOrAdd(key, static _ => new SecurityChallengeVerifyRateBucket());
-        lock (bucket)
-        {
-            if (bucket.WindowStartTicks != windowStartTicks)
-            {
-                bucket.WindowStartTicks = windowStartTicks;
-                bucket.Count = 0;
-            }
-
-            if (bucket.Count >= SecurityChallengeVerifyMaxAttempts)
-            {
-                PruneSecurityChallengeVerifyRateBuckets(windowStartTicks);
-                return false;
-            }
-
-            bucket.Count++;
-        }
-
-        PruneSecurityChallengeVerifyRateBuckets(windowStartTicks);
-        return true;
-    }
-
-    private static string BuildSecurityChallengeVerifyRateKey(HttpContext httpContext, string challengeId, string action)
-    {
-        string clientIp = NormalizeRateKeyPart(httpContext.GetClientIp(), 64);
-        string deviceFp = NormalizeRateKeyPart(httpContext.Request.Headers["X-Fsus-Device-Fp"].ToString(), 128);
-        string normalizedAction = NormalizeRateKeyPart(action, 96);
-        string normalizedChallengeId = NormalizeRateKeyPart(challengeId, 64);
-        return string.Join('|', clientIp, deviceFp, normalizedAction, normalizedChallengeId);
-    }
-
-    private static void PruneSecurityChallengeVerifyRateBuckets(long currentWindowStartTicks)
-    {
-        if (Interlocked.Increment(ref _securityChallengeVerifyRatePruneCounter) % 512 != 0)
-        {
-            return;
-        }
-
-        long staleBefore = currentWindowStartTicks - (SecurityChallengeVerifyRateWindow.Ticks * 2);
-        foreach (KeyValuePair<string, SecurityChallengeVerifyRateBucket> item in SecurityChallengeVerifyRateBuckets)
-        {
-            if (Volatile.Read(ref item.Value.WindowStartTicks) < staleBefore)
-            {
-                SecurityChallengeVerifyRateBuckets.TryRemove(item.Key, out _);
-            }
-        }
-    }
-
-    private static string NormalizeRateKeyPart(string? value, int maxLength)
-    {
-        string normalized = (value ?? string.Empty).Trim();
-        if (normalized.Length == 0)
-        {
-            return "missing";
-        }
-
-        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
-    }
-
-    private sealed class SecurityChallengeVerifyRateBucket
-    {
-        public long WindowStartTicks;
-        public int Count;
-    }
 
     private static bool AcceptsBinaryResponse(HttpRequest request)
         => HttpAcceptNegotiation.Accepts(request.Headers.Accept, BinaryContentType);

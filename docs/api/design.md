@@ -157,6 +157,8 @@ RiskControl 新 challenge provider 不得自定义平行 assignment 结构。PoW
 
 受 RiskControl 保护的业务请求不得把 provider proof 直接发给业务 endpoint；客户端必须先调用 `/api/binary/security/challenge/verify` 换取一次性 `X-Fsus-Challenge-Proof`，再与 `X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 一起提交到业务 endpoint。notification stream 匿名订阅的 `notification.subscribe` action 同样走该 proof 绑定：preflight 可使用 `X-Fsus-Challenge-*` header，正式 WebSocket 因浏览器无法自定义握手 header，可使用 `challengeProof`、`challengeId`、`challengeKind` query 参数；preflight 不消费一次性 proof，只校验存在性和 kind，正式 WebSocket 握手才消费。密码登录失败和 Passkey assertion 失败只能写风险信号，不改变登录响应 frame；Passkey assertion 成功可写负分风险信号，并继续以 Passkey 作为 MFA 已满足的登录凭据。
 
+`/api/binary/security/challenge/verify` 的尝试次数限制是服务端 hot-path 安全控制，不改变 AEDS request / response contract。端点只依赖 `ISecurityChallengeVerifyRateLimiter`；限流状态必须落在统一缓存 `SecurityChallengeVerifyRateLimit` policy 下，按 1 分钟窗口、客户端 IP hash、device fingerprint hash、规范化 action 和 challengeId hash 计数，超过 3 次时仍返回通用 `challenge_failed`，并写 `SecurityChallengeRejected` 风险信号。
+
 ---
 
 ## 状态码约定
