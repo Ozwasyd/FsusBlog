@@ -34,6 +34,7 @@ implementation and setup work rather than complete.
 | --- | --- |
 | Circuit manifest | `security/zk/comment-v1-circuit.manifest.json` |
 | Tamper and soundness cases | `security/zk/comment-v1-tamper-cases.manifest.json` |
+| Feasibility and design decision gate | `security/zk/comment-v1-feasibility.manifest.json` |
 | Trusted setup manifest | `security/zk/comment-v1-trusted-setup.manifest.json` |
 | Verifying key config manifest | `config/zk/anonymous-comment-v1-verifying-key.manifest.json` |
 | Static checker | `tools/crypto/check-zk-comment-v1-manifests.mjs` |

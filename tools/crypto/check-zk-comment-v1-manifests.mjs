@@ -23,6 +23,10 @@ const paths = {
   config: resolveInputPath(
     process.env.FSUSBLOG_ZK_VERIFYING_KEY_CONFIG_MANIFEST,
     'config/zk/anonymous-comment-v1-verifying-key.manifest.json'
+  ),
+  feasibility: resolveInputPath(
+    process.env.FSUSBLOG_ZK_FEASIBILITY_MANIFEST,
+    'security/zk/comment-v1-feasibility.manifest.json'
   )
 }
 
@@ -112,7 +116,8 @@ const expected = {
   productionReadyCircuitStatuses: [
     'production-ready',
     'verified-production-artifacts'
-  ]
+  ],
+  unresolvedFeasibilityStatus: 'blocked-pending-design-decision'
 }
 
 const failures = []
@@ -467,7 +472,64 @@ function checkConfig(config, setup) {
   }
 }
 
-function writeEvidence(status) {
+function findCandidate(feasibility, id) {
+  return asArray(feasibility.candidates).find((entry) => entry?.id === id) ?? {}
+}
+
+function checkFeasibility(feasibility, circuit) {
+  equals('feasibility.schema', feasibility.schema, 'fsusblog.zk.comment-v1-feasibility.v1')
+  equals('feasibility.circuit_id', feasibility.circuit_id, expected.circuitId)
+  equals('feasibility.public_input_layout_version', feasibility.public_input_layout_version, expected.layoutVersion)
+
+  const status = String(feasibility.status ?? '').trim()
+  if (circuit.production_usable === false && status !== expected.unresolvedFeasibilityStatus) {
+    fail(`feasibility.status must be ${expected.unresolvedFeasibilityStatus} while circuit production_usable=false`)
+  }
+
+  const isProductionReady = expected.productionReadyCircuitStatuses.includes(String(circuit.artifact_status ?? '').trim())
+  if (isProductionReady) {
+    const gate = feasibility.production_ready_gate ?? {}
+    if (status !== gate.requires_status) {
+      fail('production-ready circuit requires a resolved feasibility decision')
+    }
+    if (gate.requires_selected_candidate === true && isBlank(feasibility.selected_candidate)) {
+      fail('production-ready circuit requires feasibility.selected_candidate')
+    }
+  }
+
+  const boundary = feasibility.current_boundary ?? {}
+  equals('feasibility.current_boundary.credential_curve', boundary.credential_curve, 'BLS12-381')
+  equals('feasibility.current_boundary.groth16_curve', boundary.groth16_curve, 'bn254')
+  equals('feasibility.current_boundary.proof_system', boundary.proof_system, expected.proofSystem)
+  if (Number(boundary.wasm_prover_p95_ms_max) > 3000 || Number(boundary.wasm_prover_p95_ms_max) <= 0) {
+    fail('feasibility.current_boundary.wasm_prover_p95_ms_max must stay in the committed 1..3000 budget')
+  }
+
+  const inCircuitBls = findCandidate(feasibility, 'in-circuit-bls12-381-bbs-on-bn254')
+  equals('feasibility.in_circuit_bls.decision', inCircuitBls.decision, 'rejected-for-current-performance-budget')
+  if (Number(inCircuitBls.performance?.constraints_estimate) < 19000000) {
+    fail('feasibility.in_circuit_bls.performance.constraints_estimate must record the large-circuit blocker')
+  }
+  if (Number(inCircuitBls.performance?.proving_key_bytes_estimate) < 12000000000) {
+    fail('feasibility.in_circuit_bls.performance.proving_key_bytes_estimate must record the proving-key blocker')
+  }
+  if (!String(inCircuitBls.license_boundary?.reference_license ?? '').includes('GPL-3.0')) {
+    fail('feasibility.in_circuit_bls.license_boundary.reference_license must record GPL-3.0 reference-only status')
+  }
+
+  const splitProof = findCandidate(feasibility, 'split-bbs-proof-bound-to-circuit-native-proof')
+  equals('feasibility.split_proof.decision', splitProof.decision, 'pending-design-decision')
+  hasAll('feasibility.split_proof.required_binding_proofs', asArray(splitProof.required_binding_proofs), [
+    'same hidden credential secret is committed in the BBS proof and Groth16 proof',
+    'issuer public key hash, credential epoch, credential level and reputation bucket match both proof systems',
+    'revocation handle derives from the same committed credential material'
+  ])
+
+  const nativeCredential = findCandidate(feasibility, 'circuit-native-credential-v2')
+  equals('feasibility.circuit_native_credential.decision', nativeCredential.decision, 'pending-design-decision')
+}
+
+function writeEvidence(status, feasibilityStatus) {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true })
   fs.writeFileSync(
     outputPath,
@@ -482,8 +544,10 @@ function writeEvidence(status) {
         circuit: relative(paths.circuit),
         tamper: relative(paths.tamper),
         trusted_setup: relative(paths.setup),
-        verifying_key_config: relative(paths.config)
-      }
+        verifying_key_config: relative(paths.config),
+        feasibility: relative(paths.feasibility)
+      },
+      feasibility_status: feasibilityStatus
     }, null, 2)}\n`
   )
 }
@@ -492,17 +556,19 @@ const circuit = readJson(paths.circuit)
 const tamper = readJson(paths.tamper)
 const setup = readJson(paths.setup)
 const config = readJson(paths.config)
+const feasibility = readJson(paths.feasibility)
 const circuitHash = fs.existsSync(paths.circuit) ? sha256File(paths.circuit) : ''
 
 checkCircuit(circuit, setup)
 checkTamperManifest(tamper)
 checkSetup(setup, circuitHash)
 checkConfig(config, setup)
+checkFeasibility(feasibility, circuit)
 
 if (failures.length > 0) {
   for (const failure of failures) console.error(failure)
   process.exit(1)
 }
 
-writeEvidence('ok')
+writeEvidence('ok', String(feasibility.status ?? '').trim())
 console.log(`[zk-comment-v1-manifest] ok evidence=${relative(outputPath)}`)

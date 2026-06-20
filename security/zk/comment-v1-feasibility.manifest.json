@@ -1,0 +1,59 @@
+{
+  "schema": "fsusblog.zk.comment-v1-feasibility.v1",
+  "circuit_id": "fsus.anonymous.comment.v1",
+  "public_input_layout_version": 2,
+  "status": "blocked-pending-design-decision",
+  "reason": "current ADR requires BLS12-381 Blind BBS credential verification inside a bn254 Groth16 circuit, which is not compatible with the committed browser prover performance budget without a new design decision",
+  "current_boundary": {
+    "credential_scheme": "BBS+ blind credential",
+    "credential_curve": "BLS12-381",
+    "groth16_curve": "bn254",
+    "proof_system": "Groth16",
+    "wasm_prover_p95_ms_max": 3000
+  },
+  "candidates": [
+    {
+      "id": "in-circuit-bls12-381-bbs-on-bn254",
+      "description": "Implement BLS12-381 pairing and BBS credential verification directly inside the bn254 Groth16 circuit.",
+      "decision": "rejected-for-current-performance-budget",
+      "performance": {
+        "constraints_estimate": 19200000,
+        "witness_generation_ms_estimate": 156000,
+        "proving_key_bytes_estimate": 12000000000,
+        "source": "circom-pairing BLS verify example benchmark"
+      },
+      "license_boundary": {
+        "reference": "https://github.com/yi-sun/circom-pairing",
+        "reference_license": "GPL-3.0 reference only; do not copy source",
+        "reuse_policy": "self-write only if this path is explicitly reapproved with a new performance budget"
+      }
+    },
+    {
+      "id": "split-bbs-proof-bound-to-circuit-native-proof",
+      "description": "Verify the BBS credential proof outside the Groth16 circuit and bind it to a circuit-native commitment/nullifier proof.",
+      "decision": "pending-design-decision",
+      "required_binding_proofs": [
+        "same hidden credential secret is committed in the BBS proof and Groth16 proof",
+        "issuer public key hash, credential epoch, credential level and reputation bucket match both proof systems",
+        "revocation handle derives from the same committed credential material"
+      ],
+      "risk": "unsafe unless the cross-proof equality binding is specified and tested"
+    },
+    {
+      "id": "circuit-native-credential-v2",
+      "description": "Replace comment.v1 credential proof with a circuit-native credential scheme and issue a new circuit/setup boundary.",
+      "decision": "pending-design-decision",
+      "required_changes": [
+        "new ADR or ADR update",
+        "new circuit id or public input layout version",
+        "new issuer and verifier fixtures",
+        "new trusted setup issue boundary"
+      ]
+    }
+  ],
+  "production_ready_gate": {
+    "requires_status": "resolved",
+    "requires_selected_candidate": true,
+    "requires_issue_update": "#551 acceptance must match the selected cryptographic boundary before production-ready artifacts can be claimed"
+  }
+}

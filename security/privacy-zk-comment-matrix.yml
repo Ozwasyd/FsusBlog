@@ -21,6 +21,7 @@ scenarios:
       - docs/zk/anonymous-comment-v1-circuit.md
       - security/zk/comment-v1-circuit.manifest.json
       - security/zk/comment-v1-tamper-cases.manifest.json
+      - security/zk/comment-v1-feasibility.manifest.json
       - tools/crypto/check-zk-comment-v1-manifests.mjs
     tests:
       - tests/security/zk-comment-v1-manifest.test.mjs
