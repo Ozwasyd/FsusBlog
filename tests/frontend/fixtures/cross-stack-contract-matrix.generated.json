@@ -1359,7 +1359,7 @@
       ]
     },
     {
-      "source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+      "source": "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
       "frontendWrapper": "src/frontend/src/api/authoring.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/authoringAdapter.ts",
       "id": "authoring-console",
@@ -1729,7 +1729,7 @@
       ]
     },
     {
-      "source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+      "source": "src/backend/Modules/Endpoints/SecurityEndpoints.cs",
       "frontendWrapper": "src/frontend/src/api/security.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/securityAdapter.ts",
       "id": "admin-security-console",

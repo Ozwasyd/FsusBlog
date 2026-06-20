@@ -6,6 +6,58 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class EndpointPolicyContractTests
 {
     [Fact]
+    public void AuthoringAndSecurityAdminBinaryEndpoints_AreNativeAedsRoutesWithoutBridgePipeline()
+    {
+        string composition = ReadRepoFile(
+            "src",
+            "backend",
+            "Infrastructure",
+            "Bootstrap",
+            "WebApplicationCompositionExtensions.cs");
+        Assert.DoesNotContain("AuthoringBinaryBridgeMiddleware", composition, StringComparison.Ordinal);
+        Assert.DoesNotContain("SecurityBinaryBridgeMiddleware", composition, StringComparison.Ordinal);
+
+        string authoring = ReadRepoFile(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "AuthoringEndpoints.cs");
+        Assert.Contains("private const string BinaryPrefix = \"/api/binary/author\"", authoring, StringComparison.Ordinal);
+        Assert.Contains("app.MapGroup(BinaryPrefix)", authoring, StringComparison.Ordinal);
+        Assert.DoesNotContain("BinaryBridgeInternalRequest.AuthoringPrefix", authoring, StringComparison.Ordinal);
+        Assert.DoesNotContain("BinaryBridgeInternalOnlyFilter", authoring, StringComparison.Ordinal);
+        Assert.DoesNotContain("JsonApiResponse<", authoring, StringComparison.Ordinal);
+
+        string security = ReadRepoFile(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "SecurityEndpoints.cs");
+        Assert.Contains("private const string BinaryPrefix = \"/api/binary/admin/security\"", security, StringComparison.Ordinal);
+        Assert.Contains("app.MapGroup(BinaryPrefix)", security, StringComparison.Ordinal);
+        Assert.DoesNotContain("BinaryBridgeInternalRequest.SecurityPrefix", security, StringComparison.Ordinal);
+        Assert.DoesNotContain("BinaryBridgeInternalOnlyFilter", security, StringComparison.Ordinal);
+        Assert.DoesNotContain("JsonApiResponse<", security, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AedsOnlyPolicy_DoesNotAllowRuntimeBinaryBridgeCompatibility()
+    {
+        string allowlist = ReadRepoFile("tools", "contracts", "aeds-only-policy.allowlist.json");
+        string scanner = ReadRepoFile("tools", "contracts", "check-aeds-only-policy.mjs");
+        string policy = ReadRepoFile("docs", "api", "aeds-only-policy.md");
+
+        Assert.DoesNotContain("migration-legacy-temporary", allowlist, StringComparison.Ordinal);
+        Assert.DoesNotContain("binary-bridge/author", allowlist, StringComparison.Ordinal);
+        Assert.DoesNotContain("binary-bridge/admin/security", allowlist, StringComparison.Ordinal);
+        Assert.DoesNotContain("migration-legacy-temporary", scanner, StringComparison.Ordinal);
+        Assert.DoesNotContain("binary-bridge/author", policy, StringComparison.Ordinal);
+        Assert.DoesNotContain("binary-bridge/admin/security", policy, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BinaryAuthPowChallenge_RequiresNoStoreResponse()
     {
         string source = ReadRepoFile(

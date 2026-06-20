@@ -30,7 +30,7 @@
 
 ## 基础包装结构
 
-运行时主 API 已收敛到 AEDS Binary：`/api/binary/**` 响应使用 AEDS v2 frame，错误也通过 `ApiError` frame 表达，不再通过旧文本响应包装。所有内部应用 API 按 [aeds-only-policy.md](aeds-only-policy.md) 治理；`JsonApiResponse<T>` 只允许出现在 public AOT tooling 和受保护的 author/security internal bridge implementation 中，不能作为浏览器运行时 API 暴露。
+运行时主 API 已收敛到 AEDS Binary：`/api/binary/**` 响应使用 AEDS v2 frame，错误也通过 `ApiError` frame 表达，不再通过旧文本响应包装。所有内部应用 API 按 [aeds-only-policy.md](aeds-only-policy.md) 治理；`JsonApiResponse<T>` 只允许出现在 public AOT tooling 等已登记工具边界中，不能作为浏览器运行时 API 暴露。
 
 HTTP 层契约源是 `src/shared/Contracts/Validation/fsusblog.openapi.json`。该 OpenAPI snapshot 描述 method/path/status/content-type/security 与 `x-fsus-*` AEDS metadata；AEDS frame 名称、header magic/version/size 仍以 `src/shared/Contracts/Validation/aeds-protocol.json` 为权威来源。cross-stack matrix、前端 route constants、runtime contract smoke 与 release evidence 通过 `tools/contracts/*` 从这两个源校验或生成。
 
@@ -1337,7 +1337,7 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 ### Admin 作者工作台
 
-生产前端使用 `/api/binary/author/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AuthorDraftSaveRequest`、`ModerationRuntimeGlobalStateRequest`、`ContentImportRequest`），响应使用 route-specific response frame（如 `AuthorDraftResponse`、`ModerationRuntimeStatus`、`AuditLogList`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。`AuthoringBinaryBridgeMiddleware` 复用 authoring endpoint 逻辑的授权、MFA、fixed_ip rate limit、审计和缓存失效边界；被复用的 JSON envelope 只挂在 `/_fsus/internal/binary-bridge/author/**`，受 `BinaryBridgeInternalOnlyFilter` 保护。外部 `/api/author/**` JSON endpoint 已移除：
+生产前端使用 `/api/binary/author/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AuthorDraftSaveRequest`、`ModerationRuntimeGlobalStateRequest`、`ContentImportRequest`），响应使用 route-specific response frame（如 `AuthorDraftResponse`、`ModerationRuntimeStatus`、`AuditLogList`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。授权、MFA、fixed_ip rate limit、审计和缓存失效边界均由原生 authoring binary endpoint 直接执行；外部 `/api/author/**` JSON endpoint 已移除，且不保留 internal bridge 兼容层：
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -1426,7 +1426,7 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 ### Admin 安全系统
 
-生产前端使用 `/api/binary/admin/security/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AntiCrawlerOptionsUpdateRequest`、`SecurityRiskResetRequest`、`AntiCrawlerRuleRequest`、`PowOptionsUpdateRequest`），控制面 dry-run 可使用 `SecurityOverview` JSON frame 承载 route-specific request/response DTO；响应使用 route-specific response frame（如 `SecurityOverview`、`AntiCrawlerPolicySnapshot`、`SecurityRiskEventList`、`PowPolicySnapshot`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。`SecurityBinaryBridgeMiddleware` 复用 security endpoint 逻辑的 admin principal + `system.config` permission、MFA、fixed_ip rate limit、device fingerprint、审计和运行时策略更新边界；被复用的 JSON envelope 只挂在 `/_fsus/internal/binary-bridge/admin/security/**`，受 `BinaryBridgeInternalOnlyFilter` 保护。外部 `/api/admin/security/**` JSON endpoint 已移除。
+生产前端使用 `/api/binary/admin/security/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AntiCrawlerOptionsUpdateRequest`、`SecurityRiskResetRequest`、`AntiCrawlerRuleRequest`、`PowOptionsUpdateRequest`），控制面 dry-run 可使用 `SecurityOverview` JSON frame 承载 route-specific request/response DTO；响应使用 route-specific response frame（如 `SecurityOverview`、`AntiCrawlerPolicySnapshot`、`SecurityRiskEventList`、`PowPolicySnapshot`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。admin principal + `system.config` permission、MFA、fixed_ip rate limit、device fingerprint、审计和运行时策略更新边界均由原生 security binary endpoint 直接执行；外部 `/api/admin/security/**` JSON endpoint 已移除，且不保留 internal bridge 兼容层。
 
 `/api/binary/admin/security/**` 全部要求 admin principal + `system.config` 权限。写入型和高价值操作必须携带 admin passkey step-up 产生的 action=`admin-sensitive` 一次性 `X-Fsus-Mfa-Proof`，并写入高价值安全审计。`X-Fsus-Mfa-Proof` 与 PoW replay proof 共用 consume-once cache primitive：L1 先失效，Redis 删除成功后同一进程内也不能再次读取该 proof。
 

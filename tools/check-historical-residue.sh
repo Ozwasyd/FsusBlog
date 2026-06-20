@@ -83,8 +83,8 @@ run_residue_check \
 run_residue_check \
   "legacy runtime bridge names" \
   "legacy runtime bridge residue detected" \
-  '\bBridgeToLegacy(?:Authoring|Security)EndpointAsync\b|(?:authoring|security)_legacy_envelope|/_fsus/internal/binary-bridge/(?:author|admin/security)|\bBinaryBridgeInternalRequest\.(?:AuthoringPrefix|SecurityPrefix)\b' \
-  '^(src/backend/Infrastructure/Middlewares/(Authoring|Security)BinaryBridgeMiddleware[.]cs|src/backend/Infrastructure/Filters/BinaryBridgeInternalOnlyFilter[.]cs|src/backend/Modules/Endpoints/(Authoring|Security)Endpoints[.]cs|src/shared/Contracts/Validation/fsusblog[.]openapi[.]json|tools/contracts/aeds-only-policy[.]allowlist[.]json|docs/api/(aeds-only-policy|contracts|design|quick-reference)[.]md|tests/frontend/checks/static/check-public-private-data-leakage[.]mjs)$' \
+  '\bBridgeToLegacy(?:Authoring|Security)EndpointAsync\b|(?:authoring|security)_legacy_envelope|/_fsus/internal/binary[-]bridge/(?:author|admin/security)|\bBinaryBridgeInternalRequest\.(?:AuthoringPrefix|SecurityPrefix)\b' \
+  '^(src/shared/Contracts/Validation/fsusblog[.]openapi[.]json|tests/frontend/fixtures/cross-stack-contract-matrix([.]generated)?[.]json)$' \
   src/backend src/shared tools/contracts docs/api tests/frontend
 
 run_residue_check \

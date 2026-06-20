@@ -39,7 +39,6 @@ error:    AedsFrameType.ApiError
 | SEO | `/sitemap.xml`, `/robots.txt` | 搜索引擎标准入口 |
 | Ops probe | `/api/ops/health/ready-detail`, `/api/ops/crawler-ranges/status` | admin-only 运维诊断；公网 `/health/ready` 只返回最小状态，后台生产 UI 使用 AEDS 路径读取业务运维数据 |
 | PublicAOT tooling | `/internal/public-aot/manifest`、`/internal/public-aot/health` | 构建/backfill 工具 manifest 与 SSR worker 诊断，非浏览器运行时 API |
-| Internal bridge implementation | `/_fsus/internal/binary-bridge/author/**`, `/_fsus/internal/binary-bridge/admin/security/**` | 仅 `AuthoringBinaryBridgeMiddleware` / `SecurityBinaryBridgeMiddleware` 可达，外部 `/api/author/**` 与 `/api/admin/security/**` 已移除 |
 | Third-party moderation provider | HTTP JSON provider contract | 外部 provider 兼容协议 |
 | Evidence/tool/docs | `.tmp/release-evidence/**`, `tools/**`, `docs/**`, tests | 构建、测试、审计、证据文件，不是 runtime API |
 
@@ -59,7 +58,7 @@ error:    AedsFrameType.ApiError
 | `/api/admin/security/**` | `/api/binary/admin/security/**` |
 | `/api/notifications/stream/preflight` JSON failure envelope | `204` success 或 AEDS `ApiError` failure frame |
 
-`JsonApiResponse<T>` 只允许在登记的工具/compat 文件内出现。author/security 仍有一个受保护的 internal bridge implementation：它挂在 `/_fsus/internal/binary-bridge/**`，由 `BinaryBridgeInternalOnlyFilter` 阻断直接访问，只服务 binary bridge flattening，不能作为新 endpoint 模板。
+`JsonApiResponse<T>` 只允许在登记的工具/compat 文件内出现。项目初期内部 API 不承诺历史兼容；author/security 后台已直接挂载为原生 `/api/binary/**` AEDS endpoint，不保留运行时 internal bridge compatibility allowlist。旧数据库迁移和旧用户/旧评论清除是例外维护项，但不得作为浏览器可达业务 API 的 JSON bridge 放行理由。
 
 ## 新端点选择规则
 
@@ -80,7 +79,7 @@ message
 details / reason code
 ```
 
-JSON envelope 错误只允许在豁免链路和迁移期兼容层使用。新增业务错误码必须同步 `docs/api/schemas-and-errors.md`、AEDS golden fixture 或 contract test。
+JSON envelope 错误只允许在明确豁免链路使用。新增业务错误码必须同步 `docs/api/schemas-and-errors.md`、AEDS golden fixture 或 contract test。
 
 ## 前端 adapter 规则
 
@@ -110,7 +109,6 @@ tools/check-aeds-only-policy.sh
 | 分类 | 含义 | Gate 行为 |
 |------|------|-----------|
 | `allowed-exemption` | 标准协议、健康探针、工具专用 JSON | 允许 |
-| `migration-legacy-temporary` | 受保护的内部 bridge 兼容实现，不能直接暴露给浏览器 | 允许，但必须绑定具体文件和退出原因 |
 | `must-migrate` | 已登记但仍未完成的内部 JSON | 阻断 |
 | `test-tool-docs-only` | 测试/工具/文档 JSON | 允许，不扫描 runtime |
 | `unknown` | 未登记 JSON 残留 | 阻断 |

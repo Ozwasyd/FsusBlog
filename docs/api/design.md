@@ -22,7 +22,7 @@
 | **AEDS Binary** | `application/octet-stream` | TypeScript adapter / C++23 Wasm Worker | `/api/binary/...` |
 | **Public AOT hydration sidecar** | `application/vnd.fsus.aeds` | public hydration bootstrap / shell navigation | `/aot-cache/payloads/.../*.aeds` |
 
-旧文本业务 API 不再注册；`/api/**` 非 binary 业务路径统一返回 `ApiError` AEDS frame。客户端不得把解码失败回退为文本 API 请求。例外只限 [AEDS-only policy](aeds-only-policy.md) 登记的标准协议、健康探针、工具入口和受保护的 internal bridge implementation。通知 preflight 失败返回 AEDS `ApiError` frame，不再返回 JSON error envelope；`/api/read-proof/**`、`/api/public/articles/{id}/related`、`/api/telemetry/rum`、`/api/subscriptions`、`/api/author/**` 与 `/api/admin/security/**` 旧 JSON 入口已移除。
+旧文本业务 API 不再注册；`/api/**` 非 binary 业务路径统一返回 `ApiError` AEDS frame。客户端不得把解码失败回退为文本 API 请求。例外只限 [AEDS-only policy](aeds-only-policy.md) 登记的标准协议、健康探针和工具入口。通知 preflight 失败返回 AEDS `ApiError` frame，不再返回 JSON error envelope；`/api/read-proof/**`、`/api/public/articles/{id}/related`、`/api/telemetry/rum`、`/api/subscriptions`、`/api/author/**` 与 `/api/admin/security/**` 旧 JSON 入口已移除。
 
 HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提供，包含 method/path/status/content-type/security 与 `x-fsus-*` 扩展；AEDS payload、frame 编号、POD schema 和 golden fixture 仍由 `aeds-protocol.json`、POD 契约和 fixture 负责。
 
@@ -30,11 +30,11 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 
 所有运行时主业务响应体均为 AEDS v2 frame。成功写操作使用 `EmptySuccess` 或 `MutationId`；失败、鉴权拒绝、限流和异常兜底统一使用 `ApiError` frame。AEDS v1 frame 不再兼容，也不保留旧 frame fallback。
 
-### 4. 桥接隔离原则
+### 4. 原生 AEDS 内部 API 原则
 
-作者工作台 `/api/binary/author/**` 与管理端 security `/api/binary/admin/security/**` 的生产入口必须是 AEDS v2 frame；`AuthoringBinaryBridgeMiddleware` 与 `SecurityBinaryBridgeMiddleware` 只是在服务端内部复用受保护的 legacy JSON implementation，并把结果 flatten 回 route-specific AEDS response frame。RiskControl 控制面读取与运行态写入（`risk-control/overview`、`risk-control/options`、`risk-control/options/rollback`、`challenges/overview`、`policies/overview`）也只允许通过该 binary bridge 暴露，不能恢复 `/api/admin/security/**` JSON fallback。
+作者工作台 `/api/binary/author/**` 与管理端 security `/api/binary/admin/security/**` 的生产入口必须直接实现 AEDS v2 frame：endpoint 自己读取 route-specific request frame，成功响应直接写 route-specific response frame，错误统一写 `ApiError` frame。RiskControl 控制面读取与运行态写入（`risk-control/overview`、`risk-control/options`、`risk-control/options/rollback`、`challenges/overview`、`policies/overview`）也只允许通过原生 binary endpoint 暴露，不能恢复 `/api/admin/security/**` JSON fallback。
 
-`JsonApiResponse<T>`、`Results.Ok(JsonApiResponse<...>)` 与 `/_fsus/internal/binary-bridge/**` 只允许出现在登记的 internal bridge implementation 中，且对应端点必须挂 `BinaryBridgeInternalOnlyFilter`。浏览器可达的 `/api/binary/**` 端点不得直接暴露 JSON envelope；新增业务端点默认按 [aeds-only-policy.md#内部应用-api-定义](aeds-only-policy.md#内部应用-api-定义) 设计，不把 bridge 模式当作新 endpoint 模板。装载点见 `src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs`，allowlist 见 [aeds-only-policy.md#允许豁免](aeds-only-policy.md#允许豁免)。
+`JsonApiResponse<T>`、`Results.Ok(JsonApiResponse<...>)` 与 `/_fsus/internal/binary-bridge/**` 不得用于运行时内部业务 API。浏览器可达的 `/api/binary/**` 端点不得直接暴露 JSON envelope；新增业务端点默认按 [aeds-only-policy.md#内部应用-api-定义](aeds-only-policy.md#内部应用-api-定义) 设计，不新增 runtime compatibility bridge。装载点见 `src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs`，allowlist 见 [aeds-only-policy.md#允许豁免](aeds-only-policy.md#允许豁免)。
 
 ### 5. 认证一致性
 
@@ -57,7 +57,7 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 | Binary 端点统一前缀 `/api/binary/` + 小写资源名；公开热点 article 使用无 query 的 artifact 路径 | `/api/binary/article/list/home/1/10.aeds`、`/api/binary/comment/{id}` |
 | 消息系统使用 binary 消息路径 | `/api/binary/messages/conversations` |
 | 管理端以 binary admin 资源路径区分 | `/api/binary/admin/users`、`/api/binary/stats` |
-| 作者工作台 legacy JSON 端点仅作后端兼容；生产前端使用 AEDS bridge | `/api/binary/author/drafts`、`/api/binary/author/audit`、`/api/binary/author/moderation/overview` |
+| 作者工作台生产前端使用原生 AEDS endpoint；不保留 legacy JSON runtime 兼容层 | `/api/binary/author/drafts`、`/api/binary/author/audit`、`/api/binary/author/moderation/overview` |
 | 健康检查与通知独立于业务路径 | `/health/live`、`/health/ready`、`/api/ops/health/ready-detail`、`/api/notifications/stream` |
 
 ---
@@ -351,11 +351,11 @@ Public AOT document composer 只允许通过以下 5 个具名 sentinel 写入 A
 
 ### 公开 / 管理读写分离
 
-代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringBinaryBridgeMiddleware.cs`](../../src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs)。
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AedsJsonResults.cs`](../../src/backend/Infrastructure/Results/AedsJsonResults.cs)。
 
 公开 article Binary 端点不再按身份混合语义。匿名公开读只能使用 `/api/binary/article/**.aeds` artifact 路径，客户端必须省略 credentials；admin/private 读写统一使用 `/api/binary/admin/article/**`，可读取所有非删除状态，并可用 `status=0/1/2/3/4` 精确管理 draft、scheduled、published、archived、deleted。任何旧 query 公开路径或匿名管理查询都不得退回文本 API 或泄露未发布标题。
 
-作者工作台生产 API 放在 `/api/binary/author/**`，全部使用 admin 授权和 AEDS frame；被 bridge 复用的 JSON implementation 只保留为受保护的内部兼容层。预览、草稿、修订、管理端 taxonomy、资产、AI 辅助都属于作者私有能力。未发布正文不得进入 feed、search、sitemap、PublicAOT cache，也不得默认发送到外部 AI provider。
+作者工作台生产 API 放在 `/api/binary/author/**`，全部使用 admin 授权和 AEDS frame；浏览器不可访问 JSON envelope，仓内不保留 runtime internal compatibility 层。预览、草稿、修订、管理端 taxonomy、资产、AI 辅助都属于作者私有能力。未发布正文不得进入 feed、search、sitemap、PublicAOT cache，也不得默认发送到外部 AI provider。
 
 ### 预览
 
@@ -411,7 +411,7 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`ModerationDictionaryService.cs`](../../src/backend/Services/Moderation/ModerationDictionaryService.cs)、[`RegionLegalModerationService.cs`](../../src/backend/Services/Moderation/RegionLegalModerationService.cs)。
 
-审核系统控制台位于 `/user/manage/moderation`，后台一级导航只保留「审核系统」，评论审核是其子栏目。控制台端点使用 `/api/binary/author/moderation/**` AEDS bridge；JSON envelope 只存在于受保护的 internal bridge implementation，浏览器不可直接访问。
+审核系统控制台位于 `/user/manage/moderation`，后台一级导航只保留「审核系统」，评论审核是其子栏目。控制台端点使用 `/api/binary/author/moderation/**` 原生 AEDS endpoint；JSON envelope 不作为浏览器可达 runtime API 暴露。
 
 ### 审核端点契约表
 
@@ -454,7 +454,7 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 本文件只定义 API 设计哲学和跨模块约束，不重复维护以下真相源：
 
-- `JsonApiResponse<T>` 豁免、binary bridge 隔离和 internal bridge URL：见 [`aeds-only-policy.md#允许豁免`](aeds-only-policy.md#允许豁免)、[`contracts.md#admin-作者工作台`](contracts.md#admin-作者工作台) 与 [`contracts.md#admin-安全系统`](contracts.md#admin-安全系统)。
+- `JsonApiResponse<T>` 豁免、AEDS-only gate 和原生 binary endpoint 约束：见 [`aeds-only-policy.md#允许豁免`](aeds-only-policy.md#允许豁免)、[`contracts.md#admin-作者工作台`](contracts.md#admin-作者工作台) 与 [`contracts.md#admin-安全系统`](contracts.md#admin-安全系统)。
 - 错误码、AEDS frame 编号、POD 大小和 L0 负响应结构：见 [`schemas-and-errors.md`](schemas-and-errors.md)。
 - 审计级别、高价值审计落库和 fallback 文件：见 [`../security.md#审计级别`](../security.md#审计级别)。
 - 缓存分层、Public AOT 单一渲染链和请求路径：见 [`../architecture.md#public-aot-单一渲染链`](../architecture.md#public-aot-单一渲染链) 与 [`../architecture.md#缓存分层`](../architecture.md#缓存分层)。
@@ -468,7 +468,7 @@ RiskControl 运行态写入只能使用 `/api/binary/admin/security/risk-control
 
 ## 参见
 
-- [contracts.md#基础包装结构](contracts.md#基础包装结构) — 请求/响应 DTO、AOT 契约和 bridge envelope 边界
+- [contracts.md#基础包装结构](contracts.md#基础包装结构) — 请求/响应 DTO、AOT 契约和 AEDS frame 边界
 - [aeds-only-policy.md#允许豁免](aeds-only-policy.md#允许豁免) — 内部应用 API AEDS-only 治理、JSON 豁免与回归 gate
 - [quick-reference.md#开放分发与作者工作台](quick-reference.md#开放分发与作者工作台) — 公开分发、Public AOT manifest 与作者工作台端点速查
 - [schemas-and-errors.md#负响应](schemas-and-errors.md#负响应) / [#AedsFrameType 枚举](schemas-and-errors.md#aedsframetype-枚举) — 负响应、错误码、AEDS frame 编号与二进制结构
@@ -483,8 +483,8 @@ RiskControl 运行态写入只能使用 `/api/binary/admin/security/risk-control
 - [`DistributionEndpoints.cs`](../../src/backend/Modules/Endpoints/DistributionEndpoints.cs) — RSS / Atom / JSON Feed / sitemap / robots 缓存约束
 - [`NotificationStreamHandshakeService.cs`](../../src/backend/Infrastructure/NotificationStream/NotificationStreamHandshakeService.cs) — notification stream protocol、匿名 RiskControl / legacy PoW、认证和 admission 校验
 - [`NotificationStreamHandler.cs`](../../src/backend/Infrastructure/NotificationStream/NotificationStreamHandler.cs) — notification stream 握手失败头与 AEDS `ApiError` 写出
-- [`AuthoringBinaryBridgeMiddleware.cs`](../../src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs) — 作者工作台 AEDS bridge 转换边界
-- [`SecurityBinaryBridgeMiddleware.cs`](../../src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs) — 管理端 security AEDS bridge 转换边界
-- [`BinaryBridgeInternalOnlyFilter.cs`](../../src/backend/Infrastructure/Filters/BinaryBridgeInternalOnlyFilter.cs) — internal bridge URL 直接访问阻断
+- [`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs) — 作者工作台原生 AEDS endpoint 边界
+- [`SecurityEndpoints.cs`](../../src/backend/Modules/Endpoints/SecurityEndpoints.cs) — 管理端 security 原生 AEDS endpoint 边界
+- [`AedsJsonResults.cs`](../../src/backend/Infrastructure/Results/AedsJsonResults.cs) — typed JSON DTO bytes 与 AEDS frame 编码边界
 - [`renderPublicPage.ts`](../../src/frontend/src/public-renderers/renderPublicPage.ts) — server SSR worker 加载的公开页 renderer 入口
 - [`publicEntryRegistry.ts`](../../src/frontend/src/public-renderers/publicEntryRegistry.ts) — 公开页 SSR entry registry 与页面 assembly 调度

@@ -126,7 +126,7 @@ RiskControl admin 模拟器位于 `/api/binary/admin/security/risk-control/simul
 - `/user/manage/security/simulator`：RiskControl dry-run，预演 allow、challenge、queue 和 block 决策，不执行业务写入。
 - `/user/manage/security/pow`：PoW 系统，管理独立模式、默认 difficulty、proof TTL、replay 防护和风险分联动。
 
-安全后台生产 API 全部使用 `/api/binary/admin/security/**` AEDS v2 frame；被 bridge 复用的 JSON envelope 只挂在受保护的 `/_fsus/internal/binary-bridge/admin/security/**`，外部 `/api/admin/security/**` 已移除。`SecurityBinaryBridgeMiddleware` 复用原 endpoint 的 admin principal + `AdminPermissions.SystemConfig` authorization、`fixed_ip` 限流、`X-Fsus-Mfa-Proof` admin passkey step-up、device fingerprint header 和高价值安全审计，失败统一编码为 `ApiError` frame。
+安全后台生产 API 全部使用原生 `/api/binary/admin/security/**` AEDS v2 frame；外部 `/api/admin/security/**` JSON 入口和 internal bridge 兼容层均已移除。security binary endpoint 直接执行 admin principal + `AdminPermissions.SystemConfig` authorization、`fixed_ip` 限流、`X-Fsus-Mfa-Proof` admin passkey step-up、device fingerprint header 和高价值安全审计，失败统一编码为 `ApiError` frame。
 
 AntiCrawler 与 PoW 管理写操作会同步写入 PostgreSQL `security_policy_snapshot`，以 `policy_id + version` 保留不可变历史版本，并用单 active partial unique index 约束每个策略只有一个生效版本。写入、激活和回滚仍要求 admin principal、`system.config` 权限和一次性 `X-Fsus-Mfa-Proof`；缺失或无效 proof 返回 `428 + MFA_PROOF_REQUIRED`，不得进入策略写入。启动时 `SecurityPolicySnapshotHostedService` 在 schema bootstrap 后加载 active 快照；active 文档损坏或无法反序列化时，只回退到最近 `is_last_known_good=true` 的历史版本并写 warning，不从请求路径同步查 DB。策略表只保存策略 JSON、版本、mode、admin principal id、时间戳和回滚元数据，不保存 proof token、session token、客户端 IP 原文或设备指纹原文。
 
@@ -310,7 +310,7 @@ FsusBlog 采用三级角色体系：
 
 ## 作者工作台、订阅与 RUM 隐私
 
-- `/api/binary/author/**` 全部要求 admin principal，并按路由声明 `AdminPermissions.*`：草稿、预览、修订、资产、导入导出和 AI 辅助要求 `article.write`，评论队列/审核要求 `comment.moderate`，匿名治理分别要求 `anonymous.comment.configure` / `anonymous.nullifier.block` / `anonymous.credential.revoke`，审计查询要求 `audit.read`，审核运行时、缓存和完整性运维要求 `system.config`。被 bridge 复用的 JSON envelope 只挂在受保护的 `/_fsus/internal/binary-bridge/author/**`，外部 `/api/author/**` 已移除。
+- `/api/binary/author/**` 全部要求 admin principal，并按路由声明 `AdminPermissions.*`：草稿、预览、修订、资产、导入导出和 AI 辅助要求 `article.write`，评论队列/审核要求 `comment.moderate`，匿名治理分别要求 `anonymous.comment.configure` / `anonymous.nullifier.block` / `anonymous.credential.revoke`，审计查询要求 `audit.read`，审核运行时、缓存和完整性运维要求 `system.config`。外部 `/api/author/**` JSON 入口和 internal bridge 兼容层均已移除。
 - 服务端草稿按 `ownerUserId + draftKey` 唯一保存，浏览器本地缓存仅作为断网兜底；跨设备恢复必须通过 admin cookie 读取 `/api/binary/author/drafts/{draftKey}`，不得落入公开 AOT、Service Worker shell cache 或搜索索引。
 - 修订历史正文详情只允许 admin 在作者工作台读取；回滚必须走正式文章更新服务以写入新修订、审计记录和分发缓存失效，不允许通过 SQL/API 直接覆盖公开正文。
 - `/api/binary/upload/**` 分片上传会话只接受可规范化为 32 位 GUID `N` 格式的 `uploadId`。`FileService` 在 status、part map、part upload、complete、abort、cleanup 和 session lock 边界统一规范化为小写 canonical 值；`.upload-sessions` 使用 full path 作为目录沙箱，manifest、parts 和 session delete 的路径解析必须保持在该根目录下。非法 `uploadId` 返回 validation/not found，不创建 session lock，不执行递归删除，也不向响应泄露物理路径。

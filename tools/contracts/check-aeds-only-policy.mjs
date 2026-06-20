@@ -8,7 +8,7 @@ const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url))
 const allowlistPath = path.join(root, 'tools/contracts/aeds-only-policy.allowlist.json')
 const reportPath = path.join(root, '.tmp/gate-logs/aeds-only-policy-inventory.json')
 
-const validClassifications = new Set(['allowed-exemption', 'migration-legacy-temporary', 'must-migrate', 'removed', 'test-tool-docs-only'])
+const validClassifications = new Set(['allowed-exemption', 'must-migrate', 'removed', 'test-tool-docs-only'])
 
 const signalDefinitions = [
   {

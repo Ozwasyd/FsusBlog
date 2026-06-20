@@ -158,18 +158,17 @@ public sealed class AntiCrawlerSecurityContractTests
     public void SecurityAdminConsole_SeparatesAntiCrawlerPowAndSecurityRisk()
     {
         string endpoints = Read("src/backend/Modules/Endpoints/SecurityEndpoints.cs");
-        string bridge = Read("src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs");
-        string internalFilter = Read("src/backend/Infrastructure/Filters/BinaryBridgeInternalOnlyFilter.cs");
         string models = Read("src/backend/Models/Security/SecurityAdminModels.cs");
         string abstractions = Read("src/backend/Infrastructure/Security/SecurityRiskAbstractions.cs");
         string service = Read("src/backend/Services/Security/SecurityAdminPolicyService.cs");
         string registration = Read("src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs");
         string securityRegistration = Read("src/backend/Infrastructure/Bootstrap/RuntimeSecurityAndLifecycleServiceCollectionExtensions.cs");
 
-        Assert.Contains("BinaryBridgeInternalRequest.SecurityPrefix", endpoints, StringComparison.Ordinal);
-        Assert.Contains("AddEndpointFilter<BinaryBridgeInternalOnlyFilter>()", endpoints, StringComparison.Ordinal);
-        Assert.Contains("\"/api/binary/admin/security\"", bridge, StringComparison.Ordinal);
-        Assert.Contains("\"/_fsus/internal/binary-bridge/admin/security\"", internalFilter, StringComparison.Ordinal);
+        Assert.Contains("\"/api/binary/admin/security\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("AedsJsonResults.Ok", endpoints, StringComparison.Ordinal);
+        Assert.Contains("ReadRequestAsync<AntiCrawlerOptionsUpdateRequest>", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("BinaryBridgeInternalRequest.SecurityPrefix", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("BinaryBridgeInternalOnlyFilter", endpoints, StringComparison.Ordinal);
         Assert.Contains("/anti-crawler/overview", endpoints, StringComparison.Ordinal);
         Assert.Contains("/anti-crawler/options", endpoints, StringComparison.Ordinal);
         Assert.Contains("/pow/overview", endpoints, StringComparison.Ordinal);

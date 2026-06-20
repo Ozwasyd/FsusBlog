@@ -1,12 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
@@ -22,6 +23,7 @@ public static class AuthoringEndpoints
 {
     private const string AdminSensitiveAction = "admin-sensitive";
     private const string MfaProofHeader = "X-Fsus-Mfa-Proof";
+    private const string BinaryPrefix = "/api/binary/author";
     private static readonly string[] MainlandMandatoryDictionaryIds =
     [
         "cn-mainland.political-sensitive",
@@ -32,49 +34,92 @@ public static class AuthoringEndpoints
 
     public static IEndpointRouteBuilder MapAuthoringEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup(BinaryBridgeInternalRequest.AuthoringPrefix)
-            .WithTags("Authoring")
-            .AddEndpointFilter<BinaryBridgeInternalOnlyFilter>();
+        var group = app.MapGroup(BinaryPrefix)
+            .WithTags("Authoring");
 
         group.MapPost("/drafts", async (
-            ServerDraftSaveRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
+            var parsed = await ReadRequestAsync<ServerDraftSaveRequest>(
+                context,
+                aeds,
+                "author_draft_save_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            ServerDraftSaveRequest request = parsed.Value!;
             ServerDraftResponse saved = await service.SaveDraftAsync(context.GetUserId(), request, cancellationToken);
-            return Results.Ok(JsonApiResponse<ServerDraftResponse>.Ok(saved));
+            return Ok(context, aeds, saved);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/drafts/{draftKey}", async (
             string draftKey,
             HttpContext context,
+            IAedsEncoder aeds,
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
             ServerDraftResponse? draft = await service.GetDraftAsync(context.GetUserId(), draftKey, cancellationToken);
-            return Results.Ok(JsonApiResponse<ServerDraftResponse?>.Ok(draft));
+            return Ok(context, aeds, draft);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapDelete("/drafts/{draftKey}", async (
             string draftKey,
             HttpContext context,
+            IAedsEncoder aeds,
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
             bool discarded = await service.DiscardDraftAsync(context.GetUserId(), draftKey, cancellationToken);
-            return Results.Ok(JsonApiResponse<object>.Ok(new { discarded }));
+            return Ok(context, aeds, new { discarded });
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
-        group.MapPost("/preview", async (ServerDraftSaveRequest request, AuthoringWorkflowService service) =>
-            Results.Ok(JsonApiResponse<ArticlePreviewResponse>.Ok(await service.PreviewAsync(request))))
+        group.MapPost("/preview", async (
+            HttpContext context,
+            IAedsEncoder aeds,
+            AuthoringWorkflowService service,
+            CancellationToken cancellationToken) =>
+        {
+            var parsed = await ReadRequestAsync<ServerDraftSaveRequest>(
+                context,
+                aeds,
+                "article_preview_request_invalid",
+                cancellationToken);
+            return parsed.IsSuccess
+                ? Ok(context, aeds, await service.PreviewAsync(parsed.Value!))
+                : parsed.ToErrorResult(aeds);
+        })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
-        group.MapPost("/prepublish-check", (ServerDraftSaveRequest request, HttpContext context, AuthoringWorkflowService service) =>
-            Results.Ok(JsonApiResponse<PrepublishCheckResponse>.Ok(
+        group.MapPost("/prepublish-check", async (
+            HttpContext context,
+            IAedsEncoder aeds,
+            AuthoringWorkflowService service,
+            CancellationToken cancellationToken) =>
+        {
+            var parsed = await ReadRequestAsync<ServerDraftSaveRequest>(
+                context,
+                aeds,
+                "prepublish_check_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            ServerDraftSaveRequest request = parsed.Value!;
+            return Ok(
+                context,
+                aeds,
                 service.RunPrepublishCheck(
                     request.Title,
                     request.Content,
@@ -83,29 +128,34 @@ public static class AuthoringEndpoints
                     context.GetUserId(),
                     request.DraftKey,
                     request.ArticleId,
-                    request.WarningOverrideReason))))
+                    request.WarningOverrideReason));
+        })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/articles/{articleId:int}/revisions", async (
             int articleId,
+            HttpContext context,
+            IAedsEncoder aeds,
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
             IReadOnlyList<ArticleRevisionSummaryResponse> revisions = await service.GetRevisionsAsync(articleId, cancellationToken);
-            return Results.Ok(JsonApiResponse<IReadOnlyList<ArticleRevisionSummaryResponse>>.Ok(revisions));
+            return Ok(context, aeds, revisions);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/articles/{articleId:int}/revisions/{revisionId:long}", async (
             int articleId,
             long revisionId,
+            HttpContext context,
+            IAedsEncoder aeds,
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
             ArticleRevisionDetailResponse? revision = await service.GetRevisionAsync(articleId, revisionId, cancellationToken);
             return revision is null
-                ? Results.NotFound(JsonApiResponse<ArticleRevisionDetailResponse>.Fail("revision_not_found"))
-                : Results.Ok(JsonApiResponse<ArticleRevisionDetailResponse>.Ok(revision));
+                ? AedsJsonResults.NotFound(aeds, "revision_not_found")
+                : Ok(context, aeds, revision);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
@@ -113,47 +163,72 @@ public static class AuthoringEndpoints
             int articleId,
             long revisionId,
             HttpContext context,
+            IAedsEncoder aeds,
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
             bool rolledBack = await service.RollbackRevisionAsync(context.GetUserId(), articleId, revisionId, cancellationToken);
             return rolledBack
-                ? Results.Ok(JsonApiResponse<object>.Ok(new { rolledBack }))
-                : Results.NotFound(JsonApiResponse<object>.Fail("revision_not_found"));
+                ? Ok(context, aeds, new { rolledBack })
+                : AedsJsonResults.NotFound(aeds, "revision_not_found");
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapPost("/articles/{articleId:int}/assets/reindex", async (
             int articleId,
+            HttpContext context,
+            IAedsEncoder aeds,
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
             IReadOnlyList<AssetLibraryItemResponse> assets = await service.ReindexAssetsAsync(articleId, cancellationToken);
-            return Results.Ok(JsonApiResponse<IReadOnlyList<AssetLibraryItemResponse>>.Ok(assets));
+            return Ok(context, aeds, assets);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
-        group.MapGet("/assets", async (AuthoringWorkflowService service, CancellationToken cancellationToken) =>
-            Results.Ok(JsonApiResponse<IReadOnlyList<AssetLibraryItemResponse>>.Ok(await service.ListAssetsAsync(cancellationToken))))
+        group.MapGet("/assets", async (
+            HttpContext context,
+            IAedsEncoder aeds,
+            AuthoringWorkflowService service,
+            CancellationToken cancellationToken) =>
+            Ok(context, aeds, await service.ListAssetsAsync(cancellationToken)))
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
-        group.MapDelete("/assets/orphans", async (AuthoringWorkflowService service, CancellationToken cancellationToken) =>
-            Results.Ok(JsonApiResponse<AssetCleanupResponse>.Ok(await service.CleanupOrphanAssetsAsync(cancellationToken))))
+        group.MapDelete("/assets/orphans", async (
+            HttpContext context,
+            IAedsEncoder aeds,
+            AuthoringWorkflowService service,
+            CancellationToken cancellationToken) =>
+            Ok(context, aeds, await service.CleanupOrphanAssetsAsync(cancellationToken)))
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
-        group.MapGet("/taxonomy/categories", async (ISqlSugarClient db, CancellationToken cancellationToken) =>
-            Results.Ok(JsonApiResponse<IReadOnlyList<AdminCategoryItemResponse>>.Ok(await ListAdminCategoriesAsync(db, cancellationToken))))
+        group.MapGet("/taxonomy/categories", async (
+            HttpContext context,
+            IAedsEncoder aeds,
+            ISqlSugarClient db,
+            CancellationToken cancellationToken) =>
+            Ok(context, aeds, await ListAdminCategoriesAsync(db, cancellationToken)))
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
-        group.MapGet("/taxonomy/tags", async (ISqlSugarClient db, CancellationToken cancellationToken) =>
-            Results.Ok(JsonApiResponse<IReadOnlyList<AdminTagItemResponse>>.Ok(await ListAdminTagsAsync(db, cancellationToken))))
+        group.MapGet("/taxonomy/tags", async (
+            HttpContext context,
+            IAedsEncoder aeds,
+            ISqlSugarClient db,
+            CancellationToken cancellationToken) =>
+            Ok(context, aeds, await ListAdminTagsAsync(db, cancellationToken)))
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
-        group.MapGet("/analytics", async (AuthoringWorkflowService service, CancellationToken cancellationToken) =>
-            Results.Ok(JsonApiResponse<AuthorAnalyticsResponse>.Ok(await service.GetAnalyticsAsync(cancellationToken))))
+        group.MapGet("/analytics", async (
+            HttpContext context,
+            IAedsEncoder aeds,
+            AuthoringWorkflowService service,
+            CancellationToken cancellationToken) =>
+            Ok(context, aeds, await service.GetAnalyticsAsync(cancellationToken)))
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/moderation/overview", async (
+            HttpContext context,
+            IAedsEncoder aeds,
             ISqlSugarClient db,
             IModerationDictionaryService dictionaryService,
             IConfiguration configuration,
@@ -176,25 +251,38 @@ public static class AuthoringEndpoints
                 configuration["Moderation:AntiSpamModel:Mode"] ?? "score-only",
                 configuration["Moderation:AntiSpamModel:ContractVersion"] ?? AntiSpamModerationContract.DefaultVersion,
                 Math.Clamp(configuration.GetValue<int?>("Moderation:AntiSpamModel:TimeoutMs") ?? 800, 100, 10_000));
-            return Results.Ok(JsonApiResponse<ModerationOverviewResponse>.Ok(response));
+            return Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.CommentModerate);
 
         group.MapGet("/moderation/anonymous-comment-policy", (
+            HttpContext context,
+            IAedsEncoder aeds,
             IAnonymousCommentPolicyService policyService) =>
-            Results.Ok(JsonApiResponse<AnonymousCommentPolicySnapshot>.Ok(policyService.Current)))
+            Ok(context, aeds, policyService.Current))
         .RequireAdminPermission(AdminPermissions.AnonymousCommentConfigure)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPut("/moderation/anonymous-comment-policy", async (
-            AnonymousCommentPolicyUpdateRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             IAnonymousCommentPolicyService policyService,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<AnonymousCommentPolicyUpdateRequest>(
+                context,
+                aeds,
+                "anonymous_comment_policy_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            AnonymousCommentPolicyUpdateRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -207,7 +295,7 @@ public static class AuthoringEndpoints
             }
             catch (ArgumentException ex) when (ex.ParamName == nameof(AnonymousCommentPolicyUpdateRequest.DefaultAuthorMode))
             {
-                return Results.BadRequest(JsonApiResponse<object>.Fail("author_mode_invalid"));
+                return AedsJsonResults.BadRequest(aeds, "author_mode_invalid");
             }
 
             await auditEvents.RecordHighValueAsync(new AuditEvent(
@@ -231,20 +319,31 @@ public static class AuthoringEndpoints
                     ["defaultAuthorMode"] = snapshot.DefaultAuthorMode,
                     ["supportedDisplayLanguages"] = snapshot.SupportedDisplayLanguages
                 }), cancellationToken);
-            return Results.Ok(JsonApiResponse<AnonymousCommentPolicySnapshot>.Ok(snapshot));
+            return Ok(context, aeds, snapshot);
         })
         .RequireAdminPermission(AdminPermissions.AnonymousCommentConfigure)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/comments/moderation/nullifiers/block", async (
-            AnonymousNullifierBlockRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             ICommentAnonymousNullifierService nullifierService,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<AnonymousNullifierBlockRequest>(
+                context,
+                aeds,
+                "anonymous_nullifier_block_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            AnonymousNullifierBlockRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -269,22 +368,33 @@ public static class AuthoringEndpoints
                     ["applied"] = applied
                 }), cancellationToken);
             return applied
-                ? Results.Ok(JsonApiResponse<AnonymousGovernanceActionResponse>.Ok(new AnonymousGovernanceActionResponse(true)))
-                : Results.NotFound(JsonApiResponse<AnonymousGovernanceActionResponse>.Fail("anonymous_nullifier_not_found"));
+                ? Ok(context, aeds, new AnonymousGovernanceActionResponse(true))
+                : AedsJsonResults.NotFound(aeds, "anonymous_nullifier_not_found");
         })
         .RequireAdminPermission(AdminPermissions.AnonymousNullifierBlock)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/comments/moderation/anonymous-credentials/{credentialId:long}/revoke", async (
             long credentialId,
-            AnonymousCredentialRevokeRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             IAnonymousCredentialService credentialService,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<AnonymousCredentialRevokeRequest>(
+                context,
+                aeds,
+                "anonymous_credential_revoke_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            AnonymousCredentialRevokeRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -307,30 +417,47 @@ public static class AuthoringEndpoints
                     ["revoked"] = revoked
                 }), cancellationToken);
             return revoked
-                ? Results.Ok(JsonApiResponse<AnonymousGovernanceActionResponse>.Ok(new AnonymousGovernanceActionResponse(true)))
-                : Results.NotFound(JsonApiResponse<AnonymousGovernanceActionResponse>.Fail("anonymous_credential_not_found"));
+                ? Ok(context, aeds, new AnonymousGovernanceActionResponse(true))
+                : AedsJsonResults.NotFound(aeds, "anonymous_credential_not_found");
         })
         .RequireAdminPermission(AdminPermissions.AnonymousCredentialRevoke)
         .RequireRateLimiting("fixed_ip");
 
-        group.MapGet("/moderation/dictionaries", (IModerationDictionaryService dictionaryService) =>
-            Results.Ok(JsonApiResponse<ModerationDictionaryRuntimeSnapshot>.Ok(dictionaryService.GetRuntimeSnapshot())))
+        group.MapGet("/moderation/dictionaries", (
+            HttpContext context,
+            IAedsEncoder aeds,
+            IModerationDictionaryService dictionaryService) =>
+            Ok(context, aeds, dictionaryService.GetRuntimeSnapshot()))
         .RequireAdminPermission(AdminPermissions.SystemConfig);
 
-        group.MapGet("/moderation/runtime/status", (IModerationRuntimeStateService runtimeState) =>
-            Results.Ok(JsonApiResponse<ModerationRuntimeStatusResponse>.Ok(ToModerationRuntimeStatusResponse(runtimeState.Current))))
+        group.MapGet("/moderation/runtime/status", (
+            HttpContext context,
+            IAedsEncoder aeds,
+            IModerationRuntimeStateService runtimeState) =>
+            Ok(context, aeds, ToModerationRuntimeStatusResponse(runtimeState.Current)))
         .RequireAdminPermission(AdminPermissions.SystemConfig);
 
         group.MapPost("/moderation/runtime/global-state", async (
-            ModerationRuntimeGlobalStateRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             IModerationRuntimeStateService runtimeState,
             IAuditEventService auditEvents,
             ICacheInvalidationDispatcher cacheInvalidation,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<ModerationRuntimeGlobalStateRequest>(
+                context,
+                aeds,
+                "moderation_runtime_global_state_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            ModerationRuntimeGlobalStateRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -350,21 +477,33 @@ public static class AuthoringEndpoints
                 "moderation_runtime",
                 result.IsSuccess ? result.Value!.SnapshotId : "global",
                 request.Reason ?? request.State,
+                aeds,
                 cancellationToken);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/moderation/runtime/region-state", async (
-            ModerationRuntimeRegionStateRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             IModerationRuntimeStateService runtimeState,
             IAuditEventService auditEvents,
             ICacheInvalidationDispatcher cacheInvalidation,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<ModerationRuntimeRegionStateRequest>(
+                context,
+                aeds,
+                "moderation_runtime_region_state_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            ModerationRuntimeRegionStateRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -386,6 +525,7 @@ public static class AuthoringEndpoints
                 "moderation_region_runtime",
                 request.Region,
                 request.Reason ?? request.State,
+                aeds,
                 cancellationToken);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
@@ -393,13 +533,14 @@ public static class AuthoringEndpoints
 
         group.MapPost("/moderation/dictionaries/reload", async (
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             IModerationDictionaryService dictionaryService,
             IAuditEventService auditEvents,
             ICacheInvalidationDispatcher cacheInvalidation,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -438,23 +579,22 @@ public static class AuthoringEndpoints
             }
 
             return result.IsSuccess
-                ? Results.Ok(JsonApiResponse<ModerationDictionaryReloadResponse>.Ok(response))
-                : Results.Json(
-                    JsonApiResponse<ModerationDictionaryReloadResponse>.Fail("moderation_dictionary_reload_failed"),
-                    statusCode: StatusCodes.Status500InternalServerError);
+                ? Ok(context, aeds, response)
+                : AedsJsonResults.Error(aeds, ErrorCode.InfraFailure, "moderation_dictionary_reload_failed", StatusCodes.Status500InternalServerError);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/moderation/dictionaries/rollback", async (
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             IModerationDictionaryService dictionaryService,
             IAuditEventService auditEvents,
             ICacheInvalidationDispatcher cacheInvalidation,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -484,27 +624,36 @@ public static class AuthoringEndpoints
             if (result.IsSuccess)
             {
                 await cacheInvalidation.InvalidateCommentMutationAsync(null, cancellationToken);
-                return Results.Ok(JsonApiResponse<ModerationDictionaryRuntimeSnapshot>.Ok(snapshot));
+                return Ok(context, aeds, snapshot);
             }
 
-            return Results.Json(
-                JsonApiResponse<ModerationDictionaryRuntimeSnapshot>.Fail(result.Error.Message),
-                statusCode: ToHttpStatusCode(result.Error.Code));
+            return AedsJsonResults.Error(aeds, result.Error.Code, result.Error.Message, ToHttpStatusCode(result.Error.Code));
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/moderation/dictionaries/{dictionaryId}/enable", async (
             string dictionaryId,
-            ModerationDictionaryStateRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             IModerationRuntimeStateService runtimeState,
             IAuditEventService auditEvents,
             ICacheInvalidationDispatcher cacheInvalidation,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<ModerationDictionaryStateRequest>(
+                context,
+                aeds,
+                "moderation_dictionary_state_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            ModerationDictionaryStateRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -525,6 +674,7 @@ public static class AuthoringEndpoints
                 "moderation_dictionary",
                 dictionaryId,
                 request.Reason ?? "dictionary_enable",
+                aeds,
                 cancellationToken);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
@@ -532,15 +682,26 @@ public static class AuthoringEndpoints
 
         group.MapPost("/moderation/dictionaries/{dictionaryId}/disable", async (
             string dictionaryId,
-            ModerationDictionaryStateRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             IModerationRuntimeStateService runtimeState,
             IAuditEventService auditEvents,
             ICacheInvalidationDispatcher cacheInvalidation,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<ModerationDictionaryStateRequest>(
+                context,
+                aeds,
+                "moderation_dictionary_state_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            ModerationDictionaryStateRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -561,12 +722,16 @@ public static class AuthoringEndpoints
                 "moderation_dictionary",
                 dictionaryId,
                 request.Reason ?? "dictionary_disable",
+                aeds,
                 cancellationToken);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
-        group.MapGet("/moderation/policies", (IModerationDictionaryService dictionaryService) =>
+        group.MapGet("/moderation/policies", (
+            HttpContext context,
+            IAedsEncoder aeds,
+            IModerationDictionaryService dictionaryService) =>
         {
             ModerationDictionaryRuntimeSnapshot snapshot = dictionaryService.GetRuntimeSnapshot();
             RegionPolicySummaryResponse[] policies = [.. snapshot.RegionPolicies.Select(policy => new RegionPolicySummaryResponse(
@@ -577,58 +742,83 @@ public static class AuthoringEndpoints
                 policy.Checksum,
                 policy.RuleCount,
                 BuildRegionPolicyChecks(policy)))];
-            return Results.Ok(JsonApiResponse<IReadOnlyList<RegionPolicySummaryResponse>>.Ok(policies));
+            return Ok(context, aeds, policies);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig);
 
-        group.MapGet("/moderation/regions", (IModerationRegionCatalogService regionCatalog) =>
+        group.MapGet("/moderation/regions", (
+            HttpContext context,
+            IAedsEncoder aeds,
+            IModerationRegionCatalogService regionCatalog) =>
         {
             ModerationRegionCatalogSnapshot snapshot = regionCatalog.GetRuntimeSnapshot();
-            return Results.Ok(JsonApiResponse<IReadOnlyList<ModerationRegionDefinition>>.Ok(snapshot.Regions));
+            return Ok(context, aeds, snapshot.Regions);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig);
 
-        group.MapGet("/moderation/region-groups", (IModerationRegionCatalogService regionCatalog) =>
+        group.MapGet("/moderation/region-groups", (
+            HttpContext context,
+            IAedsEncoder aeds,
+            IModerationRegionCatalogService regionCatalog) =>
         {
             ModerationRegionCatalogSnapshot snapshot = regionCatalog.GetRuntimeSnapshot();
-            return Results.Ok(JsonApiResponse<IReadOnlyList<ModerationRegionGroupDefinition>>.Ok(snapshot.RegionGroups));
+            return Ok(context, aeds, snapshot.RegionGroups);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig);
 
-        group.MapGet("/moderation/policy-templates", (IModerationRegionCatalogService regionCatalog) =>
+        group.MapGet("/moderation/policy-templates", (
+            HttpContext context,
+            IAedsEncoder aeds,
+            IModerationRegionCatalogService regionCatalog) =>
         {
             ModerationRegionCatalogSnapshot snapshot = regionCatalog.GetRuntimeSnapshot();
-            return Results.Ok(JsonApiResponse<IReadOnlyList<ModerationPolicyTemplateDefinition>>.Ok(snapshot.PolicyTemplates));
+            return Ok(context, aeds, snapshot.PolicyTemplates);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig);
 
         group.MapGet("/moderation/effective-policy/{regionCode}", async (
             string regionCode,
+            HttpContext context,
+            IAedsEncoder aeds,
             IModerationRegionCatalogService regionCatalog,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
             ModerationEffectivePolicyPreview preview = regionCatalog.PreviewEffectivePolicy(regionCode);
             await RecordEffectivePolicyPreviewAuditAsync(preview, auditEvents, cancellationToken);
-            return Results.Ok(JsonApiResponse<ModerationEffectivePolicyPreview>.Ok(preview));
+            return Ok(context, aeds, preview);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/moderation/effective-policy/preview", async (
-            ModerationEffectivePolicyPreviewRequest request,
+            HttpContext context,
+            IAedsEncoder aeds,
             IModerationRegionCatalogService regionCatalog,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
+            var parsed = await ReadRequestAsync<ModerationEffectivePolicyPreviewRequest>(
+                context,
+                aeds,
+                "moderation_effective_policy_preview_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            ModerationEffectivePolicyPreviewRequest request = parsed.Value!;
             ModerationEffectivePolicyPreview preview = regionCatalog.PreviewEffectivePolicy(request.RegionCode, request.OperatorOverrides);
             await RecordEffectivePolicyPreviewAuditAsync(preview, auditEvents, cancellationToken);
-            return Results.Ok(JsonApiResponse<ModerationEffectivePolicyPreview>.Ok(preview));
+            return Ok(context, aeds, preview);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/moderation/model/status", async (
+            HttpContext context,
+            IAedsEncoder aeds,
             IConfiguration configuration,
             IModerationRuntimeStateService runtimeState,
             ISqlSugarClient db,
@@ -671,19 +861,30 @@ public static class AuthoringEndpoints
                 lastError.Count > 0 ? lastError[0].CreatedAtUtc : null,
                 latencies.Count > 0 ? Math.Round(latencies.Average(), 2) : 0d,
                 ResolveP95Latency(latencies));
-            return Results.Ok(JsonApiResponse<ModerationModelStatusResponse>.Ok(response));
+            return Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig);
 
         group.MapPost("/moderation/model/runtime", async (
-            ModerationModelRuntimeRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             IModerationRuntimeStateService runtimeState,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<ModerationModelRuntimeRequest>(
+                context,
+                aeds,
+                "moderation_model_runtime_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            ModerationModelRuntimeRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -705,6 +906,7 @@ public static class AuthoringEndpoints
                 "moderation_model_runtime",
                 result.IsSuccess ? result.Value!.Model.SnapshotId : "model",
                 request.Reason ?? request.Provider ?? "model_runtime",
+                aeds,
                 cancellationToken);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
@@ -712,12 +914,13 @@ public static class AuthoringEndpoints
 
         group.MapPost("/moderation/model/reload", async (
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             IModerationRuntimeStateService runtimeState,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -733,6 +936,7 @@ public static class AuthoringEndpoints
                 "moderation_model_runtime",
                 result.IsSuccess ? result.Value!.Model.SnapshotId : "model",
                 "model_reload",
+                aeds,
                 cancellationToken);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
@@ -740,12 +944,13 @@ public static class AuthoringEndpoints
 
         group.MapPost("/moderation/model/rollback", async (
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             IModerationRuntimeStateService runtimeState,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -761,18 +966,31 @@ public static class AuthoringEndpoints
                 "moderation_model_runtime",
                 result.IsSuccess ? result.Value!.Model.SnapshotId : "model",
                 "model_rollback",
+                aeds,
                 cancellationToken);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/moderation/replay/preview", async (
-            ModerationReplayPreviewRequest request,
+            HttpContext context,
+            IAedsEncoder aeds,
             ISqlSugarClient db,
             IRegionLegalModerationService regionLegalModerationService,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
+            var parsed = await ReadRequestAsync<ModerationReplayPreviewRequest>(
+                context,
+                aeds,
+                "moderation_replay_preview_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            ModerationReplayPreviewRequest request = parsed.Value!;
             ModerationReplayPreviewResponse response = await BuildModerationReplayPreviewAsync(
                 request,
                 db,
@@ -798,12 +1016,14 @@ public static class AuthoringEndpoints
                     ["highRiskChangeCount"] = response.HighRiskChangeCount
                 }), cancellationToken);
 
-            return Results.Ok(JsonApiResponse<ModerationReplayPreviewResponse>.Ok(response));
+            return Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/comments/moderation", async (
+            HttpContext context,
+            IAedsEncoder aeds,
             int? status,
             int? limit,
             AuthoringWorkflowService service,
@@ -811,24 +1031,35 @@ public static class AuthoringEndpoints
         {
             if (!TryResolveModerationStatus(status, out CommentModerationStatus? resolvedStatus))
             {
-                return Results.BadRequest(JsonApiResponse<object>.Fail("comment_status_invalid"));
+                return AedsJsonResults.BadRequest(aeds, "comment_status_invalid");
             }
 
             CommentModerationQueueResponse queue = await service.ListCommentModerationQueueAsync(resolvedStatus, limit ?? 50, cancellationToken);
-            return Results.Ok(JsonApiResponse<CommentModerationQueueResponse>.Ok(queue));
+            return Ok(context, aeds, queue);
         })
         .RequireAdminPermission(AdminPermissions.CommentModerate)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/comments/moderation/bulk", async (
-            CommentModerationBulkRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             AuthoringWorkflowService service,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<CommentModerationBulkRequest>(
+                context,
+                aeds,
+                "comment_moderation_bulk_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            CommentModerationBulkRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -853,21 +1084,32 @@ public static class AuthoringEndpoints
                     ["bannedUsers"] = response.BannedUsers,
                     ["banUsers"] = request.BanUsers
                 }), cancellationToken);
-            return Results.Ok(JsonApiResponse<CommentModerationBulkResponse>.Ok(response));
+            return Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.CommentModerate)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/comments/{commentId:long}/moderation", async (
             long commentId,
-            CommentModerationRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             AuthoringWorkflowService service,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<CommentModerationRequest>(
+                context,
+                aeds,
+                "comment_moderation_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            CommentModerationRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -890,20 +1132,21 @@ public static class AuthoringEndpoints
                     ["banUser"] = request.BanUser
                 }), cancellationToken);
             return moderated
-                ? Results.Ok(JsonApiResponse<object>.Ok(new { moderated }))
-                : Results.NotFound(JsonApiResponse<object>.Fail("comment_not_found"));
+                ? Ok(context, aeds, new { moderated })
+                : AedsJsonResults.NotFound(aeds, "comment_not_found");
         })
         .RequireAdminPermission(AdminPermissions.CommentModerate)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/content/export", async (
             HttpContext context,
+            IAedsEncoder aeds,
             AuthoringWorkflowService service,
             IAdminPrincipalService adminPrincipals,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -924,12 +1167,14 @@ public static class AuthoringEndpoints
                     ["articleCount"] = response.Articles.Count,
                     ["exportedAt"] = response.ExportedAt
                 }), cancellationToken);
-            return Results.Ok(JsonApiResponse<ContentBackupExportResponse>.Ok(response));
+            return Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/articles/{articleId:int}/export", async (
             int articleId,
+            HttpContext context,
+            IAedsEncoder aeds,
             AuthoringWorkflowService service,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
@@ -952,17 +1197,29 @@ public static class AuthoringEndpoints
                         ["revisionCount"] = exported.Metadata.RevisionCount
                     }), cancellationToken);
             return exported is null
-                ? Results.NotFound(JsonApiResponse<ContentExportResponse>.Fail("article_not_found"))
-                : Results.Ok(JsonApiResponse<ContentExportResponse>.Ok(exported));
+                ? AedsJsonResults.NotFound(aeds, "article_not_found")
+                : Ok(context, aeds, exported);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapPost("/articles/import", async (
-            ContentImportRequest request,
+            HttpContext context,
+            IAedsEncoder aeds,
             AuthoringWorkflowService service,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
+            var parsed = await ReadRequestAsync<ContentImportRequest>(
+                context,
+                aeds,
+                "content_import_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            ContentImportRequest request = parsed.Value!;
             ContentImportResponse response = await service.ImportArticleAsync(request, cancellationToken);
             await auditEvents.RecordHighValueAsync(new AuditEvent(
                 AuditSourceCatalog.Admin,
@@ -979,11 +1236,13 @@ public static class AuthoringEndpoints
                     ["preserveRevisions"] = request.PreserveRevisions,
                     ["restoredRevisionCount"] = response.RestoredRevisionCount
                 }), cancellationToken);
-            return Results.Ok(JsonApiResponse<ContentImportResponse>.Ok(response));
+            return Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         group.MapGet("/audit", async (
+            HttpContext context,
+            IAedsEncoder aeds,
             int? page,
             int? pageSize,
             string? source,
@@ -1011,12 +1270,14 @@ public static class AuthoringEndpoints
                 "管理员查询审计日志列表",
                 TargetType: "audit_log",
                 Context: BuildAuditQueryContext(query)), cancellationToken);
-            return Results.Ok(JsonApiResponse<AuditLogListResponse>.Ok(response));
+            return Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.AuditRead)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/audit/summary", async (
+            HttpContext context,
+            IAedsEncoder aeds,
             string? source,
             string? type,
             string? actor,
@@ -1042,13 +1303,15 @@ public static class AuthoringEndpoints
                 "管理员查询审计日志汇总",
                 TargetType: "audit_log_summary",
                 Context: BuildAuditQueryContext(query)), cancellationToken);
-            return Results.Ok(JsonApiResponse<AuditLogSummaryResponse>.Ok(response));
+            return Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.AuditRead)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/audit/{id:long}", async (
             long id,
+            HttpContext context,
+            IAedsEncoder aeds,
             AuditQueryService auditQuery,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
@@ -1064,14 +1327,16 @@ public static class AuthoringEndpoints
                 TargetType: "audit_log",
                 TargetId: id.ToString(System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
             return response is null
-                ? Results.NotFound(JsonApiResponse<AuditLogDetailResponse>.Fail("audit_log_not_found"))
-                : Results.Ok(JsonApiResponse<AuditLogDetailResponse>.Ok(response));
+                ? AedsJsonResults.NotFound(aeds, "audit_log_not_found")
+                : Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.AuditRead)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/audit/{id:long}/verify", async (
             long id,
+            HttpContext context,
+            IAedsEncoder aeds,
             AuditQueryService auditQuery,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
@@ -1087,13 +1352,15 @@ public static class AuthoringEndpoints
                 TargetType: "audit_log",
                 TargetId: id.ToString(System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
             return response is null
-                ? Results.NotFound(JsonApiResponse<AuditTamperVerifyResponse>.Fail("audit_log_not_found"))
-                : Results.Ok(JsonApiResponse<AuditTamperVerifyResponse>.Ok(response));
+                ? AedsJsonResults.NotFound(aeds, "audit_log_not_found")
+                : Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.AuditRead)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/ops/health", async (
+            HttpContext context,
+            IAedsEncoder aeds,
             AdminOperationsService operations,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
@@ -1107,24 +1374,30 @@ public static class AuthoringEndpoints
                 AuditSeverityCatalog.Info,
                 "管理员查看生产运维健康面板",
                 TargetType: "ops_health"), cancellationToken);
-            return Results.Ok(JsonApiResponse<OpsHealthResponse>.Ok(response));
+            return Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.AuditRead)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/ops/backup", (
+            HttpContext context,
+            IAedsEncoder aeds,
             AdminOperationsService operations) =>
-            Results.Ok(JsonApiResponse<BackupStatusResponse>.Ok(operations.GetBackupStatus())))
+            Ok(context, aeds, operations.GetBackupStatus()))
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/ops/dangerous-operations/policy", (
+            HttpContext context,
+            IAedsEncoder aeds,
             AdminOperationsService operations) =>
-            Results.Ok(JsonApiResponse<DangerousOperationPolicyResponse>.Ok(operations.GetDangerousOperationPolicy())))
+            Ok(context, aeds, operations.GetDangerousOperationPolicy()))
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/cache/diagnostics", async (
+            HttpContext context,
+            IAedsEncoder aeds,
             int? articleId,
             AdminOperationsService operations,
             IAuditEventService auditEvents,
@@ -1140,17 +1413,29 @@ public static class AuthoringEndpoints
                 "管理员查看缓存/AOT/search/sitemap 诊断",
                 TargetType: "cache_diagnostics",
                 TargetId: articleId?.ToString(System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
-            return Results.Ok(JsonApiResponse<CacheDiagnosticsResponse>.Ok(response));
+            return Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/cache/actions", async (
-            AdminCacheActionRequest request,
+            HttpContext context,
+            IAedsEncoder aeds,
             AdminOperationsService operations,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
+            var parsed = await ReadRequestAsync<AdminCacheActionRequest>(
+                context,
+                aeds,
+                "admin_cache_action_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            AdminCacheActionRequest request = parsed.Value!;
             AdminCacheActionResponse response = await operations.RunCacheActionAsync(request, cancellationToken);
             await auditEvents.RecordHighValueAsync(new AuditEvent(
                 AuditSourceCatalog.Admin,
@@ -1167,12 +1452,14 @@ public static class AuthoringEndpoints
                     ["status"] = response.Status,
                     ["detail"] = response.Detail
                 }), cancellationToken);
-            return Results.Ok(JsonApiResponse<AdminCacheActionResponse>.Ok(response));
+            return Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/integrity", async (
+            HttpContext context,
+            IAedsEncoder aeds,
             AdminOperationsService operations,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
@@ -1191,27 +1478,40 @@ public static class AuthoringEndpoints
                     ["issueCount"] = response.IssueCount,
                     ["checkCount"] = response.CheckCount
                 }), cancellationToken);
-            return Results.Ok(JsonApiResponse<IntegrityReportResponse>.Ok(response));
+            return Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/integrity/fix-preview", async (
+            HttpContext context,
+            IAedsEncoder aeds,
             AdminOperationsService operations,
             CancellationToken cancellationToken) =>
-            Results.Ok(JsonApiResponse<IntegrityFixPreviewResponse>.Ok(await operations.PreviewIntegrityFixAsync(cancellationToken))))
+            Ok(context, aeds, await operations.PreviewIntegrityFixAsync(cancellationToken)))
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/integrity/fix", async (
-            IntegrityFixRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             AdminOperationsService operations,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<IntegrityFixRequest>(
+                context,
+                aeds,
+                "integrity_fix_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            IntegrityFixRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -1232,13 +1532,26 @@ public static class AuthoringEndpoints
                     ["appliedCount"] = response.AppliedCount,
                     ["codes"] = request.Codes
                 }), cancellationToken);
-            return Results.Ok(JsonApiResponse<IntegrityFixResponse>.Ok(response));
+            return Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
-        group.MapPost("/ai-assist", (AiAssistRequest request, HttpContext context, AuthoringWorkflowService service) =>
-            Results.Ok(JsonApiResponse<AiAssistResponse>.Ok(service.GenerateAiAssist(context.GetUserId(), request))))
+        group.MapPost("/ai-assist", async (
+            HttpContext context,
+            IAedsEncoder aeds,
+            AuthoringWorkflowService service,
+            CancellationToken cancellationToken) =>
+        {
+            var parsed = await ReadRequestAsync<AiAssistRequest>(
+                context,
+                aeds,
+                "ai_assist_request_invalid",
+                cancellationToken);
+            return parsed.IsSuccess
+                ? Ok(context, aeds, service.GenerateAiAssist(context.GetUserId(), parsed.Value!))
+                : parsed.ToErrorResult(aeds);
+        })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
         return app;
@@ -1266,6 +1579,177 @@ public static class AuthoringEndpoints
                 ["warnings"] = preview.Warnings
             }), cancellationToken);
 
+    private static IResult Ok(HttpContext context, IAedsEncoder aeds, object? value)
+    {
+        if (!TryResolveRoute(context.Request.Method, ResolveRemainingPath(context), out AuthoringAedsRoute route))
+        {
+            return AedsJsonResults.NotFound(aeds, "authoring_binary_route_not_found");
+        }
+
+        return value is null
+            ? AedsJsonResults.OkNull(aeds, route.ResponseFrame)
+            : AedsJsonResults.Ok(aeds, route.ResponseFrame, value);
+    }
+
+    private static async Task<AedsJsonRequest<T>> ReadRequestAsync<T>(
+        HttpContext context,
+        IAedsEncoder aeds,
+        string invalidMessage,
+        CancellationToken cancellationToken)
+    {
+        if (!TryResolveRoute(context.Request.Method, ResolveRemainingPath(context), out AuthoringAedsRoute route)
+            || route.RequestFrame is null)
+        {
+            return AedsJsonRequest<T>.Failure(ErrorDetail.Create(FsusBlog.Core.Common.ErrorCode.Validation, "authoring_binary_body_not_allowed"));
+        }
+
+        return await AedsJsonResults.ReadAsync<T>(
+            context,
+            aeds,
+            route.RequestFrame.Value,
+            AedsJsonResults.MaxAuthoringFrameBytes,
+            invalidMessage,
+            cancellationToken);
+    }
+
+    private static PathString ResolveRemainingPath(HttpContext context)
+        => context.Request.Path.StartsWithSegments(BinaryPrefix, StringComparison.OrdinalIgnoreCase, out PathString remaining)
+            ? remaining
+            : context.Request.Path;
+
+    internal static bool TryResolveRoute(string method, PathString remaining, out AuthoringAedsRoute route)
+    {
+        string[] segments = (remaining.Value ?? string.Empty).Split('/', StringSplitOptions.RemoveEmptyEntries);
+        route = default;
+
+        if (HttpMethods.IsPost(method) && segments is ["drafts"])
+            return Found(AedsFrameType.AuthorDraftSaveRequest, AedsFrameType.AuthorDraftResponse, out route);
+        if (HttpMethods.IsGet(method) && segments is ["drafts", _])
+            return Found(null, AedsFrameType.AuthorDraftResponse, out route);
+        if (HttpMethods.IsDelete(method) && segments is ["drafts", _])
+            return Found(null, AedsFrameType.AuthorDraftDiscardResponse, out route);
+        if (HttpMethods.IsPost(method) && segments is ["preview"])
+            return Found(AedsFrameType.ArticlePreviewRequest, AedsFrameType.ArticlePreviewResponse, out route);
+        if (HttpMethods.IsPost(method) && segments is ["prepublish-check"])
+            return Found(AedsFrameType.PrepublishCheckRequest, AedsFrameType.PrepublishCheckResponse, out route);
+        if (HttpMethods.IsPost(method) && segments is ["ai-assist"])
+            return Found(AedsFrameType.AiAssistRequest, AedsFrameType.AiAssistResponse, out route);
+        if (HttpMethods.IsGet(method) && segments is ["assets"])
+            return Found(null, AedsFrameType.AssetLibraryList, out route);
+        if (HttpMethods.IsPost(method) && segments is ["articles", _, "assets", "reindex"])
+            return Found(null, AedsFrameType.AssetLibraryList, out route);
+        if (HttpMethods.IsDelete(method) && segments is ["assets", "orphans"])
+            return Found(null, AedsFrameType.AssetCleanupResponse, out route);
+        if (HttpMethods.IsGet(method) && segments is ["taxonomy", "categories"])
+            return Found(null, AedsFrameType.AuthorTaxonomyCategoryList, out route);
+        if (HttpMethods.IsGet(method) && segments is ["taxonomy", "tags"])
+            return Found(null, AedsFrameType.AuthorTaxonomyTagList, out route);
+        if (HttpMethods.IsGet(method) && segments is ["analytics"])
+            return Found(null, AedsFrameType.AuthorAnalytics, out route);
+
+        if (HttpMethods.IsGet(method) && segments is ["articles", _, "revisions"])
+            return Found(null, AedsFrameType.ArticleRevisionList, out route);
+        if (HttpMethods.IsGet(method) && segments is ["articles", _, "revisions", _])
+            return Found(null, AedsFrameType.ArticleRevisionDetail, out route);
+        if (HttpMethods.IsPost(method) && segments is ["articles", _, "revisions", _, "rollback"])
+            return Found(null, AedsFrameType.ArticleRevisionRollbackResponse, out route);
+
+        if (HttpMethods.IsGet(method) && segments is ["moderation", "overview"])
+            return Found(null, AedsFrameType.ModerationOverview, out route);
+        if (HttpMethods.IsGet(method) && segments is ["moderation", "dictionaries"])
+            return Found(null, AedsFrameType.ModerationDictionarySnapshot, out route);
+        if (HttpMethods.IsPost(method) && segments is ["moderation", "dictionaries", "reload"])
+            return Found(null, AedsFrameType.ModerationDictionaryReloadResponse, out route);
+        if (HttpMethods.IsPost(method) && segments is ["moderation", "dictionaries", "rollback"])
+            return Found(null, AedsFrameType.ModerationDictionarySnapshot, out route);
+        if (HttpMethods.IsPost(method) && segments is ["moderation", "dictionaries", _, "enable"])
+            return Found(AedsFrameType.ModerationDictionaryStateRequest, AedsFrameType.ModerationRuntimeStatus, out route);
+        if (HttpMethods.IsPost(method) && segments is ["moderation", "dictionaries", _, "disable"])
+            return Found(AedsFrameType.ModerationDictionaryStateRequest, AedsFrameType.ModerationRuntimeStatus, out route);
+        if (HttpMethods.IsGet(method) && segments is ["moderation", "runtime", "status"])
+            return Found(null, AedsFrameType.ModerationRuntimeStatus, out route);
+        if (HttpMethods.IsPost(method) && segments is ["moderation", "runtime", "global-state"])
+            return Found(AedsFrameType.ModerationRuntimeGlobalStateRequest, AedsFrameType.ModerationRuntimeStatus, out route);
+        if (HttpMethods.IsPost(method) && segments is ["moderation", "runtime", "region-state"])
+            return Found(AedsFrameType.ModerationRuntimeRegionStateRequest, AedsFrameType.ModerationRuntimeStatus, out route);
+        if (HttpMethods.IsGet(method) && segments is ["moderation", "regions"])
+            return Found(null, AedsFrameType.ModerationRegionList, out route);
+        if (HttpMethods.IsGet(method) && segments is ["moderation", "region-groups"])
+            return Found(null, AedsFrameType.ModerationRegionGroupList, out route);
+        if (HttpMethods.IsGet(method) && segments is ["moderation", "policy-templates"])
+            return Found(null, AedsFrameType.ModerationPolicyTemplateList, out route);
+        if (HttpMethods.IsGet(method) && segments is ["moderation", "effective-policy", _])
+            return Found(null, AedsFrameType.ModerationEffectivePolicy, out route);
+        if (HttpMethods.IsPost(method) && segments is ["moderation", "effective-policy", "preview"])
+            return Found(AedsFrameType.ModerationEffectivePolicyPreviewRequest, AedsFrameType.ModerationEffectivePolicy, out route);
+        if (HttpMethods.IsGet(method) && segments is ["moderation", "policies"])
+            return Found(null, AedsFrameType.RegionPolicySummaryList, out route);
+        if (HttpMethods.IsGet(method) && segments is ["moderation", "model", "status"])
+            return Found(null, AedsFrameType.ModerationModelStatus, out route);
+        if (HttpMethods.IsPost(method) && segments is ["moderation", "model", "runtime"])
+            return Found(AedsFrameType.ModerationModelRuntimeRequest, AedsFrameType.ModerationRuntimeStatus, out route);
+        if (HttpMethods.IsPost(method) && segments is ["moderation", "model", "reload"])
+            return Found(null, AedsFrameType.ModerationRuntimeStatus, out route);
+        if (HttpMethods.IsPost(method) && segments is ["moderation", "model", "rollback"])
+            return Found(null, AedsFrameType.ModerationRuntimeStatus, out route);
+        if (HttpMethods.IsPost(method) && segments is ["moderation", "replay", "preview"])
+            return Found(AedsFrameType.ModerationReplayPreviewRequest, AedsFrameType.ModerationReplayPreview, out route);
+
+        if (HttpMethods.IsGet(method) && segments is ["comments", "moderation"])
+            return Found(null, AedsFrameType.CommentModerationQueue, out route);
+        if (HttpMethods.IsPost(method) && segments is ["comments", "moderation", "bulk"])
+            return Found(AedsFrameType.CommentModerationBulkRequest, AedsFrameType.CommentModerationBulkResponse, out route);
+        if (HttpMethods.IsPost(method) && segments is ["comments", "moderation", "nullifiers", "block"])
+            return Found(AedsFrameType.AnonymousGovernanceActionRequest, AedsFrameType.AnonymousGovernanceActionResponse, out route);
+        if (HttpMethods.IsPost(method) && segments is ["comments", "moderation", "anonymous-credentials", _, "revoke"])
+            return Found(AedsFrameType.AnonymousGovernanceActionRequest, AedsFrameType.AnonymousGovernanceActionResponse, out route);
+        if (HttpMethods.IsPost(method) && segments is ["comments", _, "moderation"])
+            return Found(AedsFrameType.CommentModerationRequest, AedsFrameType.CommentModerationResult, out route);
+
+        if (HttpMethods.IsGet(method) && segments is ["content", "export"])
+            return Found(null, AedsFrameType.ContentBackupExport, out route);
+        if (HttpMethods.IsGet(method) && segments is ["articles", _, "export"])
+            return Found(null, AedsFrameType.ContentExport, out route);
+        if (HttpMethods.IsPost(method) && segments is ["articles", "import"])
+            return Found(AedsFrameType.ContentImportRequest, AedsFrameType.ContentImportResponse, out route);
+
+        if (HttpMethods.IsGet(method) && segments is ["audit"])
+            return Found(null, AedsFrameType.AuditLogList, out route);
+        if (HttpMethods.IsGet(method) && segments is ["audit", "summary"])
+            return Found(null, AedsFrameType.AuditLogSummary, out route);
+        if (HttpMethods.IsGet(method) && segments is ["audit", _, "verify"])
+            return Found(null, AedsFrameType.AuditTamperVerifyResponse, out route);
+        if (HttpMethods.IsGet(method) && segments is ["audit", _])
+            return Found(null, AedsFrameType.AuditLogDetail, out route);
+
+        if (HttpMethods.IsGet(method) && segments is ["ops", "health"])
+            return Found(null, AedsFrameType.OpsHealth, out route);
+        if (HttpMethods.IsGet(method) && segments is ["ops", "backup"])
+            return Found(null, AedsFrameType.BackupStatus, out route);
+        if (HttpMethods.IsGet(method) && segments is ["ops", "dangerous-operations", "policy"])
+            return Found(null, AedsFrameType.DangerousOperationPolicy, out route);
+        if (HttpMethods.IsGet(method) && segments is ["cache", "diagnostics"])
+            return Found(null, AedsFrameType.CacheDiagnostics, out route);
+        if (HttpMethods.IsPost(method) && segments is ["cache", "actions"])
+            return Found(AedsFrameType.AdminCacheActionRequest, AedsFrameType.AdminCacheActionResponse, out route);
+        if (HttpMethods.IsGet(method) && segments is ["integrity"])
+            return Found(null, AedsFrameType.IntegrityReport, out route);
+        if (HttpMethods.IsGet(method) && segments is ["integrity", "fix-preview"])
+            return Found(null, AedsFrameType.IntegrityFixPreview, out route);
+        if (HttpMethods.IsPost(method) && segments is ["integrity", "fix"])
+            return Found(AedsFrameType.IntegrityFixRequest, AedsFrameType.IntegrityFixResponse, out route);
+
+        return false;
+    }
+
+    private static bool Found(AedsFrameType? requestFrame, AedsFrameType responseFrame, out AuthoringAedsRoute route)
+    {
+        route = new AuthoringAedsRoute(requestFrame, responseFrame);
+        return true;
+    }
+
+    internal readonly record struct AuthoringAedsRoute(AedsFrameType? RequestFrame, AedsFrameType ResponseFrame);
+
     private static async Task<IResult> CompleteModerationRuntimeMutationAsync(
         Result<ModerationRuntimeSnapshot> result,
         IAuditEventService auditEvents,
@@ -1275,6 +1759,7 @@ public static class AuthoringEndpoints
         string targetType,
         string targetId,
         string? reasonCode,
+        IAedsEncoder aeds,
         CancellationToken cancellationToken)
     {
         await auditEvents.RecordHighValueAsync(new AuditEvent(
@@ -1304,9 +1789,7 @@ public static class AuthoringEndpoints
 
         if (result.IsFailure)
         {
-            return Results.Json(
-                JsonApiResponse<ModerationRuntimeStatusResponse>.Fail(result.Error.Message),
-                statusCode: ToHttpStatusCode(result.Error.Code));
+            return AedsJsonResults.Error(aeds, result.Error.Code, result.Error.Message, ToHttpStatusCode(result.Error.Code));
         }
 
         if (cacheInvalidation is not null)
@@ -1314,7 +1797,7 @@ public static class AuthoringEndpoints
             await cacheInvalidation.InvalidateCommentMutationAsync(null, cancellationToken);
         }
 
-        return Results.Ok(JsonApiResponse<ModerationRuntimeStatusResponse>.Ok(ToModerationRuntimeStatusResponse(result.Value!)));
+        return AedsJsonResults.Ok(aeds, AedsFrameType.ModerationRuntimeStatus, ToModerationRuntimeStatusResponse(result.Value!));
     }
 
     private static ModerationRuntimeStatusResponse ToModerationRuntimeStatusResponse(ModerationRuntimeSnapshot snapshot)
@@ -1855,12 +2338,15 @@ public static class AuthoringEndpoints
         return true;
     }
 
-    private static async Task<IResult?> RequireAdminSensitiveStepUpAsync(HttpContext context, IAdminPrincipalService adminPrincipals)
+    private static async Task<IResult?> RequireAdminSensitiveStepUpAsync(
+        HttpContext context,
+        IAdminPrincipalService adminPrincipals,
+        IAedsEncoder aeds)
     {
         if (!context.User.TryGetAdminPrincipalId(out long adminPrincipalId) ||
             string.IsNullOrWhiteSpace(context.User.GetAdminSessionId()))
         {
-            return Results.Unauthorized();
+            return AedsJsonResults.Unauthorized(aeds);
         }
 
         string adminSessionId = context.User.GetAdminSessionId()!;
@@ -1875,9 +2361,7 @@ public static class AuthoringEndpoints
                 proofToken,
                 context.RequestAborted))
         {
-            return Results.Json(
-                JsonApiResponse<object>.Fail("MFA_PROOF_REQUIRED"),
-                statusCode: StatusCodes.Status428PreconditionRequired);
+            return AedsJsonResults.PreconditionRequired(aeds, "MFA_PROOF_REQUIRED");
         }
 
         return null;

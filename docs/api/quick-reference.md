@@ -247,7 +247,7 @@
 | POST | `/api/binary/subscriptions` | 🔓 | AEDS 更新订阅，保存 email hash |
 | DELETE | `/api/binary/subscriptions` | 🔓 | AEDS 退订 |
 
-> 作者工作台生产前端调用 `/api/binary/author/**` AEDS bridge；被 bridge 复用的 JSON envelope 只挂在受保护的 `/_fsus/internal/binary-bridge/author/**`，外部 `/api/author/**` 已移除。
+> 作者工作台生产前端调用原生 `/api/binary/author/**` AEDS v2 端点；外部 `/api/author/**` JSON 入口和 internal bridge 兼容层均已移除。
 | POST | `/api/binary/author/drafts` | 👑 | 保存服务端草稿 |
 | GET | `/api/binary/author/drafts/{draftKey}` | 👑 | 读取服务端草稿 |
 | DELETE | `/api/binary/author/drafts/{draftKey}` | 👑 | 丢弃服务端草稿 |
@@ -294,7 +294,7 @@
 | POST | `/api/binary/author/moderation/model/reload` | 👑🚦 MFA | 从配置热重载模型运行快照 |
 | POST | `/api/binary/author/moderation/model/rollback` | 👑🚦 MFA | 回滚上一份模型运行快照 |
 
-> Admin security 生产前端使用 `/api/binary/admin/security/**` AEDS v2 入口；被 bridge 复用的 JSON envelope 只挂在受保护的 `/_fsus/internal/binary-bridge/admin/security/**`，外部 `/api/admin/security/**` 已移除。
+> Admin security 生产前端使用原生 `/api/binary/admin/security/**` AEDS v2 入口；外部 `/api/admin/security/**` JSON 入口和 internal bridge 兼容层均已移除。
 
 | GET | `/api/binary/admin/security/overview` | 👑 | 安全系统总览：AntiCrawler、PoW、SecurityRisk |
 | GET | `/api/binary/admin/security/risk-control/overview` | 👑 | RiskControl active policy、风险事件聚合、challenge 成功/失败率 |

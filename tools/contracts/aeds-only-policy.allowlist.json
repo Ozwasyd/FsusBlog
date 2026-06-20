@@ -54,26 +54,6 @@
       "patterns": ["JsonApiResponse<PublicAotRouteManifestResponse>", "JsonApiResponse<PublicAotSsrHealthReport>", "/internal/public-aot"],
       "routes": ["/internal/public-aot/manifest", "/internal/public-aot/health"],
       "reason": "Build/backfill tooling manifest and SSR worker diagnostics, protected by optional manifest token; not browser runtime application API."
-    },
-    {
-      "id": "authoring-internal-binary-bridge-json",
-      "classification": "migration-legacy-temporary",
-      "scope": "backend",
-      "file": "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
-      "patterns": ["JsonApiResponse", "Results.Json"],
-      "routes": ["/_fsus/internal/binary-bridge/author/**"],
-      "issue": "#105",
-      "reason": "Authoring JSON envelopes are protected by BinaryBridgeInternalOnlyFilter and only reachable from AuthoringBinaryBridgeMiddleware while the bridge is flattened."
-    },
-    {
-      "id": "security-internal-binary-bridge-json",
-      "classification": "migration-legacy-temporary",
-      "scope": "backend",
-      "file": "src/backend/Modules/Endpoints/SecurityEndpoints.cs",
-      "patterns": ["JsonApiResponse", "Results.Json"],
-      "routes": ["/_fsus/internal/binary-bridge/admin/security/**"],
-      "issue": "#105",
-      "reason": "Security JSON envelopes are protected by BinaryBridgeInternalOnlyFilter and only reachable from SecurityBinaryBridgeMiddleware while the bridge is flattened."
     }
   ]
 }

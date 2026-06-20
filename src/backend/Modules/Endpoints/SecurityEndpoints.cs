@@ -1,11 +1,13 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
@@ -19,33 +21,37 @@ public static class SecurityEndpoints
 {
     private const string AdminSensitiveAction = "admin-sensitive";
     private const string MfaProofHeader = "X-Fsus-Mfa-Proof";
+    private const string BinaryPrefix = "/api/binary/admin/security";
 
     public static IEndpointRouteBuilder MapSecurityEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup(BinaryBridgeInternalRequest.SecurityPrefix)
+        var group = app.MapGroup(BinaryPrefix)
             .WithTags("Security")
-            .RequireAdminPermission(AdminPermissions.SystemConfig)
-            .AddEndpointFilter<BinaryBridgeInternalOnlyFilter>();
+            .RequireAdminPermission(AdminPermissions.SystemConfig);
 
         group.MapGet("/overview", (
+            HttpContext context,
+            IAedsEncoder aeds,
             ISecurityAdminPolicyService policy,
             CrawlerDetectorService detector,
             ICrawlerRangeSyncService crawlerSync) =>
         {
-            return Results.Ok(JsonApiResponse<SecurityOverviewResponse>.Ok(
-                policy.BuildSecurityOverview(detector.GetRangeStatus(), crawlerSync.GetStatus())));
+            return Ok(context, aeds, policy.BuildSecurityOverview(detector.GetRangeStatus(), crawlerSync.GetStatus()));
         });
 
         group.MapGet("/anti-crawler/overview", (
+            HttpContext context,
+            IAedsEncoder aeds,
             ISecurityAdminPolicyService policy,
             CrawlerDetectorService detector,
             ICrawlerRangeSyncService crawlerSync) =>
         {
-            return Results.Ok(JsonApiResponse<AntiCrawlerOverviewResponse>.Ok(
-                policy.BuildAntiCrawlerOverview(detector.GetRangeStatus(), crawlerSync.GetStatus())));
+            return Ok(context, aeds, policy.BuildAntiCrawlerOverview(detector.GetRangeStatus(), crawlerSync.GetStatus()));
         });
 
         group.MapGet("/risk-control/overview", async (
+            HttpContext context,
+            IAedsEncoder aeds,
             ISecurityAdminPolicyService policy,
             ISqlSugarClient db,
             CancellationToken cancellationToken) =>
@@ -60,18 +66,29 @@ public static class SecurityEndpoints
                 challengeMetrics,
                 events.Take(50).ToArray(),
                 snapshots.Take(25).ToArray());
-            return Results.Ok(JsonApiResponse<RiskControlConsoleResponse>.Ok(response));
+            return Ok(context, aeds, response);
         });
 
         group.MapPost("/risk-control/simulate", async (
-            RiskControlSimulationRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             ISecurityRiskScoreReader riskScoreReader,
             ISecurityAdminPolicyService policy,
             IRiskDecisionService riskDecisionService,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
+            var parsed = await ReadRequestAsync<RiskControlSimulationRequest>(
+                context,
+                aeds,
+                "risk_control_simulation_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            RiskControlSimulationRequest request = parsed.Value!;
             string? validationError = ValidateRiskControlSimulationRequest(request);
             if (validationError is not null)
             {
@@ -84,7 +101,7 @@ public static class SecurityEndpoints
                     validationError,
                     request,
                     cancellationToken);
-                return Results.BadRequest(JsonApiResponse<RiskControlSimulationResponse>.Fail(validationError));
+                return AedsJsonResults.BadRequest(aeds, validationError);
             }
 
             RiskControlSimulationResponse response = await BuildRiskControlSimulationAsync(
@@ -103,22 +120,36 @@ public static class SecurityEndpoints
                 response.Decision,
                 response,
                 cancellationToken);
-            return Results.Ok(JsonApiResponse<RiskControlSimulationResponse>.Ok(response));
+            return Ok(context, aeds, response);
         }).RequireRateLimiting("fixed_ip");
 
-        group.MapGet("/risk-control/options", (ISecurityAdminPolicyService policy) =>
-            Results.Ok(JsonApiResponse<SecurityRiskPolicySnapshotV2>.Ok(policy.CurrentRiskPolicyV2)));
+        group.MapGet("/risk-control/options", (
+            HttpContext context,
+            IAedsEncoder aeds,
+            ISecurityAdminPolicyService policy) =>
+            Ok(context, aeds, policy.CurrentRiskPolicyV2));
 
         group.MapPut("/risk-control/options", async (
-            RiskControlPolicyUpdateRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             ISecurityPolicySnapshotService policySnapshots,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<RiskControlPolicyUpdateRequest>(
+                context,
+                aeds,
+                "risk_control_policy_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            RiskControlPolicyUpdateRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -141,18 +172,19 @@ public static class SecurityEndpoints
                 request.Reason,
                 snapshot,
                 cancellationToken);
-            return Results.Ok(JsonApiResponse<SecurityRiskPolicySnapshotV2>.Ok(snapshot));
+            return Ok(context, aeds, snapshot);
         }).RequireRateLimiting("fixed_ip");
 
         group.MapPost("/risk-control/options/rollback", async (
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             ISecurityPolicySnapshotService policySnapshots,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -191,19 +223,23 @@ public static class SecurityEndpoints
                 "rollback",
                 snapshot,
                 cancellationToken);
-            return Results.Ok(JsonApiResponse<SecurityRiskPolicySnapshotV2>.Ok(snapshot));
+            return Ok(context, aeds, snapshot);
         }).RequireRateLimiting("fixed_ip");
 
         group.MapGet("/challenges/overview", async (
+            HttpContext context,
+            IAedsEncoder aeds,
             string? kind,
             ISqlSugarClient db,
             CancellationToken cancellationToken) =>
         {
             SecurityChallengeMetricsResponse response = await BuildSecurityChallengeMetricsAsync(db, kind, cancellationToken);
-            return Results.Ok(JsonApiResponse<SecurityChallengeMetricsResponse>.Ok(response));
+            return Ok(context, aeds, response);
         });
 
         group.MapGet("/policies/overview", async (
+            HttpContext context,
+            IAedsEncoder aeds,
             ISecurityAdminPolicyService policy,
             ISqlSugarClient db,
             CancellationToken cancellationToken) =>
@@ -214,10 +250,12 @@ public static class SecurityEndpoints
                 policy.Current,
                 policy.CurrentPow,
                 versions);
-            return Results.Ok(JsonApiResponse<SecurityPolicyConsoleResponse>.Ok(response));
+            return Ok(context, aeds, response);
         });
 
         group.MapGet("/perception-v2/overview", async (
+            HttpContext context,
+            IAedsEncoder aeds,
             ISecurityAdminPolicyService policy,
             ISqlSugarClient db,
             CancellationToken cancellationToken) =>
@@ -227,22 +265,36 @@ public static class SecurityEndpoints
                 policy.CurrentPerceptionSealedV2,
                 metrics,
                 policy.CurrentRiskPolicyV2);
-            return Results.Ok(JsonApiResponse<PerceptionSealedV2ConsoleResponse>.Ok(response));
+            return Ok(context, aeds, response);
         });
 
-        group.MapGet("/perception-v2/options", (ISecurityAdminPolicyService policy) =>
-            Results.Ok(JsonApiResponse<PerceptionSealedV2PolicySnapshot>.Ok(policy.CurrentPerceptionSealedV2)));
+        group.MapGet("/perception-v2/options", (
+            HttpContext context,
+            IAedsEncoder aeds,
+            ISecurityAdminPolicyService policy) =>
+            Ok(context, aeds, policy.CurrentPerceptionSealedV2));
 
         group.MapPut("/perception-v2/options", async (
-            PerceptionSealedV2PolicyUpdateRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             ISecurityPolicySnapshotService policySnapshots,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<PerceptionSealedV2PolicyUpdateRequest>(
+                context,
+                aeds,
+                "perception_v2_policy_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            PerceptionSealedV2PolicyUpdateRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -265,18 +317,19 @@ public static class SecurityEndpoints
                 snapshot.Reason,
                 snapshot,
                 cancellationToken);
-            return Results.Ok(JsonApiResponse<PerceptionSealedV2PolicySnapshot>.Ok(snapshot));
+            return Ok(context, aeds, snapshot);
         }).RequireRateLimiting("fixed_ip");
 
         group.MapPost("/perception-v2/options/rollback", async (
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             ISecurityPolicySnapshotService policySnapshots,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -316,22 +369,36 @@ public static class SecurityEndpoints
                 "rollback",
                 snapshot,
                 cancellationToken);
-            return Results.Ok(JsonApiResponse<PerceptionSealedV2PolicySnapshot>.Ok(snapshot));
+            return Ok(context, aeds, snapshot);
         }).RequireRateLimiting("fixed_ip");
 
-        group.MapGet("/anti-crawler/options", (IAntiCrawlerPolicyProvider policy) =>
-            Results.Ok(JsonApiResponse<AntiCrawlerPolicySnapshot>.Ok(policy.Current)));
+        group.MapGet("/anti-crawler/options", (
+            HttpContext context,
+            IAedsEncoder aeds,
+            IAntiCrawlerPolicyProvider policy) =>
+            Ok(context, aeds, policy.Current));
 
         group.MapPut("/anti-crawler/options", async (
-            AntiCrawlerOptionsUpdateRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             ISecurityPolicySnapshotService policySnapshots,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<AntiCrawlerOptionsUpdateRequest>(
+                context,
+                aeds,
+                "anti_crawler_options_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            AntiCrawlerOptionsUpdateRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -354,18 +421,19 @@ public static class SecurityEndpoints
                 snapshot.Reason,
                 snapshot,
                 cancellationToken);
-            return Results.Ok(JsonApiResponse<AntiCrawlerPolicySnapshot>.Ok(snapshot));
+            return Ok(context, aeds, snapshot);
         }).RequireRateLimiting("fixed_ip");
 
         group.MapPost("/anti-crawler/options/rollback", async (
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             ISecurityPolicySnapshotService policySnapshots,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -403,20 +471,24 @@ public static class SecurityEndpoints
                 "rollback",
                 snapshot,
                 cancellationToken);
-            return Results.Ok(JsonApiResponse<AntiCrawlerPolicySnapshot>.Ok(snapshot));
+            return Ok(context, aeds, snapshot);
         }).RequireRateLimiting("fixed_ip");
 
-        group.MapGet("/anti-crawler/crawler-ranges/status", (ICrawlerRangeSyncService crawlerSync) =>
-            Results.Ok(JsonApiResponse<CrawlerRangesAdminStatus>.Ok(crawlerSync.GetStatus())));
+        group.MapGet("/anti-crawler/crawler-ranges/status", (
+            HttpContext context,
+            IAedsEncoder aeds,
+            ICrawlerRangeSyncService crawlerSync) =>
+            Ok(context, aeds, crawlerSync.GetStatus()));
 
         group.MapPost("/anti-crawler/crawler-ranges/sync", async (
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             ICrawlerRangeSyncService crawlerSync,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -432,52 +504,70 @@ public static class SecurityEndpoints
                 response.Outcome,
                 response,
                 cancellationToken);
-            return Results.Ok(JsonApiResponse<CrawlerRangeSyncResponse>.Ok(response));
+            return Ok(context, aeds, response);
         }).RequireRateLimiting("fixed_ip");
 
         group.MapGet("/anti-crawler/events", (
+            HttpContext context,
+            IAedsEncoder aeds,
             string? source,
             string? reason,
             int? limit,
             ISecurityAdminPolicyService policy) =>
         {
-            return Results.Ok(JsonApiResponse<IReadOnlyList<AntiCrawlerRiskEventResponse>>.Ok(
-                policy.ListRiskEvents(source, reason, limit ?? 100)));
+            return Ok(context, aeds, policy.ListRiskEvents(source, reason, limit ?? 100));
         });
 
         group.MapGet("/anti-crawler/risk-events", (
+            HttpContext context,
+            IAedsEncoder aeds,
             string? source,
             string? reason,
             int? limit,
             ISecurityAdminPolicyService policy) =>
         {
-            return Results.Ok(JsonApiResponse<IReadOnlyList<AntiCrawlerRiskEventResponse>>.Ok(
-                policy.ListRiskEvents(source, reason, limit ?? 100)));
+            return Ok(context, aeds, policy.ListRiskEvents(source, reason, limit ?? 100));
         });
 
         group.MapGet("/risk/events", (
+            HttpContext context,
+            IAedsEncoder aeds,
             string? source,
             string? reason,
             int? limit,
             ISecurityAdminPolicyService policy) =>
         {
-            return Results.Ok(JsonApiResponse<IReadOnlyList<AntiCrawlerRiskEventResponse>>.Ok(
-                policy.ListRiskEvents(source, reason, limit ?? 100)));
+            return Ok(context, aeds, policy.ListRiskEvents(source, reason, limit ?? 100));
         });
 
-        group.MapGet("/risk/snapshots", (int? limit, ISecurityAdminPolicyService policy) =>
-            Results.Ok(JsonApiResponse<IReadOnlyList<SecurityRiskSnapshotResponse>>.Ok(policy.ListRiskSnapshots(limit ?? 100))));
+        group.MapGet("/risk/snapshots", (
+            HttpContext context,
+            IAedsEncoder aeds,
+            int? limit,
+            ISecurityAdminPolicyService policy) =>
+            Ok(context, aeds, policy.ListRiskSnapshots(limit ?? 100)));
 
         group.MapPost("/risk/{dimension}/reset", async (
             string dimension,
-            SecurityRiskResetRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             ISecurityRiskScoreReader riskScoreReader,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<SecurityRiskResetRequest>(
+                context,
+                aeds,
+                "security_risk_reset_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            SecurityRiskResetRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -486,7 +576,7 @@ public static class SecurityEndpoints
             if (!string.Equals(dimension, "ip", StringComparison.OrdinalIgnoreCase)
                 || string.IsNullOrWhiteSpace(request.Subject))
             {
-                return Results.BadRequest(JsonApiResponse<SecurityRiskResetResponse>.Fail("risk_dimension_invalid"));
+                return AedsJsonResults.BadRequest(aeds, "risk_dimension_invalid");
             }
 
             string subject = request.Subject.Trim();
@@ -501,21 +591,35 @@ public static class SecurityEndpoints
                 request.Reason,
                 response,
                 cancellationToken);
-            return Results.Ok(JsonApiResponse<SecurityRiskResetResponse>.Ok(response));
+            return Ok(context, aeds, response);
         }).RequireRateLimiting("fixed_ip");
 
-        group.MapGet("/anti-crawler/rules", (ISecurityAdminPolicyService policy) =>
-            Results.Ok(JsonApiResponse<IReadOnlyList<AntiCrawlerRuleResponse>>.Ok(policy.ListRules())));
+        group.MapGet("/anti-crawler/rules", (
+            HttpContext context,
+            IAedsEncoder aeds,
+            ISecurityAdminPolicyService policy) =>
+            Ok(context, aeds, policy.ListRules()));
 
         group.MapPost("/anti-crawler/rules", async (
-            AntiCrawlerRuleRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<AntiCrawlerRuleRequest>(
+                context,
+                aeds,
+                "anti_crawler_rule_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            AntiCrawlerRuleRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -523,19 +627,30 @@ public static class SecurityEndpoints
 
             AntiCrawlerRuleResponse rule = policy.AddRule(request, ResolveActor(context));
             await RecordSecurityAuditAsync(auditEvents, "admin.security.anti_crawler.rule_created", "管理员新增反爬虫规则", "anti_crawler_rule", rule.Id, request.Notes, rule, cancellationToken);
-            return Results.Ok(JsonApiResponse<AntiCrawlerRuleResponse>.Ok(rule));
+            return Ok(context, aeds, rule);
         }).RequireRateLimiting("fixed_ip");
 
         group.MapPut("/anti-crawler/rules/{id}", async (
             string id,
-            AntiCrawlerRuleRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<AntiCrawlerRuleRequest>(
+                context,
+                aeds,
+                "anti_crawler_rule_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            AntiCrawlerRuleRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -544,22 +659,23 @@ public static class SecurityEndpoints
             AntiCrawlerRuleResponse? rule = policy.UpdateRule(id, request, ResolveActor(context));
             if (rule is null)
             {
-                return Results.NotFound(JsonApiResponse<AntiCrawlerRuleResponse>.Fail("anti_crawler_rule_not_found"));
+                return AedsJsonResults.NotFound(aeds, "anti_crawler_rule_not_found");
             }
 
             await RecordSecurityAuditAsync(auditEvents, "admin.security.anti_crawler.rule_updated", "管理员更新反爬虫规则", "anti_crawler_rule", rule.Id, request.Notes, rule, cancellationToken);
-            return Results.Ok(JsonApiResponse<AntiCrawlerRuleResponse>.Ok(rule));
+            return Ok(context, aeds, rule);
         }).RequireRateLimiting("fixed_ip");
 
         group.MapDelete("/anti-crawler/rules/{id}", async (
             string id,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -568,36 +684,61 @@ public static class SecurityEndpoints
             bool deleted = policy.DeleteRule(id);
             await RecordSecurityAuditAsync(auditEvents, "admin.security.anti_crawler.rule_deleted", "管理员删除反爬虫规则", "anti_crawler_rule", id, deleted ? "deleted" : "not_found", new { deleted }, cancellationToken);
             return deleted
-                ? Results.Ok(JsonApiResponse<object>.Ok(new { deleted }))
-                : Results.NotFound(JsonApiResponse<object>.Fail("anti_crawler_rule_not_found"));
+                ? Ok(context, aeds, new { deleted })
+                : AedsJsonResults.NotFound(aeds, "anti_crawler_rule_not_found");
         }).RequireRateLimiting("fixed_ip");
 
         MapListEndpoints(group, "allowlist", "allow");
         MapListEndpoints(group, "blocklist", "block");
 
-        group.MapPost("/anti-crawler/simulate", (
-            AntiCrawlerSimulationRequest request,
+        group.MapPost("/anti-crawler/simulate", async (
+            HttpContext context,
+            IAedsEncoder aeds,
             ISecurityAdminPolicyService policy) =>
         {
-            return Results.Ok(JsonApiResponse<AntiCrawlerSimulationResult>.Ok(policy.Simulate(request)));
+            var parsed = await ReadRequestAsync<AntiCrawlerSimulationRequest>(
+                context,
+                aeds,
+                "anti_crawler_simulation_request_invalid",
+                context.RequestAborted);
+            return parsed.IsSuccess
+                ? Ok(context, aeds, policy.Simulate(parsed.Value!))
+                : parsed.ToErrorResult(aeds);
         }).RequireRateLimiting("fixed_ip");
 
-        group.MapGet("/pow/overview", (ISecurityAdminPolicyService policy) =>
-            Results.Ok(JsonApiResponse<PowOverviewResponse>.Ok(policy.BuildPowOverview())));
+        group.MapGet("/pow/overview", (
+            HttpContext context,
+            IAedsEncoder aeds,
+            ISecurityAdminPolicyService policy) =>
+            Ok(context, aeds, policy.BuildPowOverview()));
 
-        group.MapGet("/pow/options", (IPowPolicyProvider policy) =>
-            Results.Ok(JsonApiResponse<PowPolicySnapshot>.Ok(policy.CurrentPow)));
+        group.MapGet("/pow/options", (
+            HttpContext context,
+            IAedsEncoder aeds,
+            IPowPolicyProvider policy) =>
+            Ok(context, aeds, policy.CurrentPow));
 
         group.MapPut("/pow/options", async (
-            PowOptionsUpdateRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             ISecurityPolicySnapshotService policySnapshots,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<PowOptionsUpdateRequest>(
+                context,
+                aeds,
+                "pow_options_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            PowOptionsUpdateRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -620,18 +761,19 @@ public static class SecurityEndpoints
                 snapshot.Reason,
                 snapshot,
                 cancellationToken);
-            return Results.Ok(JsonApiResponse<PowPolicySnapshot>.Ok(snapshot));
+            return Ok(context, aeds, snapshot);
         }).RequireRateLimiting("fixed_ip");
 
         group.MapPost("/pow/options/rollback", async (
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             ISecurityPolicySnapshotService policySnapshots,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -661,15 +803,30 @@ public static class SecurityEndpoints
                     cancellationToken);
             }
             await RecordSecurityAuditAsync(auditEvents, "admin.security.pow.options_rolled_back", "管理员回滚 PoW 运行策略", "pow_options", snapshot.SnapshotId, "rollback", snapshot, cancellationToken);
-            return Results.Ok(JsonApiResponse<PowPolicySnapshot>.Ok(snapshot));
+            return Ok(context, aeds, snapshot);
         }).RequireRateLimiting("fixed_ip");
 
-        group.MapGet("/pow/events", (int? limit, ISecurityAdminPolicyService policy) =>
-            Results.Ok(JsonApiResponse<IReadOnlyList<AntiCrawlerRiskEventResponse>>.Ok(
-                policy.ListRiskEvents(SecurityRiskSources.Pow, null, limit ?? 100))));
+        group.MapGet("/pow/events", (
+            HttpContext context,
+            IAedsEncoder aeds,
+            int? limit,
+            ISecurityAdminPolicyService policy) =>
+            Ok(context, aeds, policy.ListRiskEvents(SecurityRiskSources.Pow, null, limit ?? 100)));
 
-        group.MapPost("/pow/simulate", (AntiCrawlerSimulationRequest request, ISecurityAdminPolicyService policy) =>
-            Results.Ok(JsonApiResponse<AntiCrawlerSimulationResult>.Ok(policy.Simulate(request))))
+        group.MapPost("/pow/simulate", async (
+            HttpContext context,
+            IAedsEncoder aeds,
+            ISecurityAdminPolicyService policy) =>
+        {
+            var parsed = await ReadRequestAsync<AntiCrawlerSimulationRequest>(
+                context,
+                aeds,
+                "anti_crawler_simulation_request_invalid",
+                context.RequestAborted);
+            return parsed.IsSuccess
+                ? Ok(context, aeds, policy.Simulate(parsed.Value!))
+                : parsed.ToErrorResult(aeds);
+        })
             .RequireRateLimiting("fixed_ip");
 
         return app;
@@ -747,20 +904,167 @@ public static class SecurityEndpoints
         return routeKey.Length == 0 ? "risk_route_key_required" : null;
     }
 
+    private static IResult Ok(HttpContext context, IAedsEncoder aeds, object? value)
+    {
+        if (!TryResolveRoute(context.Request.Method, ResolveRemainingPath(context), out SecurityAedsRoute route))
+        {
+            return AedsJsonResults.NotFound(aeds, "security_binary_route_not_found");
+        }
+
+        return value is null
+            ? AedsJsonResults.OkNull(aeds, route.ResponseFrame)
+            : AedsJsonResults.Ok(aeds, route.ResponseFrame, value);
+    }
+
+    private static async Task<AedsJsonRequest<T>> ReadRequestAsync<T>(
+        HttpContext context,
+        IAedsEncoder aeds,
+        string invalidMessage,
+        CancellationToken cancellationToken)
+    {
+        if (!TryResolveRoute(context.Request.Method, ResolveRemainingPath(context), out SecurityAedsRoute route)
+            || route.RequestFrame is null)
+        {
+            return AedsJsonRequest<T>.Failure(ErrorDetail.Create(ErrorCode.Validation, "security_binary_body_not_allowed"));
+        }
+
+        return await AedsJsonResults.ReadAsync<T>(
+            context,
+            aeds,
+            route.RequestFrame.Value,
+            AedsJsonResults.MaxSecurityFrameBytes,
+            invalidMessage,
+            cancellationToken);
+    }
+
+    private static PathString ResolveRemainingPath(HttpContext context)
+    {
+        return context.Request.Path.StartsWithSegments(BinaryPrefix, StringComparison.OrdinalIgnoreCase, out PathString remaining)
+            ? remaining
+            : context.Request.Path;
+    }
+
+    internal static bool TryResolveRoute(string method, PathString remaining, out SecurityAedsRoute route)
+    {
+        string[] segments = (remaining.Value ?? string.Empty).Split('/', StringSplitOptions.RemoveEmptyEntries);
+        route = default;
+
+        if (HttpMethods.IsGet(method) && segments is ["overview"])
+            return Found(null, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsGet(method) && segments is ["risk-control", "overview"])
+            return Found(null, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsGet(method) && segments is ["risk-control", "options"])
+            return Found(null, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsPut(method) && segments is ["risk-control", "options"])
+            return Found(AedsFrameType.SecurityOverview, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsPost(method) && segments is ["risk-control", "options", "rollback"])
+            return Found(null, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsPost(method) && segments is ["risk-control", "simulate"])
+            return Found(AedsFrameType.SecurityOverview, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsGet(method) && segments is ["challenges", "overview"])
+            return Found(null, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsGet(method) && segments is ["policies", "overview"])
+            return Found(null, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsGet(method) && segments is ["perception-v2", "overview"])
+            return Found(null, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsGet(method) && segments is ["perception-v2", "options"])
+            return Found(null, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsPut(method) && segments is ["perception-v2", "options"])
+            return Found(AedsFrameType.SecurityOverview, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsPost(method) && segments is ["perception-v2", "options", "rollback"])
+            return Found(null, AedsFrameType.SecurityOverview, out route);
+        if (HttpMethods.IsGet(method) && segments is ["anti-crawler", "overview"])
+            return Found(null, AedsFrameType.AntiCrawlerOverview, out route);
+        if (HttpMethods.IsGet(method) && segments is ["anti-crawler", "options"])
+            return Found(null, AedsFrameType.AntiCrawlerPolicySnapshot, out route);
+        if (HttpMethods.IsPut(method) && segments is ["anti-crawler", "options"])
+            return Found(AedsFrameType.AntiCrawlerOptionsUpdateRequest, AedsFrameType.AntiCrawlerPolicySnapshot, out route);
+        if (HttpMethods.IsPost(method) && segments is ["anti-crawler", "options", "rollback"])
+            return Found(null, AedsFrameType.AntiCrawlerPolicySnapshot, out route);
+        if (HttpMethods.IsGet(method) && segments is ["anti-crawler", "crawler-ranges", "status"])
+            return Found(null, AedsFrameType.CrawlerRangesAdminStatus, out route);
+        if (HttpMethods.IsPost(method) && segments is ["anti-crawler", "crawler-ranges", "sync"])
+            return Found(null, AedsFrameType.CrawlerRangeSyncResponse, out route);
+        if (HttpMethods.IsGet(method) && segments is ["anti-crawler", "events"])
+            return Found(null, AedsFrameType.SecurityRiskEventList, out route);
+        if (HttpMethods.IsGet(method) && segments is ["anti-crawler", "risk-events"])
+            return Found(null, AedsFrameType.SecurityRiskEventList, out route);
+        if (HttpMethods.IsGet(method) && segments is ["risk", "events"])
+            return Found(null, AedsFrameType.SecurityRiskEventList, out route);
+        if (HttpMethods.IsGet(method) && segments is ["risk", "snapshots"])
+            return Found(null, AedsFrameType.SecurityRiskSnapshotList, out route);
+        if (HttpMethods.IsPost(method) && segments is ["risk", _, "reset"])
+            return Found(AedsFrameType.SecurityRiskResetRequest, AedsFrameType.SecurityRiskResetResponse, out route);
+        if (HttpMethods.IsGet(method) && segments is ["anti-crawler", "rules"])
+            return Found(null, AedsFrameType.AntiCrawlerRuleList, out route);
+        if (HttpMethods.IsPost(method) && segments is ["anti-crawler", "rules"])
+            return Found(AedsFrameType.AntiCrawlerRuleRequest, AedsFrameType.AntiCrawlerRuleResponse, out route);
+        if (HttpMethods.IsPut(method) && segments is ["anti-crawler", "rules", _])
+            return Found(AedsFrameType.AntiCrawlerRuleRequest, AedsFrameType.AntiCrawlerRuleResponse, out route);
+        if (HttpMethods.IsDelete(method) && segments is ["anti-crawler", "rules", _])
+            return Found(null, AedsFrameType.AntiCrawlerRuleDeleteResponse, out route);
+
+        if (HttpMethods.IsGet(method) && segments is ["anti-crawler", "allowlist" or "blocklist"])
+            return Found(null, AedsFrameType.AntiCrawlerListEntryList, out route);
+        if (HttpMethods.IsPost(method) && segments is ["anti-crawler", "allowlist" or "blocklist"])
+            return Found(AedsFrameType.AntiCrawlerListEntryRequest, AedsFrameType.AntiCrawlerListEntryResponse, out route);
+        if (HttpMethods.IsDelete(method) && segments is ["anti-crawler", "allowlist" or "blocklist", _])
+            return Found(null, AedsFrameType.AntiCrawlerListEntryDeleteResponse, out route);
+        if (HttpMethods.IsPost(method) && segments is ["anti-crawler", "simulate"])
+            return Found(AedsFrameType.AntiCrawlerSimulationRequest, AedsFrameType.AntiCrawlerSimulationResult, out route);
+
+        if (HttpMethods.IsGet(method) && segments is ["pow", "overview"])
+            return Found(null, AedsFrameType.PowOverview, out route);
+        if (HttpMethods.IsGet(method) && segments is ["pow", "options"])
+            return Found(null, AedsFrameType.PowPolicySnapshot, out route);
+        if (HttpMethods.IsPut(method) && segments is ["pow", "options"])
+            return Found(AedsFrameType.PowOptionsUpdateRequest, AedsFrameType.PowPolicySnapshot, out route);
+        if (HttpMethods.IsPost(method) && segments is ["pow", "options", "rollback"])
+            return Found(null, AedsFrameType.PowPolicySnapshot, out route);
+        if (HttpMethods.IsGet(method) && segments is ["pow", "events"])
+            return Found(null, AedsFrameType.SecurityRiskEventList, out route);
+        if (HttpMethods.IsPost(method) && segments is ["pow", "simulate"])
+            return Found(AedsFrameType.AntiCrawlerSimulationRequest, AedsFrameType.AntiCrawlerSimulationResult, out route);
+
+        return false;
+    }
+
+    private static bool Found(AedsFrameType? requestFrame, AedsFrameType responseFrame, out SecurityAedsRoute route)
+    {
+        route = new SecurityAedsRoute(requestFrame, responseFrame);
+        return true;
+    }
+
+    internal readonly record struct SecurityAedsRoute(AedsFrameType? RequestFrame, AedsFrameType ResponseFrame);
+
     private static void MapListEndpoints(RouteGroupBuilder group, string routeName, string listType)
     {
-        group.MapGet($"/anti-crawler/{routeName}", (ISecurityAdminPolicyService policy) =>
-            Results.Ok(JsonApiResponse<IReadOnlyList<AntiCrawlerListEntryResponse>>.Ok(policy.ListEntries(listType))));
+        group.MapGet($"/anti-crawler/{routeName}", (
+            HttpContext context,
+            IAedsEncoder aeds,
+            ISecurityAdminPolicyService policy) =>
+            Ok(context, aeds, policy.ListEntries(listType)));
 
         group.MapPost($"/anti-crawler/{routeName}", async (
-            AntiCrawlerListEntryRequest request,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            var parsed = await ReadRequestAsync<AntiCrawlerListEntryRequest>(
+                context,
+                aeds,
+                "anti_crawler_list_entry_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            AntiCrawlerListEntryRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -768,18 +1072,19 @@ public static class SecurityEndpoints
 
             AntiCrawlerListEntryResponse entry = policy.AddEntry(listType, request, ResolveActor(context));
             await RecordSecurityAuditAsync(auditEvents, $"admin.security.anti_crawler.{listType}list_created", $"管理员新增反爬虫{listType}list", $"anti_crawler_{listType}list", entry.Id, request.Reason, entry, cancellationToken);
-            return Results.Ok(JsonApiResponse<AntiCrawlerListEntryResponse>.Ok(entry));
+            return Ok(context, aeds, entry);
         }).RequireRateLimiting("fixed_ip");
 
         group.MapDelete($"/anti-crawler/{routeName}/{{id}}", async (
             string id,
             HttpContext context,
+            IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
             ISecurityAdminPolicyService policy,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals);
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
                 return stepUp;
@@ -788,8 +1093,8 @@ public static class SecurityEndpoints
             bool deleted = policy.DeleteEntry(listType, id);
             await RecordSecurityAuditAsync(auditEvents, $"admin.security.anti_crawler.{listType}list_deleted", $"管理员删除反爬虫{listType}list", $"anti_crawler_{listType}list", id, deleted ? "deleted" : "not_found", new { deleted }, cancellationToken);
             return deleted
-                ? Results.Ok(JsonApiResponse<object>.Ok(new { deleted }))
-                : Results.NotFound(JsonApiResponse<object>.Fail("anti_crawler_list_entry_not_found"));
+                ? Ok(context, aeds, new { deleted })
+                : AedsJsonResults.NotFound(aeds, "anti_crawler_list_entry_not_found");
         }).RequireRateLimiting("fixed_ip");
     }
 
@@ -1292,12 +1597,15 @@ public static class SecurityEndpoints
     private static DateTimeOffset? ToNullableDateTimeOffset(DateTime? value)
         => value.HasValue ? ToDateTimeOffset(value.Value) : null;
 
-    private static async Task<IResult?> RequireAdminSensitiveStepUpAsync(HttpContext context, IAdminPrincipalService adminPrincipals)
+    private static async Task<IResult?> RequireAdminSensitiveStepUpAsync(
+        HttpContext context,
+        IAdminPrincipalService adminPrincipals,
+        IAedsEncoder aeds)
     {
         if (!context.User.TryGetAdminPrincipalId(out long adminPrincipalId) ||
             string.IsNullOrWhiteSpace(context.User.GetAdminSessionId()))
         {
-            return Results.Unauthorized();
+            return AedsJsonResults.Unauthorized(aeds);
         }
 
         string adminSessionId = context.User.GetAdminSessionId()!;
@@ -1312,7 +1620,7 @@ public static class SecurityEndpoints
                 proofToken,
                 context.RequestAborted))
         {
-            return Results.Json(JsonApiResponse<object>.Fail("MFA_PROOF_REQUIRED"), statusCode: StatusCodes.Status428PreconditionRequired);
+            return AedsJsonResults.PreconditionRequired(aeds, "MFA_PROOF_REQUIRED");
         }
 
         return null;

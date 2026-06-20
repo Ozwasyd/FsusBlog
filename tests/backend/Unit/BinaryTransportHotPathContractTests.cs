@@ -29,10 +29,17 @@ public sealed class BinaryTransportHotPathContractTests
     }
 
     [Fact]
-    public void BinaryBridgeMiddlewares_SourceAvoidMemoryStreamToArrayDoubleCopy()
+    public void AuthoringAndSecurityAdminRoutes_DoNotUseRuntimeBinaryBridgeMiddlewares()
     {
-        AssertBridgeUsesPooledBuffer("src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs");
-        AssertBridgeUsesPooledBuffer("src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs");
+        string composition = ReadRepoFile("src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs");
+        string authoring = ReadRepoFile("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
+        string security = ReadRepoFile("src/backend/Modules/Endpoints/SecurityEndpoints.cs");
+
+        Assert.DoesNotContain("BinaryBridgeMiddleware", composition, StringComparison.Ordinal);
+        Assert.DoesNotContain("BridgeToLegacy", authoring, StringComparison.Ordinal);
+        Assert.DoesNotContain("BridgeToLegacy", security, StringComparison.Ordinal);
+        Assert.Contains("app.MapGroup(BinaryPrefix)", authoring, StringComparison.Ordinal);
+        Assert.Contains("app.MapGroup(BinaryPrefix)", security, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -90,21 +97,6 @@ public sealed class BinaryTransportHotPathContractTests
         Assert.Contains("passkeyService.RenameCredentialAsync(userId, id, name, cancellationToken)", authEndpoints, StringComparison.Ordinal);
         Assert.Contains("Task<AuthBinaryFlowResult> LoginAsync(AuthLoginRequestCoreModel request, AuthBinaryClientContext client, CancellationToken cancellationToken = default)", authFacade, StringComparison.Ordinal);
         Assert.Contains("Task<AuthBinaryFlowResult> RegisterAsync(AuthRegisterRequestCoreModel request, AuthBinaryClientContext client, CancellationToken cancellationToken = default)", authFacade, StringComparison.Ordinal);
-    }
-
-    private static void AssertBridgeUsesPooledBuffer(string relativePath)
-    {
-        string source = ReadRepoFile(relativePath);
-        string bridge = ExtractMethodBlock(source, "private async Task BridgeToLegacy");
-        string readBody = ExtractMethodBlock(source, "private static async Task<PooledBinaryBridgeBuffer> ReadBodyWithLimitAsync");
-
-        Assert.Contains("PooledBinaryBridgeBuffer", source, StringComparison.Ordinal);
-        Assert.Contains("ReadOnlyMemoryStream", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("await using var capture = new MemoryStream", bridge, StringComparison.Ordinal);
-        Assert.DoesNotContain("new MemoryStream(json.ToArray())", bridge, StringComparison.Ordinal);
-        Assert.DoesNotContain("capture.ToArray()", bridge, StringComparison.Ordinal);
-        Assert.DoesNotContain("using var buffer = new MemoryStream", readBody, StringComparison.Ordinal);
-        Assert.DoesNotContain("return buffer.ToArray()", readBody, StringComparison.Ordinal);
     }
 
     private static string ReadRepoFile(string relativePath)

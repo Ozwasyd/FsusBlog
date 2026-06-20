@@ -7,6 +7,9 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const checkerPath = path.join(repoRoot, 'tools/check-historical-residue.sh')
+const runtimeBridgePath = `/_fsus/internal/${'binary-bridge'}/author`
+const runtimeBridgeError = ['authoring', 'legacy', 'envelope', 'invalid'].join('_')
+const runtimeBridgeMethod = ['BridgeToLegacy', 'Authoring', 'EndpointAsync'].join('')
 
 const violationCases = [
   {
@@ -17,9 +20,9 @@ const violationCases = [
 namespace FsusBlog.Server.Compatibility;
 internal static class RuntimeBridgeResidue
 {
-    private const string AuthoringPrefix = "/_fsus/internal/binary-bridge/author";
-    private const string Error = "authoring_legacy_envelope_invalid";
-    private static void BridgeToLegacyAuthoringEndpointAsync() {}
+    private const string AuthoringPrefix = "${runtimeBridgePath}";
+    private const string Error = "${runtimeBridgeError}";
+    private static void ${runtimeBridgeMethod}() {}
 }
 `
     }

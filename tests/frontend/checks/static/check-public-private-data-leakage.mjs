@@ -23,6 +23,8 @@ const serviceWorker = read('src/frontend/public/sw.js')
 const telemetry = read('src/frontend/src/services/telemetryService.ts')
 const subscription = read('src/backend/Modules/Endpoints/SubscriptionEndpoints.cs')
 const authorPreviewEndpoint = read('src/backend/Modules/Endpoints/AuthoringEndpoints.cs')
+const bridgeAuthoringPrefixSymbol = ['BinaryBridgeInternalRequest', 'AuthoringPrefix'].join('.')
+const bridgeInternalOnlyFilterSymbol = ['BinaryBridgeInternalOnly', 'Filter'].join('')
 
 for (const [label, source] of [
   ['distribution feeds/sitemap', distribution],
@@ -78,9 +80,11 @@ for (const forbidden of ['document.cookie', 'localStorage.getItem(\'token\')', '
 assert(subscription.includes('SHA256.HashData'), 'subscription must hash email before storage')
 assert(!subscription.includes('email ='), 'subscription responses must not echo raw email')
 
-assert(authorPreviewEndpoint.includes('BinaryBridgeInternalRequest.AuthoringPrefix'), 'author bridge implementation must move off the public /api/author prefix')
-assert(authorPreviewEndpoint.includes('AddEndpointFilter<BinaryBridgeInternalOnlyFilter>'), 'author bridge implementation must require the internal bridge filter')
-assert(authorPreviewEndpoint.includes('.RequireAuthorization(policy => policy.RequireRole("admin"))'), 'author private preview endpoint group must require admin authorization')
+assert(authorPreviewEndpoint.includes('"/api/binary/author"'), 'author implementation must stay on the native binary author prefix')
+assert(!authorPreviewEndpoint.includes(bridgeAuthoringPrefixSymbol), 'author implementation must not use internal bridge prefix')
+assert(!authorPreviewEndpoint.includes(bridgeInternalOnlyFilterSymbol), 'author implementation must not depend on bridge-only filter')
+assert(!authorPreviewEndpoint.includes('JsonApiResponse<'), 'author implementation must not expose JSON envelopes')
+assert(authorPreviewEndpoint.includes('.RequireAdminPermission(AdminPermissions.ArticleWrite)'), 'author private preview endpoint group must require admin authorization')
 assert(authorPreviewEndpoint.includes('group.MapPost("/preview"'), 'author private preview route must stay inside the admin authoring group')
 
 console.log('[check-public-private-data-leakage] ok')
