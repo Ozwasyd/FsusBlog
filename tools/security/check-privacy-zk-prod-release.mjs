@@ -21,6 +21,8 @@ const REQUIRED_ARTIFACT_HASHES = [
   'nativeVerifierSha256',
   'wasmProverSha256'
 ]
+const WASM_PROVER_P95_MS_MAX = 3000
+const NATIVE_VERIFIER_P99_MS_MAX = 50
 
 const args = parseArgs(process.argv.slice(2))
 const configPaths = args.config.length > 0 ? args.config : DEFAULT_CONFIGS
@@ -285,6 +287,18 @@ function checkRealGroth16SmokeEvidence(evidence, expectedVkHash, setup) {
   }
   if (evidence.hashingFixtureUsed === true || crossStack.hashingFixtureUsed === true) {
     errors.push('ZK-Prod smoke evidence must not use hashingFixtureUsed=true.')
+  }
+
+  const performance = evidence.performance && typeof evidence.performance === 'object' && !Array.isArray(evidence.performance)
+    ? evidence.performance
+    : {}
+  const wasmProverP95Ms = Number(performance.wasmProverP95Ms)
+  if (!Number.isFinite(wasmProverP95Ms) || wasmProverP95Ms <= 0 || wasmProverP95Ms > WASM_PROVER_P95_MS_MAX) {
+    errors.push(`ZK-Prod smoke evidence performance.wasmProverP95Ms must be in 1..${WASM_PROVER_P95_MS_MAX}.`)
+  }
+  const nativeVerifierP99Ms = Number(performance.nativeVerifierP99Ms)
+  if (!Number.isFinite(nativeVerifierP99Ms) || nativeVerifierP99Ms <= 0 || nativeVerifierP99Ms > NATIVE_VERIFIER_P99_MS_MAX) {
+    errors.push(`ZK-Prod smoke evidence performance.nativeVerifierP99Ms must be in 1..${NATIVE_VERIFIER_P99_MS_MAX}.`)
   }
 }
 

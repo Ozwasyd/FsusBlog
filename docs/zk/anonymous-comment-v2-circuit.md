@@ -164,9 +164,11 @@ native verifier, and wasm prover artifact.
 
 The same evidence must state that the frontend wasm prover generated the proof,
 the backend native verifier accepted it, public inputs matched byte-for-byte,
-all tamper cases rejected, and `hashingFixtureUsed=false`. Release checks bind
-the evidence `verifyingKeyHash` to production config, trusted setup manifest,
-and the verifying-key artifact hash before ZK-Prod can be enabled.
+all tamper cases rejected, `hashingFixtureUsed=false`,
+`performance.wasmProverP95Ms<=3000`, and
+`performance.nativeVerifierP99Ms<=50`. Release checks bind the evidence
+`verifyingKeyHash` to production config, trusted setup manifest, and the
+verifying-key artifact hash before ZK-Prod can be enabled.
 
 ## Budgets
 

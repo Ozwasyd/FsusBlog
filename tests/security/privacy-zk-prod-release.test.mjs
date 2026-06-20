@@ -197,6 +197,39 @@ test('privacy ZK production release gate rejects hashing-only smoke evidence', (
   })
 })
 
+test('privacy ZK production release gate rejects smoke evidence without prover performance budget', () => {
+  withTempDir((dir) => {
+    const verifyingKeyHash = hex('a')
+    const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
+    const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
+    const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
+    const smoke = writeJson(dir, 'slow-smoke.json', completeSmokeEvidence({
+      performance: {
+        wasmProverP95Ms: 3500,
+        nativeVerifierP99Ms: 75
+      }
+    }))
+    const rootBootstrap = writeJson(dir, 'root-bootstrap.json', rootBootstrapEvidence(verifyingKeyHash))
+    const config = writeJson(dir, 'enabled.json', enabledConfig({
+      nativeLibrary,
+      issuerPublicKey,
+      verifyingKeyHash,
+      smoke
+    }))
+
+    const result = runGate(
+      '--config', config,
+      '--trusted-setup-manifest', setup,
+      '--smoke-evidence', smoke,
+      '--root-bootstrap-evidence', rootBootstrap,
+      '--summary', path.join(dir, 'summary.json'))
+
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /wasmProverP95Ms/)
+    assert.match(result.stderr, /nativeVerifierP99Ms/)
+  })
+})
+
 test('privacy ZK production release gate rejects offline-only root bootstrap evidence when enabled', () => {
   withTempDir((dir) => {
     const verifyingKeyHash = hex('a')
@@ -285,6 +318,11 @@ function completeSmokeEvidence(overrides = {}) {
     identityHeadersOmitted: true,
     sensitivePayloadRedacted: true,
     ...overrides,
+    performance: {
+      wasmProverP95Ms: 2400,
+      nativeVerifierP99Ms: 35,
+      ...(overrides.performance ?? {})
+    },
     artifactHashes,
     crossStack: {
       frontendProofGenerated: true,

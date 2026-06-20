@@ -141,6 +141,36 @@ test('privacy ZK production smoke rejects boolean-only or hashing-only real evid
   })
 })
 
+test('privacy ZK production smoke rejects real evidence without prover performance budget', () => {
+  withTempDir((dir) => {
+    const config = writeJson(dir, 'enabled.json', {
+      AnonymousIdentity: {
+        ZkProd: {
+          Enabled: true
+        }
+      }
+    })
+    const realEvidence = writeJson(dir, 'slow-prover.json', {
+      ...completeRealEvidence({
+        performance: {
+          wasmProverP95Ms: 3500,
+          nativeVerifierP99Ms: 75
+        }
+      })
+    })
+
+    const result = runSmoke(
+      '--config', config,
+      '--real-evidence', realEvidence,
+      '--summary', path.join(dir, 'summary.json'),
+      '--require-real')
+
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /wasmProverP95Ms/)
+    assert.match(result.stderr, /nativeVerifierP99Ms/)
+  })
+})
+
 function runSmoke(...args) {
   return spawnSync(process.execPath, [script, ...args], {
     cwd: root,
@@ -169,8 +199,9 @@ function writeJson(dir, name, value) {
   return file
 }
 
-function completeRealEvidence() {
+function completeRealEvidence(overrides = {}) {
   return {
+    status: 'ok',
     evidenceKind: 'real-groth16-cross-stack',
     circuitId: 'fsus.anonymous.comment.v2',
     publicInputLayoutVersion: 3,
@@ -197,7 +228,13 @@ function completeRealEvidence() {
       publicInputsMatch: true,
       tamperCasesRejected: true,
       hashingFixtureUsed: false
-    }
+    },
+    performance: {
+      wasmProverP95Ms: 2400,
+      nativeVerifierP99Ms: 35,
+      ...(overrides.performance ?? {})
+    },
+    ...overrides
   }
 }
 

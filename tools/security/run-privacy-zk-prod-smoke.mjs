@@ -19,6 +19,8 @@ const REQUIRED_ARTIFACT_HASHES = [
   'nativeVerifierSha256',
   'wasmProverSha256'
 ]
+const WASM_PROVER_P95_MS_MAX = 3000
+const NATIVE_VERIFIER_P99_MS_MAX = 50
 
 const args = parseArgs(process.argv.slice(2))
 const summaryPath = resolveRepoPath(args.summary ?? DEFAULT_SUMMARY)
@@ -94,6 +96,7 @@ const summary = {
   proofSystem: realEvidence ? normalizeString(realEvidence.proofSystem) : null,
   verifyingKeyHash: realEvidence ? normalizeString(realEvidence.verifyingKeyHash).toLowerCase() : null,
   artifactHashes: realEvidence ? sanitizeArtifactHashes(realEvidence.artifactHashes) : {},
+  performance: realEvidence ? sanitizePerformance(realEvidence.performance) : {},
   artifacts: artifactState.safeArtifacts,
   checks,
   errors
@@ -231,6 +234,16 @@ function validateRealGroth16Evidence(evidence) {
   if (evidence.hashingFixtureUsed === true || crossStack.hashingFixtureUsed === true) {
     errors.push('real smoke evidence must not use hashingFixtureUsed=true.')
   }
+
+  const performance = isObject(evidence.performance) ? evidence.performance : {}
+  const wasmProverP95Ms = Number(performance.wasmProverP95Ms)
+  if (!Number.isFinite(wasmProverP95Ms) || wasmProverP95Ms <= 0 || wasmProverP95Ms > WASM_PROVER_P95_MS_MAX) {
+    errors.push(`real smoke evidence performance.wasmProverP95Ms must be in 1..${WASM_PROVER_P95_MS_MAX}.`)
+  }
+  const nativeVerifierP99Ms = Number(performance.nativeVerifierP99Ms)
+  if (!Number.isFinite(nativeVerifierP99Ms) || nativeVerifierP99Ms <= 0 || nativeVerifierP99Ms > NATIVE_VERIFIER_P99_MS_MAX) {
+    errors.push(`real smoke evidence performance.nativeVerifierP99Ms must be in 1..${NATIVE_VERIFIER_P99_MS_MAX}.`)
+  }
 }
 
 function sanitizeArtifactHashes(value) {
@@ -239,6 +252,20 @@ function sanitizeArtifactHashes(value) {
   for (const key of REQUIRED_ARTIFACT_HASHES) {
     const hash = normalizeString(source[key]).toLowerCase()
     if (isSha256Hex(hash)) output[key] = hash
+  }
+  return output
+}
+
+function sanitizePerformance(value) {
+  const source = isObject(value) ? value : {}
+  const output = {}
+  const wasmProverP95Ms = Number(source.wasmProverP95Ms)
+  if (Number.isFinite(wasmProverP95Ms) && wasmProverP95Ms > 0) {
+    output.wasmProverP95Ms = wasmProverP95Ms
+  }
+  const nativeVerifierP99Ms = Number(source.nativeVerifierP99Ms)
+  if (Number.isFinite(nativeVerifierP99Ms) && nativeVerifierP99Ms > 0) {
+    output.nativeVerifierP99Ms = nativeVerifierP99Ms
   }
   return output
 }
