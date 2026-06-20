@@ -11,7 +11,7 @@ describe('frontend algorithm workflow contract', () => {
   const searchRanking = readRepoFile('src/frontend/src/services/searchRanking.ts')
   const notificationStreamRenderScheduler = readRepoFile('src/frontend/src/services/notificationStreamRenderScheduler.ts')
   const articleListStableCache = readRepoFile('src/frontend/src/view-contracts/articleListStableCache.ts')
-  const register = readRepoFile('src/frontend/src/composables/useAuthRegister.ts')
+  const anonymousOnboarding = readRepoFile('src/frontend/src/composables/useAnonymousOnboarding.ts')
   const profileSecurity = readRepoFile('src/frontend/src/composables/useUserProfileSecurity.ts')
 
   it('keeps content moderation on normalization, AC matching, and risk scoring', () => {
@@ -42,9 +42,9 @@ describe('frontend algorithm workflow contract', () => {
     expect(articleListStableCache).not.toContain('liveIds')
   })
 
-  it('keeps register and profile username rules on the shared constraint schema', () => {
-    expect(register).toContain('USERNAME_CONSTRAINT')
-    expect(register).toContain('validateUsername(registerData.username)')
+  it('keeps anonymous public handles and profile username rules on the shared constraint schema', () => {
+    expect(anonymousOnboarding).toContain('USERNAME_CONSTRAINT')
+    expect(anonymousOnboarding).toContain('validateUsername(value)')
     expect(profileSecurity).toContain('USERNAME_CONSTRAINT')
     expect(profileSecurity).toContain('createUsernamePattern()')
   })

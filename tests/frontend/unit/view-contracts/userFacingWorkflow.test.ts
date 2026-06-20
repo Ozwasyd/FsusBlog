@@ -13,7 +13,6 @@ describe('user facing workflow contract', () => {
   const loginPage = readRepoFile('src/frontend/src/views/auth/Login.vue')
   const loginComposable = readRepoFile('src/frontend/src/composables/useAuthLogin.ts')
   const registerPage = readRepoFile('src/frontend/src/views/auth/Register.vue')
-  const registerComposable = readRepoFile('src/frontend/src/composables/useAuthRegister.ts')
   const articleDetail = readRepoFile('src/frontend/src/views/ArticleDetail.vue')
   const articleDetailComposable = readRepoFile('src/frontend/src/composables/useArticleDetailView.ts')
   const articleTocComposable = readRepoFile('src/frontend/src/composables/article/useArticleToc.ts')
@@ -54,18 +53,17 @@ describe('user facing workflow contract', () => {
 
   it('keeps auth copy and MFA modes aligned with backend expectations', () => {
     expect(loginComposable).toContain("type MfaMode = 'totp' | 'recovery'")
-    expect(loginComposable).toContain("return '登录'")
+    expect(loginPage).toContain('登录后可继续写作、管理评论和维护站点。')
     expect(loginPage).toContain('value="totp"')
     expect(loginPage).toContain('value="recovery"')
     expect(loginPage).toContain('如果验证失败')
     expect(loginPage).toContain('Recovery Key')
-    expect(loginPage).toContain('v-else-if="!anonymousIdentityMode && !requiresMfa"')
+    expect(loginPage).toContain('v-if="!requiresMfa"')
+    expect(loginPage).not.toContain('anonymousIdentityMode')
+    expect(loginComposable).not.toContain('loginData')
     expect(registerPage).toContain('创建匿名账号')
     expect(registerPage).toContain('我已保存 Recovery Key')
     expect(registerPage).not.toContain('autocomplete="new-password"')
-    expect(registerComposable).toContain('密码至少需要 8 个字符')
-    expect(registerComposable).toContain('密码最多 128 个字符')
-    expect(registerComposable).toContain('不支持数字和符号')
   })
 
   it('routes guest comment replies through login and keeps comment actions explicit', () => {

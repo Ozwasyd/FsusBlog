@@ -5,21 +5,9 @@ import { encodeAedsFrame, encodeStringMutationRequest, writeFixedUtf8 } from './
 
 // ================= DTO 类型定义 (对应后端业务载荷) =================
 
-export interface RegisterDto {
-    username: string;
-    password: string;
-    confirmPassword: string; // 仅用于前端校验及后端业务逻辑
-}
-
 export interface AnonymousBootstrapRequest {
   publicHandle?: string
   acceptedGuidelines: boolean
-}
-
-export interface LoginDto {
-    username: string;
-    password: string;
-    rememberMe: boolean;
 }
 
 export interface UpdateUsernameDto {
@@ -137,47 +125,6 @@ export interface DeleteAccountRequest {
 }
 
 // ================= API 方法定义 =================
-
-/**
- * 登录：严格保障指纹一致性
- *[修复 2026-02-24] 逻辑自洽：业务层不再感知 PoW 细节，由拦截器自动注入
- *
- * [修改日期 2026-02-28]
- * 修改理由：
- * 1. 修复二次解包漏洞：拦截器已剥离响应壳，去除无意义的 .data 寻址，O(1) 直接映射 UserInfo。
- * 2. 性能最优化：移除冗余的 async/await，避免 V8 引擎生成额外的 Promise 状态机与微任务开销。
- */
-export const login = (data: LoginDto, config?: ApiRequestConfig): Promise<AuthLoginFlow> => {
-  return requestBinaryOnly<AuthLoginFlow>({
-    binaryUrl: '/api/binary/auth/login',
-    frameType: FrameType.AuthLoginFlow,
-    signal: config?.signal as AbortSignal | undefined,
-    requestOptions: {
-      method: 'POST',
-      requiresPow: true,
-      body: encodeAedsFrame(FrameType.AuthLoginRequest, encodeAuthLoginRequest(data))
-    }
-  })
-}
-
-/**
- * 注册
- *
- *[修改日期 2026-02-28]
- * 修改理由：性能最优化：移除冗余的 async 声明，直接返回底层的 Promise 指针。
- */
-export const register = (data: RegisterDto, config?: ApiRequestConfig) => {
-  return requestBinaryOnly<AuthLoginFlow>({
-    binaryUrl: '/api/binary/auth/register',
-    frameType: FrameType.AuthLoginFlow,
-    signal: config?.signal as AbortSignal | undefined,
-    requestOptions: {
-      method: 'POST',
-      requiresPow: true,
-      body: encodeAedsFrame(FrameType.AuthRegisterRequest, encodeAuthRegisterRequest(data))
-    }
-  })
-}
 
 export const bootstrapAnonymousAccount = (data: AnonymousBootstrapRequest, config?: ApiRequestConfig) => {
   return requestBinaryOnly<AuthLoginFlow>({
@@ -582,28 +529,6 @@ export const renamePasskey = (id: number, name: string, config?: ApiRequestConfi
       body: encodeAedsFrame(FrameType.PasskeyRenameRequest, encodeStringMutationRequest(name))
     }
   })
-
-function encodeAuthLoginRequest(data: LoginDto): Uint8Array {
-  const { bytes, refs, blobLength } = encodeStringBlob([data.username, data.password])
-  const view = new DataView(bytes.buffer)
-  bytes[0] = data.rememberMe ? 1 : 0
-  bytes[1] = 0
-  view.setUint16(2, 0, true)
-  writeSliceRef(view, 4, refs[0])
-  writeSliceRef(view, 12, refs[1])
-  view.setInt32(20, blobLength, true)
-  return bytes
-}
-
-function encodeAuthRegisterRequest(data: RegisterDto): Uint8Array {
-  const { bytes, refs, blobLength } = encodeStringBlob([data.username, data.password, data.confirmPassword])
-  const view = new DataView(bytes.buffer)
-  writeSliceRef(view, 0, refs[0])
-  writeSliceRef(view, 8, refs[1])
-  writeSliceRef(view, 16, refs[2])
-  view.setInt32(24, blobLength, true)
-  return bytes
-}
 
 function encodeAuthAnonymousBootstrapRequest(data: AnonymousBootstrapRequest): Uint8Array {
   const publicHandle = textBytes(data.publicHandle?.trim() ?? '')

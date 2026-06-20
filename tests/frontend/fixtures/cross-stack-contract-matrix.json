@@ -857,22 +857,6 @@
         },
         {
           "method": "POST",
-          "path": "/auth/login",
-          "auth": "anonymous",
-          "pow": true,
-          "requestFrame": "AuthLoginRequest",
-          "responseFrame": "AuthLoginFlow"
-        },
-        {
-          "method": "POST",
-          "path": "/auth/register",
-          "auth": "anonymous",
-          "pow": true,
-          "requestFrame": "AuthRegisterRequest",
-          "responseFrame": "AuthLoginFlow"
-        },
-        {
-          "method": "POST",
           "path": "/auth/anonymous/bootstrap",
           "auth": "anonymous",
           "pow": true,

@@ -49,74 +49,6 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .RequireNoStoreResponse();
 
-        group.MapPost("/auth/login", static async Task<BinaryFrameResult> (
-            HttpContext httpContext,
-            AuthBinaryApplicationFacade authFacade,
-            IWebHostEnvironment env,
-            AuthCookieService authCookieService,
-            ISecurityRiskSignalSink riskSignals,
-            IAedsEncoder aeds,
-            CancellationToken cancellationToken) =>
-        {
-            var request = await AuthBinaryRequestReader.ReadLoginAsync(httpContext, aeds, cancellationToken);
-            if (!request.IsSuccess)
-            {
-                return AuthBinaryResponseWriter.Error(aeds, request.Error);
-            }
-
-            var result = await authFacade.LoginAsync(request.Value, AuthBinaryClientContext.From(httpContext), cancellationToken);
-            if (!result.Success)
-            {
-                await RecordAuthLoginFailureAsync(httpContext, riskSignals, cancellationToken);
-                return AuthBinaryResponseWriter.Error(aeds, result.Error);
-            }
-
-            if (result.SessionTokens is { } tokens)
-            {
-                authCookieService.SetTokenCookies(httpContext, env, tokens.AccessToken, tokens.RefreshToken, tokens.RefreshTokenExpiresAt);
-            }
-
-            return AuthBinaryResponseWriter.LoginFlow(aeds, result.Flow);
-        })
-        .RequireRateLimiting("fixed_ip")
-        .AllowAnonymous()
-        .WithRiskAction(RiskActionNames.AuthLogin)
-        .AddEndpointFilter<RequiresRiskControlFilter>()
-        .AddEndpointFilter<RequiresPowFilter>()
-        .RequireNoStoreResponse();
-
-        group.MapPost("/auth/register", static async Task<BinaryFrameResult> (
-            HttpContext httpContext,
-            AuthBinaryApplicationFacade authFacade,
-            IWebHostEnvironment env,
-            AuthCookieService authCookieService,
-            IAedsEncoder aeds,
-            CancellationToken cancellationToken) =>
-        {
-            var request = await AuthBinaryRequestReader.ReadRegisterAsync(httpContext, aeds, cancellationToken);
-            if (!request.IsSuccess)
-            {
-                return AuthBinaryResponseWriter.Error(aeds, request.Error);
-            }
-
-            var result = await authFacade.RegisterAsync(request.Value, AuthBinaryClientContext.From(httpContext), cancellationToken);
-            if (!result.Success)
-            {
-                return AuthBinaryResponseWriter.Error(aeds, result.Error);
-            }
-
-            if (result.SessionTokens is { } tokens)
-            {
-                authCookieService.SetTokenCookies(httpContext, env, tokens.AccessToken, tokens.RefreshToken, tokens.RefreshTokenExpiresAt);
-            }
-
-            return AuthBinaryResponseWriter.LoginFlow(aeds, result.Flow);
-        })
-        .RequireRateLimiting("fixed_ip")
-        .AllowAnonymous()
-        .AddEndpointFilter<RequiresPowFilter>()
-        .RequireNoStoreResponse();
-
         group.MapPost("/auth/anonymous/bootstrap", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             AuthBinaryApplicationFacade authFacade,
@@ -1510,19 +1442,6 @@ public static partial class BinaryEndpoints
     private static bool HasBinaryRequestBody(HttpContext httpContext)
         => httpContext.Request.ContentLength.GetValueOrDefault() > 0
             || httpContext.Request.Headers.ContainsKey("Transfer-Encoding");
-
-    private static ValueTask RecordAuthLoginFailureAsync(
-        HttpContext httpContext,
-        ISecurityRiskSignalSink riskSignals,
-        CancellationToken cancellationToken)
-        => riskSignals.AddRiskAsync(new SecurityRiskSignal(
-            httpContext,
-            SecurityRiskReason.AuthLoginFailed,
-            20,
-            AuthRiskSignalTtl,
-            SecurityRiskSources.Auth,
-            RiskActionNames.AuthLogin,
-            "credential_login_failed"), cancellationToken);
 
     private static ValueTask RecordPasskeyAssertionFailureAsync(
         HttpContext httpContext,

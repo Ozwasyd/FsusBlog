@@ -13,7 +13,7 @@
           </p>
         </header>
 
-        <form v-if="anonymousIdentityMode && !requiresMfa" class="space-y-6" novalidate @submit.prevent>
+        <form v-if="!requiresMfa" class="space-y-6" novalidate @submit.prevent>
           <div class="grid gap-3">
             <el-checkbox
               id="anonymous-remember-me"
@@ -60,114 +60,6 @@
           >
             使用 Recovery Key 恢复访问
           </router-link>
-        </form>
-
-        <form v-else-if="!anonymousIdentityMode && !requiresMfa" class="space-y-6" novalidate @submit.prevent="handleLogin">
-          <div class="relative group">
-            <label for="username" class="mb-2 block text-xs font-semibold text-[var(--fsusblog-text-secondary)]">
-              用户名
-            </label>
-            <el-input
-              id="username"
-              v-model="loginData.username"
-              name="username"
-              type="text"
-              placeholder="输入你的用户名"
-              autocomplete="username"
-              autofocus
-              aria-required="true"
-              :disabled="isProcessing"
-            />
-          </div>
-
-          <div class="relative group">
-            <label for="password" class="mb-2 block text-xs font-semibold text-[var(--fsusblog-text-secondary)]">
-              密码
-            </label>
-            <el-input
-              id="password"
-              v-model="loginData.password"
-              name="password"
-              type="password"
-              show-password
-              placeholder="输入你的密码"
-              autocomplete="current-password"
-              aria-required="true"
-              :aria-invalid="Boolean(errorMessage)"
-              aria-describedby="login-error"
-              :disabled="isProcessing"
-            />
-          </div>
-
-          <div class="min-h-11">
-            <el-checkbox
-              id="remember-me"
-              v-model="rememberMe"
-              name="rememberMe"
-              :disabled="isProcessing"
-            >
-              记住我
-            </el-checkbox>
-          </div>
-
-          <div
-            v-if="errorMessage"
-            id="login-error"
-            role="alert"
-            aria-live="polite"
-            class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-color-error-border)] bg-[var(--fsusblog-color-error-bg)] px-4 py-3 text-sm font-semibold text-[var(--fsusblog-color-error)] animate-in fade-in slide-in-from-top-1"
-          >
-            {{ errorMessage }}
-          </div>
-
-          <div class="grid pt-4">
-            <el-button
-              type="primary"
-              native-type="submit"
-              :disabled="isProcessing || !isFormValid"
-              :loading="isProcessing"
-              :aria-disabled="isProcessing || !isFormValid"
-            >
-              {{ submitButtonText }}
-            </el-button>
-          </div>
-
-          <!-- 通行密钥登录分隔线 -->
-          <div class="my-2 flex items-center gap-4" aria-hidden="true">
-            <div class="h-px flex-1 bg-[var(--fsusblog-panel-bg-soft)]" />
-            <span class="text-xs font-medium text-[var(--fsusblog-text-muted)]">或</span>
-            <div class="h-px flex-1 bg-[var(--fsusblog-panel-bg-soft)]" />
-          </div>
-
-          <div class="grid">
-            <el-button
-              :disabled="passkeyLoading"
-              :loading="passkeyLoading"
-              @click="handlePasskeyLogin"
-            >
-              <template #icon>
-                <el-icon>
-                  <Key />
-                </el-icon>
-              </template>
-              {{ passkeyLoading ? '请按照提示操作...' : '使用通行密钥登录' }}
-            </el-button>
-            <p class="mt-3 text-xs leading-6 text-[var(--fsusblog-text-muted)]">
-              需要已绑定的设备或安全密钥；如果验证失败，请检查浏览器是否允许通行密钥。
-            </p>
-          </div>
-
-          <div
-            v-if="passkeyError"
-            role="alert"
-            aria-live="polite"
-            class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-color-error-border)] bg-[var(--fsusblog-color-error-bg)] px-4 py-3 text-sm font-semibold text-[var(--fsusblog-color-error)] animate-in fade-in slide-in-from-top-1"
-          >
-            {{ passkeyError }}
-            <p class="mt-2 text-xs leading-6">
-              请检查浏览器是否允许通行密钥。
-            </p>
-          </div>
         </form>
 
         <form v-else class="space-y-6" novalidate aria-labelledby="mfa-title" @submit.prevent="handleMfaVerify">
@@ -262,12 +154,8 @@ const focusRingClass = themeTokens.focusRing
 
 const {
   errorMessage,
-  loginData,
   rememberMe,
   isProcessing,
-  isFormValid,
-  submitButtonText,
-  handleLogin,
   handleMfaVerify,
   requiresMfa,
   mfaMode,
@@ -276,7 +164,6 @@ const {
 } = useAuthLogin()
 
 const { loading: passkeyLoading, error: passkeyError, loginWithPasskey } = usePasskeyLogin()
-const anonymousIdentityMode = true
 
 const handlePasskeyLogin = () => loginWithPasskey(rememberMe.value)
 </script>

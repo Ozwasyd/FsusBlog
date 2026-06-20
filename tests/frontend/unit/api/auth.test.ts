@@ -15,7 +15,7 @@ vi.mock('@/api/index', () => ({
 }))
 
 import { requestBinaryOnly } from '@/services/binaryTransport'
-import { beginRecoveryPasskeyRegistration, completeRecoveryPasskeyRegistration, createRecoveryKey, deleteAccount, deletePasskey, disableMfa, getMe, getMfaProfile, getPowChallenge, listPasskeys, listSessions, login, logout, passkeyLoginBegin, passkeyLoginComplete, passkeyRegisterBegin, passkeyRegisterComplete, refreshToken, regenerateMfaRecoveryCodes, register, renamePasskey, revokeOtherSessions, revokeSession, rotateRecoveryKey, startMfaChallenge, startMfaSetup, updatePassword, updateUsername, verifyMfaChallenge, verifyMfaSetup, verifyRecoveryKey } from '@/api/auth'
+import { beginRecoveryPasskeyRegistration, bootstrapAnonymousAccount, completeRecoveryPasskeyRegistration, createRecoveryKey, deleteAccount, deletePasskey, disableMfa, getMe, getMfaProfile, getPowChallenge, listPasskeys, listSessions, logout, passkeyLoginBegin, passkeyLoginComplete, passkeyRegisterBegin, passkeyRegisterComplete, refreshToken, regenerateMfaRecoveryCodes, renamePasskey, revokeOtherSessions, revokeSession, rotateRecoveryKey, startMfaChallenge, startMfaSetup, updatePassword, updateUsername, verifyMfaChallenge, verifyMfaSetup, verifyRecoveryKey } from '@/api/auth'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
 
@@ -25,23 +25,10 @@ describe('auth API binary base session flow', () => {
     mockBinary.mockResolvedValue(null as never)
   })
 
-  it('login sends binary auth login request', async () => {
-    await login({ username: 'alice', password: 'pw', rememberMe: true })
+  it('anonymous bootstrap sends the passkey-first account bootstrap request', async () => {
+    await bootstrapAnonymousAccount({ publicHandle: 'alice', acceptedGuidelines: true })
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/login',
-      frameType: FrameType.AuthLoginFlow,
-      requestOptions: expect.objectContaining({
-        method: 'POST',
-        requiresPow: true,
-        body: expect.any(ArrayBuffer)
-      })
-    }))
-  })
-
-  it('register sends binary auth register request', async () => {
-    await register({ username: 'alice', password: 'pw', confirmPassword: 'pw' })
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/register',
+      binaryUrl: '/api/binary/auth/anonymous/bootstrap',
       frameType: FrameType.AuthLoginFlow,
       requestOptions: expect.objectContaining({
         method: 'POST',

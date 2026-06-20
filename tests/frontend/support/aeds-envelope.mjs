@@ -250,6 +250,19 @@ export function encodeAuthRegisterRequest({ username, password, confirmPassword 
   return bytes
 }
 
+export function encodeAuthAnonymousBootstrapRequest({ publicHandle = '', acceptedGuidelines = true } = {}) {
+  const handle = new TextEncoder().encode(publicHandle.trim())
+  const bytes = new Uint8Array(16 + handle.byteLength)
+  const view = new DataView(bytes.buffer)
+  bytes[0] = acceptedGuidelines ? 1 : 0
+  bytes[1] = handle.byteLength > 0 ? 1 : 0
+  view.setUint16(2, 0, true)
+  writeSliceRef(view, 4, { offset: 0, length: handle.byteLength })
+  view.setInt32(12, handle.byteLength, true)
+  bytes.set(handle, 16)
+  return bytes
+}
+
 export function encodeCurrentUserSnapshotFrame({ id = 1, username = 'admin', role = 'admin', status = 0, banReason = '', deletedAt = null } = {}) {
   const bytes = new Uint8Array(CURRENT_USER_SNAPSHOT_POD_SIZE)
   const view = new DataView(bytes.buffer)

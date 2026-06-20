@@ -89,19 +89,39 @@ public sealed class BinaryTransportHotPathContractTests
         Assert.Contains("Task<bool> RestoreAsync(int id, CancellationToken cancellationToken = default)", articleInterface, StringComparison.Ordinal);
         Assert.Contains("Task<bool> PermanentlyDeleteArticleAsync(int id, CancellationToken cancellationToken = default)", articleInterface, StringComparison.Ordinal);
 
-        Assert.Contains("authFacade.LoginAsync(request.Value, AuthBinaryClientContext.From(httpContext), cancellationToken)", authEndpoints, StringComparison.Ordinal);
-        Assert.Contains("authFacade.RegisterAsync(request.Value, AuthBinaryClientContext.From(httpContext), cancellationToken)", authEndpoints, StringComparison.Ordinal);
         Assert.Contains("authFacade.BootstrapAnonymousAccountAsync(request.Value, AuthBinaryClientContext.From(httpContext), cancellationToken)", authEndpoints, StringComparison.Ordinal);
         Assert.Contains("sessions.RefreshTokenWithExpiryAsync(oldRefreshToken, sessionId, cancellationToken)", authEndpoints, StringComparison.Ordinal);
         Assert.Contains("sessions.RevokeRefreshTokenAsync(refreshToken, cancellationToken)", authEndpoints, StringComparison.Ordinal);
         Assert.Contains("passkeyService.RemoveCredentialAsync(userId, id, cancellationToken)", authEndpoints, StringComparison.Ordinal);
         Assert.Contains("removeResult.Success", authEndpoints, StringComparison.Ordinal);
         Assert.Contains("passkeyService.RenameCredentialAsync(userId, id, name, cancellationToken)", authEndpoints, StringComparison.Ordinal);
-        Assert.Contains("Task<AuthBinaryFlowResult> LoginAsync(AuthLoginRequestCoreModel request, AuthBinaryClientContext client, CancellationToken cancellationToken = default)", authFacade, StringComparison.Ordinal);
-        Assert.Contains("Task<AuthBinaryFlowResult> RegisterAsync(AuthRegisterRequestCoreModel request, AuthBinaryClientContext client, CancellationToken cancellationToken = default)", authFacade, StringComparison.Ordinal);
         Assert.Contains("Task<AuthBinaryFlowResult> BootstrapAnonymousAccountAsync(AuthAnonymousBootstrapRequestCoreModel request, AuthBinaryClientContext client, CancellationToken cancellationToken = default)", authFacade, StringComparison.Ordinal);
         Assert.Contains("AedsFrameType.AuthAnonymousBootstrapRequest", authAdapters, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/auth/anonymous/bootstrap\"", authEndpoints, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BinaryPasswordLoginAndRegister_AreNotProductionAuthCapabilities()
+    {
+        string authEndpoints = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+        string authAdapters = ReadRepoFile("src/backend/Modules/Endpoints/Binary/AuthBinaryEndpointAdapters.cs");
+        string authFacade = ReadRepoFile("src/backend/Services/AuthBinaryApplicationFacade.cs");
+        string openApi = ReadRepoFile("src/shared/Contracts/Validation/fsusblog.openapi.json");
+        string matrix = ReadRepoFile("tests/frontend/fixtures/cross-stack-contract-matrix.json");
+        string golden = ReadRepoFile("tests/backend/Fixtures/aeds-golden-catalog.json");
+
+        Assert.DoesNotContain("group.MapPost(\"/auth/login\"", authEndpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("group.MapPost(\"/auth/register\"", authEndpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadLoginAsync", authAdapters, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadRegisterAsync", authAdapters, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoginAsync(AuthLoginRequestCoreModel", authFacade, StringComparison.Ordinal);
+        Assert.DoesNotContain("RegisterAsync(AuthRegisterRequestCoreModel", authFacade, StringComparison.Ordinal);
+        Assert.DoesNotContain("/api/binary/auth/login", openApi, StringComparison.Ordinal);
+        Assert.DoesNotContain("/api/binary/auth/register", openApi, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"path\": \"/auth/login\"", matrix, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"path\": \"/auth/register\"", matrix, StringComparison.Ordinal);
+        Assert.Contains("\"name\": \"AuthLoginRequest\", \"value\": 43, \"family\": \"reserved-legacy-auth-request\"", golden, StringComparison.Ordinal);
+        Assert.Contains("\"name\": \"AuthRegisterRequest\", \"value\": 44, \"family\": \"reserved-legacy-auth-request\"", golden, StringComparison.Ordinal);
     }
 
     private static string ReadRepoFile(string relativePath)

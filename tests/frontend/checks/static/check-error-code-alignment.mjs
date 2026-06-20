@@ -56,16 +56,6 @@ const bannedPatterns = [
     patterns: [
       /normalized\.message\.includes\(\s*['"]POW_CALCULATION_TIMEOUT['"]\s*\)/
     ]
-  },
-  {
-    file: resolve(clientRoot, 'src/composables/useAuthRegister.ts'),
-    patterns: [
-      /msg\.includes\(\s*['"]POW_CALCULATION_TIMEOUT['"]\s*\)/,
-      /msg\.includes\(\s*['"]Network Error['"]\s*\)/,
-      /msg\.includes\(\s*['"]timeout['"]\s*\)/,
-      /msg\.includes\(\s*['"]已存在['"]\s*\)/,
-      /msg\.includes\(\s*['"]占用['"]\s*\)/
-    ]
   }
 ]
 

@@ -28,7 +28,7 @@ Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof V
 
 ## Action registry baseline
 
-RiskControl action 名称集中由 `RiskActionNames` 定义。首批生产 action 为 `public.read`、`comment.create`、`comment.reply`、`auth.login`、`auth.passkey.begin`、`auth.passkey.complete`、`recovery-key.verify`、`notification.subscribe`、`admin.security.write` 和 `admin.comment.batch`。Endpoint 必须通过 `WithRiskAction(...)` 或等价 metadata 声明 action / routeKey；测试和开发环境可以用 `RiskActionRegistry.FindMissingActionMetadata(...)` 扫描受保护 endpoint 的缺失声明。
+RiskControl action 名称集中由 `RiskActionNames` 定义。首批生产 action 为 `public.read`、`comment.create`、`comment.reply`、`auth.passkey.begin`、`auth.passkey.complete`、`recovery-key.verify`、`notification.subscribe`、`admin.security.write` 和 `admin.comment.batch`。`auth.login` 仅保留为 legacy migration/test action 名，不对应生产用户侧 password endpoint。Endpoint 必须通过 `WithRiskAction(...)` 或等价 metadata 声明 action / routeKey；测试和开发环境可以用 `RiskActionRegistry.FindMissingActionMetadata(...)` 扫描受保护 endpoint 的缺失声明。
 
 ## Context factory baseline
 
@@ -56,7 +56,7 @@ RiskControl proof token 使用 `X-Fsus-Challenge-Proof` 传递，独立于 admin
 
 `Sha256PowChallengeProvider` 是第一个实际 provider，边界是复用旧 PoW 能力而不迁移 wire format：issue 生成 `sha256PowV1` assignment 和 `salt/difficulty/timestamp/signature` provider payload；verify 接受 legacy Base64 FPOW proof、复用 `IPowService` 与 `AdaptivePowGovernor`，并将成功、失败、重放类拒绝写入 challenge attempt。旧 `RequiresPowFilter` 和 `X-Fsus-Pow-Proof` header 仍作为兼容入口存在；统一 binary challenge endpoint 通过 `/api/binary/security/challenge` 与 `/api/binary/security/challenge/verify` 暴露。
 
-`CaptchaV1ChallengeProvider` 是第二个实际 provider，边界是服务端可验证但不直接接入业务 endpoint：issue 生成 `captchaV1` assignment、Chebyshev noise seed/参数、HMAC signature 和 `SecurityCaptchaChallenge` 一次性 cache state；verify 校验签名、绑定字段、过期、一次性消费、答案、nonce、response token 与 solve duration。provider 不生成 PNG，不保存 seed/proof 原文，失败写 challenge attempt，并通过 `CaptchaInvalid`、`CaptchaReplay`、`CaptchaSolveTooFast` / `CaptchaSolveTooSlow` detail 写入 `risk-control` 风险事件。`SecurityRiskPolicySnapshotV2Adapter` 已让 `auth.login`、`comment.create` 和 `comment.reply` 通过 RiskControl policy 选择 CaptchaV1，并在高风险时叠加 Sha256PoW。
+`CaptchaV1ChallengeProvider` 是第二个实际 provider，边界是服务端可验证但不直接接入业务 endpoint：issue 生成 `captchaV1` assignment、Chebyshev noise seed/参数、HMAC signature 和 `SecurityCaptchaChallenge` 一次性 cache state；verify 校验签名、绑定字段、过期、一次性消费、答案、nonce、response token 与 solve duration。provider 不生成 PNG，不保存 seed/proof 原文，失败写 challenge attempt，并通过 `CaptchaInvalid`、`CaptchaReplay`、`CaptchaSolveTooFast` / `CaptchaSolveTooSlow` detail 写入 `risk-control` 风险事件。`SecurityRiskPolicySnapshotV2Adapter` 对 legacy `auth.login` 仅保留 migration/test policy；生产用户登录使用 Passkey begin/complete 与 Recovery Key verify。
 
 `Argon2idPoSpaceV1ChallengeProvider` 是第三个 provider，默认只注册能力、不进入默认策略：`Security:PoSpaceV1:Mode` 默认为 `disabled`，`SecurityRiskPolicySnapshotV2Adapter` 也把 `pospace` 子系统设为 disabled。启用时 provider 只签发带 `saltHex`、`memoryKib`、`iterations`、`lanes` 和 `targetDurationMs` 的 assignment payload，验证阶段重新派生 Argon2id proof 并一次性消费 `SecurityPoSpaceChallenge` cache。参数越界、移动 UA 超过内存上限、provider disabled、payload 错误、proof mismatch 和 replay 都 fail closed；RiskDecision 在 PoSpace disabled 或移动 UA 时降级到 `captchaV1`，避免 PoSpace 成为默认移动端成本。
 

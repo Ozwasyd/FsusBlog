@@ -40,7 +40,7 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 
 鉴权要求以 `/api/binary/**` 端点声明为准。公开、登录、admin、PoW、MFA、Passkey 等边界必须在 binary 端点内直接校验；不存在文本端点作为权限参照。
 
-高价值认证动作可以在既有 binary 路径上叠加 RiskControl proof，而不是新增平行登录 API。`auth.login`、`auth.passkey.begin`、`auth.passkey.complete`、`recovery-key.verify` 必须通过 endpoint metadata 声明 action，并统一用 `RequiresRiskControlFilter` 返回 AEDS `ApiError`；缺 challenge proof 返回 428，block/throttle 返回 429。叠加 RiskControl 不删除 legacy PoW、admin step-up 或 MFA proof 边界；需要两个 proof 的端点必须明确登记到 [contracts.md](contracts.md#安全挑战契约) 与本文件头部表。
+高价值认证动作可以在既有 binary 路径上叠加 RiskControl proof，而不是新增平行登录 API。生产用户登录入口只保留 Passkey、Recovery Key 与必要 step-up；`auth.passkey.begin`、`auth.passkey.complete`、`recovery-key.verify` 必须通过 endpoint metadata 声明 action，并统一用 `RequiresRiskControlFilter` 返回 AEDS `ApiError`；缺 challenge proof 返回 428，block/throttle 返回 429。叠加 RiskControl 不删除 legacy PoW、admin step-up 或 MFA proof 边界；需要两个 proof 的端点必须明确登记到 [contracts.md](contracts.md#安全挑战契约) 与本文件头部表。`auth.login` 只作为 legacy 风控 action 名保留，不对应生产用户侧 password endpoint。
 
 强匿名凭证签发是登录态到匿名态的单向领取边界：`POST /api/binary/anonymous-credential/issue` 只能验证当前账号领取资格和频率，响应必须 `no-store`，签发审计只能保存 `user_id` 维度的领取计数、epoch、不可逆 request hash 与结果状态。服务端不得把 `user_id` 与最终 credential commitment、nullifier、proof witness 或 credential secret 建立持久映射；后续匿名评论 ticket / submit 也不得依赖该端点留下可反查账号的状态。
 
@@ -77,7 +77,7 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 
 Binary 端点按资源语义使用 `GET/POST/PUT/DELETE`；认证、MFA、Passkey、上传和管理端写入均不得退回旧文本路径。
 Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AEDS v2 request frame；当前生产协议拒绝 request non-zero flags，`Flags = 64` 等 future flag 只能在 `aeds-protocol.json`、负向 contract matrix、TypeScript/Worker/Wasm decoder 与 [schemas-and-errors.md#flags-登记](schemas-and-errors.md#flags-登记) 同步登记后启用。
-匿名身份模式下，新账号 onboarding 必须走 `POST /api/binary/auth/anonymous/bootstrap`，请求 frame 为 `AuthAnonymousBootstrapRequest`；该路径只初始化匿名账号容器和当前 session，不接受用户提供的登录密码，也不得复用旧 `/api/binary/auth/register` 的 username/password 契约。旧 register endpoint 在匿名身份模式下继续 fail closed，仅保留给非匿名身份运行模式。
+匿名身份模式下，新账号 onboarding 必须走 `POST /api/binary/auth/anonymous/bootstrap`，请求 frame 为 `AuthAnonymousBootstrapRequest`；该路径只初始化匿名账号容器和当前 session，不接受用户提供的登录密码，也不得复用旧 username/password 契约。旧 `/api/binary/auth/register` 与 `/api/binary/auth/login` password endpoints 不再是生产 API；`AuthRegisterRequest` / `AuthLoginRequest` 仅作为 legacy migration/test 的保留 AEDS frame 编号。
 
 ---
 
@@ -133,7 +133,7 @@ Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AED
 | 安全强制 | `X-Fsus-Mfa-Proof` | 请求 | admin-sensitive、高价值作者/安全写操作的一次性 admin step-up proof；消费语义见 [contracts.md#admin-作者工作台](contracts.md#admin-作者工作台) 与 [contracts.md#admin-安全系统](contracts.md#admin-安全系统)。 |
 | 安全强制 | `X-Fsus-Admin-Bootstrap-Token` | 请求 | 首次 root admin Passkey bootstrap 的显式环境守门 token；必须匹配 `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` / `Admin:BootstrapToken`，root admin 存在后不再生效。 |
 | 安全强制 | `X-Fsus-Admin-Handle` | 请求 | 首次 root admin Passkey bootstrap 的后台 handle；只用于 admin principal，不写入普通匿名账号。 |
-| 安全强制 | `X-Fsus-Pow-Proof` | 请求 | legacy PoW proof，用于注册、密码登录、Recovery Key verify、匿名 notification stream 或 `public_read` 风险升级后的动态公开 API；不用于 PublicHotRead L0 artifact 命中路径。 |
+| 安全强制 | `X-Fsus-Pow-Proof` | 请求 | legacy PoW proof，用于匿名账号 bootstrap、Recovery Key verify、匿名 notification stream 或 `public_read` 风险升级后的动态公开 API；不用于 PublicHotRead L0 artifact 命中路径。 |
 | 安全强制 | `X-Fsus-Challenge-Proof` | 请求 | RiskControl challenge verify 成功后签发的一次性 opaque proof；业务 endpoint 只能由 `RequiresRiskControlFilter` 消费。 |
 | 安全强制 | `X-Fsus-Challenge-Id` | 请求 | 与 `X-Fsus-Challenge-Proof` 绑定的 challenge id；缺失、重放或 action / route / IP / device mismatch 返回 428。 |
 | 安全强制 | `X-Fsus-Challenge-Kind` | 请求 | 与 `X-Fsus-Challenge-Proof` 绑定的 provider kind，例如 `sha256PowV1`；legacy alias `security.pow` 只作为兼容输入规范化。 |
@@ -158,7 +158,7 @@ FPOW 信封字段顺序为：`magic[4] = "FPOW"`（字节 `46 50 4f 57`）、`ve
 
 RiskControl 新 challenge provider 不得自定义平行 assignment 结构。PoW、Captcha、PoSpace、HumanReadProof、Passkey step-up、匿名凭证和 ZK 匿名评论 proof 都必须使用 `SecurityChallengeAssignment` / `SecurityChallengeEnvelope` AEDS frame，统一携带 challengeId、traceparent、tenantId、kind、action、routeKey、subject/client IP/device fingerprint hash、issued/expires 和 escalationLevel；provider 只扩展自己的 proof 验证载荷。
 
-受 RiskControl 保护的业务请求不得把 provider proof 直接发给业务 endpoint；客户端必须先调用 `/api/binary/security/challenge/verify` 换取一次性 `X-Fsus-Challenge-Proof`，再与 `X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 一起提交到业务 endpoint。notification stream 匿名订阅的 `notification.subscribe` action 同样走该 proof 绑定：preflight 可使用 `X-Fsus-Challenge-*` header，正式 WebSocket 因浏览器无法自定义握手 header，可使用 `challengeProof`、`challengeId`、`challengeKind` query 参数；preflight 不消费一次性 proof，只校验存在性和 kind，正式 WebSocket 握手才消费。密码登录失败和 Passkey assertion 失败只能写风险信号，不改变登录响应 frame；Passkey assertion 成功可写负分风险信号，并继续以 Passkey 作为 MFA 已满足的登录凭据。
+受 RiskControl 保护的业务请求不得把 provider proof 直接发给业务 endpoint；客户端必须先调用 `/api/binary/security/challenge/verify` 换取一次性 `X-Fsus-Challenge-Proof`，再与 `X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 一起提交到业务 endpoint。notification stream 匿名订阅的 `notification.subscribe` action 同样走该 proof 绑定：preflight 可使用 `X-Fsus-Challenge-*` header，正式 WebSocket 因浏览器无法自定义握手 header，可使用 `challengeProof`、`challengeId`、`challengeKind` query 参数；preflight 不消费一次性 proof，只校验存在性和 kind，正式 WebSocket 握手才消费。Passkey assertion 失败只能写风险信号，不改变登录响应 frame；Passkey assertion 成功可写负分风险信号，并继续以 Passkey 作为 MFA 已满足的登录凭据。
 
 `/api/binary/security/challenge/verify` 的尝试次数限制是服务端 hot-path 安全控制，不改变 AEDS request / response contract。端点只依赖 `ISecurityChallengeVerifyRateLimiter`；限流状态必须落在统一缓存 `SecurityChallengeVerifyRateLimit` policy 下，按 1 分钟窗口、客户端 IP hash、device fingerprint hash、规范化 action 和 challengeId hash 计数，超过 3 次时仍返回通用 `challenge_failed`，并写 `SecurityChallengeRejected` 风险信号。
 

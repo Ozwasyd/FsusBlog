@@ -14,7 +14,7 @@ import {
 } from '../../support/auth-helpers.mjs';
 import {
   encodeAedsFrame,
-  encodeAuthLoginRequest
+  encodeAuthAnonymousBootstrapRequest
 } from '../../support/aeds-envelope.mjs';
 import { fetchWithTimeout } from '../../support/http.mjs';
 
@@ -23,7 +23,8 @@ const userPassword = process.env.FSUSBLOG_USER_PASSWORD || 'BinaryUserPass123!';
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
 const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdminPass123!';
 const deniedStatuses = new Set([400, 401, 403, 404, 405, 406, 409, 413, 415, 422, 423, 428, 429]);
-const FRAME_AUTH_LOGIN_REQUEST = 43;
+const FRAME_AUTH_ANONYMOUS_BOOTSTRAP_REQUEST = 189;
+const AUTH_BOOTSTRAP_PATH = '/api/binary/auth/anonymous/bootstrap';
 const FRAME_CATEGORY_WRITE_REQUEST = 33;
 const repoRoot = resolve(process.cwd(), '..', '..');
 const evidenceDir = process.env.FSUSBLOG_SECURITY_EVIDENCE_DIR || resolve(repoRoot, '.tmp/security');
@@ -258,36 +259,28 @@ async function main() {
 
   await resetAndWaitForPow('attack matrix start');
 
-  await assertRawDenied('login without PoW', '/api/binary/auth/login', {
+  await assertRawDenied('anonymous bootstrap without PoW', AUTH_BOOTSTRAP_PATH, {
     method: 'POST',
     headers: {
       Accept: 'application/octet-stream',
       'Content-Type': 'application/octet-stream',
       'X-Fsus-Device-Fp': 'attack-no-pow'
     },
-    body: encodeAedsFrame(FRAME_AUTH_LOGIN_REQUEST, encodeAuthLoginRequest({
-      username: userName,
-      password: userPassword,
-      rememberMe: false
-    }))
+    body: encodeAedsFrame(FRAME_AUTH_ANONYMOUS_BOOTSTRAP_REQUEST, encodeAuthAnonymousBootstrapRequest())
   });
 
   await resetAndWaitForPow('attack matrix tampered pow');
 
   const tamperedPowHeaders = await buildPowHeaders('attack-tampered-pow', requestTimeoutMs);
   tamperedPowHeaders['X-Fsus-Pow-Proof'] = `${tamperedPowHeaders['X-Fsus-Pow-Proof'].slice(0, -4)}AAAA`;
-  await assertRawDenied('login with tampered PoW', '/api/binary/auth/login', {
+  await assertRawDenied('anonymous bootstrap with tampered PoW', AUTH_BOOTSTRAP_PATH, {
     method: 'POST',
     headers: {
       Accept: 'application/octet-stream',
       'Content-Type': 'application/octet-stream',
       ...tamperedPowHeaders
     },
-    body: encodeAedsFrame(FRAME_AUTH_LOGIN_REQUEST, encodeAuthLoginRequest({
-      username: userName,
-      password: userPassword,
-      rememberMe: false
-    }))
+    body: encodeAedsFrame(FRAME_AUTH_ANONYMOUS_BOOTSTRAP_REQUEST, encodeAuthAnonymousBootstrapRequest())
   });
 
   await resetAndWaitForPow('attack matrix content-type probe');

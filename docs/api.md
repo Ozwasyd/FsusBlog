@@ -49,13 +49,12 @@ Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS �
 
 ## Auth — `/api/binary/auth`
 
-### PoW 与注册登录
+### PoW 与账号入口
 
 | 方法 | 路径 | 描述 | 权限 |
 |------|------|------|------|
 | GET | `/api/binary/auth/pow-challenge` | 获取 Proof of Work 挑战 | 🔓 🚦 📦 |
-| POST | `/api/binary/auth/register` | 用户注册（需携带 AEDS PoW proof） | 🔓 🚦 📦 |
-| POST | `/api/binary/auth/login` | 密码登录（可能触发 MFA 流程） | 🔓 🚦 📦 |
+| POST | `/api/binary/auth/anonymous/bootstrap` | 初始化匿名账号容器并写入当前 session；不接受密码 | 🔓 🚦 📦 |
 | POST | `/api/binary/auth/refresh-token` | 使用 HttpOnly Cookie 续签 Access Token | 🔓 🚦 📦 |
 
 ### 当前用户

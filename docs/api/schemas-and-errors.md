@@ -226,7 +226,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 15 | `ArticleFeatured` | compact article records | `GET /api/binary/article/featured/{size}.aeds` |
 | 16 | `TrashClearResponse` | `TrashClearResponsePod` | `DELETE /api/binary/admin/article/trash` |
 | 17 | `AdminUserList` | compact user records | `GET /api/binary/admin/users` |
-| 18 | `AuthLoginFlow` | auth login payload | `POST /api/binary/auth/login` |
+| 18 | `AuthLoginFlow` | auth session flow payload | `POST /api/binary/auth/anonymous/bootstrap`, `POST /api/binary/auth/passkey/login/complete` |
 | 19 | `CurrentUserSnapshot` | user snapshot payload | `GET /api/binary/auth/me` |
 | 20 | `UploadInit` | `UploadInitPod` | `POST /api/binary/upload/init` |
 | 21 | `UploadStatus` | `UploadStatusPod` | `GET /api/binary/upload/{id}` |

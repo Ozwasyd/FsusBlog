@@ -6,19 +6,13 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AuthRiskControlEndpointContractTests
 {
     [Fact]
-    public void PasswordLoginEndpoint_RoutesThroughRiskControlAndRecordsFailures()
+    public void PasswordLoginEndpoint_IsNotAProductionRiskControlledCapability()
     {
         string source = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
-        string handler = ExtractBetween(
-            source,
-            "group.MapPost(\"/auth/login\"",
-            "group.MapPost(\"/auth/register\"");
 
-        Assert.Contains("ISecurityRiskSignalSink riskSignals", handler, StringComparison.Ordinal);
-        Assert.Contains("RecordAuthLoginFailureAsync(httpContext, riskSignals, cancellationToken)", handler, StringComparison.Ordinal);
-        Assert.Contains(".WithRiskAction(RiskActionNames.AuthLogin)", handler, StringComparison.Ordinal);
-        Assert.Contains(".AddEndpointFilter<RequiresRiskControlFilter>()", handler, StringComparison.Ordinal);
-        Assert.Contains(".AddEndpointFilter<RequiresPowFilter>()", handler, StringComparison.Ordinal);
+        Assert.DoesNotContain("group.MapPost(\"/auth/login\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("RecordAuthLoginFailureAsync(httpContext, riskSignals, cancellationToken)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(".WithRiskAction(RiskActionNames.AuthLogin)", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -72,10 +66,10 @@ public sealed class AuthRiskControlEndpointContractTests
         Assert.Contains("PasskeyAssertionAccepted", abstractions, StringComparison.Ordinal);
         Assert.Contains("public const string Auth = \"auth\"", abstractions, StringComparison.Ordinal);
         Assert.Contains("public const string Passkey = \"passkey\"", abstractions, StringComparison.Ordinal);
-        Assert.Contains("SecurityRiskReason.AuthLoginFailed", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("SecurityRiskReason.AuthLoginFailed", endpoints, StringComparison.Ordinal);
         Assert.Contains("SecurityRiskReason.PasskeyAssertionFailed", endpoints, StringComparison.Ordinal);
         Assert.Contains("SecurityRiskReason.PasskeyAssertionAccepted", endpoints, StringComparison.Ordinal);
-        Assert.Contains("SecurityRiskSources.Auth", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("SecurityRiskSources.Auth", endpoints, StringComparison.Ordinal);
         Assert.Contains("SecurityRiskSources.Passkey", endpoints, StringComparison.Ordinal);
     }
 

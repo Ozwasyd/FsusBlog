@@ -8,7 +8,8 @@ import {
 } from '../../support/aeds-envelope.mjs';
 import { fetchWithTimeout } from '../../support/http.mjs';
 
-const FRAME_AUTH_LOGIN_REQUEST = 43;
+const FRAME_AUTH_ANONYMOUS_BOOTSTRAP_REQUEST = 189;
+const AUTH_BINARY_MUTATION_PATH = '/api/binary/auth/anonymous/bootstrap';
 const deniedStatuses = new Set([400, 401, 403, 404, 406, 409, 415, 422, 426, 428, 429]);
 
 function assert(condition, message) {
@@ -38,7 +39,7 @@ function makeWrongVersionFrame() {
   view.setUint32(0, 0x53444541, true);
   bytes[4] = 1;
   bytes[5] = 16;
-  view.setUint16(8, FRAME_AUTH_LOGIN_REQUEST, true);
+  view.setUint16(8, FRAME_AUTH_ANONYMOUS_BOOTSTRAP_REQUEST, true);
   view.setUint32(10, payload.byteLength, true);
   bytes.set(payload, 16);
   return bytes;
@@ -71,7 +72,7 @@ async function main() {
   const incompatibleAcceptFrame = decodeAedsFrame(await incompatibleAccept.arrayBuffer());
   assert(incompatibleAcceptFrame.frameType === 251, 'binary endpoint incompatible Accept must return ApiError frame');
 
-  const incompatibleContentType = await fetchWithTimeout(`${baseUrl}/api/binary/auth/login`, {
+  const incompatibleContentType = await fetchWithTimeout(`${baseUrl}${AUTH_BINARY_MUTATION_PATH}`, {
     method: 'POST',
     headers: {
       Accept: 'application/octet-stream',
@@ -81,7 +82,7 @@ async function main() {
   }, requestTimeoutMs);
   assertDenied('binary endpoint incompatible Content-Type', incompatibleContentType);
 
-  const truncatedFrame = await fetchWithTimeout(`${baseUrl}/api/binary/auth/login`, {
+  const truncatedFrame = await fetchWithTimeout(`${baseUrl}${AUTH_BINARY_MUTATION_PATH}`, {
     method: 'POST',
     headers: {
       Accept: 'application/octet-stream',
@@ -92,7 +93,7 @@ async function main() {
   }, requestTimeoutMs);
   assertDenied('binary endpoint truncated frame', truncatedFrame);
 
-  const wrongVersionFrame = await fetchWithTimeout(`${baseUrl}/api/binary/auth/login`, {
+  const wrongVersionFrame = await fetchWithTimeout(`${baseUrl}${AUTH_BINARY_MUTATION_PATH}`, {
     method: 'POST',
     headers: {
       Accept: 'application/octet-stream',
@@ -103,7 +104,7 @@ async function main() {
   }, requestTimeoutMs);
   assertDenied('binary endpoint wrong AEDS version', wrongVersionFrame);
 
-  const wrongFrameType = await fetchWithTimeout(`${baseUrl}/api/binary/auth/login`, {
+  const wrongFrameType = await fetchWithTimeout(`${baseUrl}${AUTH_BINARY_MUTATION_PATH}`, {
     method: 'POST',
     headers: {
       Accept: 'application/octet-stream',

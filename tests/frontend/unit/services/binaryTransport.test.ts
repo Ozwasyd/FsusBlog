@@ -56,7 +56,7 @@ describe('binaryTransport ApiError mapping', () => {
       mfaMode: 'risk' | 'standard' | null;
       challengeToken: string | null;
     }>({
-      binaryUrl: '/api/binary/auth/login',
+      binaryUrl: '/api/binary/auth/anonymous/bootstrap',
       frameType: FrameType.AuthLoginFlow
     })).resolves.toEqual({
       user: {

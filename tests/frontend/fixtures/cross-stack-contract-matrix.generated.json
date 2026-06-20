@@ -857,22 +857,6 @@
         },
         {
           "method": "POST",
-          "path": "/auth/login",
-          "auth": "anonymous",
-          "pow": true,
-          "requestFrame": "AuthLoginRequest",
-          "responseFrame": "AuthLoginFlow"
-        },
-        {
-          "method": "POST",
-          "path": "/auth/register",
-          "auth": "anonymous",
-          "pow": true,
-          "requestFrame": "AuthRegisterRequest",
-          "responseFrame": "AuthLoginFlow"
-        },
-        {
-          "method": "POST",
           "path": "/auth/anonymous/bootstrap",
           "auth": "anonymous",
           "pow": true,
@@ -2132,5 +2116,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 208
+  "openapiOperationCount": 206
 }

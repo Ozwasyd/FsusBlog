@@ -20,7 +20,7 @@ Valid system modes are exactly `disabled`, `observe`, `enforce`, `strict` and `l
 - `strict`: enforcing mode with higher effective risk weighting.
 - `lockdown`: enforcing mode that can block anonymous writes when `AnonymousWriteAllowed=false`.
 
-Default `SecurityRiskPolicySnapshotV2` action policies use the `perception-sealed@v2` decision matrix. The base score bands are 0-19 allow, 20-39 `sha256PowV1`, 40-59 `perceptionTextTaskV2`, 60-79 `perceptionLocalizationV2 + sha256PowV1`, 80-89 action-specific critical routing, and 90+ block. The 80-89 band routes `public.read`, `auth.login` and `recovery-key.verify` to throttle, `comment.create` / `comment.reply` to moderation queue, `notification.subscribe` to `argon2idPoSpaceV1` only when PoSpace is enforcing, and `admin.security.write` to RiskControl admin step-up. `recovery-key.verify` still has a 0-score `captchaV1` requirement, and anonymous `notification.subscribe` still has a 0-score `sha256PowV1` requirement.
+Default `SecurityRiskPolicySnapshotV2` action policies use the `perception-sealed@v2` decision matrix. The base score bands are 0-19 allow, 20-39 `sha256PowV1`, 40-59 `perceptionTextTaskV2`, 60-79 `perceptionLocalizationV2 + sha256PowV1`, 80-89 action-specific critical routing, and 90+ block. The 80-89 band routes `public.read` and `recovery-key.verify` to throttle, `comment.create` / `comment.reply` to moderation queue, `notification.subscribe` to `argon2idPoSpaceV1` only when PoSpace is enforcing, and `admin.security.write` to RiskControl admin step-up. Legacy `auth.login` policy may remain in stored snapshots for migration/test compatibility but no production endpoint consumes it. `recovery-key.verify` still has a 0-score `captchaV1` requirement, and anonymous `notification.subscribe` still has a 0-score `sha256PowV1` requirement.
 
 ## Rollout order
 
@@ -30,7 +30,7 @@ Move one stage at a time. Do not advance while the previous stage has elevated 4
 |---:|---|---|
 | 1 | `observe` globally | `riskControl` readiness is ready; metrics and audit are visible; simulator matches expected decisions. |
 | 2 | public-read enforce | `public.read` challenges are enforced only for dynamic public APIs; verified crawler and social preview paths still behave as documented. |
-| 3 | auth enforce | `auth.login`, `auth.passkey.begin`, `auth.passkey.complete` and `recovery-key.verify` enforce their configured challenges; recovery key still keeps legacy PoW and no-store. |
+| 3 | auth enforce | `auth.passkey.begin`, `auth.passkey.complete` and `recovery-key.verify` enforce their configured challenges; recovery key still keeps legacy PoW and no-store. |
 | 4 | comment enforce | `comment.create` and `comment.reply` enforce challenge / queue / block semantics before persistence; high-risk queue writes `risk_control_queue`. |
 | 5 | admin policy enforce | `admin.security.write` and admin policy mutation paths require admin principal, `system.config` and `X-Fsus-Mfa-Proof`; RiskControl proof never replaces admin step-up. |
 | 6 | strict optional | Raise selected actions or global mode to `strict` only after stage 1-5 error budgets are stable. |
@@ -39,7 +39,7 @@ Move one stage at a time. Do not advance while the previous stage has elevated 4
 
 ## Pre-production checklist
 
-- Active policy has a non-empty `PolicyVersion`, a `LastKnownGoodSnapshotId`, explicit global mode and explicit action policies for `public.read`, `auth.login`, `auth.passkey.begin`, `auth.passkey.complete`, `recovery-key.verify`, `comment.create`, `comment.reply`, `notification.subscribe`, `admin.security.write` and `admin.comment.batch`.
+- Active policy has a non-empty `PolicyVersion`, a `LastKnownGoodSnapshotId`, explicit global mode and explicit action policies for `public.read`, `auth.passkey.begin`, `auth.passkey.complete`, `recovery-key.verify`, `comment.create`, `comment.reply`, `notification.subscribe`, `admin.security.write` and `admin.comment.batch`; legacy `auth.login` may exist only for migration/test compatibility.
 - `Security:CaptchaV1:SigningKey` is set to at least 32 characters, or `Jwt:SecretKey` is valid and accepted as the signing fallback.
 - `Security:PoSpaceV1:Mode` is intentionally `disabled`, `observe`, `enforce`, `strict` or `lockdown`; if enabled, `MemoryKib`, `Iterations`, `Lanes` and `TargetDurationMs` are inside the documented provider limits.
 - Redis supports consume-once operations for `SecurityChallengeProof`, `SecurityCaptchaChallenge`, `SecurityPoSpaceChallenge`, legacy PoW and MFA proof caches.
@@ -59,7 +59,7 @@ Move one stage at a time. Do not advance while the previous stage has elevated 4
 | PostgreSQL challenge persistence unavailable | Fail closed for challenge issue / verify because audit truth is unavailable. Risk event persistence failures outside challenge flow may fail open with structured fallback logging. | Fail closed. | Fail closed before persistence. | Fail closed. | Restore DB or activate last-known-good policy that avoids new challenges. |
 | Active policy missing or corrupt | Readiness `not_ready`; runtime may use loaded last-known-good only if available. | Same. | Same. | Same. | Restore last-known-good `security_policy_snapshot`; do not invent inline defaults in endpoints. |
 | No last-known-good policy | Readiness `not_ready`; do not promote. | Same. | Same. | Same. | Recreate policy snapshot through admin-controlled migration/runbook before exposing traffic. |
-| Captcha provider missing or signing key invalid | Fail closed for actions requiring `captchaV1`. | Fail closed for `auth.login` / recovery when `captchaV1` is required. | Fail closed for comment challenge; queue only if policy chooses queue without challenge. | Fail closed if required. | Remove `captchaV1` from active policy or switch affected actions to `observe`; fix `Security:CaptchaV1:SigningKey`. |
+| Captcha provider missing or signing key invalid | Fail closed for actions requiring `captchaV1`. | Fail closed for recovery when `captchaV1` is required; legacy `auth.login` is not production-routable. | Fail closed for comment challenge; queue only if policy chooses queue without challenge. | Fail closed if required. | Remove `captchaV1` from active policy or switch affected actions to `observe`; fix `Security:CaptchaV1:SigningKey`. |
 | PoSpace provider unavailable or disabled | Non-notification PoSpace challenge can fall back before issue; `notification.subscribe` critical route rejects instead of downgrading. | Same. | Same. | Same. | Keep `Security:PoSpaceV1:Mode=disabled` unless capacity tests pass; expect notification critical traffic to block while disabled. |
 | PoSpace parameter out of bounds | Fail closed for PoSpace verify; decision should fall back before issue when subsystem disabled. | Same. | Same. | Same. | Restore valid `Security:PoSpaceV1:*` values or disable subsystem. |
 | HumanReadProof unavailable | Public reads still render; read event proof may not lower risk or count views. | Not applicable. | Must not authorize writes. | Must not authorize writes. | Use `HumanReadProof:Mode=paused` only for read counting; never add it to write challenge requirements. |

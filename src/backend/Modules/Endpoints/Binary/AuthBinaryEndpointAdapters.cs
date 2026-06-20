@@ -15,38 +15,6 @@ internal readonly record struct AuthBinaryReadResult<T>(
 
 internal static class AuthBinaryRequestReader
 {
-    public static async Task<AuthBinaryReadResult<AuthLoginRequestCoreModel>> ReadLoginAsync(
-        HttpContext httpContext,
-        IAedsEncoder aeds,
-        CancellationToken cancellationToken)
-    {
-        BinaryRequestPayload payload = await ReadPayloadAsync(httpContext, aeds, AedsFrameType.AuthLoginRequest, cancellationToken);
-        if (!payload.IsSuccess)
-        {
-            return Fail<AuthLoginRequestCoreModel>(payload.Error);
-        }
-
-        return PodBinaryCodec.TryDecodeAuthLoginRequest(payload.Payload, out AuthLoginRequestCoreModel request)
-            ? Ok(request)
-            : Fail<AuthLoginRequestCoreModel>(ErrorDetail.Create(ErrorCode.Validation, "登录请求体非法"));
-    }
-
-    public static async Task<AuthBinaryReadResult<AuthRegisterRequestCoreModel>> ReadRegisterAsync(
-        HttpContext httpContext,
-        IAedsEncoder aeds,
-        CancellationToken cancellationToken)
-    {
-        BinaryRequestPayload payload = await ReadPayloadAsync(httpContext, aeds, AedsFrameType.AuthRegisterRequest, cancellationToken);
-        if (!payload.IsSuccess)
-        {
-            return Fail<AuthRegisterRequestCoreModel>(payload.Error);
-        }
-
-        return PodBinaryCodec.TryDecodeAuthRegisterRequest(payload.Payload, out AuthRegisterRequestCoreModel request)
-            ? Ok(request)
-            : Fail<AuthRegisterRequestCoreModel>(ErrorDetail.Create(ErrorCode.Validation, "注册请求体非法"));
-    }
-
     public static async Task<AuthBinaryReadResult<AuthAnonymousBootstrapRequestCoreModel>> ReadAnonymousBootstrapAsync(
         HttpContext httpContext,
         IAedsEncoder aeds,
