@@ -612,9 +612,11 @@ describe('binaryTransport ApiError mapping', () => {
           totalArticles: number;
           totalComments: number;
           trashCount: number;
-          totalVisits: number;
-          registeredVisits: number;
-          anonymousVisits: number;
+          totalReads: number;
+          humanVerifiedReads: number;
+          uniqueViewerKeyEstimate: number;
+          articleReads: number;
+          siteReads: number;
         };
         popularArticles: Array<{
           id: number;
@@ -641,9 +643,11 @@ describe('binaryTransport ApiError mapping', () => {
           totalArticles: 25,
           totalComments: 120,
           trashCount: 4,
-          totalVisits: 900,
-          registeredVisits: 500,
-          anonymousVisits: 400
+          totalReads: 900,
+          humanVerifiedReads: 880,
+          uniqueViewerKeyEstimate: 300,
+          articleReads: 650,
+          siteReads: 250
         },
         popularArticles: [
           {

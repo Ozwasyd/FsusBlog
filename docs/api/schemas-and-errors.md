@@ -193,7 +193,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 - `ArticleList`：`total:int32`、`count:int32`、`tagRecordCount:int32`、共享 blob、每篇 76B article record、每个 tag 12B record。76B record 在原公开字段后包含 `status:int32`、`scheduledPublishAtUnixMs:int64`、`publishedAtUnixMs:int64`，与 `docs/api/contracts.md` 和 `PodSizeCatalog.cs` 对齐。
 - `ArticleHot`：`count:int32`、共享 blob、每篇 16B record。
 - `Category` / `Tag`：`count:int32`、共享 blob、每条 16B record。
-- `AdminStats`：`SiteStatsPod`、共享 blob、popular 16B record、recent comment 32B record、region 12B record。
+- `AdminStats`：80B `SiteStatsPod`、共享 blob、popular 16B record、recent comment 32B record、region 12B record。阅读摘要字段为 `totalReads`、`humanVerifiedReads`、`uniqueViewerKeyEstimate`、`articleReads`、`siteReads`，不包含账号身份拆分。
 - 写请求、认证、上传和少量复杂详情 frame 仍使用 v2 header 包裹的 POD + blob 结构；线格式只接受 v2。
 
 当前兼容的 payload 字典化落点是 shared UTF-8 blob + `Utf8SliceRef`：ArticleList/ArticleSearch/Conversation records 不重复内嵌文本，category/tag/title/summary/body 均通过 slice 引用共享 blob。后续若新增 ArticleList category/tag dictionary layout，应以新版本 payload/golden fixture 登记，不复用未标记的旧 record layout。

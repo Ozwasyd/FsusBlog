@@ -23,7 +23,7 @@ public sealed class VisitLogProcessorServiceTests
             provider,
             NullLogger<VisitLogProcessorService>.Instance);
         var batch = new List<VisitLogEntity>();
-        Assert.True(channel.TryWrite(CreateMessage("127.0.0.1", 1)));
+        Assert.True(channel.TryWrite(CreateMessage("127.0.0.1")));
 
         var elapsed = Stopwatch.StartNew();
         await DrainBatchAsync(worker, batch, CancellationToken.None);
@@ -46,7 +46,7 @@ public sealed class VisitLogProcessorServiceTests
         var batch = new List<VisitLogEntity>();
         for (int i = 0; i < 500; i++)
         {
-            Assert.True(channel.TryWrite(CreateMessage("127.0.0.1", i)));
+            Assert.True(channel.TryWrite(CreateMessage("127.0.0.1")));
         }
 
         var elapsed = Stopwatch.StartNew();
@@ -102,8 +102,8 @@ public sealed class VisitLogProcessorServiceTests
 
         try
         {
-            Assert.True(channel.TryWrite(CreateMessage("8.8.8.8", 1)));
-            Assert.True(channel.TryWrite(CreateMessage("8.8.4.4", 2)));
+            Assert.True(channel.TryWrite(CreateMessage("8.8.8.8")));
+            Assert.True(channel.TryWrite(CreateMessage("8.8.4.4")));
 
             await pool.SecondAttemptObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.True(Volatile.Read(ref pool.GetCalls) >= 2);
@@ -126,15 +126,15 @@ public sealed class VisitLogProcessorServiceTests
             new AlwaysFaultingPool());
 
         await worker.StartAsync(CancellationToken.None);
-        Assert.True(channel.TryWrite(CreateMessage("8.8.8.8", 1)));
+        Assert.True(channel.TryWrite(CreateMessage("8.8.8.8")));
 
         var exception = await Record.ExceptionAsync(() => worker.StopAsync(CancellationToken.None));
 
         Assert.Null(exception);
     }
 
-    private static VisitLogMessage CreateMessage(string ip, int? userId) =>
-        new(ip, userId, DateTime.UtcNow, HumanReadEventTypes.SiteRead, "home", null, "viewer", "proof", 8000);
+    private static VisitLogMessage CreateMessage(string ip) =>
+        new(ip, DateTime.UtcNow, HumanReadEventTypes.SiteRead, "home", null, "viewer", "proof", 8000);
 
     private static async Task DrainBatchAsync(VisitLogProcessorService worker, List<VisitLogEntity> batch, CancellationToken token)
     {

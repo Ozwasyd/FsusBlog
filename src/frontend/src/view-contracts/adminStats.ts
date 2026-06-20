@@ -4,7 +4,7 @@ import { TimeUtils } from '@/utils/time';
 
 type AdminStatCardViewContract = Readonly<{
   label: string;
-  key: keyof Pick<StatsSummary, 'totalArticles' | 'totalComments' | 'totalVisits' | 'trashCount'>;
+  key: keyof Pick<StatsSummary, 'totalArticles' | 'totalComments' | 'totalReads' | 'trashCount'>;
   value: number;
   description: string;
   iconName: 'document' | 'comments' | 'views' | 'trash';
@@ -34,8 +34,10 @@ export type AdminDashboardViewContract = Readonly<{
   popularArticles: readonly AdminPopularArticleViewContract[];
   recentComments: readonly AdminRecentCommentViewContract[];
   visitChart: Readonly<{
-    registeredVisits: number;
-    anonymousVisits: number;
+    articleReads: number;
+    siteReads: number;
+    humanVerifiedReads: number;
+    uniqueViewerKeyEstimate: number;
   }>;
   regionChart: Readonly<{
     labels: readonly string[];
@@ -86,9 +88,9 @@ const STAT_CARD_TEMPLATES: readonly Omit<AdminStatCardViewContract, 'value'>[] =
     iconName: 'comments'
   },
   {
-    label: '累计访问',
-    key: 'totalVisits',
-    description: '站点历史访问量',
+    label: '累计阅读',
+    key: 'totalReads',
+    description: '真人阅读事件量',
     iconName: 'views'
   },
   {
@@ -130,8 +132,10 @@ export function createAdminDashboardViewContract(
       isLatest: index === 0
     })),
     visitChart: {
-      registeredVisits: Number(stats.registeredVisits) || 0,
-      anonymousVisits: Number(stats.anonymousVisits) || 0
+      articleReads: Number(stats.articleReads) || 0,
+      siteReads: Number(stats.siteReads) || 0,
+      humanVerifiedReads: Number(stats.humanVerifiedReads) || 0,
+      uniqueViewerKeyEstimate: Number(stats.uniqueViewerKeyEstimate) || 0
     },
     regionChart: {
       labels: (regions || []).slice(0, 10).map((item) => item.region.split('-').pop() || '未知'),

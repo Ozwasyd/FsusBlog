@@ -31,18 +31,22 @@ describe('mapSiteStatsFromPodPayload', () => {
     writeInt32(pod, 0, 10)   // totalArticles
     writeInt32(pod, 4, 20)   // totalComments
     writeInt32(pod, 8, 3)    // trashCount
-    writeInt32(pod, 12, 1000) // totalVisits
-    writeInt32(pod, 16, 400)  // registeredVisits
-    writeInt32(pod, 20, 600)  // anonymousVisits
+    writeInt32(pod, 12, 1000) // totalReads
+    writeInt32(pod, 16, 980)  // humanVerifiedReads
+    writeInt32(pod, 20, 240)  // uniqueViewerKeyEstimate
+    writeInt32(pod, 24, 760)  // articleReads
+    writeInt32(pod, 28, 240)  // siteReads
     const suffix = new Uint8Array(12)
 
     const result = mapSiteStatsFromPodPayload(buildCompactPayload(pod, new Uint8Array(), suffix))
     expect(result.overview.summary.totalArticles).toBe(10)
     expect(result.overview.summary.totalComments).toBe(20)
     expect(result.overview.summary.trashCount).toBe(3)
-    expect(result.overview.summary.totalVisits).toBe(1000)
-    expect(result.overview.summary.registeredVisits).toBe(400)
-    expect(result.overview.summary.anonymousVisits).toBe(600)
+    expect(result.overview.summary.totalReads).toBe(1000)
+    expect(result.overview.summary.humanVerifiedReads).toBe(980)
+    expect(result.overview.summary.uniqueViewerKeyEstimate).toBe(240)
+    expect(result.overview.summary.articleReads).toBe(760)
+    expect(result.overview.summary.siteReads).toBe(240)
     expect(result.overview.popularArticles).toEqual([])
     expect(result.recentComments).toEqual([])
     expect(result.regions).toEqual([])

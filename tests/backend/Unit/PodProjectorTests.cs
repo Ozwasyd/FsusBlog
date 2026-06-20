@@ -331,15 +331,17 @@ public class PodProjectorTests
     {
         var pod = PodProjector.ProjectSiteStats(
             totalArticles: 10, totalComments: 20, trashCount: 2,
-            totalVisits: 1000, registeredVisits: 300, anonymousVisits: 700,
+            totalReads: 1000, humanVerifiedReads: 980, uniqueViewerKeyEstimate: 240, articleReads: 760, siteReads: 240,
             popularCount: 5, recentCount: 8, regionCount: 3);
 
         Assert.Equal(10, pod.TotalArticles);
         Assert.Equal(20, pod.TotalComments);
         Assert.Equal(2, pod.TrashCount);
-        Assert.Equal(1000, pod.TotalVisits);
-        Assert.Equal(300, pod.RegisteredVisits);
-        Assert.Equal(700, pod.AnonymousVisits);
+        Assert.Equal(1000, pod.TotalReads);
+        Assert.Equal(980, pod.HumanVerifiedReads);
+        Assert.Equal(240, pod.UniqueViewerKeyEstimate);
+        Assert.Equal(760, pod.ArticleReads);
+        Assert.Equal(240, pod.SiteReads);
     }
 
     // ── ReadSlice overloads ─────────────────────────────────────────────────

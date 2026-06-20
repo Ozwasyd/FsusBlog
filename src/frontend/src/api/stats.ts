@@ -24,9 +24,11 @@ export interface StatsSummary {
   totalArticles: number
   totalComments: number
   trashCount: number
-  totalVisits: number
-  registeredVisits: number
-  anonymousVisits: number
+  totalReads: number
+  humanVerifiedReads: number
+  uniqueViewerKeyEstimate: number
+  articleReads: number
+  siteReads: number
 }
 
 export interface AdminStatsOverview {

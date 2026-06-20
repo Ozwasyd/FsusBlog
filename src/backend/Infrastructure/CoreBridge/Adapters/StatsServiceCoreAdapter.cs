@@ -41,9 +41,11 @@ public sealed class StatsServiceCoreAdapter(IStatsCoreService core) : IStatsServ
                 TotalArticles = value.TotalArticles,
                 TotalComments = value.TotalComments,
                 TrashCount = value.TrashCount,
-                TotalVisits = value.TotalVisits,
-                RegisteredVisits = value.RegisteredVisits,
-                AnonymousVisits = value.AnonymousVisits
+                TotalReads = value.TotalReads,
+                HumanVerifiedReads = value.HumanVerifiedReads,
+                UniqueViewerKeyEstimate = value.UniqueViewerKeyEstimate,
+                ArticleReads = value.ArticleReads,
+                SiteReads = value.SiteReads
             },
             PopularArticles = ToPopularArticles(value.PopularArticles)
         };

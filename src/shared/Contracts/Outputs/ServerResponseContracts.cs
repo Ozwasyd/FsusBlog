@@ -419,9 +419,11 @@ public sealed record class StatsSummaryDto
     public int TotalArticles { get; init; }
     public int TotalComments { get; init; }
     public int TrashCount { get; init; }
-    public int TotalVisits { get; init; }
-    public int RegisteredVisits { get; init; }
-    public int AnonymousVisits { get; init; }
+    public int TotalReads { get; init; }
+    public int HumanVerifiedReads { get; init; }
+    public int UniqueViewerKeyEstimate { get; init; }
+    public int ArticleReads { get; init; }
+    public int SiteReads { get; init; }
 }
 
 public sealed record class AdminStatsOverviewDto

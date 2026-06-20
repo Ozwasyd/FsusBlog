@@ -22,7 +22,7 @@ constexpr std::size_t kCompactTagRecordSize = 12u;
 constexpr std::size_t kTagPodSize = 132u;
 constexpr std::size_t kCommentItemPodSize = 88u;
 constexpr std::size_t kUserCommentPodSize = 524u;
-constexpr std::size_t kSiteStatsPodSize = 72u;
+constexpr std::size_t kSiteStatsPodSize = 80u;
 constexpr std::size_t kCompactPopularRecordSize = 16u;
 constexpr std::size_t kRecentCommentRecordSize = 32u;
 constexpr std::size_t kRegionDistributionRecordSize = 12u;
@@ -395,18 +395,18 @@ int render_admin_stats_html(const std::uint8_t* payload, std::uint32_t payload_l
   begin_panel("AOT Admin Stats");
   std::int32_t total_articles = 0;
   std::int32_t total_comments = 0;
-  std::int32_t total_visits = 0;
+  std::int32_t total_reads = 0;
   std::memcpy(&total_articles, payload + 0, sizeof(std::int32_t));
   std::memcpy(&total_comments, payload + 4, sizeof(std::int32_t));
-  std::memcpy(&total_visits, payload + 12, sizeof(std::int32_t));
+  std::memcpy(&total_reads, payload + 12, sizeof(std::int32_t));
 
   append_literal(g_last_html, "<div class=\"aot-metrics\">");
   append_literal(g_last_html, "<span>articles:");
   append_int(g_last_html, total_articles);
   append_literal(g_last_html, "</span><span> comments:");
   append_int(g_last_html, total_comments);
-  append_literal(g_last_html, "</span><span> visits:");
-  append_int(g_last_html, total_visits);
+  append_literal(g_last_html, "</span><span> reads:");
+  append_int(g_last_html, total_reads);
   append_literal(g_last_html, "</span></div>");
 
   std::size_t cursor = kSiteStatsPodSize;

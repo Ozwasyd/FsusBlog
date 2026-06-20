@@ -39,9 +39,11 @@ export function mapSiteStatsFromPodPayload(payload: Uint8Array): AdminStatsQuery
         totalArticles: readInt32(pod, 0),
         totalComments: readInt32(pod, 4),
         trashCount: readInt32(pod, 8),
-        totalVisits: readInt32(pod, 12),
-        registeredVisits: readInt32(pod, 16),
-        anonymousVisits: readInt32(pod, 20)
+        totalReads: readInt32(pod, 12),
+        humanVerifiedReads: readInt32(pod, 16),
+        uniqueViewerKeyEstimate: readInt32(pod, 20),
+        articleReads: readInt32(pod, 24),
+        siteReads: readInt32(pod, 28)
       },
       popularArticles
     },

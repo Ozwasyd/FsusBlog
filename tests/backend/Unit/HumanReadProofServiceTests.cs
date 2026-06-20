@@ -11,6 +11,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using System.Security.Claims;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -34,6 +36,55 @@ public sealed class HumanReadProofServiceTests
         Assert.True(fixture.Channel.Reader.TryRead(out VisitLogMessage message));
         Assert.Equal("article_read", message.EventType);
         Assert.Equal(42, message.ArticleId);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_AuthenticatedAccount_DoesNotWriteUserIdToVisitLog()
+    {
+        var fixture = CreateFixture();
+        var challenge = await fixture.Service.CreateChallengeAsync(
+            BuildAuthenticatedBrowserContext(fixture.Services, userId: 42),
+            new HumanReadChallengeRequest("article", "article:42", 42));
+        Assert.NotNull(challenge);
+
+        fixture.Time.Advance(TimeSpan.FromSeconds(9));
+        var submit = await fixture.Service.SubmitAsync(
+            BuildAuthenticatedBrowserContext(fixture.Services, userId: 42),
+            new HumanReadSubmitRequest(challenge!.Token, "article", "article:42", 42, 9000));
+
+        Assert.True(submit.Counted);
+        Assert.True(fixture.Channel.Reader.TryRead(out VisitLogMessage message));
+        Assert.Null(typeof(VisitLogMessage).GetProperty("UserId"));
+        Assert.False(message.ViewerKeyHash is null);
+        Assert.False(message.ProofId is null);
+    }
+
+    [Fact]
+    public void HumanReadAndStats_SourceDoNotUseVisitLogUserIdAsIdentityDimension()
+    {
+        string proof = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/HumanReadProofService.cs");
+        string visitProcessor = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/VisitLog/VisitLogProcessorService.cs");
+        string stats = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/StatsService.cs");
+        string outputs = BackendTestPaths.ReadAllTextFromRoot("src/shared/Contracts/Outputs/ServerResponseContracts.cs");
+        string statsPods = BackendTestPaths.ReadAllTextFromRoot("src/shared/Contracts/Models/StatsPods.cs");
+        string frontendStats = BackendTestPaths.ReadAllTextFromRoot("src/frontend/src/api/stats.ts");
+
+        Assert.DoesNotContain("context.GetUserId()", proof, StringComparison.Ordinal);
+        Assert.DoesNotContain("int? UserId", visitProcessor, StringComparison.Ordinal);
+        Assert.DoesNotContain("msg.UserId", visitProcessor, StringComparison.Ordinal);
+        Assert.DoesNotContain("v.UserId", stats, StringComparison.Ordinal);
+        Assert.DoesNotContain("RegisteredVisits", stats, StringComparison.Ordinal);
+        Assert.DoesNotContain("AnonymousVisits", stats, StringComparison.Ordinal);
+        Assert.DoesNotContain("RegisteredVisits", outputs, StringComparison.Ordinal);
+        Assert.DoesNotContain("AnonymousVisits", outputs, StringComparison.Ordinal);
+        Assert.DoesNotContain("RegisteredVisits", statsPods, StringComparison.Ordinal);
+        Assert.DoesNotContain("AnonymousVisits", statsPods, StringComparison.Ordinal);
+        Assert.DoesNotContain("registeredVisits", frontendStats, StringComparison.Ordinal);
+        Assert.DoesNotContain("anonymousVisits", frontendStats, StringComparison.Ordinal);
+        Assert.Contains("viewer_key_hash", stats, StringComparison.Ordinal);
+        Assert.Contains("proof_id", stats, StringComparison.Ordinal);
+        Assert.Contains("TotalReads", outputs, StringComparison.Ordinal);
+        Assert.Contains("UniqueViewerKeyEstimate", outputs, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -142,6 +193,15 @@ public sealed class HumanReadProofServiceTests
         context.Request.Headers["Sec-Fetch-Mode"] = "cors";
         context.Request.Headers["Sec-Fetch-Dest"] = "empty";
         context.Request.Headers.Referer = "http://localhost/article/42";
+        return context;
+    }
+
+    private static DefaultHttpContext BuildAuthenticatedBrowserContext(IServiceProvider services, int userId)
+    {
+        var context = BuildBrowserContext(services);
+        context.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, userId.ToString())],
+            "test"));
         return context;
     }
 

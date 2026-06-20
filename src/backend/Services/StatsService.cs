@@ -6,7 +6,6 @@ using FsusBlog.Server.Models.Dtos;
 using SqlSugar;
 using System.Data;
 using System.Data.Common;
-using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
 
 namespace FsusBlog.Server.Services;
 
@@ -121,23 +120,31 @@ public partial class StatsService(
             }
         }
 
-        var visitStatsQuery = _db.Queryable<VisitLogEntity>()
-            .Select(v => new
-            {
-                Registered = SqlFunc.AggregateSum(SqlFunc.IIF(v.UserId != null, 1, 0)),
-                Anonymous = SqlFunc.AggregateSum(SqlFunc.IIF(v.UserId == null, 1, 0))
-            });
+        const string readStatsSql = """
+            SELECT
+                COUNT(1)::bigint AS "TotalReads",
+                COUNT(proof_id)::bigint AS "HumanVerifiedReads",
+                COUNT(DISTINCT viewer_key_hash)::bigint AS "UniqueViewerKeyEstimate",
+                COUNT(*) FILTER (WHERE event_type = 'article_read')::bigint AS "ArticleReads",
+                COUNT(*) FILTER (WHERE event_type = 'site_read')::bigint AS "SiteReads"
+            FROM sys_visit_log;
+            """;
 
-        var visitStatsSql = visitStatsQuery.ToSql();
-        int registeredVisits = 0;
-        int anonymousVisits = 0;
+        int totalReads = 0;
+        int humanVerifiedReads = 0;
+        int uniqueViewerKeyEstimate = 0;
+        int articleReads = 0;
+        int siteReads = 0;
 
-        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(visitStatsSql.Key, visitStatsSql.Value))
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(readStatsSql))
         {
             if (await reader.ReadAsync(cancellationToken))
             {
-                registeredVisits = reader.IsDBNull(0) ? 0 : (int)reader.GetInt64(0);
-                anonymousVisits = reader.IsDBNull(1) ? 0 : (int)reader.GetInt64(1);
+                totalReads = reader.IsDBNull(0) ? 0 : (int)reader.GetInt64(0);
+                humanVerifiedReads = reader.IsDBNull(1) ? 0 : (int)reader.GetInt64(1);
+                uniqueViewerKeyEstimate = reader.IsDBNull(2) ? 0 : (int)reader.GetInt64(2);
+                articleReads = reader.IsDBNull(3) ? 0 : (int)reader.GetInt64(3);
+                siteReads = reader.IsDBNull(4) ? 0 : (int)reader.GetInt64(4);
             }
         }
 
@@ -148,9 +155,11 @@ public partial class StatsService(
                 TotalArticles = totalArticles,
                 TotalComments = totalComments,
                 TrashCount = trashCount,
-                RegisteredVisits = registeredVisits,
-                AnonymousVisits = anonymousVisits,
-                TotalVisits = registeredVisits + anonymousVisits
+                TotalReads = totalReads,
+                HumanVerifiedReads = humanVerifiedReads,
+                UniqueViewerKeyEstimate = uniqueViewerKeyEstimate,
+                ArticleReads = articleReads,
+                SiteReads = siteReads
             },
             PopularArticles = popularArticles,
         };

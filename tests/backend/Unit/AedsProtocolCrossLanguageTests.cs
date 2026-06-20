@@ -478,13 +478,15 @@ public sealed partial class AedsProtocolCrossLanguageTests
     public void BackendEncoder_MatchesSharedAdminStatsFixture()
     {
         SiteStatsCoreModel stats = new(
-            PodProjector.ProjectSiteStats(25, 120, 4, 900, 500, 400, 2, 1, 2),
+            PodProjector.ProjectSiteStats(25, 120, 4, 900, 880, 300, 650, 250, 2, 1, 2),
             25,
             120,
             4,
             900,
-            500,
-            400,
+            880,
+            300,
+            650,
+            250,
             [
                 new PopularArticleCoreModel(default, 31, "Top post", 88),
                 new PopularArticleCoreModel(default, 32, "Second post", 55)

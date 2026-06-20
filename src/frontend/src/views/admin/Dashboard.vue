@@ -169,11 +169,16 @@ const toDistributionRows = (items: readonly { label: string; count: number }[]):
 }
 
 const hasVisitSourceData = computed(() =>
-  dashboardView.value.visitChart.registeredVisits > 0 || dashboardView.value.visitChart.anonymousVisits > 0
+  dashboardView.value.visitChart.articleReads > 0
+    || dashboardView.value.visitChart.siteReads > 0
+    || dashboardView.value.visitChart.humanVerifiedReads > 0
+    || dashboardView.value.visitChart.uniqueViewerKeyEstimate > 0
 )
 const visitSourceRows = computed(() => toDistributionRows([
-  { label: '匿名访客', count: dashboardView.value.visitChart.anonymousVisits },
-  { label: '注册用户', count: dashboardView.value.visitChart.registeredVisits }
+  { label: '文章阅读', count: dashboardView.value.visitChart.articleReads },
+  { label: '站点阅读', count: dashboardView.value.visitChart.siteReads },
+  { label: '真人 proof', count: dashboardView.value.visitChart.humanVerifiedReads },
+  { label: '独立 viewer key', count: dashboardView.value.visitChart.uniqueViewerKeyEstimate }
 ]))
 const regionRows = computed(() => toDistributionRows(
   dashboardView.value.regionChart.labels.map((label, index) => ({

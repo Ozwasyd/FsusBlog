@@ -37,9 +37,11 @@ public readonly struct SiteStatsPod
     public readonly int TotalArticles;
     public readonly int TotalComments;
     public readonly int TrashCount;
-    public readonly int TotalVisits;
-    public readonly int RegisteredVisits;
-    public readonly int AnonymousVisits;
+    public readonly int TotalReads;
+    public readonly int HumanVerifiedReads;
+    public readonly int UniqueViewerKeyEstimate;
+    public readonly int ArticleReads;
+    public readonly int SiteReads;
     public readonly PodEnvelopeHeader PopularArticles;
     public readonly PodEnvelopeHeader RecentComments;
     public readonly PodEnvelopeHeader RegionDistributions;

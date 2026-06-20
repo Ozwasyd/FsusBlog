@@ -558,7 +558,7 @@ describe('AEDS cross-stack contract fixture', () => {
 
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.AdminStats)
-    expect(result.payloadView.byteLength).toBe(231)
+    expect(result.payloadView.byteLength).toBe(239)
 
     expect(mapSiteStatsFromPodPayload(result.payloadView)).toEqual({
       overview: {
@@ -566,9 +566,11 @@ describe('AEDS cross-stack contract fixture', () => {
           totalArticles: 25,
           totalComments: 120,
           trashCount: 4,
-          totalVisits: 900,
-          registeredVisits: 500,
-          anonymousVisits: 400
+          totalReads: 900,
+          humanVerifiedReads: 880,
+          uniqueViewerKeyEstimate: 300,
+          articleReads: 650,
+          siteReads: 250
         },
         popularArticles: [
           {

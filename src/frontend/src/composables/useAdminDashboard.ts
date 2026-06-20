@@ -29,8 +29,10 @@ export function useAdminDashboard() {
     popularArticles: [],
     recentComments: [],
     visitChart: {
-      registeredVisits: 0,
-      anonymousVisits: 0
+      articleReads: 0,
+      siteReads: 0,
+      humanVerifiedReads: 0,
+      uniqueViewerKeyEstimate: 0
     },
     regionChart: {
       labels: [],

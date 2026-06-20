@@ -125,10 +125,8 @@ public sealed class HumanReadProofService(
             return new HumanReadSubmitResponse(false, "duplicate_viewer");
         }
 
-        int userId = context.GetUserId();
         bool accepted = channel.TryWrite(new VisitLogMessage(
             context.GetClientIp(),
-            userId > 0 ? userId : null,
             now.UtcDateTime,
             payload.Scope == "article" ? HumanReadEventTypes.ArticleRead : HumanReadEventTypes.SiteRead,
             payload.RouteKey,

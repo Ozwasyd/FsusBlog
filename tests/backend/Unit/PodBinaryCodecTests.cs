@@ -1849,7 +1849,7 @@ public class PodBinaryCodecTests
     [Fact]
     public void SiteStats_RoundTrip_PreservesFields()
     {
-        var pod = PodProjector.ProjectSiteStats(10, 20, 2, 1000, 300, 700, 3, 5, 2);
+        var pod = PodProjector.ProjectSiteStats(10, 20, 2, 1000, 980, 240, 760, 240, 3, 5, 2);
         var popular = (IReadOnlyList<PopularArticleCoreModel>)[];
         var recentPod = PodProjector.ProjectRecentComment(3, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), "Alice", "Hello", out _);
         var regionPod = PodProjector.ProjectRegionDistribution("US", 12);
@@ -1859,8 +1859,10 @@ public class PodBinaryCodecTests
             20,
             2,
             1000,
-            300,
-            700,
+            980,
+            240,
+            760,
+            240,
             popular,
             [new RecentCommentCoreModel(recentPod, 3, "Alice", "Hello", new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc))],
             [new RegionDistributionCoreModel(regionPod, "US", 12)]);
@@ -1870,7 +1872,11 @@ public class PodBinaryCodecTests
         Assert.True(ok);
         Assert.Equal(10, decoded.TotalArticles);
         Assert.Equal(20, decoded.TotalComments);
-        Assert.Equal(1000, decoded.TotalVisits);
+        Assert.Equal(1000, decoded.TotalReads);
+        Assert.Equal(980, decoded.HumanVerifiedReads);
+        Assert.Equal(240, decoded.UniqueViewerKeyEstimate);
+        Assert.Equal(760, decoded.ArticleReads);
+        Assert.Equal(240, decoded.SiteReads);
         Assert.Single(decoded.RecentComments);
         Assert.Equal("Hello", decoded.RecentComments[0].Content);
         Assert.Single(decoded.RegionDistributions);
@@ -1988,7 +1994,7 @@ public class StatsCoreServiceTests
     public async Task GetAdminStats_DelegatesToGateway()
     {
         var gw = Substitute.For<IStatsCoreGateway>();
-        var expected = new SiteStatsCoreModel(default, 5, 10, 1, 500, 200, 300, [], [], []);
+        var expected = new SiteStatsCoreModel(default, 5, 10, 1, 500, 490, 120, 380, 120, [], [], []);
         gw.GetAdminStatsAsync().Returns(expected);
 
         var svc = new StatsCoreService(gw);

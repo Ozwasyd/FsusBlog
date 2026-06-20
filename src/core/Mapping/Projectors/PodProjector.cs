@@ -302,9 +302,11 @@ public static class PodProjector
         int totalArticles,
         int totalComments,
         int trashCount,
-        int totalVisits,
-        int registeredVisits,
-        int anonymousVisits,
+        int totalReads,
+        int humanVerifiedReads,
+        int uniqueViewerKeyEstimate,
+        int articleReads,
+        int siteReads,
         int popularCount,
         int recentCount,
         int regionCount)
@@ -314,9 +316,11 @@ public static class PodProjector
             TotalArticles = totalArticles,
             TotalComments = totalComments,
             TrashCount = trashCount,
-            TotalVisits = totalVisits,
-            RegisteredVisits = registeredVisits,
-            AnonymousVisits = anonymousVisits,
+            TotalReads = totalReads,
+            HumanVerifiedReads = humanVerifiedReads,
+            UniqueViewerKeyEstimate = uniqueViewerKeyEstimate,
+            ArticleReads = articleReads,
+            SiteReads = siteReads,
             PopularArticles = MakeHeader(popularCount),
             RecentComments = MakeHeader(recentCount),
             RegionDistributions = MakeHeader(regionCount)
@@ -511,9 +515,11 @@ public static class PodProjector
         public int TotalArticles;
         public int TotalComments;
         public int TrashCount;
-        public int TotalVisits;
-        public int RegisteredVisits;
-        public int AnonymousVisits;
+        public int TotalReads;
+        public int HumanVerifiedReads;
+        public int UniqueViewerKeyEstimate;
+        public int ArticleReads;
+        public int SiteReads;
         public PodEnvelopeHeader PopularArticles;
         public PodEnvelopeHeader RecentComments;
         public PodEnvelopeHeader RegionDistributions;

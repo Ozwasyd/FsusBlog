@@ -180,4 +180,11 @@ run_residue_check \
   "" \
   src/frontend/src
 
+run_residue_check \
+  "human-read visit user binding" \
+  "human-read visit user-bound residue detected" \
+  'context[.]GetUserId[(][)]|VisitLogMessage[(][^;\n]*UserId|msg[.]UserId|\bRegisteredVisits\b|\bAnonymousVisits\b|registeredVisits|anonymousVisits|v[.]UserId' \
+  '^(src/backend/Entities/VisitLog[.]cs|src/backend/Infrastructure/Operations/LegacyIdentityColdStartResetOperation[.]cs|src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry[.]cs|src/backend/Infrastructure/SchemaMigration/SchemaMigrationConsistencyChecker[.]cs)$' \
+  src/backend/Services/HumanReadProofService.cs src/backend/Services/VisitLog src/backend/Services/StatsService.cs src/backend/Infrastructure/CoreBridge src/backend/Infrastructure/Cache src/shared/Contracts src/core src/frontend/src tests/frontend/fixtures
+
 echo "[residue-check] passed"

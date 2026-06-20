@@ -15,7 +15,6 @@ namespace FsusBlog.Server.Services.VisitLog;
 
 public readonly record struct VisitLogMessage(
     string IP,
-    int? UserId,
     DateTime CreateTime,
     string EventType,
     string? RouteKey,
@@ -243,7 +242,6 @@ public class VisitLogProcessorService : BackgroundService
             batch.Add(new VisitLogEntity
             {
                 IP = ip,
-                UserId = msg.UserId,
                 Region = localRegion,
                 CreateTime = msg.CreateTime,
                 EventType = NormalizeEventType(msg.EventType),
@@ -291,7 +289,6 @@ public class VisitLogProcessorService : BackgroundService
         batch.Add(new VisitLogEntity
         {
             IP = ip,
-            UserId = msg.UserId,
             Region = region,
             CreateTime = msg.CreateTime,
             EventType = NormalizeEventType(msg.EventType),

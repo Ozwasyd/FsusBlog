@@ -605,6 +605,8 @@ Article POD 为定长结构体，字段按 C++ 内存对齐排列：
 
 Submit 同样受 `read_proof` 专用限流保护。`counted=true` 会写入 `ReadProofAccepted` 负分风险信号，仅用于降低后续 `public.read` 风险或避免重复 challenge；`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid`、`fingerprint_missing` 等拒绝状态会写入 crawler risk；`duplicate_viewer` 只表示 24 小时去重，不计入风险。一次性 proof 消费必须先失效进程内 L1 cache，再执行 Redis consume-once transaction；请求取消后不得继续执行 registry 清理或留下可从 L1 再读取的 proof。
 
+被接受的阅读事件只记录 `viewerKeyHash`、`proofId`、`eventType`、`routeKey`、`articleId`、region 与时间，不写入登录账号 ID；后续去重与统计不得以账号身份作为维度。
+
 响应 frame：`HumanReadSubmitResponse` (`29`)
 
 | 字段 | 类型 | 说明 |
@@ -1046,6 +1048,18 @@ SiteStatsPod、共享 UTF-8 blob、popular article records、recent comment reco
 ```
 
 服务端对外 query model 是 `AdminStatsQueryDto`：`Overview` 对应统计摘要与热门文章，`RecentComments` 对应最近评论，`Regions` 对应地区分布。前端 dashboard 从单个 `AdminStats` frame 派生三个视图区块；`/api/binary/stats/recent-comments` 与 `/api/binary/stats/regions` 仅保留为兼容窄读入口。
+
+`Overview.Summary` 的阅读字段为匿名安全口径：
+
+| 字段 | 说明 |
+|------|------|
+| `totalReads` | `sys_visit_log` 中的总阅读事件数 |
+| `humanVerifiedReads` | 带 `proof_id` 的真人 proof 事件数 |
+| `uniqueViewerKeyEstimate` | 按 `viewer_key_hash` 去重后的估算 viewer key 数 |
+| `articleReads` | `event_type=article_read` 的文章阅读事件数 |
+| `siteReads` | `event_type=site_read` 的站点阅读事件数 |
+
+该摘要不暴露注册/匿名账号拆分，也不得从 `VisitLog.user_id` 派生身份统计。
 
 ---
 

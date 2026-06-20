@@ -12,7 +12,7 @@ internal static class ServerCacheBinaryCodec
     private const uint ArticleSearchMagic = 0x53434146; // FACS
     private const uint SeoMagic = 0x4F455346; // FSEO
     private const uint ComplianceMagic = 0x504D4F43; // COMP
-    private const uint AdminStatsMagic = 0x41545346; // FSTA
+    private const uint AdminStatsMagic = 0x42545346; // FSTB
     private const uint Version = 2;
     private const int MaxStringBytes = 2 * 1024 * 1024;
     private const int MaxCollectionCount = 10_000;
@@ -247,9 +247,11 @@ internal static class ServerCacheBinaryCodec
         writer.Write(value.Summary.TotalArticles);
         writer.Write(value.Summary.TotalComments);
         writer.Write(value.Summary.TrashCount);
-        writer.Write(value.Summary.TotalVisits);
-        writer.Write(value.Summary.RegisteredVisits);
-        writer.Write(value.Summary.AnonymousVisits);
+        writer.Write(value.Summary.TotalReads);
+        writer.Write(value.Summary.HumanVerifiedReads);
+        writer.Write(value.Summary.UniqueViewerKeyEstimate);
+        writer.Write(value.Summary.ArticleReads);
+        writer.Write(value.Summary.SiteReads);
         writer.Write(value.PopularArticles.Count);
         foreach (PopularArticleStatItemDto item in value.PopularArticles)
         {
@@ -276,9 +278,11 @@ internal static class ServerCacheBinaryCodec
                 TotalArticles = reader.ReadInt32(),
                 TotalComments = reader.ReadInt32(),
                 TrashCount = reader.ReadInt32(),
-                TotalVisits = reader.ReadInt32(),
-                RegisteredVisits = reader.ReadInt32(),
-                AnonymousVisits = reader.ReadInt32()
+                TotalReads = reader.ReadInt32(),
+                HumanVerifiedReads = reader.ReadInt32(),
+                UniqueViewerKeyEstimate = reader.ReadInt32(),
+                ArticleReads = reader.ReadInt32(),
+                SiteReads = reader.ReadInt32()
             };
             int count = ReadCount(reader);
             var popular = new List<PopularArticleStatItemDto>(count);
