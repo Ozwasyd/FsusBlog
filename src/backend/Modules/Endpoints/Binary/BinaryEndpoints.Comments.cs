@@ -287,7 +287,7 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds) =>
         {
             int userId = httpContext.GetUserId();
-            bool isAdmin = httpContext.User.IsInRole("admin");
+            bool isAdmin = httpContext.User.IsAdminPrincipal() && httpContext.User.HasAdminPermission(AdminPermissions.CommentModerate);
             bool success = await commentService.DeleteCommentAsync(id, userId, isAdmin, reason ?? "不符合社区规范");
 
             return success

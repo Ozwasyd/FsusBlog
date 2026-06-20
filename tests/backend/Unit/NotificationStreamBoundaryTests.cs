@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Security.Claims;
 using System.Net.WebSockets;
 using System.Text;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Security;
@@ -80,12 +81,32 @@ public class NotificationStreamBoundaryTests
     }
 
     [Fact]
-    public void AudienceResolver_MapsAuthenticatedAdminToNotificationStreamGroups()
+    public void AudienceResolver_DoesNotMapRoleOnlyUserToAdminGroup()
     {
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
             [
                 new Claim(ClaimTypes.NameIdentifier, "42"),
-                new Claim(ClaimTypes.Role, "admin")
+                new Claim(ClaimTypes.Role, "admin"),
+                new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind)
+            ],
+            "test"));
+        var resolver = new NotificationStreamAudienceResolver();
+
+        IReadOnlySet<string> groups = resolver.ResolveGroups(principal, "42");
+
+        Assert.Contains(NotificationStreamGroups.ContentFeed, groups);
+        Assert.Contains(NotificationStreamGroups.AuthenticatedUsers, groups);
+        Assert.DoesNotContain(NotificationStreamGroups.AdminUsers, groups);
+    }
+
+    [Fact]
+    public void AudienceResolver_MapsAdminPrincipalToNotificationStreamGroups()
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, "42"),
+                new Claim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
+                new Claim("admin_id", "42")
             ],
             "test"));
         var resolver = new NotificationStreamAudienceResolver();
@@ -128,6 +149,32 @@ public class NotificationStreamBoundaryTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal("42", result.Handshake!.UserId);
+    }
+
+    [Fact]
+    public async Task Handshake_AdminPrincipalDoesNotUseSysUserAdmission()
+    {
+        var admission = new CapturingAdmissionService();
+        NotificationStreamHandshakeService service = CreateHandshakeService(
+            new TestWebHostEnvironment { EnvironmentName = Environments.Production },
+            ["Seo:BaseUrl=https://fsus.blog", "CORS_ALLOWED_HOSTS=https://fsus.blog", "Fido2:Origins:0=https://fsus.blog"],
+            admissionService: admission);
+        DefaultHttpContext context = CreateHandshakeContext("https://fsus.blog", "fsus.blog");
+        context.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, "42"),
+                new Claim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
+                new Claim("admin_id", "42")
+            ],
+            "test"));
+
+        NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Null(result.Handshake!.UserId);
+        Assert.Contains(NotificationStreamGroups.AuthenticatedUsers, result.Handshake.Groups);
+        Assert.Contains(NotificationStreamGroups.AdminUsers, result.Handshake.Groups);
+        Assert.Equal([null], admission.Requests);
     }
 
     [Fact]
@@ -397,7 +444,8 @@ public class NotificationStreamBoundaryTests
         IEnumerable<string> settings,
         int riskScore = 0,
         CapturingProofService? proof = null,
-        IPowService? powService = null)
+        IPowService? powService = null,
+        INotificationStreamAdmissionService? admissionService = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(settings.Select(static item =>
@@ -417,7 +465,7 @@ public class NotificationStreamBoundaryTests
             new RiskDecisionService(),
             proof ?? new CapturingProofService(),
             new CapturingRiskSink(),
-            new AllowingAdmissionService(),
+            admissionService ?? new AllowingAdmissionService(),
             new NotificationStreamAudienceResolver(),
             configuration,
             environment,
@@ -540,6 +588,17 @@ public class NotificationStreamBoundaryTests
     {
         public Task<NotificationStreamAdmissionResult> ValidateAsync(string? userId, CancellationToken cancellationToken)
             => Task.FromResult(NotificationStreamAdmissionResult.Allowed);
+    }
+
+    private sealed class CapturingAdmissionService : INotificationStreamAdmissionService
+    {
+        public List<string?> Requests { get; } = [];
+
+        public Task<NotificationStreamAdmissionResult> ValidateAsync(string? userId, CancellationToken cancellationToken)
+        {
+            Requests.Add(userId);
+            return Task.FromResult(NotificationStreamAdmissionResult.Allowed);
+        }
     }
 
     private sealed class FixedRiskScoreReader(int score) : ISecurityRiskScoreReader

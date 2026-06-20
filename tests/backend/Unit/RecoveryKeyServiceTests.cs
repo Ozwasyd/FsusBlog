@@ -126,7 +126,8 @@ public sealed class RecoveryKeyServiceTests
         string userService = ReadSource("src/backend/Services/UserService.cs");
 
         Assert.Contains("ANONYMOUS_MFA_STEP_UP_REQUIRED", endpoints, StringComparison.Ordinal);
-        Assert.Contains("httpContext.User.IsMfaVerified()", endpoints, StringComparison.Ordinal);
+        Assert.Contains("TryReadMfaProof(httpContext, out string proofToken)", endpoints, StringComparison.Ordinal);
+        Assert.Contains("ValidateAndConsumeProofTokenAsync(userId", endpoints, StringComparison.Ordinal);
         Assert.Contains("stepUpVerified", userService, StringComparison.Ordinal);
         Assert.Contains("AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()", userService, StringComparison.Ordinal);
     }

@@ -67,21 +67,19 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    public void GenerateAccessToken_ContainsRoleClaim()
+    public void GenerateAccessToken_OmitsRoleAndUsernameClaimsForUserTokens()
     {
         using var _ = SetAnonymousIdentityMode(null);
         var helper = CreateHelper();
         string token = helper.GenerateAccessToken(TestUser(role: "admin"));
 
         var claims = ParseClaims(token);
-        // JwtSecurityTokenHandler serialises ClaimTypes.Role as the short JWT name "role"
-        var role = claims.FirstOrDefault(c => c.Type == ClaimTypes.Role || c.Type == "role");
-        Assert.NotNull(role);
-        Assert.Equal("admin", role.Value);
+        Assert.DoesNotContain(claims, IsRoleClaim);
+        Assert.DoesNotContain(claims, IsUserNameClaim);
     }
 
     [Fact]
-    public void GenerateAccessToken_AnonymousIdentityMode_DoesNotGrantAdminFromSysUserRole()
+    public void GenerateAccessToken_AnonymousIdentityMode_DoesNotCarryLegacyAdminRole()
     {
         using var _ = SetAnonymousIdentityMode("1");
         var helper = CreateHelper();
@@ -91,9 +89,8 @@ public sealed class JwtHelperTests
         string token = helper.GenerateAccessToken(user);
 
         var claims = ParseClaims(token);
-        var role = claims.FirstOrDefault(c => c.Type == ClaimTypes.Role || c.Type == "role");
-        Assert.NotNull(role);
-        Assert.Equal(AnonymousIdentityRuntime.AuthenticatedRole, role.Value);
+        Assert.DoesNotContain(claims, IsRoleClaim);
+        Assert.Contains(claims, claim => claim.Type == "identity_kind" && claim.Value == AnonymousIdentityRuntime.AnonymousAccountKind);
     }
 
     [Fact]
@@ -218,6 +215,12 @@ public sealed class JwtHelperTests
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
         return jwt.Claims;
     }
+
+    private static bool IsRoleClaim(Claim claim)
+        => claim.Type == ClaimTypes.Role || claim.Type == "role";
+
+    private static bool IsUserNameClaim(Claim claim)
+        => claim.Type == ClaimTypes.Name || claim.Type == "unique_name" || claim.Type == "name";
 
     private static IDisposable SetAnonymousIdentityMode(string? value)
         => new EnvironmentVariableScope(AnonymousIdentityRuntime.ModeEnvironmentVariable, value);

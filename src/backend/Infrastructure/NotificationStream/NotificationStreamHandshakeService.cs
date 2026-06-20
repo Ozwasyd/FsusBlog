@@ -114,7 +114,10 @@ internal sealed class NotificationStreamHandshakeService(
             }
         }
 
-        string? userId = isAuthenticated
+        bool isAdminPrincipal = isAuthenticated &&
+            context.User.IsAdminPrincipal() &&
+            context.User.TryGetAdminPrincipalId(out _);
+        string? userId = isAuthenticated && !isAdminPrincipal
             ? context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
             : null;
 

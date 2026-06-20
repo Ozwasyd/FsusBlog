@@ -52,6 +52,47 @@ public sealed class AdminPrincipalSecurityContractTests
     }
 
     [Fact]
+    public void UserTokenAndRequestContext_DoNotExposeLegacyAdminAuthority()
+    {
+        string jwt = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Helpers/JwtHelper.cs");
+        string userToken = ExtractMethodBlock(jwt, "public string GenerateAccessToken(User user");
+        string context = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Auth/EndpointUserContext.cs");
+
+        Assert.DoesNotContain("ClaimTypes.Role", userToken, StringComparison.Ordinal);
+        Assert.DoesNotContain("new(ClaimTypes.Name,", userToken, StringComparison.Ordinal);
+        Assert.DoesNotContain("ResolveBackendRole", userToken, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserName", context, StringComparison.Ordinal);
+        Assert.DoesNotContain("IsAdmin", context, StringComparison.Ordinal);
+        Assert.DoesNotContain("IsInRole", context, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProductionAdminJudgments_DoNotUseRoleBasedAdminChecks()
+    {
+        string[] files =
+        [
+            "src/backend/Infrastructure/Auth/EndpointUserContext.cs",
+            "src/backend/Infrastructure/NotificationStream/NotificationStreamAudienceResolver.cs",
+            "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs",
+            "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs",
+            "src/backend/Infrastructure/Audit/AuditRecord.cs"
+        ];
+
+        foreach (string file in files)
+        {
+            string source = BackendTestPaths.ReadAllTextFromRoot(file);
+            Assert.DoesNotContain("IsInRole(\"admin\")", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("FindFirst(ClaimTypes.Role)", source, StringComparison.Ordinal);
+        }
+
+        string notification = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/NotificationStream/NotificationStreamAudienceResolver.cs");
+        string rateLimiting = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs");
+        Assert.Contains("IsAdminPrincipal()", notification, StringComparison.Ordinal);
+        Assert.Contains("TryGetAdminPrincipalId", notification, StringComparison.Ordinal);
+        Assert.Contains("IsAdminPrincipal()", rateLimiting, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AdminPrincipalPlane_BootstrapIsGuardedAndPasskeyOnly()
     {
         string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");

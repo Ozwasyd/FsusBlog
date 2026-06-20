@@ -359,6 +359,27 @@ public sealed class EndpointPolicyContractTests
     }
 
     [Fact]
+    public void CommentDeleteRoute_UsesAdminPrincipalPermissionForModeratorBranch()
+    {
+        string source = ReadRepoFile(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "Binary",
+            "BinaryEndpoints.Comments.cs");
+
+        string deleteRoute = ExtractBetween(
+            source,
+            "group.MapDelete(\"/comment/{id:long}\"",
+            "internal static async Task<BinaryFrameResult> HandleAnonymousCommentTicketAsync");
+
+        Assert.Contains("IsAdminPrincipal()", deleteRoute, StringComparison.Ordinal);
+        Assert.Contains("HasAdminPermission(AdminPermissions.CommentModerate)", deleteRoute, StringComparison.Ordinal);
+        Assert.DoesNotContain("IsInRole(\"admin\")", deleteRoute, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CommentModerationAndAnonymousGovernancePermissions_DoNotReplaceEachOther()
     {
         string source = ReadRepoFile(

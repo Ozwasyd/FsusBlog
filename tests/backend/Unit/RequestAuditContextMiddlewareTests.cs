@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Claims;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
 using Microsoft.AspNetCore.Http;
 using Serilog;
 using Serilog.Core;
@@ -74,7 +75,49 @@ public sealed class RequestAuditContextMiddlewareTests
     }
 
     [Fact]
-    public async Task InvokeAsync_AuthenticatedAdminMutation_PushesAuditLogContext()
+    public async Task InvokeAsync_RoleOnlyUserMutation_DoesNotBecomeAdminActor()
+    {
+        var sink = new CollectingSink();
+        ILogger previous = Log.Logger;
+        Log.Logger = new LoggerConfiguration()
+            .Enrich.FromLogContext()
+            .WriteTo.Sink(sink)
+            .CreateLogger();
+
+        try
+        {
+            var middleware = new RequestAuditContextMiddleware(_ =>
+            {
+                Log.Information("user mutation");
+                return Task.CompletedTask;
+            });
+            var context = new DefaultHttpContext();
+            context.TraceIdentifier = "trace-user";
+            context.Request.Method = HttpMethods.Post;
+            context.Request.Path = "/api/binary/admin/users/12";
+            context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.17");
+            context.Request.Headers.UserAgent = "FsusBrowser/1.0";
+            context.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, "12"),
+                new Claim(ClaimTypes.Role, "admin"),
+                new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind)
+            ], "test"));
+
+            await middleware.InvokeAsync(context);
+
+            LogEvent logEvent = Assert.Single(sink.Events);
+            Assert.Equal("\"user\"", logEvent.Properties[AuditPropertyNames.ActorType].ToString());
+            Assert.Equal("\"12\"", logEvent.Properties[AuditPropertyNames.ActorId].ToString());
+        }
+        finally
+        {
+            Log.Logger = previous;
+        }
+    }
+
+    [Fact]
+    public async Task InvokeAsync_AdminPrincipalMutation_PushesAuditLogContext()
     {
         var sink = new CollectingSink();
         ILogger previous = Log.Logger;
@@ -99,7 +142,8 @@ public sealed class RequestAuditContextMiddlewareTests
             context.User = new ClaimsPrincipal(new ClaimsIdentity(
             [
                 new Claim(ClaimTypes.NameIdentifier, "12"),
-                new Claim(ClaimTypes.Role, "admin")
+                new Claim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
+                new Claim("admin_id", "12")
             ], "test"));
 
             await middleware.InvokeAsync(context);

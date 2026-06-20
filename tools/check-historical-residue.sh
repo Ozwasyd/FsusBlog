@@ -166,4 +166,11 @@ run_residue_check \
   "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
   src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs src/frontend/src/api/comment.ts
 
+run_residue_check \
+  "role-based admin authorization checks" \
+  "role-based admin authorization residue detected" \
+  'IsInRole[(]\s*["'\'']admin["'\''][)]|FindFirst[(]\s*ClaimTypes[.]Role\s*[)]' \
+  "" \
+  src/backend
+
 echo "[residue-check] passed"

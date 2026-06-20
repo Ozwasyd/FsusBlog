@@ -150,7 +150,7 @@ public static class ServiceCollectionExtensions
                 var policy = httpContext.RequestServices.GetRequiredService<IAntiCrawlerPolicyProvider>().Current.Options;
                 var configuration = httpContext.RequestServices.GetRequiredService<IConfiguration>();
 
-                if (httpContext.User.IsInRole("admin"))
+                if (httpContext.User.IsAdminPrincipal() && httpContext.User.TryGetAdminPrincipalId(out _))
                 {
                     int adminPermitLimit = Math.Clamp(
                         configuration.GetValue("RateLimiting:AdminPermitLimit", 300),

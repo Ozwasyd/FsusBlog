@@ -29,14 +29,16 @@ public sealed class CoreRuntimeIntegrationTests
             Id = 42,
             Username = "integration-user",
             Role = "admin",
-            IdentityKind = AnonymousIdentityRuntime.AdminPrincipalKind
+            IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind
         };
 
         string token = helper.GenerateAccessToken(user, "session-1", mfaVerified: true);
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
 
         Assert.Equal("42", jwt.Claims.First(c => c.Type == ClaimTypes.NameIdentifier || c.Type == "nameid").Value);
-        Assert.Equal("admin", jwt.Claims.First(c => c.Type == ClaimTypes.Role || c.Type == "role").Value);
+        Assert.DoesNotContain(jwt.Claims, c => c.Type == ClaimTypes.Role || c.Type == "role");
+        Assert.DoesNotContain(jwt.Claims, c => c.Type == ClaimTypes.Name || c.Type == "unique_name" || c.Type == "name");
+        Assert.Equal(AnonymousIdentityRuntime.AnonymousAccountKind, jwt.Claims.First(c => c.Type == "identity_kind").Value);
         Assert.Equal("session-1", jwt.Claims.First(c => c.Type == "sid").Value);
         Assert.Equal("1", jwt.Claims.First(c => c.Type == "mfa").Value);
     }

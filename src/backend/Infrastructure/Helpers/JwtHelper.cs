@@ -60,11 +60,9 @@ public class JwtHelper : IJwtHelper
     public string GenerateAccessToken(User user, string? sessionId = null, bool mfaVerified = false)
     {
         // 核心优化 3：使用数组代替 List<Claim>，省去底层 List 对象的分配开销
-        var claims = new List<Claim>(6)
+        var claims = new List<Claim>(4)
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Name, user.Username ?? "Unknown"),
-            new(ClaimTypes.Role, AnonymousIdentityRuntime.ResolveBackendRole(user)),
             new("identity_kind", user.IdentityKind ?? AnonymousIdentityRuntime.AnonymousAccountKind)
         };
         if (!string.IsNullOrWhiteSpace(sessionId))

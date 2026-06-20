@@ -141,7 +141,8 @@ public sealed class AuthSecurityHardeningTests
 
         Assert.Contains("pick: ['isAuthChecked']", source, StringComparison.Ordinal);
         Assert.DoesNotContain("pick: ['userInfo'", source, StringComparison.Ordinal);
-        Assert.Contains("const adminRoles = ['admin'];", source, StringComparison.Ordinal);
+        Assert.Contains("const isAdmin = computed(() => false)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("adminRoles", source, StringComparison.Ordinal);
         Assert.Contains("route.path.startsWith('/user/manage')", router, StringComparison.Ordinal);
         Assert.Contains("record.meta.accountArea === 'manage'", router, StringComparison.Ordinal);
         Assert.Contains("ensureUserInfoFresh({ maxAgeMs: 30_000, forceWhenUnknown: true })", router, StringComparison.Ordinal);

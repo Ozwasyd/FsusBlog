@@ -1,6 +1,5 @@
 using System.Buffers;
 using System.Globalization;
-using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Infrastructure;
@@ -208,10 +207,10 @@ internal sealed record RequestAuditContextSnapshot(
     public static RequestAuditContextSnapshot FromHttpContext(HttpContext context)
     {
         string? userId = FastUserIdProvider.GetOrParseUserId(context)?.ToString(CultureInfo.InvariantCulture);
-        string? userRole = context.User.FindFirst(ClaimTypes.Role)?.Value;
+        string? userRole = context.User.IsAdminPrincipal() ? "admin" : null;
         string actorType = string.IsNullOrWhiteSpace(userId)
             ? AuditActorTypeCatalog.Anonymous
-            : string.Equals(userRole, "admin", StringComparison.OrdinalIgnoreCase)
+            : context.User.IsAdminPrincipal()
                 ? AuditActorTypeCatalog.Admin
                 : AuditActorTypeCatalog.User;
 
