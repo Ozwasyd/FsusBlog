@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -74,24 +75,15 @@ test('privacy ZK production release gate fails closed when enabled smoke evidenc
 
 test('privacy ZK production release gate fails when credential root is not active', () => {
   withTempDir((dir) => {
-    const verifyingKeyHash = hex('a')
-    const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
-    const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
-    const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
-    const smoke = writeJson(dir, 'smoke.json', completeSmokeEvidence({ credentialRootActive: false }))
-    const config = writeJson(dir, 'enabled.json', enabledConfig({
-      nativeLibrary,
-      issuerPublicKey,
-      verifyingKeyHash,
-      smoke
-    }))
-    const rootBootstrap = writeJson(dir, 'root-bootstrap.json', rootBootstrapEvidence(verifyingKeyHash))
+    const fixture = writeEnabledReleaseFixture(dir, {
+      smokeOverrides: { credentialRootActive: false }
+    })
 
     const result = runGate(
-      '--config', config,
-      '--trusted-setup-manifest', setup,
-      '--smoke-evidence', smoke,
-      '--root-bootstrap-evidence', rootBootstrap,
+      '--config', fixture.config,
+      '--trusted-setup-manifest', fixture.setup,
+      '--smoke-evidence', fixture.smoke,
+      '--root-bootstrap-evidence', fixture.rootBootstrap,
       '--summary', path.join(dir, 'summary.json'))
 
     assert.notEqual(result.status, 0)
@@ -101,22 +93,14 @@ test('privacy ZK production release gate fails when credential root is not activ
 
 test('privacy ZK production release gate fails when root bootstrap evidence is missing', () => {
   withTempDir((dir) => {
-    const verifyingKeyHash = hex('a')
-    const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
-    const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
-    const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
-    const smoke = writeJson(dir, 'smoke.json', completeSmokeEvidence())
-    const config = writeJson(dir, 'enabled.json', enabledConfig({
-      nativeLibrary,
-      issuerPublicKey,
-      verifyingKeyHash,
-      smoke
-    }))
+    const fixture = writeEnabledReleaseFixture(dir, {
+      omitRootBootstrap: true
+    })
 
     const result = runGate(
-      '--config', config,
-      '--trusted-setup-manifest', setup,
-      '--smoke-evidence', smoke,
+      '--config', fixture.config,
+      '--trusted-setup-manifest', fixture.setup,
+      '--smoke-evidence', fixture.smoke,
       '--root-bootstrap-evidence', path.join(dir, 'missing-root-bootstrap.json'),
       '--summary', path.join(dir, 'summary.json'))
 
@@ -127,23 +111,17 @@ test('privacy ZK production release gate fails when root bootstrap evidence is m
 
 test('privacy ZK production release gate rejects sensitive smoke evidence fields', () => {
   withTempDir((dir) => {
-    const verifyingKeyHash = hex('a')
-    const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
-    const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
-    const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
-    const smoke = writeJson(dir, 'smoke.json', {
-      ...completeSmokeEvidence(),
-      debug: {
-        credentialSecret: 'must-not-ship'
+    const fixture = writeEnabledReleaseFixture(dir, {
+      smokeOverrides: {
+        debug: {
+          credentialSecret: 'must-not-ship'
+        }
       }
     })
-    const config = writeJson(dir, 'enabled.json', enabledConfig({
-      nativeLibrary,
-      issuerPublicKey,
-      verifyingKeyHash,
-      smoke
-    }))
-    const rootBootstrap = writeJson(dir, 'root-bootstrap.json', rootBootstrapEvidence(verifyingKeyHash))
+    const config = fixture.config
+    const setup = fixture.setup
+    const smoke = fixture.smoke
+    const rootBootstrap = fixture.rootBootstrap
 
     const result = runGate(
       '--config', config,
@@ -197,31 +175,40 @@ test('privacy ZK production release gate rejects hashing-only smoke evidence', (
   })
 })
 
-test('privacy ZK production release gate rejects smoke evidence without prover performance budget', () => {
+test('privacy ZK production release gate rejects smoke evidence without local artifact files', () => {
   withTempDir((dir) => {
-    const verifyingKeyHash = hex('a')
-    const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
-    const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
-    const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
-    const smoke = writeJson(dir, 'slow-smoke.json', completeSmokeEvidence({
-      performance: {
-        wasmProverP95Ms: 3500,
-        nativeVerifierP99Ms: 75
-      }
-    }))
-    const rootBootstrap = writeJson(dir, 'root-bootstrap.json', rootBootstrapEvidence(verifyingKeyHash))
-    const config = writeJson(dir, 'enabled.json', enabledConfig({
-      nativeLibrary,
-      issuerPublicKey,
-      verifyingKeyHash,
-      smoke
-    }))
+    const fixture = writeEnabledReleaseFixture(dir, {
+      smokeOverrides: { artifacts: {} }
+    })
 
     const result = runGate(
-      '--config', config,
-      '--trusted-setup-manifest', setup,
-      '--smoke-evidence', smoke,
-      '--root-bootstrap-evidence', rootBootstrap,
+      '--config', fixture.config,
+      '--trusted-setup-manifest', fixture.setup,
+      '--smoke-evidence', fixture.smoke,
+      '--root-bootstrap-evidence', fixture.rootBootstrap,
+      '--summary', path.join(dir, 'summary.json'))
+
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /artifacts\.r1cs\.path/)
+  })
+})
+
+test('privacy ZK production release gate rejects smoke evidence without prover performance budget', () => {
+  withTempDir((dir) => {
+    const fixture = writeEnabledReleaseFixture(dir, {
+      smokeOverrides: {
+        performance: {
+          wasmProverP95Ms: 3500,
+          nativeVerifierP99Ms: 75
+        }
+      }
+    })
+
+    const result = runGate(
+      '--config', fixture.config,
+      '--trusted-setup-manifest', fixture.setup,
+      '--smoke-evidence', fixture.smoke,
+      '--root-bootstrap-evidence', fixture.rootBootstrap,
       '--summary', path.join(dir, 'summary.json'))
 
     assert.notEqual(result.status, 0)
@@ -232,28 +219,19 @@ test('privacy ZK production release gate rejects smoke evidence without prover p
 
 test('privacy ZK production release gate rejects offline-only root bootstrap evidence when enabled', () => {
   withTempDir((dir) => {
-    const verifyingKeyHash = hex('a')
-    const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
-    const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
-    const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
-    const smoke = writeJson(dir, 'smoke.json', completeSmokeEvidence())
-    const rootBootstrap = writeJson(dir, 'root-bootstrap.json', rootBootstrapEvidence(verifyingKeyHash, {
-      status: 'validated_offline',
-      mode: 'offline-validated-evidence',
-      stagingDbRotateSatisfied: false
-    }))
-    const config = writeJson(dir, 'enabled.json', enabledConfig({
-      nativeLibrary,
-      issuerPublicKey,
-      verifyingKeyHash,
-      smoke
-    }))
+    const fixture = writeEnabledReleaseFixture(dir, {
+      rootBootstrapOverrides: {
+        status: 'validated_offline',
+        mode: 'offline-validated-evidence',
+        stagingDbRotateSatisfied: false
+      }
+    })
 
     const result = runGate(
-      '--config', config,
-      '--trusted-setup-manifest', setup,
-      '--smoke-evidence', smoke,
-      '--root-bootstrap-evidence', rootBootstrap,
+      '--config', fixture.config,
+      '--trusted-setup-manifest', fixture.setup,
+      '--smoke-evidence', fixture.smoke,
+      '--root-bootstrap-evidence', fixture.rootBootstrap,
       '--summary', path.join(dir, 'summary.json'))
 
     assert.notEqual(result.status, 0)
@@ -264,25 +242,14 @@ test('privacy ZK production release gate rejects offline-only root bootstrap evi
 
 test('privacy ZK production release gate accepts complete enabled fixture', () => {
   withTempDir((dir) => {
-    const verifyingKeyHash = hex('a')
-    const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
-    const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
-    const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
-    const smoke = writeJson(dir, 'smoke.json', completeSmokeEvidence())
-    const rootBootstrap = writeJson(dir, 'root-bootstrap.json', rootBootstrapEvidence(verifyingKeyHash))
-    const config = writeJson(dir, 'enabled.json', enabledConfig({
-      nativeLibrary,
-      issuerPublicKey,
-      verifyingKeyHash,
-      smoke
-    }))
+    const fixture = writeEnabledReleaseFixture(dir)
     const summary = path.join(dir, 'summary.json')
 
     const result = runGate(
-      '--config', config,
-      '--trusted-setup-manifest', setup,
-      '--smoke-evidence', smoke,
-      '--root-bootstrap-evidence', rootBootstrap,
+      '--config', fixture.config,
+      '--trusted-setup-manifest', fixture.setup,
+      '--smoke-evidence', fixture.smoke,
+      '--root-bootstrap-evidence', fixture.rootBootstrap,
       '--summary', summary)
 
     assert.equal(result.status, 0, result.stderr)
@@ -292,13 +259,45 @@ test('privacy ZK production release gate accepts complete enabled fixture', () =
   })
 })
 
-function completeSmokeEvidence(overrides = {}) {
+function writeEnabledReleaseFixture(dir, options = {}) {
+  const smokeEvidence = completeSmokeEvidence(dir, options.smokeOverrides ?? {})
+  const verifyingKeyHash = smokeEvidence.verifyingKeyHash
+  const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
+  const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
+  const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
+  const smoke = writeJson(dir, 'smoke.json', smokeEvidence)
+  const rootBootstrap = options.omitRootBootstrap === true
+    ? path.join(dir, 'missing-root-bootstrap.json')
+    : writeJson(dir, 'root-bootstrap.json', rootBootstrapEvidence(
+      verifyingKeyHash,
+      options.rootBootstrapOverrides ?? {}))
+  const config = writeJson(dir, 'enabled.json', enabledConfig({
+    nativeLibrary,
+    issuerPublicKey,
+    verifyingKeyHash,
+    smoke
+  }))
+
+  return {
+    verifyingKeyHash,
+    nativeLibrary,
+    issuerPublicKey,
+    setup,
+    smoke,
+    rootBootstrap,
+    config,
+    smokeEvidence
+  }
+}
+
+function completeSmokeEvidence(dir, overrides = {}) {
+  const artifacts = writeEvidenceArtifacts(dir)
   const artifactHashes = {
-    r1csSha256: hex('1'),
-    provingKeySha256: hex('2'),
-    verifyingKeySha256: overrides.verifyingKeyHash ?? hex('a'),
-    nativeVerifierSha256: hex('3'),
-    wasmProverSha256: hex('4'),
+    r1csSha256: artifacts.r1cs.sha256,
+    provingKeySha256: artifacts.provingKey.sha256,
+    verifyingKeySha256: artifacts.verifyingKey.sha256,
+    nativeVerifierSha256: artifacts.nativeVerifier.sha256,
+    wasmProverSha256: artifacts.wasmProver.sha256,
     ...(overrides.artifactHashes ?? {})
   }
 
@@ -324,6 +323,7 @@ function completeSmokeEvidence(overrides = {}) {
       ...(overrides.performance ?? {})
     },
     artifactHashes,
+    artifacts: overrides.artifacts ?? artifacts,
     crossStack: {
       frontendProofGenerated: true,
       backendProofVerified: true,
@@ -432,6 +432,31 @@ function writeText(dir, name, value) {
   const file = path.join(dir, name)
   writeFileSync(file, value)
   return file
+}
+
+function writeEvidenceArtifacts(dir) {
+  return {
+    r1cs: writeArtifact(dir, 'comment-v2.r1cs', 'r1cs artifact'),
+    provingKey: writeArtifact(dir, 'comment-v2.pk', 'proving key artifact'),
+    verifyingKey: writeArtifact(dir, 'comment-v2.vk', 'verifying key artifact'),
+    nativeVerifier: writeArtifact(dir, 'libfsus_zk_native.so', 'native verifier artifact'),
+    wasmProver: writeArtifact(dir, 'comment-privacy-prover.wasm', 'wasm prover artifact'),
+    proofFixture: writeArtifact(dir, 'comment-v2-proof-fixture.json', '{"proof":"redacted"}'),
+    publicInputs: writeArtifact(dir, 'comment-v2-public-inputs.json', '{"inputs":["redacted"]}'),
+    tamperCases: writeArtifact(dir, 'comment-v2-tamper-cases.json', '{"tamperCases":["redacted"]}')
+  }
+}
+
+function writeArtifact(dir, name, value) {
+  const file = writeText(dir, name, value)
+  return {
+    path: file,
+    sha256: sha256File(file)
+  }
+}
+
+function sha256File(file) {
+  return createHash('sha256').update(readFileSync(file)).digest('hex')
 }
 
 function hex(ch) {

@@ -21,6 +21,16 @@ const REQUIRED_ARTIFACT_HASHES = [
   'nativeVerifierSha256',
   'wasmProverSha256'
 ]
+const REQUIRED_EVIDENCE_ARTIFACTS = [
+  ['r1cs', 'r1csSha256'],
+  ['provingKey', 'provingKeySha256'],
+  ['verifyingKey', 'verifyingKeySha256'],
+  ['nativeVerifier', 'nativeVerifierSha256'],
+  ['wasmProver', 'wasmProverSha256'],
+  ['proofFixture', null],
+  ['publicInputs', null],
+  ['tamperCases', null]
+]
 const WASM_PROVER_P95_MS_MAX = 3000
 const NATIVE_VERIFIER_P99_MS_MAX = 50
 
@@ -272,6 +282,8 @@ function checkRealGroth16SmokeEvidence(evidence, expectedVkHash, setup) {
     errors.push('ZK-Prod smoke evidence artifactHashes.verifyingKeySha256 must match verifyingKeyHash.')
   }
 
+  validateEvidenceArtifacts(evidence.artifacts, artifactHashes, 'ZK-Prod smoke evidence')
+
   const crossStack = evidence.crossStack && typeof evidence.crossStack === 'object' && !Array.isArray(evidence.crossStack)
     ? evidence.crossStack
     : {}
@@ -299,6 +311,46 @@ function checkRealGroth16SmokeEvidence(evidence, expectedVkHash, setup) {
   const nativeVerifierP99Ms = Number(performance.nativeVerifierP99Ms)
   if (!Number.isFinite(nativeVerifierP99Ms) || nativeVerifierP99Ms <= 0 || nativeVerifierP99Ms > NATIVE_VERIFIER_P99_MS_MAX) {
     errors.push(`ZK-Prod smoke evidence performance.nativeVerifierP99Ms must be in 1..${NATIVE_VERIFIER_P99_MS_MAX}.`)
+  }
+}
+
+function validateEvidenceArtifacts(artifacts, artifactHashes, label) {
+  const source = artifacts && typeof artifacts === 'object' && !Array.isArray(artifacts)
+    ? artifacts
+    : {}
+  for (const [artifactName, hashKey] of REQUIRED_EVIDENCE_ARTIFACTS) {
+    const entry = source[artifactName] && typeof source[artifactName] === 'object' && !Array.isArray(source[artifactName])
+      ? source[artifactName]
+      : {}
+    const rawPath = normalizeString(entry.path)
+    const declaredSha = normalizeString(entry.sha256).toLowerCase()
+
+    if (!rawPath) {
+      errors.push(`${label} artifacts.${artifactName}.path is required.`)
+      continue
+    }
+    if (!isSha256Hex(declaredSha)) {
+      errors.push(`${label} artifacts.${artifactName}.sha256 must be a 64-char hex SHA-256 digest.`)
+      continue
+    }
+
+    const absolute = resolveRepoPath(rawPath)
+    if (!existsSync(absolute)) {
+      errors.push(`${label} artifacts.${artifactName}.path must exist: ${rawPath}`)
+      continue
+    }
+
+    const actualSha = sha256File(absolute)
+    if (actualSha !== declaredSha) {
+      errors.push(`${label} artifacts.${artifactName}.sha256 does not match the local file.`)
+    }
+
+    if (hashKey) {
+      const expectedSha = normalizeString(artifactHashes[hashKey]).toLowerCase()
+      if (isSha256Hex(expectedSha) && declaredSha !== expectedSha) {
+        errors.push(`${label} artifacts.${artifactName}.sha256 must match artifactHashes.${hashKey}.`)
+      }
+    }
   }
 }
 

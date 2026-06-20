@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -18,6 +19,16 @@ const REQUIRED_ARTIFACT_HASHES = [
   'verifyingKeySha256',
   'nativeVerifierSha256',
   'wasmProverSha256'
+]
+const REQUIRED_EVIDENCE_ARTIFACTS = [
+  ['r1cs', 'r1csSha256'],
+  ['provingKey', 'provingKeySha256'],
+  ['verifyingKey', 'verifyingKeySha256'],
+  ['nativeVerifier', 'nativeVerifierSha256'],
+  ['wasmProver', 'wasmProverSha256'],
+  ['proofFixture', null],
+  ['publicInputs', null],
+  ['tamperCases', null]
 ]
 const WASM_PROVER_P95_MS_MAX = 3000
 const NATIVE_VERIFIER_P99_MS_MAX = 50
@@ -96,6 +107,7 @@ const summary = {
   proofSystem: realEvidence ? normalizeString(realEvidence.proofSystem) : null,
   verifyingKeyHash: realEvidence ? normalizeString(realEvidence.verifyingKeyHash).toLowerCase() : null,
   artifactHashes: realEvidence ? sanitizeArtifactHashes(realEvidence.artifactHashes) : {},
+  evidenceArtifacts: realEvidence ? sanitizeEvidenceArtifacts(realEvidence.artifacts) : {},
   performance: realEvidence ? sanitizePerformance(realEvidence.performance) : {},
   artifacts: artifactState.safeArtifacts,
   checks,
@@ -220,6 +232,8 @@ function validateRealGroth16Evidence(evidence) {
     errors.push('real smoke evidence verifyingKeyHash must match artifactHashes.verifyingKeySha256.')
   }
 
+  validateEvidenceArtifacts(evidence.artifacts, artifactHashes, 'real smoke evidence')
+
   const crossStack = isObject(evidence.crossStack) ? evidence.crossStack : {}
   for (const key of [
     'frontendProofGenerated',
@@ -252,6 +266,59 @@ function sanitizeArtifactHashes(value) {
   for (const key of REQUIRED_ARTIFACT_HASHES) {
     const hash = normalizeString(source[key]).toLowerCase()
     if (isSha256Hex(hash)) output[key] = hash
+  }
+  return output
+}
+
+function validateEvidenceArtifacts(artifacts, artifactHashes, label) {
+  const source = isObject(artifacts) ? artifacts : {}
+  for (const [artifactName, hashKey] of REQUIRED_EVIDENCE_ARTIFACTS) {
+    const entry = isObject(source[artifactName]) ? source[artifactName] : {}
+    const rawPath = normalizeString(entry.path)
+    const declaredSha = normalizeString(entry.sha256).toLowerCase()
+
+    if (!rawPath) {
+      errors.push(`${label} artifacts.${artifactName}.path is required.`)
+      continue
+    }
+    if (!isSha256Hex(declaredSha)) {
+      errors.push(`${label} artifacts.${artifactName}.sha256 must be a 64-char SHA-256 hex digest.`)
+      continue
+    }
+
+    const absolute = resolveRepoPath(rawPath)
+    if (!existsSync(absolute)) {
+      errors.push(`${label} artifacts.${artifactName}.path must exist: ${rawPath}`)
+      continue
+    }
+
+    const actualSha = sha256File(absolute)
+    if (actualSha !== declaredSha) {
+      errors.push(`${label} artifacts.${artifactName}.sha256 does not match the local file.`)
+    }
+
+    if (hashKey) {
+      const expectedSha = normalizeString(artifactHashes[hashKey]).toLowerCase()
+      if (isSha256Hex(expectedSha) && declaredSha !== expectedSha) {
+        errors.push(`${label} artifacts.${artifactName}.sha256 must match artifactHashes.${hashKey}.`)
+      }
+    }
+  }
+}
+
+function sanitizeEvidenceArtifacts(value) {
+  const source = isObject(value) ? value : {}
+  const output = {}
+  for (const [artifactName] of REQUIRED_EVIDENCE_ARTIFACTS) {
+    const entry = isObject(source[artifactName]) ? source[artifactName] : {}
+    const rawPath = normalizeString(entry.path)
+    const sha256 = normalizeString(entry.sha256).toLowerCase()
+    if (rawPath && isSha256Hex(sha256)) {
+      output[artifactName] = {
+        path: toRepoRelative(resolveRepoPath(rawPath)),
+        sha256
+      }
+    }
   }
   return output
 }
@@ -428,4 +495,8 @@ function resolvePublicAssetUrl(rawUrl) {
 
 function toRepoRelative(file) {
   return path.relative(ROOT, file).split(path.sep).join('/')
+}
+
+function sha256File(file) {
+  return createHash('sha256').update(readFileSync(file)).digest('hex')
 }

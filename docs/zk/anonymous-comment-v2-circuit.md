@@ -177,6 +177,13 @@ layout version `3`, `proofSystem=Groth16`, a 64-char `verifyingKeyHash`, and
 SHA-256 bindings for the R1CS, proving key, canonical verifying key bytes,
 native verifier, and wasm prover artifact.
 
+Those bindings are not accepted as paper-only hashes. The evidence must also
+include local `artifacts.*.path` plus `artifacts.*.sha256` entries for `r1cs`,
+`provingKey`, `verifyingKey`, `nativeVerifier`, `wasmProver`, `proofFixture`,
+`publicInputs`, and `tamperCases`. The smoke and release gates recalculate
+SHA-256 from those files; the first five artifact entries must match the
+corresponding `artifactHashes` fields.
+
 The same evidence must state that the frontend wasm prover generated the proof,
 the backend native verifier accepted it, public inputs matched byte-for-byte,
 all tamper cases rejected, `hashingFixtureUsed=false`,
