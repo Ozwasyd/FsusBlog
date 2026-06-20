@@ -113,7 +113,7 @@ public partial class CommentService(
             CancellationToken.None);
     }
 
-    public async Task<bool> CreateAnonymousCommentAsync(
+    public async Task<bool> CreateStrongAnonymousCommentAsync(
         AnonymousCommentCreateRequestCoreModel request,
         RegionModerationDecision? regionDecision = null,
         CancellationToken cancellationToken = default)
@@ -295,7 +295,7 @@ public partial class CommentService(
                 return false;
             }
 
-            replyToUserId = parent.UserId;
+            replyToUserId = actor.UserId.HasValue ? parent.UserId : null;
             replyToCommentId = parent.Id;
             if (requestedReplyToCommentId.HasValue && requestedReplyToCommentId.Value != replyToCommentId.Value)
             {
@@ -628,23 +628,35 @@ public partial class CommentService(
             ContextJson: context));
     }
 
-    public Task<bool> CreateCommentV2Async(int userId, CommentCreateV2RequestCoreModel request, RegionModerationDecision? regionDecision = null)
-        => CreateCommentAsync(userId, new CommentDto
+    public Task<bool> CreateAttributablePublicCommentAsync(
+        int userId,
+        CommentCreateV2RequestCoreModel request,
+        RegionModerationDecision? regionDecision = null)
+    {
+        if (userId <= 0 ||
+            !request.PublicSendExplicitlySelected ||
+            !string.Equals(request.AuthorMode, CommentAuthorModes.Public, StringComparison.Ordinal))
+        {
+            return Task.FromResult(false);
+        }
+
+        return CreateCommentAsync(userId, new CommentDto
         {
             ArticleId = request.ArticleId,
             Content = request.Content,
             ParentId = request.ParentId,
             RootId = request.RootId,
             ReplyToCommentId = request.ReplyToCommentId,
-            ReplyToUserId = request.ReplyToUserId,
-            AuthorMode = request.AuthorMode,
-            PublicSendExplicitlySelected = request.PublicSendExplicitlySelected,
-            AnonymousScope = request.AnonymousScope,
+            ReplyToUserId = null,
+            AuthorMode = CommentAuthorModes.Public,
+            PublicSendExplicitlySelected = true,
+            AnonymousScope = null,
             DisplayLanguage = request.DisplayLanguage,
-            ProofToken = request.ProofToken,
-            ZkProof = request.ZkProof,
+            ProofToken = null,
+            ZkProof = null,
             RegionDecision = regionDecision
         });
+    }
 
     public async Task<CursorResponse<CommentThreadItemDto>> GetCommentThreadsByCursorAsync(
         int articleId,
@@ -1093,42 +1105,6 @@ WHERE c.article_id = @ArticleId
             new("@BlockedToken", RegionLegalModerationService.SerializeRegions([normalizedViewerRegion])),
             new("@ConservativeUnknownViewer", normalizedViewerRegion == RegionCodes.Unknown)
         };
-
-    private async Task<List<CommentReplyPreviewItemDto>> QueryThreadRepliesPreviewAsync(int articleId, long rootId, int limit)
-    {
-        var rows = await db.Queryable<Comment, User, User>((c, u, ru) => new object[]
-            {
-                JoinType.Left, c.UserId == u.Id,
-                JoinType.Left, c.ReplyToUserId == ru.Id
-            })
-            .Where((c, u, ru) => c.ArticleId == articleId && c.RootId == rootId && c.ParentId != null)
-            .Where((c, u, ru) => c.ModerationStatus == CommentModerationStatus.Approved)
-            .Where((c, u, ru) => !c.IsDeleted)
-            .OrderBy((c, u, ru) => c.Id)
-            .Take(limit)
-            .Select((c, u, ru) => new ReplyRow
-            {
-                Id = c.Id,
-                ParentId = c.ParentId,
-                RootId = c.RootId,
-                ReplyToUserId = c.ReplyToUserId,
-                ReplyToCommentId = c.ReplyToCommentId,
-                Content = c.Content,
-                CreateTime = c.CreateTime,
-                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.Username,
-                AuthorMode = c.AuthorMode,
-                AnonymousDisplayLanguage = c.AnonymousDisplayLanguage,
-                AnonymousScope = c.AnonymousScope,
-                CredentialLevel = c.CredentialLevel,
-                ReplyToUserName = ru.Username,
-                ReplyToAuthorMode = CommentAuthorModes.Public,
-                Depth = c.Depth,
-                IsDeleted = c.IsDeleted
-            })
-            .ToListAsync();
-
-        return rows.Select(MapReplyPreviewRow).ToList();
-    }
 
     private async Task<Dictionary<long, List<CommentReplyPreviewItemDto>>> QueryThreadRepliesPreviewMapAsync(
         int articleId,

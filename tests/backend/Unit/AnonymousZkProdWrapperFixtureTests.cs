@@ -68,7 +68,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         var dispatcher = new RecordingCacheInvalidationDispatcher();
         CommentService commentService = CreateCommentService(db, ticketService, nullifiers, dispatcher);
 
-        bool created = await commentService.CreateAnonymousCommentAsync(
+        bool created = await commentService.CreateStrongAnonymousCommentAsync(
             CreateSubmitRequest(ticket.Response.Ticket),
             RegionDecision(),
             CancellationToken.None);
@@ -145,8 +145,8 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         CommentService commentService = CreateCommentService(db, ticketService, nullifiers);
         AnonymousCommentCreateRequestCoreModel request = CreateSubmitRequest(ticket.Response.Ticket);
 
-        Assert.True(await commentService.CreateAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None));
-        Assert.False(await commentService.CreateAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None));
+        Assert.True(await commentService.CreateStrongAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None));
+        Assert.False(await commentService.CreateStrongAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None));
 
         Assert.Equal(1, db.Queryable<Comment>().Count());
         Assert.Single(nullifiers.Increments);

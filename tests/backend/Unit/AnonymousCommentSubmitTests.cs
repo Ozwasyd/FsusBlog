@@ -36,7 +36,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     private const string NullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
     [Fact]
-    public async Task CreateAnonymousCommentAsync_ValidTicket_WritesPendingAnonymousCommentGovernanceFieldsAndInvalidatesScope()
+    public async Task CreateStrongAnonymousCommentAsync_ValidTicket_WritesPendingAnonymousCommentGovernanceFieldsAndInvalidatesScope()
     {
         using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
@@ -47,7 +47,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         var dispatcher = new RecordingCacheInvalidationDispatcher();
         CommentService service = CreateService(db, tickets, nullifiers, dispatcher);
 
-        bool created = await service.CreateAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None);
+        bool created = await service.CreateStrongAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None);
 
         Assert.True(created);
         Comment comment = Assert.Single(db.Queryable<Comment>().ToList());
@@ -79,7 +79,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
-    public async Task CreateAnonymousCommentAsync_ReplayedTicket_IsRejectedBeforeSecondWrite()
+    public async Task CreateStrongAnonymousCommentAsync_ReplayedTicket_IsRejectedBeforeSecondWrite()
     {
         using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
@@ -88,15 +88,15 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         tickets.Add(Ticket, TicketPayload(articleId: 42));
         CommentService service = CreateService(db, tickets);
 
-        Assert.True(await service.CreateAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None));
-        Assert.False(await service.CreateAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None));
+        Assert.True(await service.CreateStrongAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None));
+        Assert.False(await service.CreateStrongAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None));
 
         Assert.Equal(1, db.Queryable<Comment>().Count());
         Assert.Equal(2, tickets.ConsumeAttempts);
     }
 
     [Fact]
-    public async Task CreateAnonymousCommentAsync_ExpiredTicket_IsRejectedWithoutCommentOrUsageIncrement()
+    public async Task CreateStrongAnonymousCommentAsync_ExpiredTicket_IsRejectedWithoutCommentOrUsageIncrement()
     {
         using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
@@ -106,7 +106,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         var nullifiers = new RecordingNullifierService();
         CommentService service = CreateService(db, tickets, nullifiers);
 
-        bool created = await service.CreateAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None);
+        bool created = await service.CreateStrongAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None);
 
         Assert.False(created);
         Assert.Equal(0, db.Queryable<Comment>().Count());
@@ -114,7 +114,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
-    public async Task CreateAnonymousCommentAsync_TicketReplyContextMismatch_IsRejected()
+    public async Task CreateStrongAnonymousCommentAsync_TicketReplyContextMismatch_IsRejected()
     {
         using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
@@ -125,14 +125,14 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         CommentService service = CreateService(db, tickets);
         AnonymousCommentCreateRequestCoreModel request = CreateRequest(parentId: "101", rootId: "100", replyToCommentId: "100");
 
-        bool created = await service.CreateAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None);
+        bool created = await service.CreateStrongAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None);
 
         Assert.False(created);
         Assert.Equal(1, db.Queryable<Comment>().Count());
     }
 
     [Fact]
-    public async Task CreateAnonymousCommentAsync_ValidReply_UsesServerSideReplyProjection()
+    public async Task CreateStrongAnonymousCommentAsync_ValidReply_UsesServerSideReplyProjectionWithoutReplyUserId()
     {
         using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
@@ -143,7 +143,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         CommentService service = CreateService(db, tickets);
         AnonymousCommentCreateRequestCoreModel request = CreateRequest(parentId: "100", rootId: "100", replyToCommentId: "100");
 
-        bool created = await service.CreateAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None);
+        bool created = await service.CreateStrongAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None);
 
         Assert.True(created);
         Comment reply = db.Queryable<Comment>().OrderBy(static item => item.Id, OrderByType.Desc).First();
@@ -151,8 +151,22 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         Assert.Equal(100, reply.ParentId);
         Assert.Equal(100, reply.RootId);
         Assert.Equal(100, reply.ReplyToCommentId);
-        Assert.Equal(7, reply.ReplyToUserId);
+        Assert.Null(reply.ReplyToUserId);
         Assert.Equal(1, reply.Depth);
+
+        await db.Updateable<Comment>()
+            .SetColumns(static item => item.ModerationStatus == CommentModerationStatus.Approved)
+            .Where(item => item.Id == reply.Id)
+            .ExecuteCommandAsync();
+
+        CursorResponse<CommentReplyItemDto> replies = await service.GetThreadRepliesByCursorAsync(
+            42,
+            100,
+            new CursorPageRequest<long> { Limit = 5 });
+        CommentReplyItemDto visibleReply = Assert.Single(replies.Data);
+        Assert.Null(visibleReply.ReplyToUserId);
+        Assert.Equal("parent-user", visibleReply.ReplyToUserName);
+        Assert.Equal(CommentAuthorModes.Public, visibleReply.ReplyToAuthor?.Mode);
     }
 
     [Fact]
@@ -226,13 +240,14 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         Assert.Contains(".RequireStrongAnonymousRequest()", anonymousHandler, StringComparison.Ordinal);
         Assert.Contains("HandleAnonymousCommentCreateAsync", anonymousHandler, StringComparison.Ordinal);
         Assert.Contains("AedsFrameType.AnonymousCommentCreateRequest", source, StringComparison.Ordinal);
-        Assert.Contains("CreateAnonymousCommentAsync", source, StringComparison.Ordinal);
+        Assert.Contains("CreateStrongAnonymousCommentAsync", source, StringComparison.Ordinal);
 
         Assert.Contains(".RequireAuthorization()", signedHandler, StringComparison.Ordinal);
         Assert.Contains("[AedsFrameType.CommentCreateV2Request]", signedHandler, StringComparison.Ordinal);
-        Assert.Contains("CreateCommentV2Async", signedHandler, StringComparison.Ordinal);
+        Assert.Contains("CreateAttributablePublicCommentAsync", signedHandler, StringComparison.Ordinal);
         Assert.DoesNotContain("AedsFrameType.CommentCreate" + "Request", signedHandler, StringComparison.Ordinal);
         Assert.DoesNotContain("CreateCommentAsync(userId", signedHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateCommentV2Async", signedHandler, StringComparison.Ordinal);
     }
 
     private static CommentService CreateService(
@@ -312,6 +327,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     {
         PostgresSqlSugarTestClient.InitTables(
             db,
+            typeof(User),
             typeof(Article),
             typeof(Comment),
             typeof(CommentRegionCompliance));
@@ -454,7 +470,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
 
         public int AnonymousCreateCalls { get; private set; }
 
-        public Task<bool> CreateAnonymousCommentAsync(
+        public Task<bool> CreateStrongAnonymousCommentAsync(
             AnonymousCommentCreateRequestCoreModel request,
             RegionModerationDecision? regionDecision = null,
             CancellationToken cancellationToken = default)
@@ -466,7 +482,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         }
 
         public Task<bool> CreateCommentAsync(int userId, CommentDto dto) => throw new NotSupportedException();
-        public Task<bool> CreateCommentV2Async(int userId, CommentCreateV2RequestCoreModel request, RegionModerationDecision? regionDecision = null) => throw new NotSupportedException();
+        public Task<bool> CreateAttributablePublicCommentAsync(int userId, CommentCreateV2RequestCoreModel request, RegionModerationDecision? regionDecision = null) => throw new NotSupportedException();
         public Task<CursorResponse<CommentThreadItemDto>> GetCommentThreadsByCursorAsync(int articleId, CursorPageRequest<long> request, int previewLimit = 3, string viewerRegion = "GLOBAL") => throw new NotSupportedException();
         public Task<CursorResponse<CommentReplyItemDto>> GetThreadRepliesByCursorAsync(int articleId, long rootId, CursorPageRequest<long> request, string viewerRegion = "GLOBAL") => throw new NotSupportedException();
         public Task<bool> DeleteCommentAsync(long id, int currentUserId, bool isAdmin, string reason = "违反社区管理条例") => throw new NotSupportedException();

@@ -45,7 +45,7 @@ public sealed class CommentSecurityHardeningTests
 
         Assert.Contains("IClientRegionResolver regionResolver", endpointSource);
         Assert.Contains("regionLegalModerationService.EvaluateOnSubmit", endpointSource);
-        Assert.Contains("CreateCommentV2Async(userId, request, regionDecision)", endpointSource);
+        Assert.Contains("CreateAttributablePublicCommentAsync(userId, request, regionDecision)", endpointSource);
         Assert.Contains(":region:{NormalizeCommentFrameRegion(viewerRegion)}", endpointSource);
 
         Assert.Contains("CommentRegionCompliance", serviceSource);

@@ -167,7 +167,7 @@ public static partial class BinaryEndpoints
             regionDecision = ApplyRiskControlModerationDecision(httpContext, regionDecision);
 
             request = request with { Content = content };
-            bool success = await commentService.CreateCommentV2Async(userId, request, regionDecision);
+            bool success = await commentService.CreateAttributablePublicCommentAsync(userId, request, regionDecision);
 
             return success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
@@ -428,7 +428,7 @@ public static partial class BinaryEndpoints
         }
 
         regionDecision = ApplyRiskControlModerationDecision(httpContext, regionDecision);
-        bool success = await commentService.CreateAnonymousCommentAsync(
+        bool success = await commentService.CreateStrongAnonymousCommentAsync(
             request with { Content = content },
             regionDecision,
             cancellationToken);

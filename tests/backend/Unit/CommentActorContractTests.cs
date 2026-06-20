@@ -41,15 +41,17 @@ public sealed class CommentActorContractTests
     {
         string endpoint = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
         string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
+        string endpointInterface = BackendTestPaths.ReadAllTextFromRoot("src/backend/Interfaces/ICommentEndpointService.cs");
         string services = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Bootstrap/RuntimeSecurityAndLifecycleServiceCollectionExtensions.cs");
 
         Assert.Contains("AedsFrameType.CommentCreateV2Request", endpoint, StringComparison.Ordinal);
         Assert.Contains("[AedsFrameType.CommentCreateV2Request]", endpoint, StringComparison.Ordinal);
         Assert.Contains("TryDecodeCommentCreateV2Request", endpoint, StringComparison.Ordinal);
-        Assert.Contains("CreateCommentV2Async", endpoint, StringComparison.Ordinal);
+        Assert.Contains("CreateAttributablePublicCommentAsync", endpoint, StringComparison.Ordinal);
         Assert.DoesNotContain("AedsFrameType.CommentCreate" + "Request", endpoint, StringComparison.Ordinal);
         Assert.DoesNotContain("TryDecodeCommentCreate" + "Request", endpoint, StringComparison.Ordinal);
         Assert.DoesNotContain("CreateCommentAsync(userId", endpoint, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateCommentV2Async", endpoint, StringComparison.Ordinal);
 
         Assert.Contains("ICommentActorResolver", service, StringComparison.Ordinal);
         Assert.Contains("ResolveAsync", service, StringComparison.Ordinal);
@@ -57,10 +59,43 @@ public sealed class CommentActorContractTests
         Assert.Contains("UserId = actor.UserId", service, StringComparison.Ordinal);
         Assert.Contains("AnonymousDisplayName = actor.DisplayName", service, StringComparison.Ordinal);
         Assert.Contains("ModerationSubjectHash = actor.ModerationSubjectHash", service, StringComparison.Ordinal);
+        Assert.Contains("CreateAttributablePublicCommentAsync", service, StringComparison.Ordinal);
+        Assert.Contains("request.PublicSendExplicitlySelected", service, StringComparison.Ordinal);
+        Assert.Contains("CommentAuthorModes.Public", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateCommentV2Async", service, StringComparison.Ordinal);
+
+        Assert.Contains("CreateStrongAnonymousCommentAsync", endpointInterface, StringComparison.Ordinal);
+        Assert.Contains("CreateAttributablePublicCommentAsync", endpointInterface, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateCommentV2Async", endpointInterface, StringComparison.Ordinal);
 
         Assert.Contains("ICommentActorResolver", services, StringComparison.Ordinal);
         Assert.Contains("CommentActorResolver", services, StringComparison.Ordinal);
         Assert.Contains("ICommentAnonymousDisplayNameGenerator", services, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StrongAnonymousCommentCreate_DoesNotPersistReplyToUserId()
+    {
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
+        string createBlock = ExtractBetween(
+            service,
+            "private async Task<bool> CreateResolvedCommentAsync",
+            "var comment = new Comment");
+        string repliesBlock = ExtractBetween(
+            service,
+            "private async Task<List<ReplyRow>> QueryThreadRepliesAsync",
+            "return rows;");
+        string previewMapBlock = ExtractBetween(
+            service,
+            "private async Task<Dictionary<long, List<CommentReplyPreviewItemDto>>> QueryThreadRepliesPreviewMapAsync",
+            "return map;");
+
+        Assert.Contains("replyToUserId = actor.UserId.HasValue ? parent.UserId : null", createBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("replyToUserId = parent.UserId", createBlock, StringComparison.Ordinal);
+        Assert.Contains("LEFT JOIN comment pc ON c.reply_to_comment_id = pc.id", repliesBlock, StringComparison.Ordinal);
+        Assert.Contains("LEFT JOIN comment pc ON c.reply_to_comment_id = pc.id", previewMapBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("LEFT JOIN sys_user ru ON c.reply_to_user_id = ru.id", repliesBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("LEFT JOIN sys_user ru ON c.reply_to_user_id = ru.id", previewMapBlock, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -103,5 +138,14 @@ public sealed class CommentActorContractTests
             Assert.DoesNotContain(leakedToken, zh.DisplayName, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(leakedToken, en.DisplayName, StringComparison.OrdinalIgnoreCase);
         }
+    }
+
+    private static string ExtractBetween(string source, string start, string end)
+    {
+        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
+        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
+        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
+        return source[startIndex..endIndex];
     }
 }
