@@ -1,10 +1,13 @@
 import { encodeAedsFrame } from '@/api/binaryFrame'
 import {
   encodeAnonymousCredentialIssueRequest,
+  getAnonymousCredentialRevocationWitness,
   getAnonymousCredentialCircuitSnapshot,
   getAnonymousCredentialRootSnapshot,
   type AnonymousCredentialIssueRequestDto,
   type AnonymousCredentialIssueResponse,
+  type AnonymousCredentialRevocationWitnessRequestDto,
+  type AnonymousCredentialRevocationWitnessResponse,
   type AnonymousCredentialRootSnapshot
 } from '@/api/comment'
 import { requestBinaryOnly } from '@/services/binaryTransport'
@@ -23,6 +26,7 @@ const DEFAULT_CREDENTIAL_SECRET_BYTES = 32
 const DEFAULT_CLIENT_NONCE_BYTES = 32
 const DEFAULT_FAILURE_CACHE_TTL_MS = 30_000
 const DEFAULT_CREDENTIAL_LEVEL = 'strong_anonymous'
+const REVOCATION_WITNESS_MAGIC = new TextEncoder().encode('fsus-revocation-witness-v1')
 
 export interface CommentPrivacyCredentialProvider {
   prepareCredential(request: { signal: AbortSignal }): Promise<CommentPrivacyCredentialMaterial | null>
@@ -36,6 +40,7 @@ export interface CommentPrivacyCredentialIssuerMetadata {
   circuitId: string
   credentialLevel: string
   issuerPublicKeyHash: string
+  revocationRoot: Uint8Array
 }
 
 export type CommentPrivacyCredentialMetadataLoader = (
@@ -46,6 +51,11 @@ export type CommentPrivacyCredentialIssuer = (
   request: AnonymousCredentialIssueRequestDto,
   config: { signal: AbortSignal }
 ) => Promise<AnonymousCredentialIssueResponse>
+
+export type CommentPrivacyRevocationWitnessLoader = (
+  request: AnonymousCredentialRevocationWitnessRequestDto,
+  config: { signal: AbortSignal }
+) => Promise<Uint8Array | null>
 
 export interface CommentPrivacyBlindIssuanceRequest {
   blindedRequest: Uint8Array
@@ -75,6 +85,7 @@ export interface CommentPrivacyCredentialProviderOptions {
   vault?: CommentPrivacyCredentialVault | null
   loadMetadata?: CommentPrivacyCredentialMetadataLoader
   issueCredential?: CommentPrivacyCredentialIssuer
+  loadRevocationWitness?: CommentPrivacyRevocationWitnessLoader
   blindCredentialSuite?: CommentPrivacyBlindCredentialSuite | null
   crypto?: Pick<Crypto, 'getRandomValues'> | null
   now?: () => number
@@ -94,6 +105,7 @@ export function createCommentPrivacyCredentialProvider(
     : options.crypto
   const loadMetadata = options.loadMetadata ?? loadDefaultCredentialMetadata
   const issueCredential = options.issueCredential ?? issueAnonymousCredential
+  const loadRevocationWitness = options.loadRevocationWitness ?? loadAnonymousCredentialRevocationWitness
   const blindCredentialSuite = options.blindCredentialSuite === undefined && cryptoSource
     ? createManagedBbsBlindCredentialSuite({ crypto: cryptoSource })
     : options.blindCredentialSuite ?? null
@@ -187,12 +199,37 @@ export function createCommentPrivacyCredentialProvider(
           return failClosed(signal)
         }
 
+        if (!(material.revocationHandleHash instanceof Uint8Array) ||
+          material.revocationHandleHash.byteLength === 0 ||
+          metadata.revocationRoot.byteLength === 0) {
+          return failClosed(signal)
+        }
+
+        const revocationWitness = await loadRevocationWitness({
+          credentialEpoch: metadata.credentialEpoch,
+          circuitNumericId: metadata.circuitNumericId,
+          publicInputLayoutVersion: metadata.publicInputLayoutVersion,
+          circuitId: metadata.circuitId,
+          issuerPublicKeyHash: metadata.issuerPublicKeyHash,
+          revocationRoot: cloneBytes(metadata.revocationRoot),
+          revocationHandleHash: cloneBytes(material.revocationHandleHash)
+        }, { signal })
+        if (signal.aborted) {
+          return null
+        }
+        if (!(revocationWitness instanceof Uint8Array) || revocationWitness.byteLength === 0) {
+          return failClosed(signal)
+        }
+
         const expiresAtUnixMs = Math.min(metadata.rootExpiresAtUnixMs, issuerResponse.rootExpiresAtUnixMs)
         if (expiresAtUnixMs <= now()) {
           return failClosed(signal)
         }
 
-        const credential = cloneCredentialMaterial(material)
+        const credential = cloneCredentialMaterial({
+          ...material,
+          revocationWitness: cloneBytes(revocationWitness)
+        })
         await vault.put({
           ...partition,
           ...credential,
@@ -226,6 +263,18 @@ export async function issueAnonymousCredential(
   })
 }
 
+export async function loadAnonymousCredentialRevocationWitness(
+  request: AnonymousCredentialRevocationWitnessRequestDto,
+  config: { signal: AbortSignal }
+): Promise<Uint8Array | null> {
+  const response = await getAnonymousCredentialRevocationWitness(request, { signal: config.signal })
+  if (!matchesRevocationWitness(response, request)) {
+    return null
+  }
+
+  return encodeRevocationWitnessMaterial(response)
+}
+
 async function loadDefaultCredentialMetadata(
   request: { signal: AbortSignal }
 ): Promise<CommentPrivacyCredentialIssuerMetadata | null> {
@@ -249,7 +298,8 @@ async function loadDefaultCredentialMetadata(
     publicInputLayoutVersion: root.publicInputLayoutVersion,
     circuitId,
     credentialLevel: DEFAULT_CREDENTIAL_LEVEL,
-    issuerPublicKeyHash
+    issuerPublicKeyHash,
+    revocationRoot: cloneBytes(root.revocationRoot)
   }
 }
 
@@ -278,7 +328,9 @@ function isUsableMetadata(
     Number.isFinite(metadata.publicInputLayoutVersion) &&
     Boolean(metadata.circuitId) &&
     Boolean(metadata.credentialLevel) &&
-    Boolean(metadata.issuerPublicKeyHash)
+    Boolean(metadata.issuerPublicKeyHash) &&
+    metadata.revocationRoot instanceof Uint8Array &&
+    metadata.revocationRoot.byteLength > 0
 }
 
 function metadataPartition(
@@ -337,15 +389,98 @@ function randomBytes(
 }
 
 function cloneCredentialMaterial(material: CommentPrivacyCredentialMaterial): CommentPrivacyCredentialMaterial {
-  return {
+  const cloned: CommentPrivacyCredentialMaterial = {
     credentialSecret: cloneBytes(material.credentialSecret),
     issuerSignature: cloneBytes(material.issuerSignature),
     revocationWitness: cloneBytes(material.revocationWitness)
   }
+  if (material.revocationHandleHash instanceof Uint8Array && material.revocationHandleHash.byteLength > 0) {
+    cloned.revocationHandleHash = cloneBytes(material.revocationHandleHash)
+  }
+  return cloned
 }
 
 function cloneBytes(bytes: Uint8Array): Uint8Array {
   return new Uint8Array(bytes)
+}
+
+function matchesRevocationWitness(
+  response: AnonymousCredentialRevocationWitnessResponse,
+  request: AnonymousCredentialRevocationWitnessRequestDto
+): boolean {
+  return response.credentialEpoch === request.credentialEpoch &&
+    response.algorithmId === 'circuit-friendly-non-membership.v1' &&
+    response.pathDepth > 0 &&
+    response.siblingHashes instanceof Uint8Array &&
+    response.siblingHashes.byteLength === response.pathDepth * 32 &&
+    response.issuerPublicKeyHash.trim().toLowerCase() === request.issuerPublicKeyHash.trim().toLowerCase() &&
+    bytesEqual(response.revocationRoot, bytesFrom(request.revocationRoot)) &&
+    bytesEqual(response.revocationHandleHash, bytesFrom(request.revocationHandleHash)) &&
+    response.leafKey instanceof Uint8Array &&
+    response.leafKey.byteLength > 0 &&
+    response.witnessHash instanceof Uint8Array &&
+    response.witnessHash.byteLength > 0
+}
+
+function encodeRevocationWitnessMaterial(response: AnonymousCredentialRevocationWitnessResponse): Uint8Array {
+  const algorithm = new TextEncoder().encode(response.algorithmId)
+  const issuer = new TextEncoder().encode(response.issuerPublicKeyHash)
+  return concatBytes(
+    REVOCATION_WITNESS_MAGIC,
+    numberToUint64Bytes(BigInt(response.credentialEpoch)),
+    numberToUint16Bytes(response.pathDepth),
+    lengthPrefixed(algorithm),
+    lengthPrefixed(issuer),
+    lengthPrefixed(response.revocationRoot),
+    lengthPrefixed(response.revocationHandleHash),
+    lengthPrefixed(response.leafKey),
+    lengthPrefixed(response.witnessHash),
+    lengthPrefixed(response.siblingHashes)
+  )
+}
+
+function lengthPrefixed(bytes: Uint8Array): Uint8Array {
+  const prefix = new Uint8Array(4)
+  new DataView(prefix.buffer).setUint32(0, bytes.byteLength, true)
+  return concatBytes(prefix, bytes)
+}
+
+function numberToUint16Bytes(value: number): Uint8Array {
+  const bytes = new Uint8Array(2)
+  new DataView(bytes.buffer).setUint16(0, value, true)
+  return bytes
+}
+
+function numberToUint64Bytes(value: bigint): Uint8Array {
+  const bytes = new Uint8Array(8)
+  new DataView(bytes.buffer).setBigUint64(0, value, true)
+  return bytes
+}
+
+function concatBytes(...parts: Uint8Array[]): Uint8Array {
+  const output = new Uint8Array(parts.reduce((total, part) => total + part.byteLength, 0))
+  let offset = 0
+  for (const part of parts) {
+    output.set(part, offset)
+    offset += part.byteLength
+  }
+  return output
+}
+
+function bytesFrom(value: Uint8Array | number[] | null | undefined): Uint8Array {
+  return value instanceof Uint8Array ? value : new Uint8Array(value ?? [])
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.byteLength !== right.byteLength) {
+    return false
+  }
+
+  let diff = 0
+  for (let index = 0; index < left.byteLength; index += 1) {
+    diff |= left[index] ^ right[index]
+  }
+  return diff === 0
 }
 
 function getGlobalCrypto(): Pick<Crypto, 'getRandomValues'> | null {

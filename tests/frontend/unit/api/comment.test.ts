@@ -21,6 +21,8 @@ import {
   encodeAnonymousCommentCreateRequest,
   encodeAnonymousCommentTicketRequest,
   encodeAnonymousCredentialIssueRequest,
+  encodeAnonymousCredentialRevocationWitnessRequest,
+  getAnonymousCredentialRevocationWitness,
   resolveCommentAuthorView
 } from '@/api/comment'
 import { COMMENT_CONTENT_CONSTRAINT } from '@/utils/contentFilter'
@@ -209,6 +211,28 @@ describe('comment API', () => {
     expect([...readSliceBytes(payload, blob, 40)]).toEqual([4, 5])
   })
 
+  it('encodeAnonymousCredentialRevocationWitnessRequest writes public accumulator fields', () => {
+    const payload = encodeAnonymousCredentialRevocationWitnessRequest({
+      credentialEpoch: 20260618,
+      circuitNumericId: 7,
+      publicInputLayoutVersion: 2,
+      circuitId: 'zk-comment-v1',
+      issuerPublicKeyHash: 'issuer-hash',
+      revocationRoot: new Uint8Array([1, 2, 3]),
+      revocationHandleHash: new Uint8Array([4, 5, 6])
+    })
+
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+    expect(view.getBigInt64(0, true)).toBe(20260618n)
+    expect(view.getUint32(8, true)).toBe(7)
+    expect(view.getUint16(12, true)).toBe(2)
+    const blob = payload.subarray(52)
+    expect(readSliceText(payload, blob, 16)).toBe('zk-comment-v1')
+    expect(readSliceText(payload, blob, 24)).toBe('issuer-hash')
+    expect([...readSliceBytes(payload, blob, 32)]).toEqual([1, 2, 3])
+    expect([...readSliceBytes(payload, blob, 40)]).toEqual([4, 5, 6])
+  })
+
   it('encodeAnonymousCommentTicketRequest writes proof fields without public identity', () => {
     const payload = encodeAnonymousCommentTicketRequest({
       articleId: 42,
@@ -373,6 +397,35 @@ describe('comment API', () => {
     expect(call.requestOptions?.requiresPow).toBeUndefined()
     expect(call.requestOptions?.headers).toBeUndefined()
     expect(readAedsFrameType(body)).toBe(FrameType.AnonymousCommentTicketRequest)
+  })
+
+  it('getAnonymousCredentialRevocationWitness posts witness request with omitted credentials', async () => {
+    const signal = new AbortController().signal
+    await getAnonymousCredentialRevocationWitness({
+      credentialEpoch: 20260618,
+      circuitNumericId: 7,
+      publicInputLayoutVersion: 2,
+      circuitId: 'comment.v1',
+      issuerPublicKeyHash: 'issuer-hash',
+      revocationRoot: new Uint8Array([1, 2]),
+      revocationHandleHash: new Uint8Array([3, 4])
+    }, { signal })
+
+    const call = mockBinary.mock.calls[0][0]
+    const body = call.requestOptions?.body as ArrayBuffer
+    expect(call).toEqual(expect.objectContaining({
+      binaryUrl: '/api/binary/anonymous-credential/revocation-witness',
+      frameType: FrameType.AnonymousCredentialRevocationWitnessResponse,
+      signal,
+      requestOptions: expect.objectContaining({
+        method: 'POST',
+        credentials: 'omit',
+        body: expect.any(ArrayBuffer)
+      })
+    }))
+    expect(call.requestOptions?.requiresPow).toBeUndefined()
+    expect(call.requestOptions?.headers).toBeUndefined()
+    expect(readAedsFrameType(body)).toBe(FrameType.AnonymousCredentialRevocationWitnessRequest)
   })
 
   it('getComments calls requestBinaryOnly with articleId', async () => {

@@ -212,6 +212,8 @@
     { "name": "AnonymousPrivacyStateSnapshot", "value": 183 },
     { "name": "PerceptionSealedChallengeV2", "value": 184 },
     { "name": "PerceptionSealedResultV2", "value": 185 },
+    { "name": "AnonymousCredentialRevocationWitnessRequest", "value": 186 },
+    { "name": "AnonymousCredentialRevocationWitnessResponse", "value": 187 },
     { "name": "EmptySuccess", "value": 240 },
     { "name": "MutationId", "value": 241 },
     { "name": "ApiError", "value": 251 }

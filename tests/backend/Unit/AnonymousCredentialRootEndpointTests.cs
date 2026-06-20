@@ -7,6 +7,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Models.CommentIdentity;
@@ -68,10 +69,15 @@ public sealed class AnonymousCredentialRootEndpointTests
         ServiceDescriptor service = Assert.Single(
             services,
             static item => item.ServiceType == typeof(IAnonymousCredentialRootService));
+        ServiceDescriptor witnessService = Assert.Single(
+            services,
+            static item => item.ServiceType == typeof(IAnonymousCredentialRevocationWitnessService));
         Assert.Equal(ServiceLifetime.Scoped, store.Lifetime);
         Assert.Equal(typeof(AnonymousCredentialRootStore), store.ImplementationType);
         Assert.Equal(ServiceLifetime.Singleton, service.Lifetime);
         Assert.Equal(typeof(AnonymousCredentialRootService), service.ImplementationType);
+        Assert.Equal(ServiceLifetime.Scoped, witnessService.Lifetime);
+        Assert.Equal(typeof(AnonymousCredentialRevocationWitnessService), witnessService.ImplementationType);
     }
 
     [Fact]
@@ -182,6 +188,79 @@ public sealed class AnonymousCredentialRootEndpointTests
         Assert.DoesNotContain("Session", handler, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task HandleAnonymousCredentialRevocationWitnessAsync_AnonymousRequest_ReturnsCircuitFriendlyWitnessFrame()
+    {
+        var aeds = new AedsEncoder();
+        byte[] root = Convert.FromHexString(new string('a', 64));
+        byte[] handle = Convert.FromHexString(new string('b', 64));
+        var request = new AnonymousCredentialRevocationWitnessRequestCoreModel(
+            CredentialEpoch: 2048,
+            CircuitNumericId: 7,
+            PublicInputLayoutVersion: 2,
+            CircuitId: "fsus.anonymous.comment.v1",
+            IssuerPublicKeyHash: new('f', 64),
+            RevocationRoot: root,
+            RevocationHandleHash: handle);
+        var response = new AnonymousCredentialRevocationWitnessResponseCoreModel(
+            CredentialEpoch: request.CredentialEpoch,
+            AlgorithmId: AnonymousCredentialRevocationAccumulator.CircuitFriendlyNonMembershipAlgorithmId,
+            PathDepth: 128,
+            RevocationRoot: root,
+            IssuerPublicKeyHash: request.IssuerPublicKeyHash,
+            RevocationHandleHash: handle,
+            LeafKey: Convert.FromHexString(new string('c', 32)),
+            WitnessHash: Convert.FromHexString(new string('d', 64)),
+            SiblingHashes: Enumerable.Range(0, 128 * 32).Select(static index => (byte)(index % 251)).ToArray());
+        var service = new CapturingRevocationWitnessService(Result<AnonymousCredentialRevocationWitnessResponseCoreModel>.Success(response));
+        DefaultHttpContext context = CreateWitnessContext(aeds, request);
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCredentialRevocationWitnessAsync(
+            context,
+            aeds,
+            service,
+            CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal(AedsFrameType.AnonymousCredentialRevocationWitnessResponse, decoded.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeAnonymousCredentialRevocationWitnessResponse(
+            decoded.Payload,
+            out AnonymousCredentialRevocationWitnessResponseCoreModel actual));
+        Assert.Equal(1, service.CallCount);
+        Assert.Equal(request.CredentialEpoch, service.LastRequest.CredentialEpoch);
+        Assert.Equal(request.CircuitNumericId, service.LastRequest.CircuitNumericId);
+        Assert.Equal(request.PublicInputLayoutVersion, service.LastRequest.PublicInputLayoutVersion);
+        Assert.Equal(request.CircuitId, service.LastRequest.CircuitId);
+        Assert.Equal(request.IssuerPublicKeyHash, service.LastRequest.IssuerPublicKeyHash);
+        Assert.Equal(request.RevocationRoot, service.LastRequest.RevocationRoot);
+        Assert.Equal(request.RevocationHandleHash, service.LastRequest.RevocationHandleHash);
+        Assert.Equal(response.AlgorithmId, actual.AlgorithmId);
+        Assert.Equal(response.PathDepth, actual.PathDepth);
+        Assert.Equal(response.LeafKey, actual.LeafKey);
+        Assert.Equal(response.WitnessHash, actual.WitnessHash);
+        Assert.Equal(response.SiblingHashes, actual.SiblingHashes);
+    }
+
+    [Fact]
+    public void AnonymousCredentialRevocationWitnessEndpoint_IsStrongAnonymousPublicReadAedsOnly()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs");
+        string handler = ExtractMethod(source, "HandleAnonymousCredentialRevocationWitnessAsync", "HandleAnonymousCredentialIssueAsync");
+
+        Assert.Contains("MapPost(\"/anonymous-credential/revocation-witness\"", source, StringComparison.Ordinal);
+        Assert.Contains(".AllowAnonymous()", source, StringComparison.Ordinal);
+        Assert.Contains(".RequireRateLimiting(\"public_read\")", source, StringComparison.Ordinal);
+        Assert.Contains(".RequireNoStoreResponse()", source, StringComparison.Ordinal);
+        Assert.Contains(".RequireStrongAnonymousRequest()", source, StringComparison.Ordinal);
+        Assert.Contains("AedsFrameType.AnonymousCredentialRevocationWitnessRequest", source, StringComparison.Ordinal);
+        Assert.Contains("AedsFrameType.AnonymousCredentialRevocationWitnessResponse", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetUserId", handler, StringComparison.Ordinal);
+        Assert.DoesNotContain(".User", handler, StringComparison.Ordinal);
+        Assert.DoesNotContain("Cookie", handler, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Session", handler, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static AnonymousCredentialRootRecord CreateRecord(long epoch, byte[] credentialRoot)
         => new(
             epoch,
@@ -252,6 +331,34 @@ public sealed class AnonymousCredentialRootEndpointTests
         return context;
     }
 
+    private static DefaultHttpContext CreateWitnessContext(
+        AedsEncoder aeds,
+        AnonymousCredentialRevocationWitnessRequestCoreModel request)
+    {
+        byte[] payload = PodBinaryCodec.EncodeAnonymousCredentialRevocationWitnessRequest(request);
+        byte[] frame = aeds.Encode(AedsFrameType.AnonymousCredentialRevocationWitnessRequest, payload);
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+        context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.17");
+        context.TraceIdentifier = "trace-witness";
+        context.Request.Method = HttpMethods.Post;
+        context.Request.Path = "/api/binary/anonymous-credential/revocation-witness";
+        context.Request.Headers.Accept = "application/octet-stream";
+        context.Request.ContentType = "application/octet-stream";
+        context.Request.ContentLength = frame.Length;
+        context.Request.Body = new MemoryStream(frame);
+        context.Request.Headers.Cookie = "fsus_auth=should-not-be-read";
+        context.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, "42")],
+            "unit-test"));
+        context.RequestServices = new ServiceCollection()
+            .AddSingleton<IBinaryRequestBinder, BinaryRequestBinder>()
+            .AddSingleton<IHotArticlesCacheVersionProvider>(new FixedHotArticlesCacheVersionProvider())
+            .AddSingleton<IBinaryEndpointRequestContext, BinaryEndpointRequestContext>()
+            .BuildServiceProvider();
+        return context;
+    }
+
     private static async Task<AedsDecodeResult> ExecuteAndDecodeAsync(BinaryFrameResult result, DefaultHttpContext context, AedsEncoder aeds)
     {
         await result.ExecuteAsync(context);
@@ -286,6 +393,23 @@ public sealed class AnonymousCredentialRootEndpointTests
         }
     }
 
+    private sealed class CapturingRevocationWitnessService(
+        Result<AnonymousCredentialRevocationWitnessResponseCoreModel> result) : IAnonymousCredentialRevocationWitnessService
+    {
+        public int CallCount { get; private set; }
+
+        public AnonymousCredentialRevocationWitnessRequestCoreModel LastRequest { get; private set; }
+
+        public Task<Result<AnonymousCredentialRevocationWitnessResponseCoreModel>> CreateWitnessAsync(
+            AnonymousCredentialRevocationWitnessRequestCoreModel request,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            LastRequest = request;
+            return Task.FromResult(result);
+        }
+    }
+
     private sealed class CountingRootStore(params AnonymousCredentialRootRecord?[] records) : IAnonymousCredentialRootStore
     {
         private readonly Queue<AnonymousCredentialRootRecord?> _records = new(records);
@@ -308,6 +432,13 @@ public sealed class AnonymousCredentialRootEndpointTests
             ZkProofVerificationRequest request,
             CancellationToken cancellationToken = default)
             => Task.FromResult(configured ? ZkProofVerificationResult.Success() : ZkProofVerificationResult.VerifierUnavailable());
+    }
+
+    private sealed class FixedHotArticlesCacheVersionProvider : IHotArticlesCacheVersionProvider
+    {
+        public long CurrentHotArticlesVersion => 0;
+
+        public string BuildVersionedHotArticlesIdentity(string identity) => identity;
     }
 
     private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider

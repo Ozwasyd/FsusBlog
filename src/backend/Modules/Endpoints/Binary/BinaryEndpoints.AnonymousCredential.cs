@@ -3,6 +3,7 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Infrastructure.Binary;
+using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
@@ -31,6 +32,17 @@ public static partial class BinaryEndpoints
             await HandleAnonymousCredentialRootAsync(httpContext, aeds, rootService, cancellationToken))
         .AllowAnonymous()
         .RequireRateLimiting("public_read");
+
+        group.MapPost("/anonymous-credential/revocation-witness", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IAedsEncoder aeds,
+            IAnonymousCredentialRevocationWitnessService witnessService,
+            CancellationToken cancellationToken) =>
+            await HandleAnonymousCredentialRevocationWitnessAsync(httpContext, aeds, witnessService, cancellationToken))
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .RequireNoStoreResponse()
+        .RequireStrongAnonymousRequest();
 
         group.MapPost("/anonymous-credential/issue", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -68,6 +80,45 @@ public static partial class BinaryEndpoints
             aeds,
             AedsFrameType.AnonymousCredentialRootSnapshot,
             writer => PodBinaryCodec.WriteAnonymousCredentialRootSnapshot(snapshot, writer));
+    }
+
+    internal static async Task<BinaryFrameResult> HandleAnonymousCredentialRevocationWitnessAsync(
+        HttpContext httpContext,
+        IAedsEncoder aeds,
+        IAnonymousCredentialRevocationWitnessService witnessService,
+        CancellationToken cancellationToken)
+    {
+        if (!AcceptsBinaryResponse(httpContext.Request))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, StatusCodes.Status406NotAcceptable);
+        }
+
+        BinaryRequestPayload payload = await ReadBinaryRequestPayloadAsync(
+            httpContext,
+            aeds,
+            AedsFrameType.AnonymousCredentialRevocationWitnessRequest,
+            cancellationToken,
+            AnonymousCredentialRevocationWitnessLimits.MaxRequestFrameBytes);
+        if (!payload.IsSuccess)
+        {
+            return BinaryResults.FromError(payload.Error, aeds);
+        }
+
+        if (!PodBinaryCodec.TryDecodeAnonymousCredentialRevocationWitnessRequest(
+                payload.Payload,
+                out AnonymousCredentialRevocationWitnessRequestCoreModel request))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "anonymous_credential_revocation_witness_request_invalid"), aeds);
+        }
+
+        Result<AnonymousCredentialRevocationWitnessResponseCoreModel> witness =
+            await witnessService.CreateWitnessAsync(request, cancellationToken);
+        return witness.IsSuccess && witness.Value is { } response
+            ? BinaryResults.Frame(
+                aeds,
+                AedsFrameType.AnonymousCredentialRevocationWitnessResponse,
+                writer => PodBinaryCodec.WriteAnonymousCredentialRevocationWitnessResponse(response, writer))
+            : BinaryResults.FromError(witness.Error, aeds);
     }
 
     internal static async Task<BinaryFrameResult> HandleAnonymousCredentialIssueAsync(

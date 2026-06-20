@@ -4,6 +4,7 @@ import {
   type CommentPrivacyBlindCredentialSuite,
   type CommentPrivacyCredentialIssuer,
   type CommentPrivacyCredentialMetadataLoader,
+  type CommentPrivacyRevocationWitnessLoader,
   type CommentPrivacyCredentialVault
 } from '@/privacy/commentPrivacyCredentialProvider'
 import { createManagedBbsBlindCredentialSuite } from '@/privacy/commentPrivacyBbsBlindSuite'
@@ -28,10 +29,12 @@ describe('commentPrivacyCredentialProvider', () => {
       bbsSignature: new Uint8Array([41, 42])
     })
     const blindCredentialSuite = createBlindCredentialSuite()
+    const loadRevocationWitness: CommentPrivacyRevocationWitnessLoader = vi.fn().mockResolvedValue(new Uint8Array([71, 72, 73]))
     const provider = createCommentPrivacyCredentialProvider({
       vault,
       loadMetadata,
       issueCredential,
+      loadRevocationWitness,
       blindCredentialSuite,
       crypto: createDeterministicCrypto(),
       now: () => 1_000
@@ -63,6 +66,15 @@ describe('commentPrivacyCredentialProvider', () => {
       metadata,
       signal
     }))
+    expect(loadRevocationWitness).toHaveBeenCalledWith(expect.objectContaining({
+      credentialEpoch: metadata.credentialEpoch,
+      circuitNumericId: metadata.circuitNumericId,
+      publicInputLayoutVersion: metadata.publicInputLayoutVersion,
+      circuitId: metadata.circuitId,
+      issuerPublicKeyHash: metadata.issuerPublicKeyHash,
+      revocationRoot: metadata.revocationRoot,
+      revocationHandleHash: new Uint8Array([91, 92])
+    }), { signal })
     expect(vault.put).toHaveBeenCalledWith(expect.objectContaining({
       credentialEpoch: metadata.credentialEpoch,
       circuitId: metadata.circuitId,
@@ -71,11 +83,11 @@ describe('commentPrivacyCredentialProvider', () => {
       expiresAtUnixMs: 5_000,
       credentialSecret: new Uint8Array([1, 2, 3]),
       issuerSignature: new Uint8Array([4, 5, 6]),
-      revocationWitness: new Uint8Array([7, 8, 9])
+      revocationWitness: new Uint8Array([71, 72, 73])
     }))
     expect([...(material?.credentialSecret ?? [])]).toEqual([1, 2, 3])
     expect([...(material?.issuerSignature ?? [])]).toEqual([4, 5, 6])
-    expect([...(material?.revocationWitness ?? [])]).toEqual([7, 8, 9])
+    expect([...(material?.revocationWitness ?? [])]).toEqual([71, 72, 73])
     expect(globalThis.localStorage.length).toBe(0)
     expect(globalThis.sessionStorage.length).toBe(0)
   })
@@ -108,10 +120,12 @@ describe('commentPrivacyCredentialProvider', () => {
       bbsSignature: new Uint8Array(80).fill(17)
     }
     const issueCredential: CommentPrivacyCredentialIssuer = vi.fn().mockResolvedValue(issued)
+    const loadRevocationWitness: CommentPrivacyRevocationWitnessLoader = vi.fn().mockResolvedValue(new Uint8Array([61, 62, 63]))
     const provider = createCommentPrivacyCredentialProvider({
       vault,
       loadMetadata: vi.fn().mockResolvedValue(metadata),
       issueCredential,
+      loadRevocationWitness,
       crypto: createDeterministicCrypto(),
       now: () => 1_000
     })
@@ -128,10 +142,19 @@ describe('commentPrivacyCredentialProvider', () => {
     expect(material?.issuerSignature).toEqual(issued.bbsSignature)
     expect(material?.credentialSecret).toBeInstanceOf(Uint8Array)
     expect(material?.credentialSecret).toHaveLength(32)
-    expect(material?.revocationWitness).toBeInstanceOf(Uint8Array)
+    expect(material?.revocationWitness).toEqual(new Uint8Array([61, 62, 63]))
+    expect(loadRevocationWitness).toHaveBeenCalledWith(expect.objectContaining({
+      credentialEpoch: metadata.credentialEpoch,
+      circuitId: metadata.circuitId,
+      issuerPublicKeyHash: metadata.issuerPublicKeyHash,
+      revocationRoot: metadata.revocationRoot,
+      revocationHandleHash: expect.any(Uint8Array)
+    }), { signal })
+    expect(vi.mocked(loadRevocationWitness).mock.calls[0][0].revocationHandleHash).toHaveLength(32)
     expect(vault.put).toHaveBeenCalledWith(expect.objectContaining({
       issuerPublicKeyId: 'issuer-key-test',
-      issuerSignature: issued.bbsSignature
+      issuerSignature: issued.bbsSignature,
+      revocationWitness: new Uint8Array([61, 62, 63])
     }))
     expect(globalThis.localStorage.length).toBe(0)
     expect(globalThis.sessionStorage.length).toBe(0)
@@ -213,7 +236,8 @@ function createMetadata() {
     publicInputLayoutVersion: 2,
     circuitId: 'fsus.anonymous.comment.v1',
     credentialLevel: 'strong_anonymous',
-    issuerPublicKeyHash: 'issuer-public-key-hash'
+    issuerPublicKeyHash: 'issuer-public-key-hash',
+    revocationRoot: new Uint8Array([51, 52])
   }
 }
 
@@ -226,7 +250,8 @@ function createBlindCredentialSuite(): CommentPrivacyBlindCredentialSuite {
     unblindIssuerResponse: vi.fn().mockResolvedValue({
       credentialSecret: new Uint8Array([1, 2, 3]),
       issuerSignature: new Uint8Array([4, 5, 6]),
-      revocationWitness: new Uint8Array([7, 8, 9])
+      revocationWitness: new Uint8Array([7, 8, 9]),
+      revocationHandleHash: new Uint8Array([91, 92])
     })
   }
 }

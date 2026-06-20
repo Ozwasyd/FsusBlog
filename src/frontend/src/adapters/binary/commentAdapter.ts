@@ -1,6 +1,7 @@
 import type {
   AnonymousCommentTicketResponse,
   AnonymousCredentialIssueResponse,
+  AnonymousCredentialRevocationWitnessResponse,
   AnonymousCredentialRootSnapshot,
   AnonymousPrivacyStateSnapshot,
   CommentReplyItem,
@@ -15,6 +16,7 @@ import { readReplyItem, readThreadItemFromReader } from './podReaders';
 import {
   ANONYMOUS_COMMENT_TICKET_RESPONSE_POD_SIZE,
   ANONYMOUS_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE,
+  ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_RESPONSE_POD_SIZE,
   ANONYMOUS_CREDENTIAL_ROOT_SNAPSHOT_POD_SIZE,
   ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE,
   COMMENT_POLICY_SNAPSHOT_POD_SIZE,
@@ -99,9 +101,37 @@ export function mapAnonymousCredentialRootSnapshotFromPayload(payload: Uint8Arra
     verifierConfigured: readBooleanByte(pod, 31, 'anonymous_credential_root_snapshot_verifier_flag_invalid'),
     circuitId: readAnonymousSliceText(blob, readSliceRef(pod, 32), 'anonymous_credential_root_snapshot_circuit_invalid'),
     verifyingKeyHash: readAnonymousSliceText(blob, readSliceRef(pod, 40), 'anonymous_credential_root_snapshot_verifying_key_invalid'),
-    credentialRoot: readAnonymousSliceBytes(blob, readSliceRef(pod, 48), 'anonymous_credential_root_snapshot_root_invalid'),
-    revocationRoot: readAnonymousSliceBytes(blob, readSliceRef(pod, 56), 'anonymous_credential_root_snapshot_revocation_invalid'),
-    circuitMetadata: readAnonymousSliceBytes(blob, readSliceRef(pod, 64), 'anonymous_credential_root_snapshot_metadata_invalid')
+    issuerPublicKeyHash: readAnonymousSliceText(blob, readSliceRef(pod, 48), 'anonymous_credential_root_snapshot_issuer_invalid'),
+    credentialRoot: readAnonymousSliceBytes(blob, readSliceRef(pod, 56), 'anonymous_credential_root_snapshot_root_invalid'),
+    revocationRoot: readAnonymousSliceBytes(blob, readSliceRef(pod, 64), 'anonymous_credential_root_snapshot_revocation_invalid'),
+    circuitMetadata: readAnonymousSliceBytes(blob, readSliceRef(pod, 72), 'anonymous_credential_root_snapshot_metadata_invalid')
+  };
+}
+
+export function mapAnonymousCredentialRevocationWitnessResponseFromPayload(payload: Uint8Array): AnonymousCredentialRevocationWitnessResponse {
+  const { pod, blob } = readAnonymousPrivacyPayload(
+    payload,
+    ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_RESPONSE_POD_SIZE,
+    'anonymous_credential_revocation_witness_response');
+  const pathDepth = readUint16(pod, 8);
+  const siblingHashCount = readUint32(pod, 12);
+  const siblingHashes = readAnonymousSliceBytes(blob, readSliceRef(pod, 64), 'anonymous_credential_revocation_witness_siblings_invalid');
+  if (pathDepth <= 0 ||
+    siblingHashCount <= 0 ||
+    siblingHashes.byteLength !== siblingHashCount * 32) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'anonymous_credential_revocation_witness_siblings_invalid');
+  }
+
+  return {
+    credentialEpoch: readInt64Number(pod, 0),
+    algorithmId: readAnonymousSliceText(blob, readSliceRef(pod, 16), 'anonymous_credential_revocation_witness_algorithm_invalid'),
+    pathDepth,
+    revocationRoot: readAnonymousSliceBytes(blob, readSliceRef(pod, 24), 'anonymous_credential_revocation_witness_root_invalid'),
+    issuerPublicKeyHash: readAnonymousSliceText(blob, readSliceRef(pod, 32), 'anonymous_credential_revocation_witness_issuer_invalid'),
+    revocationHandleHash: readAnonymousSliceBytes(blob, readSliceRef(pod, 40), 'anonymous_credential_revocation_witness_handle_invalid'),
+    leafKey: readAnonymousSliceBytes(blob, readSliceRef(pod, 48), 'anonymous_credential_revocation_witness_leaf_invalid'),
+    witnessHash: readAnonymousSliceBytes(blob, readSliceRef(pod, 56), 'anonymous_credential_revocation_witness_hash_invalid'),
+    siblingHashes
   };
 }
 

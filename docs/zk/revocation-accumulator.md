@@ -91,6 +91,15 @@ empty default leaf, each sibling reconstructs `revocationRootHash`, and the
 target handle is not equal to a known revoked leaf. Backend negative fixtures
 also reject exact revoked handles before witness creation.
 
+`POST /api/binary/anonymous-credential/revocation-witness` exposes this witness
+as AEDS frame `AnonymousCredentialRevocationWitnessResponse` for the browser
+prover. The request is strong-anonymous and public-read only: it carries the
+epoch, circuit id/numeric id/layout version, issuer public key hash, current
+revocation root, and irreversible revocation handle hash. The endpoint rebuilds
+the witness from the current root snapshot plus the epoch's revoked handle
+hashes; it does not read user/session state and does not create or verify a
+Groth16 proof.
+
 ## Update Rules
 
 `AnonymousCredentialRootLifecycleService.RevokeAsync` resolves the accumulator

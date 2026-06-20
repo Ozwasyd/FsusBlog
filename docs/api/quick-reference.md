@@ -185,6 +185,7 @@
 | POST `/api/binary/security/challenge/verify` | 🔓 🚦 📦 | `SecurityChallengeVerifyRequest`(174) → `SecurityChallengeVerifyResponse`(176) | Provider proof 验证，成功返回一次性 `proofToken`；perception-sealed@v2 metrics 失败不影响验证结果 |
 | GET `/api/binary/anonymous-credential/root` | 🔓 🚦 📦 | `AnonymousCredentialRootSnapshot`(179) | 公开 credential root / epoch / expiry / circuit metadata；`public_read` 限流 |
 | GET `/api/binary/anonymous-credential/circuit` | 🔓 🚦 📦 | `AnonymousCredentialRootSnapshot`(179) | 同 root snapshot，用于 prover 预热读取 circuit/verifying key metadata |
+| POST `/api/binary/anonymous-credential/revocation-witness` | 🔓 🚦 📦 | `AnonymousCredentialRevocationWitnessRequest`(186) → `AnonymousCredentialRevocationWitnessResponse`(187) | 强匿名 revocation non-membership witness；`public_read` 限流、`no-store`、拒绝携带登录态 |
 | POST `/api/binary/anonymous-credential/issue` | 🔑 🚦 📦 | `AnonymousCredentialIssueRequest`(177) → `AnonymousCredentialIssueResponse`(178) | 登录态只用于领取强匿名凭证；响应 `no-store`，签发审计不保存 credential commitment |
 | POST `/api/binary/telemetry/rum` | 🔓 🚦 📦 | `RumMetricBatchRequest`(75) → `RumMetricIngestResponse`(76) | 匿名 RUM 批量 ingestion；`credentials: omit` |
 

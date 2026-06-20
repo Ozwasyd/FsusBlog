@@ -131,6 +131,35 @@ public readonly struct AnonymousCredentialRootSnapshotPod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct AnonymousCredentialRevocationWitnessRequestPod
+{
+    public readonly long CredentialEpoch;
+    public readonly uint CircuitNumericId;
+    public readonly ushort PublicInputLayoutVersion;
+    public readonly ushort Reserved0;
+    public readonly Utf8SliceRef CircuitId;
+    public readonly Utf8SliceRef IssuerPublicKeyHash;
+    public readonly Utf8SliceRef RevocationRoot;
+    public readonly Utf8SliceRef RevocationHandleHash;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct AnonymousCredentialRevocationWitnessResponsePod
+{
+    public readonly long CredentialEpoch;
+    public readonly ushort PathDepth;
+    public readonly ushort Reserved0;
+    public readonly uint SiblingHashCount;
+    public readonly Utf8SliceRef AlgorithmId;
+    public readonly Utf8SliceRef RevocationRoot;
+    public readonly Utf8SliceRef IssuerPublicKeyHash;
+    public readonly Utf8SliceRef RevocationHandleHash;
+    public readonly Utf8SliceRef LeafKey;
+    public readonly Utf8SliceRef WitnessHash;
+    public readonly Utf8SliceRef SiblingHashes;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AnonymousCommentTicketRequestPod
 {
     public readonly int ArticleId;

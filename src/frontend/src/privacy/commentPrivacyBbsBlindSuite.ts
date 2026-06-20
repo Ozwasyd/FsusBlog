@@ -28,6 +28,7 @@ const COMMITTED_MESSAGE_COUNT = 1
 const COMMITMENT_WITH_PROOF_BYTES = POINT_BYTES + 3 * SCALAR_BYTES
 const OPENING_MAGIC = new TextEncoder().encode('fsus-bbs-blind-opening-v1')
 const WITNESS_MAGIC = new TextEncoder().encode('fsus-bbs-credential-witness-v1')
+const REVOCATION_HANDLE_DOMAIN = 'fsus.anonymous.revocation.handle.v1'
 
 const BLIND_Q1 = G1.fromHex('a347532dc0ba9b83e4f15f3eeb7dffd934f5fa4668d927fbcb68096d5a26f6e59f66681201be1c263af1a25b6749759c')
 const BLIND_MESSAGE_GENERATORS = [
@@ -87,16 +88,21 @@ export function createManagedBbsBlindCredentialSuite(
         return null
       }
 
+      const revocationWitness = buildCredentialWitnessEnvelope({
+        metadata: input.metadata,
+        issuerPublicKeyId: input.issuerPublicKeyId,
+        bbsSignature: input.bbsSignature,
+        committedMessage: opening.committedMessage,
+        proverBlind: opening.proverBlind
+      })
+
       return {
         credentialSecret: scalarToBytes(opening.committedMessage),
         issuerSignature: new Uint8Array(input.bbsSignature),
-        revocationWitness: buildCredentialWitnessEnvelope({
-          metadata: input.metadata,
-          issuerPublicKeyId: input.issuerPublicKeyId,
-          bbsSignature: input.bbsSignature,
-          committedMessage: opening.committedMessage,
-          proverBlind: opening.proverBlind
-        })
+        revocationWitness,
+        revocationHandleHash: deriveRevocationHandleHash(
+          input.metadata.issuerPublicKeyHash,
+          bytesToHex(sha256(revocationWitness)))
       }
     }
   }
@@ -302,6 +308,21 @@ function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
     diff |= left[index] ^ right[index]
   }
   return diff === 0
+}
+
+function deriveRevocationHandleHash(issuerPublicKeyHash: string, credentialBinding: string): Uint8Array {
+  const issuer = normalizeToken(issuerPublicKeyHash, 128).toLowerCase()
+  const binding = normalizeToken(credentialBinding, 256)
+  return sha256(utf8Bytes([REVOCATION_HANDLE_DOMAIN, issuer, binding].join('\0')))
+}
+
+function normalizeToken(value: string, maxLength: number): string {
+  const normalized = value.trim()
+  return normalized.length <= maxLength ? normalized : normalized.slice(0, maxLength)
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
 function asciiBytes(value: string): Uint8Array {

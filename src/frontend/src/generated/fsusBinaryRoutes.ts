@@ -121,6 +121,7 @@ export const fsusBinaryRoutes = {
   "binary_post_admin_security_risk_dimension_reset": "/api/binary/admin/security/risk/{dimension}/reset",
   "binary_post_admin_users_reset_pwd": "/api/binary/admin/users/reset-pwd",
   "binary_post_anonymous_credential_issue": "/api/binary/anonymous-credential/issue",
+  "binary_post_anonymous_credential_revocation_witness": "/api/binary/anonymous-credential/revocation-witness",
   "binary_post_auth_admin_bootstrap_passkey_begin": "/api/binary/auth/admin/bootstrap/passkey/begin",
   "binary_post_auth_admin_bootstrap_passkey_complete": "/api/binary/auth/admin/bootstrap/passkey/complete",
   "binary_post_auth_admin_login_passkey_begin": "/api/binary/auth/admin/login/passkey/begin",

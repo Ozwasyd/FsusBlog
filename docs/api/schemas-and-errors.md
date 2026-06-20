@@ -271,6 +271,8 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
 | 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；覆盖 Character、Localization、MicroInteraction 三类 perception task |
 | 185 | `PerceptionSealedResultV2` | `PerceptionSealedResultV2Pod` | `fsu.challenge/perception-sealed@v2` verify payload；支持 character、coordinates、steps response payload |
+| 186 | `AnonymousCredentialRevocationWitnessRequest` | `AnonymousCredentialRevocationWitnessRequestPod` | `POST /api/binary/anonymous-credential/revocation-witness` 请求体；公开 root/issuer/handle hash metadata |
+| 187 | `AnonymousCredentialRevocationWitnessResponse` | `AnonymousCredentialRevocationWitnessResponsePod` | circuit-friendly sparse Merkle non-membership witness；128 个 sibling hash |
 | 240 | `EmptySuccess` | `EmptySuccessPod` | 通用空成功响应 |
 | 241 | `MutationId` | `MutationIdPod` | 通用变更 ID 响应 |
 | 251 | `ApiError` | `ApiErrorPod` | 二进制错误响应 |
@@ -333,7 +335,9 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | `CommentAuthorViewPod` | 36 |
 | `AnonymousCredentialIssueRequestPod` | 48 |
 | `AnonymousCredentialIssueResponsePod` | 56 |
-| `AnonymousCredentialRootSnapshotPod` | 72 |
+| `AnonymousCredentialRootSnapshotPod` | 80 |
+| `AnonymousCredentialRevocationWitnessRequestPod` | 48 |
+| `AnonymousCredentialRevocationWitnessResponsePod` | 72 |
 | `AnonymousCommentTicketRequestPod` | 96 |
 | `AnonymousCommentTicketResponsePod` | 48 |
 | `AnonymousCommentCreateRequestPod` | 72 |

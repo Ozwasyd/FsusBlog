@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   mapAnonymousCommentTicketResponseFromPayload,
   mapAnonymousCredentialIssueResponseFromPayload,
+  mapAnonymousCredentialRevocationWitnessResponseFromPayload,
   mapAnonymousCredentialRootSnapshotFromPayload,
   mapAnonymousPrivacyStateSnapshotFromPayload,
   mapCommentCursorFromPodPayload,
@@ -12,6 +13,7 @@ import {
 import {
   ANONYMOUS_COMMENT_TICKET_RESPONSE_POD_SIZE,
   ANONYMOUS_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE,
+  ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_RESPONSE_POD_SIZE,
   ANONYMOUS_CREDENTIAL_ROOT_SNAPSHOT_POD_SIZE,
   ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE,
   COMMENT_AUTHOR_VIEW_POD_SIZE,
@@ -239,10 +241,11 @@ describe('anonymous privacy binary adapters', () => {
     const rootPod = new Uint8Array(ANONYMOUS_CREDENTIAL_ROOT_SNAPSHOT_POD_SIZE)
     const circuit = textBytes('zk-comment-v1')
     const vk = textBytes('vk-sha256')
+    const issuerPublicKeyHash = textBytes('issuer-public-key-hash')
     const credentialRoot = new Uint8Array([1, 2])
     const revocationRoot = new Uint8Array([3, 4])
     const metadata = new Uint8Array([5, 6])
-    const rootBlob = buildPayload(circuit, vk, credentialRoot, revocationRoot, metadata)
+    const rootBlob = buildPayload(circuit, vk, issuerPublicKeyHash, credentialRoot, revocationRoot, metadata)
     writeInt64(rootPod, 0, 20260618n)
     writeInt64(rootPod, 8, 1780000000000n)
     writeInt64(rootPod, 16, 1780003600000n)
@@ -252,15 +255,17 @@ describe('anonymous privacy binary adapters', () => {
     writeByte(rootPod, 31, 1)
     writeSliceRef(rootPod, 32, 0, circuit.length)
     writeSliceRef(rootPod, 40, circuit.length, vk.length)
-    writeSliceRef(rootPod, 48, circuit.length + vk.length, credentialRoot.length)
-    writeSliceRef(rootPod, 56, circuit.length + vk.length + credentialRoot.length, revocationRoot.length)
-    writeSliceRef(rootPod, 64, circuit.length + vk.length + credentialRoot.length + revocationRoot.length, metadata.length)
+    writeSliceRef(rootPod, 48, circuit.length + vk.length, issuerPublicKeyHash.length)
+    writeSliceRef(rootPod, 56, circuit.length + vk.length + issuerPublicKeyHash.length, credentialRoot.length)
+    writeSliceRef(rootPod, 64, circuit.length + vk.length + issuerPublicKeyHash.length + credentialRoot.length, revocationRoot.length)
+    writeSliceRef(rootPod, 72, circuit.length + vk.length + issuerPublicKeyHash.length + credentialRoot.length + revocationRoot.length, metadata.length)
 
     const root = mapAnonymousCredentialRootSnapshotFromPayload(buildPayload(rootPod, blobParts(rootBlob)))
     expect(root.rootGraceExpiresAtUnixMs).toBe(1780003600000)
     expect(root.zkAnonymousEnabled).toBe(true)
     expect(root.verifierConfigured).toBe(true)
     expect(root.verifyingKeyHash).toBe('vk-sha256')
+    expect(root.issuerPublicKeyHash).toBe('issuer-public-key-hash')
     expect([...root.credentialRoot]).toEqual([1, 2])
     expect([...root.revocationRoot]).toEqual([3, 4])
     expect([...root.circuitMetadata]).toEqual([5, 6])
@@ -305,6 +310,42 @@ describe('anonymous privacy binary adapters', () => {
     expect(state.canIssueCredential).toBe(false)
     expect(state.canSubmitAnonymousComment).toBe(true)
     expect(state.credentialStatus).toBe('active')
+  })
+
+  it('decodes circuit-friendly revocation witness responses', () => {
+    const pod = new Uint8Array(ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_RESPONSE_POD_SIZE)
+    const algorithm = textBytes('circuit-friendly-non-membership.v1')
+    const revocationRoot = new Uint8Array([1, 2, 3])
+    const issuerPublicKeyHash = textBytes('issuer-public-key-hash')
+    const handle = new Uint8Array([4, 5, 6])
+    const leafKey = new Uint8Array([7, 8])
+    const witnessHash = new Uint8Array([9, 10, 11])
+    const siblings = new Uint8Array(64).fill(12)
+    const blob = buildPayload(algorithm, revocationRoot, issuerPublicKeyHash, handle, leafKey, witnessHash, siblings)
+
+    writeInt64(pod, 0, 20260618n)
+    writeUint16(pod, 8, 2)
+    writeUint16(pod, 10, 0)
+    writeInt32(pod, 12, 2)
+    writeSliceRef(pod, 16, 0, algorithm.length)
+    writeSliceRef(pod, 24, algorithm.length, revocationRoot.length)
+    writeSliceRef(pod, 32, algorithm.length + revocationRoot.length, issuerPublicKeyHash.length)
+    writeSliceRef(pod, 40, algorithm.length + revocationRoot.length + issuerPublicKeyHash.length, handle.length)
+    writeSliceRef(pod, 48, algorithm.length + revocationRoot.length + issuerPublicKeyHash.length + handle.length, leafKey.length)
+    writeSliceRef(pod, 56, algorithm.length + revocationRoot.length + issuerPublicKeyHash.length + handle.length + leafKey.length, witnessHash.length)
+    writeSliceRef(pod, 64, algorithm.length + revocationRoot.length + issuerPublicKeyHash.length + handle.length + leafKey.length + witnessHash.length, siblings.length)
+
+    const response = mapAnonymousCredentialRevocationWitnessResponseFromPayload(buildPayload(pod, blobParts(blob)))
+
+    expect(response.credentialEpoch).toBe(20260618)
+    expect(response.algorithmId).toBe('circuit-friendly-non-membership.v1')
+    expect(response.pathDepth).toBe(2)
+    expect(response.issuerPublicKeyHash).toBe('issuer-public-key-hash')
+    expect([...response.revocationRoot]).toEqual([1, 2, 3])
+    expect([...response.revocationHandleHash]).toEqual([4, 5, 6])
+    expect([...response.leafKey]).toEqual([7, 8])
+    expect([...response.witnessHash]).toEqual([9, 10, 11])
+    expect(response.siblingHashes).toHaveLength(64)
   })
 
   it('rejects malformed, trailing, and oversized anonymous privacy payloads', () => {

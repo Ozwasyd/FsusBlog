@@ -25,6 +25,7 @@ export interface CommentPrivacyCredentialMaterial {
   credentialSecret: Uint8Array
   issuerSignature: Uint8Array
   revocationWitness: Uint8Array
+  revocationHandleHash?: Uint8Array
 }
 
 export interface CommentPrivacyCredentialSuccess {

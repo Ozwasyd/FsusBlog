@@ -544,6 +544,16 @@
         },
         {
           "method": "POST",
+          "path": "/anonymous-credential/revocation-witness",
+          "auth": "anonymous",
+          "cache": "no-store",
+          "rateLimit": "public_read",
+          "requestFrame": "AnonymousCredentialRevocationWitnessRequest",
+          "responseFrame": "AnonymousCredentialRevocationWitnessResponse",
+          "surface": "anonymous-credential-revocation-witness"
+        },
+        {
+          "method": "POST",
           "path": "/anonymous-credential/issue",
           "auth": "user",
           "cache": "no-store",
