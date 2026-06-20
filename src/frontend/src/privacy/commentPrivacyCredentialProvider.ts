@@ -10,6 +10,7 @@ import {
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import { FrameType } from '@wasm/protocol/frame'
 import type { CommentPrivacyCredentialMaterial } from './commentPrivacyTypes'
+import { createManagedBbsBlindCredentialSuite } from './commentPrivacyBbsBlindSuite'
 import {
   createCommentPrivacyCredentialVault,
   type CommentPrivacyCredentialVault,
@@ -62,8 +63,8 @@ export interface CommentPrivacyBlindCredentialSuite {
     credentialSecret: Uint8Array
     clientNonce: Uint8Array
     blindOpening: Uint8Array
-    issuerResponse: Uint8Array
-    credentialCommitment: Uint8Array
+    issuerPublicKeyId: string
+    bbsSignature: Uint8Array
     metadata: CommentPrivacyCredentialIssuerMetadata
     response: AnonymousCredentialIssueResponse
     signal: AbortSignal
@@ -93,7 +94,9 @@ export function createCommentPrivacyCredentialProvider(
     : options.crypto
   const loadMetadata = options.loadMetadata ?? loadDefaultCredentialMetadata
   const issueCredential = options.issueCredential ?? issueAnonymousCredential
-  const blindCredentialSuite = options.blindCredentialSuite ?? null
+  const blindCredentialSuite = options.blindCredentialSuite === undefined && cryptoSource
+    ? createManagedBbsBlindCredentialSuite({ crypto: cryptoSource })
+    : options.blindCredentialSuite ?? null
   const now = options.now ?? (() => Date.now())
   const unavailableCacheTtlMs = options.unavailableCacheTtlMs ?? DEFAULT_FAILURE_CACHE_TTL_MS
   const credentialSecretBytes = options.credentialSecretBytes ?? DEFAULT_CREDENTIAL_SECRET_BYTES
@@ -171,8 +174,8 @@ export function createCommentPrivacyCredentialProvider(
           credentialSecret: cloneBytes(credentialSecret),
           clientNonce: cloneBytes(clientNonce),
           blindOpening: cloneBytes(blindRequest.blindOpening),
-          issuerResponse: cloneBytes(issuerResponse.issuerResponse),
-          credentialCommitment: cloneBytes(issuerResponse.credentialCommitment),
+          issuerPublicKeyId: issuerResponse.issuerPublicKeyId,
+          bbsSignature: cloneBytes(issuerResponse.bbsSignature),
           metadata,
           response: issuerResponse,
           signal
@@ -195,7 +198,7 @@ export function createCommentPrivacyCredentialProvider(
           ...credential,
           expiresAtUnixMs,
           credentialLevel: issuerResponse.credentialLevel,
-          credentialCommitment: cloneBytes(issuerResponse.credentialCommitment)
+          issuerPublicKeyId: issuerResponse.issuerPublicKeyId
         })
 
         return cloneCredentialMaterial(credential)
@@ -306,10 +309,10 @@ function matchesMetadata(
     response.circuitNumericId === metadata.circuitNumericId &&
     response.publicInputLayoutVersion === metadata.publicInputLayoutVersion &&
     response.circuitId === metadata.circuitId &&
-    response.issuerResponse instanceof Uint8Array &&
-    response.issuerResponse.byteLength > 0 &&
-    response.credentialCommitment instanceof Uint8Array &&
-    response.credentialCommitment.byteLength > 0
+    typeof response.issuerPublicKeyId === 'string' &&
+    response.issuerPublicKeyId.trim().length > 0 &&
+    response.bbsSignature instanceof Uint8Array &&
+    response.bbsSignature.byteLength > 0
 }
 
 function isUsableCredentialMaterial(

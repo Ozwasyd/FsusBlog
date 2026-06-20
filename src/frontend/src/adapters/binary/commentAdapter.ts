@@ -81,8 +81,8 @@ export function mapAnonymousCredentialIssueResponseFromPayload(payload: Uint8Arr
     publicInputLayoutVersion: readUint16(pod, 20),
     circuitId: readAnonymousSliceText(blob, readSliceRef(pod, 24), 'anonymous_credential_issue_response_circuit_invalid'),
     credentialLevel: readAnonymousSliceText(blob, readSliceRef(pod, 32), 'anonymous_credential_issue_response_level_invalid'),
-    issuerResponse: readAnonymousSliceBytes(blob, readSliceRef(pod, 40), 'anonymous_credential_issue_response_issuer_invalid'),
-    credentialCommitment: readAnonymousSliceBytes(blob, readSliceRef(pod, 48), 'anonymous_credential_issue_response_commitment_invalid')
+    issuerPublicKeyId: readAnonymousSliceText(blob, readSliceRef(pod, 40), 'anonymous_credential_issue_response_issuer_invalid'),
+    bbsSignature: readAnonymousSliceBytes(blob, readSliceRef(pod, 48), 'anonymous_credential_issue_response_signature_invalid')
   };
 }
 

@@ -208,9 +208,9 @@ describe('anonymous privacy binary adapters', () => {
     const pod = new Uint8Array(ANONYMOUS_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE)
     const circuit = textBytes('zk-comment-v1')
     const level = textBytes('strong_anonymous')
-    const issuer = new Uint8Array([7, 8, 9])
-    const commitment = new Uint8Array([10, 11, 12])
-    const blob = buildPayload(circuit, level, issuer, commitment)
+    const issuerPublicKeyId = textBytes('issuer-key-2026q2')
+    const bbsSignature = new Uint8Array([7, 8, 9])
+    const blob = buildPayload(circuit, level, issuerPublicKeyId, bbsSignature)
 
     writeInt64(pod, 0, 20260618n)
     writeInt64(pod, 8, 1780000000000n)
@@ -218,8 +218,8 @@ describe('anonymous privacy binary adapters', () => {
     writeUint16(pod, 20, 2)
     writeSliceRef(pod, 24, 0, circuit.length)
     writeSliceRef(pod, 32, circuit.length, level.length)
-    writeSliceRef(pod, 40, circuit.length + level.length, issuer.length)
-    writeSliceRef(pod, 48, circuit.length + level.length + issuer.length, commitment.length)
+    writeSliceRef(pod, 40, circuit.length + level.length, issuerPublicKeyId.length)
+    writeSliceRef(pod, 48, circuit.length + level.length + issuerPublicKeyId.length, bbsSignature.length)
 
     const result = mapAnonymousCredentialIssueResponseFromPayload(buildPayload(pod, blobParts(blob)))
 
@@ -229,9 +229,10 @@ describe('anonymous privacy binary adapters', () => {
     expect(result.publicInputLayoutVersion).toBe(2)
     expect(result.circuitId).toBe('zk-comment-v1')
     expect(result.credentialLevel).toBe('strong_anonymous')
-    expect([...result.issuerResponse]).toEqual([7, 8, 9])
-    expect([...result.credentialCommitment]).toEqual([10, 11, 12])
+    expect(result.issuerPublicKeyId).toBe('issuer-key-2026q2')
+    expect([...result.bbsSignature]).toEqual([7, 8, 9])
     expect(JSON.stringify(result)).not.toContain('userId')
+    expect(JSON.stringify(result)).not.toContain('credentialCommitment')
   })
 
   it('decodes root snapshot, ticket response, and privacy state snapshots', () => {

@@ -100,8 +100,8 @@ export interface AnonymousCredentialIssueResponse {
   publicInputLayoutVersion: number
   circuitId: string
   credentialLevel: string
-  issuerResponse: Uint8Array
-  credentialCommitment: Uint8Array
+  issuerPublicKeyId: string
+  bbsSignature: Uint8Array
 }
 
 export interface AnonymousCredentialRootSnapshot {

@@ -15,7 +15,7 @@ export interface CommentPrivacyStoredCredential
     CommentPrivacyCredentialMaterial {
   expiresAtUnixMs: number
   credentialLevel?: string
-  credentialCommitment?: Uint8Array
+  issuerPublicKeyId?: string
 }
 
 export interface CommentPrivacyCredentialVault {
@@ -159,9 +159,7 @@ function toStoredRecord(credential: CommentPrivacyStoredCredential): StoredCrede
     revocationWitness: cloneBytes(credential.revocationWitness),
     expiresAtUnixMs: credential.expiresAtUnixMs,
     credentialLevel: credential.credentialLevel,
-    credentialCommitment: credential.credentialCommitment
-      ? cloneBytes(credential.credentialCommitment)
-      : undefined
+    issuerPublicKeyId: credential.issuerPublicKeyId
   }
 }
 
@@ -175,9 +173,7 @@ function cloneCredentialRecord(record: StoredCredentialRecord): CommentPrivacySt
     revocationWitness: cloneBytes(record.revocationWitness),
     expiresAtUnixMs: record.expiresAtUnixMs,
     credentialLevel: record.credentialLevel,
-    credentialCommitment: record.credentialCommitment
-      ? cloneBytes(record.credentialCommitment)
-      : undefined
+    issuerPublicKeyId: record.issuerPublicKeyId
   }
 }
 

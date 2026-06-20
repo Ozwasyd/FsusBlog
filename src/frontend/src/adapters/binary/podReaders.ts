@@ -129,7 +129,7 @@ function readCommentAuthorViewPayload(payload: Uint8Array, errorCode: string): C
     author: {
       mode: decodeCommentAuthorMode(pod[0] ?? 0, errorCode),
       displayName: readSliceText(blob, readSliceRef(pod, 4)),
-      displayLanguage: readSliceText(blob, readSliceRef(pod, 12)),
+      displayLanguage: decodeCommentDisplayLanguage(readSliceText(blob, readSliceRef(pod, 12))),
       badge: nullableAuthorField(readSliceText(blob, readSliceRef(pod, 20))),
       scopeLabel: nullableAuthorField(readSliceText(blob, readSliceRef(pod, 28))),
       credentialLevel: decodeCommentCredentialLevel(pod[1] ?? 0, errorCode)
@@ -142,6 +142,10 @@ function decodeCommentAuthorMode(raw: number, errorCode: string): CommentAuthorV
   if (raw === 3) return 'public';
   if (raw === 4) return 'zk_anonymous';
   throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
+}
+
+function decodeCommentDisplayLanguage(value: string): CommentAuthorView['displayLanguage'] {
+  return value === 'en' ? 'en' : 'zh-CN';
 }
 
 function decodeCommentCredentialLevel(raw: number, errorCode: string): string | null {

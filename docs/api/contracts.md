@@ -208,7 +208,7 @@ perception-sealed@v2 的验证矩阵：
 
 请求 frame 为 `AnonymousCredentialIssueRequest` (`177`)：`credentialEpoch`、`circuitNumericId`、`publicInputLayoutVersion`、`circuitId`、`credentialLevel`、`blindedRequest`、`clientNonce`。服务端以当前账号的 `anonymous_credential_level/status` 和 `sys_user.Status/deleted_at` 判定资格；被封禁账号是否允许领取必须通过 `AnonymousCredentialIssuer:AllowBannedAccountIssuance` 显式配置，默认配置为 `false`。请求 frame 上限为 16 KiB，`blindedRequest` 默认最大 8192 bytes，`clientNonce` 默认最大 128 bytes。
 
-响应 frame 为 `AnonymousCredentialIssueResponse` (`178`)：返回服务端签发骨架的 `issuerResponse`、当前 `credentialEpoch`、`rootExpiresAtUnixMs`、circuit metadata 与 `credentialCommitment`。`credentialCommitment` 只返回给客户端，不写入签发审计表。频率限制以 `anonymous_credential_issuance_audit(user_id, epoch)` 唯一约束作为真源；重复领取返回 `409` + `anonymous_credential_issue_rate_limited`。
+响应 frame 为 `AnonymousCredentialIssueResponse` (`178`)：返回当前 `credentialEpoch`、`rootExpiresAtUnixMs`、circuit metadata、`issuerPublicKeyId` 与 80 bytes Blind BBS `bbsSignature`。响应不返回 SHA256 commitment 或可逆身份字段；频率限制以 `anonymous_credential_issuance_audit(user_id, epoch)` 唯一约束作为真源；重复领取返回 `409` + `anonymous_credential_issue_rate_limited`。
 
 `anonymous_credential_issuance_audit` 只保存不可逆审计字段：`user_id`、`epoch`、`status`、`created_at_utc`、`trace_id`。该表不得包含 `request_hash`、`credential_commitment`、nullifier、proof witness、credential secret、blinded commitment、BBS+ signature 或 issuer response 原文。高价值审计事件 `security.anonymous_credential.issued` 只记录签发 `status` 与 `epoch`，不记录 blinded request、issuer response、signature、request hash 或 credential commitment。
 

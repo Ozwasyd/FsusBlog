@@ -129,7 +129,7 @@ import {
 import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { Connection, Cpu, Refresh, RefreshLeft, RefreshRight, Warning } from '@/fsusui/icons'
-import { promptText, toast } from '@/fsusui/feedback'
+import { toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 
