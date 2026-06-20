@@ -844,6 +844,14 @@ public static partial class BinaryEndpoints
                         StatusCodes.Status403Forbidden);
                 }
 
+                if (UserSecurityStepUpActions.IsCredentialMutation(action))
+                {
+                    return BinaryResults.FromError(
+                        ErrorDetail.Create(ErrorCode.Forbidden, "PASSWORD_OR_STEP_UP_PROOF_REQUIRED"),
+                        aeds,
+                        StatusCodes.Status428PreconditionRequired);
+                }
+
                 string proofToken = await challengeService.CreateProofTokenAsync(user.Value.Id, action, TimeSpan.FromMinutes(5));
                 var noMfa = new MfaChallengeResultDto(true, action, proofToken, null);
                 return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(noMfa, writer));
@@ -987,9 +995,22 @@ public static partial class BinaryEndpoints
         group.MapPost("/auth/recovery-key/create", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IRecoveryKeyService recoveryKeys,
+            IUserSecurityStepUpService stepUp,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            var stepUpResult = await RequireUserSecurityStepUpAsync(
+                httpContext,
+                stepUp,
+                UserSecurityStepUpActions.RecoveryKeyCreate,
+                aeds,
+                allowPasswordBody: true,
+                cancellationToken);
+            if (stepUpResult is { } rejected)
+            {
+                return BinaryResults.FromError(rejected.Error, aeds, rejected.StatusCode);
+            }
+
             Result<RecoveryKeyCreateResponseCoreModel> result = await recoveryKeys.CreateAsync(httpContext.GetUserId(), cancellationToken);
             return result.IsSuccess && result.Value is { } value
                 ? BinaryResults.Frame(aeds, AedsFrameType.RecoveryKeyCreateResponse, writer => PodBinaryCodec.WriteRecoveryKeyCreateResponse(value, writer))
@@ -1002,9 +1023,22 @@ public static partial class BinaryEndpoints
         group.MapPost("/auth/recovery-key/rotate", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IRecoveryKeyService recoveryKeys,
+            IUserSecurityStepUpService stepUp,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            var stepUpResult = await RequireUserSecurityStepUpAsync(
+                httpContext,
+                stepUp,
+                UserSecurityStepUpActions.RecoveryKeyRotate,
+                aeds,
+                allowPasswordBody: true,
+                cancellationToken);
+            if (stepUpResult is { } rejected)
+            {
+                return BinaryResults.FromError(rejected.Error, aeds, rejected.StatusCode);
+            }
+
             Result<RecoveryKeyCreateResponseCoreModel> result = await recoveryKeys.RotateAsync(httpContext.GetUserId(), cancellationToken);
             return result.IsSuccess && result.Value is { } value
                 ? BinaryResults.Frame(aeds, AedsFrameType.RecoveryKeyCreateResponse, writer => PodBinaryCodec.WriteRecoveryKeyCreateResponse(value, writer))
@@ -1299,10 +1333,23 @@ public static partial class BinaryEndpoints
         group.MapDelete("/auth/passkey/credentials/{id:int}", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IPasskeyService passkeyService,
+            IUserSecurityStepUpService stepUp,
             int id,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            var stepUpResult = await RequireUserSecurityStepUpAsync(
+                httpContext,
+                stepUp,
+                UserSecurityStepUpActions.PasskeyDelete,
+                aeds,
+                allowPasswordBody: true,
+                cancellationToken);
+            if (stepUpResult is { } rejected)
+            {
+                return BinaryResults.FromError(rejected.Error, aeds, rejected.StatusCode);
+            }
+
             int userId = httpContext.GetUserId();
             PasskeyCredentialMutationResult removeResult = await passkeyService.RemoveCredentialAsync(userId, id, cancellationToken);
             return removeResult.Success
@@ -1317,6 +1364,7 @@ public static partial class BinaryEndpoints
         group.MapPut("/auth/passkey/credentials/{id:int}/name", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IPasskeyService passkeyService,
+            IUserSecurityStepUpService stepUp,
             int id,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
@@ -1334,6 +1382,18 @@ public static partial class BinaryEndpoints
             }
 
             int userId = httpContext.GetUserId();
+            var stepUpResult = await RequireUserSecurityStepUpAsync(
+                httpContext,
+                stepUp,
+                UserSecurityStepUpActions.PasskeyRename,
+                aeds,
+                allowPasswordBody: false,
+                cancellationToken);
+            if (stepUpResult is { } rejected)
+            {
+                return BinaryResults.FromError(rejected.Error, aeds, rejected.StatusCode);
+            }
+
             bool renamed = await passkeyService.RenameCredentialAsync(userId, id, name, cancellationToken);
             return renamed
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
@@ -1349,6 +1409,66 @@ public static partial class BinaryEndpoints
             string.Equals(error.Message, "RECOVERY_KEY_RATE_LIMITED", StringComparison.Ordinal)
                 ? StatusCodes.Status429TooManyRequests
                 : 0);
+
+    private static async Task<(ErrorDetail Error, int StatusCode)?> RequireUserSecurityStepUpAsync(
+        HttpContext httpContext,
+        IUserSecurityStepUpService stepUp,
+        string action,
+        IAedsEncoder aeds,
+        bool allowPasswordBody,
+        CancellationToken cancellationToken)
+    {
+        var proof = await ReadUserSecurityStepUpProofAsync(httpContext, aeds, allowPasswordBody, cancellationToken);
+        if (proof.Error.Code != ErrorCode.None)
+        {
+            return (proof.Error, StatusCodes.Status400BadRequest);
+        }
+
+        UserSecurityStepUpResult result = await stepUp.VerifyAsync(
+            new UserSecurityStepUpRequest(
+                httpContext.GetUserId(),
+                action,
+                proof.Proof,
+                httpContext.GetClientIp()),
+            cancellationToken);
+        return result.Success
+            ? null
+            : (ErrorDetail.Create(result.ErrorCode, result.Message), result.StatusCode);
+    }
+
+    private static async Task<(UserSecurityStepUpProof Proof, ErrorDetail Error)> ReadUserSecurityStepUpProofAsync(
+        HttpContext httpContext,
+        IAedsEncoder aeds,
+        bool allowPasswordBody,
+        CancellationToken cancellationToken)
+    {
+        string proofToken = httpContext.Request.Headers.TryGetValue(MfaProofHeader, out var values)
+            ? values.ToString().Trim()
+            : string.Empty;
+        string password = string.Empty;
+
+        if (allowPasswordBody && HasBinaryRequestBody(httpContext))
+        {
+            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaPasswordProofRequest, cancellationToken);
+            if (!payload.IsSuccess)
+            {
+                return (default, payload.Error);
+            }
+
+            if (!PodBinaryCodec.TryDecodeMfaPasswordProofRequest(payload.Payload, out var request))
+            {
+                return (default, ErrorDetail.Create(ErrorCode.Validation, "STEP_UP_PASSWORD_PROOF_INVALID"));
+            }
+
+            password = request.Password;
+        }
+
+        return (new UserSecurityStepUpProof(proofToken, password), ErrorDetail.None);
+    }
+
+    private static bool HasBinaryRequestBody(HttpContext httpContext)
+        => httpContext.Request.ContentLength.GetValueOrDefault() > 0
+            || httpContext.Request.Headers.ContainsKey("Transfer-Encoding");
 
     private static ValueTask RecordAuthLoginFailureAsync(
         HttpContext httpContext,

@@ -226,6 +226,8 @@ Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD
 
 匿名身份模式下，`PasskeyRegisterBegin` 的 WebAuthn `user.id` 使用稳定的内部 account id 字节；`user.name` 使用 `fsus-account-{id}` 形式的非识别内部标签，`user.displayName` 仅在用户显式设置 `public_handle` 时使用公开 handle，否则同样使用内部标签。注册与 discoverable login 仍复用同一套 `passkey_credential` 表、challenge cache、sign-count 和 last-used 更新路径，不新增平行 Passkey 栈。匿名模式下删除最后一枚 Passkey 需要已启用 Recovery Key / recovery path；否则服务端返回 `409` + AEDS `ApiError`，错误消息为 `CannotRemoveLastCredentialWithoutRecovery`。Passkey login begin/complete 受 RiskControl 保护；assertion 失败写 `PasskeyAssertionFailed` 正分风险信号，assertion 成功写 `PasskeyAssertionAccepted` 负分风险信号并以 `mfaVerified=true` 完成登录，不再额外要求普通 TOTP MFA。
 
+Passkey 删除与重命名是账号安全凭据变更，必须通过统一 user security step-up。客户端提交 `X-Fsus-Mfa-Proof` 时，proof 必须绑定对应 action：删除为 `passkey.delete`，重命名为 `passkey.rename`，且服务端一次性消费。MFA enabled 账号只接受对应 action proof；legacy 非 MFA 账号可使用当前密码或等效 action proof；anonymous identity mode 下禁止 legacy password fallback。`DELETE /api/binary/auth/passkey/credentials/{id}` 可在直接 password fallback 时提交 `MfaPasswordProofRequest` body；`PUT /name` 的 body 已由 `PasskeyRenameRequest` 占用，因此只从 `X-Fsus-Mfa-Proof` 读取等效 proof。
+
 | FrameType | POD | 端点 / 用途 |
 |-----------|-----|-------------|
 | `PasskeyRegisterBegin` (`63`) | `PasskeyRegisterBeginPod` | `POST /api/binary/auth/passkey/register/begin`；admin bootstrap begin 复用该响应 frame |
@@ -262,6 +264,8 @@ admin step-up challenge 绑定 `identity_kind=admin_principal`、`admin_id`、�
 ### Recovery Key AEDS frames
 
 Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery code。服务端只存储 `account_recovery_key.key_hash`、`key_version`、`created_at`、`used_at`、`revoked_at`，哈希使用服务端 `RecoveryKeyPepper` 加固；明文 Recovery Key 只在 create/rotate 响应中返回一次，不写数据库、日志、telemetry 或 browser storage。
+
+`POST /api/binary/auth/recovery-key/create` 和 `/rotate` 必须通过统一 user security step-up：`X-Fsus-Mfa-Proof` 绑定 `recovery-key.create` 或 `recovery-key.rotate` 并一次性消费；legacy 非 MFA 账号也可提交 `MfaPasswordProofRequest` body 作为当前密码 proof；anonymous identity mode 下该 password fallback 被禁用。缺失、action 不匹配、过期或重放 proof 返回 `428` + AEDS `ApiError`。
 
 验证成功会把当前 Recovery Key 标记为 used，返回 10 分钟 recovery session token。该 token 只允许调用 recovery passkey begin/complete 端点绑定新 Passkey；如果 verify 请求设置 `revokeSessions`，服务端会撤销该账号现有会话；如果设置 `revokePasskeys`，新 Passkey 绑定完成后删除旧凭据。TOTP MFA recovery code 仍只用于 MFA bypass，不得作为账户恢复。
 

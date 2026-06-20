@@ -21,6 +21,7 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
             TimestampDriftTolerance = 300000,
         }));
         services.AddScoped<IPasskeyService, PasskeyService>();
+        services.AddScoped<IUserSecurityStepUpService, UserSecurityStepUpService>();
         services.AddScoped<IAdminPrincipalService, AdminPrincipalService>();
         services.AddScoped<IAdminSessionValidationService, AdminSessionValidationService>();
         services.AddScoped<IRecoveryKeyService, RecoveryKeyService>();

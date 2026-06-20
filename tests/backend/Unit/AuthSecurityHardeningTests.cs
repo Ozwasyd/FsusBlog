@@ -99,6 +99,41 @@ public sealed class AuthSecurityHardeningTests
     }
 
     [Fact]
+    public void CredentialMutationEndpoints_VerifyStepUpBeforeDomainMutation()
+    {
+        string source = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+
+        string recoveryCreate = ExtractBetween(
+            source,
+            "group.MapPost(\"/auth/recovery-key/create\"",
+            "group.MapPost(\"/auth/recovery-key/rotate\"");
+        string recoveryRotate = ExtractBetween(
+            source,
+            "group.MapPost(\"/auth/recovery-key/rotate\"",
+            "group.MapPost(\"/auth/recovery-key/verify\"");
+        string passkeyDelete = ExtractBetween(
+            source,
+            "group.MapDelete(\"/auth/passkey/credentials/{id:int}\"",
+            "group.MapPut(\"/auth/passkey/credentials/{id:int}/name\"");
+        string passkeyRename = ExtractBetween(
+            source,
+            "group.MapPut(\"/auth/passkey/credentials/{id:int}/name\"",
+            "private static BinaryFrameResult RecoveryKeyError");
+
+        AssertStepUpBeforeMutation(recoveryCreate, "UserSecurityStepUpActions.RecoveryKeyCreate", "recoveryKeys.CreateAsync");
+        AssertStepUpBeforeMutation(recoveryRotate, "UserSecurityStepUpActions.RecoveryKeyRotate", "recoveryKeys.RotateAsync");
+        AssertStepUpBeforeMutation(passkeyDelete, "UserSecurityStepUpActions.PasskeyDelete", "passkeyService.RemoveCredentialAsync");
+        AssertStepUpBeforeMutation(passkeyRename, "UserSecurityStepUpActions.PasskeyRename", "passkeyService.RenameCredentialAsync");
+
+        string helper = ExtractBetween(
+            source,
+            "private static async Task<(ErrorDetail Error, int StatusCode)?> RequireUserSecurityStepUpAsync",
+            "private static async Task<(UserSecurityStepUpProof Proof, ErrorDetail Error)> ReadUserSecurityStepUpProofAsync");
+        Assert.Contains("result.StatusCode", helper, StringComparison.Ordinal);
+        Assert.Contains("ErrorDetail.Create(result.ErrorCode, result.Message)", helper, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void FrontendUserStore_DoesNotPersistAuthorityFields()
     {
         string source = ReadSource("src/frontend/src/store/user.ts");
@@ -107,10 +142,30 @@ public sealed class AuthSecurityHardeningTests
         Assert.Contains("pick: ['isAuthChecked']", source, StringComparison.Ordinal);
         Assert.DoesNotContain("pick: ['userInfo'", source, StringComparison.Ordinal);
         Assert.Contains("const adminRoles = ['admin'];", source, StringComparison.Ordinal);
-        Assert.Contains("to.path.startsWith('/user/manage')", router, StringComparison.Ordinal);
+        Assert.Contains("route.path.startsWith('/user/manage')", router, StringComparison.Ordinal);
+        Assert.Contains("record.meta.accountArea === 'manage'", router, StringComparison.Ordinal);
         Assert.Contains("ensureUserInfoFresh({ maxAgeMs: 30_000, forceWhenUnknown: true })", router, StringComparison.Ordinal);
     }
 
     private static string ReadSource(string relativePath, [CallerFilePath] string sourceFilePath = "")
         => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
+
+    private static string ExtractBetween(string source, string start, string end)
+    {
+        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
+        int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
+        Assert.True(endIndex >= 0, $"Missing end marker: {end}");
+        return source[startIndex..endIndex];
+    }
+
+    private static void AssertStepUpBeforeMutation(string handler, string action, string mutationCall)
+    {
+        int stepUpIndex = handler.IndexOf("RequireUserSecurityStepUpAsync(", StringComparison.Ordinal);
+        int mutationIndex = handler.IndexOf(mutationCall, StringComparison.Ordinal);
+        Assert.True(stepUpIndex >= 0, $"Missing step-up call for {action}.");
+        Assert.True(mutationIndex >= 0, $"Missing mutation call for {action}.");
+        Assert.True(stepUpIndex < mutationIndex, $"{action} must verify step-up before domain mutation.");
+        Assert.Contains(action, handler, StringComparison.Ordinal);
+    }
 }

@@ -43,6 +43,51 @@ public sealed class EndpointPolicyContractTests
     }
 
     [Fact]
+    public void AccountSecurityCredentialMutations_RequireUnifiedStepUpBoundary()
+    {
+        string source = ReadRepoFile(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "Binary",
+            "BinaryEndpoints.Auth.cs");
+
+        string recoveryCreate = ExtractBetween(
+            source,
+            "group.MapPost(\"/auth/recovery-key/create\"",
+            "group.MapPost(\"/auth/recovery-key/rotate\"");
+        string recoveryRotate = ExtractBetween(
+            source,
+            "group.MapPost(\"/auth/recovery-key/rotate\"",
+            "group.MapPost(\"/auth/recovery-key/verify\"");
+        string passkeyDelete = ExtractBetween(
+            source,
+            "group.MapDelete(\"/auth/passkey/credentials/{id:int}\"",
+            "group.MapPut(\"/auth/passkey/credentials/{id:int}/name\"");
+        string passkeyRename = ExtractBetween(
+            source,
+            "group.MapPut(\"/auth/passkey/credentials/{id:int}/name\"",
+            "private static BinaryFrameResult RecoveryKeyError");
+
+        AssertStepUpBoundary(recoveryCreate, "UserSecurityStepUpActions.RecoveryKeyCreate");
+        AssertStepUpBoundary(recoveryRotate, "UserSecurityStepUpActions.RecoveryKeyRotate");
+        AssertStepUpBoundary(passkeyDelete, "UserSecurityStepUpActions.PasskeyDelete");
+        AssertStepUpBoundary(passkeyRename, "UserSecurityStepUpActions.PasskeyRename");
+
+        string serviceRegistration = ReadRepoFile(
+            "src",
+            "backend",
+            "Infrastructure",
+            "Bootstrap",
+            "RuntimeSecurityAndLifecycleServiceCollectionExtensions.cs");
+        Assert.Contains(
+            "services.AddScoped<IUserSecurityStepUpService, UserSecurityStepUpService>();",
+            serviceRegistration,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BinaryArticleAdminRoutes_AreUnderAdminPrefix()
     {
         string source = ReadRepoFile(
@@ -316,5 +361,14 @@ public sealed class EndpointPolicyContractTests
         int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
         Assert.True(endIndex >= 0, $"Missing end marker: {end}");
         return source[startIndex..endIndex];
+    }
+
+    private static void AssertStepUpBoundary(string handler, string action)
+    {
+        Assert.Contains("IUserSecurityStepUpService stepUp", handler, StringComparison.Ordinal);
+        Assert.Contains("RequireUserSecurityStepUpAsync(", handler, StringComparison.Ordinal);
+        Assert.Contains(action, handler, StringComparison.Ordinal);
+        Assert.DoesNotContain("ValidateAndConsumeProofTokenAsync", handler, StringComparison.Ordinal);
+        Assert.DoesNotContain("MfaEnabled", handler, StringComparison.Ordinal);
     }
 }
