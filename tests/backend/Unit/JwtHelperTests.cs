@@ -4,6 +4,7 @@ using System.Security.Claims;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Tests.Fixtures;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -11,6 +12,7 @@ namespace FsusBlog.Server.Tests.Unit;
 /// Unit tests for JwtHelper — token generation and refresh-token randomness.
 /// No HTTP or DB deps needed; constructs the helper directly via IOptions.
 /// </summary>
+[Collection(nameof(EnvironmentVariableCollection))]
 public sealed class JwtHelperTests
 {
     private static JwtHelper CreateHelper(

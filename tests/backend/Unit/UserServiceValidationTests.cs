@@ -8,12 +8,14 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.Fixtures;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
+[Collection(nameof(EnvironmentVariableCollection))]
 public class UserServiceValidationTests
 {
     private static UserService BuildService()
@@ -24,6 +26,9 @@ public class UserServiceValidationTests
     }
 
     private static UserService BuildService(ISqlSugarClient db, IJwtHelper jwtHelper)
+        => BuildService(db, jwtHelper, Substitute.For<ITotpService>());
+
+    private static UserService BuildService(ISqlSugarClient db, IJwtHelper jwtHelper, ITotpService totpService)
     {
         return new UserService(
             _db: db,
@@ -33,7 +38,7 @@ public class UserServiceValidationTests
             _blacklistService: Substitute.For<IBlacklistService>(),
             _messageCommandService: Substitute.For<IMessageCommandService>(),
             _messageRealtimePublisher: Substitute.For<IMessageRealtimePublisher>(),
-            _totpService: Substitute.For<ITotpService>(),
+            _totpService: totpService,
             _authRiskService: Substitute.For<IAuthRiskService>());
     }
 
@@ -336,6 +341,41 @@ public class UserServiceValidationTests
 
         Assert.False(success);
         Assert.Contains("anonymous identity", message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task StartMfaSetupAsync_AnonymousIdentityMode_UsesStableAccountLabelWithoutUsername()
+    {
+        using var _ = SetAnonymousIdentityMode("1");
+        var db = Substitute.For<ISqlSugarClient>();
+        var queryable = Substitute.For<ISugarQueryable<User>>();
+        db.Queryable<User>().Returns(queryable);
+        queryable.InSingleAsync(42).Returns(Task.FromResult(new User
+        {
+            Id = 42,
+            Username = "legacy-random-name",
+            IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+            MfaEnabled = false
+        }));
+        var update = Substitute.For<IUpdateable<User>>();
+        update.SetColumns(Arg.Any<Expression<Func<User, bool>>>()).Returns(update);
+        update.Where(Arg.Any<Expression<Func<User, bool>>>()).Returns(update);
+        update.ExecuteCommandAsync().Returns(Task.FromResult(1));
+        db.Updateable<User>().Returns(update);
+        var totp = Substitute.For<ITotpService>();
+        totp.GenerateSecret().Returns("SECRET");
+        totp.ProtectSecret("SECRET").Returns("protected-secret");
+        totp.BuildOtpAuthUri("FsusBlog", "FsusBlog:account:42", "SECRET").Returns("otpauth://totp/FsusBlog:account:42");
+        var svc = BuildService(db, Substitute.For<IJwtHelper>(), totp);
+
+        var (success, setup, message) = await svc.StartMfaSetupAsync(42, "FsusBlog");
+
+        Assert.True(success, message);
+        Assert.NotNull(setup);
+        Assert.Equal("FsusBlog:account:42", setup.Value.Account);
+        Assert.DoesNotContain("legacy-random-name", setup.Value.OtpAuthUrl, StringComparison.Ordinal);
+        totp.Received(1).BuildOtpAuthUri("FsusBlog", "FsusBlog:account:42", "SECRET");
+        totp.DidNotReceive().BuildOtpAuthUri("FsusBlog", "legacy-random-name", "SECRET");
     }
 
     [Fact]

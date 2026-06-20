@@ -14,7 +14,6 @@ import {
   encodeConversationCreateRequest,
   encodeConversationStatusRequest,
   encodeMfaChallengeVerifyRequest,
-  encodeMfaPasswordProofRequest,
   encodeNameMutationRequest,
   encodePageContentPayload,
   encodePasskeyLoginCompleteRequest,
@@ -46,7 +45,6 @@ const FRAME_COMMENT_CREATE_V2_REQUEST = 166;
 const FRAME_ADMIN_CHANGE_USER_STATUS_REQUEST = 39;
 const FRAME_AUTH_UPDATE_PASSWORD_REQUEST = 46;
 const FRAME_MFA_SETUP_VERIFY_REQUEST = 52;
-const FRAME_MFA_PASSWORD_PROOF_REQUEST = 53;
 const FRAME_MFA_CHALLENGE_START_REQUEST = 54;
 const FRAME_MFA_CHALLENGE_VERIFY_REQUEST = 55;
 const FRAME_CONVERSATION_CREATE_REQUEST = 59;
@@ -564,10 +562,6 @@ function encodeOptionalBody(path, body) {
 
   if (path.endsWith('/mfa/setup/verify')) {
     return encodeAedsFrame(FRAME_MFA_SETUP_VERIFY_REQUEST, encodeStringMutationRequest(body.code ?? body));
-  }
-
-  if (path.endsWith('/mfa/disable') || path.endsWith('/mfa/recovery/regenerate')) {
-    return encodeAedsFrame(FRAME_MFA_PASSWORD_PROOF_REQUEST, encodeMfaPasswordProofRequest(body));
   }
 
   if (path.endsWith('/mfa/challenge/start')) {

@@ -18,6 +18,36 @@ function assert(condition, message) {
   }
 }
 
+async function mintMfaProof({ action, cookieHeader, code, recoveryCode }) {
+  const start = await authBinary('/api/Auth/mfa/challenge/start', {
+    method: 'POST',
+    cookieHeader,
+    deviceFingerprint,
+    body: { action }
+  });
+  assert(start.response.ok, `mfa ${action} challenge start failed: ${start.response.status}`);
+  const challenge = start.payload?.data ?? start.payload;
+  assert(challenge?.verified === false, `mfa ${action} challenge should require verification`);
+  assert(typeof challenge?.proofToken === 'string' && challenge.proofToken.length > 0, `mfa ${action} challenge token missing`);
+
+  const verify = await authBinary('/api/Auth/mfa/challenge', {
+    method: 'POST',
+    cookieHeader,
+    deviceFingerprint,
+    body: {
+      challengeToken: challenge.proofToken,
+      action,
+      code,
+      recoveryCode
+    }
+  });
+  assert(verify.response.ok, `mfa ${action} challenge verify failed: ${verify.response.status}`);
+  const result = verify.payload?.data ?? verify.payload;
+  assert(result?.verified === true, `mfa ${action} challenge should verify`);
+  assert(typeof result?.proofToken === 'string' && result.proofToken.length > 0, `mfa ${action} proof token missing`);
+  return result.proofToken;
+}
+
 async function main() {
   const session = await loginWithPow(userName, userPassword, false, deviceFingerprint, requestTimeoutMs);
 
@@ -82,27 +112,33 @@ async function main() {
   const challengeResult = verifyChallenge.payload?.data ?? verifyChallenge.payload;
   assert(challengeResult?.verified === true, 'mfa challenge should verify with valid totp');
 
+  const regenerateProofToken = await mintMfaProof({
+    action: 'mfa_recovery_regenerate',
+    cookieHeader: session.cookieHeader,
+    code: createTotp(setupData.secret)
+  });
+
   const regenRecovery = await authBinary('/api/Auth/mfa/recovery/regenerate', {
     method: 'POST',
     cookieHeader: session.cookieHeader,
     deviceFingerprint,
-    body: {
-      password: userPassword,
-      code: createTotp(setupData.secret)
-    }
+    headers: { 'X-Fsus-Mfa-Proof': regenerateProofToken }
   });
   assert(regenRecovery.response.ok, `mfa recovery regenerate failed: ${regenRecovery.response.status}`);
   const recoveryData = regenRecovery.payload?.data ?? regenRecovery.payload;
   assert(Array.isArray(recoveryData?.recoveryCodes) && recoveryData.recoveryCodes.length > 0, 'regenerated recovery codes missing');
 
+  const disableProofToken = await mintMfaProof({
+    action: 'mfa_disable',
+    cookieHeader: session.cookieHeader,
+    recoveryCode: recoveryData.recoveryCodes[0]
+  });
+
   const disableMfa = await authBinary('/api/Auth/mfa/disable', {
     method: 'POST',
     cookieHeader: session.cookieHeader,
     deviceFingerprint,
-    body: {
-      password: userPassword,
-      recoveryCode: recoveryData.recoveryCodes[0]
-    }
+    headers: { 'X-Fsus-Mfa-Proof': disableProofToken }
   });
   assert(disableMfa.response.ok, `mfa disable failed: ${disableMfa.response.status}`);
 

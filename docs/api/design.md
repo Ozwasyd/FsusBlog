@@ -79,6 +79,7 @@ Binary 端点按资源语义使用 `GET/POST/PUT/DELETE`；认证、MFA、Passke
 Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AEDS v2 request frame；当前生产协议拒绝 request non-zero flags，`Flags = 64` 等 future flag 只能在 `aeds-protocol.json`、负向 contract matrix、TypeScript/Worker/Wasm decoder 与 [schemas-and-errors.md#flags-登记](schemas-and-errors.md#flags-登记) 同步登记后启用。
 匿名身份模式下，新账号 onboarding 必须走 `POST /api/binary/auth/anonymous/bootstrap`，请求 frame 为 `AuthAnonymousBootstrapRequest`；该路径只初始化匿名账号容器和当前 session，不接受用户提供的登录密码，也不得复用旧 username/password 契约。旧 `/api/binary/auth/register` 与 `/api/binary/auth/login` password endpoints 不再是生产 API；`AuthRegisterRequest` / `AuthLoginRequest` 仅作为 legacy migration/test 的保留 AEDS frame 编号。
 `GET /api/binary/auth/me` 只输出 `IdentityAccountSnapshot` 匿名账号容器：account/internal id、`identityKind`、`publicHandle`、Passkey/Recovery/TOTP 状态、anonymous credential 状态和账号封禁/注销状态。该响应不得暴露内部 `sys_user.username` 或 `sys_user.role`，客户端也不得从普通账号快照推断 admin 权限；后台权限只能来自 independent admin principal 与 admin session Cookie。
+TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account label 必须使用非识别 `FsusBlog:account:{accountId}`，`/mfa/setup/start`、`/mfa/disable` 和 `/mfa/recovery/regenerate` 必须通过 `X-Fsus-Mfa-Proof` 消费对应 action 的一次性 proof，不接收旧 username/password body proof；TOTP recovery code 不得混同账户 `Recovery Key`。
 `PUT /api/binary/auth/public-handle` 是唯一用户侧公开称呼写入入口，使用 `AuthUpdatePublicHandleRequest` + `StringMutationRequestPod`；空字符串表示清空。评论 public send 只能读取已持久化的 `public_handle`，未设置时拒绝 public mode，不能回退内部 username 或合成 user id。
 账号侧 `GET /api/binary/comment/me` 是可归因评论记录，只返回当前账号显式 public/公开发送的评论；强匿名评论不进入该记录，也不能通过账号 ID 自删。强匿名撤回若需要支持，必须另走 receipt、capability token 或 nullifier proof 方案；在此之前只允许管理员按治理权限删除。
 
@@ -133,7 +134,7 @@ Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AED
 
 | 类别 | 头部 | 方向 | 说明 |
 |------|------|------|------|
-| 安全强制 | `X-Fsus-Mfa-Proof` | 请求 | admin-sensitive、高价值作者/安全写操作的一次性 admin step-up proof；消费语义见 [contracts.md#admin-作者工作台](contracts.md#admin-作者工作台) 与 [contracts.md#admin-安全系统](contracts.md#admin-安全系统)。 |
+| 安全强制 | `X-Fsus-Mfa-Proof` | 请求 | admin-sensitive、高价值作者/安全写操作和普通用户敏感凭据操作的一次性 step-up proof；消费语义见 [contracts.md#user-mfa--totp-step-up](contracts.md#user-mfa--totp-step-up)、[contracts.md#admin-作者工作台](contracts.md#admin-作者工作台) 与 [contracts.md#admin-安全系统](contracts.md#admin-安全系统)。 |
 | 安全强制 | `X-Fsus-Admin-Bootstrap-Token` | 请求 | 首次 root admin Passkey bootstrap 的显式环境守门 token；必须匹配 `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` / `Admin:BootstrapToken`，root admin 存在后不再生效。 |
 | 安全强制 | `X-Fsus-Admin-Handle` | 请求 | 首次 root admin Passkey bootstrap 的后台 handle；只用于 admin principal，不写入普通匿名账号。 |
 | 安全强制 | `X-Fsus-Pow-Proof` | 请求 | legacy PoW proof，用于匿名账号 bootstrap、Recovery Key verify、匿名 notification stream 或 `public_read` 风险升级后的动态公开 API；不用于 PublicHotRead L0 artifact 命中路径。 |

@@ -235,7 +235,8 @@ ZK-Prod 后端依赖策略固定为 .NET 10 + `System.Text.Json`。trusted setup
 
 - 标准：RFC 6238 TOTP（Time-based OTP，30 秒窗口）
 - 启用流程：`/mfa/setup/start` 只写 `MfaPendingSecretEncrypted` / `MfaPendingCreatedAt`，展示二维码 + 密钥；`/mfa/setup/verify` 验证 pending secret 成功后才原子切换到 `MfaSecretEncrypted` 并启用 MFA
-- 重新绑定流程：已启用 MFA 的用户调用 `/mfa/setup/start` 必须提交当前密码和当前 TOTP/恢复码，旧 `MfaSecretEncrypted` 与 `MfaEnabled` 在新 secret 验证前保持不变
+- 匿名身份模式：TOTP 只作为敏感操作 step-up，`/mfa/setup/start` 的 account label 固定为 `FsusBlog:account:{accountId}`，不得暴露 legacy username；`/mfa/setup/start`、`/mfa/disable` 与 `/mfa/recovery/regenerate` 必须用 `X-Fsus-Mfa-Proof` 提交 action=`mfa_setup|mfa_setup_rebind|mfa_disable|mfa_recovery_regenerate` 的一次性 proof，不读取旧 password body
+- 重新绑定流程：已启用 MFA 的 legacy 非匿名用户调用 `/mfa/setup/start` 必须提交当前密码和当前 TOTP/恢复码；匿名身份模式下必须提交对应 action 的 step-up proof。旧 `MfaSecretEncrypted` 与 `MfaEnabled` 在新 secret 验证前保持不变
 - 登录流程：密码验证通过后，如用户已启用 MFA，颁发临时挑战令牌，等待 TOTP 码验证
 - MFA challenge：`/api/binary/auth/mfa/challenge` 受 `fixed_ip` 限流保护，并对 ticket、user、IP 三个维度记录失败次数；达到阈值后消费 challenge，所有失败返回通用错误
 - MFA proof、PoW replay proof 等只需布尔结果的安全一次性 token 通过 `IUnifiedCache.ConsumeOnceAsync` 消费；需要取回 payload 的 WebAuthn challenge 通过 `IUnifiedCache.ConsumeOnceAndGetAsync` 消费。两个 primitive 都必须先失效进程内 L1 cache；`ConsumeOnceAsync` 使用 Redis `Condition.KeyExists + KeyDelete` transaction，`ConsumeOnceAndGetAsync` 使用 Redis GETDEL 语义。调用方取消时不得继续创建 Redis mutation 或执行 registry unregister，避免 L2 已删除但 L1 仍可重放的进程内窗口。

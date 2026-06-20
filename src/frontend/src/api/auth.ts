@@ -24,6 +24,10 @@ export interface UpdatePasswordDto {
   confirmPassword: string
 }
 
+export interface MfaStepUpProofPayload {
+  mfaProofToken?: string | null
+}
+
 // ================= 响应模型定义 =================
 
 interface AuthLoginIdentitySnapshot {
@@ -287,7 +291,7 @@ export const getAdminMe = (config?: ApiRequestConfig) =>
   })
 
 export const startMfaSetup = (
-  payload?: { password?: string; code?: string; recoveryCode?: string },
+  payload?: MfaStepUpProofPayload,
   config?: ApiRequestConfig
 ) =>
   requestBinaryOnly<MfaSetupStart>({
@@ -296,9 +300,7 @@ export const startMfaSetup = (
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
       method: 'POST',
-      body: payload
-        ? encodeAedsFrame(FrameType.MfaPasswordProofRequest, encodeMfaPasswordProofRequest(payload))
-        : undefined
+      headers: mfaProofHeaders(payload?.mfaProofToken ?? config?.mfaProofToken)
     }
   })
 
@@ -320,19 +322,19 @@ export const verifyMfaSetup = (code: string, config?: ApiRequestConfig) =>
     }
   })
 
-export const disableMfa = (payload: { password: string; code?: string; recoveryCode?: string }, config?: ApiRequestConfig) =>
+export const disableMfa = (payload: MfaStepUpProofPayload, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
     binaryUrl: '/api/binary/auth/mfa/disable',
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
       method: 'POST',
-      body: encodeAedsFrame(FrameType.MfaPasswordProofRequest, encodeMfaPasswordProofRequest(payload))
+      headers: mfaProofHeaders(payload.mfaProofToken ?? config?.mfaProofToken)
     }
   })
 
 export const regenerateMfaRecoveryCodes = (
-  payload: { password: string; code?: string; recoveryCode?: string },
+  payload: MfaStepUpProofPayload,
   config?: ApiRequestConfig
 ) => requestBinaryOnly<MfaSetupVerify>({
   binaryUrl: '/api/binary/auth/mfa/recovery/regenerate',
@@ -340,7 +342,7 @@ export const regenerateMfaRecoveryCodes = (
   signal: config?.signal as AbortSignal | undefined,
   requestOptions: {
     method: 'POST',
-    body: encodeAedsFrame(FrameType.MfaPasswordProofRequest, encodeMfaPasswordProofRequest(payload))
+    headers: mfaProofHeaders(payload.mfaProofToken ?? config?.mfaProofToken)
   }
 })
 
@@ -590,14 +592,15 @@ function encodeAuthDeleteAccountRequest(data: DeleteAccountRequest): Uint8Array 
   return bytes
 }
 
-function encodeMfaPasswordProofRequest(data: { password?: string; code?: string; recoveryCode?: string }): Uint8Array {
-  const { bytes, refs, blobLength } = encodeStringBlob([data.password ?? '', data.code ?? '', data.recoveryCode ?? ''])
-  const view = new DataView(bytes.buffer)
-  writeSliceRef(view, 0, refs[0])
-  writeSliceRef(view, 8, refs[1])
-  writeSliceRef(view, 16, refs[2])
-  view.setInt32(24, blobLength, true)
-  return bytes
+function mfaProofHeaders(mfaProofToken?: string | null): Headers | undefined {
+  const proofToken = mfaProofToken?.trim()
+  if (!proofToken) {
+    return undefined
+  }
+
+  const headers = new Headers()
+  headers.set('X-Fsus-Mfa-Proof', proofToken)
+  return headers
 }
 
 function encodeMfaChallengeVerifyRequest(data: { challengeToken: string; code?: string; recoveryCode?: string; action?: string }): Uint8Array {

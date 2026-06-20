@@ -820,7 +820,7 @@ public partial class UserService(
 
         string secret = _totpService.GenerateSecret();
         string protectedSecret = _totpService.ProtectSecret(secret);
-        string account = user.Username;
+        string account = BuildMfaAccountLabel(user);
         string otpAuthUrl = _totpService.BuildOtpAuthUri(issuer, account, secret);
 
         DateTime now = DateTime.UtcNow;
@@ -1186,6 +1186,11 @@ public partial class UserService(
         if (string.IsNullOrEmpty(password)) return false;
         return password.Length is >= MinPasswordLength and <= MaxPasswordLength;
     }
+
+    private static string BuildMfaAccountLabel(User user)
+        => AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()
+            ? $"FsusBlog:account:{user.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+            : user.Username;
 
     private Task NotifyUserBannedAsync(int userId, string reason)
         => ExecuteNotificationAsync(static (svc, uid, payload) => svc.SendUserBannedNoticeAsync(uid, payload), userId, reason);

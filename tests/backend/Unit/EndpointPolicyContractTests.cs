@@ -398,6 +398,35 @@ public sealed class EndpointPolicyContractTests
         Assert.Contains("RequireAdminSensitiveStepUpAsync", credentialRevoke, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void AnonymousMfaMutations_RequireHeaderProofAndDoNotReadPasswordBody()
+    {
+        string source = ReadRepoFile(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "Binary",
+            "BinaryEndpoints.Auth.cs");
+
+        string setupStart = ExtractBetween(
+            source,
+            "group.MapPost(\"/auth/mfa/setup/start\"",
+            "group.MapGet(\"/auth/mfa/profile\"");
+        string disable = ExtractBetween(
+            source,
+            "group.MapPost(\"/auth/mfa/disable\"",
+            "group.MapPost(\"/auth/mfa/recovery/regenerate\"");
+        string regenerate = ExtractBetween(
+            source,
+            "group.MapPost(\"/auth/mfa/recovery/regenerate\"",
+            "group.MapPost(\"/auth/mfa/challenge/start\"");
+
+        AssertAnonymousMfaStepUpBoundary(setupStart, "mfa_setup_rebind");
+        AssertAnonymousMfaStepUpBoundary(disable, "mfa_disable");
+        AssertAnonymousMfaStepUpBoundary(regenerate, "mfa_recovery_regenerate");
+    }
+
     private static string ReadRepoFile(params string[] segments)
     {
         string relativePath = Path.Combine(segments);
@@ -422,5 +451,22 @@ public sealed class EndpointPolicyContractTests
         Assert.Contains(action, handler, StringComparison.Ordinal);
         Assert.DoesNotContain("ValidateAndConsumeProofTokenAsync", handler, StringComparison.Ordinal);
         Assert.DoesNotContain("MfaEnabled", handler, StringComparison.Ordinal);
+    }
+
+    private static void AssertAnonymousMfaStepUpBoundary(string handler, string action)
+    {
+        string anonymousBranch = ExtractBetween(
+            handler,
+            "if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())",
+            "else");
+
+        Assert.Contains("IMfaChallengeService mfaChallengeService", handler, StringComparison.Ordinal);
+        Assert.Contains("TryReadMfaProof(httpContext, out string proofToken)", anonymousBranch, StringComparison.Ordinal);
+        Assert.Contains(action, anonymousBranch, StringComparison.Ordinal);
+        Assert.Contains("ValidateAndConsumeProofTokenAsync(userId,", anonymousBranch, StringComparison.Ordinal);
+        Assert.Contains("proofToken)", anonymousBranch, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadBinaryRequestPayloadAsync", anonymousBranch, StringComparison.Ordinal);
+        Assert.DoesNotContain("MfaPasswordProofRequest", anonymousBranch, StringComparison.Ordinal);
+        Assert.DoesNotContain("IsMfaVerified()", anonymousBranch, StringComparison.Ordinal);
     }
 }

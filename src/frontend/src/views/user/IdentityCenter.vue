@@ -333,9 +333,11 @@ import {
   revokeOtherSessions as revokeOtherSessionsApi,
   revokeSession,
   rotateRecoveryKey,
+  startMfaChallenge,
   startMfaSetup,
   updatePublicHandle,
   verifyMfaSetup,
+  type MfaChallengeResult,
   type MfaProfile,
   type MfaSetupStart,
   type MfaSetupVerify,
@@ -486,7 +488,14 @@ const startMfaSetupFlow = async (): Promise<void> => {
   mfaSetupRecoveryCodes.value = []
   mfaSetupError.value = ''
   try {
-    const response = await startMfaSetup() as MfaSetupStart
+    const action = mfaProfile.value?.enabled ? 'mfa_setup_rebind' : 'mfa_setup'
+    const proof = await startMfaChallenge(action) as MfaChallengeResult
+    if (!proof.verified || !proof.proofToken) {
+      mfaSetupError.value = '请先完成 TOTP step-up 验证后再启用。TOTP 恢复码不是 Recovery Key。'
+      return
+    }
+
+    const response = await startMfaSetup({ mfaProofToken: proof.proofToken }) as MfaSetupStart
     mfaSetupSecret.value = response.secret
     mfaSetupOtpAuthUrl.value = response.otpAuthUrl
   } catch (error) {

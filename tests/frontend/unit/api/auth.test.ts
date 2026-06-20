@@ -143,8 +143,8 @@ describe('auth API binary base session flow', () => {
     await startMfaSetup()
     await getMfaProfile()
     await verifyMfaSetup('123456')
-    await disableMfa({ password: 'pw', code: '123456' })
-    await regenerateMfaRecoveryCodes({ password: 'pw', recoveryCode: 'backup' })
+    await disableMfa({ mfaProofToken: 'proof-disable' })
+    await regenerateMfaRecoveryCodes({ mfaProofToken: 'proof-regenerate' })
     await startMfaChallenge('update-password')
     await verifyMfaChallenge({ challengeToken: 'ticket', code: '123456', action: 'login' })
 
@@ -155,6 +155,23 @@ describe('auth API binary base session flow', () => {
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({ binaryUrl: '/api/binary/auth/mfa/recovery/regenerate', frameType: FrameType.MfaSetupVerify }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({ binaryUrl: '/api/binary/auth/mfa/challenge/start', frameType: FrameType.MfaChallengeResult }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({ binaryUrl: '/api/binary/auth/mfa/challenge', frameType: FrameType.MfaChallengeResult }))
+  })
+
+  it('anonymous MFA mutations use step-up proof headers without password payloads', async () => {
+    await startMfaSetup({ mfaProofToken: 'proof-setup' })
+    await disableMfa({ mfaProofToken: 'proof-disable' })
+    await regenerateMfaRecoveryCodes({ mfaProofToken: 'proof-regenerate' })
+
+    const setup = mockBinary.mock.calls.find(([call]) => call.binaryUrl === '/api/binary/auth/mfa/setup/start')?.[0]
+    const disable = mockBinary.mock.calls.find(([call]) => call.binaryUrl === '/api/binary/auth/mfa/disable')?.[0]
+    const regenerate = mockBinary.mock.calls.find(([call]) => call.binaryUrl === '/api/binary/auth/mfa/recovery/regenerate')?.[0]
+
+    for (const call of [setup, disable, regenerate]) {
+      expect(call?.requestOptions).toEqual(expect.objectContaining({ method: 'POST' }))
+      expect(call?.requestOptions).not.toHaveProperty('body')
+      expect(call?.requestOptions?.headers).toBeInstanceOf(Headers)
+      expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toMatch(/^proof-/)
+    }
   })
 
   it('logout uses binary empty success frame', async () => {

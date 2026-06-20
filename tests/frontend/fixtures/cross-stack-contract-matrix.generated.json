@@ -945,14 +945,12 @@
           "method": "POST",
           "path": "/auth/mfa/disable",
           "auth": "user",
-          "requestFrame": "MfaPasswordProofRequest",
           "responseFrame": "EmptySuccess"
         },
         {
           "method": "POST",
           "path": "/auth/mfa/recovery/regenerate",
           "auth": "user",
-          "requestFrame": "MfaPasswordProofRequest",
           "responseFrame": "MfaSetupVerify"
         },
         {
