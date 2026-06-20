@@ -49,7 +49,7 @@ scenarios:
     status: automated
     code:
       - src/backend/Modules/Endpoints
-      - src/backend/Infrastructure/Filters/RejectIdentifiedPrincipalFilter.cs
+      - src/backend/Infrastructure/Filters/BannedUserMiddleware.cs
     tests:
       - tests/frontend/checks/security/check-permission-matrix.mjs
       - tests/backend/Unit/EndpointPolicyContractTests.cs
