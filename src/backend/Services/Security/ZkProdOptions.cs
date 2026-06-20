@@ -63,9 +63,10 @@ public sealed class ZkProdOptions
 
 public readonly record struct ZkProdRuntimeReadiness(
     bool NativeVerifierConfigured,
-    bool CredentialRootReady)
+    bool CredentialRootReady,
+    bool BbsIssuerConfigured = false)
 {
-    public static ZkProdRuntimeReadiness Missing { get; } = new(false, false);
+    public static ZkProdRuntimeReadiness Missing { get; } = new(false, false, false);
 }
 
 public sealed record ZkProdPolicySnapshot(
@@ -136,6 +137,11 @@ public static class ZkProdPolicySnapshotFactory
         if (options.RequireBbsCredential && !options.BbsCredentialReady)
         {
             return "bbs_credential_unready";
+        }
+
+        if (options.RequireBbsCredential && !readiness.BbsIssuerConfigured)
+        {
+            return "bbs_issuer_unavailable";
         }
 
         if (!readiness.CredentialRootReady)

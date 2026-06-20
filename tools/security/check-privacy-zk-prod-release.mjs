@@ -11,6 +11,7 @@ const DEFAULT_CONFIGS = [
 ]
 const DEFAULT_TRUSTED_SETUP = 'security/zk/comment-v1-trusted-setup.manifest.json'
 const DEFAULT_SMOKE_EVIDENCE = '.tmp/security/privacy-zk-prod-smoke.json'
+const DEFAULT_ROOT_BOOTSTRAP_EVIDENCE = '.tmp/security/anonymous-credential-root-bootstrap.json'
 const DEFAULT_SUMMARY = '.tmp/security/privacy-zk-prod-release.json'
 
 const args = parseArgs(process.argv.slice(2))
@@ -122,6 +123,13 @@ function checkEnabledProductionReadiness() {
       ?? zkProd.SmokeEvidencePath
       ?? DEFAULT_SMOKE_EVIDENCE)
   checkSmokeEvidence(smokeEvidencePath)
+
+  const rootBootstrapEvidencePath = normalizeString(
+    args.rootBootstrapEvidence
+      ?? process.env.FSUSBLOG_ZK_ROOT_BOOTSTRAP_EVIDENCE
+      ?? zkProd.RootBootstrapEvidencePath
+      ?? DEFAULT_ROOT_BOOTSTRAP_EVIDENCE)
+  checkRootBootstrapEvidence(rootBootstrapEvidencePath, expectedVkHash, setup)
 }
 
 function checkFalse(key, value) {
@@ -212,6 +220,75 @@ function checkSmokeEvidence(rawPath) {
   checks.push({ id: 'zk-prod-smoke-evidence', status: 'checked', path: toRepoRelative(absolute) })
 }
 
+function checkRootBootstrapEvidence(rawPath, expectedVkHash, setup) {
+  const absolute = checkExistingFile('root-bootstrap-evidence', rawPath)
+  if (!absolute) return
+
+  const evidence = JSON.parse(readFileSync(absolute, 'utf8'))
+  if (evidence.schema !== 'fsusblog.anonymous-credential-root-bootstrap-evidence.v1') {
+    errors.push('root-bootstrap-evidence schema is invalid.')
+  }
+  const status = normalizeString(evidence.status)
+  if (!['validated_offline', 'rotated', 'ok', 'passed'].includes(status)) {
+    errors.push('root-bootstrap-evidence status must be validated_offline/rotated/ok/passed.')
+  }
+
+  const snapshot = evidence.rootSnapshot && typeof evidence.rootSnapshot === 'object'
+    ? evidence.rootSnapshot
+    : {}
+  if (snapshot.circuitId !== 'fsus.anonymous.comment.v1') {
+    errors.push('root-bootstrap-evidence circuitId must be fsus.anonymous.comment.v1.')
+  }
+  if (Number(snapshot.publicInputLayoutVersion) !== 2) {
+    errors.push('root-bootstrap-evidence publicInputLayoutVersion must be 2.')
+  }
+  if (!Number.isSafeInteger(Number(snapshot.epoch)) || Number(snapshot.epoch) <= 0) {
+    errors.push('root-bootstrap-evidence epoch must be a positive integer.')
+  }
+  if (!Number.isSafeInteger(Number(snapshot.circuitNumericId)) || Number(snapshot.circuitNumericId) <= 0) {
+    errors.push('root-bootstrap-evidence circuitNumericId must be a positive integer.')
+  }
+
+  for (const key of ['credentialRootHash', 'revocationRootHash', 'issuerPublicKeyHash', 'verifyingKeyHash']) {
+    const value = normalizeString(snapshot[key]).toLowerCase()
+    if (!isSha256Hex(value)) {
+      errors.push(`root-bootstrap-evidence ${key} must be a 64-char hex SHA-256 digest.`)
+    }
+  }
+
+  const evidenceVkHash = normalizeString(snapshot.verifyingKeyHash).toLowerCase()
+  const trustedVkHash = normalizeString(setup?.verifying_key_hash).toLowerCase()
+  if (expectedVkHash && evidenceVkHash && evidenceVkHash !== expectedVkHash.toLowerCase()) {
+    errors.push('root-bootstrap-evidence verifyingKeyHash does not match production configuration.')
+  }
+  if (trustedVkHash && evidenceVkHash && evidenceVkHash !== trustedVkHash) {
+    errors.push('root-bootstrap-evidence verifyingKeyHash does not match trusted setup manifest.')
+  }
+
+  const expiresAt = parseTimestamp(snapshot.expiresAtUtc)
+  const graceExpiresAt = parseTimestamp(snapshot.graceExpiresAtUtc)
+  if (!expiresAt) {
+    errors.push('root-bootstrap-evidence expiresAtUtc must be an ISO-8601 UTC timestamp.')
+  }
+  if (!graceExpiresAt) {
+    errors.push('root-bootstrap-evidence graceExpiresAtUtc must be an ISO-8601 UTC timestamp.')
+  }
+  if (expiresAt && graceExpiresAt && expiresAt >= graceExpiresAt) {
+    errors.push('root-bootstrap-evidence expiresAtUtc must be earlier than graceExpiresAtUtc.')
+  }
+  if (graceExpiresAt && graceExpiresAt <= new Date()) {
+    errors.push('root-bootstrap-evidence graceExpiresAtUtc must be in the future.')
+  }
+
+  checkNoSensitiveEvidence(evidence)
+  checks.push({
+    id: 'root-bootstrap-evidence',
+    status: 'checked',
+    path: toRepoRelative(absolute),
+    stagingDbRotateSatisfied: evidence.stagingDbRotateSatisfied === true
+  })
+}
+
 function checkNoSensitiveEvidence(value, pathSegments = []) {
   if (Array.isArray(value)) {
     value.forEach((item, index) => checkNoSensitiveEvidence(item, [...pathSegments, String(index)]))
@@ -266,6 +343,8 @@ function parseArgs(argv) {
       parsed.trustedSetupManifest = requireValue(argv, ++i, token)
     } else if (token === '--smoke-evidence') {
       parsed.smokeEvidence = requireValue(argv, ++i, token)
+    } else if (token === '--root-bootstrap-evidence') {
+      parsed.rootBootstrapEvidence = requireValue(argv, ++i, token)
     } else if (token === '--summary') {
       parsed.summary = requireValue(argv, ++i, token)
     } else if (token === '--require-enabled') {
@@ -378,6 +457,17 @@ function readBoolEnv(key) {
 
 function normalizeString(value) {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function isSha256Hex(value) {
+  return /^[0-9a-f]{64}$/u.test(value)
+}
+
+function parseTimestamp(value) {
+  const text = normalizeString(value)
+  if (!text || !text.endsWith('Z')) return null
+  const date = new Date(text)
+  return Number.isNaN(date.getTime()) ? null : date
 }
 
 function resolveRepoPath(candidate) {

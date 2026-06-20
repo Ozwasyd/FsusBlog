@@ -104,6 +104,14 @@ const expected = {
     'placeholder',
     'todo',
     'tbd'
+  ],
+  failClosedCircuitStatuses: [
+    'contract-only',
+    'missing-production-artifact'
+  ],
+  productionReadyCircuitStatuses: [
+    'production-ready',
+    'verified-production-artifacts'
   ]
 }
 
@@ -146,6 +154,10 @@ function readJson(file) {
 function relative(file) {
   const rel = path.relative(root, file)
   return rel.startsWith('..') ? file : rel.replaceAll(path.sep, '/')
+}
+
+function resolveRepoPath(file) {
+  return path.isAbsolute(file) ? file : path.join(root, file)
 }
 
 function sha256File(file) {
@@ -199,13 +211,76 @@ function assertNoPlaceholder(label, value) {
   }
 }
 
-function checkCircuit(circuit) {
+function isSha256Hex(value) {
+  return /^[a-f0-9]{64}$/i.test(String(value ?? '').trim())
+}
+
+function checkRealFileHash(label, filePath, hash) {
+  let ok = true
+  const normalizedPath = String(filePath ?? '').trim()
+  const normalizedHash = String(hash ?? '').trim()
+
+  if (isBlank(normalizedPath)) {
+    fail(`${label}.path is required for production-ready circuit artifacts`)
+    ok = false
+  }
+  if (isBlank(normalizedHash)) {
+    fail(`${label}.sha256 is required for production-ready circuit artifacts`)
+    ok = false
+  } else {
+    assertNoPlaceholder(`${label}.sha256`, normalizedHash)
+    if (!isSha256Hex(normalizedHash)) {
+      fail(`${label}.sha256 must be a 64-character SHA-256 hex digest`)
+      ok = false
+    }
+  }
+
+  if (!ok) {
+    return false
+  }
+
+  const resolved = resolveRepoPath(normalizedPath)
+  if (!fs.existsSync(resolved)) {
+    fail(`${label}.sha256 is set but file is missing: ${normalizedPath}`)
+    return false
+  }
+  if (sha256File(resolved) !== normalizedHash) {
+    fail(`${label}.sha256 does not match ${normalizedPath}`)
+    return false
+  }
+
+  return true
+}
+
+function checkCircuitArtifactStatus(circuit, setup) {
+  const status = String(circuit.artifact_status ?? '').trim()
+  const isFailClosed = expected.failClosedCircuitStatuses.includes(status)
+  const isProductionReady = expected.productionReadyCircuitStatuses.includes(status)
+
+  if (circuit.production_usable === false && !isFailClosed) {
+    fail('circuit.artifact_status must be an explicit fail-closed status while production_usable=false')
+  }
+
+  if (isProductionReady) {
+    const source = circuit.r1cs_source ?? circuit.source ?? {}
+    const r1cs = setup.artifacts?.r1cs ?? {}
+    const sourceReady = checkRealFileHash('circuit.r1cs_source', source.path, source.sha256)
+    const r1csReady = checkRealFileHash('setup.artifacts.r1cs', r1cs.path, r1cs.sha256)
+
+    if (!sourceReady || !r1csReady) {
+      fail('circuit.artifact_status cannot claim production-ready without real R1CS source and artifact hashes')
+    }
+  }
+}
+
+function checkCircuit(circuit, setup) {
   equals('circuit.schema', circuit.schema, 'fsusblog.zk.circuit-manifest.v1')
   equals('circuit.circuit_id', circuit.circuit_id, expected.circuitId)
   equals('circuit.public_input_layout_version', circuit.public_input_layout_version, expected.layoutVersion)
   equals('circuit.proof_system', circuit.proof_system, expected.proofSystem)
   equals('circuit.credential_scheme', circuit.credential_scheme, expected.credentialScheme)
   equals('circuit.action_context', circuit.action_context, expected.actionContext)
+  checkCircuitArtifactStatus(circuit, setup)
 
   const publicInputs = names(circuit.public_inputs)
   const privateWitness = names(circuit.private_witness)
@@ -419,7 +494,7 @@ const setup = readJson(paths.setup)
 const config = readJson(paths.config)
 const circuitHash = fs.existsSync(paths.circuit) ? sha256File(paths.circuit) : ''
 
-checkCircuit(circuit)
+checkCircuit(circuit, setup)
 checkTamperManifest(tamper)
 checkSetup(setup, circuitHash)
 checkConfig(config, setup)

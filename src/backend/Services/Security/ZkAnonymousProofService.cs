@@ -60,12 +60,14 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
     private readonly IZkProofVerifier _verifier;
     private readonly IOptionsMonitor<ZkProdOptions> _zkProdOptions;
     private readonly IAnonymousCredentialRootReader? _rootReader;
+    private readonly IBbsBlindCredentialIssuer? _bbsIssuer;
 
     public ZkAnonymousProofService(IConfiguration configuration, IZkProofVerifier verifier)
         : this(
             configuration,
             verifier,
             new StaticOptionsMonitor<ZkProdOptions>(ZkProdOptions.FromConfiguration(configuration)),
+            null,
             null)
     {
     }
@@ -74,12 +76,14 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
         IConfiguration configuration,
         IZkProofVerifier verifier,
         IOptionsMonitor<ZkProdOptions> zkProdOptions,
-        IAnonymousCredentialRootReader? rootReader = null)
+        IAnonymousCredentialRootReader? rootReader = null,
+        IBbsBlindCredentialIssuer? bbsIssuer = null)
     {
         _configuration = configuration;
         _verifier = verifier;
         _zkProdOptions = zkProdOptions;
         _rootReader = rootReader;
+        _bbsIssuer = bbsIssuer;
     }
 
     public AnonymousCommentPolicySnapshot CurrentCommentPolicy
@@ -108,7 +112,10 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
     public ZkProdPolicySnapshot CurrentZkProdPolicy
         => ZkProdPolicySnapshotFactory.Create(
             _zkProdOptions.CurrentValue,
-            new ZkProdRuntimeReadiness(_verifier.IsConfigured, HasReadyCredentialRoot()),
+            new ZkProdRuntimeReadiness(
+                _verifier.IsConfigured,
+                HasReadyCredentialRoot(),
+                _bbsIssuer?.IsConfigured == true),
             _configuration);
 
     public async Task<ZkProofVerificationResult> VerifyCommentProofAsync(

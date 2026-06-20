@@ -104,17 +104,21 @@ public sealed class AnonymousCredentialRootLifecycleService(
             .ToListAsync(cancellationToken);
 
         AnonymousCredentialAcceptedRoot[] accepted = roots
-            .Select(static item => new AnonymousCredentialAcceptedRoot(
-                item.Epoch,
-                NormalizeToken(item.RootHash, 128),
-                NormalizeToken(item.RevocationRootHash, 128),
-                ResolveIssuerPublicKeyHash(item.IssuerPublicKeyHash),
-                NormalizeToken(item.Status, 32),
-                ToUtcOffset(item.GraceExpiresAtUtc)))
-            .Where(item =>
-                item.RootHash.Length > 0 &&
-                item.RevocationRootHash.Length > 0 &&
-                item.IssuerPublicKeyHash.Length > 0)
+            .Select(static item => new AcceptedRootCandidate(
+                new AnonymousCredentialAcceptedRoot(
+                    item.Epoch,
+                    NormalizeToken(item.RootHash, 128),
+                    NormalizeToken(item.RevocationRootHash, 128),
+                    ResolveIssuerPublicKeyHash(item.IssuerPublicKeyHash),
+                    NormalizeToken(item.Status, 32),
+                    ToUtcOffset(item.GraceExpiresAtUtc)),
+                AnonymousCredentialRevocationAccumulator.ResolveProfileFromCircuitMetadata(item.CircuitMetadata)))
+            .Where(static item =>
+                item.Root.RootHash.Length > 0 &&
+                item.Root.RevocationRootHash.Length > 0 &&
+                item.Root.IssuerPublicKeyHash.Length > 0 &&
+                item.RevocationAccumulatorProfile.IsProductionZkCompatible)
+            .Select(static item => item.Root)
             .ToArray();
         var snapshot = new AnonymousCredentialRootRuntimeSnapshot(
             accepted,
@@ -434,6 +438,9 @@ public sealed class AnonymousCredentialRootLifecycleService(
         string circuitId = NormalizeToken(request.CircuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars);
         string verifyingKeyHash = NormalizeToken(request.VerifyingKeyHash, 128);
         string issuerPublicKeyHash = ResolveIssuerPublicKeyHash(request.IssuerPublicKeyHash);
+        string? circuitMetadata = NormalizeNullable(request.CircuitMetadata, 4096);
+        AnonymousCredentialRevocationAccumulatorProfile revocationAccumulatorProfile =
+            AnonymousCredentialRevocationAccumulator.ResolveProfileFromCircuitMetadata(circuitMetadata);
         if (request.Epoch <= 0 ||
             rootHash.Length == 0 ||
             !AnonymousCredentialRevocationAccumulator.IsHexHash(revocationRoot) ||
@@ -447,6 +454,15 @@ public sealed class AnonymousCredentialRootLifecycleService(
             return Result<NormalizedRotation>.Failure(ErrorCode.Validation, "anonymous_credential_root_rotation_invalid");
         }
 
+        if (revocationAccumulatorProfile.ProductionZkReady)
+        {
+            Result compatibility = AnonymousCredentialRevocationAccumulator.EnsureProductionZkCompatible(revocationAccumulatorProfile);
+            if (compatibility.IsFailure)
+            {
+                return Result<NormalizedRotation>.Failure(compatibility.Error);
+            }
+        }
+
         return Result<NormalizedRotation>.Success(new NormalizedRotation(
             request.Epoch,
             rootHash,
@@ -458,7 +474,7 @@ public sealed class AnonymousCredentialRootLifecycleService(
             request.PublicInputLayoutVersion,
             request.ExpiresAtUtc.ToUniversalTime(),
             request.GraceExpiresAtUtc.ToUniversalTime(),
-            NormalizeNullable(request.CircuitMetadata, 4096),
+            circuitMetadata,
             NormalizeNullable(request.Reason, 128),
             NormalizeNullable(request.ActorId, 128)));
     }
@@ -580,6 +596,10 @@ public sealed class AnonymousCredentialRootLifecycleService(
         string? RootHash,
         string? Reason,
         string? ActorId);
+
+    private sealed record AcceptedRootCandidate(
+        AnonymousCredentialAcceptedRoot Root,
+        AnonymousCredentialRevocationAccumulatorProfile RevocationAccumulatorProfile);
 }
 
 public sealed class AnonymousCredentialRootRefreshHostedService(

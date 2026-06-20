@@ -122,6 +122,31 @@ describe('CommentPrivacyRuntime', () => {
     expect(runtime.getUiState()).toBe('unavailable')
   })
 
+  it('passes prepared credential material to the worker proof request', async () => {
+    const worker = createWorker()
+    const runtime = createCommentPrivacyRuntime({
+      adapter: createAdapter({
+        credential: async () => ({
+          ok: true,
+          credential: {
+            credentialSecret: new Uint8Array([11, 12, 13]),
+            issuerSignature: new Uint8Array([21, 22, 23]),
+            revocationWitness: new Uint8Array([31, 32, 33])
+          }
+        })
+      }),
+      workerClient: worker
+    })
+
+    await runtime.prepareAnonymousTicket('article:42')
+
+    expect(worker.prepareProof).toHaveBeenCalledWith(expect.objectContaining({
+      credentialSecret: new Uint8Array([11, 12, 13]),
+      issuerSignature: new Uint8Array([21, 22, 23]),
+      revocationWitness: new Uint8Array([31, 32, 33])
+    }))
+  })
+
   it('cancels stale article metadata preloads when articles switch quickly', async () => {
     const signals: AbortSignal[] = []
     const adapter = createAdapter({
@@ -175,11 +200,12 @@ function createWorker(): CommentPrivacyWorkerClient {
 }
 
 function createAdapter(overrides: {
+  credential?: CommentPrivacyAdapter['ensureCredentialPrepared']
   metadata?: CommentPrivacyAdapter['loadPrivacyMetadata']
   ticket?: CommentPrivacyAdapter['issueAnonymousTicket']
 } = {}): CommentPrivacyAdapter {
   return {
-    ensureCredentialPrepared: vi.fn().mockResolvedValue({ ok: true }),
+    ensureCredentialPrepared: vi.fn(overrides.credential ?? (async () => ({ ok: true }))),
     loadPrivacyMetadata: vi.fn(overrides.metadata ?? (async ({ scope }) => ({
       ok: true,
       metadata: createMetadata(scope)

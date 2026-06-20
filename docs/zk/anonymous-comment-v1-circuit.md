@@ -6,6 +6,28 @@ key, verifying key, or browser prover artifact exists yet. Production remains
 fail-closed until the trusted setup manifest is switched to real audited
 artifacts.
 
+## Issue #551 production circuit status
+
+`comment.v1` still does not have a repository-pinned Circom/snarkjs or
+equivalent circuit build toolchain, and this checkout has no real
+`circuits/anonymous-comment-v1` source tree or `artifacts/zk/comment-v1`
+R1CS/Groth16 outputs. A manifest, documentation page, or hash fixture is not a
+production circuit.
+
+The manifest checker enforces that boundary:
+
+- the current circuit manifest must keep an explicit fail-closed
+  `artifact_status`, such as `contract-only`;
+- any future `production-ready` circuit status must include a real
+  `circuit.r1cs_source.path` plus `circuit.r1cs_source.sha256`;
+- the trusted setup manifest must also provide a real
+  `artifacts.r1cs.path` plus `artifacts.r1cs.sha256`;
+- both files must exist in the repository checkout and match their SHA-256
+  digests before the checker will accept the production-ready claim.
+
+Until those source and artifact hashes exist, #551 is blocked on real circuit
+implementation and setup work rather than complete.
+
 ## Canonical Assets
 
 | Asset | Path |

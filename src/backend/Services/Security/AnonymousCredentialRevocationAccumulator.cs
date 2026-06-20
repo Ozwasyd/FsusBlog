@@ -1,9 +1,26 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using FsusBlog.Core.Common;
 
 namespace FsusBlog.Server.Services.Security;
+
+public enum AnonymousCredentialRevocationAccumulatorAlgorithm
+{
+    Unknown = 0,
+    LegacySha256HashTreeV1 = 1,
+    CircuitFriendlyNonMembershipV1 = 2
+}
+
+public sealed record AnonymousCredentialRevocationAccumulatorProfile(
+    AnonymousCredentialRevocationAccumulatorAlgorithm Algorithm,
+    string AlgorithmId,
+    bool ProductionZkReady,
+    string UnavailableReason)
+{
+    public bool IsProductionZkCompatible => ProductionZkReady && string.IsNullOrWhiteSpace(UnavailableReason);
+}
 
 public sealed record AnonymousCredentialNonMembershipWitness(
     long Epoch,
@@ -23,11 +40,86 @@ public static class AnonymousCredentialRevocationAccumulator
     private const string RootDomain = "fsus.anonymous.revocation.accumulator.root.v1";
     private const string WitnessDomain = "fsus.anonymous.revocation.nonmembership.v1";
 
+    public const string LegacySha256HashTreeAlgorithmId = "legacy-sha256-hash-tree.v1";
+    public const string CircuitFriendlyNonMembershipAlgorithmId = "circuit-friendly-non-membership.v1";
+    public const string RevocationAccumulatorMetadataProperty = "revocationAccumulator";
+
+    public static AnonymousCredentialRevocationAccumulatorProfile LegacySha256Profile { get; } = new(
+        AnonymousCredentialRevocationAccumulatorAlgorithm.LegacySha256HashTreeV1,
+        LegacySha256HashTreeAlgorithmId,
+        ProductionZkReady: false,
+        "legacy_sha256_not_circuit_friendly");
+
     public static string DeriveHandleHash(string issuerPublicKeyHash, string credentialBinding)
         => Sha256Hex(
             HandleDomain,
             NormalizeHexToken(issuerPublicKeyHash, 128),
             NormalizeToken(credentialBinding, 256));
+
+    public static AnonymousCredentialRevocationAccumulatorProfile ResolveProfileFromCircuitMetadata(string? circuitMetadata)
+    {
+        if (string.IsNullOrWhiteSpace(circuitMetadata))
+        {
+            return LegacySha256Profile;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(circuitMetadata);
+            if (!document.RootElement.TryGetProperty(RevocationAccumulatorMetadataProperty, out JsonElement accumulator) ||
+                accumulator.ValueKind != JsonValueKind.Object)
+            {
+                return LegacySha256Profile;
+            }
+
+            string algorithmId = ReadString(accumulator, "algorithm");
+            bool productionZkReady = ReadBoolean(accumulator, "productionZkReady");
+            return ResolveProfile(algorithmId, productionZkReady);
+        }
+        catch (JsonException)
+        {
+            return new AnonymousCredentialRevocationAccumulatorProfile(
+                AnonymousCredentialRevocationAccumulatorAlgorithm.Unknown,
+                string.Empty,
+                ProductionZkReady: false,
+                "revocation_accumulator_metadata_invalid");
+        }
+    }
+
+    public static AnonymousCredentialRevocationAccumulatorProfile ResolveProfile(
+        string? algorithmId,
+        bool productionZkReady)
+    {
+        string normalized = NormalizeToken(algorithmId, 128).ToLowerInvariant();
+        if (normalized.Length == 0 || string.Equals(normalized, LegacySha256HashTreeAlgorithmId, StringComparison.Ordinal))
+        {
+            return new AnonymousCredentialRevocationAccumulatorProfile(
+                AnonymousCredentialRevocationAccumulatorAlgorithm.LegacySha256HashTreeV1,
+                LegacySha256HashTreeAlgorithmId,
+                productionZkReady,
+                "legacy_sha256_not_circuit_friendly");
+        }
+
+        if (string.Equals(normalized, CircuitFriendlyNonMembershipAlgorithmId, StringComparison.Ordinal))
+        {
+            return new AnonymousCredentialRevocationAccumulatorProfile(
+                AnonymousCredentialRevocationAccumulatorAlgorithm.CircuitFriendlyNonMembershipV1,
+                CircuitFriendlyNonMembershipAlgorithmId,
+                productionZkReady,
+                "circuit_friendly_accumulator_not_implemented");
+        }
+
+        return new AnonymousCredentialRevocationAccumulatorProfile(
+            AnonymousCredentialRevocationAccumulatorAlgorithm.Unknown,
+            normalized,
+            productionZkReady,
+            "revocation_accumulator_algorithm_unknown");
+    }
+
+    public static Result EnsureProductionZkCompatible(AnonymousCredentialRevocationAccumulatorProfile profile)
+        => profile.IsProductionZkCompatible
+            ? Result.Success()
+            : Result.Failure(ErrorCode.Validation, "anonymous_credential_revocation_accumulator_not_production_ready");
 
     public static Result<string> TryComputeRoot(
         long epoch,
@@ -193,6 +285,16 @@ public static class AnonymousCredentialRevocationAccumulator
         string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
     }
+
+    private static string ReadString(JsonElement parent, string propertyName)
+        => parent.TryGetProperty(propertyName, out JsonElement value) &&
+            value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
+
+    private static bool ReadBoolean(JsonElement parent, string propertyName)
+        => parent.TryGetProperty(propertyName, out JsonElement value) &&
+            value.ValueKind == JsonValueKind.True;
 
     private static string Sha256Hex(params string[] parts)
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\0', parts))));

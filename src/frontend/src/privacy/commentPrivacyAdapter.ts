@@ -3,6 +3,10 @@ import {
   getAnonymousCredentialRootSnapshot,
   issueAnonymousCommentTicket
 } from '@/api/comment'
+import {
+  createCommentPrivacyCredentialProvider,
+  type CommentPrivacyCredentialProvider
+} from './commentPrivacyCredentialProvider'
 import type {
   CommentPrivacyAdapter,
   CommentPrivacyCredentialMaterial,
@@ -12,22 +16,12 @@ import type {
   CommentPrivacyTicketResult
 } from './commentPrivacyTypes'
 
-export interface CommentPrivacyCredentialProvider {
-  prepareCredential(request: { signal: AbortSignal }): Promise<CommentPrivacyCredentialMaterial | null>
-}
-
 export interface CommentPrivacyAdapterOptions {
   credentialProvider?: CommentPrivacyCredentialProvider
 }
 
-const unavailableCredentialProvider: CommentPrivacyCredentialProvider = {
-  async prepareCredential() {
-    return null
-  }
-}
-
 export function createCommentPrivacyAdapter(options: CommentPrivacyAdapterOptions = {}): CommentPrivacyAdapter {
-  const credentialProvider = options.credentialProvider ?? unavailableCredentialProvider
+  const credentialProvider = options.credentialProvider ?? createCommentPrivacyCredentialProvider()
   let credentialMaterial: CommentPrivacyCredentialMaterial | null = null
 
   return {

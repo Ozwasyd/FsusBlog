@@ -47,7 +47,15 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IZkAnonymousProofService, ZkAnonymousProofService>();
         services.AddSingleton<IAnonymousCommentPolicyService, AnonymousCommentPolicyService>();
         services.AddScoped<IAnonymousCredentialService, AnonymousCredentialService>();
-        services.TryAddSingleton<IBbsBlindCredentialIssuer, UnavailableBbsBlindCredentialIssuer>();
+        if (ShouldUseProductionBbsCredentialIssuer(configuration))
+        {
+            services.TryAddSingleton<IBbsBlindCredentialIssuer, ProductionBbsBlindCredentialIssuer>();
+        }
+        else
+        {
+            services.TryAddSingleton<IBbsBlindCredentialIssuer, UnavailableBbsBlindCredentialIssuer>();
+        }
+
         services.AddScoped<IAnonymousCredentialIssuanceAuditStore, AnonymousCredentialIssuanceAuditStore>();
         services.AddScoped<IAnonymousCredentialIssuerService, AnonymousCredentialIssuerService>();
         services.AddScoped<IAnonymousCredentialRootStore, AnonymousCredentialRootStore>();
@@ -118,4 +126,7 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         return options.Enabled &&
             ZkProdOptions.IsNativeVerifierBackend(options.VerifierBackend);
     }
+
+    private static bool ShouldUseProductionBbsCredentialIssuer(IConfiguration configuration)
+        => BbsBlindCredentialIssuerOptions.FromConfiguration(configuration).Enabled;
 }

@@ -593,6 +593,11 @@ public static class ProductionStartupValidator
             errors.Add("AnonymousIdentity:ZkProd:Enabled requires BBS credential readiness in production.");
         }
 
+        if (options.RequireBbsCredential && options.BbsCredentialReady && !readiness.BbsIssuerConfigured)
+        {
+            errors.Add("AnonymousIdentity:ZkProd:BbsCredentialReady requires a configured BBS issuer backend in production.");
+        }
+
         if (!readiness.CredentialRootReady)
         {
             errors.Add("AnonymousIdentity:ZkProd:Enabled requires an anonymous credential root snapshot in production.");
@@ -647,6 +652,7 @@ internal sealed class ProductionStartupValidationHostedService(
     IWebHostEnvironment environment,
     IZkProofVerifier zkProofVerifier,
     IAnonymousCredentialRootReader rootReader,
+    IBbsBlindCredentialIssuer bbsIssuer,
     StartupRuntimeState runtimeState,
     ILogger<ProductionStartupValidationHostedService> logger) : IHostedService
 {
@@ -666,7 +672,8 @@ internal sealed class ProductionStartupValidationHostedService(
             enforceProductionRules: true,
             new ZkProdRuntimeReadiness(
                 zkProofVerifier.IsConfigured,
-                HasReadyCredentialRoot(rootReader)));
+                HasReadyCredentialRoot(rootReader),
+                bbsIssuer.IsConfigured));
         if (report.Errors.Count == 0)
         {
             runtimeState.ReportStartupTask(TaskName, "completed", "生产启动校验通过");

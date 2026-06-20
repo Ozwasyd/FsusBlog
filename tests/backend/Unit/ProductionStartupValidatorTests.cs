@@ -92,6 +92,7 @@ public sealed class ProductionStartupValidatorTests
             new TestWebHostEnvironment(Environments.Production),
             new StaticZkProofVerifier(configured: false),
             new StaticRootReader(rootReady: false),
+            new UnavailableBbsBlindCredentialIssuer(configuration),
             runtimeState,
             NullLogger<ProductionStartupValidationHostedService>.Instance);
 
@@ -392,6 +393,24 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    public void ValidateCore_RejectsProductionZkProdReadyWhenBbsIssuerUnavailable()
+    {
+        IConfiguration configuration = CreateZkProdProductionConfiguration(new Dictionary<string, string?>
+        {
+            ["AnonymousCredentialIssuer:Bbs:Enabled"] = "false"
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            enforceProductionRules: true,
+            new ZkProdRuntimeReadiness(
+                NativeVerifierConfigured: true,
+                CredentialRootReady: true));
+
+        Assert.Contains(errors, static error => error.Contains("BBS issuer", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void ValidateCore_AcceptsProductionZkProdWhenAllConfiguredReadinessGatesPass()
     {
         IConfiguration configuration = CreateZkProdProductionConfiguration([]);
@@ -401,7 +420,8 @@ public sealed class ProductionStartupValidatorTests
             enforceProductionRules: true,
             new ZkProdRuntimeReadiness(
                 NativeVerifierConfigured: true,
-                CredentialRootReady: true));
+                CredentialRootReady: true,
+                BbsIssuerConfigured: true));
 
         Assert.DoesNotContain(errors, static error => error.Contains("AnonymousIdentity:ZkProd", StringComparison.Ordinal));
     }

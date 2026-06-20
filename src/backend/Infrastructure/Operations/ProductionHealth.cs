@@ -146,6 +146,7 @@ public sealed class ProductionReadinessProbe(
     {
         IZkProofVerifier? verifier = serviceProvider.GetService<IZkProofVerifier>();
         IAnonymousCredentialRootReader? rootReader = serviceProvider.GetService<IAnonymousCredentialRootReader>();
+        IBbsBlindCredentialIssuer? bbsIssuer = serviceProvider.GetService<IBbsBlindCredentialIssuer>();
         DateTimeOffset now = DateTimeOffset.UtcNow;
         bool rootReady = rootReader?.CurrentSnapshot.AcceptedRoots.Any(root =>
             root.GraceExpiresAtUtc > now &&
@@ -154,7 +155,10 @@ public sealed class ProductionReadinessProbe(
             !string.IsNullOrWhiteSpace(root.IssuerPublicKeyHash) &&
             (string.Equals(root.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
              string.Equals(root.Status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal))) == true;
-        return new ZkProdRuntimeReadiness(verifier?.IsConfigured == true, rootReady);
+        return new ZkProdRuntimeReadiness(
+            verifier?.IsConfigured == true,
+            rootReady,
+            bbsIssuer?.IsConfigured == true);
     }
 
     private ProductionResourceHealthCheck CheckResources()

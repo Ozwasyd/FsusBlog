@@ -86,6 +86,154 @@ public sealed class UnavailableBbsBlindCredentialIssuer(IConfiguration configura
     }
 }
 
+public sealed class ProductionBbsBlindCredentialIssuer(IConfiguration configuration) : IBbsBlindCredentialIssuer
+{
+    private readonly BbsBlindCredentialIssuerConfigurationStatus _status =
+        BbsBlindCredentialIssuerOptions.FromConfiguration(configuration).ValidateConfiguration();
+
+    public bool IsConfigured => _status.CanIssueBlindSignatures;
+
+    public string IssuerPublicKeyId => AnonymousCredentialIssuerService.ResolveIssuerPublicKeyId(configuration);
+
+    public string IssuerPublicKeyHash => _status.IssuerPublicKeyHash.Length > 0
+        ? _status.IssuerPublicKeyHash
+        : Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(IssuerPublicKeyId)));
+
+    public ValueTask<Result<BbsBlindCredentialIssueResult>> SignAsync(
+        BbsBlindCredentialIssueMaterial material,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult(Result<BbsBlindCredentialIssueResult>.Failure(
+            ErrorCode.InfraFailure,
+            "anonymous_credential_issuer_unavailable"));
+    }
+}
+
+internal sealed record BbsBlindCredentialIssuerOptions(
+    bool Enabled,
+    string IssuerPrivateKeyPath,
+    string IssuerPublicKeyPath,
+    string IssuerPublicKeyHash,
+    string Backend,
+    int MaxConcurrentSignatures,
+    int TimeoutMs)
+{
+    public const string SectionName = "AnonymousCredentialIssuer:Bbs";
+    public const string NativeBbsPlusBackend = "native_bbs_plus";
+    private const int DefaultMaxConcurrentSignatures = 2;
+    private const int DefaultTimeoutMs = 2_000;
+
+    public static BbsBlindCredentialIssuerOptions FromConfiguration(IConfiguration configuration)
+    {
+        IConfigurationSection section = configuration.GetSection(SectionName);
+        return new BbsBlindCredentialIssuerOptions(
+            section.GetValue(nameof(Enabled), false),
+            NormalizePath(section[nameof(IssuerPrivateKeyPath)]),
+            NormalizePath(section[nameof(IssuerPublicKeyPath)]),
+            NormalizeSha256(section[nameof(IssuerPublicKeyHash)]),
+            NormalizeToken(section[nameof(Backend)], fallback: string.Empty, maxLength: 64),
+            Math.Clamp(
+                section.GetValue(nameof(MaxConcurrentSignatures), DefaultMaxConcurrentSignatures),
+                1,
+                Environment.ProcessorCount <= 0 ? 1 : Environment.ProcessorCount),
+            Math.Clamp(section.GetValue(nameof(TimeoutMs), DefaultTimeoutMs), 100, 30_000));
+    }
+
+    public BbsBlindCredentialIssuerConfigurationStatus ValidateConfiguration()
+    {
+        bool privateKeyReadable = HasReadableFile(IssuerPrivateKeyPath);
+        bool publicKeyReadable = TryReadFile(IssuerPublicKeyPath, out byte[] publicKey);
+        string actualPublicKeyHash = publicKeyReadable
+            ? Convert.ToHexStringLower(SHA256.HashData(publicKey))
+            : string.Empty;
+        bool publicKeyHashMatches = IssuerPublicKeyHash.Length > 0 &&
+            string.Equals(actualPublicKeyHash, IssuerPublicKeyHash, StringComparison.Ordinal);
+        bool supportedBackend = string.Equals(Backend, NativeBbsPlusBackend, StringComparison.Ordinal);
+
+        // A real BBS+ blind-signing backend is intentionally not bundled in this slice.
+        // Keep production readiness false rather than synthesizing placeholder signatures.
+        const bool realSigningBackendLoaded = false;
+        return new BbsBlindCredentialIssuerConfigurationStatus(
+            Enabled,
+            supportedBackend,
+            privateKeyReadable,
+            publicKeyReadable,
+            publicKeyHashMatches,
+            publicKeyHashMatches ? actualPublicKeyHash : IssuerPublicKeyHash,
+            realSigningBackendLoaded);
+    }
+
+    private static string NormalizePath(string? value)
+    {
+        string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+        return normalized.Length <= 4096 ? normalized : normalized[..4096];
+    }
+
+    private static string NormalizeToken(string? value, string fallback, int maxLength)
+    {
+        string normalized = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
+    }
+
+    private static string NormalizeSha256(string? value)
+    {
+        string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+        if (normalized.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = normalized["sha256:".Length..];
+        }
+
+        if (normalized.Length != 64 || normalized.Any(static ch => !Uri.IsHexDigit(ch)))
+        {
+            return string.Empty;
+        }
+
+        return normalized.ToLowerInvariant();
+    }
+
+    private static bool HasReadableFile(string path)
+        => TryReadFile(path, out byte[] bytes) && bytes.Length > 0;
+
+    private static bool TryReadFile(string path, out byte[] bytes)
+    {
+        bytes = [];
+        if (path.Length == 0 || !File.Exists(path))
+        {
+            return false;
+        }
+
+        try
+        {
+            bytes = File.ReadAllBytes(path);
+            return bytes.Length > 0;
+        }
+        catch
+        {
+            bytes = [];
+            return false;
+        }
+    }
+}
+
+internal readonly record struct BbsBlindCredentialIssuerConfigurationStatus(
+    bool Enabled,
+    bool HasSupportedBackend,
+    bool HasPrivateKey,
+    bool HasPublicKey,
+    bool PublicKeyHashMatches,
+    string IssuerPublicKeyHash,
+    bool HasRealSigningBackend)
+{
+    public bool CanIssueBlindSignatures =>
+        Enabled &&
+        HasSupportedBackend &&
+        HasPrivateKey &&
+        HasPublicKey &&
+        PublicKeyHashMatches &&
+        HasRealSigningBackend;
+}
+
 public sealed class AnonymousCredentialIssuanceAuditStore(ISqlSugarClient db) : IAnonymousCredentialIssuanceAuditStore
 {
     public async Task<bool> TryRecordIssuedAsync(

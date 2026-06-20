@@ -95,6 +95,31 @@ test('privacy ZK production release gate fails when credential root is not activ
   })
 })
 
+test('privacy ZK production release gate fails when root bootstrap evidence is missing', () => {
+  withTempDir((dir) => {
+    const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
+    const bbsPublicKey = writeText(dir, 'bbs-public.key', 'issuer')
+    const setup = writeJson(dir, 'trusted-setup.json', setupManifest('abc123'))
+    const smoke = writeJson(dir, 'smoke.json', completeSmokeEvidence())
+    const config = writeJson(dir, 'enabled.json', enabledConfig({
+      nativeLibrary,
+      bbsPublicKey,
+      verifyingKeyHash: 'abc123',
+      smoke
+    }))
+
+    const result = runGate(
+      '--config', config,
+      '--trusted-setup-manifest', setup,
+      '--smoke-evidence', smoke,
+      '--root-bootstrap-evidence', path.join(dir, 'missing-root-bootstrap.json'),
+      '--summary', path.join(dir, 'summary.json'))
+
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /root-bootstrap-evidence/)
+  })
+})
+
 test('privacy ZK production release gate rejects sensitive smoke evidence fields', () => {
   withTempDir((dir) => {
     const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
@@ -126,14 +151,16 @@ test('privacy ZK production release gate rejects sensitive smoke evidence fields
 
 test('privacy ZK production release gate accepts complete enabled fixture', () => {
   withTempDir((dir) => {
+    const verifyingKeyHash = hex('a')
     const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
     const bbsPublicKey = writeText(dir, 'bbs-public.key', 'issuer')
-    const setup = writeJson(dir, 'trusted-setup.json', setupManifest('abc123'))
+    const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
     const smoke = writeJson(dir, 'smoke.json', completeSmokeEvidence())
+    const rootBootstrap = writeJson(dir, 'root-bootstrap.json', rootBootstrapEvidence(verifyingKeyHash))
     const config = writeJson(dir, 'enabled.json', enabledConfig({
       nativeLibrary,
       bbsPublicKey,
-      verifyingKeyHash: 'abc123',
+      verifyingKeyHash,
       smoke
     }))
     const summary = path.join(dir, 'summary.json')
@@ -142,6 +169,7 @@ test('privacy ZK production release gate accepts complete enabled fixture', () =
       '--config', config,
       '--trusted-setup-manifest', setup,
       '--smoke-evidence', smoke,
+      '--root-bootstrap-evidence', rootBootstrap,
       '--summary', summary)
 
     assert.equal(result.status, 0, result.stderr)
@@ -205,6 +233,31 @@ function setupManifest(verifyingKeyHash) {
   }
 }
 
+function rootBootstrapEvidence(verifyingKeyHash) {
+  return {
+    schema: 'fsusblog.anonymous-credential-root-bootstrap-evidence.v1',
+    status: 'validated_offline',
+    mode: 'offline-validated-evidence',
+    stagingDbRotateSatisfied: false,
+    rootSnapshot: {
+      epoch: 2026062001,
+      credentialRootHash: hex('1'),
+      revocationRootHash: hex('2'),
+      issuerPublicKeyHash: hex('3'),
+      circuitId: 'fsus.anonymous.comment.v1',
+      circuitNumericId: 7,
+      publicInputLayoutVersion: 2,
+      verifyingKeyHash,
+      expiresAtUtc: '2099-07-20T00:00:00Z',
+      graceExpiresAtUtc: '2099-07-27T00:00:00Z'
+    },
+    checks: [
+      'hash-format-valid',
+      'verifying-key-hash-bound-to-trusted-setup'
+    ]
+  }
+}
+
 function runGate(...args) {
   return spawnSync(process.execPath, [script, ...args], {
     cwd: root,
@@ -231,4 +284,8 @@ function writeText(dir, name, value) {
   const file = path.join(dir, name)
   writeFileSync(file, value)
   return file
+}
+
+function hex(ch) {
+  return ch.repeat(64)
 }

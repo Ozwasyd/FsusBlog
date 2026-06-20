@@ -54,7 +54,7 @@ public sealed class AnonymousCredentialRootLifecycleTests
     }
 
     [Fact]
-    public async Task RootLifecycle_RotatesActiveIntoGraceAndAcceptsActiveAndGraceOnly()
+    public async Task RootLifecycle_RotatesActiveIntoGraceAndExcludesLegacyAccumulatorFromProductionSnapshot()
     {
         string dbPath = BuildDbPath("root-lifecycle-rotate");
         try
@@ -73,11 +73,12 @@ public sealed class AnonymousCredentialRootLifecycleTests
 
             Assert.True(first.IsSuccess, first.Error.Message);
             Assert.True(second.IsSuccess, second.Error.Message);
-            Assert.True(reader.IsRootAccepted("aa01", 100));
-            Assert.True(reader.IsRootAccepted("aa01", RevocationRoot(100), IssuerPublicKeyHash, 100));
+            Assert.False(reader.IsRootAccepted("aa01", 100));
+            Assert.False(reader.IsRootAccepted("aa01", RevocationRoot(100), IssuerPublicKeyHash, 100));
             Assert.False(reader.IsRootAccepted("aa01", RevocationRoot(101), IssuerPublicKeyHash, 100));
             Assert.False(reader.IsRootAccepted("aa01", RevocationRoot(100), new string('e', 64), 100));
-            Assert.True(reader.IsRootAccepted("bb02", RevocationRoot(101), IssuerPublicKeyHash, 101));
+            Assert.False(reader.IsRootAccepted("bb02", RevocationRoot(101), IssuerPublicKeyHash, 101));
+            Assert.Empty(reader.CurrentSnapshot.AcceptedRoots);
 
             using SqlSugarClient verifyDb = CreateDb(dbPath);
             Assert.Equal(1, await verifyDb.Queryable<AnonymousCredentialRoot>()
@@ -92,7 +93,7 @@ public sealed class AnonymousCredentialRootLifecycleTests
             await reader.RefreshAsync(CancellationToken.None);
 
             Assert.False(reader.IsRootAccepted("aa01", 100));
-            Assert.True(reader.IsRootAccepted("bb02", RevocationRoot(101), IssuerPublicKeyHash, 101));
+            Assert.False(reader.IsRootAccepted("bb02", RevocationRoot(101), IssuerPublicKeyHash, 101));
         }
         finally
         {
@@ -101,7 +102,7 @@ public sealed class AnonymousCredentialRootLifecycleTests
     }
 
     [Fact]
-    public async Task RootLifecycle_RefreshLoadsSeededActiveRootSnapshot()
+    public async Task RootLifecycle_RefreshExcludesSeededLegacyRootFromProductionSnapshot()
     {
         string dbPath = BuildDbPath("root-lifecycle-startup");
         try
@@ -115,10 +116,65 @@ public sealed class AnonymousCredentialRootLifecycleTests
 
             await reader.RefreshAsync(CancellationToken.None);
 
-            Assert.True(reader.IsRootAccepted("ee05", RevocationRoot(150), IssuerPublicKeyHash, 150));
-            Assert.Contains(reader.CurrentSnapshot.AcceptedRoots, static root =>
-                root.Epoch == 150 &&
-                root.Status == AnonymousCredentialRootStatuses.Active);
+            Assert.False(reader.IsRootAccepted("ee05", RevocationRoot(150), IssuerPublicKeyHash, 150));
+            Assert.Empty(reader.CurrentSnapshot.AcceptedRoots);
+        }
+        finally
+        {
+            TryDelete(dbPath);
+        }
+    }
+
+    [Fact]
+    public async Task RootLifecycle_LegacySha256AccumulatorDoesNotEnterProductionZkSnapshot()
+    {
+        string dbPath = BuildDbPath("root-lifecycle-legacy-accumulator");
+        try
+        {
+            using SqlSugarClient setup = CreateDb(dbPath);
+            CreateLifecycleTables(setup);
+            SeedRoot(
+                setup,
+                epoch: 160,
+                rootHash: "ee07",
+                status: AnonymousCredentialRootStatuses.Active,
+                graceMinutes: 120,
+                circuitMetadata: LegacyRevocationAccumulatorMetadata);
+
+            await using ServiceProvider provider = BuildProvider(dbPath, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
+            var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
+
+            await reader.RefreshAsync(CancellationToken.None);
+
+            Assert.Empty(reader.CurrentSnapshot.AcceptedRoots);
+            Assert.False(reader.IsRootAccepted("ee07", 160));
+            Assert.False(reader.IsRootAccepted("ee07", RevocationRoot(160), IssuerPublicKeyHash, 160));
+        }
+        finally
+        {
+            TryDelete(dbPath);
+        }
+    }
+
+    [Fact]
+    public async Task RootLifecycle_RejectsRotationThatMarksLegacyAccumulatorProductionReady()
+    {
+        string dbPath = BuildDbPath("root-lifecycle-legacy-prod-ready");
+        try
+        {
+            using SqlSugarClient setup = CreateDb(dbPath);
+            CreateLifecycleTables(setup);
+
+            await using ServiceProvider provider = BuildProvider(dbPath, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
+            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+
+            Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(
+                epoch: 161,
+                rootHash: "ee08",
+                circuitMetadata: LegacyRevocationAccumulatorMarkedProductionReadyMetadata), CancellationToken.None);
+
+            Assert.True(rotated.IsFailure);
+            Assert.Equal("anonymous_credential_revocation_accumulator_not_production_ready", rotated.Error.Message);
         }
         finally
         {
@@ -280,6 +336,22 @@ public sealed class AnonymousCredentialRootLifecycleTests
     }
 
     [Fact]
+    public void RevocationAccumulator_ProfileDoesNotTreatReservedAlgorithmsAsProductionReady()
+    {
+        AnonymousCredentialRevocationAccumulatorProfile legacy = AnonymousCredentialRevocationAccumulator.ResolveProfile(
+            AnonymousCredentialRevocationAccumulator.LegacySha256HashTreeAlgorithmId,
+            productionZkReady: true);
+        AnonymousCredentialRevocationAccumulatorProfile reservedCircuitFriendly = AnonymousCredentialRevocationAccumulator.ResolveProfile(
+            AnonymousCredentialRevocationAccumulator.CircuitFriendlyNonMembershipAlgorithmId,
+            productionZkReady: true);
+
+        Assert.False(legacy.IsProductionZkCompatible);
+        Assert.Equal("legacy_sha256_not_circuit_friendly", legacy.UnavailableReason);
+        Assert.False(reservedCircuitFriendly.IsProductionZkCompatible);
+        Assert.Equal("circuit_friendly_accumulator_not_implemented", reservedCircuitFriendly.UnavailableReason);
+    }
+
+    [Fact]
     public async Task RootLifecycle_ConcurrentDuplicateRotationKeepsSingleActiveRoot()
     {
         string dbPath = BuildDbPath("root-lifecycle-concurrent");
@@ -310,7 +382,17 @@ public sealed class AnonymousCredentialRootLifecycleTests
         }
     }
 
-    private static AnonymousCredentialRootRotationRequest CreateRotation(long epoch, string rootHash, int graceMinutes = 120)
+    private const string LegacyRevocationAccumulatorMetadata =
+        "{\"layout\":2,\"revocationAccumulator\":{\"algorithm\":\"legacy-sha256-hash-tree.v1\",\"productionZkReady\":false}}";
+
+    private const string LegacyRevocationAccumulatorMarkedProductionReadyMetadata =
+        "{\"layout\":2,\"revocationAccumulator\":{\"algorithm\":\"legacy-sha256-hash-tree.v1\",\"productionZkReady\":true}}";
+
+    private static AnonymousCredentialRootRotationRequest CreateRotation(
+        long epoch,
+        string rootHash,
+        int graceMinutes = 120,
+        string? circuitMetadata = null)
         => new(
             Epoch: epoch,
             RootHash: rootHash,
@@ -321,7 +403,7 @@ public sealed class AnonymousCredentialRootLifecycleTests
             PublicInputLayoutVersion: 2,
             ExpiresAtUtc: BaselineNow.AddMinutes(60),
             GraceExpiresAtUtc: BaselineNow.AddMinutes(graceMinutes),
-            CircuitMetadata: "{\"layout\":2}",
+            CircuitMetadata: circuitMetadata ?? "{\"layout\":2}",
             Reason: "unit",
             ActorId: "admin:42",
             IssuerPublicKeyHash: IssuerPublicKeyHash);
@@ -425,7 +507,13 @@ public sealed class AnonymousCredentialRootLifecycleTests
             """);
     }
 
-    private static void SeedRoot(SqlSugarClient db, long epoch, string rootHash, string status, int graceMinutes)
+    private static void SeedRoot(
+        SqlSugarClient db,
+        long epoch,
+        string rootHash,
+        string status,
+        int graceMinutes,
+        string? circuitMetadata = null)
         => db.Insertable(new AnonymousCredentialRoot
         {
             Epoch = epoch,
@@ -436,7 +524,7 @@ public sealed class AnonymousCredentialRootLifecycleTests
             VerifyingKeyHash = "vk-sha256",
             IssuerPublicKeyHash = IssuerPublicKeyHash,
             PublicInputLayoutVersion = 2,
-            CircuitMetadata = "{\"layout\":2}",
+            CircuitMetadata = circuitMetadata ?? "{\"layout\":2}",
             CreatedAtUtc = BaselineNow.UtcDateTime,
             ActivatedAtUtc = BaselineNow.UtcDateTime,
             ExpiresAtUtc = BaselineNow.AddMinutes(60).UtcDateTime,

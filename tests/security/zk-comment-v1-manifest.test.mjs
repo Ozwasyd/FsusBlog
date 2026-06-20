@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -13,6 +14,10 @@ const configPath = 'config/zk/anonymous-comment-v1-verifying-key.manifest.json'
 
 function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8'))
+}
+
+function manifestHash(document) {
+  return createHash('sha256').update(`${JSON.stringify(document, null, 2)}\n`).digest('hex')
 }
 
 function runChecker(env = {}) {
@@ -137,6 +142,32 @@ test('checker fails if production usable is claimed without real setup artifacts
 
   assert.notEqual(result.status, 0)
   assert.match(`${result.stdout}\n${result.stderr}`, /production_usable must remain false/)
+})
+
+test('checker fails if circuit claims production-ready without real R1CS source and artifact hashes', () => {
+  const result = withTempManifests((documents) => {
+    documents.circuit.artifact_status = 'production-ready'
+    documents.setup.circuit_manifest_sha256 = manifestHash(documents.circuit)
+  })
+
+  assert.notEqual(result.status, 0)
+  assert.match(
+    `${result.stdout}\n${result.stderr}`,
+    /cannot claim production-ready without real R1CS source and artifact hashes/
+  )
+})
+
+test('checker fails if circuit omits explicit fail-closed artifact status', () => {
+  const result = withTempManifests((documents) => {
+    delete documents.circuit.artifact_status
+    documents.setup.circuit_manifest_sha256 = manifestHash(documents.circuit)
+  })
+
+  assert.notEqual(result.status, 0)
+  assert.match(
+    `${result.stdout}\n${result.stderr}`,
+    /circuit\.artifact_status must be an explicit fail-closed status/
+  )
 })
 
 test('checker fails if trusted setup hash drifts from the circuit manifest', () => {

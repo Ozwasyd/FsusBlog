@@ -4,7 +4,11 @@ export interface CommentPrivacyProverManifest {
   moduleUrl: string
   wasmUrl: string
   provingKeyUrl: string
-  integrity?: string
+  integrity: string
+  circuitId: string
+  publicInputLayoutVersion: number
+  provingKeySha256: string
+  wasmSha256: string
 }
 
 export interface CommentPrivacyWasmProver {
@@ -15,6 +19,7 @@ export interface CommentPrivacyWasmProver {
 export interface CommentPrivacyWasmProverOptions {
   manifestUrl?: string
   loadManifest?: (request: { manifestUrl: string; signal?: AbortSignal }) => Promise<CommentPrivacyProverManifest | null>
+  loadArtifact?: (request: { artifactUrl: string; signal?: AbortSignal }) => Promise<Uint8Array | null>
   loadModule?: (moduleUrl: string, signal?: AbortSignal) => Promise<unknown>
 }
 
@@ -36,6 +41,7 @@ const PROOF_FAILED = 'comment_privacy_prover_failed'
 export function createCommentPrivacyWasmProver(options: CommentPrivacyWasmProverOptions = {}): CommentPrivacyWasmProver {
   const manifestUrl = options.manifestUrl ?? DEFAULT_MANIFEST_URL
   const loadManifest = options.loadManifest ?? defaultLoadManifest
+  const loadArtifact = options.loadArtifact ?? defaultLoadArtifact
   const loadModule = options.loadModule ?? defaultLoadModule
   let loadedPromise: Promise<LoadedProver> | null = null
 
@@ -44,6 +50,7 @@ export function createCommentPrivacyWasmProver(options: CommentPrivacyWasmProver
     if (!loadedPromise) {
       loadedPromise = (async () => {
         const manifest = normalizeManifest(await loadManifest({ manifestUrl, signal }))
+        await verifyManifestArtifacts(manifest, loadArtifact, signal)
         const module = await loadModule(manifest.moduleUrl, signal)
         return {
           manifest,
@@ -69,6 +76,7 @@ export function createCommentPrivacyWasmProver(options: CommentPrivacyWasmProver
       throwIfAborted(request.signal)
       assertProofRequest(request)
       const loaded = await load(request.signal)
+      assertManifestMatchesRequest(loaded.manifest, request)
       try {
         const result = await loaded.delegate.prepareProof({ ...request, manifest: loaded.manifest })
         return normalizeProofBundle(result)
@@ -96,6 +104,23 @@ async function defaultLoadManifest(request: { manifestUrl: string; signal?: Abor
   return await response.json() as CommentPrivacyProverManifest
 }
 
+async function defaultLoadArtifact(request: { artifactUrl: string; signal?: AbortSignal }): Promise<Uint8Array | null> {
+  if (typeof fetch !== 'function') {
+    return null
+  }
+
+  const response = await fetch(request.artifactUrl, {
+    cache: 'force-cache',
+    credentials: 'omit',
+    signal: request.signal
+  })
+  if (!response.ok) {
+    return null
+  }
+
+  return new Uint8Array(await response.arrayBuffer())
+}
+
 async function defaultLoadModule(moduleUrl: string): Promise<unknown> {
   return await import(/* @vite-ignore */ moduleUrl)
 }
@@ -105,7 +130,16 @@ function normalizeManifest(manifest: CommentPrivacyProverManifest | null): Comme
     throw new Error(ARTIFACT_UNAVAILABLE)
   }
 
-  if (!isNonEmptyString(manifest.moduleUrl) || !isNonEmptyString(manifest.wasmUrl) || !isNonEmptyString(manifest.provingKeyUrl)) {
+  if (
+    !isNonEmptyString(manifest.moduleUrl) ||
+    !isNonEmptyString(manifest.wasmUrl) ||
+    !isNonEmptyString(manifest.provingKeyUrl) ||
+    !isNonEmptyString(manifest.integrity) ||
+    !isNonEmptyString(manifest.circuitId) ||
+    !isValidLayoutVersion(manifest.publicInputLayoutVersion) ||
+    !isSha256Hex(manifest.wasmSha256) ||
+    !isSha256Hex(manifest.provingKeySha256)
+  ) {
     throw new Error(ARTIFACT_INVALID)
   }
 
@@ -113,8 +147,115 @@ function normalizeManifest(manifest: CommentPrivacyProverManifest | null): Comme
     moduleUrl: manifest.moduleUrl,
     wasmUrl: manifest.wasmUrl,
     provingKeyUrl: manifest.provingKeyUrl,
-    integrity: isNonEmptyString(manifest.integrity) ? manifest.integrity : undefined
+    integrity: manifest.integrity.trim(),
+    circuitId: manifest.circuitId.trim(),
+    publicInputLayoutVersion: manifest.publicInputLayoutVersion,
+    wasmSha256: manifest.wasmSha256.toLowerCase(),
+    provingKeySha256: manifest.provingKeySha256.toLowerCase()
   }
+}
+
+async function verifyManifestArtifacts(
+  manifest: CommentPrivacyProverManifest,
+  loadArtifact: NonNullable<CommentPrivacyWasmProverOptions['loadArtifact']>,
+  signal?: AbortSignal
+): Promise<void> {
+  const [moduleBytes, wasmBytes, provingKeyBytes] = await Promise.all([
+    loadRequiredArtifact(loadArtifact, manifest.moduleUrl, signal),
+    loadRequiredArtifact(loadArtifact, manifest.wasmUrl, signal),
+    loadRequiredArtifact(loadArtifact, manifest.provingKeyUrl, signal)
+  ])
+
+  await Promise.all([
+    assertSubresourceIntegrity(moduleBytes, manifest.integrity),
+    assertSha256(wasmBytes, manifest.wasmSha256),
+    assertSha256(provingKeyBytes, manifest.provingKeySha256)
+  ])
+}
+
+async function loadRequiredArtifact(
+  loadArtifact: NonNullable<CommentPrivacyWasmProverOptions['loadArtifact']>,
+  artifactUrl: string,
+  signal?: AbortSignal
+): Promise<Uint8Array> {
+  throwIfAborted(signal)
+  const artifact = await loadArtifact({ artifactUrl, signal })
+  throwIfAborted(signal)
+  if (!(artifact instanceof Uint8Array)) {
+    throw new Error(ARTIFACT_UNAVAILABLE)
+  }
+  if (artifact.byteLength === 0) {
+    throw new Error(ARTIFACT_INVALID)
+  }
+
+  return new Uint8Array(artifact)
+}
+
+async function assertSubresourceIntegrity(bytes: Uint8Array, integrity: string): Promise<void> {
+  const tokens = parseIntegrityTokens(integrity)
+  if (tokens.length === 0) {
+    throw new Error(ARTIFACT_INVALID)
+  }
+
+  const digests = new Map<string, string>()
+  for (const token of tokens) {
+    if (!digests.has(token.algorithm)) {
+      digests.set(token.algorithm, bytesToBase64(await digestBytes(token.algorithm, bytes)))
+    }
+    if (digests.get(token.algorithm) === token.value) {
+      return
+    }
+  }
+
+  throw new Error(ARTIFACT_INVALID)
+}
+
+async function assertSha256(bytes: Uint8Array, expectedHex: string): Promise<void> {
+  const actualHex = bytesToHex(await digestBytes('SHA-256', bytes))
+  if (actualHex !== expectedHex) {
+    throw new Error(ARTIFACT_INVALID)
+  }
+}
+
+function parseIntegrityTokens(integrity: string): Array<{ algorithm: 'SHA-256' | 'SHA-384' | 'SHA-512'; value: string }> {
+  const tokens: Array<{ algorithm: 'SHA-256' | 'SHA-384' | 'SHA-512'; value: string }> = []
+  for (const token of integrity.trim().split(/\s+/u)) {
+    const separator = token.indexOf('-')
+    if (separator <= 0) {
+      continue
+    }
+
+    const algorithm = normalizeIntegrityAlgorithm(token.slice(0, separator))
+    const value = token.slice(separator + 1).split('?')[0]
+    if (algorithm && value.length > 0) {
+      tokens.push({ algorithm, value })
+    }
+  }
+
+  return tokens
+}
+
+function normalizeIntegrityAlgorithm(value: string): 'SHA-256' | 'SHA-384' | 'SHA-512' | null {
+  switch (value.toLowerCase()) {
+    case 'sha256':
+      return 'SHA-256'
+    case 'sha384':
+      return 'SHA-384'
+    case 'sha512':
+      return 'SHA-512'
+    default:
+      return null
+  }
+}
+
+async function digestBytes(algorithm: 'SHA-256' | 'SHA-384' | 'SHA-512', bytes: Uint8Array): Promise<Uint8Array> {
+  if (!globalThis.crypto?.subtle) {
+    throw new Error(ARTIFACT_INVALID)
+  }
+
+  const buffer = new ArrayBuffer(bytes.byteLength)
+  new Uint8Array(buffer).set(bytes)
+  return new Uint8Array(await globalThis.crypto.subtle.digest(algorithm, buffer))
 }
 
 function resolveDelegate(module: unknown): WasmProverDelegate {
@@ -166,6 +307,12 @@ function assertProofRequest(request: CommentPrivacyProofRequest): void {
   toRequiredBytes(request.revocationWitness, 'revocationWitness')
 }
 
+function assertManifestMatchesRequest(manifest: CommentPrivacyProverManifest, request: CommentPrivacyProofRequest): void {
+  if (request.circuitId !== manifest.circuitId || request.publicInputLayoutVersion !== manifest.publicInputLayoutVersion) {
+    throw new Error(ARTIFACT_INVALID)
+  }
+}
+
 function toRequiredBytes(value: unknown, field: string): Uint8Array {
   if (!(value instanceof Uint8Array) || value.byteLength === 0) {
     throw new Error(`${ARTIFACT_INVALID}:${field}`)
@@ -197,4 +344,34 @@ function throwIfAborted(signal?: AbortSignal): void {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0
+}
+
+function isValidLayoutVersion(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 0xffff
+}
+
+function isSha256Hex(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-f0-9]{64}$/iu.test(value)
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+  let output = ''
+  let index = 0
+  while (index < bytes.length) {
+    const first = bytes[index++]
+    const second = index < bytes.length ? bytes[index++] : undefined
+    const third = index < bytes.length ? bytes[index++] : undefined
+    const triple = (first << 16) | ((second ?? 0) << 8) | (third ?? 0)
+    output += alphabet[(triple >> 18) & 0x3f]
+    output += alphabet[(triple >> 12) & 0x3f]
+    output += second === undefined ? '=' : alphabet[(triple >> 6) & 0x3f]
+    output += third === undefined ? '=' : alphabet[triple & 0x3f]
+  }
+
+  return output
 }
