@@ -173,4 +173,11 @@ run_residue_check \
   "" \
   src/backend
 
+run_residue_check \
+  "legacy frontend admin fallbacks" \
+  "legacy frontend admin fallback residue detected" \
+  'legacy[.]admin|syncLegacyAdminPrincipal|userInfo[.]role\s*={2,3}\s*["'\'']admin["'\'']|user[?]?[.]role\s*={2,3}\s*["'\'']admin["'\'']' \
+  "" \
+  src/frontend/src
+
 echo "[residue-check] passed"

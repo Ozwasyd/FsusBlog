@@ -1,26 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useAdminStore } from '@/store/admin'
-import type { CurrentUserSnapshot } from '@/api/auth'
+import { getAccountNavGroups } from '@/layouts/accountNav'
 
 vi.mock('@/api/auth', () => ({
   getAdminMe: vi.fn()
 }))
-
-const user = (role: string): CurrentUserSnapshot => ({
-  id: role === 'admin' ? 1 : 2,
-  accountId: role === 'admin' ? 1 : 2,
-  internalUserId: role === 'admin' ? 1 : 2,
-  identityKind: 'anonymous_account',
-  publicHandle: role === 'admin' ? 'admin' : 'guest',
-  passkeyEnabled: true,
-  recoveryEnabled: true,
-  totpStepUpEnabled: false,
-  anonymousCredentialStatus: 'active',
-  anonymousCredentialLevel: 'basic',
-  status: 0,
-  banReason: null
-})
 
 describe('useAdminStore', () => {
   beforeEach(() => {
@@ -28,22 +13,11 @@ describe('useAdminStore', () => {
     vi.clearAllMocks()
   })
 
-  it('does not bridge normal account snapshots into admin authority', () => {
+  it('does not expose a legacy user-role admin bridge', () => {
     const store = useAdminStore()
 
-    store.syncLegacyAdminPrincipal(user('admin'))
-
+    expect('syncLegacyAdminPrincipal' in store).toBe(false)
     expect(store.adminSessionStatus).toBe('missing')
-    expect(store.canManage).toBe(false)
-    expect(store.permissions).toEqual([])
-  })
-
-  it('clears only legacy principals when normal users are synced', () => {
-    const store = useAdminStore()
-
-    store.syncLegacyAdminPrincipal(user('admin'))
-    store.syncLegacyAdminPrincipal(user('guest'))
-
     expect(store.canManage).toBe(false)
     expect(store.permissions).toEqual([])
   })
@@ -58,11 +32,44 @@ describe('useAdminStore', () => {
       adminSessionStatus: 'active'
     })
 
-    store.syncLegacyAdminPrincipal(user('guest'))
-
     expect(store.canManage).toBe(true)
     expect(store.hasPermission('comment.moderate')).toBe(true)
     expect(store.hasPermission('article.write')).toBe(false)
+  })
+
+  it('does not treat legacy.admin as a wildcard permission', () => {
+    const store = useAdminStore()
+    store.setAdminPrincipal({
+      id: 'admin-principal',
+      displayName: 'Security Admin',
+      source: 'independent',
+      permissions: ['legacy.admin'],
+      adminSessionStatus: 'active'
+    })
+
+    expect(store.canManage).toBe(true)
+    expect(store.hasPermission('legacy.admin')).toBe(true)
+    expect(store.hasPermission('system.config')).toBe(false)
+
+    const groups = getAccountNavGroups({
+      surface: 'manage',
+      canManage: store.canManage,
+      permissions: store.permissions,
+      features: {
+        anonymousCommentsEnabled: true,
+        zkAnonymousEnabled: true,
+        publicSendOptionEnabled: true
+      },
+      policies: {
+        anonymousCommentGovernanceAvailable: true,
+        zkAnonymousConfigurable: true
+      }
+    })
+    const labels = groups.flatMap((group) => group.items.map((item) => item.label))
+
+    expect(labels).toContain('仪表盘')
+    expect(labels).not.toContain('安全系统')
+    expect(labels).not.toContain('用户')
   })
 
   it('hydrates independent admin principals from the admin session endpoint', async () => {

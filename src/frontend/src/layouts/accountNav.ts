@@ -163,5 +163,5 @@ function isNavItemVisible(item: AccountNavItem, context: AccountNavWorkspaceCont
 }
 
 function hasPermission(permissions: readonly string[], permission: string): boolean {
-  return permissions.includes(permission) || permissions.includes('legacy.admin')
+  return permissions.includes(permission)
 }

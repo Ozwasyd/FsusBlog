@@ -39,11 +39,16 @@ describe('anonymous account output workflow contract', () => {
     expect(userStore).not.toContain('userInfo.value.role')
     expect(adminStore).not.toContain("user?.role === 'admin'")
     expect(adminStore).not.toContain('source: \'legacy\'')
+    expect(adminStore).not.toContain('syncLegacyAdminPrincipal')
+    expect(adminStore).not.toContain('legacy.admin')
     expect(router).not.toContain('const userRole =')
     expect(router).not.toContain('allowedRoles.includes(userRole)')
     expect(app).not.toContain('userStore.userInfo?.role')
     expect(publicShellRuntime).not.toContain('role?: string | null')
     expect(publicShellRuntime).not.toContain("user?.role === 'admin'")
+
+    const accountNav = readRepoFile('src/frontend/src/layouts/accountNav.ts')
+    expect(accountNav).not.toContain('legacy.admin')
   })
 
   it('does not use sys_user username as public identity fallback', () => {

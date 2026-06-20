@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { getAdminMe, type CurrentUserSnapshot } from '@/api/auth'
+import { getAdminMe } from '@/api/auth'
 import { isAuthFailureError } from '@/utils/errorKinds'
 
 export type AdminSessionStatus = 'missing' | 'active' | 'expired' | 'step_up_required'
@@ -60,10 +60,6 @@ export const useAdminStore = defineStore('admin', () => {
     adminPrincipal.value = null
   }
 
-  const syncLegacyAdminPrincipal = (account: CurrentUserSnapshot | null): void => {
-    void account
-  }
-
   const setAnonymousCommentPolicy = (snapshot: Partial<AnonymousCommentPolicySnapshot>): void => {
     anonymousCommentPolicy.value = {
       ...anonymousCommentPolicy.value,
@@ -71,16 +67,14 @@ export const useAdminStore = defineStore('admin', () => {
     }
   }
 
-  const ensureAdminSessionFresh = async (account: CurrentUserSnapshot | null): Promise<void> => {
-    syncLegacyAdminPrincipal(account)
+  const ensureAdminSessionFresh = async (_account?: unknown): Promise<void> => {
+    void _account
 
     try {
       setAdminPrincipal(await getAdminMe())
     } catch (error: unknown) {
       if (isAuthFailureError(error)) {
-        if (adminPrincipal.value?.source === 'independent') {
-          clearAdminPrincipal()
-        }
+        clearAdminPrincipal()
         return
       }
 
@@ -112,7 +106,6 @@ export const useAdminStore = defineStore('admin', () => {
     hasPermission,
     setAdminPrincipal,
     clearAdminPrincipal,
-    syncLegacyAdminPrincipal,
     ensureAdminSessionFresh,
     setAnonymousCommentPolicy,
     logout
