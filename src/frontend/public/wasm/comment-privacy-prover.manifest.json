@@ -1,0 +1,10 @@
+{
+  "moduleUrl": "/wasm/comment-privacy-prover.js",
+  "wasmUrl": "/wasm/comment_privacy_runtime.wasm",
+  "provingKeyUrl": "/wasm/comment-privacy-prover.zkey",
+  "integrity": "sha256-R+ks8mA+XOK/V4paiF1mZ6jDp5VuA5uKuJm1eEHW9BQ=",
+  "circuitId": "fsus.anonymous.comment.v2",
+  "publicInputLayoutVersion": 3,
+  "provingKeySha256": "96a270d9cd625e805ecfb6eefd675b78ae92d104d7af961ce803022b48567ec3",
+  "wasmSha256": "ce01107ee6e1693bb3482a893d60e7e1f310577b45798e3210193b8535b12c15"
+}

@@ -20,6 +20,7 @@ file(MAKE_DIRECTORY "${FSUSBLOG_WASM_OUTPUT_DIR}")
 add_subdirectory(pow)
 add_subdirectory(aeds)
 add_subdirectory(search)
+add_subdirectory(comment_privacy)
 
 option(FSUSBLOG_WASM_IMAGE_CODEC_ENABLE "Build the image codec wasm module" ON)
 if(FSUSBLOG_WASM_IMAGE_CODEC_ENABLE)

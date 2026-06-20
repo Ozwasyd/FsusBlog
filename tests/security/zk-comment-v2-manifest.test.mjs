@@ -34,6 +34,15 @@ function manifestHash(document) {
   return createHash('sha256').update(`${JSON.stringify(document, null, 2)}\n`).digest('hex')
 }
 
+function writeTempArtifact(dir, fileName, content) {
+  const file = path.join(dir, fileName)
+  writeFileSync(file, content)
+  return {
+    relative: file,
+    sha256: sha256File(file)
+  }
+}
+
 function runChecker(env = {}) {
   return spawnSync(process.execPath, [checker], {
     encoding: 'utf8',
@@ -305,16 +314,69 @@ test('checker fails if production usable is claimed without real setup artifacts
   const result = withTempManifests((documents) => {
     documents.setup.production_usable = true
     documents.config.production_usable = true
+    documents.setup.artifacts.proving_key.sha256 = ''
+    documents.setup.artifacts.verifying_key.sha256 = ''
+    documents.setup.verifying_key_hash = ''
+    documents.config.verifying_key_hash = ''
   })
 
   assert.notEqual(result.status, 0)
-  assert.match(`${result.stdout}\n${result.stderr}`, /production_usable must remain false/)
+  assert.match(`${result.stdout}\n${result.stderr}`, /production_usable/)
+})
+
+test('checker accepts self-written verified setup when all artifacts are hash-bound', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'fsusblog-zk-comment-v2-verified-'))
+  try {
+    const artifacts = {
+      phase1: writeTempArtifact(dir, 'powers_of_tau_final.fsptau', 'self-written phase1 transcript'),
+      phase2: writeTempArtifact(dir, 'comment_v2_ceremony_transcript.json', '{"status":"verified"}\n'),
+      provingKey: writeTempArtifact(dir, 'comment_v2_final.fsg16pk', 'self-written proving key'),
+      verifyingKey: writeTempArtifact(dir, 'comment_v2_verifying_key.bin', 'self-written verifying key'),
+      verifyingKeyJson: writeTempArtifact(dir, 'comment_v2_verifying_key.json', '{"format":"FSG16VK1"}\n'),
+      wasmBundle: writeTempArtifact(dir, 'comment_v2_prover_wasm.tar.gz', 'self-written wasm bundle')
+    }
+
+    const result = withTempManifests((documents) => {
+      documents.setup.ceremony_status = 'verified'
+      documents.setup.production_usable = true
+      documents.setup.fail_closed_reason = ''
+      documents.setup.phase1.protocol = 'FsusBlog self-written Powers of Tau compatible transcript'
+      documents.setup.phase1.status = 'verified'
+      documents.setup.phase1.transcript_path = artifacts.phase1.relative
+      documents.setup.phase1.transcript_sha256 = artifacts.phase1.sha256
+      documents.setup.phase1.verification_command = 'dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v2/phase1/powers_of_tau_final.fsptau'
+      documents.setup.phase2.protocol = 'FsusBlog self-written Groth16 circuit-specific setup'
+      documents.setup.phase2.status = 'verified'
+      documents.setup.phase2.transcript_path = artifacts.phase2.relative
+      documents.setup.phase2.transcript_sha256 = artifacts.phase2.sha256
+      documents.setup.phase2.verification_command = 'dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v2/comment_v2_groth16.r1cs artifacts/zk/comment-v2/comment_v2_final.fsg16pk'
+
+      documents.setup.artifacts.proving_key.path = artifacts.provingKey.relative
+      documents.setup.artifacts.proving_key.sha256 = artifacts.provingKey.sha256
+      documents.setup.artifacts.verifying_key.path = artifacts.verifyingKey.relative
+      documents.setup.artifacts.verifying_key.sha256 = artifacts.verifyingKey.sha256
+      documents.setup.artifacts.verifying_key_json.path = artifacts.verifyingKeyJson.relative
+      documents.setup.artifacts.verifying_key_json.sha256 = artifacts.verifyingKeyJson.sha256
+      documents.setup.artifacts.wasm_prover_bundle.path = artifacts.wasmBundle.relative
+      documents.setup.artifacts.wasm_prover_bundle.sha256 = artifacts.wasmBundle.sha256
+      documents.setup.verifying_key_hash = artifacts.verifyingKey.sha256
+
+      documents.config.artifact_status = 'verified-production-artifacts'
+      documents.config.production_usable = true
+      documents.config.verifying_key_path = artifacts.verifyingKey.relative
+      documents.config.verifying_key_hash = artifacts.verifyingKey.sha256
+    })
+
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 test('checker fails if phase2 ceremony uses the deterministic R1CS IR artifact', () => {
   const result = withTempManifests((documents) => {
     documents.setup.phase2.verification_command =
-      'snarkjs zkey verify artifacts/zk/comment-v2/comment_v2.r1cs artifacts/zk/comment-v2/phase1/powers_of_tau_final.ptau artifacts/zk/comment-v2/comment_v2_final.zkey'
+      'dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v2/comment_v2.r1cs artifacts/zk/comment-v2/comment_v2_final.fsg16pk'
   })
 
   assert.notEqual(result.status, 0)
