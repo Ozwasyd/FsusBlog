@@ -14,6 +14,10 @@ export interface UpdateUsernameDto {
   newUsername: string
 }
 
+export interface UpdatePublicHandleDto {
+  publicHandle: string | null
+}
+
 export interface UpdatePasswordDto {
   oldPassword: string
   newPassword: string
@@ -173,6 +177,18 @@ export const updateUsername = (data: UpdateUsernameDto, config?: ApiRequestConfi
     requestOptions: {
       method: 'PUT',
       body: encodeAedsFrame(FrameType.AuthUpdateUsernameRequest, encodeStringMutationRequest(data.newUsername))
+    }
+  })
+}
+
+export const updatePublicHandle = (data: UpdatePublicHandleDto, config?: ApiRequestConfig) => {
+  return requestBinaryOnly<null>({
+    binaryUrl: '/api/binary/auth/public-handle',
+    frameType: FrameType.EmptySuccess,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      method: 'PUT',
+      body: encodeAedsFrame(FrameType.AuthUpdatePublicHandleRequest, encodeStringMutationRequest(data.publicHandle ?? ''))
     }
   })
 }

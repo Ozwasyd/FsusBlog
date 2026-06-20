@@ -191,6 +191,7 @@ export const FrameType = {
   AnonymousCredentialRevocationWitnessResponse: 187,
   AdminPrincipalSnapshot: 188,
   AuthAnonymousBootstrapRequest: 189,
+  AuthUpdatePublicHandleRequest: 190,
   EmptySuccess: 240,
   MutationId: 241,
   ApiError: 251,

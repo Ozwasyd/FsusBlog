@@ -132,6 +132,12 @@ public sealed class UserProfileCommandService(UserService users) : IUserProfileC
         return users.UpdateUsernameAsync(userId, newUsername);
     }
 
+    public Task<(bool Success, string Message)> UpdatePublicHandleAsync(int userId, string? publicHandle, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return users.UpdatePublicHandleAsync(userId, publicHandle);
+    }
+
     public Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

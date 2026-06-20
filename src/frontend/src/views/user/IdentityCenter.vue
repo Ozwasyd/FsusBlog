@@ -208,12 +208,17 @@
           maxlength="20"
           placeholder="公开发送评论时可填写"
         />
+        <div v-if="publicHandleError" class="identity-error-state" role="alert">{{ publicHandleError }}</div>
         <el-checkbox v-model="explicitPublicSendOptIn">
           我理解公开资料只会在显式公开发送时展示
         </el-checkbox>
         <div class="identity-state-row">
           <span>公开发送选项：{{ workspaceFeatures.publicSendOptionEnabled ? '可用' : '不可用' }}</span>
           <span>当前草稿：{{ publicHandleDraft.trim() || '未设置' }}</span>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <el-button type="primary" :loading="publicHandleSaving" @click="savePublicHandle">保存公开称呼</el-button>
+          <el-button :disabled="publicHandleSaving" @click="clearPublicHandle">清空公开称呼</el-button>
         </div>
       </div>
     </WorkbenchPanel>
@@ -329,6 +334,7 @@ import {
   revokeSession,
   rotateRecoveryKey,
   startMfaSetup,
+  updatePublicHandle,
   verifyMfaSetup,
   type MfaProfile,
   type MfaSetupStart,
@@ -420,6 +426,8 @@ const sessionError = ref('')
 const sessions = ref<UserSessionSummary[]>([])
 
 const publicHandleDraft = ref('')
+const publicHandleSaving = ref(false)
+const publicHandleError = ref('')
 const explicitPublicSendOptIn = ref(false)
 
 const currentRouteName = computed<IdentityRouteName>(() => {
@@ -442,7 +450,7 @@ const identityAccountSnapshot = computed(() => {
 
   return {
     accountId: user?.accountId ?? user?.id ?? 0,
-    publicHandle: publicHandleDraft.value.trim() || user?.publicHandle || '',
+    publicHandle: user?.publicHandle || '',
     passkeyEnabled: passkeyCredentials.value.length > 0,
     recoveryEnabled: recoveryKeyKnown.value || recoveryKeyPlaintext.value.length > 0,
     totpStepUpEnabled: mfaProfile.value?.enabled === true,
@@ -605,6 +613,27 @@ const clearRecoveryKeyPanel = (): void => {
   recoveryKeySaved.value = false
 }
 
+const savePublicHandle = async (): Promise<void> => {
+  publicHandleSaving.value = true
+  publicHandleError.value = ''
+  const nextPublicHandle = publicHandleDraft.value.trim()
+  try {
+    await updatePublicHandle({ publicHandle: nextPublicHandle || null })
+    await userStore.fetchUserInfo(true)
+    publicHandleDraft.value = userStore.userInfo?.publicHandle ?? ''
+    toast.success(nextPublicHandle ? '公开称呼已保存' : '公开称呼已清空')
+  } catch (error) {
+    publicHandleError.value = toAppError(error, '公开称呼保存失败').message || '公开称呼保存失败'
+  } finally {
+    publicHandleSaving.value = false
+  }
+}
+
+const clearPublicHandle = async (): Promise<void> => {
+  publicHandleDraft.value = ''
+  await savePublicHandle()
+}
+
 const revokeSessionDevice = async (sessionId: string): Promise<void> => {
   await revokeSession(sessionId)
   toast.success('设备会话已下线')
@@ -628,6 +657,16 @@ const formatSessionDevice = (label: string | null | undefined, fingerprint: stri
 onMounted(() => {
   void refreshIdentityData()
 })
+
+watch(
+  () => userStore.userInfo?.publicHandle,
+  (publicHandle) => {
+    if (!publicHandleSaving.value) {
+      publicHandleDraft.value = publicHandle ?? ''
+    }
+  },
+  { immediate: true }
+)
 
 watch(currentRouteName, () => {
   if (currentSession.value === null || isSection('UserIdentityOverview')) {

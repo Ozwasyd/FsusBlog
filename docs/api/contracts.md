@@ -290,6 +290,7 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 |-----------|-----|------|
 | `IdentityAccountSnapshot` (`163`) | `IdentityAccountSnapshotPod` + UTF-8 blob | `GET /api/binary/auth/me` 响应；account/internal id、identity kind、nullable public handle、Passkey/Recovery/TOTP step-up 状态、anonymous credential status/level、status/ban/deletedAt |
 | `AuthAnonymousBootstrapRequest` (`189`) | `AuthAnonymousBootstrapRequestPod` + UTF-8 blob | `POST /api/binary/auth/anonymous/bootstrap` 请求体；只含使用规范确认和可选 public handle，不含 password/username 注册字段 |
+| `AuthUpdatePublicHandleRequest` (`190`) | `StringMutationRequestPod` + UTF-8 blob | `PUT /api/binary/auth/public-handle` 请求体；保存或清空当前匿名账号的 public handle |
 | `CommentPolicySnapshot` (`164`) | `CommentPolicySnapshotPod` + UTF-8 blob | `GET /api/binary/comment/policy` 响应；评论 composer 渲染前读取 anonymous/public/ZK 开关、ZK-Prod readiness、默认 author mode、支持语言 `zh-CN` / `en` 与策略 `snapshotHash` |
 | `CommentPolicyUpdateRequest` (`165`) | `CommentPolicyUpdateRequestPod` + UTF-8 blob | admin 匿名评论策略 patch；bool 字段用 `Has*` flag 表示未设置 |
 | `CommentCreateV2Request` (`166`) | `CommentCreateV2RequestPod` + UTF-8/blob payload | 新评论创建请求，包含 article/reply 上下文、author mode、public opt-in、anonymous scope、语言提示、普通 proof token、ZK proof bytes 和 content；不再把 ProofToken 当作 credential commitment/root 占位 |
@@ -318,7 +319,7 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 
 `AnonymousCommentCreateRequest` 不包含 `userId`、`replyToUserId`、`username`、`Authorization` token 或 `publicHandle` 字段；`POST /api/binary/comment/anonymous` 只能通过 consume-once ticket、nullifier 和策略上下文解析匿名 actor。所有强匿名 ticket / submit endpoint 必须挂 `RequireStrongAnonymousRequest()`，拒绝 `Cookie`、`Authorization`、session/bearer bridge header 和已认证 principal；拒绝时返回 AEDS `ApiError`，`Details=anonymous_identity_contaminated`。`AnonymousCommentTicketResponse` 同样不得返回可逆用户身份或 nullifier 原文，只能返回 opaque ticket、moderation subject hash 和 credential level。旧 `CommentCreateV2RequestPod` 布局保持不变；需要完整匿名凭证/ticket 流程的客户端必须使用 177-183 对应新 frame，不得把 nullifier/credential/root 新字段塞回 `CommentCreateV2Request` 或从 `ProofToken` 派生。
 
-评论写入不再把 `comment.user_id` 作为作者展示的必填外键。`CommentActor` 会写入 `author_mode`、`public_handle`、`anonymous_handle`、`anonymous_display_name`、`anonymous_display_language`、`anonymous_nullifier_hash`、`anonymous_scope`、`moderation_subject_hash`、`credential_level`、`reputation_bucket` 和 `account_age_bucket`。公开评论读取优先使用 `anonymous_display_name` / `public_handle`，再回退 legacy `sys_user.username`；匿名 display name 由服务端按 `zh-CN` / `en` 的内置常见姓名列表生成，并在 scope 内稳定，不暴露 account id、username、public handle、credential id 或 nullifier 原文。
+评论写入不再把 `comment.user_id` 作为作者展示的必填外键。`CommentActor` 会写入 `author_mode`、`public_handle`、`anonymous_handle`、`anonymous_display_name`、`anonymous_display_language`、`anonymous_nullifier_hash`、`anonymous_scope`、`moderation_subject_hash`、`credential_level`、`reputation_bucket` 和 `account_age_bucket`。新 public send 写入只允许使用当前账号已保存的 `public_handle`，未设置时拒绝 public mode，不得回退内部 `sys_user.username` 或合成 user id；公开评论读取优先使用 `anonymous_display_name` / `public_handle`，legacy `sys_user.username` 只保留为旧数据读取兼容。匿名 display name 由服务端按 `zh-CN` / `en` 的内置常见姓名列表生成，并在 scope 内稳定，不暴露 account id、username、public handle、credential id 或 nullifier 原文。
 
 ---
 

@@ -142,6 +142,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `AuthLoginRequest` payload: reserved legacy `AuthLoginRequestPod` followed by blob payload for username/password. No production server route accepts this frame.
 - `AuthRegisterRequest` payload: reserved legacy `AuthRegisterRequestPod` followed by blob payload for username/password/confirm password. No production server route accepts this frame.
 - `AuthUpdateUsernameRequest` payload: `StringMutationRequestPod` followed by blob payload for the new username.
+- `AuthUpdatePublicHandleRequest` payload: `StringMutationRequestPod` followed by blob payload for the new public handle; an empty string clears the handle.
 - `AuthUpdatePasswordRequest` payload: `AuthUpdatePasswordRequestPod` followed by blob payload for old/new/confirm password.
 - `AuthDeleteAccountRequest` payload: `AuthDeleteAccountRequestPod` followed by blob payload for password/confirm text/MFA code/recovery code.
 - `MfaSetupVerifyRequest` payload: `StringMutationRequestPod` followed by blob payload for the TOTP code.

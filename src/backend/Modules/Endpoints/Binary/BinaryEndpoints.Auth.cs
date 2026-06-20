@@ -396,6 +396,48 @@ public static partial class BinaryEndpoints
         })
         .RequireAdminPermission(AdminPermissions.AdminManage);
 
+        group.MapPut("/auth/public-handle", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IUserProfileCommandService profileCommands,
+            IContentFilterService contentFilterService,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.AuthUpdatePublicHandleRequest, cancellationToken);
+            if (!payload.IsSuccess)
+            {
+                return BinaryResults.FromError(payload.Error, aeds);
+            }
+
+            if (!PodBinaryCodec.TryDecodeStringMutationRequest(payload.Payload, out string publicHandle))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "公开称呼请求体非法"), aeds);
+            }
+
+            publicHandle = publicHandle.Trim();
+            if (!string.IsNullOrWhiteSpace(publicHandle))
+            {
+                ContentValidationResult validation = contentFilterService.ValidateContent(publicHandle);
+                if (!validation.IsValid)
+                {
+                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, validation.Message, validation.ReasonCode), aeds);
+                }
+            }
+
+            int userId = httpContext.GetUserId();
+            var (success, message) = await profileCommands.UpdatePublicHandleAsync(userId, publicHandle, cancellationToken);
+            if (!success)
+            {
+                ErrorCode code = message.Contains("已被占用", StringComparison.Ordinal) ? ErrorCode.Conflict : ErrorCode.Validation;
+                return BinaryResults.FromError(ErrorDetail.Create(code, message), aeds);
+            }
+
+            return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
+        })
+        .RequireRateLimiting("fixed_ip")
+        .RequireAuthorization()
+        .RequireNoStoreResponse();
+
         group.MapPut("/auth/update-username", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IUserProfileCommandService profileCommands,

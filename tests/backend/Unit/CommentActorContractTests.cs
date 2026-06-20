@@ -64,6 +64,18 @@ public sealed class CommentActorContractTests
     }
 
     [Fact]
+    public void PublicCommentActor_RequiresPersistedPublicHandleWithoutUsernameFallback()
+    {
+        string resolver = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CommentActorResolver.cs");
+
+        Assert.Contains(".Select(u => u.PublicHandle)", resolver, StringComparison.Ordinal);
+        Assert.Contains("public_handle_required", resolver, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Select(u => u.Username)", resolver, StringComparison.Ordinal);
+        Assert.DoesNotContain("NormalizeToken(username", resolver, StringComparison.Ordinal);
+        Assert.DoesNotContain("$\"user-{request.UserId.Value}\"", resolver, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AnonymousDisplayNameGenerator_LocalizesStablyWithoutIdentityLeakage()
     {
         var generator = new CommentAnonymousDisplayNameGenerator();

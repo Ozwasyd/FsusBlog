@@ -884,6 +884,14 @@
         },
         {
           "method": "PUT",
+          "path": "/auth/public-handle",
+          "auth": "user",
+          "requestFrame": "AuthUpdatePublicHandleRequest",
+          "responseFrame": "EmptySuccess",
+          "cache": "no-store"
+        },
+        {
+          "method": "PUT",
           "path": "/auth/update-username",
           "auth": "user",
           "requestFrame": "AuthUpdateUsernameRequest",
@@ -2116,5 +2124,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 206
+  "openapiOperationCount": 207
 }

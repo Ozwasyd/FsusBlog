@@ -318,6 +318,36 @@ public partial class UserService(
         return (true, "修改成功", new TokenResponseDto(_jwtHelper.GenerateAccessToken(user), string.Empty));
     }
 
+    public async Task<(bool Success, string Message)> UpdatePublicHandleAsync(int userId, string? publicHandle)
+    {
+        var handle = NormalizePublicHandle(publicHandle);
+        if (!handle.Success)
+        {
+            return (false, handle.Message);
+        }
+
+        var user = await _db.Queryable<User>().InSingleAsync(userId);
+        if (user == null)
+        {
+            return (false, "用户不存在");
+        }
+
+        if (handle.PublicHandle is { Length: > 0 } normalizedHandle &&
+            await _db.Queryable<User>().AnyAsync(u => u.PublicHandle == normalizedHandle && u.Id != userId))
+        {
+            return (false, "公开称呼已被占用");
+        }
+
+        await _db.Updateable<User>()
+            .SetColumns(u => u.PublicHandle == handle.PublicHandle)
+            .Where(u => u.Id == userId)
+            .ExecuteCommandAsync();
+
+        return handle.PublicHandle is null
+            ? (true, "公开称呼已清空")
+            : (true, "公开称呼已保存");
+    }
+
     public async Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto)
     {
         if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())

@@ -274,6 +274,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 186 | `AnonymousCredentialRevocationWitnessRequest` | `AnonymousCredentialRevocationWitnessRequestPod` | `POST /api/binary/anonymous-credential/revocation-witness` 请求体；公开 root/issuer/handle hash metadata |
 | 187 | `AnonymousCredentialRevocationWitnessResponse` | `AnonymousCredentialRevocationWitnessResponsePod` | circuit-friendly sparse Merkle non-membership witness；128 个 sibling hash |
 | 189 | `AuthAnonymousBootstrapRequest` | `AuthAnonymousBootstrapRequestPod` | `POST /api/binary/auth/anonymous/bootstrap` 请求体；只含规范确认和可选 public handle，不含旧注册密码字段 |
+| 190 | `AuthUpdatePublicHandleRequest` | `StringMutationRequestPod` | `PUT /api/binary/auth/public-handle` 请求体；保存或清空当前账号 public handle |
 | 240 | `EmptySuccess` | `EmptySuccessPod` | 通用空成功响应 |
 | 241 | `MutationId` | `MutationIdPod` | 通用变更 ID 响应 |
 | 251 | `ApiError` | `ApiErrorPod` | 二进制错误响应 |

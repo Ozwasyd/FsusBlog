@@ -2626,6 +2626,54 @@
         "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authAdapter.ts"
       }
     },
+    "/api/binary/auth/public-handle": {
+      "put": {
+        "operationId": "binary_put_auth_public_handle",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/auth/public-handle",
+        "responses": {
+          "200": {
+            "description": "EmptySuccess AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "AuthUpdatePublicHandleRequest",
+        "x-fsus-response-frame": "EmptySuccess",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "user",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "/auth/public-handle",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/auth.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authAdapter.ts"
+      }
+    },
     "/api/binary/auth/update-username": {
       "put": {
         "operationId": "binary_put_auth_update_username",

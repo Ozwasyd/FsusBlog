@@ -30,6 +30,27 @@ public sealed class AnonymousAccountOutputContractTests
     }
 
     [Fact]
+    public void PublicHandleEndpoint_UsesDedicatedFrameValidationAndProfileCommand()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "Binary",
+            "BinaryEndpoints.Auth.cs");
+        string handler = ExtractEndpointBlock(source, "group.MapPut(\"/auth/public-handle\"");
+
+        Assert.Contains("AedsFrameType.AuthUpdatePublicHandleRequest", handler, StringComparison.Ordinal);
+        Assert.Contains("PodBinaryCodec.TryDecodeStringMutationRequest", handler, StringComparison.Ordinal);
+        Assert.Contains("contentFilterService.ValidateContent(publicHandle)", handler, StringComparison.Ordinal);
+        Assert.Contains("profileCommands.UpdatePublicHandleAsync", handler, StringComparison.Ordinal);
+        Assert.Contains("AedsFrameType.EmptySuccess", handler, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdateUsernameAsync", handler, StringComparison.Ordinal);
+        Assert.DoesNotContain("GenerateAccessToken", handler, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UserAccountReader_ProjectsSysUserAsAnonymousAccountContainer()
     {
         var deletedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);

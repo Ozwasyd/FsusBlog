@@ -134,16 +134,16 @@ public sealed class CommentActorResolver(
                 return CommentActorResolveResult.Reject("public_user_required", "Public comment mode requires an authenticated user");
             }
 
-            string? username = await db.Queryable<User>()
+            string? publicHandle = await db.Queryable<User>()
                 .Where(u => u.Id == request.UserId.Value)
-                .Select(u => u.Username)
+                .Select(u => u.PublicHandle)
                 .FirstAsync();
-            if (string.IsNullOrWhiteSpace(username))
+            if (string.IsNullOrWhiteSpace(publicHandle))
             {
-                return CommentActorResolveResult.Reject("public_user_missing", "Public comment user was not found");
+                return CommentActorResolveResult.Reject("public_handle_required", "Public comment mode requires a saved public handle");
             }
 
-            string publicHandle = NormalizeToken(username, 64) ?? $"user-{request.UserId.Value}";
+            publicHandle = NormalizeToken(publicHandle, 64)!;
             return CommentActorResolveResult.Allow(new CommentActor(
                 UserId: request.UserId,
                 AuthorMode: CommentAuthorModes.Public,

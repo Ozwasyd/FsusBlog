@@ -30,6 +30,7 @@
 | 方法 | 路径 | 权限 | 说明 |
 |------|------|------|------|
 | GET | `/api/binary/auth/me` | 🔑 📦 | 获取当前匿名账号容器快照 |
+| PUT | `/api/binary/auth/public-handle` | 🔑 📦 | 保存或清空当前匿名账号公开称呼 |
 | POST | `/api/binary/auth/logout` | 🔑 📦 | 安全登出（吊销当前 Refresh Token） |
 | POST | `/api/binary/auth/delete-account` | 🔑 📦 | 注销账号 |
 

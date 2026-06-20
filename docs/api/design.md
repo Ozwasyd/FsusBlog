@@ -79,6 +79,7 @@ Binary 端点按资源语义使用 `GET/POST/PUT/DELETE`；认证、MFA、Passke
 Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AEDS v2 request frame；当前生产协议拒绝 request non-zero flags，`Flags = 64` 等 future flag 只能在 `aeds-protocol.json`、负向 contract matrix、TypeScript/Worker/Wasm decoder 与 [schemas-and-errors.md#flags-登记](schemas-and-errors.md#flags-登记) 同步登记后启用。
 匿名身份模式下，新账号 onboarding 必须走 `POST /api/binary/auth/anonymous/bootstrap`，请求 frame 为 `AuthAnonymousBootstrapRequest`；该路径只初始化匿名账号容器和当前 session，不接受用户提供的登录密码，也不得复用旧 username/password 契约。旧 `/api/binary/auth/register` 与 `/api/binary/auth/login` password endpoints 不再是生产 API；`AuthRegisterRequest` / `AuthLoginRequest` 仅作为 legacy migration/test 的保留 AEDS frame 编号。
 `GET /api/binary/auth/me` 只输出 `IdentityAccountSnapshot` 匿名账号容器：account/internal id、`identityKind`、`publicHandle`、Passkey/Recovery/TOTP 状态、anonymous credential 状态和账号封禁/注销状态。该响应不得暴露内部 `sys_user.username` 或 `sys_user.role`，客户端也不得从普通账号快照推断 admin 权限；后台权限只能来自 independent admin principal 与 admin session Cookie。
+`PUT /api/binary/auth/public-handle` 是唯一用户侧公开称呼写入入口，使用 `AuthUpdatePublicHandleRequest` + `StringMutationRequestPod`；空字符串表示清空。评论 public send 只能读取已持久化的 `public_handle`，未设置时拒绝 public mode，不能回退内部 username 或合成 user id。
 
 ---
 

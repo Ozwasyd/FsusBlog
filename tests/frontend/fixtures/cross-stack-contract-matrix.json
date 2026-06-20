@@ -884,6 +884,14 @@
         },
         {
           "method": "PUT",
+          "path": "/auth/public-handle",
+          "auth": "user",
+          "requestFrame": "AuthUpdatePublicHandleRequest",
+          "responseFrame": "EmptySuccess",
+          "cache": "no-store"
+        },
+        {
+          "method": "PUT",
           "path": "/auth/update-username",
           "auth": "user",
           "requestFrame": "AuthUpdateUsernameRequest",

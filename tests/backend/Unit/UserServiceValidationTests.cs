@@ -167,6 +167,78 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    public async Task UpdatePublicHandleAsync_ValidHandle_SavesNormalizedHandle()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var queryable = Substitute.For<ISugarQueryable<User>>();
+        db.Queryable<User>().Returns(queryable);
+        queryable.InSingleAsync(7).Returns(Task.FromResult(new User { Id = 7, PublicHandle = null }));
+        queryable.AnyAsync(Arg.Any<Expression<Func<User, bool>>>()).Returns(Task.FromResult(false));
+        var update = Substitute.For<IUpdateable<User>>();
+        update.SetColumns(Arg.Any<Expression<Func<User, bool>>>()).Returns(update);
+        update.Where(Arg.Any<Expression<Func<User, bool>>>()).Returns(update);
+        update.ExecuteCommandAsync().Returns(Task.FromResult(1));
+        db.Updateable<User>().Returns(update);
+        var svc = BuildService(db, Substitute.For<IJwtHelper>());
+
+        var (success, message) = await svc.UpdatePublicHandleAsync(7, "QuietReader");
+
+        Assert.True(success, message);
+        Assert.Equal("公开称呼已保存", message);
+        await update.Received(1).ExecuteCommandAsync();
+    }
+
+    [Fact]
+    public async Task UpdatePublicHandleAsync_DuplicateHandle_ReturnsConflict()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var queryable = Substitute.For<ISugarQueryable<User>>();
+        db.Queryable<User>().Returns(queryable);
+        queryable.InSingleAsync(7).Returns(Task.FromResult(new User { Id = 7, PublicHandle = null }));
+        queryable.AnyAsync(Arg.Any<Expression<Func<User, bool>>>()).Returns(Task.FromResult(true));
+        var svc = BuildService(db, Substitute.For<IJwtHelper>());
+
+        var (success, message) = await svc.UpdatePublicHandleAsync(7, "QuietReader");
+
+        Assert.False(success);
+        Assert.Equal("公开称呼已被占用", message);
+        db.DidNotReceive().Updateable<User>();
+    }
+
+    [Fact]
+    public async Task UpdatePublicHandleAsync_InvalidHandle_ReturnsValidationError()
+    {
+        var svc = BuildService();
+
+        var (success, message) = await svc.UpdatePublicHandleAsync(7, "reader123");
+
+        Assert.False(success);
+        Assert.Contains("仅允许中文或英文字母", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UpdatePublicHandleAsync_EmptyHandle_ClearsPublicHandle()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var queryable = Substitute.For<ISugarQueryable<User>>();
+        db.Queryable<User>().Returns(queryable);
+        queryable.InSingleAsync(7).Returns(Task.FromResult(new User { Id = 7, PublicHandle = "quietreader" }));
+        var update = Substitute.For<IUpdateable<User>>();
+        update.SetColumns(Arg.Any<Expression<Func<User, bool>>>()).Returns(update);
+        update.Where(Arg.Any<Expression<Func<User, bool>>>()).Returns(update);
+        update.ExecuteCommandAsync().Returns(Task.FromResult(1));
+        db.Updateable<User>().Returns(update);
+        var svc = BuildService(db, Substitute.For<IJwtHelper>());
+
+        var (success, message) = await svc.UpdatePublicHandleAsync(7, "   ");
+
+        Assert.True(success, message);
+        Assert.Equal("公开称呼已清空", message);
+        await update.Received(1).ExecuteCommandAsync();
+        await queryable.DidNotReceive().AnyAsync(Arg.Any<Expression<Func<User, bool>>>());
+    }
+
+    [Fact]
     public async Task RegisterAsync_ChineseUsername_PassesValidation_HitsDb()
     {
         var db = Substitute.For<ISqlSugarClient>();
