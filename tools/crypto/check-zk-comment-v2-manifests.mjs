@@ -408,6 +408,16 @@ function checkSetup(setup, circuitHash) {
     if (setup[phase]?.status !== 'required') {
       fail(`setup.${phase}.status must be required`)
     }
+    if (Number(setup[phase]?.minimum_contributions) < 3) {
+      fail(`setup.${phase}.minimum_contributions must be at least 3`)
+    }
+    if (String(setup[phase]?.transcript_path ?? '').trim().length === 0) {
+      fail(`setup.${phase}.transcript_path is required`)
+    }
+    assertNoPlaceholder(`setup.${phase}.transcript_sha256`, setup[phase]?.transcript_sha256)
+    if (!isBlank(setup[phase]?.transcript_sha256) && !isSha256Hex(setup[phase]?.transcript_sha256)) {
+      fail(`setup.${phase}.transcript_sha256 must be a 64-character SHA-256 hex digest`)
+    }
     if (String(setup[phase]?.verification_command ?? '').trim().length === 0) {
       fail(`setup.${phase}.verification_command is required`)
     }
@@ -422,7 +432,12 @@ function checkSetup(setup, circuitHash) {
     if (String(artifact.path ?? '').trim().length === 0) {
       fail(`setup.artifacts.${key}.path is required`)
     }
+    assertNoPlaceholder(`setup.artifacts.${key}.sha256`, artifact.sha256)
     if (!isBlank(artifact.sha256)) {
+      if (!isSha256Hex(artifact.sha256)) {
+        fail(`setup.artifacts.${key}.sha256 must be a 64-character SHA-256 hex digest`)
+        continue
+      }
       const artifactPath = path.join(root, artifact.path)
       if (!fs.existsSync(artifactPath)) {
         fail(`setup.artifacts.${key}.sha256 is set but file is missing: ${artifact.path}`)

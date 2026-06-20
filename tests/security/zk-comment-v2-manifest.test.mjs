@@ -257,3 +257,25 @@ test('checker fails if trusted setup hash drifts from the circuit manifest', () 
   assert.notEqual(result.status, 0)
   assert.match(`${result.stdout}\n${result.stderr}`, /setup\.circuit_manifest_sha256 expected/)
 })
+
+test('checker fails if trusted setup contribution thresholds are weakened', () => {
+  const result = withTempManifests((documents) => {
+    documents.setup.phase1.minimum_contributions = 2
+    documents.setup.phase2.minimum_contributions = 1
+  })
+
+  assert.notEqual(result.status, 0)
+  assert.match(`${result.stdout}\n${result.stderr}`, /setup\.phase1\.minimum_contributions must be at least 3/)
+  assert.match(`${result.stdout}\n${result.stderr}`, /setup\.phase2\.minimum_contributions must be at least 3/)
+})
+
+test('checker fails if trusted setup transcript or artifact hashes use placeholders', () => {
+  const result = withTempManifests((documents) => {
+    documents.setup.phase1.transcript_sha256 = 'TODO'
+    documents.setup.artifacts.proving_key.sha256 = 'placeholder'
+  })
+
+  assert.notEqual(result.status, 0)
+  assert.match(`${result.stdout}\n${result.stderr}`, /setup\.phase1\.transcript_sha256 uses placeholder hash TODO/)
+  assert.match(`${result.stdout}\n${result.stderr}`, /setup\.artifacts\.proving_key\.sha256 uses placeholder hash placeholder/)
+})
