@@ -2491,7 +2491,7 @@
         "summary": "/auth/me",
         "responses": {
           "200": {
-            "description": "CurrentUserSnapshot AEDS frame",
+            "description": "IdentityAccountSnapshot AEDS frame",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -2516,7 +2516,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": null,
-        "x-fsus-response-frame": "CurrentUserSnapshot",
+        "x-fsus-response-frame": "IdentityAccountSnapshot",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "optional",
         "x-fsus-pow": false,

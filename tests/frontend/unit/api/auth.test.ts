@@ -38,11 +38,11 @@ describe('auth API binary base session flow', () => {
     }))
   })
 
-  it('getMe uses binary current user frame', async () => {
+  it('getMe uses binary anonymous identity account frame', async () => {
     await getMe()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryUrl: '/api/binary/auth/me',
-      frameType: FrameType.CurrentUserSnapshot
+      frameType: FrameType.IdentityAccountSnapshot
     }))
   })
 

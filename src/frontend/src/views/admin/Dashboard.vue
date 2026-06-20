@@ -184,7 +184,7 @@ const regionRows = computed(() => toDistributionRows(
 const hasRegionData = computed(() => regionRows.value.length > 0)
 const shouldUseRegionChart = computed(() => regionRows.value.length >= 3)
 const consoleWelcomeUserKey = computed(() => (
-  userStore.userInfo?.username || userStore.userInfo?.id || 'local'
+  userStore.userInfo?.publicHandle || userStore.userInfo?.accountId || 'local'
 ))
 const regionChartSummary = computed(() => {
   const items = regionRows.value.map((item) => `${item.label} ${item.value}`)

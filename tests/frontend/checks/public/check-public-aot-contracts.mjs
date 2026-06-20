@@ -281,7 +281,7 @@ function assertStaticContracts() {
     'motionPreference',
     'colorScheme',
     'viewport',
-    'encodeCurrentUserSnapshotFrame',
+    'encodeIdentityAccountSnapshotFrame',
     'reducedMotion',
     'colorScheme: cell.colorScheme',
     'auth-gated-until-after-hydration',

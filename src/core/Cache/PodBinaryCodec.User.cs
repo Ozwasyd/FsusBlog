@@ -99,23 +99,33 @@ public static partial class PodBinaryCodec
 
     public static void WriteIdentityAccountSnapshot(IdentityAccountSnapshotCoreModel snapshot, IBufferWriter<byte> destination)
     {
-        var payload = new ArrayBufferWriter<byte>(128);
+        var payload = new ArrayBufferWriter<byte>(256);
         bool hasPublicHandle = !string.IsNullOrWhiteSpace(snapshot.PublicHandle);
-        bool hasAnonymousCredential = !string.IsNullOrWhiteSpace(snapshot.AnonymousCredentialStatus);
+        bool hasAnonymousCredential =
+            !string.IsNullOrWhiteSpace(snapshot.AnonymousCredentialStatus) ||
+            !string.IsNullOrWhiteSpace(snapshot.AnonymousCredentialLevel);
+        bool hasBanReason = !string.IsNullOrWhiteSpace(snapshot.BanReason);
+        string identityKind = string.IsNullOrWhiteSpace(snapshot.IdentityKind) ? "anonymous_account" : snapshot.IdentityKind;
         var mutable = new MutableIdentityAccountSnapshotPod
         {
             AccountId = snapshot.AccountId,
             InternalUserId = snapshot.InternalUserId,
+            Status = snapshot.Status,
+            DeletedAtUnixMs = snapshot.DeletedAt.HasValue ? PodTimeCodec.ToUnixMs(snapshot.DeletedAt.Value) : 0,
             HasPublicHandle = hasPublicHandle ? (byte)1 : (byte)0,
             PasskeyEnabled = snapshot.PasskeyEnabled ? (byte)1 : (byte)0,
             RecoveryEnabled = snapshot.RecoveryEnabled ? (byte)1 : (byte)0,
             HasTotpStepUpEnabled = snapshot.TotpStepUpEnabled.HasValue ? (byte)1 : (byte)0,
             TotpStepUpEnabled = snapshot.TotpStepUpEnabled == true ? (byte)1 : (byte)0,
             HasAnonymousCredential = hasAnonymousCredential ? (byte)1 : (byte)0,
+            HasDeletedAt = snapshot.DeletedAt.HasValue ? (byte)1 : (byte)0,
+            HasBanReason = hasBanReason ? (byte)1 : (byte)0,
             Reserved0 = 0,
             PublicHandle = PodUtf8Codec.AppendSlice(hasPublicHandle ? snapshot.PublicHandle : string.Empty, payload),
             AnonymousCredentialStatus = PodUtf8Codec.AppendSlice(hasAnonymousCredential ? snapshot.AnonymousCredentialStatus : string.Empty, payload),
-            AnonymousCredentialLevel = PodUtf8Codec.AppendSlice(hasAnonymousCredential ? snapshot.AnonymousCredentialLevel ?? string.Empty : string.Empty, payload)
+            AnonymousCredentialLevel = PodUtf8Codec.AppendSlice(hasAnonymousCredential ? snapshot.AnonymousCredentialLevel ?? string.Empty : string.Empty, payload),
+            IdentityKind = PodUtf8Codec.AppendSlice(identityKind, payload),
+            BanReason = PodUtf8Codec.AppendSlice(hasBanReason ? snapshot.BanReason : string.Empty, payload)
         };
 
         var writer = new BinaryPodWriter(destination);
@@ -124,7 +134,7 @@ public static partial class PodBinaryCodec
     }
 
     public static byte[] EncodeIdentityAccountSnapshot(IdentityAccountSnapshotCoreModel snapshot)
-        => EncodeToArray(Marshal.SizeOf<IdentityAccountSnapshotPod>() + 128, writer => WriteIdentityAccountSnapshot(snapshot, writer));
+        => EncodeToArray(Marshal.SizeOf<IdentityAccountSnapshotPod>() + 256, writer => WriteIdentityAccountSnapshot(snapshot, writer));
 
     public static bool TryDecodeIdentityAccountSnapshot(ReadOnlyMemory<byte> source, out IdentityAccountSnapshotCoreModel snapshot)
     {
@@ -136,12 +146,15 @@ public static partial class PodBinaryCodec
             pod.HasTotpStepUpEnabled > 1 ||
             pod.TotpStepUpEnabled > 1 ||
             pod.HasAnonymousCredential > 1 ||
+            pod.HasDeletedAt > 1 ||
+            pod.HasBanReason > 1 ||
             !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
         {
             snapshot = default;
             return false;
         }
 
+        string identityKind = NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.IdentityKind, payload)) ?? "anonymous_account";
         snapshot = new IdentityAccountSnapshotCoreModel(
             pod.AccountId,
             pod.InternalUserId,
@@ -150,7 +163,11 @@ public static partial class PodBinaryCodec
             pod.RecoveryEnabled == 1,
             pod.HasTotpStepUpEnabled == 1 ? pod.TotpStepUpEnabled == 1 : null,
             pod.HasAnonymousCredential == 1 ? NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.AnonymousCredentialStatus, payload)) : null,
-            pod.HasAnonymousCredential == 1 ? NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.AnonymousCredentialLevel, payload)) : null);
+            pod.HasAnonymousCredential == 1 ? NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.AnonymousCredentialLevel, payload)) : null,
+            identityKind,
+            pod.Status,
+            pod.HasBanReason == 1 ? NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.BanReason, payload)) : null,
+            pod.HasDeletedAt == 1 ? PodTimeCodec.FromUnixMs(pod.DeletedAtUnixMs) : null);
         return reader.IsConsumed;
     }
 
@@ -953,16 +970,22 @@ public static partial class PodBinaryCodec
     {
         public int AccountId;
         public int InternalUserId;
+        public int Status;
+        public long DeletedAtUnixMs;
         public byte HasPublicHandle;
         public byte PasskeyEnabled;
         public byte RecoveryEnabled;
         public byte HasTotpStepUpEnabled;
         public byte TotpStepUpEnabled;
         public byte HasAnonymousCredential;
-        public ushort Reserved0;
+        public byte HasDeletedAt;
+        public byte HasBanReason;
+        public uint Reserved0;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef PublicHandle;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef AnonymousCredentialStatus;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef AnonymousCredentialLevel;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef IdentityKind;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef BanReason;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

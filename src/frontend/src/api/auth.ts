@@ -22,21 +22,31 @@ export interface UpdatePasswordDto {
 
 // ================= 响应模型定义 =================
 
-interface AuthIdentitySnapshot {
+interface AuthLoginIdentitySnapshot {
   id: number
   username: string
   role: string
 }
 
-/** 当前登录用户信息 */
-export interface CurrentUserSnapshot extends AuthIdentitySnapshot {
+/** 当前登录账号容器快照 */
+export interface CurrentUserSnapshot {
+  id: number
+  accountId: number
+  internalUserId: number
+  identityKind: string
+  publicHandle: string | null
+  passkeyEnabled: boolean
+  recoveryEnabled: boolean
+  totpStepUpEnabled: boolean | null
+  anonymousCredentialStatus: string | null
+  anonymousCredentialLevel: string | null
   status: number
   banReason: string | null
-  deletedAt?: string | null
+  deletedAt: string | null
 }
 
 export interface AuthLoginFlow {
-  user: AuthIdentitySnapshot
+  user: AuthLoginIdentitySnapshot
   authPhase: 'authenticated' | 'mfa_required'
   mfaMode: 'risk' | 'standard' | null
   challengeToken: string | null
@@ -64,7 +74,7 @@ export interface MfaChallengeResult {
   verified: boolean
   action: string
   proofToken: string | null
-  user: AuthIdentitySnapshot | null
+  user: AuthLoginIdentitySnapshot | null
 }
 
 export interface RecoveryKeyCreateResponse {
@@ -106,7 +116,7 @@ export interface UserSessionSummary {
 }
 
 export type AdminSessionStatus = 'missing' | 'active' | 'expired' | 'step_up_required'
-export type AdminPrincipalSource = 'independent' | 'legacy'
+export type AdminPrincipalSource = 'independent'
 
 export interface AdminPrincipalSnapshot {
   id: string
@@ -145,7 +155,7 @@ export const bootstrapAnonymousAccount = (data: AnonymousBootstrapRequest, confi
 export const getMe = (config?: ApiRequestConfig) => {
   return requestBinaryOnly<CurrentUserSnapshot>({
     binaryUrl: '/api/binary/auth/me',
-    frameType: FrameType.CurrentUserSnapshot,
+    frameType: FrameType.IdentityAccountSnapshot,
     signal: config?.signal as AbortSignal | undefined,
     suppressAuthFailureTelemetry: true
   })

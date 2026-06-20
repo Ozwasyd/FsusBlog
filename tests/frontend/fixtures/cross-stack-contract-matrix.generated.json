@@ -868,7 +868,7 @@
           "method": "GET",
           "path": "/auth/me",
           "auth": "optional",
-          "responseFrame": "CurrentUserSnapshot"
+          "responseFrame": "IdentityAccountSnapshot"
         },
         {
           "method": "GET",

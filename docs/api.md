@@ -61,7 +61,7 @@ Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS �
 
 | 方法 | 路径 | 描述 | 权限 |
 |------|------|------|------|
-| GET | `/api/binary/auth/me` | 获取当前登录用户信息 | 🔑 📦 |
+| GET | `/api/binary/auth/me` | 获取当前匿名账号容器快照 | 🔑 📦 |
 | POST | `/api/binary/auth/logout` | 安全登出（吊销 Refresh Token） | 🔑 📦 |
 | POST | `/api/binary/auth/delete-account` | 注销账号 | 🔑 📦 |
 

@@ -48,10 +48,7 @@ export const useUserStore = defineStore('user', () => {
     // ================= 2. Getters =================
     const isLoggedIn = computed(() => !!userInfo.value)
 
-    const isAdmin = computed(() => {
-        const adminRoles = ['admin'];
-        return userInfo.value ? adminRoles.includes(userInfo.value.role) : false;
-    })
+    const isAdmin = computed(() => false)
 
     const isBanned = computed(() => userInfo.value?.status === 1)
     const isDeleted = computed(() => userInfo.value?.status === 2)

@@ -1,11 +1,10 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { getAdminMe, type CurrentUserSnapshot } from '@/api/auth'
-import { useUserStore } from '@/store/user'
 import { isAuthFailureError } from '@/utils/errorKinds'
 
 export type AdminSessionStatus = 'missing' | 'active' | 'expired' | 'step_up_required'
-export type AdminPrincipalSource = 'independent' | 'legacy'
+export type AdminPrincipalSource = 'independent'
 
 export interface AdminPrincipalSnapshot {
   id: string
@@ -23,19 +22,6 @@ export interface AnonymousCommentPolicySnapshot {
   anonymousCommentGovernanceAvailable: boolean
   zkAnonymousConfigurable: boolean
 }
-
-const DEFAULT_MANAGE_PERMISSIONS: readonly string[] = Object.freeze([
-  'legacy.admin',
-  'article.write',
-  'article.publish',
-  'comment.moderate',
-  'anonymous.comment.configure',
-  'anonymous.nullifier.block',
-  'anonymous.credential.revoke',
-  'audit.read',
-  'system.config',
-  'admin.manage'
-])
 
 const DEFAULT_ANONYMOUS_COMMENT_POLICY: AnonymousCommentPolicySnapshot = Object.freeze({
   anonymousCommentsEnabled: true,
@@ -61,7 +47,7 @@ export const useAdminStore = defineStore('admin', () => {
   const totpStepUpRequired = computed(() => adminPrincipal.value?.totpStepUpRequired === true || adminSessionStatus.value === 'step_up_required')
 
   const hasPermission = (permission: string): boolean =>
-    permissions.value.includes(permission) || permissions.value.includes('legacy.admin')
+    permissions.value.includes(permission)
 
   const setAdminPrincipal = (snapshot: AdminPrincipalSnapshot | null): void => {
     adminPrincipal.value = snapshot ? {
@@ -74,26 +60,8 @@ export const useAdminStore = defineStore('admin', () => {
     adminPrincipal.value = null
   }
 
-  const syncLegacyAdminPrincipal = (user: CurrentUserSnapshot | null): void => {
-    if (adminPrincipal.value?.source === 'independent') {
-      return
-    }
-
-    if (user?.role === 'admin') {
-      setAdminPrincipal({
-        id: String(user.id),
-        displayName: user.username,
-        source: 'legacy',
-        permissions: DEFAULT_MANAGE_PERMISSIONS,
-        adminSessionStatus: 'active',
-        totpStepUpRequired: false
-      })
-      return
-    }
-
-    if (adminPrincipal.value?.source === 'legacy') {
-      clearAdminPrincipal()
-    }
+  const syncLegacyAdminPrincipal = (account: CurrentUserSnapshot | null): void => {
+    void account
   }
 
   const setAnonymousCommentPolicy = (snapshot: Partial<AnonymousCommentPolicySnapshot>): void => {
@@ -103,11 +71,8 @@ export const useAdminStore = defineStore('admin', () => {
     }
   }
 
-  const ensureAdminSessionFresh = async (legacyUser: CurrentUserSnapshot | null): Promise<void> => {
-    syncLegacyAdminPrincipal(legacyUser)
-    if (adminPrincipal.value?.source === 'legacy') {
-      return
-    }
+  const ensureAdminSessionFresh = async (account: CurrentUserSnapshot | null): Promise<void> => {
+    syncLegacyAdminPrincipal(account)
 
     try {
       setAdminPrincipal(await getAdminMe())
@@ -124,13 +89,7 @@ export const useAdminStore = defineStore('admin', () => {
   }
 
   const logout = async (): Promise<void> => {
-    const wasLegacyPrincipal = adminPrincipal.value?.source === 'legacy'
     clearAdminPrincipal()
-
-    if (wasLegacyPrincipal) {
-      await useUserStore().logout()
-      return
-    }
 
     if (typeof window !== 'undefined') {
       window.location.href = '/'

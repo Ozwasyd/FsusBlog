@@ -150,6 +150,29 @@ public sealed partial class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    public void BackendEncoder_MatchesSharedIdentityAccountSnapshotFixture()
+    {
+        var deletedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+        var snapshot = new IdentityAccountSnapshotCoreModel(
+            AccountId: 42,
+            InternalUserId: 7,
+            PublicHandle: "Public Alice",
+            PasskeyEnabled: true,
+            RecoveryEnabled: true,
+            TotpStepUpEnabled: true,
+            AnonymousCredentialStatus: "active",
+            AnonymousCredentialLevel: "strong_anonymous",
+            IdentityKind: "anonymous_account",
+            Status: 1,
+            BanReason: "limited",
+            DeletedAt: deletedAt);
+
+        byte[] encoded = new CoreAedsEncoder().Encode(CoreFrameType.IdentityAccountSnapshot, PodBinaryCodec.EncodeIdentityAccountSnapshot(snapshot));
+
+        Assert.Equal(ReadProtocolFixtureBytes("identity-account-snapshot-frame.hex"), encoded);
+    }
+
+    [Fact]
     public void BackendEncoder_MatchesSharedMfaProfileFixture()
     {
         MfaProfileDto dto = new(true, new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc));

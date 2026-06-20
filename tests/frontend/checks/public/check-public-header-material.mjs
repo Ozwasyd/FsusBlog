@@ -2,7 +2,7 @@
 
 import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { encodeCurrentUserSnapshotFrame } from '../../support/aeds-envelope.mjs'
+import { encodeIdentityAccountSnapshotFrame } from '../../support/aeds-envelope.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
@@ -59,10 +59,11 @@ async function installAuthFixture(context, authMode) {
       await requestRoute.fulfill({
         status: 200,
         headers: { 'content-type': 'application/octet-stream' },
-        body: Buffer.from(encodeCurrentUserSnapshotFrame({
-          id: 1,
-          username: 'header-admin',
-          role: 'admin',
+        body: Buffer.from(encodeIdentityAccountSnapshotFrame({
+          accountId: 1,
+          internalUserId: 1,
+          publicHandle: 'header-user',
+          identityKind: 'anonymous_account',
           status: 0,
         })),
       })

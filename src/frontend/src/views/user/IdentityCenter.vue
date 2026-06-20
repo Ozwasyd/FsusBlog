@@ -441,8 +441,8 @@ const identityAccountSnapshot = computed(() => {
   const user = userStore.userInfo
 
   return {
-    accountId: user?.id ?? 0,
-    publicHandle: publicHandleDraft.value.trim() || user?.username || '',
+    accountId: user?.accountId ?? user?.id ?? 0,
+    publicHandle: publicHandleDraft.value.trim() || user?.publicHandle || '',
     passkeyEnabled: passkeyCredentials.value.length > 0,
     recoveryEnabled: recoveryKeyKnown.value || recoveryKeyPlaintext.value.length > 0,
     totpStepUpEnabled: mfaProfile.value?.enabled === true,

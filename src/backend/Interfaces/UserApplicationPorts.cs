@@ -18,7 +18,9 @@ public readonly record struct UserAccountSnapshot(
     string? PublicHandle = null,
     string IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
     bool PasskeyEnabled = false,
-    bool RecoveryEnabled = false);
+    bool RecoveryEnabled = false,
+    string? AnonymousCredentialStatus = null,
+    string? AnonymousCredentialLevel = null);
 
 public readonly record struct SessionTokenResponseDto(
     string AccessToken,

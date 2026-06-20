@@ -44,7 +44,7 @@ describe('useUserStore', () => {
 
   it('setUserInfo sets user and marks checked', () => {
     const store = useUserStore()
-    const mockUser = { id: 1, username: 'alice', role: 'user', status: 0, banReason: null } as never
+    const mockUser = anonymousUser(1)
     store.setUserInfo(mockUser)
     expect(store.userInfo).toStrictEqual(mockUser)
     expect(store.isAuthChecked).toBe(true)
@@ -53,45 +53,33 @@ describe('useUserStore', () => {
 
   it('setUserInfo with null clears state', () => {
     const store = useUserStore()
-    const mockUser = { id: 1, username: 'alice', role: 'user', status: 0, banReason: null } as never
+    const mockUser = anonymousUser(1)
     store.setUserInfo(mockUser)
     store.setUserInfo(null)
     expect(store.userInfo).toBeNull()
     expect(store.isLoggedIn).toBe(false)
   })
 
-  it('isAdmin returns true for admin role', () => {
+  it('isAdmin stays false for anonymous account snapshots', () => {
     const store = useUserStore()
-    store.setUserInfo({ id: 1, username: 'admin', role: 'admin', status: 0, banReason: null } as never)
-    expect(store.isAdmin).toBe(true)
-  })
-
-  it('isAdmin returns false for root role', () => {
-    const store = useUserStore()
-    store.setUserInfo({ id: 1, username: 'root', role: 'root', status: 0, banReason: null } as never)
-    expect(store.isAdmin).toBe(false)
-  })
-
-  it('isAdmin returns false for regular user', () => {
-    const store = useUserStore()
-    store.setUserInfo({ id: 1, username: 'alice', role: 'user', status: 0, banReason: null } as never)
+    store.setUserInfo(anonymousUser(1) as never)
     expect(store.isAdmin).toBe(false)
   })
 
   it('isBanned returns true for status 1', () => {
     const store = useUserStore()
-    store.setUserInfo({ id: 1, username: 'alice', role: 'user', status: 1, banReason: 'spam' } as never)
+    store.setUserInfo({ ...anonymousUser(1), status: 1, banReason: 'spam' } as never)
     expect(store.isBanned).toBe(true)
   })
 
   it('isDeleted returns true for status 2', () => {
     const store = useUserStore()
-    store.setUserInfo({ id: 1, username: 'alice', role: 'user', status: 2, banReason: null } as never)
+    store.setUserInfo({ ...anonymousUser(1), status: 2 } as never)
     expect(store.isDeleted).toBe(true)
   })
 
   it('fetchUserInfo sets userInfo on success', async () => {
-    const mockUser = { id: 1, username: 'alice', role: 'user', status: 0, banReason: null }
+    const mockUser = anonymousUser(1)
     mockGetMe.mockResolvedValueOnce(mockUser as never)
     const store = useUserStore()
     await store.fetchUserInfo()
@@ -120,7 +108,7 @@ describe('useUserStore', () => {
   })
 
   it('fetchUserInfo refreshes when only bootstrap marker was restored', async () => {
-    const mockUser = { id: 2, username: 'admin', role: 'admin', status: 0, banReason: null }
+    const mockUser = anonymousUser(2)
     mockGetMe.mockResolvedValueOnce(mockUser as never)
     const store = useUserStore()
     store.isAuthChecked = true
@@ -134,7 +122,7 @@ describe('useUserStore', () => {
 
   it('ensureUserInfoFresh reuses recent user info', async () => {
     const store = useUserStore()
-    store.setUserInfo({ id: 1, username: 'admin', role: 'admin', status: 0, banReason: null } as never)
+    store.setUserInfo(anonymousUser(1) as never)
 
     await store.ensureUserInfoFresh({ maxAgeMs: 30_000 })
 
@@ -142,10 +130,10 @@ describe('useUserStore', () => {
   })
 
   it('ensureUserInfoFresh refreshes stale user info', async () => {
-    const mockUser = { id: 2, username: 'admin', role: 'admin', status: 0, banReason: null }
+    const mockUser = anonymousUser(2)
     mockGetMe.mockResolvedValueOnce(mockUser as never)
     const store = useUserStore()
-    store.setUserInfo({ id: 1, username: 'old', role: 'admin', status: 0, banReason: null } as never)
+    store.setUserInfo(anonymousUser(1) as never)
     store.lastFetchedAt = Date.now() - 31_000
 
     await store.ensureUserInfoFresh({ maxAgeMs: 30_000 })
@@ -155,7 +143,7 @@ describe('useUserStore', () => {
   })
 
   it('ensureUserInfoFresh fetches when only auth marker is known', async () => {
-    const mockUser = { id: 3, username: 'fresh', role: 'user', status: 0, banReason: null }
+    const mockUser = anonymousUser(3)
     mockGetMe.mockResolvedValueOnce(mockUser as never)
     const store = useUserStore()
     store.isAuthChecked = true
@@ -170,7 +158,7 @@ describe('useUserStore', () => {
 
   it('updateStatus updates userInfo status', () => {
     const store = useUserStore()
-    store.setUserInfo({ id: 1, username: 'alice', role: 'user', status: 0, banReason: null } as never)
+    store.setUserInfo(anonymousUser(1) as never)
     store.updateStatus(1, 'spam')
     expect(store.userInfo?.status).toBe(1)
     expect(store.userInfo?.banReason).toBe('spam')
@@ -184,9 +172,27 @@ describe('useUserStore', () => {
   it('logout calls logoutApi and clears state', async () => {
     mockLogout.mockResolvedValueOnce(undefined)
     const store = useUserStore()
-    store.setUserInfo({ id: 1, username: 'alice', role: 'user', status: 0, banReason: null } as never)
+    store.setUserInfo(anonymousUser(1) as never)
     await store.logout()
     expect(mockLogout).toHaveBeenCalled()
     expect(store.userInfo).toBeNull()
   })
 })
+
+function anonymousUser(id: number) {
+  return {
+    id,
+    accountId: id,
+    internalUserId: id,
+    identityKind: 'anonymous_account',
+    publicHandle: `public-${id}`,
+    passkeyEnabled: true,
+    recoveryEnabled: true,
+    totpStepUpEnabled: false,
+    anonymousCredentialStatus: 'active',
+    anonymousCredentialLevel: 'basic',
+    status: 0,
+    banReason: null,
+    deletedAt: null
+  }
+}

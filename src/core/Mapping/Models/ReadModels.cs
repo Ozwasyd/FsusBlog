@@ -81,7 +81,11 @@ public readonly record struct IdentityAccountSnapshotCoreModel(
     bool RecoveryEnabled,
     bool? TotpStepUpEnabled,
     string? AnonymousCredentialStatus,
-    string? AnonymousCredentialLevel);
+    string? AnonymousCredentialLevel,
+    string IdentityKind = "anonymous_account",
+    int Status = 0,
+    string? BanReason = null,
+    DateTime? DeletedAt = null);
 
 public readonly record struct CommentPolicySnapshotCoreModel(
     bool AnonymousCommentsEnabled,

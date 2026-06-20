@@ -227,7 +227,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 16 | `TrashClearResponse` | `TrashClearResponsePod` | `DELETE /api/binary/admin/article/trash` |
 | 17 | `AdminUserList` | compact user records | `GET /api/binary/admin/users` |
 | 18 | `AuthLoginFlow` | auth session flow payload | `POST /api/binary/auth/anonymous/bootstrap`, `POST /api/binary/auth/passkey/login/complete` |
-| 19 | `CurrentUserSnapshot` | user snapshot payload | `GET /api/binary/auth/me` |
+| 19 | `CurrentUserSnapshot` | legacy/admin user snapshot payload | admin-only legacy lookup / refresh-token compatibility |
 | 20 | `UploadInit` | `UploadInitPod` | `POST /api/binary/upload/init` |
 | 21 | `UploadStatus` | `UploadStatusPod` | `GET /api/binary/upload/{id}` |
 | 22 | `UploadPartAck` | `UploadPartAckPod` | `PUT /api/binary/upload/{id}/part/{n}` |
@@ -257,7 +257,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 160 | `RecoveryKeyVerifyRequest` | `RecoveryKeyVerifyRequestPod` | `POST /api/binary/auth/recovery-key/verify` 请求体 |
 | 161 | `RecoveryKeyVerifyResponse` | `RecoveryKeyVerifyResponsePod` | Recovery Key 验证成功响应 |
 | 162 | `RecoveryKeySessionRequest` | `StringMutationRequestPod` | Recovery session token 请求体；用于 Passkey recovery begin |
-| 163 | `IdentityAccountSnapshot` | `IdentityAccountSnapshotPod` | 匿名身份 account/internal id、public handle、Passkey/Recovery/TOTP/anonymous credential 状态 |
+| 163 | `IdentityAccountSnapshot` | `IdentityAccountSnapshotPod` | `GET /api/binary/auth/me`；匿名身份 account/internal id、identity kind、public handle、Passkey/Recovery/TOTP/anonymous credential 和状态字段 |
 | 164 | `CommentPolicySnapshot` | `CommentPolicySnapshotPod` | 评论 composer 渲染前策略：anonymous/public/ZK 开关、ZK-Prod readiness、默认 author mode、语言列表、策略 snapshot hash |
 | 165 | `CommentPolicyUpdateRequest` | `CommentPolicyUpdateRequestPod` | admin 匿名评论策略 patch 请求体 |
 | 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | 新评论创建请求；包含匿名 scope、author mode、language hint、普通 proof token 和 ZK proof bytes；不得从 userId/ProofToken 派生 ZK nullifier |
@@ -374,7 +374,7 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 |------|--------|
 | `UserPod` | ~256 |
 | `CurrentUserSnapshotPod` | 372 |
-| `IdentityAccountSnapshotPod` | 40 |
+| `IdentityAccountSnapshotPod` | 72 |
 
 ### 系统 POD
 

@@ -2,7 +2,16 @@ import type { AuthLoginFlow, CurrentUserSnapshot, MfaChallengeResult, MfaProfile
 import { createAppError, AppErrorCode } from '@/utils/appError';
 import { BinaryReader, readByte, readFixedUtf8, readInt32, readIsoDate64, readSliceRef, readSliceText } from './reader';
 import { readArrayEnvelope } from './envelopeReaders';
-import { AUTH_LOGIN_FLOW_POD_SIZE, CURRENT_USER_SNAPSHOT_POD_SIZE, MFA_CHALLENGE_RESULT_POD_SIZE, MFA_PROFILE_POD_SIZE, MFA_RECOVERY_CODE_POD_SIZE, MFA_SETUP_START_POD_SIZE, MFA_SETUP_VERIFY_POD_SIZE, RECOVERY_KEY_CREATE_RESPONSE_POD_SIZE, RECOVERY_KEY_VERIFY_RESPONSE_POD_SIZE, USER_SESSION_SUMMARY_POD_SIZE } from './types';
+import { AUTH_LOGIN_FLOW_POD_SIZE, CURRENT_USER_SNAPSHOT_POD_SIZE, IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE, MFA_CHALLENGE_RESULT_POD_SIZE, MFA_PROFILE_POD_SIZE, MFA_RECOVERY_CODE_POD_SIZE, MFA_SETUP_START_POD_SIZE, MFA_SETUP_VERIFY_POD_SIZE, RECOVERY_KEY_CREATE_RESPONSE_POD_SIZE, RECOVERY_KEY_VERIFY_RESPONSE_POD_SIZE, USER_SESSION_SUMMARY_POD_SIZE } from './types';
+
+type LegacyCurrentUserSnapshot = {
+  id: number;
+  username: string;
+  role: string;
+  status: number;
+  banReason: string | null;
+  deletedAt: string | null;
+};
 
 export function mapAuthLoginFlowFromPayload(payload: Uint8Array): AuthLoginFlow {
   if (payload.byteLength !== AUTH_LOGIN_FLOW_POD_SIZE) {
@@ -24,7 +33,7 @@ export function mapAuthLoginFlowFromPayload(payload: Uint8Array): AuthLoginFlow 
   };
 }
 
-export function mapCurrentUserSnapshotFromPayload(payload: Uint8Array): CurrentUserSnapshot {
+export function mapCurrentUserSnapshotFromPayload(payload: Uint8Array): LegacyCurrentUserSnapshot {
   if (payload.byteLength !== CURRENT_USER_SNAPSHOT_POD_SIZE) {
     throw createAppError(AppErrorCode.ProtocolFailure, 'current_user_snapshot_payload_invalid');
   }
@@ -38,6 +47,46 @@ export function mapCurrentUserSnapshotFromPayload(payload: Uint8Array): CurrentU
     username: readFixedUtf8(payload, 20, 64),
     role: readFixedUtf8(payload, 84, 32),
     banReason: banReason.length > 0 ? banReason : null
+  };
+}
+
+export function mapIdentityAccountSnapshotFromPayload(payload: Uint8Array): CurrentUserSnapshot {
+  const reader = new BinaryReader(payload);
+  const pod = reader.readSpan(IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE);
+  const blob = reader.readBlob();
+
+  if (reader.remaining() !== 0) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'identity_account_snapshot_trailing_payload_invalid');
+  }
+
+  for (const flagOffset of [20, 21, 22, 23, 24, 25, 26, 27]) {
+    if (readByte(pod, flagOffset) > 1) {
+      throw createAppError(AppErrorCode.ProtocolFailure, 'identity_account_snapshot_flag_invalid');
+    }
+  }
+
+  const hasPublicHandle = readByte(pod, 20) === 1;
+  const hasTotpStepUpEnabled = readByte(pod, 23) === 1;
+  const hasAnonymousCredential = readByte(pod, 25) === 1;
+  const hasDeletedAt = readByte(pod, 26) === 1;
+  const hasBanReason = readByte(pod, 27) === 1;
+  const accountId = readInt32(pod, 0);
+  const optionalText = (value: string): string | null => value.length > 0 ? value : null;
+
+  return {
+    id: accountId,
+    accountId,
+    internalUserId: readInt32(pod, 4),
+    identityKind: optionalText(readSliceText(blob, readSliceRef(pod, 56))) ?? 'anonymous_account',
+    publicHandle: hasPublicHandle ? optionalText(readSliceText(blob, readSliceRef(pod, 32))) : null,
+    passkeyEnabled: readByte(pod, 21) === 1,
+    recoveryEnabled: readByte(pod, 22) === 1,
+    totpStepUpEnabled: hasTotpStepUpEnabled ? readByte(pod, 24) === 1 : null,
+    anonymousCredentialStatus: hasAnonymousCredential ? optionalText(readSliceText(blob, readSliceRef(pod, 40))) : null,
+    anonymousCredentialLevel: hasAnonymousCredential ? optionalText(readSliceText(blob, readSliceRef(pod, 48))) : null,
+    status: readInt32(pod, 8),
+    banReason: hasBanReason ? optionalText(readSliceText(blob, readSliceRef(pod, 64))) : null,
+    deletedAt: hasDeletedAt ? readIsoDate64(pod, 12) : null
   };
 }
 

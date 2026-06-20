@@ -151,18 +151,14 @@ describe('publicShellRuntimeAuthState', () => {
     })
   })
 
-  it('resolves anonymous, normal user, admin, and failed auth states', () => {
+  it('resolves anonymous and logged-in runtime account states', () => {
     expect(resolvePublicShellRuntimeAuthState(null)).toEqual({
       authLabel: '登录',
       authHref: '/login'
     })
-    expect(resolvePublicShellRuntimeAuthState({ role: 'user' })).toEqual({
+    expect(resolvePublicShellRuntimeAuthState({ accountId: 1 })).toEqual({
       authLabel: '账户',
       authHref: '/user/identity'
-    })
-    expect(resolvePublicShellRuntimeAuthState({ role: 'admin' })).toEqual({
-      authLabel: '控制板',
-      authHref: '/user/manage'
     })
   })
 })

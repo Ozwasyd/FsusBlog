@@ -52,7 +52,7 @@ const handleSessionExpired = (event: Event): void => {
     return
   }
 
-  if (userStore.isLoggedIn || userStore.userInfo?.role || requiresAuth) {
+  if (userStore.isLoggedIn || requiresAuth) {
     void router.push(`/login?redirect=${encodeURIComponent(currentPath)}`)
   }
 }

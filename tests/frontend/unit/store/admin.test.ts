@@ -9,8 +9,15 @@ vi.mock('@/api/auth', () => ({
 
 const user = (role: string): CurrentUserSnapshot => ({
   id: role === 'admin' ? 1 : 2,
-  username: role === 'admin' ? 'admin' : 'guest',
-  role,
+  accountId: role === 'admin' ? 1 : 2,
+  internalUserId: role === 'admin' ? 1 : 2,
+  identityKind: 'anonymous_account',
+  publicHandle: role === 'admin' ? 'admin' : 'guest',
+  passkeyEnabled: true,
+  recoveryEnabled: true,
+  totpStepUpEnabled: false,
+  anonymousCredentialStatus: 'active',
+  anonymousCredentialLevel: 'basic',
   status: 0,
   banReason: null
 })
@@ -21,15 +28,14 @@ describe('useAdminStore', () => {
     vi.clearAllMocks()
   })
 
-  it('bridges legacy admin users into an active admin principal', () => {
+  it('does not bridge normal account snapshots into admin authority', () => {
     const store = useAdminStore()
 
     store.syncLegacyAdminPrincipal(user('admin'))
 
-    expect(store.adminSessionStatus).toBe('active')
-    expect(store.canManage).toBe(true)
-    expect(store.hasPermission('article.write')).toBe(true)
-    expect(store.hasPermission('anonymous.comment.configure')).toBe(true)
+    expect(store.adminSessionStatus).toBe('missing')
+    expect(store.canManage).toBe(false)
+    expect(store.permissions).toEqual([])
   })
 
   it('clears only legacy principals when normal users are synced', () => {

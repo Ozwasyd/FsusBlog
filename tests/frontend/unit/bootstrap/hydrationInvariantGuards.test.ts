@@ -100,7 +100,7 @@ describe('public hydration invariant guards', () => {
     for (const dimension of ['themePreference', 'sessionState', 'storageBehavior', 'motionPreference', 'colorScheme', 'viewport']) {
       expect(browserEnvHydrationCheck).toContain(dimension)
     }
-    expect(browserEnvHydrationCheck).toContain('encodeCurrentUserSnapshotFrame')
+    expect(browserEnvHydrationCheck).toContain('encodeIdentityAccountSnapshotFrame')
     expect(browserEnvHydrationCheck).toContain('reducedMotion')
     expect(browserEnvHydrationCheck).toContain('colorScheme: cell.colorScheme')
     expect(browserEnvHydrationCheck).toContain('auth-gated-until-after-hydration')

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
-import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapMfaChallengeResultFromPayload, mapMfaProfileFromPayload, mapMfaSetupStartFromPayload, mapUserSessionsFromPayload } from '@/adapters/binary/authAdapter'
+import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapIdentityAccountSnapshotFromPayload, mapMfaChallengeResultFromPayload, mapMfaProfileFromPayload, mapMfaSetupStartFromPayload, mapUserSessionsFromPayload } from '@/adapters/binary/authAdapter'
 import { mapConversationDetailFromPayload, mapConversationListFromPayload, mapConversationMessageFromPayload } from '@/adapters/binary/messageAdapter'
 import { mapArticleDetailFromPodPayload, mapArticleFeaturedFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload, mapRelatedReadingFromPodPayload } from '@/adapters/binary/articleAdapter'
 import { mapCommentCursorFromPodPayload } from '@/adapters/binary/commentAdapter'
@@ -156,6 +156,32 @@ describe('AEDS cross-stack contract fixture', () => {
       status: 1,
       banReason: null,
       deletedAt: null
+    })
+  })
+
+  it('decodes the checked-in backend IdentityAccountSnapshot frame with the real frontend decoder', async () => {
+    const { decode } = await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds')
+    const buffer = readProtocolFixtureBuffer('identity-account-snapshot-frame.hex')
+
+    const result = decode(buffer)
+
+    expect(result.ok).toBe(true)
+    expect(result.frameType).toBe(FrameType.IdentityAccountSnapshot)
+    expect(result.payloadView.byteLength).toBe(72 + 4 + 58)
+    expect(mapIdentityAccountSnapshotFromPayload(result.payloadView)).toEqual({
+      id: 42,
+      accountId: 42,
+      internalUserId: 7,
+      identityKind: 'anonymous_account',
+      publicHandle: 'Public Alice',
+      passkeyEnabled: true,
+      recoveryEnabled: true,
+      totpStepUpEnabled: true,
+      anonymousCredentialStatus: 'active',
+      anonymousCredentialLevel: 'strong_anonymous',
+      status: 1,
+      banReason: 'limited',
+      deletedAt: '2026-01-02T03:04:05.000Z'
     })
   })
 

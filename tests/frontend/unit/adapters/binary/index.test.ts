@@ -129,6 +129,10 @@ describe('mapFramePayloadToViewModel', () => {
     expect(() => mapFramePayloadToViewModel(FrameType.CurrentUserSnapshot, new Uint8Array(0))).toThrow()
   })
 
+  it('calls mapper for IdentityAccountSnapshot (throws on empty payload, confirms routing)', () => {
+    expect(() => mapFramePayloadToViewModel(FrameType.IdentityAccountSnapshot, new Uint8Array(0))).toThrow()
+  })
+
   it('calls mapper for AuthSessionList (throws on empty payload, confirms routing)', () => {
     expect(() => mapFramePayloadToViewModel(FrameType.AuthSessionList, new Uint8Array(0))).toThrow()
   })

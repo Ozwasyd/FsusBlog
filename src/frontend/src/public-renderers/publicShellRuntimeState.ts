@@ -5,7 +5,7 @@ import type { PublicShellState } from '@/public-renderers/publicShellState'
 export type PublicShellRuntimeAuthState = Pick<PublicShellState, 'authLabel' | 'authHref'>
 
 export type PublicShellRuntimeAuthUser = Readonly<{
-  role?: string | null
+  accountId?: number | null
 }> | null
 
 const anonymousAuthState: PublicShellRuntimeAuthState = {
@@ -23,7 +23,7 @@ export function resolvePublicShellRuntimeAuthState(
   const shellState = createPublicShellViewState({
     isRuntimeAuthResolved: true,
     isLoggedIn: Boolean(user),
-    isAdmin: user?.role === 'admin'
+    isAdmin: false
   })
 
   return {

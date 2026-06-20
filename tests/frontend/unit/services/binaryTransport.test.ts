@@ -154,26 +154,38 @@ describe('binaryTransport ApiError mapping', () => {
     ])
   })
 
-  it('maps a CurrentUserSnapshot frame into the expected view model', async () => {
-    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('current-user-snapshot-frame.hex'))
+  it('maps an IdentityAccountSnapshot frame into the expected current user view model', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('identity-account-snapshot-frame.hex'))
 
     await expect(requestBinaryOnly<{
       id: number;
-      username: string;
-      role: string;
+      accountId: number;
+      identityKind: string;
+      publicHandle: string | null;
+      passkeyEnabled: boolean;
+      recoveryEnabled: boolean;
+      anonymousCredentialStatus: string | null;
+      anonymousCredentialLevel: string | null;
       status: number;
       banReason: string | null;
       deletedAt: string | null;
     }>({
       binaryUrl: '/api/binary/auth/me',
-      frameType: FrameType.CurrentUserSnapshot
+      frameType: FrameType.IdentityAccountSnapshot
     })).resolves.toEqual({
-      id: 123,
-      username: 'alice',
-      role: 'User',
+      id: 42,
+      accountId: 42,
+      internalUserId: 7,
+      identityKind: 'anonymous_account',
+      publicHandle: 'Public Alice',
+      passkeyEnabled: true,
+      recoveryEnabled: true,
+      totpStepUpEnabled: true,
+      anonymousCredentialStatus: 'active',
+      anonymousCredentialLevel: 'strong_anonymous',
       status: 1,
-      banReason: null,
-      deletedAt: null
+      banReason: 'limited',
+      deletedAt: '2026-01-02T03:04:05.000Z'
     })
   })
 
@@ -887,7 +899,7 @@ describe('binaryTransport ApiError mapping', () => {
 
     await expect(requestBinaryOnly({
       binaryUrl: '/api/binary/auth/me',
-      frameType: FrameType.CurrentUserSnapshot,
+      frameType: FrameType.IdentityAccountSnapshot,
       suppressAuthFailureTelemetry: true
     })).rejects.toMatchObject({
       name: 'BinaryTransportError',

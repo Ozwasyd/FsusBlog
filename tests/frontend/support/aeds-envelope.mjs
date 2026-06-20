@@ -16,6 +16,7 @@ const FRAME_SEO_CONFIG = frameType('SeoConfig')
 const FRAME_PAGE_CONTENT = frameType('PageContent')
 const FRAME_AUTH_LOGIN_FLOW = frameType('AuthLoginFlow')
 const FRAME_CURRENT_USER_SNAPSHOT = frameType('CurrentUserSnapshot')
+const FRAME_IDENTITY_ACCOUNT_SNAPSHOT = frameType('IdentityAccountSnapshot')
 const FRAME_COMMENT_USER_CURSOR = frameType('CommentUserCursor')
 const FRAME_UPLOAD_INIT = frameType('UploadInit')
 const FRAME_UPLOAD_STATUS = frameType('UploadStatus')
@@ -56,6 +57,7 @@ const FRAME_MUTATION_ID = frameType('MutationId')
 const FRAME_API_ERROR = frameType('ApiError')
 const AUTH_LOGIN_FLOW_POD_SIZE = 168
 const CURRENT_USER_SNAPSHOT_POD_SIZE = 372
+const IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE = 72
 const USER_SESSION_SUMMARY_POD_SIZE = 396
 const MFA_SETUP_START_POD_SIZE = 36
 const MFA_SETUP_VERIFY_POD_SIZE = 8
@@ -276,6 +278,67 @@ export function encodeCurrentUserSnapshotFrame({ id = 1, username = 'admin', rol
   writeFixedUtf8(bytes, 84, 32, role)
   writeFixedUtf8(bytes, 116, 256, banReason)
   return encodeAedsFrame(FRAME_CURRENT_USER_SNAPSHOT, bytes)
+}
+
+export function encodeIdentityAccountSnapshotFrame({
+  accountId = 1,
+  internalUserId = accountId,
+  identityKind = 'anonymous_account',
+  publicHandle = '',
+  passkeyEnabled = false,
+  recoveryEnabled = false,
+  totpStepUpEnabled = null,
+  anonymousCredentialStatus = '',
+  anonymousCredentialLevel = '',
+  status = 0,
+  banReason = '',
+  deletedAt = null
+} = {}) {
+  const hasPublicHandle = typeof publicHandle === 'string' && publicHandle.length > 0
+  const hasTotpStepUpEnabled = typeof totpStepUpEnabled === 'boolean'
+  const hasAnonymousCredential = Boolean(anonymousCredentialStatus || anonymousCredentialLevel)
+  const hasBanReason = typeof banReason === 'string' && banReason.length > 0
+  const hasDeletedAt = deletedAt instanceof Date
+  const encodedValues = [
+    hasPublicHandle ? publicHandle : '',
+    hasAnonymousCredential ? anonymousCredentialStatus : '',
+    hasAnonymousCredential ? anonymousCredentialLevel : '',
+    identityKind || 'anonymous_account',
+    hasBanReason ? banReason : ''
+  ].map((value) => UTF8_ENCODER.encode(value ?? ''))
+  const blobLength = encodedValues.reduce((sum, item) => sum + item.byteLength, 0)
+  const blob = new Uint8Array(blobLength)
+  const refs = []
+  let blobOffset = 0
+  for (const encoded of encodedValues) {
+    refs.push({ offset: blobOffset, length: encoded.byteLength })
+    blob.set(encoded, blobOffset)
+    blobOffset += encoded.byteLength
+  }
+  const payload = new Uint8Array(IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE + 4 + blobLength)
+  const view = new DataView(payload.buffer)
+  view.setInt32(0, accountId, true)
+  view.setInt32(4, internalUserId, true)
+  view.setInt32(8, status, true)
+  if (hasDeletedAt) {
+    view.setBigInt64(12, BigInt(deletedAt.getTime()), true)
+  }
+  payload[20] = hasPublicHandle ? 1 : 0
+  payload[21] = passkeyEnabled ? 1 : 0
+  payload[22] = recoveryEnabled ? 1 : 0
+  payload[23] = hasTotpStepUpEnabled ? 1 : 0
+  payload[24] = totpStepUpEnabled === true ? 1 : 0
+  payload[25] = hasAnonymousCredential ? 1 : 0
+  payload[26] = hasDeletedAt ? 1 : 0
+  payload[27] = hasBanReason ? 1 : 0
+  writeSliceRef(view, 32, refs[0])
+  writeSliceRef(view, 40, refs[1])
+  writeSliceRef(view, 48, refs[2])
+  writeSliceRef(view, 56, refs[3])
+  writeSliceRef(view, 64, refs[4])
+  view.setInt32(IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE, blobLength, true)
+  payload.set(blob, IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE + 4)
+  return encodeAedsFrame(FRAME_IDENTITY_ACCOUNT_SNAPSHOT, payload)
 }
 
 export function encodeUploadInitRequest(payload) {
@@ -709,6 +772,8 @@ export function decodeKnownFrame(buffer) {
       return decodeAuthLoginFlow(frame.payload)
     case FRAME_CURRENT_USER_SNAPSHOT:
       return decodeCurrentUserSnapshot(frame.payload)
+    case FRAME_IDENTITY_ACCOUNT_SNAPSHOT:
+      return decodeIdentityAccountSnapshot(frame.payload)
     case FRAME_UPLOAD_INIT:
       return decodeUploadInit(frame.payload)
     case FRAME_UPLOAD_STATUS:
@@ -1312,6 +1377,49 @@ function decodeCurrentUserSnapshot(payload) {
     username: readFixedUtf8(payload, 20, 64),
     role: readFixedUtf8(payload, 84, 32),
     banReason: banReason.length > 0 ? banReason : null
+  }
+}
+
+function decodeIdentityAccountSnapshot(payload) {
+  if (payload.byteLength < IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE + 4) {
+    throw new Error(`identity_account_snapshot_payload_size_mismatch:${payload.byteLength}`)
+  }
+
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  const blobLength = readInt32(view, IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE)
+  if (blobLength < 0 || payload.byteLength !== IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE + 4 + blobLength) {
+    throw new Error(`identity_account_snapshot_blob_size_mismatch:${payload.byteLength}`)
+  }
+
+  for (const flagOffset of [20, 21, 22, 23, 24, 25, 26, 27]) {
+    if (readByte(payload, flagOffset) > 1) {
+      throw new Error(`identity_account_snapshot_flag_invalid:${flagOffset}`)
+    }
+  }
+
+  const blob = payload.subarray(IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE + 4)
+  const hasPublicHandle = readByte(payload, 20) === 1
+  const hasTotpStepUpEnabled = readByte(payload, 23) === 1
+  const hasAnonymousCredential = readByte(payload, 25) === 1
+  const hasDeletedAt = readByte(payload, 26) === 1
+  const hasBanReason = readByte(payload, 27) === 1
+  const optionalText = (value) => value.length > 0 ? value : null
+  const accountId = readInt32(view, 0)
+
+  return {
+    id: accountId,
+    accountId,
+    internalUserId: readInt32(view, 4),
+    identityKind: optionalText(readSliceText(blob, readSliceRef(payload, 56))) ?? 'anonymous_account',
+    publicHandle: hasPublicHandle ? optionalText(readSliceText(blob, readSliceRef(payload, 32))) : null,
+    passkeyEnabled: readByte(payload, 21) === 1,
+    recoveryEnabled: readByte(payload, 22) === 1,
+    totpStepUpEnabled: hasTotpStepUpEnabled ? readByte(payload, 24) === 1 : null,
+    anonymousCredentialStatus: hasAnonymousCredential ? optionalText(readSliceText(blob, readSliceRef(payload, 40))) : null,
+    anonymousCredentialLevel: hasAnonymousCredential ? optionalText(readSliceText(blob, readSliceRef(payload, 48))) : null,
+    status: readInt32(view, 8),
+    banReason: hasBanReason ? optionalText(readSliceText(blob, readSliceRef(payload, 64))) : null,
+    deletedAt: hasDeletedAt ? new Date(readInt64Number(view, 12)).toISOString() : null
   }
 }
 

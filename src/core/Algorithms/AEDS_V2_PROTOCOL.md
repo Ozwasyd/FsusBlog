@@ -164,7 +164,8 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `PasskeyLoginCompleteRequest` payload: `PasskeyLoginCompleteRequestPod` followed by blob payload for credential id/raw id/clientDataBytes/authenticator data/signature/user handle.
 - `PasskeyRenameRequest` payload: `StringMutationRequestPod` followed by blob payload for device friendly name.
 - `AuthLoginFlow` payload: `AuthLoginFlowPod`.
-- `CurrentUserSnapshot` payload: `CurrentUserSnapshotPod`.
+- `CurrentUserSnapshot` payload: `CurrentUserSnapshotPod`；仅保留给 admin-only legacy lookup、迁移和 refresh-token 兼容路径，不再作为 `/api/binary/auth/me` 的用户侧输出。
+- `IdentityAccountSnapshot` payload: `IdentityAccountSnapshotPod` followed by blob payload for public handle、anonymous credential status/level、identity kind and ban reason. It is the `/api/binary/auth/me` output and must not expose internal username or role.
 - `AuthSessionList` payload: `int32 count` followed by `UserSessionSummaryPod[count]`.
 - `AdminSessionList` payload: `int32 count` followed by `AdminSessionSummaryPod[count]`.
 - `MfaSetupStart` payload: `MfaSetupStartPod` followed by blob payload for secret/OTP auth URL/issuer/account.

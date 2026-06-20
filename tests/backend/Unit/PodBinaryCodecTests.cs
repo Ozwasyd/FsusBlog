@@ -957,6 +957,7 @@ public class PodBinaryCodecTests
     [Fact]
     public void IdentityAccountSnapshot_RoundTrip_PreservesNullableHandleAndCredentialState()
     {
+        var deletedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
         var snapshot = new IdentityAccountSnapshotCoreModel(
             AccountId: 42,
             InternalUserId: 7,
@@ -965,7 +966,11 @@ public class PodBinaryCodecTests
             RecoveryEnabled: true,
             TotpStepUpEnabled: false,
             AnonymousCredentialStatus: "active",
-            AnonymousCredentialLevel: "strong_anonymous");
+            AnonymousCredentialLevel: "strong_anonymous",
+            IdentityKind: "anonymous_account",
+            Status: 1,
+            BanReason: "limited",
+            DeletedAt: deletedAt);
 
         byte[] encoded = PodBinaryCodec.EncodeIdentityAccountSnapshot(snapshot);
         bool ok = PodBinaryCodec.TryDecodeIdentityAccountSnapshot(encoded, out var decoded);
@@ -979,6 +984,10 @@ public class PodBinaryCodecTests
         Assert.False(decoded.TotpStepUpEnabled);
         Assert.Equal("active", decoded.AnonymousCredentialStatus);
         Assert.Equal("strong_anonymous", decoded.AnonymousCredentialLevel);
+        Assert.Equal("anonymous_account", decoded.IdentityKind);
+        Assert.Equal(1, decoded.Status);
+        Assert.Equal("limited", decoded.BanReason);
+        Assert.Equal(deletedAt, decoded.DeletedAt);
 
         byte[] hiddenHandle = PodBinaryCodec.EncodeIdentityAccountSnapshot(snapshot with { PublicHandle = null, TotpStepUpEnabled = null });
         Assert.True(PodBinaryCodec.TryDecodeIdentityAccountSnapshot(hiddenHandle, out var hiddenDecoded));

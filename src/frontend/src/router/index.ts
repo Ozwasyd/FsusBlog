@@ -245,8 +245,7 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       await sessionBootstrap.ensureUserInfoFresh({ maxAgeMs: 30_000, forceWhenUnknown: true })
     }
 
-    const { isLoggedIn, userInfo } = userStore
-    const userRole = userInfo?.role || ''
+    const { isLoggedIn } = userStore
 
     if (to.meta.guestOnly && isLoggedIn) {
       return adminStore.canManage ? '/user/manage' : '/user/identity'
@@ -262,12 +261,6 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
         const canAccessManageRoute = adminStore.canManage
           && requiredPermissions.every((permission) => adminStore.hasPermission(permission))
         if (!canAccessManageRoute) {
-          return '/403'
-        }
-      } else if (to.meta.roles) {
-        const allowedRoles = to.meta.roles as string[]
-
-        if (!allowedRoles.includes(userRole)) {
           return '/403'
         }
       }

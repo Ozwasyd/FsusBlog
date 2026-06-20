@@ -359,8 +359,8 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "账户已注销"), aeds);
             }
 
-            var snapshot = new CurrentUserSnapshotDto(user.Value.Id, user.Value.Username, user.Value.Role, user.Value.Status, user.Value.BanReason, user.Value.DeletedAt);
-            return BinaryResults.Frame(aeds, AedsFrameType.CurrentUserSnapshot, writer => PodBinaryCodec.WriteCurrentUserSnapshot(snapshot, writer));
+            var snapshot = UserAccountReader.ToAnonymousAccountSnapshot(user.Value);
+            return BinaryResults.Frame(aeds, AedsFrameType.IdentityAccountSnapshot, writer => PodBinaryCodec.WriteIdentityAccountSnapshot(snapshot, writer));
         })
         .RequireAuthorization();
 

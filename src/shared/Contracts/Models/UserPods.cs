@@ -51,16 +51,22 @@ public readonly struct IdentityAccountSnapshotPod
 {
     public readonly int AccountId;
     public readonly int InternalUserId;
+    public readonly int Status;
+    public readonly long DeletedAtUnixMs;
     public readonly byte HasPublicHandle;
     public readonly byte PasskeyEnabled;
     public readonly byte RecoveryEnabled;
     public readonly byte HasTotpStepUpEnabled;
     public readonly byte TotpStepUpEnabled;
     public readonly byte HasAnonymousCredential;
-    public readonly ushort Reserved0;
+    public readonly byte HasDeletedAt;
+    public readonly byte HasBanReason;
+    public readonly uint Reserved0;
     public readonly Utf8SliceRef PublicHandle;
     public readonly Utf8SliceRef AnonymousCredentialStatus;
     public readonly Utf8SliceRef AnonymousCredentialLevel;
+    public readonly Utf8SliceRef IdentityKind;
+    public readonly Utf8SliceRef BanReason;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

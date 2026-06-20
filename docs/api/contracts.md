@@ -288,7 +288,7 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 
 | FrameType | POD | 用途 |
 |-----------|-----|------|
-| `IdentityAccountSnapshot` (`163`) | `IdentityAccountSnapshotPod` + UTF-8 blob | account/internal id、nullable public handle、Passkey/Recovery/TOTP step-up 状态、anonymous credential status/level |
+| `IdentityAccountSnapshot` (`163`) | `IdentityAccountSnapshotPod` + UTF-8 blob | `GET /api/binary/auth/me` 响应；account/internal id、identity kind、nullable public handle、Passkey/Recovery/TOTP step-up 状态、anonymous credential status/level、status/ban/deletedAt |
 | `AuthAnonymousBootstrapRequest` (`189`) | `AuthAnonymousBootstrapRequestPod` + UTF-8 blob | `POST /api/binary/auth/anonymous/bootstrap` 请求体；只含使用规范确认和可选 public handle，不含 password/username 注册字段 |
 | `CommentPolicySnapshot` (`164`) | `CommentPolicySnapshotPod` + UTF-8 blob | `GET /api/binary/comment/policy` 响应；评论 composer 渲染前读取 anonymous/public/ZK 开关、ZK-Prod readiness、默认 author mode、支持语言 `zh-CN` / `en` 与策略 `snapshotHash` |
 | `CommentPolicyUpdateRequest` (`165`) | `CommentPolicyUpdateRequestPod` + UTF-8 blob | admin 匿名评论策略 patch；bool 字段用 `Has*` flag 表示未设置 |
@@ -405,21 +405,29 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 - 密码、MFA challenge 或 Passkey 断言完成后仍必须经过服务端最终会话签发校验；封禁账号在认证通过后返回 `AuthLoginFlowDto` 并写入受限会话 Cookie，用于读取账号状态、登出、撤销会话、删除本人账号等安全收尾操作。注销账号（`Deleted` / `DeletedAt`）仍不得返回该结构，也不得写入 access / refresh / session Cookie。
 - 封禁状态以 `sys_user.Status/BanReason` 为权威来源；`SecurityBlacklistUser` Redis 缓存只做加速且不设置 L2 过期。登录、写入过滤器和 notification stream 遇到缓存 miss 时必须回查数据库，不能因 Redis 丢失而恢复封禁用户权限。受限会话的普通业务写入由服务端返回 `423 Locked`，Binary `ApiError.Details = "ACCOUNT_BANNED_WRITE_LOCKED"`；客户端不得只靠前端状态拦截来实现安全边界。
 
-### `CurrentUserSnapshotDto`（当前用户信息，`GET /api/binary/auth/me`）
+### `IdentityAccountSnapshot`（当前匿名账号容器，`GET /api/binary/auth/me`）
 
 ```json
 {
-  "id": 1,
-  "username": "alice",
-  "role": "authenticated",
-  "avatarUrl": "/uploads/avatars/1.jpg",
-  "email": "alice@example.com",
-  "isMfaEnabled": true,
-  "createdAt": "2026-01-01T00:00:00Z"
+  "id": 42,
+  "accountId": 42,
+  "internalUserId": 42,
+  "identityKind": "anonymous_account",
+  "publicHandle": "Public Alice",
+  "passkeyEnabled": true,
+  "recoveryEnabled": true,
+  "totpStepUpEnabled": true,
+  "anonymousCredentialStatus": "active",
+  "anonymousCredentialLevel": "strong_anonymous",
+  "status": 0,
+  "banReason": null,
+  "deletedAt": null
 }
 ```
 
-- `role`：`"anonymous"` / `"authenticated"` / `"admin"`
+- `sys_user` 仍是持久化账号容器，但 `/auth/me` 不输出内部 `username` 或 `role`，也不允许客户端把普通账号快照当成权限来源。
+- `identityKind` 当前生产值为 `"anonymous_account"`；`publicHandle` 只是公开显示称呼，不是登录名或权限主体。
+- admin 权限只能读取 `/api/binary/auth/admin/me` 的 independent admin principal；legacy `CurrentUserSnapshot` frame 只保留给 admin-only 查询、迁移和测试面。
 
 ### `UserSessionItemDto`（会话列表项）
 

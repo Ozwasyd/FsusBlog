@@ -29,7 +29,7 @@
 
 | 方法 | 路径 | 权限 | 说明 |
 |------|------|------|------|
-| GET | `/api/binary/auth/me` | 🔑 📦 | 获取当前登录用户信息 |
+| GET | `/api/binary/auth/me` | 🔑 📦 | 获取当前匿名账号容器快照 |
 | POST | `/api/binary/auth/logout` | 🔑 📦 | 安全登出（吊销当前 Refresh Token） |
 | POST | `/api/binary/auth/delete-account` | 🔑 📦 | 注销账号 |
 

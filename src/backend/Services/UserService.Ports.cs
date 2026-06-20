@@ -1,8 +1,10 @@
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Services;
@@ -33,7 +35,24 @@ public sealed class UserAccountReader(UserService users) : IUserAccountReader
             user.PublicHandle,
             user.IdentityKind,
             user.PasskeyEnabled,
-            user.RecoveryEnabled);
+            user.RecoveryEnabled,
+            user.AnonymousCredentialStatus,
+            user.AnonymousCredentialLevel);
+
+    internal static IdentityAccountSnapshotCoreModel ToAnonymousAccountSnapshot(UserAccountSnapshot account)
+        => new(
+            AccountId: account.Id,
+            InternalUserId: account.Id,
+            PublicHandle: string.IsNullOrWhiteSpace(account.PublicHandle) ? null : account.PublicHandle,
+            PasskeyEnabled: account.PasskeyEnabled,
+            RecoveryEnabled: account.RecoveryEnabled,
+            TotpStepUpEnabled: account.MfaEnabled,
+            AnonymousCredentialStatus: string.IsNullOrWhiteSpace(account.AnonymousCredentialStatus) ? null : account.AnonymousCredentialStatus,
+            AnonymousCredentialLevel: string.IsNullOrWhiteSpace(account.AnonymousCredentialLevel) ? null : account.AnonymousCredentialLevel,
+            IdentityKind: string.IsNullOrWhiteSpace(account.IdentityKind) ? AnonymousIdentityRuntime.AnonymousAccountKind : account.IdentityKind,
+            Status: account.Status,
+            BanReason: string.IsNullOrWhiteSpace(account.BanReason) ? null : account.BanReason,
+            DeletedAt: account.DeletedAt);
 }
 
 public sealed class UserRegistrationService(UserService users) : IUserRegistrationService
