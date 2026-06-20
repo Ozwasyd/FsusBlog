@@ -45,6 +45,18 @@ public sealed class UserRegistrationService(UserService users) : IUserRegistrati
     }
 }
 
+public sealed class AnonymousAccountBootstrapService(UserService users) : IAnonymousAccountBootstrapService
+{
+    public async Task<(bool Success, string Message, UserAccountSnapshot? User)> BootstrapAsync(
+        string? publicHandle,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var result = await users.BootstrapAnonymousAccountAsync(publicHandle);
+        return (result.Success, result.Message, result.User is null ? null : UserAccountReader.ToAccountSnapshot(result.User));
+    }
+}
+
 public sealed class UserLoginWorkflowService(UserService users) : IUserLoginWorkflowService
 {
     public async Task<(bool Success, string Message, UserAccountSnapshot? User)> ValidateCredentialsAsync(LoginDto dto, string clientIp, CancellationToken cancellationToken = default)

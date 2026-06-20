@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { createRecoveryKey, register } from '@/api/auth'
+import { bootstrapAnonymousAccount, createRecoveryKey } from '@/api/auth'
 import { usePasskeyManagement } from '@/composables/usePasskeyManagement'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { toAppError } from '@/utils/appError'
@@ -8,9 +8,6 @@ import { USERNAME_CONSTRAINT, validateUsername } from '@/utils/contentFilter'
 import { toast } from '@/fsusui/feedback'
 
 type AnonymousOnboardingStep = 'account' | 'recovery' | 'passkey' | 'complete'
-
-const RANDOM_LETTERS = 'abcdefghijklmnopqrstuvwxyz'
-const RANDOM_PASSWORD_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
 
 const getSafeRedirect = (target: unknown): string => {
   if (typeof target !== 'string') {
@@ -23,37 +20,6 @@ const getSafeRedirect = (target: unknown): string => {
 
   return '/user/identity'
 }
-
-const randomBytes = (length: number): Uint8Array => {
-  const bytes = new Uint8Array(length)
-  const cryptoProvider = globalThis.crypto
-  if (!cryptoProvider?.getRandomValues) {
-    throw new Error('当前浏览器无法生成匿名账号密钥，请升级浏览器后重试')
-  }
-
-  cryptoProvider.getRandomValues(bytes)
-  return bytes
-}
-
-const randomString = (length: number, alphabet: string): string => {
-  const bytes = randomBytes(length)
-  let value = ''
-  for (const byte of bytes) {
-    value += alphabet[byte % alphabet.length]
-  }
-  return value
-}
-
-const buildAnonymousUsername = (publicHandle: string): string => {
-  const trimmed = publicHandle.trim()
-  if (trimmed && validateUsername(trimmed).isValid) {
-    return trimmed
-  }
-
-  return `anon${randomString(12, RANDOM_LETTERS)}`
-}
-
-const createEphemeralPassword = (): string => `Aa1${randomString(45, RANDOM_PASSWORD_CHARS)}`
 
 const getErrorText = (error: unknown, fallback: string): string => {
   const normalized = toAppError(error, fallback)
@@ -128,10 +94,11 @@ export function useAnonymousOnboarding() {
     loading.value = true
     localError.value = ''
     try {
-      const username = buildAnonymousUsername(publicHandle.value)
-      const password = createEphemeralPassword()
-
-      await register({ username, password, confirmPassword: password })
+      const handle = publicHandle.value.trim()
+      await bootstrapAnonymousAccount({
+        publicHandle: handle || undefined,
+        acceptedGuidelines: isAgreed.value
+      })
       await ensureUserInfo(true)
       syncAuthPhase()
       if (userStore.isLoggedIn) {

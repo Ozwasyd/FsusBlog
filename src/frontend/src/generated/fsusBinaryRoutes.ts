@@ -131,6 +131,7 @@ export const fsusBinaryRoutes = {
   "binary_post_auth_admin_sessions_revoke_others": "/api/binary/auth/admin/sessions/revoke-others",
   "binary_post_auth_admin_step_up_passkey_begin": "/api/binary/auth/admin/step-up/passkey/begin",
   "binary_post_auth_admin_step_up_passkey_complete": "/api/binary/auth/admin/step-up/passkey/complete",
+  "binary_post_auth_anonymous_bootstrap": "/api/binary/auth/anonymous/bootstrap",
   "binary_post_auth_delete_account": "/api/binary/auth/delete-account",
   "binary_post_auth_login": "/api/binary/auth/login",
   "binary_post_auth_logout": "/api/binary/auth/logout",

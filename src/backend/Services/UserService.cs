@@ -40,6 +40,8 @@ public partial class UserService(
     private const int UserStatusBanned = 1;
     private const int UserStatusDeleted = 2;
     private const int MaxUsernameLength = 32;
+    private const int MinPublicHandleLength = 3;
+    private const int MaxPublicHandleLength = 20;
     private const int MinPasswordLength = 8;
     private const int MaxPasswordLength = 128;
     private const int MaxAdminPageSize = 200;
@@ -63,6 +65,30 @@ public partial class UserService(
 
     private static TimeSpan ResolveAbsoluteSessionTtl(bool rememberMe)
         => rememberMe ? RememberMeSessionAbsoluteTtl : StandardSessionAbsoluteTtl;
+
+    private static string CreateAnonymousInternalUsername()
+        => $"anon_{Convert.ToHexString(RandomNumberGenerator.GetBytes(12)).ToLowerInvariant()}";
+
+    private static (bool Success, string? PublicHandle, string Message) NormalizePublicHandle(string? publicHandle)
+    {
+        if (string.IsNullOrWhiteSpace(publicHandle))
+        {
+            return (true, null, string.Empty);
+        }
+
+        string normalized = NormalizeUsername(publicHandle);
+        if (normalized.Length < MinPublicHandleLength || normalized.Length > MaxPublicHandleLength)
+        {
+            return (false, null, $"公开称呼长度必须在 {MinPublicHandleLength}-{MaxPublicHandleLength} 个字符之间");
+        }
+
+        if (!FastCharValidator.IsOnlyChineseAndAlpha(normalized))
+        {
+            return (false, null, "公开称呼仅允许中文或英文字母");
+        }
+
+        return (true, normalized, string.Empty);
+    }
 
     public async Task<(bool Success, string Message)> RegisterAsync(RegisterDto dto)
     {
@@ -127,6 +153,69 @@ public partial class UserService(
         return registerResult.Value > 0
             ? (true, "注册成功")
             : (false, "注册失败，请稍后重试");
+    }
+
+    public async Task<(bool Success, string Message, User? User)> BootstrapAnonymousAccountAsync(string? publicHandle)
+    {
+        if (!AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
+        {
+            return (false, "匿名账号初始化仅在匿名身份模式下可用", null);
+        }
+
+        var handle = NormalizePublicHandle(publicHandle);
+        if (!handle.Success)
+        {
+            return (false, handle.Message, null);
+        }
+
+        if (handle.PublicHandle is { Length: > 0 } normalizedHandle &&
+            await _db.Queryable<User>().AnyAsync(u => u.PublicHandle == normalizedHandle))
+        {
+            return (false, "公开称呼已被占用", null);
+        }
+
+        DateTime now = DateTime.UtcNow;
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            string internalUsername = CreateAnonymousInternalUsername();
+            var newUser = new User
+            {
+                Username = internalUsername,
+                Password = string.Empty,
+                Role = "guest",
+                PublicHandle = handle.PublicHandle,
+                IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+                PasskeyEnabled = false,
+                RecoveryEnabled = false,
+                PrivacyInitializedAt = now,
+                AnonymousCredentialLevel = "basic",
+                AnonymousCredentialStatus = "active",
+                CreateTime = now,
+                Status = UserStatusNormal
+            };
+
+            Result<int> insertResult = await BoundaryExecutor.ExecuteResultAsync(
+                () => _db.Insertable(newUser).ExecuteReturnIdentityAsync(),
+                ex => ex.Message.Contains("23505", StringComparison.OrdinalIgnoreCase)
+                      || ex.Message.Contains("Unique", StringComparison.OrdinalIgnoreCase)
+                    ? ErrorDetail.Create(ErrorCode.Conflict, "匿名账号初始化冲突，请重试")
+                    : ErrorDetail.Create(ErrorCode.InfraFailure, "匿名账号初始化失败，请稍后重试"),
+                _logger,
+                "anonymous-account-bootstrap");
+
+            if (insertResult.IsSuccess && insertResult.Value > 0)
+            {
+                newUser.Id = insertResult.Value;
+                return (true, "匿名账号已初始化", newUser);
+            }
+
+            if (insertResult.Error.Code != ErrorCode.Conflict || handle.PublicHandle is { Length: > 0 })
+            {
+                return (false, insertResult.Error.Message, null);
+            }
+        }
+
+        return (false, "匿名账号初始化冲突，请重试", null);
     }
 
     public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> LoginAsync(LoginDto dto, string clientIp)

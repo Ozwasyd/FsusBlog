@@ -53,6 +53,7 @@ public readonly record struct AuthBinaryFlowResult(
 
 public sealed class AuthBinaryApplicationFacade(
     IUserRegistrationService registration,
+    IAnonymousAccountBootstrapService anonymousBootstrap,
     IUserAccountReader users,
     IUserLoginWorkflowService loginWorkflow,
     IMfaChallengeService mfaChallengeService)
@@ -119,6 +120,31 @@ public sealed class AuthBinaryApplicationFacade(
         return login.Success
             ? login
             : Fail(ErrorCode.InfraFailure, "注册成功，但自动登录失败，请改用登录继续");
+    }
+
+    public async Task<AuthBinaryFlowResult> BootstrapAnonymousAccountAsync(AuthAnonymousBootstrapRequestCoreModel request, AuthBinaryClientContext client, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!request.AcceptedGuidelines)
+        {
+            return Fail(ErrorCode.Validation, "请先确认匿名账号使用规范");
+        }
+
+        var bootstrap = await anonymousBootstrap.BootstrapAsync(request.PublicHandle, cancellationToken);
+        if (!bootstrap.Success || bootstrap.User is null)
+        {
+            var code = string.Equals(bootstrap.Message, "公开称呼已被占用", StringComparison.Ordinal)
+                ? ErrorCode.Conflict
+                : bootstrap.Message.Contains("匿名身份模式", StringComparison.Ordinal)
+                    ? ErrorCode.Forbidden
+                    : ErrorCode.Validation;
+            return Fail(code, bootstrap.Message);
+        }
+
+        var login = await CompleteLoginAsync(bootstrap.User.Value.Id, client, mfaVerified: true, rememberMe: false, cancellationToken: cancellationToken);
+        return login.Success
+            ? login
+            : Fail(ErrorCode.InfraFailure, "匿名账号已创建，但初始化会话失败，请使用 Recovery Key 或 Passkey 继续");
     }
 
     private async Task<AuthBinaryFlowResult> CompleteLoginAsync(

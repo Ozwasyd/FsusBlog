@@ -106,7 +106,8 @@ public sealed class AnonymousIdentityColdStartQualityContractTests
             ("AnonymousCommentTicketRequest", (ushort)180),
             ("AnonymousCommentTicketResponse", (ushort)181),
             ("AnonymousCommentCreateRequest", (ushort)182),
-            ("AnonymousPrivacyStateSnapshot", (ushort)183)
+            ("AnonymousPrivacyStateSnapshot", (ushort)183),
+            ("AuthAnonymousBootstrapRequest", (ushort)189)
         })
         {
             Assert.Contains($"{name} = {value}", coreFrames, StringComparison.Ordinal);

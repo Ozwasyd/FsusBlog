@@ -361,6 +361,19 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
+    public void AuthAnonymousBootstrapRequest_RoundTrip_DoesNotCarryPasswordOrUsername()
+    {
+        var request = new AuthAnonymousBootstrapRequestCoreModel("quiet-reader", AcceptedGuidelines: true);
+        byte[] encoded = PodBinaryCodec.EncodeAuthAnonymousBootstrapRequest(request);
+        bool ok = PodBinaryCodec.TryDecodeAuthAnonymousBootstrapRequest(encoded, out var decoded);
+
+        Assert.True(ok);
+        Assert.Equal("quiet-reader", decoded.PublicHandle);
+        Assert.True(decoded.AcceptedGuidelines);
+        Assert.DoesNotContain("secret", Convert.ToHexString(encoded), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ConversationCreateRequest_RoundTrip_PreservesSubjectAndBody()
     {
         var request = new ConversationCreateRequestCoreModel("Support", "Need help");
@@ -608,6 +621,7 @@ public class PodBinaryCodecTests
         Assert.Equal((ushort)165, (ushort)AedsFrameType.CommentPolicyUpdateRequest);
         Assert.Equal((ushort)166, (ushort)AedsFrameType.CommentCreateV2Request);
         Assert.Equal((ushort)167, (ushort)AedsFrameType.CommentAuthorView);
+        Assert.Equal((ushort)189, (ushort)AedsFrameType.AuthAnonymousBootstrapRequest);
     }
 
     [Fact]

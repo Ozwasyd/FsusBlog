@@ -872,6 +872,15 @@
           "responseFrame": "AuthLoginFlow"
         },
         {
+          "method": "POST",
+          "path": "/auth/anonymous/bootstrap",
+          "auth": "anonymous",
+          "pow": true,
+          "requestFrame": "AuthAnonymousBootstrapRequest",
+          "responseFrame": "AuthLoginFlow",
+          "cache": "no-store"
+        },
+        {
           "method": "GET",
           "path": "/auth/me",
           "auth": "optional",
@@ -2123,5 +2132,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 207
+  "openapiOperationCount": 208
 }

@@ -241,6 +241,8 @@ public readonly record struct AuthLoginRequestCoreModel(string Username, string 
 
 public readonly record struct AuthRegisterRequestCoreModel(string Username, string Password, string ConfirmPassword);
 
+public readonly record struct AuthAnonymousBootstrapRequestCoreModel(string? PublicHandle, bool AcceptedGuidelines);
+
 public readonly record struct AuthUpdatePasswordRequestCoreModel(string OldPassword, string NewPassword, string ConfirmPassword);
 
 public readonly record struct AuthDeleteAccountRequestCoreModel(string Password, string ConfirmText, string? Code, string? RecoveryCode);

@@ -872,6 +872,15 @@
           "responseFrame": "AuthLoginFlow"
         },
         {
+          "method": "POST",
+          "path": "/auth/anonymous/bootstrap",
+          "auth": "anonymous",
+          "pow": true,
+          "requestFrame": "AuthAnonymousBootstrapRequest",
+          "responseFrame": "AuthLoginFlow",
+          "cache": "no-store"
+        },
+        {
           "method": "GET",
           "path": "/auth/me",
           "auth": "optional",

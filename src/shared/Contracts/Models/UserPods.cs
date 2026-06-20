@@ -208,6 +208,15 @@ public readonly struct AuthRegisterRequestPod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct AuthAnonymousBootstrapRequestPod
+{
+    public readonly byte AcceptedGuidelines;
+    public readonly byte HasPublicHandle;
+    public readonly ushort Reserved0;
+    public readonly Utf8SliceRef PublicHandle;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AuthUpdatePasswordRequestPod
 {
     public readonly Utf8SliceRef OldPassword;

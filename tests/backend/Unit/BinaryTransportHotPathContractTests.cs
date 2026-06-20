@@ -77,6 +77,7 @@ public sealed class BinaryTransportHotPathContractTests
         string articleEndpoints = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs");
         string articleInterface = ReadRepoFile("src/backend/Interfaces/IArticleEndpointService.cs");
         string authEndpoints = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+        string authAdapters = ReadRepoFile("src/backend/Modules/Endpoints/Binary/AuthBinaryEndpointAdapters.cs");
         string authFacade = ReadRepoFile("src/backend/Services/AuthBinaryApplicationFacade.cs");
 
         Assert.Contains("ClearTrashAsync(cancellationToken)", articleEndpoints, StringComparison.Ordinal);
@@ -90,6 +91,7 @@ public sealed class BinaryTransportHotPathContractTests
 
         Assert.Contains("authFacade.LoginAsync(request.Value, AuthBinaryClientContext.From(httpContext), cancellationToken)", authEndpoints, StringComparison.Ordinal);
         Assert.Contains("authFacade.RegisterAsync(request.Value, AuthBinaryClientContext.From(httpContext), cancellationToken)", authEndpoints, StringComparison.Ordinal);
+        Assert.Contains("authFacade.BootstrapAnonymousAccountAsync(request.Value, AuthBinaryClientContext.From(httpContext), cancellationToken)", authEndpoints, StringComparison.Ordinal);
         Assert.Contains("sessions.RefreshTokenWithExpiryAsync(oldRefreshToken, sessionId, cancellationToken)", authEndpoints, StringComparison.Ordinal);
         Assert.Contains("sessions.RevokeRefreshTokenAsync(refreshToken, cancellationToken)", authEndpoints, StringComparison.Ordinal);
         Assert.Contains("passkeyService.RemoveCredentialAsync(userId, id, cancellationToken)", authEndpoints, StringComparison.Ordinal);
@@ -97,6 +99,9 @@ public sealed class BinaryTransportHotPathContractTests
         Assert.Contains("passkeyService.RenameCredentialAsync(userId, id, name, cancellationToken)", authEndpoints, StringComparison.Ordinal);
         Assert.Contains("Task<AuthBinaryFlowResult> LoginAsync(AuthLoginRequestCoreModel request, AuthBinaryClientContext client, CancellationToken cancellationToken = default)", authFacade, StringComparison.Ordinal);
         Assert.Contains("Task<AuthBinaryFlowResult> RegisterAsync(AuthRegisterRequestCoreModel request, AuthBinaryClientContext client, CancellationToken cancellationToken = default)", authFacade, StringComparison.Ordinal);
+        Assert.Contains("Task<AuthBinaryFlowResult> BootstrapAnonymousAccountAsync(AuthAnonymousBootstrapRequestCoreModel request, AuthBinaryClientContext client, CancellationToken cancellationToken = default)", authFacade, StringComparison.Ordinal);
+        Assert.Contains("AedsFrameType.AuthAnonymousBootstrapRequest", authAdapters, StringComparison.Ordinal);
+        Assert.Contains("group.MapPost(\"/auth/anonymous/bootstrap\"", authEndpoints, StringComparison.Ordinal);
     }
 
     private static string ReadRepoFile(string relativePath)

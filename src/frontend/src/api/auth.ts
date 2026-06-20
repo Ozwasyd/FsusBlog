@@ -11,6 +11,11 @@ export interface RegisterDto {
     confirmPassword: string; // 仅用于前端校验及后端业务逻辑
 }
 
+export interface AnonymousBootstrapRequest {
+  publicHandle?: string
+  acceptedGuidelines: boolean
+}
+
 export interface LoginDto {
     username: string;
     password: string;
@@ -170,6 +175,19 @@ export const register = (data: RegisterDto, config?: ApiRequestConfig) => {
       method: 'POST',
       requiresPow: true,
       body: encodeAedsFrame(FrameType.AuthRegisterRequest, encodeAuthRegisterRequest(data))
+    }
+  })
+}
+
+export const bootstrapAnonymousAccount = (data: AnonymousBootstrapRequest, config?: ApiRequestConfig) => {
+  return requestBinaryOnly<AuthLoginFlow>({
+    binaryUrl: '/api/binary/auth/anonymous/bootstrap',
+    frameType: FrameType.AuthLoginFlow,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      method: 'POST',
+      requiresPow: true,
+      body: encodeAedsFrame(FrameType.AuthAnonymousBootstrapRequest, encodeAuthAnonymousBootstrapRequest(data))
     }
   })
 }
@@ -584,6 +602,19 @@ function encodeAuthRegisterRequest(data: RegisterDto): Uint8Array {
   writeSliceRef(view, 8, refs[1])
   writeSliceRef(view, 16, refs[2])
   view.setInt32(24, blobLength, true)
+  return bytes
+}
+
+function encodeAuthAnonymousBootstrapRequest(data: AnonymousBootstrapRequest): Uint8Array {
+  const publicHandle = textBytes(data.publicHandle?.trim() ?? '')
+  const bytes = new Uint8Array(16 + publicHandle.byteLength)
+  const view = new DataView(bytes.buffer)
+  bytes[0] = data.acceptedGuidelines ? 1 : 0
+  bytes[1] = publicHandle.byteLength > 0 ? 1 : 0
+  view.setUint16(2, 0, true)
+  writeSliceRef(view, 4, { offset: 0, length: publicHandle.byteLength })
+  view.setInt32(12, publicHandle.byteLength, true)
+  bytes.set(publicHandle, 16)
   return bytes
 }
 

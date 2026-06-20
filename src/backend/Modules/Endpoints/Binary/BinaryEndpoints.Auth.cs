@@ -117,6 +117,38 @@ public static partial class BinaryEndpoints
         .AddEndpointFilter<RequiresPowFilter>()
         .RequireNoStoreResponse();
 
+        group.MapPost("/auth/anonymous/bootstrap", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            AuthBinaryApplicationFacade authFacade,
+            IWebHostEnvironment env,
+            AuthCookieService authCookieService,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var request = await AuthBinaryRequestReader.ReadAnonymousBootstrapAsync(httpContext, aeds, cancellationToken);
+            if (!request.IsSuccess)
+            {
+                return AuthBinaryResponseWriter.Error(aeds, request.Error);
+            }
+
+            var result = await authFacade.BootstrapAnonymousAccountAsync(request.Value, AuthBinaryClientContext.From(httpContext), cancellationToken);
+            if (!result.Success)
+            {
+                return AuthBinaryResponseWriter.Error(aeds, result.Error);
+            }
+
+            if (result.SessionTokens is { } tokens)
+            {
+                authCookieService.SetTokenCookies(httpContext, env, tokens.AccessToken, tokens.RefreshToken, tokens.RefreshTokenExpiresAt);
+            }
+
+            return AuthBinaryResponseWriter.LoginFlow(aeds, result.Flow);
+        })
+        .RequireRateLimiting("fixed_ip")
+        .AllowAnonymous()
+        .AddEndpointFilter<RequiresPowFilter>()
+        .RequireNoStoreResponse();
+
         group.MapPost("/auth/admin/bootstrap/passkey/begin", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IAdminPrincipalService adminPrincipals,

@@ -136,6 +136,37 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    public async Task BootstrapAnonymousAccountAsync_AnonymousIdentityMode_CreatesPasswordlessAnonymousContainer()
+    {
+        using var _ = SetAnonymousIdentityMode("1");
+        var db = Substitute.For<ISqlSugarClient>();
+        var queryable = Substitute.For<ISugarQueryable<User>>();
+        db.Queryable<User>().Returns(queryable);
+        queryable.AnyAsync(Arg.Any<Expression<Func<User, bool>>>()).Returns(Task.FromResult(false));
+
+        User? inserted = null;
+        var insertable = Substitute.For<IInsertable<User>>();
+        db.Insertable(Arg.Do<User>(user => inserted = user)).Returns(insertable);
+        insertable.ExecuteReturnIdentityAsync().Returns(Task.FromResult(42));
+        var svc = BuildService(db, Substitute.For<IJwtHelper>());
+
+        var (success, message, user) = await svc.BootstrapAnonymousAccountAsync("QuietReader");
+
+        Assert.True(success, message);
+        Assert.NotNull(inserted);
+        Assert.NotNull(user);
+        Assert.Equal(42, user!.Id);
+        Assert.StartsWith("anon_", inserted!.Username, StringComparison.Ordinal);
+        Assert.Equal(string.Empty, inserted.Password);
+        Assert.Equal(AnonymousIdentityRuntime.AnonymousAccountKind, inserted.IdentityKind);
+        Assert.Equal("guest", inserted.Role);
+        Assert.Equal("quietreader", inserted.PublicHandle);
+        Assert.NotNull(inserted.PrivacyInitializedAt);
+        Assert.False(inserted.PasskeyEnabled);
+        Assert.False(inserted.RecoveryEnabled);
+    }
+
+    [Fact]
     public async Task RegisterAsync_ChineseUsername_PassesValidation_HitsDb()
     {
         var db = Substitute.For<ISqlSugarClient>();

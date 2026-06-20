@@ -37,6 +37,13 @@ public interface IUserRegistrationService
     Task<(bool Success, string Message)> RegisterAsync(RegisterDto dto, CancellationToken cancellationToken = default);
 }
 
+public interface IAnonymousAccountBootstrapService
+{
+    Task<(bool Success, string Message, UserAccountSnapshot? User)> BootstrapAsync(
+        string? publicHandle,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IUserLoginWorkflowService
 {
     Task<(bool Success, string Message, UserAccountSnapshot? User)> ValidateCredentialsAsync(LoginDto dto, string clientIp, CancellationToken cancellationToken = default);

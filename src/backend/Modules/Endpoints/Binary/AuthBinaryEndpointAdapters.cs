@@ -47,6 +47,22 @@ internal static class AuthBinaryRequestReader
             : Fail<AuthRegisterRequestCoreModel>(ErrorDetail.Create(ErrorCode.Validation, "注册请求体非法"));
     }
 
+    public static async Task<AuthBinaryReadResult<AuthAnonymousBootstrapRequestCoreModel>> ReadAnonymousBootstrapAsync(
+        HttpContext httpContext,
+        IAedsEncoder aeds,
+        CancellationToken cancellationToken)
+    {
+        BinaryRequestPayload payload = await ReadPayloadAsync(httpContext, aeds, AedsFrameType.AuthAnonymousBootstrapRequest, cancellationToken);
+        if (!payload.IsSuccess)
+        {
+            return Fail<AuthAnonymousBootstrapRequestCoreModel>(payload.Error);
+        }
+
+        return PodBinaryCodec.TryDecodeAuthAnonymousBootstrapRequest(payload.Payload, out AuthAnonymousBootstrapRequestCoreModel request)
+            ? Ok(request)
+            : Fail<AuthAnonymousBootstrapRequestCoreModel>(ErrorDetail.Create(ErrorCode.Validation, "匿名账号初始化请求体非法"));
+    }
+
     private static Task<BinaryRequestPayload> ReadPayloadAsync(
         HttpContext httpContext,
         IAedsEncoder aeds,

@@ -284,9 +284,12 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 
 匿名身份不新增平行 Passkey 协议：注册、登录、credential list、rename、admin bootstrap 和 recovery bind 仍复用上面的 Passkey frame；账户恢复仍复用 `RecoveryKeyCreateResponse` / `RecoveryKeyVerifyRequest` / `RecoveryKeyVerifyResponse` / `RecoveryKeySessionRequest`。已发布运行时 frame 覆盖账户快照、评论策略、CommentCreateV2 和作者展示投影。177-183 是匿名凭证/root/ticket/匿名评论创建的独立 frame family；已注册的 root/circuit/ticket/submit endpoint 必须只使用对应 AEDS frame，未注册 frame 仍只代表跨栈 POD/codec、AEDS 编号、前端 adapter 和 golden fixture。
 
+`POST /api/binary/auth/anonymous/bootstrap` 是匿名身份模式的新账号创建入口：匿名访问、`fixed_ip` 限流、`RequiresPowFilter`、`RequireNoStoreResponse()`，请求 `Content-Type` 必须为 `application/octet-stream`。请求 frame 为 `AuthAnonymousBootstrapRequest` (`189`)，只包含 `acceptedGuidelines` 和可选 `publicHandle`；不得携带 username、password、confirmPassword、Recovery Key 或 Passkey attestation。服务端只创建 `sys_user` 匿名账号容器，写入 `identity_kind=anonymous_account`、可选 `public_handle`、`privacy_initialized_at`、匿名 credential 默认状态和非授权用内部 username，`Password` 为空且不能作为登录凭据使用。成功响应复用 `AuthLoginFlow` (`18`) 并写入当前用户 session cookie，随后客户端继续调用 Recovery Key create 与 Passkey bind 流程。旧 `/api/binary/auth/register` 在匿名身份模式下继续返回 `Legacy password identity is disabled in anonymous identity mode`，不承担匿名账号创建职责。
+
 | FrameType | POD | 用途 |
 |-----------|-----|------|
 | `IdentityAccountSnapshot` (`163`) | `IdentityAccountSnapshotPod` + UTF-8 blob | account/internal id、nullable public handle、Passkey/Recovery/TOTP step-up 状态、anonymous credential status/level |
+| `AuthAnonymousBootstrapRequest` (`189`) | `AuthAnonymousBootstrapRequestPod` + UTF-8 blob | `POST /api/binary/auth/anonymous/bootstrap` 请求体；只含使用规范确认和可选 public handle，不含 password/username 注册字段 |
 | `CommentPolicySnapshot` (`164`) | `CommentPolicySnapshotPod` + UTF-8 blob | `GET /api/binary/comment/policy` 响应；评论 composer 渲染前读取 anonymous/public/ZK 开关、ZK-Prod readiness、默认 author mode、支持语言 `zh-CN` / `en` 与策略 `snapshotHash` |
 | `CommentPolicyUpdateRequest` (`165`) | `CommentPolicyUpdateRequestPod` + UTF-8 blob | admin 匿名评论策略 patch；bool 字段用 `Has*` flag 表示未设置 |
 | `CommentCreateV2Request` (`166`) | `CommentCreateV2RequestPod` + UTF-8/blob payload | 新评论创建请求，包含 article/reply 上下文、author mode、public opt-in、anonymous scope、语言提示、普通 proof token、ZK proof bytes 和 content；不再把 ProofToken 当作 credential commitment/root 占位 |

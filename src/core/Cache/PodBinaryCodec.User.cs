@@ -667,6 +667,45 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    public static void WriteAuthAnonymousBootstrapRequest(AuthAnonymousBootstrapRequestCoreModel request, IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(64);
+        string publicHandle = request.PublicHandle?.Trim() ?? string.Empty;
+        bool hasPublicHandle = publicHandle.Length > 0;
+        var mutable = new MutableAuthAnonymousBootstrapRequestPod
+        {
+            AcceptedGuidelines = request.AcceptedGuidelines ? (byte)1 : (byte)0,
+            HasPublicHandle = hasPublicHandle ? (byte)1 : (byte)0,
+            Reserved0 = 0,
+            PublicHandle = PodUtf8Codec.AppendSlice(hasPublicHandle ? publicHandle : string.Empty, payload)
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableAuthAnonymousBootstrapRequestPod, AuthAnonymousBootstrapRequestPod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    public static byte[] EncodeAuthAnonymousBootstrapRequest(AuthAnonymousBootstrapRequestCoreModel request)
+        => EncodeToArray(96, writer => WriteAuthAnonymousBootstrapRequest(request, writer));
+
+    public static bool TryDecodeAuthAnonymousBootstrapRequest(ReadOnlyMemory<byte> source, out AuthAnonymousBootstrapRequestCoreModel request)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out AuthAnonymousBootstrapRequestPod pod) ||
+            pod.AcceptedGuidelines > 1 ||
+            pod.HasPublicHandle > 1 ||
+            !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            request = default;
+            return false;
+        }
+
+        request = new AuthAnonymousBootstrapRequestCoreModel(
+            pod.HasPublicHandle == 1 ? NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.PublicHandle, payload)) : null,
+            pod.AcceptedGuidelines == 1);
+        return reader.IsConsumed;
+    }
+
     public static void WriteAuthUpdatePasswordRequest(AuthUpdatePasswordRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(256);
@@ -1068,6 +1107,15 @@ public static partial class PodBinaryCodec
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Username;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Password;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ConfirmPassword;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableAuthAnonymousBootstrapRequestPod
+    {
+        public byte AcceptedGuidelines;
+        public byte HasPublicHandle;
+        public ushort Reserved0;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef PublicHandle;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

@@ -194,6 +194,7 @@ public enum AedsFrameType : ushort
     AnonymousCredentialRevocationWitnessRequest = 186,
     AnonymousCredentialRevocationWitnessResponse = 187,
     AdminPrincipalSnapshot = 188,
+    AuthAnonymousBootstrapRequest = 189,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251
