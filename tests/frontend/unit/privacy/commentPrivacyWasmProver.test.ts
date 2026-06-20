@@ -3,6 +3,7 @@ import {
   createCommentPrivacyWasmProver,
   type CommentPrivacyProverManifest
 } from '@/privacy/commentPrivacyWasmProver'
+import { encodeCommentPrivacyRevocationWitnessMaterial } from '@/privacy/commentPrivacyRevocationWitness'
 
 const manifest: CommentPrivacyProverManifest = {
   moduleUrl: '/wasm/comment-privacy-prover.js',
@@ -38,7 +39,17 @@ const proofRequest = {
   reputationBucket: 'rep:low',
   credentialSecret: new Uint8Array([10, 11]),
   issuerSignature: new Uint8Array([12, 13]),
-  revocationWitness: new Uint8Array([14, 15])
+  revocationWitness: encodeCommentPrivacyRevocationWitnessMaterial({
+    credentialEpoch: 20260618,
+    algorithmId: 'circuit-friendly-non-membership.v1',
+    pathDepth: 128,
+    revocationRoot: new Uint8Array([6, 7]),
+    issuerPublicKeyHash,
+    revocationHandleHash: new Uint8Array(32).fill(0x31),
+    leafKey: new Uint8Array(16).fill(0x32),
+    witnessHash: new Uint8Array(32).fill(0x33),
+    siblingHashes: new Uint8Array(128 * 32).fill(0x34)
+  })
 }
 
 const expectedNullifierHash = new Uint8Array(32).fill(0x41)
@@ -170,6 +181,27 @@ describe('commentPrivacyWasmProver', () => {
     })
 
     await expect(prover.prepareProof(proofRequest)).rejects.toThrow('comment_privacy_prover_artifact_invalid')
+  })
+
+  it('fails closed before calling the delegate when revocation witness material is malformed', async () => {
+    const prepareProof = vi.fn().mockResolvedValue({
+      proofBytes: new Uint8Array([21, 22, 23]),
+      publicInputs: expectedPublicInputs,
+      nullifierHash: expectedNullifierHash
+    })
+    const prover = createCommentPrivacyWasmProver({
+      loadManifest: vi.fn().mockResolvedValue(manifest),
+      loadArtifact: createArtifactLoader(),
+      loadModule: vi.fn().mockResolvedValue({
+        prepareProof
+      })
+    })
+
+    await expect(prover.prepareProof({
+      ...proofRequest,
+      revocationWitness: new Uint8Array([14, 15])
+    })).rejects.toThrow('comment_privacy_prover_artifact_invalid')
+    expect(prepareProof).not.toHaveBeenCalled()
   })
 
   it('strips witness material returned by the delegate from the proof bundle', async () => {

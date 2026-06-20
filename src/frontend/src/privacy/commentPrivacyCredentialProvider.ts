@@ -14,6 +14,7 @@ import { requestBinaryOnly } from '@/services/binaryTransport'
 import { FrameType } from '@wasm/protocol/frame'
 import type { CommentPrivacyCredentialMaterial } from './commentPrivacyTypes'
 import { createManagedCircuitNativeCredentialSuite } from './commentPrivacyCircuitNativeSuite'
+import { encodeCommentPrivacyRevocationWitnessMaterial } from './commentPrivacyRevocationWitness'
 import {
   createCommentPrivacyCredentialVault,
   type CommentPrivacyCredentialVault,
@@ -27,7 +28,6 @@ const DEFAULT_CLIENT_NONCE_BYTES = 32
 const DEFAULT_FAILURE_CACHE_TTL_MS = 30_000
 const DEFAULT_CREDENTIAL_LEVEL = 'strong_anonymous'
 const DEFAULT_REPUTATION_BUCKET = 'unrated'
-const REVOCATION_WITNESS_MAGIC = new TextEncoder().encode('fsus-revocation-witness-v1')
 
 export interface CommentPrivacyCredentialProvider {
   prepareCredential(request: { signal: AbortSignal }): Promise<CommentPrivacyCredentialMaterial | null>
@@ -437,48 +437,7 @@ function matchesRevocationWitness(
 }
 
 function encodeRevocationWitnessMaterial(response: AnonymousCredentialRevocationWitnessResponse): Uint8Array {
-  const algorithm = new TextEncoder().encode(response.algorithmId)
-  const issuer = new TextEncoder().encode(response.issuerPublicKeyHash)
-  return concatBytes(
-    REVOCATION_WITNESS_MAGIC,
-    numberToUint64Bytes(BigInt(response.credentialEpoch)),
-    numberToUint16Bytes(response.pathDepth),
-    lengthPrefixed(algorithm),
-    lengthPrefixed(issuer),
-    lengthPrefixed(response.revocationRoot),
-    lengthPrefixed(response.revocationHandleHash),
-    lengthPrefixed(response.leafKey),
-    lengthPrefixed(response.witnessHash),
-    lengthPrefixed(response.siblingHashes)
-  )
-}
-
-function lengthPrefixed(bytes: Uint8Array): Uint8Array {
-  const prefix = new Uint8Array(4)
-  new DataView(prefix.buffer).setUint32(0, bytes.byteLength, true)
-  return concatBytes(prefix, bytes)
-}
-
-function numberToUint16Bytes(value: number): Uint8Array {
-  const bytes = new Uint8Array(2)
-  new DataView(bytes.buffer).setUint16(0, value, true)
-  return bytes
-}
-
-function numberToUint64Bytes(value: bigint): Uint8Array {
-  const bytes = new Uint8Array(8)
-  new DataView(bytes.buffer).setBigUint64(0, value, true)
-  return bytes
-}
-
-function concatBytes(...parts: Uint8Array[]): Uint8Array {
-  const output = new Uint8Array(parts.reduce((total, part) => total + part.byteLength, 0))
-  let offset = 0
-  for (const part of parts) {
-    output.set(part, offset)
-    offset += part.byteLength
-  }
-  return output
+  return encodeCommentPrivacyRevocationWitnessMaterial(response)
 }
 
 function bytesFrom(value: Uint8Array | number[] | null | undefined): Uint8Array {

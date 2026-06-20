@@ -114,6 +114,7 @@ describe('comment privacy release gate', () => {
     const prover = readRepoFile('src/frontend/src/privacy/commentPrivacyWasmProver.ts')
 
     expect(packageJson).toContain('commentPrivacyWasmProver.test.ts')
+    expect(packageJson).toContain('commentPrivacyCredentialProvider.test.ts')
     expect(worker).toContain('createCommentPrivacyWasmProver')
     expect(worker).not.toContain('createPlaceholderProofBytes')
     expect(worker).not.toContain('fromSeed ^ fromMetadata')

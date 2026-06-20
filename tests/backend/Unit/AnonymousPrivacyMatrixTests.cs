@@ -91,6 +91,16 @@ public sealed class AnonymousPrivacyMatrixTests
     }
 
     [Fact]
+    public void PrivacyZkBackendGate_CoversRevocationAccumulatorAndWitnessTests()
+    {
+        string packageJson = BackendTestPaths.ReadAllTextFromRoot("src/frontend/package.json");
+
+        Assert.Contains("AnonymousCredentialRootLifecycleTests", packageJson, StringComparison.Ordinal);
+        Assert.Contains("AnonymousCredentialRevocationWitnessServiceTests", packageJson, StringComparison.Ordinal);
+        Assert.Contains("AnonymousCredentialRootEndpointTests", packageJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PrivacyZkCryptoDecisionDocs_StayAlignedWithMatrixAndContractConstants()
     {
         string adrPath = BackendTestPaths.FromRoot("docs", "architecture", "decisions", "ADR-ZK-CircuitNative-Groth16.md");

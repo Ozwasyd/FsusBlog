@@ -1,4 +1,5 @@
 import type { CommentPrivacyProofBundle, CommentPrivacyProofRequest } from './commentPrivacyTypes'
+import { parseCommentPrivacyRevocationWitnessMaterial } from './commentPrivacyRevocationWitness'
 
 export interface CommentPrivacyProverManifest {
   moduleUrl: string
@@ -319,7 +320,10 @@ function assertProofRequest(request: CommentPrivacyProofRequest): void {
   toRequiredBytes(request.circuitMetadata, 'circuitMetadata')
   toRequiredBytes(request.credentialSecret, 'credentialSecret')
   toRequiredBytes(request.issuerSignature, 'issuerSignature')
-  toRequiredBytes(request.revocationWitness, 'revocationWitness')
+  const revocationWitness = toRequiredBytes(request.revocationWitness, 'revocationWitness')
+  if (!parseCommentPrivacyRevocationWitnessMaterial(revocationWitness)) {
+    throw new Error(ARTIFACT_INVALID)
+  }
 }
 
 function encodeNativeGroth16PublicInputs(

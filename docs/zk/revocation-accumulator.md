@@ -1,6 +1,8 @@
 # Revocation Accumulator Contract
 
-Status: backend accumulator implemented; circuit/prover consumption still gated.
+Status: backend accumulator and frontend witness envelope implemented;
+production Groth16 proof consumption is still gated by the trusted setup and
+browser prover artifacts.
 
 This document records the revocation accumulator boundary for
 `fsus.anonymous.comment.v2`. The repository keeps the deterministic legacy
@@ -111,6 +113,14 @@ revocation root, and irreversible revocation handle hash. The endpoint rebuilds
 the witness from the current root snapshot plus the epoch's revoked handle
 hashes; it does not read user/session state and does not create or verify a
 Groth16 proof.
+
+The frontend stores the witness as the binary envelope produced by
+`encodeCommentPrivacyRevocationWitnessMaterial` and validated by
+`parseCommentPrivacyRevocationWitnessMaterial`. The envelope must contain
+`algorithmId=circuit-friendly-non-membership.v1`, `pathDepth=128`, a 16-byte
+`leafKey`, a 32-byte `witnessHash`, and 128 32-byte sibling hashes. The wasm
+prover adapter rejects malformed revocation witness material before calling the
+browser prover delegate.
 
 ## Update Rules
 

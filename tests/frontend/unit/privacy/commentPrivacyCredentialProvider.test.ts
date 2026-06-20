@@ -11,6 +11,10 @@ import {
   createManagedCircuitNativeCredentialSuite,
   managedCircuitNativeCredentialSuiteContract
 } from '@/privacy/commentPrivacyCircuitNativeSuite'
+import {
+  encodeCommentPrivacyRevocationWitnessMaterial,
+  parseCommentPrivacyRevocationWitnessMaterial
+} from '@/privacy/commentPrivacyRevocationWitness'
 
 describe('commentPrivacyCredentialProvider', () => {
   beforeEach(() => {
@@ -174,6 +178,45 @@ describe('commentPrivacyCredentialProvider', () => {
     expect(globalThis.sessionStorage.length).toBe(0)
   })
 
+  it('encodes the revocation witness as a circuit-friendly non-membership envelope', async () => {
+    const vault = createVault()
+    const metadata = createMetadata()
+    const issued = {
+      credentialEpoch: metadata.credentialEpoch,
+      rootExpiresAtUnixMs: 5_000,
+      circuitNumericId: metadata.circuitNumericId,
+      publicInputLayoutVersion: metadata.publicInputLayoutVersion,
+      circuitId: metadata.circuitId,
+      credentialLevel: 'strong_anonymous',
+      issuerPublicKeyId: 'issuer-key-test',
+      issuerSignature: new Uint8Array(80).fill(17)
+    }
+    const response = createRevocationWitnessResponse(metadata)
+    const provider = createCommentPrivacyCredentialProvider({
+      vault,
+      loadMetadata: vi.fn().mockResolvedValue(metadata),
+      issueCredential: vi.fn().mockResolvedValue(issued),
+      loadRevocationWitness: vi.fn().mockResolvedValue(encodeCommentPrivacyRevocationWitnessMaterial(response)),
+      crypto: createDeterministicCrypto(),
+      now: () => 1_000
+    })
+
+    const material = await provider.prepareCredential({ signal: new AbortController().signal })
+    const witness = parseCommentPrivacyRevocationWitnessMaterial(material?.revocationWitness)
+
+    expect(witness).toEqual(expect.objectContaining({
+      algorithmId: 'circuit-friendly-non-membership.v1',
+      credentialEpoch: metadata.credentialEpoch,
+      pathDepth: 128,
+      issuerPublicKeyHash: metadata.issuerPublicKeyHash
+    }))
+    expect(witness?.revocationRoot).toEqual(metadata.revocationRoot)
+    expect(witness?.revocationHandleHash).toEqual(response.revocationHandleHash)
+    expect(witness?.leafKey).toHaveLength(16)
+    expect(witness?.witnessHash).toHaveLength(32)
+    expect(witness?.siblingHashes).toHaveLength(128 * 32)
+  })
+
   it('generates a deterministic managed circuit-native credential request envelope', async () => {
     const suite = createManagedCircuitNativeCredentialSuite({
       crypto: createFixedCrypto([
@@ -258,6 +301,20 @@ function createMetadata() {
     reputationBucket: 'rep:low',
     issuerPublicKeyHash: 'issuer-public-key-hash',
     revocationRoot: new Uint8Array([51, 52])
+  }
+}
+
+function createRevocationWitnessResponse(metadata = createMetadata()) {
+  return {
+    credentialEpoch: metadata.credentialEpoch,
+    algorithmId: 'circuit-friendly-non-membership.v1',
+    pathDepth: 128,
+    revocationRoot: metadata.revocationRoot,
+    issuerPublicKeyHash: metadata.issuerPublicKeyHash,
+    revocationHandleHash: new Uint8Array(32).fill(91),
+    leafKey: new Uint8Array(16).fill(92),
+    witnessHash: new Uint8Array(32).fill(93),
+    siblingHashes: new Uint8Array(128 * 32).fill(94)
   }
 }
 
