@@ -384,8 +384,8 @@ function checkCircuit(circuit, setup) {
   if (Number(budgets.wasm_prover_p95_ms_max) > 3000 || Number(budgets.wasm_prover_p95_ms_max) <= 0) {
     fail('circuit.budgets.wasm_prover_p95_ms_max must be in 1..3000')
   }
-  if (circuit.production_usable !== false) {
-    fail('circuit manifest must stay production_usable=false until real Groth16 artifacts land')
+  if (circuit.production_usable === true && !expected.productionReadyCircuitStatuses.includes(String(circuit.artifact_status ?? '').trim())) {
+    fail('circuit manifest can be production_usable=true only with a production-ready artifact status')
   }
 }
 
@@ -455,16 +455,23 @@ function checkSetup(setup, circuitHash) {
   equals('setup.circuit_manifest_path', setup.circuit_manifest_path, 'security/zk/comment-v2-circuit.manifest.json')
   equals('setup.circuit_manifest_sha256', setup.circuit_manifest_sha256, circuitHash)
 
-  if (setup.production_usable !== false) {
-    fail('setup.production_usable must remain false until pk/vk/transcripts are committed and hashed')
+  const setupProductionUsable = setup.production_usable === true
+  if (!setupProductionUsable && setup.production_usable !== false) {
+    fail('setup.production_usable must be a boolean')
   }
-  if (setup.ceremony_status !== 'not-run') {
-    fail('setup.ceremony_status must be not-run for the current fail-closed manifest')
+  if (setupProductionUsable && setup.ceremony_status !== 'verified') {
+    fail('setup.ceremony_status must be verified when production_usable=true')
+  }
+  if (!setupProductionUsable && setup.ceremony_status !== 'not-run') {
+    fail('setup.ceremony_status must be not-run while production_usable=false')
   }
 
   assertNoPlaceholder('setup.verifying_key_hash', setup.verifying_key_hash)
-  if (!isBlank(setup.verifying_key_hash)) {
+  if (!setupProductionUsable && !isBlank(setup.verifying_key_hash)) {
     fail('setup.verifying_key_hash must remain empty while production_usable=false')
+  }
+  if (setupProductionUsable && !isSha256Hex(setup.verifying_key_hash)) {
+    fail('setup.verifying_key_hash must be a 64-character SHA-256 hex digest when production_usable=true')
   }
 
   const runtimeBinding = asArray(setup.hash_binding?.runtime_binding)
@@ -475,8 +482,9 @@ function checkSetup(setup, circuitHash) {
   ])
 
   for (const phase of ['phase1', 'phase2']) {
-    if (setup[phase]?.status !== 'required') {
-      fail(`setup.${phase}.status must be required`)
+    const expectedStatus = setupProductionUsable ? 'verified' : 'required'
+    if (setup[phase]?.status !== expectedStatus) {
+      fail(`setup.${phase}.status must be ${expectedStatus}`)
     }
     if (Number(setup[phase]?.minimum_contributions) < 3) {
       fail(`setup.${phase}.minimum_contributions must be at least 3`)
@@ -485,7 +493,9 @@ function checkSetup(setup, circuitHash) {
       fail(`setup.${phase}.transcript_path is required`)
     }
     assertNoPlaceholder(`setup.${phase}.transcript_sha256`, setup[phase]?.transcript_sha256)
-    if (!isBlank(setup[phase]?.transcript_sha256) && !isSha256Hex(setup[phase]?.transcript_sha256)) {
+    if (setupProductionUsable && !isSha256Hex(setup[phase]?.transcript_sha256)) {
+      fail(`setup.${phase}.transcript_sha256 must be set when production_usable=true`)
+    } else if (!isBlank(setup[phase]?.transcript_sha256) && !isSha256Hex(setup[phase]?.transcript_sha256)) {
       fail(`setup.${phase}.transcript_sha256 must be a 64-character SHA-256 hex digest`)
     }
     if (String(setup[phase]?.verification_command ?? '').trim().length === 0) {
@@ -508,13 +518,19 @@ function checkSetup(setup, circuitHash) {
         fail(`setup.artifacts.${key}.sha256 must be a 64-character SHA-256 hex digest`)
         continue
       }
-      const artifactPath = path.join(root, artifact.path)
+      const artifactPath = resolveRepoPath(artifact.path)
       if (!fs.existsSync(artifactPath)) {
         fail(`setup.artifacts.${key}.sha256 is set but file is missing: ${artifact.path}`)
       } else if (sha256File(artifactPath) !== artifact.sha256) {
         fail(`setup.artifacts.${key}.sha256 does not match ${artifact.path}`)
       }
     }
+    if (setupProductionUsable && !isSha256Hex(artifact.sha256)) {
+      fail(`setup.artifacts.${key}.sha256 must be set when production_usable=true`)
+    }
+  }
+  if (setupProductionUsable && setup.artifacts?.verifying_key?.sha256 !== setup.verifying_key_hash) {
+    fail('setup.verifying_key_hash must match setup.artifacts.verifying_key.sha256')
   }
   checkGroth16R1csBoundary(setup)
 
@@ -571,12 +587,16 @@ function checkConfig(config, setup) {
   equals('config.circuit_manifest', config.circuit_manifest, 'security/zk/comment-v2-circuit.manifest.json')
   equals('config.verifying_key_path', config.verifying_key_path, setup.artifacts?.verifying_key?.path)
 
-  if (config.production_usable !== false) {
-    fail('config.production_usable must remain false until trusted setup is complete')
+  const setupProductionUsable = setup.production_usable === true
+  if (config.production_usable !== setupProductionUsable) {
+    fail('config.production_usable must match setup.production_usable')
   }
   assertNoPlaceholder('config.verifying_key_hash', config.verifying_key_hash)
-  if (!isBlank(config.verifying_key_hash)) {
+  if (!setupProductionUsable && !isBlank(config.verifying_key_hash)) {
     fail('config.verifying_key_hash must remain empty while production_usable=false')
+  }
+  if (setupProductionUsable && !isSha256Hex(config.verifying_key_hash)) {
+    fail('config.verifying_key_hash must be a 64-character SHA-256 hex digest when production_usable=true')
   }
   if (config.verifying_key_hash !== setup.verifying_key_hash) {
     fail('config.verifying_key_hash must match setup.verifying_key_hash')

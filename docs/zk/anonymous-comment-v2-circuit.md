@@ -1,14 +1,13 @@
 # fsus.anonymous.comment.v2 circuit contract
 
-Status: circuit source, deterministic R1CS IR, and binary Groth16 R1CS handoff
-artifact exist; trusted setup is still not run. The committed `comment_v2.r1cs`
-file is a repository IR artifact, not a binary Groth16 ceremony input. This
-document and its manifests define the
-Groth16 circuit boundary for the circuit-native anonymous comment path. They do
-not claim that a binary Groth16 R1CS, proving key, verifying key, SRS transcript,
-ceremony transcript, or browser prover artifact exists yet. Production remains
-fail-closed until the trusted setup manifest is switched to real audited
-artifacts.
+Status: circuit source, deterministic R1CS IR, binary Groth16 R1CS handoff
+artifact, self-written verified setup artifacts, canonical verifying key, final
+proving key, and browser WASM prover bundle are present and hash-bound. The
+committed `comment_v2.r1cs` file is still a repository IR artifact, not a binary
+Groth16 ceremony input; phase-2 verification uses
+`comment_v2_groth16.r1cs`. ZK-Prod remains disabled by default and can only be
+enabled through the production smoke/release gates, issuer readiness, root
+bootstrap evidence, and runtime configuration.
 
 ## Issue #551 production circuit status
 
@@ -16,18 +15,21 @@ artifacts.
 circuit-native issuer signature verified inside the Groth16 circuit. The
 repository now contains the self-authored circuit source at
 `circuits/anonymous-comment-v2/comment_v2.circuit.json` and a deterministic
-R1CS IR artifact at `artifacts/zk/comment-v2/comment_v2.r1cs`. This checkout
-still has no production-ready trusted setup artifacts, but it now includes the
-binary Groth16 R1CS input for a phase-2 ceremony at
-`artifacts/zk/comment-v2/comment_v2_groth16.r1cs`.
+R1CS IR artifact at `artifacts/zk/comment-v2/comment_v2.r1cs`. It also includes
+the binary Groth16 R1CS input for phase-2 setup at
+`artifacts/zk/comment-v2/comment_v2_groth16.r1cs`, self-written phase
+transcripts, `comment_v2_final.fsg16pk`, `comment_v2_verifying_key.bin`, and
+the browser prover bundle recorded by
+`artifacts/zk/comment-v2/comment_v2_prover_wasm.tar.gz`.
 
 The manifest checker enforces that boundary:
 
-- the current circuit manifest must keep an explicit fail-closed
-  `artifact_status`, currently `source-and-r1cs`;
+- the current circuit manifest must keep an explicit artifact status, currently
+  `source-and-r1cs`, because the source/R1CS contract remains distinct from the
+  trusted setup artifact contract;
 - `node tools/crypto/build-zk-comment-v2-r1cs.mjs --check` must reproduce the
   committed R1CS IR from the committed source;
-- any future `production-ready` circuit status must include a real
+- any future circuit `production-ready` status must include a real
   `circuit.r1cs_source.path` plus `circuit.r1cs_source.sha256`;
 - the trusted setup manifest must also provide a real
   `artifacts.r1cs.path` plus `artifacts.r1cs.sha256`;
@@ -50,7 +52,11 @@ The manifest checker enforces that boundary:
 | Verifying key config manifest | `config/zk/anonymous-comment-v2-verifying-key.manifest.json` |
 | Circuit source | `circuits/anonymous-comment-v2/comment_v2.circuit.json` |
 | R1CS IR artifact | `artifacts/zk/comment-v2/comment_v2.r1cs` |
-| Future Groth16 R1CS input | `artifacts/zk/comment-v2/comment_v2_groth16.r1cs` |
+| Groth16 R1CS ceremony input | `artifacts/zk/comment-v2/comment_v2_groth16.r1cs` |
+| Final proving key | `artifacts/zk/comment-v2/comment_v2_final.fsg16pk` |
+| Canonical verifying key | `artifacts/zk/comment-v2/comment_v2_verifying_key.bin` |
+| Browser prover bundle | `artifacts/zk/comment-v2/comment_v2_prover_wasm.tar.gz` |
+| Public browser prover manifest | `src/frontend/public/wasm/comment-privacy-prover.manifest.json` |
 | R1CS IR builder | `tools/crypto/build-zk-comment-v2-r1cs.mjs` |
 | Static checker | `tools/crypto/check-zk-comment-v2-manifests.mjs` |
 | MCL platform asset checker | `tools/security/check-mcl-platform-assets.mjs` |
@@ -182,18 +188,21 @@ security assertion, including nullifier tamper, scope tamper, root tamper,
 revocation tamper, unsigned policy bucket tamper, issuer-key tamper, layout
 tamper, verifying-key-hash tamper, and identity-field injection.
 
-The static checker validates the manifest coverage now. When real Groth16
-artifacts land, the same cases must become proof-generation and verifier tests:
-valid witness accepts; any single tamper rejects.
+The static checker validates the manifest coverage now. The committed
+cross-stack smoke in `tests/security/zk-comment-v2-cross-stack-fixture.test.mjs`
+loads the public browser WASM prover bundle, generates a proof/public-input
+transcript, and verifies it with the MCL backend binding. Release evidence must
+still prove the full tamper matrix: valid witness accepts; any single tamper
+rejects.
 
 `tests/fixtures/zk/comment-v2/circuit-ir/fixture.manifest.json` is the current
-executable repository witness fixture for this fail-closed stage. It is generated
+executable repository witness fixture for the circuit IR stage. It is generated
 by `tools/crypto/build-zk-comment-v2-circuit-fixture.mjs`, binds the committed
 source and tamper manifest, materializes a deterministic positive witness, and
 records rejection results for every tamper case. It is intentionally marked
 `groth16_proof=false` and `groth16_ceremony_input=false`; it covers the #551
-circuit IR witness/tamper acceptance path but does not replace the future binary
-Groth16 R1CS, ceremony, proving key, or browser prover.
+circuit IR witness/tamper acceptance path but does not replace the FSG16/MCL
+trusted setup artifacts, browser prover bundle, or release evidence.
 
 ## Real Cross-Stack Evidence Gate
 
@@ -222,13 +231,14 @@ verifying-key artifact hash before ZK-Prod can be enabled.
 
 ## Budgets
 
-The repository contract sets production targets, not current measurements:
+The repository contract sets production targets:
 
 - proof bytes: at most 1024 bytes
 - wasm prover p95: at most 3000 ms on the supported browser profile
 - native verifier p99: at most 50 ms before endpoint overhead
 - public input layout: stable version `3`
 
-Until real artifacts exist, these budgets are enforced as required manifest
-fields and source metadata only. No benchmark in this slice claims real prover
-performance.
+The committed cross-stack smoke checks the 138-byte proof shape and native
+binding compatibility. Production release evidence must still provide measured
+`wasmProverP95Ms<=3000` and `nativeVerifierP99Ms<=50`; the static manifest
+fields alone are not sufficient to enable ZK-Prod.

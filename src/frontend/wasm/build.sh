@@ -32,7 +32,12 @@ rm -f \
   "${OUT_DIR}/search_"*.js \
   "${OUT_DIR}/search_"*.wasm \
   "${OUT_DIR}/image_codec_"*.js \
-  "${OUT_DIR}/image_codec_"*.wasm
+  "${OUT_DIR}/image_codec_"*.wasm \
+  "${OUT_DIR}/comment-privacy-prover.js" \
+  "${OUT_DIR}/comment-privacy-prover.zkey" \
+  "${OUT_DIR}/comment-privacy-prover.manifest.json" \
+  "${OUT_DIR}/comment_privacy_runtime.js" \
+  "${OUT_DIR}/comment_privacy_runtime.wasm"
 
 if [[ -n "${FSUSBLOG_EM_CACHE:-}" ]]; then
   export EM_CACHE="${FSUSBLOG_EM_CACHE}"
@@ -137,6 +142,10 @@ cp -f "${STAGE_SIMD_DIR}/search_simd.js" "${OUT_DIR}/search_simd.js"
 cp -f "${STAGE_SIMD_DIR}/search_simd.wasm" "${OUT_DIR}/search_simd.wasm"
 cp -f "${STAGE_BASIC_DIR}/search_basic.js" "${OUT_DIR}/search_basic.js"
 cp -f "${STAGE_BASIC_DIR}/search_basic.wasm" "${OUT_DIR}/search_basic.wasm"
+cp -f "${STAGE_SIMD_DIR}/comment_privacy_runtime.js" "${OUT_DIR}/comment_privacy_runtime.js"
+cp -f "${STAGE_SIMD_DIR}/comment_privacy_runtime.wasm" "${OUT_DIR}/comment_privacy_runtime.wasm"
+cp -f "${WASM_ROOT}/comment_privacy/comment-privacy-prover.js" "${OUT_DIR}/comment-privacy-prover.js"
+cp -f "${ROOT_DIR}/../../artifacts/zk/comment-v2/comment_v2_final.fsg16pk" "${OUT_DIR}/comment-privacy-prover.zkey"
 if [[ "${BUILD_IMAGE_CODEC}" == "ON" || "${BUILD_IMAGE_CODEC}" == "1" || "${BUILD_IMAGE_CODEC}" == "TRUE" ]]; then
   cp -f "${STAGE_SIMD_DIR}/image_codec_simd.js" "${OUT_DIR}/image_codec_simd.js"
   cp -f "${STAGE_SIMD_DIR}/image_codec_simd.wasm" "${OUT_DIR}/image_codec_simd.wasm"
@@ -144,6 +153,14 @@ if [[ "${BUILD_IMAGE_CODEC}" == "ON" || "${BUILD_IMAGE_CODEC}" == "1" || "${BUIL
   cp -f "${STAGE_BASIC_DIR}/image_codec_basic.wasm" "${OUT_DIR}/image_codec_basic.wasm"
 fi
 
+node "${ROOT_DIR}/../../tools/frontend/write-comment-privacy-prover-manifest.mjs"
+tar -czf "${ROOT_DIR}/../../artifacts/zk/comment-v2/comment_v2_prover_wasm.tar.gz" \
+  -C "${OUT_DIR}" \
+  comment-privacy-prover.js \
+  comment_privacy_runtime.js \
+  comment_privacy_runtime.wasm \
+  comment-privacy-prover.zkey \
+  comment-privacy-prover.manifest.json
 node "${ROOT_DIR}/../../tools/frontend/ensure-wasm.mjs" write-manifest
 
 echo "Wasm artifacts emitted to ${OUT_DIR}"

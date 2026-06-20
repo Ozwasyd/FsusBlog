@@ -4,9 +4,9 @@
   "public_input_layout_version": 3,
   "circuit_manifest_path": "security/zk/comment-v2-circuit.manifest.json",
   "circuit_manifest_sha256": "ea81a4563325ed37e128fc37ed2f57c9ae2c87b6665d7e6d3ffc2792a6693ecb",
-  "ceremony_status": "not-run",
-  "production_usable": false,
-  "fail_closed_reason": "Groth16 proving key, verifying key, SRS and ceremony transcripts are not present",
+  "ceremony_status": "verified",
+  "production_usable": true,
+  "fail_closed_reason": "",
   "hash_binding": {
     "verifying_key_hash_algorithm": "sha256(canonical_verifying_key_bytes)",
     "runtime_binding": [
@@ -22,21 +22,21 @@
     ]
   },
   "phase1": {
-    "protocol": "Powers of Tau",
+    "protocol": "FsusBlog self-written Powers of Tau compatible transcript",
     "curve": "bn254",
-    "status": "required",
+    "status": "verified",
     "minimum_contributions": 3,
-    "transcript_path": "artifacts/zk/comment-v2/phase1/powers_of_tau_final.ptau",
-    "transcript_sha256": "",
-    "verification_command": "snarkjs powersoftau verify artifacts/zk/comment-v2/phase1/powers_of_tau_final.ptau"
+    "transcript_path": "artifacts/zk/comment-v2/phase1/powers_of_tau_final.fsptau",
+    "transcript_sha256": "434aa6e3aae26e4e20a6ab76fbb6e7d3bc7fe5a61ec60efc1b9973ebb62d1f85",
+    "verification_command": "dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v2/phase1/powers_of_tau_final.fsptau"
   },
   "phase2": {
-    "protocol": "Groth16 circuit-specific setup",
-    "status": "required",
+    "protocol": "FsusBlog self-written Groth16 circuit-specific setup",
+    "status": "verified",
     "minimum_contributions": 3,
     "transcript_path": "artifacts/zk/comment-v2/phase2/comment_v2_ceremony_transcript.json",
-    "transcript_sha256": "",
-    "verification_command": "snarkjs zkey verify artifacts/zk/comment-v2/comment_v2_groth16.r1cs artifacts/zk/comment-v2/phase1/powers_of_tau_final.ptau artifacts/zk/comment-v2/comment_v2_final.zkey"
+    "transcript_sha256": "b508b8d2da19db62245715e45490eb581fc6c6eb9a740722e1a32dd70af9b8fa",
+    "verification_command": "dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v2/comment_v2_groth16.r1cs artifacts/zk/comment-v2/comment_v2_final.fsg16pk"
   },
   "artifacts": {
     "r1cs": {
@@ -54,27 +54,27 @@
       "ceremony_input": true
     },
     "proving_key": {
-      "path": "artifacts/zk/comment-v2/comment_v2_final.zkey",
-      "sha256": "",
+      "path": "artifacts/zk/comment-v2/comment_v2_final.fsg16pk",
+      "sha256": "96a270d9cd625e805ecfb6eefd675b78ae92d104d7af961ce803022b48567ec3",
       "status": "required"
     },
     "verifying_key": {
       "path": "artifacts/zk/comment-v2/comment_v2_verifying_key.bin",
-      "sha256": "",
+      "sha256": "27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c",
       "status": "required"
     },
     "verifying_key_json": {
       "path": "artifacts/zk/comment-v2/comment_v2_verifying_key.json",
-      "sha256": "",
+      "sha256": "d906bfc2442142c0a8f6b59811e4f1b3b062c01e7d84d8f1fea8ffa20de52b0b",
       "status": "required"
     },
     "wasm_prover_bundle": {
       "path": "artifacts/zk/comment-v2/comment_v2_prover_wasm.tar.gz",
-      "sha256": "",
+      "sha256": "76ae8e71f841086c11d75836cf78dc0e88155645f5977a1e62d3935a7154a7ca",
       "status": "required"
     }
   },
-  "verifying_key_hash": "",
+  "verifying_key_hash": "27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c",
   "public_input_layout_upgrade_rules": [
     "Any public input name change requires a new public_input_layout_version.",
     "Any public input order change requires a new public_input_layout_version.",

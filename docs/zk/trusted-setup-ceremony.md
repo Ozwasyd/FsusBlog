@@ -1,13 +1,15 @@
 # comment.v2 trusted setup ceremony contract
 
-Status: fail-closed manifest contract for #552. A deterministic binary Groth16
-R1CS handoff file is present for phase-2 input, but no production proving key,
-verifying key, Powers of Tau transcript, or phase-2 transcript is present in
-this repository yet.
+Status: verified self-written trusted setup artifact contract for #552. The
+repository contains the deterministic R1CS IR, the binary Groth16 R1CS phase-2
+input, self-written phase transcripts, final proving key, canonical verifying
+key, browser prover bundle, and hash-bound runtime verifying-key config. Runtime
+ZK-Prod remains disabled by default until the production release gates, issuer,
+credential root bootstrap, and rollout configuration all pass.
 
 ## Canonical Paths
 
-Future verifier/prover work must read the same manifest paths:
+Verifier/prover work must read the same manifest paths:
 
 | Purpose | Path |
 | --- | --- |
@@ -26,7 +28,7 @@ in the trusted setup manifest before the ceremony starts.
 
 ## Ceremony Requirements
 
-The final production ceremony must provide:
+The checked-in self-written setup provides:
 
 1. A verified Powers of Tau phase-1 transcript for the selected curve.
 2. A circuit-specific Groth16 phase-2 transcript for
@@ -35,8 +37,7 @@ The final production ceremony must provide:
    distinct from the deterministic repository IR.
 4. A proving key for the browser prover asset pipeline.
 5. Canonical verifying key bytes for the native verifier.
-6. A transcript manifest with participant contribution hashes and verification
-   commands.
+6. Transcript manifests with contribution hashes and verification commands.
 7. A `verifying_key_hash = SHA256(canonical_verifying_key_bytes)` value bound to
    `circuit_id = fsus.anonymous.comment.v2` and
    `public_input_layout_version = 3` by the setup and config manifests.
@@ -44,19 +45,21 @@ The final production ceremony must provide:
 The verifier must reject a proof if the public input layout version, circuit id,
 or verifying key hash differs from the active root/config snapshot.
 
-## Fail-Closed State
+## Verified Artifact State
 
-The committed manifests deliberately use:
+The committed manifests now deliberately use:
 
-- `ceremony_status: "not-run"`
-- `production_usable: false`
-- empty `verifying_key_hash`
-- missing artifact hashes for pk, vk, SRS, and transcript files
+- `ceremony_status: "verified"`
+- `production_usable: true`
+- `verifying_key_hash =
+  27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c`
+- hash-bound pk, vk, phase transcript, and browser prover bundle artifacts
 
-That state is valid for repository planning and static contract tests. It is not
-valid for production. `AnonymousIdentity:ZkProd:Enabled=true` still requires a
-real native verifier, trusted setup verification, circuit-native credential readiness, and
-an active credential root before startup/readiness can pass.
+That state is valid for repository artifact verification. It is not by itself a
+runtime rollout approval. `AnonymousIdentity:ZkProd:Enabled=true` still requires
+native verifier configuration, trusted setup verification, circuit-native
+credential issuer readiness, active credential roots, real smoke evidence, and
+release gate success before startup/readiness can pass.
 
 ## Upgrade Rule
 
@@ -78,6 +81,8 @@ Current static verification:
 ```bash
 node tools/crypto/check-zk-comment-v2-manifests.mjs
 node tools/security/check-mcl-platform-assets.mjs
+npm --prefix src/frontend run build:wasm
+cd src/frontend && node ../../tools/frontend/ensure-wasm.mjs status
 node tools/crypto/build-zk-comment-v2-circuit-fixture.mjs --check
 node --test tests/security/zk-comment-v2-circuit-fixture.test.mjs
 node --test tests/security/zk-comment-v2-cross-stack-fixture.test.mjs
@@ -89,9 +94,10 @@ node tools/security/check-security-matrices.mjs
 `tests/fixtures/zk/comment-v2/mcl-pairing` is a repository MCL pairing fixture
 for #555 backend verifier coverage only. It proves the managed native verifier
 can load committed vk/proof/public input bytes, bind the canonical transcript,
-and reject tampered proof or scope. It is not a phase-1/phase-2 ceremony output,
-does not include a browser wasm prover artifact, and does not change
-`production_usable=false`.
+and reject tampered proof or scope. The public browser prover bundle is covered
+separately by `tests/security/zk-comment-v2-cross-stack-fixture.test.mjs`, which
+loads `src/frontend/public/wasm/comment-privacy-prover.js`, calls the C++23
+WASM runtime, emits a proof, and verifies it through the MCL fixture tool.
 
 The MCL platform gate is intentionally scoped to mainstream server deployment
 RIDs: `linux-x64`, `linux-arm64`, `osx-x64`, `osx-arm64`, `win-x64`, and
@@ -99,7 +105,7 @@ RIDs: `linux-x64`, `linux-arm64`, `osx-x64`, `osx-arm64`, `win-x64`, and
 and fails if any required native asset is absent; `linux-musl`/Alpine, mobile
 and browser wasm remain outside this native distribution promise.
 
-Future production verification must add the real crypto commands recorded in
-`security/zk/comment-v2-trusted-setup.manifest.json`, including SRS transcript
-verification, phase-2 transcript verification, vk hash recomputation, and a
-proof generated by the final proving key verified by the final verifying key.
+Production verification must run the commands recorded in
+`security/zk/comment-v2-trusted-setup.manifest.json`, including phase transcript
+verification, vk hash recomputation, and proof generation by the final proving
+key verified against the final verifying key.

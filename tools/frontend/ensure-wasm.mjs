@@ -33,7 +33,12 @@ const requiredOutputFiles = [
   'search_basic.js',
   'search_basic.wasm',
   'search_simd.js',
-  'search_simd.wasm'
+  'search_simd.wasm',
+  'comment-privacy-prover.js',
+  'comment-privacy-prover.zkey',
+  'comment-privacy-prover.manifest.json',
+  'comment_privacy_runtime.js',
+  'comment_privacy_runtime.wasm'
 ];
 const ignoredWasmDirectories = new Set([
   '.artifacts',
