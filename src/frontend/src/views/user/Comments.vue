@@ -1,9 +1,9 @@
 <template>
   <section class="account-page">
     <header class="account-page-header">
-      <h1 class="account-page-title">我的评论</h1>
+      <h1 class="account-page-title">可归因评论记录</h1>
       <p class="account-page-description">
-        查看、筛选和删除你发表过的评论。
+        查看、筛选和删除你选择公开发送的可归因评论。强匿名评论不会出现在这里。
       </p>
     </header>
 
@@ -50,13 +50,13 @@
 
     <UserCommentsEmptyState
       v-else-if="list.length === 0"
-      title="你还没有发表过评论"
-      description="发表评论后会显示在这里。"
+      title="暂无可归因评论记录"
+      description="只有选择公开发送的评论会显示在这里，强匿名评论无法按账号找回。"
     />
 
     <UserCommentsEmptyState
       v-else-if="filteredList.length === 0"
-      title="没有匹配的评论"
+      title="没有匹配的可归因评论"
       description="调整关键词或清除筛选。"
     >
       <template #actions>

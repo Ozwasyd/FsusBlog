@@ -9,6 +9,6 @@ public interface ICommentService
 {
     Task<bool> CreateCommentAsync(int userId, CommentDto dto);
     Task<CursorResponse<CommentQueryResultDto>> GetCommentsByCursorAsync(int articleId, CursorPageRequest<long> request);
-    Task<CursorResponse<UserCommentResponse>> GetUserCommentsAsync(int userId, CursorPageRequest<long> request);
+    Task<CursorResponse<UserCommentResponse>> GetAttributableCommentsAsync(int userId, CursorPageRequest<long> request);
     Task<bool> DeleteCommentAsync(long id, int currentUserId, bool isAdmin, string reason = "违反社区管理条例");
 }

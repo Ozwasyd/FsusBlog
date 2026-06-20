@@ -78,11 +78,12 @@ public sealed class CommentSecurityHardeningTests
         string responseSource = ReadRepoFile("src/shared/Contracts/Outputs/ServerResponseContracts.cs");
 
         string userCommentsBlock = serviceSource[
-            serviceSource.IndexOf("public async Task<CursorResponse<UserCommentResponse>> GetUserCommentsAsync", StringComparison.Ordinal)..
+            serviceSource.IndexOf("public async Task<CursorResponse<UserCommentResponse>> GetAttributableCommentsAsync", StringComparison.Ordinal)..
             serviceSource.IndexOf("public async Task<bool> DeleteCommentAsync", StringComparison.Ordinal)];
 
         Assert.Contains("ModerationStatus = c.ModerationStatus", userCommentsBlock, StringComparison.Ordinal);
         Assert.Contains("HasBlockedRegions", userCommentsBlock, StringComparison.Ordinal);
+        Assert.Contains("c.AuthorMode == CommentAuthorModes.Public", userCommentsBlock, StringComparison.Ordinal);
         Assert.DoesNotContain("ModerationReason", userCommentsBlock, StringComparison.Ordinal);
         Assert.DoesNotContain("DecisionReason", userCommentsBlock, StringComparison.Ordinal);
         Assert.DoesNotContain("RuleHitsJson", userCommentsBlock, StringComparison.Ordinal);

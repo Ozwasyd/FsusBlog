@@ -30,7 +30,7 @@
 | Family | Prefix | Auth | Notes |
 |--------|--------|------|-------|
 | Public article/read | `/api/binary/article/**` | 🔓 | 首页、分类、标签、详情、热门与搜索 frame |
-| Comment cursors | `/api/binary/comment/**` | 🔓 / 🔑 | 公开评论游标与用户评论历史 |
+| Comment cursors | `/api/binary/comment/**` | 🔓 / 🔑 | 公开评论游标与可归因评论记录 |
 | Auth / MFA / Passkey | `/api/binary/auth/**` | 🔓 / 🔑 | PoW、login flow、session、MFA、WebAuthn |
 | Messages | `/api/binary/messages/**` | 🔑 | 用户站内信与已读状态 |
 | Admin messages / stats / upload | `/api/binary/admin/**`, `/api/binary/stats`, `/api/binary/upload/**` | 👑 | 管理端 Binary read/write |
@@ -118,7 +118,7 @@ Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS �
 |------|------|------|------|
 | GET | `/api/Comment/{articleId}` | 指定文章的顶层评论（游标分页） | 🔓 |
 | GET | `/api/Comment/{articleId}/thread/{rootId}` | 指定评论的回复线程 | 🔓 |
-| GET | `/api/Comment/me` | 当前用户评论历史 | 🔑 |
+| GET | `/api/Comment/me` | 当前用户可归因评论记录 | 🔑 |
 
 ---
 
@@ -169,7 +169,7 @@ Binary 端点输出 AEDS v2 帧（`Content-Type: application/octet-stream`）。
 
 | 方法 | 路径 | 描述 | 权限 |
 |------|------|------|------|
-| GET | `/api/binary/comment/me` | 当前用户评论历史（Binary） | 🔑 |
+| GET | `/api/binary/comment/me` | 当前用户可归因评论记录（Binary） | 🔑 |
 
 ### 管理端
 

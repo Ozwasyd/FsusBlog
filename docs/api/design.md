@@ -80,6 +80,7 @@ Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AED
 匿名身份模式下，新账号 onboarding 必须走 `POST /api/binary/auth/anonymous/bootstrap`，请求 frame 为 `AuthAnonymousBootstrapRequest`；该路径只初始化匿名账号容器和当前 session，不接受用户提供的登录密码，也不得复用旧 username/password 契约。旧 `/api/binary/auth/register` 与 `/api/binary/auth/login` password endpoints 不再是生产 API；`AuthRegisterRequest` / `AuthLoginRequest` 仅作为 legacy migration/test 的保留 AEDS frame 编号。
 `GET /api/binary/auth/me` 只输出 `IdentityAccountSnapshot` 匿名账号容器：account/internal id、`identityKind`、`publicHandle`、Passkey/Recovery/TOTP 状态、anonymous credential 状态和账号封禁/注销状态。该响应不得暴露内部 `sys_user.username` 或 `sys_user.role`，客户端也不得从普通账号快照推断 admin 权限；后台权限只能来自 independent admin principal 与 admin session Cookie。
 `PUT /api/binary/auth/public-handle` 是唯一用户侧公开称呼写入入口，使用 `AuthUpdatePublicHandleRequest` + `StringMutationRequestPod`；空字符串表示清空。评论 public send 只能读取已持久化的 `public_handle`，未设置时拒绝 public mode，不能回退内部 username 或合成 user id。
+账号侧 `GET /api/binary/comment/me` 是可归因评论记录，只返回当前账号显式 public/公开发送的评论；强匿名评论不进入该记录，也不能通过账号 ID 自删。强匿名撤回若需要支持，必须另走 receipt、capability token 或 nullifier proof 方案；在此之前只允许管理员按治理权限删除。
 
 ---
 

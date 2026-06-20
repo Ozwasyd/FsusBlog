@@ -751,24 +751,27 @@ public partial class CommentService(
         };
     }
 
-    public async Task<CursorResponse<UserCommentResponse>> GetUserCommentsAsync(int userId, CursorPageRequest<long> request)
+    public async Task<CursorResponse<UserCommentResponse>> GetAttributableCommentsAsync(int userId, CursorPageRequest<long> request)
     {
         if (userId <= 0)
         {
             return new CursorResponse<UserCommentResponse> { Data = [], NextCursor = null, HasMore = false };
         }
 
-        var rows = await db.Queryable<Comment, Article, User, CommentRegionCompliance>((c, a, ru, crc) => new object[]
+        var rows = await db.Queryable<Comment, Article, Comment, User, CommentRegionCompliance>((c, a, pc, ru, crc) => new object[]
             {
                 JoinType.Left, c.ArticleId == a.Id,
-                JoinType.Left, c.ReplyToUserId == ru.Id,
+                JoinType.Left, c.ReplyToCommentId == pc.Id,
+                JoinType.Left, pc.UserId == ru.Id,
                 JoinType.Left, c.Id == crc.CommentId
             })
-            .Where((c, a, ru, crc) => c.UserId == userId && !a.IsDeleted)
-            .WhereIF(request.Cursor.HasValue, (c, a, ru, crc) => c.Id < request.Cursor!.Value)
-            .OrderByDescending((c, a, ru, crc) => c.Id)
+            .Where((c, a, pc, ru, crc) => c.UserId == userId
+                && c.AuthorMode == CommentAuthorModes.Public
+                && !a.IsDeleted)
+            .WhereIF(request.Cursor.HasValue, (c, a, pc, ru, crc) => c.Id < request.Cursor!.Value)
+            .OrderByDescending((c, a, pc, ru, crc) => c.Id)
             .Take(request.Limit + 1)
-            .Select((c, a, ru, crc) => new UserCommentRow
+            .Select((c, a, pc, ru, crc) => new UserCommentRow
             {
                 Id = c.Id,
                 Content = c.Content,
@@ -779,7 +782,7 @@ public partial class CommentService(
                 RootId = c.RootId,
                 ArticleId = a.Id,
                 ArticleTitle = a.Title,
-                ReplyToUserName = ru.Username
+                ReplyToUserName = pc.AnonymousDisplayName ?? pc.PublicHandle ?? ru.Username
             })
             .ToListAsync();
 
@@ -811,6 +814,7 @@ public partial class CommentService(
                 c.RootId,
                 c.Content,
                 c.IsDeleted,
+                c.AuthorMode,
                 ArticleTitle = a.Title
             })
             .FirstAsync();
@@ -820,7 +824,8 @@ public partial class CommentService(
             return false;
         }
 
-        if (row.UserId != currentUserId && !isAdmin)
+        bool isAttributableUserComment = IsAttributableUserComment(row.AuthorMode, row.UserId);
+        if ((!isAttributableUserComment || row.UserId != currentUserId) && !isAdmin)
         {
             return false;
         }
@@ -851,12 +856,12 @@ public partial class CommentService(
             new CommentCacheInvalidationScope(
                 ArticleId: row.ArticleId,
                 RootId: row.RootId ?? row.Id,
-                UserId: row.UserId,
+                UserId: isAttributableUserComment ? row.UserId : null,
                 PublicArticleChanged: true,
-                UserCommentsChanged: true));
+                UserCommentsChanged: isAttributableUserComment));
         await messageService.PushCommentRemoveAsync(row.ArticleId, id, row.RootId ?? id, row.ParentId);
 
-        if (isAdmin && row.UserId.HasValue && currentUserId != row.UserId.Value)
+        if (isAdmin && isAttributableUserComment && currentUserId != row.UserId!.Value)
         {
             string commentSnippet = row.Content.Length > 20 ? row.Content[..20] : row.Content;
             _ = NotifyDeletionAsync(row.UserId.Value, row.ArticleTitle ?? "未知文章", commentSnippet, reason);
@@ -1374,6 +1379,10 @@ ORDER BY x.root_id, x.id;
         => !string.IsNullOrWhiteSpace(content)
             && content.Length <= CommentLimits.ContentMaxChars
             && Encoding.UTF8.GetByteCount(content) <= CommentLimits.ContentMaxUtf8Bytes;
+
+    private static bool IsAttributableUserComment(string? authorMode, int? userId)
+        => userId is > 0
+            && string.Equals(authorMode, CommentAuthorModes.Public, StringComparison.Ordinal);
 
     private static string? NormalizeNullable(string? value, int maxLength)
     {

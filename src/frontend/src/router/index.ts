@@ -124,7 +124,7 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
     meta: { requiresAuth: true, roles: ['guest', 'admin'], accountArea: 'self', accountContentMode: 'standard' },
     children: [
       { path: ACCOUNT_ROUTE_PATHS.profileChild, name: 'UserProfile', redirect: { name: 'UserIdentityOverview' }, component: () => import('@/views/user/Profile.vue'), meta: { title: '身份中心', accountArea: 'self', accountContentMode: 'standard' } },
-      { path: 'comments', name: 'UserComments', component: () => import('@/views/user/Comments.vue'), meta: { title: '我的评论', accountArea: 'self', accountContentMode: 'standard' } },
+      { path: 'comments', name: 'UserComments', component: () => import('@/views/user/Comments.vue'), meta: { title: '可归因评论记录', accountArea: 'self', accountContentMode: 'standard' } },
       { path: 'messagebox', name: 'UserMessage', component: () => import('@/views/user/Messages.vue'), meta: { title: '我的消息', accountArea: 'self', accountContentMode: 'takeover' } },
       { path: 'identity', name: 'UserIdentityOverview', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '身份总览', accountArea: 'self', accountContentMode: 'standard' } },
       { path: 'identity/passkeys', name: 'UserIdentityPasskeys', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '通行密钥', accountArea: 'self', accountContentMode: 'standard' } },
@@ -133,7 +133,7 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
       { path: 'identity/public-profile', name: 'UserIdentityPublicProfile', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '公开资料', accountArea: 'self', accountContentMode: 'standard' } },
       { path: 'identity/sessions', name: 'UserIdentitySessions', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '设备会话', accountArea: 'self', accountContentMode: 'standard' } },
       { path: 'identity/mfa', name: 'UserIdentityMfa', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '二次验证', accountArea: 'self', accountContentMode: 'standard' } },
-      { path: 'identity/comment-records', name: 'UserIdentityCommentRecords', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '评论记录', accountArea: 'self', accountContentMode: 'standard' } },
+      { path: 'identity/comment-records', name: 'UserIdentityCommentRecords', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '可归因评论记录', accountArea: 'self', accountContentMode: 'standard' } },
       { path: 'manage', name: 'ManageDashboard', component: () => import('@/views/admin/Dashboard.vue'), meta: manageMeta('仪表盘', ['admin.manage']) },
       { path: 'manage/article/write', name: 'ManageWriteArticle', component: () => import('@/views/admin/article/Write.vue'), meta: manageMeta('写文章', ['article.write']) },
       { path: 'manage/article/edit/:id', name: 'ManageEditArticle', component: () => import('@/views/admin/article/Write.vue'), meta: manageMeta('编辑文章', ['article.write']) },

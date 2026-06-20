@@ -280,8 +280,8 @@
 
     <WorkbenchPanel
       v-else-if="isSection('UserIdentityCommentRecords')"
-      title="评论记录"
-      caption="这里只描述可归因评论记录的边界，实际列表沿用现有评论记录页。"
+      title="可归因评论记录"
+      caption="这里只描述可归因评论记录的边界，实际列表只展示公开发送记录。"
       :title-level="2"
     >
       <div class="identity-copy-block">
@@ -378,7 +378,7 @@ const sectionMetaByRoute = {
     description: '管理 TOTP step-up 状态。'
   },
   UserIdentityCommentRecords: {
-    title: '评论记录',
+    title: '可归因评论记录',
     description: '区分可归因评论记录与强匿名评论边界。'
   }
 } as const

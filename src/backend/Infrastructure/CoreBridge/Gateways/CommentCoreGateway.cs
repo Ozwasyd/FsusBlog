@@ -51,7 +51,7 @@ public sealed class CommentCoreGateway(CommentService service, CommentCoreQueryC
             cursor.HasValue ? CursorCodec.Format(cursor.Value) : null,
             cursor,
             CommentCursorPolicies.UserComments.NormalizeLimit(limit));
-        CursorResponse<UserCommentResponse> source = await service.GetUserCommentsAsync(userId, request);
+        CursorResponse<UserCommentResponse> source = await service.GetAttributableCommentsAsync(userId, request);
         return CursorInterop.ToCore(source, item => CommentProjection.ToCoreModel(new UserCommentReadModel
         {
             Id = item.Id,

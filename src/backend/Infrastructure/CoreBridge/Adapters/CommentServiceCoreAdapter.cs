@@ -27,7 +27,7 @@ public sealed class CommentServiceCoreAdapter(ICommentCoreService core) : IComme
             CursorCodec);
     }
 
-    public async Task<CursorResponse<UserCommentResponse>> GetUserCommentsAsync(int userId, CursorPageRequest<long> request)
+    public async Task<CursorResponse<UserCommentResponse>> GetAttributableCommentsAsync(int userId, CursorPageRequest<long> request)
     {
         var result = await core.GetUserCommentsAsync(userId, request.Cursor, request.Limit);
         if (!result.IsSuccess)

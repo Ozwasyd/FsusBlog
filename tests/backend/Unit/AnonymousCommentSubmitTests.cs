@@ -170,6 +170,63 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
+    public async Task GetAttributableCommentsAsync_ReturnsOnlyExplicitPublicComments()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedApprovedComment(db, commentId: 100, articleId: 42, userId: 7);
+        SeedStrongAnonymousComment(db, commentId: 101, articleId: 42, legacyUserId: 7);
+        CommentService service = CreateService(db, new RecordingTicketService());
+
+        CursorResponse<UserCommentResponse> result = await service.GetAttributableCommentsAsync(
+            7,
+            new CursorPageRequest<long> { Limit = 10 });
+
+        UserCommentResponse item = Assert.Single(result.Data);
+        Assert.Equal(100, item.Id);
+        Assert.Equal("parent", item.Content);
+    }
+
+    [Fact]
+    public async Task DeleteCommentAsync_AccountCannotDeleteStrongAnonymousCommentEvenWhenLegacyUserIdMatches()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedStrongAnonymousComment(db, commentId: 101, articleId: 42, legacyUserId: 7);
+        var dispatcher = new RecordingCacheInvalidationDispatcher();
+        CommentService service = CreateService(db, new RecordingTicketService(), dispatcher: dispatcher);
+
+        bool deleted = await service.DeleteCommentAsync(101, currentUserId: 7, isAdmin: false);
+
+        Assert.False(deleted);
+        Comment comment = db.Queryable<Comment>().Single(static item => item.Id == 101);
+        Assert.False(comment.IsDeleted);
+        Assert.Empty(dispatcher.CommentScopes);
+    }
+
+    [Fact]
+    public async Task DeleteCommentAsync_AdminCanDeleteStrongAnonymousCommentWithoutUserCommentInvalidation()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedStrongAnonymousComment(db, commentId: 101, articleId: 42, legacyUserId: 7);
+        var dispatcher = new RecordingCacheInvalidationDispatcher();
+        CommentService service = CreateService(db, new RecordingTicketService(), dispatcher: dispatcher);
+
+        bool deleted = await service.DeleteCommentAsync(101, currentUserId: 1, isAdmin: true);
+
+        Assert.True(deleted);
+        Comment comment = db.Queryable<Comment>().Single(static item => item.Id == 101);
+        Assert.True(comment.IsDeleted);
+        CommentCacheInvalidationScope scope = Assert.Single(dispatcher.CommentScopes)!;
+        Assert.Null(scope.UserId);
+        Assert.False(scope.UserCommentsChanged);
+    }
+
+    [Fact]
     public async Task AnonymousCommentCreateEndpoint_DecodesFrameAndReturnsEmptySuccess()
     {
         var aeds = new AedsEncoder();
@@ -354,6 +411,33 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
             UserId = userId,
             AuthorMode = CommentAuthorModes.Public,
             PublicHandle = "parent-user",
+            CreateTime = DateTime.UtcNow.AddMinutes(-1),
+            ParentId = null,
+            RootId = null,
+            ReplyToUserId = null,
+            ReplyToCommentId = null,
+            Depth = 0,
+            IsDeleted = false,
+            ModerationStatus = CommentModerationStatus.Approved
+        }).ExecuteCommand();
+
+    private static void SeedStrongAnonymousComment(SqlSugarClient db, long commentId, int articleId, int? legacyUserId)
+        => db.Insertable(new Comment
+        {
+            Id = commentId,
+            ArticleId = articleId,
+            Content = "strong anonymous",
+            UserId = legacyUserId,
+            AuthorMode = CommentAuthorModes.ZkAnonymous,
+            AnonymousHandle = "anon-legacy",
+            AnonymousDisplayName = "Anonymous User Alex",
+            AnonymousDisplayLanguage = "en",
+            AnonymousNullifierHash = $"{commentId:x64}",
+            AnonymousScope = $"article:{articleId}",
+            ModerationSubjectHash = $"moderation-{commentId}",
+            CredentialLevel = AnonymousCredentialLevels.StrongAnonymous,
+            ReputationBucket = "rep-low",
+            AccountAgeBucket = "credential_bound",
             CreateTime = DateTime.UtcNow.AddMinutes(-1),
             ParentId = null,
             RootId = null,

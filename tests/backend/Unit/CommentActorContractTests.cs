@@ -99,6 +99,36 @@ public sealed class CommentActorContractTests
     }
 
     [Fact]
+    public void AttributableCommentRecordsAndDeletion_DoNotUseAnonymousUserIdBinding()
+    {
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
+        string serviceInterface = BackendTestPaths.ReadAllTextFromRoot("src/backend/Interfaces/ICommentService.cs");
+        string gateway = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/CoreBridge/Gateways/CommentCoreGateway.cs");
+        string recordsBlock = ExtractBetween(
+            service,
+            "public async Task<CursorResponse<UserCommentResponse>> GetAttributableCommentsAsync",
+            "public async Task<bool> DeleteCommentAsync");
+        string deleteBlock = ExtractBetween(
+            service,
+            "public async Task<bool> DeleteCommentAsync",
+            "private async Task<List<ThreadRootRow>> QueryThreadRootsAsync");
+
+        Assert.Contains("GetAttributableCommentsAsync", serviceInterface, StringComparison.Ordinal);
+        Assert.Contains("GetAttributableCommentsAsync", gateway, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetUserCommentsAsync", serviceInterface, StringComparison.Ordinal);
+        Assert.Contains("c.AuthorMode == CommentAuthorModes.Public", recordsBlock, StringComparison.Ordinal);
+        Assert.Contains("c.UserId == userId", recordsBlock, StringComparison.Ordinal);
+        Assert.Contains("c.ReplyToCommentId == pc.Id", recordsBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("c.ReplyToUserId == ru.Id", recordsBlock, StringComparison.Ordinal);
+
+        Assert.Contains("IsAttributableUserComment(row.AuthorMode, row.UserId)", deleteBlock, StringComparison.Ordinal);
+        Assert.Contains("UserId: isAttributableUserComment ? row.UserId : null", deleteBlock, StringComparison.Ordinal);
+        Assert.Contains("UserCommentsChanged: isAttributableUserComment", deleteBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("row.UserId != currentUserId && !isAdmin", deleteBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("if (isAdmin && row.UserId.HasValue", deleteBlock, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PublicCommentActor_RequiresPersistedPublicHandleWithoutUsernameFallback()
     {
         string resolver = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CommentActorResolver.cs");

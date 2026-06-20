@@ -106,8 +106,8 @@ export function useUserCommentsPage() {
   const onDelete = async (id: string): Promise<void> => {
     pendingDeleteId.value = String(id)
     const confirmed = await requestGlobalConfirm({
-      title: '删除评论',
-      content: '确定要永久移除这条评论吗？此操作无法撤销。',
+      title: '删除可归因评论',
+      content: '只会移除这条可归因评论记录；强匿名评论不能通过账号侧记录找回或删除。',
       confirmText: '删除',
       cancelText: '取消'
     })

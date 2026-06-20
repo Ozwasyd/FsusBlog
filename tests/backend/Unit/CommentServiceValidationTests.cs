@@ -180,23 +180,23 @@ public class CommentServiceValidationTests
         Assert.False(result.HasMore);
     }
 
-    // ─── GetUserCommentsAsync guard ──────────────────────────────────────────
+    // ─── GetAttributableCommentsAsync guard ─────────────────────────────────
 
     [Fact]
-    public async Task GetUserComments_UserIdZero_ReturnsEmpty()
+    public async Task GetAttributableComments_UserIdZero_ReturnsEmpty()
     {
         var svc = BuildService();
-        var result = await svc.GetUserCommentsAsync(0, MakeRequest());
+        var result = await svc.GetAttributableCommentsAsync(0, MakeRequest());
         Assert.Empty(result.Data);
         Assert.Null(result.NextCursor);
         Assert.False(result.HasMore);
     }
 
     [Fact]
-    public async Task GetUserComments_NegativeUserId_ReturnsEmpty()
+    public async Task GetAttributableComments_NegativeUserId_ReturnsEmpty()
     {
         var svc = BuildService();
-        var result = await svc.GetUserCommentsAsync(-99, MakeRequest());
+        var result = await svc.GetAttributableCommentsAsync(-99, MakeRequest());
         Assert.Empty(result.Data);
         Assert.False(result.HasMore);
     }
