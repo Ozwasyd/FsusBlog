@@ -257,7 +257,7 @@ public readonly record struct MfaChallengeVerifyRequestCoreModel(string Challeng
 
 public readonly record struct RecoveryKeyCreateResponseCoreModel(string RecoveryKey, int KeyVersion, DateTime CreatedAt);
 
-public readonly record struct RecoveryKeyVerifyRequestCoreModel(int UserId, string RecoveryKey, bool RevokeSessions, bool RevokePasskeys);
+public readonly record struct RecoveryKeyVerifyRequestCoreModel(string RecoveryKey, bool RevokeSessions, bool RevokePasskeys);
 
 public readonly record struct RecoveryKeyVerifyResponseCoreModel(int UserId, string RecoverySessionToken, DateTime ExpiresAt);
 

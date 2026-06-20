@@ -5,6 +5,7 @@ namespace FsusBlog.Server.Entities;
 [SugarTable("account_recovery_key")]
 [SugarIndex("idx_account_recovery_key_user", nameof(UserId), OrderByType.Asc)]
 [SugarIndex("idx_account_recovery_key_version", nameof(UserId), OrderByType.Asc, nameof(KeyVersion), OrderByType.Desc)]
+[SugarIndex("idx_account_recovery_key_lookup", nameof(LookupIdHash), OrderByType.Asc)]
 public class RecoveryKeyCredential
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
@@ -12,6 +13,9 @@ public class RecoveryKeyCredential
 
     [SugarColumn(ColumnName = "user_id")]
     public int UserId { get; set; }
+
+    [SugarColumn(ColumnName = "lookup_id_hash", IsNullable = true, ColumnDataType = "text")]
+    public string? LookupIdHash { get; set; }
 
     [SugarColumn(ColumnName = "key_hash", IsNullable = false, ColumnDataType = "text")]
     public string KeyHash { get; set; } = string.Empty;

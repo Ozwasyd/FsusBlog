@@ -552,7 +552,6 @@ public static partial class PodBinaryCodec
         var payload = new ArrayBufferWriter<byte>(128);
         var mutable = new MutableRecoveryKeyVerifyRequestPod
         {
-            UserId = request.UserId,
             RevokeSessions = request.RevokeSessions ? (byte)1 : (byte)0,
             RevokePasskeys = request.RevokePasskeys ? (byte)1 : (byte)0,
             Reserved0 = 0,
@@ -577,7 +576,6 @@ public static partial class PodBinaryCodec
         }
 
         request = new RecoveryKeyVerifyRequestCoreModel(
-            pod.UserId,
             PodProjector.ReadSlice(pod.RecoveryKey, payload),
             pod.RevokeSessions == 1,
             pod.RevokePasskeys == 1);
@@ -1102,7 +1100,6 @@ public static partial class PodBinaryCodec
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableRecoveryKeyVerifyRequestPod
     {
-        public int UserId;
         public byte RevokeSessions;
         public byte RevokePasskeys;
         public ushort Reserved0;

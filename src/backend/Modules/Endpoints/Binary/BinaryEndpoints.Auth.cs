@@ -1098,7 +1098,6 @@ public static partial class BinaryEndpoints
             }
 
             if (!PodBinaryCodec.TryDecodeRecoveryKeyVerifyRequest(payload.Payload, out var request) ||
-                request.UserId <= 0 ||
                 string.IsNullOrWhiteSpace(request.RecoveryKey))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "RECOVERY_KEY_REQUEST_INVALID"), aeds);

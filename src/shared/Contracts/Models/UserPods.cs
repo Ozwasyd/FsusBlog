@@ -179,7 +179,6 @@ public readonly struct RecoveryKeyCreateResponsePod
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct RecoveryKeyVerifyRequestPod
 {
-    public readonly int UserId;
     public readonly byte RevokeSessions;
     public readonly byte RevokePasskeys;
     public readonly ushort Reserved0;

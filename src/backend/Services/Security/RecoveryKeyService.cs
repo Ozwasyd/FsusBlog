@@ -32,6 +32,9 @@ public sealed class RecoveryKeyService(
     IUnifiedCache cache,
     IConfiguration configuration) : IRecoveryKeyService
 {
+    private const string RecoveryKeyPrefix = "frk_";
+    private const char RecoveryKeySeparator = '_';
+    private const int RecoveryKeyLookupBytes = 16;
     private const int RecoveryKeyRandomBytes = 32;
     private const int RecoveryKeySaltBytes = 16;
     private const int RecoveryKeyHashBytes = 32;
@@ -53,19 +56,29 @@ public sealed class RecoveryKeyService(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (request.UserId <= 0 || string.IsNullOrWhiteSpace(request.RecoveryKey))
+        if (string.IsNullOrWhiteSpace(request.RecoveryKey))
         {
             return Result<RecoveryKeyVerifyResponseCoreModel>.Failure(ErrorCode.Validation, "RECOVERY_KEY_REQUEST_INVALID");
         }
 
-        string attemptIdentity = BuildAttemptIdentity(request.UserId, clientIp, userAgent);
+        byte[] pepper = ResolveRecoveryKeyPepper();
+        bool hasLookup = TryParseRecoveryKeyLookup(request.RecoveryKey, pepper, out string lookupIdHash);
+        string attemptIdentity = BuildAttemptIdentity(
+            hasLookup ? lookupIdHash : HashRecoveryKeyAttemptIdentity(request.RecoveryKey, pepper),
+            clientIp,
+            userAgent);
         if (await IsVerificationLockedAsync(attemptIdentity, cancellationToken).ConfigureAwait(false))
         {
             return Result<RecoveryKeyVerifyResponseCoreModel>.Failure(ErrorCode.Forbidden, "RECOVERY_KEY_RATE_LIMITED");
         }
 
+        if (!hasLookup)
+        {
+            return await RecordVerificationFailureAsync(attemptIdentity, cancellationToken).ConfigureAwait(false);
+        }
+
         RecoveryKeyCredential? credential = await db.Queryable<RecoveryKeyCredential>()
-            .Where(k => k.UserId == request.UserId && k.UsedAt == null && k.RevokedAt == null)
+            .Where(k => k.LookupIdHash == lookupIdHash && k.UsedAt == null && k.RevokedAt == null)
             .OrderBy(k => k.KeyVersion, OrderByType.Desc)
             .FirstAsync();
         if (credential is null)
@@ -73,7 +86,6 @@ public sealed class RecoveryKeyService(
             return await RecordVerificationFailureAsync(attemptIdentity, cancellationToken).ConfigureAwait(false);
         }
 
-        byte[] pepper = ResolveRecoveryKeyPepper();
         if (!VerifyRecoveryKey(request.RecoveryKey, credential.KeyHash, pepper))
         {
             return await RecordVerificationFailureAsync(attemptIdentity, cancellationToken).ConfigureAwait(false);
@@ -91,7 +103,7 @@ public sealed class RecoveryKeyService(
 
         await db.Updateable<User>()
             .SetColumns(u => u.RecoveryEnabled == false)
-            .Where(u => u.Id == request.UserId)
+            .Where(u => u.Id == credential.UserId)
             .ExecuteCommandAsync();
 
         if (request.RevokeSessions)
@@ -99,13 +111,13 @@ public sealed class RecoveryKeyService(
             await db.Updateable<UserSession>()
                 .SetColumns(s => s.RevokedAt == now)
                 .SetColumns(s => s.RevokeReason == "recovery_key_verified")
-                .Where(s => s.UserId == request.UserId && s.RevokedAt == null)
+                .Where(s => s.UserId == credential.UserId && s.RevokedAt == null)
                 .ExecuteCommandAsync();
         }
 
         string token = GenerateSecretToken();
         DateTime expiresAt = now.Add(RecoverySessionTtl);
-        var session = new RecoveryKeySession(request.UserId, request.RevokePasskeys, now, expiresAt);
+        var session = new RecoveryKeySession(credential.UserId, request.RevokePasskeys, now, expiresAt);
         await cache.SetStringAsync(
             CachePolicyId.SecurityRecoveryKeySession,
             BuildSessionIdentity(token),
@@ -114,7 +126,7 @@ public sealed class RecoveryKeyService(
             cancellationToken).ConfigureAwait(false);
 
         return Result<RecoveryKeyVerifyResponseCoreModel>.Success(
-            new RecoveryKeyVerifyResponseCoreModel(request.UserId, token, expiresAt));
+            new RecoveryKeyVerifyResponseCoreModel(credential.UserId, token, expiresAt));
     }
 
     public async Task<Result<RecoveryKeySession>> GetRecoverySessionAsync(string token, CancellationToken cancellationToken = default)
@@ -208,12 +220,13 @@ public sealed class RecoveryKeyService(
                 .ExecuteCommandAsync();
         }
 
-        string recoveryKey = GenerateRecoveryKey();
         byte[] pepper = ResolveRecoveryKeyPepper();
+        var generated = GenerateRecoveryKey(pepper);
         var credential = new RecoveryKeyCredential
         {
             UserId = userId,
-            KeyHash = HashRecoveryKey(recoveryKey, pepper),
+            LookupIdHash = generated.LookupIdHash,
+            KeyHash = HashRecoveryKey(generated.RecoveryKey, pepper),
             KeyVersion = nextVersion,
             CreatedAt = now
         };
@@ -225,7 +238,7 @@ public sealed class RecoveryKeyService(
             .ExecuteCommandAsync();
 
         return Result<RecoveryKeyCreateResponseCoreModel>.Success(
-            new RecoveryKeyCreateResponseCoreModel(recoveryKey, nextVersion, now));
+            new RecoveryKeyCreateResponseCoreModel(generated.RecoveryKey, nextVersion, now));
     }
 
     private async Task<bool> IsVerificationLockedAsync(string identity, CancellationToken cancellationToken)
@@ -264,8 +277,13 @@ public sealed class RecoveryKeyService(
         return Encoding.UTF8.GetBytes(value);
     }
 
-    private static string GenerateRecoveryKey()
-        => "frk_" + Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(RecoveryKeyRandomBytes));
+    private static RecoveryKeyGeneration GenerateRecoveryKey(byte[] pepper)
+    {
+        string lookupId = Convert.ToHexString(RandomNumberGenerator.GetBytes(RecoveryKeyLookupBytes)).ToLowerInvariant();
+        string secret = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(RecoveryKeyRandomBytes));
+        string recoveryKey = string.Concat(RecoveryKeyPrefix, lookupId, RecoveryKeySeparator, secret);
+        return new RecoveryKeyGeneration(recoveryKey, HashRecoveryKeyLookupId(lookupId, pepper));
+    }
 
     private static string GenerateSecretToken()
         => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(RecoveryKeyRandomBytes));
@@ -321,10 +339,90 @@ public sealed class RecoveryKeyService(
     private static string NormalizeRecoveryKey(string value)
         => value.Trim();
 
-    private static string BuildAttemptIdentity(int userId, string clientIp, string? userAgent)
+    private static bool TryParseRecoveryKeyLookup(string recoveryKey, byte[] pepper, out string lookupIdHash)
+    {
+        lookupIdHash = string.Empty;
+        string normalized = NormalizeRecoveryKey(recoveryKey);
+        if (!normalized.StartsWith(RecoveryKeyPrefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> body = normalized.AsSpan(RecoveryKeyPrefix.Length);
+        int separator = body.IndexOf(RecoveryKeySeparator);
+        if (separator <= 0 || separator >= body.Length - 1)
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> lookupId = body[..separator];
+        ReadOnlySpan<char> secret = body[(separator + 1)..];
+        if (lookupId.Length != RecoveryKeyLookupBytes * 2 ||
+            !IsHexToken(lookupId) ||
+            !IsBase64UrlToken(secret))
+        {
+            return false;
+        }
+
+        lookupIdHash = HashRecoveryKeyLookupId(lookupId.ToString(), pepper);
+        return true;
+    }
+
+    private static bool IsHexToken(ReadOnlySpan<char> value)
+    {
+        if (value.IsEmpty)
+        {
+            return false;
+        }
+
+        foreach (char c in value)
+        {
+            if (!((c >= '0' && c <= '9') ||
+                  (c >= 'a' && c <= 'f') ||
+                  (c >= 'A' && c <= 'F')))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsBase64UrlToken(ReadOnlySpan<char> value)
+    {
+        if (value.IsEmpty)
+        {
+            return false;
+        }
+
+        foreach (char c in value)
+        {
+            if (!((c >= 'A' && c <= 'Z') ||
+                  (c >= 'a' && c <= 'z') ||
+                  (c >= '0' && c <= '9') ||
+                  c is '-' or '_'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string HashRecoveryKeyLookupId(string lookupId, byte[] pepper)
+        => Convert.ToHexString(HMACSHA256.HashData(
+            pepper,
+            Encoding.UTF8.GetBytes("recovery-key-lookup:" + lookupId.Trim())));
+
+    private static string HashRecoveryKeyAttemptIdentity(string recoveryKey, byte[] pepper)
+        => Convert.ToHexString(HMACSHA256.HashData(
+            pepper,
+            Encoding.UTF8.GetBytes("recovery-key-attempt:" + NormalizeRecoveryKey(recoveryKey))))[..32];
+
+    private static string BuildAttemptIdentity(string lookupIdentity, string clientIp, string? userAgent)
     {
         string material = string.Concat(
-            userId.ToString(CultureInfo.InvariantCulture),
+            lookupIdentity,
             ':',
             clientIp,
             ':',
@@ -367,4 +465,6 @@ public sealed class RecoveryKeyService(
             new DateTime(expiresTicks, DateTimeKind.Utc));
         return true;
     }
+
+    private readonly record struct RecoveryKeyGeneration(string RecoveryKey, string LookupIdHash);
 }

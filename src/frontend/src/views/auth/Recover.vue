@@ -35,25 +35,6 @@
 
           <div class="relative group">
             <label
-              for="recovery-user-id"
-              class="mb-2 block text-xs font-semibold text-[var(--fsusblog-text-secondary)]"
-            >
-              账户编号
-            </label>
-            <el-input
-              id="recovery-user-id"
-              v-model="recoveryUserId"
-              name="recoveryUserId"
-              inputmode="numeric"
-              placeholder="输入账户编号"
-              autocomplete="off"
-              aria-describedby="recovery-key-help"
-              :disabled="recoveryKeyLoading"
-            />
-          </div>
-
-          <div class="relative group">
-            <label
               for="recovery-key"
               class="mb-2 block text-xs font-semibold text-[var(--fsusblog-text-secondary)]"
             >
@@ -164,7 +145,6 @@ import { themeTokens } from '@/ui-tokens/themeTokens'
 import { toAppError } from '@/utils/appError'
 
 const focusRingClass = themeTokens.focusRing
-const recoveryUserId = ref('')
 const recoveryKeyInput = ref('')
 const recoveryRevokePasskeys = ref(true)
 const recoveryKeyLoading = ref(false)
@@ -175,7 +155,6 @@ const recoveryPasskeyVisible = ref(false)
 
 const canVerifyRecoveryKey = computed(
   () =>
-    Number.parseInt(recoveryUserId.value, 10) > 0 &&
     recoveryKeyInput.value.trim().length > 0 &&
     !recoveryKeyLoading.value,
 )
@@ -192,7 +171,6 @@ const handleRecoveryKeyVerify = async (): Promise<void> => {
 
   try {
     const response = await verifyRecoveryKey({
-      userId: Number.parseInt(recoveryUserId.value, 10),
       recoveryKey: recoveryKeyInput.value.trim(),
       revokeSessions: true,
       revokePasskeys: recoveryRevokePasskeys.value,

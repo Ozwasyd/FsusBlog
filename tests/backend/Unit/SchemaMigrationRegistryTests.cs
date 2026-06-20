@@ -84,11 +84,13 @@ public sealed class SchemaMigrationRegistryTests
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
 
         Assert.Contains("account_recovery_key", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("lookup_id_hash text", fingerprint, StringComparison.Ordinal);
         Assert.Contains("key_hash text NOT NULL", fingerprint, StringComparison.Ordinal);
         Assert.Contains("key_version integer NOT NULL", fingerprint, StringComparison.Ordinal);
         Assert.Contains("used_at timestamp NULL", fingerprint, StringComparison.Ordinal);
         Assert.Contains("revoked_at timestamp NULL", fingerprint, StringComparison.Ordinal);
         Assert.Contains("idx_account_recovery_key_active_unique", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_account_recovery_key_lookup_active_unique", fingerprint, StringComparison.Ordinal);
         Assert.DoesNotContain("mfa_recovery", fingerprint, StringComparison.OrdinalIgnoreCase);
     }
 

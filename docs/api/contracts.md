@@ -3,7 +3,7 @@
 本文件是 FsusBlog 所有请求/响应 DTO、通知 WebSocket 信封与 AOT 契约的**完整参考**。
 所有定义的权威源码位于 `src/shared/Contracts/` 目录。
 
-> 最近更新：2026-06-19 — 同步 perception-sealed@v2 metrics、readiness gate 与性能预算观测契约。
+> 最近更新：2026-06-21 — Recovery Key verify request 移除 account id，改由 key 内 lookup id 定位。
 
 ---
 
@@ -275,16 +275,16 @@ TOTP recovery code 只允许绕过或完成 TOTP step-up；它不是账户 `Reco
 
 ### Recovery Key AEDS frames
 
-Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery code。服务端只存储 `account_recovery_key.key_hash`、`key_version`、`created_at`、`used_at`、`revoked_at`，哈希使用服务端 `RecoveryKeyPepper` 加固；明文 Recovery Key 只在 create/rotate 响应中返回一次，不写数据库、日志、telemetry 或 browser storage。
+Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery code。新明文格式为 `frk_<lookupId>_<secret>`：`lookupId` 是 128-bit hex 随机不可枚举定位符，`secret` 是完整恢复密钥材料。服务端只存储 `account_recovery_key.lookup_id_hash`、`key_hash`、`key_version`、`created_at`、`used_at`、`revoked_at`；`lookup_id_hash` 与完整 `key_hash` 都使用服务端 `RecoveryKeyPepper` 加固，完整 key hash 使用 PBKDF2-SHA256。明文 Recovery Key 只在 create/rotate 响应中返回一次，不写数据库、日志、telemetry 或 browser storage。
 
 `POST /api/binary/auth/recovery-key/create` 和 `/rotate` 必须通过统一 user security step-up：`X-Fsus-Mfa-Proof` 绑定 `recovery-key.create` 或 `recovery-key.rotate` 并一次性消费；legacy 非 MFA 账号也可提交 `MfaPasswordProofRequest` body 作为当前密码 proof；anonymous identity mode 下该 password fallback 被禁用。缺失、action 不匹配、过期或重放 proof 返回 `428` + AEDS `ApiError`。
 
-验证成功会把当前 Recovery Key 标记为 used，返回 10 分钟 recovery session token。该 token 只允许调用 recovery passkey begin/complete 端点绑定新 Passkey；如果 verify 请求设置 `revokeSessions`，服务端会撤销该账号现有会话；如果设置 `revokePasskeys`，新 Passkey 绑定完成后删除旧凭据。TOTP MFA recovery code 仍只用于 MFA bypass，不得作为账户恢复。
+验证请求不携带 account id。服务端从 Recovery Key 中解析 `lookupId`，按 peppered `lookup_id_hash` 定位候选记录，再校验完整 Recovery Key；无 lookup id 的旧格式不会扫描全表兼容，统一返回恢复失败并受同一 attempt limiter 约束，用户需要通过仍可登录设备重新生成新格式 Recovery Key。验证成功会把当前 Recovery Key 标记为 used，返回 10 分钟 recovery session token。该 token 只允许调用 recovery passkey begin/complete 端点绑定新 Passkey；如果 verify 请求设置 `revokeSessions`，服务端会撤销该账号现有会话；如果设置 `revokePasskeys`，新 Passkey 绑定完成后删除旧凭据。TOTP MFA recovery code 仍只用于 MFA bypass，不得作为账户恢复。
 
 | FrameType | POD | 端点 / 用途 |
 |-----------|-----|-------------|
 | `RecoveryKeyCreateResponse` (`159`) | `RecoveryKeyCreateResponsePod` | `POST /api/binary/auth/recovery-key/create` 和 `/rotate` 响应 |
-| `RecoveryKeyVerifyRequest` (`160`) | `RecoveryKeyVerifyRequestPod` | `POST /api/binary/auth/recovery-key/verify` 请求体；匿名、`fixed_ip` 限流、RiskControl challenge、PoW、no-store |
+| `RecoveryKeyVerifyRequest` (`160`) | `RecoveryKeyVerifyRequestPod` | `POST /api/binary/auth/recovery-key/verify` 请求体；只携带 Recovery Key、`revokeSessions`、`revokePasskeys`，不携带 account id；匿名、`fixed_ip` 限流、RiskControl challenge、PoW、no-store |
 | `RecoveryKeyVerifyResponse` (`161`) | `RecoveryKeyVerifyResponsePod` | verify 成功后返回短期 recovery session token |
 | `RecoveryKeySessionRequest` (`162`) | `StringMutationRequestPod` | `POST /api/binary/auth/recovery-key/passkey/register/begin` 请求体；complete 复用 `PasskeyRegisterCompleteRequest.MfaProofToken` 传 recovery session token |
 

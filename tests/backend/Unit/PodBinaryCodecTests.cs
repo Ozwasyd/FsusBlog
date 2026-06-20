@@ -596,10 +596,9 @@ public class PodBinaryCodecTests
         Assert.Equal(3, createDecoded.KeyVersion);
         Assert.Equal(createdAt, createDecoded.CreatedAt);
 
-        var request = new RecoveryKeyVerifyRequestCoreModel(42, "frk_test-recovery-key", RevokeSessions: true, RevokePasskeys: true);
+        var request = new RecoveryKeyVerifyRequestCoreModel("frk_test-recovery-key", RevokeSessions: true, RevokePasskeys: true);
         byte[] requestEncoded = EncodeWithWriter(writer => PodBinaryCodec.WriteRecoveryKeyVerifyRequest(request, writer));
         Assert.True(PodBinaryCodec.TryDecodeRecoveryKeyVerifyRequest(requestEncoded, out var requestDecoded));
-        Assert.Equal(42, requestDecoded.UserId);
         Assert.Equal("frk_test-recovery-key", requestDecoded.RecoveryKey);
         Assert.True(requestDecoded.RevokeSessions);
         Assert.True(requestDecoded.RevokePasskeys);

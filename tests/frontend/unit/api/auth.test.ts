@@ -245,14 +245,14 @@ describe('auth API binary base session flow', () => {
   })
 
   it('Recovery Key methods use binary identity frames', async () => {
+    const recoveryKey = 'frk_lookupid_secret'
     await createRecoveryKey()
     await rotateRecoveryKey()
     await verifyRecoveryKey({
-      userId: 42,
-      recoveryKey: 'frk_account_recovery_key',
+      recoveryKey,
       revokeSessions: true,
       revokePasskeys: true
-    })
+    } as Parameters<typeof verifyRecoveryKey>[0])
     await beginRecoveryPasskeyRegistration('recovery-session-token')
     await completeRecoveryPasskeyRegistration({
       recoverySessionToken: 'recovery-session-token',
@@ -288,6 +288,22 @@ describe('auth API binary base session flow', () => {
         body: expect.any(ArrayBuffer)
       })
     }))
+    const verifyCall = mockBinary.mock.calls.find(([request]) =>
+      request.binaryUrl === '/api/binary/auth/recovery-key/verify'
+    )?.[0]
+    expect(verifyCall).toBeTruthy()
+    const body = new Uint8Array(verifyCall?.requestOptions?.body as ArrayBuffer)
+    const view = new DataView(body.buffer, body.byteOffset, body.byteLength)
+    const recoveryKeyLength = new TextEncoder().encode(recoveryKey).byteLength
+    const payloadOffset = 16
+    expect(body.byteLength).toBe(payloadOffset + 16 + recoveryKeyLength)
+    expect(body[payloadOffset]).toBe(1)
+    expect(body[payloadOffset + 1]).toBe(1)
+    expect(view.getUint16(payloadOffset + 2, true)).toBe(0)
+    expect(view.getInt32(payloadOffset + 4, true)).toBe(0)
+    expect(view.getInt32(payloadOffset + 8, true)).toBe(recoveryKeyLength)
+    expect(view.getInt32(payloadOffset + 12, true)).toBe(recoveryKeyLength)
+    expect(new TextDecoder().decode(body.subarray(payloadOffset + 16))).toBe(recoveryKey)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryUrl: '/api/binary/auth/recovery-key/passkey/register/begin',
       frameType: FrameType.PasskeyRegisterBegin,

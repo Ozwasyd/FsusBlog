@@ -2,7 +2,7 @@
 
 本文件说明 FsusBlog API 层的设计原则与约定，是所有 API 变更的**必读前提文件**。
 
-> 最近更新：2026-06-20 — `/auth/me` 输出匿名账号容器快照，admin 权限只来自 independent admin principal。
+> 最近更新：2026-06-21 — Recovery Key verify request 不再携带 account id，改由 key 内 lookup id 定位候选记录。
 
 ---
 
@@ -41,6 +41,8 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 鉴权要求以 `/api/binary/**` 端点声明为准。公开、登录、admin、PoW、MFA、Passkey 等边界必须在 binary 端点内直接校验；不存在文本端点作为权限参照。
 
 高价值认证动作可以在既有 binary 路径上叠加 RiskControl proof，而不是新增平行登录 API。生产用户登录入口只保留 Passkey、Recovery Key 与必要 step-up；`auth.passkey.begin`、`auth.passkey.complete`、`recovery-key.verify` 必须通过 endpoint metadata 声明 action，并统一用 `RequiresRiskControlFilter` 返回 AEDS `ApiError`；缺 challenge proof 返回 428，block/throttle 返回 429。叠加 RiskControl 不删除 legacy PoW、admin step-up 或 MFA proof 边界；需要两个 proof 的端点必须明确登记到 [contracts.md](contracts.md#安全挑战契约) 与本文件头部表。`auth.login` 只作为 legacy 风控 action 名保留，不对应生产用户侧 password endpoint。
+
+Recovery Key verify 的 AEDS request 只携带 Recovery Key 明文本体与撤销选项，不接受用户输入 account id。新 Recovery Key 明文格式为 `frk_<lookupId>_<secret>`，其中 `lookupId` 是 128-bit hex 随机值；服务端只用 peppered `lookup_id_hash` 定位候选记录，再校验完整 key 的 peppered PBKDF2 hash。旧无 lookup id 的 key 不扫描全表兼容，会按通用失败和限流处理，用户需重新生成新格式 Recovery Key。
 
 强匿名凭证签发是登录态到匿名态的单向领取边界：`POST /api/binary/anonymous-credential/issue` 只能验证当前账号领取资格和频率，响应必须 `no-store`，签发审计只能保存 `user_id` 维度的领取计数、epoch、不可逆 request hash 与结果状态。服务端不得把 `user_id` 与最终 credential commitment、nullifier、proof witness 或 credential secret 建立持久映射；后续匿名评论 ticket / submit 也不得依赖该端点留下可反查账号的状态。
 

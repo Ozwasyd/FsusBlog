@@ -92,7 +92,6 @@ export interface RecoveryKeyCreateResponse {
 }
 
 export interface RecoveryKeyVerifyRequest {
-  userId: number
   recoveryKey: string
   revokeSessions?: boolean
   revokePasskeys?: boolean
@@ -612,15 +611,14 @@ function encodeMfaChallengeVerifyRequest(data: { challengeToken: string; code?: 
 
 function encodeRecoveryKeyVerifyRequest(data: RecoveryKeyVerifyRequest): Uint8Array {
   const recoveryKey = textBytes(data.recoveryKey)
-  const bytes = new Uint8Array(20 + recoveryKey.byteLength)
+  const bytes = new Uint8Array(16 + recoveryKey.byteLength)
   const view = new DataView(bytes.buffer)
-  view.setInt32(0, data.userId, true)
-  bytes[4] = data.revokeSessions ? 1 : 0
-  bytes[5] = data.revokePasskeys ? 1 : 0
-  view.setUint16(6, 0, true)
-  writeSliceRef(view, 8, { offset: 0, length: recoveryKey.byteLength })
-  view.setInt32(16, recoveryKey.byteLength, true)
-  bytes.set(recoveryKey, 20)
+  bytes[0] = data.revokeSessions ? 1 : 0
+  bytes[1] = data.revokePasskeys ? 1 : 0
+  view.setUint16(2, 0, true)
+  writeSliceRef(view, 4, { offset: 0, length: recoveryKey.byteLength })
+  view.setInt32(12, recoveryKey.byteLength, true)
+  bytes.set(recoveryKey, 16)
   return bytes
 }
 

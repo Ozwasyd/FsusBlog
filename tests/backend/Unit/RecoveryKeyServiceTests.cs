@@ -107,11 +107,55 @@ public sealed class RecoveryKeyServiceTests
     }
 
     [Fact]
+    public void RecoveryKeyVerifyRequest_DoesNotCarryCallerSuppliedUserId()
+    {
+        string models = ReadSource("src/core/Mapping/Models/ReadModels.cs");
+        string userPods = ReadSource("src/shared/Contracts/Models/UserPods.cs");
+        string codec = ReadSource("src/core/Cache/PodBinaryCodec.User.cs");
+        string endpoints = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+
+        string requestPod = ExtractBetween(
+            userPods,
+            "public readonly struct RecoveryKeyVerifyRequestPod",
+            "[StructLayout(LayoutKind.Sequential, Pack = 1)]\npublic readonly struct RecoveryKeyVerifyResponsePod");
+        string mutableRequestPod = ExtractBetween(
+            codec,
+            "private struct MutableRecoveryKeyVerifyRequestPod",
+            "[StructLayout(LayoutKind.Sequential, Pack = 1)]\n    private struct MutableRecoveryKeyVerifyResponsePod");
+        string verifyHandler = ExtractBetween(
+            endpoints,
+            "group.MapPost(\"/auth/recovery-key/verify\"",
+            "group.MapPost(\"/auth/recovery-key/passkey/register/begin\"");
+
+        Assert.Contains("RecoveryKeyVerifyRequestCoreModel(string RecoveryKey, bool RevokeSessions, bool RevokePasskeys)", models, StringComparison.Ordinal);
+        Assert.DoesNotContain("RecoveryKeyVerifyRequestCoreModel(int UserId", models, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserId", requestPod, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserId", mutableRequestPod, StringComparison.Ordinal);
+        Assert.DoesNotContain("request.UserId", verifyHandler, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RecoveryKeyService_VerifyLocatesCredentialByPepperedLookupHashOnly()
+    {
+        string source = ReadSource("src/backend/Services/Security/RecoveryKeyService.cs");
+        string verifyMethod = ExtractMethodBlock(source, "public async Task<Result<RecoveryKeyVerifyResponseCoreModel>> VerifyAsync");
+        string attemptHelper = ExtractMethodBlock(source, "private static string BuildAttemptIdentity");
+
+        Assert.Contains("LookupIdHash", source, StringComparison.Ordinal);
+        Assert.Contains("HashRecoveryKeyLookupId", source, StringComparison.Ordinal);
+        Assert.Contains("TryParseRecoveryKeyLookup", verifyMethod, StringComparison.Ordinal);
+        Assert.Contains("k.LookupIdHash == lookupIdHash", verifyMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("request.UserId", verifyMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserId", attemptHelper, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RecoveryKeyEntity_DoesNotPersistPlaintextMaterial()
     {
         string source = ReadSource("src/backend/Entities/RecoveryKeyCredential.cs");
 
         Assert.Contains("KeyHash", source, StringComparison.Ordinal);
+        Assert.Contains("LookupIdHash", source, StringComparison.Ordinal);
         Assert.Contains("KeyVersion", source, StringComparison.Ordinal);
         Assert.Contains("UsedAt", source, StringComparison.Ordinal);
         Assert.Contains("RevokedAt", source, StringComparison.Ordinal);
@@ -142,6 +186,33 @@ public sealed class RecoveryKeyServiceTests
         int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
         Assert.True(endIndex >= 0, $"Missing end marker: {end}");
         return source[startIndex..endIndex];
+    }
+
+    private static string ExtractMethodBlock(string source, string signature)
+    {
+        int start = source.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Unable to locate method signature: {signature}");
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart > start, $"Unable to locate method body: {signature}");
+
+        int depth = 0;
+        for (int i = braceStart; i < source.Length; i++)
+        {
+            if (source[i] == '{')
+            {
+                depth++;
+            }
+            else if (source[i] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[start..(i + 1)];
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
 
 }
