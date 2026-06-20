@@ -91,6 +91,8 @@ public sealed class ProductionCircuitNativeCredentialIssuer : ICircuitNativeCred
 {
     private readonly CircuitNativeCredentialIssuerOptions _options;
     private readonly CircuitNativeCredentialIssuerConfigurationStatus _status;
+    private readonly byte[] _issuerPrivateKey;
+    private readonly byte[] _issuerPublicKey;
     private readonly SemaphoreSlim _signatureSlots;
     private readonly ILogger<ProductionCircuitNativeCredentialIssuer> _logger;
 
@@ -103,7 +105,10 @@ public sealed class ProductionCircuitNativeCredentialIssuer : ICircuitNativeCred
 
         _logger = logger;
         _options = CircuitNativeCredentialIssuerOptions.FromConfiguration(configuration);
-        _status = _options.ValidateConfiguration();
+        CircuitNativeCredentialIssuerConfiguration validated = _options.ValidateConfiguration();
+        _status = validated.Status;
+        _issuerPrivateKey = validated.PrivateKey;
+        _issuerPublicKey = validated.PublicKey;
         _signatureSlots = new SemaphoreSlim(_options.MaxConcurrentSignatures, _options.MaxConcurrentSignatures);
         IssuerPublicKeyId = AnonymousCredentialIssuerService.ResolveIssuerPublicKeyId(configuration);
 
@@ -154,6 +159,16 @@ public sealed class ProductionCircuitNativeCredentialIssuer : ICircuitNativeCred
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
+            byte[] signature = ManagedCircuitNativeCredentialSigner.Sign(
+                _issuerPrivateKey,
+                _issuerPublicKey,
+                material);
+            return Result<CircuitNativeCredentialIssueResult>.Success(
+                new CircuitNativeCredentialIssueResult(IssuerPublicKeyId, signature));
+        }
+        catch (CryptographicException)
+        {
+            _logger.LogWarning("Managed circuit-native credential issuer failed closed during signature generation.");
             return Result<CircuitNativeCredentialIssueResult>.Failure(
                 ErrorCode.InfraFailure,
                 "anonymous_credential_issuer_unavailable");
@@ -197,47 +212,52 @@ internal sealed record CircuitNativeCredentialIssuerOptions(
             Math.Clamp(section.GetValue(nameof(TimeoutMs), DefaultTimeoutMs), 100, 30_000));
     }
 
-    public CircuitNativeCredentialIssuerConfigurationStatus ValidateConfiguration()
+    public CircuitNativeCredentialIssuerConfiguration ValidateConfiguration()
     {
-        bool privateKeyReadable = File.Exists(IssuerPrivateKeyPath);
-        bool publicKeyReadable = TryReadPublicKeyFileForValidation(IssuerPublicKeyPath, out byte[] publicKey);
+        bool privateKeyReadable = ManagedCircuitNativeCredentialSigner.TryReadPrivateKeyFile(
+            IssuerPrivateKeyPath,
+            out byte[] privateKey);
+        bool publicKeyReadable = ManagedCircuitNativeCredentialSigner.TryReadPublicKeyFile(
+            IssuerPublicKeyPath,
+            out byte[] publicKey);
+        bool publicKeyDerivedFromPrivateKey = false;
+        if (privateKeyReadable)
+        {
+            try
+            {
+                byte[] derivedPublicKey = ManagedCircuitNativeCredentialSigner.DerivePublicKey(privateKey);
+                publicKeyDerivedFromPrivateKey = publicKeyReadable &&
+                    CryptographicOperations.FixedTimeEquals(derivedPublicKey, publicKey);
+            }
+            catch (CryptographicException)
+            {
+                privateKeyReadable = false;
+            }
+        }
+
         string actualPublicKeyHash = publicKeyReadable
             ? Convert.ToHexStringLower(SHA256.HashData(publicKey))
             : string.Empty;
         bool publicKeyHashMatches = IssuerPublicKeyHash.Length > 0 &&
             string.Equals(actualPublicKeyHash, IssuerPublicKeyHash, StringComparison.Ordinal);
         bool supportedBackend = string.Equals(Backend, ManagedCircuitNativeBackend, StringComparison.Ordinal);
-        return new CircuitNativeCredentialIssuerConfigurationStatus(
+        bool hasRealSigningBackend = supportedBackend &&
+            privateKeyReadable &&
+            publicKeyReadable &&
+            publicKeyDerivedFromPrivateKey &&
+            publicKeyHashMatches;
+        var status = new CircuitNativeCredentialIssuerConfigurationStatus(
             Enabled,
             supportedBackend,
             privateKeyReadable,
             publicKeyReadable,
             publicKeyHashMatches,
             publicKeyHashMatches ? actualPublicKeyHash : IssuerPublicKeyHash,
-            HasRealSigningBackend: false);
-    }
-
-    private static bool TryReadPublicKeyFileForValidation(string path, out byte[] publicKey)
-    {
-        publicKey = [];
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-        {
-            return false;
-        }
-
-        try
-        {
-            publicKey = File.ReadAllBytes(path);
-            return publicKey.Length is > 0 and <= 4096;
-        }
-        catch (IOException)
-        {
-            return false;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return false;
-        }
+            hasRealSigningBackend);
+        return new CircuitNativeCredentialIssuerConfiguration(
+            status,
+            hasRealSigningBackend ? privateKey : [],
+            hasRealSigningBackend ? publicKey : []);
     }
 
     private static string NormalizePath(string? value)
@@ -269,6 +289,11 @@ internal sealed record CircuitNativeCredentialIssuerOptions(
     }
 
 }
+
+internal readonly record struct CircuitNativeCredentialIssuerConfiguration(
+    CircuitNativeCredentialIssuerConfigurationStatus Status,
+    byte[] PrivateKey,
+    byte[] PublicKey);
 
 internal readonly record struct CircuitNativeCredentialIssuerConfigurationStatus(
     bool Enabled,

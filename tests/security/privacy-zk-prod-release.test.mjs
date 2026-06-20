@@ -54,10 +54,12 @@ test('privacy ZK production release gate fails closed when enabled smoke evidenc
   withTempDir((dir) => {
     const verifyingKeyHash = hex('a')
     const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
+    const issuerPrivateKey = writeText(dir, 'issuer-private.key', 'issuer-secret')
     const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
     const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
     const config = writeJson(dir, 'enabled.json', enabledConfig({
       nativeLibrary,
+      issuerPrivateKey,
       issuerPublicKey,
       verifyingKeyHash
     }))
@@ -139,6 +141,7 @@ test('privacy ZK production release gate rejects hashing-only smoke evidence', (
   withTempDir((dir) => {
     const verifyingKeyHash = hex('a')
     const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
+    const issuerPrivateKey = writeText(dir, 'issuer-private.key', 'issuer-secret')
     const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
     const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
     const smoke = writeJson(dir, 'smoke.json', {
@@ -156,6 +159,7 @@ test('privacy ZK production release gate rejects hashing-only smoke evidence', (
     })
     const config = writeJson(dir, 'enabled.json', enabledConfig({
       nativeLibrary,
+      issuerPrivateKey,
       issuerPublicKey,
       verifyingKeyHash,
       smoke
@@ -263,6 +267,7 @@ function writeEnabledReleaseFixture(dir, options = {}) {
   const smokeEvidence = completeSmokeEvidence(dir, options.smokeOverrides ?? {})
   const verifyingKeyHash = smokeEvidence.verifyingKeyHash
   const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
+  const issuerPrivateKey = writeText(dir, 'issuer-private.key', 'issuer-secret')
   const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
   const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
   const smoke = writeJson(dir, 'smoke.json', smokeEvidence)
@@ -273,6 +278,7 @@ function writeEnabledReleaseFixture(dir, options = {}) {
       options.rootBootstrapOverrides ?? {}))
   const config = writeJson(dir, 'enabled.json', enabledConfig({
     nativeLibrary,
+    issuerPrivateKey,
     issuerPublicKey,
     verifyingKeyHash,
     smoke
@@ -281,6 +287,7 @@ function writeEnabledReleaseFixture(dir, options = {}) {
   return {
     verifyingKeyHash,
     nativeLibrary,
+    issuerPrivateKey,
     issuerPublicKey,
     setup,
     smoke,
@@ -335,7 +342,7 @@ function completeSmokeEvidence(dir, overrides = {}) {
   }
 }
 
-function enabledConfig({ nativeLibrary, issuerPublicKey, verifyingKeyHash, smoke }) {
+function enabledConfig({ nativeLibrary, issuerPrivateKey, issuerPublicKey, verifyingKeyHash, smoke }) {
   return {
     AnonymousIdentity: {
       ZkProd: {
@@ -359,6 +366,7 @@ function enabledConfig({ nativeLibrary, issuerPublicKey, verifyingKeyHash, smoke
     },
     AnonymousCredentialIssuer: {
       CircuitNative: {
+        IssuerPrivateKeyPath: issuerPrivateKey,
         IssuerPublicKeyPath: issuerPublicKey
       }
     }

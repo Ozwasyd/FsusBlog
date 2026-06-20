@@ -109,13 +109,50 @@ public sealed class AnonymousCredentialIssuerTests
     }
 
     [Fact]
-    public async Task ProductionCircuitNativeCredentialIssuer_ConfiguredManagedBackendWithoutSigner_FailsClosed()
+    public async Task ProductionCircuitNativeCredentialIssuer_ConfiguredManagedBackend_SignsAndVerifiesCircuitNativeRequest()
+    {
+        string tempRoot = Path.Combine(Path.GetTempPath(), $"fsus-circuit-native-issuer-sign-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+        try
+        {
+            byte[] privateKey = CreateManagedCircuitNativePrivateKey();
+            byte[] publicKey = ManagedCircuitNativeCredentialSigner.DerivePublicKey(privateKey);
+            IConfiguration configuration = CreateManagedCircuitNativeIssuerConfiguration(tempRoot, privateKey: privateKey);
+            using var issuer = new ProductionCircuitNativeCredentialIssuer(
+                configuration,
+                NullLogger<ProductionCircuitNativeCredentialIssuer>.Instance);
+            CircuitNativeCredentialIssueMaterial material = CreateManagedCircuitNativeIssueMaterial();
+
+            Result<CircuitNativeCredentialIssueResult> issued = await issuer.SignAsync(material, CancellationToken.None);
+
+            Assert.True(issuer.IsConfigured);
+            Assert.True(issued.IsSuccess, issued.Error.Message);
+            Assert.Equal("issuer-key:test", issued.Value.IssuerPublicKeyId);
+            Assert.Equal(96, issued.Value.IssuerSignature.Length);
+            Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(publicKey)), issuer.IssuerPublicKeyHash);
+            Assert.True(ManagedCircuitNativeCredentialSigner.Verify(publicKey, material, issued.Value.IssuerSignature));
+            Assert.False(ManagedCircuitNativeCredentialSigner.Verify(
+                publicKey,
+                material with { CredentialEpoch = material.CredentialEpoch + 1 },
+                issued.Value.IssuerSignature));
+            byte[] tamperedSignature = [.. issued.Value.IssuerSignature];
+            tamperedSignature[^1] ^= 0x80;
+            Assert.False(ManagedCircuitNativeCredentialSigner.Verify(publicKey, material, tamperedSignature));
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ProductionCircuitNativeCredentialIssuer_ConfiguredManagedBackendWithoutPrivateKey_FailsClosed()
     {
         string tempRoot = Path.Combine(Path.GetTempPath(), $"fsus-circuit-native-issuer-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempRoot);
         try
         {
-            IConfiguration configuration = CreateManagedCircuitNativeIssuerConfiguration(tempRoot);
+            IConfiguration configuration = CreateManagedCircuitNativeIssuerConfiguration(tempRoot, writePrivateKey: false);
             using var issuer = new ProductionCircuitNativeCredentialIssuer(
                 configuration,
                 NullLogger<ProductionCircuitNativeCredentialIssuer>.Instance);
@@ -469,13 +506,18 @@ public sealed class AnonymousCredentialIssuerTests
 
     private static IConfiguration CreateManagedCircuitNativeIssuerConfiguration(
         string tempRoot,
-        string? publicKeyHashOverride = null)
+        string? publicKeyHashOverride = null,
+        byte[]? privateKey = null,
+        bool writePrivateKey = true)
     {
         string privateKeyPath = Path.Combine(tempRoot, "issuer.sk");
         string publicKeyPath = Path.Combine(tempRoot, "issuer.pk");
-        byte[] privateKey = Enumerable.Range(1, 32).Select(static value => (byte)value).ToArray();
-        byte[] publicKey = SHA256.HashData(privateKey);
-        File.WriteAllBytes(privateKeyPath, privateKey);
+        privateKey ??= CreateManagedCircuitNativePrivateKey();
+        byte[] publicKey = ManagedCircuitNativeCredentialSigner.DerivePublicKey(privateKey);
+        if (writePrivateKey)
+        {
+            File.WriteAllBytes(privateKeyPath, privateKey);
+        }
         File.WriteAllBytes(publicKeyPath, publicKey);
         string publicKeyHash = publicKeyHashOverride ?? Convert.ToHexStringLower(SHA256.HashData(publicKey));
 
@@ -493,6 +535,9 @@ public sealed class AnonymousCredentialIssuerTests
             })
             .Build();
     }
+
+    private static byte[] CreateManagedCircuitNativePrivateKey()
+        => [.. Enumerable.Range(1, 32).Select(static value => (byte)value)];
 
     private static CircuitNativeCredentialIssueMaterial CreateManagedCircuitNativeIssueMaterial()
         => new(

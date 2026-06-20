@@ -137,6 +137,12 @@ function checkEnabledProductionReadiness() {
       ?? zkProd.IssuerPublicKeyPath)
   checkExistingFile('credential-issuer-public-key', issuerPublicKeyPath)
 
+  const issuerPrivateKeyPath = normalizeString(
+    process.env.FSUSBLOG_ZK_ISSUER_PRIVATE_KEY
+      ?? credentialIssuer.IssuerPrivateKeyPath
+      ?? zkProd.IssuerPrivateKeyPath)
+  checkExistingFile('credential-issuer-private-key', issuerPrivateKeyPath)
+
   const smokeEvidencePath = normalizeString(
     args.smokeEvidence
       ?? process.env.FSUSBLOG_ZK_PROD_SMOKE_EVIDENCE
