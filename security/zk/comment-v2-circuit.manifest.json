@@ -192,7 +192,7 @@
   },
   "r1cs_source": {
     "path": "circuits/anonymous-comment-v2/comment_v2.circuit.json",
-    "sha256": "321928cdd99162439b8dbd04119745edf021a4a69e0203d80772a0c03b8f4879",
+    "sha256": "c09d1c7de47e3f557bb0d380f87a736670f580f50bde424375369315464aede8",
     "builder": "tools/crypto/build-zk-comment-v2-r1cs.mjs",
     "check_command": "node tools/crypto/build-zk-comment-v2-r1cs.mjs --check"
   },
@@ -204,7 +204,7 @@
     "estimated_wasm_prover_p95_ms": 2400
   },
   "artifact_hashes": {
-    "r1cs_sha256": "4f130bb78c5705c3eebfd2075d4e263438edb092084eb18a70ee8c3e401a3c3c"
+    "r1cs_sha256": "cc388075ddbce1ef2fd7ec9bd7369539d876e4ccd485feed2e9d019c6d4424a1"
   },
   "artifact_paths": {
     "r1cs": "artifacts/zk/comment-v2/comment_v2.r1cs",

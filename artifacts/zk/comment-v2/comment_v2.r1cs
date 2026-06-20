@@ -173,7 +173,20 @@
       "depth": 128,
       "hash": "mimc7-bn254.v1",
       "root": "revocation_root",
-      "witness": "revocation_non_membership_witness"
+      "witness": "revocation_non_membership_witness",
+      "witness_shape": {
+        "circuit_fields": [
+          "leafKey",
+          "siblingHashes[0..127]"
+        ],
+        "fixture_integrity_fields": [
+          "witnessHash"
+        ],
+        "path_depth": 128,
+        "sibling_digest_algorithm": "sha256-outside-circuit",
+        "witness_hash_circuit_input": false,
+        "witness_hash_role": "fixture_integrity_only"
+      }
     }
   },
   "private_witness": [
@@ -208,7 +221,7 @@
   ],
   "schema": "fsusblog.zk.r1cs-ir.v1",
   "source_path": "circuits/anonymous-comment-v2/comment_v2.circuit.json",
-  "source_sha256": "321928cdd99162439b8dbd04119745edf021a4a69e0203d80772a0c03b8f4879",
+  "source_sha256": "c09d1c7de47e3f557bb0d380f87a736670f580f50bde424375369315464aede8",
   "tamper_case_bindings": {
     "inject-user-id-public-input": "identity-field-absence",
     "inject-username-private-witness": "identity-field-absence",

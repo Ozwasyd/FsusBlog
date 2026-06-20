@@ -202,6 +202,20 @@ test('comment v2 circuit source and generated R1CS artifact are hash-bound', () 
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
 })
 
+test('comment v2 revocation witness shape keeps fixture hash outside circuit inputs', () => {
+  const circuit = readJson(circuitPath)
+  const sourceDocument = readJson(circuit.r1cs_source.path)
+  const witnessShape = sourceDocument.primitives.revocation_non_membership.witness_shape ?? {}
+
+  assert.equal(witnessShape.path_depth, 128)
+  assert.deepEqual(witnessShape.circuit_fields, [
+    'leafKey',
+    'siblingHashes[0..127]'
+  ])
+  assert.equal(witnessShape.witness_hash_role, 'fixture_integrity_only')
+  assert.equal(witnessShape.witness_hash_circuit_input, false)
+})
+
 test('comment v2 handoff consumers point to the active unversioned issue set', () => {
   const setup = readJson(setupPath)
   const config = readJson(configPath)

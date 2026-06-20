@@ -83,7 +83,20 @@
       "hash": "mimc7-bn254.v1",
       "depth": 128,
       "root": "revocation_root",
-      "witness": "revocation_non_membership_witness"
+      "witness": "revocation_non_membership_witness",
+      "witness_shape": {
+        "path_depth": 128,
+        "circuit_fields": [
+          "leafKey",
+          "siblingHashes[0..127]"
+        ],
+        "fixture_integrity_fields": [
+          "witnessHash"
+        ],
+        "witness_hash_role": "fixture_integrity_only",
+        "witness_hash_circuit_input": false,
+        "sibling_digest_algorithm": "sha256-outside-circuit"
+      }
     }
   },
   "constraint_groups": [

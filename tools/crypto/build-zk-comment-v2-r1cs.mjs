@@ -143,12 +143,23 @@ function validateSource(source) {
   for (const assertion of requiredAssertions) {
     assert(coverage.has(assertion), `constraint_groups do not cover ${assertion}`)
   }
+  validateRevocationWitnessShape(source)
 
   const estimatedConstraints = Number(source.metrics?.estimated_constraints)
   assert(Number.isSafeInteger(estimatedConstraints) && estimatedConstraints > 0, 'metrics.estimated_constraints is required')
   assert(estimatedConstraints <= 250000, 'metrics.estimated_constraints exceeds comment.v2 budget')
 
   return { publicInputs, privateWitness, groups, estimatedConstraints }
+}
+
+function validateRevocationWitnessShape(source) {
+  const shape = source.primitives?.revocation_non_membership?.witness_shape ?? {}
+  assert(shape.path_depth === 128, 'revocation_non_membership.witness_shape.path_depth must be 128')
+  assert(
+    JSON.stringify(shape.circuit_fields ?? []) === JSON.stringify(['leafKey', 'siblingHashes[0..127]']),
+    'revocation_non_membership.witness_shape.circuit_fields must bind leafKey and 128 siblings')
+  assert(shape.witness_hash_role === 'fixture_integrity_only', 'revocation_non_membership.witness_hash_role must be fixture_integrity_only')
+  assert(shape.witness_hash_circuit_input === false, 'revocation_non_membership.witness_hash_circuit_input must be false')
 }
 
 function buildArtifact(source, sourceSha256, normalized) {

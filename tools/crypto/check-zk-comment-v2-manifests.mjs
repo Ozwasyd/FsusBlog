@@ -373,6 +373,26 @@ function checkCircuit(circuit, setup) {
   }
 }
 
+function checkCircuitSource(source) {
+  const revocation = source.primitives?.revocation_non_membership ?? {}
+  const shape = revocation.witness_shape ?? {}
+  if (Number(shape.path_depth) !== 128) {
+    fail('source.revocation_non_membership.witness_shape.path_depth must be 128')
+  }
+  const circuitFields = asArray(shape.circuit_fields).join('\n')
+  for (const token of ['leafKey', 'siblingHashes[0..127]']) {
+    if (!circuitFields.includes(token)) {
+      fail(`source.revocation_non_membership.witness_shape.circuit_fields missing ${token}`)
+    }
+  }
+  if (shape.witness_hash_role !== 'fixture_integrity_only') {
+    fail('source.revocation_non_membership.witness_hash_role must be fixture_integrity_only')
+  }
+  if (shape.witness_hash_circuit_input !== false) {
+    fail('source.revocation_non_membership.witness_hash_circuit_input must be false')
+  }
+}
+
 function checkTamperManifest(tamper) {
   equals('tamper.schema', tamper.schema, 'fsusblog.zk.tamper-cases.v1')
   equals('tamper.circuit_id', tamper.circuit_id, expected.circuitId)
@@ -677,6 +697,9 @@ function writeEvidence(status, feasibilityStatus, selectedCandidate) {
 }
 
 const circuit = readJson(paths.circuit)
+const rawCircuitSourcePath = String(circuit.r1cs_source?.path ?? '').trim()
+const circuitSourcePath = rawCircuitSourcePath.length > 0 ? resolveRepoPath(rawCircuitSourcePath) : ''
+const circuitSource = circuitSourcePath.length > 0 && fs.existsSync(circuitSourcePath) ? readJson(circuitSourcePath) : {}
 const tamper = readJson(paths.tamper)
 const setup = readJson(paths.setup)
 const config = readJson(paths.config)
@@ -684,6 +707,7 @@ const feasibility = readJson(paths.feasibility)
 const circuitHash = fs.existsSync(paths.circuit) ? sha256File(paths.circuit) : ''
 
 checkCircuit(circuit, setup)
+checkCircuitSource(circuitSource)
 checkTamperManifest(tamper)
 checkSetup(setup, circuitHash)
 checkConfig(config, setup)

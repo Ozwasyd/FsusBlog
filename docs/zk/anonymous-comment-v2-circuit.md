@@ -125,6 +125,13 @@ siblings reconstruct the public root without reading the full revoked set. The
 legacy `legacy-sha256-hash-tree.v1` accumulator is only a migration/governance
 helper and is excluded from production root snapshots.
 
+`witnessHash` is not part of the Groth16 circuit input set. It binds backend and
+cross-stack fixture evidence only, because its sibling digest uses SHA-256
+outside the circuit. The circuit source therefore records
+`witness_hash_role=fixture_integrity_only` and
+`witness_hash_circuit_input=false`; the in-circuit witness fields are `leafKey`
+and `siblingHashes[0..127]`.
+
 ## Security Assertions
 
 The circuit must prove exactly these assertions for the ticket path:
