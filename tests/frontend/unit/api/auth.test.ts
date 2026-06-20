@@ -244,6 +244,32 @@ describe('auth API binary base session flow', () => {
     }))
   })
 
+  it('Passkey credential mutations send step-up proof headers without legacy proof bodies', async () => {
+    await deletePasskey(7, { mfaProofToken: 'proof-delete-passkey' })
+    await renamePasskey(7, 'Phone', { mfaProofToken: 'proof-rename-passkey' })
+
+    const remove = mockBinary.mock.calls.find(([request]) =>
+      request.binaryUrl === '/api/binary/auth/passkey/credentials/7'
+    )?.[0]
+    const rename = mockBinary.mock.calls.find(([request]) =>
+      request.binaryUrl === '/api/binary/auth/passkey/credentials/7/name'
+    )?.[0]
+
+    expect(remove?.requestOptions).toEqual(expect.objectContaining({
+      method: 'DELETE',
+      headers: expect.any(Headers)
+    }))
+    expect(remove?.requestOptions).not.toHaveProperty('body')
+    expect((remove?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-delete-passkey')
+
+    expect(rename?.requestOptions).toEqual(expect.objectContaining({
+      method: 'PUT',
+      headers: expect.any(Headers),
+      body: expect.any(ArrayBuffer)
+    }))
+    expect((rename?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-rename-passkey')
+  })
+
   it('Recovery Key methods use binary identity frames', async () => {
     const recoveryKey = 'frk_lookupid_secret'
     await createRecoveryKey()
@@ -320,5 +346,29 @@ describe('auth API binary base session flow', () => {
         body: expect.any(ArrayBuffer)
       })
     }))
+  })
+
+  it('Recovery Key create and rotate send step-up proof headers without legacy proof bodies', async () => {
+    await createRecoveryKey({ mfaProofToken: 'proof-create-recovery-key' })
+    await rotateRecoveryKey({ mfaProofToken: 'proof-rotate-recovery-key' })
+
+    const create = mockBinary.mock.calls.find(([request]) =>
+      request.binaryUrl === '/api/binary/auth/recovery-key/create'
+    )?.[0]
+    const rotate = mockBinary.mock.calls.find(([request]) =>
+      request.binaryUrl === '/api/binary/auth/recovery-key/rotate'
+    )?.[0]
+
+    for (const [call, proof] of [
+      [create, 'proof-create-recovery-key'],
+      [rotate, 'proof-rotate-recovery-key']
+    ] as const) {
+      expect(call?.requestOptions).toEqual(expect.objectContaining({
+        method: 'POST',
+        headers: expect.any(Headers)
+      }))
+      expect(call?.requestOptions).not.toHaveProperty('body')
+      expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe(proof)
+    }
   })
 })

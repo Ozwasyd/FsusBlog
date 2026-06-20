@@ -126,6 +126,22 @@ public sealed class EndpointPolicyContractTests
         AssertStepUpBoundary(recoveryRotate, "UserSecurityStepUpActions.RecoveryKeyRotate");
         AssertStepUpBoundary(passkeyDelete, "UserSecurityStepUpActions.PasskeyDelete");
         AssertStepUpBoundary(passkeyRename, "UserSecurityStepUpActions.PasskeyRename");
+        AssertAnonymousCredentialMutationRejectsBodyProof(recoveryCreate);
+        AssertAnonymousCredentialMutationRejectsBodyProof(recoveryRotate);
+        AssertAnonymousCredentialMutationRejectsBodyProof(passkeyDelete);
+        AssertAnonymousCredentialMutationRejectsBodyProof(passkeyRename);
+
+        string stepUpReader = ExtractBetween(
+            source,
+            "private static async Task<(UserSecurityStepUpProof Proof, ErrorDetail Error)> ReadUserSecurityStepUpProofAsync",
+            "private static bool HasBinaryRequestBody");
+        Assert.Contains("AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()", stepUpReader, StringComparison.Ordinal);
+        Assert.Contains("ANONYMOUS_STEP_UP_BODY_PROOF_REJECTED", stepUpReader, StringComparison.Ordinal);
+        Assert.Matches(
+            new Regex(
+                @"allowPasswordBody\s*&&\s*!AnonymousIdentityRuntime[.]IsAnonymousIdentityModeEnabled[(][)]\s*&&\s*HasBinaryRequestBody",
+                RegexOptions.CultureInvariant),
+            stepUpReader);
 
         string serviceRegistration = ReadRepoFile(
             "src",
@@ -481,6 +497,14 @@ public sealed class EndpointPolicyContractTests
         Assert.Contains(action, handler, StringComparison.Ordinal);
         Assert.DoesNotContain("ValidateAndConsumeProofTokenAsync", handler, StringComparison.Ordinal);
         Assert.DoesNotContain("MfaEnabled", handler, StringComparison.Ordinal);
+    }
+
+    private static void AssertAnonymousCredentialMutationRejectsBodyProof(string handler)
+    {
+        Assert.Contains("allowPasswordBody: false", handler, StringComparison.Ordinal);
+        Assert.DoesNotContain("allowPasswordBody: true", handler, StringComparison.Ordinal);
+        Assert.DoesNotContain("MfaPasswordProofRequest", handler, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaPasswordProofRequest", handler, StringComparison.Ordinal);
     }
 
     private static void AssertAnonymousMfaStepUpBoundary(string handler, string action)

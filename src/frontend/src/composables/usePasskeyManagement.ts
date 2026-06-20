@@ -83,11 +83,11 @@ export function usePasskeyManagement() {
     }
   }
 
-  const removePasskey = async (id: number): Promise<boolean> => {
+  const removePasskey = async (id: number, mfaProofToken?: string | null): Promise<boolean> => {
     loading.value = true
     error.value = null
     try {
-      await deletePasskey(id)
+      await deletePasskey(id, { mfaProofToken })
       credentials.value = credentials.value.filter(c => c.id !== id)
       return true
     } catch (e: any) {
@@ -98,11 +98,11 @@ export function usePasskeyManagement() {
     }
   }
 
-  const renamePasskeyCredential = async (id: number, name: string): Promise<boolean> => {
+  const renamePasskeyCredential = async (id: number, name: string, mfaProofToken?: string | null): Promise<boolean> => {
     loading.value = true
     error.value = null
     try {
-      await renamePasskey(id, name)
+      await renamePasskey(id, name, { mfaProofToken })
       const cred = credentials.value.find(c => c.id === id)
       if (cred) cred.deviceFriendlyName = name
       return true

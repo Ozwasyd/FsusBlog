@@ -442,7 +442,10 @@ export const createRecoveryKey = (config?: ApiRequestConfig) =>
     binaryUrl: '/api/binary/auth/recovery-key/create',
     frameType: FrameType.RecoveryKeyCreateResponse,
     signal: config?.signal as AbortSignal | undefined,
-    requestOptions: { method: 'POST' }
+    requestOptions: {
+      method: 'POST',
+      headers: mfaProofHeaders(config?.mfaProofToken)
+    }
   })
 
 export const rotateRecoveryKey = (config?: ApiRequestConfig) =>
@@ -450,7 +453,10 @@ export const rotateRecoveryKey = (config?: ApiRequestConfig) =>
     binaryUrl: '/api/binary/auth/recovery-key/rotate',
     frameType: FrameType.RecoveryKeyCreateResponse,
     signal: config?.signal as AbortSignal | undefined,
-    requestOptions: { method: 'POST' }
+    requestOptions: {
+      method: 'POST',
+      headers: mfaProofHeaders(config?.mfaProofToken)
+    }
   })
 
 export const verifyRecoveryKey = (data: RecoveryKeyVerifyRequest, config?: ApiRequestConfig) =>
@@ -542,7 +548,10 @@ export const deletePasskey = (id: number, config?: ApiRequestConfig) =>
     binaryUrl: `/api/binary/auth/passkey/credentials/${id}`,
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
-    requestOptions: { method: 'DELETE' }
+    requestOptions: {
+      method: 'DELETE',
+      headers: mfaProofHeaders(config?.mfaProofToken)
+    }
   })
 
 export const renamePasskey = (id: number, name: string, config?: ApiRequestConfig) =>
@@ -552,6 +561,7 @@ export const renamePasskey = (id: number, name: string, config?: ApiRequestConfi
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
       method: 'PUT',
+      headers: mfaProofHeaders(config?.mfaProofToken),
       body: encodeAedsFrame(FrameType.PasskeyRenameRequest, encodeStringMutationRequest(name))
     }
   })

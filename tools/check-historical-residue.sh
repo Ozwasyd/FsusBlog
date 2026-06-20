@@ -132,6 +132,20 @@ run_residue_check \
   src/frontend/src src/backend/Modules/Endpoints/Binary docs tests/backend/Unit
 
 run_residue_check \
+  "anonymous step-up password body fallback" \
+  "anonymous step-up password body fallback residue detected" \
+  'allowPasswordBody:\s*true' \
+  "" \
+  src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs
+
+run_residue_check \
+  "frontend anonymous step-up password proof payloads" \
+  "frontend anonymous step-up password proof payload residue detected" \
+  '\b(?:FrameType[.]MfaPasswordProofRequest|MfaPasswordProofRequest|encodeMfaPasswordProofRequest)\b' \
+  "" \
+  src/frontend/src
+
+run_residue_check \
   "legacy password login form" \
   "legacy password login form residue detected" \
   '\b(?:name|type|v-model)=["'\''][^"'\'']*(?:password|Password)|\b(?:passwordLogin|loginWithPassword|handlePasswordLogin)\b|\bFrameType[.]AuthLoginRequest\b' \

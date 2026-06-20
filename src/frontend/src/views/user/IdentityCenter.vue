@@ -572,8 +572,20 @@ const savePasskeyName = async (id: number): Promise<void> => {
     return
   }
 
-  await renamePasskeyCredential(id, passkeyEditName.value.trim())
-  passkeyEditingId.value = null
+  try {
+    const proof = await startMfaChallenge('passkey.rename') as MfaChallengeResult
+    if (!proof.verified || !proof.proofToken) {
+      passkeyError.value = '请先完成匿名账号敏感操作校验。'
+      return
+    }
+
+    const renamed = await renamePasskeyCredential(id, passkeyEditName.value.trim(), proof.proofToken)
+    if (renamed) {
+      passkeyEditingId.value = null
+    }
+  } catch (error) {
+    passkeyError.value = toAppError(error, '通行密钥重命名失败').message || '通行密钥重命名失败'
+  }
 }
 
 const confirmDeletePasskey = async (id: number): Promise<void> => {
@@ -586,7 +598,17 @@ const confirmDeletePasskey = async (id: number): Promise<void> => {
     return
   }
 
-  await removePasskey(id)
+  try {
+    const proof = await startMfaChallenge('passkey.delete') as MfaChallengeResult
+    if (!proof.verified || !proof.proofToken) {
+      passkeyError.value = '请先完成匿名账号敏感操作校验。'
+      return
+    }
+
+    await removePasskey(id, proof.proofToken)
+  } catch (error) {
+    passkeyError.value = toAppError(error, '通行密钥删除失败').message || '通行密钥删除失败'
+  }
 }
 
 const onPasskeyRegistered = async (): Promise<void> => {
@@ -606,9 +628,18 @@ const issueRecoveryKey = async (mode: 'create' | 'rotate'): Promise<void> => {
   recoveryLoading.value = true
   recoveryKeyError.value = ''
   try {
+    const proof = mode === 'create'
+      ? await startMfaChallenge('recovery-key.create') as MfaChallengeResult
+      : await startMfaChallenge('recovery-key.rotate') as MfaChallengeResult
+    if (!proof.verified || !proof.proofToken) {
+      recoveryKeyError.value = '请先完成匿名账号敏感操作校验。'
+      return
+    }
+
+    const proofToken = proof.proofToken
     const response = mode === 'create'
-      ? await createRecoveryKey()
-      : await rotateRecoveryKey()
+      ? await createRecoveryKey({ mfaProofToken: proofToken })
+      : await rotateRecoveryKey({ mfaProofToken: proofToken })
     setRecoveryKeyResponse(response)
     toast.success(mode === 'create' ? 'Recovery Key 已创建' : 'Recovery Key 已轮换')
   } catch (error) {

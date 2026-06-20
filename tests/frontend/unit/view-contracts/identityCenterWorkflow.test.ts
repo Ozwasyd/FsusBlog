@@ -18,6 +18,7 @@ describe('identity center workflow contract', () => {
   const router = readRepoFile('src/frontend/src/router/index.ts')
   const accountNav = readRepoFile('src/frontend/src/layouts/accountNav.ts')
   const identityCenter = readRepoFile('src/frontend/src/views/user/IdentityCenter.vue')
+  const passkeyManagement = readRepoFile('src/frontend/src/composables/usePasskeyManagement.ts')
   const profile = readRepoFile('src/frontend/src/views/user/Profile.vue')
   const userViewSources = listRepoFiles('src/frontend/src/views/user')
     .filter((file) => /\.(vue|ts)$/.test(file))
@@ -79,7 +80,13 @@ describe('identity center workflow contract', () => {
     expect(identityCenter).toContain('revokeOtherSessions')
     expect(identityCenter).toContain('deleteAccount')
     expect(identityCenter).toContain("startMfaChallenge('account.delete')")
+    expect(identityCenter).toContain("startMfaChallenge('passkey.delete')")
+    expect(identityCenter).toContain("startMfaChallenge('passkey.rename')")
+    expect(identityCenter).toContain("startMfaChallenge('recovery-key.create')")
+    expect(identityCenter).toContain("startMfaChallenge('recovery-key.rotate')")
     expect(identityCenter).toContain('mfaProofToken: proof.proofToken')
+    expect(identityCenter).toContain('createRecoveryKey({ mfaProofToken: proofToken })')
+    expect(identityCenter).toContain('rotateRecoveryKey({ mfaProofToken: proofToken })')
     expect(identityCenter).toContain("confirmText: 'DELETE'")
     expect(identityCenter).toContain('匿名账号敏感操作校验')
     expect(identityCenter).toContain('注销账户')
@@ -106,6 +113,14 @@ describe('identity center workflow contract', () => {
     ]) {
       expect(userViewSources).not.toContain(token)
     }
+  })
+
+  it('routes passkey mutations through header-only step-up proof tokens', () => {
+    expect(passkeyManagement).toContain('removePasskey = async (id: number, mfaProofToken?: string | null)')
+    expect(passkeyManagement).toContain('deletePasskey(id, { mfaProofToken })')
+    expect(passkeyManagement).toContain('renamePasskeyCredential = async (id: number, name: string, mfaProofToken?: string | null)')
+    expect(passkeyManagement).toContain('renamePasskey(id, name, { mfaProofToken })')
+    expect(passkeyManagement).not.toContain('MfaPasswordProofRequest')
   })
 
   it('keeps page states explicit for loading, empty, and recoverable errors', () => {

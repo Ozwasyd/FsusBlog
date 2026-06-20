@@ -1041,7 +1041,7 @@ public static partial class BinaryEndpoints
                 stepUp,
                 UserSecurityStepUpActions.RecoveryKeyCreate,
                 aeds,
-                allowPasswordBody: true,
+                allowPasswordBody: false,
                 cancellationToken);
             if (stepUpResult is { } rejected)
             {
@@ -1069,7 +1069,7 @@ public static partial class BinaryEndpoints
                 stepUp,
                 UserSecurityStepUpActions.RecoveryKeyRotate,
                 aeds,
-                allowPasswordBody: true,
+                allowPasswordBody: false,
                 cancellationToken);
             if (stepUpResult is { } rejected)
             {
@@ -1379,7 +1379,7 @@ public static partial class BinaryEndpoints
                 stepUp,
                 UserSecurityStepUpActions.PasskeyDelete,
                 aeds,
-                allowPasswordBody: true,
+                allowPasswordBody: false,
                 cancellationToken);
             if (stepUpResult is { } rejected)
             {
@@ -1457,7 +1457,10 @@ public static partial class BinaryEndpoints
         var proof = await ReadUserSecurityStepUpProofAsync(httpContext, aeds, allowPasswordBody, cancellationToken);
         if (proof.Error.Code != ErrorCode.None)
         {
-            return (proof.Error, StatusCodes.Status400BadRequest);
+            int statusCode = string.Equals(proof.Error.Message, "ANONYMOUS_STEP_UP_BODY_PROOF_REJECTED", StringComparison.Ordinal)
+                ? StatusCodes.Status428PreconditionRequired
+                : StatusCodes.Status400BadRequest;
+            return (proof.Error, statusCode);
         }
 
         UserSecurityStepUpResult result = await stepUp.VerifyAsync(
@@ -1483,7 +1486,12 @@ public static partial class BinaryEndpoints
             : string.Empty;
         string password = string.Empty;
 
-        if (allowPasswordBody && HasBinaryRequestBody(httpContext))
+        if (allowPasswordBody && AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled() && HasBinaryRequestBody(httpContext))
+        {
+            return (default, ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_STEP_UP_BODY_PROOF_REJECTED"));
+        }
+
+        if (allowPasswordBody && !AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled() && HasBinaryRequestBody(httpContext))
         {
             var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaPasswordProofRequest, cancellationToken);
             if (!payload.IsSuccess)
