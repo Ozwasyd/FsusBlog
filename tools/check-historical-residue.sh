@@ -5,6 +5,8 @@ SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROOT_DIR="${FSUSBLOG_HISTORICAL_RESIDUE_ROOT:-$SCRIPT_ROOT}"
 cd "$ROOT_DIR"
 
+IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX='^(docs/(api/(design|contracts)[.]md|database-migration[.]md|anonymous-identity-smoke-flow[.]md)|src/backend/Infrastructure/Operations/LegacyIdentityColdStartResetOperation[.]cs|tools/db/.*|tests/(backend|frontend)/.*)$'
+
 run_residue_check() {
   local description="$1"
   local failure_message="$2"
@@ -121,5 +123,47 @@ run_residue_check \
   '\bLegacyModernAcAutomaton\b|\bUseLegacyChildRangeAutomaton\b|\bFSUSBLOG_SECURITY_MODERN_AC_USE_LEGACY_CHILD_RANGE\b|FsusBlog\.Security\.ModernAcAutomaton\.UseLegacyChildRange|\b_legacyFallback\b' \
   "" \
   src/backend/Infrastructure/Helpers/Security tests/backend
+
+run_residue_check \
+  "legacy anonymous account auth contracts" \
+  "legacy anonymous account auth contract residue detected" \
+  '\b(?:FrameType|AedsFrameType)\.Auth(?:Login|Register)Request\b|binaryUrl:\s*["'\'']/api/binary/auth/(?:login|register)["'\'']|group[.]MapPost[(]["'\'']/auth/(?:login|register)["'\'']|export\s+interface\s+(?:Login|Register)Dto\b|function\s+encodeAuth(?:Login|Register)Request\b' \
+  "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
+  src/frontend/src src/backend/Modules/Endpoints/Binary docs tests/backend/Unit
+
+run_residue_check \
+  "legacy password login form" \
+  "legacy password login form residue detected" \
+  '\b(?:name|type|v-model)=["'\''][^"'\'']*(?:password|Password)|\b(?:passwordLogin|loginWithPassword|handlePasswordLogin)\b|\bFrameType[.]AuthLoginRequest\b' \
+  "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
+  src/frontend/src/views/auth/Login.vue
+
+run_residue_check \
+  "legacy user profile credential fields" \
+  "legacy user profile credential residue detected" \
+  '\b(?:profileOldPassword|profileNewPassword|profileConfirmPassword|deleteAccountPassword|deleteAccountState|passwordForm|updateUsername|updatePassword)\b|账号信息|安全验证' \
+  "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
+  src/frontend/src/views/user/Profile.vue src/frontend/src/views/user/IdentityCenter.vue src/frontend/src/components/user
+
+run_residue_check \
+  "legacy admin password reset governance" \
+  "legacy admin password reset governance residue detected" \
+  '\b(?:reset-pwd|AdminResetPwdDto|AdminResetUserPasswordRequest|adminResetPassword|encodeAdminResetPasswordRequest|UserResetPasswordDialog|resetDialog|canSubmitResetPassword|handleResetSubmit)\b|重置密码|新密码' \
+  "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
+  src/frontend/src/views/admin src/frontend/src/components/admin src/frontend/src/composables src/frontend/src/api/admin.ts src/backend/Modules/Endpoints
+
+run_residue_check \
+  "legacy username public display fallback" \
+  "legacy username public display fallback residue detected" \
+  '\b(?:PublicHandle|publicHandle|public_handle|AnonymousDisplayName|anonymousDisplayName|anonymous_display_name)\b\s*(?:[?][?]|\|\|)\s*[^;\n]*(?:Username|username)\b|\b(?:Username|username)\b\s*(?:[?][?]|\|\|)\s*[^;\n]*(?:PublicHandle|publicHandle|public_handle)\b|[.]Select[(]u\s*=>\s*u[.]Username[)]|NormalizeToken[(]username' \
+  "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
+  src/backend/Services/Security src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs src/frontend/src/views src/frontend/src/components src/frontend/src/api/comment.ts
+
+run_residue_check \
+  "legacy anonymous comment user-bound creation" \
+  "legacy anonymous comment user-bound creation residue detected" \
+  '\bCreateCommentAsync[(]\s*userId\b|\bCreateCommentV2Async[(]|\b(?:AedsFrameType|FrameType)[.]CommentCreateRequest\b' \
+  "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
+  src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs src/frontend/src/api/comment.ts
 
 echo "[residue-check] passed"
