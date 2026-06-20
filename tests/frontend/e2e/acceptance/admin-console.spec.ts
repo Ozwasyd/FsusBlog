@@ -501,11 +501,11 @@ for (const viewport of [
         const composePanel = await session.page.locator('.messages-compose-panel').filter({ hasText: '发送系统消息' }).count()
           ? session.page.locator('.messages-compose-panel').filter({ hasText: '发送系统消息' }).first()
           : session.page.locator('.messages-mobile-compose').filter({ hasText: '发送系统消息' }).first()
-        await composePanel.getByLabel('目标用户 ID', { exact: true }).fill('1')
+        await composePanel.getByLabel('目标账号 ID', { exact: true }).fill('1')
         await composePanel.getByLabel('主题', { exact: true }).fill(`Acceptance 系统消息 ${Date.now()}`)
         await composePanel.getByLabel('内容', { exact: true }).fill('这是一条管理员控制台自动验收消息。')
         await composePanel.getByRole('button', { name: '发送' }).click()
-        await expect(composePanel.getByLabel('目标用户 ID', { exact: true })).toHaveValue('')
+        await expect(composePanel.getByLabel('目标账号 ID', { exact: true })).toHaveValue('')
         await expect(composePanel.getByLabel('主题', { exact: true })).toHaveValue('')
         await expect(composePanel.getByLabel('内容', { exact: true })).toHaveValue('')
 

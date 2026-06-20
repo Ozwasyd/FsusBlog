@@ -42,7 +42,7 @@ public static partial class BinaryEndpoints
         {
             int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 50);
             int pageNum = Math.Max(1, page);
-            var data = await query.GetUserConversationsAsync(checked((int)user.Id), pageNum, pageSize, filter);
+            var data = await query.GetUserConversationsAsync(ResolveCurrentAccountId(user), pageNum, pageSize, filter);
             return BinaryResults.Frame(aeds, AedsFrameType.ConversationList, writer => PodBinaryCodec.WriteConversationList(data, writer));
         })
         .RequireAuthorization();
@@ -53,7 +53,7 @@ public static partial class BinaryEndpoints
             CurrentUser user,
             IAedsEncoder aeds) =>
         {
-            var detail = await query.GetUserConversationDetailAsync(checked((int)user.Id), id);
+            var detail = await query.GetUserConversationDetailAsync(ResolveCurrentAccountId(user), id);
             return detail is null
                 ? BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "会话不存在"), aeds)
                 : BinaryResults.Frame(aeds, AedsFrameType.ConversationDetail, writer => PodBinaryCodec.WriteConversationDetail(detail, writer));
@@ -78,7 +78,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "会话请求体非法"), aeds);
             }
 
-            var result = await command.CreateUserTicketAsync(checked((int)user.Id), request.Subject, request.Body);
+            var result = await command.CreateUserTicketAsync(ResolveCurrentAccountId(user), request.Subject, request.Body);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.ConversationDetail, writer => PodBinaryCodec.WriteConversationDetail(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
@@ -105,7 +105,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "回复请求体非法"), aeds);
             }
 
-            var result = await command.ReplyAsUserAsync(checked((int)user.Id), id, body);
+            var result = await command.ReplyAsUserAsync(ResolveCurrentAccountId(user), id, body);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.ConversationMessage, writer => PodBinaryCodec.WriteConversationMessage(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
@@ -119,7 +119,7 @@ public static partial class BinaryEndpoints
             CurrentUser user,
             IAedsEncoder aeds) =>
         {
-            var result = await command.MarkConversationReadAsync(checked((int)user.Id), id);
+            var result = await command.MarkConversationReadAsync(ResolveCurrentAccountId(user), id);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(result.Error, aeds);
@@ -156,10 +156,14 @@ public static partial class BinaryEndpoints
             long id,
             HttpContext httpContext,
             IMessageCommandService command,
-            CurrentUser user,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            if (!TryResolveAdminMessageActor(httpContext, out AdminMessageActor adminActor))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+            }
+
             var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.ConversationReplyRequest, cancellationToken);
             if (!payload.IsSuccess)
             {
@@ -171,7 +175,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "回复请求体非法"), aeds);
             }
 
-            var result = await command.ReplyAsAdminAsync(id, body, checked((int)user.Id));
+            var result = await command.ReplyAsAdminAsync(id, body, adminActor);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.ConversationMessage, writer => PodBinaryCodec.WriteConversationMessage(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
@@ -183,10 +187,14 @@ public static partial class BinaryEndpoints
             long id,
             HttpContext httpContext,
             IMessageCommandService command,
-            CurrentUser user,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            if (!TryResolveAdminMessageActor(httpContext, out AdminMessageActor adminActor))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+            }
+
             var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.ConversationStatusRequest, cancellationToken);
             if (!payload.IsSuccess)
             {
@@ -198,7 +206,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "无效状态，仅支持 open/pending/closed"), aeds);
             }
 
-            var result = await command.UpdateConversationStatusAsync(id, status, checked((int)user.Id));
+            var result = await command.UpdateConversationStatusAsync(id, status, adminActor);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(result.Error, aeds);
@@ -209,10 +217,14 @@ public static partial class BinaryEndpoints
         group.MapPost("/admin/messages/system-send", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IMessageCommandService command,
-            CurrentUser user,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            if (!TryResolveAdminMessageActor(httpContext, out AdminMessageActor adminActor))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+            }
+
             var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.SystemMessageRequest, cancellationToken);
             if (!payload.IsSuccess)
             {
@@ -224,17 +236,31 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "系统消息请求体非法"), aeds);
             }
 
-            if (!request.TargetUserId.HasValue || request.TargetUserId.Value <= 0)
+            if (!request.TargetAccountId.HasValue || request.TargetAccountId.Value <= 0)
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "系统消息必须指定目标用户"), aeds);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "系统消息必须指定目标账号"), aeds);
             }
 
-            var result = await command.SendSystemMessageAsync(request.Subject, request.Body, request.TargetUserId, checked((int)user.Id));
+            var result = await command.SendSystemMessageAsync(request.Subject, request.Body, request.TargetAccountId, adminActor);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.ConversationDetail, writer => PodBinaryCodec.WriteConversationDetail(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAdminPermission(AdminPermissions.AdminManage)
         .AddEndpointFilter<RequiresPowFilter>();
+    }
+
+    private static int ResolveCurrentAccountId(CurrentUser currentUser) => checked((int)currentUser.Id);
+
+    private static bool TryResolveAdminMessageActor(HttpContext httpContext, out AdminMessageActor adminActor)
+    {
+        if (TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId))
+        {
+            adminActor = new AdminMessageActor(adminPrincipalId, adminSessionId);
+            return true;
+        }
+
+        adminActor = default;
+        return false;
     }
 }

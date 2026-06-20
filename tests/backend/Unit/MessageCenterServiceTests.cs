@@ -53,7 +53,7 @@ public sealed class MessageCenterServiceTests
     public async Task ReplyAsAdminAsync_EmptyBody_ReturnsFail()
     {
         var svc = BuildService();
-        var result = await svc.ReplyAsAdminAsync(999L, "   ", 1);
+        var result = await svc.ReplyAsAdminAsync(999L, "   ", new AdminMessageActor(1, "admin-session-1"));
         Assert.False(result.IsSuccess);
     }
 
@@ -61,8 +61,47 @@ public sealed class MessageCenterServiceTests
     public async Task SendSystemMessageAsync_EmptyBody_ReturnsFail()
     {
         var svc = BuildService();
-        var result = await svc.SendSystemMessageAsync("subject", "   ", null, 1);
+        var result = await svc.SendSystemMessageAsync("subject", "   ", null, new AdminMessageActor(1, "admin-session-1"));
         Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public void MessageDomain_UsesAccountAndAdminPrincipalVocabulary()
+    {
+        string entity = ReadSource("src/backend/Entities/Message.cs");
+        string service = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
+        string ports = ReadSource("src/backend/Interfaces/IMessageService.cs");
+        string endpoints = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs");
+        string migration = ReadSource("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
+
+        Assert.Contains("InitiatorAccountId", entity, StringComparison.Ordinal);
+        Assert.Contains("CreatedByAccountId", entity, StringComparison.Ordinal);
+        Assert.Contains("CreatedByAdminPrincipalId", entity, StringComparison.Ordinal);
+        Assert.Contains("CreatedByAdminSessionId", entity, StringComparison.Ordinal);
+        Assert.Contains("SenderAccountId", entity, StringComparison.Ordinal);
+        Assert.Contains("SenderAdminPrincipalId", entity, StringComparison.Ordinal);
+        Assert.Contains("SenderAdminSessionId", entity, StringComparison.Ordinal);
+        Assert.Contains("public int AccountId", entity, StringComparison.Ordinal);
+        Assert.DoesNotContain("InitiatorUserId", entity, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreatedById", entity, StringComparison.Ordinal);
+        Assert.DoesNotContain("SenderId", entity, StringComparison.Ordinal);
+        Assert.DoesNotContain("public int UserId", entity, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("Queryable<User>", service, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Username", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("adminUserId", service, StringComparison.Ordinal);
+        Assert.Contains("AdminMessageActor", service, StringComparison.Ordinal);
+        Assert.Contains("SenderAdminPrincipalId", service, StringComparison.Ordinal);
+        Assert.Contains("SenderAdminSessionId", service, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("adminUserId", ports, StringComparison.Ordinal);
+        Assert.Contains("AdminMessageActor", ports, StringComparison.Ordinal);
+        Assert.Contains("TryResolveAdminSessionContext", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("checked((int)user.Id)", endpoints, StringComparison.Ordinal);
+        Assert.Contains("msg_conversation", migration, StringComparison.Ordinal);
+        Assert.Contains("initiatoraccountid", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("senderadminprincipalid", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("accountid", migration, StringComparison.OrdinalIgnoreCase);
     }
 
 
@@ -197,35 +236,31 @@ public sealed class MessageCenterServiceTests
     public void ResolveSenderName_SystemSender_Returns系统()
     {
         var row = new ConversationMessage { SenderType = MessageSenderType.System };
-        var dict = new Dictionary<int, string>();
-        var result = InvokePrivateStatic<string>("ResolveSenderName", [row, (IReadOnlyDictionary<int, string>)dict]);
+        var result = InvokePrivateStatic<string>("ResolveSenderName", [row]);
         Assert.Equal("系统", result);
     }
 
     [Fact]
-    public void ResolveSenderName_UserWithNameInDict_ReturnsName()
+    public void ResolveSenderName_UserSender_Returns你()
     {
-        var row = new ConversationMessage { SenderType = MessageSenderType.User, SenderId = 5 };
-        var dict = new Dictionary<int, string> { [5] = "Alice" };
-        var result = InvokePrivateStatic<string>("ResolveSenderName", [row, (IReadOnlyDictionary<int, string>)dict]);
-        Assert.Equal("Alice", result);
+        var row = new ConversationMessage { SenderType = MessageSenderType.User, SenderAccountId = 5 };
+        var result = InvokePrivateStatic<string>("ResolveSenderName", [row]);
+        Assert.Equal("你", result);
     }
 
     [Fact]
     public void ResolveSenderName_AdminWithoutDict_Returns管理员()
     {
-        var row = new ConversationMessage { SenderType = MessageSenderType.Admin, SenderId = null };
-        var dict = new Dictionary<int, string>();
-        var result = InvokePrivateStatic<string>("ResolveSenderName", [row, (IReadOnlyDictionary<int, string>)dict]);
+        var row = new ConversationMessage { SenderType = MessageSenderType.Admin, SenderAdminPrincipalId = 7 };
+        var result = InvokePrivateStatic<string>("ResolveSenderName", [row]);
         Assert.Equal("管理员", result);
     }
 
     [Fact]
-    public void ResolveSenderName_UserWithoutDict_Returns用户()
+    public void ResolveSenderName_UserWithoutAccount_Returns你()
     {
-        var row = new ConversationMessage { SenderType = MessageSenderType.User, SenderId = null };
-        var dict = new Dictionary<int, string>();
-        var result = InvokePrivateStatic<string>("ResolveSenderName", [row, (IReadOnlyDictionary<int, string>)dict]);
-        Assert.Equal("用户", result);
+        var row = new ConversationMessage { SenderType = MessageSenderType.User, SenderAccountId = null };
+        var result = InvokePrivateStatic<string>("ResolveSenderName", [row]);
+        Assert.Equal("你", result);
     }
 }

@@ -57,7 +57,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
   const detail = shallowRef<ConversationDetailResponse | null>(null)
   const replyBody = ref('')
 
-  const systemTargetUserId = ref('')
+  const systemTargetAccountId = ref('')
   const systemSubject = ref('')
   const systemBody = ref('')
 
@@ -196,30 +196,30 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
   }
 
   const sendSystemMessage = async (): Promise<void> => {
-    if (!systemTargetUserId.value.trim() || !systemBody.value.trim() || processing.value) return
+    if (!systemTargetAccountId.value.trim() || !systemBody.value.trim() || processing.value) return
 
-    const parsedTargetUserId = Number(systemTargetUserId.value.trim())
-    if (!Number.isInteger(parsedTargetUserId) || parsedTargetUserId <= 0) {
-      showErrorToast('请输入有效的用户 ID', '请输入有效的用户 ID')
+    const parsedTargetAccountId = Number(systemTargetAccountId.value.trim())
+    if (!Number.isInteger(parsedTargetAccountId) || parsedTargetAccountId <= 0) {
+      showErrorToast('请输入有效的账号 ID', '请输入有效的账号 ID')
       return
     }
 
     processing.value = true
-    taskFeedback.begin('正在发送系统消息', `用户 ${parsedTargetUserId}`, 'admin-system-message')
+    taskFeedback.begin('正在发送系统消息', `账号 ${parsedTargetAccountId}`, 'admin-system-message')
     try {
       const created = await messageApi.adminSendSystemMessage({
-        targetUserId: parsedTargetUserId,
+        targetAccountId: parsedTargetAccountId,
         subject: systemSubject.value || '系统通知',
         body: systemBody.value
       })
-      systemTargetUserId.value = ''
+      systemTargetAccountId.value = ''
       systemSubject.value = ''
       systemBody.value = ''
       const list = conversations.value.slice()
       list.unshift(toConversationListItem(created))
       conversations.value = list
       const listSynced = await loadConversations(true)
-      taskFeedback.succeed('系统消息已发送', listSynced ? `用户 ${parsedTargetUserId}` : '列表同步失败，请稍后刷新', 'admin-system-message')
+      taskFeedback.succeed('系统消息已发送', listSynced ? `账号 ${parsedTargetAccountId}` : '列表同步失败，请稍后刷新', 'admin-system-message')
       toast.success('系统消息已发送')
       if (!listSynced) {
         showWarningToast('系统消息已发送，但会话列表同步失败，请稍后刷新', '系统消息已发送，但会话列表同步失败，请稍后刷新')
@@ -302,7 +302,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
     selectedConversation,
     detail,
     replyBody,
-    systemTargetUserId,
+    systemTargetAccountId,
     systemSubject,
     systemBody,
     selectConversation,

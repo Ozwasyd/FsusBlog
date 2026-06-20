@@ -7,12 +7,12 @@
       <div v-if="mobile" class="messages-subheader">{{ title }}</div>
       <el-form label-position="top">
         <template v-if="mode === 'admin'">
-          <el-form-item label="目标用户 ID">
+          <el-form-item label="目标账号 ID">
             <el-input
-              :model-value="systemTargetUserId"
-              :name="mobile ? 'systemTargetUserIdMobile' : 'systemTargetUserIdDesktop'"
-              placeholder="请输入用户 ID"
-              @update:model-value="emit('update:systemTargetUserId', $event)"
+              :model-value="systemTargetAccountId"
+              :name="mobile ? 'systemTargetAccountIdMobile' : 'systemTargetAccountIdDesktop'"
+              placeholder="请输入账号 ID"
+              @update:model-value="emit('update:systemTargetAccountId', $event)"
             />
           </el-form-item>
           <el-form-item label="主题">
@@ -77,14 +77,14 @@ const props = withDefaults(defineProps<{
   mode: 'admin' | 'user'
   mobile?: boolean
   loading: boolean
-  systemTargetUserId?: string
+  systemTargetAccountId?: string
   systemSubject?: string
   systemBody?: string
   createSubject?: string
   createBody?: string
 }>(), {
   mobile: false,
-  systemTargetUserId: '',
+  systemTargetAccountId: '',
   systemSubject: '',
   systemBody: '',
   createSubject: '',
@@ -92,7 +92,7 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  'update:systemTargetUserId': [value: string]
+  'update:systemTargetAccountId': [value: string]
   'update:systemSubject': [value: string]
   'update:systemBody': [value: string]
   'update:createSubject': [value: string]

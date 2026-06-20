@@ -64,7 +64,7 @@ export interface UpdateConversationStatusRequest {
 }
 
 export interface SendSystemMessageRequest {
-  targetUserId: number
+  targetAccountId: number
   subject: string
   body: string
 }
@@ -250,7 +250,7 @@ function encodeSystemMessageRequest(data: SendSystemMessageRequest): Uint8Array 
   const blob = new Uint8Array(subject.byteLength + body.byteLength)
   const bytes = new Uint8Array(32 + 4 + blob.byteLength)
   const view = new DataView(bytes.buffer)
-  const target = BigInt(data.targetUserId)
+  const target = BigInt(data.targetAccountId)
   view.setBigInt64(0, target, true)
   view.setUint8(8, 1)
   view.setInt32(16, 0, true)

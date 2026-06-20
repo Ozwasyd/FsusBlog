@@ -18,7 +18,7 @@ public sealed record class AdminConversationStatusRequest
 
 public sealed record class SendSystemMessageRequest
 {
-    public long? TargetUserId { get; init; }
+    public long? TargetAccountId { get; init; }
     public string Subject { get; init; } = string.Empty;
     public string Body { get; init; } = string.Empty;
 }

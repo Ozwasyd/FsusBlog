@@ -257,8 +257,8 @@ public static partial class PodBinaryCodec
         var payload = new ArrayBufferWriter<byte>(256);
         var mutable = new MutableSystemMessageRequestPod
         {
-            TargetUserId = request.TargetUserId ?? 0,
-            HasTargetUserId = request.TargetUserId.HasValue ? (byte)1 : (byte)0,
+            TargetAccountId = request.TargetAccountId ?? 0,
+            HasTargetAccountId = request.TargetAccountId.HasValue ? (byte)1 : (byte)0,
             Reserved0 = 0,
             Reserved1 = 0,
             Reserved2 = 0,
@@ -277,7 +277,7 @@ public static partial class PodBinaryCodec
     {
         var reader = new BinaryPodReader(source.Span);
         if (!reader.TryReadPod(out SystemMessageRequestPod pod) ||
-            pod.HasTargetUserId > 1 ||
+            pod.HasTargetAccountId > 1 ||
             !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
         {
             request = default;
@@ -285,7 +285,7 @@ public static partial class PodBinaryCodec
         }
 
         request = new SystemMessageRequestCoreModel(
-            pod.HasTargetUserId == 1 ? pod.TargetUserId : null,
+            pod.HasTargetAccountId == 1 ? pod.TargetAccountId : null,
             PodProjector.ReadSlice(pod.Subject, payload),
             PodProjector.ReadSlice(pod.Body, payload));
         return reader.IsConsumed;
@@ -442,8 +442,8 @@ public static partial class PodBinaryCodec
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableSystemMessageRequestPod
     {
-        public long TargetUserId;
-        public byte HasTargetUserId;
+        public long TargetAccountId;
+        public byte HasTargetAccountId;
         public byte Reserved0;
         public ushort Reserved1;
         public int Reserved2;

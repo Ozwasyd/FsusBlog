@@ -32,7 +32,7 @@
           </div>
 
           <div v-if="isAdminMode && detail" class="messages-actions">
-            <span class="messages-action-hint">状态变更会通知用户</span>
+            <span class="messages-action-hint">状态变更会通知对方</span>
             <el-button size="small" :disabled="processing" @click="emit('updateStatus', 'open')">标记为处理中</el-button>
             <el-button size="small" type="warning" :disabled="processing" @click="emit('updateStatus', 'pending')">移回待处理</el-button>
             <el-button size="small" type="success" :disabled="processing" @click="emit('updateStatus', 'closed')">关闭会话</el-button>
@@ -57,7 +57,7 @@
         <template v-else>
           <div v-if="detail" class="messages-context-bar">
             <span>正在回复：{{ detail.subject }}</span>
-            <span>{{ isAdminMode ? `用户 ${contextUserText}` : '当前会话' }}</span>
+            <span>{{ isAdminMode ? `账号 ${contextUserText}` : '当前会话' }}</span>
             <span>状态：{{ statusLabel(detail.status) }}</span>
           </div>
 

@@ -393,7 +393,7 @@ public class PodBinaryCodecTests
         bool ok = PodBinaryCodec.TryDecodeSystemMessageRequest(encoded, out var decoded);
 
         Assert.True(ok);
-        Assert.Equal(7, decoded.TargetUserId);
+        Assert.Equal(7, decoded.TargetAccountId);
         Assert.Equal("Notice", decoded.Subject);
         Assert.Equal("Message body", decoded.Body);
     }

@@ -263,7 +263,7 @@ public readonly record struct RecoveryKeyVerifyResponseCoreModel(int UserId, str
 
 public readonly record struct ConversationCreateRequestCoreModel(string Subject, string Body);
 
-public readonly record struct SystemMessageRequestCoreModel(long? TargetUserId, string Subject, string Body);
+public readonly record struct SystemMessageRequestCoreModel(long? TargetAccountId, string Subject, string Body);
 
 public sealed record class PasskeyRegisterCompleteCoreModel
 {

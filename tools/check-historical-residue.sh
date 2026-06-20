@@ -153,6 +153,13 @@ run_residue_check \
   src/shared/Contracts/Outputs/ServerResponseContracts.cs src/shared/Contracts/Models/UserPods.cs src/core/Cache/PodBinaryCodec.User.cs src/frontend/src/api/auth.ts src/frontend/src/adapters/binary/authAdapter.ts
 
 run_residue_check \
+  "legacy message sender user model" \
+  "legacy message sender user-model residue detected" \
+  '\b(?:adminUserId|targetUserId|systemTargetUserId|InitiatorUserId|CreatedById|SenderId)\b|public int UserId|Queryable<User>\(\)|[.]Username|目标用户 ID' \
+  "" \
+  src/backend/Entities/Message.cs src/backend/Interfaces/IMessageService.cs src/backend/Services/NotificationStream/MessageCenterService.cs src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs src/frontend/src/api/message.ts src/frontend/src/composables/useAdminMessageCenter.ts src/frontend/src/components/user/messages/MessagesComposePanel.vue src/frontend/src/views/user/Messages.vue tests/frontend/support/aeds-envelope.mjs tests/frontend/unit/api/message.test.ts tests/frontend/e2e/acceptance/admin-console.spec.ts tests/frontend/checks/security/check-permission-matrix.mjs
+
+run_residue_check \
   "legacy password login form" \
   "legacy password login form residue detected" \
   '\b(?:name|type|v-model)=["'\''][^"'\'']*(?:password|Password)|\b(?:passwordLogin|loginWithPassword|handlePasswordLogin)\b|\bFrameType[.]AuthLoginRequest\b' \

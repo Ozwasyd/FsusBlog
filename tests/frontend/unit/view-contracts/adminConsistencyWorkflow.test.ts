@@ -14,6 +14,8 @@ describe('admin consistency workflow contract', () => {
   const contentToolsPage = readRepoFile('src/frontend/src/views/admin/ContentTools.vue')
   const messageApi = readRepoFile('src/frontend/src/api/message.ts')
   const messageEndpoint = readRepoFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs')
+  const messageComposePanel = readRepoFile('src/frontend/src/components/user/messages/MessagesComposePanel.vue')
+  const adminMessageCenter = readRepoFile('src/frontend/src/composables/useAdminMessageCenter.ts')
   const articleListComposable = readRepoFile('src/frontend/src/composables/useAdminArticleList.ts')
   const articleListPage = readRepoFile('src/frontend/src/views/admin/article/List.vue')
   const compactCard = readRepoFile('src/frontend/src/components/admin/article/AdminArticleCompactCard.vue')
@@ -56,9 +58,17 @@ describe('admin consistency workflow contract', () => {
   })
 
   it('keeps system messages single-target and rejects nullable target at the endpoint', () => {
-    expect(messageApi).toContain('targetUserId: number')
+    expect(messageApi).toContain('targetAccountId: number')
+    expect(messageApi).not.toContain('targetUserId: number')
     expect(messageApi).toContain('view.setUint8(8, 1)')
-    expect(messageEndpoint).toContain('!request.TargetUserId.HasValue || request.TargetUserId.Value <= 0')
+    expect(messageEndpoint).toContain('!request.TargetAccountId.HasValue || request.TargetAccountId.Value <= 0')
+    expect(messageEndpoint).not.toContain('checked((int)user.Id)')
+    expect(messageEndpoint).toContain('TryResolveAdminSessionContext')
+    expect(messageComposePanel).toContain('目标账号 ID')
+    expect(messageComposePanel).toContain('请输入账号 ID')
+    expect(messageComposePanel).not.toContain('目标用户 ID')
+    expect(adminMessageCenter).toContain('systemTargetAccountId')
+    expect(adminMessageCenter).not.toContain('systemTargetUserId')
   })
 
   it('routes non-public article preview through the management workspace', () => {

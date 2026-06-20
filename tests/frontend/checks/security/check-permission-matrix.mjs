@@ -211,7 +211,7 @@ async function assertStaticAuthorizationBoundaries() {
     assertRouteChainIncludes(
       articleEndpoints,
       route,
-      'RequireAuthorization(policy => policy.RequireRole("admin"))',
+      'RequireAdminPermission(AdminPermissions.ArticleWrite)',
       'binary article write route'
     );
     assertRouteChainIncludes(
@@ -221,31 +221,31 @@ async function assertStaticAuthorizationBoundaries() {
       'binary article write route'
     );
   }
-  assert(articleEndpoints.match(/RequireAuthorization\(policy => policy\.RequireRole\("admin"\)\)/g)?.length >= 6, 'binary article write routes must require admin');
+  assert(articleEndpoints.match(/RequireAdminPermission\(AdminPermissions\.ArticleWrite\)/g)?.length >= 6, 'binary article write routes must require admin');
   assert(articleEndpoints.match(/AddEndpointFilter<RequiresPowFilter>\(\)/g)?.length >= 6, 'binary article write routes must retain PoW filters');
 
   const taxonomyEndpoints = await readServerFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs');
-  assertIncludes(taxonomyEndpoints, 'RequireAuthorization(policy => policy.RequireRole("admin"))', 'binary taxonomy write routes require admin');
+  assertIncludes(taxonomyEndpoints, 'RequireAdminPermission(AdminPermissions.ArticleWrite)', 'binary taxonomy write routes require admin');
   assertIncludes(taxonomyEndpoints, 'AddEndpointFilter<RequiresPowFilter>()', 'binary taxonomy write routes retain PoW filters');
 
   const systemEndpoints = await readServerFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs');
-  assert(systemEndpoints.match(/RequireAuthorization\(policy => policy\.RequireRole\("admin"\)\)/g)?.length >= 4, 'binary system admin routes must require admin');
+  assert(systemEndpoints.match(/RequireAdminPermission\(AdminPermissions\.SystemConfig\)/g)?.length >= 4, 'binary system admin routes must require admin');
   assert(systemEndpoints.match(/AddEndpointFilter<RequiresPowFilter>\(\)/g)?.length >= 3, 'binary system write routes must retain PoW filters');
 
   const uploadEndpoints = await readServerFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs');
   assertIncludes(uploadEndpoints, 'group.MapGroup("/upload")', 'binary upload route group');
-  assertIncludes(uploadEndpoints, 'RequireAuthorization(policy => policy.RequireRole("admin"))', 'binary upload routes require admin');
+  assertIncludes(uploadEndpoints, 'RequireAdminPermission(AdminPermissions.ArticleWrite)', 'binary upload routes require admin');
   assertIncludes(uploadEndpoints, 'AddEndpointFilter<RequiresPowFilter>()', 'binary upload routes retain PoW filter');
 
   const fileEndpoints = await readServerFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Files.cs');
-  assertIncludes(fileEndpoints, 'RequireAuthorization(policy => policy.RequireRole("admin"))', 'binary file delete route requires admin');
+  assertIncludes(fileEndpoints, 'RequireAdminPermission(AdminPermissions.ArticleWrite)', 'binary file delete route requires admin');
   assertIncludes(fileEndpoints, 'AddEndpointFilter<RequiresPowFilter>()', 'binary file delete route retains PoW filter');
 
   const statsEndpoints = await readServerFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Stats.cs');
-  assertIncludes(statsEndpoints, 'RequireAuthorization(policy => policy.RequireRole("admin"))', 'binary stats routes require admin');
+  assertIncludes(statsEndpoints, 'RequireAdminPermission(AdminPermissions.AuditRead)', 'binary stats routes require admin');
 
   const adminUserEndpoints = await readServerFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AdminUsers.cs');
-  assertIncludes(adminUserEndpoints, 'RequireAuthorization(policy => policy.RequireRole("admin"))', 'binary admin user routes require admin');
+  assertIncludes(adminUserEndpoints, 'RequireAdminPermission(AdminPermissions.AdminManage)', 'binary admin user routes require admin');
   assertIncludes(adminUserEndpoints, 'AddEndpointFilter<RequiresPowFilter>()', 'binary admin user mutation routes retain PoW filters');
 
   const commentEndpoints = await readServerFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs');
@@ -257,7 +257,7 @@ async function assertStaticAuthorizationBoundaries() {
   const messageEndpoints = await readServerFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs');
   assertIncludes(messageEndpoints, 'MapGet("/messages/conversations"', 'binary user message endpoints');
   assertIncludes(messageEndpoints, 'MapGet("/admin/messages/conversations"', 'binary admin message endpoints');
-  assertIncludes(messageEndpoints, 'RequireAuthorization(policy => policy.RequireRole("admin"))', 'binary admin message endpoints require admin');
+  assertIncludes(messageEndpoints, 'RequireAdminPermission(AdminPermissions.AdminManage)', 'binary admin message endpoints require admin');
   assert(messageEndpoints.match(/AddEndpointFilter<RequiresPowFilter>\(\)/g)?.length >= 4, 'binary message write endpoints must retain PoW filters');
 
   const authEndpoints = await readServerFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs');
@@ -553,7 +553,7 @@ async function assertRoleUserForbiddenMatrix(userSession, adminSession, articleI
     ['role=user admin system message attack probe', '/api/binary/admin/messages/system-send', {
       method: 'POST',
       requiresPow: true,
-      body: { targetUserId: null, subject: marker, body: marker }
+      body: { targetAccountId: null, subject: marker, body: marker }
     }],
     ['role=user admin MFA reset attack probe', '/api/Auth/admin/users/1/mfa/reset', {
       method: 'POST'

@@ -770,7 +770,7 @@ interface AdminTagItemResponse extends AdminCategoryItemResponse {
 
 - `status`：`"open"` / `"closed"`
 
-管理员系统消息使用 `POST /api/binary/admin/messages/system-send` 的 `SystemMessageRequest` frame。当前契约只支持单用户目标，`targetUserId` 必须存在且大于 0；`targetUserId=null` 不表示广播，后端会返回 validation error。前端管理入口位于 `/user/manage/messages`，普通 `/user/messagebox` 只承载个人消息和工单。
+管理员系统消息使用 `POST /api/binary/admin/messages/system-send` 的 `SystemMessageRequest` frame。当前契约只支持单账号目标，`targetAccountId` 必须存在且大于 0；`targetAccountId=null` 不表示广播，后端会返回 validation error。前端管理入口位于 `/user/manage/messages`，普通 `/user/messagebox` 只承载个人消息和工单。
 
 ### `ConversationMessageResponse`
 

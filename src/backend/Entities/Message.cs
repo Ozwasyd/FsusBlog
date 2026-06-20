@@ -29,7 +29,7 @@ public enum MessageSenderType
 [SugarTable("msg_conversation")]
 [SugarIndex("idx_msg_conversation_last_activity", nameof(LastMessageAt), OrderByType.Desc)]
 [SugarIndex("idx_msg_conversation_status_activity", nameof(Status), OrderByType.Asc, nameof(LastMessageAt), OrderByType.Desc)]
-[SugarIndex("idx_msg_conversation_initiator", nameof(InitiatorUserId), OrderByType.Asc, nameof(LastMessageAt), OrderByType.Desc)]
+[SugarIndex("idx_msg_conversation_initiator_account", nameof(InitiatorAccountId), OrderByType.Asc, nameof(LastMessageAt), OrderByType.Desc)]
 public sealed class MessageConversation
 {
     [SugarColumn(IsPrimaryKey = true)]
@@ -39,7 +39,7 @@ public sealed class MessageConversation
     public string Subject { get; set; } = string.Empty;
 
     [SugarColumn(IsNullable = true)]
-    public int? InitiatorUserId { get; set; }
+    public int? InitiatorAccountId { get; set; }
 
     public ConversationStatus Status { get; set; } = ConversationStatus.Open;
 
@@ -51,7 +51,13 @@ public sealed class MessageConversation
     public MessageSenderType CreatedByType { get; set; } = MessageSenderType.System;
 
     [SugarColumn(IsNullable = true)]
-    public int? CreatedById { get; set; }
+    public int? CreatedByAccountId { get; set; }
+
+    [SugarColumn(IsNullable = true)]
+    public long? CreatedByAdminPrincipalId { get; set; }
+
+    [SugarColumn(IsNullable = true, Length = 64)]
+    public string? CreatedByAdminSessionId { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -72,7 +78,13 @@ public sealed class ConversationMessage
     public MessageSenderType SenderType { get; set; } = MessageSenderType.System;
 
     [SugarColumn(IsNullable = true)]
-    public int? SenderId { get; set; }
+    public int? SenderAccountId { get; set; }
+
+    [SugarColumn(IsNullable = true)]
+    public long? SenderAdminPrincipalId { get; set; }
+
+    [SugarColumn(IsNullable = true, Length = 64)]
+    public string? SenderAdminSessionId { get; set; }
 
     [SugarColumn(ColumnDataType = "text")]
     public string Body { get; set; } = string.Empty;
@@ -86,15 +98,15 @@ public sealed class ConversationMessage
 }
 
 [SugarTable("msg_participant_state")]
-[SugarIndex("idx_msg_participant_user_updated", nameof(UserId), OrderByType.Asc, nameof(UpdatedAt), OrderByType.Desc)]
-[SugarIndex("idx_msg_participant_unread", nameof(UserId), OrderByType.Asc, nameof(UnreadCount), OrderByType.Desc)]
+[SugarIndex("idx_msg_participant_account_updated", nameof(AccountId), OrderByType.Asc, nameof(UpdatedAt), OrderByType.Desc)]
+[SugarIndex("idx_msg_participant_account_unread", nameof(AccountId), OrderByType.Asc, nameof(UnreadCount), OrderByType.Desc)]
 public sealed class ConversationParticipantState
 {
     [SugarColumn(IsPrimaryKey = true)]
     public long ConversationId { get; set; }
 
     [SugarColumn(IsPrimaryKey = true)]
-    public int UserId { get; set; }
+    public int AccountId { get; set; }
 
     [SugarColumn(IsNullable = true)]
     public long? LastReadMessageId { get; set; }

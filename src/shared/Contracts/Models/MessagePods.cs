@@ -155,8 +155,8 @@ public readonly struct ConversationStatusRequestPod
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct SystemMessageRequestPod
 {
-    public readonly long TargetUserId;
-    public readonly byte HasTargetUserId;
+    public readonly long TargetAccountId;
+    public readonly byte HasTargetAccountId;
     public readonly byte Reserved0;
     public readonly ushort Reserved1;
     public readonly int Reserved2;

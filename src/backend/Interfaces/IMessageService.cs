@@ -4,28 +4,35 @@ using FsusBlog.Shared.Contracts.NotificationStream;
 
 namespace FsusBlog.Server.Interfaces;
 
+public readonly record struct AdminMessageActor(long AdminPrincipalId, string AdminSessionId)
+{
+    public static AdminMessageActor System => new(0, string.Empty);
+
+    public bool HasAdminPrincipal => AdminPrincipalId > 0 && !string.IsNullOrWhiteSpace(AdminSessionId);
+}
+
 public interface IMessageQueryService
 {
-    Task<PageResponse<ConversationListItemResponse>> GetUserConversationsAsync(int userId, int page, int size, string? filter);
-    Task<ConversationDetailResponse?> GetUserConversationDetailAsync(int userId, long conversationId);
+    Task<PageResponse<ConversationListItemResponse>> GetUserConversationsAsync(int accountId, int page, int size, string? filter);
+    Task<ConversationDetailResponse?> GetUserConversationDetailAsync(int accountId, long conversationId);
     Task<PageResponse<ConversationListItemResponse>> GetAdminConversationsAsync(int page, int size, string? filter);
     Task<ConversationDetailResponse?> GetAdminConversationDetailAsync(long conversationId);
 }
 
 public interface IMessageCommandService
 {
-    Task<Result<ConversationDetailResponse>> CreateUserTicketAsync(int userId, string subject, string body);
-    Task<Result<ConversationMessageResponse>> ReplyAsUserAsync(int userId, long conversationId, string body);
-    Task<Result> MarkConversationReadAsync(int userId, long conversationId);
-    Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync(long conversationId, string body, int adminUserId);
-    Task<Result> UpdateConversationStatusAsync(long conversationId, ConversationStatusValue status, int adminUserId);
-    Task<Result<ConversationDetailResponse>> SendSystemMessageAsync(string subject, string body, long? targetUserId, int adminUserId);
+    Task<Result<ConversationDetailResponse>> CreateUserTicketAsync(int accountId, string subject, string body);
+    Task<Result<ConversationMessageResponse>> ReplyAsUserAsync(int accountId, long conversationId, string body);
+    Task<Result> MarkConversationReadAsync(int accountId, long conversationId);
+    Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync(long conversationId, string body, AdminMessageActor adminActor);
+    Task<Result> UpdateConversationStatusAsync(long conversationId, ConversationStatusValue status, AdminMessageActor adminActor);
+    Task<Result<ConversationDetailResponse>> SendSystemMessageAsync(string subject, string body, long? targetAccountId, AdminMessageActor adminActor);
 
     // 治理通知聚合入口
-    Task SendUserTransactionalNoticeAsync(int userId, string subject, string body);
-    Task SendCommentDeletedNoticeAsync(int targetUserId, string articleTitle, string commentSnippet, string reason);
-    Task SendUserBannedNoticeAsync(int userId, string reason);
-    Task SendUserUnbannedNoticeAsync(int userId);
+    Task SendUserTransactionalNoticeAsync(int accountId, string subject, string body);
+    Task SendCommentDeletedNoticeAsync(int targetAccountId, string articleTitle, string commentSnippet, string reason);
+    Task SendUserBannedNoticeAsync(int accountId, string reason);
+    Task SendUserUnbannedNoticeAsync(int accountId);
 }
 
 public interface IMessageRealtimePublisher

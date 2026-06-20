@@ -40,7 +40,7 @@
         <template #mobile-compose>
           <MessagesComposePanel
             v-if="isMobile && isAdminView"
-            v-model:system-target-user-id="systemTargetUserId"
+            v-model:system-target-account-id="systemTargetAccountId"
             v-model:system-subject="systemSubject"
             v-model:system-body="systemBody"
             mode="admin"
@@ -87,7 +87,7 @@
 
         <MessagesComposePanel
           v-if="!isMobile && isAdminView"
-          v-model:system-target-user-id="systemTargetUserId"
+          v-model:system-target-account-id="systemTargetAccountId"
           v-model:system-subject="systemSubject"
           v-model:system-body="systemBody"
           mode="admin"
@@ -248,10 +248,10 @@ const createBody = computed({
   }
 })
 
-const systemTargetUserId = computed({
-  get: () => adminCenter.systemTargetUserId.value,
+const systemTargetAccountId = computed({
+  get: () => adminCenter.systemTargetAccountId.value,
   set: (value: string) => {
-    adminCenter.systemTargetUserId.value = value
+    adminCenter.systemTargetAccountId.value = value
   }
 })
 
@@ -300,7 +300,7 @@ const messageSignature = computed(() => visibleMessageRows.value
 const contextUserText = computed(() => {
   const messages = detail.value?.messages ?? []
   const userMessage = messages.find((message) => message.senderType === 0 && message.senderName)
-  return userMessage?.senderName || '用户'
+  return userMessage?.senderName || '账号'
 })
 
 watch(selectedConversationId, () => {

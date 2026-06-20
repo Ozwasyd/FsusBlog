@@ -18,13 +18,13 @@ public sealed class MessageCenterService(
     private const int MaxSubjectLength = 160;
     private const int MaxBodyLength = 4000;
 
-    public async Task<PageResponse<ConversationListItemResponse>> GetUserConversationsAsync(int userId, int page, int size, string? filter)
+    public async Task<PageResponse<ConversationListItemResponse>> GetUserConversationsAsync(int accountId, int page, int size, string? filter)
     {
         int pageNum = Math.Max(1, page);
         int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 50);
         var query = db.Queryable<ConversationParticipantState, MessageConversation>(
             (p, c) => p.ConversationId == c.Id)
-            .Where((p, c) => p.UserId == userId);
+            .Where((p, c) => p.AccountId == accountId);
 
         query = ApplyUserFilter(query, filter);
         int total = await query.CountAsync();
@@ -48,10 +48,10 @@ public sealed class MessageCenterService(
         return new PageResponse<ConversationListItemResponse> { Items = items, Total = total };
     }
 
-    public async Task<ConversationDetailResponse?> GetUserConversationDetailAsync(int userId, long conversationId)
+    public async Task<ConversationDetailResponse?> GetUserConversationDetailAsync(int accountId, long conversationId)
     {
         var participant = await db.Queryable<ConversationParticipantState>()
-            .Where(it => it.UserId == userId && it.ConversationId == conversationId)
+            .Where(it => it.AccountId == accountId && it.ConversationId == conversationId)
             .FirstAsync();
         if (participant is null)
         {
@@ -158,7 +158,7 @@ public sealed class MessageCenterService(
         };
     }
 
-    public async Task<Result<ConversationDetailResponse>> CreateUserTicketAsync(int userId, string subject, string body)
+    public async Task<Result<ConversationDetailResponse>> CreateUserTicketAsync(int accountId, string subject, string body)
     {
         var normalizedSubject = NormalizeSubject(subject, "用户申诉");
         var normalizedBody = NormalizeBody(body);
@@ -177,11 +177,11 @@ public sealed class MessageCenterService(
             {
                 Id = SnowFlakeSingle.Instance.NextId(),
                 Subject = normalizedSubject,
-                InitiatorUserId = userId,
+                InitiatorAccountId = accountId,
                 Status = ConversationStatus.Open,
                 IsSystemSource = false,
                 CreatedByType = MessageSenderType.User,
-                CreatedById = userId,
+                CreatedByAccountId = accountId,
                 CreatedAt = now,
                 UpdatedAt = now,
                 LastMessageAt = now
@@ -193,14 +193,14 @@ public sealed class MessageCenterService(
                 Id = messageId,
                 ConversationId = conversationId,
                 SenderType = MessageSenderType.User,
-                SenderId = userId,
+                SenderAccountId = accountId,
                 Body = normalizedBody,
                 CreatedAt = now
             };
             var participant = new ConversationParticipantState
             {
                 ConversationId = conversationId,
-                UserId = userId,
+                AccountId = accountId,
                 LastReadMessageId = messageId,
                 UnreadCount = 0,
                 LastReadAt = now,
@@ -217,21 +217,21 @@ public sealed class MessageCenterService(
             return Result<ConversationDetailResponse>.Failure(ErrorCode.InfraFailure, "创建会话失败");
         }
 
-        var detail = await GetUserConversationDetailAsync(userId, conversationId);
+        var detail = await GetUserConversationDetailAsync(accountId, conversationId);
         if (detail is null)
         {
             return Result<ConversationDetailResponse>.Failure(ErrorCode.InfraFailure, "会话创建后读取失败");
         }
 
-        int totalUnread = await RefreshUnreadCacheAsync(userId);
+        int totalUnread = await RefreshUnreadCacheAsync(accountId);
         await Task.WhenAll(
-            PublishConversationUpsertAsync(userId, detail),
+            PublishConversationUpsertAsync(accountId, detail),
             PublishMessageAppendAsync(detail.ConversationId, detail.Messages.Last(), conversationUnreadCount: 0, totalUnread: totalUnread),
             PublishConversationUpsertToAdminsAsync(conversationId));
         return Result<ConversationDetailResponse>.Success(detail);
     }
 
-    public async Task<Result<ConversationMessageResponse>> ReplyAsUserAsync(int userId, long conversationId, string body)
+    public async Task<Result<ConversationMessageResponse>> ReplyAsUserAsync(int accountId, long conversationId, string body)
     {
         string normalizedBody = NormalizeBody(body);
         if (normalizedBody.Length == 0)
@@ -251,7 +251,7 @@ public sealed class MessageCenterService(
         }
 
         var participant = await db.Queryable<ConversationParticipantState>()
-            .Where(it => it.ConversationId == conversationId && it.UserId == userId)
+            .Where(it => it.ConversationId == conversationId && it.AccountId == accountId)
             .FirstAsync();
         if (participant is null)
         {
@@ -267,7 +267,7 @@ public sealed class MessageCenterService(
                 Id = messageId,
                 ConversationId = conversationId,
                 SenderType = MessageSenderType.User,
-                SenderId = userId,
+                SenderAccountId = accountId,
                 Body = normalizedBody,
                 CreatedAt = now
             }).ExecuteCommandAsync();
@@ -285,7 +285,7 @@ public sealed class MessageCenterService(
                     UpdatedAt = now,
                     UnreadCount = 0
                 })
-                .Where(it => it.ConversationId == conversationId && it.UserId == userId)
+                .Where(it => it.ConversationId == conversationId && it.AccountId == accountId)
                 .ExecuteCommandAsync();
         });
 
@@ -300,18 +300,18 @@ public sealed class MessageCenterService(
             return Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败");
         }
 
-        int totalUnread = await RefreshUnreadCacheAsync(userId);
+        int totalUnread = await RefreshUnreadCacheAsync(accountId);
         await Task.WhenAll(
-            PublishReadUpdatedAsync(participant.UserId, conversationId, messageId, 0, totalUnread),
+            PublishReadUpdatedAsync(participant.AccountId, conversationId, messageId, 0, totalUnread),
             PublishMessageAppendAsync(conversationId.ToString(), message, 0, totalUnread),
             PublishConversationUpsertToAdminsAsync(conversationId));
         return Result<ConversationMessageResponse>.Success(message);
     }
 
-    public async Task<Result> MarkConversationReadAsync(int userId, long conversationId)
+    public async Task<Result> MarkConversationReadAsync(int accountId, long conversationId)
     {
         var state = await db.Queryable<ConversationParticipantState>()
-            .Where(it => it.UserId == userId && it.ConversationId == conversationId)
+            .Where(it => it.AccountId == accountId && it.ConversationId == conversationId)
             .FirstAsync();
         if (state is null)
         {
@@ -329,20 +329,20 @@ public sealed class MessageCenterService(
                 LastReadAt = now,
                 UpdatedAt = now
             })
-            .Where(it => it.UserId == userId && it.ConversationId == conversationId)
+            .Where(it => it.AccountId == accountId && it.ConversationId == conversationId)
             .ExecuteCommandAsync();
 
         long? lastMessageId = await db.Queryable<ConversationParticipantState>()
-            .Where(it => it.UserId == userId && it.ConversationId == conversationId)
+            .Where(it => it.AccountId == accountId && it.ConversationId == conversationId)
             .Select(it => it.LastReadMessageId)
             .FirstAsync();
 
-        int totalUnread = await RefreshUnreadCacheAsync(userId);
-        await PublishReadUpdatedAsync(userId, conversationId, lastMessageId, 0, totalUnread);
+        int totalUnread = await RefreshUnreadCacheAsync(accountId);
+        await PublishReadUpdatedAsync(accountId, conversationId, lastMessageId, 0, totalUnread);
         return Result.Success();
     }
 
-    public async Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync(long conversationId, string body, int adminUserId)
+    public async Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync(long conversationId, string body, AdminMessageActor adminActor)
     {
         var conversation = await db.Queryable<MessageConversation>().InSingleAsync(conversationId);
         if (conversation is null)
@@ -365,7 +365,8 @@ public sealed class MessageCenterService(
                 Id = messageId,
                 ConversationId = conversationId,
                 SenderType = MessageSenderType.Admin,
-                SenderId = adminUserId,
+                SenderAdminPrincipalId = adminActor.AdminPrincipalId,
+                SenderAdminSessionId = adminActor.AdminSessionId,
                 Body = normalizedBody,
                 CreatedAt = now
             }).ExecuteCommandAsync();
@@ -404,7 +405,7 @@ public sealed class MessageCenterService(
         return Result<ConversationMessageResponse>.Success(message);
     }
 
-    public async Task<Result> UpdateConversationStatusAsync(long conversationId, ConversationStatusValue status, int adminUserId)
+    public async Task<Result> UpdateConversationStatusAsync(long conversationId, ConversationStatusValue status, AdminMessageActor adminActor)
     {
         var now = DateTime.UtcNow;
         int affected = await db.Updateable<MessageConversation>()
@@ -422,7 +423,7 @@ public sealed class MessageCenterService(
 
         var participants = await db.Queryable<ConversationParticipantState>()
             .Where(it => it.ConversationId == conversationId)
-            .Select(it => it.UserId)
+            .Select(it => it.AccountId)
             .ToListAsync();
         var publishTasks = new List<Task>(participants.Count + 1);
         for (int i = 0; i < participants.Count; i++)
@@ -435,11 +436,11 @@ public sealed class MessageCenterService(
         return Result.Success();
     }
 
-    public async Task<Result<ConversationDetailResponse>> SendSystemMessageAsync(string subject, string body, long? targetUserId, int adminUserId)
+    public async Task<Result<ConversationDetailResponse>> SendSystemMessageAsync(string subject, string body, long? targetAccountId, AdminMessageActor adminActor)
     {
-        if (!targetUserId.HasValue || targetUserId.Value <= 0)
+        if (!targetAccountId.HasValue || targetAccountId.Value <= 0)
         {
-            return Result<ConversationDetailResponse>.Failure(ErrorCode.Validation, "目标用户不能为空");
+            return Result<ConversationDetailResponse>.Failure(ErrorCode.Validation, "目标账号不能为空");
         }
 
         var normalizedSubject = NormalizeSubject(subject, "系统消息");
@@ -449,7 +450,8 @@ public sealed class MessageCenterService(
             return Result<ConversationDetailResponse>.Failure(ErrorCode.Validation, "内容不能为空");
         }
 
-        int target = checked((int)targetUserId.Value);
+        int target = checked((int)targetAccountId.Value);
+        bool hasAdminPrincipal = adminActor.HasAdminPrincipal;
         long conversationId = SnowFlakeSingle.Instance.NextId();
         long messageId = SnowFlakeSingle.Instance.NextId();
         DateTime now = DateTime.UtcNow;
@@ -459,12 +461,13 @@ public sealed class MessageCenterService(
             {
                 Id = conversationId,
                 Subject = normalizedSubject,
-                InitiatorUserId = target,
+                InitiatorAccountId = target,
                 Status = ConversationStatus.Open,
                 IsSystemSource = true,
                 SourceMessageId = null,
-                CreatedByType = MessageSenderType.Admin,
-                CreatedById = adminUserId,
+                CreatedByType = hasAdminPrincipal ? MessageSenderType.Admin : MessageSenderType.System,
+                CreatedByAdminPrincipalId = hasAdminPrincipal ? adminActor.AdminPrincipalId : null,
+                CreatedByAdminSessionId = hasAdminPrincipal ? adminActor.AdminSessionId : null,
                 CreatedAt = now,
                 UpdatedAt = now,
                 LastMessageAt = now
@@ -475,7 +478,6 @@ public sealed class MessageCenterService(
                 Id = messageId,
                 ConversationId = conversationId,
                 SenderType = MessageSenderType.System,
-                SenderId = null,
                 Body = normalizedBody,
                 CreatedAt = now
             }).ExecuteCommandAsync();
@@ -483,7 +485,7 @@ public sealed class MessageCenterService(
             await db.Insertable(new ConversationParticipantState
             {
                 ConversationId = conversationId,
-                UserId = target,
+                AccountId = target,
                 UnreadCount = 1,
                 UpdatedAt = now
             }).ExecuteCommandAsync();
@@ -507,34 +509,34 @@ public sealed class MessageCenterService(
         return Result<ConversationDetailResponse>.Success(detail);
     }
 
-    public async Task SendUserTransactionalNoticeAsync(int userId, string subject, string body)
+    public async Task SendUserTransactionalNoticeAsync(int accountId, string subject, string body)
         => await LogNotificationFailureAsync(
-            await SendSystemMessageAsync(subject, body, userId, adminUserId: 0),
+            await SendSystemMessageAsync(subject, body, accountId, AdminMessageActor.System),
             "send-user-transactional-notice",
-            userId);
+            accountId);
 
-    public async Task SendCommentDeletedNoticeAsync(int targetUserId, string articleTitle, string commentSnippet, string reason)
+    public async Task SendCommentDeletedNoticeAsync(int targetAccountId, string articleTitle, string commentSnippet, string reason)
         => await LogNotificationFailureAsync(
-            await SendSystemMessageAsync("评论处理通知", $"您在《{articleTitle}》下的评论「{commentSnippet}...」已被管理员移除。原因：{reason}", targetUserId, adminUserId: 0),
+            await SendSystemMessageAsync("评论处理通知", $"您在《{articleTitle}》下的评论「{commentSnippet}...」已被管理员移除。原因：{reason}", targetAccountId, AdminMessageActor.System),
             "send-comment-deleted-notice",
-            targetUserId);
+            targetAccountId);
 
-    public async Task SendUserBannedNoticeAsync(int userId, string reason)
+    public async Task SendUserBannedNoticeAsync(int accountId, string reason)
     {
         await LogNotificationFailureAsync(
-            await SendSystemMessageAsync("账号处罚通知", $"您的账号已被封禁，当前仅保留只读权限。原因：{reason}", userId, adminUserId: 0),
+            await SendSystemMessageAsync("账号处罚通知", $"您的账号已被封禁，当前仅保留只读权限。原因：{reason}", accountId, AdminMessageActor.System),
             "send-user-banned-notice",
-            userId);
-        await PushUserStatusAsync(userId, 1, reason);
+            accountId);
+        await PushUserStatusAsync(accountId, 1, reason);
     }
 
-    public async Task SendUserUnbannedNoticeAsync(int userId)
+    public async Task SendUserUnbannedNoticeAsync(int accountId)
     {
         await LogNotificationFailureAsync(
-            await SendSystemMessageAsync("账号恢复通知", "您已解除账户管控。", userId, adminUserId: 0),
+            await SendSystemMessageAsync("账号恢复通知", "您已解除账户管控。", accountId, AdminMessageActor.System),
             "send-user-unbanned-notice",
-            userId);
-        await PushUserStatusAsync(userId, 0, null);
+            accountId);
+        await PushUserStatusAsync(accountId, 0, null);
     }
 
     public Task PushUserStatusAsync(long userId, int status, string? reason)
@@ -695,37 +697,11 @@ public sealed class MessageCenterService(
         return latestByConversation;
     }
 
-    private async Task<List<ConversationMessageResponse>> MapMessagesAsync(List<ConversationMessage> rows)
+    private static Task<List<ConversationMessageResponse>> MapMessagesAsync(List<ConversationMessage> rows)
     {
         if (rows.Count == 0)
         {
-            return [];
-        }
-
-        HashSet<int>? senderIdSet = null;
-        for (int i = 0; i < rows.Count; i++)
-        {
-            int? senderId = rows[i].SenderId;
-            if (senderId.HasValue)
-            {
-                (senderIdSet ??= new HashSet<int>()).Add(senderId.Value);
-            }
-        }
-
-        Dictionary<int, string> userNames = [];
-        if (senderIdSet is not null && senderIdSet.Count > 0)
-        {
-            int[] senderIds = [.. senderIdSet];
-            var senders = await db.Queryable<User>()
-                .Where(it => senderIds.Contains(it.Id))
-                .Select(it => new { it.Id, it.Username })
-                .ToListAsync();
-            userNames = new Dictionary<int, string>(senders.Count);
-            for (int i = 0; i < senders.Count; i++)
-            {
-                var sender = senders[i];
-                userNames[sender.Id] = sender.Username;
-            }
+            return Task.FromResult<List<ConversationMessageResponse>>([]);
         }
 
         if (rows.Count > 1)
@@ -742,13 +718,13 @@ public sealed class MessageCenterService(
                 MessageId = row.Id.ToString(),
                 ConversationId = row.ConversationId.ToString(),
                 SenderType = ToSenderValue(row.SenderType),
-                SenderName = ResolveSenderName(row, userNames),
+                SenderName = ResolveSenderName(row),
                 Body = row.Body,
                 CreatedAt = row.CreatedAt
             });
         }
 
-        return result;
+        return Task.FromResult(result);
     }
 
     private async Task<ConversationMessageResponse?> BuildMessageResponseAsync(long conversationId, long messageId)
@@ -764,11 +740,11 @@ public sealed class MessageCenterService(
         return (await MapMessagesAsync([row])).FirstOrDefault();
     }
 
-    private async Task<ConversationListItemResponse?> BuildConversationListItemForUserAsync(int userId, long conversationId)
+    private async Task<ConversationListItemResponse?> BuildConversationListItemForUserAsync(int accountId, long conversationId)
     {
         var rows = await db.Queryable<ConversationParticipantState, MessageConversation>(
             (p, c) => p.ConversationId == c.Id)
-            .Where((p, c) => p.UserId == userId && c.Id == conversationId)
+            .Where((p, c) => p.AccountId == accountId && c.Id == conversationId)
             .Select((p, c) => new UserConversationRow
             {
                 ConversationId = c.Id,
@@ -788,7 +764,7 @@ public sealed class MessageCenterService(
         return (await BuildConversationListAsync(rows, includeUnread: true)).FirstOrDefault();
     }
 
-    private async Task PublishConversationUpsertAsync(int userId, ConversationDetailResponse detail, int? totalUnread = null)
+    private async Task PublishConversationUpsertAsync(int accountId, ConversationDetailResponse detail, int? totalUnread = null)
     {
         var summary = new ConversationListItemResponse
         {
@@ -802,13 +778,13 @@ public sealed class MessageCenterService(
             UpdatedAt = detail.LastMessageAt,
             LastMessage = ToMessagePreview(detail.Messages.LastOrDefault())
         };
-        await PublishConversationUpsertAsync(userId, summary, totalUnread);
+        await PublishConversationUpsertAsync(accountId, summary, totalUnread);
     }
 
-    private Task PublishConversationUpsertAsync(int userId, ConversationListItemResponse summary, int? totalUnread = null)
+    private Task PublishConversationUpsertAsync(int accountId, ConversationListItemResponse summary, int? totalUnread = null)
         => notificationStreamPort.PublishToUserAsync(
             NotificationStreamEventType.InboxConversationUpsert,
-            userId,
+            accountId,
             new InboxConversationUpsertPayload(summary, totalUnread, DateTime.UtcNow),
             "inbox-conversation-upsert");
 
@@ -820,28 +796,28 @@ public sealed class MessageCenterService(
             "admin-conversation-upsert");
     }
 
-    private Task PublishMessageAppendAsync(string conversationId, ConversationMessageResponse message, int? conversationUnreadCount = null, int? totalUnread = null, int? targetUserId = null)
+    private Task PublishMessageAppendAsync(string conversationId, ConversationMessageResponse message, int? conversationUnreadCount = null, int? totalUnread = null, int? targetAccountId = null)
     {
         var payload = new InboxMessageAppendPayload(conversationId, message, conversationUnreadCount, totalUnread, DateTime.UtcNow);
-        if (targetUserId.HasValue)
+        if (targetAccountId.HasValue)
         {
-            return notificationStreamPort.PublishToUserAsync(NotificationStreamEventType.InboxMessageAppend, targetUserId.Value, payload, "inbox-message-append-user");
+            return notificationStreamPort.PublishToUserAsync(NotificationStreamEventType.InboxMessageAppend, targetAccountId.Value, payload, "inbox-message-append-user");
         }
 
         return notificationStreamPort.PublishToAdminUsersAsync(NotificationStreamEventType.InboxMessageAppend, payload, "inbox-message-append-admin");
     }
 
-    private Task PublishReadUpdatedAsync(int userId, long conversationId, long? lastReadMessageId, int conversationUnreadCount, int? totalUnread)
+    private Task PublishReadUpdatedAsync(int accountId, long conversationId, long? lastReadMessageId, int conversationUnreadCount, int? totalUnread)
         => notificationStreamPort.PublishToUserAsync(
             NotificationStreamEventType.InboxReadUpdated,
-            userId,
+            accountId,
             new InboxReadUpdatedPayload(conversationId.ToString(), lastReadMessageId?.ToString(), conversationUnreadCount, totalUnread, DateTime.UtcNow),
             "inbox-read-updated");
 
-    private Task PublishConversationClosedAsync(int userId, long conversationId, ConversationStatusValue status)
+    private Task PublishConversationClosedAsync(int accountId, long conversationId, ConversationStatusValue status)
         => notificationStreamPort.PublishToUserAsync(
             NotificationStreamEventType.InboxConversationClosed,
-            userId,
+            accountId,
             new InboxConversationClosedPayload(conversationId.ToString(), status, DateTime.UtcNow),
             "inbox-conversation-closed");
 
@@ -865,8 +841,8 @@ public sealed class MessageCenterService(
         for (int i = 0; i < participants.Count; i++)
         {
             ConversationParticipantState participant = participants[i];
-            int totalUnread = await RefreshUnreadCacheAsync(participant.UserId);
-            ConversationListItemResponse? item = await BuildConversationListItemForUserAsync(participant.UserId, conversationId);
+            int totalUnread = await RefreshUnreadCacheAsync(participant.AccountId);
+            ConversationListItemResponse? item = await BuildConversationListItemForUserAsync(participant.AccountId, conversationId);
             tasks.Add(PublishPreparedParticipantMessageAsync(conversationId, message, participant, item, totalUnread));
         }
 
@@ -882,10 +858,10 @@ public sealed class MessageCenterService(
     {
         if (item is not null)
         {
-            await PublishConversationUpsertAsync(participant.UserId, item, totalUnread);
+            await PublishConversationUpsertAsync(participant.AccountId, item, totalUnread);
         }
 
-        await PublishMessageAppendAsync(conversationId.ToString(), message, participant.UnreadCount + 1, totalUnread, participant.UserId);
+        await PublishMessageAppendAsync(conversationId.ToString(), message, participant.UnreadCount + 1, totalUnread, participant.AccountId);
     }
 
     private async Task PublishUserConversationUpsertThenMessageAppendAsync(
@@ -897,12 +873,12 @@ public sealed class MessageCenterService(
         await PublishMessageAppendAsync(detail.ConversationId, detail.Messages.Last(), 1, totalUnread, target);
     }
 
-    private async Task<int> RefreshUnreadCacheAsync(int userId)
+    private async Task<int> RefreshUnreadCacheAsync(int accountId)
     {
         int unread = await db.Queryable<ConversationParticipantState>()
-            .Where(it => it.UserId == userId)
+            .Where(it => it.AccountId == accountId)
             .SumAsync(it => it.UnreadCount);
-        await cache.SetUnreadAsync(userId, unread);
+        await cache.SetUnreadAsync(accountId, unread);
         return unread;
     }
 
@@ -947,19 +923,14 @@ public sealed class MessageCenterService(
             _ => ConversationSenderValue.System
         };
 
-    private static string ResolveSenderName(ConversationMessage row, IReadOnlyDictionary<int, string> users)
+    private static string ResolveSenderName(ConversationMessage row)
     {
         if (row.SenderType == MessageSenderType.System)
         {
             return "系统";
         }
 
-        if (row.SenderId.HasValue && users.TryGetValue(row.SenderId.Value, out string? name) && !string.IsNullOrWhiteSpace(name))
-        {
-            return name;
-        }
-
-        return row.SenderType == MessageSenderType.Admin ? "管理员" : "用户";
+        return row.SenderType == MessageSenderType.Admin ? "管理员" : "你";
     }
 
     private static ISugarQueryable<ConversationParticipantState, MessageConversation> ApplyUserFilter(

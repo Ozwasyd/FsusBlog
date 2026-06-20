@@ -54,7 +54,7 @@ describe('message API binary transport', () => {
     await messageApi.adminGetConversationDetail(9)
     await messageApi.adminReplyConversation(9, { body: 'Admin reply' })
     await messageApi.adminUpdateConversationStatus(9, { status: 'closed' })
-    await messageApi.adminSendSystemMessage({ targetUserId: 3, subject: 'Notice', body: 'Body' })
+    await messageApi.adminSendSystemMessage({ targetAccountId: 3, subject: 'Notice', body: 'Body' })
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryUrl: '/api/binary/admin/messages/conversations?page=1&size=50&filter=closed',

@@ -28,8 +28,8 @@ public sealed class AdminConsistencyContractTests
 
         Assert.Contains("request.Status is not 0 and not 1", users, StringComparison.Ordinal);
         Assert.Contains("用户状态变更仅允许封禁或解封", users, StringComparison.Ordinal);
-        Assert.Contains("!request.TargetUserId.HasValue || request.TargetUserId.Value <= 0", messages, StringComparison.Ordinal);
-        Assert.Contains("系统消息必须指定目标用户", messages, StringComparison.Ordinal);
+        Assert.Contains("!request.TargetAccountId.HasValue || request.TargetAccountId.Value <= 0", messages, StringComparison.Ordinal);
+        Assert.Contains("系统消息必须指定目标账号", messages, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -16,6 +16,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildCommentThreadIndexMigration(),
         BuildContentCleanupMigration(),
         BuildMessagingSplitMigration(),
+        BuildMessageAccountPrincipalMigration(),
         BuildUserSoftDeleteMigration(),
         BuildUserSessionFinalizeMigration(),
         BuildUserAuthSecurityHardeningMigration(),
@@ -475,8 +476,9 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
 
                             EXECUTE format(
                                 'INSERT INTO msg_conversation(
-                                     id, subject, initiatoruserid, status, issystemsource, sourcemessageid,
-                                     createdbytype, createdbyid, createdat, updatedat, lastmessageat
+                                     id, subject, initiatoraccountid, status, issystemsource, sourcemessageid,
+                                     createdbytype, createdbyaccountid, createdbyadminprincipalid, createdbyadminsessionid,
+                                     createdat, updatedat, lastmessageat
                                  )
                                  SELECT
                                      m.id,
@@ -486,6 +488,8 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                                      true,
                                      m.id,
                                      2,
+                                     NULL,
+                                     NULL,
                                      NULL,
                                      coalesce(%1$s, now()),
                                      coalesce(%1$s, now()),
@@ -497,12 +501,15 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
 
                             EXECUTE format(
                                 'INSERT INTO msg_message(
-                                     id, conversationid, sendertype, senderid, body, attachmentsmeta, isinternalnote, createdat
+                                     id, conversationid, sendertype, senderaccountid, senderadminprincipalid, senderadminsessionid,
+                                     body, attachmentsmeta, isinternalnote, createdat
                                  )
                                  SELECT
                                      m.id,
                                      m.id,
                                      2,
+                                     NULL,
+                                     NULL,
                                      NULL,
                                      coalesce(m.content, ''''),
                                      NULL,
@@ -523,7 +530,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                             WHERE table_schema = 'public' AND table_name = 'sys_user_message'
                         ) THEN
                             INSERT INTO msg_participant_state(
-                                conversationid, userid, lastreadmessageid, unreadcount, muted, lastreadat, updatedat
+                                conversationid, accountid, lastreadmessageid, unreadcount, muted, lastreadat, updatedat
                             )
                             SELECT
                                 rel.messageid,
@@ -538,13 +545,251 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                                 SELECT 1
                                 FROM msg_participant_state p
                                 WHERE p.conversationid = rel.messageid
-                                  AND p.userid = rel.userid::integer
+                                  AND p.accountid = rel.userid::integer
                             );
                         END IF;
                     END $$;
                     """),
                 new DropTableStep("sys_user_message"),
                 new DropTableStep("sys_message")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildMessageAccountPrincipalMigration()
+        => new SchemaMigrationDescriptor(
+            "20260620-post-message-account-principal",
+            "Move message center sender identity from sys_user IDs to account and admin principal columns.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("msg_conversation", "initiatoraccountid", "integer NULL"),
+                new EnsureColumnStep("msg_conversation", "createdbyaccountid", "integer NULL"),
+                new EnsureColumnStep("msg_conversation", "createdbyadminprincipalid", "bigint NULL"),
+                new EnsureColumnStep("msg_conversation", "createdbyadminsessionid", "varchar(64) NULL"),
+                new EnsureColumnStep("msg_message", "senderaccountid", "integer NULL"),
+                new EnsureColumnStep("msg_message", "senderadminprincipalid", "bigint NULL"),
+                new EnsureColumnStep("msg_message", "senderadminsessionid", "varchar(64) NULL"),
+                new EnsureColumnStep("msg_participant_state", "accountid", "integer NULL"),
+                new RawSqlStep("""
+                    DO $$
+                    DECLARE
+                        pk_name text;
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_name = 'msg_conversation'
+                        ) THEN
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'msg_conversation' AND column_name = 'initiatoruserid'
+                            ) THEN
+                                UPDATE msg_conversation
+                                SET initiatoraccountid = initiatoruserid
+                                WHERE initiatoraccountid IS NULL
+                                  AND initiatoruserid IS NOT NULL;
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'msg_conversation' AND column_name = 'createdbyid'
+                            ) THEN
+                                UPDATE msg_conversation
+                                SET createdbyaccountid = createdbyid
+                                WHERE createdbytype = 0
+                                  AND createdbyaccountid IS NULL
+                                  AND createdbyid IS NOT NULL;
+
+                                UPDATE msg_conversation
+                                SET createdbyadminprincipalid = createdbyid
+                                WHERE createdbytype = 1
+                                  AND createdbyadminprincipalid IS NULL
+                                  AND createdbyid IS NOT NULL;
+                            END IF;
+                        END IF;
+
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_name = 'msg_message'
+                        ) THEN
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'msg_message' AND column_name = 'senderid'
+                            ) THEN
+                                UPDATE msg_message
+                                SET senderaccountid = senderid
+                                WHERE sendertype = 0
+                                  AND senderaccountid IS NULL
+                                  AND senderid IS NOT NULL;
+
+                                UPDATE msg_message
+                                SET senderadminprincipalid = senderid
+                                WHERE sendertype = 1
+                                  AND senderadminprincipalid IS NULL
+                                  AND senderid IS NOT NULL;
+                            END IF;
+                        END IF;
+
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_name = 'msg_participant_state'
+                        ) THEN
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'msg_participant_state' AND column_name = 'userid'
+                            ) THEN
+                                UPDATE msg_participant_state
+                                SET accountid = userid
+                                WHERE accountid IS NULL
+                                  AND userid IS NOT NULL;
+
+                                SELECT conname
+                                INTO pk_name
+                                FROM pg_constraint
+                                WHERE conrelid = 'public.msg_participant_state'::regclass
+                                  AND contype = 'p'
+                                LIMIT 1;
+
+                                IF pk_name IS NOT NULL THEN
+                                    EXECUTE format('ALTER TABLE public.msg_participant_state DROP CONSTRAINT %I', pk_name);
+                                END IF;
+
+                                ALTER TABLE msg_participant_state ALTER COLUMN accountid SET NOT NULL;
+                                ALTER TABLE msg_participant_state ALTER COLUMN userid DROP NOT NULL;
+
+                                IF NOT EXISTS (
+                                    SELECT 1 FROM pg_constraint
+                                    WHERE conrelid = 'public.msg_participant_state'::regclass
+                                      AND conname = 'pk_msg_participant_state_account'
+                                ) THEN
+                                    ALTER TABLE msg_participant_state
+                                    ADD CONSTRAINT pk_msg_participant_state_account PRIMARY KEY (conversationid, accountid);
+                                END IF;
+                            END IF;
+                        END IF;
+                    END $$;
+                    """),
+                new RawSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'msg_conversation' AND column_name = 'initiatoruserid'
+                        ) THEN
+                            CREATE OR REPLACE FUNCTION public.fsusblog_msg_conversation_identity_sync()
+                            RETURNS trigger
+                            LANGUAGE plpgsql
+                            AS $sync$
+                            BEGIN
+                                IF NEW.initiatoraccountid IS NULL AND NEW.initiatoruserid IS NOT NULL THEN
+                                    NEW.initiatoraccountid := NEW.initiatoruserid;
+                                END IF;
+                                IF NEW.initiatoruserid IS NULL AND NEW.initiatoraccountid IS NOT NULL THEN
+                                    NEW.initiatoruserid := NEW.initiatoraccountid;
+                                END IF;
+
+                                IF NEW.createdbyaccountid IS NULL
+                                   AND NEW.createdbyadminprincipalid IS NULL
+                                   AND NEW.createdbyid IS NOT NULL THEN
+                                    IF NEW.createdbytype = 1 THEN
+                                        NEW.createdbyadminprincipalid := NEW.createdbyid;
+                                    ELSE
+                                        NEW.createdbyaccountid := NEW.createdbyid;
+                                    END IF;
+                                END IF;
+                                IF NEW.createdbyid IS NULL THEN
+                                    IF NEW.createdbytype = 1
+                                       AND NEW.createdbyadminprincipalid IS NOT NULL
+                                       AND NEW.createdbyadminprincipalid <= 2147483647 THEN
+                                        NEW.createdbyid := NEW.createdbyadminprincipalid::integer;
+                                    ELSIF NEW.createdbyaccountid IS NOT NULL THEN
+                                        NEW.createdbyid := NEW.createdbyaccountid;
+                                    END IF;
+                                END IF;
+
+                                RETURN NEW;
+                            END;
+                            $sync$;
+
+                            DROP TRIGGER IF EXISTS trg_msg_conversation_identity_sync ON msg_conversation;
+                            CREATE TRIGGER trg_msg_conversation_identity_sync
+                            BEFORE INSERT OR UPDATE ON msg_conversation
+                            FOR EACH ROW EXECUTE FUNCTION public.fsusblog_msg_conversation_identity_sync();
+                        END IF;
+
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'msg_message' AND column_name = 'senderid'
+                        ) THEN
+                            CREATE OR REPLACE FUNCTION public.fsusblog_msg_message_identity_sync()
+                            RETURNS trigger
+                            LANGUAGE plpgsql
+                            AS $sync$
+                            BEGIN
+                                IF NEW.senderaccountid IS NULL
+                                   AND NEW.senderadminprincipalid IS NULL
+                                   AND NEW.senderid IS NOT NULL THEN
+                                    IF NEW.sendertype = 1 THEN
+                                        NEW.senderadminprincipalid := NEW.senderid;
+                                    ELSE
+                                        NEW.senderaccountid := NEW.senderid;
+                                    END IF;
+                                END IF;
+                                IF NEW.senderid IS NULL THEN
+                                    IF NEW.sendertype = 1
+                                       AND NEW.senderadminprincipalid IS NOT NULL
+                                       AND NEW.senderadminprincipalid <= 2147483647 THEN
+                                        NEW.senderid := NEW.senderadminprincipalid::integer;
+                                    ELSIF NEW.senderaccountid IS NOT NULL THEN
+                                        NEW.senderid := NEW.senderaccountid;
+                                    END IF;
+                                END IF;
+
+                                RETURN NEW;
+                            END;
+                            $sync$;
+
+                            DROP TRIGGER IF EXISTS trg_msg_message_identity_sync ON msg_message;
+                            CREATE TRIGGER trg_msg_message_identity_sync
+                            BEFORE INSERT OR UPDATE ON msg_message
+                            FOR EACH ROW EXECUTE FUNCTION public.fsusblog_msg_message_identity_sync();
+                        END IF;
+
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'msg_participant_state' AND column_name = 'userid'
+                        ) THEN
+                            CREATE OR REPLACE FUNCTION public.fsusblog_msg_participant_identity_sync()
+                            RETURNS trigger
+                            LANGUAGE plpgsql
+                            AS $sync$
+                            BEGIN
+                                IF NEW.accountid IS NULL THEN
+                                    NEW.accountid := NEW.userid;
+                                END IF;
+                                IF NEW.userid IS NULL THEN
+                                    NEW.userid := NEW.accountid;
+                                END IF;
+
+                                RETURN NEW;
+                            END;
+                            $sync$;
+
+                            DROP TRIGGER IF EXISTS trg_msg_participant_identity_sync ON msg_participant_state;
+                            CREATE TRIGGER trg_msg_participant_identity_sync
+                            BEFORE INSERT OR UPDATE ON msg_participant_state
+                            FOR EACH ROW EXECUTE FUNCTION public.fsusblog_msg_participant_identity_sync();
+                        END IF;
+                    END $$;
+                    """),
+                new CreateIndexStep(
+                    "idx_msg_conversation_initiator_account",
+                    "CREATE INDEX IF NOT EXISTS idx_msg_conversation_initiator_account ON msg_conversation(initiatoraccountid, lastmessageat DESC);"),
+                new CreateIndexStep(
+                    "idx_msg_participant_account_updated",
+                    "CREATE INDEX IF NOT EXISTS idx_msg_participant_account_updated ON msg_participant_state(accountid, updatedat DESC);"),
+                new CreateIndexStep(
+                    "idx_msg_participant_account_unread",
+                    "CREATE INDEX IF NOT EXISTS idx_msg_participant_account_unread ON msg_participant_state(accountid, unreadcount DESC);")
             ]);
 
     private static ISchemaMigrationDescriptor BuildUserSoftDeleteMigration()
