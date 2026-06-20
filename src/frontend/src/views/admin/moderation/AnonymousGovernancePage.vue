@@ -1,5 +1,5 @@
 <template>
-  <div class="admin-data-surface anonymous-governance-placeholder">
+  <div class="admin-data-surface anonymous-governance-page">
     <AccountPageHeader
       :title="section.title"
       :description="section.description"
@@ -560,14 +560,14 @@ watch(() => route.name, () => {
 </script>
 
 <style scoped>
-.anonymous-governance-placeholder {
+.anonymous-governance-page {
   display: grid;
   gap: 1.25rem;
   min-width: 0;
   max-width: 100%;
 }
 
-.anonymous-governance-placeholder > * {
+.anonymous-governance-page > * {
   min-width: 0;
   max-width: 100%;
 }

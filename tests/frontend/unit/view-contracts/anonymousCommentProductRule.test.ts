@@ -11,7 +11,7 @@ describe('anonymous comment product rule contract', () => {
   const detailComposable = readRepoFile('src/frontend/src/composables/useArticleDetailView.ts')
   const composer = readRepoFile('src/frontend/src/components/article/ArticleCommentComposer.vue')
   const composerTemplate = vueTemplate(composer)
-  const governance = readRepoFile('src/frontend/src/views/admin/moderation/AnonymousGovernancePlaceholder.vue')
+  const governance = readRepoFile('src/frontend/src/views/admin/moderation/AnonymousGovernancePage.vue')
 
   it('loads server CommentPolicySnapshot for article composer controls', () => {
     expect(commentApi).toContain('getCommentPolicySnapshot')

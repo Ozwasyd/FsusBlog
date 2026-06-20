@@ -242,7 +242,7 @@ public sealed class AnonymousCredentialIssuerTests
     }
 
     [Fact]
-    public async Task IssueAsync_SameAccountAcrossEpochs_ProducesUnlinkableBlindSignaturesWithoutStoredLinkingMaterial()
+    public async Task IssueAsync_SameAccountAcrossEpochs_ProducesUnlinkableCircuitNativeSignaturesWithoutStoredLinkingMaterial()
     {
         using SqlSugarClient db = CreateDb();
         CreateTables(db);
@@ -335,7 +335,7 @@ public sealed class AnonymousCredentialIssuerTests
     }
 
     [Fact]
-    public async Task IssueAsync_InactiveCredentialStatusIsRejectedBeforeBlindSigning()
+    public async Task IssueAsync_InactiveCredentialStatusIsRejectedBeforeCircuitNativeSigning()
     {
         using SqlSugarClient db = CreateDb();
         CreateTables(db);
