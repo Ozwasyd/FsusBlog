@@ -492,7 +492,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 
         int conversationCount = await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(1) FROM msg_conversation WHERE id = 1001;");
         int messageCount = await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(1) FROM msg_message WHERE id = 1001;");
-        int participantCount = await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(1) FROM msg_participant_state WHERE conversationid = 1001 AND userid = 7;");
+        int participantCount = await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(1) FROM msg_participant_state WHERE conversationid = 1001 AND accountid = 7;");
         bool legacyMessageExists = await fixture.TableExistsAsync(connectionString, "sys_message");
         bool legacyUserMessageExists = await fixture.TableExistsAsync(connectionString, "sys_user_message");
 

@@ -95,22 +95,22 @@ public sealed class LegacyIdentityColdStartResetOperation(
                 """
                 DELETE FROM msg_participant_state participant
                 USING fsus_identity_reset_user_ids legacy_user
-                WHERE participant.userid = legacy_user.userid
+                WHERE participant.accountid = legacy_user.userid
                 """,
                 cancellationToken);
             int userBoundMessagesDeleted = await DeleteAndCountAsync(
                 """
                 DELETE FROM msg_message message
                 USING fsus_identity_reset_user_ids legacy_user
-                WHERE message.senderid = legacy_user.userid
+                WHERE message.senderaccountid = legacy_user.userid
                 """,
                 cancellationToken);
             int userBoundConversationsDeleted = await DeleteAndCountAsync(
                 """
                 DELETE FROM msg_conversation conversation
                 USING fsus_identity_reset_user_ids legacy_user
-                WHERE conversation.initiatoruserid = legacy_user.userid
-                   OR conversation.createdbyid = legacy_user.userid
+                WHERE conversation.initiatoraccountid = legacy_user.userid
+                   OR conversation.createdbyaccountid = legacy_user.userid
                 """,
                 cancellationToken);
             int passkeyCredentialsDeleted = await DeleteAndCountAsync(

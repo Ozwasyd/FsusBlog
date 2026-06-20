@@ -45,13 +45,21 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
 
         Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
         Assert.Contains("CREATE TABLE IF NOT EXISTS anonymous_credential_issuance_audit", fingerprint, StringComparison.Ordinal);
-        Assert.Contains("user_id integer NOT NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("subject_hash varchar(64) NOT NULL", fingerprint, StringComparison.Ordinal);
         Assert.Contains("epoch bigint NOT NULL", fingerprint, StringComparison.Ordinal);
         Assert.Contains("status varchar(32) NOT NULL DEFAULT 'issued'", fingerprint, StringComparison.Ordinal);
-        Assert.Contains("unique_idx_anonymous_credential_issuance_user_epoch", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("unique_idx_anonymous_credential_issuance_subject_epoch", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_anonymous_credential_issuance_subject", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_issuance_user_epoch", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("CREATE INDEX IF NOT EXISTS idx_anonymous_credential_issuance_user", fingerprint, StringComparison.Ordinal);
         Assert.Contains("anonymous_credential_issuance_audit.request_hash", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("anonymous_credential_issuance_audit.user_id", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("DROP INDEX IF EXISTS unique_idx_anonymous_credential_issuance_user_epoch", fingerprint, StringComparison.Ordinal);
         Assert.DoesNotContain("request_hash varchar", fingerprint, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("user_id integer NOT NULL", fingerprint, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(entityColumns, static column => column.Contains("RequestHash", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(entityColumns, static column => column.Contains("UserId", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(entityColumns, static column => string.Equals(column, "SubjectHash", StringComparison.Ordinal));
         Assert.DoesNotContain("credential_commitment", fingerprint, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("commitment_hash", fingerprint, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("credential_request", fingerprint, StringComparison.OrdinalIgnoreCase);
@@ -105,6 +113,7 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             Assert.Contains("\"AnonymousCredentialIssuer\"", source, StringComparison.Ordinal);
             Assert.Contains("\"CircuitNative\"", source, StringComparison.Ordinal);
             Assert.Contains("\"AllowBannedAccountIssuance\": false", source, StringComparison.Ordinal);
+            Assert.Contains("\"SubjectHashPepper\"", source, StringComparison.Ordinal);
             Assert.Contains("\"Backend\": \"managed_circuit_native_v2\"", source, StringComparison.Ordinal);
             Assert.Contains("\"Enabled\": false", source, StringComparison.Ordinal);
         }
@@ -252,12 +261,15 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
 
         List<AnonymousCredentialIssuanceAudit> rows = await db.Queryable<AnonymousCredentialIssuanceAudit>().ToListAsync();
         AnonymousCredentialIssuanceAudit row = Assert.Single(rows);
-        Assert.Equal(42, row.UserId);
+        Assert.Equal(64, row.SubjectHash.Length);
+        Assert.NotEqual("42", row.SubjectHash);
         Assert.Equal(request.CredentialEpoch, row.Epoch);
         Assert.Equal(AnonymousCredentialIssuanceStatuses.Issued, row.Status);
         string[] dbColumns = db.DbMaintenance.GetColumnInfosByTableName("anonymous_credential_issuance_audit")
             .Select(static column => column.DbColumnName)
             .ToArray();
+        Assert.Contains("subject_hash", dbColumns);
+        Assert.DoesNotContain("user_id", dbColumns);
         Assert.DoesNotContain(dbColumns, static column => column.Contains("request_hash", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(dbColumns, static column => column.Contains("credential_commitment", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(dbColumns, static column => column.Contains("credential_request", StringComparison.OrdinalIgnoreCase));
@@ -269,9 +281,14 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
         AuditEvent audit = Assert.Single(auditEvents.Events);
         Assert.Equal(AuditActionCatalog.AnonymousCredentialIssued, audit.Action);
         Assert.Equal(AuditOutcomeCatalog.Success, audit.Outcome);
+        Assert.Equal(AuditActorTypeCatalog.Anonymous, audit.ActorType);
+        Assert.Equal(row.SubjectHash[..16], audit.ActorId);
+        Assert.NotEqual("42", audit.ActorId);
         Assert.NotNull(audit.Context);
         Assert.Equal(request.CredentialEpoch, audit.Context!["epoch"]);
         Assert.Equal(AnonymousCredentialIssuanceStatuses.Issued, audit.Context["status"]);
+        Assert.Equal(row.SubjectHash[..16], audit.Context["subjectHash"]);
+        Assert.Equal("trace-secret", audit.Context["traceId"]);
         string auditText = string.Join('|', audit.Context.Select(static item => $"{item.Key}:{item.Value}"));
         Assert.DoesNotContain("credential-request-raw", auditText, StringComparison.Ordinal);
         Assert.DoesNotContain("credential-secret-token", auditText, StringComparison.Ordinal);
@@ -347,6 +364,43 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
         Assert.Equal(ErrorCode.Conflict, second.Error.Code);
         Assert.Equal("anonymous_credential_issue_rate_limited", second.Error.Message);
         Assert.Equal(1, await db.Queryable<AnonymousCredentialIssuanceAudit>().CountAsync());
+    }
+
+    [Fact]
+    public async Task IssueAsync_DifferentAccountsSameEpoch_UseDifferentSubjectHashesAndBothIssue()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedUser(db, id: 42, status: 0);
+        SeedUser(db, id: 43, status: 0);
+        var service = CreateService(db, new CapturingAuditEventService(), credentialIssuer: new CapturingCircuitNativeCredentialIssuer());
+        AnonymousCredentialIssueRequestCoreModel request = CreateIssueRequest(epoch: 2042);
+
+        Result<AnonymousCredentialIssueResponseCoreModel> first = await service.IssueAsync(42, request, "trace-42", CancellationToken.None);
+        Result<AnonymousCredentialIssueResponseCoreModel> second = await service.IssueAsync(43, request, "trace-43", CancellationToken.None);
+
+        Assert.True(first.IsSuccess, first.Error.Message);
+        Assert.True(second.IsSuccess, second.Error.Message);
+        List<AnonymousCredentialIssuanceAudit> rows = await db.Queryable<AnonymousCredentialIssuanceAudit>()
+            .OrderBy(static row => row.SubjectHash)
+            .ToListAsync();
+        Assert.Equal(2, rows.Count);
+        Assert.All(rows, static row => Assert.Equal(64, row.SubjectHash.Length));
+        Assert.NotEqual(rows[0].SubjectHash, rows[1].SubjectHash);
+        Assert.All(rows, row => Assert.Equal(2042, row.Epoch));
+    }
+
+    [Fact]
+    public void IssuerService_DoesNotWriteRawUserIdToIssuanceStoreOrHighValueAudit()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialIssuerService.cs");
+
+        Assert.DoesNotContain("int UserId,", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("(user_id, epoch, status", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ON CONFLICT(user_id, epoch)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ActorId: userId.ToString", source, StringComparison.Ordinal);
+        Assert.Contains("SubjectHash", source, StringComparison.Ordinal);
+        Assert.Contains("ActorId: ShortSubjectHash(subjectHash)", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -561,7 +615,7 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             typeof(AnonymousCredentialIssuanceAudit));
     }
 
-    private static void SeedUser(SqlSugarClient db, int status, string credentialStatus = AnonymousCredentialStatuses.Active)
+    private static void SeedUser(SqlSugarClient db, int status, string credentialStatus = AnonymousCredentialStatuses.Active, int id = 42)
         => db.Ado.ExecuteCommand(
             """
             INSERT INTO sys_user
@@ -569,7 +623,7 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             VALUES
                 (@Id, @Status, 'guest', NULL, @Level, @CredentialStatus);
             """,
-            new SugarParameter("@Id", 42),
+            new SugarParameter("@Id", id),
             new SugarParameter("@Status", status),
             new SugarParameter("@Level", AnonymousCredentialLevels.StrongAnonymous),
             new SugarParameter("@CredentialStatus", credentialStatus));

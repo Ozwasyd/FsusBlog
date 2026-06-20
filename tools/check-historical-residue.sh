@@ -146,6 +146,13 @@ run_residue_check \
   src/backend/Services/Security/PasskeyService.cs
 
 run_residue_check \
+  "raw anonymous credential issuance user ids" \
+  "raw anonymous credential issuance user-id residue detected" \
+  'anonymous_credential_issuance_audit[(][^)]*user_id|unique_idx_anonymous_credential_issuance_user_epoch|idx_anonymous_credential_issuance_user\b|ON CONFLICT[(]user_id,\s*epoch[)]|ActorId:\s*userId[.]ToString|int\s+UserId,\s*long\s+Epoch' \
+  '^(tests/backend/Unit/AnonymousCredentialIssuerTests[.]cs|src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry[.]cs)$' \
+  src/backend/Entities/AnonymousCredentialIssuanceAudit.cs src/backend/Services/Security/AnonymousCredentialIssuerService.cs src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs tests/backend/Unit/AnonymousCredentialIssuerTests.cs
+
+run_residue_check \
   "frontend anonymous step-up password proof payloads" \
   "frontend anonymous step-up password proof payload residue detected" \
   '\b(?:FrameType[.]MfaPasswordProofRequest|MfaPasswordProofRequest|encodeMfaPasswordProofRequest)\b' \

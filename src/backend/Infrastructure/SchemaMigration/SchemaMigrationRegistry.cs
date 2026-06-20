@@ -1179,17 +1179,44 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     """
                     CREATE TABLE IF NOT EXISTS anonymous_credential_issuance_audit (
                         id bigserial PRIMARY KEY,
-                        user_id integer NOT NULL,
+                        subject_hash varchar(64) NOT NULL,
                         epoch bigint NOT NULL,
                         status varchar(32) NOT NULL DEFAULT 'issued',
                         created_at_utc timestamp NOT NULL DEFAULT now(),
                         trace_id varchar(64) NULL
                     );
-                    CREATE INDEX IF NOT EXISTS idx_anonymous_credential_issuance_user ON anonymous_credential_issuance_audit(user_id);
-                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_issuance_user_epoch ON anonymous_credential_issuance_audit(user_id, epoch);
+                    CREATE INDEX IF NOT EXISTS idx_anonymous_credential_issuance_subject ON anonymous_credential_issuance_audit(subject_hash);
+                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_issuance_subject_epoch ON anonymous_credential_issuance_audit(subject_hash, epoch);
                     CREATE INDEX IF NOT EXISTS idx_anonymous_credential_issuance_epoch ON anonymous_credential_issuance_audit(epoch);
                     """),
-                new DropColumnStep("anonymous_credential_issuance_audit", "request_hash")
+                new RawSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_name = 'anonymous_credential_issuance_audit'
+                        ) THEN
+                            ALTER TABLE anonymous_credential_issuance_audit
+                                ADD COLUMN IF NOT EXISTS subject_hash varchar(64);
+
+                            DELETE FROM anonymous_credential_issuance_audit
+                            WHERE subject_hash IS NULL OR subject_hash = '';
+
+                            ALTER TABLE anonymous_credential_issuance_audit
+                                ALTER COLUMN subject_hash SET NOT NULL;
+
+                            DROP INDEX IF EXISTS idx_anonymous_credential_issuance_user;
+                            DROP INDEX IF EXISTS unique_idx_anonymous_credential_issuance_user_epoch;
+
+                            CREATE INDEX IF NOT EXISTS idx_anonymous_credential_issuance_subject
+                                ON anonymous_credential_issuance_audit(subject_hash);
+                            CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_issuance_subject_epoch
+                                ON anonymous_credential_issuance_audit(subject_hash, epoch);
+                        END IF;
+                    END $$;
+                    """),
+                new DropColumnStep("anonymous_credential_issuance_audit", "request_hash"),
+                new DropColumnStep("anonymous_credential_issuance_audit", "user_id")
             ]);
 
     private static ISchemaMigrationDescriptor BuildSecurityRiskEventPersistenceMigration()

@@ -46,7 +46,7 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 
 Recovery Key verify 的 AEDS request 只携带 Recovery Key 明文本体与撤销选项，不接受用户输入 account id。新 Recovery Key 明文格式为 `frk_<lookupId>_<secret>`，其中 `lookupId` 是 128-bit hex 随机值；服务端只用 peppered `lookup_id_hash` 定位候选记录，再校验完整 key 的 peppered PBKDF2 hash。旧无 lookup id 的 key 不扫描全表兼容，会按通用失败和限流处理，用户需重新生成新格式 Recovery Key。
 
-强匿名凭证签发是登录态到匿名态的单向领取边界：`POST /api/binary/anonymous-credential/issue` 只能验证当前账号领取资格和频率，响应必须 `no-store`，签发审计只能保存 `user_id` 维度的领取计数、epoch、不可逆 request hash 与结果状态。服务端不得把 `user_id` 与最终 credential commitment、nullifier、proof witness 或 credential secret 建立持久映射；后续匿名评论 ticket / submit 也不得依赖该端点留下可反查账号的状态。
+强匿名凭证签发是登录态到匿名态的单向领取边界：`POST /api/binary/anonymous-credential/issue` 只能验证当前账号领取资格和频率，响应必须 `no-store`，签发审计只能保存 HMAC 盲化后的 `subject_hash` 维度领取计数、epoch、trace id 与结果状态。服务端不得把 raw `user_id` 与最终 credential commitment、nullifier、proof witness 或 credential secret 建立持久映射；后续匿名评论 ticket / submit 也不得依赖该端点留下可反查账号的状态。
 
 强匿名 root/circuit metadata 是公开读取边界：`GET /api/binary/anonymous-credential/root` 和 `/circuit` 只返回公开的 credential root、epoch、expiry、circuit id、verifying key hash、public input layout version 与 ZK/verifier 配置位。`verifierConfigured` 只来自生产 `IZkProofVerifier.IsConfigured`，用于告诉 prover 当前服务端是否有完整 verifier adapter，不在该读取路径验证 proof。该读取路径必须匿名、`public_read` 限流、AEDS-only，不读取 Cookie、session、Authorization 或当前账号；root 不可用时 fail closed 为 AEDS `anonymous_root_unavailable`。服务端缓存对象必须按 root version/TTL 失效，negative cache 只短暂吸收 miss，不承担 root rotation worker 职责。
 

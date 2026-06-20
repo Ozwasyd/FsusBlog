@@ -49,7 +49,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 5;
+    private const int SchemaVersion = 6;
     private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object CoreValidationCacheLock = new();
     private static CoreValidationCacheEntry? s_coreValidationCache;
@@ -75,6 +75,13 @@ public static class ProductionStartupValidator
         "Local_Release_Smoke_Key_For_FsusBlog_2026_Only"
     ];
 
+    private static readonly string[] DefaultSubjectHashPeppers =
+    [
+        "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
+        "replace-with-stable-random-subject-hash-pepper",
+        "development-subject-hash-pepper-change-before-shared-use"
+    ];
+
     private static readonly RequiredSettingRule[] RequiredSettings =
     [
         ConnectionString("DefaultConnection"),
@@ -86,6 +93,7 @@ public static class ProductionStartupValidator
         Value("Seo:BaseUrl"),
         Value("Fido2:ServerDomain"),
         new("Fido2:Origins", ReadOriginList),
+        Value("AnonymousCredentialIssuer:SubjectHashPepper"),
         Value(AnonymousIdentityRuntime.ModeEnvironmentVariable)
     ];
 
@@ -176,6 +184,7 @@ public static class ProductionStartupValidator
         string? seoBaseUrl = values["Seo:BaseUrl"];
         string? fido2ServerDomain = values["Fido2:ServerDomain"];
         string? fido2Origins = values["Fido2:Origins"];
+        string? subjectHashPepper = values["AnonymousCredentialIssuer:SubjectHashPepper"];
         string? anonymousIdentityMode = values[AnonymousIdentityRuntime.ModeEnvironmentVariable];
 
         if (!string.IsNullOrWhiteSpace(jwtSecret))
@@ -193,6 +202,26 @@ public static class ProductionStartupValidator
             if (jwtSecret.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
             {
                 errors.Add("Jwt:SecretKey must not use a template placeholder.");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(subjectHashPepper))
+        {
+            if (subjectHashPepper.Length < 32)
+            {
+                errors.Add("AnonymousCredentialIssuer:SubjectHashPepper must be at least 32 characters.");
+            }
+
+            if (DefaultSubjectHashPeppers.Contains(subjectHashPepper, StringComparer.Ordinal))
+            {
+                errors.Add("AnonymousCredentialIssuer:SubjectHashPepper must not use a development/template/default value.");
+            }
+
+            if (subjectHashPepper.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase) ||
+                subjectHashPepper.Contains("MUST_BE_OVERRIDDEN", StringComparison.OrdinalIgnoreCase) ||
+                subjectHashPepper.Contains("replace-with", StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add("AnonymousCredentialIssuer:SubjectHashPepper must not use a template placeholder.");
             }
         }
 

@@ -28,7 +28,7 @@ public interface IAnonymousCredentialIssuanceAuditStore
 }
 
 public readonly record struct AnonymousCredentialIssuanceAuditWrite(
-    int UserId,
+    string SubjectHash,
     long Epoch,
     string Status,
     DateTime CreatedAtUtc,
@@ -323,12 +323,12 @@ public sealed class AnonymousCredentialIssuanceAuditStore(ISqlSugarClient db) : 
         int affected = await db.Ado.ExecuteCommandAsync(
             """
             INSERT INTO anonymous_credential_issuance_audit
-                (user_id, epoch, status, created_at_utc, trace_id)
+                (subject_hash, epoch, status, created_at_utc, trace_id)
             VALUES
-                (@UserId, @Epoch, @Status, @CreatedAtUtc, @TraceId)
-            ON CONFLICT(user_id, epoch) DO NOTHING;
+                (@SubjectHash, @Epoch, @Status, @CreatedAtUtc, @TraceId)
+            ON CONFLICT(subject_hash, epoch) DO NOTHING;
             """,
-            new SugarParameter("@UserId", write.UserId),
+            new SugarParameter("@SubjectHash", write.SubjectHash),
             new SugarParameter("@Epoch", write.Epoch),
             new SugarParameter("@Status", write.Status),
             new SugarParameter("@CreatedAtUtc", write.CreatedAtUtc),
@@ -362,12 +362,13 @@ public sealed class AnonymousCredentialIssuerService(
         }
 
         AnonymousCredentialIssuerOptions options = ResolveOptions(configuration);
+        string subjectHash = BuildSubjectHash(userId, configuration);
         string circuitId = NormalizeToken(request.CircuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars);
         if (!string.Equals(circuitId, AnonymousPrivacyContract.CircuitId, StringComparison.Ordinal) ||
             request.CircuitNumericId == 0 ||
             request.PublicInputLayoutVersion != AnonymousPrivacyContract.PublicInputLayoutVersion)
         {
-            await RecordIssuanceAuditAsync(userId, request.CredentialEpoch, "validation_failed", traceId, cancellationToken);
+            await RecordIssuanceAuditAsync(subjectHash, request.CredentialEpoch, "validation_failed", traceId, cancellationToken);
             return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(ErrorCode.Validation, "anonymous_credential_circuit_required");
         }
 
@@ -378,7 +379,7 @@ public sealed class AnonymousCredentialIssuerService(
             request.ClientNonce.Length == 0 ||
             request.ClientNonce.Length > options.MaxClientNonceBytes)
         {
-            await RecordIssuanceAuditAsync(userId, request.CredentialEpoch, "validation_failed", traceId, cancellationToken);
+            await RecordIssuanceAuditAsync(subjectHash, request.CredentialEpoch, "validation_failed", traceId, cancellationToken);
             return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(ErrorCode.Validation, "anonymous_credential_issue_request_invalid");
         }
 
@@ -395,19 +396,19 @@ public sealed class AnonymousCredentialIssuerService(
             .FirstAsync();
         if (account is null || account.DeletedAt.HasValue || account.Status == UserStatusDeleted)
         {
-            await RecordIssuanceAuditAsync(userId, request.CredentialEpoch, "account_deleted", traceId, cancellationToken);
+            await RecordIssuanceAuditAsync(subjectHash, request.CredentialEpoch, "account_deleted", traceId, cancellationToken);
             return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(ErrorCode.NotFound, "anonymous_credential_account_unavailable");
         }
 
         if (account.Status == UserStatusBanned && !options.AllowBannedAccountIssuance)
         {
-            await RecordIssuanceAuditAsync(userId, request.CredentialEpoch, "account_banned", traceId, cancellationToken);
+            await RecordIssuanceAuditAsync(subjectHash, request.CredentialEpoch, "account_banned", traceId, cancellationToken);
             return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(ErrorCode.Forbidden, "anonymous_credential_account_banned");
         }
 
         if (!string.Equals(NormalizeToken(account.AnonymousCredentialStatus, 32), AnonymousCredentialStatuses.Active, StringComparison.Ordinal))
         {
-            await RecordIssuanceAuditAsync(userId, request.CredentialEpoch, "credential_disabled", traceId, cancellationToken);
+            await RecordIssuanceAuditAsync(subjectHash, request.CredentialEpoch, "credential_disabled", traceId, cancellationToken);
             return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(ErrorCode.Forbidden, "anonymous_credential_disabled");
         }
 
@@ -424,7 +425,7 @@ public sealed class AnonymousCredentialIssuerService(
 
         if (!credentialIssuer.IsConfigured)
         {
-            await RecordIssuanceAuditAsync(userId, epoch, "issuer_unavailable", traceId, cancellationToken);
+            await RecordIssuanceAuditAsync(subjectHash, epoch, "issuer_unavailable", traceId, cancellationToken);
             return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(
                 ErrorCode.InfraFailure,
                 "anonymous_credential_issuer_unavailable");
@@ -440,7 +441,7 @@ public sealed class AnonymousCredentialIssuerService(
         Result<CircuitNativeCredentialIssueResult> issuerSignatureResult = await credentialIssuer.SignAsync(material, cancellationToken);
         if (!issuerSignatureResult.IsSuccess)
         {
-            await RecordIssuanceAuditAsync(userId, epoch, "issuer_unavailable", traceId, cancellationToken);
+            await RecordIssuanceAuditAsync(subjectHash, epoch, "issuer_unavailable", traceId, cancellationToken);
             return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(
                 issuerSignatureResult.Error.Code,
                 issuerSignatureResult.Error.Message);
@@ -452,7 +453,7 @@ public sealed class AnonymousCredentialIssuerService(
             issuerSignature.Length == 0 ||
             issuerSignature.Length > AnonymousPrivacyContract.MaxCircuitNativeIssuerSignatureBytes)
         {
-            await RecordIssuanceAuditAsync(userId, epoch, "issuer_invalid_response", traceId, cancellationToken);
+            await RecordIssuanceAuditAsync(subjectHash, epoch, "issuer_invalid_response", traceId, cancellationToken);
             return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(
                 ErrorCode.InfraFailure,
                 "anonymous_credential_issuer_unavailable");
@@ -460,7 +461,7 @@ public sealed class AnonymousCredentialIssuerService(
 
         bool recorded = await issuanceAudit.TryRecordIssuedAsync(
             new AnonymousCredentialIssuanceAuditWrite(
-                userId,
+                subjectHash,
                 epoch,
                 AnonymousCredentialIssuanceStatuses.Issued,
                 now.UtcDateTime,
@@ -468,11 +469,11 @@ public sealed class AnonymousCredentialIssuerService(
             cancellationToken);
         if (!recorded)
         {
-            await RecordIssuanceAuditAsync(userId, epoch, "rate_limited", traceId, cancellationToken);
+            await RecordIssuanceAuditAsync(subjectHash, epoch, "rate_limited", traceId, cancellationToken);
             return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(ErrorCode.Conflict, "anonymous_credential_issue_rate_limited");
         }
 
-        await RecordIssuanceAuditAsync(userId, epoch, AnonymousCredentialIssuanceStatuses.Issued, traceId, cancellationToken);
+        await RecordIssuanceAuditAsync(subjectHash, epoch, AnonymousCredentialIssuanceStatuses.Issued, traceId, cancellationToken);
 
         long expiresAtUnixMs = now.AddMinutes(options.CredentialTtlMinutes).ToUnixTimeMilliseconds();
         var response = new AnonymousCredentialIssueResponseCoreModel(
@@ -488,13 +489,15 @@ public sealed class AnonymousCredentialIssuerService(
     }
 
     private Task RecordIssuanceAuditAsync(
-        int userId,
+        string subjectHash,
         long epoch,
         string status,
         string? traceId,
         CancellationToken cancellationToken)
     {
         string normalizedStatus = NormalizeToken(status, 32);
+        string shortSubjectHash = ShortSubjectHash(subjectHash);
+        string? normalizedTraceId = NormalizeTraceId(traceId);
         return auditEvents.RecordHighValueAsync(new AuditEvent(
             AuditSourceCatalog.Security,
             AuditTypeCatalog.Security,
@@ -506,18 +509,51 @@ public sealed class AnonymousCredentialIssuerService(
                 ? AuditSeverityCatalog.Info
                 : AuditSeverityCatalog.Warning,
             "匿名凭证签发结果",
-            ActorType: AuditActorTypeCatalog.User,
-            ActorId: userId.ToString(CultureInfo.InvariantCulture),
+            ActorType: AuditActorTypeCatalog.Anonymous,
+            ActorId: ShortSubjectHash(subjectHash),
             TargetType: "anonymous_credential_issuance",
-            TargetId: epoch.ToString(CultureInfo.InvariantCulture),
+            TargetId: string.Concat(shortSubjectHash, ":", epoch.ToString(CultureInfo.InvariantCulture)),
             ReasonCode: normalizedStatus,
             Context: new Dictionary<string, object?>(StringComparer.Ordinal)
             {
                 ["epoch"] = epoch,
-                ["status"] = normalizedStatus
+                ["status"] = normalizedStatus,
+                ["subjectHash"] = shortSubjectHash,
+                ["traceId"] = normalizedTraceId
             }),
             cancellationToken);
     }
+
+    internal static string BuildSubjectHashForTests(int userId, IConfiguration configuration)
+        => BuildSubjectHash(userId, configuration);
+
+    private static string BuildSubjectHash(int userId, IConfiguration configuration)
+    {
+        byte[] key = ResolveSubjectHashKey(configuration);
+        byte[] material = Encoding.UTF8.GetBytes(string.Concat(
+            "fsusblog:anonymous-credential-issuance:v1:",
+            userId.ToString(CultureInfo.InvariantCulture)));
+        return Convert.ToHexStringLower(HMACSHA256.HashData(key, material));
+    }
+
+    private static byte[] ResolveSubjectHashKey(IConfiguration configuration)
+    {
+        string? value = configuration["AnonymousCredentialIssuer:SubjectHashPepper"];
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            value = configuration["Jwt:SecretKey"];
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            value = "fsusblog-development-anonymous-credential-subject-hash-pepper";
+        }
+
+        return SHA256.HashData(Encoding.UTF8.GetBytes(value.Trim()));
+    }
+
+    private static string ShortSubjectHash(string subjectHash)
+        => subjectHash.Length <= 16 ? subjectHash : subjectHash[..16];
 
     private static AnonymousCredentialIssuerOptions ResolveOptions(IConfiguration configuration)
     {

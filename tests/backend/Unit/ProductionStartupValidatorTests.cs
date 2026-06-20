@@ -31,6 +31,7 @@ public sealed class ProductionStartupValidatorTests
             ["Seo:BaseUrl"] = "https://fsus.blog",
             ["Fido2:ServerDomain"] = "fsus.blog",
             ["Fido2:Origins:0"] = "https://fsus.blog",
+            ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         });
@@ -53,7 +54,8 @@ public sealed class ProductionStartupValidatorTests
             ["CORS_ALLOWED_HOSTS"] = "http://fsus.blog",
             ["Seo:BaseUrl"] = "http://fsus.blog",
             ["Fido2:ServerDomain"] = "localhost",
-            ["Fido2:Origins:0"] = "http://fsus.blog"
+            ["Fido2:Origins:0"] = "http://fsus.blog",
+            ["AnonymousCredentialIssuer:SubjectHashPepper"] = "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES"
         });
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
@@ -67,6 +69,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains(errors, static error => error.Contains("Seo:BaseUrl", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Fido2:ServerDomain", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Fido2:Origins", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("AnonymousCredentialIssuer:SubjectHashPepper", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -155,6 +158,7 @@ public sealed class ProductionStartupValidatorTests
             ["Seo:BaseUrl"] = "https://fsus.blog",
             ["Fido2:ServerDomain"] = "fsus.blog",
             ["Fido2:Origins:0"] = "https://fsus.blog",
+            ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             ["AuthCookies:AllowInsecureTransportCookies"] = "true"
         });
@@ -181,6 +185,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains(errors, static error => error.Contains("Seo:BaseUrl", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Fido2:ServerDomain", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Fido2:Origins", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("AnonymousCredentialIssuer:SubjectHashPepper", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -202,7 +207,7 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(5, report.SchemaVersion);
+        Assert.Equal(6, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
@@ -212,6 +217,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("AllowedHosts", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Fido2:ServerDomain", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Fido2:Origins", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("AnonymousCredentialIssuer:SubjectHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains(
             "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
             ProductionStartupValidator.CurrentSchema.DefaultJwtSecrets);
@@ -231,6 +237,7 @@ public sealed class ProductionStartupValidatorTests
             ["Seo:BaseUrl"] = "https://fsus.blog",
             ["Fido2:ServerDomain"] = "login.fsus.blog",
             ["Fido2:Origins:0"] = "https://evil.example",
+            ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1"
         });
 
@@ -256,6 +263,7 @@ public sealed class ProductionStartupValidatorTests
             ["Seo:BaseUrl"] = "https://fsus.blog",
             ["Fido2:ServerDomain"] = "fsus.blog",
             ["Fido2:Origins:0"] = "https://www.fsus.blog",
+            ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1"
         });
 
@@ -444,6 +452,7 @@ public sealed class ProductionStartupValidatorTests
             ["Seo:BaseUrl"] = "https://fsus.blog",
             ["Fido2:ServerDomain"] = "fsus.blog",
             ["Fido2:Origins:0"] = "https://fsus.blog",
+            ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         };

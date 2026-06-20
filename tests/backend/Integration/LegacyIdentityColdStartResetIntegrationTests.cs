@@ -171,10 +171,11 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
             );
 
             INSERT INTO anonymous_credential_issuance_audit(
-                id, user_id, epoch, status, created_at_utc, trace_id
+                id, subject_hash, epoch, status, created_at_utc, trace_id
             )
             VALUES (
-                13, 42, 20260620, 'issued', TIMESTAMP '2024-01-01 00:00:00', 'legacy-trace'
+                13, '1111111111111111111111111111111111111111111111111111111111111111',
+                20260620, 'issued', TIMESTAMP '2024-01-01 00:00:00', 'legacy-trace'
             );
 
             INSERT INTO comment(
@@ -222,8 +223,8 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
             );
 
             INSERT INTO msg_conversation(
-                id, subject, initiatoruserid, status, issystemsource, createdbytype,
-                createdbyid, createdat, updatedat, lastmessageat
+                id, subject, initiatoraccountid, status, issystemsource, createdbytype,
+                createdbyaccountid, createdat, updatedat, lastmessageat
             )
             VALUES (
                 4001, 'legacy conversation', 42, 0, false, 0, 42,
@@ -233,7 +234,7 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
             );
 
             INSERT INTO msg_message(
-                id, conversationid, sendertype, senderid, body, isinternalnote, createdat
+                id, conversationid, sendertype, senderaccountid, body, isinternalnote, createdat
             )
             VALUES (
                 4002, 4001, 0, 42, 'legacy message', false,
@@ -241,7 +242,7 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
             );
 
             INSERT INTO msg_participant_state(
-                conversationid, userid, unreadcount, muted, updatedat
+                conversationid, accountid, unreadcount, muted, updatedat
             )
             VALUES (4001, 42, 1, false, TIMESTAMP '2024-01-03 00:02:00');
             """);
