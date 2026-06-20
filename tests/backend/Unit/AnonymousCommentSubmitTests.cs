@@ -307,6 +307,21 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         Assert.DoesNotContain("CreateCommentV2Async", signedHandler, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void AnonymousCommentCreateHandler_DoesNotBindDefaultAnonymousPathToUserId()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
+        string anonymousHandler = ExtractBetween(
+            source,
+            "internal static async Task<BinaryFrameResult> HandleAnonymousCommentCreateAsync",
+            "private static bool IsCommentContentWithinLimit");
+
+        Assert.DoesNotContain("GetUserId", anonymousHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserId", anonymousHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("user_id", anonymousHandler, StringComparison.Ordinal);
+        Assert.Contains("CreateStrongAnonymousCommentAsync", anonymousHandler, StringComparison.Ordinal);
+    }
+
     private static CommentService CreateService(
         SqlSugarClient db,
         RecordingTicketService ticketService,

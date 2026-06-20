@@ -13,6 +13,9 @@ public sealed class CommentActorContractTests
         string migration = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
 
         Assert.Contains("public int? UserId { get; set; }", entity, StringComparison.Ordinal);
+        Assert.DoesNotContain("SugarIndex(\"idx_comment_user_id_desc\"", entity, StringComparison.Ordinal);
+        Assert.Contains("idx_comment_attributable_public_user_id_desc", migration, StringComparison.Ordinal);
+        Assert.Contains("author_mode = 'public' AND user_id IS NOT NULL", migration, StringComparison.Ordinal);
         foreach (string requiredColumn in new[]
         {
             "author_mode",

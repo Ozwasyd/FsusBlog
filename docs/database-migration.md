@@ -61,3 +61,19 @@ The anonymous account schema migration keeps `sys_user` but changes its meaning 
 - `anonymous_credential_level` and `anonymous_credential_status` provide a compact projection point for later credential-policy work.
 
 When `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` is enabled, application code must not treat `username/password` or `role=admin` as authority sources for these rows.
+
+## Comment Attribution Index Finalization
+
+The comment schema keeps `comment.user_id`, `comment.reply_to_user_id`, and `comment.moderated_by_user_id` only as explicit compatibility fields for public attribution, legacy reply projection, and admin moderation records. Default anonymous and strong-anonymous comment paths must not query, authorize, or recover comments through these columns.
+
+`20260621-post-comment-attribution-index-finalize` drops the old generic `idx_comment_user_id_desc` index and creates `idx_comment_attributable_public_user_id_desc`:
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_comment_attributable_public_user_id_desc
+ON comment(user_id, id DESC)
+WHERE author_mode = 'public' AND user_id IS NOT NULL;
+```
+
+The older `20260418-post-comment-threading-indexes` descriptor is left immutable because applied migration checksums are verified at startup. New or restored databases may briefly create the old index while replaying legacy descriptors, then the finalizer removes it in the same migration run.
+
+Rollback without restarting the application is limited to the database index shape: recreate `idx_comment_user_id_desc` manually only if an emergency query plan regression is confirmed, then remove it again before reenabling anonymous-comment write traffic. Do not use that fallback to reintroduce default anonymous user-bound queries.

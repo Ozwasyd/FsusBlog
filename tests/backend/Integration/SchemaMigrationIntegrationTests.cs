@@ -569,7 +569,8 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         bool moderationStatusExists = await fixture.ColumnExistsAsync(connectionString, "comment", "moderation_status");
         int depth = await fixture.QueryScalarAsync<int>(connectionString, "SELECT depth FROM comment WHERE id = 1;");
         bool oldIndexExists = await fixture.IndexExistsAsync(connectionString, "idx_comment_user_id");
-        bool newIndexExists = await fixture.IndexExistsAsync(connectionString, "idx_comment_user_id_desc");
+        bool genericUserIndexExists = await fixture.IndexExistsAsync(connectionString, "idx_comment_user_id_desc");
+        bool attributableUserIndexExists = await fixture.IndexExistsAsync(connectionString, "idx_comment_attributable_public_user_id_desc");
         bool moderationIndexExists = await fixture.IndexExistsAsync(connectionString, "idx_comment_moderation_status_time");
 
         Assert.True(parentIdExists);
@@ -577,7 +578,8 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.True(moderationStatusExists);
         Assert.Equal(0, depth);
         Assert.False(oldIndexExists);
-        Assert.True(newIndexExists);
+        Assert.False(genericUserIndexExists);
+        Assert.True(attributableUserIndexExists);
         Assert.True(moderationIndexExists);
     }
 

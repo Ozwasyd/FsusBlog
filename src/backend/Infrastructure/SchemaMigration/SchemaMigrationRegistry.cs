@@ -31,6 +31,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildSecurityChallengePersistenceMigration(),
         BuildCommentActorPreCodeFirstMigration(),
         BuildCommentActorMigration(),
+        BuildCommentAttributionIndexFinalizerMigration(),
         BuildAuditLogMigration(),
         BuildAuditLogStructuredFieldsPreCodeFirstMigration(),
         BuildAuditLogStructuredFieldsMigration(),
@@ -1269,6 +1270,20 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     END $$;
                     """),
                 new EnsureColumnStep("comment", "author_mode", "varchar(32) NOT NULL DEFAULT 'public'")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildCommentAttributionIndexFinalizerMigration()
+        => new SchemaMigrationDescriptor(
+            "20260621-post-comment-attribution-index-finalize",
+            "Retire generic comment user_id index and keep only explicit public attribution lookup.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new DropIndexStep("idx_comment_user_id_desc"),
+                new CreateIndexStep(
+                    "idx_comment_attributable_public_user_id_desc",
+                    "CREATE INDEX IF NOT EXISTS idx_comment_attributable_public_user_id_desc ON comment(user_id, id DESC) WHERE author_mode = 'public' AND user_id IS NOT NULL;")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAuditLogMigration()

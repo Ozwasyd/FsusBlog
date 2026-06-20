@@ -48,6 +48,7 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260603-post-comment-public-hot-path-indexes", migrationIds);
         Assert.Contains("20260616-pre-anonymous-identity-account-schema", migrationIds);
         Assert.Contains("20260616-post-account-recovery-key", migrationIds);
+        Assert.Contains("20260621-post-comment-attribution-index-finalize", migrationIds);
     }
 
     [Fact]
@@ -104,6 +105,21 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Matches(
             "INSERT INTO anonymous_comment_policy \\([\\s\\S]*snapshot_hash,\\s*changed_by,[\\s\\S]*VALUES \\(1, true, true, false, 'anonymous', 'zh-CN,en', '', 'system', now\\(\\)\\)",
             fingerprint);
+    }
+
+    [Fact]
+    public void GetDescriptors_CommentAttributionIndexFinalizer_RetiresGenericUserIdIndex()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260621-post-comment-attribution-index-finalize");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Contains("idx_comment_user_id_desc", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_comment_attributable_public_user_id_desc", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("WHERE author_mode = 'public' AND user_id IS NOT NULL", fingerprint, StringComparison.Ordinal);
     }
 
     [Fact]

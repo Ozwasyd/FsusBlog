@@ -81,7 +81,7 @@ Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AED
 `GET /api/binary/auth/me` 只输出 `IdentityAccountSnapshot` 匿名账号容器：account/internal id、`identityKind`、`publicHandle`、Passkey/Recovery/TOTP 状态、anonymous credential 状态和账号封禁/注销状态。该响应不得暴露内部 `sys_user.username` 或 `sys_user.role`，客户端也不得从普通账号快照推断 admin 权限；后台权限只能来自 independent admin principal 与 admin session Cookie。
 TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account label 必须使用非识别 `FsusBlog:account:{accountId}`，`/mfa/setup/start`、`/mfa/disable` 和 `/mfa/recovery/regenerate` 必须通过 `X-Fsus-Mfa-Proof` 消费对应 action 的一次性 proof，不接收旧 username/password body proof；TOTP recovery code 不得混同账户 `Recovery Key`。
 `PUT /api/binary/auth/public-handle` 是唯一用户侧公开称呼写入入口，使用 `AuthUpdatePublicHandleRequest` + `StringMutationRequestPod`；空字符串表示清空。评论 public send 只能读取已持久化的 `public_handle`，未设置时拒绝 public mode，不能回退内部 username 或合成 user id。
-账号侧 `GET /api/binary/comment/me` 是可归因评论记录，只返回当前账号显式 public/公开发送的评论；强匿名评论不进入该记录，也不能通过账号 ID 自删。强匿名撤回若需要支持，必须另走 receipt、capability token 或 nullifier proof 方案；在此之前只允许管理员按治理权限删除。
+账号侧 `GET /api/binary/comment/me` 是可归因评论记录，只返回当前账号显式 public/公开发送的评论；强匿名评论不进入该记录，也不能通过账号 ID 自删。`comment.user_id` 在评论最终态中只允许服务 public attribution，必须同时绑定 `author_mode = public`，旧 generic `idx_comment_user_id_desc` 不得作为默认匿名评论查询入口恢复。强匿名撤回若需要支持，必须另走 receipt、capability token 或 nullifier proof 方案；在此之前只允许管理员按治理权限删除。
 
 ---
 

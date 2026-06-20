@@ -6,7 +6,6 @@ namespace FsusBlog.Server.Entities;
 [SugarTable("comment")]
 [SugarIndex("idx_comment_article_parent_id", nameof(ArticleId), OrderByType.Asc, nameof(ParentId), OrderByType.Asc, nameof(Id), OrderByType.Desc)]
 [SugarIndex("idx_comment_article_root_id", nameof(ArticleId), OrderByType.Asc, nameof(RootId), OrderByType.Asc, nameof(Id), OrderByType.Asc)]
-[SugarIndex("idx_comment_user_id_desc", nameof(UserId), OrderByType.Asc, nameof(Id), OrderByType.Desc)]
 public class Comment
 {
     [SugarColumn(IsPrimaryKey = true, ColumnName = "id")]
