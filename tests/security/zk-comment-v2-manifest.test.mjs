@@ -169,12 +169,21 @@ test('comment v2 circuit source and generated R1CS artifact are hash-bound', () 
   const setup = readJson(setupPath)
   const source = circuit.r1cs_source ?? {}
   const r1cs = setup.artifacts?.r1cs ?? {}
+  const groth16R1cs = setup.artifacts?.groth16_r1cs ?? {}
 
   assert.equal(circuit.artifact_status, 'source-and-r1cs')
   assert.ok(source.path, 'circuit.r1cs_source.path is required')
   assert.ok(source.sha256, 'circuit.r1cs_source.sha256 is required')
   assert.ok(r1cs.path, 'setup.artifacts.r1cs.path is required')
   assert.ok(r1cs.sha256, 'setup.artifacts.r1cs.sha256 is required')
+  assert.equal(r1cs.format, 'fsusblog.zk.r1cs-ir.v1')
+  assert.equal(r1cs.ceremony_input, false)
+  assert.equal(groth16R1cs.format, 'rank1cs-binary')
+  assert.equal(groth16R1cs.ceremony_input, true)
+  assert.ok(groth16R1cs.path, 'setup.artifacts.groth16_r1cs.path is required')
+  assert.equal(groth16R1cs.sha256, '')
+  assert.match(setup.phase2.verification_command, /comment_v2_groth16\.r1cs/)
+  assert.doesNotMatch(setup.phase2.verification_command, /comment_v2\.r1cs/)
 
   assert.ok(existsSync(source.path), `${source.path} must exist`)
   assert.ok(existsSync(r1cs.path), `${r1cs.path} must exist`)
@@ -246,6 +255,16 @@ test('checker fails if production usable is claimed without real setup artifacts
 
   assert.notEqual(result.status, 0)
   assert.match(`${result.stdout}\n${result.stderr}`, /production_usable must remain false/)
+})
+
+test('checker fails if phase2 ceremony uses the deterministic R1CS IR artifact', () => {
+  const result = withTempManifests((documents) => {
+    documents.setup.phase2.verification_command =
+      'snarkjs zkey verify artifacts/zk/comment-v2/comment_v2.r1cs artifacts/zk/comment-v2/phase1/powers_of_tau_final.ptau artifacts/zk/comment-v2/comment_v2_final.zkey'
+  })
+
+  assert.notEqual(result.status, 0)
+  assert.match(`${result.stdout}\n${result.stderr}`, /must not use deterministic R1CS IR/)
 })
 
 test('checker fails if circuit claims production-ready without real R1CS source and artifact hashes', () => {

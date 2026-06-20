@@ -455,7 +455,7 @@ function checkSetup(setup, circuitHash) {
   }
 
   const artifacts = setup.artifacts ?? {}
-  for (const key of ['r1cs', 'proving_key', 'verifying_key', 'verifying_key_json', 'wasm_prover_bundle']) {
+  for (const key of ['r1cs', 'groth16_r1cs', 'proving_key', 'verifying_key', 'verifying_key_json', 'wasm_prover_bundle']) {
     const artifact = artifacts[key] ?? {}
     if (artifact.status !== 'required') {
       fail(`setup.artifacts.${key}.status must be required`)
@@ -477,6 +477,7 @@ function checkSetup(setup, circuitHash) {
       }
     }
   }
+  checkGroth16R1csBoundary(setup)
 
   const upgradeRules = asArray(setup.public_input_layout_upgrade_rules).join('\n')
   for (const token of ['name change', 'order change', 'encoding change', 'semantic change', 'new circuit-specific Groth16 ceremony']) {
@@ -493,6 +494,34 @@ function checkSetup(setup, circuitHash) {
   }
 
   checkHandoffConsumers('setup.handoff_consumers', setup.handoff_consumers)
+}
+
+function checkGroth16R1csBoundary(setup) {
+  const artifacts = setup.artifacts ?? {}
+  const deterministicIr = artifacts.r1cs ?? {}
+  const groth16R1cs = artifacts.groth16_r1cs ?? {}
+  const deterministicIrPath = String(deterministicIr.path ?? '').trim()
+  const groth16R1csPath = String(groth16R1cs.path ?? '').trim()
+  const phase2Command = String(setup.phase2?.verification_command ?? '').trim()
+
+  if (deterministicIr.format !== 'fsusblog.zk.r1cs-ir.v1') {
+    fail('setup.artifacts.r1cs.format must be fsusblog.zk.r1cs-ir.v1')
+  }
+  if (deterministicIr.ceremony_input !== false) {
+    fail('setup.artifacts.r1cs.ceremony_input must be false for deterministic R1CS IR')
+  }
+  if (groth16R1cs.format !== 'rank1cs-binary') {
+    fail('setup.artifacts.groth16_r1cs.format must be rank1cs-binary')
+  }
+  if (groth16R1cs.ceremony_input !== true) {
+    fail('setup.artifacts.groth16_r1cs.ceremony_input must be true')
+  }
+  if (deterministicIrPath.length > 0 && phase2Command.includes(deterministicIrPath)) {
+    fail('setup.phase2.verification_command must not use deterministic R1CS IR as Groth16 ceremony input')
+  }
+  if (groth16R1csPath.length > 0 && !phase2Command.includes(groth16R1csPath)) {
+    fail('setup.phase2.verification_command must reference setup.artifacts.groth16_r1cs.path')
+  }
 }
 
 function checkConfig(config, setup) {

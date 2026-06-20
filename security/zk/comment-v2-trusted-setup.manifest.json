@@ -6,7 +6,7 @@
   "circuit_manifest_sha256": "e3f951cfec92a7444336e0ad9b390331844220b1fdc53e58652ef73edb05e2c0",
   "ceremony_status": "not-run",
   "production_usable": false,
-  "fail_closed_reason": "Groth16 proving key, verifying key, SRS and ceremony transcripts are not present",
+  "fail_closed_reason": "Groth16 binary R1CS, proving key, verifying key, SRS and ceremony transcripts are not present",
   "hash_binding": {
     "verifying_key_hash_algorithm": "sha256(canonical_verifying_key_bytes)",
     "runtime_binding": [
@@ -36,13 +36,22 @@
     "minimum_contributions": 3,
     "transcript_path": "artifacts/zk/comment-v2/phase2/comment_v2_ceremony_transcript.json",
     "transcript_sha256": "",
-    "verification_command": "snarkjs zkey verify artifacts/zk/comment-v2/comment_v2.r1cs artifacts/zk/comment-v2/phase1/powers_of_tau_final.ptau artifacts/zk/comment-v2/comment_v2_final.zkey"
+    "verification_command": "snarkjs zkey verify artifacts/zk/comment-v2/comment_v2_groth16.r1cs artifacts/zk/comment-v2/phase1/powers_of_tau_final.ptau artifacts/zk/comment-v2/comment_v2_final.zkey"
   },
   "artifacts": {
     "r1cs": {
       "path": "artifacts/zk/comment-v2/comment_v2.r1cs",
       "sha256": "4f130bb78c5705c3eebfd2075d4e263438edb092084eb18a70ee8c3e401a3c3c",
-      "status": "required"
+      "status": "required",
+      "format": "fsusblog.zk.r1cs-ir.v1",
+      "ceremony_input": false
+    },
+    "groth16_r1cs": {
+      "path": "artifacts/zk/comment-v2/comment_v2_groth16.r1cs",
+      "sha256": "",
+      "status": "required",
+      "format": "rank1cs-binary",
+      "ceremony_input": true
     },
     "proving_key": {
       "path": "artifacts/zk/comment-v2/comment_v2_final.zkey",

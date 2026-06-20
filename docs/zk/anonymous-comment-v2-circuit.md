@@ -1,11 +1,13 @@
 # fsus.anonymous.comment.v2 circuit contract
 
 Status: circuit source and deterministic R1CS IR exist; trusted setup is still
-not run. This document and its manifests define the Groth16 circuit boundary for
-the circuit-native anonymous comment path. They do not claim that a proving key,
-verifying key, SRS transcript, ceremony transcript, or browser prover artifact
-exists yet. Production remains fail-closed until the trusted setup manifest is
-switched to real audited artifacts.
+not run. The committed `comment_v2.r1cs` file is a repository IR artifact, not a
+binary Groth16 ceremony input. This document and its manifests define the
+Groth16 circuit boundary for the circuit-native anonymous comment path. They do
+not claim that a binary Groth16 R1CS, proving key, verifying key, SRS transcript,
+ceremony transcript, or browser prover artifact exists yet. Production remains
+fail-closed until the trusted setup manifest is switched to real audited
+artifacts.
 
 ## Issue #551 production circuit status
 
@@ -14,7 +16,8 @@ circuit-native issuer signature verified inside the Groth16 circuit. The
 repository now contains the self-authored circuit source at
 `circuits/anonymous-comment-v2/comment_v2.circuit.json` and a deterministic
 R1CS IR artifact at `artifacts/zk/comment-v2/comment_v2.r1cs`. This checkout
-still has no production-ready trusted setup artifacts.
+still has no production-ready trusted setup artifacts and no binary Groth16 R1CS
+input for a phase-2 ceremony.
 
 The manifest checker enforces that boundary:
 
@@ -28,6 +31,9 @@ The manifest checker enforces that boundary:
   `artifacts.r1cs.path` plus `artifacts.r1cs.sha256`;
 - both files must exist in the repository checkout and match their SHA-256
   digests before the checker will accept the production-ready claim.
+- `setup.artifacts.r1cs` is marked `format=fsusblog.zk.r1cs-ir.v1` and
+  `ceremony_input=false`; phase-2 setup must use
+  `setup.artifacts.groth16_r1cs.path` instead.
 
 ## Canonical Assets
 
@@ -40,6 +46,7 @@ The manifest checker enforces that boundary:
 | Verifying key config manifest | `config/zk/anonymous-comment-v2-verifying-key.manifest.json` |
 | Circuit source | `circuits/anonymous-comment-v2/comment_v2.circuit.json` |
 | R1CS IR artifact | `artifacts/zk/comment-v2/comment_v2.r1cs` |
+| Future Groth16 R1CS input | `artifacts/zk/comment-v2/comment_v2_groth16.r1cs` |
 | R1CS IR builder | `tools/crypto/build-zk-comment-v2-r1cs.mjs` |
 | Static checker | `tools/crypto/check-zk-comment-v2-manifests.mjs` |
 

@@ -1,8 +1,8 @@
 # comment.v2 trusted setup ceremony contract
 
-Status: fail-closed manifest contract for #552. No production Groth16 proving
-key, verifying key, Powers of Tau transcript, or phase-2 transcript is present
-in this repository yet.
+Status: fail-closed manifest contract for #552. No production binary Groth16
+R1CS, proving key, verifying key, Powers of Tau transcript, or phase-2
+transcript is present in this repository yet.
 
 ## Canonical Paths
 
@@ -18,6 +18,9 @@ Future verifier/prover work must read the same manifest paths:
 The manifest names are stable. Artifact paths inside the setup manifest are the
 handoff contract for #552 trusted setup artifacts, #553 browser wasm prover
 bundle, and #555 native verifier / prover cross-stack fixture evidence.
+`artifacts.r1cs` is the deterministic repository IR
+`fsusblog.zk.r1cs-ir.v1` and is explicitly `ceremony_input=false`; phase-2
+commands must consume `artifacts.groth16_r1cs.path`.
 
 ## Ceremony Requirements
 
@@ -26,11 +29,13 @@ The final production ceremony must provide:
 1. A verified Powers of Tau phase-1 transcript for the selected curve.
 2. A circuit-specific Groth16 phase-2 transcript for
    `fsus.anonymous.comment.v2`.
-3. A proving key for the browser prover asset pipeline.
-4. Canonical verifying key bytes for the native verifier.
-5. A transcript manifest with participant contribution hashes and verification
+3. A binary Groth16 R1CS file generated from the committed circuit source and
+   distinct from the deterministic repository IR.
+4. A proving key for the browser prover asset pipeline.
+5. Canonical verifying key bytes for the native verifier.
+6. A transcript manifest with participant contribution hashes and verification
    commands.
-6. A `verifying_key_hash = SHA256(canonical_verifying_key_bytes)` value bound to
+7. A `verifying_key_hash = SHA256(canonical_verifying_key_bytes)` value bound to
    `circuit_id = fsus.anonymous.comment.v2` and
    `public_input_layout_version = 3` by the setup and config manifests.
 
@@ -44,7 +49,7 @@ The committed manifests deliberately use:
 - `ceremony_status: "not-run"`
 - `production_usable: false`
 - empty `verifying_key_hash`
-- missing artifact hashes for pk, vk, R1CS, and transcript files
+- missing artifact hashes for binary Groth16 R1CS, pk, vk, and transcript files
 
 That state is valid for repository planning and static contract tests. It is not
 valid for production. `AnonymousIdentity:ZkProd:Enabled=true` still requires a
