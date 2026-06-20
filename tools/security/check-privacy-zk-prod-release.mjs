@@ -197,6 +197,7 @@ function checkSmokeEvidence(rawPath) {
     'nativeVerifier',
     'wasmProver',
     'bbsCredential',
+    'credentialRootActive',
     'ticketIssued',
     'anonymousSubmitPending',
     'identityHeadersOmitted',
@@ -207,7 +208,30 @@ function checkSmokeEvidence(rawPath) {
     }
   }
 
+  checkNoSensitiveEvidence(evidence)
   checks.push({ id: 'zk-prod-smoke-evidence', status: 'checked', path: toRepoRelative(absolute) })
+}
+
+function checkNoSensitiveEvidence(value, pathSegments = []) {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => checkNoSensitiveEvidence(item, [...pathSegments, String(index)]))
+    return
+  }
+
+  if (!value || typeof value !== 'object') return
+
+  for (const [key, child] of Object.entries(value)) {
+    const fullPath = [...pathSegments, key].join('.')
+    if (isSensitiveEvidenceKey(key)) {
+      errors.push(`ZK-Prod smoke evidence must not include sensitive field: ${fullPath}`)
+    }
+
+    checkNoSensitiveEvidence(child, [...pathSegments, key])
+  }
+}
+
+function isSensitiveEvidenceKey(key) {
+  return /(?:credentialSecret|credential_secret|issuerSignature|issuer_signature|blindOpening|blind_opening|revocationWitness|revocation_witness|proofBytes|proof_bytes|rawProof|raw_proof|nullifierSecret|nullifier_secret)/u.test(key)
 }
 
 function checkRollbackDocument() {

@@ -71,21 +71,65 @@ test('privacy ZK production release gate fails closed when enabled smoke evidenc
   })
 })
 
-test('privacy ZK production release gate accepts complete enabled fixture', () => {
+test('privacy ZK production release gate fails when credential root is not active', () => {
+  withTempDir((dir) => {
+    const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
+    const bbsPublicKey = writeText(dir, 'bbs-public.key', 'issuer')
+    const setup = writeJson(dir, 'trusted-setup.json', setupManifest('abc123'))
+    const smoke = writeJson(dir, 'smoke.json', completeSmokeEvidence({ credentialRootActive: false }))
+    const config = writeJson(dir, 'enabled.json', enabledConfig({
+      nativeLibrary,
+      bbsPublicKey,
+      verifyingKeyHash: 'abc123',
+      smoke
+    }))
+
+    const result = runGate(
+      '--config', config,
+      '--trusted-setup-manifest', setup,
+      '--smoke-evidence', smoke,
+      '--summary', path.join(dir, 'summary.json'))
+
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /credentialRootActive/)
+  })
+})
+
+test('privacy ZK production release gate rejects sensitive smoke evidence fields', () => {
   withTempDir((dir) => {
     const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
     const bbsPublicKey = writeText(dir, 'bbs-public.key', 'issuer')
     const setup = writeJson(dir, 'trusted-setup.json', setupManifest('abc123'))
     const smoke = writeJson(dir, 'smoke.json', {
-      status: 'ok',
-      nativeVerifier: true,
-      wasmProver: true,
-      bbsCredential: true,
-      ticketIssued: true,
-      anonymousSubmitPending: true,
-      identityHeadersOmitted: true,
-      sensitivePayloadRedacted: true
+      ...completeSmokeEvidence(),
+      debug: {
+        credentialSecret: 'must-not-ship'
+      }
     })
+    const config = writeJson(dir, 'enabled.json', enabledConfig({
+      nativeLibrary,
+      bbsPublicKey,
+      verifyingKeyHash: 'abc123',
+      smoke
+    }))
+
+    const result = runGate(
+      '--config', config,
+      '--trusted-setup-manifest', setup,
+      '--smoke-evidence', smoke,
+      '--summary', path.join(dir, 'summary.json'))
+
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /credentialSecret/)
+  })
+})
+
+test('privacy ZK production release gate accepts complete enabled fixture', () => {
+  withTempDir((dir) => {
+    const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
+    const bbsPublicKey = writeText(dir, 'bbs-public.key', 'issuer')
+    const setup = writeJson(dir, 'trusted-setup.json', setupManifest('abc123'))
+    const smoke = writeJson(dir, 'smoke.json', completeSmokeEvidence())
     const config = writeJson(dir, 'enabled.json', enabledConfig({
       nativeLibrary,
       bbsPublicKey,
@@ -106,6 +150,21 @@ test('privacy ZK production release gate accepts complete enabled fixture', () =
     assert.equal(parsed.enabled, true)
   })
 })
+
+function completeSmokeEvidence(overrides = {}) {
+  return {
+    status: 'ok',
+    nativeVerifier: true,
+    wasmProver: true,
+    bbsCredential: true,
+    credentialRootActive: true,
+    ticketIssued: true,
+    anonymousSubmitPending: true,
+    identityHeadersOmitted: true,
+    sensitivePayloadRedacted: true,
+    ...overrides
+  }
+}
 
 function enabledConfig({ nativeLibrary, bbsPublicKey, verifyingKeyHash, smoke }) {
   return {
