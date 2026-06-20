@@ -31,6 +31,9 @@ public class User
     [SugarColumn(ColumnName = "passkey_enabled", DefaultValue = "false")]
     public bool PasskeyEnabled { get; set; }
 
+    [SugarColumn(ColumnName = "passkey_user_handle", Length = 128, IsNullable = true)]
+    public string? PasskeyUserHandle { get; set; }
+
     [SugarColumn(ColumnName = "recovery_enabled", DefaultValue = "false")]
     public bool RecoveryEnabled { get; set; }
 

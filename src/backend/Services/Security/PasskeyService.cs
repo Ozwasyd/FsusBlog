@@ -5,6 +5,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using System.Buffers.Text;
+using System.Security.Cryptography;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Shared.Contracts.Outputs;
 using SqlSugar;
@@ -41,6 +42,9 @@ public sealed class PasskeyService(
     ILogger<PasskeyService> logger) : IPasskeyService
 {
     private const int MaxCredentialsPerUser = 5;
+    private const int PasskeyUserHandleBytes = 32;
+    private const string AnonymousPasskeyAccountName = "fsus-anonymous-account";
+    private const string AnonymousPasskeyDisplayName = "Anonymous account";
     public const string CannotRemoveLastCredentialWithoutRecovery = "CannotRemoveLastCredentialWithoutRecovery";
 
     // ─────────────────────────────────────────────────────────────────────
@@ -71,11 +75,12 @@ public sealed class PasskeyService(
             .Select(id => new PublicKeyCredentialDescriptor(Base64Url.DecodeFromChars(id)))
             .ToList();
 
+        byte[] stableUserHandle = await GetOrCreateStablePasskeyUserHandleAsync(user, cancellationToken);
         PasskeyAccountMetadata accountMetadata = BuildAnonymousSafeMetadata(
-            user.Id,
             user.Username,
             user.PublicHandle,
-            AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled());
+            AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled(),
+            stableUserHandle);
 
         var fidoUser = new Fido2User
         {
@@ -269,6 +274,7 @@ public sealed class PasskeyService(
             return (false, "账户不存在或已注销", null);
         }
 
+        string? storedUserHandle = user.PasskeyUserHandle;
         byte[] storedPublicKey = Base64Url.DecodeFromChars(storedCred.PublicKey);
 
         VerifyAssertionResult verifyResult;
@@ -281,7 +287,7 @@ public sealed class PasskeyService(
                 StoredPublicKey = storedPublicKey,
                 StoredSignatureCounter = (uint)storedCred.SignCount,
                 IsUserHandleOwnerOfCredentialIdCallback = (param, ct) =>
-                    Task.FromResult(IsUserHandleOwnerOfCredential(param.UserHandle, storedCred.UserId))
+                    Task.FromResult(IsUserHandleOwnerOfCredential(param.UserHandle, storedUserHandle))
             });
         }
         catch (Exception ex)
@@ -389,6 +395,7 @@ public sealed class PasskeyService(
             return (false, "账户不存在或已注销");
         }
 
+        string? storedUserHandle = user.PasskeyUserHandle;
         byte[] storedPublicKey = Base64Url.DecodeFromChars(storedCred.PublicKey);
         VerifyAssertionResult verifyResult;
         try
@@ -400,7 +407,7 @@ public sealed class PasskeyService(
                 StoredPublicKey = storedPublicKey,
                 StoredSignatureCounter = (uint)storedCred.SignCount,
                 IsUserHandleOwnerOfCredentialIdCallback = (param, ct) =>
-                    Task.FromResult(IsUserHandleOwnerOfCredential(param.UserHandle, storedCred.UserId))
+                    Task.FromResult(IsUserHandleOwnerOfCredential(param.UserHandle, storedUserHandle))
             });
         }
         catch (Exception ex)
@@ -529,39 +536,100 @@ public sealed class PasskeyService(
             : Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value)))[..32];
 
     internal static PasskeyAccountMetadata BuildAnonymousSafeMetadataForTests(
-        int userId,
         string? username,
         string? publicHandle,
-        bool anonymousIdentityModeEnabled)
-        => BuildAnonymousSafeMetadata(userId, username, publicHandle, anonymousIdentityModeEnabled);
+        bool anonymousIdentityModeEnabled,
+        byte[] stableUserHandle)
+        => BuildAnonymousSafeMetadata(username, publicHandle, anonymousIdentityModeEnabled, stableUserHandle);
+
+    internal static bool IsUserHandleOwnerOfCredentialForTests(byte[]? userHandle, string? storedUserHandle)
+        => IsUserHandleOwnerOfCredential(userHandle, storedUserHandle);
 
     private static PasskeyAccountMetadata BuildAnonymousSafeMetadata(
-        int userId,
         string? username,
         string? publicHandle,
-        bool anonymousIdentityModeEnabled)
+        bool anonymousIdentityModeEnabled,
+        byte[] stableUserHandle)
     {
-        byte[] userHandle = BitConverter.GetBytes(userId);
-        string internalAccountLabel = $"fsus-account-{userId}";
+        byte[] userHandle = stableUserHandle.ToArray();
         if (!anonymousIdentityModeEnabled)
         {
-            string legacyName = NormalizeMetadataText(username, internalAccountLabel);
+            string legacyName = NormalizeMetadataText(username, "fsus-account");
             return new PasskeyAccountMetadata(legacyName, legacyName, userHandle);
         }
 
-        string displayName = NormalizeMetadataText(publicHandle, internalAccountLabel);
-        return new PasskeyAccountMetadata(internalAccountLabel, displayName, userHandle);
+        string displayName = NormalizeMetadataText(publicHandle, AnonymousPasskeyDisplayName);
+        return new PasskeyAccountMetadata(AnonymousPasskeyAccountName, displayName, userHandle);
     }
 
-    private static bool IsUserHandleOwnerOfCredential(byte[]? userHandle, int userId)
+    private async Task<byte[]> GetOrCreateStablePasskeyUserHandleAsync(User user, CancellationToken cancellationToken)
     {
-        if (userHandle is null)
+        if (TryDecodeStoredPasskeyUserHandle(user.PasskeyUserHandle, out byte[] existing))
+        {
+            return existing;
+        }
+
+        byte[] generated = RandomNumberGenerator.GetBytes(PasskeyUserHandleBytes);
+        string encoded = Base64Url.EncodeToString(generated);
+        int updated = await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE sys_user
+            SET passkey_user_handle = @PasskeyUserHandle
+            WHERE id = @UserId
+              AND (passkey_user_handle IS NULL OR passkey_user_handle = @ObservedPasskeyUserHandle);
+            """,
+            new SugarParameter("@PasskeyUserHandle", encoded),
+            new SugarParameter("@UserId", user.Id),
+            new SugarParameter("@ObservedPasskeyUserHandle", user.PasskeyUserHandle ?? string.Empty));
+        if (updated > 0)
+        {
+            user.PasskeyUserHandle = encoded;
+            return generated;
+        }
+
+        User? refreshed = await db.Queryable<User>().InSingleAsync(user.Id);
+        if (refreshed is not null && TryDecodeStoredPasskeyUserHandle(refreshed.PasskeyUserHandle, out existing))
+        {
+            user.PasskeyUserHandle = refreshed.PasskeyUserHandle;
+            return existing;
+        }
+
+        throw new InvalidOperationException("Unable to allocate stable passkey user handle.");
+    }
+
+    private static bool IsUserHandleOwnerOfCredential(byte[]? userHandle, string? storedUserHandle)
+    {
+        if (userHandle is null || !TryDecodeStoredPasskeyUserHandle(storedUserHandle, out byte[] expectedHandle))
         {
             return false;
         }
 
-        byte[] expectedHandle = BitConverter.GetBytes(userId);
         return userHandle.AsSpan().SequenceEqual(expectedHandle);
+    }
+
+    private static bool TryDecodeStoredPasskeyUserHandle(string? value, out byte[] userHandle)
+    {
+        userHandle = [];
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        try
+        {
+            byte[] decoded = Base64Url.DecodeFromChars(value.Trim());
+            if (decoded.Length != PasskeyUserHandleBytes)
+            {
+                return false;
+            }
+
+            userHandle = decoded;
+            return true;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 
     private static string NormalizeMetadataText(string? value, string fallback)

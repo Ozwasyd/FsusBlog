@@ -48,6 +48,7 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260603-post-comment-public-hot-path-indexes", migrationIds);
         Assert.Contains("20260616-pre-anonymous-identity-account-schema", migrationIds);
         Assert.Contains("20260616-post-account-recovery-key", migrationIds);
+        Assert.Contains("20260621-pre-passkey-user-handle", migrationIds);
         Assert.Contains("20260621-post-comment-attribution-index-finalize", migrationIds);
     }
 
@@ -92,6 +93,21 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("idx_account_recovery_key_active_unique", fingerprint, StringComparison.Ordinal);
         Assert.Contains("idx_account_recovery_key_lookup_active_unique", fingerprint, StringComparison.Ordinal);
         Assert.DoesNotContain("mfa_recovery", fingerprint, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GetDescriptors_PasskeyUserHandle_AddsRandomStableAccountHandleColumn()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260621-pre-passkey-user-handle");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Contains("sys_user.passkey_user_handle", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("varchar(128) NULL", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("BitConverter", fingerprint, StringComparison.Ordinal);
     }
 
     [Fact]

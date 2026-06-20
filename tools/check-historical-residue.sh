@@ -139,6 +139,13 @@ run_residue_check \
   src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs
 
 run_residue_check \
+  "id-derived passkey user handles" \
+  "id-derived passkey user-handle residue detected" \
+  'BitConverter[.]GetBytes[(]\s*userId\s*[)]|fsus-account-\{userId\}' \
+  "" \
+  src/backend/Services/Security/PasskeyService.cs
+
+run_residue_check \
   "frontend anonymous step-up password proof payloads" \
   "frontend anonymous step-up password proof payload residue detected" \
   '\b(?:FrameType[.]MfaPasswordProofRequest|MfaPasswordProofRequest|encodeMfaPasswordProofRequest)\b' \

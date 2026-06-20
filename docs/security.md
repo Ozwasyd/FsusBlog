@@ -256,7 +256,7 @@ ZK-Prod 后端依赖策略固定为 .NET 10 + `System.Text.Json`。trusted setup
 - 凭证类型：Discoverable Credential（resident key），支持无用户名流程（usernameless）
 - 库：Fido2 4.0.1
 - 上限：每用户最多 5 枚 Passkey
-- 匿名账号 metadata：`FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` 时，注册 begin 不再使用 legacy username；WebAuthn user handle 来自稳定内部 account id，`Name` 使用 `fsus-account-{id}`，`DisplayName` 只有在用户显式配置 `public_handle` 时才使用公开 handle。
+- 匿名账号 metadata：`FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` 时，注册 begin 不再使用 legacy username 或内部数字 id；WebAuthn `user.id` 来自 `sys_user.passkey_user_handle` 中持久化的 32B 随机 Base64Url 句柄。该句柄在同一账号多次注册和 Recovery Key 重绑后保持稳定，不能由数据库 id 推导。`Name` 固定为 `fsus-anonymous-account`，`DisplayName` 只有在用户显式配置 `public_handle` 时才使用公开 handle，否则使用 `Anonymous account`。
 - 注册保护：已启用 MFA 的用户注册新 Passkey 须提供有效的 MFA proofToken
 - 管理保护：删除或重命名 Passkey 必须先通过统一账号安全 step-up；proof 绑定 `passkey.delete` 或 `passkey.rename` 且单次消费，MFA enabled 账号不接受 password fallback，anonymous identity mode 禁止 legacy password fallback。
 - 删除保护：匿名账号不能删除最后一枚可用 Passkey，除非已启用 Recovery Key / recovery path；拒绝时返回 `CannotRemoveLastCredentialWithoutRecovery`，避免冷启动账号失去全部登录能力。

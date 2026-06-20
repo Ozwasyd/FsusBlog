@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
 using System.Reflection;
 
@@ -166,54 +167,119 @@ public sealed class PasskeyServiceTests
     // ─── Anonymous account metadata ──────────────────────────────────────────
 
     [Fact]
-    public void BuildAnonymousSafeMetadata_WithoutPublicHandle_UsesInternalAccountLabel()
+    public void BuildAnonymousSafeMetadata_WithoutPublicHandle_UsesGenericAnonymousLabelAndStoredHandle()
     {
+        byte[] storedHandle = StableHandle(0x42);
+
         object metadata = InvokeMetadataBuilder(
-            userId: 42,
             username: "legacy-alice",
             publicHandle: null,
-            anonymousIdentityModeEnabled: true);
+            anonymousIdentityModeEnabled: true,
+            stableUserHandle: storedHandle);
 
-        Assert.Equal("fsus-account-42", GetProperty<string>(metadata, "Name"));
-        Assert.Equal("fsus-account-42", GetProperty<string>(metadata, "DisplayName"));
-        Assert.Equal(BitConverter.GetBytes(42), GetProperty<byte[]>(metadata, "UserHandle"));
+        Assert.Equal("fsus-anonymous-account", GetProperty<string>(metadata, "Name"));
+        Assert.Equal("Anonymous account", GetProperty<string>(metadata, "DisplayName"));
+        Assert.Equal(storedHandle, GetProperty<byte[]>(metadata, "UserHandle"));
+        Assert.NotEqual(BitConverter.GetBytes(42), GetProperty<byte[]>(metadata, "UserHandle"));
+        Assert.DoesNotContain("42", GetProperty<string>(metadata, "Name"), StringComparison.Ordinal);
+        Assert.DoesNotContain("42", GetProperty<string>(metadata, "DisplayName"), StringComparison.Ordinal);
     }
 
     [Fact]
     public void BuildAnonymousSafeMetadata_WithPublicHandle_UsesItOnlyForDisplayName()
     {
+        byte[] storedHandle = StableHandle(0x24);
+
         object metadata = InvokeMetadataBuilder(
-            userId: 42,
             username: "legacy-alice",
             publicHandle: "  Alice Public  ",
-            anonymousIdentityModeEnabled: true);
+            anonymousIdentityModeEnabled: true,
+            stableUserHandle: storedHandle);
 
-        Assert.Equal("fsus-account-42", GetProperty<string>(metadata, "Name"));
+        Assert.Equal("fsus-anonymous-account", GetProperty<string>(metadata, "Name"));
         Assert.Equal("Alice Public", GetProperty<string>(metadata, "DisplayName"));
+        Assert.Equal(storedHandle, GetProperty<byte[]>(metadata, "UserHandle"));
     }
 
     [Fact]
     public void BuildAnonymousSafeMetadata_LegacyMode_PreservesExistingUsernameMetadata()
     {
+        byte[] storedHandle = StableHandle(0x11);
+
         object metadata = InvokeMetadataBuilder(
-            userId: 42,
             username: "legacy-alice",
             publicHandle: "Alice Public",
-            anonymousIdentityModeEnabled: false);
+            anonymousIdentityModeEnabled: false,
+            stableUserHandle: storedHandle);
 
         Assert.Equal("legacy-alice", GetProperty<string>(metadata, "Name"));
         Assert.Equal("legacy-alice", GetProperty<string>(metadata, "DisplayName"));
+        Assert.Equal(storedHandle, GetProperty<byte[]>(metadata, "UserHandle"));
     }
 
-    private static object InvokeMetadataBuilder(int userId, string username, string? publicHandle, bool anonymousIdentityModeEnabled)
+    [Fact]
+    public void BuildAnonymousSafeMetadata_DifferentStoredHandlesRemainDistinct()
+    {
+        object first = InvokeMetadataBuilder(
+            username: null,
+            publicHandle: null,
+            anonymousIdentityModeEnabled: true,
+            stableUserHandle: StableHandle(0x31));
+        object second = InvokeMetadataBuilder(
+            username: null,
+            publicHandle: null,
+            anonymousIdentityModeEnabled: true,
+            stableUserHandle: StableHandle(0x32));
+
+        Assert.NotEqual(GetProperty<byte[]>(first, "UserHandle"), GetProperty<byte[]>(second, "UserHandle"));
+    }
+
+    [Fact]
+    public void IsUserHandleOwnerOfCredential_UsesStoredRandomHandle()
+    {
+        byte[] storedHandle = StableHandle(0x51);
+        string storedHandleText = EncodeBase64Url(storedHandle);
+
+        Assert.True(PasskeyService.IsUserHandleOwnerOfCredentialForTests(storedHandle, storedHandleText));
+        Assert.False(PasskeyService.IsUserHandleOwnerOfCredentialForTests(BitConverter.GetBytes(42), storedHandleText));
+        Assert.False(PasskeyService.IsUserHandleOwnerOfCredentialForTests(storedHandle, null));
+    }
+
+    [Fact]
+    public void PasskeyService_DoesNotDeriveUserHandleOrLabelsFromInternalUserId()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/PasskeyService.cs");
+
+        Assert.DoesNotContain("BitConverter.GetBytes(userId)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("fsus-account-{userId}", source, StringComparison.Ordinal);
+    }
+
+    private static object InvokeMetadataBuilder(
+        string? username,
+        string? publicHandle,
+        bool anonymousIdentityModeEnabled,
+        byte[] stableUserHandle)
     {
         MethodInfo? method = typeof(PasskeyService).GetMethod(
             "BuildAnonymousSafeMetadataForTests",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
-        return method.Invoke(null, [userId, username, publicHandle, anonymousIdentityModeEnabled])
+        return method.Invoke(null, [username, publicHandle, anonymousIdentityModeEnabled, stableUserHandle])
             ?? throw new InvalidOperationException("Metadata builder returned null.");
     }
+
+    private static byte[] StableHandle(byte seed)
+    {
+        byte[] handle = new byte[32];
+        Array.Fill(handle, seed);
+        return handle;
+    }
+
+    private static string EncodeBase64Url(byte[] value)
+        => Convert.ToBase64String(value)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
 
     private static T GetProperty<T>(object source, string propertyName)
     {

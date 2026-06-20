@@ -31,6 +31,9 @@ public sealed class SchemaModelInspectorTests
         Assert.Contains("absoluteexpiresat", userSession.Columns.Keys);
         Assert.Contains("rememberme", userSession.Columns.Keys);
 
+        SchemaTableModel user = snapshot.Tables["sys_user"];
+        Assert.Contains("passkey_user_handle", user.Columns.Keys);
+
         SchemaTableModel auditLog = snapshot.Tables["sys_audit_log"];
         Assert.Contains("source", auditLog.Columns.Keys);
         Assert.Contains("type", auditLog.Columns.Keys);

@@ -21,6 +21,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildUserSessionFinalizeMigration(),
         BuildUserAuthSecurityHardeningMigration(),
         BuildAnonymousIdentityAccountSchemaMigration(),
+        BuildPasskeyUserHandleMigration(),
         BuildAdminPrincipalPlaneMigration(),
         BuildAccountRecoveryKeyMigration(),
         BuildAnonymousCommentGovernanceMigration(),
@@ -1030,6 +1031,17 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_user_public_handle_unique",
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_public_handle_unique ON sys_user(public_handle) WHERE public_handle IS NOT NULL;")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildPasskeyUserHandleMigration()
+        => new SchemaMigrationDescriptor(
+            "20260621-pre-passkey-user-handle",
+            "Add per-account stable random WebAuthn user handle storage for anonymous passkeys.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("sys_user", "passkey_user_handle", "varchar(128) NULL")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAccountRecoveryKeyMigration()
