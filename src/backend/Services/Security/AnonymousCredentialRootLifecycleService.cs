@@ -327,10 +327,13 @@ public sealed class AnonymousCredentialRootLifecycleService(
             .Select(static item => item.RevocationHandleHash)
             .ToListAsync(cancellationToken);
         revokedHandles.Add(revocation.RevocationHandleHash);
+        AnonymousCredentialRevocationAccumulatorProfile revocationAccumulatorProfile =
+            AnonymousCredentialRevocationAccumulator.ResolveProfileFromCircuitMetadata(root.CircuitMetadata);
         Result<string> expectedRevocationRoot = AnonymousCredentialRevocationAccumulator.TryComputeRoot(
             root.Epoch,
             issuerPublicKeyHash,
-            revokedHandles);
+            revokedHandles,
+            revocationAccumulatorProfile);
         if (expectedRevocationRoot.IsFailure || expectedRevocationRoot.Value is null)
         {
             return Result.Failure(expectedRevocationRoot.Error);

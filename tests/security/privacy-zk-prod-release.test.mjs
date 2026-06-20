@@ -149,6 +149,38 @@ test('privacy ZK production release gate rejects sensitive smoke evidence fields
   })
 })
 
+test('privacy ZK production release gate rejects offline-only root bootstrap evidence when enabled', () => {
+  withTempDir((dir) => {
+    const verifyingKeyHash = hex('a')
+    const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
+    const bbsPublicKey = writeText(dir, 'bbs-public.key', 'issuer')
+    const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))
+    const smoke = writeJson(dir, 'smoke.json', completeSmokeEvidence())
+    const rootBootstrap = writeJson(dir, 'root-bootstrap.json', rootBootstrapEvidence(verifyingKeyHash, {
+      status: 'validated_offline',
+      mode: 'offline-validated-evidence',
+      stagingDbRotateSatisfied: false
+    }))
+    const config = writeJson(dir, 'enabled.json', enabledConfig({
+      nativeLibrary,
+      bbsPublicKey,
+      verifyingKeyHash,
+      smoke
+    }))
+
+    const result = runGate(
+      '--config', config,
+      '--trusted-setup-manifest', setup,
+      '--smoke-evidence', smoke,
+      '--root-bootstrap-evidence', rootBootstrap,
+      '--summary', path.join(dir, 'summary.json'))
+
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /root-bootstrap-evidence status must be rotated/)
+    assert.match(result.stderr, /stagingDbRotateSatisfied=true/)
+  })
+})
+
 test('privacy ZK production release gate accepts complete enabled fixture', () => {
   withTempDir((dir) => {
     const verifyingKeyHash = hex('a')
@@ -233,12 +265,12 @@ function setupManifest(verifyingKeyHash) {
   }
 }
 
-function rootBootstrapEvidence(verifyingKeyHash) {
+function rootBootstrapEvidence(verifyingKeyHash, overrides = {}) {
   return {
     schema: 'fsusblog.anonymous-credential-root-bootstrap-evidence.v1',
-    status: 'validated_offline',
-    mode: 'offline-validated-evidence',
-    stagingDbRotateSatisfied: false,
+    status: 'rotated',
+    mode: 'dotnet-root-lifecycle-rotate',
+    stagingDbRotateSatisfied: true,
     rootSnapshot: {
       epoch: 2026062001,
       credentialRootHash: hex('1'),
@@ -254,7 +286,12 @@ function rootBootstrapEvidence(verifyingKeyHash) {
     checks: [
       'hash-format-valid',
       'verifying-key-hash-bound-to-trusted-setup'
-    ]
+    ],
+    highValueAudit: {
+      action: 'security.anonymous_credential.root_rotated',
+      isHighValue: true
+    },
+    ...overrides
   }
 }
 

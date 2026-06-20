@@ -1,37 +1,41 @@
 # Revocation Accumulator Contract
 
-Status: fail-closed production handoff.
+Status: backend accumulator implemented; circuit/prover consumption still gated.
 
 This document records the revocation accumulator boundary for
-`fsus.anonymous.comment.v1`. The repository currently has a deterministic
-legacy SHA-256 hash-tree accumulator for backend governance and migration
-checks. It is not a circuit-friendly non-membership accumulator and must not be
-advertised as production ZK ready.
+`fsus.anonymous.comment.v1`. The repository keeps the deterministic legacy
+SHA-256 accumulator for backend governance and migration checks, and adds the
+production metadata slot `circuit-friendly-non-membership.v1` for a circuit
+friendly sparse Merkle non-membership accumulator.
 
 ## Metadata Gate
 
-Root lifecycle metadata may describe the accumulator under
+Root lifecycle metadata describes the accumulator under
 `circuitMetadata.revocationAccumulator`:
 
 ```json
 {
   "layout": 2,
   "revocationAccumulator": {
-    "algorithm": "legacy-sha256-hash-tree.v1",
-    "productionZkReady": false
+    "algorithm": "circuit-friendly-non-membership.v1",
+    "productionZkReady": true,
+    "hash": "mimc7-bn254.v1",
+    "tree": "sparse-merkle.v1",
+    "depth": 128
   }
 }
 ```
 
-`legacy-sha256-hash-tree.v1` is the only implemented backend accumulator today.
-If metadata marks that algorithm with `productionZkReady=true`, rotation fails
-closed with `anonymous_credential_revocation_accumulator_not_production_ready`.
-Runtime root snapshots used by the production verifier exclude all accumulator
-profiles that are not explicitly production compatible.
+If metadata marks `legacy-sha256-hash-tree.v1` with
+`productionZkReady=true`, rotation fails closed with
+`anonymous_credential_revocation_accumulator_not_production_ready`. Runtime root
+snapshots used by the production verifier exclude all accumulator profiles that
+are not explicitly production compatible.
 
-`circuit-friendly-non-membership.v1` is reserved as an implementation slot. It
-is also not production compatible until real backend, prover, verifier, and
-fixture tooling exist.
+`circuit-friendly-non-membership.v1` is accepted by the backend lifecycle only
+when `productionZkReady=true`. The native circuit/prover artifacts must mirror
+the exact hash, leaf, node, and witness encodings below before ZK-Prod can be
+released.
 
 ## Legacy Accumulator
 
@@ -48,29 +52,65 @@ This witness is a backend consistency witness only. It is not a Groth16 witness
 for non-membership because SHA-256 and the current neighbor hash semantics are
 not the frozen circuit constraints.
 
-## Production Requirements
+## Circuit-Friendly Sparse Merkle Accumulator
 
-A production-compatible accumulator must define and test all of the following
-before `productionZkReady` can become true:
+`circuit-friendly-non-membership.v1` is implemented by
+`AnonymousCredentialRevocationAccumulator` as a 128-level sparse Merkle tree over
+the BN254 scalar field:
 
-- accumulator type: for example Poseidon sparse Merkle, RSA accumulator, or
-  pairing accumulator
-- root encoding: field element or byte encoding used by public inputs
-- leaf encoding: credential revocation handle mapping into the accumulator
-- non-membership witness encoding: all private witness fields and ordering
-- update rules: deterministic root transition after revocation
-- verifier contract: native backend and circuit constraints use identical
-  semantics
-- fixture coverage: deterministic root, positive non-membership, revoked
-  negative, and backend/front/circuit cross-stack witness fixtures
+- field: BN254 Fr
+  `21888242871839275222246405745257275088548364400416034343698204186575808495617`
+- hash: MiMC7 over BN254 Fr, 91 rounds, SHA-256-derived round constants under
+  domain `fsus.anonymous.revocation.circuit.mimc7.bn254.round.v1`
+- tree: sparse Merkle, depth `128`
+- root encoding: 32-byte lower-case hex field element
+- leaf key: first 128 bits of the normalized revocation handle hash
+- empty leaf: MiMC7 hash under
+  `fsus.anonymous.revocation.circuit.empty.v1`
+- leaf: MiMC7 hash of domain
+  `fsus.anonymous.revocation.circuit.leaf.v1`, epoch, issuer public key hash,
+  revocation handle hash, and leaf key
+- node: MiMC7 hash of domain
+  `fsus.anonymous.revocation.circuit.node.v1`, level, left child, and right
+  child
 
-Until those pieces exist, ZK-Prod readiness must stay unavailable. Keeping the
-legacy accumulator deterministic is useful for migration and operational
-bookkeeping, but it is not a production anonymous-comment proof root.
+The non-membership witness is ordered from leaf level to root level:
+
+- `algorithmId = circuit-friendly-non-membership.v1`
+- `pathDepth = 128`
+- `leafKey`
+- `siblingHashes[0..127]`
+- `revocationRootHash`
+- `issuerPublicKeyHash`
+- `revocationHandleHash`
+- `witnessHash`, a MiMC7 binding of root, issuer, handle, leaf key, and sibling
+  digest for fixture integrity
+
+The circuit verifies that the target handle maps to `leafKey`, the leaf is the
+empty default leaf, each sibling reconstructs `revocationRootHash`, and the
+target handle is not equal to a known revoked leaf. Backend negative fixtures
+also reject exact revoked handles before witness creation.
+
+## Update Rules
+
+`AnonymousCredentialRootLifecycleService.RevokeAsync` resolves the accumulator
+profile from the active root metadata. For `circuit-friendly-non-membership.v1`
+it recomputes the sparse Merkle root from the full revoked handle set plus the
+new handle, verifies the operator-supplied root matches that deterministic
+transition, writes the revocation row, updates `anonymous_credential_root`, then
+invalidates and refreshes the in-memory root snapshot.
+
+The current backend implementation recomputes root state in `O(n * 128)` after
+reading the epoch's revoked handles. This keeps proof verification on the hot
+path at `O(1)` against the cached accepted-root snapshot. A later scale slice may
+add an incremental node store, but it must preserve the exact public root and
+witness encodings.
 
 ## Complexity Notes
 
 The legacy root recomputes over the sorted revoked handle set, so update cost is
-linear in the number of revoked handles after the database read. Witness
-construction also depends on the sorted handle list. A production design must
-document large-set update complexity and witness size before it is accepted.
+linear in the number of revoked handles after the database read. The circuit
+friendly root recomputes over the revoked handle set with a fixed 128-level
+sparse tree. Witness size is 128 sibling field elements plus metadata; prover
+manifest and AEDS limits must account for that payload when the browser prover
+artifact lands.

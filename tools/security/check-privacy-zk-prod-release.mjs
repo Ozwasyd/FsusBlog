@@ -229,8 +229,17 @@ function checkRootBootstrapEvidence(rawPath, expectedVkHash, setup) {
     errors.push('root-bootstrap-evidence schema is invalid.')
   }
   const status = normalizeString(evidence.status)
-  if (!['validated_offline', 'rotated', 'ok', 'passed'].includes(status)) {
-    errors.push('root-bootstrap-evidence status must be validated_offline/rotated/ok/passed.')
+  if (status !== 'rotated') {
+    errors.push('root-bootstrap-evidence status must be rotated when ZkProd is enabled.')
+  }
+  if (evidence.stagingDbRotateSatisfied !== true) {
+    errors.push('root-bootstrap-evidence requires stagingDbRotateSatisfied=true when ZkProd is enabled.')
+  }
+  const highValueAudit = evidence.highValueAudit && typeof evidence.highValueAudit === 'object'
+    ? evidence.highValueAudit
+    : {}
+  if (highValueAudit.action !== 'security.anonymous_credential.root_rotated' || highValueAudit.isHighValue !== true) {
+    errors.push('root-bootstrap-evidence must include high-value root_rotated audit evidence.')
   }
 
   const snapshot = evidence.rootSnapshot && typeof evidence.rootSnapshot === 'object'

@@ -71,29 +71,32 @@ backend lifecycle boundary.
 
 ## Staging / Production Rotate
 
-The actual database change must run inside the backend operational boundary.
-Use the admin/ops path that calls
-`AnonymousCredentialRootLifecycleService.RotateAsync` with the same public
-values:
+The actual database change must run inside the backend operational boundary. Use
+the .NET ops tool, which validates the same public manifests and then calls
+`AnonymousCredentialRootLifecycleService.RotateAsync` through the backend
+service graph:
 
-- `Epoch`
-- `RootHash`
-- `RevocationRootHash`
-- `CircuitId`
-- `CircuitNumericId`
-- `VerifyingKeyHash`
-- `PublicInputLayoutVersion`
-- `ExpiresAtUtc`
-- `GraceExpiresAtUtc`
-- `IssuerPublicKeyHash`
-- `ActorId`
-- `Reason`
+```bash
+dotnet run --project tools/security/AnonymousCredentialRootBootstrap/FsusBlog.AnonymousCredentialRootBootstrap.csproj -- \
+  --input /secure/ops/anonymous-root-2026q3.json \
+  --trusted-setup-manifest security/zk/comment-v1-trusted-setup.manifest.json \
+  --verifying-key-manifest config/zk/anonymous-comment-v1-verifying-key.manifest.json \
+  --db-type postgres \
+  --connection-string "$FSUSBLOG_ROOT_BOOTSTRAP_CONNECTION_STRING" \
+  --evidence .tmp/security/anonymous-credential-root-bootstrap.json
+```
 
-After rotate, the lifecycle service must refresh the root snapshot and write the
-high-value audit event `security.anonymous_credential.root_rotated`. If a
-dedicated admin API or maintenance command is not available, use a controlled
-DB/backend maintenance window and record the command transcript beside the
-offline evidence. Do not bypass high-value audit in production.
+For disposable staging smoke runs against SQLite, add `--db-type sqlite
+--connection-string "Data Source=/tmp/fsus-root-bootstrap.db" --ensure-schema`.
+Do not use `--ensure-schema` against production unless the migration plan
+explicitly calls for it.
+
+After rotate, the tool refreshes the runtime root snapshot, requires accepted
+root readiness, captures the high-value audit event
+`security.anonymous_credential.root_rotated`, and writes sanitized evidence with
+`status=rotated` and `stagingDbRotateSatisfied=true`. The evidence does not
+include the database connection string, issuer private key, credential secret, or
+proof witness.
 
 Verify after rotate:
 
@@ -106,10 +109,11 @@ node tools/security/check-privacy-zk-prod-release.mjs \
   --require-enabled
 ```
 
-The release gate checks that root bootstrap evidence binds the same
-`verifyingKeyHash` as production config and the trusted setup manifest. The real
-ZK-Prod smoke evidence still has to prove `credentialRootActive=true` from the
-runtime root snapshot.
+The release gate checks that root bootstrap evidence is `status=rotated`, has
+`stagingDbRotateSatisfied=true`, includes the high-value audit action, and binds
+the same `verifyingKeyHash` as production config and the trusted setup manifest.
+The real ZK-Prod smoke evidence still has to prove `credentialRootActive=true`
+from the runtime root snapshot.
 
 ## Rollback
 
@@ -124,12 +128,11 @@ runtime root snapshot.
 5. Keep the offline bootstrap evidence, rotate transcript, high-value audit id,
    release gate summary, and smoke evidence in the release record.
 
-## Remaining Contract Gap
+## Evidence Boundary
 
 `tools/security/bootstrap-anonymous-credential-root.mjs` is intentionally an
-offline validator because there is no stable Node-to-backend admin API or DB
-contract in this repository for directly invoking
-`AnonymousCredentialRootLifecycleService.RotateAsync`. Therefore a green
-bootstrap evidence file alone does not fully satisfy staging DB rotate. The
-release owner must pair it with a backend rotate transcript and runtime smoke
-evidence before enabling ZK-Prod.
+offline validator. Therefore a green `validated_offline` bootstrap evidence file
+alone does not fully satisfy staging DB rotate. ZK-Prod release requires the
+.NET rotate evidence from
+`tools/security/AnonymousCredentialRootBootstrap/FsusBlog.AnonymousCredentialRootBootstrap.csproj`
+plus runtime smoke evidence before enabling ZK-Prod.

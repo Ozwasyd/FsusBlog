@@ -183,6 +183,103 @@ public sealed class AnonymousCredentialRootLifecycleTests
     }
 
     [Fact]
+    public void CircuitFriendlyAccumulator_CreatesVerifiableSparseMerkleNonMembershipWitness()
+    {
+        string revokedHandle = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:170:revoked");
+        string activeHandle = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:170:active");
+
+        Result<string> root = AnonymousCredentialRevocationAccumulator.TryComputeCircuitFriendlyRoot(
+            170,
+            IssuerPublicKeyHash,
+            [revokedHandle]);
+        Result<AnonymousCredentialNonMembershipWitness> activeWitness =
+            AnonymousCredentialRevocationAccumulator.CreateCircuitFriendlyNonMembershipWitness(
+                170,
+                root.Value!,
+                IssuerPublicKeyHash,
+                activeHandle,
+                [revokedHandle]);
+        Result<AnonymousCredentialNonMembershipWitness> revokedWitness =
+            AnonymousCredentialRevocationAccumulator.CreateCircuitFriendlyNonMembershipWitness(
+                170,
+                root.Value!,
+                IssuerPublicKeyHash,
+                revokedHandle,
+                [revokedHandle]);
+
+        Assert.True(root.IsSuccess, root.Error.Message);
+        Assert.True(activeWitness.IsSuccess, activeWitness.Error.Message);
+        Assert.False(revokedWitness.IsSuccess);
+        Assert.Equal("anonymous_credential_revoked", revokedWitness.Error.Message);
+        AnonymousCredentialNonMembershipWitness witness = activeWitness.Value!;
+        Assert.Equal(
+            AnonymousCredentialRevocationAccumulator.CircuitFriendlyNonMembershipAlgorithmId,
+            witness.AlgorithmId);
+        Assert.Equal(128, witness.PathDepth);
+        Assert.Equal(128, witness.SiblingHashes!.Count);
+        Assert.True(AnonymousCredentialRevocationAccumulator.VerifyCircuitFriendlyNonMembershipWitness(
+            witness,
+            [revokedHandle]));
+    }
+
+    [Fact]
+    public async Task RootLifecycle_CircuitFriendlyAccumulatorEntersProductionSnapshotAndRevokesWithCircuitRoot()
+    {
+        string dbPath = BuildDbPath("root-lifecycle-circuit-friendly-accumulator");
+        try
+        {
+            using SqlSugarClient setup = CreateDb(dbPath);
+            CreateLifecycleTables(setup);
+
+            var rootCache = Substitute.For<IAnonymousCredentialRootService>();
+            await using ServiceProvider provider = BuildProvider(dbPath, new MutableTimeProvider(BaselineNow), rootCache);
+            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+            var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
+            var revocations = provider.GetRequiredService<IAnonymousCredentialRevocationService>();
+            string emptyRoot = CircuitFriendlyRevocationRoot(171);
+            string handleHash = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:171:unit");
+            string revokedRoot = CircuitFriendlyRevocationRoot(171, handleHash);
+
+            Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(
+                epoch: 171,
+                rootHash: "ff01",
+                revocationRootHash: emptyRoot,
+                circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata), CancellationToken.None);
+
+            Assert.True(rotated.IsSuccess, rotated.Error.Message);
+            AnonymousCredentialAcceptedRoot accepted = Assert.Single(reader.CurrentSnapshot.AcceptedRoots);
+            Assert.Equal(171, accepted.Epoch);
+            Assert.Equal("ff01", accepted.RootHash);
+            Assert.Equal(emptyRoot, accepted.RevocationRootHash);
+            Assert.Equal(IssuerPublicKeyHash, accepted.IssuerPublicKeyHash);
+            Assert.Equal(AnonymousCredentialRootStatuses.Active, accepted.Status);
+            Assert.True(accepted.GraceExpiresAtUtc > BaselineNow);
+            Assert.True(reader.IsRootAccepted("ff01", emptyRoot, IssuerPublicKeyHash, 171));
+
+            Result revoked = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
+                Epoch: 171,
+                RevocationHandleHash: handleHash,
+                RevocationRootHash: revokedRoot,
+                Reason: "abuse",
+                ActorId: "admin:7"), CancellationToken.None);
+
+            Assert.True(revoked.IsSuccess, revoked.Error.Message);
+            Assert.True(reader.IsRootAccepted("ff01", revokedRoot, IssuerPublicKeyHash, 171));
+            rootCache.Received(2).Invalidate();
+
+            using SqlSugarClient verifyDb = CreateDb(dbPath);
+            AnonymousCredentialRoot root = await verifyDb.Queryable<AnonymousCredentialRoot>()
+                .Where(static item => item.Epoch == 171)
+                .FirstAsync();
+            Assert.Equal(revokedRoot, root.RevocationRootHash);
+        }
+        finally
+        {
+            TryDelete(dbPath);
+        }
+    }
+
+    [Fact]
     public async Task Revocation_UpdatesAccumulatorAndInvalidatesRootSnapshotCache()
     {
         string dbPath = BuildDbPath("root-lifecycle-revocation");
@@ -336,7 +433,7 @@ public sealed class AnonymousCredentialRootLifecycleTests
     }
 
     [Fact]
-    public void RevocationAccumulator_ProfileDoesNotTreatReservedAlgorithmsAsProductionReady()
+    public void RevocationAccumulator_ProfileRejectsLegacyAndAllowsCircuitFriendlyProductionReady()
     {
         AnonymousCredentialRevocationAccumulatorProfile legacy = AnonymousCredentialRevocationAccumulator.ResolveProfile(
             AnonymousCredentialRevocationAccumulator.LegacySha256HashTreeAlgorithmId,
@@ -347,8 +444,8 @@ public sealed class AnonymousCredentialRootLifecycleTests
 
         Assert.False(legacy.IsProductionZkCompatible);
         Assert.Equal("legacy_sha256_not_circuit_friendly", legacy.UnavailableReason);
-        Assert.False(reservedCircuitFriendly.IsProductionZkCompatible);
-        Assert.Equal("circuit_friendly_accumulator_not_implemented", reservedCircuitFriendly.UnavailableReason);
+        Assert.True(reservedCircuitFriendly.IsProductionZkCompatible);
+        Assert.Equal(string.Empty, reservedCircuitFriendly.UnavailableReason);
     }
 
     [Fact]
@@ -388,15 +485,19 @@ public sealed class AnonymousCredentialRootLifecycleTests
     private const string LegacyRevocationAccumulatorMarkedProductionReadyMetadata =
         "{\"layout\":2,\"revocationAccumulator\":{\"algorithm\":\"legacy-sha256-hash-tree.v1\",\"productionZkReady\":true}}";
 
+    private const string CircuitFriendlyRevocationAccumulatorMetadata =
+        "{\"layout\":2,\"revocationAccumulator\":{\"algorithm\":\"circuit-friendly-non-membership.v1\",\"productionZkReady\":true,\"hash\":\"mimc7-bn254.v1\",\"tree\":\"sparse-merkle.v1\",\"depth\":128}}";
+
     private static AnonymousCredentialRootRotationRequest CreateRotation(
         long epoch,
         string rootHash,
         int graceMinutes = 120,
+        string? revocationRootHash = null,
         string? circuitMetadata = null)
         => new(
             Epoch: epoch,
             RootHash: rootHash,
-            RevocationRootHash: RevocationRoot(epoch),
+            RevocationRootHash: revocationRootHash ?? RevocationRoot(epoch),
             CircuitId: "fsus.anonymous.comment.v1",
             CircuitNumericId: 7,
             VerifyingKeyHash: "vk-sha256",
@@ -411,6 +512,16 @@ public sealed class AnonymousCredentialRootLifecycleTests
     private static string RevocationRoot(long epoch, params string[] revokedHandleHashes)
     {
         Result<string> result = AnonymousCredentialRevocationAccumulator.TryComputeRoot(
+            epoch,
+            IssuerPublicKeyHash,
+            revokedHandleHashes);
+        Assert.True(result.IsSuccess, result.Error.Message);
+        return result.Value!;
+    }
+
+    private static string CircuitFriendlyRevocationRoot(long epoch, params string[] revokedHandleHashes)
+    {
+        Result<string> result = AnonymousCredentialRevocationAccumulator.TryComputeCircuitFriendlyRoot(
             epoch,
             IssuerPublicKeyHash,
             revokedHandleHashes);

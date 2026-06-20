@@ -80,6 +80,24 @@ The witness contract is:
 The witness also excludes account identity fields. Issuance audit records are
 not witness inputs and must not be used to derive nullifiers.
 
+## Revocation Non-Membership
+
+`comment.v1` uses `circuit-friendly-non-membership.v1` for production
+revocation roots. The backend contract is frozen in
+`docs/zk/revocation-accumulator.md`:
+
+- accumulator: 128-level sparse Merkle tree over BN254 Fr
+- hash: MiMC7 over BN254 Fr, 91 rounds, repository domain-separated constants
+- root/public input encoding: 32-byte lower-case hex field element
+- leaf key: first 128 bits of `revocation_handle_hash`
+- private witness order: `leafKey`, then `siblingHashes[0..127]` from leaf to
+  root
+
+The circuit must reconstruct `revocation_root` from the empty leaf at `leafKey`
+and the sibling path, and it must reject a witness for a revoked handle. The
+legacy `legacy-sha256-hash-tree.v1` accumulator is only a migration/governance
+helper and is excluded from production root snapshots.
+
 ## Security Assertions
 
 The circuit must prove exactly these assertions for the ticket path:
