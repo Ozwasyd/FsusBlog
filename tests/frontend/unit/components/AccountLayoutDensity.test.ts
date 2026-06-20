@@ -14,7 +14,7 @@ const accountShellCss = readFileSync(
 describe('AccountLayout navigation density', () => {
   it('keeps high-frequency account navigation as labels first', () => {
     expect(accountNavSource).toContain(
-      "{ label: '设置', to: ACCOUNT_ROUTE_PATHS.profile, area: 'self', groupKey: 'self' }",
+      "{ label: '身份中心', to: '/user/identity', area: 'self', groupKey: 'self' }",
     )
     expect(accountNavSource).toContain(
       "{ label: '我的消息', to: '/user/messagebox', area: 'self', groupKey: 'self' }",

@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { ACCOUNT_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
 import {
   isPublicSearchRouteName,
   isPublicSeoRouteName,
@@ -97,7 +96,7 @@ describe('createPublicShellViewState', () => {
       isAdmin: false
     })).toMatchObject({
       authLabel: '账户',
-      authHref: ACCOUNT_ROUTE_PATHS.profile
+      authHref: '/user/identity'
     })
 
     expect(createPublicShellViewState({
@@ -142,7 +141,7 @@ describe('publicShellRuntimeAuthState', () => {
 
     setPublicShellRuntimeAuthState({
       authLabel: '账户',
-      authHref: ACCOUNT_ROUTE_PATHS.profile
+      authHref: '/user/identity'
     })
     resetPublicShellRuntimeAuthState()
 
@@ -159,7 +158,7 @@ describe('publicShellRuntimeAuthState', () => {
     })
     expect(resolvePublicShellRuntimeAuthState({ role: 'user' })).toEqual({
       authLabel: '账户',
-      authHref: ACCOUNT_ROUTE_PATHS.profile
+      authHref: '/user/identity'
     })
     expect(resolvePublicShellRuntimeAuthState({ role: 'admin' })).toEqual({
       authLabel: '控制板',

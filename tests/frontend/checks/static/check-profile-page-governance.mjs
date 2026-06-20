@@ -10,7 +10,9 @@ const rel = (file) => path.relative(repoRoot, file).replaceAll(path.sep, '/')
 const read = (file) => fs.readFileSync(file, 'utf8')
 
 const profilePath = path.join(repoRoot, 'src/frontend/src/views/user/Profile.vue')
-const securityComposablePath = path.join(repoRoot, 'src/frontend/src/composables/useUserProfileSecurity.ts')
+const identityCenterPath = path.join(repoRoot, 'src/frontend/src/views/user/IdentityCenter.vue')
+const routerPath = path.join(repoRoot, 'src/frontend/src/router/index.ts')
+const accountNavPath = path.join(repoRoot, 'src/frontend/src/layouts/accountNav.ts')
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 
 function fail(file, line, message) {
@@ -27,7 +29,9 @@ function lineOf(source, token) {
 }
 
 const profile = read(profilePath)
-const securityComposable = read(securityComposablePath)
+const identityCenter = read(identityCenterPath)
+const router = read(routerPath)
+const accountNav = read(accountNavPath)
 
 const forbiddenProfileTokens = [
   'eyebrow=',
@@ -39,7 +43,17 @@ const forbiddenProfileTokens = [
   'Permanent Deletion',
   'UNKNOWN IP',
   "|| '-'",
-  '>尚未注册任何通行密钥。<'
+  '>尚未注册任何通行密钥。<',
+  '账号信息',
+  '安全验证',
+  'profileOldPassword',
+  'profileNewPassword',
+  'profileConfirmPassword',
+  'deleteAccountPassword',
+  'deleteAccountState',
+  'passwordForm',
+  'updateUsername',
+  'updatePassword'
 ]
 
 for (const token of forbiddenProfileTokens) {
@@ -48,47 +62,11 @@ for (const token of forbiddenProfileTokens) {
   }
 }
 
-const forbiddenComposableTokens = [
-  '重新绑定 MFA',
-  '关闭 MFA',
-  'MFA 初始化失败',
-  'MFA 已启用',
-  'MFA 验证失败',
-  'MFA 重新绑定已开始',
-  'MFA 已关闭',
-  'MFA 操作失败'
-]
-
-for (const token of forbiddenComposableTokens) {
-  if (securityComposable.includes(token)) {
-    fail(securityComposablePath, lineOf(securityComposable, token), `Profile security copy must not include ${token}`)
-  }
-}
-
 const requiredProfileTokens = [
-  '更新账号信息、登录凭据与设备会话。',
-  'ProfileSectionNav',
-  'ProfileSettingsSection',
-  'ProfileResourceList',
-  'ProfileResourceListItem',
-  'ProfileInlineEmptyState',
-  '账号信息',
-  '安全验证',
-  '登录方式',
-  '登录设备',
-  '危险操作',
-  '二次验证',
-  '启用二次验证',
-  '关闭二次验证',
-  '尚未添加通行密钥',
-  '添加后可使用设备生物识别或 PIN 登录。',
-  '暂无其他设备会话',
-  '当前只有本设备保持登录。',
-  '未记录 IP',
-  '未记录设备信息',
-  '未记录',
-  '注销账户',
-  '注销后将退出所有设备，账号身份会匿名化处理，且不能恢复。'
+  '资料页已迁移到身份中心。',
+  'router.replace({ name: \'UserIdentityOverview\' })',
+  'to="/user/identity"',
+  '打开身份中心'
 ]
 
 for (const token of requiredProfileTokens) {
@@ -97,10 +75,27 @@ for (const token of requiredProfileTokens) {
   }
 }
 
-for (const token of ['重新绑定二次验证', '二次验证已启用', '二次验证已关闭']) {
-  if (!securityComposable.includes(token)) {
-    fail(securityComposablePath, 1, `Profile security copy is missing ${token}`)
+for (const token of [
+  'MfaSetupModal',
+  'startMfaSetup',
+  'verifyMfaSetup',
+  'PasskeyRegisterModal',
+  'createRecoveryKey',
+  'rotateRecoveryKey',
+  'listSessions',
+  'revokeOtherSessions'
+]) {
+  if (!identityCenter.includes(token)) {
+    fail(identityCenterPath, 1, `Identity center contract is missing ${token}`)
   }
+}
+
+if (!router.includes("path: ACCOUNT_ROUTE_PATHS.profileChild") || !router.includes("redirect: { name: 'UserIdentityOverview' }")) {
+  fail(routerPath, 1, 'legacy profile route must redirect to UserIdentityOverview')
+}
+
+if (accountNav.includes('to: ACCOUNT_ROUTE_PATHS.profile')) {
+  fail(accountNavPath, lineOf(accountNav, 'to: ACCOUNT_ROUTE_PATHS.profile'), 'account nav must not link to legacy profile route')
 }
 
 const packageJson = JSON.parse(read(packageJsonPath))

@@ -1,6 +1,5 @@
 import type { PublicPageKind } from '@/public-renderers/publicRenderBase'
 import { getActiveNavForKind } from '@/public-renderers/publicPageModel'
-import { ACCOUNT_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
 import { createPublicShellState, PUBLIC_SHELL_DEFAULTS, type PublicShellState } from '@/public-renderers/publicShellState'
 import {
   normalizePublicComplianceConfig,
@@ -44,7 +43,7 @@ function resolveAuthState(input: PublicShellViewInput): Pick<PublicShellState, '
 
   return {
     authLabel: '账户',
-    authHref: ACCOUNT_ROUTE_PATHS.profile
+    authHref: '/user/identity'
   }
 }
 

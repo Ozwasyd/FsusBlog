@@ -1,5 +1,3 @@
-import { ACCOUNT_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
-
 export type AccountArea = 'self' | 'manage'
 export type AccountContentMode = 'standard' | 'wide' | 'takeover'
 export type AccountNavGroupKey = 'self' | 'identity' | 'content' | 'interaction' | 'system' | 'ops'
@@ -49,7 +47,7 @@ export const accountAreaMeta: Record<AccountArea, AccountAreaMeta> = {
 }
 
 const accountNavItems: readonly AccountNavItem[] = [
-  { label: '设置', to: ACCOUNT_ROUTE_PATHS.profile, area: 'self', groupKey: 'self' },
+  { label: '身份中心', to: '/user/identity', area: 'self', groupKey: 'self' },
   { label: '我的消息', to: '/user/messagebox', area: 'self', groupKey: 'self' },
   { label: '身份总览', to: '/user/identity', area: 'self', groupKey: 'identity' },
   { label: '通行密钥', to: '/user/identity/passkeys', helper: '设备', area: 'self', groupKey: 'identity' },

@@ -12,7 +12,6 @@ describe('frontend algorithm workflow contract', () => {
   const notificationStreamRenderScheduler = readRepoFile('src/frontend/src/services/notificationStreamRenderScheduler.ts')
   const articleListStableCache = readRepoFile('src/frontend/src/view-contracts/articleListStableCache.ts')
   const anonymousOnboarding = readRepoFile('src/frontend/src/composables/useAnonymousOnboarding.ts')
-  const profileSecurity = readRepoFile('src/frontend/src/composables/useUserProfileSecurity.ts')
 
   it('keeps content moderation on normalization, AC matching, and risk scoring', () => {
     expect(contentFilter).toContain('function tryDecodeUriComponent')
@@ -42,10 +41,8 @@ describe('frontend algorithm workflow contract', () => {
     expect(articleListStableCache).not.toContain('liveIds')
   })
 
-  it('keeps anonymous public handles and profile username rules on the shared constraint schema', () => {
+  it('keeps anonymous public handles on the shared constraint schema', () => {
     expect(anonymousOnboarding).toContain('USERNAME_CONSTRAINT')
     expect(anonymousOnboarding).toContain('validateUsername(value)')
-    expect(profileSecurity).toContain('USERNAME_CONSTRAINT')
-    expect(profileSecurity).toContain('createUsernamePattern()')
   })
 })

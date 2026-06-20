@@ -1,14 +1,28 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
 const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
+const listRepoFiles = (path: string): string[] => {
+  const root = repoFile(path)
+  const walk = (dir: string): string[] => readdirSync(dir).flatMap((entry) => {
+    const full = join(dir, entry)
+    return statSync(full).isDirectory() ? walk(full) : [full]
+  })
+  return walk(root)
+}
 
 describe('identity center workflow contract', () => {
   const router = readRepoFile('src/frontend/src/router/index.ts')
   const accountNav = readRepoFile('src/frontend/src/layouts/accountNav.ts')
   const identityCenter = readRepoFile('src/frontend/src/views/user/IdentityCenter.vue')
+  const profile = readRepoFile('src/frontend/src/views/user/Profile.vue')
+  const userViewSources = listRepoFiles('src/frontend/src/views/user')
+    .filter((file) => /\.(vue|ts)$/.test(file))
+    .map((file) => readFileSync(file, 'utf8'))
+    .join('\n')
 
   it('routes identity-center pages through the existing AccountLayout shell', () => {
     expect(router).toContain("component: () => import('@/layouts/AccountLayout.vue')")
@@ -25,6 +39,21 @@ describe('identity center workflow contract', () => {
     expect(accountNav).toContain("to: '/user/identity/comment-records'")
   })
 
+  it('redirects the legacy profile route to the anonymous identity center', () => {
+    expect(router).toContain("path: ACCOUNT_ROUTE_PATHS.profileChild")
+    expect(router).toContain("redirect: { name: 'UserIdentityOverview' }")
+    expect(accountNav).not.toContain("to: ACCOUNT_ROUTE_PATHS.profile")
+    expect(accountNav).toContain("to: '/user/identity'")
+    expect(profile).toContain("router.replace({ name: 'UserIdentityOverview' })")
+    expect(profile).toContain('身份中心')
+    expect(profile).not.toContain('账号信息')
+    expect(profile).not.toContain('安全验证')
+    expect(profile).not.toContain('当前密码')
+    expect(profile).not.toContain('新密码')
+    expect(profile).not.toContain('确认新密码')
+    expect(profile).not.toContain('deleteAccountState')
+  })
+
   it('renders real identity pages with workspace context and existing client assets', () => {
     expect(identityCenter).toContain('useAccountWorkspaceContext')
     expect(identityCenter).toContain('identityAccountSnapshot')
@@ -35,16 +64,35 @@ describe('identity center workflow contract', () => {
     expect(identityCenter).toContain('PasskeyRegisterModal')
     expect(identityCenter).toContain('createRecoveryKey')
     expect(identityCenter).toContain('rotateRecoveryKey')
+    expect(identityCenter).toContain('MfaSetupModal')
+    expect(identityCenter).toContain('startMfaSetup')
+    expect(identityCenter).toContain('verifyMfaSetup')
     expect(identityCenter).toContain('getMfaProfile')
     expect(identityCenter).toContain('listSessions')
     expect(identityCenter).toContain('revokeOtherSessions')
     expect(identityCenter).toContain('Recovery Key 只显示一次')
     expect(identityCenter).toContain('TOTP 是敏感操作 step-up，不是账号恢复方式')
+    expect(identityCenter).not.toContain('to="/user/profile#profile-security"')
     expect(identityCenter).toContain('强匿名评论不会出现在按账号查询的评论记录中')
     expect(identityCenter).toContain(':title-level="2"')
     expect(identityCenter).not.toMatch(/(^|\s)title-level="2"/u)
     expect(identityCenter).not.toContain('username/password')
     expect(identityCenter).not.toContain('IdentityCenterPlaceholder')
+  })
+
+  it('keeps old password profile fields out of production user views', () => {
+    for (const token of [
+      'profileOldPassword',
+      'profileNewPassword',
+      'profileConfirmPassword',
+      'deleteAccountPassword',
+      'updateUsername',
+      'updatePassword',
+      'deleteAccountState',
+      'passwordForm'
+    ]) {
+      expect(userViewSources).not.toContain(token)
+    }
   })
 
   it('keeps page states explicit for loading, empty, and recoverable errors', () => {

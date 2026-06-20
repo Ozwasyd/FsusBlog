@@ -152,9 +152,19 @@
         <span v-if="mfaProfile?.verifiedAt">最近验证：<SemanticTime :value="mfaProfile.verifiedAt" format="date" /></span>
         <span v-else>未记录最近验证时间</span>
       </div>
-      <router-link class="identity-inline-link" to="/user/profile#profile-security">
-        在个人设置中管理 TOTP step-up
-      </router-link>
+      <div class="mt-6 flex flex-wrap gap-3">
+        <el-button
+          v-if="!mfaProfile?.enabled"
+          type="primary"
+          :loading="mfaSetupLoading"
+          @click="startMfaSetupFlow"
+        >
+          启用 TOTP step-up
+        </el-button>
+        <p v-else class="m-0 text-[12px] leading-6 text-[var(--fsusblog-text-muted)]">
+          TOTP 用于敏感操作 step-up；账号恢复请使用 Recovery Key。
+        </p>
+      </div>
     </WorkbenchPanel>
 
     <WorkbenchPanel
@@ -282,6 +292,19 @@
       v-model:visible="passkeyRegisterVisible"
       @success="onPasskeyRegistered"
     />
+
+    <MfaSetupModal
+      v-model:visible="mfaSetupVisible"
+      title="TOTP step-up 绑定"
+      :loading="mfaSetupLoading"
+      :secret="mfaSetupSecret"
+      :otp-auth-url="mfaSetupOtpAuthUrl"
+      :setup-code="mfaSetupCode"
+      :recovery-codes="mfaSetupRecoveryCodes"
+      :error-message="mfaSetupError"
+      @update:setup-code="(value) => (mfaSetupCode = value)"
+      @verify="completeMfaSetupFlow"
+    />
   </div>
 </template>
 
@@ -290,6 +313,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import MfaSetupModal from '@/components/ui/MfaSetupModal.vue'
 import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import {
@@ -304,7 +328,11 @@ import {
   revokeOtherSessions as revokeOtherSessionsApi,
   revokeSession,
   rotateRecoveryKey,
+  startMfaSetup,
+  verifyMfaSetup,
   type MfaProfile,
+  type MfaSetupStart,
+  type MfaSetupVerify,
   type PasskeyCredentialSummary,
   type UserSessionSummary
 } from '@/api/auth'
@@ -379,6 +407,13 @@ const recoveryKeyKnown = ref(false)
 const mfaLoading = ref(false)
 const mfaError = ref('')
 const mfaProfile = ref<MfaProfile | null>(null)
+const mfaSetupVisible = ref(false)
+const mfaSetupLoading = ref(false)
+const mfaSetupSecret = ref('')
+const mfaSetupOtpAuthUrl = ref('')
+const mfaSetupCode = ref('')
+const mfaSetupRecoveryCodes = ref<string[]>([])
+const mfaSetupError = ref('')
 
 const sessionLoading = ref(false)
 const sessionError = ref('')
@@ -431,6 +466,44 @@ const refreshMfaProfile = async (): Promise<void> => {
     mfaError.value = toAppError(error, '二次验证状态加载失败').message || '二次验证状态加载失败'
   } finally {
     mfaLoading.value = false
+  }
+}
+
+const startMfaSetupFlow = async (): Promise<void> => {
+  mfaSetupVisible.value = true
+  mfaSetupLoading.value = true
+  mfaSetupSecret.value = ''
+  mfaSetupOtpAuthUrl.value = ''
+  mfaSetupCode.value = ''
+  mfaSetupRecoveryCodes.value = []
+  mfaSetupError.value = ''
+  try {
+    const response = await startMfaSetup() as MfaSetupStart
+    mfaSetupSecret.value = response.secret
+    mfaSetupOtpAuthUrl.value = response.otpAuthUrl
+  } catch (error) {
+    mfaSetupError.value = toAppError(error, 'TOTP step-up 初始化失败').message || 'TOTP step-up 初始化失败'
+  } finally {
+    mfaSetupLoading.value = false
+  }
+}
+
+const completeMfaSetupFlow = async (): Promise<void> => {
+  if (!mfaSetupCode.value.trim()) {
+    return
+  }
+
+  mfaSetupLoading.value = true
+  mfaSetupError.value = ''
+  try {
+    const response = await verifyMfaSetup(mfaSetupCode.value.trim()) as MfaSetupVerify
+    mfaSetupRecoveryCodes.value = response.recoveryCodes
+    await refreshMfaProfile()
+    toast.success('TOTP step-up 已启用')
+  } catch (error) {
+    mfaSetupError.value = toAppError(error, 'TOTP step-up 验证失败').message || 'TOTP step-up 验证失败'
+  } finally {
+    mfaSetupLoading.value = false
   }
 }
 

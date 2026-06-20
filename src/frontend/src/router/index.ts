@@ -123,7 +123,7 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
     component: () => import('@/layouts/AccountLayout.vue'),
     meta: { requiresAuth: true, roles: ['guest', 'admin'], accountArea: 'self', accountContentMode: 'standard' },
     children: [
-      { path: ACCOUNT_ROUTE_PATHS.profileChild, name: 'UserProfile', component: () => import('@/views/user/Profile.vue'), meta: { title: '个人中心', accountArea: 'self', accountContentMode: 'standard' } },
+      { path: ACCOUNT_ROUTE_PATHS.profileChild, name: 'UserProfile', redirect: { name: 'UserIdentityOverview' }, component: () => import('@/views/user/Profile.vue'), meta: { title: '身份中心', accountArea: 'self', accountContentMode: 'standard' } },
       { path: 'comments', name: 'UserComments', component: () => import('@/views/user/Comments.vue'), meta: { title: '我的评论', accountArea: 'self', accountContentMode: 'standard' } },
       { path: 'messagebox', name: 'UserMessage', component: () => import('@/views/user/Messages.vue'), meta: { title: '我的消息', accountArea: 'self', accountContentMode: 'takeover' } },
       { path: 'identity', name: 'UserIdentityOverview', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '身份总览', accountArea: 'self', accountContentMode: 'standard' } },
@@ -249,7 +249,7 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
     const userRole = userInfo?.role || ''
 
     if (to.meta.guestOnly && isLoggedIn) {
-      return adminStore.canManage ? '/user/manage' : ACCOUNT_ROUTE_PATHS.profile
+      return adminStore.canManage ? '/user/manage' : '/user/identity'
     }
 
     if (to.meta.requiresAuth) {
@@ -274,7 +274,7 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
     }
 
     if (to.path === '/user') {
-      return adminStore.canManage ? '/user/manage' : ACCOUNT_ROUTE_PATHS.profile
+      return adminStore.canManage ? '/user/manage' : '/user/identity'
     }
 
     return true
