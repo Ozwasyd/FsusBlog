@@ -193,6 +193,14 @@ test('anonymous credential root bootstrap runbook documents rotate, gate and rol
   assert.match(doc, /不删除已写入的匿名评论/)
 })
 
+test('dotnet root bootstrap emits comment v2 revocation metadata', () => {
+  const source = readFileSync(path.join(root, 'tools/security/AnonymousCredentialRootBootstrap/Program.cs'), 'utf8')
+
+  assert.match(source, /"layout":3/)
+  assert.match(source, /"algorithm":"circuit-friendly-non-membership\.v1"/)
+  assert.doesNotMatch(source, /"layout":2/)
+})
+
 function bootstrapInput(overrides = {}) {
   return {
     schema: 'fsusblog.anonymous-credential-root-bootstrap-request.v1',

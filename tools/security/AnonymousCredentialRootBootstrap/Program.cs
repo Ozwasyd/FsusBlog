@@ -558,7 +558,7 @@ internal static partial class Program
 
     private static string BuildCircuitMetadata()
         => """
-           {"layout":2,"revocationAccumulator":{"algorithm":"circuit-friendly-non-membership.v1","productionZkReady":true,"hash":"mimc7-bn254.v1","tree":"sparse-merkle.v1","depth":128}}
+           {"layout":3,"revocationAccumulator":{"algorithm":"circuit-friendly-non-membership.v1","productionZkReady":true,"hash":"mimc7-bn254.v1","tree":"sparse-merkle.v1","depth":128}}
            """;
 
     private static int ExitFailed(IEnumerable<string> errors)
