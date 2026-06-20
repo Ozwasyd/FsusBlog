@@ -559,8 +559,11 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('recent-comment-stats-frame.hex'))
 
     await expect(requestBinaryOnly<Array<{
-      userId: number | null;
-      userName: string;
+      authorDisplayName: string;
+      authorMode: string;
+      authorBadge: string | null;
+      authorScopeLabel: string | null;
+      credentialLevel: string | null;
       content: string;
       createTime: string;
     }>>({
@@ -568,14 +571,20 @@ describe('binaryTransport ApiError mapping', () => {
       frameType: FrameType.RecentCommentStats
     })).resolves.toEqual([
       {
-        userId: 12,
-        userName: 'alice',
+        authorDisplayName: 'Alice Public',
+        authorMode: 'public',
+        authorBadge: null,
+        authorScopeLabel: null,
+        credentialLevel: null,
         content: 'first admin comment',
         createTime: '2026-05-12T09:08:07.000Z'
       },
       {
-        userId: null,
-        userName: 'anonymous',
+        authorDisplayName: '强匿名评论者',
+        authorMode: 'zk_anonymous',
+        authorBadge: '已验证匿名凭证',
+        authorScopeLabel: 'article:42',
+        credentialLevel: 'strong_anonymous',
         content: 'hidden user',
         createTime: '2026-05-12T10:00:00.000Z'
       }
@@ -625,10 +634,13 @@ describe('binaryTransport ApiError mapping', () => {
         }>;
       };
       recentComments: Array<{
+        authorDisplayName: string;
+        authorMode: string;
+        authorBadge: string | null;
+        authorScopeLabel: string | null;
+        credentialLevel: string | null;
         content: string;
         createTime: string;
-        userId: number;
-        userName: string;
       }>;
       regions: Array<{
         region: string;
@@ -664,10 +676,13 @@ describe('binaryTransport ApiError mapping', () => {
       },
       recentComments: [
         {
+          authorDisplayName: 'Alice Public',
+          authorMode: 'public',
+          authorBadge: null,
+          authorScopeLabel: null,
+          credentialLevel: null,
           content: 'first admin comment',
-          createTime: '2026-05-12T09:08:07.000Z',
-          userId: 12,
-          userName: 'alice'
+          createTime: '2026-05-12T09:08:07.000Z'
         }
       ],
       regions: [

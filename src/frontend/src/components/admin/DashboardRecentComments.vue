@@ -19,7 +19,17 @@
             class="p-6"
           >
             <div class="flex items-start justify-between gap-4 mb-3">
-              <p class="text-[13px] font-bold text-[var(--fsusblog-text-secondary)]">{{ comment.userName }}</p>
+              <div class="min-w-0">
+                <p class="text-[13px] font-bold text-[var(--fsusblog-text-secondary)]">{{ comment.authorDisplayName }}</p>
+                <p
+                  v-if="comment.authorBadge || comment.authorScopeLabel || comment.credentialLevel"
+                  class="mt-1 text-[11px] leading-snug text-[var(--fsusblog-text-muted)]"
+                >
+                  <span v-if="comment.authorBadge">{{ comment.authorBadge }}</span>
+                  <span v-if="comment.authorScopeLabel"> {{ comment.authorScopeLabel }}</span>
+                  <span v-if="comment.credentialLevel"> {{ comment.credentialLevel }}</span>
+                </p>
+              </div>
               <SemanticTime
                 :value="comment.timeValue"
                 :text="comment.timeText"

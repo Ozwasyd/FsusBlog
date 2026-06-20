@@ -57,7 +57,14 @@ public sealed class StatsServiceCoreAdapter(IStatsCoreService core) : IStatsServ
         for (int i = 0; i < source.Count; i++)
         {
             var item = source[i];
-            items.Add(new RecentCommentStatItemDto(item.UserId, item.UserName, item.Content, item.CreateTime));
+            items.Add(new RecentCommentStatItemDto(
+                item.AuthorDisplayName,
+                item.AuthorMode,
+                item.AuthorBadge,
+                item.AuthorScopeLabel,
+                item.CredentialLevel,
+                item.Content,
+                item.CreateTime));
         }
 
         return items;

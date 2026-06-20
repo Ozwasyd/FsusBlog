@@ -3,6 +3,8 @@ import { AppErrorCode, createAppError } from '@/utils/appError';
 import { BinaryReader, readInt32, readIsoDate64, readSliceRef, readSliceText } from './reader';
 import { SITE_STATS_POD_SIZE } from './types';
 
+const RECENT_COMMENT_RECORD_SIZE = 56;
+
 export function mapSiteStatsFromPodPayload(payload: Uint8Array): AdminStatsQuery {
   const reader = new BinaryReader(payload);
   const pod = reader.readSpan(SITE_STATS_POD_SIZE);
@@ -19,7 +21,7 @@ export function mapSiteStatsFromPodPayload(payload: Uint8Array): AdminStatsQuery
   if (recentCount < 0) throw createAppError(AppErrorCode.ProtocolFailure, 'site_stats_recent_count_invalid');
   const recentComments: RecentCommentStatItem[] = [];
   for (let i = 0; i < recentCount; i++) {
-    recentComments.push(readRecentCommentStat(reader.readSpan(32), blob));
+    recentComments.push(readRecentCommentStat(reader.readSpan(RECENT_COMMENT_RECORD_SIZE), blob));
   }
 
   const regionCount = reader.readInt32();
@@ -60,7 +62,7 @@ export function mapRecentCommentsFromPodPayload(payload: Uint8Array): RecentComm
 
   const comments: RecentCommentStatItem[] = [];
   for (let i = 0; i < count; i += 1) {
-    comments.push(readRecentCommentStat(reader.readSpan(32), blob));
+    comments.push(readRecentCommentStat(reader.readSpan(RECENT_COMMENT_RECORD_SIZE), blob));
   }
 
   return comments;
@@ -90,10 +92,13 @@ function readPopularArticleStat(itemPod: Uint8Array, blob: Uint8Array): AdminSta
 
 function readRecentCommentStat(pod: Uint8Array, blob: Uint8Array): RecentCommentStatItem {
   return {
-    userId: (pod[4] ?? 0) === 1 ? readInt32(pod, 0) : null,
-    createTime: readIsoDate64(pod, 8),
-    userName: readSliceText(blob, readSliceRef(pod, 16)),
-    content: readSliceText(blob, readSliceRef(pod, 24))
+    createTime: readIsoDate64(pod, 0),
+    authorDisplayName: readSliceText(blob, readSliceRef(pod, 8)),
+    authorMode: readSliceText(blob, readSliceRef(pod, 16)),
+    authorBadge: emptyToNull(readSliceText(blob, readSliceRef(pod, 24))),
+    authorScopeLabel: emptyToNull(readSliceText(blob, readSliceRef(pod, 32))),
+    credentialLevel: emptyToNull(readSliceText(blob, readSliceRef(pod, 40))),
+    content: readSliceText(blob, readSliceRef(pod, 48))
   };
 }
 
@@ -102,4 +107,8 @@ function readRegionStat(pod: Uint8Array, blob: Uint8Array): RegionStatItem {
     count: readInt32(pod, 0),
     region: readSliceText(blob, readSliceRef(pod, 4))
   };
+}
+
+function emptyToNull(value: string): string | null {
+  return value.trim().length > 0 ? value : null;
 }

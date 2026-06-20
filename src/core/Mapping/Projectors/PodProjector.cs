@@ -271,19 +271,30 @@ public static class PodProjector
         return Cast<MutableCommentReplyPreviewItemPod, CommentReplyPreviewItemPod>(tmp);
     }
 
-    public static RecentCommentPod ProjectRecentComment(int? userId, DateTime createTime, string userName, string content, out ReadOnlyMemory<byte> payload)
+    public static RecentCommentPod ProjectRecentComment(
+        DateTime createTime,
+        string authorDisplayName,
+        string authorMode,
+        string? authorBadge,
+        string? authorScopeLabel,
+        string? credentialLevel,
+        string content,
+        out ReadOnlyMemory<byte> payload)
     {
         var bytes = new ArrayBufferWriter<byte>(256);
+        Utf8SliceRef authorBadgeSlice = PodUtf8Codec.AppendSlice(authorBadge, bytes);
+        Utf8SliceRef authorScopeLabelSlice = PodUtf8Codec.AppendSlice(authorScopeLabel, bytes);
+        Utf8SliceRef credentialLevelSlice = PodUtf8Codec.AppendSlice(credentialLevel, bytes);
         Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
 
         MutableRecentCommentPod tmp = new()
         {
-            UserId = userId.GetValueOrDefault(),
-            HasUserId = userId.HasValue ? (byte)1 : (byte)0,
-            Reserved0 = 0,
-            Reserved1 = 0,
             CreateTimeUnixMs = PodTimeCodec.ToUnixMs(createTime),
-            UserName = PodUtf8Codec.ToFixed64(userName),
+            AuthorDisplayName = PodUtf8Codec.ToFixed64(authorDisplayName),
+            AuthorMode = PodUtf8Codec.ToFixed32(authorMode),
+            AuthorBadge = authorBadgeSlice,
+            AuthorScopeLabel = authorScopeLabelSlice,
+            CredentialLevel = credentialLevelSlice,
             Content = contentSlice
         };
 
@@ -493,12 +504,12 @@ public static class PodProjector
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableRecentCommentPod
     {
-        public int UserId;
-        public byte HasUserId;
-        public byte Reserved0;
-        public ushort Reserved1;
         public long CreateTimeUnixMs;
-        public Utf8Fixed64 UserName;
+        public Utf8Fixed64 AuthorDisplayName;
+        public Utf8Fixed32 AuthorMode;
+        public Utf8SliceRef AuthorBadge;
+        public Utf8SliceRef AuthorScopeLabel;
+        public Utf8SliceRef CredentialLevel;
         public Utf8SliceRef Content;
     }
 

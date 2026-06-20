@@ -197,7 +197,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `ArticleHot` payload: `int32 count`, shared UTF-8 blob, `16B popularArticleRecord[count]`.
 - `CategoryList` payload: `int32 count`, shared UTF-8 blob, `16B taxonomyRecord[count]`.
 - `TagList` payload: `int32 count`, shared UTF-8 blob, `16B taxonomyRecord[count]`.
-- `RecentCommentStats` payload: `int32 count`, shared UTF-8 blob, `32B recentCommentRecord[count]`.
+- `RecentCommentStats` payload: `int32 count`, shared UTF-8 blob, `56B recentCommentRecord[count]`. Each record stores `createTimeUnixMs` plus blob slices for `authorDisplayName`, `authorMode`, optional `authorBadge`, optional `authorScopeLabel`, optional `credentialLevel`, and `content`; it does not carry account `userId` or `userName`.
 - `RegionStats` payload: `int32 count`, shared UTF-8 blob, `12B regionRecord[count]`.
 - `SeoConfig` payload: `SeoConfigPod` (5000 bytes) followed by blob payload for variable description. Fixed fields are `title:Utf8Fixed256`, `description:Utf8SliceRef`, `keywords:Utf8Fixed256`, `author:Utf8Fixed64`, `ogImage:Utf8Fixed256`, `baseUrl:Utf8Fixed256`, then `faviconSvgUrl/faviconIcoUrl/faviconPngUrl/appleTouchIconUrl:Utf8Fixed256`, `manifestName/manifestShortName:Utf8Fixed128`, `pwaIcon192Url/pwaIcon512Url/pwaMaskableIconUrl:Utf8Fixed256`, `themeColor/backgroundColor:Utf8Fixed32`, `siteLogoUrl/siteLogoDarkUrl/siteWordmarkUrl/adminLogoUrl/adminCollapsedIconUrl/loginLogoUrl/loginIconUrl:Utf8Fixed256`.
 - `PageContent` payload: `PageContentPod` followed by blob payload for markdown content.

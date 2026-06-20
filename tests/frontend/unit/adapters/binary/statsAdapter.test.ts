@@ -3,7 +3,7 @@ import { mapRecentCommentsFromPodPayload, mapRegionsFromPodPayload, mapSiteStats
 import { SITE_STATS_POD_SIZE } from '@/adapters/binary/types'
 
 const POPULAR_ARTICLE_RECORD_SIZE = 16
-const RECENT_COMMENT_RECORD_SIZE = 32
+const RECENT_COMMENT_RECORD_SIZE = 56
 const REGION_DISTRIBUTION_RECORD_SIZE = 12
 
 function writeInt32(b: Uint8Array, off: number, v: number): void {
@@ -70,32 +70,39 @@ describe('mapSiteStatsFromPodPayload', () => {
   })
 
   it('reads embedded recent comments and regions from the aggregate stats frame', () => {
-    const userName = enc('Alice')
+    const authorDisplayName = enc('强匿名评论者')
+    const authorMode = enc('zk_anonymous')
+    const authorBadge = enc('已验证匿名凭证')
+    const authorScopeLabel = enc('article:42')
+    const credentialLevel = enc('strong_anonymous')
     const content = enc('Hello')
     const region = enc('EU')
-    const blob = new Uint8Array(userName.byteLength + content.byteLength + region.byteLength)
-    blob.set(userName, 0)
-    blob.set(content, userName.byteLength)
-    blob.set(region, userName.byteLength + content.byteLength)
+    const blob = joinBytes(authorDisplayName, authorMode, authorBadge, authorScopeLabel, credentialLevel, content, region)
+    const offsets = offsetsFor(authorDisplayName, authorMode, authorBadge, authorScopeLabel, credentialLevel, content, region)
 
     const pod = new Uint8Array(SITE_STATS_POD_SIZE)
     const suffix = new Uint8Array(4 + 4 + RECENT_COMMENT_RECORD_SIZE + 4 + REGION_DISTRIBUTION_RECORD_SIZE)
     const view = new DataView(suffix.buffer)
     view.setInt32(0, 0, true)
     view.setInt32(4, 1, true)
-    view.setInt32(8, 7, true)
-    suffix[12] = 1
-    view.setBigInt64(16, BigInt(Date.UTC(2026, 0, 2)), true)
-    sliceRef(view, 24, 0, userName.byteLength)
-    sliceRef(view, 32, userName.byteLength, content.byteLength)
-    view.setInt32(40, 1, true)
-    view.setInt32(44, 11, true)
-    sliceRef(view, 48, userName.byteLength + content.byteLength, region.byteLength)
+    view.setBigInt64(8, BigInt(Date.UTC(2026, 0, 2)), true)
+    sliceRef(view, 16, offsets[0], authorDisplayName.byteLength)
+    sliceRef(view, 24, offsets[1], authorMode.byteLength)
+    sliceRef(view, 32, offsets[2], authorBadge.byteLength)
+    sliceRef(view, 40, offsets[3], authorScopeLabel.byteLength)
+    sliceRef(view, 48, offsets[4], credentialLevel.byteLength)
+    sliceRef(view, 56, offsets[5], content.byteLength)
+    view.setInt32(64, 1, true)
+    view.setInt32(68, 11, true)
+    sliceRef(view, 72, offsets[6], region.byteLength)
 
     const result = mapSiteStatsFromPodPayload(buildCompactPayload(pod, blob, suffix))
     expect(result.recentComments).toEqual([{
-      userId: 7,
-      userName: 'Alice',
+      authorDisplayName: '强匿名评论者',
+      authorMode: 'zk_anonymous',
+      authorBadge: '已验证匿名凭证',
+      authorScopeLabel: 'article:42',
+      credentialLevel: 'strong_anonymous',
       content: 'Hello',
       createTime: new Date(Date.UTC(2026, 0, 2)).toISOString()
     }])
@@ -128,26 +135,34 @@ describe('mapSiteStatsFromPodPayload', () => {
 
 describe('stats list mappers', () => {
   it('reads recent comments', () => {
-    const userName = enc('Alice')
+    const authorDisplayName = enc('Alice Public')
+    const authorMode = enc('public')
+    const authorBadge = enc('')
+    const authorScopeLabel = enc('')
+    const credentialLevel = enc('')
     const content = 'Hello comment'
     const contentBytes = enc(content)
-    const blob = new Uint8Array(userName.byteLength + contentBytes.byteLength)
-    blob.set(userName, 0)
-    blob.set(contentBytes, userName.byteLength)
+    const blob = joinBytes(authorDisplayName, authorMode, authorBadge, authorScopeLabel, credentialLevel, contentBytes)
+    const offsets = offsetsFor(authorDisplayName, authorMode, authorBadge, authorScopeLabel, credentialLevel, contentBytes)
 
     const prefix = new Uint8Array(4)
     writeInt32(prefix, 0, 1)
     const records = new Uint8Array(RECENT_COMMENT_RECORD_SIZE)
     const view = new DataView(records.buffer)
-    view.setInt32(0, 5, true)
-    records[4] = 1
-    view.setBigInt64(8, BigInt(Date.UTC(2026, 0, 1)), true)
-    sliceRef(view, 16, 0, userName.byteLength)
-    sliceRef(view, 24, userName.byteLength, contentBytes.byteLength)
+    view.setBigInt64(0, BigInt(Date.UTC(2026, 0, 1)), true)
+    sliceRef(view, 8, offsets[0], authorDisplayName.byteLength)
+    sliceRef(view, 16, offsets[1], authorMode.byteLength)
+    sliceRef(view, 24, offsets[2], authorBadge.byteLength)
+    sliceRef(view, 32, offsets[3], authorScopeLabel.byteLength)
+    sliceRef(view, 40, offsets[4], credentialLevel.byteLength)
+    sliceRef(view, 48, offsets[5], contentBytes.byteLength)
 
     expect(mapRecentCommentsFromPodPayload(buildCompactPayload(prefix, blob, records))).toEqual([{
-      userId: 5,
-      userName: 'Alice',
+      authorDisplayName: 'Alice Public',
+      authorMode: 'public',
+      authorBadge: null,
+      authorScopeLabel: null,
+      credentialLevel: null,
       content,
       createTime: new Date(Date.UTC(2026, 0, 1)).toISOString()
     }])
@@ -165,3 +180,23 @@ describe('stats list mappers', () => {
     expect(mapRegionsFromPodPayload(buildCompactPayload(prefix, region, records))).toEqual([{ region: 'US', count: 9 }])
   })
 })
+
+function joinBytes(...parts: Uint8Array[]): Uint8Array {
+  const bytes = new Uint8Array(parts.reduce((sum, part) => sum + part.byteLength, 0))
+  let offset = 0
+  for (const part of parts) {
+    bytes.set(part, offset)
+    offset += part.byteLength
+  }
+  return bytes
+}
+
+function offsetsFor(...parts: Uint8Array[]): number[] {
+  const offsets: number[] = []
+  let offset = 0
+  for (const part of parts) {
+    offsets.push(offset)
+    offset += part.byteLength
+  }
+  return offsets
+}

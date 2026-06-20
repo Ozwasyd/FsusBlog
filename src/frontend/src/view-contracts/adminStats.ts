@@ -21,7 +21,11 @@ type AdminPopularArticleViewContract = Readonly<{
 
 type AdminRecentCommentViewContract = Readonly<{
   id: string | number;
-  userName: string;
+  authorDisplayName: string;
+  authorMode: string;
+  authorBadge: string | null;
+  authorScopeLabel: string | null;
+  credentialLevel: string | null;
   content: string;
   timeValue: string;
   timeText: string;
@@ -123,8 +127,12 @@ export function createAdminDashboardViewContract(
       href: `/article/${article.id}`
     })),
     recentComments: (recentComments || []).map((comment, index) => ({
-      id: comment.userId ?? `${comment.userName}-${index}`,
-      userName: comment.userName,
+      id: `${comment.authorDisplayName}-${index}`,
+      authorDisplayName: comment.authorDisplayName,
+      authorMode: comment.authorMode,
+      authorBadge: comment.authorBadge,
+      authorScopeLabel: comment.authorScopeLabel,
+      credentialLevel: comment.credentialLevel,
       content: comment.content,
       timeValue: comment.createTime,
       timeText: TimeUtils.toFullLocalString(comment.createTime),

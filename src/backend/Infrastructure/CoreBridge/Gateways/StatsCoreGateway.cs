@@ -31,8 +31,24 @@ public sealed class StatsCoreGateway(StatsService service, StatsCoreQueryCache q
         var recent = new List<RecentCommentCoreModel>(query.RecentComments.Count);
         foreach (RecentCommentStatItemDto item in query.RecentComments)
         {
-            var pod = PodProjector.ProjectRecentComment(item.UserId, item.CreateTime, item.UserName, item.Content, out _);
-            recent.Add(new RecentCommentCoreModel(pod, item.UserId, item.UserName, item.Content, item.CreateTime));
+            var pod = PodProjector.ProjectRecentComment(
+                item.CreateTime,
+                item.AuthorDisplayName,
+                item.AuthorMode,
+                item.AuthorBadge,
+                item.AuthorScopeLabel,
+                item.CredentialLevel,
+                item.Content,
+                out _);
+            recent.Add(new RecentCommentCoreModel(
+                pod,
+                item.AuthorDisplayName,
+                item.AuthorMode,
+                item.AuthorBadge,
+                item.AuthorScopeLabel,
+                item.CredentialLevel,
+                item.Content,
+                item.CreateTime));
         }
 
         var regions = new List<RegionDistributionCoreModel>(query.Regions.Count);

@@ -441,7 +441,14 @@ public sealed record class AdminStatsQueryDto
 
 public readonly record struct PopularArticleSummaryDto(int Id, string Title, int Views);
 public readonly record struct PopularArticleStatItemDto(int Id, string Title, int Views);
-public readonly record struct RecentCommentStatItemDto(int? UserId, string UserName, string Content, DateTime CreateTime);
+public readonly record struct RecentCommentStatItemDto(
+    string AuthorDisplayName,
+    string AuthorMode,
+    string? AuthorBadge,
+    string? AuthorScopeLabel,
+    string? CredentialLevel,
+    string Content,
+    DateTime CreateTime);
 public readonly record struct RegionStatItemDto(string Region, int Count);
 
 public readonly record struct TokenResponseDto(string AccessToken, string RefreshToken);

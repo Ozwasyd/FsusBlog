@@ -510,18 +510,24 @@ describe('AEDS cross-stack contract fixture', () => {
 
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.RecentCommentStats)
-    expect(result.payloadView.byteLength).toBe(116)
+    expect(result.payloadView.byteLength).toBe(245)
 
     expect(mapRecentCommentsFromPodPayload(result.payloadView)).toEqual([
       {
-        userId: 12,
-        userName: 'alice',
+        authorDisplayName: 'Alice Public',
+        authorMode: 'public',
+        authorBadge: null,
+        authorScopeLabel: null,
+        credentialLevel: null,
         content: 'first admin comment',
         createTime: '2026-05-12T09:08:07.000Z'
       },
       {
-        userId: null,
-        userName: 'anonymous',
+        authorDisplayName: '强匿名评论者',
+        authorMode: 'zk_anonymous',
+        authorBadge: '已验证匿名凭证',
+        authorScopeLabel: 'article:42',
+        credentialLevel: 'strong_anonymous',
         content: 'hidden user',
         createTime: '2026-05-12T10:00:00.000Z'
       }
@@ -558,7 +564,7 @@ describe('AEDS cross-stack contract fixture', () => {
 
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.AdminStats)
-    expect(result.payloadView.byteLength).toBe(239)
+    expect(result.payloadView.byteLength).toBe(276)
 
     expect(mapSiteStatsFromPodPayload(result.payloadView)).toEqual({
       overview: {
@@ -587,8 +593,11 @@ describe('AEDS cross-stack contract fixture', () => {
       },
       recentComments: [
         {
-          userId: 12,
-          userName: 'alice',
+          authorDisplayName: 'Alice Public',
+          authorMode: 'public',
+          authorBadge: null,
+          authorScopeLabel: null,
+          credentialLevel: null,
           content: 'first admin comment',
           createTime: '2026-05-12T09:08:07.000Z'
         }

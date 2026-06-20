@@ -155,7 +155,7 @@ public static partial class PodBinaryCodec
     }
 
     public static byte[] EncodeRecentCommentStats(IReadOnlyList<RecentCommentCoreModel> comments)
-        => EncodeToArray(64 + comments.Count * 48, writer => WriteRecentCommentStats(comments, writer));
+        => EncodeToArray(64 + comments.Count * 64, writer => WriteRecentCommentStats(comments, writer));
 
     public static bool TryDecodeRecentCommentStats(ReadOnlyMemory<byte> bytes, out List<RecentCommentCoreModel> comments)
     {
@@ -235,10 +235,12 @@ public static partial class PodBinaryCodec
         foreach (RecentCommentCoreModel item in comments)
         {
             records.Add(new RecentCommentRecord(
-                item.UserId ?? 0,
-                item.UserId.HasValue ? (byte)1 : (byte)0,
                 PodTimeCodec.ToUnixMs(item.CreateTime),
-                PodUtf8Codec.AppendSlice(item.UserName, blob),
+                PodUtf8Codec.AppendSlice(item.AuthorDisplayName, blob),
+                PodUtf8Codec.AppendSlice(item.AuthorMode, blob),
+                PodUtf8Codec.AppendSlice(item.AuthorBadge, blob),
+                PodUtf8Codec.AppendSlice(item.AuthorScopeLabel, blob),
+                PodUtf8Codec.AppendSlice(item.CredentialLevel, blob),
                 PodUtf8Codec.AppendSlice(item.Content, blob)));
         }
 
@@ -247,39 +249,55 @@ public static partial class PodBinaryCodec
 
     private static void WriteRecentCommentRecord(ref BinaryPodWriter writer, RecentCommentRecord item)
     {
-        writer.WriteInt32(item.UserId);
-        writer.WriteByte(item.HasUserId);
-        writer.WriteByte(0);
-        writer.WriteByte(0);
-        writer.WriteByte(0);
         writer.WriteInt64(item.CreateTimeUnixMs);
-        writer.WriteSliceRef(item.UserName);
+        writer.WriteSliceRef(item.AuthorDisplayName);
+        writer.WriteSliceRef(item.AuthorMode);
+        writer.WriteSliceRef(item.AuthorBadge);
+        writer.WriteSliceRef(item.AuthorScopeLabel);
+        writer.WriteSliceRef(item.CredentialLevel);
         writer.WriteSliceRef(item.Content);
     }
 
     private static bool TryReadRecentCommentRecord(ref BinaryPodReader reader, ReadOnlySpan<byte> blob, out RecentCommentCoreModel item)
     {
-        if (!reader.TryReadInt32(out int userId) ||
-            !reader.TryReadByte(out byte hasUserId) ||
-            !reader.TryReadByte(out _) ||
-            !reader.TryReadByte(out _) ||
-            !reader.TryReadByte(out _) ||
-            !reader.TryReadInt64(out long createTimeUnixMs) ||
-            !reader.TryReadSliceRef(out Utf8SliceRef userNameSlice) ||
-            !reader.TryReadSliceRef(out Utf8SliceRef contentSlice) ||
-            hasUserId > 1)
+        if (!reader.TryReadInt64(out long createTimeUnixMs) ||
+            !reader.TryReadSliceRef(out Utf8SliceRef authorDisplayNameSlice) ||
+            !reader.TryReadSliceRef(out Utf8SliceRef authorModeSlice) ||
+            !reader.TryReadSliceRef(out Utf8SliceRef authorBadgeSlice) ||
+            !reader.TryReadSliceRef(out Utf8SliceRef authorScopeLabelSlice) ||
+            !reader.TryReadSliceRef(out Utf8SliceRef credentialLevelSlice) ||
+            !reader.TryReadSliceRef(out Utf8SliceRef contentSlice))
         {
             item = default;
             return false;
         }
 
-        string userName = PodUtf8Codec.ReadSlice(userNameSlice, blob);
+        string authorDisplayName = PodUtf8Codec.ReadSlice(authorDisplayNameSlice, blob);
+        string authorMode = PodUtf8Codec.ReadSlice(authorModeSlice, blob);
+        string? authorBadge = EmptyToNull(PodUtf8Codec.ReadSlice(authorBadgeSlice, blob));
+        string? authorScopeLabel = EmptyToNull(PodUtf8Codec.ReadSlice(authorScopeLabelSlice, blob));
+        string? credentialLevel = EmptyToNull(PodUtf8Codec.ReadSlice(credentialLevelSlice, blob));
         string content = PodUtf8Codec.ReadSlice(contentSlice, blob);
         DateTime createTime = PodTimeCodec.FromUnixMs(createTimeUnixMs);
-        RecentCommentPod pod = PodProjector.ProjectRecentComment(hasUserId == 1 ? userId : null, createTime, userName, content, out _);
-        item = new RecentCommentCoreModel(pod, hasUserId == 1 ? userId : null, userName, content, createTime);
+        RecentCommentPod pod = PodProjector.ProjectRecentComment(
+            createTime,
+            authorDisplayName,
+            authorMode,
+            authorBadge,
+            authorScopeLabel,
+            credentialLevel,
+            content,
+            out _);
+        item = new RecentCommentCoreModel(pod, authorDisplayName, authorMode, authorBadge, authorScopeLabel, credentialLevel, content, createTime);
         return true;
     }
 
-    private readonly record struct RecentCommentRecord(int UserId, byte HasUserId, long CreateTimeUnixMs, Utf8SliceRef UserName, Utf8SliceRef Content);
+    private readonly record struct RecentCommentRecord(
+        long CreateTimeUnixMs,
+        Utf8SliceRef AuthorDisplayName,
+        Utf8SliceRef AuthorMode,
+        Utf8SliceRef AuthorBadge,
+        Utf8SliceRef AuthorScopeLabel,
+        Utf8SliceRef CredentialLevel,
+        Utf8SliceRef Content);
 }

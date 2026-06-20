@@ -335,7 +335,15 @@ public readonly record struct ArticleWriteRequestCoreModel(
     int Status = 2,
     DateTime? ScheduledPublishAt = null);
 
-public readonly record struct RecentCommentCoreModel(RecentCommentPod Pod, int? UserId, string UserName, string Content, DateTime CreateTime);
+public readonly record struct RecentCommentCoreModel(
+    RecentCommentPod Pod,
+    string AuthorDisplayName,
+    string AuthorMode,
+    string? AuthorBadge,
+    string? AuthorScopeLabel,
+    string? CredentialLevel,
+    string Content,
+    DateTime CreateTime);
 
 public readonly record struct RegionDistributionCoreModel(RegionDistributionPod Pod, string Region, int Count);
 

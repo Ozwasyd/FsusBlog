@@ -187,4 +187,11 @@ run_residue_check \
   '^(src/backend/Entities/VisitLog[.]cs|src/backend/Infrastructure/Operations/LegacyIdentityColdStartResetOperation[.]cs|src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry[.]cs|src/backend/Infrastructure/SchemaMigration/SchemaMigrationConsistencyChecker[.]cs)$' \
   src/backend/Services/HumanReadProofService.cs src/backend/Services/VisitLog src/backend/Services/StatsService.cs src/backend/Infrastructure/CoreBridge src/backend/Infrastructure/Cache src/shared/Contracts src/core src/frontend/src tests/frontend/fixtures
 
+run_residue_check \
+  "stats recent comment user identity" \
+  "stats recent comment user identity residue detected" \
+  'LeftJoin<User>|u[.]Username|u[.]Id|GetOrdinal[(]["'\'']Username["'\''][)]|RecentCommentStatItemDto[(][^;\n]*(?:UserId|UserName)|RecentCommentCoreModel[(][^;\n]*(?:UserId|UserName)|ProjectRecentComment[(][^;\n]*(?:userId|userName)|UserId = userId|public readonly int UserId;|HasUserId|item[.]UserId|item[.]UserName|reader[.]readSpan[(]32[)]|comment[.]userName|userId:|userName:' \
+  '' \
+  src/backend/Services/StatsService.cs src/shared/Contracts/Outputs/ServerResponseContracts.cs src/shared/Contracts/Models/StatsPods.cs src/core/Mapping/Models/ReadModels.cs src/core/Mapping/Projectors/PodProjector.cs src/core/Cache/PodBinaryCodec.Stats.cs src/backend/Infrastructure/CoreBridge/Adapters/StatsServiceCoreAdapter.cs src/backend/Infrastructure/CoreBridge/Gateways/StatsCoreGateway.cs src/frontend/src/api/stats.ts src/frontend/src/adapters/binary/statsAdapter.ts src/frontend/src/view-contracts/adminStats.ts src/frontend/src/components/admin/DashboardRecentComments.vue
+
 echo "[residue-check] passed"

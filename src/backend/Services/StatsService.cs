@@ -2,6 +2,7 @@
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
 using SqlSugar;
 using System.Data;
@@ -168,37 +169,114 @@ public partial class StatsService(
     private async Task<List<RecentCommentStatItemDto>> LoadRecentCommentsAsync(CancellationToken cancellationToken)
     {
         var recentQuery = _db.Queryable<Comment>()
-            .LeftJoin<User>((c, u) => c.UserId == u.Id)
             .Where(c => c.ModerationStatus == CommentModerationStatus.Approved && !c.IsDeleted)
             .OrderByDescending(c => c.CreateTime)
             .Take(5)
-            .Select((c, u) => new
+            .Select(c => new
             {
-                u.Id,
-                u.Username,
                 c.Content,
-                c.CreateTime
+                c.CreateTime,
+                c.AuthorMode,
+                c.PublicHandle,
+                c.AnonymousDisplayName,
+                c.AnonymousScope,
+                c.CredentialLevel
             });
 
         var recentSql = recentQuery.ToSql();
         var recentComments = new List<RecentCommentStatItemDto>(5);
 
         using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(recentSql.Key, recentSql.Value);
-        int fUserId = reader.GetOrdinal("Id");
-        int fUserName = reader.GetOrdinal("Username");
         int fContent = reader.GetOrdinal("Content");
         int fTime = reader.GetOrdinal("CreateTime");
+        int fAuthorMode = reader.GetOrdinal("AuthorMode");
+        int fPublicHandle = reader.GetOrdinal("PublicHandle");
+        int fAnonymousDisplayName = reader.GetOrdinal("AnonymousDisplayName");
+        int fAnonymousScope = reader.GetOrdinal("AnonymousScope");
+        int fCredentialLevel = reader.GetOrdinal("CredentialLevel");
 
         while (await reader.ReadAsync(cancellationToken))
         {
-            recentComments.Add(new RecentCommentStatItemDto(
-                reader.IsDBNull(fUserId) ? null : reader.GetInt32(fUserId),
-                reader.IsDBNull(fUserName) ? "匿名访客" : reader.GetString(fUserName),
+            recentComments.Add(CreateRecentCommentStatItem(
+                reader.IsDBNull(fAuthorMode) ? null : reader.GetString(fAuthorMode),
+                reader.IsDBNull(fPublicHandle) ? null : reader.GetString(fPublicHandle),
+                reader.IsDBNull(fAnonymousDisplayName) ? null : reader.GetString(fAnonymousDisplayName),
+                reader.IsDBNull(fAnonymousScope) ? null : reader.GetString(fAnonymousScope),
+                reader.IsDBNull(fCredentialLevel) ? null : reader.GetString(fCredentialLevel),
                 reader.GetString(fContent),
                 reader.GetDateTime(fTime)));
         }
 
         return recentComments;
+    }
+
+    private static RecentCommentStatItemDto CreateRecentCommentStatItem(
+        string? authorMode,
+        string? publicHandle,
+        string? anonymousDisplayName,
+        string? anonymousScope,
+        string? credentialLevel,
+        string content,
+        DateTime createTime)
+    {
+        string mode = NormalizeRecentCommentAuthorMode(authorMode);
+        string? normalizedCredentialLevel = string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal)
+            ? null
+            : NormalizeNullable(credentialLevel, 32);
+
+        return new RecentCommentStatItemDto(
+            ResolveRecentCommentAuthorDisplayName(mode, publicHandle, anonymousDisplayName),
+            mode,
+            BuildRecentCommentAuthorBadge(mode, normalizedCredentialLevel),
+            string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal)
+                ? null
+                : NormalizeNullable(anonymousScope, 128),
+            normalizedCredentialLevel,
+            content,
+            createTime);
+    }
+
+    private static string NormalizeRecentCommentAuthorMode(string? authorMode)
+    {
+        string normalized = (authorMode ?? string.Empty).Trim().ToLowerInvariant().Replace('-', '_');
+        return normalized is CommentAuthorModes.Public or CommentAuthorModes.ZkAnonymous
+            ? normalized
+            : CommentAuthorModes.Anonymous;
+    }
+
+    private static string ResolveRecentCommentAuthorDisplayName(string mode, string? publicHandle, string? anonymousDisplayName)
+    {
+        if (string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal))
+        {
+            return NormalizeNullable(publicHandle, 96) ?? "未署名用户";
+        }
+
+        string? snapshotName = NormalizeNullable(anonymousDisplayName, 96);
+        if (snapshotName is not null)
+        {
+            return snapshotName;
+        }
+
+        return string.Equals(mode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal)
+            ? "强匿名评论者"
+            : "匿名评论者";
+    }
+
+    private static string? BuildRecentCommentAuthorBadge(string mode, string? credentialLevel)
+        => string.Equals(mode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(credentialLevel)
+            ? "已验证匿名凭证"
+            : null;
+
+    private static string? NormalizeNullable(string? value, int maxLength)
+    {
+        string? normalized = value?.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return null;
+        }
+
+        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
     }
 
     private async Task<List<RegionStatItemDto>> LoadRegionStatsAsync(CancellationToken cancellationToken)

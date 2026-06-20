@@ -9,8 +9,11 @@ interface PopularArticleStatItem {
 }
 
 export interface RecentCommentStatItem {
-  userId: number | null
-  userName: string
+  authorDisplayName: string
+  authorMode: string
+  authorBadge: string | null
+  authorScopeLabel: string | null
+  credentialLevel: string | null
   content: string
   createTime: string
 }

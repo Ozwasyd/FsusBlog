@@ -290,27 +290,41 @@ public class PodProjectorTests
     // ── ProjectRecentComment ────────────────────────────────────────────────
 
     [Fact]
-    public void ProjectRecentComment_WithUserId_HasUserIdIsOne()
+    public void ProjectRecentComment_UsesAuthorSnapshotFields()
     {
         var pod = PodProjector.ProjectRecentComment(
-            userId: 42, createTime: DateTime.UtcNow, userName: "frank",
-            content: "recent", payload: out var payload);
+            createTime: DateTime.UtcNow,
+            authorDisplayName: "frank public",
+            authorMode: "public",
+            authorBadge: null,
+            authorScopeLabel: null,
+            credentialLevel: null,
+            content: "recent",
+            payload: out var payload);
 
-        Assert.Equal(42, pod.UserId);
-        Assert.Equal((byte)1, pod.HasUserId);
-        Assert.Equal("frank", PodUtf8Codec.FromFixed64(pod.UserName));
+        Assert.Equal("frank public", PodUtf8Codec.FromFixed64(pod.AuthorDisplayName));
+        Assert.Equal("public", PodUtf8Codec.FromFixed32(pod.AuthorMode));
         Assert.Equal("recent", PodProjector.ReadSlice(pod.Content, payload.Span));
     }
 
     [Fact]
-    public void ProjectRecentComment_NullUserId_HasUserIdIsZero()
+    public void ProjectRecentComment_PreservesAnonymousBadgeFields()
     {
         var pod = PodProjector.ProjectRecentComment(
-            userId: null, createTime: DateTime.UtcNow, userName: "anon",
-            content: "anon comment", payload: out _);
+            createTime: DateTime.UtcNow,
+            authorDisplayName: "强匿名评论者",
+            authorMode: "zk_anonymous",
+            authorBadge: "已验证匿名凭证",
+            authorScopeLabel: "article:42",
+            credentialLevel: "strong_anonymous",
+            content: "anon comment",
+            payload: out var payload);
 
-        Assert.Equal(0, pod.UserId);
-        Assert.Equal((byte)0, pod.HasUserId);
+        Assert.Equal("强匿名评论者", PodUtf8Codec.FromFixed64(pod.AuthorDisplayName));
+        Assert.Equal("zk_anonymous", PodUtf8Codec.FromFixed32(pod.AuthorMode));
+        Assert.Equal("已验证匿名凭证", PodProjector.ReadSlice(pod.AuthorBadge, payload.Span));
+        Assert.Equal("article:42", PodProjector.ReadSlice(pod.AuthorScopeLabel, payload.Span));
+        Assert.Equal("strong_anonymous", PodProjector.ReadSlice(pod.CredentialLevel, payload.Span));
     }
 
     // ── ProjectRegionDistribution ───────────────────────────────────────────

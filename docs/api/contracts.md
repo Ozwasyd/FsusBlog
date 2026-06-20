@@ -1049,6 +1049,8 @@ SiteStatsPod、共享 UTF-8 blob、popular article records、recent comment reco
 
 服务端对外 query model 是 `AdminStatsQueryDto`：`Overview` 对应统计摘要与热门文章，`RecentComments` 对应最近评论，`Regions` 对应地区分布。前端 dashboard 从单个 `AdminStats` frame 派生三个视图区块；`/api/binary/stats/recent-comments` 与 `/api/binary/stats/regions` 仅保留为兼容窄读入口。
 
+`RecentComments` 只使用 comment 行内作者快照，不连接 `sys_user`，字段为 `authorDisplayName`、`authorMode`、`authorBadge`、`authorScopeLabel`、`credentialLevel`、`content`、`createTime`；不得恢复 `userId/userName` 账号作者字段。
+
 `Overview.Summary` 的阅读字段为匿名安全口径：
 
 | 字段 | 说明 |

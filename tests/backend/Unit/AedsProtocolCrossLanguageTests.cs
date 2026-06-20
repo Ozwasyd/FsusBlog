@@ -443,14 +443,20 @@ public sealed partial class AedsProtocolCrossLanguageTests
         [
             new(
                 default,
-                12,
-                "alice",
+                "Alice Public",
+                "public",
+                null,
+                null,
+                null,
                 "first admin comment",
                 new DateTime(2026, 5, 12, 9, 8, 7, DateTimeKind.Utc)),
             new(
                 default,
-                null,
-                "anonymous",
+                "强匿名评论者",
+                "zk_anonymous",
+                "已验证匿名凭证",
+                "article:42",
+                "strong_anonymous",
                 "hidden user",
                 new DateTime(2026, 5, 12, 10, 0, 0, DateTimeKind.Utc))
         ];
@@ -492,7 +498,7 @@ public sealed partial class AedsProtocolCrossLanguageTests
                 new PopularArticleCoreModel(default, 32, "Second post", 55)
             ],
             [
-                new RecentCommentCoreModel(default, 12, "alice", "first admin comment", new DateTime(2026, 5, 12, 9, 8, 7, DateTimeKind.Utc))
+                new RecentCommentCoreModel(default, "Alice Public", "public", null, null, null, "first admin comment", new DateTime(2026, 5, 12, 9, 8, 7, DateTimeKind.Utc))
             ],
             [
                 new RegionDistributionCoreModel(default, "China", 5),

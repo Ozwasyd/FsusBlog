@@ -1851,7 +1851,15 @@ public class PodBinaryCodecTests
     {
         var pod = PodProjector.ProjectSiteStats(10, 20, 2, 1000, 980, 240, 760, 240, 3, 5, 2);
         var popular = (IReadOnlyList<PopularArticleCoreModel>)[];
-        var recentPod = PodProjector.ProjectRecentComment(3, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), "Alice", "Hello", out _);
+        var recentPod = PodProjector.ProjectRecentComment(
+            new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            "Alice Public",
+            "public",
+            null,
+            null,
+            null,
+            "Hello",
+            out _);
         var regionPod = PodProjector.ProjectRegionDistribution("US", 12);
         var stats = new SiteStatsCoreModel(
             pod,
@@ -1864,7 +1872,7 @@ public class PodBinaryCodecTests
             760,
             240,
             popular,
-            [new RecentCommentCoreModel(recentPod, 3, "Alice", "Hello", new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc))],
+            [new RecentCommentCoreModel(recentPod, "Alice Public", "public", null, null, null, "Hello", new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc))],
             [new RegionDistributionCoreModel(regionPod, "US", 12)]);
         byte[] encoded = PodBinaryCodec.EncodeSiteStats(stats);
         bool ok = PodBinaryCodec.TryDecodeSiteStats(encoded, out var decoded);
@@ -1879,6 +1887,7 @@ public class PodBinaryCodecTests
         Assert.Equal(240, decoded.SiteReads);
         Assert.Single(decoded.RecentComments);
         Assert.Equal("Hello", decoded.RecentComments[0].Content);
+        Assert.Equal("Alice Public", decoded.RecentComments[0].AuthorDisplayName);
         Assert.Single(decoded.RegionDistributions);
         Assert.Equal("US", decoded.RegionDistributions[0].Region);
     }
@@ -1894,15 +1903,35 @@ public class PodBinaryCodecTests
     public void RecentCommentStats_RoundTrip_PreservesContent()
     {
         var createTime = new DateTime(2026, 2, 2, 0, 0, 0, DateTimeKind.Utc);
-        var pod = PodProjector.ProjectRecentComment(null, createTime, "Guest", "Recent content", out _);
-        IReadOnlyList<RecentCommentCoreModel> comments = [new(pod, null, "Guest", "Recent content", createTime)];
+        var pod = PodProjector.ProjectRecentComment(
+            createTime,
+            "强匿名评论者",
+            "zk_anonymous",
+            "已验证匿名凭证",
+            "article:42",
+            "strong_anonymous",
+            "Recent content",
+            out _);
+        IReadOnlyList<RecentCommentCoreModel> comments = [new(
+            pod,
+            "强匿名评论者",
+            "zk_anonymous",
+            "已验证匿名凭证",
+            "article:42",
+            "strong_anonymous",
+            "Recent content",
+            createTime)];
 
         byte[] encoded = PodBinaryCodec.EncodeRecentCommentStats(comments);
         bool ok = PodBinaryCodec.TryDecodeRecentCommentStats(encoded, out var decoded);
 
         Assert.True(ok);
         Assert.Single(decoded);
-        Assert.Null(decoded[0].UserId);
+        Assert.Equal("强匿名评论者", decoded[0].AuthorDisplayName);
+        Assert.Equal("zk_anonymous", decoded[0].AuthorMode);
+        Assert.Equal("已验证匿名凭证", decoded[0].AuthorBadge);
+        Assert.Equal("article:42", decoded[0].AuthorScopeLabel);
+        Assert.Equal("strong_anonymous", decoded[0].CredentialLevel);
         Assert.Equal("Recent content", decoded[0].Content);
     }
 

@@ -15,12 +15,12 @@ public readonly struct PopularArticlePod
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct RecentCommentPod
 {
-    public readonly int UserId;
-    public readonly byte HasUserId;
-    public readonly byte Reserved0;
-    public readonly ushort Reserved1;
     public readonly long CreateTimeUnixMs;
-    public readonly Utf8Fixed64 UserName;
+    public readonly Utf8Fixed64 AuthorDisplayName;
+    public readonly Utf8Fixed32 AuthorMode;
+    public readonly Utf8SliceRef AuthorBadge;
+    public readonly Utf8SliceRef AuthorScopeLabel;
+    public readonly Utf8SliceRef CredentialLevel;
     public readonly Utf8SliceRef Content;
 }
 
