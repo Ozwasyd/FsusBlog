@@ -149,7 +149,7 @@ cp .env.example .env
 |------|-------------|
 | Frontend | `http://127.0.0.1:3000` |
 | Backend | `http://127.0.0.1:7568` |
-| Demo seed users | `demo-admin` / `ChangeMe123!` and `demo-reader` / `ChangeMe123!` are legacy fixture rows; anonymous identity mode does not use them for password login |
+| Demo seed identities | `demo-reader` is an anonymous account container; `demo-admin` is a disabled mock admin principal for attribution, not a password login |
 | Local Passkey login | Use the Passkey injection flow in [docs/development.md](docs/development.md#本地-passkey-注入) |
 | Demo data | [docs/development/demo-data.md](docs/development/demo-data.md) |
 | Troubleshooting | [docs/troubleshooting.md](docs/troubleshooting.md) |

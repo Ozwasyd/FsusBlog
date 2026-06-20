@@ -14,30 +14,30 @@ Or run the seed step after the backend has started once and created the schema:
 ./tools/dev/seed-demo-data.sh
 ```
 
-## Demo Login
+## Demo Identity
 
-| Role | Username | Password |
-|------|----------|----------|
-| Admin | `demo-admin` | `ChangeMe123!` |
-| User | `demo-reader` | `ChangeMe123!` |
+The seed creates a fictional anonymous account container with public handle
+`demo-reader`. It does not create a password login row, and it does not grant
+backend authority through `sys_user.role`.
 
-These rows are for local development fixtures only. They are safe fictional credentials and must not be copied into production.
+The seed also creates a disabled mock `admin principal` handle, `demo-admin`, for
+audit and moderation attribution examples only. It has no Passkey credential and
+is not a root administrator.
 
-In anonymous identity mode, legacy password login is disabled and `sys_user.role=admin`
-does not grant backend admin authority. Use the local Passkey injection flow in
-[docs/development.md](../development.md#本地-passkey-注入) to create a browser-held
-Passkey, then complete normal user registration / recovery binding or root admin
-bootstrap. Do not treat `demo-admin` as a usable admin password account.
+For real local admin access, use the local Passkey injection flow in
+[docs/development.md](../development.md#本地-passkey-注入), then complete the
+root admin bootstrap flow. Do not add password-based demo admins.
 
 ## Seed Contents
 
 The seed inserts or refreshes:
 
-- fictional admin and reader users
+- one fictional anonymous account container
+- one disabled mock admin principal for attribution
 - fictional categories and tags
 - two fictional published articles
-- one approved comment
-- one pending moderation queue comment
+- one approved anonymous comment
+- one pending anonymous moderation queue comment
 - fictional audit/security events
 
 The seed does not include real production content, real domains, real emails, real IP addresses, real logs, tokens, or private identifiers.

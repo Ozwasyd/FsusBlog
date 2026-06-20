@@ -60,6 +60,8 @@ for (const token of [
 for (const token of [
   'demo-admin',
   'demo-reader',
+  'anonymous_account',
+  'admin_principal',
   'Public Preview Walkthrough',
   'pending moderation',
   'demo-security-event'
@@ -69,7 +71,10 @@ for (const token of [
 
 for (const token of [
   'demo-admin',
-  'ChangeMe123!',
+  'demo-reader',
+  'anonymous account container',
+  'admin principal',
+  'Passkey',
   'fictional',
   'deterministic',
   'No real'

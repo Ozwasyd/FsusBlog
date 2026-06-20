@@ -121,10 +121,11 @@ dev 模式下，Vite 会通过 `transformIndexHtml` 注入 `public-shell-critica
 ### 本地 Passkey 注入
 
 当前 anonymous identity mode 下，旧 `sys_user` 密码登录和旧 `role=admin`
-不再授予登录或后台权限。`demo-admin` / `ChangeMe123!` 只用于 deterministic
-fixture 数据归属，不是当前登录凭据。首次本地登录应通过浏览器 Passkey
-ceremony 创建凭据；自动化或无物理认证器环境可以把 Passkey 注入到浏览器的
-WebAuthn virtual authenticator，再走真实的注册 / admin bootstrap 完成流程。
+不再授予登录或后台权限。Demo seed 只创建匿名账号容器 `demo-reader` 和禁用的
+mock admin principal `demo-admin` 用于归属展示；它们不是登录凭据。首次本地登录
+应通过浏览器 Passkey ceremony 创建凭据；自动化或无物理认证器环境可以把
+Passkey 注入到浏览器的 WebAuthn virtual authenticator，再走真实的注册 /
+admin bootstrap 完成流程。
 
 本地无 HTTPS 豁免只适用于 loopback origin：
 

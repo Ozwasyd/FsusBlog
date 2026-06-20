@@ -42,6 +42,7 @@ docker compose -f "$COMPOSE_FILE" exec -T -e PGPASSWORD="$DB_PASSWORD" postgres 
 
 cat <<'DONE'
 [seed-demo] demo data applied.
-  Admin username: demo-admin
-  Admin password: ChangeMe123!
+  Anonymous account public handle: demo-reader
+  Admin principal handle: demo-admin
+  Admin access: create a local Passkey admin with the bootstrap flow.
 DONE

@@ -160,6 +160,13 @@ run_residue_check \
   src/backend/Entities/Message.cs src/backend/Interfaces/IMessageService.cs src/backend/Services/NotificationStream/MessageCenterService.cs src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs src/frontend/src/api/message.ts src/frontend/src/composables/useAdminMessageCenter.ts src/frontend/src/components/user/messages/MessagesComposePanel.vue src/frontend/src/views/user/Messages.vue tests/frontend/support/aeds-envelope.mjs tests/frontend/unit/api/message.test.ts tests/frontend/e2e/acceptance/admin-console.spec.ts tests/frontend/checks/security/check-permission-matrix.mjs
 
 run_residue_check \
+  "legacy demo seed password user model" \
+  "legacy demo seed password user-model residue detected" \
+  'insert into sys_user [(]username,\s*password,\s*role|create_time,\s*user_id,\s*author_mode|reply_to_user_id|moderated_by_user_id|from sys_user|role = ['\''"]admin['\''"]|ChangeMe123!|Admin password' \
+  "" \
+  tools/dev/demo-seed.sql tools/dev/seed-demo-data.sh docs/development/demo-data.md README.md docs/development.md
+
+run_residue_check \
   "legacy password login form" \
   "legacy password login form residue detected" \
   '\b(?:name|type|v-model)=["'\''][^"'\'']*(?:password|Password)|\b(?:passwordLogin|loginWithPassword|handlePasswordLogin)\b|\bFrameType[.]AuthLoginRequest\b' \
