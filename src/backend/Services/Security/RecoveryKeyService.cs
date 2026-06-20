@@ -70,15 +70,13 @@ public sealed class RecoveryKeyService(
             .FirstAsync();
         if (credential is null)
         {
-            await RecordVerificationFailureAsync(attemptIdentity, cancellationToken).ConfigureAwait(false);
-            return Result<RecoveryKeyVerifyResponseCoreModel>.Failure(ErrorCode.Unauthorized, "RECOVERY_KEY_INVALID");
+            return await RecordVerificationFailureAsync(attemptIdentity, cancellationToken).ConfigureAwait(false);
         }
 
         byte[] pepper = ResolveRecoveryKeyPepper();
         if (!VerifyRecoveryKey(request.RecoveryKey, credential.KeyHash, pepper))
         {
-            await RecordVerificationFailureAsync(attemptIdentity, cancellationToken).ConfigureAwait(false);
-            return Result<RecoveryKeyVerifyResponseCoreModel>.Failure(ErrorCode.Unauthorized, "RECOVERY_KEY_INVALID");
+            return await RecordVerificationFailureAsync(attemptIdentity, cancellationToken).ConfigureAwait(false);
         }
 
         DateTime now = DateTime.UtcNow;
@@ -236,16 +234,20 @@ public sealed class RecoveryKeyService(
         return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int attempts) && attempts >= MaxFailedAttempts;
     }
 
-    private async Task RecordVerificationFailureAsync(string identity, CancellationToken cancellationToken)
+    private async Task<Result<RecoveryKeyVerifyResponseCoreModel>> RecordVerificationFailureAsync(string identity, CancellationToken cancellationToken)
     {
-        string? value = await cache.GetStringAsync(CachePolicyId.SecurityRecoveryKeyAttempt, identity, cancellationToken).ConfigureAwait(false);
-        int attempts = int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int parsed) ? parsed + 1 : 1;
-        await cache.SetStringAsync(
+        long attempts = await cache.IncrementWithExpiryAsync(
             CachePolicyId.SecurityRecoveryKeyAttempt,
             identity,
-            attempts.ToString(CultureInfo.InvariantCulture),
             FailureWindow,
+            1,
             cancellationToken).ConfigureAwait(false);
+        if (attempts >= MaxFailedAttempts)
+        {
+            return Result<RecoveryKeyVerifyResponseCoreModel>.Failure(ErrorCode.Forbidden, "RECOVERY_KEY_RATE_LIMITED");
+        }
+
+        return Result<RecoveryKeyVerifyResponseCoreModel>.Failure(ErrorCode.Unauthorized, "RECOVERY_KEY_INVALID");
     }
 
     private byte[] ResolveRecoveryKeyPepper()

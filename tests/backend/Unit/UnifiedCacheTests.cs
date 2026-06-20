@@ -239,6 +239,61 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    public async Task IncrementWithExpiryAsync_UsesAtomicRedisScriptWithExpiryAndBypassesL1()
+    {
+        using var memory = new RemoveTrackingMemoryCache();
+        var db = Substitute.For<IDatabase>();
+        UnifiedCache cache = CreateCache(memory, db);
+        string key = cache.BuildKey(CachePolicyId.SecurityPowRisk, "verify:identity");
+        string? capturedScript = null;
+        RedisKey[]? capturedKeys = null;
+        RedisValue[]? capturedValues = null;
+        db.ScriptEvaluateAsync(
+                Arg.Any<string>(),
+                Arg.Any<RedisKey[]>(),
+                Arg.Any<RedisValue[]>(),
+                Arg.Any<CommandFlags>())
+            .Returns(call =>
+            {
+                Assert.True(memory.Removed);
+                Assert.Equal(key, memory.RemovedKey);
+                capturedScript = call.ArgAt<string>(0);
+                capturedKeys = call.ArgAt<RedisKey[]>(1);
+                capturedValues = call.ArgAt<RedisValue[]>(2);
+                return Task.FromResult(RedisResult.Create((RedisValue)4L));
+            });
+        var method = typeof(UnifiedCache).GetMethod(
+            "IncrementWithExpiryAsync",
+            [
+                typeof(CachePolicyId),
+                typeof(string),
+                typeof(TimeSpan),
+                typeof(long),
+                typeof(CancellationToken)
+            ]);
+
+        Assert.NotNull(method);
+        var task = Assert.IsAssignableFrom<Task<long>>(method.Invoke(
+            cache,
+            [CachePolicyId.SecurityPowRisk, "verify:identity", TimeSpan.FromMinutes(1), 1L, CancellationToken.None]));
+        long updated = await task;
+
+        Assert.Equal(4L, updated);
+        Assert.NotNull(capturedScript);
+        Assert.Contains("INCRBY", capturedScript, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("PEXPIRE", capturedScript, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(capturedKeys);
+        Assert.NotNull(capturedValues);
+        Assert.Equal([new RedisKey(key)], capturedKeys!);
+        Assert.Equal((RedisValue)1L, capturedValues![0]);
+        Assert.Equal((RedisValue)60000L, capturedValues[1]);
+        await db.DidNotReceive().StringIncrementAsync(
+            Arg.Any<RedisKey>(),
+            Arg.Any<long>(),
+            Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
     public async Task ConsumeOnceAsync_PreCanceledTokenDoesNotCreateRedisTransaction()
     {
         using var memory = new MemoryCache(new MemoryCacheOptions());

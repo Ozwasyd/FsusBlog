@@ -34,6 +34,8 @@ public interface IUnifiedCache
     Task<string?> GetStringAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
     Task SetStringAsync(CachePolicyId policyId, string identity, string value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default);
     Task<long> IncrementAsync(CachePolicyId policyId, string identity, long value = 1, CancellationToken cancellationToken = default);
+    Task<long> IncrementWithExpiryAsync(CachePolicyId policyId, string identity, TimeSpan ttl, long value = 1, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This cache implementation does not support atomic expiring counters.");
     Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default);
     Task<bool> ConsumeOnceAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
     Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default);
@@ -249,6 +251,46 @@ public sealed class UnifiedCache(
         await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
         FsusObservability.RecordCacheOperation("increment", policyId.ToString(), "l2", "ok", FsusObservability.GetElapsed(startedAt));
         return updated;
+    }
+
+    public async Task<long> IncrementWithExpiryAsync(
+        CachePolicyId policyId,
+        string identity,
+        TimeSpan ttl,
+        long value = 1,
+        CancellationToken cancellationToken = default)
+    {
+        if (ttl <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ttl), "Counter expiry must be positive.");
+        }
+
+        long startedAt = Stopwatch.GetTimestamp();
+        using Activity? activity = FsusObservability.StartActivity("cache.increment_expiring", "cache", ActivityKind.Client);
+        FsusObservability.SetTag(activity, "fsus.cache.operation", "increment_expiring");
+        FsusObservability.SetTag(activity, "fsus.cache.policy", policyId.ToString());
+        cancellationToken.ThrowIfCancellationRequested();
+        string key = BuildKey(policyId, identity);
+        memoryCache.Remove(key);
+        cancellationToken.ThrowIfCancellationRequested();
+        const string script = """
+local current = redis.call('INCRBY', KEYS[1], ARGV[1])
+if redis.call('PTTL', KEYS[1]) < 0 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[2])
+end
+return current
+""";
+        long ttlMilliseconds = Math.Max(1L, (long)Math.Ceiling(ttl.TotalMilliseconds));
+        RedisResult result = await _db.ScriptEvaluateAsync(
+                script,
+                [key],
+                [value, ttlMilliseconds],
+                CommandFlags.None)
+            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
+        FsusObservability.RecordCacheOperation("increment_expiring", policyId.ToString(), "l2", "ok", FsusObservability.GetElapsed(startedAt));
+        return (long)result;
     }
 
     public async Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default)
