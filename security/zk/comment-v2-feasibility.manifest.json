@@ -12,6 +12,45 @@
     "proof_system": "Groth16",
     "wasm_prover_p95_ms_max": 3000
   },
+  "dependency_policy": {
+    "backend_runtime": ".NET 10",
+    "json_parser": "System.Text.Json",
+    "backend_js_packages": "forbidden outside the existing SSR module boundary",
+    "implementation_rules": [
+      "parse trusted setup, verifying key, proof and evidence JSON with System.Text.Json only",
+      "do not introduce Nethereum.ZkProofs, Nethereum.ZkProofsVerifier or Nethereum.ZkProofs.RapidSnark into the production ZK path",
+      "do not introduce Newtonsoft.Json as a direct privacy-ZK parser dependency",
+      "prefer self-written managed .NET 10 code or high-performance MIT/Apache/BSD NuGet packages with clean vulnerability and license gates"
+    ],
+    "forbidden_packages": [
+      {
+        "name": "Nethereum.ZkProofs*",
+        "decision": "rejected-transitive-high-vulnerability",
+        "observed_blocker": "restore pulls Newtonsoft.Json 11.0.2 with NU1903 high-severity advisory",
+        "replacement": "self-written .NET 10 integration using System.Text.Json and reviewed native verifier artifacts"
+      },
+      {
+        "name": "Newtonsoft.Json",
+        "decision": "rejected-third-party-json-parser",
+        "observed_blocker": "privacy-ZK manifest/proof parsing must stay on the .NET standard library JSON stack",
+        "replacement": "System.Text.Json source generation, Utf8JsonReader or JsonDocument"
+      }
+    ],
+    "evaluated_candidates": [
+      {
+        "name": "Nethermind.MclBindings",
+        "decision": "allowed-for-verifier-kernel-evaluation-only",
+        "license": "MIT with BSD-3-Clause dynamically linked MCL binaries",
+        "scope_limit": "pairing/arithmetic kernel only; does not replace trusted setup, browser prover bundle or cross-stack evidence"
+      },
+      {
+        "name": "Groth16.Net / Bn254.Net",
+        "decision": "blocked-pending-license-and-supply-chain-review",
+        "observed_blocker": "NuGet package metadata lacks declared license expression",
+        "scope_limit": "must not be imported until license, native binary provenance and CI evidence are reviewed"
+      }
+    ]
+  },
   "candidates": [
     {
       "id": "in-circuit-bls12-381-bbs-on-bn254",

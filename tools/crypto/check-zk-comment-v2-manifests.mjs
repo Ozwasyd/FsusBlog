@@ -121,6 +121,15 @@ const expected = {
   ],
   feasibilityStatus: 'resolved',
   selectedCandidate: 'circuit-native-credential-v2',
+  dependencyPolicy: {
+    backendRuntime: '.NET 10',
+    jsonParser: 'System.Text.Json',
+    forbiddenPackages: [
+      'Nethereum.ZkProofs',
+      'Newtonsoft.Json'
+    ],
+    requiredDecision: 'rejected-transitive-high-vulnerability'
+  },
   handoffConsumers: [
     '#552 trusted setup ceremony artifacts',
     '#553 browser wasm prover bundle',
@@ -555,6 +564,8 @@ function checkFeasibility(feasibility, circuit) {
     fail('feasibility.current_boundary.wasm_prover_p95_ms_max must stay in the committed 1..3000 budget')
   }
 
+  checkDependencyPolicy(feasibility.dependency_policy)
+
   const inCircuitBls = findCandidate(feasibility, 'in-circuit-bls12-381-bbs-on-bn254')
   equals('feasibility.in_circuit_bls.decision', inCircuitBls.decision, 'rejected-for-current-performance-budget')
   if (Number(inCircuitBls.performance?.constraints_estimate) < 19000000) {
@@ -583,6 +594,30 @@ function checkFeasibility(feasibility, circuit) {
   }
   if (Number(nativeCredential.performance?.proving_key_bytes_estimate) > 256000000) {
     fail('feasibility.circuit_native_credential.performance.proving_key_bytes_estimate must stay within the comment.v2 budget')
+  }
+}
+
+function checkDependencyPolicy(policy) {
+  const normalized = policy ?? {}
+  equals('feasibility.dependency_policy.backend_runtime', normalized.backend_runtime, expected.dependencyPolicy.backendRuntime)
+  equals('feasibility.dependency_policy.json_parser', normalized.json_parser, expected.dependencyPolicy.jsonParser)
+
+  const policyJson = JSON.stringify(normalized)
+  for (const packageName of expected.dependencyPolicy.forbiddenPackages) {
+    if (!policyJson.includes(packageName)) {
+      fail(`privacy-zk dependency policy forbids ${packageName}, but feasibility.dependency_policy does not record it`)
+    }
+  }
+
+  if (!policyJson.includes(expected.dependencyPolicy.requiredDecision)) {
+    fail(`privacy-zk dependency policy forbids Nethereum.ZkProofs* without ${expected.dependencyPolicy.requiredDecision}`)
+  }
+
+  const rules = asArray(normalized.implementation_rules).join('\n')
+  for (const token of ['System.Text.Json', 'Nethereum.ZkProofs', 'Newtonsoft.Json']) {
+    if (!rules.includes(token)) {
+      fail(`privacy-zk dependency policy forbids missing implementation rule token ${token}`)
+    }
   }
 }
 

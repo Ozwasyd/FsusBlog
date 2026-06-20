@@ -120,6 +120,19 @@ test('checker evidence includes the feasibility manifest and selected design sta
   assert.equal(evidence.selected_candidate, 'circuit-native-credential-v2')
 })
 
+test('checker fails if privacy ZK dependency policy permits third-party JSON parser packages', () => {
+  const result = withTempManifests((documents) => {
+    documents.feasibility.dependency_policy.json_parser = 'Newtonsoft.Json'
+    documents.feasibility.dependency_policy.implementation_rules = [
+      'parse trusted setup and verifying key JSON with Newtonsoft.Json'
+    ]
+    documents.feasibility.dependency_policy.forbidden_packages = []
+  })
+
+  assert.notEqual(result.status, 0)
+  assert.match(`${result.stdout}\n${result.stderr}`, /System\.Text\.Json|privacy-zk dependency policy forbids/)
+})
+
 test('comment v2 circuit contract has required public inputs, witness and no identity fields', () => {
   const circuit = readJson(circuitPath)
   const publicInputs = circuit.public_inputs.map((entry) => entry.name)

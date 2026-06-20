@@ -35,6 +35,28 @@ layer for anonymous comment production readiness. Existing BBS-specific issuer,
 frontend provider, readiness, and docs paths must be transformed to the v2
 circuit-native names or removed.
 
+## Dependency Policy
+
+The backend ZK production path stays on .NET 10 and parses trusted setup,
+verifying-key, proof, manifest, and evidence JSON with `System.Text.Json` only.
+Use source generation, `Utf8JsonReader`, or `JsonDocument` depending on the hot
+path; do not introduce a third-party JSON parser for this boundary.
+
+`Nethereum.ZkProofs*` is rejected for this path. The current package chain pulls
+`Newtonsoft.Json 11.0.2` during restore and trips a high-severity NU1903
+advisory, so it cannot be used as the comment.v2 prover/verifier integration
+route. `Newtonsoft.Json` must not be added as a direct privacy-ZK parser
+dependency. If a mature MIT/Apache/BSD NuGet package is evaluated later, it must
+pass the same vulnerability, license, native provenance, and performance gates
+before import.
+
+`Nethermind.MclBindings` remains an acceptable evaluation candidate only for a
+pairing/arithmetic verifier kernel because it publishes MIT/BSD-3-Clause
+licensing and targets .NET 10. It does not by itself satisfy the trusted setup,
+browser wasm prover, native verifier wrapper, or cross-stack evidence issues.
+`Groth16.Net` / `Bn254.Net` remain blocked until license expression, native
+binary provenance, and CI evidence are reviewed.
+
 ## Credential Lifecycle
 
 1. issue: an authenticated account requests a circuit-native anonymous

@@ -191,4 +191,45 @@ public sealed class AnonymousPrivacyMatrixTests
         Assert.Contains("Abort", frontendGate, StringComparison.Ordinal);
         Assert.Contains("ui-no-zk-terms", frontendGate, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void PrivacyZkDependencyPolicy_BansNethereumAndThirdPartyJsonParser()
+    {
+        string feasibility = BackendTestPaths.ReadAllTextFromRoot("security/zk/comment-v2-feasibility.manifest.json");
+        string checker = BackendTestPaths.ReadAllTextFromRoot("tools/crypto/check-zk-comment-v2-manifests.mjs");
+        string adr = BackendTestPaths.ReadAllTextFromRoot("docs/architecture/decisions/ADR-ZK-CircuitNative-Groth16.md");
+        string security = BackendTestPaths.ReadAllTextFromRoot("docs/security.md");
+
+        foreach (string document in new[] { feasibility, checker, adr, security })
+        {
+            Assert.Contains("System.Text.Json", document, StringComparison.Ordinal);
+            Assert.Contains("Nethereum.ZkProofs", document, StringComparison.Ordinal);
+            Assert.Contains("Newtonsoft.Json", document, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("\"json_parser\": \"System.Text.Json\"", feasibility, StringComparison.Ordinal);
+        Assert.Contains("rejected-transitive-high-vulnerability", feasibility, StringComparison.Ordinal);
+        Assert.Contains("privacy-zk dependency policy forbids", checker, StringComparison.Ordinal);
+
+        string[] packageFiles =
+        [
+            "src/backend/FsusBlog.Server.csproj",
+            "tests/backend/FsusBlog.Server.Tests.csproj",
+            "src/core/FsusBlog.Core.csproj",
+            "src/shared/FsusBlog.Shared.csproj"
+        ];
+
+        foreach (string packageFile in packageFiles)
+        {
+            string contents = BackendTestPaths.ReadAllTextFromRoot(packageFile);
+            Assert.DoesNotContain("PackageReference Include=\"Nethereum.", contents, StringComparison.Ordinal);
+            Assert.DoesNotContain("PackageReference Include=\"Newtonsoft.Json\"", contents, StringComparison.Ordinal);
+        }
+
+        foreach (string lockFile in Directory.EnumerateFiles(BackendTestPaths.RepositoryRoot, "packages.lock.json", SearchOption.AllDirectories))
+        {
+            string contents = File.ReadAllText(lockFile);
+            Assert.DoesNotContain("\"Nethereum.ZkProofs", contents, StringComparison.Ordinal);
+        }
+    }
 }
