@@ -144,6 +144,7 @@ test('comment v2 circuit contract has required public inputs, witness and no ide
     'action_context',
     'scope',
     'nullifier_hash',
+    'credential_commitment',
     'credential_root',
     'revocation_root',
     'credential_epoch',

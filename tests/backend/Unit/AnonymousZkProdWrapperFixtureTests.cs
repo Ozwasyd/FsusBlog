@@ -36,6 +36,10 @@ public sealed class AnonymousZkProdWrapperFixtureTests
     private static readonly byte[] RevocationRoot = Enumerable.Repeat((byte)0xD4, 32).ToArray();
     private static readonly byte[] CredentialCommitment = SHA256.HashData("fixture-circuit-native-credential-commitment"u8.ToArray());
     private static readonly string IssuerPublicKeyHash = new('f', 64);
+    private static readonly string PolicyHash = AnonymousCommentPolicySnapshotHash.Compute(AnonymousCommentPolicySnapshot.Default with
+    {
+        ZkAnonymousEnabled = true
+    });
 
     [Fact]
     public async Task WrapperFixture_HappyPath_NativeVerifierTicketSubmitCreatesPendingAnonymousComment()
@@ -292,6 +296,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests
             CredentialRoot: Hex(CredentialRoot),
             CredentialLevel: "strong_anonymous",
             ReputationBucket: "rep-low",
+            PolicyHash: PolicyHash,
             Proof: ReadOnlyMemory<byte>.Empty,
             RevocationRoot: Hex(RevocationRoot),
             IssuerPublicKeyHash: IssuerPublicKeyHash)).ToArray();
@@ -310,6 +315,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests
             CredentialRoot: Hex(CredentialRoot),
             CredentialLevel: "strong_anonymous",
             ReputationBucket: "rep-low",
+            PolicyHash: PolicyHash,
             Proof: ReadOnlyMemory<byte>.Empty,
             RevocationRoot: Hex(RevocationRoot),
             IssuerPublicKeyHash: IssuerPublicKeyHash);

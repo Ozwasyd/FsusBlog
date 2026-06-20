@@ -22,6 +22,7 @@ public sealed class ZkAnonymousProofVerifierContractTests
     private static readonly string IssuerPublicKeyHash = new('f', 64);
     private const string PublicInputNullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string CredentialCommitment = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    private static readonly string PolicyHash = new('9', 64);
 
     [Fact]
     public void CommentAuthorModes_RetainZkAnonymousAsFirstClassMode()
@@ -504,6 +505,7 @@ public sealed class ZkAnonymousProofVerifierContractTests
             CredentialRoot: CredentialRoot,
             CredentialLevel: AnonymousCredentialLevels.StrongAnonymous,
             ReputationBucket: "trusted",
+            PolicyHash: PolicyHash,
             Proof: [1, 2, 3],
             RevocationRoot: RevocationRoot,
             IssuerPublicKeyHash: IssuerPublicKeyHash);
@@ -582,7 +584,8 @@ public sealed class ZkAnonymousProofVerifierContractTests
 
         public AnonymousCommentPolicySnapshot CurrentCommentPolicy { get; } = AnonymousCommentPolicySnapshot.Default with
         {
-            ZkAnonymousEnabled = true
+            ZkAnonymousEnabled = true,
+            SnapshotHash = PolicyHash
         };
 
         public ZkAnonymousPolicySnapshot CurrentZkPolicy { get; } = new(

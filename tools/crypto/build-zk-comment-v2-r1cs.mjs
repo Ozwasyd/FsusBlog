@@ -16,6 +16,7 @@ const requiredPublicInputs = [
   'action_context',
   'scope',
   'nullifier_hash',
+  'credential_commitment',
   'credential_root',
   'revocation_root',
   'credential_epoch',

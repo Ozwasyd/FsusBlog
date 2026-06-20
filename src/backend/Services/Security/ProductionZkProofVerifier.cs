@@ -25,6 +25,7 @@ public readonly record struct ProductionZkProofBackendRequest(
     string CredentialRoot,
     string CredentialLevel,
     string ReputationBucket,
+    string PolicyHash,
     ReadOnlyMemory<byte> Proof,
     string RevocationRoot = "",
     string IssuerPublicKeyHash = "");
@@ -130,6 +131,7 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
                         request.CredentialRoot.Trim(),
                         NormalizeToken(request.CredentialLevel, 32),
                         NormalizeToken(request.ReputationBucket, 64),
+                        NormalizeToken(request.PolicyHash, 64),
                         request.Proof,
                         NormalizeToken(request.RevocationRoot, 128),
                         NormalizeToken(request.IssuerPublicKeyHash, 128)),
@@ -205,6 +207,7 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
             IsToken(request.CredentialRoot, maxLength: 128) &&
             IsToken(request.RevocationRoot, maxLength: 128) &&
             IsHexHash(request.IssuerPublicKeyHash, minLength: 32, maxLength: 128) &&
+            IsHexHash(request.PolicyHash, minLength: 64, maxLength: 64) &&
             IsToken(request.CredentialLevel, maxLength: 32) &&
             IsToken(request.ReputationBucket, maxLength: 64);
     }

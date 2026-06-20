@@ -535,6 +535,7 @@ public static partial class BinaryEndpoints
             snapshot.ZkAnonymousEnabled,
             snapshot.DefaultAuthorMode,
             snapshot.SupportedDisplayLanguages,
+            snapshot.SnapshotHash,
             zkProd.Enabled,
             zkProd.NativeVerifierConfigured,
             zkProd.TrustedSetupVerified,

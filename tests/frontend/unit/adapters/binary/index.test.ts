@@ -58,14 +58,16 @@ function writeSliceRef(bytes: Uint8Array, offset: number, sliceOffset: number, l
 
 function commentPolicyPayload(languages: string): Uint8Array {
   const encodedLanguages = new TextEncoder().encode(languages)
-  const pod = new Uint8Array(12)
+  const snapshotHash = new TextEncoder().encode('9'.repeat(64))
+  const pod = new Uint8Array(33)
   pod[0] = 1
   pod[1] = 1
   pod[2] = 1
   pod[3] = 4
-  writeInt32(pod, 4, 0)
-  writeInt32(pod, 8, encodedLanguages.byteLength)
-  return buildPayload(pod, blobBuf(languages))
+  writeSliceRef(pod, 9, 0, encodedLanguages.byteLength)
+  writeSliceRef(pod, 17, encodedLanguages.byteLength, snapshotHash.byteLength)
+  writeSliceRef(pod, 25, encodedLanguages.byteLength + snapshotHash.byteLength, 0)
+  return buildPayload(pod, blobParts(encodedLanguages, snapshotHash))
 }
 
 describe('mapFramePayloadToViewModel', () => {
@@ -172,7 +174,14 @@ describe('mapFramePayloadToViewModel', () => {
       publicCommentsEnabled: true,
       zkAnonymousEnabled: true,
       defaultAuthorMode: 'zk_anonymous',
-      supportedDisplayLanguages: ['zh-CN', 'en']
+      supportedDisplayLanguages: ['zh-CN', 'en'],
+      snapshotHash: '9'.repeat(64),
+      zkProdEnabled: false,
+      zkProdNativeVerifierConfigured: false,
+      zkProdTrustedSetupVerified: false,
+      zkProdCredentialRequired: false,
+      zkProdCredentialRootReady: false,
+      zkProdUnavailableReason: ''
     })
   })
 

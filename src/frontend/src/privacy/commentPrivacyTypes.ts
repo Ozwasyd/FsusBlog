@@ -10,6 +10,7 @@ export interface CommentPrivacyMetadata {
   circuitId?: string
   verifyingKeyHash?: string
   issuerPublicKeyHash?: string
+  policyHash?: string
   credentialCommitment?: Uint8Array
   credentialRoot?: Uint8Array
   revocationRoot?: Uint8Array
@@ -94,6 +95,7 @@ export interface CommentPrivacyProofRequest {
   circuitId?: string
   verifyingKeyHash?: string
   issuerPublicKeyHash?: string
+  policyHash?: string
   credentialCommitment?: Uint8Array
   credentialRoot?: Uint8Array
   revocationRoot?: Uint8Array

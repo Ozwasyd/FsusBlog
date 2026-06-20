@@ -1,6 +1,7 @@
 import {
   getAnonymousCredentialCircuitSnapshot,
   getAnonymousCredentialRootSnapshot,
+  getCommentPolicySnapshot,
   issueAnonymousCommentTicket
 } from '@/api/comment'
 import {
@@ -43,9 +44,10 @@ export function createCommentPrivacyAdapter(options: CommentPrivacyAdapterOption
     },
     async loadPrivacyMetadata({ scope, signal }): Promise<CommentPrivacyMetadataResult> {
       try {
-        const [root, circuit] = await Promise.all([
+        const [root, circuit, policy] = await Promise.all([
           getAnonymousCredentialRootSnapshot({ signal, credentials: 'omit' }),
-          getAnonymousCredentialCircuitSnapshot({ signal, credentials: 'omit' })
+          getAnonymousCredentialCircuitSnapshot({ signal, credentials: 'omit' }),
+          getCommentPolicySnapshot({ signal, credentials: 'omit' })
         ])
 
         if (signal.aborted) {
@@ -58,7 +60,7 @@ export function createCommentPrivacyAdapter(options: CommentPrivacyAdapterOption
 
         return {
           ok: true,
-          metadata: toPrivacyMetadata(scope, root, circuit)
+          metadata: toPrivacyMetadata(scope, root, circuit, policy)
         }
       } catch {
         return { ok: false, reason: 'comment_privacy_metadata_unavailable' }
@@ -123,9 +125,17 @@ function toPrivacyMetadata(
   },
   circuit: {
     circuitMetadata: Uint8Array
+  },
+  policy: {
+    snapshotHash: string
   }
 ): CommentPrivacyMetadata {
   const circuitMetadata = circuit.circuitMetadata.byteLength > 0 ? circuit.circuitMetadata : root.circuitMetadata
+  const policyHash = policy.snapshotHash.trim().toLowerCase()
+  if (!/^[0-9a-f]{64}$/.test(policyHash)) {
+    throw new Error('comment_privacy_policy_hash_invalid')
+  }
+
   return {
     scope,
     rootVersion: `${root.credentialEpoch}:${root.verifyingKeyHash}`,
@@ -136,6 +146,7 @@ function toPrivacyMetadata(
     circuitId: root.circuitId,
     verifyingKeyHash: root.verifyingKeyHash,
     issuerPublicKeyHash: root.issuerPublicKeyHash,
+    policyHash,
     credentialRoot: new Uint8Array(root.credentialRoot),
     revocationRoot: new Uint8Array(root.revocationRoot),
     circuitMetadata: new Uint8Array(circuitMetadata),
@@ -150,6 +161,7 @@ function hasTicketMetadata(metadata: CommentPrivacyMetadata): metadata is Commen
   publicInputLayoutVersion: number
   circuitId: string
   verifyingKeyHash: string
+  policyHash: string
   credentialCommitment: Uint8Array
   credentialRoot: Uint8Array
   revocationRoot: Uint8Array
@@ -161,6 +173,7 @@ function hasTicketMetadata(metadata: CommentPrivacyMetadata): metadata is Commen
     Number.isFinite(metadata.publicInputLayoutVersion) &&
     Boolean(metadata.circuitId) &&
     Boolean(metadata.verifyingKeyHash) &&
+    Boolean(metadata.policyHash) &&
     metadata.credentialCommitment instanceof Uint8Array &&
     metadata.credentialCommitment.byteLength > 0 &&
     metadata.credentialRoot instanceof Uint8Array &&

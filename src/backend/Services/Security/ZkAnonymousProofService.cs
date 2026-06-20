@@ -53,6 +53,7 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
         "credential_root",
         "revocation_root",
         "issuer_public_key_hash",
+        "policy_hash",
         "credential_level",
         "reputation_bucket"
     ];
@@ -94,12 +95,16 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
             bool anonymousEnabled = _configuration.GetValue("AnonymousIdentity:AnonymousCommentsEnabled", true);
             bool publicEnabled = _configuration.GetValue("AnonymousIdentity:PublicCommentsEnabled", true);
             bool zkEnabled = _configuration.GetValue("AnonymousIdentity:ZkAnonymousCommentsEnabled", false);
-            return new AnonymousCommentPolicySnapshot(
+            var snapshot = new AnonymousCommentPolicySnapshot(
                 anonymousEnabled,
                 publicEnabled,
                 zkEnabled,
                 CommentAuthorModes.Anonymous,
                 AnonymousCommentPolicySnapshot.DefaultDisplayLanguages);
+            return snapshot with
+            {
+                SnapshotHash = AnonymousCommentPolicySnapshotHash.Compute(snapshot)
+            };
         }
     }
 

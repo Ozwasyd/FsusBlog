@@ -17,6 +17,7 @@ const manifest: CommentPrivacyProverManifest = {
 
 const verifyingKeyHash = 'a'.repeat(64)
 const issuerPublicKeyHash = 'b'.repeat(64)
+const policyHash = '9'.repeat(64)
 
 const proofRequest = {
   scope: 'article:42',
@@ -28,6 +29,7 @@ const proofRequest = {
   circuitId: 'fsus.anonymous.comment.v2',
   verifyingKeyHash,
   issuerPublicKeyHash,
+  policyHash,
   credentialCommitment: new Uint8Array(32).fill(0x55),
   credentialRoot: new Uint8Array([4, 5]),
   revocationRoot: new Uint8Array([6, 7]),
@@ -230,6 +232,7 @@ function encodeExpectedPublicInputs(
   writeString(bytesToHex(request.credentialRoot))
   writeString(bytesToHex(request.revocationRoot))
   writeString(request.issuerPublicKeyHash)
+  writeString(request.policyHash)
   writeString(request.credentialLevel)
   writeString(request.reputationBucket)
 

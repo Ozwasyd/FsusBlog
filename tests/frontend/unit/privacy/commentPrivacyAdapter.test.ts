@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('@/api/comment', () => ({
   getAnonymousCredentialRootSnapshot: vi.fn(),
   getAnonymousCredentialCircuitSnapshot: vi.fn(),
+  getCommentPolicySnapshot: vi.fn(),
   issueAnonymousCommentTicket: vi.fn()
 }))
 
 import {
   getAnonymousCredentialCircuitSnapshot,
   getAnonymousCredentialRootSnapshot,
+  getCommentPolicySnapshot,
   issueAnonymousCommentTicket
 } from '@/api/comment'
 import { createCommentPrivacyAdapter } from '@/privacy/commentPrivacyAdapter'
@@ -27,6 +29,14 @@ const rootSnapshot = {
   zkAnonymousEnabled: true,
   verifierConfigured: true
 }
+const policySnapshot = {
+  anonymousCommentsEnabled: true,
+  publicCommentsEnabled: true,
+  zkAnonymousEnabled: true,
+  defaultAuthorMode: 'zk_anonymous',
+  supportedDisplayLanguages: ['zh-CN', 'en'],
+  snapshotHash: '9'.repeat(64)
+}
 
 describe('commentPrivacyAdapter', () => {
   beforeEach(() => {
@@ -36,6 +46,7 @@ describe('commentPrivacyAdapter', () => {
       ...rootSnapshot,
       circuitMetadata: new Uint8Array([7, 8])
     } as never)
+    vi.mocked(getCommentPolicySnapshot).mockResolvedValue(policySnapshot as never)
     vi.mocked(issueAnonymousCommentTicket).mockResolvedValue({
       credentialEpoch: 20260619,
       ticketExpiresAtUnixMs: Date.now() + 30_000,
@@ -80,6 +91,7 @@ describe('commentPrivacyAdapter', () => {
     if (!metadata.ok) {
       throw new Error('metadata unavailable')
     }
+    expect(metadata.metadata.policyHash).toBe('9'.repeat(64))
 
     const ticketMetadata = {
       ...metadata.metadata,
@@ -101,6 +113,7 @@ describe('commentPrivacyAdapter', () => {
 
     expect(getAnonymousCredentialRootSnapshot).toHaveBeenCalledWith({ signal, credentials: 'omit' })
     expect(getAnonymousCredentialCircuitSnapshot).toHaveBeenCalledWith({ signal, credentials: 'omit' })
+    expect(getCommentPolicySnapshot).toHaveBeenCalledWith({ signal, credentials: 'omit' })
     expect(issueAnonymousCommentTicket).toHaveBeenCalledWith(expect.objectContaining({
       articleId: 42,
       credentialEpoch: 20260619,

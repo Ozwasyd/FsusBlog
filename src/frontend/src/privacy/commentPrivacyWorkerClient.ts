@@ -19,6 +19,7 @@ type CommentPrivacyWorkerRequest =
       circuitId?: string
       verifyingKeyHash?: string
       issuerPublicKeyHash?: string
+      policyHash?: string
       credentialCommitment?: ArrayBuffer
       credentialRoot?: ArrayBuffer
       revocationRoot?: ArrayBuffer
@@ -76,6 +77,7 @@ type CommentPrivacyWorkerPostPayload =
       circuitId?: string
       verifyingKeyHash?: string
       issuerPublicKeyHash?: string
+      policyHash?: string
       credentialCommitment?: ArrayBuffer
       credentialRoot?: ArrayBuffer
       revocationRoot?: ArrayBuffer
@@ -242,6 +244,7 @@ export function createCommentPrivacyWorkerClient(options: CommentPrivacyWorkerCl
         circuitId: request.circuitId,
         verifyingKeyHash: request.verifyingKeyHash,
         issuerPublicKeyHash: request.issuerPublicKeyHash,
+        policyHash: request.policyHash,
         credentialCommitment,
         credentialRoot,
         revocationRoot,

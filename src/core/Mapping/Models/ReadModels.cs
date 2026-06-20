@@ -89,6 +89,7 @@ public readonly record struct CommentPolicySnapshotCoreModel(
     bool ZkAnonymousEnabled,
     string DefaultAuthorMode,
     IReadOnlyList<string> SupportedDisplayLanguages,
+    string SnapshotHash = "",
     bool ZkProdEnabled = false,
     bool ZkProdNativeVerifierConfigured = false,
     bool ZkProdTrustedSetupVerified = false,

@@ -104,8 +104,10 @@ public sealed class AnonymousCommentTicketService(
         string issuerPublicKeyHash = root.IssuerPublicKeyHash;
         string credentialLevel = NormalizeRequiredToken(request.CredentialLevel, DefaultCredentialLevel, 32);
         string reputationBucket = NormalizeRequiredToken(request.ReputationBucket, DefaultReputationBucket, 64);
+        string policyHash = AnonymousCommentPolicySnapshotHash.Resolve(proofService.CurrentCommentPolicy);
         if (!IsHexHash(credentialCommitment, minLength: 32, maxLength: 128) ||
             !IsHexHash(issuerPublicKeyHash, minLength: 32, maxLength: 128) ||
+            !IsHexHash(policyHash, minLength: 64, maxLength: 64) ||
             !string.Equals(issuerPublicKeyHash, root.IssuerPublicKeyHash, StringComparison.OrdinalIgnoreCase))
         {
             return AnonymousCommentTicketIssueResult.Failure(AnonymousCommentTicketStatuses.ValidationFailed);
@@ -123,6 +125,7 @@ public sealed class AnonymousCommentTicketService(
             credentialRoot,
             credentialLevel,
             reputationBucket,
+            policyHash,
             [.. request.Groth16Proof],
             revocationRoot,
             issuerPublicKeyHash);
@@ -267,6 +270,7 @@ public sealed class AnonymousCommentTicketService(
             proofRequest.CredentialRoot,
             proofRequest.CredentialLevel,
             proofRequest.ReputationBucket,
+            proofRequest.PolicyHash,
             proofRequest.Proof,
             proofRequest.RevocationRoot,
             proofRequest.IssuerPublicKeyHash));

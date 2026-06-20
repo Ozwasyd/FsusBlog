@@ -81,6 +81,7 @@ export interface CommentPolicySnapshot {
   zkAnonymousEnabled: boolean
   defaultAuthorMode: CommentAuthorMode
   supportedDisplayLanguages: string[]
+  snapshotHash: string
 }
 
 export interface AnonymousCredentialIssueRequestDto {

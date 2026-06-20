@@ -246,21 +246,13 @@ public sealed class AnonymousCommentPolicyService(
             UpdatedAtUtc = updatedAtUtc,
             SnapshotHash = string.Empty
         };
-        string hash = string.IsNullOrWhiteSpace(persistedHash)
-            ? ComputeSnapshotHash(prepared)
-            : persistedHash.Trim();
-        return prepared with { SnapshotHash = hash };
-    }
+        string hash = AnonymousCommentPolicySnapshotHash.NormalizeHash(persistedHash);
+        if (hash.Length == 0)
+        {
+            hash = AnonymousCommentPolicySnapshotHash.Compute(prepared);
+        }
 
-    private static string ComputeSnapshotHash(AnonymousCommentPolicySnapshot snapshot)
-    {
-        string payload = string.Join('|',
-            snapshot.AnonymousCommentsEnabled ? "1" : "0",
-            snapshot.PublicCommentsEnabled ? "1" : "0",
-            snapshot.ZkAnonymousEnabled ? "1" : "0",
-            NormalizeAuthorMode(snapshot.DefaultAuthorMode, CommentAuthorModes.Anonymous),
-            string.Join(',', NormalizeLanguages(snapshot.SupportedDisplayLanguages, AnonymousCommentPolicySnapshot.DefaultDisplayLanguages)));
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
+        return prepared with { SnapshotHash = hash };
     }
 
     private static string NormalizeAuthorMode(string? value, string fallback)

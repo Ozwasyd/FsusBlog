@@ -28,6 +28,7 @@ public sealed class AnonymousCommentTicketServiceTests
     private static readonly byte[] CredentialRoot = Enumerable.Repeat((byte)0xC3, 32).ToArray();
     private static readonly byte[] RevocationRoot = Enumerable.Repeat((byte)0xD4, 32).ToArray();
     private static readonly string VerifyingKeyHash = new('e', 64);
+    private static readonly string PolicyHash = new('9', 64);
     private static readonly ZkProdPolicySnapshot ReadyZkProdPolicy = new(
         true,
         true,
@@ -54,6 +55,7 @@ public sealed class AnonymousCommentTicketServiceTests
         CredentialRoot: Convert.ToHexStringLower(CredentialRoot),
         CredentialLevel: "strong_anonymous",
         ReputationBucket: "rep:low",
+        PolicyHash: PolicyHash,
         Proof: ReadOnlyMemory<byte>.Empty,
         RevocationRoot: Convert.ToHexStringLower(RevocationRoot),
         IssuerPublicKeyHash: new('f', 64))).ToArray();
@@ -362,7 +364,10 @@ public sealed class AnonymousCommentTicketServiceTests
     {
         public List<ZkProofVerificationRequest> Requests { get; } = [];
 
-        public AnonymousCommentPolicySnapshot CurrentCommentPolicy => new(true, true, true, CommentAuthorModes.Anonymous, ["zh-CN"]);
+        public AnonymousCommentPolicySnapshot CurrentCommentPolicy => new(true, true, true, CommentAuthorModes.Anonymous, ["zh-CN"])
+        {
+            SnapshotHash = PolicyHash
+        };
 
         public ZkAnonymousPolicySnapshot CurrentZkPolicy => new(true, true, "comment.create", []);
 

@@ -270,6 +270,7 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
           circuitId: ticketMetadata.circuitId,
           verifyingKeyHash: ticketMetadata.verifyingKeyHash,
           issuerPublicKeyHash: ticketMetadata.issuerPublicKeyHash,
+          policyHash: ticketMetadata.policyHash,
           credentialCommitment: ticketMetadata.credentialCommitment,
           credentialRoot: ticketMetadata.credentialRoot,
           revocationRoot: ticketMetadata.revocationRoot,

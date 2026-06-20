@@ -38,6 +38,18 @@
       ]
     },
     {
+      "id": "tamper-credential-commitment",
+      "expected": "reject",
+      "mutates": [
+        "credential_commitment",
+        "credential_opening"
+      ],
+      "covers": [
+        "valid_circuit_native_credential",
+        "current_credential_root"
+      ]
+    },
+    {
       "id": "tamper-revocation-root",
       "expected": "reject",
       "mutates": [

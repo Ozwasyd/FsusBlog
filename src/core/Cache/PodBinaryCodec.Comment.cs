@@ -29,6 +29,7 @@ public static partial class PodBinaryCodec
             ZkProdCredentialRequired = snapshot.ZkProdCredentialRequired ? (byte)1 : (byte)0,
             ZkProdCredentialRootReady = snapshot.ZkProdCredentialRootReady ? (byte)1 : (byte)0,
             SupportedDisplayLanguages = PodUtf8Codec.AppendSlice(JoinDisplayLanguages(snapshot.SupportedDisplayLanguages), payload),
+            SnapshotHash = PodUtf8Codec.AppendSlice(NormalizePolicySnapshotHash(snapshot.SnapshotHash), payload),
             ZkProdUnavailableReason = PodUtf8Codec.AppendSlice(NormalizeZkProdUnavailableReason(snapshot.ZkProdUnavailableReason), payload)
         };
 
@@ -65,6 +66,7 @@ public static partial class PodBinaryCodec
             pod.ZkAnonymousEnabled == 1,
             defaultAuthorMode,
             SplitDisplayLanguages(PodProjector.ReadSlice(pod.SupportedDisplayLanguages, payload)),
+            PodProjector.ReadSlice(pod.SnapshotHash, payload),
             pod.ZkProdEnabled == 1,
             pod.ZkProdNativeVerifierConfigured == 1,
             pod.ZkProdTrustedSetupVerified == 1,
@@ -1275,6 +1277,12 @@ public static partial class PodBinaryCodec
         return normalized.Length <= 64 ? normalized : normalized[..64];
     }
 
+    private static string NormalizePolicySnapshotHash(string? value)
+    {
+        string normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized.Length <= 64 ? normalized : normalized[..64];
+    }
+
     private static string? NullCommentFieldIfEmpty(string value)
         => value.Length == 0 ? null : value;
 
@@ -1291,6 +1299,7 @@ public static partial class PodBinaryCodec
         public byte ZkProdCredentialRequired;
         public byte ZkProdCredentialRootReady;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef SupportedDisplayLanguages;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef SnapshotHash;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ZkProdUnavailableReason;
     }
 

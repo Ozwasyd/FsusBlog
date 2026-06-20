@@ -258,7 +258,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 161 | `RecoveryKeyVerifyResponse` | `RecoveryKeyVerifyResponsePod` | Recovery Key 验证成功响应 |
 | 162 | `RecoveryKeySessionRequest` | `StringMutationRequestPod` | Recovery session token 请求体；用于 Passkey recovery begin |
 | 163 | `IdentityAccountSnapshot` | `IdentityAccountSnapshotPod` | 匿名身份 account/internal id、public handle、Passkey/Recovery/TOTP/anonymous credential 状态 |
-| 164 | `CommentPolicySnapshot` | `CommentPolicySnapshotPod` | 评论 composer 渲染前策略：anonymous/public/ZK 开关、ZK-Prod readiness、默认 author mode、语言列表 |
+| 164 | `CommentPolicySnapshot` | `CommentPolicySnapshotPod` | 评论 composer 渲染前策略：anonymous/public/ZK 开关、ZK-Prod readiness、默认 author mode、语言列表、策略 snapshot hash |
 | 165 | `CommentPolicyUpdateRequest` | `CommentPolicyUpdateRequestPod` | admin 匿名评论策略 patch 请求体 |
 | 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | 新评论创建请求；包含匿名 scope、author mode、language hint、普通 proof token 和 ZK proof bytes；不得从 userId/ProofToken 派生 ZK nullifier |
 | 167 | `CommentAuthorView` | `CommentAuthorViewPod` | 评论作者展示投影；评论 cursor 必须显式携带，客户端不得从 `userName` 伪造匿名/公开显示名 |
@@ -329,7 +329,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 类型 | 字节数 |
 |------|--------|
 | `CommentPod` | ~256 |
-| `CommentPolicySnapshotPod` | 25 |
+| `CommentPolicySnapshotPod` | 33 |
 | `CommentPolicyUpdateRequestPod` | 16 |
 | `CommentCreateV2RequestPod` | 80 |
 | `CommentAuthorViewPod` | 36 |

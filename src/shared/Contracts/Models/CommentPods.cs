@@ -46,6 +46,7 @@ public readonly struct CommentPolicySnapshotPod
     public readonly byte ZkProdCredentialRequired;
     public readonly byte ZkProdCredentialRootReady;
     public readonly Utf8SliceRef SupportedDisplayLanguages;
+    public readonly Utf8SliceRef SnapshotHash;
     public readonly Utf8SliceRef ZkProdUnavailableReason;
 }
 

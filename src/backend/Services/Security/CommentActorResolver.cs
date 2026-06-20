@@ -182,6 +182,7 @@ public sealed class CommentActorResolver(
                     CredentialRoot: publicInputs.CredentialRoot,
                     CredentialLevel: AnonymousCredentialLevels.StrongAnonymous,
                     ReputationBucket: publicInputs.ReputationBucket ?? ResolveReputationBucket(AnonymousCredentialLevels.StrongAnonymous),
+                    PolicyHash: AnonymousCommentPolicySnapshotHash.Resolve(zkProofService.CurrentCommentPolicy),
                     Proof: request.ZkProof ?? [],
                     RevocationRoot: publicInputs.RevocationRoot,
                     IssuerPublicKeyHash: publicInputs.IssuerPublicKeyHash),

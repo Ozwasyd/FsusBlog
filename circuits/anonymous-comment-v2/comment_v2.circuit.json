@@ -12,6 +12,7 @@
     "action_context",
     "scope",
     "nullifier_hash",
+    "credential_commitment",
     "credential_root",
     "revocation_root",
     "credential_epoch",
@@ -120,6 +121,7 @@
       "constraint_count": 24832,
       "rank1_template": "sparse_merkle_root(credential_leaf, path) - credential_root = 0",
       "checks": [
+        "credential opening reconstructs credential_commitment",
         "credential leaf is derived from signed credential attributes",
         "credential_membership_proof reconstructs credential_root"
       ]
@@ -195,7 +197,7 @@
   "metrics": {
     "estimated_constraints": 125920,
     "estimated_witness_signals": 53320,
-    "estimated_public_inputs": 13,
+    "estimated_public_inputs": 14,
     "estimated_proving_key_bytes": 192000000,
     "estimated_wasm_prover_p95_ms": 2400
   },

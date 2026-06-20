@@ -148,6 +148,7 @@ describe('CommentPrivacyRuntime', () => {
       credentialCommitment: new Uint8Array([14, 15, 16]),
       issuerSignature: new Uint8Array([21, 22, 23]),
       revocationWitness: new Uint8Array([31, 32, 33]),
+      policyHash: '9'.repeat(64),
       credentialLevel: 'strong_anonymous',
       reputationBucket: 'rep:low'
     }))
@@ -232,6 +233,18 @@ function createMetadata(scope: string): CommentPrivacyMetadata {
   return {
     scope,
     rootVersion: 'root',
-    metadataBytes: new Uint8Array([1])
+    metadataBytes: new Uint8Array([1]),
+    credentialEpoch: 20260618,
+    circuitNumericId: 7,
+    publicInputLayoutVersion: 3,
+    circuitId: 'fsus.anonymous.comment.v2',
+    verifyingKeyHash: 'a'.repeat(64),
+    issuerPublicKeyHash: 'b'.repeat(64),
+    policyHash: '9'.repeat(64),
+    credentialRoot: new Uint8Array([2]),
+    revocationRoot: new Uint8Array([3]),
+    circuitMetadata: new Uint8Array([4]),
+    credentialLevel: 'strong_anonymous',
+    reputationBucket: 'unrated'
   }
 }

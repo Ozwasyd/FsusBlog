@@ -77,13 +77,11 @@ The runtime native verifier transcript is the byte output of
 little-endian scalar fields for `action_context`, `scope`, `circuit_id`,
 `verifying_key_hash`, `public_input_layout_version`, `credential_epoch`,
 `nullifier_hash`, `credential_commitment`, `credential_root`,
-`revocation_root`, `issuer_public_key_hash`, `credential_level`, and
-`reputation_bucket`. The browser wasm prover must return exactly those bytes as
-`publicInputs`; the ticket service rebuilds the transcript from the POD fields
-and rejects mismatches before native verification. The circuit source still
-declares `policy_hash`; production remains fail-closed until real cross-stack
-evidence binds the exported comment policy snapshot hash into the same
-Groth16 public input layout.
+`revocation_root`, `issuer_public_key_hash`, `policy_hash`,
+`credential_level`, and `reputation_bucket`. The browser wasm prover must
+return exactly those bytes as `publicInputs`; the ticket service rebuilds the
+transcript from the POD fields, current root snapshot, and current comment
+policy snapshot hash, then rejects mismatches before native verification.
 
 ## Private Witness
 

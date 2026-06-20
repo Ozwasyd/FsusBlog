@@ -3,7 +3,7 @@
   "circuit_id": "fsus.anonymous.comment.v2",
   "public_input_layout_version": 3,
   "circuit_manifest_path": "security/zk/comment-v2-circuit.manifest.json",
-  "circuit_manifest_sha256": "8446ca9a2c0414573c42c714a0dd614004046c224533da63312961be5356c087",
+  "circuit_manifest_sha256": "e3f951cfec92a7444336e0ad9b390331844220b1fdc53e58652ef73edb05e2c0",
   "ceremony_status": "not-run",
   "production_usable": false,
   "fail_closed_reason": "Groth16 proving key, verifying key, SRS and ceremony transcripts are not present",
@@ -41,7 +41,7 @@
   "artifacts": {
     "r1cs": {
       "path": "artifacts/zk/comment-v2/comment_v2.r1cs",
-      "sha256": "eb73ed91e2ff6a5569186e9a1abdb50e038164346bfd6c9744a19c9d7eef64ba",
+      "sha256": "4f130bb78c5705c3eebfd2075d4e263438edb092084eb18a70ee8c3e401a3c3c",
       "status": "required"
     },
     "proving_key": {

@@ -162,12 +162,15 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
     pod[6] = 1 // zkProdTrustedSetupVerified
     pod[7] = 1 // zkProdCredentialRequired
     pod[8] = 1 // zkProdCredentialRootReady
-    writeSliceRef(pod, 9, 0, 8)
-    writeSliceRef(pod, 17, 8, 0)
+    const languages = textBytes('zh-CN\nen')
+    const snapshotHash = textBytes('9'.repeat(64))
+    writeSliceRef(pod, 9, 0, languages.byteLength)
+    writeSliceRef(pod, 17, languages.byteLength, snapshotHash.byteLength)
+    writeSliceRef(pod, 25, languages.byteLength + snapshotHash.byteLength, 0)
 
     const result = mapCommentPolicySnapshotFromPayload(buildPayload(
       pod,
-      blobBuf('zh-CN\nen')
+      blobParts(languages, snapshotHash)
     ))
 
     expect(result).toEqual({
@@ -176,6 +179,7 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
       zkAnonymousEnabled: true,
       defaultAuthorMode: 'zk_anonymous',
       supportedDisplayLanguages: ['zh-CN', 'en'],
+      snapshotHash: '9'.repeat(64),
       zkProdEnabled: true,
       zkProdNativeVerifierConfigured: true,
       zkProdTrustedSetupVerified: true,
@@ -324,7 +328,7 @@ describe('anonymous privacy binary adapters', () => {
     const blob = buildPayload(algorithm, revocationRoot, issuerPublicKeyHash, handle, leafKey, witnessHash, siblings)
 
     writeInt64(pod, 0, 20260618n)
-    writeUint16(pod, 8, 3)
+    writeUint16(pod, 8, 2)
     writeUint16(pod, 10, 0)
     writeInt32(pod, 12, 2)
     writeSliceRef(pod, 16, 0, algorithm.length)

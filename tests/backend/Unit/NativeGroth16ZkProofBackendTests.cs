@@ -19,6 +19,7 @@ public sealed class NativeGroth16ZkProofBackendTests
     private const ushort PublicInputLayoutVersion = 3;
     private const string NullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string CredentialCommitment = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    private static readonly string PolicyHash = new('9', 64);
 
     [Fact]
     public async Task NativeGroth16ZkProofBackend_MissingNativeLibraryIsUnavailableAndRejects()
@@ -280,6 +281,7 @@ public sealed class NativeGroth16ZkProofBackendTests
             CredentialRoot: CredentialRoot,
             CredentialLevel: "trusted",
             ReputationBucket: "trusted",
+            PolicyHash: PolicyHash,
             Proof: proof,
             RevocationRoot: RevocationRoot,
             IssuerPublicKeyHash: IssuerPublicKeyHash);
@@ -297,6 +299,7 @@ public sealed class NativeGroth16ZkProofBackendTests
             CredentialRoot: CredentialRoot,
             CredentialLevel: "trusted",
             ReputationBucket: "trusted",
+            PolicyHash: PolicyHash,
             Proof: proof,
             RevocationRoot: RevocationRoot,
             IssuerPublicKeyHash: IssuerPublicKeyHash);

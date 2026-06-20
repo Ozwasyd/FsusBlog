@@ -55,6 +55,7 @@
     },
     {
       "checks": [
+        "credential opening reconstructs credential_commitment",
         "credential leaf is derived from signed credential attributes",
         "credential_membership_proof reconstructs credential_root"
       ],
@@ -195,6 +196,7 @@
     "action_context",
     "scope",
     "nullifier_hash",
+    "credential_commitment",
     "credential_root",
     "revocation_root",
     "credential_epoch",
@@ -206,7 +208,7 @@
   ],
   "schema": "fsusblog.zk.r1cs-ir.v1",
   "source_path": "circuits/anonymous-comment-v2/comment_v2.circuit.json",
-  "source_sha256": "b685bd3759f4b309d255b6760062533839a2d3efe51cb202f754563376d19b60",
+  "source_sha256": "321928cdd99162439b8dbd04119745edf021a4a69e0203d80772a0c03b8f4879",
   "tamper_case_bindings": {
     "inject-user-id-public-input": "identity-field-absence",
     "inject-username-private-witness": "identity-field-absence",

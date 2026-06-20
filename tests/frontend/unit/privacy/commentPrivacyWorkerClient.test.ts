@@ -28,6 +28,7 @@ describe('commentPrivacyWorkerClient', () => {
       circuitId: 'fsus.anonymous.comment.v2',
       verifyingKeyHash: 'a'.repeat(64),
       issuerPublicKeyHash: 'b'.repeat(64),
+      policyHash: '9'.repeat(64),
       credentialCommitment: new Uint8Array([3]),
       credentialRoot: new Uint8Array([4]),
       revocationRoot: new Uint8Array([5]),
@@ -48,6 +49,7 @@ describe('commentPrivacyWorkerClient', () => {
     expect(created[0].messages[1].transfer[3].byteLength).toBe(1)
     expect(created[0].messages[1].transfer[4].byteLength).toBe(1)
     expect(created[0].messages[1].message.verifyingKeyHash).toBe('a'.repeat(64))
+    expect(created[0].messages[1].message.policyHash).toBe('9'.repeat(64))
     expect(created[0].messages[1].message.credentialLevel).toBe('strong_anonymous')
     expect(Object.keys(proof).sort()).toEqual(['nullifierHash', 'proofBytes', 'publicInputs'])
 

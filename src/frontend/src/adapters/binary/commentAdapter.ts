@@ -34,6 +34,7 @@ export type CommentPolicySnapshot = {
   zkAnonymousEnabled: boolean;
   defaultAuthorMode: CommentAuthorMode;
   supportedDisplayLanguages: string[];
+  snapshotHash: string;
   zkProdEnabled: boolean;
   zkProdNativeVerifierConfigured: boolean;
   zkProdTrustedSetupVerified: boolean;
@@ -69,7 +70,8 @@ export function mapCommentPolicySnapshotFromPayload(payload: Uint8Array): Commen
       .split('\n')
       .map(language => language.trim())
       .filter(Boolean),
-    zkProdUnavailableReason: readSliceText(blob, readSliceRef(pod, 17))
+    snapshotHash: readSliceText(blob, readSliceRef(pod, 17)),
+    zkProdUnavailableReason: readSliceText(blob, readSliceRef(pod, 25))
   };
 }
 

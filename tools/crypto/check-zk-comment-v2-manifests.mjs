@@ -47,6 +47,7 @@ const expected = {
     'action_context',
     'scope',
     'nullifier_hash',
+    'credential_commitment',
     'credential_root',
     'revocation_root',
     'credential_epoch',
@@ -79,6 +80,7 @@ const expected = {
   requiredTamperCases: [
     'tamper-issuer-signature',
     'tamper-credential-root',
+    'tamper-credential-commitment',
     'tamper-revocation-root',
     'tamper-policy-hash',
     'tamper-nullifier-hash',

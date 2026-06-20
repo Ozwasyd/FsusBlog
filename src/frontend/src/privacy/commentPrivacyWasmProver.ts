@@ -303,6 +303,7 @@ function assertProofRequest(request: CommentPrivacyProofRequest): void {
     !isNonEmptyString(request.circuitId) ||
     !isNonEmptyString(request.verifyingKeyHash) ||
     !isNonEmptyString(request.issuerPublicKeyHash) ||
+    !isNonEmptyString(request.policyHash) ||
     !isNonEmptyString(request.credentialLevel) ||
     !isNonEmptyString(request.reputationBucket)) {
     throw new Error(ARTIFACT_INVALID)
@@ -338,6 +339,7 @@ function encodeNativeGroth16PublicInputs(
   writeString(chunks, bytesToHex(toRequiredBytes(request.credentialRoot, 'credentialRoot')))
   writeString(chunks, bytesToHex(toRequiredBytes(request.revocationRoot, 'revocationRoot')))
   writeString(chunks, request.issuerPublicKeyHash ?? '')
+  writeString(chunks, request.policyHash ?? '')
   writeString(chunks, request.credentialLevel ?? '')
   writeString(chunks, request.reputationBucket ?? '')
   return concatChunks(chunks)

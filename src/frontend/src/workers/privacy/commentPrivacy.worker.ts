@@ -20,6 +20,7 @@ type CommentPrivacyWorkerRequest =
       circuitId?: string
       verifyingKeyHash?: string
       issuerPublicKeyHash?: string
+      policyHash?: string
       credentialCommitment?: ArrayBuffer
       credentialRoot?: ArrayBuffer
       revocationRoot?: ArrayBuffer
@@ -115,6 +116,7 @@ function toProofRequest(request: Extract<CommentPrivacyWorkerRequest, { type: 'p
     circuitId: request.circuitId,
     verifyingKeyHash: request.verifyingKeyHash,
     issuerPublicKeyHash: request.issuerPublicKeyHash,
+    policyHash: request.policyHash,
     credentialCommitment: toBytes(request.credentialCommitment),
     credentialRoot: toBytes(request.credentialRoot),
     revocationRoot: toBytes(request.revocationRoot),

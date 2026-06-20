@@ -40,6 +40,11 @@
       "constraint": "Poseidon credential_secret/action_context/scope output"
     },
     {
+      "name": "credential_commitment",
+      "type": "field",
+      "constraint": "public commitment opened by credential witness"
+    },
+    {
       "name": "credential_root",
       "type": "field",
       "constraint": "membership root for credential_epoch"
@@ -187,19 +192,19 @@
   },
   "r1cs_source": {
     "path": "circuits/anonymous-comment-v2/comment_v2.circuit.json",
-    "sha256": "b685bd3759f4b309d255b6760062533839a2d3efe51cb202f754563376d19b60",
+    "sha256": "321928cdd99162439b8dbd04119745edf021a4a69e0203d80772a0c03b8f4879",
     "builder": "tools/crypto/build-zk-comment-v2-r1cs.mjs",
     "check_command": "node tools/crypto/build-zk-comment-v2-r1cs.mjs --check"
   },
   "constraint_metrics": {
     "estimated_constraints": 125920,
     "estimated_witness_signals": 53320,
-    "estimated_public_inputs": 13,
+    "estimated_public_inputs": 14,
     "estimated_proving_key_bytes": 192000000,
     "estimated_wasm_prover_p95_ms": 2400
   },
   "artifact_hashes": {
-    "r1cs_sha256": "eb73ed91e2ff6a5569186e9a1abdb50e038164346bfd6c9744a19c9d7eef64ba"
+    "r1cs_sha256": "4f130bb78c5705c3eebfd2075d4e263438edb092084eb18a70ee8c3e401a3c3c"
   },
   "artifact_paths": {
     "r1cs": "artifacts/zk/comment-v2/comment_v2.r1cs",

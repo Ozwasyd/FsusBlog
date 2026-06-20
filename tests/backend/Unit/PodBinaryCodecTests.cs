@@ -649,6 +649,7 @@ public class PodBinaryCodecTests
             CredentialRoot: Convert.ToHexStringLower(Enumerable.Repeat((byte)0x11, 32).ToArray()),
             CredentialLevel: "strong_anonymous",
             ReputationBucket: "rep:low",
+            PolicyHash: new string('9', 64),
             Proof: ReadOnlyMemory<byte>.Empty,
             RevocationRoot: Convert.ToHexStringLower(Enumerable.Repeat((byte)0x22, 32).ToArray()),
             IssuerPublicKeyHash: new string('b', 64))).ToArray();
@@ -980,6 +981,7 @@ public class PodBinaryCodecTests
             ZkAnonymousEnabled: true,
             DefaultAuthorMode: "zk_anonymous",
             SupportedDisplayLanguages: ["zh-CN", "en"],
+            SnapshotHash: new string('9', 64),
             ZkProdEnabled: true,
             ZkProdNativeVerifierConfigured: true,
             ZkProdTrustedSetupVerified: true,
@@ -1000,6 +1002,7 @@ public class PodBinaryCodecTests
         Assert.Equal(string.Empty, snapshotDecoded.ZkProdUnavailableReason);
         Assert.Equal("zk_anonymous", snapshotDecoded.DefaultAuthorMode);
         Assert.Equal(["zh-CN", "en"], snapshotDecoded.SupportedDisplayLanguages);
+        Assert.Equal(new string('9', 64), snapshotDecoded.SnapshotHash);
 
         var update = new CommentPolicyUpdateRequestCoreModel(
             AnonymousCommentsEnabled: false,
