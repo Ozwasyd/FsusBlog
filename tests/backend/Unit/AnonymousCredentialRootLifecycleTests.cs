@@ -223,6 +223,34 @@ public sealed class AnonymousCredentialRootLifecycleTests
     }
 
     [Fact]
+    public void CircuitFriendlyAccumulator_VerifiesWitnessUsingOnlyCircuitPublicInputs()
+    {
+        string revokedHandle = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:170:circuit-revoked");
+        string activeHandle = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:170:circuit-active");
+        string root = CircuitFriendlyRevocationRoot(170, revokedHandle);
+        AnonymousCredentialNonMembershipWitness witness =
+            AnonymousCredentialRevocationAccumulator.CreateCircuitFriendlyNonMembershipWitness(
+                170,
+                root,
+                IssuerPublicKeyHash,
+                activeHandle,
+                [revokedHandle]).Value!;
+
+        Assert.True(AnonymousCredentialRevocationAccumulator.VerifyCircuitFriendlyNonMembershipWitness(witness));
+        Assert.False(AnonymousCredentialRevocationAccumulator.VerifyCircuitFriendlyNonMembershipWitness(witness with
+        {
+            LeafKey = new string('0', 32)
+        }));
+
+        string[] tamperedSiblings = witness.SiblingHashes!.ToArray();
+        tamperedSiblings[7] = new string('a', 64);
+        Assert.False(AnonymousCredentialRevocationAccumulator.VerifyCircuitFriendlyNonMembershipWitness(witness with
+        {
+            SiblingHashes = tamperedSiblings
+        }));
+    }
+
+    [Fact]
     public async Task RootLifecycle_CircuitFriendlyAccumulatorEntersProductionSnapshotAndRevokesWithCircuitRoot()
     {
         string dbPath = BuildDbPath("root-lifecycle-circuit-friendly-accumulator");

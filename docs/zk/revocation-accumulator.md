@@ -15,7 +15,7 @@ Root lifecycle metadata describes the accumulator under
 
 ```json
 {
-  "layout": 2,
+  "layout": 3,
   "revocationAccumulator": {
     "algorithm": "circuit-friendly-non-membership.v1",
     "productionZkReady": true,
@@ -86,10 +86,14 @@ The non-membership witness is ordered from leaf level to root level:
 - `witnessHash`, a MiMC7 binding of root, issuer, handle, leaf key, and sibling
   digest for fixture integrity
 
-The circuit verifies that the target handle maps to `leafKey`, the leaf is the
-empty default leaf, each sibling reconstructs `revocationRootHash`, and the
-target handle is not equal to a known revoked leaf. Backend negative fixtures
-also reject exact revoked handles before witness creation.
+The circuit verifier shape is implemented by
+`VerifyCircuitFriendlyNonMembershipWitness(witness)`. It uses only epoch,
+`revocationRootHash`, issuer public key hash, target revocation handle hash,
+`leafKey`, `siblingHashes[0..127]` and `witnessHash`; it does not require the full revoked handle set. The verifier proves that the target handle maps to
+`leafKey`, the leaf at that key is the empty default leaf, and each sibling
+reconstructs `revocationRootHash`. Backend service code still rejects exact
+revoked handles before witness creation using the epoch's revoked set, but that
+database-backed check is not part of the Groth16 witness.
 
 `POST /api/binary/anonymous-credential/revocation-witness` exposes this witness
 as AEDS frame `AnonymousCredentialRevocationWitnessResponse` for the browser

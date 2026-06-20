@@ -72,6 +72,7 @@ public sealed class AnonymousCredentialRevocationWitnessServiceTests
                 response.PathDepth,
                 SplitSiblingHashes(response.SiblingHashes),
                 Convert.ToHexStringLower(response.LeafKey));
+            Assert.True(AnonymousCredentialRevocationAccumulator.VerifyCircuitFriendlyNonMembershipWitness(witness));
             Assert.True(AnonymousCredentialRevocationAccumulator.VerifyCircuitFriendlyNonMembershipWitness(
                 witness,
                 [RevokedHandleHash]));

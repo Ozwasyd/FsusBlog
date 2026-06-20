@@ -104,6 +104,13 @@ public sealed class AnonymousCredentialRevocationWitnessService(
     private static Result<AnonymousCredentialRevocationWitnessResponseCoreModel> ToResponse(
         AnonymousCredentialNonMembershipWitness witness)
     {
+        if (!AnonymousCredentialRevocationAccumulator.VerifyCircuitFriendlyNonMembershipWitness(witness))
+        {
+            return Result<AnonymousCredentialRevocationWitnessResponseCoreModel>.Failure(
+                ErrorCode.Validation,
+                "anonymous_credential_witness_invalid");
+        }
+
         if (witness.SiblingHashes is null ||
             witness.SiblingHashes.Count != 128)
         {

@@ -98,8 +98,10 @@ revocation roots. The backend contract is frozen in
 - leaf key: first 128 bits of `revocation_handle_hash`
 - private witness order: `leafKey`, then `siblingHashes[0..127]` from leaf to root
 
-The circuit must reconstruct `revocation_root` from the empty leaf at `leafKey`
-and the sibling path, and it must reject a witness for a revoked handle. The
+The circuit must reconstruct `revocation_root` from the empty-leaf sparse Merkle path at `leafKey` and the sibling path. Backend witness creation rejects a
+revoked handle before returning witness material; the Groth16 circuit mirrors
+the repository verifier shape by checking that the supplied empty leaf and
+siblings reconstruct the public root without reading the full revoked set. The
 legacy `legacy-sha256-hash-tree.v1` accumulator is only a migration/governance
 helper and is excluded from production root snapshots.
 

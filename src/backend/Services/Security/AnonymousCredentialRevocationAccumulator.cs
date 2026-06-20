@@ -318,14 +318,6 @@ public static class AnonymousCredentialRevocationAccumulator
         AnonymousCredentialNonMembershipWitness witness,
         IEnumerable<string> revokedHandleHashes)
     {
-        if (!string.Equals(witness.AlgorithmId, CircuitFriendlyNonMembershipAlgorithmId, StringComparison.Ordinal) ||
-            witness.PathDepth != CircuitFriendlyTreeDepth ||
-            witness.SiblingHashes is null ||
-            witness.SiblingHashes.Count != CircuitFriendlyTreeDepth)
-        {
-            return false;
-        }
-
         string root = NormalizeHexToken(witness.RevocationRootHash, 128);
         string issuer = NormalizeHexToken(witness.IssuerPublicKeyHash, 128);
         string handle = NormalizeHexToken(witness.RevocationHandleHash, 128);
@@ -341,8 +333,18 @@ public static class AnonymousCredentialRevocationAccumulator
             return false;
         }
 
-        BigInteger key = ResolveCircuitFriendlyLeafKey(handle);
-        if (!string.Equals(witness.LeafKey, FormatCircuitFriendlyLeafKey(key), StringComparison.OrdinalIgnoreCase))
+        return VerifyCircuitFriendlyNonMembershipWitness(witness);
+    }
+
+    public static bool VerifyCircuitFriendlyNonMembershipWitness(AnonymousCredentialNonMembershipWitness witness)
+    {
+        if (!TryNormalizeCircuitFriendlyWitness(
+                witness,
+                out string root,
+                out string issuer,
+                out string handle,
+                out BigInteger key,
+                out string[] siblingHashes))
         {
             return false;
         }
@@ -351,12 +353,7 @@ public static class AnonymousCredentialRevocationAccumulator
         BigInteger cursor = key;
         for (int level = 0; level < CircuitFriendlyTreeDepth; level++)
         {
-            string sibling = NormalizeHexToken(witness.SiblingHashes[level], 128);
-            if (!IsHexHash(sibling, minLength: 32, maxLength: 128))
-            {
-                return false;
-            }
-
+            string sibling = siblingHashes[level];
             computed = cursor.IsEven
                 ? CircuitFriendlyNodeHash(computed, sibling, level)
                 : CircuitFriendlyNodeHash(sibling, computed, level);
@@ -370,9 +367,57 @@ public static class AnonymousCredentialRevocationAccumulator
             issuer,
             handle,
             FormatCircuitFriendlyLeafKey(key),
-            ComputeSiblingDigest(witness.SiblingHashes));
+            ComputeSiblingDigest(siblingHashes));
         return string.Equals(computed, root, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(witnessHash, NormalizeHexToken(witness.WitnessHash, 128), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryNormalizeCircuitFriendlyWitness(
+        AnonymousCredentialNonMembershipWitness witness,
+        out string root,
+        out string issuer,
+        out string handle,
+        out BigInteger key,
+        out string[] siblingHashes)
+    {
+        root = NormalizeHexToken(witness.RevocationRootHash, 128);
+        issuer = NormalizeHexToken(witness.IssuerPublicKeyHash, 128);
+        handle = NormalizeHexToken(witness.RevocationHandleHash, 128);
+        key = BigInteger.Zero;
+        siblingHashes = [];
+
+        if (witness.Epoch <= 0 ||
+            !string.Equals(witness.AlgorithmId, CircuitFriendlyNonMembershipAlgorithmId, StringComparison.Ordinal) ||
+            witness.PathDepth != CircuitFriendlyTreeDepth ||
+            witness.SiblingHashes is null ||
+            witness.SiblingHashes.Count != CircuitFriendlyTreeDepth ||
+            !IsHexHash(root, minLength: 32, maxLength: 128) ||
+            !IsHexHash(issuer, minLength: 32, maxLength: 128) ||
+            !IsHexHash(handle, minLength: 32, maxLength: 128))
+        {
+            return false;
+        }
+
+        key = ResolveCircuitFriendlyLeafKey(handle);
+        if (!string.Equals(witness.LeafKey, FormatCircuitFriendlyLeafKey(key), StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        siblingHashes = new string[CircuitFriendlyTreeDepth];
+        for (int index = 0; index < siblingHashes.Length; index++)
+        {
+            string sibling = NormalizeHexToken(witness.SiblingHashes[index], 128);
+            if (!IsHexHash(sibling, minLength: 32, maxLength: 128))
+            {
+                siblingHashes = [];
+                return false;
+            }
+
+            siblingHashes[index] = sibling;
+        }
+
+        return true;
     }
 
     public static bool IsHexHash(string? value, int minLength = 32, int maxLength = 128)

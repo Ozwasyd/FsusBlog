@@ -232,4 +232,20 @@ public sealed class AnonymousPrivacyMatrixTests
             Assert.DoesNotContain("\"Nethereum.ZkProofs", contents, StringComparison.Ordinal);
         }
     }
+
+    [Fact]
+    public void PrivacyZkRevocationAccumulatorDocs_RecordCircuitOnlyVerifier()
+    {
+        string docs = BackendTestPaths.ReadAllTextFromRoot("docs/zk/revocation-accumulator.md");
+        string circuitDocs = BackendTestPaths.ReadAllTextFromRoot("docs/zk/anonymous-comment-v2-circuit.md");
+        string accumulator = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialRevocationAccumulator.cs");
+        string witnessService = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialRevocationWitnessService.cs");
+
+        Assert.Contains("\"layout\": 3", docs, StringComparison.Ordinal);
+        Assert.Contains("VerifyCircuitFriendlyNonMembershipWitness(witness)", docs, StringComparison.Ordinal);
+        Assert.Contains("does not require the full revoked handle set", docs, StringComparison.Ordinal);
+        Assert.Contains("empty-leaf sparse Merkle path", circuitDocs, StringComparison.Ordinal);
+        Assert.Contains("public static bool VerifyCircuitFriendlyNonMembershipWitness(", accumulator, StringComparison.Ordinal);
+        Assert.Contains("VerifyCircuitFriendlyNonMembershipWitness(witness)", witnessService, StringComparison.Ordinal);
+    }
 }
