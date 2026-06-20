@@ -170,7 +170,7 @@ public sealed class AnonymousPrivacyMatrixTests
     public void PrivacyZkCommentEvidence_PointsAtExecutableBackendAndFrontendTests()
     {
         string backendConcurrency = BackendTestPaths.ReadAllTextFromRoot("tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs");
-        string backendProdSmoke = BackendTestPaths.ReadAllTextFromRoot("tests/backend/Unit/AnonymousZkProdSmokeTests.cs");
+        string backendWrapperFixture = BackendTestPaths.ReadAllTextFromRoot("tests/backend/Unit/AnonymousZkProdWrapperFixtureTests.cs");
         string prodSmokeGate = BackendTestPaths.ReadAllTextFromRoot("tests/security/privacy-zk-prod-smoke.test.mjs");
         string frontendGate = BackendTestPaths.ReadAllTextFromRoot("tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts");
         string runtimeTest = BackendTestPaths.ReadAllTextFromRoot("tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts");
@@ -178,9 +178,11 @@ public sealed class AnonymousPrivacyMatrixTests
         Assert.Contains("Task.WhenAll", backendConcurrency, StringComparison.Ordinal);
         Assert.Contains("Barrier", backendConcurrency, StringComparison.Ordinal);
         Assert.Contains("SemaphoreSlim", backendConcurrency, StringComparison.Ordinal);
-        Assert.Contains("ProductionZkProofVerifier", backendProdSmoke, StringComparison.Ordinal);
-        Assert.Contains("NativeGroth16ZkProofBackend", backendProdSmoke, StringComparison.Ordinal);
-        Assert.Contains("CommentModerationStatus.Pending", backendProdSmoke, StringComparison.Ordinal);
+        Assert.Contains("ProductionZkProofVerifier", backendWrapperFixture, StringComparison.Ordinal);
+        Assert.Contains("NativeGroth16ZkProofBackend", backendWrapperFixture, StringComparison.Ordinal);
+        Assert.Contains("HashingNativeGroth16FixtureLibrary", backendWrapperFixture, StringComparison.Ordinal);
+        Assert.Contains("CommentModerationStatus.Pending", backendWrapperFixture, StringComparison.Ordinal);
+        Assert.DoesNotContain("ZkProdSmoke_", backendWrapperFixture, StringComparison.Ordinal);
         Assert.Contains("featureFlagOffExpectedUnavailable", prodSmokeGate, StringComparison.Ordinal);
         Assert.Contains("sensitivePayloadRedacted", prodSmokeGate, StringComparison.Ordinal);
         Assert.Contains("vi.useFakeTimers", runtimeTest, StringComparison.Ordinal);

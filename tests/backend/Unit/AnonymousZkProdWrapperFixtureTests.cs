@@ -26,7 +26,7 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class AnonymousZkProdSmokeTests
+public sealed class AnonymousZkProdWrapperFixtureTests
 {
     private const int ArticleId = 42;
     private const int OtherArticleId = 43;
@@ -38,7 +38,7 @@ public sealed class AnonymousZkProdSmokeTests
     private static readonly string IssuerPublicKeyHash = new('f', 64);
 
     [Fact]
-    public async Task ZkProdSmoke_HappyPath_NativeVerifierTicketSubmitCreatesPendingAnonymousComment()
+    public async Task WrapperFixture_HappyPath_NativeVerifierTicketSubmitCreatesPendingAnonymousComment()
     {
         using TempNativeZkFixture temp = TempNativeZkFixture.Create();
         var nativeLibrary = new HashingNativeGroth16FixtureLibrary();
@@ -92,7 +92,7 @@ public sealed class AnonymousZkProdSmokeTests
     }
 
     [Fact]
-    public async Task ZkProdSmoke_TamperedProofFailsBeforeTicketOrNullifierReservation()
+    public async Task WrapperFixture_TamperedProofFailsBeforeTicketOrNullifierReservation()
     {
         using TempNativeZkFixture temp = TempNativeZkFixture.Create();
         var nativeLibrary = new HashingNativeGroth16FixtureLibrary();
@@ -119,7 +119,7 @@ public sealed class AnonymousZkProdSmokeTests
     }
 
     [Fact]
-    public async Task ZkProdSmoke_TicketReplayWritesOnlyOnePendingComment()
+    public async Task WrapperFixture_TicketReplayWritesOnlyOnePendingComment()
     {
         using TempNativeZkFixture temp = TempNativeZkFixture.Create();
         var nativeLibrary = new HashingNativeGroth16FixtureLibrary();
@@ -146,7 +146,7 @@ public sealed class AnonymousZkProdSmokeTests
     }
 
     [Fact]
-    public async Task ZkProdSmoke_CrossScopeNullifierIndependenceIssuesUnlinkableTickets()
+    public async Task WrapperFixture_CrossScopeNullifierIndependenceIssuesUnlinkableTickets()
     {
         using TempNativeZkFixture temp = TempNativeZkFixture.Create();
         var nativeLibrary = new HashingNativeGroth16FixtureLibrary();
@@ -169,7 +169,7 @@ public sealed class AnonymousZkProdSmokeTests
     }
 
     [Fact]
-    public void ZkProdSmoke_FeatureFlagOffIsExpectedUnavailable()
+    public void WrapperFixture_FeatureFlagOffIsExpectedUnavailable()
     {
         using TempNativeZkFixture temp = TempNativeZkFixture.Create();
         var nativeLibrary = new HashingNativeGroth16FixtureLibrary();
@@ -610,6 +610,7 @@ public sealed class AnonymousZkProdSmokeTests
         public Task InvalidateHotArticlesAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
+    // Wrapper-only fixture: release gates reject this hashing proof as production evidence.
     private sealed class HashingNativeGroth16FixtureLibrary : INativeGroth16VerifierLibrary
     {
         public bool IsLoaded => true;
