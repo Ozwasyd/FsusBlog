@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Services.Subscriptions;
 using FsusBlog.Shared.Contracts.Outputs;
 using SqlSugar;
 
@@ -43,6 +44,7 @@ public static class SubscriptionEndpoints
     public static async Task<SiteSubscriptionBinaryResponse?> UnsubscribeAsync(
         SiteSubscriptionBinaryRequest request,
         ISqlSugarClient db,
+        SiteSubscriptionUnsubscribeProofClaims proof,
         CancellationToken cancellationToken)
     {
         string hash = HashEmail(request.Email);
@@ -52,10 +54,16 @@ public static class SubscriptionEndpoints
         }
 
         string channel = NormalizeChannel(request.Channel);
+        if (!string.Equals(hash, proof.EmailHash, StringComparison.Ordinal) ||
+            !string.Equals(channel, proof.Channel, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
         int count = await db.Updateable<SiteSubscription>()
             .SetColumns(it => it.IsEnabled == false)
             .SetColumns(it => it.UnsubscribedAt == DateTime.UtcNow)
-            .Where(it => it.EmailHash == hash)
+            .Where(it => it.EmailHash == proof.EmailHash && it.Channel == proof.Channel)
             .ExecuteCommandAsync(cancellationToken);
         return new SiteSubscriptionBinaryResponse(false, count > 0, channel);
     }

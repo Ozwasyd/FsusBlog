@@ -6,6 +6,7 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Server.Services.Moderation;
+using FsusBlog.Server.Services.Subscriptions;
 using FsusBlog.Server.Services.Telemetry;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
@@ -70,6 +71,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<CommentCoreQueryCache>();
         services.AddScoped<StatsCoreQueryCache>();
         services.AddScoped<IHumanReadProofService, HumanReadProofService>();
+        services.AddScoped<ISiteSubscriptionProofService, SiteSubscriptionProofService>();
         return services;
     }
 

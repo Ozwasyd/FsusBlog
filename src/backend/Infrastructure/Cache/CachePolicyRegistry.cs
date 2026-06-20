@@ -40,6 +40,7 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
             [CachePolicyId.SecurityPoSpaceChallenge] = new(CachePolicyId.SecurityPoSpaceChallenge, "sec", "pospace-challenge", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true, 0d, false),
             [CachePolicyId.AnonymousCommentTicket] = new(CachePolicyId.AnonymousCommentTicket, "sec", "anonymous-comment-ticket", TimeSpan.Zero, TimeSpan.FromMinutes(2), null, null, true, 0d, false),
             [CachePolicyId.SecurityPerceptionChallenge] = new(CachePolicyId.SecurityPerceptionChallenge, "sec", "perception-challenge", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true, 0d, false),
+            [CachePolicyId.SiteSubscriptionUnsubscribeProof] = new(CachePolicyId.SiteSubscriptionUnsubscribeProof, "sec", "site-subscription-unsubscribe-proof", TimeSpan.Zero, TimeSpan.FromMinutes(15), null, null, true, 0d, false),
             [CachePolicyId.HumanReadProof] = new(CachePolicyId.HumanReadProof, "sec", "human-read-proof", TimeSpan.Zero, TimeSpan.FromDays(1), null, null, true, 0d, false),
             [CachePolicyId.SecurityPowProof] = new(CachePolicyId.SecurityPowProof, "sec", "pow-proof", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true, 0d, false),
             [CachePolicyId.ArticleListFrame] = new(CachePolicyId.ArticleListFrame, "blog", "article-list-frame", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), null, [CacheTag.ArticleList, CacheTag.Category], false, 0.10d, false),

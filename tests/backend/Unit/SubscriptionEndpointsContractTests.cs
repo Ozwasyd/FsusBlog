@@ -15,6 +15,37 @@ public sealed class SubscriptionEndpointsContractTests
         Assert.DoesNotContain("Insertable(new SiteSubscription", method, StringComparison.Ordinal);
         Assert.DoesNotContain("Updateable(existing)", method, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void UnsubscribeAsync_RequiresConsumedOwnershipProof()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Modules", "Endpoints", "SubscriptionEndpoints.cs"));
+        string method = ExtractMethodBlock(source, "public static async Task<SiteSubscriptionBinaryResponse?> UnsubscribeAsync");
+
+        Assert.DoesNotContain(
+            "public static async Task<SiteSubscriptionBinaryResponse?> UnsubscribeAsync(\n        SiteSubscriptionBinaryRequest request,\n        ISqlSugarClient db,\n        CancellationToken cancellationToken)",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains("SiteSubscriptionUnsubscribeProofClaims proof", method, StringComparison.Ordinal);
+        Assert.Contains("it.EmailHash == proof.EmailHash", method, StringComparison.Ordinal);
+        Assert.Contains("it.Channel == proof.Channel", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BinarySubscriptionUnsubscribe_ConsumesProofBeforeDatabaseMutation()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Modules", "Endpoints", "Binary", "BinaryEndpoints.Subscriptions.cs"));
+
+        Assert.Contains("ISiteSubscriptionProofService", source, StringComparison.Ordinal);
+        Assert.Contains("SiteSubscriptionProofService.HeaderName", source, StringComparison.Ordinal);
+        Assert.Contains("ConsumeUnsubscribeProofAsync", source, StringComparison.Ordinal);
+        Assert.Contains("StatusCodes.Status428PreconditionRequired", source, StringComparison.Ordinal);
+        Assert.True(
+            source.IndexOf("ConsumeUnsubscribeProofAsync", StringComparison.Ordinal) <
+            source.IndexOf("SubscriptionEndpoints.UnsubscribeAsync", StringComparison.Ordinal),
+            "unsubscribe proof must be consumed before DB mutation is invoked");
+    }
+
     private static string ExtractMethodBlock(string source, string signature)
     {
         int start = source.IndexOf(signature, StringComparison.Ordinal);

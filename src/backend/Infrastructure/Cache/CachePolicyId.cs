@@ -46,5 +46,6 @@ public enum CachePolicyId
     SecurityCaptchaChallenge = 41,
     SecurityPoSpaceChallenge = 42,
     AnonymousCommentTicket = 43,
-    SecurityPerceptionChallenge = 44
+    SecurityPerceptionChallenge = 44,
+    SiteSubscriptionUnsubscribeProof = 45
 }

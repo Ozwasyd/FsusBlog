@@ -2,6 +2,7 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Results;
+using FsusBlog.Server.Services.Subscriptions;
 using FsusBlog.Shared.Contracts.Outputs;
 using SqlSugar;
 
@@ -24,8 +25,9 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ISqlSugarClient db,
             IAedsEncoder aeds,
+            ISiteSubscriptionProofService proofService,
             CancellationToken cancellationToken) =>
-            await HandleSiteSubscriptionAsync(httpContext, db, aeds, subscribe: false, cancellationToken))
+            await HandleSiteSubscriptionAsync(httpContext, db, aeds, subscribe: false, cancellationToken, proofService))
         .AllowAnonymous()
         .RequireRateLimiting("fixed_ip");
     }
@@ -35,7 +37,8 @@ public static partial class BinaryEndpoints
         ISqlSugarClient db,
         IAedsEncoder aeds,
         bool subscribe,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ISiteSubscriptionProofService? proofService = null)
     {
         var payload = await ReadBinaryRequestPayloadAsync(
             httpContext,
@@ -56,9 +59,44 @@ public static partial class BinaryEndpoints
                 StatusCodes.Status400BadRequest);
         }
 
-        SiteSubscriptionBinaryResponse? response = subscribe
-            ? await SubscriptionEndpoints.SubscribeAsync(request, db, cancellationToken)
-            : await SubscriptionEndpoints.UnsubscribeAsync(request, db, cancellationToken);
+        SiteSubscriptionBinaryResponse? response;
+        if (subscribe)
+        {
+            response = await SubscriptionEndpoints.SubscribeAsync(request, db, cancellationToken);
+        }
+        else
+        {
+            if (proofService is null)
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Forbidden, "subscription_unsubscribe_proof_required"),
+                    aeds,
+                    StatusCodes.Status428PreconditionRequired);
+            }
+
+            SiteSubscriptionUnsubscribeProofConsumeResult proof = await proofService.ConsumeUnsubscribeProofAsync(
+                new SiteSubscriptionUnsubscribeProofConsumeRequest(
+                    ReadSiteSubscriptionProofToken(httpContext),
+                    request.Email,
+                    request.Channel),
+                cancellationToken);
+            if (!proof.Accepted || proof.Claims is null)
+            {
+                int statusCode = string.Equals(proof.Reason, "email_invalid", StringComparison.Ordinal)
+                    ? StatusCodes.Status400BadRequest
+                    : StatusCodes.Status428PreconditionRequired;
+                ErrorCode code = statusCode == StatusCodes.Status400BadRequest
+                    ? ErrorCode.Validation
+                    : ErrorCode.Forbidden;
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(code, proof.Reason),
+                    aeds,
+                    statusCode);
+            }
+
+            response = await SubscriptionEndpoints.UnsubscribeAsync(request, db, proof.Claims, cancellationToken);
+        }
+
         if (response is null)
         {
             return BinaryResults.FromError(
@@ -71,5 +109,15 @@ public static partial class BinaryEndpoints
             aeds,
             AedsFrameType.SiteSubscriptionResponse,
             writer => PodBinaryCodec.WriteSiteSubscriptionResponse(response, writer));
+    }
+
+    private static string ReadSiteSubscriptionProofToken(HttpContext httpContext)
+    {
+        if (!httpContext.Request.Headers.TryGetValue(SiteSubscriptionProofService.HeaderName, out var values) || values.Count != 1)
+        {
+            return string.Empty;
+        }
+
+        return values[0]?.Trim() ?? string.Empty;
     }
 }
