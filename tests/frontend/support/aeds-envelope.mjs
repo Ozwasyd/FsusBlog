@@ -264,17 +264,17 @@ export function encodeAuthAnonymousBootstrapRequest({ publicHandle = '', accepte
   return bytes
 }
 
-export function encodeCurrentUserSnapshotFrame({ id = 1, username = 'admin', role = 'admin', status = 0, banReason = '', deletedAt = null } = {}) {
+export function encodeCurrentUserSnapshotFrame({ accountId = 1, identityKind = 'anonymous_account', status = 0, banReason = '', deletedAt = null } = {}) {
   const bytes = new Uint8Array(CURRENT_USER_SNAPSHOT_POD_SIZE)
   const view = new DataView(bytes.buffer)
-  view.setInt32(0, id, true)
+  view.setInt32(0, accountId, true)
   view.setInt32(4, status, true)
   if (deletedAt instanceof Date) {
     view.setBigInt64(8, BigInt(deletedAt.getTime()), true)
     bytes[16] = 1
   }
-  writeFixedUtf8(bytes, 20, 64, username)
-  writeFixedUtf8(bytes, 84, 32, role)
+  bytes[17] = 1
+  writeFixedUtf8(bytes, 20, 64, identityKind)
   writeFixedUtf8(bytes, 116, 256, banReason)
   return encodeAedsFrame(FRAME_CURRENT_USER_SNAPSHOT, bytes)
 }
@@ -1337,12 +1337,10 @@ function decodeAuthLoginFlow(payload) {
   const authPhase = payload[4]
   const mfaMode = payload[5]
   const hasChallengeToken = payload[6] === 1
+  const hasIdentityKind = payload[7] === 1
   return {
-    user: {
-      id: readInt32(view, 0),
-      username: readFixedUtf8(payload, 8, 64),
-      role: readFixedUtf8(payload, 72, 32)
-    },
+    accountId: readInt32(view, 0),
+    identityKind: hasIdentityKind ? readFixedUtf8(payload, 8, 64) || 'anonymous_account' : 'anonymous_account',
     authPhase: authPhase === 2 ? 'mfa_required' : 'authenticated',
     mfaMode: mfaMode === 1 ? 'risk' : mfaMode === 2 ? 'standard' : null,
     challengeToken: hasChallengeToken ? readFixedUtf8(payload, 104, 64) : null
@@ -1356,12 +1354,12 @@ function decodeCurrentUserSnapshot(payload) {
 
   const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
   const banReason = readFixedUtf8(payload, 116, 256)
+  const hasIdentityKind = payload[17] === 1
   return {
-    id: readInt32(view, 0),
+    accountId: readInt32(view, 0),
+    identityKind: hasIdentityKind ? readFixedUtf8(payload, 20, 64) || 'anonymous_account' : 'anonymous_account',
     status: readInt32(view, 4),
     deletedAt: payload[16] === 1 ? new Date(readInt64Number(view, 8)).toISOString() : null,
-    username: readFixedUtf8(payload, 20, 64),
-    role: readFixedUtf8(payload, 84, 32),
     banReason: banReason.length > 0 ? banReason : null
   }
 }
@@ -1484,9 +1482,8 @@ function decodeMfaChallengeResult(payload) {
     proofToken: readByte(payload, 5) === 1 ? readFixedUtf8(payload, 168, 128) : null,
     user: readByte(payload, 6) === 1
       ? {
-          id: readInt32(new DataView(payload.buffer, payload.byteOffset, payload.byteLength), 0),
-          username: readFixedUtf8(payload, 8, 64),
-          role: readFixedUtf8(payload, 72, 32)
+          accountId: readInt32(new DataView(payload.buffer, payload.byteOffset, payload.byteLength), 0),
+          identityKind: readByte(payload, 7) === 1 ? readFixedUtf8(payload, 8, 64) || 'anonymous_account' : 'anonymous_account'
         }
       : null
   }

@@ -511,13 +511,13 @@ public class PodBinaryCodecTests
     [Fact]
     public void AuthLoginFlow_RoundTrip_PreservesMfaChallenge()
     {
-        var flow = new AuthLoginFlowDto(new AuthIdentitySnapshotDto(7, "alice", "admin"), "mfa_required", "risk", "ticket-1");
+        var flow = new AuthLoginFlowDto(7, "anonymous_account", "mfa_required", "risk", "ticket-1");
         byte[] encoded = PodBinaryCodec.EncodeAuthLoginFlow(flow);
         bool ok = PodBinaryCodec.TryDecodeAuthLoginFlow(encoded, out var decoded);
 
         Assert.True(ok);
-        Assert.Equal(7, decoded.User.Id);
-        Assert.Equal("alice", decoded.User.Username);
+        Assert.Equal(7, decoded.AccountId);
+        Assert.Equal("anonymous_account", decoded.IdentityKind);
         Assert.Equal("mfa_required", decoded.AuthPhase);
         Assert.Equal("risk", decoded.MfaMode);
         Assert.Equal("ticket-1", decoded.ChallengeToken);
@@ -527,14 +527,13 @@ public class PodBinaryCodecTests
     public void CurrentUserSnapshot_RoundTrip_PreservesNullableFields()
     {
         var deletedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
-        var snapshot = new CurrentUserSnapshotDto(7, "alice", "admin", 1, "banned", deletedAt);
+        var snapshot = new CurrentUserSnapshotDto(7, "anonymous_account", 1, "banned", deletedAt);
         byte[] encoded = PodBinaryCodec.EncodeCurrentUserSnapshot(snapshot);
         bool ok = PodBinaryCodec.TryDecodeCurrentUserSnapshot(encoded, out var decoded);
 
         Assert.True(ok);
-        Assert.Equal(7, decoded.Id);
-        Assert.Equal("alice", decoded.Username);
-        Assert.Equal("admin", decoded.Role);
+        Assert.Equal(7, decoded.AccountId);
+        Assert.Equal("anonymous_account", decoded.IdentityKind);
         Assert.Equal(1, decoded.Status);
         Assert.Equal("banned", decoded.BanReason);
         Assert.Equal(deletedAt, decoded.DeletedAt);

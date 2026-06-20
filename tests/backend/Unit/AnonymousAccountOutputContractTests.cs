@@ -30,6 +30,53 @@ public sealed class AnonymousAccountOutputContractTests
     }
 
     [Fact]
+    public void AuthProtocolContracts_DoNotExposeUsernameOrRoleAsIdentityFields()
+    {
+        string outputs = BackendTestPaths.ReadAllTextFromRoot(
+            "src",
+            "shared",
+            "Contracts",
+            "Outputs",
+            "ServerResponseContracts.cs");
+        string userPods = BackendTestPaths.ReadAllTextFromRoot(
+            "src",
+            "shared",
+            "Contracts",
+            "Models",
+            "UserPods.cs");
+        string codec = BackendTestPaths.ReadAllTextFromRoot(
+            "src",
+            "core",
+            "Cache",
+            "PodBinaryCodec.User.cs");
+
+        string authIdentity = ExtractRecord(outputs, "public readonly record struct AuthIdentitySnapshotDto");
+        string authFlow = ExtractRecord(outputs, "public readonly record struct AuthLoginFlowDto");
+        string currentUser = ExtractRecord(outputs, "public readonly record struct CurrentUserSnapshotDto");
+        string mfaChallenge = ExtractRecord(outputs, "public readonly record struct MfaChallengeResultDto");
+        string authLoginPod = ExtractStruct(userPods, "public readonly struct AuthLoginFlowPod");
+        string currentUserPod = ExtractStruct(userPods, "public readonly struct CurrentUserSnapshotPod");
+        string mfaChallengePod = ExtractStruct(userPods, "public readonly struct MfaChallengeResultPod");
+        string authLoginCodec = ExtractBetween(codec, "public static void WriteAuthLoginFlow", "public static void WriteCurrentUserSnapshot");
+        string mfaChallengeCodec = ExtractBetween(codec, "public static void WriteMfaChallengeResult", "public static void WriteMfaPasswordProofRequest");
+
+        foreach (string block in new[] { authIdentity, authFlow, currentUser, mfaChallenge, authLoginPod, currentUserPod, mfaChallengePod, authLoginCodec, mfaChallengeCodec })
+        {
+            Assert.DoesNotContain("Username", block, StringComparison.Ordinal);
+            Assert.DoesNotContain("UserName", block, StringComparison.Ordinal);
+            Assert.DoesNotContain("Role", block, StringComparison.Ordinal);
+            Assert.DoesNotContain("UserId", block, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("AccountId", authFlow, StringComparison.Ordinal);
+        Assert.Contains("IdentityKind", authFlow, StringComparison.Ordinal);
+        Assert.Contains("AccountId", currentUser, StringComparison.Ordinal);
+        Assert.Contains("IdentityKind", currentUser, StringComparison.Ordinal);
+        Assert.Contains("AccountId", authLoginPod, StringComparison.Ordinal);
+        Assert.Contains("IdentityKind", authLoginPod, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PublicHandleEndpoint_UsesDedicatedFrameValidationAndProfileCommand()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot(
@@ -114,5 +161,49 @@ public sealed class AnonymousAccountOutputContractTests
         int nextSemicolon = source.IndexOf(';', end);
         Assert.True(nextSemicolon > end, $"Missing endpoint semicolon after {marker}");
         return source[start..(nextSemicolon + 1)];
+    }
+
+    private static string ExtractRecord(string source, string marker)
+    {
+        int start = source.IndexOf(marker, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing record marker {marker}");
+        int end = source.IndexOf(";", start, StringComparison.Ordinal);
+        Assert.True(end > start, $"Missing record terminator after {marker}");
+        return source[start..(end + 1)];
+    }
+
+    private static string ExtractStruct(string source, string marker)
+    {
+        int start = source.IndexOf(marker, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing struct marker {marker}");
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart > start, $"Missing struct body after {marker}");
+        int depth = 0;
+        for (int i = braceStart; i < source.Length; i++)
+        {
+            if (source[i] == '{')
+            {
+                depth++;
+            }
+            else if (source[i] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[start..(i + 1)];
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"Missing struct terminator after {marker}");
+    }
+
+    private static string ExtractBetween(string source, string startMarker, string endMarker)
+    {
+        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing start marker {startMarker}");
+        int end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
+        Assert.True(end > start, $"Missing end marker {endMarker}");
+        return source[start..end];
     }
 }

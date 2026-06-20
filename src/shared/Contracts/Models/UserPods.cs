@@ -14,35 +14,35 @@ public readonly struct TokenResponsePod
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct LoginResponsePod
 {
-    public readonly int Id;
-    public readonly Utf8Fixed64 Username;
-    public readonly Utf8Fixed32 Role;
+    public readonly int AccountId;
+    public readonly Utf8Fixed64 IdentityKind;
+    public readonly Utf8Fixed32 ReservedIdentity;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AuthLoginFlowPod
 {
-    public readonly int UserId;
+    public readonly int AccountId;
     public readonly byte AuthPhase;
     public readonly byte MfaMode;
     public readonly byte HasChallengeToken;
-    public readonly byte Reserved;
-    public readonly Utf8Fixed64 Username;
-    public readonly Utf8Fixed32 Role;
+    public readonly byte HasIdentityKind;
+    public readonly Utf8Fixed64 IdentityKind;
+    public readonly Utf8Fixed32 ReservedIdentity;
     public readonly Utf8Fixed64 ChallengeToken;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CurrentUserSnapshotPod
 {
-    public readonly int Id;
+    public readonly int AccountId;
     public readonly int Status;
     public readonly long DeletedAtUnixMs;
     public readonly byte HasDeletedAt;
-    public readonly byte Reserved0;
+    public readonly byte HasIdentityKind;
     public readonly ushort Reserved1;
-    public readonly Utf8Fixed64 Username;
-    public readonly Utf8Fixed32 Role;
+    public readonly Utf8Fixed64 IdentityKind;
+    public readonly Utf8Fixed32 ReservedIdentity;
     public readonly Utf8Fixed256 BanReason;
 }
 
@@ -139,13 +139,13 @@ public readonly struct MfaProfilePod
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct MfaChallengeResultPod
 {
-    public readonly int UserId;
+    public readonly int AccountId;
     public readonly byte Verified;
     public readonly byte HasProofToken;
     public readonly byte HasUser;
-    public readonly byte Reserved;
-    public readonly Utf8Fixed64 Username;
-    public readonly Utf8Fixed32 Role;
+    public readonly byte HasIdentityKind;
+    public readonly Utf8Fixed64 IdentityKind;
+    public readonly Utf8Fixed32 ReservedIdentity;
     public readonly Utf8Fixed64 Action;
     public readonly Utf8Fixed128 ProofToken;
 }

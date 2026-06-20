@@ -80,12 +80,13 @@ describe('binary auth adapter', () => {
     payload[4] = 2
     payload[5] = 1
     payload[6] = 1
-    writeFixed(payload, 8, 64, 'alice')
-    writeFixed(payload, 72, 32, 'admin')
+    payload[7] = 1
+    writeFixed(payload, 8, 64, 'anonymous_account')
     writeFixed(payload, 104, 64, 'ticket-1')
 
     expect(mapAuthLoginFlowFromPayload(payload)).toEqual({
-      user: { id: 7, username: 'alice', role: 'admin' },
+      accountId: 7,
+      identityKind: 'anonymous_account',
       authPhase: 'mfa_required',
       mfaMode: 'risk',
       challengeToken: 'ticket-1'
@@ -99,14 +100,13 @@ describe('binary auth adapter', () => {
     view.setInt32(4, 1, true)
     view.setBigInt64(8, BigInt(Date.parse('2026-01-02T03:04:05.000Z')), true)
     payload[16] = 1
-    writeFixed(payload, 20, 64, 'alice')
-    writeFixed(payload, 84, 32, 'admin')
+    payload[17] = 1
+    writeFixed(payload, 20, 64, 'anonymous_account')
     writeFixed(payload, 116, 256, 'banned')
 
     expect(mapCurrentUserSnapshotFromPayload(payload)).toEqual({
-      id: 7,
-      username: 'alice',
-      role: 'admin',
+      accountId: 7,
+      identityKind: 'anonymous_account',
       status: 1,
       banReason: 'banned',
       deletedAt: '2026-01-02T03:04:05.000Z'
@@ -213,8 +213,8 @@ describe('binary auth adapter', () => {
     payload[4] = 1
     payload[5] = 1
     payload[6] = 1
-    writeFixed(payload, 8, 64, 'alice')
-    writeFixed(payload, 72, 32, 'admin')
+    payload[7] = 1
+    writeFixed(payload, 8, 64, 'anonymous_account')
     writeFixed(payload, 104, 64, 'login')
     writeFixed(payload, 168, 128, 'proof-1')
 
@@ -222,7 +222,7 @@ describe('binary auth adapter', () => {
       verified: true,
       action: 'login',
       proofToken: 'proof-1',
-      user: { id: 7, username: 'alice', role: 'admin' }
+      user: { accountId: 7, identityKind: 'anonymous_account' }
     })
   })
 })

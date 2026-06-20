@@ -72,7 +72,7 @@ public sealed partial class AedsProtocolCrossLanguageTests
     [Fact]
     public void BackendEncoder_MatchesSharedAuthLoginFlowFixture()
     {
-        AuthLoginFlowDto flow = new(new AuthIdentitySnapshotDto(7, "alice", "admin"), "mfa_required", "risk", "ticket-1");
+        AuthLoginFlowDto flow = new(7, "anonymous_account", "mfa_required", "risk", "ticket-1");
         byte[] encoded = new CoreAedsEncoder().Encode(CoreFrameType.AuthLoginFlow, PodBinaryCodec.EncodeAuthLoginFlow(flow));
 
         Assert.Equal(ReadProtocolFixtureBytes("auth-login-flow-frame.hex"), encoded);
@@ -86,7 +86,7 @@ public sealed partial class AedsProtocolCrossLanguageTests
             true,
             "login",
             "proof-1",
-            new AuthIdentitySnapshotDto(7, "alice", "admin"));
+            new AuthIdentitySnapshotDto(7, "anonymous_account"));
 
         PodBinaryCodec.WriteMfaChallengeResult(dto, payload);
         byte[] encoded = new CoreAedsEncoder().Encode(CoreFrameType.MfaChallengeResult, payload.WrittenSpan.ToArray());
@@ -142,7 +142,7 @@ public sealed partial class AedsProtocolCrossLanguageTests
     [Fact]
     public void BackendEncoder_MatchesSharedCurrentUserSnapshotFixture()
     {
-        CurrentUserSnapshotDto snapshot = new(123, "alice", "User", 1, null, null);
+        CurrentUserSnapshotDto snapshot = new(123, "anonymous_account", 1, null, null);
 
         byte[] encoded = new CoreAedsEncoder().Encode(CoreFrameType.CurrentUserSnapshot, PodBinaryCodec.EncodeCurrentUserSnapshot(snapshot));
 

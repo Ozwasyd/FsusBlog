@@ -67,7 +67,8 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.frameType).toBe(FrameType.AuthLoginFlow)
     expect(result.payloadView.byteLength).toBe(168)
     expect(mapAuthLoginFlowFromPayload(result.payloadView)).toEqual({
-      user: { id: 7, username: 'alice', role: 'admin' },
+      accountId: 7,
+      identityKind: 'anonymous_account',
       authPhase: 'mfa_required',
       mfaMode: 'risk',
       challengeToken: 'ticket-1'
@@ -87,7 +88,7 @@ describe('AEDS cross-stack contract fixture', () => {
       verified: true,
       action: 'login',
       proofToken: 'proof-1',
-      user: { id: 7, username: 'alice', role: 'admin' }
+      user: { accountId: 7, identityKind: 'anonymous_account' }
     })
   })
 
@@ -150,9 +151,8 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.frameType).toBe(FrameType.CurrentUserSnapshot)
     expect(result.payloadView.byteLength).toBe(372)
     expect(mapCurrentUserSnapshotFromPayload(result.payloadView)).toEqual({
-      id: 123,
-      username: 'alice',
-      role: 'User',
+      accountId: 123,
+      identityKind: 'anonymous_account',
       status: 1,
       banReason: null,
       deletedAt: null

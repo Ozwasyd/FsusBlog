@@ -34,6 +34,9 @@ public static partial class BinaryEndpoints
 {
     private static readonly TimeSpan AuthRiskSignalTtl = TimeSpan.FromMinutes(10);
 
+    private static string ResolveBinaryIdentityKind(string? identityKind)
+        => string.IsNullOrWhiteSpace(identityKind) ? AnonymousIdentityRuntime.AnonymousAccountKind : identityKind.Trim();
+
     private static void MapBinaryAuthEndpoints(IEndpointRouteBuilder group)
     {
         group.MapGet("/auth/pow-challenge", static async Task<BinaryFrameResult> (
@@ -375,7 +378,12 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "未找到该用户"), aeds);
             }
 
-            var snapshot = new CurrentUserSnapshotDto(user.Value.Id, user.Value.Username, user.Value.Role, user.Value.Status, user.Value.BanReason, user.Value.DeletedAt);
+            var snapshot = new CurrentUserSnapshotDto(
+                user.Value.Id,
+                ResolveBinaryIdentityKind(user.Value.IdentityKind),
+                user.Value.Status,
+                user.Value.BanReason,
+                user.Value.DeletedAt);
             return BinaryResults.Frame(aeds, AedsFrameType.CurrentUserSnapshot, writer => PodBinaryCodec.WriteCurrentUserSnapshot(snapshot, writer));
         })
         .RequireAdminPermission(AdminPermissions.AdminManage);
@@ -391,7 +399,12 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "未找到该用户"), aeds);
             }
 
-            var snapshot = new CurrentUserSnapshotDto(user.Value.Id, user.Value.Username, user.Value.Role, user.Value.Status, user.Value.BanReason, user.Value.DeletedAt);
+            var snapshot = new CurrentUserSnapshotDto(
+                user.Value.Id,
+                ResolveBinaryIdentityKind(user.Value.IdentityKind),
+                user.Value.Status,
+                user.Value.BanReason,
+                user.Value.DeletedAt);
             return BinaryResults.Frame(aeds, AedsFrameType.CurrentUserSnapshot, writer => PodBinaryCodec.WriteCurrentUserSnapshot(snapshot, writer));
         })
         .RequireAdminPermission(AdminPermissions.AdminManage);
@@ -963,7 +976,9 @@ public static partial class BinaryEndpoints
                     true,
                     "login",
                     null,
-                    new AuthIdentitySnapshotDto(login.User.Value.Id, login.User.Value.Username, login.User.Value.Role));
+                    new AuthIdentitySnapshotDto(
+                        login.User.Value.Id,
+                        ResolveBinaryIdentityKind(login.User.Value.IdentityKind)));
                 return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(loginResult, writer));
             }
 
@@ -1339,10 +1354,8 @@ public static partial class BinaryEndpoints
                 login.Data.Value.RefreshToken,
                 login.Data.Value.RefreshTokenExpiresAt);
             var flow = new AuthLoginFlowDto(
-                new AuthIdentitySnapshotDto(
-                    login.User.Value.Id,
-                    login.User.Value.Username,
-                    AnonymousIdentityRuntime.ResolveBackendRole(login.User.Value.Role, login.User.Value.IdentityKind)),
+                login.User.Value.Id,
+                ResolveBinaryIdentityKind(login.User.Value.IdentityKind),
                 "authenticated",
                 null,
                 null);

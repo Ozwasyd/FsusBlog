@@ -100,10 +100,8 @@ public sealed class AuthBinaryApplicationFacade(
         }
 
         var flow = new AuthLoginFlowDto(
-            new AuthIdentitySnapshotDto(
-                login.User.Value.Id,
-                login.User.Value.Username,
-                AnonymousIdentityRuntime.ResolveBackendRole(login.User.Value.Role, login.User.Value.IdentityKind)),
+            login.User.Value.Id,
+            ResolveIdentityKind(login.User.Value.IdentityKind),
             "authenticated",
             null,
             null);
@@ -116,4 +114,7 @@ public sealed class AuthBinaryApplicationFacade(
 
     private static AuthBinaryFlowResult Fail(ErrorCode code, string message)
         => new(false, ErrorDetail.Create(code, message), default, null);
+
+    private static string ResolveIdentityKind(string? identityKind)
+        => string.IsNullOrWhiteSpace(identityKind) ? AnonymousIdentityRuntime.AnonymousAccountKind : identityKind.Trim();
 }

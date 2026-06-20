@@ -452,13 +452,14 @@ public readonly record struct RecentCommentStatItemDto(
 public readonly record struct RegionStatItemDto(string Region, int Count);
 
 public readonly record struct TokenResponseDto(string AccessToken, string RefreshToken);
-public readonly record struct AuthIdentitySnapshotDto(int Id, string Username, string Role);
+public readonly record struct AuthIdentitySnapshotDto(int AccountId, string IdentityKind);
 public readonly record struct AuthLoginFlowDto(
-    AuthIdentitySnapshotDto User,
+    int AccountId,
+    string IdentityKind,
     string AuthPhase,
     string? MfaMode,
     string? ChallengeToken);
-public readonly record struct CurrentUserSnapshotDto(int Id, string Username, string Role, int Status, string? BanReason, DateTime? DeletedAt);
+public readonly record struct CurrentUserSnapshotDto(int AccountId, string IdentityKind, int Status, string? BanReason, DateTime? DeletedAt);
 public readonly record struct AdminAccountListItemDto(
     int AccountId,
     string IdentityKind,

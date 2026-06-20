@@ -47,11 +47,8 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('auth-login-flow-frame.hex'))
 
     await expect(requestBinaryOnly<{
-      user: {
-        id: number;
-        username: string;
-        role: string;
-      };
+      accountId: number;
+      identityKind: string;
       authPhase: 'authenticated' | 'mfa_required';
       mfaMode: 'risk' | 'standard' | null;
       challengeToken: string | null;
@@ -59,11 +56,8 @@ describe('binaryTransport ApiError mapping', () => {
       binaryUrl: '/api/binary/auth/anonymous/bootstrap',
       frameType: FrameType.AuthLoginFlow
     })).resolves.toEqual({
-      user: {
-        id: 7,
-        username: 'alice',
-        role: 'admin'
-      },
+      accountId: 7,
+      identityKind: 'anonymous_account',
       authPhase: 'mfa_required',
       mfaMode: 'risk',
       challengeToken: 'ticket-1'
@@ -78,9 +72,8 @@ describe('binaryTransport ApiError mapping', () => {
       action: string;
       proofToken: string | null;
       user: {
-        id: number;
-        username: string;
-        role: string;
+        accountId: number;
+        identityKind: string;
       } | null;
     }>({
       binaryUrl: '/api/binary/auth/mfa/challenge',
@@ -90,9 +83,8 @@ describe('binaryTransport ApiError mapping', () => {
       action: 'login',
       proofToken: 'proof-1',
       user: {
-        id: 7,
-        username: 'alice',
-        role: 'admin'
+        accountId: 7,
+        identityKind: 'anonymous_account'
       }
     })
   })

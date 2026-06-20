@@ -4,14 +4,20 @@ import { BinaryReader, readByte, readFixedUtf8, readInt32, readIsoDate64, readSl
 import { readArrayEnvelope } from './envelopeReaders';
 import { AUTH_LOGIN_FLOW_POD_SIZE, CURRENT_USER_SNAPSHOT_POD_SIZE, IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE, MFA_CHALLENGE_RESULT_POD_SIZE, MFA_PROFILE_POD_SIZE, MFA_RECOVERY_CODE_POD_SIZE, MFA_SETUP_START_POD_SIZE, MFA_SETUP_VERIFY_POD_SIZE, RECOVERY_KEY_CREATE_RESPONSE_POD_SIZE, RECOVERY_KEY_VERIFY_RESPONSE_POD_SIZE, USER_SESSION_SUMMARY_POD_SIZE } from './types';
 
-type LegacyCurrentUserSnapshot = {
-  id: number;
-  username: string;
-  role: string;
+type AdminCurrentUserSnapshot = {
+  accountId: number;
+  identityKind: string;
   status: number;
   banReason: string | null;
   deletedAt: string | null;
 };
+
+const DEFAULT_IDENTITY_KIND = 'anonymous_account';
+
+function normalizeIdentityKind(value: string): string {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : DEFAULT_IDENTITY_KIND;
+}
 
 export function mapAuthLoginFlowFromPayload(payload: Uint8Array): AuthLoginFlow {
   if (payload.byteLength !== AUTH_LOGIN_FLOW_POD_SIZE) {
@@ -21,31 +27,29 @@ export function mapAuthLoginFlowFromPayload(payload: Uint8Array): AuthLoginFlow 
   const authPhase = readByte(payload, 4);
   const mfaMode = readByte(payload, 5);
   const hasChallengeToken = readByte(payload, 6) === 1;
+  const hasIdentityKind = readByte(payload, 7) === 1;
   return {
-    user: {
-      id: readInt32(payload, 0),
-      username: readFixedUtf8(payload, 8, 64),
-      role: readFixedUtf8(payload, 72, 32)
-    },
+    accountId: readInt32(payload, 0),
+    identityKind: hasIdentityKind ? normalizeIdentityKind(readFixedUtf8(payload, 8, 64)) : DEFAULT_IDENTITY_KIND,
     authPhase: authPhase === 2 ? 'mfa_required' : 'authenticated',
     mfaMode: mfaMode === 1 ? 'risk' : mfaMode === 2 ? 'standard' : null,
     challengeToken: hasChallengeToken ? readFixedUtf8(payload, 104, 64) : null
   };
 }
 
-export function mapCurrentUserSnapshotFromPayload(payload: Uint8Array): LegacyCurrentUserSnapshot {
+export function mapCurrentUserSnapshotFromPayload(payload: Uint8Array): AdminCurrentUserSnapshot {
   if (payload.byteLength !== CURRENT_USER_SNAPSHOT_POD_SIZE) {
     throw createAppError(AppErrorCode.ProtocolFailure, 'current_user_snapshot_payload_invalid');
   }
 
   const hasDeletedAt = readByte(payload, 16) === 1;
+  const hasIdentityKind = readByte(payload, 17) === 1;
   const banReason = readFixedUtf8(payload, 116, 256);
   return {
-    id: readInt32(payload, 0),
+    accountId: readInt32(payload, 0),
+    identityKind: hasIdentityKind ? normalizeIdentityKind(readFixedUtf8(payload, 20, 64)) : DEFAULT_IDENTITY_KIND,
     status: readInt32(payload, 4),
     deletedAt: hasDeletedAt ? readIsoDate64(payload, 8) : null,
-    username: readFixedUtf8(payload, 20, 64),
-    role: readFixedUtf8(payload, 84, 32),
     banReason: banReason.length > 0 ? banReason : null
   };
 }
@@ -163,14 +167,14 @@ export function mapMfaChallengeResultFromPayload(payload: Uint8Array): MfaChalle
 
   const hasProofToken = readByte(payload, 5) === 1;
   const hasUser = readByte(payload, 6) === 1;
+  const hasIdentityKind = readByte(payload, 7) === 1;
   return {
     verified: readByte(payload, 4) === 1,
     action: readFixedUtf8(payload, 104, 64),
     proofToken: hasProofToken ? readFixedUtf8(payload, 168, 128) : null,
     user: hasUser ? {
-      id: readInt32(payload, 0),
-      username: readFixedUtf8(payload, 8, 64),
-      role: readFixedUtf8(payload, 72, 32)
+      accountId: readInt32(payload, 0),
+      identityKind: hasIdentityKind ? normalizeIdentityKind(readFixedUtf8(payload, 8, 64)) : DEFAULT_IDENTITY_KIND
     } : null
   };
 }

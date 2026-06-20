@@ -30,10 +30,9 @@ export interface MfaStepUpProofPayload {
 
 // ================= 响应模型定义 =================
 
-interface AuthLoginIdentitySnapshot {
-  id: number
-  username: string
-  role: string
+interface AuthAccountIdentitySnapshot {
+  accountId: number
+  identityKind: string
 }
 
 /** 当前登录账号容器快照 */
@@ -54,7 +53,8 @@ export interface CurrentUserSnapshot {
 }
 
 export interface AuthLoginFlow {
-  user: AuthLoginIdentitySnapshot
+  accountId: number
+  identityKind: string
   authPhase: 'authenticated' | 'mfa_required'
   mfaMode: 'risk' | 'standard' | null
   challengeToken: string | null
@@ -82,7 +82,7 @@ export interface MfaChallengeResult {
   verified: boolean
   action: string
   proofToken: string | null
-  user: AuthLoginIdentitySnapshot | null
+  user: AuthAccountIdentitySnapshot | null
 }
 
 export interface RecoveryKeyCreateResponse {

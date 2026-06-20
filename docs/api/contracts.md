@@ -396,21 +396,21 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 
 ```json
 {
-  "user": {
-    "id": 1,
-    "username": "alice",
-    "role": "guest"
-  },
+  "accountId": 1,
+  "identityKind": "anonymous_account",
   "authPhase": "authenticated",
   "mfaMode": null,
   "challengeToken": null
 }
 ```
 
+- `accountId`：匿名账号容器 id；不等同于可公开展示名，也不能作为 admin 权限来源
+- `identityKind`：当前用户侧固定为 `"anonymous_account"`；admin principal 使用独立 `/api/binary/auth/admin/**` 流程
 - `authPhase`：`"authenticated"` 或 `"mfa_required"`
 - `mfaMode`：`"risk"` / `"standard"` / `null`
 - `challengeToken`：仅在 `authPhase = "mfa_required"` 时存在
 - `POST /api/binary/auth/anonymous/bootstrap` 与 `POST /api/binary/auth/passkey/login/complete` 成功时返回该结构，并在同一响应内写入登录 Cookie。
+- 该结构以及 `MfaChallengeResult.user` 不再输出 legacy `username`、`role` 或 `userId` 字段；MFA 登录完成时的 `user` 只包含 `accountId` 与 `identityKind`。
 - 密码、MFA challenge 或 Passkey 断言完成后仍必须经过服务端最终会话签发校验；封禁账号在认证通过后返回 `AuthLoginFlowDto` 并写入受限会话 Cookie，用于读取账号状态、登出、撤销会话、删除本人账号等安全收尾操作。注销账号（`Deleted` / `DeletedAt`）仍不得返回该结构，也不得写入 access / refresh / session Cookie。
 - 普通账号 access token 不携带 legacy username 或 role claim；`sys_user.role=admin` 不能作为后台权限、notification admin group、rate-limit admin partition、评论管理员删除或审计 admin actor 的来源。后台权限只能来自 independent admin principal token 的 `identity_kind=admin_principal`、`admin_id/admin_sid` 与多值 `admin_permission` claim。
 - `POST /api/binary/auth/delete-account` 在匿名身份模式下只接受 `AuthDeleteAccountRequest` 的确认文本，不包含旧 password、TOTP code 或 recovery-code 字段；敏感操作 proof 必须通过一次性 `X-Fsus-Mfa-Proof` 提交，action 固定为 `account.delete`。注销成功后服务端撤销当前账号 session、Passkey、Recovery Key 与匿名凭据状态，并把 `sys_user` 保留为 anonymous account tombstone，不再改写旧 username。
@@ -438,7 +438,7 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 
 - `sys_user` 仍是持久化账号容器，但 `/auth/me` 不输出内部 `username` 或 `role`，也不允许客户端把普通账号快照当成权限来源。
 - `identityKind` 当前生产值为 `"anonymous_account"`；`publicHandle` 只是公开显示称呼，不是登录名或权限主体。
-- admin 权限只能读取 `/api/binary/auth/admin/me` 的 independent admin principal；legacy `CurrentUserSnapshot` frame 只保留给 admin-only 查询、迁移和测试面。
+- admin 权限只能读取 `/api/binary/auth/admin/me` 的 independent admin principal；legacy `CurrentUserSnapshot` frame 只保留给 admin-only 查询、迁移和测试面，字段为 `accountId`、`identityKind`、`status`、`banReason`、`deletedAt`，不再包含 `username` 或 `role`。
 
 ### `UserSessionItemDto`（会话列表项）
 

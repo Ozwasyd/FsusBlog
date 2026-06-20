@@ -146,6 +146,13 @@ run_residue_check \
   src/frontend/src
 
 run_residue_check \
+  "legacy auth identity protocol fields" \
+  "legacy auth identity protocol field residue detected" \
+  'AuthIdentitySnapshotDto[(][^;\n]*(?:Username|Role|UserId)|CurrentUserSnapshotDto[(][^;\n]*(?:Username|Role|UserId)|AuthLoginFlowDto[(][^;\n]*AuthIdentitySnapshotDto|AuthIdentitySnapshotDto\s+User|public readonly Utf8Fixed(?:64|32) (?:Username|Role);|flow[.]User|snapshot[.](?:Username|Role)|dto[.]User[?][.](?:Username|Role)|interface AuthLoginIdentitySnapshot|user:\s*AuthLoginIdentitySnapshot|(?:username|role):\s*(?:string|readFixedUtf8)' \
+  "" \
+  src/shared/Contracts/Outputs/ServerResponseContracts.cs src/shared/Contracts/Models/UserPods.cs src/core/Cache/PodBinaryCodec.User.cs src/frontend/src/api/auth.ts src/frontend/src/adapters/binary/authAdapter.ts
+
+run_residue_check \
   "legacy password login form" \
   "legacy password login form residue detected" \
   '\b(?:name|type|v-model)=["'\''][^"'\'']*(?:password|Password)|\b(?:passwordLogin|loginWithPassword|handlePasswordLogin)\b|\bFrameType[.]AuthLoginRequest\b' \
