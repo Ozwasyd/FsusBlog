@@ -2,6 +2,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,7 +10,9 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class SecurityChallengePersistenceTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollection))]
+public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFixture fixture)
 {
     private const string HashA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string HashB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -80,7 +83,7 @@ public sealed class SecurityChallengePersistenceTests
     [Fact]
     public async Task IssueAsync_PersistsChallengeHashMetadata()
     {
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         var service = new SecurityChallengePersistenceService(db);
         SecurityChallengeIssueRequest request = CreateIssueRequest();
@@ -114,7 +117,7 @@ public sealed class SecurityChallengePersistenceTests
     [Fact]
     public async Task RecordAttemptAsync_WritesSuccessAttemptAndTransitionsChallenge()
     {
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         var service = new SecurityChallengePersistenceService(db);
         SecurityChallengeIssueRequest request = CreateIssueRequest();
@@ -136,7 +139,7 @@ public sealed class SecurityChallengePersistenceTests
     [Fact]
     public async Task RecordAttemptAsync_WritesFailureAndReplayAttemptsIndependently()
     {
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         var service = new SecurityChallengePersistenceService(db);
         SecurityChallengeIssueRequest request = CreateIssueRequest();
@@ -167,7 +170,7 @@ public sealed class SecurityChallengePersistenceTests
     [Fact]
     public async Task ExpireAndRevokeAsync_RecordTerminalStateAttempts()
     {
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         var service = new SecurityChallengePersistenceService(db);
         SecurityChallengeIssueRequest expiring = CreateIssueRequest();
@@ -223,56 +226,14 @@ public sealed class SecurityChallengePersistenceTests
             Traceparent,
             DateTime.UtcNow);
 
-    private static SqlSugarClient CreateDb()
-        => new(new ConnectionConfig
-        {
-            DbType = DbType.Sqlite,
-            ConnectionString = $"Data Source={Path.Combine(Path.GetTempPath(), $"fsus-security-challenge-{Guid.NewGuid():N}.db")}",
-            InitKeyType = InitKeyType.Attribute,
-            IsAutoCloseConnection = true
-        });
+    private Task<SqlSugarClient> CreateDbAsync()
+        => PostgresSqlSugarTestClient.CreateAsync(fixture);
 
     private static void CreateTables(SqlSugarClient db)
     {
-        db.Ado.ExecuteCommand("""
-            CREATE TABLE IF NOT EXISTS security_challenge (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                challenge_id TEXT NOT NULL UNIQUE,
-                status TEXT NOT NULL,
-                kind TEXT NOT NULL,
-                algorithm TEXT NOT NULL,
-                action TEXT NOT NULL,
-                route_key TEXT NOT NULL,
-                subject_hash TEXT NOT NULL,
-                client_ip_hash TEXT NOT NULL,
-                device_fp_hash TEXT NOT NULL,
-                policy_version TEXT NOT NULL,
-                payload_hash TEXT NOT NULL,
-                trace_id TEXT NULL,
-                traceparent TEXT NULL,
-                issued_at_utc TEXT NOT NULL,
-                expires_at_utc TEXT NOT NULL,
-                verified_at_utc TEXT NULL,
-                revoked_at_utc TEXT NULL,
-                created_at_utc TEXT NOT NULL,
-                updated_at_utc TEXT NOT NULL
-            );
-            """);
-        db.Ado.ExecuteCommand("""
-            CREATE TABLE IF NOT EXISTS security_challenge_attempt (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                attempt_id TEXT NOT NULL UNIQUE,
-                challenge_id TEXT NOT NULL,
-                outcome TEXT NOT NULL,
-                reason TEXT NULL,
-                payload_hash TEXT NULL,
-                client_ip_hash TEXT NULL,
-                device_fp_hash TEXT NULL,
-                trace_id TEXT NULL,
-                traceparent TEXT NULL,
-                attempted_at_utc TEXT NOT NULL,
-                created_at_utc TEXT NOT NULL
-            );
-            """);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(SecurityChallenge),
+            typeof(SecurityChallengeAttempt));
     }
 }

@@ -253,13 +253,13 @@ Passkey 删除与重命名是账号安全凭据变更，必须通过统一 user 
 | POST | `/api/binary/auth/admin/login/passkey/complete` | 请求 `PasskeyLoginCompleteRequest`，响应 `EmptySuccess` | 匿名 |
 | POST | `/api/binary/auth/admin/step-up/passkey/begin` | 响应 `PasskeyLoginBegin` | admin principal + `admin.manage` |
 | POST | `/api/binary/auth/admin/step-up/passkey/complete` | 请求 `PasskeyLoginCompleteRequest`，响应 `MfaChallengeResult` | admin principal + `admin.manage` |
-| GET | `/api/binary/auth/admin/me` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
+| GET | `/api/binary/auth/admin/me` | 响应 `AdminPrincipalSnapshot` | admin principal + `admin.manage` |
 | POST | `/api/binary/auth/admin/logout` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
 | GET | `/api/binary/auth/admin/sessions` | 响应 `AdminSessionList` | admin principal + `admin.manage` |
 | POST | `/api/binary/auth/admin/sessions/{sessionId}/revoke` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
 | POST | `/api/binary/auth/admin/sessions/revoke-others` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
 
-admin 登录只接受 Passkey/Security Key assertion。成功会写入独立 `AdminAccessToken` / `AdminSessionId` Cookie；JWT 必须包含 `identity_kind=admin_principal`、`admin_id`、`admin_sid` 与多值 `admin_permission` claim。请求期认证必须按 `admin_sid` 回查 `admin_session` 并校验 principal active、session 未撤销、idle/absolute 未过期、`AccessTokenHash` 与当前 token 匹配、session principal id 与 `admin_id` 一致；失败返回未认证/未授权并删除 admin session cookies，成功更新 `LastSeenAtUtc`。admin-sensitive step-up 只接受 `/api/binary/auth/admin/step-up/passkey/begin|complete` 的管理员 Passkey 再认证，不读取普通 `sys_user` MFA 状态，也不接受普通用户 MFA proof。
+admin 登录只接受 Passkey/Security Key assertion。成功会写入独立 `AdminAccessToken` / `AdminSessionId` Cookie；JWT 必须包含 `identity_kind=admin_principal`、`admin_id`、`admin_sid` 与多值 `admin_permission` claim。请求期认证必须按 `admin_sid` 回查 `admin_session` 并校验 principal active、session 未撤销、idle/absolute 未过期、`AccessTokenHash` 与当前 token 匹配、session principal id 与 `admin_id` 一致；失败返回未认证/未授权并删除 admin session cookies，成功更新 `LastSeenAtUtc`。`GET /api/binary/auth/admin/me` 从已验证的 admin principal claims 生成 `AdminPrincipalSnapshot`，用于前端从 HttpOnly Cookie 恢复 independent admin workspace，不得退回 legacy `sys_user.role=admin`。admin-sensitive step-up 只接受 `/api/binary/auth/admin/step-up/passkey/begin|complete` 的管理员 Passkey 再认证，不读取普通 `sys_user` MFA 状态，也不接受普通用户 MFA proof。
 
 admin step-up challenge 绑定 `identity_kind=admin_principal`、`admin_id`、当前 `admin_sid`、action=`admin-sensitive`、challenge token 和过期时间。complete 成功后返回 `MfaChallengeResult(verified=true, action=admin-sensitive, proofToken=...)`；proof 存储使用 `CachePolicyId.SecurityMfaProof`，key 形如 `admin:{adminId}:{adminSid}:admin-sensitive:{token}`，只能消费一次，不能跨 admin principal 或 session 使用。敏感写入继续通过 `X-Fsus-Mfa-Proof` 传递该 proof header；缺失、过期、复用或 session 不匹配返回 `428` + `MFA_PROOF_REQUIRED`。
 
@@ -448,6 +448,21 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
   "isRevoked": false
 }
 ```
+
+### `AdminPrincipalSnapshot`（管理员当前会话快照）
+
+```json
+{
+  "id": "1",
+  "displayName": "local-root",
+  "source": "independent",
+  "permissions": ["admin.manage", "article.write"],
+  "adminSessionStatus": "active",
+  "totpStepUpRequired": false
+}
+```
+
+`permissions` 来自 admin JWT 的多值 `admin_permission` claim；前端只用该快照恢复管理工作区和做本地导航 gating，真实授权仍由后端 endpoint permission policy 决定。
 
 ### `MfaSetupStartDto`（MFA 设置响应）
 

@@ -204,24 +204,6 @@
         "resolved": "5.2.0",
         "contentHash": "po1jhvFd+8pbfvJR/puh+fkHi0GRanAdvayh/0e47yaM6CXWZ6opUjCMFuYlAnD2LcbyvQE7fPJKvogmaUcN+w=="
       },
-      "Microsoft.Data.Sqlite": {
-        "type": "Transitive",
-        "resolved": "9.0.0",
-        "contentHash": "lw6wthgXGx3r/U775k1UkUAWIn0kAT0wj4ZRq0WlhPx4WAOiBsIjgDKgWkXcNTGT0KfHiClkM+tyPVFDvxeObw==",
-        "dependencies": {
-          "Microsoft.Data.Sqlite.Core": "9.0.0",
-          "SQLitePCLRaw.bundle_e_sqlite3": "2.1.10",
-          "SQLitePCLRaw.core": "2.1.10"
-        }
-      },
-      "Microsoft.Data.Sqlite.Core": {
-        "type": "Transitive",
-        "resolved": "9.0.0",
-        "contentHash": "cFfZjFL+tqzGYw9lB31EkV1IWF5xRQNk2k+MQd+Cf86Gl6zTeAoiZIFw5sRB1Z8OxpEC7nu+nTDsLSjieBAPTw==",
-        "dependencies": {
-          "SQLitePCLRaw.core": "2.1.10"
-        }
-      },
       "Microsoft.Extensions.Caching.StackExchangeRedis": {
         "type": "Transitive",
         "resolved": "10.0.7",
@@ -334,11 +316,6 @@
         "resolved": "1.23.0",
         "contentHash": "2wDnb4umupJZ/1ikgWozFVpggH1mlHQFc0odXVv2ZagL3RYwXgW9zmC15fiqIBzmaC0vLZUnLGwDY+p8ZR7Syw=="
       },
-      "MySqlConnector": {
-        "type": "Transitive",
-        "resolved": "2.2.5",
-        "contentHash": "6sinY78RvryhHwpup3awdjYO7d5hhWahb5p/1VDODJhSxJggV/sBbYuKK5IQF9TuzXABiddqUbmRfM884tqA3Q=="
-      },
       "Nethermind.MclBindings": {
         "type": "Transitive",
         "resolved": "1.0.5",
@@ -351,8 +328,8 @@
       },
       "Npgsql": {
         "type": "Transitive",
-        "resolved": "10.0.2",
-        "contentHash": "q5RfBI+wywJSFUNDE1L4ZbHEHCFTblo8Uf6A6oe4feOUFYiUQXyAf9GBh5qEZpvJaHiEbpBPkQumjEhXCJxdrg=="
+        "resolved": "10.0.3",
+        "contentHash": "7nb5YzXuvWWJxB0J8DiyL3we+X4FOctZrt0fIBnucOIaIevFEEwGQVZKtiu9olXdlNAK1eNgqSral6r/jlhI4w=="
       },
       "Npgsql.OpenTelemetry": {
         "type": "Transitive",
@@ -431,21 +408,6 @@
         "dependencies": {
           "OpenTelemetry.Api": "[1.15.3, 2.0.0)"
         }
-      },
-      "Oracle.ManagedDataAccess.Core": {
-        "type": "Transitive",
-        "resolved": "23.8.0",
-        "contentHash": "wgCcndZnwbWySb4Bm0UOAJO8wOagFAs1IG8Aa4ZX38D9N9MrySfryGKJd+yajb2CDGXv/yL3x7yES6mmF4OMWw==",
-        "dependencies": {
-          "System.Diagnostics.PerformanceCounter": "8.0.0",
-          "System.DirectoryServices.Protocols": "8.0.0",
-          "System.Security.Cryptography.Pkcs": "8.0.1"
-        }
-      },
-      "Oscar.Data.SqlClient": {
-        "type": "Transitive",
-        "resolved": "4.0.4",
-        "contentHash": "VJ3xVvRjxrPi/mMPT5EqYiMZor0MjFu83mw1qvUveBFWJSudGh9BOKZq7RkhqeNCcL1ud0uK0/TVkw+xTa4q4g=="
       },
       "Pipelines.Sockets.Unofficial": {
         "type": "Transitive",
@@ -537,58 +499,14 @@
           "Serilog": "4.2.0"
         }
       },
-      "SQLitePCLRaw.bundle_e_sqlite3": {
+      "SqlSugarCoreNoDrive": {
         "type": "Transitive",
-        "resolved": "2.1.10",
-        "contentHash": "UxWuisvZ3uVcVOLJQv7urM/JiQH+v3TmaJc1BLKl5Dxfm/nTzTUrqswCqg/INiYLi61AXnHo1M1JPmPqqLnAdg==",
+        "resolved": "5.1.4.213",
+        "contentHash": "8cMUabSSOj6IxU8iq9HFzQmm3bjtKBG4iPJd9trepMPIXXCEACmTAkfe1LsJWVIoeACGwMTux4mwEIb7moI9oA==",
         "dependencies": {
-          "SQLitePCLRaw.lib.e_sqlite3": "2.1.10",
-          "SQLitePCLRaw.provider.e_sqlite3": "2.1.10"
-        }
-      },
-      "SQLitePCLRaw.core": {
-        "type": "Transitive",
-        "resolved": "2.1.10",
-        "contentHash": "Ii8JCbC7oiVclaE/mbDEK000EFIJ+ShRPwAvvV89GOZhQ+ZLtlnSWl6ksCNMKu/VGXA4Nfi2B7LhN/QFN9oBcw=="
-      },
-      "SQLitePCLRaw.lib.e_sqlite3": {
-        "type": "Transitive",
-        "resolved": "2.1.10",
-        "contentHash": "mAr69tDbnf3QJpRy2nJz8Qdpebdil00fvycyByR58Cn9eARvR+UiG2Vzsp+4q1tV3ikwiYIjlXCQFc12GfebbA=="
-      },
-      "SQLitePCLRaw.provider.e_sqlite3": {
-        "type": "Transitive",
-        "resolved": "2.1.10",
-        "contentHash": "uZVTi02C1SxqzgT0HqTWatIbWGb40iIkfc3FpFCpE/r7g6K0PqzDUeefL6P6HPhDtc6BacN3yQysfzP7ks+wSQ==",
-        "dependencies": {
-          "SQLitePCLRaw.core": "2.1.10"
-        }
-      },
-      "SqlSugarCore": {
-        "type": "Transitive",
-        "resolved": "5.1.4.214",
-        "contentHash": "Jm1PbcEKGosLRx6gNqhbSNU8B2aFLCRD5vLXPvfJBPLUA/eROWpy9dnauLtt+E3BNHbPiSjrLTih7G06eR1Dbw==",
-        "dependencies": {
-          "Microsoft.Data.SqlClient": "5.2.2",
-          "Microsoft.Data.Sqlite": "9.0.0",
-          "MySqlConnector": "2.2.5",
           "Newtonsoft.Json": "13.0.2",
-          "Npgsql": "5.0.18",
-          "Oracle.ManagedDataAccess.Core": "23.8.0",
-          "Oscar.Data.SqlClient": "4.0.4",
-          "SqlSugarCore.Dm": "8.8.1",
-          "SqlSugarCore.Kdbndp": "9.3.8.122"
+          "SystemCommon": "8.5.0"
         }
-      },
-      "SqlSugarCore.Dm": {
-        "type": "Transitive",
-        "resolved": "8.8.1",
-        "contentHash": "TQaUQNhsXLSckTS8eAvrnwO5RPB1mqmkTNQhNmufcGWrw2+hi4pvOmNYRT0d7Tl0EBBZreHchLIP2Pjvuc/0MA=="
-      },
-      "SqlSugarCore.Kdbndp": {
-        "type": "Transitive",
-        "resolved": "9.3.8.122",
-        "contentHash": "cK5ntiTwT+JShuFvBvWLrE0YMA1LtajZxtwSUBtqUzJeslWDiXX1k9nshGAhCiPPIUy1hXbKKnTU8mCVFHHDeg=="
       },
       "StackExchange.Redis": {
         "type": "Transitive",
@@ -614,19 +532,6 @@
           "System.Security.Cryptography.ProtectedData": "8.0.0"
         }
       },
-      "System.Diagnostics.PerformanceCounter": {
-        "type": "Transitive",
-        "resolved": "8.0.0",
-        "contentHash": "lX6DXxtJqVGWw7N/QmVoiCyVQ+Q/Xp+jVXPr3gLK1jJExSn1qmAjJQeb8gnOYeeBTG3E3PmG1nu92eYj/TEjpg==",
-        "dependencies": {
-          "System.Configuration.ConfigurationManager": "8.0.0"
-        }
-      },
-      "System.DirectoryServices.Protocols": {
-        "type": "Transitive",
-        "resolved": "8.0.0",
-        "contentHash": "puwJxURHDrYLGTQdsHyeMS72ClTqYa4lDYz6LHSbkZEk5hq8H8JfsO4MyYhB5BMMxg93jsQzLUwrnCumj11UIg=="
-      },
       "System.IdentityModel.Tokens.Jwt": {
         "type": "Transitive",
         "resolved": "8.0.1",
@@ -649,15 +554,19 @@
           "System.Configuration.ConfigurationManager": "8.0.0"
         }
       },
-      "System.Security.Cryptography.Pkcs": {
-        "type": "Transitive",
-        "resolved": "8.0.1",
-        "contentHash": "CoCRHFym33aUSf/NtWSVSZa99dkd0Hm7OCZUxORBjRB16LNhIEOf8THPqzIYlvKM0nNDAPTRBa1FxEECrgaxxA=="
-      },
       "System.Security.Cryptography.ProtectedData": {
         "type": "Transitive",
         "resolved": "8.0.0",
         "contentHash": "+TUFINV2q2ifyXauQXRwy4CiBhqvDEDZeVJU7qfxya4aRYOKzVBpN+4acx25VcPB9ywUN6C0n8drWl110PhZEg=="
+      },
+      "SystemCommon": {
+        "type": "Transitive",
+        "resolved": "8.5.0",
+        "contentHash": "W6KjogxGYORmvU82YbOTXGX6ZiaeIvtkJ5kMtowGyGa8WAJFZr0awS3ddwsnDLSovIQ9IKJ4F1y5L34ouh2tmw==",
+        "dependencies": {
+          "Microsoft.Data.SqlClient": "5.2.2",
+          "System.IdentityModel.Tokens.Jwt": "7.6.3"
+        }
       },
       "xunit.abstractions": {
         "type": "Transitive",
@@ -721,6 +630,7 @@
           "Microsoft.Extensions.Caching.StackExchangeRedis": "[10.0.7, )",
           "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
           "Nethermind.MclBindings": "[1.0.5, )",
+          "Npgsql": "[10.0.3, )",
           "Npgsql.OpenTelemetry": "[10.0.2, )",
           "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
           "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
@@ -732,7 +642,7 @@
           "Serilog.Sinks.Async": "[2.1.0, )",
           "Serilog.Sinks.Console": "[6.1.1, )",
           "Serilog.Sinks.File": "[7.0.0, )",
-          "SqlSugarCore": "[5.1.4.214, )"
+          "SqlSugarCoreNoDrive": "[5.1.4.213, )"
         }
       },
       "fsusblog.shared": {

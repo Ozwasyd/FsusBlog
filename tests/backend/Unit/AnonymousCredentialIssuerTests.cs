@@ -25,7 +25,9 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class AnonymousCredentialIssuerTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollection))]
+public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
     public void Migration_CreatesIssuanceAuditWithoutCredentialMapping()
@@ -219,7 +221,7 @@ public sealed class AnonymousCredentialIssuerTests
     [Fact]
     public async Task IssueAsync_EligibleAccount_ReturnsCredentialResponseAndStoresOnlyIrreversibleAudit()
     {
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         SeedUser(db, status: 0);
         var auditEvents = new CapturingAuditEventService();
@@ -281,7 +283,7 @@ public sealed class AnonymousCredentialIssuerTests
     [Fact]
     public async Task IssueAsync_SameAccountAcrossEpochs_ProducesUnlinkableCircuitNativeSignaturesWithoutStoredLinkingMaterial()
     {
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         SeedUser(db, status: 0);
         var auditEvents = new CapturingAuditEventService();
@@ -327,7 +329,7 @@ public sealed class AnonymousCredentialIssuerTests
     [Fact]
     public async Task IssueAsync_DuplicateEpoch_ReturnsConflictAndDoesNotCreateSecondAuditRow()
     {
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         SeedUser(db, status: 0);
         var service = CreateService(db, new CapturingAuditEventService(), credentialIssuer: new CapturingCircuitNativeCredentialIssuer());
@@ -350,7 +352,7 @@ public sealed class AnonymousCredentialIssuerTests
     [Fact]
     public async Task IssueAsync_BannedAccountRequiresExplicitAllowConfiguration()
     {
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         SeedUser(db, status: 1);
         var denied = CreateService(db, new CapturingAuditEventService(), new Dictionary<string, string?>
@@ -374,7 +376,7 @@ public sealed class AnonymousCredentialIssuerTests
     [Fact]
     public async Task IssueAsync_InactiveCredentialStatusIsRejectedBeforeCircuitNativeSigning()
     {
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         SeedUser(db, status: 0, credentialStatus: "disabled");
         var credentialIssuer = new CapturingCircuitNativeCredentialIssuer();
@@ -548,46 +550,24 @@ public sealed class AnonymousCredentialIssuerTests
             CredentialLevel: AnonymousCredentialLevels.StrongAnonymous,
             CredentialRequest: [.. Enumerable.Range(0, 64).Select(static value => (byte)value)]);
 
-    private static SqlSugarClient CreateDb()
-        => new(new ConnectionConfig
-        {
-            DbType = DbType.Sqlite,
-            ConnectionString = $"Data Source={Path.Combine(Path.GetTempPath(), $"fsus-anonymous-credential-issuer-{Guid.NewGuid():N}.db")}",
-            InitKeyType = InitKeyType.Attribute,
-            IsAutoCloseConnection = true
-        });
+    private Task<SqlSugarClient> CreateDbAsync()
+        => PostgresSqlSugarTestClient.CreateAsync(fixture);
 
     private static void CreateTables(SqlSugarClient db)
     {
-        db.Ado.ExecuteCommand("""
-            CREATE TABLE IF NOT EXISTS sys_user (
-                Id INTEGER PRIMARY KEY,
-                Status INTEGER NOT NULL,
-                deleted_at TEXT NULL,
-                anonymous_credential_level TEXT NOT NULL,
-                anonymous_credential_status TEXT NOT NULL
-            );
-            """);
-        db.Ado.ExecuteCommand("""
-            CREATE TABLE IF NOT EXISTS anonymous_credential_issuance_audit (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                epoch INTEGER NOT NULL,
-                status TEXT NOT NULL,
-                created_at_utc TEXT NOT NULL,
-                trace_id TEXT NULL,
-                UNIQUE(user_id, epoch)
-            );
-            """);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(User),
+            typeof(AnonymousCredentialIssuanceAudit));
     }
 
     private static void SeedUser(SqlSugarClient db, int status, string credentialStatus = AnonymousCredentialStatuses.Active)
         => db.Ado.ExecuteCommand(
             """
             INSERT INTO sys_user
-                (Id, Status, deleted_at, anonymous_credential_level, anonymous_credential_status)
+                (id, status, role, deleted_at, anonymous_credential_level, anonymous_credential_status)
             VALUES
-                (@Id, @Status, NULL, @Level, @CredentialStatus);
+                (@Id, @Status, 'guest', NULL, @Level, @CredentialStatus);
             """,
             new SugarParameter("@Id", 42),
             new SugarParameter("@Status", status),

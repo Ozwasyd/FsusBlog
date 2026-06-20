@@ -47,8 +47,8 @@ public sealed class AdminMfaStepUpSecurityTests
         Assert.Contains("adminSessionId", binaryCore, StringComparison.Ordinal);
         Assert.DoesNotContain("IsMfaVerified()", binaryCore, StringComparison.Ordinal);
         Assert.True(CountOccurrences(adminUsers, "RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals)") >= 2);
-        Assert.Contains("RequireAdminSensitiveStepUpAsync(context, adminPrincipals)", authoring, StringComparison.Ordinal);
-        Assert.Contains("RequireAdminSensitiveStepUpAsync(context, adminPrincipals)", security, StringComparison.Ordinal);
+        Assert.Contains("RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds)", authoring, StringComparison.Ordinal);
+        Assert.Contains("RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds)", security, StringComparison.Ordinal);
         Assert.DoesNotContain("RequireAdminSensitiveStepUpAsync(context, mfaChallengeService)", authoring, StringComparison.Ordinal);
         Assert.DoesNotContain("RequireAdminSensitiveStepUpAsync(context, mfaChallengeService)", security, StringComparison.Ordinal);
     }
@@ -80,7 +80,7 @@ public sealed class AdminMfaStepUpSecurityTests
 
         Assert.Contains("HttpContext context", contentExportEndpoint, StringComparison.Ordinal);
         Assert.Contains("IAdminPrincipalService adminPrincipals", contentExportEndpoint, StringComparison.Ordinal);
-        Assert.Contains("RequireAdminSensitiveStepUpAsync(context, adminPrincipals)", contentExportEndpoint, StringComparison.Ordinal);
+        Assert.Contains("RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds)", contentExportEndpoint, StringComparison.Ordinal);
     }
 
     [Fact]

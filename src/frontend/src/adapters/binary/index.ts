@@ -128,6 +128,7 @@ const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.SecurityChallengeIssueResponse]: mapSecurityChallengeIssueResponseFromPayload,
   [FrameType.SecurityChallengeVerifyResponse]: mapSecurityChallengeVerifyResponseFromPayload,
   [FrameType.SiteSubscriptionResponse]: mapSiteSubscriptionResponseFromPayload,
+  [FrameType.AdminPrincipalSnapshot]: mapAuthoringJsonFromPayload,
   [FrameType.EmptySuccess]: mapEmptySuccessFromPayload,
   [FrameType.MutationId]: mapMutationIdFromPayload
 };

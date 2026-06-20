@@ -118,6 +118,63 @@ dev 模式下，Vite 会通过 `transformIndexHtml` 注入 `public-shell-critica
 | `http://127.0.0.1:7568` | ASP.NET Core API（Debug 本地运行） |
 | `http://127.0.0.1:8080` | 生产构建预览（Release 容器） |
 
+### 本地 Passkey 注入
+
+当前 anonymous identity mode 下，旧 `sys_user` 密码登录和旧 `role=admin`
+不再授予登录或后台权限。`demo-admin` / `ChangeMe123!` 只用于 deterministic
+fixture 数据归属，不是当前登录凭据。首次本地登录应通过浏览器 Passkey
+ceremony 创建凭据；自动化或无物理认证器环境可以把 Passkey 注入到浏览器的
+WebAuthn virtual authenticator，再走真实的注册 / admin bootstrap 完成流程。
+
+本地无 HTTPS 豁免只适用于 loopback origin：
+
+- 推荐使用 `http://localhost:3000` 做 Passkey 注册、登录和 admin bootstrap。
+- 如必须使用 `http://127.0.0.1:3000`，后端启动前把
+  `Fido2__ServerDomain` 设为 `127.0.0.1`，并把 `Fido2__Origins__0`
+  设为 `http://127.0.0.1:3000`。不要在同一枚凭据上混用 `localhost`
+  与 `127.0.0.1`，WebAuthn 凭据按 RP ID 隔离。
+- LAN IP、Docker bridge IP、自定义内网域名仍必须使用 HTTPS 和匹配的
+  `Fido2:ServerDomain` / `Fido2:Origins`；本地豁免不得扩展到生产或共享环境。
+
+Playwright / Chromium 注入示例：
+
+```ts
+const context = await browser.newContext({ baseURL: 'http://localhost:3000' })
+const page = await context.newPage()
+const cdp = await context.newCDPSession(page)
+
+await cdp.send('WebAuthn.enable')
+await cdp.send('WebAuthn.addVirtualAuthenticator', {
+  options: {
+    protocol: 'ctap2',
+    transport: 'internal',
+    hasResidentKey: true,
+    hasUserVerification: true,
+    isUserVerified: true,
+    automaticPresenceSimulation: true
+  }
+})
+
+await page.goto('/login')
+```
+
+上面的注入只创建浏览器侧虚拟认证器。随后仍必须通过正常 UI 或二进制 API
+执行 Passkey 注册、Recovery Key 绑定或
+`/api/binary/auth/admin/bootstrap/passkey/begin|complete`。不要直接向
+`passkey_credential` 或 `admin_passkey_credential` 插入固定私钥 / 公钥行；
+这样会绕过 challenge 消费、origin 校验和审计链路，也无法证明浏览器实际持有凭据。
+
+如果要创建本地 root admin principal，请在后端启动前提供一次性 bootstrap token：
+
+```bash
+export FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN=local-dev-bootstrap-token
+/opt/homebrew/bin/bash ./tools/dev/start.sh --seed-demo
+```
+
+然后使用同一个 loopback origin 完成 admin bootstrap Passkey ceremony。root
+admin 一旦存在，bootstrap 端点会固定拒绝再次初始化；需要重建本地身份时清理
+dev PostgreSQL / Redis volume 后重新启动。
+
 ---
 
 ## 开发环境配置

@@ -89,7 +89,7 @@ internal static partial class Program
         {
             await using AsyncServiceScope scope = provider.CreateAsyncScope();
             ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
-            EnsureLifecycleSchema(db, options.DbType);
+            EnsureLifecycleSchema(db);
         }
 
         var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
@@ -149,7 +149,7 @@ internal static partial class Program
         services.AddSingleton<IZkProofVerifier, DisabledZkProofVerifier>();
         services.AddSingleton<IAnonymousCredentialRootService, AnonymousCredentialRootService>();
         services.AddScoped<IAnonymousCredentialRootStore, AnonymousCredentialRootStore>();
-        services.AddScoped<ISqlSugarClient>(_ => CreateDb(options.DbType, options.ConnectionString));
+        services.AddScoped<ISqlSugarClient>(_ => CreateDb(options.ConnectionString));
         services.AddSingleton<BootstrapAuditSink>();
         services.AddScoped<IAuditEventService>(static sp => sp.GetRequiredService<BootstrapAuditSink>());
         services.AddSingleton<AnonymousCredentialRootLifecycleService>();
@@ -164,90 +164,26 @@ internal static partial class Program
         });
     }
 
-    private static ISqlSugarClient CreateDb(string dbType, string connectionString)
+    private static ISqlSugarClient CreateDb(string connectionString)
     {
-        DbType resolved = dbType.Equals("sqlite", StringComparison.OrdinalIgnoreCase)
-            ? DbType.Sqlite
-            : DbType.PostgreSQL;
         var config = new ConnectionConfig
         {
-            DbType = resolved,
+            DbType = DbType.PostgreSQL,
             ConnectionString = connectionString,
             InitKeyType = InitKeyType.Attribute,
-            IsAutoCloseConnection = true
-        };
-        if (resolved == DbType.PostgreSQL)
-        {
-            config.MoreSettings = new ConnMoreSettings
+            IsAutoCloseConnection = true,
+            MoreSettings = new ConnMoreSettings
             {
                 PgSqlIsAutoToLower = true,
                 PgSqlIsAutoToLowerCodeFirst = true
-            };
-        }
+            }
+        };
 
         return new SqlSugarClient(config);
     }
 
-    private static void EnsureLifecycleSchema(ISqlSugarClient db, string dbType)
-    {
-        if (!dbType.Equals("sqlite", StringComparison.OrdinalIgnoreCase))
-        {
-            db.CodeFirst.InitTables<AnonymousCredentialEpoch, AnonymousCredentialRoot, AnonymousCredentialRevocation>();
-            return;
-        }
-
-        db.Ado.ExecuteCommand("""
-            CREATE TABLE IF NOT EXISTS anonymous_credential_epoch (
-                epoch INTEGER PRIMARY KEY,
-                status TEXT NOT NULL,
-                created_at_utc TEXT NOT NULL,
-                activated_at_utc TEXT NULL,
-                expires_at_utc TEXT NOT NULL,
-                root_grace_expires_at_utc TEXT NOT NULL,
-                active_root_hash TEXT NULL,
-                reason TEXT NULL
-            );
-            CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_epoch_epoch ON anonymous_credential_epoch(epoch);
-            """);
-        db.Ado.ExecuteCommand("""
-            CREATE TABLE IF NOT EXISTS anonymous_credential_root (
-                epoch INTEGER PRIMARY KEY,
-                root_hash TEXT NOT NULL,
-                revocation_root_hash TEXT NOT NULL DEFAULT '',
-                circuit_id TEXT NOT NULL,
-                circuit_numeric_id INTEGER NOT NULL DEFAULT 0,
-                verifying_key_hash TEXT NOT NULL,
-                issuer_public_key_hash TEXT NOT NULL DEFAULT '',
-                public_input_layout_version INTEGER NOT NULL,
-                circuit_metadata TEXT NULL,
-                created_at_utc TEXT NOT NULL,
-                activated_at_utc TEXT NULL,
-                expires_at_utc TEXT NOT NULL,
-                root_grace_expires_at_utc TEXT NOT NULL,
-                revoked_at_utc TEXT NULL,
-                updated_at_utc TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'active',
-                revoke_reason TEXT NULL
-            );
-            CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_root_hash ON anonymous_credential_root(root_hash);
-            CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_root_single_active ON anonymous_credential_root(status) WHERE status = 'active';
-            CREATE INDEX IF NOT EXISTS idx_anonymous_credential_root_status_epoch ON anonymous_credential_root(status, epoch);
-            """);
-        db.Ado.ExecuteCommand("""
-            CREATE TABLE IF NOT EXISTS anonymous_credential_revocation (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                epoch INTEGER NOT NULL,
-                root_hash TEXT NOT NULL,
-                revocation_handle_hash TEXT NOT NULL,
-                revocation_root_hash TEXT NOT NULL,
-                reason TEXT NULL,
-                actor_id TEXT NULL,
-                revoked_at_utc TEXT NOT NULL
-            );
-            CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_revocation_epoch_handle
-                ON anonymous_credential_revocation(epoch, revocation_handle_hash);
-            """);
-    }
+    private static void EnsureLifecycleSchema(ISqlSugarClient db)
+        => db.CodeFirst.InitTables<AnonymousCredentialEpoch, AnonymousCredentialRoot, AnonymousCredentialRevocation>();
 
     private static BootstrapMaterial ValidateInput(JsonElement input, List<string> errors)
     {
@@ -659,10 +595,10 @@ internal static partial class Program
             }
 
             if (string.IsNullOrWhiteSpace(dbType) ||
-                (!dbType.Equals("sqlite", StringComparison.OrdinalIgnoreCase) &&
-                 !dbType.Equals("postgres", StringComparison.OrdinalIgnoreCase)))
+                (!dbType.Equals("postgres", StringComparison.OrdinalIgnoreCase) &&
+                 !dbType.Equals("postgresql", StringComparison.OrdinalIgnoreCase)))
             {
-                throw new InvalidOperationException("--db-type must be sqlite or postgres");
+                throw new InvalidOperationException("--db-type must be postgres");
             }
 
             if (string.IsNullOrWhiteSpace(connectionString))

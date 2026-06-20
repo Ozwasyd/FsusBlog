@@ -211,6 +211,7 @@ public enum AedsFrameType : ushort
     PerceptionSealedResultV2 = 185,
     AnonymousCredentialRevocationWitnessRequest = 186,
     AnonymousCredentialRevocationWitnessResponse = 187,
+    AdminPrincipalSnapshot = 188,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

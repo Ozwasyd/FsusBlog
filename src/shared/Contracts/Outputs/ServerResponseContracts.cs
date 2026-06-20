@@ -677,3 +677,11 @@ public readonly record struct AdminSessionSummaryDto(
     DateTime AbsoluteExpiresAtUtc,
     bool IsCurrent,
     bool IsRevoked);
+
+public readonly record struct AdminPrincipalSnapshotDto(
+    string Id,
+    string DisplayName,
+    string Source,
+    IReadOnlyList<string> Permissions,
+    string AdminSessionStatus,
+    bool TotpStepUpRequired);

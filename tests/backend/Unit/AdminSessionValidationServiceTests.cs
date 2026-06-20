@@ -9,7 +9,9 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class AdminSessionValidationServiceTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollection))]
+public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
     public void JwtBearerEvents_ValidateAdminSessionAfterTokenSignature()
@@ -26,11 +28,11 @@ public sealed class AdminSessionValidationServiceTests
     [Fact]
     public async Task ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen()
     {
-        string dbPath = CreateTempDbPath();
+        string connectionString = await CreateConnectionStringAsync();
         const string token = "active-admin-token";
         DateTime before = DateTime.UtcNow.AddMinutes(-5);
 
-        using SqlSugarClient db = CreateDb(dbPath);
+        using SqlSugarClient db = CreateDb(connectionString);
         Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), CreateSession(accessTokenHash: HashForStorage(token), lastSeenAtUtc: before));
         var service = new AdminSessionValidationService(db);
 
@@ -63,10 +65,10 @@ public sealed class AdminSessionValidationServiceTests
     [Fact]
     public async Task ValidateAsync_RejectsDisabledPrincipal()
     {
-        string dbPath = CreateTempDbPath();
+        string connectionString = await CreateConnectionStringAsync();
         const string token = "disabled-principal-token";
 
-        using SqlSugarClient db = CreateDb(dbPath);
+        using SqlSugarClient db = CreateDb(connectionString);
         Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Disabled), CreateSession(accessTokenHash: HashForStorage(token)));
         var service = new AdminSessionValidationService(db);
 
@@ -82,12 +84,12 @@ public sealed class AdminSessionValidationServiceTests
         await AssertRejectedAsync(session => session.AccessTokenHash = HashForStorage("different-token"), "admin_session_token_mismatch");
     }
 
-    private static async Task AssertRejectedAsync(Action<AdminSession> mutateSession, string expectedReason)
+    private async Task AssertRejectedAsync(Action<AdminSession> mutateSession, string expectedReason)
     {
-        string dbPath = CreateTempDbPath();
+        string connectionString = await CreateConnectionStringAsync();
         const string token = "admin-token";
 
-        using SqlSugarClient db = CreateDb(dbPath);
+        using SqlSugarClient db = CreateDb(connectionString);
         AdminSession session = CreateSession(accessTokenHash: HashForStorage(token));
         mutateSession(session);
         Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), session);
@@ -108,38 +110,10 @@ public sealed class AdminSessionValidationServiceTests
 
     private static void CreateAdminTables(SqlSugarClient db)
     {
-        db.Ado.ExecuteCommand("""
-            CREATE TABLE IF NOT EXISTS admin_principal (
-                id INTEGER PRIMARY KEY,
-                handle TEXT NOT NULL,
-                displayname TEXT NULL,
-                status TEXT NOT NULL,
-                isroot INTEGER NOT NULL,
-                permissions TEXT NOT NULL,
-                createdatutc TEXT NOT NULL,
-                lastloginatutc TEXT NULL,
-                totpenabled INTEGER NOT NULL,
-                totpsecretencrypted TEXT NULL,
-                totpverifiedatutc TEXT NULL
-            );
-            """);
-        db.Ado.ExecuteCommand("""
-            CREATE TABLE IF NOT EXISTS admin_session (
-                sessionid TEXT PRIMARY KEY,
-                adminprincipalid INTEGER NOT NULL,
-                accesstokenhash TEXT NOT NULL,
-                devicefingerprint TEXT NULL,
-                lastip TEXT NULL,
-                useragent TEXT NULL,
-                createdatutc TEXT NOT NULL,
-                lastseenatutc TEXT NULL,
-                idleexpiresatutc TEXT NOT NULL,
-                absoluteexpiresatutc TEXT NOT NULL,
-                revokedatutc TEXT NULL,
-                revokereason TEXT NULL,
-                stepupverified INTEGER NOT NULL
-            );
-            """);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(AdminPrincipal),
+            typeof(AdminSession));
     }
 
     private static AdminPrincipal CreatePrincipal(string status)
@@ -175,15 +149,9 @@ public sealed class AdminSessionValidationServiceTests
     private static string HashForStorage(string value)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
-    private static string CreateTempDbPath()
-        => Path.Combine(Path.GetTempPath(), $"fsus-admin-session-validation-{Guid.NewGuid():N}.db");
+    private Task<string> CreateConnectionStringAsync()
+        => PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
 
-    private static SqlSugarClient CreateDb(string dbPath)
-        => new(new ConnectionConfig
-        {
-            DbType = DbType.Sqlite,
-            ConnectionString = $"Data Source={dbPath}",
-            InitKeyType = InitKeyType.Attribute,
-            IsAutoCloseConnection = true
-        });
+    private static SqlSugarClient CreateDb(string connectionString)
+        => PostgresSqlSugarTestClient.Create(connectionString);
 }

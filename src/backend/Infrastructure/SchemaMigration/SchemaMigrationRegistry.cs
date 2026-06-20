@@ -29,6 +29,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildSecurityRiskEventPersistenceMigration(),
         BuildSecurityPolicySnapshotMigration(),
         BuildSecurityChallengePersistenceMigration(),
+        BuildCommentActorPreCodeFirstMigration(),
         BuildCommentActorMigration(),
         BuildAuditLogMigration(),
         BuildAuditLogStructuredFieldsPreCodeFirstMigration(),
@@ -1243,6 +1244,31 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_comment_moderation_subject_hash",
                     "CREATE INDEX IF NOT EXISTS idx_comment_moderation_subject_hash ON comment(moderation_subject_hash);")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildCommentActorPreCodeFirstMigration()
+        => new SchemaMigrationDescriptor(
+            "20260620-pre-comment-actor-codefirst-compat",
+            "Backfill comment actor columns before CodeFirst touches legacy comment tables.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new RawSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public'
+                              AND table_name = 'comment'
+                              AND column_name = 'user_id'
+                              AND is_nullable = 'NO'
+                        ) THEN
+                            ALTER TABLE comment ALTER COLUMN user_id DROP NOT NULL;
+                        END IF;
+                    END $$;
+                    """),
+                new EnsureColumnStep("comment", "author_mode", "varchar(32) NOT NULL DEFAULT 'public'")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAuditLogMigration()

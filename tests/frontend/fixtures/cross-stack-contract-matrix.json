@@ -1132,7 +1132,7 @@
           "method": "GET",
           "path": "/auth/admin/me",
           "auth": "admin",
-          "responseFrame": "EmptySuccess",
+          "responseFrame": "AdminPrincipalSnapshot",
           "cache": "no-store"
         },
         {

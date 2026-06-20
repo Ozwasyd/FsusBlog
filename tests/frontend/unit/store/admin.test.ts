@@ -1,7 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useAdminStore } from '@/store/admin'
 import type { CurrentUserSnapshot } from '@/api/auth'
+
+vi.mock('@/api/auth', () => ({
+  getAdminMe: vi.fn()
+}))
 
 const user = (role: string): CurrentUserSnapshot => ({
   id: role === 'admin' ? 1 : 2,
@@ -14,6 +18,7 @@ const user = (role: string): CurrentUserSnapshot => ({
 describe('useAdminStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    vi.clearAllMocks()
   })
 
   it('bridges legacy admin users into an active admin principal', () => {
@@ -52,6 +57,26 @@ describe('useAdminStore', () => {
     expect(store.canManage).toBe(true)
     expect(store.hasPermission('comment.moderate')).toBe(true)
     expect(store.hasPermission('article.write')).toBe(false)
+  })
+
+  it('hydrates independent admin principals from the admin session endpoint', async () => {
+    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
+    authApi.getAdminMe.mockResolvedValue({
+      id: '1',
+      displayName: 'local-root',
+      source: 'independent',
+      permissions: ['admin.manage', 'article.write'],
+      adminSessionStatus: 'active',
+      totpStepUpRequired: false
+    })
+    const store = useAdminStore()
+
+    await store.ensureAdminSessionFresh(null)
+
+    expect(authApi.getAdminMe).toHaveBeenCalledTimes(1)
+    expect(store.canManage).toBe(true)
+    expect(store.hasPermission('admin.manage')).toBe(true)
+    expect(store.hasPermission('article.write')).toBe(true)
   })
 
   it('derives anonymous comment policy states for manage workspace controls', () => {

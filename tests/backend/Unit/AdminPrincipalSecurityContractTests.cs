@@ -137,6 +137,18 @@ public sealed class AdminPrincipalSecurityContractTests
     }
 
     [Fact]
+    public void AdminPrincipalMe_ReturnsIndependentPrincipalSnapshot()
+    {
+        string endpoints = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+
+        Assert.Contains("/auth/admin/me", endpoints, StringComparison.Ordinal);
+        Assert.Contains("AedsFrameType.AdminPrincipalSnapshot", endpoints, StringComparison.Ordinal);
+        Assert.Contains("AdminPrincipalSnapshotDto", endpoints, StringComparison.Ordinal);
+        Assert.Contains("AdminPermissions.PermissionClaimType", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("group.MapGet(\"/auth/admin/me\", static (IAedsEncoder aeds) =>", endpoints, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AnonymousIdentityRuntime_DoesNotGrantAdminFromLegacyUserRole()
     {
         string resolved = AnonymousIdentityRuntime.ResolveBackendRole("admin", AnonymousIdentityRuntime.AnonymousAccountKind, anonymousIdentityModeEnabled: true);

@@ -29,7 +29,7 @@ public sealed class ModerationConsoleContractTests
         Assert.Contains("MapPost(\"/moderation/model/runtime\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/moderation/model/reload\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/moderation/model/rollback\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("RequireAdminSensitiveStepUpAsync(context, adminPrincipals)", endpoints, StringComparison.Ordinal);
+        Assert.Contains("RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds)", endpoints, StringComparison.Ordinal);
         Assert.Contains("RecordHighValueAsync", endpoints, StringComparison.Ordinal);
         Assert.Contains("admin.moderation.dictionary_reloaded", endpoints, StringComparison.Ordinal);
         Assert.Contains("admin.moderation.replay_previewed", endpoints, StringComparison.Ordinal);

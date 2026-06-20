@@ -92,7 +92,7 @@
 | POST | `/api/binary/auth/admin/login/passkey/complete` | 🔓 🚦 📦 | admin Passkey 登录完成并写入独立 admin Cookie |
 | POST | `/api/binary/auth/admin/step-up/passkey/begin` | 👑 🚦 📦 | 当前 admin session 的 Passkey step-up 开始，响应 `PasskeyLoginBegin` |
 | POST | `/api/binary/auth/admin/step-up/passkey/complete` | 👑 🚦 📦 | 完成 admin Passkey step-up，响应 action=`admin-sensitive` 的一次性 proof |
-| GET | `/api/binary/auth/admin/me` | 👑 📦 | admin principal 会话探测，需要 `admin.manage` permission |
+| GET | `/api/binary/auth/admin/me` | 👑 📦 | 返回当前 admin principal 快照（`AdminPrincipalSnapshot`），需要 `admin.manage` permission |
 | POST | `/api/binary/auth/admin/logout` | 👑 📦 | 登出当前 admin session，撤销 `admin_session` 并清理 admin Cookie |
 | GET | `/api/binary/auth/admin/sessions` | 👑 📦 | 获取当前 admin principal 的 session 列表 |
 | POST | `/api/binary/auth/admin/sessions/{sessionId}/revoke` | 👑 📦 | 撤销指定 admin session |

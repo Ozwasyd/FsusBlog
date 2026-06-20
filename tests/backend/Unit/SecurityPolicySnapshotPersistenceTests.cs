@@ -8,7 +8,9 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class SecurityPolicySnapshotPersistenceTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollection))]
+public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrationFixture fixture)
 {
     private static readonly DateTimeOffset BaselineNow = DateTimeOffset.Parse("2026-06-19T08:00:00Z");
 
@@ -38,11 +40,9 @@ public sealed class SecurityPolicySnapshotPersistenceTests
     [Fact]
     public async Task ActivateAsync_WritesImmutableVersionsAndRevokesPreviousActive()
     {
-        string dbPath = BuildDbPath("security-policy-activate");
-        try
-        {
-            using SqlSugarClient db = CreateDb(dbPath);
-            CreateTable(db);
+        string connectionString = await CreateConnectionStringAsync();
+        using SqlSugarClient db = CreateDb(connectionString);
+        CreateTable(db);
             var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(BaselineNow));
 
             SecurityPolicySnapshotRecord first = await service.ActivateAsync(
@@ -69,21 +69,14 @@ public sealed class SecurityPolicySnapshotPersistenceTests
             Assert.NotNull(rows[0].RevokedAtUtc);
             Assert.Null(rows[1].RevokedAtUtc);
             Assert.NotEqual(rows[0].Document, rows[1].Document);
-        }
-        finally
-        {
-            TryDelete(dbPath);
-        }
     }
 
     [Fact]
     public async Task RollbackAsync_CreatesNewActiveVersionFromHistoricalDocumentAndAudits()
     {
-        string dbPath = BuildDbPath("security-policy-rollback");
-        try
-        {
-            using SqlSugarClient db = CreateDb(dbPath);
-            CreateTable(db);
+        string connectionString = await CreateConnectionStringAsync();
+        using SqlSugarClient db = CreateDb(connectionString);
+        CreateTable(db);
             var audit = new CapturingAuditEventService();
             var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(BaselineNow), audit);
 
@@ -105,21 +98,14 @@ public sealed class SecurityPolicySnapshotPersistenceTests
             AuditEvent auditEvent = Assert.Single(audit.Events, static item => item.Action == AuditActionCatalog.SecurityPolicyRolledBack);
             Assert.Equal("security_policy_snapshot", auditEvent.TargetType);
             Assert.Equal("rollback", auditEvent.ReasonCode);
-        }
-        finally
-        {
-            TryDelete(dbPath);
-        }
     }
 
     [Fact]
     public async Task LoadActiveOrLastKnownGoodAsync_FallsBackWhenActiveDocumentCannotDeserialize()
     {
-        string dbPath = BuildDbPath("security-policy-lkg");
-        try
-        {
-            using SqlSugarClient db = CreateDb(dbPath);
-            CreateTable(db);
+        string connectionString = await CreateConnectionStringAsync();
+        using SqlSugarClient db = CreateDb(connectionString);
+        CreateTable(db);
             var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(BaselineNow));
             await service.ActivateAsync(SecurityPolicyIds.AntiCrawler, SecuritySystemModes.Observe, CreateAntiCrawlerSnapshot("lkg", SecuritySystemModes.Observe), 1, "initial", CancellationToken.None);
             await db.Updateable<SecurityPolicySnapshot>()
@@ -148,11 +134,6 @@ public sealed class SecurityPolicySnapshotPersistenceTests
             Assert.NotNull(loaded.Document);
             Assert.Equal(SecuritySystemModes.Observe, loaded.Document!.Options.Mode);
             Assert.Equal(1, loaded.Record?.Version);
-        }
-        finally
-        {
-            TryDelete(dbPath);
-        }
     }
 
     [Fact]
@@ -161,7 +142,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/SecurityEndpoints.cs");
 
         Assert.Contains("X-Fsus-Mfa-Proof", source, StringComparison.Ordinal);
-        Assert.Contains("StatusCodes.Status428PreconditionRequired", source, StringComparison.Ordinal);
+        Assert.Contains("AedsJsonResults.PreconditionRequired", source, StringComparison.Ordinal);
         Assert.Contains("ISecurityPolicySnapshotService policySnapshots", source, StringComparison.Ordinal);
         Assert.Contains("policySnapshots.ActivateAsync", source, StringComparison.Ordinal);
         Assert.Contains("policySnapshots.RollbackAsync", source, StringComparison.Ordinal);
@@ -234,49 +215,14 @@ public sealed class SecurityPolicySnapshotPersistenceTests
             ChallengeEndpoint: "/api/binary/auth/pow-challenge",
             VerificationStrategy: "RedisPowService"));
 
-    private static string BuildDbPath(string prefix)
-        => Path.Combine(Path.GetTempPath(), $"fsus-{prefix}-{Guid.NewGuid():N}.db");
+    private Task<string> CreateConnectionStringAsync()
+        => PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
 
-    private static SqlSugarClient CreateDb(string dbPath)
-        => new(new ConnectionConfig
-        {
-            DbType = DbType.Sqlite,
-            ConnectionString = $"Data Source={dbPath}",
-            InitKeyType = InitKeyType.Attribute,
-            IsAutoCloseConnection = true
-        });
+    private static SqlSugarClient CreateDb(string connectionString)
+        => PostgresSqlSugarTestClient.Create(connectionString);
 
     private static void CreateTable(SqlSugarClient db)
-        => db.Ado.ExecuteCommand("""
-            CREATE TABLE IF NOT EXISTS security_policy_snapshot (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                policy_id TEXT NOT NULL,
-                version INTEGER NOT NULL,
-                mode TEXT NOT NULL,
-                document TEXT NOT NULL,
-                created_by_admin_id INTEGER NULL,
-                created_at_utc TEXT NOT NULL,
-                activated_at_utc TEXT NULL,
-                revoked_at_utc TEXT NULL,
-                is_last_known_good INTEGER NOT NULL DEFAULT 0,
-                rollback_of_version INTEGER NULL,
-                reason TEXT NULL
-            );
-            CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_security_policy_snapshot_policy_version
-                ON security_policy_snapshot(policy_id, version);
-            CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_security_policy_snapshot_active
-                ON security_policy_snapshot(policy_id) WHERE activated_at_utc IS NOT NULL AND revoked_at_utc IS NULL;
-            CREATE INDEX IF NOT EXISTS idx_security_policy_snapshot_lkg
-                ON security_policy_snapshot(policy_id, is_last_known_good, version);
-            """);
-
-    private static void TryDelete(string dbPath)
-    {
-        if (File.Exists(dbPath))
-        {
-            File.Delete(dbPath);
-        }
-    }
+        => PostgresSqlSugarTestClient.InitTables(db, typeof(SecurityPolicySnapshot));
 
     private sealed class CapturingAuditEventService : IAuditEventService
     {

@@ -93,7 +93,9 @@ public sealed class ReadModelProjectionHotPathContractTests
         string commentService = ReadRepoFile("src/backend/Services/CommentService.cs");
         string userService = ReadRepoFile("src/backend/Services/UserService.cs");
 
-        Assert.Contains(".Select((c, u) => new ThreadRootRow", commentService, StringComparison.Ordinal);
+        Assert.Contains("private async Task<List<ThreadRootRow>> QueryThreadRootsAsync", commentService, StringComparison.Ordinal);
+        Assert.Contains("GetDataReaderAsync(sql.ToString(), parameters)", commentService, StringComparison.Ordinal);
+        Assert.Contains("rows.Add(new ThreadRootRow", commentService, StringComparison.Ordinal);
         Assert.Contains(".Select((c, u, ru) => new ReplyRow", commentService, StringComparison.Ordinal);
         Assert.DoesNotContain("u.Password", commentService, StringComparison.Ordinal);
         Assert.DoesNotContain("ru.Password", commentService, StringComparison.Ordinal);

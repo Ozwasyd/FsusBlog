@@ -7,7 +7,9 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class AnonymousGovernanceAdminEndpointTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollection))]
+public sealed class AnonymousGovernanceAdminEndpointTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
     public void AdminAnonymousGovernanceEndpoints_AreBinaryAdminStepUpAndPermissionGated()
@@ -64,18 +66,20 @@ public sealed class AnonymousGovernanceAdminEndpointTests
     [Fact]
     public async Task AnonymousGovernanceService_ListsMaskedNullifiersWithoutUserIdentity()
     {
-        string dbPath = Path.Combine(Path.GetTempPath(), $"fsus-anon-governance-{Guid.NewGuid():N}.db");
-        try
+        using SqlSugarClient db = await CreateGovernanceDbAsync();
+        CreateNullifierTable(db);
+        db.Insertable(new CommentAnonymousNullifier
         {
-            using SqlSugarClient db = CreateGovernanceDb(dbPath);
-            CreateNullifierTable(db);
-            db.Ado.ExecuteCommand(
-                """
-                INSERT INTO comment_anonymous_nullifier
-                    (nullifier_hash, scope, use_count, first_comment_id, last_comment_id, blocked, block_reason, created_at_utc, updated_at_utc)
-                VALUES
-                    ('0123456789abcdef0123456789abcdef', 'article:42', 2, 1001, 1002, 1, 'spam wave', '2026-06-19T01:00:00Z', '2026-06-19T02:00:00Z');
-                """);
+            NullifierHash = "0123456789abcdef0123456789abcdef",
+            Scope = "article:42",
+            UseCount = 2,
+            FirstCommentId = 1001,
+            LastCommentId = 1002,
+            Blocked = true,
+            BlockReason = "spam wave",
+            CreatedAtUtc = DateTime.Parse("2026-06-19T01:00:00Z").ToUniversalTime(),
+            UpdatedAtUtc = DateTime.Parse("2026-06-19T02:00:00Z").ToUniversalTime()
+        }).ExecuteCommand();
 
             var service = new AnonymousGovernanceService(db, new EmptyRootService());
 
@@ -92,14 +96,6 @@ public sealed class AnonymousGovernanceAdminEndpointTests
             Assert.DoesNotContain("user", json, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("credentialCommitment", json, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("proof", json, StringComparison.OrdinalIgnoreCase);
-        }
-        finally
-        {
-            if (File.Exists(dbPath))
-            {
-                File.Delete(dbPath);
-            }
-        }
     }
 
     private static int CountOccurrences(string value, string needle)
@@ -115,31 +111,11 @@ public sealed class AnonymousGovernanceAdminEndpointTests
         return count;
     }
 
-    private static SqlSugarClient CreateGovernanceDb(string dbPath)
-        => new(new ConnectionConfig
-        {
-            ConnectionString = $"Data Source={dbPath}",
-            DbType = DbType.Sqlite,
-            IsAutoCloseConnection = true,
-            InitKeyType = InitKeyType.Attribute
-        });
+    private Task<SqlSugarClient> CreateGovernanceDbAsync()
+        => PostgresSqlSugarTestClient.CreateAsync(fixture);
 
     private static void CreateNullifierTable(SqlSugarClient db)
-        => db.Ado.ExecuteCommand(
-            """
-            CREATE TABLE comment_anonymous_nullifier (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nullifier_hash TEXT NOT NULL,
-                scope TEXT NOT NULL,
-                use_count INTEGER NOT NULL DEFAULT 0,
-                first_comment_id INTEGER NULL,
-                last_comment_id INTEGER NULL,
-                blocked INTEGER NOT NULL DEFAULT 0,
-                block_reason TEXT NULL,
-                created_at_utc TEXT NOT NULL,
-                updated_at_utc TEXT NOT NULL
-            );
-            """);
+        => PostgresSqlSugarTestClient.InitTables(db, typeof(CommentAnonymousNullifier));
 
     private sealed class EmptyRootService : IAnonymousCredentialRootService
     {

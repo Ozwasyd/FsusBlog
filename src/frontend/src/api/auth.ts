@@ -112,6 +112,18 @@ export interface UserSessionSummary {
   mfaVerified: boolean
 }
 
+export type AdminSessionStatus = 'missing' | 'active' | 'expired' | 'step_up_required'
+export type AdminPrincipalSource = 'independent' | 'legacy'
+
+export interface AdminPrincipalSnapshot {
+  id: string
+  displayName: string
+  source: AdminPrincipalSource
+  permissions: readonly string[]
+  adminSessionStatus: AdminSessionStatus
+  totpStepUpRequired?: boolean
+}
+
 export interface DeleteAccountRequest {
   password: string
   confirmText: string
@@ -273,6 +285,14 @@ export const revokeOtherSessions = (config?: ApiRequestConfig) =>
     requestOptions: {
       method: 'POST'
     }
+  })
+
+export const getAdminMe = (config?: ApiRequestConfig) =>
+  requestBinaryOnly<AdminPrincipalSnapshot>({
+    binaryUrl: '/api/binary/auth/admin/me',
+    frameType: FrameType.AdminPrincipalSnapshot,
+    signal: config?.signal as AbortSignal | undefined,
+    suppressAuthFailureTelemetry: true
   })
 
 export const startMfaSetup = (

@@ -26,6 +26,7 @@ using FsusBlog.Shared.Contracts.Outputs;
 using SqlSugar;
 using System.Buffers;
 using System.Data.Common;
+using System.Globalization;
 
 namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
@@ -290,8 +291,16 @@ public static partial class BinaryEndpoints
         .RequireRateLimiting("fixed_ip")
         .RequireNoStoreResponse();
 
-        group.MapGet("/auth/admin/me", static (IAedsEncoder aeds) =>
-            BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess))
+        group.MapGet("/auth/admin/me", static (HttpContext httpContext, IAedsEncoder aeds) =>
+        {
+            if (!TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out _))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+            }
+
+            AdminPrincipalSnapshotDto snapshot = BuildAdminPrincipalSnapshot(httpContext, adminPrincipalId);
+            return BinaryResults.Frame(aeds, AedsFrameType.AdminPrincipalSnapshot, writer => PodBinaryCodec.WriteJsonPayload(snapshot, writer));
+        })
             .RequireAdminPermission(AdminPermissions.AdminManage)
             .RequireNoStoreResponse();
 
@@ -1513,6 +1522,27 @@ public static partial class BinaryEndpoints
     {
         adminSessionId = context.User.GetAdminSessionId() ?? string.Empty;
         return context.User.TryGetAdminPrincipalId(out adminPrincipalId) && !string.IsNullOrWhiteSpace(adminSessionId);
+    }
+
+    private static AdminPrincipalSnapshotDto BuildAdminPrincipalSnapshot(HttpContext context, long adminPrincipalId)
+    {
+        string displayName = context.User.FindFirst("admin_handle")?.Value
+            ?? context.User.Identity?.Name
+            ?? $"admin-{adminPrincipalId.ToString(CultureInfo.InvariantCulture)}";
+        string[] permissions = context.User.Claims
+            .Where(static claim => claim.Type == AdminPermissions.PermissionClaimType)
+            .Select(static claim => claim.Value)
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        return new AdminPrincipalSnapshotDto(
+            adminPrincipalId.ToString(CultureInfo.InvariantCulture),
+            displayName,
+            "independent",
+            permissions,
+            "active",
+            context.User.IsAdminStepUpVerified());
     }
 
     private static string ReadHeader(HttpContext httpContext, string name)

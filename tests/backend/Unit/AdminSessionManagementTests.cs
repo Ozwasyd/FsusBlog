@@ -13,7 +13,9 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class AdminSessionManagementTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollection))]
+public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
     public void AdminSessionManagementEndpoints_AreAdminManageOnlyAndClearOnlyAdminCookies()
@@ -38,7 +40,7 @@ public sealed class AdminSessionManagementTests
     [Fact]
     public async Task LogoutAdminSessionAsync_RevokesCurrentSessionWithLogoutReason()
     {
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         Seed(db, CreateSession("current"));
         AdminPrincipalService service = CreateService(db);
 
@@ -53,7 +55,7 @@ public sealed class AdminSessionManagementTests
     [Fact]
     public async Task RevokeOtherAdminSessionsAsync_RevokesOtherSessionsAndKeepsCurrent()
     {
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         Seed(db, CreateSession("current"), CreateSession("other-a"), CreateSession("other-b", revoked: true));
         AdminPrincipalService service = CreateService(db);
 
@@ -72,7 +74,7 @@ public sealed class AdminSessionManagementTests
     [Fact]
     public async Task GetAdminSessionsAsync_ReturnsCurrentAndRevokedFlags()
     {
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         Seed(db, CreateSession("current"), CreateSession("revoked", revoked: true));
         AdminPrincipalService service = CreateService(db);
 
@@ -133,49 +135,15 @@ public sealed class AdminSessionManagementTests
             RevokeReason = revoked ? "existing" : null
         };
 
-    private static SqlSugarClient CreateDb()
-        => new(new ConnectionConfig
-        {
-            DbType = DbType.Sqlite,
-            ConnectionString = $"Data Source={Path.Combine(Path.GetTempPath(), $"fsus-admin-session-management-{Guid.NewGuid():N}.db")}",
-            InitKeyType = InitKeyType.Attribute,
-            IsAutoCloseConnection = true
-        });
+    private Task<SqlSugarClient> CreateDbAsync()
+        => PostgresSqlSugarTestClient.CreateAsync(fixture);
 
     private static void CreateAdminTables(SqlSugarClient db)
     {
-        db.Ado.ExecuteCommand("""
-            CREATE TABLE IF NOT EXISTS admin_principal (
-                id INTEGER PRIMARY KEY,
-                handle TEXT NOT NULL,
-                displayname TEXT NULL,
-                status TEXT NOT NULL,
-                isroot INTEGER NOT NULL,
-                permissions TEXT NOT NULL,
-                createdatutc TEXT NOT NULL,
-                lastloginatutc TEXT NULL,
-                totpenabled INTEGER NOT NULL,
-                totpsecretencrypted TEXT NULL,
-                totpverifiedatutc TEXT NULL
-            );
-            """);
-        db.Ado.ExecuteCommand("""
-            CREATE TABLE IF NOT EXISTS admin_session (
-                sessionid TEXT PRIMARY KEY,
-                adminprincipalid INTEGER NOT NULL,
-                accesstokenhash TEXT NOT NULL,
-                devicefingerprint TEXT NULL,
-                lastip TEXT NULL,
-                useragent TEXT NULL,
-                createdatutc TEXT NOT NULL,
-                lastseenatutc TEXT NULL,
-                idleexpiresatutc TEXT NOT NULL,
-                absoluteexpiresatutc TEXT NOT NULL,
-                revokedatutc TEXT NULL,
-                revokereason TEXT NULL,
-                stepupverified INTEGER NOT NULL
-            );
-            """);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(AdminPrincipal),
+            typeof(AdminSession));
     }
 
     private static string ExtractBetween(string source, string start, string end)

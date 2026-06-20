@@ -21,7 +21,13 @@ Or run the seed step after the backend has started once and created the schema:
 | Admin | `demo-admin` | `ChangeMe123!` |
 | User | `demo-reader` | `ChangeMe123!` |
 
-These accounts are for local development only. They are safe fictional credentials and must not be copied into production.
+These rows are for local development fixtures only. They are safe fictional credentials and must not be copied into production.
+
+In anonymous identity mode, legacy password login is disabled and `sys_user.role=admin`
+does not grant backend admin authority. Use the local Passkey injection flow in
+[docs/development.md](../development.md#本地-passkey-注入) to create a browser-held
+Passkey, then complete normal user registration / recovery binding or root admin
+bootstrap. Do not treat `demo-admin` as a usable admin password account.
 
 ## Seed Contents
 

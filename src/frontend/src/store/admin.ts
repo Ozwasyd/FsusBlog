@@ -1,7 +1,8 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { CurrentUserSnapshot } from '@/api/auth'
+import { getAdminMe, type CurrentUserSnapshot } from '@/api/auth'
 import { useUserStore } from '@/store/user'
+import { isAuthFailureError } from '@/utils/errorKinds'
 
 export type AdminSessionStatus = 'missing' | 'active' | 'expired' | 'step_up_required'
 export type AdminPrincipalSource = 'independent' | 'legacy'
@@ -104,6 +105,22 @@ export const useAdminStore = defineStore('admin', () => {
 
   const ensureAdminSessionFresh = async (legacyUser: CurrentUserSnapshot | null): Promise<void> => {
     syncLegacyAdminPrincipal(legacyUser)
+    if (adminPrincipal.value?.source === 'legacy') {
+      return
+    }
+
+    try {
+      setAdminPrincipal(await getAdminMe())
+    } catch (error: unknown) {
+      if (isAuthFailureError(error)) {
+        if (adminPrincipal.value?.source === 'independent') {
+          clearAdminPrincipal()
+        }
+        return
+      }
+
+      console.warn('[AdminStore] Admin session refresh failed.')
+    }
   }
 
   const logout = async (): Promise<void> => {

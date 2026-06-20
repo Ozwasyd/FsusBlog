@@ -10,7 +10,9 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class AnonymousCommentGovernanceContractTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollection))]
+public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
     public void AnonymousCommentGovernance_DefinesStorageAndMigration()
@@ -154,25 +156,23 @@ public sealed class AnonymousCommentGovernanceContractTests
     [Fact]
     public async Task AnonymousCommentPolicyService_LoadsPersistsInvalidatesAndReloadsRuntimeSnapshot()
     {
-        string dbPath = Path.Combine(Path.GetTempPath(), $"fsus-anonymous-policy-{Guid.NewGuid():N}.db");
-        try
+        string connectionString = await CreateConnectionStringAsync();
+        SeedPolicyDatabase(connectionString, new AnonymousCommentPolicy
         {
-            SeedPolicyDatabase(dbPath, new AnonymousCommentPolicy
-            {
-                Id = 1,
-                AnonymousCommentsEnabled = false,
-                PublicCommentsEnabled = false,
-                ZkAnonymousEnabled = false,
-                DefaultAuthorMode = CommentAuthorModes.ZkAnonymous,
-                SupportedDisplayLanguages = "en",
-                ChangedBy = "seed",
-                UpdatedReason = "seeded",
-                UpdatedAtUtc = new DateTime(2026, 6, 16, 0, 0, 0, DateTimeKind.Utc)
-            });
+            Id = 1,
+            AnonymousCommentsEnabled = false,
+            PublicCommentsEnabled = false,
+            ZkAnonymousEnabled = false,
+            DefaultAuthorMode = CommentAuthorModes.ZkAnonymous,
+            SupportedDisplayLanguages = "en",
+            ChangedBy = "seed",
+            UpdatedReason = "seeded",
+            UpdatedAtUtc = new DateTime(2026, 6, 16, 0, 0, 0, DateTimeKind.Utc)
+        });
 
-            var dispatcher = Substitute.For<ICacheInvalidationDispatcher>();
-            dispatcher.InvalidateCommentPolicyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
-            await using ServiceProvider provider = BuildPolicyProvider(dbPath, dispatcher);
+        var dispatcher = Substitute.For<ICacheInvalidationDispatcher>();
+        dispatcher.InvalidateCommentPolicyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        await using ServiceProvider provider = BuildPolicyProvider(connectionString, dispatcher);
             IServiceScopeFactory scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
             IConfiguration configuration = BuildConfiguration(new Dictionary<string, string?>
             {
@@ -211,7 +211,7 @@ public sealed class AnonymousCommentGovernanceContractTests
 
             await dispatcher.Received(1).InvalidateCommentPolicyAsync(Arg.Any<CancellationToken>());
 
-            using SqlSugarClient verifyDb = CreatePolicyDb(dbPath);
+            using SqlSugarClient verifyDb = CreatePolicyDb(connectionString);
             AnonymousCommentPolicy stored = verifyDb.Queryable<AnonymousCommentPolicy>()
                 .First(static item => item.Id == 1);
             Assert.True(stored.AnonymousCommentsEnabled);
@@ -241,14 +241,6 @@ public sealed class AnonymousCommentGovernanceContractTests
             Assert.Equal(updated.SnapshotHash, reloaded.SnapshotHash);
             Assert.Equal("admin:42", reloaded.ChangedBy);
             Assert.Equal("policy rollout", reloaded.Reason);
-        }
-        finally
-        {
-            if (File.Exists(dbPath))
-            {
-                File.Delete(dbPath);
-            }
-        }
     }
 
     [Fact]
@@ -276,12 +268,12 @@ public sealed class AnonymousCommentGovernanceContractTests
             .Build();
 
     private static ServiceProvider BuildPolicyProvider(
-        string dbPath,
+        string connectionString,
         ICacheInvalidationDispatcher dispatcher)
     {
         var services = new ServiceCollection();
         services.AddSingleton(dispatcher);
-        services.AddScoped<ISqlSugarClient>(_ => CreatePolicyDb(dbPath));
+        services.AddScoped<ISqlSugarClient>(_ => CreatePolicyDb(connectionString));
         return services.BuildServiceProvider(new ServiceProviderOptions
         {
             ValidateOnBuild = true,
@@ -289,19 +281,16 @@ public sealed class AnonymousCommentGovernanceContractTests
         });
     }
 
-    private static void SeedPolicyDatabase(string dbPath, AnonymousCommentPolicy policy)
+    private static void SeedPolicyDatabase(string connectionString, AnonymousCommentPolicy policy)
     {
-        using SqlSugarClient db = CreatePolicyDb(dbPath);
-        db.CodeFirst.InitTables<AnonymousCommentPolicy>();
+        using SqlSugarClient db = CreatePolicyDb(connectionString);
+        PostgresSqlSugarTestClient.InitTables(db, typeof(AnonymousCommentPolicy));
         db.Insertable(policy).ExecuteCommand();
     }
 
-    private static SqlSugarClient CreatePolicyDb(string dbPath)
-        => new(new ConnectionConfig
-        {
-            DbType = DbType.Sqlite,
-            ConnectionString = $"Data Source={dbPath}",
-            InitKeyType = InitKeyType.Attribute,
-            IsAutoCloseConnection = true
-        });
+    private Task<string> CreateConnectionStringAsync()
+        => PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+
+    private static SqlSugarClient CreatePolicyDb(string connectionString)
+        => PostgresSqlSugarTestClient.Create(connectionString);
 }

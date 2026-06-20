@@ -598,6 +598,14 @@
       ]
     },
     {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousGovernance.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-SECURITY-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
       "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs",
       "requirements": [
         "BACKEND-ENDPOINT-AUTH-MATRIX",

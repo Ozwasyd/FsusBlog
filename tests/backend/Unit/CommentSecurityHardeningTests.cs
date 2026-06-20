@@ -45,10 +45,11 @@ public sealed class CommentSecurityHardeningTests
 
         Assert.Contains("IClientRegionResolver regionResolver", endpointSource);
         Assert.Contains("regionLegalModerationService.EvaluateOnSubmit", endpointSource);
-        Assert.Contains("RegionDecision = regionDecision", endpointSource);
+        Assert.Contains("CreateCommentV2Async(userId, request, regionDecision)", endpointSource);
         Assert.Contains(":region:{NormalizeCommentFrameRegion(viewerRegion)}", endpointSource);
 
         Assert.Contains("CommentRegionCompliance", serviceSource);
+        Assert.Contains("RegionDecision = regionDecision", serviceSource);
         Assert.Contains("BlockedRegions = RegionLegalModerationService.SerializeRegions", serviceSource);
         Assert.Contains("RegionLegalModerationService.SerializeRegions([normalizedViewerRegion])", serviceSource);
         Assert.Contains("comment_region_compliance crc", serviceSource);
@@ -100,7 +101,7 @@ public sealed class CommentSecurityHardeningTests
 
         Assert.Contains("RequireAdminSensitiveStepUpAsync", source);
         Assert.Contains("ValidateAndConsumeAdminStepUpProofTokenAsync", source);
-        Assert.Contains("StatusCodes.Status428PreconditionRequired", source);
+        Assert.Contains("AedsJsonResults.PreconditionRequired", source);
         Assert.Contains("MFA_PROOF_REQUIRED", source);
         Assert.True(CountOccurrences(source, ".RequireRateLimiting(\"fixed_ip\")") >= 3);
     }

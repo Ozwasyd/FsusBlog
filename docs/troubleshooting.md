@@ -146,6 +146,12 @@ Then confirm the frontend is opened at `http://localhost:3000` or `http://127.0.
 
 Fix: use the documented local URLs, or set matching `Fido2__ServerDomain` and `Fido2__Origins__*` environment variables before backend startup.
 
+For local automation, inject a WebAuthn virtual authenticator into the browser
+context before running the Passkey ceremony. The authenticator injection is only
+browser-side state; the server credential must still be created through normal
+Passkey registration or admin bootstrap endpoints. See
+[docs/development.md](development.md#本地-passkey-注入).
+
 Relevant logs: browser console and backend auth logs.
 
 ## Login / Session / Cookie Issues

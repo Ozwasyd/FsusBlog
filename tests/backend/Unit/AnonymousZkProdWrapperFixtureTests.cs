@@ -14,6 +14,7 @@ using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Validation;
@@ -26,7 +27,9 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class AnonymousZkProdWrapperFixtureTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollection))]
+public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFixture fixture)
 {
     private const int ArticleId = 42;
     private const int OtherArticleId = 43;
@@ -59,7 +62,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests
         Assert.Equal(1, nativeLibrary.CallCount);
         Assert.Equal("strong_anonymous", ticket.Response.CredentialLevel);
 
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         SeedArticle(db, ArticleId);
         var dispatcher = new RecordingCacheInvalidationDispatcher();
@@ -136,7 +139,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests
             CancellationToken.None);
         Assert.True(ticket.Issued);
 
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         SeedArticle(db, ArticleId);
         CommentService commentService = CreateCommentService(db, ticketService, nullifiers);
@@ -388,85 +391,25 @@ public sealed class AnonymousZkProdWrapperFixtureTests
             RequiresManualReview: true,
             HideUntilReviewed: true);
 
-    private static SqlSugarClient CreateDb()
-        => new(new ConnectionConfig
-        {
-            DbType = DbType.Sqlite,
-            ConnectionString = $"Data Source={Path.Combine(Path.GetTempPath(), $"fsus-zk-prod-smoke-{Guid.NewGuid():N}.db")}",
-            InitKeyType = InitKeyType.Attribute,
-            IsAutoCloseConnection = true
-        });
+    private Task<SqlSugarClient> CreateDbAsync()
+        => PostgresSqlSugarTestClient.CreateAsync(fixture);
 
     private static void CreateTables(SqlSugarClient db)
     {
-        db.Ado.ExecuteCommand("""
-            CREATE TABLE article (
-                id INTEGER PRIMARY KEY,
-                IsDeleted INTEGER NOT NULL,
-                status INTEGER NOT NULL,
-                published_at TEXT NULL,
-                scheduled_publish_at TEXT NULL
-            );
-            """);
-        db.Ado.ExecuteCommand("""
-            CREATE TABLE comment (
-                id INTEGER PRIMARY KEY,
-                article_id INTEGER NOT NULL,
-                content TEXT NOT NULL,
-                create_time TEXT NOT NULL,
-                user_id INTEGER NULL,
-                author_mode TEXT NOT NULL,
-                public_handle TEXT NULL,
-                anonymous_handle TEXT NULL,
-                anonymous_display_name TEXT NULL,
-                anonymous_display_language TEXT NULL,
-                anonymous_nullifier_hash TEXT NULL,
-                anonymous_scope TEXT NULL,
-                moderation_subject_hash TEXT NULL,
-                credential_level TEXT NULL,
-                reputation_bucket TEXT NULL,
-                account_age_bucket TEXT NULL,
-                parent_id INTEGER NULL,
-                root_id INTEGER NULL,
-                reply_to_user_id INTEGER NULL,
-                reply_to_comment_id INTEGER NULL,
-                depth INTEGER NOT NULL,
-                is_deleted INTEGER NOT NULL,
-                delete_reason TEXT NULL,
-                delete_time TEXT NULL,
-                moderation_status INTEGER NOT NULL,
-                moderation_reason TEXT NULL,
-                moderated_by_user_id INTEGER NULL,
-                moderated_at TEXT NULL
-            );
-            """);
-        db.Ado.ExecuteCommand("""
-            CREATE TABLE comment_region_compliance (
-                id INTEGER PRIMARY KEY,
-                comment_id INTEGER NOT NULL,
-                submit_region TEXT NOT NULL,
-                submit_region_confidence REAL NOT NULL,
-                region_provider TEXT NOT NULL,
-                submit_ip_hash TEXT NULL,
-                policy_version TEXT NOT NULL,
-                can_publish INTEGER NOT NULL,
-                requires_manual_review INTEGER NOT NULL,
-                hide_until_reviewed INTEGER NOT NULL,
-                blocked_regions TEXT NOT NULL,
-                risk_labels TEXT NOT NULL,
-                decision_reason TEXT NULL,
-                rule_hits_json TEXT NULL,
-                created_at_utc TEXT NOT NULL,
-                updated_at_utc TEXT NOT NULL
-            );
-            """);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(Article),
+            typeof(Comment),
+            typeof(CommentRegionCompliance));
     }
 
     private static void SeedArticle(SqlSugarClient db, int articleId)
         => db.Ado.ExecuteCommand(
             """
-            INSERT INTO article (id, IsDeleted, status, published_at, scheduled_publish_at)
-            VALUES (@Id, 0, @Status, @PublishedAt, NULL);
+            INSERT INTO article
+                (id, title, categoryid, views, createtime, isdeleted, status, published_at, scheduled_publish_at)
+            VALUES
+                (@Id, 'unit article', 1, 0, @PublishedAt, false, @Status, @PublishedAt, NULL);
             """,
             new SugarParameter("@Id", articleId),
             new SugarParameter("@Status", (int)ArticleStatus.Published),

@@ -3,11 +3,14 @@ using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class AnonymousCredentialRevocationWitnessServiceTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollection))]
+public sealed class AnonymousCredentialRevocationWitnessServiceTests(PostgresSchemaMigrationFixture fixture)
 {
     private const long Epoch = 4096;
     private static readonly string IssuerPublicKeyHash = new('f', 64);
@@ -17,22 +20,19 @@ public sealed class AnonymousCredentialRevocationWitnessServiceTests
     [Fact]
     public async Task CreateWitnessAsync_CircuitFriendlyRoot_ReturnsVerifiableNonMembershipWitness()
     {
-        string dbPath = Path.Combine(Path.GetTempPath(), $"fsus-revocation-witness-{Guid.NewGuid():N}.db");
-        try
+        string revocationRoot = CircuitFriendlyRoot(RevokedHandleHash);
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateRevocationTable(db);
+        db.Insertable(new AnonymousCredentialRevocation
         {
-            string revocationRoot = CircuitFriendlyRoot(RevokedHandleHash);
-            using SqlSugarClient db = CreateDb(dbPath);
-            CreateRevocationTable(db);
-            db.Insertable(new AnonymousCredentialRevocation
-            {
-                Epoch = Epoch,
-                RootHash = "credential-root",
-                RevocationHandleHash = RevokedHandleHash,
-                RevocationRootHash = revocationRoot,
-                Reason = "unit",
-                ActorId = "admin",
-                RevokedAtUtc = DateTime.UtcNow
-            }).ExecuteCommand();
+            Epoch = Epoch,
+            RootHash = "credential-root",
+            RevocationHandleHash = RevokedHandleHash,
+            RevocationRootHash = revocationRoot,
+            Reason = "unit",
+            ActorId = "admin",
+            RevokedAtUtc = DateTime.UtcNow
+        }).ExecuteCommand();
             var service = new AnonymousCredentialRevocationWitnessService(
                 new FixedRootService(CreateSnapshot(revocationRoot)),
                 db);
@@ -76,11 +76,6 @@ public sealed class AnonymousCredentialRevocationWitnessServiceTests
             Assert.True(AnonymousCredentialRevocationAccumulator.VerifyCircuitFriendlyNonMembershipWitness(
                 witness,
                 [RevokedHandleHash]));
-        }
-        finally
-        {
-            TryDelete(dbPath);
-        }
     }
 
     private static AnonymousCredentialRootSnapshotCoreModel CreateSnapshot(string revocationRoot)
@@ -111,49 +106,16 @@ public sealed class AnonymousCredentialRevocationWitnessServiceTests
         return root.Value!;
     }
 
-    private static SqlSugarClient CreateDb(string dbPath)
-        => new(new ConnectionConfig
-        {
-            DbType = DbType.Sqlite,
-            ConnectionString = $"Data Source={dbPath}",
-            InitKeyType = InitKeyType.Attribute,
-            IsAutoCloseConnection = true
-        });
+    private Task<SqlSugarClient> CreateDbAsync()
+        => PostgresSqlSugarTestClient.CreateAsync(fixture);
 
     private static void CreateRevocationTable(SqlSugarClient db)
-        => db.Ado.ExecuteCommand("""
-            CREATE TABLE IF NOT EXISTS anonymous_credential_revocation (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                epoch INTEGER NOT NULL,
-                root_hash TEXT NOT NULL,
-                revocation_handle_hash TEXT NOT NULL,
-                revocation_root_hash TEXT NOT NULL,
-                reason TEXT NULL,
-                actor_id TEXT NULL,
-                revoked_at_utc TEXT NOT NULL
-            );
-            CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_revocation_epoch_handle
-                ON anonymous_credential_revocation(epoch, revocation_handle_hash);
-            """);
+        => PostgresSqlSugarTestClient.InitTables(db, typeof(AnonymousCredentialRevocation));
 
     private static string[] SplitSiblingHashes(byte[] siblingHashes)
         => Enumerable.Range(0, siblingHashes.Length / 32)
             .Select(index => Convert.ToHexStringLower(siblingHashes.AsSpan(index * 32, 32)))
             .ToArray();
-
-    private static void TryDelete(string dbPath)
-    {
-        try
-        {
-            if (File.Exists(dbPath))
-            {
-                File.Delete(dbPath);
-            }
-        }
-        catch (IOException)
-        {
-        }
-    }
 
     private sealed class FixedRootService(AnonymousCredentialRootSnapshotCoreModel snapshot) : IAnonymousCredentialRootService
     {

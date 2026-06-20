@@ -5,6 +5,7 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,7 +16,9 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class SecurityRiskEventPersistenceTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollection))]
+public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFixture fixture)
 {
     private static readonly DateTimeOffset BaselineNow = DateTimeOffset.Parse("2026-06-18T12:00:00Z");
 
@@ -51,7 +54,7 @@ public sealed class SecurityRiskEventPersistenceTests
     [Fact]
     public async Task RiskScoreEngine_AggregatesActiveEventsWithLinearTtlDecay()
     {
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         CreateRiskTable(db);
         var clock = new MutableTimeProvider(BaselineNow.AddMinutes(5));
         var store = new SecurityRiskEventStore(db);
@@ -74,7 +77,7 @@ public sealed class SecurityRiskEventPersistenceTests
     [Fact]
     public async Task RiskEventStore_QueriesBySourceReasonActionAndSubjectHash()
     {
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         CreateRiskTable(db);
         var store = new SecurityRiskEventStore(db);
         string subjectHash = SecurityRiskIdentity.HashIdentity("subject-query");
@@ -223,7 +226,7 @@ public sealed class SecurityRiskEventPersistenceTests
     [Fact]
     public async Task SecurityRiskEventSink_RedisMissFallsBackToPostgresAggregationAndWarmsCache()
     {
-        using SqlSugarClient db = CreateDb();
+        using SqlSugarClient db = await CreateDbAsync();
         CreateRiskTable(db);
         var clock = new MutableTimeProvider(BaselineNow.AddMinutes(5));
         var store = new SecurityRiskEventStore(db);
@@ -314,38 +317,11 @@ public sealed class SecurityRiskEventPersistenceTests
         return context;
     }
 
-    private static SqlSugarClient CreateDb()
-        => new(new ConnectionConfig
-        {
-            DbType = DbType.Sqlite,
-            ConnectionString = $"Data Source={Path.Combine(Path.GetTempPath(), $"fsus-security-risk-event-{Guid.NewGuid():N}.db")}",
-            InitKeyType = InitKeyType.Attribute,
-            IsAutoCloseConnection = true
-        });
+    private Task<SqlSugarClient> CreateDbAsync()
+        => PostgresSqlSugarTestClient.CreateAsync(fixture);
 
     private static void CreateRiskTable(SqlSugarClient db)
-        => db.Ado.ExecuteCommand("""
-            CREATE TABLE IF NOT EXISTS security_risk_event (
-                id TEXT PRIMARY KEY,
-                occurred_at_utc TEXT NOT NULL,
-                source TEXT NOT NULL,
-                reason TEXT NOT NULL,
-                action TEXT NOT NULL,
-                score_delta INTEGER NOT NULL,
-                total_score INTEGER NOT NULL,
-                ttl_seconds INTEGER NOT NULL,
-                expires_at_utc TEXT NOT NULL,
-                subject_hash TEXT NULL,
-                route_key TEXT NULL,
-                client_ip_hash TEXT NULL,
-                device_fp_hash TEXT NULL,
-                path TEXT NULL,
-                method TEXT NULL,
-                user_agent TEXT NULL,
-                detail TEXT NULL,
-                trace_id TEXT NULL
-            );
-            """);
+        => PostgresSqlSugarTestClient.InitTables(db, typeof(SecurityRiskEvent));
 
     private static AntiCrawlerPolicySnapshot CreatePolicySnapshot()
         => new(

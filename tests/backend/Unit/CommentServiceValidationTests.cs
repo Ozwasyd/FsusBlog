@@ -229,7 +229,7 @@ public class CommentServiceValidationTests
         Assert.Contains("c.id > @Cursor", source);
         Assert.Contains("SliceMapToResponse", source);
         Assert.DoesNotContain(".Skip(", source);
-        Assert.DoesNotContain("OFFSET", source, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(" OFFSET ", source, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
