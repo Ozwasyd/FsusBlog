@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Security.Cryptography;
+using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Infrastructure.Bootstrap;
@@ -6,6 +8,7 @@ using FsusBlog.Server.Services.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Nethermind.MclBindings;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -72,6 +75,85 @@ public sealed class NativeGroth16ZkProofBackendTests
         Assert.True(accepted.Verified);
         Assert.False(rejected.Verified);
         Assert.Equal(2, nativeLibrary.CallCount);
+    }
+
+    [Fact]
+    public async Task MclGroth16VerifierLibrary_VerifiesPairingFixtureAndBindsPublicInputs()
+    {
+        byte[] verifyingKey = MclGroth16PairingFixture.CreateVerifyingKey();
+        using var temp = TempNativeZkFixture.Create(verifyingKey);
+        ProductionZkProofBackendRequest validRequest = ValidBackendRequest([], temp.VerifyingKeySha256);
+        byte[] validProof = MclGroth16PairingFixture.CreateProof(
+            verifyingKey,
+            NativeGroth16PublicInputCodec.Encode(validRequest).Span);
+        var backend = CreateFixtureBackend(temp, MclGroth16VerifierLibrary.Create());
+
+        ProductionZkProofBackendResult accepted = await backend.VerifyAsync(validRequest with { Proof = validProof });
+        byte[] tamperedProof = [.. validProof];
+        tamperedProof[^1] ^= 0x01;
+        ProductionZkProofBackendResult rejectedProof = await backend.VerifyAsync(validRequest with { Proof = tamperedProof });
+        ProductionZkProofBackendResult rejectedPublicInputs = await backend.VerifyAsync(
+            validRequest with
+            {
+                Scope = "article:43",
+                Proof = validProof
+            });
+
+        Assert.True(backend.IsAvailable(ZkProdOptions.NativeGroth16Backend));
+        Assert.True(accepted.Verified);
+        Assert.False(rejectedProof.Verified);
+        Assert.False(rejectedPublicInputs.Verified);
+    }
+
+    [Fact]
+    public async Task NativeGroth16ZkProofBackend_LoadsManagedMclKernelFromConfiguration()
+    {
+        byte[] verifyingKey = MclGroth16PairingFixture.CreateVerifyingKey();
+        using var temp = TempNativeZkFixture.Create(verifyingKey);
+        IConfiguration configuration = BuildConfiguration(new Dictionary<string, string?>
+        {
+            ["AnonymousIdentity:ZkVerifier:NativeGroth16:LibraryPath"] = NativeGroth16ZkProofBackendOptions.ManagedMclLibraryPath,
+            ["AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeyPath"] = temp.VerifyingKeyPath,
+            ["AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeySha256"] = temp.VerifyingKeySha256
+        });
+        using var backend = new NativeGroth16ZkProofBackend(
+            configuration,
+            new CapturingLogger<NativeGroth16ZkProofBackend>());
+        ProductionZkProofBackendRequest request = ValidBackendRequest([], temp.VerifyingKeySha256);
+        byte[] proof = MclGroth16PairingFixture.CreateProof(
+            verifyingKey,
+            NativeGroth16PublicInputCodec.Encode(request).Span);
+
+        ProductionZkProofBackendResult result = await backend.VerifyAsync(request with { Proof = proof });
+
+        Assert.True(backend.IsAvailable(ZkProdOptions.NativeGroth16Backend));
+        Assert.True(result.Verified);
+    }
+
+    [Fact]
+    public async Task MclGroth16VerifierLibrary_VerifyP99StaysInsideNativeBudget()
+    {
+        byte[] verifyingKey = MclGroth16PairingFixture.CreateVerifyingKey();
+        using var temp = TempNativeZkFixture.Create(verifyingKey);
+        ProductionZkProofBackendRequest request = ValidBackendRequest([], temp.VerifyingKeySha256);
+        byte[] proof = MclGroth16PairingFixture.CreateProof(
+            verifyingKey,
+            NativeGroth16PublicInputCodec.Encode(request).Span);
+        var backend = CreateFixtureBackend(temp, MclGroth16VerifierLibrary.Create());
+
+        _ = await backend.VerifyAsync(request with { Proof = proof });
+        double[] elapsedMs = new double[32];
+        for (int index = 0; index < elapsedMs.Length; index++)
+        {
+            long started = Stopwatch.GetTimestamp();
+            ProductionZkProofBackendResult result = await backend.VerifyAsync(request with { Proof = proof });
+            elapsedMs[index] = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            Assert.True(result.Verified);
+        }
+
+        Array.Sort(elapsedMs);
+        double p99 = elapsedMs[(int)Math.Ceiling(elapsedMs.Length * 0.99) - 1];
+        Assert.True(p99 <= 50, $"MCL verifier p99 {p99:F2}ms exceeds 50ms native verifier budget.");
     }
 
     [Fact]
@@ -462,6 +544,11 @@ public sealed class NativeGroth16ZkProofBackendTests
                 Path.Combine(Path.GetTempPath(), "fsus-zk-native-" + Guid.NewGuid().ToString("N")),
                 "fixture-verifying-key"u8.ToArray());
 
+        public static TempNativeZkFixture Create(byte[] verifyingKeyBytes)
+            => new(
+                Path.Combine(Path.GetTempPath(), "fsus-zk-native-" + Guid.NewGuid().ToString("N")),
+                verifyingKeyBytes);
+
         public void Dispose()
         {
             try
@@ -475,6 +562,168 @@ public sealed class NativeGroth16ZkProofBackendTests
             {
                 // Test cleanup best effort only.
             }
+        }
+    }
+
+    private static unsafe class MclGroth16PairingFixture
+    {
+        private const int MclBnSnark1 = 4;
+        private const int MclCompiledTimeVar = 46;
+        private static readonly byte[] VerifyingKeyMagic = "FSG16VK1"u8.ToArray();
+        private static readonly byte[] ProofMagic = "FSG16PF1"u8.ToArray();
+        private static bool _initialized;
+
+        public static byte[] CreateVerifyingKey()
+        {
+            EnsureInitialized();
+            mclBnG1 alpha = HashToG1("fsus:test:alpha");
+            mclBnG2 beta = HashToG2("fsus:test:beta");
+            mclBnG2 gamma = HashToG2("fsus:test:gamma");
+            mclBnG2 delta = gamma;
+            var ic0 = new mclBnG1();
+            Mcl.mclBnG1_clear(ref ic0);
+            mclBnG1 ic1 = HashToG1("fsus:test:ic1");
+
+            using var stream = new MemoryStream();
+            using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
+            writer.Write(VerifyingKeyMagic);
+            writer.Write((ushort)1);
+            writer.Write((ushort)1);
+            writer.Write((ushort)MclBnSnark1);
+            writer.Write((ushort)2);
+            writer.Write(SerializeG1(ref alpha));
+            writer.Write(SerializeG2(ref beta));
+            writer.Write(SerializeG2(ref gamma));
+            writer.Write(SerializeG2(ref delta));
+            writer.Write(SerializeG1(ref ic0));
+            writer.Write(SerializeG1(ref ic1));
+            writer.Flush();
+            return stream.ToArray();
+        }
+
+        public static byte[] CreateProof(byte[] verifyingKey, ReadOnlySpan<byte> publicInputs)
+        {
+            EnsureInitialized();
+            ReadOnlySpan<byte> key = verifyingKey;
+            int offset = VerifyingKeyMagic.Length + (sizeof(ushort) * 4);
+            mclBnG1 alpha = DeserializeG1(key.Slice(offset, Mcl.mclBn_getG1ByteSize()));
+            offset += Mcl.mclBn_getG1ByteSize();
+            mclBnG2 beta = DeserializeG2(key.Slice(offset, Mcl.mclBn_getG2ByteSize()));
+            offset += Mcl.mclBn_getG2ByteSize() * 3;
+            mclBnG1 ic0 = DeserializeG1(key.Slice(offset, Mcl.mclBn_getG1ByteSize()));
+            offset += Mcl.mclBn_getG1ByteSize();
+            mclBnG1 ic1 = DeserializeG1(key.Slice(offset, Mcl.mclBn_getG1ByteSize()));
+
+            mclBnFr transcriptScalar = HashPublicInputs(publicInputs);
+            var scaled = new mclBnG1();
+            Mcl.mclBnG1_mul(ref scaled, in ic1, in transcriptScalar);
+            var vkX = new mclBnG1();
+            Mcl.mclBnG1_add(ref vkX, in ic0, in scaled);
+            var c = new mclBnG1();
+            Mcl.mclBnG1_neg(ref c, in vkX);
+
+            using var stream = new MemoryStream();
+            using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
+            writer.Write(ProofMagic);
+            writer.Write((ushort)1);
+            writer.Write(SerializeG1(ref alpha));
+            writer.Write(SerializeG2(ref beta));
+            writer.Write(SerializeG1(ref c));
+            writer.Flush();
+            return stream.ToArray();
+        }
+
+        private static void EnsureInitialized()
+        {
+            if (_initialized)
+            {
+                return;
+            }
+
+            Assert.Equal(0, Mcl.mclBn_init(MclBnSnark1, MclCompiledTimeVar));
+            Mcl.mclBn_verifyOrderG1(1);
+            Mcl.mclBn_verifyOrderG2(1);
+            _initialized = true;
+        }
+
+        private static mclBnG1 HashToG1(string seed)
+        {
+            byte[] bytes = Encoding.UTF8.GetBytes(seed);
+            var point = new mclBnG1();
+            fixed (byte* ptr = bytes)
+            {
+                Assert.Equal(0, Mcl.mclBnG1_hashAndMapTo(ref point, (IntPtr)ptr, (UIntPtr)bytes.Length));
+            }
+
+            return point;
+        }
+
+        private static mclBnG2 HashToG2(string seed)
+        {
+            byte[] bytes = Encoding.UTF8.GetBytes(seed);
+            var point = new mclBnG2();
+            fixed (byte* ptr = bytes)
+            {
+                Assert.Equal(0, Mcl.mclBnG2_hashAndMapTo(ref point, (IntPtr)ptr, (UIntPtr)bytes.Length));
+            }
+
+            return point;
+        }
+
+        private static mclBnFr HashPublicInputs(ReadOnlySpan<byte> publicInputs)
+        {
+            byte[] digest = SHA256.HashData(publicInputs);
+            var scalar = new mclBnFr();
+            fixed (byte* ptr = digest)
+            {
+                Assert.Equal(0, Mcl.mclBnFr_setBigEndianMod(ref scalar, (IntPtr)ptr, (UIntPtr)digest.Length));
+            }
+
+            return scalar;
+        }
+
+        private static byte[] SerializeG1(ref mclBnG1 point)
+        {
+            byte[] output = new byte[Mcl.mclBn_getG1ByteSize()];
+            fixed (byte* ptr = output)
+            {
+                Assert.Equal((UIntPtr)output.Length, Mcl.mclBnG1_serialize((IntPtr)ptr, (UIntPtr)output.Length, in point));
+            }
+
+            return output;
+        }
+
+        private static byte[] SerializeG2(ref mclBnG2 point)
+        {
+            byte[] output = new byte[Mcl.mclBn_getG2ByteSize()];
+            fixed (byte* ptr = output)
+            {
+                Assert.Equal((UIntPtr)output.Length, Mcl.mclBnG2_serialize((IntPtr)ptr, (UIntPtr)output.Length, in point));
+            }
+
+            return output;
+        }
+
+        private static mclBnG1 DeserializeG1(ReadOnlySpan<byte> bytes)
+        {
+            var point = new mclBnG1();
+            fixed (byte* ptr = bytes)
+            {
+                Assert.Equal((UIntPtr)bytes.Length, Mcl.mclBnG1_deserialize(ref point, (IntPtr)ptr, (UIntPtr)bytes.Length));
+            }
+
+            return point;
+        }
+
+        private static mclBnG2 DeserializeG2(ReadOnlySpan<byte> bytes)
+        {
+            var point = new mclBnG2();
+            fixed (byte* ptr = bytes)
+            {
+                Assert.Equal((UIntPtr)bytes.Length, Mcl.mclBnG2_deserialize(ref point, (IntPtr)ptr, (UIntPtr)bytes.Length));
+            }
+
+            return point;
         }
     }
 }

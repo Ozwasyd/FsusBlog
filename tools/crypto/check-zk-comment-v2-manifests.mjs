@@ -673,6 +673,15 @@ function checkDependencyPolicy(policy) {
       fail(`privacy-zk dependency policy forbids missing implementation rule token ${token}`)
     }
   }
+
+  const mcl = asArray(normalized.evaluated_candidates).find((entry) => entry?.name === 'Nethermind.MclBindings') ?? {}
+  if (mcl.decision !== 'selected-for-backend-verifier-kernel') {
+    fail('Nethermind.MclBindings must remain selected for the backend verifier kernel')
+  }
+  const mclLicense = String(mcl.license ?? '')
+  if (!mclLicense.includes('MIT') || !mclLicense.includes('BSD-3-Clause')) {
+    fail('Nethermind.MclBindings license must record MIT and BSD-3-Clause boundaries')
+  }
 }
 
 function writeEvidence(status, feasibilityStatus, selectedCandidate) {

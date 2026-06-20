@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Nethermind.MclBindings;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -134,6 +135,7 @@ internal sealed record NativeGroth16ZkProofBackendOptions(
     string EntryPoint)
 {
     public const string SectionName = "AnonymousIdentity:ZkVerifier:NativeGroth16";
+    public const string ManagedMclLibraryPath = "managed:mcl";
     private const string DefaultEntryPoint = "fsus_zk_groth16_verify";
     private const string NativeLibraryEnvironmentVariable = "FSUSBLOG_ZK_GROTH16_NATIVE_LIBRARY";
     private const string VerifyingKeyEnvironmentVariable = "FSUSBLOG_ZK_GROTH16_VERIFYING_KEY";
@@ -243,6 +245,11 @@ internal sealed unsafe class NativeGroth16VerifierLibrary : INativeGroth16Verifi
             return UnavailableNativeGroth16VerifierLibrary.Instance;
         }
 
+        if (string.Equals(options.LibraryPath, NativeGroth16ZkProofBackendOptions.ManagedMclLibraryPath, StringComparison.Ordinal))
+        {
+            return MclGroth16VerifierLibrary.Create();
+        }
+
         try
         {
             IntPtr handle = NativeLibrary.Load(options.LibraryPath);
@@ -285,6 +292,307 @@ internal sealed unsafe class NativeGroth16VerifierLibrary : INativeGroth16Verifi
             NativeLibrary.Free(_libraryHandle);
         }
     }
+}
+
+internal sealed unsafe class MclGroth16VerifierLibrary : INativeGroth16VerifierLibrary
+{
+    private const int MclBnSnark1 = 4;
+    private const int MclCompiledTimeVar = 46;
+    private const ushort FormatVersion = 1;
+    private const ushort PublicInputHashBindingMode = 1;
+    private static readonly byte[] VerifyingKeyMagic = "FSG16VK1"u8.ToArray();
+    private static readonly byte[] ProofMagic = "FSG16PF1"u8.ToArray();
+    private static readonly object InitializationLock = new();
+    private static bool _initialized;
+    private static bool _available;
+
+    private MclGroth16VerifierLibrary(bool available)
+    {
+        IsLoaded = available;
+    }
+
+    public bool IsLoaded { get; }
+
+    public static MclGroth16VerifierLibrary Create()
+        => new(EnsureInitialized());
+
+    public NativeGroth16VerifierCallResult Verify(
+        ReadOnlySpan<byte> verifyingKey,
+        ReadOnlySpan<byte> publicInputs,
+        ReadOnlySpan<byte> proof)
+    {
+        if (!IsLoaded)
+        {
+            return NativeGroth16VerifierCallResult.Rejected("mcl_unavailable");
+        }
+
+        try
+        {
+            if (!TryReadVerifyingKey(
+                    verifyingKey,
+                    out mclBnG1 alphaG1,
+                    out mclBnG2 betaG2,
+                    out mclBnG2 gammaG2,
+                    out mclBnG2 deltaG2,
+                    out mclBnG1 inputConstant,
+                    out mclBnG1 inputHashGenerator) ||
+                !TryReadProof(
+                    proof,
+                    out mclBnG1 proofA,
+                    out mclBnG2 proofB,
+                    out mclBnG1 proofC))
+            {
+                return NativeGroth16VerifierCallResult.Rejected("invalid_artifact");
+            }
+
+            mclBnFr transcriptScalar = HashPublicInputs(publicInputs);
+            var scaledInput = new mclBnG1();
+            Mcl.mclBnG1_mul(ref scaledInput, in inputHashGenerator, in transcriptScalar);
+            var publicInputCommitment = new mclBnG1();
+            Mcl.mclBnG1_add(ref publicInputCommitment, in inputConstant, in scaledInput);
+
+            var left = new mclBnGT();
+            Mcl.mclBn_pairing(ref left, in proofA, in proofB);
+
+            var right = new mclBnGT();
+            Mcl.mclBn_pairing(ref right, in alphaG1, in betaG2);
+            var publicInputPairing = new mclBnGT();
+            Mcl.mclBn_pairing(ref publicInputPairing, in publicInputCommitment, in gammaG2);
+            Mcl.mclBnGT_mul(ref right, in right, in publicInputPairing);
+            var proofPairing = new mclBnGT();
+            Mcl.mclBn_pairing(ref proofPairing, in proofC, in deltaG2);
+            Mcl.mclBnGT_mul(ref right, in right, in proofPairing);
+
+            return Mcl.mclBnGT_isEqual(in left, in right) == 1
+                ? NativeGroth16VerifierCallResult.Accepted()
+                : NativeGroth16VerifierCallResult.Rejected("invalid_proof");
+        }
+        catch
+        {
+            return NativeGroth16VerifierCallResult.Rejected("native_error");
+        }
+    }
+
+    public void Dispose()
+    {
+    }
+
+    private static bool EnsureInitialized()
+    {
+        if (_initialized)
+        {
+            return _available;
+        }
+
+        lock (InitializationLock)
+        {
+            if (_initialized)
+            {
+                return _available;
+            }
+
+            _available = Mcl.mclBn_init(MclBnSnark1, MclCompiledTimeVar) == 0;
+            if (_available)
+            {
+                Mcl.mclBn_verifyOrderG1(1);
+                Mcl.mclBn_verifyOrderG2(1);
+            }
+
+            _initialized = true;
+            return _available;
+        }
+    }
+
+    private static bool TryReadVerifyingKey(
+        ReadOnlySpan<byte> bytes,
+        out mclBnG1 alphaG1,
+        out mclBnG2 betaG2,
+        out mclBnG2 gammaG2,
+        out mclBnG2 deltaG2,
+        out mclBnG1 inputConstant,
+        out mclBnG1 inputHashGenerator)
+    {
+        alphaG1 = default;
+        betaG2 = default;
+        gammaG2 = default;
+        deltaG2 = default;
+        inputConstant = default;
+        inputHashGenerator = default;
+        int offset = 0;
+        if (!TryReadMagic(bytes, ref offset, VerifyingKeyMagic) ||
+            !TryReadUInt16(bytes, ref offset, out ushort version) ||
+            !TryReadUInt16(bytes, ref offset, out ushort bindingMode) ||
+            !TryReadUInt16(bytes, ref offset, out ushort curve) ||
+            !TryReadUInt16(bytes, ref offset, out ushort inputCommitmentCount) ||
+            version != FormatVersion ||
+            bindingMode != PublicInputHashBindingMode ||
+            curve != MclBnSnark1 ||
+            inputCommitmentCount != 2)
+        {
+            return false;
+        }
+
+        if (!TryReadRequiredG1(bytes, offset, out alphaG1, out offset, allowZero: false))
+        {
+            return false;
+        }
+        if (!TryReadRequiredG2(bytes, offset, out betaG2, out offset, allowZero: false))
+        {
+            return false;
+        }
+        if (!TryReadRequiredG2(bytes, offset, out gammaG2, out offset, allowZero: false))
+        {
+            return false;
+        }
+        if (!TryReadRequiredG2(bytes, offset, out deltaG2, out offset, allowZero: false))
+        {
+            return false;
+        }
+        if (!TryReadRequiredG1(bytes, offset, out inputConstant, out offset, allowZero: true))
+        {
+            return false;
+        }
+        if (!TryReadRequiredG1(bytes, offset, out inputHashGenerator, out offset, allowZero: false))
+        {
+            return false;
+        }
+
+        return offset == bytes.Length;
+    }
+
+    private static bool TryReadProof(
+        ReadOnlySpan<byte> bytes,
+        out mclBnG1 a,
+        out mclBnG2 b,
+        out mclBnG1 c)
+    {
+        a = default;
+        b = default;
+        c = default;
+        int offset = 0;
+        if (!TryReadMagic(bytes, ref offset, ProofMagic) ||
+            !TryReadUInt16(bytes, ref offset, out ushort version) ||
+            version != FormatVersion)
+        {
+            return false;
+        }
+
+        if (!TryReadRequiredG1(bytes, offset, out a, out offset, allowZero: false))
+        {
+            return false;
+        }
+        if (!TryReadRequiredG2(bytes, offset, out b, out offset, allowZero: false))
+        {
+            return false;
+        }
+        if (!TryReadRequiredG1(bytes, offset, out c, out offset, allowZero: true))
+        {
+            return false;
+        }
+
+        return offset == bytes.Length;
+    }
+
+    private static bool TryReadMagic(ReadOnlySpan<byte> source, ref int offset, ReadOnlySpan<byte> magic)
+    {
+        if (source.Length - offset < magic.Length ||
+            !source.Slice(offset, magic.Length).SequenceEqual(magic))
+        {
+            return false;
+        }
+
+        offset += magic.Length;
+        return true;
+    }
+
+    private static bool TryReadUInt16(ReadOnlySpan<byte> source, ref int offset, out ushort value)
+    {
+        value = 0;
+        if (source.Length - offset < sizeof(ushort))
+        {
+            return false;
+        }
+
+        value = BinaryPrimitives.ReadUInt16LittleEndian(source.Slice(offset, sizeof(ushort)));
+        offset += sizeof(ushort);
+        return true;
+    }
+
+    private static bool TryReadRequiredG1(
+        ReadOnlySpan<byte> source,
+        int offset,
+        out mclBnG1 value,
+        out int nextOffset,
+        bool allowZero)
+    {
+        value = default;
+        nextOffset = offset;
+        int length = Mcl.mclBn_getG1ByteSize();
+        if (source.Length - offset < length)
+        {
+            return false;
+        }
+
+        ReadOnlySpan<byte> encoded = source.Slice(offset, length);
+        nextOffset = offset + length;
+        fixed (byte* ptr = encoded)
+        {
+            if (Mcl.mclBnG1_deserialize(ref value, (IntPtr)ptr, (UIntPtr)encoded.Length) != (UIntPtr)encoded.Length)
+            {
+                return false;
+            }
+        }
+
+        return Mcl.mclBnG1_isValid(in value) == 1 &&
+            Mcl.mclBnG1_isValidOrder(in value) == 1 &&
+            (allowZero || Mcl.mclBnG1_isZero(in value) == 0);
+    }
+
+    private static bool TryReadRequiredG2(
+        ReadOnlySpan<byte> source,
+        int offset,
+        out mclBnG2 value,
+        out int nextOffset,
+        bool allowZero)
+    {
+        value = default;
+        nextOffset = offset;
+        int length = Mcl.mclBn_getG2ByteSize();
+        if (source.Length - offset < length)
+        {
+            return false;
+        }
+
+        ReadOnlySpan<byte> encoded = source.Slice(offset, length);
+        nextOffset = offset + length;
+        fixed (byte* ptr = encoded)
+        {
+            if (Mcl.mclBnG2_deserialize(ref value, (IntPtr)ptr, (UIntPtr)encoded.Length) != (UIntPtr)encoded.Length)
+            {
+                return false;
+            }
+        }
+
+        return Mcl.mclBnG2_isValid(in value) == 1 &&
+            Mcl.mclBnG2_isValidOrder(in value) == 1 &&
+            (allowZero || Mcl.mclBnG2_isZero(in value) == 0);
+    }
+
+    private static mclBnFr HashPublicInputs(ReadOnlySpan<byte> publicInputs)
+    {
+        byte[] digest = SHA256.HashData(publicInputs);
+        var scalar = new mclBnFr();
+        fixed (byte* ptr = digest)
+        {
+            if (Mcl.mclBnFr_setBigEndianMod(ref scalar, (IntPtr)ptr, (UIntPtr)digest.Length) != 0)
+            {
+                throw new InvalidOperationException("mcl_fr_hash_failed");
+            }
+        }
+
+        return scalar;
+    }
+
 }
 
 internal sealed class UnavailableNativeGroth16VerifierLibrary : INativeGroth16VerifierLibrary

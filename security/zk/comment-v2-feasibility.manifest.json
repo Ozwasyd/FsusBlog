@@ -39,9 +39,9 @@
     "evaluated_candidates": [
       {
         "name": "Nethermind.MclBindings",
-        "decision": "allowed-for-verifier-kernel-evaluation-only",
+        "decision": "selected-for-backend-verifier-kernel",
         "license": "MIT with BSD-3-Clause dynamically linked MCL binaries",
-        "scope_limit": "pairing/arithmetic kernel only; does not replace trusted setup, browser prover bundle or cross-stack evidence"
+        "scope_limit": "backend pairing/arithmetic verifier kernel only; does not replace trusted setup, browser prover bundle or cross-stack evidence"
       },
       {
         "name": "Groth16.Net / Bn254.Net",

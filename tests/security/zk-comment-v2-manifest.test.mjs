@@ -102,6 +102,11 @@ test('comment v2 feasibility manifest records the selected circuit-native creden
   assert.equal(selected.credential_curve, 'bn254')
   assert.ok(selected.performance.constraints_estimate <= 250_000)
   assert.ok(selected.performance.proving_key_bytes_estimate <= 256_000_000)
+
+  const mcl = feasibility.dependency_policy.evaluated_candidates.find((entry) => entry.name === 'Nethermind.MclBindings')
+  assert.equal(mcl.decision, 'selected-for-backend-verifier-kernel')
+  assert.match(mcl.license, /MIT/)
+  assert.match(mcl.license, /BSD-3-Clause/)
 })
 
 test('checker evidence includes the feasibility manifest and selected design status', () => {

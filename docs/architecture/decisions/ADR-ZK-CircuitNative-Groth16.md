@@ -50,10 +50,10 @@ dependency. If a mature MIT/Apache/BSD NuGet package is evaluated later, it must
 pass the same vulnerability, license, native provenance, and performance gates
 before import.
 
-`Nethermind.MclBindings` remains an acceptable evaluation candidate only for a
-pairing/arithmetic verifier kernel because it publishes MIT/BSD-3-Clause
-licensing and targets .NET 10. It does not by itself satisfy the trusted setup,
-browser wasm prover, native verifier wrapper, or cross-stack evidence issues.
+`Nethermind.MclBindings` is selected for the backend verifier pairing kernel
+because it publishes MIT/BSD-3-Clause licensing and targets .NET 10. It only
+covers pairing/arithmetic verification; it does not by itself satisfy the
+trusted setup, browser wasm prover, or cross-stack evidence issues.
 `Groth16.Net` / `Bn254.Net` remain blocked until license expression, native
 binary provenance, and CI evidence are reviewed.
 
