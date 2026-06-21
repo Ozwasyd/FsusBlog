@@ -464,18 +464,17 @@ public class NotificationStreamTargetTests2
     }
 
     [Fact]
-    public void NotificationStreamGroups_AllGroupsAreDistinct()
+    public void NotificationStreamTargetCollections_AllCollectionsAreDistinct()
     {
-        var groups = new[] { NotificationStreamGroups.AuthenticatedUsers, NotificationStreamGroups.ContentFeed, NotificationStreamGroups.AdminUsers };
+        var groups = new[] { NotificationStreamTargetCollections.ContentFeed, NotificationStreamTargetCollections.AdminUsers };
         Assert.Equal(groups.Length, groups.Distinct().Count());
     }
 
     [Fact]
-    public void NotificationStreamGroups_AllNonEmpty()
+    public void NotificationStreamTargetCollections_AllNonEmpty()
     {
-        Assert.NotEmpty(NotificationStreamGroups.AuthenticatedUsers);
-        Assert.NotEmpty(NotificationStreamGroups.ContentFeed);
-        Assert.NotEmpty(NotificationStreamGroups.AdminUsers);
+        Assert.NotEmpty(NotificationStreamTargetCollections.ContentFeed);
+        Assert.NotEmpty(NotificationStreamTargetCollections.AdminUsers);
     }
 }
 

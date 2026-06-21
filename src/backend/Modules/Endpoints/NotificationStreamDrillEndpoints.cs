@@ -141,13 +141,11 @@ public static class NotificationStreamDrillEndpoints
         string value = string.IsNullOrWhiteSpace(routeKey) ? "content-feed" : routeKey.Trim();
         return value switch
         {
-            "content-feed" or "public" or NotificationStreamGroups.ContentFeed or "g:" + NotificationStreamGroups.ContentFeed
-                => new NotificationStreamGroupTarget(NotificationStreamGroups.ContentFeed),
-            "authenticated-users" or NotificationStreamGroups.AuthenticatedUsers or "g:" + NotificationStreamGroups.AuthenticatedUsers
-                => new NotificationStreamGroupTarget(NotificationStreamGroups.AuthenticatedUsers),
-            "admin-users" or NotificationStreamGroups.AdminUsers or "g:" + NotificationStreamGroups.AdminUsers
-                => new NotificationStreamGroupTarget(NotificationStreamGroups.AdminUsers),
-            _ => new NotificationStreamGroupTarget(NotificationStreamGroups.ContentFeed)
+            "content-feed" or "public" or "g:" + NotificationStreamTargetCollections.ContentFeed
+                => new NotificationStreamGroupTarget(NotificationStreamTargetCollections.ContentFeed),
+            "admin-users" or "g:" + NotificationStreamTargetCollections.AdminUsers
+                => new NotificationStreamGroupTarget(NotificationStreamTargetCollections.AdminUsers),
+            _ => new NotificationStreamGroupTarget(NotificationStreamTargetCollections.ContentFeed)
         };
     }
 

@@ -477,7 +477,7 @@ public sealed partial class SearchIndexService(
             await notificationStreamPublisher.PublishAsync(
                 NotificationStreamEventType.SearchIndexUpdated,
                 new SearchIndexUpdatePayload(artifacts.Version, "/search/index.manifest.aeds", artifacts.GeneratedAt),
-                new NotificationStreamGroupTarget(NotificationStreamGroups.ContentFeed));
+                new NotificationStreamGroupTarget(NotificationStreamTargetCollections.ContentFeed));
         }
     }
 

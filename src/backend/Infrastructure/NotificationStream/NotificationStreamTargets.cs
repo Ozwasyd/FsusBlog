@@ -1,10 +1,9 @@
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
-public static class NotificationStreamGroups
+public static class NotificationStreamTargetCollections
 {
-    public const string AuthenticatedUsers = "AuthenticatedUsersGroup";
-    public const string ContentFeed = "ContentGovernanceGroup";
-    public const string AdminUsers = "AdminUsersGroup";
+    public const string ContentFeed = "content-feed";
+    public const string AdminUsers = "admin-users";
 }
 
 public abstract record NotificationStreamTarget;

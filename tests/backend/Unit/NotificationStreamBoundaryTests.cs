@@ -112,13 +112,13 @@ public class NotificationStreamBoundaryTests
 
         IReadOnlySet<string> groups = resolver.ResolveGroups(principal, "42");
 
-        Assert.Contains(NotificationStreamGroups.ContentFeed, groups);
-        Assert.Contains(NotificationStreamGroups.AuthenticatedUsers, groups);
-        Assert.DoesNotContain(NotificationStreamGroups.AdminUsers, groups);
+        Assert.Single(groups);
+        Assert.Contains(NotificationStreamTargetCollections.ContentFeed, groups);
+        Assert.DoesNotContain(NotificationStreamTargetCollections.AdminUsers, groups);
     }
 
     [Fact]
-    public void AudienceResolver_MapsAdminPrincipalToNotificationStreamGroups()
+    public void AudienceResolver_MapsAdminPrincipalToNotificationStreamTargetCollections()
     {
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
             [
@@ -131,9 +131,8 @@ public class NotificationStreamBoundaryTests
 
         IReadOnlySet<string> groups = resolver.ResolveGroups(principal, "42");
 
-        Assert.Contains(NotificationStreamGroups.ContentFeed, groups);
-        Assert.Contains(NotificationStreamGroups.AuthenticatedUsers, groups);
-        Assert.Contains(NotificationStreamGroups.AdminUsers, groups);
+        Assert.Contains(NotificationStreamTargetCollections.ContentFeed, groups);
+        Assert.Contains(NotificationStreamTargetCollections.AdminUsers, groups);
     }
 
     [Theory]
@@ -190,8 +189,7 @@ public class NotificationStreamBoundaryTests
 
         Assert.True(result.IsSuccess);
         Assert.Null(result.Handshake!.UserId);
-        Assert.Contains(NotificationStreamGroups.AuthenticatedUsers, result.Handshake.Groups);
-        Assert.Contains(NotificationStreamGroups.AdminUsers, result.Handshake.Groups);
+        Assert.Contains(NotificationStreamTargetCollections.AdminUsers, result.Handshake.Groups);
         Assert.Equal([null], admission.Requests);
     }
 

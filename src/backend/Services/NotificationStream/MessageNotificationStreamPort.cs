@@ -21,10 +21,10 @@ internal sealed class MessageNotificationStreamPort(
         => PublishOrLogAsync(eventType, payload, new NotificationStreamUserTarget(userId.ToString()), operation);
 
     public Task PublishToContentFeedAsync<TPayload>(NotificationStreamEventType eventType, TPayload payload, string operation)
-        => PublishOrLogAsync(eventType, payload, new NotificationStreamGroupTarget(NotificationStreamGroups.ContentFeed), operation);
+        => PublishOrLogAsync(eventType, payload, new NotificationStreamGroupTarget(NotificationStreamTargetCollections.ContentFeed), operation);
 
     public Task PublishToAdminUsersAsync<TPayload>(NotificationStreamEventType eventType, TPayload payload, string operation)
-        => PublishOrLogAsync(eventType, payload, new NotificationStreamGroupTarget(NotificationStreamGroups.AdminUsers), operation);
+        => PublishOrLogAsync(eventType, payload, new NotificationStreamGroupTarget(NotificationStreamTargetCollections.AdminUsers), operation);
 
     private async Task PublishOrLogAsync<TPayload>(NotificationStreamEventType eventType, TPayload payload, NotificationStreamTarget target, string operation)
     {

@@ -12,13 +12,12 @@ internal sealed class NotificationStreamAudienceResolver : INotificationStreamAu
 {
     public IReadOnlySet<string> ResolveGroups(ClaimsPrincipal principal, string? userId)
     {
-        var groups = new HashSet<string>(StringComparer.Ordinal) { NotificationStreamGroups.ContentFeed };
+        var groups = new HashSet<string>(StringComparer.Ordinal) { NotificationStreamTargetCollections.ContentFeed };
         if (principal.Identity?.IsAuthenticated == true || !string.IsNullOrEmpty(userId))
         {
-            groups.Add(NotificationStreamGroups.AuthenticatedUsers);
             if (principal.IsAdminPrincipal() && principal.TryGetAdminPrincipalId(out _))
             {
-                groups.Add(NotificationStreamGroups.AdminUsers);
+                groups.Add(NotificationStreamTargetCollections.AdminUsers);
             }
         }
 
