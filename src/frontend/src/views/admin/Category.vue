@@ -214,8 +214,6 @@ const {
   handleDelete
 } = useAdminCategoryManage()
 
-void formRef
-
 const getCategoryRowKey = (row: AdminCategoryItemResponse): string => String(row.id)
 const isCompact = useMediaQuery('(max-width: 639px)')
 const hasCategoryFilters = computed(() => filters.keyword.trim() !== '' || filters.unusedOnly)

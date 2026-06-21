@@ -1,4 +1,4 @@
-import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
+import { computed, onMounted, reactive, ref, shallowRef, useTemplateRef } from 'vue'
 import { type FormInstance } from '@ozwasyd/element-plus'
 import { useRouter } from 'vue-router'
 import { isFsusUiOk } from '@/fsusui/result'
@@ -17,7 +17,7 @@ export function useAdminTagManage() {
   const dialogVisible = ref(false)
   const submitting = ref(false)
   const editingId = ref<number | null>(null)
-  const formRef = ref<FormInstance>()
+  const formRef = useTemplateRef<FormInstance>('formRef')
   const powProvider = usePow()
 
   const isProcessing = computed(() => submitting.value || powProvider.isCalculating.value)

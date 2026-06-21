@@ -1,4 +1,4 @@
-import { nextTick, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { nextTick, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
 import { getAuthorAnalytics } from '@/api/authoring'
 import { getAdminStatsQuery } from '@/api/stats'
 import { useAbortableTask } from '@/composables/useAbortableTask'
@@ -23,7 +23,7 @@ export function useAdminDashboard() {
   const statsTask = useAbortableTask()
   const { userStore, adminStore, ensureUserInfo, syncAuthPhase } = useSessionBootstrap()
 
-  const regionChartRef = ref<HTMLElement>()
+  const regionChartRef = useTemplateRef<HTMLElement>('regionChartRef')
   const createEmptyDashboardView = (): AdminDashboardViewContract => ({
     statCards: [],
     popularArticles: [],
