@@ -27,6 +27,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildSysUserSecurityProfileSplitMigration(),
         BuildSysUserSecurityProfileSplitFinalizeMigration(),
         BuildUserLegacyIdentityColumnsFinalizeMigration(),
+        BuildSysUserUsernameFinalizeMigration(),
         BuildAdminPrincipalPlaneMigration(),
         BuildPasskeyRecoveryKeyAccountIdPostCodeFirstCompatMigration(),
         BuildAccountRecoveryKeyMigration(),
@@ -177,13 +178,6 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                             WHERE table_schema = 'public' AND table_name = 'article' AND column_name = 'summary'
                         ) THEN
                             ALTER TABLE article ALTER COLUMN summary TYPE varchar(512);
-                        END IF;
-
-                        IF EXISTS (
-                            SELECT 1 FROM information_schema.columns
-                            WHERE table_schema = 'public' AND table_name = 'sys_user' AND column_name = 'username'
-                        ) THEN
-                            ALTER TABLE sys_user ALTER COLUMN username TYPE varchar(64);
                         END IF;
 
                         IF EXISTS (
@@ -1289,17 +1283,27 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
     private static ISchemaMigrationDescriptor BuildUserLegacyIdentityColumnsFinalizeMigration()
         => new SchemaMigrationDescriptor(
             "20260621-post-user-legacy-identity-columns-finalize",
-            "Drop legacy sys_user username/password/role columns after anonymous account schema is authoritative.",
+            "Drop legacy sys_user password/role columns after anonymous account schema is authoritative.",
             SchemaMigrationPhase.PostCodeFirst,
             Transactional: true,
             Steps:
             [
                 new DropIndexStep("unique_idx_username"),
-                new DropColumnStep("sys_user", "username"),
                 new DropColumnStep("sys_user", "password"),
                 new DropColumnStep("sys_user", "role"),
                 new DropColumnStep("sys_user", "lastusernameupdatetime"),
                 new DropColumnStep("sys_user", "last_username_update_time")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildSysUserUsernameFinalizeMigration()
+        => new SchemaMigrationDescriptor(
+            "20260621-post-sys-user-username-finalize",
+            "Drop legacy sys_user username after CodeFirst has reconciled the anonymous account schema.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new DropColumnStep("sys_user", "username")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAccountRecoveryKeyMigration()
