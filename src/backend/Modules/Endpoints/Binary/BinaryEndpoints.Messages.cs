@@ -37,33 +37,33 @@ public static partial class BinaryEndpoints
             int size,
             string? filter,
             IMessageQueryService query,
-            CurrentUser user,
+            AccountPrincipalContext account,
             IAedsEncoder aeds) =>
         {
             int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 50);
             int pageNum = Math.Max(1, page);
-            var data = await query.GetAccountConversationsAsync(ResolveCurrentAccountId(user), pageNum, pageSize, filter);
+            var data = await query.GetAccountConversationsAsync(account.AccountId, pageNum, pageSize, filter);
             return BinaryResults.Frame(aeds, AedsFrameType.ConversationList, writer => PodBinaryCodec.WriteConversationList(data, writer));
         })
-        .RequireAuthorization();
+        .RequireAnonymousAccountPrincipal();
 
         group.MapGet("/messages/conversations/{id:long}", static async Task<BinaryFrameResult> (
             long id,
             IMessageQueryService query,
-            CurrentUser user,
+            AccountPrincipalContext account,
             IAedsEncoder aeds) =>
         {
-            var detail = await query.GetAccountConversationDetailAsync(ResolveCurrentAccountId(user), id);
+            var detail = await query.GetAccountConversationDetailAsync(account.AccountId, id);
             return detail is null
                 ? BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "会话不存在"), aeds)
                 : BinaryResults.Frame(aeds, AedsFrameType.ConversationDetail, writer => PodBinaryCodec.WriteConversationDetail(detail, writer));
         })
-        .RequireAuthorization();
+        .RequireAnonymousAccountPrincipal();
 
         group.MapPost("/messages/conversations", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IMessageCommandService command,
-            CurrentUser user,
+            AccountPrincipalContext account,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -78,19 +78,19 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "会话请求体非法"), aeds);
             }
 
-            var result = await command.CreateAccountTicketAsync(ResolveCurrentAccountId(user), request.Subject, request.Body);
+            var result = await command.CreateAccountTicketAsync(account.AccountId, request.Subject, request.Body);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.ConversationDetail, writer => PodBinaryCodec.WriteConversationDetail(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
         })
-        .RequireAuthorization()
+        .RequireAnonymousAccountPrincipal()
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapPost("/messages/conversations/{id:long}/reply", static async Task<BinaryFrameResult> (
             long id,
             HttpContext httpContext,
             IMessageCommandService command,
-            CurrentUser user,
+            AccountPrincipalContext account,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -105,26 +105,26 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "回复请求体非法"), aeds);
             }
 
-            var result = await command.ReplyAsAccountAsync(ResolveCurrentAccountId(user), id, body);
+            var result = await command.ReplyAsAccountAsync(account.AccountId, id, body);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.ConversationMessage, writer => PodBinaryCodec.WriteConversationMessage(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
         })
-        .RequireAuthorization()
+        .RequireAnonymousAccountPrincipal()
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapPost("/messages/conversations/{id:long}/read", static async Task<BinaryFrameResult> (
             long id,
             IMessageCommandService command,
-            CurrentUser user,
+            AccountPrincipalContext account,
             IAedsEncoder aeds) =>
         {
-            var result = await command.MarkConversationReadAsync(ResolveCurrentAccountId(user), id);
+            var result = await command.MarkConversationReadAsync(account.AccountId, id);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(result.Error, aeds);
         })
-        .RequireAuthorization();
+        .RequireAnonymousAccountPrincipal();
 
         group.MapGet("/admin/messages/conversations", static async Task<BinaryFrameResult> (
             int page,
@@ -249,8 +249,6 @@ public static partial class BinaryEndpoints
         .RequireAdminPermission(AdminPermissions.AdminManage)
         .AddEndpointFilter<RequiresPowFilter>();
     }
-
-    private static int ResolveCurrentAccountId(CurrentUser currentUser) => checked((int)currentUser.Id);
 
     private static bool TryResolveAdminMessageActor(HttpContext httpContext, out AdminMessageActor adminActor)
     {

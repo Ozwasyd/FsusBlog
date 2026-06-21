@@ -126,6 +126,9 @@ public sealed class MessageCenterServiceTests
         Assert.DoesNotContain("PushUserStatusAsync", ports, StringComparison.Ordinal);
 
         Assert.Contains("TryResolveAdminSessionContext", endpoints, StringComparison.Ordinal);
+        Assert.Contains("AccountPrincipalContext", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("CurrentUser", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("ResolveCurrentAccountId", endpoints, StringComparison.Ordinal);
         Assert.DoesNotContain("checked((int)user.Id)", endpoints, StringComparison.Ordinal);
         Assert.Contains("GetAccountConversationsAsync", endpoints, StringComparison.Ordinal);
         Assert.Contains("CreateAccountTicketAsync", endpoints, StringComparison.Ordinal);
@@ -145,6 +148,30 @@ public sealed class MessageCenterServiceTests
         Assert.Contains("initiatoraccountid", migration, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("senderadminprincipalid", migration, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("accountid", migration, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void MessageEndpoints_OrdinaryAccountRoutesRequireAnonymousAccountPrincipal()
+    {
+        string endpoints = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs");
+        string[] ordinaryRoutes =
+        [
+            "group.MapGet(\"/messages/conversations\"",
+            "group.MapGet(\"/messages/conversations/{id:long}\"",
+            "group.MapPost(\"/messages/conversations\"",
+            "group.MapPost(\"/messages/conversations/{id:long}/reply\"",
+            "group.MapPost(\"/messages/conversations/{id:long}/read\""
+        ];
+
+        foreach (string route in ordinaryRoutes)
+        {
+            string block = ExtractRouteBlock(endpoints, route);
+            Assert.Contains(".RequireAnonymousAccountPrincipal()", block, StringComparison.Ordinal);
+            Assert.DoesNotContain(".RequireAuthorization()", block, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("AdminMessageActor", endpoints, StringComparison.Ordinal);
+        Assert.Contains(".RequireAdminPermission(AdminPermissions.AdminManage)", endpoints, StringComparison.Ordinal);
     }
 
 
@@ -203,6 +230,20 @@ public sealed class MessageCenterServiceTests
         int end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
         Assert.True(end > start, $"Missing end marker: {endMarker}");
         return source[start..end];
+    }
+
+    private static string ExtractRouteBlock(string source, string routeSignature)
+    {
+        int start = source.IndexOf(routeSignature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing route marker: {routeSignature}");
+        int next = source.IndexOf("\n        group.Map", start + routeSignature.Length, StringComparison.Ordinal);
+        if (next < 0)
+        {
+            next = source.IndexOf("\n    }\n\n    private", start + routeSignature.Length, StringComparison.Ordinal);
+        }
+
+        Assert.True(next > start, $"Missing route end: {routeSignature}");
+        return source[start..next];
     }
 
     private static string ReadSource(string relativePath)
