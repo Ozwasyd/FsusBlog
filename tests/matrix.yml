@@ -1473,7 +1473,7 @@ tiers:
     risk: critical
     cadence: pr
     requiredFor: production
-    coverage: [endpoint-role-protocol-status-cache-error-frame]
+    coverage: [anonymous-account-endpoint-protocol-status-cache-error-frame, admin-principal-endpoint-protocol-status-cache-error-frame, identity-kind-anonymous-account, identity-kind-admin-principal, endpoint-role-protocol-status-cache-error-frame-deprecated]
     artifacts: [.tmp/contracts/endpoint-depth-matrix.json, .tmp/release-evidence/endpoint-depth-summary.json]
     evidence: [.tmp/release-evidence/endpoint-depth-summary.json]
     ciJob: endpoint-depth-runtime

@@ -172,6 +172,12 @@ expectWorkflowSyncFailure(
   'workflow manual bootstrap must be backed by matrix metadata'
 )
 
+expectWorkflowSyncFailure(
+  matrixSourceText.replace('identity-kind-anonymous-account', 'identity-kind-legacy-user'),
+  'matrix coverage dimensions missing required identity kind: identity-kind-anonymous-account',
+  'workflow sync must reject matrices without anonymous account identity-kind coverage'
+)
+
 expectMatrixValidateFailure(
   matrixSourceText.replace(/\n    cadence: [^\n]+\n/, '\n'),
   'validate-matrix missing cadence',
@@ -361,6 +367,26 @@ requireFileIncludes(
   '.github/workflows/quality-gate.yml',
   'fetch-depth: 0',
   'fast-backend workflow checkout must fetch enough history for affected backend selection'
+)
+requireFileIncludes(
+  '.github/workflows/quality-gate.yml',
+  'node tools/verify-matrix-identity-kinds.mjs',
+  'security-runtime workflow must verify anonymous migration identity-kind dimensions'
+)
+requireFileIncludes(
+  'tests/matrix.yml',
+  'anonymous-account-endpoint-protocol-status-cache-error-frame',
+  'endpoint-depth coverage must include anonymous-account actor dimensions'
+)
+requireFileIncludes(
+  'tests/matrix.yml',
+  'admin-principal-endpoint-protocol-status-cache-error-frame',
+  'endpoint-depth coverage must include admin-principal actor dimensions'
+)
+requireFileIncludes(
+  'tests/matrix.yml',
+  'endpoint-role-protocol-status-cache-error-frame-deprecated',
+  'legacy endpoint-role-protocol coverage must be explicitly deprecated'
 )
 requireFileIncludes(
   'tools/dotnet-affected-tests.sh',

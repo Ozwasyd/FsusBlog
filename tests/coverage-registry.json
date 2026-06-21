@@ -2,6 +2,21 @@
   "schema": "fsusblog.coverage-registry.v1",
   "entries": [
     {
+      "id": "admin-principal-endpoint-protocol-status-cache-error-frame",
+      "description": "Admin principal endpoint protocol status cache error frame coverage is produced by the endpoint-depth runtime matrix.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        ".tmp/release-evidence/endpoint-depth-summary.json"
+      ],
+      "assertionType": "runtime",
+      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
+      "minimumRequirement": "Endpoint-depth runtime evidence must include admin-principal actor rows across protocol, status, cache, and error-frame dimensions.",
+      "tierIds": [
+        "endpoint-depth"
+      ]
+    },
+    {
       "id": "aeds-full-frame-cache-hit",
       "description": "AEDS Full Frame Cache Hit is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",
@@ -735,8 +750,23 @@
       ]
     },
     {
-      "id": "endpoint-role-protocol-status-cache-error-frame",
-      "description": "Endpoint Role Protocol Status Cache Error Frame is covered by runtime artifacts that exercise the named behavior.",
+      "id": "anonymous-account-endpoint-protocol-status-cache-error-frame",
+      "description": "Anonymous account endpoint protocol status cache error frame coverage is produced by the endpoint-depth runtime matrix.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        ".tmp/release-evidence/endpoint-depth-summary.json"
+      ],
+      "assertionType": "runtime",
+      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
+      "minimumRequirement": "Endpoint-depth runtime evidence must include anonymous-account actor rows across protocol, status, cache, and error-frame dimensions.",
+      "tierIds": [
+        "endpoint-depth"
+      ]
+    },
+    {
+      "id": "endpoint-role-protocol-status-cache-error-frame-deprecated",
+      "description": "Deprecated legacy endpoint role protocol status cache error frame label retained only as a compatibility marker while actor-based dimensions carry the active anonymous migration coverage.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -745,6 +775,36 @@
       "assertionType": "runtime",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
       "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
+      "tierIds": [
+        "endpoint-depth"
+      ]
+    },
+    {
+      "id": "identity-kind-admin-principal",
+      "description": "Admin principal identity-kind coverage is produced by the endpoint-depth runtime matrix.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        ".tmp/release-evidence/endpoint-depth-summary.json"
+      ],
+      "assertionType": "runtime",
+      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
+      "minimumRequirement": "Endpoint-depth runtime evidence must include an admin-principal identity_kind dimension row.",
+      "tierIds": [
+        "endpoint-depth"
+      ]
+    },
+    {
+      "id": "identity-kind-anonymous-account",
+      "description": "Anonymous account identity-kind coverage is produced by the endpoint-depth runtime matrix.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        ".tmp/release-evidence/endpoint-depth-summary.json"
+      ],
+      "assertionType": "runtime",
+      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
+      "minimumRequirement": "Endpoint-depth runtime evidence must include an anonymous-account identity_kind dimension row.",
       "tierIds": [
         "endpoint-depth"
       ]

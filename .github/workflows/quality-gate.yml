@@ -559,6 +559,7 @@ jobs:
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+      - run: node tools/verify-matrix-identity-kinds.mjs
       - run: ./tools/test.sh security
       - run: ./tools/test.sh security-authenticated-dast --no-deps
       - run: ./tools/test.sh csrf-browser-matrix --no-deps

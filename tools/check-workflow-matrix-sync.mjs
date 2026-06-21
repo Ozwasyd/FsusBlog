@@ -11,6 +11,8 @@ const defaultWorkflowPath = path.join(root, '.github/workflows/quality-gate.yml'
 const matrixPath = process.env.FSUSBLOG_MATRIX_FILE
   ? path.resolve(root, process.env.FSUSBLOG_MATRIX_FILE)
   : path.join(root, 'tests/matrix.yml')
+const requiredActorDimensionPrefixes = ['anonymous-account-', 'admin-principal-']
+const requiredIdentityKindDimensions = ['identity-kind-anonymous-account', 'identity-kind-admin-principal']
 
 function parseValue(raw) {
   const value = String(raw ?? '').trim()
@@ -153,6 +155,28 @@ function workflowHasGlobalPlaywrightWorkers(text) {
   const jobsIndex = text.search(/^jobs:\s*$/m)
   const header = jobsIndex >= 0 ? text.slice(0, jobsIndex) : text
   return /^env:\s*$[\s\S]*?^  FSUSBLOG_PLAYWRIGHT_WORKERS:/m.test(header)
+}
+
+function validateMatrixCoverageDimensions(tiers, errors) {
+  const coverageIds = new Set(tiers.flatMap((tier) => Array.isArray(tier.coverage) ? tier.coverage : []))
+
+  for (const prefix of requiredActorDimensionPrefixes) {
+    if (![...coverageIds].some((id) => id.startsWith(prefix))) {
+      errors.push(`matrix coverage dimensions missing required actor prefix: ${prefix}*`)
+    }
+  }
+
+  for (const dimension of requiredIdentityKindDimensions) {
+    if (!coverageIds.has(dimension)) {
+      errors.push(`matrix coverage dimensions missing required identity kind: ${dimension}`)
+    }
+  }
+
+  for (const id of coverageIds) {
+    if (id.startsWith('endpoint-role-protocol-') && !id.includes('deprecated')) {
+      errors.push(`matrix coverage dimension ${id} uses legacy endpoint-role-protocol naming without deprecated marker`)
+    }
+  }
 }
 
 function parseWorkflow(text) {
@@ -550,6 +574,7 @@ function main() {
   if (workflowHasGlobalPlaywrightWorkers(workflowText)) {
     errors.push('workflow must not set FSUSBLOG_PLAYWRIGHT_WORKERS globally; use matrix tier playwrightWorkers policy')
   }
+  validateMatrixCoverageDimensions(matrix.tiers, errors)
 
   const isWorkflowRequiredTier = (tierId) => {
     const tier = tiersById.get(tierId)
