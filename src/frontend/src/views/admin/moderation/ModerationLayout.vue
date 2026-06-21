@@ -1,9 +1,9 @@
 <template>
   <div class="account-page moderation-system-page account-motion-enter w-full">
-    <AccountPageHeader
+    <FsusUiPageHeader
       title="审核系统"
-      description="评论队列、词库资产、地区策略、回放预览、模型信号与审计证据集中治理。"
-      compact
+      content="评论队列、词库资产、地区策略、回放预览、模型信号与审计证据集中治理。"
+      class="account-page-header--compact"
     />
 
     <section class="mb-8 border-l-4 border-[var(--el-color-warning)] bg-[var(--fsusblog-page-bg)] px-5 py-4 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
@@ -18,6 +18,6 @@
 
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
-import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import { FsusUiPageHeader } from "@/fsusui"
 import ModerationSystemTabs from '@/components/admin/moderation/ModerationSystemTabs.vue'
 </script>

@@ -1,9 +1,9 @@
 <template>
   <div class="account-page security-system-page account-motion-enter w-full">
-    <AccountPageHeader
+    <FsusUiPageHeader
       title="安全系统"
-      description="反爬虫、PoW challenge 与统一安全风险信号在同一安全系统下并列治理。"
-      compact
+      content="反爬虫、PoW challenge 与统一安全风险信号在同一安全系统下并列治理。"
+      class="account-page-header--compact"
     />
 
     <section class="mb-8 border-l-4 border-[var(--el-color-primary)] bg-[var(--fsusblog-page-bg)] px-5 py-4 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
@@ -18,6 +18,6 @@
 
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
-import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import { FsusUiPageHeader } from "@/fsusui"
 import SecuritySystemTabs from '@/components/admin/security/SecuritySystemTabs.vue'
 </script>

@@ -1,13 +1,13 @@
 <template>
   <div class="account-page profile-page">
-    <AccountPageHeader
+    <FsusUiPageHeader
       title="身份中心"
-      description="资料页已迁移到身份中心。"
+      content="资料页已迁移到身份中心。"
     />
 
     <ProfileInlineEmptyState
       title="资料页已迁移"
-      description="匿名账号设置集中在身份中心，包括 Passkey、Recovery Key、TOTP step-up、设备会话、公开称呼和匿名评论边界。"
+      content="匿名账号设置集中在身份中心，包括 Passkey、Recovery Key、TOTP step-up、设备会话、公开称呼和匿名评论边界。"
     >
       <template #actions>
         <router-link
@@ -24,7 +24,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import { FsusUiPageHeader } from "@/fsusui"
 import { ProfileInlineEmptyState } from '@/components/user/ProfileSettingsPrimitives'
 
 const router = useRouter()

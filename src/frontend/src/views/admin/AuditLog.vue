@@ -1,9 +1,9 @@
 <template>
   <div class="account-page audit-log-page account-motion-enter w-full">
-    <AccountPageHeader
+    <FsusUiPageHeader
       title="审计日志"
-      description="查询结构化安全事件、后台操作和防篡改证据。"
-      compact
+      content="查询结构化安全事件、后台操作和防篡改证据。"
+      class="account-page-header--compact"
     />
 
     <WorkbenchPanel
@@ -139,7 +139,7 @@
           </template>
         </el-table-column>
         <template #empty>
-          <AdminInlineEmptyState :title="auditEmptyTitle" :description="auditEmptyDescription">
+          <AdminInlineEmptyState :title="auditEmptyTitle" :content="auditEmptyDescription">
             <template #actions>
               <el-button v-if="hasAuditFilters" link type="primary" @click="resetFilters">清除筛选</el-button>
               <el-button v-else link type="primary" :loading="loading" @click="loadAudit">刷新审计日志</el-button>
@@ -207,7 +207,7 @@ import {
   type AuditLogRuntimeResponse,
   type AuditLogSummaryResponse
 } from '@/api/authoring'
-import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import { FsusUiPageHeader } from "@/fsusui"
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'

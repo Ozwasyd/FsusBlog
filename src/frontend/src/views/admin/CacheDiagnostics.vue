@@ -1,9 +1,9 @@
 <template>
   <div class="account-page cache-diagnostics-page account-motion-enter w-full">
-    <AccountPageHeader
+    <FsusUiPageHeader
       title="缓存诊断"
-      description="查看 AOT、PublicHotRead、search、sitemap/feed 与评论缓存状态。"
-      compact
+      content="查看 AOT、PublicHotRead、search、sitemap/feed 与评论缓存状态。"
+      class="account-page-header--compact"
     />
 
     <WorkbenchPanel class="mb-8" title="公开读链路" title-id="cache-status-title">
@@ -137,7 +137,7 @@ import {
   type AdminCacheActionResponse,
   type CacheDiagnosticsResponse
 } from '@/api/authoring'
-import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import { FsusUiPageHeader } from "@/fsusui"
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import { Delete, Refresh, Search } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
