@@ -52,7 +52,11 @@
         </el-form>
       </div>
 
-      <el-table v-loading="loading" :data="filteredAssets" row-key="id">
+      <div v-if="isAssetInitialLoading" class="px-4 py-6" aria-busy="true">
+        <el-skeleton :rows="6" animated />
+      </div>
+
+      <el-table v-else v-loading="loading" :data="filteredAssets" row-key="id">
         <el-table-column prop="id" label="ID" width="96" align="center">
           <template #default="{ row }: { row: AssetLibraryItemResponse }">
             <span class="tabular-nums">{{ row.id }}</span>
@@ -128,6 +132,7 @@ import { confirmDanger, toast } from '@/fsusui/feedback'
 
 const assets = shallowRef<AssetLibraryItemResponse[]>([])
 const loading = ref(false)
+const hasLoadedAssets = ref(false)
 const processing = ref(false)
 const keyword = ref('')
 const orphanOnly = ref(false)
@@ -144,6 +149,7 @@ const filteredAssets = computed(() => {
   })
 })
 const hasAssetFilters = computed(() => keyword.value.trim() !== '' || orphanOnly.value)
+const isAssetInitialLoading = computed(() => loading.value && !hasLoadedAssets.value)
 const assetEmptyTitle = computed(() => hasAssetFilters.value ? '没有匹配的资产' : '资产库暂无文件')
 const assetEmptyDescription = computed(() =>
   hasAssetFilters.value
@@ -164,6 +170,7 @@ const loadAssets = async (): Promise<void> => {
     showErrorToast(error, '资产库同步失败')
   } finally {
     loading.value = false
+    hasLoadedAssets.value = true
   }
 }
 

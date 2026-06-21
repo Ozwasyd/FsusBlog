@@ -1,7 +1,11 @@
 <template>
   <section class="admin-data-surface">
+    <div v-if="showInitialSkeleton" class="px-4 py-6" aria-busy="true">
+      <el-skeleton :rows="6" animated />
+    </div>
+
     <el-table
-      v-if="!isMobile"
+      v-else-if="!isMobile"
       class="user-table"
       v-loading="loading"
       :data="tableRows"
@@ -186,7 +190,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import type { UserListViewItem } from '@/composables/useAdminUserManage'
@@ -213,12 +217,20 @@ const props = withDefaults(defineProps<Props>(), {
   hasActiveFilters: false
 })
 
+const hasCompletedFirstLoad = ref(false)
+watch(() => props.loading, (isLoading) => {
+  if (!isLoading) {
+    hasCompletedFirstLoad.value = true
+  }
+})
+
 const accountColumnWidth = computed(() => (props.isMobile ? 136 : 220))
 const identityColumnWidth = computed(() => (props.isMobile ? 72 : 128))
 const statusColumnWidth = computed(() => (props.isMobile ? 56 : 124))
 const actionColumnWidth = computed(() => (props.isMobile ? 56 : 124))
 const hasWideTable = useMediaQuery('(min-width: 1024px)', true)
 const tableRows = computed(() => props.list)
+const showInitialSkeleton = computed(() => props.loading && !hasCompletedFirstLoad.value && props.list.length === 0)
 const rowMotionClass = (id: number): string => props.rowMotionClass?.(id) ?? 'blog-motion-row-state'
 const rowClassName = ({ row }: { row: UserListViewItem }): string => rowMotionClass(row.accountId)
 
