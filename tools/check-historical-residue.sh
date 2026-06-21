@@ -267,7 +267,7 @@ run_residue_check \
 run_residue_check \
   "legacy demo seed password user model" \
   "legacy demo seed password user-model residue detected" \
-  'insert into sys_user [(]username,\s*password,\s*role|create_time,\s*user_id,\s*author_mode|reply_to_user_id|moderated_by_user_id|from sys_user|role = ['\''"]admin['\''"]|ChangeMe123!|Admin password' \
+  'insert into sys_user [(]username,\s*password,\s*role|create_time,\s*user_id,\s*author_mode|reply_to_user_id|moderated_by_user_id|from sys_user|role = ['\''"]admin['\''"]|ChangeMe123!|Admin password|not a password login|never a password|without password' \
   "" \
   tools/dev/demo-seed.sql tools/dev/seed-demo-data.sh docs/development/demo-data.md README.md docs/development.md
 
