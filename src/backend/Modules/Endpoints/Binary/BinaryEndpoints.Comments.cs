@@ -88,6 +88,7 @@ public static partial class BinaryEndpoints
 
         group.MapPost("/comment", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
+            AccountPrincipalContext account,
             ICommentEndpointService commentService,
             IContentFilterService contentFilterService,
             IClientRegionResolver regionResolver,
@@ -96,12 +97,6 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            int userId = httpContext.GetUserId();
-            if (userId <= 0)
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "未授权的访问，请重新登录"), aeds);
-            }
-
             var payload = await ReadBinaryRequestPayloadAsync(
                 httpContext,
                 aeds,
@@ -141,7 +136,7 @@ public static partial class BinaryEndpoints
             RegionModerationDecision regionDecision = regionLegalModerationService.EvaluateOnSubmit(new RegionModerationRequest(
                 content,
                 request.ArticleId,
-                userId,
+                account.AccountId,
                 submitRegion.Region,
                 submitRegion.Confidence,
                 submitRegion.Provider,
@@ -167,13 +162,13 @@ public static partial class BinaryEndpoints
             regionDecision = ApplyRiskControlModerationDecision(httpContext, regionDecision);
 
             request = request with { Content = content };
-            bool success = await commentService.CreateAttributablePublicCommentAsync(userId, request, regionDecision);
+            bool success = await commentService.CreateAttributablePublicCommentAsync(account, request, regionDecision);
 
             return success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "发布失败：可能文章已关闭评论或数据异常"), aeds);
         })
-        .RequireAuthorization()
+        .RequireAnonymousAccountPrincipal()
         .RequireRateLimiting("fixed_ip")
         .WithRiskAction(RiskActionNames.CommentCreate)
         .AddEndpointFilter<CommentRiskActionFilter>()
@@ -245,30 +240,25 @@ public static partial class BinaryEndpoints
 
         group.MapGet("/comment/me", static async Task<IResult> (
             HttpContext httpContext,
+            AccountPrincipalContext account,
             ICommentCoreService core,
             IUnifiedCache cache,
             IAedsEncoder aeds) =>
         {
-            int userId = httpContext.GetUserId();
-            if (userId <= 0)
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "未找到用户信息"), aeds);
-            }
-
             CursorBindResult<long> bind = CursorPageBinder.Bind(httpContext.Request, CommentCursorPolicies.UserComments, Int64CursorCodec.Instance);
             if (!bind.IsSuccess)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, bind.ErrorMessage ?? "游标参数非法"), aeds);
             }
 
-            string identity = BuildUserCommentFrameIdentity(userId, bind.Request);
+            string identity = BuildUserCommentFrameIdentity(account.AccountId, bind.Request);
             CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.UserCommentCursorFrame, identity, httpContext.RequestAborted);
             if (frame.Hit && frame.Value.Length > 0)
             {
                 return BinaryResults.PreencodedFrame(frame.Value);
             }
 
-            var result = await core.GetUserCommentsAsync(userId, bind.Request.Cursor, bind.Request.Limit);
+            var result = await core.GetUserCommentsAsync(account.AccountId, bind.Request.Cursor, bind.Request.Limit);
             if (!result.IsSuccess)
             {
                 return BinaryResults.FromError(result.Error, aeds);
@@ -277,7 +267,7 @@ public static partial class BinaryEndpoints
             byte[] encodedFrame = EncodeCachedFrame(AedsFrameType.CommentUserCursor, writer => PodBinaryCodec.WriteUserCommentCursor(result.Value, writer));
             await cache.SetRawAsync(CachePolicyId.UserCommentCursorFrame, identity, encodedFrame, TimeSpan.FromMinutes(5), httpContext.RequestAborted);
             return BinaryResults.PreencodedFrame(encodedFrame);
-        }).RequireAuthorization();
+        }).RequireAnonymousAccountPrincipal();
 
         group.MapDelete("/comment/{id:long}", static async Task<BinaryFrameResult> (
             long id,
@@ -286,9 +276,13 @@ public static partial class BinaryEndpoints
             ICommentEndpointService commentService,
             IAedsEncoder aeds) =>
         {
-            int userId = httpContext.GetUserId();
-            bool isAdmin = httpContext.User.IsAdminPrincipal() && httpContext.User.HasAdminPermission(AdminPermissions.CommentModerate);
-            bool success = await commentService.DeleteCommentAsync(id, userId, isAdmin, reason ?? "不符合社区规范");
+            EndpointUserContext user = EndpointUserContext.From(httpContext);
+            string normalizedReason = reason ?? "不符合社区规范";
+            bool success = user.IsAnonymousAccount && user.AccountId > 0
+                ? await commentService.DeleteCommentAsAccountAsync(id, user.AccountId, normalizedReason)
+                : TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId)
+                    && httpContext.User.HasAdminPermission(AdminPermissions.CommentModerate)
+                    && await commentService.DeleteCommentAsAdminAsync(id, new AdminPrincipalActor(adminPrincipalId, adminSessionId), normalizedReason);
 
             return success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)

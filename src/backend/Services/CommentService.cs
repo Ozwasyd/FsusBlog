@@ -5,6 +5,7 @@ using System.Text.Json;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Pagination;
@@ -629,18 +630,18 @@ public partial class CommentService(
     }
 
     public Task<bool> CreateAttributablePublicCommentAsync(
-        int userId,
+        AccountPrincipalContext account,
         CommentCreateV2RequestCoreModel request,
         RegionModerationDecision? regionDecision = null)
     {
-        if (userId <= 0 ||
+        if (account.AccountId <= 0 ||
             !request.PublicSendExplicitlySelected ||
             !string.Equals(request.AuthorMode, CommentAuthorModes.Public, StringComparison.Ordinal))
         {
             return Task.FromResult(false);
         }
 
-        return CreateCommentAsync(userId, new CommentDto
+        return CreateCommentAsync(account.AccountId, new CommentDto
         {
             ArticleId = request.ArticleId,
             Content = request.Content,
@@ -810,7 +811,30 @@ public partial class CommentService(
         }), CursorCodec);
     }
 
-    public async Task<bool> DeleteCommentAsync(long id, int currentUserId, bool isAdmin, string reason = "违反社区管理条例")
+    public Task<bool> DeleteCommentAsAccountAsync(long id, int accountId, string reason = "违反社区管理条例")
+    {
+        if (accountId <= 0)
+        {
+            return Task.FromResult(false);
+        }
+
+        return DeleteCommentAsync(id, accountId, isAdmin: false, reason);
+    }
+
+    public Task<bool> DeleteCommentAsAdminAsync(long id, AdminPrincipalActor actor, string reason = "违反社区管理条例")
+    {
+        if (actor.AdminPrincipalId <= 0 || string.IsNullOrWhiteSpace(actor.AdminSessionId))
+        {
+            return Task.FromResult(false);
+        }
+
+        return DeleteCommentAsync(id, currentUserId: 0, isAdmin: true, reason);
+    }
+
+    public Task<bool> DeleteCommentAsync(long id, int currentUserId, bool isAdmin, string reason = "违反社区管理条例")
+        => DeleteCommentInternalAsync(id, currentUserId, isAdmin, reason);
+
+    private async Task<bool> DeleteCommentInternalAsync(long id, int currentUserId, bool isAdmin, string reason)
     {
         var row = await db.Queryable<Comment, Article>((c, a) => c.ArticleId == a.Id)
             .Where((c, a) => c.Id == id)

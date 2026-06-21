@@ -5,6 +5,7 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Pagination;
@@ -382,7 +383,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         Assert.Contains("AedsFrameType.AnonymousCommentCreateRequest", source, StringComparison.Ordinal);
         Assert.Contains("CreateStrongAnonymousCommentAsync", source, StringComparison.Ordinal);
 
-        Assert.Contains(".RequireAuthorization()", signedHandler, StringComparison.Ordinal);
+        Assert.Contains(".RequireAnonymousAccountPrincipal()", signedHandler, StringComparison.Ordinal);
         Assert.Contains("[AedsFrameType.CommentCreateV2Request]", signedHandler, StringComparison.Ordinal);
         Assert.Contains("CreateAttributablePublicCommentAsync", signedHandler, StringComparison.Ordinal);
         Assert.DoesNotContain("AedsFrameType.CommentCreate" + "Request", signedHandler, StringComparison.Ordinal);
@@ -403,6 +404,40 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         Assert.DoesNotContain("UserId", anonymousHandler, StringComparison.Ordinal);
         Assert.DoesNotContain("user_id", anonymousHandler, StringComparison.Ordinal);
         Assert.Contains("CreateStrongAnonymousCommentAsync", anonymousHandler, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OrdinaryCommentEndpoints_UseAccountPrincipalContextInsteadOfLegacyUserId()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
+        string createHandler = ExtractBetween(
+            source,
+            "group.MapPost(\"/comment\"",
+            "group.MapGet(\"/comment/{articleId:int}\"");
+        string myCommentsHandler = ExtractBetween(
+            source,
+            "group.MapGet(\"/comment/me\"",
+            "group.MapDelete(\"/comment/{id:long}\"");
+
+        Assert.DoesNotContain("GetUserId", source, StringComparison.Ordinal);
+        Assert.Contains("AccountPrincipalContext account", createHandler, StringComparison.Ordinal);
+        Assert.Contains("AccountPrincipalContext account", myCommentsHandler, StringComparison.Ordinal);
+        Assert.Contains(".RequireAnonymousAccountPrincipal()", createHandler, StringComparison.Ordinal);
+        Assert.Contains(".RequireAnonymousAccountPrincipal()", myCommentsHandler, StringComparison.Ordinal);
+        Assert.Contains("account.AccountId", createHandler, StringComparison.Ordinal);
+        Assert.Contains("account.AccountId", myCommentsHandler, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CommentEndpointService_DoesNotMixUserIdAndIsAdminIdentityPlanes()
+    {
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Interfaces/ICommentEndpointService.cs");
+        string endpoints = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
+
+        Assert.DoesNotContain("DeleteCommentAsync(long id, int currentUserId, bool isAdmin", service, StringComparison.Ordinal);
+        Assert.Contains("DeleteCommentAsAccountAsync(long id, int accountId", service, StringComparison.Ordinal);
+        Assert.Contains("DeleteCommentAsAdminAsync(long id, AdminPrincipalActor actor", service, StringComparison.Ordinal);
+        Assert.Contains("AdminPrincipalActor", endpoints, StringComparison.Ordinal);
     }
 
     private static CommentService CreateService(
@@ -715,10 +750,11 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         }
 
         public Task<bool> CreateCommentAsync(int userId, CommentDto dto) => throw new NotSupportedException();
-        public Task<bool> CreateAttributablePublicCommentAsync(int userId, CommentCreateV2RequestCoreModel request, RegionModerationDecision? regionDecision = null) => throw new NotSupportedException();
+        public Task<bool> CreateAttributablePublicCommentAsync(AccountPrincipalContext account, CommentCreateV2RequestCoreModel request, RegionModerationDecision? regionDecision = null) => throw new NotSupportedException();
         public Task<CursorResponse<CommentThreadItemDto>> GetCommentThreadsByCursorAsync(int articleId, CursorPageRequest<long> request, int previewLimit = 3, string viewerRegion = "GLOBAL") => throw new NotSupportedException();
         public Task<CursorResponse<CommentReplyItemDto>> GetThreadRepliesByCursorAsync(int articleId, long rootId, CursorPageRequest<long> request, string viewerRegion = "GLOBAL") => throw new NotSupportedException();
-        public Task<bool> DeleteCommentAsync(long id, int currentUserId, bool isAdmin, string reason = "违反社区管理条例") => throw new NotSupportedException();
+        public Task<bool> DeleteCommentAsAccountAsync(long id, int accountId, string reason = "违反社区管理条例") => throw new NotSupportedException();
+        public Task<bool> DeleteCommentAsAdminAsync(long id, AdminPrincipalActor actor, string reason = "违反社区管理条例") => throw new NotSupportedException();
     }
 
     private sealed class AllowingContentFilter : IContentFilterService
