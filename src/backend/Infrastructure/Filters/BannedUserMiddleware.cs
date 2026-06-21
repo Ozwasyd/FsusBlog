@@ -1,10 +1,10 @@
 ﻿using FsusBlog.Server.Infrastructure.Results;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Caching.Memory;
-using System.Globalization;
 using System.Security.Claims;
 
 namespace FsusBlog.Server.Infrastructure.Filters;
@@ -55,10 +55,11 @@ public class BannedUserMiddleware(RequestDelegate _next)
             || HttpMethods.IsDelete(method)
             || HttpMethods.IsPatch(method);
 
-        string? userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (int.TryParse(userIdClaim, out int userId))
+        string? accountIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (int.TryParse(accountIdClaim, out int accountId))
         {
-            UserAccountSnapshot? user = await GetAccountStateAsync(userId, users, accountStateCache, forceRefresh: isWriteAction);
+            string accountSubjectHash = AccountSubjectHasher.FromPrincipalOrFallback(context.User, accountId);
+            UserAccountSnapshot? user = await GetAccountStateAsync(accountId, accountSubjectHash, users, accountStateCache, forceRefresh: isWriteAction);
             if (user == null || user.Value.DeletedAt.HasValue || user.Value.Status == 2)
             {
                 await MiddlewareResults.WriteErrorAsync(context, "账户已注销", StatusCodes.Status401Unauthorized);
@@ -74,11 +75,12 @@ public class BannedUserMiddleware(RequestDelegate _next)
                 return;
             }
 
-            // 4. 提取标识 (int 类型)
-            if (int.TryParse(userIdClaim, out int userIdForBan))
+            // 4. 提取账号标识与稳定 subject hash
+            if (int.TryParse(accountIdClaim, out int accountIdForBan))
             {
                 // 5. 高性能校验：直接命中 Redis
-                BanStateSnapshot banState = await blacklist.GetBanStateAsync(userIdForBan);
+                string accountSubjectHash = AccountSubjectHasher.FromPrincipalOrFallback(context.User, accountIdForBan);
+                BanStateSnapshot banState = await blacklist.GetBanStateAsync(accountIdForBan, accountSubjectHash);
 
                 if (banState.IsBanned)
                 {
@@ -97,18 +99,19 @@ public class BannedUserMiddleware(RequestDelegate _next)
     }
 
     private static async Task<UserAccountSnapshot?> GetAccountStateAsync(
-        int userId,
+        int accountId,
+        string accountSubjectHash,
         IUserAccountReader users,
         IMemoryCache cache,
         bool forceRefresh)
     {
-        string cacheKey = string.Concat("user:account-state:", userId.ToString(CultureInfo.InvariantCulture));
+        string cacheKey = string.Concat("account:state:", accountSubjectHash);
         if (!forceRefresh && cache.TryGetValue(cacheKey, out UserAccountSnapshot cached))
         {
             return cached;
         }
 
-        UserAccountSnapshot? snapshot = await users.GetAccountByIdAsync(userId);
+        UserAccountSnapshot? snapshot = await users.GetAccountByIdAsync(accountId);
         if (snapshot.HasValue)
         {
             cache.Set(cacheKey, snapshot.Value, AccountStateCacheOptions);

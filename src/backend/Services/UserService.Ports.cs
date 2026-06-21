@@ -29,7 +29,8 @@ public sealed class UserAccountReader(UserService users) : IUserAccountReader
             user.PasskeyEnabled,
             user.RecoveryEnabled,
             user.AnonymousCredentialStatus,
-            user.AnonymousCredentialLevel);
+            user.AnonymousCredentialLevel,
+            AccountSubjectHasher.Create(user));
 
     internal static IdentityAccountSnapshotCoreModel ToAnonymousAccountSnapshot(UserAccountSnapshot account)
         => new(

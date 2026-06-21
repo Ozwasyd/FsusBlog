@@ -1,3 +1,5 @@
+using System.Globalization;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Interfaces;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
@@ -27,16 +29,21 @@ internal sealed class NotificationStreamAdmissionService(
             return NotificationStreamAdmissionResult.Allowed;
         }
 
-        var banState = await blacklistService.GetBanStateAsync(numericUserId);
-        if (banState.IsBanned)
-        {
-            return NotificationStreamAdmissionResult.Denied(StatusCodes.Status423Locked, "account_blocked");
-        }
-
         UserAccountSnapshot? userSnapshot = await users.GetAccountByIdAsync(numericUserId);
         if (userSnapshot == null || userSnapshot.Value.DeletedAt.HasValue || userSnapshot.Value.Status == 2)
         {
             return NotificationStreamAdmissionResult.Denied(StatusCodes.Status401Unauthorized, "account_deleted");
+        }
+
+        string accountSubjectHash = string.IsNullOrWhiteSpace(userSnapshot.Value.AccountSubjectHash)
+            ? AccountSubjectHasher.Create(
+                userSnapshot.Value.IdentityKind,
+                string.Concat("legacy-account:", numericUserId.ToString(CultureInfo.InvariantCulture)))
+            : userSnapshot.Value.AccountSubjectHash;
+        var banState = await blacklistService.GetBanStateAsync(numericUserId, accountSubjectHash);
+        if (banState.IsBanned)
+        {
+            return NotificationStreamAdmissionResult.Denied(StatusCodes.Status423Locked, "account_blocked");
         }
 
         return NotificationStreamAdmissionResult.Allowed;

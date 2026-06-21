@@ -116,10 +116,14 @@ public sealed class ParallelOperationsHotPathContractTests
 
         Assert.Contains("LoadRollbackEntriesAsync", initialize, StringComparison.Ordinal);
         Assert.DoesNotContain("await _blacklist.GetBanStateAsync(user.Id)", initialize, StringComparison.Ordinal);
+        Assert.DoesNotContain("user.Id.ToString()", initialize, StringComparison.Ordinal);
+        Assert.Contains("AccountSubjectHash", source, StringComparison.Ordinal);
+        Assert.Contains("BuildAccountSubjectCacheKey", source, StringComparison.Ordinal);
 
         string helper = ExtractMethodBlock(source, "private async Task<List<CacheInitializationRollbackEntry>> LoadRollbackEntriesAsync");
         Assert.Contains("Task.WhenAll", helper, StringComparison.Ordinal);
         Assert.Contains("BatchSize", helper, StringComparison.Ordinal);
+        Assert.DoesNotContain("int userId = bannedUsers[i + j].Id", helper, StringComparison.Ordinal);
     }
 
     [Fact]

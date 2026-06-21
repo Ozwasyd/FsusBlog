@@ -68,13 +68,9 @@ public class JwtHelper : IJwtHelper
         var claims = new List<Claim>(5)
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new("identity_kind", identityKind)
+            new("identity_kind", identityKind),
+            new(AccountSubjectHasher.ClaimType, AccountSubjectHasher.Create(user))
         };
-        string? accountSubjectHash = BuildAccountSubjectHash(identityKind, user.PasskeyUserHandle);
-        if (accountSubjectHash is not null)
-        {
-            claims.Add(new Claim(AnonymousIdentityRuntime.AccountSubjectHashClaim, accountSubjectHash));
-        }
         if (!string.IsNullOrWhiteSpace(sessionId))
         {
             claims.Add(new Claim("sid", sessionId));
@@ -141,17 +137,6 @@ public class JwtHelper : IJwtHelper
         return WebEncoders.Base64UrlEncode(randomBytes);
     }
 
-    private static string? BuildAccountSubjectHash(string identityKind, string? stableAccountHandle)
-    {
-        string normalizedHandle = (stableAccountHandle ?? string.Empty).Trim();
-        if (normalizedHandle.Length == 0)
-        {
-            return null;
-        }
-
-        string material = string.Join(':', "account", identityKind, normalizedHandle);
-        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(material)));
-    }
 }
 
 /// <summary>

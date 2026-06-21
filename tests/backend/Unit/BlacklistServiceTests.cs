@@ -1,6 +1,9 @@
 using System.Linq.Expressions;
+using System.Security.Cryptography;
+using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Services.Security;
 using NSubstitute;
 using SqlSugar;
@@ -19,7 +22,16 @@ public class BlacklistServiceTests
         userUpdate.Where(Arg.Any<Expression<Func<User, bool>>>()).Returns(userUpdate);
         userUpdate.ExecuteCommandAsync().Returns(Task.FromResult(1));
         db.Updateable<User>().Returns(userUpdate);
+        var queryable = Substitute.For<ISugarQueryable<User>>();
+        queryable.InSingleAsync(42).Returns(Task.FromResult(new User
+        {
+            Id = 42,
+            PublicHandle = "SameSubject",
+            InternalSubject = "anon_old"
+        }));
+        db.Queryable<User>().Returns(queryable);
         var service = new BlacklistService(cache, db);
+        string accountSubjectKey = ExpectedAccountSubjectKey("SameSubject");
 
         await service.BanUserAsync(42, "  spam  ");
 
@@ -32,7 +44,7 @@ public class BlacklistServiceTests
         await userUpdate.Received(1).ExecuteCommandAsync();
         await cache.Received(1).SetStringAsync(
             CachePolicyId.SecurityBlacklistUser,
-            "42",
+            accountSubjectKey,
             "spam",
             Arg.Is<TimeSpan?>(ttl => !ttl.HasValue),
             Arg.Any<CancellationToken>());
@@ -49,23 +61,50 @@ public class BlacklistServiceTests
         queryable.InSingleAsync(42).Returns(Task.FromResult(new User
         {
             Id = 42,
+            PublicHandle = "SameSubject",
+            InternalSubject = "anon_old",
             Status = 1,
             BanReason = "persisted spam"
         }));
         db.Queryable<User>().Returns(queryable);
         var service = new BlacklistService(cache, db);
+        string accountSubjectHash = ExpectedAccountSubjectHash("SameSubject");
+        string accountSubjectKey = string.Concat("account:", accountSubjectHash);
 
-        var snapshot = await service.GetBanStateAsync(42);
+        var snapshot = await service.GetBanStateAsync(42, accountSubjectHash);
 
         Assert.True(snapshot.IsBanned);
         Assert.Equal("manual_ban", snapshot.ReasonCode);
         Assert.Equal("persisted spam", snapshot.Message);
         await cache.Received(1).SetStringAsync(
             CachePolicyId.SecurityBlacklistUser,
-            "42",
+            accountSubjectKey,
             "persisted spam",
             Arg.Is<TimeSpan?>(ttl => !ttl.HasValue),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetBanStateAsync_SameAccountSubjectHashUsesSameCacheEntryAcrossAccountIds()
+    {
+        string accountSubjectHash = ExpectedAccountSubjectHash("SameSubject");
+        string accountSubjectKey = string.Concat("account:", accountSubjectHash);
+        var cache = Substitute.For<IUnifiedCache>();
+        cache.GetStringAsync(CachePolicyId.SecurityBlacklistUser, accountSubjectKey, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<string?>("cached ban"));
+        var db = Substitute.For<ISqlSugarClient>();
+        var service = new BlacklistService(cache, db);
+
+        var first = await service.GetBanStateAsync(42, accountSubjectHash);
+        var rebuilt = await service.GetBanStateAsync(84, accountSubjectHash);
+
+        Assert.True(first.IsBanned);
+        Assert.True(rebuilt.IsBanned);
+        await cache.Received(2).GetStringAsync(
+            CachePolicyId.SecurityBlacklistUser,
+            accountSubjectKey,
+            Arg.Any<CancellationToken>());
+        db.DidNotReceive().Queryable<User>();
     }
 
     [Fact]
@@ -79,13 +118,16 @@ public class BlacklistServiceTests
         queryable.InSingleAsync(42).Returns(Task.FromResult(new User
         {
             Id = 42,
+            PublicHandle = "SameSubject",
+            InternalSubject = "anon_old",
             Status = 0,
             BanReason = "stale reason"
         }));
         db.Queryable<User>().Returns(queryable);
         var service = new BlacklistService(cache, db);
+        string accountSubjectHash = ExpectedAccountSubjectHash("SameSubject");
 
-        var snapshot = await service.GetBanStateAsync(42);
+        var snapshot = await service.GetBanStateAsync(42, accountSubjectHash);
 
         Assert.False(snapshot.IsBanned);
         Assert.Null(snapshot.ReasonCode);
@@ -135,5 +177,15 @@ public class BlacklistServiceTests
         {
             return false;
         }
+    }
+
+    private static string ExpectedAccountSubjectKey(string subject)
+        => string.Concat("account:", ExpectedAccountSubjectHash(subject));
+
+    private static string ExpectedAccountSubjectHash(string subject)
+    {
+        byte[] bytes = SHA256.HashData(Encoding.UTF8.GetBytes(
+            string.Concat("fsus:account-subject:v1:", AnonymousIdentityRuntime.AnonymousAccountKind, ':', subject.Trim().ToLowerInvariant())));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 }

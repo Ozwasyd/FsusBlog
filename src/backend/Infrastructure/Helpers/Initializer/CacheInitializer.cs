@@ -1,11 +1,12 @@
 ﻿using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Interfaces;
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Helpers.Initializer;
 
-public sealed record CacheInitializationRollbackEntry(int UserId, BanStateSnapshot PreviousState);
+public sealed record CacheInitializationRollbackEntry(int UserId, string AccountSubjectHash, BanStateSnapshot PreviousState);
 
 public sealed record CacheInitializationResult(IReadOnlyList<CacheInitializationRollbackEntry> RollbackEntries)
 {
@@ -30,7 +31,14 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
         // 1. 极速筛选 Status=1 的用户
         var bannedUsers = await _db.Queryable<User>()
                                    .Where(u => u.Status == 1)
-                                   .Select(u => new BannedUserCacheRow { Id = u.Id, BanReason = u.BanReason })
+                                   .Select(u => new BannedUserCacheRow
+                                   {
+                                       Id = u.Id,
+                                       IdentityKind = u.IdentityKind,
+                                       InternalSubject = u.InternalSubject,
+                                       PublicHandle = u.PublicHandle,
+                                       BanReason = u.BanReason
+                                   })
                                    .ToListAsync();
 
         if (bannedUsers.Count == 0)
@@ -55,7 +63,7 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
                 var user = bannedUsers[i + j];
                 tasks.Add(_cache.SetStringAsync(
                     CachePolicyId.SecurityBlacklistUser,
-                    user.Id.ToString(),
+                    BuildAccountSubjectCacheKey(user.AccountSubjectHash),
                     user.BanReason ?? "违反社区规定"));
             }
 
@@ -78,8 +86,8 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
             int count = Math.Min(BatchSize, bannedUsers.Count - i);
             for (int j = 0; j < count; j++)
             {
-                int userId = bannedUsers[i + j].Id;
-                tasks.Add(LoadRollbackEntryAsync(userId));
+                BannedUserCacheRow user = bannedUsers[i + j];
+                tasks.Add(LoadRollbackEntryAsync(user));
             }
 
             rollbackEntries.AddRange(await Task.WhenAll(tasks).ConfigureAwait(false));
@@ -88,14 +96,34 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
         return rollbackEntries;
     }
 
-    private async Task<CacheInitializationRollbackEntry> LoadRollbackEntryAsync(int userId)
-        => new(userId, await _blacklist.GetBanStateAsync(userId).ConfigureAwait(false));
+    private async Task<CacheInitializationRollbackEntry> LoadRollbackEntryAsync(BannedUserCacheRow user)
+        => new(
+            user.Id,
+            user.AccountSubjectHash,
+            await _blacklist.GetBanStateAsync(user.Id, user.AccountSubjectHash).ConfigureAwait(false));
+
+    private static string BuildAccountSubjectCacheKey(string accountSubjectHash)
+        => AccountSubjectHasher.BuildCacheKey(accountSubjectHash);
 
     private sealed class BannedUserCacheRow
     {
         public int Id { get; init; }
 
+        public string? IdentityKind { get; init; }
+
+        public string? InternalSubject { get; init; }
+
+        public string? PublicHandle { get; init; }
+
         public string? BanReason { get; init; }
+
+        public string AccountSubjectHash => AccountSubjectHasher.Create(new User
+        {
+            Id = Id,
+            IdentityKind = IdentityKind ?? AnonymousIdentityRuntime.AnonymousAccountKind,
+            InternalSubject = InternalSubject ?? string.Empty,
+            PublicHandle = PublicHandle
+        });
     }
 
     public async Task RollbackAsync(CacheInitializationResult result, CancellationToken cancellationToken = default)
@@ -112,7 +140,7 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
 
             await _cache.RemoveAsync(
                 CachePolicyId.SecurityBlacklistUser,
-                entry.UserId.ToString(),
+                BuildAccountSubjectCacheKey(entry.AccountSubjectHash),
                 cancellationToken).ConfigureAwait(false);
         }
     }

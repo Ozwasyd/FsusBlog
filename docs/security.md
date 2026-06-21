@@ -204,7 +204,7 @@ admin-sensitive step-up 使用 `/api/binary/auth/admin/step-up/passkey/begin|com
 
 admin 登出和 session 管理只使用 `/api/binary/auth/admin/logout`、`/api/binary/auth/admin/sessions`、`/api/binary/auth/admin/sessions/{sessionId}/revoke` 与 `/api/binary/auth/admin/sessions/revoke-others`，全部要求 `admin.manage`。登出必须写入 `admin_session.RevokedAtUtc` 与 `RevokeReason=logout`，并只清理 admin Cookie；不得调用普通用户 `/auth/logout` 或清理普通用户 refresh/session Cookie 作为替代。
 
-`BannedUserMiddleware` 按 `identity_kind` 分流：`identity_kind=admin_principal` 的后台主体不读取 `sys_user`、不查询普通用户 blacklist，也不受同 ID 普通用户封禁/删除状态影响；它只放行给后续 admin authorization、admin session 和 permission 检查。`identity_kind=anonymous_account` 与 legacy user 仍按普通用户账号状态和封禁写锁处理。
+`BannedUserMiddleware` 按 `identity_kind` 分流：`identity_kind=admin_principal` 的后台主体不读取 `sys_user`、不查询普通用户 blacklist，也不受同 ID 普通用户封禁/删除状态影响；它只放行给后续 admin authorization、admin session 和 permission 检查。`identity_kind=anonymous_account` 与 legacy user 仍按普通用户账号状态和封禁写锁处理。普通账号 JWT 必须携带 `account_subject_hash`，封禁与 account-state 热缓存都以该 subject hash 为命名维度；`NameIdentifier` 只允许作为数据库回源 account id，不能作为 Redis/L1 cache key。
 
 **Recovery Key**：匿名账号的账户恢复使用独立 `account_recovery_key` 表，不复用 `sys_user.MfaRecoveryCodesHash` 或 TOTP recovery-code 语义。Create/rotate 只在 AEDS `RecoveryKeyCreateResponse` 中返回一次明文，新格式为 `frk_<lookupId>_<secret>`，`lookupId` 为 128-bit hex 随机值；服务端保存带 `RecoveryKeyPepper` 的 `lookup_id_hash`、完整 key 的 HMAC + PBKDF2-SHA256 哈希、key version 和 created/used/revoked timestamps，不保存明文 lookup id 或 secret。`/api/binary/auth/recovery-key/verify` 是匿名、`fixed_ip` 限流、RiskControl challenge、PoW 和 no-store 端点；请求不接受 account id，服务端用 key 内 lookup id 的 peppered hash 定位候选记录，再校验完整 key。旧无 lookup id 的 key 不做全表扫描兼容，会统一失败并计入 attempt limiter。验证成功后 Recovery Key 立即标记 used，只返回短期 recovery session token 与过期时间，用于 `/auth/recovery-key/passkey/register/begin|complete` 绑定新 Passkey，不返回 account id、user id 或 internalUserId。请求可选择撤销现有 sessions，并在新 Passkey 绑定成功后撤销旧 passkey credentials；不提供 email/phone fallback。
 
@@ -290,7 +290,7 @@ ZK-Prod 后端依赖策略固定为 .NET 10 + `System.Text.Json`。trusted setup
 - 每次登录创建会话记录（设备、IP、时间），存储于 PostgreSQL + Redis
 - 匿名账号 bootstrap 与 Passkey login complete 复用同一会话创建逻辑（`CompleteLoginAsync`），bootstrap 默认创建非 remember-me 标准会话，Passkey 登录按客户端 rememberMe 请求创建。
 - `CompleteLoginAsync` 是 access token、refresh token 与 `UserSession` 记录的最终签发边界；MFA、Passkey 或匿名 bootstrap 已完成验证后，`User.Status == Banned` 会签发受限会话并写入 session，用于展示账号状态、登出、撤销会话、删除本人账号等安全收尾操作。`Deleted` / `DeletedAt` 仍必须返回注销失败且不得生成 token。
-- 封禁状态的业务真源是 PostgreSQL `sys_user.Status/BanReason`。`SecurityBlacklistUser` Redis key 只作为无过期加速缓存；任何缓存 miss 都必须回查 `sys_user.Status == Banned` 并重新回填缓存，不能把 Redis 过期、驱逐或 flush 解释为用户已解封。
+- 封禁状态的业务真源是 PostgreSQL `sys_user.Status/BanReason`。`SecurityBlacklistUser` Redis key 只作为无过期加速缓存，suffix 固定为 `account:{accountSubjectHash}`，不得使用裸 `UserId` / `AccountId`。任何缓存 miss 都必须回查 `sys_user.Status == Banned` 并重新回填缓存，不能把 Redis 过期、驱逐或 flush 解释为用户已解封。若需要在线降级或纠错，只删除受影响的 `account:{accountSubjectHash}` key，让下一次请求按 PostgreSQL 真源回填；不得重建旧 `userId` key 空间。
 - `GET /api/binary/auth/sessions`：列出当前活跃会话
 - `POST /api/binary/auth/sessions/{id}/revoke`：主动吊销单个会话
 - `POST /api/binary/auth/sessions/revoke-others`：仅保留当前会话，吊销全部其他
@@ -310,7 +310,7 @@ FsusBlog 采用三级角色体系：
 
 权限通过 ASP.NET Core `[Authorize]` / `RequireAuthorization()` 在端点级别声明。
 
-封禁用户写入限制由 `BannedUserMiddleware` 在 endpoint routing 之后执行。该中间件只对普通 `sys_user` 身份读取 `IBlacklistService.GetBanStateAsync`，以 Redis 为快路径、数据库为回源真相；封禁或解封入口必须先持久化 `sys_user.Status/BanReason` 再同步缓存。封禁账号的普通业务写入默认返回 `423 Locked`，Binary `ApiError.Details` 固定为 `ACCOUNT_BANNED_WRITE_LOCKED`；前端只能把它当作账号写锁，不能在前端单独决定安全边界。允许封禁用户完成的安全收尾操作必须在端点上显式声明 `AllowRestrictedAccountAction(RestrictedAccountAction.*)` metadata，当前仅用于登出、删除本人账号、撤销本人会话、撤销其他本人会话和申诉入口；消息创建、回复、已读等普通业务写入不得声明该 metadata。不得再通过 URL 片段、HTTP path 或 group 名称推导放行策略。
+封禁用户写入限制由 `BannedUserMiddleware` 在 endpoint routing 之后执行。该中间件只对普通 `sys_user` 身份读取 `IBlacklistService.GetBanStateAsync(accountId, accountSubjectHash)`，以 Redis 为快路径、数据库为回源真相；封禁或解封入口必须先持久化 `sys_user.Status/BanReason` 再同步 `account:{accountSubjectHash}` 缓存。封禁账号的普通业务写入默认返回 `423 Locked`，Binary `ApiError.Details` 固定为 `ACCOUNT_BANNED_WRITE_LOCKED`；前端只能把它当作账号写锁，不能在前端单独决定安全边界。允许封禁用户完成的安全收尾操作必须在端点上显式声明 `AllowRestrictedAccountAction(RestrictedAccountAction.*)` metadata，当前仅用于登出、删除本人账号、撤销本人会话、撤销其他本人会话和申诉入口；消息创建、回复、已读等普通业务写入不得声明该 metadata。不得再通过 URL 片段、HTTP path 或 group 名称推导放行策略。
 
 认证安全流响应的 `Cache-Control: no-store` 由端点 `RequireNoStoreResponse()` metadata 驱动，统一中间件在响应开始前写入 no-store / no-cache 头。PoW challenge、登录、登出、refresh、删除账号等认证端点必须同时声明该 metadata，而不是新增路径分支。
 

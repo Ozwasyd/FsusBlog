@@ -55,7 +55,7 @@ public class NotificationStreamBoundaryTests
         var result = await admission.ValidateAsync(null, CancellationToken.None);
 
         Assert.True(result.IsAllowed);
-        await blacklist.DidNotReceive().GetBanStateAsync(Arg.Any<int>());
+        await blacklist.DidNotReceive().GetBanStateAsync(Arg.Any<int>(), Arg.Any<string>());
         await users.DidNotReceive().GetAccountByIdAsync(Arg.Any<int>());
     }
 
@@ -63,9 +63,16 @@ public class NotificationStreamBoundaryTests
     public async Task Admission_DeniesBannedAccount()
     {
         var blacklist = Substitute.For<IBlacklistService>();
-        blacklist.GetBanStateAsync(42)
+        blacklist.GetBanStateAsync(42, "subject-hash-42")
             .Returns(Task.FromResult(new BanStateSnapshot(true, "manual", "blocked")));
         var users = Substitute.For<IUserAccountReader>();
+        users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(new UserAccountSnapshot(
+            42,
+            1,
+            "blocked",
+            false,
+            null,
+            AccountSubjectHash: "subject-hash-42")));
         var admission = new NotificationStreamAdmissionService(blacklist, users);
 
         var result = await admission.ValidateAsync("42", CancellationToken.None);
@@ -73,14 +80,14 @@ public class NotificationStreamBoundaryTests
         Assert.False(result.IsAllowed);
         Assert.Equal(StatusCodes.Status423Locked, result.StatusCode);
         Assert.Equal("account_blocked", result.ErrorCode);
-        await users.DidNotReceive().GetAccountByIdAsync(Arg.Any<int>());
+        await users.Received(1).GetAccountByIdAsync(42);
     }
 
     [Fact]
     public async Task Admission_DeniesDeletedAccount()
     {
         var blacklist = Substitute.For<IBlacklistService>();
-        blacklist.GetBanStateAsync(42)
+        blacklist.GetBanStateAsync(42, "subject-hash-42")
             .Returns(Task.FromResult(new BanStateSnapshot(false, null, null)));
         var users = Substitute.For<IUserAccountReader>();
         users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(new UserAccountSnapshot(
@@ -88,7 +95,8 @@ public class NotificationStreamBoundaryTests
             2,
             null,
             false,
-            null)));
+            null,
+            AccountSubjectHash: "subject-hash-42")));
         var admission = new NotificationStreamAdmissionService(blacklist, users);
 
         var result = await admission.ValidateAsync("42", CancellationToken.None);

@@ -117,6 +117,22 @@ public sealed class JwtHelperTests
         Assert.Matches("^[0-9a-f]{64}$", firstSubject);
         Assert.NotEqual(HashIdentity("42"), firstSubject);
         Assert.NotEqual(HashIdentity("314"), secondSubject);
+        Assert.Equal(AccountSubjectHasher.Create(first), firstSubject);
+    }
+
+    [Fact]
+    public void GenerateAccessToken_IncludesAccountSubjectHashClaim()
+    {
+        var helper = CreateHelper();
+        var user = TestUser(id: 42, username: "Anon_Subject");
+        user.IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind;
+
+        string token = helper.GenerateAccessToken(user);
+
+        var claims = ParseClaims(token);
+        Assert.Contains(claims, claim =>
+            claim.Type == AccountSubjectHasher.ClaimType &&
+            claim.Value == AccountSubjectHasher.Create(user));
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 ﻿using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Interfaces;
 using SqlSugar;
@@ -26,7 +27,8 @@ public class BlacklistService(
             .Where(u => u.Id == userId)
             .ExecuteCommandAsync();
 
-        await cache.SetStringAsync(CachePolicyId.SecurityBlacklistUser, userId.ToString(), finalReason);
+        string cacheKey = await ResolveAccountSubjectCacheKeyAsync(userId).ConfigureAwait(false);
+        await cache.SetStringAsync(CachePolicyId.SecurityBlacklistUser, cacheKey, finalReason);
     }
 
     /// <summary>
@@ -42,25 +44,39 @@ public class BlacklistService(
             .ExecuteCommandAsync();
 
         // 2. 移除缓存
-        await cache.RemoveAsync(CachePolicyId.SecurityBlacklistUser, userId.ToString());
+        string cacheKey = await ResolveAccountSubjectCacheKeyAsync(userId).ConfigureAwait(false);
+        await cache.RemoveAsync(CachePolicyId.SecurityBlacklistUser, cacheKey);
     }
 
-    public async Task<BanStateSnapshot> GetBanStateAsync(int userId)
+    public async Task<BanStateSnapshot> GetBanStateAsync(int accountId, string accountSubjectHash)
     {
-        string? reason = await cache.GetStringAsync(CachePolicyId.SecurityBlacklistUser, userId.ToString());
+        string cacheKey = BuildAccountSubjectCacheKey(accountSubjectHash);
+        string? reason = await cache.GetStringAsync(CachePolicyId.SecurityBlacklistUser, cacheKey);
         if (string.IsNullOrWhiteSpace(reason))
         {
-            var user = await db.Queryable<User>().InSingleAsync(userId);
+            var user = await db.Queryable<User>().InSingleAsync(accountId);
             if (user is null || user.Status != UserStatusBanned)
             {
                 return new BanStateSnapshot(false, null, null);
             }
 
             reason = NormalizeReason(user.BanReason);
-            await cache.SetStringAsync(CachePolicyId.SecurityBlacklistUser, userId.ToString(), reason);
+            await cache.SetStringAsync(CachePolicyId.SecurityBlacklistUser, cacheKey, reason);
         }
 
         return new BanStateSnapshot(true, BanReasonCode, reason);
+    }
+
+    internal static string BuildAccountSubjectCacheKey(string accountSubjectHash)
+        => AccountSubjectHasher.BuildCacheKey(accountSubjectHash);
+
+    private async Task<string> ResolveAccountSubjectCacheKeyAsync(int accountId)
+    {
+        User? user = await db.Queryable<User>().InSingleAsync(accountId).ConfigureAwait(false);
+        string subjectHash = user is null
+            ? AccountSubjectHasher.Create(AnonymousIdentityRuntime.AnonymousAccountKind, string.Concat("legacy-account:", accountId.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+            : AccountSubjectHasher.Create(user);
+        return BuildAccountSubjectCacheKey(subjectHash);
     }
 
     private static string NormalizeReason(string? reason)

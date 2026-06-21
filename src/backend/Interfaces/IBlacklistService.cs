@@ -6,5 +6,5 @@ public interface IBlacklistService
 {
     Task BanUserAsync(int userId, string? reason);
     Task UnbanUserAsync(int userId);
-    Task<BanStateSnapshot> GetBanStateAsync(int userId);
+    Task<BanStateSnapshot> GetBanStateAsync(int accountId, string accountSubjectHash);
 }

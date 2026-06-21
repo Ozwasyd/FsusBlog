@@ -18,7 +18,8 @@ public readonly record struct UserAccountSnapshot(
     bool PasskeyEnabled = false,
     bool RecoveryEnabled = false,
     string? AnonymousCredentialStatus = null,
-    string? AnonymousCredentialLevel = null);
+    string? AnonymousCredentialLevel = null,
+    string? AccountSubjectHash = null);
 
 public readonly record struct SessionTokenResponseDto(
     string AccessToken,
