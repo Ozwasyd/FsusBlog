@@ -4,10 +4,8 @@ import {
   scoreContentRisk,
   COMMENT_CONTENT_CONSTRAINT,
   PUBLIC_HANDLE_CONSTRAINT,
-  USERNAME_CONSTRAINT,
   validateCommentContent,
-  validatePublicHandle,
-  validateUsername
+  validatePublicHandle
 } from '@/utils/contentFilter'
 
 describe('validateCommentContent', () => {
@@ -72,59 +70,6 @@ describe('validateCommentContent', () => {
 
   it('normalizes moderation text with NFKC, zero-width stripping, and confusable mapping', () => {
     expect(normalizeModerationText('薇\u200B信：ＡＢＣ')).toContain('微信:abc')
-  })
-})
-
-describe('validateUsername', () => {
-  it('rejects empty username', () => {
-    const r = validateUsername('')
-    expect(r.isValid).toBe(false)
-  })
-
-  it('rejects username shorter than 3 chars', () => {
-    const r = validateUsername('ab')
-    expect(r.isValid).toBe(false)
-    expect(r.message).toContain('3')
-  })
-
-  it('rejects username longer than 20 chars', () => {
-    const r = validateUsername('a'.repeat(21))
-    expect(r.isValid).toBe(false)
-    expect(r.message).toContain('20')
-  })
-
-  it('rejects username with digits or separators according to the shared backend constraint', () => {
-    const r = validateUsername('user_123')
-    expect(r.isValid).toBe(false)
-    expect(r.message).toBe(USERNAME_CONSTRAINT.patternMessage)
-  })
-
-  it('accepts valid Chinese username', () => {
-    const r = validateUsername('张三')
-    // 张三 is only 2 chars, should fail length check
-    expect(r.isValid).toBe(false)
-  })
-
-  it('accepts valid 3-char Chinese username', () => {
-    const r = validateUsername('张三丰')
-    expect(r.isValid).toBe(true)
-  })
-
-  it('rejects reserved words', () => {
-    const r = validateUsername('admin')
-    expect(r.isValid).toBe(false)
-    expect(r.message).toContain('保留')
-  })
-
-  it('rejects username with zero-width characters', () => {
-    const r = validateUsername('user\u200Bname')
-    expect(r.isValid).toBe(false)
-    expect(r.message).toContain('隐形')
-  })
-
-  it('rejects username with special chars', () => {
-    const r = validateUsername('user@domain')
-    expect(r.isValid).toBe(false)
   })
 })
 

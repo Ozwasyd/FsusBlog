@@ -21,16 +21,9 @@ export interface ContentRiskScore {
   firstMatch: string | null
 }
 
-export const USERNAME_CONSTRAINT = {
+export const PUBLIC_HANDLE_CONSTRAINT = {
   minLength: 3,
   maxLength: 20,
-  patternMessage: '用户名仅允许中文或英文字母，不支持数字和符号',
-  lengthMessage: '用户名长度必须在 3 到 20 个字符之间'
-} as const
-
-export const PUBLIC_HANDLE_CONSTRAINT = {
-  minLength: USERNAME_CONSTRAINT.minLength,
-  maxLength: USERNAME_CONSTRAINT.maxLength,
   patternMessage: '公开称呼仅允许中文或英文字母，不支持数字和符号',
   lengthMessage: '公开称呼长度必须在 3 到 20 个字符之间'
 } as const
@@ -321,41 +314,6 @@ export function validateCommentContent(text: string): ValidationResult {
 
   if (risk.score >= 0.9) {
     return { isValid: false, message: '输入内容包含涉嫌引流的违规业务或恶意链接，已被拦截。' }
-  }
-
-  return { isValid: true, message: '' }
-}
-
-export function validateUsername(username: string): ValidationResult {
-  if (!username || username.trim() === '') {
-    return { isValid: false, message: '用户名不能为空' }
-  }
-
-  if (zeroWidthDetector.test(username)) {
-    return { isValid: false, message: '用户名包含非法的隐形排版字符' }
-  }
-
-  const cleanName = username.trim()
-  if (cleanName.length < USERNAME_CONSTRAINT.minLength || cleanName.length > USERNAME_CONSTRAINT.maxLength) {
-    return { isValid: false, message: USERNAME_CONSTRAINT.lengthMessage }
-  }
-
-  if (!isUsernameCharacterSetValid(cleanName)) {
-    return { isValid: false, message: USERNAME_CONSTRAINT.patternMessage }
-  }
-
-  const normalizedName = normalizeModerationText(cleanName)
-  if (reservedIdentityHandleSet.has(normalizedName) || reservedIdentityHandleMatcher.findFirst(normalizedName) === normalizedName) {
-    return { isValid: false, message: '该用户名已被系统保留，请更换' }
-  }
-
-  const risk = scoreContentRisk(cleanName)
-  if (risk.factors.includes('ad')) {
-    return { isValid: false, message: '用户名包含违规引流特征' }
-  }
-
-  if (risk.factors.includes('redline')) {
-    return { isValid: false, message: '严重违规：用户名包含对抗性涉政词汇' }
   }
 
   return { isValid: true, message: '' }

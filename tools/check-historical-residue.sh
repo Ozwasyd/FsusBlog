@@ -184,7 +184,7 @@ run_residue_check \
   "frontend public handle username-semantic residue detected" \
   '\b(?:USERNAME_CONSTRAINT|validateUsername)\b|autocomplete=["'\'']username["'\'']' \
   "" \
-  src/frontend/src/views/auth/Register.vue src/frontend/src/views/user/IdentityCenter.vue src/frontend/src/composables/useAnonymousOnboarding.ts
+  src/frontend/src
 
 run_residue_check \
   "legacy plain auth cookie fallback" \
