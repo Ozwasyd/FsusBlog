@@ -180,6 +180,36 @@ public sealed class AnonymousAccountOutputContractTests
     }
 
     [Fact]
+    public void AdminUsernameLookupRuntimeContracts_AreRemoved()
+    {
+        string[] productionFiles =
+        [
+            "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+            "src/backend/Interfaces/UserApplicationPorts.cs",
+            "src/backend/Services/UserService.Ports.cs",
+            "src/shared/Contracts/Validation/fsusblog.openapi.json",
+            "src/frontend/src/generated/fsusBinaryRoutes.ts",
+            "tests/frontend/fixtures/cross-stack-contract-matrix.json",
+            "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json"
+        ];
+
+        string source = string.Join(
+            '\n',
+            productionFiles.Select(static path => $"// {path}\n{BackendTestPaths.ReadAllTextFromRoot(path)}"));
+
+        foreach (string forbidden in new[]
+        {
+            "group.MapGet(\"/auth/find/{username}\"",
+            "/auth/find/{username}",
+            "binary_get_auth_find_username",
+            "GetAccountByUsernameAsync"
+        })
+        {
+            Assert.DoesNotContain(forbidden, source, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void UserAccountReader_ProjectsSysUserAsAnonymousAccountContainer()
     {
         var deletedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);

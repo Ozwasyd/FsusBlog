@@ -13,6 +13,7 @@ describe('anonymous identity auth workflow contract', () => {
   const authApi = readRepoFile('src/frontend/src/api/auth.ts')
   const authAdapter = readRepoFile('src/frontend/src/adapters/binary/authAdapter.ts')
   const binaryIndex = readRepoFile('src/frontend/src/adapters/binary/index.ts')
+  const binaryRoutes = readRepoFile('src/frontend/src/generated/fsusBinaryRoutes.ts')
   const passkeyModal = readRepoFile('src/frontend/src/components/ui/PasskeyRegisterModal.vue')
 
   it('makes passkey login primary and removes the legacy password branch', () => {
@@ -49,6 +50,8 @@ describe('anonymous identity auth workflow contract', () => {
     expect(authApi).not.toContain('function encodeAuthRegisterRequest')
     expect(authApi).not.toContain('function encodeAuthUpdatePasswordRequest')
     expect(authApi).not.toContain('updatePassword')
+    expect(binaryRoutes).not.toContain('binary_get_auth_find_username')
+    expect(binaryRoutes).not.toContain('/api/binary/auth/find/{username}')
     expect(loginComposable).not.toContain("import { login")
     expect(loginComposable).not.toContain('usePow')
     expect(loginComposable).not.toContain('loginData')

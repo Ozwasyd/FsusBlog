@@ -48,7 +48,6 @@ export const fsusBinaryRoutes = {
   "binary_get_auth_id_int": "/api/binary/auth/{id:int}",
   "binary_get_auth_admin_me": "/api/binary/auth/admin/me",
   "binary_get_auth_admin_sessions": "/api/binary/auth/admin/sessions",
-  "binary_get_auth_find_username": "/api/binary/auth/find/{username}",
   "binary_get_auth_me": "/api/binary/auth/me",
   "binary_get_auth_mfa_profile": "/api/binary/auth/mfa/profile",
   "binary_get_auth_passkey_credentials": "/api/binary/auth/passkey/credentials",

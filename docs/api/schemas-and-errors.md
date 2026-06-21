@@ -227,7 +227,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 16 | `TrashClearResponse` | `TrashClearResponsePod` | `DELETE /api/binary/admin/article/trash` |
 | 17 | `AdminUserList` | compact anonymous account records | `GET /api/binary/admin/users` |
 | 18 | `AuthLoginFlow` | auth session flow payload with `accountId` / `identityKind` only | `POST /api/binary/auth/anonymous/bootstrap`, `POST /api/binary/auth/passkey/login/complete` |
-| 19 | `CurrentUserSnapshot` | admin-only account status snapshot without username/role | admin-only legacy lookup / refresh-token compatibility |
+| 19 | `CurrentUserSnapshot` | admin-only account status snapshot without username/role | admin-only accountId query / refresh-token compatibility |
 | 20 | `UploadInit` | `UploadInitPod` | `POST /api/binary/upload/init` |
 | 21 | `UploadStatus` | `UploadStatusPod` | `GET /api/binary/upload/{id}` |
 | 22 | `UploadPartAck` | `UploadPartAckPod` | `PUT /api/binary/upload/{id}/part/{n}` |

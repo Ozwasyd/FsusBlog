@@ -30,8 +30,6 @@ public readonly record struct SessionTokenResponseDto(
 public interface IUserAccountReader
 {
     Task<UserAccountSnapshot?> GetAccountByIdAsync(int id);
-
-    Task<UserAccountSnapshot?> GetAccountByUsernameAsync(string username);
 }
 
 public interface IAnonymousAccountBootstrapService

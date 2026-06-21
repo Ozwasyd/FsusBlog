@@ -388,27 +388,6 @@ public static partial class BinaryEndpoints
         })
         .RequireAdminPermission(AdminPermissions.AdminManage);
 
-        group.MapGet("/auth/find/{username}", static async Task<BinaryFrameResult> (
-            string username,
-            IUserAccountReader users,
-            IAedsEncoder aeds) =>
-        {
-            UserAccountSnapshot? user = await users.GetAccountByUsernameAsync(username);
-            if (user == null)
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "未找到该用户"), aeds);
-            }
-
-            var snapshot = new CurrentUserSnapshotDto(
-                user.Value.Id,
-                ResolveBinaryIdentityKind(user.Value.IdentityKind),
-                user.Value.Status,
-                user.Value.BanReason,
-                user.Value.DeletedAt);
-            return BinaryResults.Frame(aeds, AedsFrameType.CurrentUserSnapshot, writer => PodBinaryCodec.WriteCurrentUserSnapshot(snapshot, writer));
-        })
-        .RequireAdminPermission(AdminPermissions.AdminManage);
-
         group.MapPut("/auth/public-handle", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IUserProfileCommandService profileCommands,

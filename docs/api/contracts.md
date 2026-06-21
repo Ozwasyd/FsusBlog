@@ -438,7 +438,7 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 
 - `sys_user` 仍是持久化账号容器，但 `/auth/me` 不输出内部 `username` 或 `role`，也不允许客户端把普通账号快照当成权限来源。
 - `identityKind` 当前生产值为 `"anonymous_account"`；`publicHandle` 只是公开显示称呼，不是登录名或权限主体。
-- admin 权限只能读取 `/api/binary/auth/admin/me` 的 independent admin principal；legacy `CurrentUserSnapshot` frame 只保留给 admin-only 查询、迁移和测试面，字段为 `accountId`、`identityKind`、`status`、`banReason`、`deletedAt`，不再包含 `username` 或 `role`。
+- admin 权限只能读取 `/api/binary/auth/admin/me` 的 independent admin principal；legacy `CurrentUserSnapshot` frame 只保留给 admin-only accountId 查询、迁移和测试面，字段为 `accountId`、`identityKind`、`status`、`banReason`、`deletedAt`，不再包含 `username` 或 `role`。常规管理 API 不再暴露 `/api/binary/auth/find/{username}` 或按 `sys_user.username` 定位账号。
 
 ### `UserSessionItemDto`（会话列表项）
 

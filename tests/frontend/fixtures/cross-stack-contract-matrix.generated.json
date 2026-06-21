@@ -869,12 +869,6 @@
           "responseFrame": "CurrentUserSnapshot"
         },
         {
-          "method": "GET",
-          "path": "/auth/find/{username}",
-          "auth": "admin",
-          "responseFrame": "CurrentUserSnapshot"
-        },
-        {
           "method": "PUT",
           "path": "/auth/public-handle",
           "auth": "user",
@@ -2100,5 +2094,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 204
+  "openapiOperationCount": 203
 }

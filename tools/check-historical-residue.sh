@@ -181,6 +181,13 @@ run_residue_check \
   src/backend/Models/Dtos/UserDto.cs src/backend/Interfaces/IUserAuthService.cs src/backend/Interfaces/IUserService.cs src/backend/Interfaces/UserApplicationPorts.cs src/backend/Services/UserService.cs src/backend/Services/UserService.Ports.cs src/backend/Services/Security/UserSecurityStepUpService.cs src/backend/Infrastructure/CoreBridge src/core/Services src/frontend/src/api/auth.ts src/frontend/src/views/auth src/frontend/src/composables/useAuthLogin.ts
 
 run_residue_check \
+  "legacy admin username lookup runtime path" \
+  "legacy admin username lookup runtime residue detected" \
+  '/auth/find/[{]username[}]|\bbinary_get_auth_find_username\b|\bGetAccountByUsernameAsync\b' \
+  "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
+  src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs src/backend/Interfaces/UserApplicationPorts.cs src/backend/Services/UserService.Ports.cs src/shared/Contracts/Validation/fsusblog.openapi.json src/frontend/src/generated/fsusBinaryRoutes.ts tests/frontend/fixtures/cross-stack-contract-matrix.json tests/frontend/fixtures/cross-stack-contract-matrix.generated.json
+
+run_residue_check \
   "legacy comment public username fallback" \
   "legacy comment public username fallback residue detected" \
   '\bu[.]username\b|\bru[.]username\b|LEFT JOIN sys_user[[:space:]]+(?:u|ru)\b|[.]Username\b' \

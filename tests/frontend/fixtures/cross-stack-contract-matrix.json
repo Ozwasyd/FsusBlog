@@ -869,12 +869,6 @@
           "responseFrame": "CurrentUserSnapshot"
         },
         {
-          "method": "GET",
-          "path": "/auth/find/{username}",
-          "auth": "admin",
-          "responseFrame": "CurrentUserSnapshot"
-        },
-        {
           "method": "PUT",
           "path": "/auth/public-handle",
           "auth": "user",
