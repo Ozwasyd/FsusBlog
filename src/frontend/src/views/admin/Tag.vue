@@ -220,8 +220,6 @@ const {
   handleDelete
 } = useAdminTagManage()
 
-void formRef
-
 const getTagRowKey = (row: AdminTagItemResponse): string => String(row.id)
 
 const isCompact = useMediaQuery('(max-width: 639px)')

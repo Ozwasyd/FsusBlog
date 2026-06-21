@@ -1,4 +1,4 @@
-import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { type FormInstance } from '@ozwasyd/element-plus'
 import { isFsusUiOk } from '@/fsusui/result'
@@ -234,7 +234,7 @@ const removeDraftSnapshot = (key: string): void => {
 export function useAdminArticleWrite() {
   const route = useRoute()
   const router = useRouter()
-  const formRef = ref<FormInstance>()
+  const formRef = useTemplateRef<FormInstance>('formRef')
   const articleId = computed(() => {
     const raw = route.params.id ?? route.query.id
     const parsed = Number(raw)

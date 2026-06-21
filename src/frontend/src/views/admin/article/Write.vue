@@ -468,6 +468,7 @@ import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite'
 import { ArticlePublishStatus } from '@/api/article'
 import type { AssetLibraryItemResponse } from '@/api/authoring'
+import { showErrorToast } from '@/utils/errorPresentation'
 
 type EditorLayoutMode = 'standard' | 'focus' | 'fullscreen'
 type SubmitChecklistState = 'pass' | 'warning'
@@ -557,8 +558,6 @@ const {
   isHighlighted: isTaskHighlighted
 } = taskFeedback
 
-void formRef
-
 const pageTitle = computed(() => submitButtonText.value.includes('更新') ? '编辑文章' : '撰写文章')
 const quickCreateCategoryDialog = ref(false)
 const quickCreateTagDialog = ref(false)
@@ -616,7 +615,7 @@ const openResourcesInspector = (): void => {
   resourcesInspectorOpen.value = true
   if (!assetLibraryLoaded.value) {
     assetLibraryLoaded.value = true
-    void refreshAssetLibrary()
+    refreshAssetLibrary().catch((error: unknown) => showErrorToast(error, '资产库刷新失败'))
   }
 }
 
@@ -631,7 +630,7 @@ const openVersionsInspector = (): void => {
   versionsInspectorOpen.value = true
   if (!revisionsLoaded.value) {
     revisionsLoaded.value = true
-    void refreshArticleRevisions()
+    refreshArticleRevisions().catch((error: unknown) => showErrorToast(error, '历史版本刷新失败'))
   }
 }
 
@@ -697,9 +696,7 @@ const onCoverFileChange = (event: Event): void => {
   const input = event.target as HTMLInputElement
   if (input.files && input.files.length > 0) {
     const files = Array.from(input.files)
-    void (async () => {
-      await handleCoverUpload(files)
-    })()
+    handleCoverUpload(files).catch((error: unknown) => showErrorToast(error, '头图上传失败'))
     // 重置 input 以允许再次选择同一文件
     input.value = ''
   }

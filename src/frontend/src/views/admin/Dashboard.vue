@@ -162,7 +162,6 @@ import { useUserStore } from '@/store/user'
 import { showErrorToast } from '@/utils/errorPresentation'
 
 const { loading, dashboardView, regionChartRef } = useAdminDashboard()
-void regionChartRef
 
 const statCardIconMap = {
   document: Document,
@@ -272,8 +271,8 @@ const loadPendingTicketCount = async (): Promise<void> => {
 }
 
 onMounted(() => {
-  void refreshModerationQueue()
-  void loadPendingTicketCount()
+  refreshModerationQueue().catch((error: unknown) => showErrorToast(error, '评论待审数量加载失败'))
+  loadPendingTicketCount().catch((error: unknown) => showErrorToast(error, '待处理工单数量加载失败'))
 })
 </script>
 
