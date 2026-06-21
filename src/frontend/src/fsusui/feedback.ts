@@ -6,6 +6,11 @@ import { isFsusUiOk } from '@/fsusui/result'
 
 type MessageBoxOptions = Record<string, unknown>
 
+export type MessageBoxResult<T> =
+  | { kind: 'confirmed'; value: T }
+  | { kind: 'cancelled' }
+  | { kind: 'error'; error: unknown }
+
 export const installFsusUiLoading = (app: App): void => {
   app.use(ElLoading)
 }
@@ -98,11 +103,25 @@ export const toast = {
     showToast({ message: msg, type: 'article', duration, onClick }),
 }
 
-async function runMessageBox(action: () => Promise<unknown>): Promise<unknown> {
+function isMessageBoxCancel(error: unknown): boolean {
+  if (error === 'cancel' || error === 'close') {
+    return true
+  }
+
+  if (typeof error === 'object' && error !== null && 'action' in error) {
+    const action = (error as { action?: unknown }).action
+    return action === 'cancel' || action === 'close'
+  }
+
+  return false
+}
+
+async function runMessageBox<T>(action: () => Promise<T>): Promise<MessageBoxResult<T>> {
   try {
-    return await action()
-  } catch {
-    return null
+    const value = await action()
+    return isFsusUiOk(value) ? { kind: 'confirmed', value } : { kind: 'cancelled' }
+  } catch (error) {
+    return isMessageBoxCancel(error) ? { kind: 'cancelled' } : { kind: 'error', error }
   }
 }
 
@@ -110,21 +129,20 @@ export async function confirmWarning(
   message: string,
   title: string,
   options: MessageBoxOptions = {}
-): Promise<boolean> {
-  const result = await runMessageBox(() => ElMessageBox.confirm(message, title, {
+): Promise<MessageBoxResult<unknown>> {
+  return await runMessageBox(() => ElMessageBox.confirm(message, title, {
     type: 'warning',
     confirmButtonText: '确认',
     cancelButtonText: '取消',
     ...options
   }))
-  return isFsusUiOk(result)
 }
 
 export async function confirmDanger(
   message: string,
   title: string,
   options: MessageBoxOptions = {}
-): Promise<boolean> {
+): Promise<MessageBoxResult<unknown>> {
   return await confirmWarning(message, title, {
     confirmButtonText: '确认删除',
     ...options
@@ -135,14 +153,13 @@ export async function confirmInfo(
   message: string,
   title: string,
   options: MessageBoxOptions = {}
-): Promise<boolean> {
-  const result = await runMessageBox(() => ElMessageBox.confirm(message, title, {
+): Promise<MessageBoxResult<unknown>> {
+  return await runMessageBox(() => ElMessageBox.confirm(message, title, {
     type: 'info',
     confirmButtonText: '确认',
     cancelButtonText: '取消',
     ...options
   }))
-  return isFsusUiOk(result)
 }
 
 export async function alertInfo(
@@ -154,7 +171,7 @@ export async function alertInfo(
     confirmButtonText: '确定',
     ...options
   }))
-  return isFsusUiOk(result)
+  return result.kind === 'confirmed'
 }
 
 export async function promptText(
@@ -167,9 +184,9 @@ export async function promptText(
     cancelButtonText: '取消',
     ...options
   }))
-  if (!isFsusUiOk(result)) {
+  if (result.kind !== 'confirmed') {
     return null
   }
 
-  return ((result as { value?: { value?: string } }).value?.value ?? '').trim()
+  return ((result.value as { value?: { value?: string } }).value?.value ?? '').trim()
 }
