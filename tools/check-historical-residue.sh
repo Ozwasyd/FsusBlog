@@ -251,6 +251,13 @@ run_residue_check \
   src/backend/Entities/User.cs src/backend/Interfaces/UserApplicationPorts.cs src/backend/Services/UserService.cs src/backend/Services/UserService.Ports.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs src/backend/Services/Security/PasskeyService.cs src/backend/Infrastructure/Auth/AnonymousIdentityRuntime.cs src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs
 
 run_residue_check \
+  "operations connection string key parsing" \
+  "operations connection string key parsing residue detected" \
+  '\bconnection_value[[:space:]]+(User|Password)\b' \
+  "" \
+  tools/operations
+
+run_residue_check \
   "legacy comment public username fallback" \
   "legacy comment public username fallback residue detected" \
   '\bu[.]username\b|\bru[.]username\b|LEFT JOIN sys_user[[:space:]]+(?:u|ru)\b|[.]Username\b' \

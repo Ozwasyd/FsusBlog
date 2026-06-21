@@ -1,4 +1,5 @@
 using FsusBlog.Server.Tests.TestInfrastructure;
+using System.Diagnostics;
 
 namespace FsusBlog.Server.Tests;
 
@@ -48,6 +49,61 @@ public sealed class OperationsReadinessContractTests
         Assert.Contains("Secret Rotation And Recovery", security, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("Host=db.internal;Port=15432;Database=fsusblog;Username=fsus_user;Password=fsus_pw", "db.internal", "15432", "fsusblog", "fsus_user", "fsus_pw")]
+    [InlineData("postgres://fsus_user:fsus_pw@db.internal:15432/fsusblog", "db.internal", "15432", "fsusblog", "fsus_user", "fsus_pw")]
+    [InlineData("host=db.internal port=15432 dbname=fsusblog user=fsus_user password=fsus_pw", "db.internal", "15432", "fsusblog", "fsus_user", "fsus_pw")]
+    public void BackupScript_ParsesSupportedPostgresConnectionStringStyles(
+        string connectionString,
+        string expectedHost,
+        string expectedPort,
+        string expectedDatabase,
+        string expectedUser,
+        string expectedPassword)
+    {
+        using ScriptHarness harness = ScriptHarness.Create();
+
+        string result = harness.RunBackup(connectionString);
+
+        Assert.Contains($"PGPASSWORD={expectedPassword}", result, StringComparison.Ordinal);
+        Assert.Contains($" -h {expectedHost} ", result, StringComparison.Ordinal);
+        Assert.Contains($" -p {expectedPort} ", result, StringComparison.Ordinal);
+        Assert.Contains($" -U {expectedUser} ", result, StringComparison.Ordinal);
+        Assert.Contains($" -d {expectedDatabase} ", result, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("Host=db.internal;Port=15432;Database=fsusblog;Username=fsus_user;Password=fsus_pw", "db.internal", "15432", "fsusblog", "fsus_user", "fsus_pw")]
+    [InlineData("postgres://fsus_user:fsus_pw@db.internal:15432/fsusblog", "db.internal", "15432", "fsusblog", "fsus_user", "fsus_pw")]
+    [InlineData("host=db.internal port=15432 dbname=fsusblog user=fsus_user password=fsus_pw", "db.internal", "15432", "fsusblog", "fsus_user", "fsus_pw")]
+    public void RestoreScript_ParsesSupportedPostgresConnectionStringStyles(
+        string connectionString,
+        string expectedHost,
+        string expectedPort,
+        string expectedDatabase,
+        string expectedUser,
+        string expectedPassword)
+    {
+        using ScriptHarness harness = ScriptHarness.Create();
+
+        string result = harness.RunRestore(connectionString);
+
+        Assert.Contains($"PGPASSWORD={expectedPassword}", result, StringComparison.Ordinal);
+        Assert.Contains($" -h {expectedHost} ", result, StringComparison.Ordinal);
+        Assert.Contains($" -p {expectedPort} ", result, StringComparison.Ordinal);
+        Assert.Contains($" -U {expectedUser} ", result, StringComparison.Ordinal);
+        Assert.Contains($" -d {expectedDatabase} ", result, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HistoricalResidueCheck_CoversOperationsConnectionStringParsing()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("tools", "check-historical-residue.sh");
+
+        Assert.Contains("operations connection string key parsing", source, StringComparison.Ordinal);
+        Assert.Contains("tools/operations", source, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void PublicDistributionAndSearch_KeepNonPublicContentOut()
     {
@@ -89,5 +145,148 @@ public sealed class OperationsReadinessContractTests
         Assert.True(File.Exists(path), $"{relativePath} missing");
         string firstLine = File.ReadLines(path).FirstOrDefault() ?? string.Empty;
         Assert.StartsWith("#!/usr/bin/env bash", firstLine, StringComparison.Ordinal);
+    }
+
+    private sealed class ScriptHarness : IDisposable
+    {
+        private readonly string _root;
+        private readonly string _binDir;
+        private readonly string _backupRoot;
+        private readonly string _restoreRoot;
+        private readonly string _dataRoot;
+        private readonly string _webRoot;
+        private readonly string _resultPath;
+
+        private ScriptHarness(string root)
+        {
+            _root = root;
+            _binDir = Path.Combine(root, "bin");
+            _backupRoot = Path.Combine(root, "backup");
+            _restoreRoot = Path.Combine(root, "restore");
+            _dataRoot = Path.Combine(root, "data");
+            _webRoot = Path.Combine(root, "wwwroot");
+            _resultPath = Path.Combine(root, "pg-result.txt");
+        }
+
+        public static ScriptHarness Create()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "fsusblog-ops-script-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            ScriptHarness harness = new(root);
+            harness.Initialize();
+            return harness;
+        }
+
+        public string RunBackup(string connectionString)
+        {
+            RunBashFunction(
+                "source <(sed '$d' tools/operations/backup-site.sh); WORK_DIR=\"$1\"; dump_database",
+                connectionString,
+                [_backupRoot]);
+            return File.ReadAllText(_resultPath);
+        }
+
+        public string RunRestore(string connectionString)
+        {
+            Directory.CreateDirectory(Path.Combine(_restoreRoot, "package"));
+            File.WriteAllText(Path.Combine(_restoreRoot, "package", "database.dump"), "dump");
+            RunBashFunction(
+                "set --; source <(sed '$d' tools/operations/restore-site.sh); restore_database",
+                connectionString,
+                []);
+            return File.ReadAllText(_resultPath);
+        }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(_root))
+            {
+                Directory.Delete(_root, recursive: true);
+            }
+        }
+
+        private void Initialize()
+        {
+            Directory.CreateDirectory(_binDir);
+            Directory.CreateDirectory(Path.Combine(_dataRoot, "data-protection-keys"));
+            Directory.CreateDirectory(Path.Combine(_webRoot, "uploads"));
+            Directory.CreateDirectory(Path.Combine(_webRoot, "aot-cache"));
+            Directory.CreateDirectory(Path.Combine(_webRoot, "search"));
+            File.WriteAllText(Path.Combine(_dataRoot, "data-protection-keys", "key.xml"), "<key />");
+            WriteCaptureCommand("pg_dump");
+            WriteCaptureCommand("pg_restore");
+        }
+
+        private void WriteCaptureCommand(string name)
+        {
+            string path = Path.Combine(_binDir, name);
+            File.WriteAllText(path, """
+#!/usr/bin/env bash
+set -euo pipefail
+{
+  printf 'PGPASSWORD=%s\n' "${PGPASSWORD-}"
+  printf 'ARGS='
+  printf ' %s' "$@"
+  printf '\n'
+} > "${FSUSBLOG_CAPTURE_PATH:?}"
+for arg in "$@"; do
+  case "$arg" in
+    --file=*)
+      mkdir -p "$(dirname "${arg#--file=}")"
+      printf 'dump' > "${arg#--file=}"
+      ;;
+  esac
+done
+""");
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+        }
+
+        private void RunBashFunction(string command, string connectionString, IReadOnlyList<string> args)
+        {
+            List<string> bashArgs = ["-c", command, "_"];
+            bashArgs.AddRange(args);
+            RunProcess("bash", bashArgs, connectionString);
+        }
+
+        private void RunProcess(string fileName, IReadOnlyList<string> args, string connectionString)
+        {
+            string root = BackendTestPaths.RepositoryRoot;
+            using Process process = new()
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = fileName,
+                    WorkingDirectory = root,
+                    RedirectStandardError = true,
+                    RedirectStandardOutput = true
+                }
+            };
+
+            foreach (string arg in args)
+            {
+                process.StartInfo.ArgumentList.Add(arg);
+            }
+
+            process.StartInfo.Environment["PATH"] = _binDir + Path.PathSeparator + (Environment.GetEnvironmentVariable("PATH") ?? string.Empty);
+            process.StartInfo.Environment["FSUSBLOG_CAPTURE_PATH"] = _resultPath;
+            process.StartInfo.Environment["FSUSBLOG_BACKUP_ROOT"] = _backupRoot;
+            process.StartInfo.Environment["FSUSBLOG_BACKUP_RUN_ID"] = "test";
+            process.StartInfo.Environment["FSUSBLOG_BACKUP_PACKAGE"] = Path.Combine(_backupRoot, "site.tar.gz");
+            process.StartInfo.Environment["FSUSBLOG_RESTORE_ROOT"] = _restoreRoot;
+            process.StartInfo.Environment["FSUSBLOG_RESTORE_RUN_ID"] = "test";
+            process.StartInfo.Environment["FSUSBLOG_DATA_ROOT"] = _dataRoot;
+            process.StartInfo.Environment["FSUSBLOG_WEB_ROOT"] = _webRoot;
+            process.StartInfo.Environment["ConnectionStrings__DefaultConnection"] = connectionString;
+
+            process.Start();
+            string stdout = process.StandardOutput.ReadToEnd();
+            string stderr = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+
+            Assert.True(process.ExitCode == 0, $"{fileName} failed with {process.ExitCode}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}");
+        }
     }
 }

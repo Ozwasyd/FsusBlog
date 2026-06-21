@@ -82,9 +82,115 @@ require_command() {
   command -v "$1" >/dev/null 2>&1 || add_blocker "command-missing:$1"
 }
 
-connection_value() {
-  local key="$1" conn="$2"
-  printf '%s' "$conn" | tr ';' '\n' | awk -F= -v wanted="$key" 'tolower($1)==tolower(wanted) {print $2; exit}'
+trim() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "$value"
+}
+
+normalize_connection_key() {
+  local key
+  key="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -d ' _-')"
+  case "$key" in
+    host|server) printf 'host' ;;
+    port) printf 'port' ;;
+    database|dbname|initialcatalog) printf 'db' ;;
+    username|userid|user) printf 'user' ;;
+    password|pwd) printf 'password' ;;
+    *) printf '%s' "$key" ;;
+  esac
+}
+
+assign_connection_part() {
+  local raw_key="$1" raw_value="$2"
+  local key value
+  key="$(normalize_connection_key "$(trim "$raw_key")")"
+  value="$(trim "$raw_value")"
+  value="${value%\"}"
+  value="${value#\"}"
+  value="${value%\'}"
+  value="${value#\'}"
+
+  case "$key" in
+    host) PG_CONN_HOST="$value" ;;
+    port) PG_CONN_PORT="$value" ;;
+    db) PG_CONN_DB="$value" ;;
+    user) PG_CONN_USER="$value" ;;
+    password) PG_CONN_PASSWORD="$value" ;;
+  esac
+}
+
+parse_key_value_connection() {
+  local conn="$1" separator="$2"
+  local normalized part key value
+  if [[ "$separator" == ";" ]]; then
+    normalized="${conn//;/$'\n'}"
+  else
+    normalized="${conn//$'\n'/ }"
+    normalized="${normalized// /$'\n'}"
+  fi
+
+  while IFS= read -r part; do
+    [[ -n "$(trim "$part")" && "$part" == *"="* ]] || continue
+    key="${part%%=*}"
+    value="${part#*=}"
+    assign_connection_part "$key" "$value"
+  done <<< "$normalized"
+}
+
+parse_url_connection() {
+  local conn="$1"
+  local without_scheme authority path userinfo hostport
+  without_scheme="${conn#*://}"
+  without_scheme="${without_scheme%%\?*}"
+  authority="${without_scheme%%/*}"
+  path="${without_scheme#*/}"
+
+  if [[ "$authority" == *"@"* ]]; then
+    userinfo="${authority%@*}"
+    hostport="${authority#*@}"
+    PG_CONN_USER="${userinfo%%:*}"
+    if [[ "$userinfo" == *":"* ]]; then
+      PG_CONN_PASSWORD="${userinfo#*:}"
+    fi
+  else
+    hostport="$authority"
+  fi
+
+  if [[ "$hostport" == *":"* ]]; then
+    PG_CONN_HOST="${hostport%%:*}"
+    PG_CONN_PORT="${hostport##*:}"
+  else
+    PG_CONN_HOST="$hostport"
+  fi
+
+  if [[ -n "$path" && "$path" != "$without_scheme" ]]; then
+    PG_CONN_DB="${path%%/*}"
+  fi
+}
+
+parse_postgres_connection() {
+  local conn="$1"
+  PG_CONN_HOST=""
+  PG_CONN_PORT="5432"
+  PG_CONN_DB=""
+  PG_CONN_USER=""
+  PG_CONN_PASSWORD=""
+
+  case "$conn" in
+    postgres://*|postgresql://*)
+      parse_url_connection "$conn"
+      ;;
+    *";"*)
+      parse_key_value_connection "$conn" ";"
+      ;;
+    *)
+      parse_key_value_connection "$conn" " "
+      ;;
+  esac
+
+  [[ -n "$PG_CONN_HOST" && -n "$PG_CONN_DB" && -n "$PG_CONN_USER" ]]
 }
 
 restore_database() {
@@ -99,21 +205,11 @@ restore_database() {
     return
   fi
 
-  if [[ "$conn" == *"="* && "$conn" == *";"* ]]; then
-    local host port db user password
-    host="$(connection_value Host "$conn")"
-    port="$(connection_value Port "$conn")"
-    db="$(connection_value Database "$conn")"
-    user="$(connection_value Username "$conn")"
-    password="$(connection_value Password "$conn")"
-    [[ -n "$host" && -n "$db" && -n "$user" ]] || {
-      add_blocker "database-connection-invalid"
-      return
-    }
-    PGPASSWORD="$password" pg_restore -h "$host" -p "${port:-5432}" -U "$user" -d "$db" --clean --if-exists "$dump"
-  else
-    pg_restore --clean --if-exists --dbname="$conn" "$dump"
-  fi
+  parse_postgres_connection "$conn" || {
+    add_blocker "database-connection-invalid"
+    return
+  }
+  PGPASSWORD="$PG_CONN_PASSWORD" pg_restore -h "$PG_CONN_HOST" -p "${PG_CONN_PORT:-5432}" -U "$PG_CONN_USER" -d "$PG_CONN_DB" --clean --if-exists "$dump"
 
   add_check "database" "restored"
 }
