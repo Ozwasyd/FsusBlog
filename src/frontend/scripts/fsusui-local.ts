@@ -90,6 +90,8 @@ export function createFsusUiAliases(localFsusUiRoot: string | null): AliasEntry[
     { find: /^element-plus$/, replacement: `${packageRoot}/index.ts` },
     { find: /^@ozwasyd\/element-plus\/icons-vue$/, replacement: `${packageRoot}/icons-vue.ts` },
     { find: /^@ozwasyd\/element-plus\/markdown-runtime$/, replacement: `${packageRoot}/markdown-runtime.ts` },
+    { find: /^@ozwasyd\/element-plus\/motion$/, replacement: `${packageRoot}/motion.ts` },
+    { find: /^@ozwasyd\/element-plus\/perception-challenge$/, replacement: `${packageRoot}/perception-challenge.ts` },
     { find: /^@ozwasyd\/element-plus\/render-pipeline$/, replacement: `${packageRoot}/render-pipeline.ts` },
     { find: /^@ozwasyd\/element-plus\/result$/, replacement: `${packageRoot}/result.ts` },
     { find: /^@ozwasyd\/element-plus\/theme$/, replacement: `${packageRoot}/theme.ts` },

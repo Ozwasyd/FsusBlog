@@ -15,6 +15,8 @@
       "element-plus": ["../../../FsusUI/packages/element-plus/index.ts"],
       "@ozwasyd/element-plus/icons-vue": ["../../../FsusUI/packages/element-plus/icons-vue.ts"],
       "@ozwasyd/element-plus/markdown-runtime": ["../../../FsusUI/packages/element-plus/markdown-runtime.ts"],
+      "@ozwasyd/element-plus/motion": ["../../../FsusUI/packages/element-plus/motion.ts"],
+      "@ozwasyd/element-plus/perception-challenge": ["../../../FsusUI/packages/element-plus/perception-challenge.ts"],
       "@ozwasyd/element-plus/render-pipeline": ["../../../FsusUI/packages/element-plus/render-pipeline.ts"],
       "@ozwasyd/element-plus/result": ["../../../FsusUI/packages/element-plus/result.ts"],
       "@ozwasyd/element-plus/theme": ["../../../FsusUI/packages/element-plus/theme.ts"],

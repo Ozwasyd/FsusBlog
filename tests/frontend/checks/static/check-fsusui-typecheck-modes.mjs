@@ -105,6 +105,8 @@ if (failures.length === 0) {
     ['@ozwasyd/element-plus', '../../../FsusUI/packages/element-plus/index.ts'],
     ['@ozwasyd/element-plus/theme', '../../../FsusUI/packages/element-plus/theme.ts'],
     ['@ozwasyd/element-plus/markdown-runtime', '../../../FsusUI/packages/element-plus/markdown-runtime.ts'],
+    ['@ozwasyd/element-plus/motion', '../../../FsusUI/packages/element-plus/motion.ts'],
+    ['@ozwasyd/element-plus/perception-challenge', '../../../FsusUI/packages/element-plus/perception-challenge.ts'],
     ['@element-plus/*', '../../../FsusUI/packages/*'],
   ]) {
     if (!localPaths[alias]?.includes(expected)) {
@@ -116,6 +118,8 @@ if (failures.length === 0) {
     'resolveLocalFsusUiRoot',
     'createFsusUiAliases',
     '@ozwasyd\\/element-plus',
+    '@ozwasyd\\/element-plus\\/motion',
+    '@ozwasyd\\/element-plus\\/perception-challenge',
     '@element-plus\\/([^/]+)',
   ]) {
     expectIncludes(viteAliasPath, viteAliases, token, `Vite alias token ${token}`)
@@ -124,6 +128,8 @@ if (failures.length === 0) {
     'FSUSBLOG_LOCAL_FSUSUI_ROOT',
     'tsconfig.fsusui-published.json',
     '@ozwasyd/element-plus/theme',
+    '@ozwasyd/element-plus/motion',
+    '@ozwasyd/element-plus/perception-challenge',
     '@element-plus/*',
   ]) {
     expectIncludes(localRunnerPath, localRunner, token, `local typecheck runner token ${token}`)
