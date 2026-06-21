@@ -127,6 +127,21 @@ public sealed class SchemaMigrationRegistryTests
     }
 
     [Fact]
+    public void GetDescriptors_VisitLogIpAnonymization_DropsRawIpColumn()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260621-post-visit-log-ip-anonymization");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Contains("sys_visit_log.ip_hash", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_visit_log.ip", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("userid", fingerprint, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void GetDescriptors_AnonymousCommentGovernance_SeedsRequiredPolicyDefaults()
     {
         var registry = new SchemaMigrationRegistry();

@@ -32,6 +32,7 @@ public sealed class ProductionStartupValidatorTests
             ["Fido2:ServerDomain"] = "fsus.blog",
             ["Fido2:Origins:0"] = "https://fsus.blog",
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
+            ["VisitLog:IpHashPepper"] = "production-visit-log-ip-hash-pepper-with-at-least-thirty-two-chars",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         });
@@ -55,7 +56,8 @@ public sealed class ProductionStartupValidatorTests
             ["Seo:BaseUrl"] = "http://fsus.blog",
             ["Fido2:ServerDomain"] = "localhost",
             ["Fido2:Origins:0"] = "http://fsus.blog",
-            ["AnonymousCredentialIssuer:SubjectHashPepper"] = "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES"
+            ["AnonymousCredentialIssuer:SubjectHashPepper"] = "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
+            ["VisitLog:IpHashPepper"] = "replace-with-stable-random-visit-log-ip-hash-pepper"
         });
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
@@ -70,6 +72,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains(errors, static error => error.Contains("Fido2:ServerDomain", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Fido2:Origins", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("AnonymousCredentialIssuer:SubjectHashPepper", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("VisitLog:IpHashPepper", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -210,6 +213,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains(errors, static error => error.Contains("Fido2:ServerDomain", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Fido2:Origins", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("AnonymousCredentialIssuer:SubjectHashPepper", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("VisitLog:IpHashPepper", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -231,7 +235,7 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(6, report.SchemaVersion);
+        Assert.Equal(7, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
@@ -242,6 +246,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("Fido2:ServerDomain", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Fido2:Origins", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AnonymousCredentialIssuer:SubjectHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("VisitLog:IpHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains(
             "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
             ProductionStartupValidator.CurrentSchema.DefaultJwtSecrets);
@@ -477,6 +482,7 @@ public sealed class ProductionStartupValidatorTests
             ["Fido2:ServerDomain"] = "fsus.blog",
             ["Fido2:Origins:0"] = "https://fsus.blog",
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
+            ["VisitLog:IpHashPepper"] = "production-visit-log-ip-hash-pepper-with-at-least-thirty-two-chars",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         };

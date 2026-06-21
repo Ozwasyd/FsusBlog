@@ -800,6 +800,8 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "userid"));
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "user_id"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "ip"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "ip_hash"));
         Assert.True(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "viewer_key_hash"));
         Assert.True(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "proof_id"));
     }

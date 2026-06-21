@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Channels;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -7,6 +9,7 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using IP2Location;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.ObjectPool;
 using SqlSugar;
 using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
@@ -66,6 +69,7 @@ public class VisitLogProcessorService : BackgroundService
 {
     private const int BatchSize = 500;
     private const int MaxIpLength = 64;
+    private const string VisitLogIpHashPepperKey = "VisitLog:IpHashPepper";
     private const string UnknownRegion = "Unknown";
     internal static readonly TimeSpan FlushWindow = TimeSpan.FromMilliseconds(200);
     private static readonly long FlushWindowStopwatchTicks = Math.Max(1, (long)(FlushWindow.TotalSeconds * Stopwatch.Frequency));
@@ -73,6 +77,7 @@ public class VisitLogProcessorService : BackgroundService
     private readonly VisitLogChannel _channel;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<VisitLogProcessorService> _logger;
+    private readonly byte[] _ipHashKey;
     private ObjectPool<Component>? _ipPool;
 
     public VisitLogProcessorService(
@@ -84,6 +89,7 @@ public class VisitLogProcessorService : BackgroundService
         _channel = channel;
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _ipHashKey = CreateIpHashKey(serviceProvider.GetService<IConfiguration>());
         _ipPool = ipPool;
     }
 
@@ -236,12 +242,14 @@ public class VisitLogProcessorService : BackgroundService
             return;
         }
 
-        var ip = msg.IP.Length > MaxIpLength ? msg.IP[..MaxIpLength] : msg.IP;
+        var ip = msg.IP.Trim();
+        ip = ip.Length > MaxIpLength ? ip[..MaxIpLength] : ip;
+        string ipHash = HashIp(ip);
         if (TryClassifyLocalNetwork(ip, out var localRegion))
         {
             batch.Add(new VisitLogEntity
             {
-                IP = ip,
+                IpHash = ipHash,
                 Region = localRegion,
                 CreateTime = msg.CreateTime,
                 EventType = NormalizeEventType(msg.EventType),
@@ -288,7 +296,7 @@ public class VisitLogProcessorService : BackgroundService
 
         batch.Add(new VisitLogEntity
         {
-            IP = ip,
+            IpHash = ipHash,
             Region = region,
             CreateTime = msg.CreateTime,
             EventType = NormalizeEventType(msg.EventType),
@@ -387,6 +395,25 @@ public class VisitLogProcessorService : BackgroundService
 
         string trimmed = value.Trim();
         return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
+    }
+
+    private string HashIp(string ip)
+        => Convert.ToHexStringLower(HMACSHA256.HashData(_ipHashKey, Encoding.UTF8.GetBytes(ip)));
+
+    private static byte[] CreateIpHashKey(IConfiguration? configuration)
+    {
+        string? pepper = configuration?[VisitLogIpHashPepperKey];
+        if (string.IsNullOrWhiteSpace(pepper))
+        {
+            pepper = configuration?["Jwt:SecretKey"];
+        }
+
+        if (string.IsNullOrWhiteSpace(pepper))
+        {
+            pepper = string.Concat("FsusBlog:VisitLog:IpHashPepper:Fallback:", Environment.MachineName, ":", AppContext.BaseDirectory);
+        }
+
+        return SHA256.HashData(Encoding.UTF8.GetBytes(pepper));
     }
 
     internal static bool TryClassifyLocalNetwork(string ip, out string region)

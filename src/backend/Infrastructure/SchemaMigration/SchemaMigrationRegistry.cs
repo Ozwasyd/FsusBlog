@@ -44,6 +44,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildCoverImageMigration(),
         BuildHumanReadEventMigration(),
         BuildVisitLogAnonymousAttributionFinalizeMigration(),
+        BuildVisitLogIpAnonymizationMigration(),
         BuildAuthoringAdminPrincipalAttributionMigration(),
         BuildSingleAuthorArticleLifecycleMigration(),
         BuildSingleAuthorArticleLifecycleIndexMigration(),
@@ -1892,6 +1893,18 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
             [
                 new DropColumnStep("sys_visit_log", "userid"),
                 new DropColumnStep("sys_visit_log", "user_id")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildVisitLogIpAnonymizationMigration()
+        => new SchemaMigrationDescriptor(
+            "20260621-post-visit-log-ip-anonymization",
+            "Replace raw visit log IP persistence with server-peppered anonymous hashes.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("sys_visit_log", "ip_hash", "VARCHAR(64) NOT NULL DEFAULT ''"),
+                new DropColumnStep("sys_visit_log", "ip")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAuthoringAdminPrincipalAttributionMigration()

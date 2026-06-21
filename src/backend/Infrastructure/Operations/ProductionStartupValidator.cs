@@ -49,7 +49,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 6;
+    private const int SchemaVersion = 7;
     private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object CoreValidationCacheLock = new();
     private static CoreValidationCacheEntry? s_coreValidationCache;
@@ -82,6 +82,13 @@ public static class ProductionStartupValidator
         "development-subject-hash-pepper-change-before-shared-use"
     ];
 
+    private static readonly string[] DefaultVisitLogIpHashPeppers =
+    [
+        "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
+        "replace-with-stable-random-visit-log-ip-hash-pepper",
+        "development-visit-log-ip-hash-pepper-change-before-shared-use"
+    ];
+
     private static readonly RequiredSettingRule[] RequiredSettings =
     [
         ConnectionString("DefaultConnection"),
@@ -94,6 +101,7 @@ public static class ProductionStartupValidator
         Value("Fido2:ServerDomain"),
         new("Fido2:Origins", ReadOriginList),
         Value("AnonymousCredentialIssuer:SubjectHashPepper"),
+        Value("VisitLog:IpHashPepper"),
         Value(AnonymousIdentityRuntime.ModeEnvironmentVariable)
     ];
 
@@ -185,6 +193,7 @@ public static class ProductionStartupValidator
         string? fido2ServerDomain = values["Fido2:ServerDomain"];
         string? fido2Origins = values["Fido2:Origins"];
         string? subjectHashPepper = values["AnonymousCredentialIssuer:SubjectHashPepper"];
+        string? visitLogIpHashPepper = values["VisitLog:IpHashPepper"];
         string? anonymousIdentityMode = values[AnonymousIdentityRuntime.ModeEnvironmentVariable];
 
         if (!string.IsNullOrWhiteSpace(jwtSecret))
@@ -222,6 +231,26 @@ public static class ProductionStartupValidator
                 subjectHashPepper.Contains("replace-with", StringComparison.OrdinalIgnoreCase))
             {
                 errors.Add("AnonymousCredentialIssuer:SubjectHashPepper must not use a template placeholder.");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(visitLogIpHashPepper))
+        {
+            if (visitLogIpHashPepper.Length < 32)
+            {
+                errors.Add("VisitLog:IpHashPepper must be at least 32 characters.");
+            }
+
+            if (DefaultVisitLogIpHashPeppers.Contains(visitLogIpHashPepper, StringComparer.Ordinal))
+            {
+                errors.Add("VisitLog:IpHashPepper must not use a development/template/default value.");
+            }
+
+            if (visitLogIpHashPepper.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase) ||
+                visitLogIpHashPepper.Contains("MUST_BE_OVERRIDDEN", StringComparison.OrdinalIgnoreCase) ||
+                visitLogIpHashPepper.Contains("replace-with", StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add("VisitLog:IpHashPepper must not use a template placeholder.");
             }
         }
 

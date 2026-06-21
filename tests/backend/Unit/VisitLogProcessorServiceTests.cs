@@ -3,6 +3,7 @@ using System.Reflection;
 using FsusBlog.Server.Services.VisitLog;
 using FsusBlog.Server.Entities;
 using IP2Location;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.ObjectPool;
@@ -72,6 +73,37 @@ public sealed class VisitLogProcessorServiceTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => DrainBatchAsync(worker, batch, cts.Token));
         Assert.Empty(batch);
+    }
+
+    [Fact]
+    public async Task DrainBatchWithFlushWindowAsync_AnonymizesIpBeforePersistence()
+    {
+        await using ServiceProvider provider = new ServiceCollection()
+            .AddSingleton<IConfiguration>(new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["VisitLog:IpHashPepper"] = "unit-test-visit-log-ip-hash-pepper-with-enough-entropy"
+                })
+                .Build())
+            .BuildServiceProvider();
+        var channel = new VisitLogChannel();
+        var worker = new VisitLogProcessorService(
+            channel,
+            provider,
+            NullLogger<VisitLogProcessorService>.Instance);
+        var batch = new List<VisitLogEntity>();
+
+        Assert.True(channel.TryWrite(CreateMessage("127.0.0.1")));
+
+        await DrainBatchAsync(worker, batch, CancellationToken.None);
+
+        var item = Assert.Single(batch);
+        Assert.Null(typeof(VisitLogEntity).GetProperty("IP"));
+        PropertyInfo? ipHashProperty = typeof(VisitLogEntity).GetProperty("IpHash");
+        Assert.NotNull(ipHashProperty);
+        string? ipHash = Assert.IsType<string>(ipHashProperty!.GetValue(item));
+        Assert.Equal(64, ipHash.Length);
+        Assert.NotEqual("127.0.0.1", ipHash);
     }
 
     [Fact]

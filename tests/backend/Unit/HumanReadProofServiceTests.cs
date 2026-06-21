@@ -63,6 +63,8 @@ public sealed class HumanReadProofServiceTests
     public void HumanReadAndStats_SourceDoNotUseVisitLogUserIdAsIdentityDimension()
     {
         Assert.Null(typeof(FsusBlog.Server.Entities.VisitLog).GetProperty("UserId"));
+        Assert.Null(typeof(FsusBlog.Server.Entities.VisitLog).GetProperty("IP"));
+        Assert.NotNull(typeof(FsusBlog.Server.Entities.VisitLog).GetProperty("IpHash"));
 
         string proof = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/HumanReadProofService.cs");
         string visitLog = BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/VisitLog.cs");
@@ -74,8 +76,11 @@ public sealed class HumanReadProofServiceTests
 
         Assert.DoesNotContain("context.GetUserId()", proof, StringComparison.Ordinal);
         Assert.DoesNotContain("int? UserId", visitLog, StringComparison.Ordinal);
+        Assert.DoesNotContain("public string IP", visitLog, StringComparison.Ordinal);
         Assert.DoesNotContain("int? UserId", visitProcessor, StringComparison.Ordinal);
         Assert.DoesNotContain("msg.UserId", visitProcessor, StringComparison.Ordinal);
+        Assert.DoesNotContain("IP = msg.IP", visitProcessor, StringComparison.Ordinal);
+        Assert.DoesNotContain("IP = ip", visitProcessor, StringComparison.Ordinal);
         Assert.DoesNotContain("v.UserId", stats, StringComparison.Ordinal);
         Assert.DoesNotContain("RegisteredVisits", stats, StringComparison.Ordinal);
         Assert.DoesNotContain("AnonymousVisits", stats, StringComparison.Ordinal);
@@ -85,6 +90,8 @@ public sealed class HumanReadProofServiceTests
         Assert.DoesNotContain("AnonymousVisits", statsPods, StringComparison.Ordinal);
         Assert.DoesNotContain("registeredVisits", frontendStats, StringComparison.Ordinal);
         Assert.DoesNotContain("anonymousVisits", frontendStats, StringComparison.Ordinal);
+        Assert.Contains("ip_hash", visitLog, StringComparison.Ordinal);
+        Assert.Contains("IpHash =", visitProcessor, StringComparison.Ordinal);
         Assert.Contains("viewer_key_hash", stats, StringComparison.Ordinal);
         Assert.Contains("proof_id", stats, StringComparison.Ordinal);
         Assert.Contains("TotalReads", outputs, StringComparison.Ordinal);

@@ -144,7 +144,7 @@ AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关�
 - 服务端绑定：HMAC token 绑定 scope、routeKey、articleId、设备指纹哈希、IP 哈希、UA 哈希、签发时间、过期时间、最小停留时间和 nonce。
 - 拒绝条件：无 JS/AOT 未 hydration、直接 API 请求、缺失 Fetch Metadata、跨站 Origin/Referer、爬虫 UA、已验证 crawler、停留不足、过期 token、篡改 token、重放 proof。
 - 成功提交会以 `human-read-proof` 来源写入 `ReadProofAccepted` 负分风险信号，仅用于降低 `public.read` 风险；拒绝与超限继续写入 `ReadProofRejected` 正分风险，但不会阻断公开内容访问；HumanReadProof 只决定阅读事件是否计数，不能授权 comment/auth/admin 写操作。
-- 成功阅读事件写入 VisitLog 时只保存 viewer key hash、proof id、route/article、event type、region 与时间，不保存登录账号 ID；数据库最终态删除 `sys_visit_log.userid` / `sys_visit_log.user_id` 历史账号绑定列，后台统计只使用这些匿名化字段聚合 `totalReads`、`humanVerifiedReads`、`uniqueViewerKeyEstimate`、`articleReads` 与 `siteReads`。
+- 成功阅读事件写入 VisitLog 时只保存服务端 HMAC 匿名化的 `ip_hash`、viewer key hash、proof id、route/article、event type、region 与时间，不保存登录账号 ID 或原始 IP；数据库最终态删除 `sys_visit_log.userid` / `sys_visit_log.user_id` 历史账号绑定列，并移除 `sys_visit_log.ip`。`ip_hash` 使用 `VisitLog:IpHashPepper`，生产环境应配置为稳定高熵 pepper；后台统计只使用这些匿名化字段聚合 `totalReads`、`humanVerifiedReads`、`uniqueViewerKeyEstimate`、`articleReads` 与 `siteReads`。
 - 降级开关：`HumanReadProof:Mode=paused` 暂停计数写入，但不影响内容读取。
 
 该机制提高浏览计数的真人口径，不用于身份认证，也不承诺识别所有未知自动化行为。

@@ -11,7 +11,9 @@ public class VisitLog
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
     public int Id { get; set; }
-    public string IP { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "ip_hash", Length = 64, IsNullable = false, DefaultValue = "''")]
+    public string IpHash { get; set; } = string.Empty;
 
     public string Region { get; set; } = string.Empty;
     public DateTime CreateTime { get; set; }
