@@ -11,6 +11,7 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services.Moderation;
@@ -387,23 +388,22 @@ public sealed class AuthoringWorkflowService(
     {
         CommentModerationStatus resolvedStatus = status ?? CommentModerationStatus.Pending;
         int normalizedLimit = Math.Clamp(limit, 1, 100);
-        List<CommentModerationQueueRow> rows = await db.Queryable<Comment, Article, User, CommentRegionCompliance>((c, a, u, rc) => new object[]
+        List<CommentModerationQueueRow> rows = await db.Queryable<Comment, Article, CommentRegionCompliance>((c, a, rc) => new object[]
             {
                 JoinType.Left, c.ArticleId == a.Id,
-                JoinType.Left, c.UserId == u.Id,
                 JoinType.Left, c.Id == rc.CommentId
             })
-            .Where((c, a, u, rc) => c.ModerationStatus == resolvedStatus && !c.IsDeleted)
-            .OrderByDescending((c, a, u, rc) => c.CreateTime)
+            .Where((c, a, rc) => c.ModerationStatus == resolvedStatus && !c.IsDeleted)
+            .OrderByDescending((c, a, rc) => c.CreateTime)
             .Take(normalizedLimit)
-            .Select((c, a, u, rc) => new CommentModerationQueueRow
+            .Select((c, a, rc) => new CommentModerationQueueRow
             {
                 Id = c.Id,
                 ArticleId = c.ArticleId,
                 ArticleTitle = a.Title,
                 UserId = c.UserId,
-                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.PublicHandle,
                 AuthorMode = c.AuthorMode,
+                PublicHandle = c.PublicHandle,
                 AnonymousDisplayName = c.AnonymousDisplayName,
                 AnonymousDisplayLanguage = c.AnonymousDisplayLanguage,
                 ModerationSubjectHash = c.ModerationSubjectHash,
@@ -699,14 +699,14 @@ public sealed class AuthoringWorkflowService(
     {
         CommentModerationModelSignalResponse? latestSignal = row.ModelSignals.FirstOrDefault();
         bool isAnonymousActor = IsAnonymousActor(row);
-        string authorDisplayName = ResolveModerationAuthorDisplayName(row, isAnonymousActor);
+        string authorDisplayName = ResolveModerationAuthorDisplayName(row);
         string? nullifierHash = isAnonymousActor ? NormalizeNullable(row.AnonymousNullifierHash, 128) : null;
         return new CommentModerationItemResponse(
             row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
             row.ArticleId,
             string.IsNullOrWhiteSpace(row.ArticleTitle) ? "未命名文章" : row.ArticleTitle,
             isAnonymousActor ? null : row.UserId,
-            isAnonymousActor ? null : row.UserName,
+            null,
             authorDisplayName,
             row.Content,
             row.CreateTime,
@@ -757,21 +757,37 @@ public sealed class AuthoringWorkflowService(
             || !string.IsNullOrWhiteSpace(row.ModerationSubjectHash);
     }
 
-    private static string ResolveModerationAuthorDisplayName(CommentModerationQueueRow row, bool isAnonymousActor)
+    private static string ResolveModerationAuthorDisplayName(CommentModerationQueueRow row)
     {
-        if (!isAnonymousActor)
+        return ResolveCommentModerationDisplayName(
+            row.AuthorMode,
+            row.PublicHandle,
+            row.AnonymousDisplayName,
+            row.AnonymousDisplayLanguage);
+    }
+
+    private static string ResolveCommentModerationDisplayName(
+        string? authorMode,
+        string? publicHandle,
+        string? anonymousDisplayName,
+        string? anonymousDisplayLanguage)
+    {
+        string mode = string.IsNullOrWhiteSpace(authorMode)
+            ? CommentAuthorModes.Anonymous
+            : authorMode.Trim();
+        if (string.Equals(mode, CommentAuthorModes.Public, StringComparison.OrdinalIgnoreCase))
         {
-            return string.IsNullOrWhiteSpace(row.UserName) ? "未署名用户" : row.UserName;
+            return string.IsNullOrWhiteSpace(publicHandle) ? "未署名用户" : publicHandle.Trim();
         }
 
-        if (!string.IsNullOrWhiteSpace(row.AnonymousDisplayName))
+        if (!string.IsNullOrWhiteSpace(anonymousDisplayName))
         {
-            return row.AnonymousDisplayName;
+            return anonymousDisplayName.Trim();
         }
 
-        return string.Equals(row.AuthorMode, "zk_anonymous", StringComparison.OrdinalIgnoreCase)
-            ? "强匿名评论者"
-            : "匿名评论者";
+        return string.Equals(anonymousDisplayLanguage, "en", StringComparison.OrdinalIgnoreCase)
+            ? "Anonymous User"
+            : "匿名用户";
     }
 
     private static string BuildNullifierStatusLabel(CommentModerationQueueRow row)
@@ -980,34 +996,43 @@ public sealed class AuthoringWorkflowService(
     }
 
     private async Task<CommentModerationStateRow?> LoadCommentModerationStateAsync(long commentId, CancellationToken cancellationToken)
-        => await db.Queryable<Comment, Article, User, User, CommentRegionCompliance>((c, a, u, ru, rc) => new object[]
+    {
+        CommentModerationStateRow? row = await db.Queryable<Comment, Article, Comment, CommentRegionCompliance>((c, a, pc, rc) => new object[]
             {
                 JoinType.Left, c.ArticleId == a.Id,
-                JoinType.Left, c.UserId == u.Id,
-                JoinType.Left, c.ReplyToUserId == ru.Id,
+                JoinType.Left, c.ReplyToCommentId == pc.Id,
                 JoinType.Left, c.Id == rc.CommentId
             })
-            .Where((c, a, u, ru, rc) => c.Id == commentId && !c.IsDeleted)
-            .Select((c, a, u, ru, rc) => new CommentModerationStateRow
+            .Where((c, a, pc, rc) => c.Id == commentId && !c.IsDeleted)
+            .Select((c, a, pc, rc) => new CommentModerationStateRow
             {
                 Id = c.Id,
                 ArticleId = c.ArticleId,
                 ArticleTitle = a.Title,
                 UserId = c.UserId,
-                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.PublicHandle,
+                AuthorMode = c.AuthorMode,
+                PublicHandle = c.PublicHandle,
+                AnonymousDisplayName = c.AnonymousDisplayName,
+                AnonymousDisplayLanguage = c.AnonymousDisplayLanguage,
                 Content = c.Content,
                 CreateTime = c.CreateTime,
                 ParentId = c.ParentId,
                 RootId = c.RootId,
                 ReplyToUserId = c.ReplyToUserId,
-                ReplyToUserName = ru.PublicHandle,
                 ReplyToCommentId = c.ReplyToCommentId,
+                ReplyToAuthorMode = pc.AuthorMode,
+                ReplyToPublicHandle = pc.PublicHandle,
+                ReplyToAnonymousDisplayName = pc.AnonymousDisplayName,
+                ReplyToAnonymousDisplayLanguage = pc.AnonymousDisplayLanguage,
                 Depth = c.Depth,
                 Status = c.ModerationStatus,
                 RegionComplianceId = rc.Id,
                 RegionCanPublish = rc.CanPublish
             })
             .FirstAsync(cancellationToken);
+
+        return row is null ? null : HydrateCommentModerationDisplayNames(row);
+    }
 
     private async Task<List<CommentModerationStateRow>> LoadCommentModerationStatesAsync(long[] commentIds, CancellationToken cancellationToken)
     {
@@ -1016,34 +1041,63 @@ public sealed class AuthoringWorkflowService(
             return [];
         }
 
-        return await db.Queryable<Comment, Article, User, User, CommentRegionCompliance>((c, a, u, ru, rc) => new object[]
+        List<CommentModerationStateRow> rows = await db.Queryable<Comment, Article, Comment, CommentRegionCompliance>((c, a, pc, rc) => new object[]
             {
                 JoinType.Left, c.ArticleId == a.Id,
-                JoinType.Left, c.UserId == u.Id,
-                JoinType.Left, c.ReplyToUserId == ru.Id,
+                JoinType.Left, c.ReplyToCommentId == pc.Id,
                 JoinType.Left, c.Id == rc.CommentId
             })
-            .Where((c, a, u, ru, rc) => commentIds.Contains(c.Id) && !c.IsDeleted)
-            .Select((c, a, u, ru, rc) => new CommentModerationStateRow
+            .Where((c, a, pc, rc) => commentIds.Contains(c.Id) && !c.IsDeleted)
+            .Select((c, a, pc, rc) => new CommentModerationStateRow
             {
                 Id = c.Id,
                 ArticleId = c.ArticleId,
                 ArticleTitle = a.Title,
                 UserId = c.UserId,
-                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.PublicHandle,
+                AuthorMode = c.AuthorMode,
+                PublicHandle = c.PublicHandle,
+                AnonymousDisplayName = c.AnonymousDisplayName,
+                AnonymousDisplayLanguage = c.AnonymousDisplayLanguage,
                 Content = c.Content,
                 CreateTime = c.CreateTime,
                 ParentId = c.ParentId,
                 RootId = c.RootId,
                 ReplyToUserId = c.ReplyToUserId,
-                ReplyToUserName = ru.PublicHandle,
                 ReplyToCommentId = c.ReplyToCommentId,
+                ReplyToAuthorMode = pc.AuthorMode,
+                ReplyToPublicHandle = pc.PublicHandle,
+                ReplyToAnonymousDisplayName = pc.AnonymousDisplayName,
+                ReplyToAnonymousDisplayLanguage = pc.AnonymousDisplayLanguage,
                 Depth = c.Depth,
                 Status = c.ModerationStatus,
                 RegionComplianceId = rc.Id,
                 RegionCanPublish = rc.CanPublish
             })
             .ToListAsync(cancellationToken);
+
+        foreach (CommentModerationStateRow row in rows)
+        {
+            HydrateCommentModerationDisplayNames(row);
+        }
+
+        return rows;
+    }
+
+    private static CommentModerationStateRow HydrateCommentModerationDisplayNames(CommentModerationStateRow row)
+    {
+        row.AuthorDisplayName = ResolveCommentModerationDisplayName(
+            row.AuthorMode,
+            row.PublicHandle,
+            row.AnonymousDisplayName,
+            row.AnonymousDisplayLanguage);
+        row.ReplyToAuthorDisplayName = row.ReplyToCommentId.HasValue
+            ? ResolveCommentModerationDisplayName(
+                row.ReplyToAuthorMode,
+                row.ReplyToPublicHandle,
+                row.ReplyToAnonymousDisplayName,
+                row.ReplyToAnonymousDisplayLanguage)
+            : null;
+        return row;
     }
 
     private async Task InvalidateModeratedCommentAsync(
@@ -1075,7 +1129,7 @@ public sealed class AuthoringWorkflowService(
                     Id = row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     Content = row.Content,
                     CreateTime = row.CreateTime,
-                    UserName = string.IsNullOrWhiteSpace(row.UserName) ? "匿名用户" : row.UserName,
+                    UserName = row.AuthorDisplayName,
                     ParentId = row.ParentId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     RootId = (row.RootId ?? row.Id).ToString(System.Globalization.CultureInfo.InvariantCulture),
                     ReplyToUserId = row.ReplyToUserId,
@@ -1106,8 +1160,8 @@ public sealed class AuthoringWorkflowService(
         await BoundaryExecutor.ExecuteAsync(
             async () =>
             {
-                string actor = string.IsNullOrWhiteSpace(row.UserName) ? "匿名用户" : row.UserName;
-                string targetName = string.IsNullOrWhiteSpace(row.ReplyToUserName) ? "您" : row.ReplyToUserName!;
+                string actor = row.AuthorDisplayName;
+                string targetName = string.IsNullOrWhiteSpace(row.ReplyToAuthorDisplayName) ? "您" : row.ReplyToAuthorDisplayName!;
                 string snippet = row.Content.Length > 40 ? row.Content[..40] : row.Content;
                 await messageCommandService.SendAccountTransactionalNoticeAsync(
                     row.ReplyToUserId.Value,
@@ -1591,8 +1645,8 @@ public sealed class AuthoringWorkflowService(
         public int ArticleId { get; set; }
         public string? ArticleTitle { get; set; }
         public int? UserId { get; set; }
-        public string? UserName { get; set; }
         public string? AuthorMode { get; set; }
+        public string? PublicHandle { get; set; }
         public string? AnonymousDisplayName { get; set; }
         public string? AnonymousDisplayLanguage { get; set; }
         public string? ModerationSubjectHash { get; set; }
@@ -1629,13 +1683,21 @@ public sealed class AuthoringWorkflowService(
         public int ArticleId { get; init; }
         public string? ArticleTitle { get; init; }
         public int? UserId { get; init; }
-        public string? UserName { get; init; }
+        public string AuthorDisplayName { get; set; } = "匿名用户";
+        public string? AuthorMode { get; set; }
+        public string? PublicHandle { get; set; }
+        public string? AnonymousDisplayName { get; set; }
+        public string? AnonymousDisplayLanguage { get; set; }
         public string Content { get; init; } = string.Empty;
         public DateTime CreateTime { get; init; }
         public long? ParentId { get; init; }
         public long? RootId { get; init; }
         public int? ReplyToUserId { get; init; }
-        public string? ReplyToUserName { get; init; }
+        public string? ReplyToAuthorDisplayName { get; set; }
+        public string? ReplyToAuthorMode { get; set; }
+        public string? ReplyToPublicHandle { get; set; }
+        public string? ReplyToAnonymousDisplayName { get; set; }
+        public string? ReplyToAnonymousDisplayLanguage { get; set; }
         public long? ReplyToCommentId { get; init; }
         public int Depth { get; init; }
         public CommentModerationStatus Status { get; init; }

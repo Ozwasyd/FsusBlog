@@ -42,7 +42,7 @@
       <div v-else class="divide-y divide-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]">
         <article v-for="comment in pendingItems" :key="comment.id" class="bg-[var(--fsusblog-page-bg)] p-5">
           <div class="flex flex-wrap items-center gap-3">
-            <span class="text-xs font-bold text-[var(--fsusblog-text-primary)]">{{ comment.userName }}</span>
+            <span class="text-xs font-bold text-[var(--fsusblog-text-primary)]">{{ comment.actorDisplayName }}</span>
             <span class="text-xs font-semibold tabular-nums text-[var(--fsusblog-text-muted)]">#{{ comment.id }}</span>
             <span class="text-xs font-semibold text-[var(--fsusblog-text-muted)]">文章 {{ comment.articleId }} · {{ comment.articleTitle }}</span>
             <SemanticTime

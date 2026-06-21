@@ -338,6 +338,37 @@ export interface ArticleRevisionSummaryResponse {
     }
   },
   {
+    name: 'legacy comment moderation account display fallback',
+    expected: 'legacy comment moderation account display fallback residue detected',
+    files: {
+      'src/backend/Services/Authoring/AuthoringWorkflowService.cs': `
+internal sealed class AuthoringWorkflowService
+{
+    private object Load()
+        => db.Queryable<Comment, Article, User, User>((c, a, u, ru) => new object[]
+        {
+            JoinType.Left, c.UserId == u.Id,
+            JoinType.Left, c.ReplyToUserId == ru.Id
+        })
+        .Select((c, a, u, ru) => new
+        {
+            UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.PublicHandle,
+            ReplyToUserName = ru.PublicHandle
+        });
+
+    private string Notify(Row row) => row.UserName;
+}
+`,
+      'src/frontend/src/components/admin/DashboardCommentModerationPanel.vue': `
+<template>{{ comment.userName }}</template>
+`,
+      'src/frontend/src/composables/useCommentModerationQueue.ts': `
+const actorDisplayName = cleanText(item.userName) ?? '未署名用户'
+const accountSearchText = item.userName ?? ''
+`
+    }
+  },
+  {
     name: 'legacy admin password reset governance',
     expected: 'legacy admin password reset governance residue detected',
     files: {

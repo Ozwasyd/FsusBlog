@@ -370,7 +370,7 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
   const isStrongAnonymous = authorMode === 'zk_anonymous' || credentialLevel?.toLowerCase() === 'strong'
   const actorDisplayName = isAnonymousActor
     ? cleanText(item.authorDisplayName) ?? localizedAnonymousDisplayName(item.displayLanguage, isStrongAnonymous)
-    : cleanText(item.userName) ?? (typeof item.userId === 'number' ? `用户 ${item.userId}` : '未署名用户')
+    : cleanText(item.authorDisplayName) ?? '未署名用户'
   const authorModeLabel = authorModeText(authorMode)
   const anonymousScopeLabel = isAnonymousActor
     ? bucketText('scope', item.anonymousScope)
@@ -505,7 +505,6 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
 
     return allItems.value.filter((item) => {
       if (keyword) {
-        const accountSearchText = item.isAnonymousActor ? '' : `${item.userName ?? ''} ${item.userId ?? ''}`
         const haystack = [
           item.id,
           item.content,
@@ -518,7 +517,6 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
           item.reputationBucketLabel,
           item.accountAgeBucketLabel,
           item.riskLabels.join(' '),
-          accountSearchText,
           item.reason ?? ''
         ].join(' ').toLowerCase()
         if (!haystack.includes(keyword)) {
@@ -536,8 +534,7 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
       if (user) {
         const userHaystack = [
           item.actorDisplayName,
-          item.userLabel,
-          item.isAnonymousActor ? '' : `${item.userName ?? ''} ${item.userId ?? ''}`
+          item.userLabel
         ].join(' ').toLowerCase()
         if (!userHaystack.includes(user)) {
           return false

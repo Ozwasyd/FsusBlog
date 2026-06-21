@@ -9,6 +9,7 @@ describe('anonymous moderation governance workflow contract', () => {
   const router = readRepoFile('src/frontend/src/router/index.ts')
   const accountNav = readRepoFile('src/frontend/src/layouts/accountNav.ts')
   const queue = readRepoFile('src/frontend/src/components/admin/comment-moderation/CommentModerationQueue.vue')
+  const dashboardQueue = readRepoFile('src/frontend/src/components/admin/DashboardCommentModerationPanel.vue')
   const queueComposable = readRepoFile('src/frontend/src/composables/useCommentModerationQueue.ts')
   const governance = readRepoFile('src/frontend/src/views/admin/moderation/AnonymousGovernancePage.vue')
   const commentModerationPage = readRepoFile('src/frontend/src/views/admin/CommentModeration.vue')
@@ -51,6 +52,15 @@ describe('anonymous moderation governance workflow contract', () => {
     expect(queue).toContain('riskLabels')
     expect(queue).not.toContain('{{ row.userName }}')
     expect(queue).not.toContain('row.nullifierHash')
+  })
+
+  it('does not surface deprecated moderation userName fields in dashboard or filtering', () => {
+    expect(dashboardQueue).toContain('comment.actorDisplayName')
+    expect(dashboardQueue).not.toContain('comment.userName')
+    expect(queueComposable).not.toContain('cleanText(item.userName)')
+    expect(queueComposable).not.toContain('item.userName ??')
+    expect(queueComposable).not.toContain('accountSearchText')
+    expect(authoringApi).toContain('userName?: string | null')
   })
 
   it('keeps nullifier and credential actions permission-gated', () => {

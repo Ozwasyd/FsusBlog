@@ -307,6 +307,13 @@ run_residue_check \
   src/backend/Modules/Endpoints/AuthoringEndpoints.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Services/ArticleService.cs src/backend/Entities/Article.cs src/backend/Models/Dtos/AuthoringDtos.cs src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs src/frontend/src/api/authoring.ts src/frontend/src/components/admin/article/ArticleRevisionPanel.vue
 
 run_residue_check \
+  "legacy comment moderation account display fallback" \
+  "legacy comment moderation account display fallback residue detected" \
+  'Queryable<Comment,\s*Article,\s*User|JoinType[.]Left,\s*c[.]UserId\s*==\s*u[.]Id|JoinType[.]Left,\s*c[.]ReplyToUserId\s*==\s*ru[.]Id|u[.]PublicHandle|ru[.]PublicHandle|u[.]Username|ru[.]Username|row[.]UserName|comment[.]userName|cleanText[(]item[.]userName[)]|accountSearchText' \
+  "" \
+  src/backend/Services/Authoring/AuthoringWorkflowService.cs src/frontend/src/components/admin/DashboardCommentModerationPanel.vue src/frontend/src/composables/useCommentModerationQueue.ts
+
+run_residue_check \
   "legacy frontend admin fallbacks" \
   "legacy frontend admin fallback residue detected" \
   'legacy[.]admin|syncLegacyAdminPrincipal|userInfo[.]role\s*={2,3}\s*["'\'']admin["'\'']|user[?]?[.]role\s*={2,3}\s*["'\'']admin["'\'']' \

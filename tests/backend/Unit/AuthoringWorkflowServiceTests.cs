@@ -47,6 +47,27 @@ public sealed class AuthoringWorkflowServiceTests
     }
 
     [Fact]
+    public void CommentModerationIdentityProjection_SourceAvoidsLegacyAccountFallbacks()
+    {
+        string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string moderationRegion = service[
+            service.IndexOf("public async Task<CommentModerationQueueResponse> ListCommentModerationQueueAsync", StringComparison.Ordinal)..
+            service.IndexOf("private static bool ShouldLinkBan", StringComparison.Ordinal)];
+
+        Assert.DoesNotContain("Queryable<Comment, Article, User", moderationRegion, StringComparison.Ordinal);
+        Assert.DoesNotContain("JoinType.Left, c.UserId == u.Id", moderationRegion, StringComparison.Ordinal);
+        Assert.DoesNotContain("JoinType.Left, c.ReplyToUserId == ru.Id", moderationRegion, StringComparison.Ordinal);
+        Assert.DoesNotContain("u.PublicHandle", moderationRegion, StringComparison.Ordinal);
+        Assert.DoesNotContain("ru.PublicHandle", moderationRegion, StringComparison.Ordinal);
+        Assert.DoesNotContain("u.Username", moderationRegion, StringComparison.Ordinal);
+        Assert.DoesNotContain("ru.Username", moderationRegion, StringComparison.Ordinal);
+        Assert.DoesNotContain("row.UserName", moderationRegion, StringComparison.Ordinal);
+        Assert.Contains("ResolveCommentModerationDisplayName", moderationRegion, StringComparison.Ordinal);
+        Assert.Contains("AuthorDisplayName", moderationRegion, StringComparison.Ordinal);
+        Assert.Contains("ReplyToAuthorDisplayName", moderationRegion, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GenerateAiAssist_DefaultConfiguration_DoesNotEnableExternalProviderOrTitleCandidates()
     {
         AuthoringWorkflowService service = BuildService();
