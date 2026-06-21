@@ -1,9 +1,9 @@
 <template>
   <div class="space-y-8">
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       title="PoSpace 挑战"
-      :caption="policyState ? `RiskControl：${policyState.activePolicy.policyVersion}` : ''"
-      title-id="security-pospace-title"
+      :description="policyState ? `RiskControl：${policyState.activePolicy.policyVersion}` : ''"
+      id="security-pospace-title"
     >
       <template #actions>
         <el-button :icon="Refresh" :loading="loading" @click="loadPage">刷新</el-button>
@@ -15,7 +15,7 @@
           <div class="mt-3 break-words text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
         </div>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
@@ -57,7 +57,7 @@ import {
   type SecurityChallengeMetricsResponse,
   type SecurityPolicyConsoleResponse
 } from '@/api/security'
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 

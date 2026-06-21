@@ -5,11 +5,11 @@
       content="查看上传资产、引用计数与孤儿文件，清理动作需要明确确认。"
     />
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       class="mb-12"
       title="资产库存"
-      caption="资产库独立承载列表、文章引用重建、孤儿资产清理和物理删除。"
-      title-id="asset-library-title"
+      description="资产库独立承载列表、文章引用重建、孤儿资产清理和物理删除。"
+      id="asset-library-title"
     >
       <template #title>
         资产库存
@@ -21,7 +21,7 @@
           <el-button type="danger" :icon="Delete" :loading="processing" @click="confirmCleanupOrphans">清理孤儿资产</el-button>
         </div>
       </template>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
     <section class="admin-data-surface">
       <div class="admin-data-surface__toolbar admin-data-surface__toolbar--stacked">
@@ -120,7 +120,7 @@ import {
 } from '@/api/authoring'
 import { deleteImage } from '@/api/system'
 import { FsusUiPageHeader } from "@/fsusui"
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import { Delete, Refresh, Search } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'

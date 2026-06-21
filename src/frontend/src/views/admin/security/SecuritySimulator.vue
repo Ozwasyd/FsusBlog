@@ -1,9 +1,9 @@
 <template>
   <div class="space-y-8">
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       title="RiskControl 模拟器"
-      :caption="result ? `策略版本：${result.policyVersion}` : ''"
-      title-id="security-simulator-title"
+      :description="result ? `策略版本：${result.policyVersion}` : ''"
+      id="security-simulator-title"
     >
       <template #actions>
         <el-button :icon="Refresh" :loading="loading" type="primary" @click="runSimulation">运行</el-button>
@@ -62,7 +62,7 @@
           </button>
         </div>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
     <section class="grid gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
@@ -105,7 +105,7 @@
 <script setup lang="ts">
 import { computed, reactive, shallowRef } from 'vue'
 import { simulateRiskControl, type RiskControlSimulationRequest, type RiskControlSimulationResponse } from '@/api/security'
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 

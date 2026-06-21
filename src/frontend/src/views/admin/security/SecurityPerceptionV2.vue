@@ -1,9 +1,9 @@
 <template>
   <div class="space-y-8">
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       title="Perception V2"
-      :caption="consoleState ? `策略版本：${policy?.policyVersion ?? '-'}` : ''"
-      title-id="security-perception-v2-title"
+      :description="consoleState ? `策略版本：${policy?.policyVersion ?? '-'}` : ''"
+      id="security-perception-v2-title"
     >
       <template #actions>
         <el-button :icon="Refresh" :loading="loading" @click="loadConsole">刷新</el-button>
@@ -15,7 +15,7 @@
           <div class="mt-3 break-words text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
         </div>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
@@ -75,7 +75,7 @@ import {
   updatePerceptionSealedV2Options,
   type PerceptionSealedV2ConsoleResponse
 } from '@/api/security'
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 

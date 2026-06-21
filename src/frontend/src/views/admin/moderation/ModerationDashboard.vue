@@ -1,9 +1,9 @@
 <template>
   <div class="space-y-8">
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       title="审核运行状态"
-      :caption="overview ? `模型状态：${modelStateLabel}` : ''"
-      title-id="moderation-overview-title"
+      :description="overview ? `模型状态：${modelStateLabel}` : ''"
+      id="moderation-overview-title"
     >
       <template #actions>
         <el-button :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
@@ -15,7 +15,7 @@
           <div class="mt-3 text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
         </div>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
     <AdminTaskFeedbackBar
       :phase="taskFeedbackPhase"
@@ -120,7 +120,7 @@ import {
 } from '@/api/authoring'
 import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 import { Connection, Refresh } from '@/fsusui/icons'
 import { toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'

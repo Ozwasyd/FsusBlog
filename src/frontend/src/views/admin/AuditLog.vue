@@ -6,11 +6,11 @@
       class="account-page-header--compact"
     />
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       class="mb-8"
       title="写入状态"
-      caption="队列、失败与降级写入指标来自服务端审计状态快照。"
-      title-id="audit-runtime-title"
+      description="队列、失败与降级写入指标来自服务端审计状态快照。"
+      id="audit-runtime-title"
     >
       <template #title>
         写入状态
@@ -25,7 +25,7 @@
           <el-button :icon="Refresh" :loading="loading" @click="loadAudit">刷新</el-button>
         </div>
       </template>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
     <section class="border-t border-[var(--fsusblog-panel-border)]">
       <div class="audit-filter-grid grid gap-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] px-4 py-4 lg:grid-cols-6">
@@ -208,7 +208,7 @@ import {
   type AuditLogSummaryResponse
 } from '@/api/authoring'
 import { FsusUiPageHeader } from "@/fsusui"
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
 import { Aim, Lock, Operation, Refresh, RefreshLeft, Search, User, View } from '@/fsusui/icons'

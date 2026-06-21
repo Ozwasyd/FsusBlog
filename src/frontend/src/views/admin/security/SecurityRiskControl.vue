@@ -1,9 +1,9 @@
 <template>
   <div class="space-y-8">
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       title="RiskControl 控制面"
-      :caption="consoleState ? `策略版本：${activePolicy?.policyVersion ?? '-'}` : ''"
-      title-id="security-risk-control-title"
+      :description="consoleState ? `策略版本：${activePolicy?.policyVersion ?? '-'}` : ''"
+      id="security-risk-control-title"
     >
       <template #actions>
         <el-button :icon="Refresh" :loading="loading" @click="loadConsole">刷新</el-button>
@@ -15,7 +15,7 @@
           <div class="mt-3 break-words text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
         </div>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
@@ -101,7 +101,7 @@
 <script setup lang="ts">
 import { computed, onMounted, shallowRef } from 'vue'
 import { getRiskControlConsole, type RiskControlConsoleResponse, type SecurityRiskActionPolicy } from '@/api/security'
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 

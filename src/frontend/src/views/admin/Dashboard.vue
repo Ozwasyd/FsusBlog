@@ -97,20 +97,19 @@
       </section>
     </div>
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       class="mb-16 border-y-0 bg-transparent"
       title="运营工作区"
-      caption="内容表现、近期互动和常用管理入口。"
-      title-id="dashboard-workflow-title"
-      :title-level="2"
-      header-class="px-0 pt-0"
+      description="内容表现、近期互动和常用管理入口。"
+      id="dashboard-workflow-title"
+      :title-tag="'h2'"
     >
       <div class="grid grid-cols-1 gap-3 border-y border-[var(--fsusblog-panel-border)] py-3 xl:grid-cols-3">
         <DashboardOperationsPanel :view="dashboardView" />
         <DashboardPopularArticles :view="dashboardView" :loading="loading" />
         <DashboardRecentComments :view="dashboardView" :loading="loading" />
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
   </div>
 </template>
 
@@ -118,7 +117,7 @@
 import { computed, onMounted, ref } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 import { FsusUiPageHeader } from '@/fsusui'
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 import ConsoleWelcomeCallout from '@/components/admin/ConsoleWelcomeCallout.vue'
 import DashboardAuthorAnalyticsPanel from '@/components/admin/DashboardAuthorAnalyticsPanel.vue'
 import DashboardCommentModerationPanel from '@/components/admin/DashboardCommentModerationPanel.vue'
