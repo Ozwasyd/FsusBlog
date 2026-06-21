@@ -7,6 +7,8 @@ MODE="${FSUSBLOG_DRILL_MODE:-dry-run}"
 RUN_ID="${FSUSBLOG_DRILL_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)-$$}"
 WORK_DIR="${FSUSBLOG_DRILL_WORK_DIR:-$OUT_DIR/backup-restore-drill-$RUN_ID}"
 OUT_FILE="$OUT_DIR/backup-restore-drill.json"
+RESIDUE_REPORT_FILE="$OUT_DIR/backup-restore-anonymous-residue.json"
+RESTORE_MANIFEST_FILE="$OUT_DIR/backup-restore-manifest.json"
 RESTORE_STACK="${FSUSBLOG_DRILL_RESTORE_STACK:-1}"
 KEEP_WORK="${FSUSBLOG_DRILL_KEEP_WORK:-0}"
 BACKEND_PORT="${FSUSBLOG_DRILL_BACKEND_PORT:-5180}"
@@ -113,6 +115,206 @@ write_report() {
     }' > "$OUT_FILE"
 
   log "wrote $OUT_FILE"
+}
+
+write_restore_manifest() {
+  jq -n \
+    --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg runId "$RUN_ID" \
+    '{
+      generatedAt: $generatedAt,
+      runId: $runId,
+      restorePolicy: {
+        allowed: [
+          "postgres-schema-and-anonymous-account-state",
+          "uploads-content-addressed-assets",
+          "data-protection-keyring",
+          "public-aot-shells",
+          "search-index-artifacts"
+        ],
+        rebuildRequired: [
+          "redis-session-and-cache-state",
+          "public-hot-read-cache",
+          "notification-stream-backlog"
+        ],
+        sanitizeBeforeRestore: [
+          "legacy-user-directories",
+          "raw-ip-fields",
+          "username-email-password-role-fields",
+          "user-id-derived-search-or-aot-payloads"
+        ]
+      }
+    }' > "$RESTORE_MANIFEST_FILE"
+
+  add_check "restore-manifest" "written"
+}
+
+append_residue_result() {
+  local file="$1"
+  local category="$2"
+  local severity="$3"
+  local status_value="$4"
+  local hits="$5"
+  local sample="$6"
+
+  local tmp
+  tmp="${file}.tmp"
+  jq \
+    --arg category "$category" \
+    --arg severity "$severity" \
+    --arg status "$status_value" \
+    --arg sample "$sample" \
+    --argjson hits "$hits" \
+    '.checks += [{
+      category: $category,
+      severity: $severity,
+      status: $status,
+      hits: $hits,
+      sample: (if $sample == "" then null else $sample end)
+    }]' "$file" > "$tmp"
+  mv "$tmp" "$file"
+}
+
+scan_path_for_residue() {
+  local report="$1"
+  local category="$2"
+  local severity="$3"
+  local path="$4"
+  shift 4
+  local pattern="$*"
+
+  if [[ ! -e "$path" ]]; then
+    append_residue_result "$report" "$category" "$severity" "skipped" 0 "path-missing:$path"
+    return 0
+  fi
+
+  local matches hit_count sample
+  matches="$(grep -RInaE "$pattern" "$path" 2>/dev/null || true)"
+  if [[ -z "$matches" ]]; then
+    append_residue_result "$report" "$category" "$severity" "ok" 0 ""
+    return 0
+  fi
+
+  hit_count="$(printf '%s\n' "$matches" | wc -l | tr -d ' ')"
+  sample="$(printf '%s\n' "$matches" | head -1)"
+  append_residue_result "$report" "$category" "$severity" "blocked" "$hit_count" "$sample"
+  if [[ "$severity" == "P0" ]]; then
+    return 1
+  fi
+  return 0
+}
+
+scan_postgres_for_residue() {
+  local report="$1"
+  if ! docker ps --format '{{.Names}}' | grep -Fx "$postgres_container" >/dev/null 2>&1; then
+    append_residue_result "$report" "postgres" "P0" "skipped" 0 "postgres-container-not-running"
+    return 0
+  fi
+
+  local sql result hits
+  sql="
+WITH legacy_columns AS (
+  SELECT table_name || '.' || column_name AS sample
+  FROM information_schema.columns
+  WHERE table_schema = 'public'
+    AND (
+      (table_name = 'sys_user' AND column_name IN ('username','password','password_hash','email','lastloginip','role'))
+      OR (table_name = 'sys_visit_log' AND column_name = 'ip')
+      OR (table_name = 'comment' AND column_name IN ('reply_to_user_id','moderated_by_user_id','user_name','reply_to_user_name'))
+      OR (table_name = 'sys_user_session' AND column_name IN ('last_ip','user_name'))
+      OR (table_name = 'message' AND column_name IN ('from_user_id','to_user_id'))
+    )
+),
+raw_ip_values AS (
+  SELECT 'sys_visit_log.ip raw values' AS sample
+  WHERE EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'sys_visit_log' AND column_name = 'ip'
+  )
+)
+SELECT sample FROM legacy_columns
+UNION ALL
+SELECT sample FROM raw_ip_values
+LIMIT 20;"
+  result="$(docker exec "$postgres_container" psql -U fsusblog -d fsusblog -At -c "$sql" 2>/dev/null || true)"
+  if [[ -z "$result" ]]; then
+    append_residue_result "$report" "postgres" "P0" "ok" 0 ""
+    return 0
+  fi
+
+  hits="$(printf '%s\n' "$result" | wc -l | tr -d ' ')"
+  append_residue_result "$report" "postgres" "P0" "blocked" "$hits" "$(printf '%s\n' "$result" | head -1)"
+  return 1
+}
+
+scan_redis_for_residue() {
+  local report="$1"
+  if ! docker ps --format '{{.Names}}' | grep -Fx "$redis_container" >/dev/null 2>&1; then
+    append_residue_result "$report" "redis" "P0" "skipped" 0 "redis-container-not-running"
+    return 0
+  fi
+
+  local keys hits
+  keys="$(docker exec "$redis_container" redis-cli --scan 2>/dev/null | grep -E '(^|:)(user|username|email|password|role|session:user|auth:user)(:|$)' || true)"
+  if [[ -z "$keys" ]]; then
+    append_residue_result "$report" "redis" "P0" "ok" 0 ""
+    return 0
+  fi
+
+  hits="$(printf '%s\n' "$keys" | wc -l | tr -d ' ')"
+  append_residue_result "$report" "redis" "P0" "blocked" "$hits" "$(printf '%s\n' "$keys" | head -1)"
+  return 1
+}
+
+finalize_residue_report() {
+  local report="$1"
+  local tmp
+  tmp="${report}.tmp"
+  jq '(.summary.totalChecks = (.checks | length))
+      | (.summary.blockers = ([.checks[] | select(.status == "blocked" and .severity == "P0")] | length))
+      | (.summary.warnings = ([.checks[] | select(.status == "blocked" and .severity != "P0")] | length))
+      | (.status = if .summary.blockers > 0 then "blocked" else "ok" end)' "$report" > "$tmp"
+  mv "$tmp" "$report"
+}
+
+run_anonymous_residue_gate() {
+  local report="$RESIDUE_REPORT_FILE"
+  jq -n \
+    --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg runId "$RUN_ID" \
+    --arg mode "$MODE" \
+    '{status:"ok", generatedAt:$generatedAt, runId:$runId, mode:$mode, checks:[], summary:{totalChecks:0, blockers:0, warnings:0}}' > "$report"
+
+  if [[ "$MODE" == "dry-run" ]]; then
+    append_residue_result "$report" "postgres" "P0" "planned" 0 "sys_visit_log.ip/sys_user.lastloginip/legacy user fields"
+    append_residue_result "$report" "redis" "P0" "planned" 0 "legacy user/session/cache key prefixes"
+    append_residue_result "$report" "search" "P0" "planned" 0 "public search documents must not expose userId/username/email/ip"
+    append_residue_result "$report" "aot-static" "P0" "planned" 0 "AOT/static artifacts must not expose legacy account fields"
+    append_residue_result "$report" "uploads-manifest" "P1" "planned" 0 "uploads manifests must not use legacy user directories"
+    finalize_residue_report "$report"
+    add_check "anonymous-residue-gate" "planned"
+    return 0
+  fi
+
+  local blocked=0
+  scan_postgres_for_residue "$report" || blocked=1
+  scan_redis_for_residue "$report" || blocked=1
+  scan_path_for_residue "$report" "search" "P0" "$WORK_DIR/webroot/search" '\b(userId|username|userName|email|ip|replyToUserId)\b' || blocked=1
+  scan_path_for_residue "$report" "aot-static" "P0" "$WORK_DIR/webroot/aot-cache" '\b(userId|username|userName|email|ip|replyToUserId)\b' || blocked=1
+  scan_path_for_residue "$report" "uploads-manifest" "P1" "$WORK_DIR/webroot/uploads" '(^|/)(user|username|email|legacy-user)[-_]?[0-9A-Za-z]*' || true
+  (
+    cd "$ROOT_DIR"
+    FSUSBLOG_HISTORICAL_RESIDUE_ROOT="$ROOT_DIR" bash tools/check-historical-residue.sh >/dev/null
+  ) || blocked=1
+  append_residue_result "$report" "repository-static-residue" "P0" "$([[ "$blocked" == "0" ]] && printf ok || printf blocked)" "$blocked" "tools/check-historical-residue.sh"
+  finalize_residue_report "$report"
+
+  if [[ "$blocked" != "0" ]]; then
+    add_blocker "anonymous-residue-gate-blocked:$report"
+    return 1
+  fi
+
+  add_check "anonymous-residue-gate" "ok"
 }
 
 require_command() {
@@ -380,7 +582,11 @@ run_dry_run() {
     "binary-api:planned"
     "search:planned"
     "notification-stream:planned"
+    "restore-manifest:planned"
+    "anonymous-residue-gate:planned"
   )
+  write_restore_manifest
+  run_anonymous_residue_gate
 }
 
 run_real() {
@@ -401,6 +607,7 @@ run_real() {
   fi
 
   mkdir -p "$WORK_DIR"
+  write_restore_manifest
   restore_started_at="$(date -u +%s)"
   restore_postgres
   restore_redis
@@ -413,6 +620,7 @@ run_real() {
     add_blocker "runtime-smoke-disabled"
   fi
 
+  run_anonymous_residue_gate || true
   restore_finished_at="$(date -u +%s)"
 }
 

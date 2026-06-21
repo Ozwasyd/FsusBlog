@@ -105,6 +105,29 @@ public sealed class OperationsReadinessContractTests
     }
 
     [Fact]
+    public void BackupRestoreDrill_AlwaysPlansAnonymousResidueGateAndRestoreManifest()
+    {
+        string root = BackendTestPaths.RepositoryRoot;
+        string drill = File.ReadAllText(Path.Combine(root, "tools/operations/backup-restore-drill.sh"));
+        string operations = File.ReadAllText(Path.Combine(root, "docs/operations.md"));
+
+        Assert.Contains("backup-restore-anonymous-residue.json", drill, StringComparison.Ordinal);
+        Assert.Contains("backup-restore-manifest.json", drill, StringComparison.Ordinal);
+        Assert.Contains("run_anonymous_residue_gate", drill, StringComparison.Ordinal);
+        Assert.Contains("tools/check-historical-residue.sh", drill, StringComparison.Ordinal);
+        Assert.Contains("anonymous-residue-gate", drill, StringComparison.Ordinal);
+        Assert.Contains("restore-manifest", drill, StringComparison.Ordinal);
+        Assert.Contains("postgres", drill, StringComparison.Ordinal);
+        Assert.Contains("redis", drill, StringComparison.Ordinal);
+        Assert.Contains("search", drill, StringComparison.Ordinal);
+        Assert.Contains("aot-static", drill, StringComparison.Ordinal);
+        Assert.Contains("uploads-manifest", drill, StringComparison.Ordinal);
+        Assert.Contains("anonymous residue gate", operations, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("backup-restore-anonymous-residue.json", operations, StringComparison.Ordinal);
+        Assert.Contains("backup-restore-manifest.json", operations, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PublicDistributionAndSearch_KeepNonPublicContentOut()
     {
         string root = BackendTestPaths.RepositoryRoot;
