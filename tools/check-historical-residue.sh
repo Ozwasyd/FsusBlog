@@ -61,6 +61,68 @@ run_residue_check() {
   fi
 }
 
+run_appsettings_identity_residue_check() {
+  echo "[residue-check] verifying appsettings legacy admin identity fields..."
+
+  local output=""
+  local file
+  while IFS= read -r -d '' file; do
+    local matches
+    matches="$(
+      awk '
+        function brace_delta(value, i, char, delta) {
+          delta = 0
+          for (i = 1; i <= length(value); i++) {
+            char = substr(value, i, 1)
+            if (char == "{") {
+              delta++
+            } else if (char == "}") {
+              delta--
+            }
+          }
+          return delta
+        }
+        BEGIN { in_admin = 0; admin_depth = 0 }
+        {
+          if ($0 ~ /"Admin(:|__)(Username|Password|Role)"[[:space:]]*:/) {
+            print FILENAME ":" FNR ":" $0
+          }
+
+          if (!in_admin && $0 ~ /"Admin"[[:space:]]*:[[:space:]]*\{/) {
+            in_admin = 1
+            admin_depth = 0
+          }
+
+          if (in_admin && $0 ~ /"(Username|Password|Role)"[[:space:]]*:/) {
+            print FILENAME ":" FNR ":" $0
+          }
+
+          if (in_admin) {
+            admin_depth += brace_delta($0)
+            if (admin_depth <= 0) {
+              in_admin = 0
+              admin_depth = 0
+            }
+          }
+        }
+      ' "$file"
+    )"
+    if [[ -n "$matches" ]]; then
+      output+="$matches"$'\n'
+    fi
+  done < <(
+    find "$ROOT_DIR" \
+      \( -path '*/node_modules/*' -o -path '*/dist/*' -o -path '*/build*/*' -o -path '*/.artifacts/*' -o -path '*/.tmp/*' -o -path '*/bin/*' -o -path '*/obj/*' \) -prune \
+      -o -type f -name 'appsettings*.json' -print0
+  )
+
+  if [[ -n "$output" ]]; then
+    printf '%s' "$output"
+    echo "[residue-check] legacy appsettings admin identity field residue detected"
+    exit 1
+  fi
+}
+
 run_residue_check \
   "legacy gateway markers" \
   "legacy gateway residue detected" \
@@ -249,6 +311,8 @@ run_residue_check \
   '\bsys_user[.](username|password|role|last_username_update_time|lastusernameupdatetime)\b|\bpublic[[:space:]]+string[?]?[[:space:]]+(Username|Password|Role)\b|\bLastUsernameUpdateTime\b|\b(user|u|ru)[.](Username|Role)\b|Role[[:space:]]*(==|!=)[[:space:]]*"admin"|Role[.]Equals[(]"admin"|Username[[:space:]]*[{][[:space:]]*get[;][[:space:]]*init[;][[:space:]]*[}]' \
   "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
   src/backend/Entities/User.cs src/backend/Interfaces/UserApplicationPorts.cs src/backend/Services/UserService.cs src/backend/Services/UserService.Ports.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs src/backend/Services/Security/PasskeyService.cs src/backend/Infrastructure/Auth/AnonymousIdentityRuntime.cs src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs
+
+run_appsettings_identity_residue_check
 
 run_residue_check \
   "operations connection string key parsing" \

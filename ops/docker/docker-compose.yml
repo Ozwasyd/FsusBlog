@@ -20,6 +20,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       # 数据库连接：由外部 .env 驱动
+      # Username=/Password= 是 PostgreSQL/Npgsql 连接串凭据关键字；不要在 appsettings*.json 中恢复 Admin:Username/Admin:Password/Admin:Role 应用身份配置。
       - ConnectionStrings__DefaultConnection=Host=${EXTERNAL_DB_HOST};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}
       - ConnectionStrings__Redis=${EXTERNAL_REDIS_HOST}:6379,password=${REDIS_PASSWORD},abortConnect=false,connectTimeout=10000
       # Redis 连接：前缀对齐 appsettings.json 中的 RedisOptions 节点

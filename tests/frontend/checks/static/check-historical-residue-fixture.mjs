@@ -270,6 +270,34 @@ public class User
     }
   },
   {
+    name: 'legacy appsettings admin identity fields',
+    expected: 'legacy appsettings admin identity field residue detected',
+    files: {
+      'appsettings.Production.json': `
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=db;Database=fsusblog;Username=fsusblog;Password=secret"
+  },
+  "Admin": {
+    "Username": "admin",
+    "Password": "legacy-password",
+    "Role": "admin"
+  }
+}
+`,
+      'src/backend/appsettings.Flattened.json': `
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=db;Database=fsusblog;Username=fsusblog;Password=secret"
+  },
+  "Admin:Username": "admin",
+  "Admin__Password": "legacy-password",
+  "Admin:Role": "admin"
+}
+`
+    }
+  },
+  {
     name: 'legacy role admin account protection',
     expected: 'legacy sys_user identity field residue detected',
     files: {
@@ -605,6 +633,15 @@ public class VisitLog
 ]
 
 const allowedMaintenanceFixture = {
+  'appsettings.Production.example.json': `
+{
+  "ConnectionStrings": {
+    "_Comment": "PostgreSQL Username=/Password= are Npgsql connection string aliases, not application identity fields.",
+    "DefaultConnection": "Host=db;Database=fsusblog;Username=fsusblog;Password=secret",
+    "_LibpqUrlExample": "postgresql://fsusblog:secret@db:5432/fsusblog"
+  }
+}
+`,
   'docs/database-migration.md': `
 Legacy migration notes may mention /api/binary/auth/login, AuthLoginRequest, username, password, and sys_user while documenting residue removal.
 `,

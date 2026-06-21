@@ -114,7 +114,7 @@ Use the site package script as the normal single-author backup entrypoint:
 tools/operations/backup-site.sh
 ```
 
-The package includes PostgreSQL (`database.dump`), uploads, DataProtection keyring, redacted config, AOT cache and search artifacts. Set `FSUSBLOG_BACKUP_ROOT` to the production backup volume. The script accepts `FSUSBLOG_POSTGRES_URL`, `DATABASE_URL`, or `ConnectionStrings__DefaultConnection`, and redacts config keys matching secret/password/token/key/connection/string before packaging. Redis is a cache/control-plane dependency; restore uses a fresh empty Redis unless infrastructure policy provides a separate Redis persistence layer.
+The package includes PostgreSQL (`database.dump`), uploads, DataProtection keyring, redacted config, AOT cache and search artifacts. Set `FSUSBLOG_BACKUP_ROOT` to the production backup volume. The script accepts `FSUSBLOG_POSTGRES_URL`, `DATABASE_URL`, or `ConnectionStrings__DefaultConnection`; PostgreSQL values may use libpq URL style such as `postgresql://fsusblog:secret@db.internal:5432/fsusblog`, Npgsql style such as `Host=db.internal;Port=5432;Database=fsusblog;Username=fsusblog;Password=secret`, or libpq keyword style such as `host=db.internal port=5432 dbname=fsusblog user=fsusblog password=secret`. In the Npgsql form, `Username=`/`Password=` are database connection string keywords, not `Admin:Username`/`Admin:Password` application identity settings. The script redacts config keys matching secret/password/token/key/connection/string before packaging. Redis is a cache/control-plane dependency; restore uses a fresh empty Redis unless infrastructure policy provides a separate Redis persistence layer.
 
 Restore is explicit and non-destructive unless `--confirm` is supplied:
 
