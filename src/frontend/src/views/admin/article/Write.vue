@@ -51,16 +51,6 @@
         </div>
       </header>
 
-      <AdminTaskFeedbackBar
-        class="mx-4 mb-8"
-        :phase="taskFeedbackPhase"
-        :message="taskFeedbackMessage"
-        :detail="taskFeedbackDetail"
-        :aria-message="taskFeedbackAriaMessage"
-        :assertive-message="taskFeedbackAssertiveMessage"
-        :busy="taskFeedbackBusy"
-      />
-
       <el-form
         ref="formRef"
         :model="articleForm"
@@ -469,7 +459,6 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import ArticleAssetLibraryPanel from '@/components/admin/article/ArticleAssetLibraryPanel.vue'
-import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import ArticlePrivatePreviewPanel from '@/components/admin/article/ArticlePrivatePreviewPanel.vue'
 import ArticleRevisionPanel from '@/components/admin/article/ArticleRevisionPanel.vue'
 import ArticleSeoPreviewPanel from '@/components/admin/article/ArticleSeoPreviewPanel.vue'
@@ -564,12 +553,7 @@ const {
   leaveEditor
 } = useAdminArticleWrite()
 const {
-  phase: taskFeedbackPhase,
-  message: taskFeedbackMessage,
-  detail: taskFeedbackDetail,
-  assertiveMessage: taskFeedbackAssertiveMessage,
   busy: taskFeedbackBusy,
-  ariaMessage: taskFeedbackAriaMessage,
   isHighlighted: isTaskHighlighted
 } = taskFeedback
 

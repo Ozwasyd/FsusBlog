@@ -17,15 +17,6 @@
       </div>
     </FsusUiSettingsSection>
 
-    <AdminTaskFeedbackBar
-      :phase="taskFeedbackPhase"
-      :message="taskFeedbackMessage"
-      :detail="taskFeedbackDetail"
-      :aria-message="taskFeedbackAriaMessage"
-      :assertive-message="taskFeedbackAssertiveMessage"
-      :busy="taskFeedbackBusy"
-    />
-
     <section class="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
       <div
         class="blog-motion-task-region border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]"
@@ -108,7 +99,6 @@ import {
   type SecurityMode
 } from '@/api/security'
 import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
-import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
 import { promptText, toast } from '@/fsusui/feedback'
@@ -135,12 +125,6 @@ const saving = shallowRef(false)
 const overview = shallowRef<PowOverviewResponse | null>(null)
 const taskFeedback = useAdminTaskFeedback()
 const {
-  phase: taskFeedbackPhase,
-  message: taskFeedbackMessage,
-  detail: taskFeedbackDetail,
-  assertiveMessage: taskFeedbackAssertiveMessage,
-  busy: taskFeedbackBusy,
-  ariaMessage: taskFeedbackAriaMessage,
   isHighlighted: isTaskHighlighted
 } = taskFeedback
 

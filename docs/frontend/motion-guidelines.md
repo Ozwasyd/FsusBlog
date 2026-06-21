@@ -85,13 +85,13 @@ window.scrollTo({ top: 0, behavior: resolveMotionScrollBehavior() })
 
 ## Admin Task Feedback
 
-Admin mutations use `useAdminTaskFeedback()` plus `AdminTaskFeedbackBar` for a consistent lifecycle:
+Admin mutations use `useAdminTaskFeedback()` plus FsusUI toast feedback for a consistent lifecycle:
 
 ```text
 idle -> pending -> success | error | partial -> settled
 ```
 
-Use it for save, publish, audit, reload, rollback, sync, repair, import, export and admin message actions. The visible feedback bar is paired with `aria-live="polite"`; destructive or failed operations also publish an assertive live message. Buttons still use their local loading state, but loading must not be the only signal.
+Use it for save, publish, audit, reload, rollback, sync, repair, import, export and admin message actions. The composable routes pending, success, partial and error states through `toast.info/success/partial/error`; the toast content carries `aria-live`, and destructive or failed operations use assertive live messaging. Buttons still use their local loading state, but loading must not be the only signal.
 
 Use `blog-motion-task-region` on the affected form, row, panel or summary. Use `blog-motion-task-region--pending` while the mutation is running and `blog-motion-task-region--settled` for a short success or partial highlight. Batch actions should highlight only the summary area, not every row in a large list.
 
