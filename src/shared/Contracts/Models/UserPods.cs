@@ -195,38 +195,12 @@ public readonly struct RecoveryKeyVerifyResponsePod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct AuthLoginRequestPod
-{
-    public readonly byte RememberMe;
-    public readonly byte Reserved0;
-    public readonly ushort Reserved1;
-    public readonly Utf8SliceRef Username;
-    public readonly Utf8SliceRef Password;
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct AuthRegisterRequestPod
-{
-    public readonly Utf8SliceRef Username;
-    public readonly Utf8SliceRef Password;
-    public readonly Utf8SliceRef ConfirmPassword;
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AuthAnonymousBootstrapRequestPod
 {
     public readonly byte AcceptedGuidelines;
     public readonly byte HasPublicHandle;
     public readonly ushort Reserved0;
     public readonly Utf8SliceRef PublicHandle;
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct AuthUpdatePasswordRequestPod
-{
-    public readonly Utf8SliceRef OldPassword;
-    public readonly Utf8SliceRef NewPassword;
-    public readonly Utf8SliceRef ConfirmPassword;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

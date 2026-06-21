@@ -132,6 +132,13 @@ run_residue_check \
   src/frontend/src src/backend/Modules/Endpoints/Binary docs tests/backend/Unit
 
 run_residue_check \
+  "legacy password auth protocol frames" \
+  "legacy password auth protocol frame residue detected" \
+  '\b(?:AuthLoginRequest|AuthRegisterRequest|AuthUpdateUsernameRequest|AuthUpdatePasswordRequest|encodeAuthLoginRequest|encodeAuthRegisterRequest|encodeAuthUpdatePasswordRequest)\b|encodeStringMutationRequest[(]data[.]newUsername[)]' \
+  "" \
+  src/shared/Contracts/Validation/aeds-protocol.json src/shared/Contracts/Validation/fsusblog.openapi.json src/core/Algorithms/AedsFrameType.cs src/shared/AedsFrameHeader.cs src/frontend/wasm/web/protocol/frame.ts src/core/Cache/PodBinaryCodec.User.cs src/frontend/src/api/auth.ts tests/backend/Fixtures/aeds-golden-catalog.json tests/frontend/fixtures/cross-stack-contract-matrix.json tests/frontend/fixtures/cross-stack-contract-matrix.generated.json tools/contracts
+
+run_residue_check \
   "anonymous step-up password body fallback" \
   "anonymous step-up password body fallback residue detected" \
   'allowPasswordBody:\s*true' \

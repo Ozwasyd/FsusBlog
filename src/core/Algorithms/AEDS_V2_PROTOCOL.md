@@ -73,9 +73,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `40`: AdminResetUserPasswordRequest (retired; codec compatibility only, no production endpoint)
 - `41`: ArticleWriteRequest
 - `42`: ArticleAotBundleRequest (reserved legacy value; client AOT bundle uploads are no longer accepted)
-- `43`: AuthLoginRequest (reserved legacy password login request; no production server route)
-- `44`: AuthRegisterRequest (reserved legacy password register request; no production server route)
-- `46`: AuthUpdatePasswordRequest
+- `43`, `44`, `46`: retired legacy password-auth request values; no frame names are registered and no production server route accepts these values
 - `47`: AuthDeleteAccountRequest
 - `48`: MfaSetupStart
 - `49`: MfaSetupVerify
@@ -138,10 +136,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `AdminResetUserPasswordRequest` payload: retired compatibility frame. Production endpoints must not accept this frame or expose an admin password reset route.
 - `ArticleWriteRequest` payload: `ArticleWriteRequestPod`, `int32 tagIds[count]`, blob payload for title/content/summary/cover URL slices, then optional lifecycle tail `int32 status`, `int64 scheduledPublishAtUnixMs`. Missing lifecycle tail is decoded as `Published` with no schedule.
 - `ArticleAotBundleRequest` payload: reserved legacy `PublicAotBundlePod`, `PublicAotEntryPod[count]`, followed by blob payload for entry strings. No server route accepts this frame.
-- `AuthLoginRequest` payload: reserved legacy `AuthLoginRequestPod` followed by blob payload for username/password. No production server route accepts this frame.
-- `AuthRegisterRequest` payload: reserved legacy `AuthRegisterRequestPod` followed by blob payload for username/password/confirm password. No production server route accepts this frame.
 - `AuthUpdatePublicHandleRequest` payload: `StringMutationRequestPod` followed by blob payload for the new public handle; an empty string clears the handle.
-- `AuthUpdatePasswordRequest` payload: `AuthUpdatePasswordRequestPod` followed by blob payload for old/new/confirm password.
 - `AuthDeleteAccountRequest` payload: `AuthDeleteAccountRequestPod` followed by blob payload for confirm text only. Account deletion step-up proof is carried by `X-Fsus-Mfa-Proof`, not by password, TOTP code, or recovery-code fields.
 - `MfaSetupVerifyRequest` payload: `StringMutationRequestPod` followed by blob payload for the TOTP code.
 - `MfaPasswordProofRequest` payload: `MfaPasswordProofRequestPod` followed by blob payload for password/TOTP/recovery code.

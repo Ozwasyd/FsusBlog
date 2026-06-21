@@ -623,76 +623,6 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
-    public static void WriteAuthLoginRequest(AuthLoginRequestCoreModel request, IBufferWriter<byte> destination)
-    {
-        var payload = new ArrayBufferWriter<byte>(256);
-        var mutable = new MutableAuthLoginRequestPod
-        {
-            RememberMe = request.RememberMe ? (byte)1 : (byte)0,
-            Reserved0 = 0,
-            Reserved1 = 0,
-            Username = PodUtf8Codec.AppendSlice(request.Username, payload),
-            Password = PodUtf8Codec.AppendSlice(request.Password, payload)
-        };
-
-        var writer = new BinaryPodWriter(destination);
-        writer.WritePod(CastUserPod<MutableAuthLoginRequestPod, AuthLoginRequestPod>(mutable));
-        writer.WriteBytes(payload.WrittenSpan);
-    }
-
-    public static byte[] EncodeAuthLoginRequest(AuthLoginRequestCoreModel request)
-        => EncodeToArray(256, writer => WriteAuthLoginRequest(request, writer));
-
-    public static bool TryDecodeAuthLoginRequest(ReadOnlyMemory<byte> source, out AuthLoginRequestCoreModel request)
-    {
-        var reader = new BinaryPodReader(source.Span);
-        if (!reader.TryReadPod(out AuthLoginRequestPod pod) || pod.RememberMe > 1 || !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
-        {
-            request = default;
-            return false;
-        }
-
-        request = new AuthLoginRequestCoreModel(
-            PodProjector.ReadSlice(pod.Username, payload),
-            PodProjector.ReadSlice(pod.Password, payload),
-            pod.RememberMe == 1);
-        return reader.IsConsumed;
-    }
-
-    public static void WriteAuthRegisterRequest(AuthRegisterRequestCoreModel request, IBufferWriter<byte> destination)
-    {
-        var payload = new ArrayBufferWriter<byte>(256);
-        var mutable = new MutableAuthRegisterRequestPod
-        {
-            Username = PodUtf8Codec.AppendSlice(request.Username, payload),
-            Password = PodUtf8Codec.AppendSlice(request.Password, payload),
-            ConfirmPassword = PodUtf8Codec.AppendSlice(request.ConfirmPassword, payload)
-        };
-
-        var writer = new BinaryPodWriter(destination);
-        writer.WritePod(CastUserPod<MutableAuthRegisterRequestPod, AuthRegisterRequestPod>(mutable));
-        writer.WriteBytes(payload.WrittenSpan);
-    }
-
-    public static byte[] EncodeAuthRegisterRequest(AuthRegisterRequestCoreModel request)
-        => EncodeToArray(256, writer => WriteAuthRegisterRequest(request, writer));
-
-    public static bool TryDecodeAuthRegisterRequest(ReadOnlyMemory<byte> source, out AuthRegisterRequestCoreModel request)
-    {
-        var reader = new BinaryPodReader(source.Span);
-        if (!reader.TryReadPod(out AuthRegisterRequestPod pod) || !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
-        {
-            request = default;
-            return false;
-        }
-
-        request = new AuthRegisterRequestCoreModel(
-            PodProjector.ReadSlice(pod.Username, payload),
-            PodProjector.ReadSlice(pod.Password, payload),
-            PodProjector.ReadSlice(pod.ConfirmPassword, payload));
-        return reader.IsConsumed;
-    }
-
     public static void WriteAuthAnonymousBootstrapRequest(AuthAnonymousBootstrapRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(64);
@@ -729,40 +659,6 @@ public static partial class PodBinaryCodec
         request = new AuthAnonymousBootstrapRequestCoreModel(
             pod.HasPublicHandle == 1 ? NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.PublicHandle, payload)) : null,
             pod.AcceptedGuidelines == 1);
-        return reader.IsConsumed;
-    }
-
-    public static void WriteAuthUpdatePasswordRequest(AuthUpdatePasswordRequestCoreModel request, IBufferWriter<byte> destination)
-    {
-        var payload = new ArrayBufferWriter<byte>(256);
-        var mutable = new MutableAuthUpdatePasswordRequestPod
-        {
-            OldPassword = PodUtf8Codec.AppendSlice(request.OldPassword, payload),
-            NewPassword = PodUtf8Codec.AppendSlice(request.NewPassword, payload),
-            ConfirmPassword = PodUtf8Codec.AppendSlice(request.ConfirmPassword, payload)
-        };
-
-        var writer = new BinaryPodWriter(destination);
-        writer.WritePod(CastUserPod<MutableAuthUpdatePasswordRequestPod, AuthUpdatePasswordRequestPod>(mutable));
-        writer.WriteBytes(payload.WrittenSpan);
-    }
-
-    public static byte[] EncodeAuthUpdatePasswordRequest(AuthUpdatePasswordRequestCoreModel request)
-        => EncodeToArray(256, writer => WriteAuthUpdatePasswordRequest(request, writer));
-
-    public static bool TryDecodeAuthUpdatePasswordRequest(ReadOnlyMemory<byte> source, out AuthUpdatePasswordRequestCoreModel request)
-    {
-        var reader = new BinaryPodReader(source.Span);
-        if (!reader.TryReadPod(out AuthUpdatePasswordRequestPod pod) || !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
-        {
-            request = default;
-            return false;
-        }
-
-        request = new AuthUpdatePasswordRequestCoreModel(
-            PodProjector.ReadSlice(pod.OldPassword, payload),
-            PodProjector.ReadSlice(pod.NewPassword, payload),
-            PodProjector.ReadSlice(pod.ConfirmPassword, payload));
         return reader.IsConsumed;
     }
 
@@ -1130,38 +1026,12 @@ public static partial class PodBinaryCodec
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutableAuthLoginRequestPod
-    {
-        public byte RememberMe;
-        public byte Reserved0;
-        public ushort Reserved1;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Username;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Password;
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutableAuthRegisterRequestPod
-    {
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Username;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Password;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ConfirmPassword;
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableAuthAnonymousBootstrapRequestPod
     {
         public byte AcceptedGuidelines;
         public byte HasPublicHandle;
         public ushort Reserved0;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef PublicHandle;
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutableAuthUpdatePasswordRequestPod
-    {
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef OldPassword;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef NewPassword;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ConfirmPassword;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

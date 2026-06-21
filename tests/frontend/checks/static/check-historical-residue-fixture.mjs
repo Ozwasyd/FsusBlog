@@ -104,6 +104,26 @@ export function registerWithPassword() {
     }
   },
   {
+    name: 'legacy password auth protocol frames',
+    expected: 'legacy password auth protocol frame residue detected',
+    files: {
+      'src/shared/Contracts/Validation/aeds-protocol.json': `
+{
+  "frameTypes": [
+    { "name": "AuthLoginRequest", "value": 43 },
+    { "name": "AuthRegisterRequest", "value": 44 },
+    { "name": "AuthUpdatePasswordRequest", "value": 46 }
+  ]
+}
+`,
+      'src/frontend/src/api/auth.ts': `
+export function encodeAuthUpdatePasswordRequest(data) {
+  return encodeStringMutationRequest(data.newUsername)
+}
+`
+    }
+  },
+  {
     name: 'legacy password login form',
     expected: 'legacy password login form residue detected',
     files: {

@@ -110,7 +110,7 @@ public class BinaryRequestBinderTests
         var encoder = new AedsEncoder();
         byte[] payload = [0x10, 0x20, 0x30, 0x40];
         using var writer = new PooledByteBufferWriter(AedsFrameHeader.Size + payload.Length);
-        encoder.WriteFrame(AedsFrameType.AuthLoginRequest, payload, writer);
+        encoder.WriteFrame(AedsFrameType.MutationId, payload, writer);
 
         var context = new DefaultHttpContext();
         context.Request.ContentType = "application/octet-stream";
@@ -123,7 +123,7 @@ public class BinaryRequestBinderTests
         BinaryRequestPayload result = await binder.ReadFrameAsync(
             context,
             encoder,
-            AedsFrameType.AuthLoginRequest,
+            AedsFrameType.MutationId,
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -137,7 +137,7 @@ public class BinaryRequestBinderTests
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(frameHeader.AsSpan(0, 4), AedsEncoder.Magic);
         frameHeader[4] = AedsFrameHeader.CurrentVersion;
         frameHeader[5] = AedsFrameHeader.Size;
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frameHeader.AsSpan(8, 2), (ushort)AedsFrameType.AuthLoginRequest);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frameHeader.AsSpan(8, 2), (ushort)AedsFrameType.MutationId);
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(frameHeader.AsSpan(10, 4), 8 * 1024 * 1024);
         System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frameHeader.AsSpan(14, 2), AedsCrc16.Compute(ReadOnlySpan<byte>.Empty));
 
@@ -152,7 +152,7 @@ public class BinaryRequestBinderTests
         BinaryRequestPayload result = await binder.ReadFrameAsync(
             context,
             new AedsEncoder(),
-            AedsFrameType.AuthLoginRequest,
+            AedsFrameType.MutationId,
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -162,7 +162,7 @@ public class BinaryRequestBinderTests
     [Fact]
     public async Task ReadFrameAsync_NonZeroRequestFlagsAreRejected()
     {
-        byte[] frame = new AedsEncoder().Encode(AedsFrameType.AuthLoginRequest, [0x01, 0x02]);
+        byte[] frame = new AedsEncoder().Encode(AedsFrameType.MutationId, [0x01, 0x02]);
         System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frame.AsSpan(6, 2), 1);
 
         var context = new DefaultHttpContext();
@@ -176,7 +176,7 @@ public class BinaryRequestBinderTests
         BinaryRequestPayload result = await binder.ReadFrameAsync(
             context,
             new AedsEncoder(),
-            AedsFrameType.AuthLoginRequest,
+            AedsFrameType.MutationId,
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);

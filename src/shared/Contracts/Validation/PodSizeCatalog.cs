@@ -99,10 +99,7 @@ public static class PodSizeCatalog
     public static readonly int AuthLoginFlowPod = PodContractValidation.SizeOf<AuthLoginFlowPod>();
     public static readonly int CurrentUserSnapshotPod = PodContractValidation.SizeOf<CurrentUserSnapshotPod>();
     public static readonly int IdentityAccountSnapshotPod = PodContractValidation.SizeOf<IdentityAccountSnapshotPod>();
-    public static readonly int AuthLoginRequestPod = PodContractValidation.SizeOf<AuthLoginRequestPod>();
-    public static readonly int AuthRegisterRequestPod = PodContractValidation.SizeOf<AuthRegisterRequestPod>();
     public static readonly int AuthAnonymousBootstrapRequestPod = PodContractValidation.SizeOf<AuthAnonymousBootstrapRequestPod>();
-    public static readonly int AuthUpdatePasswordRequestPod = PodContractValidation.SizeOf<AuthUpdatePasswordRequestPod>();
     public static readonly int AuthDeleteAccountRequestPod = PodContractValidation.SizeOf<AuthDeleteAccountRequestPod>();
     public static readonly int UserSessionSummaryPod = PodContractValidation.SizeOf<UserSessionSummaryPod>();
     public static readonly int AdminSessionSummaryPod = PodContractValidation.SizeOf<AdminSessionSummaryPod>();

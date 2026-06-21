@@ -120,8 +120,57 @@ public sealed class BinaryTransportHotPathContractTests
         Assert.DoesNotContain("/api/binary/auth/register", openApi, StringComparison.Ordinal);
         Assert.DoesNotContain("\"path\": \"/auth/login\"", matrix, StringComparison.Ordinal);
         Assert.DoesNotContain("\"path\": \"/auth/register\"", matrix, StringComparison.Ordinal);
-        Assert.Contains("\"name\": \"AuthLoginRequest\", \"value\": 43, \"family\": \"reserved-legacy-auth-request\"", golden, StringComparison.Ordinal);
-        Assert.Contains("\"name\": \"AuthRegisterRequest\", \"value\": 44, \"family\": \"reserved-legacy-auth-request\"", golden, StringComparison.Ordinal);
+        Assert.DoesNotContain("AuthLoginRequest", golden, StringComparison.Ordinal);
+        Assert.DoesNotContain("AuthRegisterRequest", golden, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LegacyPasswordAuthFrames_AreRetiredAcrossProtocolCatalogsAndCodecs()
+    {
+        string protocol = ReadRepoFile("src/shared/Contracts/Validation/aeds-protocol.json");
+        string coreEnum = ReadRepoFile("src/core/Algorithms/AedsFrameType.cs");
+        string sharedEnum = ReadRepoFile("src/shared/AedsFrameHeader.cs");
+        string frontendFrameMirror = ReadRepoFile("src/frontend/wasm/web/protocol/frame.ts");
+        string golden = ReadRepoFile("tests/backend/Fixtures/aeds-golden-catalog.json");
+        string codec = ReadRepoFile("src/core/Cache/PodBinaryCodec.User.cs");
+
+        string combinedProtocolSurface = string.Join('\n', protocol, coreEnum, sharedEnum, frontendFrameMirror, golden);
+
+        foreach (string retiredFrame in new[]
+        {
+            "AuthLoginRequest",
+            "AuthRegisterRequest",
+            "AuthUpdateUsernameRequest",
+            "AuthUpdatePasswordRequest"
+        })
+        {
+            Assert.DoesNotContain(retiredFrame, combinedProtocolSurface, StringComparison.Ordinal);
+            Assert.DoesNotContain(retiredFrame, codec, StringComparison.Ordinal);
+        }
+
+        foreach (string requiredFrame in new[]
+        {
+            "AuthAnonymousBootstrapRequest",
+            "PasskeyRegisterBegin",
+            "PasskeyLoginBegin",
+            "PasskeyRegisterCompleteRequest",
+            "PasskeyLoginCompleteRequest",
+            "RecoveryKeyCreateResponse",
+            "RecoveryKeyVerifyRequest",
+            "RecoveryKeyVerifyResponse",
+            "RecoveryKeySessionRequest",
+            "MfaSetupStart",
+            "MfaSetupVerify",
+            "MfaProfile",
+            "MfaChallengeResult",
+            "MfaSetupVerifyRequest",
+            "MfaChallengeStartRequest",
+            "MfaChallengeVerifyRequest",
+            "AdminPrincipalSnapshot"
+        })
+        {
+            Assert.Contains(requiredFrame, combinedProtocolSurface, StringComparison.Ordinal);
+        }
     }
 
     private static string ReadRepoFile(string relativePath)

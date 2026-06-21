@@ -69,9 +69,6 @@
       "value": 42,
       "comment": "Reserved legacy value. Client-side AOT bundle uploads are no longer accepted."
     },
-    { "name": "AuthLoginRequest", "value": 43 },
-    { "name": "AuthRegisterRequest", "value": 44 },
-    { "name": "AuthUpdatePasswordRequest", "value": 46 },
     { "name": "AuthDeleteAccountRequest", "value": 47 },
     { "name": "MfaSetupStart", "value": 48 },
     { "name": "MfaSetupVerify", "value": 49 },

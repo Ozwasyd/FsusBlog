@@ -335,32 +335,6 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
-    public void AuthLoginRequest_RoundTrip_PreservesCredentials()
-    {
-        var request = new AuthLoginRequestCoreModel("alice", "secret", true);
-        byte[] encoded = PodBinaryCodec.EncodeAuthLoginRequest(request);
-        bool ok = PodBinaryCodec.TryDecodeAuthLoginRequest(encoded, out var decoded);
-
-        Assert.True(ok);
-        Assert.Equal("alice", decoded.Username);
-        Assert.Equal("secret", decoded.Password);
-        Assert.True(decoded.RememberMe);
-    }
-
-    [Fact]
-    public void AuthRegisterRequest_RoundTrip_PreservesCredentials()
-    {
-        var request = new AuthRegisterRequestCoreModel("alice", "secret", "secret");
-        byte[] encoded = PodBinaryCodec.EncodeAuthRegisterRequest(request);
-        bool ok = PodBinaryCodec.TryDecodeAuthRegisterRequest(encoded, out var decoded);
-
-        Assert.True(ok);
-        Assert.Equal("alice", decoded.Username);
-        Assert.Equal("secret", decoded.Password);
-        Assert.Equal("secret", decoded.ConfirmPassword);
-    }
-
-    [Fact]
     public void AuthAnonymousBootstrapRequest_RoundTrip_DoesNotCarryPasswordOrUsername()
     {
         var request = new AuthAnonymousBootstrapRequestCoreModel("quiet-reader", AcceptedGuidelines: true);
@@ -475,19 +449,6 @@ public class PodBinaryCodecTests
         Assert.Equal("Support", decoded.Items[0].Subject);
         Assert.NotNull(decoded.Items[0].LastMessage);
         Assert.Equal("通知", decoded.Items[0].LastMessage!.BodyPreview);
-    }
-
-    [Fact]
-    public void AuthUpdatePasswordRequest_RoundTrip_PreservesCredentials()
-    {
-        var request = new AuthUpdatePasswordRequestCoreModel("old", "newpass", "newpass");
-        byte[] encoded = PodBinaryCodec.EncodeAuthUpdatePasswordRequest(request);
-        bool ok = PodBinaryCodec.TryDecodeAuthUpdatePasswordRequest(encoded, out var decoded);
-
-        Assert.True(ok);
-        Assert.Equal("old", decoded.OldPassword);
-        Assert.Equal("newpass", decoded.NewPassword);
-        Assert.Equal("newpass", decoded.ConfirmPassword);
     }
 
     [Fact]
