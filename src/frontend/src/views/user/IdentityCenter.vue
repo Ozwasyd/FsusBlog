@@ -268,7 +268,6 @@
             </template>
             <template #meta>
               <span>{{ session.isCurrent ? '当前设备' : '其他设备' }}</span>
-              <span>IP：{{ formatSessionIp(session.lastIp) }}</span>
               <span v-if="session.lastSeenAt">活跃：<SemanticTime :value="session.lastSeenAt" format="date" /></span>
             </template>
             <template #actions>
@@ -741,7 +740,6 @@ const revokeOtherSessionDevices = async (): Promise<void> => {
   await refreshSessions()
 }
 
-const formatSessionIp = (value: string | null | undefined): string => value?.trim() || '未记录 IP'
 const formatSessionDevice = (label: string | null | undefined, fingerprint: string | null | undefined): string =>
   label?.trim() || fingerprint?.trim() || '未记录设备信息'
 

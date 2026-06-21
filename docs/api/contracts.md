@@ -281,13 +281,13 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 
 `POST /api/binary/auth/recovery-key/create` 和 `/rotate` 必须通过统一 user security step-up：`X-Fsus-Mfa-Proof` 绑定 `recovery-key.create` 或 `recovery-key.rotate` 并一次性消费。生产 binary endpoint 不接收 `MfaPasswordProofRequest` body；anonymous identity mode 下发送旧 body proof 会被忽略或拒绝，并按缺失 / 无效 step-up proof 返回 `428` + AEDS `ApiError`。非匿名 legacy password fallback 如仍需保留，必须放在显式隔离的兼容路径，不能进入这些生产匿名敏感操作 endpoint。
 
-验证请求不携带 account id。服务端从 Recovery Key 中解析 `lookupId`，按 peppered `lookup_id_hash` 定位候选记录，再校验完整 Recovery Key；无 lookup id 的旧格式不会扫描全表兼容，统一返回恢复失败并受同一 attempt limiter 约束，用户需要通过仍可登录设备重新生成新格式 Recovery Key。验证成功会把当前 Recovery Key 标记为 used，返回 10 分钟 recovery session token。该 token 只允许调用 recovery passkey begin/complete 端点绑定新 Passkey；如果 verify 请求设置 `revokeSessions`，服务端会撤销该账号现有会话；如果设置 `revokePasskeys`，新 Passkey 绑定完成后删除旧凭据。TOTP MFA recovery code 仍只用于 MFA bypass，不得作为账户恢复。
+验证请求不携带 account id。服务端从 Recovery Key 中解析 `lookupId`，按 peppered `lookup_id_hash` 定位候选记录，再校验完整 Recovery Key；无 lookup id 的旧格式不会扫描全表兼容，统一返回恢复失败并受同一 attempt limiter 约束，用户需要通过仍可登录设备重新生成新格式 Recovery Key。验证成功会把当前 Recovery Key 标记为 used，返回 10 分钟 recovery session token 与 `expiresAt`，不得返回 account id、user id、internalUserId 或其他身份字段。该 token 只允许调用 recovery passkey begin/complete 端点绑定新 Passkey；如果 verify 请求设置 `revokeSessions`，服务端会撤销该账号现有会话；如果设置 `revokePasskeys`，新 Passkey 绑定完成后删除旧凭据。TOTP MFA recovery code 仍只用于 MFA bypass，不得作为账户恢复。
 
 | FrameType | POD | 端点 / 用途 |
 |-----------|-----|-------------|
 | `RecoveryKeyCreateResponse` (`159`) | `RecoveryKeyCreateResponsePod` | `POST /api/binary/auth/recovery-key/create` 和 `/rotate` 响应 |
 | `RecoveryKeyVerifyRequest` (`160`) | `RecoveryKeyVerifyRequestPod` | `POST /api/binary/auth/recovery-key/verify` 请求体；只携带 Recovery Key、`revokeSessions`、`revokePasskeys`，不携带 account id；匿名、`fixed_ip` 限流、RiskControl challenge、PoW、no-store |
-| `RecoveryKeyVerifyResponse` (`161`) | `RecoveryKeyVerifyResponsePod` | verify 成功后返回短期 recovery session token |
+| `RecoveryKeyVerifyResponse` (`161`) | `RecoveryKeyVerifyResponsePod` | verify 成功后只返回短期 recovery session token 与过期时间 |
 | `RecoveryKeySessionRequest` (`162`) | `StringMutationRequestPod` | `POST /api/binary/auth/recovery-key/passkey/register/begin` 请求体；complete 复用 `PasskeyRegisterCompleteRequest.MfaProofToken` 传 recovery session token |
 
 ### Anonymous identity and comment policy AEDS frames
@@ -464,19 +464,20 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 - `identityKind` 当前生产值为 `"anonymous_account"`；`publicHandle` 只是公开显示称呼，不是登录名或权限主体。
 - admin 权限只能读取 `/api/binary/auth/admin/me` 的 independent admin principal；legacy `CurrentUserSnapshot` frame 只保留给 admin-only accountId 查询、迁移和测试面，字段为 `accountId`、`identityKind`、`status`、`banReason`、`deletedAt`，不再包含 `username` 或 `role`。常规管理 API 不再暴露 `/api/binary/auth/find/{username}` 或按 `sys_user.username` 定位账号。
 
-### `UserSessionItemDto`（会话列表项）
+### `UserSessionSummaryDto`（普通账号会话列表项）
 
 ```json
 {
   "sessionId": "uuid-v4",
-  "device": "Chrome on Windows",
-  "ip": "1.2.3.4",
-  "region": "CN-BJ",
-  "createdAt": "2026-01-01T00:00:00Z",
-  "lastActiveAt": "2026-01-01T01:00:00Z",
-  "isCurrent": true
+  "deviceFingerprint": "sha256-or-client-fp",
+  "deviceLabel": "Chrome on Windows",
+  "lastSeenAt": "2026-01-01T01:00:00Z",
+  "isCurrent": true,
+  "mfaVerified": true
 }
 ```
+
+普通账号 session list 不返回 `lastIp`、region、raw user agent 或 user id。服务端可继续在 `sys_user_session.last_ip` 内部用于风险判定，但 `AuthSessionList` 的 `UserSessionSummaryPod` 不包含该字段，IdentityCenter 不显示原始 IP。
 
 ### `AdminSessionSummaryDto`（管理员会话列表项）
 

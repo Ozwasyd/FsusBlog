@@ -130,7 +130,7 @@ describe('binary auth adapter', () => {
   })
 
   it('maps user session list payload', () => {
-    const payload = new Uint8Array(4 + 396)
+    const payload = new Uint8Array(4 + 332)
     const view = new DataView(payload.buffer)
     view.setInt32(0, 1, true)
     view.setBigInt64(4, BigInt(Date.parse('2026-01-02T03:04:05.000Z')), true)
@@ -139,18 +139,18 @@ describe('binary auth adapter', () => {
     payload[14] = 1
     writeFixed(payload, 16, 64, 'session-1')
     writeFixed(payload, 80, 128, 'fp-1')
-    writeFixed(payload, 208, 64, '127.0.0.1')
-    writeFixed(payload, 272, 128, 'Chrome on Linux')
+    writeFixed(payload, 208, 128, 'Chrome on Linux')
 
     expect(mapUserSessionsFromPayload(payload)).toEqual([{
       sessionId: 'session-1',
       deviceFingerprint: 'fp-1',
-      lastIp: '127.0.0.1',
       deviceLabel: 'Chrome on Linux',
       lastSeenAt: '2026-01-02T03:04:05.000Z',
       isCurrent: true,
       mfaVerified: true
     }])
+
+    expect(mapUserSessionsFromPayload(payload)[0]).not.toHaveProperty('lastIp')
   })
 
   it('maps MFA setup verify and profile payloads', () => {

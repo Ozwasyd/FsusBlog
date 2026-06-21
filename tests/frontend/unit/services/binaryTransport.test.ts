@@ -116,7 +116,6 @@ describe('binaryTransport ApiError mapping', () => {
     await expect(requestBinaryOnly<Array<{
       sessionId: string;
       deviceFingerprint: string;
-      lastIp: string;
       deviceLabel: string;
       lastSeenAt: string | null;
       isCurrent: boolean;
@@ -128,7 +127,6 @@ describe('binaryTransport ApiError mapping', () => {
       {
         sessionId: 'session-1',
         deviceFingerprint: 'fp-1',
-        lastIp: '127.0.0.1',
         deviceLabel: 'Chrome on Linux',
         lastSeenAt: '2026-01-02T03:04:05.000Z',
         isCurrent: true,
@@ -137,7 +135,6 @@ describe('binaryTransport ApiError mapping', () => {
       {
         sessionId: 'session-2',
         deviceFingerprint: 'fp-2',
-        lastIp: '10.0.0.2',
         deviceLabel: 'Safari on iPhone',
         lastSeenAt: null,
         isCurrent: false,

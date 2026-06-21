@@ -219,7 +219,6 @@ function readUserSessionSummary(reader: BinaryReader): UserSessionSummary {
     mfaVerified: readByte(pod, 9) === 1,
     sessionId: readFixedUtf8(pod, 12, 64),
     deviceFingerprint: readFixedUtf8(pod, 76, 128),
-    lastIp: readFixedUtf8(pod, 204, 64),
-    deviceLabel: readFixedUtf8(pod, 268, 128)
+    deviceLabel: readFixedUtf8(pod, 204, 128)
   };
 }

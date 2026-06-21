@@ -102,7 +102,6 @@ export interface PowRequest {
 export interface UserSessionSummary {
   sessionId: string
   deviceFingerprint: string
-  lastIp: string
   deviceLabel: string
   lastSeenAt: string | null
   isCurrent: boolean

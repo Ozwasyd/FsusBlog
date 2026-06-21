@@ -506,8 +506,8 @@ public class PodBinaryCodecTests
         var lastSeenAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
         UserSessionSummaryDto[] sessions =
         [
-            new("session-1", "fp-1", "127.0.0.1", "Chrome on Linux", lastSeenAt, true, true),
-            new("session-2", "fp-2", "127.0.0.2", "Firefox", null, false, false)
+            new("session-1", "fp-1", "Chrome on Linux", lastSeenAt, true, true),
+            new("session-2", "fp-2", "Firefox", null, false, false)
         ];
 
         byte[] encoded = PodBinaryCodec.EncodeUserSessions(sessions);
@@ -515,7 +515,10 @@ public class PodBinaryCodecTests
 
         Assert.True(ok);
         Assert.Equal(2, decoded.Count);
+        Assert.Equal(sizeof(int) + 2 * 332, encoded.Length);
         Assert.Equal("session-1", decoded[0].SessionId);
+        Assert.Equal("fp-1", decoded[0].DeviceFingerprint);
+        Assert.Equal("Chrome on Linux", decoded[0].DeviceLabel);
         Assert.Equal(lastSeenAt, decoded[0].LastSeenAt);
         Assert.True(decoded[0].IsCurrent);
         Assert.True(decoded[0].MfaVerified);

@@ -118,12 +118,11 @@ describe('AEDS cross-stack contract fixture', () => {
 
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.AuthSessionList)
-    expect(result.payloadView.byteLength).toBe(796)
+    expect(result.payloadView.byteLength).toBe(668)
     expect(mapUserSessionsFromPayload(result.payloadView)).toEqual([
       {
         sessionId: 'session-1',
         deviceFingerprint: 'fp-1',
-        lastIp: '127.0.0.1',
         deviceLabel: 'Chrome on Linux',
         lastSeenAt: '2026-01-02T03:04:05.000Z',
         isCurrent: true,
@@ -132,13 +131,13 @@ describe('AEDS cross-stack contract fixture', () => {
       {
         sessionId: 'session-2',
         deviceFingerprint: 'fp-2',
-        lastIp: '10.0.0.2',
         deviceLabel: 'Safari on iPhone',
         lastSeenAt: null,
         isCurrent: false,
         mfaVerified: false
       }
     ])
+    expect(mapUserSessionsFromPayload(result.payloadView)[0]).not.toHaveProperty('lastIp')
   })
 
   it('decodes the checked-in backend CurrentUserSnapshot frame with the real frontend decoder', async () => {

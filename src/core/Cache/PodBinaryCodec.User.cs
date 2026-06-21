@@ -192,7 +192,6 @@ public static partial class PodBinaryCodec
                 Reserved = 0,
                 SessionId = PodUtf8Codec.ToFixed64(session.SessionId),
                 DeviceFingerprint = PodUtf8Codec.ToFixed128(session.DeviceFingerprint),
-                LastIp = PodUtf8Codec.ToFixed64(session.LastIp),
                 DeviceLabel = PodUtf8Codec.ToFixed128(session.DeviceLabel)
             };
             writer.WritePod(CastUserPod<MutableUserSessionSummaryPod, UserSessionSummaryPod>(mutable));
@@ -226,7 +225,6 @@ public static partial class PodBinaryCodec
             items.Add(new UserSessionSummaryDto(
                 PodUtf8Codec.FromFixed64(pod.SessionId),
                 PodUtf8Codec.FromFixed128(pod.DeviceFingerprint),
-                PodUtf8Codec.FromFixed64(pod.LastIp),
                 PodUtf8Codec.FromFixed128(pod.DeviceLabel),
                 pod.HasLastSeenAt == 1 ? PodTimeCodec.FromUnixMs(pod.LastSeenAtUnixMs) : null,
                 pod.IsCurrent == 1,
@@ -915,7 +913,6 @@ public static partial class PodBinaryCodec
         public byte Reserved;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 SessionId;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 DeviceFingerprint;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 LastIp;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 DeviceLabel;
     }
 

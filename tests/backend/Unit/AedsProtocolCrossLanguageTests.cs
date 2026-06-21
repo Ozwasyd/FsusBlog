@@ -119,7 +119,6 @@ public sealed partial class AedsProtocolCrossLanguageTests
             new(
                 "session-1",
                 "fp-1",
-                "127.0.0.1",
                 "Chrome on Linux",
                 new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
                 true,
@@ -127,7 +126,6 @@ public sealed partial class AedsProtocolCrossLanguageTests
             new(
                 "session-2",
                 "fp-2",
-                "10.0.0.2",
                 "Safari on iPhone",
                 null,
                 false,

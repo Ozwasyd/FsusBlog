@@ -73,4 +73,15 @@ describe('anonymous account output workflow contract', () => {
     expect(identityCenter).toContain('user?.publicHandle')
     expect(identityCenter).not.toMatch(/publicHandle:[^\n]*username/u)
   })
+
+  it('does not expose raw session IP in user-facing session contracts or identity UI', () => {
+    const userSessionSummary = interfaceBlock(authApi, 'UserSessionSummary')
+
+    expect(userSessionSummary).not.toContain('lastIp')
+    expect(authAdapter).not.toContain('lastIp')
+    expect(authAdapter).not.toContain('readFixedUtf8(pod, 204, 64)')
+    expect(identityCenter).not.toContain('session.lastIp')
+    expect(identityCenter).not.toContain('formatSessionIp')
+    expect(identityCenter).not.toContain('IP：')
+  })
 })

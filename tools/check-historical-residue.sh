@@ -349,6 +349,13 @@ run_residue_check \
   src/core/Mapping/Models/ReadModels.cs src/shared/Contracts/Models/UserPods.cs src/backend/Services/UserService.Ports.cs src/core/Cache/PodBinaryCodec.User.cs src/frontend/src/api/auth.ts src/frontend/src/adapters/binary/authAdapter.ts src/frontend/src/views/user/IdentityCenter.vue
 
 run_residue_check \
+  "legacy user session raw ip output contract" \
+  "legacy user session raw IP output residue detected" \
+  '\blastIp\b|session[.]lastIp|formatSessionIp|readFixedUtf8[(]pod,\s*204,\s*64[)]|LastIp[[:space:]]*=[[:space:]]*s[.]LastIp|s[.]LastIp[[:space:]]*[?][?][[:space:]]*"unknown"|IP：' \
+  "" \
+  src/core/Cache/PodBinaryCodec.User.cs src/backend/Services/UserService.cs src/frontend/src/api/auth.ts src/frontend/src/adapters/binary/authAdapter.ts src/frontend/src/views/user/IdentityCenter.vue
+
+run_residue_check \
   "human-read visit user binding" \
   "human-read visit user-bound residue detected" \
   'context[.]GetUserId[(][)]|VisitLogMessage[(][^;\n]*UserId|msg[.]UserId|public[[:space:]]+int[?][[:space:]]+UserId\b|new[[:space:]]+VisitLog[[:space:]]*[{][^}]*UserId[[:space:]]*=|\bRegisteredVisits\b|\bAnonymousVisits\b|registeredVisits|anonymousVisits|v[.]UserId' \

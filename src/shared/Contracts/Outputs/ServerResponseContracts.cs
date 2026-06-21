@@ -674,7 +674,6 @@ public readonly record struct MfaChallengeResultDto(
 public readonly record struct UserSessionSummaryDto(
     string SessionId,
     string DeviceFingerprint,
-    string LastIp,
     string DeviceLabel,
     DateTime? LastSeenAt,
     bool IsCurrent,

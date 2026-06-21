@@ -409,7 +409,6 @@ public partial class UserService(
             {
                 SessionId = s.SessionId,
                 DeviceFingerprint = s.DeviceFingerprint,
-                LastIp = s.LastIp,
                 UserAgent = s.UserAgent,
                 LastSeenAt = s.LastSeenAt,
                 MfaVerified = s.MfaVerified
@@ -419,7 +418,6 @@ public partial class UserService(
         return sessions.Select(s => new UserSessionSummaryDto(
             s.SessionId,
             s.DeviceFingerprint ?? "unknown",
-            s.LastIp ?? "unknown",
             BuildDeviceLabel(s.UserAgent, s.DeviceFingerprint),
             s.LastSeenAt,
             string.Equals(s.SessionId, currentSessionId, StringComparison.Ordinal),
@@ -430,7 +428,6 @@ public partial class UserService(
     {
         public string SessionId { get; init; } = string.Empty;
         public string? DeviceFingerprint { get; init; }
-        public string? LastIp { get; init; }
         public string? UserAgent { get; init; }
         public DateTime? LastSeenAt { get; init; }
         public bool MfaVerified { get; init; }

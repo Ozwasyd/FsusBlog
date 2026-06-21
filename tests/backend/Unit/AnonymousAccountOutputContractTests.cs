@@ -77,6 +77,50 @@ public sealed class AnonymousAccountOutputContractTests
     }
 
     [Fact]
+    public void UserSessionContracts_DoNotExposeRawIpToAnonymousAccountClients()
+    {
+        string outputs = BackendTestPaths.ReadAllTextFromRoot(
+            "src",
+            "shared",
+            "Contracts",
+            "Outputs",
+            "ServerResponseContracts.cs");
+        string userPods = BackendTestPaths.ReadAllTextFromRoot(
+            "src",
+            "shared",
+            "Contracts",
+            "Models",
+            "UserPods.cs");
+        string codec = BackendTestPaths.ReadAllTextFromRoot(
+            "src",
+            "core",
+            "Cache",
+            "PodBinaryCodec.User.cs");
+        string userService = BackendTestPaths.ReadAllTextFromRoot(
+            "src",
+            "backend",
+            "Services",
+            "UserService.cs");
+
+        string userSessionDto = ExtractRecord(outputs, "public readonly record struct UserSessionSummaryDto");
+        string userSessionPod = ExtractStruct(userPods, "public readonly struct UserSessionSummaryPod");
+        string writeUserSessions = ExtractBetween(codec, "public static void WriteUserSessions", "public static byte[] EncodeUserSessions");
+        string decodeUserSessions = ExtractBetween(codec, "public static bool TryDecodeUserSessions", "public static void WriteAdminSessions");
+        string getUserSessions = ExtractBetween(userService, "public async Task<List<UserSessionSummaryDto>> GetUserSessionsAsync", "private sealed record UserSessionSummaryRow");
+
+        foreach (string block in new[] { userSessionDto, userSessionPod, writeUserSessions, decodeUserSessions, getUserSessions })
+        {
+            Assert.DoesNotContain("LastIp", block, StringComparison.Ordinal);
+            Assert.DoesNotContain("lastIp", block, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("SessionId", userSessionDto, StringComparison.Ordinal);
+        Assert.Contains("DeviceFingerprint", userSessionDto, StringComparison.Ordinal);
+        Assert.Contains("DeviceLabel", userSessionDto, StringComparison.Ordinal);
+        Assert.Contains("LastSeenAt", userSessionDto, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PublicHandleEndpoint_UsesDedicatedFrameValidationAndProfileCommand()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot(

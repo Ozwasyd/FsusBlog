@@ -57,7 +57,7 @@ const FRAME_API_ERROR = frameType('ApiError')
 const AUTH_LOGIN_FLOW_POD_SIZE = 168
 const CURRENT_USER_SNAPSHOT_POD_SIZE = 372
 const IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE = 72
-const USER_SESSION_SUMMARY_POD_SIZE = 396
+const USER_SESSION_SUMMARY_POD_SIZE = 332
 const MFA_SETUP_START_POD_SIZE = 36
 const MFA_SETUP_VERIFY_POD_SIZE = 8
 const MFA_RECOVERY_CODE_POD_SIZE = 64
@@ -1389,8 +1389,7 @@ function decodeUserSessions(payload) {
       mfaVerified: payload[offset + 9] === 1,
       sessionId: readFixedUtf8(payload, offset + 12, 64),
       deviceFingerprint: readFixedUtf8(payload, offset + 76, 128),
-      lastIp: readFixedUtf8(payload, offset + 204, 64),
-      deviceLabel: readFixedUtf8(payload, offset + 268, 128)
+      deviceLabel: readFixedUtf8(payload, offset + 204, 128)
     })
   }
   return sessions
