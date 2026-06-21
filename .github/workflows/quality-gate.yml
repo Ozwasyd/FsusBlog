@@ -327,6 +327,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24.x
+      - run: node tools/db/migration-doc-lint.mjs
       - run: ./tools/test.sh static-governance --no-deps
       - run: ./tools/test.sh public-hydration-fast --no-deps
       - run: ./tools/test.sh backend-test-governance --no-deps
