@@ -42,9 +42,5 @@ public static class SignalRInitializer
             options.Configuration = redisOptions;
             options.Configuration.ChannelPrefix = RedisChannel.Literal("Site_Notice_Pipe");
         });
-
-        // 极限性能优化：注册极速版的用户 ID 解析器
-        // 覆盖 SignalR 默认的 DefaultUserIdProvider，消除内部不必要的校验和转换开销
-        services.AddSingleton<IUserIdProvider, FastUserIdProvider>();
     }
 }

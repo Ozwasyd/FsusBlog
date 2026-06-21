@@ -26,6 +26,26 @@ namespace FsusBlog.Server.Tests.Unit;
 public class NotificationStreamBoundaryTests
 {
     [Fact]
+    public void SignalRIdentityProviders_DoNotRegisterLegacyAnonymousAccountIds()
+    {
+        string runtimeServices = BackendTestPaths.ReadAllTextFromRoot(
+            "src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs");
+        string signalRInitializer = BackendTestPaths.ReadAllTextFromRoot(
+            "src/backend/Infrastructure/Helpers/Initializer/SignalRInitializer.cs");
+        string fastUserIdProvider = BackendTestPaths.ReadAllTextFromRoot(
+            "src/backend/Infrastructure/FastUserIdProvider.cs");
+        string snowflakeProvider = BackendTestPaths.FromRoot(
+            "src/backend/Infrastructure/NotificationStream/SnowflakeUserIdProvider.cs");
+
+        Assert.False(File.Exists(snowflakeProvider), "SnowflakeUserIdProvider must be removed.");
+        Assert.DoesNotContain("SnowflakeUserIdProvider", runtimeServices, StringComparison.Ordinal);
+        Assert.DoesNotContain("AddSingleton<IUserIdProvider", runtimeServices, StringComparison.Ordinal);
+        Assert.DoesNotContain("AddSingleton<IUserIdProvider", signalRInitializer, StringComparison.Ordinal);
+        Assert.DoesNotContain(": IUserIdProvider", fastUserIdProvider, StringComparison.Ordinal);
+        Assert.DoesNotContain("HubConnectionContext", fastUserIdProvider, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Admission_AllowsAnonymousWithoutAccountLookup()
     {
         var blacklist = Substitute.For<IBlacklistService>();

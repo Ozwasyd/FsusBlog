@@ -17,7 +17,6 @@ using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Services.VisitLog;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.ObjectPool;
 
@@ -190,7 +189,6 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     private static IServiceCollection AddIdentityRuntime(this IServiceCollection services)
     {
         services.AddScoped<IBlacklistService, BlacklistService>();
-        services.AddSingleton<IUserIdProvider, SnowflakeUserIdProvider>();
         return services;
     }
 
