@@ -12,7 +12,7 @@ namespace FsusBlog.Server.Tests;
 public sealed class RequestAuditContextMiddlewareTests
 {
     [Fact]
-    public void RequestAuditContextSnapshot_FromHttpContext_ExtractsTraceAndUserWithoutIpOrUserAgent()
+    public void RequestAuditContextSnapshot_FromHttpContext_ExtractsTraceAndAccountWithoutIpOrUserAgent()
     {
         var context = new DefaultHttpContext();
         context.TraceIdentifier = "trace-42";
@@ -33,10 +33,26 @@ public sealed class RequestAuditContextMiddlewareTests
         Assert.Equal("trace-42", properties["TraceId"]);
         Assert.Equal("/api/Article/1", properties["RequestPath"]);
         Assert.Equal("GET", properties["RequestMethod"]);
-        Assert.Equal("12", properties["UserId"]);
+        Assert.Equal("12", snapshot.AccountId);
+        Assert.Null(snapshot.AdminPrincipalId);
+        Assert.Equal("12", properties[AuditPropertyNames.ActorId]);
+        Assert.Equal("12", properties["AccountId"]);
+        Assert.Null(properties["AdminPrincipalId"]);
+        Assert.DoesNotContain("UserId", properties.Keys);
         Assert.DoesNotContain("Username", properties.Keys);
         Assert.DoesNotContain("ClientIp", properties.Keys);
         Assert.DoesNotContain("UserAgent", properties.Keys);
+    }
+
+    [Fact]
+    public void RequestAuditContextSnapshot_RecordShape_UsesAccountAndActorRoleNames()
+    {
+        Assert.Null(typeof(RequestAuditContextSnapshot).GetProperty("UserId"));
+        Assert.Null(typeof(RequestAuditContextSnapshot).GetProperty("UserRole"));
+        Assert.NotNull(typeof(RequestAuditContextSnapshot).GetProperty(nameof(RequestAuditContextSnapshot.AccountId)));
+        Assert.NotNull(typeof(RequestAuditContextSnapshot).GetProperty(nameof(RequestAuditContextSnapshot.AdminPrincipalId)));
+        Assert.NotNull(typeof(RequestAuditContextSnapshot).GetProperty(nameof(RequestAuditContextSnapshot.ActorId)));
+        Assert.NotNull(typeof(RequestAuditContextSnapshot).GetProperty(nameof(RequestAuditContextSnapshot.ActorRole)));
     }
 
     [Fact]
@@ -151,6 +167,8 @@ public sealed class RequestAuditContextMiddlewareTests
             LogEvent logEvent = Assert.Single(sink.Events);
             Assert.Equal("\"admin\"", logEvent.Properties[AuditPropertyNames.ActorType].ToString());
             Assert.Equal("\"12\"", logEvent.Properties[AuditPropertyNames.ActorId].ToString());
+            Assert.Equal("\"12\"", logEvent.Properties["AdminPrincipalId"].ToString());
+            Assert.DoesNotContain("UserId", logEvent.Properties.Keys);
             Assert.Equal("\"trace-admin\"", logEvent.Properties["TraceId"].ToString());
             Assert.Contains("IpHash", logEvent.Properties.Keys);
         }

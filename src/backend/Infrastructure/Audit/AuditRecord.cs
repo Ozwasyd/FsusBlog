@@ -193,8 +193,9 @@ internal sealed record RequestAuditContextSnapshot(
     string? TraceId,
     string? RequestPath,
     string? RequestMethod,
-    string? UserId,
-    string? UserRole,
+    string? AccountId,
+    string? AdminPrincipalId,
+    string? ActorRole,
     string? IpHash,
     string? UserAgentHash,
     string? SessionIdHash,
@@ -205,13 +206,21 @@ internal sealed record RequestAuditContextSnapshot(
     private const string SessionIdHashItemKey = "__fsus.audit.session_id_hash";
     private const string DeviceFingerprintHashItemKey = "__fsus.audit.device_fp_hash";
 
+    public string? ActorId => AdminPrincipalId ?? AccountId;
+
     public static RequestAuditContextSnapshot FromHttpContext(HttpContext context)
     {
-        string? userId = FastUserIdProvider.GetOrParseUserId(context)?.ToString(CultureInfo.InvariantCulture);
-        string? userRole = context.User.IsAdminPrincipal() ? "admin" : null;
-        string actorType = string.IsNullOrWhiteSpace(userId)
+        bool isAdminPrincipal = context.User.IsAdminPrincipal();
+        string? principalId = FastUserIdProvider.GetOrParseUserId(context)?.ToString(CultureInfo.InvariantCulture);
+        string? accountId = isAdminPrincipal ? null : principalId;
+        string? adminPrincipalId = isAdminPrincipal && context.User.TryGetAdminPrincipalId(out long adminId)
+            ? adminId.ToString(CultureInfo.InvariantCulture)
+            : null;
+        string? actorRole = isAdminPrincipal ? "admin" : null;
+        string? actorId = isAdminPrincipal ? adminPrincipalId : accountId;
+        string actorType = string.IsNullOrWhiteSpace(actorId)
             ? AuditActorTypeCatalog.Anonymous
-            : context.User.IsAdminPrincipal()
+            : isAdminPrincipal
                 ? AuditActorTypeCatalog.Admin
                 : AuditActorTypeCatalog.User;
 
@@ -220,8 +229,9 @@ internal sealed record RequestAuditContextSnapshot(
             context.TraceIdentifier,
             context.Request.Path.HasValue ? context.Request.Path.Value : null,
             context.Request.Method,
-            string.IsNullOrWhiteSpace(userId) ? null : userId,
-            string.IsNullOrWhiteSpace(userRole) ? null : userRole,
+            string.IsNullOrWhiteSpace(accountId) ? null : accountId,
+            string.IsNullOrWhiteSpace(adminPrincipalId) ? null : adminPrincipalId,
+            string.IsNullOrWhiteSpace(actorRole) ? null : actorRole,
             HashRequestValue(context, IpHashItemKey, context.Connection.RemoteIpAddress?.ToString()),
             HashRequestValue(context, UserAgentHashItemKey, context.GetUserAgent()),
             HashRequestValue(context, SessionIdHashItemKey, context.User.GetSessionId()),
@@ -233,12 +243,13 @@ internal sealed record RequestAuditContextSnapshot(
         return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             [AuditPropertyNames.ActorType] = ActorType,
-            [AuditPropertyNames.ActorId] = UserId,
-            [AuditPropertyNames.ActorRole] = UserRole,
+            [AuditPropertyNames.ActorId] = ActorId,
+            [AuditPropertyNames.ActorRole] = ActorRole,
             ["TraceId"] = TraceId,
             ["RequestPath"] = RequestPath,
             ["RequestMethod"] = RequestMethod,
-            ["UserId"] = UserId,
+            ["AccountId"] = AccountId,
+            ["AdminPrincipalId"] = AdminPrincipalId,
             ["IpHash"] = IpHash,
             ["UserAgentHash"] = UserAgentHash,
             ["SessionIdHash"] = SessionIdHash,
@@ -304,7 +315,8 @@ internal sealed record RequestAuditContextSnapshot(
         private readonly IDisposable _traceId;
         private readonly IDisposable _requestPath;
         private readonly IDisposable _requestMethod;
-        private readonly IDisposable _userId;
+        private readonly IDisposable _accountId;
+        private readonly IDisposable _adminPrincipalId;
         private readonly IDisposable _ipHash;
         private readonly IDisposable _userAgentHash;
         private readonly IDisposable _sessionIdHash;
@@ -314,12 +326,13 @@ internal sealed record RequestAuditContextSnapshot(
         public RequestAuditLogContextScope(RequestAuditContextSnapshot snapshot)
         {
             _actorType = LogContext.PushProperty(AuditPropertyNames.ActorType, snapshot.ActorType);
-            _actorId = LogContext.PushProperty(AuditPropertyNames.ActorId, snapshot.UserId);
-            _actorRole = LogContext.PushProperty(AuditPropertyNames.ActorRole, snapshot.UserRole);
+            _actorId = LogContext.PushProperty(AuditPropertyNames.ActorId, snapshot.ActorId);
+            _actorRole = LogContext.PushProperty(AuditPropertyNames.ActorRole, snapshot.ActorRole);
             _traceId = LogContext.PushProperty("TraceId", snapshot.TraceId);
             _requestPath = LogContext.PushProperty("RequestPath", snapshot.RequestPath);
             _requestMethod = LogContext.PushProperty("RequestMethod", snapshot.RequestMethod);
-            _userId = LogContext.PushProperty("UserId", snapshot.UserId);
+            _accountId = LogContext.PushProperty("AccountId", snapshot.AccountId);
+            _adminPrincipalId = LogContext.PushProperty("AdminPrincipalId", snapshot.AdminPrincipalId);
             _ipHash = LogContext.PushProperty("IpHash", snapshot.IpHash);
             _userAgentHash = LogContext.PushProperty("UserAgentHash", snapshot.UserAgentHash);
             _sessionIdHash = LogContext.PushProperty("SessionIdHash", snapshot.SessionIdHash);
@@ -337,7 +350,8 @@ internal sealed record RequestAuditContextSnapshot(
             _sessionIdHash.Dispose();
             _userAgentHash.Dispose();
             _ipHash.Dispose();
-            _userId.Dispose();
+            _adminPrincipalId.Dispose();
+            _accountId.Dispose();
             _requestMethod.Dispose();
             _requestPath.Dispose();
             _traceId.Dispose();
