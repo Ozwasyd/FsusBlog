@@ -2,10 +2,10 @@
   <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-labelledby="comment-moderation-title">
     <header class="border-b border-[var(--fsusblog-panel-border)] px-8 py-6">
       <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-        <DashboardSectionHeader
+        <FsusUiSectionHeader
+          id="comment-moderation-title"
           class="dashboard-section-header--flush"
           title="评论审核"
-          title-id="comment-moderation-title"
           description="处理待审评论；高风险操作需要二次确认。"
         />
         <div class="flex flex-wrap items-center gap-3">
@@ -66,7 +66,7 @@
 import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ArrowRight, Refresh } from '@/fsusui/icons'
-import DashboardSectionHeader from '@/components/admin/DashboardSectionHeader.vue'
+import { FsusUiSectionHeader } from '@/fsusui'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import { CommentModerationStatus } from '@/api/authoring'
 import { useCommentModerationQueue } from '@/composables/useCommentModerationQueue'

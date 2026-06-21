@@ -12,10 +12,10 @@
 
     <section class="mb-12 border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-labelledby="dashboard-today-actions-title">
       <header class="border-b border-[var(--fsusblog-panel-border)] px-6 py-5">
-        <DashboardSectionHeader
+        <FsusUiSectionHeader
+          id="dashboard-today-actions-title"
           class="dashboard-section-header--flush"
           title="今日待处理"
-          title-id="dashboard-today-actions-title"
         />
       </header>
       <div class="grid grid-cols-1 gap-3 py-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -128,7 +128,7 @@ import {
   DashboardInlineEmptyState
 } from '@/components/admin/DashboardMetricPrimitives'
 import DashboardOperationsPanel from '@/components/admin/DashboardOperationsPanel.vue'
-import DashboardSectionHeader from '@/components/admin/DashboardSectionHeader.vue'
+import { FsusUiSectionHeader } from '@/fsusui'
 import DashboardStatCards from '@/components/admin/DashboardStatCards.vue'
 import DashboardRecentComments from '@/components/admin/DashboardRecentComments.vue'
 import DashboardPopularArticles from '@/components/admin/DashboardPopularArticles.vue'
