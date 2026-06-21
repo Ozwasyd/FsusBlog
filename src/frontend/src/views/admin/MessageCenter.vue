@@ -9,16 +9,6 @@
       </div>
     </header>
 
-    <AdminTaskFeedbackBar
-      class="admin-message-center__feedback"
-      :phase="adminTaskFeedbackPhase"
-      :message="adminTaskFeedbackMessage"
-      :detail="adminTaskFeedbackDetail"
-      :aria-message="adminTaskFeedbackAriaMessage"
-      :assertive-message="adminTaskFeedbackAssertiveMessage"
-      :busy="adminTaskFeedbackBusy"
-    />
-
     <el-inbox-layout
       class="admin-message-center__layout"
       density="compact"
@@ -319,7 +309,6 @@ import type {
   ConversationMessageResponse,
   ConversationStatus
 } from '@/api/message'
-import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { useAdminMessageCenter } from '@/composables/useAdminMessageCenter'
 import { useInboxSplitView } from '@/composables/useInboxSplitView'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
@@ -347,12 +336,6 @@ const adminCenter = useAdminMessageCenter()
 const conversationMotion = useRowStateMotion({ visibleLimit: ROW_MOTION_VISIBLE_LIMIT })
 const messageMotion = useRowStateMotion({ visibleLimit: ROW_MOTION_VISIBLE_LIMIT })
 const {
-  phase: adminTaskFeedbackPhase,
-  message: adminTaskFeedbackMessage,
-  detail: adminTaskFeedbackDetail,
-  assertiveMessage: adminTaskFeedbackAssertiveMessage,
-  busy: adminTaskFeedbackBusy,
-  ariaMessage: adminTaskFeedbackAriaMessage,
   isHighlighted: isAdminTaskHighlighted
 } = adminCenter.taskFeedback
 
@@ -617,10 +600,6 @@ const formatTime = (input: string): string => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-}
-
-.admin-message-center__feedback {
-  margin-bottom: 2rem;
 }
 
 .admin-message-center__layout {
