@@ -283,6 +283,23 @@ internal static class JwtHelperRoleResidue
     private static bool PolicyRequiresAdminRole(RolesAuthorizationRequirement requirement)
         => requirement.AllowedRoles.Contains("admin");
 }
+`,
+      'src/backend/Modules/Endpoints/Binary/RoleAdminResidue.cs': `
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+namespace FsusBlog.Server.Modules.Endpoints.Binary;
+[Authorize(Roles = "admin")]
+internal static class RoleAdminResidue
+{
+    public static void Map(IEndpointRouteBuilder group)
+    {
+        group.MapGet("/role-admin", () => "bad")
+            .RequireAuthorization(policy => policy.RequireRole("admin"));
+        _ = new RolesAuthorizationRequirement(new[] { "admin" });
+        _ = new Claim(ClaimTypes.Role, "admin");
+    }
+}
 `
     }
   },

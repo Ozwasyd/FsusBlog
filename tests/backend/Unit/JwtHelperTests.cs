@@ -201,6 +201,41 @@ public sealed class JwtHelperTests
         Assert.InRange(diff.TotalMinutes, 4.8, 5.2);
     }
 
+    [Fact]
+    public void GenerateAdminAccessToken_OmitsRoleClaimAndCarriesAdminPrincipalClaims()
+    {
+        var helper = CreateHelper();
+        var principal = new AdminPrincipal
+        {
+            Id = 42,
+            Handle = "root-admin",
+            Permissions = string.Join('\n', [AdminPermissions.AdminManage, AdminPermissions.SystemConfig])
+        };
+        var session = new AdminSession
+        {
+            SessionId = "admin-session-1",
+            AdminPrincipalId = principal.Id
+        };
+
+        string token = helper.GenerateAdminAccessToken(
+            principal,
+            session,
+            [AdminPermissions.AdminManage, AdminPermissions.SystemConfig, AdminPermissions.AdminManage],
+            stepUpVerified: true);
+
+        var claims = ParseClaims(token).ToArray();
+        Assert.DoesNotContain(claims, IsRoleClaim);
+        Assert.Contains(claims, claim => claim.Type == "identity_kind" && claim.Value == AnonymousIdentityRuntime.AdminPrincipalKind);
+        Assert.Contains(claims, claim => claim.Type == "admin_id" && claim.Value == "42");
+        Assert.Contains(claims, claim => claim.Type == "admin_sid" && claim.Value == "admin-session-1");
+        Assert.Contains(claims, claim => claim.Type == "admin_step_up" && claim.Value == "1");
+        Assert.Contains(claims, claim => claim.Type == AdminPermissions.PermissionClaimType && claim.Value == AdminPermissions.AdminManage);
+        Assert.Contains(claims, claim => claim.Type == AdminPermissions.PermissionClaimType && claim.Value == AdminPermissions.SystemConfig);
+        Assert.Equal(
+            1,
+            claims.Count(claim => claim.Type == AdminPermissions.PermissionClaimType && claim.Value == AdminPermissions.AdminManage));
+    }
+
     // ─── GenerateRefreshToken ─────────────────────────────────────────────
 
     [Fact]

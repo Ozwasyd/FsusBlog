@@ -295,7 +295,7 @@ run_residue_check \
 run_residue_check \
   "role-based admin authorization checks" \
   "role-based admin authorization residue detected" \
-  'IsInRole[(]\s*["'\'']admin["'\''][)]|FindFirst[(]\s*ClaimTypes[.]Role\s*[)]|RequireRole[(]\s*["'\'']admin["'\''][)]|RolesAuthorizationRequirement|new[(]ClaimTypes[.]Role\s*,\s*["'\'']admin["'\''][)]|PolicyRequiresAdminRole|ContainsAdminRole' \
+  'IsInRole[(]\s*["'\'']admin["'\''][)]|FindFirst[(]\s*ClaimTypes[.]Role\s*[)]|RequireRole[(]\s*["'\'']admin["'\''][)]|Authorize[(][^)]*Roles\s*=|RolesAuthorizationRequirement|new\s*[(]\s*ClaimTypes[.]Role\s*,\s*["'\'']admin["'\'']|new[(]ClaimTypes[.]Role\s*,\s*["'\'']admin["'\''][)]|PolicyRequiresAdminRole|ContainsAdminRole' \
   "" \
   src/backend
 

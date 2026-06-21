@@ -46,6 +46,11 @@ public sealed class AdminPrincipalSecurityContractTests
         Assert.Contains("admin_sid", jwt, StringComparison.Ordinal);
         Assert.Contains("AdminPermissions.PermissionClaimType", jwt, StringComparison.Ordinal);
         Assert.Contains("ShouldPreferAdminCookie", jwt, StringComparison.Ordinal);
+        string adminToken = ExtractMethodBlock(jwt, "public string GenerateAdminAccessToken(");
+        Assert.DoesNotContain("ClaimTypes.Role", adminToken, StringComparison.Ordinal);
+        Assert.DoesNotContain("PolicyRequiresAdminRole", jwt, StringComparison.Ordinal);
+        Assert.DoesNotContain("ContainsAdminRole", jwt, StringComparison.Ordinal);
+        Assert.DoesNotContain("RolesAuthorizationRequirement", jwt, StringComparison.Ordinal);
         Assert.Contains("TryGetAdminPrincipalId", claims, StringComparison.Ordinal);
         Assert.Contains("GetAdminSessionId", claims, StringComparison.Ordinal);
         Assert.Contains("HasAdminPermission", claims, StringComparison.Ordinal);
@@ -210,7 +215,7 @@ public sealed class AdminPrincipalSecurityContractTests
         Assert.False(JwtServiceExtensions.ShouldPreferAdminCookie(userContext));
 
         var roleAdminContext = new DefaultHttpContext();
-        roleAdminContext.Request.Path = "/api/binary/auth/me";
+        roleAdminContext.Request.Path = "/api/binary/role-only";
         roleAdminContext.SetEndpoint(new Endpoint(
             static _ => Task.CompletedTask,
             new EndpointMetadataCollection(new AuthorizationPolicyBuilder().RequireRole("admin").Build()),

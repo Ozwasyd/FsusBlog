@@ -90,7 +90,7 @@ public class JwtHelper : IJwtHelper
         IReadOnlyCollection<string> permissions,
         bool stepUpVerified = false)
     {
-        var claims = new List<Claim>(10 + permissions.Count)
+        var claims = new List<Claim>(9 + permissions.Count)
         {
             new(ClaimTypes.NameIdentifier, principal.Id.ToString()),
             new(ClaimTypes.Name, principal.Handle),
@@ -265,5 +265,4 @@ public static class JwtServiceExtensions
                 (requirement.AllowedValues == null ||
                     requirement.AllowedValues.Contains(AnonymousIdentityRuntime.AdminPrincipalKind, StringComparer.Ordinal)) ||
             string.Equals(requirement.ClaimType, AdminPermissions.PermissionClaimType, StringComparison.Ordinal));
-
 }
