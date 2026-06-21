@@ -31,8 +31,8 @@ describe('admin API binary mutations', () => {
     }))
   })
 
-  it('adminChangeStatus sends binary status request with admin step-up proof', async () => {
-    await adminChangeStatus({ userId: 10, status: 1, reason: 'spam' }, { mfaProofToken: 'proof-status' })
+  it('adminChangeStatus sends binary status request for accountId with admin step-up proof', async () => {
+    await adminChangeStatus({ accountId: 10, status: 1, reason: 'spam' }, { mfaProofToken: 'proof-status' })
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryUrl: '/api/binary/admin/users/status',
       frameType: FrameType.EmptySuccess,
@@ -45,6 +45,20 @@ describe('admin API binary mutations', () => {
     }))
     const call = mockBinary.mock.calls[0]?.[0]
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-status')
+  })
+
+  it('keeps admin status DTO and callers on accountId naming', () => {
+    const adminApi = readRepoFile('src/frontend/src/api/admin.ts')
+    const adminUserManage = readRepoFile('src/frontend/src/composables/useAdminUserManage.ts')
+
+    expect(adminApi).toContain('export interface AdminChangeStatusDto extends PowBaseDto {\n  accountId: number')
+    expect(adminApi).toContain('view.setInt32(0, data.accountId, true)')
+    expect(adminApi).not.toMatch(/AdminChangeStatusDto[\s\S]*?userId: number/)
+    expect(adminApi).not.toContain('data.userId')
+    expect(adminUserManage).toContain('adminChangeStatus({ accountId: row.accountId, status: 0 }')
+    expect(adminUserManage).toContain('accountId: targetUser.accountId')
+    expect(adminUserManage).not.toContain('userId: row.accountId')
+    expect(adminUserManage).not.toContain('userId: targetUser.accountId')
   })
 
   it('does not export or encode legacy admin password reset', () => {

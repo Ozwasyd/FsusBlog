@@ -64,7 +64,7 @@ interface PowBaseDto {
  * 对应后端: AdminChangeStatusDto
  */
 export interface AdminChangeStatusDto extends PowBaseDto {
-  userId: number
+  accountId: number
   status: 0 | 1 // 1: 禁用, 0: 启用
   reason?: string // 封禁理由
 }
@@ -132,7 +132,8 @@ function encodeAdminChangeStatusRequest(data: AdminChangeStatusDto): Uint8Array 
   const reason = new TextEncoder().encode(data.reason ?? '')
   const bytes = new Uint8Array(16 + 4 + reason.byteLength)
   const view = new DataView(bytes.buffer)
-  view.setInt32(0, data.userId, true)
+  // POD offset 0 stores the anonymous account id.
+  view.setInt32(0, data.accountId, true)
   view.setInt32(4, data.status, true)
   view.setInt32(8, 0, true)
   view.setInt32(12, reason.byteLength, true)

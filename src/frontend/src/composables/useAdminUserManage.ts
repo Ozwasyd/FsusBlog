@@ -285,7 +285,7 @@ export function useAdminUserManage() {
         confirmButtonText: '立即解封'
       }, async (signal) => {
         const mfaProofToken = await ensureAdminSensitiveProof()
-        await adminChangeStatus({ userId: row.accountId, status: 0 }, { ...buildSignalConfig(signal), mfaProofToken })
+        await adminChangeStatus({ accountId: row.accountId, status: 0 }, { ...buildSignalConfig(signal), mfaProofToken })
       }, {
         fallbackMessage: '操作失败',
         successMessage: `账号 ${row.displayHandle} 已解封`,
@@ -329,7 +329,7 @@ export function useAdminUserManage() {
         const mfaProofToken = await ensureAdminSensitiveProof()
         await adminChangeStatus(
           {
-            userId: targetUser.accountId,
+            accountId: targetUser.accountId,
             status: 1,
             reason: banDialog.reason.trim()
           },
