@@ -210,6 +210,55 @@ public sealed class AnonymousAccountOutputContractTests
     }
 
     [Fact]
+    public void SharedCoreIdentityContracts_UseAccountSnapshotInsteadOfUserSnapshot()
+    {
+        string authContracts = BackendTestPaths.ReadAllTextFromRoot("src/shared/Contracts/AuthSystem/AuthSystemContracts.cs");
+        string[] productionFiles =
+        [
+            "src/shared/Contracts/AuthSystem/AuthSystemContracts.cs",
+            "src/core/Services/Abstractions/IUserCoreService.cs",
+            "src/core/Services/Gateways/IUserCoreGateway.cs",
+            "src/core/Services/Implementations/UserCoreService.cs",
+            "src/backend/Infrastructure/CoreBridge/Gateways/UserCoreGateway.cs",
+            "src/backend/Infrastructure/CoreBridge/Adapters/UserServiceCoreAdapter.cs"
+        ];
+
+        string source = string.Join(
+            '\n',
+            productionFiles.Select(static path => $"// {path}\n{BackendTestPaths.ReadAllTextFromRoot(path)}"));
+
+        foreach (string forbidden in new[]
+        {
+            "UserSnapshotContract",
+            "AuthLoginResultContract",
+            "LastLoginIp",
+            "string Username",
+            "string Role"
+        })
+        {
+            Assert.DoesNotContain(forbidden, source, StringComparison.Ordinal);
+        }
+
+        string accountSnapshot = ExtractRecord(authContracts, "public readonly record struct AccountSnapshotContract");
+        foreach (string expected in new[]
+        {
+            "int AccountId",
+            "string IdentityKind",
+            "string? PublicHandle",
+            "bool PasskeyEnabled",
+            "bool RecoveryEnabled",
+            "bool TotpStepUpEnabled",
+            "string? AnonymousCredentialStatus",
+            "string? AnonymousCredentialLevel",
+            "int Status",
+            "DateTime? DeletedAt"
+        })
+        {
+            Assert.Contains(expected, accountSnapshot, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void UserAccountReader_ProjectsSysUserAsAnonymousAccountContainer()
     {
         var deletedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);

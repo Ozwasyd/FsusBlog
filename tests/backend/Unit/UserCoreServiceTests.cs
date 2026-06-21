@@ -24,19 +24,33 @@ public class UserCoreServiceTests
     [Fact]
     public async Task GetById_NotFound_ReturnsNotFound()
     {
-        _gw.GetByIdAsync(99).Returns(Task.FromResult<UserSnapshotContract?>(null));
+        _gw.GetByIdAsync(99).Returns(Task.FromResult<AccountSnapshotContract?>(null));
         var result = await Svc().GetByIdAsync(99);
         Assert.Equal(ErrorCode.NotFound, result.Error.Code);
     }
 
     [Fact]
-    public async Task GetById_Found_ReturnsUser()
+    public async Task GetById_Found_ReturnsAccountSnapshot()
     {
-        var snapshot = new UserSnapshotContract(5, "bob", "user", 0, DateTime.UtcNow, null, null, null);
-        _gw.GetByIdAsync(5).Returns(Task.FromResult<UserSnapshotContract?>(snapshot));
+        var snapshot = new AccountSnapshotContract(
+            AccountId: 5,
+            IdentityKind: "anonymous_account",
+            PublicHandle: "Public Bob",
+            PasskeyEnabled: true,
+            RecoveryEnabled: true,
+            TotpStepUpEnabled: false,
+            AnonymousCredentialStatus: "active",
+            AnonymousCredentialLevel: "strong_anonymous",
+            Status: 0,
+            DeletedAt: null);
+        _gw.GetByIdAsync(5).Returns(Task.FromResult<AccountSnapshotContract?>(snapshot));
         var result = await Svc().GetByIdAsync(5);
         Assert.True(result.IsSuccess);
-        Assert.Equal("bob", result.Value?.Username);
+        Assert.Equal(5, result.Value?.AccountId);
+        Assert.Equal("anonymous_account", result.Value?.IdentityKind);
+        Assert.Equal("Public Bob", result.Value?.PublicHandle);
+        Assert.True(result.Value?.PasskeyEnabled);
+        Assert.Equal("strong_anonymous", result.Value?.AnonymousCredentialLevel);
     }
 
     // RefreshTokenAsync

@@ -2,19 +2,17 @@ namespace FsusBlog.Shared.Contracts.AuthSystem;
 
 public readonly record struct TokenPairContract(string AccessToken, string RefreshToken);
 
-public readonly record struct UserSnapshotContract(
-    int Id,
-    string Username,
-    string Role,
+public readonly record struct AccountSnapshotContract(
+    int AccountId,
+    string IdentityKind,
+    string? PublicHandle,
+    bool PasskeyEnabled,
+    bool RecoveryEnabled,
+    bool TotpStepUpEnabled,
+    string? AnonymousCredentialStatus,
+    string? AnonymousCredentialLevel,
     int Status,
-    DateTime CreateTime,
-    string? LastLoginIp,
-    DateTime? LastLoginTime,
     DateTime? DeletedAt);
-
-public readonly record struct AuthLoginResultContract(
-    TokenPairContract Token,
-    UserSnapshotContract User);
 
 public readonly record struct AdminAccountListItemContract(
     int AccountId,

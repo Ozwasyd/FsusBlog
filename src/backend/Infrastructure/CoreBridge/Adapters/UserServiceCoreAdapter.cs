@@ -70,16 +70,18 @@ public sealed class UserServiceCoreAdapter(IUserCoreService core) : IUserService
         return result.IsSuccess ? (true, "状态更新成功") : (false, result.Error.Message);
     }
 
-    private static User ToUserEntity(UserSnapshotContract snapshot)
+    private static User ToUserEntity(AccountSnapshotContract snapshot)
         => new()
         {
-            Id = snapshot.Id,
-            Username = snapshot.Username,
-            Role = snapshot.Role,
+            Id = snapshot.AccountId,
             Status = snapshot.Status,
-            CreateTime = snapshot.CreateTime,
-            LastLoginIp = snapshot.LastLoginIp,
-            LastLoginTime = snapshot.LastLoginTime,
-            DeletedAt = snapshot.DeletedAt
+            DeletedAt = snapshot.DeletedAt,
+            PublicHandle = snapshot.PublicHandle,
+            IdentityKind = snapshot.IdentityKind,
+            PasskeyEnabled = snapshot.PasskeyEnabled,
+            RecoveryEnabled = snapshot.RecoveryEnabled,
+            MfaEnabled = snapshot.TotpStepUpEnabled,
+            AnonymousCredentialStatus = snapshot.AnonymousCredentialStatus ?? "active",
+            AnonymousCredentialLevel = snapshot.AnonymousCredentialLevel ?? "basic"
         };
 }

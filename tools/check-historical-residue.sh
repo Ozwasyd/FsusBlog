@@ -188,6 +188,13 @@ run_residue_check \
   src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs src/backend/Interfaces/UserApplicationPorts.cs src/backend/Services/UserService.Ports.cs src/shared/Contracts/Validation/fsusblog.openapi.json src/frontend/src/generated/fsusBinaryRoutes.ts tests/frontend/fixtures/cross-stack-contract-matrix.json tests/frontend/fixtures/cross-stack-contract-matrix.generated.json
 
 run_residue_check \
+  "legacy shared user snapshot contract" \
+  "legacy shared user snapshot contract residue detected" \
+  '\bUserSnapshotContract\b|\bAuthLoginResultContract\b|AuthLoginResultContract[(][^;\n]*User|LastLoginIp\b|string[[:space:]]+(?:Username|Role)\b|snapshot[.](?:Username|Role|LastLoginIp)\b|user[.](?:Username|Role|LastLoginIp)\b' \
+  "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
+  src/shared/Contracts/AuthSystem/AuthSystemContracts.cs src/core/Services/Abstractions/IUserCoreService.cs src/core/Services/Gateways/IUserCoreGateway.cs src/core/Services/Implementations/UserCoreService.cs src/backend/Infrastructure/CoreBridge/Gateways/UserCoreGateway.cs src/backend/Infrastructure/CoreBridge/Adapters/UserServiceCoreAdapter.cs
+
+run_residue_check \
   "legacy comment public username fallback" \
   "legacy comment public username fallback residue detected" \
   '\bu[.]username\b|\bru[.]username\b|LEFT JOIN sys_user[[:space:]]+(?:u|ru)\b|[.]Username\b' \

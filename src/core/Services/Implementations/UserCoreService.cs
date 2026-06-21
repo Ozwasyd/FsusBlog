@@ -7,17 +7,17 @@ namespace FsusBlog.Core.Services.Implementations;
 
 public sealed class UserCoreService(IUserCoreGateway gateway) : IUserCoreService
 {
-    public async Task<Result<UserSnapshotContract?>> GetByIdAsync(int id)
+    public async Task<Result<AccountSnapshotContract?>> GetByIdAsync(int id)
     {
         if (id <= 0)
         {
-            return Result<UserSnapshotContract?>.Failure(ErrorCode.Validation, "用户ID非法");
+            return Result<AccountSnapshotContract?>.Failure(ErrorCode.Validation, "账号ID非法");
         }
 
-        var user = await gateway.GetByIdAsync(id);
-        return user.HasValue
-            ? Result<UserSnapshotContract?>.Success(user.Value)
-            : Result<UserSnapshotContract?>.Failure(ErrorCode.NotFound, "用户不存在");
+        var account = await gateway.GetByIdAsync(id);
+        return account.HasValue
+            ? Result<AccountSnapshotContract?>.Success(account.Value)
+            : Result<AccountSnapshotContract?>.Failure(ErrorCode.NotFound, "账号不存在");
     }
 
     public async Task<Result<TokenPairContract>> RefreshTokenAsync(string refreshToken)

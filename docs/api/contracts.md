@@ -392,6 +392,28 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 - 该结构主要用于服务端内部登录/续签流程，不直接作为公开认证 API 的最终响应体
 - 对外认证接口成功后统一返回 `AuthLoginFlowDto`，认证 Cookie 通过 `Set-Cookie` 下发
 
+### `AccountSnapshotContract`（shared/core 账号快照）
+
+`IUserCoreService.GetByIdAsync` 与 CoreBridge 只传递匿名账号容器快照：
+
+```json
+{
+  "accountId": 1,
+  "identityKind": "anonymous_account",
+  "publicHandle": "Public Alice",
+  "passkeyEnabled": true,
+  "recoveryEnabled": true,
+  "totpStepUpEnabled": false,
+  "anonymousCredentialStatus": "active",
+  "anonymousCredentialLevel": "strong_anonymous",
+  "status": 0,
+  "deletedAt": null
+}
+```
+
+- shared/core 边界不再暴露 `UserSnapshotContract` 或 `AuthLoginResultContract.User`。
+- 该快照不得包含 `username`、`role`、`lastLoginIp` 或任何管理员权限推断字段；管理审计字段必须放入 admin/security-only read model。
+
 ### `AuthLoginFlowDto`（注册 / 登录成功响应）
 
 ```json

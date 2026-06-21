@@ -9,10 +9,10 @@ namespace FsusBlog.Server.Infrastructure.CoreBridge.Gateways;
 
 public sealed class UserCoreGateway(UserService service) : IUserCoreGateway
 {
-    public async Task<UserSnapshotContract?> GetByIdAsync(int id)
+    public async Task<AccountSnapshotContract?> GetByIdAsync(int id)
     {
         var user = await service.GetByIdAsync(id);
-        return user is null ? null : ToUserSnapshot(user);
+        return user is null ? null : ToAccountSnapshot(user);
     }
 
     public async Task<(bool Success, TokenPairContract? Data)> RefreshTokenAsync(string refreshToken)
@@ -64,14 +64,16 @@ public sealed class UserCoreGateway(UserService service) : IUserCoreGateway
     public Task<(bool Success, string Message)> AdminChangeStatusAsync(int userId, int status, string? reason)
         => service.AdminChangeStatusAsync(new AdminChangeStatusDto { UserId = userId, Status = status, Reason = reason });
 
-    private static UserSnapshotContract ToUserSnapshot(User user)
+    private static AccountSnapshotContract ToAccountSnapshot(User user)
         => new(
-            user.Id,
-            user.Username,
-            user.Role,
-            user.Status,
-            user.CreateTime,
-            user.LastLoginIp,
-            user.LastLoginTime,
-            user.DeletedAt);
+            AccountId: user.Id,
+            IdentityKind: user.IdentityKind,
+            PublicHandle: user.PublicHandle,
+            PasskeyEnabled: user.PasskeyEnabled,
+            RecoveryEnabled: user.RecoveryEnabled,
+            TotpStepUpEnabled: user.MfaEnabled,
+            AnonymousCredentialStatus: user.AnonymousCredentialStatus,
+            AnonymousCredentialLevel: user.AnonymousCredentialLevel,
+            Status: user.Status,
+            DeletedAt: user.DeletedAt);
 }

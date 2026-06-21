@@ -124,9 +124,22 @@ export function registerWithPassword() {
       'src/frontend/src/views/user/Profile.vue': `
 <script setup lang="ts">
 const passwordForm = { profileOldPassword: '', profileNewPassword: '', profileConfirmPassword: '' }
-const updateUsername = () => passwordForm.profileOldPassword
 const updatePassword = () => passwordForm.profileNewPassword
 </script>
+`
+    }
+  },
+  {
+    name: 'legacy shared user snapshot contract',
+    expected: 'legacy shared user snapshot contract residue detected',
+    files: {
+      'src/shared/Contracts/AuthSystem/AuthSystemContracts.cs': `
+namespace FsusBlog.Shared.Contracts.AuthSystem;
+public readonly record struct UserSnapshotContract(
+    int Id,
+    string Username,
+    string Role,
+    string? LastLoginIp);
 `
     }
   },
