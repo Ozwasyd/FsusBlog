@@ -25,7 +25,8 @@ CREATE TABLE comment (
     article_id integer NOT NULL,
     content text NOT NULL,
     create_time timestamp NOT NULL,
-    user_id integer NOT NULL
+    user_id integer NOT NULL,
+    moderated_by_user_id integer
 );
 
 CREATE TABLE sys_message (
@@ -104,8 +105,8 @@ VALUES (
 INSERT INTO article_tag(articleid, tagid)
 VALUES (1, 1);
 
-INSERT INTO comment(id, article_id, content, create_time, user_id)
-VALUES (9001, 1, 'legacy comment retained', TIMESTAMP '2026-05-17 10:10:00', 7);
+INSERT INTO comment(id, article_id, content, create_time, user_id, moderated_by_user_id)
+VALUES (9001, 1, 'legacy comment retained', TIMESTAMP '2026-05-17 10:10:00', 7, 7);
 
 INSERT INTO sys_message(id, title, content, category, sourceid, createtime)
 VALUES (7001, 'Legacy message', 'legacy message body', 1, NULL, TIMESTAMP '2026-05-17 10:20:00');

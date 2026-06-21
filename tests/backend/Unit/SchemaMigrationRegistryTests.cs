@@ -200,6 +200,32 @@ public sealed class SchemaMigrationRegistryTests
     }
 
     [Fact]
+    public void GetDescriptors_FreshCreateStepsUseAdminPrincipalColumns()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor authoringDescriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260518-post-authoring-workspace-tables");
+        string authoringFingerprint = string.Join('\n', authoringDescriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Contains("owner_admin_principal_id", authoringFingerprint, StringComparison.Ordinal);
+        Assert.Contains("created_by_admin_principal_id", authoringFingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_article_draft_admin_principal_key", authoringFingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("owner_user_id", authoringFingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("created_by_user_id", authoringFingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("idx_article_draft_owner_key", authoringFingerprint, StringComparison.Ordinal);
+
+        ISchemaMigrationDescriptor commentDescriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260518-pre-comment-moderation");
+        string commentFingerprint = string.Join('\n', commentDescriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Contains("comment.moderated_by_admin_principal_id", commentFingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("moderated_by_user_id", commentFingerprint, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GetDescriptors_VisitLogIpAnonymization_DropsRawIpColumn()
     {
         var registry = new SchemaMigrationRegistry();

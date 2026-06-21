@@ -335,6 +335,8 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 
 评论写入不再把 `comment.user_id` 作为作者展示的必填外键。`CommentActor` 会写入 `author_mode`、`public_handle`、`anonymous_handle`、`anonymous_display_name`、`anonymous_display_language`、`anonymous_nullifier_hash`、`anonymous_scope`、`moderation_subject_hash`、`credential_level`、`reputation_bucket` 和 `account_age_bucket`。新 public send 写入只允许使用当前账号已保存的 `public_handle`，未设置时拒绝 public mode，不得回退内部 `sys_user.username` 或合成 user id；公开评论读取优先使用 `anonymous_display_name` / `public_handle`，旧数据缺少快照字段时只能按 `author_mode` 使用匿名或未署名兜底。`comment.user_id` 与 `comment.reply_to_user_id` 的最终态白名单仅覆盖 public attribution 和旧回复投影兼容；admin 审核记录必须使用 `moderated_by_admin_principal_id`，不得继续写 `moderated_by_user_id`。默认匿名和强匿名路径不得按 `comment.user_id` 查询或授权。账号侧可归因评论读取的最终态索引是 `idx_comment_attributable_public_user_id_desc`，只覆盖 `author_mode = 'public' AND user_id IS NOT NULL`，旧 generic `idx_comment_user_id_desc` 必须被迁移删除。匿名 display name 由服务端按 `zh-CN` / `en` 的内置常见姓名列表生成，并在 scope 内稳定，不暴露 account id、username、public handle、credential id 或 nullifier 原文。
 
+Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列。`article_draft` 首次建表使用 `owner_admin_principal_id`，`article_revision` 首次建表使用 `created_by_admin_principal_id`，`comment` 首次建表/补列使用 `moderated_by_admin_principal_id`。历史库中的 `owner_user_id`、`created_by_user_id`、`moderated_by_user_id` 仅作为迁移输入被 rename/copy/drop，不能作为运行时 API、导入恢复或后台审核契约字段。
+
 ---
 
 ## 分页与游标信封

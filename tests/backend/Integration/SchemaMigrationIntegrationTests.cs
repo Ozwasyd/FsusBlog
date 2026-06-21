@@ -379,6 +379,9 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         int commentModeration = await fixture.QueryScalarAsync<int>(
             connectionString,
             "SELECT moderation_status FROM comment WHERE id = 9001;");
+        long moderatedByAdminPrincipalId = await fixture.QueryScalarAsync<long>(
+            connectionString,
+            "SELECT moderated_by_admin_principal_id FROM comment WHERE id = 9001;");
 
         Assert.Equal("# Legacy body from 20260517", markdown);
         Assert.Equal("# Legacy about page", pageContent);
@@ -386,6 +389,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.Equal(0, commentDepth);
         Assert.False(commentDeleted);
         Assert.Equal(1, commentModeration);
+        Assert.Equal(7, moderatedByAdminPrincipalId);
     }
 
     [Fact]
@@ -863,6 +867,24 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    public async Task RunAsync_CreatesFreshAuthoringAndCommentTablesWithAdminPrincipalColumns()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "article_draft", "owner_user_id"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "article_revision", "created_by_user_id"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "comment", "moderated_by_user_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_draft", "owner_admin_principal_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_revision", "created_by_admin_principal_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "comment", "moderated_by_admin_principal_id"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_article_draft_admin_principal_key"));
+    }
+
+    [Fact]
     public async Task RunAsync_RenamesAuthoringAttributionColumnsToAdminPrincipal()
     {
         string databaseName = await fixture.CreateDatabaseAsync();
@@ -1207,6 +1229,13 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "last_username_update_time"));
         Assert.True(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "event_type"));
         Assert.True(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "viewer_key_hash"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "article_draft", "owner_user_id"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "article_revision", "created_by_user_id"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "comment", "moderated_by_user_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_draft", "owner_admin_principal_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_revision", "created_by_admin_principal_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "comment", "moderated_by_admin_principal_id"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_article_draft_admin_principal_key"));
 
         Assert.Equal(256, await ReadColumnLengthAsync(connectionString, "article", "title"));
         Assert.Equal(512, await ReadColumnLengthAsync(connectionString, "article", "summary"));
