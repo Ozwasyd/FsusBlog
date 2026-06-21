@@ -287,6 +287,34 @@ test('tamper manifest rejects every security assertion', () => {
   }
 })
 
+test('tamper manifest requires negative invariant ids to use tamper reject naming', () => {
+  const result = withTempManifests((documents) => {
+    documents.tamper.negative_invariants = [
+      {
+        id: 'nullifier-scope-root-revocation',
+        tamper_cases: ['tamper-nullifier-hash']
+      }
+    ]
+  })
+
+  assert.notEqual(result.status, 0)
+  assert.match(`${result.stdout}\n${result.stderr}`, /negative invariant id .*tamper-.*-reject/)
+})
+
+test('tamper manifest rejects negative invariants that do not point at real tamper cases', () => {
+  const result = withTempManifests((documents) => {
+    documents.tamper.negative_invariants = [
+      {
+        id: 'tamper-nullifier-scope-root-revocation-reject',
+        tamper_cases: ['tamper-missing-case']
+      }
+    ]
+  })
+
+  assert.notEqual(result.status, 0)
+  assert.match(`${result.stdout}\n${result.stderr}`, /tamper-missing-case/)
+})
+
 test('checker fails if identity fields are injected into public inputs', () => {
   const result = withTempManifests((documents) => {
     documents.circuit.public_inputs.push({

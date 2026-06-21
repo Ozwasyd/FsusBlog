@@ -94,6 +94,9 @@ const expected = {
     'inject-user-id-public-input',
     'inject-username-private-witness'
   ],
+  requiredNegativeInvariants: [
+    'tamper-nullifier-scope-root-revocation-reject'
+  ],
   forbiddenIdentityNames: [
     'userid',
     'user_id',
@@ -427,6 +430,33 @@ function checkTamperManifest(tamper) {
   const cases = asArray(tamper.tamper_cases)
   const caseIds = cases.map((entry) => String(entry?.id ?? '').trim()).filter(Boolean)
   hasAll('tamper.tamper_cases', caseIds, expected.requiredTamperCases)
+  const casesById = new Map(cases.map((entry) => [String(entry?.id ?? '').trim(), entry]))
+
+  const negativeInvariantIdPattern = /^tamper-[a-z0-9]+(?:-[a-z0-9]+)*-reject$/u
+  const negativeInvariants = asArray(tamper.negative_invariants)
+  const negativeInvariantIds = negativeInvariants.map((entry) => String(entry?.id ?? '').trim()).filter(Boolean)
+  hasAll('tamper.negative_invariants', negativeInvariantIds, expected.requiredNegativeInvariants)
+  for (const entry of negativeInvariants) {
+    const invariantId = String(entry?.id ?? '').trim()
+    if (!negativeInvariantIdPattern.test(invariantId)) {
+      fail(`tamper negative invariant id ${invariantId || '<missing>'} must use tamper-*-reject naming`)
+    }
+
+    const referencedCases = asArray(entry?.tamper_cases).map((item) => String(item).trim()).filter(Boolean)
+    if (referencedCases.length === 0) {
+      fail(`tamper negative invariant ${invariantId || '<missing>'} must reference at least one tamper case`)
+    }
+    for (const caseId of referencedCases) {
+      const tamperCase = casesById.get(caseId)
+      if (!tamperCase) {
+        fail(`tamper negative invariant ${invariantId || '<missing>'} references missing tamper case ${caseId}`)
+        continue
+      }
+      if (tamperCase.expected !== 'reject') {
+        fail(`tamper negative invariant ${invariantId || '<missing>'} references non-reject tamper case ${caseId}`)
+      }
+    }
+  }
 
   const rejectCoverage = new Set()
   for (const entry of cases) {

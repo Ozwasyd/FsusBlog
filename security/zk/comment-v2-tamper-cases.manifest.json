@@ -15,6 +15,17 @@
       "identity_non_disclosure"
     ]
   },
+  "negative_invariants": [
+    {
+      "id": "tamper-nullifier-scope-root-revocation-reject",
+      "tamper_cases": [
+        "tamper-nullifier-hash",
+        "tamper-scope",
+        "tamper-credential-root",
+        "tamper-revocation-root"
+      ]
+    }
+  ],
   "tamper_cases": [
     {
       "id": "tamper-issuer-signature",

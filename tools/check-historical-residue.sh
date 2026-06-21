@@ -61,6 +61,33 @@ run_residue_check() {
   fi
 }
 
+require_security_literal() {
+  local literal="$1"
+  local paths=()
+  local candidate
+  for candidate in security/privacy-zk-comment-matrix.yml security/zk/comment-v2-tamper-cases.manifest.json; do
+    if [[ -e "$candidate" ]]; then
+      paths+=("$candidate")
+    fi
+  done
+
+  if [[ "${#paths[@]}" -eq 0 ]]; then
+    echo "[residue-check] security ZK invariant guard has no security manifests to inspect"
+    exit 1
+  fi
+
+  if ! rg -q --fixed-strings "$literal" "${paths[@]}"; then
+    echo "[residue-check] required security ZK invariant literal missing: ${literal}"
+    exit 1
+  fi
+}
+
+require_security_literal "tamper-nullifier-scope-root-revocation-reject"
+require_security_literal "tamper-nullifier-hash"
+require_security_literal "tamper-scope"
+require_security_literal "tamper-credential-root"
+require_security_literal "tamper-revocation-root"
+
 run_residue_check \
   "legacy gateway markers" \
   "legacy gateway residue detected" \
