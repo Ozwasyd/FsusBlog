@@ -14,7 +14,6 @@ const themeAdapterPath = path.join(fsusuiRoot, 'theme.ts')
 const primitiveAdaptersPath = path.join(fsusuiRoot, 'primitiveAdapters.ts')
 const uiIndexPath = path.join(srcRoot, 'components/ui/index.ts')
 const adminCollectionPrimitivesPath = path.join(srcRoot, 'components/admin/AdminCollectionPrimitives.ts')
-const dashboardMetricPrimitivesPath = path.join(srcRoot, 'components/admin/DashboardMetricPrimitives.ts')
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 const strict = true
 
@@ -229,11 +228,6 @@ function checkAdminEmptyStateDelegation() {
       file: adminCollectionPrimitivesPath,
       component: 'AdminInlineEmptyState',
       context: 'adminCollection'
-    },
-    {
-      file: dashboardMetricPrimitivesPath,
-      component: 'DashboardInlineEmptyState',
-      context: 'dashboardMetric'
     }
   ]
 

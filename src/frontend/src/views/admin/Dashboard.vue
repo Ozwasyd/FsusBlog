@@ -62,13 +62,15 @@
           <p class="dashboard-card-description">注册用户与匿名访问分布。</p>
         </header>
         <div class="flex-1">
-          <DashboardInlineEmptyState
+          <FsusUiEmptyState
             v-if="!loading && !hasVisitSourceData"
+            class="mt-5 border-t border-[var(--fsusblog-panel-border)] pt-4"
+            role="status"
             title="暂无访问来源数据"
             description="有访问记录后将在这里显示分布。"
           />
-          <DashboardDistributionList v-else class="mt-1" density="compact" v-loading="loading">
-            <DashboardDistributionBarRow
+          <FsusUiDistributionList v-else class="mt-1" density="compact" v-loading="loading">
+            <FsusUiDistributionBarRow
               v-for="item in visitSourceRows"
               :key="item.label"
               density="compact"
@@ -76,7 +78,7 @@
               :value="item.value"
               :ratio="item.ratio"
             />
-          </DashboardDistributionList>
+          </FsusUiDistributionList>
         </div>
       </section>
 
@@ -86,8 +88,10 @@
           <p class="dashboard-card-description">流量来源区域分布。</p>
         </header>
         <div class="flex-1">
-          <DashboardInlineEmptyState
+          <FsusUiEmptyState
             v-if="!loading && !hasRegionData"
+            class="mt-5 border-t border-[var(--fsusblog-panel-border)] pt-4"
+            role="status"
             title="暂无地域访问数据"
             description="有访问记录后将在这里显示分布。"
           />
@@ -99,8 +103,8 @@
             :aria-label="regionChartSummary"
             v-loading="loading"
           ></div>
-          <DashboardDistributionList v-else class="mt-1" density="compact" v-loading="loading">
-            <DashboardDistributionBarRow
+          <FsusUiDistributionList v-else class="mt-1" density="compact" v-loading="loading">
+            <FsusUiDistributionBarRow
               v-for="item in regionRows"
               :key="item.label"
               density="compact"
@@ -109,7 +113,7 @@
               :value="item.value"
               :ratio="item.ratio"
             />
-          </DashboardDistributionList>
+          </FsusUiDistributionList>
         </div>
       </section>
     </div>
@@ -133,20 +137,21 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
-import { FsusUiPageHeader } from '@/fsusui'
-import { FsusUiSettingsSection } from '@/fsusui'
+import {
+  FsusUiDistributionBarRow,
+  FsusUiDistributionList,
+  FsusUiEmptyState,
+  FsusUiKpiGroup,
+  FsusUiMetricItem,
+  FsusUiPageHeader,
+  FsusUiSectionHeader,
+  FsusUiSettingsSection
+} from '@/fsusui'
+import { ChatDotRound, Delete, Document, View } from '@/fsusui/icons'
 import ConsoleWelcomeCallout from '@/components/admin/ConsoleWelcomeCallout.vue'
 import DashboardAuthorAnalyticsPanel from '@/components/admin/DashboardAuthorAnalyticsPanel.vue'
 import DashboardCommentModerationPanel from '@/components/admin/DashboardCommentModerationPanel.vue'
-import {
-  DashboardDistributionBarRow,
-  DashboardDistributionList,
-  DashboardInlineEmptyState
-} from '@/components/admin/DashboardMetricPrimitives'
 import DashboardOperationsPanel from '@/components/admin/DashboardOperationsPanel.vue'
-import { FsusUiSectionHeader } from '@/fsusui'
-import { ChatDotRound, Delete, Document, View } from '@/fsusui/icons'
-import { FsusUiKpiGroup, FsusUiMetricItem } from '@/fsusui'
 import DashboardRecentComments from '@/components/admin/DashboardRecentComments.vue'
 import DashboardPopularArticles from '@/components/admin/DashboardPopularArticles.vue'
 import { useAdminDashboard } from '@/composables/useAdminDashboard'
