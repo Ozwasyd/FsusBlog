@@ -71,7 +71,7 @@
 <script setup lang="ts">
 import { onMounted, shallowRef } from 'vue'
 import { listModerationPolicyTemplates, type ModerationPolicyTemplateDefinition } from '@/api/authoring'
-import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 

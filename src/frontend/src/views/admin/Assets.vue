@@ -121,7 +121,7 @@ import {
 import { deleteImage } from '@/api/system'
 import { FsusUiPageHeader } from "@/fsusui"
 import { FsusUiSettingsSection } from '@/fsusui'
-import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { Delete, Refresh, Search } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { confirmDanger, toast } from '@/fsusui/feedback'

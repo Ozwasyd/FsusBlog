@@ -145,11 +145,10 @@
             </template>
 
             <template #messages>
-              <el-empty-selection-state
+              <AdminInlineEmptyState
                 v-if="threadSelectionEmpty"
                 title="请选择会话"
                 description="从左侧管理员收件箱选择一条会话，详情与回复工具会在这里打开。"
-                density="compact"
               />
 
               <el-skeleton v-else-if="detailLoading" :rows="10" animated />
@@ -312,6 +311,7 @@ import type {
 import { useAdminMessageCenter } from '@/composables/useAdminMessageCenter'
 import { useInboxSplitView } from '@/composables/useInboxSplitView'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 
 type MessageBubbleVariant = 'self' | 'other' | 'system' | 'muted'
 

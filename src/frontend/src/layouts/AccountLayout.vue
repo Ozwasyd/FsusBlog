@@ -72,7 +72,7 @@
       <aside class="hidden lg:block lg:w-[18rem] lg:shrink-0">
         <div class="sticky top-24 space-y-8 pr-6">
           <nav class="space-y-9" aria-label="账户导航">
-            <div class="account-sidebar-index-label">
+            <div id="account-shell-area-title" class="account-sidebar-index-label">
               {{ areaMeta.label }}导航
             </div>
             <section
@@ -117,7 +117,7 @@
         </div>
       </aside>
 
-      <main id="account-main" tabindex="-1" class="min-w-0 flex-1 outline-none">
+      <main id="account-main" tabindex="-1" class="min-w-0 flex-1 outline-none" aria-labelledby="account-shell-area-title">
         <router-view v-slot="{ Component }">
           <transition name="fade-fast" mode="out-in">
             <component :is="Component" :key="accountRouteViewKey" class="mx-auto w-full min-w-0" :class="[contentViewportClass, contentModeClass, adminContentClass]" />

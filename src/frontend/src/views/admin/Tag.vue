@@ -196,11 +196,9 @@ import { type AdminTagItemResponse } from '@/api/authoring'
 import { InfoFilled, Plus, Search, View, Lock } from '@/fsusui/icons'
 import { useAdminTagManage } from '@/composables/useAdminTagManage'
 import { useMediaQuery } from '@/composables/useMediaQuery'
-import {
-  AdminCollectionSummary,
-  AdminCollectionToolbar,
-  AdminInlineEmptyState
-} from '@/components/admin/AdminCollectionPrimitives'
+import AdminCollectionSummary from '@/components/admin/AdminCollectionSummary.vue'
+import AdminCollectionToolbar from '@/components/admin/AdminCollectionToolbar.vue'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 
 const {
   list,

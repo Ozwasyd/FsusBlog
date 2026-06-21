@@ -142,7 +142,7 @@ import {
   type ModerationRuntimeStatusResponse
 } from '@/api/authoring'
 import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
-import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { Check, Close, CopyDocument, Refresh, RefreshLeft, RefreshRight, View } from '@/fsusui/icons'
 import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'

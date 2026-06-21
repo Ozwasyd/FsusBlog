@@ -56,7 +56,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { ArrowRight } from '@/fsusui/icons';
-import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import type { AdminDashboardViewContract } from '@/view-contracts/adminStats';
 

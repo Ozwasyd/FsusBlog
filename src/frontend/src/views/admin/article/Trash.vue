@@ -165,10 +165,8 @@ import { Calendar, Back } from '@/fsusui/icons'
 import { type ArticleListItemResponse } from '@/api/article'
 import { useAdminArticleTrash } from '@/composables/useAdminArticleTrash'
 import { useMediaQuery } from '@/composables/useMediaQuery'
-import {
-  AdminCollectionSummary,
-  AdminInlineEmptyState
-} from '@/components/admin/AdminCollectionPrimitives'
+import AdminCollectionSummary from '@/components/admin/AdminCollectionSummary.vue'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 
 type ArticleTrashViewItem = ArticleListItemResponse & {

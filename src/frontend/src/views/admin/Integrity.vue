@@ -227,7 +227,7 @@ import {
   type IntegrityReportResponse
 } from '@/api/authoring'
 import { FsusUiPageHeader } from "@/fsusui"
-import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import {
   FsusUiDangerZone,
   FsusUiDestructiveActionPanel,

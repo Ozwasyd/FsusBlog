@@ -13,7 +13,7 @@ const boundaryDocPath = path.join(fsusuiRoot, 'README.md')
 const themeAdapterPath = path.join(fsusuiRoot, 'theme.ts')
 const primitiveAdaptersPath = path.join(fsusuiRoot, 'primitiveAdapters.ts')
 const uiIndexPath = path.join(srcRoot, 'components/ui/index.ts')
-const adminCollectionPrimitivesPath = path.join(srcRoot, 'components/admin/AdminCollectionPrimitives.ts')
+const adminInlineEmptyStatePath = path.join(srcRoot, 'components/admin/AdminInlineEmptyState.vue')
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 const strict = true
 
@@ -225,16 +225,11 @@ function checkThemeAdapterContract() {
 function checkAdminEmptyStateDelegation() {
   const contracts = [
     {
-      file: adminCollectionPrimitivesPath,
+      file: adminInlineEmptyStatePath,
       component: 'AdminInlineEmptyState',
       context: 'adminCollection'
     }
   ]
-
-  const existingContracts = contracts.filter((contract) => fs.existsSync(contract.file))
-  if (existingContracts.length === 0) {
-    return
-  }
 
   const adapterContent = fs.existsSync(primitiveAdaptersPath)
     ? fs.readFileSync(primitiveAdaptersPath, 'utf8')
@@ -252,13 +247,18 @@ function checkAdminEmptyStateDelegation() {
     }
   }
 
-  for (const contract of existingContracts) {
+  for (const contract of contracts) {
+    if (!fs.existsSync(contract.file)) {
+      warn(contract.file, 'empty-state-delegation', `${contract.component} SFC is required`)
+      continue
+    }
+
     const content = fs.readFileSync(contract.file, 'utf8')
     if (!content.includes('resolveFsusUiEmptyState')) {
       warn(contract.file, 'empty-state-delegation', `${contract.component} must resolve FsusUI ElEmptyState through the adapter`)
     }
-    if (!content.includes('const ElEmptyState = resolveFsusUiEmptyState()')) {
-      warn(contract.file, 'empty-state-delegation', `${contract.component} must keep ElEmptyState resolution inside setup`)
+    if (!content.includes('const FsusUiEmptyState = resolveFsusUiEmptyState()')) {
+      warn(contract.file, 'empty-state-delegation', `${contract.component} must keep FsusUI empty-state resolution inside script setup`)
     }
     if (!content.includes('toFsusUiInlineEmptyStateProps')) {
       warn(contract.file, 'empty-state-delegation', `${contract.component} must use the FsusUI empty-state adapter`)
@@ -266,8 +266,8 @@ function checkAdminEmptyStateDelegation() {
     if (!content.includes(`toFsusUiInlineEmptyStateProps('${contract.context}')`)) {
       warn(contract.file, 'empty-state-delegation', `${contract.component} must derive FsusUI props from ${contract.context}`)
     }
-    if (!content.includes('h(ElEmptyState,')) {
-      warn(contract.file, 'empty-state-delegation', `${contract.component} must render ElEmptyState`)
+    if (!content.includes(':is="FsusUiEmptyState"')) {
+      warn(contract.file, 'empty-state-delegation', `${contract.component} must render the resolved FsusUI empty-state component`)
     }
   }
 }
