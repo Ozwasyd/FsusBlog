@@ -29,14 +29,21 @@ public class UserServiceValidationTests
     private static UserService BuildService(ISqlSugarClient db, IJwtHelper jwtHelper)
         => BuildService(db, jwtHelper, Substitute.For<ITotpService>());
 
-    private static UserService BuildService(ISqlSugarClient db, IJwtHelper jwtHelper, ITotpService totpService)
+    private static UserService BuildService(ISqlSugarClient db, IJwtHelper jwtHelper, IBlacklistService blacklistService)
+        => BuildService(db, jwtHelper, Substitute.For<ITotpService>(), blacklistService);
+
+    private static UserService BuildService(
+        ISqlSugarClient db,
+        IJwtHelper jwtHelper,
+        ITotpService totpService,
+        IBlacklistService? blacklistService = null)
     {
         return new UserService(
             _db: db,
             _logger: NullLogger<UserService>.Instance,
             _jwtHelper: jwtHelper,
             _cache: Substitute.For<IUnifiedCache>(),
-            _blacklistService: Substitute.For<IBlacklistService>(),
+            _blacklistService: blacklistService ?? Substitute.For<IBlacklistService>(),
             _messageCommandService: Substitute.For<IMessageCommandService>(),
             _messageRealtimePublisher: Substitute.For<IMessageRealtimePublisher>(),
             _totpService: totpService,
@@ -340,6 +347,90 @@ public class UserServiceValidationTests
         jwt.Received(1).GenerateAccessToken(user, Arg.Any<string>(), true);
         await persistence.SessionInsert.Received(1).ExecuteCommandAsync();
         await persistence.UserUpdate.Received(1).ExecuteCommandAsync();
+    }
+
+    [Fact]
+    public async Task AdminChangeStatusAsync_LegacyAdminRole_DoesNotGrantAccountGovernanceProtection()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var queryable = Substitute.For<ISugarQueryable<User>>();
+        db.Queryable<User>().Returns(queryable);
+        queryable.InSingleAsync(42).Returns(Task.FromResult(new User
+        {
+            Id = 42,
+            InternalSubject = "legacy-admin-role",
+            IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+            LegacyProjectRole = "admin",
+            Status = 0
+        }));
+        var update = Substitute.For<IUpdateable<User>>();
+        update.SetColumns(Arg.Any<Expression<Func<User, bool>>>()).Returns(update);
+        update.Where(Arg.Any<Expression<Func<User, bool>>>()).Returns(update);
+        update.ExecuteCommandAsync().Returns(Task.FromResult(1));
+        db.Updateable<User>().Returns(update);
+        var blacklist = Substitute.For<IBlacklistService>();
+        var svc = BuildService(db, Substitute.For<IJwtHelper>(), blacklist);
+
+        var (success, message) = await svc.AdminChangeStatusAsync(new AdminChangeStatusDto
+        {
+            UserId = 42,
+            Status = 1,
+            Reason = "policy"
+        });
+
+        Assert.True(success, message);
+        Assert.Equal("用户已封禁", message);
+        await update.Received(1).ExecuteCommandAsync();
+        await blacklist.Received(1).BanUserAsync(42, "policy");
+        await blacklist.DidNotReceive().UnbanUserAsync(Arg.Any<int>());
+    }
+
+    [Fact]
+    public async Task AdminChangeStatusAsync_AdminPrincipalIdentityKind_RejectsOrdinaryAccountGovernance()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var queryable = Substitute.For<ISugarQueryable<User>>();
+        db.Queryable<User>().Returns(queryable);
+        queryable.InSingleAsync(7).Returns(Task.FromResult(new User
+        {
+            Id = 7,
+            InternalSubject = "admin-principal-shadow",
+            IdentityKind = AnonymousIdentityRuntime.AdminPrincipalKind,
+            LegacyProjectRole = "admin",
+            Status = 0
+        }));
+        var update = Substitute.For<IUpdateable<User>>();
+        db.Updateable<User>().Returns(update);
+        var blacklist = Substitute.For<IBlacklistService>();
+        var svc = BuildService(db, Substitute.For<IJwtHelper>(), blacklist);
+
+        var (success, message) = await svc.AdminChangeStatusAsync(new AdminChangeStatusDto
+        {
+            UserId = 7,
+            Status = 1,
+            Reason = "policy"
+        });
+
+        Assert.False(success);
+        Assert.Equal("管理员主体不通过普通账号状态接口治理", message);
+        db.DidNotReceive().Updateable<User>();
+        await blacklist.DidNotReceive().BanUserAsync(Arg.Any<int>(), Arg.Any<string?>());
+        await blacklist.DidNotReceive().UnbanUserAsync(Arg.Any<int>());
+    }
+
+    [Fact]
+    public void AdminChangeStatusAsync_SourceDoesNotReadLegacyRoleForAdminProtection()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+        string method = ExtractUserServiceMethod(
+            source,
+            "public async Task<(bool Success, string Message)> AdminChangeStatusAsync",
+            "public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync");
+
+        Assert.DoesNotContain("LegacyProjectRole", method, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Role", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Role == \"admin\"", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Role.Equals(\"admin\"", method, StringComparison.Ordinal);
     }
 
     // ── Private static helpers via reflection ─────────────────────────────────

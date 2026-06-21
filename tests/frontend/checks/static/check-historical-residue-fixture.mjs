@@ -161,6 +161,19 @@ public class User
     }
   },
   {
+    name: 'legacy role admin account protection',
+    expected: 'legacy sys_user identity field residue detected',
+    files: {
+      'src/backend/Services/UserService.cs': `
+namespace FsusBlog.Server.Services;
+internal sealed class UserService
+{
+    public bool Protect(User user) => user.Role == "admin";
+}
+`
+    }
+  },
+  {
     name: 'legacy admin password reset governance',
     expected: 'legacy admin password reset governance residue detected',
     files: {

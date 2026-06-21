@@ -300,6 +300,11 @@ public partial class UserService(
 
         var user = await _db.Queryable<User>().InSingleAsync(dto.UserId);
         if (user == null) return (false, "用户不存在");
+        if (string.Equals(user.IdentityKind, AnonymousIdentityRuntime.AdminPrincipalKind, StringComparison.Ordinal))
+        {
+            return (false, "管理员主体不通过普通账号状态接口治理");
+        }
+
         if (user.Status == UserStatusDeleted || user.DeletedAt.HasValue) return (false, "已注销账户不可变更状态");
 
         string? effectiveReason = dto.Status == 1 ? (dto.Reason ?? "违反社区规定") : null;
