@@ -35,7 +35,6 @@
     >
       <el-tab-pane label="站点信息" name="site">
         <div class="mt-10 space-y-14 md:space-y-16">
-          <!-- 站点元信息 -->
           <section class="profile-section">
             <header class="mb-12">
               <h3 class="section-title">站点元信息</h3>
@@ -638,7 +637,6 @@ const confirmPageRefresh = async (): Promise<void> => {
 <style scoped>
 @reference "@/assets/main.css";
 
-/* Editorial Blocks */
 .section-title {
   @apply text-[11px] font-bold tracking-normal mb-10 pb-4 border-b border-[var(--fsusblog-panel-border)] text-[var(--fsusblog-text-primary)] normal-case;
   position: relative;

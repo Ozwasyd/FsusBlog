@@ -121,19 +121,19 @@ const props = defineProps<{
 const analytics = computed(() => props.view.authorAnalytics)
 const rumMetrics = computed(() => analytics.value.rumMetrics ?? [])
 
-type MetricRow = Readonly<{
+type MetricRow = {
   label: string
   primary: string
   secondary: readonly string[]
   meta: string
-}>
+}
 
-type DistributionRow = Readonly<{
+type DistributionRow = {
   label: string
   value: string
   ratio: number
   rank: number
-}>
+}
 
 const metrics = computed(() => [
   {
@@ -158,14 +158,14 @@ const metrics = computed(() => [
   }
 ])
 
-const RUM_METRIC_LABELS: Readonly<Record<string, string>> = {
+const RUM_METRIC_LABELS: Record<string, string> = {
   navigation_timing: '页面导航耗时',
   wasm_decode_timing: 'WASM 解码耗时',
   web_vital_cls: '累积布局偏移 (CLS)',
   web_vital_lcp: '最大内容绘制 (LCP)'
 }
 
-const RUM_DISTRIBUTION_LABELS: Readonly<Record<string, string>> = {
+const RUM_DISTRIBUTION_LABELS: Record<string, string> = {
   home: '首页',
   about: '关于页',
   public: '公开页',
