@@ -4,6 +4,50 @@ public static class AntiSpamModerationContract
 {
     public const string DefaultVersion = "fsusblog-moderation-provider-v1";
 
+    public static readonly string[] ForbiddenIdentityFields =
+    [
+        "userId",
+        "user_id",
+        "userid",
+        "username",
+        "userName",
+        "user_name",
+        "email",
+        "ip",
+        "lastIp",
+        "last_ip",
+        "authorId",
+        "author_id",
+        "replyToUserId",
+        "reply_to_user_id",
+        "accountId",
+        "account_id",
+        "publicHandle",
+        "public_handle"
+    ];
+
+    public static readonly string[] AllowedRequestMetadataFields =
+    [
+        "source",
+        "comment_id",
+        "article_id",
+        "comment_depth",
+        "region_policy_version",
+        "author_mode",
+        "anonymous_display_language",
+        "moderation_subject_hash",
+        "credential_level",
+        "reputation_bucket",
+        "account_age_bucket",
+        "anonymous_comments_enabled",
+        "zk_anonymous_enabled",
+        "anonymous_proof_level",
+        "anonymous_credential_level",
+        "anonymous_nullifier_hash",
+        "anonymous_scope",
+        "submitted_time_bucket"
+    ];
+
     public static readonly string[] ForbiddenFinalActionFields =
     [
         "allow",

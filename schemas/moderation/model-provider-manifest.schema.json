@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fsusblog.local/schemas/moderation/model-provider-manifest.schema.json",
+  "title": "FsusBlog Moderation Provider Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "provider_id",
+    "model_profile",
+    "contract_version",
+    "source",
+    "mode"
+  ],
+  "properties": {
+    "schema": {
+      "const": "fsusblog.moderation.provider-manifest.v1"
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "model_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "contract_version": {
+      "const": "fsusblog-moderation-provider-v1"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "mainline-release",
+        "audit-only"
+      ]
+    },
+    "artifact_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "production",
+        "audit-only"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "production"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "const": "mainline-release"
+          },
+          "artifact_path": {
+            "not": {
+              "pattern": "(^|/)legacy/python(/|$)"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source": {
+            "const": "audit-only"
+          }
+        },
+        "required": [
+          "source"
+        ]
+      },
+      "then": {
+        "properties": {
+          "mode": {
+            "const": "audit-only"
+          }
+        }
+      }
+    }
+  ]
+}

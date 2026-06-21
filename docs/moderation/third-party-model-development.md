@@ -124,10 +124,30 @@ FsusBlog 审核链路的优先级固定为：
 
 安全要求：
 
-- 默认不传明文 IP。
-- 默认不传 email、手机号、cookie、session token、JWT、admin step-up proof。
-- `metadata` 不得包含认证凭据。
-- 如果需要 IP/User-Agent 上下文，只传 hash 或低精度匿名信号。
+- `metadata` 是 allowlist，不是任意调试字典。允许字段为：`source`、`comment_id`、`article_id`、`comment_depth`、`region_policy_version`、`author_mode`、`anonymous_display_language`、`moderation_subject_hash`、`credential_level`、`reputation_bucket`、`account_age_bucket`、`anonymous_comments_enabled`、`zk_anonymous_enabled`、`anonymous_proof_level`、`anonymous_credential_level`、`anonymous_nullifier_hash`、`anonymous_scope`、`submitted_time_bucket`。
+- Request、response metadata、样本导出 fixture 和 provider manifest 都不得包含 `userId`、`username`、`email`、`ip`、`lastIp`、`authorId`、`replyToUserId`、`accountId`、`publicHandle` 或这些字段的 snake_case / lower-case 变体。
+- 默认不传明文 IP、email、手机号、cookie、session token、JWT、admin step-up proof。
+- 如果需要匿名上下文，只传 FsusBlog 定义的 hash、proof level、credential level、time bucket 或低精度 region hint。
+
+## Provider Manifest 来源守卫
+
+权威 schema: [`schemas/moderation/model-provider-manifest.schema.json`](../../schemas/moderation/model-provider-manifest.schema.json)
+
+生产 provider manifest 必须声明 `source: "mainline-release"` 与 `mode: "production"`。`FsusAntiSpamModel/legacy/python` 只允许作为迁移审计资料，manifest 必须声明 `source: "audit-only"` 与 `mode: "audit-only"`；audit-only manifest 不能进入生产 provider 缓存、模型 bundle 或发布产物。
+
+示例：
+
+```json
+{
+  "schema": "fsusblog.moderation.provider-manifest.v1",
+  "provider_id": "fsus-antispam",
+  "model_profile": "mainline-release-v1",
+  "contract_version": "fsusblog-moderation-provider-v1",
+  "source": "mainline-release",
+  "artifact_path": "dist/fsus-antispam/model.json",
+  "mode": "production"
+}
+```
 
 ## Response 契约
 

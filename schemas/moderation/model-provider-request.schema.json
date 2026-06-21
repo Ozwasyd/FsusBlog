@@ -10,6 +10,28 @@
     "content_type",
     "text"
   ],
+  "not": {
+    "anyOf": [
+      { "required": ["userId"] },
+      { "required": ["user_id"] },
+      { "required": ["userid"] },
+      { "required": ["username"] },
+      { "required": ["userName"] },
+      { "required": ["user_name"] },
+      { "required": ["email"] },
+      { "required": ["ip"] },
+      { "required": ["lastIp"] },
+      { "required": ["last_ip"] },
+      { "required": ["authorId"] },
+      { "required": ["author_id"] },
+      { "required": ["replyToUserId"] },
+      { "required": ["reply_to_user_id"] },
+      { "required": ["accountId"] },
+      { "required": ["account_id"] },
+      { "required": ["publicHandle"] },
+      { "required": ["public_handle"] }
+    ]
+  },
   "properties": {
     "contract_version": {
       "const": "fsusblog-moderation-provider-v1"
@@ -67,7 +89,26 @@
       "type": "object",
       "maxProperties": 32,
       "propertyNames": {
-        "pattern": "^[A-Za-z0-9_.:-]{1,64}$"
+        "enum": [
+          "source",
+          "comment_id",
+          "article_id",
+          "comment_depth",
+          "region_policy_version",
+          "author_mode",
+          "anonymous_display_language",
+          "moderation_subject_hash",
+          "credential_level",
+          "reputation_bucket",
+          "account_age_bucket",
+          "anonymous_comments_enabled",
+          "zk_anonymous_enabled",
+          "anonymous_proof_level",
+          "anonymous_credential_level",
+          "anonymous_nullifier_hash",
+          "anonymous_scope",
+          "submitted_time_bucket"
+        ]
       },
       "additionalProperties": {
         "type": [

@@ -188,6 +188,63 @@ public sealed class AntiSpamModerationService(
             metadata);
     }
 
+    public static void ValidateProviderRequestJson(string json)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        JsonElement root = document.RootElement;
+        RejectForbiddenIdentityFields(root, "$");
+        if (root.TryGetProperty("metadata", out JsonElement metadata) && metadata.ValueKind == JsonValueKind.Object)
+        {
+            HashSet<string> allowedMetadata = AntiSpamModerationContract.AllowedRequestMetadataFields
+                .Select(NormalizeMetadataKey)
+                .ToHashSet(StringComparer.Ordinal);
+            foreach (JsonProperty property in metadata.EnumerateObject())
+            {
+                string normalizedName = NormalizeMetadataKey(property.Name);
+                if (!allowedMetadata.Contains(normalizedName))
+                {
+                    throw new InvalidOperationException($"provider request metadata contains unsupported field: {property.Name}");
+                }
+            }
+        }
+    }
+
+    private static void RejectForbiddenIdentityFields(JsonElement element, string path)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (JsonProperty property in element.EnumerateObject())
+                {
+                    if (IsForbiddenIdentityField(property.Name))
+                    {
+                        throw new InvalidOperationException($"provider request contains forbidden identity field: {property.Name}");
+                    }
+
+                    RejectForbiddenIdentityFields(property.Value, $"{path}.{property.Name}");
+                }
+
+                break;
+            case JsonValueKind.Array:
+                int index = 0;
+                foreach (JsonElement item in element.EnumerateArray())
+                {
+                    RejectForbiddenIdentityFields(item, $"{path}[{index.ToString(System.Globalization.CultureInfo.InvariantCulture)}]");
+                    index++;
+                }
+
+                break;
+        }
+    }
+
+    private static bool IsForbiddenIdentityField(string key)
+    {
+        string normalized = NormalizeMetadataKey(key);
+        return AntiSpamModerationContract.ForbiddenIdentityFields
+            .Select(NormalizeMetadataKey)
+            .Any(forbidden => string.Equals(normalized, forbidden, StringComparison.Ordinal));
+    }
+
     private static void AddMetadata(IDictionary<string, string> metadata, string key, string? value)
     {
         if (!string.IsNullOrWhiteSpace(value))
@@ -286,6 +343,7 @@ public sealed class AntiSpamModerationService(
             max_evidence_items = 8,
             metadata = request.Metadata
         };
+        ValidateProviderRequestJson(JsonSerializer.Serialize(payload, JsonOptions));
         Stopwatch stopwatch = Stopwatch.StartNew();
         using HttpClient client = httpClientFactory.CreateClient(nameof(AntiSpamModerationService));
         using HttpResponseMessage response = await client.PostAsJsonAsync(endpoint, payload, JsonOptions, cancellationToken).ConfigureAwait(false);

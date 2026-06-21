@@ -20,6 +20,48 @@ const FORBIDDEN_FINAL_ACTION_FIELDS = [
   'action'
 ]
 
+const FORBIDDEN_IDENTITY_FIELDS = [
+  'userId',
+  'user_id',
+  'userid',
+  'username',
+  'userName',
+  'user_name',
+  'email',
+  'ip',
+  'lastIp',
+  'last_ip',
+  'authorId',
+  'author_id',
+  'replyToUserId',
+  'reply_to_user_id',
+  'accountId',
+  'account_id',
+  'publicHandle',
+  'public_handle'
+]
+
+const ALLOWED_REQUEST_METADATA_FIELDS = new Set([
+  'source',
+  'comment_id',
+  'article_id',
+  'comment_depth',
+  'region_policy_version',
+  'author_mode',
+  'anonymous_display_language',
+  'moderation_subject_hash',
+  'credential_level',
+  'reputation_bucket',
+  'account_age_bucket',
+  'anonymous_comments_enabled',
+  'zk_anonymous_enabled',
+  'anonymous_proof_level',
+  'anonymous_credential_level',
+  'anonymous_nullifier_hash',
+  'anonymous_scope',
+  'submitted_time_bucket'
+])
+
 const CATEGORY_IDS = new Set([
   'advertising',
   'contact_lead',
@@ -98,11 +140,64 @@ function sampleRequest(overrides = {}) {
 function validateRequest(value) {
   const errors = []
   if (!value || typeof value !== 'object' || Array.isArray(value)) errors.push('request must be object')
+  collectForbiddenIdentityErrors('request', value, errors)
   if (value.contract_version !== CONTRACT_VERSION) errors.push('request.contract_version mismatch')
   if (typeof value.request_id !== 'string' || value.request_id.length < 8) errors.push('request.request_id invalid')
   if (!['comment', 'article', 'profile', 'message'].includes(value.content_type)) errors.push('request.content_type invalid')
   if (typeof value.text !== 'string') errors.push('request.text must be string')
   if (value.region_hint != null && !/^[A-Z0-9][A-Z0-9-]{1,63}$/.test(value.region_hint)) errors.push('request.region_hint invalid')
+  if (value.metadata != null) {
+    if (!value.metadata || typeof value.metadata !== 'object' || Array.isArray(value.metadata)) {
+      errors.push('request.metadata must be object')
+    } else {
+      for (const key of Object.keys(value.metadata)) {
+        if (!ALLOWED_REQUEST_METADATA_FIELDS.has(key)) errors.push(`request.metadata contains unsupported field ${key}`)
+      }
+    }
+  }
+  return errors
+}
+
+function normalizeFieldName(value) {
+  return String(value).trim().replace(/[-]/g, '_').toLowerCase()
+}
+
+function isForbiddenIdentityField(value) {
+  const normalized = normalizeFieldName(value)
+  return FORBIDDEN_IDENTITY_FIELDS.some(field => normalizeFieldName(field) === normalized)
+}
+
+function collectForbiddenIdentityErrors(path, value, errors) {
+  if (!value || typeof value !== 'object') return
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) collectForbiddenIdentityErrors(`${path}[${index}]`, item, errors)
+    return
+  }
+  for (const [key, child] of Object.entries(value)) {
+    if (isForbiddenIdentityField(key)) errors.push(`${path} contains forbidden identity field ${key}`)
+    collectForbiddenIdentityErrors(`${path}.${key}`, child, errors)
+  }
+}
+
+function validateManifest(value) {
+  const errors = []
+  if (!value || typeof value !== 'object' || Array.isArray(value)) errors.push('manifest must be object')
+  if (value.schema !== 'fsusblog.moderation.provider-manifest.v1') errors.push('manifest.schema mismatch')
+  if (value.contract_version !== CONTRACT_VERSION) errors.push('manifest.contract_version mismatch')
+  if (typeof value.provider_id !== 'string' || value.provider_id.length === 0) errors.push('manifest.provider_id invalid')
+  if (typeof value.model_profile !== 'string' || value.model_profile.length === 0) errors.push('manifest.model_profile invalid')
+  if (!['mainline-release', 'audit-only'].includes(value.source)) errors.push('manifest.source invalid')
+  if (!['production', 'audit-only'].includes(value.mode)) errors.push('manifest.mode invalid')
+  const artifactPath = String(value.artifact_path ?? '').replaceAll('\\', '/').toLowerCase()
+  if (value.mode === 'production' && artifactPath.includes('legacy/python')) {
+    errors.push('production manifest.artifact_path points to legacy/python')
+  }
+  if (value.mode === 'production' && value.source !== 'mainline-release') {
+    errors.push('production manifest.source must be mainline-release')
+  }
+  if (value.source === 'audit-only' && value.mode !== 'audit-only') {
+    errors.push('audit-only manifest cannot be production')
+  }
   return errors
 }
 
@@ -165,7 +260,8 @@ async function assertSchemasAreJson() {
   const files = [
     'schemas/moderation/model-provider-request.schema.json',
     'schemas/moderation/model-provider-result.schema.json',
-    'schemas/moderation/model-provider-error.schema.json'
+    'schemas/moderation/model-provider-error.schema.json',
+    'schemas/moderation/model-provider-manifest.schema.json'
   ]
   for (const file of files) {
     JSON.parse(await readFile(file, 'utf8'))
@@ -270,6 +366,9 @@ async function main() {
   const options = parseArgs(process.argv)
   await assertSchemasAreJson()
   assertNoErrors('sample request validation', validateRequest(sampleRequest()))
+  if (options.manifest) {
+    assertNoErrors('provider manifest validation', validateManifest(JSON.parse(await readFile(String(options.manifest), 'utf8'))))
+  }
 
   const validResult = {
     contract_version: CONTRACT_VERSION,
@@ -304,6 +403,42 @@ async function main() {
   if (!forbiddenErrors.some(error => error.includes('forbidden'))) {
     throw new Error('forbidden final-action response fields were not rejected')
   }
+
+  const identityRequestErrors = validateRequest(sampleRequest({ metadata: { source: 'fsusblog', userId: '42' } }))
+  if (!identityRequestErrors.some(error => error.includes('forbidden identity field userId'))) {
+    throw new Error('forbidden identity request fields were not rejected')
+  }
+
+  const unsupportedMetadataErrors = validateRequest(sampleRequest({ metadata: { source: 'fsusblog', unknown_debug_field: 'x' } }))
+  if (!unsupportedMetadataErrors.some(error => error.includes('unsupported field unknown_debug_field'))) {
+    throw new Error('request metadata allowlist was not enforced')
+  }
+
+  const validManifest = {
+    schema: 'fsusblog.moderation.provider-manifest.v1',
+    provider_id: 'fsus-antispam',
+    model_profile: 'mainline-release-v1',
+    contract_version: CONTRACT_VERSION,
+    source: 'mainline-release',
+    artifact_path: 'dist/fsus-antispam/model.json',
+    mode: 'production'
+  }
+  assertNoErrors('sample manifest validation', validateManifest(validManifest))
+  const legacyManifestErrors = validateManifest({
+    ...validManifest,
+    source: 'audit-only',
+    artifact_path: 'legacy/python/model.pkl',
+    mode: 'production'
+  })
+  if (!legacyManifestErrors.some(error => error.includes('legacy/python')) || !legacyManifestErrors.some(error => error.includes('mainline-release'))) {
+    throw new Error('legacy production manifest was not rejected')
+  }
+  assertNoErrors('audit-only legacy manifest validation', validateManifest({
+    ...validManifest,
+    source: 'audit-only',
+    artifact_path: 'legacy/python/model.pkl',
+    mode: 'audit-only'
+  }))
 
   const unknownCategoryErrors = validateResult({
     ...validResult,

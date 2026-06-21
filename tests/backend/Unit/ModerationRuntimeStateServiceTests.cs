@@ -124,6 +124,46 @@ public sealed class ModerationRuntimeStateServiceTests
         Assert.Equal("mock", service.Current.Model.Provider);
     }
 
+    [Theory]
+    [InlineData("legacy/python/model")]
+    [InlineData("../FsusAntiSpamModel/legacy/python")]
+    [InlineData("unknown-provider-bundle")]
+    public void ReloadModel_WhenProviderSourceIsLegacyOrUnknown_KeepsPreviousSnapshot(string modelProfile)
+    {
+        IConfigurationRoot config = BuildConfig();
+        var service = new ModerationRuntimeStateService(config, new TestWebHostEnvironment("Production"));
+        ModerationRuntimeSnapshot previous = service.Current;
+        config["Moderation:AntiSpamModel:Provider"] = "http-json";
+        config["Moderation:AntiSpamModel:ModelProfile"] = modelProfile;
+        config["Moderation:AntiSpamModel:AllowExternalProvider"] = "true";
+        config["Moderation:AntiSpamModel:ExternalProviderReviewed"] = "true";
+
+        var result = service.ReloadModel("admin");
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("moderation_model_provider_source_invalid", result.Error.Message);
+        Assert.Same(previous, service.Current);
+    }
+
+    [Fact]
+    public void SetModelRuntime_WhenModelProfileIsLegacyProductionSource_RejectsChange()
+    {
+        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Production"));
+        ModerationRuntimeSnapshot previous = service.Current;
+
+        var result = service.SetModelRuntime(
+            enabled: true,
+            provider: "http-json",
+            modelProfile: "legacy/python/audit-baseline",
+            thresholdProfile: null,
+            reason: "unit-test",
+            changedBy: "admin");
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("moderation_model_provider_source_invalid", result.Error.Message);
+        Assert.Same(previous, service.Current);
+    }
+
     [Fact]
     public void RollbackModel_RestoresPreviousModelSnapshot()
     {

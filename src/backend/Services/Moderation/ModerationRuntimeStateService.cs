@@ -271,13 +271,19 @@ public sealed class ModerationRuntimeStateService(
                 return Result<ModerationRuntimeSnapshot>.Failure(ErrorCode.Validation, "moderation_model_provider_invalid");
             }
 
+            string resolvedModelProfile = NormalizeNullable(modelProfile) ?? current.ModelProfile;
+            if (!IsProviderSourceAllowed(configuration, resolvedProvider, resolvedModelProfile))
+            {
+                return Result<ModerationRuntimeSnapshot>.Failure(ErrorCode.Validation, "moderation_model_provider_source_invalid");
+            }
+
             _previousModel = current;
             ModerationModelRuntimeSnapshot nextModel = current with
             {
                 SnapshotId = BuildSnapshotId("model", $"{resolvedProvider}:{enabled?.ToString() ?? "same"}", DateTime.UtcNow),
                 Enabled = enabled ?? current.Enabled,
                 Provider = resolvedProvider,
-                ModelProfile = NormalizeNullable(modelProfile) ?? current.ModelProfile,
+                ModelProfile = resolvedModelProfile,
                 ThresholdProfile = NormalizeNullable(thresholdProfile) ?? current.ThresholdProfile,
                 ConfigChecksum = BuildChecksum($"{enabled}:{resolvedProvider}:{modelProfile}:{thresholdProfile}:{DateTime.UtcNow:O}"),
                 LoadedAtUtc = DateTime.UtcNow,
@@ -377,6 +383,11 @@ public sealed class ModerationRuntimeStateService(
             return Result<ModerationModelRuntimeSnapshot>.Failure(ErrorCode.Validation, "moderation_model_contract_version_required");
         }
 
+        if (!IsProviderSourceAllowed(configuration, snapshot.Provider, snapshot.ModelProfile))
+        {
+            return Result<ModerationModelRuntimeSnapshot>.Failure(ErrorCode.Validation, "moderation_model_provider_source_invalid");
+        }
+
         return Result<ModerationModelRuntimeSnapshot>.Success(snapshot);
     }
 
@@ -426,6 +437,27 @@ public sealed class ModerationRuntimeStateService(
             "KR" => RegionCodes.Korea,
             var value => value.Length is > 0 and <= 64 ? value : RegionCodes.Unknown
         };
+
+    private static bool IsProviderSourceAllowed(IConfiguration configuration, string provider, string modelProfile)
+    {
+        if (provider is AntiSpamModerationProviders.None or AntiSpamModerationProviders.Mock)
+        {
+            return true;
+        }
+
+        string configuredSource = NormalizeNullable(configuration["Moderation:AntiSpamModel:ProviderSource"]) ?? modelProfile;
+        string normalizedSource = configuredSource.Trim().Replace('\\', '/').ToLowerInvariant();
+        if (normalizedSource.Contains("legacy/python", StringComparison.Ordinal)
+            || normalizedSource.Contains("/legacy/", StringComparison.Ordinal)
+            || normalizedSource.Contains("legacy-baseline", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return normalizedSource.StartsWith("mainline-release", StringComparison.Ordinal)
+            || normalizedSource.StartsWith("fsus-antispammodel-mainline", StringComparison.Ordinal)
+            || normalizedSource.StartsWith("fsusantispammodel-mainline", StringComparison.Ordinal);
+    }
 
     private static string NormalizeState(string? value)
         => (value ?? string.Empty).Trim().ToLowerInvariant();

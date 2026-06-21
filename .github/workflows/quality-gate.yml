@@ -51,6 +51,7 @@ jobs:
           node-version: 24.x
       - run: node tools/run-test-matrix.mjs preflight
       - run: node tools/run-test-matrix.mjs validate
+      - run: node tools/moderation/provider-conformance.mjs --provider schema-only
       - run: node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json
       - run: node tools/check-workflow-matrix-sync.mjs .tmp/ci-plan.json .github/workflows/quality-gate.yml
       - run: node tools/run-test-matrix.mjs docs --out docs/testing.generated.md
