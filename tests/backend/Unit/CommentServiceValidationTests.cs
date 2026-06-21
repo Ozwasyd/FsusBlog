@@ -242,9 +242,40 @@ public class CommentServiceValidationTests
         Assert.DoesNotContain("previews.Count < limit", source);
     }
 
+    [Fact]
+    public void PublicReplyReadQueries_DoNotProjectReplyToUserIdForAuthorNames()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Services", "CommentService.cs"));
+        string repliesQuery = ExtractBetween(source, "private async Task<List<ReplyRow>> QueryThreadRepliesAsync", "private static List<SugarParameter> BuildPublicCommentReadParameters");
+        string previewQuery = ExtractBetween(source, "private async Task<Dictionary<long, List<CommentReplyPreviewItemDto>>> QueryThreadRepliesPreviewMapAsync", "private static CommentReplyItemDto MapReplyRow");
+
+        Assert.DoesNotContain("reply_to_user_id", repliesQuery, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ReplyToUserId", repliesQuery, StringComparison.Ordinal);
+        Assert.DoesNotContain("reply_to_user_id", previewQuery, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ReplyToUserId", previewQuery, StringComparison.Ordinal);
+        Assert.DoesNotContain("sys_user", repliesQuery, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("sys_user", previewQuery, StringComparison.OrdinalIgnoreCase);
+
+        Assert.Contains("LEFT JOIN comment pc ON c.reply_to_comment_id = pc.id", repliesQuery, StringComparison.Ordinal);
+        Assert.Contains("LEFT JOIN comment pc ON c.reply_to_comment_id = pc.id", previewQuery, StringComparison.Ordinal);
+        Assert.Contains("pc.public_handle", repliesQuery, StringComparison.Ordinal);
+        Assert.Contains("pc.anonymous_display_name", repliesQuery, StringComparison.Ordinal);
+        Assert.Contains("pc.public_handle", previewQuery, StringComparison.Ordinal);
+        Assert.Contains("pc.anonymous_display_name", previewQuery, StringComparison.Ordinal);
+    }
+
     // Note: DeleteCommentAsync always queries DB first, so no pure validation path to test without DB mock
 
     // ── Private static helpers via reflection ──────────────────────────────────
+
+    private static string ExtractBetween(string source, string start, string end)
+    {
+        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
+        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
+        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
+        return source[startIndex..endIndex];
+    }
 
     private static T InvokePrivateStatic<T>(string methodName, object?[] args)
     {

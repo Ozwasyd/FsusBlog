@@ -1038,7 +1038,6 @@ SELECT
     c.id AS "Id",
     c.parent_id AS "ParentId",
     c.root_id AS "RootId",
-    c.reply_to_user_id AS "ReplyToUserId",
     c.reply_to_comment_id AS "ReplyToCommentId",
     c.content AS "Content",
     c.create_time AS "CreateTime",
@@ -1098,7 +1097,6 @@ WHERE c.article_id = @ArticleId
             int fId = reader.GetOrdinal("Id");
             int fParentId = reader.GetOrdinal("ParentId");
             int fRootId = reader.GetOrdinal("RootId");
-            int fReplyToUserId = reader.GetOrdinal("ReplyToUserId");
             int fReplyToCommentId = reader.GetOrdinal("ReplyToCommentId");
             int fContent = reader.GetOrdinal("Content");
             int fCreateTime = reader.GetOrdinal("CreateTime");
@@ -1122,7 +1120,6 @@ WHERE c.article_id = @ArticleId
                     Id = reader.GetInt64(fId),
                     ParentId = reader.IsDBNull(fParentId) ? null : reader.GetInt64(fParentId),
                     RootId = reader.IsDBNull(fRootId) ? null : reader.GetInt64(fRootId),
-                    ReplyToUserId = reader.IsDBNull(fReplyToUserId) ? null : reader.GetInt32(fReplyToUserId),
                     ReplyToCommentId = reader.IsDBNull(fReplyToCommentId) ? null : reader.GetInt64(fReplyToCommentId),
                     Content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent),
                     CreateTime = reader.GetDateTime(fCreateTime),
@@ -1172,7 +1169,6 @@ SELECT
     x.id AS "Id",
     x.parent_id AS "ParentId",
     x.root_id AS "RootId",
-    x.reply_to_user_id AS "ReplyToUserId",
     x.reply_to_comment_id AS "ReplyToCommentId",
     x.content AS "Content",
     x.create_time AS "CreateTime",
@@ -1193,7 +1189,6 @@ FROM (
         c.id,
         c.parent_id,
         c.root_id,
-        c.reply_to_user_id,
         c.reply_to_comment_id,
         c.content,
         c.create_time,
@@ -1271,7 +1266,6 @@ ORDER BY x.root_id, x.id;
             int fId = reader.GetOrdinal("Id");
             int fParentId = reader.GetOrdinal("ParentId");
             int fRootId = reader.GetOrdinal("RootId");
-            int fReplyToUserId = reader.GetOrdinal("ReplyToUserId");
             int fReplyToCommentId = reader.GetOrdinal("ReplyToCommentId");
             int fContent = reader.GetOrdinal("Content");
             int fCreateTime = reader.GetOrdinal("CreateTime");
@@ -1295,7 +1289,6 @@ ORDER BY x.root_id, x.id;
                     Id = reader.GetInt64(fId),
                     ParentId = reader.IsDBNull(fParentId) ? null : reader.GetInt64(fParentId),
                     RootId = reader.IsDBNull(fRootId) ? null : reader.GetInt64(fRootId),
-                    ReplyToUserId = reader.IsDBNull(fReplyToUserId) ? null : reader.GetInt32(fReplyToUserId),
                     ReplyToCommentId = reader.IsDBNull(fReplyToCommentId) ? null : reader.GetInt64(fReplyToCommentId),
                     Content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent),
                     CreateTime = reader.GetDateTime(fCreateTime),
@@ -1536,7 +1529,6 @@ ORDER BY x.root_id, x.id;
         public long Id { get; init; }
         public long? ParentId { get; init; }
         public long? RootId { get; init; }
-        public int? ReplyToUserId { get; init; }
         public long? ReplyToCommentId { get; init; }
         public string Content { get; init; } = string.Empty;
         public DateTime CreateTime { get; init; }
