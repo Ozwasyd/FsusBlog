@@ -174,6 +174,13 @@ run_residue_check \
   src/backend src/core src/shared src/frontend/src docs tests/backend/Unit tests/frontend/unit tests/frontend/fixtures tools/contracts
 
 run_residue_check \
+  "legacy username account lookup endpoint" \
+  "legacy username account lookup endpoint residue detected" \
+  '[/]auth[/]find[/][{]username[}]|\bGetAccountByUsernameAsync\b' \
+  "" \
+  src/backend src/shared/Contracts/Validation/fsusblog.openapi.json
+
+run_residue_check \
   "legacy password auth runtime contracts" \
   "legacy password auth runtime residue detected" \
   '\b(?:LoginDto|RegisterDto|UpdatePasswordDto)\b|\bRegisterAsync[(][^;\n]*(?:RegisterDto|username|password)|\bLoginAsync[(][^;\n]*(?:LoginDto|username|password)|\bGetByUsernameAsync\b|\bUpdatePasswordAsync[(][^;\n]*|\bAuthUpdatePasswordRequest\b|/auth/update-password\b|\bupdatePassword\b|\bencodeAuthUpdatePasswordRequest\b' \

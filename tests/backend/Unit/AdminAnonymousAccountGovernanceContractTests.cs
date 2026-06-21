@@ -88,6 +88,23 @@ public sealed class AdminAnonymousAccountGovernanceContractTests
     }
 
     [Fact]
+    public void BinaryAuthEndpoints_DoNotExposeUsernameLookupRoute()
+    {
+        string authEndpoints = Read("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+        string applicationPorts = Read("src/backend/Interfaces/UserApplicationPorts.cs");
+        string userPorts = Read("src/backend/Services/UserService.Ports.cs");
+        string openApi = Read("src/shared/Contracts/Validation/fsusblog.openapi.json");
+        string residue = Read("tools/check-historical-residue.sh");
+
+        Assert.DoesNotContain("/auth/find/{username}", authEndpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetAccountByUsernameAsync", authEndpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetAccountByUsernameAsync", applicationPorts, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetAccountByUsernameAsync", userPorts, StringComparison.Ordinal);
+        Assert.DoesNotContain("/api/binary/auth/find/{username}", openApi, StringComparison.Ordinal);
+        Assert.Contains("legacy username account lookup endpoint", residue, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UserApplicationPorts_DoNotCarryLegacyAdminResetPasswordPath()
     {
         foreach (string path in new[]
