@@ -604,6 +604,33 @@ public class VisitLog
   }
 ]
 
+const securityInvariantFixture = {
+  'security/privacy-zk-comment-matrix.yml': `
+requiredCases:
+  - tamper-nullifier-scope-root-revocation-reject
+requiredFields:
+  - tamper-nullifier-hash
+  - tamper-scope
+  - tamper-credential-root
+  - tamper-revocation-root
+`,
+  'security/zk/comment-v2-tamper-cases.manifest.json': `
+{
+  "cases": [
+    {
+      "id": "tamper-nullifier-scope-root-revocation-reject",
+      "fields": [
+        "tamper-nullifier-hash",
+        "tamper-scope",
+        "tamper-credential-root",
+        "tamper-revocation-root"
+      ]
+    }
+  ]
+}
+`
+}
+
 const allowedMaintenanceFixture = {
   'docs/database-migration.md': `
 Legacy migration notes may mention /api/binary/auth/login, AuthLoginRequest, username, password, and sys_user while documenting residue removal.
@@ -661,6 +688,7 @@ function createFixtureRoot(name) {
 
 for (const testCase of violationCases) {
   const fixtureRoot = createFixtureRoot(testCase.name)
+  writeFiles(fixtureRoot, securityInvariantFixture)
   writeFiles(fixtureRoot, testCase.files)
   const result = runChecker(fixtureRoot)
   const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
@@ -673,6 +701,7 @@ for (const testCase of violationCases) {
 }
 
 const allowedRoot = createFixtureRoot('allowed-maintenance')
+writeFiles(allowedRoot, securityInvariantFixture)
 writeFiles(allowedRoot, allowedMaintenanceFixture)
 const allowedResult = runChecker(allowedRoot)
 if (allowedResult.status !== 0) {
