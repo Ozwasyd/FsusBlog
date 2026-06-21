@@ -42,7 +42,7 @@ Use `FsusBlog.Shared.Contracts.Validation.PodSizeCatalog` values as authoritativ
 
 ## 4. Balanced String Budget
 
-- username: 64
+- author display snapshot: `Utf8SliceRef` payload or explicit `AuthorDisplayName` slot only
 - role: 32
 - id/category/action/salt/signature short ids: 64 or 128
 - title/article title: 256

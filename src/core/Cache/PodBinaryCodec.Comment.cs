@@ -3,6 +3,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Shared.Contracts.Primitives;
 using FsusBlog.Shared.Contracts.Validation;
 using System.Buffers;
 using System.Buffers.Binary;
@@ -905,9 +906,9 @@ public static partial class PodBinaryCodec
 
         foreach (CommentQueryCoreModel item in cursor.Data)
         {
-            writer.WritePod(item.Pod);
-            _ = PodProjector.ProjectCommentItem(item.Id, item.CreateTime, item.UserName, item.Content, out ReadOnlyMemory<byte> payload);
-            writer.WriteBytes(payload.Span);
+            CommentItemPod pod = PodProjector.ProjectCommentItem(item.Id, item.CreateTime, item.Author.Mode, item.Author.DisplayName, item.Content, out ReadOnlyMemory<byte> payload);
+            writer.WritePod(pod);
+            writer.WriteBytes(BuildCommentItemPayload(payload, item.Author, null).Span);
         }
     }
 
@@ -932,10 +933,14 @@ public static partial class PodBinaryCodec
                 return false;
             }
 
-            string userName = PodUtf8Codec.FromFixed64(pod.UserName);
             string content = PodProjector.ReadSlice(pod.Content, payloadSpan);
+            if (!TryReadCommentItemAuthors(payloadSpan, pod.Content, out var author, out _))
+            {
+                cursor = default;
+                return false;
+            }
             DateTime createTime = PodTimeCodec.FromUnixMs(pod.CreateTimeUnixMs);
-            data.Add(new CommentQueryCoreModel(pod, pod.Id, content, createTime, userName));
+            data.Add(new CommentQueryCoreModel(pod, pod.Id, content, createTime, author));
         }
 
         cursor = new CoreCursorResult<CommentQueryCoreModel>(data, nextCursor == 0 ? null : nextCursor, hasMore == 1);
@@ -951,22 +956,21 @@ public static partial class PodBinaryCodec
 
         foreach (UserCommentCoreModel item in cursor.Data)
         {
-            writer.WritePod(item.Pod);
-            _ = PodProjector.ProjectUserComment(
+            UserCommentPod pod = PodProjector.ProjectUserComment(
                 item.Id,
                 item.ArticleId,
                 item.CreateTime,
                 item.Content,
                 item.ArticleTitle,
                 item.RootId,
-                item.ReplyToAuthor?.DisplayName,
                 item.ModerationStatus,
                 item.ModerationStatusLabel,
                 item.VisibilityState,
                 item.VisibilityReasonCode,
                 item.IsPubliclyVisible,
                 out ReadOnlyMemory<byte> payload);
-            writer.WriteBytes(payload.Span);
+            writer.WritePod(pod);
+            writer.WriteBytes(BuildCommentItemPayload(payload, item.Author, item.ReplyToAuthor).Span);
         }
     }
 
@@ -997,17 +1001,11 @@ public static partial class PodBinaryCodec
             string visibilityState = PodUtf8Codec.FromFixed32(pod.VisibilityState);
             string visibilityReasonCode = PodUtf8Codec.FromFixed64(pod.VisibilityReasonCode);
             string moderationStatusLabel = PodUtf8Codec.FromFixed64(pod.ModerationStatusLabel);
-            var author = new FsusBlog.Shared.Contracts.Outputs.CommentAuthorViewDto(
-                "public",
-                "未署名用户",
-                "zh-CN",
-                null,
-                null,
-                null);
-            string? replyToDisplayName = NormalizeNullableFixed(PodUtf8Codec.FromFixed64(pod.ReplyToUserName));
-            FsusBlog.Shared.Contracts.Outputs.CommentAuthorViewDto? replyToAuthor = replyToDisplayName is null
-                ? null
-                : new FsusBlog.Shared.Contracts.Outputs.CommentAuthorViewDto("public", replyToDisplayName, "zh-CN", null, null, null);
+            if (!TryReadCommentItemAuthors(payloadSpan, pod.Content, out var author, out var replyToAuthor))
+            {
+                cursor = default;
+                return false;
+            }
             data.Add(new UserCommentCoreModel(
                 pod,
                 pod.Id,
@@ -1029,12 +1027,6 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
-    private static string? NormalizeNullableFixed(string value)
-    {
-        string trimmed = value.Trim();
-        return trimmed.Length == 0 ? null : trimmed;
-    }
-
     public static void WriteCommentThreadCursor(CursorResponse<CommentThreadItemDto> cursor, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
@@ -1049,6 +1041,7 @@ public static partial class PodBinaryCodec
                 ParseLong(item.RootId),
                 item.IsDeleted,
                 item.CreateTime,
+                item.Author.Mode,
                 item.Author.DisplayName,
                 item.Content,
                 item.ReplyCount,
@@ -1063,6 +1056,7 @@ public static partial class PodBinaryCodec
                     ParseLong(reply.Id),
                     reply.IsDeleted,
                     reply.CreateTime,
+                    reply.Author.Mode,
                     reply.Author.DisplayName,
                     reply.ReplyToAuthor?.DisplayName,
                     reply.Content,
@@ -1094,6 +1088,7 @@ public static partial class PodBinaryCodec
                 reply.Depth,
                 reply.IsDeleted,
                 reply.CreateTime,
+                reply.Author.Mode,
                 reply.Author.DisplayName,
                 reply.ReplyToAuthor?.DisplayName,
                 reply.Content,
@@ -1135,7 +1130,74 @@ public static partial class PodBinaryCodec
         writer.Write(payload);
     }
 
+    private static bool TryReadCommentItemAuthors(
+        ReadOnlySpan<byte> payload,
+        Utf8SliceRef content,
+        out CommentAuthorViewDto author,
+        out CommentAuthorViewDto? replyToAuthor)
+    {
+        author = default;
+        replyToAuthor = null;
+        int offset = content.Offset + content.Length;
+        if (offset < 0 ||
+            offset > payload.Length ||
+            !TryReadLengthPrefixedPayload(payload, ref offset, out ReadOnlySpan<byte> authorPayload) ||
+            authorPayload.Length == 0 ||
+            !TryDecodeCommentAuthorView(authorPayload.ToArray(), out CommentAuthorViewCoreModel authorCore))
+        {
+            return false;
+        }
+
+        if (!TryReadLengthPrefixedPayload(payload, ref offset, out ReadOnlySpan<byte> replyPayload) ||
+            offset != payload.Length)
+        {
+            return false;
+        }
+
+        author = FromCoreCommentAuthorView(authorCore);
+        if (replyPayload.Length > 0)
+        {
+            if (!TryDecodeCommentAuthorView(replyPayload.ToArray(), out CommentAuthorViewCoreModel replyCore))
+            {
+                return false;
+            }
+
+            replyToAuthor = FromCoreCommentAuthorView(replyCore);
+        }
+
+        return true;
+    }
+
+    private static bool TryReadLengthPrefixedPayload(ReadOnlySpan<byte> payload, ref int offset, out ReadOnlySpan<byte> value)
+    {
+        value = default;
+        if (offset < 0 || offset + sizeof(int) > payload.Length)
+        {
+            return false;
+        }
+
+        int length = BinaryPrimitives.ReadInt32LittleEndian(payload[offset..]);
+        offset += sizeof(int);
+        if (length < 0 || offset + length > payload.Length)
+        {
+            return false;
+        }
+
+        value = payload.Slice(offset, length);
+        offset += length;
+        return true;
+    }
+
     private static CommentAuthorViewCoreModel ToCoreCommentAuthorView(CommentAuthorViewDto author)
+        => new(
+            author.Mode,
+            author.DisplayName,
+            author.DisplayLanguage,
+            author.Badge,
+            author.ScopeLabel,
+            author.CredentialLevel);
+
+    private static CommentAuthorViewDto FromCoreCommentAuthorView(CommentAuthorViewCoreModel author)
         => new(
             author.Mode,
             author.DisplayName,

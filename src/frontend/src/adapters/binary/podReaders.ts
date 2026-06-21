@@ -1,7 +1,7 @@
 import type { ArticleListItemResponse, FeaturedArticleItem } from '@/api/article';
 import { resolveCommentAuthorView, type CommentAuthorView, type CommentReplyItem, type CommentReplyPreviewItem, type CommentThreadItem } from '@/api/comment';
 import { AppErrorCode, createAppError } from '@/utils/appError';
-import { BinaryReader, readBlobText, readFixedTextNullable, readFixedUtf8, readInt32, readInt64Number, readNullableId64, readIsoDate64, readSliceRef, readSliceText } from './reader';
+import { BinaryReader, readBlobText, readFixedUtf8, readInt32, readInt64Number, readNullableId64, readIsoDate64, readSliceRef, readSliceText } from './reader';
 import { COMMENT_AUTHOR_VIEW_POD_SIZE, COMMENT_REPLY_PREVIEW_ITEM_POD_SIZE, COMMENT_THREAD_ITEM_POD_SIZE, FEATURED_ARTICLE_POD_SIZE, TAG_POD_SIZE } from './types';
 
 type TagViewModel = ArticleListItemResponse['tags'][number];
@@ -162,11 +162,10 @@ function nullableAuthorField(value: string): string | null {
 }
 
 function readCommentCore(pod: Uint8Array, blob: Uint8Array): CommentCore {
-  const replyToUserName = readFixedTextNullable(pod, 116, 64);
-  const content = readStrictSliceText(blob, pod, 180, 'comment_content_slice_invalid');
+  const content = readStrictSliceText(blob, pod, 52, 'comment_content_slice_invalid');
   const author = readRequiredEmbeddedAuthorView(blob, content.nextOffset, 'comment_author_contract_missing');
   const replyToAuthor = readOptionalEmbeddedAuthorView(blob, author.nextOffset, 'comment_reply_author_contract_missing');
-  validateReplyAuthorContract(replyToUserName, replyToAuthor.author, replyToAuthor.nextOffset, blob.byteLength);
+  validateCommentAuthorPayload(replyToAuthor.nextOffset, blob.byteLength);
 
   return {
     id: String(readInt64Number(pod, 0)),
@@ -189,11 +188,10 @@ export function readReplyItem(pod: Uint8Array, blob: Uint8Array): CommentReplyIt
 function readReplyPreviewItemFromReader(reader: BinaryReader): CommentReplyPreviewItem {
   const pod = reader.readSpan(COMMENT_REPLY_PREVIEW_ITEM_POD_SIZE);
   const blob = reader.readBlob();
-  const replyToUserName = readFixedTextNullable(pod, 84, 64);
-  const content = readStrictSliceText(blob, pod, 148, 'comment_preview_content_slice_invalid');
+  const content = readStrictSliceText(blob, pod, 20, 'comment_preview_content_slice_invalid');
   const author = readRequiredEmbeddedAuthorView(blob, content.nextOffset, 'comment_author_contract_missing');
   const replyToAuthor = readOptionalEmbeddedAuthorView(blob, author.nextOffset, 'comment_reply_author_contract_missing');
-  validateReplyAuthorContract(replyToUserName, replyToAuthor.author, replyToAuthor.nextOffset, blob.byteLength);
+  validateCommentAuthorPayload(replyToAuthor.nextOffset, blob.byteLength);
 
   return {
     id: String(readInt64Number(pod, 0)),
@@ -208,12 +206,12 @@ function readReplyPreviewItemFromReader(reader: BinaryReader): CommentReplyPrevi
 export function readThreadItemFromReader(reader: BinaryReader): CommentThreadItem {
   const pod = reader.readSpan(COMMENT_THREAD_ITEM_POD_SIZE);
   const blob = reader.readBlob();
-  const previewReplyCount = pod[193] ?? 0;
+  const previewReplyCount = pod[65] ?? 0;
   const repliesPreview: CommentReplyPreviewItem[] = [];
-  const content = readStrictSliceText(blob, pod, 180, 'comment_content_slice_invalid');
+  const content = readStrictSliceText(blob, pod, 52, 'comment_content_slice_invalid');
   const author = readRequiredEmbeddedAuthorView(blob, content.nextOffset, 'comment_author_contract_missing');
   const replyToAuthor = readOptionalEmbeddedAuthorView(blob, author.nextOffset, 'comment_reply_author_contract_missing');
-  validateReplyAuthorContract(null, replyToAuthor.author, replyToAuthor.nextOffset, blob.byteLength);
+  validateCommentAuthorPayload(replyToAuthor.nextOffset, blob.byteLength);
 
   for (let i = 0; i < previewReplyCount; i++) {
     repliesPreview.push(readReplyPreviewItemFromReader(reader));
@@ -226,27 +224,17 @@ export function readThreadItemFromReader(reader: BinaryReader): CommentThreadIte
     author: author.author!,
     rootId: String(readInt64Number(pod, 16)),
     isDeleted: (pod[40] ?? 0) === 1,
-    replyCount: readInt32(pod, 188),
-    hasMoreReplies: (pod[192] ?? 0) === 1,
+    replyCount: readInt32(pod, 60),
+    hasMoreReplies: (pod[64] ?? 0) === 1,
     repliesPreview
   };
 }
 
-function validateReplyAuthorContract(
-  replyToUserName: string | null,
-  replyToAuthor: CommentAuthorView | null,
+function validateCommentAuthorPayload(
   nextOffset: number,
   blobLength: number
 ): void {
   if (nextOffset !== blobLength) {
     throw createAppError(AppErrorCode.ProtocolFailure, 'comment_author_trailing_payload_invalid');
-  }
-
-  if (replyToUserName && !replyToAuthor) {
-    throw createAppError(AppErrorCode.ProtocolFailure, 'comment_reply_author_contract_missing');
-  }
-
-  if (!replyToUserName && replyToAuthor) {
-    throw createAppError(AppErrorCode.ProtocolFailure, 'comment_reply_author_contract_unexpected');
   }
 }

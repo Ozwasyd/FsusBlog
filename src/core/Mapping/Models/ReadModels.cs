@@ -56,7 +56,12 @@ public readonly record struct FeaturedArticleCoreModel(
     DateTime CreateTime,
     ArticleCategoryCoreModel Category);
 
-public readonly record struct CommentQueryCoreModel(CommentItemPod Pod, long Id, string Content, DateTime CreateTime, string UserName);
+public readonly record struct CommentQueryCoreModel(
+    CommentItemPod Pod,
+    long Id,
+    string Content,
+    DateTime CreateTime,
+    FsusBlog.Shared.Contracts.Outputs.CommentAuthorViewDto Author);
 
 public readonly record struct UserCommentCoreModel(
     UserCommentPod Pod,

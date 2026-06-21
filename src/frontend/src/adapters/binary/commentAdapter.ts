@@ -11,7 +11,7 @@ import type {
 } from '@/api/comment';
 import { resolveCommentAuthorView } from '@/api/comment';
 import { AppErrorCode, createAppError } from '@/utils/appError';
-import { BinaryReader, readByte, readCountChecked, readFixedTextNullable, readFixedUtf8, readInt32, readInt64Number, readNullableId64, readIsoDate64, readBlobText, readSliceRef, readSliceText } from './reader';
+import { BinaryReader, readByte, readCountChecked, readFixedUtf8, readInt32, readInt64Number, readNullableId64, readIsoDate64, readBlobText, readSliceRef, readSliceText } from './reader';
 import { readCursorEnvelope } from './envelopeReaders';
 import { readReplyItem, readThreadItemFromReader } from './podReaders';
 import {
@@ -209,23 +209,94 @@ export function mapUserCommentCursorFromPodPayload(payload: Uint8Array): CursorR
         content: readBlobText(pod, blob, 20),
         articleTitle: readFixedUtf8(pod, 28, 256),
         rootId: readNullableId64(pod, 284),
-        author: resolveCommentAuthorView({ author: { mode: 'public', displayName: '未署名用户', displayLanguage: 'zh-CN', badge: null, scopeLabel: null, credentialLevel: null } }),
-        replyToAuthor: (() => {
-          const displayName = readFixedTextNullable(pod, 292, 64);
-          return displayName
-            ? resolveCommentAuthorView({ author: { mode: 'public', displayName, displayLanguage: 'zh-CN', badge: null, scopeLabel: null, credentialLevel: null } })
-            : null;
-        })(),
-        moderationStatus: readInt32(pod, 356),
-        isPubliclyVisible: readByte(pod, 360) === 1,
-        visibilityState: readFixedUtf8(pod, 364, 32),
-        visibilityReasonCode: readFixedUtf8(pod, 396, 64),
-        moderationStatusLabel: readFixedUtf8(pod, 460, 64)
+        ...readUserCommentAuthors(pod, blob),
+        moderationStatus: readInt32(pod, 292),
+        isPubliclyVisible: readByte(pod, 296) === 1,
+        visibilityState: readFixedUtf8(pod, 300, 32),
+        visibilityReasonCode: readFixedUtf8(pod, 332, 64),
+        moderationStatusLabel: readFixedUtf8(pod, 396, 64)
       };
     },
     'user_comment_cursor_count_invalid',
     'user_comment_cursor_trailing_payload_invalid'
   );
+}
+
+function readUserCommentAuthors(pod: Uint8Array, blob: Uint8Array): Pick<UserCommentResponse, 'author' | 'replyToAuthor'> {
+  const content = readSliceRef(pod, 20);
+  let offset = content.offset + content.length;
+  const authorPayload = readEmbeddedPayload(blob, offset, 'user_comment_author_contract_missing');
+  offset = authorPayload.nextOffset;
+  if (authorPayload.payload.byteLength === 0) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'user_comment_author_contract_missing');
+  }
+
+  const replyPayload = readEmbeddedPayload(blob, offset, 'user_comment_reply_author_contract_missing');
+  if (replyPayload.nextOffset !== blob.byteLength) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'user_comment_author_trailing_payload_invalid');
+  }
+
+  return {
+    author: readCommentAuthorViewPayload(authorPayload.payload, 'user_comment_author_contract_missing'),
+    replyToAuthor: replyPayload.payload.byteLength === 0
+      ? null
+      : readCommentAuthorViewPayload(replyPayload.payload, 'user_comment_reply_author_contract_missing')
+  };
+}
+
+function readEmbeddedPayload(blob: Uint8Array, offset: number, errorCode: string): { payload: Uint8Array; nextOffset: number } {
+  if (offset < 0 || offset + 4 > blob.byteLength) {
+    throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
+  }
+
+  const length = readInt32(blob, offset);
+  const payloadOffset = offset + 4;
+  const nextOffset = payloadOffset + length;
+  if (length < 0 || nextOffset > blob.byteLength) {
+    throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
+  }
+
+  return { payload: blob.subarray(payloadOffset, nextOffset), nextOffset };
+}
+
+function readCommentAuthorViewPayload(payload: Uint8Array, errorCode: string): UserCommentResponse['author'] {
+  const reader = new BinaryReader(payload);
+  const pod = reader.readSpan(36);
+  const blob = reader.readBlob();
+  if (reader.remaining() !== 0) {
+    throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
+  }
+
+  return resolveCommentAuthorView({
+    author: {
+      mode: decodeEmbeddedCommentAuthorMode(readByte(pod, 0), errorCode),
+      displayName: readSliceText(blob, readSliceRef(pod, 4)),
+      displayLanguage: readSliceText(blob, readSliceRef(pod, 12)) === 'en' ? 'en' : 'zh-CN',
+      badge: nullableAuthorField(readSliceText(blob, readSliceRef(pod, 20))),
+      scopeLabel: nullableAuthorField(readSliceText(blob, readSliceRef(pod, 28))),
+      credentialLevel: decodeEmbeddedCommentCredentialLevel(readByte(pod, 1), errorCode)
+    }
+  });
+}
+
+function decodeEmbeddedCommentAuthorMode(raw: number, errorCode: string): UserCommentResponse['author']['mode'] {
+  if (raw === 0 || raw === 1) return 'anonymous';
+  if (raw === 3) return 'public';
+  if (raw === 4) return 'zk_anonymous';
+  throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
+}
+
+function decodeEmbeddedCommentCredentialLevel(raw: number, errorCode: string): string | null {
+  if (raw === 0) return null;
+  if (raw === 1) return 'basic';
+  if (raw === 2) return 'trusted';
+  if (raw === 3) return 'strong_anonymous';
+  throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
+}
+
+function nullableAuthorField(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function readBooleanByte(pod: Uint8Array, offset: number, errorCode: string): boolean {

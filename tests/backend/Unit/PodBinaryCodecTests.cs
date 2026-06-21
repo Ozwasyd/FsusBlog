@@ -2015,8 +2015,9 @@ public class PodBinaryCodecCommentTests
     private static CommentQueryCoreModel MakeCommentItem(long id = 1, string content = "hello", string user = "Alice")
     {
         var createTime = new DateTime(2024, 4, 1, 0, 0, 0, DateTimeKind.Utc);
-        var pod = PodProjector.ProjectCommentItem(id, createTime, user, content, out _);
-        return new CommentQueryCoreModel(pod, id, content, createTime, user);
+        var author = new CommentAuthorViewDto("public", user, "zh-CN", null, null, null);
+        var pod = PodProjector.ProjectCommentItem(id, createTime, author.Mode, author.DisplayName, content, out _);
+        return new CommentQueryCoreModel(pod, id, content, createTime, author);
     }
 
     private static UserCommentCoreModel MakeUserComment(
@@ -2036,7 +2037,6 @@ public class PodBinaryCodecCommentTests
             createTime,
             content,
             title,
-            null,
             null,
             moderationStatus,
             moderationStatusLabel,

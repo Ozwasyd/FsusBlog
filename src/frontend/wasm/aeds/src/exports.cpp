@@ -20,8 +20,8 @@ thread_local std::string g_last_html{};
 constexpr std::size_t kArticleListRecordSize = 56u;
 constexpr std::size_t kCompactTagRecordSize = 12u;
 constexpr std::size_t kTagPodSize = 132u;
-constexpr std::size_t kCommentItemPodSize = 88u;
-constexpr std::size_t kUserCommentPodSize = 524u;
+constexpr std::size_t kCommentItemPodSize = 24u;
+constexpr std::size_t kUserCommentPodSize = 460u;
 constexpr std::size_t kSiteStatsPodSize = 80u;
 constexpr std::size_t kCompactPopularRecordSize = 16u;
 constexpr std::size_t kRecentCommentRecordSize = 32u;
@@ -358,7 +358,7 @@ int render_comment_cursor_html(const std::uint8_t* payload, std::uint32_t payloa
 
     std::int32_t content_offset = 0;
     std::int32_t content_len = 0;
-    const std::size_t content_ref_offset = include_article ? 20u : 80u;
+    const std::size_t content_ref_offset = include_article ? 20u : 16u;
     std::memcpy(&content_offset, pod + content_ref_offset, sizeof(std::int32_t));
     std::memcpy(&content_len, pod + content_ref_offset + 4u, sizeof(std::int32_t));
 

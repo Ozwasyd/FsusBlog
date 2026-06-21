@@ -40,8 +40,8 @@ public sealed class CommentCoreGateway(CommentService service, CommentCoreQueryC
         CursorResponse<CommentQueryResultDto> source = await service.GetCommentsByCursorAsync(articleId, request);
         return CursorInterop.ToCore(source, item =>
         {
-            var pod = PodProjector.ProjectCommentItem(item.Id, item.CreateTime, item.UserName, item.Content, out _);
-            return new CommentQueryCoreModel(pod, item.Id, item.Content, item.CreateTime, item.UserName);
+            var pod = PodProjector.ProjectCommentItem(item.Id, item.CreateTime, item.Author.Mode, item.Author.DisplayName, item.Content, out _);
+            return new CommentQueryCoreModel(pod, item.Id, item.Content, item.CreateTime, item.Author);
         }, CursorCodec);
     }
 

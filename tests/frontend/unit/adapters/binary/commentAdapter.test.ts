@@ -472,7 +472,7 @@ describe('mapUserCommentCursorFromPodPayload', () => {
   })
 
   it('reads a user comment entry', () => {
-    expect(USER_COMMENT_POD_SIZE).toBe(524)
+    expect(USER_COMMENT_POD_SIZE).toBe(460)
 
     const pod = new Uint8Array(USER_COMMENT_POD_SIZE)
     writeInt64(pod, 0, 77n)       // id
@@ -485,17 +485,16 @@ describe('mapUserCommentCursorFromPodPayload', () => {
     writeUtf8(pod, 28, 'Article Title')
     // rootId at 284
     writeInt64(pod, 284, 77n)
-    // legacy reply author display slot at 292 (64 bytes) → leave empty → null
-    writeInt32(pod, 356, 2)         // moderationStatus = Rejected
-    writeByte(pod, 360, 0)          // isPubliclyVisible = false
-    writeUtf8(pod, 364, 'rejected')
-    writeUtf8(pod, 396, 'rejected_by_moderation')
-    writeUtf8(pod, 460, '未通过审核')
+    writeInt32(pod, 292, 2)         // moderationStatus = Rejected
+    writeByte(pod, 296, 0)          // isPubliclyVisible = false
+    writeUtf8(pod, 300, 'rejected')
+    writeUtf8(pod, 332, 'rejected_by_moderation')
+    writeUtf8(pod, 396, '未通过审核')
 
     const payload = buildPayload(
       int64Buf(0n), byteBuf(0), int32Buf(1),
       pod,
-      blobBuf('text') // blob with 4 bytes
+      commentItemBlob('text', 'Alice')
     )
     const result = mapUserCommentCursorFromPodPayload(payload)
     expect(result.data).toHaveLength(1)
@@ -505,7 +504,7 @@ describe('mapUserCommentCursorFromPodPayload', () => {
     expect(c.content).toBe('text')
     expect(c.articleTitle).toBe('Article Title')
     expect(c.rootId).toBe('77')
-    expect(c.author.displayName).toBe('未署名用户')
+    expect(c.author.displayName).toBe('Alice')
     expect(c.replyToAuthor).toBeNull()
     expect(c.moderationStatus).toBe(2)
     expect(c.isPubliclyVisible).toBe(false)

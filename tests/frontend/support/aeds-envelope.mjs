@@ -63,7 +63,7 @@ const MFA_SETUP_VERIFY_POD_SIZE = 8
 const MFA_RECOVERY_CODE_POD_SIZE = 64
 const MFA_PROFILE_POD_SIZE = 12
 const MFA_CHALLENGE_RESULT_POD_SIZE = 296
-const USER_COMMENT_POD_SIZE = 524
+const USER_COMMENT_POD_SIZE = 460
 const CONVERSATION_MESSAGE_PREVIEW_POD_SIZE = 32
 const CONVERSATION_LIST_ITEM_POD_SIZE = 76
 const CONVERSATION_MESSAGE_POD_SIZE = 48
@@ -1472,15 +1472,13 @@ function decodeUserCommentCursor(payload) {
     const pod = reader.readSpan(USER_COMMENT_POD_SIZE)
     const blob = reader.readBlob()
     const view = new DataView(pod.buffer, pod.byteOffset, pod.byteLength)
-    const replyToUserName = readFixedUtf8(pod, 292, 64).trim()
     data.push({
       id: readInt64String(pod, 0),
       articleId: readInt32(view, 8),
       createTime: new Date(readInt64Number(view, 12)).toISOString(),
       content: readBlobText(pod, blob, 20),
       articleTitle: readFixedUtf8(pod, 28, 256),
-      rootId: readInt64String(pod, 284) === '0' ? null : readInt64String(pod, 284),
-      replyToUserName: replyToUserName.length > 0 ? replyToUserName : null
+      rootId: readInt64String(pod, 284) === '0' ? null : readInt64String(pod, 284)
     })
   }
 

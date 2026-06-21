@@ -308,7 +308,7 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 | `CommentPolicySnapshot` (`164`) | `CommentPolicySnapshotPod` + UTF-8 blob | `GET /api/binary/comment/policy` 响应；评论 composer 渲染前读取 anonymous/public/ZK 开关、ZK-Prod readiness、默认 author mode、支持语言 `zh-CN` / `en` 与策略 `snapshotHash` |
 | `CommentPolicyUpdateRequest` (`165`) | `CommentPolicyUpdateRequestPod` + UTF-8 blob | admin 匿名评论策略 patch；bool 字段用 `Has*` flag 表示未设置 |
 | `CommentCreateV2Request` (`166`) | `CommentCreateV2RequestPod` + UTF-8/blob payload | 新评论创建请求，包含 article/reply 上下文、author mode、public opt-in、anonymous scope、语言提示、普通 proof token、ZK proof bytes 和 content；不再把 ProofToken 当作 credential commitment/root 占位 |
-| `CommentAuthorView` (`167`) | `CommentAuthorViewPod` + UTF-8 blob | 评论读取侧作者投影：mode、display name、display language、badge/status/scope label、credential level；评论 cursor item blob 必须内嵌该 payload，客户端不得从 `userName` 伪造 author |
+| `CommentAuthorView` (`167`) | `CommentAuthorViewPod` + UTF-8 blob | 评论读取侧作者投影：mode、display name、display language、badge/status/scope label、credential level；评论 cursor item blob 必须内嵌该 payload，客户端不得从 legacy identity string 伪造 author |
 | `AnonymousCredentialIssueRequest` (`177`) | `AnonymousCredentialIssueRequestPod` + shared blob | 匿名凭证签发请求契约：epoch、`fsus.anonymous.comment.v2` circuit id、credential level、circuit-native credential request、client nonce |
 | `AnonymousCredentialIssueResponse` (`178`) | `AnonymousCredentialIssueResponsePod` + shared blob | 匿名凭证签发响应契约：circuit-native issuer signature、issuer public key id、credential epoch、expires_at、credential level；不再返回 SHA256 commitment |
 | `AnonymousCredentialRootSnapshot` (`179`) | `AnonymousCredentialRootSnapshotPod` + shared blob | 匿名凭证 root/verifying-key snapshot：epoch、root expiry/grace expiry、ZK/verifier flags、circuit id、verifying key hash、issuer public key hash、credential/revocation root |
@@ -712,7 +712,7 @@ Submit 同样受 `read_proof` 专用限流保护。`counted=true` 会写入 `Rea
 }
 ```
 
-`CommentArticleCursor` 与 `CommentThreadReplyCursor` 的二进制 item payload 保持原 content slice 起始语义，随后追加两个 `int32 length + CommentAuthorView payload` 段：第一个为必备 `author`，第二个为可空 `replyToAuthor`。缺少必备 author 或 payload 尾部残留数据都必须被前端 adapter 视为 `ProtocolFailure`。POD 内部兼容槽位不得重新映射为公开 DTO 字段。
+`CommentArticleCursor`、`CommentThreadReplyCursor` 与 `CommentUserCursor` 的二进制 item payload 先保存 content slice，随后追加两个 `int32 length + CommentAuthorView payload` 段：第一个为必备 `author`，第二个为可空 `replyToAuthor`。固定 POD 不再携带 author display string；缺少必备 author 或 payload 尾部残留数据都必须被前端 adapter 视为 `ProtocolFailure`。
 
 公开评论读取会按 viewer IP 解析出的地区过滤 `comment_region_compliance.blocked_regions`，并把 viewer region 纳入 `CommentCursorFrame` cache identity。`CN-MAINLAND` 严格策略只对 `CN-MAINLAND` viewer 隐藏，不会自动套用到 `CN-HK`、`CN-MO`、`CN-TW`；viewer region 解析为 `UNKNOWN` 时，任意非空 `blocked_regions` 都会被保守隐藏。评论提交同样按 request IP 解析 submit region：submit region 为 `CN-MAINLAND` 且命中大陆严格类别时直接返回 validation error；其他地区可发布但会记录对应 blocked regions；submit region 为 `UNKNOWN` 时评论进入 `Pending`，同时标记 `hide_until_reviewed=true`。
 
@@ -1074,7 +1074,7 @@ SiteStatsPod、共享 UTF-8 blob、popular article records、recent comment reco
 
 服务端对外 query model 是 `AdminStatsQueryDto`：`Overview` 对应统计摘要与热门文章，`RecentComments` 对应最近评论，`Regions` 对应地区分布。前端 dashboard 从单个 `AdminStats` frame 派生三个视图区块；`/api/binary/stats/recent-comments` 与 `/api/binary/stats/regions` 仅保留为兼容窄读入口。
 
-`RecentComments` 只使用 comment 行内作者快照，不连接 `sys_user`，字段为 `authorDisplayName`、`authorMode`、`authorBadge`、`authorScopeLabel`、`credentialLevel`、`content`、`createTime`；不得恢复 `userId/userName` 账号作者字段。
+`RecentComments` 只使用 comment 行内作者快照，不连接 `sys_user`，字段为 `authorDisplayName`、`authorMode`、`authorBadge`、`authorScopeLabel`、`credentialLevel`、`content`、`createTime`；不得恢复账号作者标识或 legacy display 字段。
 
 `Overview.Summary` 的阅读字段为匿名安全口径：
 

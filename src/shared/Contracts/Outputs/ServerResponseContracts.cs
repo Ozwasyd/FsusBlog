@@ -363,7 +363,7 @@ public sealed record class PageContentAdminDto
     public string? Content { get; init; }
 }
 
-public readonly record struct CommentItemDto(string Id, string Content, DateTime CreateTime, string UserName);
+public readonly record struct CommentItemDto(string Id, string Content, DateTime CreateTime, CommentAuthorViewDto Author);
 public readonly record struct CommentListResponseDto(List<CommentItemDto> Data, string? NextCursor, bool HasMore);
 
 public readonly record struct CommentAuthorViewDto(
@@ -405,8 +405,8 @@ public readonly record struct CommentThreadItemDto(
     bool HasMoreReplies,
     List<CommentReplyPreviewItemDto> RepliesPreview);
 
-public readonly record struct CommentQueryResultDto(long Id, string Content, DateTime CreateTime, string UserName);
-public readonly record struct CommentUserQueryResult(string Username);
+public readonly record struct CommentQueryResultDto(long Id, string Content, DateTime CreateTime, CommentAuthorViewDto Author);
+public readonly record struct CommentUserQueryResult(string DisplayName);
 public readonly record struct CommentDeleteQueryResult(int UserId, int ArticleId, string Content, string ArticleTitle);
 
 public sealed record class StatsSummaryDto

@@ -9,7 +9,6 @@ public readonly struct CommentItemPod
 {
     public readonly long Id;
     public readonly long CreateTimeUnixMs;
-    public readonly Utf8Fixed64 UserName;
     public readonly Utf8SliceRef Content;
 }
 
@@ -22,7 +21,6 @@ public readonly struct UserCommentPod
     public readonly Utf8SliceRef Content;
     public readonly Utf8Fixed256 ArticleTitle;
     public readonly long RootId;
-    public readonly Utf8Fixed64 ReplyToUserName;
     public readonly int ModerationStatus;
     public readonly byte IsPubliclyVisible;
     public readonly byte Reserved0;
@@ -266,8 +264,6 @@ public readonly struct CommentThreadItemPod
     public readonly byte HasReplyToUserId;
     public readonly ushort Reserved;
     public readonly long CreateTimeUnixMs;
-    public readonly Utf8Fixed64 UserName;
-    public readonly Utf8Fixed64 ReplyToUserName;
     public readonly Utf8SliceRef Content;
     public readonly int ReplyCount;
     public readonly byte HasMoreReplies;
@@ -283,8 +279,6 @@ public readonly struct CommentReplyPreviewItemPod
     public readonly byte Reserved0;
     public readonly ushort Reserved1;
     public readonly long CreateTimeUnixMs;
-    public readonly Utf8Fixed64 UserName;
-    public readonly Utf8Fixed64 ReplyToUserName;
     public readonly Utf8SliceRef Content;
 }
 
@@ -301,8 +295,6 @@ public readonly struct CommentReplyItemPod
     public readonly byte HasReplyToUserId;
     public readonly ushort Reserved;
     public readonly long CreateTimeUnixMs;
-    public readonly Utf8Fixed64 UserName;
-    public readonly Utf8Fixed64 ReplyToUserName;
     public readonly Utf8SliceRef Content;
 }
 

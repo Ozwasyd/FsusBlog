@@ -73,8 +73,9 @@ public sealed class PodProjectorCommentPreviewTests
             id: 42,
             isDeleted: false,
             createTime: createTime,
-            userName: "Bob",
-            replyToUserName: "Alice",
+            authorMode: "public",
+            displayName: "Bob",
+            replyToDisplayName: "Alice",
             content: "Reply text",
             out ReadOnlyMemory<byte> payload);
 
@@ -90,7 +91,7 @@ public sealed class PodProjectorCommentPreviewTests
     {
         var pod = PodProjector.ProjectCommentReplyPreviewItem(
             id: 1, isDeleted: true, createTime: DateTime.UtcNow,
-            userName: "User", replyToUserName: null, content: "test",
+            authorMode: "public", displayName: "User", replyToDisplayName: null, content: "test",
             out _);
 
         Assert.Equal((byte)1, pod.IsDeleted);

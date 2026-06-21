@@ -142,12 +142,11 @@ public class PodProjectorTests
         var createTime = new DateTime(2024, 5, 20, 0, 0, 0, DateTimeKind.Utc);
         var pod = PodProjector.ProjectCommentItem(
             id: 123L, createTime: createTime,
-            userName: "alice", content: "Nice post!",
+            authorMode: "public", displayName: "alice", content: "Nice post!",
             payload: out var payload);
 
         Assert.Equal(123L, pod.Id);
         Assert.Equal(PodTimeCodec.ToUnixMs(createTime), pod.CreateTimeUnixMs);
-        Assert.Equal("alice", PodUtf8Codec.FromFixed64(pod.UserName));
         Assert.Equal("Nice post!", PodProjector.ReadSlice(pod.Content, payload.Span));
     }
 
@@ -162,7 +161,6 @@ public class PodProjectorTests
             content: "My comment",
             articleTitle: "Article Title",
             rootId: 50L,
-            replyToUserName: "bob",
             moderationStatus: 0,
             moderationStatusLabel: "待审核，仅自己可见",
             visibilityState: "pending",
@@ -175,7 +173,6 @@ public class PodProjectorTests
         Assert.Equal(50L, pod.RootId);
         Assert.Equal("My comment", PodProjector.ReadSlice(pod.Content, payload.Span));
         Assert.Equal("Article Title", PodUtf8Codec.FromFixed256(pod.ArticleTitle));
-        Assert.Equal("bob", PodUtf8Codec.FromFixed64(pod.ReplyToUserName));
         Assert.Equal(0, pod.ModerationStatus);
         Assert.Equal((byte)0, pod.IsPubliclyVisible);
         Assert.Equal("pending", PodUtf8Codec.FromFixed32(pod.VisibilityState));
@@ -187,7 +184,7 @@ public class PodProjectorTests
     public void ProjectUserComment_NullRootId_BecomesZero()
     {
         var pod = PodProjector.ProjectUserComment(
-            1L, 1, DateTime.UtcNow, "c", "t", rootId: null, replyToUserName: null,
+            1L, 1, DateTime.UtcNow, "c", "t", rootId: null,
             moderationStatus: 1,
             moderationStatusLabel: "已公开",
             visibilityState: "public",
@@ -207,7 +204,7 @@ public class PodProjectorTests
         var createTime = new DateTime(2024, 8, 1, 0, 0, 0, DateTimeKind.Utc);
         var pod = PodProjector.ProjectCommentThreadItem(
             id: 1L, rootId: 2L, isDeleted: true,
-            createTime: createTime, userName: "charlie",
+            createTime: createTime, authorMode: "public", displayName: "charlie",
             content: "deleted comment",
             replyCount: 5, hasMoreReplies: true, previewReplyCount: 3,
             payload: out var payload);
@@ -226,7 +223,7 @@ public class PodProjectorTests
     {
         var pod = PodProjector.ProjectCommentThreadItem(
             1L, 2L, isDeleted: false,
-            DateTime.UtcNow, "user", "content",
+            DateTime.UtcNow, "public", "user", "content",
             replyCount: 0, hasMoreReplies: false, previewReplyCount: 0, out _);
 
         Assert.Equal((byte)0, pod.IsDeleted);
@@ -237,7 +234,7 @@ public class PodProjectorTests
     public void ProjectCommentThreadItem_PreviewReplyCount_ClampedAt255()
     {
         var pod = PodProjector.ProjectCommentThreadItem(
-            1L, 1L, false, DateTime.UtcNow, "u", "c",
+            1L, 1L, false, DateTime.UtcNow, "public", "u", "c",
             0, false, previewReplyCount: 999, out _);
 
         Assert.Equal((byte)255, pod.PreviewReplyCount);
@@ -254,8 +251,9 @@ public class PodProjectorTests
             replyToUserId: 7, replyToCommentId: 99L,
             depth: 2, isDeleted: false,
             createTime: createTime,
-            userName: "dave",
-            replyToUserName: "eve",
+            authorMode: "public",
+            displayName: "dave",
+            replyToDisplayName: "eve",
             content: "reply text",
             payload: out var payload);
 
@@ -267,8 +265,6 @@ public class PodProjectorTests
         Assert.Equal(2, pod.Depth);
         Assert.Equal((byte)0, pod.IsDeleted);
         Assert.Equal((byte)1, pod.HasReplyToUserId);
-        Assert.Equal("dave", PodUtf8Codec.FromFixed64(pod.UserName));
-        Assert.Equal("eve", PodUtf8Codec.FromFixed64(pod.ReplyToUserName));
         Assert.Equal("reply text", PodProjector.ReadSlice(pod.Content, payload.Span));
     }
 
@@ -279,7 +275,7 @@ public class PodProjectorTests
             1L, parentId: null, rootId: 1L,
             replyToUserId: null, replyToCommentId: null,
             depth: 0, isDeleted: false,
-            DateTime.UtcNow, "u", replyToUserName: null, "c", out _);
+            DateTime.UtcNow, "public", "u", replyToDisplayName: null, "c", out _);
 
         Assert.Equal(0L, pod.ParentId);
         Assert.Equal(0, pod.ReplyToUserId);
@@ -363,7 +359,7 @@ public class PodProjectorTests
     [Fact]
     public void ReadSlice_ByteArrayOverload_SameAsSpan()
     {
-        var pod = PodProjector.ProjectCommentItem(1L, DateTime.UtcNow, "u", "hello", out var payload);
+        var pod = PodProjector.ProjectCommentItem(1L, DateTime.UtcNow, "public", "u", "hello", out var payload);
         byte[] arr = payload.ToArray();
 
         string fromSpan = PodProjector.ReadSlice(pod.Content, payload.Span);

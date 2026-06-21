@@ -45,7 +45,6 @@ public static class CommentProjection
             model.Content,
             model.ArticleTitle,
             model.RootId,
-            model.ReplyToAuthor?.DisplayName,
             model.ModerationStatus,
             visibility.Label,
             visibility.State,

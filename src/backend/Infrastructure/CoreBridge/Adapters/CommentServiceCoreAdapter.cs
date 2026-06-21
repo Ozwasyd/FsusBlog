@@ -23,7 +23,7 @@ public sealed class CommentServiceCoreAdapter(ICommentCoreService core) : IComme
         }
 
         return CursorInterop.FromCore(result.Value,
-            item => new CommentQueryResultDto(item.Id, item.Content, item.CreateTime, item.UserName),
+            item => new CommentQueryResultDto(item.Id, item.Content, item.CreateTime, item.Author),
             CursorCodec);
     }
 

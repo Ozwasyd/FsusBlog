@@ -110,7 +110,7 @@ public static class PodProjector
         return Cast<MutableFeaturedArticlePod, FeaturedArticlePod>(tmp);
     }
 
-    public static CommentItemPod ProjectCommentItem(long id, DateTime createTime, string userName, string content, out ReadOnlyMemory<byte> payload)
+    public static CommentItemPod ProjectCommentItem(long id, DateTime createTime, string authorMode, string displayName, string content, out ReadOnlyMemory<byte> payload)
     {
         var bytes = new ArrayBufferWriter<byte>(256);
         Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
@@ -119,13 +119,16 @@ public static class PodProjector
         {
             Id = id,
             CreateTimeUnixMs = PodTimeCodec.ToUnixMs(createTime),
-            UserName = PodUtf8Codec.ToFixed64(userName),
             Content = contentSlice
         };
 
         payload = bytes.WrittenMemory;
         return Cast<MutableCommentItemPod, CommentItemPod>(tmp);
     }
+
+    [Obsolete("Use ProjectCommentItem(id, createTime, authorMode, displayName, content, out payload).")]
+    public static CommentItemPod ProjectCommentItem(long id, DateTime createTime, string userName, string content, out ReadOnlyMemory<byte> payload)
+        => ProjectCommentItem(id, createTime, "public", userName, content, out payload);
 
     public static UserCommentPod ProjectUserComment(
         long id,
@@ -134,7 +137,6 @@ public static class PodProjector
         string content,
         string articleTitle,
         long? rootId,
-        string? replyToUserName,
         int moderationStatus,
         string moderationStatusLabel,
         string visibilityState,
@@ -153,7 +155,6 @@ public static class PodProjector
             Content = contentSlice,
             ArticleTitle = PodUtf8Codec.ToFixed256(articleTitle),
             RootId = rootId ?? 0,
-            ReplyToUserName = PodUtf8Codec.ToFixed64(replyToUserName),
             ModerationStatus = moderationStatus,
             IsPubliclyVisible = isPubliclyVisible ? (byte)1 : (byte)0,
             VisibilityState = PodUtf8Codec.ToFixed32(visibilityState),
@@ -170,7 +171,8 @@ public static class PodProjector
         long rootId,
         bool isDeleted,
         DateTime createTime,
-        string userName,
+        string authorMode,
+        string displayName,
         string content,
         int replyCount,
         bool hasMoreReplies,
@@ -192,8 +194,6 @@ public static class PodProjector
             HasReplyToUserId = 0,
             Reserved = 0,
             CreateTimeUnixMs = PodTimeCodec.ToUnixMs(createTime),
-            UserName = PodUtf8Codec.ToFixed64(userName),
-            ReplyToUserName = default,
             Content = contentSlice,
             ReplyCount = replyCount,
             HasMoreReplies = hasMoreReplies ? (byte)1 : (byte)0,
@@ -214,8 +214,9 @@ public static class PodProjector
         int depth,
         bool isDeleted,
         DateTime createTime,
-        string userName,
-        string? replyToUserName,
+        string authorMode,
+        string displayName,
+        string? replyToDisplayName,
         string content,
         out ReadOnlyMemory<byte> payload)
     {
@@ -234,8 +235,6 @@ public static class PodProjector
             HasReplyToUserId = replyToUserId.HasValue ? (byte)1 : (byte)0,
             Reserved = 0,
             CreateTimeUnixMs = PodTimeCodec.ToUnixMs(createTime),
-            UserName = PodUtf8Codec.ToFixed64(userName),
-            ReplyToUserName = PodUtf8Codec.ToFixed64(replyToUserName ?? string.Empty),
             Content = contentSlice
         };
 
@@ -247,8 +246,9 @@ public static class PodProjector
         long id,
         bool isDeleted,
         DateTime createTime,
-        string userName,
-        string? replyToUserName,
+        string authorMode,
+        string displayName,
+        string? replyToDisplayName,
         string content,
         out ReadOnlyMemory<byte> payload)
     {
@@ -262,8 +262,6 @@ public static class PodProjector
             Reserved0 = 0,
             Reserved1 = 0,
             CreateTimeUnixMs = PodTimeCodec.ToUnixMs(createTime),
-            UserName = PodUtf8Codec.ToFixed64(userName),
-            ReplyToUserName = PodUtf8Codec.ToFixed64(replyToUserName ?? string.Empty),
             Content = contentSlice
         };
 
@@ -424,7 +422,6 @@ public static class PodProjector
     {
         public long Id;
         public long CreateTimeUnixMs;
-        public Utf8Fixed64 UserName;
         public Utf8SliceRef Content;
     }
 
@@ -437,7 +434,6 @@ public static class PodProjector
         public Utf8SliceRef Content;
         public Utf8Fixed256 ArticleTitle;
         public long RootId;
-        public Utf8Fixed64 ReplyToUserName;
         public int ModerationStatus;
         public byte IsPubliclyVisible;
         public byte Reserved0;
@@ -461,8 +457,6 @@ public static class PodProjector
         public byte HasReplyToUserId;
         public ushort Reserved;
         public long CreateTimeUnixMs;
-        public Utf8Fixed64 UserName;
-        public Utf8Fixed64 ReplyToUserName;
         public Utf8SliceRef Content;
         public int ReplyCount;
         public byte HasMoreReplies;
@@ -483,8 +477,6 @@ public static class PodProjector
         public byte HasReplyToUserId;
         public ushort Reserved;
         public long CreateTimeUnixMs;
-        public Utf8Fixed64 UserName;
-        public Utf8Fixed64 ReplyToUserName;
         public Utf8SliceRef Content;
     }
 
@@ -496,8 +488,6 @@ public static class PodProjector
         public byte Reserved0;
         public ushort Reserved1;
         public long CreateTimeUnixMs;
-        public Utf8Fixed64 UserName;
-        public Utf8Fixed64 ReplyToUserName;
         public Utf8SliceRef Content;
     }
 
