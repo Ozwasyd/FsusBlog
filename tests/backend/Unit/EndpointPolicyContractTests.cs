@@ -156,6 +156,44 @@ public sealed class EndpointPolicyContractTests
     }
 
     [Fact]
+    public void AnonymousGatewayHeaderGuard_RunsBeforeAuthentication()
+    {
+        string composition = ReadRepoFile(
+            "src",
+            "backend",
+            "Infrastructure",
+            "Bootstrap",
+            "WebApplicationCompositionExtensions.cs");
+        string endpointPipeline = ExtractBetween(
+            composition,
+            "private static void UseFsusEndpointPipeline",
+            "private static void UseFsusEndpointMetadataHeaders");
+
+        Assert.Contains("UseMiddleware<AnonymousGatewayHeaderGuardMiddleware>()", endpointPipeline, StringComparison.Ordinal);
+        Assert.True(
+            endpointPipeline.IndexOf("UseMiddleware<AnonymousGatewayHeaderGuardMiddleware>()", StringComparison.Ordinal)
+                < endpointPipeline.IndexOf("UseAuthentication()", StringComparison.Ordinal),
+            "anonymous gateway header guard must run before authentication");
+
+        string middleware = ReadRepoFile(
+            "src",
+            "backend",
+            "Infrastructure",
+            "Middlewares",
+            "AnonymousGatewayHeaderGuardMiddleware.cs");
+        Assert.Contains("X-Fsus-Challenge-Proof", middleware, StringComparison.Ordinal);
+        Assert.Contains("X-Fsus-Mfa-Proof", middleware, StringComparison.Ordinal);
+        Assert.Contains("X-Fsus-Device-Fp", middleware, StringComparison.Ordinal);
+        Assert.Contains("traditional_account_header", middleware, StringComparison.Ordinal);
+        Assert.Contains("unknown_fsus_header", middleware, StringComparison.Ordinal);
+        Assert.Contains("username", middleware, StringComparison.Ordinal);
+        Assert.Contains("email", middleware, StringComparison.Ordinal);
+        Assert.Contains("role", middleware, StringComparison.Ordinal);
+        Assert.Contains("password", middleware, StringComparison.Ordinal);
+        Assert.Contains("totp", middleware, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BinaryArticleAdminRoutes_AreUnderAdminPrefix()
     {
         string source = ReadRepoFile(

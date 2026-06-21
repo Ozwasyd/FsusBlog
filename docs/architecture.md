@@ -66,11 +66,11 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 |------|------|------|
 | L0 公开热点 | `UseFsusPublicHotReadFastPath` | 在常规管线前命中 `/api/binary/article/**.aeds`、`/api/binary/category.aeds`、`/api/binary/tag.aeds` 与公开 HTML 快照，直接写出预编码 bytes |
 | 安全响应头 | `UseFsusSecurityHeaders` | CSP/HSTS/跨源隔离等头部策略 |
-| 核心中间件 | `UseFsusCoreMiddlewares` | 异常、审计、认证授权、封禁用户、访问日志兼容占位 |
+| 核心中间件 | `UseFsusCoreMiddlewares` | 异常、审计、认证授权、匿名网关头守卫、封禁用户、访问日志兼容占位 |
 | 静态资源 | `UseFsusStaticAssets` | Public AOT cache、SPA 静态文件、fallback |
 | 端点管线 | `UseFsusEndpointPipeline` | OpenTelemetry trace correlation、crawler-aware Rate Limiting、OutputCache、API/Binary/健康路由 |
 
-`UseFsusEndpointPipeline` 的端点链路顺序必须保持 `UseAuthentication()` -> `UseRateLimiter()` -> `BannedUserMiddleware` -> `UseAuthorization()`。`fixed_ip` 限流分区需要读取已认证的 admin principal 才能应用管理端绕过；封禁写入检查仍在限流之后、授权之前执行。
+`UseFsusEndpointPipeline` 的端点链路顺序必须保持 `AnonymousGatewayHeaderGuardMiddleware` -> `UseAuthentication()` -> `UseRateLimiter()` -> `BannedUserMiddleware` -> `UseAuthorization()`。匿名网关头守卫只允许显式匿名 profile / runtime `X-Fsus-*` 请求头，拒绝 username/email/role/userId/password/TOTP 等传统账号头和未知 `X-Fsus-*`，且必须在认证前执行，避免外部网关注入头生成业务 principal。`fixed_ip` 限流分区需要读取已认证的 admin principal 才能应用管理端绕过；封禁写入检查仍在限流之后、授权之前执行。
 
 路由组装按 `MapFsusOperationalRoutes`、`MapFsusApiRoutes`、`MapFsusPublicRoutes` 分层，避免在新增 API 时同时触碰健康探针、notification stream、SPA fallback 和静态文件策略。
 

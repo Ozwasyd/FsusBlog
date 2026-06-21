@@ -207,6 +207,7 @@ public static class WebApplicationCompositionExtensions
 
         app.UseOutputCache();
         app.UseCors();
+        app.UseMiddleware<AnonymousGatewayHeaderGuardMiddleware>();
         app.UseAuthentication();
         app.UseRateLimiter();
         app.UseMiddleware<BannedUserMiddleware>();
