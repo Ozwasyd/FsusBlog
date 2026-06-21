@@ -31,6 +31,8 @@ export interface CommentDto extends PowRequest {
   parentId?: string | null
   rootId?: string | null
   replyToCommentId?: string | null
+  /** @deprecated 匿名模式不应设置 replyToUserId；回复目标必须通过 replyToCommentId 和端上 nullifier/作者快照解析。 */
+  replyToUserId?: number | null
   authorMode?: CommentAuthorMode | null
   publicSendExplicitlySelected?: boolean | null
   anonymousScope?: string | null
@@ -45,6 +47,8 @@ export interface CommentCreateV2Dto extends PowRequest {
   parentId?: string | null
   rootId?: string | null
   replyToCommentId?: string | null
+  /** @deprecated 匿名模式不应设置 replyToUserId；CommentCreateV2Request POD 会固定写入 0/0 兼容占位。 */
+  replyToUserId?: number | null
   authorMode: CommentAuthorMode
   publicSendExplicitlySelected: boolean
   anonymousScope?: string | null

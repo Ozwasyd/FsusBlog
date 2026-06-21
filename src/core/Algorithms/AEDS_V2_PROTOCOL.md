@@ -130,7 +130,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `CategoryWriteRequest` / `TagWriteRequest` payload: `NameMutationRequestPod` (`Utf8Fixed128 Name`).
 - `SeoConfigUpdateRequest` payload: same layout as `SeoConfig`.
 - `PageContentUpdateRequest` payload: same layout as `PageContent`.
-- `CommentCreateV2Request` payload: `CommentCreateV2RequestPod` followed by shared blob payload for anonymous scope, display language, proof token, ZK proof bytes, and comment content.
+- `CommentCreateV2Request` payload: `CommentCreateV2RequestPod` followed by shared blob payload for anonymous scope, display language, proof token, ZK proof bytes, and comment content. The legacy `replyToUserId` compatibility slot at POD offset 4 and its presence flag at offset 11 are reserved and MUST be encoded as `0/0`; reply targets are identified by `replyToCommentId`.
 - `FileDeleteRequest` payload: `StringMutationRequestPod` followed by blob payload for image URL.
 - `AdminChangeUserStatusRequest` payload: `AdminChangeUserStatusRequestPod` followed by blob payload for reason.
 - Retired legacy admin password reset slot (`40`) has no payload contract. Decoders, AEDS catalogs, OpenAPI, frontend frame mirrors, and production endpoints must not expose it.

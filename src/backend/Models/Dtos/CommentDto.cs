@@ -28,6 +28,9 @@ public sealed record class CommentDto : ICheckableContent
     public string? ParentId { get; init; }
     public string? RootId { get; init; }
     public string? ReplyToCommentId { get; init; }
+    /// <summary>
+    /// Deprecated: 匿名模式不应设置 ReplyToUserId；回复目标必须通过 ReplyToCommentId 和作者快照解析。
+    /// </summary>
     public int? ReplyToUserId { get; init; }
     public RegionModerationDecision? RegionDecision { get; init; }
     public string? AuthorMode { get; init; }

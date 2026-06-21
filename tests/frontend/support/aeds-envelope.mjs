@@ -357,7 +357,7 @@ export function encodeCommentCreateV2Request(data) {
   const bytes = new Uint8Array(84 + blobLength)
   const view = new DataView(bytes.buffer)
   view.setInt32(0, data.articleId ?? 0, true)
-  view.setInt32(4, data.replyToUserId ?? 0, true)
+  view.setInt32(4, 0, true)
 
   const parentId = parseOptionalBigInt(data.parentId)
   const rootId = parseOptionalBigInt(data.rootId)
@@ -365,7 +365,7 @@ export function encodeCommentCreateV2Request(data) {
   bytes[8] = parentId === null ? 0 : 1
   bytes[9] = rootId === null ? 0 : 1
   bytes[10] = replyToCommentId === null ? 0 : 1
-  bytes[11] = data.replyToUserId === null || data.replyToUserId === undefined ? 0 : 1
+  bytes[11] = 0
   view.setUint8(12, encodeCommentAuthorMode(data.authorMode))
   view.setUint8(13, data.publicSendExplicitlySelected ? 1 : 0)
   view.setUint16(14, 0, true)

@@ -1244,7 +1244,11 @@ public class PodBinaryCodecTests
         Assert.Equal("100", decoded.ParentId);
         Assert.Equal("90", decoded.RootId);
         Assert.Equal("80", decoded.ReplyToCommentId);
-        Assert.Equal(7, decoded.ReplyToUserId);
+        Assert.Null(decoded.ReplyToUserId);
+
+        var view = new ReadOnlySpan<byte>(encoded);
+        Assert.Equal(0, BitConverter.ToInt32(view.Slice(4, sizeof(int))));
+        Assert.Equal(0, view[11]);
         Assert.Equal("zk_anonymous", decoded.AuthorMode);
         Assert.False(decoded.PublicSendExplicitlySelected);
         Assert.Equal("article:9:root:90", decoded.AnonymousScope);

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, it, expect } from 'vitest'
 import {
   mapAnonymousCommentTicketResponseFromPayload,
@@ -22,6 +24,18 @@ import {
   COMMENT_REPLY_ITEM_POD_SIZE,
   USER_COMMENT_POD_SIZE
 } from '@/adapters/binary/types'
+import { encodeCommentCreateV2Request as encodeSupportCommentCreateV2Request } from '../../../support/aeds-envelope.mjs'
+
+const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../../${path}`, import.meta.url))
+const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
+
+function extractTsInterface(source: string, name: string): string {
+  const match = source.match(new RegExp(`export interface ${name}(?: extends [^{]+)? \\{[\\s\\S]*?\\n\\}`))
+  if (!match) {
+    throw new Error(`missing_interface:${name}`)
+  }
+  return match[0]
+}
 
 function writeInt32(b: Uint8Array, off: number, v: number): void {
   b[off] = v & 0xff; b[off + 1] = (v >>> 8) & 0xff
@@ -144,6 +158,37 @@ describe('mapCommentCursorFromPodPayload', () => {
     )
 
     expect(() => mapCommentCursorFromPodPayload(payload)).toThrow('comment_author_contract_missing')
+  })
+})
+
+describe('comment create binary request compatibility slots', () => {
+  it('keeps replyToUserId out of the support encoder POD payload', () => {
+    const payload = encodeSupportCommentCreateV2Request({
+      articleId: 9,
+      content: 'reply through comment id',
+      parentId: '100',
+      rootId: '90',
+      replyToCommentId: '80',
+      replyToUserId: 7,
+      authorMode: 'anonymous',
+      publicSendExplicitlySelected: false
+    })
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+
+    expect(view.getInt32(0, true)).toBe(9)
+    expect(view.getInt32(4, true)).toBe(0)
+    expect(payload[11]).toBe(0)
+    expect(view.getBigInt64(32, true)).toBe(80n)
+  })
+
+  it('marks legacy replyToUserId DTO fields deprecated for anonymous migration', () => {
+    const source = readRepoFile('src/frontend/src/api/comment.ts')
+
+    for (const name of ['CommentDto', 'CommentCreateV2Dto']) {
+      const block = extractTsInterface(source, name)
+      expect(block).toMatch(/@deprecated[^\n]*匿名模式不应设置 replyToUserId/)
+      expect(block).toContain('replyToUserId?: number | null')
+    }
   })
 })
 

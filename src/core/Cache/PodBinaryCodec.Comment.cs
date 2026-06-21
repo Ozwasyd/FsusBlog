@@ -1156,11 +1156,11 @@ public static partial class PodBinaryCodec
         var mutable = new MutableCommentCreateV2RequestPod
         {
             ArticleId = request.ArticleId,
-            ReplyToUserId = request.ReplyToUserId ?? 0,
+            ReplyToUserId = 0,
             HasParentId = hasParentId ? (byte)1 : (byte)0,
             HasRootId = hasRootId ? (byte)1 : (byte)0,
             HasReplyToCommentId = hasReplyToCommentId ? (byte)1 : (byte)0,
-            HasReplyToUserId = request.ReplyToUserId.HasValue ? (byte)1 : (byte)0,
+            HasReplyToUserId = 0,
             AuthorMode = EncodeCommentAuthorMode(request.AuthorMode),
             PublicSendExplicitlySelected = request.PublicSendExplicitlySelected ? (byte)1 : (byte)0,
             Reserved0 = 0,
