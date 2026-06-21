@@ -143,38 +143,45 @@
               </template>
             </el-table>
           </div>
-          <div class="integrity-danger-zone mt-5" aria-labelledby="integrity-apply-title">
-            <div class="integrity-risk-notice" role="note">
-              <strong>安全修复会写入数据</strong>
-              <p>请先查看差异，再输入确认短语。仅服务端判定为安全的修复会被提交。</p>
-            </div>
-            <div class="integrity-destructive-panel">
-              <div class="integrity-destructive-panel__content">
-                <strong id="integrity-apply-title">应用安全修复</strong>
-                <p>输入确认短语后才能应用安全修复。</p>
-                <FsusUiTypedConfirmField
-                  id="integrity-confirm-phrase"
-                  v-model="confirmPhrase"
-                  phrase="APPLY_SAFE_FIXES"
-                  label="确认短语"
-                  description="输入确认短语后才能应用安全修复。"
-                  placeholder="输入确认短语"
+          <FsusUiDangerZone
+            id="integrity-apply-zone"
+            class="mt-5"
+            title="安全修复"
+            description="安全修复会写入数据，请先查看差异，再输入确认短语。"
+            title-tag="h3"
+          >
+            <FsusUiRiskNotice role="note" type="warning" title="高风险操作">
+              仅服务端判定为安全的修复会被提交。
+            </FsusUiRiskNotice>
+            <FsusUiDestructiveActionPanel
+              title="应用安全修复"
+              description="输入确认短语后才能应用安全修复。"
+            >
+              <FsusUiTypedConfirmField
+                id="integrity-confirm-phrase"
+                v-model="confirmPhrase"
+                phrase="APPLY_SAFE_FIXES"
+                label="确认短语"
+                description="输入确认短语后才能应用安全修复。"
+                placeholder="输入确认短语"
+                :disabled="fixing"
+              />
+              <FsusUiFormSection
+                id="integrity-mfa-proof-title"
+                title="二次验证凭据"
+                description="如系统要求二次验证，请填写凭据。"
+                density="compact"
+              >
+                <el-input
+                  id="integrity-mfa-proof"
+                  v-model="mfaProof"
+                  placeholder="输入二次验证凭据"
+                  aria-label="二次验证凭据"
                   :disabled="fixing"
+                  show-password
                 />
-                <div class="integrity-step-up-field">
-                  <label for="integrity-mfa-proof">二次验证凭据</label>
-                  <p>如系统要求二次验证，请填写凭据。</p>
-                  <el-input
-                    id="integrity-mfa-proof"
-                    v-model="mfaProof"
-                    placeholder="输入二次验证凭据"
-                    aria-label="二次验证凭据"
-                    :disabled="fixing"
-                    show-password
-                  />
-                </div>
-              </div>
-              <div class="integrity-destructive-panel__actions">
+              </FsusUiFormSection>
+              <template #actions>
                 <el-button
                   type="danger"
                   :icon="Tools"
@@ -184,9 +191,9 @@
                 >
                   应用安全修复
                 </el-button>
-              </div>
-            </div>
-          </div>
+              </template>
+            </FsusUiDestructiveActionPanel>
+          </FsusUiDangerZone>
         </FsusUiSettingsSection>
 
         <FsusUiSettingsSection title="危险操作策略" id="integrity-policy-title">
@@ -232,8 +239,16 @@ import {
 import { FsusUiPageHeader } from "@/fsusui"
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
-import { FsusUiSettingsSection, FsusUiTypedConfirmField } from '@/fsusui'
-import { FsusUiKeyValueGrid, FsusUiKeyValueItem } from '@/fsusui'
+import {
+  FsusUiDangerZone,
+  FsusUiDestructiveActionPanel,
+  FsusUiFormSection,
+  FsusUiKeyValueGrid,
+  FsusUiKeyValueItem,
+  FsusUiRiskNotice,
+  FsusUiSettingsSection,
+  FsusUiTypedConfirmField
+} from '@/fsusui'
 import { CopyDocument, Download, Refresh, Tools } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
@@ -529,79 +544,5 @@ onMounted(loadAll)
 
 .integrity-diff-value--empty {
   color: var(--fsusblog-text-muted);
-}
-
-.integrity-danger-zone {
-  display: grid;
-  gap: 1rem;
-  border-top: 1px solid var(--fsusblog-panel-border);
-  padding-top: 1.25rem;
-}
-
-.integrity-risk-notice {
-  display: grid;
-  gap: 0.35rem;
-  border-left: 3px solid var(--fsusblog-color-warning, #d97706);
-  padding-left: 0.875rem;
-  color: var(--fsusblog-text-secondary);
-  font-size: 0.8125rem;
-  line-height: 1.7;
-}
-
-.integrity-risk-notice strong {
-  color: var(--fsusblog-text-primary);
-}
-
-.integrity-risk-notice p {
-  margin: 0;
-}
-
-.integrity-destructive-panel {
-  display: grid;
-  gap: 1rem;
-  border: 1px solid var(--fsusblog-panel-border);
-  border-radius: var(--fsus-radius-control);
-  padding: 1rem;
-}
-
-.integrity-destructive-panel__content {
-  display: grid;
-  gap: 0.875rem;
-  min-width: 0;
-}
-
-.integrity-destructive-panel__content > strong {
-  color: var(--fsusblog-text-primary);
-}
-
-.integrity-destructive-panel__content > p {
-  margin: 0;
-  color: var(--fsusblog-text-tertiary);
-  font-size: 0.8125rem;
-  line-height: 1.7;
-}
-
-.integrity-destructive-panel__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.integrity-step-up-field {
-  display: grid;
-  gap: 0.4rem;
-}
-
-.integrity-step-up-field label {
-  color: var(--fsusblog-text-primary);
-  font-size: 0.8125rem;
-  font-weight: 700;
-}
-
-.integrity-step-up-field p {
-  margin: 0;
-  color: var(--fsusblog-text-tertiary);
-  font-size: 0.75rem;
-  line-height: 1.7;
 }
 </style>
