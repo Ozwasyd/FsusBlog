@@ -158,6 +158,25 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     [Fact]
+    public void SecurityEndpoints_AttributePolicyMutationActorsToAdminPrincipal()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/SecurityEndpoints.cs");
+
+        Assert.DoesNotContain("context.GetUserId()", source, StringComparison.Ordinal);
+        Assert.Contains("private static string ResolveActor(HttpContext context)", source, StringComparison.Ordinal);
+        Assert.Contains("=> FormatAdminActor(ResolveAdminPrincipalId(context));", source, StringComparison.Ordinal);
+        Assert.Contains("context.User.IsAdminPrincipal()", source, StringComparison.Ordinal);
+        Assert.Contains("context.User.TryGetAdminPrincipalId(out long adminPrincipalId)", source, StringComparison.Ordinal);
+        Assert.Contains("throw new UnauthorizedAccessException(\"admin_principal_missing\")", source, StringComparison.Ordinal);
+        Assert.Contains("string.Concat(\"admin:\", adminPrincipalId.ToString(CultureInfo.InvariantCulture))", source, StringComparison.Ordinal);
+        Assert.Contains("ActorType: AuditActorTypeCatalog.Admin", source, StringComparison.Ordinal);
+        Assert.Contains("ActorId: adminPrincipalId.ToString(CultureInfo.InvariantCulture)", source, StringComparison.Ordinal);
+        Assert.Contains("[\"adminPrincipalId\"] = adminPrincipalId", source, StringComparison.Ordinal);
+        Assert.Contains("policySnapshots.ActivateAsync", source, StringComparison.Ordinal);
+        Assert.Contains("ResolveAdminPrincipalId(context)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void StartupLoader_LoadsRiskControlAndPerceptionV2ActiveOrLastKnownGoodPolicy()
     {
         string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/SecurityPolicySnapshotService.cs");

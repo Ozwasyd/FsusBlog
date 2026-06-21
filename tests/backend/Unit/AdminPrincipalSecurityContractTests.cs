@@ -250,6 +250,19 @@ public sealed class AdminPrincipalSecurityContractTests
     }
 
     [Fact]
+    public void AdminPermissionPolicies_RequireIndependentAdminPrincipalId()
+    {
+        string auth = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Auth/AdminPermissions.cs");
+
+        Assert.Contains("public static RouteHandlerBuilder RequireAdminPermission", auth, StringComparison.Ordinal);
+        Assert.Contains("public static RouteGroupBuilder RequireAdminPermission", auth, StringComparison.Ordinal);
+        Assert.Equal(2, CountOccurrences(auth, ".RequireAuthenticatedUser()"));
+        Assert.Equal(2, CountOccurrences(auth, ".RequireClaim(\"identity_kind\", AnonymousIdentityRuntime.AdminPrincipalKind)"));
+        Assert.Equal(2, CountOccurrences(auth, ".RequireClaim(\"admin_id\")"));
+        Assert.Equal(2, CountOccurrences(auth, ".RequireClaim(AdminPermissions.PermissionClaimType, permission)"));
+    }
+
+    [Fact]
     public void AdminPrincipalMe_ReturnsIndependentPrincipalSnapshot()
     {
         string endpoints = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
@@ -297,6 +310,7 @@ public sealed class AdminPrincipalSecurityContractTests
             new EndpointMetadataCollection(new AuthorizationPolicyBuilder()
                 .RequireAuthenticatedUser()
                 .RequireClaim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind)
+                .RequireClaim("admin_id")
                 .RequireClaim(AdminPermissions.PermissionClaimType, AdminPermissions.AdminManage)
                 .Build()),
             "principal-admin"));
@@ -363,5 +377,22 @@ public sealed class AdminPrincipalSecurityContractTests
         Assert.True(markerIndex >= 0, $"Unable to locate marker: {marker}");
         int expectedIndex = source.IndexOf(expected, markerIndex, StringComparison.Ordinal);
         Assert.True(expectedIndex > markerIndex, $"Expected to find '{expected}' after '{marker}'.");
+    }
+
+    private static int CountOccurrences(string source, string value)
+    {
+        int count = 0;
+        int startIndex = 0;
+        while (true)
+        {
+            int next = source.IndexOf(value, startIndex, StringComparison.Ordinal);
+            if (next < 0)
+            {
+                return count;
+            }
+
+            count++;
+            startIndex = next + value.Length;
+        }
     }
 }

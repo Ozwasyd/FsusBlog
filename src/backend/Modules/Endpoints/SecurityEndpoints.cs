@@ -93,6 +93,7 @@ public static class SecurityEndpoints
             if (validationError is not null)
             {
                 await RecordSecurityAuditAsync(
+                    context,
                     auditEvents,
                     "admin.security.risk_control.simulation_rejected",
                     "管理员提交的 RiskControl 模拟参数无效",
@@ -112,6 +113,7 @@ public static class SecurityEndpoints
                 riskDecisionService,
                 cancellationToken);
             await RecordSecurityAuditAsync(
+                context,
                 auditEvents,
                 "admin.security.risk_control.simulated",
                 "管理员模拟 RiskControl 决策",
@@ -164,6 +166,7 @@ public static class SecurityEndpoints
                 request.Reason,
                 cancellationToken);
             await RecordSecurityAuditAsync(
+                context,
                 auditEvents,
                 "admin.security.risk_control.options_updated",
                 "管理员更新 RiskControl 运行策略",
@@ -215,6 +218,7 @@ public static class SecurityEndpoints
             }
 
             await RecordSecurityAuditAsync(
+                context,
                 auditEvents,
                 "admin.security.risk_control.options_rolled_back",
                 "管理员回滚 RiskControl 运行策略",
@@ -309,6 +313,7 @@ public static class SecurityEndpoints
                 snapshot.Reason,
                 cancellationToken);
             await RecordSecurityAuditAsync(
+                context,
                 auditEvents,
                 "admin.security.perception_v2.options_updated",
                 "管理员更新 perception-sealed@v2 策略",
@@ -361,6 +366,7 @@ public static class SecurityEndpoints
             }
 
             await RecordSecurityAuditAsync(
+                context,
                 auditEvents,
                 "admin.security.perception_v2.options_rolled_back",
                 "管理员回滚 perception-sealed@v2 策略",
@@ -413,6 +419,7 @@ public static class SecurityEndpoints
                 snapshot.Reason,
                 cancellationToken);
             await RecordSecurityAuditAsync(
+                context,
                 auditEvents,
                 "admin.security.anti_crawler.options_updated",
                 "管理员更新反爬虫运行策略",
@@ -463,6 +470,7 @@ public static class SecurityEndpoints
                     cancellationToken);
             }
             await RecordSecurityAuditAsync(
+                context,
                 auditEvents,
                 "admin.security.anti_crawler.options_rolled_back",
                 "管理员回滚反爬虫运行策略",
@@ -496,6 +504,7 @@ public static class SecurityEndpoints
 
             CrawlerRangeSyncResponse response = await crawlerSync.SynchronizeOnceAsync(cancellationToken);
             await RecordSecurityAuditAsync(
+                context,
                 auditEvents,
                 "admin.security.anti_crawler.crawler_ranges_synced",
                 "管理员手动同步搜索引擎 CIDR",
@@ -583,6 +592,7 @@ public static class SecurityEndpoints
             await riskScoreReader.ResetRiskAsync(new SecurityRiskSubject(subject), cancellationToken);
             var response = new SecurityRiskResetResponse(subject, true, DateTimeOffset.UtcNow);
             await RecordSecurityAuditAsync(
+                context,
                 auditEvents,
                 "admin.security.risk.reset",
                 "管理员重置安全风险分",
@@ -626,7 +636,7 @@ public static class SecurityEndpoints
             }
 
             AntiCrawlerRuleResponse rule = policy.AddRule(request, ResolveActor(context));
-            await RecordSecurityAuditAsync(auditEvents, "admin.security.anti_crawler.rule_created", "管理员新增反爬虫规则", "anti_crawler_rule", rule.Id, request.Notes, rule, cancellationToken);
+            await RecordSecurityAuditAsync(context, auditEvents, "admin.security.anti_crawler.rule_created", "管理员新增反爬虫规则", "anti_crawler_rule", rule.Id, request.Notes, rule, cancellationToken);
             return Ok(context, aeds, rule);
         }).RequireRateLimiting("fixed_ip");
 
@@ -662,7 +672,7 @@ public static class SecurityEndpoints
                 return AedsJsonResults.NotFound(aeds, "anti_crawler_rule_not_found");
             }
 
-            await RecordSecurityAuditAsync(auditEvents, "admin.security.anti_crawler.rule_updated", "管理员更新反爬虫规则", "anti_crawler_rule", rule.Id, request.Notes, rule, cancellationToken);
+            await RecordSecurityAuditAsync(context, auditEvents, "admin.security.anti_crawler.rule_updated", "管理员更新反爬虫规则", "anti_crawler_rule", rule.Id, request.Notes, rule, cancellationToken);
             return Ok(context, aeds, rule);
         }).RequireRateLimiting("fixed_ip");
 
@@ -682,7 +692,7 @@ public static class SecurityEndpoints
             }
 
             bool deleted = policy.DeleteRule(id);
-            await RecordSecurityAuditAsync(auditEvents, "admin.security.anti_crawler.rule_deleted", "管理员删除反爬虫规则", "anti_crawler_rule", id, deleted ? "deleted" : "not_found", new { deleted }, cancellationToken);
+            await RecordSecurityAuditAsync(context, auditEvents, "admin.security.anti_crawler.rule_deleted", "管理员删除反爬虫规则", "anti_crawler_rule", id, deleted ? "deleted" : "not_found", new { deleted }, cancellationToken);
             return deleted
                 ? Ok(context, aeds, new { deleted })
                 : AedsJsonResults.NotFound(aeds, "anti_crawler_rule_not_found");
@@ -753,6 +763,7 @@ public static class SecurityEndpoints
                 snapshot.Reason,
                 cancellationToken);
             await RecordSecurityAuditAsync(
+                context,
                 auditEvents,
                 "admin.security.pow.options_updated",
                 "管理员更新 PoW 运行策略",
@@ -802,7 +813,7 @@ public static class SecurityEndpoints
                     "rollback",
                     cancellationToken);
             }
-            await RecordSecurityAuditAsync(auditEvents, "admin.security.pow.options_rolled_back", "管理员回滚 PoW 运行策略", "pow_options", snapshot.SnapshotId, "rollback", snapshot, cancellationToken);
+            await RecordSecurityAuditAsync(context, auditEvents, "admin.security.pow.options_rolled_back", "管理员回滚 PoW 运行策略", "pow_options", snapshot.SnapshotId, "rollback", snapshot, cancellationToken);
             return Ok(context, aeds, snapshot);
         }).RequireRateLimiting("fixed_ip");
 
@@ -1071,7 +1082,7 @@ public static class SecurityEndpoints
             }
 
             AntiCrawlerListEntryResponse entry = policy.AddEntry(listType, request, ResolveActor(context));
-            await RecordSecurityAuditAsync(auditEvents, $"admin.security.anti_crawler.{listType}list_created", $"管理员新增反爬虫{listType}list", $"anti_crawler_{listType}list", entry.Id, request.Reason, entry, cancellationToken);
+            await RecordSecurityAuditAsync(context, auditEvents, $"admin.security.anti_crawler.{listType}list_created", $"管理员新增反爬虫{listType}list", $"anti_crawler_{listType}list", entry.Id, request.Reason, entry, cancellationToken);
             return Ok(context, aeds, entry);
         }).RequireRateLimiting("fixed_ip");
 
@@ -1091,7 +1102,7 @@ public static class SecurityEndpoints
             }
 
             bool deleted = policy.DeleteEntry(listType, id);
-            await RecordSecurityAuditAsync(auditEvents, $"admin.security.anti_crawler.{listType}list_deleted", $"管理员删除反爬虫{listType}list", $"anti_crawler_{listType}list", id, deleted ? "deleted" : "not_found", new { deleted }, cancellationToken);
+            await RecordSecurityAuditAsync(context, auditEvents, $"admin.security.anti_crawler.{listType}list_deleted", $"管理员删除反爬虫{listType}list", $"anti_crawler_{listType}list", id, deleted ? "deleted" : "not_found", new { deleted }, cancellationToken);
             return deleted
                 ? Ok(context, aeds, new { deleted })
                 : AedsJsonResults.NotFound(aeds, "anti_crawler_list_entry_not_found");
@@ -1627,6 +1638,7 @@ public static class SecurityEndpoints
     }
 
     private static Task RecordSecurityAuditAsync(
+        HttpContext context,
         IAuditEventService auditEvents,
         string action,
         string eventInfo,
@@ -1635,24 +1647,45 @@ public static class SecurityEndpoints
         string? reasonCode,
         object payload,
         CancellationToken cancellationToken)
-        => auditEvents.RecordHighValueAsync(new AuditEvent(
+    {
+        long adminPrincipalId = ResolveAdminPrincipalId(context);
+        string actor = FormatAdminActor(adminPrincipalId);
+        return auditEvents.RecordHighValueAsync(new AuditEvent(
             AuditSourceCatalog.Admin,
             AuditTypeCatalog.Security,
             action,
             AuditOutcomeCatalog.Success,
             AuditSeverityCatalog.Warning,
             eventInfo,
+            ActorType: AuditActorTypeCatalog.Admin,
+            ActorId: adminPrincipalId.ToString(CultureInfo.InvariantCulture),
+            ActorRole: actor,
             TargetType: targetType,
             TargetId: targetId,
             ReasonCode: reasonCode,
             Context: new Dictionary<string, object?>(StringComparer.Ordinal)
             {
-                ["payload"] = payload
-            }), cancellationToken);
+                ["payload"] = payload,
+                ["actor"] = actor,
+                ["adminPrincipalId"] = adminPrincipalId
+            },
+            IsHighValue: true), cancellationToken);
+    }
 
     private static string ResolveActor(HttpContext context)
-        => context.GetUserId().ToString(CultureInfo.InvariantCulture);
+        => FormatAdminActor(ResolveAdminPrincipalId(context));
 
-    private static long? ResolveAdminPrincipalId(HttpContext context)
-        => context.User.TryGetAdminPrincipalId(out long adminPrincipalId) ? adminPrincipalId : null;
+    private static long ResolveAdminPrincipalId(HttpContext context)
+    {
+        if (context.User.IsAdminPrincipal() &&
+            context.User.TryGetAdminPrincipalId(out long adminPrincipalId))
+        {
+            return adminPrincipalId;
+        }
+
+        throw new UnauthorizedAccessException("admin_principal_missing");
+    }
+
+    private static string FormatAdminActor(long adminPrincipalId)
+        => string.Concat("admin:", adminPrincipalId.ToString(CultureInfo.InvariantCulture));
 }
