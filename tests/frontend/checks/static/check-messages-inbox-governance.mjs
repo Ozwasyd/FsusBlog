@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const messagesPath = path.join(repoRoot, 'src/frontend/src/views/user/Messages.vue')
+const adminMessageCenterPath = path.join(repoRoot, 'src/frontend/src/views/admin/MessageCenter.vue')
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 const localComponentDir = path.join(repoRoot, 'src/frontend/src/components/user/messages')
 const failures = []
@@ -29,6 +30,7 @@ function assertNotIncludes(file, content, needle, message) {
 }
 
 const messages = read(messagesPath)
+const adminMessageCenter = read(adminMessageCenterPath)
 
 for (const token of [
   'account-page-eyebrow',
@@ -58,6 +60,41 @@ for (const componentName of [
   'MessagesComposePanel'
 ]) {
   assertIncludes(messagesPath, messages, componentName, `messages inbox must compose ${componentName}`)
+}
+
+assertNotIncludes(
+  adminMessageCenterPath,
+  adminMessageCenter,
+  "import Messages from '@/views/user/Messages.vue'",
+  'admin message center must not re-export the user inbox view'
+)
+assertNotIncludes(
+  adminMessageCenterPath,
+  adminMessageCenter,
+  'MessagesConversationList',
+  'admin message center must not reuse user conversation-list component'
+)
+assertNotIncludes(
+  adminMessageCenterPath,
+  adminMessageCenter,
+  'MessagesThreadPanel',
+  'admin message center must not reuse user thread-panel component'
+)
+
+for (const token of [
+  '<el-inbox-layout',
+  '<el-conversation-list',
+  '<el-conversation-list-item',
+  '<el-thread-panel',
+  '<el-message-timeline',
+  '<el-message-bubble',
+  '<el-reply-composer-shell',
+  ':mobile-pane="mobilePane"',
+  'useAdminMessageCenter',
+  'admin-message-center',
+  'admin-operator-toolbar'
+]) {
+  assertIncludes(adminMessageCenterPath, adminMessageCenter, token, `admin message center must use ${token}`)
 }
 
 for (const fileName of [

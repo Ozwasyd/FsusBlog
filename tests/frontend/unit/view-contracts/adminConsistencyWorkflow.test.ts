@@ -29,7 +29,12 @@ describe('admin consistency workflow contract', () => {
     expect(accountNav).toContain("label: '站内信'")
     expect(userMessages).toContain("route.name === 'ManageMessages'")
     expect(userMessages).not.toContain('useUserStore')
-    expect(messageCenter).toContain("import Messages from '@/views/user/Messages.vue'")
+    expect(messageCenter).not.toContain("import Messages from '@/views/user/Messages.vue'")
+    expect(messageCenter).toContain('<el-inbox-layout')
+    expect(messageCenter).toContain('<el-conversation-list')
+    expect(messageCenter).toContain('<el-thread-panel')
+    expect(messageCenter).toContain(':mobile-pane="mobilePane"')
+    expect(messageCenter).toContain('admin-operator-toolbar')
   })
 
   it('exposes asset and content migration admin tools', () => {
