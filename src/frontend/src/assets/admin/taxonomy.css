@@ -1,0 +1,23 @@
+.taxonomy-filter-input {
+  width: min(15rem, 100%);
+}
+
+.taxonomy-toolbar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.taxonomy-reference-cell {
+  display: grid;
+  gap: 0.125rem;
+  justify-items: center;
+}
+
+@media (max-width: 639px) {
+  .taxonomy-toolbar-controls,
+  .taxonomy-filter-input {
+    width: 100%;
+  }
+}
