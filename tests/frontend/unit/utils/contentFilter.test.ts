@@ -129,7 +129,7 @@ describe('validateUsername', () => {
 })
 
 describe('validatePublicHandle', () => {
-  it('rejects reserved handles without username wording', () => {
+  it('rejects reserved public handles without username wording', () => {
     const r = validatePublicHandle('admin')
     expect(r.isValid).toBe(false)
     expect(r.message).toContain('公开称呼')
@@ -141,6 +141,7 @@ describe('validatePublicHandle', () => {
     const short = validatePublicHandle('ab')
     expect(short.isValid).toBe(false)
     expect(short.message).toBe(PUBLIC_HANDLE_CONSTRAINT.lengthMessage)
+    expect(short.message).toContain('公开称呼')
     expect(short.message).not.toContain('用户名')
 
     const invalid = validatePublicHandle('user_123')
@@ -153,6 +154,7 @@ describe('validatePublicHandle', () => {
     const ad = validatePublicHandle('加微信')
     expect(ad.isValid).toBe(false)
     expect(ad.message).toContain('公开称呼')
+    expect(ad.message).toContain('引流')
     expect(ad.message).not.toContain('用户名')
 
     const invisible = validatePublicHandle('张三\u200B丰')
@@ -163,6 +165,7 @@ describe('validatePublicHandle', () => {
     const redline = validatePublicHandle('习近平')
     expect(redline.isValid).toBe(false)
     expect(redline.message).toContain('公开称呼')
+    expect(redline.message).toContain('涉政')
     expect(redline.message).not.toContain('用户名')
   })
 

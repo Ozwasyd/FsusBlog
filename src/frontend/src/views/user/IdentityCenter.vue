@@ -221,6 +221,7 @@
           id="public-handle-draft"
           v-model="publicHandleDraft"
           maxlength="20"
+          autocomplete="off"
           placeholder="公开发送评论时可填写"
         />
         <div v-if="publicHandleError" class="identity-error-state" role="alert">{{ publicHandleError }}</div>

@@ -72,6 +72,16 @@ describe('anonymous identity auth workflow contract', () => {
     expect(registerPage).not.toContain('autocomplete="new-password"')
   })
 
+  it('keeps public handle registration decoupled from username browser semantics', () => {
+    expect(registerPage).toContain('name="publicHandle"')
+    expect(registerPage).toContain('autocomplete="off"')
+    expect(registerPage).not.toContain('autocomplete="username"')
+    expect(onboarding).toContain('PUBLIC_HANDLE_CONSTRAINT')
+    expect(onboarding).toContain('validatePublicHandle(value)')
+    expect(onboarding).not.toContain('USERNAME_CONSTRAINT')
+    expect(onboarding).not.toContain('validateUsername')
+  })
+
   it('keeps recovery key plaintext in memory only and uses existing passkey assets', () => {
     expect(onboarding).toContain('recoveryKeyPlaintext')
     expect(onboarding).toContain('recoveryKeySaved')

@@ -41,7 +41,7 @@ describe('frontend algorithm workflow contract', () => {
     expect(articleListStableCache).not.toContain('liveIds')
   })
 
-  it('keeps anonymous public handles on the shared constraint schema', () => {
+  it('keeps anonymous public handles on a username-decoupled constraint schema', () => {
     expect(anonymousOnboarding).toContain('PUBLIC_HANDLE_CONSTRAINT')
     expect(anonymousOnboarding).toContain('validatePublicHandle(value)')
     expect(anonymousOnboarding).not.toContain('USERNAME_CONSTRAINT')

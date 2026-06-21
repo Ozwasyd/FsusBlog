@@ -156,7 +156,11 @@ export async function addPasskey() {
     files: {
       'src/frontend/src/views/auth/Register.vue': `
 <template>
-  <el-input v-model="publicHandle" autocomplete="username" />
+  <el-input
+    v-model="publicHandle"
+    name="publicHandle"
+    autocomplete="username"
+  />
 </template>
 `,
       'src/frontend/src/composables/useAnonymousOnboarding.ts': `
