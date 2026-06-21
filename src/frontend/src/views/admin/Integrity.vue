@@ -32,24 +32,20 @@
         </div>
       </template>
 
-      <div v-if="report" class="grid gap-4 md:grid-cols-4">
-        <div class="integrity-kv">
-          <span>状态</span>
+      <FsusUiKeyValueGrid v-if="report" class="grid gap-4 md:grid-cols-4">
+        <FsusUiKeyValueItem label="状态" :tone="kvTone(report.status)">
           <el-tag :type="statusType(report.status)">{{ statusLabel(report.status) }}</el-tag>
-        </div>
-        <div class="integrity-kv">
-          <span>检查项</span>
-          <strong>{{ report.checkCount }}</strong>
-        </div>
-        <div class="integrity-kv">
-          <span>问题项</span>
-          <strong>{{ report.issueCount }}</strong>
-        </div>
-        <div class="integrity-kv">
-          <span>差异</span>
-          <strong>{{ preview?.diffs.length ?? 0 }}</strong>
-        </div>
-      </div>
+        </FsusUiKeyValueItem>
+        <FsusUiKeyValueItem label="检查项">
+          {{ report.checkCount }}
+        </FsusUiKeyValueItem>
+        <FsusUiKeyValueItem label="问题项">
+          {{ report.issueCount }}
+        </FsusUiKeyValueItem>
+        <FsusUiKeyValueItem label="差异">
+          {{ preview?.diffs.length ?? 0 }}
+        </FsusUiKeyValueItem>
+      </FsusUiKeyValueGrid>
     </FsusUiSettingsSection>
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
@@ -238,6 +234,7 @@ import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import IntegrityTypedConfirmField from '@/components/admin/IntegrityTypedConfirmField.vue'
 import { FsusUiSettingsSection } from '@/fsusui'
+import { FsusUiKeyValueGrid, FsusUiKeyValueItem } from '@/fsusui'
 import { CopyDocument, Download, Refresh, Tools } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
@@ -407,6 +404,14 @@ const statusType = (status: string): 'success' | 'warning' | 'danger' | 'info' =
   return 'info'
 }
 
+const kvTone = (status: string | null | undefined): 'neutral' | 'info' | 'success' | 'warning' | 'danger' => {
+  const type = status ? statusType(status) : 'info'
+  if (type === 'success') return 'success'
+  if (type === 'warning') return 'warning'
+  if (type === 'danger') return 'danger'
+  return 'info'
+}
+
 const statusLabel = (status: string | null | undefined): string => {
   const labels: Record<string, string> = {
     ok: '正常',
@@ -496,20 +501,6 @@ onMounted(loadAll)
 </script>
 
 <style scoped>
-.integrity-kv {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  border-top: 1px solid var(--fsusblog-panel-border);
-  padding: 0.875rem 0;
-  font-size: 0.75rem;
-}
-
-.integrity-kv span {
-  color: var(--fsusblog-text-muted);
-}
-
 .integrity-diff-cell {
   display: flex;
   min-width: 0;
