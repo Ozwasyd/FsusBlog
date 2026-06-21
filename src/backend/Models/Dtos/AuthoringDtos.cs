@@ -137,8 +137,6 @@ public sealed record class CommentModerationItemResponse(
     string Id,
     int ArticleId,
     string ArticleTitle,
-    int? UserId,
-    string? UserName,
     string AuthorDisplayName,
     string Content,
     DateTime CreateTime,

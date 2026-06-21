@@ -384,7 +384,7 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
     ? `${authorModeLabel} / ${anonymousScopeLabel} / 不显示真实账号`
     : isAnonymousActor
       ? `${authorModeLabel} / ${anonymousScopeLabel}`
-      : `${actorDisplayName} / ${typeof item.userId === 'number' ? item.userId : '无账号 ID'}`
+      : `${actorDisplayName} / 安全作者快照`
 
   return {
     ...item,

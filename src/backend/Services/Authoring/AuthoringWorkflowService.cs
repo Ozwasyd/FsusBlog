@@ -706,8 +706,6 @@ public sealed class AuthoringWorkflowService(
             row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
             row.ArticleId,
             string.IsNullOrWhiteSpace(row.ArticleTitle) ? "未命名文章" : row.ArticleTitle,
-            isAnonymousActor ? null : row.UserId,
-            null,
             authorDisplayName,
             row.Content,
             row.CreateTime,

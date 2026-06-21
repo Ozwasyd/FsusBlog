@@ -88,6 +88,7 @@ public sealed class AuthoringWorkflowServiceTests
         Assert.DoesNotContain("u.Username", moderationRegion, StringComparison.Ordinal);
         Assert.DoesNotContain("ru.Username", moderationRegion, StringComparison.Ordinal);
         Assert.DoesNotContain("row.UserName", moderationRegion, StringComparison.Ordinal);
+        Assert.DoesNotContain("isAnonymousActor ? null : row.UserId", moderationRegion, StringComparison.Ordinal);
         Assert.Contains("ResolveCommentModerationDisplayName", moderationRegion, StringComparison.Ordinal);
         Assert.Contains("AuthorDisplayName", moderationRegion, StringComparison.Ordinal);
         Assert.Contains("ReplyToAuthorDisplayName", moderationRegion, StringComparison.Ordinal);
@@ -122,10 +123,15 @@ public sealed class AuthoringWorkflowServiceTests
         Assert.DoesNotContain("moderated_by_user_id", entity, StringComparison.Ordinal);
 
         Assert.Contains("ModeratedByAdminPrincipalId", dtos, StringComparison.Ordinal);
+        Assert.DoesNotContain("int? UserId", dtos, StringComparison.Ordinal);
+        Assert.DoesNotContain("string? UserName", dtos, StringComparison.Ordinal);
         Assert.DoesNotContain("ModeratedByUserId", dtos, StringComparison.Ordinal);
         Assert.Contains("moderatedByAdminPrincipalId", frontendApi, StringComparison.Ordinal);
+        Assert.DoesNotContain("userId: number | null", frontendApi, StringComparison.Ordinal);
+        Assert.DoesNotContain("userName?: string | null", frontendApi, StringComparison.Ordinal);
         Assert.DoesNotContain("moderatedByUserId", frontendApi, StringComparison.Ordinal);
         Assert.Contains("moderatedByAdminPrincipalId", moderationQueue, StringComparison.Ordinal);
+        Assert.DoesNotContain("item.userId", moderationQueue, StringComparison.Ordinal);
         Assert.DoesNotContain("moderatedByUserId", moderationQueue, StringComparison.Ordinal);
         Assert.Contains("moderatedByAdminPrincipalId", moderationDetail, StringComparison.Ordinal);
         Assert.DoesNotContain("moderatedByUserId", moderationDetail, StringComparison.Ordinal);

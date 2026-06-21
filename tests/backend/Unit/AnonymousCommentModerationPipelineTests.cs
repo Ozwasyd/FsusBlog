@@ -184,14 +184,16 @@ public sealed class AnonymousCommentModerationPipelineTests
         string frontendQueue = BackendTestPaths.ReadAllTextFromRoot("src/frontend/src/composables/useCommentModerationQueue.ts");
         string queueView = BackendTestPaths.ReadAllTextFromRoot("src/frontend/src/components/admin/comment-moderation/CommentModerationQueue.vue");
 
-        Assert.Contains("int? UserId", dto, StringComparison.Ordinal);
-        Assert.Contains("isAnonymousActor ? null : row.UserId", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("int? UserId", dto, StringComparison.Ordinal);
+        Assert.DoesNotContain("isAnonymousActor ? null : row.UserId", source, StringComparison.Ordinal);
         Assert.Contains("AnonymousDisplayName = c.AnonymousDisplayName", source, StringComparison.Ordinal);
         Assert.Contains("row.AnonymousDisplayName", source, StringComparison.Ordinal);
         Assert.Contains("LoadAnonymousNullifierSummariesAsync", source, StringComparison.Ordinal);
         Assert.Contains("CommentAnonymousNullifier", source, StringComparison.Ordinal);
         Assert.Contains("NullifierStatusLabel", source, StringComparison.Ordinal);
-        Assert.Contains("item.isAnonymousActor ? ''", frontendQueue, StringComparison.Ordinal);
+        Assert.Contains("userLabel", frontendQueue, StringComparison.Ordinal);
+        Assert.Contains("安全作者快照", frontendQueue, StringComparison.Ordinal);
+        Assert.DoesNotContain("item.userId", frontendQueue, StringComparison.Ordinal);
         Assert.DoesNotContain("row.nullifierHash", queueView, StringComparison.Ordinal);
         Assert.DoesNotContain("row.anonymousCredentialId", queueView, StringComparison.Ordinal);
     }

@@ -59,8 +59,10 @@ describe('anonymous moderation governance workflow contract', () => {
     expect(dashboardQueue).not.toContain('comment.userName')
     expect(queueComposable).not.toContain('cleanText(item.userName)')
     expect(queueComposable).not.toContain('item.userName ??')
+    expect(queueComposable).not.toContain('item.userId')
     expect(queueComposable).not.toContain('accountSearchText')
-    expect(authoringApi).toContain('userName?: string | null')
+    expect(authoringApi).not.toContain('userId: number | null')
+    expect(authoringApi).not.toContain('userName?: string | null')
   })
 
   it('keeps nullifier and credential actions permission-gated', () => {

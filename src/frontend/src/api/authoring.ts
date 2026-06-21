@@ -489,8 +489,6 @@ export interface CommentModerationItemResponse {
   id: string
   articleId: number
   articleTitle: string
-  userId: number | null
-  userName?: string | null
   authorMode?: 'anonymous' | 'public' | 'zk_anonymous' | string | null
   authorDisplayName?: string | null
   displayLanguage?: 'zh-CN' | 'en' | string | null
