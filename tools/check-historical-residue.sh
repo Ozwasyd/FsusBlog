@@ -146,6 +146,13 @@ run_residue_check \
   src/frontend/src/composables/usePasskeyLogin.ts src/frontend/src/composables/usePasskeyManagement.ts
 
 run_residue_check \
+  "frontend public handle username semantics" \
+  "frontend public handle username-semantic residue detected" \
+  '\b(?:USERNAME_CONSTRAINT|validateUsername)\b|autocomplete=["'\'']username["'\'']' \
+  "" \
+  src/frontend/src/views/auth/Register.vue src/frontend/src/views/user/IdentityCenter.vue src/frontend/src/composables/useAnonymousOnboarding.ts
+
+run_residue_check \
   "anonymous step-up password body fallback" \
   "anonymous step-up password body fallback residue detected" \
   'allowPasswordBody:\s*true' \

@@ -28,6 +28,13 @@ export const USERNAME_CONSTRAINT = {
   lengthMessage: '用户名长度必须在 3 到 20 个字符之间'
 } as const
 
+export const PUBLIC_HANDLE_CONSTRAINT = {
+  minLength: USERNAME_CONSTRAINT.minLength,
+  maxLength: USERNAME_CONSTRAINT.maxLength,
+  patternMessage: '公开称呼仅允许中文或英文字母，不支持数字和符号',
+  lengthMessage: '公开称呼长度必须在 3 到 20 个字符之间'
+} as const
+
 export const COMMENT_CONTENT_CONSTRAINT = {
   maxChars: 1000,
   maxUtf8Bytes: 4096,
@@ -106,7 +113,7 @@ const moderationTerms = [
   'url.cn/'
 ] as const
 
-const reservedUsernameTerms = [
+const reservedIdentityHandleTerms = [
   'admin',
   'administrator',
   'system',
@@ -227,8 +234,8 @@ export function createAhoCorasickMatcher(patterns: readonly string[]): AhoCorasi
 }
 
 const adMatcher = createAhoCorasickMatcher(moderationTerms.map(normalizeModerationText))
-const reservedUsernameSet = new Set(reservedUsernameTerms.map(normalizeModerationText))
-const reservedUsernameMatcher = createAhoCorasickMatcher([...reservedUsernameSet])
+const reservedIdentityHandleSet = new Set(reservedIdentityHandleTerms.map(normalizeModerationText))
+const reservedIdentityHandleMatcher = createAhoCorasickMatcher([...reservedIdentityHandleSet])
 
 export function createUsernamePattern(): RegExp {
   try {
@@ -338,7 +345,7 @@ export function validateUsername(username: string): ValidationResult {
   }
 
   const normalizedName = normalizeModerationText(cleanName)
-  if (reservedUsernameSet.has(normalizedName) || reservedUsernameMatcher.findFirst(normalizedName) === normalizedName) {
+  if (reservedIdentityHandleSet.has(normalizedName) || reservedIdentityHandleMatcher.findFirst(normalizedName) === normalizedName) {
     return { isValid: false, message: '该用户名已被系统保留，请更换' }
   }
 
@@ -349,6 +356,41 @@ export function validateUsername(username: string): ValidationResult {
 
   if (risk.factors.includes('redline')) {
     return { isValid: false, message: '严重违规：用户名包含对抗性涉政词汇' }
+  }
+
+  return { isValid: true, message: '' }
+}
+
+export function validatePublicHandle(publicHandle: string): ValidationResult {
+  if (!publicHandle || publicHandle.trim() === '') {
+    return { isValid: false, message: '公开称呼不能为空' }
+  }
+
+  if (zeroWidthDetector.test(publicHandle)) {
+    return { isValid: false, message: '公开称呼包含非法的隐形排版字符' }
+  }
+
+  const cleanHandle = publicHandle.trim()
+  if (cleanHandle.length < PUBLIC_HANDLE_CONSTRAINT.minLength || cleanHandle.length > PUBLIC_HANDLE_CONSTRAINT.maxLength) {
+    return { isValid: false, message: PUBLIC_HANDLE_CONSTRAINT.lengthMessage }
+  }
+
+  if (!isUsernameCharacterSetValid(cleanHandle)) {
+    return { isValid: false, message: PUBLIC_HANDLE_CONSTRAINT.patternMessage }
+  }
+
+  const normalizedHandle = normalizeModerationText(cleanHandle)
+  if (reservedIdentityHandleSet.has(normalizedHandle) || reservedIdentityHandleMatcher.findFirst(normalizedHandle) === normalizedHandle) {
+    return { isValid: false, message: '该公开称呼已被系统保留，请更换' }
+  }
+
+  const risk = scoreContentRisk(cleanHandle)
+  if (risk.factors.includes('ad')) {
+    return { isValid: false, message: '公开称呼包含违规引流特征' }
+  }
+
+  if (risk.factors.includes('redline')) {
+    return { isValid: false, message: '严重违规：公开称呼包含对抗性涉政词汇' }
   }
 
   return { isValid: true, message: '' }

@@ -68,6 +68,7 @@ describe('anonymous identity auth workflow contract', () => {
     expect(registerPage).toContain('openPasskeyRegistration')
     expect(registerPage).not.toContain('registerData.password')
     expect(registerPage).not.toContain('confirm-password')
+    expect(registerPage).not.toContain('autocomplete="username"')
     expect(registerPage).not.toContain('autocomplete="new-password"')
   })
 
@@ -84,6 +85,10 @@ describe('anonymous identity auth workflow contract', () => {
     expect(onboarding).not.toContain('sessionStorage')
     expect(onboarding).not.toContain('indexedDB')
     expect(onboarding).not.toContain('console.')
+    expect(onboarding).not.toContain('validateUsername')
+    expect(onboarding).not.toContain('USERNAME_CONSTRAINT')
+    expect(onboarding).toContain('validatePublicHandle(value)')
+    expect(onboarding).toContain('PUBLIC_HANDLE_CONSTRAINT')
     expect(passkeyModal).toContain('recoverySessionToken?: string')
     expect(passkeyModal).toContain('beginRecoveryPasskeyRegistration')
     expect(passkeyModal).toContain('completeRecoveryPasskeyRegistration')

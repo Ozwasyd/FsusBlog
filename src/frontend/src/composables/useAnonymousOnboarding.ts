@@ -4,7 +4,7 @@ import { bootstrapAnonymousAccount, createRecoveryKey } from '@/api/auth'
 import { usePasskeyManagement } from '@/composables/usePasskeyManagement'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { toAppError } from '@/utils/appError'
-import { USERNAME_CONSTRAINT, validateUsername } from '@/utils/contentFilter'
+import { PUBLIC_HANDLE_CONSTRAINT, validatePublicHandle } from '@/utils/contentFilter'
 import { toast } from '@/fsusui/feedback'
 
 type AnonymousOnboardingStep = 'account' | 'recovery' | 'passkey' | 'complete'
@@ -51,9 +51,9 @@ export function useAnonymousOnboarding() {
       return ''
     }
 
-    const result = validateUsername(value)
+    const result = validatePublicHandle(value)
     if (!result.isValid) {
-      return USERNAME_CONSTRAINT.patternMessage
+      return result.message || PUBLIC_HANDLE_CONSTRAINT.patternMessage
     }
 
     return ''

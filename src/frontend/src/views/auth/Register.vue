@@ -41,7 +41,7 @@
                 :disabled="isProcessing"
                 :aria-invalid="Boolean(publicHandleHint)"
                 aria-describedby="public-handle-hint"
-                autocomplete="username"
+                autocomplete="off"
                 autofocus
               />
               <p

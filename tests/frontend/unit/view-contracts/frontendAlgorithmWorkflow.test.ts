@@ -42,7 +42,9 @@ describe('frontend algorithm workflow contract', () => {
   })
 
   it('keeps anonymous public handles on the shared constraint schema', () => {
-    expect(anonymousOnboarding).toContain('USERNAME_CONSTRAINT')
-    expect(anonymousOnboarding).toContain('validateUsername(value)')
+    expect(anonymousOnboarding).toContain('PUBLIC_HANDLE_CONSTRAINT')
+    expect(anonymousOnboarding).toContain('validatePublicHandle(value)')
+    expect(anonymousOnboarding).not.toContain('USERNAME_CONSTRAINT')
+    expect(anonymousOnboarding).not.toContain('validateUsername')
   })
 })

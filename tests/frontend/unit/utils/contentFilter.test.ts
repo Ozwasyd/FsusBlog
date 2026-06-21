@@ -3,8 +3,10 @@ import {
   normalizeModerationText,
   scoreContentRisk,
   COMMENT_CONTENT_CONSTRAINT,
+  PUBLIC_HANDLE_CONSTRAINT,
   USERNAME_CONSTRAINT,
   validateCommentContent,
+  validatePublicHandle,
   validateUsername
 } from '@/utils/contentFilter'
 
@@ -123,5 +125,48 @@ describe('validateUsername', () => {
   it('rejects username with special chars', () => {
     const r = validateUsername('user@domain')
     expect(r.isValid).toBe(false)
+  })
+})
+
+describe('validatePublicHandle', () => {
+  it('rejects reserved handles without username wording', () => {
+    const r = validatePublicHandle('admin')
+    expect(r.isValid).toBe(false)
+    expect(r.message).toContain('公开称呼')
+    expect(r.message).toContain('保留')
+    expect(r.message).not.toContain('用户名')
+  })
+
+  it('keeps public handle length and character-set constraints distinct from username copy', () => {
+    const short = validatePublicHandle('ab')
+    expect(short.isValid).toBe(false)
+    expect(short.message).toBe(PUBLIC_HANDLE_CONSTRAINT.lengthMessage)
+    expect(short.message).not.toContain('用户名')
+
+    const invalid = validatePublicHandle('user_123')
+    expect(invalid.isValid).toBe(false)
+    expect(invalid.message).toBe(PUBLIC_HANDLE_CONSTRAINT.patternMessage)
+    expect(invalid.message).not.toContain('用户名')
+  })
+
+  it('keeps ad, redline, and invisible-character risk checks for public handles', () => {
+    const ad = validatePublicHandle('加微信')
+    expect(ad.isValid).toBe(false)
+    expect(ad.message).toContain('公开称呼')
+    expect(ad.message).not.toContain('用户名')
+
+    const invisible = validatePublicHandle('张三\u200B丰')
+    expect(invisible.isValid).toBe(false)
+    expect(invisible.message).toContain('公开称呼')
+    expect(invisible.message).not.toContain('用户名')
+
+    const redline = validatePublicHandle('习近平')
+    expect(redline.isValid).toBe(false)
+    expect(redline.message).toContain('公开称呼')
+    expect(redline.message).not.toContain('用户名')
+  })
+
+  it('accepts a valid public handle', () => {
+    expect(validatePublicHandle('张三丰').isValid).toBe(true)
   })
 })

@@ -151,6 +151,24 @@ export async function addPasskey() {
     }
   },
   {
+    name: 'frontend public handle username semantics',
+    expected: 'frontend public handle username-semantic residue detected',
+    files: {
+      'src/frontend/src/views/auth/Register.vue': `
+<template>
+  <el-input v-model="publicHandle" autocomplete="username" />
+</template>
+`,
+      'src/frontend/src/composables/useAnonymousOnboarding.ts': `
+import { USERNAME_CONSTRAINT, validateUsername } from '@/utils/contentFilter'
+
+export function validatePublicProfile(value) {
+  return validateUsername(value).message || USERNAME_CONSTRAINT.patternMessage
+}
+`
+    }
+  },
+  {
     name: 'legacy password login form',
     expected: 'legacy password login form residue detected',
     files: {
