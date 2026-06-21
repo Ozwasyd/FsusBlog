@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Options;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
@@ -91,6 +93,30 @@ public sealed class JwtHelperTests
         var claims = ParseClaims(token);
         Assert.DoesNotContain(claims, IsRoleClaim);
         Assert.Contains(claims, claim => claim.Type == "identity_kind" && claim.Value == AnonymousIdentityRuntime.AnonymousAccountKind);
+    }
+
+    [Fact]
+    public void GenerateAccessToken_WithStableAccountHandle_AddsAccountSubjectHashClaimWithoutHashingUserId()
+    {
+        var helper = CreateHelper();
+        var first = TestUser(id: 42);
+        first.IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind;
+        first.PasskeyUserHandle = StablePasskeyUserHandle;
+        var second = TestUser(id: 314);
+        second.IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind;
+        second.PasskeyUserHandle = StablePasskeyUserHandle;
+
+        string firstToken = helper.GenerateAccessToken(first);
+        string secondToken = helper.GenerateAccessToken(second);
+
+        var firstClaims = ParseClaims(firstToken).ToArray();
+        var secondClaims = ParseClaims(secondToken).ToArray();
+        string firstSubject = Assert.Single(firstClaims, claim => claim.Type == AnonymousIdentityRuntime.AccountSubjectHashClaim).Value;
+        string secondSubject = Assert.Single(secondClaims, claim => claim.Type == AnonymousIdentityRuntime.AccountSubjectHashClaim).Value;
+        Assert.Equal(firstSubject, secondSubject);
+        Assert.Matches("^[0-9a-f]{64}$", firstSubject);
+        Assert.NotEqual(HashIdentity("42"), firstSubject);
+        Assert.NotEqual(HashIdentity("314"), secondSubject);
     }
 
     [Fact]
@@ -286,6 +312,9 @@ public sealed class JwtHelperTests
     private static bool IsUserNameClaim(Claim claim)
         => claim.Type == ClaimTypes.Name || claim.Type == "unique_name" || claim.Type == "name";
 
+    private static string HashIdentity(string value)
+        => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
     private static IDisposable SetAnonymousIdentityMode(string? value)
         => new EnvironmentVariableScope(AnonymousIdentityRuntime.ModeEnvironmentVariable, value);
 
@@ -304,4 +333,6 @@ public sealed class JwtHelperTests
         public void Dispose()
             => Environment.SetEnvironmentVariable(_name, _previousValue);
     }
+
+    private const string StablePasskeyUserHandle = "stable-account-handle";
 }

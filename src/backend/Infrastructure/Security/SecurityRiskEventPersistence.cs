@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
@@ -467,10 +468,12 @@ public sealed class SecurityRiskEventSink(
 
     private static string? ResolveSubjectHash(HttpContext context, string? fallbackClientIpHash)
     {
-        string? userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return string.IsNullOrWhiteSpace(userId)
+        string? identityKind = Normalize(context.User.FindFirstValue("identity_kind"), 64);
+        string? accountSubjectHash = NormalizeHash(
+            context.User.FindFirstValue(AnonymousIdentityRuntime.AccountSubjectHashClaim));
+        return identityKind is null || accountSubjectHash is null
             ? fallbackClientIpHash
-            : SecurityRiskIdentity.HashIdentity(userId);
+            : SecurityRiskIdentity.HashIdentity(string.Join(':', "account", identityKind, accountSubjectHash));
     }
 
     private static string? ResolveDeviceHash(HttpContext context)

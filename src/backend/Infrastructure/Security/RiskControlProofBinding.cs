@@ -32,7 +32,7 @@ internal static class RiskControlProofBindingFactory
                 ':',
                 "user",
                 Normalize(actor.IdentityKind),
-                Normalize(actor.UserId),
+                Normalize(actor.AccountSubjectHash),
                 Normalize(actor.SessionId)),
             _ => "anonymous"
         };

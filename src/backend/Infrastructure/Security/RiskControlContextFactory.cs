@@ -49,6 +49,7 @@ public sealed record RiskControlActorContext(
     string Status,
     string IdentityKind,
     string? UserId,
+    string? AccountSubjectHash,
     string? SessionId,
     string? AdminPrincipalId,
     string? AdminSessionId);
@@ -123,6 +124,8 @@ public sealed class RiskControlContextFactory : IRiskControlContextFactory
         string? userId = NormalizeClaim(user?.FindFirst(ClaimTypes.NameIdentifier)?.Value)
             ?? NormalizeClaim(user?.FindFirst("nameid")?.Value);
         string? identityKind = NormalizeClaim(user?.FindFirst("identity_kind")?.Value);
+        string? accountSubjectHash = NormalizeAccountSubjectHash(
+            user?.FindFirst(AnonymousIdentityRuntime.AccountSubjectHashClaim)?.Value);
 
         if (user.IsAdminPrincipal())
         {
@@ -132,6 +135,7 @@ public sealed class RiskControlContextFactory : IRiskControlContextFactory
             return new RiskControlActorContext(
                 RiskControlActorStatuses.AdminPrincipal,
                 AnonymousIdentityRuntime.AdminPrincipalKind,
+                null,
                 null,
                 null,
                 adminPrincipalId,
@@ -146,6 +150,7 @@ public sealed class RiskControlContextFactory : IRiskControlContextFactory
                 null,
                 null,
                 null,
+                null,
                 null);
         }
 
@@ -153,6 +158,7 @@ public sealed class RiskControlContextFactory : IRiskControlContextFactory
             RiskControlActorStatuses.Authenticated,
             identityKind ?? RiskControlIdentityKinds.LegacyUser,
             userId,
+            accountSubjectHash,
             NormalizeClaim(user?.GetSessionId()),
             null,
             null);
@@ -255,5 +261,25 @@ public sealed class RiskControlContextFactory : IRiskControlContextFactory
     {
         string normalized = (value ?? string.Empty).Trim();
         return normalized.Length == 0 ? null : normalized;
+    }
+
+    private static string? NormalizeAccountSubjectHash(string? value)
+    {
+        string normalized = (value ?? string.Empty).Trim();
+        if (normalized.Length != 64)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < normalized.Length; i++)
+        {
+            char c = normalized[i];
+            if (c is not ((>= '0' and <= '9') or (>= 'a' and <= 'f') or (>= 'A' and <= 'F')))
+            {
+                return null;
+            }
+        }
+
+        return normalized.ToLowerInvariant();
     }
 }

@@ -1127,18 +1127,21 @@ public static class SecurityEndpoints
                 AnonymousIdentityRuntime.AdminPrincipalKind,
                 subject,
                 null,
+                null,
                 subject,
                 null),
             RiskControlActorStatuses.Authenticated => new RiskControlActorContext(
                 RiskControlActorStatuses.Authenticated,
                 identityKind,
                 subject,
+                NormalizeHashSubject(subject),
                 null,
                 null,
                 null),
             _ => new RiskControlActorContext(
                 RiskControlActorStatuses.Anonymous,
                 RiskControlIdentityKinds.Anonymous,
+                null,
                 null,
                 null,
                 null,
@@ -1594,6 +1597,26 @@ public static class SecurityEndpoints
     {
         string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
         return normalized.Length == 0 ? null : normalized;
+    }
+
+    private static string? NormalizeHashSubject(string? value)
+    {
+        string normalized = NormalizeNullable(value) ?? string.Empty;
+        if (normalized.Length != 64)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < normalized.Length; i++)
+        {
+            char c = normalized[i];
+            if (c is not ((>= '0' and <= '9') or (>= 'a' and <= 'f') or (>= 'A' and <= 'F')))
+            {
+                return null;
+            }
+        }
+
+        return normalized.ToLowerInvariant();
     }
 
     private static string NormalizeDisplayValue(string? value)

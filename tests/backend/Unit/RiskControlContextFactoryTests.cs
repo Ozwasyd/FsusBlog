@@ -42,7 +42,8 @@ public sealed class RiskControlContextFactoryTests
             "203.0.113.9",
             CreatePrincipal(
                 42,
-                new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind)));
+                new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind),
+                new Claim(AnonymousIdentityRuntime.AccountSubjectHashClaim, StableAccountSubjectHash)));
         context.Request.Headers.UserAgent = "  Mozilla/5.0  ";
         context.Request.Headers["X-Fsus-Device-Fp"] = "abcDEF-1234_5678";
         context.Request.Headers["X-Fsus-Region"] = " cn-mainland ";
@@ -53,6 +54,7 @@ public sealed class RiskControlContextFactoryTests
         Assert.Equal(RiskControlActorStatuses.Authenticated, result.Actor.Status);
         Assert.Equal(AnonymousIdentityRuntime.AnonymousAccountKind, result.Actor.IdentityKind);
         Assert.Equal("42", result.Actor.UserId);
+        Assert.Equal(StableAccountSubjectHash, result.Actor.AccountSubjectHash);
         Assert.Null(result.Actor.AdminPrincipalId);
         Assert.Equal("Mozilla/5.0", result.UserAgent);
         Assert.Equal(RiskControlContextStatuses.Present, result.UserAgentStatus);
@@ -112,7 +114,65 @@ public sealed class RiskControlContextFactoryTests
         Assert.Equal("7", adminResult.Actor.AdminPrincipalId);
         Assert.Equal(RiskControlActorStatuses.Authenticated, accountResult.Actor.Status);
         Assert.Equal("7", accountResult.Actor.UserId);
+        Assert.Null(accountResult.Actor.AccountSubjectHash);
         Assert.Null(accountResult.Actor.AdminPrincipalId);
+    }
+
+    [Fact]
+    public void Create_AuthenticatedUser_SeparatesStableAccountSubjectHashFromUserId()
+    {
+        var firstContext = CreateContext(
+            "203.0.113.9",
+            CreatePrincipal(
+                42,
+                new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind),
+                new Claim(AnonymousIdentityRuntime.AccountSubjectHashClaim, StableAccountSubjectHash)));
+        var secondContext = CreateContext(
+            "203.0.113.9",
+            CreatePrincipal(
+                314,
+                new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind),
+                new Claim(AnonymousIdentityRuntime.AccountSubjectHashClaim, StableAccountSubjectHash)));
+
+        RiskControlContext first = new RiskControlContextFactory().Create(firstContext);
+        RiskControlContext second = new RiskControlContextFactory().Create(secondContext);
+
+        Assert.Equal("42", first.Actor.UserId);
+        Assert.Equal("314", second.Actor.UserId);
+        Assert.Equal(StableAccountSubjectHash, first.Actor.AccountSubjectHash);
+        Assert.Equal(first.Actor.AccountSubjectHash, second.Actor.AccountSubjectHash);
+    }
+
+    [Fact]
+    public void ProofBinding_AuthenticatedSubjectUsesAccountSubjectHashInsteadOfUserId()
+    {
+        var context = CreateContext(
+            "203.0.113.9",
+            CreatePrincipal(
+                42,
+                new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind),
+                new Claim("sid", "session-a"),
+                new Claim(AnonymousIdentityRuntime.AccountSubjectHashClaim, StableAccountSubjectHash)));
+        context.Request.Headers["X-Fsus-Device-Fp"] = "abcDEF-1234_5678";
+        context.SetEndpoint(CreateEndpoint(RiskActionNames.AuthLogin, "auth.login"));
+
+        RiskControlContext riskContext = new RiskControlContextFactory().Create(context);
+        RiskControlProofBinding binding = RiskControlProofBindingFactory.Create(riskContext);
+
+        string expected = Sha256Hex(string.Join(
+            ':',
+            "user",
+            AnonymousIdentityRuntime.AnonymousAccountKind,
+            StableAccountSubjectHash,
+            "session-a"));
+        string legacy = Sha256Hex(string.Join(
+            ':',
+            "user",
+            AnonymousIdentityRuntime.AnonymousAccountKind,
+            "42",
+            "session-a"));
+        Assert.Equal(expected, binding.SubjectHash);
+        Assert.NotEqual(legacy, binding.SubjectHash);
     }
 
     [Fact]
@@ -200,4 +260,6 @@ public sealed class RiskControlContextFactoryTests
 
     private static string Sha256Hex(string value)
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    private const string StableAccountSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 }

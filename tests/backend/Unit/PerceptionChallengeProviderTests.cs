@@ -721,6 +721,7 @@ public sealed class PerceptionChallengeProviderTests
                 null,
                 null,
                 null,
+                null,
                 null),
             new RiskControlDeviceFingerprintContext(RiskControlContextStatuses.Missing, 0, null, "missing"),
             new RiskControlRegionContext(RiskControlContextStatuses.Missing, "UNKNOWN", null, "missing"),

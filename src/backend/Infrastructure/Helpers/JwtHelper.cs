@@ -62,11 +62,19 @@ public class JwtHelper : IJwtHelper
     public string GenerateAccessToken(User user, string? sessionId = null, bool mfaVerified = false)
     {
         // 核心优化 3：使用数组代替 List<Claim>，省去底层 List 对象的分配开销
-        var claims = new List<Claim>(4)
+        string identityKind = string.IsNullOrWhiteSpace(user.IdentityKind)
+            ? AnonymousIdentityRuntime.AnonymousAccountKind
+            : user.IdentityKind.Trim();
+        var claims = new List<Claim>(5)
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new("identity_kind", user.IdentityKind ?? AnonymousIdentityRuntime.AnonymousAccountKind)
+            new("identity_kind", identityKind)
         };
+        string? accountSubjectHash = BuildAccountSubjectHash(identityKind, user.PasskeyUserHandle);
+        if (accountSubjectHash is not null)
+        {
+            claims.Add(new Claim(AnonymousIdentityRuntime.AccountSubjectHashClaim, accountSubjectHash));
+        }
         if (!string.IsNullOrWhiteSpace(sessionId))
         {
             claims.Add(new Claim("sid", sessionId));
@@ -131,6 +139,18 @@ public class JwtHelper : IJwtHelper
         Span<byte> randomBytes = stackalloc byte[32];
         RandomNumberGenerator.Fill(randomBytes);
         return WebEncoders.Base64UrlEncode(randomBytes);
+    }
+
+    private static string? BuildAccountSubjectHash(string identityKind, string? stableAccountHandle)
+    {
+        string normalizedHandle = (stableAccountHandle ?? string.Empty).Trim();
+        if (normalizedHandle.Length == 0)
+        {
+            return null;
+        }
+
+        string material = string.Join(':', "account", identityKind, normalizedHandle);
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(material)));
     }
 }
 

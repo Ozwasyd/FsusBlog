@@ -3,7 +3,7 @@
 本文件是 FsusBlog 所有请求/响应 DTO、通知 WebSocket 信封与 AOT 契约的**完整参考**。
 所有定义的权威源码位于 `src/shared/Contracts/` 目录。
 
-> 最近更新：2026-06-21 — Recovery Key verify request 移除 account id，改由 key 内 lookup id 定位。
+> 最近更新：2026-06-21 — 普通账号 JWT 增加稳定 `account_subject_hash` claim，RiskControl subject/proof binding 不再使用裸 userId。
 
 ---
 
@@ -438,7 +438,7 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 - `POST /api/binary/auth/anonymous/bootstrap` 与 `POST /api/binary/auth/passkey/login/complete` 成功时返回该结构，并在同一响应内写入登录 Cookie。
 - 该结构以及 `MfaChallengeResult.user` 不再输出 legacy `username`、`role` 或 `userId` 字段；MFA 登录完成时的 `user` 只包含 `accountId` 与 `identityKind`。
 - 密码、MFA challenge 或 Passkey 断言完成后仍必须经过服务端最终会话签发校验；封禁账号在认证通过后返回 `AuthLoginFlowDto` 并写入受限会话 Cookie，用于读取账号状态、登出、撤销会话、删除本人账号等安全收尾操作。注销账号（`Deleted` / `DeletedAt`）仍不得返回该结构，也不得写入 access / refresh / session Cookie。
-- 普通账号 access token 不携带 legacy username 或 role claim；`sys_user.role=admin` 不能作为后台权限、notification admin group、rate-limit admin partition、评论管理员删除、普通账号状态治理保护条件或审计 admin actor 的来源。后台权限只能来自 independent admin principal token 的 `identity_kind=admin_principal`、`admin_id/admin_sid` 与多值 `admin_permission` claim。普通账号状态治理接口只治理 `identity_kind=anonymous_account` / legacy user 容器；若旧数据出现 `identity_kind=admin_principal` 的 `sys_user` 影子行，接口必须拒绝并交由 independent admin principal plane 处理。
+- 普通账号 access token 不携带 legacy username 或 role claim；在存在稳定账号 handle 时会携带 `account_subject_hash`，该 claim 由稳定 handle 派生，供 RiskControl subject hash 与 challenge proof binding 使用。`ClaimTypes.NameIdentifier` / `nameid` 仅作为账号容器 id 兼容字段，不能作为 RiskControl subject hash 材料。`sys_user.role=admin` 不能作为后台权限、notification admin group、rate-limit admin partition、评论管理员删除、普通账号状态治理保护条件或审计 admin actor 的来源。后台权限只能来自 independent admin principal token 的 `identity_kind=admin_principal`、`admin_id/admin_sid` 与多值 `admin_permission` claim。普通账号状态治理接口只治理 `identity_kind=anonymous_account` / legacy user 容器；若旧数据出现 `identity_kind=admin_principal` 的 `sys_user` 影子行，接口必须拒绝并交由 independent admin principal plane 处理。
 - `POST /api/binary/auth/delete-account` 在匿名身份模式下只接受 `AuthDeleteAccountRequest` 的确认文本，不包含旧 password、TOTP code 或 recovery-code 字段；敏感操作 proof 必须通过一次性 `X-Fsus-Mfa-Proof` 提交，action 固定为 `account.delete`。注销成功后服务端撤销当前账号 session、Passkey、Recovery Key 与匿名凭据状态，并把 `sys_user` 保留为 anonymous account tombstone，不再改写旧 username。
 - 封禁状态以 `sys_user.Status/BanReason` 为权威来源；`SecurityBlacklistUser` Redis 缓存只做加速且不设置 L2 过期。登录、写入过滤器和 notification stream 遇到缓存 miss 时必须回查数据库，不能因 Redis 丢失而恢复封禁用户权限。受限会话的普通业务写入由服务端返回 `423 Locked`，Binary `ApiError.Details = "ACCOUNT_BANNED_WRITE_LOCKED"`；客户端不得只靠前端状态拦截来实现安全边界。
 

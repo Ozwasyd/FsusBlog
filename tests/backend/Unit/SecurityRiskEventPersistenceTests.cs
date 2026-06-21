@@ -1,5 +1,7 @@
 using System.Net;
+using System.Security.Claims;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -105,7 +107,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             .Returns("3");
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
-        using var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
+        var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
         var hotPath = new CrawlerRiskService(cache, zeroRiskCache, policy, new CapturingLogger<CrawlerRiskService>());
         IServiceProvider services = new ServiceCollection()
             .AddScoped<ISecurityRiskEventStore, ThrowingRiskEventStore>()
@@ -157,7 +159,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             .Returns("3");
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
-        using var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
+        var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
         var hotPath = new CrawlerRiskService(cache, zeroRiskCache, policy, new CapturingLogger<CrawlerRiskService>());
         IServiceProvider services = new ServiceCollection()
             .AddScoped<ISecurityRiskEventStore, NeverCompletingRiskEventStore>()
@@ -221,6 +223,86 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         Assert.Equal(2, flushed);
         Assert.Equal(2, store.Writes.Count);
         Assert.Equal(0, queue.Snapshot().QueuedCount);
+    }
+
+    [Fact]
+    public async Task SecurityRiskEventSink_UsesStableAccountSubjectHashInsteadOfUserId()
+    {
+        var store = new RecordingRiskEventStore();
+        await using ServiceProvider provider = new ServiceCollection()
+            .AddScoped<ISecurityRiskEventStore>(_ => store)
+            .BuildServiceProvider(new ServiceProviderOptions
+            {
+                ValidateOnBuild = true,
+                ValidateScopes = true
+            });
+        var queue = new SecurityRiskEventWriteQueue(
+            Options.Create(new SecurityRiskEventWriterOptions { Capacity = 8, BatchSize = 4, FlushWindowMs = 10 }),
+            new CapturingLogger<SecurityRiskEventWriteQueue>());
+        var sink = CreateSink(provider, queue, "198.51.100.31");
+        DefaultHttpContext first = CreateContext("198.51.100.31");
+        first.User = CreatePrincipal(42, StableAccountSubjectHash);
+        DefaultHttpContext second = CreateContext("198.51.100.31");
+        second.User = CreatePrincipal(314, StableAccountSubjectHash);
+
+        await sink.AddRiskAsync(CreateSignal(first), CancellationToken.None);
+        await sink.AddRiskAsync(CreateSignal(second), CancellationToken.None);
+        var worker = new SecurityRiskEventWriterWorker(
+            queue,
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(new SecurityRiskEventWriterOptions { BatchSize = 4, FlushWindowMs = 10 }),
+            new CapturingLogger<SecurityRiskEventWriterWorker>());
+
+        int flushed = await worker.FlushOnceAsync(CancellationToken.None);
+
+        Assert.Equal(2, flushed);
+        Assert.Equal(2, store.Writes.Count);
+        string expected = SecurityRiskIdentity.HashIdentity(string.Join(
+            ':',
+            "account",
+            AnonymousIdentityRuntime.AnonymousAccountKind,
+            StableAccountSubjectHash));
+        Assert.All(store.Writes, write => Assert.Equal(expected, write.SubjectHash));
+        Assert.DoesNotContain(store.Writes, write => write.SubjectHash == SecurityRiskIdentity.HashIdentity("42"));
+        Assert.DoesNotContain(store.Writes, write => write.SubjectHash == SecurityRiskIdentity.HashIdentity("314"));
+    }
+
+    [Fact]
+    public async Task SecurityRiskEventSink_MissingAccountSubjectHashFallsBackToClientIpHash()
+    {
+        var store = new RecordingRiskEventStore();
+        await using ServiceProvider provider = new ServiceCollection()
+            .AddScoped<ISecurityRiskEventStore>(_ => store)
+            .BuildServiceProvider(new ServiceProviderOptions
+            {
+                ValidateOnBuild = true,
+                ValidateScopes = true
+            });
+        var queue = new SecurityRiskEventWriteQueue(
+            Options.Create(new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 }),
+            new CapturingLogger<SecurityRiskEventWriteQueue>());
+        var sink = CreateSink(provider, queue, "198.51.100.32");
+        DefaultHttpContext context = CreateContext("198.51.100.32");
+        context.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, "42"),
+                new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind)
+            ],
+            "test"));
+
+        await sink.AddRiskAsync(CreateSignal(context), CancellationToken.None);
+        var worker = new SecurityRiskEventWriterWorker(
+            queue,
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(new SecurityRiskEventWriterOptions { BatchSize = 2, FlushWindowMs = 10 }),
+            new CapturingLogger<SecurityRiskEventWriterWorker>());
+
+        int flushed = await worker.FlushOnceAsync(CancellationToken.None);
+
+        Assert.Equal(1, flushed);
+        SecurityRiskEventWrite write = Assert.Single(store.Writes);
+        Assert.Equal(SecurityRiskIdentity.HashIdentity("198.51.100.32"), write.SubjectHash);
+        Assert.Equal(SecurityRiskIdentity.HashIdentity("198.51.100.32"), write.ClientIpHash);
     }
 
     [Fact]
@@ -316,6 +398,47 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         context.Request.Headers.UserAgent = "Mozilla/5.0";
         return context;
     }
+
+    private static SecurityRiskEventSink CreateSink(
+        IServiceProvider services,
+        SecurityRiskEventWriteQueue queue,
+        string clientIp)
+    {
+        IUnifiedCache cache = Substitute.For<IUnifiedCache>();
+        cache.GetStringAsync(CachePolicyId.SecurityPowRisk, clientIp, Arg.Any<CancellationToken>())
+            .Returns("0");
+        ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
+        policy.Current.Returns(CreatePolicySnapshot());
+        var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
+        var hotPath = new CrawlerRiskService(cache, zeroRiskCache, policy, new CapturingLogger<CrawlerRiskService>());
+        return new SecurityRiskEventSink(
+            hotPath,
+            cache,
+            policy,
+            queue,
+            services.GetRequiredService<IServiceScopeFactory>(),
+            new CapturingLogger<SecurityRiskEventSink>(),
+            new MutableTimeProvider(BaselineNow));
+    }
+
+    private static SecurityRiskSignal CreateSignal(HttpContext context)
+        => new(
+            context,
+            SecurityRiskReason.SecurityChallengeRejected,
+            5,
+            TimeSpan.FromMinutes(5),
+            SecurityRiskSources.RiskControl,
+            RiskActionNames.AuthLogin,
+            "subject_hash_regression");
+
+    private static ClaimsPrincipal CreatePrincipal(int userId, string accountSubjectHash)
+        => new(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+                new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind),
+                new Claim(AnonymousIdentityRuntime.AccountSubjectHashClaim, accountSubjectHash)
+            ],
+            "test"));
 
     private Task<SqlSugarClient> CreateDbAsync()
         => PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -442,4 +565,6 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         {
         }
     }
+
+    private const string StableAccountSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 }

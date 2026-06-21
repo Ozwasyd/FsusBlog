@@ -7,6 +7,7 @@ public static class AnonymousIdentityRuntime
     public const string ModeEnvironmentVariable = "FSUSBLOG_ANONYMOUS_IDENTITY_MODE";
     public const string AnonymousAccountKind = "anonymous_account";
     public const string AdminPrincipalKind = "admin_principal";
+    public const string AccountSubjectHashClaim = "account_subject_hash";
     public const string AuthenticatedRole = "authenticated";
     public const string GuestRole = "guest";
     public const string LegacyPasswordDisabledMessage = "Legacy password identity is disabled in anonymous identity mode";
