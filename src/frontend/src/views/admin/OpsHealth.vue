@@ -162,7 +162,7 @@ import {
   type OpsHealthResponse,
   type RecentOpsErrorResponse
 } from '@/api/authoring'
-import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { FsusUiKeyValueGrid, FsusUiKeyValueItem } from '@/fsusui'
 import { CopyDocument, Refresh } from '@/fsusui/icons'

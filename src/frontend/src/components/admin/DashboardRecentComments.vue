@@ -57,7 +57,7 @@
 
 <script setup lang="ts">
 import { ArrowRight } from '@/fsusui/icons';
-import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import type { AdminDashboardViewContract } from '@/view-contracts/adminStats';
 

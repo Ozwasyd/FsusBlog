@@ -197,7 +197,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { FsusUiPageHeader } from "@/fsusui"
 import { FsusUiSettingsSection } from '@/fsusui'
-import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { useAdminStore, type AnonymousCommentPolicySnapshot } from '@/store/admin'
 import {
   blockAnonymousGovernanceNullifier,

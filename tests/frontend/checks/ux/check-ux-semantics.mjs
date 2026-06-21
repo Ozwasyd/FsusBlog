@@ -23,6 +23,36 @@ const expectIncludes = (path, needle, message) => {
 const expectNotIncludes = (path, needle, message) => {
   if (readForExpectation(path).includes(needle)) failures.push(`${path}: ${message}`)
 }
+const expectFileMissing = (path, message) => {
+  try {
+    read(path)
+    failures.push(`${path}: ${message}`)
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error
+  }
+}
+const expectAdminCollectionSfcPrimitives = () => {
+  const primitivePaths = [
+    'src/frontend/src/components/admin/AdminCollectionToolbar.vue',
+    'src/frontend/src/components/admin/AdminFilterGroup.vue',
+    'src/frontend/src/components/admin/AdminSegmentedControl.vue',
+    'src/frontend/src/components/admin/AdminCollectionSummary.vue',
+    'src/frontend/src/components/admin/AdminInlineEmptyState.vue'
+  ]
+
+  let totalLines = 0
+  for (const path of primitivePaths) {
+    const content = readForExpectation(path)
+    totalLines += content.split(/\r?\n/).length
+    if (!content.includes('<template>')) failures.push(`${path}: admin collection primitive must be a template SFC`)
+    if (!content.includes('<script setup lang="ts">')) failures.push(`${path}: admin collection primitive must use script setup TypeScript`)
+    if (/\bdefineComponent\b|\bh\(/.test(content)) failures.push(`${path}: admin collection primitive must not use render-function helpers`)
+  }
+
+  if (totalLines > 200) {
+    failures.push(`src/frontend/src/components/admin: admin collection primitive SFCs total ${totalLines} lines; expected <= 200`)
+  }
+}
 
 expectIncludes('src/frontend/src/layouts/accountNav.ts', "label: '内容'", 'admin nav must expose content task group')
 expectIncludes('src/frontend/src/layouts/accountNav.ts', "label: '互动'", 'admin nav must expose interaction task group')
@@ -88,10 +118,12 @@ expectIncludes('src/frontend/src/views/admin/Dashboard.vue', '地域访问', 're
 expectNotIncludes('src/frontend/src/views/admin/Dashboard.vue', '<el-empty', 'dashboard analytics modules must not use full el-empty')
 expectNotIncludes('src/frontend/src/views/admin/Dashboard.vue', '访客来源构成', 'visit source must not keep old chart-oriented title copy')
 expectNotIncludes('src/frontend/src/views/admin/Dashboard.vue', '地域访问分布 (Top 10)', 'region analytics must not keep old chart-oriented title copy')
-expectIncludes('src/frontend/src/components/admin/AdminCollectionPrimitives.ts', 'AdminCollectionToolbar', 'admin collection screens must provide local toolbar primitives compatible with future FsusUI collection API')
-expectIncludes('src/frontend/src/components/admin/AdminCollectionPrimitives.ts', 'AdminSegmentedControl', 'admin collection screens must provide a restrained segmented control primitive')
-expectIncludes('src/frontend/src/components/admin/AdminCollectionPrimitives.ts', 'AdminCollectionSummary', 'admin collection screens must provide compact list-state primitives')
-expectIncludes('src/frontend/src/components/admin/AdminCollectionPrimitives.ts', 'AdminInlineEmptyState', 'admin collection screens must provide compact inline empty-state primitives')
+expectAdminCollectionSfcPrimitives()
+expectFileMissing('src/frontend/src/components/admin/AdminCollectionPrimitives.ts', 'admin collection primitives must be split into SFC files')
+expectIncludes('src/frontend/src/components/admin/AdminCollectionToolbar.vue', 'AdminCollectionToolbar', 'admin collection screens must provide local toolbar primitives compatible with future FsusUI collection API')
+expectIncludes('src/frontend/src/components/admin/AdminSegmentedControl.vue', 'AdminSegmentedControl', 'admin collection screens must provide a restrained segmented control primitive')
+expectIncludes('src/frontend/src/components/admin/AdminCollectionSummary.vue', 'AdminCollectionSummary', 'admin collection screens must provide compact list-state primitives')
+expectIncludes('src/frontend/src/components/admin/AdminInlineEmptyState.vue', 'AdminInlineEmptyState', 'admin collection screens must provide compact inline empty-state primitives')
 expectIncludes('src/frontend/src/views/admin/article/List.vue', 'AdminCollectionToolbar', 'article list filters and primary action must be one collection toolbar')
 expectIncludes('src/frontend/src/views/admin/article/List.vue', 'AdminCollectionSummary', 'article list must expose compact result-count state')
 expectIncludes('src/frontend/src/views/admin/article/List.vue', 'AdminSegmentedControl', 'article status filters must use a restrained local segmented control')

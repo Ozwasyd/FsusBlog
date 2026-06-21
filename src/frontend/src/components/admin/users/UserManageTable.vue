@@ -187,7 +187,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import type { UserListViewItem } from '@/composables/useAdminUserManage'
 import { useMediaQuery } from '@/composables/useMediaQuery'

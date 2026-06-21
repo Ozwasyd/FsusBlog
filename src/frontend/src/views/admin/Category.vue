@@ -190,11 +190,9 @@ import { type AdminCategoryItemResponse } from '@/api/authoring'
 import { InfoFilled, Plus, Edit, Lock, Delete, Search, View } from '@/fsusui/icons'
 import { useAdminCategoryManage } from '@/composables/useAdminCategoryManage'
 import { useMediaQuery } from '@/composables/useMediaQuery'
-import {
-  AdminCollectionSummary,
-  AdminCollectionToolbar,
-  AdminInlineEmptyState
-} from '@/components/admin/AdminCollectionPrimitives'
+import AdminCollectionSummary from '@/components/admin/AdminCollectionSummary.vue'
+import AdminCollectionToolbar from '@/components/admin/AdminCollectionToolbar.vue'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 
 const {
   list,

@@ -84,7 +84,7 @@ import {
   type ModerationReplayPreviewItemResponse,
   type ModerationReplayPreviewResponse
 } from '@/api/authoring'
-import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { DocumentChecked } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 

@@ -238,7 +238,7 @@ import {
 } from '@/api/authoring'
 import { FsusUiPageHeader } from "@/fsusui"
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
-import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import {
   FsusUiDangerZone,
   FsusUiDestructiveActionPanel,

@@ -100,7 +100,7 @@ import {
   type ModerationEffectivePolicyRule,
   type ModerationRegionDefinition
 } from '@/api/authoring'
-import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { Refresh, View } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 

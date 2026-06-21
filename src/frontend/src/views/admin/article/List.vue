@@ -290,13 +290,11 @@ import { type ArticleListItemResponse } from '@/api/article'
 import { useAdminArticleList } from '@/composables/useAdminArticleList'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import AdminArticleCompactCard from '@/components/admin/article/AdminArticleCompactCard.vue'
-import {
-  AdminCollectionSummary,
-  AdminCollectionToolbar,
-  AdminFilterGroup,
-  AdminInlineEmptyState,
-  AdminSegmentedControl
-} from '@/components/admin/AdminCollectionPrimitives'
+import AdminCollectionSummary from '@/components/admin/AdminCollectionSummary.vue'
+import AdminCollectionToolbar from '@/components/admin/AdminCollectionToolbar.vue'
+import AdminFilterGroup from '@/components/admin/AdminFilterGroup.vue'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
+import AdminSegmentedControl from '@/components/admin/AdminSegmentedControl.vue'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 
 type ArticleListViewItem = ArticleListItemResponse & {

@@ -209,7 +209,7 @@ import {
 } from '@/api/authoring'
 import { FsusUiPageHeader } from "@/fsusui"
 import { FsusUiSettingsSection } from '@/fsusui'
-import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
 import { Aim, Lock, Operation, Refresh, RefreshLeft, Search, User, View } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
