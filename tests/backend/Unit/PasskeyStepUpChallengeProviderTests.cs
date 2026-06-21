@@ -56,7 +56,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
         Assert.Equal(PasskeyStepUpV1ChallengeProvider.Algorithm, result.ProviderPayload["algorithm"]);
         Assert.Equal("stepup-token", result.ProviderPayload["challengeToken"]);
         Assert.Contains("\"challengeToken\":\"stepup-token\"", result.ProviderPayload["optionsJson"], StringComparison.Ordinal);
-        Assert.Equal(42, fixture.Passkeys.BeginStepUpUserId);
+        Assert.Equal(42, fixture.Passkeys.BeginStepUpAccountId);
         Assert.Equal(result.Assignment.ChallengeId, Assert.Single(fixture.Persistence.Issues).ChallengeId);
     }
 
@@ -72,7 +72,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
         Assert.False(result.Succeeded);
         Assert.Equal("passkey_step_up_user_required", result.Reason);
         Assert.Empty(fixture.Persistence.Issues);
-        Assert.Equal(0, fixture.Passkeys.BeginStepUpUserId);
+        Assert.Equal(0, fixture.Passkeys.BeginStepUpAccountId);
     }
 
     [Fact]
@@ -87,7 +87,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
         Assert.False(result.Succeeded);
         Assert.Equal("passkey_step_up_user_required", result.Reason);
         Assert.Empty(fixture.Persistence.Issues);
-        Assert.Equal(0, fixture.Passkeys.BeginStepUpUserId);
+        Assert.Equal(0, fixture.Passkeys.BeginStepUpAccountId);
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
             CancellationToken.None);
 
         Assert.True(result.Succeeded, result.Reason);
-        Assert.Equal(42, fixture.Passkeys.CompleteStepUpUserId);
+        Assert.Equal(42, fixture.Passkeys.CompleteStepUpAccountId);
         Assert.NotNull(fixture.Passkeys.CompleteStepUpRequest);
         Assert.Equal(assertion.ChallengeToken, fixture.Passkeys.CompleteStepUpRequest.ChallengeToken);
         Assert.Equal(assertion.Id, fixture.Passkeys.CompleteStepUpRequest.Id);
@@ -126,7 +126,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
 
         Assert.False(result.Succeeded);
         Assert.Equal("passkey_step_up_payload_invalid", result.Reason);
-        Assert.Equal(0, fixture.Passkeys.CompleteStepUpUserId);
+        Assert.Equal(0, fixture.Passkeys.CompleteStepUpAccountId);
         Assert.Equal(SecurityChallengeAttemptOutcomes.Failed, Assert.Single(fixture.Persistence.Attempts).Outcome);
     }
 
@@ -293,13 +293,13 @@ public sealed class PasskeyStepUpChallengeProviderTests
 
     private sealed class FakePasskeyService : IPasskeyService
     {
-        public int BeginStepUpUserId { get; private set; }
-        public int CompleteStepUpUserId { get; private set; }
+        public int BeginStepUpAccountId { get; private set; }
+        public int CompleteStepUpAccountId { get; private set; }
         public PasskeyLoginCompleteCoreModel? CompleteStepUpRequest { get; private set; }
 
-        public Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginStepUpAssertionAsync(int userId, CancellationToken cancellationToken = default)
+        public Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginStepUpAssertionAsync(int accountId, CancellationToken cancellationToken = default)
         {
-            BeginStepUpUserId = userId;
+            BeginStepUpAccountId = accountId;
             var options = new PasskeyLoginBeginCoreModel
             {
                 ChallengeToken = "stepup-token",
@@ -312,20 +312,20 @@ public sealed class PasskeyStepUpChallengeProviderTests
             return Task.FromResult<(bool, string, PasskeyAuthBeginData?)>((true, "ok", new PasskeyAuthBeginData(options)));
         }
 
-        public Task<(bool Success, string Message)> CompleteStepUpAssertionAsync(int userId, PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default)
+        public Task<(bool Success, string Message)> CompleteStepUpAssertionAsync(int accountId, PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default)
         {
-            CompleteStepUpUserId = userId;
+            CompleteStepUpAccountId = accountId;
             CompleteStepUpRequest = request;
             return Task.FromResult((true, "ok"));
         }
 
-        public Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<(bool Success, string Message)> CompleteRegistrationAsync(int userId, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int accountId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<(bool Success, string Message)> CompleteRegistrationAsync(int accountId, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginAssertionAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<(bool Success, string Message, User? User)> CompleteAssertionAsync(PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<IList<PasskeyCredentialSummaryDto>> GetCredentialsAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<PasskeyCredentialMutationResult> RemoveCredentialAsync(int userId, int credId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<bool> RenameCredentialAsync(int userId, int credId, string name, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IList<PasskeyCredentialSummaryDto>> GetCredentialsAsync(int accountId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<PasskeyCredentialMutationResult> RemoveCredentialAsync(int accountId, int credId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> RenameCredentialAsync(int accountId, int credId, string name, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class FakeAdminPrincipalService : IAdminPrincipalService

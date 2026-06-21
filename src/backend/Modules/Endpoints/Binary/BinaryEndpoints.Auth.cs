@@ -1014,7 +1014,7 @@ public static partial class BinaryEndpoints
                 return RecoveryKeyError(session.Error, aeds);
             }
 
-            var (success, message, data) = await passkeyService.BeginRegistrationAsync(session.Value.UserId, cancellationToken);
+            var (success, message, data) = await passkeyService.BeginRegistrationAsync(session.Value.AccountId, cancellationToken);
             return success && data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.PasskeyRegisterBegin, writer => PodBinaryCodec.WritePasskeyRegisterBegin(data.Options, writer))
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
@@ -1052,7 +1052,7 @@ public static partial class BinaryEndpoints
                 return RecoveryKeyError(session.Error, aeds);
             }
 
-            var (success, message) = await passkeyService.CompleteRegistrationAsync(session.Value.UserId, request, cancellationToken);
+            var (success, message) = await passkeyService.CompleteRegistrationAsync(session.Value.AccountId, request, cancellationToken);
             if (!success)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);

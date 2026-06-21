@@ -14,15 +14,15 @@ namespace FsusBlog.Server.Services.Security;
 
 public interface IPasskeyService
 {
-    Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int userId, CancellationToken cancellationToken = default);
-    Task<(bool Success, string Message)> CompleteRegistrationAsync(int userId, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default);
+    Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int accountId, CancellationToken cancellationToken = default);
+    Task<(bool Success, string Message)> CompleteRegistrationAsync(int accountId, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default);
     Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginAssertionAsync(CancellationToken cancellationToken = default);
     Task<(bool Success, string Message, User? User)> CompleteAssertionAsync(PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default);
-    Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginStepUpAssertionAsync(int userId, CancellationToken cancellationToken = default);
-    Task<(bool Success, string Message)> CompleteStepUpAssertionAsync(int userId, PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default);
-    Task<IList<PasskeyCredentialSummaryDto>> GetCredentialsAsync(int userId, CancellationToken cancellationToken = default);
-    Task<PasskeyCredentialMutationResult> RemoveCredentialAsync(int userId, int credId, CancellationToken cancellationToken = default);
-    Task<bool> RenameCredentialAsync(int userId, int credId, string name, CancellationToken cancellationToken = default);
+    Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginStepUpAssertionAsync(int accountId, CancellationToken cancellationToken = default);
+    Task<(bool Success, string Message)> CompleteStepUpAssertionAsync(int accountId, PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default);
+    Task<IList<PasskeyCredentialSummaryDto>> GetCredentialsAsync(int accountId, CancellationToken cancellationToken = default);
+    Task<PasskeyCredentialMutationResult> RemoveCredentialAsync(int accountId, int credId, CancellationToken cancellationToken = default);
+    Task<bool> RenameCredentialAsync(int accountId, int credId, string name, CancellationToken cancellationToken = default);
 }
 
 public sealed record PasskeyRegBeginData(PasskeyRegisterBeginCoreModel Options);
@@ -51,17 +51,17 @@ public sealed class PasskeyService(
     // Registration
     // ─────────────────────────────────────────────────────────────────────
 
-    public async Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int userId, CancellationToken cancellationToken = default)
+    public async Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int accountId, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        User? user = await db.Queryable<User>().InSingleAsync(userId);
+        User? user = await db.Queryable<User>().InSingleAsync(accountId);
         if (user is null || user.DeletedAt.HasValue || user.Status == 2)
         {
             return (false, "账户不存在或已注销", null);
         }
 
         var existingCreds = await db.Queryable<PasskeyCredential>()
-            .Where(c => c.UserId == userId)
+            .Where(c => c.AccountId == accountId)
             .Select(c => c.CredentialId)
             .Take(MaxCredentialsPerUser + 1)
             .ToListAsync();
@@ -117,7 +117,7 @@ public sealed class PasskeyService(
     }
 
     public async Task<(bool Success, string Message)> CompleteRegistrationAsync(
-        int userId,
+        int accountId,
         PasskeyRegisterCompleteCoreModel request,
         CancellationToken cancellationToken = default)
     {
@@ -142,7 +142,7 @@ public sealed class PasskeyService(
 
         // 检查上限（并发保护）
         int existingCount = await db.Queryable<PasskeyCredential>()
-            .Where(c => c.UserId == userId)
+            .Where(c => c.AccountId == accountId)
             .CountAsync();
         if (existingCount >= MaxCredentialsPerUser)
         {
@@ -163,8 +163,8 @@ public sealed class PasskeyService(
         {
             logger.LogWarning(
                 ex,
-                "Passkey registration failed. UserId={UserId} SessionKeyHash={SessionKeyHash} ExceptionType={ExceptionType}",
-                userId,
+                "Passkey registration failed. AccountId={AccountId} SessionKeyHash={SessionKeyHash} ExceptionType={ExceptionType}",
+                accountId,
                 HashForLog(request.SessionKey),
                 ex.GetType().Name);
             return (false, "通行密钥验证失败，请重试");
@@ -180,7 +180,7 @@ public sealed class PasskeyService(
 
         var credential = new PasskeyCredential
         {
-            UserId = userId,
+            AccountId = accountId,
             CredentialId = credentialIdBase64,
             PublicKey = publicKeyBase64,
             SignCount = (long)result.SignCount,
@@ -194,7 +194,7 @@ public sealed class PasskeyService(
 
         await db.Insertable(credential).ExecuteCommandAsync();
         await db.Updateable<User>()
-            .Where(u => u.Id == userId)
+            .Where(u => u.Id == accountId)
             .SetColumns(u => u.PasskeyEnabled == true)
             .ExecuteCommandAsync();
 
@@ -267,7 +267,7 @@ public sealed class PasskeyService(
         }
 
         var user = await db.Queryable<User>()
-            .InSingleAsync(storedCred.UserId);
+            .InSingleAsync(storedCred.AccountId);
 
         if (user == null || user.Status == 2 || user.DeletedAt.HasValue)
         {
@@ -294,10 +294,10 @@ public sealed class PasskeyService(
         {
             logger.LogWarning(
                 ex,
-                "Passkey assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash} UserId={UserId} ExceptionType={ExceptionType}",
+                "Passkey assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash} AccountId={AccountId} ExceptionType={ExceptionType}",
                 HashForLog(request.ChallengeToken),
                 HashForLog(credentialIdBase64),
-                storedCred.UserId,
+                storedCred.AccountId,
                 ex.GetType().Name);
             return (false, "通行密钥验证失败，请重试", null);
         }
@@ -313,23 +313,23 @@ public sealed class PasskeyService(
     }
 
     public async Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginStepUpAssertionAsync(
-        int userId,
+        int accountId,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (userId <= 0)
+        if (accountId <= 0)
         {
             return (false, "用户会话无效", null);
         }
 
-        User? user = await db.Queryable<User>().InSingleAsync(userId);
+        User? user = await db.Queryable<User>().InSingleAsync(accountId);
         if (user is null || user.DeletedAt.HasValue || user.Status == 2)
         {
             return (false, "账户不存在或已注销", null);
         }
 
         List<string> credentialIds = await db.Queryable<PasskeyCredential>()
-            .Where(c => c.UserId == userId)
+            .Where(c => c.AccountId == accountId)
             .Select(c => c.CredentialId)
             .ToListAsync();
         if (credentialIds.Count == 0)
@@ -356,12 +356,12 @@ public sealed class PasskeyService(
     }
 
     public async Task<(bool Success, string Message)> CompleteStepUpAssertionAsync(
-        int userId,
+        int accountId,
         PasskeyLoginCompleteCoreModel request,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (userId <= 0)
+        if (accountId <= 0)
         {
             return (false, "用户会话无效");
         }
@@ -382,14 +382,14 @@ public sealed class PasskeyService(
         AuthenticatorAssertionRawResponse assertionResponse = ToAssertionResponse(request);
         string credentialIdBase64 = assertionResponse.Id;
         PasskeyCredential? storedCred = await db.Queryable<PasskeyCredential>()
-            .Where(c => c.CredentialId == credentialIdBase64 && c.UserId == userId)
+            .Where(c => c.CredentialId == credentialIdBase64 && c.AccountId == accountId)
             .FirstAsync();
         if (storedCred is null)
         {
             return (false, "未找到当前用户的通行密钥");
         }
 
-        User? user = await db.Queryable<User>().InSingleAsync(userId);
+        User? user = await db.Queryable<User>().InSingleAsync(accountId);
         if (user is null || user.Status == 2 || user.DeletedAt.HasValue)
         {
             return (false, "账户不存在或已注销");
@@ -414,10 +414,10 @@ public sealed class PasskeyService(
         {
             logger.LogWarning(
                 ex,
-                "Passkey step-up assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash} UserId={UserId} ExceptionType={ExceptionType}",
+                "Passkey step-up assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash} AccountId={AccountId} ExceptionType={ExceptionType}",
                 HashForLog(request.ChallengeToken),
                 HashForLog(credentialIdBase64),
-                userId,
+                accountId,
                 ex.GetType().Name);
             return (false, "通行密钥 step-up 验证失败，请重试");
         }
@@ -647,11 +647,11 @@ public sealed class PasskeyService(
     // Credential management
     // ─────────────────────────────────────────────────────────────────────
 
-    public async Task<IList<PasskeyCredentialSummaryDto>> GetCredentialsAsync(int userId, CancellationToken cancellationToken = default)
+    public async Task<IList<PasskeyCredentialSummaryDto>> GetCredentialsAsync(int accountId, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var creds = await db.Queryable<PasskeyCredential>()
-            .Where(c => c.UserId == userId)
+            .Where(c => c.AccountId == accountId)
             .OrderBy(c => c.CreatedAt)
             .ToListAsync();
 
@@ -665,11 +665,11 @@ public sealed class PasskeyService(
             c.BackupState)).ToList();
     }
 
-    public async Task<PasskeyCredentialMutationResult> RemoveCredentialAsync(int userId, int credId, CancellationToken cancellationToken = default)
+    public async Task<PasskeyCredentialMutationResult> RemoveCredentialAsync(int accountId, int credId, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var credential = await db.Queryable<PasskeyCredential>()
-            .Where(c => c.Id == credId && c.UserId == userId)
+            .Where(c => c.Id == credId && c.AccountId == accountId)
             .FirstAsync();
         if (credential is null)
         {
@@ -678,14 +678,14 @@ public sealed class PasskeyService(
 
         if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
         {
-            User? user = await db.Queryable<User>().InSingleAsync(userId);
+            User? user = await db.Queryable<User>().InSingleAsync(accountId);
             if (user is null || user.DeletedAt.HasValue || user.Status == 2)
             {
                 return PasskeyCredentialMutationResult.Missing("用户不存在");
             }
 
             int usableCredentialCount = await db.Queryable<PasskeyCredential>()
-                .Where(c => c.UserId == userId)
+                .Where(c => c.AccountId == accountId)
                 .CountAsync();
             if (usableCredentialCount <= 1 && !user.RecoveryEnabled)
             {
@@ -694,7 +694,7 @@ public sealed class PasskeyService(
         }
 
         int deleted = await db.Deleteable<PasskeyCredential>()
-            .Where(c => c.Id == credId && c.UserId == userId)
+            .Where(c => c.Id == credId && c.AccountId == accountId)
             .ExecuteCommandAsync();
         if (deleted <= 0)
         {
@@ -702,12 +702,12 @@ public sealed class PasskeyService(
         }
 
         int remaining = await db.Queryable<PasskeyCredential>()
-            .Where(c => c.UserId == userId)
+            .Where(c => c.AccountId == accountId)
             .CountAsync();
         if (remaining == 0)
         {
             await db.Updateable<User>()
-                .Where(u => u.Id == userId)
+                .Where(u => u.Id == accountId)
                 .SetColumns(u => u.PasskeyEnabled == false)
                 .ExecuteCommandAsync();
         }
@@ -715,14 +715,14 @@ public sealed class PasskeyService(
         return PasskeyCredentialMutationResult.Succeeded("通行密钥已删除");
     }
 
-    public async Task<bool> RenameCredentialAsync(int userId, int credId, string name, CancellationToken cancellationToken = default)
+    public async Task<bool> RenameCredentialAsync(int accountId, int credId, string name, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         string trimmed = (name ?? string.Empty).Trim();
         if (trimmed.Length > 64) trimmed = trimmed[..64];
 
         int updated = await db.Updateable<PasskeyCredential>()
-            .Where(c => c.Id == credId && c.UserId == userId)
+            .Where(c => c.Id == credId && c.AccountId == accountId)
             .SetColumns(c => c.DeviceFriendlyName == trimmed)
             .ExecuteCommandAsync();
         return updated > 0;

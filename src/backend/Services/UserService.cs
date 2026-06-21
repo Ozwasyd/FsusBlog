@@ -663,12 +663,12 @@ public partial class UserService(
                 .ExecuteCommandAsync();
 
             await _db.Deleteable<PasskeyCredential>()
-                .Where(p => p.UserId == userId)
+                .Where(p => p.AccountId == userId)
                 .ExecuteCommandAsync();
 
             await _db.Updateable<RecoveryKeyCredential>()
                 .SetColumns(k => k.RevokedAt == deletedAt)
-                .Where(k => k.UserId == userId && k.RevokedAt == null)
+                .Where(k => k.AccountId == userId && k.RevokedAt == null)
                 .ExecuteCommandAsync();
 
             await _db.Updateable<AnonymousCredential>()

@@ -35,7 +35,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
         Assert.Matches("^[0-9a-f]{32}$", recoveryKeyBody[..separator]);
         Assert.True(recoveryKeyBody[(separator + 1)..].Length >= 32);
 
-        RecoveryKeyCredential storedKey = await db.Queryable<RecoveryKeyCredential>().SingleAsync(k => k.UserId == userId);
+        RecoveryKeyCredential storedKey = await db.Queryable<RecoveryKeyCredential>().SingleAsync(k => k.AccountId == userId);
         Assert.False(string.IsNullOrWhiteSpace(storedKey.LookupIdHash));
         Assert.NotEqual(created.Value.RecoveryKey, storedKey.KeyHash);
         Assert.DoesNotContain(created.Value.RecoveryKey, storedKey.KeyHash, StringComparison.Ordinal);
@@ -52,7 +52,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
         Assert.True(verified.IsSuccess);
         Assert.False(string.IsNullOrWhiteSpace(verified.Value.RecoverySessionToken));
 
-        RecoveryKeyCredential consumedKey = await db.Queryable<RecoveryKeyCredential>().SingleAsync(k => k.UserId == userId);
+        RecoveryKeyCredential consumedKey = await db.Queryable<RecoveryKeyCredential>().SingleAsync(k => k.AccountId == userId);
         Assert.NotNull(consumedKey.UsedAt);
         User user = await db.Queryable<User>().SingleAsync(u => u.Id == userId);
         Assert.False(user.RecoveryEnabled);
@@ -70,7 +70,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
         await service.ApplyPostPasskeyBindAsync(recoverySession.Value, CancellationToken.None);
 
         string[] remainingCredentialIds = await db.Queryable<PasskeyCredential>()
-            .Where(c => c.UserId == userId)
+            .Where(c => c.AccountId == userId)
             .Select(c => c.CredentialId)
             .ToArrayAsync();
         Assert.Equal(["new-credential"], remainingCredentialIds);
@@ -166,7 +166,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
     {
         db.Insertable(new PasskeyCredential
         {
-            UserId = userId,
+            AccountId = userId,
             CredentialId = credentialId,
             PublicKey = $"public-key-{credentialId}",
             AaGuid = Guid.Empty.ToString(),

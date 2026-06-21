@@ -22,11 +22,14 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildUserSessionFinalizeMigration(),
         BuildUserAuthSecurityHardeningMigration(),
         BuildAnonymousIdentityAccountSchemaMigration(),
+        BuildPasskeyRecoveryKeyAccountIdMigration(),
         BuildPasskeyUserHandleMigration(),
         BuildSysUserSecurityProfileSplitMigration(),
         BuildSysUserSecurityProfileSplitFinalizeMigration(),
         BuildAdminPrincipalPlaneMigration(),
+        BuildPasskeyRecoveryKeyAccountIdPostCodeFirstCompatMigration(),
         BuildAccountRecoveryKeyMigration(),
+        BuildPasskeyRecoveryKeyAccountIdFinalizerMigration(),
         BuildAnonymousCredentialAccountBindingMigration(),
         BuildAnonymousCredentialAccountBindingLegacyCompatibilityMigration(),
         BuildAnonymousCommentGovernanceMigration(),
@@ -1214,6 +1217,92 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new EnsureColumnStep("sys_user", "passkey_user_handle", "varchar(128) NULL")
             ]);
 
+    private static ISchemaMigrationDescriptor BuildPasskeyRecoveryKeyAccountIdMigration()
+        => new SchemaMigrationDescriptor(
+            "20260621-pre-passkey-recovery-key-account-id",
+            "Rename passkey and recovery key credential ownership columns from user_id to account_id.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new DropIndexStep("idx_passkey_user_id"),
+                new DropIndexStep("idx_account_recovery_key_user"),
+                new DropIndexStep("idx_account_recovery_key_version"),
+                new DropIndexStep("idx_account_recovery_key_active_unique"),
+                new RenameColumnStep("passkey_credential", "user_id", "account_id"),
+                new RawSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public'
+                              AND table_name = 'account_recovery_key'
+                              AND column_name = 'user_id'
+                        )
+                        AND NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public'
+                              AND table_name = 'account_recovery_key'
+                              AND column_name = 'account_id'
+                        ) THEN
+                            ALTER TABLE account_recovery_key ADD COLUMN account_id integer;
+                            UPDATE account_recovery_key
+                            SET account_id = user_id
+                            WHERE account_id IS NULL;
+                            ALTER TABLE account_recovery_key ALTER COLUMN account_id SET NOT NULL;
+                        END IF;
+                    END $$;
+                    """),
+                new CreateIndexStep(
+                    "idx_passkey_account_id",
+                    "CREATE INDEX IF NOT EXISTS idx_passkey_account_id ON passkey_credential(account_id);"),
+                new CreateIndexStep(
+                    "idx_account_recovery_key_account",
+                    "CREATE INDEX IF NOT EXISTS idx_account_recovery_key_account ON account_recovery_key(account_id);"),
+                new CreateIndexStep(
+                    "idx_account_recovery_key_version",
+                    "CREATE INDEX IF NOT EXISTS idx_account_recovery_key_version ON account_recovery_key(account_id, key_version DESC);"),
+                new CreateIndexStep(
+                    "idx_account_recovery_key_active_unique",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_account_recovery_key_active_unique ON account_recovery_key(account_id) WHERE used_at IS NULL AND revoked_at IS NULL;"),
+                new CreateIndexStep(
+                    "idx_account_recovery_key_lookup_active_unique",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_account_recovery_key_lookup_active_unique ON account_recovery_key(lookup_id_hash) WHERE lookup_id_hash IS NOT NULL AND used_at IS NULL AND revoked_at IS NULL;")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildPasskeyRecoveryKeyAccountIdPostCodeFirstCompatMigration()
+        => new SchemaMigrationDescriptor(
+            "20260615-post-passkey-recovery-key-account-id-compat",
+            "Temporarily restore recovery key user_id compatibility after CodeFirst so the legacy recovery key descriptor remains idempotent.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new RawSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public'
+                              AND table_name = 'account_recovery_key'
+                              AND column_name = 'account_id'
+                        )
+                        AND NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public'
+                              AND table_name = 'account_recovery_key'
+                              AND column_name = 'user_id'
+                        ) THEN
+                            ALTER TABLE account_recovery_key ADD COLUMN user_id integer;
+                            UPDATE account_recovery_key
+                            SET user_id = account_id
+                            WHERE user_id IS NULL;
+                            ALTER TABLE account_recovery_key ALTER COLUMN user_id SET NOT NULL;
+                        END IF;
+                    END $$;
+                    """)
+            ]);
+
     private static ISchemaMigrationDescriptor BuildAccountRecoveryKeyMigration()
         => new SchemaMigrationDescriptor(
             "20260616-post-account-recovery-key",
@@ -1255,6 +1344,36 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_account_recovery_key_lookup_active_unique",
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_account_recovery_key_lookup_active_unique ON account_recovery_key(lookup_id_hash) WHERE lookup_id_hash IS NOT NULL AND used_at IS NULL AND revoked_at IS NULL;")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildPasskeyRecoveryKeyAccountIdFinalizerMigration()
+        => new SchemaMigrationDescriptor(
+            "20260621-post-passkey-recovery-key-account-id-finalize",
+            "Finalize passkey and recovery key credential ownership indexes on account_id.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new DropIndexStep("idx_passkey_user_id"),
+                new DropIndexStep("idx_account_recovery_key_user"),
+                new DropIndexStep("idx_account_recovery_key_version"),
+                new DropIndexStep("idx_account_recovery_key_active_unique"),
+                new RenameColumnStep("account_recovery_key", "user_id", "account_id"),
+                new CopyColumnToColumnStep("account_recovery_key", "user_id", "account_id"),
+                new DropColumnStep("passkey_credential", "user_id"),
+                new DropColumnStep("account_recovery_key", "user_id"),
+                new CreateIndexStep(
+                    "idx_passkey_account_id",
+                    "CREATE INDEX IF NOT EXISTS idx_passkey_account_id ON passkey_credential(account_id);"),
+                new CreateIndexStep(
+                    "idx_account_recovery_key_account",
+                    "CREATE INDEX IF NOT EXISTS idx_account_recovery_key_account ON account_recovery_key(account_id);"),
+                new CreateIndexStep(
+                    "idx_account_recovery_key_version",
+                    "CREATE INDEX IF NOT EXISTS idx_account_recovery_key_version ON account_recovery_key(account_id, key_version DESC);"),
+                new CreateIndexStep(
+                    "idx_account_recovery_key_active_unique",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_account_recovery_key_active_unique ON account_recovery_key(account_id) WHERE used_at IS NULL AND revoked_at IS NULL;")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAnonymousCredentialAccountBindingMigration()

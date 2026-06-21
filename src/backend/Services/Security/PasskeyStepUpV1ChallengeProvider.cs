@@ -28,13 +28,13 @@ public sealed class PasskeyStepUpV1ChallengeProvider(
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
-        int userId = ResolveOrdinaryUserId(request.Context);
-        if (userId <= 0)
+        int accountId = ResolveOrdinaryAccountId(request.Context);
+        if (accountId <= 0)
         {
             return SecurityChallengeProviderIssueResult.Failed("passkey_step_up_user_required");
         }
 
-        var (success, message, data) = await passkeyService.BeginStepUpAssertionAsync(userId, cancellationToken);
+        var (success, message, data) = await passkeyService.BeginStepUpAssertionAsync(accountId, cancellationToken);
         if (!success || data is null)
         {
             return SecurityChallengeProviderIssueResult.Failed(NormalizeReason(message, "passkey_step_up_unavailable"));
@@ -90,8 +90,8 @@ public sealed class PasskeyStepUpV1ChallengeProvider(
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
-        int userId = ResolveOrdinaryUserId(request.Context);
-        if (userId <= 0)
+        int accountId = ResolveOrdinaryAccountId(request.Context);
+        if (accountId <= 0)
         {
             await RecordAttemptAsync(request, SecurityChallengeAttemptOutcomes.Failed, "passkey_step_up_user_required", null, cancellationToken);
             return SecurityChallengeProviderVerifyResult.Failed("passkey_step_up_user_required");
@@ -103,7 +103,7 @@ public sealed class PasskeyStepUpV1ChallengeProvider(
             return SecurityChallengeProviderVerifyResult.Failed("passkey_step_up_payload_invalid");
         }
 
-        var (success, message) = await passkeyService.CompleteStepUpAssertionAsync(userId, assertion, cancellationToken);
+        var (success, message) = await passkeyService.CompleteStepUpAssertionAsync(accountId, assertion, cancellationToken);
         if (!success)
         {
             string reason = NormalizeReason(message, "passkey_step_up_failed");
@@ -115,7 +115,7 @@ public sealed class PasskeyStepUpV1ChallengeProvider(
         return SecurityChallengeProviderVerifyResult.Success(timeProvider.GetUtcNow().AddSeconds(ChallengeTtlSeconds));
     }
 
-    private static int ResolveOrdinaryUserId(HttpContext context)
+    private static int ResolveOrdinaryAccountId(HttpContext context)
     {
         if (context.User.Identity?.IsAuthenticated != true || context.User.IsAdminPrincipal())
         {

@@ -2,6 +2,8 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Server.Entities;
+using SqlSugar;
 using System.Reflection;
 
 namespace FsusBlog.Server.Tests;
@@ -252,6 +254,33 @@ public sealed class PasskeyServiceTests
 
         Assert.DoesNotContain("BitConverter.GetBytes(userId)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("fsus-account-{userId}", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PasskeyCredential_UsesAccountIdColumnAndIndex()
+    {
+        PropertyInfo accountId = typeof(PasskeyCredential).GetProperty("AccountId")
+            ?? throw new InvalidOperationException("PasskeyCredential.AccountId is required.");
+
+        Assert.Null(typeof(PasskeyCredential).GetProperty("UserId"));
+        Assert.Equal("account_id", accountId.GetCustomAttribute<SugarColumn>()?.ColumnName);
+
+        SugarIndexAttribute[] indexes = typeof(PasskeyCredential).GetCustomAttributes<SugarIndexAttribute>().ToArray();
+        Assert.Contains(indexes, static index => index.IndexName == "idx_passkey_account_id");
+        Assert.DoesNotContain(indexes, static index => index.IndexName == "idx_passkey_user_id");
+    }
+
+    [Fact]
+    public void PasskeyService_SourceUsesAccountIdForCredentialOwnership()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/PasskeyService.cs");
+
+        Assert.Contains("int accountId", source, StringComparison.Ordinal);
+        Assert.Contains("c.AccountId", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("PasskeyCredential.UserId", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("c.UserId", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("storedCred.UserId", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserId = userId", source, StringComparison.Ordinal);
     }
 
     private static object InvokeMetadataBuilder(

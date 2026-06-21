@@ -4,15 +4,15 @@ namespace FsusBlog.Server.Entities;
 
 [SugarTable("passkey_credential")]
 [SugarIndex("unique_idx_passkey_cred_id", nameof(PasskeyCredential.CredentialId), OrderByType.Asc, true)]
-[SugarIndex("idx_passkey_user_id", nameof(PasskeyCredential.UserId), OrderByType.Asc)]
+[SugarIndex("idx_passkey_account_id", nameof(PasskeyCredential.AccountId), OrderByType.Asc)]
 public class PasskeyCredential
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
     public int Id { get; set; }
 
-    /// <summary>所属用户 ID</summary>
-    [SugarColumn(IsNullable = false)]
-    public int UserId { get; set; }
+    /// <summary>所属匿名账号 ID</summary>
+    [SugarColumn(ColumnName = "account_id", IsNullable = false)]
+    public int AccountId { get; set; }
 
     /// <summary>WebAuthn CredentialId (Base64Url 编码后存储为文本)</summary>
     [SugarColumn(Length = 512, IsNullable = false)]

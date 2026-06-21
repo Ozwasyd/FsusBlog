@@ -1,5 +1,8 @@
 using System.Runtime.CompilerServices;
+using System.Reflection;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -177,6 +180,35 @@ public sealed class RecoveryKeyServiceTests
         Assert.Contains("RevokedAt", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Plaintext", source, StringComparison.Ordinal);
         Assert.DoesNotContain("RecoveryKey { get; set; }", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RecoveryKeyCredential_UsesAccountIdColumnAndIndexes()
+    {
+        PropertyInfo accountId = typeof(RecoveryKeyCredential).GetProperty("AccountId")
+            ?? throw new InvalidOperationException("RecoveryKeyCredential.AccountId is required.");
+
+        Assert.Null(typeof(RecoveryKeyCredential).GetProperty("UserId"));
+        Assert.Equal("account_id", accountId.GetCustomAttribute<SugarColumn>()?.ColumnName);
+
+        SugarIndexAttribute[] indexes = typeof(RecoveryKeyCredential).GetCustomAttributes<SugarIndexAttribute>().ToArray();
+        Assert.Contains(indexes, static index => index.IndexName == "idx_account_recovery_key_account");
+        Assert.Contains(indexes, static index => index.IndexName == "idx_account_recovery_key_version");
+        Assert.DoesNotContain(indexes, static index => index.IndexName == "idx_account_recovery_key_user");
+    }
+
+    [Fact]
+    public void RecoveryKeyService_SourceUsesAccountIdForCredentialOwnership()
+    {
+        string source = ReadSource("src/backend/Services/Security/RecoveryKeyService.cs");
+
+        Assert.Contains("int accountId", source, StringComparison.Ordinal);
+        Assert.Contains("k.AccountId", source, StringComparison.Ordinal);
+        Assert.Contains("credential.AccountId", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("RecoveryKeyCredential.UserId", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("k.UserId", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("credential.UserId", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserId = userId", source, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -12,15 +12,15 @@ using SqlSugar;
 namespace FsusBlog.Server.Services.Security;
 
 public sealed record class RecoveryKeySession(
-    int UserId,
+    int AccountId,
     bool RevokePasskeys,
     DateTime IssuedAtUtc,
     DateTime ExpiresAtUtc);
 
 public interface IRecoveryKeyService
 {
-    Task<Result<RecoveryKeyCreateResponseCoreModel>> CreateAsync(int userId, CancellationToken cancellationToken = default);
-    Task<Result<RecoveryKeyCreateResponseCoreModel>> RotateAsync(int userId, CancellationToken cancellationToken = default);
+    Task<Result<RecoveryKeyCreateResponseCoreModel>> CreateAsync(int accountId, CancellationToken cancellationToken = default);
+    Task<Result<RecoveryKeyCreateResponseCoreModel>> RotateAsync(int accountId, CancellationToken cancellationToken = default);
     Task<Result<RecoveryKeyVerifyResponseCoreModel>> VerifyAsync(RecoveryKeyVerifyRequestCoreModel request, string clientIp, string? userAgent, CancellationToken cancellationToken = default);
     Task<Result<RecoveryKeySession>> GetRecoverySessionAsync(string token, CancellationToken cancellationToken = default);
     Task<Result<RecoveryKeySession>> ConsumeRecoverySessionAsync(string token, CancellationToken cancellationToken = default);
@@ -43,11 +43,11 @@ public sealed class RecoveryKeyService(
     private static readonly TimeSpan FailureWindow = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan RecoverySessionTtl = TimeSpan.FromMinutes(10);
 
-    public Task<Result<RecoveryKeyCreateResponseCoreModel>> CreateAsync(int userId, CancellationToken cancellationToken = default)
-        => CreateOrRotateAsync(userId, rotate: false, cancellationToken);
+    public Task<Result<RecoveryKeyCreateResponseCoreModel>> CreateAsync(int accountId, CancellationToken cancellationToken = default)
+        => CreateOrRotateAsync(accountId, rotate: false, cancellationToken);
 
-    public Task<Result<RecoveryKeyCreateResponseCoreModel>> RotateAsync(int userId, CancellationToken cancellationToken = default)
-        => CreateOrRotateAsync(userId, rotate: true, cancellationToken);
+    public Task<Result<RecoveryKeyCreateResponseCoreModel>> RotateAsync(int accountId, CancellationToken cancellationToken = default)
+        => CreateOrRotateAsync(accountId, rotate: true, cancellationToken);
 
     public async Task<Result<RecoveryKeyVerifyResponseCoreModel>> VerifyAsync(
         RecoveryKeyVerifyRequestCoreModel request,
@@ -103,7 +103,7 @@ public sealed class RecoveryKeyService(
 
         await db.Updateable<User>()
             .SetColumns(u => u.RecoveryEnabled == false)
-            .Where(u => u.Id == credential.UserId)
+            .Where(u => u.Id == credential.AccountId)
             .ExecuteCommandAsync();
 
         if (request.RevokeSessions)
@@ -111,13 +111,13 @@ public sealed class RecoveryKeyService(
             await db.Updateable<UserSession>()
                 .SetColumns(s => s.RevokedAt == now)
                 .SetColumns(s => s.RevokeReason == "recovery_key_verified")
-                .Where(s => s.UserId == credential.UserId && s.RevokedAt == null)
+                .Where(s => s.UserId == credential.AccountId && s.RevokedAt == null)
                 .ExecuteCommandAsync();
         }
 
         string token = GenerateSecretToken();
         DateTime expiresAt = now.Add(RecoverySessionTtl);
-        var session = new RecoveryKeySession(credential.UserId, request.RevokePasskeys, now, expiresAt);
+        var session = new RecoveryKeySession(credential.AccountId, request.RevokePasskeys, now, expiresAt);
         await cache.SetStringAsync(
             CachePolicyId.SecurityRecoveryKeySession,
             BuildSessionIdentity(token),
@@ -178,20 +178,20 @@ public sealed class RecoveryKeyService(
         if (session.RevokePasskeys)
         {
             await db.Deleteable<PasskeyCredential>()
-                .Where(c => c.UserId == session.UserId && c.CreatedAt < session.IssuedAtUtc)
+                .Where(c => c.AccountId == session.AccountId && c.CreatedAt < session.IssuedAtUtc)
                 .ExecuteCommandAsync();
         }
 
         await db.Updateable<User>()
             .SetColumns(u => u.PasskeyEnabled == true)
-            .Where(u => u.Id == session.UserId)
+            .Where(u => u.Id == session.AccountId)
             .ExecuteCommandAsync();
     }
 
-    private async Task<Result<RecoveryKeyCreateResponseCoreModel>> CreateOrRotateAsync(int userId, bool rotate, CancellationToken cancellationToken)
+    private async Task<Result<RecoveryKeyCreateResponseCoreModel>> CreateOrRotateAsync(int accountId, bool rotate, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        User? user = await db.Queryable<User>().InSingleAsync(userId);
+        User? user = await db.Queryable<User>().InSingleAsync(accountId);
         if (user is null || user.DeletedAt.HasValue || user.Status == 2)
         {
             return Result<RecoveryKeyCreateResponseCoreModel>.Failure(ErrorCode.NotFound, "用户不存在");
@@ -199,7 +199,7 @@ public sealed class RecoveryKeyService(
 
         DateTime now = DateTime.UtcNow;
         RecoveryKeyCredential? active = await db.Queryable<RecoveryKeyCredential>()
-            .Where(k => k.UserId == userId && k.UsedAt == null && k.RevokedAt == null)
+            .Where(k => k.AccountId == accountId && k.UsedAt == null && k.RevokedAt == null)
             .OrderBy(k => k.KeyVersion, OrderByType.Desc)
             .FirstAsync();
         if (active is not null && !rotate)
@@ -208,7 +208,7 @@ public sealed class RecoveryKeyService(
         }
 
         int latestVersion = await db.Queryable<RecoveryKeyCredential>()
-            .Where(k => k.UserId == userId)
+            .Where(k => k.AccountId == accountId)
             .MaxAsync(k => k.KeyVersion);
         int nextVersion = Math.Max(latestVersion, 0) + 1;
 
@@ -216,7 +216,7 @@ public sealed class RecoveryKeyService(
         {
             await db.Updateable<RecoveryKeyCredential>()
                 .SetColumns(k => k.RevokedAt == now)
-                .Where(k => k.UserId == userId && k.UsedAt == null && k.RevokedAt == null)
+                .Where(k => k.AccountId == accountId && k.UsedAt == null && k.RevokedAt == null)
                 .ExecuteCommandAsync();
         }
 
@@ -224,7 +224,7 @@ public sealed class RecoveryKeyService(
         var generated = GenerateRecoveryKey(pepper);
         var credential = new RecoveryKeyCredential
         {
-            UserId = userId,
+            AccountId = accountId,
             LookupIdHash = generated.LookupIdHash,
             KeyHash = HashRecoveryKey(generated.RecoveryKey, pepper),
             KeyVersion = nextVersion,
@@ -234,7 +234,7 @@ public sealed class RecoveryKeyService(
         await db.Insertable(credential).ExecuteCommandAsync();
         await db.Updateable<User>()
             .SetColumns(u => u.RecoveryEnabled == true)
-            .Where(u => u.Id == userId)
+            .Where(u => u.Id == accountId)
             .ExecuteCommandAsync();
 
         return Result<RecoveryKeyCreateResponseCoreModel>.Success(
@@ -436,7 +436,7 @@ public sealed class RecoveryKeyService(
     private static string EncodeSession(RecoveryKeySession session)
         => string.Join(
             '|',
-            session.UserId.ToString(CultureInfo.InvariantCulture),
+            session.AccountId.ToString(CultureInfo.InvariantCulture),
             session.RevokePasskeys ? "1" : "0",
             session.IssuedAtUtc.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture),
             session.ExpiresAtUtc.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture));
@@ -446,20 +446,20 @@ public sealed class RecoveryKeyService(
         session = null;
         string[] parts = value.Split('|');
         if (parts.Length != 4 ||
-            !int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out int userId) ||
+            !int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out int accountId) ||
             !long.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out long issuedTicks) ||
             !long.TryParse(parts[3], NumberStyles.None, CultureInfo.InvariantCulture, out long expiresTicks))
         {
             return false;
         }
 
-        if (userId <= 0 || (parts[1] != "0" && parts[1] != "1"))
+        if (accountId <= 0 || (parts[1] != "0" && parts[1] != "1"))
         {
             return false;
         }
 
         session = new RecoveryKeySession(
-            userId,
+            accountId,
             parts[1] == "1",
             new DateTime(issuedTicks, DateTimeKind.Utc),
             new DateTime(expiresTicks, DateTimeKind.Utc));

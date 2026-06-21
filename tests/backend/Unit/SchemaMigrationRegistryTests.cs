@@ -48,6 +48,7 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260603-post-comment-public-hot-path-indexes", migrationIds);
         Assert.Contains("20260616-pre-anonymous-identity-account-schema", migrationIds);
         Assert.Contains("20260616-post-account-recovery-key", migrationIds);
+        Assert.Contains("20260621-pre-passkey-recovery-key-account-id", migrationIds);
         Assert.Contains("20260621-pre-passkey-user-handle", migrationIds);
         Assert.Contains("20260621-post-comment-attribution-index-finalize", migrationIds);
         Assert.Contains("20260621-post-message-legacy-identity-columns-finalize", migrationIds);
@@ -124,6 +125,28 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("idx_account_recovery_key_active_unique", fingerprint, StringComparison.Ordinal);
         Assert.Contains("idx_account_recovery_key_lookup_active_unique", fingerprint, StringComparison.Ordinal);
         Assert.DoesNotContain("mfa_recovery", fingerprint, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GetDescriptors_PasskeyRecoveryKeyAccountId_RenamesLegacyUserIdColumnsAndIndexes()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260621-pre-passkey-recovery-key-account-id");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PreCodeFirst, descriptor.Phase);
+        Assert.Contains("passkey_credential.user_id->account_id", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("ALTER TABLE account_recovery_key ADD COLUMN account_id integer", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("SET account_id = user_id", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_passkey_user_id", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_passkey_account_id", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_account_recovery_key_user", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_account_recovery_key_account", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("account_recovery_key(account_id, key_version DESC)", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("account_recovery_key(account_id) WHERE used_at IS NULL AND revoked_at IS NULL", fingerprint, StringComparison.Ordinal);
     }
 
     [Fact]

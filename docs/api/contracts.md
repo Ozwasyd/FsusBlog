@@ -3,7 +3,7 @@
 本文件是 FsusBlog 所有请求/响应 DTO、通知 WebSocket 信封与 AOT 契约的**完整参考**。
 所有定义的权威源码位于 `src/shared/Contracts/` 目录。
 
-> 最近更新：2026-06-21 — 普通账号 JWT 增加稳定 `account_subject_hash` claim，RiskControl subject/proof binding 不再使用裸 userId。
+> 最近更新：2026-06-21 — 普通账号 JWT 增加稳定 `account_subject_hash` claim；Passkey / Recovery Key 持久化外键最终态统一为 `account_id`，Recovery Key verify request 改由 key 内 lookup id 定位。
 
 ---
 
@@ -230,7 +230,7 @@ ZK-Prod feature flag 位于 `AnonymousIdentity:ZkProd:*`，默认 `Enabled=false
 
 Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD，前端 adapter 将 POD 还原为浏览器 WebAuthn API 需要的选项对象；浏览器返回的 attestation/assertion 由前端编码为二进制 request POD。
 
-匿名身份模式下，`PasskeyRegisterBegin` 的 WebAuthn `user.id` 使用 `sys_user.passkey_user_handle` 中持久化的 32B 随机 Base64Url 账号句柄；同一账号多次注册与 Recovery Key 重绑必须复用该句柄，不得由数据库 id、username 或 public handle 推导。`user.name` 固定为 `fsus-anonymous-account`，不包含内部 id；`user.displayName` 仅在用户显式设置 `public_handle` 时使用公开 handle，否则使用通用 `Anonymous account`。注册与 discoverable login 仍复用同一套 `passkey_credential` 表、challenge cache、sign-count 和 last-used 更新路径，不新增平行 Passkey 栈。登录与 step-up assertion 的 user handle owner callback 只按账号存储句柄校验。匿名模式下删除最后一枚 Passkey 需要已启用 Recovery Key / recovery path；否则服务端返回 `409` + AEDS `ApiError`，错误消息为 `CannotRemoveLastCredentialWithoutRecovery`。Passkey login begin/complete 受 RiskControl 保护；assertion 失败写 `PasskeyAssertionFailed` 正分风险信号，assertion 成功写 `PasskeyAssertionAccepted` 负分风险信号并以 `mfaVerified=true` 完成登录，不再额外要求普通 TOTP MFA。
+匿名身份模式下，`PasskeyRegisterBegin` 的 WebAuthn `user.id` 使用 `sys_user.passkey_user_handle` 中持久化的 32B 随机 Base64Url 账号句柄；同一账号多次注册与 Recovery Key 重绑必须复用该句柄，不得由数据库 id、username 或 public handle 推导。`user.name` 固定为 `fsus-anonymous-account`，不包含内部 id；`user.displayName` 仅在用户显式设置 `public_handle` 时使用公开 handle，否则使用通用 `Anonymous account`。注册与 discoverable login 仍复用同一套 `passkey_credential` 表、challenge cache、sign-count 和 last-used 更新路径，不新增平行 Passkey 栈；`passkey_credential` 的账号外键最终态是 `account_id` + `idx_passkey_account_id`，不得继续暴露或依赖旧 `user_id` / `idx_passkey_user_id` 命名。登录与 step-up assertion 的 user handle owner callback 只按账号存储句柄校验。匿名模式下删除最后一枚 Passkey 需要已启用 Recovery Key / recovery path；否则服务端返回 `409` + AEDS `ApiError`，错误消息为 `CannotRemoveLastCredentialWithoutRecovery`。Passkey login begin/complete 受 RiskControl 保护；assertion 失败写 `PasskeyAssertionFailed` 正分风险信号，assertion 成功写 `PasskeyAssertionAccepted` 负分风险信号并以 `mfaVerified=true` 完成登录，不再额外要求普通 TOTP MFA。
 
 Passkey 删除与重命名是账号安全凭据变更，必须通过统一 user security step-up。生产 binary endpoint 只从 `X-Fsus-Mfa-Proof` 读取一次性 proof，proof 必须绑定对应 action：删除为 `passkey.delete`，重命名为 `passkey.rename`，且服务端一次性消费。MFA enabled 账号只接受对应 action proof；anonymous identity mode 下禁止 legacy password fallback，`DELETE /api/binary/auth/passkey/credentials/{id}` 与 `PUT /name` 都不得提交或解析 `MfaPasswordProofRequest` body。非匿名 legacy password fallback 如仍需保留，必须放在显式隔离的兼容路径，不能进入这些生产匿名敏感操作 endpoint。
 
@@ -277,7 +277,7 @@ TOTP recovery code 只允许绕过或完成 TOTP step-up；它不是账户 `Reco
 
 ### Recovery Key AEDS frames
 
-Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery code。新明文格式为 `frk_<lookupId>_<secret>`：`lookupId` 是 128-bit hex 随机不可枚举定位符，`secret` 是完整恢复密钥材料。服务端只存储 `account_recovery_key.lookup_id_hash`、`key_hash`、`key_version`、`created_at`、`used_at`、`revoked_at`；`lookup_id_hash` 与完整 `key_hash` 都使用服务端 `RecoveryKeyPepper` 加固，完整 key hash 使用 PBKDF2-SHA256。明文 Recovery Key 只在 create/rotate 响应中返回一次，不写数据库、日志、telemetry 或 browser storage。
+Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery code。新明文格式为 `frk_<lookupId>_<secret>`：`lookupId` 是 128-bit hex 随机不可枚举定位符，`secret` 是完整恢复密钥材料。服务端只存储 `account_recovery_key.account_id`、`lookup_id_hash`、`key_hash`、`key_version`、`created_at`、`used_at`、`revoked_at`；`lookup_id_hash` 与完整 `key_hash` 都使用服务端 `RecoveryKeyPepper` 加固，完整 key hash 使用 PBKDF2-SHA256。`account_recovery_key` 索引最终态为 `idx_account_recovery_key_account`、`idx_account_recovery_key_version(account_id, key_version DESC)`、active unique 和 lookup active unique，历史 `user_id` / `idx_account_recovery_key_user` 只允许在迁移输入中出现。明文 Recovery Key 只在 create/rotate 响应中返回一次，不写数据库、日志、telemetry 或 browser storage。
 
 `POST /api/binary/auth/recovery-key/create` 和 `/rotate` 必须通过统一 user security step-up：`X-Fsus-Mfa-Proof` 绑定 `recovery-key.create` 或 `recovery-key.rotate` 并一次性消费。生产 binary endpoint 不接收 `MfaPasswordProofRequest` body；anonymous identity mode 下发送旧 body proof 会被忽略或拒绝，并按缺失 / 无效 step-up proof 返回 `428` + AEDS `ApiError`。非匿名 legacy password fallback 如仍需保留，必须放在显式隔离的兼容路径，不能进入这些生产匿名敏感操作 endpoint。
 
