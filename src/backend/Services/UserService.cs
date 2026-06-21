@@ -42,8 +42,6 @@ public partial class UserService(
     private const int MaxUsernameLength = 32;
     private const int MinPublicHandleLength = 3;
     private const int MaxPublicHandleLength = 20;
-    private const int MinPasswordLength = 8;
-    private const int MaxPasswordLength = 128;
     private const int MaxAdminPageSize = 200;
     private const int MaxIpLength = 64;
     private static readonly TimeSpan StandardSessionIdleTtl = TimeSpan.FromDays(7);
@@ -88,71 +86,6 @@ public partial class UserService(
         }
 
         return (true, normalized, string.Empty);
-    }
-
-    public async Task<(bool Success, string Message)> RegisterAsync(RegisterDto dto)
-    {
-        if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
-        {
-            return (false, AnonymousIdentityRuntime.LegacyPasswordDisabledMessage);
-        }
-
-        if (!IsPasswordLengthValid(dto.Password))
-        {
-            return (false, "密码长度必须在 8-128 位之间");
-        }
-
-        if (dto.Password != dto.ConfirmPassword)
-            return (false, "两次输入的密码不一致");
-
-        string normalizedUsername = NormalizeUsername(dto.Username);
-        if (normalizedUsername.Length == 0) return (false, "用户名不能为空");
-
-        if (!FastCharValidator.IsOnlyChineseAndAlpha(normalizedUsername))
-        {
-            return (false, "用户名格式非法，仅允许中英文");
-        }
-
-        if (await _db.Queryable<User>().AnyAsync(u => u.Username == normalizedUsername))
-            return (false, "用户名已存在");
-
-        string passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-
-        var newUser = new User
-        {
-            Username = normalizedUsername,
-            Password = passwordHash,
-            Role = "guest",
-        };
-
-        Result<int> registerResult = await BoundaryExecutor.ExecuteResultAsync(
-            () => _db.Insertable(newUser).ExecuteCommandAsync(),
-            ex => ex.Message.Contains("23505", StringComparison.OrdinalIgnoreCase)
-                  || ex.Message.Contains("Unique", StringComparison.OrdinalIgnoreCase)
-                ? ErrorDetail.Create(ErrorCode.Conflict, "用户名已被占用")
-                : ErrorDetail.Create(ErrorCode.InfraFailure, "注册失败，请稍后重试"),
-            _logger,
-            $"user-register:{normalizedUsername}");
-
-        if (!registerResult.IsSuccess)
-        {
-            if (registerResult.Error.Code == ErrorCode.Conflict)
-            {
-                using var _ = AuditLogScope.Push(
-                    AuditSourceCatalog.Auth,
-                    AuditTypeCatalog.Business,
-                    new KeyValuePair<string, object?>("AuditAction", "register.conflict"),
-                    new KeyValuePair<string, object?>("Username", normalizedUsername));
-                LogRegistrationConflict(normalizedUsername);
-                return (false, "用户名已被占用");
-            }
-
-            return (false, registerResult.Error.Message);
-        }
-
-        return registerResult.Value > 0
-            ? (true, "注册成功")
-            : (false, "注册失败，请稍后重试");
     }
 
     public async Task<(bool Success, string Message, User? User)> BootstrapAnonymousAccountAsync(string? publicHandle)
@@ -218,69 +151,7 @@ public partial class UserService(
         return (false, "匿名账号初始化冲突，请重试", null);
     }
 
-    public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> LoginAsync(LoginDto dto, string clientIp)
-    {
-        var check = await ValidateCredentialsAsync(dto, clientIp);
-        if (!check.Success || check.User == null)
-        {
-            return (false, check.Message, null, null);
-        }
-
-        return await CompleteLoginAsync(
-            check.User,
-            NormalizeClientIp(clientIp),
-            deviceFingerprint: null,
-            userAgent: null,
-            mfaVerified: !check.User.MfaEnabled,
-            rememberMe: dto.RememberMe);
-    }
-
-    public async Task<(bool Success, string Message, User? User)> ValidateCredentialsAsync(LoginDto dto, string clientIp)
-    {
-        if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
-        {
-            return (false, AnonymousIdentityRuntime.LegacyPasswordDisabledMessage, null);
-        }
-
-        clientIp = NormalizeClientIp(clientIp);
-        string normalizedUsername = NormalizeUsername(dto.Username);
-        if (normalizedUsername.Length == 0) return (false, "用户名不能为空", null);
-
-        var user = await _db.Queryable<User>().FirstAsync(u => u.Username == normalizedUsername);
-
-        bool isPasswordValid = false;
-        if (user != null)
-        {
-            isPasswordValid = BCrypt.Net.BCrypt.Verify(dto.Password, user.Password);
-        }
-
-        if (user == null || !isPasswordValid)
-        {
-            using var _ = AuditLogScope.Push(
-                AuditSourceCatalog.Auth,
-                AuditTypeCatalog.Security,
-                new KeyValuePair<string, object?>("AuditAction", "login.failed"),
-                new KeyValuePair<string, object?>("Username", normalizedUsername),
-                new KeyValuePair<string, object?>("ClientIp", clientIp));
-            LogLoginFailure(normalizedUsername, clientIp);
-            return (false, "用户名或密码错误", null);
-        }
-
-        if (user.Status == UserStatusDeleted || user.DeletedAt.HasValue)
-        {
-            return (false, "账户已注销", null);
-        }
-
-        return (true, "验证通过", user);
-    }
-
     public async Task<User?> GetByIdAsync(int id) => await _db.Queryable<User>().InSingleAsync(id);
-
-    public async Task<User?> GetByUsernameAsync(string username)
-    {
-        if (string.IsNullOrWhiteSpace(username)) return null;
-        return await _db.Queryable<User>().FirstAsync(u => u.Username == NormalizeUsername(username));
-    }
 
     public async Task<(bool Success, string Message)> UpdatePublicHandleAsync(int userId, string? publicHandle)
     {
@@ -310,64 +181,6 @@ public partial class UserService(
         return handle.PublicHandle is null
             ? (true, "公开称呼已清空")
             : (true, "公开称呼已保存");
-    }
-
-    public async Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto)
-    {
-        if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
-        {
-            return (false, AnonymousIdentityRuntime.LegacyPasswordDisabledMessage);
-        }
-
-        if (!IsPasswordLengthValid(dto.NewPassword))
-        {
-            return (false, "新密码长度必须在 8-128 位之间");
-        }
-
-        if (dto.NewPassword != dto.ConfirmPassword)
-            return (false, "两次输入的新密码不一致");
-
-        var user = await _db.Queryable<User>().InSingleAsync(userId);
-
-        bool isOldPasswordValid = false;
-        if (user != null)
-        {
-            isOldPasswordValid = BCrypt.Net.BCrypt.Verify(dto.OldPassword, user.Password);
-        }
-
-        if (user == null || !isOldPasswordValid)
-            return (false, "旧密码验证失败");
-
-        string newHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
-
-        DateTime revokedAt = DateTime.UtcNow;
-        var tran = await _db.Ado.UseTranAsync(async () =>
-        {
-            await _db.Updateable<User>()
-                .SetColumns(u => u.Password == newHash)
-                .Where(u => u.Id == userId)
-                .ExecuteCommandAsync();
-
-            await _db.Updateable<UserSession>()
-                .SetColumns(s => s.RevokedAt == revokedAt)
-                .SetColumns(s => s.RevokeReason == "password_changed")
-                .Where(s => s.UserId == userId && s.RevokedAt == null)
-                .ExecuteCommandAsync();
-        });
-
-        if (!tran.IsSuccess)
-        {
-            _logger.LogError(tran.ErrorException, "Password change transaction failed for user {UserId}", userId);
-            return (false, "操作失败");
-        }
-
-        using var _ = AuditLogScope.Push(
-            AuditSourceCatalog.Auth,
-            AuditTypeCatalog.Security,
-            new KeyValuePair<string, object?>("AuditAction", "password_changed"),
-            new KeyValuePair<string, object?>("UserId", userId),
-            new KeyValuePair<string, object?>("SessionsRevoked", true));
-        return (true, "密码修改成功");
     }
 
     public async Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken)
@@ -1137,12 +950,6 @@ public partial class UserService(
         => _authRiskService.EvaluateLoginRiskAsync(userId, clientIp, deviceFingerprint, userAgent);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsPasswordLengthValid(string? password)
-    {
-        if (string.IsNullOrEmpty(password)) return false;
-        return password.Length is >= MinPasswordLength and <= MaxPasswordLength;
-    }
-
     private static string BuildMfaAccountLabel(User user)
         => AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()
             ? $"FsusBlog:account:{user.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)}"

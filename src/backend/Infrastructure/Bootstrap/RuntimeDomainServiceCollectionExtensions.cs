@@ -49,7 +49,6 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<AuthBinaryApplicationFacade>();
         services.AddScoped<IUserAuthService>(sp => sp.GetRequiredService<UserService>());
         services.AddScoped<IUserAccountReader, UserAccountReader>();
-        services.AddScoped<IUserRegistrationService, UserRegistrationService>();
         services.AddScoped<IAnonymousAccountBootstrapService, AnonymousAccountBootstrapService>();
         services.AddScoped<IUserLoginWorkflowService, UserLoginWorkflowService>();
         services.AddScoped<IUserProfileCommandService, UserProfileCommandService>();

@@ -11,52 +11,6 @@ public class UserCoreServiceTests
     private readonly IUserCoreGateway _gw = Substitute.For<IUserCoreGateway>();
     private UserCoreService Svc() => new(_gw);
 
-    // RegisterAsync
-    [Fact]
-    public async Task Register_GatewaySuccess_ReturnsSuccess()
-    {
-        _gw.RegisterAsync("alice", "pass", "pass").Returns(Task.FromResult((true, "ok")));
-        Assert.True((await Svc().RegisterAsync("alice", "pass", "pass")).IsSuccess);
-    }
-
-    [Fact]
-    public async Task Register_GatewayFailure_ReturnsValidationError()
-    {
-        _gw.RegisterAsync("alice", "pass", "pass").Returns(Task.FromResult((false, "用户名已存在")));
-        var result = await Svc().RegisterAsync("alice", "pass", "pass");
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorCode.Validation, result.Error.Code);
-        Assert.Equal("用户名已存在", result.Error.Message);
-    }
-
-    // LoginAsync
-    [Fact]
-    public async Task Login_GatewaySuccess_ReturnsSuccess()
-    {
-        var token = new TokenPairContract("access", "refresh");
-        var user = new UserSnapshotContract(1, "alice", "user", 0, DateTime.UtcNow, null, null, null);
-        var loginResult = new AuthLoginResultContract(token, user);
-        _gw.LoginAsync("alice", "pass", "127.0.0.1")
-           .Returns(Task.FromResult<(bool, string, AuthLoginResultContract?)>((true, "ok", loginResult)));
-
-        var result = await Svc().LoginAsync("alice", "pass", "127.0.0.1");
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal("alice", result.Value.User.Username);
-    }
-
-    [Fact]
-    public async Task Login_GatewayFailure_ReturnsUnauthorized()
-    {
-        _gw.LoginAsync("alice", "wrong", "127.0.0.1")
-           .Returns(Task.FromResult<(bool, string, AuthLoginResultContract?)>((false, "密码错误", null)));
-
-        var result = await Svc().LoginAsync("alice", "wrong", "127.0.0.1");
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorCode.Unauthorized, result.Error.Code);
-    }
-
     // GetByIdAsync
     [Theory]
     [InlineData(0)]
@@ -83,48 +37,6 @@ public class UserCoreServiceTests
         var result = await Svc().GetByIdAsync(5);
         Assert.True(result.IsSuccess);
         Assert.Equal("bob", result.Value?.Username);
-    }
-
-    // GetByUsernameAsync
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData(null)]
-    public async Task GetByUsername_EmptyName_ReturnsValidationFailure(string? username)
-    {
-        var result = await Svc().GetByUsernameAsync(username!);
-        Assert.Equal(ErrorCode.Validation, result.Error.Code);
-    }
-
-    [Fact]
-    public async Task GetByUsername_NotFound()
-    {
-        _gw.GetByUsernameAsync("nobody").Returns(Task.FromResult<UserSnapshotContract?>(null));
-        Assert.Equal(ErrorCode.NotFound, (await Svc().GetByUsernameAsync("nobody")).Error.Code);
-    }
-
-    [Fact]
-    public async Task GetByUsername_Found()
-    {
-        var snap = new UserSnapshotContract(1, "eve", "admin", 0, DateTime.UtcNow, null, null, null);
-        _gw.GetByUsernameAsync("eve").Returns(Task.FromResult<UserSnapshotContract?>(snap));
-        Assert.True((await Svc().GetByUsernameAsync("eve")).IsSuccess);
-    }
-
-    // UpdatePasswordAsync
-    [Fact]
-    public async Task UpdatePassword_GatewaySuccess_ReturnsSuccess()
-    {
-        _gw.UpdatePasswordAsync(1, "old", "new", "new").Returns(Task.FromResult((true, "ok")));
-        Assert.True((await Svc().UpdatePasswordAsync(1, "old", "new", "new")).IsSuccess);
-    }
-
-    [Fact]
-    public async Task UpdatePassword_GatewayFailure_ReturnsValidationError()
-    {
-        _gw.UpdatePasswordAsync(1, "old", "new", "new").Returns(Task.FromResult((false, "旧密码错误")));
-        var result = await Svc().UpdatePasswordAsync(1, "old", "new", "new");
-        Assert.Equal(ErrorCode.Validation, result.Error.Code);
     }
 
     // RefreshTokenAsync

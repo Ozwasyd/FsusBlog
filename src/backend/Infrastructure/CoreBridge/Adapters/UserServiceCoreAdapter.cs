@@ -9,47 +9,12 @@ namespace FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 
 public sealed class UserServiceCoreAdapter(IUserCoreService core) : IUserService
 {
-    public async Task<(bool Success, string Message)> RegisterAsync(RegisterDto dto)
-    {
-        var result = await core.RegisterAsync(dto.Username, dto.Password, dto.ConfirmPassword);
-        return result.IsSuccess ? (true, "注册成功") : (false, result.Error.Message);
-    }
-
-    public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> LoginAsync(LoginDto dto, string clientIp)
-    {
-        var result = await core.LoginAsync(dto.Username, dto.Password, clientIp);
-        if (!result.IsSuccess)
-        {
-            return (false, result.Error.Message, null, null);
-        }
-
-        var token = new SessionTokenResponseDto(
-            result.Value.Token.AccessToken,
-            result.Value.Token.RefreshToken,
-            DateTime.UtcNow.AddDays(7));
-        return (true, "登录成功", token, ToUserEntity(result.Value.User));
-    }
-
     public async Task<User?> GetByIdAsync(int id)
     {
         var result = await core.GetByIdAsync(id);
         return result.IsSuccess && result.Value.HasValue
             ? ToUserEntity(result.Value.Value)
             : null;
-    }
-
-    public async Task<User?> GetByUsernameAsync(string username)
-    {
-        var result = await core.GetByUsernameAsync(username);
-        return result.IsSuccess && result.Value.HasValue
-            ? ToUserEntity(result.Value.Value)
-            : null;
-    }
-
-    public async Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto)
-    {
-        var result = await core.UpdatePasswordAsync(userId, dto.OldPassword, dto.NewPassword, dto.ConfirmPassword);
-        return result.IsSuccess ? (true, "密码更新成功") : (false, result.Error.Message);
     }
 
     public async Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken)

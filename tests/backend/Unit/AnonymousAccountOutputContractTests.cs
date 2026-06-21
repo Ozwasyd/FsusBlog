@@ -133,6 +133,53 @@ public sealed class AnonymousAccountOutputContractTests
     }
 
     [Fact]
+    public void PasswordAuthRuntimeContracts_AreNotProductionPorts()
+    {
+        string[] productionFiles =
+        [
+            "src/backend/Models/Dtos/UserDto.cs",
+            "src/backend/Interfaces/IUserAuthService.cs",
+            "src/backend/Interfaces/IUserService.cs",
+            "src/backend/Interfaces/UserApplicationPorts.cs",
+            "src/backend/Services/UserService.cs",
+            "src/backend/Services/UserService.Ports.cs",
+            "src/backend/Services/Security/UserSecurityStepUpService.cs",
+            "src/backend/Infrastructure/CoreBridge/Gateways/UserCoreGateway.cs",
+            "src/backend/Infrastructure/CoreBridge/Adapters/UserServiceCoreAdapter.cs",
+            "src/core/Services/Abstractions/IUserCoreService.cs",
+            "src/core/Services/Gateways/IUserCoreGateway.cs",
+            "src/core/Services/Implementations/UserCoreService.cs",
+            "src/frontend/src/api/auth.ts"
+        ];
+
+        string source = string.Join(
+            '\n',
+            productionFiles.Select(static path => $"// {path}\n{BackendTestPaths.ReadAllTextFromRoot(path)}"));
+
+        foreach (string forbidden in new[]
+        {
+            "LoginDto",
+            "RegisterDto",
+            "UpdatePasswordDto",
+            "RegisterAsync(RegisterDto",
+            "LoginAsync(LoginDto",
+            "GetByUsernameAsync",
+            "UpdatePasswordAsync",
+            "/auth/update-password",
+            "AuthUpdatePasswordRequest",
+            "encodeAuthUpdatePasswordRequest",
+            "updatePassword"
+        })
+        {
+            Assert.DoesNotContain(forbidden, source, StringComparison.Ordinal);
+        }
+
+        Assert.DoesNotContain("RegisterAsync(string username", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoginAsync(string username", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdatePasswordAsync(int userId, string oldPassword", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UserAccountReader_ProjectsSysUserAsAnonymousAccountContainer()
     {
         var deletedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);

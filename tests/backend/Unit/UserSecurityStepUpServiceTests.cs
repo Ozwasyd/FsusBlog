@@ -1,6 +1,5 @@
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.Http;
 using NSubstitute;
@@ -14,11 +13,10 @@ public sealed class UserSecurityStepUpServiceTests
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
         IMfaChallengeService mfa = Substitute.For<IMfaChallengeService>();
-        IUserLoginWorkflowService login = Substitute.For<IUserLoginWorkflowService>();
         users.GetAccountByIdAsync(42).Returns(CreateUser(mfaEnabled: true));
         mfa.ValidateAndConsumeProofTokenAsync(42, UserSecurityStepUpActions.PasskeyDelete, "proof-1")
             .Returns(true, false);
-        var service = new UserSecurityStepUpService(users, mfa, login);
+        var service = new UserSecurityStepUpService(users, mfa);
 
         UserSecurityStepUpResult first = await service.VerifyAsync(new UserSecurityStepUpRequest(
             42,
@@ -41,7 +39,6 @@ public sealed class UserSecurityStepUpServiceTests
         Assert.False(wrongAction.Success);
         await mfa.Received(2).ValidateAndConsumeProofTokenAsync(42, UserSecurityStepUpActions.PasskeyDelete, "proof-1");
         await mfa.Received(1).ValidateAndConsumeProofTokenAsync(42, UserSecurityStepUpActions.RecoveryKeyCreate, "proof-1");
-        await login.DidNotReceiveWithAnyArgs().ValidateCredentialsAsync(default!, default!, default);
     }
 
     [Fact]
@@ -55,74 +52,58 @@ public sealed class UserSecurityStepUpServiceTests
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
         IMfaChallengeService mfa = Substitute.For<IMfaChallengeService>();
-        IUserLoginWorkflowService login = Substitute.For<IUserLoginWorkflowService>();
         users.GetAccountByIdAsync(42).Returns(CreateUser(mfaEnabled: true));
-        var service = new UserSecurityStepUpService(users, mfa, login);
+        var service = new UserSecurityStepUpService(users, mfa);
 
         UserSecurityStepUpResult result = await service.VerifyAsync(new UserSecurityStepUpRequest(
             42,
             UserSecurityStepUpActions.RecoveryKeyRotate,
-            new UserSecurityStepUpProof(Password: "correct-password"),
+            new UserSecurityStepUpProof(),
             "203.0.113.10"));
 
         Assert.False(result.Success);
         Assert.Equal(StatusCodes.Status428PreconditionRequired, result.StatusCode);
         Assert.Equal("MFA_PROOF_REQUIRED", result.Message);
-        await login.DidNotReceiveWithAnyArgs().ValidateCredentialsAsync(default!, default!, default);
     }
 
     [Fact]
-    public async Task LegacyNonMfaAccount_AcceptsPasswordProof()
+    public async Task NonMfaAccount_StillRequiresAnonymousStepUpProof()
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
         IMfaChallengeService mfa = Substitute.For<IMfaChallengeService>();
-        IUserLoginWorkflowService login = Substitute.For<IUserLoginWorkflowService>();
         users.GetAccountByIdAsync(42).Returns(CreateUser(mfaEnabled: false, username: "alice"));
-        login.ValidateCredentialsAsync(
-                Arg.Is<LoginDto>(dto => dto.Username == "alice" && dto.Password == "correct-password"),
-                "203.0.113.10",
-                Arg.Any<CancellationToken>())
-            .Returns((true, "ok", CreateUser(mfaEnabled: false, username: "alice")));
-        var service = new UserSecurityStepUpService(users, mfa, login);
+        var service = new UserSecurityStepUpService(users, mfa);
 
         UserSecurityStepUpResult result = await service.VerifyAsync(new UserSecurityStepUpRequest(
             42,
             UserSecurityStepUpActions.PasskeyRename,
-            new UserSecurityStepUpProof(Password: "correct-password"),
+            new UserSecurityStepUpProof(),
             "203.0.113.10"));
 
-        Assert.True(result.Success);
+        Assert.False(result.Success);
+        Assert.Equal(StatusCodes.Status428PreconditionRequired, result.StatusCode);
+        Assert.Equal("ANONYMOUS_STEP_UP_PROOF_REQUIRED", result.Message);
         await mfa.DidNotReceiveWithAnyArgs().ValidateAndConsumeProofTokenAsync(default, default!, default!);
     }
 
     [Fact]
-    public async Task AnonymousIdentityMode_DisablesLegacyPasswordFallback()
+    public async Task PasswordProof_IsNotAcceptedAsAnonymousStepUp()
     {
-        string? previous = Environment.GetEnvironmentVariable(AnonymousIdentityRuntime.ModeEnvironmentVariable);
-        Environment.SetEnvironmentVariable(AnonymousIdentityRuntime.ModeEnvironmentVariable, "1");
-        try
-        {
-            IUserAccountReader users = Substitute.For<IUserAccountReader>();
-            IMfaChallengeService mfa = Substitute.For<IMfaChallengeService>();
-            IUserLoginWorkflowService login = Substitute.For<IUserLoginWorkflowService>();
-            users.GetAccountByIdAsync(42).Returns(CreateUser(mfaEnabled: false, username: "alice"));
-            var service = new UserSecurityStepUpService(users, mfa, login);
+        IUserAccountReader users = Substitute.For<IUserAccountReader>();
+        IMfaChallengeService mfa = Substitute.For<IMfaChallengeService>();
+        users.GetAccountByIdAsync(42).Returns(CreateUser(mfaEnabled: false, username: "alice"));
+        var service = new UserSecurityStepUpService(users, mfa);
 
-            UserSecurityStepUpResult result = await service.VerifyAsync(new UserSecurityStepUpRequest(
-                42,
-                UserSecurityStepUpActions.RecoveryKeyCreate,
-                new UserSecurityStepUpProof(Password: "correct-password"),
-                "203.0.113.10"));
+        UserSecurityStepUpResult result = await service.VerifyAsync(new UserSecurityStepUpRequest(
+            42,
+            UserSecurityStepUpActions.RecoveryKeyCreate,
+            new UserSecurityStepUpProof(),
+            "203.0.113.10"));
 
-            Assert.False(result.Success);
-            Assert.Equal(StatusCodes.Status428PreconditionRequired, result.StatusCode);
-            Assert.Equal("ANONYMOUS_STEP_UP_PROOF_REQUIRED", result.Message);
-            await login.DidNotReceiveWithAnyArgs().ValidateCredentialsAsync(default!, default!, default);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(AnonymousIdentityRuntime.ModeEnvironmentVariable, previous);
-        }
+        Assert.False(result.Success);
+        Assert.Equal(StatusCodes.Status428PreconditionRequired, result.StatusCode);
+        Assert.Equal("ANONYMOUS_STEP_UP_PROOF_REQUIRED", result.Message);
+        await mfa.DidNotReceiveWithAnyArgs().ValidateAndConsumeProofTokenAsync(default, default!, default!);
     }
 
     [Fact]
@@ -130,28 +111,27 @@ public sealed class UserSecurityStepUpServiceTests
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
         IMfaChallengeService mfa = Substitute.For<IMfaChallengeService>();
-        IUserLoginWorkflowService login = Substitute.For<IUserLoginWorkflowService>();
-        var service = new UserSecurityStepUpService(users, mfa, login);
+        var service = new UserSecurityStepUpService(users, mfa);
 
         users.GetAccountByIdAsync(42).Returns((UserAccountSnapshot?)null);
         UserSecurityStepUpResult missing = await service.VerifyAsync(new UserSecurityStepUpRequest(
             42,
             UserSecurityStepUpActions.PasskeyDelete,
-            new UserSecurityStepUpProof(MfaProofToken: "proof-1", Password: "password"),
+            new UserSecurityStepUpProof(MfaProofToken: "proof-1"),
             "203.0.113.10"));
 
         users.GetAccountByIdAsync(42).Returns(CreateUser(mfaEnabled: false, deletedAt: DateTime.UtcNow));
         UserSecurityStepUpResult deleted = await service.VerifyAsync(new UserSecurityStepUpRequest(
             42,
             UserSecurityStepUpActions.RecoveryKeyCreate,
-            new UserSecurityStepUpProof(MfaProofToken: "proof-1", Password: "password"),
+            new UserSecurityStepUpProof(MfaProofToken: "proof-1"),
             "203.0.113.10"));
 
         users.GetAccountByIdAsync(42).Returns(CreateUser(mfaEnabled: false, status: 2));
         UserSecurityStepUpResult banned = await service.VerifyAsync(new UserSecurityStepUpRequest(
             42,
             UserSecurityStepUpActions.RecoveryKeyRotate,
-            new UserSecurityStepUpProof(MfaProofToken: "proof-1", Password: "password"),
+            new UserSecurityStepUpProof(MfaProofToken: "proof-1"),
             "203.0.113.10"));
 
         Assert.False(missing.Success);
@@ -161,7 +141,6 @@ public sealed class UserSecurityStepUpServiceTests
         Assert.Equal(StatusCodes.Status401Unauthorized, deleted.StatusCode);
         Assert.Equal(StatusCodes.Status401Unauthorized, banned.StatusCode);
         await mfa.DidNotReceiveWithAnyArgs().ValidateAndConsumeProofTokenAsync(default, default!, default!);
-        await login.DidNotReceiveWithAnyArgs().ValidateCredentialsAsync(default!, default!, default);
     }
 
     private static UserAccountSnapshot CreateUser(

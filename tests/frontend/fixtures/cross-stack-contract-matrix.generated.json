@@ -883,13 +883,6 @@
           "cache": "no-store"
         },
         {
-          "method": "PUT",
-          "path": "/auth/update-password",
-          "auth": "user",
-          "requestFrame": "AuthUpdatePasswordRequest",
-          "responseFrame": "EmptySuccess"
-        },
-        {
           "method": "POST",
           "path": "/auth/delete-account",
           "auth": "user",
@@ -2107,5 +2100,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 205
+  "openapiOperationCount": 204
 }

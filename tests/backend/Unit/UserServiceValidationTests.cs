@@ -59,89 +59,6 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public async Task RegisterAsync_PasswordTooShort_ReturnsFalse()
-    {
-        var svc = BuildService();
-        var dto = new RegisterDto { Username = "alice", Password = "short", ConfirmPassword = "short" };
-        var (success, message) = await svc.RegisterAsync(dto);
-        Assert.False(success);
-        Assert.Contains("8", message);
-    }
-
-    [Fact]
-    public async Task RegisterAsync_PasswordTooLong_ReturnsFalse()
-    {
-        var svc = BuildService();
-        string tooLong = new string('a', 129);
-        var dto = new RegisterDto { Username = "alice", Password = tooLong, ConfirmPassword = tooLong };
-        var (success, _) = await svc.RegisterAsync(dto);
-        Assert.False(success);
-    }
-
-    [Fact]
-    public async Task RegisterAsync_PasswordMinLength_Passes()
-    {
-        var svc = BuildService();
-        var dto = new RegisterDto { Username = "alice", Password = "12345678", ConfirmPassword = "87654321" };
-        var (success, message) = await svc.RegisterAsync(dto);
-        Assert.False(success);
-        Assert.Contains("不一致", message);
-    }
-
-    [Fact]
-    public async Task RegisterAsync_PasswordsDoNotMatch_ReturnsFalse()
-    {
-        var svc = BuildService();
-        var dto = new RegisterDto { Username = "alice", Password = "validPassword1", ConfirmPassword = "differentPassword1" };
-        var (success, message) = await svc.RegisterAsync(dto);
-        Assert.False(success);
-        Assert.Contains("不一致", message);
-    }
-
-    [Fact]
-    public async Task RegisterAsync_EmptyUsername_ReturnsFalse()
-    {
-        var svc = BuildService();
-        var dto = new RegisterDto { Username = "   ", Password = "validPass1", ConfirmPassword = "validPass1" };
-        var (success, message) = await svc.RegisterAsync(dto);
-        Assert.False(success);
-        Assert.Contains("用户名", message);
-    }
-
-    [Fact]
-    public async Task RegisterAsync_UsernameWithDigits_ReturnsFalse()
-    {
-        var svc = BuildService();
-        var dto = new RegisterDto { Username = "alice123", Password = "validPass1", ConfirmPassword = "validPass1" };
-        var (success, message) = await svc.RegisterAsync(dto);
-        Assert.False(success);
-        Assert.Contains("格式", message);
-    }
-
-    [Fact]
-    public async Task RegisterAsync_UsernameWithSpecialChars_ReturnsFalse()
-    {
-        var svc = BuildService();
-        var dto = new RegisterDto { Username = "alice@test", Password = "validPass1", ConfirmPassword = "validPass1" };
-        var (success, message) = await svc.RegisterAsync(dto);
-        Assert.False(success);
-        Assert.Contains("格式", message);
-    }
-
-    [Fact]
-    public async Task RegisterAsync_AnonymousIdentityMode_DisablesLegacyPasswordRegistration()
-    {
-        using var _ = SetAnonymousIdentityMode("1");
-        var svc = BuildService();
-        var dto = new RegisterDto { Username = "anonymous", Password = "validPass1!", ConfirmPassword = "validPass1!" };
-
-        var (success, message) = await svc.RegisterAsync(dto);
-
-        Assert.False(success);
-        Assert.Contains("anonymous identity", message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
     public async Task BootstrapAnonymousAccountAsync_AnonymousIdentityMode_CreatesPasswordlessAnonymousContainer()
     {
         using var _ = SetAnonymousIdentityMode("1");
@@ -245,86 +162,6 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public async Task RegisterAsync_ChineseUsername_PassesValidation_HitsDb()
-    {
-        var db = Substitute.For<ISqlSugarClient>();
-        var queryable = Substitute.For<ISugarQueryable<FsusBlog.Server.Entities.User>>();
-        db.Queryable<FsusBlog.Server.Entities.User>().Returns(queryable);
-        queryable.AnyAsync(Arg.Any<System.Linq.Expressions.Expression<Func<FsusBlog.Server.Entities.User, bool>>>())
-                 .Returns(Task.FromResult(false));
-        var insertable = Substitute.For<IInsertable<FsusBlog.Server.Entities.User>>();
-        db.Insertable(Arg.Any<FsusBlog.Server.Entities.User>()).Returns(insertable);
-        insertable.ExecuteCommandAsync().Returns(Task.FromResult(1));
-        var svc = new UserService(_db: db, _logger: NullLogger<UserService>.Instance,
-            _jwtHelper: Substitute.For<IJwtHelper>(), _cache: Substitute.For<IUnifiedCache>(),
-            _blacklistService: Substitute.For<IBlacklistService>(),
-            _messageCommandService: Substitute.For<IMessageCommandService>(),
-            _messageRealtimePublisher: Substitute.For<IMessageRealtimePublisher>(),
-            _totpService: Substitute.For<ITotpService>(), _authRiskService: Substitute.For<IAuthRiskService>());
-        var dto = new RegisterDto { Username = "用户名", Password = "validPass1!", ConfirmPassword = "validPass1!" };
-        var (success, _) = await svc.RegisterAsync(dto);
-        Assert.True(success);
-    }
-
-    [Fact]
-    public async Task ValidateCredentials_EmptyUsername_ReturnsFalse()
-    {
-        var svc = BuildService();
-        var dto = new LoginDto { Username = "   ", Password = "anything" };
-        var (success, message, user) = await svc.ValidateCredentialsAsync(dto, "127.0.0.1");
-        Assert.False(success);
-        Assert.Contains("用户名", message);
-        Assert.Null(user);
-    }
-
-    [Fact]
-    public async Task ValidateCredentials_AnonymousIdentityMode_DisablesLegacyPasswordLogin()
-    {
-        using var _ = SetAnonymousIdentityMode("1");
-        var svc = BuildService();
-        var dto = new LoginDto { Username = "legacy", Password = "validPass1!" };
-
-        var (success, message, user) = await svc.ValidateCredentialsAsync(dto, "127.0.0.1");
-
-        Assert.False(success);
-        Assert.Contains("anonymous identity", message, StringComparison.OrdinalIgnoreCase);
-        Assert.Null(user);
-    }
-
-    [Fact]
-    public async Task UpdatePasswordAsync_PasswordTooShort_ReturnsFalse()
-    {
-        var svc = BuildService();
-        var dto = new UpdatePasswordDto { OldPassword = "oldpassword", NewPassword = "short", ConfirmPassword = "short" };
-        var (success, message) = await svc.UpdatePasswordAsync(1, dto);
-        Assert.False(success);
-        Assert.Contains("8", message);
-    }
-
-    [Fact]
-    public async Task UpdatePasswordAsync_PasswordsDoNotMatch_ReturnsFalse()
-    {
-        var svc = BuildService();
-        var dto = new UpdatePasswordDto { OldPassword = "oldpassword1", NewPassword = "newPassword1!", ConfirmPassword = "differentNewPassword!" };
-        var (success, message) = await svc.UpdatePasswordAsync(1, dto);
-        Assert.False(success);
-        Assert.Contains("不一致", message);
-    }
-
-    [Fact]
-    public async Task UpdatePasswordAsync_AnonymousIdentityMode_DisablesLegacyPasswordChange()
-    {
-        using var _ = SetAnonymousIdentityMode("1");
-        var svc = BuildService();
-        var dto = new UpdatePasswordDto { OldPassword = "OldPass123!", NewPassword = "NewPass123!", ConfirmPassword = "NewPass123!" };
-
-        var (success, message) = await svc.UpdatePasswordAsync(1, dto);
-
-        Assert.False(success);
-        Assert.Contains("anonymous identity", message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
     public void DeleteAccountAsync_SourceUsesAnonymousTombstoneAndRevokesAccountAssets()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
@@ -382,62 +219,10 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public async Task GetByUsernameAsync_EmptyUsername_ReturnsNull()
-    {
-        var svc = BuildService();
-        Assert.Null(await svc.GetByUsernameAsync("   "));
-    }
-
-    [Fact]
     public async Task RevokeRefreshTokenAsync_EmptyToken_ReturnsFalse()
     {
         var svc = BuildService();
         Assert.False(await svc.RevokeRefreshTokenAsync("   "));
-    }
-
-    [Theory]
-    [InlineData("ALICE")]
-    [InlineData("  Alice  ")]
-    public async Task RegisterAsync_UsernameNormalizedToLowercase(string rawUsername)
-    {
-        var db = Substitute.For<ISqlSugarClient>();
-        var queryable = Substitute.For<ISugarQueryable<FsusBlog.Server.Entities.User>>();
-        db.Queryable<FsusBlog.Server.Entities.User>().Returns(queryable);
-        queryable.AnyAsync(Arg.Any<System.Linq.Expressions.Expression<Func<FsusBlog.Server.Entities.User, bool>>>())
-                 .Returns(Task.FromResult(false));
-        var insertable = Substitute.For<IInsertable<FsusBlog.Server.Entities.User>>();
-        db.Insertable(Arg.Any<FsusBlog.Server.Entities.User>()).Returns(insertable);
-        insertable.ExecuteCommandAsync().Returns(Task.FromResult(1));
-        var svc = new UserService(db, NullLogger<UserService>.Instance,
-            Substitute.For<IJwtHelper>(), Substitute.For<IUnifiedCache>(),
-            Substitute.For<IBlacklistService>(), Substitute.For<IMessageCommandService>(),
-            Substitute.For<IMessageRealtimePublisher>(),
-            Substitute.For<ITotpService>(), Substitute.For<IAuthRiskService>());
-        var dto = new RegisterDto { Username = rawUsername, Password = "validPass1!", ConfirmPassword = "validPass1!" };
-        var (success, _) = await svc.RegisterAsync(dto);
-        Assert.True(success);
-    }
-
-    [Fact]
-    public async Task RegisterAsync_UsernameTooLong_IsTruncated_NotRejected()
-    {
-        string longName = new string('a', 50);
-        var db = Substitute.For<ISqlSugarClient>();
-        var queryable = Substitute.For<ISugarQueryable<FsusBlog.Server.Entities.User>>();
-        db.Queryable<FsusBlog.Server.Entities.User>().Returns(queryable);
-        queryable.AnyAsync(Arg.Any<System.Linq.Expressions.Expression<Func<FsusBlog.Server.Entities.User, bool>>>())
-                 .Returns(Task.FromResult(false));
-        var insertable = Substitute.For<IInsertable<FsusBlog.Server.Entities.User>>();
-        db.Insertable(Arg.Any<FsusBlog.Server.Entities.User>()).Returns(insertable);
-        insertable.ExecuteCommandAsync().Returns(Task.FromResult(1));
-        var svc = new UserService(db, NullLogger<UserService>.Instance,
-            Substitute.For<IJwtHelper>(), Substitute.For<IUnifiedCache>(),
-            Substitute.For<IBlacklistService>(), Substitute.For<IMessageCommandService>(),
-            Substitute.For<IMessageRealtimePublisher>(),
-            Substitute.For<ITotpService>(), Substitute.For<IAuthRiskService>());
-        var dto = new RegisterDto { Username = longName, Password = "validPass1!", ConfirmPassword = "validPass1!" };
-        var (success, _) = await svc.RegisterAsync(dto);
-        Assert.True(success);
     }
 
     [Fact]
@@ -557,25 +342,6 @@ public class UserServiceValidationTests
         await persistence.UserUpdate.Received(1).ExecuteCommandAsync();
     }
 
-    [Fact]
-    public async Task UpdatePasswordAsync_NewPasswordTooShort_ReturnsFalse()
-    {
-        var svc = BuildService();
-        var dto = new UpdatePasswordDto { OldPassword = "OldPass123!", NewPassword = "sh0rt", ConfirmPassword = "sh0rt" };
-        var (success, message) = await svc.UpdatePasswordAsync(1, dto);
-        Assert.False(success);
-        Assert.Contains("8", message);
-    }
-
-    [Fact]
-    public async Task UpdatePasswordAsync_PasswordsDoNotMatch_ReturnsFalse_Alt()
-    {
-        var svc = BuildService();
-        var dto = new UpdatePasswordDto { OldPassword = "OldPass123!", NewPassword = "NewPassword1!", ConfirmPassword = "DifferentPass1!" };
-        var (success, _) = await svc.UpdatePasswordAsync(1, dto);
-        Assert.False(success);
-    }
-
     // ── Private static helpers via reflection ─────────────────────────────────
 
     private static T InvokePrivateStatic<T>(string methodName, object?[] args)
@@ -629,18 +395,6 @@ public class UserServiceValidationTests
         string longName = new string('a', 200);
         var result = InvokePrivateStatic<string>("NormalizeUsername", [longName]);
         Assert.Equal(32, result.Length); // MaxUsernameLength = 32
-    }
-
-    [Theory]
-    [InlineData("abc12345", true)]   // exactly 8 chars
-    [InlineData("abcdefghij", true)] // 10 chars
-    [InlineData("short1", false)]    // 6 chars
-    [InlineData("", false)]
-    [InlineData(null, false)]
-    public void IsPasswordLengthValid_ReturnsExpected(string? input, bool expected)
-    {
-        var result = InvokePrivateStatic<bool>("IsPasswordLengthValid", [input]);
-        Assert.Equal(expected, result);
     }
 
     [Theory]

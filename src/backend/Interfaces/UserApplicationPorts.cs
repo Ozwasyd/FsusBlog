@@ -34,11 +34,6 @@ public interface IUserAccountReader
     Task<UserAccountSnapshot?> GetAccountByUsernameAsync(string username);
 }
 
-public interface IUserRegistrationService
-{
-    Task<(bool Success, string Message)> RegisterAsync(RegisterDto dto, CancellationToken cancellationToken = default);
-}
-
 public interface IAnonymousAccountBootstrapService
 {
     Task<(bool Success, string Message, UserAccountSnapshot? User)> BootstrapAsync(
@@ -48,8 +43,6 @@ public interface IAnonymousAccountBootstrapService
 
 public interface IUserLoginWorkflowService
 {
-    Task<(bool Success, string Message, UserAccountSnapshot? User)> ValidateCredentialsAsync(LoginDto dto, string clientIp, CancellationToken cancellationToken = default);
-
     Task<(bool Success, string Message, SessionTokenResponseDto? Data, UserAccountSnapshot? User)> CompleteLoginAsync(
         int userId,
         string clientIp,
@@ -67,8 +60,6 @@ public interface IUserLoginWorkflowService
 public interface IUserProfileCommandService
 {
     Task<(bool Success, string Message)> UpdatePublicHandleAsync(int userId, string? publicHandle, CancellationToken cancellationToken = default);
-
-    Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto, CancellationToken cancellationToken = default);
 
     Task<(bool Success, string Message)> DeleteAccountAsync(int userId, DeleteAccountRequestDto dto, CancellationToken cancellationToken = default);
 }

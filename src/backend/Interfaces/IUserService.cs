@@ -7,38 +7,12 @@ namespace FsusBlog.Server.Interfaces;
 public interface IUserService
 {
     /// <summary>
-    /// 用户注册
-    /// </summary>
-    /// <param name="dto">注册信息</param>
-    /// <returns>元组：是否成功，错误/成功信息</returns>
-    Task<(bool Success, string Message)> RegisterAsync(RegisterDto dto);
-
-    /// <summary>
-    /// 用户登录
-    /// </summary>
-    /// <param name="dto">登录信息</param>
-    /// <returns>元组：是否成功，错误信息，生成的 Token</returns>
-    Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> LoginAsync(LoginDto dto, string clientIp);
-
-    /// <summary>
     /// 根据 ID 获取用户信息（用于权限验证或个人资料）
     /// </summary>
     Task<User?> GetByIdAsync(int id);
 
     /// <summary>
-    /// 根据用户名获取用户信息
-    /// </summary>
-    Task<User?> GetByUsernameAsync(string username);
-
-    /// <summary>
-    /// 更改密码
-    /// </summary>
-    /// <param name="userId">用户ID（从Token解析）</param>
-    /// <param name="dto">新密码</param>
-    Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto);
-
-    /// <summary>
-    /// 更改密码
+    /// 刷新 Token
     /// </summary>
     /// <param name="refreshToken">RefreshToken</param>
     Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken);

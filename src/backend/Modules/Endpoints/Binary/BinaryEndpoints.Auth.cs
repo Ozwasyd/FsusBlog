@@ -451,63 +451,6 @@ public static partial class BinaryEndpoints
         .RequireAuthorization()
         .RequireNoStoreResponse();
 
-        group.MapPut("/auth/update-password", static async Task<BinaryFrameResult> (
-            HttpContext httpContext,
-            IUserProfileCommandService profileCommands,
-            IUserAccountReader users,
-            IMfaChallengeService mfaChallengeService,
-            AuthCookieService authCookieService,
-            IAedsEncoder aeds,
-            CancellationToken cancellationToken) =>
-        {
-            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.AuthUpdatePasswordRequest, cancellationToken);
-            if (!payload.IsSuccess)
-            {
-                return BinaryResults.FromError(payload.Error, aeds);
-            }
-
-            if (!PodBinaryCodec.TryDecodeAuthUpdatePasswordRequest(payload.Payload, out var request))
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "修改密码请求体非法"), aeds);
-            }
-
-            int userId = httpContext.GetUserId();
-            string clientIp = httpContext.GetClientIp();
-            UserAccountSnapshot? userForMfaCheck = await users.GetAccountByIdAsync(userId);
-            if (userForMfaCheck != null && userForMfaCheck.Value.MfaEnabled)
-            {
-                if (!TryReadMfaProof(httpContext, out string proofToken) ||
-                    !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(userId, "update-password", proofToken))
-                {
-                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA_REQUIRED"), aeds, StatusCodes.Status428PreconditionRequired);
-                }
-            }
-
-            var (success, message) = await profileCommands.UpdatePasswordAsync(userId, new UpdatePasswordDto
-            {
-                OldPassword = request.OldPassword,
-                NewPassword = request.NewPassword,
-                ConfirmPassword = request.ConfirmPassword
-            }, cancellationToken);
-            if (!success)
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
-            }
-
-            authCookieService.ClearTokenCookies(httpContext);
-            using var _ = AuditLogScope.Push(
-                AuditSourceCatalog.Auth,
-                AuditTypeCatalog.Security,
-                new KeyValuePair<string, object?>("AuditAction", "password.update"),
-                new KeyValuePair<string, object?>("UserId", userId),
-                new KeyValuePair<string, object?>("ClientIp", clientIp));
-            return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
-        })
-        .RequireRateLimiting("fixed_ip")
-        .RequireAuthorization()
-        .AddEndpointFilter<RequiresPowFilter>()
-        .RequireNoStoreResponse();
-
         group.MapPost("/auth/delete-account", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IUserProfileCommandService profileCommands,
@@ -527,27 +470,17 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "注销账户请求体非法"), aeds);
             }
 
-            int userId = httpContext.GetUserId();
-            if (!TryReadMfaProof(httpContext, out string proofToken))
-            {
-                return BinaryResults.FromError(
-                    ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_STEP_UP_PROOF_REQUIRED"),
-                    aeds,
-                    StatusCodes.Status428PreconditionRequired);
-            }
-
             var stepUpResult = await RequireUserSecurityStepUpAsync(
                 httpContext,
                 stepUp,
                 UserSecurityStepUpActions.AccountDelete,
-                aeds,
-                allowPasswordBody: false,
                 cancellationToken);
             if (stepUpResult is { } rejected)
             {
                 return BinaryResults.FromError(rejected.Error, aeds, rejected.StatusCode);
             }
 
+            int userId = httpContext.GetUserId();
             var result = await profileCommands.DeleteAccountAsync(userId, new DeleteAccountRequestDto
             {
                 ConfirmText = request.ConfirmText
@@ -1002,8 +935,6 @@ public static partial class BinaryEndpoints
                 httpContext,
                 stepUp,
                 UserSecurityStepUpActions.RecoveryKeyCreate,
-                aeds,
-                allowPasswordBody: false,
                 cancellationToken);
             if (stepUpResult is { } rejected)
             {
@@ -1030,8 +961,6 @@ public static partial class BinaryEndpoints
                 httpContext,
                 stepUp,
                 UserSecurityStepUpActions.RecoveryKeyRotate,
-                aeds,
-                allowPasswordBody: false,
                 cancellationToken);
             if (stepUpResult is { } rejected)
             {
@@ -1338,8 +1267,6 @@ public static partial class BinaryEndpoints
                 httpContext,
                 stepUp,
                 UserSecurityStepUpActions.PasskeyDelete,
-                aeds,
-                allowPasswordBody: false,
                 cancellationToken);
             if (stepUpResult is { } rejected)
             {
@@ -1382,8 +1309,6 @@ public static partial class BinaryEndpoints
                 httpContext,
                 stepUp,
                 UserSecurityStepUpActions.PasskeyRename,
-                aeds,
-                allowPasswordBody: false,
                 cancellationToken);
             if (stepUpResult is { } rejected)
             {
@@ -1410,69 +1335,23 @@ public static partial class BinaryEndpoints
         HttpContext httpContext,
         IUserSecurityStepUpService stepUp,
         string action,
-        IAedsEncoder aeds,
-        bool allowPasswordBody,
         CancellationToken cancellationToken)
     {
-        var proof = await ReadUserSecurityStepUpProofAsync(httpContext, aeds, allowPasswordBody, cancellationToken);
-        if (proof.Error.Code != ErrorCode.None)
-        {
-            int statusCode = string.Equals(proof.Error.Message, "ANONYMOUS_STEP_UP_BODY_PROOF_REJECTED", StringComparison.Ordinal)
-                ? StatusCodes.Status428PreconditionRequired
-                : StatusCodes.Status400BadRequest;
-            return (proof.Error, statusCode);
-        }
+        string proofToken = httpContext.Request.Headers.TryGetValue(MfaProofHeader, out var values)
+            ? values.ToString().Trim()
+            : string.Empty;
 
         UserSecurityStepUpResult result = await stepUp.VerifyAsync(
             new UserSecurityStepUpRequest(
                 httpContext.GetUserId(),
                 action,
-                proof.Proof,
+                new UserSecurityStepUpProof(proofToken),
                 httpContext.GetClientIp()),
             cancellationToken);
         return result.Success
             ? null
             : (ErrorDetail.Create(result.ErrorCode, result.Message), result.StatusCode);
     }
-
-    private static async Task<(UserSecurityStepUpProof Proof, ErrorDetail Error)> ReadUserSecurityStepUpProofAsync(
-        HttpContext httpContext,
-        IAedsEncoder aeds,
-        bool allowPasswordBody,
-        CancellationToken cancellationToken)
-    {
-        string proofToken = httpContext.Request.Headers.TryGetValue(MfaProofHeader, out var values)
-            ? values.ToString().Trim()
-            : string.Empty;
-        string password = string.Empty;
-
-        if (allowPasswordBody && AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled() && HasBinaryRequestBody(httpContext))
-        {
-            return (default, ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_STEP_UP_BODY_PROOF_REJECTED"));
-        }
-
-        if (allowPasswordBody && !AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled() && HasBinaryRequestBody(httpContext))
-        {
-            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaPasswordProofRequest, cancellationToken);
-            if (!payload.IsSuccess)
-            {
-                return (default, payload.Error);
-            }
-
-            if (!PodBinaryCodec.TryDecodeMfaPasswordProofRequest(payload.Payload, out var request))
-            {
-                return (default, ErrorDetail.Create(ErrorCode.Validation, "STEP_UP_PASSWORD_PROOF_INVALID"));
-            }
-
-            password = request.Password;
-        }
-
-        return (new UserSecurityStepUpProof(proofToken, password), ErrorDetail.None);
-    }
-
-    private static bool HasBinaryRequestBody(HttpContext httpContext)
-        => httpContext.Request.ContentLength.GetValueOrDefault() > 0
-            || httpContext.Request.Headers.ContainsKey("Transfer-Encoding");
 
     private static ValueTask RecordPasskeyAssertionFailureAsync(
         HttpContext httpContext,

@@ -6,10 +6,11 @@ using FsusBlog.Server.Models.Responses;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Shared.Contracts.Outputs;
+using SqlSugar;
 
 namespace FsusBlog.Server.Services;
 
-public sealed class UserAccountReader(UserService users) : IUserAccountReader
+public sealed class UserAccountReader(UserService users, ISqlSugarClient db) : IUserAccountReader
 {
     public async Task<UserAccountSnapshot?> GetAccountByIdAsync(int id)
     {
@@ -19,7 +20,13 @@ public sealed class UserAccountReader(UserService users) : IUserAccountReader
 
     public async Task<UserAccountSnapshot?> GetAccountByUsernameAsync(string username)
     {
-        User? user = await users.GetByUsernameAsync(username);
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return null;
+        }
+
+        string normalized = NormalizeUsername(username);
+        User? user = await db.Queryable<User>().FirstAsync(u => u.Username == normalized);
         return user is null ? null : ToAccountSnapshot(user);
     }
 
@@ -53,14 +60,21 @@ public sealed class UserAccountReader(UserService users) : IUserAccountReader
             Status: account.Status,
             BanReason: string.IsNullOrWhiteSpace(account.BanReason) ? null : account.BanReason,
             DeletedAt: account.DeletedAt);
-}
 
-public sealed class UserRegistrationService(UserService users) : IUserRegistrationService
-{
-    public Task<(bool Success, string Message)> RegisterAsync(RegisterDto dto, CancellationToken cancellationToken = default)
+    private static string NormalizeUsername(string input)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        return users.RegisterAsync(dto);
+        var span = input.AsSpan().Trim();
+        if (span.IsEmpty)
+        {
+            return string.Empty;
+        }
+
+        if (span.Length > 32)
+        {
+            span = span[..32];
+        }
+
+        return string.Create(span.Length, span, static (dst, src) => src.ToLowerInvariant(dst));
     }
 }
 
@@ -78,13 +92,6 @@ public sealed class AnonymousAccountBootstrapService(UserService users) : IAnony
 
 public sealed class UserLoginWorkflowService(UserService users) : IUserLoginWorkflowService
 {
-    public async Task<(bool Success, string Message, UserAccountSnapshot? User)> ValidateCredentialsAsync(LoginDto dto, string clientIp, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var result = await users.ValidateCredentialsAsync(dto, clientIp);
-        return (result.Success, result.Message, result.User is null ? null : UserAccountReader.ToAccountSnapshot(result.User));
-    }
-
     public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, UserAccountSnapshot? User)> CompleteLoginAsync(
         int userId,
         string clientIp,
@@ -130,12 +137,6 @@ public sealed class UserProfileCommandService(UserService users) : IUserProfileC
     {
         cancellationToken.ThrowIfCancellationRequested();
         return users.UpdatePublicHandleAsync(userId, publicHandle);
-    }
-
-    public Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return users.UpdatePasswordAsync(userId, dto);
     }
 
     public Task<(bool Success, string Message)> DeleteAccountAsync(int userId, DeleteAccountRequestDto dto, CancellationToken cancellationToken = default)

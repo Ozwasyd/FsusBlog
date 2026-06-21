@@ -14,12 +14,6 @@ export interface UpdatePublicHandleDto {
   publicHandle: string | null
 }
 
-export interface UpdatePasswordDto {
-  oldPassword: string
-  newPassword: string
-  confirmPassword: string
-}
-
 export interface MfaStepUpProofPayload {
   mfaProofToken?: string | null
 }
@@ -170,23 +164,6 @@ export const updatePublicHandle = (data: UpdatePublicHandleDto, config?: ApiRequ
     requestOptions: {
       method: 'PUT',
       body: encodeAedsFrame(FrameType.AuthUpdatePublicHandleRequest, encodeStringMutationRequest(data.publicHandle ?? ''))
-    }
-  })
-}
-
-/**
- * 修改密码
- * [修复 2026-02-24] 安全性保障：物理开启 requiresPow 拦截，防止针对账户凭证的暴力攻击
- */
-export const updatePassword = (data: UpdatePasswordDto, config?: ApiRequestConfig) => {
-  return requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/auth/update-password',
-    frameType: FrameType.EmptySuccess,
-    signal: config?.signal as AbortSignal | undefined,
-    requestOptions: {
-      method: 'PUT',
-      requiresPow: true,
-      body: encodeAedsFrame(FrameType.AuthUpdatePasswordRequest, encodeAuthUpdatePasswordRequest(data))
     }
   })
 }
@@ -556,16 +533,6 @@ function encodeAuthAnonymousBootstrapRequest(data: AnonymousBootstrapRequest): U
   writeSliceRef(view, 4, { offset: 0, length: publicHandle.byteLength })
   view.setInt32(12, publicHandle.byteLength, true)
   bytes.set(publicHandle, 16)
-  return bytes
-}
-
-function encodeAuthUpdatePasswordRequest(data: UpdatePasswordDto): Uint8Array {
-  const { bytes, refs, blobLength } = encodeStringBlob([data.oldPassword, data.newPassword, data.confirmPassword])
-  const view = new DataView(bytes.buffer)
-  writeSliceRef(view, 0, refs[0])
-  writeSliceRef(view, 8, refs[1])
-  writeSliceRef(view, 16, refs[2])
-  view.setInt32(24, blobLength, true)
   return bytes
 }
 

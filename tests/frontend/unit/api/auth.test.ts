@@ -15,7 +15,7 @@ vi.mock('@/api/index', () => ({
 }))
 
 import { requestBinaryOnly } from '@/services/binaryTransport'
-import { beginRecoveryPasskeyRegistration, bootstrapAnonymousAccount, completeRecoveryPasskeyRegistration, createRecoveryKey, deleteAccount, deletePasskey, disableMfa, getMe, getMfaProfile, getPowChallenge, listPasskeys, listSessions, logout, passkeyLoginBegin, passkeyLoginComplete, passkeyRegisterBegin, passkeyRegisterComplete, refreshToken, regenerateMfaRecoveryCodes, renamePasskey, revokeOtherSessions, revokeSession, rotateRecoveryKey, startMfaChallenge, startMfaSetup, updatePassword, updatePublicHandle, verifyMfaChallenge, verifyMfaSetup, verifyRecoveryKey } from '@/api/auth'
+import { beginRecoveryPasskeyRegistration, bootstrapAnonymousAccount, completeRecoveryPasskeyRegistration, createRecoveryKey, deleteAccount, deletePasskey, disableMfa, getMe, getMfaProfile, getPowChallenge, listPasskeys, listSessions, logout, passkeyLoginBegin, passkeyLoginComplete, passkeyRegisterBegin, passkeyRegisterComplete, refreshToken, regenerateMfaRecoveryCodes, renamePasskey, revokeOtherSessions, revokeSession, rotateRecoveryKey, startMfaChallenge, startMfaSetup, updatePublicHandle, verifyMfaChallenge, verifyMfaSetup, verifyRecoveryKey } from '@/api/auth'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
 
@@ -62,19 +62,6 @@ describe('auth API binary base session flow', () => {
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
         method: 'PUT',
-        body: expect.any(ArrayBuffer)
-      })
-    }))
-  })
-
-  it('updatePassword sends binary password request with PoW', async () => {
-    await updatePassword({ oldPassword: 'old', newPassword: 'newpass', confirmPassword: 'newpass' })
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/update-password',
-      frameType: FrameType.EmptySuccess,
-      requestOptions: expect.objectContaining({
-        method: 'PUT',
-        requiresPow: true,
         body: expect.any(ArrayBuffer)
       })
     }))
@@ -139,7 +126,7 @@ describe('auth API binary base session flow', () => {
     await verifyMfaSetup('123456')
     await disableMfa({ mfaProofToken: 'proof-disable' })
     await regenerateMfaRecoveryCodes({ mfaProofToken: 'proof-regenerate' })
-    await startMfaChallenge('update-password')
+    await startMfaChallenge('recovery-key.rotate')
     await verifyMfaChallenge({ challengeToken: 'ticket', code: '123456', action: 'login' })
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({ binaryUrl: '/api/binary/auth/mfa/setup/start', frameType: FrameType.MfaSetupStart }))

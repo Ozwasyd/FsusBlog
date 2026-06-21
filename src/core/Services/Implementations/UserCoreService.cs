@@ -7,22 +7,6 @@ namespace FsusBlog.Core.Services.Implementations;
 
 public sealed class UserCoreService(IUserCoreGateway gateway) : IUserCoreService
 {
-    public async Task<Result> RegisterAsync(string username, string password, string confirmPassword)
-    {
-        var result = await gateway.RegisterAsync(username, password, confirmPassword);
-        return result.Success
-            ? Result.Success()
-            : Result.Failure(ErrorCode.Validation, result.Message);
-    }
-
-    public async Task<Result<AuthLoginResultContract>> LoginAsync(string username, string password, string clientIp)
-    {
-        var result = await gateway.LoginAsync(username, password, clientIp);
-        return result.Success && result.Data.HasValue
-            ? Result<AuthLoginResultContract>.Success(result.Data.Value)
-            : Result<AuthLoginResultContract>.Failure(ErrorCode.Unauthorized, result.Message);
-    }
-
     public async Task<Result<UserSnapshotContract?>> GetByIdAsync(int id)
     {
         if (id <= 0)
@@ -34,27 +18,6 @@ public sealed class UserCoreService(IUserCoreGateway gateway) : IUserCoreService
         return user.HasValue
             ? Result<UserSnapshotContract?>.Success(user.Value)
             : Result<UserSnapshotContract?>.Failure(ErrorCode.NotFound, "用户不存在");
-    }
-
-    public async Task<Result<UserSnapshotContract?>> GetByUsernameAsync(string username)
-    {
-        if (string.IsNullOrWhiteSpace(username))
-        {
-            return Result<UserSnapshotContract?>.Failure(ErrorCode.Validation, "用户名不能为空");
-        }
-
-        var user = await gateway.GetByUsernameAsync(username);
-        return user.HasValue
-            ? Result<UserSnapshotContract?>.Success(user.Value)
-            : Result<UserSnapshotContract?>.Failure(ErrorCode.NotFound, "用户不存在");
-    }
-
-    public async Task<Result> UpdatePasswordAsync(int userId, string oldPassword, string newPassword, string confirmPassword)
-    {
-        var result = await gateway.UpdatePasswordAsync(userId, oldPassword, newPassword, confirmPassword);
-        return result.Success
-            ? Result.Success()
-            : Result.Failure(ErrorCode.Validation, result.Message);
     }
 
     public async Task<Result<TokenPairContract>> RefreshTokenAsync(string refreshToken)

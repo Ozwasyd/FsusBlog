@@ -883,13 +883,6 @@
           "cache": "no-store"
         },
         {
-          "method": "PUT",
-          "path": "/auth/update-password",
-          "auth": "user",
-          "requestFrame": "AuthUpdatePasswordRequest",
-          "responseFrame": "EmptySuccess"
-        },
-        {
           "method": "POST",
           "path": "/auth/delete-account",
           "auth": "user",

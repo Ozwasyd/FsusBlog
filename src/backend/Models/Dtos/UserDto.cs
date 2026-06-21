@@ -1,51 +1,6 @@
-using FsusBlog.Server.Interfaces;
 using System.ComponentModel.DataAnnotations;
 
 namespace FsusBlog.Server.Models.Dtos;
-
-// ==========================================
-// 1. 输入 DTO (Request Models)
-// ==========================================
-
-public sealed record class UpdatePasswordDto
-{
-    [Required]
-    public required string OldPassword { get; init; }
-
-    [Required]
-    [MinLength(6, ErrorMessage = "密码长度至少6位")]
-    public required string NewPassword { get; init; }
-
-    [Required]
-    [Compare(nameof(NewPassword), ErrorMessage = "两次密码输入不一致")]
-    public required string ConfirmPassword { get; init; }
-}
-
-public sealed record class LoginDto
-{
-    [Required(ErrorMessage = "用户名不能为空")]
-    public required string Username { get; init; }
-
-    [Required(ErrorMessage = "密码不能为空")]
-    public required string Password { get; init; }
-
-    public bool RememberMe { get; init; }
-}
-
-public sealed record class RegisterDto : ICheckableContent
-{
-    [Required(ErrorMessage = "用户名不能为空")]
-    [RegularExpression(@"^[\u4e00-\u9fa5a-zA-Z]+$", ErrorMessage = "用户名仅允许包含中文或英文")]
-    public required string Username { get; init; }
-
-    [Required]
-    public required string Password { get; init; }
-
-    [Required]
-    public required string ConfirmPassword { get; init; }
-
-    public string GetTextToCheck() => Username;
-}
 
 public sealed record class AdminChangeStatusDto
 {

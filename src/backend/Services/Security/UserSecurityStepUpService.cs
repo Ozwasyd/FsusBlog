@@ -1,7 +1,5 @@
 using FsusBlog.Core.Common;
-using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.Dtos;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -22,8 +20,7 @@ public static class UserSecurityStepUpActions
 }
 
 public readonly record struct UserSecurityStepUpProof(
-    string? MfaProofToken = null,
-    string? Password = null);
+    string? MfaProofToken = null);
 
 public sealed record UserSecurityStepUpRequest(
     int UserId,
@@ -53,8 +50,7 @@ public interface IUserSecurityStepUpService
 
 public sealed class UserSecurityStepUpService(
     IUserAccountReader users,
-    IMfaChallengeService mfaChallenges,
-    IUserLoginWorkflowService loginWorkflow) : IUserSecurityStepUpService
+    IMfaChallengeService mfaChallenges) : IUserSecurityStepUpService
 {
     public async Task<UserSecurityStepUpResult> VerifyAsync(
         UserSecurityStepUpRequest request,
@@ -110,40 +106,10 @@ public sealed class UserSecurityStepUpService(
                 StatusCodes.Status428PreconditionRequired);
         }
 
-        if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
-        {
-            return UserSecurityStepUpResult.Rejected(
-                ErrorCode.Forbidden,
-                "ANONYMOUS_STEP_UP_PROOF_REQUIRED",
-                StatusCodes.Status428PreconditionRequired);
-        }
-
-        string password = Normalize(request.Proof.Password);
-        if (string.IsNullOrWhiteSpace(password))
-        {
-            return UserSecurityStepUpResult.Rejected(
-                ErrorCode.Forbidden,
-                "PASSWORD_OR_STEP_UP_PROOF_REQUIRED",
-                StatusCodes.Status428PreconditionRequired);
-        }
-
-        var credentials = await loginWorkflow.ValidateCredentialsAsync(
-            new LoginDto
-            {
-                Username = account.Value.Username,
-                Password = password
-            },
-            request.ClientIp,
-            cancellationToken).ConfigureAwait(false);
-        if (!credentials.Success || credentials.User?.Id != account.Value.Id)
-        {
-            return UserSecurityStepUpResult.Rejected(
-                ErrorCode.Forbidden,
-                "PASSWORD_PROOF_INVALID",
-                StatusCodes.Status403Forbidden);
-        }
-
-        return UserSecurityStepUpResult.Succeeded();
+        return UserSecurityStepUpResult.Rejected(
+            ErrorCode.Forbidden,
+            "ANONYMOUS_STEP_UP_PROOF_REQUIRED",
+            StatusCodes.Status428PreconditionRequired);
     }
 
     private static string Normalize(string? value)

@@ -9,41 +9,11 @@ namespace FsusBlog.Server.Infrastructure.CoreBridge.Gateways;
 
 public sealed class UserCoreGateway(UserService service) : IUserCoreGateway
 {
-    public Task<(bool Success, string Message)> RegisterAsync(string username, string password, string confirmPassword)
-        => service.RegisterAsync(new RegisterDto { Username = username, Password = password, ConfirmPassword = confirmPassword });
-
-    public async Task<(bool Success, string Message, AuthLoginResultContract? Data)> LoginAsync(string username, string password, string clientIp)
-    {
-        var result = await service.LoginAsync(new LoginDto { Username = username, Password = password, RememberMe = false }, clientIp);
-        if (!result.Success || result.Data is null || result.UserEntity is null)
-        {
-            return (false, result.Message, null);
-        }
-
-        return (true, result.Message, new AuthLoginResultContract(
-            new TokenPairContract(result.Data.Value.AccessToken, result.Data.Value.RefreshToken),
-            ToUserSnapshot(result.UserEntity)));
-    }
-
     public async Task<UserSnapshotContract?> GetByIdAsync(int id)
     {
         var user = await service.GetByIdAsync(id);
         return user is null ? null : ToUserSnapshot(user);
     }
-
-    public async Task<UserSnapshotContract?> GetByUsernameAsync(string username)
-    {
-        var user = await service.GetByUsernameAsync(username);
-        return user is null ? null : ToUserSnapshot(user);
-    }
-
-    public Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, string oldPassword, string newPassword, string confirmPassword)
-        => service.UpdatePasswordAsync(userId, new UpdatePasswordDto
-        {
-            OldPassword = oldPassword,
-            NewPassword = newPassword,
-            ConfirmPassword = confirmPassword
-        });
 
     public async Task<(bool Success, TokenPairContract? Data)> RefreshTokenAsync(string refreshToken)
     {

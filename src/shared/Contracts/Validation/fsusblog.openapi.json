@@ -2626,54 +2626,6 @@
         "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authAdapter.ts"
       }
     },
-    "/api/binary/auth/update-password": {
-      "put": {
-        "operationId": "binary_put_auth_update_password",
-        "tags": [
-          "Binary"
-        ],
-        "summary": "/auth/update-password",
-        "responses": {
-          "200": {
-            "description": "EmptySuccess AEDS frame",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "ApiError AEDS frame",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          }
-        },
-        "x-fsus-protocol": "AEDS",
-        "x-fsus-aeds-version": 2,
-        "x-fsus-request-frame": "AuthUpdatePasswordRequest",
-        "x-fsus-response-frame": "EmptySuccess",
-        "x-fsus-error-frame": "ApiError",
-        "x-fsus-auth": "user",
-        "x-fsus-pow": false,
-        "x-fsus-content-type": "application/octet-stream",
-        "x-fsus-success-status": 200,
-        "x-fsus-cache": "no-store",
-        "x-fsus-rate-limit": "authenticated",
-        "x-fsus-test-surface": "/auth/update-password",
-        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
-        "x-fsus-frontend-wrapper": "src/frontend/src/api/auth.ts",
-        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authAdapter.ts"
-      }
-    },
     "/api/binary/auth/delete-account": {
       "post": {
         "operationId": "binary_post_auth_delete_account",
