@@ -138,6 +138,10 @@ const keyword = ref('')
 const orphanOnly = ref(false)
 const reindexArticleId = ref('')
 
+const showMessageBoxError = (error: unknown): void => {
+  showErrorToast(error, '确认对话框打开失败')
+}
+
 const filteredAssets = computed(() => {
   const text = keyword.value.trim().toLowerCase()
   return assets.value.filter((asset) => {
@@ -199,12 +203,19 @@ const reindexCurrentArticle = async (): Promise<void> => {
 }
 
 const confirmCleanupOrphans = async (): Promise<void> => {
-  const confirmed = await confirmDanger('确认清理所有引用计数为 0 的孤儿资产？该操作会删除服务器文件。', '清理孤儿资产', {
+  const result = await confirmDanger('确认清理所有引用计数为 0 的孤儿资产？该操作会删除服务器文件。', '清理孤儿资产', {
     confirmButtonText: '确认清理',
     cancelButtonText: '取消'
   })
-  if (!confirmed) {
-    return
+
+  switch (result.kind) {
+    case 'confirmed':
+      break
+    case 'cancelled':
+      return
+    case 'error':
+      showMessageBoxError(result.error)
+      return
   }
 
   processing.value = true
@@ -223,12 +234,19 @@ const confirmDeleteAsset = async (asset: AssetLibraryItemResponse): Promise<void
   const warning = asset.referenceCount > 0
     ? `该文件仍有 ${asset.referenceCount} 个引用。确认删除服务器文件？`
     : '确认删除该孤儿文件？'
-  const confirmed = await confirmDanger(warning, '删除服务器文件', {
+  const result = await confirmDanger(warning, '删除服务器文件', {
     confirmButtonText: '确认删除',
     cancelButtonText: '取消'
   })
-  if (!confirmed) {
-    return
+
+  switch (result.kind) {
+    case 'confirmed':
+      break
+    case 'cancelled':
+      return
+    case 'error':
+      showMessageBoxError(result.error)
+      return
   }
 
   processing.value = true

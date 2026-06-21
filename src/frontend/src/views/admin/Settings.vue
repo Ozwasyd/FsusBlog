@@ -495,7 +495,7 @@
 
 <script setup lang="ts">
 import { Delete, Plus, Warning } from '@/fsusui/icons'
-import { confirmWarning } from '@/fsusui/feedback'
+import { confirmWarning, toast } from '@/fsusui/feedback'
 import SettingsPageEditor from '@/components/admin/settings/SettingsPageEditor.vue'
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue'
 import { useAdminSettingsPage } from '@/composables/useAdminSettingsPage'
@@ -565,71 +565,114 @@ const {
   isHighlighted: isTaskHighlighted
 } = taskFeedback
 
+const showMessageBoxError = (error: unknown): void => {
+  toast.error({
+    message: '确认对话框打开失败',
+    detail: error instanceof Error ? error.message : undefined
+  })
+}
+
 const confirmImageRemove = async (): Promise<void> => {
-  const confirmed = await confirmWarning('这只会从待保存配置中移除当前预览图，点击保存同步后才会影响公开站点。', '移除预览图', {
+  const result = await confirmWarning('这只会从待保存配置中移除当前预览图，点击保存同步后才会影响公开站点。', '移除预览图', {
     confirmButtonText: '确认移除',
     cancelButtonText: '取消'
   })
-  if (!confirmed) {
-    return
+
+  switch (result.kind) {
+    case 'confirmed':
+      await handleImageRemove()
+      return
+    case 'cancelled':
+      return
+    case 'error':
+      showMessageBoxError(result.error)
   }
-  await handleImageRemove()
 }
 
 const confirmImageDelete = async (): Promise<void> => {
-  const confirmed = await confirmWarning('这会从待保存配置中移除当前预览图，并立即请求后端删除服务器文件。删除失败不会清空配置。', '删除服务器文件', {
+  const result = await confirmWarning('这会从待保存配置中移除当前预览图，并立即请求后端删除服务器文件。删除失败不会清空配置。', '删除服务器文件', {
     confirmButtonText: '移除并删除',
     cancelButtonText: '取消'
   })
-  if (!confirmed) {
-    return
+
+  switch (result.kind) {
+    case 'confirmed':
+      await handleImageDelete()
+      return
+    case 'cancelled':
+      return
+    case 'error':
+      showMessageBoxError(result.error)
   }
-  await handleImageDelete()
 }
 
 const confirmSiteSave = async (): Promise<void> => {
   const changed = siteChangeSummary.value.length > 0 ? siteChangeSummary.value.join('、') : '站点配置'
-  const confirmed = await confirmWarning(`本次将修改：${changed}。保存后将清理 AOT 缓存。`, '保存站点信息', {
+  const result = await confirmWarning(`本次将修改：${changed}。保存后将清理 AOT 缓存。`, '保存站点信息', {
     confirmButtonText: '保存同步',
     cancelButtonText: '取消'
   })
-  if (!confirmed) {
-    return
+
+  switch (result.kind) {
+    case 'confirmed':
+      await saveSiteConfig()
+      return
+    case 'cancelled':
+      return
+    case 'error':
+      showMessageBoxError(result.error)
   }
-  await saveSiteConfig()
 }
 
 const confirmComplianceSave = async (): Promise<void> => {
-  const confirmed = await confirmWarning('保存后将刷新公开 footer、RSS 版权和 AOT 缓存。备案信息仅用于展示，请确认已通过官方平台审核。', '保存大陆合规信息', {
+  const result = await confirmWarning('保存后将刷新公开 footer、RSS 版权和 AOT 缓存。备案信息仅用于展示，请确认已通过官方平台审核。', '保存大陆合规信息', {
     confirmButtonText: '保存合规信息',
     cancelButtonText: '取消'
   })
-  if (!confirmed) {
-    return
+
+  switch (result.kind) {
+    case 'confirmed':
+      await saveComplianceConfig()
+      return
+    case 'cancelled':
+      return
+    case 'error':
+      showMessageBoxError(result.error)
   }
-  await saveComplianceConfig()
 }
 
 const confirmPagePublish = async (): Promise<void> => {
-  const confirmed = await confirmWarning(`确认发布「${currentPageTarget.value.label}」页面？当前内容 ${pageContentLength.value} 字，这会覆盖线上静态页面。`, '发布页面', {
+  const result = await confirmWarning(`确认发布「${currentPageTarget.value.label}」页面？当前内容 ${pageContentLength.value} 字，这会覆盖线上静态页面。`, '发布页面', {
     confirmButtonText: '确认发布',
     cancelButtonText: '取消'
   })
-  if (!confirmed) {
-    return
+
+  switch (result.kind) {
+    case 'confirmed':
+      await savePageContent()
+      return
+    case 'cancelled':
+      return
+    case 'error':
+      showMessageBoxError(result.error)
   }
-  await savePageContent()
 }
 
 const confirmPageRefresh = async (): Promise<void> => {
-  const confirmed = await confirmWarning(`确认强制刷新「${currentPageTarget.value.label}」页面缓存？`, '刷新页面缓存', {
+  const result = await confirmWarning(`确认强制刷新「${currentPageTarget.value.label}」页面缓存？`, '刷新页面缓存', {
     confirmButtonText: '确认刷新',
     cancelButtonText: '取消'
   })
-  if (!confirmed) {
-    return
+
+  switch (result.kind) {
+    case 'confirmed':
+      await refreshPageCache()
+      return
+    case 'cancelled':
+      return
+    case 'error':
+      showMessageBoxError(result.error)
   }
-  await refreshPageCache()
 }
 
 </script>
