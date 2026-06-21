@@ -1,6 +1,7 @@
 import { nextTick, onUnmounted, type MaybeRefOrGetter, toValue, watch } from 'vue'
 import { toast } from '@/fsusui/feedback'
-import { fsusBlogScrollRevealOptions, useScrollReveal } from '@/fsusui/motion'
+import { fsusBlogScrollRevealOptions } from '@/fsusui/blogMotion'
+import { useScrollReveal } from '@ozwasyd/element-plus/motion'
 
 const ENHANCED_ATTR = 'data-fsus-code-copy'
 

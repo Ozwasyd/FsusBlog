@@ -200,10 +200,9 @@ import ArticleDetailCommentsPlaceholder from '@/components/public/ArticleDetailC
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
 import {
   fsusBlogMotionPresets,
-  fsusBlogScrollRevealMotion,
-  vMotion,
-  vScrollReveal
-} from '@/fsusui/motion'
+  fsusBlogScrollRevealMotion
+} from '@/fsusui/blogMotion'
+import { vMotion, vScrollReveal } from '@ozwasyd/element-plus/motion'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDetail'
 

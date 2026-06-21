@@ -18,7 +18,7 @@ import type {
   PerceptionChallengeRenderer,
   PerceptionChallengeSubmitPayload,
   PerceptionChallengeVerifyResult
-} from '@/fsusui/perceptionChallenge'
+} from '@ozwasyd/element-plus/perception-challenge'
 
 type VerifySecurityChallenge = (request: VerifySecurityChallengeRequest) => Promise<SecurityChallengeVerifyResponse>
 

@@ -53,7 +53,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ArticleTocItem } from '@/composables/article/useArticleToc'
-import { fsusBlogMotionPresets } from '@/fsusui/motion'
+import { fsusBlogMotionPresets } from '@/fsusui/blogMotion'
 
 const props = defineProps<{
   items: ArticleTocItem[]

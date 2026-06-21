@@ -86,7 +86,8 @@ import FilterHeader from '@/components/filter/FilterHeader.vue'
 import FilterArticleLoadingState from '@/components/filter/FilterArticleLoadingState.vue'
 import { PUBLIC_FIXED_PATHS } from '@/public-renderers/publicRoutePaths'
 import { Back } from '@/fsusui/icons'
-import { fsusBlogMotionPresets, vMotion } from '@/fsusui/motion'
+import { fsusBlogMotionPresets } from '@/fsusui/blogMotion'
+import { vMotion } from '@ozwasyd/element-plus/motion'
 import type { FilterPageViewContract } from '@/view-contracts/filterView'
 
 const props = defineProps<{

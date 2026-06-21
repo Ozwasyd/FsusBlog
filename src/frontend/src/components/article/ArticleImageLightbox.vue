@@ -56,7 +56,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import type { ArticleLightboxImage } from '@/composables/article/useArticleImageLightbox'
-import { FsuTransition, fsusBlogMotionPresets } from '@/fsusui/motion'
+import { fsusBlogMotionPresets } from '@/fsusui/blogMotion'
+import { FsuTransition } from '@ozwasyd/element-plus/motion'
 
 const props = defineProps<{
   open: boolean
