@@ -884,13 +884,6 @@
         },
         {
           "method": "PUT",
-          "path": "/auth/update-username",
-          "auth": "user",
-          "requestFrame": "AuthUpdateUsernameRequest",
-          "responseFrame": "EmptySuccess"
-        },
-        {
-          "method": "PUT",
           "path": "/auth/update-password",
           "auth": "user",
           "requestFrame": "AuthUpdatePasswordRequest",
@@ -2114,5 +2107,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 206
+  "openapiOperationCount": 205
 }

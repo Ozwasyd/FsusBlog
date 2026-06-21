@@ -37,14 +37,6 @@ public sealed class UserCoreGateway(UserService service) : IUserCoreGateway
         return user is null ? null : ToUserSnapshot(user);
     }
 
-    public async Task<(bool Success, string Message, TokenPairContract? Data)> UpdateUsernameAsync(int userId, string newUsername)
-    {
-        var result = await service.UpdateUsernameAsync(userId, newUsername);
-        return result.Success && result.Data.HasValue
-            ? (true, result.Message, new TokenPairContract(result.Data.Value.AccessToken, result.Data.Value.RefreshToken))
-            : (false, result.Message, null);
-    }
-
     public Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, string oldPassword, string newPassword, string confirmPassword)
         => service.UpdatePasswordAsync(userId, new UpdatePasswordDto
         {

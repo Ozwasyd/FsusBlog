@@ -167,6 +167,13 @@ run_residue_check \
   src/shared/Contracts/Outputs/ServerResponseContracts.cs src/shared/Contracts/Models/UserPods.cs src/core/Cache/PodBinaryCodec.User.cs src/frontend/src/api/auth.ts src/frontend/src/adapters/binary/authAdapter.ts
 
 run_residue_check \
+  "legacy username mutation runtime path" \
+  "legacy username mutation runtime residue detected" \
+  '\bAuthUpdateUsernameRequest\b|/auth/update-username\b|\bUpdateUsernameDto\b|\bUpdateUsernameAsync\b|\bupdateUsername\b' \
+  "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
+  src/backend src/core src/shared src/frontend/src docs tests/backend/Unit tests/frontend/unit tests/frontend/fixtures tools/contracts
+
+run_residue_check \
   "legacy message sender user model" \
   "legacy message sender user-model residue detected" \
   '\b(?:adminUserId|targetUserId|systemTargetUserId|InitiatorUserId|CreatedById|SenderId)\b|public int UserId|Queryable<User>\(\)|[.]Username|目标用户 ID' \

@@ -451,59 +451,6 @@ public static partial class BinaryEndpoints
         .RequireAuthorization()
         .RequireNoStoreResponse();
 
-        group.MapPut("/auth/update-username", static async Task<BinaryFrameResult> (
-            HttpContext httpContext,
-            IUserProfileCommandService profileCommands,
-            IUserAccountReader users,
-            IMfaChallengeService mfaChallengeService,
-            IContentFilterService contentFilterService,
-            IWebHostEnvironment env,
-            AuthCookieService authCookieService,
-            IAedsEncoder aeds,
-            CancellationToken cancellationToken) =>
-        {
-            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.AuthUpdateUsernameRequest, cancellationToken);
-            if (!payload.IsSuccess)
-            {
-                return BinaryResults.FromError(payload.Error, aeds);
-            }
-
-            if (!PodBinaryCodec.TryDecodeStringMutationRequest(payload.Payload, out string newUsername) ||
-                string.IsNullOrWhiteSpace(newUsername))
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "新用户名不能为空"), aeds);
-            }
-
-            ContentValidationResult validation = contentFilterService.ValidateContent(newUsername);
-            if (!validation.IsValid)
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, validation.Message, validation.ReasonCode), aeds);
-            }
-
-            int userId = httpContext.GetUserId();
-            UserAccountSnapshot? userForMfaCheck = await users.GetAccountByIdAsync(userId);
-            if (userForMfaCheck != null && userForMfaCheck.Value.MfaEnabled)
-            {
-                if (!TryReadMfaProof(httpContext, out string proofToken) ||
-                    !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(userId, "update-username", proofToken))
-                {
-                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA_REQUIRED"), aeds, StatusCodes.Status428PreconditionRequired);
-                }
-            }
-
-            var (success, message, newToken) = await profileCommands.UpdateUsernameAsync(userId, newUsername, cancellationToken);
-            if (!success || newToken == null)
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
-            }
-
-            authCookieService.SetAccessTokenCookie(httpContext, env, newToken.Value.AccessToken);
-            return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
-        })
-        .RequireRateLimiting("fixed_ip")
-        .RequireAuthorization()
-        .RequireNoStoreResponse();
-
         group.MapPut("/auth/update-password", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IUserProfileCommandService profileCommands,

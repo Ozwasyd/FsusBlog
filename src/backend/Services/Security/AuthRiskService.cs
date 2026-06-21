@@ -91,7 +91,7 @@ public sealed class AuthRiskService(ISqlSugarClient db) : IAuthRiskService
         }
 
         // 敏感动作默认至少要求一次 MFA，只有近期已验证场景才放行（由上层逻辑处理短期 proof）
-        if (action is "update-username" or "update-password" or "admin-sensitive")
+        if (action is "update-password" or "admin-sensitive")
         {
             return new RiskEvaluationResult(true, baseline.RiskFlags, Math.Max(60, baseline.Score), "sensitive_action_requires_mfa");
         }

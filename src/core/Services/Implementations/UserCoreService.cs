@@ -49,14 +49,6 @@ public sealed class UserCoreService(IUserCoreGateway gateway) : IUserCoreService
             : Result<UserSnapshotContract?>.Failure(ErrorCode.NotFound, "用户不存在");
     }
 
-    public async Task<Result<TokenPairContract>> UpdateUsernameAsync(int userId, string newUsername)
-    {
-        var result = await gateway.UpdateUsernameAsync(userId, newUsername);
-        return result.Success && result.Data.HasValue
-            ? Result<TokenPairContract>.Success(result.Data.Value)
-            : Result<TokenPairContract>.Failure(ErrorCode.Validation, result.Message);
-    }
-
     public async Task<Result> UpdatePasswordAsync(int userId, string oldPassword, string newPassword, string confirmPassword)
     {
         var result = await gateway.UpdatePasswordAsync(userId, oldPassword, newPassword, confirmPassword);

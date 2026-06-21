@@ -31,13 +31,6 @@ public interface IUserService
     Task<User?> GetByUsernameAsync(string username);
 
     /// <summary>
-    /// 更改用户名
-    /// </summary>
-    /// <param name="userId">用户ID（从Token解析）</param>
-    /// <param name="newUsername">新用户名串</param>
-    Task<(bool Success, string Message, TokenResponseDto? Data)> UpdateUsernameAsync(int userId, string newUsername);
-
-    /// <summary>
     /// 更改密码
     /// </summary>
     /// <param name="userId">用户ID（从Token解析）</param>

@@ -282,42 +282,6 @@ public partial class UserService(
         return await _db.Queryable<User>().FirstAsync(u => u.Username == NormalizeUsername(username));
     }
 
-    public async Task<(bool Success, string Message, TokenResponseDto? Data)> UpdateUsernameAsync(int userId, string newUsername)
-    {
-        string normalizedUsername = NormalizeUsername(newUsername);
-        if (normalizedUsername.Length == 0) return (false, "新用户名不能为空", null);
-
-        if (!FastCharValidator.IsOnlyChineseAndAlpha(normalizedUsername))
-            return (false, "用户名格式非法，仅允许中英文", null);
-
-        var user = await _db.Queryable<User>().InSingleAsync(userId);
-        if (user == null) return (false, "用户不存在", null);
-
-        if (user.LastUsernameUpdateTime.HasValue)
-        {
-            var elapsed = DateTime.UtcNow - user.LastUsernameUpdateTime.Value;
-            var limit = TimeSpan.FromDays(30);
-            if (elapsed < limit)
-            {
-                int remainDays = (limit - elapsed).Days + 1;
-                return (false, $"修改过于频繁，请在 {remainDays} 天后再试", null);
-            }
-        }
-
-        if (await _db.Queryable<User>().AnyAsync(u => u.Username == normalizedUsername && u.Id != userId))
-            return (false, "该用户名已被占用", null);
-
-        var now = DateTime.UtcNow;
-        await _db.Updateable<User>()
-            .SetColumns(u => u.Username == normalizedUsername)
-            .SetColumns(u => u.LastUsernameUpdateTime == now)
-            .Where(u => u.Id == userId)
-            .ExecuteCommandAsync();
-
-        user.Username = normalizedUsername;
-        return (true, "修改成功", new TokenResponseDto(_jwtHelper.GenerateAccessToken(user), string.Empty));
-    }
-
     public async Task<(bool Success, string Message)> UpdatePublicHandleAsync(int userId, string? publicHandle)
     {
         var handle = NormalizePublicHandle(publicHandle);

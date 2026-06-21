@@ -75,7 +75,6 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `42`: ArticleAotBundleRequest (reserved legacy value; client AOT bundle uploads are no longer accepted)
 - `43`: AuthLoginRequest (reserved legacy password login request; no production server route)
 - `44`: AuthRegisterRequest (reserved legacy password register request; no production server route)
-- `45`: AuthUpdateUsernameRequest
 - `46`: AuthUpdatePasswordRequest
 - `47`: AuthDeleteAccountRequest
 - `48`: MfaSetupStart
@@ -141,7 +140,6 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `ArticleAotBundleRequest` payload: reserved legacy `PublicAotBundlePod`, `PublicAotEntryPod[count]`, followed by blob payload for entry strings. No server route accepts this frame.
 - `AuthLoginRequest` payload: reserved legacy `AuthLoginRequestPod` followed by blob payload for username/password. No production server route accepts this frame.
 - `AuthRegisterRequest` payload: reserved legacy `AuthRegisterRequestPod` followed by blob payload for username/password/confirm password. No production server route accepts this frame.
-- `AuthUpdateUsernameRequest` payload: `StringMutationRequestPod` followed by blob payload for the new username.
 - `AuthUpdatePublicHandleRequest` payload: `StringMutationRequestPod` followed by blob payload for the new public handle; an empty string clears the handle.
 - `AuthUpdatePasswordRequest` payload: `AuthUpdatePasswordRequestPod` followed by blob payload for old/new/confirm password.
 - `AuthDeleteAccountRequest` payload: `AuthDeleteAccountRequestPod` followed by blob payload for confirm text only. Account deletion step-up proof is carried by `X-Fsus-Mfa-Proof`, not by password, TOTP code, or recovery-code fields.

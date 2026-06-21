@@ -71,7 +71,6 @@
     },
     { "name": "AuthLoginRequest", "value": 43 },
     { "name": "AuthRegisterRequest", "value": 44 },
-    { "name": "AuthUpdateUsernameRequest", "value": 45 },
     { "name": "AuthUpdatePasswordRequest", "value": 46 },
     { "name": "AuthDeleteAccountRequest", "value": 47 },
     { "name": "MfaSetupStart", "value": 48 },

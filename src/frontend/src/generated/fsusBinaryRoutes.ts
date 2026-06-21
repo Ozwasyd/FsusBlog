@@ -199,7 +199,6 @@ export const fsusBinaryRoutes = {
   "binary_put_auth_passkey_credentials_id_int_name": "/api/binary/auth/passkey/credentials/{id:int}/name",
   "binary_put_auth_public_handle": "/api/binary/auth/public-handle",
   "binary_put_auth_update_password": "/api/binary/auth/update-password",
-  "binary_put_auth_update_username": "/api/binary/auth/update-username",
   "binary_put_category_id_int": "/api/binary/category/{id:int}",
   "binary_put_system_compliance": "/api/binary/system/compliance",
   "binary_put_system_page": "/api/binary/system/page",

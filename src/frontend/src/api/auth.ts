@@ -10,10 +10,6 @@ export interface AnonymousBootstrapRequest {
   acceptedGuidelines: boolean
 }
 
-export interface UpdateUsernameDto {
-  newUsername: string
-}
-
 export interface UpdatePublicHandleDto {
   publicHandle: string | null
 }
@@ -163,22 +159,6 @@ export const getMe = (config?: ApiRequestConfig) => {
     frameType: FrameType.IdentityAccountSnapshot,
     signal: config?.signal as AbortSignal | undefined,
     suppressAuthFailureTelemetry: true
-  })
-}
-
-/**
- * 修改用户名
- * 逻辑自洽：由于不涉及破坏性安全风险，默认不开启 PoW 验证以提升响应速度
- */
-export const updateUsername = (data: UpdateUsernameDto, config?: ApiRequestConfig) => {
-  return requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/auth/update-username',
-    frameType: FrameType.EmptySuccess,
-    signal: config?.signal as AbortSignal | undefined,
-    requestOptions: {
-      method: 'PUT',
-      body: encodeAedsFrame(FrameType.AuthUpdateUsernameRequest, encodeStringMutationRequest(data.newUsername))
-    }
   })
 }
 

@@ -46,14 +46,6 @@ public sealed class UserServiceCoreAdapter(IUserCoreService core) : IUserService
             : null;
     }
 
-    public async Task<(bool Success, string Message, TokenResponseDto? Data)> UpdateUsernameAsync(int userId, string newUsername)
-    {
-        var result = await core.UpdateUsernameAsync(userId, newUsername);
-        return result.IsSuccess
-            ? (true, "用户名更新成功", new TokenResponseDto(result.Value.AccessToken, result.Value.RefreshToken))
-            : (false, result.Error.Message, null);
-    }
-
     public async Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto)
     {
         var result = await core.UpdatePasswordAsync(userId, dto.OldPassword, dto.NewPassword, dto.ConfirmPassword);

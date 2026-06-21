@@ -8,7 +8,6 @@ public interface IUserCoreGateway
     Task<(bool Success, string Message, AuthLoginResultContract? Data)> LoginAsync(string username, string password, string clientIp);
     Task<UserSnapshotContract?> GetByIdAsync(int id);
     Task<UserSnapshotContract?> GetByUsernameAsync(string username);
-    Task<(bool Success, string Message, TokenPairContract? Data)> UpdateUsernameAsync(int userId, string newUsername);
     Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, string oldPassword, string newPassword, string confirmPassword);
     Task<(bool Success, TokenPairContract? Data)> RefreshTokenAsync(string refreshToken);
     Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);

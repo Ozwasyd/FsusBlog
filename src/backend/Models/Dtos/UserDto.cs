@@ -7,15 +7,6 @@ namespace FsusBlog.Server.Models.Dtos;
 // 1. 输入 DTO (Request Models)
 // ==========================================
 
-public sealed record class UpdateUsernameDto : ICheckableContent
-{
-    [Required(ErrorMessage = "新用户名不能为空")]
-    [RegularExpression(@"^[\u4e00-\u9fa5a-zA-Z]+$", ErrorMessage = "用户名仅允许包含中文或英文")]
-    public required string NewUsername { get; init; }
-
-    public string GetTextToCheck() => NewUsername;
-}
-
 public sealed record class UpdatePasswordDto
 {
     [Required]

@@ -46,7 +46,6 @@ export const FrameType = {
   ArticleAotBundleRequest: 42,
   AuthLoginRequest: 43,
   AuthRegisterRequest: 44,
-  AuthUpdateUsernameRequest: 45,
   AuthUpdatePasswordRequest: 46,
   AuthDeleteAccountRequest: 47,
   MfaSetupStart: 48,

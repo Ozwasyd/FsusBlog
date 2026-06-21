@@ -111,26 +111,6 @@ public class UserCoreServiceTests
         Assert.True((await Svc().GetByUsernameAsync("eve")).IsSuccess);
     }
 
-    // UpdateUsernameAsync
-    [Fact]
-    public async Task UpdateUsername_GatewaySuccess_ReturnsTokens()
-    {
-        var token = new TokenPairContract("a", "r");
-        _gw.UpdateUsernameAsync(1, "newname")
-           .Returns(Task.FromResult<(bool, string, TokenPairContract?)>((true, "ok", token)));
-        var result = await Svc().UpdateUsernameAsync(1, "newname");
-        Assert.True(result.IsSuccess);
-    }
-
-    [Fact]
-    public async Task UpdateUsername_GatewayFailure_ReturnsValidationError()
-    {
-        _gw.UpdateUsernameAsync(1, "taken")
-           .Returns(Task.FromResult<(bool, string, TokenPairContract?)>((false, "名字已被占用", null)));
-        var result = await Svc().UpdateUsernameAsync(1, "taken");
-        Assert.Equal(ErrorCode.Validation, result.Error.Code);
-    }
-
     // UpdatePasswordAsync
     [Fact]
     public async Task UpdatePassword_GatewaySuccess_ReturnsSuccess()

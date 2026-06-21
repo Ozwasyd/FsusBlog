@@ -98,6 +98,41 @@ public sealed class AnonymousAccountOutputContractTests
     }
 
     [Fact]
+    public void AuthUsernameMutationRuntimePath_IsNotReachable()
+    {
+        string endpoints = BackendTestPaths.ReadAllTextFromRoot(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "Binary",
+            "BinaryEndpoints.Auth.cs");
+        string profilePorts = BackendTestPaths.ReadAllTextFromRoot(
+            "src",
+            "backend",
+            "Interfaces",
+            "UserApplicationPorts.cs");
+        string userService = BackendTestPaths.ReadAllTextFromRoot(
+            "src",
+            "backend",
+            "Services",
+            "UserService.cs");
+        string authApi = BackendTestPaths.ReadAllTextFromRoot(
+            "src",
+            "frontend",
+            "src",
+            "api",
+            "auth.ts");
+
+        Assert.DoesNotContain("/auth/update-username", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("AuthUpdateUsernameRequest", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdateUsernameAsync", profilePorts, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdateUsernameAsync", userService, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdateUsernameDto", authApi, StringComparison.Ordinal);
+        Assert.DoesNotContain("updateUsername", authApi, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UserAccountReader_ProjectsSysUserAsAnonymousAccountContainer()
     {
         var deletedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);

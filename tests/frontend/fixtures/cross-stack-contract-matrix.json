@@ -884,13 +884,6 @@
         },
         {
           "method": "PUT",
-          "path": "/auth/update-username",
-          "auth": "user",
-          "requestFrame": "AuthUpdateUsernameRequest",
-          "responseFrame": "EmptySuccess"
-        },
-        {
-          "method": "PUT",
           "path": "/auth/update-password",
           "auth": "user",
           "requestFrame": "AuthUpdatePasswordRequest",

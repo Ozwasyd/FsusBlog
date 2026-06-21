@@ -126,12 +126,6 @@ public sealed class UserLoginWorkflowService(UserService users) : IUserLoginWork
 
 public sealed class UserProfileCommandService(UserService users) : IUserProfileCommandService
 {
-    public Task<(bool Success, string Message, TokenResponseDto? Data)> UpdateUsernameAsync(int userId, string newUsername, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return users.UpdateUsernameAsync(userId, newUsername);
-    }
-
     public Task<(bool Success, string Message)> UpdatePublicHandleAsync(int userId, string? publicHandle, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

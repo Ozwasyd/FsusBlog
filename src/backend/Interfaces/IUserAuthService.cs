@@ -12,7 +12,6 @@ public interface IUserAuthService
     Task<(bool Success, string Message, User? User)> ValidateCredentialsAsync(LoginDto dto, string clientIp);
     Task<User?> GetByIdAsync(int id);
     Task<User?> GetByUsernameAsync(string username);
-    Task<(bool Success, string Message, TokenResponseDto? Data)> UpdateUsernameAsync(int userId, string newUsername);
     Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto);
     Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync(
         User user,

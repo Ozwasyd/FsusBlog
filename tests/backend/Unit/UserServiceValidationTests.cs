@@ -292,26 +292,6 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public async Task UpdateUsernameAsync_EmptyNewUsername_ReturnsFalse()
-    {
-        var svc = BuildService();
-        var (success, message, data) = await svc.UpdateUsernameAsync(1, "   ");
-        Assert.False(success);
-        Assert.Contains("用户名", message);
-        Assert.Null(data);
-    }
-
-    [Fact]
-    public async Task UpdateUsernameAsync_InvalidUsernameChars_ReturnsFalse()
-    {
-        var svc = BuildService();
-        var (success, message, data) = await svc.UpdateUsernameAsync(1, "user123");
-        Assert.False(success);
-        Assert.Contains("格式", message);
-        Assert.Null(data);
-    }
-
-    [Fact]
     public async Task UpdatePasswordAsync_PasswordTooShort_ReturnsFalse()
     {
         var svc = BuildService();

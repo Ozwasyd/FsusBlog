@@ -9,7 +9,6 @@ public interface IUserCoreService
     Task<Result<AuthLoginResultContract>> LoginAsync(string username, string password, string clientIp);
     Task<Result<UserSnapshotContract?>> GetByIdAsync(int id);
     Task<Result<UserSnapshotContract?>> GetByUsernameAsync(string username);
-    Task<Result<TokenPairContract>> UpdateUsernameAsync(int userId, string newUsername);
     Task<Result> UpdatePasswordAsync(int userId, string oldPassword, string newPassword, string confirmPassword);
     Task<Result<TokenPairContract>> RefreshTokenAsync(string refreshToken);
     Task<Result> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
