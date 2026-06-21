@@ -1,7 +1,7 @@
 <template>
   <div class="account-page cache-diagnostics-page account-motion-enter w-full">
     <FsusUiPageHeader
-      title="缓存诊断"
+      title="缓存与索引"
       content="查看 AOT、PublicHotRead、search、sitemap/feed 与评论缓存状态。"
       class="account-page-header--compact"
     />
@@ -10,7 +10,7 @@
       <template #actions>
         <div class="flex flex-wrap items-center justify-end gap-2">
           <el-input v-model="articleId" class="w-[10rem]" placeholder="文章 ID" aria-label="文章 ID" />
-          <el-button :icon="Search" :loading="loading" @click="loadDiagnostics">诊断</el-button>
+          <el-button :icon="Search" :loading="loading" @click="loadDiagnostics">检查</el-button>
           <el-button :icon="Refresh" :loading="loading" @click="loadDiagnostics">刷新</el-button>
         </div>
       </template>
@@ -73,7 +73,7 @@
           </el-descriptions>
         </FsusUiSettingsSection>
 
-        <FsusUiSettingsSection v-if="diagnostics?.article" title="单文章诊断" id="cache-article-title">
+        <FsusUiSettingsSection v-if="diagnostics?.article" title="单文章状态" id="cache-article-title">
           <el-descriptions :column="1" border>
             <el-descriptions-item label="文章 ID">{{ diagnostics.article.articleId }}</el-descriptions-item>
             <el-descriptions-item label="公开可见">{{ boolText(diagnostics.article.publiclyVisible) }}</el-descriptions-item>
@@ -181,7 +181,7 @@ const spotlightHealthDetail = computed(() => {
   }
 
   if (spotlightCandidateCount.value === null) {
-    return '等待诊断'
+    return '等待检查'
   }
 
   return spotlightCandidateCount.value > 0
@@ -214,10 +214,10 @@ const loadDiagnostics = async (): Promise<void> => {
       spotlightDiagnosticsError.value = ''
     } else {
       spotlightCandidateCount.value = null
-      spotlightDiagnosticsError.value = 'Spotlight 候选诊断加载失败'
+      spotlightDiagnosticsError.value = 'Spotlight 候选状态加载失败'
     }
   } catch (error) {
-    showErrorToast(error, '缓存诊断加载失败')
+    showErrorToast(error, '缓存与索引加载失败')
   } finally {
     loading.value = false
   }

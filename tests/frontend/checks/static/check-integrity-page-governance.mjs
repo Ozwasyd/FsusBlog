@@ -63,7 +63,7 @@ const requiredTokens = [
   '运行一键检查后显示可安全修复差异。',
   '没有可安全修复差异',
   '差异预览加载失败',
-  '请重新运行数据巡检。',
+  '请重新运行内容一致性检查。',
   'FsusUiTypedConfirmField',
   'phrase="APPLY_SAFE_FIXES"',
   '输入确认短语后才能应用安全修复。',

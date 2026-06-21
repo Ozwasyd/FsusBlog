@@ -1,7 +1,7 @@
 <template>
   <div class="account-page integrity-page account-motion-enter w-full">
     <FsusUiPageHeader
-      title="数据巡检"
+      title="内容一致性"
       content="检查内容关系、文件资产、账号状态与公开索引。"
       class="account-page-header--compact"
     />
@@ -12,7 +12,7 @@
         'blog-motion-task-region--pending': loading || fixing,
         'blog-motion-task-region--settled': isTaskHighlighted('integrity-report')
       }"
-      title="巡检结果"
+      title="一致性结果"
       id="integrity-report-title"
     >
       <template #actions>
@@ -73,8 +73,8 @@
           </el-table-column>
           <template #empty>
             <AdminInlineEmptyState
-              :title="report ? '暂无检查项' : '尚未运行数据巡检'"
-              :content="report ? '服务端未返回巡检项目，请刷新后重试。' : '运行一键检查后显示文章、评论、资产与缓存一致性结果。'"
+              :title="report ? '未返回内容一致性检查项' : '尚未运行内容一致性检查'"
+              :content="report ? '服务端未返回检查项目，请刷新后重试。' : '运行一键检查后显示文章、评论、资产与缓存一致性结果。'"
             />
           </template>
         </el-table>
@@ -297,7 +297,7 @@ const diffPreviewStateView = computed(() => {
     case 'failed':
       return {
         title: '差异预览加载失败',
-        description: '请重新运行数据巡检。',
+        description: '请重新运行内容一致性检查。',
         actionLabel: '重新检查'
       }
     case 'ready':
@@ -319,7 +319,7 @@ const diffPreviewStateView = computed(() => {
 const loadAll = async (): Promise<void> => {
   loading.value = true
   diffPreviewState.value = 'loading'
-  taskFeedback.begin('正在执行数据巡检', '检查内容关系、文件资产、账号状态与公开索引', 'integrity-report')
+  taskFeedback.begin('正在检查内容一致性', '检查内容关系、文件资产、账号状态与公开索引', 'integrity-report')
   try {
     const [reportResult, previewResult, policyResult] = await Promise.allSettled([
       inspectIntegrity(),
@@ -345,8 +345,8 @@ const loadAll = async (): Promise<void> => {
     }
 
     if (reportResult.status === 'rejected') {
-      taskFeedback.fail('数据巡检加载失败', reportResult.reason, '数据巡检加载失败', 'integrity-report')
-      showErrorToast(reportResult.reason, '数据巡检加载失败')
+      taskFeedback.fail('内容一致性检查加载失败', reportResult.reason, '内容一致性检查加载失败', 'integrity-report')
+      showErrorToast(reportResult.reason, '内容一致性检查加载失败')
       return
     }
 
@@ -354,15 +354,15 @@ const loadAll = async (): Promise<void> => {
     report.value = nextReport
     const detail = `检查项 ${nextReport.checkCount}，问题项 ${nextReport.issueCount}`
     if (previewResult.status === 'rejected' || policyResult.status === 'rejected') {
-      taskFeedback.partial('数据巡检完成，部分信息未加载', detail, 'integrity-report')
+      taskFeedback.partial('内容一致性检查完成，部分信息未加载', detail, 'integrity-report')
     } else if (nextReport.issueCount > 0) {
-      taskFeedback.partial('数据巡检完成', detail, 'integrity-report')
+      taskFeedback.partial('内容一致性检查完成', detail, 'integrity-report')
     } else {
-      taskFeedback.succeed('数据巡检完成', detail, 'integrity-report')
+      taskFeedback.succeed('内容一致性检查完成', detail, 'integrity-report')
     }
   } catch (error) {
-    taskFeedback.fail('数据巡检加载失败', error, '数据巡检加载失败', 'integrity-report')
-    showErrorToast(error, '数据巡检加载失败')
+    taskFeedback.fail('内容一致性检查加载失败', error, '内容一致性检查加载失败', 'integrity-report')
+    showErrorToast(error, '内容一致性检查加载失败')
   } finally {
     loading.value = false
   }

@@ -120,13 +120,13 @@
 
     <FsusUiSettingsSection
       class="mb-16 border-y-0 bg-transparent"
-      title="运营工作区"
-      description="内容表现、近期互动和常用管理入口。"
+      title="今日待办与排期"
+      description="内容表现、近期互动和快速处理入口。"
       id="dashboard-workflow-title"
       :title-tag="'h2'"
     >
       <div class="grid grid-cols-1 gap-3 border-y border-[var(--fsusblog-panel-border)] py-3 xl:grid-cols-3">
-        <DashboardOperationsPanel :view="dashboardView" />
+        <DashboardQuickActionsPanel :view="dashboardView" />
         <DashboardPopularArticles :view="dashboardView" :loading="loading" />
         <DashboardRecentComments :view="dashboardView" :loading="loading" />
       </div>
@@ -151,7 +151,7 @@ import { ChatDotRound, Delete, Document, View } from '@/fsusui/icons'
 import ConsoleWelcomeCallout from '@/components/admin/ConsoleWelcomeCallout.vue'
 import DashboardAuthorAnalyticsPanel from '@/components/admin/DashboardAuthorAnalyticsPanel.vue'
 import DashboardCommentModerationPanel from '@/components/admin/DashboardCommentModerationPanel.vue'
-import DashboardOperationsPanel from '@/components/admin/DashboardOperationsPanel.vue'
+import DashboardQuickActionsPanel from '@/components/admin/DashboardQuickActionsPanel.vue'
 import DashboardRecentComments from '@/components/admin/DashboardRecentComments.vue'
 import DashboardPopularArticles from '@/components/admin/DashboardPopularArticles.vue'
 import { useAdminDashboard } from '@/composables/useAdminDashboard'
@@ -250,7 +250,7 @@ const todayActions = computed<ReadonlyArray<{
   {
     label: '缓存异常',
     countText: `${cacheIncidentCount.value}`,
-    helper: cacheIncidentCount.value > 0 ? '查看缓存诊断' : '缓存状态暂无异常',
+    helper: cacheIncidentCount.value > 0 ? '查看缓存与索引' : '缓存状态暂无异常',
     to: { name: 'ManageCacheDiagnostics' }
   },
   {
