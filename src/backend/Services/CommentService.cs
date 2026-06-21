@@ -580,7 +580,7 @@ public partial class CommentService(
             {
                 ModerationStatus = disposition.NextStatus,
                 ModerationReason = reason,
-                ModeratedByUserId = null,
+                ModeratedByAdminPrincipalId = null,
                 ModeratedAt = moderatedAt
             })
             .Where(c => c.Id == comment.Id && !c.IsDeleted && c.ModerationStatus == previousStatus)
@@ -597,7 +597,7 @@ public partial class CommentService(
 
         comment.ModerationStatus = disposition.NextStatus;
         comment.ModerationReason = reason;
-        comment.ModeratedByUserId = null;
+        comment.ModeratedByAdminPrincipalId = null;
         comment.ModeratedAt = moderatedAt;
         WriteAutomaticDispositionAudit(comment, disposition);
     }

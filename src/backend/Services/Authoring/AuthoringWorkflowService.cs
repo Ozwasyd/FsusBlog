@@ -416,7 +416,7 @@ public sealed class AuthoringWorkflowService(
                 CreateTime = c.CreateTime,
                 Status = c.ModerationStatus,
                 Reason = c.ModerationReason,
-                ModeratedByUserId = c.ModeratedByUserId,
+                ModeratedByAdminPrincipalId = c.ModeratedByAdminPrincipalId,
                 ModeratedAt = c.ModeratedAt,
                 RegionComplianceId = rc.Id,
                 SubmitRegion = rc.SubmitRegion,
@@ -451,7 +451,7 @@ public sealed class AuthoringWorkflowService(
             hidden);
     }
 
-    public async Task<bool> ModerateCommentAsync(int actorUserId, long commentId, CommentModerationRequest request, CancellationToken cancellationToken = default)
+    public async Task<bool> ModerateCommentAsync(long actorAdminPrincipalId, long commentId, CommentModerationRequest request, CancellationToken cancellationToken = default)
     {
         if (commentId <= 0 || !IsValidModerationStatus(request.Status))
         {
@@ -474,7 +474,7 @@ public sealed class AuthoringWorkflowService(
         int count = await db.Updateable<Comment>()
             .SetColumns(it => it.ModerationStatus == request.Status)
             .SetColumns(it => it.ModerationReason == normalizedReason)
-            .SetColumns(it => it.ModeratedByUserId == actorUserId)
+            .SetColumns(it => it.ModeratedByAdminPrincipalId == actorAdminPrincipalId)
             .SetColumns(it => it.ModeratedAt == moderatedAt)
             .Where(it => it.Id == commentId && !it.IsDeleted && it.ModerationStatus == current.Status)
             .ExecuteCommandAsync(cancellationToken);
@@ -488,7 +488,7 @@ public sealed class AuthoringWorkflowService(
             WriteAudit(
                 AuditSourceCatalog.Comment,
                 "comment-moderation",
-                actorUserId,
+                actorAdminPrincipalId,
                 $"comment:{commentId.ToString(System.Globalization.CultureInfo.InvariantCulture)};from={(int)current.Status};to={(int)request.Status};ban={banned}");
         }
 
@@ -496,7 +496,7 @@ public sealed class AuthoringWorkflowService(
     }
 
     public async Task<CommentModerationBulkResponse> ModerateCommentsAsync(
-        int actorUserId,
+        long actorAdminPrincipalId,
         CommentModerationBulkRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -535,7 +535,7 @@ public sealed class AuthoringWorkflowService(
             int affected = await db.Updateable<Comment>()
                 .SetColumns(it => it.ModerationStatus == request.Status)
                 .SetColumns(it => it.ModerationReason == normalizedReason)
-                .SetColumns(it => it.ModeratedByUserId == actorUserId)
+                .SetColumns(it => it.ModeratedByAdminPrincipalId == actorAdminPrincipalId)
                 .SetColumns(it => it.ModeratedAt == moderatedAt)
                 .Where(it => it.Id == row.Id && !it.IsDeleted && it.ModerationStatus == row.Status)
                 .ExecuteCommandAsync(cancellationToken);
@@ -559,7 +559,7 @@ public sealed class AuthoringWorkflowService(
             WriteAudit(
                 AuditSourceCatalog.Comment,
                 "comment-moderation-bulk",
-                actorUserId,
+                actorAdminPrincipalId,
                 $"comments:{ids.Length};updated={updated};status={(int)request.Status};ban={banned}");
         }
 
@@ -712,7 +712,7 @@ public sealed class AuthoringWorkflowService(
             row.CreateTime,
             row.Status,
             row.Reason,
-            row.ModeratedByUserId,
+            row.ModeratedByAdminPrincipalId,
             row.ModeratedAt,
             IsModelAutoModerated(row),
             ResolveModerationActor(row),
@@ -807,7 +807,7 @@ public sealed class AuthoringWorkflowService(
     }
 
     private static bool IsModelAutoModerated(CommentModerationQueueRow row)
-        => row.ModeratedByUserId is null
+        => row.ModeratedByAdminPrincipalId is null
             && row.ModeratedAt.HasValue
             && !string.IsNullOrWhiteSpace(row.Reason)
             && row.Reason.StartsWith("model_policy:", StringComparison.Ordinal);
@@ -819,8 +819,8 @@ public sealed class AuthoringWorkflowService(
             return "model";
         }
 
-        return row.ModeratedByUserId.HasValue
-            ? $"admin:{row.ModeratedByUserId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+        return row.ModeratedByAdminPrincipalId.HasValue
+            ? $"admin:{row.ModeratedByAdminPrincipalId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
             : "human-review-pending";
     }
 
@@ -1659,7 +1659,7 @@ public sealed class AuthoringWorkflowService(
         public DateTime CreateTime { get; set; }
         public CommentModerationStatus Status { get; set; }
         public string? Reason { get; set; }
-        public int? ModeratedByUserId { get; set; }
+        public long? ModeratedByAdminPrincipalId { get; set; }
         public DateTime? ModeratedAt { get; set; }
         public long RegionComplianceId { get; set; }
         public string? SubmitRegion { get; set; }

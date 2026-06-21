@@ -858,6 +858,48 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.Equal(0, nonAccountBoundRows);
     }
 
+    [Fact]
+    public async Task RunAsync_MigratesCommentModerationAttributionToAdminPrincipal()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE comment (
+                id bigint NOT NULL PRIMARY KEY,
+                article_id integer NOT NULL DEFAULT 1,
+                content text NOT NULL DEFAULT '',
+                create_time timestamp NOT NULL DEFAULT now(),
+                user_id integer NULL,
+                parent_id bigint NULL,
+                root_id bigint NULL,
+                reply_to_user_id integer NULL,
+                reply_to_comment_id bigint NULL,
+                depth integer NOT NULL DEFAULT 0,
+                is_deleted boolean NOT NULL DEFAULT false,
+                moderation_status integer NOT NULL DEFAULT 1,
+                moderation_reason varchar(256) NULL,
+                moderated_by_user_id integer NULL,
+                moderated_at timestamp NULL
+            );
+
+            INSERT INTO comment(id, content, moderated_by_user_id, moderated_at)
+            VALUES (77, 'legacy moderated', 44, TIMESTAMP '2026-01-01 00:00:00');
+            """);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "comment", "moderated_by_user_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "comment", "moderated_by_admin_principal_id"));
+
+        long adminPrincipalId = await fixture.QueryScalarAsync<long>(
+            connectionString,
+            "SELECT moderated_by_admin_principal_id FROM comment WHERE id = 77;");
+
+        Assert.Equal(44, adminPrincipalId);
+    }
+
     private static async Task RunMigrationsAsync(string connectionString)
     {
         await using ServiceProvider provider = BuildProvider(connectionString);

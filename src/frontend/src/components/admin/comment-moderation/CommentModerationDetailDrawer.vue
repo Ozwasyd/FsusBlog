@@ -139,7 +139,7 @@
         <div class="p-5 text-[12px] leading-relaxed text-[var(--fsusblog-text-secondary)]">
           <div class="font-bold">状态：{{ item.statusLabel }}</div>
           <div class="mt-2 break-words">原因：{{ item.reason || '--' }}</div>
-          <div class="mt-2 tabular-nums">审核人：{{ item.moderatedByUserId ?? '--' }}</div>
+          <div class="mt-2 tabular-nums">审核人：{{ item.moderatedByAdminPrincipalId ?? '--' }}</div>
         </div>
       </section>
 

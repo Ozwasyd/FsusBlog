@@ -68,6 +68,44 @@ public sealed class AuthoringWorkflowServiceTests
     }
 
     [Fact]
+    public void CommentModerationAttribution_SourceUsesAdminPrincipal()
+    {
+        string endpoints = ReadRepoFile("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
+        string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string entity = ReadRepoFile("src/backend/Entities/Comment.cs");
+        string dtos = ReadRepoFile("src/backend/Models/Dtos/AuthoringDtos.cs");
+        string frontendApi = ReadRepoFile("src/frontend/src/api/authoring.ts");
+        string moderationQueue = ReadRepoFile("src/frontend/src/composables/useCommentModerationQueue.ts");
+        string moderationDetail = ReadRepoFile("src/frontend/src/components/admin/comment-moderation/CommentModerationDetailDrawer.vue");
+
+        Assert.Contains("ModerateCommentsAsync(ResolveRequiredAdminPrincipalId(context)", endpoints, StringComparison.Ordinal);
+        Assert.Contains("ModerateCommentAsync(ResolveRequiredAdminPrincipalId(context)", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("ModerateCommentsAsync(context.GetUserId()", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("ModerateCommentAsync(context.GetUserId()", endpoints, StringComparison.Ordinal);
+
+        Assert.Contains("public async Task<bool> ModerateCommentAsync(long actorAdminPrincipalId", service, StringComparison.Ordinal);
+        Assert.Contains("public async Task<CommentModerationBulkResponse> ModerateCommentsAsync(\n        long actorAdminPrincipalId", service, StringComparison.Ordinal);
+        Assert.Contains("ModeratedByAdminPrincipalId", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("ModerateCommentAsync(int actorUserId", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("ModerateCommentsAsync(\n        int actorUserId", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("ModeratedByUserId == actorUserId", service, StringComparison.Ordinal);
+
+        Assert.Contains("ModeratedByAdminPrincipalId", entity, StringComparison.Ordinal);
+        Assert.Contains("moderated_by_admin_principal_id", entity, StringComparison.Ordinal);
+        Assert.DoesNotContain("ModeratedByUserId", entity, StringComparison.Ordinal);
+        Assert.DoesNotContain("moderated_by_user_id", entity, StringComparison.Ordinal);
+
+        Assert.Contains("ModeratedByAdminPrincipalId", dtos, StringComparison.Ordinal);
+        Assert.DoesNotContain("ModeratedByUserId", dtos, StringComparison.Ordinal);
+        Assert.Contains("moderatedByAdminPrincipalId", frontendApi, StringComparison.Ordinal);
+        Assert.DoesNotContain("moderatedByUserId", frontendApi, StringComparison.Ordinal);
+        Assert.Contains("moderatedByAdminPrincipalId", moderationQueue, StringComparison.Ordinal);
+        Assert.DoesNotContain("moderatedByUserId", moderationQueue, StringComparison.Ordinal);
+        Assert.Contains("moderatedByAdminPrincipalId", moderationDetail, StringComparison.Ordinal);
+        Assert.DoesNotContain("moderatedByUserId", moderationDetail, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GenerateAiAssist_DefaultConfiguration_DoesNotEnableExternalProviderOrTitleCandidates()
     {
         AuthoringWorkflowService service = BuildService();

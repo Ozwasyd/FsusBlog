@@ -242,8 +242,8 @@ function moderationActorText(item: CommentModerationItemResponse): string {
   if (actor?.startsWith('admin:')) {
     return `管理员 ${actor.slice('admin:'.length)}`
   }
-  if (item.moderatedByUserId) {
-    return `管理员 ${item.moderatedByUserId}`
+  if (item.moderatedByAdminPrincipalId) {
+    return `管理员 ${item.moderatedByAdminPrincipalId}`
   }
   return '等待人工审核'
 }
@@ -359,7 +359,7 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
   const auditEvents = [
     `提交：${TimeUtils.toFullLocalString(item.createTime)}`,
     item.moderatedAt
-      ? `审核：${TimeUtils.toFullLocalString(item.moderatedAt)} / ${item.moderatedByUserId ?? '--'}`
+      ? `审核：${TimeUtils.toFullLocalString(item.moderatedAt)} / ${item.moderatedByAdminPrincipalId ?? '--'}`
       : '审核：--'
   ]
   const recommendedAction = buildRecommendedAction(item)

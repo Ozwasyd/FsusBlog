@@ -508,7 +508,7 @@ export interface CommentModerationItemResponse {
   createTime: string
   status: CommentModerationStatus
   reason: string | null
-  moderatedByUserId: number | null
+  moderatedByAdminPrincipalId: number | null
   moderatedAt: string | null
   autoModerated: boolean
   moderationActor: string

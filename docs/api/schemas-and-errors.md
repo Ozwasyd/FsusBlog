@@ -361,7 +361,7 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 
 ### 评论作者存储投影
 
-`comment.user_id` 允许为 `NULL`，匿名默认评论不再依赖真实用户外键展示作者；强匿名回复同样写入 `reply_to_user_id = NULL`，只通过 `reply_to_comment_id` 读取被回复评论的作者快照。`comment.user_id`、`comment.reply_to_user_id` 与 `comment.moderated_by_user_id` 只作为显式 public/可归因评论、legacy 回复兼容和 admin 审核兼容字段保留，不得用于默认匿名评论查询。账号侧 `CommentUserCursor` 只返回显式 public/可归因评论，不作为强匿名评论找回入口。新增作者投影列包括 `author_mode`、`public_handle`、`anonymous_handle`、`anonymous_display_name`、`anonymous_display_language`、`anonymous_nullifier_hash`、`anonymous_scope`、`moderation_subject_hash`、`credential_level`、`reputation_bucket` 和 `account_age_bucket`。公开读取端优先输出 `anonymous_display_name` / `public_handle`，再兼容 legacy `sys_user.username`。旧 `idx_comment_user_id_desc` 不再是最终态索引；可归因账号侧读取只使用 partial index `idx_comment_attributable_public_user_id_desc`，谓词固定为 `author_mode = 'public' AND user_id IS NOT NULL`。
+`comment.user_id` 允许为 `NULL`，匿名默认评论不再依赖真实用户外键展示作者；强匿名回复同样写入 `reply_to_user_id = NULL`，只通过 `reply_to_comment_id` 读取被回复评论的作者快照。`comment.user_id` 与 `comment.reply_to_user_id` 只作为显式 public/可归因评论和 legacy 回复兼容字段保留，不得用于默认匿名评论查询；admin 审核归因使用 `moderated_by_admin_principal_id`，不得继续写 `moderated_by_user_id`。账号侧 `CommentUserCursor` 只返回显式 public/可归因评论，不作为强匿名评论找回入口。新增作者投影列包括 `author_mode`、`public_handle`、`anonymous_handle`、`anonymous_display_name`、`anonymous_display_language`、`anonymous_nullifier_hash`、`anonymous_scope`、`moderation_subject_hash`、`credential_level`、`reputation_bucket` 和 `account_age_bucket`。公开读取端优先输出 `anonymous_display_name` / `public_handle`，再兼容 legacy `sys_user.username`。旧 `idx_comment_user_id_desc` 不再是最终态索引；可归因账号侧读取只使用 partial index `idx_comment_attributable_public_user_id_desc`，谓词固定为 `author_mode = 'public' AND user_id IS NOT NULL`。
 
 ### 消息 POD
 

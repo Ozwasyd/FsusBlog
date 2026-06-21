@@ -1065,7 +1065,7 @@ public static class AuthoringEndpoints
                 return stepUp;
             }
 
-            CommentModerationBulkResponse response = await service.ModerateCommentsAsync(context.GetUserId(), request, cancellationToken);
+            CommentModerationBulkResponse response = await service.ModerateCommentsAsync(ResolveRequiredAdminPrincipalId(context), request, cancellationToken);
             await auditEvents.RecordHighValueAsync(new AuditEvent(
                 AuditSourceCatalog.Admin,
                 AuditTypeCatalog.Audit,
@@ -1115,7 +1115,7 @@ public static class AuthoringEndpoints
                 return stepUp;
             }
 
-            bool moderated = await service.ModerateCommentAsync(context.GetUserId(), commentId, request, cancellationToken);
+            bool moderated = await service.ModerateCommentAsync(ResolveRequiredAdminPrincipalId(context), commentId, request, cancellationToken);
             await auditEvents.RecordHighValueAsync(new AuditEvent(
                 AuditSourceCatalog.Admin,
                 AuditTypeCatalog.Audit,

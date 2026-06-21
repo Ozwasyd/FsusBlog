@@ -52,6 +52,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAuthoringDraftLifecycleMigration(),
         BuildAuthoringAdminPrincipalAttributionIndexMigration(),
         BuildCommentModerationMigration(),
+        BuildCommentModerationAdminPrincipalAttributionMigration(),
         BuildCommentModerationIndexMigration(),
         BuildCommentRegionComplianceMigration(),
         BuildCommentModerationSignalMigration(),
@@ -2100,6 +2101,25 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_comment_moderation_status_time",
                     "CREATE INDEX IF NOT EXISTS idx_comment_moderation_status_time ON comment(moderation_status, create_time DESC);")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildCommentModerationAdminPrincipalAttributionMigration()
+        => new SchemaMigrationDescriptor(
+            "20260621-pre-comment-moderation-admin-principal-attribution",
+            "Move comment moderation attribution from legacy user id to admin principal id.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new RenameColumnStep("comment", "moderated_by_user_id", "moderated_by_admin_principal_id"),
+                new EnsureColumnStep("comment", "moderated_by_admin_principal_id", "bigint NULL"),
+                new CopyColumnToColumnStep(
+                    "comment",
+                    "moderated_by_user_id",
+                    "moderated_by_admin_principal_id",
+                    TargetSqlExpression: null,
+                    PredicateSql: "moderated_by_admin_principal_id IS NULL"),
+                new DropColumnStep("comment", "moderated_by_user_id")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAuthoringDraftLifecycleMigration()

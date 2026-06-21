@@ -369,6 +369,33 @@ const accountSearchText = item.userName ?? ''
     }
   },
   {
+    name: 'legacy comment moderation user attribution',
+    expected: 'legacy comment moderation user attribution residue detected',
+    files: {
+      'src/backend/Services/Authoring/AuthoringWorkflowService.cs': `
+internal sealed class AuthoringWorkflowService
+{
+    public Task<bool> ModerateCommentAsync(int actorUserId, long commentId, CommentModerationRequest request)
+        => db.Updateable<Comment>()
+            .SetColumns(it => it.ModeratedByUserId == actorUserId)
+            .ExecuteCommandAsync();
+}
+`,
+      'src/backend/Modules/Endpoints/AuthoringEndpoints.cs': `
+internal static class AuthoringEndpoints
+{
+    public static Task Handle(HttpContext context, AuthoringWorkflowService service)
+        => service.ModerateCommentAsync(context.GetUserId(), 1, request);
+}
+`,
+      'src/frontend/src/api/authoring.ts': `
+export interface CommentModerationItemResponse {
+  moderatedByUserId: number | null
+}
+`
+    }
+  },
+  {
     name: 'legacy anonymous credential user commitment binding',
     expected: 'legacy anonymous credential user commitment binding residue detected',
     files: {

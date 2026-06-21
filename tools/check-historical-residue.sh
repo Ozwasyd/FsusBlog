@@ -321,6 +321,13 @@ run_residue_check \
   src/backend/Services/Authoring/AuthoringWorkflowService.cs src/frontend/src/components/admin/DashboardCommentModerationPanel.vue src/frontend/src/composables/useCommentModerationQueue.ts
 
 run_residue_check \
+  "legacy comment moderation user attribution" \
+  "legacy comment moderation user attribution residue detected" \
+  'ModerateCommentAsync[(]\s*int\s+actorUserId|ModerateCommentsAsync[(][^)]*int\s+actorUserId|ModeratedByUserId|moderatedByUserId|moderated_by_user_id|ModeratedByUserId\s*==\s*actorUserId|ModerateCommentAsync[(]\s*context[.]GetUserId[(][)]|ModerateCommentsAsync[(]\s*context[.]GetUserId[(][)]' \
+  '^(src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry[.]cs|tests/backend/Integration/SchemaMigrationIntegrationTests[.]cs)$' \
+  src/backend/Entities/Comment.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Modules/Endpoints/AuthoringEndpoints.cs src/backend/Models/Dtos/AuthoringDtos.cs src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs src/frontend/src/api/authoring.ts src/frontend/src/composables/useCommentModerationQueue.ts src/frontend/src/components/admin/comment-moderation/CommentModerationDetailDrawer.vue tests/backend/Integration/SchemaMigrationIntegrationTests.cs
+
+run_residue_check \
   "legacy anonymous credential user commitment binding" \
   "legacy anonymous credential user commitment binding residue detected" \
   'public[[:space:]]+int[?]?[[:space:]]+UserId\b|ColumnName[[:space:]]*=[[:space:]]*["'\'']user_id["'\'']|CommitmentHash|commitment_hash|ZkCommitment|zk_commitment|IssueAsync[(][^)]*userId[^)]*commitmentHash|GetActiveCredentialAsync[(]|GetCredentialLevelAsync[(]' \

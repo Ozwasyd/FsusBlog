@@ -253,7 +253,7 @@ INSERT INTO comment(
   delete_time,
   moderation_status,
   moderation_reason,
-  moderated_by_user_id,
+  moderated_by_admin_principal_id,
   moderated_at
 )
 SELECT
@@ -333,7 +333,7 @@ INSERT INTO comment(
   delete_time,
   moderation_status,
   moderation_reason,
-  moderated_by_user_id,
+  moderated_by_admin_principal_id,
   moderated_at
 )
 SELECT

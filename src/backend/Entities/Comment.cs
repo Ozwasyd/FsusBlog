@@ -86,8 +86,8 @@ public class Comment
     [SugarColumn(ColumnName = "moderation_reason", Length = 256, IsNullable = true)]
     public string? ModerationReason { get; set; }
 
-    [SugarColumn(ColumnName = "moderated_by_user_id", IsNullable = true)]
-    public int? ModeratedByUserId { get; set; }
+    [SugarColumn(ColumnName = "moderated_by_admin_principal_id", IsNullable = true)]
+    public long? ModeratedByAdminPrincipalId { get; set; }
 
     [SugarColumn(ColumnName = "moderated_at", IsNullable = true)]
     public DateTime? ModeratedAt { get; set; }

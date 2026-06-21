@@ -144,7 +144,7 @@ public sealed record class CommentModerationItemResponse(
     DateTime CreateTime,
     CommentModerationStatus Status,
     string? Reason,
-    int? ModeratedByUserId,
+    long? ModeratedByAdminPrincipalId,
     DateTime? ModeratedAt,
     bool AutoModerated,
     string ModerationActor,

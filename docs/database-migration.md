@@ -81,7 +81,7 @@ Rollback without restarting the application is limited to restoring a backup sna
 
 ## Comment Attribution Index Finalization
 
-The comment schema keeps `comment.user_id`, `comment.reply_to_user_id`, and `comment.moderated_by_user_id` only as explicit compatibility fields for public attribution, legacy reply projection, and admin moderation records. Default anonymous and strong-anonymous comment paths must not query, authorize, or recover comments through these columns.
+The comment schema keeps `comment.user_id` and `comment.reply_to_user_id` only as explicit compatibility fields for public attribution and legacy reply projection. Admin moderation records use `comment.moderated_by_admin_principal_id`; default anonymous and strong-anonymous comment paths must not query, authorize, or recover comments through account-bound columns.
 
 `20260621-post-comment-attribution-index-finalize` drops the old generic `idx_comment_user_id_desc` index and creates `idx_comment_attributable_public_user_id_desc`:
 
