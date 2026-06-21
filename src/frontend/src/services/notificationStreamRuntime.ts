@@ -10,7 +10,7 @@ const VALID_EVENT_TYPES = new Set<number>([
   NotificationStreamEventType.NoticeReceived,
   NotificationStreamEventType.GlobalNoticePublished,
   NotificationStreamEventType.UnreadCountUpdated,
-  NotificationStreamEventType.UserStatusChanged,
+  NotificationStreamEventType.AccountStatusChanged,
   NotificationStreamEventType.CommentAdded,
   NotificationStreamEventType.CommentRemoved,
   NotificationStreamEventType.MessageReceived,

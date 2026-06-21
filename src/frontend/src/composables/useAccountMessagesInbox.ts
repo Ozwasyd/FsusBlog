@@ -86,7 +86,7 @@ const resetInboxState = (
   createBodyRef.value = ''
 }
 
-export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
+export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
   const { unreadCount } = useNotification()
   const notificationStreamStore = useNotificationStreamStore()
   const route = useRoute()
@@ -169,7 +169,7 @@ export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
 
     if (!silent) loading.value = true
     try {
-      const data = await messageApi.getUserConversations(1, PAGE_SIZE, normalizeFilter(filter.value))
+      const data = await messageApi.getAccountConversations(1, PAGE_SIZE, normalizeFilter(filter.value))
       conversations.value = [...(data.items || [])]
       if (!selectedConversationId.value && conversations.value.length > 0) {
         selectedConversationId.value = conversations.value[0]!.conversationId
@@ -208,7 +208,7 @@ export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
 
     loadingDetail.value = true
     try {
-      const payload = await messageApi.getUserConversationDetail(conversationId)
+      const payload = await messageApi.getAccountConversationDetail(conversationId)
       detail.value = payload
       if (markRead && payload.unreadCount > 0) {
         await messageApi.markConversationRead(conversationId)
@@ -277,7 +277,7 @@ export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
     if (!selectedConversationId.value || !replyBody.value.trim() || sending.value) return
     sending.value = true
     try {
-      const message = await messageApi.replyUserConversation(selectedConversationId.value, { body: replyBody.value })
+      const message = await messageApi.replyAccountConversation(selectedConversationId.value, { body: replyBody.value })
       applyMessageAppendPatch({
         conversationId: selectedConversationId.value,
         message,
@@ -297,7 +297,7 @@ export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
     if (!createBody.value.trim() || creating.value) return
     creating.value = true
     try {
-      const created = await messageApi.createUserConversation({
+      const created = await messageApi.createAccountConversation({
         subject: createSubject.value || '申诉工单',
         body: createBody.value
       })

@@ -16,8 +16,8 @@ describe('message API binary transport', () => {
     mockBinary.mockResolvedValue(null as never)
   })
 
-  it('loads user conversations with binary list frame', async () => {
-    await messageApi.getUserConversations(2, 20, 'unread')
+  it('loads account conversations with binary list frame', async () => {
+    await messageApi.getAccountConversations(2, 20, 'unread')
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryUrl: '/api/binary/messages/conversations?page=2&size=20&filter=unread',
@@ -26,8 +26,8 @@ describe('message API binary transport', () => {
   })
 
   it('creates and replies through binary mutation frames', async () => {
-    await messageApi.createUserConversation({ subject: 'Subject', body: 'Body' })
-    await messageApi.replyUserConversation(7, { body: 'Reply' })
+    await messageApi.createAccountConversation({ subject: 'Subject', body: 'Body' })
+    await messageApi.replyAccountConversation(7, { body: 'Reply' })
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryUrl: '/api/binary/messages/conversations',

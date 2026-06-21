@@ -51,7 +51,7 @@ public readonly struct MessageRevokedPayloadPod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct UserStatusPayloadPod
+public readonly struct AccountStatusPayloadPod
 {
     public readonly int Status;
     public readonly long TimeUnixMs;

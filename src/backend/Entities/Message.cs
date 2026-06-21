@@ -21,7 +21,7 @@ public enum ConversationStatus
 
 public enum MessageSenderType
 {
-    User = 0,
+    Account = 0,
     Admin = 1,
     System = 2
 }

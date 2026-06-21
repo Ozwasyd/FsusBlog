@@ -274,7 +274,7 @@ public static partial class PodBinaryCodec
                     }
                     return true;
 
-                case UserStatusPayload payload:
+                case AccountStatusPayload payload:
                     WriteObjectHeader(payload.reason is null ? 2 : 3);
                     WriteField("status", payload.status);
                     if (payload.reason is not null)

@@ -118,7 +118,7 @@ public sealed class CommentSecurityHardeningTests
         Assert.Contains("PushCommentAddAsync", source);
         Assert.Contains("PushCommentRemoveAsync", source);
         Assert.Contains("CommentCacheInvalidationScope", source);
-        Assert.Contains("SendUserTransactionalNoticeAsync", source);
+        Assert.Contains("SendAccountTransactionalNoticeAsync", source);
     }
 
     [Fact]

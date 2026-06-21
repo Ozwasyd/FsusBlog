@@ -57,7 +57,7 @@
         <template v-else>
           <div v-if="detail" class="messages-context-bar">
             <span>正在回复：{{ detail.subject }}</span>
-            <span>{{ isAdminMode ? `账号 ${contextUserText}` : '当前会话' }}</span>
+            <span>{{ isAdminMode ? `账号 ${contextAccountText}` : '当前会话' }}</span>
             <span>状态：{{ statusLabel(detail.status) }}</span>
           </div>
 
@@ -141,7 +141,7 @@ type MessageRow = ConversationMessageResponse & {
 }
 
 const props = defineProps<{
-  mode: 'admin' | 'user'
+  mode: 'admin' | 'account'
   isMobile: boolean
   loading: boolean
   processing: boolean
@@ -152,7 +152,7 @@ const props = defineProps<{
   replyBody: string
   replyLoading: boolean
   replyDisabled: boolean
-  contextUserText: string
+  contextAccountText: string
   motionSummary?: string
   statusLabel: (status: number) => string
   statusType: (status: number) => 'warning' | 'success' | ''
@@ -313,7 +313,7 @@ defineExpose({
   max-width: 100%;
 }
 
-.messages-bubble-user {
+.messages-bubble-account {
   border-left-color: var(--fsus-state-focus-border, var(--fsusblog-color-primary));
 }
 

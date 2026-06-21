@@ -42,7 +42,7 @@ public static partial class BinaryEndpoints
         {
             int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 50);
             int pageNum = Math.Max(1, page);
-            var data = await query.GetUserConversationsAsync(ResolveCurrentAccountId(user), pageNum, pageSize, filter);
+            var data = await query.GetAccountConversationsAsync(ResolveCurrentAccountId(user), pageNum, pageSize, filter);
             return BinaryResults.Frame(aeds, AedsFrameType.ConversationList, writer => PodBinaryCodec.WriteConversationList(data, writer));
         })
         .RequireAuthorization();
@@ -53,7 +53,7 @@ public static partial class BinaryEndpoints
             CurrentUser user,
             IAedsEncoder aeds) =>
         {
-            var detail = await query.GetUserConversationDetailAsync(ResolveCurrentAccountId(user), id);
+            var detail = await query.GetAccountConversationDetailAsync(ResolveCurrentAccountId(user), id);
             return detail is null
                 ? BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "会话不存在"), aeds)
                 : BinaryResults.Frame(aeds, AedsFrameType.ConversationDetail, writer => PodBinaryCodec.WriteConversationDetail(detail, writer));
@@ -78,7 +78,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "会话请求体非法"), aeds);
             }
 
-            var result = await command.CreateUserTicketAsync(ResolveCurrentAccountId(user), request.Subject, request.Body);
+            var result = await command.CreateAccountTicketAsync(ResolveCurrentAccountId(user), request.Subject, request.Body);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.ConversationDetail, writer => PodBinaryCodec.WriteConversationDetail(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
@@ -105,7 +105,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "回复请求体非法"), aeds);
             }
 
-            var result = await command.ReplyAsUserAsync(ResolveCurrentAccountId(user), id, body);
+            var result = await command.ReplyAsAccountAsync(ResolveCurrentAccountId(user), id, body);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.ConversationMessage, writer => PodBinaryCodec.WriteConversationMessage(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);

@@ -83,7 +83,7 @@ public static class PodContractValidation
             && IsReferenceFree<CommentAddedNotifyPod>()
             && IsReferenceFree<GlobalNoticePayloadPod>()
             && IsReferenceFree<MessageRevokedPayloadPod>()
-            && IsReferenceFree<UserStatusPayloadPod>()
+            && IsReferenceFree<AccountStatusPayloadPod>()
             && IsReferenceFree<NoticePayloadPod>()
             && IsReferenceFree<CommentRemovedPayloadPod>()
             && IsReferenceFree<MessageInboxListPod>()

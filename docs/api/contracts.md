@@ -780,34 +780,35 @@ interface AdminTagItemResponse extends AdminCategoryItemResponse {
 
 ```json
 {
-  "id": "uuid",
-  "participantName": "alice",
-  "participantAvatarUrl": "/uploads/avatars/1.jpg",
-  "lastMessage": "最新一条消息预览",
+  "conversationId": "123",
+  "subject": "系统通知",
+  "status": 0,
+  "isSystemSource": true,
+  "canReply": true,
   "lastMessageAt": "2026-01-01T00:00:00Z",
-  "unreadCount": 2,
-  "status": "open"
+  "updatedAt": "2026-01-01T00:00:00Z",
+  "unreadCount": 2
 }
 ```
 
-- `status`：`"open"` / `"closed"`
+- `status`：`0=open` / `1=pending` / `2=closed`
 
-管理员系统消息使用 `POST /api/binary/admin/messages/system-send` 的 `SystemMessageRequest` frame。当前契约只支持单账号目标，`targetAccountId` 必须存在且大于 0；`targetAccountId=null` 不表示广播，后端会返回 validation error。前端管理入口位于 `/user/manage/messages`，普通 `/user/messagebox` 只承载个人消息和工单。
+管理员系统消息使用 `POST /api/binary/admin/messages/system-send` 的 `SystemMessageRequest` frame。当前契约只支持单账号目标，`targetAccountId` 必须存在且大于 0；`targetAccountId=null` 不表示广播，后端会返回 validation error。前端管理入口位于 `/user/manage/messages`，普通 `/user/messagebox` 只承载账号消息和工单。
 
 ### `ConversationMessageResponse`
 
 ```json
 {
-  "id": "uuid",
-  "conversationId": "uuid",
-  "senderId": 5,
-  "senderName": "alice",
-  "senderRole": "authenticated",
-  "content": "消息内容",
-  "sentAt": "2026-01-01T00:00:00Z",
-  "isRevoked": false
+  "messageId": "456",
+  "conversationId": "123",
+  "senderType": 0,
+  "senderName": "你",
+  "body": "消息内容",
+  "createdAt": "2026-01-01T00:00:00Z"
 }
 ```
+
+`senderType` 的数值保持 wire 兼容：`0=Account`、`1=Admin`、`2=System`。响应不暴露 sender account id、用户名、公开昵称或头像；显示名只使用“你 / 管理员 / 系统”这类上下文安全文本。
 
 ---
 
@@ -905,7 +906,7 @@ int64 timestampUnixMs
 | 1 | `NoticeReceived` | `GlobalNoticePayload` | 用户收到通知 |
 | 2 | `GlobalNoticePublished` | `GlobalNoticePayload` | 全站广播（公开） |
 | 3 | `UnreadCountUpdated` | `UnreadCountPayload` | 未读数变更 |
-| 4 | `UserStatusChanged` | `UserStatusPayload` | 用户状态变化（封禁等） |
+| 4 | `AccountStatusChanged` | `AccountStatusPayload` | 账号状态变化（封禁等） |
 | 5 | `CommentAdded` | `CommentAddedNotifyDto` | 新评论通知 |
 | 6 | `CommentRemoved` | `CommentRemovedPayload` | 评论删除通知 |
 | 7 | `MessageReceived` | `MessageReceivedPayload` | 收到新消息 |

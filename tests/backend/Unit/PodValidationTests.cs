@@ -69,7 +69,7 @@ public class PodSizeCatalogTests
         AssertPositiveSize(PodSizeCatalog.CommentAddedNotifyPod, nameof(PodSizeCatalog.CommentAddedNotifyPod));
         AssertPositiveSize(PodSizeCatalog.GlobalNoticePayloadPod, nameof(PodSizeCatalog.GlobalNoticePayloadPod));
         AssertPositiveSize(PodSizeCatalog.MessageRevokedPayloadPod, nameof(PodSizeCatalog.MessageRevokedPayloadPod));
-        AssertPositiveSize(PodSizeCatalog.UserStatusPayloadPod, nameof(PodSizeCatalog.UserStatusPayloadPod));
+        AssertPositiveSize(PodSizeCatalog.AccountStatusPayloadPod, nameof(PodSizeCatalog.AccountStatusPayloadPod));
         AssertPositiveSize(PodSizeCatalog.NoticePayloadPod, nameof(PodSizeCatalog.NoticePayloadPod));
         AssertPositiveSize(PodSizeCatalog.CommentRemovedPayloadPod, nameof(PodSizeCatalog.CommentRemovedPayloadPod));
 

@@ -200,6 +200,27 @@ internal static class BinaryEndpoints
     }
   },
   {
+    name: 'legacy message center user vocabulary',
+    expected: 'legacy message sender user-model residue detected',
+    files: {
+      'src/backend/Services/NotificationStream/MessageCenterService.cs': `
+namespace FsusBlog.Server.Services.NotificationStream;
+internal sealed class MessageCenterService
+{
+    public Task CreateUserTicketAsync(int accountId) => Task.CompletedTask;
+    public Task ReplyAsUserAsync(int accountId) => Task.CompletedTask;
+    private const string Sender = "MessageSenderType.User";
+}
+`,
+      'src/frontend/src/api/message.ts': `
+export const messageApi = {
+  getUserConversations() {},
+  createUserConversation() {}
+}
+`
+    }
+  },
+  {
     name: 'human-read visit user binding',
     expected: 'human-read visit user-bound residue detected',
     files: {

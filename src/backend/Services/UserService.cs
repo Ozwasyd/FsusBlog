@@ -950,10 +950,10 @@ public partial class UserService(
             : user.InternalSubject;
 
     private Task NotifyUserBannedAsync(int userId, string reason)
-        => ExecuteNotificationAsync(static (svc, uid, payload) => svc.SendUserBannedNoticeAsync(uid, payload), userId, reason);
+        => ExecuteNotificationAsync(static (svc, uid, payload) => svc.SendAccountBannedNoticeAsync(uid, payload), userId, reason);
 
     private Task NotifyUserUnbannedAsync(int userId)
-        => ExecuteNotificationAsync(static (svc, uid, _) => svc.SendUserUnbannedNoticeAsync(uid), userId, string.Empty);
+        => ExecuteNotificationAsync(static (svc, uid, _) => svc.SendAccountUnbannedNoticeAsync(uid), userId, string.Empty);
 
     private async Task ExecuteNotificationAsync(Func<IMessageCommandService, int, string, Task> sender, int userId, string payload)
     {
@@ -972,7 +972,7 @@ public partial class UserService(
         await BoundaryExecutor.ExecuteAsync(
             async () =>
             {
-                await _messageRealtimePublisher.PushUserStatusAsync(userId, 1, reason);
+                await _messageRealtimePublisher.PushAccountStatusAsync(userId, 1, reason);
             },
             _logger,
             $"user-status-notify:{userId}",

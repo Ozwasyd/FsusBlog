@@ -83,7 +83,7 @@ public static class PodSizeCatalog
     public static readonly int CommentAddedNotifyPod = PodContractValidation.SizeOf<CommentAddedNotifyPod>();
     public static readonly int GlobalNoticePayloadPod = PodContractValidation.SizeOf<GlobalNoticePayloadPod>();
     public static readonly int MessageRevokedPayloadPod = PodContractValidation.SizeOf<MessageRevokedPayloadPod>();
-    public static readonly int UserStatusPayloadPod = PodContractValidation.SizeOf<UserStatusPayloadPod>();
+    public static readonly int AccountStatusPayloadPod = PodContractValidation.SizeOf<AccountStatusPayloadPod>();
     public static readonly int NoticePayloadPod = PodContractValidation.SizeOf<NoticePayloadPod>();
     public static readonly int CommentRemovedPayloadPod = PodContractValidation.SizeOf<CommentRemovedPayloadPod>();
     public static readonly int ConversationMessagePreviewPod = PodContractValidation.SizeOf<ConversationMessagePreviewPod>();

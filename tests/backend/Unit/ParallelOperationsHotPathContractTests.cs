@@ -24,8 +24,8 @@ public sealed class ParallelOperationsHotPathContractTests
     {
         string source = ReadRepoFile("src/backend/Services/NotificationStream/MessageCenterService.cs");
 
-        AssertFanoutMethod(source, "public async Task<Result<ConversationDetailResponse>> CreateUserTicketAsync");
-        AssertFanoutMethod(source, "public async Task<Result<ConversationMessageResponse>> ReplyAsUserAsync");
+        AssertFanoutMethod(source, "public async Task<Result<ConversationDetailResponse>> CreateAccountTicketAsync");
+        AssertFanoutMethod(source, "public async Task<Result<ConversationMessageResponse>> ReplyAsAccountAsync");
         AssertFanoutMethod(source, "public async Task<Result<ConversationDetailResponse>> SendSystemMessageAsync");
 
         string adminReply = ExtractMethodBlock(source, "public async Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync");

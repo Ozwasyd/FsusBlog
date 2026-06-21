@@ -34,7 +34,7 @@ Use `FsusBlog.Shared.Contracts.Validation.PodSizeCatalog` values as authoritativ
 - envelopes: `PodEnvelopeHeader`, `PageEnvelope`, `CursorEnvelope`, `PagedPodEnvelope`, `CursorPodEnvelope`
 - article: `ArticleListItemPod`, `ArticleDetailPod`, `TagPod`, `TagWithCountPod`, `CategoryPod`, `ArticleNoticePod`, `ArticleMutationResponsePod`, `TrashClearResponsePod`
 - comment: `CommentItemPod`, `UserCommentPod`
-- message: `MessageInboxPod`, `CommentPushPod`, `CommentAddedNotifyPod`, `GlobalNoticePayloadPod`, `MessageRevokedPayloadPod`, `UserStatusPayloadPod`, `NoticePayloadPod`, `CommentRemovedPayloadPod`
+- message: `MessageInboxPod`, `CommentPushPod`, `CommentAddedNotifyPod`, `GlobalNoticePayloadPod`, `MessageRevokedPayloadPod`, `AccountStatusPayloadPod`, `NoticePayloadPod`, `CommentRemovedPayloadPod`
 - user/auth: `TokenResponsePod`, `LoginResponsePod`, `UserListItemPod` (anonymous account list row)
 - system: `SeoConfigPod`, `PageContentPod`
 - stats: `PopularArticlePod`, `RecentCommentPod`, `RegionDistributionPod`, `SiteStatsPod`

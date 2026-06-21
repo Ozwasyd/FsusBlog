@@ -14,7 +14,7 @@
           <div class="messages-filter">
             <el-select
               :model-value="filter"
-              :name="isAdminMode ? 'adminConversationFilter' : 'userConversationFilter'"
+              :name="isAdminMode ? 'adminConversationFilter' : 'accountConversationFilter'"
               size="small"
               @update:model-value="handleFilterUpdate"
             >
@@ -117,7 +117,7 @@ type ConversationRow = ConversationListItemResponse & {
 }
 
 const props = defineProps<{
-  mode: 'admin' | 'user'
+  mode: 'admin' | 'account'
   isMobile: boolean
   loading: boolean
   filter: ConversationFilter

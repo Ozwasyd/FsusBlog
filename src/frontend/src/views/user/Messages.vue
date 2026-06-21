@@ -3,7 +3,7 @@
     <header class="account-page-header">
       <h1 class="account-page-title">{{ isAdminView ? '站内信中心' : '我的站内信' }}</h1>
       <p class="account-page-description">
-        {{ isAdminView ? '处理用户会话、系统通知与待跟进状态。' : '集中处理站内消息、系统通知与申诉工单。' }}
+        {{ isAdminView ? '处理账号会话、系统通知与待跟进状态。' : '集中处理站内消息、系统通知与申诉工单。' }}
       </p>
     </header>
 
@@ -52,7 +52,7 @@
             v-if="isMobile && !isAdminView && showMobileTicketCompose"
             v-model:create-subject="createSubject"
             v-model:create-body="createBody"
-            mode="user"
+            mode="account"
             mobile
             :loading="creating"
             @submit="handleCreateTicket"
@@ -74,7 +74,7 @@
           :hidden-count="hiddenMessageCount"
           :reply-loading="replyLoading"
           :reply-disabled="replyDisabled"
-          :context-user-text="contextUserText"
+          :context-account-text="contextAccountText"
           :motion-summary="messageMotion.summary.value"
           :status-label="statusLabel"
           :status-type="statusType"
@@ -98,7 +98,7 @@
           v-else-if="!isMobile"
           v-model:create-subject="createSubject"
           v-model:create-body="createBody"
-          mode="user"
+          mode="account"
           :loading="creating"
           @submit="handleCreateTicket"
         />
@@ -109,13 +109,13 @@
       :model-value="hasPendingConversationSwitch"
       title="当前回复尚未发送"
       width="min(92vw, 28rem)"
-      @close="userInbox.cancelConversationSwitch"
+      @close="accountInbox.cancelConversationSwitch"
     >
       <p class="messages-draft-dialog-text">
         当前会话的回复草稿会按会话保留。你可以保存草稿后切换，也可以放弃这段草稿。
       </p>
       <template #footer>
-        <el-button @click="userInbox.cancelConversationSwitch">取消</el-button>
+        <el-button @click="accountInbox.cancelConversationSwitch">取消</el-button>
         <el-button @click="handleDiscardDraftAndSwitch">放弃草稿</el-button>
         <el-button type="primary" @click="handleSaveDraftAndSwitch">保存草稿并切换</el-button>
       </template>
@@ -148,7 +148,7 @@ import MessagesThreadPanel from '@/components/user/messages/MessagesThreadPanel.
 import { useAdminMessageCenter } from '@/composables/useAdminMessageCenter'
 import { useInboxSplitView } from '@/composables/useInboxSplitView'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
-import { useUserMessagesInbox } from '@/composables/useUserMessagesInbox'
+import { useAccountMessagesInbox } from '@/composables/useAccountMessagesInbox'
 
 type FocusablePane = {
   focusPane: () => void
@@ -161,7 +161,7 @@ const MESSAGE_RENDER_WINDOW = 80
 const ROW_MOTION_VISIBLE_LIMIT = 20
 
 const adminCenter = useAdminMessageCenter(() => isAdminView.value)
-const userInbox = useUserMessagesInbox(() => !isAdminView.value)
+const accountInbox = useAccountMessagesInbox(() => !isAdminView.value)
 const conversationMotion = useRowStateMotion({ visibleLimit: ROW_MOTION_VISIBLE_LIMIT })
 const messageMotion = useRowStateMotion({ visibleLimit: ROW_MOTION_VISIBLE_LIMIT })
 const {
@@ -177,11 +177,11 @@ const conversationListRef = ref<FocusablePane | null>(null)
 const threadPanelRef = ref<FocusablePane | null>(null)
 const showMobileTicketCompose = ref(false)
 const mobileBackConfirmVisible = ref(false)
-const hasPendingConversationSwitch = computed(() => Boolean(userInbox.pendingConversationId.value))
-const messageMode = computed<'admin' | 'user'>(() => (isAdminView.value ? 'admin' : 'user'))
+const hasPendingConversationSwitch = computed(() => Boolean(accountInbox.pendingConversationId.value))
+const messageMode = computed<'admin' | 'account'>(() => (isAdminView.value ? 'admin' : 'account'))
 
 const selectedConversationId = computed(() =>
-  isAdminView.value ? adminCenter.selectedConversationId.value : userInbox.selectedConversationId.value
+  isAdminView.value ? adminCenter.selectedConversationId.value : accountInbox.selectedConversationId.value
 )
 
 const {
@@ -193,58 +193,58 @@ const {
 } = useInboxSplitView(selectedConversationId)
 
 const conversations = computed(() =>
-  isAdminView.value ? adminCenter.conversations.value : userInbox.conversations.value
+  isAdminView.value ? adminCenter.conversations.value : accountInbox.conversations.value
 )
-const detail = computed(() => (isAdminView.value ? adminCenter.detail.value : userInbox.detail.value))
+const detail = computed(() => (isAdminView.value ? adminCenter.detail.value : accountInbox.detail.value))
 const conversationRenderLimit = ref(CONVERSATION_RENDER_WINDOW)
 const messageRenderLimit = ref(MESSAGE_RENDER_WINDOW)
-const listLoading = computed(() => (isAdminView.value ? adminCenter.loading.value : userInbox.loading.value))
-const detailLoading = computed(() => (isAdminView.value ? adminCenter.loadingDetail.value : userInbox.loadingDetail.value))
-const replyLoading = computed(() => (isAdminView.value ? adminCenter.processing.value : userInbox.sending.value))
+const listLoading = computed(() => (isAdminView.value ? adminCenter.loading.value : accountInbox.loading.value))
+const detailLoading = computed(() => (isAdminView.value ? adminCenter.loadingDetail.value : accountInbox.loadingDetail.value))
+const replyLoading = computed(() => (isAdminView.value ? adminCenter.processing.value : accountInbox.sending.value))
 const replyDisabled = computed(() =>
   isAdminView.value
     ? adminCenter.processing.value || !detail.value?.canReply
-    : userInbox.sending.value || !detail.value?.canReply
+    : accountInbox.sending.value || !detail.value?.canReply
 )
-const hasUserSelection = computed(() => userInbox.hasSelection.value)
+const hasAccountSelection = computed(() => accountInbox.hasSelection.value)
 const adminSelectedConversation = computed(() => adminCenter.selectedConversation.value)
 const threadSelectionEmpty = computed(() =>
-  isAdminView.value ? !adminSelectedConversation.value : !hasUserSelection.value
+  isAdminView.value ? !adminSelectedConversation.value : !hasAccountSelection.value
 )
 
 const activeFilter = computed<ConversationFilter>({
-  get: () => (isAdminView.value ? adminCenter.filter.value : userInbox.filter.value),
+  get: () => (isAdminView.value ? adminCenter.filter.value : accountInbox.filter.value),
   set: (value) => {
     if (isAdminView.value) {
       adminCenter.filter.value = value
       return
     }
-    userInbox.filter.value = value
+    accountInbox.filter.value = value
   }
 })
 
 const replyBody = computed({
-  get: () => (isAdminView.value ? adminCenter.replyBody.value : userInbox.replyBody.value),
+  get: () => (isAdminView.value ? adminCenter.replyBody.value : accountInbox.replyBody.value),
   set: (value: string) => {
     if (isAdminView.value) {
       adminCenter.replyBody.value = value
       return
     }
-    userInbox.replyBody.value = value
+    accountInbox.replyBody.value = value
   }
 })
 
 const createSubject = computed({
-  get: () => userInbox.createSubject.value,
+  get: () => accountInbox.createSubject.value,
   set: (value: string) => {
-    userInbox.createSubject.value = value
+    accountInbox.createSubject.value = value
   }
 })
 
 const createBody = computed({
-  get: () => userInbox.createBody.value,
+  get: () => accountInbox.createBody.value,
   set: (value: string) => {
-    userInbox.createBody.value = value
+    accountInbox.createBody.value = value
   }
 })
 
@@ -269,7 +269,7 @@ const systemBody = computed({
   }
 })
 
-const creating = computed(() => userInbox.creating.value)
+const creating = computed(() => accountInbox.creating.value)
 const processing = computed(() => adminCenter.processing.value)
 const isAdminConversationHighlighted = (conversationId: string): boolean =>
   isAdminView.value && isAdminTaskHighlighted(conversationId)
@@ -297,10 +297,10 @@ const conversationSignature = computed(() => visibleConversationRows.value
 const messageSignature = computed(() => visibleMessageRows.value
   .map((message) => `${message.messageId}:${message.createdAt}:${message.body}`)
   .join('|'))
-const contextUserText = computed(() => {
+const contextAccountText = computed(() => {
   const messages = detail.value?.messages ?? []
-  const userMessage = messages.find((message) => message.senderType === 0 && message.senderName)
-  return userMessage?.senderName || '账号'
+  const accountMessage = messages.find((message) => message.senderType === 0 && message.senderName)
+  return accountMessage?.senderName || '账号'
 })
 
 watch(selectedConversationId, () => {
@@ -368,15 +368,15 @@ const handleSelectConversation = async (conversationId: string): Promise<void> =
     return
   }
 
-  const switched = await userInbox.selectConversation(conversationId)
+  const switched = await accountInbox.selectConversation(conversationId)
   if (switched) {
     await openDetailPaneAndFocus()
   }
 }
 
 const handleCreateTicket = async (): Promise<void> => {
-  await userInbox.createTicket()
-  if (userInbox.selectedConversationId.value) {
+  await accountInbox.createTicket()
+  if (accountInbox.selectedConversationId.value) {
     showMobileTicketCompose.value = false
     await openDetailPaneAndFocus()
   }
@@ -388,7 +388,7 @@ const handleReply = async (): Promise<void> => {
     return
   }
 
-  await userInbox.sendReply()
+  await accountInbox.sendReply()
 }
 
 const handleMobileBackToList = (): void => {
@@ -421,13 +421,13 @@ const sendSystemMessage = async (): Promise<void> => {
 }
 
 const handleSaveDraftAndSwitch = async (): Promise<void> => {
-  if (await userInbox.saveDraftAndSwitch()) {
+  if (await accountInbox.saveDraftAndSwitch()) {
     await openDetailPaneAndFocus()
   }
 }
 
 const handleDiscardDraftAndSwitch = async (): Promise<void> => {
-  if (await userInbox.discardDraftAndSwitch()) {
+  if (await accountInbox.discardDraftAndSwitch()) {
     await openDetailPaneAndFocus()
   }
 }
@@ -470,11 +470,11 @@ const conversationRowClass = (item: { conversationId: string }): string[] => [
 const senderLabel = (senderType: number): string => {
   if (senderType === 1) return '管理员'
   if (senderType === 2) return '系统'
-  return isAdminView.value ? '用户' : '我'
+  return isAdminView.value ? '账号' : '我'
 }
 
 const bubbleClass = (senderType: number): string => {
-  if (senderType === 0) return 'messages-bubble-user'
+  if (senderType === 0) return 'messages-bubble-account'
   if (senderType === 1) return 'messages-bubble-admin'
   return 'messages-bubble-system'
 }

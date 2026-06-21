@@ -28,7 +28,7 @@ public enum NotificationStreamEventType : short
     NoticeReceived = 1,
     GlobalNoticePublished = 2,
     UnreadCountUpdated = 3,
-    UserStatusChanged = 4,
+    AccountStatusChanged = 4,
     CommentAdded = 5,
     CommentRemoved = 6,
     MessageReceived = 7,

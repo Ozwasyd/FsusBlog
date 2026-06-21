@@ -1488,7 +1488,7 @@ ORDER BY x.root_id, x.id;
             {
                 string targetName = string.IsNullOrWhiteSpace(targetUserName) ? "您" : targetUserName!;
                 string snippet = content.Length > 40 ? content[..40] : content;
-                await messageCommandService.SendUserTransactionalNoticeAsync(userId, "收到新的评论回复", $"{actor} 回复了 {targetName}：{snippet}");
+                await messageCommandService.SendAccountTransactionalNoticeAsync(userId, "收到新的评论回复", $"{actor} 回复了 {targetName}：{snippet}");
             },
             logger,
             $"comment-notify-reply:{userId}",

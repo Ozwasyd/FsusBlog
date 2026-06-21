@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { reactive, ref, shallowRef } from 'vue'
 import { createNotificationStreamRenderScheduler } from '@/services/notificationStreamRenderScheduler'
-import { NotificationStreamEventType, NotificationStreamFailureCodes, type NotificationStreamArticleRenderPatch, type NotificationStreamCommentRenderPatch, type NotificationStreamCursor, type NotificationStreamEventV2, type NotificationStreamFailureCode, type NotificationStreamInboxRenderPatch, type NotificationStreamRenderPatch, type NotificationStreamRuntimeState, type UserStatusPayload } from '@/services/notificationStreamTypes'
+import { NotificationStreamEventType, NotificationStreamFailureCodes, type NotificationStreamArticleRenderPatch, type NotificationStreamCommentRenderPatch, type NotificationStreamCursor, type NotificationStreamEventV2, type NotificationStreamFailureCode, type NotificationStreamInboxRenderPatch, type NotificationStreamRenderPatch, type NotificationStreamRuntimeState, type AccountStatusPayload } from '@/services/notificationStreamTypes'
 import { AppErrorCode } from '@/utils/appError'
 
 function createInitialState(): NotificationStreamRuntimeState {
@@ -55,7 +55,7 @@ function notificationStreamFailureCodeToAppErrorCode(code: NotificationStreamFai
 export const useNotificationStreamStore = defineStore('notification-stream', () => {
   const runtime = reactive<NotificationStreamRuntimeState>(createInitialState())
   const unreadCount = ref(0)
-  const userStatus = shallowRef<UserStatusPayload | null>(null)
+  const userStatus = shallowRef<AccountStatusPayload | null>(null)
   const userStatusRevision = ref(0)
 
   const articleBatch = shallowRef<readonly NotificationStreamArticleRenderPatch[]>([])
@@ -200,8 +200,8 @@ export const useNotificationStreamStore = defineStore('notification-stream', () 
         })
         return
 
-      case NotificationStreamEventType.UserStatusChanged:
-        userStatus.value = event.payload as UserStatusPayload
+      case NotificationStreamEventType.AccountStatusChanged:
+        userStatus.value = event.payload as AccountStatusPayload
         userStatusRevision.value += 1
         return
 

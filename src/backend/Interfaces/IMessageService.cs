@@ -13,31 +13,31 @@ public readonly record struct AdminMessageActor(long AdminPrincipalId, string Ad
 
 public interface IMessageQueryService
 {
-    Task<PageResponse<ConversationListItemResponse>> GetUserConversationsAsync(int accountId, int page, int size, string? filter);
-    Task<ConversationDetailResponse?> GetUserConversationDetailAsync(int accountId, long conversationId);
+    Task<PageResponse<ConversationListItemResponse>> GetAccountConversationsAsync(int accountId, int page, int size, string? filter);
+    Task<ConversationDetailResponse?> GetAccountConversationDetailAsync(int accountId, long conversationId);
     Task<PageResponse<ConversationListItemResponse>> GetAdminConversationsAsync(int page, int size, string? filter);
     Task<ConversationDetailResponse?> GetAdminConversationDetailAsync(long conversationId);
 }
 
 public interface IMessageCommandService
 {
-    Task<Result<ConversationDetailResponse>> CreateUserTicketAsync(int accountId, string subject, string body);
-    Task<Result<ConversationMessageResponse>> ReplyAsUserAsync(int accountId, long conversationId, string body);
+    Task<Result<ConversationDetailResponse>> CreateAccountTicketAsync(int accountId, string subject, string body);
+    Task<Result<ConversationMessageResponse>> ReplyAsAccountAsync(int accountId, long conversationId, string body);
     Task<Result> MarkConversationReadAsync(int accountId, long conversationId);
     Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync(long conversationId, string body, AdminMessageActor adminActor);
     Task<Result> UpdateConversationStatusAsync(long conversationId, ConversationStatusValue status, AdminMessageActor adminActor);
     Task<Result<ConversationDetailResponse>> SendSystemMessageAsync(string subject, string body, long? targetAccountId, AdminMessageActor adminActor);
 
     // 治理通知聚合入口
-    Task SendUserTransactionalNoticeAsync(int accountId, string subject, string body);
+    Task SendAccountTransactionalNoticeAsync(int accountId, string subject, string body);
     Task SendCommentDeletedNoticeAsync(int targetAccountId, string articleTitle, string commentSnippet, string reason);
-    Task SendUserBannedNoticeAsync(int accountId, string reason);
-    Task SendUserUnbannedNoticeAsync(int accountId);
+    Task SendAccountBannedNoticeAsync(int accountId, string reason);
+    Task SendAccountUnbannedNoticeAsync(int accountId);
 }
 
 public interface IMessageRealtimePublisher
 {
-    Task PushUserStatusAsync(long userId, int status, string? reason);
+    Task PushAccountStatusAsync(long accountId, int status, string? reason);
     Task PushCommentRemoveAsync(int articleId, long commentId, long? rootId, long? parentId);
     Task PushCommentAddAsync(CommentAddedNotifyDto payload);
     Task PushCacheControlAsync(CacheControlPayload payload);

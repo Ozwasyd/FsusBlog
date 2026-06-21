@@ -6,7 +6,7 @@ import { usePow } from '@/composables/usePow'
 import { invalidateSearchIndexMemory } from '@/services/localSearch'
 import { forwardCacheControlPayload, forwardSearchIndexUpdate, postSwControlMessage } from '@/services/serviceWorkerRuntime'
 import { notificationStreamRuntime } from '@/services/notificationStreamRuntime'
-import { NotificationStreamEventType, NotificationStreamFailureCodes, type ArticleUpdatePayload, type CacheControlPayload, type PowParams, type SearchIndexUpdatePayload, type NotificationStreamEventV2, type NotificationStreamFailureCode, type UserStatusPayload } from '@/services/notificationStreamTypes'
+import { NotificationStreamEventType, NotificationStreamFailureCodes, type ArticleUpdatePayload, type CacheControlPayload, type PowParams, type SearchIndexUpdatePayload, type NotificationStreamEventV2, type NotificationStreamFailureCode, type AccountStatusPayload } from '@/services/notificationStreamTypes'
 import { useNotificationStreamStore } from '@/store/notificationStream'
 import { useUserStore } from '@/store/user'
 import { getBrowserFp } from '@/utils/fingerprint'
@@ -124,7 +124,7 @@ export function useNotification() {
         return pow
     }
 
-    const handleUserStatusChange = (data: UserStatusPayload): void => {
+    const handleAccountStatusChange = (data: AccountStatusPayload): void => {
         const oldStatus = userStore.userInfo?.status
         const newStatus = Number(data.status)
         const isStatusChanged = oldStatus !== undefined && Number(oldStatus) !== newStatus
@@ -174,8 +174,8 @@ export function useNotification() {
             return
         }
 
-        if (event.type === NotificationStreamEventType.UserStatusChanged) {
-            handleUserStatusChange(event.payload as UserStatusPayload)
+        if (event.type === NotificationStreamEventType.AccountStatusChanged) {
+            handleAccountStatusChange(event.payload as AccountStatusPayload)
         }
     }
 

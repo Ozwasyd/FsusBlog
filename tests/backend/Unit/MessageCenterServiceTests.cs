@@ -26,26 +26,26 @@ public sealed class MessageCenterServiceTests
     }
 
     [Fact]
-    public async Task CreateUserTicketAsync_EmptyBody_ReturnsFail()
+    public async Task CreateAccountTicketAsync_EmptyBody_ReturnsFail()
     {
         var svc = BuildService();
-        var result = await svc.CreateUserTicketAsync(1, "subject", "   ");
+        var result = await svc.CreateAccountTicketAsync(1, "subject", "   ");
         Assert.False(result.IsSuccess);
     }
 
     [Fact]
-    public async Task CreateUserTicketAsync_NullBody_ReturnsFail()
+    public async Task CreateAccountTicketAsync_NullBody_ReturnsFail()
     {
         var svc = BuildService();
-        var result = await svc.CreateUserTicketAsync(1, "subject", null!);
+        var result = await svc.CreateAccountTicketAsync(1, "subject", null!);
         Assert.False(result.IsSuccess);
     }
 
     [Fact]
-    public async Task ReplyAsUserAsync_EmptyBody_ReturnsFail()
+    public async Task ReplyAsAccountAsync_EmptyBody_ReturnsFail()
     {
         var svc = BuildService();
-        var result = await svc.ReplyAsUserAsync(1, 999L, "   ");
+        var result = await svc.ReplyAsAccountAsync(1, 999L, "   ");
         Assert.False(result.IsSuccess);
     }
 
@@ -93,11 +93,54 @@ public sealed class MessageCenterServiceTests
         Assert.Contains("AdminMessageActor", service, StringComparison.Ordinal);
         Assert.Contains("SenderAdminPrincipalId", service, StringComparison.Ordinal);
         Assert.Contains("SenderAdminSessionId", service, StringComparison.Ordinal);
+        Assert.Contains("MessageSenderType.Account", service, StringComparison.Ordinal);
+        Assert.Contains("GetAccountConversationsAsync", service, StringComparison.Ordinal);
+        Assert.Contains("CreateAccountTicketAsync", service, StringComparison.Ordinal);
+        Assert.Contains("ReplyAsAccountAsync", service, StringComparison.Ordinal);
+        Assert.Contains("SendAccountTransactionalNoticeAsync", service, StringComparison.Ordinal);
+        Assert.Contains("PushAccountStatusAsync", service, StringComparison.Ordinal);
+        Assert.Contains("NotificationStreamEventType.AccountStatusChanged", service, StringComparison.Ordinal);
+        Assert.Contains("AccountStatusPayload", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("MessageSenderType.User", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetUserConversationsAsync", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetUserConversationDetailAsync", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateUserTicketAsync", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReplyAsUserAsync", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("SendUserTransactionalNoticeAsync", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("PushUserStatusAsync", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("NotificationStreamEventType.UserStatusChanged", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserStatusPayload", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserConversationRow", service, StringComparison.Ordinal);
 
         Assert.DoesNotContain("adminUserId", ports, StringComparison.Ordinal);
         Assert.Contains("AdminMessageActor", ports, StringComparison.Ordinal);
+        Assert.Contains("GetAccountConversationsAsync", ports, StringComparison.Ordinal);
+        Assert.Contains("CreateAccountTicketAsync", ports, StringComparison.Ordinal);
+        Assert.Contains("ReplyAsAccountAsync", ports, StringComparison.Ordinal);
+        Assert.Contains("SendAccountTransactionalNoticeAsync", ports, StringComparison.Ordinal);
+        Assert.Contains("PushAccountStatusAsync", ports, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetUserConversationsAsync", ports, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateUserTicketAsync", ports, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReplyAsUserAsync", ports, StringComparison.Ordinal);
+        Assert.DoesNotContain("SendUserTransactionalNoticeAsync", ports, StringComparison.Ordinal);
+        Assert.DoesNotContain("PushUserStatusAsync", ports, StringComparison.Ordinal);
+
         Assert.Contains("TryResolveAdminSessionContext", endpoints, StringComparison.Ordinal);
         Assert.DoesNotContain("checked((int)user.Id)", endpoints, StringComparison.Ordinal);
+        Assert.Contains("GetAccountConversationsAsync", endpoints, StringComparison.Ordinal);
+        Assert.Contains("CreateAccountTicketAsync", endpoints, StringComparison.Ordinal);
+        Assert.Contains("ReplyAsAccountAsync", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetUserConversationsAsync", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateUserTicketAsync", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReplyAsUserAsync", endpoints, StringComparison.Ordinal);
+
+        string outputs = ReadSource("src/shared/Contracts/Outputs/ServerResponseContracts.cs");
+        string codec = ReadSource("src/core/Cache/PodBinaryCodec.Message.cs");
+        Assert.Contains("Account = 0", outputs, StringComparison.Ordinal);
+        Assert.DoesNotContain("ConversationSenderValue.User", outputs, StringComparison.Ordinal);
+        Assert.Contains("0 => ConversationSenderValue.Account", codec, StringComparison.Ordinal);
+        Assert.DoesNotContain("ConversationSenderValue.User", codec, StringComparison.Ordinal);
+
         Assert.Contains("msg_conversation", migration, StringComparison.Ordinal);
         Assert.Contains("initiatoraccountid", migration, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("senderadminprincipalid", migration, StringComparison.OrdinalIgnoreCase);
@@ -223,7 +266,7 @@ public sealed class MessageCenterServiceTests
     }
 
     [Theory]
-    [InlineData(MessageSenderType.User, ConversationSenderValue.User)]
+    [InlineData(MessageSenderType.Account, ConversationSenderValue.Account)]
     [InlineData(MessageSenderType.Admin, ConversationSenderValue.Admin)]
     [InlineData(MessageSenderType.System, ConversationSenderValue.System)]
     public void ToSenderValue_ReturnsExpected(MessageSenderType input, ConversationSenderValue expected)
@@ -241,9 +284,9 @@ public sealed class MessageCenterServiceTests
     }
 
     [Fact]
-    public void ResolveSenderName_UserSender_Returns你()
+    public void ResolveSenderName_AccountSender_Returns你()
     {
-        var row = new ConversationMessage { SenderType = MessageSenderType.User, SenderAccountId = 5 };
+        var row = new ConversationMessage { SenderType = MessageSenderType.Account, SenderAccountId = 5 };
         var result = InvokePrivateStatic<string>("ResolveSenderName", [row]);
         Assert.Equal("你", result);
     }
@@ -257,9 +300,9 @@ public sealed class MessageCenterServiceTests
     }
 
     [Fact]
-    public void ResolveSenderName_UserWithoutAccount_Returns你()
+    public void ResolveSenderName_AccountWithoutAccount_Returns你()
     {
-        var row = new ConversationMessage { SenderType = MessageSenderType.User, SenderAccountId = null };
+        var row = new ConversationMessage { SenderType = MessageSenderType.Account, SenderAccountId = null };
         var result = InvokePrivateStatic<string>("ResolveSenderName", [row]);
         Assert.Equal("你", result);
     }

@@ -103,7 +103,7 @@ const toFilterParam = (filter?: ConversationFilter): string | undefined => {
 }
 
 export const messageApi = {
-  getUserConversations(page: number, size: number, filter: ConversationFilter = 'all', config?: ApiRequestConfig) {
+  getAccountConversations(page: number, size: number, filter: ConversationFilter = 'all', config?: ApiRequestConfig) {
     const search = conversationSearch(page, size, filter)
     return requestBinaryOnly<PageResponse<ConversationListItemResponse>>({
       binaryUrl: `/api/binary/messages/conversations?${search.toString()}`,
@@ -112,7 +112,7 @@ export const messageApi = {
     })
   },
 
-  getUserConversationDetail(conversationId: string | number, config?: ApiRequestConfig) {
+  getAccountConversationDetail(conversationId: string | number, config?: ApiRequestConfig) {
     return requestBinaryOnly<ConversationDetailResponse>({
       binaryUrl: `/api/binary/messages/conversations/${conversationId}`,
       frameType: FrameType.ConversationDetail,
@@ -120,7 +120,7 @@ export const messageApi = {
     })
   },
 
-  createUserConversation(data: CreateConversationRequest, config?: ApiRequestConfig) {
+  createAccountConversation(data: CreateConversationRequest, config?: ApiRequestConfig) {
     return requestBinaryOnly<ConversationDetailResponse>({
       binaryUrl: '/api/binary/messages/conversations',
       frameType: FrameType.ConversationDetail,
@@ -133,7 +133,7 @@ export const messageApi = {
     })
   },
 
-  replyUserConversation(conversationId: string | number, data: ReplyConversationRequest, config?: ApiRequestConfig) {
+  replyAccountConversation(conversationId: string | number, data: ReplyConversationRequest, config?: ApiRequestConfig) {
     return requestBinaryOnly<ConversationMessageResponse>({
       binaryUrl: `/api/binary/messages/conversations/${conversationId}/reply`,
       frameType: FrameType.ConversationMessage,

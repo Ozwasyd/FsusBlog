@@ -1109,7 +1109,7 @@ public sealed class AuthoringWorkflowService(
                 string actor = string.IsNullOrWhiteSpace(row.UserName) ? "匿名用户" : row.UserName;
                 string targetName = string.IsNullOrWhiteSpace(row.ReplyToUserName) ? "您" : row.ReplyToUserName!;
                 string snippet = row.Content.Length > 40 ? row.Content[..40] : row.Content;
-                await messageCommandService.SendUserTransactionalNoticeAsync(
+                await messageCommandService.SendAccountTransactionalNoticeAsync(
                     row.ReplyToUserId.Value,
                     "收到新的评论回复",
                     $"{actor} 回复了 {targetName}：{snippet}");

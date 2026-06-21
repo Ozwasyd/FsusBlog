@@ -74,7 +74,7 @@
 import { computed } from 'vue'
 
 const props = withDefaults(defineProps<{
-  mode: 'admin' | 'user'
+  mode: 'admin' | 'account'
   mobile?: boolean
   loading: boolean
   systemTargetAccountId?: string

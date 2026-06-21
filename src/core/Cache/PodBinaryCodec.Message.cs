@@ -357,7 +357,7 @@ public static partial class PodBinaryCodec
     private static ConversationSenderValue ToConversationSender(int value)
         => value switch
         {
-            0 => ConversationSenderValue.User,
+            0 => ConversationSenderValue.Account,
             1 => ConversationSenderValue.Admin,
             _ => ConversationSenderValue.System
         };
