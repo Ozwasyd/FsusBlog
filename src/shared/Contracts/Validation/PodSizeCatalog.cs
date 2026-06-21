@@ -116,7 +116,6 @@ public static class PodSizeCatalog
     public static readonly int UserListItemPod = PodContractValidation.SizeOf<UserListItemPod>();
     public static readonly int UserListPagePod = PodContractValidation.SizeOf<UserListPagePod>();
     public static readonly int AdminChangeUserStatusRequestPod = PodContractValidation.SizeOf<AdminChangeUserStatusRequestPod>();
-    public static readonly int AdminResetUserPasswordRequestPod = PodContractValidation.SizeOf<AdminResetUserPasswordRequestPod>();
     public static readonly int PasskeyPublicKeyCredentialParamPod = PodContractValidation.SizeOf<PasskeyPublicKeyCredentialParamPod>();
     public static readonly int PasskeyCredentialDescriptorPod = PodContractValidation.SizeOf<PasskeyCredentialDescriptorPod>();
     public static readonly int PasskeyRegisterBeginPod = PodContractValidation.SizeOf<PasskeyRegisterBeginPod>();

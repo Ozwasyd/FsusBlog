@@ -56,7 +56,7 @@ public sealed class BackendGoldenCatalogTests
             .Select(static node => node!["value"]!.GetValue<int>())
             .ToHashSet();
 
-        Assert.True(retiredValues.SetEquals([43, 44, 45, 46]));
+        Assert.True(retiredValues.SetEquals([40, 43, 44, 45, 46]));
         foreach (int retired in retiredValues)
         {
             Assert.DoesNotContain(retired, activeValues);
@@ -66,6 +66,11 @@ public sealed class BackendGoldenCatalogTests
         {
             Assert.False(string.IsNullOrWhiteSpace(retired["reason"]!.GetValue<string>()));
         }
+
+        Assert.Contains(
+            retiredFrames.Select(static node => node!.AsObject()),
+            static retired => retired["value"]!.GetValue<int>() == 40
+                && retired["reason"]!.GetValue<string>() == "legacy-admin-password-reset");
     }
 
     [Fact]

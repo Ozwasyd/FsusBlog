@@ -808,37 +808,6 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
-    public static void WriteAdminResetUserPasswordRequest(AdminResetUserPasswordRequestCoreModel request, IBufferWriter<byte> destination)
-    {
-        var payload = new ArrayBufferWriter<byte>(256);
-        var mutable = new MutableAdminResetUserPasswordRequestPod
-        {
-            UserId = request.UserId,
-            Reserved = 0,
-            NewPassword = PodUtf8Codec.AppendSlice(request.NewPassword, payload)
-        };
-
-        var writer = new BinaryPodWriter(destination);
-        writer.WritePod(CastUserPod<MutableAdminResetUserPasswordRequestPod, AdminResetUserPasswordRequestPod>(mutable));
-        writer.WriteBytes(payload.WrittenSpan);
-    }
-
-    public static byte[] EncodeAdminResetUserPasswordRequest(AdminResetUserPasswordRequestCoreModel request)
-        => EncodeToArray(128 + request.NewPassword.Length, writer => WriteAdminResetUserPasswordRequest(request, writer));
-
-    public static bool TryDecodeAdminResetUserPasswordRequest(ReadOnlyMemory<byte> source, out AdminResetUserPasswordRequestCoreModel request)
-    {
-        var reader = new BinaryPodReader(source.Span);
-        if (!reader.TryReadPod(out AdminResetUserPasswordRequestPod pod) || !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
-        {
-            request = default;
-            return false;
-        }
-
-        request = new AdminResetUserPasswordRequestCoreModel(pod.UserId, PodProjector.ReadSlice(pod.NewPassword, payload));
-        return reader.IsConsumed;
-    }
-
     private static TTo CastUserPod<TFrom, TTo>(TFrom source)
         where TFrom : unmanaged
         where TTo : unmanaged
@@ -1073,11 +1042,4 @@ public static partial class PodBinaryCodec
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Reason;
     }
 
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutableAdminResetUserPasswordRequestPod
-    {
-        public int UserId;
-        public int Reserved;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef NewPassword;
-    }
 }

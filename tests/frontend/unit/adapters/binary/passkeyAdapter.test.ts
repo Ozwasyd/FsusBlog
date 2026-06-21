@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mapPasskeyCredentialListFromPayload, mapPasskeyLoginBeginFromPayload, mapPasskeyRegisterBeginFromPayload } from '@/adapters/binary/passkeyAdapter'
+import { FrameType } from '@/wasm/web/protocol/frame'
 
 const encoder = new TextEncoder()
 
@@ -34,6 +35,11 @@ function withBlob(prefixLength: number, parts: Uint8Array[]): { payload: Uint8Ar
 }
 
 describe('binary passkey adapter', () => {
+  it('does not expose the retired admin password reset frame', () => {
+    expect('AdminResetUserPasswordRequest' in FrameType).toBe(false)
+    expect(Object.values(FrameType)).not.toContain(40)
+  })
+
   it('maps register begin payload into WebAuthn creation options', () => {
     const prefixLength = 148 + 8 + 16 + 4 + 4
     const { payload, refs, view } = withBlob(prefixLength, [

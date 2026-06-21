@@ -30,6 +30,38 @@ public sealed partial class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    public void LegacyAdminPasswordResetFrame_IsRetiredAcrossProtocolSurfaces()
+    {
+        const string retiredName = "AdminResetUserPasswordRequest";
+
+        Assert.DoesNotContain(retiredName, Enum.GetNames<FsusBlog.Shared.AedsFrameType>());
+        Assert.DoesNotContain(retiredName, Enum.GetNames<CoreFrameType>());
+
+        string source = ReadFrontendFrameProtocolSource();
+        Dictionary<string, ushort> frontendFrameTypes = ParseFrontendFrameTypes(source);
+        Assert.False(frontendFrameTypes.ContainsKey(retiredName));
+
+        string manifest = BackendTestPaths.ReadAllTextFromRoot("src/shared/Contracts/Validation/aeds-protocol.json");
+        Assert.Contains("""{ "value": 40, "reason": "legacy-admin-password-reset" }""", manifest, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Decoder_RejectsLegacyAdminPasswordResetFrameAsRetired()
+    {
+        Span<byte> frame = stackalloc byte[FsusBlog.Core.Algorithms.AedsFrameHeader.Size];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(frame[0..4], CoreAedsEncoder.Magic);
+        frame[4] = FsusBlog.Core.Algorithms.AedsFrameHeader.CurrentVersion;
+        frame[5] = FsusBlog.Core.Algorithms.AedsFrameHeader.CurrentHeaderLength;
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frame[8..10], 40);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frame[14..16], FsusBlog.Core.Algorithms.AedsCrc16.Compute([]));
+
+        Result<FsusBlog.Core.Algorithms.AedsDecodeResult> decoded = new CoreAedsEncoder().TryDecode(frame.ToArray());
+
+        Assert.False(decoded.IsSuccess);
+        Assert.Equal("AEDS frame type retired", decoded.Error.Message);
+    }
+
+    [Fact]
     public void FrontendHeaderConstants_MatchSharedProtocolMetadata()
     {
         string source = ReadFrontendFrameProtocolSource();

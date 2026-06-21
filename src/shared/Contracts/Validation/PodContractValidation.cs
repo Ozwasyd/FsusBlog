@@ -116,7 +116,6 @@ public static class PodContractValidation
             && IsReferenceFree<UserListItemPod>()
             && IsReferenceFree<UserListPagePod>()
             && IsReferenceFree<AdminChangeUserStatusRequestPod>()
-            && IsReferenceFree<AdminResetUserPasswordRequestPod>()
             && IsReferenceFree<PasskeyPublicKeyCredentialParamPod>()
             && IsReferenceFree<PasskeyCredentialDescriptorPod>()
             && IsReferenceFree<PasskeyRegisterBeginPod>()

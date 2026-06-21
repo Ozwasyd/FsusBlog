@@ -246,14 +246,6 @@ public readonly struct AdminChangeUserStatusRequestPod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct AdminResetUserPasswordRequestPod
-{
-    public readonly int UserId;
-    public readonly int Reserved;
-    public readonly Utf8SliceRef NewPassword;
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PasskeyPublicKeyCredentialParamPod
 {
     public readonly int Type;

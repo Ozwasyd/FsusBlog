@@ -6,6 +6,7 @@
     "version": 2
   },
   "retiredFrameValues": [
+    { "value": 40, "reason": "legacy-admin-password-reset" },
     { "value": 43, "reason": "legacy-password-login" },
     { "value": 44, "reason": "legacy-password-register" },
     { "value": 45, "reason": "legacy-username-mutation" },
@@ -68,7 +69,6 @@
     { "name": "PageContentUpdateRequest", "value": 36 },
     { "name": "FileDeleteRequest", "value": 38 },
     { "name": "AdminChangeUserStatusRequest", "value": 39 },
-    { "name": "AdminResetUserPasswordRequest", "value": 40 },
     { "name": "ArticleWriteRequest", "value": 41 },
     {
       "name": "ArticleAotBundleRequest",

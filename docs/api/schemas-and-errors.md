@@ -206,6 +206,8 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 
 生成产物：`src/core/Algorithms/AedsFrameType.cs`、`src/shared/AedsFrameHeader.cs`、`src/frontend/wasm/web/protocol/frame.ts`
 
+已退休且不得复用的 AEDS 数值记录在 `retiredFrameValues`：`40` 为 legacy admin password reset slot，`43`/`44`/`45`/`46` 为 legacy username/password auth slots。这些数值不生成 frame 名、POD、codec 或 OpenAPI 契约；解码器收到对应 raw frame type 时按 retired frame 拒绝。
+
 | 值 | 名称 | POD 类型 | 对应二进制端点 / 用途 |
 |----|------|---------|----------------|
 | 0 | `Unknown` | — | — |

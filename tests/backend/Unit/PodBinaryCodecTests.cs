@@ -323,18 +323,6 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
-    public void AdminResetUserPasswordRequest_RoundTrip_PreservesPassword()
-    {
-        var request = new AdminResetUserPasswordRequestCoreModel(7, "P@ssw0rd!");
-        byte[] encoded = PodBinaryCodec.EncodeAdminResetUserPasswordRequest(request);
-        bool ok = PodBinaryCodec.TryDecodeAdminResetUserPasswordRequest(encoded, out var decoded);
-
-        Assert.True(ok);
-        Assert.Equal(7, decoded.UserId);
-        Assert.Equal("P@ssw0rd!", decoded.NewPassword);
-    }
-
-    [Fact]
     public void AuthAnonymousBootstrapRequest_RoundTrip_DoesNotCarryPasswordOrUsername()
     {
         var request = new AuthAnonymousBootstrapRequestCoreModel("quiet-reader", AcceptedGuidelines: true);

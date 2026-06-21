@@ -239,8 +239,6 @@ public readonly record struct CommentAuthorViewCoreModel(
 
 public readonly record struct AdminChangeUserStatusRequestCoreModel(int UserId, int Status, string? Reason);
 
-public readonly record struct AdminResetUserPasswordRequestCoreModel(int UserId, string NewPassword);
-
 public readonly record struct AuthAnonymousBootstrapRequestCoreModel(string? PublicHandle, bool AcceptedGuidelines);
 
 public readonly record struct AuthDeleteAccountRequestCoreModel(string ConfirmText);

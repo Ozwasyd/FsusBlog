@@ -70,7 +70,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `36`: PageContentUpdateRequest
 - `38`: FileDeleteRequest
 - `39`: AdminChangeUserStatusRequest
-- `40`: AdminResetUserPasswordRequest (retired; codec compatibility only, no production endpoint)
+- `40`: retired legacy admin password reset slot. This numeric value is not reused, has no active frame name, and has no production codec or endpoint.
 - `41`: ArticleWriteRequest
 - `42`: ArticleAotBundleRequest (reserved legacy value; client AOT bundle uploads are no longer accepted)
 - `43`/`44`/`45`/`46`: retired legacy username/password auth slots. These numeric values are not reused, have no active frame names, and have no production codec or endpoint.
@@ -133,7 +133,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `CommentCreateV2Request` payload: `CommentCreateV2RequestPod` followed by shared blob payload for anonymous scope, display language, proof token, ZK proof bytes, and comment content.
 - `FileDeleteRequest` payload: `StringMutationRequestPod` followed by blob payload for image URL.
 - `AdminChangeUserStatusRequest` payload: `AdminChangeUserStatusRequestPod` followed by blob payload for reason.
-- `AdminResetUserPasswordRequest` payload: retired compatibility frame. Production endpoints must not accept this frame or expose an admin password reset route.
+- Retired legacy admin password reset slot (`40`) has no payload contract. Decoders, AEDS catalogs, OpenAPI, frontend frame mirrors, and production endpoints must not expose it.
 - `ArticleWriteRequest` payload: `ArticleWriteRequestPod`, `int32 tagIds[count]`, blob payload for title/content/summary/cover URL slices, then optional lifecycle tail `int32 status`, `int64 scheduledPublishAtUnixMs`. Missing lifecycle tail is decoded as `Published` with no schedule.
 - `ArticleAotBundleRequest` payload: reserved legacy `PublicAotBundlePod`, `PublicAotEntryPod[count]`, followed by blob payload for entry strings. No server route accepts this frame.
 - `AuthUpdatePublicHandleRequest` payload: `StringMutationRequestPod` followed by blob payload for the new public handle; an empty string clears the handle.

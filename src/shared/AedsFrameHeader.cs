@@ -62,7 +62,6 @@ public enum AedsFrameType : ushort
     PageContentUpdateRequest = 36,
     FileDeleteRequest = 38,
     AdminChangeUserStatusRequest = 39,
-    AdminResetUserPasswordRequest = 40,
     ArticleWriteRequest = 41,
     // Reserved legacy value. Client-side AOT bundle uploads are no longer accepted.
     ArticleAotBundleRequest = 42,
