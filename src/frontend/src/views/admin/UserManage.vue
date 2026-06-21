@@ -26,7 +26,6 @@
       :total="total"
       :current-page="queryParams.page"
       :page-size="queryParams.pageSize"
-      :is-mobile="isMobile"
       :is-processing="isProcessing"
       :processing-id="processingId"
       :row-motion-class="rowMotion.classFor"
@@ -66,7 +65,6 @@ import UserManageTable from '@/components/admin/users/UserManageTable.vue'
 import { useAdminUserManage } from '@/composables/useAdminUserManage'
 
 const {
-  isMobile,
   loading,
   listView,
   total,

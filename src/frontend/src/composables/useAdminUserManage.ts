@@ -5,7 +5,6 @@ import { usePow } from '@/composables/usePow'
 import { useMutationFlow } from '@/composables/useMutationFlow'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
 import { useViewTask } from '@/composables/useViewTask'
-import { useMediaQuery } from '@/composables/useMediaQuery'
 import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { TimeUtils } from '@/utils/time'
 import { showWarningToast } from '@/utils/errorPresentation'
@@ -28,7 +27,6 @@ export interface UserListViewItem extends AdminAccountListItem {
 }
 
 export function useAdminUserManage() {
-  const isMobile = useMediaQuery('(max-width: 767px)')
   const route = useRoute()
   const router = useRouter()
 
@@ -382,7 +380,6 @@ export function useAdminUserManage() {
   })
 
   return {
-    isMobile,
     loading: loadTask.loading,
     list,
     listView,

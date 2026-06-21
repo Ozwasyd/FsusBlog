@@ -94,66 +94,81 @@
         <el-skeleton :rows="6" animated />
       </div>
 
-      <el-table v-else v-loading="loading" :data="items" row-key="id" :row-class-name="auditRowClassName">
-        <el-table-column label="时间" width="190">
-          <template #default="{ row }: { row: AuditLogItemResponse }">
-            <time :datetime="row.occurredAtUtc">{{ formatTime(row.occurredAtUtc) }}</time>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="动作" min-width="250">
-          <template #default="{ row }: { row: AuditLogItemResponse }">
-            <div class="min-w-0">
-              <div class="font-semibold text-[var(--fsusblog-text-primary)]">{{ formatAuditAction(row.action) }}</div>
-              <p class="mt-1 truncate text-[11px] text-[var(--fsusblog-text-muted)]">{{ row.eventInfo }}</p>
+      <el-responsive-collection
+        v-else
+        v-loading="loading"
+        :items="items"
+        row-key="id"
+        compact-query="(max-width: 767px)"
+        aria-label="审计日志列表"
+      >
+        <template #card="{ item }">
+          <article
+            class="border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] px-4 py-5"
+            :class="auditRowClassName({ rowData: item as AuditLogItemResponse })"
+            role="listitem"
+          >
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="min-w-0">
+                <time
+                  class="text-xs font-semibold tabular-nums text-[var(--fsusblog-text-muted)]"
+                  :datetime="(item as AuditLogItemResponse).occurredAtUtc"
+                >
+                  {{ formatTime((item as AuditLogItemResponse).occurredAtUtc) }}
+                </time>
+                <h2 class="mt-2 text-sm font-bold text-[var(--fsusblog-text-primary)]">
+                  {{ formatAuditAction((item as AuditLogItemResponse).action) }}
+                </h2>
+                <p class="mt-1 break-words text-[12px] text-[var(--fsusblog-text-muted)]">
+                  {{ (item as AuditLogItemResponse).eventInfo }}
+                </p>
+              </div>
+              <div class="flex shrink-0 flex-col items-end gap-1">
+                <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus((item as AuditLogItemResponse).outcome)])">
+                  {{ adminStatusLabel[toAdminSystemStatus((item as AuditLogItemResponse).outcome)] }}
+                </el-tag>
+                <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus((item as AuditLogItemResponse).severity)])">
+                  {{ adminStatusLabel[toAdminSystemStatus((item as AuditLogItemResponse).severity)] }}
+                </el-tag>
+              </div>
             </div>
-          </template>
-        </el-table-column>
 
-        <el-table-column label="操作者" width="160">
-          <template #default="{ row }: { row: AuditLogItemResponse }">
-            <div class="text-xs">
-              <div>{{ row.actorType ?? '-' }}</div>
-              <div class="text-[var(--fsusblog-text-muted)]">{{ row.actorId ?? row.actorRole ?? '-' }}</div>
+            <dl class="mt-4 grid gap-3 text-xs sm:grid-cols-2">
+              <div>
+                <dt class="font-bold text-[var(--fsusblog-text-muted)]">操作者</dt>
+                <dd class="mt-1 text-[var(--fsusblog-text-primary)]">
+                  {{ (item as AuditLogItemResponse).actorType ?? '-' }}
+                  <span class="text-[var(--fsusblog-text-muted)]">
+                    / {{ (item as AuditLogItemResponse).actorId ?? (item as AuditLogItemResponse).actorRole ?? '-' }}
+                  </span>
+                </dd>
+              </div>
+              <div>
+                <dt class="font-bold text-[var(--fsusblog-text-muted)]">目标</dt>
+                <dd class="mt-1 text-[var(--fsusblog-text-primary)]">
+                  {{ (item as AuditLogItemResponse).targetType ?? '-' }}
+                  <span class="text-[var(--fsusblog-text-muted)]">
+                    / {{ (item as AuditLogItemResponse).targetId ?? '-' }}
+                  </span>
+                </dd>
+              </div>
+            </dl>
+
+            <div class="mt-4 flex flex-wrap justify-end gap-2">
+              <el-tooltip content="校验防篡改证据">
+                <el-button
+                  :icon="Lock"
+                  :loading="verifyingId === (item as AuditLogItemResponse).id"
+                  @click="verifyRow(item as AuditLogItemResponse)"
+                >
+                  校验证据
+                </el-button>
+              </el-tooltip>
+              <el-button type="primary" :icon="View" @click="openDetail(item as AuditLogItemResponse)">查看详情</el-button>
             </div>
-          </template>
-        </el-table-column>
+          </article>
+        </template>
 
-        <el-table-column label="目标" width="190">
-          <template #default="{ row }: { row: AuditLogItemResponse }">
-            <div class="text-xs">
-              <div>{{ row.targetType ?? '-' }}</div>
-              <div class="text-[var(--fsusblog-text-muted)]">{{ row.targetId ?? '-' }}</div>
-            </div>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="结果" width="150" align="center">
-          <template #default="{ row }: { row: AuditLogItemResponse }">
-            <div class="flex flex-col items-center gap-1">
-              <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(row.outcome)])">
-                {{ adminStatusLabel[toAdminSystemStatus(row.outcome)] }}
-              </el-tag>
-              <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(row.severity)])">
-                {{ adminStatusLabel[toAdminSystemStatus(row.severity)] }}
-              </el-tag>
-            </div>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="证据" width="110" align="center">
-          <template #default="{ row }: { row: AuditLogItemResponse }">
-            <el-tooltip content="校验防篡改证据">
-              <el-button :icon="Lock" circle :loading="verifyingId === row.id" @click="verifyRow(row)" />
-            </el-tooltip>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="详情" width="110" align="right" fixed="right">
-          <template #default="{ row }: { row: AuditLogItemResponse }">
-            <el-button link type="primary" :icon="View" @click="openDetail(row)">查看</el-button>
-          </template>
-        </el-table-column>
         <template #empty>
           <AdminInlineEmptyState :title="auditEmptyTitle" :content="auditEmptyDescription">
             <template #actions>
@@ -162,7 +177,94 @@
             </template>
           </AdminInlineEmptyState>
         </template>
-      </el-table>
+
+        <template #table>
+          <div class="audit-table-v2-frame">
+            <el-auto-resizer>
+              <template #default="{ height, width }">
+                <el-table-v2
+                  :columns="auditTableColumns"
+                  :data="items"
+                  :width="width"
+                  :height="height"
+                  :row-height="72"
+                  row-key="id"
+                  :row-class="auditRowClassName"
+                  :row-class-name="auditRowClassName"
+                >
+                  <template #cell="{ rowData, column }">
+                    <template v-if="column.key === 'occurredAt'">
+                      <time :datetime="(rowData as AuditLogItemResponse).occurredAtUtc">
+                        {{ formatTime((rowData as AuditLogItemResponse).occurredAtUtc) }}
+                      </time>
+                    </template>
+
+                    <div v-else-if="column.key === 'action'" class="min-w-0">
+                      <div class="font-semibold text-[var(--fsusblog-text-primary)]">
+                        {{ formatAuditAction((rowData as AuditLogItemResponse).action) }}
+                      </div>
+                      <p class="mt-1 truncate text-[11px] text-[var(--fsusblog-text-muted)]">
+                        {{ (rowData as AuditLogItemResponse).eventInfo }}
+                      </p>
+                    </div>
+
+                    <div v-else-if="column.key === 'actor'" class="text-xs">
+                      <div>{{ (rowData as AuditLogItemResponse).actorType ?? '-' }}</div>
+                      <div class="text-[var(--fsusblog-text-muted)]">
+                        {{ (rowData as AuditLogItemResponse).actorId ?? (rowData as AuditLogItemResponse).actorRole ?? '-' }}
+                      </div>
+                    </div>
+
+                    <div v-else-if="column.key === 'target'" class="text-xs">
+                      <div>{{ (rowData as AuditLogItemResponse).targetType ?? '-' }}</div>
+                      <div class="text-[var(--fsusblog-text-muted)]">
+                        {{ (rowData as AuditLogItemResponse).targetId ?? '-' }}
+                      </div>
+                    </div>
+
+                    <div v-else-if="column.key === 'outcome'" class="flex flex-col items-center gap-1">
+                      <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus((rowData as AuditLogItemResponse).outcome)])">
+                        {{ adminStatusLabel[toAdminSystemStatus((rowData as AuditLogItemResponse).outcome)] }}
+                      </el-tag>
+                      <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus((rowData as AuditLogItemResponse).severity)])">
+                        {{ adminStatusLabel[toAdminSystemStatus((rowData as AuditLogItemResponse).severity)] }}
+                      </el-tag>
+                    </div>
+
+                    <el-tooltip v-else-if="column.key === 'evidence'" content="校验防篡改证据">
+                      <el-button
+                        :icon="Lock"
+                        circle
+                        :loading="verifyingId === (rowData as AuditLogItemResponse).id"
+                        @click="verifyRow(rowData as AuditLogItemResponse)"
+                      />
+                    </el-tooltip>
+
+                    <el-button
+                      v-else-if="column.key === 'detail'"
+                      link
+                      type="primary"
+                      :icon="View"
+                      @click="openDetail(rowData as AuditLogItemResponse)"
+                    >
+                      查看
+                    </el-button>
+                  </template>
+
+                  <template #empty>
+                    <AdminInlineEmptyState :title="auditEmptyTitle" :content="auditEmptyDescription">
+                      <template #actions>
+                        <el-button v-if="hasAuditFilters" link type="primary" @click="resetFilters">清除筛选</el-button>
+                        <el-button v-else link type="primary" :loading="loading" @click="loadAudit">刷新审计日志</el-button>
+                      </template>
+                    </AdminInlineEmptyState>
+                  </template>
+                </el-table-v2>
+              </template>
+            </el-auto-resizer>
+          </div>
+        </template>
+      </el-responsive-collection>
 
       <div class="flex justify-end border-t border-[var(--fsusblog-panel-border)] px-4 py-4">
         <el-pagination
@@ -238,6 +340,15 @@ import {
 } from '@/view-contracts/adminStatus'
 
 type AuditDateRange = [Date, Date] | null
+type TableV2Column<T> = {
+  key: string
+  dataKey?: keyof T | string
+  title?: string
+  width: number
+  align?: 'left' | 'center' | 'right'
+  fixed?: true | 'left' | 'right'
+  sortable?: boolean
+}
 
 const route = useRoute()
 
@@ -274,6 +385,16 @@ const hasLoadedAudit = ref(false)
 const verifyingId = ref<number | null>(null)
 const detailVisible = ref(false)
 const auditRowMotion = useRowStateMotion({ visibleLimit: 20 })
+
+const auditTableColumns: TableV2Column<AuditLogItemResponse>[] = [
+  { key: 'occurredAt', dataKey: 'occurredAtUtc', title: '时间', width: 190 },
+  { key: 'action', dataKey: 'action', title: '动作', width: 300 },
+  { key: 'actor', dataKey: 'actorId', title: '操作者', width: 170 },
+  { key: 'target', dataKey: 'targetId', title: '目标', width: 190 },
+  { key: 'outcome', dataKey: 'outcome', title: '结果', width: 150, align: 'center' },
+  { key: 'evidence', title: '证据', width: 110, align: 'center' },
+  { key: 'detail', title: '详情', width: 110, align: 'right', fixed: 'right' }
+]
 
 const runtime = computed(() => summary.value?.runtime ?? emptyRuntime)
 const isAuditInitialLoading = computed(() => loading.value && !hasLoadedAudit.value)
@@ -397,7 +518,7 @@ const verifyRow = async (row: AuditLogItemResponse): Promise<void> => {
 }
 
 const formatTime = (value: string): string => new Date(value).toLocaleString()
-const auditRowClassName = ({ row }: { row: AuditLogItemResponse }): string => auditRowMotion.classFor(row.id)
+const auditRowClassName = ({ rowData }: { rowData: AuditLogItemResponse }): string => auditRowMotion.classFor(rowData.id)
 
 const formatAuditAction = (value: string | null | undefined): string => {
   if (!value) return '-'
@@ -436,6 +557,11 @@ onMounted(() => {
 
 .audit-filter-grid > * {
   min-width: 0;
+}
+
+.audit-table-v2-frame {
+  height: clamp(360px, 58vh, 640px);
+  border-bottom: 1px solid var(--fsusblog-panel-border);
 }
 
 :deep(.audit-filter-grid .el-input),
