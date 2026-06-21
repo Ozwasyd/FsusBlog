@@ -1,7 +1,7 @@
 import type { App } from 'vue'
 import { h } from 'vue'
 import { ElButton, ElLoading, ElMessage, ElMessageBox } from '@ozwasyd/element-plus'
-import { fsusBlogMotionPresets } from '@/fsusui/motion'
+import { fsusBlogMotionPresets } from '@/fsusui/blogMotion'
 import { isFsusUiOk } from '@/fsusui/result'
 
 type MessageBoxOptions = Record<string, unknown>

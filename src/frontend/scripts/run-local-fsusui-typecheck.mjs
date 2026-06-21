@@ -34,6 +34,8 @@ const paths = {
   'element-plus': [fromLocal('packages', 'element-plus', 'index.ts')],
   '@ozwasyd/element-plus/icons-vue': [fromLocal('packages', 'element-plus', 'icons-vue.ts')],
   '@ozwasyd/element-plus/markdown-runtime': [fromLocal('packages', 'element-plus', 'markdown-runtime.ts')],
+  '@ozwasyd/element-plus/motion': [fromLocal('packages', 'element-plus', 'motion.ts')],
+  '@ozwasyd/element-plus/perception-challenge': [fromLocal('packages', 'element-plus', 'perception-challenge.ts')],
   '@ozwasyd/element-plus/render-pipeline': [fromLocal('packages', 'element-plus', 'render-pipeline.ts')],
   '@ozwasyd/element-plus/result': [fromLocal('packages', 'element-plus', 'result.ts')],
   '@ozwasyd/element-plus/theme': [fromLocal('packages', 'element-plus', 'theme.ts')],

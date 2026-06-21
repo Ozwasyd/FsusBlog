@@ -18,7 +18,7 @@ The mandatory adapter surface is:
 - `result.ts`: FsusUI result envelope helpers.
 - `theme.ts`: FsusUI public theme-mode contract re-export. It must import `ThemeMode`, `ResolvedTheme`, `themeModes`, `normalizeThemeMode`, `syncThemeMode` and the test helpers from `@ozwasyd/element-plus/theme` instead of declaring Blog-local equivalents.
 
-Single-purpose adapters such as `motion.ts` may live here when they import FsusUI runtime APIs directly. Add them to `index.ts` only when they are intended as general Blog adapter API; otherwise import them explicitly from call sites.
+Single-purpose adapters such as `blogMotion.ts` may live here when they carry Blog-owned surface mappings (e.g. `FsusBlogMotionSurface` → preset name) on top of FsusUI types. The FsusUI motion runtime itself (`FsuMotion`, `vMotion`, `useScrollReveal`, `runMotion`, motion types) is imported directly from `@ozwasyd/element-plus/motion`; `FsusPerceptionChallenge` and the perception-challenge types come from `@ozwasyd/element-plus/perception-challenge`. Do not re-export FsusUI runtime APIs from `@/fsusui/*` adapters — keep the adapter layer for Blog-only mappings. Add new adapters to `index.ts` only when they are intended as general Blog adapter API; otherwise import them explicitly from call sites.
 
 ## Blog Shells
 

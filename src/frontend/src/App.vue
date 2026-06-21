@@ -11,13 +11,13 @@ import { runtimePhase, runtimeReady } from '@/bootstrap/runtimeGate'
 import { isPublicShellRouteName } from '@/public-renderers/publicPageModel'
 import { useThemeRuntime } from '@/services/themeRuntime'
 import { FSUSBLOG_RENDER_PIPELINE_CONFIG } from '@/fsusui/renderPipeline'
+import { fsusBlogMotionPresets } from '@/fsusui/blogMotion'
 import {
   FsuTransition,
-  fsusBlogMotionPresets,
   runMotion,
   useMotionRouteCleanup,
   type MotionPhase
-} from '@/fsusui/motion'
+} from '@ozwasyd/element-plus/motion'
 
 const router = useRouter()
 const route = useRoute()

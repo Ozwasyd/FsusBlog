@@ -24,7 +24,7 @@
 import { computed } from 'vue';
 import type { TagTone, TagVariant } from '@/ui-contracts/primitives';
 import { toFsusUiTagEffect, toFsusUiTagType } from '@/fsusui/primitiveAdapters';
-import { fsusBlogMotionPresets } from '@/fsusui/motion';
+import { fsusBlogMotionPresets } from '@/fsusui/blogMotion';
 
 const props = withDefaults(defineProps<{
   label?: string;

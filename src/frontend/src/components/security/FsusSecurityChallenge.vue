@@ -114,7 +114,7 @@ import {
   type SecurityChallengeVerifyResponse,
   type VerifySecurityChallengeRequest
 } from '@/api/security'
-import { FsusPerceptionChallenge, type PerceptionChallengeVerifyResult } from '@/fsusui/perceptionChallenge'
+import { FsusPerceptionChallenge, type PerceptionChallengeVerifyResult } from '@ozwasyd/element-plus/perception-challenge'
 import FsusCaptchaChallenge from './FsusCaptchaChallenge.vue'
 import FsusPasskeyStepUpChallenge from './FsusPasskeyStepUpChallenge.vue'
 import FsusPoSpaceChallenge from './FsusPoSpaceChallenge.vue'

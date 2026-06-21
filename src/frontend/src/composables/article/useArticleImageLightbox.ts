@@ -1,5 +1,6 @@
 import { nextTick, onUnmounted, ref, type MaybeRefOrGetter, toValue, watch } from 'vue'
-import { fsusBlogScrollRevealOptions, useScrollReveal } from '@/fsusui/motion'
+import { fsusBlogScrollRevealOptions } from '@/fsusui/blogMotion'
+import { useScrollReveal } from '@ozwasyd/element-plus/motion'
 
 export type ArticleLightboxImage = Readonly<{
   src: string

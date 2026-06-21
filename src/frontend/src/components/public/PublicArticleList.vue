@@ -86,7 +86,8 @@
 <script setup lang="ts">
 import { themeTokens } from '@/ui-tokens/themeTokens';
 import { ArrowRight } from '@/fsusui/icons';
-import { fsusBlogMotionPresets, vMotion } from '@/fsusui/motion';
+import { fsusBlogMotionPresets } from '@/fsusui/blogMotion';
+import { vMotion } from '@ozwasyd/element-plus/motion';
 import type { ArticleListCardViewContract } from '@/view-contracts/articleList';
 import type { PaginationContract } from '@/ui-contracts/primitives';
 

@@ -2,7 +2,8 @@
  * FsusBlog motion governance.
  *
  * Preset enter/leave/reveal motion is owned by FsusUI via
- * src/frontend/src/fsusui/motion.ts. These aliases are reserved for
+ * @ozwasyd/element-plus/motion (see `src/frontend/src/fsusui/blogMotion.ts`
+ * for the Blog-only surface mappings). These CSS aliases are reserved for
  * application state feedback that is not exposed as an FsusUI preset.
  */
 

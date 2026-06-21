@@ -11,13 +11,13 @@ import {
   type VNode,
 } from 'vue'
 import { useRoute } from 'vue-router'
+import { fsusBlogMotionPresets } from '@/fsusui/blogMotion'
 import {
-  fsusBlogMotionPresets,
   runMotion,
   useMotionRouteCleanup,
   type MotionPhase,
   type MotionPresetName,
-} from '@/fsusui/motion'
+} from '@ozwasyd/element-plus/motion'
 
 export default defineComponent({
   name: 'FsusBlogRouteTransition',
