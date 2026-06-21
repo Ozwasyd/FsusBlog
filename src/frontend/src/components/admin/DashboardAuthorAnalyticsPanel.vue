@@ -1,13 +1,17 @@
 <template>
   <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-labelledby="author-analytics-title">
     <header class="border-b border-[var(--fsusblog-panel-border)] px-8 py-6">
-      <DashboardSectionHeader
+      <FsusUiSectionHeader
+        id="author-analytics-title"
         class="dashboard-section-header--flush"
         title="内容与技术表现"
-        title-id="author-analytics-title"
         description="阅读数据、搜索表现与运行状态。"
-        note="仅使用站点运行信号，不采集正文输入或账号敏感字段。"
-      />
+      >
+        <template #description>
+          阅读数据、搜索表现与运行状态。
+          <span class="dashboard-section-note">仅使用站点运行信号，不采集正文输入或账号敏感字段。</span>
+        </template>
+      </FsusUiSectionHeader>
     </header>
 
     <div class="grid grid-cols-1 gap-3 lg:grid-cols-4">
@@ -93,7 +97,7 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h, type PropType } from 'vue'
-import DashboardSectionHeader from '@/components/admin/DashboardSectionHeader.vue'
+import { FsusUiSectionHeader } from '@/fsusui'
 import {
   DashboardDistributionBarRow,
   DashboardDistributionList,

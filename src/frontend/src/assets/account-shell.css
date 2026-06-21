@@ -4,6 +4,20 @@
   font-family: var(--font-sans, "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif);
 }
 
+/* FsusUI ElSectionHeader 自造修饰：保留旧 DashboardSectionHeader 的 flush + note 视觉 */
+.dashboard-section-header--flush {
+  margin-bottom: 0;
+}
+
+.dashboard-section-note {
+  display: block;
+  max-width: 42rem;
+  margin: 0.5rem 0 0;
+  color: var(--fsusblog-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
 .account-shell-panel {
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: var(--fsus-radius-panel);
