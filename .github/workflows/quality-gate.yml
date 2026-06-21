@@ -564,6 +564,7 @@ jobs:
       - run: ./tools/test.sh csrf-browser-matrix --no-deps
       - run: ./tools/test.sh risk-control-test-matrix --no-deps
       - run: ./tools/test.sh perception-v2-test-matrix --no-deps
+      - run: node tools/verify-zk-privacy-matrix.mjs
       - run: ./tools/test.sh privacy-zk-comment-matrix --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
