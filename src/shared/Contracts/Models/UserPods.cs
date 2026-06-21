@@ -50,7 +50,7 @@ public readonly struct CurrentUserSnapshotPod
 public readonly struct IdentityAccountSnapshotPod
 {
     public readonly int AccountId;
-    public readonly int InternalUserId;
+    public readonly int Reserved0;
     public readonly int Status;
     public readonly long DeletedAtUnixMs;
     public readonly byte HasPublicHandle;
@@ -61,7 +61,7 @@ public readonly struct IdentityAccountSnapshotPod
     public readonly byte HasAnonymousCredential;
     public readonly byte HasDeletedAt;
     public readonly byte HasBanReason;
-    public readonly uint Reserved0;
+    public readonly uint Reserved1;
     public readonly Utf8SliceRef PublicHandle;
     public readonly Utf8SliceRef AnonymousCredentialStatus;
     public readonly Utf8SliceRef AnonymousCredentialLevel;
@@ -188,8 +188,8 @@ public readonly struct RecoveryKeyVerifyRequestPod
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct RecoveryKeyVerifyResponsePod
 {
-    public readonly int UserId;
     public readonly int Reserved0;
+    public readonly int Reserved1;
     public readonly long ExpiresAtUnixMs;
     public readonly Utf8Fixed128 RecoverySessionToken;
 }

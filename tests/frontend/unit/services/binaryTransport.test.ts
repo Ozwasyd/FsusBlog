@@ -150,7 +150,6 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('identity-account-snapshot-frame.hex'))
 
     await expect(requestBinaryOnly<{
-      id: number;
       accountId: number;
       identityKind: string;
       publicHandle: string | null;
@@ -165,9 +164,7 @@ describe('binaryTransport ApiError mapping', () => {
       binaryUrl: '/api/binary/auth/me',
       frameType: FrameType.IdentityAccountSnapshot
     })).resolves.toEqual({
-      id: 42,
       accountId: 42,
-      internalUserId: 7,
       identityKind: 'anonymous_account',
       publicHandle: 'Public Alice',
       passkeyEnabled: true,

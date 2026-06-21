@@ -415,6 +415,7 @@ public sealed class AnonymousAccountOutputContractTests
         string[] propertyNames = anonymous.GetType().GetProperties().Select(property => property.Name).ToArray();
         Assert.DoesNotContain("Username", propertyNames);
         Assert.DoesNotContain("Role", propertyNames);
+        Assert.DoesNotContain("InternalUserId", propertyNames);
         Assert.Equal(42, ReadProperty<int>(anonymous, "AccountId"));
         Assert.Equal(AnonymousIdentityRuntime.AnonymousAccountKind, ReadProperty<string>(anonymous, "IdentityKind"));
         Assert.Equal("Public Alice", ReadProperty<string?>(anonymous, "PublicHandle"));

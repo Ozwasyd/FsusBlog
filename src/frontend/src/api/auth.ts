@@ -27,9 +27,7 @@ interface AuthAccountIdentitySnapshot {
 
 /** 当前登录账号容器快照 */
 export interface CurrentUserSnapshot {
-  id: number
   accountId: number
-  internalUserId: number
   identityKind: string
   publicHandle: string | null
   passkeyEnabled: boolean
@@ -88,7 +86,6 @@ export interface RecoveryKeyVerifyRequest {
 }
 
 export interface RecoveryKeyVerifyResponse {
-  userId: number
   expiresAt: string
   recoverySessionToken: string
 }

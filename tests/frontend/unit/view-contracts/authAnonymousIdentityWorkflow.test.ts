@@ -119,6 +119,8 @@ describe('anonymous identity auth workflow contract', () => {
     expect(authApi).toContain('FrameType.AuthAnonymousBootstrapRequest')
     expect(authAdapter).toContain('mapRecoveryKeyCreateResponseFromPayload')
     expect(authAdapter).toContain('mapRecoveryKeyVerifyResponseFromPayload')
+    expect(authApi).not.toMatch(/export interface RecoveryKeyVerifyResponse \{[\s\S]*?userId[\s\S]*?\n\}/u)
+    expect(authAdapter).not.toContain('const userId = readInt32(payload, 0)')
     expect(binaryIndex).toContain('[FrameType.RecoveryKeyCreateResponse]: mapRecoveryKeyCreateResponseFromPayload')
     expect(binaryIndex).toContain('[FrameType.RecoveryKeyVerifyResponse]: mapRecoveryKeyVerifyResponseFromPayload')
   })

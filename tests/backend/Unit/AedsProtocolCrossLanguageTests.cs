@@ -155,7 +155,6 @@ public sealed partial class AedsProtocolCrossLanguageTests
         var deletedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
         var snapshot = new IdentityAccountSnapshotCoreModel(
             AccountId: 42,
-            InternalUserId: 7,
             PublicHandle: "Public Alice",
             PasskeyEnabled: true,
             RecoveryEnabled: true,

@@ -116,7 +116,7 @@ public static partial class PodBinaryCodec
         var mutable = new MutableIdentityAccountSnapshotPod
         {
             AccountId = snapshot.AccountId,
-            InternalUserId = snapshot.InternalUserId,
+            Reserved0 = 0,
             Status = snapshot.Status,
             DeletedAtUnixMs = snapshot.DeletedAt.HasValue ? PodTimeCodec.ToUnixMs(snapshot.DeletedAt.Value) : 0,
             HasPublicHandle = hasPublicHandle ? (byte)1 : (byte)0,
@@ -127,7 +127,7 @@ public static partial class PodBinaryCodec
             HasAnonymousCredential = hasAnonymousCredential ? (byte)1 : (byte)0,
             HasDeletedAt = snapshot.DeletedAt.HasValue ? (byte)1 : (byte)0,
             HasBanReason = hasBanReason ? (byte)1 : (byte)0,
-            Reserved0 = 0,
+            Reserved1 = 0,
             PublicHandle = PodUtf8Codec.AppendSlice(hasPublicHandle ? snapshot.PublicHandle : string.Empty, payload),
             AnonymousCredentialStatus = PodUtf8Codec.AppendSlice(hasAnonymousCredential ? snapshot.AnonymousCredentialStatus : string.Empty, payload),
             AnonymousCredentialLevel = PodUtf8Codec.AppendSlice(hasAnonymousCredential ? snapshot.AnonymousCredentialLevel ?? string.Empty : string.Empty, payload),
@@ -164,7 +164,6 @@ public static partial class PodBinaryCodec
         string identityKind = NormalizeIdentityKind(NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.IdentityKind, payload)));
         snapshot = new IdentityAccountSnapshotCoreModel(
             pod.AccountId,
-            pod.InternalUserId,
             pod.HasPublicHandle == 1 ? PodProjector.ReadSlice(pod.PublicHandle, payload) : null,
             pod.PasskeyEnabled == 1,
             pod.RecoveryEnabled == 1,
@@ -597,8 +596,8 @@ public static partial class PodBinaryCodec
     {
         var mutable = new MutableRecoveryKeyVerifyResponsePod
         {
-            UserId = response.UserId,
             Reserved0 = 0,
+            Reserved1 = 0,
             ExpiresAtUnixMs = PodTimeCodec.ToUnixMs(response.ExpiresAt),
             RecoverySessionToken = PodUtf8Codec.ToFixed128(response.RecoverySessionToken)
         };
@@ -610,15 +609,21 @@ public static partial class PodBinaryCodec
     public static bool TryDecodeRecoveryKeyVerifyResponse(ReadOnlyMemory<byte> source, out RecoveryKeyVerifyResponseCoreModel response)
     {
         var reader = new BinaryPodReader(source.Span);
-        if (!reader.TryReadPod(out RecoveryKeyVerifyResponsePod pod) || pod.UserId <= 0)
+        if (!reader.TryReadPod(out RecoveryKeyVerifyResponsePod pod))
+        {
+            response = default;
+            return false;
+        }
+
+        string recoverySessionToken = PodUtf8Codec.FromFixed128(pod.RecoverySessionToken);
+        if (string.IsNullOrWhiteSpace(recoverySessionToken))
         {
             response = default;
             return false;
         }
 
         response = new RecoveryKeyVerifyResponseCoreModel(
-            pod.UserId,
-            PodUtf8Codec.FromFixed128(pod.RecoverySessionToken),
+            recoverySessionToken,
             PodTimeCodec.FromUnixMs(pod.ExpiresAtUnixMs));
         return reader.IsConsumed;
     }
@@ -881,7 +886,7 @@ public static partial class PodBinaryCodec
     private struct MutableIdentityAccountSnapshotPod
     {
         public int AccountId;
-        public int InternalUserId;
+        public int Reserved0;
         public int Status;
         public long DeletedAtUnixMs;
         public byte HasPublicHandle;
@@ -892,7 +897,7 @@ public static partial class PodBinaryCodec
         public byte HasAnonymousCredential;
         public byte HasDeletedAt;
         public byte HasBanReason;
-        public uint Reserved0;
+        public uint Reserved1;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef PublicHandle;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef AnonymousCredentialStatus;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef AnonymousCredentialLevel;
@@ -1019,8 +1024,8 @@ public static partial class PodBinaryCodec
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableRecoveryKeyVerifyResponsePod
     {
-        public int UserId;
         public int Reserved0;
+        public int Reserved1;
         public long ExpiresAtUnixMs;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 RecoverySessionToken;
     }

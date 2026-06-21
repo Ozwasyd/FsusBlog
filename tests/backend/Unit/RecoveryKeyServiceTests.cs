@@ -122,15 +122,31 @@ public sealed class RecoveryKeyServiceTests
             codec,
             "private struct MutableRecoveryKeyVerifyRequestPod",
             "[StructLayout(LayoutKind.Sequential, Pack = 1)]\n    private struct MutableRecoveryKeyVerifyResponsePod");
+        string responsePod = ExtractBetween(
+            userPods,
+            "public readonly struct RecoveryKeyVerifyResponsePod",
+            "[StructLayout(LayoutKind.Sequential, Pack = 1)]\npublic readonly struct AuthAnonymousBootstrapRequestPod");
+        string mutableResponsePod = ExtractBetween(
+            codec,
+            "private struct MutableRecoveryKeyVerifyResponsePod",
+            "private struct MutableAuthAnonymousBootstrapRequestPod");
+        string responseWriter = ExtractMethodBlock(codec, "public static void WriteRecoveryKeyVerifyResponse");
+        string responseReader = ExtractMethodBlock(codec, "public static bool TryDecodeRecoveryKeyVerifyResponse");
         string verifyHandler = ExtractBetween(
             endpoints,
             "group.MapPost(\"/auth/recovery-key/verify\"",
             "group.MapPost(\"/auth/recovery-key/passkey/register/begin\"");
 
         Assert.Contains("RecoveryKeyVerifyRequestCoreModel(string RecoveryKey, bool RevokeSessions, bool RevokePasskeys)", models, StringComparison.Ordinal);
+        Assert.Contains("RecoveryKeyVerifyResponseCoreModel(string RecoverySessionToken, DateTime ExpiresAt)", models, StringComparison.Ordinal);
         Assert.DoesNotContain("RecoveryKeyVerifyRequestCoreModel(int UserId", models, StringComparison.Ordinal);
+        Assert.DoesNotContain("RecoveryKeyVerifyResponseCoreModel(int UserId", models, StringComparison.Ordinal);
         Assert.DoesNotContain("UserId", requestPod, StringComparison.Ordinal);
         Assert.DoesNotContain("UserId", mutableRequestPod, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserId", responsePod, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserId", mutableResponsePod, StringComparison.Ordinal);
+        Assert.DoesNotContain("response.UserId", responseWriter, StringComparison.Ordinal);
+        Assert.DoesNotContain("pod.UserId", responseReader, StringComparison.Ordinal);
         Assert.DoesNotContain("request.UserId", verifyHandler, StringComparison.Ordinal);
     }
 

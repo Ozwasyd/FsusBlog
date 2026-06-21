@@ -50,7 +50,6 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
             CancellationToken.None);
 
         Assert.True(verified.IsSuccess);
-        Assert.Equal(userId, verified.Value.UserId);
         Assert.False(string.IsNullOrWhiteSpace(verified.Value.RecoverySessionToken));
 
         RecoveryKeyCredential consumedKey = await db.Queryable<RecoveryKeyCredential>().SingleAsync(k => k.UserId == userId);

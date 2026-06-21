@@ -43,7 +43,7 @@ function buildIdentityAccountSnapshotPayload(): Uint8Array {
 
   const pod = new Uint8Array(72)
   writeInt32(pod, 0, 42)
-  writeInt32(pod, 4, 7)
+  writeInt32(pod, 4, 0)
   writeInt32(pod, 8, 1)
   writeInt64(pod, 12, Date.parse('2026-01-02T03:04:05.000Z'))
   pod[20] = 1
@@ -115,9 +115,7 @@ describe('binary auth adapter', () => {
 
   it('maps anonymous identity account snapshot payload without legacy username or role', () => {
     expect(mapIdentityAccountSnapshotFromPayload(buildIdentityAccountSnapshotPayload())).toEqual({
-      id: 42,
       accountId: 42,
-      internalUserId: 7,
       identityKind: 'anonymous_account',
       publicHandle: 'Public Alice',
       passkeyEnabled: true,

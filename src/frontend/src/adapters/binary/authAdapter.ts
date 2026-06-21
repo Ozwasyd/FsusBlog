@@ -78,9 +78,7 @@ export function mapIdentityAccountSnapshotFromPayload(payload: Uint8Array): Curr
   const optionalText = (value: string): string | null => value.length > 0 ? value : null;
 
   return {
-    id: accountId,
     accountId,
-    internalUserId: readInt32(pod, 4),
     identityKind: optionalText(readSliceText(blob, readSliceRef(pod, 56))) ?? 'anonymous_account',
     publicHandle: hasPublicHandle ? optionalText(readSliceText(blob, readSliceRef(pod, 32))) : null,
     passkeyEnabled: readByte(pod, 21) === 1,
@@ -201,14 +199,12 @@ export function mapRecoveryKeyVerifyResponseFromPayload(payload: Uint8Array): Re
     throw createAppError(AppErrorCode.ProtocolFailure, 'recovery_key_verify_payload_invalid');
   }
 
-  const userId = readInt32(payload, 0);
   const recoverySessionToken = readFixedUtf8(payload, 16, 128);
-  if (userId <= 0 || !recoverySessionToken) {
+  if (!recoverySessionToken) {
     throw createAppError(AppErrorCode.ProtocolFailure, 'recovery_key_verify_response_invalid');
   }
 
   return {
-    userId,
     expiresAt: readIsoDate64(payload, 8),
     recoverySessionToken
   };

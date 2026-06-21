@@ -260,7 +260,6 @@ export function encodeCurrentUserSnapshotFrame({ accountId = 1, identityKind = '
 
 export function encodeIdentityAccountSnapshotFrame({
   accountId = 1,
-  internalUserId = accountId,
   identityKind = 'anonymous_account',
   publicHandle = '',
   passkeyEnabled = false,
@@ -296,7 +295,7 @@ export function encodeIdentityAccountSnapshotFrame({
   const payload = new Uint8Array(IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE + 4 + blobLength)
   const view = new DataView(payload.buffer)
   view.setInt32(0, accountId, true)
-  view.setInt32(4, internalUserId, true)
+  view.setInt32(4, 0, true)
   view.setInt32(8, status, true)
   if (hasDeletedAt) {
     view.setBigInt64(12, BigInt(deletedAt.getTime()), true)
@@ -1360,9 +1359,7 @@ function decodeIdentityAccountSnapshot(payload) {
   const accountId = readInt32(view, 0)
 
   return {
-    id: accountId,
     accountId,
-    internalUserId: readInt32(view, 4),
     identityKind: optionalText(readSliceText(blob, readSliceRef(payload, 56))) ?? 'anonymous_account',
     publicHandle: hasPublicHandle ? optionalText(readSliceText(blob, readSliceRef(payload, 32))) : null,
     passkeyEnabled: readByte(payload, 21) === 1,

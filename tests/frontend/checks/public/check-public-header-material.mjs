@@ -61,7 +61,6 @@ async function installAuthFixture(context, authMode) {
         headers: { 'content-type': 'application/octet-stream' },
         body: Buffer.from(encodeIdentityAccountSnapshotFrame({
           accountId: 1,
-          internalUserId: 1,
           publicHandle: 'header-user',
           identityKind: 'anonymous_account',
           status: 0,

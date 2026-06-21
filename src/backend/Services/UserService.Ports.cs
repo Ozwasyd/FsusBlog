@@ -34,7 +34,6 @@ public sealed class UserAccountReader(UserService users) : IUserAccountReader
     internal static IdentityAccountSnapshotCoreModel ToAnonymousAccountSnapshot(UserAccountSnapshot account)
         => new(
             AccountId: account.Id,
-            InternalUserId: account.Id,
             PublicHandle: string.IsNullOrWhiteSpace(account.PublicHandle) ? null : account.PublicHandle,
             PasskeyEnabled: account.PasskeyEnabled,
             RecoveryEnabled: account.RecoveryEnabled,

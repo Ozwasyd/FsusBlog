@@ -505,6 +505,32 @@ export const messageApi = {
     }
   },
   {
+    name: 'legacy anonymous identity frontend id contract',
+    expected: 'legacy anonymous identity frontend id contract residue detected',
+    files: {
+      'src/frontend/src/api/auth.ts': `
+export interface CurrentUserSnapshot {
+  accountId: number
+  internalUserId: number
+}
+
+export interface RecoveryKeyVerifyResponse {
+  userId: number
+  recoverySessionToken: string
+}
+`,
+      'src/frontend/src/adapters/binary/authAdapter.ts': `
+export function mapRecoveryKeyVerifyResponseFromPayload(payload: Uint8Array) {
+  const userId = readInt32(payload, 0)
+  return { userId }
+}
+`,
+      'src/frontend/src/views/user/IdentityCenter.vue': `
+const accountId = user?.id ?? 0
+`
+    }
+  },
+  {
     name: 'human-read visit user binding',
     expected: 'human-read visit user-bound residue detected',
     files: {

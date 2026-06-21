@@ -75,7 +75,6 @@ public readonly record struct UserCommentCoreModel(
 
 public readonly record struct IdentityAccountSnapshotCoreModel(
     int AccountId,
-    int InternalUserId,
     string? PublicHandle,
     bool PasskeyEnabled,
     bool RecoveryEnabled,
@@ -253,7 +252,7 @@ public readonly record struct RecoveryKeyCreateResponseCoreModel(string Recovery
 
 public readonly record struct RecoveryKeyVerifyRequestCoreModel(string RecoveryKey, bool RevokeSessions, bool RevokePasskeys);
 
-public readonly record struct RecoveryKeyVerifyResponseCoreModel(int UserId, string RecoverySessionToken, DateTime ExpiresAt);
+public readonly record struct RecoveryKeyVerifyResponseCoreModel(string RecoverySessionToken, DateTime ExpiresAt);
 
 public readonly record struct ConversationCreateRequestCoreModel(string Subject, string Body);
 

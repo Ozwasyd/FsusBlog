@@ -181,9 +181,7 @@ describe('useUserStore', () => {
 
 function anonymousUser(id: number) {
   return {
-    id,
     accountId: id,
-    internalUserId: id,
     identityKind: 'anonymous_account',
     publicHandle: `public-${id}`,
     passkeyEnabled: true,

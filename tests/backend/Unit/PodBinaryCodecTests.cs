@@ -564,10 +564,9 @@ public class PodBinaryCodecTests
         Assert.True(requestDecoded.RevokePasskeys);
 
         var expiresAt = createdAt.AddMinutes(10);
-        var response = new RecoveryKeyVerifyResponseCoreModel(42, "recovery-session-token", expiresAt);
+        var response = new RecoveryKeyVerifyResponseCoreModel("recovery-session-token", expiresAt);
         byte[] responseEncoded = EncodeWithWriter(writer => PodBinaryCodec.WriteRecoveryKeyVerifyResponse(response, writer));
         Assert.True(PodBinaryCodec.TryDecodeRecoveryKeyVerifyResponse(responseEncoded, out var responseDecoded));
-        Assert.Equal(42, responseDecoded.UserId);
         Assert.Equal("recovery-session-token", responseDecoded.RecoverySessionToken);
         Assert.Equal(expiresAt, responseDecoded.ExpiresAt);
     }
@@ -923,7 +922,6 @@ public class PodBinaryCodecTests
         var deletedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
         var snapshot = new IdentityAccountSnapshotCoreModel(
             AccountId: 42,
-            InternalUserId: 7,
             PublicHandle: "alice",
             PasskeyEnabled: true,
             RecoveryEnabled: true,
@@ -940,7 +938,6 @@ public class PodBinaryCodecTests
 
         Assert.True(ok);
         Assert.Equal(42, decoded.AccountId);
-        Assert.Equal(7, decoded.InternalUserId);
         Assert.Equal("alice", decoded.PublicHandle);
         Assert.True(decoded.PasskeyEnabled);
         Assert.True(decoded.RecoveryEnabled);

@@ -146,7 +146,6 @@ async function installAuthFixture(context, cell, authGate) {
         headers: { 'content-type': 'application/octet-stream' },
         body: Buffer.from(encodeIdentityAccountSnapshotFrame({
           accountId: cell.sessionState === 'admin' ? 9001 : 9002,
-          internalUserId: cell.sessionState === 'admin' ? 9001 : 9002,
           publicHandle: `browser-env-${cell.sessionState}`,
           identityKind: 'anonymous_account',
           status: 0,

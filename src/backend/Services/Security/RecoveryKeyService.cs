@@ -126,7 +126,7 @@ public sealed class RecoveryKeyService(
             cancellationToken).ConfigureAwait(false);
 
         return Result<RecoveryKeyVerifyResponseCoreModel>.Success(
-            new RecoveryKeyVerifyResponseCoreModel(credential.UserId, token, expiresAt));
+            new RecoveryKeyVerifyResponseCoreModel(token, expiresAt));
     }
 
     public async Task<Result<RecoveryKeySession>> GetRecoverySessionAsync(string token, CancellationToken cancellationToken = default)

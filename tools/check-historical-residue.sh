@@ -342,6 +342,13 @@ run_residue_check \
   src/frontend/src
 
 run_residue_check \
+  "legacy anonymous identity frontend id contract" \
+  "legacy anonymous identity frontend id contract residue detected" \
+  'internalUserId|InternalUserId|export[[:space:]]+interface[[:space:]]+RecoveryKeyVerifyResponse[[:space:]]*\{[^}]*userId|const[[:space:]]+userId[[:space:]]*=[[:space:]]*readInt32[(]payload,[[:space:]]*0[)]|user[?][.]id' \
+  "" \
+  src/core/Mapping/Models/ReadModels.cs src/shared/Contracts/Models/UserPods.cs src/backend/Services/UserService.Ports.cs src/core/Cache/PodBinaryCodec.User.cs src/frontend/src/api/auth.ts src/frontend/src/adapters/binary/authAdapter.ts src/frontend/src/views/user/IdentityCenter.vue
+
+run_residue_check \
   "human-read visit user binding" \
   "human-read visit user-bound residue detected" \
   'context[.]GetUserId[(][)]|VisitLogMessage[(][^;\n]*UserId|msg[.]UserId|public[[:space:]]+int[?][[:space:]]+UserId\b|new[[:space:]]+VisitLog[[:space:]]*[{][^}]*UserId[[:space:]]*=|\bRegisteredVisits\b|\bAnonymousVisits\b|registeredVisits|anonymousVisits|v[.]UserId' \

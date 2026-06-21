@@ -169,9 +169,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.frameType).toBe(FrameType.IdentityAccountSnapshot)
     expect(result.payloadView.byteLength).toBe(72 + 4 + 58)
     expect(mapIdentityAccountSnapshotFromPayload(result.payloadView)).toEqual({
-      id: 42,
       accountId: 42,
-      internalUserId: 7,
       identityKind: 'anonymous_account',
       publicHandle: 'Public Alice',
       passkeyEnabled: true,

@@ -4,6 +4,11 @@ import { describe, expect, it } from 'vitest'
 
 const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
 const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
+const interfaceBlock = (source: string, name: string): string => {
+  const match = new RegExp(`export interface ${name} \\{[\\s\\S]*?\\n\\}`, 'u').exec(source)
+  expect(match).toBeTruthy()
+  return match?.[0] ?? ''
+}
 
 describe('anonymous account output workflow contract', () => {
   const authApi = readRepoFile('src/frontend/src/api/auth.ts')
@@ -35,6 +40,11 @@ describe('anonymous account output workflow contract', () => {
     expect(authApi).not.toMatch(/export interface MfaChallengeResult[\s\S]*role: string/u)
     expect(authApi).not.toMatch(/export interface CurrentUserSnapshot[\s\S]*username: string/u)
     expect(authApi).not.toMatch(/export interface CurrentUserSnapshot[\s\S]*role: string/u)
+    const currentUserSnapshot = interfaceBlock(authApi, 'CurrentUserSnapshot')
+    expect(currentUserSnapshot).not.toContain('id: number')
+    expect(currentUserSnapshot).not.toContain('internalUserId')
+    expect(authAdapter).not.toContain('internalUserId')
+    expect(identityCenter).not.toContain('user?.id')
     expect(authApi).toContain('frameType: FrameType.IdentityAccountSnapshot')
     expect(authApi).not.toContain("binaryUrl: '/api/binary/auth/me',\n    frameType: FrameType.CurrentUserSnapshot")
 
