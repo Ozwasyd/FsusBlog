@@ -122,6 +122,11 @@ public sealed class BinaryTransportHotPathContractTests
         Assert.DoesNotContain("\"path\": \"/auth/register\"", matrix, StringComparison.Ordinal);
         Assert.DoesNotContain("AuthLoginRequest", golden, StringComparison.Ordinal);
         Assert.DoesNotContain("AuthRegisterRequest", golden, StringComparison.Ordinal);
+        Assert.DoesNotContain("AuthUpdatePasswordRequest", golden, StringComparison.Ordinal);
+        Assert.Contains("\"value\": 43, \"reason\": \"legacy-password-login\"", golden, StringComparison.Ordinal);
+        Assert.Contains("\"value\": 44, \"reason\": \"legacy-password-register\"", golden, StringComparison.Ordinal);
+        Assert.Contains("\"value\": 45, \"reason\": \"legacy-username-mutation\"", golden, StringComparison.Ordinal);
+        Assert.Contains("\"value\": 46, \"reason\": \"legacy-password-mutation\"", golden, StringComparison.Ordinal);
     }
 
     [Fact]

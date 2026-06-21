@@ -134,9 +134,9 @@ run_residue_check \
 run_residue_check \
   "legacy password auth protocol frames" \
   "legacy password auth protocol frame residue detected" \
-  '\b(?:AuthLoginRequest|AuthRegisterRequest|AuthUpdateUsernameRequest|AuthUpdatePasswordRequest|encodeAuthLoginRequest|encodeAuthRegisterRequest|encodeAuthUpdatePasswordRequest)\b|encodeStringMutationRequest[(]data[.]newUsername[)]' \
+  '\bAuth(?:Login|Register|UpdatePassword|UpdateUsername)Request(?:Pod|CoreModel)?\b|\b(?:Write|Encode|TryDecode)Auth(?:Login|Register|UpdatePassword)Request\b|\bencodeAuth(?:Login|Register|UpdatePassword)Request\b|encodeStringMutationRequest[(]\s*data[.]newUsername\s*[)]' \
   "" \
-  src/shared/Contracts/Validation/aeds-protocol.json src/shared/Contracts/Validation/fsusblog.openapi.json src/core/Algorithms/AedsFrameType.cs src/shared/AedsFrameHeader.cs src/frontend/wasm/web/protocol/frame.ts src/core/Cache/PodBinaryCodec.User.cs src/frontend/src/api/auth.ts tests/backend/Fixtures/aeds-golden-catalog.json tests/frontend/fixtures/cross-stack-contract-matrix.json tests/frontend/fixtures/cross-stack-contract-matrix.generated.json tools/contracts
+  src/shared/Contracts/Validation/aeds-protocol.json src/shared/Contracts/Validation/fsusblog.openapi.json src/core/Algorithms/AedsFrameType.cs src/shared/AedsFrameHeader.cs src/frontend/wasm/web/protocol/frame.ts src/shared/Contracts/Models/UserPods.cs src/shared/Contracts/Validation/PodContractValidation.cs src/shared/Contracts/Validation/PodSizeCatalog.cs src/core/Mapping/Models/ReadModels.cs src/core/Cache/PodBinaryCodec.User.cs src/frontend/src/api/auth.ts tests/backend/Fixtures/aeds-golden-catalog.json tests/frontend/fixtures/cross-stack-contract-matrix.json tests/frontend/fixtures/cross-stack-contract-matrix.generated.json tools/contracts
 
 run_residue_check \
   "passkey sensitive frontend logs" \

@@ -705,24 +705,6 @@ function encodeAcceptancePowProofHeader(payload: {
   return Buffer.from(bytes).toString('base64')
 }
 
-function encodeAcceptanceAuthLoginRequest(username: string, password: string, rememberMe: boolean): Uint8Array {
-  const usernameBytes = ACCEPTANCE_UTF8_ENCODER.encode(username)
-  const passwordBytes = ACCEPTANCE_UTF8_ENCODER.encode(password)
-  const blobLength = usernameBytes.byteLength + passwordBytes.byteLength
-  const bytes = new Uint8Array(24 + blobLength)
-  const view = new DataView(bytes.buffer)
-  bytes[0] = rememberMe ? 1 : 0
-  view.setUint16(2, 0, true)
-  view.setInt32(4, 0, true)
-  view.setInt32(8, usernameBytes.byteLength, true)
-  view.setInt32(12, usernameBytes.byteLength, true)
-  view.setInt32(16, passwordBytes.byteLength, true)
-  view.setInt32(20, blobLength, true)
-  bytes.set(usernameBytes, 24)
-  bytes.set(passwordBytes, 24 + usernameBytes.byteLength)
-  return bytes
-}
-
 function readAcceptanceFixedUtf8(bytes: Uint8Array, offset: number, length: number): string {
   const slice = bytes.subarray(offset, offset + length)
   const end = slice.indexOf(0)
@@ -767,36 +749,9 @@ function normalizeRequestHeaders(headers: HeadersInit | undefined): Record<strin
 }
 
 async function loginViaApi(username: string, password: string) {
-  const deviceFingerprint = nextAcceptanceId('login-fp')
-  const powHeaders = await buildAcceptancePowHeaders(deviceFingerprint)
-  const response = await fetch(`${acceptanceBackendUrl}/api/binary/auth/login`, withAcceptanceSessionHeaders({
-    method: 'POST',
-    headers: {
-      Accept: AEDS_BINARY_MEDIA_TYPE,
-      'Content-Type': AEDS_BINARY_MEDIA_TYPE,
-      ...powHeaders
-    },
-    body: encodeAedsFrame(FrameType.AuthLoginRequest, encodeAcceptanceAuthLoginRequest(username, password, false))
-  }))
-
-  const payload = await readAcceptanceBinaryResponse(response).catch(() => ({}))
-  if (!response.ok) {
-    const message = payload?.message ?? payload?.Message ?? `status ${response.status}`
-    throw new Error(`acceptance login failed: ${message}`)
-  }
-
-  const setCookies = typeof response.headers.getSetCookie === 'function'
-    ? response.headers.getSetCookie()
-    : []
-
-  if (!setCookies.length) {
-    throw new Error('acceptance login did not return auth cookies')
-  }
-
-  const baseUrl = new URL(acceptanceBackendUrl)
-  return setCookies
-    .map((header) => parseSetCookie(header, baseUrl.hostname))
-    .filter((cookie): cookie is NonNullable<typeof cookie> => Boolean(cookie))
+  void username
+  void password
+  throw new Error('acceptance password login is retired; use admin passkey/session fixture injection')
 }
 
 function parseSetCookie(header: string, hostname: string) {

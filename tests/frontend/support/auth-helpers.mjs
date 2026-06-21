@@ -7,9 +7,6 @@ import {
   encodeAdminChangeStatusRequest,
   encodeAedsFrame,
   encodeArticleWriteRequest,
-  encodeAuthLoginRequest,
-  encodeAuthRegisterRequest,
-  encodeAuthUpdatePasswordRequest,
   encodeCommentCreateV2Request,
   encodeConversationCreateRequest,
   encodeConversationStatusRequest,
@@ -29,8 +26,6 @@ import { fetchWithTimeout, parseTimeoutMs } from './http.mjs';
 
 export const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568';
 export const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000);
-const FRAME_AUTH_LOGIN_REQUEST = 43;
-const FRAME_AUTH_REGISTER_REQUEST = 44;
 const FRAME_CATEGORY_WRITE_REQUEST = 33;
 const FRAME_TAG_WRITE_REQUEST = 34;
 const FRAME_ARTICLE_WRITE_REQUEST = 41;
@@ -43,7 +38,6 @@ const FRAME_SEO_CONFIG_UPDATE_REQUEST = 35;
 const FRAME_PAGE_CONTENT_UPDATE_REQUEST = 36;
 const FRAME_COMMENT_CREATE_V2_REQUEST = 166;
 const FRAME_ADMIN_CHANGE_USER_STATUS_REQUEST = 39;
-const FRAME_AUTH_UPDATE_PASSWORD_REQUEST = 46;
 const FRAME_MFA_SETUP_VERIFY_REQUEST = 52;
 const FRAME_MFA_CHALLENGE_START_REQUEST = 54;
 const FRAME_MFA_CHALLENGE_VERIFY_REQUEST = 55;
@@ -354,59 +348,20 @@ export function extractSessionId(cookieMap) {
 }
 
 export async function loginWithPow(username, password, rememberMe, deviceFingerprint, timeoutMs = requestTimeoutMs) {
-  const powHeaders = await buildPowHeaders(deviceFingerprint, timeoutMs);
-  const response = await fetchWithTimeout(`${baseUrl}/api/binary/auth/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/octet-stream',
-      Accept: 'application/octet-stream',
-      ...powHeaders
-    },
-    body: encodeAedsFrame(FRAME_AUTH_LOGIN_REQUEST, encodeAuthLoginRequest({ username, password, rememberMe }))
-  }, timeoutMs);
-
-  const payload = await readAedsResponse(response).catch(() => null);
-  assert(response.ok, `login failed: ${response.status}`);
-  const setCookies = response.headers.getSetCookie();
-  assert(setCookies.length > 0, 'missing set-cookie in login response');
-  const cookieMap = parseCookies(setCookies);
-  const sessionId = extractSessionId(cookieMap);
-  assert(sessionId, 'missing session id cookie in login response');
-
-  return {
-    cookieMap,
-    cookieHeader: toCookieHeader(cookieMap),
-    sessionId,
-    payload
-  };
+  void username;
+  void password;
+  void rememberMe;
+  void deviceFingerprint;
+  void timeoutMs;
+  throw new Error('password login is retired; use passkey/session fixture injection');
 }
 
 export async function registerWithPow(username, password, deviceFingerprint, timeoutMs = requestTimeoutMs) {
-  const powHeaders = await buildPowHeaders(deviceFingerprint, timeoutMs);
-  const response = await fetchWithTimeout(`${baseUrl}/api/binary/auth/register`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/octet-stream',
-      Accept: 'application/octet-stream',
-      ...powHeaders
-    },
-    body: encodeAedsFrame(FRAME_AUTH_REGISTER_REQUEST, encodeAuthRegisterRequest({ username, password, confirmPassword: password }))
-  }, timeoutMs);
-
-  const payload = await readAedsResponse(response).catch(() => null);
-  assert(response.ok, `register failed: ${response.status}`);
-  const setCookies = response.headers.getSetCookie();
-  assert(setCookies.length > 0, 'missing set-cookie in register response');
-  const cookieMap = parseCookies(setCookies);
-  const sessionId = extractSessionId(cookieMap);
-  assert(sessionId, 'missing session id cookie in register response');
-
-  return {
-    cookieMap,
-    cookieHeader: toCookieHeader(cookieMap),
-    sessionId,
-    payload
-  };
+  void username;
+  void password;
+  void deviceFingerprint;
+  void timeoutMs;
+  throw new Error('password registration is retired; use anonymous bootstrap + passkey fixture flow');
 }
 
 export async function authBinary(path, { method = 'GET', cookieHeader, deviceFingerprint, body, requiresPow = false, headers = {}, timeoutMs = requestTimeoutMs } = {}) {
@@ -473,11 +428,11 @@ function encodeOptionalBody(path, body) {
   }
 
   if (path.endsWith('/login')) {
-    return encodeAedsFrame(FRAME_AUTH_LOGIN_REQUEST, encodeAuthLoginRequest(body));
+    throw new Error('password login frame is retired');
   }
 
   if (path.endsWith('/register')) {
-    return encodeAedsFrame(FRAME_AUTH_REGISTER_REQUEST, encodeAuthRegisterRequest(body));
+    throw new Error('password register frame is retired');
   }
 
   if (path.endsWith('/upload/init')) {
@@ -513,7 +468,7 @@ function encodeOptionalBody(path, body) {
   }
 
   if (path.endsWith('/update-password')) {
-    return encodeAedsFrame(FRAME_AUTH_UPDATE_PASSWORD_REQUEST, encodeAuthUpdatePasswordRequest(body));
+    throw new Error('password update frame is retired');
   }
 
   if (path.endsWith('/System/seo')) {

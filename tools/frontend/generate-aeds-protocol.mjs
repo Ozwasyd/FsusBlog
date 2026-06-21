@@ -8,6 +8,7 @@ const checkOnly = process.argv.includes('--check')
 
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
 const frameTypes = manifest.frameTypes
+const retiredFrameValues = manifest.retiredFrameValues ?? []
 
 if (!Number.isInteger(manifest.schemaVersion) || manifest.schemaVersion < 1) {
   throw new Error('aeds-protocol.json schemaVersion must be a positive integer')
@@ -15,6 +16,20 @@ if (!Number.isInteger(manifest.schemaVersion) || manifest.schemaVersion < 1) {
 
 const names = new Set()
 const values = new Set()
+const retiredValues = new Set()
+for (const retired of retiredFrameValues) {
+  if (!Number.isInteger(retired.value) || retired.value < 0 || retired.value > 0xffff) {
+    throw new Error(`Invalid retired frame value: ${retired.value}`)
+  }
+  if (typeof retired.reason !== 'string' || retired.reason.trim().length === 0) {
+    throw new Error(`Retired frame ${retired.value} must include a reason`)
+  }
+  if (retiredValues.has(retired.value)) {
+    throw new Error(`Duplicate retired frame value: ${retired.value}`)
+  }
+  retiredValues.add(retired.value)
+}
+
 for (const frame of frameTypes) {
   if (!/^[A-Z][A-Za-z0-9]*$/.test(frame.name)) {
     throw new Error(`Invalid frame type name: ${frame.name}`)
@@ -27,6 +42,9 @@ for (const frame of frameTypes) {
   }
   if (values.has(frame.value)) {
     throw new Error(`Duplicate frame type value: ${frame.value}`)
+  }
+  if (retiredValues.has(frame.value)) {
+    throw new Error(`Frame type ${frame.name} reuses retired value ${frame.value}`)
   }
   names.add(frame.name)
   values.add(frame.value)

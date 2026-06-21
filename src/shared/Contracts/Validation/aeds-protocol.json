@@ -5,6 +5,12 @@
     "magic": "0x53444541",
     "version": 2
   },
+  "retiredFrameValues": [
+    { "value": 43, "reason": "legacy-password-login" },
+    { "value": 44, "reason": "legacy-password-register" },
+    { "value": 45, "reason": "legacy-username-mutation" },
+    { "value": 46, "reason": "legacy-password-mutation" }
+  ],
   "anonymousPrivacyContract": {
     "circuitId": "fsus.anonymous.comment.v2",
     "publicInputLayoutVersion": 3,

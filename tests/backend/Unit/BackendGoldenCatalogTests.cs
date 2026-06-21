@@ -44,6 +44,31 @@ public sealed class BackendGoldenCatalogTests
     }
 
     [Fact]
+    public void AedsGoldenCatalog_ProtectsRetiredLegacyAuthFrameValues()
+    {
+        JsonObject catalog = ReadGoldenCatalog();
+        JsonArray frames = catalog["frames"]!.AsArray();
+        JsonArray retiredFrames = catalog["retiredFrameValues"]!.AsArray();
+        var activeValues = frames
+            .Select(static node => node!["value"]!.GetValue<int>())
+            .ToHashSet();
+        var retiredValues = retiredFrames
+            .Select(static node => node!["value"]!.GetValue<int>())
+            .ToHashSet();
+
+        Assert.True(retiredValues.SetEquals([43, 44, 45, 46]));
+        foreach (int retired in retiredValues)
+        {
+            Assert.DoesNotContain(retired, activeValues);
+        }
+
+        foreach (JsonObject retired in retiredFrames.Select(static node => node!.AsObject()))
+        {
+            Assert.False(string.IsNullOrWhiteSpace(retired["reason"]!.GetValue<string>()));
+        }
+    }
+
+    [Fact]
     public void AedsGoldenCatalog_DefaultEvidencePathsExist()
     {
         JsonArray evidence = ReadGoldenCatalog()["defaultEvidence"]!.AsArray();

@@ -5,6 +5,12 @@
     "tests/backend/Unit/BackendGoldenCatalogTests.cs",
     "tests/backend/Unit/PodBinaryCodecTests.cs"
   ],
+  "retiredFrameValues": [
+    { "value": 43, "reason": "legacy-password-login" },
+    { "value": 44, "reason": "legacy-password-register" },
+    { "value": 45, "reason": "legacy-username-mutation" },
+    { "value": 46, "reason": "legacy-password-mutation" }
+  ],
   "frames": [
     { "name": "Unknown", "value": 0, "family": "reserved" },
     { "name": "ArticleList", "value": 1, "family": "public-article-response" },

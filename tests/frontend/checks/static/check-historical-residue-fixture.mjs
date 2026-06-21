@@ -109,6 +109,8 @@ export function registerWithPassword() {
     files: {
       'src/shared/Contracts/Validation/aeds-protocol.json': `
 {
+  "schemaVersion": 1,
+  "header": { "size": 16, "magic": "0x53444541", "version": 2 },
   "frameTypes": [
     { "name": "AuthLoginRequest", "value": 43 },
     { "name": "AuthRegisterRequest", "value": 44 },

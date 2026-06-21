@@ -230,27 +230,6 @@ export function encodeAedsFrame(frameType, payload) {
   return frame.buffer
 }
 
-export function encodeAuthLoginRequest({ username, password, rememberMe }) {
-  const { bytes, refs, blobLength } = encodeStringBlob([username, password])
-  const view = new DataView(bytes.buffer)
-  bytes[0] = rememberMe ? 1 : 0
-  view.setUint16(2, 0, true)
-  writeSliceRef(view, 4, refs[0])
-  writeSliceRef(view, 12, refs[1])
-  view.setInt32(20, blobLength, true)
-  return bytes
-}
-
-export function encodeAuthRegisterRequest({ username, password, confirmPassword }) {
-  const { bytes, refs, blobLength } = encodeStringBlob([username, password, confirmPassword])
-  const view = new DataView(bytes.buffer)
-  writeSliceRef(view, 0, refs[0])
-  writeSliceRef(view, 8, refs[1])
-  writeSliceRef(view, 16, refs[2])
-  view.setInt32(24, blobLength, true)
-  return bytes
-}
-
 export function encodeAuthAnonymousBootstrapRequest({ publicHandle = '', acceptedGuidelines = true } = {}) {
   const handle = new TextEncoder().encode(publicHandle.trim())
   const bytes = new Uint8Array(16 + handle.byteLength)
@@ -366,16 +345,6 @@ export function encodeStringMutationRequest(value) {
   view.setInt32(4, encoded.byteLength, true)
   view.setInt32(8, encoded.byteLength, true)
   bytes.set(encoded, 12)
-  return bytes
-}
-
-export function encodeAuthUpdatePasswordRequest(data) {
-  const { bytes, refs, blobLength } = encodeStringBlob([data.oldPassword, data.newPassword, data.confirmPassword])
-  const view = new DataView(bytes.buffer)
-  writeSliceRef(view, 0, refs[0])
-  writeSliceRef(view, 8, refs[1])
-  writeSliceRef(view, 16, refs[2])
-  view.setInt32(24, blobLength, true)
   return bytes
 }
 

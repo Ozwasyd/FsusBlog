@@ -180,6 +180,72 @@ public sealed class AnonymousAccountOutputContractTests
     }
 
     [Fact]
+    public void LegacyPasswordAuthFrames_AreRetiredFromProtocolCatalogsAndCodecs()
+    {
+        string[] protocolFiles =
+        [
+            "src/shared/Contracts/Validation/aeds-protocol.json",
+            "src/core/Algorithms/AedsFrameType.cs",
+            "src/shared/AedsFrameHeader.cs",
+            "src/frontend/wasm/web/protocol/frame.ts",
+            "tests/backend/Fixtures/aeds-golden-catalog.json",
+            "src/shared/Contracts/Models/UserPods.cs",
+            "src/shared/Contracts/Validation/PodContractValidation.cs",
+            "src/shared/Contracts/Validation/PodSizeCatalog.cs",
+            "src/core/Mapping/Models/ReadModels.cs",
+            "src/core/Cache/PodBinaryCodec.User.cs"
+        ];
+
+        string source = string.Join(
+            '\n',
+            protocolFiles.Select(static path => $"// {path}\n{BackendTestPaths.ReadAllTextFromRoot(path)}"));
+
+        foreach (string forbidden in new[]
+        {
+            "AuthLoginRequest",
+            "AuthRegisterRequest",
+            "AuthUpdatePasswordRequest",
+            "AuthUpdateUsernameRequest",
+            "AuthLoginRequestPod",
+            "AuthRegisterRequestPod",
+            "AuthUpdatePasswordRequestPod",
+            "AuthLoginRequestCoreModel",
+            "AuthRegisterRequestCoreModel",
+            "AuthUpdatePasswordRequestCoreModel",
+            "WriteAuthLoginRequest",
+            "WriteAuthRegisterRequest",
+            "WriteAuthUpdatePasswordRequest",
+            "TryDecodeAuthLoginRequest",
+            "TryDecodeAuthRegisterRequest",
+            "TryDecodeAuthUpdatePasswordRequest",
+            "EncodeAuthLoginRequest",
+            "EncodeAuthRegisterRequest",
+            "EncodeAuthUpdatePasswordRequest"
+        })
+        {
+            Assert.DoesNotContain(forbidden, source, StringComparison.Ordinal);
+        }
+
+        foreach (string required in new[]
+        {
+            "AuthAnonymousBootstrapRequest",
+            "PasskeyRegisterBegin",
+            "PasskeyRegisterCompleteRequest",
+            "PasskeyLoginBegin",
+            "PasskeyLoginCompleteRequest",
+            "RecoveryKeyCreateResponse",
+            "RecoveryKeyVerifyRequest",
+            "RecoveryKeyVerifyResponse",
+            "MfaChallengeStartRequest",
+            "MfaChallengeVerifyRequest",
+            "AdminPrincipalSnapshot"
+        })
+        {
+            Assert.Contains(required, source, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void AdminUsernameLookupRuntimeContracts_AreRemoved()
     {
         string[] productionFiles =
