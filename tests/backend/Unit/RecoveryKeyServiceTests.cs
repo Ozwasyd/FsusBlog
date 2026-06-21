@@ -212,6 +212,17 @@ public sealed class RecoveryKeyServiceTests
     }
 
     [Fact]
+    public void RecoveryKeyService_AuditMetadataUsesAccountIdentityFieldName()
+    {
+        string source = ReadSource("src/backend/Services/Security/RecoveryKeyService.cs");
+        string encoder = ExtractMethodBlock(source, "private static string EncodeSession");
+
+        Assert.Contains("session.AccountId.ToString", encoder, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"UserId\"", encoder, StringComparison.Ordinal);
+        Assert.DoesNotContain("session.UserId", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AnonymousMfaManagement_RequiresSessionStepUpInsteadOfLegacyPasswordProof()
     {
         string endpoints = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");

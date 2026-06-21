@@ -174,7 +174,6 @@ public sealed class PasskeyServiceTests
         byte[] storedHandle = StableHandle(0x42);
 
         object metadata = InvokeMetadataBuilder(
-            username: "legacy-alice",
             publicHandle: null,
             anonymousIdentityModeEnabled: true,
             stableUserHandle: storedHandle);
@@ -193,7 +192,6 @@ public sealed class PasskeyServiceTests
         byte[] storedHandle = StableHandle(0x24);
 
         object metadata = InvokeMetadataBuilder(
-            username: "legacy-alice",
             publicHandle: "  Alice Public  ",
             anonymousIdentityModeEnabled: true,
             stableUserHandle: storedHandle);
@@ -204,18 +202,17 @@ public sealed class PasskeyServiceTests
     }
 
     [Fact]
-    public void BuildAnonymousSafeMetadata_LegacyMode_PreservesExistingUsernameMetadata()
+    public void BuildAnonymousSafeMetadata_LegacyMode_UsesPublicHandleWithoutUsernameInput()
     {
         byte[] storedHandle = StableHandle(0x11);
 
         object metadata = InvokeMetadataBuilder(
-            username: "legacy-alice",
             publicHandle: "Alice Public",
             anonymousIdentityModeEnabled: false,
             stableUserHandle: storedHandle);
 
-        Assert.Equal("legacy-alice", GetProperty<string>(metadata, "Name"));
-        Assert.Equal("legacy-alice", GetProperty<string>(metadata, "DisplayName"));
+        Assert.Equal("Alice Public", GetProperty<string>(metadata, "Name"));
+        Assert.Equal("Alice Public", GetProperty<string>(metadata, "DisplayName"));
         Assert.Equal(storedHandle, GetProperty<byte[]>(metadata, "UserHandle"));
     }
 
@@ -223,12 +220,10 @@ public sealed class PasskeyServiceTests
     public void BuildAnonymousSafeMetadata_DifferentStoredHandlesRemainDistinct()
     {
         object first = InvokeMetadataBuilder(
-            username: null,
             publicHandle: null,
             anonymousIdentityModeEnabled: true,
             stableUserHandle: StableHandle(0x31));
         object second = InvokeMetadataBuilder(
-            username: null,
             publicHandle: null,
             anonymousIdentityModeEnabled: true,
             stableUserHandle: StableHandle(0x32));
@@ -251,9 +246,14 @@ public sealed class PasskeyServiceTests
     public void PasskeyService_DoesNotDeriveUserHandleOrLabelsFromInternalUserId()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/PasskeyService.cs");
+        string helper = ExtractMethodBlock(source, "private static PasskeyAccountMetadata BuildAnonymousSafeMetadata");
+        string testHelper = ExtractMethodBlock(source, "internal static PasskeyAccountMetadata BuildAnonymousSafeMetadataForTests");
 
         Assert.DoesNotContain("BitConverter.GetBytes(userId)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("fsus-account-{userId}", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("username", helper, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("legacyName", helper, StringComparison.Ordinal);
+        Assert.DoesNotContain("string? username", testHelper, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -314,7 +314,6 @@ public sealed class PasskeyServiceTests
     }
 
     private static object InvokeMetadataBuilder(
-        string? username,
         string? publicHandle,
         bool anonymousIdentityModeEnabled,
         byte[] stableUserHandle)
@@ -323,8 +322,34 @@ public sealed class PasskeyServiceTests
             "BuildAnonymousSafeMetadataForTests",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
-        return method.Invoke(null, [username, publicHandle, anonymousIdentityModeEnabled, stableUserHandle])
+        return method.Invoke(null, [publicHandle, anonymousIdentityModeEnabled, stableUserHandle])
             ?? throw new InvalidOperationException("Metadata builder returned null.");
+    }
+
+    private static string ExtractMethodBlock(string source, string signatureStart)
+    {
+        int start = source.IndexOf(signatureStart, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Could not find method signature: {signatureStart}");
+        int brace = source.IndexOf('{', start);
+        Assert.True(brace >= 0, $"Could not find method body: {signatureStart}");
+        int depth = 0;
+        for (int index = brace; index < source.Length; index++)
+        {
+            if (source[index] == '{')
+            {
+                depth++;
+            }
+            else if (source[index] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[start..(index + 1)];
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"Could not extract method block: {signatureStart}");
     }
 
     private static byte[] StableHandle(byte seed)

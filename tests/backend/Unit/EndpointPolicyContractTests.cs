@@ -269,7 +269,7 @@ public sealed class EndpointPolicyContractTests
             "public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync",
             "string refreshToken = _jwtHelper.GenerateRefreshToken();");
         Assert.Contains("login.restricted", completeLoginSource, StringComparison.Ordinal);
-        Assert.Contains("LogBannedUserLogin", completeLoginSource, StringComparison.Ordinal);
+        Assert.Contains("LogBannedAccountLogin", completeLoginSource, StringComparison.Ordinal);
         Assert.DoesNotContain("账户已被封禁", completeLoginSource, StringComparison.Ordinal);
 
         string refreshSource = ExtractBetween(
@@ -277,7 +277,7 @@ public sealed class EndpointPolicyContractTests
             "var user = await _db.Queryable<User>().InSingleAsync(session.UserId);",
             "string newRefreshToken = _jwtHelper.GenerateRefreshToken();");
         Assert.DoesNotContain("user.Status == UserStatusBanned ||", refreshSource, StringComparison.Ordinal);
-        Assert.Contains("LogBannedUserTokenRefresh", refreshSource, StringComparison.Ordinal);
+        Assert.Contains("LogBannedAccountTokenRefresh", refreshSource, StringComparison.Ordinal);
 
         string passkeySource = ReadRepoFile(
             "src",

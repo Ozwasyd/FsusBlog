@@ -77,7 +77,6 @@ public sealed class PasskeyService(
 
         byte[] stableUserHandle = await GetOrCreateStablePasskeyUserHandleAsync(user, cancellationToken);
         PasskeyAccountMetadata accountMetadata = BuildAnonymousSafeMetadata(
-            null,
             user.PublicHandle,
             AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled(),
             stableUserHandle);
@@ -536,29 +535,26 @@ public sealed class PasskeyService(
             : Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value)))[..32];
 
     internal static PasskeyAccountMetadata BuildAnonymousSafeMetadataForTests(
-        string? username,
         string? publicHandle,
         bool anonymousIdentityModeEnabled,
         byte[] stableUserHandle)
-        => BuildAnonymousSafeMetadata(username, publicHandle, anonymousIdentityModeEnabled, stableUserHandle);
+        => BuildAnonymousSafeMetadata(publicHandle, anonymousIdentityModeEnabled, stableUserHandle);
 
     internal static bool IsUserHandleOwnerOfCredentialForTests(byte[]? userHandle, string? storedUserHandle)
         => IsUserHandleOwnerOfCredential(userHandle, storedUserHandle);
 
     private static PasskeyAccountMetadata BuildAnonymousSafeMetadata(
-        string? username,
         string? publicHandle,
         bool anonymousIdentityModeEnabled,
         byte[] stableUserHandle)
     {
         byte[] userHandle = stableUserHandle.ToArray();
+        string displayName = NormalizeMetadataText(publicHandle, AnonymousPasskeyDisplayName);
         if (!anonymousIdentityModeEnabled)
         {
-            string legacyName = NormalizeMetadataText(username, "fsus-account");
-            return new PasskeyAccountMetadata(legacyName, legacyName, userHandle);
+            return new PasskeyAccountMetadata(displayName, displayName, userHandle);
         }
 
-        string displayName = NormalizeMetadataText(publicHandle, AnonymousPasskeyDisplayName);
         return new PasskeyAccountMetadata(AnonymousPasskeyAccountName, displayName, userHandle);
     }
 

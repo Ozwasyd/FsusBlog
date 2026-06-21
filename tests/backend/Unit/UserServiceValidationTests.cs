@@ -448,6 +448,34 @@ public class UserServiceValidationTests
         Assert.DoesNotContain("Role.Equals(\"admin\"", method, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void LoggerMessages_UseAccountSubjectInsteadOfInternalSubjectOrAccountIdForAnonymousAccountEvents()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+
+        Assert.Contains("AccountSubjectHasher.Create(user)", source, StringComparison.Ordinal);
+        Assert.Contains("LogBannedAccountLogin(accountSubject)", source, StringComparison.Ordinal);
+        Assert.Contains("LogBannedAccountTokenRefresh(accountSubject)", source, StringComparison.Ordinal);
+
+        foreach (string loggerName in new[]
+        {
+            "LogRegistrationConflict",
+            "LogLoginFailure",
+            "LogBannedAccountLogin",
+            "LogBannedAccountTokenRefresh"
+        })
+        {
+            string declaration = ExtractLoggerDeclaration(source, loggerName);
+            Assert.Contains("accountSubject", declaration, StringComparison.Ordinal);
+            Assert.Contains("AccountSubject", declaration, StringComparison.Ordinal);
+            Assert.DoesNotContain("InternalSubject", declaration, StringComparison.Ordinal);
+            Assert.DoesNotContain("int accountId", declaration, StringComparison.Ordinal);
+        }
+
+        Assert.DoesNotContain("LogBannedUserLogin", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("LogBannedUserTokenRefresh", source, StringComparison.Ordinal);
+    }
+
     // ── Private static helpers via reflection ─────────────────────────────────
 
     private static T InvokePrivateStatic<T>(string methodName, object?[] args)
@@ -466,6 +494,17 @@ public class UserServiceValidationTests
         int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
         Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
         return source[startIndex..endIndex];
+    }
+
+    private static string ExtractLoggerDeclaration(string source, string methodName)
+    {
+        int methodIndex = source.IndexOf($"partial void {methodName}", StringComparison.Ordinal);
+        Assert.True(methodIndex >= 0, $"Missing logger method: {methodName}");
+        int attributeStart = source.LastIndexOf("[LoggerMessage", methodIndex, StringComparison.Ordinal);
+        Assert.True(attributeStart >= 0, $"Missing LoggerMessage attribute: {methodName}");
+        int declarationEnd = source.IndexOf(';', methodIndex);
+        Assert.True(declarationEnd > methodIndex, $"Missing logger declaration terminator: {methodName}");
+        return source[attributeStart..(declarationEnd + 1)];
     }
 
     private sealed class EnvironmentVariableScope : IDisposable

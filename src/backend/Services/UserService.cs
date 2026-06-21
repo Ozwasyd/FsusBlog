@@ -360,12 +360,13 @@ public partial class UserService(
 
         if (user.Status == UserStatusBanned)
         {
+            string accountSubject = AccountSubjectHasher.Create(user);
             using var _ = AuditLogScope.Push(
                 AuditSourceCatalog.Auth,
                 AuditTypeCatalog.Security,
                 new KeyValuePair<string, object?>("AuditAction", "login.restricted"),
-                new KeyValuePair<string, object?>("AccountId", user.Id));
-            LogBannedUserLogin(user.Id);
+                new KeyValuePair<string, object?>("AccountSubjectHash", accountSubject));
+            LogBannedAccountLogin(accountSubject);
         }
 
         string refreshToken = _jwtHelper.GenerateRefreshToken();
@@ -529,7 +530,8 @@ public partial class UserService(
 
         if (user.Status == UserStatusBanned)
         {
-            LogBannedUserTokenRefresh(user.Id);
+            string accountSubject = AccountSubjectHasher.Create(user);
+            LogBannedAccountTokenRefresh(accountSubject);
         }
 
         string newRefreshToken = _jwtHelper.GenerateRefreshToken();
@@ -1024,20 +1026,20 @@ public partial class UserService(
         return input.Length <= maxLen ? input : input[..maxLen];
     }
 
-    [LoggerMessage(EventId = 1, Level = LogLevel.Warning, Message = "匿名账号初始化竞态冲突 | 账号: {AccountId}")]
-    private partial void LogRegistrationConflict(int accountId);
+    [LoggerMessage(EventId = 1, Level = LogLevel.Warning, Message = "匿名账号初始化竞态冲突 | AccountSubject: {AccountSubject}")]
+    private partial void LogRegistrationConflict(string accountSubject);
 
-    [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "登录验证未通过 | 账号: {AccountId} | IP: {IpAddress}")]
-    private partial void LogLoginFailure(int accountId, string ipAddress);
+    [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "登录验证未通过 | AccountSubject: {AccountSubject} | IP: {IpAddress}")]
+    private partial void LogLoginFailure(string accountSubject, string ipAddress);
 
-    [LoggerMessage(EventId = 3, Level = LogLevel.Information, Message = "封禁用户登录 | 账号: {AccountId}")]
-    private partial void LogBannedUserLogin(int accountId);
+    [LoggerMessage(EventId = 3, Level = LogLevel.Information, Message = "封禁账号登录 | AccountSubject: {AccountSubject}")]
+    private partial void LogBannedAccountLogin(string accountSubject);
 
     [LoggerMessage(EventId = 4, Level = LogLevel.Information, Message = "续期失败 | 凭证失效")]
     private partial void LogTokenRefreshFailure();
 
-    [LoggerMessage(EventId = 5, Level = LogLevel.Information, Message = "受限用户执行令牌续期 | 账号: {AccountId} | 状态: 只读模式")]
-    private partial void LogBannedUserTokenRefresh(int accountId);
+    [LoggerMessage(EventId = 5, Level = LogLevel.Information, Message = "受限账号执行令牌续期 | AccountSubject: {AccountSubject} | 状态: 只读模式")]
+    private partial void LogBannedAccountTokenRefresh(string accountSubject);
 
     [LoggerMessage(EventId = 6, Level = LogLevel.Error, Message = "后台异步消息推送失败")]
     private partial void LogBackgroundTaskError(Exception ex);
