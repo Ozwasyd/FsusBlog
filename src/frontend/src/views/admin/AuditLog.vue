@@ -34,16 +34,16 @@
         <el-input v-model="filters.targetType" clearable placeholder="目标类型" aria-label="目标类型" :prefix-icon="Aim" />
         <el-input v-model="filters.targetId" clearable placeholder="目标 ID" aria-label="目标 ID" />
         <el-select v-model="filters.outcome" clearable placeholder="结果" aria-label="结果">
-          <el-option label="成功" value="success" />
-          <el-option label="失败" value="failure" />
-          <el-option label="已拒绝" value="denied" />
-          <el-option label="未知" value="unknown" />
+          <el-option :label="adminStatusLabel.success" value="success" />
+          <el-option :label="adminStatusLabel.failure" value="failure" />
+          <el-option :label="adminStatusLabel.denied" value="denied" />
+          <el-option :label="adminStatusLabel.unknown" value="unknown" />
         </el-select>
         <el-select v-model="filters.severity" clearable placeholder="严重度" aria-label="严重度">
-          <el-option label="信息" value="info" />
-          <el-option label="警告" value="warning" />
-          <el-option label="错误" value="error" />
-          <el-option label="严重" value="critical" />
+          <el-option :label="adminStatusLabel.info" value="info" />
+          <el-option :label="adminStatusLabel.warning" value="warning" />
+          <el-option :label="adminStatusLabel.error" value="error" />
+          <el-option :label="adminStatusLabel.critical" value="critical" />
         </el-select>
         <el-input v-model="filters.source" clearable placeholder="来源" aria-label="来源" />
         <el-input v-model="filters.type" clearable placeholder="类型" aria-label="类型" />
@@ -65,11 +65,19 @@
         <el-tag v-for="facet in summary?.actions ?? []" :key="`action-${facet.value}`" type="info">
           {{ formatAuditAction(facet.value) }} {{ facet.count }}
         </el-tag>
-        <el-tag v-for="facet in summary?.outcomes ?? []" :key="`outcome-${facet.value}`" :type="outcomeTagType(facet.value)">
-          {{ formatOutcome(facet.value) }} {{ facet.count }}
+        <el-tag
+          v-for="facet in summary?.outcomes ?? []"
+          :key="`outcome-${facet.value}`"
+          :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(facet.value)])"
+        >
+          {{ adminStatusLabel[toAdminSystemStatus(facet.value)] }} {{ facet.count }}
         </el-tag>
-        <el-tag v-for="facet in summary?.severities ?? []" :key="`severity-${facet.value}`" :type="severityTagType(facet.value)">
-          {{ formatSeverity(facet.value) }} {{ facet.count }}
+        <el-tag
+          v-for="facet in summary?.severities ?? []"
+          :key="`severity-${facet.value}`"
+          :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(facet.value)])"
+        >
+          {{ adminStatusLabel[toAdminSystemStatus(facet.value)] }} {{ facet.count }}
         </el-tag>
       </div>
 
@@ -119,8 +127,12 @@
         <el-table-column label="结果" width="150" align="center">
           <template #default="{ row }: { row: AuditLogItemResponse }">
             <div class="flex flex-col items-center gap-1">
-              <el-tag :type="outcomeTagType(row.outcome)">{{ formatOutcome(row.outcome) }}</el-tag>
-              <el-tag :type="severityTagType(row.severity)">{{ formatSeverity(row.severity) }}</el-tag>
+              <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(row.outcome)])">
+                {{ adminStatusLabel[toAdminSystemStatus(row.outcome)] }}
+              </el-tag>
+              <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(row.severity)])">
+                {{ adminStatusLabel[toAdminSystemStatus(row.severity)] }}
+              </el-tag>
             </div>
           </template>
         </el-table-column>
@@ -212,8 +224,14 @@ import { FsusUiSettingsSection } from '@/fsusui'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
 import { Aim, Lock, Operation, Refresh, RefreshLeft, Search, User, View } from '@/fsusui/icons'
+import { toFsusUiTagType } from '@/fsusui/primitiveAdapters'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
+import {
+  adminStatusLabel,
+  adminStatusTone,
+  type AdminSystemStatus
+} from '@/view-contracts/adminStatus'
 
 type AuditDateRange = [Date, Date] | null
 
@@ -281,6 +299,9 @@ const formattedContext = computed(() => {
     return detail.value.contextJson
   }
 })
+
+const toAdminSystemStatus = (status: string | null | undefined): AdminSystemStatus =>
+  status && status in adminStatusTone ? status as AdminSystemStatus : 'unknown'
 
 const buildQuery = (): AuditLogQueryParams => ({
   page: page.value,
@@ -371,26 +392,6 @@ const verifyRow = async (row: AuditLogItemResponse): Promise<void> => {
 const formatTime = (value: string): string => new Date(value).toLocaleString()
 const auditRowClassName = ({ row }: { row: AuditLogItemResponse }): string => auditRowMotion.classFor(row.id)
 
-const formatOutcome = (value: string | null | undefined): string => {
-  const labels: Record<string, string> = {
-    success: '成功',
-    failure: '失败',
-    denied: '已拒绝',
-    unknown: '未知'
-  }
-  return value ? labels[value] ?? `结果：${value}` : '-'
-}
-
-const formatSeverity = (value: string | null | undefined): string => {
-  const labels: Record<string, string> = {
-    info: '信息',
-    warning: '警告',
-    error: '错误',
-    critical: '严重'
-  }
-  return value ? labels[value] ?? `严重度：${value}` : '-'
-}
-
 const formatAuditAction = (value: string | null | undefined): string => {
   if (!value) return '-'
   const labels: Record<string, string> = {
@@ -406,19 +407,6 @@ const formatAuditAction = (value: string | null | undefined): string => {
     region_moderation_geo_blocked: '地区策略按地区拦截'
   }
   return labels[value] ?? `动作代码：${value}`
-}
-
-const outcomeTagType = (value: string): 'success' | 'danger' | 'warning' | 'info' => {
-  if (value === 'success') return 'success'
-  if (value === 'failure') return 'danger'
-  if (value === 'denied') return 'warning'
-  return 'info'
-}
-
-const severityTagType = (value: string): 'success' | 'danger' | 'warning' | 'info' => {
-  if (value === 'critical' || value === 'error') return 'danger'
-  if (value === 'warning') return 'warning'
-  return 'info'
 }
 
 const applyRouteQueryFilters = (): void => {

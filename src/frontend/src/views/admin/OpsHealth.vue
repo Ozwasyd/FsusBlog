@@ -17,7 +17,9 @@
 
       <FsusUiKeyValueGrid v-if="health" class="grid gap-4 md:grid-cols-4">
         <FsusUiKeyValueItem label="状态" :tone="kvTone(health.status)">
-          <el-tag :type="statusType(health.status)">{{ statusLabel(health.status) }}</el-tag>
+          <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(health.status)])">
+            {{ adminStatusLabel[toAdminSystemStatus(health.status)] }}
+          </el-tag>
         </FsusUiKeyValueItem>
         <FsusUiKeyValueItem label="环境">
           {{ health.environment }}
@@ -43,7 +45,9 @@
             </el-table-column>
             <el-table-column label="状态" width="130">
               <template #default="{ row }: { row: AdminServiceStatusResponse }">
-                <el-tag :type="statusType(row.status)">{{ statusLabel(row.status) }}</el-tag>
+                <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(row.status)])">
+                  {{ adminStatusLabel[toAdminSystemStatus(row.status)] }}
+                </el-tag>
               </template>
             </el-table-column>
             <el-table-column label="更新时间" width="190">
@@ -72,7 +76,9 @@
             <el-table-column label="任务" min-width="200" prop="label" />
             <el-table-column label="状态" width="130">
               <template #default="{ row }: { row: AdminServiceStatusResponse }">
-                <el-tag :type="statusType(row.status)">{{ statusLabel(row.status) }}</el-tag>
+                <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(row.status)])">
+                  {{ adminStatusLabel[toAdminSystemStatus(row.status)] }}
+                </el-tag>
               </template>
             </el-table-column>
             <el-table-column label="更新时间" width="190">
@@ -95,7 +101,9 @@
         <FsusUiSettingsSection title="最近备份" id="ops-backup-title">
           <div class="space-y-4">
             <FsusUiKeyValueItem label="状态" :tone="kvTone(health?.backup.status)">
-              <el-tag :type="statusType(health?.backup.status ?? 'unknown')">{{ statusLabel(health?.backup.status) }}</el-tag>
+              <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(health?.backup.status)])">
+                {{ health?.backup.status ? adminStatusLabel[toAdminSystemStatus(health.backup.status)] : '-' }}
+              </el-tag>
             </FsusUiKeyValueItem>
             <div class="break-words text-xs text-[var(--fsusblog-text-muted)]">{{ health?.backup.backupRoot ?? '-' }}</div>
             <div class="space-y-3">
@@ -106,7 +114,9 @@
               >
                 <div class="flex items-center justify-between gap-3">
                   <span class="text-xs font-semibold">{{ backupArtifactKindLabel(artifact.kind) }}</span>
-                  <el-tag :type="statusType(artifact.status)">{{ statusLabel(artifact.status) }}</el-tag>
+                  <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(artifact.status)])">
+                    {{ adminStatusLabel[toAdminSystemStatus(artifact.status)] }}
+                  </el-tag>
                 </div>
                 <div class="mt-1 break-words text-[11px] text-[var(--fsusblog-text-muted)]">
                   {{ backupArtifactDetail(artifact) }}
@@ -130,11 +140,13 @@
                     {{ error.message }}
                   </p>
                 </div>
-                <el-tag class="shrink-0" :type="statusType(error.severity)">{{ statusLabel(error.severity) }}</el-tag>
+                <el-tag class="shrink-0" :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(error.severity)])">
+                  {{ adminStatusLabel[toAdminSystemStatus(error.severity)] }}
+                </el-tag>
               </div>
 
               <p class="ops-error-meta">
-                {{ statusLabel(error.severity) }} · {{ formatOpsErrorTime(error.occurredAt) }} · {{ formatOpsErrorCount(error.count) }}
+                {{ adminStatusLabel[toAdminSystemStatus(error.severity)] }} · {{ formatOpsErrorTime(error.occurredAt) }} · {{ formatOpsErrorCount(error.count) }}
               </p>
 
               <div class="mt-3 flex flex-wrap items-start gap-3">
@@ -166,8 +178,15 @@ import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { FsusUiKeyValueGrid, FsusUiKeyValueItem } from '@/fsusui'
 import { CopyDocument, Refresh } from '@/fsusui/icons'
+import { toFsusUiTagType } from '@/fsusui/primitiveAdapters'
 import { toast } from '@/fsusui/feedback'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
+import {
+  adminStatusLabel,
+  adminStatusTone,
+  type AdminStatusTone,
+  type AdminSystemStatus
+} from '@/view-contracts/adminStatus'
 
 const loading = shallowRef(false)
 const health = shallowRef<OpsHealthResponse | null>(null)
@@ -184,36 +203,11 @@ const loadHealth = async (): Promise<void> => {
   }
 }
 
-const statusType = (status: string): 'success' | 'warning' | 'danger' | 'info' => {
-  if (status === 'ok' || status === 'ready') return 'success'
-  if (status === 'failed' || status === 'missing' || status === 'not_ready' || status === 'error' || status === 'critical') return 'danger'
-  if (status === 'degraded' || status === 'warning') return 'warning'
-  return 'info'
-}
+const toAdminSystemStatus = (status: string | null | undefined): AdminSystemStatus =>
+  status && status in adminStatusTone ? status as AdminSystemStatus : 'unknown'
 
-const kvTone = (status: string | null | undefined): 'neutral' | 'info' | 'success' | 'warning' | 'danger' => {
-  const type = status ? statusType(status) : 'info'
-  if (type === 'success') return 'success'
-  if (type === 'warning') return 'warning'
-  if (type === 'danger') return 'danger'
-  return 'info'
-}
-
-const statusLabel = (status: string | null | undefined): string => {
-  const labels: Record<string, string> = {
-    ok: '正常',
-    ready: '就绪',
-    failed: '失败',
-    missing: '缺失',
-    not_ready: '未就绪',
-    degraded: '降级',
-    warning: '警告',
-    error: '错误',
-    critical: '严重',
-    unknown: '未知'
-  }
-  return status ? labels[status] ?? status : '-'
-}
+const kvTone = (status: string | null | undefined): AdminStatusTone =>
+  adminStatusTone[toAdminSystemStatus(status)]
 
 const backupArtifactKindLabel = (kind: string): string => {
   const labels: Record<string, string> = {
@@ -257,7 +251,7 @@ const opsErrorKey = (error: RecentOpsErrorResponse): string =>
 const copyOpsErrorDetail = async (error: RecentOpsErrorResponse): Promise<void> => {
   const text = [
     `动作：${error.action}`,
-    `级别：${statusLabel(error.severity)}`,
+    `级别：${adminStatusLabel[toAdminSystemStatus(error.severity)]}`,
     `时间：${formatOpsErrorTime(error.occurredAt)}`,
     `次数：${formatOpsErrorCount(error.count)}`,
     `摘要：${error.message}`,
