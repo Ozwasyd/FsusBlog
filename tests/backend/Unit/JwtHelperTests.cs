@@ -33,8 +33,8 @@ public sealed class JwtHelperTests
         return new JwtHelper(Options.Create(settings));
     }
 
-    private static User TestUser(int id = 1, string username = "alice", string role = "admin")
-        => new() { Id = id, InternalSubject = username, LegacyProjectRole = role };
+    private static User TestUser(int id = 1, string role = "admin")
+        => new() { Id = id, IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind };
 
     // ─── GenerateAccessToken ──────────────────────────────────────────────
 
@@ -124,7 +124,8 @@ public sealed class JwtHelperTests
     public void GenerateAccessToken_IncludesAccountSubjectHashClaim()
     {
         var helper = CreateHelper();
-        var user = TestUser(id: 42, username: "Anon_Subject");
+        var user = TestUser(id: 42);
+        user.PasskeyUserHandle = "Anon_Subject";
         user.IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind;
 
         string token = helper.GenerateAccessToken(user);

@@ -27,8 +27,6 @@ public sealed class CoreRuntimeIntegrationTests
         var user = new User
         {
             Id = 42,
-            InternalSubject = "integration-user",
-            LegacyProjectRole = "admin",
             IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind
         };
 

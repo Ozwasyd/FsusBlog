@@ -239,9 +239,9 @@ run_residue_check \
 run_residue_check \
   "legacy sys_user identity field names" \
   "legacy sys_user identity field residue detected" \
-  '\bpublic[[:space:]]+string[?]?[[:space:]]+(Username|Password|Role)\b|\bLastUsernameUpdateTime\b|\b(user|u|ru)[.](Username|Role)\b|Role[[:space:]]*(==|!=)[[:space:]]*"admin"|Role[.]Equals[(]"admin"|Username[[:space:]]*[{][[:space:]]*get[;][[:space:]]*init[;][[:space:]]*[}]' \
+  '\bsys_user[.](username|password|role|last_username_update_time|lastusernameupdatetime)\b|\bpublic[[:space:]]+string[?]?[[:space:]]+(Username|Password|Role)\b|\bLastUsernameUpdateTime\b|\b(user|u|ru)[.](Username|Role)\b|Role[[:space:]]*(==|!=)[[:space:]]*"admin"|Role[.]Equals[(]"admin"|Username[[:space:]]*[{][[:space:]]*get[;][[:space:]]*init[;][[:space:]]*[}]' \
   "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
-  src/backend/Entities/User.cs src/backend/Interfaces/UserApplicationPorts.cs src/backend/Services/UserService.cs src/backend/Services/UserService.Ports.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs src/backend/Services/Security/PasskeyService.cs src/backend/Infrastructure/Auth/AnonymousIdentityRuntime.cs
+  src/backend/Entities/User.cs src/backend/Interfaces/UserApplicationPorts.cs src/backend/Services/UserService.cs src/backend/Services/UserService.Ports.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs src/backend/Services/Security/PasskeyService.cs src/backend/Infrastructure/Auth/AnonymousIdentityRuntime.cs src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs
 
 run_residue_check \
   "legacy comment public username fallback" \

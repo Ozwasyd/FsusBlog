@@ -535,9 +535,9 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         => db.Ado.ExecuteCommand(
             """
             INSERT INTO sys_user
-                (id, username, role, status, identity_kind, passkey_enabled, recovery_enabled, privacy_initialized_at)
+                (id, public_handle, status, identity_kind, passkey_enabled, recovery_enabled, privacy_initialized_at)
             VALUES
-                (@Id, @Username, 'guest', 0, 'anonymous_account', true, false, @PrivacyInitializedAt);
+                (@Id, @Username, 0, 'anonymous_account', true, false, @PrivacyInitializedAt);
             """,
             new SugarParameter("@Id", userId),
             new SugarParameter("@Username", username),

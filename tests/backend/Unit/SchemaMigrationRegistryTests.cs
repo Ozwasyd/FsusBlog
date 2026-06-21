@@ -50,6 +50,7 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260616-post-account-recovery-key", migrationIds);
         Assert.Contains("20260621-pre-passkey-recovery-key-account-id", migrationIds);
         Assert.Contains("20260621-pre-passkey-user-handle", migrationIds);
+        Assert.Contains("20260621-post-user-legacy-identity-columns-finalize", migrationIds);
         Assert.Contains("20260621-post-comment-attribution-index-finalize", migrationIds);
         Assert.Contains("20260621-post-message-legacy-identity-columns-finalize", migrationIds);
         Assert.Contains("20260621-pre-sys-user-security-profile-split", migrationIds);
@@ -95,8 +96,8 @@ public sealed class SchemaMigrationRegistryTests
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
 
         Assert.Contains("sys_user.public_handle", fingerprint, StringComparison.Ordinal);
-        Assert.Contains("ALTER TABLE sys_user ALTER COLUMN username DROP NOT NULL", fingerprint, StringComparison.Ordinal);
-        Assert.Contains("ALTER TABLE sys_user ALTER COLUMN password DROP NOT NULL", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("ALTER COLUMN username", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("ALTER COLUMN password", fingerprint, StringComparison.Ordinal);
         Assert.Contains("sys_user.identity_kind", fingerprint, StringComparison.Ordinal);
         Assert.Contains("anonymous_account", fingerprint, StringComparison.Ordinal);
         Assert.Contains("sys_user.passkey_enabled", fingerprint, StringComparison.Ordinal);
@@ -104,6 +105,24 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("sys_user.privacy_initialized_at", fingerprint, StringComparison.Ordinal);
         Assert.Contains("sys_user.anonymous_credential_level", fingerprint, StringComparison.Ordinal);
         Assert.Contains("sys_user.anonymous_credential_status", fingerprint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetDescriptors_UserLegacyIdentityColumnsFinalize_DropsAllLegacySysUserIdentityColumns()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260621-post-user-legacy-identity-columns-finalize");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
+        Assert.Contains("sys_user.username", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_user.password", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_user.role", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_user.lastusernameupdatetime", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_user.last_username_update_time", fingerprint, StringComparison.Ordinal);
     }
 
     [Fact]

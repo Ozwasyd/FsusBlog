@@ -1200,6 +1200,11 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "msg_participant_state", "userid"));
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "refreshtoken"));
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "refreshtokenexpirytime"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "username"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "password"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "role"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "lastusernameupdatetime"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "last_username_update_time"));
         Assert.True(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "event_type"));
         Assert.True(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "viewer_key_hash"));
 
@@ -1209,7 +1214,6 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.Equal(128, await ReadColumnLengthAsync(connectionString, "tag", "name"));
         Assert.Equal(64, await ReadColumnLengthAsync(connectionString, "sys_systemconfig", "key"));
         Assert.Equal(512, await ReadColumnLengthAsync(connectionString, "sys_systemconfig", "value"));
-        Assert.Equal(64, await ReadColumnLengthAsync(connectionString, "sys_user", "username"));
     }
 
     private async Task<int> ReadColumnLengthAsync(string connectionString, string tableName, string columnName)

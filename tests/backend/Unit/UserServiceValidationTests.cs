@@ -86,7 +86,6 @@ public class UserServiceValidationTests
         Assert.NotNull(inserted);
         Assert.NotNull(user);
         Assert.Equal(42, user!.Id);
-        Assert.StartsWith("anon_", inserted!.InternalSubject, StringComparison.Ordinal);
         Assert.Equal(AnonymousIdentityRuntime.AnonymousAccountKind, inserted.IdentityKind);
         Assert.Equal("quietreader", inserted.PublicHandle);
         Assert.NotNull(inserted.PrivacyInitializedAt);
@@ -198,7 +197,6 @@ public class UserServiceValidationTests
         queryable.InSingleAsync(42).Returns(Task.FromResult(new User
         {
             Id = 42,
-            InternalSubject = "legacy-random-name",
             IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
             MfaEnabled = false
         }));
@@ -317,7 +315,7 @@ public class UserServiceValidationTests
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns("access-token");
         var persistence = ConfigureLoginPersistence(db);
         var svc = BuildService(db, jwt);
-        var bannedUser = new User { Id = 42, InternalSubject = "banned-user", LegacyProjectRole = "guest", Status = 1 };
+        var bannedUser = new User { Id = 42, Status = 1 };
 
         var (success, message, data, userEntity) = await svc.CompleteLoginAsync(
             bannedUser,
@@ -348,7 +346,7 @@ public class UserServiceValidationTests
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns("access-token");
         var persistence = ConfigureLoginPersistence(db);
         var svc = BuildService(db, jwt);
-        var user = new User { Id = 7, InternalSubject = "normal-user", LegacyProjectRole = "guest", Status = 0 };
+        var user = new User { Id = 7, Status = 0 };
 
         var (success, message, data, userEntity) = await svc.CompleteLoginAsync(
             user,
@@ -379,9 +377,7 @@ public class UserServiceValidationTests
         queryable.InSingleAsync(42).Returns(Task.FromResult(new User
         {
             Id = 42,
-            InternalSubject = "legacy-admin-role",
             IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
-            LegacyProjectRole = "admin",
             Status = 0
         }));
         var update = Substitute.For<IUpdateable<User>>();
@@ -415,9 +411,7 @@ public class UserServiceValidationTests
         queryable.InSingleAsync(7).Returns(Task.FromResult(new User
         {
             Id = 7,
-            InternalSubject = "admin-principal-shadow",
             IdentityKind = AnonymousIdentityRuntime.AdminPrincipalKind,
-            LegacyProjectRole = "admin",
             Status = 0
         }));
         var update = Substitute.For<IUpdateable<User>>();
@@ -495,18 +489,18 @@ public class UserServiceValidationTests
     [InlineData("UPPER", "upper")]
     [InlineData("", "")]
     [InlineData("   ", "")]
-    public void NormalizeInternalSubject_TrimsAndLowercases(string input, string expected)
+    public void NormalizePublicHandleToken_TrimsAndLowercases(string input, string expected)
     {
-        var result = InvokePrivateStatic<string>("NormalizeInternalSubject", [input]);
+        var result = InvokePrivateStatic<string>("NormalizePublicHandleToken", [input]);
         Assert.Equal(expected, result);
     }
 
     [Fact]
-    public void NormalizeInternalSubject_TruncatesAtMaxLength()
+    public void NormalizePublicHandleToken_TruncatesAtMaxLength()
     {
         string longName = new string('a', 200);
-        var result = InvokePrivateStatic<string>("NormalizeInternalSubject", [longName]);
-        Assert.Equal(32, result.Length);
+        var result = InvokePrivateStatic<string>("NormalizePublicHandleToken", [longName]);
+        Assert.Equal(20, result.Length);
     }
 
     [Theory]

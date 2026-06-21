@@ -35,7 +35,7 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
                                    {
                                        Id = u.Id,
                                        IdentityKind = u.IdentityKind,
-                                       InternalSubject = u.InternalSubject,
+                                       PasskeyUserHandle = u.PasskeyUserHandle,
                                        PublicHandle = u.PublicHandle,
                                        BanReason = u.BanReason
                                    })
@@ -111,7 +111,7 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
 
         public string? IdentityKind { get; init; }
 
-        public string? InternalSubject { get; init; }
+        public string? PasskeyUserHandle { get; init; }
 
         public string? PublicHandle { get; init; }
 
@@ -121,7 +121,7 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
         {
             Id = Id,
             IdentityKind = IdentityKind ?? AnonymousIdentityRuntime.AnonymousAccountKind,
-            InternalSubject = InternalSubject ?? string.Empty,
+            PasskeyUserHandle = PasskeyUserHandle,
             PublicHandle = PublicHandle
         });
     }

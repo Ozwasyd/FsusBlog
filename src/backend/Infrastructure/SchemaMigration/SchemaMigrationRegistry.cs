@@ -26,6 +26,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildPasskeyUserHandleMigration(),
         BuildSysUserSecurityProfileSplitMigration(),
         BuildSysUserSecurityProfileSplitFinalizeMigration(),
+        BuildUserLegacyIdentityColumnsFinalizeMigration(),
         BuildAdminPrincipalPlaneMigration(),
         BuildPasskeyRecoveryKeyAccountIdPostCodeFirstCompatMigration(),
         BuildAccountRecoveryKeyMigration(),
@@ -1171,24 +1172,6 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     DO $$
                     BEGIN
                         IF EXISTS (
-                            SELECT 1 FROM information_schema.columns
-                            WHERE table_schema = 'public' AND table_name = 'sys_user' AND column_name = 'username'
-                        ) THEN
-                            ALTER TABLE sys_user ALTER COLUMN username DROP NOT NULL;
-                        END IF;
-
-                        IF EXISTS (
-                            SELECT 1 FROM information_schema.columns
-                            WHERE table_schema = 'public' AND table_name = 'sys_user' AND column_name = 'password'
-                        ) THEN
-                            ALTER TABLE sys_user ALTER COLUMN password DROP NOT NULL;
-                        END IF;
-                    END $$;
-                    """),
-                new RawSqlStep("""
-                    DO $$
-                    BEGIN
-                        IF EXISTS (
                             SELECT 1 FROM information_schema.tables
                             WHERE table_schema = 'public' AND table_name = 'sys_user'
                         ) THEN
@@ -1301,6 +1284,22 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         END IF;
                     END $$;
                     """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildUserLegacyIdentityColumnsFinalizeMigration()
+        => new SchemaMigrationDescriptor(
+            "20260621-post-user-legacy-identity-columns-finalize",
+            "Drop legacy sys_user username/password/role columns after anonymous account schema is authoritative.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new DropIndexStep("unique_idx_username"),
+                new DropColumnStep("sys_user", "username"),
+                new DropColumnStep("sys_user", "password"),
+                new DropColumnStep("sys_user", "role"),
+                new DropColumnStep("sys_user", "lastusernameupdatetime"),
+                new DropColumnStep("sys_user", "last_username_update_time")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAccountRecoveryKeyMigration()

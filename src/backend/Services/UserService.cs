@@ -39,7 +39,6 @@ public partial class UserService(
     private const int UserStatusNormal = 0;
     private const int UserStatusBanned = 1;
     private const int UserStatusDeleted = 2;
-    private const int MaxInternalSubjectLength = 32;
     private const int MinPublicHandleLength = 3;
     private const int MaxPublicHandleLength = 20;
     private const int MaxAdminPageSize = 200;
@@ -50,11 +49,11 @@ public partial class UserService(
     private static readonly TimeSpan RememberMeSessionAbsoluteTtl = TimeSpan.FromDays(90);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string NormalizeInternalSubject(string input)
+    private static string NormalizePublicHandleToken(string input)
     {
         var span = input.AsSpan().Trim();
         if (span.IsEmpty) return string.Empty;
-        if (span.Length > MaxInternalSubjectLength) span = span[..MaxInternalSubjectLength];
+        if (span.Length > MaxPublicHandleLength) span = span[..MaxPublicHandleLength];
         return string.Create(span.Length, span, static (dst, src) => src.ToLowerInvariant(dst));
     }
 
@@ -63,9 +62,6 @@ public partial class UserService(
 
     private static TimeSpan ResolveAbsoluteSessionTtl(bool rememberMe)
         => rememberMe ? RememberMeSessionAbsoluteTtl : StandardSessionAbsoluteTtl;
-
-    private static string CreateAnonymousInternalSubject()
-        => $"anon_{Convert.ToHexString(RandomNumberGenerator.GetBytes(12)).ToLowerInvariant()}";
 
     private async Task<UserMfaProfile?> GetUserMfaProfileAsync(int userId)
         => await _db.Queryable<UserMfaProfile>()
@@ -98,7 +94,7 @@ public partial class UserService(
             return (true, null, string.Empty);
         }
 
-        string normalized = NormalizeInternalSubject(publicHandle);
+        string normalized = NormalizePublicHandleToken(publicHandle);
         if (normalized.Length < MinPublicHandleLength || normalized.Length > MaxPublicHandleLength)
         {
             return (false, null, $"公开称呼长度必须在 {MinPublicHandleLength}-{MaxPublicHandleLength} 个字符之间");
@@ -134,10 +130,8 @@ public partial class UserService(
         DateTime now = DateTime.UtcNow;
         for (int attempt = 0; attempt < 3; attempt++)
         {
-            string internalSubject = CreateAnonymousInternalSubject();
             var newUser = new User
             {
-                InternalSubject = internalSubject,
                 PublicHandle = handle.PublicHandle,
                 IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
                 PasskeyEnabled = false,
@@ -370,8 +364,8 @@ public partial class UserService(
                 AuditSourceCatalog.Auth,
                 AuditTypeCatalog.Security,
                 new KeyValuePair<string, object?>("AuditAction", "login.restricted"),
-                new KeyValuePair<string, object?>("InternalSubject", user.InternalSubject));
-            LogBannedUserLogin(user.InternalSubject);
+                new KeyValuePair<string, object?>("AccountId", user.Id));
+            LogBannedUserLogin(user.Id);
         }
 
         string refreshToken = _jwtHelper.GenerateRefreshToken();
@@ -535,7 +529,7 @@ public partial class UserService(
 
         if (user.Status == UserStatusBanned)
         {
-            LogBannedUserTokenRefresh(user.InternalSubject);
+            LogBannedUserTokenRefresh(user.Id);
         }
 
         string newRefreshToken = _jwtHelper.GenerateRefreshToken();
@@ -599,17 +593,9 @@ public partial class UserService(
                     return (false, null, "MFA_REBIND_STEP_UP_REQUIRED");
                 }
             }
-            else if (string.IsNullOrWhiteSpace(password) || !BCrypt.Net.BCrypt.Verify(password, user.LegacyPasswordHash))
-            {
-                return (false, null, "MFA_REBIND_PASSWORD_REQUIRED");
-            }
             else
             {
-                bool stepUpPassed = await VerifyMfaOrRecoveryCodeAsync(user, code, recoveryCode, persistRecoveryConsumption: true);
-                if (!stepUpPassed)
-                {
-                    return (false, null, "MFA_REBIND_STEP_UP_REQUIRED");
-                }
+                return (false, null, "MFA_REBIND_PASSWORD_REQUIRED");
             }
         }
 
@@ -687,7 +673,6 @@ public partial class UserService(
                 .SetColumns(u => u.MfaEnabled == false)
                 .SetColumns(u => u.RiskFlags == 0)
                 .SetColumns(u => u.BanReason == null)
-                .SetColumns(u => u.InternalSubjectRotatedAt == deletedAt)
                 .SetColumns(u => u.DeletedAt == deletedAt)
                 .SetColumns(u => u.DeletedReason == "self-service")
                 .Where(u => u.Id == userId)
@@ -791,9 +776,9 @@ public partial class UserService(
         }
 
         bool anonymousIdentityMode = AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled();
-        if (!anonymousIdentityMode && !BCrypt.Net.BCrypt.Verify(password, user.LegacyPasswordHash))
+        if (!anonymousIdentityMode)
         {
-            return (false, "密码验证失败");
+            return (false, AnonymousIdentityRuntime.LegacyPasswordDisabledMessage);
         }
 
         UserMfaProfile? profile = await GetUserMfaProfileAsync(userId);
@@ -849,9 +834,9 @@ public partial class UserService(
         }
 
         bool anonymousIdentityMode = AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled();
-        if (!anonymousIdentityMode && !BCrypt.Net.BCrypt.Verify(password, user.LegacyPasswordHash))
+        if (!anonymousIdentityMode)
         {
-            return (false, null, "密码验证失败");
+            return (false, null, AnonymousIdentityRuntime.LegacyPasswordDisabledMessage);
         }
 
         UserMfaProfile? profile = await GetUserMfaProfileAsync(userId);
@@ -977,9 +962,7 @@ public partial class UserService(
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string BuildMfaAccountLabel(User user)
-        => AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()
-            ? $"FsusBlog:account:{user.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
-            : user.InternalSubject;
+        => $"FsusBlog:account:{user.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
 
     private Task NotifyUserBannedAsync(int userId, string reason)
         => ExecuteNotificationAsync(static (svc, uid, payload) => svc.SendAccountBannedNoticeAsync(uid, payload), userId, reason);
@@ -1041,20 +1024,20 @@ public partial class UserService(
         return input.Length <= maxLen ? input : input[..maxLen];
     }
 
-    [LoggerMessage(EventId = 1, Level = LogLevel.Warning, Message = "注册竞态冲突 | 内部账号主体: {InternalSubject}")]
-    private partial void LogRegistrationConflict(string internalSubject);
+    [LoggerMessage(EventId = 1, Level = LogLevel.Warning, Message = "匿名账号初始化竞态冲突 | 账号: {AccountId}")]
+    private partial void LogRegistrationConflict(int accountId);
 
-    [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "登录验证未通过 | 内部账号主体: {InternalSubject} | IP: {IpAddress}")]
-    private partial void LogLoginFailure(string internalSubject, string ipAddress);
+    [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "登录验证未通过 | 账号: {AccountId} | IP: {IpAddress}")]
+    private partial void LogLoginFailure(int accountId, string ipAddress);
 
-    [LoggerMessage(EventId = 3, Level = LogLevel.Information, Message = "封禁用户登录 | 内部账号主体: {InternalSubject}")]
-    private partial void LogBannedUserLogin(string internalSubject);
+    [LoggerMessage(EventId = 3, Level = LogLevel.Information, Message = "封禁用户登录 | 账号: {AccountId}")]
+    private partial void LogBannedUserLogin(int accountId);
 
     [LoggerMessage(EventId = 4, Level = LogLevel.Information, Message = "续期失败 | 凭证失效")]
     private partial void LogTokenRefreshFailure();
 
-    [LoggerMessage(EventId = 5, Level = LogLevel.Information, Message = "受限用户执行令牌续期 | 内部账号主体: {InternalSubject} | 状态: 只读模式")]
-    private partial void LogBannedUserTokenRefresh(string internalSubject);
+    [LoggerMessage(EventId = 5, Level = LogLevel.Information, Message = "受限用户执行令牌续期 | 账号: {AccountId} | 状态: 只读模式")]
+    private partial void LogBannedUserTokenRefresh(int accountId);
 
     [LoggerMessage(EventId = 6, Level = LogLevel.Error, Message = "后台异步消息推送失败")]
     private partial void LogBackgroundTaskError(Exception ex);

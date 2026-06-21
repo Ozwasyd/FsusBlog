@@ -26,8 +26,7 @@ public class BlacklistServiceTests
         queryable.InSingleAsync(42).Returns(Task.FromResult(new User
         {
             Id = 42,
-            PublicHandle = "SameSubject",
-            InternalSubject = "anon_old"
+            PublicHandle = "SameSubject"
         }));
         db.Queryable<User>().Returns(queryable);
         var service = new BlacklistService(cache, db);
@@ -62,7 +61,6 @@ public class BlacklistServiceTests
         {
             Id = 42,
             PublicHandle = "SameSubject",
-            InternalSubject = "anon_old",
             Status = 1,
             BanReason = "persisted spam"
         }));
@@ -119,7 +117,6 @@ public class BlacklistServiceTests
         {
             Id = 42,
             PublicHandle = "SameSubject",
-            InternalSubject = "anon_old",
             Status = 0,
             BanReason = "stale reason"
         }));

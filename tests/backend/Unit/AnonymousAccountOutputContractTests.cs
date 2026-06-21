@@ -48,8 +48,8 @@ public sealed class AnonymousAccountOutputContractTests
             Assert.DoesNotContain(forbidden, userEntity, StringComparison.Ordinal);
         }
 
-        Assert.Contains("LegacyPasswordHash", userEntity, StringComparison.Ordinal);
-        Assert.Contains("LegacyProjectRole", userEntity, StringComparison.Ordinal);
+        Assert.DoesNotContain("LegacyPasswordHash", userEntity, StringComparison.Ordinal);
+        Assert.DoesNotContain("LegacyProjectRole", userEntity, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -392,7 +392,7 @@ public sealed class AnonymousAccountOutputContractTests
     }
 
     [Fact]
-    public void SysUserLegacyIdentityFields_AreInternalOnly()
+    public void SysUserLegacyIdentityFields_AreDroppedFromEntityMapping()
     {
         string entity = BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/User.cs");
         string userPorts = BackendTestPaths.ReadAllTextFromRoot("src/backend/Interfaces/UserApplicationPorts.cs");
@@ -403,17 +403,16 @@ public sealed class AnonymousAccountOutputContractTests
         string passkey = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/PasskeyService.cs");
         string identityRuntime = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Auth/AnonymousIdentityRuntime.cs");
 
-        Assert.Contains("ColumnName = \"username\"", entity, StringComparison.Ordinal);
-        Assert.Contains("InternalSubject", entity, StringComparison.Ordinal);
-        Assert.Contains("ColumnName = \"password\"", entity, StringComparison.Ordinal);
-        Assert.Contains("LegacyPasswordHash", entity, StringComparison.Ordinal);
-        Assert.Contains("ColumnName = \"role\"", entity, StringComparison.Ordinal);
-        Assert.Contains("LegacyProjectRole", entity, StringComparison.Ordinal);
-        Assert.Contains("ColumnName = \"last_username_update_time\"", entity, StringComparison.Ordinal);
-        Assert.Contains("InternalSubjectRotatedAt", entity, StringComparison.Ordinal);
-
         foreach (string forbidden in new[]
         {
+            "ColumnName = \"username\"",
+            "InternalSubject",
+            "ColumnName = \"password\"",
+            "LegacyPasswordHash",
+            "ColumnName = \"role\"",
+            "LegacyProjectRole",
+            "ColumnName = \"last_username_update_time\"",
+            "InternalSubjectRotatedAt",
             "public string Username",
             "public string Password",
             "public string Role",
@@ -454,9 +453,6 @@ public sealed class AnonymousAccountOutputContractTests
         var user = new User
         {
             Id = 42,
-            InternalSubject = "legacy-admin",
-            LegacyPasswordHash = "legacy-password-hash",
-            LegacyProjectRole = "admin",
             Status = 1,
             BanReason = "limited",
             DeletedAt = deletedAt,

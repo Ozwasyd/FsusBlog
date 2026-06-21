@@ -747,9 +747,9 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
         => db.Ado.ExecuteCommand(
             """
             INSERT INTO sys_user
-                (id, status, role, deleted_at, anonymous_credential_level, anonymous_credential_status)
+                (id, status, identity_kind, deleted_at, anonymous_credential_level, anonymous_credential_status)
             VALUES
-                (@Id, @Status, 'guest', NULL, @Level, @CredentialStatus);
+                (@Id, @Status, 'anonymous_account', NULL, @Level, @CredentialStatus);
             """,
             new SugarParameter("@Id", id),
             new SugarParameter("@Status", status),

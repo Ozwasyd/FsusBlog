@@ -19,9 +19,8 @@ public static class AccountSubjectHasher
             ? AnonymousIdentityRuntime.AnonymousAccountKind
             : user.IdentityKind.Trim();
         string? subject = NormalizeSubject(user.PasskeyUserHandle)
-            ?? NormalizeSubject(user.PublicHandle)
-            ?? NormalizeSubject(user.InternalSubject);
-        return Create(identityKind, subject ?? string.Concat("legacy-account:", user.Id.ToString(CultureInfo.InvariantCulture)));
+            ?? NormalizeSubject(user.PublicHandle);
+        return Create(identityKind, subject ?? string.Concat("anonymous-account:", user.Id.ToString(CultureInfo.InvariantCulture)));
     }
 
     public static string Create(string identityKind, string subject)
@@ -46,7 +45,7 @@ public static class AccountSubjectHasher
         string? identityKind = NormalizeSubject(principal.FindFirst("identity_kind")?.Value);
         return Create(
             identityKind ?? AnonymousIdentityRuntime.AnonymousAccountKind,
-            string.Concat("legacy-account:", accountId.ToString(CultureInfo.InvariantCulture)));
+            string.Concat("anonymous-account:", accountId.ToString(CultureInfo.InvariantCulture)));
     }
 
     public static string BuildCacheKey(string accountSubjectHash)

@@ -77,7 +77,7 @@ public sealed class PasskeyService(
 
         byte[] stableUserHandle = await GetOrCreateStablePasskeyUserHandleAsync(user, cancellationToken);
         PasskeyAccountMetadata accountMetadata = BuildAnonymousSafeMetadata(
-            user.InternalSubject,
+            null,
             user.PublicHandle,
             AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled(),
             stableUserHandle);
