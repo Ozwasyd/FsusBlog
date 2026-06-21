@@ -82,7 +82,7 @@
           :threads="threads"
           :is-admin="userStore.isAdmin"
           :is-logged-in="userStore.isLoggedIn"
-          :current-display-name="null"
+          :current-account-id="userStore.userInfo?.accountId ?? null"
           :loading-replies="loadingReplies"
           @delete="handleCommentDelete"
           @reply="setReplyTarget"

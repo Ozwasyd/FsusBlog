@@ -57,6 +57,7 @@ type CommentAddedSignalPayload = ArticleSignalPayload & {
     content: string
     createTime: string
     author?: CommentAuthorView | null
+    authorAccountId?: number | null
     parentId?: string | null
     rootId?: string | null
     replyToAuthor?: CommentAuthorView | null
@@ -76,7 +77,6 @@ type ReplyTarget = {
   id: string
   rootId: string
   author: CommentAuthorView
-  displayName: string
   depth: number
 } | null
 
@@ -813,7 +813,7 @@ export function useArticleDetailView() {
     }
   }
 
-  const setReplyTarget = (payload: { id: string; rootId: string; author: CommentAuthorView; displayName: string; depth: number }): void => {
+  const setReplyTarget = (payload: { id: string; rootId: string; author: CommentAuthorView; depth: number }): void => {
     if (!userStore.isLoggedIn) {
       redirectToCommentLogin()
       return

@@ -216,6 +216,7 @@ export interface CommentReplyItem {
   content: string
   createTime: string
   author: CommentAuthorView
+  authorAccountId?: number | null
   replyToAuthor?: CommentAuthorView | null
   parentId?: string | null
   rootId: string
@@ -229,6 +230,7 @@ export interface CommentThreadItem {
   content: string
   createTime: string
   author: CommentAuthorView
+  authorAccountId?: number | null
   rootId: string
   isDeleted: boolean
   replyCount: number
@@ -241,6 +243,7 @@ export interface CommentReplyPreviewItem {
   content: string
   createTime: string
   author: CommentAuthorView
+  authorAccountId?: number | null
   replyToAuthor?: CommentAuthorView | null
   isDeleted: boolean
 }

@@ -11,7 +11,7 @@
           <span :class="commentDetailTokens.articleList.authorName">{{ thread.author.displayName }}</span>
           <el-button
             link
-            @click="$emit('reply', { id: thread.id, rootId: thread.rootId, author: thread.author, displayName: thread.author.displayName, depth: 0 })"
+            @click="$emit('reply', { id: thread.id, rootId: thread.rootId, author: thread.author, depth: 0 })"
           >
             {{ isLoggedIn ? '回复' : '登录后回复' }}
           </el-button>
@@ -48,7 +48,7 @@
             <span>{{ reply.time.relativeTimeText }}</span>
             <el-button
               link
-              @click="$emit('reply', { id: reply.id, rootId: thread.rootId, author: reply.author, displayName: reply.author.displayName, depth: 1 })"
+              @click="$emit('reply', { id: reply.id, rootId: thread.rootId, author: reply.author, depth: 1 })"
             >
               {{ isLoggedIn ? '回复' : '登录后回复' }}
             </el-button>
@@ -95,7 +95,6 @@ type ReplyTargetPayload = {
   id: string
   rootId: string
   author: CommentAuthorView
-  displayName: string
   depth: number
 }
 
@@ -110,7 +109,7 @@ const props = defineProps<{
   threads: CommentThreadItem[]
   isAdmin: boolean
   isLoggedIn: boolean
-  currentDisplayName: string | null
+  currentAccountId: number | null
   loadingReplies: Record<string, boolean>
   initialRenderLimit?: number
 }>()
@@ -121,8 +120,13 @@ defineEmits<{
   (e: 'load-more-replies', rootId: string): void
 }>()
 
-const canDeleteForUser = (displayName: string): boolean =>
-  props.isAdmin || (props.isLoggedIn && String(displayName) === String(props.currentDisplayName ?? ''))
+const canDeleteByOwnership = (authorAccountId?: number | null): boolean =>
+  props.isAdmin || (
+    props.isLoggedIn &&
+    typeof authorAccountId === 'number' &&
+    typeof props.currentAccountId === 'number' &&
+    authorAccountId === props.currentAccountId
+  )
 
 const buildTime = (iso: string): CommentTimeContract => ({
   isoTime: iso,
@@ -132,11 +136,11 @@ const buildTime = (iso: string): CommentTimeContract => ({
 
 const threadItems = computed(() => props.threads.map((thread) => ({
   ...thread,
-  canDelete: canDeleteForUser(thread.author.displayName),
+  canDelete: canDeleteByOwnership(thread.authorAccountId),
   time: buildTime(thread.createTime),
   replies: thread.repliesPreview.slice(0, COMMENT_CONTENT_CONSTRAINT.replyRenderLimit).map((reply: CommentReplyPreviewItem) => ({
     ...reply,
-    canDelete: canDeleteForUser(reply.author.displayName),
+    canDelete: canDeleteByOwnership(reply.authorAccountId),
     time: buildTime(reply.createTime)
   }))
 })))

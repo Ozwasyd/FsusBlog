@@ -83,7 +83,6 @@ type ReplyTargetView = {
   id: string
   rootId: string
   author: CommentAuthorView
-  userName: string
   depth: number
 }
 

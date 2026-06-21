@@ -122,6 +122,29 @@ describe('anonymous comment author workflow contract', () => {
     expect(detailComposable).not.toContain('zkProof: privacyTicket')
   })
 
+  it('authorizes comment UI actions through account ownership snapshots instead of userName strings', () => {
+    const replyTargetBlock = extractTsType(detailComposable, 'ReplyTarget')
+    const commentPushBlock = extractTsType(readRepoFile('src/frontend/src/composables/useArticleCommentStream.ts'), 'CommentPushLike')
+
+    expect(api).toContain('authorAccountId?: number | null')
+    expect(commentList).toContain('currentAccountId: number | null')
+    expect(commentList).toContain('authorAccountId === props.currentAccountId')
+    expect(commentList).not.toContain('currentUsername')
+    expect(commentList).not.toContain('currentDisplayName')
+    expect(commentList).not.toContain('canDeleteForUser')
+    expect(commentList).not.toContain('displayName) ===')
+    expect(readRepoFile('src/frontend/src/views/ArticleDetail.vue')).toContain(':current-account-id="userStore.userInfo?.accountId ?? null"')
+
+    expect(replyTargetBlock).not.toMatch(/\buserName\b/)
+    expect(replyTargetBlock).not.toMatch(/\bdisplayName\b/)
+    expect(commentList).not.toContain("displayName: thread.author.displayName")
+    expect(commentList).not.toContain("displayName: reply.author.displayName")
+
+    expect(commentPushBlock).toContain('authorAccountId?: number | null')
+    expect(commentPushBlock).not.toMatch(/\buserName\b/)
+    expect(commentPushBlock).not.toMatch(/\breplyToUserId\b/)
+  })
+
   it('keeps anonymous submit one-shot without public fallback or sensitive console output', () => {
     expect(detailComposable).toContain('anonymousSubmitScopesInFlight')
     expect(detailComposable).toContain('commentPrivacyRuntime.consumePreparedTicket(commentAnonymousScope.value)')
@@ -148,7 +171,7 @@ function extractTsInterface(source: string, name: string): string {
 }
 
 function extractTsType(source: string, name: string): string {
-  const match = source.match(new RegExp(`type ${name} = \\{[\\s\\S]*?\\n\\}`))
+  const match = source.match(new RegExp(`type ${name} = \\{[\\s\\S]*?\\n\\}(?: \\| null)?`))
   expect(match, `Missing TypeScript type ${name}`).not.toBeNull()
   return match![0]
 }

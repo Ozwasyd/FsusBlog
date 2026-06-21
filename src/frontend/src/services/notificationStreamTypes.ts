@@ -39,6 +39,7 @@ export interface CommentAddedPayload {
       scopeLabel?: string | null
       credentialLevel?: string | null
     }
+    authorAccountId?: number | null
     parentId?: string | null
     rootId?: string | null
     replyToAuthor?: {
