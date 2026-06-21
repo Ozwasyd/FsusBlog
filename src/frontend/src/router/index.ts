@@ -121,7 +121,7 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
   {
     path: '/user',
     component: () => import('@/layouts/AccountLayout.vue'),
-    meta: { requiresAuth: true, roles: ['guest', 'admin'], accountArea: 'self', accountContentMode: 'standard' },
+    meta: { requiresAuth: true, accountArea: 'self', accountContentMode: 'standard' },
     children: [
       { path: ACCOUNT_ROUTE_PATHS.profileChild, name: 'UserProfile', redirect: { name: 'UserIdentityOverview' }, component: () => import('@/views/user/Profile.vue'), meta: { title: '身份中心', accountArea: 'self', accountContentMode: 'standard' } },
       { path: 'comments', name: 'UserComments', component: () => import('@/views/user/Comments.vue'), meta: { title: '可归因评论记录', accountArea: 'self', accountContentMode: 'standard' } },
@@ -241,7 +241,7 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       sessionBootstrap.syncDocumentTitle(to)
     }
 
-    if (!options.ssr && (manageRoute || Boolean(to.meta.roles))) {
+    if (!options.ssr && manageRoute) {
       await sessionBootstrap.ensureUserInfoFresh({ maxAgeMs: 30_000, forceWhenUnknown: true })
     }
 
