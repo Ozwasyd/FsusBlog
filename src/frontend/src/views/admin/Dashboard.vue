@@ -32,7 +32,24 @@
       </div>
     </section>
 
-    <DashboardStatCards :view="dashboardView" />
+    <FsusUiKpiGroup class="dashboard-stat-cards">
+      <FsusUiMetricItem
+        v-for="card in dashboardView.statCards"
+        :key="card.key"
+        :label="card.label"
+        :primary="card.value"
+        :meta="card.description"
+      >
+        <template #label>
+          <span class="dashboard-stat-card-label">
+            <el-icon size="18" aria-hidden="true">
+              <component :is="statCardIconMap[card.iconName]" />
+            </el-icon>
+            {{ card.label }}
+          </span>
+        </template>
+      </FsusUiMetricItem>
+    </FsusUiKpiGroup>
 
     <DashboardAuthorAnalyticsPanel :view="dashboardView" class="mb-16" />
 
@@ -128,7 +145,8 @@ import {
 } from '@/components/admin/DashboardMetricPrimitives'
 import DashboardOperationsPanel from '@/components/admin/DashboardOperationsPanel.vue'
 import { FsusUiSectionHeader } from '@/fsusui'
-import DashboardStatCards from '@/components/admin/DashboardStatCards.vue'
+import { ChatDotRound, Delete, Document, View } from '@/fsusui/icons'
+import { FsusUiKpiGroup, FsusUiMetricItem } from '@/fsusui'
 import DashboardRecentComments from '@/components/admin/DashboardRecentComments.vue'
 import DashboardPopularArticles from '@/components/admin/DashboardPopularArticles.vue'
 import { useAdminDashboard } from '@/composables/useAdminDashboard'
@@ -140,6 +158,14 @@ import { showErrorToast } from '@/utils/errorPresentation'
 
 const { loading, dashboardView, regionChartRef } = useAdminDashboard()
 void regionChartRef
+
+const statCardIconMap = {
+  document: Document,
+  comments: ChatDotRound,
+  views: View,
+  trash: Delete
+} as const
+
 const userStore = useUserStore()
 const pendingTicketsCount = ref(0)
 const cacheIncidentCount = ref(0)
