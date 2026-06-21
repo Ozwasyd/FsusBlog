@@ -758,20 +758,19 @@ public partial class CommentService(
             return new CursorResponse<UserCommentResponse> { Data = [], NextCursor = null, HasMore = false };
         }
 
-        var rows = await db.Queryable<Comment, Article, Comment, User, CommentRegionCompliance>((c, a, pc, ru, crc) => new object[]
+        var rows = await db.Queryable<Comment, Article, Comment, CommentRegionCompliance>((c, a, pc, crc) => new object[]
             {
                 JoinType.Left, c.ArticleId == a.Id,
                 JoinType.Left, c.ReplyToCommentId == pc.Id,
-                JoinType.Left, pc.UserId == ru.Id,
                 JoinType.Left, c.Id == crc.CommentId
             })
-            .Where((c, a, pc, ru, crc) => c.UserId == userId
+            .Where((c, a, pc, crc) => c.UserId == userId
                 && c.AuthorMode == CommentAuthorModes.Public
                 && !a.IsDeleted)
-            .WhereIF(request.Cursor.HasValue, (c, a, pc, ru, crc) => c.Id < request.Cursor!.Value)
-            .OrderByDescending((c, a, pc, ru, crc) => c.Id)
+            .WhereIF(request.Cursor.HasValue, (c, a, pc, crc) => c.Id < request.Cursor!.Value)
+            .OrderByDescending((c, a, pc, crc) => c.Id)
             .Take(request.Limit + 1)
-            .Select((c, a, pc, ru, crc) => new UserCommentRow
+            .Select((c, a, pc, crc) => new UserCommentRow
             {
                 Id = c.Id,
                 Content = c.Content,
@@ -782,7 +781,11 @@ public partial class CommentService(
                 RootId = c.RootId,
                 ArticleId = a.Id,
                 ArticleTitle = a.Title,
-                ReplyToUserName = pc.AnonymousDisplayName ?? pc.PublicHandle ?? ru.Username
+                ReplyToCommentId = c.ReplyToCommentId,
+                ReplyToAuthorMode = pc.AuthorMode,
+                ReplyToPublicHandle = pc.PublicHandle,
+                ReplyToAnonymousDisplayName = pc.AnonymousDisplayName,
+                ReplyToAnonymousDisplayLanguage = pc.AnonymousDisplayLanguage
             })
             .ToListAsync();
 
@@ -794,7 +797,13 @@ public partial class CommentService(
             ArticleId = item.ArticleId,
             ArticleTitle = item.ArticleTitle ?? string.Empty,
             RootId = item.RootId,
-            ReplyToUserName = item.ReplyToUserName,
+            ReplyToUserName = item.ReplyToCommentId.HasValue
+                ? ResolveCommentAuthorDisplayName(
+                    item.ReplyToAuthorMode,
+                    item.ReplyToPublicHandle,
+                    item.ReplyToAnonymousDisplayName,
+                    item.ReplyToAnonymousDisplayLanguage)
+                : null,
             ModerationStatus = (int)item.ModerationStatus,
             IsDeleted = item.IsDeleted,
             HasBlockedRegions = !string.IsNullOrWhiteSpace(item.BlockedRegions)
@@ -887,7 +896,11 @@ SELECT
     c.article_id AS "ArticleId",
     c.content AS "Content",
     c.create_time AS "CreateTime",
-    COALESCE(NULLIF(c.anonymous_display_name, ''), NULLIF(c.public_handle, ''), u.username, '') AS "UserName",
+    CASE
+        WHEN c.author_mode = 'public' THEN COALESCE(NULLIF(c.public_handle, ''), '未署名用户')
+        WHEN lower(COALESCE(c.anonymous_display_language, '')) = 'en' THEN COALESCE(NULLIF(c.anonymous_display_name, ''), 'Anonymous User')
+        ELSE COALESCE(NULLIF(c.anonymous_display_name, ''), '匿名用户')
+    END AS "UserName",
     c.author_mode AS "AuthorMode",
     c.anonymous_display_language AS "AnonymousDisplayLanguage",
     c.anonymous_scope AS "AnonymousScope",
@@ -895,7 +908,6 @@ SELECT
     c.depth AS "Depth",
     c.is_deleted AS "IsDeleted"
 FROM comment c
-LEFT JOIN sys_user u ON c.user_id = u.id
 WHERE c.article_id = @ArticleId
   AND c.parent_id IS NULL
   AND c.moderation_status = @Approved
@@ -1004,12 +1016,21 @@ SELECT
     c.reply_to_comment_id AS "ReplyToCommentId",
     c.content AS "Content",
     c.create_time AS "CreateTime",
-    COALESCE(NULLIF(c.anonymous_display_name, ''), NULLIF(c.public_handle, ''), u.username, '') AS "UserName",
+    CASE
+        WHEN c.author_mode = 'public' THEN COALESCE(NULLIF(c.public_handle, ''), '未署名用户')
+        WHEN lower(COALESCE(c.anonymous_display_language, '')) = 'en' THEN COALESCE(NULLIF(c.anonymous_display_name, ''), 'Anonymous User')
+        ELSE COALESCE(NULLIF(c.anonymous_display_name, ''), '匿名用户')
+    END AS "UserName",
     c.author_mode AS "AuthorMode",
     c.anonymous_display_language AS "AnonymousDisplayLanguage",
     c.anonymous_scope AS "AnonymousScope",
     c.credential_level AS "CredentialLevel",
-    COALESCE(NULLIF(pc.anonymous_display_name, ''), NULLIF(pc.public_handle, ''), ru.username, '') AS "ReplyToUserName",
+    CASE
+        WHEN pc.id IS NULL THEN NULL
+        WHEN pc.author_mode = 'public' THEN COALESCE(NULLIF(pc.public_handle, ''), '未署名用户')
+        WHEN lower(COALESCE(pc.anonymous_display_language, '')) = 'en' THEN COALESCE(NULLIF(pc.anonymous_display_name, ''), 'Anonymous User')
+        ELSE COALESCE(NULLIF(pc.anonymous_display_name, ''), '匿名用户')
+    END AS "ReplyToUserName",
     pc.author_mode AS "ReplyToAuthorMode",
     pc.anonymous_display_language AS "ReplyToAnonymousDisplayLanguage",
     pc.anonymous_scope AS "ReplyToAnonymousScope",
@@ -1017,9 +1038,7 @@ SELECT
     c.depth AS "Depth",
     c.is_deleted AS "IsDeleted"
 FROM comment c
-LEFT JOIN sys_user u ON c.user_id = u.id
 LEFT JOIN comment pc ON c.reply_to_comment_id = pc.id
-LEFT JOIN sys_user ru ON pc.user_id = ru.id
 WHERE c.article_id = @ArticleId
   AND c.root_id = @RootId
   AND c.parent_id IS NOT NULL
@@ -1152,12 +1171,21 @@ FROM (
         c.reply_to_comment_id,
         c.content,
         c.create_time,
-        COALESCE(NULLIF(c.anonymous_display_name, ''), NULLIF(c.public_handle, ''), u.username, '') AS user_name,
+        CASE
+            WHEN c.author_mode = 'public' THEN COALESCE(NULLIF(c.public_handle, ''), '未署名用户')
+            WHEN lower(COALESCE(c.anonymous_display_language, '')) = 'en' THEN COALESCE(NULLIF(c.anonymous_display_name, ''), 'Anonymous User')
+            ELSE COALESCE(NULLIF(c.anonymous_display_name, ''), '匿名用户')
+        END AS user_name,
         c.author_mode,
         c.anonymous_display_language,
         c.anonymous_scope,
         c.credential_level,
-        COALESCE(NULLIF(pc.anonymous_display_name, ''), NULLIF(pc.public_handle, ''), ru.username, '') AS reply_to_user_name,
+        CASE
+            WHEN pc.id IS NULL THEN NULL
+            WHEN pc.author_mode = 'public' THEN COALESCE(NULLIF(pc.public_handle, ''), '未署名用户')
+            WHEN lower(COALESCE(pc.anonymous_display_language, '')) = 'en' THEN COALESCE(NULLIF(pc.anonymous_display_name, ''), 'Anonymous User')
+            ELSE COALESCE(NULLIF(pc.anonymous_display_name, ''), '匿名用户')
+        END AS reply_to_user_name,
         pc.author_mode AS reply_to_author_mode,
         pc.anonymous_display_language AS reply_to_anonymous_display_language,
         pc.anonymous_scope AS reply_to_anonymous_scope,
@@ -1166,9 +1194,7 @@ FROM (
         c.is_deleted,
         ROW_NUMBER() OVER (PARTITION BY c.root_id ORDER BY c.id) AS rn
     FROM comment c
-    LEFT JOIN sys_user u ON c.user_id = u.id
     LEFT JOIN comment pc ON c.reply_to_comment_id = pc.id
-    LEFT JOIN sys_user ru ON pc.user_id = ru.id
     WHERE c.article_id = @ArticleId
       AND c.root_id IS NOT NULL
       AND c.root_id IN (
@@ -1339,7 +1365,7 @@ ORDER BY x.root_id, x.id;
         string mode = NormalizeAuthorModeForView(authorMode);
         string fallbackName = string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal)
             ? "未署名用户"
-            : "匿名用户";
+            : ResolveAnonymousDisplayFallback(displayLanguage);
         string resolvedDisplayName = NormalizeNullable(displayName, 96) ?? fallbackName;
 
         return new CommentAuthorViewDto(
@@ -1361,6 +1387,27 @@ ORDER BY x.root_id, x.id;
 
     private static string NormalizeAuthorDisplayLanguage(string? displayLanguage)
         => string.Equals(displayLanguage, "en", StringComparison.OrdinalIgnoreCase) ? "en" : "zh-CN";
+
+    private static string ResolveCommentAuthorDisplayName(
+        string? authorMode,
+        string? publicHandle,
+        string? anonymousDisplayName,
+        string? anonymousDisplayLanguage)
+    {
+        string mode = NormalizeAuthorModeForView(authorMode);
+        if (string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal))
+        {
+            return NormalizeNullable(publicHandle, 96) ?? "未署名用户";
+        }
+
+        return NormalizeNullable(anonymousDisplayName, 96)
+            ?? ResolveAnonymousDisplayFallback(anonymousDisplayLanguage);
+    }
+
+    private static string ResolveAnonymousDisplayFallback(string? displayLanguage)
+        => string.Equals(displayLanguage, "en", StringComparison.OrdinalIgnoreCase)
+            ? "Anonymous User"
+            : "匿名用户";
 
     private static string ToDisplayContent(bool isDeleted, string content)
         => isDeleted ? DeletedPlaceholder : content;
@@ -1497,6 +1544,10 @@ ORDER BY x.root_id, x.id;
         public long? RootId { get; init; }
         public int ArticleId { get; init; }
         public string? ArticleTitle { get; init; }
-        public string? ReplyToUserName { get; init; }
+        public long? ReplyToCommentId { get; init; }
+        public string? ReplyToAuthorMode { get; init; }
+        public string? ReplyToPublicHandle { get; init; }
+        public string? ReplyToAnonymousDisplayName { get; init; }
+        public string? ReplyToAnonymousDisplayLanguage { get; init; }
     }
 }

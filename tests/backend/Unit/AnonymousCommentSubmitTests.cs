@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -167,6 +168,88 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         Assert.Null(visibleReply.ReplyToUserId);
         Assert.Equal("parent-user", visibleReply.ReplyToUserName);
         Assert.Equal(CommentAuthorModes.Public, visibleReply.ReplyToAuthor?.Mode);
+    }
+
+    [Fact]
+    public async Task GetCommentThreadsByCursorAsync_LegacyUserNameFallback_IsNotPubliclyExposed()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedLegacyUser(db, userId: 7, username: "legacy_real_name");
+        SeedVisibleComment(
+            db,
+            commentId: 100,
+            articleId: 42,
+            userId: 7,
+            content: "legacy snapshot root",
+            authorMode: CommentAuthorModes.ZkAnonymous,
+            publicHandle: null,
+            anonymousDisplayName: null,
+            anonymousDisplayLanguage: "zh-CN",
+            anonymousScope: "article:42",
+            credentialLevel: AnonymousCredentialLevels.StrongAnonymous);
+        CommentService service = CreateService(db, new RecordingTicketService());
+
+        CursorResponse<CommentThreadItemDto> result = await service.GetCommentThreadsByCursorAsync(
+            42,
+            new CursorPageRequest<long> { Limit = 10 });
+
+        CommentThreadItemDto item = Assert.Single(result.Data);
+        Assert.Equal("匿名用户", item.UserName);
+        Assert.Equal(CommentAuthorModes.ZkAnonymous, item.Author.Mode);
+        Assert.Equal("匿名用户", item.Author.DisplayName);
+        Assert.DoesNotContain("legacy_real_name", JsonSerializer.Serialize(item), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task GetThreadRepliesByCursorAsync_ReplyToSnapshotMissing_DoesNotExposeLegacyParentUsername()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedLegacyUser(db, userId: 7, username: "legacy_real_name");
+        SeedVisibleComment(
+            db,
+            commentId: 100,
+            articleId: 42,
+            userId: 7,
+            content: "legacy snapshot parent",
+            authorMode: CommentAuthorModes.ZkAnonymous,
+            publicHandle: null,
+            anonymousDisplayName: null,
+            anonymousDisplayLanguage: "zh-CN",
+            anonymousScope: "article:42",
+            credentialLevel: AnonymousCredentialLevels.StrongAnonymous);
+        SeedVisibleComment(
+            db,
+            commentId: 101,
+            articleId: 42,
+            userId: null,
+            content: "child reply",
+            authorMode: CommentAuthorModes.ZkAnonymous,
+            publicHandle: null,
+            anonymousDisplayName: "匿名用户小溪",
+            anonymousDisplayLanguage: "zh-CN",
+            anonymousScope: "article:42",
+            credentialLevel: AnonymousCredentialLevels.StrongAnonymous,
+            parentId: 100,
+            rootId: 100,
+            replyToCommentId: 100,
+            depth: 1);
+        CommentService service = CreateService(db, new RecordingTicketService());
+
+        CursorResponse<CommentReplyItemDto> result = await service.GetThreadRepliesByCursorAsync(
+            42,
+            100,
+            new CursorPageRequest<long> { Limit = 10 });
+
+        CommentReplyItemDto reply = Assert.Single(result.Data);
+        Assert.Null(reply.ReplyToUserId);
+        Assert.Equal("匿名用户", reply.ReplyToUserName);
+        Assert.Equal(CommentAuthorModes.ZkAnonymous, reply.ReplyToAuthor?.Mode);
+        Assert.Equal("匿名用户", reply.ReplyToAuthor?.DisplayName);
+        Assert.DoesNotContain("legacy_real_name", JsonSerializer.Serialize(reply), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -417,6 +500,18 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
             new SugarParameter("@Status", (int)ArticleStatus.Published),
             new SugarParameter("@PublishedAt", DateTime.UtcNow.AddMinutes(-1)));
 
+    private static void SeedLegacyUser(SqlSugarClient db, int userId, string username)
+        => db.Ado.ExecuteCommand(
+            """
+            INSERT INTO sys_user
+                (id, username, role, status, identity_kind, passkey_enabled, recovery_enabled, privacy_initialized_at)
+            VALUES
+                (@Id, @Username, 'guest', 0, 'anonymous_account', true, false, @PrivacyInitializedAt);
+            """,
+            new SugarParameter("@Id", userId),
+            new SugarParameter("@Username", username),
+            new SugarParameter("@PrivacyInitializedAt", DateTime.UtcNow));
+
     private static void SeedApprovedComment(SqlSugarClient db, long commentId, int articleId, int? userId)
         => db.Insertable(new Comment
         {
@@ -432,6 +527,45 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
             ReplyToUserId = null,
             ReplyToCommentId = null,
             Depth = 0,
+            IsDeleted = false,
+            ModerationStatus = CommentModerationStatus.Approved
+        }).ExecuteCommand();
+
+    private static void SeedVisibleComment(
+        SqlSugarClient db,
+        long commentId,
+        int articleId,
+        int? userId,
+        string content,
+        string authorMode,
+        string? publicHandle,
+        string? anonymousDisplayName,
+        string? anonymousDisplayLanguage,
+        string? anonymousScope,
+        string? credentialLevel,
+        long? parentId = null,
+        long? rootId = null,
+        long? replyToCommentId = null,
+        int? replyToUserId = null,
+        int depth = 0)
+        => db.Insertable(new Comment
+        {
+            Id = commentId,
+            ArticleId = articleId,
+            Content = content,
+            UserId = userId,
+            AuthorMode = authorMode,
+            PublicHandle = publicHandle,
+            AnonymousDisplayName = anonymousDisplayName,
+            AnonymousDisplayLanguage = anonymousDisplayLanguage,
+            AnonymousScope = anonymousScope,
+            CredentialLevel = credentialLevel,
+            CreateTime = DateTime.UtcNow.AddMinutes(-1),
+            ParentId = parentId,
+            RootId = rootId,
+            ReplyToUserId = replyToUserId,
+            ReplyToCommentId = replyToCommentId,
+            Depth = depth,
             IsDeleted = false,
             ModerationStatus = CommentModerationStatus.Approved
         }).ExecuteCommand();

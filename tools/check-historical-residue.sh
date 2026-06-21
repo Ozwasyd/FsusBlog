@@ -174,6 +174,13 @@ run_residue_check \
   src/backend src/core src/shared src/frontend/src docs tests/backend/Unit tests/frontend/unit tests/frontend/fixtures tools/contracts
 
 run_residue_check \
+  "legacy comment public username fallback" \
+  "legacy comment public username fallback residue detected" \
+  '\bu[.]username\b|\bru[.]username\b|LEFT JOIN sys_user[[:space:]]+(?:u|ru)\b|[.]Username\b' \
+  "" \
+  src/backend/Services/CommentService.cs
+
+run_residue_check \
   "legacy message sender user model" \
   "legacy message sender user-model residue detected" \
   '\b(?:adminUserId|targetUserId|systemTargetUserId|InitiatorUserId|CreatedById|SenderId)\b|public int UserId|Queryable<User>\(\)|[.]Username|目标用户 ID' \
