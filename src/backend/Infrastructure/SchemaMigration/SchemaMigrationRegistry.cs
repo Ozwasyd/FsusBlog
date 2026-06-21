@@ -17,6 +17,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildContentCleanupMigration(),
         BuildMessagingSplitMigration(),
         BuildMessageAccountPrincipalMigration(),
+        BuildMessageLegacyIdentityColumnsFinalizeMigration(),
         BuildUserSoftDeleteMigration(),
         BuildUserSessionFinalizeMigration(),
         BuildUserAuthSecurityHardeningMigration(),
@@ -799,6 +800,27 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_msg_participant_account_unread",
                     "CREATE INDEX IF NOT EXISTS idx_msg_participant_account_unread ON msg_participant_state(accountid, unreadcount DESC);")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildMessageLegacyIdentityColumnsFinalizeMigration()
+        => new SchemaMigrationDescriptor(
+            "20260621-post-message-legacy-identity-columns-finalize",
+            "Drop legacy message user identity columns and identity sync triggers after account principal migration.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new RawSqlStep("""
+                    DROP TRIGGER IF EXISTS trg_msg_conversation_identity_sync ON msg_conversation;
+                    DROP TRIGGER IF EXISTS trg_msg_message_identity_sync ON msg_message;
+                    DROP TRIGGER IF EXISTS trg_msg_participant_identity_sync ON msg_participant_state;
+                    DROP FUNCTION IF EXISTS public.fsusblog_msg_conversation_identity_sync();
+                    DROP FUNCTION IF EXISTS public.fsusblog_msg_message_identity_sync();
+                    DROP FUNCTION IF EXISTS public.fsusblog_msg_participant_identity_sync();
+                    """),
+                new DropColumnStep("msg_conversation", "initiatoruserid"),
+                new DropColumnStep("msg_message", "senderid"),
+                new DropColumnStep("msg_participant_state", "userid")
             ]);
 
     private static ISchemaMigrationDescriptor BuildUserSoftDeleteMigration()

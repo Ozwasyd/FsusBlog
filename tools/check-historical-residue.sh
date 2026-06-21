@@ -377,6 +377,13 @@ run_residue_check \
   src/backend/Entities/VisitLog.cs src/backend/Services/VisitLog/VisitLogProcessorService.cs src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs
 
 run_residue_check \
+  "message legacy user identity sync coupling" \
+  "message legacy user identity sync residue detected" \
+  '(initiatoruserid|senderid|userid).*identity_sync' \
+  "" \
+  src/backend
+
+run_residue_check \
   "stats recent comment user identity" \
   "stats recent comment user identity residue detected" \
   'LeftJoin<User>|u[.]Username|u[.]Id|GetOrdinal[(]["'\'']Username["'\''][)]|RecentCommentStatItemDto[(][^;\n]*(?:UserId|UserName)|RecentCommentCoreModel[(][^;\n]*(?:UserId|UserName)|ProjectRecentComment[(][^;\n]*(?:userId|userName)|UserId = userId|public readonly int UserId;|HasUserId|item[.]UserId|item[.]UserName|reader[.]readSpan[(]32[)]|comment[.]userName|userId:|userName:' \

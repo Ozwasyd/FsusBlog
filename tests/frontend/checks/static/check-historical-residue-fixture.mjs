@@ -200,6 +200,19 @@ internal static class JwtHelper
     }
   },
   {
+    name: 'message legacy user identity sync coupling',
+    expected: 'message legacy user identity sync residue detected',
+    files: {
+      'src/backend/Infrastructure/SchemaMigration/MessageLegacyIdentitySyncResidue.cs': `
+namespace FsusBlog.Server.Infrastructure.SchemaMigration;
+internal static class MessageLegacyIdentitySyncResidue
+{
+    private const string Sql = "initiatoruserid still feeds identity_sync";
+}
+`
+    }
+  },
+  {
     name: 'legacy password login form',
     expected: 'legacy password login form residue detected',
     files: {

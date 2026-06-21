@@ -504,6 +504,87 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    public async Task RunAsync_FinalizesMessageLegacyIdentityColumnsAndSyncObjects()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE msg_conversation (
+                id bigint PRIMARY KEY,
+                subject varchar(160) NOT NULL DEFAULT '',
+                initiatoruserid integer NULL,
+                initiatoraccountid integer NULL,
+                createdbyid integer NULL,
+                createdbytype integer NOT NULL DEFAULT 0,
+                createdbyaccountid integer NULL,
+                createdbyadminprincipalid bigint NULL,
+                createdbyadminsessionid varchar(64) NULL,
+                status integer NOT NULL DEFAULT 0,
+                issystemsource boolean NOT NULL DEFAULT false,
+                createdat timestamp NOT NULL DEFAULT now(),
+                updatedat timestamp NOT NULL DEFAULT now(),
+                lastmessageat timestamp NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE msg_message (
+                id bigint PRIMARY KEY,
+                conversationid bigint NOT NULL,
+                sendertype integer NOT NULL DEFAULT 0,
+                senderid integer NULL,
+                senderaccountid integer NULL,
+                senderadminprincipalid bigint NULL,
+                senderadminsessionid varchar(64) NULL,
+                body text NOT NULL DEFAULT '',
+                isinternalnote boolean NOT NULL DEFAULT false,
+                createdat timestamp NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE msg_participant_state (
+                conversationid bigint NOT NULL,
+                userid integer NULL,
+                accountid integer NOT NULL,
+                lastreadmessageid bigint NULL,
+                unreadcount integer NOT NULL DEFAULT 0,
+                muted boolean NOT NULL DEFAULT false,
+                lastreadat timestamp NULL,
+                updatedat timestamp NOT NULL DEFAULT now(),
+                PRIMARY KEY (conversationid, accountid)
+            );
+
+            INSERT INTO msg_conversation(id, initiatoruserid, initiatoraccountid, createdbyid, createdbyaccountid)
+            VALUES (2001, 7, 7, 7, 7);
+            INSERT INTO msg_message(id, conversationid, senderid, senderaccountid, body)
+            VALUES (3001, 2001, 7, 7, 'legacy body');
+            INSERT INTO msg_participant_state(conversationid, userid, accountid)
+            VALUES (2001, 7, 7);
+            """);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "msg_conversation", "initiatoruserid"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "msg_message", "senderid"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "msg_participant_state", "userid"));
+        Assert.False(await TriggerExistsAsync(connectionString, "msg_conversation", "trg_msg_conversation_identity_sync"));
+        Assert.False(await TriggerExistsAsync(connectionString, "msg_message", "trg_msg_message_identity_sync"));
+        Assert.False(await TriggerExistsAsync(connectionString, "msg_participant_state", "trg_msg_participant_identity_sync"));
+        Assert.False(await FunctionExistsAsync(connectionString, "fsusblog_msg_conversation_identity_sync"));
+        Assert.False(await FunctionExistsAsync(connectionString, "fsusblog_msg_message_identity_sync"));
+        Assert.False(await FunctionExistsAsync(connectionString, "fsusblog_msg_participant_identity_sync"));
+
+        Assert.Equal(1, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_conversation WHERE id = 2001 AND initiatoraccountid = 7 AND createdbyaccountid = 7;"));
+        Assert.Equal(1, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_message WHERE id = 3001 AND senderaccountid = 7;"));
+        Assert.Equal(1, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_participant_state WHERE conversationid = 2001 AND accountid = 7;"));
+    }
+
+    [Fact]
     public async Task RunAsync_UpgradesLegacyUserSessionColumnsAndDropsOldExpiresAt()
     {
         string databaseName = await fixture.CreateDatabaseAsync();
@@ -969,6 +1050,9 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "article", "content"));
         Assert.False(await fixture.TableExistsAsync(connectionString, "sys_message"));
         Assert.False(await fixture.TableExistsAsync(connectionString, "sys_user_message"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "msg_conversation", "initiatoruserid"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "msg_message", "senderid"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "msg_participant_state", "userid"));
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "refreshtoken"));
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "refreshtokenexpirytime"));
         Assert.True(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "event_type"));
@@ -993,6 +1077,28 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
               AND table_name = '{tableName}'
               AND column_name = '{columnName}';
             """);
+
+    private async Task<bool> TriggerExistsAsync(string connectionString, string tableName, string triggerName)
+        => await fixture.QueryScalarAsync<int>(
+            connectionString,
+            $"""
+            SELECT COUNT(1)
+            FROM information_schema.triggers
+            WHERE event_object_schema = 'public'
+              AND event_object_table = '{tableName}'
+              AND trigger_name = '{triggerName}';
+            """) > 0;
+
+    private async Task<bool> FunctionExistsAsync(string connectionString, string functionName)
+        => await fixture.QueryScalarAsync<int>(
+            connectionString,
+            $"""
+            SELECT COUNT(1)
+            FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'public'
+              AND p.proname = '{functionName}';
+            """) > 0;
 
     private static string ReadFixtureSql(string fileName, [CallerFilePath] string sourceFile = "")
     {

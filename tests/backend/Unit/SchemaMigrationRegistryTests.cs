@@ -50,6 +50,7 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260616-post-account-recovery-key", migrationIds);
         Assert.Contains("20260621-pre-passkey-user-handle", migrationIds);
         Assert.Contains("20260621-post-comment-attribution-index-finalize", migrationIds);
+        Assert.Contains("20260621-post-message-legacy-identity-columns-finalize", migrationIds);
     }
 
     [Fact]
@@ -169,6 +170,28 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("idx_comment_user_id_desc", fingerprint, StringComparison.Ordinal);
         Assert.Contains("idx_comment_attributable_public_user_id_desc", fingerprint, StringComparison.Ordinal);
         Assert.Contains("WHERE author_mode = 'public' AND user_id IS NOT NULL", fingerprint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetDescriptors_MessageLegacyIdentityColumnsFinalize_DropsLegacyColumnsAndSyncObjects()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260621-post-message-legacy-identity-columns-finalize");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
+        Assert.Contains("msg_conversation.initiatoruserid", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("msg_message.senderid", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("msg_participant_state.userid", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("trg_msg_conversation_identity_sync", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("trg_msg_message_identity_sync", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("trg_msg_participant_identity_sync", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("fsusblog_msg_conversation_identity_sync", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("fsusblog_msg_message_identity_sync", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("fsusblog_msg_participant_identity_sync", fingerprint, StringComparison.Ordinal);
     }
 
     [Fact]
