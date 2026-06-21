@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using System.Security.Claims;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -70,32 +71,45 @@ public class ClaimsPrincipalExtensionsTests
     }
 
     [Fact]
-    public void GetUserName_WithNameClaim_ReturnsName()
+    public void GetInternalAccountId_WithValidClaim_ReturnsAccountId()
     {
-        var user = MakeUser(name: "Alice");
-        Assert.Equal("Alice", user.GetUserName());
+        var user = MakeUser(42, name: "Alice");
+        Assert.Equal("42", user.GetInternalAccountId());
     }
 
     [Fact]
-    public void GetUserName_NullUser_ReturnsDefault()
+    public void GetInternalAccountId_NullUser_ReturnsZeroString()
     {
         ClaimsPrincipal? user = null;
-        Assert.Equal("匿名用户", user.GetUserName());
+        Assert.Equal("0", user.GetInternalAccountId());
     }
 
     [Fact]
-    public void GetUserName_NoClaim_ReturnsDefault()
+    public void GetInternalAccountId_NoClaim_ReturnsZeroString()
     {
         var user = new ClaimsPrincipal(new ClaimsIdentity([]));
-        Assert.Equal("匿名用户", user.GetUserName());
+        Assert.Equal("0", user.GetInternalAccountId());
     }
 
     [Fact]
-    public void GetUserName_PreferredUsername_ReturnsIt()
+    public void GetInternalAccountId_IgnoresDisplayNameClaims()
     {
-        var claims = new[] { new Claim("preferred_username", "bob") };
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.Name, "Alice"),
+            new Claim("preferred_username", "bob"),
+        };
         var user = new ClaimsPrincipal(new ClaimsIdentity(claims));
-        Assert.Equal("bob", user.GetUserName());
+        Assert.Equal("0", user.GetInternalAccountId());
+    }
+
+    [Fact]
+    public void ClaimsPrincipalExtensions_DoesNotExposeMisleadingNameHelper()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Helpers/ClaimsPrincipalExtensions.cs");
+
+        Assert.Contains("GetInternalAccountId", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetUserName", source, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿using System.Globalization;
+using System.Security.Claims;
 using System.Runtime.CompilerServices;
 using FsusBlog.Server.Infrastructure;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -23,19 +24,9 @@ public static class ClaimsPrincipalExtensions
         return parsed is > 0 and <= int.MaxValue ? (int)parsed.Value : 0;
     }
 
-    /// <summary>
-    /// 从 Claims 中获取用户名
-    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string GetUserName(this ClaimsPrincipal? user)
-    {
-        if (user == null) return "匿名用户";
-
-        // 优先获取显示名，备选用户名，最后回退到默认值
-        return user.FindFirst(ClaimTypes.Name)?.Value
-               ?? user.FindFirst("preferred_username")?.Value
-               ?? "匿名用户";
-    }
+    public static string GetInternalAccountId(this ClaimsPrincipal? user)
+        => user.GetUserId().ToString(CultureInfo.InvariantCulture);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string? GetSessionId(this ClaimsPrincipal? user)
