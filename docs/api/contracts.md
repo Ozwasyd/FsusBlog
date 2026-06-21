@@ -275,6 +275,8 @@ admin step-up challenge 绑定 `identity_kind=admin_principal`、`admin_id`、�
 
 TOTP recovery code 只允许绕过或完成 TOTP step-up；它不是账户 `Recovery Key`，不得用于匿名账号恢复、Passkey 重绑或 recovery session 签发。非匿名 legacy 模式可继续使用 `MfaPasswordProofRequest` 支持旧密码 + 当前 TOTP/恢复码证明，但生产匿名模式必须走 header proof。
 
+MFA challenge ticket 的内部契约使用 `AccountId` 与 `AccountSubjectHash`，不再暴露或序列化 `MfaChallengeTicket.UserId`。`/api/binary/auth/mfa/challenge` 验证失败时，attempt limiter 通过 `SecurityMfaChallenge` cache policy 写入 `fail:ticket:{ticketId}`、`fail:subject:{accountSubjectHash}` 与 `fail:ip:{clientIpHash}` 三类计数；主体窗口按 stable subject hash 聚合，不按可重排的账号容器 id 聚合。audit context 字段为 `AccountId`、`AccountSubjectHash`、`TicketHash`、`ClientIpHash`、`UserAgentHash` 与失败计数，不得恢复 `UserId`。
+
 ### Recovery Key AEDS frames
 
 Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery code。新明文格式为 `frk_<lookupId>_<secret>`：`lookupId` 是 128-bit hex 随机不可枚举定位符，`secret` 是完整恢复密钥材料。服务端只存储 `account_recovery_key.account_id`、`lookup_id_hash`、`key_hash`、`key_version`、`created_at`、`used_at`、`revoked_at`；`lookup_id_hash` 与完整 `key_hash` 都使用服务端 `RecoveryKeyPepper` 加固，完整 key hash 使用 PBKDF2-SHA256。`account_recovery_key` 索引最终态为 `idx_account_recovery_key_account`、`idx_account_recovery_key_version(account_id, key_version DESC)`、active unique 和 lookup active unique，历史 `user_id` / `idx_account_recovery_key_user` 只允许在迁移输入中出现。明文 Recovery Key 只在 create/rotate 响应中返回一次，不写数据库、日志、telemetry 或 browser storage。

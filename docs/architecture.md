@@ -210,6 +210,8 @@ Client
 
 注册/登录 binary 端点按 `AuthBinaryRequestReader -> AuthBinaryApplicationFacade -> AuthBinaryResponseWriter` 分层：reader 只负责 AEDS request frame 解码，application facade 只负责注册、凭据校验、MFA 登录分支和最终 session token 结果，endpoint 保留 cookie 写入这一 HTTP side effect，writer 只负责 AEDS `AuthLoginFlow` / `ApiError` frame。
 
+MFA challenge ticket 属于短 TTL 安全缓存，内部只保存账号容器 `AccountId` 与稳定 `AccountSubjectHash`。验证失败计数通过 `IUnifiedCache.IncrementAsync(CachePolicyId.SecurityMfaChallenge, ...)` 并行写入 ticket、subject、IP 三个维度，其中账号维度固定为 `fail:subject:{accountSubjectHash}`，不得使用 `fail:user:{userId}`；高价值/安全 audit scope 只写 `AccountId`、`AccountSubjectHash` 与 hash 后的 ticket/IP/UA。运行时回退路径是删除 `SecurityMfaChallenge` 下对应 `fail:subject:*` 或 challenge ticket key，让客户端重新发起短 TTL MFA challenge；不需要重启服务，也不得通过恢复裸 user id key 降级。
+
 ## 发布构建边界
 
 `src/backend/FsusBlog.Server.csproj` 的 Release publish 默认会检查 `src/frontend/node_modules`、执行 `npm run build:release` 并复制 `src/frontend/dist` 与前端 runtime 文件，保证单体发布产物一致。需要后端-only 诊断或临时发布时，可显式传入 `/p:PublishClientAssets=false`，跳过前端依赖检查、前端构建和前端 artifact copy；该开关不改变生产默认行为。

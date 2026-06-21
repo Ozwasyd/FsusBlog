@@ -67,7 +67,8 @@ public sealed class AuthSecurityHardeningTests
         Assert.Contains("RecordFailureAsync", endpoint, StringComparison.Ordinal);
         Assert.Contains(".RequireRateLimiting(\"fixed_ip\")", endpoint, StringComparison.Ordinal);
         Assert.Contains("MaxTicketFailures = 5", service, StringComparison.Ordinal);
-        Assert.Contains("fail:user:", service, StringComparison.Ordinal);
+        Assert.Contains("fail:subject:", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("fail:user:", service, StringComparison.Ordinal);
         Assert.Contains("fail:ip:", service, StringComparison.Ordinal);
     }
 

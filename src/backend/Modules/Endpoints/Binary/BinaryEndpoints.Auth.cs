@@ -37,6 +37,13 @@ public static partial class BinaryEndpoints
     private static string ResolveBinaryIdentityKind(string? identityKind)
         => string.IsNullOrWhiteSpace(identityKind) ? AnonymousIdentityRuntime.AnonymousAccountKind : identityKind.Trim();
 
+    private static string ResolveAccountSubjectHash(UserAccountSnapshot account)
+        => string.IsNullOrWhiteSpace(account.AccountSubjectHash)
+            ? AccountSubjectHasher.Create(
+                ResolveBinaryIdentityKind(account.IdentityKind),
+                string.Concat("legacy-account:", account.Id.ToString(CultureInfo.InvariantCulture)))
+            : account.AccountSubjectHash.Trim().ToLowerInvariant();
+
     private static void MapBinaryAuthEndpoints(IEndpointRouteBuilder group)
     {
         group.MapGet("/auth/pow-challenge", static async Task<BinaryFrameResult> (
@@ -768,7 +775,11 @@ public static partial class BinaryEndpoints
 
             string? deviceFp = GetDeviceFingerprint(httpContext);
             var risk = await loginWorkflow.EvaluateLoginRiskAsync(userId, httpContext.GetClientIp(), deviceFp, httpContext.GetUserAgent(), cancellationToken);
-            var ticket = await challengeService.CreateActionChallengeAsync(user.Value.Id, action, risk.RequiresMfa);
+            var ticket = await challengeService.CreateActionChallengeAsync(
+                user.Value.Id,
+                ResolveAccountSubjectHash(user.Value),
+                action,
+                risk.RequiresMfa);
             var challenge = new MfaChallengeResultDto(false, action, ticket.TicketId, null);
             return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(challenge, writer));
         })
@@ -801,7 +812,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "MFA_CHALLENGE_EXPIRED"), aeds);
             }
 
-            bool verified = await loginWorkflow.VerifyMfaOrRecoveryCodeAsync(ticket.UserId, request.Code, request.RecoveryCode, persistRecoveryConsumption: true, cancellationToken: cancellationToken);
+            bool verified = await loginWorkflow.VerifyMfaOrRecoveryCodeAsync(ticket.AccountId, request.Code, request.RecoveryCode, persistRecoveryConsumption: true, cancellationToken: cancellationToken);
             if (!verified)
             {
                 bool locked = await challengeService.RecordFailureAsync(
@@ -818,7 +829,7 @@ public static partial class BinaryEndpoints
             if (ticket.Type == "login")
             {
                 var login = await loginWorkflow.CompleteLoginAsync(
-                    ticket.UserId,
+                    ticket.AccountId,
                     httpContext.GetClientIp(),
                     GetDeviceFingerprint(httpContext),
                     httpContext.GetUserAgent(),
@@ -841,7 +852,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(loginResult, writer));
             }
 
-            string proofToken = await challengeService.CreateProofTokenAsync(ticket.UserId, ticket.Action, TimeSpan.FromMinutes(5));
+            string proofToken = await challengeService.CreateProofTokenAsync(ticket.AccountId, ticket.Action, TimeSpan.FromMinutes(5));
             var result = new MfaChallengeResultDto(true, ticket.Action, proofToken, null);
             return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(result, writer));
         })
