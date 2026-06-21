@@ -6,16 +6,6 @@
       class="account-page-header--compact"
     />
 
-    <AdminTaskFeedbackBar
-      class="mb-8"
-      :phase="taskFeedbackPhase"
-      :message="taskFeedbackMessage"
-      :detail="taskFeedbackDetail"
-      :aria-message="taskFeedbackAriaMessage"
-      :assertive-message="taskFeedbackAssertiveMessage"
-      :busy="taskFeedbackBusy"
-    />
-
     <FsusUiSettingsSection
       class="blog-motion-task-region mb-8"
       :class="{
@@ -237,7 +227,6 @@ import {
   type IntegrityReportResponse
 } from '@/api/authoring'
 import { FsusUiPageHeader } from "@/fsusui"
-import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import {
   FsusUiDangerZone,
@@ -271,12 +260,6 @@ const mfaProof = ref('')
 const diffPreviewState = ref<DiffPreviewState>('not_loaded')
 const taskFeedback = useAdminTaskFeedback()
 const {
-  phase: taskFeedbackPhase,
-  message: taskFeedbackMessage,
-  detail: taskFeedbackDetail,
-  assertiveMessage: taskFeedbackAssertiveMessage,
-  busy: taskFeedbackBusy,
-  ariaMessage: taskFeedbackAriaMessage,
   isHighlighted: isTaskHighlighted
 } = taskFeedback
 

@@ -34,16 +34,6 @@
       @update:date-range="filters.dateRange = $event"
     />
 
-    <AdminTaskFeedbackBar
-      class="border-t border-[var(--fsusblog-panel-border)]"
-      :phase="taskFeedbackPhase"
-      :message="taskFeedbackMessage"
-      :detail="taskFeedbackDetail"
-      :aria-message="taskFeedbackAriaMessage"
-      :assertive-message="taskFeedbackAssertiveMessage"
-      :busy="taskFeedbackBusy"
-    />
-
     <CommentModerationBulkActions
       class="blog-motion-task-region"
       :class="{ 'blog-motion-task-region--pending': processingBulk }"
@@ -84,7 +74,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { FsusUiPageHeader } from "@/fsusui"
-import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import CommentModerationBulkActions from '@/components/admin/comment-moderation/CommentModerationBulkActions.vue'
 import CommentModerationDetailDrawer from '@/components/admin/comment-moderation/CommentModerationDetailDrawer.vue'
 import CommentModerationQueue from '@/components/admin/comment-moderation/CommentModerationQueue.vue'
@@ -137,12 +126,6 @@ const {
   applyRevokeAnonymousCredential
 } = useCommentModerationActions()
 const {
-  phase: taskFeedbackPhase,
-  message: taskFeedbackMessage,
-  detail: taskFeedbackDetail,
-  assertiveMessage: taskFeedbackAssertiveMessage,
-  busy: taskFeedbackBusy,
-  ariaMessage: taskFeedbackAriaMessage,
   highlightedKeys: taskFeedbackHighlightedIds
 } = taskFeedback
 

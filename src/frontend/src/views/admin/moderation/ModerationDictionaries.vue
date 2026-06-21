@@ -1,14 +1,5 @@
 <template>
   <div class="space-y-8">
-    <AdminTaskFeedbackBar
-      :phase="taskFeedbackPhase"
-      :message="taskFeedbackMessage"
-      :detail="taskFeedbackDetail"
-      :aria-message="taskFeedbackAriaMessage"
-      :assertive-message="taskFeedbackAssertiveMessage"
-      :busy="taskFeedbackBusy"
-    />
-
     <section
       class="blog-motion-task-region border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]"
       :class="{
@@ -151,7 +142,6 @@ import {
   type ModerationRuntimeStatusResponse
 } from '@/api/authoring'
 import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
-import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import { Check, Close, CopyDocument, Refresh, RefreshLeft, RefreshRight, View } from '@/fsusui/icons'
 import { promptText, toast } from '@/fsusui/feedback'
@@ -170,12 +160,6 @@ const detail = shallowRef<ModerationDictionaryRuntimeItem | null>(null)
 const detailVisible = shallowRef(false)
 const taskFeedback = useAdminTaskFeedback()
 const {
-  phase: taskFeedbackPhase,
-  message: taskFeedbackMessage,
-  detail: taskFeedbackDetail,
-  assertiveMessage: taskFeedbackAssertiveMessage,
-  busy: taskFeedbackBusy,
-  ariaMessage: taskFeedbackAriaMessage,
   isHighlighted: isTaskHighlighted
 } = taskFeedback
 

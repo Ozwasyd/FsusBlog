@@ -5,16 +5,6 @@
       content="执行全站内容备份、单篇文章导出与 Markdown/frontmatter 导入。"
     />
 
-    <AdminTaskFeedbackBar
-      class="mb-8"
-      :phase="taskFeedbackPhase"
-      :message="taskFeedbackMessage"
-      :detail="taskFeedbackDetail"
-      :aria-message="taskFeedbackAriaMessage"
-      :assertive-message="taskFeedbackAssertiveMessage"
-      :busy="taskFeedbackBusy"
-    />
-
     <div class="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <section
         class="blog-motion-task-region border-t border-[var(--fsusblog-panel-border)]"
@@ -101,7 +91,6 @@ import {
   type ContentImportResponse
 } from '@/api/authoring'
 import { FsusUiPageHeader } from "@/fsusui"
-import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
@@ -117,12 +106,6 @@ const importResult = ref<ContentImportResponse | null>(null)
 const taskFeedback = useAdminTaskFeedback()
 const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 const {
-  phase: taskFeedbackPhase,
-  message: taskFeedbackMessage,
-  detail: taskFeedbackDetail,
-  assertiveMessage: taskFeedbackAssertiveMessage,
-  busy: taskFeedbackBusy,
-  ariaMessage: taskFeedbackAriaMessage,
   isHighlighted: isTaskHighlighted
 } = taskFeedback
 

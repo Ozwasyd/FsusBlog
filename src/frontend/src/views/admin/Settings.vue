@@ -23,16 +23,6 @@
       </p>
     </section>
 
-    <AdminTaskFeedbackBar
-      class="mb-10"
-      :phase="taskFeedbackPhase"
-      :message="taskFeedbackMessage"
-      :detail="taskFeedbackDetail"
-      :aria-message="taskFeedbackAriaMessage"
-      :assertive-message="taskFeedbackAssertiveMessage"
-      :busy="taskFeedbackBusy"
-    />
-
     <el-tabs
       v-model="activeTab"
       class="blog-motion-task-region"
@@ -507,7 +497,6 @@
 <script setup lang="ts">
 import { Delete, Plus, Warning } from '@/fsusui/icons'
 import { confirmWarning } from '@/fsusui/feedback'
-import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import SettingsPageEditor from '@/components/admin/settings/SettingsPageEditor.vue'
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue'
 import { useAdminSettingsPage } from '@/composables/useAdminSettingsPage'
@@ -574,12 +563,6 @@ const {
   savePageAndSwitch
 } = useAdminSettingsPage()
 const {
-  phase: taskFeedbackPhase,
-  message: taskFeedbackMessage,
-  detail: taskFeedbackDetail,
-  assertiveMessage: taskFeedbackAssertiveMessage,
-  busy: taskFeedbackBusy,
-  ariaMessage: taskFeedbackAriaMessage,
   isHighlighted: isTaskHighlighted
 } = taskFeedback
 

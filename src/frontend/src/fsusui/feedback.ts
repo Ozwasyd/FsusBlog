@@ -12,6 +12,7 @@ export const installFsusUiLoading = (app: App): void => {
 
 export interface ToastOptions {
   message: string
+  detail?: string
   type?: 'success' | 'error' | 'info' | 'warning' | 'article'
   duration?: number
   onClick?: () => void
@@ -21,16 +22,47 @@ export interface ToastHandle {
   close: () => void
 }
 
+type ToastInput = string | Readonly<{
+  message: string
+  detail?: string
+  duration?: number
+}>
+
+export function formatToastMessage(options: Pick<ToastOptions, 'message' | 'detail'>): string {
+  const message = options.message.trim()
+  const detail = options.detail?.trim()
+  return detail ? `${message}：${detail}` : message
+}
+
+function normalizeToastInput(input: ToastInput, duration?: number): Pick<ToastOptions, 'message' | 'detail' | 'duration'> {
+  if (typeof input === 'string') {
+    return { message: input, duration }
+  }
+
+  return {
+    message: input.message,
+    detail: input.detail,
+    duration: input.duration ?? duration
+  }
+}
+
 export const showToast = (options: ToastOptions | string): ToastHandle => {
   const opts = typeof options === 'string' ? { message: options } : options
+  const displayMessage = formatToastMessage(opts)
 
-  if (!opts.message) return { close: () => {} }
+  if (!displayMessage) return { close: () => {} }
 
   const elType = opts.type === 'article' ? 'success' : opts.type
+  const liveRegionAttrs = {
+    'aria-live': opts.type === 'error' ? 'assertive' : 'polite',
+    'aria-atomic': 'true'
+  }
 
   const messageVNode = opts.onClick
-    ? h(ElButton, { link: true, type: 'primary', onClick: opts.onClick }, () => opts.message)
-    : opts.message
+    ? h('span', liveRegionAttrs, [
+        h(ElButton, { link: true, type: 'primary', onClick: opts.onClick }, () => displayMessage)
+      ])
+    : h('span', liveRegionAttrs, displayMessage)
 
   const messageOptions: Record<string, unknown> = {
     message: messageVNode,
@@ -52,10 +84,16 @@ export const showToast = (options: ToastOptions | string): ToastHandle => {
 }
 
 export const toast = {
-  info: (msg: string, duration?: number) => showToast({ message: msg, type: 'info', duration }),
-  success: (msg: string, duration?: number) => showToast({ message: msg, type: 'success', duration }),
-  warning: (msg: string, duration = 3500) => showToast({ message: msg, type: 'warning', duration }),
-  error: (msg: string, duration = 4000) => showToast({ message: msg, type: 'error', duration }),
+  info: (input: ToastInput, duration?: number) =>
+    showToast({ ...normalizeToastInput(input, duration), type: 'info' }),
+  success: (input: ToastInput, duration?: number) =>
+    showToast({ ...normalizeToastInput(input, duration), type: 'success' }),
+  warning: (input: ToastInput, duration = 3500) =>
+    showToast({ ...normalizeToastInput(input, duration), type: 'warning' }),
+  partial: (input: ToastInput, duration = 3500) =>
+    showToast({ ...normalizeToastInput(input, duration), type: 'warning' }),
+  error: (input: ToastInput, duration = 4000) =>
+    showToast({ ...normalizeToastInput(input, duration), type: 'error' }),
   article: (msg: string, onClick?: () => void, duration = 6000) =>
     showToast({ message: msg, type: 'article', duration, onClick }),
 }

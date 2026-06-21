@@ -1,14 +1,5 @@
 <template>
   <div class="space-y-8">
-    <AdminTaskFeedbackBar
-      :phase="taskFeedbackPhase"
-      :message="taskFeedbackMessage"
-      :detail="taskFeedbackDetail"
-      :aria-message="taskFeedbackAriaMessage"
-      :assertive-message="taskFeedbackAssertiveMessage"
-      :busy="taskFeedbackBusy"
-    />
-
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -127,7 +118,6 @@ import {
   type ModerationRuntimeStatusResponse
 } from '@/api/authoring'
 import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
-import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { Connection, Cpu, Refresh, RefreshLeft, RefreshRight, Warning } from '@/fsusui/icons'
 import { toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
@@ -142,12 +132,6 @@ const status = shallowRef<ModerationModelStatusResponse | null>(null)
 const runtime = shallowRef<ModerationRuntimeStatusResponse | null>(null)
 const taskFeedback = useAdminTaskFeedback()
 const {
-  phase: taskFeedbackPhase,
-  message: taskFeedbackMessage,
-  detail: taskFeedbackDetail,
-  assertiveMessage: taskFeedbackAssertiveMessage,
-  busy: taskFeedbackBusy,
-  ariaMessage: taskFeedbackAriaMessage,
   isHighlighted: isTaskHighlighted
 } = taskFeedback
 

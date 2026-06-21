@@ -7,17 +7,6 @@
       </p>
     </header>
 
-    <AdminTaskFeedbackBar
-      v-if="isAdminView"
-      class="mb-8"
-      :phase="adminTaskFeedbackPhase"
-      :message="adminTaskFeedbackMessage"
-      :detail="adminTaskFeedbackDetail"
-      :aria-message="adminTaskFeedbackAriaMessage"
-      :assertive-message="adminTaskFeedbackAssertiveMessage"
-      :busy="adminTaskFeedbackBusy"
-    />
-
     <div class="messages-inbox-layout">
       <MessagesConversationList
         v-if="!isMobile || showListPane"
@@ -141,7 +130,6 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import type { ConversationFilter } from '@/api/message'
-import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import MessagesComposePanel from '@/components/user/messages/MessagesComposePanel.vue'
 import MessagesConversationList from '@/components/user/messages/MessagesConversationList.vue'
 import MessagesThreadPanel from '@/components/user/messages/MessagesThreadPanel.vue'
@@ -165,12 +153,6 @@ const accountInbox = useAccountMessagesInbox(() => !isAdminView.value)
 const conversationMotion = useRowStateMotion({ visibleLimit: ROW_MOTION_VISIBLE_LIMIT })
 const messageMotion = useRowStateMotion({ visibleLimit: ROW_MOTION_VISIBLE_LIMIT })
 const {
-  phase: adminTaskFeedbackPhase,
-  message: adminTaskFeedbackMessage,
-  detail: adminTaskFeedbackDetail,
-  assertiveMessage: adminTaskFeedbackAssertiveMessage,
-  busy: adminTaskFeedbackBusy,
-  ariaMessage: adminTaskFeedbackAriaMessage,
   isHighlighted: isAdminTaskHighlighted
 } = adminCenter.taskFeedback
 const conversationListRef = ref<FocusablePane | null>(null)

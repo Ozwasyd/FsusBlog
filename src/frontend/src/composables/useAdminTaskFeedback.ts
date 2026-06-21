@@ -1,4 +1,5 @@
 import { computed, getCurrentScope, onScopeDispose, ref } from 'vue'
+import { toast } from '@/fsusui/feedback'
 
 export type AdminTaskFeedbackPhase = 'idle' | 'pending' | 'success' | 'error' | 'partial'
 
@@ -9,6 +10,8 @@ type AdminTaskFeedbackOptions = Readonly<{
 }>
 
 const DEFAULT_SETTLE_MS = 2_600
+const DEFAULT_TOAST_DURATION_MS = 2_600
+const ERROR_TOAST_DURATION_MS = 4_000
 
 function normalizeKeys(keys: FeedbackKeyInput): string[] {
   if (!keys) return []
@@ -79,21 +82,42 @@ export function useAdminTaskFeedback(options: AdminTaskFeedbackOptions = {}) {
 
   const begin = (nextMessage: string, nextDetail = '', keys?: FeedbackKeyInput): void => {
     setState('pending', nextMessage, nextDetail, keys)
+    toast.info({
+      message: nextMessage,
+      detail: nextDetail,
+      duration: DEFAULT_TOAST_DURATION_MS
+    })
   }
 
   const succeed = (nextMessage: string, nextDetail = '', keys?: FeedbackKeyInput): void => {
     setState('success', nextMessage, nextDetail, keys)
+    toast.success({
+      message: nextMessage,
+      detail: nextDetail,
+      duration: DEFAULT_TOAST_DURATION_MS
+    })
     scheduleSettle()
   }
 
   const partial = (nextMessage: string, nextDetail = '', keys?: FeedbackKeyInput): void => {
     setState('partial', nextMessage, nextDetail, keys)
+    toast.partial({
+      message: nextMessage,
+      detail: nextDetail,
+      duration: DEFAULT_TOAST_DURATION_MS
+    })
     scheduleSettle()
   }
 
   const fail = (nextMessage: string, error: unknown, fallback = '操作失败', keys?: FeedbackKeyInput): void => {
-    setState('error', nextMessage, errorDetail(error, fallback), keys)
+    const nextDetail = errorDetail(error, fallback)
+    setState('error', nextMessage, nextDetail, keys)
     assertiveMessage.value = ariaMessage.value
+    toast.error({
+      message: nextMessage,
+      detail: nextDetail,
+      duration: ERROR_TOAST_DURATION_MS
+    })
     scheduleSettle()
   }
 
