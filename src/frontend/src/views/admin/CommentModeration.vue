@@ -1,10 +1,10 @@
 <template>
   <div class="account-page comment-moderation-page account-motion-enter w-full">
-    <AccountPageHeader
+    <FsusUiPageHeader
       v-if="!embedded"
       title="评论审核"
-      description="集中处理评论队列、筛选风险命中项，并执行需要管理员二次验证的审核操作。"
-      compact
+      content="集中处理评论队列、筛选风险命中项，并执行需要管理员二次验证的审核操作。"
+      class="account-page-header--compact"
     />
 
     <CommentModerationToolbar
@@ -64,7 +64,7 @@
       :processing-id="processingId"
       :highlighted-ids="taskFeedbackHighlightedIds"
       :empty-title="commentQueueEmptyTitle"
-      :empty-description="commentQueueEmptyDescription"
+      :empty-content="commentQueueEmptyDescription"
       @toggle="toggleSelection"
       @detail="openDetail"
       @apply="(item, status) => applySingle(item, status, refreshAndPrune)"
@@ -83,7 +83,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import { FsusUiPageHeader } from "@/fsusui"
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import CommentModerationBulkActions from '@/components/admin/comment-moderation/CommentModerationBulkActions.vue'
 import CommentModerationDetailDrawer from '@/components/admin/comment-moderation/CommentModerationDetailDrawer.vue'

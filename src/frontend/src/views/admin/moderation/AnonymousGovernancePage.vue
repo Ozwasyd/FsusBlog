@@ -1,8 +1,8 @@
 <template>
   <div class="admin-data-surface anonymous-governance-page">
-    <AccountPageHeader
+    <FsusUiPageHeader
       :title="section.title"
-      :description="section.description"
+      :content="section.description"
     />
 
     <WorkbenchPanel
@@ -107,7 +107,7 @@
             </template>
           </el-table-column>
           <template #empty>
-            <AdminInlineEmptyState title="暂无匿名风险主体" description="匿名评论进入审核队列后会在这里汇总主体信号。" />
+            <AdminInlineEmptyState title="暂无匿名风险主体" content="匿名评论进入审核队列后会在这里汇总主体信号。" />
           </template>
         </el-table>
       </div>
@@ -138,7 +138,7 @@
             </template>
           </el-table-column>
           <template #empty>
-            <AdminInlineEmptyState title="暂无 Nullifier 记录" description="命中封禁或观察状态的匿名 nullifier 会显示在这里。" />
+            <AdminInlineEmptyState title="暂无 Nullifier 记录" content="命中封禁或观察状态的匿名 nullifier 会显示在这里。" />
           </template>
         </el-table>
       </div>
@@ -170,7 +170,7 @@
             </template>
           </el-table-column>
           <template #empty>
-            <AdminInlineEmptyState title="暂无匿名凭证" description="匿名凭证状态和撤销记录会显示在这里。" />
+            <AdminInlineEmptyState title="暂无匿名凭证" content="匿名凭证状态和撤销记录会显示在这里。" />
           </template>
         </el-table>
       </div>
@@ -195,7 +195,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import { FsusUiPageHeader } from "@/fsusui"
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import { useAdminStore, type AnonymousCommentPolicySnapshot } from '@/store/admin'

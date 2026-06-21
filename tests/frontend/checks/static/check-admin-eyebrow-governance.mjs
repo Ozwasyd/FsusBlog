@@ -15,7 +15,6 @@ const targetRoots = [
 ].map((dir) => path.join(repoRoot, dir))
 
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
-const accountPageHeaderPath = path.join(repoRoot, 'src/frontend/src/components/account/AccountPageHeader.vue')
 const workbenchPanelPath = path.join(repoRoot, 'src/frontend/src/components/account/WorkbenchPanel.vue')
 
 function fail(file, line, message) {
@@ -64,12 +63,9 @@ for (const file of targetRoots.flatMap((dir) => walk(dir))) {
   })
 }
 
-const accountPageHeader = read(accountPageHeaderPath)
-if (!accountPageHeader.includes('v-if="eyebrow"')) {
-  fail(accountPageHeaderPath, 1, 'AccountPageHeader must render eyebrow only when explicitly provided')
-}
-if (!accountPageHeader.includes('rare opt-in context marker')) {
-  fail(accountPageHeaderPath, 1, 'AccountPageHeader must document eyebrow as an opt-in exception')
+const accountPageHeaderPath = path.join(repoRoot, 'src/frontend/src/components/account/AccountPageHeader.vue')
+if (fs.existsSync(accountPageHeaderPath)) {
+  fail(accountPageHeaderPath, 1, 'AccountPageHeader.vue is removed in #675; admin pages should use FsusUiPageHeader from @/fsusui')
 }
 
 const workbenchPanel = read(workbenchPanelPath)

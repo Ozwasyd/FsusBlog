@@ -1,8 +1,8 @@
 <template>
   <div class="account-page dashboard-wrapper account-motion-enter w-full">
-    <AccountPageHeader
+    <FsusUiPageHeader
       title="站点工作台"
-      description="待处理事项、内容状态、访问数据与系统配置。"
+      content="待处理事项、内容状态、访问数据与系统配置。"
     />
 
     <ConsoleWelcomeCallout
@@ -117,7 +117,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
-import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import { FsusUiPageHeader } from '@/fsusui'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import ConsoleWelcomeCallout from '@/components/admin/ConsoleWelcomeCallout.vue'
 import DashboardAuthorAnalyticsPanel from '@/components/admin/DashboardAuthorAnalyticsPanel.vue'

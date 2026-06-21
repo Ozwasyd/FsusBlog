@@ -1,8 +1,8 @@
 <template>
   <div class="account-page asset-library-page account-motion-enter w-full">
-    <AccountPageHeader
+    <FsusUiPageHeader
       title="资产库"
-      description="查看上传资产、引用计数与孤儿文件，清理动作需要明确确认。"
+      content="查看上传资产、引用计数与孤儿文件，清理动作需要明确确认。"
     />
 
     <WorkbenchPanel
@@ -98,7 +98,7 @@
           </template>
         </el-table-column>
         <template #empty>
-          <AdminInlineEmptyState :title="assetEmptyTitle" :description="assetEmptyDescription">
+          <AdminInlineEmptyState :title="assetEmptyTitle" :content="assetEmptyDescription">
             <template #actions>
               <el-button v-if="hasAssetFilters" link type="primary" @click="resetAssetFilters">清除筛选</el-button>
               <el-button v-else link type="primary" :loading="loading" @click="loadAssets">刷新资产库</el-button>
@@ -119,7 +119,7 @@ import {
   type AssetLibraryItemResponse
 } from '@/api/authoring'
 import { deleteImage } from '@/api/system'
-import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import { FsusUiPageHeader } from "@/fsusui"
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import { Delete, Refresh, Search } from '@/fsusui/icons'

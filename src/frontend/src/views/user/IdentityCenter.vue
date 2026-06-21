@@ -1,8 +1,8 @@
 <template>
   <div class="account-page identity-center">
-    <AccountPageHeader
+    <FsusUiPageHeader
       :title="sectionMeta.title"
-      :description="sectionMeta.description"
+      :content="sectionMeta.description"
     />
 
     <template v-if="isSection('UserIdentityOverview')">
@@ -111,7 +111,7 @@
         v-else
         class="identity-empty-state"
         title="尚未添加通行密钥"
-        description="添加后可使用设备生物识别或 PIN 登录。"
+        content="添加后可使用设备生物识别或 PIN 登录。"
       >
         <template #actions>
           <el-button type="primary" @click="passkeyRegisterVisible = true">添加通行密钥</el-button>
@@ -288,7 +288,7 @@
           v-else
           class="identity-empty-state"
           title="暂无活跃会话"
-          description="当前没有可展示的设备会话。"
+          content="当前没有可展示的设备会话。"
         />
       </template>
     </WorkbenchPanel>
@@ -331,7 +331,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import { FsusUiPageHeader } from "@/fsusui"
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import MfaSetupModal from '@/components/ui/MfaSetupModal.vue'
 import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'

@@ -1,8 +1,8 @@
 <template>
   <div class="account-page content-tools-page account-motion-enter w-full">
-    <AccountPageHeader
+    <FsusUiPageHeader
       title="备份与迁移"
-      description="执行全站内容备份、单篇文章导出与 Markdown/frontmatter 导入。"
+      content="执行全站内容备份、单篇文章导出与 Markdown/frontmatter 导入。"
     />
 
     <AdminTaskFeedbackBar
@@ -100,7 +100,7 @@ import {
   type ContentExportResponse,
   type ContentImportResponse
 } from '@/api/authoring'
-import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import { FsusUiPageHeader } from "@/fsusui"
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'

@@ -1,9 +1,9 @@
 <template>
   <div class="account-page integrity-page account-motion-enter w-full">
-    <AccountPageHeader
+    <FsusUiPageHeader
       title="数据巡检"
-      description="检查内容关系、文件资产、账号状态与公开索引。"
-      compact
+      content="检查内容关系、文件资产、账号状态与公开索引。"
+      class="account-page-header--compact"
     />
 
     <AdminTaskFeedbackBar
@@ -84,7 +84,7 @@
           <template #empty>
             <AdminInlineEmptyState
               :title="report ? '暂无检查项' : '尚未运行数据巡检'"
-              :description="report ? '服务端未返回巡检项目，请刷新后重试。' : '运行一键检查后显示文章、评论、资产与缓存一致性结果。'"
+              :content="report ? '服务端未返回巡检项目，请刷新后重试。' : '运行一键检查后显示文章、评论、资产与缓存一致性结果。'"
             />
           </template>
         </el-table>
@@ -95,7 +95,7 @@
           <AdminInlineEmptyState
             v-if="diffPreviewState !== 'ready'"
             :title="diffPreviewStateView.title"
-            :description="diffPreviewStateView.description"
+            :content="diffPreviewStateView.description"
           >
             <template v-if="diffPreviewStateView.actionLabel" #actions>
               <el-button :icon="Refresh" :loading="loading" @click="loadAll">
@@ -142,7 +142,7 @@
               <template #empty>
                 <AdminInlineEmptyState
                   title="没有可安全修复差异"
-                  description="当前没有需要自动修复的字段变更。"
+                  content="当前没有需要自动修复的字段变更。"
                 />
               </template>
             </el-table>
@@ -161,7 +161,7 @@
                   v-model="confirmPhrase"
                   phrase="APPLY_SAFE_FIXES"
                   label="确认短语"
-                  description="输入确认短语后才能应用安全修复。"
+                  content="输入确认短语后才能应用安全修复。"
                   placeholder="输入确认短语"
                   :disabled="fixing"
                 />
@@ -212,7 +212,7 @@
           <AdminInlineEmptyState
             v-else
             title="暂无危险操作策略"
-            description="运行一键检查后会同步加载当前危险操作确认策略。"
+            content="运行一键检查后会同步加载当前危险操作确认策略。"
           />
         </WorkbenchPanel>
       </div>
@@ -233,7 +233,7 @@ import {
   type IntegrityFixPreviewResponse,
   type IntegrityReportResponse
 } from '@/api/authoring'
-import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import { FsusUiPageHeader } from "@/fsusui"
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import IntegrityTypedConfirmField from '@/components/admin/IntegrityTypedConfirmField.vue'

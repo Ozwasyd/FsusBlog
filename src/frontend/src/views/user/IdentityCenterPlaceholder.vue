@@ -1,8 +1,8 @@
 <template>
   <div class="account-page identity-center-placeholder">
-    <AccountPageHeader
+    <FsusUiPageHeader
       :title="section.title"
-      :description="section.description"
+      :content="section.description"
     />
 
     <WorkbenchPanel
@@ -23,7 +23,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import { FsusUiPageHeader } from "@/fsusui"
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 
 const route = useRoute()
