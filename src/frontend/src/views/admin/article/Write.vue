@@ -641,7 +641,7 @@ const onVersionsInspectorToggle = (event: Event): void => {
   }
 }
 
-const submitChecklist = computed<ReadonlyArray<{ label: string; state: SubmitChecklistState; detail?: string }>>(() => {
+const submitChecklist = computed<Array<{ label: string; state: SubmitChecklistState; detail?: string }>>(() => {
   const summaryLength = articleForm.summary.trim().length
   const seoWarning = prepublishWarningIssues.value[0]
   return [
@@ -697,7 +697,6 @@ const onCoverFileChange = (event: Event): void => {
   if (input.files && input.files.length > 0) {
     const files = Array.from(input.files)
     handleCoverUpload(files).catch((error: unknown) => showErrorToast(error, '头图上传失败'))
-    // 重置 input 以允许再次选择同一文件
     input.value = ''
   }
 }

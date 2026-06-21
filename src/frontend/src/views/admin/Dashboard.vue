@@ -177,12 +177,12 @@ const { counters: moderationCounters, refreshQueue: refreshModerationQueue } = u
   initialStatus: CommentModerationStatus.Pending,
   limit: 1
 })
-type DistributionRow = Readonly<{
+type DistributionRow = {
   label: string
   value: string
   ratio: number
   rank: number
-}>
+}
 
 const toDistributionRows = (items: readonly { label: string; count: number }[]): readonly DistributionRow[] => {
   const maxCount = Math.max(0, ...items.map((item) => Number(item.count) || 0))
@@ -229,7 +229,7 @@ const pendingCommentCount = computed(() =>
   moderationCounters.value.find((item) => item.label === '待审')?.value ?? 0
 )
 
-const todayActions = computed<ReadonlyArray<{
+const todayActions = computed<Array<{
   label: string
   countText: string
   helper: string
