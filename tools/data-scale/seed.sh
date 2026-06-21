@@ -231,7 +231,6 @@ INSERT INTO comment(
   article_id,
   content,
   create_time,
-  user_id,
   author_mode,
   public_handle,
   anonymous_handle,
@@ -245,7 +244,6 @@ INSERT INTO comment(
   account_age_bucket,
   parent_id,
   root_id,
-  reply_to_user_id,
   reply_to_comment_id,
   depth,
   is_deleted,
@@ -253,7 +251,6 @@ INSERT INTO comment(
   delete_time,
   moderation_status,
   moderation_reason,
-  moderated_by_admin_principal_id,
   moderated_at
 )
 SELECT
@@ -261,7 +258,6 @@ SELECT
   root.article_id,
   ctx.prefix || ':comment:' || root.seq || ':root',
   clock_timestamp() - (root.seq || ' seconds')::interval,
-  NULL,
   'anonymous',
   NULL,
   'scale-root-' || root.seq,
@@ -276,13 +272,11 @@ SELECT
   NULL,
   NULL,
   NULL,
-  NULL,
   0,
   false,
   NULL,
   NULL,
   1,
-  NULL,
   NULL,
   NULL
 FROM tmp_data_scale_roots root
@@ -311,7 +305,6 @@ INSERT INTO comment(
   article_id,
   content,
   create_time,
-  user_id,
   author_mode,
   public_handle,
   anonymous_handle,
@@ -325,7 +318,6 @@ INSERT INTO comment(
   account_age_bucket,
   parent_id,
   root_id,
-  reply_to_user_id,
   reply_to_comment_id,
   depth,
   is_deleted,
@@ -333,7 +325,6 @@ INSERT INTO comment(
   delete_time,
   moderation_status,
   moderation_reason,
-  moderated_by_admin_principal_id,
   moderated_at
 )
 SELECT
@@ -341,7 +332,6 @@ SELECT
   nested.article_id,
   ctx.prefix || ':comment:' || nested.seq || ':nested',
   clock_timestamp() - (nested.seq || ' seconds')::interval,
-  NULL,
   'anonymous',
   NULL,
   'scale-nested-' || nested.seq,
@@ -355,14 +345,12 @@ SELECT
   'new',
   nested.root_comment_id,
   nested.root_comment_id,
-  NULL,
   nested.root_comment_id,
   1,
   false,
   NULL,
   NULL,
   1,
-  NULL,
   NULL,
   NULL
 FROM nested_plan nested

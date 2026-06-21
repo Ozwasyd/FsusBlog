@@ -275,6 +275,27 @@ public class BackgroundWorkflowSourceTests
     }
 
     [Fact]
+    public void DataScale_CommentSeedDoesNotEnumerateIdentityColumns()
+    {
+        string seed = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/data-scale/seed.sh"));
+        string[] insertBlocks = seed
+            .Split("INSERT INTO comment(", StringSplitOptions.RemoveEmptyEntries)
+            .Skip(1)
+            .Select(block => block[..block.IndexOf(')')])
+            .ToArray();
+
+        Assert.Equal(2, insertBlocks.Length);
+        foreach (string columnList in insertBlocks)
+        {
+            Assert.DoesNotContain("user_id", columnList, StringComparison.Ordinal);
+            Assert.DoesNotContain("reply_to_user_id", columnList, StringComparison.Ordinal);
+            Assert.DoesNotContain("moderated_by_admin_principal_id", columnList, StringComparison.Ordinal);
+            Assert.Contains("author_mode", columnList, StringComparison.Ordinal);
+            Assert.Contains("reply_to_comment_id", columnList, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void BackendQps_SourceRequiresRuntimeCountersForCoreScenarios()
     {
         string runtimeProbe = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/test/lanes/runtime-evidence-probe.mjs"));
