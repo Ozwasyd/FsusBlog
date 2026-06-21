@@ -1,6 +1,7 @@
 export * from '@/fsusui/appContext'
 export * from '@/fsusui/feedback'
 export * from '@/fsusui/icons'
+export * from '@/fsusui/kpiGroup'
 export * from '@/fsusui/markdown'
 export * from '@/fsusui/pageHeader'
 export * from '@/fsusui/primitiveAdapters'

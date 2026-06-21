@@ -31,7 +31,7 @@ const productionSourceRoot = path.join(repoRoot, 'src/frontend/src')
 
 const dashboardPanelPattern = /src\/frontend\/src\/(?:views\/admin\/Dashboard|components\/admin\/Dashboard|views\/admin\/security\/Security|views\/admin\/moderation\/Moderation|components\/admin\/comment-moderation\/CommentModeration)/
 const nonActionHoverPrimaryFiles = new Set([
-  'src/frontend/src/components/admin/DashboardStatCards.vue'
+  'src/frontend/src/views/admin/Dashboard.vue'
 ])
 const governedMicroLabelFiles = new Set([
   'src/frontend/src/views/admin/Dashboard.vue',
@@ -41,7 +41,6 @@ const governedMicroLabelFiles = new Set([
   'src/frontend/src/components/admin/DashboardOperationsPanel.vue',
   'src/frontend/src/components/admin/DashboardPopularArticles.vue',
   'src/frontend/src/components/admin/DashboardRecentComments.vue',
-  'src/frontend/src/components/admin/DashboardStatCards.vue',
   'src/frontend/src/components/admin/users/UserManageTable.vue',
   'src/frontend/src/components/public/ArticleDetailCommentsPlaceholder.vue',
   'src/frontend/src/components/public/pages/PublicArchivePageContent.vue',
