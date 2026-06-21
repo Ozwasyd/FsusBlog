@@ -90,7 +90,11 @@
         {{ auditRowMotion.summary.value }}
       </p>
 
-      <el-table v-loading="loading" :data="items" row-key="id" :row-class-name="auditRowClassName">
+      <div v-if="isAuditInitialLoading" class="px-4 py-6" aria-busy="true">
+        <el-skeleton :rows="6" animated />
+      </div>
+
+      <el-table v-else v-loading="loading" :data="items" row-key="id" :row-class-name="auditRowClassName">
         <el-table-column label="时间" width="190">
           <template #default="{ row }: { row: AuditLogItemResponse }">
             <time :datetime="row.occurredAtUtc">{{ formatTime(row.occurredAtUtc) }}</time>
@@ -266,11 +270,13 @@ const page = ref(1)
 const pageSize = ref(50)
 const total = ref(0)
 const loading = ref(false)
+const hasLoadedAudit = ref(false)
 const verifyingId = ref<number | null>(null)
 const detailVisible = ref(false)
 const auditRowMotion = useRowStateMotion({ visibleLimit: 20 })
 
 const runtime = computed(() => summary.value?.runtime ?? emptyRuntime)
+const isAuditInitialLoading = computed(() => loading.value && !hasLoadedAudit.value)
 const hasAuditFilters = computed(() =>
   filters.source.trim() !== ''
   || filters.type.trim() !== ''
@@ -334,6 +340,7 @@ const loadAudit = async (): Promise<void> => {
     showErrorToast(error, '审计日志加载失败')
   } finally {
     loading.value = false
+    hasLoadedAudit.value = true
   }
 }
 

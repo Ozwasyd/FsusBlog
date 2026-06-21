@@ -37,7 +37,12 @@
           </div>
         </template>
       </AdminCollectionToolbar>
+      <div v-if="isTagInitialLoading" class="px-4 py-6" aria-busy="true">
+        <el-skeleton :rows="6" animated />
+      </div>
+
       <el-table
+        v-else
         v-loading="loading"
         :data="filteredList"
         :row-key="getTagRowKey"
@@ -191,7 +196,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { type AdminTagItemResponse } from '@/api/authoring'
 import { InfoFilled, Plus, Search, View, Lock } from '@/fsusui/icons'
 import { useAdminTagManage } from '@/composables/useAdminTagManage'
@@ -220,10 +225,18 @@ const {
   handleDelete
 } = useAdminTagManage()
 
+const hasLoadedTagList = ref(false)
+watch(loading, (isLoading) => {
+  if (!isLoading) {
+    hasLoadedTagList.value = true
+  }
+})
+
 const getTagRowKey = (row: AdminTagItemResponse): string => String(row.id)
 
 const isCompact = useMediaQuery('(max-width: 639px)')
 const hasTagFilters = computed(() => filters.keyword.trim() !== '' || filters.unusedOnly)
+const isTagInitialLoading = computed(() => loading.value && !hasLoadedTagList.value)
 const tagStateText = computed(() => `标签 · ${list.value.length} 个`)
 const tagResultText = computed(() => `标签列表 · ${filteredList.value.length} 条结果`)
 const tagEmptyTitle = computed(() => hasTagFilters.value ? '没有匹配的标签' : '暂无标签')

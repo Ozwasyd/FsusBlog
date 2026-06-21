@@ -37,7 +37,12 @@
           </div>
         </template>
       </AdminCollectionToolbar>
+      <div v-if="isCategoryInitialLoading" class="px-4 py-6" aria-busy="true">
+        <el-skeleton :rows="6" animated />
+      </div>
+
       <el-table
+        v-else
         v-loading="loading"
         :data="filteredList"
         :row-key="getCategoryRowKey"
@@ -185,7 +190,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { type AdminCategoryItemResponse } from '@/api/authoring'
 import { InfoFilled, Plus, Edit, Lock, Delete, Search, View } from '@/fsusui/icons'
 import { useAdminCategoryManage } from '@/composables/useAdminCategoryManage'
@@ -214,9 +219,17 @@ const {
   handleDelete
 } = useAdminCategoryManage()
 
+const hasLoadedCategoryList = ref(false)
+watch(loading, (isLoading) => {
+  if (!isLoading) {
+    hasLoadedCategoryList.value = true
+  }
+})
+
 const getCategoryRowKey = (row: AdminCategoryItemResponse): string => String(row.id)
 const isCompact = useMediaQuery('(max-width: 639px)')
 const hasCategoryFilters = computed(() => filters.keyword.trim() !== '' || filters.unusedOnly)
+const isCategoryInitialLoading = computed(() => loading.value && !hasLoadedCategoryList.value)
 const categoryStateText = computed(() => `分类 · ${list.value.length} 个`)
 const categoryResultText = computed(() => `分类列表 · ${filteredList.value.length} 条结果`)
 const categoryEmptyTitle = computed(() => hasCategoryFilters.value ? '没有匹配的分类' : '暂无分类')
