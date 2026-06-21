@@ -99,6 +99,76 @@ public sealed class AuditLogEventMapperTests
         Assert.DoesNotContain("RequestBody", context.Keys);
     }
 
+    [Fact]
+    public void Map_DoesNotPromoteBareUserIdToActorOrContext()
+    {
+        var mapper = new AuditLogEventMapper();
+        LogEvent logEvent = CreateLogEvent(
+            DateTimeOffset.UtcNow,
+            LogEventLevel.Information,
+            "legacy request log",
+            null,
+            new LogEventProperty("UserId", new ScalarValue(123)),
+            new LogEventProperty("SafeTrace", new ScalarValue("safe-trace")));
+
+        AuditRecord? record = mapper.Map(logEvent);
+
+        Assert.NotNull(record);
+        Assert.Null(record!.ActorType);
+        Assert.Null(record.ActorId);
+        IReadOnlyDictionary<string, object?> context = DecodeContext(record);
+        Assert.Equal("safe-trace", context["SafeTrace"]);
+        Assert.DoesNotContain("UserId", context.Keys);
+    }
+
+    [Fact]
+    public void Map_DoesNotUseExplicitActorIdWithoutActorType()
+    {
+        var mapper = new AuditLogEventMapper();
+        LogEvent logEvent = CreateLogEvent(
+            DateTimeOffset.UtcNow,
+            LogEventLevel.Information,
+            "partial audit event",
+            null,
+            new LogEventProperty(AuditPropertyNames.ActorId, new ScalarValue("account:123")));
+
+        AuditRecord? record = mapper.Map(logEvent);
+
+        Assert.NotNull(record);
+        Assert.Null(record!.ActorType);
+        Assert.Null(record.ActorId);
+    }
+
+    [Theory]
+    [InlineData("account", "account:123")]
+    [InlineData("admin_principal", "admin:7")]
+    public void Map_RetainsExplicitNamespacedActorWhenActorTypeIsPresent(string actorType, string actorId)
+    {
+        var mapper = new AuditLogEventMapper();
+        LogEvent logEvent = CreateLogEvent(
+            DateTimeOffset.UtcNow,
+            LogEventLevel.Information,
+            "explicit audit event",
+            null,
+            new LogEventProperty(AuditPropertyNames.ActorType, new ScalarValue(actorType)),
+            new LogEventProperty(AuditPropertyNames.ActorId, new ScalarValue(actorId)));
+
+        AuditRecord? record = mapper.Map(logEvent);
+
+        Assert.NotNull(record);
+        Assert.Equal(actorType, record!.ActorType);
+        Assert.Equal(actorId, record.ActorId);
+    }
+
+    [Fact]
+    public void AuditLogEventMapper_SourceDoesNotFallbackFromUserIdToActorId()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Audit/AuditLogEventMapper.cs");
+
+        Assert.DoesNotContain("?? TryGetString(logEvent, \"UserId\")", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ActorId: TryGetString(logEvent, AuditPropertyNames.ActorId) ??", source, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("Proof")]
     [InlineData("Groth16Proof")]
@@ -112,6 +182,10 @@ public sealed class AuditLogEventMapperTests
     [InlineData("IssuerSignature")]
     [InlineData("IssuerResponse")]
     [InlineData("Credential")]
+    [InlineData("UserId")]
+    [InlineData("InternalUserId")]
+    [InlineData("AccountId")]
+    [InlineData("AdminPrincipalId")]
     public void Map_DropsZkSensitiveAuditContextPropertiesByExactName(string propertyName)
     {
         var mapper = new AuditLogEventMapper();

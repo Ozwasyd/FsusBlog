@@ -19,9 +19,12 @@ public sealed class AuditLogEventMapper
         "CredentialWitness",
         "Email",
         "Groth16Proof",
+        "AccountId",
+        "AdminPrincipalId",
         "Ip",
         "IssuerSignature",
         "IssuerResponse",
+        "InternalUserId",
         "Nullifier",
         "NullifierHash",
         "Password",
@@ -29,6 +32,7 @@ public sealed class AuditLogEventMapper
         "RawNullifier",
         "RequestBody",
         "Token",
+        "UserId",
         "UserAgent",
         "Username"
     };
@@ -81,6 +85,7 @@ public sealed class AuditLogEventMapper
             ?? ClassifySeverity(logEvent);
         bool isHighValue = TryGetBoolean(logEvent, AuditPropertyNames.HighValue)
             ?? source is AuditSourceCatalog.Admin or AuditSourceCatalog.Auth or AuditSourceCatalog.Security;
+        string? actorType = TryGetString(logEvent, AuditPropertyNames.ActorType);
 
         byte[] contextPayload = BuildContextPayload(logEvent, source, type);
         return new AuditRecord(
@@ -92,8 +97,8 @@ public sealed class AuditLogEventMapper
             Action: action,
             Outcome: outcome,
             Severity: severity,
-            ActorType: TryGetString(logEvent, AuditPropertyNames.ActorType),
-            ActorId: TryGetString(logEvent, AuditPropertyNames.ActorId) ?? TryGetString(logEvent, "UserId"),
+            ActorType: actorType,
+            ActorId: ResolveExplicitActorId(logEvent, actorType),
             ActorRole: TryGetString(logEvent, AuditPropertyNames.ActorRole),
             TargetType: TryGetString(logEvent, AuditPropertyNames.TargetType),
             TargetId: TryGetString(logEvent, AuditPropertyNames.TargetId),
@@ -262,6 +267,16 @@ public sealed class AuditLogEventMapper
             >= LogEventLevel.Warning => AuditSeverityCatalog.Warning,
             _ => AuditSeverityCatalog.Info
         };
+
+    private static string? ResolveExplicitActorId(LogEvent logEvent, string? actorType)
+    {
+        if (string.IsNullOrWhiteSpace(actorType))
+        {
+            return null;
+        }
+
+        return TryGetString(logEvent, AuditPropertyNames.ActorId);
+    }
 
     private static byte[] BuildContextPayload(LogEvent logEvent, string source, string type)
     {
