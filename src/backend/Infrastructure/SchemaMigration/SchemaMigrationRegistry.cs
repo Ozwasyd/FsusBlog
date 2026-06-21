@@ -41,11 +41,13 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildCoverImageMigration(),
         BuildHumanReadEventMigration(),
         BuildVisitLogAnonymousAttributionFinalizeMigration(),
+        BuildAuthoringAdminPrincipalAttributionMigration(),
         BuildSingleAuthorArticleLifecycleMigration(),
         BuildSingleAuthorArticleLifecycleIndexMigration(),
         BuildArticleMutationOutboxEdgeMigration(),
         BuildAuthoringWorkspaceTablesMigration(),
         BuildAuthoringDraftLifecycleMigration(),
+        BuildAuthoringAdminPrincipalAttributionIndexMigration(),
         BuildCommentModerationMigration(),
         BuildCommentModerationIndexMigration(),
         BuildCommentRegionComplianceMigration(),
@@ -1806,6 +1808,22 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new DropColumnStep("sys_visit_log", "user_id")
             ]);
 
+    private static ISchemaMigrationDescriptor BuildAuthoringAdminPrincipalAttributionMigration()
+        => new SchemaMigrationDescriptor(
+            "20260621-pre-authoring-admin-principal-attribution",
+            "Rename authoring draft and revision attribution columns to independent admin principal semantics.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new DropIndexStep("idx_article_draft_owner_key"),
+                new RenameColumnStep("article_draft", "owner_user_id", "owner_admin_principal_id"),
+                new RenameColumnStep("article_revision", "created_by_user_id", "created_by_admin_principal_id"),
+                new CreateIndexStep(
+                    "idx_article_draft_admin_principal_key",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_article_draft_admin_principal_key ON article_draft(owner_admin_principal_id, draft_key);")
+            ]);
+
     private static ISchemaMigrationDescriptor BuildSingleAuthorArticleLifecycleMigration()
         => new SchemaMigrationDescriptor(
             "20260518-pre-single-author-article-lifecycle",
@@ -2009,6 +2027,19 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
             [
                 new EnsureColumnStep("article_draft", "status", "integer NOT NULL DEFAULT 2"),
                 new EnsureColumnStep("article_draft", "scheduled_publish_at", "timestamp NULL")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAuthoringAdminPrincipalAttributionIndexMigration()
+        => new SchemaMigrationDescriptor(
+            "20260621-post-authoring-admin-principal-attribution-indexes",
+            "Ensure authoring draft admin-principal index exists after CodeFirst creates fresh tables.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new CreateIndexStep(
+                    "idx_article_draft_admin_principal_key",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_article_draft_admin_principal_key ON article_draft(owner_admin_principal_id, draft_key);")
             ]);
 
     private static ISchemaMigrationDescriptor BuildCommentModerationIndexMigration()

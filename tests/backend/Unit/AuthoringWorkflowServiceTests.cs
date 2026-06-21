@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -14,6 +15,37 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class AuthoringWorkflowServiceTests
 {
+    [Fact]
+    public void DraftAndRevisionContracts_SourceUseAdminPrincipalAttribution()
+    {
+        string endpoints = ReadRepoFile("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
+        string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string entities = ReadRepoFile("src/backend/Entities/Article.cs");
+        string dtos = ReadRepoFile("src/backend/Models/Dtos/AuthoringDtos.cs");
+        string frontendApi = ReadRepoFile("src/frontend/src/api/authoring.ts");
+        string revisionPanel = ReadRepoFile("src/frontend/src/components/admin/article/ArticleRevisionPanel.vue");
+
+        Assert.Contains("ResolveRequiredAdminPrincipalId(context)", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("SaveDraftAsync(context.GetUserId()", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetDraftAsync(context.GetUserId()", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("DiscardDraftAsync(context.GetUserId()", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("RollbackRevisionAsync(context.GetUserId()", endpoints, StringComparison.Ordinal);
+
+        Assert.Contains("SaveDraftAsync(long ownerAdminPrincipalId", service, StringComparison.Ordinal);
+        Assert.Contains("RollbackRevisionAsync(long actorAdminPrincipalId", service, StringComparison.Ordinal);
+        Assert.Contains("OwnerAdminPrincipalId", entities, StringComparison.Ordinal);
+        Assert.Contains("owner_admin_principal_id", entities, StringComparison.Ordinal);
+        Assert.Contains("CreatedByAdminPrincipalId", entities, StringComparison.Ordinal);
+        Assert.Contains("created_by_admin_principal_id", entities, StringComparison.Ordinal);
+
+        Assert.Contains("CreatedByAdminPrincipalId", dtos, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreatedByUserId", dtos, StringComparison.Ordinal);
+        Assert.Contains("createdByAdminPrincipalId", frontendApi, StringComparison.Ordinal);
+        Assert.DoesNotContain("createdByUserId", frontendApi, StringComparison.Ordinal);
+        Assert.Contains("revision.createdByAdminPrincipalId", revisionPanel, StringComparison.Ordinal);
+        Assert.DoesNotContain("revision.createdByUserId", revisionPanel, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void GenerateAiAssist_DefaultConfiguration_DoesNotEnableExternalProviderOrTitleCandidates()
     {
@@ -284,6 +316,9 @@ const value = "<script>alert(1)</script>";
 
     private static AuthoringWorkflowService BuildService()
         => BuildService(out _);
+
+    private static string ReadRepoFile(string relativePath)
+        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 
     private static AuthoringWorkflowService BuildService(
         out AuditLogChannel auditLogChannel,

@@ -37,7 +37,7 @@ public sealed record class ArticleRevisionSummaryResponse(
     int RevisionNo,
     string Title,
     string DiffSummary,
-    int CreatedByUserId,
+    long CreatedByAdminPrincipalId,
     DateTime CreatedAt);
 
 public sealed record class ArticleRevisionDetailResponse(
@@ -51,7 +51,7 @@ public sealed record class ArticleRevisionDetailResponse(
     int CategoryId,
     IReadOnlyList<int> TagIds,
     string DiffSummary,
-    int CreatedByUserId,
+    long CreatedByAdminPrincipalId,
     DateTime CreatedAt);
 
 public sealed record class ArticlePreviewResponse(string Html, string PlainText, IReadOnlyList<PrepublishIssue> Issues);
@@ -349,7 +349,7 @@ public sealed record class ContentRevisionExportResponse(
     int CategoryId,
     IReadOnlyList<int> TagIds,
     string DiffSummary,
-    int CreatedByUserId,
+    long CreatedByAdminPrincipalId,
     DateTime CreatedAt);
 
 public sealed record class ContentExportMetadataResponse(

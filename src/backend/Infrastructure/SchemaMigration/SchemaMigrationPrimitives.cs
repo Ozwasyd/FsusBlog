@@ -251,7 +251,7 @@ public sealed record CreateIndexStep(string IndexName, string CreateSql) : Schem
             BEGIN
                 EXECUTE '{SchemaMigrationSql.EscapeLiteral(CreateSql)}';
             EXCEPTION
-                WHEN undefined_table THEN
+                WHEN undefined_table OR undefined_column THEN
                     NULL;
             END $$;
             """);

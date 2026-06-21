@@ -489,7 +489,7 @@ public class ArticleService(
         int lastRevision = await _db.Queryable<ArticleRevision>()
             .Where(it => it.ArticleId == articleId)
             .MaxAsync(it => it.RevisionNo);
-        int actorUserId = _httpContextAccessor.HttpContext.GetUserId();
+        long actorAdminPrincipalId = ResolveRevisionAdminPrincipalId();
         await _db.Insertable(new ArticleRevision
         {
             ArticleId = articleId,
@@ -501,10 +501,15 @@ public class ArticleService(
             TagIds = string.Join(',', tagIds.OrderBy(static id => id)),
             MarkdownContent = content,
             DiffSummary = diffSummary,
-            CreatedByUserId = actorUserId,
+            CreatedByAdminPrincipalId = actorAdminPrincipalId,
             CreatedAt = DateTime.UtcNow
         }).ExecuteCommandAsync();
     }
+
+    private long ResolveRevisionAdminPrincipalId()
+        => _httpContextAccessor.HttpContext?.User.TryGetAdminPrincipalId(out long adminPrincipalId) == true
+            ? adminPrincipalId
+            : 0;
 
     private Task RecordArticleMutationOutboxAsync(int articleId, string eventType)
         => _db.Insertable(new ArticleMutationOutboxEvent

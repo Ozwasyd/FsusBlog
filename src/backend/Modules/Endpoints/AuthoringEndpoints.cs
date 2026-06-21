@@ -54,7 +54,7 @@ public static class AuthoringEndpoints
             }
 
             ServerDraftSaveRequest request = parsed.Value!;
-            ServerDraftResponse saved = await service.SaveDraftAsync(context.GetUserId(), request, cancellationToken);
+            ServerDraftResponse saved = await service.SaveDraftAsync(ResolveRequiredAdminPrincipalId(context), request, cancellationToken);
             return Ok(context, aeds, saved);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
@@ -66,7 +66,7 @@ public static class AuthoringEndpoints
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
-            ServerDraftResponse? draft = await service.GetDraftAsync(context.GetUserId(), draftKey, cancellationToken);
+            ServerDraftResponse? draft = await service.GetDraftAsync(ResolveRequiredAdminPrincipalId(context), draftKey, cancellationToken);
             return Ok(context, aeds, draft);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
@@ -78,7 +78,7 @@ public static class AuthoringEndpoints
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
-            bool discarded = await service.DiscardDraftAsync(context.GetUserId(), draftKey, cancellationToken);
+            bool discarded = await service.DiscardDraftAsync(ResolveRequiredAdminPrincipalId(context), draftKey, cancellationToken);
             return Ok(context, aeds, new { discarded });
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
@@ -167,7 +167,7 @@ public static class AuthoringEndpoints
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
-            bool rolledBack = await service.RollbackRevisionAsync(context.GetUserId(), articleId, revisionId, cancellationToken);
+            bool rolledBack = await service.RollbackRevisionAsync(ResolveRequiredAdminPrincipalId(context), articleId, revisionId, cancellationToken);
             return rolledBack
                 ? Ok(context, aeds, new { rolledBack })
                 : AedsJsonResults.NotFound(aeds, "revision_not_found");
@@ -2337,6 +2337,9 @@ public static class AuthoringEndpoints
         status = resolved;
         return true;
     }
+
+    private static long ResolveRequiredAdminPrincipalId(HttpContext context)
+        => context.User.TryGetAdminPrincipalId(out long adminPrincipalId) ? adminPrincipalId : 0;
 
     private static async Task<IResult?> RequireAdminSensitiveStepUpAsync(
         HttpContext context,

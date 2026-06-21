@@ -115,14 +115,14 @@ public class ArticleBody
 }
 
 [SugarTable("article_draft")]
-[SugarIndex("idx_article_draft_owner_key", nameof(OwnerUserId), OrderByType.Asc, nameof(DraftKey), OrderByType.Asc, true)]
+[SugarIndex("idx_article_draft_admin_principal_key", nameof(OwnerAdminPrincipalId), OrderByType.Asc, nameof(DraftKey), OrderByType.Asc, true)]
 public class ArticleDraft
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
     public long Id { get; set; }
 
-    [SugarColumn(ColumnName = "owner_user_id")]
-    public int OwnerUserId { get; set; }
+    [SugarColumn(ColumnName = "owner_admin_principal_id")]
+    public long OwnerAdminPrincipalId { get; set; }
 
     [SugarColumn(ColumnName = "article_id", IsNullable = true)]
     public int? ArticleId { get; set; }
@@ -197,8 +197,8 @@ public class ArticleRevision
     [SugarColumn(ColumnName = "diff_summary", Length = 512)]
     public string DiffSummary { get; set; } = string.Empty;
 
-    [SugarColumn(ColumnName = "created_by_user_id")]
-    public int CreatedByUserId { get; set; }
+    [SugarColumn(ColumnName = "created_by_admin_principal_id")]
+    public long CreatedByAdminPrincipalId { get; set; }
 
     [SugarColumn(ColumnName = "created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

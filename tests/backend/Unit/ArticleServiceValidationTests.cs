@@ -148,6 +148,20 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
+    public void SaveArticleRevisionAsync_SourceUsesAdminPrincipalActor()
+    {
+        string articleService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        int methodStart = articleService.IndexOf("private async Task SaveArticleRevisionAsync", StringComparison.Ordinal);
+        int methodEnd = articleService.IndexOf("private Task RecordArticleMutationOutboxAsync", StringComparison.Ordinal);
+        string method = articleService[methodStart..methodEnd];
+
+        Assert.Contains("ResolveRevisionAdminPrincipalId()", articleService, StringComparison.Ordinal);
+        Assert.Contains("CreatedByAdminPrincipalId = actorAdminPrincipalId", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetUserId()", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreatedByUserId", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void IncreaseViewCountsAsync_SourceUsesSingleValuesUpdateAndRedisBatch()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));

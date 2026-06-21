@@ -45,7 +45,7 @@
               {{ revision.diffSummary }} · <SemanticTime :value="revision.createdAt" />
             </span>
           </span>
-          <span class="revision-row__actor">#{{ revision.createdByUserId }}</span>
+          <span class="revision-row__actor">Admin #{{ revision.createdByAdminPrincipalId }}</span>
         </button>
       </div>
 

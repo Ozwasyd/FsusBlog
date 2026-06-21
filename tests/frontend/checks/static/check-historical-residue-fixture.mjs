@@ -304,6 +304,40 @@ internal static class RoleAdminResidue
     }
   },
   {
+    name: 'legacy authoring user attribution',
+    expected: 'legacy authoring user attribution residue detected',
+    files: {
+      'src/backend/Services/Authoring/AuthoringWorkflowService.cs': `
+internal sealed class AuthoringWorkflowService
+{
+    public void Save(ArticleDraft draft, ArticleRevision revision)
+    {
+        draft.OwnerUserId = 7;
+        revision.CreatedByUserId = 7;
+    }
+}
+`,
+      'src/backend/Modules/Endpoints/AuthoringEndpoints.cs': `
+internal static class AuthoringEndpoints
+{
+    public static void Map(HttpContext context, AuthoringWorkflowService service)
+    {
+        service.SaveDraftAsync(context.GetUserId(), request, token);
+        service.RollbackRevisionAsync(context.GetUserId(), articleId, revisionId, token);
+    }
+}
+`,
+      'src/frontend/src/api/authoring.ts': `
+export interface ArticleRevisionSummaryResponse {
+  createdByUserId: number
+}
+`,
+      'src/frontend/src/components/admin/article/ArticleRevisionPanel.vue': `
+<template>{{ revision.createdByUserId }}</template>
+`
+    }
+  },
+  {
     name: 'legacy admin password reset governance',
     expected: 'legacy admin password reset governance residue detected',
     files: {

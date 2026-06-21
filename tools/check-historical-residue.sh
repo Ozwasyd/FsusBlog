@@ -300,6 +300,13 @@ run_residue_check \
   src/backend
 
 run_residue_check \
+  "legacy authoring user attribution" \
+  "legacy authoring user attribution residue detected" \
+  'SaveDraftAsync[(]\s*context[.]GetUserId[(][)]|GetDraftAsync[(]\s*context[.]GetUserId[(][)]|DiscardDraftAsync[(]\s*context[.]GetUserId[(][)]|RollbackRevisionAsync[(]\s*context[.]GetUserId[(][)]|OwnerUserId|owner_user_id|CreatedByUserId|created_by_user_id|createdByUserId' \
+  '^(src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry[.]cs)$' \
+  src/backend/Modules/Endpoints/AuthoringEndpoints.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Services/ArticleService.cs src/backend/Entities/Article.cs src/backend/Models/Dtos/AuthoringDtos.cs src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs src/frontend/src/api/authoring.ts src/frontend/src/components/admin/article/ArticleRevisionPanel.vue
+
+run_residue_check \
   "legacy frontend admin fallbacks" \
   "legacy frontend admin fallback residue detected" \
   'legacy[.]admin|syncLegacyAdminPrincipal|userInfo[.]role\s*={2,3}\s*["'\'']admin["'\'']|user[?]?[.]role\s*={2,3}\s*["'\'']admin["'\'']' \

@@ -217,16 +217,7 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         projection.Tags = tags
             .Select(static tag => new PublicAotArticleTagSnapshot(tag.Id, tag.Name))
             .ToArray();
-        ArticleAuthorAotProjection? author = await db.Queryable<ArticleRevision>()
-            .LeftJoin<User>((revision, user) => revision.CreatedByUserId == user.Id)
-            .Where((revision, user) => revision.ArticleId == articleId)
-            .OrderBy((revision, user) => revision.RevisionNo)
-            .Select((revision, user) => new ArticleAuthorAotProjection
-            {
-                PublicHandle = user.PublicHandle
-            })
-            .FirstAsync(cancellationToken);
-        projection.AuthorName = author?.PublicHandle ?? string.Empty;
+        projection.AuthorName = string.Empty;
         projection.Content = string.IsNullOrWhiteSpace(projection.Content) ? projection.Summary ?? string.Empty : projection.Content;
         projection.Summary ??= string.Empty;
         projection.CategoryName = string.IsNullOrWhiteSpace(projection.CategoryName) ? "未分类" : projection.CategoryName;
@@ -269,11 +260,6 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         public string CategoryName { get; set; } = string.Empty;
         public string AuthorName { get; set; } = string.Empty;
         public IReadOnlyList<PublicAotArticleTagSnapshot> Tags { get; set; } = [];
-    }
-
-    private sealed class ArticleAuthorAotProjection
-    {
-        public string? PublicHandle { get; init; }
     }
 
     private sealed class ArticleTagAotProjection

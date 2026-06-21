@@ -18,14 +18,15 @@ public sealed class PublicAotBootstrapProviderTests
     }
 
     [Fact]
-    public void ArticleDetailProvider_SourceResolvesArticleAuthorBeforeSeoFallback()
+    public void ArticleDetailProvider_SourceDoesNotProjectAdminRevisionActorAsPublicAuthor()
     {
         string source = ReadProviderSource();
         string articleProviderSource = source[source.IndexOf("public sealed class PublicAotArticleDetailBootstrapProvider", StringComparison.Ordinal)..];
 
-        Assert.Contains("ArticleAuthorAotProjection", articleProviderSource);
-        Assert.Contains("CreatedByUserId", articleProviderSource);
-        Assert.Contains("user.PublicHandle", articleProviderSource);
+        Assert.Contains("projection.AuthorName = string.Empty", articleProviderSource);
+        Assert.DoesNotContain("ArticleAuthorAotProjection", articleProviderSource);
+        Assert.DoesNotContain(".LeftJoin<User>", articleProviderSource);
+        Assert.DoesNotContain("user.PublicHandle", articleProviderSource);
         Assert.DoesNotContain("user.InternalSubject", articleProviderSource);
         Assert.Contains("ResolveArticleAuthorName(article.AuthorName, seo)", articleProviderSource);
     }

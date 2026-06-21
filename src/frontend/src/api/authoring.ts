@@ -42,7 +42,7 @@ export interface ArticleRevisionSummaryResponse {
   revisionNo: number
   title: string
   diffSummary: string
-  createdByUserId: number
+  createdByAdminPrincipalId: number
   createdAt: string
 }
 
@@ -842,7 +842,7 @@ export interface ContentRevisionExportResponse {
   categoryId: number
   tagIds: number[]
   diffSummary: string
-  createdByUserId: number
+  createdByAdminPrincipalId: number
   createdAt: string
 }
 

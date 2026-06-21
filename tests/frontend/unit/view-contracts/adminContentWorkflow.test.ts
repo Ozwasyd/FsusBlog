@@ -95,6 +95,15 @@ describe('admin content governance workflow contract', () => {
     expect(tagPage).not.toContain('合并')
   })
 
+  it('uses admin principal attribution for article revisions', () => {
+    const revisionPanel = readRepoFile('src/frontend/src/components/admin/article/ArticleRevisionPanel.vue')
+
+    expect(authoringApi).toContain('createdByAdminPrincipalId: number')
+    expect(authoringApi).not.toContain('createdByUserId')
+    expect(revisionPanel).toContain('revision.createdByAdminPrincipalId')
+    expect(revisionPanel).not.toContain('revision.createdByUserId')
+  })
+
   it('does not label a category-only dashboard route as category and tag management', () => {
     expect(dashboardPanel).toContain("label: '分类管理'")
     expect(dashboardPanel).not.toContain("label: '分类与标签'")

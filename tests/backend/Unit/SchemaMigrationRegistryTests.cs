@@ -111,6 +111,22 @@ public sealed class SchemaMigrationRegistryTests
     }
 
     [Fact]
+    public void GetDescriptors_AuthoringAdminPrincipalAttribution_RenamesLegacyAuthoringColumns()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260621-pre-authoring-admin-principal-attribution");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Contains("article_draft.owner_user_id->owner_admin_principal_id", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("article_revision.created_by_user_id->created_by_admin_principal_id", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_article_draft_admin_principal_key", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("owner_admin_principal_id, draft_key", fingerprint, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GetDescriptors_AnonymousCommentGovernance_SeedsRequiredPolicyDefaults()
     {
         var registry = new SchemaMigrationRegistry();

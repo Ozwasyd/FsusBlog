@@ -36,12 +36,12 @@ public sealed class AuthoringWorkflowService(
     private const int PreviewLength = 24_000;
     private const int WarningOverrideReasonLength = 180;
 
-    public async Task<ServerDraftResponse> SaveDraftAsync(int ownerUserId, ServerDraftSaveRequest request, CancellationToken cancellationToken = default)
+    public async Task<ServerDraftResponse> SaveDraftAsync(long ownerAdminPrincipalId, ServerDraftSaveRequest request, CancellationToken cancellationToken = default)
     {
         string draftKey = NormalizeDraftKey(request.DraftKey, request.ArticleId);
         string tagIds = string.Join(',', NormalizeTagIds(request.TagIds));
         ArticleDraft? existing = await db.Queryable<ArticleDraft>()
-            .Where(it => it.OwnerUserId == ownerUserId && it.DraftKey == draftKey)
+            .Where(it => it.OwnerAdminPrincipalId == ownerAdminPrincipalId && it.DraftKey == draftKey)
             .FirstAsync(cancellationToken);
         DateTime now = DateTime.UtcNow;
 
@@ -49,7 +49,7 @@ public sealed class AuthoringWorkflowService(
         {
             existing = new ArticleDraft
             {
-                OwnerUserId = ownerUserId,
+                OwnerAdminPrincipalId = ownerAdminPrincipalId,
                 DraftKey = draftKey,
                 CreatedAt = now
             };
@@ -76,28 +76,28 @@ public sealed class AuthoringWorkflowService(
             await db.Insertable(existing).ExecuteCommandAsync(cancellationToken);
         }
 
-        WriteAudit(AuditSourceCatalog.Article, "server-draft-save", ownerUserId, draftKey);
+        WriteAudit(AuditSourceCatalog.Article, "server-draft-save", ownerAdminPrincipalId, draftKey);
         return ToDraftResponse(existing);
     }
 
-    public async Task<ServerDraftResponse?> GetDraftAsync(int ownerUserId, string draftKey, CancellationToken cancellationToken = default)
+    public async Task<ServerDraftResponse?> GetDraftAsync(long ownerAdminPrincipalId, string draftKey, CancellationToken cancellationToken = default)
     {
         string normalized = NormalizeDraftKey(draftKey, null);
         ArticleDraft? draft = await db.Queryable<ArticleDraft>()
-            .Where(it => it.OwnerUserId == ownerUserId && it.DraftKey == normalized)
+            .Where(it => it.OwnerAdminPrincipalId == ownerAdminPrincipalId && it.DraftKey == normalized)
             .FirstAsync(cancellationToken);
         return draft is null ? null : ToDraftResponse(draft);
     }
 
-    public async Task<bool> DiscardDraftAsync(int ownerUserId, string draftKey, CancellationToken cancellationToken = default)
+    public async Task<bool> DiscardDraftAsync(long ownerAdminPrincipalId, string draftKey, CancellationToken cancellationToken = default)
     {
         string normalized = NormalizeDraftKey(draftKey, null);
         int count = await db.Deleteable<ArticleDraft>()
-            .Where(it => it.OwnerUserId == ownerUserId && it.DraftKey == normalized)
+            .Where(it => it.OwnerAdminPrincipalId == ownerAdminPrincipalId && it.DraftKey == normalized)
             .ExecuteCommandAsync(cancellationToken);
         if (count > 0)
         {
-            WriteAudit(AuditSourceCatalog.Article, "server-draft-discard", ownerUserId, normalized);
+            WriteAudit(AuditSourceCatalog.Article, "server-draft-discard", ownerAdminPrincipalId, normalized);
         }
 
         return count > 0;
@@ -117,7 +117,7 @@ public sealed class AuthoringWorkflowService(
             revision.RevisionNo,
             revision.Title,
             revision.DiffSummary,
-            revision.CreatedByUserId,
+            revision.CreatedByAdminPrincipalId,
             revision.CreatedAt)).ToArray();
     }
 
@@ -129,7 +129,7 @@ public sealed class AuthoringWorkflowService(
         return revision is null ? null : ToRevisionDetailResponse(revision);
     }
 
-    public async Task<bool> RollbackRevisionAsync(int actorUserId, int articleId, long revisionId, CancellationToken cancellationToken = default)
+    public async Task<bool> RollbackRevisionAsync(long actorAdminPrincipalId, int articleId, long revisionId, CancellationToken cancellationToken = default)
     {
         ArticleRevision? revision = await db.Queryable<ArticleRevision>()
             .Where(it => it.ArticleId == articleId && it.Id == revisionId)
@@ -151,7 +151,7 @@ public sealed class AuthoringWorkflowService(
         });
         if (updated)
         {
-            WriteAudit(AuditSourceCatalog.Article, "article-revision-rollback", actorUserId, $"{articleId}:{revisionId}");
+            WriteAudit(AuditSourceCatalog.Article, "article-revision-rollback", actorAdminPrincipalId, $"{articleId}:{revisionId}");
         }
 
         return updated;
@@ -689,7 +689,7 @@ public sealed class AuthoringWorkflowService(
             revision.CategoryId,
             ParseTagIds(revision.TagIds),
             revision.DiffSummary,
-            revision.CreatedByUserId,
+            revision.CreatedByAdminPrincipalId,
             revision.CreatedAt);
 
     private static AssetLibraryItemResponse ToAssetResponse(AssetLibraryItem item)
@@ -2051,7 +2051,7 @@ public sealed class AuthoringWorkflowService(
                 revision.CategoryId,
                 ParseTagIds(revision.TagIds),
                 revision.DiffSummary,
-                revision.CreatedByUserId,
+                revision.CreatedByAdminPrincipalId,
                 revision.CreatedAt)).ToArray());
 
     internal static string BuildArticleExportMarkdown(Article article, string content, ContentExportMetadataResponse metadata)
@@ -2188,7 +2188,7 @@ fsusMetadataJson: {encodedMetadata}
                 TagIds = string.Join(',', NormalizeTagIds(revision.TagIds)),
                 MarkdownContent = Normalize(revision.Content, 200_000),
                 DiffSummary = Normalize(revision.DiffSummary, 512),
-                CreatedByUserId = Math.Max(0, revision.CreatedByUserId),
+                CreatedByAdminPrincipalId = Math.Max(0, revision.CreatedByAdminPrincipalId),
                 CreatedAt = revision.CreatedAt == default ? DateTime.UtcNow : revision.CreatedAt
             })
             .ToList();
@@ -2207,9 +2207,9 @@ fsusMetadataJson: {encodedMetadata}
         return value.Length > 512 ? value[..512] : value;
     }
 
-    private void WriteAudit(string source, string eventInfo, int actorUserId, string target)
+    private void WriteAudit(string source, string eventInfo, long actorAdminPrincipalId, string target)
     {
-        byte[] payload = Encoding.UTF8.GetBytes($"actor={actorUserId};target={target}");
+        byte[] payload = Encoding.UTF8.GetBytes($"actor={actorAdminPrincipalId};target={target}");
         auditLogChannel.TryWrite(new AuditRecord(source, AuditTypeCatalog.Business, DateTime.UtcNow, eventInfo, payload));
     }
 
