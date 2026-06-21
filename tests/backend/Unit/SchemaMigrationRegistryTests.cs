@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using NSubstitute;
 using SqlSugar;
 
@@ -51,6 +52,7 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260621-pre-passkey-recovery-key-account-id", migrationIds);
         Assert.Contains("20260621-pre-passkey-user-handle", migrationIds);
         Assert.Contains("20260621-post-user-legacy-identity-columns-finalize", migrationIds);
+        Assert.Contains("20260621-post-sys-user-username-finalize", migrationIds);
         Assert.Contains("20260621-post-comment-attribution-index-finalize", migrationIds);
         Assert.Contains("20260621-post-message-legacy-identity-columns-finalize", migrationIds);
         Assert.Contains("20260621-pre-sys-user-security-profile-split", migrationIds);
@@ -118,11 +120,26 @@ public sealed class SchemaMigrationRegistryTests
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
 
         Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
-        Assert.Contains("sys_user.username", fingerprint, StringComparison.Ordinal);
         Assert.Contains("sys_user.password", fingerprint, StringComparison.Ordinal);
         Assert.Contains("sys_user.role", fingerprint, StringComparison.Ordinal);
         Assert.Contains("sys_user.lastusernameupdatetime", fingerprint, StringComparison.Ordinal);
         Assert.Contains("sys_user.last_username_update_time", fingerprint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetDescriptors_SysUserUsernameFinalize_DropsUsernameAfterCodeFirst()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260621-post-sys-user-username-finalize");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
+        Assert.Contains("sys_user.username", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("sys_user.password", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("sys_user.role", fingerprint, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -223,6 +240,38 @@ public sealed class SchemaMigrationRegistryTests
 
         Assert.Contains("comment.moderated_by_admin_principal_id", commentFingerprint, StringComparison.Ordinal);
         Assert.DoesNotContain("moderated_by_user_id", commentFingerprint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetDescriptors_CommentModerationAdminPrincipalAttribution_PreservesLegacyColumnFallback()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260621-pre-comment-moderation-admin-principal-attribution");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PreCodeFirst, descriptor.Phase);
+        Assert.Contains("comment.moderated_by_user_id->moderated_by_admin_principal_id", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("comment:moderated_by_user_id->moderated_by_admin_principal_id", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("moderated_by_admin_principal_id IS NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("comment.moderated_by_user_id", fingerprint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetDescriptors_StaticGuardsPreventLegacyModerationAndUsernameMigrationResidue()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot(
+            "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
+
+        Assert.DoesNotMatch(
+            "EnsureColumnStep\\([^\\n]*\"moderated_by_user_id\"",
+            source);
+        Assert.DoesNotContain(
+            "ALTER TABLE sys_user ALTER COLUMN username",
+            source,
+            StringComparison.Ordinal);
     }
 
     [Fact]
