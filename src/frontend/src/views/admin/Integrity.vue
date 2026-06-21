@@ -24,7 +24,9 @@
 
       <FsusUiKeyValueGrid v-if="report" class="grid gap-4 md:grid-cols-4">
         <FsusUiKeyValueItem label="状态" :tone="kvTone(report.status)">
-          <el-tag :type="statusType(report.status)">{{ statusLabel(report.status) }}</el-tag>
+          <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(report.status)])">
+            {{ adminStatusLabel[toAdminSystemStatus(report.status)] }}
+          </el-tag>
         </FsusUiKeyValueItem>
         <FsusUiKeyValueItem label="检查项">
           {{ report.checkCount }}
@@ -49,7 +51,9 @@
           </el-table-column>
           <el-table-column label="状态" width="120">
             <template #default="{ row }: { row: IntegrityCheckResponse }">
-              <el-tag :type="statusType(row.status)">{{ statusLabel(row.status) }}</el-tag>
+              <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(row.status)])">
+                {{ adminStatusLabel[toAdminSystemStatus(row.status)] }}
+              </el-tag>
             </template>
           </el-table-column>
           <el-table-column label="数量" width="90" prop="count" />
@@ -239,9 +243,16 @@ import {
   FsusUiTypedConfirmField
 } from '@/fsusui'
 import { CopyDocument, Download, Refresh, Tools } from '@/fsusui/icons'
+import { toFsusUiTagType } from '@/fsusui/primitiveAdapters'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
+import {
+  adminStatusLabel,
+  adminStatusTone,
+  type AdminStatusTone,
+  type AdminSystemStatus
+} from '@/view-contracts/adminStatus'
 
 type DiffPreviewState = 'not_loaded' | 'loading' | 'loaded_empty' | 'ready' | 'failed'
 
@@ -394,33 +405,11 @@ const applyFix = async (): Promise<void> => {
   }
 }
 
-const statusType = (status: string): 'success' | 'warning' | 'danger' | 'info' => {
-  if (status === 'ok' || status === 'empty' || status === 'applied') return 'success'
-  if (status === 'issue' || status === 'issues' || status === 'ready') return 'warning'
-  if (status === 'failed') return 'danger'
-  return 'info'
-}
+const toAdminSystemStatus = (status: string | null | undefined): AdminSystemStatus =>
+  status && status in adminStatusTone ? status as AdminSystemStatus : 'unknown'
 
-const kvTone = (status: string | null | undefined): 'neutral' | 'info' | 'success' | 'warning' | 'danger' => {
-  const type = status ? statusType(status) : 'info'
-  if (type === 'success') return 'success'
-  if (type === 'warning') return 'warning'
-  if (type === 'danger') return 'danger'
-  return 'info'
-}
-
-const statusLabel = (status: string | null | undefined): string => {
-  const labels: Record<string, string> = {
-    ok: '正常',
-    empty: '无数据',
-    applied: '已应用',
-    issue: '有问题',
-    issues: '有问题',
-    ready: '待确认',
-    failed: '失败'
-  }
-  return status ? labels[status] ?? status : '-'
-}
+const kvTone = (status: string | null | undefined): AdminStatusTone =>
+  adminStatusTone[toAdminSystemStatus(status)]
 
 const formatDangerLevel = (level: string): string => {
   const labels: Record<string, string> = {

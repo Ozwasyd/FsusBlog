@@ -17,10 +17,14 @@
 
       <FsusUiKeyValueGrid v-if="diagnostics" class="grid gap-4 md:grid-cols-4">
         <FsusUiKeyValueItem label="AOT" :tone="kvTone(diagnostics.aot.status)">
-          <el-tag :type="statusType(diagnostics.aot.status)">{{ statusLabel(diagnostics.aot.status) }}</el-tag>
+          <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(diagnostics.aot.status)])">
+            {{ adminStatusLabel[toAdminSystemStatus(diagnostics.aot.status)] }}
+          </el-tag>
         </FsusUiKeyValueItem>
         <FsusUiKeyValueItem label="搜索" :tone="kvTone(diagnostics.search.status)">
-          <el-tag :type="statusType(diagnostics.search.status)">{{ statusLabel(diagnostics.search.status) }}</el-tag>
+          <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(diagnostics.search.status)])">
+            {{ adminStatusLabel[toAdminSystemStatus(diagnostics.search.status)] }}
+          </el-tag>
         </FsusUiKeyValueItem>
         <FsusUiKeyValueItem label="站点地图">
           {{ diagnostics.distribution.sitemapUrlCount }}
@@ -37,7 +41,9 @@
           <el-descriptions v-if="diagnostics" :column="1" border>
             <el-descriptions-item label="版本">{{ diagnostics.aot.version }}</el-descriptions-item>
             <el-descriptions-item label="最近构建">{{ formatTime(diagnostics.aot.lastBuildAt) }}</el-descriptions-item>
-            <el-descriptions-item label="构建状态">{{ statusLabel(diagnostics.aot.lastBuildStatus) }}</el-descriptions-item>
+            <el-descriptions-item label="构建状态">
+              {{ diagnostics.aot.lastBuildStatus ? adminStatusLabel[toAdminSystemStatus(diagnostics.aot.lastBuildStatus)] : '-' }}
+            </el-descriptions-item>
             <el-descriptions-item label="过期页面">{{ diagnostics.aot.stalePageCount }}</el-descriptions-item>
             <el-descriptions-item label="最近错误">{{ diagnostics.aot.lastError ?? '-' }}</el-descriptions-item>
           </el-descriptions>
@@ -46,7 +52,9 @@
         <FsusUiSettingsSection title="首页焦点" id="cache-home-spotlight-title">
           <el-descriptions :column="1" border>
             <el-descriptions-item label="状态">
-              <el-tag :type="statusType(spotlightHealthStatus)">{{ statusLabel(spotlightHealthStatus) }}</el-tag>
+              <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(spotlightHealthStatus)])">
+                {{ adminStatusLabel[toAdminSystemStatus(spotlightHealthStatus)] }}
+              </el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="候选数">{{ spotlightCandidateCountText }}</el-descriptions-item>
             <el-descriptions-item label="说明">{{ spotlightHealthDetail }}</el-descriptions-item>
@@ -86,7 +94,9 @@
             <el-button :icon="Refresh" :loading="actionLoading === 'sitemap-feed-refresh'" @click="runAction('sitemap-feed-refresh')">刷新 sitemap/feed</el-button>
           </div>
           <div v-if="lastAction" class="mt-5 border-t border-[var(--fsusblog-panel-border)] pt-4 text-xs leading-6">
-            <el-tag :type="statusType(lastAction.status)">{{ statusLabel(lastAction.status) }}</el-tag>
+            <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(lastAction.status)])">
+              {{ adminStatusLabel[toAdminSystemStatus(lastAction.status)] }}
+            </el-tag>
             <span class="ml-2">{{ lastAction.detail }}</span>
           </div>
         </FsusUiSettingsSection>
@@ -140,8 +150,15 @@ import {
   FsusUiSettingsSection
 } from '@/fsusui'
 import { Delete, Refresh, Search } from '@/fsusui/icons'
+import { toFsusUiTagType } from '@/fsusui/primitiveAdapters'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
+import {
+  adminStatusLabel,
+  adminStatusTone,
+  type AdminStatusTone,
+  type AdminSystemStatus
+} from '@/view-contracts/adminStatus'
 
 const loading = ref(false)
 const actionLoading = ref('')
@@ -151,7 +168,7 @@ const lastAction = shallowRef<AdminCacheActionResponse | null>(null)
 const spotlightCandidateCount = ref<number | null>(null)
 const spotlightDiagnosticsError = ref('')
 
-const spotlightHealthStatus = computed(() => {
+const spotlightHealthStatus = computed<AdminSystemStatus>(() => {
   if (spotlightDiagnosticsError.value) return 'degraded'
   if (spotlightCandidateCount.value === null) return 'unknown'
   return spotlightCandidateCount.value > 0 ? 'ok' : 'missing'
@@ -219,35 +236,11 @@ const runAction = async (action: string): Promise<void> => {
   }
 }
 
-const statusType = (status: string): 'success' | 'warning' | 'danger' | 'info' => {
-  if (status === 'ok' || status === 'queued') return 'success'
-  if (status === 'failed' || status === 'missing' || status === 'unsupported') return 'danger'
-  if (status === 'degraded') return 'warning'
-  return 'info'
-}
+const toAdminSystemStatus = (status: string | null | undefined): AdminSystemStatus =>
+  status && status in adminStatusTone ? status as AdminSystemStatus : 'unknown'
 
-const kvTone = (status: string | null | undefined): 'neutral' | 'info' | 'success' | 'warning' | 'danger' => {
-  const type = status ? statusType(status) : 'info'
-  if (type === 'success') return 'success'
-  if (type === 'warning') return 'warning'
-  if (type === 'danger') return 'danger'
-  return 'info'
-}
-
-const statusLabel = (status: string | null | undefined): string => {
-  const labels: Record<string, string> = {
-    ok: '正常',
-    queued: '已入队',
-    failed: '失败',
-    missing: '缺失',
-    unsupported: '不支持',
-    degraded: '降级',
-    unknown: '未知',
-    ready: '就绪',
-    stale: '需刷新'
-  }
-  return status ? labels[status] ?? status : '-'
-}
+const kvTone = (status: string | null | undefined): AdminStatusTone =>
+  adminStatusTone[toAdminSystemStatus(status)]
 
 const formatTime = (value: string | null | undefined): string => value ? new Date(value).toLocaleString() : '-'
 const boolText = (value: boolean): string => value ? '是' : '否'
