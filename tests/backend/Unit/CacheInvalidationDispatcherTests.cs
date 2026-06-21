@@ -78,9 +78,9 @@ public sealed class CacheInvalidationDispatcherTests
 
         await cache.Received(1).RemoveByPrefixManyAsync(Arg.Is<IReadOnlyList<CachePrefixIdentity>>(prefixes =>
             HasPrefix(prefixes, CachePolicyId.CommentCursor, "article:")
-            && HasPrefix(prefixes, CachePolicyId.UserCommentCursor, "user:")
+            && HasPrefix(prefixes, CachePolicyId.UserCommentCursor, "account:")
             && HasPrefix(prefixes, CachePolicyId.CommentCursorFrame, "article:")
-            && HasPrefix(prefixes, CachePolicyId.UserCommentCursorFrame, "user:")), Arg.Any<CancellationToken>());
+            && HasPrefix(prefixes, CachePolicyId.UserCommentCursorFrame, "account:")), Arg.Any<CancellationToken>());
         await cache.Received(1).RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
             HasKey(keys, CachePolicyId.AdminStats, "main")
             && HasKey(keys, CachePolicyId.AdminStats, "core:main")
@@ -99,7 +99,7 @@ public sealed class CacheInvalidationDispatcherTests
         await sut.InvalidateCommentMutationAsync(new CommentCacheInvalidationScope(
             ArticleId: 42,
             RootId: 99,
-            UserId: 7,
+            AccountId: 7,
             PublicArticleChanged: true,
             UserCommentsChanged: true));
 
@@ -108,8 +108,8 @@ public sealed class CacheInvalidationDispatcherTests
             && HasPrefix(prefixes, CachePolicyId.CommentCursorFrame, "article:42:")
             && HasPrefix(prefixes, CachePolicyId.CommentCursor, "article:42:root:99:")
             && HasPrefix(prefixes, CachePolicyId.CommentCursorFrame, "article:42:root:99:")
-            && HasPrefix(prefixes, CachePolicyId.UserCommentCursor, "user:7:")
-            && HasPrefix(prefixes, CachePolicyId.UserCommentCursorFrame, "user:7:")), Arg.Any<CancellationToken>());
+            && HasPrefix(prefixes, CachePolicyId.UserCommentCursor, "account:7:")
+            && HasPrefix(prefixes, CachePolicyId.UserCommentCursorFrame, "account:7:")), Arg.Any<CancellationToken>());
         await cache.Received(1).RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
             HasKey(keys, CachePolicyId.AdminStats, "main")
             && HasKey(keys, CachePolicyId.AdminStats, "core:main")

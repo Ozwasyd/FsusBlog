@@ -442,10 +442,10 @@ public class NotificationStreamConnectionManagerIntegrationTests
 public class NotificationStreamTargetTests2
 {
     [Fact]
-    public void NotificationStreamUserTarget_StoresUserId()
+    public void NotificationStreamUserTarget_StoresAccountId()
     {
         var target = new NotificationStreamUserTarget("user-123");
-        Assert.Equal("user-123", target.UserId);
+        Assert.Equal("user-123", target.AccountId);
     }
 
     [Fact]

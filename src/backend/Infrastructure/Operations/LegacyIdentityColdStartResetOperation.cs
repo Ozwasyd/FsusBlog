@@ -257,7 +257,7 @@ public sealed class LegacyIdentityColdStartResetOperation(
             return;
         }
 
-        var keys = new List<CacheKeyIdentity>(userIds.Count * 3);
+        var keys = new List<CacheKeyIdentity>(userIds.Count * 4);
         var prefixes = new List<CachePrefixIdentity>(userIds.Count * 2);
         foreach (int userId in userIds)
         {
@@ -265,8 +265,9 @@ public sealed class LegacyIdentityColdStartResetOperation(
             keys.Add(new CacheKeyIdentity(CachePolicyId.SecurityBlacklistUser, identity));
             keys.Add(new CacheKeyIdentity(CachePolicyId.SecurityBlockedUser, identity));
             keys.Add(new CacheKeyIdentity(CachePolicyId.MessageUnread, identity));
-            prefixes.Add(new CachePrefixIdentity(CachePolicyId.UserCommentCursor, $"user:{identity}:"));
-            prefixes.Add(new CachePrefixIdentity(CachePolicyId.UserCommentCursorFrame, $"user:{identity}:"));
+            keys.Add(new CacheKeyIdentity(CachePolicyId.MessageUnread, $"account:{identity}"));
+            prefixes.Add(new CachePrefixIdentity(CachePolicyId.UserCommentCursor, $"account:{identity}:"));
+            prefixes.Add(new CachePrefixIdentity(CachePolicyId.UserCommentCursorFrame, $"account:{identity}:"));
         }
 
         await cache.RemoveManyAsync(keys, cancellationToken);

@@ -112,12 +112,15 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
     {
         return target switch
         {
-            NotificationStreamUserTarget user => ResolveByIndexSnapshot(_byUserId, user.UserId),
+            NotificationStreamUserTarget account => ResolveAccountTarget(account),
             NotificationStreamGroupTarget group => ResolveByIndexSnapshot(_byGroup, group.GroupName),
             NotificationStreamMultiUserTarget multi => ResolveMultiUser(multi.UserIds),
             _ => []
         };
     }
+
+    private IReadOnlyList<NotificationStreamConnection> ResolveAccountTarget(NotificationStreamUserTarget target)
+        => ResolveByIndexSnapshot(_byUserId, target.AccountId);
 
     private IReadOnlyList<NotificationStreamConnection> ResolveByIndexSnapshot(ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> index, string key)
     {

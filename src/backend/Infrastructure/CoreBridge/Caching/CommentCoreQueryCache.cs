@@ -32,12 +32,12 @@ public sealed class CommentCoreQueryCache(IUnifiedCache cache)
     }
 
     public async Task<CoreCursorResult<UserCommentCoreModel>> GetOrLoadUserCommentsAsync(
-        int userId,
+        int accountId,
         long? cursor,
         int limit,
         Func<Task<CoreCursorResult<UserCommentCoreModel>>> loader)
     {
-        string identity = $"user:{userId}:comments:{cursor?.ToString() ?? "0"}:{limit}";
+        string identity = $"account:{accountId}:comments:{cursor?.ToString() ?? "0"}:{limit}";
         var hit = await cache.TryGetAsync(CachePolicyId.UserCommentCursor, identity, DecodeUserCommentCursor);
         if (hit.Hit && hit.Value is not null)
         {

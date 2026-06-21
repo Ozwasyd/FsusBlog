@@ -128,7 +128,7 @@ public sealed class CommentSecurityHardeningTests
 
         Assert.Contains("article:{scope.ArticleId.Value}:", source);
         Assert.Contains("article:{scope.ArticleId.Value}:root:{scope.RootId.Value}:", source);
-        Assert.Contains("user:{scope.UserId.Value}:", source);
+        Assert.Contains("account:{scope.AccountId.Value}:", source);
         Assert.DoesNotContain("CacheTag.Comment", source, StringComparison.Ordinal);
         Assert.DoesNotContain("RemoveByPrefixAsync(CachePolicyId.CommentCursor, string.Empty", source, StringComparison.Ordinal);
     }

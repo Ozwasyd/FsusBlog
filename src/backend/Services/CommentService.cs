@@ -427,7 +427,7 @@ public partial class CommentService(
             new CommentCacheInvalidationScope(
                 ArticleId: comment.ArticleId,
                 RootId: comment.RootId ?? comment.Id,
-                UserId: actor.UserId,
+                AccountId: actor.UserId,
                 PublicArticleChanged: comment.ModerationStatus == CommentModerationStatus.Approved,
                 UserCommentsChanged: actor.UserId is > 0),
             cancellationToken);
@@ -891,7 +891,7 @@ public partial class CommentService(
             new CommentCacheInvalidationScope(
                 ArticleId: row.ArticleId,
                 RootId: row.RootId ?? row.Id,
-                UserId: isAttributableUserComment ? row.UserId : null,
+                AccountId: isAttributableUserComment ? row.UserId : null,
                 PublicArticleChanged: true,
                 UserCommentsChanged: isAttributableUserComment));
         await messageService.PushCommentRemoveAsync(row.ArticleId, id, row.RootId ?? id, row.ParentId);

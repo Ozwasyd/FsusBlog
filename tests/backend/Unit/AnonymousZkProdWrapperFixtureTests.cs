@@ -95,7 +95,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
 
         CommentCacheInvalidationScope scope = Assert.Single(dispatcher.CommentScopes)!;
         Assert.Equal(ArticleId, scope.ArticleId);
-        Assert.Null(scope.UserId);
+        Assert.Null(scope.AccountId);
     }
 
     [Fact]

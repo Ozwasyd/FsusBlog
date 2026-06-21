@@ -76,7 +76,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         CommentCacheInvalidationScope scope = Assert.Single(dispatcher.CommentScopes)!;
         Assert.Equal(42, scope.ArticleId);
         Assert.Equal(comment.Id, scope.RootId);
-        Assert.Null(scope.UserId);
+        Assert.Null(scope.AccountId);
         Assert.False(scope.PublicArticleChanged);
     }
 
@@ -302,7 +302,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         Comment comment = db.Queryable<Comment>().Single(static item => item.Id == 101);
         Assert.True(comment.IsDeleted);
         CommentCacheInvalidationScope scope = Assert.Single(dispatcher.CommentScopes)!;
-        Assert.Null(scope.UserId);
+        Assert.Null(scope.AccountId);
         Assert.False(scope.UserCommentsChanged);
     }
 

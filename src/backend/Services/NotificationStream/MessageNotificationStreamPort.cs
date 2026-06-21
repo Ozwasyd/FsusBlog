@@ -6,7 +6,7 @@ namespace FsusBlog.Server.Services.NotificationStream;
 
 public interface IMessageNotificationStreamPort
 {
-    Task PublishToUserAsync<TPayload>(NotificationStreamEventType eventType, long userId, TPayload payload, string operation);
+    Task PublishToUserAsync<TPayload>(NotificationStreamEventType eventType, long accountId, TPayload payload, string operation);
 
     Task PublishToContentFeedAsync<TPayload>(NotificationStreamEventType eventType, TPayload payload, string operation);
 
@@ -17,8 +17,8 @@ internal sealed class MessageNotificationStreamPort(
     INotificationStreamPublisher notificationStreamPublisher,
     ILogger<MessageNotificationStreamPort> logger) : IMessageNotificationStreamPort
 {
-    public Task PublishToUserAsync<TPayload>(NotificationStreamEventType eventType, long userId, TPayload payload, string operation)
-        => PublishOrLogAsync(eventType, payload, new NotificationStreamUserTarget(userId.ToString()), operation);
+    public Task PublishToUserAsync<TPayload>(NotificationStreamEventType eventType, long accountId, TPayload payload, string operation)
+        => PublishOrLogAsync(eventType, payload, new NotificationStreamUserTarget(accountId.ToString()), operation);
 
     public Task PublishToContentFeedAsync<TPayload>(NotificationStreamEventType eventType, TPayload payload, string operation)
         => PublishOrLogAsync(eventType, payload, new NotificationStreamGroupTarget(NotificationStreamTargetCollections.ContentFeed), operation);

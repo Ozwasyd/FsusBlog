@@ -51,7 +51,7 @@ public sealed record HotStatsInvalidationSnapshot(
 public sealed record class CommentCacheInvalidationScope(
     int? ArticleId = null,
     long? RootId = null,
-    int? UserId = null,
+    int? AccountId = null,
     bool PublicArticleChanged = false,
     bool UserCommentsChanged = false);
 
@@ -192,9 +192,9 @@ public sealed class CacheInvalidationDispatcher(
             await cache.RemoveByPrefixManyAsync(
                 [
                     new(CachePolicyId.CommentCursor, "article:"),
-                    new(CachePolicyId.UserCommentCursor, "user:"),
+                    new(CachePolicyId.UserCommentCursor, "account:"),
                     new(CachePolicyId.CommentCursorFrame, "article:"),
-                    new(CachePolicyId.UserCommentCursorFrame, "user:")
+                    new(CachePolicyId.UserCommentCursorFrame, "account:")
                 ],
                 cancellationToken);
         }
@@ -213,10 +213,10 @@ public sealed class CacheInvalidationDispatcher(
                 prefixes.Add(new CachePrefixIdentity(CachePolicyId.CommentCursorFrame, $"article:{scope.ArticleId.Value}:root:{scope.RootId.Value}:"));
             }
 
-            if (scope.UserCommentsChanged && scope.UserId is > 0)
+            if (scope.UserCommentsChanged && scope.AccountId is > 0)
             {
-                prefixes.Add(new CachePrefixIdentity(CachePolicyId.UserCommentCursor, $"user:{scope.UserId.Value}:"));
-                prefixes.Add(new CachePrefixIdentity(CachePolicyId.UserCommentCursorFrame, $"user:{scope.UserId.Value}:"));
+                prefixes.Add(new CachePrefixIdentity(CachePolicyId.UserCommentCursor, $"account:{scope.AccountId.Value}:"));
+                prefixes.Add(new CachePrefixIdentity(CachePolicyId.UserCommentCursorFrame, $"account:{scope.AccountId.Value}:"));
             }
 
             if (prefixes.Count > 0)
@@ -226,7 +226,7 @@ public sealed class CacheInvalidationDispatcher(
         }
 
         await InvalidateStatsAsync(cancellationToken);
-        runtimeState?.Record("comment", scope is null ? "all" : $"article:{scope.ArticleId?.ToString() ?? "*"} root:{scope.RootId?.ToString() ?? "*"} user:{scope.UserId?.ToString() ?? "*"}");
+        runtimeState?.Record("comment", scope is null ? "all" : $"article:{scope.ArticleId?.ToString() ?? "*"} root:{scope.RootId?.ToString() ?? "*"} account:{scope.AccountId?.ToString() ?? "*"}");
     }
 
     public async Task InvalidateStatsAsync(CancellationToken cancellationToken = default)

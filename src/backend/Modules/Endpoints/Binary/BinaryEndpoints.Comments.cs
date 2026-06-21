@@ -551,8 +551,8 @@ public static partial class BinaryEndpoints
     private static string BuildCommentReplyFrameIdentity(int articleId, long rootId, CursorPageRequest<long> request, string viewerRegion)
         => $"article:{articleId}:root:{rootId}:replies:{request.Cursor?.ToString() ?? "0"}:{request.Limit}:region:{NormalizeCommentFrameRegion(viewerRegion)}";
 
-    private static string BuildUserCommentFrameIdentity(int userId, CursorPageRequest<long> request)
-        => $"user:{userId}:comments:{request.Cursor?.ToString() ?? "0"}:{request.Limit}";
+    private static string BuildUserCommentFrameIdentity(int accountId, CursorPageRequest<long> request)
+        => $"account:{accountId}:comments:{request.Cursor?.ToString() ?? "0"}:{request.Limit}";
 
     private static string NormalizeCommentFrameRegion(string? viewerRegion)
     {

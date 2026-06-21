@@ -225,7 +225,7 @@ internal static class NotificationStreamTargetRouteCodec
 
     public static Result<string> TryEncode(NotificationStreamTarget target) => target switch
     {
-        NotificationStreamUserTarget user => Result<string>.Success(UserPrefix + user.UserId),
+        NotificationStreamUserTarget user => Result<string>.Success(UserPrefix + user.AccountId),
         NotificationStreamGroupTarget group => Result<string>.Success(GroupPrefix + group.GroupName),
         NotificationStreamMultiUserTarget multi => Result<string>.Success(MultiUserPrefix + string.Join(',', multi.UserIds)),
         _ => Result<string>.Failure(ErrorCode.Validation, "Unsupported notification stream target.")

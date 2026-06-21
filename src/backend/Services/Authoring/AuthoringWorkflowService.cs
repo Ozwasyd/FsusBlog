@@ -1111,7 +1111,7 @@ public sealed class AuthoringWorkflowService(
             new CommentCacheInvalidationScope(
                 ArticleId: row.ArticleId,
                 RootId: row.RootId ?? row.Id,
-                UserId: row.UserId,
+                AccountId: row.UserId,
                 PublicArticleChanged: publicArticleChanged,
                 UserCommentsChanged: true),
             cancellationToken);

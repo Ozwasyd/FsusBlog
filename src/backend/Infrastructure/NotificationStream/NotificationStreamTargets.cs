@@ -8,7 +8,7 @@ public static class NotificationStreamTargetCollections
 
 public abstract record NotificationStreamTarget;
 
-public sealed record NotificationStreamUserTarget(string UserId) : NotificationStreamTarget;
+public sealed record NotificationStreamUserTarget(string AccountId) : NotificationStreamTarget;
 
 public sealed record NotificationStreamGroupTarget(string GroupName) : NotificationStreamTarget;
 
