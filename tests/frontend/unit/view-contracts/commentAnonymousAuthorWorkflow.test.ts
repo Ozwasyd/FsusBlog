@@ -1,9 +1,11 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { createArticleCommentViewContract } from '@/view-contracts/commentDetail'
 import { describe, expect, it } from 'vitest'
 
 const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
 const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
+const readRepoFileIfExists = (path: string): string | null => existsSync(repoFile(path)) ? readRepoFile(path) : null
 const vueTemplate = (source: string): string => source.match(/<template>([\s\S]*?)<\/template>/)?.[1] ?? ''
 
 describe('anonymous comment author workflow contract', () => {
@@ -17,6 +19,8 @@ describe('anonymous comment author workflow contract', () => {
   const commentList = readRepoFile('src/frontend/src/components/article/ArticleCommentsVirtualList.vue')
   const detailComposable = readRepoFile('src/frontend/src/composables/useArticleDetailView.ts')
   const adapter = readRepoFile('src/frontend/src/adapters/binary/podReaders.ts')
+  const frontendPackage = readRepoFile('src/frontend/package.json')
+  const staticGuard = readRepoFileIfExists('tests/frontend/checks/static/check-comment-thread-view-contract-identity.mjs')
 
   it('defines CommentAuthorView and an explicit CommentCreateV2 client', () => {
     expect(api).toContain('export interface CommentAuthorView')
@@ -68,6 +72,31 @@ describe('anonymous comment author workflow contract', () => {
     const commentDoc = extractMarkdownSection(apiContractsDoc, '## 评论契约', '## 分类与标签契约')
     expect(commentDoc).toContain('replyToAuthor')
     expect(commentDoc).not.toMatch(/\b(?:authorId|userName|replyToUserId|replyToUserName)\b/)
+  })
+
+  it('creates article comment view contracts without a root userName alias', () => {
+    const contract = createArticleCommentViewContract({
+      id: '123',
+      content: 'hello',
+      createTime: '2026-06-21T12:00:00.000Z',
+      author: {
+        mode: 'anonymous',
+        displayName: '匿名用户',
+        displayLanguage: 'zh-CN'
+      }
+    }, false)
+
+    expect(contract.author.displayName).toBe('匿名用户')
+    expect(Object.prototype.hasOwnProperty.call(contract, 'userName')).toBe(false)
+    expect(JSON.stringify(contract)).not.toMatch(/\buserName\b/)
+  })
+
+  it('registers a static guard against CommentThreadItemContract userName regressions', () => {
+    expect(frontendPackage).toContain('check:comment-thread-view-contract-identity')
+    expect(staticGuard).not.toBeNull()
+    expect(staticGuard).toContain('src/frontend/src/view-contracts')
+    expect(staticGuard).toContain('CommentThreadItemContract')
+    expect(staticGuard).toContain('userName')
   })
 
   it('keeps notification stream CommentAdded on author snapshots', () => {
