@@ -152,12 +152,12 @@
               <div class="integrity-destructive-panel__content">
                 <strong id="integrity-apply-title">应用安全修复</strong>
                 <p>输入确认短语后才能应用安全修复。</p>
-                <IntegrityTypedConfirmField
+                <FsusUiTypedConfirmField
                   id="integrity-confirm-phrase"
                   v-model="confirmPhrase"
                   phrase="APPLY_SAFE_FIXES"
                   label="确认短语"
-                  content="输入确认短语后才能应用安全修复。"
+                  description="输入确认短语后才能应用安全修复。"
                   placeholder="输入确认短语"
                   :disabled="fixing"
                 />
@@ -232,8 +232,7 @@ import {
 import { FsusUiPageHeader } from "@/fsusui"
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
-import IntegrityTypedConfirmField from '@/components/admin/IntegrityTypedConfirmField.vue'
-import { FsusUiSettingsSection } from '@/fsusui'
+import { FsusUiSettingsSection, FsusUiTypedConfirmField } from '@/fsusui'
 import { FsusUiKeyValueGrid, FsusUiKeyValueItem } from '@/fsusui'
 import { CopyDocument, Download, Refresh, Tools } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
