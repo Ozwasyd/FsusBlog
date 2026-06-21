@@ -314,6 +314,13 @@ run_residue_check \
   src/backend/Services/Authoring/AuthoringWorkflowService.cs src/frontend/src/components/admin/DashboardCommentModerationPanel.vue src/frontend/src/composables/useCommentModerationQueue.ts
 
 run_residue_check \
+  "legacy anonymous credential user commitment binding" \
+  "legacy anonymous credential user commitment binding residue detected" \
+  'public[[:space:]]+int[?]?[[:space:]]+UserId\b|ColumnName[[:space:]]*=[[:space:]]*["'\'']user_id["'\'']|CommitmentHash|commitment_hash|ZkCommitment|zk_commitment|IssueAsync[(][^)]*userId[^)]*commitmentHash|GetActiveCredentialAsync[(]|GetCredentialLevelAsync[(]' \
+  "" \
+  src/backend/Entities/AnonymousCredential.cs src/backend/Services/Security/AnonymousCredentialService.cs
+
+run_residue_check \
   "legacy frontend admin fallbacks" \
   "legacy frontend admin fallback residue detected" \
   'legacy[.]admin|syncLegacyAdminPrincipal|userInfo[.]role\s*={2,3}\s*["'\'']admin["'\'']|user[?]?[.]role\s*={2,3}\s*["'\'']admin["'\'']' \

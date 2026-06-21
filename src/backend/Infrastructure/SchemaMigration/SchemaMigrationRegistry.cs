@@ -24,7 +24,10 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildPasskeyUserHandleMigration(),
         BuildAdminPrincipalPlaneMigration(),
         BuildAccountRecoveryKeyMigration(),
+        BuildAnonymousCredentialAccountBindingMigration(),
+        BuildAnonymousCredentialAccountBindingLegacyCompatibilityMigration(),
         BuildAnonymousCommentGovernanceMigration(),
+        BuildAnonymousCredentialAccountBindingFinalizeMigration(),
         BuildAnonymousCredentialIssuanceAuditMigration(),
         BuildAnonymousCredentialRootMetadataMigration(),
         BuildAnonymousCredentialRootLifecycleMigration(),
@@ -1090,6 +1093,53 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_account_recovery_key_lookup_active_unique ON account_recovery_key(lookup_id_hash) WHERE lookup_id_hash IS NOT NULL AND used_at IS NULL AND revoked_at IS NULL;")
             ]);
 
+    private static ISchemaMigrationDescriptor BuildAnonymousCredentialAccountBindingMigration()
+        => new SchemaMigrationDescriptor(
+            "20260621-pre-anonymous-credential-account-binding",
+            "Rename anonymous credential account-bound columns away from user/ZK commitment semantics.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new DropIndexStep("idx_anonymous_credential_user"),
+                new DropIndexStep("unique_idx_anonymous_credential_commitment"),
+                new RenameColumnStep("anonymous_credential", "user_id", "account_id"),
+                new RenameColumnStep("anonymous_credential", "commitment_hash", "account_binding_hash"),
+                new BackfillSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public'
+                              AND table_name = 'anonymous_credential'
+                              AND column_name = 'credential_type'
+                        ) THEN
+                            UPDATE anonymous_credential
+                            SET credential_type = 'account_bound'
+                            WHERE credential_type IS NULL OR credential_type <> 'account_bound';
+                        END IF;
+                    END $$;
+                    """),
+                new CreateIndexStep(
+                    "idx_anonymous_credential_account",
+                    "CREATE INDEX IF NOT EXISTS idx_anonymous_credential_account ON anonymous_credential(account_id);"),
+                new CreateIndexStep(
+                    "unique_idx_anonymous_credential_account_binding",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_account_binding ON anonymous_credential(account_binding_hash);")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAnonymousCredentialAccountBindingLegacyCompatibilityMigration()
+        => new SchemaMigrationDescriptor(
+            "20260615-post-anonymous-credential-account-binding-legacy-compat",
+            "Temporarily expose legacy anonymous credential columns so the old governance descriptor remains idempotent on fresh databases.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("anonymous_credential", "user_id", "integer NULL"),
+                new EnsureColumnStep("anonymous_credential", "commitment_hash", "varchar(128) NULL")
+            ]);
+
     private static ISchemaMigrationDescriptor BuildAnonymousCommentGovernanceMigration()
         => new SchemaMigrationDescriptor(
             "20260616-post-anonymous-comment-governance",
@@ -1167,6 +1217,41 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_comment_nullifier_scope ON comment_anonymous_nullifier(nullifier_hash, scope);
                     CREATE INDEX IF NOT EXISTS idx_comment_nullifier_blocked ON comment_anonymous_nullifier(blocked);
                     """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAnonymousCredentialAccountBindingFinalizeMigration()
+        => new SchemaMigrationDescriptor(
+            "20260621-post-anonymous-credential-account-binding-finalize",
+            "Drop legacy anonymous credential account binding columns and ensure account-bound indexes.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new BackfillSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public'
+                              AND table_name = 'anonymous_credential'
+                              AND column_name = 'credential_type'
+                        ) THEN
+                            UPDATE anonymous_credential
+                            SET credential_type = 'account_bound'
+                            WHERE credential_type IS NULL OR credential_type <> 'account_bound';
+                        END IF;
+                    END $$;
+                    """),
+                new DropIndexStep("idx_anonymous_credential_user"),
+                new DropIndexStep("unique_idx_anonymous_credential_commitment"),
+                new DropColumnStep("anonymous_credential", "user_id"),
+                new DropColumnStep("anonymous_credential", "commitment_hash"),
+                new CreateIndexStep(
+                    "idx_anonymous_credential_account",
+                    "CREATE INDEX IF NOT EXISTS idx_anonymous_credential_account ON anonymous_credential(account_id);"),
+                new CreateIndexStep(
+                    "unique_idx_anonymous_credential_account_binding",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_account_binding ON anonymous_credential(account_binding_hash);")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAnonymousCredentialIssuanceAuditMigration()

@@ -5,22 +5,21 @@ namespace FsusBlog.Server.Services.Security;
 
 public interface IAnonymousCredentialService
 {
-    Task<AnonymousCredential> IssueAsync(
-        int? userId,
-        string commitmentHash,
-        string credentialType = AnonymousCredentialTypes.AccountBound,
+    Task<AnonymousCredential> IssueAccountBoundAsync(
+        int accountId,
+        string accountBindingHash,
         string credentialLevel = AnonymousCredentialLevels.Basic,
         string metadataJson = "{}",
         CancellationToken cancellationToken = default);
 
-    Task<AnonymousCredential?> GetActiveCredentialAsync(
-        int? userId,
-        string? commitmentHash = null,
+    Task<AnonymousCredential?> GetActiveAccountCredentialAsync(
+        int accountId,
+        string? accountBindingHash = null,
         CancellationToken cancellationToken = default);
 
-    Task<string?> GetCredentialLevelAsync(
-        int? userId,
-        string? commitmentHash = null,
+    Task<string?> GetAccountCredentialLevelAsync(
+        int accountId,
+        string? accountBindingHash = null,
         CancellationToken cancellationToken = default);
 
     Task<bool> RevokeAsync(long credentialId, CancellationToken cancellationToken = default);
@@ -28,21 +27,25 @@ public interface IAnonymousCredentialService
 
 public sealed class AnonymousCredentialService(ISqlSugarClient db) : IAnonymousCredentialService
 {
-    public async Task<AnonymousCredential> IssueAsync(
-        int? userId,
-        string commitmentHash,
-        string credentialType = AnonymousCredentialTypes.AccountBound,
+    public async Task<AnonymousCredential> IssueAccountBoundAsync(
+        int accountId,
+        string accountBindingHash,
         string credentialLevel = AnonymousCredentialLevels.Basic,
         string metadataJson = "{}",
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string normalizedCommitment = NormalizeRequired(commitmentHash, nameof(commitmentHash));
+        if (accountId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(accountId), "Account id is required.");
+        }
+
+        string normalizedBindingHash = NormalizeRequired(accountBindingHash, nameof(accountBindingHash));
         var credential = new AnonymousCredential
         {
-            UserId = userId,
-            CommitmentHash = normalizedCommitment,
-            CredentialType = NormalizeToken(credentialType, AnonymousCredentialTypes.AccountBound),
+            AccountId = accountId,
+            AccountBindingHash = normalizedBindingHash,
+            CredentialType = AnonymousCredentialTypes.AccountBound,
             CredentialLevel = NormalizeToken(credentialLevel, AnonymousCredentialLevels.Basic),
             Status = AnonymousCredentialStatuses.Active,
             IssuedAtUtc = DateTime.UtcNow,
@@ -52,32 +55,32 @@ public sealed class AnonymousCredentialService(ISqlSugarClient db) : IAnonymousC
         return credential;
     }
 
-    public async Task<AnonymousCredential?> GetActiveCredentialAsync(
-        int? userId,
-        string? commitmentHash = null,
+    public async Task<AnonymousCredential?> GetActiveAccountCredentialAsync(
+        int accountId,
+        string? accountBindingHash = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string? normalizedCommitment = string.IsNullOrWhiteSpace(commitmentHash) ? null : commitmentHash.Trim();
-        if (userId is null && normalizedCommitment is null)
+        if (accountId <= 0)
         {
             return null;
         }
 
+        string? normalizedBindingHash = string.IsNullOrWhiteSpace(accountBindingHash) ? null : accountBindingHash.Trim();
         return await db.Queryable<AnonymousCredential>()
             .Where(c => c.Status == AnonymousCredentialStatuses.Active && c.RevokedAtUtc == null)
-            .WhereIF(userId.HasValue, c => c.UserId == userId)
-            .WhereIF(normalizedCommitment != null, c => c.CommitmentHash == normalizedCommitment)
+            .Where(c => c.AccountId == accountId)
+            .WhereIF(normalizedBindingHash != null, c => c.AccountBindingHash == normalizedBindingHash)
             .OrderByDescending(c => c.IssuedAtUtc)
             .FirstAsync();
     }
 
-    public async Task<string?> GetCredentialLevelAsync(
-        int? userId,
-        string? commitmentHash = null,
+    public async Task<string?> GetAccountCredentialLevelAsync(
+        int accountId,
+        string? accountBindingHash = null,
         CancellationToken cancellationToken = default)
     {
-        AnonymousCredential? credential = await GetActiveCredentialAsync(userId, commitmentHash, cancellationToken);
+        AnonymousCredential? credential = await GetActiveAccountCredentialAsync(accountId, accountBindingHash, cancellationToken);
         return credential?.CredentialLevel;
     }
 

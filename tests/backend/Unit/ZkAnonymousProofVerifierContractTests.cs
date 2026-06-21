@@ -614,24 +614,23 @@ public sealed class ZkAnonymousProofVerifierContractTests
 
     private sealed class ThrowingCredentialService : IAnonymousCredentialService
     {
-        public Task<AnonymousCredential> IssueAsync(
-            int? userId,
-            string commitmentHash,
-            string credentialType = AnonymousCredentialTypes.AccountBound,
+        public Task<AnonymousCredential> IssueAccountBoundAsync(
+            int accountId,
+            string accountBindingHash,
             string credentialLevel = AnonymousCredentialLevels.Basic,
             string metadataJson = "{}",
             CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("ZK actor resolve must not issue credentials");
 
-        public Task<AnonymousCredential?> GetActiveCredentialAsync(
-            int? userId,
-            string? commitmentHash = null,
+        public Task<AnonymousCredential?> GetActiveAccountCredentialAsync(
+            int accountId,
+            string? accountBindingHash = null,
             CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("ZK actor resolve must not query credentials");
 
-        public Task<string?> GetCredentialLevelAsync(
-            int? userId,
-            string? commitmentHash = null,
+        public Task<string?> GetAccountCredentialLevelAsync(
+            int accountId,
+            string? accountBindingHash = null,
             CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("ZK actor resolve must not query credential level");
 

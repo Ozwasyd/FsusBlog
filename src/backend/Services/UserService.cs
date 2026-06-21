@@ -661,7 +661,7 @@ public partial class UserService(
             await _db.Updateable<AnonymousCredential>()
                 .SetColumns(c => c.Status == AnonymousCredentialStatuses.Revoked)
                 .SetColumns(c => c.RevokedAtUtc == deletedAt)
-                .Where(c => c.UserId == userId && c.RevokedAtUtc == null)
+                .Where(c => c.AccountId == userId && c.RevokedAtUtc == null)
                 .ExecuteCommandAsync();
 
             await _db.Updateable<User>()

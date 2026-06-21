@@ -369,6 +369,33 @@ const accountSearchText = item.userName ?? ''
     }
   },
   {
+    name: 'legacy anonymous credential user commitment binding',
+    expected: 'legacy anonymous credential user commitment binding residue detected',
+    files: {
+      'src/backend/Entities/AnonymousCredential.cs': `
+public sealed class AnonymousCredential
+{
+    [SugarColumn(ColumnName = "user_id")]
+    public int? UserId { get; set; }
+    public string CommitmentHash { get; set; } = "";
+}
+
+public static class AnonymousCredentialTypes
+{
+    public const string ZkCommitment = "zk_commitment";
+}
+`,
+      'src/backend/Services/Security/AnonymousCredentialService.cs': `
+public interface IAnonymousCredentialService
+{
+    Task<AnonymousCredential> IssueAsync(int? userId, string commitmentHash);
+    Task<AnonymousCredential?> GetActiveCredentialAsync(int? userId, string? commitmentHash = null);
+    Task<string?> GetCredentialLevelAsync(int? userId, string? commitmentHash = null);
+}
+`
+    }
+  },
+  {
     name: 'legacy admin password reset governance',
     expected: 'legacy admin password reset governance residue detected',
     files: {

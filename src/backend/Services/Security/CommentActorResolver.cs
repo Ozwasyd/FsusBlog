@@ -255,7 +255,7 @@ public sealed class CommentActorResolver(
             return AnonymousCredentialLevels.Basic;
         }
 
-        string? level = await credentialService.GetCredentialLevelAsync(userId, null, cancellationToken);
+        string? level = await credentialService.GetAccountCredentialLevelAsync(userId.Value, null, cancellationToken);
         return NormalizeToken(level, 32) ?? AnonymousCredentialLevels.Basic;
     }
 

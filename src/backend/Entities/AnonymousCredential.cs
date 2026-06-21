@@ -3,19 +3,19 @@ using SqlSugar;
 namespace FsusBlog.Server.Entities;
 
 [SugarTable("anonymous_credential")]
-[SugarIndex("idx_anonymous_credential_user", nameof(UserId), OrderByType.Asc)]
-[SugarIndex("unique_idx_anonymous_credential_commitment", nameof(CommitmentHash), OrderByType.Asc, true)]
+[SugarIndex("idx_anonymous_credential_account", nameof(AccountId), OrderByType.Asc)]
+[SugarIndex("unique_idx_anonymous_credential_account_binding", nameof(AccountBindingHash), OrderByType.Asc, true)]
 [SugarIndex("idx_anonymous_credential_status", nameof(Status), OrderByType.Asc)]
 public sealed class AnonymousCredential
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
     public long Id { get; set; }
 
-    [SugarColumn(ColumnName = "user_id", IsNullable = true)]
-    public int? UserId { get; set; }
+    [SugarColumn(ColumnName = "account_id", IsNullable = true)]
+    public int? AccountId { get; set; }
 
-    [SugarColumn(ColumnName = "commitment_hash", Length = 128)]
-    public string CommitmentHash { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "account_binding_hash", Length = 128)]
+    public string AccountBindingHash { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "credential_type", Length = 32)]
     public string CredentialType { get; set; } = AnonymousCredentialTypes.AccountBound;
@@ -39,7 +39,6 @@ public sealed class AnonymousCredential
 public static class AnonymousCredentialTypes
 {
     public const string AccountBound = "account_bound";
-    public const string ZkCommitment = "zk_commitment";
 }
 
 public static class AnonymousCredentialLevels

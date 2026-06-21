@@ -162,11 +162,11 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
             );
 
             INSERT INTO anonymous_credential(
-                id, user_id, commitment_hash, credential_type, credential_level,
+                id, account_id, account_binding_hash, credential_type, credential_level,
                 status, issued_at_utc, revoked_at_utc, metadata_json
             )
             VALUES (
-                12, 42, 'legacy-credential-commitment', 'account_bound', 'basic',
+                12, 42, 'legacy-account-binding', 'account_bound', 'basic',
                 'active', TIMESTAMP '2024-01-01 00:00:00', NULL, '{}'
             );
 

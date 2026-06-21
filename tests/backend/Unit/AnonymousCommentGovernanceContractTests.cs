@@ -1,5 +1,6 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -41,7 +42,8 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
             "supported_display_languages",
             "snapshot_hash",
             "updated_reason",
-            "commitment_hash",
+            "account_id",
+            "account_binding_hash",
             "credential_level",
             "revoked_at_utc",
             "nullifier_hash",
@@ -51,6 +53,57 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
         {
             Assert.Contains(requiredColumn, migrations, StringComparison.Ordinal);
         }
+    }
+
+    [Fact]
+    public void AnonymousCredentialAccountBoundContract_DoesNotMixUserAndZkCommitmentSemantics()
+    {
+        string entity = BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/AnonymousCredential.cs");
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialService.cs");
+        string actorResolver = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CommentActorResolver.cs");
+
+        Assert.Contains("AccountId", entity, StringComparison.Ordinal);
+        Assert.Contains("account_id", entity, StringComparison.Ordinal);
+        Assert.Contains("AccountBindingHash", entity, StringComparison.Ordinal);
+        Assert.Contains("account_binding_hash", entity, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserId", entity, StringComparison.Ordinal);
+        Assert.DoesNotContain("user_id", entity, StringComparison.Ordinal);
+        Assert.DoesNotContain("CommitmentHash", entity, StringComparison.Ordinal);
+        Assert.DoesNotContain("commitment_hash", entity, StringComparison.Ordinal);
+        Assert.DoesNotContain("ZkCommitment", entity, StringComparison.Ordinal);
+        Assert.DoesNotContain("zk_commitment", entity, StringComparison.Ordinal);
+
+        Assert.Contains("IssueAccountBoundAsync", service, StringComparison.Ordinal);
+        Assert.Contains("GetActiveAccountCredentialAsync", service, StringComparison.Ordinal);
+        Assert.Contains("GetAccountCredentialLevelAsync", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("IssueAsync(\n        int? userId,\n        string commitmentHash", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetCredentialLevelAsync(\n        int? userId,\n        string? commitmentHash", service, StringComparison.Ordinal);
+
+        Assert.Contains("GetAccountCredentialLevelAsync(userId.Value", actorResolver, StringComparison.Ordinal);
+        string zkBlock = actorResolver[
+            actorResolver.IndexOf("if (string.Equals(decision.EffectiveAuthorMode, CommentAuthorModes.ZkAnonymous", StringComparison.Ordinal)..
+            actorResolver.IndexOf("string nullifierHash = DeriveEngineeringNullifierHash", StringComparison.Ordinal)];
+        Assert.DoesNotContain("credentialService", zkBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserId", zkBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("AccountId", zkBlock, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnonymousCredentialAccountBoundMigration_RenamesLegacyBindingColumns()
+    {
+        var registry = new SchemaMigrationRegistry();
+        string fingerprint = string.Join('\n', registry.GetDescriptors()
+            .Where(static descriptor => descriptor.MigrationId.Contains("anonymous-credential-account-binding", StringComparison.Ordinal))
+            .SelectMany(static descriptor => descriptor.Steps)
+            .Select(static step => step.Fingerprint));
+
+        Assert.Contains("anonymous_credential.user_id->account_id", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("anonymous_credential.commitment_hash->account_binding_hash", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_anonymous_credential_account", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("unique_idx_anonymous_credential_account_binding", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("anonymous_credential.user_id", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("anonymous_credential.commitment_hash", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("zk_commitment", fingerprint, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -249,10 +302,10 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
         string credentialService = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialService.cs");
         string nullifierService = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CommentAnonymousNullifierService.cs");
 
-        Assert.Contains("IssueAsync", credentialService, StringComparison.Ordinal);
-        Assert.Contains("GetActiveCredentialAsync", credentialService, StringComparison.Ordinal);
+        Assert.Contains("IssueAccountBoundAsync", credentialService, StringComparison.Ordinal);
+        Assert.Contains("GetActiveAccountCredentialAsync", credentialService, StringComparison.Ordinal);
         Assert.Contains("RevokeAsync", credentialService, StringComparison.Ordinal);
-        Assert.Contains("GetCredentialLevelAsync", credentialService, StringComparison.Ordinal);
+        Assert.Contains("GetAccountCredentialLevelAsync", credentialService, StringComparison.Ordinal);
         Assert.Contains("CheckAndReserveAsync", nullifierService, StringComparison.Ordinal);
         Assert.Contains("IncrementUsageAsync", nullifierService, StringComparison.Ordinal);
         Assert.Contains("BlockAsync", nullifierService, StringComparison.Ordinal);
