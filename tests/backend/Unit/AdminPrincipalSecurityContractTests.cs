@@ -67,8 +67,75 @@ public sealed class AdminPrincipalSecurityContractTests
         Assert.DoesNotContain("new(ClaimTypes.Name,", userToken, StringComparison.Ordinal);
         Assert.DoesNotContain("ResolveBackendRole", userToken, StringComparison.Ordinal);
         Assert.DoesNotContain("UserName", context, StringComparison.Ordinal);
-        Assert.DoesNotContain("IsAdmin", context, StringComparison.Ordinal);
+        Assert.DoesNotContain("bool IsAdmin)", context, StringComparison.Ordinal);
+        Assert.DoesNotContain("bool IsAdmin,", context, StringComparison.Ordinal);
+        Assert.DoesNotContain("public bool IsAdmin =>", context, StringComparison.Ordinal);
         Assert.DoesNotContain("IsInRole", context, StringComparison.Ordinal);
+        Assert.Contains("int AccountId", context, StringComparison.Ordinal);
+        Assert.Contains("long AdminPrincipalId", context, StringComparison.Ordinal);
+        Assert.Contains("string? IdentityKind", context, StringComparison.Ordinal);
+        Assert.Contains("string? SessionId", context, StringComparison.Ordinal);
+        Assert.Contains("IsAnonymousAccount", context, StringComparison.Ordinal);
+        Assert.Contains("IsAdminPrincipal", context, StringComparison.Ordinal);
+        Assert.DoesNotContain("int UserId", context, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OrdinaryAuthSelfServiceEndpoints_RequireAnonymousAccountPrincipal()
+    {
+        string endpoints = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+        string[] ordinarySelfServiceRoutes =
+        [
+            "group.MapGet(\"/auth/me\"",
+            "group.MapPut(\"/auth/public-handle\"",
+            "group.MapPost(\"/auth/delete-account\"",
+            "group.MapGet(\"/auth/sessions\"",
+            "group.MapPost(\"/auth/sessions/{id}/revoke\"",
+            "group.MapPost(\"/auth/sessions/revoke-others\"",
+            "group.MapPost(\"/auth/mfa/setup/start\"",
+            "group.MapGet(\"/auth/mfa/profile\"",
+            "group.MapPost(\"/auth/mfa/setup/verify\"",
+            "group.MapPost(\"/auth/mfa/disable\"",
+            "group.MapPost(\"/auth/mfa/recovery/regenerate\"",
+            "group.MapPost(\"/auth/mfa/challenge/start\"",
+            "group.MapPost(\"/auth/logout\"",
+            "group.MapPost(\"/auth/recovery-key/create\"",
+            "group.MapPost(\"/auth/recovery-key/rotate\"",
+            "group.MapPost(\"/auth/passkey/register/begin\"",
+            "group.MapPost(\"/auth/passkey/register/complete\"",
+            "group.MapGet(\"/auth/passkey/credentials\"",
+            "group.MapDelete(\"/auth/passkey/credentials/{id:int}\"",
+            "group.MapPut(\"/auth/passkey/credentials/{id:int}/name\""
+        ];
+
+        foreach (string route in ordinarySelfServiceRoutes)
+        {
+            string block = ExtractRouteBlock(endpoints, route);
+            Assert.Contains(".RequireAnonymousAccountPrincipal()", block, StringComparison.Ordinal);
+            Assert.DoesNotContain(".RequireAuthorization()", block, StringComparison.Ordinal);
+        }
+
+        string stepUpHelper = ExtractMethodBlock(endpoints, "private static async Task<(ErrorDetail Error, int StatusCode)?> RequireUserSecurityStepUpAsync");
+        Assert.Contains("EndpointUserContext.From(httpContext).AccountId", stepUpHelper, StringComparison.Ordinal);
+        Assert.DoesNotContain("httpContext.GetUserId()", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("userContext.UserId", endpoints, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OrdinaryAuthSelfServiceForbidden_AuditsAdminPrincipalRejection()
+    {
+        string jwt = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Helpers/JwtHelper.cs");
+        string auditCatalog = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Audit/AuditRecord.cs");
+
+        Assert.Contains("OnForbidden = async context =>", jwt, StringComparison.Ordinal);
+        Assert.Contains("RecordRejectedAuthSelfServicePrincipalAsync(context.HttpContext)", jwt, StringComparison.Ordinal);
+        Assert.Contains("path.StartsWith(\"/api/binary/auth/\"", jwt, StringComparison.Ordinal);
+        Assert.Contains("!path.StartsWith(\"/api/binary/auth/admin/\"", jwt, StringComparison.Ordinal);
+        Assert.Contains("httpContext.User.IsAdminPrincipal()", jwt, StringComparison.Ordinal);
+        Assert.Contains("RecordHighValueAsync(new AuditEvent", jwt, StringComparison.Ordinal);
+        Assert.Contains("AuditActionCatalog.AuthSelfServicePrincipalRejected", jwt, StringComparison.Ordinal);
+        Assert.Contains("admin_principal_forbidden", jwt, StringComparison.Ordinal);
+        Assert.Contains("AuthSelfServicePrincipalRejected", auditCatalog, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -274,6 +341,20 @@ public sealed class AdminPrincipalSecurityContractTests
         }
 
         throw new InvalidOperationException($"Unable to extract method body: {signature}");
+    }
+
+    private static string ExtractRouteBlock(string source, string routeSignature)
+    {
+        int start = source.IndexOf(routeSignature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Unable to locate route: {routeSignature}");
+        int next = source.IndexOf("\n        group.Map", start + routeSignature.Length, StringComparison.Ordinal);
+        if (next < 0)
+        {
+            next = source.IndexOf("\n    }\n\n    private", start + routeSignature.Length, StringComparison.Ordinal);
+        }
+
+        Assert.True(next > start, $"Unable to locate route end: {routeSignature}");
+        return source[start..next];
     }
 
     private static void AssertContainsAfter(string source, string marker, string expected)

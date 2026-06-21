@@ -5,10 +5,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.WebUtilities;
 
@@ -232,9 +234,53 @@ public static class JwtServiceExtensions
                         context.HttpContext.RequestServices.GetRequiredService<AuthCookieService>().ClearAdminSessionCookies(context.HttpContext);
                         context.Fail(result.Reason);
                     }
+                },
+                OnForbidden = async context =>
+                {
+                    await RecordRejectedAuthSelfServicePrincipalAsync(context.HttpContext);
                 }
             };
         });
+    }
+
+    private static async Task RecordRejectedAuthSelfServicePrincipalAsync(HttpContext httpContext)
+    {
+        string path = httpContext.Request.Path.Value ?? string.Empty;
+        bool ordinaryAuthSelfServicePath =
+            path.StartsWith("/api/binary/auth/", StringComparison.OrdinalIgnoreCase) &&
+            !path.StartsWith("/api/binary/auth/admin/", StringComparison.OrdinalIgnoreCase);
+        if (!ordinaryAuthSelfServicePath || httpContext.User.IsAdminPrincipal() != true)
+        {
+            return;
+        }
+
+        _ = httpContext.User.TryGetAdminPrincipalId(out long adminPrincipalId);
+        var auditEvents = httpContext.RequestServices.GetService<IAuditEventService>();
+        if (auditEvents is null)
+        {
+            return;
+        }
+
+        await auditEvents.RecordHighValueAsync(new AuditEvent(
+            Source: "auth",
+            Type: AuditTypeCatalog.Security,
+            Action: AuditActionCatalog.AuthSelfServicePrincipalRejected,
+            Outcome: AuditOutcomeCatalog.Denied,
+            Severity: "warning",
+            EventInfo: "AdminPrincipal rejected from ordinary account self-service auth endpoint",
+            ActorType: AnonymousIdentityRuntime.AdminPrincipalKind,
+            ActorId: adminPrincipalId > 0 ? adminPrincipalId.ToString(CultureInfo.InvariantCulture) : null,
+            TargetType: "auth.self_service",
+            TargetId: path,
+            ReasonCode: "admin_principal_forbidden",
+            Context: new Dictionary<string, object?>
+            {
+                ["path"] = path,
+                ["method"] = httpContext.Request.Method,
+                ["identityKind"] = httpContext.User.FindFirst("identity_kind")?.Value
+            },
+            IsHighValue: true),
+            httpContext.RequestAborted);
     }
 
     internal static bool ShouldPreferAdminCookie(HttpContext httpContext)

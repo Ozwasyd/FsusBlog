@@ -99,6 +99,7 @@ public static class AuditActionCatalog
     public const string ArticleExported = "admin.article.exported";
     public const string ArticleImported = "admin.article.imported";
     public const string AuditQueried = "admin.audit.queried";
+    public const string AuthSelfServicePrincipalRejected = "security.auth.self_service_principal_rejected";
 }
 
 public static class AuditOutcomeCatalog
