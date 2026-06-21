@@ -23,8 +23,20 @@ public readonly struct CommentPushPod
 {
     public readonly long Id;
     public readonly long CreateTimeUnixMs;
-    public readonly Utf8Fixed64 UserName;
+    public readonly long ParentId;
+    public readonly long RootId;
+    public readonly long ReplyToCommentId;
+    public readonly int Depth;
+    public readonly byte IsDeleted;
+    public readonly byte HasParentId;
+    public readonly byte HasRootId;
+    public readonly byte HasReplyToCommentId;
+    public readonly byte HasReplyToAuthor;
+    public readonly byte Reserved0;
+    public readonly ushort Reserved1;
     public readonly Utf8SliceRef Content;
+    public readonly Utf8SliceRef Author;
+    public readonly Utf8SliceRef ReplyToAuthor;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

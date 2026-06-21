@@ -874,6 +874,8 @@ binary-value payload
 
 `binary-value payload` 使用 AEDS 通知值编码：`0=null`、`1=string`、`2=int32`、`3=int64`、`4=double`、`5=bool`、`6=object`、`7=array`。对象字段名按 camelCase 写入。
 
+`CommentAdded` 的 `payload.comment` 与评论读取 DTO 对齐：必须包含 `author: CommentAuthorViewDto`，回复可包含 `replyToAuthor: CommentAuthorViewDto`，不得包含 legacy identity fields。前端 stream patcher 与 `useArticleCommentStream` 只从这两个作者快照渲染展示名。
+
 ### `NotificationHeartbeat`
 
 对应 `AedsFrameType.NotificationHeartbeat = 70`。
@@ -907,7 +909,7 @@ int64 timestampUnixMs
 | 2 | `GlobalNoticePublished` | `GlobalNoticePayload` | 全站广播（公开） |
 | 3 | `UnreadCountUpdated` | `UnreadCountPayload` | 未读数变更 |
 | 4 | `AccountStatusChanged` | `AccountStatusPayload` | 账号状态变化（封禁等） |
-| 5 | `CommentAdded` | `CommentAddedNotifyDto` | 新评论通知 |
+| 5 | `CommentAdded` | `CommentAddedNotifyDto` | 新评论通知；`comment` 只携带 `author: CommentAuthorViewDto` 与可空 `replyToAuthor: CommentAuthorViewDto` 快照，不携带 legacy identity fields |
 | 6 | `CommentRemoved` | `CommentRemovedPayload` | 评论删除通知 |
 | 7 | `MessageReceived` | `MessageReceivedPayload` | 收到新消息 |
 | 8 | `ArticleChanged` | `ArticleChangedPayload` | 文章更新（缓存失效） |

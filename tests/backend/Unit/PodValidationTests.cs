@@ -1,6 +1,7 @@
 using FsusBlog.Shared.Contracts.Primitives;
 using FsusBlog.Shared.Contracts.Validation;
 using FsusBlog.Shared;
+using FsusBlog.Shared.Contracts.Models;
 using CoreFrameType = FsusBlog.Core.Algorithms.AedsFrameType;
 using SharedFrameType = FsusBlog.Shared.AedsFrameType;
 
@@ -128,6 +129,20 @@ public class PodContractValidationTests
         int size = PodContractValidation.SizeOf<Utf8Fixed32>();
         Assert.True(size > 0);
         Assert.Equal(32, size);
+    }
+
+    [Fact]
+    public void CommentPushPod_UsesAuthorSnapshotSlotsWithoutLegacyIdentityFields()
+    {
+        string[] fields = typeof(CommentPushPod)
+            .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+            .Select(static field => field.Name)
+            .ToArray();
+
+        Assert.Contains("Author", fields);
+        Assert.Contains("ReplyToAuthor", fields);
+        Assert.DoesNotContain("UserName", fields);
+        Assert.DoesNotContain("ReplyToUserId", fields);
     }
 
     [Fact]

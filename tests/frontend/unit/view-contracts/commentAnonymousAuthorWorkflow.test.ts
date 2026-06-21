@@ -70,6 +70,30 @@ describe('anonymous comment author workflow contract', () => {
     expect(commentDoc).not.toMatch(/\b(?:authorId|userName|replyToUserId|replyToUserName)\b/)
   })
 
+  it('keeps notification stream CommentAdded on author snapshots', () => {
+    const notificationTypes = readRepoFile('src/frontend/src/services/notificationStreamTypes.ts')
+    const articleCommentStream = readRepoFile('src/frontend/src/composables/useArticleCommentStream.ts')
+    const notificationWriter = readRepoFile('src/core/Cache/PodBinaryCodec.Notification.cs')
+    const messagePods = readRepoFile('src/shared/Contracts/Models/MessagePods.cs')
+    const notificationDoc = extractMarkdownSection(apiContractsDoc, '## 通知 WebSocket 契约', '### `NotificationStreamEventType` 枚举')
+
+    const payloadBlock = extractTsInterface(notificationTypes, 'CommentAddedPayload')
+    const pushLikeBlock = extractTsType(articleCommentStream, 'CommentPushLike')
+    const writerBlock = extractMethodBlock(notificationWriter, 'private void WriteCommentPush')
+    const podBlock = extractCSharpStruct(messagePods, 'CommentPushPod')
+
+    for (const block of [payloadBlock, pushLikeBlock, writerBlock, notificationDoc]) {
+      expect(block).toContain('author')
+      expect(block).not.toMatch(/\b(?:userName|replyToUserId)\b/)
+    }
+    expect(podBlock).not.toMatch(/\b(?:UserName|ReplyToUserId)\b/)
+
+    expect(payloadBlock).toContain('replyToAuthor')
+    expect(pushLikeBlock).toContain('replyToAuthor')
+    expect(writerBlock).toContain('"replyToAuthor"')
+    expect(podBlock).toContain('ReplyToAuthor')
+  })
+
   it('makes the composer anonymous by default with explicit public opt-in', () => {
     expect(composer).toContain('publicIdentityModel')
     expect(composer).toContain('anonymousUnavailableMessage')
@@ -123,11 +147,41 @@ function extractTsInterface(source: string, name: string): string {
   return match![0]
 }
 
+function extractTsType(source: string, name: string): string {
+  const match = source.match(new RegExp(`type ${name} = \\{[\\s\\S]*?\\n\\}`))
+  expect(match, `Missing TypeScript type ${name}`).not.toBeNull()
+  return match![0]
+}
+
 function extractCSharpRecord(source: string, name: string): string {
   const start = source.indexOf(name)
   expect(start, `Missing C# record ${name}`).toBeGreaterThanOrEqual(0)
   const nextRecord = source.indexOf('\npublic ', start + name.length)
   return source.slice(start, nextRecord === -1 ? source.length : nextRecord)
+}
+
+function extractCSharpStruct(source: string, name: string): string {
+  const start = source.indexOf(`struct ${name}`)
+  expect(start, `Missing C# struct ${name}`).toBeGreaterThanOrEqual(0)
+  const nextStruct = source.indexOf('\n[StructLayout', start + name.length)
+  return source.slice(start, nextStruct === -1 ? source.length : nextStruct)
+}
+
+function extractMethodBlock(source: string, signature: string): string {
+  const start = source.indexOf(signature)
+  expect(start, `Missing method ${signature}`).toBeGreaterThanOrEqual(0)
+  const open = source.indexOf('{', start)
+  expect(open, `Missing method body for ${signature}`).toBeGreaterThanOrEqual(0)
+  let depth = 0
+  for (let index = open; index < source.length; index += 1) {
+    const char = source[index]
+    if (char === '{') depth += 1
+    if (char === '}') {
+      depth -= 1
+      if (depth === 0) return source.slice(start, index + 1)
+    }
+  }
+  throw new Error(`Unterminated method ${signature}`)
 }
 
 function extractMarkdownSection(source: string, startMarker: string, endMarker: string): string {

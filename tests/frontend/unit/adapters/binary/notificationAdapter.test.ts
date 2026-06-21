@@ -92,6 +92,67 @@ describe('binary notification adapter', () => {
     })
   })
 
+  it('decodes CommentAdded author snapshots without legacy identity fields', () => {
+    const payload: number[] = []
+    writeInt64(payload, 77)
+    writeInt64(payload, Date.parse('2026-06-21T10:00:00.000Z'))
+    writeInt32(payload, NotificationStreamEventType.CommentAdded)
+    writeInt32(payload, 0)
+    writeValue(payload, {
+      articleId: 42,
+      comment: {
+        id: '9001',
+        content: '匿名评论',
+        createTime: '2026-06-21T09:59:59.000Z',
+        author: {
+          mode: 'zk_anonymous',
+          displayName: '青松',
+          displayLanguage: 'zh-CN',
+          badge: '已验证匿名凭证',
+          scopeLabel: 'article:42',
+          credentialLevel: 'verified'
+        },
+        parentId: '100',
+        rootId: '100',
+        replyToAuthor: {
+          mode: 'anonymous',
+          displayName: '海棠',
+          displayLanguage: 'zh-CN'
+        },
+        replyToCommentId: '100',
+        depth: 1,
+        isDeleted: false
+      },
+      time: '2026-06-21T10:00:00.000Z'
+    })
+
+    const frame = encodeAedsFrame(FrameType.NotificationEvent, new Uint8Array(payload))
+    const decoded = decodeNotificationFrame(frame)
+
+    expect(decoded.kind).toBe('event')
+    if (decoded.kind !== 'event') return
+    expect(decoded.event.payload).toMatchObject({
+      articleId: 42,
+      comment: {
+        id: '9001',
+        author: {
+          mode: 'zk_anonymous',
+          displayName: '青松',
+          displayLanguage: 'zh-CN',
+          badge: '已验证匿名凭证',
+          scopeLabel: 'article:42',
+          credentialLevel: 'verified'
+        },
+        replyToAuthor: {
+          mode: 'anonymous',
+          displayName: '海棠',
+          displayLanguage: 'zh-CN'
+        }
+      }
+    })
+    expect(JSON.stringify(decoded.event.payload)).not.toMatch(/\b(?:userName|replyToUserId)\b/)
+  })
+
   it('recognizes notification heartbeat frames', () => {
     const payload: number[] = []
     writeInt64(payload, Date.now())
