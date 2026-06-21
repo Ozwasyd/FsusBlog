@@ -173,6 +173,33 @@ export function validatePublicProfile(value) {
     }
   },
   {
+    name: 'legacy plain auth cookie fallback',
+    expected: 'legacy plain auth cookie fallback residue detected',
+    files: {
+      'src/backend/Infrastructure/Auth/AuthCookieService.cs': `
+namespace FsusBlog.Server.Infrastructure.Auth;
+internal sealed class AuthCookieService
+{
+    private const string RefreshTokenCookieName = "RefreshToken";
+    private const string HostRefreshTokenCookieName = "__Host-RefreshToken";
+    public string? ReadRefreshToken(HttpContext context)
+        => ReadCookie(context, RefreshTokenCookieName, HostRefreshTokenCookieName);
+}
+`,
+      'src/backend/Infrastructure/Helpers/JwtHelper.cs': `
+namespace FsusBlog.Server.Infrastructure.Helpers;
+internal static class JwtHelper
+{
+    public static void Read(HttpContext context)
+    {
+        if (context.Request.Cookies.TryGetValue("AccessToken", out var token)) {}
+        if (context.Request.Cookies.TryGetValue("AdminAccessToken", out var adminToken)) {}
+    }
+}
+`
+    }
+  },
+  {
     name: 'legacy password login form',
     expected: 'legacy password login form residue detected',
     files: {

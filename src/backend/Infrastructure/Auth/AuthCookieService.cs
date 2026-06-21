@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using System.IdentityModel.Tokens.Jwt;
 
 namespace FsusBlog.Server.Infrastructure.Auth;
@@ -19,10 +20,20 @@ public sealed class AuthCookieService
     private const string HostAdminAccessTokenCookieName = "__Host-AdminAccessToken";
     private const string HostAdminSessionIdCookieName = "__Host-AdminSessionId";
     private readonly bool _allowInsecureTransportCookies;
+    private readonly bool _allowLegacyPlainCookieRead;
+    private readonly IWebHostEnvironment? _environment;
+    private readonly ILogger<AuthCookieService>? _logger;
+    private int _legacyPlainCookieWarningWritten;
 
-    public AuthCookieService(IConfiguration configuration)
+    public AuthCookieService(
+        IConfiguration configuration,
+        IWebHostEnvironment? environment = null,
+        ILogger<AuthCookieService>? logger = null)
     {
         _allowInsecureTransportCookies = configuration.GetValue<bool>("AuthCookies:AllowInsecureTransportCookies");
+        _allowLegacyPlainCookieRead = configuration.GetValue<bool>("AuthCookies:AllowLegacyPlainCookieRead");
+        _environment = environment;
+        _logger = logger;
     }
 
     public void SetTokenCookies(HttpContext context, IWebHostEnvironment env, string accessToken, string refreshToken, DateTime idleExpiresAt)
@@ -124,29 +135,62 @@ public sealed class AuthCookieService
             Path = "/"
         };
 
+    public string? ReadAccessToken(HttpContext context)
+        => ReadUserCookie(context, AccessTokenCookieName, HostAccessTokenCookieName);
+
     public string? ReadRefreshToken(HttpContext context)
-        => ReadCookie(context, RefreshTokenCookieName, HostRefreshTokenCookieName);
+        => ReadUserCookie(context, RefreshTokenCookieName, HostRefreshTokenCookieName);
 
     public string? ReadSessionId(HttpContext context)
-        => ReadCookie(context, SessionIdCookieName, HostSessionIdCookieName);
+        => ReadUserCookie(context, SessionIdCookieName, HostSessionIdCookieName);
 
-    public static bool TryReadAdminAccessToken(HttpContext context, out string token)
+    public bool TryReadAdminAccessToken(HttpContext context, out string token)
     {
-        token = ReadCookie(context, AdminAccessTokenCookieName, HostAdminAccessTokenCookieName) ?? string.Empty;
+        token = ReadCookie(context, AdminAccessTokenCookieName, HostAdminAccessTokenCookieName, allowPlainFallback: false) ?? string.Empty;
         return !string.IsNullOrWhiteSpace(token);
     }
 
     public static string? ResolveAccessTokenCookieName(bool isProduction)
         => isProduction ? HostAccessTokenCookieName : AccessTokenCookieName;
 
-    private static string? ReadCookie(HttpContext context, string plainName, string hostName)
+    private string? ReadUserCookie(HttpContext context, string plainName, string hostName)
+        => ReadCookie(context, plainName, hostName, ShouldAllowLegacyPlainCookieRead());
+
+    private bool ShouldAllowLegacyPlainCookieRead()
+    {
+        if (!_allowLegacyPlainCookieRead)
+        {
+            return false;
+        }
+
+        bool isLocalCompatibleEnvironment =
+            _environment?.IsDevelopment() == true ||
+            string.Equals(_environment?.EnvironmentName, "Local", StringComparison.OrdinalIgnoreCase);
+        if (!isLocalCompatibleEnvironment)
+        {
+            return false;
+        }
+
+        if (Interlocked.Exchange(ref _legacyPlainCookieWarningWritten, 1) == 0)
+        {
+            _logger?.LogWarning(
+                "AuthCookies:AllowLegacyPlainCookieRead is enabled for {EnvironmentName}; legacy plain user cookies are accepted for local migration only and must remain disabled in production.",
+                _environment?.EnvironmentName ?? "Unknown");
+        }
+
+        return true;
+    }
+
+    private static string? ReadCookie(HttpContext context, string plainName, string hostName, bool allowPlainFallback)
     {
         if (context.Request.Cookies.TryGetValue(hostName, out var hostValue) && !string.IsNullOrWhiteSpace(hostValue))
         {
             return hostValue;
         }
 
-        if (context.Request.Cookies.TryGetValue(plainName, out var plainValue) && !string.IsNullOrWhiteSpace(plainValue))
+        if (allowPlainFallback &&
+            context.Request.Cookies.TryGetValue(plainName, out var plainValue) &&
+            !string.IsNullOrWhiteSpace(plainValue))
         {
             return plainValue;
         }

@@ -153,6 +153,13 @@ run_residue_check \
   src/frontend/src/views/auth/Register.vue src/frontend/src/views/user/IdentityCenter.vue src/frontend/src/composables/useAnonymousOnboarding.ts
 
 run_residue_check \
+  "legacy plain auth cookie fallback" \
+  "legacy plain auth cookie fallback residue detected" \
+  'Request[.]Cookies[.]TryGetValue[(]["'\''](?:AccessToken|RefreshToken|SessionId|AdminAccessToken|AdminSessionId)["'\'']|ReadCookie[(]context,\s*(?:AccessTokenCookieName|RefreshTokenCookieName|SessionIdCookieName|AdminAccessTokenCookieName|AdminSessionIdCookieName),\s*Host(?:AccessToken|RefreshToken|SessionId|AdminAccessToken|AdminSessionId)CookieName\s*[)]' \
+  "" \
+  src/backend/Infrastructure/Auth/AuthCookieService.cs src/backend/Infrastructure/Helpers/JwtHelper.cs
+
+run_residue_check \
   "anonymous step-up password body fallback" \
   "anonymous step-up password body fallback residue detected" \
   'allowPasswordBody:\s*true' \

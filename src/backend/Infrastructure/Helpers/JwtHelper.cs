@@ -194,18 +194,19 @@ public static class JwtServiceExtensions
             {
                 OnMessageReceived = context =>
                 {
+                    var authCookies = context.HttpContext.RequestServices.GetRequiredService<AuthCookieService>();
                     if (ShouldPreferAdminCookie(context.HttpContext) &&
-                        AuthCookieService.TryReadAdminAccessToken(context.HttpContext, out string adminToken))
+                        authCookies.TryReadAdminAccessToken(context.HttpContext, out string adminToken))
                     {
                         context.Token = adminToken;
                     }
-                    else if (context.Request.Cookies.TryGetValue("__Host-AccessToken", out var hostToken))
+                    else
                     {
-                        context.Token = hostToken;
-                    }
-                    else if (context.Request.Cookies.TryGetValue("AccessToken", out var token))
-                    {
-                        context.Token = token;
+                        string? token = authCookies.ReadAccessToken(context.HttpContext);
+                        if (!string.IsNullOrWhiteSpace(token))
+                        {
+                            context.Token = token;
+                        }
                     }
                     return Task.CompletedTask;
                 },
@@ -221,7 +222,8 @@ public static class JwtServiceExtensions
                         : string.Empty;
                     if (string.IsNullOrWhiteSpace(accessToken))
                     {
-                        AuthCookieService.TryReadAdminAccessToken(context.HttpContext, out accessToken);
+                        context.HttpContext.RequestServices.GetRequiredService<AuthCookieService>()
+                            .TryReadAdminAccessToken(context.HttpContext, out accessToken);
                     }
 
                     var validator = context.HttpContext.RequestServices.GetRequiredService<IAdminSessionValidationService>();

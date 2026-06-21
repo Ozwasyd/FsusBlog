@@ -320,6 +320,7 @@ FsusBlog 采用三级角色体系：
 
 - Refresh Token 使用 `SameSite=Strict, HttpOnly, Secure` Cookie
 - 生产环境认证 Cookie 使用 `__Host-*` 前缀、`Path=/`、无 `Domain`、`HttpOnly`、`Secure`、`SameSite=Strict`
+- 生产认证读取只接受 `__Host-AccessToken`、`__Host-RefreshToken`、`__Host-SessionId`、`__Host-AdminAccessToken` 与 `__Host-AdminSessionId`；未前缀 legacy Cookie 只保留在清理路径，或在 Development/Local 且显式 `AuthCookies:AllowLegacyPlainCookieRead=true` 时用于普通用户本地迁移。AdminPrincipal Cookie 不支持未前缀读取 fallback，生产启动校验拒绝开启该 flag。
 - `SameSite=Strict` 阻止跨站请求自动携带 Cookie
 - 前端主调用凭据是 HttpOnly Cookie session / AEDS auth frame；如服务端内部仍签发短期 JWT，它不是浏览器主调用的 Bearer Header 事实。高风险写操作还会叠加 PoW、admin step-up proof、RBAC 与 no-store metadata，避免只依赖自动携带 Cookie。
 

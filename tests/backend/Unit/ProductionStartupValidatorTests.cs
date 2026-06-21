@@ -169,6 +169,30 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    public void ValidateCore_RejectsProductionLegacyPlainCookieRead()
+    {
+        IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:DefaultConnection"] = "Host=db;Database=fsus;Username=fsus;Password=secret",
+            ["ConnectionStrings:Redis"] = "redis:6379,password=redis-secret,abortConnect=false",
+            ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
+            ["Jwt:SecretKey"] = "production-secret-key-with-at-least-thirty-two-chars",
+            ["AllowedHosts"] = "fsus.blog",
+            ["CORS_ALLOWED_HOSTS"] = "https://fsus.blog",
+            ["Seo:BaseUrl"] = "https://fsus.blog",
+            ["Fido2:ServerDomain"] = "fsus.blog",
+            ["Fido2:Origins:0"] = "https://fsus.blog",
+            ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
+            ["ReverseProxy:KnownProxies"] = "127.0.0.1",
+            ["AuthCookies:AllowLegacyPlainCookieRead"] = "true"
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.Contains(errors, static error => error.Contains("AuthCookies:AllowLegacyPlainCookieRead", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ValidateCore_RejectsMissingRequiredProductionSettings()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>());

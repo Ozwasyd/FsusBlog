@@ -85,13 +85,83 @@ public sealed class AuthCookieServiceSecurityTests
     [Fact]
     public void ReadRefreshToken_PrefersHostPrefixedCookieOverPlainCookie()
     {
-        var service = new AuthCookieService(CreateConfiguration());
+        var service = new AuthCookieService(CreateConfiguration(), ProductionEnv());
         var context = new DefaultHttpContext();
         context.Request.Headers.Cookie = "RefreshToken=plain; __Host-RefreshToken=host";
 
         string? token = service.ReadRefreshToken(context);
 
         Assert.Equal("host", token);
+    }
+
+    [Fact]
+    public void ReadTokenCookies_ProductionRejectsLegacyPlainCookies()
+    {
+        var service = new AuthCookieService(CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["AuthCookies:AllowLegacyPlainCookieRead"] = "true"
+        }), ProductionEnv());
+        var context = new DefaultHttpContext();
+        context.Request.Headers.Cookie = string.Join("; ", [
+            "AccessToken=plain-access",
+            "RefreshToken=plain-refresh",
+            "SessionId=plain-session",
+            "AdminAccessToken=plain-admin",
+            "AdminSessionId=plain-admin-session"
+        ]);
+
+        Assert.Null(service.ReadAccessToken(context));
+        Assert.Null(service.ReadRefreshToken(context));
+        Assert.Null(service.ReadSessionId(context));
+        Assert.False(service.TryReadAdminAccessToken(context, out string adminToken));
+        Assert.Equal(string.Empty, adminToken);
+    }
+
+    [Fact]
+    public void ReadTokenCookies_ProductionAcceptsHostPrefixedCookies()
+    {
+        var service = new AuthCookieService(CreateConfiguration(), ProductionEnv());
+        var context = new DefaultHttpContext();
+        context.Request.Headers.Cookie = string.Join("; ", [
+            "__Host-AccessToken=host-access",
+            "__Host-RefreshToken=host-refresh",
+            "__Host-SessionId=host-session",
+            "__Host-AdminAccessToken=host-admin",
+            "__Host-AdminSessionId=host-admin-session"
+        ]);
+
+        Assert.Equal("host-access", service.ReadAccessToken(context));
+        Assert.Equal("host-refresh", service.ReadRefreshToken(context));
+        Assert.Equal("host-session", service.ReadSessionId(context));
+        Assert.True(service.TryReadAdminAccessToken(context, out string adminToken));
+        Assert.Equal("host-admin", adminToken);
+    }
+
+    [Fact]
+    public void ReadTokenCookies_DevelopmentRequiresExplicitLegacyPlainCookieFlag()
+    {
+        var disabled = new AuthCookieService(CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["AuthCookies:AllowLegacyPlainCookieRead"] = "false"
+        }), DevelopmentEnv());
+        var disabledContext = new DefaultHttpContext();
+        disabledContext.Request.Headers.Cookie = "AccessToken=plain-access; RefreshToken=plain-refresh; SessionId=plain-session";
+
+        Assert.Null(disabled.ReadAccessToken(disabledContext));
+        Assert.Null(disabled.ReadRefreshToken(disabledContext));
+        Assert.Null(disabled.ReadSessionId(disabledContext));
+
+        var enabled = new AuthCookieService(CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["AuthCookies:AllowLegacyPlainCookieRead"] = "true"
+        }), DevelopmentEnv());
+        var enabledContext = new DefaultHttpContext();
+        enabledContext.Request.Headers.Cookie = "AccessToken=plain-access; RefreshToken=plain-refresh; SessionId=plain-session; AdminAccessToken=plain-admin";
+
+        Assert.Equal("plain-access", enabled.ReadAccessToken(enabledContext));
+        Assert.Equal("plain-refresh", enabled.ReadRefreshToken(enabledContext));
+        Assert.Equal("plain-session", enabled.ReadSessionId(enabledContext));
+        Assert.False(enabled.TryReadAdminAccessToken(enabledContext, out _));
     }
 
     private static void AssertProductionCookieAttributes(string cookie)
@@ -132,6 +202,8 @@ public sealed class AuthCookieServiceSecurityTests
             .Build();
 
     private static IWebHostEnvironment ProductionEnv() => new FakeWebHostEnvironment("Production");
+
+    private static IWebHostEnvironment DevelopmentEnv() => new FakeWebHostEnvironment("Development");
 
     private sealed class FakeWebHostEnvironment(string environmentName) : IWebHostEnvironment
     {

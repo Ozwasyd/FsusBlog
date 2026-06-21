@@ -555,6 +555,11 @@ public static class ProductionStartupValidator
         {
             errors.Add("AuthCookies:AllowInsecureTransportCookies must be false outside Development.");
         }
+
+        if (configuration.GetValue<bool>("AuthCookies:AllowLegacyPlainCookieRead"))
+        {
+            errors.Add("AuthCookies:AllowLegacyPlainCookieRead must be false in production; production authentication only accepts __Host-* cookies.");
+        }
     }
 
     private static void ValidateAnonymousIdentityMode(string? value, bool enforceProductionRules, List<string> errors)
