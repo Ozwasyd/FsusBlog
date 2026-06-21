@@ -59,7 +59,6 @@ describe('comment API', () => {
       parentId: '100',
       rootId: '90',
       replyToCommentId: '80',
-      replyToUserId: 7,
       authorMode: 'zk_anonymous',
       publicSendExplicitlySelected: false,
       anonymousScope: 'article:9:root:90',
@@ -78,11 +77,11 @@ describe('comment API', () => {
     const payload = readAedsPayload(body)
     const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
     expect(view.getInt32(0, true)).toBe(9)
-    expect(view.getInt32(4, true)).toBe(7)
+    expect(view.getInt32(4, true)).toBe(0)
     expect(payload[8]).toBe(1)
     expect(payload[9]).toBe(1)
     expect(payload[10]).toBe(1)
-    expect(payload[11]).toBe(1)
+    expect(payload[11]).toBe(0)
     expect(payload[12]).toBe(4)
     expect(payload[13]).toBe(0)
     expect(view.getBigInt64(16, true)).toBe(100n)
@@ -253,9 +252,7 @@ describe('comment API', () => {
       credentialLevel: 'strong_anonymous',
       reputationBucket: 'rep:low',
       zkProof: new Uint8Array([11, 12]),
-      publicInputs: new Uint8Array([13, 14]),
-      replyToUserId: 123,
-      publicHandle: 'alice'
+      publicInputs: new Uint8Array([13, 14])
     } as never)
 
     const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)

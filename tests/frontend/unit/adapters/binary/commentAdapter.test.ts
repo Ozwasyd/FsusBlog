@@ -440,7 +440,7 @@ describe('mapUserCommentCursorFromPodPayload', () => {
     writeUtf8(pod, 28, 'Article Title')
     // rootId at 284
     writeInt64(pod, 284, 77n)
-    // replyToUserName at 292 (64 bytes) → leave empty → null
+    // legacy reply author display slot at 292 (64 bytes) → leave empty → null
     writeInt32(pod, 356, 2)         // moderationStatus = Rejected
     writeByte(pod, 360, 0)          // isPubliclyVisible = false
     writeUtf8(pod, 364, 'rejected')
@@ -460,7 +460,8 @@ describe('mapUserCommentCursorFromPodPayload', () => {
     expect(c.content).toBe('text')
     expect(c.articleTitle).toBe('Article Title')
     expect(c.rootId).toBe('77')
-    expect(c.replyToUserName).toBeNull()
+    expect(c.author.displayName).toBe('未署名用户')
+    expect(c.replyToAuthor).toBeNull()
     expect(c.moderationStatus).toBe(2)
     expect(c.isPubliclyVisible).toBe(false)
     expect(c.visibilityState).toBe('rejected')

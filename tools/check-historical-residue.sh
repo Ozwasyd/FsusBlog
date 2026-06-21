@@ -251,6 +251,13 @@ run_residue_check \
   src/backend/Services/CommentService.cs
 
 run_residue_check \
+  "legacy public comment read identity fields" \
+  "legacy public comment read identity field residue detected" \
+  '\b(?:readonly[[:space:]]+(?:userName|replyToUserId|replyToUserName)|(?:userName|replyToUserName):[[:space:]]*comment[.]|replyToUserName[?]?:|replyToUserId[?]?:|CommentPushDto[.]UserName)\b' \
+  "" \
+  src/shared/Contracts/Outputs/ServerResponseContracts.cs src/core/Mapping/Models/ReadModels.cs src/frontend/src/view-contracts/commentDetail.ts docs/api/contracts.md
+
+run_residue_check \
   "legacy message sender user model" \
   "legacy message sender user-model residue detected" \
   '\b(?:adminUserId|targetUserId|systemTargetUserId|InitiatorUserId|CreatedById|SenderId)\b|public int UserId|Queryable<User>\(\)|[.]Username|目标用户 ID|MessageSenderType[.]User|\bUser[[:space:]]*=[[:space:]]*0,|ConversationSenderValue[.]User|\b(?:GetUserConversationsAsync|GetUserConversationDetailAsync|CreateUserTicketAsync|ReplyAsUserAsync|SendUserTransactionalNoticeAsync|SendUserBannedNoticeAsync|SendUserUnbannedNoticeAsync|PushUserStatusAsync)\b|\b(?:getUserConversations|getUserConversationDetail|createUserConversation|replyUserConversation|useUserMessagesInbox)\b|\bUserConversationRow\b|\bPublishUserConversation|\b(?:UserStatusChanged|UserStatusPayload|UserStatusPayloadPod)\b|mode=["'\'']user["'\'']|messages-bubble-user|contextUserText|context-user-text' \
@@ -361,6 +368,13 @@ run_residue_check \
   'context[.]GetUserId[(][)]|VisitLogMessage[(][^;\n]*UserId|msg[.]UserId|public[[:space:]]+int[?][[:space:]]+UserId\b|new[[:space:]]+VisitLog[[:space:]]*[{][^}]*UserId[[:space:]]*=|\bRegisteredVisits\b|\bAnonymousVisits\b|registeredVisits|anonymousVisits|v[.]UserId' \
   '^(src/backend/Infrastructure/Operations/LegacyIdentityColdStartResetOperation[.]cs|src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry[.]cs|src/backend/Infrastructure/SchemaMigration/SchemaMigrationConsistencyChecker[.]cs)$' \
   src/backend/Entities/VisitLog.cs src/backend/Services/HumanReadProofService.cs src/backend/Services/VisitLog src/backend/Services/StatsService.cs src/backend/Infrastructure/CoreBridge src/backend/Infrastructure/Cache src/shared/Contracts src/core src/frontend/src tests/frontend/fixtures
+
+run_residue_check \
+  "human-read raw visit ip persistence" \
+  "human-read raw visit-ip persistence residue detected" \
+  'public[[:space:]]+string[?]?[[:space:]]+IP\b|SugarColumn[(][^;\n]*ColumnName[[:space:]]*=[[:space:]]*["'\'']ip["'\'']|EnsureColumnStep[(][^;\n]*["'\'']sys_visit_log["'\''][^;\n]*["'\'']ip["'\'']|ADD COLUMN IF NOT EXISTS ip\b|new[[:space:]]+VisitLog[[:space:]]*[{][^}]*IP[[:space:]]*=|IP[[:space:]]*=[[:space:]]*(?:msg[.]IP|ip)\b|sys_visit_log[."]ip\b' \
+  "" \
+  src/backend/Entities/VisitLog.cs src/backend/Services/VisitLog/VisitLogProcessorService.cs src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs
 
 run_residue_check \
   "stats recent comment user identity" \

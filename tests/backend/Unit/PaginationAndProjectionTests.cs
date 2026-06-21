@@ -268,7 +268,8 @@ public class CommentProjectionTests
             ArticleId = 7,
             ArticleTitle = title,
             RootId = rootId,
-            ReplyToUserName = replyTo,
+            Author = new CommentAuthorViewDto("public", "Author", "zh-CN", null, null, null),
+            ReplyToAuthor = replyTo is null ? null : new CommentAuthorViewDto("public", replyTo, "zh-CN", null, null, null),
             ModerationStatus = moderationStatus,
             IsDeleted = isDeleted,
             HasBlockedRegions = hasBlockedRegions
@@ -285,7 +286,8 @@ public class CommentProjectionTests
         Assert.Equal(7, response.ArticleId);
         Assert.Equal("Article A", response.ArticleTitle);
         Assert.Equal(99L, response.RootId);
-        Assert.Equal("Alice", response.ReplyToUserName);
+        Assert.Equal("Author", response.Author.DisplayName);
+        Assert.Equal("Alice", response.ReplyToAuthor?.DisplayName);
     }
 
     [Theory]
@@ -344,7 +346,7 @@ public class CommentProjectionTests
         var core = CommentProjection.ToCoreModel(model);
 
         Assert.Equal(2L, core.RootId);
-        Assert.Equal("Bob", core.ReplyToUserName);
+        Assert.Equal("Bob", core.ReplyToAuthor?.DisplayName);
     }
 }
 

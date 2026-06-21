@@ -698,7 +698,6 @@ public partial class CommentService(
                 root.Id.ToString(),
                 ToDisplayContent(root.IsDeleted, root.Content),
                 root.CreateTime,
-                string.IsNullOrWhiteSpace(root.UserName) ? "匿名用户" : root.UserName,
                 BuildAuthorView(root.AuthorMode, root.UserName, root.AnonymousDisplayLanguage, root.AnonymousScope, root.CredentialLevel),
                 rootId.ToString(),
                 root.IsDeleted,
@@ -741,7 +740,7 @@ public partial class CommentService(
                 long.TryParse(item.Id, out long id) ? id : 0,
                 item.Content,
                 item.CreateTime,
-                item.UserName));
+                item.Author.DisplayName));
         }
 
         return new CursorResponse<CommentQueryResultDto>
@@ -783,6 +782,12 @@ public partial class CommentService(
                 ArticleId = a.Id,
                 ArticleTitle = a.Title,
                 ReplyToCommentId = c.ReplyToCommentId,
+                AuthorMode = c.AuthorMode,
+                PublicHandle = c.PublicHandle,
+                AnonymousDisplayName = c.AnonymousDisplayName,
+                AnonymousDisplayLanguage = c.AnonymousDisplayLanguage,
+                AnonymousScope = c.AnonymousScope,
+                CredentialLevel = c.CredentialLevel,
                 ReplyToAuthorMode = pc.AuthorMode,
                 ReplyToPublicHandle = pc.PublicHandle,
                 ReplyToAnonymousDisplayName = pc.AnonymousDisplayName,
@@ -798,12 +803,9 @@ public partial class CommentService(
             ArticleId = item.ArticleId,
             ArticleTitle = item.ArticleTitle ?? string.Empty,
             RootId = item.RootId,
-            ReplyToUserName = item.ReplyToCommentId.HasValue
-                ? ResolveCommentAuthorDisplayName(
-                    item.ReplyToAuthorMode,
-                    item.ReplyToPublicHandle,
-                    item.ReplyToAnonymousDisplayName,
-                    item.ReplyToAnonymousDisplayLanguage)
+            Author = BuildAuthorView(item.AuthorMode, item.PublicHandle, item.AnonymousDisplayLanguage, item.AnonymousScope, item.CredentialLevel),
+            ReplyToAuthor = item.ReplyToCommentId.HasValue
+                ? BuildAuthorView(item.ReplyToAuthorMode, item.ReplyToPublicHandle, item.ReplyToAnonymousDisplayLanguage, null, null)
                 : null,
             ModerationStatus = (int)item.ModerationStatus,
             IsDeleted = item.IsDeleted,
@@ -1338,10 +1340,7 @@ ORDER BY x.root_id, x.id;
             row.Id.ToString(),
             ToDisplayContent(row.IsDeleted, row.Content),
             row.CreateTime,
-            string.IsNullOrWhiteSpace(row.UserName) ? "匿名用户" : row.UserName,
             BuildAuthorView(row.AuthorMode, row.UserName, row.AnonymousDisplayLanguage, row.AnonymousScope, row.CredentialLevel),
-            row.ReplyToUserId,
-            string.IsNullOrWhiteSpace(row.ReplyToUserName) ? null : row.ReplyToUserName,
             BuildReplyToAuthorView(row),
             row.ParentId?.ToString(),
             resolvedRootId.ToString(),
@@ -1355,9 +1354,7 @@ ORDER BY x.root_id, x.id;
             row.Id.ToString(),
             ToDisplayContent(row.IsDeleted, row.Content),
             row.CreateTime,
-            string.IsNullOrWhiteSpace(row.UserName) ? "匿名用户" : row.UserName,
             BuildAuthorView(row.AuthorMode, row.UserName, row.AnonymousDisplayLanguage, row.AnonymousScope, row.CredentialLevel),
-            string.IsNullOrWhiteSpace(row.ReplyToUserName) ? null : row.ReplyToUserName,
             BuildReplyToAuthorView(row),
             row.IsDeleted);
 
@@ -1569,6 +1566,12 @@ ORDER BY x.root_id, x.id;
         public int ArticleId { get; init; }
         public string? ArticleTitle { get; init; }
         public long? ReplyToCommentId { get; init; }
+        public string? AuthorMode { get; init; }
+        public string? PublicHandle { get; init; }
+        public string? AnonymousDisplayName { get; init; }
+        public string? AnonymousDisplayLanguage { get; init; }
+        public string? AnonymousScope { get; init; }
+        public string? CredentialLevel { get; init; }
         public string? ReplyToAuthorMode { get; init; }
         public string? ReplyToPublicHandle { get; init; }
         public string? ReplyToAnonymousDisplayName { get; init; }

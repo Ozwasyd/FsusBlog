@@ -166,9 +166,8 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
             100,
             new CursorPageRequest<long> { Limit = 5 });
         CommentReplyItemDto visibleReply = Assert.Single(replies.Data);
-        Assert.Null(visibleReply.ReplyToUserId);
-        Assert.Equal("parent-user", visibleReply.ReplyToUserName);
         Assert.Equal(CommentAuthorModes.Public, visibleReply.ReplyToAuthor?.Mode);
+        Assert.Equal("parent-user", visibleReply.ReplyToAuthor?.DisplayName);
     }
 
     [Fact]
@@ -197,7 +196,6 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
             new CursorPageRequest<long> { Limit = 10 });
 
         CommentThreadItemDto item = Assert.Single(result.Data);
-        Assert.Equal("匿名用户", item.UserName);
         Assert.Equal(CommentAuthorModes.ZkAnonymous, item.Author.Mode);
         Assert.Equal("匿名用户", item.Author.DisplayName);
         Assert.DoesNotContain("legacy_real_name", JsonSerializer.Serialize(item), StringComparison.OrdinalIgnoreCase);
@@ -246,8 +244,6 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
             new CursorPageRequest<long> { Limit = 10 });
 
         CommentReplyItemDto reply = Assert.Single(result.Data);
-        Assert.Null(reply.ReplyToUserId);
-        Assert.Equal("匿名用户", reply.ReplyToUserName);
         Assert.Equal(CommentAuthorModes.ZkAnonymous, reply.ReplyToAuthor?.Mode);
         Assert.Equal("匿名用户", reply.ReplyToAuthor?.DisplayName);
         Assert.DoesNotContain("legacy_real_name", JsonSerializer.Serialize(reply), StringComparison.OrdinalIgnoreCase);

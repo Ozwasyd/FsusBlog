@@ -31,7 +31,6 @@ export interface CommentDto extends PowRequest {
   parentId?: string | null
   rootId?: string | null
   replyToCommentId?: string | null
-  replyToUserId?: number | null
   authorMode?: CommentAuthorMode | null
   publicSendExplicitlySelected?: boolean | null
   anonymousScope?: string | null
@@ -46,7 +45,6 @@ export interface CommentCreateV2Dto extends PowRequest {
   parentId?: string | null
   rootId?: string | null
   replyToCommentId?: string | null
-  replyToUserId?: number | null
   authorMode: CommentAuthorMode
   publicSendExplicitlySelected: boolean
   anonymousScope?: string | null
@@ -214,9 +212,6 @@ export interface CommentReplyItem {
   content: string
   createTime: string
   author: CommentAuthorView
-  userName: string
-  replyToUserId?: number | null
-  replyToUserName?: string | null
   replyToAuthor?: CommentAuthorView | null
   parentId?: string | null
   rootId: string
@@ -230,7 +225,6 @@ export interface CommentThreadItem {
   content: string
   createTime: string
   author: CommentAuthorView
-  userName: string
   rootId: string
   isDeleted: boolean
   replyCount: number
@@ -243,8 +237,6 @@ export interface CommentReplyPreviewItem {
   content: string
   createTime: string
   author: CommentAuthorView
-  userName: string
-  replyToUserName?: string | null
   replyToAuthor?: CommentAuthorView | null
   isDeleted: boolean
 }
@@ -257,7 +249,8 @@ export interface UserCommentResponse {
   articleId: number
   articleTitle: string
   rootId?: string | null
-  replyToUserName?: string | null
+  author: CommentAuthorView
+  replyToAuthor?: CommentAuthorView | null
   moderationStatus: number
   moderationStatusLabel: string
   visibilityState: string
@@ -518,11 +511,11 @@ export function encodeCommentCreateV2Request(data: CommentDto | CommentCreateV2D
   const replyToCommentId = parseOptionalId(data.replyToCommentId)
 
   view.setInt32(0, data.articleId, true)
-  view.setInt32(4, data.replyToUserId ?? 0, true)
+  view.setInt32(4, 0, true)
   bytes[8] = parentId === null ? 0 : 1
   bytes[9] = rootId === null ? 0 : 1
   bytes[10] = replyToCommentId === null ? 0 : 1
-  bytes[11] = data.replyToUserId === null || data.replyToUserId === undefined ? 0 : 1
+  bytes[11] = 0
   bytes[12] = encodeCommentAuthorMode(data.authorMode)
   bytes[13] = data.publicSendExplicitlySelected ? 1 : 0
   view.setUint16(14, 0, true)

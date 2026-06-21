@@ -23,10 +23,8 @@ type CommentPushLike = {
   content: string
   createTime: string
   author?: CommentAuthorView | null
-  userName: string
   parentId?: string | null
   rootId?: string | null
-  replyToUserId?: number | null
   replyToAuthor?: CommentAuthorView | null
   replyToCommentId?: string | null
   depth?: number
@@ -237,7 +235,6 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
         content: incoming.content,
         createTime: incoming.createTime,
         author: resolveCommentAuthorView({ author: incoming.author ?? null }),
-        userName: incoming.userName,
         rootId,
         isDeleted: incoming.isDeleted === true,
         replyCount: 0,
@@ -280,8 +277,6 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
       content: incoming.content,
       createTime: incoming.createTime,
       author: resolveCommentAuthorView({ author: incoming.author ?? null }),
-      userName: incoming.userName,
-      replyToUserName: null,
       replyToAuthor: incoming.replyToAuthor ?? null,
       isDeleted: incoming.isDeleted === true
     }

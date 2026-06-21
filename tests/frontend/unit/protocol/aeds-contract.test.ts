@@ -688,7 +688,6 @@ describe('AEDS cross-stack contract fixture', () => {
             scopeLabel: null,
             credentialLevel: null
           },
-          userName: 'alice',
           rootId: '101',
           isDeleted: false,
           replyCount: 3,
@@ -706,8 +705,6 @@ describe('AEDS cross-stack contract fixture', () => {
             scopeLabel: null,
             credentialLevel: null
               },
-              userName: 'bob',
-              replyToUserName: 'alice',
               replyToAuthor: {
                 mode: 'public',
                 displayName: 'alice',

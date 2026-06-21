@@ -9,6 +9,7 @@ import type {
   CursorResponse,
   UserCommentResponse
 } from '@/api/comment';
+import { resolveCommentAuthorView } from '@/api/comment';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import { BinaryReader, readByte, readCountChecked, readFixedTextNullable, readFixedUtf8, readInt32, readInt64Number, readNullableId64, readIsoDate64, readBlobText, readSliceRef, readSliceText } from './reader';
 import { readCursorEnvelope } from './envelopeReaders';
@@ -208,7 +209,13 @@ export function mapUserCommentCursorFromPodPayload(payload: Uint8Array): CursorR
         content: readBlobText(pod, blob, 20),
         articleTitle: readFixedUtf8(pod, 28, 256),
         rootId: readNullableId64(pod, 284),
-        replyToUserName: readFixedTextNullable(pod, 292, 64),
+        author: resolveCommentAuthorView({ author: { mode: 'public', displayName: '未署名用户', displayLanguage: 'zh-CN', badge: null, scopeLabel: null, credentialLevel: null } }),
+        replyToAuthor: (() => {
+          const displayName = readFixedTextNullable(pod, 292, 64);
+          return displayName
+            ? resolveCommentAuthorView({ author: { mode: 'public', displayName, displayLanguage: 'zh-CN', badge: null, scopeLabel: null, credentialLevel: null } })
+            : null;
+        })(),
         moderationStatus: readInt32(pod, 356),
         isPubliclyVisible: readByte(pod, 360) === 1,
         visibilityState: readFixedUtf8(pod, 364, 32),

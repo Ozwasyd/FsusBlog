@@ -31,10 +31,24 @@ export interface CommentAddedPayload {
     id: string
     content: string
     createTime: string
-    userName: string
+    author: {
+      mode: 'anonymous' | 'public' | 'zk_anonymous'
+      displayName: string
+      displayLanguage: 'zh-CN' | 'en'
+      badge?: string | null
+      scopeLabel?: string | null
+      credentialLevel?: string | null
+    }
     parentId?: string | null
     rootId?: string | null
-    replyToUserId?: number | null
+    replyToAuthor?: {
+      mode: 'anonymous' | 'public' | 'zk_anonymous'
+      displayName: string
+      displayLanguage: 'zh-CN' | 'en'
+      badge?: string | null
+      scopeLabel?: string | null
+      credentialLevel?: string | null
+    } | null
     replyToCommentId?: string | null
     depth?: number
     isDeleted?: boolean

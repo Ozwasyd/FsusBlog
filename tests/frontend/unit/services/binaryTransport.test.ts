@@ -775,7 +775,6 @@ describe('binaryTransport ApiError mapping', () => {
           badge: string;
           scopeLabel: string;
         };
-        userName: string;
         rootId: string;
         isDeleted: boolean;
         replyCount: number;
@@ -791,9 +790,7 @@ describe('binaryTransport ApiError mapping', () => {
             badge: string;
             scopeLabel: string;
           };
-          userName: string;
-          replyToUserName: string | null;
-          replyToAuthor: {
+            replyToAuthor: {
             mode: string;
             displayName: string;
             displayLanguage: string;
@@ -822,7 +819,6 @@ describe('binaryTransport ApiError mapping', () => {
             scopeLabel: null,
             credentialLevel: null
           },
-          userName: 'alice',
           rootId: '101',
           isDeleted: false,
           replyCount: 3,
@@ -840,8 +836,6 @@ describe('binaryTransport ApiError mapping', () => {
             scopeLabel: null,
             credentialLevel: null
               },
-              userName: 'bob',
-              replyToUserName: 'alice',
               replyToAuthor: {
                 mode: 'public',
                 displayName: 'alice',

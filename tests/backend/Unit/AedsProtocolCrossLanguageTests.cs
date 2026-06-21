@@ -295,7 +295,6 @@ public sealed partial class AedsProtocolCrossLanguageTests
                     "101",
                     "root comment",
                     new DateTime(2026, 5, 12, 0, 0, 0, DateTimeKind.Utc),
-                    "alice",
                     new CommentAuthorViewDto("public", "alice", "zh-CN", null, null, null),
                     "101",
                     false,
@@ -306,9 +305,7 @@ public sealed partial class AedsProtocolCrossLanguageTests
                             "202",
                             "preview reply",
                             new DateTime(2026, 5, 12, 1, 2, 3, DateTimeKind.Utc),
-                            "bob",
                             new CommentAuthorViewDto("public", "bob", "zh-CN", null, null, null),
-                            "alice",
                             new CommentAuthorViewDto("public", "alice", "zh-CN", null, null, null),
                             false)
                     ])

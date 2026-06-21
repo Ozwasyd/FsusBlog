@@ -1,5 +1,6 @@
 import type { PublicArticleDetailNavigationTarget } from '@/public-renderers/publicNavigationTargets'
 import { createPublicArticleDetailNavigationTarget } from '@/public-renderers/publicNavigationTargets'
+import type { CommentAuthorView } from '@/api/comment'
 import { TimeUtils } from '@/utils/time'
 
 export interface CommentTimeContract {
@@ -31,7 +32,7 @@ export interface CommentThreadItemContract {
   readonly id: string
   readonly content: string
   readonly time: CommentTimeContract
-  readonly userName?: string
+  readonly author: CommentAuthorView
   readonly canDelete: boolean
   readonly article?: CommentArticleLinkContract
   readonly moderation?: UserCommentModerationContract
@@ -75,12 +76,12 @@ export function createArticleCommentViewContract(comment: {
   id: string
   content: string
   createTime: string
-  userName: string
+  author: CommentAuthorView
 }, canDelete: boolean): CommentThreadItemContract {
   return {
     id: String(comment.id),
     content: comment.content,
-    userName: comment.userName,
+    author: comment.author,
     canDelete,
     time: {
       isoTime: comment.createTime,
@@ -96,6 +97,7 @@ export function createUserCommentViewContract(comment: {
   createTime: string
   articleId: number
   articleTitle: string
+  author: CommentAuthorView
   moderationStatus: number
   moderationStatusLabel: string
   visibilityState: string
@@ -106,6 +108,7 @@ export function createUserCommentViewContract(comment: {
   return {
     id: String(comment.id),
     content: comment.content,
+    author: comment.author,
     canDelete: true,
     time: {
       isoTime: comment.createTime,

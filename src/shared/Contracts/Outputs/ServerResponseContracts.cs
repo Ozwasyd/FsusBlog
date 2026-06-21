@@ -170,7 +170,8 @@ public record struct UserCommentResponse
     public int ArticleId { get; init; }
     public string ArticleTitle { get; init; }
     public long? RootId { get; init; }
-    public string? ReplyToUserName { get; init; }
+    public CommentAuthorViewDto Author { get; init; }
+    public CommentAuthorViewDto? ReplyToAuthor { get; init; }
     public int ModerationStatus { get; init; }
     public string ModerationStatusLabel { get; init; }
     public string VisibilityState { get; init; }
@@ -377,10 +378,7 @@ public readonly record struct CommentReplyItemDto(
     string Id,
     string Content,
     DateTime CreateTime,
-    string UserName,
     CommentAuthorViewDto Author,
-    int? ReplyToUserId,
-    string? ReplyToUserName,
     CommentAuthorViewDto? ReplyToAuthor,
     string? ParentId,
     string RootId,
@@ -392,9 +390,7 @@ public readonly record struct CommentReplyPreviewItemDto(
     string Id,
     string Content,
     DateTime CreateTime,
-    string UserName,
     CommentAuthorViewDto Author,
-    string? ReplyToUserName,
     CommentAuthorViewDto? ReplyToAuthor,
     bool IsDeleted);
 
@@ -402,7 +398,6 @@ public readonly record struct CommentThreadItemDto(
     string Id,
     string Content,
     DateTime CreateTime,
-    string UserName,
     CommentAuthorViewDto Author,
     string RootId,
     bool IsDeleted,
@@ -539,13 +534,13 @@ public readonly record struct CommentPushDto
 
     public DateTime CreateTime { get; init; }
 
-    public string UserName { get; init; }
+    public CommentAuthorViewDto Author { get; init; }
 
     public string? ParentId { get; init; }
 
     public string? RootId { get; init; }
 
-    public int? ReplyToUserId { get; init; }
+    public CommentAuthorViewDto? ReplyToAuthor { get; init; }
 
     public string? ReplyToCommentId { get; init; }
 

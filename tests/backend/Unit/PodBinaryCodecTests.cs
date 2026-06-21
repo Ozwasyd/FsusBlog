@@ -2039,6 +2039,7 @@ public class PodBinaryCodecCommentTests
             99,
             title,
             null,
+            new CommentAuthorViewDto("public", "未署名用户", "zh-CN", null, null, null),
             null,
             moderationStatus,
             moderationStatusLabel,

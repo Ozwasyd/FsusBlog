@@ -959,7 +959,7 @@ public static partial class PodBinaryCodec
                 item.Content,
                 item.ArticleTitle,
                 item.RootId,
-                item.ReplyToUserName,
+                item.ReplyToAuthor?.DisplayName,
                 item.ModerationStatus,
                 item.ModerationStatusLabel,
                 item.VisibilityState,
@@ -994,10 +994,20 @@ public static partial class PodBinaryCodec
             string content = PodProjector.ReadSlice(pod.Content, payloadSpan);
             string articleTitle = PodUtf8Codec.FromFixed256(pod.ArticleTitle);
             DateTime createTime = PodTimeCodec.FromUnixMs(pod.CreateTimeUnixMs);
-            string? replyToUserName = NormalizeNullableFixed(PodUtf8Codec.FromFixed64(pod.ReplyToUserName));
             string visibilityState = PodUtf8Codec.FromFixed32(pod.VisibilityState);
             string visibilityReasonCode = PodUtf8Codec.FromFixed64(pod.VisibilityReasonCode);
             string moderationStatusLabel = PodUtf8Codec.FromFixed64(pod.ModerationStatusLabel);
+            var author = new FsusBlog.Shared.Contracts.Outputs.CommentAuthorViewDto(
+                "public",
+                "未署名用户",
+                "zh-CN",
+                null,
+                null,
+                null);
+            string? replyToDisplayName = NormalizeNullableFixed(PodUtf8Codec.FromFixed64(pod.ReplyToUserName));
+            FsusBlog.Shared.Contracts.Outputs.CommentAuthorViewDto? replyToAuthor = replyToDisplayName is null
+                ? null
+                : new FsusBlog.Shared.Contracts.Outputs.CommentAuthorViewDto("public", replyToDisplayName, "zh-CN", null, null, null);
             data.Add(new UserCommentCoreModel(
                 pod,
                 pod.Id,
@@ -1006,7 +1016,8 @@ public static partial class PodBinaryCodec
                 pod.ArticleId,
                 articleTitle,
                 pod.RootId == 0 ? null : pod.RootId,
-                replyToUserName,
+                author,
+                replyToAuthor,
                 pod.ModerationStatus,
                 moderationStatusLabel,
                 visibilityState,
@@ -1038,7 +1049,7 @@ public static partial class PodBinaryCodec
                 ParseLong(item.RootId),
                 item.IsDeleted,
                 item.CreateTime,
-                item.UserName,
+                item.Author.DisplayName,
                 item.Content,
                 item.ReplyCount,
                 item.HasMoreReplies,
@@ -1052,8 +1063,8 @@ public static partial class PodBinaryCodec
                     ParseLong(reply.Id),
                     reply.IsDeleted,
                     reply.CreateTime,
-                    reply.UserName,
-                    reply.ReplyToUserName,
+                    reply.Author.DisplayName,
+                    reply.ReplyToAuthor?.DisplayName,
                     reply.Content,
                 out ReadOnlyMemory<byte> replyPayload));
                 writer.WriteBytes(BuildCommentItemPayload(replyPayload, reply.Author, reply.ReplyToAuthor).Span);
@@ -1078,13 +1089,13 @@ public static partial class PodBinaryCodec
                 ParseLong(reply.Id),
                 ParseNullableLong(reply.ParentId),
                 ParseLong(reply.RootId),
-                reply.ReplyToUserId,
+                null,
                 ParseNullableLong(reply.ReplyToCommentId),
                 reply.Depth,
                 reply.IsDeleted,
                 reply.CreateTime,
-                reply.UserName,
-                reply.ReplyToUserName,
+                reply.Author.DisplayName,
+                reply.ReplyToAuthor?.DisplayName,
                 reply.Content,
                 out ReadOnlyMemory<byte> payload));
             writer.WriteBytes(BuildCommentItemPayload(payload, reply.Author, reply.ReplyToAuthor).Span);

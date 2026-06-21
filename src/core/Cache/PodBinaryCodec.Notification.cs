@@ -424,13 +424,13 @@ public static partial class PodBinaryCodec
             int count = 6
                 + (payload.ParentId is null ? 0 : 1)
                 + (payload.RootId is null ? 0 : 1)
-                + (payload.ReplyToUserId.HasValue ? 1 : 0)
+                + (payload.ReplyToAuthor.HasValue ? 1 : 0)
                 + (payload.ReplyToCommentId is null ? 0 : 1);
             WriteObjectHeader(count);
             WriteField("id", payload.Id);
             WriteField("content", payload.Content);
             WriteField("createTime", payload.CreateTime);
-            WriteField("userName", payload.UserName);
+            WriteField("author", payload.Author);
             if (payload.ParentId is not null)
             {
                 WriteField("parentId", payload.ParentId);
@@ -439,9 +439,9 @@ public static partial class PodBinaryCodec
             {
                 WriteField("rootId", payload.RootId);
             }
-            if (payload.ReplyToUserId.HasValue)
+            if (payload.ReplyToAuthor.HasValue)
             {
-                WriteField("replyToUserId", payload.ReplyToUserId.Value);
+                WriteField("replyToAuthor", payload.ReplyToAuthor.Value);
             }
             if (payload.ReplyToCommentId is not null)
             {
@@ -449,6 +449,30 @@ public static partial class PodBinaryCodec
             }
             WriteField("depth", payload.Depth);
             WriteField("isDeleted", payload.IsDeleted);
+        }
+
+        private void WriteCommentAuthorView(CommentAuthorViewDto author)
+        {
+            int count = 3
+                + (author.Badge is null ? 0 : 1)
+                + (author.ScopeLabel is null ? 0 : 1)
+                + (author.CredentialLevel is null ? 0 : 1);
+            WriteObjectHeader(count);
+            WriteField("mode", author.Mode);
+            WriteField("displayName", author.DisplayName);
+            WriteField("displayLanguage", author.DisplayLanguage);
+            if (author.Badge is not null)
+            {
+                WriteField("badge", author.Badge);
+            }
+            if (author.ScopeLabel is not null)
+            {
+                WriteField("scopeLabel", author.ScopeLabel);
+            }
+            if (author.CredentialLevel is not null)
+            {
+                WriteField("credentialLevel", author.CredentialLevel);
+            }
         }
 
         private void WriteConversationListItem(ConversationListItemResponse payload)

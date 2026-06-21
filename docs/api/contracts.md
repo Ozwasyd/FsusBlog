@@ -653,21 +653,16 @@ Submit 同样受 `read_proof` 专用限流保护。`counted=true` 会写入 `Rea
 
 ```json
 {
-  "id": 1,
-  "articleId": 10,
-  "authorId": 5,
-  "authorName": "alice",
-  "authorAvatarUrl": "/uploads/avatars/5.jpg",
+  "id": "101",
   "content": "评论内容",
-  "replyCount": 3,
-  "createdAt": "2026-01-01T00:00:00Z",
-  "isDeleted": false
+  "createTime": "2026-01-01T00:00:00Z",
+  "author": { "mode": "public", "displayName": "alice" }
 }
 ```
 
 ### `CommentAuthorViewDto`（评论作者展示）
 
-`CommentAuthorViewDto` 是公开评论列表、回复列表和实时推送的必备当前契约。`userName` 只保留为排序、通知和旧字段展示辅助，不允许客户端在缺少 `author` 时用 `userName` 构造显示作者。
+`CommentAuthorViewDto` 是公开评论列表、回复列表和实时推送的必备当前契约。公开读取 DTO 只暴露 `author` 与可空 `replyToAuthor` 快照，不返回旧账号 ID、旧用户名、被回复账号 ID 或被回复旧用户名。
 
 ```json
 {
@@ -687,10 +682,7 @@ Submit 同样受 `read_proof` 专用限流保护。`counted=true` 会写入 `Rea
   "id": "202",
   "content": "回复内容",
   "createTime": "2026-01-01T00:00:00Z",
-  "userName": "bob",
   "author": { /* CommentAuthorViewDto */ },
-  "replyToUserId": 5,
-  "replyToUserName": "alice",
   "replyToAuthor": { /* CommentAuthorViewDto */ },
   "parentId": "101",
   "rootId": "101",
@@ -707,7 +699,6 @@ Submit 同样受 `read_proof` 专用限流保护。`counted=true` 会写入 `Rea
   "id": "101",
   "content": "评论内容",
   "createTime": "2026-01-01T00:00:00Z",
-  "userName": "alice",
   "author": { /* CommentAuthorViewDto */ },
   "rootId": "101",
   "isDeleted": false,
@@ -719,7 +710,7 @@ Submit 同样受 `read_proof` 专用限流保护。`counted=true` 会写入 `Rea
 }
 ```
 
-`CommentArticleCursor` 与 `CommentThreadReplyCursor` 的二进制 item payload 保持原 content slice 起始语义，随后追加两个 `int32 length + CommentAuthorView payload` 段：第一个为必备 `author`，第二个为可空 `replyToAuthor`。缺少必备 author、`replyToUserName` 与 `replyToAuthor` 不一致，或 payload 尾部残留数据都必须被前端 adapter 视为 `ProtocolFailure`。
+`CommentArticleCursor` 与 `CommentThreadReplyCursor` 的二进制 item payload 保持原 content slice 起始语义，随后追加两个 `int32 length + CommentAuthorView payload` 段：第一个为必备 `author`，第二个为可空 `replyToAuthor`。缺少必备 author 或 payload 尾部残留数据都必须被前端 adapter 视为 `ProtocolFailure`。POD 内部兼容槽位不得重新映射为公开 DTO 字段。
 
 公开评论读取会按 viewer IP 解析出的地区过滤 `comment_region_compliance.blocked_regions`，并把 viewer region 纳入 `CommentCursorFrame` cache identity。`CN-MAINLAND` 严格策略只对 `CN-MAINLAND` viewer 隐藏，不会自动套用到 `CN-HK`、`CN-MO`、`CN-TW`；viewer region 解析为 `UNKNOWN` 时，任意非空 `blocked_regions` 都会被保守隐藏。评论提交同样按 request IP 解析 submit region：submit region 为 `CN-MAINLAND` 且命中大陆严格类别时直接返回 validation error；其他地区可发布但会记录对应 blocked regions；submit region 为 `UNKNOWN` 时评论进入 `Pending`，同时标记 `hide_until_reviewed=true`。
 
@@ -1577,7 +1568,7 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 `CommentModerationItemResponse.id` 使用字符串承载 Snowflake ID，避免前端整数精度损失；响应同时包含文章、内容、状态、审核原因、审核人、审核时间、`hitReasons`、`submitRegion`、`submitRegionConfidence`、`blockedRegions`、`regionPolicyVersion`、`regionDecisionReason`、`regionCanPublish`、`regionRequiresManualReview`、`regionHideUntilReviewed`。审核队列展示名只读取 `authorDisplayName`，旧 `userName` 字段为兼容保留槽位且服务端固定返回 `null`。匿名作者投影字段包括 `authorMode`、`anonymousDisplayLanguage`、`moderationSubjectHash`、`anonymousNullifierHash`、`anonymousScope`、`credentialLevel`、`reputationBucket` 和 `accountAgeBucket`；这些字段用于审核解释、nullifier 封禁和本地队列过滤，不暴露 account id、username、credential commitment 或 nullifier 原文。作者展示名统一由评论行快照投影生成：public 使用 `public_handle` 后接 `未署名用户` 兜底，anonymous/zk anonymous 使用 `anonymous_display_name` 后接匿名兜底；审核读取、审核通过实时推送和回复站内通知均不得 join `sys_user` 或回退 `sys_user.username` / 账号 `public_handle`。启用可选反垃圾模型后，响应追加最新 `modelSignals` 及摘要字段 `modelLabel/modelConfidence/modelPrimaryReason/modelProvider/modelUnavailable`；这些字段只表示风险信号，不包含或代表最终审核动作。`hitReasons` 来自内容过滤器、HTML 风险、密集链接、重复刷屏、人工原因、地区风险标签和 `model:{category}`，用于解释敏感词/垃圾评论/地区策略/模型命中；管理端可按命中原因、blocked region、模型标签、provider 和匿名作者投影做本地队列过滤。审核读取和写入受 `fixed_ip` 限流，并显式要求 `comment.moderate`；该权限只覆盖普通评论审核，不覆盖匿名评论策略、nullifier 封禁或匿名凭证撤销。单条与批量审核需要先完成 `/api/binary/auth/admin/step-up/passkey/begin` / `/api/binary/auth/admin/step-up/passkey/complete`，再把返回的 action=`admin-sensitive` 一次性 proof 放入 `X-Fsus-Mfa-Proof`。proof 缺失、过期、跨 session 或已被消费时返回 `428` + `MFA_PROOF_REQUIRED`；普通用户 MFA proof 不能用于 admin-sensitive 操作。
 
-单条与批量审核都会写入 `comment-moderation` / `comment-moderation-bulk` 审计，服务层用旧 `ModerationStatus` 做 CAS 条件更新并限制状态机转换。`Pending/Rejected/Hidden -> Approved` 会通过 notification stream 推送 `CommentAdded`，但推送内 `CommentPushDto.UserName` 只能填充同一个安全 `authorDisplayName` 投影，不能读取账号表；合规记录 `can_publish=false` 的发布地违法评论不能被批准。审核通过的回复站内通知同样用当前评论和父评论的快照投影拼接正文，父评论缺少快照时回退为“您”，不得通过 `reply_to_user_id` 查账号名。`Approved -> Rejected/Hidden` 和删除会推送 `CommentRemoved`。评论游标缓存按 article/root/user scope 清理，公开读取的 frame identity 额外包含 viewer region，不再全局清 `CacheTag.Comment`；当 `status=Rejected|Hidden` 且 `banUser(s)=true` 时，服务端会把非 admin、非注销用户更新为封禁状态并同步黑名单缓存。误判恢复使用 `status=Approved`，不会触发封禁联动。
+单条与批量审核都会写入 `comment-moderation` / `comment-moderation-bulk` 审计，服务层用旧 `ModerationStatus` 做 CAS 条件更新并限制状态机转换。`Pending/Rejected/Hidden -> Approved` 会通过 notification stream 推送 `CommentAdded`，但推送内容只能携带同一个安全 `authorDisplayName` 投影，不能读取账号表；合规记录 `can_publish=false` 的发布地违法评论不能被批准。审核通过的回复站内通知同样用当前评论和父评论的快照投影拼接正文，父评论缺少快照时回退为“您”，不得通过 `reply_to_user_id` 查账号名。`Approved -> Rejected/Hidden` 和删除会推送 `CommentRemoved`。评论游标缓存按 article/root/user scope 清理，公开读取的 frame identity 额外包含 viewer region，不再全局清 `CacheTag.Comment`；当 `status=Rejected|Hidden` 且 `banUser(s)=true` 时，服务端会把非 admin、非注销用户更新为封禁状态并同步黑名单缓存。误判恢复使用 `status=Approved`，不会触发封禁联动。
 
 第三方审核模型 Provider 契约由 FsusBlog 定义，Provider 只返回风险类别、置信度、严重度、证据策略和模型元数据，不得返回 `reject_submit`、`geo_block`、`blocked_regions`、发布、隐藏或地区合法性字段。`comment_moderation_signal` 存储 `provider/model/contract_version/label/severity/confidence/primary_reason/needs_second_round/risk_categories/evidence_json/raw_reason/latency_ms/status/error_code/threshold_profile/created_at_utc`；`metadata_json` 保留匿名安全元数据，包括 `author_mode`、`anonymous_display_language`、`moderation_subject_hash`、`anonymous_nullifier_hash`、`anonymous_scope`、`credential_level`、`reputation_bucket`、`account_age_bucket`、`anonymous_comments_enabled` 和 `zk_anonymous_enabled`。外部 provider 不接收真实账号 identity；匿名评论的 `user_id` 可为空，审核 context 仍携带内容、地区、策略和 actor projection。`status=ok|timeout|unavailable|contract_invalid|error` 均 fail-open，不阻断评论进入 Pending。模型 runtime reload 会校验 provider/schema/checksum；失败时保留旧模型快照，rollback 只恢复上一份成功模型快照。模型 runtime 禁用只停止模型风险信号，不禁用硬词库、地区策略或人工审核。HTTP/CLI JSON schema、错误响应和 conformance 工具见 [../moderation/third-party-model-development.md](../moderation/third-party-model-development.md)，运行时配置见 [../moderation.md](../moderation.md)。
 

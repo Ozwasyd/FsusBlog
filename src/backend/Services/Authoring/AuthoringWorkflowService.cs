@@ -16,6 +16,7 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Telemetry;
+using FsusBlog.Shared.Contracts.Outputs;
 using SqlSugar;
 using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
 
@@ -1014,6 +1015,8 @@ public sealed class AuthoringWorkflowService(
                 PublicHandle = c.PublicHandle,
                 AnonymousDisplayName = c.AnonymousDisplayName,
                 AnonymousDisplayLanguage = c.AnonymousDisplayLanguage,
+                AnonymousScope = c.AnonymousScope,
+                CredentialLevel = c.CredentialLevel,
                 Content = c.Content,
                 CreateTime = c.CreateTime,
                 ParentId = c.ParentId,
@@ -1129,10 +1132,22 @@ public sealed class AuthoringWorkflowService(
                     Id = row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     Content = row.Content,
                     CreateTime = row.CreateTime,
-                    UserName = row.AuthorDisplayName,
+                    Author = BuildCommentAuthorView(
+                        row.AuthorMode,
+                        row.AuthorDisplayName,
+                        row.AnonymousDisplayLanguage,
+                        null,
+                        null),
                     ParentId = row.ParentId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     RootId = (row.RootId ?? row.Id).ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    ReplyToUserId = row.ReplyToUserId,
+                    ReplyToAuthor = row.ReplyToCommentId.HasValue
+                        ? BuildCommentAuthorView(
+                            row.ReplyToAuthorMode,
+                            row.ReplyToAuthorDisplayName,
+                            row.ReplyToAnonymousDisplayLanguage,
+                            null,
+                            null)
+                        : null,
                     ReplyToCommentId = row.ReplyToCommentId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     Depth = Math.Min(2, Math.Max(0, row.Depth)),
                     IsDeleted = false
@@ -1146,6 +1161,29 @@ public sealed class AuthoringWorkflowService(
         {
             await messageRealtimePublisher.PushCommentRemoveAsync(row.ArticleId, row.Id, row.RootId ?? row.Id, row.ParentId);
         }
+    }
+
+    private static CommentAuthorViewDto BuildCommentAuthorView(
+        string? mode,
+        string? displayName,
+        string? displayLanguage,
+        string? scopeLabel,
+        string? credentialLevel)
+    {
+        string normalizedMode = string.IsNullOrWhiteSpace(mode) ? CommentAuthorModes.Anonymous : mode.Trim();
+        bool isPublic = string.Equals(normalizedMode, CommentAuthorModes.Public, StringComparison.OrdinalIgnoreCase);
+        string resolvedLanguage = string.Equals(displayLanguage, "en", StringComparison.OrdinalIgnoreCase) ? "en" : "zh-CN";
+        string fallbackName = isPublic
+            ? "未署名用户"
+            : (resolvedLanguage == "en" ? "Anonymous User" : "匿名用户");
+
+        return new CommentAuthorViewDto(
+            normalizedMode,
+            string.IsNullOrWhiteSpace(displayName) ? fallbackName : displayName.Trim(),
+            resolvedLanguage,
+            null,
+            string.IsNullOrWhiteSpace(scopeLabel) ? null : scopeLabel.Trim(),
+            string.IsNullOrWhiteSpace(credentialLevel) ? null : credentialLevel.Trim());
     }
 
     private async Task NotifyApprovedReplyAsync(CommentModerationStateRow row)
@@ -1688,6 +1726,8 @@ public sealed class AuthoringWorkflowService(
         public string? PublicHandle { get; set; }
         public string? AnonymousDisplayName { get; set; }
         public string? AnonymousDisplayLanguage { get; set; }
+        public string? AnonymousScope { get; set; }
+        public string? CredentialLevel { get; set; }
         public string Content { get; init; } = string.Empty;
         public DateTime CreateTime { get; init; }
         public long? ParentId { get; init; }

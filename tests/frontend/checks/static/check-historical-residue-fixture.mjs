@@ -369,6 +369,30 @@ const accountSearchText = item.userName ?? ''
     }
   },
   {
+    name: 'legacy public comment read identity fields',
+    expected: 'legacy public comment read identity field residue detected',
+    files: {
+      'src/shared/Contracts/Outputs/ServerResponseContracts.cs': `
+namespace FsusBlog.Shared.Contracts.Outputs;
+public readonly record struct CommentReplyItemDto(
+    string Id,
+    string Content,
+    string UserName,
+    int? ReplyToUserId,
+    string? ReplyToUserName);
+`,
+      'src/frontend/src/view-contracts/commentDetail.ts': `
+export interface CommentThreadItemContract {
+  readonly userName?: string
+}
+`,
+      'docs/api/contracts.md': `
+## 评论契约
+{ "authorId": 5, "userName": "alice", "replyToUserId": 5, "replyToUserName": "alice" }
+`
+    }
+  },
+  {
     name: 'legacy comment moderation user attribution',
     expected: 'legacy comment moderation user attribution residue detected',
     files: {

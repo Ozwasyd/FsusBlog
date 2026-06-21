@@ -9,7 +9,7 @@ type CategoryViewModel = ArticleListItemResponse['category'];
 
 type CommentCore = Pick<
   CommentReplyItem,
-  'id' | 'parentId' | 'rootId' | 'replyToUserId' | 'replyToCommentId' | 'depth' | 'isDeleted' | 'createTime' | 'author' | 'userName' | 'replyToUserName' | 'replyToAuthor' | 'content'
+  'id' | 'parentId' | 'rootId' | 'replyToCommentId' | 'depth' | 'isDeleted' | 'createTime' | 'author' | 'replyToAuthor' | 'content'
 >;
 
 type EmbeddedAuthorRead = {
@@ -162,7 +162,6 @@ function nullableAuthorField(value: string): string | null {
 }
 
 function readCommentCore(pod: Uint8Array, blob: Uint8Array): CommentCore {
-  const userName = readFixedUtf8(pod, 52, 64);
   const replyToUserName = readFixedTextNullable(pod, 116, 64);
   const content = readStrictSliceText(blob, pod, 180, 'comment_content_slice_invalid');
   const author = readRequiredEmbeddedAuthorView(blob, content.nextOffset, 'comment_author_contract_missing');
@@ -173,14 +172,11 @@ function readCommentCore(pod: Uint8Array, blob: Uint8Array): CommentCore {
     id: String(readInt64Number(pod, 0)),
     parentId: readNullableId64(pod, 8),
     rootId: String(readInt64Number(pod, 16)),
-    replyToUserId: (pod[41] ?? 0) === 1 ? readInt32(pod, 24) : null,
     replyToCommentId: readNullableId64(pod, 28),
     depth: readInt32(pod, 36),
     isDeleted: (pod[40] ?? 0) === 1,
     createTime: readIsoDate64(pod, 44),
     author: author.author!,
-    userName,
-    replyToUserName,
     replyToAuthor: replyToAuthor.author,
     content: content.text
   };
@@ -193,7 +189,6 @@ export function readReplyItem(pod: Uint8Array, blob: Uint8Array): CommentReplyIt
 function readReplyPreviewItemFromReader(reader: BinaryReader): CommentReplyPreviewItem {
   const pod = reader.readSpan(COMMENT_REPLY_PREVIEW_ITEM_POD_SIZE);
   const blob = reader.readBlob();
-  const userName = readFixedUtf8(pod, 20, 64);
   const replyToUserName = readFixedTextNullable(pod, 84, 64);
   const content = readStrictSliceText(blob, pod, 148, 'comment_preview_content_slice_invalid');
   const author = readRequiredEmbeddedAuthorView(blob, content.nextOffset, 'comment_author_contract_missing');
@@ -205,8 +200,6 @@ function readReplyPreviewItemFromReader(reader: BinaryReader): CommentReplyPrevi
     isDeleted: (pod[8] ?? 0) === 1,
     createTime: readIsoDate64(pod, 12),
     author: author.author!,
-    userName,
-    replyToUserName,
     replyToAuthor: replyToAuthor.author,
     content: content.text
   };
@@ -217,7 +210,6 @@ export function readThreadItemFromReader(reader: BinaryReader): CommentThreadIte
   const blob = reader.readBlob();
   const previewReplyCount = pod[193] ?? 0;
   const repliesPreview: CommentReplyPreviewItem[] = [];
-  const userName = readFixedUtf8(pod, 52, 64);
   const content = readStrictSliceText(blob, pod, 180, 'comment_content_slice_invalid');
   const author = readRequiredEmbeddedAuthorView(blob, content.nextOffset, 'comment_author_contract_missing');
   const replyToAuthor = readOptionalEmbeddedAuthorView(blob, author.nextOffset, 'comment_reply_author_contract_missing');
@@ -232,7 +224,6 @@ export function readThreadItemFromReader(reader: BinaryReader): CommentThreadIte
     content: content.text,
     createTime: readIsoDate64(pod, 44),
     author: author.author!,
-    userName,
     rootId: String(readInt64Number(pod, 16)),
     isDeleted: (pod[40] ?? 0) === 1,
     replyCount: readInt32(pod, 188),

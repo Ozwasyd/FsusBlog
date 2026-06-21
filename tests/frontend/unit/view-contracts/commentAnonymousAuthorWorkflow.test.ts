@@ -8,6 +8,10 @@ const vueTemplate = (source: string): string => source.match(/<template>([\s\S]*
 
 describe('anonymous comment author workflow contract', () => {
   const api = readRepoFile('src/frontend/src/api/comment.ts')
+  const commentDetailContract = readRepoFile('src/frontend/src/view-contracts/commentDetail.ts')
+  const sharedContracts = readRepoFile('src/shared/Contracts/Outputs/ServerResponseContracts.cs')
+  const coreReadModels = readRepoFile('src/core/Mapping/Models/ReadModels.cs')
+  const apiContractsDoc = readRepoFile('docs/api/contracts.md')
   const composer = readRepoFile('src/frontend/src/components/article/ArticleCommentComposer.vue')
   const composerTemplate = vueTemplate(composer)
   const commentList = readRepoFile('src/frontend/src/components/article/ArticleCommentsVirtualList.vue')
@@ -36,6 +40,34 @@ describe('anonymous comment author workflow contract', () => {
     expect(commentList).toContain('reply.replyToAuthor?.displayName')
     expect(commentList).not.toContain('{{ thread.userName }}')
     expect(commentList).not.toContain('{{ reply.userName }}')
+  })
+
+  it('keeps public comment read contracts snapshot-only without legacy identity fields', () => {
+    for (const block of [
+      extractTsInterface(api, 'CommentReplyItem'),
+      extractTsInterface(api, 'CommentReplyPreviewItem'),
+      extractTsInterface(api, 'CommentThreadItem'),
+      extractTsInterface(api, 'UserCommentResponse'),
+      extractTsInterface(commentDetailContract, 'CommentThreadItemContract')
+    ]) {
+      expect(block).toContain('author')
+      expect(block).not.toMatch(/\b(?:authorId|userName|replyToUserId|replyToUserName)\b/)
+    }
+
+    for (const block of [
+      extractCSharpRecord(sharedContracts, 'UserCommentResponse'),
+      extractCSharpRecord(sharedContracts, 'CommentReplyItemDto'),
+      extractCSharpRecord(sharedContracts, 'CommentReplyPreviewItemDto'),
+      extractCSharpRecord(sharedContracts, 'CommentThreadItemDto'),
+      extractCSharpRecord(coreReadModels, 'UserCommentCoreModel')
+    ]) {
+      expect(block).toContain('Author')
+      expect(block).not.toMatch(/\b(?:AuthorId|UserName|ReplyToUserId|ReplyToUserName)\b/)
+    }
+
+    const commentDoc = extractMarkdownSection(apiContractsDoc, '## 评论契约', '## 分类与标签契约')
+    expect(commentDoc).toContain('replyToAuthor')
+    expect(commentDoc).not.toMatch(/\b(?:authorId|userName|replyToUserId|replyToUserName)\b/)
   })
 
   it('makes the composer anonymous by default with explicit public opt-in', () => {
@@ -84,3 +116,24 @@ describe('anonymous comment author workflow contract', () => {
     expect(composer).toContain('publicIdentityModel.value')
   })
 })
+
+function extractTsInterface(source: string, name: string): string {
+  const match = source.match(new RegExp(`export interface ${name} \\{[\\s\\S]*?\\n\\}`))
+  expect(match, `Missing TypeScript interface ${name}`).not.toBeNull()
+  return match![0]
+}
+
+function extractCSharpRecord(source: string, name: string): string {
+  const start = source.indexOf(name)
+  expect(start, `Missing C# record ${name}`).toBeGreaterThanOrEqual(0)
+  const nextRecord = source.indexOf('\npublic ', start + name.length)
+  return source.slice(start, nextRecord === -1 ? source.length : nextRecord)
+}
+
+function extractMarkdownSection(source: string, startMarker: string, endMarker: string): string {
+  const start = source.indexOf(startMarker)
+  expect(start, `Missing markdown start ${startMarker}`).toBeGreaterThanOrEqual(0)
+  const end = source.indexOf(endMarker, start + startMarker.length)
+  expect(end, `Missing markdown end ${endMarker}`).toBeGreaterThanOrEqual(0)
+  return source.slice(start, end)
+}
