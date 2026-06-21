@@ -114,16 +114,16 @@ VALUES (7001, 'Legacy message', 'legacy message body', 1, NULL, TIMESTAMP '2026-
 INSERT INTO sys_user(id, username, password, role, lastusernameupdatetime, refreshtoken, refreshtokenexpirytime, status, banreason, createtime, lastloginip, lastlogintime)
 VALUES (
     7,
-    'legacy-user',
-    'hash',
-    'guest',
+    'anon-fixture-user-0007',
+    'redacted-password-hash',
+    'fixture_role',
     NULL,
-    'plaintext-refresh-token',
-    TIMESTAMP '2026-06-01 00:00:00',
+    NULL,
+    NULL,
     0,
     NULL,
     TIMESTAMP '2026-05-17 09:00:00',
-    '127.0.0.1',
+    NULL,
     TIMESTAMP '2026-05-17 09:30:00'
 );
 
@@ -131,7 +131,7 @@ INSERT INTO sys_user_message(userid, messageid, isread, readtime)
 VALUES (7, 7001, true, TIMESTAMP '2026-05-17 10:30:00');
 
 INSERT INTO sys_visit_log(id, ip, userid, region, createtime)
-VALUES (3001, '127.0.0.1', 7, 'Local', TIMESTAMP '2026-05-17 11:00:00');
+VALUES (3001, 'anonymized-ip-v4-0007', 7, 'FixtureRegion', TIMESTAMP '2026-05-17 11:00:00');
 
 INSERT INTO sys_systemconfig(key, value)
 VALUES ('Page_About', '# Legacy about page'),

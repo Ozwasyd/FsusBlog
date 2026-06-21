@@ -116,3 +116,4 @@ On Windows, a manual override can use `$env:FSUSBLOG_REPO_ROOT = (Get-Location).
 - Shared fixtures belong in `Fixtures/`; do not inline them at the bottom of unrelated test files.
 - Shared helpers belong in `Helpers/`; do not hide them inside random test files.
 - Any new external-dependency test must be explicitly marked as `Integration`; do not let it silently join the fast gate.
+- Legacy SQL fixtures may preserve historical columns needed by migration tests, but inserted identity, token, and network samples must use anonymized placeholders instead of real usernames, refresh tokens, or IP literals.
