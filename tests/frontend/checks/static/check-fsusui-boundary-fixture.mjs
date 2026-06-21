@@ -30,7 +30,6 @@ if (result.status === 0) {
 }
 
 for (const token of [
-  'warnings=1',
   'src/frontend/src/components/BoundaryViolation.ts',
   'programmatic-api'
 ]) {

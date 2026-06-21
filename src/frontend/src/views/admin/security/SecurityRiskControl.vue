@@ -57,7 +57,7 @@
             <span class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ row.name }}</span>
             <el-tag>{{ formatSecurityMode(row.mode) }}</el-tag>
           </div>
-          <div v-if="subsystemRows.length === 0" class="p-8 text-center text-[12px] text-[var(--fsusblog-text-muted)]">暂无子系统配置</div>
+          <div v-if="subsystemRows.length === 0" class="p-8 text-center text-[12px] text-[var(--fsusblog-text-muted)]">暂无子系统策略配置</div>
         </div>
       </div>
     </section>

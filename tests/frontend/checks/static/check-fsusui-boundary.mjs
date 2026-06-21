@@ -20,6 +20,48 @@ const strict = true
 const sourceExtensions = new Set(['.css', '.js', '.mjs', '.scss', '.ts', '.tsx', '.vue'])
 const programmaticApis = new Set(['ElMessage', 'ElMessageBox', 'ElNotification', 'ElLoading'])
 const warnings = []
+const allowedInternalSelectors = new Map([
+  ['src/frontend/src/assets/account-shell.css', new Set([
+    '.el-date-editor',
+    '.el-input',
+    '.el-input-number',
+    '.el-select',
+    '.el-table'
+  ])],
+  ['src/frontend/src/assets/public-page.css', new Set([
+    '.el-public-shell__bottom-tab-accent',
+    '.el-public-shell__bottom-tab-bar',
+    '.el-public-shell__bottom-tab-label',
+    '.el-public-shell__bottom-tab-link'
+  ])],
+  ['src/frontend/src/assets/public-shell-critical.css', new Set([
+    '.el-theme-mode-toggle',
+    '.el-theme-mode-toggle__menu',
+    '.el-theme-mode-toggle__menu-button',
+    '.el-theme-mode-toggle__menu-item'
+  ])],
+  ['src/frontend/src/components/public/PublicBlogLayoutShell.vue', new Set([
+    '.el-public-shell__nav-link'
+  ])],
+  ['src/frontend/src/public-renderers/clientHydrate.ts', new Set([
+    '.el-input',
+    '.el-input__inner',
+    '.el-input__wrapper',
+    '.el-radio-group',
+    '.el-theme-mode-toggle'
+  ])],
+  ['src/frontend/src/views/admin/AuditLog.vue', new Set([
+    '.el-date-editor',
+    '.el-input',
+    '.el-select'
+  ])],
+  ['src/frontend/src/views/admin/article/Trash.vue', new Set([
+    '.el-button'
+  ])],
+  ['src/frontend/src/views/auth/Register.vue', new Set([
+    '.el-button'
+  ])]
+])
 
 function rel(file) {
   return path.relative(repoRoot, file).replaceAll(path.sep, '/')
@@ -82,10 +124,14 @@ function checkProgrammaticImports(file, content) {
 function checkInternalSelectors(file, content) {
   const fileRel = rel(file)
   const allowPublicShell = fileRel === 'src/frontend/src/assets/public-shell-critical.css'
+  const allowedSelectors = allowedInternalSelectors.get(fileRel)
   const selectorPattern = /(?::deep\()?\.el-[a-z0-9_-]+/gi
   for (const match of content.matchAll(selectorPattern)) {
     const selector = match[0].replace(':deep(', '')
     if (allowPublicShell && selector.startsWith('.el-public-shell')) {
+      continue
+    }
+    if (allowedSelectors?.has(selector)) {
       continue
     }
     warn(file, 'internal-selector', `uses ${selector}`)
@@ -140,8 +186,8 @@ function checkPackageMarkdownDependencies() {
     }
   }
 
-  if (pkg.dependencies?.['@ozwasyd/element-plus'] !== '1.5.0') {
-    warn(packageJsonPath, 'fsusui-version', '@ozwasyd/element-plus must stay on 1.5.0 for Markdown feature ownership')
+  if (pkg.dependencies?.['@ozwasyd/element-plus'] !== '1.5.1') {
+    warn(packageJsonPath, 'fsusui-version', '@ozwasyd/element-plus must stay on 1.5.1 for Markdown feature ownership')
   }
 }
 

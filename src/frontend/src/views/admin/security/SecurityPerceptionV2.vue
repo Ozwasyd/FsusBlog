@@ -45,7 +45,7 @@
               <div>{{ formatPercent(task.successRate) }} success / {{ task.averagePayloadBytes }} payloadBytes</div>
             </div>
           </div>
-          <div v-if="taskKindDistribution.length === 0" class="p-8 text-center text-[12px] text-[var(--fsusblog-text-muted)]">暂无 Perception V2 任务</div>
+          <div v-if="taskKindDistribution.length === 0" class="p-8 text-center text-[12px] text-[var(--fsusblog-text-muted)]">暂无 Perception V2 任务记录</div>
         </div>
       </div>
     </section>
@@ -60,9 +60,9 @@
             <div class="break-all text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ attempt.challengeId }}</div>
             <div class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">{{ attempt.action }} / {{ attempt.routeKey }}</div>
           </div>
-          <el-tag :type="attempt.outcome === 'verified' ? 'success' : 'warning'">{{ attempt.outcome }}</el-tag>
+          <el-tag :type="attempt.outcome === 'verified' ? 'success' : 'warning'">{{ formatOutcome(attempt.outcome) }}</el-tag>
         </div>
-        <div v-if="recentAttempts.length === 0" class="p-8 text-center text-[12px] text-[var(--fsusblog-text-muted)]">暂无 Perception V2 尝试</div>
+        <div v-if="recentAttempts.length === 0" class="p-8 text-center text-[12px] text-[var(--fsusblog-text-muted)]">暂无 Perception V2 尝试记录</div>
       </div>
     </section>
   </div>
@@ -92,6 +92,16 @@ const formatPercent = (value: number | null | undefined): string =>
   `${Math.round((value ?? 0) * 1000) / 10}%`
 
 const enabledLabel = (value: boolean | null | undefined): string => value ? 'enabled' : 'disabled'
+
+const formatOutcome = (value: string | null | undefined): string => {
+  const labels: Record<string, string> = {
+    verified: '已通过',
+    failed: '未通过',
+    replayed: '重放拦截',
+    expired: '已过期'
+  }
+  return value ? labels[value] ?? `结果代码：${value}` : '结果未知'
+}
 
 const policyRows = computed(() => [
   { label: 'V2 enabled', value: enabledLabel(options.value?.enabled), enabled: Boolean(options.value?.enabled) },

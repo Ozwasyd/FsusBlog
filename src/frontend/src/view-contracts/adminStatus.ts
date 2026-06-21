@@ -1,5 +1,3 @@
-import type { MetricPrimitiveTone } from '@ozwasyd/element-plus/es/components/metric-primitives/src/shared'
-
 export type AdminSystemStatus =
   | 'ok' | 'ready' | 'success' | 'applied'
   | 'stale' | 'degraded' | 'warning' | 'not_ready' | 'queued'
@@ -7,10 +5,7 @@ export type AdminSystemStatus =
   | 'denied' | 'empty' | 'issue' | 'issues'
   | 'info' | 'error' | 'critical'
 
-export type AdminStatusTone = Extract<
-  MetricPrimitiveTone,
-  'neutral' | 'info' | 'success' | 'warning' | 'danger'
->
+export type AdminStatusTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
 
 export const adminStatusTone: Readonly<Record<AdminSystemStatus, AdminStatusTone>> = {
   ok: 'success',

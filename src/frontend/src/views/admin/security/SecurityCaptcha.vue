@@ -40,9 +40,9 @@
               <div class="break-all text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ attempt.challengeId }}</div>
               <div class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">{{ attempt.action }} / {{ attempt.routeKey }}</div>
             </div>
-            <el-tag :type="attempt.outcome === 'verified' ? 'success' : 'warning'">{{ attempt.outcome }}</el-tag>
+            <el-tag :type="attempt.outcome === 'verified' ? 'success' : 'warning'">{{ formatOutcome(attempt.outcome) }}</el-tag>
           </div>
-          <div v-if="attempts.length === 0" class="p-8 text-center text-[12px] text-[var(--fsusblog-text-muted)]">暂无 Captcha 尝试</div>
+          <div v-if="attempts.length === 0" class="p-8 text-center text-[12px] text-[var(--fsusblog-text-muted)]">暂无 Captcha 尝试记录</div>
         </div>
       </div>
     </section>
@@ -64,6 +64,16 @@ const attempts = computed(() => metricsState.value?.recentAttempts ?? [])
 
 const formatPercent = (value: number | null | undefined): string =>
   `${Math.round((value ?? 0) * 1000) / 10}%`
+
+const formatOutcome = (value: string | null | undefined): string => {
+  const labels: Record<string, string> = {
+    verified: '已通过',
+    failed: '未通过',
+    replayed: '重放拦截',
+    expired: '已过期'
+  }
+  return value ? labels[value] ?? `结果代码：${value}` : '结果未知'
+}
 
 const metrics = computed(() => [
   { label: '签发', value: metricsState.value?.totalIssued ?? '-' },
