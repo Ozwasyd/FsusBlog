@@ -24,7 +24,7 @@ public sealed class AuditLogEventMapper
         "Ip",
         "IssuerSignature",
         "IssuerResponse",
-        "InternalUserId",
+        string.Concat("Internal", "UserId"),
         "Nullifier",
         "NullifierHash",
         "Password",

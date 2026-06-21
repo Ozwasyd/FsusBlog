@@ -532,7 +532,7 @@ async function assertRoleUserForbiddenMatrix(userSession, adminSession, articleI
     ['role=user admin user status attack probe', '/api/admin/users/status', {
       method: 'PUT',
       requiresPow: true,
-      body: { userId: 1, status: 1, reason: marker }
+      body: { accountId: 1, status: 1, reason: marker }
     }],
     ['role=user admin messages list attack probe', '/api/binary/admin/messages/conversations?page=1&size=10', {
       method: 'GET'

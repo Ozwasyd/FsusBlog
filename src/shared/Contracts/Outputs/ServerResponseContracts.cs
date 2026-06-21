@@ -677,7 +677,6 @@ public readonly record struct UserSessionSummaryDto(
 public readonly record struct AdminSessionSummaryDto(
     string SessionId,
     string? DeviceFingerprint,
-    string? LastIp,
     string? UserAgent,
     DateTime CreatedAtUtc,
     DateTime? LastSeenAtUtc,

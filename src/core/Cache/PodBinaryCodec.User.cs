@@ -253,7 +253,6 @@ public static partial class PodBinaryCodec
                 Reserved = 0,
                 SessionId = PodUtf8Codec.ToFixed64(session.SessionId),
                 DeviceFingerprint = PodUtf8Codec.ToFixed128(session.DeviceFingerprint ?? string.Empty),
-                LastIp = PodUtf8Codec.ToFixed64(session.LastIp ?? string.Empty),
                 UserAgent = PodUtf8Codec.ToFixed128(session.UserAgent ?? string.Empty)
             };
             writer.WritePod(CastUserPod<MutableAdminSessionSummaryPod, AdminSessionSummaryPod>(mutable));
@@ -287,7 +286,6 @@ public static partial class PodBinaryCodec
             items.Add(new AdminSessionSummaryDto(
                 PodUtf8Codec.FromFixed64(pod.SessionId),
                 NullIfEmpty(PodUtf8Codec.FromFixed128(pod.DeviceFingerprint)),
-                NullIfEmpty(PodUtf8Codec.FromFixed64(pod.LastIp)),
                 NullIfEmpty(PodUtf8Codec.FromFixed128(pod.UserAgent)),
                 PodTimeCodec.FromUnixMs(pod.CreatedAtUnixMs),
                 pod.HasLastSeenAt == 1 ? PodTimeCodec.FromUnixMs(pod.LastSeenAtUnixMs) : null,
@@ -898,7 +896,6 @@ public static partial class PodBinaryCodec
         public byte Reserved;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 SessionId;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 DeviceFingerprint;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 LastIp;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 UserAgent;
     }
 
@@ -1041,5 +1038,4 @@ public static partial class PodBinaryCodec
         public int Status;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Reason;
     }
-
 }

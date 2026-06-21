@@ -132,7 +132,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `PageContentUpdateRequest` payload: same layout as `PageContent`.
 - `CommentCreateV2Request` payload: `CommentCreateV2RequestPod` followed by shared blob payload for anonymous scope, display language, proof token, ZK proof bytes, and comment content. The legacy `replyToUserId` compatibility slot at POD offset 4 and its presence flag at offset 11 are reserved and MUST be encoded as `0/0`; reply targets are identified by `replyToCommentId`.
 - `FileDeleteRequest` payload: `StringMutationRequestPod` followed by blob payload for image URL.
-- `AdminChangeUserStatusRequest` payload: `AdminChangeUserStatusRequestPod` followed by blob payload for reason.
+- `AdminChangeUserStatusRequest` payload: `AdminChangeUserStatusRequestPod` with `accountId`, status, and blob payload for reason.
 - Retired legacy admin password reset slot (`40`) has no payload contract. Decoders, AEDS catalogs, OpenAPI, frontend frame mirrors, and production endpoints must not expose it.
 - `ArticleWriteRequest` payload: `ArticleWriteRequestPod`, `int32 tagIds[count]`, blob payload for title/content/summary/cover URL slices, then optional lifecycle tail `int32 status`, `int64 scheduledPublishAtUnixMs`. Missing lifecycle tail is decoded as `Published` with no schedule.
 - `ArticleAotBundleRequest` payload: reserved legacy `PublicAotBundlePod`, `PublicAotEntryPod[count]`, followed by blob payload for entry strings. No server route accepts this frame.
@@ -162,7 +162,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `CurrentUserSnapshot` payload: `CurrentUserSnapshotPod`；仅保留给 admin-only accountId 查询、迁移和 refresh-token 兼容路径，不再作为 `/api/binary/auth/me` 的用户侧输出，也不再支持 username lookup。字段语义为 `accountId`、`identityKind`、`status`、`banReason`、`deletedAt`，不再暴露 username/role。
 - `IdentityAccountSnapshot` payload: `IdentityAccountSnapshotPod` followed by blob payload for public handle、anonymous credential status/level、identity kind and ban reason. It is the `/api/binary/auth/me` output and must not expose internal username or role.
 - `AuthSessionList` payload: `int32 count` followed by `UserSessionSummaryPod[count]`.
-- `AdminSessionList` payload: `int32 count` followed by `AdminSessionSummaryPod[count]`.
+- `AdminSessionList` payload: `int32 count` followed by `AdminSessionSummaryPod[count]`; records expose admin session id, device fingerprint, user agent, timestamps and status flags, but not raw IP.
 - `MfaSetupStart` payload: `MfaSetupStartPod` followed by blob payload for secret/OTP auth URL/issuer/account.
 - `MfaSetupVerify` payload: `MfaSetupVerifyPod` followed by `MfaRecoveryCodePod[count]`.
 - `MfaProfile` payload: `MfaProfilePod`.

@@ -487,7 +487,6 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 {
   "sessionId": "admin-session-id",
   "deviceFingerprint": "sha256-or-client-fp",
-  "lastIp": "127.0.0.1",
   "userAgent": "Mozilla/5.0 ...",
   "createdAtUtc": "2026-01-01T00:00:00Z",
   "lastSeenAtUtc": "2026-01-01T01:00:00Z",
@@ -497,6 +496,8 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
   "isRevoked": false
 }
 ```
+
+管理员 session list 不返回 `lastIp` 或其他原始客户端 IP。`admin_session.last_ip` 仅可作为服务端风险判定、审计哈希或运维排障输入，不进入 AEDS `AdminSessionSummaryPod`、DTO 序列化或前端 hydration。
 
 ### `AdminPrincipalSnapshot`（管理员当前会话快照）
 

@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -342,6 +343,20 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
+    public void AdminResetUserPasswordRequest_IsRetiredFromPodCodec()
+    {
+        string userPods = BackendTestPaths.ReadAllTextFromRoot("src/shared/Contracts/Models/UserPods.cs");
+        string readModels = BackendTestPaths.ReadAllTextFromRoot("src/core/Mapping/Models/ReadModels.cs");
+        string codec = BackendTestPaths.ReadAllTextFromRoot("src/core/Cache/PodBinaryCodec.User.cs");
+
+        Assert.DoesNotContain("AdminResetUserPasswordRequestPod", userPods, StringComparison.Ordinal);
+        Assert.DoesNotContain("AdminResetUserPasswordRequestCoreModel", readModels, StringComparison.Ordinal);
+        Assert.DoesNotContain("AdminResetUserPasswordRequest", codec, StringComparison.Ordinal);
+        Assert.Null(typeof(PodBinaryCodec).GetMethod("EncodeAdminResetUserPasswordRequest"));
+        Assert.Null(typeof(PodBinaryCodec).GetMethod("TryDecodeAdminResetUserPasswordRequest"));
+    }
+
+    [Fact]
     public void AuthAnonymousBootstrapRequest_RoundTrip_DoesNotCarryPasswordOrUsername()
     {
         var request = new AuthAnonymousBootstrapRequestCoreModel("quiet-reader", AcceptedGuidelines: true);
@@ -530,6 +545,77 @@ public class PodBinaryCodecTests
         Assert.True(decoded[0].IsCurrent);
         Assert.True(decoded[0].MfaVerified);
         Assert.Null(decoded[1].LastSeenAt);
+    }
+
+    [Fact]
+    public void AdminSessions_RoundTrip_DoesNotCarryRawIp()
+    {
+        var createdAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+        var lastSeenAt = createdAt.AddMinutes(1);
+        AdminSessionSummaryDto[] sessions =
+        [
+            new(
+                SessionId: "admin-session-1",
+                DeviceFingerprint: "admin-fp-1",
+                UserAgent: "Firefox",
+                CreatedAtUtc: createdAt,
+                LastSeenAtUtc: lastSeenAt,
+                IdleExpiresAtUtc: createdAt.AddHours(1),
+                AbsoluteExpiresAtUtc: createdAt.AddHours(8),
+                IsCurrent: true,
+                IsRevoked: false)
+        ];
+
+        byte[] encoded = PodBinaryCodec.EncodeAdminSessions(sessions);
+        bool ok = PodBinaryCodec.TryDecodeAdminSessions(encoded, out var decoded);
+
+        Assert.True(ok);
+        Assert.Equal(sizeof(int) + Marshal.SizeOf<AdminSessionSummaryPod>(), encoded.Length);
+        Assert.Null(typeof(AdminSessionSummaryDto).GetProperty("LastIp"));
+        Assert.Null(typeof(AdminSessionSummaryPod).GetField("LastIp"));
+        Assert.Equal("admin-session-1", decoded[0].SessionId);
+        Assert.Equal("admin-fp-1", decoded[0].DeviceFingerprint);
+        Assert.Equal("Firefox", decoded[0].UserAgent);
+        Assert.Equal(createdAt, decoded[0].CreatedAtUtc);
+        Assert.Equal(lastSeenAt, decoded[0].LastSeenAtUtc);
+    }
+
+    [Fact]
+    public void SessionAndIdentityDtos_SerializeWithoutLegacyUserPodFields()
+    {
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = null };
+        var userSessionJson = JsonSerializer.Serialize(
+            new UserSessionSummaryDto("session-1", "fp-1", "Device", null, true, true),
+            options);
+        var adminSessionJson = JsonSerializer.Serialize(
+            new AdminSessionSummaryDto(
+                SessionId: "admin-session-1",
+                DeviceFingerprint: "admin-fp-1",
+                UserAgent: "Firefox",
+                CreatedAtUtc: DateTime.UnixEpoch,
+                LastSeenAtUtc: null,
+                IdleExpiresAtUtc: DateTime.UnixEpoch,
+                AbsoluteExpiresAtUtc: DateTime.UnixEpoch,
+                IsCurrent: true,
+                IsRevoked: false),
+            options);
+        var identityJson = JsonSerializer.Serialize(
+            new IdentityAccountSnapshotCoreModel(
+                AccountId: 42,
+                PublicHandle: "alice",
+                PasskeyEnabled: true,
+                RecoveryEnabled: true,
+                TotpStepUpEnabled: null,
+                AnonymousCredentialStatus: null,
+                AnonymousCredentialLevel: null),
+            options);
+
+        foreach (string json in new[] { userSessionJson, adminSessionJson, identityJson })
+        {
+            Assert.DoesNotContain("LastIp", json, StringComparison.Ordinal);
+            Assert.DoesNotContain("InternalUserId", json, StringComparison.Ordinal);
+            Assert.DoesNotContain("\"UserId\"", json, StringComparison.Ordinal);
+        }
     }
 
     [Fact]

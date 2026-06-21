@@ -95,7 +95,6 @@ public readonly struct AdminSessionSummaryPod
     public readonly byte Reserved;
     public readonly Utf8Fixed64 SessionId;
     public readonly Utf8Fixed128 DeviceFingerprint;
-    public readonly Utf8Fixed64 LastIp;
     public readonly Utf8Fixed128 UserAgent;
 }
 

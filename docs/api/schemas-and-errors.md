@@ -379,6 +379,8 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 | `AuthLoginFlowPod` | 168 |
 | `CurrentUserSnapshotPod` | 372 |
 | `IdentityAccountSnapshotPod` | 72 |
+| `UserSessionSummaryPod` | 332 |
+| `AdminSessionSummaryPod` | 356 |
 | `MfaChallengeResultPod` | 296 |
 
 ### 系统 POD

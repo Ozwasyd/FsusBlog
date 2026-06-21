@@ -596,7 +596,6 @@ public sealed class AdminPrincipalService(
         return sessions.Select(session => new AdminSessionSummaryDto(
             session.SessionId,
             session.DeviceFingerprint,
-            session.LastIp,
             session.UserAgent,
             session.CreatedAtUtc,
             session.LastSeenAtUtc,

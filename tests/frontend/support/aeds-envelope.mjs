@@ -433,7 +433,7 @@ export function encodeAdminChangeStatusRequest(data) {
   const reason = UTF8_ENCODER.encode(data.reason ?? '')
   const bytes = new Uint8Array(20 + reason.byteLength)
   const view = new DataView(bytes.buffer)
-  view.setInt32(0, data.userId ?? 0, true)
+  view.setInt32(0, data.accountId ?? 0, true)
   view.setInt32(4, data.status ?? 0, true)
   view.setInt32(8, 0, true)
   view.setInt32(12, reason.byteLength, true)
