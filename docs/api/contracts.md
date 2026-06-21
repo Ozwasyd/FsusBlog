@@ -232,7 +232,7 @@ Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD
 
 匿名身份模式下，`PasskeyRegisterBegin` 的 WebAuthn `user.id` 使用 `sys_user.passkey_user_handle` 中持久化的 32B 随机 Base64Url 账号句柄；同一账号多次注册与 Recovery Key 重绑必须复用该句柄，不得由数据库 id、username 或 public handle 推导。`user.name` 固定为 `fsus-anonymous-account`，不包含内部 id；`user.displayName` 仅在用户显式设置 `public_handle` 时使用公开 handle，否则使用通用 `Anonymous account`。注册与 discoverable login 仍复用同一套 `passkey_credential` 表、challenge cache、sign-count 和 last-used 更新路径，不新增平行 Passkey 栈；`passkey_credential` 的账号外键最终态是 `account_id` + `idx_passkey_account_id`，不得继续暴露或依赖旧 `user_id` / `idx_passkey_user_id` 命名。登录与 step-up assertion 的 user handle owner callback 只按账号存储句柄校验。匿名模式下删除最后一枚 Passkey 需要已启用 Recovery Key / recovery path；否则服务端返回 `409` + AEDS `ApiError`，错误消息为 `CannotRemoveLastCredentialWithoutRecovery`。Passkey login begin/complete 受 RiskControl 保护；assertion 失败写 `PasskeyAssertionFailed` 正分风险信号，assertion 成功写 `PasskeyAssertionAccepted` 负分风险信号并以 `mfaVerified=true` 完成登录，不再额外要求普通 TOTP MFA。
 
-Passkey 删除与重命名是账号安全凭据变更，必须通过统一 user security step-up。生产 binary endpoint 只从 `X-Fsus-Mfa-Proof` 读取一次性 proof，proof 必须绑定对应 action：删除为 `passkey.delete`，重命名为 `passkey.rename`，且服务端一次性消费。MFA enabled 账号只接受对应 action proof；anonymous identity mode 下禁止 legacy password fallback，`DELETE /api/binary/auth/passkey/credentials/{id}` 与 `PUT /name` 都不得提交或解析 `MfaPasswordProofRequest` body。非匿名 legacy password fallback 如仍需保留，必须放在显式隔离的兼容路径，不能进入这些生产匿名敏感操作 endpoint。
+Passkey 删除与凭据友好名称更新是账号安全凭据变更，必须通过统一 user security step-up。生产 binary endpoint 只从 `X-Fsus-Mfa-Proof` 读取一次性 proof，proof 必须绑定对应 action：删除为 `passkey.delete`，友好名称更新为 `passkey.credential-name.update`，且服务端一次性消费。MFA enabled 账号只接受对应 action proof；anonymous identity mode 下禁止 legacy password fallback，`DELETE /api/binary/auth/passkey/credentials/{id}` 与 `PUT /name` 都不得提交或解析 `MfaPasswordProofRequest` body。非匿名 legacy password fallback 如仍需保留，必须放在显式隔离的兼容路径，不能进入这些生产匿名敏感操作 endpoint。
 
 | FrameType | POD | 端点 / 用途 |
 |-----------|-----|-------------|
@@ -241,7 +241,7 @@ Passkey 删除与重命名是账号安全凭据变更，必须通过统一 user 
 | `PasskeyCredentialList` (`65`) | `PasskeyCredentialSummaryPod[]` | `GET /api/binary/auth/passkey/credentials` |
 | `PasskeyRegisterCompleteRequest` (`66`) | `PasskeyRegisterCompleteRequestPod` | 注册完成请求体；admin bootstrap complete 复用该请求 frame |
 | `PasskeyLoginCompleteRequest` (`67`) | `PasskeyLoginCompleteRequestPod` | 登录完成请求体；admin login complete 复用该请求 frame |
-| `PasskeyRenameRequest` (`68`) | `StringMutationRequestPod` | 设备名更新请求体 |
+| `PasskeyCredentialFriendlyNameUpdateRequest` (`68`) | `PasskeyCredentialFriendlyNameUpdateRequestPod` | Passkey 凭据友好名称更新请求体 |
 
 ### Independent admin principal AEDS endpoints
 

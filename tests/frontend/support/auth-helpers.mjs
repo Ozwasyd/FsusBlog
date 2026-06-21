@@ -31,7 +31,7 @@ const FRAME_TAG_WRITE_REQUEST = 34;
 const FRAME_ARTICLE_WRITE_REQUEST = 41;
 const FRAME_PASSKEY_REGISTER_COMPLETE_REQUEST = 66;
 const FRAME_PASSKEY_LOGIN_COMPLETE_REQUEST = 67;
-const FRAME_PASSKEY_RENAME_REQUEST = 68;
+const FRAME_PASSKEY_CREDENTIAL_FRIENDLY_NAME_UPDATE_REQUEST = 68;
 const FRAME_UPLOAD_INIT_REQUEST = 31;
 const FRAME_UPLOAD_COMPLETE_REQUEST = 32;
 const FRAME_SEO_CONFIG_UPDATE_REQUEST = 35;
@@ -512,7 +512,7 @@ function encodeOptionalBody(path, body) {
   }
 
   if (/\/passkey\/credentials\/\d+\/name$/u.test(path)) {
-    return encodeAedsFrame(FRAME_PASSKEY_RENAME_REQUEST, encodeStringMutationRequest(body.name ?? body));
+    return encodeAedsFrame(FRAME_PASSKEY_CREDENTIAL_FRIENDLY_NAME_UPDATE_REQUEST, encodeStringMutationRequest(body.name ?? body));
   }
 
   if (path.endsWith('/mfa/setup/verify')) {

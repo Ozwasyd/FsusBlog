@@ -62,7 +62,7 @@ public sealed class UserCoreGateway(UserService service) : IUserCoreGateway
     }
 
     public Task<(bool Success, string Message)> AdminChangeStatusAsync(int userId, int status, string? reason)
-        => service.AdminChangeStatusAsync(new AdminChangeStatusDto { UserId = userId, Status = status, Reason = reason });
+        => service.AdminChangeStatusAsync(new AdminChangeStatusDto { AccountId = userId, Status = status, Reason = reason });
 
     private static AccountSnapshotContract ToAccountSnapshot(User user)
         => new(

@@ -119,6 +119,37 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    public static void WritePasskeyCredentialFriendlyNameUpdateRequest(string friendlyName, IBufferWriter<byte> target)
+    {
+        var payload = new ArrayBufferWriter<byte>(Math.Max(128, friendlyName.Length));
+        var mutable = new MutablePasskeyCredentialFriendlyNameUpdateRequestPod
+        {
+            FriendlyName = PodUtf8Codec.AppendSlice(friendlyName, payload)
+        };
+
+        var writer = new BinaryPodWriter(target);
+        Span<MutablePasskeyCredentialFriendlyNameUpdateRequestPod> source = stackalloc MutablePasskeyCredentialFriendlyNameUpdateRequestPod[1];
+        source[0] = mutable;
+        writer.WritePod(MemoryMarshal.Read<PasskeyCredentialFriendlyNameUpdateRequestPod>(MemoryMarshal.AsBytes(source)));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    public static byte[] EncodePasskeyCredentialFriendlyNameUpdateRequest(string friendlyName)
+        => EncodeToArray(128 + friendlyName.Length, writer => WritePasskeyCredentialFriendlyNameUpdateRequest(friendlyName, writer));
+
+    public static bool TryDecodePasskeyCredentialFriendlyNameUpdateRequest(ReadOnlyMemory<byte> source, out string friendlyName)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out PasskeyCredentialFriendlyNameUpdateRequestPod pod) || !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            friendlyName = string.Empty;
+            return false;
+        }
+
+        friendlyName = PodUtf8Codec.ReadSlice(pod.FriendlyName, payload);
+        return reader.IsConsumed;
+    }
+
     public static void WriteApiError(in ErrorDetail error, IBufferWriter<byte> target, int httpStatus = 0)
     {
         var writer = new BinaryPodWriter(target);
@@ -232,5 +263,11 @@ public static partial class PodBinaryCodec
     private struct MutableStringMutationRequestPod
     {
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Value;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutablePasskeyCredentialFriendlyNameUpdateRequestPod
+    {
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef FriendlyName;
     }
 }

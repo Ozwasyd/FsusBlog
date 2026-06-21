@@ -3763,7 +3763,7 @@
         },
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
-        "x-fsus-request-frame": "PasskeyRenameRequest",
+        "x-fsus-request-frame": "PasskeyCredentialFriendlyNameUpdateRequest",
         "x-fsus-response-frame": "EmptySuccess",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "user",

@@ -125,7 +125,7 @@ public sealed class EndpointPolicyContractTests
         AssertStepUpBoundary(recoveryCreate, "UserSecurityStepUpActions.RecoveryKeyCreate");
         AssertStepUpBoundary(recoveryRotate, "UserSecurityStepUpActions.RecoveryKeyRotate");
         AssertStepUpBoundary(passkeyDelete, "UserSecurityStepUpActions.PasskeyDelete");
-        AssertStepUpBoundary(passkeyRename, "UserSecurityStepUpActions.PasskeyRename");
+        AssertStepUpBoundary(passkeyRename, "UserSecurityStepUpActions.PasskeyCredentialNameUpdate");
         AssertAnonymousCredentialMutationRejectsBodyProof(recoveryCreate);
         AssertAnonymousCredentialMutationRejectsBodyProof(recoveryRotate);
         AssertAnonymousCredentialMutationRejectsBodyProof(passkeyDelete);

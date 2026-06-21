@@ -237,7 +237,7 @@ public readonly record struct CommentAuthorViewCoreModel(
     string? ScopeLabel,
     string? CredentialLevel);
 
-public readonly record struct AdminChangeUserStatusRequestCoreModel(int UserId, int Status, string? Reason);
+public readonly record struct AdminChangeUserStatusRequestCoreModel(int AccountId, int Status, string? Reason);
 
 public readonly record struct AuthAnonymousBootstrapRequestCoreModel(string? PublicHandle, bool AcceptedGuidelines);
 

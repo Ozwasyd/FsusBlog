@@ -1045,7 +1045,7 @@
           "method": "PUT",
           "path": "/auth/passkey/credentials/{id:int}/name",
           "auth": "user",
-          "requestFrame": "PasskeyRenameRequest",
+          "requestFrame": "PasskeyCredentialFriendlyNameUpdateRequest",
           "responseFrame": "EmptySuccess"
         },
         {

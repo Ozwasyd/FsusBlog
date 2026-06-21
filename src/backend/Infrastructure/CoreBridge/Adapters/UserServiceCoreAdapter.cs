@@ -66,7 +66,7 @@ public sealed class UserServiceCoreAdapter(IUserCoreService core) : IUserService
 
     public async Task<(bool Success, string Message)> AdminChangeStatusAsync(AdminChangeStatusDto dto)
     {
-        var result = await core.AdminChangeStatusAsync(dto.UserId, dto.Status, dto.Reason);
+        var result = await core.AdminChangeStatusAsync(dto.AccountId, dto.Status, dto.Reason);
         return result.IsSuccess ? (true, "状态更新成功") : (false, result.Error.Message);
     }
 

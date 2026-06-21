@@ -96,7 +96,7 @@
     { "name": "PasskeyCredentialList", "value": 65 },
     { "name": "PasskeyRegisterCompleteRequest", "value": 66 },
     { "name": "PasskeyLoginCompleteRequest", "value": 67 },
-    { "name": "PasskeyRenameRequest", "value": 68 },
+    { "name": "PasskeyCredentialFriendlyNameUpdateRequest", "value": 68 },
     { "name": "NotificationEvent", "value": 69 },
     { "name": "NotificationHeartbeat", "value": 70 },
     { "name": "PublicAotBootstrap", "value": 71 },

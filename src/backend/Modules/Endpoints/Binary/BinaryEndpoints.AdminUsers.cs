@@ -78,7 +78,7 @@ public static partial class BinaryEndpoints
 
             var (success, message) = await userService.AdminChangeStatusAsync(new AdminChangeStatusDto
             {
-                UserId = request.UserId,
+                AccountId = request.AccountId,
                 Status = request.Status,
                 Reason = request.Reason
             });
@@ -91,10 +91,11 @@ public static partial class BinaryEndpoints
                 success ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Error,
                 "管理员变更匿名账号状态",
                 TargetType: "anonymous_account",
-                TargetId: request.UserId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                TargetId: request.AccountId.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 ReasonCode: request.Reason,
                 Context: new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
+                    ["accountId"] = request.AccountId,
                     ["status"] = request.Status,
                     ["message"] = message
                 }), cancellationToken);

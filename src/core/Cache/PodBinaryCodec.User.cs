@@ -778,7 +778,7 @@ public static partial class PodBinaryCodec
         var payload = new ArrayBufferWriter<byte>(256);
         var mutable = new MutableAdminChangeUserStatusRequestPod
         {
-            UserId = request.UserId,
+            AccountId = request.AccountId,
             Status = request.Status,
             Reason = PodUtf8Codec.AppendSlice(request.Reason ?? string.Empty, payload)
         };
@@ -802,7 +802,7 @@ public static partial class PodBinaryCodec
 
         string reason = PodProjector.ReadSlice(pod.Reason, payload);
         request = new AdminChangeUserStatusRequestCoreModel(
-            pod.UserId,
+            pod.AccountId,
             pod.Status,
             string.IsNullOrWhiteSpace(reason) ? null : reason);
         return reader.IsConsumed;
@@ -1037,7 +1037,7 @@ public static partial class PodBinaryCodec
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableAdminChangeUserStatusRequestPod
     {
-        public int UserId;
+        public int AccountId;
         public int Status;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Reason;
     }

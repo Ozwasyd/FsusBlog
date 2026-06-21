@@ -75,7 +75,7 @@
     { "name": "PasskeyCredentialList", "value": 65, "family": "passkey-response" },
     { "name": "PasskeyRegisterCompleteRequest", "value": 66, "family": "passkey-request" },
     { "name": "PasskeyLoginCompleteRequest", "value": 67, "family": "passkey-request" },
-    { "name": "PasskeyRenameRequest", "value": 68, "family": "passkey-request" },
+    { "name": "PasskeyCredentialFriendlyNameUpdateRequest", "value": 68, "family": "passkey-request" },
     { "name": "NotificationEvent", "value": 69, "family": "notification-stream-response" },
     { "name": "NotificationHeartbeat", "value": 70, "family": "notification-stream-response" },
     { "name": "PublicAotBootstrap", "value": 71, "family": "public-aot-response" },

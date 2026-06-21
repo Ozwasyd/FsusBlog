@@ -48,6 +48,15 @@ public sealed class UserSecurityStepUpServiceTests
     }
 
     [Fact]
+    public void UserSecurityStepUpRequest_UsesAccountIdAndFriendlyNameUpdateAction()
+    {
+        Assert.NotNull(typeof(UserSecurityStepUpRequest).GetProperty("AccountId"));
+        Assert.Null(typeof(UserSecurityStepUpRequest).GetProperty("UserId"));
+        Assert.Equal("passkey.credential-name.update", UserSecurityStepUpActions.PasskeyCredentialNameUpdate);
+        Assert.True(UserSecurityStepUpActions.IsCredentialMutation(UserSecurityStepUpActions.PasskeyCredentialNameUpdate));
+    }
+
+    [Fact]
     public async Task MfaEnabledAccount_DoesNotAcceptPasswordFallback()
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
@@ -76,7 +85,7 @@ public sealed class UserSecurityStepUpServiceTests
 
         UserSecurityStepUpResult result = await service.VerifyAsync(new UserSecurityStepUpRequest(
             42,
-            UserSecurityStepUpActions.PasskeyRename,
+            UserSecurityStepUpActions.PasskeyCredentialNameUpdate,
             new UserSecurityStepUpProof(),
             "203.0.113.10"));
 

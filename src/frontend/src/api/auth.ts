@@ -1,7 +1,7 @@
 import type { ApiRequestConfig } from './requestConfig';
 import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/services/binaryTransport'
-import { encodeAedsFrame, encodeStringMutationRequest, writeFixedUtf8 } from './binaryFrame'
+import { encodeAedsFrame, encodePasskeyCredentialFriendlyNameUpdateRequest, encodeStringMutationRequest, writeFixedUtf8 } from './binaryFrame'
 
 // ================= DTO 类型定义 (对应后端业务载荷) =================
 
@@ -515,7 +515,10 @@ export const renamePasskey = (id: number, name: string, config?: ApiRequestConfi
     requestOptions: {
       method: 'PUT',
       headers: mfaProofHeaders(config?.mfaProofToken),
-      body: encodeAedsFrame(FrameType.PasskeyRenameRequest, encodeStringMutationRequest(name))
+      body: encodeAedsFrame(
+        FrameType.PasskeyCredentialFriendlyNameUpdateRequest,
+        encodePasskeyCredentialFriendlyNameUpdateRequest(name)
+      )
     }
   })
 

@@ -4,7 +4,7 @@ namespace FsusBlog.Server.Models.Dtos;
 
 public sealed record class AdminChangeStatusDto
 {
-    public int UserId { get; init; }
+    public int AccountId { get; init; }
     public int Status { get; init; }
     public string? Reason { get; init; }
 }

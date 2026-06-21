@@ -59,6 +59,17 @@ export function encodeStringMutationRequest(value: string): Uint8Array {
   return bytes
 }
 
+export function encodePasskeyCredentialFriendlyNameUpdateRequest(friendlyName: string): Uint8Array {
+  const encoded = textEncoder.encode(friendlyName)
+  const bytes = new Uint8Array(8 + 4 + encoded.byteLength)
+  const view = new DataView(bytes.buffer)
+  view.setInt32(0, 0, true)
+  view.setInt32(4, encoded.byteLength, true)
+  view.setInt32(8, encoded.byteLength, true)
+  bytes.set(encoded, 12)
+  return bytes
+}
+
 export function writeFixedUtf8(target: Uint8Array, offset: number, length: number, value: string): void {
   const encoded = textEncoder.encode(value)
   target.set(encoded.subarray(0, length), offset)

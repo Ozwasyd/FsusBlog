@@ -240,7 +240,7 @@ public readonly struct UserListPagePod
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AdminChangeUserStatusRequestPod
 {
-    public readonly int UserId;
+    public readonly int AccountId;
     public readonly int Status;
     public readonly Utf8SliceRef Reason;
 }

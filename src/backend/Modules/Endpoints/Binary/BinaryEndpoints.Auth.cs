@@ -1282,13 +1282,13 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.PasskeyRenameRequest, cancellationToken);
+            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.PasskeyCredentialFriendlyNameUpdateRequest, cancellationToken);
             if (!payload.IsSuccess)
             {
                 return BinaryResults.FromError(payload.Error, aeds);
             }
 
-            if (!PodBinaryCodec.TryDecodeStringMutationRequest(payload.Payload, out string name) ||
+            if (!PodBinaryCodec.TryDecodePasskeyCredentialFriendlyNameUpdateRequest(payload.Payload, out string name) ||
                 string.IsNullOrWhiteSpace(name))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "名称不能为空"), aeds);
@@ -1298,7 +1298,7 @@ public static partial class BinaryEndpoints
             var stepUpResult = await RequireUserSecurityStepUpAsync(
                 httpContext,
                 stepUp,
-                UserSecurityStepUpActions.PasskeyRename,
+                UserSecurityStepUpActions.PasskeyCredentialNameUpdate,
                 cancellationToken);
             if (stepUpResult is { } rejected)
             {

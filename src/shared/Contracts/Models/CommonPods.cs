@@ -30,6 +30,12 @@ public readonly struct StringMutationRequestPod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct PasskeyCredentialFriendlyNameUpdateRequestPod
+{
+    public readonly Utf8SliceRef FriendlyName;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct ApiErrorPod
 {
     public readonly byte Code;

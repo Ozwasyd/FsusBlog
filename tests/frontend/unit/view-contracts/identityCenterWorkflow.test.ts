@@ -81,7 +81,7 @@ describe('identity center workflow contract', () => {
     expect(identityCenter).toContain('deleteAccount')
     expect(identityCenter).toContain("startMfaChallenge('account.delete')")
     expect(identityCenter).toContain("startMfaChallenge('passkey.delete')")
-    expect(identityCenter).toContain("startMfaChallenge('passkey.rename')")
+    expect(identityCenter).toContain("startMfaChallenge('passkey.credential-name.update')")
     expect(identityCenter).toContain("startMfaChallenge('recovery-key.create')")
     expect(identityCenter).toContain("startMfaChallenge('recovery-key.rotate')")
     expect(identityCenter).toContain('mfaProofToken: proof.proofToken')

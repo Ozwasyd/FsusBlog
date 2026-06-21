@@ -390,7 +390,7 @@ public class UserServiceValidationTests
 
         var (success, message) = await svc.AdminChangeStatusAsync(new AdminChangeStatusDto
         {
-            UserId = 42,
+            AccountId = 42,
             Status = 1,
             Reason = "policy"
         });
@@ -421,7 +421,7 @@ public class UserServiceValidationTests
 
         var (success, message) = await svc.AdminChangeStatusAsync(new AdminChangeStatusDto
         {
-            UserId = 7,
+            AccountId = 7,
             Status = 1,
             Reason = "policy"
         });

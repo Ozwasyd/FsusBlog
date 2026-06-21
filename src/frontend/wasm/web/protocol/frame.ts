@@ -64,7 +64,7 @@ export const FrameType = {
   PasskeyCredentialList: 65,
   PasskeyRegisterCompleteRequest: 66,
   PasskeyLoginCompleteRequest: 67,
-  PasskeyRenameRequest: 68,
+  PasskeyCredentialFriendlyNameUpdateRequest: 68,
   NotificationEvent: 69,
   NotificationHeartbeat: 70,
   PublicAotBootstrap: 71,

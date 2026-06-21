@@ -71,7 +71,7 @@ public sealed class RecoveryKeyServiceTests
         Assert.Contains("UserSecurityStepUpActions.PasskeyDelete", passkeyDelete, StringComparison.Ordinal);
         Assert.Contains("IUserSecurityStepUpService stepUp", passkeyRename, StringComparison.Ordinal);
         Assert.Contains("RequireUserSecurityStepUpAsync(", passkeyRename, StringComparison.Ordinal);
-        Assert.Contains("UserSecurityStepUpActions.PasskeyRename", passkeyRename, StringComparison.Ordinal);
+        Assert.Contains("UserSecurityStepUpActions.PasskeyCredentialNameUpdate", passkeyRename, StringComparison.Ordinal);
 
         string combinedHandlers = recoveryCreate + recoveryRotate + passkeyDelete + passkeyRename;
         Assert.DoesNotContain("ValidateAndConsumeProofTokenAsync", combinedHandlers, StringComparison.Ordinal);

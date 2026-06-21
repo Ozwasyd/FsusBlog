@@ -310,6 +310,16 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
+    public void PasskeyCredentialFriendlyNameUpdateRequest_RoundTrip_PreservesFriendlyName()
+    {
+        byte[] encoded = PodBinaryCodec.EncodePasskeyCredentialFriendlyNameUpdateRequest("Work laptop");
+        bool ok = PodBinaryCodec.TryDecodePasskeyCredentialFriendlyNameUpdateRequest(encoded, out string friendlyName);
+
+        Assert.True(ok);
+        Assert.Equal("Work laptop", friendlyName);
+    }
+
+    [Fact]
     public void AdminChangeUserStatusRequest_RoundTrip_PreservesReason()
     {
         var request = new AdminChangeUserStatusRequestCoreModel(7, 1, "spam");
@@ -317,9 +327,18 @@ public class PodBinaryCodecTests
         bool ok = PodBinaryCodec.TryDecodeAdminChangeUserStatusRequest(encoded, out var decoded);
 
         Assert.True(ok);
-        Assert.Equal(7, decoded.UserId);
+        Assert.Equal(7, decoded.AccountId);
         Assert.Equal(1, decoded.Status);
         Assert.Equal("spam", decoded.Reason);
+    }
+
+    [Fact]
+    public void AdminChangeUserStatusRequest_UsesAccountIdNaming()
+    {
+        Assert.NotNull(typeof(AdminChangeUserStatusRequestPod).GetField("AccountId"));
+        Assert.Null(typeof(AdminChangeUserStatusRequestPod).GetField("UserId"));
+        Assert.NotNull(typeof(AdminChangeUserStatusRequestCoreModel).GetProperty("AccountId"));
+        Assert.Null(typeof(AdminChangeUserStatusRequestCoreModel).GetProperty("UserId"));
     }
 
     [Fact]

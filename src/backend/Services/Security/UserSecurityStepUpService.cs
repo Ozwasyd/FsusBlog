@@ -7,14 +7,14 @@ public static class UserSecurityStepUpActions
 {
     public const string AccountDelete = "account.delete";
     public const string PasskeyDelete = "passkey.delete";
-    public const string PasskeyRename = "passkey.rename";
+    public const string PasskeyCredentialNameUpdate = "passkey.credential-name.update";
     public const string RecoveryKeyCreate = "recovery-key.create";
     public const string RecoveryKeyRotate = "recovery-key.rotate";
 
     public static bool IsCredentialMutation(string action)
         => string.Equals(action, AccountDelete, StringComparison.Ordinal)
             || string.Equals(action, PasskeyDelete, StringComparison.Ordinal)
-            || string.Equals(action, PasskeyRename, StringComparison.Ordinal)
+            || string.Equals(action, PasskeyCredentialNameUpdate, StringComparison.Ordinal)
             || string.Equals(action, RecoveryKeyCreate, StringComparison.Ordinal)
             || string.Equals(action, RecoveryKeyRotate, StringComparison.Ordinal);
 }
@@ -23,7 +23,7 @@ public readonly record struct UserSecurityStepUpProof(
     string? MfaProofToken = null);
 
 public sealed record UserSecurityStepUpRequest(
-    int UserId,
+    int AccountId,
     string Action,
     UserSecurityStepUpProof Proof,
     string ClientIp);
@@ -57,7 +57,7 @@ public sealed class UserSecurityStepUpService(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (request.UserId <= 0 || string.IsNullOrWhiteSpace(request.Action))
+        if (request.AccountId <= 0 || string.IsNullOrWhiteSpace(request.Action))
         {
             return UserSecurityStepUpResult.Rejected(
                 ErrorCode.Unauthorized,
@@ -74,7 +74,7 @@ public sealed class UserSecurityStepUpService(
                 StatusCodes.Status403Forbidden);
         }
 
-        UserAccountSnapshot? account = await users.GetAccountByIdAsync(request.UserId).ConfigureAwait(false);
+        UserAccountSnapshot? account = await users.GetAccountByIdAsync(request.AccountId).ConfigureAwait(false);
         if (account is null || account.Value.DeletedAt.HasValue || account.Value.Status == 2)
         {
             return UserSecurityStepUpResult.Rejected(

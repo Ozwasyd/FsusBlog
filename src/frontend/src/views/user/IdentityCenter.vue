@@ -573,7 +573,7 @@ const savePasskeyName = async (id: number): Promise<void> => {
   }
 
   try {
-    const proof = await startMfaChallenge('passkey.rename') as MfaChallengeResult
+    const proof = await startMfaChallenge('passkey.credential-name.update') as MfaChallengeResult
     if (!proof.verified || !proof.proofToken) {
       passkeyError.value = '请先完成匿名账号敏感操作校验。'
       return

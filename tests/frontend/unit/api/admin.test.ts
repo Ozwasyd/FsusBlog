@@ -45,6 +45,18 @@ describe('admin API binary mutations', () => {
     }))
     const call = mockBinary.mock.calls[0]?.[0]
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-status')
+    const frame = call?.requestOptions?.body as ArrayBuffer
+    const payload = new DataView(frame, 16)
+    expect(payload.getInt32(0, true)).toBe(10)
+    expect(payload.getInt32(4, true)).toBe(1)
+  })
+
+  it('AdminChangeStatusDto uses accountId at the naming layer', () => {
+    const adminApi = readRepoFile('src/frontend/src/api/admin.ts')
+
+    expect(adminApi).toContain('accountId: number')
+    expect(adminApi).not.toContain('userId: number')
+    expect(adminApi).not.toContain('data.userId')
   })
 
   it('keeps admin status DTO and callers on accountId naming', () => {

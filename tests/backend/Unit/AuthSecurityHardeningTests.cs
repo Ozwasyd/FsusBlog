@@ -132,7 +132,7 @@ public sealed class AuthSecurityHardeningTests
         AssertStepUpBeforeMutation(recoveryCreate, "UserSecurityStepUpActions.RecoveryKeyCreate", "recoveryKeys.CreateAsync");
         AssertStepUpBeforeMutation(recoveryRotate, "UserSecurityStepUpActions.RecoveryKeyRotate", "recoveryKeys.RotateAsync");
         AssertStepUpBeforeMutation(passkeyDelete, "UserSecurityStepUpActions.PasskeyDelete", "passkeyService.RemoveCredentialAsync");
-        AssertStepUpBeforeMutation(passkeyRename, "UserSecurityStepUpActions.PasskeyRename", "passkeyService.RenameCredentialAsync");
+        AssertStepUpBeforeMutation(passkeyRename, "UserSecurityStepUpActions.PasskeyCredentialNameUpdate", "passkeyService.RenameCredentialAsync");
 
         string helper = ExtractBetween(
             source,

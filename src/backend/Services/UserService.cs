@@ -314,7 +314,7 @@ public partial class UserService(
             return (false, "管理员接口只允许封禁或解封用户");
         }
 
-        var user = await _db.Queryable<User>().InSingleAsync(dto.UserId);
+        var user = await _db.Queryable<User>().InSingleAsync(dto.AccountId);
         if (user == null) return (false, "用户不存在");
         if (string.Equals(user.IdentityKind, AnonymousIdentityRuntime.AdminPrincipalKind, StringComparison.Ordinal))
         {
@@ -328,18 +328,18 @@ public partial class UserService(
         await _db.Updateable<User>()
                 .SetColumns(u => u.Status == dto.Status)
                 .SetColumns(u => u.BanReason == effectiveReason)
-                .Where(u => u.Id == dto.UserId)
+                .Where(u => u.Id == dto.AccountId)
                 .ExecuteCommandAsync();
 
         if (dto.Status == UserStatusBanned)
         {
-            await _blacklistService.BanUserAsync(dto.UserId, effectiveReason!);
-            _ = NotifyUserBannedAsync(dto.UserId, effectiveReason!);
+            await _blacklistService.BanUserAsync(dto.AccountId, effectiveReason!);
+            _ = NotifyUserBannedAsync(dto.AccountId, effectiveReason!);
         }
         else
         {
-            await _blacklistService.UnbanUserAsync(dto.UserId);
-            _ = NotifyUserUnbannedAsync(dto.UserId);
+            await _blacklistService.UnbanUserAsync(dto.AccountId);
+            _ = NotifyUserUnbannedAsync(dto.AccountId);
         }
 
         return (true, dto.Status == UserStatusBanned ? "用户已封禁" : "用户已解封");

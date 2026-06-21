@@ -95,7 +95,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `65`: PasskeyCredentialList
 - `66`: PasskeyRegisterCompleteRequest
 - `67`: PasskeyLoginCompleteRequest
-- `68`: PasskeyRenameRequest
+- `68`: PasskeyCredentialFriendlyNameUpdateRequest
 - `69`: NotificationEvent
 - `70`: NotificationHeartbeat
 - `71`: PublicAotBootstrap
@@ -157,7 +157,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `SystemMessageRequest` payload: `SystemMessageRequestPod` followed by blob payload for subject/body.
 - `PasskeyRegisterCompleteRequest` payload: `PasskeyRegisterCompleteRequestPod`, `int32 transports[count]`, followed by blob payload for credential id/raw id/clientDataBytes/attestation object/friendly name/MFA proof token.
 - `PasskeyLoginCompleteRequest` payload: `PasskeyLoginCompleteRequestPod` followed by blob payload for credential id/raw id/clientDataBytes/authenticator data/signature/user handle.
-- `PasskeyRenameRequest` payload: `StringMutationRequestPod` followed by blob payload for device friendly name.
+- `PasskeyCredentialFriendlyNameUpdateRequest` payload: `PasskeyCredentialFriendlyNameUpdateRequestPod` followed by blob payload for credential friendly name.
 - `AuthLoginFlow` payload: `AuthLoginFlowPod`；字段语义为 `accountId`、`identityKind`、`authPhase`、`mfaMode`、`challengeToken`。原定长文本槽位只承载 `identityKind` 和 reserved bytes，不再承载 legacy username 或 role。
 - `CurrentUserSnapshot` payload: `CurrentUserSnapshotPod`；仅保留给 admin-only accountId 查询、迁移和 refresh-token 兼容路径，不再作为 `/api/binary/auth/me` 的用户侧输出，也不再支持 username lookup。字段语义为 `accountId`、`identityKind`、`status`、`banReason`、`deletedAt`，不再暴露 username/role。
 - `IdentityAccountSnapshot` payload: `IdentityAccountSnapshotPod` followed by blob payload for public handle、anonymous credential status/level、identity kind and ban reason. It is the `/api/binary/auth/me` output and must not expose internal username or role.
