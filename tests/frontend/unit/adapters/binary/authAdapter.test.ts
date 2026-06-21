@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapIdentityAccountSnapshotFromPayload, mapMfaChallengeResultFromPayload, mapMfaProfileFromPayload, mapMfaSetupStartFromPayload, mapMfaSetupVerifyFromPayload, mapUserSessionsFromPayload } from '@/adapters/binary/authAdapter'
+import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapIdentityAccountSnapshotFromPayload, mapMfaChallengeResultFromPayload, mapMfaProfileFromPayload, mapMfaSetupStartFromPayload, mapMfaSetupVerifyFromPayload, mapRecoveryKeyVerifyResponseFromPayload, mapUserSessionsFromPayload } from '@/adapters/binary/authAdapter'
 
 const encoder = new TextEncoder()
 
@@ -151,6 +151,24 @@ describe('binary auth adapter', () => {
     }])
 
     expect(mapUserSessionsFromPayload(payload)[0]).not.toHaveProperty('lastIp')
+  })
+
+  it('maps recovery key verify payload without hydrating legacy id slots', () => {
+    const payload = new Uint8Array(144)
+    const view = new DataView(payload.buffer)
+    view.setInt32(0, 42, true)
+    view.setInt32(4, 84, true)
+    view.setBigInt64(8, BigInt(Date.parse('2026-01-02T03:04:05.000Z')), true)
+    writeFixed(payload, 16, 128, 'recovery-session-token')
+
+    const result = mapRecoveryKeyVerifyResponseFromPayload(payload)
+
+    expect(result).toEqual({
+      expiresAt: '2026-01-02T03:04:05.000Z',
+      recoverySessionToken: 'recovery-session-token'
+    })
+    expect(result).not.toHaveProperty('userId')
+    expect(result).not.toHaveProperty('accountId')
   })
 
   it('maps MFA setup verify and profile payloads', () => {
