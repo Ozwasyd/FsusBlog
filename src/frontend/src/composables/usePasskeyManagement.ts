@@ -9,6 +9,8 @@ import {
   type PasskeyCredentialSummary
 } from '@/api/auth'
 
+const PASSKEY_REGISTRATION_ERROR_TEXT = '通行密钥注册失败，请重试'
+
 export function usePasskeyManagement() {
   const credentials = ref<PasskeyCredentialSummary[]>([])
   const loading = ref(false)
@@ -19,7 +21,6 @@ export function usePasskeyManagement() {
     error.value = null
     try {
       const rawList = await listPasskeys()
-      console.log('[Passkey] list raw:', rawList)
       // 映射到 camelCase 确保 UI 能够渲染
       credentials.value = (rawList as any[]).map(item => ({
         id: item.id ?? item.Id,
@@ -43,7 +44,6 @@ export function usePasskeyManagement() {
     try {
       // 1. 获取注册选项
       const beginResp = await passkeyRegisterBegin()
-      console.log('[Passkey] register beginResp:', beginResp)
       const sessionKey = (beginResp as any).sessionKey || (beginResp as any).SessionKey
       const options = (beginResp as any).options || (beginResp as any).Options
 
@@ -56,11 +56,10 @@ export function usePasskeyManagement() {
       try {
         attestation = await startRegistration({ ['options' + String.fromCharCode(74, 83, 79, 78)]: options } as any)
       } catch (e: any) {
-        console.error('[Passkey] startRegistration error:', e)
         if (e?.name === 'NotAllowedError') {
           return false
         }
-        error.value = '浏览器通行密钥注册失败：' + (e?.message || '未知错误')
+        error.value = PASSKEY_REGISTRATION_ERROR_TEXT
         return false
       }
 

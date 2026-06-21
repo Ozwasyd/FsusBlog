@@ -139,6 +139,13 @@ run_residue_check \
   src/shared/Contracts/Validation/aeds-protocol.json src/shared/Contracts/Validation/fsusblog.openapi.json src/core/Algorithms/AedsFrameType.cs src/shared/AedsFrameHeader.cs src/frontend/wasm/web/protocol/frame.ts src/core/Cache/PodBinaryCodec.User.cs src/frontend/src/api/auth.ts tests/backend/Fixtures/aeds-golden-catalog.json tests/frontend/fixtures/cross-stack-contract-matrix.json tests/frontend/fixtures/cross-stack-contract-matrix.generated.json tools/contracts
 
 run_residue_check \
+  "passkey sensitive frontend logs" \
+  "passkey sensitive frontend log residue detected" \
+  'console[.](?:log|error|warn)[(][^;\n]*["'\'']\[Passkey\]|assertion received|beginResp:|register beginResp:|list raw:|startAuthentication with options|alert[(][^;\n]*(?:通行密钥|Passkey|WebAuthn)' \
+  "" \
+  src/frontend/src/composables/usePasskeyLogin.ts src/frontend/src/composables/usePasskeyManagement.ts
+
+run_residue_check \
   "anonymous step-up password body fallback" \
   "anonymous step-up password body fallback residue detected" \
   'allowPasswordBody:\s*true' \

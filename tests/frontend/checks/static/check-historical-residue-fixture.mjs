@@ -124,6 +124,31 @@ export function encodeAuthUpdatePasswordRequest(data) {
     }
   },
   {
+    name: 'passkey sensitive frontend logs',
+    expected: 'passkey sensitive frontend log residue detected',
+    files: {
+      'src/frontend/src/composables/usePasskeyLogin.ts': `
+export async function loginWithPasskey() {
+  const beginResp = await passkeyLoginBegin()
+  console.log('[Passkey] beginResp:', beginResp)
+  console.log('[Passkey] startAuthentication with options:', beginResp.options)
+  const assertion = await startAuthentication(beginResp.options)
+  console.log('[Passkey] assertion received:', assertion)
+  alert('通行密钥启动失败：WebAuthn low-level detail')
+}
+`,
+      'src/frontend/src/composables/usePasskeyManagement.ts': `
+export async function addPasskey() {
+  const rawList = await listPasskeys()
+  console.log('[Passkey] list raw:', rawList)
+  const beginResp = await passkeyRegisterBegin()
+  console.log('[Passkey] register beginResp:', beginResp)
+  console.error('[Passkey] startRegistration error:', new Error('attestation'))
+}
+`
+    }
+  },
+  {
     name: 'legacy password login form',
     expected: 'legacy password login form residue detected',
     files: {
