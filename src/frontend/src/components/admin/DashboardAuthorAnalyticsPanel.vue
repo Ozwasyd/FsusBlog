@@ -32,13 +32,15 @@
       <section class="bg-[var(--fsusblog-page-bg)] p-8 min-h-72">
         <h3 class="text-base font-bold leading-tight text-[var(--fsusblog-text-primary)]">Core Web Vitals</h3>
         <p class="mt-1 text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">关键渲染指标。</p>
-        <DashboardInlineEmptyState
+        <FsusUiEmptyState
           v-if="rumMetricRows.length === 0"
+          class="mt-5 border-t border-[var(--fsusblog-panel-border)] pt-4"
+          role="status"
           title="暂无浏览器性能样本"
           description="有运行时样本后将在这里显示 P75 和平均值。"
         />
-        <DashboardMetricList v-else class="mt-5" density="compact">
-          <DashboardMetricItem
+        <FsusUiMetricList v-else class="mt-5" density="compact">
+          <FsusUiMetricItem
             v-for="metric in rumMetricRows"
             :key="metric.label"
             density="compact"
@@ -47,19 +49,21 @@
             :secondary="metric.secondary"
             :meta="metric.meta"
           />
-        </DashboardMetricList>
+        </FsusUiMetricList>
       </section>
 
       <section class="bg-[var(--fsusblog-page-bg)] p-8 min-h-72">
         <h3 class="text-base font-bold leading-tight text-[var(--fsusblog-text-primary)]">RUM 页面类型</h3>
         <p class="mt-1 text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">页面访问分布。</p>
-        <DashboardInlineEmptyState
+        <FsusUiEmptyState
           v-if="rumPageTypeRows.length === 0"
+          class="mt-5 border-t border-[var(--fsusblog-panel-border)] pt-4"
+          role="status"
           title="暂无 RUM 页面样本"
           description="有访问记录后将在这里显示分布。"
         />
-        <DashboardDistributionList v-else class="mt-5" density="compact">
-          <DashboardDistributionBarRow
+        <FsusUiDistributionList v-else class="mt-5" density="compact">
+          <FsusUiDistributionBarRow
             v-for="item in rumPageTypeRows"
             :key="item.label"
             density="compact"
@@ -68,19 +72,21 @@
             :value="item.value"
             :ratio="item.ratio"
           />
-        </DashboardDistributionList>
+        </FsusUiDistributionList>
       </section>
 
       <section class="bg-[var(--fsusblog-page-bg)] p-8 min-h-72">
         <h3 class="text-base font-bold leading-tight text-[var(--fsusblog-text-primary)]">AOT 来源</h3>
         <p class="mt-1 text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">渲染来源分布。</p>
-        <DashboardInlineEmptyState
+        <FsusUiEmptyState
           v-if="rumAotSourceRows.length === 0"
+          class="mt-5 border-t border-[var(--fsusblog-panel-border)] pt-4"
+          role="status"
           title="暂无 AOT 来源样本"
           description="有 AOT 运行记录后将在这里显示分布。"
         />
-        <DashboardDistributionList v-else class="mt-5" density="compact">
-          <DashboardDistributionBarRow
+        <FsusUiDistributionList v-else class="mt-5" density="compact">
+          <FsusUiDistributionBarRow
             v-for="item in rumAotSourceRows"
             :key="item.label"
             density="compact"
@@ -89,22 +95,23 @@
             :value="item.value"
             :ratio="item.ratio"
           />
-        </DashboardDistributionList>
+        </FsusUiDistributionList>
       </section>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, type PropType } from 'vue'
-import { FsusUiSectionHeader } from '@/fsusui'
+import { computed } from 'vue'
 import {
-  DashboardDistributionBarRow,
-  DashboardDistributionList,
-  DashboardInlineEmptyState,
-  DashboardMetricItem,
-  DashboardMetricList
-} from '@/components/admin/DashboardMetricPrimitives'
+  FsusUiDistributionBarRow,
+  FsusUiDistributionList,
+  FsusUiEmptyState,
+  FsusUiMetricItem,
+  FsusUiMetricList,
+  FsusUiSectionHeader
+} from '@/fsusui'
+import AnalyticsList from '@/components/admin/DashboardAuthorAnalyticsList.vue'
 import type { AdminDashboardViewContract, AuthorAnalyticsListItem } from '@/view-contracts/adminStats'
 
 const props = defineProps<{
@@ -200,27 +207,4 @@ const rumMetricRows = computed<readonly MetricRow[]>(() => rumMetrics.value.map(
 
 const rumPageTypeRows = computed(() => toDistributionRows(analytics.value.rumPageTypes))
 const rumAotSourceRows = computed(() => toDistributionRows(analytics.value.rumAotSources))
-
-const AnalyticsList = defineComponent({
-  name: 'AnalyticsList',
-  props: {
-    title: { type: String, required: true },
-    emptyText: { type: String, required: true },
-    items: { type: Array as PropType<readonly AuthorAnalyticsListItem[]>, required: true }
-  },
-  setup(listProps) {
-    return () => h('section', { class: 'bg-[var(--fsusblog-page-bg)] p-8 min-h-72' }, [
-      h('h3', { class: 'text-sm font-bold text-[var(--fsusblog-text-primary)]' }, listProps.title),
-      listProps.items.length === 0
-        ? h('p', { class: 'mt-8 text-[11px] text-[var(--fsusblog-text-tertiary)]' }, listProps.emptyText)
-        : h('ol', { class: 'mt-6 space-y-4' }, listProps.items.map((item, index) => h('li', {
-          class: 'flex items-center justify-between gap-4 border-b border-[var(--fsusblog-panel-border)] pb-3 last:border-b-0'
-        }, [
-          h('span', { class: 'min-w-0 truncate text-xs font-bold text-[var(--fsusblog-text-secondary)]' }, `${index + 1}. ${item.label}`),
-          h('span', { class: 'shrink-0 text-xs font-bold tabular-nums text-[var(--fsusblog-text-muted)]' }, String(item.count))
-        ])))
-    ])
-  }
-})
-
 </script>
