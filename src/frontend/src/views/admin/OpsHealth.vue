@@ -15,24 +15,20 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadHealth">刷新</el-button>
       </template>
 
-      <div v-if="health" class="grid gap-4 md:grid-cols-4">
-        <div class="ops-kv">
-          <span>状态</span>
+      <FsusUiKeyValueGrid v-if="health" class="grid gap-4 md:grid-cols-4">
+        <FsusUiKeyValueItem label="状态" :tone="kvTone(health.status)">
           <el-tag :type="statusType(health.status)">{{ statusLabel(health.status) }}</el-tag>
-        </div>
-        <div class="ops-kv">
-          <span>环境</span>
-          <strong>{{ health.environment }}</strong>
-        </div>
-        <div class="ops-kv">
-          <span>提交</span>
-          <strong class="truncate">{{ health.commit }}</strong>
-        </div>
-        <div class="ops-kv">
-          <span>队列</span>
-          <strong>{{ health.queueBacklog.articleMutationPending }} / {{ health.queueBacklog.auditQueued }}</strong>
-        </div>
-      </div>
+        </FsusUiKeyValueItem>
+        <FsusUiKeyValueItem label="环境">
+          {{ health.environment }}
+        </FsusUiKeyValueItem>
+        <FsusUiKeyValueItem label="提交">
+          <span class="truncate">{{ health.commit }}</span>
+        </FsusUiKeyValueItem>
+        <FsusUiKeyValueItem label="队列">
+          {{ health.queueBacklog.articleMutationPending }} / {{ health.queueBacklog.auditQueued }}
+        </FsusUiKeyValueItem>
+      </FsusUiKeyValueGrid>
     </FsusUiSettingsSection>
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
@@ -98,10 +94,9 @@
       <div class="space-y-8">
         <FsusUiSettingsSection title="最近备份" id="ops-backup-title">
           <div class="space-y-4">
-            <div class="ops-kv">
-              <span>状态</span>
+            <FsusUiKeyValueItem label="状态" :tone="kvTone(health?.backup.status)">
               <el-tag :type="statusType(health?.backup.status ?? 'unknown')">{{ statusLabel(health?.backup.status) }}</el-tag>
-            </div>
+            </FsusUiKeyValueItem>
             <div class="break-words text-xs text-[var(--fsusblog-text-muted)]">{{ health?.backup.backupRoot ?? '-' }}</div>
             <div class="space-y-3">
               <div
@@ -169,6 +164,7 @@ import {
 } from '@/api/authoring'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import { FsusUiSettingsSection } from '@/fsusui'
+import { FsusUiKeyValueGrid, FsusUiKeyValueItem } from '@/fsusui'
 import { CopyDocument, Refresh } from '@/fsusui/icons'
 import { toast } from '@/fsusui/feedback'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
@@ -192,6 +188,14 @@ const statusType = (status: string): 'success' | 'warning' | 'danger' | 'info' =
   if (status === 'ok' || status === 'ready') return 'success'
   if (status === 'failed' || status === 'missing' || status === 'not_ready' || status === 'error' || status === 'critical') return 'danger'
   if (status === 'degraded' || status === 'warning') return 'warning'
+  return 'info'
+}
+
+const kvTone = (status: string | null | undefined): 'neutral' | 'info' | 'success' | 'warning' | 'danger' => {
+  const type = status ? statusType(status) : 'info'
+  if (type === 'success') return 'success'
+  if (type === 'warning') return 'warning'
+  if (type === 'danger') return 'danger'
   return 'info'
 }
 
@@ -277,26 +281,6 @@ onMounted(loadHealth)
 </script>
 
 <style scoped>
-.ops-kv {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  border-top: 1px solid var(--fsusblog-panel-border);
-  padding: 0.875rem 0;
-  font-size: 0.75rem;
-}
-
-.ops-kv span {
-  color: var(--fsusblog-text-muted);
-}
-
-.ops-kv strong {
-  min-width: 0;
-  font-weight: 700;
-}
-
 .ops-error-list {
   display: grid;
   gap: 0;

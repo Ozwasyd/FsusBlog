@@ -15,24 +15,20 @@
         </div>
       </template>
 
-      <div v-if="diagnostics" class="grid gap-4 md:grid-cols-4">
-        <div class="cache-kv">
-          <span>AOT</span>
+      <FsusUiKeyValueGrid v-if="diagnostics" class="grid gap-4 md:grid-cols-4">
+        <FsusUiKeyValueItem label="AOT" :tone="kvTone(diagnostics.aot.status)">
           <el-tag :type="statusType(diagnostics.aot.status)">{{ statusLabel(diagnostics.aot.status) }}</el-tag>
-        </div>
-        <div class="cache-kv">
-          <span>搜索</span>
+        </FsusUiKeyValueItem>
+        <FsusUiKeyValueItem label="搜索" :tone="kvTone(diagnostics.search.status)">
           <el-tag :type="statusType(diagnostics.search.status)">{{ statusLabel(diagnostics.search.status) }}</el-tag>
-        </div>
-        <div class="cache-kv">
-          <span>站点地图</span>
-          <strong>{{ diagnostics.distribution.sitemapUrlCount }}</strong>
-        </div>
-        <div class="cache-kv">
-          <span>订阅条目</span>
-          <strong>{{ diagnostics.distribution.feedItemCount }}</strong>
-        </div>
-      </div>
+        </FsusUiKeyValueItem>
+        <FsusUiKeyValueItem label="站点地图">
+          {{ diagnostics.distribution.sitemapUrlCount }}
+        </FsusUiKeyValueItem>
+        <FsusUiKeyValueItem label="订阅条目">
+          {{ diagnostics.distribution.feedItemCount }}
+        </FsusUiKeyValueItem>
+      </FsusUiKeyValueGrid>
     </FsusUiSettingsSection>
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
@@ -137,8 +133,12 @@ import {
   type AdminCacheActionResponse,
   type CacheDiagnosticsResponse
 } from '@/api/authoring'
-import { FsusUiPageHeader } from "@/fsusui"
-import { FsusUiSettingsSection } from '@/fsusui'
+import {
+  FsusUiKeyValueGrid,
+  FsusUiKeyValueItem,
+  FsusUiPageHeader,
+  FsusUiSettingsSection
+} from '@/fsusui'
 import { Delete, Refresh, Search } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
@@ -226,6 +226,14 @@ const statusType = (status: string): 'success' | 'warning' | 'danger' | 'info' =
   return 'info'
 }
 
+const kvTone = (status: string | null | undefined): 'neutral' | 'info' | 'success' | 'warning' | 'danger' => {
+  const type = status ? statusType(status) : 'info'
+  if (type === 'success') return 'success'
+  if (type === 'warning') return 'warning'
+  if (type === 'danger') return 'danger'
+  return 'info'
+}
+
 const statusLabel = (status: string | null | undefined): string => {
   const labels: Record<string, string> = {
     ok: '正常',
@@ -248,17 +256,4 @@ onMounted(loadDiagnostics)
 </script>
 
 <style scoped>
-.cache-kv {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  border-top: 1px solid var(--fsusblog-panel-border);
-  padding: 0.875rem 0;
-  font-size: 0.75rem;
-}
-
-.cache-kv span {
-  color: var(--fsusblog-text-muted);
-}
 </style>
