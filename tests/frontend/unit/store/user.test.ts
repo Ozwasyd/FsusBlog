@@ -47,6 +47,13 @@ describe('useUserStore', () => {
     const mockUser = anonymousUser(1)
     store.setUserInfo(mockUser)
     expect(store.userInfo).toStrictEqual(mockUser)
+    expect(store.userInfo).toEqual(expect.objectContaining({
+      accountId: 1,
+      publicHandle: 'public-1',
+      identityKind: 'anonymous_account'
+    }))
+    expect(Object.prototype.hasOwnProperty.call(store.userInfo, 'user' + 'Name')).toBe(false)
+    expect(Object.prototype.hasOwnProperty.call(store.userInfo, 'User' + 'Id')).toBe(false)
     expect(store.isAuthChecked).toBe(true)
     expect(store.isLoggedIn).toBe(true)
   })

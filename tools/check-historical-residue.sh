@@ -279,6 +279,13 @@ run_residue_check \
   benchmarks
 
 run_residue_check \
+  "frontend unit legacy identity assertions" \
+  "frontend unit legacy identity assertion residue detected" \
+  '[.]userName\b|toHaveProperty[(][^)]*(?:UserId|userName)|GetProperty[(]["'\'']userName["'\''][)]|expect[(][^)]*(?:UserId|userName)' \
+  "" \
+  tests/frontend/unit/store tests/frontend/unit/api tests/frontend/unit/adapters/binary
+
+run_residue_check \
   "legacy message sender user model" \
   "legacy message sender user-model residue detected" \
   '\b(?:adminUserId|targetUserId|systemTargetUserId|InitiatorUserId|CreatedById|SenderId)\b|public int UserId|Queryable<User>\(\)|[.]Username|目标用户 ID|MessageSenderType[.]User|\bUser[[:space:]]*=[[:space:]]*0,|ConversationSenderValue[.]User|\b(?:GetUserConversationsAsync|GetUserConversationDetailAsync|CreateUserTicketAsync|ReplyAsUserAsync|SendUserTransactionalNoticeAsync|SendUserBannedNoticeAsync|SendUserUnbannedNoticeAsync|PushUserStatusAsync)\b|\b(?:getUserConversations|getUserConversationDetail|createUserConversation|replyUserConversation|useUserMessagesInbox)\b|\bUserConversationRow\b|\bPublishUserConversation|\b(?:UserStatusChanged|UserStatusPayload|UserStatusPayloadPod)\b|mode=["'\'']user["'\'']|messages-bubble-user|contextUserText|context-user-text' \
