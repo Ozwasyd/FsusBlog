@@ -36,7 +36,15 @@ const forbiddenTokens = [
   'changed fields',
   '展示 changed fields',
   '> - <',
-  `{{ row.autoFixAvailable ? '可安全修复' : '-' }}`
+  `{{ row.autoFixAvailable ? '可安全修复' : '-' }}`,
+  'class="integrity-danger-zone',
+  'class="integrity-risk-notice',
+  'class="integrity-destructive-panel',
+  'class="integrity-step-up-field',
+  '.integrity-danger-zone',
+  '.integrity-risk-notice',
+  '.integrity-destructive-panel',
+  '.integrity-step-up-field'
 ]
 
 for (const token of forbiddenTokens) {
@@ -67,12 +75,28 @@ const requiredTokens = [
   'CopyDocument',
   '复制字段',
   '未填写',
-  '展示变更字段'
+  '展示变更字段',
+  'FsusUiDangerZone',
+  'FsusUiRiskNotice',
+  'FsusUiDestructiveActionPanel',
+  'FsusUiFormSection'
 ]
 
 for (const token of requiredTokens) {
   if (!source.includes(token)) {
     fail(integrityPath, 1, `Integrity page contract is missing ${token}`)
+  }
+}
+
+const scopedStyle = source.match(/<style scoped>(?<body>[\s\S]*?)<\/style>/u)?.groups?.body ?? ''
+const selectorMatches = Array.from(scopedStyle.matchAll(/^\s*(\.[A-Za-z0-9_-]+)\s*\{/gmu))
+const selectorCounts = new Map()
+for (const [, selector] of selectorMatches) {
+  selectorCounts.set(selector, (selectorCounts.get(selector) ?? 0) + 1)
+}
+for (const [selector, count] of selectorCounts) {
+  if (count > 1) {
+    fail(integrityPath, lineOf(source, selector), `Integrity page scoped selector is duplicated: ${selector}`)
   }
 }
 
