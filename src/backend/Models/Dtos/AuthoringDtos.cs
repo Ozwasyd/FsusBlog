@@ -349,7 +349,6 @@ public sealed record class ContentRevisionExportResponse(
     int CategoryId,
     IReadOnlyList<int> TagIds,
     string DiffSummary,
-    long CreatedByAdminPrincipalId,
     DateTime CreatedAt);
 
 public sealed record class ContentExportMetadataResponse(

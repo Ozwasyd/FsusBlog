@@ -2113,7 +2113,6 @@ public sealed class AuthoringWorkflowService(
                 revision.CategoryId,
                 ParseTagIds(revision.TagIds),
                 revision.DiffSummary,
-                revision.CreatedByAdminPrincipalId,
                 revision.CreatedAt)).ToArray());
 
     internal static string BuildArticleExportMarkdown(Article article, string content, ContentExportMetadataResponse metadata)
@@ -2250,7 +2249,7 @@ fsusMetadataJson: {encodedMetadata}
                 TagIds = string.Join(',', NormalizeTagIds(revision.TagIds)),
                 MarkdownContent = Normalize(revision.Content, 200_000),
                 DiffSummary = Normalize(revision.DiffSummary, 512),
-                CreatedByAdminPrincipalId = Math.Max(0, revision.CreatedByAdminPrincipalId),
+                CreatedByAdminPrincipalId = 0,
                 CreatedAt = revision.CreatedAt == default ? DateTime.UtcNow : revision.CreatedAt
             })
             .ToList();

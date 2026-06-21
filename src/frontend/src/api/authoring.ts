@@ -842,7 +842,6 @@ export interface ContentRevisionExportResponse {
   categoryId: number
   tagIds: number[]
   diffSummary: string
-  createdByAdminPrincipalId: number
   createdAt: string
 }
 

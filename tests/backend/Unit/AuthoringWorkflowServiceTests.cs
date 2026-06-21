@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using SqlSugar;
 using System.Text;
+using System.Text.Json;
 
 namespace FsusBlog.Server.Tests;
 
@@ -44,6 +45,31 @@ public sealed class AuthoringWorkflowServiceTests
         Assert.DoesNotContain("createdByUserId", frontendApi, StringComparison.Ordinal);
         Assert.Contains("revision.createdByAdminPrincipalId", revisionPanel, StringComparison.Ordinal);
         Assert.DoesNotContain("revision.createdByUserId", revisionPanel, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ContentExportContracts_DoNotCarryImportableNumericActorIds()
+    {
+        string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string dtos = ReadRepoFile("src/backend/Models/Dtos/AuthoringDtos.cs");
+        string frontendApi = ReadRepoFile("src/frontend/src/api/authoring.ts");
+
+        string exportDto = Slice(dtos, "public sealed record class ContentRevisionExportResponse", "public sealed record class ContentExportMetadataResponse");
+        Assert.DoesNotContain("CreatedByUserId", exportDto, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreatedByAdminPrincipalId", exportDto, StringComparison.Ordinal);
+
+        string frontendExportDto = Slice(frontendApi, "export interface ContentRevisionExportResponse", "export interface ContentExportMetadataResponse");
+        Assert.DoesNotContain("createdByUserId", frontendExportDto, StringComparison.Ordinal);
+        Assert.DoesNotContain("createdByAdminPrincipalId", frontendExportDto, StringComparison.Ordinal);
+
+        string exportBuilder = Slice(service, "private static ContentExportMetadataResponse BuildExportMetadata", "internal static string BuildArticleExportMarkdown");
+        Assert.DoesNotContain("revision.CreatedByUserId", exportBuilder, StringComparison.Ordinal);
+        Assert.DoesNotContain("revision.CreatedByAdminPrincipalId", exportBuilder, StringComparison.Ordinal);
+
+        string revisionRestore = Slice(service, "private async Task<int> RestoreImportedRevisionsAsync", "private static string EscapeFrontmatterValue");
+        Assert.DoesNotContain("revision.CreatedByUserId", revisionRestore, StringComparison.Ordinal);
+        Assert.DoesNotContain("revision.CreatedByAdminPrincipalId", revisionRestore, StringComparison.Ordinal);
+        Assert.Contains("CreatedByAdminPrincipalId = 0", revisionRestore, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -309,7 +335,6 @@ const value = 1;
                     3,
                     [5, 6],
                     "initial publish",
-                    7,
                     scheduledAt)
             ]);
 
@@ -326,7 +351,65 @@ const value = 1;
         ContentExportMetadataResponse parsedMetadata = parsed.Metadata!;
         Assert.Equal(1, parsedMetadata.RevisionCount);
         Assert.Equal("initial publish", parsedMetadata.Revisions[0].DiffSummary);
+        string encodedMetadata = markdown.Split("fsusMetadataJson: ", StringSplitOptions.None)[1].Split('\n')[0];
+        byte[] metadataJson = Convert.FromBase64String(encodedMetadata.Replace('-', '+').Replace('_', '/').PadRight(encodedMetadata.Length + ((4 - encodedMetadata.Length % 4) % 4), '='));
+        string metadataText = Encoding.UTF8.GetString(metadataJson);
+        Assert.DoesNotContain("CreatedByUserId", metadataText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("createdByUserId", metadataText, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreatedByAdminPrincipalId", metadataText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("createdByAdminPrincipalId", metadataText, StringComparison.Ordinal);
         Assert.Equal("# Body", parsed.Content.Trim());
+    }
+
+    [Fact]
+    public void ParseFrontmatter_LegacyRevisionActorIds_AreIgnored()
+    {
+        var metadata = new
+        {
+            SourceArticleId = 9,
+            CategoryId = 3,
+            TagIds = new[] { 5, 6 },
+            Status = ArticleStatus.Draft,
+            ScheduledPublishAt = (DateTime?)null,
+            CoverImageUrl = "/uploads/legacy.webp",
+            RevisionCount = 1,
+            Revisions = new[]
+            {
+                new
+                {
+                    RevisionNo = 1,
+                    Title = "Legacy",
+                    Content = "# Legacy",
+                    Summary = "summary",
+                    CoverImageUrl = "/uploads/legacy.webp",
+                    CategoryId = 3,
+                    TagIds = new[] { 5, 6 },
+                    DiffSummary = "legacy import",
+                    createdByUserId = 12345,
+                    createdByAdminPrincipalId = 67890,
+                    CreatedAt = DateTime.Parse("2026-01-01T00:00:00Z")
+                }
+            }
+        };
+        byte[] json = JsonSerializer.SerializeToUtf8Bytes(metadata);
+        string encodedMetadata = Convert.ToBase64String(json).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        string markdown = $"""
+---
+fsusFormat: content-export-v1
+fsusMetadataJson: {encodedMetadata}
+---
+
+# Legacy
+""";
+
+        var parsed = AuthoringWorkflowService.ParseFrontmatter(markdown);
+
+        Assert.NotNull(parsed.Metadata);
+        ContentRevisionExportResponse revision = Assert.Single(parsed.Metadata!.Revisions);
+        Assert.Equal("legacy import", revision.DiffSummary);
+        Assert.DoesNotContain(
+            typeof(ContentRevisionExportResponse).GetProperties(),
+            static property => property.Name is "CreatedByUserId" or "CreatedByAdminPrincipalId");
     }
 
     [Fact]
@@ -378,6 +461,15 @@ const value = "<script>alert(1)</script>";
 
     private static string ReadRepoFile(string relativePath)
         => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
+
+    private static string Slice(string content, string startMarker, string endMarker)
+    {
+        int start = content.IndexOf(startMarker, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing start marker: {startMarker}");
+        int end = content.IndexOf(endMarker, start + startMarker.Length, StringComparison.Ordinal);
+        Assert.True(end > start, $"Missing end marker: {endMarker}");
+        return content[start..end];
+    }
 
     private static AuthoringWorkflowService BuildService(
         out AuditLogChannel auditLogChannel,

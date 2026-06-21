@@ -4,6 +4,13 @@ import { describe, expect, it } from 'vitest'
 
 const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
 const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
+const slice = (content: string, startMarker: string, endMarker: string): string => {
+  const start = content.indexOf(startMarker)
+  expect(start).toBeGreaterThanOrEqual(0)
+  const end = content.indexOf(endMarker, start + startMarker.length)
+  expect(end).toBeGreaterThan(start)
+  return content.slice(start, end)
+}
 
 describe('admin content governance workflow contract', () => {
   const articleApi = readRepoFile('src/frontend/src/api/article.ts')
@@ -102,6 +109,17 @@ describe('admin content governance workflow contract', () => {
     expect(authoringApi).not.toContain('createdByUserId')
     expect(revisionPanel).toContain('revision.createdByAdminPrincipalId')
     expect(revisionPanel).not.toContain('revision.createdByUserId')
+  })
+
+  it('does not expose importable numeric actor ids in content export metadata', () => {
+    const exportRevision = slice(
+      authoringApi,
+      'export interface ContentRevisionExportResponse',
+      'export interface ContentExportMetadataResponse',
+    )
+
+    expect(exportRevision).not.toContain('createdByUserId')
+    expect(exportRevision).not.toContain('createdByAdminPrincipalId')
   })
 
   it('does not label a category-only dashboard route as category and tag management', () => {
