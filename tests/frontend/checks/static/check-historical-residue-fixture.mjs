@@ -270,6 +270,23 @@ internal sealed class UserService
     }
   },
   {
+    name: 'role-based admin authorization checks',
+    expected: 'role-based admin authorization residue detected',
+    files: {
+      'src/backend/Infrastructure/Helpers/JwtHelper.cs': `
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+namespace FsusBlog.Server.Infrastructure.Helpers;
+internal static class JwtHelperRoleResidue
+{
+    private static readonly Claim Role = new(ClaimTypes.Role, "admin");
+    private static bool PolicyRequiresAdminRole(RolesAuthorizationRequirement requirement)
+        => requirement.AllowedRoles.Contains("admin");
+}
+`
+    }
+  },
+  {
     name: 'legacy admin password reset governance',
     expected: 'legacy admin password reset governance residue detected',
     files: {

@@ -94,6 +94,35 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
+    public void GenerateAdminAccessToken_UsesAdminPrincipalAndPermissionClaimsWithoutLegacyRole()
+    {
+        var helper = CreateHelper();
+        string token = helper.GenerateAdminAccessToken(
+            new AdminPrincipal
+            {
+                Id = 7,
+                Handle = "root",
+                Permissions = string.Join(',', AdminPermissions.AdminManage, AdminPermissions.SystemConfig)
+            },
+            new AdminSession
+            {
+                SessionId = "admin-session-1",
+                AdminPrincipalId = 7,
+                IdleExpiresAtUtc = DateTime.UtcNow.AddHours(1),
+                AbsoluteExpiresAtUtc = DateTime.UtcNow.AddHours(8)
+            },
+            [AdminPermissions.AdminManage, AdminPermissions.SystemConfig]);
+
+        var claims = ParseClaims(token).ToArray();
+        Assert.DoesNotContain(claims, IsRoleClaim);
+        Assert.Contains(claims, claim => claim.Type == "identity_kind" && claim.Value == AnonymousIdentityRuntime.AdminPrincipalKind);
+        Assert.Contains(claims, claim => claim.Type == "admin_id" && claim.Value == "7");
+        Assert.Contains(claims, claim => claim.Type == "admin_sid" && claim.Value == "admin-session-1");
+        Assert.Contains(claims, claim => claim.Type == AdminPermissions.PermissionClaimType && claim.Value == AdminPermissions.AdminManage);
+        Assert.Contains(claims, claim => claim.Type == AdminPermissions.PermissionClaimType && claim.Value == AdminPermissions.SystemConfig);
+    }
+
+    [Fact]
     public void GenerateAccessToken_WithSessionId_IncludesSessionClaim()
     {
         var helper = CreateHelper();

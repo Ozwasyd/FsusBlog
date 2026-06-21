@@ -210,13 +210,13 @@ public sealed class AdminPrincipalSecurityContractTests
         Assert.False(JwtServiceExtensions.ShouldPreferAdminCookie(userContext));
 
         var roleAdminContext = new DefaultHttpContext();
-        roleAdminContext.Request.Path = "/api/binary/admin/article";
+        roleAdminContext.Request.Path = "/api/binary/auth/me";
         roleAdminContext.SetEndpoint(new Endpoint(
             static _ => Task.CompletedTask,
             new EndpointMetadataCollection(new AuthorizationPolicyBuilder().RequireRole("admin").Build()),
             "role-admin"));
 
-        Assert.True(JwtServiceExtensions.ShouldPreferAdminCookie(roleAdminContext));
+        Assert.False(JwtServiceExtensions.ShouldPreferAdminCookie(roleAdminContext));
 
         var principalAdminContext = new DefaultHttpContext();
         principalAdminContext.Request.Path = "/api/binary/auth/admin/me";
@@ -230,6 +230,18 @@ public sealed class AdminPrincipalSecurityContractTests
             "principal-admin"));
 
         Assert.True(JwtServiceExtensions.ShouldPreferAdminCookie(principalAdminContext));
+    }
+
+    [Fact]
+    public void AdminJwtAndCookieSelection_DoNotRetainRoleBasedAdminCompatibility()
+    {
+        string jwt = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Helpers/JwtHelper.cs");
+
+        Assert.DoesNotContain("new(ClaimTypes.Role, \"admin\")", jwt, StringComparison.Ordinal);
+        Assert.DoesNotContain("PolicyRequiresAdminRole", jwt, StringComparison.Ordinal);
+        Assert.DoesNotContain("ContainsAdminRole", jwt, StringComparison.Ordinal);
+        Assert.DoesNotContain("RolesAuthorizationRequirement", jwt, StringComparison.Ordinal);
+        Assert.DoesNotContain("RequireRole(\"admin\")", jwt, StringComparison.Ordinal);
     }
 
     private static string ExtractMethodBlock(string source, string signature)

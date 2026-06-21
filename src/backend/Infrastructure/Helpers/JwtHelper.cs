@@ -94,7 +94,6 @@ public class JwtHelper : IJwtHelper
         {
             new(ClaimTypes.NameIdentifier, principal.Id.ToString()),
             new(ClaimTypes.Name, principal.Handle),
-            new(ClaimTypes.Role, "admin"),
             new("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
             new("admin_id", principal.Id.ToString()),
             new("admin_handle", principal.Handle),
@@ -245,15 +244,7 @@ public static class JwtServiceExtensions
         {
             foreach (AuthorizationPolicy policy in endpoint.Metadata.GetOrderedMetadata<AuthorizationPolicy>())
             {
-                if (PolicyRequiresAdminPrincipal(policy) || PolicyRequiresAdminRole(policy))
-                {
-                    return true;
-                }
-            }
-
-            foreach (IAuthorizeData authorizeData in endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>())
-            {
-                if (ContainsAdminRole(authorizeData.Roles))
+                if (PolicyRequiresAdminPrincipal(policy))
                 {
                     return true;
                 }
@@ -275,17 +266,4 @@ public static class JwtServiceExtensions
                     requirement.AllowedValues.Contains(AnonymousIdentityRuntime.AdminPrincipalKind, StringComparer.Ordinal)) ||
             string.Equals(requirement.ClaimType, AdminPermissions.PermissionClaimType, StringComparison.Ordinal));
 
-    private static bool PolicyRequiresAdminRole(AuthorizationPolicy policy)
-        => policy.Requirements.OfType<RolesAuthorizationRequirement>().Any(static requirement =>
-            ContainsAdminRole(requirement.AllowedRoles));
-
-    private static bool ContainsAdminRole(string? roles)
-        => !string.IsNullOrWhiteSpace(roles) &&
-            ContainsAdminRole(roles.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
-
-    private static bool ContainsAdminRole(IEnumerable<string>? roles)
-        => roles != null &&
-            roles
-                .SelectMany(static value => value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
-                .Any(static role => string.Equals(role, "admin", StringComparison.Ordinal));
 }
