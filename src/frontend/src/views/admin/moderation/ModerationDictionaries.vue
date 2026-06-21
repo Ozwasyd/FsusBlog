@@ -123,7 +123,7 @@
 
     <el-drawer v-model="detailVisible" title="词库元数据" size="min(92vw, 32rem)">
       <div v-if="detail" class="space-y-5">
-        <div class="border-l-4 border-[var(--el-color-warning)] px-4 py-3 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
+        <div class="border-l-4 border-[var(--fsusblog-color-warning)] px-4 py-3 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
           原始词条默认不可见；证据策略为 redact 时不会在管理台、toast 或日志中展示敏感词明文。
         </div>
         <dl class="grid grid-cols-1 gap-3">

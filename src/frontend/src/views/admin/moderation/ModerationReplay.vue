@@ -71,7 +71,7 @@
       />
     </section>
 
-    <section class="border-l-4 border-[var(--el-color-warning)] bg-[var(--fsusblog-page-bg)] px-5 py-4 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
+    <section class="border-l-4 border-[var(--fsusblog-color-warning)] bg-[var(--fsusblog-page-bg)] px-5 py-4 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
       回放执行当前不提供直接按钮。执行流程必须基于上方预览，完成 admin passkey step-up、确认短语、高价值审计、可中断进度与失败重试后才能进入执行。
     </section>
   </div>

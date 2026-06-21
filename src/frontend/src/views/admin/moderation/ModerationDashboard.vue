@@ -64,7 +64,7 @@
               </div>
               <el-tag :type="mainlandStatusType">{{ formatRuntimeStatus(overview?.mainlandStrictStatus) }}</el-tag>
             </div>
-            <div v-if="overview?.mainlandStrictStatus !== 'enabled'" class="border-l-4 border-[var(--el-color-warning)] p-5 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
+            <div v-if="overview?.mainlandStrictStatus !== 'enabled'" class="border-l-4 border-[var(--fsusblog-color-warning)] p-5 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
               中国大陆严格策略未启用：大陆 IP 政治敏感与色情内容屏蔽可能失效。
             </div>
             <div class="flex flex-wrap items-center justify-between gap-3 p-5">

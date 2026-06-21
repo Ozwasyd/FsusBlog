@@ -19,7 +19,7 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadStatus">刷新</el-button>
       </div>
 
-      <div class="border-l-4 border-[var(--el-color-warning)] px-5 py-4 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
+      <div class="border-l-4 border-[var(--fsusblog-color-warning)] px-5 py-4 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
         <strong class="text-[var(--fsusblog-text-primary)]">地区法律策略优先级高于反垃圾模型。</strong>
         <span class="ml-2">模型风险信号不能覆盖拦截地区、提交动作、展示动作或人工审核状态。</span>
       </div>
