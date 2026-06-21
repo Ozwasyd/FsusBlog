@@ -49,7 +49,8 @@ public class PodMappingBenchmarks
     private readonly string _summary = "High frequency mapping benchmark summary";
     private readonly string _snippet = "This snippet emulates a hot-path list projection.";
     private readonly string _content = new('x', 256);
-    private readonly string _userName = "benchmark-user";
+    private readonly string _displayName = "Benchmark Author";
+    private readonly string _authorMode = "anonymous";
 
     private readonly CorePageResult<ArticleListCoreModel> _pageResult;
     private readonly byte[] _encodedArticlePage;
@@ -124,14 +125,14 @@ public class PodMappingBenchmarks
     [Benchmark]
     public int CommentItem_PodProjection()
     {
-        var pod = PodProjector.ProjectCommentItem(1001, DateTime.UtcNow, _userName, _content, out var payload);
+        var pod = PodProjector.ProjectCommentItem(1001, DateTime.UtcNow, _authorMode, _displayName, _content, out var payload);
         return payload.Length + pod.GetHashCode();
     }
 
     [Benchmark]
     public int Stats_PodProjection()
     {
-        var pod = PodProjector.ProjectSiteStats(100, 200, 10, 10000, 6000, 4000, 5, 5, 8);
+        var pod = PodProjector.ProjectSiteStats(100, 200, 10, 10000, 6000, 4000, 6000, 4000, 5, 5, 8);
         return pod.GetHashCode() + (Vector256.IsHardwareAccelerated ? 1 : 0);
     }
 
@@ -577,9 +578,10 @@ internal static class ContractVerifier
 
     private static bool VerifyComment()
     {
-        var pod = PodProjector.ProjectCommentItem(101, DateTime.UnixEpoch.AddMinutes(9), "u1", "hello", out _);
+        var author = new CommentAuthorViewDto("anonymous", "Benchmark Author", "zh-CN", null, null, null);
+        var pod = PodProjector.ProjectCommentItem(101, DateTime.UnixEpoch.AddMinutes(9), author.Mode, author.DisplayName, "hello", out _);
         var source = new CoreCursorResult<CommentQueryCoreModel>(
-            [new CommentQueryCoreModel(pod, 101, "hello", DateTime.UnixEpoch.AddMinutes(9), "u1")],
+            [new CommentQueryCoreModel(pod, 101, "hello", DateTime.UnixEpoch.AddMinutes(9), author)],
             999,
             true);
 
@@ -590,16 +592,19 @@ internal static class ContractVerifier
 
     private static bool VerifyStats()
     {
-        var sitePod = PodProjector.ProjectSiteStats(3, 4, 1, 100, 60, 40, 1, 1, 1);
+        var sitePod = PodProjector.ProjectSiteStats(3, 4, 1, 100, 60, 40, 60, 40, 1, 1, 1);
         var popular = new PopularArticleCoreModel(PodProjector.ProjectPopularArticle(3, "hot", 77), 3, "hot", 77);
         var recent = new RecentCommentCoreModel(
-            PodProjector.ProjectRecentComment(4, DateTime.UnixEpoch.AddDays(1), "u4", "c4", out _),
-            4,
-            "u4",
+            PodProjector.ProjectRecentComment(DateTime.UnixEpoch.AddDays(1), "Benchmark Author", "anonymous", null, null, "anonymous", "c4", out _),
+            "Benchmark Author",
+            "anonymous",
+            null,
+            null,
+            "anonymous",
             "c4",
             DateTime.UnixEpoch.AddDays(1));
         var region = new RegionDistributionCoreModel(PodProjector.ProjectRegionDistribution("CN-SH", 9), "CN-SH", 9);
-        var source = new SiteStatsCoreModel(sitePod, 3, 4, 1, 100, 60, 40, [popular], [recent], [region]);
+        var source = new SiteStatsCoreModel(sitePod, 3, 4, 1, 100, 60, 40, 60, 40, [popular], [recent], [region]);
 
         byte[] bytes = PodBinaryCodec.EncodeSiteStats(source);
         bool ok = PodBinaryCodec.TryDecodeSiteStats(bytes, out var decoded);
@@ -842,7 +847,7 @@ internal static class HttpParityVerifier
         bool parsed = long.TryParse(jsonId, out long id);
         return parsed && id == pod.Id
             && first.GetProperty("content").GetString() == pod.Content
-            && first.GetProperty("userName").GetString() == pod.UserName;
+            && !string.IsNullOrWhiteSpace(first.GetProperty("author").GetProperty("displayName").GetString());
     }
 
     private static async Task<bool> CompareStatsAsync(HttpClient client, IAedsEncoder aeds)

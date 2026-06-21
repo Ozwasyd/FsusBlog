@@ -72,6 +72,19 @@ public sealed class CommentAuthorSnapshotContractTests
         Assert.DoesNotContain("username: 64", checklist, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void CoreBenchmarks_UseCommentAuthorSnapshotFieldsInsteadOfLegacyUserName()
+    {
+        string benchmark = BackendTestPaths.ReadAllTextFromRoot("benchmarks/core/Program.cs");
+
+        Assert.Contains("_displayName", benchmark, StringComparison.Ordinal);
+        Assert.Contains("_authorMode", benchmark, StringComparison.Ordinal);
+        Assert.Contains("GetProperty(\"author\")", benchmark, StringComparison.Ordinal);
+        Assert.Contains("GetProperty(\"displayName\")", benchmark, StringComparison.Ordinal);
+        Assert.DoesNotContain("_userName", benchmark, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetProperty(\"userName\")", benchmark, StringComparison.Ordinal);
+    }
+
     private static JsonSerializerOptions JsonOptions()
         => new(JsonSerializerDefaults.Web);
 
