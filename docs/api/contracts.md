@@ -627,7 +627,7 @@ Article POD 为定长结构体，字段按 C++ 内存对齐排列：
 
 Submit 同样受 `read_proof` 专用限流保护。`counted=true` 会写入 `ReadProofAccepted` 负分风险信号，仅用于降低后续 `public.read` 风险或避免重复 challenge；`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid`、`fingerprint_missing` 等拒绝状态会写入 crawler risk；`duplicate_viewer` 只表示 24 小时去重，不计入风险。一次性 proof 消费必须先失效进程内 L1 cache，再执行 Redis consume-once transaction；请求取消后不得继续执行 registry 清理或留下可从 L1 再读取的 proof。
 
-被接受的阅读事件只记录 `viewerKeyHash`、`proofId`、`eventType`、`routeKey`、`articleId`、region 与时间，不写入登录账号 ID；后续去重与统计不得以账号身份作为维度。
+被接受的阅读事件只记录 `viewerKeyHash`、`proofId`、`eventType`、`routeKey`、`articleId`、region 与时间；`sys_visit_log` 最终态不包含 `userid` / `user_id` 账号绑定列，后续去重与统计不得以账号身份作为维度。
 
 响应 frame：`HumanReadSubmitResponse` (`29`)
 
@@ -1083,7 +1083,7 @@ SiteStatsPod、共享 UTF-8 blob、popular article records、recent comment reco
 | `articleReads` | `event_type=article_read` 的文章阅读事件数 |
 | `siteReads` | `event_type=site_read` 的站点阅读事件数 |
 
-该摘要不暴露注册/匿名账号拆分，也不得从 `VisitLog.user_id` 派生身份统计。
+该摘要不暴露注册/匿名账号拆分，也不得恢复 `VisitLog.UserId` 或从历史 `sys_visit_log.userid` / `sys_visit_log.user_id` 派生身份统计。
 
 ---
 

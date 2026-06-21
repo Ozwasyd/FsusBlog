@@ -198,6 +198,19 @@ internal static class BinaryEndpoints
 }
 `
     }
+  },
+  {
+    name: 'human-read visit user binding',
+    expected: 'human-read visit user-bound residue detected',
+    files: {
+      'src/backend/Entities/VisitLog.cs': `
+namespace FsusBlog.Server.Entities;
+public class VisitLog
+{
+    public int? UserId { get; set; }
+}
+`
+    }
   }
 ]
 

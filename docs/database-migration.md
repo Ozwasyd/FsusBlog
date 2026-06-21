@@ -34,6 +34,7 @@ The upgrade also moves legacy content and messaging structures:
 - `sys_message` and `sys_user_message` are copied to `msg_conversation`, `msg_message`, and `msg_participant_state`, then the old tables are dropped.
 - plaintext refresh token columns on `sys_user` are nulled and dropped.
 - `sys_visit_log` is extended into the human-read event source with `site_read` defaults.
+- `sys_visit_log.userid` and `sys_visit_log.user_id` are dropped after human-read attribution is finalized.
 
 Rollback is backup based. Schema migrations are intentionally `non_compensable`; use the pre-migration site package or database dump if the isolated rehearsal or production startup check fails.
 
@@ -64,6 +65,19 @@ The anonymous account schema migration keeps `sys_user` but changes its meaning 
 - `anonymous_credential_level` and `anonymous_credential_status` provide a compact projection point for later credential-policy work.
 
 When `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` is enabled, application code must not treat physical `username/password` or `role=admin` as identity, credential, or authority sources for these rows.
+
+## Visit Log Anonymous Attribution Finalization
+
+`sys_visit_log` is the single event source for human-read article and site statistics. The final attribution shape is anonymous: `viewer_key_hash`, `proof_id`, `event_type`, `route_key`, `article_id`, `dwell_ms`, region, and timestamp. It must not retain account binding columns.
+
+`20260621-post-visit-log-anonymous-attribution-finalize` drops both historical spellings:
+
+```sql
+ALTER TABLE sys_visit_log DROP COLUMN IF EXISTS userid;
+ALTER TABLE sys_visit_log DROP COLUMN IF EXISTS user_id;
+```
+
+Rollback without restarting the application is limited to restoring a backup snapshot for forensic analysis. Do not recreate either account binding column in a live schema; pausing `HumanReadProof:Mode` can stop new counter writes while preserving public read access.
 
 ## Comment Attribution Index Finalization
 

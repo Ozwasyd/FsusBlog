@@ -40,6 +40,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildFrontendRumMetricMigration(),
         BuildCoverImageMigration(),
         BuildHumanReadEventMigration(),
+        BuildVisitLogAnonymousAttributionFinalizeMigration(),
         BuildSingleAuthorArticleLifecycleMigration(),
         BuildSingleAuthorArticleLifecycleIndexMigration(),
         BuildArticleMutationOutboxEdgeMigration(),
@@ -1791,6 +1792,18 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_visit_proof_id",
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_visit_proof_id ON sys_visit_log(proof_id) WHERE proof_id IS NOT NULL;")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildVisitLogAnonymousAttributionFinalizeMigration()
+        => new SchemaMigrationDescriptor(
+            "20260621-post-visit-log-anonymous-attribution-finalize",
+            "Drop legacy account binding columns from human-read visit logs.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new DropColumnStep("sys_visit_log", "userid"),
+                new DropColumnStep("sys_visit_log", "user_id")
             ]);
 
     private static ISchemaMigrationDescriptor BuildSingleAuthorArticleLifecycleMigration()

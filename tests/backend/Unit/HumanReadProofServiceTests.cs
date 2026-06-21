@@ -62,7 +62,10 @@ public sealed class HumanReadProofServiceTests
     [Fact]
     public void HumanReadAndStats_SourceDoNotUseVisitLogUserIdAsIdentityDimension()
     {
+        Assert.Null(typeof(FsusBlog.Server.Entities.VisitLog).GetProperty("UserId"));
+
         string proof = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/HumanReadProofService.cs");
+        string visitLog = BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/VisitLog.cs");
         string visitProcessor = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/VisitLog/VisitLogProcessorService.cs");
         string stats = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/StatsService.cs");
         string outputs = BackendTestPaths.ReadAllTextFromRoot("src/shared/Contracts/Outputs/ServerResponseContracts.cs");
@@ -70,6 +73,7 @@ public sealed class HumanReadProofServiceTests
         string frontendStats = BackendTestPaths.ReadAllTextFromRoot("src/frontend/src/api/stats.ts");
 
         Assert.DoesNotContain("context.GetUserId()", proof, StringComparison.Ordinal);
+        Assert.DoesNotContain("int? UserId", visitLog, StringComparison.Ordinal);
         Assert.DoesNotContain("int? UserId", visitProcessor, StringComparison.Ordinal);
         Assert.DoesNotContain("msg.UserId", visitProcessor, StringComparison.Ordinal);
         Assert.DoesNotContain("v.UserId", stats, StringComparison.Ordinal);

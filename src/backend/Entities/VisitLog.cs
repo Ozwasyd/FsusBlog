@@ -13,11 +13,6 @@ public class VisitLog
     public int Id { get; set; }
     public string IP { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 用户ID (null 表示匿名用户)
-    /// </summary>
-    [SugarColumn(IsNullable = true)]
-    public int? UserId { get; set; }
     public string Region { get; set; } = string.Empty;
     public DateTime CreateTime { get; set; }
 

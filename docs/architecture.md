@@ -298,7 +298,7 @@ SPA hydration
   → sys_visit_log + Article.Views 投影 + Redis hot articles + stats/cache invalidation
 ```
 
-- `sys_visit_log` 是文章浏览与站点访问统计的单一事件源，字段包含 `event_type`、`route_key`、`article_id`、`viewer_key_hash`、`proof_id`、`dwell_ms`。
+- `sys_visit_log` 是文章浏览与站点访问统计的单一事件源，字段包含 `event_type`、`route_key`、`article_id`、`viewer_key_hash`、`proof_id`、`dwell_ms`；最终态不保留历史 `userid` / `user_id` 账号绑定列。
 - `article_view_seed` 保存迁移时的历史 `article.views`，用于重建 `Article.Views = legacy_views + article_read events` 投影。
 - 直接读取 `/api/binary/article/{id}.aeds`、AOT 首屏、无 JS、爬虫和预取请求不会增加计数。
 - `VisitLogMiddleware` 仅保留为管线兼容占位，不再从 GET 请求采样。
