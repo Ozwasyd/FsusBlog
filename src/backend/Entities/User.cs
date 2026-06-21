@@ -4,7 +4,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Entities;
 
 [SugarTable("sys_user")]
-[SugarIndex("unique_idx_username", nameof(User.Username), OrderByType.Desc, true)]
+[SugarIndex("unique_idx_username", nameof(User.InternalSubject), OrderByType.Desc, true)]
 [SugarIndex("idx_create_time", nameof(User.CreateTime), OrderByType.Desc)]
 // 为状态字段增加索引，确保系统启动时能瞬间捞出所有黑名单
 [SugarIndex("idx_user_status", nameof(User.Status), OrderByType.Asc)]
@@ -13,14 +13,14 @@ public class User
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
     public int Id { get; set; }
 
-    [SugarColumn(Length = 64, IsNullable = true)]
-    public string Username { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "username", Length = 64, IsNullable = true)]
+    public string InternalSubject { get; set; } = string.Empty;
 
-    [SugarColumn(Length = 100, IsNullable = true)]
-    public string Password { get; set; } = string.Empty; // 实际生产中请存 Hash
+    [SugarColumn(ColumnName = "password", Length = 100, IsNullable = true)]
+    public string LegacyPasswordHash { get; set; } = string.Empty;
 
-    [SugarColumn(Length = 20)]
-    public string Role { get; set; } = "guest"; // "admin" or "guest"
+    [SugarColumn(ColumnName = "role", Length = 20)]
+    public string LegacyProjectRole { get; set; } = "guest";
 
     [SugarColumn(ColumnName = "public_handle", Length = 64, IsNullable = true)]
     public string? PublicHandle { get; set; }
@@ -46,11 +46,8 @@ public class User
     [SugarColumn(ColumnName = "anonymous_credential_status", Length = 32, DefaultValue = "'active'")]
     public string AnonymousCredentialStatus { get; set; } = "active";
 
-    /// <summary>
-    /// 上次修改用户名的时间
-    /// </summary>
-    [SugarColumn(IsNullable = true)]
-    public DateTime? LastUsernameUpdateTime { get; set; }
+    [SugarColumn(ColumnName = "last_username_update_time", IsNullable = true)]
+    public DateTime? InternalSubjectRotatedAt { get; set; }
 
     // ====== 管理字段 ======
 

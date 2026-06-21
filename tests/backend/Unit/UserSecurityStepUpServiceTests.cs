@@ -71,7 +71,7 @@ public sealed class UserSecurityStepUpServiceTests
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
         IMfaChallengeService mfa = Substitute.For<IMfaChallengeService>();
-        users.GetAccountByIdAsync(42).Returns(CreateUser(mfaEnabled: false, username: "alice"));
+        users.GetAccountByIdAsync(42).Returns(CreateUser(mfaEnabled: false));
         var service = new UserSecurityStepUpService(users, mfa);
 
         UserSecurityStepUpResult result = await service.VerifyAsync(new UserSecurityStepUpRequest(
@@ -91,7 +91,7 @@ public sealed class UserSecurityStepUpServiceTests
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
         IMfaChallengeService mfa = Substitute.For<IMfaChallengeService>();
-        users.GetAccountByIdAsync(42).Returns(CreateUser(mfaEnabled: false, username: "alice"));
+        users.GetAccountByIdAsync(42).Returns(CreateUser(mfaEnabled: false));
         var service = new UserSecurityStepUpService(users, mfa);
 
         UserSecurityStepUpResult result = await service.VerifyAsync(new UserSecurityStepUpRequest(
@@ -145,13 +145,10 @@ public sealed class UserSecurityStepUpServiceTests
 
     private static UserAccountSnapshot CreateUser(
         bool mfaEnabled,
-        string username = "alice",
         int status = 0,
         DateTime? deletedAt = null)
         => new(
             Id: 42,
-            Username: username,
-            Role: "guest",
             Status: status,
             BanReason: null,
             MfaEnabled: mfaEnabled,

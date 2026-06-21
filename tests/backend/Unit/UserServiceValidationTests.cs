@@ -79,10 +79,10 @@ public class UserServiceValidationTests
         Assert.NotNull(inserted);
         Assert.NotNull(user);
         Assert.Equal(42, user!.Id);
-        Assert.StartsWith("anon_", inserted!.Username, StringComparison.Ordinal);
-        Assert.Equal(string.Empty, inserted.Password);
+        Assert.StartsWith("anon_", inserted!.InternalSubject, StringComparison.Ordinal);
+        Assert.Equal(string.Empty, inserted.LegacyPasswordHash);
         Assert.Equal(AnonymousIdentityRuntime.AnonymousAccountKind, inserted.IdentityKind);
-        Assert.Equal("guest", inserted.Role);
+        Assert.Equal("guest", inserted.LegacyProjectRole);
         Assert.Equal("quietreader", inserted.PublicHandle);
         Assert.NotNull(inserted.PrivacyInitializedAt);
         Assert.False(inserted.PasskeyEnabled);
@@ -193,7 +193,7 @@ public class UserServiceValidationTests
         queryable.InSingleAsync(42).Returns(Task.FromResult(new User
         {
             Id = 42,
-            Username = "legacy-random-name",
+            InternalSubject = "legacy-random-name",
             IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
             MfaEnabled = false
         }));
@@ -289,7 +289,7 @@ public class UserServiceValidationTests
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns("access-token");
         var persistence = ConfigureLoginPersistence(db);
         var svc = BuildService(db, jwt);
-        var bannedUser = new User { Id = 42, Username = "banned-user", Role = "guest", Status = 1 };
+        var bannedUser = new User { Id = 42, InternalSubject = "banned-user", LegacyProjectRole = "guest", Status = 1 };
 
         var (success, message, data, userEntity) = await svc.CompleteLoginAsync(
             bannedUser,
@@ -320,7 +320,7 @@ public class UserServiceValidationTests
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns("access-token");
         var persistence = ConfigureLoginPersistence(db);
         var svc = BuildService(db, jwt);
-        var user = new User { Id = 7, Username = "normal-user", Role = "guest", Status = 0 };
+        var user = new User { Id = 7, InternalSubject = "normal-user", LegacyProjectRole = "guest", Status = 0 };
 
         var (success, message, data, userEntity) = await svc.CompleteLoginAsync(
             user,
@@ -383,18 +383,18 @@ public class UserServiceValidationTests
     [InlineData("UPPER", "upper")]
     [InlineData("", "")]
     [InlineData("   ", "")]
-    public void NormalizeUsername_TrimsAndLowercases(string input, string expected)
+    public void NormalizeInternalSubject_TrimsAndLowercases(string input, string expected)
     {
-        var result = InvokePrivateStatic<string>("NormalizeUsername", [input]);
+        var result = InvokePrivateStatic<string>("NormalizeInternalSubject", [input]);
         Assert.Equal(expected, result);
     }
 
     [Fact]
-    public void NormalizeUsername_TruncatesAtMaxLength()
+    public void NormalizeInternalSubject_TruncatesAtMaxLength()
     {
         string longName = new string('a', 200);
-        var result = InvokePrivateStatic<string>("NormalizeUsername", [longName]);
-        Assert.Equal(32, result.Length); // MaxUsernameLength = 32
+        var result = InvokePrivateStatic<string>("NormalizeInternalSubject", [longName]);
+        Assert.Equal(32, result.Length);
     }
 
     [Theory]

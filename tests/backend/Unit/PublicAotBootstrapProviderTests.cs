@@ -25,7 +25,8 @@ public sealed class PublicAotBootstrapProviderTests
 
         Assert.Contains("ArticleAuthorAotProjection", articleProviderSource);
         Assert.Contains("CreatedByUserId", articleProviderSource);
-        Assert.Contains("user.Username", articleProviderSource);
+        Assert.Contains("user.PublicHandle", articleProviderSource);
+        Assert.DoesNotContain("user.InternalSubject", articleProviderSource);
         Assert.Contains("ResolveArticleAuthorName(article.AuthorName, seo)", articleProviderSource);
     }
 

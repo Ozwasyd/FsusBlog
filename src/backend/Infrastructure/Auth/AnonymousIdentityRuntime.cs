@@ -20,7 +20,7 @@ public static class AnonymousIdentityRuntime
     }
 
     public static string ResolveBackendRole(User user)
-        => ResolveBackendRole(user.Role, user.IdentityKind);
+        => ResolveBackendRole(user.LegacyProjectRole, user.IdentityKind);
 
     public static string ResolveBackendRole(string? roleValue, string? identityKind)
         => ResolveBackendRole(roleValue, identityKind, IsAnonymousIdentityModeEnabled());

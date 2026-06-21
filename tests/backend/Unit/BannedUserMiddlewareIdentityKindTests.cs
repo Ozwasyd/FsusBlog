@@ -140,8 +140,8 @@ public sealed class BannedUserMiddlewareIdentityKindTests
     }
 
     private static UserAccountSnapshot CreateActiveUser(int userId)
-        => new(userId, "user", "guest", 0, null, false, null);
+        => new(userId, 0, null, false, null);
 
     private static UserAccountSnapshot CreateDeletedUser(int userId)
-        => new(userId, "deleted", "guest", 2, null, false, DateTime.UtcNow);
+        => new(userId, 2, null, false, DateTime.UtcNow);
 }

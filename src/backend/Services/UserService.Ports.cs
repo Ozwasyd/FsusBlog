@@ -20,8 +20,6 @@ public sealed class UserAccountReader(UserService users) : IUserAccountReader
     internal static UserAccountSnapshot ToAccountSnapshot(User user)
         => new(
             user.Id,
-            user.Username,
-            user.Role,
             user.Status,
             user.BanReason,
             user.MfaEnabled,

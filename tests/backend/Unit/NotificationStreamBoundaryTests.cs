@@ -65,8 +65,6 @@ public class NotificationStreamBoundaryTests
         var users = Substitute.For<IUserAccountReader>();
         users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(new UserAccountSnapshot(
             42,
-            "alice",
-            "guest",
             2,
             null,
             false,

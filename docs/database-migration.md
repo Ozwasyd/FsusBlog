@@ -54,13 +54,16 @@ If `FSUSBLOG_CONFIRM_IDENTITY_RESET` is missing or has any other value, `LegacyI
 
 The anonymous account schema migration keeps `sys_user` but changes its meaning after reset:
 
-- `username` and `password` become nullable legacy compatibility columns.
+- physical `username` remains only as the internal subject column and is mapped in code as `InternalSubject`; it is not a display name or lookup key.
+- physical `password` remains only as the legacy password hash column and is mapped in code as `LegacyPasswordHash`; anonymous mode writes it empty and never uses it for ordinary login.
+- physical `role` remains only as `LegacyProjectRole`; admin authority comes from the independent admin principal plane, not this column.
+- physical `last_username_update_time` remains only as `InternalSubjectRotatedAt` for legacy tombstone/audit compatibility.
 - `public_handle` is nullable and uniquely indexed when present.
 - `identity_kind` defaults to `anonymous_account`.
 - `passkey_enabled`, `recovery_enabled`, and `privacy_initialized_at` record whether the new non-password identity setup has been initialized.
 - `anonymous_credential_level` and `anonymous_credential_status` provide a compact projection point for later credential-policy work.
 
-When `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` is enabled, application code must not treat `username/password` or `role=admin` as authority sources for these rows.
+When `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` is enabled, application code must not treat physical `username/password` or `role=admin` as identity, credential, or authority sources for these rows.
 
 ## Comment Attribution Index Finalization
 

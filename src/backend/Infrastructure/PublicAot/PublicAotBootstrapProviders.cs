@@ -223,10 +223,10 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
             .OrderBy((revision, user) => revision.RevisionNo)
             .Select((revision, user) => new ArticleAuthorAotProjection
             {
-                Username = user.Username
+                PublicHandle = user.PublicHandle
             })
             .FirstAsync(cancellationToken);
-        projection.AuthorName = author?.Username ?? string.Empty;
+        projection.AuthorName = author?.PublicHandle ?? string.Empty;
         projection.Content = string.IsNullOrWhiteSpace(projection.Content) ? projection.Summary ?? string.Empty : projection.Content;
         projection.Summary ??= string.Empty;
         projection.CategoryName = string.IsNullOrWhiteSpace(projection.CategoryName) ? "未分类" : projection.CategoryName;
@@ -273,7 +273,7 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
 
     private sealed class ArticleAuthorAotProjection
     {
-        public string? Username { get; init; }
+        public string? PublicHandle { get; init; }
     }
 
     private sealed class ArticleTagAotProjection

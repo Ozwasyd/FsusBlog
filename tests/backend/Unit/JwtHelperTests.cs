@@ -32,7 +32,7 @@ public sealed class JwtHelperTests
     }
 
     private static User TestUser(int id = 1, string username = "alice", string role = "admin")
-        => new() { Id = id, Username = username, Role = role };
+        => new() { Id = id, InternalSubject = username, LegacyProjectRole = role };
 
     // ─── GenerateAccessToken ──────────────────────────────────────────────
 

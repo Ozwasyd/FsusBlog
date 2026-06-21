@@ -142,7 +142,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
     private static int SeedUser(SqlSugarClient db)
         => db.Insertable(new User
         {
-            Username = $"account-{Guid.NewGuid():N}",
+            InternalSubject = $"account-{Guid.NewGuid():N}",
             IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
             Status = 0,
             RecoveryEnabled = false,

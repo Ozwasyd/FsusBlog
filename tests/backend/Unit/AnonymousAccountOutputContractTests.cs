@@ -259,15 +259,71 @@ public sealed class AnonymousAccountOutputContractTests
     }
 
     [Fact]
+    public void SysUserLegacyIdentityFields_AreInternalOnly()
+    {
+        string entity = BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/User.cs");
+        string userPorts = BackendTestPaths.ReadAllTextFromRoot("src/backend/Interfaces/UserApplicationPorts.cs");
+        string accountReader = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.Ports.cs");
+        string userService = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+        string authoring = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string publicAot = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs");
+        string passkey = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/PasskeyService.cs");
+        string identityRuntime = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Auth/AnonymousIdentityRuntime.cs");
+
+        Assert.Contains("ColumnName = \"username\"", entity, StringComparison.Ordinal);
+        Assert.Contains("InternalSubject", entity, StringComparison.Ordinal);
+        Assert.Contains("ColumnName = \"password\"", entity, StringComparison.Ordinal);
+        Assert.Contains("LegacyPasswordHash", entity, StringComparison.Ordinal);
+        Assert.Contains("ColumnName = \"role\"", entity, StringComparison.Ordinal);
+        Assert.Contains("LegacyProjectRole", entity, StringComparison.Ordinal);
+        Assert.Contains("ColumnName = \"last_username_update_time\"", entity, StringComparison.Ordinal);
+        Assert.Contains("InternalSubjectRotatedAt", entity, StringComparison.Ordinal);
+
+        foreach (string forbidden in new[]
+        {
+            "public string Username",
+            "public string Password",
+            "public string Role",
+            "LastUsernameUpdateTime"
+        })
+        {
+            Assert.DoesNotContain(forbidden, entity, StringComparison.Ordinal);
+        }
+
+        foreach (string forbidden in new[]
+        {
+            "string Username",
+            "string Role"
+        })
+        {
+            Assert.DoesNotContain(forbidden, userPorts, StringComparison.Ordinal);
+        }
+
+        Assert.DoesNotContain("user.Username", accountReader, StringComparison.Ordinal);
+        Assert.DoesNotContain("user.Role", accountReader, StringComparison.Ordinal);
+        Assert.DoesNotContain("Role == \"admin\"", userService, StringComparison.Ordinal);
+        Assert.DoesNotContain("Role.Equals(\"admin\"", userService, StringComparison.Ordinal);
+        Assert.DoesNotContain("LastUsernameUpdateTime", userService, StringComparison.Ordinal);
+        Assert.DoesNotContain("user.Username", authoring, StringComparison.Ordinal);
+        Assert.DoesNotContain("u.Username", authoring, StringComparison.Ordinal);
+        Assert.DoesNotContain("ru.Username", authoring, StringComparison.Ordinal);
+        Assert.DoesNotContain("user.Role != \"admin\"", authoring, StringComparison.Ordinal);
+        Assert.DoesNotContain("user.Username", publicAot, StringComparison.Ordinal);
+        Assert.DoesNotContain("Username { get; init; }", publicAot, StringComparison.Ordinal);
+        Assert.DoesNotContain("user.Username", passkey, StringComparison.Ordinal);
+        Assert.DoesNotContain("user.Role", identityRuntime, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UserAccountReader_ProjectsSysUserAsAnonymousAccountContainer()
     {
         var deletedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
         var user = new User
         {
             Id = 42,
-            Username = "legacy-admin",
-            Password = "legacy-password-hash",
-            Role = "admin",
+            InternalSubject = "legacy-admin",
+            LegacyPasswordHash = "legacy-password-hash",
+            LegacyProjectRole = "admin",
             Status = 1,
             BanReason = "limited",
             DeletedAt = deletedAt,

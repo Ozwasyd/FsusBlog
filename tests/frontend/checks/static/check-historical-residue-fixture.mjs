@@ -144,6 +144,23 @@ public readonly record struct UserSnapshotContract(
     }
   },
   {
+    name: 'legacy sys_user identity field names',
+    expected: 'legacy sys_user identity field residue detected',
+    files: {
+      'src/backend/Entities/User.cs': `
+using SqlSugar;
+namespace FsusBlog.Server.Entities;
+public class User
+{
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string Role { get; set; } = "guest";
+    public DateTime? LastUsernameUpdateTime { get; set; }
+}
+`
+    }
+  },
+  {
     name: 'legacy admin password reset governance',
     expected: 'legacy admin password reset governance residue detected',
     files: {

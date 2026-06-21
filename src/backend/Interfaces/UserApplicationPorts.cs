@@ -9,8 +9,6 @@ namespace FsusBlog.Server.Interfaces;
 
 public readonly record struct UserAccountSnapshot(
     int Id,
-    string Username,
-    string Role,
     int Status,
     string? BanReason,
     bool MfaEnabled,

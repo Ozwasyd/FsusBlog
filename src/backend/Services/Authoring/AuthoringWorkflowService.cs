@@ -402,7 +402,7 @@ public sealed class AuthoringWorkflowService(
                 ArticleId = c.ArticleId,
                 ArticleTitle = a.Title,
                 UserId = c.UserId,
-                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.Username,
+                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.PublicHandle,
                 AuthorMode = c.AuthorMode,
                 AnonymousDisplayName = c.AnonymousDisplayName,
                 AnonymousDisplayLanguage = c.AnonymousDisplayLanguage,
@@ -952,7 +952,7 @@ public sealed class AuthoringWorkflowService(
         }
 
         List<int> banTargets = await db.Queryable<User>()
-            .Where(user => uniqueUserIds.Contains(user.Id) && user.Role != "admin" && user.Status != 2 && user.DeletedAt == null)
+            .Where(user => uniqueUserIds.Contains(user.Id) && user.Status != 2 && user.DeletedAt == null)
             .Select(user => user.Id)
             .ToListAsync(cancellationToken);
         if (banTargets.Count == 0)
@@ -994,13 +994,13 @@ public sealed class AuthoringWorkflowService(
                 ArticleId = c.ArticleId,
                 ArticleTitle = a.Title,
                 UserId = c.UserId,
-                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.Username,
+                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.PublicHandle,
                 Content = c.Content,
                 CreateTime = c.CreateTime,
                 ParentId = c.ParentId,
                 RootId = c.RootId,
                 ReplyToUserId = c.ReplyToUserId,
-                ReplyToUserName = ru.Username,
+                ReplyToUserName = ru.PublicHandle,
                 ReplyToCommentId = c.ReplyToCommentId,
                 Depth = c.Depth,
                 Status = c.ModerationStatus,
@@ -1030,13 +1030,13 @@ public sealed class AuthoringWorkflowService(
                 ArticleId = c.ArticleId,
                 ArticleTitle = a.Title,
                 UserId = c.UserId,
-                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.Username,
+                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.PublicHandle,
                 Content = c.Content,
                 CreateTime = c.CreateTime,
                 ParentId = c.ParentId,
                 RootId = c.RootId,
                 ReplyToUserId = c.ReplyToUserId,
-                ReplyToUserName = ru.Username,
+                ReplyToUserName = ru.PublicHandle,
                 ReplyToCommentId = c.ReplyToCommentId,
                 Depth = c.Depth,
                 Status = c.ModerationStatus,

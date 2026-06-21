@@ -202,6 +202,13 @@ run_residue_check \
   src/shared/Contracts/AuthSystem/AuthSystemContracts.cs src/core/Services/Abstractions/IUserCoreService.cs src/core/Services/Gateways/IUserCoreGateway.cs src/core/Services/Implementations/UserCoreService.cs src/backend/Infrastructure/CoreBridge/Gateways/UserCoreGateway.cs src/backend/Infrastructure/CoreBridge/Adapters/UserServiceCoreAdapter.cs
 
 run_residue_check \
+  "legacy sys_user identity field names" \
+  "legacy sys_user identity field residue detected" \
+  '\bpublic[[:space:]]+string[?]?[[:space:]]+(Username|Password|Role)\b|\bLastUsernameUpdateTime\b|\b(user|u|ru)[.](Username|Role)\b|Role[[:space:]]*(==|!=)[[:space:]]*"admin"|Role[.]Equals[(]"admin"|Username[[:space:]]*[{][[:space:]]*get[;][[:space:]]*init[;][[:space:]]*[}]' \
+  "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
+  src/backend/Entities/User.cs src/backend/Interfaces/UserApplicationPorts.cs src/backend/Services/UserService.cs src/backend/Services/UserService.Ports.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs src/backend/Services/Security/PasskeyService.cs src/backend/Infrastructure/Auth/AnonymousIdentityRuntime.cs
+
+run_residue_check \
   "legacy comment public username fallback" \
   "legacy comment public username fallback residue detected" \
   '\bu[.]username\b|\bru[.]username\b|LEFT JOIN sys_user[[:space:]]+(?:u|ru)\b|[.]Username\b' \
