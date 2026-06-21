@@ -1,9 +1,9 @@
 <template>
   <div class="space-y-8">
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       title="PoW 系统"
-      :caption="overview ? `快照：${overview.policy.snapshotId}` : ''"
-      title-id="security-pow-title"
+      :description="overview ? `快照：${overview.policy.snapshotId}` : ''"
+      id="security-pow-title"
     >
       <template #actions>
         <el-button :icon="Refresh" :loading="loading" @click="loadPow">刷新</el-button>
@@ -15,7 +15,7 @@
           <div class="mt-3 break-words text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
         </div>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
     <AdminTaskFeedbackBar
       :phase="taskFeedbackPhase"
@@ -109,7 +109,7 @@ import {
 } from '@/api/security'
 import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
 import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'

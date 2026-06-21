@@ -5,10 +5,10 @@
       :content="section.description"
     />
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       title="当前阶段"
-      :caption="section.caption"
-      :title-level="2"
+      :description="section.caption"
+      :title-tag="'h2'"
     >
       <div class="identity-center-placeholder__body">
         <p>{{ section.body }}</p>
@@ -16,7 +16,7 @@
           <li v-for="item in section.items" :key="item">{{ item }}</li>
         </ul>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
   </div>
 </template>
 
@@ -24,7 +24,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { FsusUiPageHeader } from "@/fsusui"
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 
 const route = useRoute()
 

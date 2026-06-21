@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-8">
-    <WorkbenchPanel title="风险事件" title-id="security-events-title">
+    <FsusUiSettingsSection title="风险事件" id="security-events-title">
       <template #actions>
         <el-button :icon="Refresh" :loading="loading" @click="loadEvents">刷新</el-button>
       </template>
@@ -23,7 +23,7 @@
           <div class="mt-3 text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ events.length }}</div>
         </div>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
@@ -81,7 +81,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, shallowRef } from 'vue'
 import { listSecurityRiskEvents, type AntiCrawlerRiskEventResponse } from '@/api/security'
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 

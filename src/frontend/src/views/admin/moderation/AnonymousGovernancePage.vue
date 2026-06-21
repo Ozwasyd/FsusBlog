@@ -5,10 +5,10 @@
       :content="section.description"
     />
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       title="运行状态"
-      :caption="section.caption"
-      :title-level="2"
+      :description="section.caption"
+      :title-tag="'h2'"
     >
       <div class="anonymous-governance-status-grid">
         <div v-for="signal in policySignals" :key="signal.label" class="anonymous-governance-signal">
@@ -17,12 +17,12 @@
           <p>{{ signal.helper }}</p>
         </div>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       title="匿名评论策略"
-      caption="需要 anonymous.comment.configure 权限；公开-only 模式只开放具名发送，不开放匿名主体。"
-      :title-level="2"
+      description="需要 anonymous.comment.configure 权限；公开-only 模式只开放具名发送，不开放匿名主体。"
+      :title-tag="'h2'"
     >
       <div class="anonymous-governance-controls">
         <label class="anonymous-governance-control">
@@ -68,12 +68,12 @@
           />
         </label>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       title="匿名风险概览"
-      caption="展示 author mode、语言、scope、credential、声誉桶、账号年龄桶和风险标签；不提供从 nullifier 到账号的常规反查入口。"
-      :title-level="2"
+      description="展示 author mode、语言、scope、credential、声誉桶、账号年龄桶和风险标签；不提供从 nullifier 到账号的常规反查入口。"
+      :title-tag="'h2'"
     >
       <div class="blog-scroll-x-safe anonymous-governance-table-scroll">
         <el-table v-loading="loadingStatus" :data="riskRows" row-key="subject" class="anonymous-governance-table">
@@ -111,12 +111,12 @@
           </template>
         </el-table>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       title="Nullifier 治理"
-      caption="scope 内 hash 可被封禁；界面只展示治理状态，不暴露原文或账号身份。"
-      :title-level="2"
+      description="scope 内 hash 可被封禁；界面只展示治理状态，不暴露原文或账号身份。"
+      :title-tag="'h2'"
     >
       <div class="blog-scroll-x-safe anonymous-governance-table-scroll">
         <el-table v-loading="loadingNullifiers" :data="nullifierRows" row-key="key" class="anonymous-governance-table">
@@ -142,12 +142,12 @@
           </template>
         </el-table>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       title="匿名凭证"
-      caption="credential 状态和撤销动作独立于普通账号资料；需要 anonymous.credential.revoke 权限。"
-      :title-level="2"
+      description="credential 状态和撤销动作独立于普通账号资料；需要 anonymous.credential.revoke 权限。"
+      :title-tag="'h2'"
     >
       <div class="blog-scroll-x-safe anonymous-governance-table-scroll">
         <el-table v-loading="loadingStatus" :data="credentialRows" row-key="id" class="anonymous-governance-table">
@@ -174,12 +174,12 @@
           </template>
         </el-table>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       title="ZK 匿名状态"
-      caption="Verifier、public inputs 与 fail-closed 状态只服务匿名评论证明，不改变登录链路。"
-      :title-level="2"
+      description="Verifier、public inputs 与 fail-closed 状态只服务匿名评论证明，不改变登录链路。"
+      :title-tag="'h2'"
     >
       <div class="anonymous-governance-zk">
         <div v-for="item in zkStatusRows" :key="item.label" class="anonymous-governance-zk__row">
@@ -188,7 +188,7 @@
           <p>{{ item.helper }}</p>
         </div>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
   </div>
 </template>
 
@@ -196,7 +196,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { FsusUiPageHeader } from "@/fsusui"
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import { useAdminStore, type AnonymousCommentPolicySnapshot } from '@/store/admin'
 import {

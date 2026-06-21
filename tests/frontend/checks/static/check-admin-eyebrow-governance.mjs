@@ -15,7 +15,6 @@ const targetRoots = [
 ].map((dir) => path.join(repoRoot, dir))
 
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
-const workbenchPanelPath = path.join(repoRoot, 'src/frontend/src/components/account/WorkbenchPanel.vue')
 
 function fail(file, line, message) {
   failures.push(`${rel(file)}:${line}: ${message}`)
@@ -68,9 +67,14 @@ if (fs.existsSync(accountPageHeaderPath)) {
   fail(accountPageHeaderPath, 1, 'AccountPageHeader.vue is removed in #675; admin pages should use FsusUiPageHeader from @/fsusui')
 }
 
-const workbenchPanel = read(workbenchPanelPath)
-if (!workbenchPanel.includes('eyebrow?: string')) {
-  fail(workbenchPanelPath, 1, 'WorkbenchPanel may keep optional eyebrow support for justified exceptions')
+const workbenchPanelPath = path.join(repoRoot, 'src/frontend/src/components/account/WorkbenchPanel.vue')
+if (fs.existsSync(workbenchPanelPath)) {
+  fail(workbenchPanelPath, 1, 'WorkbenchPanel.vue is removed in #677; admin pages should use FsusUiSettingsSection from @/fsusui')
+}
+
+const sectionTitlePath = path.join(repoRoot, 'src/frontend/src/components/account/SectionTitle.vue')
+if (fs.existsSync(sectionTitlePath)) {
+  fail(sectionTitlePath, 1, 'SectionTitle.vue is removed in #677; it was only consumed by WorkbenchPanel')
 }
 
 const packageJson = JSON.parse(read(packageJsonPath))

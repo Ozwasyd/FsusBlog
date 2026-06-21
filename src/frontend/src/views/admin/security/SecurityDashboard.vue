@@ -1,9 +1,9 @@
 <template>
   <div class="space-y-8">
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       title="安全运行总览"
-      :caption="overview ? `检查时间：${formatTime(overview.checkedAtUtc)}` : ''"
-      title-id="security-overview-title"
+      :description="overview ? `检查时间：${formatTime(overview.checkedAtUtc)}` : ''"
+      id="security-overview-title"
     >
       <template #actions>
         <el-button :icon="Refresh" :loading="loading" @click="loadOverview">刷新</el-button>
@@ -15,7 +15,7 @@
           <div class="mt-3 break-words text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
         </div>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
     <section class="grid gap-8 lg:grid-cols-3">
       <RouterLink
@@ -61,7 +61,7 @@
 import { computed, onMounted, shallowRef } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getSecurityOverview, type SecurityOverviewResponse } from '@/api/security'
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 

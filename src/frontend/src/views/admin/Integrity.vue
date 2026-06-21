@@ -16,14 +16,14 @@
       :busy="taskFeedbackBusy"
     />
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       class="blog-motion-task-region mb-8"
       :class="{
         'blog-motion-task-region--pending': loading || fixing,
         'blog-motion-task-region--settled': isTaskHighlighted('integrity-report')
       }"
       title="巡检结果"
-      title-id="integrity-report-title"
+      id="integrity-report-title"
     >
       <template #actions>
         <div class="flex flex-wrap items-center justify-end gap-2">
@@ -50,10 +50,10 @@
           <strong>{{ preview?.diffs.length ?? 0 }}</strong>
         </div>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
-      <WorkbenchPanel title="检查项" title-id="integrity-checks-title">
+      <FsusUiSettingsSection title="检查项" id="integrity-checks-title">
         <el-table v-loading="loading" :data="report?.checks ?? []" row-key="code">
           <el-table-column label="检查" min-width="220">
             <template #default="{ row }: { row: IntegrityCheckResponse }">
@@ -88,10 +88,10 @@
             />
           </template>
         </el-table>
-      </WorkbenchPanel>
+      </FsusUiSettingsSection>
 
       <div class="space-y-8">
-        <WorkbenchPanel title="安全修复差异" title-id="integrity-diff-title">
+        <FsusUiSettingsSection title="安全修复差异" id="integrity-diff-title">
           <AdminInlineEmptyState
             v-if="diffPreviewState !== 'ready'"
             :title="diffPreviewStateView.title"
@@ -191,9 +191,9 @@
               </div>
             </div>
           </div>
-        </WorkbenchPanel>
+        </FsusUiSettingsSection>
 
-        <WorkbenchPanel title="危险操作策略" title-id="integrity-policy-title">
+        <FsusUiSettingsSection title="危险操作策略" id="integrity-policy-title">
           <div v-if="policy?.rules.length" class="space-y-4">
             <div
               v-for="rule in policy?.rules ?? []"
@@ -214,7 +214,7 @@
             title="暂无危险操作策略"
             content="运行一键检查后会同步加载当前危险操作确认策略。"
           />
-        </WorkbenchPanel>
+        </FsusUiSettingsSection>
       </div>
     </section>
   </div>
@@ -237,7 +237,7 @@ import { FsusUiPageHeader } from "@/fsusui"
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import IntegrityTypedConfirmField from '@/components/admin/IntegrityTypedConfirmField.vue'
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 import { CopyDocument, Download, Refresh, Tools } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'

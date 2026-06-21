@@ -6,7 +6,7 @@
       class="account-page-header--compact"
     />
 
-    <WorkbenchPanel class="mb-8" title="公开读链路" title-id="cache-status-title">
+    <FsusUiSettingsSection class="mb-8" title="公开读链路" id="cache-status-title">
       <template #actions>
         <div class="flex flex-wrap items-center justify-end gap-2">
           <el-input v-model="articleId" class="w-[10rem]" placeholder="文章 ID" aria-label="文章 ID" />
@@ -33,11 +33,11 @@
           <strong>{{ diagnostics.distribution.feedItemCount }}</strong>
         </div>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
       <div class="space-y-8">
-        <WorkbenchPanel title="AOT / PublicHotRead" title-id="cache-aot-title">
+        <FsusUiSettingsSection title="AOT / PublicHotRead" id="cache-aot-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
             <el-descriptions-item label="版本">{{ diagnostics.aot.version }}</el-descriptions-item>
             <el-descriptions-item label="最近构建">{{ formatTime(diagnostics.aot.lastBuildAt) }}</el-descriptions-item>
@@ -45,9 +45,9 @@
             <el-descriptions-item label="过期页面">{{ diagnostics.aot.stalePageCount }}</el-descriptions-item>
             <el-descriptions-item label="最近错误">{{ diagnostics.aot.lastError ?? '-' }}</el-descriptions-item>
           </el-descriptions>
-        </WorkbenchPanel>
+        </FsusUiSettingsSection>
 
-        <WorkbenchPanel title="首页焦点" title-id="cache-home-spotlight-title">
+        <FsusUiSettingsSection title="首页焦点" id="cache-home-spotlight-title">
           <el-descriptions :column="1" border>
             <el-descriptions-item label="状态">
               <el-tag :type="statusType(spotlightHealthStatus)">{{ statusLabel(spotlightHealthStatus) }}</el-tag>
@@ -55,9 +55,9 @@
             <el-descriptions-item label="候选数">{{ spotlightCandidateCountText }}</el-descriptions-item>
             <el-descriptions-item label="说明">{{ spotlightHealthDetail }}</el-descriptions-item>
           </el-descriptions>
-        </WorkbenchPanel>
+        </FsusUiSettingsSection>
 
-        <WorkbenchPanel title="搜索索引" title-id="cache-search-title">
+        <FsusUiSettingsSection title="搜索索引" id="cache-search-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
             <el-descriptions-item label="版本">{{ diagnostics.search.version ?? '-' }}</el-descriptions-item>
             <el-descriptions-item label="Schema">{{ diagnostics.search.schemaVersion }}</el-descriptions-item>
@@ -67,9 +67,9 @@
               <span class="break-all">{{ diagnostics.search.manifestPath }}</span>
             </el-descriptions-item>
           </el-descriptions>
-        </WorkbenchPanel>
+        </FsusUiSettingsSection>
 
-        <WorkbenchPanel v-if="diagnostics?.article" title="单文章诊断" title-id="cache-article-title">
+        <FsusUiSettingsSection v-if="diagnostics?.article" title="单文章诊断" id="cache-article-title">
           <el-descriptions :column="1" border>
             <el-descriptions-item label="文章 ID">{{ diagnostics.article.articleId }}</el-descriptions-item>
             <el-descriptions-item label="公开可见">{{ boolText(diagnostics.article.publiclyVisible) }}</el-descriptions-item>
@@ -78,11 +78,11 @@
             <el-descriptions-item label="搜索收录">{{ boolText(diagnostics.article.searchEligible) }}</el-descriptions-item>
             <el-descriptions-item label="Sitemap 收录">{{ boolText(diagnostics.article.sitemapEligible) }}</el-descriptions-item>
           </el-descriptions>
-        </WorkbenchPanel>
+        </FsusUiSettingsSection>
       </div>
 
       <div class="space-y-8">
-        <WorkbenchPanel title="维护动作" title-id="cache-actions-title">
+        <FsusUiSettingsSection title="维护动作" id="cache-actions-title">
           <div class="grid gap-3">
             <el-button :icon="Refresh" :loading="actionLoading === 'aot-rebuild'" @click="runAction('aot-rebuild')">重建 AOT/PublicHotRead</el-button>
             <el-button :icon="Refresh" :loading="actionLoading === 'search-rebuild'" @click="runAction('search-rebuild')">重建搜索索引</el-button>
@@ -93,17 +93,17 @@
             <el-tag :type="statusType(lastAction.status)">{{ statusLabel(lastAction.status) }}</el-tag>
             <span class="ml-2">{{ lastAction.detail }}</span>
           </div>
-        </WorkbenchPanel>
+        </FsusUiSettingsSection>
 
-        <WorkbenchPanel title="评论缓存失效" title-id="cache-comments-title">
+        <FsusUiSettingsSection title="评论缓存失效" id="cache-comments-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
             <el-descriptions-item label="评论变更">{{ diagnostics.commentCache.commentMutationCount }}</el-descriptions-item>
             <el-descriptions-item label="统计记录">{{ diagnostics.commentCache.statsCount }}</el-descriptions-item>
             <el-descriptions-item label="最近事件">{{ diagnostics.commentCache.lastKind ?? '-' }} / {{ diagnostics.commentCache.lastDetail ?? '-' }}</el-descriptions-item>
           </el-descriptions>
-        </WorkbenchPanel>
+        </FsusUiSettingsSection>
 
-        <WorkbenchPanel title="热榜 / 统计合并" title-id="cache-hot-stats-title">
+        <FsusUiSettingsSection title="热榜 / 统计合并" id="cache-hot-stats-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
             <el-descriptions-item label="热榜版本">{{ diagnostics.hotStatsInvalidation.hotArticlesVersion }}</el-descriptions-item>
             <el-descriptions-item label="热榜待刷写/已刷写">{{ diagnostics.hotStatsInvalidation.hotArticlesDirtyCount }} / {{ diagnostics.hotStatsInvalidation.hotArticlesFlushCount }}</el-descriptions-item>
@@ -113,16 +113,16 @@
             <el-descriptions-item label="待处理">{{ boolText(diagnostics.hotStatsInvalidation.hotArticlesDirty || diagnostics.hotStatsInvalidation.statsDirty) }}</el-descriptions-item>
             <el-descriptions-item label="最近原因">{{ diagnostics.hotStatsInvalidation.lastFlushReason ?? diagnostics.hotStatsInvalidation.lastDirtyReason ?? '-' }}</el-descriptions-item>
           </el-descriptions>
-        </WorkbenchPanel>
+        </FsusUiSettingsSection>
 
-        <WorkbenchPanel title="PublicHotRead 计数" title-id="cache-counters-title">
+        <FsusUiSettingsSection title="PublicHotRead 计数" id="cache-counters-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
             <el-descriptions-item label="文章命中/未命中">{{ diagnostics.publicHotReadCounters.articleHit }} / {{ diagnostics.publicHotReadCounters.articleMiss }}</el-descriptions-item>
             <el-descriptions-item label="列表命中/未命中">{{ diagnostics.publicHotReadCounters.listHit }} / {{ diagnostics.publicHotReadCounters.listMiss }}</el-descriptions-item>
             <el-descriptions-item label="HTML 命中/未命中">{{ diagnostics.publicHotReadCounters.htmlHit }} / {{ diagnostics.publicHotReadCounters.htmlMiss }}</el-descriptions-item>
             <el-descriptions-item label="字节数">{{ diagnostics.publicHotReadCounters.bytes }}</el-descriptions-item>
           </el-descriptions>
-        </WorkbenchPanel>
+        </FsusUiSettingsSection>
       </div>
     </section>
   </div>
@@ -138,7 +138,7 @@ import {
   type CacheDiagnosticsResponse
 } from '@/api/authoring'
 import { FsusUiPageHeader } from "@/fsusui"
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 import { Delete, Refresh, Search } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'

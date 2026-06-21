@@ -5,11 +5,11 @@
       <p class="account-page-description">核心依赖、后台任务、备份与队列状态。</p>
     </header>
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       class="mb-8"
       title="站点状态"
-      :caption="health ? `检查时间：${formatTime(health.checkedAt)}` : ''"
-      title-id="ops-runtime-title"
+      :description="health ? `检查时间：${formatTime(health.checkedAt)}` : ''"
+      id="ops-runtime-title"
     >
       <template #actions>
         <el-button :icon="Refresh" :loading="loading" @click="loadHealth">刷新</el-button>
@@ -33,11 +33,11 @@
           <strong>{{ health.queueBacklog.articleMutationPending }} / {{ health.queueBacklog.auditQueued }}</strong>
         </div>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
       <div class="space-y-8">
-        <WorkbenchPanel title="核心服务" title-id="ops-services-title">
+        <FsusUiSettingsSection title="核心服务" id="ops-services-title">
           <el-table v-loading="loading" :data="health?.services ?? []" row-key="key">
             <el-table-column label="服务" min-width="160">
               <template #default="{ row }: { row: AdminServiceStatusResponse }">
@@ -69,9 +69,9 @@
               />
             </template>
           </el-table>
-        </WorkbenchPanel>
+        </FsusUiSettingsSection>
 
-        <WorkbenchPanel title="后台 worker" title-id="ops-workers-title">
+        <FsusUiSettingsSection title="后台 worker" id="ops-workers-title">
           <el-table v-loading="loading" :data="health?.workers ?? []" row-key="key">
             <el-table-column label="任务" min-width="200" prop="label" />
             <el-table-column label="状态" width="130">
@@ -92,11 +92,11 @@
               />
             </template>
           </el-table>
-        </WorkbenchPanel>
+        </FsusUiSettingsSection>
       </div>
 
       <div class="space-y-8">
-        <WorkbenchPanel title="最近备份" title-id="ops-backup-title">
+        <FsusUiSettingsSection title="最近备份" id="ops-backup-title">
           <div class="space-y-4">
             <div class="ops-kv">
               <span>状态</span>
@@ -119,9 +119,9 @@
               </div>
             </div>
           </div>
-        </WorkbenchPanel>
+        </FsusUiSettingsSection>
 
-        <WorkbenchPanel title="最近错误" title-id="ops-errors-title">
+        <FsusUiSettingsSection title="最近错误" id="ops-errors-title">
           <ul v-if="opsRecentErrors.length" class="ops-error-list">
             <li
               v-for="error in opsRecentErrors"
@@ -152,7 +152,7 @@
             </li>
           </ul>
           <AdminInlineEmptyState v-else title="暂无错误记录" />
-        </WorkbenchPanel>
+        </FsusUiSettingsSection>
       </div>
     </section>
   </div>
@@ -168,7 +168,7 @@ import {
   type RecentOpsErrorResponse
 } from '@/api/authoring'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 import { CopyDocument, Refresh } from '@/fsusui/icons'
 import { toast } from '@/fsusui/feedback'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'

@@ -29,11 +29,11 @@
         </div>
       </div>
 
-      <WorkbenchPanel
+      <FsusUiSettingsSection
         class="mt-8"
         title="身份工作区"
-        caption="所有页面都在现有 AccountLayout 内渲染，并使用 workspace context 的功能和策略快照。"
-        :title-level="2"
+        description="所有页面都在现有 AccountLayout 内渲染，并使用 workspace context 的功能和策略快照。"
+        :title-tag="'h2'"
       >
         <div class="identity-summary-list">
           <p>账户编号：{{ identityAccountSnapshot.accountId || '未同步' }}</p>
@@ -41,13 +41,13 @@
           <p>匿名评论策略：{{ identityAccountSnapshot.anonymousPolicyEnabled ? '允许匿名优先' : '当前关闭' }}</p>
           <p>公开发送选项：{{ identityAccountSnapshot.publicSendOptionEnabled ? '可显式 opt-in' : '当前不可用' }}</p>
         </div>
-      </WorkbenchPanel>
+      </FsusUiSettingsSection>
 
-      <WorkbenchPanel
+      <FsusUiSettingsSection
         class="mt-6"
         title="账号生命周期"
-        caption="注销账户前需要完成匿名账号敏感操作校验。"
-        :title-level="2"
+        description="注销账户前需要完成匿名账号敏感操作校验。"
+        :title-tag="'h2'"
       >
         <div class="identity-copy-block">
           <p>注销后当前会话、通行密钥、Recovery Key 与匿名凭据状态都会失效。</p>
@@ -56,14 +56,14 @@
         <div class="mt-5">
           <el-button type="danger" :loading="deleteAccountLoading" @click="deleteCurrentAccount">注销账户</el-button>
         </div>
-      </WorkbenchPanel>
+      </FsusUiSettingsSection>
     </template>
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       v-else-if="isSection('UserIdentityPasskeys')"
       title="通行密钥设备"
-      caption="Passkey 是匿名账号的主要登录方式；这里复用现有 Passkey client assets。"
-      :title-level="2"
+      description="Passkey 是匿名账号的主要登录方式；这里复用现有 Passkey client assets。"
+      :title-tag="'h2'"
     >
       <div v-if="passkeyLoading" class="identity-loading-state">通行密钥加载中...</div>
       <div v-else-if="passkeyError" class="identity-error-state" role="alert">{{ passkeyError }}</div>
@@ -121,13 +121,13 @@
       <div v-if="passkeyCredentials.length" class="mt-6">
         <el-button type="primary" @click="passkeyRegisterVisible = true">添加通行密钥</el-button>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       v-else-if="isSection('UserIdentityRecoveryKey')"
       title="Recovery Key"
-      caption="Recovery Key 是账号恢复凭据，不是 TOTP recovery code；Recovery Key 只显示一次。"
-      :title-level="2"
+      description="Recovery Key 是账号恢复凭据，不是 TOTP recovery code；Recovery Key 只显示一次。"
+      :title-tag="'h2'"
     >
       <div class="identity-copy-block">
         <p>创建或轮换后请立即保存。若 Recovery Key 丢失且没有可用通行密钥，账号可能无法恢复。</p>
@@ -152,13 +152,13 @@
         <el-button type="primary" :loading="recoveryLoading" @click="createRecoveryKeyForAccount">创建 Recovery Key</el-button>
         <el-button :loading="recoveryLoading" @click="rotateRecoveryKeyForAccount">轮换 Recovery Key</el-button>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       v-else-if="isSection('UserIdentityMfa')"
       title="TOTP step-up"
-      caption="TOTP 是敏感操作 step-up，不是账号恢复方式；Recovery Key 才是账号恢复机制。"
-      :title-level="2"
+      description="TOTP 是敏感操作 step-up，不是账号恢复方式；Recovery Key 才是账号恢复机制。"
+      :title-tag="'h2'"
     >
       <div v-if="mfaLoading" class="identity-loading-state">二次验证状态加载中...</div>
       <div v-else-if="mfaError" class="identity-error-state" role="alert">{{ mfaError }}</div>
@@ -180,13 +180,13 @@
           TOTP 用于敏感操作 step-up；账号恢复请使用 Recovery Key。
         </p>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       v-else-if="isSection('UserIdentityAnonymous')"
       title="匿名身份"
-      caption="匿名评论身份来自 workspace context 的功能和策略快照，不依赖用户名或密码假设。"
-      :title-level="2"
+      description="匿名评论身份来自 workspace context 的功能和策略快照，不依赖用户名或密码假设。"
+      :title-tag="'h2'"
     >
       <div class="identity-status-grid">
         <div class="identity-status-card">
@@ -205,13 +205,13 @@
           <p>{{ workspacePolicies.zkAnonymousConfigurable ? '配置入口可见' : '配置入口不可见' }}</p>
         </div>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       v-else-if="isSection('UserIdentityPublicProfile')"
       title="公开资料"
-      caption="公开 handle 是可选项，只在你明确选择公开发送时使用。"
-      :title-level="2"
+      description="公开 handle 是可选项，只在你明确选择公开发送时使用。"
+      :title-tag="'h2'"
     >
       <div class="space-y-5">
         <label for="public-handle-draft" class="block text-[12px] font-bold text-[var(--fsusblog-text-secondary)]">
@@ -237,13 +237,13 @@
           <el-button :disabled="publicHandleSaving" @click="clearPublicHandle">清空公开称呼</el-button>
         </div>
       </div>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       v-else-if="isSection('UserIdentitySessions')"
       title="设备会话"
-      caption="查看当前账号的活跃会话，并下线不再使用的设备。"
-      :title-level="2"
+      description="查看当前账号的活跃会话，并下线不再使用的设备。"
+      :title-tag="'h2'"
     >
       <div v-if="sessionLoading" class="identity-loading-state">设备会话加载中...</div>
       <div v-else-if="sessionError" class="identity-error-state" role="alert">{{ sessionError }}</div>
@@ -291,13 +291,13 @@
           content="当前没有可展示的设备会话。"
         />
       </template>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
-    <WorkbenchPanel
+    <FsusUiSettingsSection
       v-else-if="isSection('UserIdentityCommentRecords')"
       title="可归因评论记录"
-      caption="这里只描述可归因评论记录的边界，实际列表只展示公开发送记录。"
-      :title-level="2"
+      description="这里只描述可归因评论记录的边界，实际列表只展示公开发送记录。"
+      :title-tag="'h2'"
     >
       <div class="identity-copy-block">
         <p>强匿名评论不会出现在按账号查询的评论记录中；只有选择可归因或公开发送的评论才会进入账号侧记录。</p>
@@ -306,7 +306,7 @@
       <router-link class="identity-inline-link" to="/user/comments">
         查看可归因评论记录
       </router-link>
-    </WorkbenchPanel>
+    </FsusUiSettingsSection>
 
     <PasskeyRegisterModal
       v-model:visible="passkeyRegisterVisible"
@@ -332,7 +332,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { FsusUiPageHeader } from "@/fsusui"
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { FsusUiSettingsSection } from '@/fsusui'
 import MfaSetupModal from '@/components/ui/MfaSetupModal.vue'
 import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
