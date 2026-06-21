@@ -30,6 +30,29 @@ public sealed class AnonymousAccountOutputContractTests
     }
 
     [Fact]
+    public void UserEntity_DoesNotMapSecurityProfilesOrLoginObservationsOnSysUser()
+    {
+        string userEntity = BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/User.cs");
+
+        foreach (string forbidden in new[]
+        {
+            "LastLoginIp",
+            "LastLoginTime",
+            "MfaSecretEncrypted",
+            "MfaPendingSecretEncrypted",
+            "MfaPendingCreatedAt",
+            "MfaVerifiedAt",
+            "MfaRecoveryCodesHash"
+        })
+        {
+            Assert.DoesNotContain(forbidden, userEntity, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("LegacyPasswordHash", userEntity, StringComparison.Ordinal);
+        Assert.Contains("LegacyProjectRole", userEntity, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AuthProtocolContracts_DoNotExposeUsernameOrRoleAsIdentityFields()
     {
         string outputs = BackendTestPaths.ReadAllTextFromRoot(

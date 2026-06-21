@@ -67,6 +67,30 @@ public partial class UserService(
     private static string CreateAnonymousInternalSubject()
         => $"anon_{Convert.ToHexString(RandomNumberGenerator.GetBytes(12)).ToLowerInvariant()}";
 
+    private async Task<UserMfaProfile?> GetUserMfaProfileAsync(int userId)
+        => await _db.Queryable<UserMfaProfile>()
+            .Where(profile => profile.UserId == userId)
+            .FirstAsync();
+
+    private async Task UpsertUserMfaProfileAsync(UserMfaProfile profile)
+    {
+        profile.UpdatedAtUtc = DateTime.UtcNow;
+        int updated = await _db.Updateable<UserMfaProfile>()
+            .SetColumns(p => p.MfaSecretEncrypted == profile.MfaSecretEncrypted)
+            .SetColumns(p => p.MfaPendingSecretEncrypted == profile.MfaPendingSecretEncrypted)
+            .SetColumns(p => p.MfaPendingCreatedAt == profile.MfaPendingCreatedAt)
+            .SetColumns(p => p.MfaVerifiedAt == profile.MfaVerifiedAt)
+            .SetColumns(p => p.MfaRecoveryCodesHash == profile.MfaRecoveryCodesHash)
+            .SetColumns(p => p.UpdatedAtUtc == profile.UpdatedAtUtc)
+            .Where(p => p.UserId == profile.UserId)
+            .ExecuteCommandAsync();
+
+        if (updated == 0)
+        {
+            await _db.Insertable(profile).ExecuteCommandAsync();
+        }
+    }
+
     private static (bool Success, string? PublicHandle, string Message) NormalizePublicHandle(string? publicHandle)
     {
         if (string.IsNullOrWhiteSpace(publicHandle))
@@ -114,8 +138,6 @@ public partial class UserService(
             var newUser = new User
             {
                 InternalSubject = internalSubject,
-                LegacyPasswordHash = string.Empty,
-                LegacyProjectRole = "guest",
                 PublicHandle = handle.PublicHandle,
                 IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
                 PasskeyEnabled = false,
@@ -378,12 +400,6 @@ public partial class UserService(
 
         await _db.Insertable(session).ExecuteCommandAsync();
 
-        await _db.Updateable<User>()
-            .SetColumns(it => it.LastLoginTime == now)
-            .SetColumns(it => it.LastLoginIp == clientIp)
-            .Where(it => it.Id == user.Id)
-            .ExecuteCommandAsync();
-
         return (true, "登录成功", new SessionTokenResponseDto(accessToken, refreshToken, idleExpiresAt), user);
     }
 
@@ -572,6 +588,7 @@ public partial class UserService(
             return (false, null, "用户不存在");
         }
 
+        UserMfaProfile? profile = await GetUserMfaProfileAsync(userId);
         if (user.MfaEnabled)
         {
             bool anonymousIdentityMode = AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled();
@@ -602,11 +619,10 @@ public partial class UserService(
         string otpAuthUrl = _totpService.BuildOtpAuthUri(issuer, account, secret);
 
         DateTime now = DateTime.UtcNow;
-        await _db.Updateable<User>()
-            .SetColumns(u => u.MfaPendingSecretEncrypted == protectedSecret)
-            .SetColumns(u => u.MfaPendingCreatedAt == now)
-            .Where(u => u.Id == userId)
-            .ExecuteCommandAsync();
+        profile ??= new UserMfaProfile { UserId = userId };
+        profile.MfaPendingSecretEncrypted = protectedSecret;
+        profile.MfaPendingCreatedAt = now;
+        await UpsertUserMfaProfileAsync(profile);
 
         using var _ = AuditLogScope.Push(
             AuditSourceCatalog.Auth,
@@ -663,23 +679,28 @@ public partial class UserService(
 
             await _db.Updateable<User>()
                 .SetColumns(u => u.Status == UserStatusDeleted)
-                .SetColumns(u => u.LegacyPasswordHash == string.Empty)
                 .SetColumns(u => u.PublicHandle == null)
                 .SetColumns(u => u.IdentityKind == AnonymousIdentityRuntime.AnonymousAccountKind)
                 .SetColumns(u => u.PasskeyEnabled == false)
                 .SetColumns(u => u.RecoveryEnabled == false)
                 .SetColumns(u => u.AnonymousCredentialStatus == AnonymousCredentialStatuses.Revoked)
                 .SetColumns(u => u.MfaEnabled == false)
-                .SetColumns(u => u.MfaSecretEncrypted == null)
-                .SetColumns(u => u.MfaPendingSecretEncrypted == null)
-                .SetColumns(u => u.MfaPendingCreatedAt == null)
-                .SetColumns(u => u.MfaRecoveryCodesHash == null)
                 .SetColumns(u => u.RiskFlags == 0)
                 .SetColumns(u => u.BanReason == null)
                 .SetColumns(u => u.InternalSubjectRotatedAt == deletedAt)
                 .SetColumns(u => u.DeletedAt == deletedAt)
                 .SetColumns(u => u.DeletedReason == "self-service")
                 .Where(u => u.Id == userId)
+                .ExecuteCommandAsync();
+
+            await _db.Updateable<UserMfaProfile>()
+                .SetColumns(p => p.MfaSecretEncrypted == null)
+                .SetColumns(p => p.MfaPendingSecretEncrypted == null)
+                .SetColumns(p => p.MfaPendingCreatedAt == null)
+                .SetColumns(p => p.MfaRecoveryCodesHash == null)
+                .SetColumns(p => p.MfaVerifiedAt == null)
+                .SetColumns(p => p.UpdatedAtUtc == deletedAt)
+                .Where(p => p.UserId == userId)
                 .ExecuteCommandAsync();
         });
 
@@ -696,39 +717,36 @@ public partial class UserService(
 
     public async Task<MfaProfileDto?> GetMfaProfileAsync(int userId)
     {
-        var user = await _db.Queryable<User>()
-            .Where(u => u.Id == userId)
-            .Select(u => new { u.MfaEnabled, u.MfaVerifiedAt })
-            .FirstAsync();
+        var user = await _db.Queryable<User>().InSingleAsync(userId);
 
         if (user == null)
         {
             return null;
         }
 
-        return new MfaProfileDto(user.MfaEnabled, user.MfaVerifiedAt);
+        UserMfaProfile? profile = await GetUserMfaProfileAsync(userId);
+        return new MfaProfileDto(user.MfaEnabled, profile?.MfaVerifiedAt);
     }
 
     public async Task<(bool Success, MfaSetupVerifyDto? Data, string Message)> VerifyMfaSetupAsync(int userId, string code)
     {
         var user = await _db.Queryable<User>().InSingleAsync(userId);
-        if (user == null || string.IsNullOrWhiteSpace(user.MfaPendingSecretEncrypted))
+        UserMfaProfile? profile = user is null ? null : await GetUserMfaProfileAsync(userId);
+        if (user == null || profile == null || string.IsNullOrWhiteSpace(profile.MfaPendingSecretEncrypted))
         {
             return (false, null, "MFA_SETUP_NOT_STARTED");
         }
 
-        if (user.MfaPendingCreatedAt is null || DateTime.UtcNow - user.MfaPendingCreatedAt.Value > TimeSpan.FromMinutes(10))
+        if (profile.MfaPendingCreatedAt is null || DateTime.UtcNow - profile.MfaPendingCreatedAt.Value > TimeSpan.FromMinutes(10))
         {
-            await _db.Updateable<User>()
-                .SetColumns(u => u.MfaPendingSecretEncrypted == null)
-                .SetColumns(u => u.MfaPendingCreatedAt == null)
-                .Where(u => u.Id == userId)
-                .ExecuteCommandAsync();
+            profile.MfaPendingSecretEncrypted = null;
+            profile.MfaPendingCreatedAt = null;
+            await UpsertUserMfaProfileAsync(profile);
             return (false, null, "MFA_SETUP_EXPIRED");
         }
 
         Result<string> secretResult = BoundaryExecutor.ExecuteResult(
-            () => _totpService.UnprotectSecret(user.MfaPendingSecretEncrypted),
+            () => _totpService.UnprotectSecret(profile.MfaPendingSecretEncrypted),
             _ => ErrorDetail.Create(ErrorCode.Validation, "MFA_SECRET_INVALID"),
             _logger,
             $"mfa-verify-setup:{userId}");
@@ -747,14 +765,15 @@ public partial class UserService(
         string recoveryHashes = _totpService.HashRecoveryCodes(recoveryCodes);
 
         await _db.Updateable<User>()
-            .SetColumns(u => u.MfaSecretEncrypted == user.MfaPendingSecretEncrypted)
             .SetColumns(u => u.MfaEnabled == true)
-            .SetColumns(u => u.MfaVerifiedAt == DateTime.UtcNow)
-            .SetColumns(u => u.MfaRecoveryCodesHash == recoveryHashes)
-            .SetColumns(u => u.MfaPendingSecretEncrypted == null)
-            .SetColumns(u => u.MfaPendingCreatedAt == null)
             .Where(u => u.Id == userId)
             .ExecuteCommandAsync();
+        profile.MfaSecretEncrypted = profile.MfaPendingSecretEncrypted;
+        profile.MfaVerifiedAt = DateTime.UtcNow;
+        profile.MfaRecoveryCodesHash = recoveryHashes;
+        profile.MfaPendingSecretEncrypted = null;
+        profile.MfaPendingCreatedAt = null;
+        await UpsertUserMfaProfileAsync(profile);
 
         return (true, new MfaSetupVerifyDto
         {
@@ -777,6 +796,7 @@ public partial class UserService(
             return (false, "密码验证失败");
         }
 
+        UserMfaProfile? profile = await GetUserMfaProfileAsync(userId);
         if (!user.MfaEnabled)
         {
             return (true, "MFA_ALREADY_DISABLED");
@@ -800,12 +820,17 @@ public partial class UserService(
 
         await _db.Updateable<User>()
             .SetColumns(u => u.MfaEnabled == false)
-            .SetColumns(u => u.MfaSecretEncrypted == null)
-            .SetColumns(u => u.MfaPendingSecretEncrypted == null)
-            .SetColumns(u => u.MfaPendingCreatedAt == null)
-            .SetColumns(u => u.MfaRecoveryCodesHash == null)
             .Where(u => u.Id == userId)
             .ExecuteCommandAsync();
+        if (profile is not null)
+        {
+            profile.MfaSecretEncrypted = null;
+            profile.MfaPendingSecretEncrypted = null;
+            profile.MfaPendingCreatedAt = null;
+            profile.MfaRecoveryCodesHash = null;
+            profile.MfaVerifiedAt = null;
+            await UpsertUserMfaProfileAsync(profile);
+        }
 
         return (true, "MFA_DISABLED");
     }
@@ -829,7 +854,8 @@ public partial class UserService(
             return (false, null, "密码验证失败");
         }
 
-        if (!user.MfaEnabled || string.IsNullOrWhiteSpace(user.MfaSecretEncrypted))
+        UserMfaProfile? profile = await GetUserMfaProfileAsync(userId);
+        if (!user.MfaEnabled || string.IsNullOrWhiteSpace(profile?.MfaSecretEncrypted))
         {
             return (false, null, "MFA_NOT_ENABLED");
         }
@@ -853,10 +879,8 @@ public partial class UserService(
         var recoveryCodes = _totpService.GenerateRecoveryCodes(10);
         string recoveryHashes = _totpService.HashRecoveryCodes(recoveryCodes);
 
-        await _db.Updateable<User>()
-            .SetColumns(u => u.MfaRecoveryCodesHash == recoveryHashes)
-            .Where(u => u.Id == userId)
-            .ExecuteCommandAsync();
+        profile.MfaRecoveryCodesHash = recoveryHashes;
+        await UpsertUserMfaProfileAsync(profile);
 
         return (true, new MfaSetupVerifyDto
         {
@@ -867,20 +891,28 @@ public partial class UserService(
 
     public async Task<bool> ResetMfaByAdminAsync(int userId)
     {
-        return await _db.Updateable<User>()
+        int updated = await _db.Updateable<User>()
             .SetColumns(u => u.MfaEnabled == false)
-            .SetColumns(u => u.MfaSecretEncrypted == null)
-            .SetColumns(u => u.MfaPendingSecretEncrypted == null)
-            .SetColumns(u => u.MfaPendingCreatedAt == null)
-            .SetColumns(u => u.MfaRecoveryCodesHash == null)
-            .SetColumns(u => u.MfaVerifiedAt == null)
             .Where(u => u.Id == userId)
-            .ExecuteCommandAsync() > 0;
+            .ExecuteCommandAsync();
+
+        await _db.Updateable<UserMfaProfile>()
+            .SetColumns(p => p.MfaSecretEncrypted == null)
+            .SetColumns(p => p.MfaPendingSecretEncrypted == null)
+            .SetColumns(p => p.MfaPendingCreatedAt == null)
+            .SetColumns(p => p.MfaRecoveryCodesHash == null)
+            .SetColumns(p => p.MfaVerifiedAt == null)
+            .SetColumns(p => p.UpdatedAtUtc == DateTime.UtcNow)
+            .Where(p => p.UserId == userId)
+            .ExecuteCommandAsync();
+
+        return updated > 0;
     }
 
     public async Task<bool> VerifyMfaOrRecoveryCodeAsync(User user, string? code, string? recoveryCode, bool persistRecoveryConsumption)
     {
-        if (!user.MfaEnabled || string.IsNullOrWhiteSpace(user.MfaSecretEncrypted))
+        UserMfaProfile? profile = await GetUserMfaProfileAsync(user.Id);
+        if (!user.MfaEnabled || string.IsNullOrWhiteSpace(profile?.MfaSecretEncrypted))
         {
             return false;
         }
@@ -888,7 +920,7 @@ public partial class UserService(
         if (!string.IsNullOrWhiteSpace(code))
         {
             Result<string> secretResult = BoundaryExecutor.ExecuteResult(
-                () => _totpService.UnprotectSecret(user.MfaSecretEncrypted),
+                () => _totpService.UnprotectSecret(profile.MfaSecretEncrypted),
                 _ => ErrorDetail.Create(ErrorCode.Validation, "MFA_SECRET_INVALID"),
                 _logger,
                 $"mfa-verify-code:{user.Id}");
@@ -905,14 +937,12 @@ public partial class UserService(
 
         if (!string.IsNullOrWhiteSpace(recoveryCode))
         {
-            if (_totpService.TryConsumeRecoveryCode(user.MfaRecoveryCodesHash, recoveryCode, out string updatedHashes))
+            if (_totpService.TryConsumeRecoveryCode(profile.MfaRecoveryCodesHash, recoveryCode, out string updatedHashes))
             {
                 if (persistRecoveryConsumption)
                 {
-                    await _db.Updateable<User>()
-                        .SetColumns(u => u.MfaRecoveryCodesHash == updatedHashes)
-                        .Where(u => u.Id == user.Id)
-                        .ExecuteCommandAsync();
+                    profile.MfaRecoveryCodesHash = updatedHashes;
+                    await UpsertUserMfaProfileAsync(profile);
                 }
                 return true;
             }

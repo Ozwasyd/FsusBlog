@@ -25,6 +25,8 @@ public sealed class DevSeedSqlContractTests
         Assert.DoesNotContain("insert into sys_user (username, password, role", seedSql, StringComparison.Ordinal);
         Assert.DoesNotContain("role = excluded.role", seedSql, StringComparison.Ordinal);
         Assert.DoesNotContain("role = 'admin'", seedSql, StringComparison.Ordinal);
+        Assert.DoesNotContain("lastloginip", seedSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("lastlogintime", seedSql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("create_time, user_id, author_mode", seedSql, StringComparison.Ordinal);
         Assert.DoesNotContain("reply_to_user_id", seedSql, StringComparison.Ordinal);
         Assert.DoesNotContain("moderated_by_user_id", seedSql, StringComparison.Ordinal);

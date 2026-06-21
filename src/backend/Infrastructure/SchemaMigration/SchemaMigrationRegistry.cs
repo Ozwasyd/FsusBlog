@@ -23,6 +23,8 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildUserAuthSecurityHardeningMigration(),
         BuildAnonymousIdentityAccountSchemaMigration(),
         BuildPasskeyUserHandleMigration(),
+        BuildSysUserSecurityProfileSplitMigration(),
+        BuildSysUserSecurityProfileSplitFinalizeMigration(),
         BuildAdminPrincipalPlaneMigration(),
         BuildAccountRecoveryKeyMigration(),
         BuildAnonymousCredentialAccountBindingMigration(),
@@ -914,6 +916,144 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new DropColumnStep("sys_user", "refreshtokenexpirytime"),
                 new DropColumnStep("sys_user", "refresh_token"),
                 new DropColumnStep("sys_user", "refresh_token_expiry_time")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildSysUserSecurityProfileSplitMigration()
+        => new SchemaMigrationDescriptor(
+            "20260621-pre-sys-user-security-profile-split",
+            "Move TOTP material out of sys_user and remove legacy login observation columns.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "user_mfa_profile",
+                    """
+                    CREATE TABLE IF NOT EXISTS user_mfa_profile (
+                        id bigserial PRIMARY KEY,
+                        user_id integer NOT NULL,
+                        mfa_secret_encrypted text NULL,
+                        mfa_pending_secret_encrypted text NULL,
+                        mfa_pending_created_at timestamp NULL,
+                        mfa_verified_at timestamp NULL,
+                        mfa_recovery_codes_hash text NULL,
+                        updated_at_utc timestamp NOT NULL DEFAULT now()
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_user_mfa_profile_user ON user_mfa_profile(user_id);
+                    """),
+                new RawSqlStep("""
+                    DO $$
+                    DECLARE
+                        secret_expr text := 'NULL';
+                        pending_secret_expr text := 'NULL';
+                        pending_created_expr text := 'NULL';
+                        verified_expr text := 'NULL';
+                        recovery_expr text := 'NULL';
+                        mfa_enabled_expr text := 'false';
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_name = 'sys_user'
+                        ) THEN
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'sys_user' AND column_name = 'mfasecretencrypted'
+                            ) THEN
+                                secret_expr := 'mfasecretencrypted';
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'sys_user' AND column_name = 'mfapendingsecretencrypted'
+                            ) THEN
+                                pending_secret_expr := 'mfapendingsecretencrypted';
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'sys_user' AND column_name = 'mfapendingcreatedat'
+                            ) THEN
+                                pending_created_expr := 'mfapendingcreatedat';
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'sys_user' AND column_name = 'mfaverifiedat'
+                            ) THEN
+                                verified_expr := 'mfaverifiedat';
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'sys_user' AND column_name = 'mfarecoverycodeshash'
+                            ) THEN
+                                recovery_expr := 'mfarecoverycodeshash';
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'sys_user' AND column_name = 'mfaenabled'
+                            ) THEN
+                                mfa_enabled_expr := 'COALESCE(mfaenabled, false)';
+                            END IF;
+
+                            EXECUTE format(
+                                'INSERT INTO user_mfa_profile(
+                                    user_id,
+                                    mfa_secret_encrypted,
+                                    mfa_pending_secret_encrypted,
+                                    mfa_pending_created_at,
+                                    mfa_verified_at,
+                                    mfa_recovery_codes_hash,
+                                    updated_at_utc
+                                )
+                                SELECT id, %1$s, %2$s, %3$s, %4$s, %5$s, now()
+                                FROM sys_user
+                                WHERE %6$s = true
+                                   OR %1$s IS NOT NULL
+                                   OR %2$s IS NOT NULL
+                                   OR %5$s IS NOT NULL
+                                ON CONFLICT (user_id) DO UPDATE SET
+                                    mfa_secret_encrypted = COALESCE(EXCLUDED.mfa_secret_encrypted, user_mfa_profile.mfa_secret_encrypted),
+                                    mfa_pending_secret_encrypted = COALESCE(EXCLUDED.mfa_pending_secret_encrypted, user_mfa_profile.mfa_pending_secret_encrypted),
+                                    mfa_pending_created_at = COALESCE(EXCLUDED.mfa_pending_created_at, user_mfa_profile.mfa_pending_created_at),
+                                    mfa_verified_at = COALESCE(EXCLUDED.mfa_verified_at, user_mfa_profile.mfa_verified_at),
+                                    mfa_recovery_codes_hash = COALESCE(EXCLUDED.mfa_recovery_codes_hash, user_mfa_profile.mfa_recovery_codes_hash),
+                                    updated_at_utc = now();',
+                                secret_expr,
+                                pending_secret_expr,
+                                pending_created_expr,
+                                verified_expr,
+                                recovery_expr,
+                                mfa_enabled_expr
+                            );
+                        END IF;
+                    END $$;
+                    """),
+                new DropColumnStep("sys_user", "lastloginip"),
+                new DropColumnStep("sys_user", "lastlogintime"),
+                new DropColumnStep("sys_user", "mfasecretencrypted"),
+                new DropColumnStep("sys_user", "mfapendingsecretencrypted"),
+                new DropColumnStep("sys_user", "mfapendingcreatedat"),
+                new DropColumnStep("sys_user", "mfaverifiedat"),
+                new DropColumnStep("sys_user", "mfarecoverycodeshash")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildSysUserSecurityProfileSplitFinalizeMigration()
+        => new SchemaMigrationDescriptor(
+            "20260621-post-sys-user-security-profile-split-finalize",
+            "Drop legacy sys_user security columns after older post-CodeFirst compatibility migrations run.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new DropColumnStep("sys_user", "lastloginip"),
+                new DropColumnStep("sys_user", "lastlogintime"),
+                new DropColumnStep("sys_user", "mfasecretencrypted"),
+                new DropColumnStep("sys_user", "mfapendingsecretencrypted"),
+                new DropColumnStep("sys_user", "mfapendingcreatedat"),
+                new DropColumnStep("sys_user", "mfaverifiedat"),
+                new DropColumnStep("sys_user", "mfarecoverycodeshash")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAdminPrincipalPlaneMigration()

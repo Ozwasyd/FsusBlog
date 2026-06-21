@@ -70,52 +70,10 @@ public class User
     public DateTime CreateTime { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// 最后登录 IP (安全风控用)
-    /// </summary>
-    [SugarColumn(Length = 50, IsNullable = true)]
-    public string? LastLoginIp { get; set; }
-
-    /// <summary>
-    /// 最后登录时间 (活跃度分析用)
-    /// </summary>
-    [SugarColumn(IsNullable = true)]
-    public DateTime? LastLoginTime { get; set; }
-
-    /// <summary>
     /// 是否启用 TOTP MFA
     /// </summary>
     [SugarColumn(DefaultValue = "false")]
     public bool MfaEnabled { get; set; }
-
-    /// <summary>
-    /// 受保护存储的 TOTP secret
-    /// </summary>
-    [SugarColumn(IsNullable = true, ColumnDataType = "text")]
-    public string? MfaSecretEncrypted { get; set; }
-
-    /// <summary>
-    /// 待验证的 TOTP secret。重新绑定 MFA 时只写 pending，验证成功后才切换正式 secret。
-    /// </summary>
-    [SugarColumn(IsNullable = true, ColumnDataType = "text")]
-    public string? MfaPendingSecretEncrypted { get; set; }
-
-    /// <summary>
-    /// 最近一次 MFA pending secret 创建时间。
-    /// </summary>
-    [SugarColumn(IsNullable = true)]
-    public DateTime? MfaPendingCreatedAt { get; set; }
-
-    /// <summary>
-    /// 最近一次 MFA 绑定完成时间
-    /// </summary>
-    [SugarColumn(IsNullable = true)]
-    public DateTime? MfaVerifiedAt { get; set; }
-
-    /// <summary>
-    /// 恢复码哈希集合（换行分隔）
-    /// </summary>
-    [SugarColumn(IsNullable = true, ColumnDataType = "text")]
-    public string? MfaRecoveryCodesHash { get; set; }
 
     /// <summary>
     /// 风险标记位

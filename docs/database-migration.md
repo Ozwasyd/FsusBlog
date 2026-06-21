@@ -57,15 +57,19 @@ If `FSUSBLOG_CONFIRM_IDENTITY_RESET` is missing or has any other value, `LegacyI
 The anonymous account schema migration keeps `sys_user` but changes its meaning after reset:
 
 - physical `username` remains only as the internal subject column and is mapped in code as `InternalSubject`; it is not a display name or lookup key.
-- physical `password` remains only as the legacy password hash column and is mapped in code as `LegacyPasswordHash`; anonymous mode writes it empty and never uses it for ordinary login.
-- physical `role` remains only as `LegacyProjectRole`; admin authority comes from the independent admin principal plane, not this column.
+- physical `password` remains only as the legacy password hash tombstone column and is mapped in code as `LegacyPasswordHash`; anonymous mode does not write it and never uses it for ordinary login.
+- physical `role` remains only as the legacy role tombstone column and is mapped in code as `LegacyProjectRole`; admin authority comes from the independent admin principal plane, not this column, and new anonymous account creation does not write it.
 - physical `last_username_update_time` remains only as `InternalSubjectRotatedAt` for legacy tombstone/audit compatibility.
 - `public_handle` is nullable and uniquely indexed when present.
 - `identity_kind` defaults to `anonymous_account`.
 - `passkey_enabled`, `recovery_enabled`, and `privacy_initialized_at` record whether the new non-password identity setup has been initialized.
 - `anonymous_credential_level` and `anonymous_credential_status` provide a compact projection point for later credential-policy work.
 
-When `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` is enabled, application code must not treat physical `username/password` or `role=admin` as identity, credential, or authority sources for these rows.
+`20260621-pre-sys-user-security-profile-split` creates `user_mfa_profile`, copies existing TOTP secret, pending secret, verified time, and TOTP recovery-code hash out of `sys_user` before CodeFirst sync, then drops `sys_user.lastloginip`, `sys_user.lastlogintime`, and the old `sys_user.mfa*` material columns. `20260621-post-sys-user-security-profile-split-finalize` repeats the old-column drop after legacy post-CodeFirst compatibility migrations, so older descriptors cannot reintroduce pending MFA columns. New login observation remains on `sys_user_session.last_ip` or security/audit event dimensions; `sys_user` must not store raw login IP or last-login timestamps.
+
+Rollback is backup based for dropped `sys_user` columns. A no-restart degradation path is to temporarily stop user-side TOTP mutations at the edge or switch affected sensitive-action policy to require Passkey/Recovery Key step-up while preserving read-only account/session access; do not recreate `lastloginip` or write TOTP material back to `sys_user` in a live schema.
+
+When `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` is enabled, application code must not treat physical `username/password` or `role=admin` as identity, credential, or authority sources for these rows, and must read TOTP material only from `user_mfa_profile`.
 
 ## Visit Log Anonymous Attribution Finalization
 

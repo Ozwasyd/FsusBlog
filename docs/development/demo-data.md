@@ -19,6 +19,8 @@ Or run the seed step after the backend has started once and created the schema:
 The seed creates a fictional anonymous account container with public handle
 `demo-reader`. It does not create a password login row, and it does not grant
 backend authority through `sys_user.role`.
+It also does not write `sys_user.lastloginip` or `sys_user.lastlogintime`; demo
+identity rows stay limited to anonymous account container metadata.
 
 The seed also creates a disabled mock `admin principal` handle, `demo-admin`, for
 audit and moderation attribution examples only. It has no Passkey credential and

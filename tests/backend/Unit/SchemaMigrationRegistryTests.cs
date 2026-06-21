@@ -51,6 +51,36 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260621-pre-passkey-user-handle", migrationIds);
         Assert.Contains("20260621-post-comment-attribution-index-finalize", migrationIds);
         Assert.Contains("20260621-post-message-legacy-identity-columns-finalize", migrationIds);
+        Assert.Contains("20260621-pre-sys-user-security-profile-split", migrationIds);
+        Assert.Contains("20260621-post-sys-user-security-profile-split-finalize", migrationIds);
+    }
+
+    [Fact]
+    public void GetDescriptors_SysUserSecurityProfileSplit_MovesMfaMaterialAndDropsLoginObservations()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260621-pre-sys-user-security-profile-split");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Contains("user_mfa_profile", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("mfa_secret_encrypted text", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("mfa_recovery_codes_hash text", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("INSERT INTO user_mfa_profile", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_user.lastloginip", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_user.lastlogintime", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_user.mfasecretencrypted", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_user.mfarecoverycodeshash", fingerprint, StringComparison.Ordinal);
+
+        ISchemaMigrationDescriptor finalizeDescriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260621-post-sys-user-security-profile-split-finalize");
+        string finalizeFingerprint = string.Join('\n', finalizeDescriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Contains("sys_user.mfapendingsecretencrypted", finalizeFingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_user.mfapendingcreatedat", finalizeFingerprint, StringComparison.Ordinal);
     }
 
     [Fact]

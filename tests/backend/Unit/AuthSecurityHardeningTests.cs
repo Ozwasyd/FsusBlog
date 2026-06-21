@@ -9,11 +9,14 @@ public sealed class AuthSecurityHardeningTests
     public void UserEntity_DoesNotPersistLegacyPlaintextRefreshToken()
     {
         string source = ReadSource("src/backend/Entities/User.cs");
+        string mfaProfile = ReadSource("src/backend/Entities/UserMfaProfile.cs");
 
         Assert.DoesNotContain("RefreshToken { get; set; }", source, StringComparison.Ordinal);
         Assert.DoesNotContain("RefreshTokenExpiryTime", source, StringComparison.Ordinal);
-        Assert.Contains("MfaPendingSecretEncrypted", source, StringComparison.Ordinal);
-        Assert.Contains("MfaPendingCreatedAt", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("MfaPendingSecretEncrypted", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("MfaPendingCreatedAt", source, StringComparison.Ordinal);
+        Assert.Contains("MfaPendingSecretEncrypted", mfaProfile, StringComparison.Ordinal);
+        Assert.Contains("MfaPendingCreatedAt", mfaProfile, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -43,11 +46,16 @@ public sealed class AuthSecurityHardeningTests
     public void UserService_MfaSetupUsesPendingSecretUntilVerification()
     {
         string source = ReadSource("src/backend/Services/UserService.cs");
+        string setupAndVerify = ExtractBetween(
+            source,
+            "public async Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync",
+            "public async Task<(bool Success, string Message)> DisableMfaAsync");
 
-        Assert.Contains("MfaPendingSecretEncrypted == protectedSecret", source, StringComparison.Ordinal);
-        Assert.Contains("MfaPendingCreatedAt == now", source, StringComparison.Ordinal);
-        Assert.Contains("MfaSecretEncrypted == user.MfaPendingSecretEncrypted", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("MfaEnabled == false)\n            .Where(u => u.Id == userId)", source, StringComparison.Ordinal);
+        Assert.Contains("profile.MfaPendingSecretEncrypted = protectedSecret", setupAndVerify, StringComparison.Ordinal);
+        Assert.Contains("profile.MfaPendingCreatedAt = now", setupAndVerify, StringComparison.Ordinal);
+        Assert.Contains("profile.MfaSecretEncrypted = profile.MfaPendingSecretEncrypted", setupAndVerify, StringComparison.Ordinal);
+        Assert.Contains("UpsertUserMfaProfileAsync(profile)", setupAndVerify, StringComparison.Ordinal);
+        Assert.DoesNotContain("MfaEnabled == false)\n            .Where(u => u.Id == userId)", setupAndVerify, StringComparison.Ordinal);
     }
 
     [Fact]

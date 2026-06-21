@@ -2,9 +2,9 @@
 
 begin;
 
-insert into sys_user (public_handle, identity_kind, passkey_enabled, recovery_enabled, privacy_initialized_at, anonymous_credential_level, anonymous_credential_status, createtime, status, lastloginip, lastlogintime)
+insert into sys_user (public_handle, identity_kind, passkey_enabled, recovery_enabled, privacy_initialized_at, anonymous_credential_level, anonymous_credential_status, createtime, status)
 values
-  ('demo-reader', 'anonymous_account', false, false, '2026-06-01 09:05:00+00', 'basic', 'active', '2026-06-01 09:05:00+00', 0, 'example-local', '2026-06-01 09:35:00+00')
+  ('demo-reader', 'anonymous_account', false, false, '2026-06-01 09:05:00+00', 'basic', 'active', '2026-06-01 09:05:00+00', 0)
 on conflict (public_handle) where public_handle is not null do update set
   identity_kind = excluded.identity_kind,
   passkey_enabled = excluded.passkey_enabled,
@@ -12,9 +12,7 @@ on conflict (public_handle) where public_handle is not null do update set
   privacy_initialized_at = excluded.privacy_initialized_at,
   anonymous_credential_level = excluded.anonymous_credential_level,
   anonymous_credential_status = excluded.anonymous_credential_status,
-  status = excluded.status,
-  lastloginip = excluded.lastloginip,
-  lastlogintime = excluded.lastlogintime;
+  status = excluded.status;
 
 insert into admin_principal (handle, displayname, status, isroot, permissions, createdatutc)
 values

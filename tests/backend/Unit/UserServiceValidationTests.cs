@@ -87,9 +87,7 @@ public class UserServiceValidationTests
         Assert.NotNull(user);
         Assert.Equal(42, user!.Id);
         Assert.StartsWith("anon_", inserted!.InternalSubject, StringComparison.Ordinal);
-        Assert.Equal(string.Empty, inserted.LegacyPasswordHash);
         Assert.Equal(AnonymousIdentityRuntime.AnonymousAccountKind, inserted.IdentityKind);
-        Assert.Equal("guest", inserted.LegacyProjectRole);
         Assert.Equal("quietreader", inserted.PublicHandle);
         Assert.NotNull(inserted.PrivacyInitializedAt);
         Assert.False(inserted.PasskeyEnabled);
@@ -226,6 +224,29 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    public void UserService_SourceDoesNotWriteSysUserLegacySecurityColumns()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+
+        foreach (string forbidden in new[]
+        {
+            "LegacyPasswordHash = string.Empty",
+            "LegacyProjectRole = \"guest\"",
+            "it.LastLoginTime == now",
+            "it.LastLoginIp == clientIp",
+            "u.MfaSecretEncrypted ==",
+            "u.MfaPendingSecretEncrypted ==",
+            "u.MfaRecoveryCodesHash ==",
+            "u.MfaVerifiedAt =="
+        })
+        {
+            Assert.DoesNotContain(forbidden, source, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("Updateable<UserMfaProfile>()", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RevokeRefreshTokenAsync_EmptyToken_ReturnsFalse()
     {
         var svc = BuildService();
@@ -315,7 +336,7 @@ public class UserServiceValidationTests
         jwt.Received(1).GenerateRefreshToken();
         jwt.Received(1).GenerateAccessToken(bannedUser, Arg.Any<string>(), false);
         await persistence.SessionInsert.Received(1).ExecuteCommandAsync();
-        await persistence.UserUpdate.Received(1).ExecuteCommandAsync();
+        await persistence.UserUpdate.DidNotReceive().ExecuteCommandAsync();
     }
 
     [Fact]
@@ -346,7 +367,7 @@ public class UserServiceValidationTests
         jwt.Received(1).GenerateRefreshToken();
         jwt.Received(1).GenerateAccessToken(user, Arg.Any<string>(), true);
         await persistence.SessionInsert.Received(1).ExecuteCommandAsync();
-        await persistence.UserUpdate.Received(1).ExecuteCommandAsync();
+        await persistence.UserUpdate.DidNotReceive().ExecuteCommandAsync();
     }
 
     [Fact]
