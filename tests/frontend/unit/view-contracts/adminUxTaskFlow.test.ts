@@ -138,7 +138,7 @@ describe('admin UX task flow contract', () => {
     expect(dashboard).toContain('工单待处理')
     expect(dashboard).toContain('访问来源')
     expect(dashboard).toContain('地域访问')
-    expect(dashboard).toContain('运营工作区')
+    expect(dashboard).toContain('今日待办与排期')
     expect(dashboard).not.toContain('ADMINISTRATION')
     expect(dashboard).not.toContain('TODAY')
     expect(dashboard).not.toContain('TRAFFIC')

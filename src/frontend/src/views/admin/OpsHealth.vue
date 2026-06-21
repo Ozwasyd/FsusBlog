@@ -1,7 +1,7 @@
 <template>
   <div class="account-page ops-health-page account-motion-enter w-full">
     <header class="account-page-header account-page-header--compact">
-      <h1 class="account-page-title">运维健康</h1>
+      <h1 class="account-page-title">服务与后台状态</h1>
       <p class="account-page-description">核心依赖、后台任务、备份与队列状态。</p>
     </header>
 
@@ -65,7 +65,7 @@
             <template #empty>
               <AdminInlineEmptyState
                 :title="health ? '核心服务状态未返回' : '尚未加载服务状态'"
-                :description="health ? '服务端未返回核心依赖状态，请刷新运维健康。' : '刷新后显示数据库、缓存与对象存储等核心依赖状态。'"
+                :description="health ? '服务端未返回核心依赖状态，请刷新服务与后台状态。' : '刷新后显示数据库、缓存与对象存储等核心依赖状态。'"
               />
             </template>
           </el-table>
@@ -90,7 +90,7 @@
             <template #empty>
               <AdminInlineEmptyState
                 :title="health ? '后台 worker 状态未返回' : '尚未加载 worker 状态'"
-                :description="health ? '服务端未返回后台任务状态，请刷新运维健康。' : '刷新后显示后台任务最近心跳与运行详情。'"
+                :description="health ? '服务端未返回后台任务状态，请刷新服务与后台状态。' : '刷新后显示后台任务最近心跳与运行详情。'"
               />
             </template>
           </el-table>
@@ -197,7 +197,7 @@ const loadHealth = async (): Promise<void> => {
   try {
     health.value = await getOpsHealth()
   } catch (error) {
-    showErrorToast(error, '运维健康加载失败')
+    showErrorToast(error, '服务与后台状态加载失败')
   } finally {
     loading.value = false
   }

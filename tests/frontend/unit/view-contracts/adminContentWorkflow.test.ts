@@ -28,7 +28,7 @@ describe('admin content governance workflow contract', () => {
   const authoringApi = readRepoFile('src/frontend/src/api/authoring.ts')
   const taxonomyEndpoint = readRepoFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs')
   const authoringEndpoint = readRepoFile('src/backend/Modules/Endpoints/AuthoringEndpoints.cs')
-  const dashboardPanel = readRepoFile('src/frontend/src/components/admin/DashboardOperationsPanel.vue')
+  const dashboardPanel = readRepoFile('src/frontend/src/components/admin/DashboardQuickActionsPanel.vue')
 
   it('serializes admin keyword search through frontend and backend list queries', () => {
     expect(articleApi).toContain('params.keyword?.trim()')

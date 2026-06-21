@@ -112,9 +112,9 @@ const accountNavItems: readonly AccountNavItem[] = [
     match: (path) => path.startsWith('/user/manage/security')
   },
   { label: '审计日志', to: '/user/manage/audit', area: 'manage', groupKey: 'system', adminOnly: true, requiredPermission: 'audit.read' },
-  { label: '运维健康', to: '/user/manage/ops', helper: '健康', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
-  { label: '缓存诊断', to: '/user/manage/cache', helper: '缓存', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
-  { label: '数据巡检', to: '/user/manage/integrity', helper: '巡检', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
+  { label: '服务与后台状态', to: '/user/manage/ops', helper: '后台', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
+  { label: '缓存与索引', to: '/user/manage/cache', helper: '索引', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
+  { label: '内容一致性', to: '/user/manage/integrity', helper: '一致性', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
   { label: '用户', to: '/user/manage/users', area: 'manage', groupKey: 'interaction', adminOnly: true, requiredPermission: 'admin.manage' },
   { label: '系统设置', to: '/user/manage/settings', area: 'manage', groupKey: 'system', adminOnly: true, requiredPermission: 'system.config' }
 ]

@@ -1,7 +1,7 @@
 <template>
   <section class="bg-[var(--fsusblog-page-bg)] h-full flex flex-col">
     <header class="p-8 border-b border-[var(--fsusblog-panel-border)]">
-      <h2 class="text-lg font-bold text-[var(--fsusblog-text-primary)]">运营入口</h2>
+      <h2 class="text-lg font-bold text-[var(--fsusblog-text-primary)]">快速处理入口</h2>
       <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">
         从首页直接进入常用管理路径，并优先处理需要恢复、归类和治理的内容。
       </p>

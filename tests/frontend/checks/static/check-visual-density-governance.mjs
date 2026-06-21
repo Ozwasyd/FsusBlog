@@ -38,7 +38,7 @@ const governedMicroLabelFiles = new Set([
   'src/frontend/src/views/admin/security/SecurityDashboard.vue',
   'src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue',
   'src/frontend/src/components/admin/DashboardCommentModerationPanel.vue',
-  'src/frontend/src/components/admin/DashboardOperationsPanel.vue',
+  'src/frontend/src/components/admin/DashboardQuickActionsPanel.vue',
   'src/frontend/src/components/admin/DashboardPopularArticles.vue',
   'src/frontend/src/components/admin/DashboardRecentComments.vue',
   'src/frontend/src/components/admin/users/UserManageTable.vue',
