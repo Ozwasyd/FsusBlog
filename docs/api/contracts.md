@@ -206,7 +206,7 @@ perception-sealed@v2 的验证矩阵：
 
 ### 匿名凭证签发契约
 
-`POST /api/binary/anonymous-credential/issue` 是强匿名评论凭证领取入口。该端点要求已登录普通用户会话、`fixed_ip` 限流、`Content-Type: application/octet-stream`、`Accept: application/octet-stream`，并声明 `RequireNoStoreResponse()`；失败统一返回 AEDS `ApiError` frame。该端点只完成“登录态证明领取资格”的最小闭环，不验证 ZK proof、不生成匿名评论 ticket，也不接入评论发布路径。
+`POST /api/binary/anonymous-credential/issue` 是强匿名评论凭证领取入口。该端点要求 `RequireAnonymousAccountPrincipal()`、`identity_kind=anonymous_account` 的普通匿名账号会话、`fixed_ip` 限流、`Content-Type: application/octet-stream`、`Accept: application/octet-stream`，并声明 `RequireNoStoreResponse()`；AdminPrincipal、缺失 `identity_kind`、账号不存在/已删除或 `anonymous_credential_status != active` 一律在读取请求体和调用 issuer 前拒绝并写高价值安全审计。失败统一返回 AEDS `ApiError` frame。该端点只完成“登录态证明领取资格”的最小闭环，不验证 ZK proof、不生成匿名评论 ticket，也不接入评论发布路径。
 
 请求 frame 为 `AnonymousCredentialIssueRequest` (`177`)：`credentialEpoch`、`circuitNumericId`、`publicInputLayoutVersion`、`circuitId`、`credentialLevel`、`credentialRequest`、`clientNonce`。服务端以当前账号的 `anonymous_credential_level/status` 和 `sys_user.Status/deleted_at` 判定资格；被封禁账号是否允许领取必须通过 `AnonymousCredentialIssuer:AllowBannedAccountIssuance` 显式配置，默认配置为 `false`。请求 frame 上限为 16 KiB，`credentialRequest` 默认最大 8192 bytes，`clientNonce` 默认最大 128 bytes。
 

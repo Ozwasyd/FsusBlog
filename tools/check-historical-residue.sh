@@ -181,6 +181,13 @@ run_residue_check \
   src/backend/Entities/AnonymousCredentialIssuanceAudit.cs src/backend/Services/Security/AnonymousCredentialIssuerService.cs src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs tests/backend/Unit/AnonymousCredentialIssuerTests.cs
 
 run_residue_check \
+  "anonymous credential issue naked authorization" \
+  "anonymous credential issue naked authorization residue detected" \
+  '[.]RequireAuthorization[(][)]|httpContext[.]GetUserId[(][)]' \
+  "" \
+  src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs
+
+run_residue_check \
   "frontend anonymous step-up password proof payloads" \
   "frontend anonymous step-up password proof payload residue detected" \
   '\b(?:FrameType[.]MfaPasswordProofRequest|MfaPasswordProofRequest|encodeMfaPasswordProofRequest)\b' \

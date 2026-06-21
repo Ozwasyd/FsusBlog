@@ -8,9 +8,11 @@ using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Modules.Endpoints.Binary;
@@ -458,7 +460,10 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             Result = Result<AnonymousCredentialIssueResponseCoreModel>.Success(CreateIssueResponse(request))
         };
 
-        BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCredentialIssueAsync(context, aeds, issuer, CancellationToken.None);
+        var users = new StubUserAccountReader(CreateAccountSnapshot(42));
+        var auditEvents = new CapturingAuditEventService();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCredentialIssueAsync(context, aeds, issuer, users, auditEvents, CancellationToken.None);
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
         Assert.Equal(AedsFrameType.AnonymousCredentialIssueResponse, decoded.FrameType);
@@ -467,6 +472,8 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
         Assert.Equal(42, issuer.UserId);
         Assert.Equal(request.CredentialRequest, issuer.Request.CredentialRequest);
         Assert.Equal(AnonymousCredentialIssuerLimits.MaxIssueRequestFrameBytes, context.RequestServices.GetRequiredService<FakeBinaryEndpointRequestContext>().MaxFrameBytes);
+        Assert.Equal([42], users.RequestedIds);
+        Assert.Empty(auditEvents.Events);
     }
 
     [Fact]
@@ -478,13 +485,126 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             BinaryRequestPayload.Success(PodBinaryCodec.EncodeAnonymousCredentialIssueRequest(CreateIssueRequest())),
             userId: null);
 
-        BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCredentialIssueAsync(context, aeds, new CapturingIssuerService(), CancellationToken.None);
+        var issuer = new CapturingIssuerService();
+        var users = new StubUserAccountReader(CreateAccountSnapshot(42));
+        var auditEvents = new CapturingAuditEventService();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCredentialIssueAsync(context, aeds, issuer, users, auditEvents, CancellationToken.None);
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
         Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
         Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
         Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
         Assert.Equal(ErrorCode.Unauthorized, PodBinaryCodec.ToErrorDetail(errorPod).Code);
+        Assert.Equal(0, issuer.CallCount);
+        Assert.Empty(users.RequestedIds);
+        Assert.Empty(auditEvents.Events);
+    }
+
+    [Fact]
+    public async Task HandleAnonymousCredentialIssueAsync_AdminPrincipalCollision_ReturnsForbiddenWithoutIssuer()
+    {
+        var aeds = new AedsEncoder();
+        var context = CreateEndpointContext(
+            AedsFrameType.AnonymousCredentialIssueRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeAnonymousCredentialIssueRequest(CreateIssueRequest())),
+            userId: 1,
+            identityKind: AnonymousIdentityRuntime.AdminPrincipalKind);
+        var issuer = new CapturingIssuerService
+        {
+            Result = Result<AnonymousCredentialIssueResponseCoreModel>.Success(CreateIssueResponse(CreateIssueRequest()))
+        };
+        var users = new StubUserAccountReader(CreateAccountSnapshot(1));
+        var auditEvents = new CapturingAuditEventService();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCredentialIssueAsync(context, aeds, issuer, users, auditEvents, CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
+        Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
+        ErrorDetail error = PodBinaryCodec.ToErrorDetail(errorPod);
+        Assert.Equal(ErrorCode.Forbidden, error.Code);
+        Assert.Equal("anonymous_credential_anonymous_account_required", error.Message);
+        Assert.Equal(0, issuer.CallCount);
+        Assert.Empty(users.RequestedIds);
+        AuditEvent audit = Assert.Single(auditEvents.Events);
+        Assert.True(audit.IsHighValue);
+        Assert.Equal(AuditOutcomeCatalog.Denied, audit.Outcome);
+        Assert.Equal("admin_principal_rejected", audit.ReasonCode);
+    }
+
+    [Fact]
+    public async Task HandleAnonymousCredentialIssueAsync_MissingIdentityKind_ReturnsForbiddenWithoutIssuer()
+    {
+        var aeds = new AedsEncoder();
+        var context = CreateEndpointContext(
+            AedsFrameType.AnonymousCredentialIssueRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeAnonymousCredentialIssueRequest(CreateIssueRequest())),
+            userId: 42,
+            identityKind: null);
+        var issuer = new CapturingIssuerService();
+        var users = new StubUserAccountReader(CreateAccountSnapshot(42));
+        var auditEvents = new CapturingAuditEventService();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCredentialIssueAsync(context, aeds, issuer, users, auditEvents, CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
+        Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
+        Assert.Equal(ErrorCode.Forbidden, PodBinaryCodec.ToErrorDetail(errorPod).Code);
+        Assert.Equal(0, issuer.CallCount);
+        Assert.Empty(users.RequestedIds);
+        Assert.Equal("identity_kind_missing", Assert.Single(auditEvents.Events).ReasonCode);
+    }
+
+    [Fact]
+    public async Task HandleAnonymousCredentialIssueAsync_InactiveCredentialStatus_ReturnsForbiddenWithoutIssuer()
+    {
+        var aeds = new AedsEncoder();
+        var context = CreateEndpointContext(
+            AedsFrameType.AnonymousCredentialIssueRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeAnonymousCredentialIssueRequest(CreateIssueRequest())),
+            userId: 42);
+        var issuer = new CapturingIssuerService();
+        var users = new StubUserAccountReader(CreateAccountSnapshot(42, anonymousCredentialStatus: AnonymousCredentialStatuses.Revoked));
+        var auditEvents = new CapturingAuditEventService();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCredentialIssueAsync(context, aeds, issuer, users, auditEvents, CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
+        Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
+        Assert.Equal("anonymous_credential_disabled", PodBinaryCodec.ToErrorDetail(errorPod).Message);
+        Assert.Equal(0, issuer.CallCount);
+        Assert.Equal([42], users.RequestedIds);
+        Assert.Equal("credential_disabled", Assert.Single(auditEvents.Events).ReasonCode);
+    }
+
+    [Fact]
+    public async Task HandleAnonymousCredentialIssueAsync_MissingCredentialStatus_ReturnsForbiddenWithoutIssuer()
+    {
+        var aeds = new AedsEncoder();
+        var context = CreateEndpointContext(
+            AedsFrameType.AnonymousCredentialIssueRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeAnonymousCredentialIssueRequest(CreateIssueRequest())),
+            userId: 42);
+        var issuer = new CapturingIssuerService();
+        var users = new StubUserAccountReader(CreateAccountSnapshot(42, anonymousCredentialStatus: null));
+        var auditEvents = new CapturingAuditEventService();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCredentialIssueAsync(context, aeds, issuer, users, auditEvents, CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
+        Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
+        Assert.Equal("anonymous_credential_disabled", PodBinaryCodec.ToErrorDetail(errorPod).Message);
+        Assert.Equal(0, issuer.CallCount);
+        Assert.Equal([42], users.RequestedIds);
+        Assert.Equal("credential_disabled", Assert.Single(auditEvents.Events).ReasonCode);
     }
 
     [Fact]
@@ -496,7 +616,13 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             BinaryRequestPayload.Success(new byte[] { 0x01, 0x02 }),
             userId: 42);
 
-        BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCredentialIssueAsync(context, aeds, new CapturingIssuerService(), CancellationToken.None);
+        BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCredentialIssueAsync(
+            context,
+            aeds,
+            new CapturingIssuerService(),
+            new StubUserAccountReader(CreateAccountSnapshot(42)),
+            new CapturingAuditEventService(),
+            CancellationToken.None);
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
         Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
@@ -510,12 +636,14 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs");
 
         Assert.Contains("MapPost(\"/anonymous-credential/issue\"", source, StringComparison.Ordinal);
-        Assert.Contains(".RequireAuthorization()", source, StringComparison.Ordinal);
+        Assert.Contains(".RequireAnonymousAccountPrincipal()", source, StringComparison.Ordinal);
         Assert.Contains(".RequireRateLimiting(\"fixed_ip\")", source, StringComparison.Ordinal);
         Assert.Contains(".RequireNoStoreResponse()", source, StringComparison.Ordinal);
         Assert.Contains("AedsFrameType.AnonymousCredentialIssueRequest", source, StringComparison.Ordinal);
         Assert.Contains("AedsFrameType.AnonymousCredentialIssueResponse", source, StringComparison.Ordinal);
         Assert.Contains("AnonymousCredentialIssuerLimits.MaxIssueRequestFrameBytes", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("HandleAnonymousCredentialIssueAsync(\n        HttpContext httpContext,\n        IAedsEncoder aeds,\n        IAnonymousCredentialIssuerService issuer,\n        CancellationToken", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("int userId = httpContext.GetUserId();", source, StringComparison.Ordinal);
     }
 
     private static AnonymousCredentialIssuerService CreateService(
@@ -631,7 +759,8 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
     private static DefaultHttpContext CreateEndpointContext(
         AedsFrameType expectedFrameType,
         BinaryRequestPayload payload,
-        int? userId)
+        int? userId,
+        string? identityKind = AnonymousIdentityRuntime.AnonymousAccountKind)
     {
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
@@ -640,9 +769,16 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
         context.Request.Headers.Accept = "application/octet-stream";
         if (userId.HasValue)
         {
-            context.User = new ClaimsPrincipal(new ClaimsIdentity(
-                [new Claim(ClaimTypes.NameIdentifier, userId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture))],
-                "unit-test"));
+            List<Claim> claims =
+            [
+                new Claim(ClaimTypes.NameIdentifier, userId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            ];
+            if (identityKind is not null)
+            {
+                claims.Add(new Claim("identity_kind", identityKind));
+            }
+
+            context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "unit-test"));
         }
 
         var requestContext = new FakeBinaryEndpointRequestContext(expectedFrameType, payload);
@@ -652,6 +788,25 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             .BuildServiceProvider();
         return context;
     }
+
+    private static UserAccountSnapshot CreateAccountSnapshot(
+        int id,
+        int status = 0,
+        DateTime? deletedAt = null,
+        string identityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+        string? anonymousCredentialStatus = AnonymousCredentialStatuses.Active)
+        => new(
+            id,
+            status,
+            BanReason: null,
+            MfaEnabled: false,
+            DeletedAt: deletedAt,
+            PublicHandle: null,
+            IdentityKind: identityKind,
+            PasskeyEnabled: true,
+            RecoveryEnabled: true,
+            AnonymousCredentialStatus: anonymousCredentialStatus,
+            AnonymousCredentialLevel: AnonymousCredentialLevels.StrongAnonymous);
 
     private static async Task<AedsDecodeResult> ExecuteAndDecodeAsync(BinaryFrameResult result, DefaultHttpContext context, AedsEncoder aeds)
     {
@@ -741,6 +896,7 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
     private sealed class CapturingIssuerService : IAnonymousCredentialIssuerService
     {
         public int UserId { get; private set; }
+        public int CallCount { get; private set; }
         public AnonymousCredentialIssueRequestCoreModel Request { get; private set; }
         public Result<AnonymousCredentialIssueResponseCoreModel> Result { get; init; } =
             Result<AnonymousCredentialIssueResponseCoreModel>.Failure(ErrorCode.Forbidden, "issuer_not_configured");
@@ -751,9 +907,21 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             string? traceId,
             CancellationToken cancellationToken = default)
         {
+            CallCount++;
             UserId = userId;
             Request = request;
             return Task.FromResult(Result);
+        }
+    }
+
+    private sealed class StubUserAccountReader(UserAccountSnapshot? snapshot) : IUserAccountReader
+    {
+        public List<int> RequestedIds { get; } = [];
+
+        public Task<UserAccountSnapshot?> GetAccountByIdAsync(int id)
+        {
+            RequestedIds.Add(id);
+            return Task.FromResult(snapshot.HasValue && snapshot.Value.Id == id ? snapshot : null);
         }
     }
 
