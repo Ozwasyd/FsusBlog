@@ -132,8 +132,8 @@ public sealed class RiskControlContextFactory : IRiskControlContextFactory
             return new RiskControlActorContext(
                 RiskControlActorStatuses.AdminPrincipal,
                 AnonymousIdentityRuntime.AdminPrincipalKind,
-                userId,
-                NormalizeClaim(user?.GetSessionId()),
+                null,
+                null,
                 adminPrincipalId,
                 NormalizeClaim(user?.GetAdminSessionId()));
         }

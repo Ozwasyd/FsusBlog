@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
@@ -79,11 +80,53 @@ public sealed class RiskControlContextFactoryTests
 
         Assert.Equal(RiskControlActorStatuses.AdminPrincipal, result.Actor.Status);
         Assert.Equal(AnonymousIdentityRuntime.AdminPrincipalKind, result.Actor.IdentityKind);
-        Assert.Equal("7", result.Actor.UserId);
+        Assert.Null(result.Actor.UserId);
+        Assert.Null(result.Actor.SessionId);
         Assert.Equal("7", result.Actor.AdminPrincipalId);
         Assert.Equal("sid-admin-1", result.Actor.AdminSessionId);
         Assert.Equal(RiskActionNames.AdminSecurityWrite, result.ActionName);
         Assert.Equal("admin.security.write", result.RouteKey);
+    }
+
+    [Fact]
+    public void Create_AdminPrincipalWithCollidingAccountId_DoesNotExposeUserId()
+    {
+        var adminContext = CreateContext(
+            "203.0.113.10",
+            CreatePrincipal(
+                7,
+                new Claim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
+                new Claim("admin_id", "7"),
+                new Claim("admin_sid", "sid-admin-1")));
+        var accountContext = CreateContext(
+            "203.0.113.9",
+            CreatePrincipal(
+                7,
+                new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind)));
+
+        RiskControlContext adminResult = new RiskControlContextFactory().Create(adminContext);
+        RiskControlContext accountResult = new RiskControlContextFactory().Create(accountContext);
+
+        Assert.Equal(RiskControlActorStatuses.AdminPrincipal, adminResult.Actor.Status);
+        Assert.Null(adminResult.Actor.UserId);
+        Assert.Equal("7", adminResult.Actor.AdminPrincipalId);
+        Assert.Equal(RiskControlActorStatuses.Authenticated, accountResult.Actor.Status);
+        Assert.Equal("7", accountResult.Actor.UserId);
+        Assert.Null(accountResult.Actor.AdminPrincipalId);
+    }
+
+    [Fact]
+    public void RiskControlContextFactory_SourceKeepsAdminPrincipalOutOfUserIdSlot()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Security/RiskControlContextFactory.cs");
+
+        Assert.DoesNotContain(
+            "RiskControlActorStatuses.AdminPrincipal,\n                AnonymousIdentityRuntime.AdminPrincipalKind,\n                userId,",
+            source,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("Assert.Equal(\"7\", result.Actor.UserId)", BackendTestPaths.ReadAllTextFromRoot(
+            "tests/backend/Unit/RiskControlContextFactoryTests.cs"),
+            StringComparison.Ordinal);
     }
 
     [Fact]
