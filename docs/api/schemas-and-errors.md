@@ -245,7 +245,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 32 | `UploadCompleteRequest` | `UploadCompleteRequestPod` | `POST /api/binary/upload/{id}/complete` 请求体 |
 | 35 | `SeoConfigUpdateRequest` | `SeoConfigPod` | `PUT /api/binary/system/seo` 请求体 |
 | 36 | `PageContentUpdateRequest` | `PageContentPod` | `PUT /api/binary/system/page` 请求体 |
-| 63 | `PasskeyRegisterBegin` | `PasskeyRegisterBeginPod` | `POST /api/binary/auth/passkey/register/begin`；admin bootstrap begin 复用 |
+| 63 | `PasskeyRegisterBegin` | `PasskeyRegisterBeginPod` | `POST /api/binary/auth/passkey/register/begin`；admin bootstrap begin 复用；POD 字段使用 `accountHandle`/`accountName`/`accountDisplayName` |
 | 64 | `PasskeyLoginBegin` | `PasskeyLoginBeginPod` | `POST /api/binary/auth/passkey/login/begin`；admin login begin 复用 |
 | 65 | `PasskeyCredentialList` | `PasskeyCredentialSummaryPod[]` | `GET /api/binary/auth/passkey/credentials` |
 | 66 | `PasskeyRegisterCompleteRequest` | `PasskeyRegisterCompleteRequestPod` | `POST /api/binary/auth/passkey/register/complete`；admin bootstrap complete 请求体 |

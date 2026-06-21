@@ -23,6 +23,9 @@ export function mapPasskeyRegisterBeginFromPayload(payload: Uint8Array): Passkey
   const descriptors = readDescriptors(reader, excludeCount);
   const blob = reader.readBlob();
   const attachment = readByte(pod, 32) === 1 ? authenticatorAttachmentToText(readInt32(pod, 28)) : undefined;
+  const accountName = readSliceText(blob, readSliceRef(pod, 116));
+  const accountDisplayName = readSliceText(blob, readSliceRef(pod, 124));
+  const accountHandle = readBytes(blob, pod, 132);
   return {
     sessionKey: readFixedUtf8(pod, 36, 64),
     options: {
@@ -31,9 +34,9 @@ export function mapPasskeyRegisterBeginFromPayload(payload: Uint8Array): Passkey
         name: readSliceText(blob, readSliceRef(pod, 108))
       },
       user: {
-        id: bytesToBase64Url(readBytes(blob, pod, 132)),
-        name: readSliceText(blob, readSliceRef(pod, 116)),
-        displayName: readSliceText(blob, readSliceRef(pod, 124))
+        id: bytesToBase64Url(accountHandle),
+        name: accountName,
+        displayName: accountDisplayName
       },
       challenge: bytesToBase64Url(readBytes(blob, pod, 140)),
       pubKeyCredParams: params,

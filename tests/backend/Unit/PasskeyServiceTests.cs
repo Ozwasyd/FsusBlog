@@ -257,6 +257,36 @@ public sealed class PasskeyServiceTests
     }
 
     [Fact]
+    public void PasskeyRegisterBeginContract_UsesSafeAccountHandleAndDisplayLabels()
+    {
+        string userPods = BackendTestPaths.ReadAllTextFromRoot("src/shared/Contracts/Models/UserPods.cs");
+        string readModels = BackendTestPaths.ReadAllTextFromRoot("src/core/Mapping/Models/ReadModels.cs");
+        string passkeyCodec = BackendTestPaths.ReadAllTextFromRoot("src/core/Cache/PodBinaryCodec.Passkey.cs");
+        string passkeyService = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/PasskeyService.cs");
+
+        string podBlock = ExtractBlock(userPods, "public readonly struct PasskeyRegisterBeginPod");
+        string modelBlock = ExtractBlock(readModels, "public sealed record class PasskeyRegisterBeginCoreModel");
+        string codecBlock = ExtractBlock(passkeyCodec, "public static void WritePasskeyRegisterBegin");
+        string decodeBlock = ExtractBlock(passkeyCodec, "public static bool TryDecodePasskeyRegisterBegin");
+        string serviceBeginBlock = ExtractBlock(passkeyService, "private static PasskeyRegisterBeginCoreModel ToRegisterBeginCore");
+        string serviceOptionsBlock = ExtractBlock(passkeyService, "private static CredentialCreateOptions ToCredentialCreateOptions");
+
+        Assert.Contains("AccountName", podBlock, StringComparison.Ordinal);
+        Assert.Contains("AccountDisplayName", podBlock, StringComparison.Ordinal);
+        Assert.Contains("AccountHandle", podBlock, StringComparison.Ordinal);
+        Assert.Contains("AccountName", modelBlock, StringComparison.Ordinal);
+        Assert.Contains("AccountDisplayName", modelBlock, StringComparison.Ordinal);
+        Assert.Contains("AccountHandle", modelBlock, StringComparison.Ordinal);
+
+        foreach (string block in new[] { podBlock, modelBlock, codecBlock, decodeBlock, serviceBeginBlock, serviceOptionsBlock })
+        {
+            Assert.DoesNotContain("UserName", block, StringComparison.Ordinal);
+            Assert.DoesNotContain("UserDisplayName", block, StringComparison.Ordinal);
+            Assert.DoesNotContain("UserId", block, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void PasskeyCredential_UsesAccountIdColumnAndIndex()
     {
         PropertyInfo accountId = typeof(PasskeyCredential).GetProperty("AccountId")
@@ -409,5 +439,32 @@ public sealed class PasskeyServiceTests
 
         Assert.Equal(lastUsed, dto.LastUsedAt);
         Assert.True(dto.BackupState);
+    }
+
+    private static string ExtractBlock(string source, string startToken)
+    {
+        int start = source.IndexOf(startToken, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing start token: {startToken}");
+
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart > start, $"Missing block start for token: {startToken}");
+
+        int depth = 0;
+        for (int index = braceStart; index < source.Length; index++)
+        {
+            depth += source[index] switch
+            {
+                '{' => 1,
+                '}' => -1,
+                _ => 0
+            };
+
+            if (depth == 0)
+            {
+                return source[start..(index + 1)];
+            }
+        }
+
+        throw new InvalidOperationException($"Missing block end for token: {startToken}");
     }
 }

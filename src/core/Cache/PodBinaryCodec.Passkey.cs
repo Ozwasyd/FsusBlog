@@ -29,9 +29,9 @@ public static partial class PodBinaryCodec
             SessionKey = PodUtf8Codec.ToFixed64(value.SessionKey),
             RpId = PodUtf8Codec.AppendSlice(value.RpId, payload),
             RpName = PodUtf8Codec.AppendSlice(value.RpName, payload),
-            UserName = PodUtf8Codec.AppendSlice(value.UserName, payload),
-            UserDisplayName = PodUtf8Codec.AppendSlice(value.UserDisplayName, payload),
-            UserId = AppendBytes(value.UserId, payload),
+            AccountName = PodUtf8Codec.AppendSlice(value.AccountName, payload),
+            AccountDisplayName = PodUtf8Codec.AppendSlice(value.AccountDisplayName, payload),
+            AccountHandle = AppendBytes(value.AccountHandle, payload),
             Challenge = AppendBytes(value.Challenge, payload)
         };
 
@@ -102,9 +102,9 @@ public static partial class PodBinaryCodec
             RequireResidentKey = pod.RequireResidentKey == 1,
             RpId = PodProjector.ReadSlice(pod.RpId, payload),
             RpName = PodProjector.ReadSlice(pod.RpName, payload),
-            UserName = PodProjector.ReadSlice(pod.UserName, payload),
-            UserDisplayName = PodProjector.ReadSlice(pod.UserDisplayName, payload),
-            UserId = ReadBytes(pod.UserId, payload),
+            AccountName = PodProjector.ReadSlice(pod.AccountName, payload),
+            AccountDisplayName = PodProjector.ReadSlice(pod.AccountDisplayName, payload),
+            AccountHandle = ReadBytes(pod.AccountHandle, payload),
             Challenge = ReadBytes(pod.Challenge, payload),
             PubKeyCredParams = parameters,
             ExcludeCredentials = MaterializeDescriptors(descriptors, payload)
@@ -485,9 +485,9 @@ public static partial class PodBinaryCodec
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 SessionKey;
         public Utf8SliceRef RpId;
         public Utf8SliceRef RpName;
-        public Utf8SliceRef UserName;
-        public Utf8SliceRef UserDisplayName;
-        public Utf8SliceRef UserId;
+        public Utf8SliceRef AccountName;
+        public Utf8SliceRef AccountDisplayName;
+        public Utf8SliceRef AccountHandle;
         public Utf8SliceRef Challenge;
     }
 

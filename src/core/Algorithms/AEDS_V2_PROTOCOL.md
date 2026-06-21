@@ -170,7 +170,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `ConversationList` payload: `int32 total`, `int32 count`, `ConversationListItemPod[count]`, followed by shared blob payload for subject/preview slices.
 - `ConversationDetail` payload: `ConversationDetailPod`, `int32 count`, `ConversationMessagePod[count]`, followed by shared blob payload for subject/body slices.
 - `ConversationMessage` payload: `ConversationMessagePod` followed by blob payload for sender/body slices.
-- `PasskeyRegisterBegin` payload: `PasskeyRegisterBeginPod`, `PasskeyPublicKeyCredentialParamPod[count]`, `PasskeyCredentialDescriptorPod[count]` with transport lists, followed by shared blob payload for RP/user/challenge/credential-id slices.
+- `PasskeyRegisterBegin` payload: `PasskeyRegisterBeginPod`, `PasskeyPublicKeyCredentialParamPod[count]`, `PasskeyCredentialDescriptorPod[count]` with transport lists, followed by shared blob payload for RP, accountName, accountDisplayName, accountHandle, challenge, and credential-id slices. The account fields are Passkey-safe labels/handle and are mapped to WebAuthn `user.name`, `user.displayName`, and `user.id` only at the browser adapter boundary.
 - `PasskeyLoginBegin` payload: `PasskeyLoginBeginPod`, `PasskeyCredentialDescriptorPod[count]` with transport lists, followed by shared blob payload for RP/challenge/credential-id slices.
 - `PasskeyCredentialList` payload: `int32 count`, `PasskeyCredentialSummaryPod[count]`, followed by blob payload for optional device names.
 - `NotificationEvent` payload: `int64 EventId`, `int64 TimestampUnixMs`, `int32 NotificationStreamEventType`, `int32 Reserved`, followed by one binary value payload.

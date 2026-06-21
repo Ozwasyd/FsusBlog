@@ -1035,9 +1035,9 @@ public class PodBinaryCodecTests
             RequireResidentKey = true,
             RpId = "localhost",
             RpName = "FsusBlog",
-            UserName = "alice",
-            UserDisplayName = "Alice",
-            UserId = [1, 2, 3, 4],
+            AccountName = "fsus-anonymous-account",
+            AccountDisplayName = "Anonymous account",
+            AccountHandle = [1, 2, 3, 4],
             Challenge = [5, 6, 7, 8],
             PubKeyCredParams = [new PasskeyPublicKeyCredentialParamCoreModel(0, -7)],
             ExcludeCredentials = [new PasskeyCredentialDescriptorCoreModel(0, [9, 10, 11], [5])]
@@ -1050,7 +1050,9 @@ public class PodBinaryCodecTests
         Assert.Equal("session-1", decoded.SessionKey);
         Assert.Equal("localhost", decoded.RpId);
         Assert.Equal("FsusBlog", decoded.RpName);
-        Assert.Equal([1, 2, 3, 4], decoded.UserId);
+        Assert.Equal("fsus-anonymous-account", decoded.AccountName);
+        Assert.Equal("Anonymous account", decoded.AccountDisplayName);
+        Assert.Equal([1, 2, 3, 4], decoded.AccountHandle);
         Assert.Equal([5, 6, 7, 8], decoded.Challenge);
         Assert.Single(decoded.PubKeyCredParams);
         Assert.Equal(-7, decoded.PubKeyCredParams[0].Alg);

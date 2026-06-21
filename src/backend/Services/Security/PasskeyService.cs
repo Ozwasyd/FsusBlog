@@ -443,9 +443,9 @@ public sealed class PasskeyService(
             RequireResidentKey = options.AuthenticatorSelection.ResidentKey == ResidentKeyRequirement.Required,
             RpId = options.Rp.Id ?? string.Empty,
             RpName = options.Rp.Name,
-            UserName = options.User.Name,
-            UserDisplayName = options.User.DisplayName,
-            UserId = options.User.Id,
+            AccountName = options.User.Name,
+            AccountDisplayName = options.User.DisplayName,
+            AccountHandle = options.User.Id,
             Challenge = options.Challenge,
             PubKeyCredParams = [.. options.PubKeyCredParams.Select(param => new PasskeyPublicKeyCredentialParamCoreModel((int)param.Type, (int)param.Alg))],
             ExcludeCredentials = [.. options.ExcludeCredentials.Select(ToDescriptorCore)]
@@ -455,7 +455,7 @@ public sealed class PasskeyService(
         => new()
         {
             Rp = new PublicKeyCredentialRpEntity(value.RpId, value.RpName, null),
-            User = new Fido2User { Id = value.UserId, Name = value.UserName, DisplayName = value.UserDisplayName },
+            User = new Fido2User { Id = value.AccountHandle, Name = value.AccountName, DisplayName = value.AccountDisplayName },
             Challenge = value.Challenge,
             Timeout = value.Timeout,
             Attestation = (AttestationConveyancePreference)value.Attestation,

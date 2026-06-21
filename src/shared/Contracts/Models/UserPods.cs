@@ -276,9 +276,9 @@ public readonly struct PasskeyRegisterBeginPod
     public readonly Utf8Fixed64 SessionKey;
     public readonly Utf8SliceRef RpId;
     public readonly Utf8SliceRef RpName;
-    public readonly Utf8SliceRef UserName;
-    public readonly Utf8SliceRef UserDisplayName;
-    public readonly Utf8SliceRef UserId;
+    public readonly Utf8SliceRef AccountName;
+    public readonly Utf8SliceRef AccountDisplayName;
+    public readonly Utf8SliceRef AccountHandle;
     public readonly Utf8SliceRef Challenge;
 }
 

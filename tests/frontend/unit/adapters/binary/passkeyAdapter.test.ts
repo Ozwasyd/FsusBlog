@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { mapPasskeyCredentialListFromPayload, mapPasskeyLoginBeginFromPayload, mapPasskeyRegisterBeginFromPayload } from '@/adapters/binary/passkeyAdapter'
-import { FrameType } from '@/wasm/web/protocol/frame'
+import fs from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 const encoder = new TextEncoder()
+const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../../${path}`, import.meta.url))
+const readRepoFile = (path: string): string => fs.readFileSync(repoFile(path), 'utf8')
 
 function writeFixed(bytes: Uint8Array, offset: number, length: number, value: string): void {
   bytes.set(encoder.encode(value).subarray(0, length), offset)
@@ -36,18 +39,22 @@ function withBlob(prefixLength: number, parts: Uint8Array[]): { payload: Uint8Ar
 
 describe('binary passkey adapter', () => {
   it('does not expose the retired admin password reset frame', () => {
-    expect('AdminResetUserPasswordRequest' in FrameType).toBe(false)
-    expect(Object.values(FrameType)).not.toContain(40)
+    const frameMirror = readRepoFile('src/frontend/wasm/web/protocol/frame.ts')
+
+    expect(frameMirror).not.toContain('AdminResetUserPasswordRequest')
+    expect(frameMirror).not.toMatch(/AdminResetUserPasswordRequest\s*=\s*40/)
   })
 
   it('maps register begin payload into WebAuthn creation options', () => {
     const prefixLength = 148 + 8 + 16 + 4 + 4
+    const accountHandle = new Uint8Array(32)
+    accountHandle.fill(0x41)
     const { payload, refs, view } = withBlob(prefixLength, [
       utf8('localhost'),
       utf8('FsusBlog'),
-      utf8('alice'),
-      utf8('Alice'),
-      new Uint8Array([1, 2, 3, 4]),
+      utf8('fsus-anonymous-account'),
+      utf8('Anonymous account'),
+      accountHandle,
       new Uint8Array([5, 6, 7, 8]),
       new Uint8Array([9, 10, 11])
     ])
@@ -81,7 +88,7 @@ describe('binary passkey adapter', () => {
       sessionKey: 'session-1',
       options: {
         rp: { id: 'localhost', name: 'FsusBlog' },
-        user: { id: 'AQIDBA', name: 'alice', displayName: 'Alice' },
+        user: { id: 'QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE', name: 'fsus-anonymous-account', displayName: 'Anonymous account' },
         challenge: 'BQYHCA',
         pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
         timeout: 60000,
@@ -95,6 +102,21 @@ describe('binary passkey adapter', () => {
         excludeCredentials: [{ type: 'public-key', id: 'CQoL', transports: ['internal'] }]
       }
     })
+  })
+
+  it('keeps register begin adapter fields named as account handle/display labels internally', () => {
+    const source = fs.readFileSync(fileURLToPath(new URL('../../../../../src/frontend/src/adapters/binary/passkeyAdapter.ts', import.meta.url)), 'utf8')
+    const registerBeginBlock = source.slice(
+      source.indexOf('export function mapPasskeyRegisterBeginFromPayload'),
+      source.indexOf('export function mapPasskeyLoginBeginFromPayload')
+    )
+
+    expect(registerBeginBlock).toContain('accountName')
+    expect(registerBeginBlock).toContain('accountDisplayName')
+    expect(registerBeginBlock).toContain('accountHandle')
+    expect(registerBeginBlock).not.toContain('userName')
+    expect(registerBeginBlock).not.toContain('userDisplayName')
+    expect(registerBeginBlock).not.toContain('userId')
   })
 
   it('maps login begin payload into WebAuthn request options', () => {

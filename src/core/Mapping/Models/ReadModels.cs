@@ -287,9 +287,9 @@ public sealed record class PasskeyRegisterBeginCoreModel
     public bool RequireResidentKey { get; init; }
     public string RpId { get; init; } = string.Empty;
     public string RpName { get; init; } = string.Empty;
-    public string UserName { get; init; } = string.Empty;
-    public string UserDisplayName { get; init; } = string.Empty;
-    public byte[] UserId { get; init; } = [];
+    public string AccountName { get; init; } = string.Empty;
+    public string AccountDisplayName { get; init; } = string.Empty;
+    public byte[] AccountHandle { get; init; } = [];
     public byte[] Challenge { get; init; } = [];
     public IReadOnlyList<PasskeyPublicKeyCredentialParamCoreModel> PubKeyCredParams { get; init; } = [];
     public IReadOnlyList<PasskeyCredentialDescriptorCoreModel> ExcludeCredentials { get; init; } = [];

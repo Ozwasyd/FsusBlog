@@ -267,7 +267,7 @@ ZK-Prod 后端依赖策略固定为 .NET 10 + `System.Text.Json`。trusted setup
 - 库：Fido2 4.0.1
 - 上限：每用户最多 5 枚 Passkey
 - 持久化 schema：普通账号 Passkey credential 仍在 `passkey_credential` 表中，但账号外键最终态列名必须是 `account_id`，索引为 `idx_passkey_account_id`；历史 `user_id` / `idx_passkey_user_id` 只能作为迁移输入出现，服务代码不得继续通过 `PasskeyCredential.UserId` 读写凭据归属。
-- 匿名账号 metadata：`FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` 时，注册 begin 不再使用 legacy username 或内部数字 id；WebAuthn `user.id` 来自 `sys_user.passkey_user_handle` 中持久化的 32B 随机 Base64Url 句柄。该句柄在同一账号多次注册和 Recovery Key 重绑后保持稳定，不能由数据库 id 推导。`Name` 固定为 `fsus-anonymous-account`，`DisplayName` 只有在用户显式配置 `public_handle` 时才使用公开 handle，否则使用 `Anonymous account`。
+- 匿名账号 metadata：`FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` 时，注册 begin 不再使用 legacy username 或内部数字 id；POD/DTO 字段使用 `accountHandle`、`accountName`、`accountDisplayName` 表达 Passkey-safe 账号句柄和显示标签，前端仅在 WebAuthn adapter 边界映射到浏览器要求的 `user.id/name/displayName`。WebAuthn `user.id` 来自 `sys_user.passkey_user_handle` 中持久化的 32B 随机 Base64Url 句柄。该句柄在同一账号多次注册和 Recovery Key 重绑后保持稳定，不能由数据库 id 推导。`Name` 固定为 `fsus-anonymous-account`，`DisplayName` 只有在用户显式配置 `public_handle` 时才使用公开 handle，否则使用 `Anonymous account`。
 - 注册保护：已启用 MFA 的用户注册新 Passkey 须提供有效的 MFA proofToken
 - 管理保护：删除或更新 Passkey 凭据友好名称必须先通过统一账号安全 step-up；proof 绑定 `passkey.delete` 或 `passkey.credential-name.update` 且单次消费，MFA enabled 账号不接受 password fallback，anonymous identity mode 禁止 legacy password fallback。
 - 删除保护：匿名账号不能删除最后一枚可用 Passkey，除非已启用 Recovery Key / recovery path；拒绝时返回 `CannotRemoveLastCredentialWithoutRecovery`，避免冷启动账号失去全部登录能力。
