@@ -4,84 +4,56 @@
       <el-skeleton :rows="6" animated />
     </div>
 
-    <el-table
-      v-else-if="!isMobile"
-      class="user-table"
+    <el-responsive-collection
+      v-else
       v-loading="loading"
-      :data="tableRows"
-      :row-key="(row: UserListViewItem) => String(row.accountId)"
-      :row-class-name="rowClassName"
+      :items="tableRows"
+      row-key="accountId"
+      compact-query="(max-width: 767px)"
+      aria-label="匿名账号列表"
+      role="list"
     >
-      <el-table-column prop="accountId" label="Account" min-width="88" align="center">
-        <template #default="{ row }: { row: UserListViewItem }">
-          <span class="tabular-nums">{{ row.accountId }}</span>
-        </template>
-      </el-table-column>
-
-      <el-table-column label="匿名账号" :min-width="accountColumnWidth">
-        <template #default="{ row }: { row: UserListViewItem }">
-          <div
-            class="flex items-center overflow-hidden"
-            :class="props.isMobile ? 'gap-2' : 'gap-5 whitespace-nowrap'"
-          >
+      <template #card="{ item: row }: { item: UserListViewItem }">
+        <article
+          class="user-resource-list-item border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] px-4 py-5"
+          :class="rowMotionClass(row.accountId)"
+          role="listitem"
+          v-memo="[row.accountId, row.displayHandle, row.status, row.riskFlags, rowMotionClass(row.accountId)]"
+        >
+          <div class="mb-6 flex items-center gap-4">
             <div class="shrink-0">
-              <el-avatar :size="props.isMobile ? 26 : 32">
+              <el-avatar :size="36">
                 {{ row.initials }}
               </el-avatar>
             </div>
-            <p class="min-w-0 flex flex-col justify-center overflow-hidden">
-              <span class="truncate text-sm font-bold leading-tight text-[var(--fsusblog-text-primary)]">
-                {{ row.displayHandle }}
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-3">
+                <span class="truncate text-sm font-bold text-[var(--fsusblog-text-primary)]">
+                  {{ row.displayHandle }}
+                </span>
+                <span class="bg-[var(--fsusblog-panel-bg-soft)] px-2 py-0.5 text-xs font-semibold italic normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+                  {{ row.identityKindLabel }}
+                </span>
+              </div>
+              <div class="mt-2 flex flex-wrap items-center gap-3 text-[11px] tabular-nums text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
+                <SemanticTime :value="row.createTime" :text="row.createdAtText" />
+                <span class="text-[var(--fsusblog-text-subtle)]">/</span>
+                <span>{{ row.credentialSummary }}</span>
+                <span class="text-[var(--fsusblog-text-subtle)]">/</span>
+                <span>{{ row.riskFlagsText }}</span>
+              </div>
+            </div>
+            <div class="flex shrink-0 flex-col items-center">
+              <span class="mb-1 h-1 w-1 rounded-[var(--fsus-radius-control-small)]" :class="row.statusDotClass" aria-hidden="true" />
+              <span class="text-xs font-semibold normal-case tracking-normal" :class="row.statusClass">
+                {{ row.statusText }}
               </span>
-              <SemanticTime
-                v-if="!props.isMobile"
-                :value="row.createTime"
-                :text="`${row.createdAtText} 初始化`"
-                class="mt-0.5 tabular-nums text-[11px] tabular-nums text-[var(--fsusblog-text-muted)] normal-case tracking-normal"
-              />
-            </p>
+            </div>
           </div>
-        </template>
-      </el-table-column>
 
-      <el-table-column prop="identityKind" label="身份" :width="identityColumnWidth" align="center">
-        <template #default="{ row }: { row: UserListViewItem }">
-          <span class="text-xs font-semibold italic normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
-            {{ row.identityKindLabel }}
-          </span>
-        </template>
-      </el-table-column>
-
-      <el-table-column v-if="hasWideTable" label="凭据" min-width="220">
-        <template #default="{ row }: { row: UserListViewItem }">
-          <div class="flex flex-col whitespace-nowrap">
-            <span class="text-[12px] text-[var(--fsusblog-text-tertiary)] font-bold">{{ row.credentialSummary }}</span>
-            <span class="text-[11px] text-[var(--fsusblog-text-subtle)]">{{ row.riskFlagsText }}</span>
-          </div>
-        </template>
-      </el-table-column>
-
-      <el-table-column prop="status" label="状态" :width="statusColumnWidth" align="center">
-        <template #default="{ row }: { row: UserListViewItem }">
-          <span class="inline-flex flex-col items-center justify-center">
-            <span class="mb-1 h-1 w-1 rounded-[var(--fsus-radius-control-small)]" :class="row.statusDotClass" aria-hidden="true" />
-            <span class="text-xs font-semibold normal-case tracking-normal" :class="row.statusClass">
-              {{ row.statusText }}
-            </span>
-          </span>
-        </template>
-      </el-table-column>
-
-      <el-table-column label="操作" :width="actionColumnWidth" align="right" :fixed="hasWideTable ? 'right' : false">
-        <template #default="{ row }: { row: UserListViewItem }">
-          <div
-            v-if="!row.isDeleted"
-            class="flex items-center justify-end gap-2 pr-2"
-          >
+          <div v-if="!row.isDeleted" class="grid grid-cols-1 gap-2" aria-label="匿名账号高风险操作">
             <el-button
-              link
               :type="row.status === 0 ? 'danger' : 'success'"
-              size="small"
               :loading="isProcessing && processingId === row.accountId"
               :aria-label="`变更匿名账号状态：${row.displayHandle}`"
               @click="emit('toggle-status', row)"
@@ -89,90 +61,120 @@
               {{ row.status === 0 ? '封禁' : '解封' }}
             </el-button>
           </div>
-          <span v-else-if="row.isDeleted" class="text-[var(--fsusblog-text-subtle)] text-xs font-semibold normal-case italic tracking-normal pr-4">已注销</span>
-        </template>
-      </el-table-column>
+          <div v-else class="bg-[var(--fsusblog-panel-bg-soft)] py-3 text-center text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+            已注销账户
+          </div>
+        </article>
+      </template>
 
       <template #empty>
-        <AdminInlineEmptyState :title="emptyTitle" :description="emptyDescription">
+        <AdminInlineEmptyState
+          :title="emptyTitle"
+          :description="emptyDescription"
+        >
           <template v-if="hasActiveFilters" #actions>
             <el-button @click="emit('reset-filters')">清除筛选</el-button>
           </template>
         </AdminInlineEmptyState>
       </template>
-    </el-table>
 
-    <div
-      v-else
-      v-loading="loading"
-      class="user-resource-list divide-y divide-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]"
-      role="list"
-      aria-label="匿名账号列表"
-    >
-      <article
-        v-for="row in list"
-        :key="row.accountId"
-        class="user-resource-list-item bg-[var(--fsusblog-page-bg)] px-4 py-5"
-        :class="rowMotionClass(row.accountId)"
-        role="listitem"
-        v-memo="[row.accountId, row.displayHandle, row.status, row.riskFlags, rowMotionClass(row.accountId)]"
-      >
-        <div class="flex items-center gap-4 mb-6">
-          <div class="shrink-0">
-            <el-avatar :size="36">
-              {{ row.initials }}
-            </el-avatar>
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-3">
-              <span class="truncate text-sm font-bold text-[var(--fsusblog-text-primary)]">
-                {{ row.displayHandle }}
-              </span>
-              <span class="text-xs font-semibold italic normal-case tracking-normal px-2 py-0.5 bg-[var(--fsusblog-panel-bg-soft)] text-[var(--fsusblog-text-muted)]">
-                {{ row.identityKindLabel }}
-              </span>
-            </div>
-            <div class="mt-2 flex flex-wrap items-center gap-3 text-[11px] tabular-nums text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
-              <SemanticTime :value="row.createTime" :text="row.createdAtText" />
-              <span class="text-[var(--fsusblog-text-subtle)]">/</span>
-              <span>{{ row.credentialSummary }}</span>
-              <span class="text-[var(--fsusblog-text-subtle)]">/</span>
-              <span>{{ row.riskFlagsText }}</span>
-            </div>
-          </div>
-          <div class="shrink-0 flex flex-col items-center">
-            <span class="h-1 w-1 rounded-[var(--fsus-radius-control-small)] mb-1" :class="row.statusDotClass" aria-hidden="true" />
-            <span class="text-xs font-semibold normal-case tracking-normal" :class="row.statusClass">
-              {{ row.statusText }}
-            </span>
-          </div>
-        </div>
+      <template #table>
+        <div class="user-table-v2-frame">
+          <el-auto-resizer>
+            <template #default="{ height, width }">
+              <el-table-v2
+                class="user-table"
+                :columns="userTableColumns"
+                :data="tableRows"
+                :width="width"
+                :height="height"
+                :row-height="72"
+                row-key="accountId"
+                :row-class="rowClassName"
+                :row-class-name="rowClassName"
+              >
+                <template #cell="{ rowData, column }">
+                  <span v-if="column.key === 'accountId'" class="tabular-nums">
+                    {{ (rowData as UserListViewItem).accountId }}
+                  </span>
 
-        <div v-if="!row.isDeleted" class="grid grid-cols-1 gap-2" aria-label="匿名账号高风险操作">
-          <el-button
-            :type="row.status === 0 ? 'danger' : 'success'"
-            :loading="isProcessing && processingId === row.accountId"
-            :aria-label="`变更匿名账号状态：${row.displayHandle}`"
-            @click="emit('toggle-status', row)"
-          >
-            {{ row.status === 0 ? '封禁' : '解封' }}
-          </el-button>
-        </div>
-        <div v-else class="text-center py-3 bg-[var(--fsusblog-panel-bg-soft)] text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
-          已注销账户
-        </div>
-      </article>
+                  <div v-else-if="column.key === 'account'" class="flex items-center gap-5 overflow-hidden whitespace-nowrap">
+                    <div class="shrink-0">
+                      <el-avatar :size="32">
+                        {{ (rowData as UserListViewItem).initials }}
+                      </el-avatar>
+                    </div>
+                    <p class="flex min-w-0 flex-col justify-center overflow-hidden">
+                      <span class="truncate text-sm font-bold leading-tight text-[var(--fsusblog-text-primary)]">
+                        {{ (rowData as UserListViewItem).displayHandle }}
+                      </span>
+                      <SemanticTime
+                        :value="(rowData as UserListViewItem).createTime"
+                        :text="`${(rowData as UserListViewItem).createdAtText} 初始化`"
+                        class="mt-0.5 tabular-nums text-[11px] text-[var(--fsusblog-text-muted)] normal-case tracking-normal"
+                      />
+                    </p>
+                  </div>
 
-      <AdminInlineEmptyState
-        v-if="!loading && list.length === 0"
-        :title="emptyTitle"
-        :description="emptyDescription"
-      >
-        <template v-if="hasActiveFilters" #actions>
-          <el-button @click="emit('reset-filters')">清除筛选</el-button>
-        </template>
-      </AdminInlineEmptyState>
-    </div>
+                  <span
+                    v-else-if="column.key === 'identityKind'"
+                    class="text-xs font-semibold italic normal-case tracking-normal text-[var(--fsusblog-text-muted)]"
+                  >
+                    {{ (rowData as UserListViewItem).identityKindLabel }}
+                  </span>
+
+                  <div v-else-if="column.key === 'credential'" class="flex flex-col whitespace-nowrap">
+                    <span class="text-[12px] font-bold text-[var(--fsusblog-text-tertiary)]">
+                      {{ (rowData as UserListViewItem).credentialSummary }}
+                    </span>
+                    <span class="text-[11px] text-[var(--fsusblog-text-subtle)]">
+                      {{ (rowData as UserListViewItem).riskFlagsText }}
+                    </span>
+                  </div>
+
+                  <span v-else-if="column.key === 'status'" class="inline-flex flex-col items-center justify-center">
+                    <span class="mb-1 h-1 w-1 rounded-[var(--fsus-radius-control-small)]" :class="(rowData as UserListViewItem).statusDotClass" aria-hidden="true" />
+                    <span class="text-xs font-semibold normal-case tracking-normal" :class="(rowData as UserListViewItem).statusClass">
+                      {{ (rowData as UserListViewItem).statusText }}
+                    </span>
+                  </span>
+
+                  <div
+                    v-else-if="column.key === 'actions' && !(rowData as UserListViewItem).isDeleted"
+                    class="flex items-center justify-end gap-2 pr-2"
+                  >
+                    <el-button
+                      link
+                      :type="(rowData as UserListViewItem).status === 0 ? 'danger' : 'success'"
+                      size="small"
+                      :loading="isProcessing && processingId === (rowData as UserListViewItem).accountId"
+                      :aria-label="`变更匿名账号状态：${(rowData as UserListViewItem).displayHandle}`"
+                      @click="emit('toggle-status', rowData as UserListViewItem)"
+                    >
+                      {{ (rowData as UserListViewItem).status === 0 ? '封禁' : '解封' }}
+                    </el-button>
+                  </div>
+                  <span
+                    v-else-if="column.key === 'actions'"
+                    class="pr-4 text-xs font-semibold italic normal-case tracking-normal text-[var(--fsusblog-text-subtle)]"
+                  >
+                    已注销
+                  </span>
+                </template>
+
+                <template #empty>
+                  <AdminInlineEmptyState :title="emptyTitle" :description="emptyDescription">
+                    <template v-if="hasActiveFilters" #actions>
+                      <el-button @click="emit('reset-filters')">清除筛选</el-button>
+                    </template>
+                  </AdminInlineEmptyState>
+                </template>
+              </el-table-v2>
+            </template>
+          </el-auto-resizer>
+        </div>
+      </template>
+    </el-responsive-collection>
 
     <div class="admin-data-surface__footer">
       <el-pagination
@@ -181,7 +183,7 @@
         :total="total"
         :pager-count="5"
         :page-sizes="[10, 20, 50]"
-        :layout="isMobile ? 'prev, next' : 'total, sizes, prev, pager, next'"
+        layout="total, sizes, prev, pager, next"
         @current-change="emit('update:current-page', $event)"
         @size-change="emit('update:page-size', $event)"
       />
@@ -194,7 +196,20 @@ import { computed, ref, watch } from 'vue'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import type { UserListViewItem } from '@/composables/useAdminUserManage'
-import { useMediaQuery } from '@/composables/useMediaQuery'
+
+defineOptions({
+  inheritAttrs: false
+})
+
+type TableV2Column<T> = {
+  key: string
+  dataKey?: keyof T | string
+  title?: string
+  width: number
+  align?: 'left' | 'center' | 'right'
+  fixed?: true | 'left' | 'right'
+  sortable?: boolean
+}
 
 interface Props {
   loading: boolean
@@ -202,7 +217,6 @@ interface Props {
   total: number
   currentPage: number
   pageSize: number
-  isMobile: boolean
   isProcessing: boolean
   processingId: number | null
   rowMotionClass?: (id: number) => string
@@ -224,15 +238,18 @@ watch(() => props.loading, (isLoading) => {
   }
 })
 
-const accountColumnWidth = computed(() => (props.isMobile ? 136 : 220))
-const identityColumnWidth = computed(() => (props.isMobile ? 72 : 128))
-const statusColumnWidth = computed(() => (props.isMobile ? 56 : 124))
-const actionColumnWidth = computed(() => (props.isMobile ? 56 : 124))
-const hasWideTable = useMediaQuery('(min-width: 1024px)', true)
+const userTableColumns: TableV2Column<UserListViewItem>[] = [
+  { key: 'accountId', dataKey: 'accountId', title: 'Account', width: 96, align: 'center' },
+  { key: 'account', dataKey: 'displayHandle', title: '匿名账号', width: 280 },
+  { key: 'identityKind', dataKey: 'identityKind', title: '身份', width: 128, align: 'center' },
+  { key: 'credential', dataKey: 'credentialSummary', title: '凭据', width: 280 },
+  { key: 'status', dataKey: 'status', title: '状态', width: 132, align: 'center' },
+  { key: 'actions', title: '操作', width: 128, align: 'right', fixed: 'right' }
+]
 const tableRows = computed(() => props.list)
 const showInitialSkeleton = computed(() => props.loading && !hasCompletedFirstLoad.value && props.list.length === 0)
 const rowMotionClass = (id: number): string => props.rowMotionClass?.(id) ?? 'blog-motion-row-state'
-const rowClassName = ({ row }: { row: UserListViewItem }): string => rowMotionClass(row.accountId)
+const rowClassName = ({ rowData }: { rowData: UserListViewItem }): string => rowMotionClass(rowData.accountId)
 
 const emit = defineEmits<{
   refresh: []
@@ -246,5 +263,10 @@ const emit = defineEmits<{
 <style scoped>
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.user-table-v2-frame {
+  height: clamp(360px, 58vh, 620px);
+  border-block: 1px solid var(--fsusblog-panel-border);
 }
 </style>

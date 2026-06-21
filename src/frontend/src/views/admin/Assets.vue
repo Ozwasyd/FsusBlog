@@ -56,51 +56,70 @@
         <el-skeleton :rows="6" animated />
       </div>
 
-      <el-table v-else v-loading="loading" :data="filteredAssets" row-key="id">
-        <el-table-column prop="id" label="ID" width="96" align="center">
-          <template #default="{ row }: { row: AssetLibraryItemResponse }">
-            <span class="tabular-nums">{{ row.id }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="文件" min-width="280">
-          <template #default="{ row }: { row: AssetLibraryItemResponse }">
-            <div class="min-w-0">
-              <a class="asset-url" :href="row.url" target="_blank" rel="noreferrer">{{ row.url }}</a>
-              <p class="mt-1 text-[11px] text-[var(--fsusblog-text-muted)]">
-                {{ row.sha256 || '无 SHA256' }}
-              </p>
+      <el-responsive-collection
+        v-else
+        v-loading="loading"
+        :items="sortedFilteredAssets"
+        row-key="id"
+        compact-query="(max-width: 767px)"
+        aria-label="资产列表"
+      >
+        <template #card="{ item }">
+          <article
+            class="border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] px-4 py-5"
+            role="listitem"
+          >
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="text-[11px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]">
+                  #{{ (item as AssetLibraryItemResponse).id }}
+                </div>
+                <a
+                  class="asset-url mt-2"
+                  :href="(item as AssetLibraryItemResponse).url"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {{ (item as AssetLibraryItemResponse).url }}
+                </a>
+                <p class="mt-2 break-all text-[11px] text-[var(--fsusblog-text-muted)]">
+                  {{ (item as AssetLibraryItemResponse).sha256 || '无 SHA256' }}
+                </p>
+              </div>
+              <el-tag :type="(item as AssetLibraryItemResponse).referenceCount > 0 ? 'success' : 'warning'">
+                引用 {{ (item as AssetLibraryItemResponse).referenceCount }}
+              </el-tag>
             </div>
-          </template>
-        </el-table-column>
 
-        <el-table-column label="引用" width="120" align="center" sortable prop="referenceCount">
-          <template #default="{ row }: { row: AssetLibraryItemResponse }">
-            <el-tag :type="row.referenceCount > 0 ? 'success' : 'warning'">
-              {{ row.referenceCount }}
-            </el-tag>
-          </template>
-        </el-table-column>
+            <dl class="mt-4 grid gap-3 text-xs sm:grid-cols-2">
+              <div>
+                <dt class="font-bold text-[var(--fsusblog-text-muted)]">来源文章</dt>
+                <dd class="mt-1 tabular-nums text-[var(--fsusblog-text-primary)]">
+                  {{ (item as AssetLibraryItemResponse).sourceArticleId ?? '-' }}
+                </dd>
+              </div>
+              <div>
+                <dt class="font-bold text-[var(--fsusblog-text-muted)]">更新时间</dt>
+                <dd class="mt-1 text-[var(--fsusblog-text-primary)]">
+                  <time :datetime="(item as AssetLibraryItemResponse).updatedAt">
+                    {{ formatTime((item as AssetLibraryItemResponse).updatedAt) }}
+                  </time>
+                </dd>
+              </div>
+            </dl>
 
-        <el-table-column label="来源文章" width="130" align="center">
-          <template #default="{ row }: { row: AssetLibraryItemResponse }">
-            <span class="tabular-nums">{{ row.sourceArticleId ?? '-' }}</span>
-          </template>
-        </el-table-column>
+            <div class="mt-4 flex justify-end">
+              <el-button
+                type="danger"
+                :disabled="processing"
+                @click="confirmDeleteAsset(item as AssetLibraryItemResponse)"
+              >
+                删除文件
+              </el-button>
+            </div>
+          </article>
+        </template>
 
-        <el-table-column label="更新时间" width="190">
-          <template #default="{ row }: { row: AssetLibraryItemResponse }">
-            <time :datetime="row.updatedAt">{{ formatTime(row.updatedAt) }}</time>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="管理" width="150" align="right" fixed="right">
-          <template #default="{ row }: { row: AssetLibraryItemResponse }">
-            <el-button link type="danger" :disabled="processing" @click="confirmDeleteAsset(row)">
-              删除文件
-            </el-button>
-          </template>
-        </el-table-column>
         <template #empty>
           <AdminInlineEmptyState :title="assetEmptyTitle" :content="assetEmptyDescription">
             <template #actions>
@@ -109,7 +128,83 @@
             </template>
           </AdminInlineEmptyState>
         </template>
-      </el-table>
+
+        <template #table>
+          <div class="asset-table-v2-frame">
+            <el-auto-resizer>
+              <template #default="{ height, width }">
+                <el-table-v2
+                  :columns="assetTableColumns"
+                  :data="sortedFilteredAssets"
+                  :width="width"
+                  :height="height"
+                  :row-height="72"
+                  row-key="id"
+                  :sort-state="assetSortState"
+                  @column-sort="handleAssetColumnSort"
+                >
+                  <template #cell="{ rowData, column }">
+                    <span v-if="column.key === 'id'" class="tabular-nums">
+                      {{ (rowData as AssetLibraryItemResponse).id }}
+                    </span>
+
+                    <div v-else-if="column.key === 'file'" class="min-w-0">
+                      <a
+                        class="asset-url"
+                        :href="(rowData as AssetLibraryItemResponse).url"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {{ (rowData as AssetLibraryItemResponse).url }}
+                      </a>
+                      <p class="mt-1 text-[11px] text-[var(--fsusblog-text-muted)]">
+                        {{ (rowData as AssetLibraryItemResponse).sha256 || '无 SHA256' }}
+                      </p>
+                    </div>
+
+                    <el-tag
+                      v-else-if="column.key === 'referenceCount'"
+                      :type="(rowData as AssetLibraryItemResponse).referenceCount > 0 ? 'success' : 'warning'"
+                    >
+                      {{ (rowData as AssetLibraryItemResponse).referenceCount }}
+                    </el-tag>
+
+                    <span v-else-if="column.key === 'sourceArticleId'" class="tabular-nums">
+                      {{ (rowData as AssetLibraryItemResponse).sourceArticleId ?? '-' }}
+                    </span>
+
+                    <time
+                      v-else-if="column.key === 'updatedAt'"
+                      :datetime="(rowData as AssetLibraryItemResponse).updatedAt"
+                    >
+                      {{ formatTime((rowData as AssetLibraryItemResponse).updatedAt) }}
+                    </time>
+
+                    <el-button
+                      v-else-if="column.key === 'actions'"
+                      link
+                      type="danger"
+                      :disabled="processing"
+                      @click="confirmDeleteAsset(rowData as AssetLibraryItemResponse)"
+                    >
+                      删除文件
+                    </el-button>
+                  </template>
+
+                  <template #empty>
+                    <AdminInlineEmptyState :title="assetEmptyTitle" :content="assetEmptyDescription">
+                      <template #actions>
+                        <el-button v-if="hasAssetFilters" link type="primary" @click="resetAssetFilters">清除筛选</el-button>
+                        <el-button v-else link type="primary" :loading="loading" @click="loadAssets">刷新资产库</el-button>
+                      </template>
+                    </AdminInlineEmptyState>
+                  </template>
+                </el-table-v2>
+              </template>
+            </el-auto-resizer>
+          </div>
+        </template>
+      </el-responsive-collection>
     </section>
   </div>
 </template>
@@ -130,6 +225,17 @@ import { Delete, Refresh, Search } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { confirmDanger, toast } from '@/fsusui/feedback'
 
+type AssetTableSortOrder = 'asc' | 'desc'
+type TableV2Column<T> = {
+  key: string
+  dataKey?: keyof T | string
+  title?: string
+  width: number
+  align?: 'left' | 'center' | 'right'
+  fixed?: true | 'left' | 'right'
+  sortable?: boolean
+}
+
 const assets = shallowRef<AssetLibraryItemResponse[]>([])
 const loading = ref(false)
 const hasLoadedAssets = ref(false)
@@ -137,6 +243,16 @@ const processing = ref(false)
 const keyword = ref('')
 const orphanOnly = ref(false)
 const reindexArticleId = ref('')
+const assetSortBy = ref<{ key: 'referenceCount'; order: AssetTableSortOrder } | null>(null)
+
+const assetTableColumns: TableV2Column<AssetLibraryItemResponse>[] = [
+  { key: 'id', dataKey: 'id', title: 'ID', width: 96, align: 'center' },
+  { key: 'file', dataKey: 'url', title: '文件', width: 420 },
+  { key: 'referenceCount', dataKey: 'referenceCount', title: '引用', width: 120, align: 'center', sortable: true },
+  { key: 'sourceArticleId', dataKey: 'sourceArticleId', title: '来源文章', width: 130, align: 'center' },
+  { key: 'updatedAt', dataKey: 'updatedAt', title: '更新时间', width: 190 },
+  { key: 'actions', title: '管理', width: 150, align: 'right', fixed: 'right' }
+]
 
 const showMessageBoxError = (error: unknown): void => {
   showErrorToast(error, '确认对话框打开失败')
@@ -152,6 +268,25 @@ const filteredAssets = computed(() => {
     return !text || asset.url.toLowerCase().includes(text) || (asset.sha256 ?? '').toLowerCase().includes(text)
   })
 })
+const assetSortState = computed<Record<string, AssetTableSortOrder>>(() => {
+  const state: Record<string, AssetTableSortOrder> = {}
+  if (assetSortBy.value) {
+    state[assetSortBy.value.key] = assetSortBy.value.order
+  }
+  return state
+})
+const sortedFilteredAssets = computed(() => {
+  const rows = [...filteredAssets.value]
+  const sort = assetSortBy.value
+  if (!sort) {
+    return rows
+  }
+
+  return rows.sort((left, right) => {
+    const direction = sort.order === 'asc' ? 1 : -1
+    return (left.referenceCount - right.referenceCount) * direction
+  })
+})
 const hasAssetFilters = computed(() => keyword.value.trim() !== '' || orphanOnly.value)
 const isAssetInitialLoading = computed(() => loading.value && !hasLoadedAssets.value)
 const assetEmptyTitle = computed(() => hasAssetFilters.value ? '没有匹配的资产' : '资产库暂无文件')
@@ -164,6 +299,17 @@ const assetEmptyDescription = computed(() =>
 const resetAssetFilters = (): void => {
   keyword.value = ''
   orphanOnly.value = false
+}
+
+const handleAssetColumnSort = ({ key, order }: { key: string | number | symbol; order?: AssetTableSortOrder }): void => {
+  if (key !== 'referenceCount') {
+    return
+  }
+
+  assetSortBy.value = {
+    key: 'referenceCount',
+    order: order ?? 'asc'
+  }
 }
 
 const loadAssets = async (): Promise<void> => {
@@ -279,6 +425,11 @@ onMounted(() => {
 
 .article-id-input {
   width: 12rem;
+}
+
+.asset-table-v2-frame {
+  height: clamp(360px, 58vh, 620px);
+  border-bottom: 1px solid var(--fsusblog-panel-border);
 }
 
 .asset-url {
