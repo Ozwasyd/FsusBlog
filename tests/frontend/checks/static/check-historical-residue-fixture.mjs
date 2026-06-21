@@ -398,10 +398,32 @@ public readonly record struct CommentReplyItemDto(
 export interface CommentThreadItemContract {
   readonly userName?: string
 }
-`,
+`
+    }
+  },
+  {
+    name: 'docs api contracts legacy identity json examples',
+    expected: 'docs api contracts legacy identity JSON example residue detected',
+    files: {
       'docs/api/contracts.md': `
-## 评论契约
-{ "authorId": 5, "userName": "alice", "replyToUserId": 5, "replyToUserName": "alice" }
+### IdentityAccountSnapshot
+
+\`\`\`json
+{
+  "accountId": 42,
+  "internalUserId": 42
+}
+\`\`\`
+
+### CommentReplyItemDto
+
+\`\`\`json
+{
+  "id": "202",
+  "userName": "bob",
+  "replyToUserName": "alice"
+}
+\`\`\`
 `
     }
   },

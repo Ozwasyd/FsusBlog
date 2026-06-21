@@ -132,6 +132,13 @@ run_residue_check \
   src/frontend/src src/backend/Modules/Endpoints/Binary docs tests/backend/Unit
 
 run_residue_check \
+  "docs api contracts legacy identity JSON examples" \
+  "docs api contracts legacy identity JSON example residue detected" \
+  '"(?:userName|replyToUserName|internalUserId)"[[:space:]]*:[[:space:]]*+(?!null\b)[^,}\r\n]+' \
+  "" \
+  docs/api/contracts.md
+
+run_residue_check \
   "legacy password auth protocol frames" \
   "legacy password auth protocol frame residue detected" \
   '\bAuth(?:Login|Register|UpdatePassword|UpdateUsername)Request(?:Pod|CoreModel)?\b|\b(?:Write|Encode|TryDecode)Auth(?:Login|Register|UpdatePassword)Request\b|\bencodeAuth(?:Login|Register|UpdatePassword)Request\b|encodeStringMutationRequest[(]\s*data[.]newUsername\s*[)]' \
