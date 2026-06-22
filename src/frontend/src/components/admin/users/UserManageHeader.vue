@@ -44,7 +44,7 @@
           >
             <template #prefix>
               <span class="text-[var(--fsusblog-text-muted)]">
-                <el-icon><Search /></el-icon>
+                <el-icon aria-hidden="true"><Search /></el-icon>
               </span>
             </template>
           </el-input>

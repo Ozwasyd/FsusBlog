@@ -2,7 +2,7 @@
   <el-dialog
     :model-value="visible"
     title="账号封禁处理"
-    width="min(95vw, 480px)"
+    width="min(92vw, 28rem)"
     @update:model-value="emit('update:visible', $event)"
   >
     <div class="pt-6 pb-2">

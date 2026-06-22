@@ -615,7 +615,7 @@ const formatTime = (input: string): string => {
 
 .admin-message-center__list:focus-visible,
 .admin-message-center__detail:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--fsusblog-color-primary, Highlight);
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
 }
 
 .admin-message-center__pane-header {

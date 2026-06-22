@@ -68,7 +68,6 @@
                 class="messages-conversation-item"
                 :class="conversationRowClass(item)"
                 :aria-current="item.conversationId === selectedConversationId ? 'true' : undefined"
-                :aria-pressed="item.conversationId === selectedConversationId"
                 :aria-label="item.ariaLabel"
                 @click="emit('select', item.conversationId)"
               >

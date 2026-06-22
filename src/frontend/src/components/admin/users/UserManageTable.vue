@@ -14,13 +14,13 @@
       role="list"
     >
       <template #card="{ item: row }: { item: UserListViewItem }">
-        <article
-          class="user-resource-list-item border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] px-4 py-5"
+        <div
+          class="user-resource-list-item border-b border-[var(--fsusblog-panel-border)] px-4 py-3"
           :class="rowMotionClass(row.accountId)"
           role="listitem"
           v-memo="[row.accountId, row.displayHandle, row.status, row.riskFlags, rowMotionClass(row.accountId)]"
         >
-          <div class="mb-6 flex items-center gap-4">
+          <div class="mb-3 flex items-center gap-3">
             <div class="shrink-0">
               <el-avatar :size="36">
                 {{ row.initials }}
@@ -64,7 +64,7 @@
           <div v-else class="bg-[var(--fsusblog-panel-bg-soft)] py-3 text-center text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
             已注销账户
           </div>
-        </article>
+        </div>
       </template>
 
       <template #empty>

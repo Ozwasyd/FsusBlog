@@ -12,11 +12,11 @@
       aria-label="评论审核列表"
     >
       <template #card="{ item }">
-        <article
-          class="bg-[var(--fsusblog-page-bg)] p-6"
+        <div
+          class="border-b border-[var(--fsusblog-panel-border)] py-3"
           :class="rowMotionClass(item as CommentModerationViewItem)"
         >
-          <div class="flex items-start gap-4">
+          <div class="flex items-start gap-3 px-4">
             <el-checkbox
               :model-value="isSelected(item as CommentModerationViewItem)"
               :aria-label="`选择评论 ${(item as CommentModerationViewItem).id}`"
@@ -88,7 +88,7 @@
               </div>
             </div>
           </div>
-        </article>
+        </div>
       </template>
 
       <template #empty>
@@ -210,7 +210,7 @@
                   <el-button link type="primary" :icon="ViewIcon" @click="emit('detail', row)">详情</el-button>
                   <el-dropdown>
                     <el-button link type="primary" :loading="processingId === row.id">
-                      审核 <span class="ml-0.5 inline-flex"><el-icon><ArrowDown /></el-icon></span>
+                      审核 <span class="ml-0.5 inline-flex"><el-icon aria-hidden="true"><ArrowDown /></el-icon></span>
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>

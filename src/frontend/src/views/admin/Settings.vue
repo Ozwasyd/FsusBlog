@@ -14,7 +14,7 @@
     >
       <div class="flex items-center gap-3 mb-2">
         <span class="text-[var(--fsusblog-color-warning-text)]">
-          <el-icon><Warning /></el-icon>
+          <el-icon aria-hidden="true"><Warning /></el-icon>
         </span>
         <span id="settings-privileged-mode-title" class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-color-warning-text)]">高权限管理模式</span>
       </div>
@@ -84,10 +84,15 @@
                   >
                     <div v-loading="imageLoading" class="group relative min-w-0 overflow-hidden rounded-[var(--fsus-radius-popover)] border border-[var(--fsusblog-panel-border-strong)] bg-[var(--fsusblog-page-bg)] transition-[background-color,border-color,color,opacity,transform] hover:border-[var(--fsusblog-color-primary)]">
                       <img v-if="displayUrl" :src="displayUrl" alt="当前社交媒体预览图" class="w-full h-full object-cover" />
-                      <div v-else class="h-full flex flex-col items-center justify-center text-[var(--fsusblog-text-muted)]">
-                        <el-icon size="24"><Plus /></el-icon>
+                      <button
+                        v-else
+                        type="button"
+                        class="h-full min-h-10 w-full flex flex-col items-center justify-center text-[var(--fsusblog-text-muted)]"
+                        aria-label="上传预览图"
+                      >
+                        <el-icon :size="20" aria-hidden="true"><Plus /></el-icon>
                         <span class="text-[11px] mt-2 font-semibold normal-case tracking-normal">上传预览图</span>
-                      </div>
+                      </button>
                       <div class="image-replace-overlay absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <span class="text-xs font-semibold normal-case tracking-normal">点击更换</span>
                       </div>
@@ -471,7 +476,7 @@
     <el-dialog
       :model-value="Boolean(pendingPageSwitchSlug)"
       title="当前页面有未发布修改"
-      width="min(92vw, 460px)"
+      width="min(92vw, 28rem)"
       @update:model-value="cancelPageSwitch"
     >
       <div class="space-y-5 text-[13px] leading-relaxed text-[var(--fsusblog-text-secondary)]">

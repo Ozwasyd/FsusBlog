@@ -20,7 +20,7 @@
         </el-link>
         <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-[var(--fsusblog-text-muted)]">
           <span class="inline-flex items-center gap-1 tabular-nums">
-            <el-icon><View /></el-icon> {{ row.views }} 阅读
+            <el-icon aria-hidden="true"><View /></el-icon> {{ row.views }} 阅读
           </span>
           <span class="inline-flex items-center gap-1 tabular-nums">
             {{ row.statusTimeLabel }}
@@ -43,7 +43,7 @@
       <el-button text type="primary" @click="$emit('edit', row.id)">{{ row.primaryActionLabel }}</el-button>
       <el-dropdown>
         <el-button text type="primary">
-          更多 <span class="ml-0.5 inline-flex"><el-icon><ArrowDown /></el-icon></span>
+          更多 <span class="ml-0.5 inline-flex"><el-icon aria-hidden="true"><ArrowDown /></el-icon></span>
         </el-button>
         <template #dropdown>
           <el-dropdown-menu>

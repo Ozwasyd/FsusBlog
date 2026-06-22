@@ -34,9 +34,7 @@
           class="revision-row"
           :class="{ 'revision-row--active': selectedRevision?.id === revision.id }"
           :disabled="loading || rollbacking"
-          :aria-label="`选择修订版本 ${revision.revisionNo}`"
           :aria-current="selectedRevision?.id === revision.id ? 'true' : undefined"
-          :aria-pressed="selectedRevision?.id === revision.id"
           @click="$emit('select-revision', revision)"
         >
           <span class="revision-row__main">

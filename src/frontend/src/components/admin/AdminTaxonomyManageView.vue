@@ -46,7 +46,7 @@
           <template #header>
             <span class="inline-flex items-center justify-center gap-1">
               引用数
-              <el-tooltip content="删除判断使用管理端完整引用数，可能高于公开文章数。" placement="top"><el-icon><InfoFilled /></el-icon></el-tooltip>
+              <el-tooltip content="删除判断使用管理端完整引用数，可能高于公开文章数。" placement="top"><el-icon aria-hidden="true"><InfoFilled /></el-icon></el-tooltip>
             </span>
           </template>
           <template #default="{ row }">
@@ -60,19 +60,19 @@
           <template #default="{ row }">
             <div class="flex justify-end items-center gap-2 pr-2" :class="{ 'gap-1 pr-0': isCompact }">
               <el-button link type="primary" @click="state.openDialog(row)">
-                <el-icon v-if="schema.compactEditIcon && isCompact"><Edit /></el-icon>
+                <el-icon aria-hidden="true" v-if="schema.compactEditIcon && isCompact"><Edit /></el-icon>
                 <span v-else>{{ isCompact ? schema.compactEditLabel : schema.editLabel }}</span>
               </el-button>
               <el-divider direction="vertical" />
               <el-button link type="primary" :disabled="row.totalBlockingArticleCount <= 0" @click="state.viewAssociatedArticles(row)">
-                <span v-if="!isCompact">查看文章</span><el-icon v-else><View /></el-icon>
+                <span v-if="!isCompact">查看文章</span><el-icon aria-hidden="true" v-else><View /></el-icon>
               </el-button>
               <el-divider direction="vertical" />
               <el-tooltip v-if="!row.canDelete" :content="state.relationLockReason(row)" placement="top">
-                <el-button link type="info" disabled><span v-if="!isCompact">锁定</span><el-icon v-else><Lock /></el-icon></el-button>
+                <el-button link type="info" disabled><span v-if="!isCompact">锁定</span><el-icon aria-hidden="true" v-else><Lock /></el-icon></el-button>
               </el-tooltip>
               <el-button v-else link type="danger" @click="state.handleDelete(row)">
-                <el-icon v-if="schema.compactDeleteIcon && isCompact"><Delete /></el-icon>
+                <el-icon aria-hidden="true" v-if="schema.compactDeleteIcon && isCompact"><Delete /></el-icon>
                 <span v-else>删除</span>
               </el-button>
             </div>
@@ -98,7 +98,7 @@
         </el-form>
       </div>
       <div :class="['mt-4 border-t border-[var(--fsusblog-panel-border)] pt-6 flex select-none', schema.dialogNoteGapClass]">
-        <span class="text-[var(--fsusblog-text-muted)] mt-1"><el-icon><InfoFilled /></el-icon></span>
+        <span class="text-[var(--fsusblog-text-muted)] mt-1"><el-icon aria-hidden="true"><InfoFilled /></el-icon></span>
         <p :class="['text-[12px] text-[var(--fsusblog-text-muted)] leading-relaxed', schema.dialogNoteClass]">{{ schema.dialogDescription }}</p>
       </div>
       <template #footer>

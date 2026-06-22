@@ -2,7 +2,7 @@
   <el-dialog
     :model-value="visible"
     :title="title"
-    width="520px"
+    width="min(92vw, 28rem)"
     destroy-on-close
     :show-close="false"
     @update:model-value="(val: boolean) => !val && close()"
