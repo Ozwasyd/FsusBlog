@@ -25,16 +25,26 @@ const globalWorker = shallowRef<Worker | null>(null);
 const isCalculating = ref(false);
 const globalError = ref<string | null>(null);
 
-type PowRunState = {
+type PowQueuedTask = {
   runId: number
-  worker: Worker
+  salt: string
+  browserFp: string
+  difficulty: number
+  timeout: number
+  signal?: AbortSignal
+  resolve: (value: PowResult) => void
   reject: (reason?: any) => void
-  timerId: ReturnType<typeof setTimeout> | null
   abortCleanup?: () => void
+}
+
+type PowRunState = PowQueuedTask & {
+  worker: Worker
+  timerId: ReturnType<typeof setTimeout> | null
 }
 
 let currentRunId = 0;
 let activeRun: PowRunState | null = null;
+const queuedTasks: PowQueuedTask[] = [];
 
 export function usePow() {
   /**
@@ -91,11 +101,29 @@ export function usePow() {
     return new PowAbortError(reason);
   };
 
-  const completeRun = (
+  const cleanupTaskAbort = (task: Pick<PowQueuedTask, 'abortCleanup'>) => {
+    task.abortCleanup?.();
+    task.abortCleanup = undefined;
+  };
+
+  const rejectQueuedTasks = (reason: unknown) => {
+    while (queuedTasks.length > 0) {
+      const task = queuedTasks.shift();
+      if (!task) {
+        continue;
+      }
+
+      cleanupTaskAbort(task);
+      task.reject(reason);
+    }
+  };
+
+  function completeRun(
     runId: number,
     worker: Worker,
-    action: () => void
-  ) => {
+    action: () => void,
+    startNext: boolean = true
+  ) {
     const current = activeRun;
     if (!current || current.runId !== runId || current.worker !== worker) {
       return;
@@ -108,27 +136,121 @@ export function usePow() {
 
     worker.onmessage = null;
     worker.onerror = null;
-    current.abortCleanup?.();
+    cleanupTaskAbort(current);
     activeRun = null;
     isCalculating.value = false;
     action();
-  };
+    if (startNext) {
+      startNextQueuedTask();
+    }
+  }
 
-  const terminate = (reason: string = "TERMINATED_BY_USER", targetRunId?: number) => {
+  function cancelActiveRun(runId: number) {
     const current = activeRun;
-    if (current && (targetRunId === undefined || current.runId === targetRunId)) {
-      if (current.timerId) {
-        clearTimeout(current.timerId);
-        current.timerId = null;
+    if (!current || current.runId !== runId) {
+      return;
+    }
+
+    completeRun(runId, current.worker, () => {
+      current.reject(new PowAbortError());
+    });
+  }
+
+  function startNextQueuedTask() {
+    if (activeRun) {
+      return;
+    }
+
+    while (queuedTasks.length > 0) {
+      const task = queuedTasks.shift();
+      if (!task) {
+        continue;
       }
 
-      activeRun = null;
-      isCalculating.value = false;
+      if (task.signal?.aborted) {
+        cleanupTaskAbort(task);
+        task.reject(new PowAbortError());
+        continue;
+      }
+
+      isCalculating.value = true;
       globalError.value = null;
-      const rejectPending = current.reject;
-      current.abortCleanup?.();
-      destroyWorker(current.worker);
-      rejectPending(mapTerminationReason(reason));
+      const currentWorker = initWorker();
+      const runState: PowRunState = {
+        ...task,
+        worker: currentWorker,
+        timerId: null
+      };
+      activeRun = runState;
+
+      runState.timerId = setTimeout(() => {
+        terminate("POW_CALCULATION_TIMEOUT", task.runId);
+      }, task.timeout);
+
+      currentWorker.onmessage = (e: MessageEvent) => {
+        const { success, nonce, duration, error: workerError, type, runId: responseRunId } = e.data;
+
+        if (type === 'PONG' || type === 'PREWARM_DONE') return;
+        if (responseRunId !== undefined && responseRunId !== task.runId) return;
+
+        if (!activeRun || activeRun.runId !== task.runId || activeRun.worker !== currentWorker) {
+          return;
+        }
+
+        if (success) {
+          completeRun(task.runId, currentWorker, () => {
+            if (task.signal?.aborted) {
+              task.reject(new PowAbortError());
+              return;
+            }
+
+            task.resolve({ nonce, duration });
+          });
+        } else {
+          const msg = workerError || "WASM_RUNTIME_ERROR";
+          completeRun(task.runId, currentWorker, () => {
+            globalError.value = msg;
+            task.reject(createPowRuntimeError('pow_runtime_failed', msg));
+          });
+        }
+      };
+
+      currentWorker.onerror = (_err: ErrorEvent) => {
+        if (!activeRun || activeRun.runId !== task.runId || activeRun.worker !== currentWorker) {
+          return;
+        }
+
+        terminate("WORKER_THREAD_CRASHED", task.runId);
+      };
+
+      try {
+        currentWorker.postMessage({
+          salt: String(task.salt),
+          browserFp: String(task.browserFp),
+          difficulty: Number(task.difficulty),
+          runId: task.runId,
+          type: 'CALC'
+        });
+      } catch {
+        terminate("WORKER_THREAD_CRASHED", task.runId);
+      }
+
+      return;
+    }
+  }
+
+  function terminate(reason: string = "TERMINATED_BY_USER", targetRunId?: number) {
+    const current = activeRun;
+    if (current && (targetRunId === undefined || current.runId === targetRunId)) {
+      const shouldResetQueue = targetRunId === undefined;
+      completeRun(current.runId, current.worker, () => {
+        globalError.value = null;
+        destroyWorker(current.worker);
+        current.reject(mapTerminationReason(reason));
+        if (shouldResetQueue) {
+          rejectQueuedTasks(mapTerminationReason(reason));
+        }
+      }, !shouldResetQueue);
       return;
     }
 
@@ -136,12 +258,13 @@ export function usePow() {
       destroyWorker(globalWorker.value);
       isCalculating.value = false;
       globalError.value = null;
+      rejectQueuedTasks(mapTerminationReason(reason));
     }
-  };
+  }
 
   /**
    * 核心方法：异步求解 PoW 挑战
-   * 算法最优：新任务直接物理抢占旧任务，保证响应最新输入
+   * 同一时间只运行一个 Worker 任务，后续请求 FIFO 排队，避免并发 API 互相物理抢占。
    */
   const calculate = (
     salt: string,
@@ -154,96 +277,54 @@ export function usePow() {
       return Promise.reject(new PowAbortError());
     }
 
-    // [修复 2026-02-23] 物理抢占逻辑
-    // 如果当前有任务在跑，不要幻想能软中断它，直接杀掉重建，这是性能损耗最小的路径
-    if (isCalculating.value) {
-      console.info('[usePow] 触发物理抢占：终止陈旧 PoW 任务');
-      terminate("PREEMPTED_BY_NEW_TASK", activeRun?.runId);
-    }
-
-    isCalculating.value = true;
-    globalError.value = null;
-    const currentWorker = initWorker();
     const runId = ++currentRunId;
 
     return new Promise((resolve, reject) => {
-      const runState: PowRunState = {
+      const task: PowQueuedTask = {
         runId,
-        worker: currentWorker,
+        salt,
+        browserFp,
+        difficulty,
+        timeout,
+        signal,
+        resolve,
         reject,
-        timerId: null,
         abortCleanup: undefined
       };
-      activeRun = runState;
 
-      const abortCurrentRun = () => {
-        terminate("POW_CALCULATION_ABORTED", runId);
+      const abortTask = () => {
+        const queuedIndex = queuedTasks.findIndex((queuedTask) => queuedTask.runId === runId);
+        if (queuedIndex >= 0) {
+          const [queuedTask] = queuedTasks.splice(queuedIndex, 1);
+          cleanupTaskAbort(queuedTask);
+          queuedTask.reject(new PowAbortError());
+          return;
+        }
+
+        cancelActiveRun(runId);
       };
 
       if (signal) {
-        signal.addEventListener('abort', abortCurrentRun, { once: true });
-        runState.abortCleanup = () => {
-          signal.removeEventListener('abort', abortCurrentRun);
-          runState.abortCleanup = undefined;
+        signal.addEventListener('abort', abortTask, { once: true });
+        task.abortCleanup = () => {
+          signal.removeEventListener('abort', abortTask);
+          task.abortCleanup = undefined;
         };
       }
 
       if (signal?.aborted) {
-        terminate("POW_CALCULATION_ABORTED", runId);
+        cleanupTaskAbort(task);
+        reject(new PowAbortError());
         return;
       }
 
-      runState.timerId = setTimeout(() => {
-        terminate("POW_CALCULATION_TIMEOUT", runId);
-      }, timeout);
-
-      currentWorker.onmessage = (e: MessageEvent) => {
-        const { success, nonce, duration, error: workerError, type } = e.data;
-
-        // 严格类型校验
-        if (type === 'PONG' || type === 'PREWARM_DONE') return;
-
-        if (success) {
-          completeRun(runId, currentWorker, () => {
-            if (signal?.aborted) {
-              reject(new PowAbortError());
-              return;
-            }
-
-            resolve({ nonce, duration });
-          });
-        } else {
-          const msg = workerError || "WASM_RUNTIME_ERROR";
-          completeRun(runId, currentWorker, () => {
-            globalError.value = msg;
-            reject(createPowRuntimeError('pow_runtime_failed', msg));
-          });
-        }
-      };
-
-      currentWorker.onerror = (_err: ErrorEvent) => {
-        if (!activeRun || activeRun.runId !== runId || activeRun.worker !== currentWorker) {
-          return;
-        }
-
-        terminate("WORKER_THREAD_CRASHED", runId);
-      };
-
-      try {
-        currentWorker.postMessage({
-          salt: String(salt),
-          browserFp: String(browserFp),
-          difficulty: Number(difficulty),
-          type: 'CALC'
-        });
-      } catch {
-        terminate("WORKER_THREAD_CRASHED", runId);
-      }
+      queuedTasks.push(task);
+      startNextQueuedTask();
     });
   };
 
   const prewarm = () => {
-    if (isCalculating.value) return;
+    if (isCalculating.value || queuedTasks.length > 0) return;
 
     try {
       const w = initWorker();

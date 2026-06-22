@@ -135,7 +135,7 @@ function calculateWithShardWorkers(salt: string, browserFp: string, difficulty: 
  */
 ctx.onmessage = async (e: MessageEvent) => {
     terminateShardWorkers();
-    const { salt, browserFp, difficulty, startNonce, step, type } = e.data;
+    const { salt, browserFp, difficulty, startNonce, step, type, runId } = e.data;
 
     // 1. 预热/心跳处理 (PING)
     if (type === 'PING') {
@@ -157,6 +157,7 @@ ctx.onmessage = async (e: MessageEvent) => {
         return ctx.postMessage({
             success: false,
             error: 'INVALID_INPUT',
+            runId,
             type: 'CALC_ERROR'
         });
     }
@@ -179,6 +180,7 @@ ctx.onmessage = async (e: MessageEvent) => {
                 nonce: String(rawResult),
                 duration: 0,
                 engine: engineType,
+                runId,
                 type: 'CALC_RESULT'
             });
         } catch (err: any) {
@@ -186,6 +188,7 @@ ctx.onmessage = async (e: MessageEvent) => {
             return ctx.postMessage({
                 success: false,
                 error: normalized.message || 'UNKNOWN_SHARD_ERROR',
+                runId,
                 type: 'CALC_ERROR'
             });
         }
@@ -233,6 +236,7 @@ ctx.onmessage = async (e: MessageEvent) => {
             nonce: nonce,
             duration: Math.round(duration),
             engine: resultEngine,
+            runId,
             type: 'CALC_RESULT'
         });
 
@@ -241,6 +245,7 @@ ctx.onmessage = async (e: MessageEvent) => {
         ctx.postMessage({
             success: false,
             error: normalized.message || 'UNKNOWN_CALC_ERROR',
+            runId,
             type: 'CALC_ERROR'
         });
     }
