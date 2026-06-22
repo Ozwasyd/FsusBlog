@@ -157,7 +157,7 @@ export const getRelatedReading = (id: number, config?: ApiRequestConfig): Promis
   return requestBinaryOnly<RelatedReadingResponse>({
     binaryUrl: `/api/binary/article/${normalizePositiveInt(id, 1)}/related.aeds`,
     frameType: FrameType.ArticleRelatedReading,
-    requestOptions: { credentials: 'omit', requiresPow: true },
+    requestOptions: { credentials: 'omit' },
     signal: config?.signal as AbortSignal | undefined
   });
 }

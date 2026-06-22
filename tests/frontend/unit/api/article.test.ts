@@ -88,13 +88,15 @@ describe('article API (binary)', () => {
     }))
   })
 
-  it('getRelatedReading calls binary related-reading endpoint without JSON fallback', async () => {
+  it('getRelatedReading does not request pow headers', async () => {
     await getRelatedReading(42)
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+    const call = mockBinary.mock.calls[0][0]
+    expect(call).toEqual(expect.objectContaining({
       binaryUrl: '/api/binary/article/42/related.aeds',
-      requestOptions: expect.objectContaining({ credentials: 'omit', requiresPow: true }),
       frameType: FrameType.ArticleRelatedReading
     }))
+    expect(call.requestOptions).toEqual(expect.objectContaining({ credentials: 'omit' }))
+    expect(call.requestOptions?.requiresPow).toBeUndefined()
   })
 })
 

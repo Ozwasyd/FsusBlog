@@ -449,7 +449,7 @@ export const getComments = (
     frameType: FrameType.CommentArticleCursor,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
-      requiresPow: true
+      credentials: 'omit'
     }
   });
 }
@@ -469,7 +469,7 @@ export const getThreadReplies = (
     frameType: FrameType.CommentThreadReplyCursor,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
-      requiresPow: true
+      credentials: 'omit'
     }
   });
 }

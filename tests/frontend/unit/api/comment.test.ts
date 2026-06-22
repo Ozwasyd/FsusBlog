@@ -443,12 +443,12 @@ describe('comment API', () => {
     expect(readAedsFrameType(body)).toBe(FrameType.AnonymousCredentialRevocationWitnessRequest)
   })
 
-  it('getComments calls requestBinaryOnly with articleId', async () => {
+  it('getComments does not request pow headers', async () => {
     await getComments(5)
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: expect.stringContaining('/api/binary/comment/5'),
-      requestOptions: expect.objectContaining({ requiresPow: true })
-    }))
+    const call = mockBinary.mock.calls[0][0]
+    expect(call.binaryUrl).toContain('/api/binary/comment/5')
+    expect(call.requestOptions).toEqual(expect.objectContaining({ credentials: 'omit' }))
+    expect(call.requestOptions?.requiresPow).toBeUndefined()
   })
 
   it('getComments includes cursor when provided', async () => {
@@ -463,12 +463,13 @@ describe('comment API', () => {
     expect(call.binaryUrl).toContain('limit=10')
   })
 
-  it('getThreadReplies calls requestBinaryOnly with articleId and rootId', async () => {
+  it('getThreadReplies does not request pow headers', async () => {
     await getThreadReplies(1, 'root-123')
     const call = mockBinary.mock.calls[0][0]
     expect(call.binaryUrl).toContain('/api/binary/comment/1/thread/root-123')
     expect(call.binaryUrl).toContain('limit=20')
-    expect(call.requestOptions).toEqual(expect.objectContaining({ requiresPow: true }))
+    expect(call.requestOptions).toEqual(expect.objectContaining({ credentials: 'omit' }))
+    expect(call.requestOptions?.requiresPow).toBeUndefined()
   })
 
   it('getThreadReplies includes cursor', async () => {
