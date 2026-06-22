@@ -1,5 +1,5 @@
 <template>
-  <div class="blog-markdown-renderer markdown-body">
+  <div class="blog-markdown-renderer markdown-body" data-fsus-surface="reading">
     <el-markdown-renderer
       ref="rendererRef"
       :content="props.content"

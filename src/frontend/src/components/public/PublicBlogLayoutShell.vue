@@ -43,6 +43,7 @@
               v-for="item in PUBLIC_NAV_ITEMS"
               :key="item.key"
               :href="item.href"
+              :aria-current="item.key === activeNav ? 'page' : undefined"
               class="el-public-shell__nav-link"
               :class="{ 'is-active': item.key === activeNav }"
               :data-public-nav="item.key"
@@ -80,7 +81,7 @@
           <ThemeModeToggle visibility="desktop" />
           <a
             :href="resolvedAuthHref"
-            class="el-public-shell__action-link el-public-shell__auth-link"
+            class="el-public-shell__nav-link el-public-shell__auth-link"
             data-public-nav="auth"
           >
             {{ resolvedAuthLabel }}

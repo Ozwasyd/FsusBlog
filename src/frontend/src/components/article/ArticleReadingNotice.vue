@@ -2,6 +2,7 @@
   <section
     v-if="notice.visible"
     class="article-notice-minimal mb-12 sm:mb-16"
+    data-fsus-surface="reading"
     aria-label="长文阅读提示"
   >
     <div class="flex items-baseline gap-4 border-l-2 border-[var(--fsusblog-panel-border-strong)] pl-6 py-1">

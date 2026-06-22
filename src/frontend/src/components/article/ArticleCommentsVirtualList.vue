@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-8">
+  <div class="space-y-8" data-fsus-surface="reading">
     <article
       v-for="thread in visibleThreadItems"
       :key="thread.id"

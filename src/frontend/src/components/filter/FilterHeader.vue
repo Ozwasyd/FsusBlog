@@ -3,7 +3,10 @@
     <p class="mb-3 text-xs font-semibold normal-case text-[var(--fsusblog-text-muted)]">
       {{ view.labelText }}
     </p>
-    <el-skeleton v-if="view.loadingMeta" animated>
+    <el-skeleton
+      v-if="view.loadingMeta"
+      style="--el-skeleton-color: var(--fsusblog-skeleton-bg); --el-skeleton-to-color: var(--fsusblog-skeleton-bg)"
+    >
       <template #template>
         <div class="w-32 h-8">
           <el-skeleton-item variant="h1" />

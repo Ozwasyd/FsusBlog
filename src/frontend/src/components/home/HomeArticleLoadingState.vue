@@ -1,5 +1,9 @@
 <template>
-  <el-skeleton v-for="i in 3" :key="i" animated>
+  <el-skeleton
+    v-for="i in 3"
+    :key="i"
+    style="--el-skeleton-color: var(--fsusblog-skeleton-bg); --el-skeleton-to-color: var(--fsusblog-skeleton-bg)"
+  >
     <template #template>
       <div class="flex flex-col gap-6" aria-hidden="true">
         <div class="w-32 mb-2">

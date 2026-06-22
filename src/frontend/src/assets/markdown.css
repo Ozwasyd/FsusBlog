@@ -70,6 +70,10 @@
   margin-top: 0 !important;
 }
 
+.markdown-body .markdown-renderer__body > div > :first-child {
+  margin-top: 0 !important;
+}
+
 .markdown-body h1 {
   font-size: 1.6em;
   font-weight: 600;
@@ -260,8 +264,8 @@
 }
 
 .markdown-body .fsus-article-preview-image:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--fsusblog-text-primary) 45%, transparent);
-  outline-offset: 4px;
+  outline: 2px solid var(--fsusblog-color-focus-ring);
+  outline-offset: 2px;
 }
 
 .markdown-body hr {

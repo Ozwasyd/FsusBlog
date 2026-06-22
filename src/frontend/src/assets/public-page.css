@@ -109,6 +109,11 @@ html[data-theme-resolved='dark'] {
   --fsusblog-panel-bg-soft: var(--fsusblog-color-surface-soft);
   --fsusblog-panel-border: var(--fsusblog-color-line);
   --fsusblog-panel-border-strong: var(--fsusblog-color-line-strong);
+  --fsusblog-skeleton-bg: var(--el-fill-color-light, #f5f7fa);
+  --fsusblog-overlay-scrim: rgba(15, 15, 17, 0.72);
+  --fsusblog-overlay-button-bg: rgba(255, 255, 255, 0.12);
+  --fsusblog-overlay-button-fg: rgba(255, 255, 255, 0.92);
+  --fsusblog-overlay-button-border: rgba(255, 255, 255, 0.24);
   --fsusblog-text-primary: var(--fsus-ink, var(--el-text-color-primary, CanvasText));
   --fsusblog-text-secondary: var(--el-text-color-regular, CanvasText);
   --fsusblog-text-tertiary: var(--fsus-dot-gray, var(--el-text-color-secondary, GrayText));
@@ -222,7 +227,7 @@ html[data-theme-resolved='dark'] {
   --fsusblog-reading-radius-panel: 10px;
   --fsusblog-reading-radius-media: 12px;
   --fsusblog-reading-shadow-panel: none;
-  --fsusblog-reading-shadow-floating: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --fsusblog-reading-shadow-floating: 0 8px 24px rgba(15, 23, 42, 0.32);
   --fsusblog-reading-backdrop-blur: 0px;
   --fsusblog-reading-motion-trail: transparent;
   --fsusblog-reading-glow: transparent;
@@ -400,10 +405,20 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
     align-items: stretch;
     min-height: 3.5rem;
     background-color: color-mix(in srgb, var(--fsusblog-page-bg) 82%, transparent);
-    -webkit-backdrop-filter: blur(14px) saturate(150%);
-    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    backdrop-filter: blur(12px) saturate(140%);
     border-top: 1px solid color-mix(in srgb, var(--fsusblog-panel-border) 50%, transparent);
+    box-shadow: 0 -1px 0 var(--fsusblog-panel-border);
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  #fsus-aot-shell .el-public-shell__bottom-tab-bar::before {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 1rem;
+    pointer-events: none;
+    content: "";
+    background: linear-gradient(180deg, color-mix(in srgb, var(--fsusblog-page-bg) 28%, transparent), transparent);
   }
 
   /* fsus-allow-shell-material: fallback guard for bottom tab bar glass support detection */
@@ -469,16 +484,20 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
   #app :where(
     .animate-in,
     .animate-fade-in,
-    [class*="fade-in"],
-    [class*="slide-in"],
-    [class*="animate-"]
+    .fade-in,
+    .slide-in-from-top-1,
+    .slide-in-from-bottom-1,
+    .slide-in-from-left-1,
+    .slide-in-from-right-1
   ),
   #fsus-aot-shell :where(
     .animate-in,
     .animate-fade-in,
-    [class*="fade-in"],
-    [class*="slide-in"],
-    [class*="animate-"]
+    .fade-in,
+    .slide-in-from-top-1,
+    .slide-in-from-bottom-1,
+    .slide-in-from-left-1,
+    .slide-in-from-right-1
   ) {
     animation: none !important;
     transition: none !important;

@@ -1,6 +1,9 @@
 <template>
   <PublicReadingPageFrame v-if="loading" as="section">
-    <el-skeleton animated aria-hidden="true">
+    <el-skeleton
+      aria-hidden="true"
+      style="--el-skeleton-color: var(--fsusblog-skeleton-bg); --el-skeleton-to-color: var(--fsusblog-skeleton-bg)"
+    >
       <template #template>
         <div class="space-y-8 py-8">
           <div class="h-8 sm:h-12 w-2/3">

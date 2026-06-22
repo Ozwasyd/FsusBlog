@@ -7,12 +7,12 @@ FsusBlog motion is functional feedback, not decoration. Preset motion must enter
 Use FsusUI motion primitives for page and interaction presets:
 
 - Home hero: `v-motion` with `fsusBlogMotionPresets.homeHero` (`fade-up`).
-- Article cards: `v-motion` with `fsusBlogMotionPresets.articleCards` (`list-stagger`) and explicit list indexes.
-- Search panel/dialog surfaces: `fsusBlogMotionPresets.searchDialog` (`scale-fade`).
+- Article cards: no `v-motion` on public reading surfaces; keep `data-fsus-motion-surface="article-card"` and explicit list indexes only for static governance.
+- Search panel/dialog surfaces: public filter/search reading panels render statically; admin/dialog contexts may still use `fsusBlogMotionPresets.searchDialog` when the panel is not reading content.
 - Mobile drawer/menu surfaces: FsusUI `el-drawer` public `motion` prop with `fsusBlogMotionPresets.mobileDrawer`.
 - Tag chips: FsusUI `el-tag` public `motion` prop with `fsusBlogMotionPresets.tagChip`.
 - Toast surfaces: FsusUI `ElMessage`, tagged by `fsusBlogMotionPresets.toast` (`slide-up`).
-- Article title: `v-motion` with `fsusBlogMotionPresets.articleTitle` (`fade-up`).
+- Article title: public article detail titles render statically; do not use `v-motion` on `[data-fsus-surface='reading']`.
 - Article body images and code blocks: `useScrollReveal()` with `fsusBlogScrollRevealOptions`; do not animate ordinary paragraphs.
 - Media overlay and back-to-top: `mediaOverlay` / `backToTop` (`scale-fade`).
 - Route transitions: `FsusBlogRouteTransition` uses FsusUI `runMotion(route-fade)` and `useMotionRouteCleanup()`.

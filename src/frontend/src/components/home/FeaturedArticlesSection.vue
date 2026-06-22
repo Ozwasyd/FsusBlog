@@ -2,6 +2,7 @@
   <section
     v-if="loading || articles.length > 0"
     class="featured-articles-section mb-20"
+    data-fsus-surface="reading"
     data-fsus-motion-surface="home-featured-articles"
   >
     <header class="mb-10">
@@ -10,7 +11,10 @@
       </div>
     </header>
 
-    <el-skeleton v-if="loading" animated>
+    <el-skeleton
+      v-if="loading"
+      style="--el-skeleton-color: var(--fsusblog-skeleton-bg); --el-skeleton-to-color: var(--fsusblog-skeleton-bg)"
+    >
       <template #template>
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16">
           <div class="lg:col-span-8 space-y-12">

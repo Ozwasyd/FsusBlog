@@ -13,7 +13,6 @@
 
       <div
         v-if="showSearchSort"
-        v-motion="{ name: fsusBlogMotionPresets.searchDialog, once: true }"
         class="filter-stack mb-16 border-b border-[var(--fsusblog-panel-border)] pb-10 flex items-center gap-8"
         data-fsus-motion-surface="search-panel"
       >
@@ -86,8 +85,6 @@ import FilterHeader from '@/components/filter/FilterHeader.vue'
 import FilterArticleLoadingState from '@/components/filter/FilterArticleLoadingState.vue'
 import { PUBLIC_FIXED_PATHS } from '@/public-renderers/publicRoutePaths'
 import { Back } from '@/fsusui/icons'
-import { fsusBlogMotionPresets } from '@/fsusui/blogMotion'
-import { vMotion } from '@ozwasyd/element-plus/motion'
 import type { FilterPageViewContract } from '@/view-contracts/filterView'
 
 const props = defineProps<{

@@ -1,9 +1,8 @@
 <template>
-  <div :class="themeTokens.articleList.container">
+  <div :class="themeTokens.articleList.container" data-fsus-surface="reading">
     <article
       v-for="(item, index) in items"
       :key="item.id"
-      v-motion="{ name: fsusBlogMotionPresets.articleCards, once: true }"
       v-memo="[item.id, item.title, item.summary, item.meta.displayTime, item.meta.categoryName]"
       :class="themeTokens.articleList.card"
       :data-fsus-motion-index="index"
@@ -86,8 +85,6 @@
 <script setup lang="ts">
 import { themeTokens } from '@/ui-tokens/themeTokens';
 import { ArrowRight } from '@/fsusui/icons';
-import { fsusBlogMotionPresets } from '@/fsusui/blogMotion';
-import { vMotion } from '@ozwasyd/element-plus/motion';
 import type { ArticleListCardViewContract } from '@/view-contracts/articleList';
 import type { PaginationContract } from '@/ui-contracts/primitives';
 

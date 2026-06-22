@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div data-fsus-surface="reading">
     <h1 :class="themeTokens.articleDetail.title" itemprop="headline">
       {{ view.title }}
     </h1>

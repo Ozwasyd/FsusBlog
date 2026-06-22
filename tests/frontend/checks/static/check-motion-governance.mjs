@@ -194,22 +194,37 @@ if (homePage.includes('fsusBlogMotionPresets.homeHero') || /<header[\s\S]*?\bv-m
   errors.push('PublicHomePageContent.vue: home hero must not animate by default')
 }
 
-const articleList = expectIncludes('src/frontend/src/components/public/PublicArticleList.vue', 'fsusBlogMotionPresets.articleCards', 'article card motion preset')
-for (const token of ['v-motion', 'data-fsus-motion-surface="article-card"', ':data-fsus-motion-index="index"']) {
+const articleList = read('src/frontend/src/components/public/PublicArticleList.vue')
+for (const token of ['data-fsus-surface="reading"', 'data-fsus-motion-surface="article-card"', ':data-fsus-motion-index="index"']) {
   if (!articleList.includes(token)) {
     errors.push(`PublicArticleList.vue: missing ${token}`)
   }
 }
+for (const forbidden of ['v-motion', 'fsusBlogMotionPresets.articleCards', '@ozwasyd/element-plus/motion']) {
+  if (articleList.includes(forbidden)) {
+    errors.push(`PublicArticleList.vue: reading surface must not use ${forbidden}`)
+  }
+}
 
-const filterPage = expectIncludes('src/frontend/src/components/public/pages/PublicFilterPageContent.vue', 'fsusBlogMotionPresets.searchDialog', 'search panel motion preset')
+const filterPage = read('src/frontend/src/components/public/pages/PublicFilterPageContent.vue')
 if (!filterPage.includes('data-fsus-motion-surface="search-panel"')) {
   errors.push('PublicFilterPageContent.vue: search panel must expose motion surface metadata')
 }
+for (const forbidden of ['v-motion', 'fsusBlogMotionPresets.searchDialog', '@ozwasyd/element-plus/motion']) {
+  if (filterPage.includes(forbidden)) {
+    errors.push(`PublicFilterPageContent.vue: reading surface must not use ${forbidden}`)
+  }
+}
 
-const detailPage = expectIncludes('src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue', 'fsusBlogMotionPresets.articleTitle', 'article title motion preset')
-for (const token of ['v-scroll-reveal', 'fsusBlogScrollRevealMotion', 'data-fsus-motion-surface="article-cover"']) {
+const detailPage = read('src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue')
+for (const token of ['data-fsus-surface="reading"', 'data-fsus-motion-surface="article-cover"', 'data-fsus-motion-surface="article-title"']) {
   if (!detailPage.includes(token)) {
     errors.push(`PublicArticleDetailPageContent.vue: missing ${token}`)
+  }
+}
+for (const forbidden of ['v-motion', 'v-scroll-reveal', 'fsusBlogMotionPresets.articleTitle', 'fsusBlogScrollRevealMotion', '@ozwasyd/element-plus/motion']) {
+  if (detailPage.includes(forbidden)) {
+    errors.push(`PublicArticleDetailPageContent.vue: reading surface must not use ${forbidden}`)
   }
 }
 
