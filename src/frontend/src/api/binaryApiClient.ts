@@ -9,6 +9,7 @@ import { encodeBinaryPowProofHeader } from '@/services/powProofCodec'
 
 export interface BinaryRequestOptions extends RequestInit {
   requiresPow?: boolean
+  powScope?: string
 }
 
 export class BinaryRequestError extends AppError {
@@ -39,7 +40,16 @@ function throwIfAborted(signal?: AbortSignal): void {
   }
 }
 
-export async function buildBinaryPowHeaders(signal?: AbortSignal): Promise<Record<string, string>> {
+type InFlightPowHeaders = {
+  controller: AbortController
+  promise: Promise<Record<string, string>>
+  waiters: Set<symbol>
+}
+
+const DEFAULT_POW_SCOPE = 'mutation'
+const inFlightPowHeaders = new Map<string, InFlightPowHeaders>()
+
+async function buildBinaryPowHeadersFresh(fp: string, signal?: AbortSignal): Promise<Record<string, string>> {
   throwIfAborted(signal)
 
   const { calculate } = usePow()
@@ -63,7 +73,6 @@ export async function buildBinaryPowHeaders(signal?: AbortSignal): Promise<Recor
     throw createAppError(AppErrorCode.ProtocolFailure, 'POW_CHALLENGE_PARSE_FAILED')
   }
 
-  const fp = getBrowserFp()
   throwIfAborted(signal)
   const { nonce } = await calculate(salt, fp, difficulty, undefined, signal)
   throwIfAborted(signal)
@@ -74,12 +83,97 @@ export async function buildBinaryPowHeaders(signal?: AbortSignal): Promise<Recor
   }
 }
 
+function waitForInFlightPowHeaders(entry: InFlightPowHeaders, signal?: AbortSignal): Promise<Record<string, string>> {
+  return new Promise((resolve, reject) => {
+    const waiter = Symbol('pow-waiter')
+    let settled = false
+
+    const cleanup = () => {
+      signal?.removeEventListener('abort', onAbort)
+      entry.waiters.delete(waiter)
+    }
+
+    const onAbort = () => {
+      if (settled) {
+        return
+      }
+
+      settled = true
+      cleanup()
+      reject(createAbortError())
+      if (entry.waiters.size === 0) {
+        entry.controller.abort()
+      }
+    }
+
+    entry.waiters.add(waiter)
+    signal?.addEventListener('abort', onAbort, { once: true })
+
+    entry.promise.then(
+      (headers) => {
+        if (settled) {
+          return
+        }
+
+        settled = true
+        cleanup()
+        resolve(headers)
+      },
+      (reason) => {
+        if (settled) {
+          return
+        }
+
+        settled = true
+        cleanup()
+        reject(reason)
+      }
+    )
+
+    if (signal?.aborted) {
+      onAbort()
+    }
+  })
+}
+
+export async function buildBinaryPowHeaders(signal?: AbortSignal, powScope: string = DEFAULT_POW_SCOPE): Promise<Record<string, string>> {
+  throwIfAborted(signal)
+
+  const fp = getBrowserFp()
+  const inFlightKey = `${powScope}:${fp}`
+  let entry = inFlightPowHeaders.get(inFlightKey)
+
+  if (!entry) {
+    const controller = new AbortController()
+    const promise = buildBinaryPowHeadersFresh(fp, controller.signal).finally(() => {
+      inFlightPowHeaders.delete(inFlightKey)
+    })
+    entry = {
+      controller,
+      promise,
+      waiters: new Set()
+    }
+    inFlightPowHeaders.set(inFlightKey, entry)
+  }
+
+  return await waitForInFlightPowHeaders(entry, signal)
+}
+
+function derivePowScope(url: string, options?: BinaryRequestOptions): string {
+  if (options?.powScope) {
+    return options.powScope
+  }
+
+  const method = (options?.method ?? 'GET').toUpperCase()
+  return `${method}:${url}`
+}
+
 async function buildPowHeadersIfNeeded(url: string, options?: BinaryRequestOptions): Promise<Record<string, string>> {
   if (!options?.requiresPow || url.includes('pow-challenge')) {
     return {}
   }
 
-  return await buildBinaryPowHeaders(options.signal)
+  return await buildBinaryPowHeaders(options.signal, derivePowScope(url, options))
 }
 
 function decodePowChallenge(buffer: ArrayBuffer): { salt: string; difficulty: number; timestamp: number; signature: string } {
