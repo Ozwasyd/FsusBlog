@@ -81,7 +81,7 @@
           <ThemeModeToggle visibility="desktop" />
           <a
             :href="resolvedAuthHref"
-            class="el-public-shell__nav-link el-public-shell__auth-link"
+            class="el-public-shell__action-link el-public-shell__auth-link el-public-shell__auth-link--desktop"
             data-public-nav="auth"
           >
             {{ resolvedAuthLabel }}

@@ -189,6 +189,16 @@ html[data-theme-resolved='dark'] {
   color: var(--el-text-color-primary);
 }
 
+#fsus-aot-shell .el-public-shell__auth-link--desktop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding-inline: 4px;
+  box-sizing: border-box;
+  line-height: 1;
+}
+
 @media (max-width: 767px) {
   #fsus-aot-shell .el-public-shell__inner {
     padding-block: 20px;

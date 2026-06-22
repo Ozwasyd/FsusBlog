@@ -22,6 +22,10 @@ const publicRouteRegistrySource = readFileSync(
   resolve(process.cwd(), 'src/public-renderers/publicRouteRegistry.ts'),
   'utf8',
 )
+const publicShellCriticalCss = readFileSync(
+  resolve(process.cwd(), 'src/assets/public-shell-critical.css'),
+  'utf8',
+)
 
 function count(source: string, needle: string): number {
   return source.split(needle).length - 1
@@ -49,6 +53,44 @@ describe('layout header consistency matrix', () => {
       'el-public-shell__mobile-primary-actions',
     )
     expect(publicShellSource).toContain('el-public-shell__auth-link')
+  })
+
+  it('aligns the desktop public auth action link with search and theme controls', () => {
+    expect(publicShellSource).toContain(
+      'el-public-shell__action-link el-public-shell__auth-link el-public-shell__auth-link--desktop',
+    )
+    expect(publicShellSource).not.toContain(
+      'el-public-shell__nav-link el-public-shell__auth-link"',
+    )
+
+    const desktopAuthMatch = publicShellSource.match(
+      /class="el-public-shell__action-link el-public-shell__auth-link el-public-shell__auth-link--desktop"/,
+    )
+    expect(desktopAuthMatch).not.toBeNull()
+
+    const desktopAuthSection = publicShellSource.slice(
+      desktopAuthMatch?.index ?? 0,
+      publicShellSource.indexOf('</template>', desktopAuthMatch?.index ?? 0),
+    )
+    expect(desktopAuthSection).not.toContain('el-public-shell__nav-link')
+
+    const desktopNavMatch = publicShellSource.match(
+      /class="el-public-shell__nav-link"/,
+    )
+    expect(desktopNavMatch).not.toBeNull()
+
+    expect(publicShellCriticalCss).toContain(
+      '.el-public-shell__auth-link--desktop',
+    )
+    expect(publicShellCriticalCss).toMatch(
+      /#fsus-aot-shell\s+\.el-public-shell__auth-link--desktop\s*\{[\s\S]*?min-height:\s*40px;/,
+    )
+    expect(publicShellCriticalCss).toMatch(
+      /#fsus-aot-shell\s+\.el-public-shell__auth-link--desktop\s*\{[\s\S]*?padding-inline:\s*4px;/,
+    )
+    expect(publicShellCriticalCss).toMatch(
+      /#fsus-aot-shell\s+\.el-public-shell__auth-link--desktop\s*\{[\s\S]*?display:\s*inline-flex;[\s\S]*?align-items:\s*center;[\s\S]*?justify-content:\s*center;/,
+    )
   })
 
   it('covers login, register, and recover through one public auth header', () => {
