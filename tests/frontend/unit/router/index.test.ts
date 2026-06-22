@@ -5,8 +5,11 @@ import { createMemoryHistory } from 'vue-router'
 import type { Router } from 'vue-router'
 
 const ensureBootstrap = vi.fn<() => Promise<void>>()
-const ensureUserInfoFresh = vi.fn<() => Promise<void>>()
+const ensurePublicShell = vi.fn<() => Promise<void>>()
+const ensureAccountSession = vi.fn<() => Promise<void>>()
+const ensureAdminSession = vi.fn<() => Promise<void>>()
 const syncDocumentTitle = vi.fn()
+let hasServerAotShellResult = false
 
 const userStore = {
   isLoggedIn: true
@@ -17,6 +20,7 @@ const siteStore = {
 }
 
 const adminStore = {
+  adminState: 'unknown',
   canManage: false,
   hasPermission: vi.fn((permission: string) => permission === 'admin.manage')
 }
@@ -27,7 +31,9 @@ vi.mock('@/composables/useSessionBootstrap', () => ({
     siteStore,
     needsBootstrap: () => false,
     ensureBootstrap,
-    ensureUserInfoFresh,
+    ensurePublicShell,
+    ensureAccountSession,
+    ensureAdminSession,
     syncDocumentTitle
   })
 }))
@@ -37,7 +43,7 @@ vi.mock('@/store/admin', () => ({
 }))
 
 vi.mock('@/bootstrap/publicShellPrimitives', () => ({
-  hasServerAotShell: () => false
+  hasServerAotShell: () => hasServerAotShellResult
 }))
 
 function ensureBrowserLocation(): void {
@@ -82,8 +88,13 @@ async function createTestRouter(): Promise<Router> {
 describe('account router meta and guards', () => {
   beforeEach(() => {
     ensureBootstrap.mockClear()
-    ensureUserInfoFresh.mockClear()
+    ensurePublicShell.mockClear()
+    ensureAccountSession.mockClear()
+    ensureAdminSession.mockClear()
     syncDocumentTitle.mockClear()
+    hasServerAotShellResult = false
+    document.body.innerHTML = ''
+    adminStore.adminState = 'unknown'
     adminStore.canManage = false
     adminStore.hasPermission.mockClear()
     userStore.isLoggedIn = true
@@ -102,25 +113,71 @@ describe('account router meta and guards', () => {
     expect(userRoute?.meta).not.toHaveProperty('roles')
   })
 
-  it('does not refresh user info for self-service account routes without manage semantics', async () => {
+  it('public route does not probe account or admin session', async () => {
+    const router = await createTestRouter()
+
+    await router.push('/')
+
+    expect(ensurePublicShell).toHaveBeenCalledTimes(1)
+    expect(ensureAccountSession).not.toHaveBeenCalled()
+    expect(ensureAdminSession).not.toHaveBeenCalled()
+  }, 15_000)
+
+  it('shouldDeferPublicBootstrap keeps AOT route zero-auth-probe', async () => {
+    hasServerAotShellResult = true
+    document.body.innerHTML = '<div id="app"></div>'
+    const router = await createTestRouter()
+
+    await router.push('/')
+
+    expect(ensurePublicShell).not.toHaveBeenCalled()
+    expect(ensureAccountSession).not.toHaveBeenCalled()
+    expect(ensureAdminSession).not.toHaveBeenCalled()
+  }, 15_000)
+
+  it('guestOnly route probes account only', async () => {
+    userStore.isLoggedIn = false
+    const router = await createTestRouter()
+
+    await router.push('/login')
+
+    expect(ensureAccountSession).toHaveBeenCalledTimes(1)
+    expect(ensureAccountSession).toHaveBeenCalledWith({ reason: 'route' })
+    expect(ensureAdminSession).not.toHaveBeenCalled()
+  }, 15_000)
+
+  it('account route probes account only', async () => {
     const router = await createTestRouter()
 
     await router.push('/user/identity')
 
-    expect(ensureUserInfoFresh).not.toHaveBeenCalled()
+    expect(ensureAccountSession).toHaveBeenCalledTimes(1)
+    expect(ensureAccountSession).toHaveBeenCalledWith({ reason: 'route' })
+    expect(ensureAdminSession).not.toHaveBeenCalled()
   }, 15_000)
 
-  it('refreshes user info before entering manage account routes', async () => {
+  it('manage route probes account and admin', async () => {
     adminStore.canManage = true
     const router = await createTestRouter()
 
     await router.push('/user/manage')
 
-    expect(ensureUserInfoFresh).toHaveBeenCalledTimes(1)
-    expect(ensureUserInfoFresh).toHaveBeenCalledWith({
-      maxAgeMs: 30_000,
-      forceWhenUnknown: true
-    })
+    expect(ensureAccountSession).toHaveBeenCalledTimes(1)
+    expect(ensureAdminSession).toHaveBeenCalledTimes(1)
+    expect(ensureAccountSession).toHaveBeenCalledWith({ reason: 'route' })
+    expect(ensureAdminSession).toHaveBeenCalledWith({ reason: 'route' })
+  })
+
+  it('manage route checks required permissions after admin probe', async () => {
+    adminStore.canManage = true
+    adminStore.hasPermission.mockReturnValue(false)
+    const router = await createTestRouter()
+
+    await router.push('/user/manage/article/write')
+
+    expect(ensureAdminSession).toHaveBeenCalledTimes(1)
+    expect(adminStore.hasPermission).toHaveBeenCalledWith('article.write')
+    expect(router.currentRoute.value.path).toBe('/403')
   })
 
   it('statically blocks legacy router role meta checks from returning', () => {

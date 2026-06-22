@@ -19,11 +19,15 @@ describe('navigation performance workflow contract', () => {
     expect(router).not.toContain('void loadProgressBar().then((progress) => {\n        progress.start()')
   })
 
-  it('uses freshness-aware user info for admin and role guards', () => {
-    expect(router).toContain('ensureUserInfoFresh({ maxAgeMs: 30_000, forceWhenUnknown: true })')
+  it('uses route-scoped account and admin session probes', () => {
+    expect(router).toContain("sessionBootstrap.ensurePublicShell()")
+    expect(router).toContain("sessionBootstrap.ensureAccountSession({ reason: 'route' })")
+    expect(router).toContain("sessionBootstrap.ensureAdminSession({ reason: 'route' })")
+    expect(router).toContain('isPublicShellRouteName(to.name)')
     expect(router).not.toContain('await userStore.fetchUserInfo(true)')
-    expect(userStore).toContain('const lastFetchedAt = ref(0)')
+    expect(router).not.toContain('ensureUserInfoFresh({ maxAgeMs: 30_000, forceWhenUnknown: true })')
+    expect(userStore).toContain('const lastVerifiedAt = ref(0)')
     expect(userStore).toContain('const ensureUserInfoFresh = async')
-    expect(userStore).toContain('Date.now() - lastFetchedAt.value <= maxAgeMs')
+    expect(userStore).toContain('Date.now() - lastVerifiedAt.value <= maxAgeMs')
   })
 })

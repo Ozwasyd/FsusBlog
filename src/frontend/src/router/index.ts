@@ -10,7 +10,7 @@ import {
 import { resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { hasServerAotShell } from '@/bootstrap/publicShellPrimitives'
-import { isPublicSeoRouteName } from '@/public-renderers/publicPageModel'
+import { isPublicSeoRouteName, isPublicShellRouteName } from '@/public-renderers/publicPageModel'
 import { ACCOUNT_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
 import { PUBLIC_BLOG_CHILD_ROUTES } from '@/public-renderers/publicRouteRegistry'
 import { useAdminStore } from '@/store/admin'
@@ -223,6 +223,7 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
     const { userStore, siteStore } = sessionBootstrap
     const adminStore = useAdminStore()
     const manageRoute = isManageAccountRoute(to)
+    const publicShellRoute = isPublicShellRouteName(to.name)
     const appRoot = typeof document !== 'undefined' ? document.getElementById('app') : null
     const shouldDeferPublicBootstrap =
       !options.ssr
@@ -233,7 +234,9 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       scheduleProgressForSlowNavigation()
     }
 
-    if (!options.ssr && !shouldDeferPublicBootstrap && sessionBootstrap.needsBootstrap()) {
+    if (!options.ssr && !shouldDeferPublicBootstrap && publicShellRoute) {
+      await sessionBootstrap.ensurePublicShell()
+    } else if (!options.ssr && !shouldDeferPublicBootstrap && sessionBootstrap.needsBootstrap()) {
       await sessionBootstrap.ensureBootstrap()
     }
 
@@ -241,14 +244,25 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       sessionBootstrap.syncDocumentTitle(to)
     }
 
-    if (!options.ssr && manageRoute) {
-      await sessionBootstrap.ensureUserInfoFresh({ maxAgeMs: 30_000, forceWhenUnknown: true })
+    if (publicShellRoute) {
+      return true
+    }
+
+    if (to.meta.guestOnly) {
+      await sessionBootstrap.ensureAccountSession({ reason: 'route' })
+    } else if (manageRoute) {
+      await Promise.all([
+        sessionBootstrap.ensureAccountSession({ reason: 'route' }),
+        sessionBootstrap.ensureAdminSession({ reason: 'route' })
+      ])
+    } else if (to.meta.requiresAuth) {
+      await sessionBootstrap.ensureAccountSession({ reason: 'route' })
     }
 
     const { isLoggedIn } = userStore
 
     if (to.meta.guestOnly && isLoggedIn) {
-      return adminStore.canManage ? '/user/manage' : '/user/identity'
+      return adminStore.adminState === 'active' && adminStore.canManage ? '/user/manage' : '/user/identity'
     }
 
     if (to.meta.requiresAuth) {
@@ -267,7 +281,7 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
     }
 
     if (to.path === '/user') {
-      return adminStore.canManage ? '/user/manage' : '/user/identity'
+      return adminStore.adminState === 'active' && adminStore.canManage ? '/user/manage' : '/user/identity'
     }
 
     return true
