@@ -51,9 +51,12 @@ describe('public shell ownership boundary', () => {
     expect(publicShell).toContain("addPublicShellEventListener(window, 'fsus:public-shell:search-focus'")
   })
 
-  it('updates public auth through runtime state instead of mutating Vue-owned DOM', () => {
-    expect(publicShell).toContain('setPublicShellRuntimeAuthState')
-    expect(publicShell).toContain('resolvePublicShellRuntimeAuthState')
+  it('keeps public shell auth guest-safe instead of probing account endpoints', () => {
+    expect(publicShell).toContain('resetPublicShellRuntimeAuthState')
+    expect(publicShell).not.toContain('getMe')
+    expect(publicShell).not.toContain('getAdminMe')
+    expect(publicShell).not.toMatch(/\bsetPublicShellRuntimeAuthState\s*\(/)
+    expect(publicShell).not.toMatch(/\bresolvePublicShellRuntimeAuthState\s*\(/)
     expect(publicShell).not.toContain("querySelectorAll<HTMLAnchorElement>('.el-public-shell__auth-link')")
     expect(publicShell).not.toContain('textContent = authState.authLabel')
     expect(publicShell).not.toContain("setAttribute('href', authState.authHref)")

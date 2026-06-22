@@ -10,12 +10,7 @@ import { dispatchAotActionEvent } from '@/bootstrap/aotActionEvent'
 import { emitRumMetric, emitTelemetry } from '@/services/telemetryBus'
 import { ensureThemeRuntime, setThemeMode, type ThemeMode } from '@/services/themeRuntime'
 import { bootstrapFullApp, commitPreparedFullApp, prepareFullApp } from '@/bootstrap/fullApp'
-import { getMe } from '@/api/auth'
-import {
-  resetPublicShellRuntimeAuthState,
-  resolvePublicShellRuntimeAuthState,
-  setPublicShellRuntimeAuthState
-} from '@/public-renderers/publicShellRuntimeState'
+import { resetPublicShellRuntimeAuthState } from '@/public-renderers/publicShellRuntimeState'
 import { putPublicRouteSeed, type PublicRouteSeedKind } from '@/public-renderers/publicRouteSeedStore'
 import type { PublicPageSeed } from '@/public-renderers/pageSeed'
 import {
@@ -318,7 +313,6 @@ let commentsIntersectionObserver: IntersectionObserver | null = null
 let commentsActivationVersion = 0
 let publicTakeoverPromise: Promise<void> | null = null
 let publicRoutePrewarmIdleTask: number | null = null
-let authResolutionVersion = 0
 let homeHotArticlesIslandModulePromise: Promise<typeof import('@/public-renderers/homeHotArticlesIsland')> | null = null
 let commentsIslandModulePromise: Promise<typeof import('@/public-renderers/commentsIsland')> | null = null
 
@@ -773,25 +767,6 @@ function scheduleDynamicIslands(payload: PublicHydrationPayload | null): void {
   }
 }
 
-function refreshPublicShellAuthState(): void {
-  const version = ++authResolutionVersion
-  void getMe()
-    .then((user) => {
-      if (version !== authResolutionVersion || getPublicRuntimeOwner() === 'spa') {
-        return
-      }
-
-      setPublicShellRuntimeAuthState(resolvePublicShellRuntimeAuthState(user))
-    })
-    .catch(() => {
-      if (version !== authResolutionVersion || getPublicRuntimeOwner() === 'spa') {
-        return
-      }
-
-      setPublicShellRuntimeAuthState(resolvePublicShellRuntimeAuthState(null))
-    })
-}
-
 async function navigateWithAtomicPublicTakeover(intent: PublicAtomicNavigationIntent): Promise<void> {
   const target = new URL(intent.href, window.location.origin)
   activeNavigationController?.abort()
@@ -1019,7 +994,6 @@ async function hydratePublicShell(): Promise<void> {
   storeInitialPublicRouteSeed(payload)
   const startedAt = performance.now()
   await hydratePublicPage(payload)
-  refreshPublicShellAuthState()
   scheduleDynamicIslands(payload)
   const durationMs = Math.round(performance.now() - startedAt)
   emitRumMetric('hydration_time', {

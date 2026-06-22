@@ -15,7 +15,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useUserStore } from '@/store/user'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { readPublicHydrationPayload } from '@/bootstrap/publicHydrationBootstrap'
 import { runtimeReady } from '@/bootstrap/runtimeGate'
@@ -30,8 +29,7 @@ import { createPublicShellViewState } from '@/public-renderers/publicShellViewSt
 import { createPublicTakeoverSeed } from '@/public-renderers/publicSiteIdentity'
 import { createPublicSiteIdentity } from '@/public-renderers/publicSiteIdentityContext'
 
-const userStore = useUserStore()
-const { siteStore, ensureSiteInfo, ensureUserInfo } = useSessionBootstrap()
+const { siteStore, ensurePublicShell } = useSessionBootstrap()
 const router = useRouter()
 const route = useRoute()
 const takeoverShellSeed = createPublicTakeoverSeed(readPublicHydrationPayload())
@@ -43,10 +41,9 @@ onMounted(() => {
   isMounted.value = true
   runtimeRenderYear.value = new Date().getFullYear()
   // Defer site info loading to avoid hydration mismatch
-  // Site info should be fetched after hydration completes
+  // Public shell bootstrap must stay account-probe free; auth is verified by explicit protected routes/actions.
   setTimeout(() => {
-    void ensureSiteInfo()
-    void ensureUserInfo()
+    void ensurePublicShell()
   }, 600)
 })
 
@@ -79,9 +76,6 @@ const shellState = computed(() => createPublicShellViewState({
   initialSearchQuery: isSearchRoute.value ? String(route.query.q || '') : '',
   spaSearch: isMounted.value && runtimeReady.value,
   showRuntime: isMounted.value && runtimeReady.value,
-  isRuntimeAuthResolved: isMounted.value && runtimeReady.value,
-  isLoggedIn: userStore.isLoggedIn,
-  isAdmin: userStore.isAdmin
 }))
 
 const publicDocumentTitle = computed(() => {

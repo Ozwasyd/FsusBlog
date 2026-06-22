@@ -170,7 +170,8 @@ describe('public hydration invariant guards', () => {
     expect(blogLayout).toContain('setTimeout(() =>')
     expect(blogLayout).toContain('showRuntime: isMounted.value && runtimeReady.value')
     expect(blogLayout).toContain('spaSearch: isMounted.value && runtimeReady.value')
-    expect(blogLayout).toContain('isRuntimeAuthResolved: isMounted.value && runtimeReady.value')
+    expect(blogLayout).not.toContain('isRuntimeAuthResolved: isMounted.value && runtimeReady.value')
+    expect(blogLayout).toContain('Public shell bootstrap must stay account-probe free')
   })
 
   it('keeps theme preference reconciliation after public AOT hydration', () => {

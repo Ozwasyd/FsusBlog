@@ -27,6 +27,23 @@ describe('notification stream recovery workflow', () => {
     expect(source).not.toContain('console.warn(errorLabel, error)')
   })
 
+  it('keeps public runtime bootstrap on guest stream without account preflight', () => {
+    const source = readFileSync(
+      fileURLToPath(new URL('../../../../src/frontend/src/components/runtime/AppRuntime.vue', import.meta.url)),
+      'utf8'
+    )
+
+    expect(source).toContain('const publicRoute = isPublicRouteNow()')
+    expect(source).toContain('if (publicRoute) {')
+    expect(source).toContain('await ensurePublicShell()')
+    expect(source).toContain("requestNotificationInit(false, '[AppRuntime] 公共访客连接建立受限')")
+    expect(source).toContain("const userTask = ensureAccountSession({ reason: 'runtime' })")
+    expect(source.indexOf('if (publicRoute) {')).toBeLessThan(
+      source.indexOf("const userTask = ensureAccountSession({ reason: 'runtime' })")
+    )
+    expect(source).not.toContain('ensureUserInfo')
+  })
+
   it('installs the safe console guard during frontend bootstrap', () => {
     const source = readFileSync(
       fileURLToPath(new URL('../../../../src/frontend/src/bootstrap/entry.ts', import.meta.url)),

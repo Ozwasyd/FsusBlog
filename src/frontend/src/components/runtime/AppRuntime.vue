@@ -6,7 +6,7 @@ import { markStartup, measureStartup } from '@/bootstrap/startupProfiler'
 import { isPublicSeoPath } from '@/bootstrap/publicShellPrimitives'
 import { safeConsoleWarn } from '@/services/safeConsole'
 
-const { userStore, ensureSiteInfo, ensureUserInfo, syncAuthPhase } = useSessionBootstrap()
+const { userStore, ensureSiteInfo, ensurePublicShell, ensureAccountSession, syncAuthPhase } = useSessionBootstrap()
 const { initNotification, stopNotification } = useNotification()
 
 type IdleWindow = Window & {
@@ -34,7 +34,7 @@ function isAuthFlowRouteNow(): boolean {
 }
 
 function shouldStartGuestNotifications(): boolean {
-  return !isPublicRouteNow() && !isAuthFlowRouteNow()
+  return !isAuthFlowRouteNow()
 }
 
 const runAfterFirstPaint = (task: () => void): void => {
@@ -104,7 +104,7 @@ const removeIntentListeners = () => {
 }
 
 const triggerGlobalIntent = async () => {
-  if (!userStore.isAuthChecked) {
+  if (!isPublicRouteNow() && !userStore.isAuthChecked) {
     return
   }
 
@@ -141,8 +141,18 @@ function bootstrapAuthAndSiteState(): Promise<void> {
 
   authBootstrapPromise = (async () => {
     markStartup('runtime-bootstrap:start')
+    const publicRoute = isPublicRouteNow()
+
+    if (publicRoute) {
+      await ensurePublicShell()
+      requestNotificationInit(false, '[AppRuntime] 公共访客连接建立受限')
+      markStartup('runtime-bootstrap:ready')
+      measureStartup('runtime-bootstrap', 'runtime-bootstrap:start', 'runtime-bootstrap:ready')
+      return
+    }
+
     const siteTask = ensureSiteInfo()
-    const userTask = ensureUserInfo()
+    const userTask = ensureAccountSession({ reason: 'runtime' })
 
     await Promise.allSettled([userTask])
     syncAuthPhase()

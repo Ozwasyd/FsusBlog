@@ -39,6 +39,6 @@ describe('pre-hydration browser API safety contracts', () => {
     expect(fullApp.indexOf('beginPublicTakeoverCommit({')).toBeLessThan(fullApp.indexOf('app.mount'))
     expect(fullApp.indexOf('completePublicTakeoverCommit({')).toBeGreaterThan(fullApp.indexOf('app.mount'))
     expect(blogLayout).toContain("publicTakeoverPhaseState.value !== 'spa-active'")
-    expect(blogLayout).toContain('isRuntimeAuthResolved: isMounted.value && runtimeReady.value')
+    expect(blogLayout).not.toContain('isRuntimeAuthResolved: isMounted.value && runtimeReady.value')
   })
 })

@@ -177,6 +177,15 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(themeToggleSource).toContain('reconcileThemeRuntimeAfterHydration()')
   })
 
+  it('keeps public SPA shell account-probe free by default', () => {
+    expect(blogLayoutSource).toContain('const { siteStore, ensurePublicShell } = useSessionBootstrap()')
+    expect(blogLayoutSource).toContain('void ensurePublicShell()')
+    expect(blogLayoutSource).not.toContain('ensureUserInfo')
+    expect(blogLayoutSource).not.toContain('isLoggedIn:')
+    expect(blogLayoutSource).not.toContain('isAdmin:')
+    expect(blogLayoutSource).not.toContain('isAdmin: userStore.isAdmin')
+  })
+
   it('keeps compliance footer year derived from the shell renderYear', () => {
     expect(shellSource).toContain(':render-year="shellIdentity.renderYear"')
     expect(complianceFooterSource).toContain('Number(props.renderYear)')
