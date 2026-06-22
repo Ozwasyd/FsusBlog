@@ -225,6 +225,13 @@ export function generateFrontendRoutes(openapi = loadOpenApi()) {
   }
   lines.push('} as const')
   lines.push('')
+  lines.push('export const fsusBinaryRouteSecurity = {')
+  for (const op of operations) {
+    lines.push(`  ${JSON.stringify(op.operationId)}: { method: ${JSON.stringify(op.method)}, path: ${JSON.stringify(op.fullPath)}, auth: ${JSON.stringify(op.auth)}, requiresPow: ${Boolean(op.pow)}, rateLimitPolicy: ${JSON.stringify(op.rateLimit ?? null)} },`)
+  }
+  lines.push('} as const')
+  lines.push('')
   lines.push('export type FsusBinaryOperationId = keyof typeof fsusBinaryRoutes')
+  lines.push('export type FsusBinaryRouteSecurity = typeof fsusBinaryRouteSecurity[FsusBinaryOperationId]')
   return `${lines.join('\n')}\n`
 }

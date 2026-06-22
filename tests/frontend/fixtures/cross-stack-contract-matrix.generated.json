@@ -70,6 +70,18 @@
       ]
     },
     {
+      "id": "contract-pow-parity",
+      "command": "npm run check:contract:pow-parity",
+      "risk": "critical",
+      "requirements": [
+        "CROSS-FRONTEND-BACKEND-POW-PARITY"
+      ],
+      "evidencePaths": [
+        "src/frontend/src/generated/fsusBinaryRoutes.ts",
+        "tests/frontend/checks/static/check-frontend-backend-pow-parity.mjs"
+      ]
+    },
+    {
       "id": "contract-frame-schema",
       "command": "npm run check:contract:frame-schema",
       "risk": "critical",
@@ -198,6 +210,11 @@
       "id": "CROSS-FRONTEND-BACKEND-API-PARITY",
       "risk": "critical",
       "coverage": "frontend API wrappers and binary adapters map to backend endpoint matrix or server-only marker"
+    },
+    {
+      "id": "CROSS-FRONTEND-BACKEND-POW-PARITY",
+      "risk": "critical",
+      "coverage": "frontend requiresPow wrappers match generated backend x-fsus-pow route security metadata, including public read and high-risk mutation samples"
     },
     {
       "id": "CROSS-FRAME-SCHEMA-SYNC",
@@ -1186,6 +1203,7 @@
           "method": "POST",
           "path": "/comment",
           "auth": "user",
+          "pow": true,
           "requestFrame": "CommentCreateV2Request",
           "responseFrame": "EmptySuccess"
         },
@@ -1211,6 +1229,7 @@
           "method": "DELETE",
           "path": "/comment/{id:long}",
           "auth": "user",
+          "pow": true,
           "responseFrame": "EmptySuccess"
         }
       ]
@@ -1289,6 +1308,7 @@
           "method": "POST",
           "path": "/messages/conversations",
           "auth": "user",
+          "pow": true,
           "requestFrame": "ConversationCreateRequest",
           "responseFrame": "ConversationDetail"
         },
@@ -1296,6 +1316,7 @@
           "method": "POST",
           "path": "/messages/conversations/{id:long}/reply",
           "auth": "user",
+          "pow": true,
           "requestFrame": "ConversationReplyRequest",
           "responseFrame": "ConversationMessage"
         },
@@ -1321,6 +1342,7 @@
           "method": "POST",
           "path": "/admin/messages/conversations/{id:long}/reply",
           "auth": "admin",
+          "pow": true,
           "requestFrame": "ConversationReplyRequest",
           "responseFrame": "ConversationMessage"
         },
@@ -1328,6 +1350,7 @@
           "method": "POST",
           "path": "/admin/messages/conversations/{id:long}/status",
           "auth": "admin",
+          "pow": true,
           "requestFrame": "ConversationStatusRequest",
           "responseFrame": "EmptySuccess"
         },
@@ -1335,6 +1358,7 @@
           "method": "POST",
           "path": "/admin/messages/system-send",
           "auth": "admin",
+          "pow": true,
           "requestFrame": "SystemMessageRequest",
           "responseFrame": "ConversationDetail"
         }
