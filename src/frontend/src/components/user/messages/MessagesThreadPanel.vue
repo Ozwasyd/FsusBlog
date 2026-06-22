@@ -273,7 +273,7 @@ defineExpose({
 .messages-action-hint {
   align-self: center;
   color: var(--fsusblog-text-muted);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 
@@ -343,7 +343,7 @@ defineExpose({
 
 .messages-bubble-body {
   color: var(--fsusblog-text-secondary);
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   line-height: 1.8;
   overflow-wrap: anywhere;
   white-space: pre-wrap;

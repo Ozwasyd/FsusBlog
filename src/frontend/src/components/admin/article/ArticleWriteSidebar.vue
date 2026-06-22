@@ -245,7 +245,7 @@ defineEmits<{
   gap: 1rem;
   padding: 0.85rem 1rem;
   color: var(--fsusblog-text-primary);
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   font-weight: 650;
 }
 
@@ -255,7 +255,7 @@ defineEmits<{
 
 .article-sidebar-summary span + span {
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 500;
 }
 
@@ -267,7 +267,7 @@ defineEmits<{
 
 .article-field-label {
   color: var(--fsusblog-text-secondary);
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   font-weight: 650;
 }
 
@@ -313,7 +313,7 @@ defineEmits<{
 
 .article-cover-placeholder strong {
   color: var(--fsusblog-text-secondary);
-  font-size: 0.86rem;
+  font-size: 0.875rem;
 }
 
 .article-cover-placeholder span {

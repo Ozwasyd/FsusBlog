@@ -26,7 +26,7 @@ defineEmits<{
 .user-comments-error-state__title {
   margin: 0;
   color: var(--fsusblog-text-primary);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 700;
   line-height: 1.5;
 }
@@ -34,7 +34,7 @@ defineEmits<{
 .user-comments-error-state__description {
   margin: 0;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   line-height: 1.7;
 }
 </style>

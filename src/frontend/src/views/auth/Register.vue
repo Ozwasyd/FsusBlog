@@ -24,7 +24,7 @@
                 匿名账号
               </h2>
               <p class="mt-2 text-xs leading-6 text-[var(--fsusblog-text-muted)]">
-                公开称呼可选；留空时系统会生成匿名称呼。TOTP MFA 可在账户设置中作为高级 step-up 开启，TOTP 恢复码不是 Recovery Key。
+                公开称呼可选；留空时系统会生成匿名称呼。TOTP MFA 可在账户设置中作为可选 step-up 验证启用，TOTP 恢复码不是 Recovery Key。
               </p>
             </div>
 
@@ -229,7 +229,7 @@ const {
 @reference "@/assets/main.css";
 
 :deep(.register-guidelines-button.el-button) {
-  min-height: 36px;
+  min-height: 40px;
   align-items: center;
 }
 </style>

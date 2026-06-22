@@ -124,13 +124,13 @@ onUnmounted(() => {
 
 .article-image-lightbox__figure figcaption {
   color: var(--fsusblog-overlay-button-fg);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
 }
 
 .article-image-lightbox__close,
 .article-image-lightbox__nav {
   position: fixed;
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   border: 1px solid var(--fsusblog-overlay-button-border);
   background: var(--fsusblog-overlay-button-bg);
   color: var(--fsusblog-overlay-button-fg);

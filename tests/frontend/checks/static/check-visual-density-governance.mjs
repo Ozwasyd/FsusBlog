@@ -26,6 +26,7 @@ const publicEditorialRoots = [
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 const accountShellPath = path.join(repoRoot, 'src/frontend/src/assets/account-shell.css')
 const accountLayoutPath = path.join(repoRoot, 'src/frontend/src/layouts/AccountLayout.vue')
+const registerPath = path.join(repoRoot, 'src/frontend/src/views/auth/Register.vue')
 const dashboardPopularArticlesPath = path.join(repoRoot, 'src/frontend/src/components/admin/DashboardPopularArticles.vue')
 const productionSourceRoot = path.join(repoRoot, 'src/frontend/src')
 
@@ -142,6 +143,81 @@ function checkProductionFocusRing(file) {
   })
 }
 
+function lineNumberFromSource(source, index) {
+  return source.slice(0, index).split(/\r?\n/).length
+}
+
+function assertContains(file, pattern, message) {
+  if (!fs.existsSync(file)) {
+    fail(file, 1, message)
+    return
+  }
+
+  if (!pattern.test(read(file))) {
+    fail(file, 1, message)
+  }
+}
+
+function assertNotContains(file, pattern, message) {
+  if (!fs.existsSync(file)) {
+    return
+  }
+
+  const source = read(file)
+  const match = pattern.exec(source)
+  if (match?.index !== undefined) {
+    fail(file, lineNumberFromSource(source, match.index), message)
+  }
+}
+
+function checkIssueDensityContracts() {
+  assertContains(accountLayoutPath, /\.account-skip-link:focus-visible\s*\{/, 'account skip-link must reveal only on :focus-visible')
+  assertNotContains(accountLayoutPath, /\.account-skip-link:focus\s*\{/, 'account skip-link must not use mouse-triggered :focus')
+  assertContains(accountLayoutPath, /\.account-skip-link:focus-visible\s*\{[\s\S]*?font-size:\s*0\.75rem;/, 'account skip-link must use the 12px readable text scale')
+  assertNotContains(accountLayoutPath, /disabled:opacity-40/, 'account header/meta links must not use 40% disabled opacity')
+  assertContains(accountLayoutPath, /disabled:opacity-60/, 'account header/meta links must keep disabled opacity at 60% or higher')
+  assertNotContains(accountLayoutPath, /<el-drawer[\s\S]*?id="account-mobile-drawer"[\s\S]*?<\/el-drawer>/, 'AccountLayout mobile navigation must not use drawer navigation')
+  assertContains(accountLayoutPath, /account-mobile-tab-strip/, 'AccountLayout mobile navigation must use the documented scrollable tab strip')
+  assertContains(accountLayoutPath, /\.account-mobile-tab-link\s*\{[\s\S]*?min-height:\s*44px;/, 'AccountLayout mobile tab strip links must provide 44px hit targets')
+  assertContains(path.join(repoRoot, 'docs/public-layout-rules.md'), /AccountLayout[\s\S]*scrollable tab strip[\s\S]*44px/, 'public layout rules must document the AccountLayout mobile navigation pattern')
+
+  assertNotContains(registerPath, /高级|极致|奢华|未来感|智能|大气|简约而不简单|沉浸式/, 'Register copy must avoid FsusUI marketing adjective blacklist')
+  assertContains(registerPath, /TOTP MFA 可在账户设置中作为可选 step-up 验证启用/, 'Register copy must describe TOTP MFA as an optional step-up verification')
+  assertNotContains(registerPath, /min-height:\s*36px;/, 'Register inline policy action must use at least 40px hit target')
+  assertContains(registerPath, /min-height:\s*40px;/, 'Register inline policy action must use the compact 40px control height')
+
+  assertNotContains(path.join(repoRoot, 'src/frontend/src/components/admin/AdminSegmentedControl.vue'), /\bmin-h-8\b/, 'Admin segmented controls must not use 32px hit targets')
+  assertContains(path.join(repoRoot, 'src/frontend/src/components/admin/AdminSegmentedControl.vue'), /\bmin-h-10\b/, 'Admin segmented controls must use at least 40px hit targets')
+  assertNotContains(path.join(repoRoot, 'src/frontend/src/components/article/ArticleShareActions.vue'), /min-height:\s*2\.5rem;/, 'Article share action must use the 44px default control height')
+  assertContains(path.join(repoRoot, 'src/frontend/src/components/article/ArticleShareActions.vue'), /min-height:\s*2\.75rem;/, 'Article share action must use the 44px default control height')
+  assertNotContains(path.join(repoRoot, 'src/frontend/src/components/article/ArticleImageLightbox.vue'), /min-height:\s*2\.5rem;/, 'Article lightbox controls must use the 44px default control height')
+  assertContains(path.join(repoRoot, 'src/frontend/src/components/article/ArticleImageLightbox.vue'), /min-height:\s*2\.75rem;/, 'Article lightbox controls must use the 44px default control height')
+  assertNotContains(path.join(repoRoot, 'src/frontend/src/components/article/ArticleTocPanel.vue'), /min-height:\s*2\.25rem;|font-size:\s*0\.71875rem;/, 'Article TOC controls must use 40px hit targets and the 12px small text scale')
+  assertContains(path.join(repoRoot, 'src/frontend/src/components/article/ArticleTocPanel.vue'), /min-height:\s*2\.5rem;/, 'Article TOC controls must use the 40px compact height')
+
+  const densityScaleFiles = new Map([
+    ['src/frontend/src/components/user/UserCommentsErrorState.vue', [/font-size:\s*0\.9375rem;/, /font-size:\s*0\.8125rem;/]],
+    ['src/frontend/src/components/user/UserCommentsEmptyState.vue', [/font-size:\s*0\.9375rem;/, /font-size:\s*0\.8125rem;/]],
+    ['src/frontend/src/components/user/messages/MessagesEmptyState.vue', [/font-size:\s*0\.9375rem;/, /font-size:\s*0\.8125rem;/]],
+    ['src/frontend/src/components/user/messages/MessagesConversationList.vue', [/font-size:\s*0\.9375rem;/]],
+    ['src/frontend/src/components/user/messages/MessagesThreadPanel.vue', [/font-size:\s*0\.95rem;/, /font-size:\s*0\.6875rem;/]],
+    ['src/frontend/src/components/admin/DashboardCommentModerationPanel.vue', [/font-size:\s*0\.9375rem;/, /font-size:\s*0\.8125rem;/]],
+    ['src/frontend/src/layouts/AccountLayout.vue', [/font-size:\s*0\.(?:625|6875|8125)rem;/]],
+    ['src/frontend/src/components/article/ArticleImageLightbox.vue', [/font-size:\s*0\.8125rem;/]],
+    ['src/frontend/src/components/article/ArticleTocPanel.vue', [/font-size:\s*0\.(?:6875|71875)rem;/]],
+    ['src/frontend/src/components/admin/article/ArticleSeoPreviewPanel.vue', [/font-size:\s*0\.(?:62|68|72|82|92)rem;/]],
+    ['src/frontend/src/components/admin/article/ArticleWriteSidebar.vue', [/font-size:\s*0\.(?:72|82|86)rem;/]],
+    ['src/frontend/src/components/admin/article/ArticleRevisionPanel.vue', [/font-size:\s*0\.78rem;/]],
+    ['src/frontend/src/views/admin/article/Write.vue', [/font-size:\s*0\.(?:6875|72|78|82)rem;/]]
+  ])
+  for (const [relativePath, patterns] of densityScaleFiles) {
+    const file = path.join(repoRoot, relativePath)
+    for (const pattern of patterns) {
+      assertNotContains(file, pattern, 'issue #722 governed typography must use 12/14/16px scale values')
+    }
+  }
+}
+
 function checkDashboardPopularArticlesFocusContract() {
   const source = read(dashboardPopularArticlesPath)
   const focusRingBindings = source.match(/:class="focusRingClass"/g)?.length ?? 0
@@ -180,6 +256,7 @@ for (const file of walk(productionSourceRoot)) {
 }
 
 checkDashboardPopularArticlesFocusContract()
+checkIssueDensityContracts()
 
 const accountShell = read(accountShellPath)
 if (/\.account-(?:page-eyebrow|section-title)[\s\S]*?text-transform:\s*uppercase/.test(accountShell)) {

@@ -797,7 +797,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
 .write-command-status {
   margin-top: 0.5rem;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   line-height: 1.5;
 }
 
@@ -823,7 +823,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
 .submit-checklist-status {
   flex: 0 0 auto;
   color: var(--fsusblog-text-muted);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 800;
 }
 
@@ -878,7 +878,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
   gap: 1rem;
   padding: 0.85rem 1rem;
   color: var(--fsusblog-text-primary);
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   font-weight: 650;
 }
 
@@ -888,7 +888,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
 
 .write-inspector-summary span + span {
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 500;
 }
 

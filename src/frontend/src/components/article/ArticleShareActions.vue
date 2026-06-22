@@ -32,7 +32,7 @@ const { copyLink } = useArticleShare({
 }
 
 .article-share-actions__button {
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   border: 1px solid var(--fsusblog-panel-border);
   background: transparent;
   color: var(--fsusblog-text-muted);

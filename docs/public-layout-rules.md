@@ -73,3 +73,12 @@ Glass material 只允许用于以下 surface：
 - Reading surface 新组件必须声明 `data-fsus-surface="reading"`。
 - 新 glass surface 必须在本文档白名单中登记。
 - 新 public motion 必须说明状态语义，并通过 static governance 检查。
+
+## 11. Account shell mobile navigation
+
+AccountLayout 移动端使用 FsusUI §8 scrollable tab strip 模式承载账号主导航。
+
+- Primary group tabs 渲染为横向可滚动 tab strip。
+- 每个 tab 与 account route link 保持 44px 最小点击目标。
+- 当账号分组超过 5 个时，前 5 个保持可见，其余分组收纳到 “更多” tab strip expansion。
+- AccountLayout 的主移动端账号菜单不得退回 drawer navigation。
