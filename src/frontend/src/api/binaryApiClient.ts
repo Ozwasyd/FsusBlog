@@ -23,13 +23,36 @@ export class BinaryRequestError extends AppError {
   }
 }
 
-export async function buildBinaryPowHeaders(): Promise<Record<string, string>> {
+function createAbortError(): DOMException | Error {
+  if (typeof DOMException !== 'undefined') {
+    return new DOMException('The operation was aborted.', 'AbortError')
+  }
+
+  const error = new Error('The operation was aborted.')
+  error.name = 'AbortError'
+  return error
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw createAbortError()
+  }
+}
+
+export async function buildBinaryPowHeaders(signal?: AbortSignal): Promise<Record<string, string>> {
+  throwIfAborted(signal)
+
   const { calculate } = usePow()
   const challengeResponse = await fetch('/api/binary/auth/pow-challenge?_t=' + Date.now(), {
     credentials: 'include',
-    headers: withBinaryAccept()
+    headers: withBinaryAccept(),
+    signal
   })
+  throwIfAborted(signal)
+
   const challengeBuffer = await challengeResponse.arrayBuffer()
+  throwIfAborted(signal)
+
   if (!challengeResponse.ok) {
     throw new BinaryRequestError(challengeResponse.status, `Binary request failed: ${challengeResponse.status}`, challengeBuffer)
   }
@@ -41,7 +64,10 @@ export async function buildBinaryPowHeaders(): Promise<Record<string, string>> {
   }
 
   const fp = getBrowserFp()
-  const { nonce } = await calculate(salt, fp, difficulty)
+  throwIfAborted(signal)
+  const { nonce } = await calculate(salt, fp, difficulty, undefined, signal)
+  throwIfAborted(signal)
+
     return {
       [FSUS_HEADERS.deviceFingerprint]: fp,
       [FSUS_HEADERS.powProof]: encodeBinaryPowProofHeader({ salt, nonce, timestamp, difficulty, signature, browserFp: fp })
@@ -53,7 +79,7 @@ async function buildPowHeadersIfNeeded(url: string, options?: BinaryRequestOptio
     return {}
   }
 
-  return await buildBinaryPowHeaders()
+  return await buildBinaryPowHeaders(options.signal)
 }
 
 function decodePowChallenge(buffer: ArrayBuffer): { salt: string; difficulty: number; timestamp: number; signature: string } {

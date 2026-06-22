@@ -30,6 +30,7 @@ type PowRunState = {
   worker: Worker
   reject: (reason?: any) => void
   timerId: ReturnType<typeof setTimeout> | null
+  abortCleanup?: () => void
 }
 
 let currentRunId = 0;
@@ -107,6 +108,7 @@ export function usePow() {
 
     worker.onmessage = null;
     worker.onerror = null;
+    current.abortCleanup?.();
     activeRun = null;
     isCalculating.value = false;
     action();
@@ -124,6 +126,7 @@ export function usePow() {
       isCalculating.value = false;
       globalError.value = null;
       const rejectPending = current.reject;
+      current.abortCleanup?.();
       destroyWorker(current.worker);
       rejectPending(mapTerminationReason(reason));
       return;
@@ -144,8 +147,12 @@ export function usePow() {
     salt: string,
     browserFp: string,
     difficulty: number = 4,
-    timeout: number = 30000
+    timeout: number = 30000,
+    signal?: AbortSignal
   ): Promise<PowResult> => {
+    if (signal?.aborted) {
+      return Promise.reject(new PowAbortError());
+    }
 
     // [修复 2026-02-23] 物理抢占逻辑
     // 如果当前有任务在跑，不要幻想能软中断它，直接杀掉重建，这是性能损耗最小的路径
@@ -164,9 +171,27 @@ export function usePow() {
         runId,
         worker: currentWorker,
         reject,
-        timerId: null
+        timerId: null,
+        abortCleanup: undefined
       };
       activeRun = runState;
+
+      const abortCurrentRun = () => {
+        terminate("POW_CALCULATION_ABORTED", runId);
+      };
+
+      if (signal) {
+        signal.addEventListener('abort', abortCurrentRun, { once: true });
+        runState.abortCleanup = () => {
+          signal.removeEventListener('abort', abortCurrentRun);
+          runState.abortCleanup = undefined;
+        };
+      }
+
+      if (signal?.aborted) {
+        terminate("POW_CALCULATION_ABORTED", runId);
+        return;
+      }
 
       runState.timerId = setTimeout(() => {
         terminate("POW_CALCULATION_TIMEOUT", runId);
@@ -179,7 +204,14 @@ export function usePow() {
         if (type === 'PONG' || type === 'PREWARM_DONE') return;
 
         if (success) {
-          completeRun(runId, currentWorker, () => resolve({ nonce, duration }));
+          completeRun(runId, currentWorker, () => {
+            if (signal?.aborted) {
+              reject(new PowAbortError());
+              return;
+            }
+
+            resolve({ nonce, duration });
+          });
         } else {
           const msg = workerError || "WASM_RUNTIME_ERROR";
           completeRun(runId, currentWorker, () => {
