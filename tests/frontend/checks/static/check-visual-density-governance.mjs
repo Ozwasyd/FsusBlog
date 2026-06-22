@@ -28,6 +28,8 @@ const accountShellPath = path.join(repoRoot, 'src/frontend/src/assets/account-sh
 const accountLayoutPath = path.join(repoRoot, 'src/frontend/src/layouts/AccountLayout.vue')
 const registerPath = path.join(repoRoot, 'src/frontend/src/views/auth/Register.vue')
 const dashboardPopularArticlesPath = path.join(repoRoot, 'src/frontend/src/components/admin/DashboardPopularArticles.vue')
+const homeTextFirstRecommendationsPath = path.join(repoRoot, 'src/frontend/src/components/home/HomeTextFirstRecommendations.vue')
+const themeTokensPath = path.join(repoRoot, 'src/frontend/src/ui-tokens/themeTokens.ts')
 const productionSourceRoot = path.join(repoRoot, 'src/frontend/src')
 
 const dashboardPanelPattern = /src\/frontend\/src\/(?:views\/admin\/Dashboard|components\/admin\/Dashboard|views\/admin\/security\/Security|views\/admin\/moderation\/Moderation|components\/admin\/comment-moderation\/CommentModeration)/
@@ -188,12 +190,17 @@ function checkIssueDensityContracts() {
 
   assertNotContains(path.join(repoRoot, 'src/frontend/src/components/admin/AdminSegmentedControl.vue'), /\bmin-h-8\b/, 'Admin segmented controls must not use 32px hit targets')
   assertContains(path.join(repoRoot, 'src/frontend/src/components/admin/AdminSegmentedControl.vue'), /\bmin-h-10\b/, 'Admin segmented controls must use at least 40px hit targets')
-  assertNotContains(path.join(repoRoot, 'src/frontend/src/components/article/ArticleShareActions.vue'), /min-height:\s*2\.5rem;/, 'Article share action must use the 44px default control height')
-  assertContains(path.join(repoRoot, 'src/frontend/src/components/article/ArticleShareActions.vue'), /min-height:\s*2\.75rem;/, 'Article share action must use the 44px default control height')
   assertNotContains(path.join(repoRoot, 'src/frontend/src/components/article/ArticleImageLightbox.vue'), /min-height:\s*2\.5rem;/, 'Article lightbox controls must use the 44px default control height')
   assertContains(path.join(repoRoot, 'src/frontend/src/components/article/ArticleImageLightbox.vue'), /min-height:\s*2\.75rem;/, 'Article lightbox controls must use the 44px default control height')
   assertNotContains(path.join(repoRoot, 'src/frontend/src/components/article/ArticleTocPanel.vue'), /min-height:\s*2\.25rem;|font-size:\s*0\.71875rem;/, 'Article TOC controls must use 40px hit targets and the 12px small text scale')
   assertContains(path.join(repoRoot, 'src/frontend/src/components/article/ArticleTocPanel.vue'), /min-height:\s*2\.5rem;/, 'Article TOC controls must use the 40px compact height')
+
+  assertNotContains(homeTextFirstRecommendationsPath, /\bmb-16\b|\bsm:mb-20\b|\bmin-h-24\b|\bgap-5\b/, 'Home text-first recommendations must stay within compact list density')
+  assertContains(homeTextFirstRecommendationsPath, /home-text-first-recommendations mb-8 sm:mb-10/, 'Home text-first recommendations must keep section-to-feed spacing at 32/40px')
+  assertContains(homeTextFirstRecommendationsPath, /\bmin-h-16\b/, 'Home text-first recommendation rows must use compact 64px list density')
+  assertContains(homeTextFirstRecommendationsPath, /grid gap-3 sm:grid-cols-2 sm:gap-4/, 'Home text-first recommendation row gaps must use 12/16px list spacing')
+  assertNotContains(themeTokensPath, /articleList:\s*\{[\s\S]*?container:\s*'[^']*\b(?:gap-20|sm:gap-28|lg:gap-32)\b[^']*'/, 'Public article list feed spacing must not use large editorial gaps')
+  assertContains(themeTokensPath, /articleList:\s*\{[\s\S]*?container:\s*'flex flex-col gap-8'/, 'Public article list feed spacing must stay at the 32px density limit')
 
   const densityScaleFiles = new Map([
     ['src/frontend/src/components/user/UserCommentsErrorState.vue', [/font-size:\s*0\.9375rem;/, /font-size:\s*0\.8125rem;/]],

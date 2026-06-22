@@ -36,7 +36,6 @@ const accountLayout = read('src/frontend/src/layouts/AccountLayout.vue')
 const progress = read('src/frontend/src/components/article/ArticleReadingProgress.vue')
 const toc = read('src/frontend/src/components/article/ArticleTocPanel.vue')
 const lightbox = read('src/frontend/src/components/article/ArticleImageLightbox.vue')
-const shareActions = read('src/frontend/src/components/article/ArticleShareActions.vue')
 const publicArticleList = read('src/frontend/src/components/public/PublicArticleList.vue')
 const publicArticleDetail = read('src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue')
 const publicFilter = read('src/frontend/src/components/public/pages/PublicFilterPageContent.vue')
@@ -239,8 +238,6 @@ expectNotMatches(publicArticleDetail, /@ozwasyd\/element-plus\/motion/, 'PublicA
 expectNotMatches(publicFilter, /\bv-motion\b/, 'PublicFilterPageContent.vue search panel must render statically')
 expectNotMatches(publicFilter, /fsusBlogMotionPresets\.searchDialog/, 'PublicFilterPageContent.vue reading surface must not use searchDialog preset')
 expectNotMatches(publicFilter, /@ozwasyd\/element-plus\/motion/, 'PublicFilterPageContent.vue must not import motion directives')
-
-expectIncludes(shareActions, 'blog-motion-reading-control', 'ArticleShareActions.vue')
 
 expectIncludes(targetHelper, 'resolveMotionScrollBehavior()', 'useArticleReadingTarget.ts')
 expectIncludes(targetHelper, 'ARTICLE_READING_TARGET_CLASS', 'useArticleReadingTarget.ts')

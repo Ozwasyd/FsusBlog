@@ -40,7 +40,6 @@
       data-fsus-motion-surface="article-title"
     >
       <ArticleDetailHeader :view="detailView.header" :link-mode="linkMode" />
-      <slot name="header-actions" />
     </header>
 
     <section itemprop="articleBody" class="mt-3 sm:mt-4">

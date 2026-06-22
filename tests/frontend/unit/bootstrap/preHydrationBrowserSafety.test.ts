@@ -8,7 +8,6 @@ const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf
 describe('pre-hydration browser API safety contracts', () => {
   const adminSettings = readRepoFile('src/frontend/src/composables/useAdminSettingsPage.ts')
   const adminArticleWrite = readRepoFile('src/frontend/src/composables/useAdminArticleWrite.ts')
-  const articleShare = readRepoFile('src/frontend/src/composables/article/useArticleShare.ts')
   const consoleWelcomeCallout = readRepoFile('src/frontend/src/composables/useConsoleWelcomeCallout.ts')
   const articleToc = readRepoFile('src/frontend/src/composables/article/useArticleToc.ts')
   const fullApp = readRepoFile('src/frontend/src/bootstrap/fullApp.ts')
@@ -22,8 +21,6 @@ describe('pre-hydration browser API safety contracts', () => {
   })
 
   it('keeps document and storage reads out of initial render-visible state', () => {
-    expect(articleShare).not.toContain('|| document.title ||')
-    expect(articleShare).toContain('mountedDocumentTitle')
     expect(consoleWelcomeCallout).not.toContain('ref(readDismissed(storageKey.value))')
     expect(consoleWelcomeCallout).toContain('hasMounted')
     expect(consoleWelcomeCallout).toContain('onMounted')

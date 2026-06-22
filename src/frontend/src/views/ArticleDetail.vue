@@ -24,13 +24,6 @@
       :body-html="initialArticleBodyHtml"
       link-mode="anchor"
     >
-      <template v-if="canRenderBodyRuntime" #header-actions>
-        <ArticleShareActions
-          :title="pageDetailView.header.title"
-          :canonical-url="articleCanonicalUrl"
-        />
-      </template>
-
       <template v-if="canRenderBodyRuntime" #body>
         <MarkdownRenderer
           ref="articleRendererRef"
@@ -155,7 +148,6 @@ import ArticleDetailErrorState from '@/components/article/ArticleDetailErrorStat
 import ArticleDetailNotFoundState from '@/components/article/ArticleDetailNotFoundState.vue'
 import ArticleImageLightbox from '@/components/article/ArticleImageLightbox.vue'
 import ArticleReadingProgress from '@/components/article/ArticleReadingProgress.vue'
-import ArticleShareActions from '@/components/article/ArticleShareActions.vue'
 import ArticleTocPanel from '@/components/article/ArticleTocPanel.vue'
 import PublicArticleDetailPageContent from '@/components/public/pages/PublicArticleDetailPageContent.vue'
 import FsusSecurityChallenge from '@/components/security/FsusSecurityChallenge.vue'
