@@ -109,7 +109,7 @@
     "check:coherence:distribution-full": "node ../../tests/frontend/checks/runtime/distribution-coherence-full.mjs",
     "check:coherence:notification-stream-events": "node ../../tests/frontend/checks/runtime/notification-stream-business-events.mjs",
     "check:coherence:upload-complete": "node ../../tests/frontend/checks/resilience/check-upload-complete-coherence.mjs",
-    "check:coherence:auth-state": "node ../../tests/frontend/checks/runtime/auth-state-coherence.mjs",
+    "check:coherence:auth-state": "node ../../tests/frontend/checks/runtime/auth-state-coherence.mjs && npm run check:auth-zero-probe",
     "check:coherence:sw-cache": "node ../../tests/frontend/checks/public/check-sw-backend-cache-coherence.mjs",
     "check:coherence:perf": "node ../../tests/frontend/checks/load/check-cross-stack-performance.mjs",
     "check:cross-stack-test-governance": "node ../../tests/frontend/checks/static/check-cross-stack-test-governance.mjs",
@@ -198,7 +198,8 @@
     "check:acceptance": "echo '[deprecated] use npm run test:release' >&2 && npm run test:release",
     "check:full-regression": "bash ../../tools/frontend/full-regression.sh",
     "build": "npm run build:release",
-    "preview": "vite preview --host 0.0.0.0 --port 8080"
+    "preview": "vite preview --host 0.0.0.0 --port 8080",
+    "check:auth-zero-probe": "node ../../tests/frontend/checks/runtime/zero-auth-probe-matrix.mjs"
   },
   "dependencies": {
     "@fingerprintjs/fingerprintjs": "^5.2.0",

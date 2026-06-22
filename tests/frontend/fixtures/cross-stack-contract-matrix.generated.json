@@ -142,6 +142,7 @@
       ],
       "evidencePaths": [
         "tests/frontend/checks/runtime/auth-state-coherence.mjs",
+        "tests/frontend/checks/runtime/zero-auth-probe-matrix.mjs",
         "tests/frontend/checks/runtime/auth-session-smoke.mjs",
         "tests/frontend/checks/runtime/auth-register-smoke.mjs"
       ]
@@ -2020,10 +2021,13 @@
         "recovery-code",
         "passkey-list",
         "frontend-store",
-        "backend-me"
+        "backend-me",
+        "zero-auth-probe-public-routes",
+        "route-scoped-auth-probes"
       ],
       "evidencePaths": [
         "tests/frontend/checks/runtime/auth-state-coherence.mjs",
+        "tests/frontend/checks/runtime/zero-auth-probe-matrix.mjs",
         "tests/frontend/checks/runtime/auth-session-smoke.mjs"
       ]
     },
