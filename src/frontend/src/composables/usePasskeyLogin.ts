@@ -3,6 +3,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { startAuthentication } from '@simplewebauthn/browser'
 import { passkeyLoginBegin, passkeyLoginComplete } from '@/api/auth'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
+import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { toAppError, AppErrorCode } from '@/utils/appError'
 
 const PASSKEY_LOGIN_ERROR_TEXT = '通行密钥登录失败，请重试'
@@ -84,6 +85,7 @@ export function usePasskeyLogin() {
 
       // 4. 刷新 session 状态后跳转
       await ensureBootstrap(true)
+      authBroadcastRuntime.broadcastLogin()
       await router.push(getSafeRedirect(route.query.redirect))
       return true
     } catch (e: unknown) {

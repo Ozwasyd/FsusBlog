@@ -80,6 +80,18 @@ export const useAdminStore = defineStore('admin', () => {
     adminCheckedAt.value = Date.now()
   }
 
+  const markMissing = (): void => {
+    clearAdminPrincipal('missing')
+  }
+
+  const invalidateMissingCache = (): void => {
+    if (adminState.value === 'missing') {
+      adminPrincipal.value = null
+      adminState.value = 'unknown'
+      adminCheckedAt.value = 0
+    }
+  }
+
   const setAnonymousCommentPolicy = (snapshot: Partial<AnonymousCommentPolicySnapshot>): void => {
     anonymousCommentPolicy.value = {
       ...anonymousCommentPolicy.value,
@@ -144,6 +156,8 @@ export const useAdminStore = defineStore('admin', () => {
     hasPermission,
     setAdminPrincipal,
     clearAdminPrincipal,
+    markMissing,
+    invalidateMissingCache,
     ensureAdminSessionFresh,
     setAnonymousCommentPolicy,
     logout

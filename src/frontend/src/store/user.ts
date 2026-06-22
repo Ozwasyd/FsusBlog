@@ -197,6 +197,8 @@ export const useUserStore = defineStore('user', () => {
             console.warn('[UserStore] Logout partial failure.');
         } finally {
             markGuest()
+            void import('@/services/authBroadcastRuntime')
+                .then(({ authBroadcastRuntime }) => authBroadcastRuntime.broadcastLogout())
             isLoggingOut.value = false;
             notificationStreamStore.dispose()
             notificationStreamStore.resetCursor()

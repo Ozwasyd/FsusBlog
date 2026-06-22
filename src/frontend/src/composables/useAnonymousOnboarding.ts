@@ -3,6 +3,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { bootstrapAnonymousAccount, createRecoveryKey } from '@/api/auth'
 import { usePasskeyManagement } from '@/composables/usePasskeyManagement'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
+import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { toAppError } from '@/utils/appError'
 import { PUBLIC_HANDLE_CONSTRAINT, validatePublicHandle } from '@/utils/contentFilter'
 import { toast } from '@/fsusui/feedback'
@@ -103,6 +104,7 @@ export function useAnonymousOnboarding() {
       syncAuthPhase()
       if (userStore.isLoggedIn) {
         markSessionActive()
+        authBroadcastRuntime.broadcastLogin()
       }
 
       const response = await createRecoveryKey()

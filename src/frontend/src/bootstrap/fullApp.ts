@@ -23,6 +23,7 @@ import {
 } from '@/bootstrap/publicTakeoverController'
 import { abortPublicShellLifetime } from '@/bootstrap/publicShellLifetime'
 import { markStartup, measureStartup } from '@/bootstrap/startupProfiler'
+import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { authSessionRuntime } from '@/services/authSessionRuntime'
 import '@/assets/main.css'
 
@@ -157,6 +158,7 @@ export async function commitPreparedFullApp(
       markStartup('full-app-bootstrap:router-ready-before-mount')
     }
 
+    authBroadcastRuntime.init(prepared.pinia)
     authSessionRuntime.init(prepared.pinia)
     prepared.app.mount('#app')
     markStartup('full-app-bootstrap:mounted')

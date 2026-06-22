@@ -1,6 +1,7 @@
 import { effectScope, watch, type EffectScope } from 'vue'
 import type { Pinia } from 'pinia'
 import { refreshToken } from '@/api/auth'
+import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { useAppShellStore } from '@/store/appShell'
 import { useUserStore } from '@/store/user'
 import { isAuthFailureError } from '@/utils/errorKinds'
@@ -109,6 +110,7 @@ class AuthSessionRuntime {
       } catch (error: unknown) {
         if (isAuthFailureError(error)) {
           appShellStore.markSessionExpired()
+          authBroadcastRuntime.broadcastExpired()
         } else {
           appShellStore.markSessionActive()
           this.stopTimer()

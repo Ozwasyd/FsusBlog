@@ -3,6 +3,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { verifyMfaChallenge } from '@/api/auth'
 import { useNotification } from '@/composables/useNotification'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
+import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { useViewTask } from '@/composables/useViewTask'
 import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
 
@@ -151,6 +152,7 @@ export function useAuthLogin() {
       }
 
       setRiskPhase('normal')
+      authBroadcastRuntime.broadcastLogin()
       requiresMfa.value = false
       mfaChallengeToken.value = ''
       mfaMode.value = 'totp'
