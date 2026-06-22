@@ -22,6 +22,10 @@ export const useAppShellStore = defineStore('app-shell', () => {
 
   const syncAuthPhase = () => {
     const userStore = useUserStore()
+    if (userStore.accountState === 'unknown') {
+      authPhase.value = 'unknown'
+      return
+    }
     authPhase.value = userStore.isLoggedIn ? 'authenticated' : 'guest'
   }
 
@@ -32,14 +36,10 @@ export const useAppShellStore = defineStore('app-shell', () => {
 
     bootstrapPromise = (async () => {
       const siteStore = useSiteStore()
-      const userStore = useUserStore()
       bootstrapPhase.value = 'bootstrapping'
       bootstrapError.value = ''
       try {
-        await Promise.all([
-          siteStore.fetchSiteInfo(force),
-          userStore.fetchUserInfo(force)
-        ])
+        await siteStore.fetchSiteInfo(force)
         syncAuthPhase()
         bootstrapPhase.value = 'ready'
       } catch (error) {

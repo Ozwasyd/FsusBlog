@@ -11,6 +11,7 @@ vi.mock('@/store/site', () => ({
 vi.mock('@/store/user', () => ({
   useUserStore: vi.fn().mockReturnValue({
     fetchUserInfo: vi.fn().mockResolvedValue(undefined),
+    accountState: 'unknown',
     isLoggedIn: false
   })
 }))
@@ -36,7 +37,7 @@ describe('useAppShellStore', () => {
     await store.bootstrap()
     expect(store.bootstrapPhase).toBe('ready')
     expect(store.isReady).toBe(true)
-    expect(store.authPhase).toBe('guest') // isLoggedIn is false in mock
+    expect(store.authPhase).toBe('unknown')
   })
 
   it('bootstrap caches the promise on second call', async () => {
@@ -49,7 +50,7 @@ describe('useAppShellStore', () => {
     await store.bootstrap()
     await store.bootstrap() // second call should return cached promise
     expect(siteMock().fetchSiteInfo).toHaveBeenCalledTimes(1)
-    expect(userMock().fetchUserInfo).toHaveBeenCalledTimes(1)
+    expect(userMock().fetchUserInfo).not.toHaveBeenCalled()
   })
 
   it('bootstrap with force=true re-bootstraps', async () => {
@@ -113,6 +114,7 @@ describe('useAppShellStore', () => {
     const { useUserStore } = await import('@/store/user')
     vi.mocked(useUserStore).mockReturnValue({
       fetchUserInfo: vi.fn().mockResolvedValue(undefined),
+      accountState: 'authenticated',
       isLoggedIn: true
     } as never)
 

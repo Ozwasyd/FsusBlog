@@ -6,6 +6,18 @@ import { useSiteStore } from '@/store/site'
 import { useUserStore } from '@/store/user'
 import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIdentityDefaults'
 
+export interface AccountSessionEnsureOptions {
+  force?: boolean
+  maxAgeMs?: number
+  forceWhenUnknown?: boolean
+  reason?: 'bootstrap' | 'route' | 'interaction' | 'runtime'
+}
+
+export interface AdminSessionEnsureOptions {
+  force?: boolean
+  reason?: 'bootstrap' | 'route' | 'interaction' | 'runtime'
+}
+
 export function useSessionBootstrap() {
   const appShellStore = useAppShellStore()
   const adminStore = useAdminStore()
@@ -15,27 +27,44 @@ export function useSessionBootstrap() {
   const baseTitle = computed(() => siteStore.siteInfo.title || PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle)
 
   const needsBootstrap = (): boolean => {
-    return !appShellStore.isReady || !userStore.isAuthChecked || !siteStore.isLoaded
+    return !appShellStore.isReady || !siteStore.isLoaded
   }
 
   const ensureBootstrap = async (force = false): Promise<void> => {
     await appShellStore.bootstrap(force)
   }
 
+  const ensurePublicShell = async (force = false): Promise<void> => {
+    await appShellStore.bootstrap(force)
+    appShellStore.setRuntimePhase('shell-visible')
+  }
+
   const ensureSiteInfo = async (force = false): Promise<void> => {
     await siteStore.fetchSiteInfo(force)
   }
 
-  const ensureUserInfo = async (force = false): Promise<void> => {
-    await userStore.fetchUserInfo(force)
-    await adminStore.ensureAdminSessionFresh(userStore.userInfo)
+  const ensureAccountSession = async (options: AccountSessionEnsureOptions = {}): Promise<void> => {
+    if (options.maxAgeMs !== undefined || options.forceWhenUnknown !== undefined) {
+      await userStore.ensureUserInfoFresh({
+        maxAgeMs: options.maxAgeMs,
+        forceWhenUnknown: options.forceWhenUnknown
+      })
+    } else {
+      await userStore.fetchUserInfo(options.force ?? false)
+    }
     appShellStore.syncAuthPhase()
   }
 
+  const ensureAdminSession = async (_options: AdminSessionEnsureOptions = {}): Promise<void> => {
+    await adminStore.ensureAdminSessionFresh()
+  }
+
+  const ensureUserInfo = async (force = false): Promise<void> => {
+    await ensureAccountSession({ force, reason: 'runtime' })
+  }
+
   const ensureUserInfoFresh = async (options?: { maxAgeMs?: number; forceWhenUnknown?: boolean }): Promise<void> => {
-    await userStore.ensureUserInfoFresh(options)
-    await adminStore.ensureAdminSessionFresh(userStore.userInfo)
-    appShellStore.syncAuthPhase()
+    await ensureAccountSession({ ...options, reason: 'runtime' })
   }
 
   const syncDocumentTitle = (routeOrTitle?: RouteLocationNormalizedLoaded | string | null): string => {
@@ -60,7 +89,10 @@ export function useSessionBootstrap() {
     baseTitle,
     needsBootstrap,
     ensureBootstrap,
+    ensurePublicShell,
     ensureSiteInfo,
+    ensureAccountSession,
+    ensureAdminSession,
     ensureUserInfo,
     ensureUserInfoFresh,
     syncDocumentTitle,
