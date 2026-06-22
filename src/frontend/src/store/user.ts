@@ -32,12 +32,18 @@ function createMemoryStorage(): Storage {
 
 const safeStorage = typeof localStorage !== 'undefined' ? localStorage : createMemoryStorage()
 
+export type AccountSessionState = 'unknown' | 'guest' | 'authenticated'
+
+export const ACCOUNT_GUEST_NEGATIVE_CACHE_MS = 5 * 60 * 1000
+
 export const useUserStore = defineStore('user', () => {
     const notificationStreamStore = useNotificationStreamStore()
 
     // ================= 1. State =================
     const userInfo = ref<CurrentUserSnapshot | null>(null)
-    const isAuthChecked = ref(false)
+    const accountState = ref<AccountSessionState>('unknown')
+    const lastVerifiedAt = ref(0)
+    const authCacheVersion = ref(2)
     const isLoading = ref(false)
     const isLoggingOut = ref(false)
     const lastFetchedAt = ref(0)
@@ -46,7 +52,8 @@ export const useUserStore = defineStore('user', () => {
     let abortController: AbortController | null = null
 
     // ================= 2. Getters =================
-    const isLoggedIn = computed(() => !!userInfo.value)
+    const isAuthChecked = computed(() => accountState.value !== 'unknown')
+    const isLoggedIn = computed(() => accountState.value === 'authenticated' && userInfo.value !== null)
 
     const isAdmin = computed(() => false)
 
@@ -61,7 +68,8 @@ export const useUserStore = defineStore('user', () => {
             abortController = null
         }
         userInfo.value = null
-        isAuthChecked.value = false
+        accountState.value = 'unknown'
+        lastVerifiedAt.value = 0
         isLoading.value = false
         lastFetchedAt.value = 0
         fetchPromise = null
@@ -77,18 +85,41 @@ export const useUserStore = defineStore('user', () => {
 
     // ================= 4. Actions =================
 
+    const markGuest = () => {
+        userInfo.value = null
+        accountState.value = 'guest'
+        lastVerifiedAt.value = Date.now()
+        lastFetchedAt.value = lastVerifiedAt.value
+    }
+
+    const markAuthenticated = (info: CurrentUserSnapshot) => {
+        userInfo.value = info
+        accountState.value = 'authenticated'
+        lastVerifiedAt.value = Date.now()
+        lastFetchedAt.value = lastVerifiedAt.value
+    }
+
+    const invalidateGuestCache = () => {
+        if (accountState.value === 'guest') {
+            accountState.value = 'unknown'
+            lastVerifiedAt.value = 0
+            lastFetchedAt.value = 0
+        }
+    }
+
     const setUserInfo = (info: CurrentUserSnapshot | null) => {
         if (!info) {
             clearLocalState()
             return
         }
-        userInfo.value = info
-        isAuthChecked.value = true
-        lastFetchedAt.value = Date.now()
+        markAuthenticated(info)
     }
 
     const fetchUserInfo = async (force = false) => {
-        if (isAuthChecked.value && userInfo.value && !force) return
+        if (!force) {
+            if (accountState.value === 'authenticated' && userInfo.value) return
+            if (accountState.value === 'guest' && Date.now() - lastVerifiedAt.value <= ACCOUNT_GUEST_NEGATIVE_CACHE_MS) return
+        }
 
         if (force && abortController) {
             abortController.abort()
@@ -106,21 +137,17 @@ export const useUserStore = defineStore('user', () => {
                 const res = await getMe({ signal: currentController.signal })
 
                 if (currentController === abortController) {
-                    userInfo.value = res
-                    isAuthChecked.value = true
-                    lastFetchedAt.value = Date.now()
+                    markAuthenticated(res)
                 }
             } catch (error: unknown) {
                 if (isAbortError(error)) return;
 
                 if (isAuthFailureError(error)) {
-                    userInfo.value = null;
-                    isAuthChecked.value = true; // 标记握手完成，身份确认：游客
-                    lastFetchedAt.value = Date.now()
+                    markGuest()
                 } else {
                     const info = getKnownErrorInfo(error, 'auth_handshake_failed')
                     console.error('[UserStore] Auth handshake failed:', info.message);
-                    // 如果是 500 或网络错误，不设置 isAuthChecked，允许重试
+                    // 如果是 500 或网络错误，不设置 accountState，允许重试
                 }
             } finally {
                 if (currentController === abortController) {
@@ -138,15 +165,22 @@ export const useUserStore = defineStore('user', () => {
         const maxAgeMs = options?.maxAgeMs ?? 30_000
         const forceWhenUnknown = options?.forceWhenUnknown ?? true
 
-        if (!isAuthChecked.value) {
+        if (accountState.value === 'unknown') {
             return fetchUserInfo(false)
         }
 
-        if (lastFetchedAt.value <= 0) {
+        if (accountState.value === 'guest') {
+            if (lastVerifiedAt.value > 0 && Date.now() - lastVerifiedAt.value <= ACCOUNT_GUEST_NEGATIVE_CACHE_MS) {
+                return
+            }
             return fetchUserInfo(forceWhenUnknown)
         }
 
-        if (Date.now() - lastFetchedAt.value <= maxAgeMs) {
+        if (lastVerifiedAt.value <= 0) {
+            return fetchUserInfo(forceWhenUnknown)
+        }
+
+        if (Date.now() - lastVerifiedAt.value <= maxAgeMs) {
             return
         }
 
@@ -162,8 +196,12 @@ export const useUserStore = defineStore('user', () => {
         } catch (error) {
             console.warn('[UserStore] Logout partial failure.');
         } finally {
-            clearLocalState()
+            markGuest()
             isLoggingOut.value = false;
+            notificationStreamStore.dispose()
+            notificationStreamStore.resetCursor()
+            notificationStreamStore.setStatus('stopped')
+            void notificationStreamRuntime.stop(true)
             if (typeof window !== 'undefined') {
                 window.location.href = '/'
             }
@@ -183,12 +221,18 @@ export const useUserStore = defineStore('user', () => {
     return {
         userInfo,
         isLoading,
+        accountState,
         isAuthChecked,
+        lastVerifiedAt,
+        authCacheVersion,
         lastFetchedAt,
         isLoggedIn,
         isAdmin,
         isBanned,
         isDeleted,
+        markGuest,
+        markAuthenticated,
+        invalidateGuestCache,
         setUserInfo,
         fetchUserInfo,
         ensureUserInfoFresh,
@@ -199,6 +243,6 @@ export const useUserStore = defineStore('user', () => {
     persist: {
         key: 'fsus_user_storage',
         storage: safeStorage,
-        pick: ['isAuthChecked']
+        pick: ['accountState', 'lastVerifiedAt', 'authCacheVersion']
     }
 })

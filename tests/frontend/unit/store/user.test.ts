@@ -29,12 +29,15 @@ describe('useUserStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    vi.useRealTimers()
+    localStorage.clear()
     sessionStorage.clear()
   })
 
   it('initial state is unauthenticated', () => {
     const store = useUserStore()
     expect(store.userInfo).toBeNull()
+    expect(store.accountState).toBe('unknown')
     expect(store.isAuthChecked).toBe(false)
     expect(store.isLoggedIn).toBe(false)
     expect(store.isAdmin).toBe(false)
@@ -54,6 +57,7 @@ describe('useUserStore', () => {
     }))
     expect(Object.prototype.hasOwnProperty.call(store.userInfo, 'user' + 'Name')).toBe(false)
     expect(Object.prototype.hasOwnProperty.call(store.userInfo, 'User' + 'Id')).toBe(false)
+    expect(store.accountState).toBe('authenticated')
     expect(store.isAuthChecked).toBe(true)
     expect(store.isLoggedIn).toBe(true)
   })
@@ -64,6 +68,7 @@ describe('useUserStore', () => {
     store.setUserInfo(mockUser)
     store.setUserInfo(null)
     expect(store.userInfo).toBeNull()
+    expect(store.accountState).toBe('unknown')
     expect(store.isLoggedIn).toBe(false)
   })
 
@@ -91,34 +96,97 @@ describe('useUserStore', () => {
     const store = useUserStore()
     await store.fetchUserInfo()
     expect(store.userInfo).toEqual(mockUser)
+    expect(store.accountState).toBe('authenticated')
     expect(store.isAuthChecked).toBe(true)
     expect(store.lastFetchedAt).toBeGreaterThan(0)
+    expect(store.lastVerifiedAt).toBeGreaterThan(0)
   })
 
-  it('fetchUserInfo sets checked on 401 error', async () => {
+  it('fetchUserInfo caches guest state after 401', async () => {
     const { createAppError, AppErrorCode } = await import('@/utils/appError')
     const authErr = createAppError(AppErrorCode.Unauthorized, 'not authenticated')
     mockGetMe.mockRejectedValueOnce(authErr)
     const store = useUserStore()
     await store.fetchUserInfo()
     expect(store.userInfo).toBeNull()
+    expect(store.accountState).toBe('guest')
     expect(store.isAuthChecked).toBe(true)
     expect(store.lastFetchedAt).toBeGreaterThan(0)
+    expect(store.lastVerifiedAt).toBeGreaterThan(0)
   })
 
-  it('fetchUserInfo does nothing if already checked', async () => {
-    mockGetMe.mockResolvedValueOnce({ id: 1 } as never)
+  it('fetchUserInfo does nothing if already authenticated', async () => {
+    mockGetMe.mockResolvedValueOnce(anonymousUser(1) as never)
     const store = useUserStore()
     await store.fetchUserInfo()
     await store.fetchUserInfo() // should skip
     expect(mockGetMe).toHaveBeenCalledTimes(1)
   })
 
+  it('fetchUserInfo skips fresh guest negative cache', async () => {
+    const { createAppError, AppErrorCode } = await import('@/utils/appError')
+    const authErr = createAppError(AppErrorCode.Unauthorized, 'not authenticated')
+    mockGetMe.mockRejectedValueOnce(authErr)
+    const store = useUserStore()
+
+    await store.fetchUserInfo()
+    await store.fetchUserInfo()
+
+    expect(mockGetMe).toHaveBeenCalledTimes(1)
+    expect(store.accountState).toBe('guest')
+  })
+
+  it('fetchUserInfo retries expired guest negative cache', async () => {
+    const mockUser = anonymousUser(2)
+    mockGetMe.mockResolvedValueOnce(mockUser as never)
+    const store = useUserStore()
+    store.markGuest()
+    store.lastVerifiedAt = Date.now() - 301_000
+    store.lastFetchedAt = store.lastVerifiedAt
+
+    await store.fetchUserInfo()
+
+    expect(mockGetMe).toHaveBeenCalledTimes(1)
+    expect(store.accountState).toBe('authenticated')
+    expect(store.userInfo).toEqual(mockUser)
+  })
+
+  it('fetchUserInfo force bypasses guest negative cache', async () => {
+    const mockUser = anonymousUser(2)
+    mockGetMe.mockResolvedValueOnce(mockUser as never)
+    const store = useUserStore()
+    store.markGuest()
+
+    await store.fetchUserInfo(true)
+
+    expect(mockGetMe).toHaveBeenCalledTimes(1)
+    expect(store.accountState).toBe('authenticated')
+    expect(store.userInfo).toEqual(mockUser)
+  })
+
+  it('network failure does not mark guest', async () => {
+    mockGetMe.mockRejectedValueOnce(new Error('network down'))
+    const store = useUserStore()
+
+    await store.fetchUserInfo()
+
+    expect(store.userInfo).toBeNull()
+    expect(store.accountState).toBe('unknown')
+    expect(store.isAuthChecked).toBe(false)
+  })
+
+  it('legacy persisted isAuthChecked without accountState migrates to unknown', async () => {
+    localStorage.setItem('fsus_user_storage', JSON.stringify({ isAuthChecked: true }))
+    const store = useUserStore()
+    expect(store.accountState).toBe('unknown')
+    expect(store.isAuthChecked).toBe(false)
+  })
+
   it('fetchUserInfo refreshes when only bootstrap marker was restored', async () => {
     const mockUser = anonymousUser(2)
     mockGetMe.mockResolvedValueOnce(mockUser as never)
     const store = useUserStore()
-    store.isAuthChecked = true
+    store.accountState = 'unknown'
     store.userInfo = null
 
     await store.fetchUserInfo()
@@ -141,7 +209,8 @@ describe('useUserStore', () => {
     mockGetMe.mockResolvedValueOnce(mockUser as never)
     const store = useUserStore()
     store.setUserInfo(anonymousUser(1) as never)
-    store.lastFetchedAt = Date.now() - 31_000
+    store.lastVerifiedAt = Date.now() - 31_000
+    store.lastFetchedAt = store.lastVerifiedAt
 
     await store.ensureUserInfoFresh({ maxAgeMs: 30_000 })
 
@@ -153,7 +222,7 @@ describe('useUserStore', () => {
     const mockUser = anonymousUser(3)
     mockGetMe.mockResolvedValueOnce(mockUser as never)
     const store = useUserStore()
-    store.isAuthChecked = true
+    store.accountState = 'unknown'
     store.userInfo = null
     store.lastFetchedAt = 0
 
@@ -183,6 +252,7 @@ describe('useUserStore', () => {
     await store.logout()
     expect(mockLogout).toHaveBeenCalled()
     expect(store.userInfo).toBeNull()
+    expect(store.accountState).toBe('guest')
   })
 })
 
