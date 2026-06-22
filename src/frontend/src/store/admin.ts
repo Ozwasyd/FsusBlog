@@ -4,7 +4,11 @@ import { getAdminMe } from '@/api/auth'
 import { isAuthFailureError } from '@/utils/errorKinds'
 
 export type AdminSessionStatus = 'missing' | 'active' | 'expired' | 'step_up_required'
+export type AdminSessionState = 'unknown' | AdminSessionStatus
 export type AdminPrincipalSource = 'independent'
+
+export const ADMIN_NEGATIVE_CACHE_MS = 5 * 60 * 1000
+export const ADMIN_ACTIVE_TTL_MS = 60 * 1000
 
 export interface AdminPrincipalSnapshot {
   id: string
@@ -23,6 +27,10 @@ export interface AnonymousCommentPolicySnapshot {
   zkAnonymousConfigurable: boolean
 }
 
+export interface EnsureAdminSessionFreshOptions {
+  force?: boolean
+}
+
 const DEFAULT_ANONYMOUS_COMMENT_POLICY: AnonymousCommentPolicySnapshot = Object.freeze({
   anonymousCommentsEnabled: true,
   publicSendOptionEnabled: true,
@@ -33,11 +41,19 @@ const DEFAULT_ANONYMOUS_COMMENT_POLICY: AnonymousCommentPolicySnapshot = Object.
 
 export const useAdminStore = defineStore('admin', () => {
   const adminPrincipal = ref<AdminPrincipalSnapshot | null>(null)
+  const adminState = ref<AdminSessionState>('unknown')
+  const adminCheckedAt = ref(0)
   const anonymousCommentPolicy = ref<AnonymousCommentPolicySnapshot>({ ...DEFAULT_ANONYMOUS_COMMENT_POLICY })
 
-  const adminSessionStatus = computed<AdminSessionStatus>(() => adminPrincipal.value?.adminSessionStatus ?? 'missing')
+  const adminSessionStatus = computed<AdminSessionStatus>(() => {
+    if (adminState.value === 'unknown') {
+      return 'missing'
+    }
+
+    return adminState.value
+  })
   const permissions = computed<readonly string[]>(() => adminPrincipal.value?.permissions ?? [])
-  const canManage = computed(() => adminSessionStatus.value === 'active' && permissions.value.length > 0)
+  const canManage = computed(() => adminState.value === 'active' && permissions.value.length > 0)
   const anonymousCommentsEnabled = computed(() => anonymousCommentPolicy.value.anonymousCommentsEnabled)
   const publicSendOptionEnabled = computed(() => anonymousCommentPolicy.value.publicSendOptionEnabled)
   const zkAnonymousEnabled = computed(() => anonymousCommentPolicy.value.zkAnonymousEnabled)
@@ -54,10 +70,14 @@ export const useAdminStore = defineStore('admin', () => {
       ...snapshot,
       permissions: [...snapshot.permissions]
     } : null
+    adminState.value = snapshot?.adminSessionStatus ?? 'missing'
+    adminCheckedAt.value = Date.now()
   }
 
-  const clearAdminPrincipal = (): void => {
+  const clearAdminPrincipal = (state: AdminSessionState = 'missing'): void => {
     adminPrincipal.value = null
+    adminState.value = state
+    adminCheckedAt.value = Date.now()
   }
 
   const setAnonymousCommentPolicy = (snapshot: Partial<AnonymousCommentPolicySnapshot>): void => {
@@ -67,14 +87,30 @@ export const useAdminStore = defineStore('admin', () => {
     }
   }
 
-  const ensureAdminSessionFresh = async (_account?: unknown): Promise<void> => {
-    void _account
+  const ensureAdminSessionFresh = async (options?: EnsureAdminSessionFreshOptions | unknown): Promise<void> => {
+    const force = Boolean(
+      options
+      && typeof options === 'object'
+      && 'force' in options
+      && (options as EnsureAdminSessionFreshOptions).force
+    )
+    const now = Date.now()
+
+    if (!force) {
+      if (adminState.value === 'missing' && now - adminCheckedAt.value < ADMIN_NEGATIVE_CACHE_MS) {
+        return
+      }
+
+      if (adminState.value === 'active' && now - adminCheckedAt.value < ADMIN_ACTIVE_TTL_MS) {
+        return
+      }
+    }
 
     try {
       setAdminPrincipal(await getAdminMe())
     } catch (error: unknown) {
       if (isAuthFailureError(error)) {
-        clearAdminPrincipal()
+        clearAdminPrincipal('missing')
         return
       }
 
@@ -92,6 +128,8 @@ export const useAdminStore = defineStore('admin', () => {
 
   return {
     adminPrincipal,
+    adminState,
+    adminCheckedAt,
     anonymousCommentPolicy,
     adminSessionStatus,
     permissions,

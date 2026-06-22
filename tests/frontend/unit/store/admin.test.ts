@@ -1,6 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { useAdminStore } from '@/store/admin'
+import {
+  ADMIN_ACTIVE_TTL_MS,
+  ADMIN_NEGATIVE_CACHE_MS,
+  useAdminStore
+} from '@/store/admin'
 import { getAccountNavGroups } from '@/layouts/accountNav'
 
 vi.mock('@/api/auth', () => ({
@@ -11,12 +15,18 @@ describe('useAdminStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    vi.useRealTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('does not expose a legacy user-role admin bridge', () => {
     const store = useAdminStore()
 
     expect('syncLegacyAdminPrincipal' in store).toBe(false)
+    expect(store.adminState).toBe('unknown')
     expect(store.adminSessionStatus).toBe('missing')
     expect(store.canManage).toBe(false)
     expect(store.permissions).toEqual([])
@@ -33,6 +43,7 @@ describe('useAdminStore', () => {
     })
 
     expect(store.canManage).toBe(true)
+    expect(store.adminState).toBe('active')
     expect(store.hasPermission('comment.moderate')).toBe(true)
     expect(store.hasPermission('article.write')).toBe(false)
   })
@@ -87,9 +98,176 @@ describe('useAdminStore', () => {
     await store.ensureAdminSessionFresh(null)
 
     expect(authApi.getAdminMe).toHaveBeenCalledTimes(1)
+    expect(store.adminState).toBe('active')
     expect(store.canManage).toBe(true)
     expect(store.hasPermission('admin.manage')).toBe(true)
     expect(store.hasPermission('article.write')).toBe(true)
+  })
+
+  it('ensureAdminSessionFresh caches missing admin session after 401', async () => {
+    vi.setSystemTime(new Date('2026-06-22T00:00:00Z'))
+    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
+    authApi.getAdminMe.mockRejectedValue({
+      name: 'HttpApiError',
+      message: 'unauthorized',
+      status: 401
+    })
+    const store = useAdminStore()
+
+    await store.ensureAdminSessionFresh()
+
+    expect(authApi.getAdminMe).toHaveBeenCalledTimes(1)
+    expect(store.adminState).toBe('missing')
+    expect(store.adminPrincipal).toBeNull()
+    expect(store.adminCheckedAt).toBe(Date.now())
+  })
+
+  it('ensureAdminSessionFresh skips fresh missing state', async () => {
+    vi.setSystemTime(new Date('2026-06-22T00:00:00Z'))
+    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
+    authApi.getAdminMe.mockRejectedValue({
+      name: 'HttpApiError',
+      message: 'unauthorized',
+      status: 401
+    })
+    const store = useAdminStore()
+
+    await store.ensureAdminSessionFresh()
+    await store.ensureAdminSessionFresh()
+
+    expect(authApi.getAdminMe).toHaveBeenCalledTimes(1)
+  })
+
+  it('ensureAdminSessionFresh force bypasses missing cache', async () => {
+    vi.setSystemTime(new Date('2026-06-22T00:00:00Z'))
+    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
+    authApi.getAdminMe.mockRejectedValue({
+      name: 'HttpApiError',
+      message: 'unauthorized',
+      status: 401
+    })
+    const store = useAdminStore()
+
+    await store.ensureAdminSessionFresh()
+    await store.ensureAdminSessionFresh({ force: true })
+
+    expect(authApi.getAdminMe).toHaveBeenCalledTimes(2)
+  })
+
+  it('ensureAdminSessionFresh revalidates expired missing cache', async () => {
+    vi.setSystemTime(new Date('2026-06-22T00:00:00Z'))
+    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
+    authApi.getAdminMe.mockRejectedValue({
+      name: 'HttpApiError',
+      message: 'unauthorized',
+      status: 401
+    })
+    const store = useAdminStore()
+
+    await store.ensureAdminSessionFresh()
+    vi.setSystemTime(new Date(Date.now() + ADMIN_NEGATIVE_CACHE_MS + 1))
+    await store.ensureAdminSessionFresh()
+
+    expect(authApi.getAdminMe).toHaveBeenCalledTimes(2)
+  })
+
+  it('reuses active admin session inside the short TTL', async () => {
+    vi.setSystemTime(new Date('2026-06-22T00:00:00Z'))
+    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
+    authApi.getAdminMe.mockResolvedValue({
+      id: '1',
+      displayName: 'local-root',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'active'
+    })
+    const store = useAdminStore()
+
+    await store.ensureAdminSessionFresh()
+    vi.setSystemTime(new Date(Date.now() + ADMIN_ACTIVE_TTL_MS - 1))
+    await store.ensureAdminSessionFresh()
+
+    expect(authApi.getAdminMe).toHaveBeenCalledTimes(1)
+    expect(store.canManage).toBe(true)
+  })
+
+  it('refreshes active admin session after the short TTL', async () => {
+    vi.setSystemTime(new Date('2026-06-22T00:00:00Z'))
+    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
+    authApi.getAdminMe.mockResolvedValue({
+      id: '1',
+      displayName: 'local-root',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'active'
+    })
+    const store = useAdminStore()
+
+    await store.ensureAdminSessionFresh()
+    vi.setSystemTime(new Date(Date.now() + ADMIN_ACTIVE_TTL_MS + 1))
+    await store.ensureAdminSessionFresh()
+
+    expect(authApi.getAdminMe).toHaveBeenCalledTimes(2)
+  })
+
+  it('canManage requires active state and permissions', () => {
+    const store = useAdminStore()
+
+    store.setAdminPrincipal({
+      id: 'admin-principal',
+      displayName: 'Security Admin',
+      source: 'independent',
+      permissions: [],
+      adminSessionStatus: 'active'
+    })
+    expect(store.canManage).toBe(false)
+
+    store.setAdminPrincipal({
+      id: 'admin-principal',
+      displayName: 'Security Admin',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'expired'
+    })
+    expect(store.canManage).toBe(false)
+  })
+
+  it('step_up_required is not canManage', () => {
+    const store = useAdminStore()
+
+    store.setAdminPrincipal({
+      id: 'admin-principal',
+      displayName: 'Security Admin',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'step_up_required',
+      totpStepUpRequired: true
+    })
+
+    expect(store.adminState).toBe('step_up_required')
+    expect(store.canManage).toBe(false)
+    expect(store.totpStepUpRequired).toBe(true)
+  })
+
+  it('network failure does not overwrite existing active principal', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
+    authApi.getAdminMe.mockRejectedValue(new Error('network down'))
+    const store = useAdminStore()
+    store.setAdminPrincipal({
+      id: 'admin-principal',
+      displayName: 'Security Admin',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'active'
+    })
+
+    await store.ensureAdminSessionFresh({ force: true })
+
+    expect(store.adminState).toBe('active')
+    expect(store.canManage).toBe(true)
+    expect(store.adminPrincipal?.id).toBe('admin-principal')
+    warnSpy.mockRestore()
   })
 
   it('derives anonymous comment policy states for manage workspace controls', () => {
