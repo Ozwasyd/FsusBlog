@@ -8,12 +8,12 @@
  */
 
 :root {
-  --blog-motion-fast: var(--fsus-motion-control-fast, 120ms);
-  --blog-motion-control: var(--fsus-motion-control, 180ms);
-  --blog-motion-panel: var(--fsus-motion-panel, 220ms);
-  --blog-motion-overlay: var(--fsus-motion-overlay, var(--fsus-motion-panel, 220ms));
-  --blog-motion-ease: var(--fsus-motion-standard, ease);
-  --blog-motion-ease-emphasized: var(--fsus-motion-emphasized, var(--fsus-motion-standard, ease));
+  --blog-motion-fast: var(--fsus-motion-control-fast, 140ms);
+  --blog-motion-control: var(--fsus-motion-control, 220ms);
+  --blog-motion-panel: var(--fsus-motion-panel, 360ms);
+  --blog-motion-overlay: var(--fsus-motion-overlay, 300ms);
+  --blog-motion-ease: var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1));
+  --blog-motion-ease-emphasized: var(--fsus-motion-emphasized, var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1)));
   --blog-motion-highlight-bg: color-mix(in srgb, var(--fsusblog-color-primary, Highlight) 10%, transparent);
   --blog-motion-highlight-border: color-mix(in srgb, var(--fsusblog-color-primary, Highlight) 24%, transparent);
 }

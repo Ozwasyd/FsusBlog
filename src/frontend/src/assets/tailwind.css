@@ -3,7 +3,7 @@
 @custom-variant dark (&:where(.dark, .dark *, [data-theme-resolved='dark'], [data-theme-resolved='dark'] *));
 
 @theme {
-  --font-sans: "Google Sans", 'Noto Sans SC' , 'Noto Sans TC', 'Noto Sans JP', "ui-sans-serif", "system-ui", "sans-serif";
-  --font-mono: "JetBrains Mono", "ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", monospace;
+  --font-sans: "Google Sans", 'Noto Sans SC', 'Noto Sans TC', 'Noto Sans JP', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: "JetBrains Mono", 'PingFang SC', 'Microsoft YaHei', "ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Helvetica Neue", Arial, monospace;
 
 }

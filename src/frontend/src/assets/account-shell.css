@@ -142,7 +142,7 @@
 .admin-data-surface {
   overflow: hidden;
   border: 1px solid var(--fsusblog-panel-border);
-  border-radius: var(--fsus-radius-control, 8px);
+  border-radius: var(--fsus-radius-control, 6px);
   background: var(--fsusblog-page-bg);
   box-shadow: none;
 }

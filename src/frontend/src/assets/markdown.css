@@ -23,7 +23,7 @@
   color: var(--fsusblog-reading-error-text);
   border: 1px solid var(--fsusblog-reading-error-border);
   background: var(--fsusblog-reading-error-bg);
-  border-radius: 1rem;
+  border-radius: var(--fsus-radius-panel, 12px);
   padding: 1.5rem;
   margin: 1.5rem 0;
 }
@@ -204,7 +204,7 @@
   max-width: 100%;
   max-height: 75vh;
   object-fit: contain;
-  border-radius: 4px;
+  border-radius: var(--fsus-radius-control-small, 4px);
   box-shadow: var(--fsus-shadow-panel-light);
 }
 
@@ -275,7 +275,7 @@
   margin: 2rem 0 !important;
   background-color: var(--fsusblog-reading-code-bg) !important;
   border: 1px solid var(--fsusblog-reading-code-border) !important;
-  border-radius: 8px;
+  border-radius: var(--fsus-radius-control, 6px);
   font-size: 0.85rem;
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   line-height: 1.6;

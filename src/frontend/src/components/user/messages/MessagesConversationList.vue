@@ -332,7 +332,7 @@ defineExpose({
 }
 
 .messages-conversation-meta {
-  font-family: var(--tabular-nums);
+  font-variant-numeric: tabular-nums;
   font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0;

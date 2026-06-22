@@ -81,7 +81,6 @@ for (const [label, source] of publicReadingSources) {
   for (const token of [
     '--fsus-radius-panel',
     '--fsus-shadow-panel',
-    '--fsus-backdrop-blur-soft',
     'list-stagger'
   ]) {
     expectNotIncludes(source, token, label)

@@ -47,7 +47,7 @@
         class="blog-link-state group flex items-center gap-3 text-xs font-semibold normal-case tracking-normal outline-none"
         :class="focusRingClass"
       >
-        进入文章管理 <el-icon class="transition-transform" aria-hidden="true"><ArrowRight /></el-icon>
+        进入文章管理 <el-icon class="transition-transform group-hover:translate-x-0.5 motion-reduce:transform-none" aria-hidden="true"><ArrowRight /></el-icon>
       </router-link>
     </footer>
   </section>

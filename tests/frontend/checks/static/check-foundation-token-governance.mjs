@@ -1,0 +1,125 @@
+#!/usr/bin/env node
+
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+const repoRoot = resolve(process.cwd(), '../..')
+const errors = []
+const legacyPageToken = `--fsus-page: #${'f8f9f7'};`
+const legacyBorderToken = `--fsus-border: #${'e4e4df'};`
+const legacyDarkBlueToken = `--fsus-scholarly-blue: #${'7aa2e3'};`
+const legacyFsusBackdropSaturate = `--fsus-${'backdrop-saturate'}`
+const legacyFsusBackdropBlurSoft = `--fsus-${'backdrop-blur-soft'}`
+const legacyTabularNumsVar = `var(--${'tabular-nums'})`
+const legacyFsusFontMonoVar = `var(--fsus-${'font-mono'})`
+
+function read(path) {
+  return readFileSync(resolve(repoRoot, path), 'utf8')
+}
+
+function expectIncludes(path, source, needle, label = needle) {
+  if (!source.includes(needle)) {
+    errors.push(`${path}: missing ${label}`)
+  }
+}
+
+function expectNotIncludes(path, source, needle, label = needle) {
+  if (source.includes(needle)) {
+    errors.push(`${path}: must not contain ${label}`)
+  }
+}
+
+const publicPagePath = 'src/frontend/src/assets/public-page.css'
+const publicShellPath = 'src/frontend/src/assets/public-shell-critical.css'
+const motionPath = 'src/frontend/src/assets/motion.css'
+const tailwindPath = 'src/frontend/src/assets/tailwind.css'
+const markdownPath = 'src/frontend/src/assets/markdown.css'
+const accountShellPath = 'src/frontend/src/assets/account-shell.css'
+const messagesPath = 'src/frontend/src/components/user/messages/MessagesConversationList.vue'
+const identityPath = 'src/frontend/src/views/user/IdentityCenter.vue'
+const dashboardPopularPath = 'src/frontend/src/components/admin/DashboardPopularArticles.vue'
+const complianceFooterPath = 'src/frontend/src/components/public/PublicComplianceFooter.vue'
+const packagePath = 'src/frontend/package.json'
+
+const publicPage = read(publicPagePath)
+const publicShell = read(publicShellPath)
+const motion = read(motionPath)
+const tailwind = read(tailwindPath)
+const markdown = read(markdownPath)
+const accountShell = read(accountShellPath)
+const messages = read(messagesPath)
+const identity = read(identityPath)
+const dashboardPopular = read(dashboardPopularPath)
+const complianceFooter = read(complianceFooterPath)
+const packageJson = JSON.parse(read(packagePath))
+
+for (const [path, source] of [
+  [publicPagePath, publicPage],
+  [publicShellPath, publicShell]
+]) {
+  expectIncludes(path, source, '--fsus-page: #F7F7F8;', '--fsus-page light token')
+  expectIncludes(path, source, '--fsus-border: #E4E4E7;', '--fsus-border light token')
+  expectIncludes(path, source, '--fsus-scholarly-blue: #4B79CC;', '--fsus-scholarly-blue dark token')
+  expectNotIncludes(path, source, legacyPageToken, 'legacy green-tinted page token')
+  expectNotIncludes(path, source, legacyBorderToken, 'legacy yellow-tinted border token')
+  expectNotIncludes(path, source, legacyDarkBlueToken, 'legacy dark Scholarly Blue token')
+  expectNotIncludes(path, source, legacyFsusBackdropSaturate, `unregistered ${legacyFsusBackdropSaturate} alias`)
+  expectNotIncludes(path, source, legacyFsusBackdropBlurSoft, `unregistered ${legacyFsusBackdropBlurSoft} alias`)
+}
+
+expectIncludes(publicPagePath, publicPage, '--fsusblog-backdrop-saturate: 100%;')
+expectIncludes(publicShellPath, publicShell, '--fsusblog-backdrop-saturate: 100%;')
+expectIncludes(publicShellPath, publicShell, '--fsusblog-backdrop-blur-soft: 0px;')
+expectIncludes(publicShellPath, publicShell, 'blur(var(--fsusblog-backdrop-blur-soft)) saturate(var(--fsusblog-backdrop-saturate))')
+
+for (const token of [
+  '--blog-motion-fast: var(--fsus-motion-control-fast, 140ms);',
+  '--blog-motion-control: var(--fsus-motion-control, 220ms);',
+  '--blog-motion-panel: var(--fsus-motion-panel, 360ms);',
+  '--blog-motion-overlay: var(--fsus-motion-overlay, 300ms);',
+  '--blog-motion-ease: var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1));',
+  '--blog-motion-ease-emphasized: var(--fsus-motion-emphasized, var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1)));'
+]) {
+  expectIncludes(motionPath, motion, token)
+}
+for (const forbidden of ['120ms', '180ms', 'var(--fsus-motion-panel, 220ms)', '--blog-motion-ease: var(--fsus-motion-standard, ease)']) {
+  expectNotIncludes(motionPath, motion, forbidden)
+}
+
+expectIncludes(
+  tailwindPath,
+  tailwind,
+  '--font-sans: "Google Sans", \'Noto Sans SC\', \'Noto Sans TC\', \'Noto Sans JP\', \'PingFang SC\', \'Microsoft YaHei\', \'Helvetica Neue\', Arial, sans-serif;'
+)
+expectIncludes(
+  tailwindPath,
+  tailwind,
+  '--font-mono: "JetBrains Mono", \'PingFang SC\', \'Microsoft YaHei\', "ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Helvetica Neue", Arial, monospace;'
+)
+
+expectNotIncludes(messagesPath, messages, legacyTabularNumsVar)
+expectIncludes(messagesPath, messages, 'font-variant-numeric: tabular-nums;')
+expectNotIncludes(identityPath, identity, legacyFsusFontMonoVar)
+expectIncludes(identityPath, identity, 'font-family: var(--font-mono);')
+
+expectIncludes(publicShellPath, publicShell, 'border-radius: var(--fsus-radius-popover, 10px);')
+expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-panel, 12px);')
+expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-control-small, 4px)')
+expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-control, 6px);')
+expectIncludes(accountShellPath, accountShell, 'border-radius: var(--fsus-radius-control, 6px);')
+
+expectIncludes(dashboardPopularPath, dashboardPopular, 'transition-transform group-hover:translate-x-0.5')
+expectIncludes(complianceFooterPath, complianceFooter, 'transition-transform group-hover:-translate-y-px')
+
+const scripts = packageJson.scripts ?? {}
+expectIncludes(packagePath, String(scripts['check:foundation-token-governance'] ?? ''), 'check-foundation-token-governance.mjs')
+expectIncludes(packagePath, String(scripts['check:views-constraints'] ?? ''), 'check:foundation-token-governance')
+
+if (errors.length > 0) {
+  for (const error of errors) {
+    console.error(`[foundation-token-governance] ${error}`)
+  }
+  process.exit(1)
+}
+
+console.log('[foundation-token-governance] ok')

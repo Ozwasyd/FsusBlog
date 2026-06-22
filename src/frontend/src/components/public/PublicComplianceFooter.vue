@@ -56,7 +56,7 @@
       <a :href="PUBLIC_FIXED_PATHS.copyright" class="blog-link-state inline-flex min-h-10 items-center">版权声明</a>
       <a href="/feed/rss.xml" class="blog-link-state inline-flex min-h-10 items-center" aria-label="打开 RSS 订阅">RSS 订阅</a>
       <a href="#top" class="blog-link-state inline-flex min-h-10 items-center gap-2 group" aria-label="回到页面顶部">
-        回到顶部 <el-icon class="transition-transform" aria-hidden="true"><Top /></el-icon>
+        回到顶部 <el-icon class="transition-transform group-hover:-translate-y-px motion-reduce:transform-none" aria-hidden="true"><Top /></el-icon>
       </a>
     </nav>
   </div>
