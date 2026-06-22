@@ -2,7 +2,7 @@
   <el-dialog
     :model-value="visible"
     :title="'安全校验'"
-    width="400px"
+    width="min(92vw, 24rem)"
     destroy-on-close
     :show-close="false"
     @update:model-value="(val: boolean) => !val && handleCancel()"

@@ -24,7 +24,7 @@
               >
                 <template #prefix>
                   <span class="text-[var(--fsusblog-text-muted)]">
-                    <el-icon><Search /></el-icon>
+                    <el-icon aria-hidden="true"><Search /></el-icon>
                   </span>
                 </template>
               </el-input>
@@ -188,10 +188,10 @@
                     </el-link>
                     <div class="flex flex-wrap items-center gap-x-6 gap-y-2 mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">
                       <span class="flex items-center gap-1 tabular-nums">
-                        <el-icon><View /></el-icon> {{ row.views }} 阅读
+                        <el-icon aria-hidden="true"><View /></el-icon> {{ row.views }} 阅读
                       </span>
                       <span class="flex items-center gap-1 tabular-nums">
-                        <el-icon><Calendar /></el-icon>
+                        <el-icon aria-hidden="true"><Calendar /></el-icon>
                         <span>{{ row.statusTimeLabel }}</span>
                         <SemanticTime :value="row.statusTimeValue" :text="row.statusTimeText" />
                       </span>
@@ -239,7 +239,7 @@
                   <el-divider direction="vertical" />
                   <el-dropdown>
                     <el-button link type="primary">
-                      更多 <span class="ml-0.5 inline-flex"><el-icon><ArrowDown /></el-icon></span>
+                      更多 <span class="ml-0.5 inline-flex"><el-icon aria-hidden="true"><ArrowDown /></el-icon></span>
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>

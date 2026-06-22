@@ -96,7 +96,7 @@
                   </span>
                   <div class="flex items-center gap-6 mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">
                     <span class="flex items-center gap-1 tabular-nums">
-                      <el-icon><Calendar /></el-icon>
+                      <el-icon aria-hidden="true"><Calendar /></el-icon>
                       <SemanticTime :value="row.createTime" :text="row.createdAtText" />
                     </span>
                     <el-tag size="small" type="info">

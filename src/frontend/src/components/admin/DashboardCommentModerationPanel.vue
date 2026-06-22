@@ -30,7 +30,7 @@
       </div>
     </div>
 
-    <div class="border-t border-[var(--fsusblog-panel-border)] p-8" v-loading="loading">
+    <div class="border-t border-[var(--fsusblog-panel-border)] p-8" v-loading="loading" :aria-busy="loading">
       <div v-if="!loading && pendingItems.length === 0" class="dashboard-inline-empty" role="status" aria-live="polite">
         <p class="dashboard-inline-empty__title">暂无待审评论</p>
         <p class="dashboard-inline-empty__description">高风险操作仍需二次确认。</p>

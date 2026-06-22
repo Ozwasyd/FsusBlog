@@ -316,7 +316,7 @@
     <el-dialog
       v-model="quickCreateCategoryDialog"
       title="新建分类"
-      width="min(92vw, 420px)"
+      width="min(92vw, 28rem)"
       destroy-on-close
       :close-on-click-modal="false"
     >
@@ -349,7 +349,7 @@
     <el-dialog
       v-model="quickCreateTagDialog"
       title="新建标签"
-      width="min(92vw, 420px)"
+      width="min(92vw, 28rem)"
       destroy-on-close
       :close-on-click-modal="false"
     >
@@ -382,7 +382,7 @@
     <el-dialog
       v-model="submitConfirmDialog"
       :title="pageTitle === '编辑文章' ? '更新确认' : '发布确认'"
-      width="min(92vw, 420px)"
+      width="min(92vw, 28rem)"
       :close-on-click-modal="false"
     >
       <p class="text-sm text-[var(--fsusblog-text-secondary)]">{{ submitConfirmContent }}</p>
@@ -437,7 +437,7 @@
     <el-dialog
       v-model="leaveConfirmDialog"
       title="离开编辑器"
-      width="min(92vw, 460px)"
+      width="min(92vw, 28rem)"
       :close-on-click-modal="false"
     >
       <p class="text-sm text-[var(--fsusblog-text-secondary)]">当前内容已写入浏览器本地缓存。离开后未发布的改动不会提交到服务器，但回到编辑页可选择恢复本地缓存。</p>

@@ -27,7 +27,7 @@
       <div class="seo-share-preview" aria-label="分享卡片预览">
         <div class="seo-share-preview__image">
           <img v-if="preview.ogImage" :src="preview.ogImage" alt="" loading="lazy" decoding="async" />
-          <el-icon v-else><Picture /></el-icon>
+          <el-icon aria-hidden="true" v-else><Picture /></el-icon>
         </div>
         <div class="min-w-0">
           <div class="seo-share-preview__title">{{ preview.title }}</div>

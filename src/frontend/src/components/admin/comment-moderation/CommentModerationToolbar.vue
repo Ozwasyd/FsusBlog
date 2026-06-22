@@ -37,7 +37,7 @@
           @keyup.enter="emit('search')"
         >
           <template #prefix>
-            <span class="text-[var(--fsusblog-text-muted)]"><el-icon><Search /></el-icon></span>
+            <span class="text-[var(--fsusblog-text-muted)]"><el-icon aria-hidden="true"><Search /></el-icon></span>
           </template>
         </el-input>
       </div>

@@ -30,7 +30,7 @@
               @click="handlePasskeyLogin"
             >
               <template #icon>
-                <el-icon>
+                <el-icon aria-hidden="true">
                   <Key />
                 </el-icon>
               </template>
