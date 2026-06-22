@@ -18,8 +18,8 @@ const numericText = 'tabular-nums';
 export const themeTokens: ThemeTokenContract = {
   focusRing,
   articleList: {
-    container: 'flex flex-col gap-20 sm:gap-28 lg:gap-32',
-    card: 'ui-article-card group flex flex-col items-start gap-6 sm:gap-8',
+    container: 'flex flex-col gap-8',
+    card: 'ui-article-card group flex flex-col items-start gap-4 sm:gap-5',
     metaRow: `ui-article-meta min-h-5 flex flex-wrap items-center gap-6 ${metadataText}`,
     metaSeparator: `ui-article-meta-separator ${textSubtle} font-thin`,
     metaCategory: `ui-article-category ${textMuted} ${primaryHover} ${colorTransition} cursor-pointer`,
@@ -42,10 +42,9 @@ export const themeTokens: ThemeTokenContract = {
     tagLink: `text-[11px] sm:text-xs font-bold uppercase tracking-normal ${textMuted} hover:text-[var(--fsusblog-text-primary)] ${colorTransition} outline-none ${focusRing}`,
     commentsRoot: `mt-12 sm:mt-16 pt-8 sm:pt-10 border-t ${lineBorder} pb-24`,
     commentsHeading: `text-xs font-semibold ${textMuted} uppercase tracking-normal mb-6`,
-    commentsPlaceholderRoot: `min-h-[6rem] rounded-[var(--fsusblog-reading-radius-panel)] border ${lineBorder} ${surface} px-8 py-8 sm:px-10 sm:py-10 shadow-none`,
-    commentsPlaceholderTitle: `text-base sm:text-lg font-bold ${textPrimary} tracking-normal`,
-    commentsPlaceholderBody: `mt-3 text-sm sm:text-base ${textSecondary} leading-relaxed font-light`,
-    commentsPlaceholderHint: `mt-4 text-[10px] font-bold uppercase tracking-normal ${textSubtle}`
+    commentsPlaceholderRoot: `flex items-center justify-center gap-2 py-6 text-sm ${textTertiary} font-light normal-case tracking-normal`,
+    commentsPlaceholderDot: `inline-block h-1 w-1 shrink-0 rounded-full bg-[var(--fsusblog-text-muted)] align-middle`,
+    commentsPlaceholderText: `${textTertiary}`
   },
   userComments: {
     list: 'space-y-10 sm:space-y-12',

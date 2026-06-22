@@ -53,9 +53,7 @@ type ArticleDetailCommentsViewContract = Readonly<{
   headingText: string;
   loadingText: string;
   endText: string;
-  placeholderTitle: string;
-  placeholderBody: string;
-  placeholderHint: string;
+  placeholderText: string;
 }>;
 
 export type RelatedReadingItemViewContract = Readonly<{
@@ -148,9 +146,7 @@ export const emptyArticleDetailPageView: ArticleDetailPageViewContract = {
     headingText: '评论',
     loadingText: '加载中',
     endText: '暂无评论。',
-    placeholderTitle: '暂无评论',
-    placeholderBody: '',
-    placeholderHint: ''
+    placeholderText: '还没有评论。期待你在这篇文章下留下第一条想法。'
   },
   errorState: articleDetailStates.errorState,
   notFoundState: articleDetailStates.notFoundState
@@ -200,9 +196,7 @@ export function createArticleDetailPageViewContract(
       headingText,
       loadingText: '加载中',
       endText: commentCount > 0 ? '上面的评论已为最后一条。' : '暂无评论。',
-      placeholderTitle: '暂无评论',
-      placeholderBody: '',
-      placeholderHint: ''
+      placeholderText: '还没有评论。期待你在这篇文章下留下第一条想法。'
     },
     errorState: articleDetailStates.errorState,
     notFoundState: articleDetailStates.notFoundState

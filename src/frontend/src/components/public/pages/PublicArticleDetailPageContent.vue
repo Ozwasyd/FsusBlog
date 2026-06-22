@@ -180,9 +180,7 @@
       >
         <slot name="comments">
           <ArticleDetailCommentsPlaceholder
-            :title="detailView.comments.placeholderTitle"
-            :body="detailView.comments.placeholderBody"
-            :hint="detailView.comments.placeholderHint"
+            :text="detailView.comments.placeholderText"
           />
         </slot>
       </div>
