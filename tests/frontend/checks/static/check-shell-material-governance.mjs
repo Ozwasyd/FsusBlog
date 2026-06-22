@@ -55,11 +55,11 @@ checkLines(files.accountShell, [
 
 const publicPageCss = read(files.publicPage)
 const requiredPublicHeaderTokens = [
-  '--fsus-page: #f8f9f7;',
+  '--fsus-page: #F7F7F8;',
   '--fsus-paper: #ffffff;',
   '--fsus-ink: #0f0f11;',
   '--fsus-dot-gray: #8e8e93;',
-  '--fsus-border: #e4e4df;',
+  '--fsus-border: #E4E4E7;',
   '--fsus-scholarly-blue: #2a599c;',
   '--fsusblog-header-bg: color-mix(in srgb, var(--fsus-paper) 88%, var(--fsus-page));',
   '--fsusblog-header-border: color-mix(in srgb, var(--fsus-border) 82%, transparent);',

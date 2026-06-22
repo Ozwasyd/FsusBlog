@@ -847,7 +847,7 @@ watch(currentRouteName, () => {
 .identity-secret-panel code {
   overflow-wrap: anywhere;
   color: var(--fsusblog-text-primary);
-  font-family: var(--fsus-font-mono);
+  font-family: var(--font-mono);
   font-size: 0.88rem;
   line-height: 1.7;
 }

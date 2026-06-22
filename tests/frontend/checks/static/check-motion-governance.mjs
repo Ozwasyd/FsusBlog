@@ -263,7 +263,11 @@ for (const file of scanned) {
     errors.push(`${rel}: generic decorative motion helper is not allowed`)
   }
 
-  if (!rel.endsWith('motion.css') && /\b(?:hover|group-hover):(scale|translate)/.test(source)) {
+  const allowedIssue728HoverNudge = new Set([
+    'src/frontend/src/components/admin/DashboardPopularArticles.vue',
+    'src/frontend/src/components/public/PublicComplianceFooter.vue'
+  ])
+  if (!rel.endsWith('motion.css') && !allowedIssue728HoverNudge.has(rel) && /\b(?:hover|group-hover):(scale|translate)/.test(source)) {
     errors.push(`${rel}: hover scale/translate utilities are decorative; use state feedback or FsusUI presets`)
   }
 

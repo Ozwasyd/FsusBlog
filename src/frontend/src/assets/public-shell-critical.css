@@ -15,13 +15,13 @@
 @import '@ozwasyd/element-plus/dist/el-fsus-theme.css';
 
 :root {
-  --fsus-page: #f8f9f7;
+  --fsus-page: #F7F7F8;
   --fsus-paper: #ffffff;
   --fsus-ink: #0f0f11;
-  --fsus-border: #e4e4df;
+  --fsus-border: #E4E4E7;
   --fsus-scholarly-blue: #2a599c;
-  --fsus-backdrop-blur-soft: 0px;
-  --fsus-backdrop-saturate: 100%;
+  --fsusblog-backdrop-blur-soft: 0px;
+  --fsusblog-backdrop-saturate: 100%;
   --fsusblog-header-bg: color-mix(in srgb, var(--fsus-paper) 88%, var(--fsus-page));
   --fsusblog-header-border: color-mix(in srgb, var(--fsus-border) 82%, transparent);
   --fsusblog-page-bg: var(--fsus-page);
@@ -37,9 +37,9 @@ html[data-theme-resolved='dark'] {
   --fsus-paper: #121214;
   --fsus-ink: #f0f0f4;
   --fsus-border: #303036;
-  --fsus-scholarly-blue: #7aa2e3;
-  --fsus-backdrop-blur-soft: 0px;
-  --fsus-backdrop-saturate: 100%;
+  --fsus-scholarly-blue: #4B79CC;
+  --fsusblog-backdrop-blur-soft: 0px;
+  --fsusblog-backdrop-saturate: 100%;
   --fsusblog-header-bg: color-mix(in srgb, var(--fsus-paper) 92%, var(--fsus-page));
   --fsusblog-header-border: color-mix(in srgb, var(--fsus-border) 78%, transparent);
   --fsusblog-page-bg: var(--fsus-page);
@@ -56,7 +56,7 @@ html[data-theme-resolved='dark'] {
   flex-direction: column;
   background: var(--fsusblog-page-bg, Canvas);
   color: var(--fsusblog-text-primary, CanvasText);
-  font-family: var(--font-sans, "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans, "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif);
 }
 
 #fsus-aot-shell,
@@ -91,8 +91,8 @@ html[data-theme-resolved='dark'] {
   border-bottom: 1px solid var(--fsusblog-header-border);
   background: var(--fsusblog-header-bg);
   box-shadow: none;
-  backdrop-filter: blur(var(--fsus-backdrop-blur-soft)) saturate(var(--fsus-backdrop-saturate));
-  -webkit-backdrop-filter: blur(var(--fsus-backdrop-blur-soft)) saturate(var(--fsus-backdrop-saturate));
+  backdrop-filter: blur(var(--fsusblog-backdrop-blur-soft)) saturate(var(--fsusblog-backdrop-saturate));
+  -webkit-backdrop-filter: blur(var(--fsusblog-backdrop-blur-soft)) saturate(var(--fsusblog-backdrop-saturate));
 }
 
 /*
@@ -161,7 +161,7 @@ html[data-theme-resolved='dark'] {
   min-width: 132px;
   padding: 6px;
   border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
+  border-radius: var(--fsus-radius-popover, 10px);
   background: var(--el-bg-color);
   box-shadow: var(--el-box-shadow-light);
   box-sizing: border-box;
