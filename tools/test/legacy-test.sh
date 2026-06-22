@@ -717,6 +717,7 @@ run_integration_only() {
   run_in_client npm run prepare:binary-smoke:auth-users
   run_in_client npm run prepare:playwright:fixtures
   run_in_client npm run check:auth-session-smoke
+  run_in_client npm run check:pow-runtime
   run_in_client npm run check:binary-smoke
   run_in_client npm run check:binary-smoke:auth
   run_in_client npm run check:notification-stream-runtime

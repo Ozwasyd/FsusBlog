@@ -25,6 +25,7 @@ const VALID_EVENT_TYPES = new Set<number>([
 ])
 
 type RuntimeStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'stopped'
+type NotificationStreamMode = 'auth' | 'guest'
 type NotificationStreamEndpointProtocol = 'http' | 'websocket'
 
 type RuntimeCallbacks = {
@@ -61,7 +62,7 @@ export function resolveNotificationStreamEndpointUrl(
 
 class NotificationStreamRuntime {
   private socket: WebSocket | null = null
-  private currentMode: 'auth' | 'guest' = 'guest'
+  private currentMode: NotificationStreamMode = 'guest'
   private currentPow: PowParams | undefined
   private cursor: NotificationStreamCursor = { lastEventId: 0, recentEventIds: [] }
   private recentEventIds = new Set<number>()
@@ -78,8 +79,12 @@ class NotificationStreamRuntime {
   public onHandshakeFailure?: RuntimeCallbacks['onHandshakeFailure']
   public onReconnectSuccess?: RuntimeCallbacks['onReconnectSuccess']
 
-  public async start(powParams?: PowParams, cursor?: NotificationStreamCursor): Promise<void> {
-    this.currentMode = powParams ? 'guest' : 'auth'
+  public async start(
+    powParams?: PowParams,
+    cursor?: NotificationStreamCursor,
+    mode: NotificationStreamMode = powParams ? 'guest' : 'auth'
+  ): Promise<void> {
+    this.currentMode = mode
     this.currentPow = powParams
     this.retryCount = 0
     this.isReconnecting = false

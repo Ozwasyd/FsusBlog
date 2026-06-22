@@ -19,6 +19,7 @@ case "$MODE" in
     run_client npm run check:public-aot-contracts
     ;;
   consumption)
+    run_client npm run check:pow-runtime
     run_client npm run check:public-hydration
     run_client npm run check:distribution-version-coherence
     ;;

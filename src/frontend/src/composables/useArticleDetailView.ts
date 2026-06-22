@@ -506,8 +506,8 @@ export function useArticleDetailView() {
     markRouteReady()
     await hydrateCommentStream()
     if (lifecycle.isActive() && initVersion === routeInitVersion && article.value) {
-      powProvider.prewarm()
       if (userStore.isLoggedIn && anonymousCommentsEnabled.value) {
+        powProvider.prewarm()
         void commentPrivacyRuntime.preloadPrivacyMetadata(article.value.id)
         void commentPrivacyRuntime.prewarmProver()
       }

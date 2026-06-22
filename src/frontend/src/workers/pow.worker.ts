@@ -7,6 +7,7 @@ import { AppErrorCode, createAppError, isAppError, toAppError } from '@/utils/ap
  */
 
 const ctx: DedicatedWorkerGlobalScope = self as any;
+const workerRole = String(ctx.name || '').startsWith('FsusPowShard') ? 'shard' : 'main';
 
 let powModule: any = null;
 let modulePromise: Promise<any> | null = null;
@@ -32,7 +33,7 @@ const getEngine = async (disableThreadsTier = false) => {
         if (!resolvedModule) {
             throw createAppError(AppErrorCode.InfraFailure, "FACTORY_MISSING: Glue code did not export createPowModule");
         }
-        console.log(`[Worker] WASM Module (${engineType}) initialized successfully`);
+        console.log(`[Worker] WASM Module (${engineType}) initialized successfully role=${workerRole}`);
 
         if (!isWarmedUp && resolvedModule.solve_pow) {
             try {

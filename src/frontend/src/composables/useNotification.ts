@@ -31,6 +31,9 @@ let articleCreatedToastTimer: ReturnType<typeof setTimeout> | null = null
 let pendingArticleCreatedIds: number[] = []
 
 const POW_STORAGE_KEY = 'notification_stream_guest_pow'
+const GUEST_RECOVERY_POW_FAILURES: ReadonlySet<NotificationStreamFailureCode> = new Set([
+    NotificationStreamFailureCodes.PowFailed
+])
 
 function clearReauthRetryTimer(): void {
     if (!reauthRetryTimer) {
@@ -184,6 +187,10 @@ export function useNotification() {
             return
         }
 
+        if (!GUEST_RECOVERY_POW_FAILURES.has(failureCode)) {
+            return
+        }
+
         const now = Date.now()
         if (now - lastReauthTime < 5000) {
             return
@@ -194,7 +201,7 @@ export function useNotification() {
             await userStore.fetchUserInfo(true)
 
             if (userStore.isLoggedIn) {
-                await notificationStreamRuntime.start(undefined, notificationStreamStore.runtime.cursor)
+                await notificationStreamRuntime.start(undefined, notificationStreamStore.runtime.cursor, 'auth')
                 currentMode.value = 'auth'
                 return
             }
@@ -209,7 +216,7 @@ export function useNotification() {
             memoryPowCache = null
             sessionStorage.removeItem(POW_STORAGE_KEY)
             const pow = await getOrRefreshPow()
-            await notificationStreamRuntime.start(pow, notificationStreamStore.runtime.cursor)
+            await notificationStreamRuntime.start(pow, notificationStreamStore.runtime.cursor, 'guest')
             currentMode.value = 'guest'
         } catch (error) {
             if (isAbortError(error)) {
@@ -302,10 +309,9 @@ export function useNotification() {
 
                 currentMode.value = mode
                 if (mode === 'auth') {
-                    await notificationStreamRuntime.start(undefined, notificationStreamStore.runtime.cursor)
+                    await notificationStreamRuntime.start(undefined, notificationStreamStore.runtime.cursor, 'auth')
                 } else {
-                    const pow = await getOrRefreshPow()
-                    await notificationStreamRuntime.start(pow, notificationStreamStore.runtime.cursor)
+                    await notificationStreamRuntime.start(undefined, notificationStreamStore.runtime.cursor, 'guest')
                 }
             } catch (error) {
                 if (isAbortError(error)) {
