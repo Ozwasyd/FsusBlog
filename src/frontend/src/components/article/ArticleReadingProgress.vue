@@ -1,5 +1,5 @@
 <template>
-  <div class="article-reading-progress" data-reading-progress="true" aria-hidden="true">
+  <div class="article-reading-progress" data-fsus-surface="reading" data-reading-progress="true" aria-hidden="true">
     <div
       class="article-reading-progress__bar"
       :style="{ '--article-reading-progress': progress }"
@@ -42,7 +42,7 @@ const progress = computed(() => rawProgress.value.toFixed(4))
 
 @media (prefers-reduced-motion: reduce) {
   .article-reading-progress__bar {
-    transition: none;
+    transition-duration: 1ms;
   }
 }
 </style>

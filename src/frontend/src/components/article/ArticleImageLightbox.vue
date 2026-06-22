@@ -6,6 +6,7 @@
         ref="dialogRef"
         class="article-image-lightbox"
         data-article-lightbox="true"
+        data-fsus-material="glass"
         role="dialog"
         aria-modal="true"
         aria-label="查看大图"
@@ -101,7 +102,7 @@ onUnmounted(() => {
   z-index: 1000;
   display: grid;
   place-items: center;
-  background: rgb(0 0 0 / 82%);
+  background: var(--fsusblog-overlay-scrim);
   padding: 1.5rem;
 }
 
@@ -122,7 +123,7 @@ onUnmounted(() => {
 }
 
 .article-image-lightbox__figure figcaption {
-  color: rgb(255 255 255 / 72%);
+  color: var(--fsusblog-overlay-button-fg);
   font-size: 0.8125rem;
 }
 
@@ -130,9 +131,9 @@ onUnmounted(() => {
 .article-image-lightbox__nav {
   position: fixed;
   min-height: 2.5rem;
-  border: 1px solid rgb(255 255 255 / 24%);
-  background: rgb(0 0 0 / 24%);
-  color: white;
+  border: 1px solid var(--fsusblog-overlay-button-border);
+  background: var(--fsusblog-overlay-button-bg);
+  color: var(--fsusblog-overlay-button-fg);
   padding: 0 0.875rem;
   font-size: 0.75rem;
 }

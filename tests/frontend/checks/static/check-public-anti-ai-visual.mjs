@@ -109,8 +109,10 @@ expectIncludes(motion, "articleCards: 'fade-in'", 'fsusui/motion.ts')
 expectIncludes(motion, "articleTitle: 'fade-in'", 'fsusui/motion.ts')
 expectIncludes(motion, "name: 'fade-in'", 'fsusui/motion.ts scroll reveal')
 
-expectIncludes(articleList, 'v-motion="{ name: fsusBlogMotionPresets.articleCards, once: true }"', 'PublicArticleList.vue')
+expectIncludes(articleList, 'data-fsus-surface="reading"', 'PublicArticleList.vue')
 expectIncludes(articleList, 'data-fsus-motion-surface="article-card"', 'PublicArticleList.vue')
+expectNotIncludes(articleList, 'v-motion', 'PublicArticleList.vue')
+expectNotIncludes(articleList, 'fsusBlogMotionPresets.articleCards', 'PublicArticleList.vue')
 expectNotIncludes(articleList, 'index, once: true', 'PublicArticleList.vue')
 
 expectIncludes(homePage, 'data-fsus-motion-surface="home-hero"', 'PublicHomePageContent.vue')

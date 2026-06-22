@@ -1,5 +1,5 @@
 <template>
-  <div v-if="isLoggedIn" ref="composerShell" :class="commentDetailTokens.composer.loggedInShell">
+  <div v-if="isLoggedIn" ref="composerShell" :class="commentDetailTokens.composer.loggedInShell" data-fsus-surface="reading">
     <div v-if="replyTarget" class="mb-3 flex items-center justify-between border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-3 py-2 text-xs text-[var(--fsusblog-text-tertiary)]">
       <span>正在回复 @{{ replyTarget.author.displayName }}</span>
       <el-button
@@ -59,7 +59,7 @@
     </div>
   </div>
 
-  <div v-else :class="commentDetailTokens.composer.guestShell">
+  <div v-else :class="commentDetailTokens.composer.guestShell" data-fsus-surface="reading">
     <p :class="commentDetailTokens.composer.guestText">
       {{ composerUi.guestPromptPrefix }}
       <router-link :to="composerUi.guestLoginRoute" :class="commentDetailTokens.composer.guestLink">

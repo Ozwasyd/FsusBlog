@@ -1,5 +1,5 @@
 <template>
-  <el-skeleton animated>
+  <el-skeleton style="--el-skeleton-color: var(--fsusblog-skeleton-bg); --el-skeleton-to-color: var(--fsusblog-skeleton-bg)">
     <template #template>
       <div class="space-y-8 py-8" aria-hidden="true">
         <div class="w-full sm:w-4/5">

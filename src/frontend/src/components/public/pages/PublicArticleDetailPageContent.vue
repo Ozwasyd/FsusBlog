@@ -1,6 +1,7 @@
 <template>
   <article
     class="public-article-detail max-w-4xl mx-auto px-6 sm:px-12 min-h-screen pt-12 sm:pt-16 pb-24"
+    data-fsus-surface="reading"
     itemscope
     itemtype="https://schema.org/BlogPosting"
   >
@@ -18,7 +19,6 @@
 
     <div
       v-if="detailView.header.coverImageUrl"
-      v-scroll-reveal="fsusBlogScrollRevealMotion"
       class="mb-12 sm:mb-16 blog-motion-state-change"
       data-fsus-motion-surface="article-cover"
     >
@@ -36,7 +36,6 @@
     </div>
 
     <header
-      v-motion="{ name: fsusBlogMotionPresets.articleTitle, once: true }"
       :class="themeTokens.articleDetail.header"
       data-fsus-motion-surface="article-title"
     >
@@ -171,6 +170,7 @@
     <section
       id="fsus-comments-island"
       class="mt-20 sm:mt-24 border-t border-[var(--fsusblog-panel-border)] pt-12 sm:pt-16"
+      data-fsus-surface="reading"
       :data-article-id="String(safeArticleId)"
     >
       <span id="comments" class="sr-only">评论</span>
@@ -198,11 +198,6 @@ import ArticleDetailTagsFooter from '@/components/article/ArticleDetailTagsFoote
 import ArticleDetailBody from '@/components/public/ArticleDetailBody.vue'
 import ArticleDetailCommentsPlaceholder from '@/components/public/ArticleDetailCommentsPlaceholder.vue'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
-import {
-  fsusBlogMotionPresets,
-  fsusBlogScrollRevealMotion
-} from '@/fsusui/blogMotion'
-import { vMotion, vScrollReveal } from '@ozwasyd/element-plus/motion'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDetail'
 

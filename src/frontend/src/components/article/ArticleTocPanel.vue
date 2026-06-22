@@ -2,6 +2,7 @@
   <aside
     v-if="items.length > 0"
     class="article-toc-panel hidden xl:block"
+    data-fsus-surface="reading"
     aria-label="文章目录"
   >
     <p class="article-toc-panel__title">目录</p>
@@ -29,6 +30,7 @@
     direction="btt"
     size="62%"
     class="article-toc-drawer"
+    data-fsus-surface="reading"
     :motion="fsusBlogMotionPresets.mobileDrawer"
   >
     <nav class="article-toc-drawer__nav" aria-label="文章目录">

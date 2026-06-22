@@ -1,6 +1,10 @@
 <template>
   <PublicReadingPageFrame as="section">
-    <el-skeleton v-if="loading" animated aria-hidden="true">
+    <el-skeleton
+      v-if="loading"
+      aria-hidden="true"
+      style="--el-skeleton-color: var(--fsusblog-skeleton-bg); --el-skeleton-to-color: var(--fsusblog-skeleton-bg)"
+    >
       <template #template>
         <div class="py-24 space-y-16 sm:space-y-20">
           <div v-for="i in 3" :key="i" class="space-y-10">
