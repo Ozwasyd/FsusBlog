@@ -159,7 +159,7 @@ defineEmits<{
 
 .revision-row__title {
   color: var(--fsusblog-text-primary);
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 

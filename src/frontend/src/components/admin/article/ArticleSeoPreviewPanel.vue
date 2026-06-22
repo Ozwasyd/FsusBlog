@@ -112,7 +112,7 @@ const formatIssueSeverity = (severity: string): string => {
 .seo-search-preview__url {
   overflow: hidden;
   color: var(--fsusblog-color-success);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -121,7 +121,7 @@ const formatIssueSeverity = (severity: string): string => {
   overflow: hidden;
   margin-top: 0.3rem;
   color: var(--fsusblog-color-primary);
-  font-size: 0.92rem;
+  font-size: 1rem;
   font-weight: 700;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -134,7 +134,7 @@ const formatIssueSeverity = (severity: string): string => {
   overflow: hidden;
   margin: 0.35rem 0 0;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.72rem;
+  font-size: 0.875rem;
   line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -166,7 +166,7 @@ const formatIssueSeverity = (severity: string): string => {
 .seo-share-preview__title {
   overflow: hidden;
   color: var(--fsusblog-text-primary);
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -180,7 +180,7 @@ const formatIssueSeverity = (severity: string): string => {
 
 .seo-meta-grid dt {
   color: var(--fsusblog-text-muted);
-  font-size: 0.62rem;
+  font-size: 0.75rem;
   font-weight: 800;
 }
 
@@ -188,7 +188,7 @@ const formatIssueSeverity = (severity: string): string => {
   overflow: hidden;
   margin: 0.25rem 0 0;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.72rem;
+  font-size: 0.875rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -204,7 +204,7 @@ const formatIssueSeverity = (severity: string): string => {
   background: var(--fsusblog-page-bg-soft);
   color: var(--fsusblog-text-secondary);
   padding: 0.3rem 0.45rem;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 

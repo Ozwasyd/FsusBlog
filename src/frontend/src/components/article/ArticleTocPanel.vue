@@ -93,7 +93,7 @@ const handleDrawerNavigate = (id: string): void => {
 .article-toc-panel__title {
   margin: 0 0 0.75rem;
   color: var(--fsusblog-text-subtle);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 800;
 }
 
@@ -105,7 +105,7 @@ const handleDrawerNavigate = (id: string): void => {
 
 .article-toc-panel__item,
 .article-toc-drawer__item {
-  min-height: 2.25rem;
+  min-height: 2.5rem;
   border: 0;
   border-left: 2px solid transparent;
   border-radius: var(--fsusblog-reading-radius-control);
@@ -120,7 +120,7 @@ const handleDrawerNavigate = (id: string): void => {
 .article-toc-panel__item--h3,
 .article-toc-drawer__item--h3 {
   padding-left: 1.375rem;
-  font-size: 0.71875rem;
+  font-size: 0.75rem;
 }
 
 .article-toc-panel__item:hover,

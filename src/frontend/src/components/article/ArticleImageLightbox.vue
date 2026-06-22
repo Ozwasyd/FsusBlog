@@ -123,13 +123,13 @@ onUnmounted(() => {
 
 .article-image-lightbox__figure figcaption {
   color: rgb(255 255 255 / 72%);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
 }
 
 .article-image-lightbox__close,
 .article-image-lightbox__nav {
   position: fixed;
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   border: 1px solid rgb(255 255 255 / 24%);
   background: rgb(0 0 0 / 24%);
   color: white;

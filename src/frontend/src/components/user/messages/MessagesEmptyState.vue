@@ -28,7 +28,7 @@ defineProps<{
 
 .messages-empty-state__title {
   color: var(--fsusblog-text-primary);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 700;
   line-height: 1.5;
 }
@@ -36,7 +36,7 @@ defineProps<{
 .messages-empty-state__description {
   margin: 0.35rem 0 0;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   line-height: 1.7;
 }
 

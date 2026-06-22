@@ -315,7 +315,7 @@ defineExpose({
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--fsusblog-text-primary);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
