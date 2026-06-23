@@ -13,6 +13,7 @@ describe('dev auth fixture persistence contract', () => {
     const sessionFixtures = readRepoFile('tests/frontend/support/session-fixtures.mjs')
     const authUsers = readRepoFile('tests/frontend/fixtures/prepare-auth-smoke-users.mjs')
     const devStart = readRepoFile('tools/dev/start.sh')
+    const localAuthFixtureEndpoints = readRepoFile('src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs')
 
     expect(sessionFixtures).toContain('stableFixtureSessionId')
     expect(sessionFixtures).toContain('persistAuthFixtureManifest')
@@ -30,5 +31,9 @@ describe('dev auth fixture persistence contract', () => {
     expect(devStart).toContain('Jwt__AccessTokenExpiresMinutes=')
     expect(devStart).toContain('FSUSBLOG_JWT_ACCESS_TOKEN_EXPIRES_MINUTES="$Jwt__AccessTokenExpiresMinutes"')
     expect(devStart).toContain('prepare:binary-smoke:auth-users')
+    expect(localAuthFixtureEndpoints).toContain('RefreshPersistedAuthFixturesAsync')
+    expect(localAuthFixtureEndpoints).toContain('prepare-auth-smoke-users.mjs')
+    expect(localAuthFixtureEndpoints).toContain('FSUSBLOG_PG_CONTAINER')
+    expect(localAuthFixtureEndpoints).toContain('fsusblog-dev-postgres')
   })
 })

@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using FsusBlog.Server.Infrastructure.Auth;
 using Microsoft.AspNetCore.Hosting;
@@ -17,12 +19,19 @@ public static class LocalAuthFixtureEndpoints
             return;
         }
 
-        var handler = (
+        var handler = async Task<IResult> (
             HttpContext context,
             IWebHostEnvironment environment,
             AuthCookieService authCookieService,
-            string? redirect) =>
+            string? redirect,
+            CancellationToken cancellationToken) =>
         {
+            var refreshResult = await RefreshPersistedAuthFixturesAsync(context, environment, cancellationToken);
+            if (!refreshResult.Success)
+            {
+                return Results.Problem(refreshResult.Message, statusCode: StatusCodes.Status500InternalServerError);
+            }
+
             string userStorageStatePath = ResolveStorageStatePath(environment, UserStorageStateFileName);
             string adminStorageStatePath = ResolveStorageStatePath(environment, AdminStorageStateFileName);
             if (!File.Exists(userStorageStatePath) || !File.Exists(adminStorageStatePath))
@@ -91,6 +100,115 @@ public static class LocalAuthFixtureEndpoints
         }
 
         return Path.Combine(environment.ContentRootPath, "..", "..", "src", "frontend", ".playwright-fixtures", fileName);
+    }
+
+    private static async Task<(bool Success, string Message)> RefreshPersistedAuthFixturesAsync(
+        HttpContext context,
+        IWebHostEnvironment environment,
+        CancellationToken cancellationToken)
+    {
+        string repoRoot = ResolveRepoRoot(environment);
+        string scriptPath = Path.Combine(repoRoot, "tests", "frontend", "fixtures", "prepare-auth-smoke-users.mjs");
+        if (!File.Exists(scriptPath))
+        {
+            return (false, "local auth fixture script is missing");
+        }
+
+        var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "node",
+                WorkingDirectory = repoRoot,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false
+            },
+            EnableRaisingEvents = true
+        };
+        process.StartInfo.ArgumentList.Add(scriptPath);
+        process.StartInfo.Environment["FSUSBLOG_BASE_URL"] = ResolveBackendBaseUrl(context);
+        process.StartInfo.Environment["PLAYWRIGHT_BASE_URL"] = Environment.GetEnvironmentVariable("PLAYWRIGHT_BASE_URL") ?? "http://localhost:3000";
+        process.StartInfo.Environment["FSUSBLOG_PG_CONTAINER"] = Environment.GetEnvironmentVariable("FSUSBLOG_PG_CONTAINER") ?? "fsusblog-dev-postgres";
+        process.StartInfo.Environment["FSUSBLOG_REDIS_CONTAINER"] = Environment.GetEnvironmentVariable("FSUSBLOG_REDIS_CONTAINER") ?? "fsusblog-dev-redis";
+        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("Jwt__AccessTokenExpiresMinutes")))
+        {
+            process.StartInfo.Environment["FSUSBLOG_JWT_ACCESS_TOKEN_EXPIRES_MINUTES"] = Environment.GetEnvironmentVariable("Jwt__AccessTokenExpiresMinutes");
+        }
+
+        var stdout = new StringBuilder();
+        var stderr = new StringBuilder();
+        process.OutputDataReceived += (_, args) =>
+        {
+            if (!string.IsNullOrWhiteSpace(args.Data))
+            {
+                stdout.AppendLine(args.Data);
+            }
+        };
+        process.ErrorDataReceived += (_, args) =>
+        {
+            if (!string.IsNullOrWhiteSpace(args.Data))
+            {
+                stderr.AppendLine(args.Data);
+            }
+        };
+
+        try
+        {
+            if (!process.Start())
+            {
+                return (false, "local auth fixture refresh did not start");
+            }
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            await process.WaitForExitAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return (false, $"local auth fixture refresh failed: {ex.Message}");
+        }
+
+        if (process.ExitCode != 0)
+        {
+            string message = stderr.Length > 0 ? stderr.ToString().Trim() : stdout.ToString().Trim();
+            return (false, $"local auth fixture refresh failed: {message}");
+        }
+
+        return (true, string.Empty);
+    }
+
+    private static string ResolveRepoRoot(IWebHostEnvironment environment)
+    {
+        string root = environment.ContentRootPath;
+        for (int depth = 0; depth < 6; depth += 1)
+        {
+            if (File.Exists(Path.Combine(root, "tests", "frontend", "fixtures", "prepare-auth-smoke-users.mjs")))
+            {
+                return root;
+            }
+
+            DirectoryInfo? parent = Directory.GetParent(root);
+            if (parent is null)
+            {
+                break;
+            }
+
+            root = parent.FullName;
+        }
+
+        return environment.ContentRootPath;
+    }
+
+    private static string ResolveBackendBaseUrl(HttpContext context)
+    {
+        int port = context.Connection.LocalPort;
+        if (port > 0)
+        {
+            return $"{context.Request.Scheme}://127.0.0.1:{port}";
+        }
+
+        return $"{context.Request.Scheme}://{context.Request.Host}";
     }
 
     private static bool TryReadCookie(string storageStatePath, string cookieName, out string value)
