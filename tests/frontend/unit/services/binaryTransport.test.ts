@@ -228,6 +228,49 @@ describe('binaryTransport ApiError mapping', () => {
     ])
   })
 
+  it('applies generated credential policy for anonymous public reads', async () => {
+    mockBinaryRequest.mockResolvedValueOnce(readProtocolFixtureBuffer('category-list-frame.hex'))
+    await requestBinaryOnly<Array<{ id: number; name: string; articleCount: number }>>({
+      binaryRoute: { operationId: 'binary_get_category_aeds' },
+      frameType: FrameType.CategoryList
+    })
+    expect(mockBinaryRequest).toHaveBeenLastCalledWith(
+      '/api/binary/category.aeds',
+      expect.objectContaining({ credentials: 'omit' })
+    )
+
+    mockBinaryRequest.mockResolvedValueOnce(readProtocolFixtureBuffer('seo-config-frame.hex'))
+    await requestBinaryOnly({
+      binaryRoute: { operationId: 'binary_get_system_seo' },
+      frameType: FrameType.SeoConfig
+    })
+    expect(mockBinaryRequest).toHaveBeenLastCalledWith(
+      '/api/binary/system/seo',
+      expect.objectContaining({ credentials: 'omit' })
+    )
+
+    mockBinaryRequest.mockResolvedValueOnce(readProtocolFixtureBuffer('page-content-frame.hex'))
+    await requestBinaryOnly({
+      binaryRoute: { operationId: 'binary_get_system_page_slug', params: { slug: 'about' } },
+      frameType: FrameType.PageContent
+    })
+    expect(mockBinaryRequest).toHaveBeenLastCalledWith(
+      '/api/binary/system/page/about',
+      expect.objectContaining({ credentials: 'omit' })
+    )
+  })
+
+  it('keeps credentials included for optional identity routes', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('identity-account-snapshot-frame.hex'))
+
+    await requestBinaryOnly({
+      binaryRoute: { operationId: 'binary_get_auth_me' },
+      frameType: FrameType.IdentityAccountSnapshot
+    })
+
+    expect(mockBinaryRequest).toHaveBeenLastCalledWith('/api/binary/auth/me', expect.not.objectContaining({ credentials: 'omit' }))
+  })
+
   it('maps a ConversationList frame into the expected view model', async () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('conversation-list-frame.hex'))
 

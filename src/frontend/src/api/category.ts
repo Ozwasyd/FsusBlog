@@ -20,7 +20,7 @@ export interface CategoryItem {
  */
 export const getCategories = (config?: { signal?: AbortSignal }) =>
   requestBinaryOnly<CategoryItem[]>({
-    binaryUrl: '/api/binary/category.aeds',
+    binaryRoute: { operationId: 'binary_get_category_aeds' },
     frameType: FrameType.CategoryList,
     signal: config?.signal,
     requestOptions: {
@@ -34,7 +34,7 @@ export const getCategories = (config?: { signal?: AbortSignal }) =>
  */
 export const createCategory = (name: string, config?: RequestInit) =>
   requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/category',
+    binaryRoute: { operationId: 'binary_post_category' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -51,7 +51,7 @@ export const createCategory = (name: string, config?: RequestInit) =>
  */
 export const updateCategory = (id: number, name: string, config?: RequestInit) =>
   requestBinaryOnly<null>({
-    binaryUrl: `/api/binary/category/${id}`,
+    binaryRoute: { operationId: 'binary_put_category_id_int', params: { id } },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -68,7 +68,7 @@ export const updateCategory = (id: number, name: string, config?: RequestInit) =
  */
 export const deleteCategory = (id: number, config?: RequestInit) =>
   requestBinaryOnly<null>({
-    binaryUrl: `/api/binary/category/${id}`,
+    binaryRoute: { operationId: 'binary_delete_category_id_int', params: { id } },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {

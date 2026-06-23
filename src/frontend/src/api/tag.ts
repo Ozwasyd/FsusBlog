@@ -21,7 +21,7 @@ export interface TagItem {
  */
 export const getTags = (config?: { signal?: AbortSignal }) =>
   requestBinaryOnly<TagItem[]>({
-    binaryUrl: '/api/binary/tag.aeds',
+    binaryRoute: { operationId: 'binary_get_tag_aeds' },
     frameType: FrameType.TagList,
     signal: config?.signal,
     requestOptions: {
@@ -35,7 +35,7 @@ export const getTags = (config?: { signal?: AbortSignal }) =>
  */
 export const createTag = (name: string, config?: RequestInit) =>
   requestBinaryOnly<{ id: number }>({
-    binaryUrl: '/api/binary/tag',
+    binaryRoute: { operationId: 'binary_post_tag' },
     frameType: FrameType.MutationId,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -52,7 +52,7 @@ export const createTag = (name: string, config?: RequestInit) =>
  */
 export const updateTag = (id: number, name: string, config?: RequestInit) =>
   requestBinaryOnly<null>({
-    binaryUrl: `/api/binary/tag/${id}`,
+    binaryRoute: { operationId: 'binary_put_tag_id_int', params: { id } },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -69,7 +69,7 @@ export const updateTag = (id: number, name: string, config?: RequestInit) =>
  */
 export const deleteTag = (id: number, config?: RequestInit) =>
   requestBinaryOnly<null>({
-    binaryUrl: `/api/binary/tag/${id}`,
+    binaryRoute: { operationId: 'binary_delete_tag_id_int', params: { id } },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {

@@ -19,6 +19,13 @@ for (const route of routes) {
   assert(route.operationId, `${route.key} lacks OpenAPI operationId`)
   assert(routeConstants.includes(JSON.stringify(route.operationId)), `${route.key} missing generated route constant`)
   assert(routeConstants.includes(JSON.stringify(`/api/binary${route.path}`)), `${route.key} missing generated path constant`)
+  const descriptorLine = findRouteDescriptorLine(route.operationId)
+  assert(descriptorLine.includes('credentialPolicy:'), `${route.key} missing generated credential policy`)
+  if (isAnonymousPublicRead(route)) {
+    assert(descriptorLine.includes('credentialPolicy: "omit"'), `${route.key} anonymous public read must omit credentials`)
+  } else {
+    assert(descriptorLine.includes('credentialPolicy: "include"'), `${route.key} non-public-read route must include credentials by default`)
+  }
   if (route.source && route.source !== openApiPath) assertPathExists(route.source)
 }
 
@@ -67,4 +74,18 @@ function matchesKnownPath(value) {
     if (prefix && (value === prefix.replace(/\/$/, '') || value.startsWith(prefix))) return true
   }
   return false
+}
+
+function isAnonymousPublicRead(route) {
+  return route.auth === 'anonymous'
+    && route.method === 'GET'
+    && route.rateLimit === 'public_read'
+    && route.cache === 'public-read'
+}
+
+function findRouteDescriptorLine(operationId) {
+  const needle = `${JSON.stringify(operationId)}: { operationId: ${JSON.stringify(operationId)}`
+  const line = routeConstants.split('\n').find(item => item.includes(needle))
+  assert(line, `${operationId} missing generated route descriptor`)
+  return line
 }

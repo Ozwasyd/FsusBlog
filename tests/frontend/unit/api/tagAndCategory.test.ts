@@ -19,7 +19,7 @@ describe('tag API', () => {
   it('getTags calls GET /Tag', async () => {
     await getTags()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/tag.aeds'
+      binaryRoute: { operationId: 'binary_get_tag_aeds' }
     }))
   })
 
@@ -34,7 +34,7 @@ describe('tag API', () => {
   it('createTag sends binary mutation frame', async () => {
     await createTag('vue')
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/tag',
+      binaryRoute: { operationId: 'binary_post_tag' },
       requestOptions: expect.objectContaining({
         method: 'POST',
         requiresPow: true,
@@ -46,7 +46,7 @@ describe('tag API', () => {
   it('updateTag sends binary mutation frame', async () => {
     await updateTag(5, 'react')
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/tag/5',
+      binaryRoute: { operationId: 'binary_put_tag_id_int', params: { id: 5 } },
       requestOptions: expect.objectContaining({
         method: 'PUT',
         requiresPow: true,
@@ -58,7 +58,7 @@ describe('tag API', () => {
   it('deleteTag sends binary delete request', async () => {
     await deleteTag(3)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/tag/3',
+      binaryRoute: { operationId: 'binary_delete_tag_id_int', params: { id: 3 } },
       requestOptions: expect.objectContaining({
         method: 'DELETE',
         requiresPow: true
@@ -76,14 +76,14 @@ describe('category API', () => {
   it('getCategories calls GET /Category', async () => {
     await getCategories()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/category.aeds'
+      binaryRoute: { operationId: 'binary_get_category_aeds' }
     }))
   })
 
   it('createCategory sends binary mutation frame', async () => {
     await createCategory('Tech')
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/category',
+      binaryRoute: { operationId: 'binary_post_category' },
       requestOptions: expect.objectContaining({
         method: 'POST',
         requiresPow: true,
@@ -95,7 +95,7 @@ describe('category API', () => {
   it('updateCategory sends binary mutation frame', async () => {
     await updateCategory(2, 'Science')
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/category/2',
+      binaryRoute: { operationId: 'binary_put_category_id_int', params: { id: 2 } },
       requestOptions: expect.objectContaining({
         method: 'PUT',
         requiresPow: true,
@@ -107,7 +107,7 @@ describe('category API', () => {
   it('deleteCategory sends binary delete request', async () => {
     await deleteCategory(1)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/category/1',
+      binaryRoute: { operationId: 'binary_delete_category_id_int', params: { id: 1 } },
       requestOptions: expect.objectContaining({
         method: 'DELETE',
         requiresPow: true

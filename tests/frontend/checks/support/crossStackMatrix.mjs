@@ -74,7 +74,8 @@ export function extractBackendBinaryRoutesFromOpenApi(openapi = loadOpenApi()) {
         errorFrame: operation['x-fsus-error-frame'] || null,
         auth: operation['x-fsus-auth'] || null,
         pow: operation['x-fsus-pow'],
-        cache: operation['x-fsus-cache'] || null
+        cache: operation['x-fsus-cache'] || null,
+        rateLimit: operation['x-fsus-rate-limit'] || null
       })
     }
   }

@@ -227,7 +227,7 @@ export function generateFrontendRoutes(openapi = loadOpenApi()) {
   lines.push('')
   lines.push('export const fsusBinaryRouteDescriptors = {')
   for (const op of operations) {
-    lines.push(`  ${JSON.stringify(op.operationId)}: { operationId: ${JSON.stringify(op.operationId)}, method: ${JSON.stringify(op.method)}, path: ${JSON.stringify(op.fullPath)}, requestFrame: ${JSON.stringify(op.requestFrame ?? null)}, responseFrame: ${JSON.stringify(op.responseFrame ?? null)}, auth: ${JSON.stringify(op.auth)}, requiresPow: ${Boolean(op.pow)}, rateLimitPolicy: ${JSON.stringify(op.rateLimit ?? null)}, cachePolicy: ${JSON.stringify(op.cache ?? null)} },`)
+    lines.push(`  ${JSON.stringify(op.operationId)}: { operationId: ${JSON.stringify(op.operationId)}, method: ${JSON.stringify(op.method)}, path: ${JSON.stringify(op.fullPath)}, requestFrame: ${JSON.stringify(op.requestFrame ?? null)}, responseFrame: ${JSON.stringify(op.responseFrame ?? null)}, auth: ${JSON.stringify(op.auth)}, requiresPow: ${Boolean(op.pow)}, rateLimitPolicy: ${JSON.stringify(op.rateLimit ?? null)}, cachePolicy: ${JSON.stringify(op.cache ?? null)}, credentialPolicy: ${JSON.stringify(resolveCredentialPolicy(op))} },`)
   }
   lines.push('} as const')
   lines.push('')
@@ -268,4 +268,13 @@ export function generateFrontendRoutes(openapi = loadOpenApi()) {
   lines.push('  return search.toString()')
   lines.push('}')
   return `${lines.join('\n')}\n`
+}
+
+function resolveCredentialPolicy(op) {
+  return op.auth === 'anonymous'
+    && op.method === 'GET'
+    && op.rateLimit === 'public_read'
+    && op.cache === 'public-read'
+    ? 'omit'
+    : 'include'
 }

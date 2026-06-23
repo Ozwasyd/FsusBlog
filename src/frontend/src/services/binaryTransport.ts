@@ -645,11 +645,11 @@ export async function requestBinaryOnly<T>(options: {
   signal?: AbortSignal;
   suppressAuthFailureTelemetry?: boolean;
 }): Promise<T> {
-  const binaryUrl = resolveBinaryRequestUrl(options);
+  const { binaryUrl, requestOptions } = resolveBinaryRequest(options);
   const binaryResult = await loadBinaryAndDecodeSafe<T>(
     binaryUrl,
     options.frameType,
-    options.requestOptions,
+    requestOptions,
     options.signal
   );
   if (binaryResult.ok) {
@@ -713,23 +713,34 @@ export async function requestBinaryOnly<T>(options: {
   throw error;
 }
 
-function resolveBinaryRequestUrl(options: {
+function resolveBinaryRequest(options: {
   binaryUrl?: string;
   binaryRoute?: {
     operationId: FsusBinaryOperationId;
     params?: Record<string, string | number | bigint>;
     query?: URLSearchParams | Record<string, string | number | boolean | null | undefined>;
   };
-}): string {
+  requestOptions?: RequestInit & { requiresPow?: boolean };
+}): { binaryUrl: string; requestOptions?: RequestInit & { requiresPow?: boolean } } {
   if (options.binaryRoute) {
     const descriptor = fsusBinaryRouteDescriptors[options.binaryRoute.operationId];
     if (!descriptor) {
       throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_descriptor_missing');
     }
-    return buildFsusBinaryRoute(options.binaryRoute.operationId, options.binaryRoute.params, options.binaryRoute.query);
+    const binaryUrl = buildFsusBinaryRoute(options.binaryRoute.operationId, options.binaryRoute.params, options.binaryRoute.query);
+    if (options.requestOptions?.credentials !== undefined || descriptor.credentialPolicy === 'include') {
+      return { binaryUrl, requestOptions: options.requestOptions };
+    }
+    return {
+      binaryUrl,
+      requestOptions: {
+        ...options.requestOptions,
+        credentials: descriptor.credentialPolicy
+      }
+    };
   }
   if (options.binaryUrl) {
-    return options.binaryUrl;
+    return { binaryUrl: options.binaryUrl, requestOptions: options.requestOptions };
   }
   throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_missing');
 }

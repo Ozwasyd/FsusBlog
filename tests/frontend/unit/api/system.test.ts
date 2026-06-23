@@ -40,7 +40,7 @@ describe('system API', () => {
   it('getSiteConfig uses binary seo frame', async () => {
     await getSiteConfig()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/system/seo',
+      binaryRoute: { operationId: 'binary_get_system_seo' },
       frameType: FrameType.SeoConfig
     }))
   })
@@ -48,7 +48,7 @@ describe('system API', () => {
   it('getAdminSiteConfig uses binary seo frame', async () => {
     await getAdminSiteConfig()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/system/admin/seo',
+      binaryRoute: { operationId: 'binary_get_system_admin_seo' },
       frameType: FrameType.SeoConfig
     }))
   })
@@ -82,7 +82,7 @@ describe('system API', () => {
     })
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/system/seo',
+      binaryRoute: { operationId: 'binary_put_system_seo' },
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
         method: 'PUT',
@@ -95,7 +95,7 @@ describe('system API', () => {
   it('getSiteComplianceConfig uses binary compliance frame', async () => {
     await getSiteComplianceConfig()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/system/compliance',
+      binaryRoute: { operationId: 'binary_get_system_compliance' },
       frameType: FrameType.SiteComplianceConfig
     }))
   })
@@ -103,7 +103,7 @@ describe('system API', () => {
   it('getAdminSiteComplianceConfig uses admin binary compliance frame', async () => {
     await getAdminSiteComplianceConfig()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/system/admin/compliance',
+      binaryRoute: { operationId: 'binary_get_system_admin_compliance' },
       frameType: FrameType.SiteComplianceConfig
     }))
   })
@@ -127,7 +127,7 @@ describe('system API', () => {
     })
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/system/compliance',
+      binaryRoute: { operationId: 'binary_put_system_compliance' },
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
         method: 'PUT',
@@ -140,7 +140,7 @@ describe('system API', () => {
   it('getPageData uses binary page frame', async () => {
     await getPageData('about')
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/system/page/about',
+      binaryRoute: { operationId: 'binary_get_system_page_slug', params: { slug: 'about' } },
       frameType: FrameType.PageContent
     }))
   })
@@ -148,7 +148,7 @@ describe('system API', () => {
   it('getAdminPageData uses binary page frame', async () => {
     await getAdminPageData('about')
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/system/admin/page/about',
+      binaryRoute: { operationId: 'binary_get_system_admin_page_slug', params: { slug: 'about' } },
       frameType: FrameType.PageContent
     }))
   })
@@ -156,7 +156,7 @@ describe('system API', () => {
   it('updatePageData sends binary page update request', async () => {
     await updatePageData({ slug: 'about', content: '# About' })
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/system/page',
+      binaryRoute: { operationId: 'binary_put_system_page' },
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
         method: 'PUT',
@@ -169,7 +169,7 @@ describe('system API', () => {
   it('refreshPageData calls the page cache refresh endpoint', async () => {
     await refreshPageData('privacy')
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/system/page/refresh/privacy',
+      binaryRoute: { operationId: 'binary_post_system_page_refresh_slug', params: { slug: 'privacy' } },
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
         method: 'POST',
@@ -181,7 +181,7 @@ describe('system API', () => {
   it('deleteImage sends binary file delete request', async () => {
     await deleteImage('/uploads/illustration/test.webp')
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/file/delete',
+      binaryRoute: { operationId: 'binary_delete_file_delete' },
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
         method: 'DELETE',
