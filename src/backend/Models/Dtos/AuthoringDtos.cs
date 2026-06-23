@@ -32,16 +32,16 @@ public sealed record class ServerDraftResponse(
     DateTime UpdatedAt);
 
 public sealed record class ArticleRevisionSummaryResponse(
-    long Id,
+    string Id,
     int ArticleId,
     int RevisionNo,
     string Title,
     string DiffSummary,
-    long CreatedByAdminPrincipalId,
+    string CreatedByAdminPrincipalId,
     DateTime CreatedAt);
 
 public sealed record class ArticleRevisionDetailResponse(
-    long Id,
+    string Id,
     int ArticleId,
     int RevisionNo,
     string Title,
@@ -51,7 +51,7 @@ public sealed record class ArticleRevisionDetailResponse(
     int CategoryId,
     IReadOnlyList<int> TagIds,
     string DiffSummary,
-    long CreatedByAdminPrincipalId,
+    string CreatedByAdminPrincipalId,
     DateTime CreatedAt);
 
 public sealed record class ArticlePreviewResponse(string Html, string PlainText, IReadOnlyList<PrepublishIssue> Issues);
@@ -61,7 +61,7 @@ public sealed record class PrepublishIssue(string Severity, string Code, string 
 public sealed record class PrepublishCheckResponse(bool CanPublish, IReadOnlyList<PrepublishIssue> Issues);
 
 public sealed record class AssetLibraryItemResponse(
-    long Id,
+    string Id,
     string Url,
     string? AltText,
     int? SourceArticleId,

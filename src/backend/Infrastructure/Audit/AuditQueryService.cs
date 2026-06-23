@@ -1,3 +1,4 @@
+using System.Globalization;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.Dtos;
 using SqlSugar;
@@ -55,7 +56,7 @@ public sealed class AuditQueryService(
 
         return row is null
             ? null
-            : new AuditTamperVerifyResponse(row.Id, await VerifyWithChainAsync(row, cancellationToken), row.RecordHash, row.RecordMac, row.ChainId);
+            : new AuditTamperVerifyResponse(row.Id.ToString(CultureInfo.InvariantCulture), await VerifyWithChainAsync(row, cancellationToken), row.RecordHash, row.RecordMac, row.ChainId);
     }
 
     public async Task<AuditLogSummaryResponse> GetSummaryAsync(AuditLogQueryRequest request, CancellationToken cancellationToken)
@@ -145,7 +146,7 @@ public sealed class AuditQueryService(
 
     private static AuditLogItemResponse ToItemResponse(AuditLog row)
         => new(
-            row.Id,
+            row.Id.ToString(CultureInfo.InvariantCulture),
             row.Source,
             row.Type,
             row.Action,

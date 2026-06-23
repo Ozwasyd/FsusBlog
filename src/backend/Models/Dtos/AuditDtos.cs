@@ -22,7 +22,7 @@ public sealed record AuditLogListResponse(
     AuditLogRuntimeResponse Runtime);
 
 public sealed record AuditLogItemResponse(
-    long Id,
+    string Id,
     string Source,
     string Type,
     string Action,
@@ -65,7 +65,7 @@ public sealed record AuditLogSummaryResponse(
 public sealed record AuditFacetResponse(string Value, int Count);
 
 public sealed record AuditTamperVerifyResponse(
-    long Id,
+    string Id,
     bool Valid,
     string? RecordHash,
     string? RecordMac,

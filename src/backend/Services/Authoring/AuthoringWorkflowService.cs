@@ -12,6 +12,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
+using System.Globalization;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services.Moderation;
@@ -114,12 +115,12 @@ public sealed class AuthoringWorkflowService(
             .ToListAsync(cancellationToken);
 
         return revisions.Select(static revision => new ArticleRevisionSummaryResponse(
-            revision.Id,
+            revision.Id.ToString(CultureInfo.InvariantCulture),
             revision.ArticleId,
             revision.RevisionNo,
             revision.Title,
             revision.DiffSummary,
-            revision.CreatedByAdminPrincipalId,
+            revision.CreatedByAdminPrincipalId.ToString(CultureInfo.InvariantCulture),
             revision.CreatedAt)).ToArray();
     }
 
@@ -680,7 +681,7 @@ public sealed class AuthoringWorkflowService(
 
     private static ArticleRevisionDetailResponse ToRevisionDetailResponse(ArticleRevision revision)
         => new(
-            revision.Id,
+            revision.Id.ToString(CultureInfo.InvariantCulture),
             revision.ArticleId,
             revision.RevisionNo,
             revision.Title,
@@ -690,11 +691,11 @@ public sealed class AuthoringWorkflowService(
             revision.CategoryId,
             ParseTagIds(revision.TagIds),
             revision.DiffSummary,
-            revision.CreatedByAdminPrincipalId,
+            revision.CreatedByAdminPrincipalId.ToString(CultureInfo.InvariantCulture),
             revision.CreatedAt);
 
     private static AssetLibraryItemResponse ToAssetResponse(AssetLibraryItem item)
-        => new(item.Id, item.Url, item.AltText, item.SourceArticleId, item.ReferenceCount, item.Sha256, item.UpdatedAt);
+        => new(item.Id.ToString(CultureInfo.InvariantCulture), item.Url, item.AltText, item.SourceArticleId, item.ReferenceCount, item.Sha256, item.UpdatedAt);
 
     private CommentModerationItemResponse ToCommentModerationItem(CommentModerationQueueRow row)
     {

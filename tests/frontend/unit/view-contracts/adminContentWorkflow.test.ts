@@ -108,7 +108,8 @@ describe('admin content governance workflow contract', () => {
   it('uses admin principal attribution for article revisions', () => {
     const revisionPanel = readRepoFile('src/frontend/src/components/admin/article/ArticleRevisionPanel.vue')
 
-    expect(authoringApi).toContain('createdByAdminPrincipalId: number')
+    expect(authoringApi).toContain('createdByAdminPrincipalId: string')
+    expect(authoringApi).not.toContain('createdByAdminPrincipalId: number')
     expect(authoringApi).not.toContain('createdByUserId')
     expect(revisionPanel).toContain('revision.createdByAdminPrincipalId')
     expect(revisionPanel).not.toContain('revision.createdByUserId')

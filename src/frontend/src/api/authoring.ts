@@ -37,12 +37,12 @@ export interface ServerDraftResponse {
 }
 
 export interface ArticleRevisionSummaryResponse {
-  id: number
+  id: string
   articleId: number
   revisionNo: number
   title: string
   diffSummary: string
-  createdByAdminPrincipalId: number
+  createdByAdminPrincipalId: string
   createdAt: string
 }
 
@@ -67,7 +67,7 @@ export interface ArticlePreviewResponse {
 }
 
 export interface AssetLibraryItemResponse {
-  id: number
+  id: string
   url: string
   altText: string | null
   sourceArticleId: number | null
@@ -141,7 +141,7 @@ export interface AuditLogRuntimeResponse {
 }
 
 export interface AuditLogItemResponse {
-  id: number
+  id: string
   source: string
   type: string
   action: string
@@ -198,7 +198,7 @@ export interface AuditLogSummaryResponse {
 }
 
 export interface AuditTamperVerifyResponse {
-  id: number
+  id: string
   valid: boolean
   recordHash: string | null
   recordMac: string | null
@@ -1053,11 +1053,11 @@ export async function getAuditLogSummary(
   return requestAuthoringBinary<AuditLogSummaryResponse>(`/audit/summary?${search.toString()}`, FrameType.AuditLogSummary, config)
 }
 
-export async function getAuditLogDetail(id: number, config?: ApiRequestConfig): Promise<AuditLogDetailResponse> {
+export async function getAuditLogDetail(id: string, config?: ApiRequestConfig): Promise<AuditLogDetailResponse> {
   return requestAuthoringBinary<AuditLogDetailResponse>(`/audit/${id}`, FrameType.AuditLogDetail, config)
 }
 
-export async function verifyAuditLog(id: number, config?: ApiRequestConfig): Promise<AuditTamperVerifyResponse> {
+export async function verifyAuditLog(id: string, config?: ApiRequestConfig): Promise<AuditTamperVerifyResponse> {
   return requestAuthoringBinary<AuditTamperVerifyResponse>(`/audit/${id}/verify`, FrameType.AuditTamperVerifyResponse, config)
 }
 
@@ -1345,7 +1345,7 @@ export async function listArticleRevisions(
 
 export async function getArticleRevision(
   articleId: number,
-  revisionId: number,
+  revisionId: string,
   config?: ApiRequestConfig
 ): Promise<ArticleRevisionDetailResponse> {
   return requestAuthoringBinary<ArticleRevisionDetailResponse>(`/articles/${articleId}/revisions/${revisionId}`, FrameType.ArticleRevisionDetail, config)
@@ -1353,7 +1353,7 @@ export async function getArticleRevision(
 
 export async function rollbackArticleRevision(
   articleId: number,
-  revisionId: number,
+  revisionId: string,
   config?: ApiRequestConfig
 ): Promise<boolean> {
   const result = await requestAuthoringBinary<{ rolledBack?: boolean }>(`/articles/${articleId}/revisions/${revisionId}/rollback`, FrameType.ArticleRevisionRollbackResponse, config, {
