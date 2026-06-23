@@ -15,12 +15,16 @@ export interface BinaryRequestOptions extends RequestInit {
 export class BinaryRequestError extends AppError {
   readonly status: number;
   readonly buffer: ArrayBuffer;
+  readonly headers: Headers;
+  readonly retryAfter: string | null;
 
-  constructor(status: number, message: string, buffer: ArrayBuffer, code?: AppErrorCode) {
+  constructor(status: number, message: string, buffer: ArrayBuffer, code?: AppErrorCode, headers?: HeadersInit) {
     super(code ?? appErrorFromStatus(status, message).code, message, { status });
     this.name = 'BinaryRequestError';
     this.status = status;
     this.buffer = buffer;
+    this.headers = new Headers(headers);
+    this.retryAfter = this.headers.get('retry-after');
   }
 }
 
@@ -64,7 +68,7 @@ async function buildBinaryPowHeadersFresh(fp: string, signal?: AbortSignal): Pro
   throwIfAborted(signal)
 
   if (!challengeResponse.ok) {
-    throw new BinaryRequestError(challengeResponse.status, `Binary request failed: ${challengeResponse.status}`, challengeBuffer)
+    throw new BinaryRequestError(challengeResponse.status, `Binary request failed: ${challengeResponse.status}`, challengeBuffer, undefined, challengeResponse.headers)
   }
 
   const raw = decodePowChallenge(challengeBuffer)
@@ -216,7 +220,7 @@ async function binaryRequestResult(url: string, options?: BinaryRequestOptions):
   const buffer = await response.arrayBuffer();
 
   if (!response.ok) {
-    return err(new BinaryRequestError(response.status, `Binary request failed: ${response.status}`, buffer, appErrorFromStatus(response.status, `Binary request failed: ${response.status}`).code));
+    return err(new BinaryRequestError(response.status, `Binary request failed: ${response.status}`, buffer, appErrorFromStatus(response.status, `Binary request failed: ${response.status}`).code, response.headers));
   }
 
   return ok(buffer);

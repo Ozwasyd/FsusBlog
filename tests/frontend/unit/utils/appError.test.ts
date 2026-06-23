@@ -83,6 +83,7 @@ describe('appErrorFromStatus', () => {
     [403, AppErrorCode.Forbidden],
     [404, AppErrorCode.NotFound],
     [409, AppErrorCode.Conflict],
+    [428, AppErrorCode.PreconditionRequired],
     [408, AppErrorCode.Timeout],
     [504, AppErrorCode.Timeout],
     [429, AppErrorCode.RateLimited],

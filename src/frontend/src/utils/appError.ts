@@ -4,6 +4,7 @@ export const AppErrorCode = {
   Forbidden: 'Forbidden',
   NotFound: 'NotFound',
   Conflict: 'Conflict',
+  PreconditionRequired: 'PreconditionRequired',
   RateLimited: 'RateLimited',
   InfraFailure: 'InfraFailure',
   ProtocolFailure: 'ProtocolFailure',
@@ -73,6 +74,9 @@ export function appErrorFromStatus(status: number, message: string, options?: Ap
   }
   if (status === 409) {
     return createAppError(AppErrorCode.Conflict, message, { ...options, status })
+  }
+  if (status === 428) {
+    return createAppError(AppErrorCode.PreconditionRequired, message, { ...options, status })
   }
   if (status === 408 || status === 504) {
     return createAppError(AppErrorCode.Timeout, message, { ...options, status })

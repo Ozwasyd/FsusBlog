@@ -37,6 +37,10 @@ export type TransportFailureKind =
   | 'auth_failed'
   | 'forbidden'
   | 'not_found'
+  | 'conflict'
+  | 'validation'
+  | 'precondition_required'
+  | 'rate_limited'
   | 'public_artifact_not_ready'
   | 'client_route_contract'
   | 'accept_contract'
@@ -48,6 +52,10 @@ export type TransportFailure = {
   message: string;
   status?: number;
   traceId?: string;
+  backendCode?: number;
+  backendCategory?: number;
+  details?: string;
+  retryAfter?: string | null;
   canceled?: boolean;
 };
 
@@ -59,6 +67,14 @@ function transportFailureToCode(kind: TransportFailureKind): AppErrorCode {
       return AppErrorCode.Forbidden;
     case 'not_found':
       return AppErrorCode.NotFound;
+    case 'conflict':
+      return AppErrorCode.Conflict;
+    case 'validation':
+      return AppErrorCode.Validation;
+    case 'precondition_required':
+      return AppErrorCode.PreconditionRequired;
+    case 'rate_limited':
+      return AppErrorCode.RateLimited;
     case 'public_artifact_not_ready':
       return AppErrorCode.Timeout;
     case 'client_route_contract':
@@ -93,11 +109,21 @@ function workerErrorToCode(code?: string): AppErrorCode {
 
 export class BinaryTransportError extends AppError {
   readonly kind: TransportFailureKind;
+  readonly backendCode?: number;
+  readonly backendCategory?: number;
+  readonly retryAfter?: string | null;
 
   constructor(failure: TransportFailure) {
-    super(transportFailureToCode(failure.kind), failure.message, { traceId: failure.traceId, status: failure.status });
+    super(transportFailureToCode(failure.kind), failure.message, {
+      traceId: failure.traceId,
+      status: failure.status,
+      details: failure.details
+    });
     this.name = 'BinaryTransportError';
     this.kind = failure.kind;
+    this.backendCode = failure.backendCode;
+    this.backendCategory = failure.backendCategory;
+    this.retryAfter = failure.retryAfter;
   }
 }
 
@@ -325,6 +351,22 @@ function binaryFailureKindFromStatus(status: number): TransportFailureKind {
     return 'not_found';
   }
 
+  if (status === 409) {
+    return 'conflict';
+  }
+
+  if (status === 422) {
+    return 'validation';
+  }
+
+  if (status === 428) {
+    return 'precondition_required';
+  }
+
+  if (status === 429) {
+    return 'rate_limited';
+  }
+
   if (status === 503) {
     return 'public_artifact_not_ready';
   }
@@ -531,7 +573,11 @@ async function loadBinaryAndDecodeSafe<T>(
               kind,
               message: apiError.message || (error instanceof Error ? error.message : 'binary_transport_failed'),
               status: error.status,
-              traceId: apiError.traceId || undefined
+              traceId: apiError.traceId || undefined,
+              backendCode: apiError.code,
+              backendCategory: apiError.category,
+              details: apiError.details || undefined,
+              retryAfter: error.retryAfter
             }
           };
         }
@@ -552,21 +598,32 @@ async function loadBinaryAndDecodeSafe<T>(
         failure: {
           kind,
           message,
-          status: error instanceof BinaryRequestError ? error.status : undefined
+          status: error instanceof BinaryRequestError ? error.status : undefined,
+          retryAfter: error instanceof BinaryRequestError ? error.retryAfter : undefined
         }
       };
     });
 }
 
-function decodeApiErrorFrame(buffer: ArrayBuffer): { status: number; message: string; traceId: string } | null {
+function decodeApiErrorFrame(buffer: ArrayBuffer): {
+  code: number;
+  category: number;
+  status: number;
+  message: string;
+  details: string;
+  traceId: string;
+} | null {
   const frame = decode(buffer);
   if (!frame.ok || frame.frameType !== FrameType.ApiError || frame.payloadView.byteLength !== 584) {
     return null;
   }
 
   return {
+    code: frame.payloadView[0] ?? 0,
+    category: frame.payloadView[1] ?? 0,
     status: readInt32(frame.payloadView, 4),
     message: readFixedUtf8(frame.payloadView, 8, 256),
+    details: readFixedUtf8(frame.payloadView, 264, 256),
     traceId: readFixedUtf8(frame.payloadView, 520, 64)
   };
 }
@@ -588,7 +645,17 @@ export async function requestBinaryOnly<T>(options: {
     return binaryResult.value;
   }
 
-  const { kind, message, status, traceId, canceled } = binaryResult.failure;
+  const {
+    kind,
+    message,
+    status,
+    traceId,
+    backendCode,
+    backendCategory,
+    details,
+    retryAfter,
+    canceled
+  } = binaryResult.failure;
   if (canceled) {
     throw createAbortLikeError(message);
   }
@@ -600,17 +667,34 @@ export async function requestBinaryOnly<T>(options: {
       message,
       status,
       traceId,
+      backendCode,
+      backendCategory,
+      details,
+      retryAfter,
       url: options.binaryUrl,
       frameType: options.frameType
     });
   }
-  const error = new BinaryTransportError({ kind, message, status, traceId });
+  const error = new BinaryTransportError({
+    kind,
+    message,
+    status,
+    traceId,
+    backendCode,
+    backendCategory,
+    details,
+    retryAfter
+  });
   if (shouldReportFailure) {
     reportTransportEvent('fsus:binary:error', {
       kind,
       message,
       status,
       traceId,
+      backendCode,
+      backendCategory,
+      details,
+      retryAfter,
       url: options.binaryUrl,
       frameType: options.frameType
     });

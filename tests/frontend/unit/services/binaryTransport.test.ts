@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 import { AppErrorCode } from '@/utils/appError'
+import { encodeAedsFrame } from '@/api/binaryFrame'
 
 vi.mock('@wasm/aeds', async () => await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds'))
 
@@ -18,6 +19,31 @@ import { BinaryRequestError, binaryRequest } from '@/api/binaryApiClient'
 import { BinaryTransportError, requestBinaryOnly } from '@/services/binaryTransport'
 
 const mockBinaryRequest = vi.mocked(binaryRequest)
+const API_ERROR_POD_SIZE = 584
+
+function writeFixedUtf8(payload: Uint8Array, offset: number, length: number, value: string): void {
+  const encoded = new TextEncoder().encode(value)
+  payload.set(encoded.subarray(0, length), offset)
+}
+
+function encodeApiErrorFrame(options: {
+  status: number
+  code?: number
+  category?: number
+  message?: string
+  details?: string
+  traceId?: string
+}): ArrayBuffer {
+  const payload = new Uint8Array(API_ERROR_POD_SIZE)
+  const view = new DataView(payload.buffer)
+  payload[0] = options.code ?? 1
+  payload[1] = options.category ?? 1
+  view.setInt32(4, options.status, true)
+  writeFixedUtf8(payload, 8, 256, options.message ?? `status:${options.status}`)
+  writeFixedUtf8(payload, 264, 256, options.details ?? `details:${options.status}`)
+  writeFixedUtf8(payload, 520, 64, options.traceId ?? `trace-${options.status}`)
+  return encodeAedsFrame(FrameType.ApiError, payload)
+}
 
 describe('binaryTransport ApiError mapping', () => {
   beforeEach(() => {
@@ -875,6 +901,10 @@ describe('binaryTransport ApiError mapping', () => {
 
   it.each([
     [404, 'not_found', AppErrorCode.NotFound],
+    [409, 'conflict', AppErrorCode.Conflict],
+    [422, 'validation', AppErrorCode.Validation],
+    [428, 'precondition_required', AppErrorCode.PreconditionRequired],
+    [429, 'rate_limited', AppErrorCode.RateLimited],
     [503, 'public_artifact_not_ready', AppErrorCode.Timeout],
     [400, 'client_route_contract', AppErrorCode.ProtocolFailure],
     [406, 'accept_contract', AppErrorCode.ProtocolFailure]
@@ -889,6 +919,39 @@ describe('binaryTransport ApiError mapping', () => {
       kind,
       code,
       status
+    })
+  })
+
+  it('keeps ApiError code category details and retry-after for rate limits', async () => {
+    const buffer = encodeApiErrorFrame({
+      status: 429,
+      code: 7,
+      category: 13,
+      message: 'TOO_MANY_REQUESTS',
+      details: 'retry later',
+      traceId: 'trace-rate'
+    })
+    mockBinaryRequest.mockRejectedValue(new BinaryRequestError(
+      429,
+      'Binary request failed: 429',
+      buffer,
+      undefined,
+      { 'Retry-After': '30' }
+    ))
+
+    await expect(requestBinaryOnly({
+      binaryUrl: '/api/binary/comment/1',
+      frameType: FrameType.ArticleList
+    })).rejects.toMatchObject({
+      name: 'BinaryTransportError',
+      kind: 'rate_limited',
+      code: AppErrorCode.RateLimited,
+      status: 429,
+      traceId: 'trace-rate',
+      backendCode: 7,
+      backendCategory: 13,
+      details: 'retry later',
+      retryAfter: '30'
     })
   })
 

@@ -22,6 +22,7 @@ describe('appError utilities', () => {
     expect(appErrorFromStatus(403, 'x').code).toBe(AppErrorCode.Forbidden)
     expect(appErrorFromStatus(404, 'x').code).toBe(AppErrorCode.NotFound)
     expect(appErrorFromStatus(409, 'x').code).toBe(AppErrorCode.Conflict)
+    expect(appErrorFromStatus(428, 'x').code).toBe(AppErrorCode.PreconditionRequired)
     expect(appErrorFromStatus(408, 'x').code).toBe(AppErrorCode.Timeout)
     expect(appErrorFromStatus(504, 'x').code).toBe(AppErrorCode.Timeout)
     expect(appErrorFromStatus(429, 'x').code).toBe(AppErrorCode.RateLimited)
