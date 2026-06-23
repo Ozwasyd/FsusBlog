@@ -6,8 +6,10 @@ using System.Text;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -70,6 +72,23 @@ public sealed class PowValidationLogicTests
             fixture.Governor);
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_NormalizesInternalPowExceptionsToUnauthorized()
+    {
+        const string clientIp = "203.0.113.10";
+        var fixture = CreateFixture();
+        string proof = await CreateEncodedProofAsync(fixture.Service, clientIp);
+        var context = CreatePowContext(clientIp, proof);
+
+        IActionResult? result = await PowValidationLogic.ValidateAsync(
+            context,
+            NullLogger.Instance,
+            new ThrowingPowService(),
+            fixture.Governor);
+
+        Assert.IsType<UnauthorizedObjectResult>(result);
     }
 
     private static PowFixture CreateFixture()
@@ -183,6 +202,15 @@ public sealed class PowValidationLogicTests
     }
 
     private sealed record PowFixture(RedisPowService Service, AdaptivePowGovernor Governor);
+
+    private sealed class ThrowingPowService : IPowService
+    {
+        public Task<PowChallenge> GenerateChallengeAsync(string clientIp)
+            => throw new NotSupportedException();
+
+        public Task<bool> VerifyAsync(IPowRequest req, string clientIp)
+            => throw new OverflowException("unit pow failure");
+    }
 
     private sealed class OneShotCache : IUnifiedCache
     {

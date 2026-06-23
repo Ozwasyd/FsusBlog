@@ -39,6 +39,7 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
             [CachePolicyId.SecurityCaptchaChallenge] = new(CachePolicyId.SecurityCaptchaChallenge, "sec", "captcha-challenge", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true, 0d, false),
             [CachePolicyId.SecurityPoSpaceChallenge] = new(CachePolicyId.SecurityPoSpaceChallenge, "sec", "pospace-challenge", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true, 0d, false),
             [CachePolicyId.AnonymousCommentTicket] = new(CachePolicyId.AnonymousCommentTicket, "sec", "anonymous-comment-ticket", TimeSpan.Zero, TimeSpan.FromMinutes(2), null, null, true, 0d, false),
+            [CachePolicyId.AnonymousCommentPolicyVersion] = new(CachePolicyId.AnonymousCommentPolicyVersion, "sec", "anonymous-comment-policy-version", TimeSpan.FromMinutes(1), TimeSpan.FromDays(7), null, null, true, 0d, false),
             [CachePolicyId.SecurityPerceptionChallenge] = new(CachePolicyId.SecurityPerceptionChallenge, "sec", "perception-challenge", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true, 0d, false),
             [CachePolicyId.SiteSubscriptionUnsubscribeProof] = new(CachePolicyId.SiteSubscriptionUnsubscribeProof, "sec", "site-subscription-unsubscribe-proof", TimeSpan.Zero, TimeSpan.FromMinutes(15), null, null, true, 0d, false),
             [CachePolicyId.SecurityChallengeVerifyRateLimit] = new(CachePolicyId.SecurityChallengeVerifyRateLimit, "sec", "challenge-verify-rate", TimeSpan.Zero, TimeSpan.FromMinutes(2), null, null, true, 0d, false),

@@ -547,6 +547,13 @@
       ]
     },
     {
+      "path": "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-SECURITY-MATRIX"
+      ]
+    },
+    {
       "path": "src/backend/Modules/Endpoints/NotificationStreamDrillEndpoints.cs",
       "requirements": [
         "BACKEND-NOTIFICATION-STREAM",

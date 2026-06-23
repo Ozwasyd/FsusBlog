@@ -260,8 +260,19 @@ public sealed class MessageCenterService(
 
         long messageId = SnowFlakeSingle.Instance.NextId();
         DateTime now = DateTime.UtcNow;
+        bool replyAccepted = false;
         var tran = await db.Ado.UseTranAsync(async () =>
         {
+            int conversationUpdated = await db.Updateable<MessageConversation>()
+                .SetColumns(it => new MessageConversation { UpdatedAt = now, LastMessageAt = now })
+                .Where(it => it.Id == conversationId && it.Status != ConversationStatus.Closed)
+                .ExecuteCommandAsync();
+            if (conversationUpdated <= 0)
+            {
+                return;
+            }
+
+            replyAccepted = true;
             await db.Insertable(new ConversationMessage
             {
                 Id = messageId,
@@ -271,11 +282,6 @@ public sealed class MessageCenterService(
                 Body = normalizedBody,
                 CreatedAt = now
             }).ExecuteCommandAsync();
-
-            await db.Updateable<MessageConversation>()
-                .SetColumns(it => new MessageConversation { UpdatedAt = now, LastMessageAt = now })
-                .Where(it => it.Id == conversationId)
-                .ExecuteCommandAsync();
 
             await db.Updateable<ConversationParticipantState>()
                 .SetColumns(it => new ConversationParticipantState
@@ -292,6 +298,10 @@ public sealed class MessageCenterService(
         if (!TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "message-center-reply-account"))
         {
             return Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败");
+        }
+        if (!replyAccepted)
+        {
+            return Result<ConversationMessageResponse>.Failure(ErrorCode.Conflict, "会话已关闭");
         }
 
         var message = await BuildMessageResponseAsync(conversationId, messageId);
@@ -861,7 +871,7 @@ public sealed class MessageCenterService(
             await PublishConversationUpsertAsync(participant.AccountId, item, totalUnread);
         }
 
-        await PublishMessageAppendAsync(conversationId.ToString(), message, participant.UnreadCount + 1, totalUnread, participant.AccountId);
+        await PublishMessageAppendAsync(conversationId.ToString(), message, participant.UnreadCount, totalUnread, participant.AccountId);
     }
 
     private async Task PublishAccountConversationUpsertThenMessageAppendAsync(

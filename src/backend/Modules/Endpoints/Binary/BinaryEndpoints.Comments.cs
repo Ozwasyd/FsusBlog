@@ -169,6 +169,7 @@ public static partial class BinaryEndpoints
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "发布失败：可能文章已关闭评论或数据异常"), aeds);
         })
         .RequireAnonymousAccountPrincipal()
+        .RequireAuthorization()
         .RequireRateLimiting("fixed_ip")
         .WithRiskAction(RiskActionNames.CommentCreate)
         .AddEndpointFilter<CommentRiskActionFilter>()
@@ -280,7 +281,8 @@ public static partial class BinaryEndpoints
             string normalizedReason = reason ?? "不符合社区规范";
             bool success = user.IsAnonymousAccount && user.AccountId > 0
                 ? await commentService.DeleteCommentAsAccountAsync(id, user.AccountId, normalizedReason)
-                : TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId)
+                : httpContext.User.IsAdminPrincipal()
+                    && TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId)
                     && httpContext.User.HasAdminPermission(AdminPermissions.CommentModerate)
                     && await commentService.DeleteCommentAsAdminAsync(id, new AdminPrincipalActor(adminPrincipalId, adminSessionId), normalizedReason);
 

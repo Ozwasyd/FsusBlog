@@ -57,6 +57,24 @@ public sealed class AdminPrincipalSecurityContractTests
     }
 
     [Fact]
+    public void LocalAuthFixtureLogin_IsDevelopmentOnlyAndUsesAuthCookieService()
+    {
+        string endpoints = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs");
+        string composition = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs");
+
+        Assert.Contains("MapLocalAuthFixtureEndpoints", composition, StringComparison.Ordinal);
+        Assert.Contains(".Environment.IsDevelopment()", endpoints, StringComparison.Ordinal);
+        Assert.Contains("/api/local/auth-fixture/admin", endpoints, StringComparison.Ordinal);
+        Assert.Contains("user.storage-state.json", endpoints, StringComparison.Ordinal);
+        Assert.Contains("admin.storage-state.json", endpoints, StringComparison.Ordinal);
+        Assert.Contains("AuthCookieService", endpoints, StringComparison.Ordinal);
+        Assert.Contains("SetTokenCookies", endpoints, StringComparison.Ordinal);
+        Assert.Contains("SetAdminSessionCookies", endpoints, StringComparison.Ordinal);
+        Assert.Contains("Results.Redirect", endpoints, StringComparison.Ordinal);
+        Assert.Contains("AllowAnonymous", endpoints, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UserTokenAndRequestContext_DoNotExposeLegacyAdminAuthority()
     {
         string jwt = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Helpers/JwtHelper.cs");

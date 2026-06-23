@@ -236,6 +236,7 @@ public static class WebApplicationCompositionExtensions
 
     private static void MapFsusOperationalRoutes(this WebApplication app)
     {
+        app.MapLocalAuthFixtureEndpoints();
         app.MapNotificationStreamDrillEndpoints();
         app.MapProductionHealthEndpoints();
     }

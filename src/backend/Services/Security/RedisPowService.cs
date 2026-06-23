@@ -117,7 +117,7 @@ public class RedisPowService : IPowService
     private bool BasicValidate(IPowRequest req, string ip)
     {
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        if (Math.Abs(now - req.PowTimestamp) > 300) return false;
+        if (!IsTimestampWithinWindow(req.PowTimestamp, now)) return false;
 
         string normalizedIp = NormalizeIp(ip);
         Span<byte> buffer = stackalloc byte[256];
@@ -360,9 +360,18 @@ public class RedisPowService : IPowService
     private static TimeSpan ResolveReplayTtl(long timestamp)
     {
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        long remainingSeconds = Math.Max(1, 300 - Math.Abs(now - timestamp));
+        if (!IsTimestampWithinWindow(timestamp, now))
+        {
+            return TimeSpan.FromSeconds(1);
+        }
+
+        long elapsed = timestamp <= now ? now - timestamp : timestamp - now;
+        long remainingSeconds = Math.Max(1, 300 - elapsed);
         return TimeSpan.FromSeconds(Math.Min(remainingSeconds, (long)ProofReplayTtl.TotalSeconds));
     }
+
+    private static bool IsTimestampWithinWindow(long timestamp, long now)
+        => timestamp >= now - 300 && timestamp <= now + 300;
 
     private static bool HasValidFieldLengths(IPowRequest req)
         => IsUtf8LengthInRange(req.PowSalt, MaxSaltUtf8Bytes)

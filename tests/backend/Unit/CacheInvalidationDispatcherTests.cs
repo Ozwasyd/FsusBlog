@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Services.Security;
 using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -122,17 +123,22 @@ public sealed class CacheInvalidationDispatcherTests
     public async Task InvalidateCommentPolicyAsync_RecordsBoundaryWithoutGlobalCommentOutputTag()
     {
         var cache = Substitute.For<IUnifiedCache>();
+        cache.IncrementAsync(CachePolicyId.AnonymousCommentPolicyVersion, "main", 1, Arg.Any<CancellationToken>())
+            .Returns(12L);
         var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
         var runtimeState = new CacheInvalidationRuntimeState();
-        var sut = new CacheInvalidationDispatcher(cache, httpCacheInvalidator, runtimeState);
+        var localInvalidator = Substitute.For<IAnonymousCommentPolicyInvalidationSink>();
+        var sut = new CacheInvalidationDispatcher(cache, httpCacheInvalidator, runtimeState, commentPolicyInvalidationSink: localInvalidator);
 
         await sut.InvalidateCommentPolicyAsync();
 
         await httpCacheInvalidator.DidNotReceive().InvalidateAsync(CacheTag.Comment);
+        localInvalidator.Received(1).InvalidateLocalSnapshot();
+        await cache.Received(1).IncrementAsync(CachePolicyId.AnonymousCommentPolicyVersion, "main", 1, Arg.Any<CancellationToken>());
         await cache.DidNotReceiveWithAnyArgs().RemoveAsync(default!, default!, default);
         await cache.DidNotReceiveWithAnyArgs().RemoveManyAsync(default!, default);
         Assert.Equal("comment_policy", runtimeState.Snapshot().LastKind);
-        Assert.Equal("anonymous-comment-policy", runtimeState.Snapshot().LastDetail);
+        Assert.Equal("anonymous-comment-policy:v12", runtimeState.Snapshot().LastDetail);
     }
 
     private static bool HasKey(IReadOnlyList<CacheKeyIdentity> keys, CachePolicyId policyId, string identity)

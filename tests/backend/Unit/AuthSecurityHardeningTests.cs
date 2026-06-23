@@ -20,13 +20,13 @@ public sealed class AuthSecurityHardeningTests
     }
 
     [Fact]
-    public void UserService_PasswordChangeRevokesAllSessionsInTransaction()
+    public void UserService_AccountDeletionRevokesAllSessionsInTransaction()
     {
         string source = ReadSource("src/backend/Services/UserService.cs");
 
         Assert.Contains("UseTranAsync", source, StringComparison.Ordinal);
-        Assert.Contains("RevokeReason == \"password_changed\"", source, StringComparison.Ordinal);
-        Assert.Contains("AuditAction\", \"password_changed\"", source, StringComparison.Ordinal);
+        Assert.Contains("RevokeReason == \"account_deleted\"", source, StringComparison.Ordinal);
+        Assert.Contains("DeletedReason == \"self-service\"", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -137,9 +137,11 @@ public sealed class AuthSecurityHardeningTests
         string helper = ExtractBetween(
             source,
             "private static async Task<(ErrorDetail Error, int StatusCode)?> RequireUserSecurityStepUpAsync",
-            "private static async Task<(UserSecurityStepUpProof Proof, ErrorDetail Error)> ReadUserSecurityStepUpProofAsync");
+            "private static ValueTask RecordPasskeyAssertionFailureAsync");
         Assert.Contains("result.StatusCode", helper, StringComparison.Ordinal);
         Assert.Contains("ErrorDetail.Create(result.ErrorCode, result.Message)", helper, StringComparison.Ordinal);
+        Assert.Contains("TryReadMfaProof(httpContext, out string token)", helper, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadBinaryRequestPayloadAsync", helper, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -148,13 +150,13 @@ public sealed class AuthSecurityHardeningTests
         string source = ReadSource("src/frontend/src/store/user.ts");
         string router = ReadSource("src/frontend/src/router/index.ts");
 
-        Assert.Contains("pick: ['isAuthChecked']", source, StringComparison.Ordinal);
+        Assert.Contains("pick: ['accountState', 'lastVerifiedAt', 'authCacheVersion', 'lastFetchedAt']", source, StringComparison.Ordinal);
         Assert.DoesNotContain("pick: ['userInfo'", source, StringComparison.Ordinal);
         Assert.Contains("const isAdmin = computed(() => false)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("adminRoles", source, StringComparison.Ordinal);
         Assert.Contains("route.path.startsWith('/user/manage')", router, StringComparison.Ordinal);
         Assert.Contains("record.meta.accountArea === 'manage'", router, StringComparison.Ordinal);
-        Assert.Contains("ensureUserInfoFresh({ maxAgeMs: 30_000, forceWhenUnknown: true })", router, StringComparison.Ordinal);
+        Assert.Contains("sessionBootstrap.ensureAccountSession({ reason: 'route'", router, StringComparison.Ordinal);
     }
 
     private static string ReadSource(string relativePath, [CallerFilePath] string sourceFilePath = "")

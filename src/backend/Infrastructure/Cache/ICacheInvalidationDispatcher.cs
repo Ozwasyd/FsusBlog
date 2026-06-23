@@ -1,3 +1,5 @@
+using FsusBlog.Server.Services.Security;
+
 namespace FsusBlog.Server.Infrastructure.Cache;
 
 public interface ICacheInvalidationDispatcher
@@ -114,7 +116,8 @@ public sealed class CacheInvalidationDispatcher(
     IUnifiedCache cache,
     IHttpCacheInvalidator httpCacheInvalidator,
     CacheInvalidationRuntimeState? runtimeState = null,
-    IHotArticlesCacheVersionPublisher? hotArticlesVersionPublisher = null) : ICacheInvalidationDispatcher
+    IHotArticlesCacheVersionPublisher? hotArticlesVersionPublisher = null,
+    IAnonymousCommentPolicyInvalidationSink? commentPolicyInvalidationSink = null) : ICacheInvalidationDispatcher
 {
     public async Task InvalidateArticleMutationAsync(int? articleId = null, CancellationToken cancellationToken = default)
     {
@@ -179,10 +182,11 @@ public sealed class CacheInvalidationDispatcher(
         runtimeState?.Record("taxonomy", "category-tag");
     }
 
-    public Task InvalidateCommentPolicyAsync(CancellationToken cancellationToken = default)
+    public async Task InvalidateCommentPolicyAsync(CancellationToken cancellationToken = default)
     {
-        runtimeState?.Record("comment_policy", "anonymous-comment-policy");
-        return Task.CompletedTask;
+        commentPolicyInvalidationSink?.InvalidateLocalSnapshot();
+        long version = await cache.IncrementAsync(CachePolicyId.AnonymousCommentPolicyVersion, "main", 1, cancellationToken);
+        runtimeState?.Record("comment_policy", $"anonymous-comment-policy:v{version}");
     }
 
     public async Task InvalidateCommentMutationAsync(CommentCacheInvalidationScope? scope = null, CancellationToken cancellationToken = default)

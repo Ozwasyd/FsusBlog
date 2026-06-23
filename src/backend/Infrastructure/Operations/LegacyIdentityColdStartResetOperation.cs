@@ -117,7 +117,7 @@ public sealed class LegacyIdentityColdStartResetOperation(
                 """
                 DELETE FROM passkey_credential credential
                 USING fsus_identity_reset_user_ids legacy_user
-                WHERE credential.userid = legacy_user.userid
+                WHERE credential.account_id = legacy_user.userid
                 """,
                 cancellationToken);
             int sessionsDeleted = await DeleteAndCountAsync(

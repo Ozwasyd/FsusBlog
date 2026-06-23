@@ -110,10 +110,10 @@ public sealed class CommentActorContractTests
         string recordsBlock = ExtractBetween(
             service,
             "public async Task<CursorResponse<UserCommentResponse>> GetAttributableCommentsAsync",
-            "public async Task<bool> DeleteCommentAsync");
+            "public Task<bool> DeleteCommentAsync");
         string deleteBlock = ExtractBetween(
             service,
-            "public async Task<bool> DeleteCommentAsync",
+            "public Task<bool> DeleteCommentAsync",
             "private async Task<List<ThreadRootRow>> QueryThreadRootsAsync");
 
         Assert.Contains("GetAttributableCommentsAsync", serviceInterface, StringComparison.Ordinal);
@@ -125,7 +125,7 @@ public sealed class CommentActorContractTests
         Assert.DoesNotContain("c.ReplyToUserId == ru.Id", recordsBlock, StringComparison.Ordinal);
 
         Assert.Contains("IsAttributableUserComment(row.AuthorMode, row.UserId)", deleteBlock, StringComparison.Ordinal);
-        Assert.Contains("UserId: isAttributableUserComment ? row.UserId : null", deleteBlock, StringComparison.Ordinal);
+        Assert.Contains("AccountId: isAttributableUserComment ? row.UserId : null", deleteBlock, StringComparison.Ordinal);
         Assert.Contains("UserCommentsChanged: isAttributableUserComment", deleteBlock, StringComparison.Ordinal);
         Assert.DoesNotContain("row.UserId != currentUserId && !isAdmin", deleteBlock, StringComparison.Ordinal);
         Assert.DoesNotContain("if (isAdmin && row.UserId.HasValue", deleteBlock, StringComparison.Ordinal);

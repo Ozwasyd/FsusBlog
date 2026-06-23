@@ -215,6 +215,38 @@ public sealed class MessageCenterServiceTests
         Assert.DoesNotContain(".OrderByDescending(it => it.Id)", method, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ReplyAsAccountAsync_SourceUsesTransactionalClosedConversationWriteBarrier()
+    {
+        string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
+        string method = ExtractMethod(
+            source,
+            "public async Task<Result<ConversationMessageResponse>> ReplyAsAccountAsync",
+            "public async Task<Result> MarkConversationReadAsync");
+
+        Assert.Contains("bool replyAccepted = false", method, StringComparison.Ordinal);
+        Assert.Contains(".Where(it => it.Id == conversationId && it.Status != ConversationStatus.Closed)", method, StringComparison.Ordinal);
+        Assert.Contains("if (conversationUpdated <= 0)", method, StringComparison.Ordinal);
+        Assert.Contains("replyAccepted = true", method, StringComparison.Ordinal);
+        Assert.Contains("ErrorCode.Conflict", method, StringComparison.Ordinal);
+        Assert.True(
+            method.IndexOf("conversationUpdated", StringComparison.Ordinal) < method.IndexOf("db.Insertable(new ConversationMessage", StringComparison.Ordinal),
+            "The status write barrier must run before inserting the account reply.");
+    }
+
+    [Fact]
+    public void PublishPreparedParticipantMessageAsync_SourceUsesStoredUnreadCount()
+    {
+        string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
+        string method = ExtractMethod(
+            source,
+            "private async Task PublishPreparedParticipantMessageAsync",
+            "private async Task PublishAccountConversationUpsertThenMessageAppendAsync");
+
+        Assert.Contains("PublishMessageAppendAsync(conversationId.ToString(), message, participant.UnreadCount, totalUnread, participant.AccountId)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("participant.UnreadCount + 1", method, StringComparison.Ordinal);
+    }
+
     // ── Private static helpers via reflection ──────────────────────────────────
 
     private static T InvokePrivateStatic<T>(string methodName, object?[] args)

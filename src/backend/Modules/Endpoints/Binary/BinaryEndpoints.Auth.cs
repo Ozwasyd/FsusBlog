@@ -1327,8 +1327,8 @@ public static partial class BinaryEndpoints
         string action,
         CancellationToken cancellationToken)
     {
-        string proofToken = httpContext.Request.Headers.TryGetValue(MfaProofHeader, out var values)
-            ? values.ToString().Trim()
+        string proofToken = TryReadMfaProof(httpContext, out string token)
+            ? token
             : string.Empty;
 
         UserSecurityStepUpResult result = await stepUp.VerifyAsync(

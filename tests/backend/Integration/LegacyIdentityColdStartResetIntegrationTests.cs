@@ -123,13 +123,14 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
 
         await db.Ado.ExecuteCommandAsync("""
             INSERT INTO sys_user(
-                id, username, password, role, status, createtime, mfaenabled,
-                mfasecretencrypted, mfapendingsecretencrypted, mfarecoverycodeshash
+                id, public_handle, identity_kind, passkey_enabled, passkey_user_handle,
+                recovery_enabled, privacy_initialized_at, anonymous_credential_level,
+                anonymous_credential_status, status, createtime, mfaenabled, riskflags
             )
             VALUES (
-                42, 'legacy-admin', 'legacy-password-hash', 'admin', 0,
-                TIMESTAMP '2024-01-01 00:00:00', true,
-                'legacy-secret', 'legacy-pending-secret', 'legacy-recovery-hash'
+                42, 'legacy-admin', 'anonymous_account', true, 'legacy-passkey-handle',
+                true, TIMESTAMP '2024-01-01 00:00:00', 'basic',
+                'active', 0, TIMESTAMP '2024-01-01 00:00:00', true, 0
             );
 
             INSERT INTO sys_user_session(
@@ -144,7 +145,7 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
             );
 
             INSERT INTO passkey_credential(
-                id, userid, credentialid, publickey, signcount, devicefriendlyname,
+                id, account_id, credentialid, publickey, signcount, devicefriendlyname,
                 aaguid, backupeligible, backupstate, createdat
             )
             VALUES (
@@ -154,7 +155,7 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
             );
 
             INSERT INTO account_recovery_key(
-                id, user_id, key_hash, key_version, created_at, used_at, revoked_at
+                id, account_id, key_hash, key_version, created_at, used_at, revoked_at
             )
             VALUES (
                 11, 42, 'legacy-recovery-key-hash', 1,

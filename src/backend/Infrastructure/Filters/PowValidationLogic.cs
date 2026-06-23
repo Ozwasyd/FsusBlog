@@ -53,7 +53,17 @@ internal static partial class PowValidationLogic
             return new ObjectResult(Fail(httpContext, ErrorCode.Forbidden, "算力凭证已失效，请重试")) { StatusCode = 403 };
         }
 
-        bool isValid = await powService.VerifyAsync(powRequest, clientIp);
+        bool isValid;
+        try
+        {
+            isValid = await powService.VerifyAsync(powRequest, clientIp);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "PoW 内部校验异常已归一为拒绝 | IP: {IP} | TraceId: {TraceId}", clientIp, httpContext.TraceIdentifier);
+            await AddRiskAsync(httpContext, SecurityRiskReason.PowInvalid, 10);
+            return new UnauthorizedObjectResult(Fail(httpContext, ErrorCode.Unauthorized, "安全校验未通过或凭证已过期"));
+        }
 
         if (!isValid)
         {

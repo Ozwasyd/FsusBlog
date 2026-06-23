@@ -146,7 +146,7 @@ public sealed class AuthCookieService
 
     public bool TryReadAdminAccessToken(HttpContext context, out string token)
     {
-        token = ReadCookie(context, AdminAccessTokenCookieName, HostAdminAccessTokenCookieName, allowPlainFallback: false) ?? string.Empty;
+        token = ReadCookie(context, AdminAccessTokenCookieName, HostAdminAccessTokenCookieName, ShouldAllowLegacyPlainCookieRead()) ?? string.Empty;
         return !string.IsNullOrWhiteSpace(token);
     }
 

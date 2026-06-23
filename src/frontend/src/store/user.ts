@@ -245,6 +245,6 @@ export const useUserStore = defineStore('user', () => {
     persist: {
         key: 'fsus_user_storage',
         storage: safeStorage,
-        pick: ['accountState', 'lastVerifiedAt', 'authCacheVersion']
+        pick: ['accountState', 'lastVerifiedAt', 'authCacheVersion', 'lastFetchedAt']
     }
 })

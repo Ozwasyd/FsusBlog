@@ -113,6 +113,7 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
 
         Assert.Contains("IAnonymousCommentPolicyService", services, StringComparison.Ordinal);
         Assert.Contains("AnonymousCommentPolicyService", services, StringComparison.Ordinal);
+        Assert.Contains("IAnonymousCommentPolicyInvalidationSink", services, StringComparison.Ordinal);
         Assert.Contains("IAnonymousCredentialService", services, StringComparison.Ordinal);
         Assert.Contains("AnonymousCredentialService", services, StringComparison.Ordinal);
         Assert.Contains("ICommentAnonymousNullifierService", services, StringComparison.Ordinal);
@@ -135,7 +136,12 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
         Assert.Contains("ChangedBy", service, StringComparison.Ordinal);
         Assert.Contains("Reason", service, StringComparison.Ordinal);
         Assert.Contains("InvalidateCommentPolicyAsync", service, StringComparison.Ordinal);
+        Assert.Contains("IAnonymousCommentPolicyInvalidationSink", service, StringComparison.Ordinal);
+        Assert.Contains("InvalidateLocalSnapshot", service, StringComparison.Ordinal);
+        Assert.Contains("scopeFactory is not null", service, StringComparison.Ordinal);
+        Assert.Contains("LoadPersistedPolicy()", service, StringComparison.Ordinal);
         Assert.Contains("InvalidateCommentPolicyAsync", cache, StringComparison.Ordinal);
+        Assert.Contains("AnonymousCommentPolicyVersion", cache, StringComparison.Ordinal);
         Assert.Contains("snapshot.SnapshotHash", endpoints, StringComparison.Ordinal);
         Assert.Contains("request.Reason", endpoints, StringComparison.Ordinal);
     }
@@ -237,12 +243,15 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
 
             var service = new AnonymousCommentPolicyService(configuration, scopeFactory);
             AnonymousCommentPolicySnapshot initial = service.Current;
+            var secondInstance = new AnonymousCommentPolicyService(configuration, scopeFactory);
+            AnonymousCommentPolicySnapshot secondInitial = secondInstance.Current;
 
             Assert.False(initial.AnonymousCommentsEnabled);
             Assert.False(initial.PublicCommentsEnabled);
             Assert.False(initial.ZkAnonymousEnabled);
             Assert.Equal(CommentAuthorModes.ZkAnonymous, initial.DefaultAuthorMode);
             Assert.Equal(["en"], initial.SupportedDisplayLanguages);
+            Assert.Equal(initial.SnapshotHash, secondInitial.SnapshotHash);
 
             AnonymousCommentPolicySnapshot updated = service.UpdatePolicy(new AnonymousCommentPolicyUpdateRequest(
                 AnonymousCommentsEnabled: true,
@@ -263,6 +272,13 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
             Assert.NotEmpty(updated.SnapshotHash);
 
             await dispatcher.Received(1).InvalidateCommentPolicyAsync(Arg.Any<CancellationToken>());
+
+            AnonymousCommentPolicySnapshot secondReloaded = secondInstance.Current;
+            Assert.True(secondReloaded.AnonymousCommentsEnabled);
+            Assert.True(secondReloaded.PublicCommentsEnabled);
+            Assert.True(secondReloaded.ZkAnonymousEnabled);
+            Assert.Equal(updated.SnapshotHash, secondReloaded.SnapshotHash);
+            Assert.Equal("policy rollout", secondReloaded.Reason);
 
             using SqlSugarClient verifyDb = CreatePolicyDb(connectionString);
             AnonymousCommentPolicy stored = verifyDb.Queryable<AnonymousCommentPolicy>()

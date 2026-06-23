@@ -45,7 +45,7 @@ public sealed class CommentSecurityHardeningTests
 
         Assert.Contains("IClientRegionResolver regionResolver", endpointSource);
         Assert.Contains("regionLegalModerationService.EvaluateOnSubmit", endpointSource);
-        Assert.Contains("CreateAttributablePublicCommentAsync(userId, request, regionDecision)", endpointSource);
+        Assert.Contains("CreateAttributablePublicCommentAsync(account, request, regionDecision)", endpointSource);
         Assert.Contains(":region:{NormalizeCommentFrameRegion(viewerRegion)}", endpointSource);
 
         Assert.Contains("CommentRegionCompliance", serviceSource);
@@ -79,7 +79,7 @@ public sealed class CommentSecurityHardeningTests
 
         string userCommentsBlock = serviceSource[
             serviceSource.IndexOf("public async Task<CursorResponse<UserCommentResponse>> GetAttributableCommentsAsync", StringComparison.Ordinal)..
-            serviceSource.IndexOf("public async Task<bool> DeleteCommentAsync", StringComparison.Ordinal)];
+            serviceSource.IndexOf("public Task<bool> DeleteCommentAsync", StringComparison.Ordinal)];
 
         Assert.Contains("ModerationStatus = c.ModerationStatus", userCommentsBlock, StringComparison.Ordinal);
         Assert.Contains("HasBlockedRegions", userCommentsBlock, StringComparison.Ordinal);

@@ -241,12 +241,7 @@ public sealed class NativeGroth16ZkProofBackendTests
     public async Task ProductionZkProofVerifier_NativeBackendUsesExistingConcurrencyGate()
     {
         using var temp = TempNativeZkFixture.Create();
-        var nativeLibrary = new HashingNativeGroth16FixtureLibrary
-        {
-            AcceptAnyProof = true,
-            Delay = TimeSpan.FromMilliseconds(25)
-        };
-        var backend = CreateFixtureBackend(temp, nativeLibrary);
+        var backend = new ConcurrencyProbeProductionZkProofBackend(TimeSpan.FromMilliseconds(25));
         using ProductionZkProofVerifier verifier = CreateProductionVerifier(
             temp,
             backend,
@@ -263,7 +258,7 @@ public sealed class NativeGroth16ZkProofBackendTests
         ZkProofVerificationResult[] results = await Task.WhenAll(tasks);
 
         Assert.All(results, static result => Assert.True(result.Verified));
-        Assert.Equal(1, nativeLibrary.MaxInFlight);
+        Assert.Equal(1, backend.MaxInFlight);
     }
 
     [Fact]
@@ -456,6 +451,51 @@ public sealed class NativeGroth16ZkProofBackendTests
 
         public void Dispose()
         {
+        }
+
+        private void TrackMax(int value)
+        {
+            while (true)
+            {
+                int current = Volatile.Read(ref _maxInFlight);
+                if (value <= current ||
+                    Interlocked.CompareExchange(ref _maxInFlight, value, current) == current)
+                {
+                    return;
+                }
+            }
+        }
+    }
+
+    private sealed class ConcurrencyProbeProductionZkProofBackend(TimeSpan delay) : IProductionZkProofBackend
+    {
+        private int _inFlight;
+        private int _maxInFlight;
+
+        public int MaxInFlight => Volatile.Read(ref _maxInFlight);
+
+        public bool IsAvailable(string backendName)
+            => string.Equals(backendName, ZkProdOptions.NativeGroth16Backend, StringComparison.Ordinal);
+
+        public async Task<ProductionZkProofBackendResult> VerifyAsync(
+            ProductionZkProofBackendRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            int inFlight = Interlocked.Increment(ref _inFlight);
+            TrackMax(inFlight);
+            try
+            {
+                if (delay > TimeSpan.Zero)
+                {
+                    await Task.Delay(delay, cancellationToken);
+                }
+
+                return ProductionZkProofBackendResult.Accepted();
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _inFlight);
+            }
         }
 
         private void TrackMax(int value)

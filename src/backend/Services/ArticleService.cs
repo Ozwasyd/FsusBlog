@@ -40,6 +40,8 @@ public class ArticleService(
     ICacheInvalidationDispatcher _cacheInvalidationDispatcher,
     IArticleMutationSideEffectCoordinator _mutationSideEffects) : IArticleService
 {
+    private readonly record struct TrashArticleRow(int Id, int CategoryId);
+
     private const int MaxPageSize = 100;
     private const int MaxSearchKeywordLength = 128;
     private const int MaxHotArticlesCount = 100;
@@ -423,6 +425,11 @@ public class ArticleService(
         });
 
         ct.ThrowIfCancellationRequested();
+        if (result.IsSuccess && result.Data == 0)
+        {
+            return 0;
+        }
+
         if (result.IsSuccess)
         {
             await InvalidateCache();
@@ -705,28 +712,28 @@ public class ArticleService(
     {
         CancellationToken ct = ResolveCancellationToken(cancellationToken);
         ct.ThrowIfCancellationRequested();
-        var trashArticles = await _db.Queryable<Article>()
-            .ClearFilter()
-            .Where(a => a.IsDeleted)
-            .Select(a => new { a.Id, a.CategoryId })
-            .ToListAsync(ct);
-        if (trashArticles.Count == 0) return 0;
 
-        var articleIds = trashArticles.Select(a => a.Id).ToList();
-        var categoryIds = trashArticles.Select(a => a.CategoryId).Distinct().ToList();
+        List<int> articleIds = [];
+        List<int> categoryIds = [];
+        List<int> tagIds = [];
+        Dictionary<int, string> trashedBodyMap = new();
         ct.ThrowIfCancellationRequested();
-        var tagIds = articleIds.Count == 0 ? [] : await LoadArticleTagIdsAsync(articleIds);
+        var result = await _db.Ado.UseTranAsync(async () => {
+            List<TrashArticleRow> lockedTrashArticles = await LoadTrashArticlesForUpdateAsync(ct);
+            if (lockedTrashArticles.Count == 0)
+            {
+                return 0;
+            }
 
-        Dictionary<int, string> trashedBodyMap = articleIds.Count == 0
-            ? new Dictionary<int, string>()
-            : (await _db.Queryable<ArticleBody>()
+            articleIds = lockedTrashArticles.Select(static a => a.Id).ToList();
+            categoryIds = lockedTrashArticles.Select(static a => a.CategoryId).Distinct().ToList();
+            tagIds = await LoadArticleTagIdsAsync(articleIds);
+            trashedBodyMap = (await _db.Queryable<ArticleBody>()
                 .Where(it => articleIds.Contains(it.ArticleId))
                 .Select(it => new { it.ArticleId, it.MarkdownContent })
                 .ToListAsync(ct))
-                .ToDictionary(it => it.ArticleId, it => it.MarkdownContent);
+                .ToDictionary(static it => it.ArticleId, static it => it.MarkdownContent);
 
-        ct.ThrowIfCancellationRequested();
-        var result = await _db.Ado.UseTranAsync(async () => {
             //[修改日期 2026-03-01]
             // 物理防线：将上千个 ID 拆分为每批 500 个的块 (Chunking) 进行删除事务。
             // 防止构建超出数据库解析上限的超大 IN (...) 语法树。
@@ -739,7 +746,9 @@ public class ArticleService(
                 {
                     await RecordArticleMutationOutboxAsync(articleId, "trash-cleared");
                 }
-                await _db.Deleteable<Article>().In(chunk).ExecuteCommandAsync();
+                await _db.Deleteable<Article>()
+                    .Where(it => chunk.Contains(it.Id) && it.IsDeleted)
+                    .ExecuteCommandAsync();
             }
             return articleIds.Count;
         });
@@ -756,6 +765,24 @@ public class ArticleService(
         }
         _logger.LogError("清空回收站失败 | DbError: {Error}", result.ErrorMessage);
         return -1;
+    }
+
+    private async Task<List<TrashArticleRow>> LoadTrashArticlesForUpdateAsync(CancellationToken cancellationToken)
+    {
+        var rows = new List<TrashArticleRow>();
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            """
+            SELECT id, categoryid
+            FROM article
+            WHERE isdeleted = true
+            FOR UPDATE;
+            """);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            rows.Add(new TrashArticleRow(reader.GetInt32(0), reader.GetInt32(1)));
+        }
+
+        return rows;
     }
 
     public async Task<List<ArticleListItemReadModel>> SearchArticlesAsync(string keyword, CancellationToken cancellationToken = default)

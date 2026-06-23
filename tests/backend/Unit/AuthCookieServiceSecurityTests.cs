@@ -161,7 +161,8 @@ public sealed class AuthCookieServiceSecurityTests
         Assert.Equal("plain-access", enabled.ReadAccessToken(enabledContext));
         Assert.Equal("plain-refresh", enabled.ReadRefreshToken(enabledContext));
         Assert.Equal("plain-session", enabled.ReadSessionId(enabledContext));
-        Assert.False(enabled.TryReadAdminAccessToken(enabledContext, out _));
+        Assert.True(enabled.TryReadAdminAccessToken(enabledContext, out string adminToken));
+        Assert.Equal("plain-admin", adminToken);
     }
 
     private static void AssertProductionCookieAttributes(string cookie)

@@ -76,6 +76,41 @@ public sealed class RedisPowServiceTests
         Assert.False(result);
     }
 
+    [Theory]
+    [InlineData(long.MinValue)]
+    [InlineData(long.MaxValue)]
+    public async Task VerifyAsync_RejectsExtremeTimestampsWithoutThrowing(long timestamp)
+    {
+        var cache = new OneShotCache();
+        var service = CreateService(cache);
+        var request = new VirtualPowRequest
+        {
+            PowSalt = "salt",
+            PowNonce = "1",
+            Difficulty = 16,
+            PowTimestamp = timestamp,
+            PowSignature = Convert.ToBase64String(new byte[32]),
+            BrowserFp = "unit-browser"
+        };
+
+        bool result = await service.VerifyAsync(request, "127.0.0.1");
+
+        Assert.False(result);
+    }
+
+    [Theory]
+    [InlineData(long.MinValue)]
+    [InlineData(long.MaxValue)]
+    public void ResolveReplayTtl_HandlesExtremeTimestampsWithoutThrowing(long timestamp)
+    {
+        MethodInfo method = typeof(RedisPowService).GetMethod("ResolveReplayTtl", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var ttl = (TimeSpan)method.Invoke(null, [timestamp])!;
+
+        Assert.True(ttl >= TimeSpan.FromSeconds(1));
+        Assert.True(ttl <= TimeSpan.FromMinutes(5));
+    }
+
     [Fact]
     public void CheckWorkloadWithSpan_RejectsDifficultyBeyondSha256BitRange()
     {

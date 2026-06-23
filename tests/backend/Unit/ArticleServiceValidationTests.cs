@@ -138,6 +138,24 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
+    public void ClearTrashAsync_SourceLocksAndRechecksDeletedRowsInsideTransaction()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        int methodStart = source.IndexOf("public async Task<int> ClearTrashAsync", StringComparison.Ordinal);
+        int methodEnd = source.IndexOf("private async Task<List<TrashArticleRow>> LoadTrashArticlesForUpdateAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..methodEnd];
+        string lockHelper = source[
+            methodEnd..source.IndexOf("public async Task<List<ArticleListItemReadModel>> SearchArticlesAsync", methodEnd, StringComparison.Ordinal)];
+
+        Assert.Contains("UseTranAsync", method, StringComparison.Ordinal);
+        Assert.Contains("LoadTrashArticlesForUpdateAsync(ct)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("var trashArticles = await _db.Queryable<Article>()", method, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", lockHelper, StringComparison.Ordinal);
+        Assert.Contains("WHERE isdeleted = true", lockHelper, StringComparison.Ordinal);
+        Assert.Contains(".Where(it => chunk.Contains(it.Id) && it.IsDeleted)", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SaveArticleRevisionAsync_SourceLocksArticleRowAndDefinesUniqueRevisionIndex()
     {
         string articleService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));

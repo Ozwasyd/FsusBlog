@@ -170,7 +170,8 @@ public sealed class RejectIdentifiedPrincipalFilterTests
             "group.MapGet(\"/comment/{articleId:int}\"");
 
         Assert.Contains(".RequireAuthorization()", handler, StringComparison.Ordinal);
-        Assert.Contains("httpContext.GetUserId()", handler, StringComparison.Ordinal);
+        Assert.Contains("AccountPrincipalContext account", handler, StringComparison.Ordinal);
+        Assert.Contains("account.AccountId", handler, StringComparison.Ordinal);
         Assert.DoesNotContain("RequireStrongAnonymousRequest", handler, StringComparison.Ordinal);
         Assert.DoesNotContain("RejectIdentifiedPrincipalFilter", handler, StringComparison.Ordinal);
     }

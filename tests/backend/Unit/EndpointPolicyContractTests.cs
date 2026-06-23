@@ -133,15 +133,11 @@ public sealed class EndpointPolicyContractTests
 
         string stepUpReader = ExtractBetween(
             source,
-            "private static async Task<(UserSecurityStepUpProof Proof, ErrorDetail Error)> ReadUserSecurityStepUpProofAsync",
-            "private static bool HasBinaryRequestBody");
-        Assert.Contains("AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()", stepUpReader, StringComparison.Ordinal);
-        Assert.Contains("ANONYMOUS_STEP_UP_BODY_PROOF_REJECTED", stepUpReader, StringComparison.Ordinal);
-        Assert.Matches(
-            new Regex(
-                @"allowPasswordBody\s*&&\s*!AnonymousIdentityRuntime[.]IsAnonymousIdentityModeEnabled[(][)]\s*&&\s*HasBinaryRequestBody",
-                RegexOptions.CultureInvariant),
-            stepUpReader);
+            "private static async Task<(ErrorDetail Error, int StatusCode)?> RequireUserSecurityStepUpAsync",
+            "private static ValueTask RecordPasskeyAssertionFailureAsync");
+        Assert.Contains("TryReadMfaProof(httpContext, out string token)", stepUpReader, StringComparison.Ordinal);
+        Assert.Contains("new UserSecurityStepUpProof(proofToken)", stepUpReader, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadBinaryRequestPayloadAsync", stepUpReader, StringComparison.Ordinal);
 
         string serviceRegistration = ReadRepoFile(
             "src",
@@ -249,7 +245,7 @@ public sealed class EndpointPolicyContractTests
         Assert.Contains("IUserSecurityStepUpService stepUp", deleteAccount, StringComparison.Ordinal);
         Assert.Contains("RequireUserSecurityStepUpAsync(", deleteAccount, StringComparison.Ordinal);
         Assert.Contains("UserSecurityStepUpActions.AccountDelete", deleteAccount, StringComparison.Ordinal);
-        Assert.Contains("TryReadMfaProof(httpContext, out string proofToken)", deleteAccount, StringComparison.Ordinal);
+        Assert.Contains("TryReadMfaProof(httpContext, out string token)", authSource, StringComparison.Ordinal);
         Assert.DoesNotContain("Password = request.Password", deleteAccount, StringComparison.Ordinal);
         Assert.Matches(
             new Regex(
@@ -539,7 +535,7 @@ public sealed class EndpointPolicyContractTests
 
     private static void AssertAnonymousCredentialMutationRejectsBodyProof(string handler)
     {
-        Assert.Contains("allowPasswordBody: false", handler, StringComparison.Ordinal);
+        Assert.Contains("RequireUserSecurityStepUpAsync(", handler, StringComparison.Ordinal);
         Assert.DoesNotContain("allowPasswordBody: true", handler, StringComparison.Ordinal);
         Assert.DoesNotContain("MfaPasswordProofRequest", handler, StringComparison.Ordinal);
         Assert.DoesNotContain("ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaPasswordProofRequest", handler, StringComparison.Ordinal);

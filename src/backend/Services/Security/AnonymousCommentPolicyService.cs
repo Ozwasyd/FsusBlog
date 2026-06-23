@@ -17,10 +17,15 @@ public interface IAnonymousCommentPolicyService
     CommentAuthorModeDecision EvaluateAuthorMode(string? requestedAuthorMode, bool publicSendExplicitlySelected);
 }
 
+public interface IAnonymousCommentPolicyInvalidationSink
+{
+    void InvalidateLocalSnapshot();
+}
+
 public sealed class AnonymousCommentPolicyService(
     IConfiguration configuration,
     IServiceScopeFactory? scopeFactory = null,
-    ILogger<AnonymousCommentPolicyService>? logger = null) : IAnonymousCommentPolicyService
+    ILogger<AnonymousCommentPolicyService>? logger = null) : IAnonymousCommentPolicyService, IAnonymousCommentPolicyInvalidationSink
 {
     private readonly object _gate = new();
     private AnonymousCommentPolicySnapshot? _current;
@@ -31,7 +36,19 @@ public sealed class AnonymousCommentPolicyService(
         {
             lock (_gate)
             {
-                return _current ??= LoadPersistedPolicy() ?? BuildInitialPolicy();
+                if (scopeFactory is not null)
+                {
+                    AnonymousCommentPolicySnapshot? persisted = LoadPersistedPolicy();
+                    if (persisted is not null)
+                    {
+                        _current = persisted;
+                        return persisted;
+                    }
+
+                    return BuildInitialPolicy();
+                }
+
+                return _current ??= BuildInitialPolicy();
             }
         }
     }
@@ -61,6 +78,14 @@ public sealed class AnonymousCommentPolicyService(
             _current = next;
             InvalidatePolicyCache();
             return _current;
+        }
+    }
+
+    public void InvalidateLocalSnapshot()
+    {
+        lock (_gate)
+        {
+            _current = null;
         }
     }
 

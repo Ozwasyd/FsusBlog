@@ -45,7 +45,9 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         }
 
         services.AddScoped<IZkAnonymousProofService, ZkAnonymousProofService>();
-        services.AddSingleton<IAnonymousCommentPolicyService, AnonymousCommentPolicyService>();
+        services.AddSingleton<AnonymousCommentPolicyService>();
+        services.AddSingleton<IAnonymousCommentPolicyService>(provider => provider.GetRequiredService<AnonymousCommentPolicyService>());
+        services.AddSingleton<IAnonymousCommentPolicyInvalidationSink>(provider => provider.GetRequiredService<AnonymousCommentPolicyService>());
         services.AddScoped<IAnonymousCredentialService, AnonymousCredentialService>();
         if (ShouldUseProductionCircuitNativeCredentialIssuer(configuration))
         {
