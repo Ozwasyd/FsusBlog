@@ -25,7 +25,7 @@ export const FSUSBLOG_IDENTITY_COPY = {
     },
     UserIdentityAnonymous: {
       title: '匿名身份',
-      description: '匿名策略、适用范围、ZK 状态。'
+      description: '匿名策略、适用范围、隐私证明。'
     },
     UserIdentityPublicProfile: {
       title: '公开资料',
@@ -60,8 +60,8 @@ export const FSUSBLOG_IDENTITY_COPY = {
     anonymousLabel: '匿名评论',
     anonymousCardAvailable: '匿名评论可用',
     anonymousCardClosed: '匿名评论关闭',
-    zkAvailable: 'ZK 可用',
-    zkUnavailable: 'ZK 尚未启用',
+    zkAvailable: '隐私证明可用',
+    zkUnavailable: '隐私证明未启用',
     sectionTitle: '身份概览',
     sectionDescription: '登录方式、恢复凭据、公开资料、匿名评论。',
     accountIdRow: '账户编号：{value}',
@@ -132,7 +132,7 @@ export const FSUSBLOG_IDENTITY_COPY = {
     sectionTitle: '匿名身份',
     sectionDescription: '匿名评论按站点策略处理。',
     governanceHeading: '治理策略',
-    zkStatusHeading: 'ZK 状态',
+    zkStatusHeading: '隐私证明',
     cardEnabled: '已开放',
     cardDisabled: '已关闭',
     cardAvailable: '可治理',
@@ -211,7 +211,7 @@ export const FSUSBLOG_IDENTITY_COPY = {
       },
       UserIdentityAnonymous: {
         title: '匿名身份',
-        description: '匿名策略、适用范围、ZK 状态。',
+        description: '匿名策略、适用范围、隐私证明。',
         caption: '真实账号身份不展示。',
         body: '匿名身份状态按站点策略显示。',
         items: '["默认匿名模式", "匿名展示名语言", "匿名凭据状态与声誉分组"]'

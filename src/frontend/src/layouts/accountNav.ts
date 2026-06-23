@@ -87,7 +87,7 @@ const accountNavItems: readonly AccountNavItem[] = [
   { label: '匿名风险', to: '/user/manage/moderation/anonymous-risk', helper: '风险桶', area: 'manage', groupKey: 'interaction', adminOnly: true, requiredPermission: 'comment.moderate', requiredFeature: 'anonymousCommentsEnabled', requiredPolicy: 'anonymousCommentGovernanceAvailable' },
   { label: '匿名凭证', to: '/user/manage/moderation/anonymous-credentials', helper: '撤销', area: 'manage', groupKey: 'interaction', adminOnly: true, requiredPermission: 'anonymous.credential.revoke', requiredFeature: 'anonymousCommentsEnabled', requiredPolicy: 'anonymousCommentGovernanceAvailable' },
   { label: 'Nullifier 治理', to: '/user/manage/moderation/nullifiers', helper: '封禁', area: 'manage', groupKey: 'interaction', adminOnly: true, requiredPermission: 'anonymous.nullifier.block', requiredFeature: 'anonymousCommentsEnabled', requiredPolicy: 'anonymousCommentGovernanceAvailable' },
-  { label: 'ZK 匿名状态', to: '/user/manage/moderation/zk-anonymous', helper: 'Verifier', area: 'manage', groupKey: 'interaction', adminOnly: true, requiredPermission: 'anonymous.comment.configure', requiredPolicy: 'zkAnonymousConfigurable' },
+  { label: '隐私证明状态', to: '/user/manage/moderation/zk-anonymous', helper: '证明', area: 'manage', groupKey: 'interaction', adminOnly: true, requiredPermission: 'anonymous.comment.configure', requiredPolicy: 'zkAnonymousConfigurable' },
   {
     label: '站内信',
     to: '/user/manage/messages',
