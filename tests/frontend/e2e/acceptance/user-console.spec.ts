@@ -49,7 +49,7 @@ for (const viewport of [
           expectedUrl: '/user/comments',
           label: 'user-comments',
           selectors: [
-            (page) => page.getByRole('heading', { name: '可归因评论记录' }),
+            (page) => page.getByRole('heading', { name: '公开评论记录' }),
             (page) => page.locator('main')
           ]
         },

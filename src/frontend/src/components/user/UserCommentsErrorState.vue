@@ -1,6 +1,6 @@
 <template>
   <div class="user-comments-error-state" role="alert" aria-live="assertive">
-    <p class="user-comments-error-state__title">可归因评论记录加载失败</p>
+    <p class="user-comments-error-state__title">公开评论记录加载失败</p>
     <p class="user-comments-error-state__description">
       当前无法获取你的评论历史，请检查网络连接后重试。
     </p>

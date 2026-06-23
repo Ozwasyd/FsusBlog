@@ -534,8 +534,8 @@ test.describe('SPA route audit', () => {
         path: '/user/comments',
         label: 'user-comments',
         selectors: [
-          (page) => page.getByRole('heading', { name: '可归因评论记录' }),
-          (page) => page.getByText('可归因评论记录', { exact: false })
+          (page) => page.getByRole('heading', { name: '公开评论记录' }),
+          (page) => page.getByText('公开评论记录', { exact: false })
         ]
       },
       {

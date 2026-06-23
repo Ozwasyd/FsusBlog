@@ -44,13 +44,13 @@ for (const [file, source, tokens] of [
 }
 
 const requiredCommentsTokens = [
-  '查看、筛选和删除你选择公开发送的可归因评论。',
-  '强匿名评论不会出现在这里',
+  '查看、筛选和删除公开发送的评论。',
+  '匿名评论不进入账号记录',
   'UserCommentsCollectionToolbar',
   'v-else-if="list.length === 0"',
-  'title="暂无可归因评论记录"',
-  'description="只有选择公开发送的评论会显示在这里，强匿名评论无法按账号找回。"',
-  'title="没有匹配的可归因评论"',
+  'title="暂无公开评论记录"',
+  'description="公开发送的评论会显示在这里。匿名评论不会按账号检索。"',
+  'title="没有匹配的公开评论"',
   'description="调整关键词或清除筛选。"',
   '清除筛选'
 ]

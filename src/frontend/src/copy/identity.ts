@@ -40,8 +40,8 @@ export const FSUSBLOG_IDENTITY_COPY = {
       description: 'TOTP 状态。'
     },
     UserIdentityCommentRecords: {
-      title: '可归因评论记录',
-      description: '公开发送记录边界。'
+      title: '公开评论记录',
+      description: '公开发送的评论记录。'
     }
   },
   overview: {
@@ -179,11 +179,11 @@ export const FSUSBLOG_IDENTITY_COPY = {
     loadFailedFallback: '设备会话加载失败'
   },
   commentRecords: {
-    sectionTitle: '可归因评论记录',
-    sectionDescription: '这里只描述可归因评论记录的边界，实际列表只展示公开发送记录。',
-    boundary: '强匿名评论不会出现在按账号查询的评论记录中；只有选择可归因或公开发送的评论才会进入账号侧记录。',
-    governance: '匿名评论按策略处理；账号侧不反查强匿名评论。',
-    viewLink: '可归因评论记录'
+    sectionTitle: '公开评论记录',
+    sectionDescription: '公开发送的评论记录。',
+    boundary: '公开发送的评论会进入账号记录。匿名评论不会按账号检索。',
+    governance: '匿名评论按站点策略处理。',
+    viewLink: '查看公开评论记录'
   },
   placeholder: {
     cardTitle: '身份设置',

@@ -482,7 +482,7 @@ export const getThreadReplies = (
   });
 }
 
-/** 获取当前登录用户的可归因评论记录 */
+/** 获取当前登录用户的公开评论记录 */
 export const getMyComments = (
   cursor?: string | null,
   limit: number = 10,
