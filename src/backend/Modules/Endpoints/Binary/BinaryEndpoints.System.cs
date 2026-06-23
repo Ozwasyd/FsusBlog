@@ -36,7 +36,7 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds) =>
         {
             var data = await systemService.GetSeoConfigAsync();
-            var dto = SystemProjection.ToAdminDto(data);
+            var dto = SystemProjection.ToPublicDto(data);
             return BinaryResults.Frame(aeds, AedsFrameType.SeoConfig, writer => PodBinaryCodec.WriteSeoConfig(dto, writer));
         })
         .AllowAnonymous()
@@ -47,7 +47,7 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds) =>
         {
             var data = await systemService.GetSeoConfigAsync();
-            var dto = SystemProjection.ToPublicDto(data);
+            var dto = SystemProjection.ToAdminDto(data);
             return BinaryResults.Frame(aeds, AedsFrameType.SeoConfig, writer => PodBinaryCodec.WriteSeoConfig(dto, writer));
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig);

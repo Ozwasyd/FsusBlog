@@ -407,6 +407,19 @@ public class SystemProjectionTests
     }
 
     [Fact]
+    public void BinarySystemEndpoints_SeoRoutes_UseMatchingProjectionTypes()
+    {
+        var source = ReadRepositorySource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs");
+        var publicSeoBlock = ExtractMapGetBlock(source, "\"/system/seo\"");
+        var adminSeoBlock = ExtractMapGetBlock(source, "\"/system/admin/seo\"");
+
+        Assert.Contains("SystemProjection.ToPublicDto(data)", publicSeoBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("SystemProjection.ToAdminDto(data)", publicSeoBlock, StringComparison.Ordinal);
+        Assert.Contains("SystemProjection.ToAdminDto(data)", adminSeoBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("SystemProjection.ToPublicDto(data)", adminSeoBlock, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ToContract_SeoConfig_MapsAllFields()
     {
         var contract = SystemProjection.ToContract(MakeSeoModel());
@@ -439,6 +452,29 @@ public class SystemProjectionTests
         var contract = SystemProjection.ToContract(model);
         Assert.Equal("about", contract.Slug);
         Assert.Equal("X", contract.Content);
+    }
+
+    private static string ReadRepositorySource(string relativePath)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, relativePath)))
+        {
+            directory = directory.Parent;
+        }
+
+        Assert.NotNull(directory);
+        return File.ReadAllText(Path.Combine(directory!.FullName, relativePath));
+    }
+
+    private static string ExtractMapGetBlock(string source, string routeLiteral)
+    {
+        var routeIndex = source.IndexOf($"group.MapGet({routeLiteral}", StringComparison.Ordinal);
+        Assert.True(routeIndex >= 0, $"Missing MapGet route {routeLiteral}");
+
+        var nextRouteIndex = source.IndexOf("group.Map", routeIndex + 1, StringComparison.Ordinal);
+        return nextRouteIndex >= 0
+            ? source[routeIndex..nextRouteIndex]
+            : source[routeIndex..];
     }
 }
 
