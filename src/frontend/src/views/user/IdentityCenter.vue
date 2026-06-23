@@ -1,6 +1,6 @@
 <template>
   <div class="account-page identity-center">
-    <header class="identity-section-header">
+    <header v-if="showIdentityRouteHeader" class="identity-section-header">
       <div class="identity-section-header__copy">
         <h1>{{ sectionMeta.title }}</h1>
         <p>{{ sectionMeta.description }}</p>
@@ -438,6 +438,7 @@ const currentRouteName = computed<IdentityRouteName>(() => {
 
 const sectionMeta = computed(() => sectionMetaByRoute[currentRouteName.value])
 const isSection = (name: IdentityRouteName): boolean => currentRouteName.value === name
+const showIdentityRouteHeader = computed(() => isSection('UserIdentityOverview'))
 
 const workspaceFeatures = computed(() => workspaceContext.value.features)
 const workspacePolicies = computed(() => workspaceContext.value.policies)
