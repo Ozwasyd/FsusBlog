@@ -131,6 +131,8 @@ export const FSUSBLOG_IDENTITY_COPY = {
   anonymous: {
     sectionTitle: '匿名身份',
     sectionDescription: '匿名评论按站点策略处理。',
+    readOnlyBody: '匿名评论由站点策略自动处理。',
+    publicChoiceBody: '是否公开称呼，在评论发布页选择。',
     governanceHeading: '异常处理',
     zkStatusHeading: '增强匿名',
     cardEnabled: '可用',

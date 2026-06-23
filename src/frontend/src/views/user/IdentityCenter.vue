@@ -190,22 +190,9 @@
       :description="anonymousCopy.sectionDescription"
       :title-tag="'h2'"
     >
-      <div class="identity-status-grid">
-        <div class="identity-status-card">
-          <span class="identity-status-label">{{ anonymousCopy.sectionTitle }}</span>
-          <strong>{{ workspaceFeatures.anonymousCommentsEnabled ? anonymousCopy.cardEnabled : anonymousCopy.cardDisabled }}</strong>
-          <p>{{ anonymousCopy.defaultModeHint }}</p>
-        </div>
-        <div class="identity-status-card">
-          <span class="identity-status-label">{{ anonymousCopy.governanceHeading }}</span>
-          <strong>{{ workspacePolicies.anonymousCommentGovernanceAvailable ? anonymousCopy.cardAvailable : anonymousCopy.cardUnavailable }}</strong>
-          <p>{{ anonymousCopy.governanceHint }}</p>
-        </div>
-        <div class="identity-status-card">
-          <span class="identity-status-label">{{ anonymousCopy.zkStatusHeading }}</span>
-          <strong>{{ workspaceFeatures.zkAnonymousEnabled ? anonymousCopy.cardZkAvailable : anonymousCopy.cardZkUnavailable }}</strong>
-          <p>{{ workspacePolicies.zkAnonymousConfigurable ? anonymousCopy.cardZkConfigVisible : anonymousCopy.cardZkConfigHidden }}</p>
-        </div>
+      <div class="identity-copy-block">
+        <p>{{ anonymousCopy.readOnlyBody }}</p>
+        <p>{{ anonymousCopy.publicChoiceBody }}</p>
       </div>
     </FsusUiSettingsSection>
 
