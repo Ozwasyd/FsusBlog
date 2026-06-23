@@ -95,6 +95,12 @@ describe('validatePublicHandle', () => {
     expect(invalid.message).not.toContain('用户名')
   })
 
+  it('accepts digits and hash marks for public handles', () => {
+    expect(validatePublicHandle('reader123').isValid).toBe(true)
+    expect(validatePublicHandle('reader#123').isValid).toBe(true)
+    expect(validatePublicHandle('读者#123').isValid).toBe(true)
+  })
+
   it('keeps ad, redline, and invisible-character risk checks for public handles', () => {
     const ad = validatePublicHandle('加微信')
     expect(ad.isValid).toBe(false)

@@ -71,6 +71,63 @@ public static class FastCharValidator
     }
 
     /// <summary>
+    /// 判定公开称呼是否仅包含中文、英文字母、数字和 #。
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsPublicHandle(ReadOnlySpan<char> span)
+    {
+        if (span.IsEmpty) return false;
+
+        int length = span.Length;
+        int i = 0;
+
+        if (Avx2.IsSupported && length >= 16)
+        {
+            ReadOnlySpan<ushort> uSpan = MemoryMarshal.Cast<char, ushort>(span);
+
+            var v_20 = Vector256.Create((ushort)0x20);
+            var v_a = Vector256.Create((ushort)'a');
+            var v_z_a = Vector256.Create((ushort)('z' - 'a'));
+            var v_0 = Vector256.Create((ushort)'0');
+            var v_9_0 = Vector256.Create((ushort)9);
+            var v_hash = Vector256.Create((ushort)'#');
+            var cnMin = Vector256.Create((ushort)0x4E00);
+            var cnMax = Vector256.Create((ushort)0x9FA5);
+            var allBitsSet = Vector256<ushort>.AllBitsSet;
+
+            for (; i <= length - 16; i += 16)
+            {
+                var vec = Vector256.Create(uSpan.Slice(i, 16));
+                var lowerVec = vec | v_20;
+                var isAlpha = Vector256.LessThanOrEqual(lowerVec - v_a, v_z_a);
+                var isDigit = Vector256.LessThanOrEqual(vec - v_0, v_9_0);
+                var isHash = Vector256.Equals(vec, v_hash);
+                var isCn = Vector256.GreaterThanOrEqual(vec, cnMin) & Vector256.LessThanOrEqual(vec, cnMax);
+
+                if ((isAlpha | isDigit | isHash | isCn) != allBitsSet)
+                {
+                    return false;
+                }
+            }
+        }
+
+        if (i < length)
+        {
+            foreach (Rune rune in span[i..].EnumerateRunes())
+            {
+                int val = rune.Value;
+                bool isAlpha = (uint)((val | 0x20) - 'a') <= (uint)('z' - 'a');
+                bool isDigit = (uint)(val - '0') <= 9;
+                bool isHash = val == '#';
+                bool isChinese = val >= 0x4E00 && val <= 0x9FA5;
+                if (!isAlpha && !isDigit && !isHash && !isChinese) return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// 判定字符串是否仅包含英文字母、数字和连字符 (等价于正则: ^[a-zA-Z0-9\-]+$)
     /// 性能：全向量化扫描，彻底杜绝 ReDoS 风险与正则状态机开销
     /// </summary>

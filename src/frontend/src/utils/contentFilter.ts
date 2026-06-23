@@ -24,7 +24,7 @@ export interface ContentRiskScore {
 export const PUBLIC_HANDLE_CONSTRAINT = {
   minLength: 3,
   maxLength: 20,
-  patternMessage: '公开称呼仅允许中文或英文字母，不支持数字和符号',
+  patternMessage: '公开称呼允许中文、英文字母、数字和 #',
   lengthMessage: '公开称呼长度必须在 3 到 20 个字符之间'
 } as const
 
@@ -242,6 +242,18 @@ export function isUsernameCharacterSetValid(value: string): boolean {
   return createUsernamePattern().test(value)
 }
 
+export function createPublicHandlePattern(): RegExp {
+  try {
+    return new RegExp('^[\\p{Script=Han}\\p{L}0-9#]+$', 'u')
+  } catch {
+    return /^[\u4e00-\u9fa5A-Za-z0-9#]+$/
+  }
+}
+
+export function isPublicHandleCharacterSetValid(value: string): boolean {
+  return createPublicHandlePattern().test(value)
+}
+
 function pushFactor(factors: ContentRiskFactor[], factor: ContentRiskFactor): void {
   if (!factors.includes(factor)) {
     factors.push(factor)
@@ -333,7 +345,7 @@ export function validatePublicHandle(publicHandle: string): ValidationResult {
     return { isValid: false, message: PUBLIC_HANDLE_CONSTRAINT.lengthMessage }
   }
 
-  if (!isUsernameCharacterSetValid(cleanHandle)) {
+  if (!isPublicHandleCharacterSetValid(cleanHandle)) {
     return { isValid: false, message: PUBLIC_HANDLE_CONSTRAINT.patternMessage }
   }
 

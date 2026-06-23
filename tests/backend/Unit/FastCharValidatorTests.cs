@@ -41,6 +41,29 @@ public sealed class FastCharValidatorTests
     [InlineData("")]
     [InlineData("user_name")]
     [InlineData("user name")]
+    [InlineData("reader!123")]
+    public void IsPublicHandle_ReturnsFalseForInvalidInput(string value)
+    {
+        bool result = FastCharValidator.IsPublicHandle(value);
+
+        Assert.False(result);
+    }
+
+    [Theory]
+    [InlineData("reader123")]
+    [InlineData("reader#123")]
+    [InlineData("读者#123")]
+    public void IsPublicHandle_ReturnsTrueForAllowedInput(string value)
+    {
+        bool result = FastCharValidator.IsPublicHandle(value);
+
+        Assert.True(result);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("user_name")]
+    [InlineData("user name")]
     [InlineData("你好-123")]
     public void IsAlphaNumericHyphen_ReturnsFalseForInvalidInput(string value)
     {

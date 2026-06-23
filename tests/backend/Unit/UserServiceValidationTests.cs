@@ -108,7 +108,7 @@ public class UserServiceValidationTests
         db.Updateable<User>().Returns(update);
         var svc = BuildService(db, Substitute.For<IJwtHelper>());
 
-        var (success, message) = await svc.UpdatePublicHandleAsync(7, "QuietReader");
+        var (success, message) = await svc.UpdatePublicHandleAsync(7, "QuietReader#123");
 
         Assert.True(success, message);
         Assert.Equal("公开称呼已保存", message);
@@ -137,10 +137,10 @@ public class UserServiceValidationTests
     {
         var svc = BuildService();
 
-        var (success, message) = await svc.UpdatePublicHandleAsync(7, "reader123");
+        var (success, message) = await svc.UpdatePublicHandleAsync(7, "reader_123");
 
         Assert.False(success);
-        Assert.Contains("仅允许中文或英文字母", message, StringComparison.Ordinal);
+        Assert.Contains("允许中文、英文字母、数字和 #", message, StringComparison.Ordinal);
     }
 
     [Fact]

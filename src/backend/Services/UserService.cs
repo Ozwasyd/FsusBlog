@@ -100,9 +100,9 @@ public partial class UserService(
             return (false, null, $"公开称呼长度必须在 {MinPublicHandleLength}-{MaxPublicHandleLength} 个字符之间");
         }
 
-        if (!FastCharValidator.IsOnlyChineseAndAlpha(normalized))
+        if (!FastCharValidator.IsPublicHandle(normalized))
         {
-            return (false, null, "公开称呼仅允许中文或英文字母");
+            return (false, null, "公开称呼允许中文、英文字母、数字和 #");
         }
 
         return (true, normalized, string.Empty);
