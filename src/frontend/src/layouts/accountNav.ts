@@ -52,7 +52,6 @@ const accountNavItems: readonly AccountNavItem[] = [
   { label: '身份总览', to: '/user/identity', area: 'self', groupKey: 'identity', match: (path) => path === '/user/identity' },
   { label: '通行密钥', to: '/user/identity/passkeys', helper: '设备', area: 'self', groupKey: 'identity' },
   { label: 'Recovery Key', to: '/user/identity/recovery-key', helper: '恢复', area: 'self', groupKey: 'identity' },
-  { label: '匿名身份', to: '/user/identity/anonymous', helper: '匿名', area: 'self', groupKey: 'identity', requiredFeature: 'anonymousCommentsEnabled' },
   { label: '公开资料', to: '/user/identity/public-profile', area: 'self', groupKey: 'identity', requiredFeature: 'publicSendOptionEnabled' },
   { label: '公开评论', to: '/user/identity/comment-records', area: 'self', groupKey: 'identity' },
   { label: '设备会话', to: '/user/identity/sessions', area: 'self', groupKey: 'identity' },

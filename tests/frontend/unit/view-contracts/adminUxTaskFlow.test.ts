@@ -66,7 +66,7 @@ describe('admin UX task flow contract', () => {
     expect(accountNav).toContain("requiredPolicy: 'zkAnonymousConfigurable'")
     expect(accountNav).toContain("to: '/user/identity/passkeys'")
     expect(accountNav).toContain("to: '/user/identity/recovery-key'")
-    expect(accountNav).toContain("to: '/user/identity/anonymous'")
+    expect(accountNav).not.toContain("to: '/user/identity/anonymous'")
     expect(accountNav).toContain("to: '/user/identity/public-profile'")
     expect(accountNav).toContain("to: '/user/identity/sessions'")
     expect(accountNav).toContain("to: '/user/manage/moderation/anonymous-policy'")
