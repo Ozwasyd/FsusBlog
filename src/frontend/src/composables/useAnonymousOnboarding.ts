@@ -24,6 +24,9 @@ const getSafeRedirect = (target: unknown): string => {
 
 const getErrorText = (error: unknown, fallback: string): string => {
   const normalized = toAppError(error, fallback)
+  if (normalized.message.includes('匿名账号初始化仅在匿名身份模式下可用')) {
+    return '注册入口暂不可用。'
+  }
   return normalized.message || fallback
 }
 
