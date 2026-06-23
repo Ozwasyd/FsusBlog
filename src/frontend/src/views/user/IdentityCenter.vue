@@ -251,7 +251,7 @@
             :key="session.sessionId"
           >
             <template #title>
-              <p class="truncate text-[14px] font-bold text-[var(--fsusblog-text-primary)]">
+              <p class="m-0 block min-w-0 max-w-full truncate text-[14px] font-bold text-[var(--fsusblog-text-primary)]">
                 {{ formatSessionDevice(session.deviceLabel, session.deviceFingerprint) }}
               </p>
             </template>

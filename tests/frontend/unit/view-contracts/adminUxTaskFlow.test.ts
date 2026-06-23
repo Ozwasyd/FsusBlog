@@ -23,6 +23,7 @@ describe('admin UX task flow contract', () => {
   const analytics = readRepoFile('src/frontend/src/views/admin/Analytics.vue')
   const articleList = readRepoFile('src/frontend/src/views/admin/article/List.vue')
   const profile = readRepoFile('src/frontend/src/views/user/Profile.vue')
+  const profilePrimitives = readRepoFile('src/frontend/src/components/user/ProfileSettingsPrimitives.ts')
   const login = readRepoFile('src/frontend/src/views/auth/Login.vue')
   const register = readRepoFile('src/frontend/src/views/auth/Register.vue')
   const securityDashboard = readRepoFile('src/frontend/src/views/admin/security/SecurityDashboard.vue')
@@ -88,6 +89,14 @@ describe('admin UX task flow contract', () => {
     expect(accountLayout).toContain('openMobileGroupKey')
     expect(accountLayout).toContain('account-mobile-group-control')
     expect(accountLayout).toContain('account-mobile-nav-link-active')
+  })
+
+  it('keeps profile resource rows bounded for long device and credential names', () => {
+    expect(profilePrimitives).toContain('min-w-0 max-w-full overflow-hidden divide-y')
+    expect(profilePrimitives).toContain('min-w-0 max-w-full overflow-hidden flex flex-col')
+    expect(profilePrimitives).toContain('flex max-w-full shrink-0 flex-wrap')
+    expect(identityCopy).toContain('设备会话')
+    expect(readRepoFile('src/frontend/src/views/user/IdentityCenter.vue')).toContain('m-0 block min-w-0 max-w-full truncate')
   })
 
   it('turns the article editor side panel into a publishing task flow', () => {

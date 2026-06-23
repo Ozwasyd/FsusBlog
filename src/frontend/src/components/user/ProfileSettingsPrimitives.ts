@@ -82,7 +82,7 @@ export const ProfileResourceList = defineComponent({
   name: 'ProfileResourceList',
   setup(_props, { slots }) {
     return () => h('div', {
-      class: 'divide-y divide-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]',
+      class: 'min-w-0 max-w-full overflow-hidden divide-y divide-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]',
       role: 'list'
     }, slots.default?.())
   }
@@ -92,7 +92,7 @@ export const ProfileResourceListItem = defineComponent({
   name: 'ProfileResourceListItem',
   setup(_props, { slots }) {
     return () => h('article', {
-      class: 'flex flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between',
+      class: 'min-w-0 max-w-full overflow-hidden flex flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between',
       role: 'listitem'
     }, [
       h('div', {
@@ -102,7 +102,7 @@ export const ProfileResourceListItem = defineComponent({
         slots.meta ? h('div', { class: 'mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]' }, slots.meta()) : null,
         slots.default?.()
       ]),
-      slots.actions ? h('div', { class: 'flex shrink-0 flex-wrap items-center gap-2 sm:justify-end' }, slots.actions()) : null
+      slots.actions ? h('div', { class: 'flex max-w-full shrink-0 flex-wrap items-center gap-2 sm:justify-end' }, slots.actions()) : null
     ])
   }
 })
