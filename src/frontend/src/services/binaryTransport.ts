@@ -6,6 +6,11 @@ import { AppError, AppErrorCode, createAppError, isAppError, toAppError } from '
 import { isAbortError } from '@/utils/errors';
 import { emitRumMetric } from '@/services/telemetryService';
 import { FrameType } from '@wasm/protocol/frame';
+import {
+  buildFsusBinaryRoute,
+  fsusBinaryRouteDescriptors,
+  type FsusBinaryOperationId
+} from '@/generated/fsusBinaryRoutes';
 
 
 type DecodeWorkerResponse = {
@@ -629,14 +634,20 @@ function decodeApiErrorFrame(buffer: ArrayBuffer): {
 }
 
 export async function requestBinaryOnly<T>(options: {
-  binaryUrl: string;
+  binaryUrl?: string;
+  binaryRoute?: {
+    operationId: FsusBinaryOperationId;
+    params?: Record<string, string | number | bigint>;
+    query?: URLSearchParams | Record<string, string | number | boolean | null | undefined>;
+  };
   frameType: FrameType;
   requestOptions?: RequestInit & { requiresPow?: boolean };
   signal?: AbortSignal;
   suppressAuthFailureTelemetry?: boolean;
 }): Promise<T> {
+  const binaryUrl = resolveBinaryRequestUrl(options);
   const binaryResult = await loadBinaryAndDecodeSafe<T>(
-    options.binaryUrl,
+    binaryUrl,
     options.frameType,
     options.requestOptions,
     options.signal
@@ -671,7 +682,7 @@ export async function requestBinaryOnly<T>(options: {
       backendCategory,
       details,
       retryAfter,
-      url: options.binaryUrl,
+      url: binaryUrl,
       frameType: options.frameType
     });
   }
@@ -695,9 +706,30 @@ export async function requestBinaryOnly<T>(options: {
       backendCategory,
       details,
       retryAfter,
-      url: options.binaryUrl,
+      url: binaryUrl,
       frameType: options.frameType
     });
   }
   throw error;
+}
+
+function resolveBinaryRequestUrl(options: {
+  binaryUrl?: string;
+  binaryRoute?: {
+    operationId: FsusBinaryOperationId;
+    params?: Record<string, string | number | bigint>;
+    query?: URLSearchParams | Record<string, string | number | boolean | null | undefined>;
+  };
+}): string {
+  if (options.binaryRoute) {
+    const descriptor = fsusBinaryRouteDescriptors[options.binaryRoute.operationId];
+    if (!descriptor) {
+      throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_descriptor_missing');
+    }
+    return buildFsusBinaryRoute(options.binaryRoute.operationId, options.binaryRoute.params, options.binaryRoute.query);
+  }
+  if (options.binaryUrl) {
+    return options.binaryUrl;
+  }
+  throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_missing');
 }

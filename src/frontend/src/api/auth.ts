@@ -129,7 +129,7 @@ export interface DeleteAccountRequest {
 
 export const bootstrapAnonymousAccount = (data: AnonymousBootstrapRequest, config?: ApiRequestConfig) => {
   return requestBinaryOnly<AuthLoginFlow>({
-    binaryUrl: '/api/binary/auth/anonymous/bootstrap',
+    binaryRoute: { operationId: 'binary_post_auth_anonymous_bootstrap' },
     frameType: FrameType.AuthLoginFlow,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -145,7 +145,7 @@ export const bootstrapAnonymousAccount = (data: AnonymousBootstrapRequest, confi
  */
 export const getMe = (config?: ApiRequestConfig) => {
   return requestBinaryOnly<CurrentUserSnapshot>({
-    binaryUrl: '/api/binary/auth/me',
+    binaryRoute: { operationId: 'binary_get_auth_me' },
     frameType: FrameType.IdentityAccountSnapshot,
     signal: config?.signal as AbortSignal | undefined,
     suppressAuthFailureTelemetry: true
@@ -154,7 +154,7 @@ export const getMe = (config?: ApiRequestConfig) => {
 
 export const updatePublicHandle = (data: UpdatePublicHandleDto, config?: ApiRequestConfig) => {
   return requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/auth/public-handle',
+    binaryRoute: { operationId: 'binary_put_auth_public_handle' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -169,7 +169,7 @@ export const updatePublicHandle = (data: UpdatePublicHandleDto, config?: ApiRequ
  */
 export const logout = (config?: ApiRequestConfig) => {
   return requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/auth/logout',
+    binaryRoute: { operationId: 'binary_post_auth_logout' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -180,7 +180,7 @@ export const logout = (config?: ApiRequestConfig) => {
 
 export const deleteAccount = (data: DeleteAccountRequest, config?: ApiRequestConfig) => {
   return requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/auth/delete-account',
+    binaryRoute: { operationId: 'binary_post_auth_delete_account' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -197,7 +197,7 @@ export const deleteAccount = (data: DeleteAccountRequest, config?: ApiRequestCon
  */
 export const refreshToken = (config?: ApiRequestConfig) => {
   return requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/auth/refresh-token',
+    binaryRoute: { operationId: 'binary_post_auth_refresh_token' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -208,14 +208,14 @@ export const refreshToken = (config?: ApiRequestConfig) => {
 
 export const listSessions = (config?: ApiRequestConfig) =>
   requestBinaryOnly<UserSessionSummary[]>({
-    binaryUrl: '/api/binary/auth/sessions',
+    binaryRoute: { operationId: 'binary_get_auth_sessions' },
     frameType: FrameType.AuthSessionList,
     signal: config?.signal as AbortSignal | undefined
   })
 
 export const revokeSession = (sessionId: string, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: `/api/binary/auth/sessions/${encodeURIComponent(sessionId)}/revoke`,
+    binaryRoute: { operationId: 'binary_post_auth_sessions_id_revoke', params: { id: sessionId } },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -225,7 +225,7 @@ export const revokeSession = (sessionId: string, config?: ApiRequestConfig) =>
 
 export const revokeOtherSessions = (config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/auth/sessions/revoke-others',
+    binaryRoute: { operationId: 'binary_post_auth_sessions_revoke_others' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -235,7 +235,7 @@ export const revokeOtherSessions = (config?: ApiRequestConfig) =>
 
 export const getAdminMe = (config?: ApiRequestConfig) =>
   requestBinaryOnly<AdminPrincipalSnapshot>({
-    binaryUrl: '/api/binary/auth/admin/me',
+    binaryRoute: { operationId: 'binary_get_auth_admin_me' },
     frameType: FrameType.AdminPrincipalSnapshot,
     signal: config?.signal as AbortSignal | undefined,
     suppressAuthFailureTelemetry: true
@@ -246,7 +246,7 @@ export const startMfaSetup = (
   config?: ApiRequestConfig
 ) =>
   requestBinaryOnly<MfaSetupStart>({
-    binaryUrl: '/api/binary/auth/mfa/setup/start',
+    binaryRoute: { operationId: 'binary_post_auth_mfa_setup_start' },
     frameType: FrameType.MfaSetupStart,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -257,14 +257,14 @@ export const startMfaSetup = (
 
 export const getMfaProfile = (config?: ApiRequestConfig) =>
   requestBinaryOnly<MfaProfile>({
-    binaryUrl: '/api/binary/auth/mfa/profile',
+    binaryRoute: { operationId: 'binary_get_auth_mfa_profile' },
     frameType: FrameType.MfaProfile,
     signal: config?.signal as AbortSignal | undefined
   })
 
 export const verifyMfaSetup = (code: string, config?: ApiRequestConfig) =>
   requestBinaryOnly<MfaSetupVerify>({
-    binaryUrl: '/api/binary/auth/mfa/setup/verify',
+    binaryRoute: { operationId: 'binary_post_auth_mfa_setup_verify' },
     frameType: FrameType.MfaSetupVerify,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -275,7 +275,7 @@ export const verifyMfaSetup = (code: string, config?: ApiRequestConfig) =>
 
 export const disableMfa = (payload: MfaStepUpProofPayload, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/auth/mfa/disable',
+    binaryRoute: { operationId: 'binary_post_auth_mfa_disable' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -288,7 +288,7 @@ export const regenerateMfaRecoveryCodes = (
   payload: MfaStepUpProofPayload,
   config?: ApiRequestConfig
 ) => requestBinaryOnly<MfaSetupVerify>({
-  binaryUrl: '/api/binary/auth/mfa/recovery/regenerate',
+  binaryRoute: { operationId: 'binary_post_auth_mfa_recovery_regenerate' },
   frameType: FrameType.MfaSetupVerify,
   signal: config?.signal as AbortSignal | undefined,
   requestOptions: {
@@ -299,7 +299,7 @@ export const regenerateMfaRecoveryCodes = (
 
 export const startMfaChallenge = (action: string, config?: ApiRequestConfig) =>
   requestBinaryOnly<MfaChallengeResult>({
-    binaryUrl: '/api/binary/auth/mfa/challenge/start',
+    binaryRoute: { operationId: 'binary_post_auth_mfa_challenge_start' },
     frameType: FrameType.MfaChallengeResult,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -312,7 +312,7 @@ export const verifyMfaChallenge = (
   payload: { challengeToken: string; code?: string; recoveryCode?: string; action?: string },
   config?: ApiRequestConfig
 ) => requestBinaryOnly<MfaChallengeResult>({
-  binaryUrl: '/api/binary/auth/mfa/challenge',
+  binaryRoute: { operationId: 'binary_post_auth_mfa_challenge' },
   frameType: FrameType.MfaChallengeResult,
   signal: config?.signal as AbortSignal | undefined,
   requestOptions: {
@@ -326,7 +326,7 @@ export const verifyMfaChallenge = (
  */
 export const getPowChallenge = (config?: ApiRequestConfig) => {
   return requestBinaryOnly<any>({
-    binaryUrl: '/api/binary/auth/pow-challenge',
+    binaryRoute: { operationId: 'binary_get_auth_pow_challenge' },
     frameType: FrameType.PowChallenge,
     signal: config?.signal as AbortSignal | undefined
   })
@@ -373,7 +373,7 @@ export interface PasskeyLoginCompleteRequest {
 
 export const passkeyRegisterBegin = (config?: ApiRequestConfig) =>
   requestBinaryOnly<PasskeyRegisterBeginResponse>({
-    binaryUrl: '/api/binary/auth/passkey/register/begin',
+    binaryRoute: { operationId: 'binary_post_auth_passkey_register_begin' },
     frameType: FrameType.PasskeyRegisterBegin,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: { method: 'POST' }
@@ -381,7 +381,7 @@ export const passkeyRegisterBegin = (config?: ApiRequestConfig) =>
 
 export const passkeyRegisterComplete = (data: PasskeyRegisterCompleteRequest, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/auth/passkey/register/complete',
+    binaryRoute: { operationId: 'binary_post_auth_passkey_register_complete' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -392,7 +392,7 @@ export const passkeyRegisterComplete = (data: PasskeyRegisterCompleteRequest, co
 
 export const createRecoveryKey = (config?: ApiRequestConfig) =>
   requestBinaryOnly<RecoveryKeyCreateResponse>({
-    binaryUrl: '/api/binary/auth/recovery-key/create',
+    binaryRoute: { operationId: 'binary_post_auth_recovery_key_create' },
     frameType: FrameType.RecoveryKeyCreateResponse,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -403,7 +403,7 @@ export const createRecoveryKey = (config?: ApiRequestConfig) =>
 
 export const rotateRecoveryKey = (config?: ApiRequestConfig) =>
   requestBinaryOnly<RecoveryKeyCreateResponse>({
-    binaryUrl: '/api/binary/auth/recovery-key/rotate',
+    binaryRoute: { operationId: 'binary_post_auth_recovery_key_rotate' },
     frameType: FrameType.RecoveryKeyCreateResponse,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -414,7 +414,7 @@ export const rotateRecoveryKey = (config?: ApiRequestConfig) =>
 
 export const verifyRecoveryKey = (data: RecoveryKeyVerifyRequest, config?: ApiRequestConfig) =>
   requestBinaryOnly<RecoveryKeyVerifyResponse>({
-    binaryUrl: '/api/binary/auth/recovery-key/verify',
+    binaryRoute: { operationId: 'binary_post_auth_recovery_key_verify' },
     frameType: FrameType.RecoveryKeyVerifyResponse,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -426,7 +426,7 @@ export const verifyRecoveryKey = (data: RecoveryKeyVerifyRequest, config?: ApiRe
 
 export const beginRecoveryPasskeyRegistration = (recoverySessionToken: string, config?: ApiRequestConfig) =>
   requestBinaryOnly<PasskeyRegisterBeginResponse>({
-    binaryUrl: '/api/binary/auth/recovery-key/passkey/register/begin',
+    binaryRoute: { operationId: 'binary_post_auth_recovery_key_passkey_register_begin' },
     frameType: FrameType.PasskeyRegisterBegin,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -437,7 +437,7 @@ export const beginRecoveryPasskeyRegistration = (recoverySessionToken: string, c
 
 export const completeRecoveryPasskeyRegistration = (data: RecoveryPasskeyRegisterCompleteRequest, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/auth/recovery-key/passkey/register/complete',
+    binaryRoute: { operationId: 'binary_post_auth_recovery_key_passkey_register_complete' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -453,7 +453,7 @@ export const completeRecoveryPasskeyRegistration = (data: RecoveryPasskeyRegiste
 
 export const passkeyLoginBegin = (config?: ApiRequestConfig) =>
   requestBinaryOnly<PasskeyLoginBeginResponse>({
-    binaryUrl: '/api/binary/auth/passkey/login/begin',
+    binaryRoute: { operationId: 'binary_post_auth_passkey_login_begin' },
     frameType: FrameType.PasskeyLoginBegin,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: { method: 'POST' }
@@ -461,7 +461,7 @@ export const passkeyLoginBegin = (config?: ApiRequestConfig) =>
 
 export const passkeyLoginComplete = (data: PasskeyLoginCompleteRequest, config?: ApiRequestConfig) =>
   requestBinaryOnly<AuthLoginFlow>({
-    binaryUrl: '/api/binary/auth/passkey/login/complete',
+    binaryRoute: { operationId: 'binary_post_auth_passkey_login_complete' },
     frameType: FrameType.AuthLoginFlow,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -472,7 +472,7 @@ export const passkeyLoginComplete = (data: PasskeyLoginCompleteRequest, config?:
 
 export const adminStepUpPasskeyBegin = (config?: ApiRequestConfig) =>
   requestBinaryOnly<PasskeyLoginBeginResponse>({
-    binaryUrl: '/api/binary/auth/admin/step-up/passkey/begin',
+    binaryRoute: { operationId: 'binary_post_auth_admin_step_up_passkey_begin' },
     frameType: FrameType.PasskeyLoginBegin,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: { method: 'POST' }
@@ -480,7 +480,7 @@ export const adminStepUpPasskeyBegin = (config?: ApiRequestConfig) =>
 
 export const adminStepUpPasskeyComplete = (data: PasskeyLoginCompleteRequest, config?: ApiRequestConfig) =>
   requestBinaryOnly<MfaChallengeResult>({
-    binaryUrl: '/api/binary/auth/admin/step-up/passkey/complete',
+    binaryRoute: { operationId: 'binary_post_auth_admin_step_up_passkey_complete' },
     frameType: FrameType.MfaChallengeResult,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -491,14 +491,14 @@ export const adminStepUpPasskeyComplete = (data: PasskeyLoginCompleteRequest, co
 
 export const listPasskeys = (config?: ApiRequestConfig) =>
   requestBinaryOnly<PasskeyCredentialSummary[]>({
-    binaryUrl: '/api/binary/auth/passkey/credentials',
+    binaryRoute: { operationId: 'binary_get_auth_passkey_credentials' },
     frameType: FrameType.PasskeyCredentialList,
     signal: config?.signal as AbortSignal | undefined
   })
 
 export const deletePasskey = (id: number, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: `/api/binary/auth/passkey/credentials/${id}`,
+    binaryRoute: { operationId: 'binary_delete_auth_passkey_credentials_id_int', params: { id } },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -509,7 +509,7 @@ export const deletePasskey = (id: number, config?: ApiRequestConfig) =>
 
 export const renamePasskey = (id: number, name: string, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: `/api/binary/auth/passkey/credentials/${id}/name`,
+    binaryRoute: { operationId: 'binary_put_auth_passkey_credentials_id_int_name', params: { id } },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {

@@ -106,7 +106,10 @@ export const messageApi = {
   getAccountConversations(page: number, size: number, filter: ConversationFilter = 'all', config?: ApiRequestConfig) {
     const search = conversationSearch(page, size, filter)
     return requestBinaryOnly<PageResponse<ConversationListItemResponse>>({
-      binaryUrl: `/api/binary/messages/conversations?${search.toString()}`,
+      binaryRoute: {
+        operationId: 'binary_get_messages_conversations',
+        query: search
+      },
       frameType: FrameType.ConversationList,
       signal: config?.signal as AbortSignal | undefined
     })
@@ -114,7 +117,10 @@ export const messageApi = {
 
   getAccountConversationDetail(conversationId: string | number, config?: ApiRequestConfig) {
     return requestBinaryOnly<ConversationDetailResponse>({
-      binaryUrl: `/api/binary/messages/conversations/${conversationId}`,
+      binaryRoute: {
+        operationId: 'binary_get_messages_conversations_id_long',
+        params: { id: conversationId }
+      },
       frameType: FrameType.ConversationDetail,
       signal: config?.signal as AbortSignal | undefined
     })
@@ -122,7 +128,7 @@ export const messageApi = {
 
   createAccountConversation(data: CreateConversationRequest, config?: ApiRequestConfig) {
     return requestBinaryOnly<ConversationDetailResponse>({
-      binaryUrl: '/api/binary/messages/conversations',
+      binaryRoute: { operationId: 'binary_post_messages_conversations' },
       frameType: FrameType.ConversationDetail,
       signal: config?.signal as AbortSignal | undefined,
       requestOptions: {
@@ -135,7 +141,10 @@ export const messageApi = {
 
   replyAccountConversation(conversationId: string | number, data: ReplyConversationRequest, config?: ApiRequestConfig) {
     return requestBinaryOnly<ConversationMessageResponse>({
-      binaryUrl: `/api/binary/messages/conversations/${conversationId}/reply`,
+      binaryRoute: {
+        operationId: 'binary_post_messages_conversations_id_long_reply',
+        params: { id: conversationId }
+      },
       frameType: FrameType.ConversationMessage,
       signal: config?.signal as AbortSignal | undefined,
       requestOptions: {
@@ -148,7 +157,10 @@ export const messageApi = {
 
   markConversationRead(conversationId: string | number, config?: ApiRequestConfig) {
     return requestBinaryOnly<null>({
-      binaryUrl: `/api/binary/messages/conversations/${conversationId}/read`,
+      binaryRoute: {
+        operationId: 'binary_post_messages_conversations_id_long_read',
+        params: { id: conversationId }
+      },
       frameType: FrameType.EmptySuccess,
       signal: config?.signal as AbortSignal | undefined,
       requestOptions: { method: 'POST' }
@@ -158,7 +170,10 @@ export const messageApi = {
   adminGetConversations(page: number, size: number, filter: ConversationFilter = 'all', config?: ApiRequestConfig) {
     const search = conversationSearch(page, size, filter)
     return requestBinaryOnly<PageResponse<ConversationListItemResponse>>({
-      binaryUrl: `/api/binary/admin/messages/conversations?${search.toString()}`,
+      binaryRoute: {
+        operationId: 'binary_get_admin_messages_conversations',
+        query: search
+      },
       frameType: FrameType.ConversationList,
       signal: config?.signal as AbortSignal | undefined
     })
@@ -166,7 +181,10 @@ export const messageApi = {
 
   adminGetConversationDetail(conversationId: string | number, config?: ApiRequestConfig) {
     return requestBinaryOnly<ConversationDetailResponse>({
-      binaryUrl: `/api/binary/admin/messages/conversations/${conversationId}`,
+      binaryRoute: {
+        operationId: 'binary_get_admin_messages_conversations_id_long',
+        params: { id: conversationId }
+      },
       frameType: FrameType.ConversationDetail,
       signal: config?.signal as AbortSignal | undefined
     })
@@ -174,7 +192,10 @@ export const messageApi = {
 
   adminReplyConversation(conversationId: string | number, data: ReplyConversationRequest, config?: ApiRequestConfig) {
     return requestBinaryOnly<ConversationMessageResponse>({
-      binaryUrl: `/api/binary/admin/messages/conversations/${conversationId}/reply`,
+      binaryRoute: {
+        operationId: 'binary_post_admin_messages_conversations_id_long_reply',
+        params: { id: conversationId }
+      },
       frameType: FrameType.ConversationMessage,
       signal: config?.signal as AbortSignal | undefined,
       requestOptions: {
@@ -187,7 +208,10 @@ export const messageApi = {
 
   adminUpdateConversationStatus(conversationId: string | number, data: UpdateConversationStatusRequest, config?: ApiRequestConfig) {
     return requestBinaryOnly<null>({
-      binaryUrl: `/api/binary/admin/messages/conversations/${conversationId}/status`,
+      binaryRoute: {
+        operationId: 'binary_post_admin_messages_conversations_id_long_status',
+        params: { id: conversationId }
+      },
       frameType: FrameType.EmptySuccess,
       signal: config?.signal as AbortSignal | undefined,
       requestOptions: {
@@ -200,7 +224,7 @@ export const messageApi = {
 
   adminSendSystemMessage(data: SendSystemMessageRequest, config?: ApiRequestConfig) {
     return requestBinaryOnly<ConversationDetailResponse>({
-      binaryUrl: '/api/binary/admin/messages/system-send',
+      binaryRoute: { operationId: 'binary_post_admin_messages_system_send' },
       frameType: FrameType.ConversationDetail,
       signal: config?.signal as AbortSignal | undefined,
       requestOptions: {

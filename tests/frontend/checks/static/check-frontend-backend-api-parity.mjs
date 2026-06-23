@@ -23,6 +23,13 @@ for (const route of routes) {
 }
 
 const knownPaths = new Set(routes.map(route => `/api/binary${route.path}`))
+const descriptorOnlyWrappers = new Set([
+  'src/frontend/src/api/article.ts',
+  'src/frontend/src/api/auth.ts',
+  'src/frontend/src/api/comment.ts',
+  'src/frontend/src/api/message.ts',
+  'src/frontend/src/api/system.ts'
+])
 
 const legacyPatterns = [
   /['"`]\/api\/Article\b/g,
@@ -35,6 +42,13 @@ const legacyPatterns = [
 
 for (const file of walk(resolve(root, 'src/frontend/src/api'), path => /\.(ts|js)$/.test(path))) {
   const source = readFileSync(file, 'utf8')
+  const relativePath = file.slice(root.length + 1)
+  if (descriptorOnlyWrappers.has(relativePath)) {
+    assert(
+      !/['"`]\/api\/binary\//.test(source),
+      `${relativePath} must use generated binaryRoute descriptors instead of manual /api/binary paths`
+    )
+  }
   for (const pattern of legacyPatterns) {
     assert(!pattern.test(source), `${file} contains legacy JSON API path ${pattern}`)
     pattern.lastIndex = 0

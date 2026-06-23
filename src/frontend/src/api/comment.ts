@@ -325,7 +325,7 @@ export const createAnonymousComment = (
   })
 
   return requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/comment/anonymous',
+    binaryRoute: { operationId: 'binary_post_comment_anonymous' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -349,14 +349,14 @@ export const createPublicComment = (data: PublicCommentDto, config?: ApiRequestC
 
 export const getCommentPolicySnapshot = (config?: ApiRequestConfig) =>
   requestBinaryOnly<CommentPolicySnapshot>({
-    binaryUrl: '/api/binary/comment/policy',
+    binaryRoute: { operationId: 'binary_get_comment_policy' },
     frameType: FrameType.CommentPolicySnapshot,
     signal: config?.signal as AbortSignal | undefined
   })
 
 export const getAnonymousCredentialRootSnapshot = (config?: ApiRequestConfig) =>
   requestBinaryOnly<AnonymousCredentialRootSnapshot>({
-    binaryUrl: '/api/binary/anonymous-credential/root',
+    binaryRoute: { operationId: 'binary_get_anonymous_credential_root' },
     frameType: FrameType.AnonymousCredentialRootSnapshot,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -366,7 +366,7 @@ export const getAnonymousCredentialRootSnapshot = (config?: ApiRequestConfig) =>
 
 export const getAnonymousCredentialCircuitSnapshot = (config?: ApiRequestConfig) =>
   requestBinaryOnly<AnonymousCredentialRootSnapshot>({
-    binaryUrl: '/api/binary/anonymous-credential/circuit',
+    binaryRoute: { operationId: 'binary_get_anonymous_credential_circuit' },
     frameType: FrameType.AnonymousCredentialRootSnapshot,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -380,7 +380,7 @@ export const getAnonymousCredentialRevocationWitness = (
 ) => {
   const payload = encodeAnonymousCredentialRevocationWitnessRequest(data)
   return requestBinaryOnly<AnonymousCredentialRevocationWitnessResponse>({
-    binaryUrl: '/api/binary/anonymous-credential/revocation-witness',
+    binaryRoute: { operationId: 'binary_post_anonymous_credential_revocation_witness' },
     frameType: FrameType.AnonymousCredentialRevocationWitnessResponse,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -397,7 +397,7 @@ export const issueAnonymousCommentTicket = (
 ) => {
   const payload = encodeAnonymousCommentTicketRequest(data)
   return requestBinaryOnly<AnonymousCommentTicketResponse>({
-    binaryUrl: '/api/binary/comment/anonymous-ticket',
+    binaryRoute: { operationId: 'binary_post_comment_anonymous_ticket' },
     frameType: FrameType.AnonymousCommentTicketResponse,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -420,7 +420,7 @@ function sendCommentMutation(
   const payload = encodeCommentCreateV2Request(data)
 
   return requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/comment',
+    binaryRoute: { operationId: 'binary_post_comment' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -445,7 +445,11 @@ export const getComments = (
   search.set('limit', String(limit));
 
   return requestBinaryOnly<CursorResponse<CommentThreadItem>>({
-    binaryUrl: `/api/binary/comment/${articleId}?${search.toString()}`,
+    binaryRoute: {
+      operationId: 'binary_get_comment_articleId_int',
+      params: { articleId },
+      query: search
+    },
     frameType: FrameType.CommentArticleCursor,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -465,7 +469,11 @@ export const getThreadReplies = (
   if (cursor) search.set('cursor', cursor);
   search.set('limit', String(limit));
   return requestBinaryOnly<CursorResponse<CommentReplyItem>>({
-    binaryUrl: `/api/binary/comment/${articleId}/thread/${rootId}?${search.toString()}`,
+    binaryRoute: {
+      operationId: 'binary_get_comment_articleId_int_thread_rootId_long',
+      params: { articleId, rootId },
+      query: search
+    },
     frameType: FrameType.CommentThreadReplyCursor,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -481,10 +489,13 @@ export const getMyComments = (
   config?: ApiRequestConfig
 ) =>
   requestBinaryOnly<CursorResponse<UserCommentResponse>>({
-    binaryUrl: `/api/binary/comment/me?${new URLSearchParams({
-      ...(cursor ? { cursor } : {}),
-      limit: String(limit)
-    }).toString()}`,
+    binaryRoute: {
+      operationId: 'binary_get_comment_me',
+      query: {
+        ...(cursor ? { cursor } : {}),
+        limit
+      }
+    },
     frameType: FrameType.CommentUserCursor,
     signal: config?.signal as AbortSignal | undefined
   })
@@ -495,7 +506,10 @@ export const getMyComments = (
  */
 export const deleteComment = (id: string, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: `/api/binary/comment/${encodeURIComponent(id)}`,
+    binaryRoute: {
+      operationId: 'binary_delete_comment_id_long',
+      params: { id }
+    },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {

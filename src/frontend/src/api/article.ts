@@ -115,9 +115,6 @@ export interface ArticleWriteRequest {
 
 // ================= API 方法 =================
 
-const PUBLIC_ARTICLE_LIST_HOME_ROUTE_PREFIX = '/api/binary/article/list/home/'
-const PUBLIC_ARTICLE_LIST_ARCHIVE_ROUTE_PREFIX = '/api/binary/article/list/archive/'
-
 /**
  * [修复 2026-02-23] 逻辑自洽：所有方法增加可选的 config 参数以支持物理中断 (AbortSignal)
  */
@@ -136,7 +133,7 @@ export const getArticles = (
   };
 
   return requestBinaryOnly<PageResponse<ArticleListItemResponse>>({
-    binaryUrl: buildPublicArticleListUrl(normalized),
+    binaryRoute: buildPublicArticleListRoute(normalized),
     frameType: FrameType.ArticleList,
     requestOptions: { credentials: 'omit' },
     signal: config?.signal as AbortSignal | undefined
@@ -146,7 +143,10 @@ export const getArticles = (
 /** 获取详情 */
 export const getArticleById = (id: number, config?: ApiRequestConfig) => {
   return requestBinaryOnly<ArticleDetailResponse>({
-    binaryUrl: `/api/binary/article/${normalizePositiveInt(id, 1)}.aeds`,
+    binaryRoute: {
+      operationId: 'binary_get_article_id_aeds',
+      params: { id: normalizePositiveInt(id, 1) }
+    },
     frameType: FrameType.ArticleDetail,
     requestOptions: { credentials: 'omit' },
     signal: config?.signal as AbortSignal | undefined
@@ -155,7 +155,10 @@ export const getArticleById = (id: number, config?: ApiRequestConfig) => {
 
 export const getRelatedReading = (id: number, config?: ApiRequestConfig): Promise<RelatedReadingResponse> => {
   return requestBinaryOnly<RelatedReadingResponse>({
-    binaryUrl: `/api/binary/article/${normalizePositiveInt(id, 1)}/related.aeds`,
+    binaryRoute: {
+      operationId: 'binary_get_article_articleId_int_related_aeds',
+      params: { articleId: normalizePositiveInt(id, 1) }
+    },
     frameType: FrameType.ArticleRelatedReading,
     requestOptions: { credentials: 'omit' },
     signal: config?.signal as AbortSignal | undefined
@@ -166,7 +169,10 @@ export const getRelatedReading = (id: number, config?: ApiRequestConfig): Promis
 export const getHotArticles = (size = 10, config?: ApiRequestConfig) => {
   const count = normalizeSize(size, 10)
   return requestBinaryOnly<PopularArticleSummaryResponse[]>({
-    binaryUrl: `/api/binary/article/hot/${count}.aeds`,
+    binaryRoute: {
+      operationId: 'binary_get_article_hot_size_aeds',
+      params: { size: count }
+    },
     frameType: FrameType.ArticleHot,
     requestOptions: { credentials: 'omit' },
     signal: config?.signal as AbortSignal | undefined
@@ -177,7 +183,10 @@ export const getHotArticles = (size = 10, config?: ApiRequestConfig) => {
 export const getFeaturedArticles = (size = 3, config?: ApiRequestConfig) => {
   const count = normalizeSize(size, 3)
   return requestBinaryOnly<FeaturedArticleItem[]>({
-    binaryUrl: `/api/binary/article/featured/${count}.aeds`,
+    binaryRoute: {
+      operationId: 'binary_get_article_featured_size_aeds',
+      params: { size: count }
+    },
     frameType: FrameType.ArticleFeatured,
     requestOptions: { credentials: 'omit' },
     signal: config?.signal as AbortSignal | undefined
@@ -201,7 +210,10 @@ export const getAdminArticles = (
   if (params.status !== undefined) search.set('status', String(params.status));
 
   return requestBinaryOnly<PageResponse<ArticleListItemResponse>>({
-    binaryUrl: `/api/binary/admin/article?${search.toString()}`,
+    binaryRoute: {
+      operationId: 'binary_get_admin_article',
+      query: search
+    },
     frameType: FrameType.ArticleList,
     signal: config?.signal as AbortSignal | undefined
   });
@@ -209,7 +221,10 @@ export const getAdminArticles = (
 
 export const getAdminArticleById = (id: number, config?: ApiRequestConfig) => {
   return requestBinaryOnly<ArticleDetailResponse>({
-    binaryUrl: `/api/binary/admin/article/${normalizePositiveInt(id, 1)}`,
+    binaryRoute: {
+      operationId: 'binary_get_admin_article_id_int',
+      params: { id: normalizePositiveInt(id, 1) }
+    },
     frameType: FrameType.ArticleDetail,
     signal: config?.signal as AbortSignal | undefined
   });
@@ -221,7 +236,7 @@ export const getAdminArticleById = (id: number, config?: ApiRequestConfig) => {
  */
 export const createArticle = (data: ArticleWriteRequest, config?: ApiRequestConfig) =>
   requestBinaryOnly<{ id: number }>({
-    binaryUrl: '/api/binary/admin/article',
+    binaryRoute: { operationId: 'binary_post_admin_article' },
     frameType: FrameType.MutationId,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -236,7 +251,10 @@ export const createArticle = (data: ArticleWriteRequest, config?: ApiRequestConf
  */
 export const updateArticle = (id: number, data: ArticleWriteRequest, config?: ApiRequestConfig) =>
   requestBinaryOnly<{ id: number }>({
-    binaryUrl: `/api/binary/admin/article/${id}`,
+    binaryRoute: {
+      operationId: 'binary_put_admin_article_id_int',
+      params: { id }
+    },
     frameType: FrameType.MutationId,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -248,7 +266,10 @@ export const updateArticle = (id: number, data: ArticleWriteRequest, config?: Ap
 
 export const deleteArticle = (id: number, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: `/api/binary/admin/article/${id}`,
+    binaryRoute: {
+      operationId: 'binary_delete_admin_article_id_int',
+      params: { id }
+    },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -259,7 +280,10 @@ export const deleteArticle = (id: number, config?: ApiRequestConfig) =>
 
 export const restoreArticle = (id: number, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: `/api/binary/admin/article/restore/${id}`,
+    binaryRoute: {
+      operationId: 'binary_put_admin_article_restore_id_int',
+      params: { id }
+    },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -270,7 +294,10 @@ export const restoreArticle = (id: number, config?: ApiRequestConfig) =>
 
 export const permanentDeleteArticle = (id: number, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: `/api/binary/admin/article/permanent/${id}`,
+    binaryRoute: {
+      operationId: 'binary_delete_admin_article_permanent_id_int',
+      params: { id }
+    },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -279,21 +306,29 @@ export const permanentDeleteArticle = (id: number, config?: ApiRequestConfig) =>
     }
   })
 
-function buildPublicArticleListUrl(params: { page: number; size: number; categoryId?: number; tagId?: number; listKind?: 'home' | 'archive' }): string {
+function buildPublicArticleListRoute(params: { page: number; size: number; categoryId?: number; tagId?: number; listKind?: 'home' | 'archive' }) {
   const page = normalizePositiveInt(params.page, 1)
   const size = normalizeSize(params.size, 10)
   if (params.categoryId !== undefined) {
-    return `/api/binary/article/list/category/${normalizePositiveInt(params.categoryId, 1)}/${page}/${size}.aeds`
+    return {
+      operationId: 'binary_get_article_list_category_categoryId_page_size_aeds' as const,
+      params: { categoryId: normalizePositiveInt(params.categoryId, 1), page, size }
+    }
   }
 
   if (params.tagId !== undefined) {
-    return `/api/binary/article/list/tag/${normalizePositiveInt(params.tagId, 1)}/${page}/${size}.aeds`
+    return {
+      operationId: 'binary_get_article_list_tag_tagId_page_size_aeds' as const,
+      params: { tagId: normalizePositiveInt(params.tagId, 1), page, size }
+    }
   }
 
-  const prefix = params.listKind === 'archive'
-    ? PUBLIC_ARTICLE_LIST_ARCHIVE_ROUTE_PREFIX
-    : PUBLIC_ARTICLE_LIST_HOME_ROUTE_PREFIX
-  return `${prefix}${page}/${size}.aeds`
+  return {
+    operationId: params.listKind === 'archive'
+      ? 'binary_get_article_list_archive_page_size_aeds' as const
+      : 'binary_get_article_list_home_page_size_aeds' as const,
+    params: { page, size }
+  }
 }
 
 function normalizePositiveInt(value: number, fallback: number): number {

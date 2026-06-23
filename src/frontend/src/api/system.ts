@@ -69,14 +69,14 @@ export interface PageContentAdmin {
 // 站点 SEO 配置
 export const getSiteConfig = (config?: ApiRequestConfig) =>
   requestBinaryOnly<SeoConfigPublic>({
-    binaryUrl: '/api/binary/system/seo',
+    binaryRoute: { operationId: 'binary_get_system_seo' },
     frameType: FrameType.SeoConfig,
     signal: config?.signal as AbortSignal | undefined
   })
 
 export const getAdminSiteConfig = (config?: ApiRequestConfig) =>
   requestBinaryOnly<SeoConfigAdmin>({
-    binaryUrl: '/api/binary/system/admin/seo',
+    binaryRoute: { operationId: 'binary_get_system_admin_seo' },
     frameType: FrameType.SeoConfig,
     signal: config?.signal as AbortSignal | undefined
   })
@@ -87,7 +87,7 @@ export const getAdminSiteConfig = (config?: ApiRequestConfig) =>
  */
 export const updateSiteConfig = (data: SeoConfigAdmin, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/system/seo',
+    binaryRoute: { operationId: 'binary_put_system_seo' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -99,21 +99,21 @@ export const updateSiteConfig = (data: SeoConfigAdmin, config?: ApiRequestConfig
 
 export const getSiteComplianceConfig = (config?: ApiRequestConfig) =>
   requestBinaryOnly<SiteComplianceConfigPublic>({
-    binaryUrl: '/api/binary/system/compliance',
+    binaryRoute: { operationId: 'binary_get_system_compliance' },
     frameType: FrameType.SiteComplianceConfig,
     signal: config?.signal as AbortSignal | undefined
   })
 
 export const getAdminSiteComplianceConfig = (config?: ApiRequestConfig) =>
   requestBinaryOnly<SiteComplianceConfigAdmin>({
-    binaryUrl: '/api/binary/system/admin/compliance',
+    binaryRoute: { operationId: 'binary_get_system_admin_compliance' },
     frameType: FrameType.SiteComplianceConfig,
     signal: config?.signal as AbortSignal | undefined
   })
 
 export const updateSiteComplianceConfig = (data: SiteComplianceConfigAdmin, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/system/compliance',
+    binaryRoute: { operationId: 'binary_put_system_compliance' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -128,14 +128,20 @@ export const updateSiteComplianceConfig = (data: SiteComplianceConfigAdmin, conf
 // 动态页面内容
 export const getPageData = (slug: string, config?: ApiRequestConfig) =>
   requestBinaryOnly<PageContentPublic>({
-    binaryUrl: `/api/binary/system/page/${encodeURIComponent(slug)}`,
+    binaryRoute: {
+      operationId: 'binary_get_system_page_slug',
+      params: { slug }
+    },
     frameType: FrameType.PageContent,
     signal: config?.signal as AbortSignal | undefined
   })
 
 export const getAdminPageData = (slug: string, config?: ApiRequestConfig) =>
   requestBinaryOnly<PageContentAdmin>({
-    binaryUrl: `/api/binary/system/admin/page/${encodeURIComponent(slug)}`,
+    binaryRoute: {
+      operationId: 'binary_get_system_admin_page_slug',
+      params: { slug }
+    },
     frameType: FrameType.PageContent,
     signal: config?.signal as AbortSignal | undefined
   })
@@ -146,7 +152,7 @@ export const getAdminPageData = (slug: string, config?: ApiRequestConfig) =>
  */
 export const updatePageData = (data: PageContentAdmin, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/system/page',
+    binaryRoute: { operationId: 'binary_put_system_page' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -158,7 +164,10 @@ export const updatePageData = (data: PageContentAdmin, config?: ApiRequestConfig
 
 export const refreshPageData = (slug: string, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: `/api/binary/system/page/refresh/${encodeURIComponent(slug)}`,
+    binaryRoute: {
+      operationId: 'binary_post_system_page_refresh_slug',
+      params: { slug }
+    },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -173,7 +182,7 @@ export const refreshPageData = (slug: string, config?: ApiRequestConfig) =>
  */
 export const deleteImage = (url: string, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: '/api/binary/file/delete',
+    binaryRoute: { operationId: 'binary_delete_file_delete' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {

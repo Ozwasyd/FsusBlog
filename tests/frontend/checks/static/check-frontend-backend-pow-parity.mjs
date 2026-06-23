@@ -10,6 +10,7 @@ import {
 
 const routes = extractBackendBinaryRoutes()
 const routesByKey = new Map(routes.map(route => [route.key, route]))
+const routesByOperationId = new Map(routes.map(route => [route.operationId, route]))
 const frontendApiDir = resolve(root, 'src/frontend/src/api')
 const generatedRoutes = readFileSync(resolve(root, 'src/frontend/src/generated/fsusBinaryRoutes.ts'), 'utf8')
 
@@ -41,28 +42,34 @@ for (const file of walk(frontendApiDir, path => path.endsWith('.ts'))) {
     const contextEnd = Math.min(source.length, index + 500)
     const beforeContext = source.slice(contextStart, index)
     const afterContext = source.slice(index, contextEnd)
+    const operationId = findNearestOperationId(beforeContext)
     const binaryUrl = findNearestBinaryUrl(beforeContext)
     const method = findRequestMethod(beforeContext) ?? findRequestMethod(afterContext) ?? 'GET'
-    const route = binaryUrl ? findBackendRoute(method, binaryUrl) : null
-    if (!binaryUrl) {
-      failures.push(`${relativePath}:${lineOf(source, index)}: requiresPow true has no nearby binaryUrl`)
+    const route = operationId
+      ? routesByOperationId.get(operationId)
+      : binaryUrl
+        ? findBackendRoute(method, binaryUrl)
+        : null
+    const routeLabel = operationId ?? (binaryUrl ? `${method} ${binaryUrl}` : null)
+    if (!routeLabel) {
+      failures.push(`${relativePath}:${lineOf(source, index)}: requiresPow true has no nearby binary route descriptor`)
       continue
     }
 
     if (!route) {
-      failures.push(`${relativePath}:${lineOf(source, index)}: ${method} ${binaryUrl} does not match generated backend binary route metadata`)
+      failures.push(`${relativePath}:${lineOf(source, index)}: ${routeLabel} does not match generated backend binary route metadata`)
       continue
     }
 
     if (route.pow !== true) {
-      failures.push(`${relativePath}:${lineOf(source, index)}: ${method} ${binaryUrl} has frontend requiresPow=true but backend x-fsus-pow=${route.pow}`)
+      failures.push(`${relativePath}:${lineOf(source, index)}: ${routeLabel} has frontend requiresPow=true but backend x-fsus-pow=${route.pow}`)
     }
   }
 }
 
-assertPublicWrapperHasNoPow('src/frontend/src/api/comment.ts', /binaryUrl:\s*`\/api\/binary\/comment\/\$\{articleId\}\?/g, 'public comment list')
-assertPublicWrapperHasNoPow('src/frontend/src/api/comment.ts', /binaryUrl:\s*`\/api\/binary\/comment\/\$\{articleId\}\/thread\/\$\{rootId\}\?/g, 'public comment thread replies')
-assertPublicWrapperHasNoPow('src/frontend/src/api/article.ts', /binaryUrl:\s*`\/api\/binary\/article\/\$\{normalizePositiveInt\(id,\s*1\)\}\/related\.aeds`/g, 'public related reading')
+assertPublicWrapperHasNoPow('src/frontend/src/api/comment.ts', /operationId:\s*['"`]binary_get_comment_articleId_int['"`]/g, 'public comment list')
+assertPublicWrapperHasNoPow('src/frontend/src/api/comment.ts', /operationId:\s*['"`]binary_get_comment_articleId_int_thread_rootId_long['"`]/g, 'public comment thread replies')
+assertPublicWrapperHasNoPow('src/frontend/src/api/article.ts', /operationId:\s*['"`]binary_get_article_articleId_int_related_aeds['"`]/g, 'public related reading')
 
 if (failures.length > 0) {
   throw new Error(`frontend/backend PoW parity failed:\n${failures.join('\n')}`)
@@ -74,6 +81,11 @@ function findNearestBinaryUrl(context) {
   const matches = [...context.matchAll(/binaryUrl\s*:\s*(['"`])([\s\S]*?)\1/g)]
   const last = matches.at(-1)
   return last?.[2]?.split('?')[0] ?? null
+}
+
+function findNearestOperationId(context) {
+  const matches = [...context.matchAll(/operationId\s*:\s*['"`]([^'"`]+)['"`]/g)]
+  return matches.at(-1)?.[1] ?? null
 }
 
 function findRequestMethod(context) {
