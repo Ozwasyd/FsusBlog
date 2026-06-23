@@ -987,7 +987,7 @@
           "method": "POST",
           "path": "/auth/refresh-token",
           "auth": "anonymous",
-          "responseFrame": "CurrentUserSnapshot"
+          "responseFrame": "EmptySuccess"
         },
         {
           "method": "POST",

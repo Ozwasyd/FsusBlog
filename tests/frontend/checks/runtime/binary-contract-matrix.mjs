@@ -69,4 +69,7 @@ for (const required of [
   assert(JSON.stringify(matrix).includes(required), `missing public artifact route ${required}`)
 }
 
+const refreshTokenRoute = matrixRoutes.find(route => route.method === 'POST' && route.path === '/auth/refresh-token')
+assert(refreshTokenRoute?.responseFrame === 'EmptySuccess', 'refresh-token responseFrame must remain EmptySuccess')
+
 console.log(`[binary-contract-matrix] ok openapiRoutes=${actualRoutes.length} matrixRoutes=${matrixRoutes.length}`)

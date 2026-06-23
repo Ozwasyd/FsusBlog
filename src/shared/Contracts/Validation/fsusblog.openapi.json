@@ -3115,7 +3115,7 @@
         "summary": "/auth/refresh-token",
         "responses": {
           "200": {
-            "description": "CurrentUserSnapshot AEDS frame",
+            "description": "EmptySuccess AEDS frame",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -3140,7 +3140,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": null,
-        "x-fsus-response-frame": "CurrentUserSnapshot",
+        "x-fsus-response-frame": "EmptySuccess",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "anonymous",
         "x-fsus-pow": false,
