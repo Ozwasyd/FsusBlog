@@ -58,6 +58,9 @@ assert(sourceMissing.length === 0, `binary endpoint source routes missing from O
 
 for (const required of [
   '/api/binary/article/list/home/{page}/{size}.aeds',
+  '/api/binary/article/list/archive/{page}/{size}.aeds',
+  '/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds',
+  '/api/binary/article/list/tag/{tagId}/{page}/{size}.aeds',
   '/api/binary/article/{id}.aeds',
   '/api/binary/article/hot/{size}.aeds',
   '/api/binary/category.aeds',

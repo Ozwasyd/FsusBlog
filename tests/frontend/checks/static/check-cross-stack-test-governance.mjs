@@ -12,6 +12,8 @@ import {
 const matrix = loadMatrix()
 const pkg = JSON.parse(readFileSync(resolve(root, 'src/frontend/package.json'), 'utf8'))
 const testSh = readFileSync(resolve(root, 'tools/test.sh'), 'utf8')
+const legacyTestSh = readFileSync(resolve(root, 'tools/test/legacy-test.sh'), 'utf8')
+const testEntrypoints = `${testSh}\n${legacyTestSh}`
 const testMatrix = readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8')
 const requirementIds = new Set((matrix.requirements || []).map(requirement => requirement.id))
 
@@ -50,10 +52,10 @@ for (const token of [
   'npm run check:coherence:runtime-matrix',
   'npm run check:cross-stack-test-governance'
 ]) {
-  assert(testSh.includes(token), `fast gate does not run ${token}`)
+  assert(testEntrypoints.includes(token), `fast gate does not run ${token}`)
 }
 
-assert(testSh.includes('cross-stack-contract)'), 'tools/test.sh lacks cross-stack-contract tier')
+assert(testEntrypoints.includes('cross-stack-contract)'), 'tools/test.sh lacks cross-stack-contract tier')
 assert(testMatrix.includes('id: cross-stack-contract'), 'tests/matrix.yml lacks cross-stack-contract tier')
 assert(testMatrix.includes('CROSS-BINARY-ENDPOINT-MATRIX'), 'tests/matrix.yml lacks cross-stack requirements')
 

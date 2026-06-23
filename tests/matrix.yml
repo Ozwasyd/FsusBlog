@@ -3218,7 +3218,7 @@ tiers:
     risk: critical
     cadence: pr
     requiredFor: production
-    coverage: [frontend-backend-contract-coherence]
+    coverage: [frontend-backend-contract-coherence, CROSS-BINARY-ENDPOINT-MATRIX]
     artifacts: [tests/frontend/fixtures/cross-stack-contract-matrix.json, tests/frontend/fixtures/cross-stack-contract-matrix.generated.json, src/shared/Contracts/Validation/fsusblog.openapi.json, src/frontend/src/generated/fsusBinaryRoutes.ts]
     evidence: [tests/frontend/fixtures/cross-stack-contract-matrix.json, tests/frontend/fixtures/cross-stack-contract-matrix.generated.json, src/shared/Contracts/Validation/fsusblog.openapi.json, src/frontend/src/generated/fsusBinaryRoutes.ts]
     ciJob: cross-stack-contract

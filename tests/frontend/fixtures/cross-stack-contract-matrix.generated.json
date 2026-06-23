@@ -357,6 +357,24 @@
     },
     {
       "method": "GET",
+      "path": "/api/binary/article/list/archive/{page}/{size}.aeds",
+      "responseFrame": "ArticleList",
+      "surface": "public-list-archive"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds",
+      "responseFrame": "ArticleList",
+      "surface": "public-list-category"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/article/list/tag/{tagId}/{page}/{size}.aeds",
+      "responseFrame": "ArticleList",
+      "surface": "public-list-tag"
+    },
+    {
+      "method": "GET",
       "path": "/api/binary/article/{id}.aeds",
       "responseFrame": "ArticleDetail",
       "surface": "public-detail"
@@ -2122,5 +2140,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 203
+  "openapiOperationCount": 206
 }
