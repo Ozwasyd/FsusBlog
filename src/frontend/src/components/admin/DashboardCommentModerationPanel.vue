@@ -1,7 +1,7 @@
 <template>
   <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-labelledby="comment-moderation-title">
-    <header class="border-b border-[var(--fsusblog-panel-border)] px-8 py-6">
-      <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+    <header class="border-b border-[var(--fsusblog-panel-border)] px-6 py-5">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <FsusUiSectionHeader
           id="comment-moderation-title"
           class="dashboard-section-header--flush"
@@ -30,7 +30,7 @@
       </div>
     </div>
 
-    <div class="border-t border-[var(--fsusblog-panel-border)] p-8" v-loading="loading" :aria-busy="loading">
+    <div class="border-t border-[var(--fsusblog-panel-border)] p-6" v-loading="loading" :aria-busy="loading">
       <div v-if="!loading && pendingItems.length === 0" class="dashboard-inline-empty" role="status" aria-live="polite">
         <p class="dashboard-inline-empty__title">暂无待审评论</p>
         <p class="dashboard-inline-empty__description">高风险操作仍需二次确认。</p>

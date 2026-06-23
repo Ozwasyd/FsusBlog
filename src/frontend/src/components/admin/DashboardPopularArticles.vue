@@ -1,13 +1,13 @@
 <template>
   <section class="bg-[var(--fsusblog-page-bg)] h-full flex flex-col">
-    <header class="p-8 border-b border-[var(--fsusblog-panel-border)]">
+    <header class="p-6 border-b border-[var(--fsusblog-panel-border)]">
       <h2 class="text-lg font-bold text-[var(--fsusblog-text-primary)]">热门文章</h2>
-      <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-secondary)]">用内容表现判断哪些稿件值得继续编辑、补链或置顶处理。</p>
+      <p class="mt-2 text-[11px] leading-relaxed text-[var(--fsusblog-text-secondary)]">用内容表现判断哪些稿件值得继续编辑、补链或置顶处理。</p>
     </header>
     <div class="flex-1 p-2">
       <AdminInlineEmptyState
         v-if="!loading && view.popularArticles.length === 0"
-        class="flex min-h-[320px] flex-col justify-center"
+        class="flex flex-col"
         title="暂无热门文章数据"
         description="发布文章并累积阅读后，这里会显示值得继续编辑、补链或置顶的稿件。"
       />
@@ -41,7 +41,7 @@
         </template>
       </el-table>
     </div>
-    <footer class="p-6 border-t border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg-soft)]">
+    <footer class="p-5 border-t border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg-soft)]">
       <router-link
         :to="{ name: 'ManageArticleList' }"
         class="blog-link-state group flex items-center gap-3 text-xs font-semibold normal-case tracking-normal outline-none"

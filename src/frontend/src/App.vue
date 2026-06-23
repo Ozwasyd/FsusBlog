@@ -41,6 +41,13 @@ const headConfig = computed(() => ({
 useHead(headConfig)
 
 const isPublicShellRoute = computed(() => isPublicShellRouteName(route.name))
+const appRouteViewKey = computed(() => {
+  if (route.path.startsWith('/user')) {
+    return '/user'
+  }
+
+  return route.fullPath
+})
 
 const handleSessionExpired = (event: Event): void => {
   const detail = (event as CustomEvent<SessionExpiredDetail>).detail
@@ -224,7 +231,7 @@ onUnmounted(() => {
           @enter="runAppRouteEnter"
           @leave="runAppRouteLeave"
         >
-          <component :is="Component" :key="route.fullPath" />
+          <component :is="Component" :key="appRouteViewKey" />
         </Transition>
       </router-view>
       <FullAppRuntime v-if="runtimeReady" />

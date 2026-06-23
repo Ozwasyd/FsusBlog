@@ -1,13 +1,13 @@
 <template>
   <section class="bg-[var(--fsusblog-page-bg)] h-full flex flex-col">
-    <header class="p-8 border-b border-[var(--fsusblog-panel-border)]">
+    <header class="p-6 border-b border-[var(--fsusblog-panel-border)]">
       <h2 class="text-lg font-bold text-[var(--fsusblog-text-primary)]">最新评论</h2>
-      <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">快速判断最近是否有值得跟进的读者互动，再进入内容管理继续处理。</p>
+      <p class="mt-2 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">快速判断最近是否有值得跟进的读者互动，再进入内容管理继续处理。</p>
     </header>
     <div class="flex-1 min-h-0">
       <AdminInlineEmptyState
         v-if="!loading && view.recentComments.length === 0"
-        class="flex min-h-[18.75rem] flex-col justify-center"
+        class="flex flex-col"
         title="暂无近期互动"
         description="读者留下新评论后会出现在这里，方便快速判断是否需要跟进。"
       />
@@ -16,7 +16,7 @@
           <article
             v-for="comment in view.recentComments"
             :key="comment.id"
-            class="p-6"
+            class="p-5"
           >
             <div class="flex items-start justify-between gap-4 mb-3">
               <div class="min-w-0">
@@ -44,7 +44,7 @@
         </div>
       </el-scrollbar>
     </div>
-    <footer class="p-6 border-t border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)]">
+    <footer class="p-5 border-t border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)]">
       <router-link
         :to="{ name: 'ManageArticleList' }"
         class="group flex items-center gap-3 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-tertiary)] transition-colors hover:text-[var(--fsusblog-color-primary)]"

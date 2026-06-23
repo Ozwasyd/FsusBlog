@@ -61,59 +61,41 @@
     </SiteChromeHeaderAdapter>
 
     <section class="account-mobile-navigation lg:hidden" aria-label="移动账户导航">
-      <nav class="account-mobile-tab-strip" aria-label="账户导航分组">
-        <button
-          v-for="group in mobilePrimaryGroups"
-          :key="group.key"
-          type="button"
-          class="account-mobile-tab-link"
-          :class="{ 'account-mobile-tab-link-active': activeMobileGroupKey === group.key }"
-          :aria-current="activeMobileGroupKey === group.key ? 'page' : undefined"
-          :aria-expanded="openMobileGroupKey === group.key"
-          @click="selectMobileGroup(group.key)"
-        >
-          <span>{{ group.label }}</span>
-        </button>
-        <button
-          v-if="mobileOverflowGroups.length > 0"
-          type="button"
-          class="account-mobile-tab-link"
-          :class="{ 'account-mobile-tab-link-active': mobileMoreOpen }"
-          :aria-expanded="mobileMoreOpen"
-          aria-controls="account-mobile-more-groups"
-          @click="toggleMobileMore"
-        >
-          更多
-        </button>
-      </nav>
+      <FsusUiSegmentedControl
+        class="account-mobile-group-control"
+        :model-value="activeMobileGroupKey"
+        :items="mobileGroupSegmentItems"
+        aria-label="账户导航分组"
+        @item-click="selectMobileGroupFromSegment"
+        @update:model-value="selectMobileGroupFromSegment"
+      >
+        <template #item="{ item }">
+          <span
+            class="account-mobile-group-label"
+            :aria-current="activeMobileGroupKey === item.value ? 'page' : undefined"
+          >
+            {{ item.label }}
+          </span>
+        </template>
+      </FsusUiSegmentedControl>
 
       <nav
-        v-if="mobileMoreOpen && mobileOverflowGroups.length > 0"
-        id="account-mobile-more-groups"
-        class="account-mobile-more-strip"
-        aria-label="更多账户导航分组"
+        ref="mobileLinkStripRef"
+        class="account-mobile-link-strip"
+        :aria-label="`${selectedMobileGroup?.label ?? areaMeta.label}导航`"
       >
-        <button
-          v-for="group in mobileOverflowGroups"
-          :key="group.key"
-          type="button"
-          class="account-mobile-tab-link"
-          :class="{ 'account-mobile-tab-link-active': activeMobileGroupKey === group.key }"
-          :aria-current="activeMobileGroupKey === group.key ? 'page' : undefined"
-          :aria-expanded="openMobileGroupKey === group.key"
-          @click="selectMobileGroup(group.key)"
-        >
-          <span>{{ group.label }}</span>
-        </button>
-      </nav>
-
-      <nav class="account-mobile-link-strip" :aria-label="`${selectedMobileGroup?.label ?? areaMeta.label}导航`">
+        <span
+          class="account-mobile-link-strip__indicator"
+          :style="mobileLinkIndicatorStyle"
+          aria-hidden="true"
+        ></span>
         <router-link
           v-for="item in selectedMobileGroup?.items ?? []"
           :key="item.to"
           :to="item.to"
           class="account-mobile-nav-link"
           :class="{ 'account-mobile-nav-link-active': isNavItemActive(item) }"
+          :data-account-mobile-nav-active="isNavItemActive(item) ? 'true' : undefined"
           :aria-current="isNavItemActive(item) ? 'page' : undefined"
         >
           <span>{{ item.label }}</span>
@@ -172,9 +154,9 @@
 
       <main id="account-main" tabindex="-1" class="min-w-0 flex-1 outline-none" aria-labelledby="account-shell-area-title">
         <router-view v-slot="{ Component }">
-          <transition name="fade-fast" mode="out-in">
+          <FsuTransition :name="fsusBlogMotionPresets.route" mode="out-in" :duration="140">
             <component :is="Component" :key="accountRouteViewKey" class="mx-auto w-full min-w-0" :class="[contentViewportClass, contentModeClass, adminContentClass]" />
-          </transition>
+          </FsuTransition>
         </router-view>
       </main>
     </div>
@@ -184,11 +166,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
 import { useRoute } from 'vue-router'
 import PolicyModal from '@/components/PolicyModal.vue'
 import SiteChromeHeaderAdapter from '@/components/layout/SiteChromeHeaderAdapter.vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
+import { FsusUiSegmentedControl } from '@/fsusui'
+import { fsusBlogMotionPresets } from '@/fsusui/blogMotion'
+import { FsuTransition } from '@/fsusui/motion'
 import { getAccountNavGroups, type AccountArea, type AccountContentMode, type AccountNavGroup, type AccountNavGroupKey, type AccountNavItem } from '@/layouts/accountNav'
 import { useAccountWorkspaceContext } from '@/layouts/accountWorkspaceContext'
 import { showErrorToast } from '@/utils/errorPresentation'
@@ -200,7 +185,13 @@ const showPolicy = ref(false)
 const policyType = ref<'privacy' | 'guidelines'>('guidelines')
 const isLoggingOut = ref(false)
 const openMobileGroupKey = ref<AccountNavGroupKey>('self')
-const mobileMoreOpen = ref(false)
+const mobileLinkStripRef = ref<HTMLElement>()
+const mobileLinkIndicatorStyle = ref<CSSProperties>({
+  opacity: '0',
+  transform: 'translate3d(0, 0, 0)',
+  width: '0px'
+})
+let mobileLinkResizeObserver: ResizeObserver | undefined
 
 const currentArea = computed<AccountArea>(() =>
   workspaceContext.value.surface
@@ -216,8 +207,12 @@ const currentContentMode = computed<AccountContentMode>(() => {
 
 const areaMeta = computed(() => workspaceContext.value.areaMeta)
 const navGroups = computed(() => getAccountNavGroups(workspaceContext.value))
-const mobilePrimaryGroups = computed<AccountNavGroup[]>(() => navGroups.value.slice(0, 5))
-const mobileOverflowGroups = computed<AccountNavGroup[]>(() => navGroups.value.slice(5))
+const mobileGroupSegmentItems = computed(() =>
+  navGroups.value.map((group) => ({
+    label: group.label,
+    value: group.key
+  }))
+)
 const selectedMobileGroup = computed<AccountNavGroup | undefined>(() =>
   navGroups.value.find((group) => group.key === openMobileGroupKey.value) ?? navGroups.value[0]
 )
@@ -293,11 +288,39 @@ const isNavItemActive = (item: AccountNavItem): boolean => {
 
 const selectMobileGroup = (key: AccountNavGroupKey): void => {
   openMobileGroupKey.value = key
-  mobileMoreOpen.value = mobileOverflowGroups.value.some((group) => group.key === key)
 }
 
-const toggleMobileMore = (): void => {
-  mobileMoreOpen.value = !mobileMoreOpen.value
+const selectMobileGroupFromSegment = (value: string | number | boolean): void => {
+  if (typeof value !== 'string') {
+    return
+  }
+
+  if (!navGroups.value.some((group) => group.key === value)) {
+    return
+  }
+
+  selectMobileGroup(value as AccountNavGroupKey)
+}
+
+const updateMobileLinkIndicator = async (): Promise<void> => {
+  await nextTick()
+  const strip = mobileLinkStripRef.value
+  const activeLink = strip?.querySelector<HTMLElement>('[data-account-mobile-nav-active="true"]')
+
+  if (!strip || !activeLink) {
+    mobileLinkIndicatorStyle.value = {
+      opacity: '0',
+      transform: 'translate3d(0, 0, 0)',
+      width: '0px'
+    }
+    return
+  }
+
+  mobileLinkIndicatorStyle.value = {
+    opacity: '1',
+    transform: `translate3d(${activeLink.offsetLeft}px, 0, 0)`,
+    width: `${activeLink.offsetWidth}px`
+  }
 }
 
 const openPolicy = (type: 'privacy' | 'guidelines') => {
@@ -324,14 +347,36 @@ watch(
   () => route.fullPath,
   () => {
     openMobileGroupKey.value = currentNavGroupKey.value
-    mobileMoreOpen.value = mobileOverflowGroups.value.some((group) => group.key === currentNavGroupKey.value)
+    void updateMobileLinkIndicator()
   }
 )
 
 watch(currentNavGroupKey, (key) => {
   openMobileGroupKey.value = key
-  mobileMoreOpen.value = mobileOverflowGroups.value.some((group) => group.key === key)
+  void updateMobileLinkIndicator()
 }, { immediate: true })
+
+watch(
+  () => selectedMobileGroup.value?.items.map((item) => item.to).join('|'),
+  () => {
+    void updateMobileLinkIndicator()
+  },
+  { flush: 'post' }
+)
+
+onMounted(() => {
+  void updateMobileLinkIndicator()
+  if (typeof ResizeObserver !== 'undefined' && mobileLinkStripRef.value) {
+    mobileLinkResizeObserver = new ResizeObserver(() => {
+      void updateMobileLinkIndicator()
+    })
+    mobileLinkResizeObserver.observe(mobileLinkStripRef.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  mobileLinkResizeObserver?.disconnect()
+})
 </script>
 
 <style scoped>
@@ -365,8 +410,6 @@ watch(currentNavGroupKey, (key) => {
   background: var(--fsusblog-page-bg);
 }
 
-.account-mobile-tab-strip,
-.account-mobile-more-strip,
 .account-mobile-link-strip {
   display: flex;
   min-width: 0;
@@ -375,28 +418,61 @@ watch(currentNavGroupKey, (key) => {
   scrollbar-width: none;
 }
 
-.account-mobile-tab-strip::-webkit-scrollbar,
-.account-mobile-more-strip::-webkit-scrollbar,
 .account-mobile-link-strip::-webkit-scrollbar {
   display: none;
 }
 
-.account-mobile-tab-strip {
-  gap: 0.25rem;
-  padding: 0.5rem 1rem 0;
+.account-mobile-group-control {
+  position: relative;
+  width: calc(100% - 2rem);
+  max-width: calc(100% - 2rem);
+  min-height: 40px;
+  margin: 0.5rem 1rem 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-color: var(--fsusblog-panel-border);
+  border-radius: var(--fsus-radius-control);
+  background: var(--fsusblog-page-bg-soft);
+  isolation: isolate;
 }
 
-.account-mobile-more-strip {
-  gap: 0.25rem;
-  padding: 0.375rem 1rem 0;
+.account-mobile-group-control::-webkit-scrollbar {
+  display: none;
+}
+
+.account-mobile-group-label {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 0.25rem;
+  color: inherit;
+  line-height: 1;
 }
 
 .account-mobile-link-strip {
+  position: relative;
   gap: 0.375rem;
+  align-items: center;
   padding: 0.5rem 1rem;
+  scroll-snap-type: x proximity;
 }
 
-.account-mobile-tab-link,
+.account-mobile-link-strip__indicator {
+  position: absolute;
+  bottom: 0.875rem;
+  left: 0;
+  z-index: 0;
+  height: 2px;
+  border-radius: var(--fsus-radius-pill);
+  background: var(--fsusblog-color-primary);
+  pointer-events: none;
+  transition:
+    transform var(--fsus-motion-control-fast) var(--fsus-motion-standard),
+    width var(--fsus-motion-control-fast) var(--fsus-motion-standard),
+    opacity var(--fsus-motion-control-fast) var(--fsus-motion-standard);
+}
+
 .account-mobile-nav-link {
   flex: 0 0 auto;
   border-radius: var(--fsus-radius-control-small);
@@ -409,30 +485,25 @@ watch(currentNavGroupKey, (key) => {
     color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
 }
 
-.account-mobile-tab-link {
-  min-height: 44px;
-  border: 0;
-  background: transparent;
-  padding: 0 0.875rem;
-}
-
 .account-mobile-nav-link {
+  position: relative;
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  background: var(--fsusblog-page-bg-soft);
+  border: 1px solid transparent;
+  background: transparent;
   padding: 0 0.875rem;
+  scroll-snap-align: start;
+  z-index: 1;
 }
 
-.account-mobile-tab-link:hover,
-.account-mobile-tab-link-active,
 .account-mobile-nav-link:hover,
 .account-mobile-nav-link-active {
-  background: var(--fsusblog-panel-bg-soft);
+  border-color: var(--fsusblog-panel-border);
+  background: var(--fsusblog-page-bg-soft);
   color: var(--fsusblog-text-primary);
 }
 
-.account-mobile-tab-link:focus-visible,
 .account-mobile-nav-link:focus-visible {
   box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
   outline: none;
@@ -440,6 +511,12 @@ watch(currentNavGroupKey, (key) => {
 
 .account-nav-link {
   @apply relative block pl-6 py-1 transition-[color,padding-left] duration-[var(--fsus-motion-control-fast)] text-[var(--fsusblog-text-tertiary)] hover:text-[var(--fsusblog-text-primary)] focus-visible:outline-none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-mobile-link-strip__indicator {
+    transition-duration: var(--fsus-motion-duration-instant, 1ms);
+  }
 }
 
 .account-nav-link:focus-visible {
@@ -511,20 +588,4 @@ watch(currentNavGroupKey, (key) => {
   text-transform: none;
 }
 
-.fade-fast-enter-active,
-.fade-fast-leave-active {
-  transition: opacity var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-
-.fade-fast-enter-from,
-.fade-fast-leave-to {
-  opacity: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .fade-fast-enter-active,
-  .fade-fast-leave-active {
-    transition: none;
-  }
-}
 </style>

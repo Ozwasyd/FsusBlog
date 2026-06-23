@@ -17,7 +17,7 @@ export const FSUSBLOG_ERRORS_COPY = {
   notFound: {
     codePrefix: '404',
     title: '页面未找到',
-    description: '所请求的资源已移动、删除或不存在。',
+    description: '资源已移动、删除或不存在。',
     homeCta: '回到主页',
     searchCta: '搜索文章',
     archiveCta: '查看归档'

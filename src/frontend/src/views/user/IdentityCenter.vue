@@ -1,9 +1,11 @@
 <template>
   <div class="account-page identity-center">
-    <FsusUiPageHeader
-      :title="sectionMeta.title"
-      :content="sectionMeta.description"
-    />
+    <header class="identity-section-header">
+      <div class="identity-section-header__copy">
+        <h1>{{ sectionMeta.title }}</h1>
+        <p>{{ sectionMeta.description }}</p>
+      </div>
+    </header>
 
     <template v-if="isSection('UserIdentityOverview')">
       <div class="identity-status-grid">
@@ -331,7 +333,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { FsusUiPageHeader } from "@/fsusui"
 import { FsusUiSettingsSection } from '@/fsusui'
 import MfaSetupModal from '@/components/ui/MfaSetupModal.vue'
 import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
@@ -780,6 +781,33 @@ watch(currentRouteName, () => {
 .identity-center {
   display: grid;
   gap: 2rem;
+}
+
+.identity-section-header {
+  display: block;
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+  padding-bottom: 1rem;
+}
+
+.identity-section-header__copy {
+  min-width: 0;
+}
+
+.identity-section-header__copy h1 {
+  margin: 0;
+  color: var(--fsusblog-text-primary);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+
+.identity-section-header__copy p {
+  max-width: 42rem;
+  margin: 0.25rem 0 0;
+  color: var(--fsusblog-text-tertiary);
+  font-size: 0.875rem;
+  line-height: 1.6;
 }
 
 .identity-status-grid {

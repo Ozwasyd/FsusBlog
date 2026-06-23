@@ -15,7 +15,7 @@ html[data-theme-resolved='dark'] {
 }
 
 #fsus-aot-shell {
-  font-family: var(--font-sans, "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans, "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif);
   background: var(--fsusblog-page-bg, Canvas);
   color: var(--fsusblog-text-primary, CanvasText);
   line-height: 1.6;

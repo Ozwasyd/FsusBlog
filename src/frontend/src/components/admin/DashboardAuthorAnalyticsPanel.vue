@@ -1,6 +1,6 @@
 <template>
   <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-labelledby="author-analytics-title">
-    <header class="border-b border-[var(--fsusblog-panel-border)] px-8 py-6">
+    <header class="border-b border-[var(--fsusblog-panel-border)] px-6 py-5">
       <FsusUiSectionHeader
         id="author-analytics-title"
         class="dashboard-section-header--flush"
@@ -14,32 +14,32 @@
       </FsusUiSectionHeader>
     </header>
 
-    <div class="grid grid-cols-1 gap-3 lg:grid-cols-4">
-      <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-8">
+    <div class="grid grid-cols-1 gap-5 lg:grid-cols-4">
+      <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-6">
         <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
-        <div class="mt-5 text-2xl font-bold tracking-normal text-[var(--fsusblog-text-primary)] tabular-nums">{{ metric.value }}</div>
-        <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">{{ metric.description }}</p>
+        <div class="mt-3 text-2xl font-bold tracking-normal text-[var(--fsusblog-text-primary)] tabular-nums">{{ metric.value }}</div>
+        <p class="mt-2 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">{{ metric.description }}</p>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 gap-3 border-t border-[var(--fsusblog-panel-border)] lg:grid-cols-3">
+    <div class="grid grid-cols-1 gap-5 border-t border-[var(--fsusblog-panel-border)] lg:grid-cols-3">
       <AnalyticsList title="搜索关键词" empty-text="暂无搜索关键词" :items="analytics.topSearchKeywords" />
       <AnalyticsList title="来源路径" empty-text="暂无来源路径" :items="analytics.topSourceRoutes" />
       <AnalyticsList title="404 热点" empty-text="暂无 404 热点" :items="analytics.notFoundHotspots" />
     </div>
 
-    <div class="grid grid-cols-1 gap-3 border-t border-[var(--fsusblog-panel-border)] lg:grid-cols-3">
-      <section class="bg-[var(--fsusblog-page-bg)] p-8 min-h-72">
+    <div class="grid grid-cols-1 gap-5 border-t border-[var(--fsusblog-panel-border)] lg:grid-cols-3">
+      <section class="bg-[var(--fsusblog-page-bg)] p-6">
         <h3 class="text-base font-bold leading-tight text-[var(--fsusblog-text-primary)]">Core Web Vitals</h3>
         <p class="mt-1 text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">关键渲染指标。</p>
         <FsusUiEmptyState
           v-if="rumMetricRows.length === 0"
-          class="mt-5 border-t border-[var(--fsusblog-panel-border)] pt-4"
+          class="mt-4 border-t border-[var(--fsusblog-panel-border)] pt-4"
           role="status"
           title="暂无浏览器性能样本"
           description="有运行时样本后将在这里显示 P75 和平均值。"
         />
-        <FsusUiMetricList v-else class="mt-5" density="compact">
+        <FsusUiMetricList v-else class="mt-4" density="compact">
           <FsusUiMetricItem
             v-for="metric in rumMetricRows"
             :key="metric.label"
@@ -52,17 +52,17 @@
         </FsusUiMetricList>
       </section>
 
-      <section class="bg-[var(--fsusblog-page-bg)] p-8 min-h-72">
+      <section class="bg-[var(--fsusblog-page-bg)] p-6">
         <h3 class="text-base font-bold leading-tight text-[var(--fsusblog-text-primary)]">RUM 页面类型</h3>
         <p class="mt-1 text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">页面访问分布。</p>
         <FsusUiEmptyState
           v-if="rumPageTypeRows.length === 0"
-          class="mt-5 border-t border-[var(--fsusblog-panel-border)] pt-4"
+          class="mt-4 border-t border-[var(--fsusblog-panel-border)] pt-4"
           role="status"
           title="暂无 RUM 页面样本"
           description="有访问记录后将在这里显示分布。"
         />
-        <FsusUiDistributionList v-else class="mt-5" density="compact">
+        <FsusUiDistributionList v-else class="mt-4" density="compact">
           <FsusUiDistributionBarRow
             v-for="item in rumPageTypeRows"
             :key="item.label"
@@ -75,17 +75,17 @@
         </FsusUiDistributionList>
       </section>
 
-      <section class="bg-[var(--fsusblog-page-bg)] p-8 min-h-72">
+      <section class="bg-[var(--fsusblog-page-bg)] p-6">
         <h3 class="text-base font-bold leading-tight text-[var(--fsusblog-text-primary)]">AOT 来源</h3>
         <p class="mt-1 text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">渲染来源分布。</p>
         <FsusUiEmptyState
           v-if="rumAotSourceRows.length === 0"
-          class="mt-5 border-t border-[var(--fsusblog-panel-border)] pt-4"
+          class="mt-4 border-t border-[var(--fsusblog-panel-border)] pt-4"
           role="status"
           title="暂无 AOT 来源样本"
           description="有 AOT 运行记录后将在这里显示分布。"
         />
-        <FsusUiDistributionList v-else class="mt-5" density="compact">
+        <FsusUiDistributionList v-else class="mt-4" density="compact">
           <FsusUiDistributionBarRow
             v-for="item in rumAotSourceRows"
             :key="item.label"

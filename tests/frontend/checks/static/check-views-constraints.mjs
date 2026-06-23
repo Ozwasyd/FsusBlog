@@ -242,8 +242,17 @@ const accountLayoutSource = readFileSync(accountLayoutPath, 'utf8');
 if (!accountLayoutSource.includes('activeMobileGroupKey')) {
   hardViolations.push('src/layouts/AccountLayout.vue: mobile account navigation must separate active route group from open group');
 }
+if (!accountLayoutSource.includes('openMobileGroupKey')) {
+  hardViolations.push('src/layouts/AccountLayout.vue: mobile account navigation must keep an explicit open group state');
+}
 if (accountLayoutSource.includes("'account-mobile-tab-link-active': openMobileGroupKey === group.key")) {
   hardViolations.push('src/layouts/AccountLayout.vue: mobile account group active state must not be driven by openMobileGroupKey');
+}
+if (!accountLayoutSource.includes('FsusUiSegmentedControl')) {
+  hardViolations.push('src/layouts/AccountLayout.vue: mobile account group navigation must use the FsusUI segmented-control adapter');
+}
+if (accountLayoutSource.includes('class="account-mobile-tab-link"')) {
+  hardViolations.push('src/layouts/AccountLayout.vue: mobile account group navigation must not regress to the legacy hand-rolled tab buttons');
 }
 
 const accountNavPath = join(srcDir, 'layouts', 'accountNav.ts');

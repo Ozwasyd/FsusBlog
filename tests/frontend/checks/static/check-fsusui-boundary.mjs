@@ -203,7 +203,8 @@ function checkRequiredAdapters() {
     'icons.ts',
     'markdown.ts',
     'renderPipeline.ts',
-    'primitiveAdapters.ts'
+    'primitiveAdapters.ts',
+    'segmentedControl.ts'
   ]
 
   for (const name of required) {

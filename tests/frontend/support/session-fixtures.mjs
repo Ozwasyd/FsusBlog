@@ -2,6 +2,9 @@
 
 import { spawnSync } from 'node:child_process';
 import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const CLAIM_NAME_IDENTIFIER = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier';
 const CLAIM_NAME = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name';
@@ -10,6 +13,10 @@ const ACCOUNT_SUBJECT_HASH_PREFIX = 'fsus:account-subject:v1';
 const ANONYMOUS_ACCOUNT_KIND = 'anonymous_account';
 const ADMIN_PRINCIPAL_KIND = 'admin_principal';
 const ADMIN_PERMISSION_CLAIM = 'admin_permission';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const repoRoot = path.resolve(__dirname, '../../..');
+const clientRoot = path.join(repoRoot, 'src', 'frontend');
 
 const defaultAdminPermissions = [
   'article.write',
@@ -27,6 +34,7 @@ const pgContainer = process.env.FSUSBLOG_PG_CONTAINER || 'fsusblog-postgres';
 const pgUser = process.env.FSUSBLOG_PG_USER || 'fsusblog';
 const pgDb = process.env.FSUSBLOG_PG_DB || 'fsusblog';
 const testSession = process.env.FSUSBLOG_TEST_SESSION || '';
+const persistAuthFixtures = process.env.FSUSBLOG_PERSIST_AUTH_FIXTURES !== '0';
 
 const jwtSecret = process.env.Jwt__SecretKey
   || process.env.JWT_SECRET
@@ -142,8 +150,14 @@ function randomToken(byteLength = 32) {
   return randomBytes(byteLength).toString('base64url');
 }
 
-function randomSessionId() {
-  return randomBytes(16).toString('hex').toUpperCase();
+export function stableFixtureSessionId(kind, handle) {
+  const seed = [
+    'fsusblog-test-session-v1',
+    String(kind || '').trim().toLowerCase(),
+    String(testSession || 'default').trim().toLowerCase(),
+    String(handle || '').trim().toLowerCase()
+  ].join(':');
+  return createHash('sha256').update(seed, 'utf8').digest('hex').slice(0, 32).toUpperCase();
 }
 
 function buildUserCookieHeader({ accessToken, refreshToken, sessionId }) {
@@ -222,7 +236,7 @@ SELECT id FROM existing
 LIMIT 1;
 `, `fixture user ${normalizedHandle}`);
 
-  const sessionId = randomSessionId();
+  const sessionId = stableFixtureSessionId(ANONYMOUS_ACCOUNT_KIND, normalizedHandle);
   const refreshToken = randomToken();
   const accessToken = signJwt({
     [CLAIM_NAME_IDENTIFIER]: String(userId),
@@ -270,7 +284,19 @@ VALUES (
   false,
   ${rememberMe ? 'true' : 'false'}
 )
-ON CONFLICT (sessionid) DO NOTHING;
+ON CONFLICT (sessionid) DO UPDATE SET
+  userid = EXCLUDED.userid,
+  refreshtokenhash = EXCLUDED.refreshtokenhash,
+  devicefingerprint = EXCLUDED.devicefingerprint,
+  lastip = EXCLUDED.lastip,
+  useragent = EXCLUDED.useragent,
+  lastseenat = now(),
+  idleexpiresat = EXCLUDED.idleexpiresat,
+  absoluteexpiresat = EXCLUDED.absoluteexpiresat,
+  revokedat = NULL,
+  revokereason = NULL,
+  mfaverified = EXCLUDED.mfaverified,
+  rememberme = EXCLUDED.rememberme;
 `);
 
   return {
@@ -288,7 +314,6 @@ export async function ensureAdminFixtureSession({
   rememberMe = false,
   deviceFingerprint = 'binary-smoke-node'
 }) {
-  void rememberMe;
   const normalizedHandle = String(handle || 'binaryadmin').trim() || 'binaryadmin';
   const permissions = defaultAdminPermissions.join('\n');
   const adminId = runPsqlNumber(`
@@ -324,7 +349,7 @@ ON CONFLICT (handle) DO UPDATE SET
 RETURNING id;
 `, `fixture admin ${normalizedHandle}`);
 
-  const sessionId = randomSessionId();
+  const sessionId = stableFixtureSessionId(ADMIN_PRINCIPAL_KIND, normalizedHandle);
   const accessToken = signJwt({
     [CLAIM_NAME_IDENTIFIER]: String(adminId),
     [CLAIM_NAME]: normalizedHandle,
@@ -368,13 +393,24 @@ VALUES (
   'fsusblog-test-session-fixture',
   now(),
   now(),
-  now() + interval '2 hours',
-  now() + interval '12 hours',
+  now() + interval '${rememberMe ? '24 hours' : '2 hours'}',
+  now() + interval '${rememberMe ? '30 days' : '12 hours'}',
   NULL,
   NULL,
   true
 )
-ON CONFLICT (sessionid) DO NOTHING;
+ON CONFLICT (sessionid) DO UPDATE SET
+  adminprincipalid = EXCLUDED.adminprincipalid,
+  accesstokenhash = EXCLUDED.accesstokenhash,
+  devicefingerprint = EXCLUDED.devicefingerprint,
+  lastip = EXCLUDED.lastip,
+  useragent = EXCLUDED.useragent,
+  lastseenatutc = now(),
+  idleexpiresatutc = EXCLUDED.idleexpiresatutc,
+  absoluteexpiresatutc = EXCLUDED.absoluteexpiresatutc,
+  revokedatutc = NULL,
+  revokereason = NULL,
+  stepupverified = EXCLUDED.stepupverified;
 `);
 
   return {
@@ -386,6 +422,75 @@ ON CONFLICT (sessionid) DO NOTHING;
   };
 }
 
+function cookieEntries(cookieHeader, url) {
+  return cookieHeader
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const separator = item.indexOf('=');
+      const name = item.slice(0, separator);
+      const isHostPrefixed = name.startsWith('__Host-');
+      return {
+        name,
+        value: item.slice(separator + 1),
+        url,
+        path: '/',
+        httpOnly: true,
+        secure: isHostPrefixed,
+        sameSite: isHostPrefixed ? 'Strict' : 'Lax'
+      };
+    });
+}
+
+function fixtureStorageState(fixture, url) {
+  return {
+    cookies: cookieEntries(fixture.cookieHeader, url),
+    origins: []
+  };
+}
+
+export async function persistAuthFixtureManifest({
+  user,
+  admin,
+  baseUrl = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_BASE_URL || 'http://localhost:3000'
+}) {
+  if (!persistAuthFixtures) {
+    return null;
+  }
+
+  const fixturesDir = path.join(clientRoot, '.playwright-fixtures');
+  await mkdir(fixturesDir, { recursive: true });
+  const manifest = {
+    generatedAt: new Date().toISOString(),
+    baseUrl,
+    user: {
+      id: user.userId,
+      sessionId: user.sessionId,
+      storageStateFile: 'user.storage-state.json'
+    },
+    admin: {
+      id: admin.adminId,
+      sessionId: admin.sessionId,
+      storageStateFile: 'admin.storage-state.json'
+    }
+  };
+
+  await writeFile(
+    path.join(fixturesDir, 'auth-fixtures.json'),
+    JSON.stringify(manifest, null, 2) + '\n',
+    'utf8');
+  await writeFile(
+    path.join(fixturesDir, manifest.user.storageStateFile),
+    JSON.stringify(fixtureStorageState(user, baseUrl), null, 2) + '\n',
+    'utf8');
+  await writeFile(
+    path.join(fixturesDir, manifest.admin.storageStateFile),
+    JSON.stringify(fixtureStorageState(admin, baseUrl), null, 2) + '\n',
+    'utf8');
+  return manifest;
+}
+
 export async function prepareAuthSmokeFixtures({
   userHandle = 'binaryuser',
   adminHandle = 'binaryadmin',
@@ -393,14 +498,15 @@ export async function prepareAuthSmokeFixtures({
 } = {}) {
   const user = await ensureUserFixtureSession({
     handle: userHandle,
-    rememberMe: false,
+    rememberMe: true,
     deviceFingerprint
   });
   const admin = await ensureAdminFixtureSession({
     handle: adminHandle,
-    rememberMe: false,
+    rememberMe: true,
     deviceFingerprint
   });
 
-  return { user, admin };
+  const manifest = await persistAuthFixtureManifest({ user, admin });
+  return { user, admin, manifest };
 }

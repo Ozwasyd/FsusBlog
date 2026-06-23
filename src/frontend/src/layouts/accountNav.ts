@@ -112,6 +112,7 @@ const accountNavItems: readonly AccountNavItem[] = [
     match: (path) => path.startsWith('/user/manage/security')
   },
   { label: '审计日志', to: '/user/manage/audit', area: 'manage', groupKey: 'system', adminOnly: true, requiredPermission: 'audit.read' },
+  { label: '数据概览', to: '/user/manage/analytics', helper: '统计', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'admin.manage' },
   { label: '服务与后台状态', to: '/user/manage/ops', helper: '后台', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
   { label: '缓存与索引', to: '/user/manage/cache', helper: '索引', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
   { label: '内容一致性', to: '/user/manage/integrity', helper: '一致性', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },

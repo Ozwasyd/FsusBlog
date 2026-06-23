@@ -2,7 +2,7 @@
 //
 // 调性校准：
 //   - "新建工单" → "提交工单"（"新建"是 Office 暖动词，"提交"是任务动词）
-//   - "请…" 对话体 → 中性陈述
+//   - 对话体 → 中性陈述
 //   - success 绿色按钮 → primary（§4 Accent Rules）
 //   - 错误页"抱歉" → ""
 
@@ -15,7 +15,7 @@ export const FSUSBLOG_MESSAGES_COPY = {
     newTicketCta: '提交工单',
     emptyTitleAccount: '暂无站内信',
     emptyTitleAdmin: '暂无待处理会话',
-    emptyDescriptionAccount: '新的通知、系统消息和申诉工单会出现在这里。',
+    emptyDescriptionAccount: '通知、系统消息、申诉工单。',
     emptyDescriptionAdmin: '当前筛选下没有需要处理的消息。',
     noContentAdmin: '暂无内容',
     noContentAccount: '暂无消息内容',
@@ -27,15 +27,15 @@ export const FSUSBLOG_MESSAGES_COPY = {
     backAriaLabel: '返回会话列表',
     backCta: '返回会话列表',
     titleFallback: '选择会话',
-    titleFallbackAccount: '选择会话或新建工单',
+    titleFallbackAccount: '选择会话或提交工单',
     titleFallbackAdmin: '选择会话',
     systemTag: '系统',
     statusChangeWillNotify: '状态变更会通知用户',
     markOpen: '标记为处理中',
     moveToPending: '移回待处理',
     closeConversation: '关闭会话',
-    emptyDescriptionAccount: '会话详情和回复框显示在当前区域。',
-    emptyDescriptionAdmin: '从左侧选择一条待处理会话。',
+    emptyDescriptionAccount: '会话详情与回复区。',
+    emptyDescriptionAdmin: '待处理会话。',
     newTicketCta: '提交工单',
     replyingToPrefix: '正在回复',
     accountContext: '当前会话',

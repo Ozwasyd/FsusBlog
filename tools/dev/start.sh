@@ -105,12 +105,17 @@ export ASPNETCORE_ENVIRONMENT=Development
 export ConnectionStrings__DefaultConnection="Host=127.0.0.1;Port=${FSUSBLOG_DEV_POSTGRES_PORT:-5432};Database=${FSUSBLOG_DEV_POSTGRES_DB:-fsusblog};Username=${FSUSBLOG_DEV_POSTGRES_USER:-fsusblog};Password=${FSUSBLOG_DEV_POSTGRES_PASSWORD:-fsusblog_dev}"
 export ConnectionStrings__Redis="127.0.0.1:${FSUSBLOG_DEV_REDIS_PORT:-6379},abortConnect=false,connectTimeout=10000"
 export RedisOptions__Configuration="$ConnectionStrings__Redis"
+export Jwt__SecretKey="${FSUSBLOG_DEV_JWT_SECRET:-local-development-jwt-secret-change-before-shared-use-2026}"
+export Jwt__Issuer="${FSUSBLOG_DEV_JWT_ISSUER:-FsusBlogServer}"
+export Jwt__Audience="${FSUSBLOG_DEV_JWT_AUDIENCE:-FsusBlogClient}"
+export Jwt__AccessTokenExpiresMinutes="${FSUSBLOG_DEV_JWT_ACCESS_TOKEN_EXPIRES_MINUTES:-1440}"
 export CORS_ALLOWED_HOSTS="http://localhost:3000,http://127.0.0.1:3000"
 export Seo__BaseUrl="http://127.0.0.1:3000"
 export Fido2__ServerDomain="localhost"
 export Fido2__Origins__0="http://localhost:3000"
 export Fido2__Origins__1="http://127.0.0.1:3000"
 export AuthCookies__AllowInsecureTransportCookies="true"
+export AuthCookies__AllowLegacyPlainCookieRead="true"
 
 backend_pid=""
 frontend_pid=""
@@ -150,6 +155,14 @@ fi
 if [[ "$SEED_DEMO" == "1" ]]; then
   "$ROOT_DIR/tools/dev/seed-demo-data.sh"
 fi
+
+echo "[dev-start] preparing persistent local auth fixtures..."
+FSUSBLOG_BASE_URL="http://127.0.0.1:7568" \
+PLAYWRIGHT_BASE_URL="http://localhost:3000" \
+FSUSBLOG_PG_CONTAINER="fsusblog-dev-postgres" \
+FSUSBLOG_REDIS_CONTAINER="fsusblog-dev-redis" \
+FSUSBLOG_JWT_ACCESS_TOKEN_EXPIRES_MINUTES="$Jwt__AccessTokenExpiresMinutes" \
+npm --prefix "$FRONTEND_DIR" run prepare:binary-smoke:auth-users
 
 echo "[dev-start] starting frontend on http://127.0.0.1:3000 ..."
 npm --prefix "$FRONTEND_DIR" run dev:debug &

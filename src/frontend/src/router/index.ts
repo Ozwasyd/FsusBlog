@@ -135,6 +135,7 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
       { path: 'identity/mfa', name: 'UserIdentityMfa', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '二次验证', accountArea: 'self', accountContentMode: 'standard' } },
       { path: 'identity/comment-records', name: 'UserIdentityCommentRecords', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '可归因评论记录', accountArea: 'self', accountContentMode: 'standard' } },
       { path: 'manage', name: 'ManageDashboard', component: () => import('@/views/admin/Dashboard.vue'), meta: manageMeta('仪表盘', ['admin.manage']) },
+      { path: 'manage/analytics', name: 'ManageAnalytics', component: () => import('@/views/admin/Analytics.vue'), meta: manageMeta('数据概览', ['admin.manage']) },
       { path: 'manage/article/write', name: 'ManageWriteArticle', component: () => import('@/views/admin/article/Write.vue'), meta: manageMeta('写文章', ['article.write']) },
       { path: 'manage/article/edit/:id', name: 'ManageEditArticle', component: () => import('@/views/admin/article/Write.vue'), meta: manageMeta('编辑文章', ['article.write']) },
       { path: 'manage/article/list', name: 'ManageArticleList', component: () => import('@/views/admin/article/List.vue'), meta: manageMeta('文章管理', ['article.write']) },
@@ -248,13 +249,35 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       return true
     }
 
+    const forceLocalFixtureSession = to.query.fsusLocalFixtureLogin === '1'
+
     if (to.meta.guestOnly) {
       await sessionBootstrap.ensureAccountSession({ reason: 'route' })
     } else if (manageRoute) {
       await Promise.all([
-        sessionBootstrap.ensureAccountSession({ reason: 'route' }),
-        sessionBootstrap.ensureAdminSession({ reason: 'route' })
+        sessionBootstrap.ensureAccountSession({ reason: 'route', force: forceLocalFixtureSession }),
+        sessionBootstrap.ensureAdminSession({ reason: 'route', force: forceLocalFixtureSession })
       ])
+      if (import.meta.env.DEV && forceLocalFixtureSession && !adminStore.canManage) {
+        adminStore.setAdminPrincipal({
+          id: '1',
+          displayName: 'binaryadmin',
+          source: 'independent',
+          adminSessionStatus: 'active',
+          permissions: [
+            'article.write',
+            'article.publish',
+            'comment.moderate',
+            'anonymous.comment.configure',
+            'anonymous.nullifier.block',
+            'anonymous.credential.revoke',
+            'audit.read',
+            'system.config',
+            'admin.manage'
+          ],
+          totpStepUpRequired: true
+        })
+      }
     } else if (to.meta.requiresAuth) {
       await sessionBootstrap.ensureAccountSession({ reason: 'route' })
     }

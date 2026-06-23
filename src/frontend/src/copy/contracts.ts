@@ -7,7 +7,7 @@
 // 写法风格：
 //   - 陈述事实，不欢迎，不道歉，不撒娇
 //   - 真实任务语境（"保存草稿"、"发布文章"）
-//   - 不用 "请" + 省略号，不用感叹号，不拽第三方产品名
+//   - 不用指令式语气 + 省略号，不用感叹号，不拽第三方产品名
 //   - success 绿只用于状态标签；按钮主色按 §4 Accent Rules
 
 export type CopyDomain = Readonly<Record<string, string>>

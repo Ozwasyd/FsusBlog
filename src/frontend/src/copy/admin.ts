@@ -31,7 +31,7 @@ export const FSUSBLOG_ADMIN_COPY = {
     emptyPreviewTitle: '预览暂无差异',
     emptyPreviewDescription: '当前参数没有命中需要比较的评论，调整地区、策略版本或扫描数量后可重新生成预览。',
     notGeneratedTitle: '尚未生成回放预览',
-    notGeneratedDescription: '填写地区、上一版策略号或词库 ID 后，先生成预览再进入后续执行流程。',
+    notGeneratedDescription: '填写地区、上一版策略号或词库 ID 后，先生成预览再进入执行流程。',
     executionNotice: '回放执行当前不提供直接按钮。执行流程必须基于上方预览，完成管理员通行密钥二次验证、确认短语、高价值审计、可中断进度与失败重试后才能进入执行。',
     metricScanned: '扫描评论',
     metricAffected: '受影响评论',

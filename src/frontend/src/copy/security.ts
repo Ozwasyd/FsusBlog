@@ -2,7 +2,7 @@
 //
 // 调性校准：
 //   - 去掉 "为保护账户安全…"、"无需密码即可安全登录" 等营销承诺
-//   - 去掉 "请稍后重试"、"请重试" 等对话体，改为中性陈述
+//   - 去掉指令式重试文案，改为中性陈述
 //   - 去掉 "Google Authenticator" 产品位引用
 //   - 去掉 "完成绑定"、"开始注册" 动词堆叠，改为单动词
 //   - 去掉省略号 `…` 装饰
@@ -20,23 +20,23 @@ export const FSUSBLOG_SECURITY_COPY = {
     perceptionRetry: '重试',
     perceptionCancel: '取消',
     perceptionLoading: '正在准备安全验证。',
-    perceptionFailed: '验证未通过，请重试。',
-    perceptionExpired: '验证已过期，请重试。',
+    perceptionFailed: '验证未通过。',
+    perceptionExpired: '验证已过期。',
     perceptionCancelled: '验证已取消。',
     unsupported: '暂不支持该验证方式。',
     preparing: '正在准备安全验证。',
-    passkeyStepUpFallback: '当前通行密钥二次验证暂不可用，请重试。'
+    passkeyStepUpFallback: '当前通行密钥二次验证暂不可用。'
   },
   passkeyStepUp: {
-    unavailable: '当前通行密钥二次验证暂不可用，请稍后重试。'
+    unavailable: '当前通行密钥二次验证暂不可用。'
   },
   passkeyRegister: {
     dialogTitle: '添加通行密钥',
-    stepNameHintWithSession: 'Recovery Key 已验证，请为此账号绑定新的通行密钥。',
+    stepNameHintWithSession: 'Recovery Key 已验证。绑定新的通行密钥。',
     stepNameHintStandalone: '通行密钥使用设备安全芯片或生物识别完成认证。',
     deviceNameLabel: '设备名称（可选）',
     deviceNamePlaceholder: '例如：我的 MacBook Touch ID',
-    mfaStepHint: '注册通行密钥需要先完成 TOTP 二次验证。TOTP 恢复码与 Recovery Key 不同。',
+    mfaStepHint: '注册通行密钥前完成 TOTP 二次验证。TOTP 恢复码与 Recovery Key 不同。',
     mfaCodeLabel: '验证码',
     mfaCodePlaceholder: '6 位验证码',
     mfaRecoveryCodeLabel: 'TOTP 恢复码（可选）',
@@ -55,13 +55,13 @@ export const FSUSBLOG_SECURITY_COPY = {
     stepStatusCeremony: '步骤 3，等待浏览器认证器响应',
     stepStatusSuccess: '步骤 4，通行密钥注册成功',
     invalidCeremonySession: '服务器返回的注册会话无效',
-    mfaCodeInvalid: '验证码错误，请重试',
+    mfaCodeInvalid: '验证码错误',
     mfaVerifyFailed: 'MFA 验证失败',
-    registerFailed: '注册失败，请重试'
+    registerFailed: '注册失败'
   },
   mfaSetup: {
     defaultTitle: 'MFA 绑定',
-    intro: '使用认证器 App 扫描下方二维码，然后输入 6 位验证码完成绑定。',
+    intro: '使用认证器 App 扫描二维码，输入 6 位验证码。',
     scanHint: '扫描二维码绑定',
     manualKeyLabel: '手动密钥',
     copyCta: '复制',
@@ -78,20 +78,20 @@ export const FSUSBLOG_SECURITY_COPY = {
     verifying: '验证中',
     saveRecoveryCodesFirstWarning: '需要先确认已保存恢复码',
     recoveryCodesCopied: '恢复码已复制',
-    recoveryCodesCopyFailed: '复制失败，请手动保存恢复码',
+    recoveryCodesCopyFailed: '复制失败。手动保存恢复码',
     secretCopied: '密钥已复制',
-    secretCopyFailed: '复制失败，请手动复制密钥',
+    secretCopyFailed: '复制失败。手动复制密钥',
     otpAuthUrlCopied: '绑定链接已复制',
-    otpAuthUrlCopyFailed: '复制失败，请手动输入密钥',
+    otpAuthUrlCopyFailed: '复制失败。手动输入密钥',
     recoveryCodesDownloaded: '恢复码已下载',
-    statusBindingComplete: 'MFA 绑定完成，请保存恢复码',
+    statusBindingComplete: 'MFA 绑定完成。保存恢复码',
     statusBindingInProgress: 'MFA 绑定流程正在处理',
     statusBindingSteps: 'MFA 绑定步骤，扫描二维码或输入手动密钥后填写验证码',
     statusPreparing: '正在准备 MFA 绑定信息'
   },
   mfaChallenge: {
     dialogTitle: '安全校验',
-    defaultDescription: '请输入 6 位验证码，或使用恢复码继续。',
+    defaultDescription: '输入 6 位验证码，或使用恢复码。',
     codeLabel: '验证码',
     codePlaceholder: '6 位验证码',
     recoveryCodeLabel: '恢复码（可选）',

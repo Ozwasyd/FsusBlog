@@ -195,6 +195,14 @@ src/frontend/wasm/**/*.rsp
 src/frontend/wasm/**/*.o
 src/frontend/wasm/**/*.a
 
+# Local ZK rebuild spillover
+artifacts/zk/**/*.tmp
+artifacts/zk/**/*.temp
+artifacts/zk/**/*.bak
+artifacts/zk/**/*.tar.gz
+artifacts/zk/**/tmp/
+artifacts/zk/**/.tmp/
+
 # Benchmark / profiling
 BenchmarkDotNet.Artifacts/
 FsusBlog.Core.Benchmarks/BenchmarkDotNet.Artifacts/
@@ -204,6 +212,7 @@ benchmarks/core/FsusBlog.Core.Benchmarks/BenchmarkDotNet.Artifacts/
 .codex/
 .agents/
 .memory/
+Dictionaries/
 AGENTS.MD
 PLANS.MD
 AOT_CACHE_TODO.md

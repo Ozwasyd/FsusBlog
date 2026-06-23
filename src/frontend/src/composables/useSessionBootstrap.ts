@@ -55,8 +55,8 @@ export function useSessionBootstrap() {
     appShellStore.syncAuthPhase()
   }
 
-  const ensureAdminSession = async (_options: AdminSessionEnsureOptions = {}): Promise<void> => {
-    await adminStore.ensureAdminSessionFresh()
+  const ensureAdminSession = async (options: AdminSessionEnsureOptions = {}): Promise<void> => {
+    await adminStore.ensureAdminSessionFresh({ force: options.force })
   }
 
   const ensureUserInfo = async (force = false): Promise<void> => {

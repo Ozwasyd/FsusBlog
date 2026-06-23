@@ -27,6 +27,8 @@ const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 const accountShellPath = path.join(repoRoot, 'src/frontend/src/assets/account-shell.css')
 const accountLayoutPath = path.join(repoRoot, 'src/frontend/src/layouts/AccountLayout.vue')
 const registerPath = path.join(repoRoot, 'src/frontend/src/views/auth/Register.vue')
+const adminDashboardPath = path.join(repoRoot, 'src/frontend/src/views/admin/Dashboard.vue')
+const adminAnalyticsPath = path.join(repoRoot, 'src/frontend/src/views/admin/Analytics.vue')
 const dashboardPopularArticlesPath = path.join(repoRoot, 'src/frontend/src/components/admin/DashboardPopularArticles.vue')
 const homeTextFirstRecommendationsPath = path.join(repoRoot, 'src/frontend/src/components/home/HomeTextFirstRecommendations.vue')
 const themeTokensPath = path.join(repoRoot, 'src/frontend/src/ui-tokens/themeTokens.ts')
@@ -53,6 +55,16 @@ const governedMicroLabelFiles = new Set([
   'src/frontend/src/components/home/FeaturedArticlesSection.vue',
   'src/frontend/src/components/article/ArticleReadingNotice.vue'
 ])
+const dashboardDensityFiles = [
+  'src/frontend/src/views/admin/Dashboard.vue',
+  'src/frontend/src/views/admin/Analytics.vue',
+  'src/frontend/src/components/admin/DashboardAuthorAnalyticsList.vue',
+  'src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue',
+  'src/frontend/src/components/admin/DashboardCommentModerationPanel.vue',
+  'src/frontend/src/components/admin/DashboardQuickActionsPanel.vue',
+  'src/frontend/src/components/admin/DashboardPopularArticles.vue',
+  'src/frontend/src/components/admin/DashboardRecentComments.vue'
+]
 const roleAuditedTypographyFiles = new Set([
   'src/frontend/src/components/admin/article/ArticleAssetLibraryPanel.vue',
   'src/frontend/src/components/admin/article/ArticlePrivatePreviewPanel.vue',
@@ -179,9 +191,11 @@ function checkIssueDensityContracts() {
   assertNotContains(accountLayoutPath, /disabled:opacity-40/, 'account header/meta links must not use 40% disabled opacity')
   assertContains(accountLayoutPath, /disabled:opacity-60/, 'account header/meta links must keep disabled opacity at 60% or higher')
   assertNotContains(accountLayoutPath, /<el-drawer[\s\S]*?id="account-mobile-drawer"[\s\S]*?<\/el-drawer>/, 'AccountLayout mobile navigation must not use drawer navigation')
-  assertContains(accountLayoutPath, /account-mobile-tab-strip/, 'AccountLayout mobile navigation must use the documented scrollable tab strip')
-  assertContains(accountLayoutPath, /\.account-mobile-tab-link\s*\{[\s\S]*?min-height:\s*44px;/, 'AccountLayout mobile tab strip links must provide 44px hit targets')
-  assertContains(path.join(repoRoot, 'docs/public-layout-rules.md'), /AccountLayout[\s\S]*scrollable tab strip[\s\S]*44px/, 'public layout rules must document the AccountLayout mobile navigation pattern')
+  assertContains(accountLayoutPath, /FsusUiSegmentedControl/, 'AccountLayout mobile group navigation must use the FsusUI segmented-control adapter')
+  assertNotContains(accountLayoutPath, /account-mobile-more-strip|mobileOverflowGroups|mobileMoreOpen/, 'AccountLayout mobile navigation must stay two-level and must not reintroduce an overflow group row')
+  assertContains(accountLayoutPath, /account-mobile-link-strip/, 'AccountLayout mobile route navigation must use the documented scrollable tab strip')
+  assertContains(accountLayoutPath, /\.account-mobile-nav-link\s*\{[\s\S]*?min-height:\s*44px;/, 'AccountLayout mobile route links must provide 44px hit targets')
+  assertContains(path.join(repoRoot, 'docs/public-layout-rules.md'), /AccountLayout[\s\S]*segment control[\s\S]*horizontal scrollable tab strip[\s\S]*44px/, 'public layout rules must document the AccountLayout mobile navigation pattern')
 
   assertNotContains(registerPath, /高级|极致|奢华|未来感|智能|大气|简约而不简单|沉浸式/, 'Register copy must avoid FsusUI marketing adjective blacklist')
   const registerCopyPath = path.join(repoRoot, 'src/frontend/src/copy/auth.ts')
@@ -202,6 +216,15 @@ function checkIssueDensityContracts() {
   assertContains(homeTextFirstRecommendationsPath, /grid gap-3 sm:grid-cols-2 sm:gap-4/, 'Home text-first recommendation row gaps must use 12/16px list spacing')
   assertNotContains(themeTokensPath, /articleList:\s*\{[\s\S]*?container:\s*'[^']*\b(?:gap-20|sm:gap-28|lg:gap-32)\b[^']*'/, 'Public article list feed spacing must not use large editorial gaps')
   assertContains(themeTokensPath, /articleList:\s*\{[\s\S]*?container:\s*'flex flex-col gap-8'/, 'Public article list feed spacing must stay at the 32px density limit')
+
+  assertNotContains(adminDashboardPath, /DashboardAuthorAnalyticsPanel|DashboardCommentModerationPanel|DashboardQuickActionsPanel|DashboardPopularArticles|DashboardRecentComments|访客来源|地域访问/, 'ManageDashboard must stay a lightweight overview and link out to dedicated workspaces')
+  assertContains(adminAnalyticsPath, /DashboardAuthorAnalyticsPanel/, 'ManageAnalytics must own the author analytics panel')
+  assertContains(adminAnalyticsPath, /访客来源[\s\S]*地域访问/, 'ManageAnalytics must own traffic source and region panels')
+
+  for (const relativePath of dashboardDensityFiles) {
+    const file = path.join(repoRoot, relativePath)
+    assertNotContains(file, /\b(?:mb-12|mb-16|p-8|min-h-60|min-h-72|min-h-\[(?:18\.75rem|320px)\])\b|min-height:\s*9rem/, 'admin dashboard task surfaces must stay within 32px spacing and compact panel density')
+  }
 
   const densityScaleFiles = new Map([
     ['src/frontend/src/components/user/UserCommentsErrorState.vue', [/font-size:\s*0\.9375rem;/, /font-size:\s*0\.8125rem;/]],
