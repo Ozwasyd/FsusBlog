@@ -170,14 +170,14 @@
           </div>
         </div>
 
-        <footer class="mt-10 flex items-center justify-between border-t border-[var(--fsusblog-panel-border)] pt-6">
-          <div class="flex flex-col gap-1">
+        <footer class="mt-10 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-[var(--fsusblog-panel-border)] pt-5">
+          <div class="flex min-w-0 items-center gap-3">
             <span class="text-xs font-medium text-[var(--fsusblog-text-muted)]">{{ copy.hasAccountLabel }}</span>
-            <router-link to="/login" class="rounded-[var(--fsus-radius-control)] py-1 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none" :class="focusRingClass">
+            <router-link to="/login" class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-semibold text-[var(--fsusblog-text-primary)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none" :class="focusRingClass">
               {{ copy.loginLink }}
             </router-link>
           </div>
-          <router-link to="/" class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none" :class="focusRingClass">
+          <router-link to="/" class="ml-auto rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none" :class="focusRingClass">
             {{ copy.cancelLink }}
           </router-link>
         </footer>

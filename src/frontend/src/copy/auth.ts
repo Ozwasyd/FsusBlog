@@ -15,7 +15,7 @@ export const FSUSBLOG_AUTH_COPY = {
     publicHandleHeading: '公开称呼',
     publicHandleLabel: '公开称呼（可选）',
     publicHandleHint: '留空时由系统生成匿名称呼。TOTP 可在账户设置中作为二次验证启用；TOTP 恢复码与 Recovery Key 不同。',
-    publicHandlePlaceholder: '3-20 位中文或英文字母',
+    publicHandlePlaceholder: '3-20 位中文、字母、数字或 #',
     agreementPrefix: '我已阅读并同意',
     guidelinesLink: '站点使用规范',
     submitButtonIdle: '创建匿名账号并生成 Recovery Key',
@@ -30,8 +30,8 @@ export const FSUSBLOG_AUTH_COPY = {
     passkeyBoundTitle: '通行密钥已绑定',
     passkeyBoundHint: '登录使用通行密钥；账号恢复使用 Recovery Key。',
     enterAccountCta: '进入账号中心',
-    hasAccountLabel: '已注册账号',
-    loginLink: '现在登录',
+    hasAccountLabel: '已有账号',
+    loginLink: '登录',
     cancelLink: '回到主页'
   },
   login: {

@@ -75,7 +75,7 @@ export function useAnonymousOnboarding() {
   )
   const submitButtonText = computed(() => {
     if (loading.value) {
-      return '正在创建匿名账号...'
+      return '正在创建匿名账号'
     }
     return '创建匿名账号并生成 Recovery Key'
   })
@@ -113,9 +113,9 @@ export function useAnonymousOnboarding() {
       recoveryKeyCreatedAt.value = response.createdAt
       recoveryKeySaved.value = false
       step.value = 'recovery'
-      toast.success('匿名账号已创建，请保存 Recovery Key')
+      toast.success('匿名账号已创建。保存 Recovery Key。')
     } catch (error) {
-      localError.value = getErrorText(error, '匿名账号创建失败，请稍后再试')
+      localError.value = getErrorText(error, '匿名账号创建失败。稍后重试。')
     } finally {
       loading.value = false
     }
@@ -132,7 +132,7 @@ export function useAnonymousOnboarding() {
 
   const openPasskeyRegistration = (): void => {
     if (!canRegisterPasskey.value) {
-      localError.value = '请先确认已保存 Recovery Key'
+      localError.value = '先确认已保存 Recovery Key。'
       return
     }
 
