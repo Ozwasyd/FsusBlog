@@ -2,17 +2,17 @@
   <div class="blog-page-shell error-page-shell min-h-[75vh] px-5 py-16 sm:px-8 sm:py-20">
     <section class="mx-auto flex w-full max-w-5xl flex-col gap-8 animate-in fade-in duration-[var(--fsus-motion-control-fast)] sm:gap-12">
       <h1 class="text-6xl font-extrabold leading-none text-[var(--fsusblog-text-primary)] sm:text-9xl">
-        404<span class="text-[var(--fsusblog-text-muted)]">.</span>
+        {{ copy.codePrefix }}<span class="text-[var(--fsusblog-text-muted)]">.</span>
       </h1>
 
       <div class="h-px w-full max-w-2xl bg-[var(--fsusblog-panel-bg-soft)]"></div>
 
       <div class="safe-inline-wrap max-w-xl">
         <h2 class="text-2xl font-extrabold leading-tight text-[var(--fsusblog-text-primary)] sm:text-4xl">
-          页面未找到
+          {{ copy.title }}
         </h2>
         <p class="mt-4 text-sm leading-7 text-[var(--fsusblog-text-secondary)]">
-          抱歉，你所寻找的资源已移动、删除或从未存在。
+          {{ copy.description }}
         </p>
 
         <div class="mt-10 flex flex-col gap-3 sm:flex-row">
@@ -21,19 +21,19 @@
             to="/"
             type="primary"
           >
-            回到主页
+            {{ copy.homeCta }}
           </el-button>
           <el-button
             :tag="RouterLink"
             to="/search"
           >
-            搜索文章
+            {{ copy.searchCta }}
           </el-button>
           <el-button
             :tag="RouterLink"
             to="/archive"
           >
-            查看归档
+            {{ copy.archiveCta }}
           </el-button>
         </div>
       </div>
@@ -45,6 +45,9 @@
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useHumanReadProof } from '@/composables/useHumanReadProof'
+import { FSUSBLOG_ERRORS_COPY } from '@/copy'
+
+const copy = FSUSBLOG_ERRORS_COPY.notFound
 
 const route = useRoute()
 

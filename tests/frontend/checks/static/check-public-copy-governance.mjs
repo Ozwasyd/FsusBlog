@@ -207,8 +207,45 @@ const exactForbidden = [
   { token: ' Views', reason: 'English public view-count label' },
   { token: '公开页面', reason: 'CMS meta label leaked to public static pages' },
   { token: '内容文档', reason: 'CMS meta label leaked to public static pages' },
-  { token: '目前发布', reason: 'awkward archive count copy' }
+  { token: '目前发布', reason: 'awkward archive count copy' },
+  { token: 'AccountLayout', reason: 'component implementation detail leaked into user-facing copy' },
+  { token: 'workspace context', reason: 'workspace implementation detail leaked into user-facing copy' },
+  { token: 'client assets', reason: 'frontend implementation detail leaked into user-facing copy' },
+  { token: '当前阶段', reason: 'development-stage copy leaked into user-facing copy' },
+  { token: '后续实现', reason: 'development-stage copy leaked into user-facing copy' },
+  { token: '迁移计划', reason: 'development-stage migration copy leaked into user-facing copy' },
+  { token: '先固定路由', reason: 'development-stage routing copy leaked into user-facing copy' },
+  { token: 'public author mode', reason: 'internal author-mode term leaked into user-facing copy' },
+  { token: 'opt-in', reason: 'English policy shorthand leaked into user-facing copy' },
+  { token: 'credential level', reason: 'internal credential detail leaked into user-facing copy' },
+  { token: 'TOTP MFA recovery code', reason: 'English recovery-code term leaked into user-facing copy' },
+  { token: 'recovery code', reason: 'English recovery-code term leaked into user-facing copy' },
+  { token: 'recovery codes', reason: 'English recovery-code term leaked into user-facing copy' },
+  { token: 'step-up', reason: 'English security-flow term leaked into user-facing copy' },
+  { token: 'TOTP step-up', reason: 'English security-flow term leaked into user-facing copy' },
+  { token: 'Passkey step-up', reason: 'English security-flow term leaked into user-facing copy' },
+  { token: 'admin passkey step-up', reason: 'English admin security-flow term leaked into user-facing copy' }
 ]
+
+const frontendUiImplementationTerms = new Set([
+  'AccountLayout',
+  'workspace context',
+  'client assets',
+  '当前阶段',
+  '后续实现',
+  '迁移计划',
+  '先固定路由',
+  'public author mode',
+  'opt-in',
+  'credential level',
+  'TOTP MFA recovery code',
+  'recovery code',
+  'recovery codes',
+  'step-up',
+  'TOTP step-up',
+  'Passkey step-up',
+  'admin passkey step-up'
+])
 
 const marketingTerms = [
   'unlock',
@@ -248,6 +285,10 @@ const requiredCopy = [
   {
     path: 'src/frontend/src/views/admin/article/Write.vue',
     tokens: ['标题', '正文', '内容检查', '图片上传策略', '发布警告处理', '检查内容', '生成摘要建议', '应用标签']
+  },
+  {
+    path: 'src/frontend/src/copy/contracts.ts',
+    tokens: ['AuthCopy', 'IdentityCopy', 'SecurityCopy', 'MessagesCopy', 'ErrorsCopy', 'AdminCopy', 'LayoutCopy']
   }
 ]
 
@@ -420,6 +461,15 @@ for (const path of scannedFiles) {
 
     for (const { token, reason } of exactForbidden) {
       if (token === 'provider=' && /model-provider=/.test(line)) {
+        continue
+      }
+      if (frontendUiImplementationTerms.has(token) && path.startsWith('docs/api/')) {
+        continue
+      }
+      if (token === 'step-up' && !isLikelyVisibleCopyLine(line)) {
+        continue
+      }
+      if (token === 'step-up' && /['"][^'"]*step-up[^'"]*['"]\s*:/.test(line)) {
         continue
       }
       if (line.includes(token)) {

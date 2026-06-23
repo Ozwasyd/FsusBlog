@@ -1,19 +1,19 @@
 <template>
   <el-dialog
     :model-value="visible"
-    :title="'安全校验'"
+    :title="copy.dialogTitle"
     width="min(92vw, 24rem)"
     destroy-on-close
     :show-close="false"
     @update:model-value="(val: boolean) => !val && handleCancel()"
   >
     <p class="text-sm text-[var(--fsusblog-text-muted)] leading-relaxed mb-6">
-      {{ description || '请输入 Google Authenticator 6 位验证码，或使用恢复码继续。' }}
+      {{ description || copy.defaultDescription }}
     </p>
 
     <div class="space-y-4">
       <div>
-        <label for="mfa-challenge-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">验证码</label>
+        <label for="mfa-challenge-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">{{ copy.codeLabel }}</label>
         <el-input
           id="mfa-challenge-code"
           ref="codeInput"
@@ -21,20 +21,20 @@
           type="text"
           autocomplete="one-time-code"
           inputmode="numeric"
-          placeholder="6 位验证码"
+          :placeholder="copy.codePlaceholder"
           :disabled="loading"
           @keyup.enter="handleConfirm"
         />
       </div>
 
       <div>
-        <label for="mfa-challenge-recovery-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">恢复码(可选)</label>
+        <label for="mfa-challenge-recovery-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">{{ copy.recoveryCodeLabel }}</label>
         <el-input
           id="mfa-challenge-recovery-code"
           v-model="recoveryCode"
           type="text"
           autocomplete="one-time-code"
-          placeholder="恢复码"
+          :placeholder="copy.recoveryCodePlaceholder"
           :disabled="loading"
           @keyup.enter="handleConfirm"
         />
@@ -47,14 +47,14 @@
 
     <template #footer>
       <div class="dialog-footer flex justify-end gap-5 mt-4">
-        <el-button @click="handleCancel" :disabled="loading">取消</el-button>
+        <el-button @click="handleCancel" :disabled="loading">{{ copy.cancelCta }}</el-button>
         <el-button
           type="primary"
           :disabled="loading || (!code.trim() && !recoveryCode.trim())"
           @click="handleConfirm"
           :loading="loading"
         >
-          {{ loading ? '验证中...' : '验证' }}
+          {{ loading ? copy.verifying : copy.verifyCta }}
         </el-button>
       </div>
     </template>
@@ -63,6 +63,9 @@
 
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
+import { FSUSBLOG_SECURITY_COPY } from '@/copy'
+
+const copy = FSUSBLOG_SECURITY_COPY.mfaChallenge
 
 const props = withDefaults(defineProps<{
   visible: boolean

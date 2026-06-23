@@ -9,7 +9,7 @@
       <header class="messages-pane-header">
         <div class="messages-header">
           <h2 id="messages-list-title" class="messages-header-title">
-            {{ isAdminMode ? '处理中会话' : '消息列表' }}
+            {{ isAdminMode ? conversationListCopy.titleAdmin : conversationListCopy.titleAccount }}
           </h2>
           <div class="messages-filter">
             <el-select
@@ -30,8 +30,8 @@
       </header>
 
       <div class="messages-pane-body">
-        <div v-if="isMobile && !isAdminMode" class="messages-mobile-primary">
-          <el-button type="primary" @click="emit('createTicket')">新建工单</el-button>
+        <div v-if="isMobile && !isAdminMode && rows.length > 0" class="messages-mobile-primary">
+          <el-button type="primary" @click="emit('createTicket')">{{ conversationListCopy.newTicketCta }}</el-button>
         </div>
 
         <el-skeleton v-if="loading" :rows="8" animated />
@@ -39,11 +39,11 @@
         <MessagesEmptyState
           v-else-if="rows.length === 0"
           class="messages-list-empty"
-          :title="isAdminMode ? '暂无待处理会话' : '暂无站内信'"
-          :description="isAdminMode ? '当前筛选下没有需要处理的消息。' : '新的通知、系统消息和申诉工单会出现在这里。'"
+          :title="isAdminMode ? conversationListCopy.emptyTitleAdmin : conversationListCopy.emptyTitleAccount"
+          :description="isAdminMode ? conversationListCopy.emptyDescriptionAdmin : conversationListCopy.emptyDescriptionAccount"
         >
           <template v-if="!isAdminMode" #action>
-            <el-button type="primary" @click="emit('createTicket')">新建工单</el-button>
+            <el-button type="primary" @click="emit('createTicket')">{{ conversationListCopy.newTicketCta }}</el-button>
           </template>
         </MessagesEmptyState>
 
@@ -56,7 +56,7 @@
           >
             {{ motionSummary }}
           </p>
-          <ul class="messages-conversation-stack" aria-label="会话列表">
+          <ul class="messages-conversation-stack" :aria-label="conversationListCopy.listAriaLabel">
             <li
               v-for="item in rows"
               :key="item.conversationId"
@@ -74,12 +74,12 @@
                 <div class="messages-conversation-top">
                   <span class="messages-conversation-subject" data-visual-dynamic>{{ item.subject }}</span>
                   <div class="messages-conversation-tags">
-                    <el-tag v-if="item.isSystemSource" size="small">系统</el-tag>
+                    <el-tag v-if="item.isSystemSource" size="small">{{ conversationListCopy.systemTag }}</el-tag>
                     <el-tag size="small" :type="statusType(item.status)">{{ statusLabel(item.status) }}</el-tag>
                   </div>
                 </div>
                 <p class="messages-conversation-preview" data-visual-dynamic>
-                  {{ item.lastMessage?.bodyPreview || (isAdminMode ? '暂无内容' : '暂无消息内容') }}
+                  {{ item.lastMessage?.bodyPreview || (isAdminMode ? conversationListCopy.noContentAdmin : conversationListCopy.noContentAccount) }}
                 </p>
                 <div class="messages-conversation-meta">
                   <time :datetime="item.lastMessageAt" data-visual-dynamic>{{ item.lastMessageAtText }}</time>
@@ -95,7 +95,7 @@
             class="messages-window-more"
             @click="emit('loadMore')"
           >
-            显示更多会话（{{ hiddenCount }}）
+            {{ showMoreText }}
           </el-button>
         </div>
 
@@ -109,11 +109,15 @@
 import { computed, ref } from 'vue'
 import type { ConversationFilter, ConversationListItemResponse } from '@/api/message'
 import MessagesEmptyState from './MessagesEmptyState.vue'
+import { FSUSBLOG_MESSAGES_COPY } from '@/copy'
 
 type ConversationRow = ConversationListItemResponse & {
   lastMessageAtText: string
   ariaLabel: string
 }
+
+const conversationListCopy = FSUSBLOG_MESSAGES_COPY.conversationList
+const filterCopy = FSUSBLOG_MESSAGES_COPY.filter
 
 const props = defineProps<{
   mode: 'admin' | 'account'
@@ -141,20 +145,23 @@ const isAdminMode = computed(() => props.mode === 'admin')
 const filterOptions = computed(() =>
   isAdminMode.value
     ? [
-        { label: '处理中', value: 'open' },
-        { label: '待处理', value: 'pending' },
-        { label: '已关闭', value: 'closed' },
-        { label: '系统', value: 'system' },
-        { label: '全部', value: 'all' }
+        { label: filterCopy.open, value: 'open' },
+        { label: filterCopy.pending, value: 'pending' },
+        { label: filterCopy.closed, value: 'closed' },
+        { label: filterCopy.system, value: 'system' },
+        { label: filterCopy.all, value: 'all' }
       ] satisfies { label: string; value: ConversationFilter }[]
     : [
-        { label: '全部', value: 'all' },
-        { label: '未读', value: 'unread' },
-        { label: '系统消息', value: 'system' },
-        { label: '处理中', value: 'open' },
-        { label: '待处理', value: 'pending' },
-        { label: '已关闭', value: 'closed' }
+        { label: filterCopy.all, value: 'all' },
+        { label: filterCopy.unread, value: 'unread' },
+        { label: filterCopy.systemMessages, value: 'system' },
+        { label: filterCopy.open, value: 'open' },
+        { label: filterCopy.pending, value: 'pending' },
+        { label: filterCopy.closed, value: 'closed' }
       ] satisfies { label: string; value: ConversationFilter }[]
+)
+const showMoreText = computed(() =>
+  conversationListCopy.showMoreLabel.replace('{n}', String(props.hiddenCount))
 )
 
 const handleFilterUpdate = (value: unknown): void => {

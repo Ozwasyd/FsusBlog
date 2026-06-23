@@ -160,5 +160,9 @@ describe('publicShellRuntimeAuthState', () => {
       authLabel: '账户',
       authHref: '/user/identity'
     })
+    expect(resolvePublicShellRuntimeAuthState({ accountId: 1, canManage: true })).toEqual({
+      authLabel: '控制板',
+      authHref: '/user/manage'
+    })
   })
 })

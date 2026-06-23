@@ -23,6 +23,11 @@ import {
   readAedsResponse
 } from './aeds-envelope.mjs';
 import { fetchWithTimeout, parseTimeoutMs } from './http.mjs';
+import {
+  ensureAdminFixtureSession,
+  ensureUserFixtureSession,
+  isFixtureAdminHandle
+} from './session-fixtures.mjs';
 
 export const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568';
 export const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000);
@@ -348,12 +353,21 @@ export function extractSessionId(cookieMap) {
 }
 
 export async function loginWithPow(username, password, rememberMe, deviceFingerprint, timeoutMs = requestTimeoutMs) {
-  void username;
   void password;
-  void rememberMe;
-  void deviceFingerprint;
   void timeoutMs;
-  throw new Error('password login is retired; use passkey/session fixture injection');
+  if (isFixtureAdminHandle(username)) {
+    return await ensureAdminFixtureSession({
+      handle: username,
+      rememberMe,
+      deviceFingerprint
+    });
+  }
+
+  return await ensureUserFixtureSession({
+    handle: username,
+    rememberMe,
+    deviceFingerprint
+  });
 }
 
 export async function registerWithPow(username, password, deviceFingerprint, timeoutMs = requestTimeoutMs) {

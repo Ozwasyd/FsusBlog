@@ -4,25 +4,20 @@
     :compact="compact"
     :visibility="visibility"
     :variant="variant"
-    :labels="labels"
+    :labels="resolvedLabels"
     size="small"
-    label="主题模式"
+    :label="themeModeCopy.label"
     @update:model-value="handleThemeModeUpdate"
   />
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { reconcileThemeRuntimeAfterHydration, useThemeRuntime, type ThemeMode } from '@/services/themeRuntime'
+import { FSUSBLOG_THEME_MODE_LABELS, type ThemeModeToggleLabels } from '@/components/ui/themeModeLabels'
+import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
 
-type ThemeModeToggleLabels = {
-  light?: string
-  dark?: string
-  system?: string
-  lightShort?: string
-  darkShort?: string
-  systemShort?: string
-}
+const themeModeCopy = FSUSBLOG_LAYOUT_COPY.themeMode
 
 const props = withDefaults(defineProps<{
   compact?: boolean
@@ -37,6 +32,10 @@ const props = withDefaults(defineProps<{
 })
 
 const { mode, setThemeMode } = useThemeRuntime()
+const resolvedLabels = computed(() => ({
+  ...FSUSBLOG_THEME_MODE_LABELS,
+  ...props.labels,
+}))
 
 onMounted(() => {
   reconcileThemeRuntimeAfterHydration()

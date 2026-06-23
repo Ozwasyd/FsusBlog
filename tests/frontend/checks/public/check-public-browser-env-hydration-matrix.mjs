@@ -4,7 +4,7 @@ import { createRequire } from 'node:module'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { encodeIdentityAccountSnapshotFrame } from '../../support/aeds-envelope.mjs'
+import { encodeAdminPrincipalSnapshotFrame, encodeIdentityAccountSnapshotFrame } from '../../support/aeds-envelope.mjs'
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs'
 
 const require = createRequire(import.meta.url)
@@ -149,6 +149,29 @@ async function installAuthFixture(context, cell, authGate) {
           publicHandle: `browser-env-${cell.sessionState}`,
           identityKind: 'anonymous_account',
           status: 0,
+        })),
+      })
+      return
+    }
+
+    await requestRoute.fulfill({
+      status: 401,
+      headers: { 'content-type': 'application/octet-stream' },
+      body: Buffer.alloc(0),
+    })
+  })
+
+  await context.route('**/api/binary/auth/admin/me', async (requestRoute) => {
+    await authGate.wait()
+    if (cell.sessionState === 'admin') {
+      await requestRoute.fulfill({
+        status: 200,
+        headers: { 'content-type': 'application/octet-stream' },
+        body: Buffer.from(encodeAdminPrincipalSnapshotFrame({
+          id: '9001',
+          displayName: 'browser-env-admin',
+          permissions: ['system.config'],
+          adminSessionStatus: 'active',
         })),
       })
       return

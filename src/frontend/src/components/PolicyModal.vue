@@ -1,23 +1,23 @@
 <template>
   <el-dialog
     v-model="dialogVisible"
-    :title="titleMap[type] || '条款详情'"
+    :title="titleMap[type] || copy.fallbackTitle"
     width="min(92vw, 48rem)"
     align-center
     @closed="handleAfterLeave"
   >
     <div>
-      <el-scrollbar max-height="min(64vh, 44rem)" :aria-busy="loading" aria-label="条款正文">
+      <el-scrollbar max-height="min(64vh, 44rem)" :aria-busy="loading" :aria-label="copy.bodyAriaLabel">
         <div>
           <div v-if="loading" class="h-48 py-4" role="status">
             <el-skeleton animated :rows="4" />
-            <span class="sr-only">正在加载内容...</span>
+            <span class="sr-only">{{ copy.loadingStatus }}</span>
           </div>
 
           <div v-else-if="error" class="flex h-40 flex-col items-center justify-center">
-            <p class="text-sm font-medium text-[var(--fsusblog-text-muted)]">无法加载文档内容</p>
+            <p class="text-sm font-medium text-[var(--fsusblog-text-muted)]">{{ copy.loadError }}</p>
             <div class="mt-2">
-              <el-button type="primary" @click="fetchData">重试</el-button>
+              <el-button type="primary" @click="fetchData">{{ copy.retryCta }}</el-button>
             </div>
           </div>
 
@@ -25,7 +25,7 @@
             v-else-if="!markdownContent"
             class="text-sm font-medium text-[var(--fsusblog-text-muted)]"
           >
-            暂未配置{{ titleMap[type] }}。
+            {{ copy.emptyStatePrefix }}{{ titleMap[type] }}{{ copy.emptyStateSuffix }}
           </p>
           <MarkdownRenderer
             v-else
@@ -42,7 +42,7 @@
     <template #footer>
       <div class="flex justify-end">
         <el-button type="primary" @click="close">
-          我已阅读
+          {{ copy.acknowledgementCta }}
         </el-button>
       </div>
     </template>
@@ -53,6 +53,9 @@
 import { computed, ref, watch, onUnmounted } from 'vue'
 import { getPageData } from '@/api/system'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
+import { FSUSBLOG_AUTH_COPY } from '@/copy'
+
+const copy = FSUSBLOG_AUTH_COPY.policyModal
 
 const props = defineProps<{
   visible: boolean,
@@ -62,8 +65,8 @@ const props = defineProps<{
 const emit = defineEmits<{ (e: 'update:visible', value: boolean): void }>()
 
 const titleMap: Record<string, string> = {
-  privacy: '隐私政策',
-  guidelines: '用户守则'
+  privacy: copy.privacyTitle,
+  guidelines: copy.guidelinesTitle
 }
 
 const markdownContent = ref('')

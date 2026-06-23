@@ -94,8 +94,10 @@
 <script setup lang="ts">
 import { computed, useSlots } from 'vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
+import { FSUSBLOG_THEME_MODE_LABELS, type ThemeModeToggleLabels } from '@/components/ui/themeModeLabels'
 import { FsusUiSiteHeader } from '@/fsusui/siteHeader'
 import { PUBLIC_SHELL_DEFAULTS } from '@/public-renderers/publicShellState'
+import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
 
 export type SiteChromeClassValue =
   | string
@@ -108,14 +110,7 @@ export type SiteChromeNavItem = Readonly<{
   href: string
 }>
 
-export type SiteChromeThemeModeLabels = Readonly<{
-  light?: string
-  dark?: string
-  system?: string
-  lightShort?: string
-  darkShort?: string
-  systemShort?: string
-}>
+export type SiteChromeThemeModeLabels = ThemeModeToggleLabels
 
 export type SiteChromeBrandContext = 'public' | 'auth' | 'account'
 
@@ -165,8 +160,8 @@ const props = withDefaults(
     brandLinkClass: '',
     navItems: () => [],
     activeNav: '',
-    ariaLabel: '站点导航',
-    navAriaLabel: '主导航',
+    ariaLabel: FSUSBLOG_LAYOUT_COPY.siteHeader.ariaLabel,
+    navAriaLabel: FSUSBLOG_LAYOUT_COPY.siteHeader.navAriaLabel,
     sticky: true,
     maxWidth: '64rem',
     headerClass: '',
@@ -180,14 +175,7 @@ const props = withDefaults(
     activeNavLinkClass: '',
     showDesktopThemeToggle: true,
     showMobileThemeToggle: true,
-    themeModeLabels: () => ({
-      light: '浅色',
-      dark: '深色',
-      system: '跟随系统',
-      lightShort: '浅',
-      darkShort: '深',
-      systemShort: '系统',
-    }),
+    themeModeLabels: () => FSUSBLOG_THEME_MODE_LABELS,
   },
 )
 

@@ -23,7 +23,7 @@ defineProps<{
   min-width: 0;
   border-left: 2px solid var(--fsusblog-panel-border);
   background: var(--fsusblog-page-bg-soft);
-  padding: 1rem 1.125rem;
+  padding: 1.25rem 1.25rem 1.35rem;
 }
 
 .messages-empty-state__title {
@@ -41,6 +41,9 @@ defineProps<{
 }
 
 .messages-empty-state__action {
-  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
 }
 </style>

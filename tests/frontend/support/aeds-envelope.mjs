@@ -17,6 +17,7 @@ const FRAME_PAGE_CONTENT = frameType('PageContent')
 const FRAME_AUTH_LOGIN_FLOW = frameType('AuthLoginFlow')
 const FRAME_CURRENT_USER_SNAPSHOT = frameType('CurrentUserSnapshot')
 const FRAME_IDENTITY_ACCOUNT_SNAPSHOT = frameType('IdentityAccountSnapshot')
+const FRAME_ADMIN_PRINCIPAL_SNAPSHOT = frameType('AdminPrincipalSnapshot')
 const FRAME_COMMENT_USER_CURSOR = frameType('CommentUserCursor')
 const FRAME_UPLOAD_INIT = frameType('UploadInit')
 const FRAME_UPLOAD_STATUS = frameType('UploadStatus')
@@ -316,6 +317,24 @@ export function encodeIdentityAccountSnapshotFrame({
   view.setInt32(IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE, blobLength, true)
   payload.set(blob, IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE + 4)
   return encodeAedsFrame(FRAME_IDENTITY_ACCOUNT_SNAPSHOT, payload)
+}
+
+export function encodeAdminPrincipalSnapshotFrame({
+  id = '9001',
+  displayName = 'header-admin',
+  source = 'independent',
+  permissions = ['system.config'],
+  adminSessionStatus = 'active',
+  totpStepUpRequired = false
+} = {}) {
+  return encodeAedsFrame(FRAME_ADMIN_PRINCIPAL_SNAPSHOT, UTF8_ENCODER.encode(JSON.stringify({
+    id,
+    displayName,
+    source,
+    permissions,
+    adminSessionStatus,
+    totpStepUpRequired
+  })))
 }
 
 export function encodeUploadInitRequest(payload) {

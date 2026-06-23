@@ -302,7 +302,11 @@ function runPsql(sql) {
     throw new Error(result.stderr || result.stdout || 'psql command failed')
   }
 
-  return result.stdout.trim()
+  return result.stdout
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !/^(?:SET|INSERT|UPDATE|DELETE|SELECT)(?:\s+\d+)?$/iu.test(line))
+    .join('\n')
 }
 
 function redisKey(key) {

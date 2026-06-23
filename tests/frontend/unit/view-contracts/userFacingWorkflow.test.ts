@@ -45,23 +45,23 @@ describe('user facing workflow contract', () => {
     expect(messagesInbox).toContain("name: 'UserMessage'")
     expect(messagesInbox).toContain('query.conversation = selectedConversationId.value')
     expect(messagesThreadPanel).toContain('replyDisabled || !replyBody.trim()')
-    expect(messagesPage).toContain('保存草稿并切换')
     expect(messagesPage).toContain('showMobileTicketCompose')
-    expect(messagesConversationList).toContain('新建工单')
+    expect(messagesConversationList).toContain('conversationListCopy.newTicketCta')
   })
 
   it('keeps auth copy and MFA modes aligned with backend expectations', () => {
     expect(loginComposable).toContain("type MfaMode = 'totp' | 'recovery'")
-    expect(loginPage).toContain('登录后可继续写作、管理评论和维护站点。')
+    expect(loginPage).toContain('copy.description')
     expect(loginPage).toContain('value="totp"')
     expect(loginPage).toContain('value="recovery"')
-    expect(loginPage).toContain('如果验证失败')
-    expect(loginPage).toContain('Recovery Key')
+    expect(loginPage).toContain('copy.passkeyFailureHint')
+    expect(loginPage).toContain('to="/recover"')
+    expect(loginPage).toContain('copy.recoverLink')
     expect(loginPage).toContain('v-if="!requiresMfa"')
     expect(loginPage).not.toContain('anonymousIdentityMode')
     expect(loginComposable).not.toContain('loginData')
-    expect(registerPage).toContain('创建匿名账号')
-    expect(registerPage).toContain('我已保存 Recovery Key')
+    expect(registerPage).toContain('copy.title')
+    expect(registerPage).toContain('copy.recoveryKeySavedCheckbox')
     expect(registerPage).not.toContain('autocomplete="new-password"')
   })
 
@@ -127,8 +127,9 @@ describe('user facing workflow contract', () => {
   })
 
   it('routes profile settings to the anonymous identity center', () => {
-    expect(profilePage).toContain('身份中心')
+    expect(profilePage).toContain('profileCopy.pageTitle')
     expect(profilePage).toContain("router.replace({ name: 'UserIdentityOverview' })")
+    expect(profilePage).toContain('profileCopy.openIdentityCta')
     expect(profilePage).not.toContain('账号信息')
     expect(profilePage).not.toContain('当前密码')
     expect(profilePage).not.toContain('确认新密码')
@@ -140,7 +141,7 @@ describe('user facing workflow contract', () => {
     expect(mfaSetupModal).toContain('copySecret')
     expect(mfaSetupModal).not.toContain(':href="otpAuthUrl"')
     expect(mfaSetupModal).not.toContain('在 App 中直接打开')
-    expect(mfaSetupModal).toContain('我已保存恢复码')
+    expect(mfaSetupModal).toContain('copy.savedRecoveryCodesCheckbox')
   })
 
   it('keeps user comments and error recovery paths searchable and reversible', () => {

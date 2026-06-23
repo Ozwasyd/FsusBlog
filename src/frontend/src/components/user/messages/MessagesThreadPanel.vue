@@ -14,28 +14,28 @@
             <el-button
               v-if="isMobile"
               size="small"
-              aria-label="返回会话列表"
+              :aria-label="threadCopy.backAriaLabel"
               aria-controls="messages-list-title"
               @click="emit('back')"
             >
-              返回会话列表
+              {{ threadCopy.backCta }}
             </el-button>
             <div class="messages-header-title-row">
               <h2 id="messages-thread-title" class="messages-header-title" data-visual-dynamic>
-                {{ detail?.subject || '请选择会话' }}
+                {{ detail?.subject || threadCopy.titleFallbackAdmin }}
               </h2>
               <div v-if="detail" class="messages-conversation-tags">
-                <el-tag v-if="detail.isSystemSource" size="small">系统</el-tag>
+                <el-tag v-if="detail.isSystemSource" size="small">{{ threadCopy.systemTag }}</el-tag>
                 <el-tag size="small" :type="statusType(detail.status)">{{ statusLabel(detail.status) }}</el-tag>
               </div>
             </div>
           </div>
 
           <div v-if="isAdminMode && detail" class="messages-actions">
-            <span class="messages-action-hint">状态变更会通知用户</span>
-            <el-button size="small" :disabled="processing" @click="emit('updateStatus', 'open')">标记为处理中</el-button>
-            <el-button size="small" type="warning" :disabled="processing" @click="emit('updateStatus', 'pending')">移回待处理</el-button>
-            <el-button size="small" type="success" :disabled="processing" @click="emit('updateStatus', 'closed')">关闭会话</el-button>
+            <span class="messages-action-hint">{{ threadCopy.statusChangeWillNotify }}</span>
+            <el-button size="small" :disabled="processing" @click="emit('updateStatus', 'open')">{{ threadCopy.markOpen }}</el-button>
+            <el-button size="small" type="warning" :disabled="processing" @click="emit('updateStatus', 'pending')">{{ threadCopy.moveToPending }}</el-button>
+            <el-button size="small" type="primary" :disabled="processing" @click="emit('updateStatus', 'closed')">{{ threadCopy.closeConversation }}</el-button>
           </div>
         </div>
       </header>
@@ -44,11 +44,11 @@
         <MessagesEmptyState
           v-if="selectionEmpty"
           class="messages-thread-empty"
-          :title="isAdminMode ? '请选择会话' : '请选择会话或创建新工单'"
-          :description="isAdminMode ? '从左侧选择一条待处理会话。' : '会话详情和回复框会在这里打开。'"
+          :title="isAdminMode ? threadCopy.titleFallbackAdmin : threadCopy.titleFallbackAccount"
+          :description="isAdminMode ? threadCopy.emptyDescriptionAdmin : threadCopy.emptyDescriptionAccount"
         >
           <template v-if="!isAdminMode" #action>
-            <el-button type="primary" @click="emit('createTicket')">新建工单</el-button>
+            <el-button type="primary" @click="emit('createTicket')">{{ threadCopy.newTicketCta }}</el-button>
           </template>
         </MessagesEmptyState>
 
@@ -56,9 +56,9 @@
 
         <template v-else>
           <div v-if="detail" class="messages-context-bar">
-            <span>正在回复：{{ detail.subject }}</span>
-            <span>{{ isAdminMode ? `账号 ${contextAccountText}` : '当前会话' }}</span>
-            <span>状态：{{ statusLabel(detail.status) }}</span>
+            <span>{{ threadCopy.replyingToPrefix }}：{{ detail.subject }}</span>
+            <span>{{ isAdminMode ? adminContextText : threadCopy.accountContext }}</span>
+            <span>{{ threadCopy.statusPrefix }}：{{ statusLabel(detail.status) }}</span>
           </div>
 
           <div class="messages-thread-scroll">
@@ -90,16 +90,16 @@
               class="messages-window-more"
               @click="emit('loadMore')"
             >
-              显示更早消息（{{ hiddenCount }}）
+              {{ showOlderText }}
             </el-button>
           </div>
 
           <el-divider />
 
           <div class="messages-reply-form">
-            <div class="messages-subheader">回复当前会话</div>
+            <div class="messages-subheader">{{ threadCopy.replyHeader }}</div>
             <el-form label-position="top">
-              <el-form-item :label="isAdminMode ? '回复' : '回复管理员'">
+              <el-form-item :label="isAdminMode ? threadCopy.replyLabel : threadCopy.replyLabelAccount">
                 <el-input
                   :model-value="replyBody"
                   name="conversationReply"
@@ -108,7 +108,7 @@
                   maxlength="4000"
                   show-word-limit
                   :disabled="replyDisabled"
-                  placeholder="请输入回复内容"
+                  :placeholder="threadCopy.replyPlaceholder"
                   @update:model-value="handleReplyBodyUpdate"
                 />
               </el-form-item>
@@ -118,7 +118,7 @@
                 :disabled="replyDisabled || !replyBody.trim()"
                 @click="emit('reply')"
               >
-                发送回复
+                {{ threadCopy.replyCta }}
               </el-button>
             </el-form>
           </div>
@@ -132,6 +132,7 @@
 import { computed, ref } from 'vue'
 import type { ConversationDetailResponse, ConversationMessageResponse, ConversationStatus } from '@/api/message'
 import MessagesEmptyState from './MessagesEmptyState.vue'
+import { FSUSBLOG_MESSAGES_COPY } from '@/copy'
 
 type MessageRow = ConversationMessageResponse & {
   createdAtText: string
@@ -139,6 +140,8 @@ type MessageRow = ConversationMessageResponse & {
   bubbleClassName: string
   motionClass: string
 }
+
+const threadCopy = FSUSBLOG_MESSAGES_COPY.threadPanel
 
 const props = defineProps<{
   mode: 'admin' | 'account'
@@ -169,6 +172,12 @@ const emit = defineEmits<{
 
 const paneRef = ref<HTMLElement | null>(null)
 const isAdminMode = computed(() => props.mode === 'admin')
+const adminContextText = computed(() =>
+  threadCopy.accountContextAdmin.replace('{id}', props.contextAccountText)
+)
+const showOlderText = computed(() =>
+  threadCopy.showOlder.replace('{n}', String(props.hiddenCount))
+)
 
 const handleReplyBodyUpdate = (value: string): void => {
   emit('update:replyBody', value)

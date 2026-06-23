@@ -63,16 +63,23 @@ for (const token of forbiddenProfileTokens) {
 }
 
 const requiredProfileTokens = [
-  '资料页已迁移到身份中心。',
+  'profileCopy.pageTitle',
+  'profileCopy.pageDescription',
+  'profileCopy.emptyTitle',
+  'profileCopy.emptyContent',
+  'profileCopy.openIdentityCta',
   'router.replace({ name: \'UserIdentityOverview\' })',
-  'to="/user/identity"',
-  '打开身份中心'
+  'to="/user/identity"'
 ]
 
 for (const token of requiredProfileTokens) {
   if (!profile.includes(token)) {
     fail(profilePath, 1, `Profile page contract is missing ${token}`)
   }
+}
+
+if (!profile.includes("from '@/copy'") && !profile.includes("from '../copy'") && !profile.includes("from '../../copy'")) {
+  fail(profilePath, 1, 'Profile.vue must import copy registry from @/copy')
 }
 
 for (const token of [

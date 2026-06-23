@@ -47,9 +47,9 @@ export const accountAreaMeta: Record<AccountArea, AccountAreaMeta> = {
 }
 
 const accountNavItems: readonly AccountNavItem[] = [
-  { label: '身份中心', to: '/user/identity', area: 'self', groupKey: 'self' },
+  { label: '身份中心', to: '/user/identity', area: 'self', groupKey: 'self', match: () => false },
   { label: '我的消息', to: '/user/messagebox', area: 'self', groupKey: 'self' },
-  { label: '身份总览', to: '/user/identity', area: 'self', groupKey: 'identity' },
+  { label: '身份总览', to: '/user/identity', area: 'self', groupKey: 'identity', match: (path) => path === '/user/identity' },
   { label: '通行密钥', to: '/user/identity/passkeys', helper: '设备', area: 'self', groupKey: 'identity' },
   { label: 'Recovery Key', to: '/user/identity/recovery-key', helper: '恢复', area: 'self', groupKey: 'identity' },
   { label: '匿名身份', to: '/user/identity/anonymous', helper: '匿名', area: 'self', groupKey: 'identity', requiredFeature: 'anonymousCommentsEnabled' },

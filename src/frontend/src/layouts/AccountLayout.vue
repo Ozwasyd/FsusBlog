@@ -67,8 +67,9 @@
           :key="group.key"
           type="button"
           class="account-mobile-tab-link"
-          :class="{ 'account-mobile-tab-link-active': openMobileGroupKey === group.key }"
-          :aria-current="openMobileGroupKey === group.key ? 'page' : undefined"
+          :class="{ 'account-mobile-tab-link-active': activeMobileGroupKey === group.key }"
+          :aria-current="activeMobileGroupKey === group.key ? 'page' : undefined"
+          :aria-expanded="openMobileGroupKey === group.key"
           @click="selectMobileGroup(group.key)"
         >
           <span>{{ group.label }}</span>
@@ -97,8 +98,9 @@
           :key="group.key"
           type="button"
           class="account-mobile-tab-link"
-          :class="{ 'account-mobile-tab-link-active': openMobileGroupKey === group.key }"
-          :aria-current="openMobileGroupKey === group.key ? 'page' : undefined"
+          :class="{ 'account-mobile-tab-link-active': activeMobileGroupKey === group.key }"
+          :aria-current="activeMobileGroupKey === group.key ? 'page' : undefined"
+          :aria-expanded="openMobileGroupKey === group.key"
           @click="selectMobileGroup(group.key)"
         >
           <span>{{ group.label }}</span>
@@ -220,9 +222,10 @@ const selectedMobileGroup = computed<AccountNavGroup | undefined>(() =>
   navGroups.value.find((group) => group.key === openMobileGroupKey.value) ?? navGroups.value[0]
 )
 const currentNavGroupKey = computed<AccountNavGroupKey>(() => {
-  const activeGroup = navGroups.value.find((group) => group.items.some((item) => isNavItemActive(item)))
+  const activeGroup = [...navGroups.value].reverse().find((group) => group.items.some((item) => isNavItemActive(item)))
   return activeGroup?.key ?? (currentArea.value === 'manage' ? 'content' : 'self')
 })
+const activeMobileGroupKey = computed<AccountNavGroupKey>(() => currentNavGroupKey.value)
 
 const contentViewportClass = computed(() => {
   if (currentContentMode.value === 'wide') {

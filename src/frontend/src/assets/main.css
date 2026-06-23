@@ -10,3 +10,12 @@
    element-plus dist/index.css above. See comment in
    src/assets/public-shell-critical.css for the full rationale. */
 @import '@ozwasyd/element-plus/dist/el-fsus-theme.css';
+
+/* Keep public shell material tokens authoritative after the full FsusUI theme
+   bundle is loaded. Scope through :has() so account/admin surfaces keep the
+   default FsusUI surface contract. */
+html:has(#fsus-aot-shell) {
+  --el-bg-color: var(--fsusblog-header-bg);
+  --el-bg-color-page: var(--fsus-page);
+  --el-border-color-lighter: var(--fsusblog-header-border);
+}

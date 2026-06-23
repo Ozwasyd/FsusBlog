@@ -10,7 +10,7 @@
     <p class="sr-only" role="status" aria-live="polite">{{ setupStepStatusText }}</p>
 
     <p class="text-sm text-[var(--fsusblog-text-muted)] leading-relaxed mb-5">
-      1) 使用认证器 App（如 Google Authenticator）扫描下方二维码。2) 输入 6 位验证码完成绑定。
+      {{ copy.intro }}
     </p>
 
     <div class="space-y-6">
@@ -25,12 +25,12 @@
             foreground="var(--fsusblog-text-primary)"
           />
         </div>
-        <div class="mt-4 text-[11px] font-bold text-[var(--fsusblog-text-muted)] normal-case tracking-normal">扫描二维码绑定</div>
+        <div class="mt-4 text-[11px] font-bold text-[var(--fsusblog-text-muted)] normal-case tracking-normal">{{ copy.scanHint }}</div>
       </div>
 
       <div>
         <div class="mb-2 flex items-center justify-between gap-3">
-          <div class="text-xs font-semibold text-[var(--fsusblog-text-secondary)] normal-case tracking-normal">手动密钥 (Manual Entry)</div>
+          <div class="text-xs font-semibold text-[var(--fsusblog-text-secondary)] normal-case tracking-normal">{{ copy.manualKeyLabel }}</div>
           <el-button
             v-if="secret"
             size="small"
@@ -38,7 +38,7 @@
             :icon="CopyDocument"
             @click="copySecret"
           >
-            复制
+            {{ copy.copyCta }}
           </el-button>
         </div>
         <div class="px-3 py-2 bg-[var(--fsusblog-panel-bg)] border border-[var(--fsusblog-panel-border)] rounded-[var(--fsus-radius-control)] text-[12px] tabular-nums text-[var(--fsusblog-text-secondary)] break-all">{{ secret || '-' }}</div>
@@ -50,12 +50,12 @@
           :icon="CopyDocument"
           @click="copyOtpAuthUrl"
         >
-          复制绑定链接
+          {{ copy.copyOtpAuthUrlCta }}
         </el-button>
       </div>
 
       <div v-if="!recoveryCodes.length">
-        <label for="mfa-setup-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">验证码</label>
+        <label for="mfa-setup-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">{{ copy.codeLabel }}</label>
         <el-input
           id="mfa-setup-code"
           :model-value="setupCode"
@@ -63,14 +63,14 @@
           type="text"
           autocomplete="one-time-code"
           inputmode="numeric"
-          placeholder="6 位验证码"
+          :placeholder="copy.codePlaceholder"
           :disabled="loading"
           @keyup.enter="$emit('verify')"
         />
       </div>
 
       <div v-else>
-        <div class="text-xs font-semibold text-[var(--fsusblog-text-secondary)] mb-2">恢复码（仅显示一次）</div>
+        <div class="text-xs font-semibold text-[var(--fsusblog-text-secondary)] mb-2">{{ copy.recoveryCodesTitle }}</div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div
             v-for="code in recoveryCodes"
@@ -81,11 +81,11 @@
           </div>
         </div>
         <div class="mt-4 flex flex-wrap gap-3">
-          <el-button size="small" @click="copyRecoveryCodes">复制恢复码</el-button>
-          <el-button size="small" @click="downloadRecoveryCodes">下载恢复码</el-button>
+          <el-button size="small" @click="copyRecoveryCodes">{{ copy.copyRecoveryCodesCta }}</el-button>
+          <el-button size="small" @click="downloadRecoveryCodes">{{ copy.downloadRecoveryCodesCta }}</el-button>
         </div>
         <el-checkbox v-model="recoveryCodesAcknowledged" class="mt-4">
-          我已保存恢复码
+          {{ copy.savedRecoveryCodesCheckbox }}
         </el-checkbox>
       </div>
     </div>
@@ -95,7 +95,7 @@
     <template #footer>
       <div class="dialog-footer flex justify-end gap-5 mt-4">
         <el-button @click="close" :disabled="loading">
-          {{ recoveryCodes.length ? '完成' : '取消' }}
+          {{ recoveryCodes.length ? copy.closeCta : copy.cancelCta }}
         </el-button>
         <el-button
           v-if="!recoveryCodes.length"
@@ -104,7 +104,7 @@
           @click="$emit('verify')"
           :loading="loading"
         >
-          {{ loading ? '验证中...' : '完成绑定' }}
+          {{ loading ? copy.verifying : copy.bindingCta }}
         </el-button>
       </div>
     </template>
@@ -116,6 +116,9 @@ import { computed, ref, watch } from 'vue'
 import QrcodeVue from 'qrcode.vue'
 import { toast } from '@/fsusui/feedback'
 import { CopyDocument } from '@/fsusui/icons'
+import { FSUSBLOG_SECURITY_COPY } from '@/copy'
+
+const copy = FSUSBLOG_SECURITY_COPY.mfaSetup
 
 const props = withDefaults(defineProps<{
   visible: boolean
@@ -127,7 +130,7 @@ const props = withDefaults(defineProps<{
   recoveryCodes: string[]
   errorMessage: string
 }>(), {
-  title: 'MFA 绑定'
+  title: FSUSBLOG_SECURITY_COPY.mfaSetup.defaultTitle
 })
 
 const emit = defineEmits<{
@@ -145,7 +148,7 @@ watch(recoveryCodesText, () => {
 
 const close = () => {
   if (props.recoveryCodes.length > 0 && !recoveryCodesAcknowledged.value) {
-    toast.warning('请先确认已保存恢复码')
+    toast.warning(copy.saveRecoveryCodesFirstWarning)
     return
   }
 
@@ -157,7 +160,7 @@ const copyRecoveryCodes = async (): Promise<void> => {
     return
   }
 
-  await copyText(recoveryCodesText.value, '恢复码已复制', '复制失败，请手动保存恢复码')
+  await copyText(recoveryCodesText.value, copy.recoveryCodesCopied, copy.recoveryCodesCopyFailed)
 }
 
 const copySecret = async (): Promise<void> => {
@@ -165,7 +168,7 @@ const copySecret = async (): Promise<void> => {
     return
   }
 
-  await copyText(props.secret, '密钥已复制', '复制失败，请手动复制密钥')
+  await copyText(props.secret, copy.secretCopied, copy.secretCopyFailed)
 }
 
 const copyOtpAuthUrl = async (): Promise<void> => {
@@ -173,7 +176,7 @@ const copyOtpAuthUrl = async (): Promise<void> => {
     return
   }
 
-  await copyText(props.otpAuthUrl, '绑定链接已复制', '复制失败，请手动输入密钥')
+  await copyText(props.otpAuthUrl, copy.otpAuthUrlCopied, copy.otpAuthUrlCopyFailed)
 }
 
 const copyText = async (text: string, successMessage: string, failureMessage: string): Promise<void> => {
@@ -194,22 +197,22 @@ const downloadRecoveryCodes = (): void => {
   anchor.rel = 'noopener'
   anchor.click()
   URL.revokeObjectURL(url)
-  toast.success('恢复码已下载')
+  toast.success(copy.recoveryCodesDownloaded)
 }
 
 const setupStepStatusText = computed(() => {
   if (props.recoveryCodes.length > 0) {
-    return 'MFA 绑定完成，请保存恢复码'
+    return copy.statusBindingComplete
   }
 
   if (props.loading) {
-    return 'MFA 绑定流程正在处理'
+    return copy.statusBindingInProgress
   }
 
   if (props.otpAuthUrl) {
-    return 'MFA 绑定步骤，扫描二维码或输入手动密钥后填写验证码'
+    return copy.statusBindingSteps
   }
 
-  return '正在准备 MFA 绑定信息'
+  return copy.statusPreparing
 })
 </script>

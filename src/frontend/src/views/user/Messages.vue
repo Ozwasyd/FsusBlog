@@ -84,7 +84,7 @@
           @submit="sendSystemMessage"
         />
         <MessagesComposePanel
-          v-else-if="!isMobile"
+          v-else-if="!isMobile && (isAdminView || showMobileTicketCompose)"
           v-model:create-subject="createSubject"
           v-model:create-body="createBody"
           mode="account"

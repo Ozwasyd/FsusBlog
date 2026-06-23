@@ -18,6 +18,10 @@ const themeToggleSource = readFileSync(
   resolve(process.cwd(), 'src/components/ui/ThemeModeToggle.vue'),
   'utf8',
 )
+const themeModeLabelsSource = readFileSync(
+  resolve(process.cwd(), 'src/components/ui/themeModeLabels.ts'),
+  'utf8',
+)
 const themeRuntimeSource = readFileSync(
   resolve(process.cwd(), 'src/services/themeRuntime.ts'),
   'utf8',
@@ -40,23 +44,18 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(shellSource).not.toContain('PublicMobileSearchTrigger')
   })
 
-  it('wires public nav active indicator motion into desktop and mobile nav', () => {
-    expect(shellSource).toContain('desktopNavRef')
-    expect(shellSource).toContain('mobileNavRef')
-    expect(shellSource).toContain('activeNavIndicatorEnabled')
-    expect(shellSource).toContain('syncNavIndicators')
-    expect(shellSource).toContain('el-public-shell__active-nav-indicator')
-    expect(shellSource).toContain("'is-indicator-motion': activeNavIndicatorEnabled")
-    expect(shellSource).toContain(':data-active-nav="activeNavIndicatorKey"')
-    expect(shellSource).toContain(
-      '--el-public-shell-active-nav-indicator-x',
-    )
-    expect(shellSource).toContain(
-      '--el-public-shell-active-nav-indicator-width',
-    )
-    expect(shellSource).toContain(
-      '--el-public-shell-active-nav-indicator-opacity',
-    )
+  it('keeps desktop nav active state static while preserving mobile bottom tab affordance', () => {
+    expect(shellSource).toContain('hasActivePublicNav')
+    expect(shellSource).toContain('el-public-shell__bottom-tab-bar')
+    expect(shellSource).toContain('el-public-shell__bottom-tab-accent')
+    expect(shellSource).not.toContain('desktopNavRef')
+    expect(shellSource).not.toContain('mobileNavRef')
+    expect(shellSource).not.toContain('syncNavIndicators')
+    expect(shellSource).not.toContain('el-public-shell__active-nav-indicator')
+    expect(shellSource).not.toContain('is-indicator-motion')
+    expect(shellSource).not.toContain('--el-public-shell-active-nav-indicator-x')
+    expect(shellSource).not.toContain('--el-public-shell-active-nav-indicator-width')
+    expect(shellSource).not.toContain('--el-public-shell-active-nav-indicator-opacity')
   })
 
   it('keeps public nav as links but hands clicks to the SPA router when enabled', () => {
@@ -84,14 +83,17 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(shellSource).not.toContain('<el-public-shell')
   })
 
-  it('renders mobile theme mode as a localized menu button', () => {
+  it('renders desktop and mobile theme mode with the shared localized labels', () => {
     expect(shellSource).toContain('variant="menu-button"')
-    expect(shellSource).toContain(':labels="PUBLIC_THEME_MODE_LABELS"')
-    expect(shellSource).toContain("light: '浅色'")
-    expect(shellSource).toContain("dark: '深色'")
-    expect(shellSource).toContain("system: '跟随系统'")
-    expect(shellSource).toContain("systemShort: '系统'")
+    expect(shellSource.match(/:labels="FSUSBLOG_THEME_MODE_LABELS"/g)).toHaveLength(2)
+    expect(themeModeLabelsSource).toContain("light: '浅色'")
+    expect(themeModeLabelsSource).toContain("dark: '深色'")
+    expect(themeModeLabelsSource).toContain("system: '跟随系统'")
+    expect(themeModeLabelsSource).toContain("lightShort: '浅'")
+    expect(themeModeLabelsSource).toContain("darkShort: '深'")
+    expect(themeModeLabelsSource).toContain("systemShort: '系统'")
     expect(shellSource).not.toContain('visibility="mobile" compact')
+    expect(shellSource).not.toContain('PUBLIC_THEME_MODE_LABELS')
   })
 
   it('keeps the header brand text equal to the configured site title', () => {
@@ -125,9 +127,11 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
 
   it('passes FsusUI theme toggle variant and labels through the Blog wrapper', () => {
     expect(themeToggleSource).toContain(':variant="variant"')
-    expect(themeToggleSource).toContain(':labels="labels"')
+    expect(themeToggleSource).toContain(':labels="resolvedLabels"')
     expect(themeToggleSource).toContain("variant?: 'segmented' | 'menu-button'")
     expect(themeToggleSource).toContain('labels?: ThemeModeToggleLabels')
+    expect(themeToggleSource).toContain('FSUSBLOG_THEME_MODE_LABELS')
+    expect(themeToggleSource).toContain('...props.labels')
   })
 
   it('keeps mobile public shell actions aligned when packaged FsusUI CSS lags local DOM', () => {
@@ -138,8 +142,49 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(publicShellCriticalCss).toContain(
       '.el-public-shell__mobile-primary-actions',
     )
+    expect(publicShellCriticalCss).toContain(
+      '--fsusblog-public-header-control-height: var(--fsus-control-height-compact, var(--el-component-size-small, 40px));',
+    )
+    expect(publicShellCriticalCss).toContain(
+      '.el-public-shell__brand-nav,',
+    )
+    expect(publicShellCriticalCss).toContain(
+      '.el-public-shell__desktop-nav {',
+    )
+    expect(publicShellCriticalCss).toContain(
+      'min-height: var(--fsusblog-public-header-control-height);',
+    )
+    expect(publicShellCriticalCss).toContain(
+      '.el-public-shell__desktop-nav .el-public-shell__nav-link.is-active',
+    )
+    expect(publicShellCriticalCss).toContain(
+      'box-shadow: inset 0 -2px 0 var(--fsus-scholarly-blue, var(--fsusblog-color-primary));',
+    )
+    expect(publicShellCriticalCss).toContain(
+      '.el-public-shell__search-control',
+    )
+    expect(publicShellCriticalCss).toContain(
+      '--el-input-height: var(--fsusblog-public-header-control-height);',
+    )
+    expect(publicShellCriticalCss).toContain(
+      '.el-public-shell__theme-toggle',
+    )
+    expect(publicShellCriticalCss).toContain(
+      'height: var(--fsusblog-public-header-control-height);',
+    )
+    expect(publicShellCriticalCss).toContain('white-space: nowrap;')
+    expect(publicShellCriticalCss).toContain('@media (max-width: 374px)')
+    expect(publicShellCriticalCss).toContain('gap: 6px;')
+    expect(publicShellCriticalCss).toContain('min-width: 44px;')
     expect(publicShellCriticalCss).toContain('display: inline-flex;')
     expect(publicShellCriticalCss).toContain('gap: 8px;')
+    expect(shellSource).not.toContain('<div class="el-public-shell__mobile-actions" />')
+    expect(publicShellCriticalCss).toMatch(
+      /\.el-public-shell__mobile-toolbar\s*\{\s*display:\s*none;\s*margin-top:\s*0;/,
+    )
+    expect(publicShellCriticalCss).toMatch(
+      /\.el-public-shell__mobile-toolbar:has\(\.el-public-shell__mobile-search-row\.is-expanded\)\s*\{\s*display:\s*block;\s*margin-top:\s*12px;/,
+    )
     expect(publicShellCriticalCss).toContain(
       '.el-public-shell__mobile-search-row',
     )
@@ -155,7 +200,9 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(publicShellCriticalCss).toContain(
       '.el-theme-mode-toggle__menu-button',
     )
-    expect(publicShellCriticalCss).toContain('min-height: 40px;')
+    expect(publicShellCriticalCss).toContain(
+      'min-height: var(--fsusblog-public-header-control-height);',
+    )
   })
 
   it('applies public main and footer minimum height rules to the current FsusUI shell DOM', () => {

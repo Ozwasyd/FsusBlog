@@ -114,11 +114,75 @@ function checkComponentFacingSource(source, fileLabel) {
   }
 }
 
+function collectWithDefaultsDefinePropsBlocks(source) {
+  const blocks = [];
+  const needle = 'withDefaults';
+  let searchIndex = 0;
+  while (searchIndex < source.length) {
+    const start = source.indexOf(needle, searchIndex);
+    if (start === -1) {
+      break;
+    }
+
+    const openParen = source.indexOf('(', start + needle.length);
+    if (openParen === -1) {
+      break;
+    }
+
+    const prefix = source.slice(start, openParen);
+    if (!/withDefaults\s*$/.test(prefix)) {
+      searchIndex = start + needle.length;
+      continue;
+    }
+
+    let depth = 0;
+    let end = -1;
+    for (let index = openParen; index < source.length; index += 1) {
+      const char = source[index];
+      if (char === '(') {
+        depth += 1;
+      } else if (char === ')') {
+        depth -= 1;
+        if (depth === 0) {
+          end = index + 1;
+          break;
+        }
+      }
+    }
+
+    if (end === -1) {
+      break;
+    }
+
+    const block = source.slice(start, end);
+    if (/withDefaults\s*\(\s*defineProps/.test(block)) {
+      blocks.push({ block, index: start });
+    }
+    searchIndex = end;
+  }
+
+  return blocks;
+}
+
+function checkScriptSetupHoistSafety(source, fileLabel) {
+  if (!source.includes('<script setup')) {
+    return;
+  }
+
+  for (const { block, index } of collectWithDefaultsDefinePropsBlocks(source)) {
+    if (/\b(?:copy|[A-Za-z_$][\w$]*Copy)\s*\./.test(block)) {
+      hardViolations.push(`${fileLabel}:${lineNumber(source, index)}: withDefaults(defineProps(...)) cannot reference local copy aliases in <script setup> defaults`);
+    }
+  }
+}
+
 for (const file of vueFiles) {
   const source = readFileSync(file, 'utf8');
   const fileLabel = relative(file);
   const isViewFile = file.startsWith(viewsDir);
   const isComponentFile = file.startsWith(componentsDir);
+
+  checkScriptSetupHoistSafety(source, fileLabel);
 
   if (isViewFile) {
     const hasDirectWindowListener = source.includes('window.addEventListener(')
@@ -171,6 +235,24 @@ for (const file of componentFacingFiles) {
     continue;
   }
   checkComponentFacingSource(readFileSync(file, 'utf8'), relative(file));
+}
+
+const accountLayoutPath = join(srcDir, 'layouts', 'AccountLayout.vue');
+const accountLayoutSource = readFileSync(accountLayoutPath, 'utf8');
+if (!accountLayoutSource.includes('activeMobileGroupKey')) {
+  hardViolations.push('src/layouts/AccountLayout.vue: mobile account navigation must separate active route group from open group');
+}
+if (accountLayoutSource.includes("'account-mobile-tab-link-active': openMobileGroupKey === group.key")) {
+  hardViolations.push('src/layouts/AccountLayout.vue: mobile account group active state must not be driven by openMobileGroupKey');
+}
+
+const accountNavPath = join(srcDir, 'layouts', 'accountNav.ts');
+const accountNavSource = readFileSync(accountNavPath, 'utf8');
+if (!/label:\s*'身份中心'[\s\S]*?match:\s*\(\)\s*=>\s*false/.test(accountNavSource)) {
+  hardViolations.push('src/layouts/accountNav.ts: top-level 身份中心 shortcut must not participate in active route matching');
+}
+if (!/label:\s*'身份总览'[\s\S]*?match:\s*\(path\)\s*=>\s*path\s*===\s*'\/user\/identity'/.test(accountNavSource)) {
+  hardViolations.push('src/layouts/accountNav.ts: 身份总览 must use exact /user/identity matching to avoid double-active subroutes');
 }
 
 for (const line of hardViolations) {

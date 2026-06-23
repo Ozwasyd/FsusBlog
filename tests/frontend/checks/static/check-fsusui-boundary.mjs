@@ -35,6 +35,9 @@ const allowedInternalSelectors = new Map([
     '.el-public-shell__bottom-tab-link'
   ])],
   ['src/frontend/src/assets/public-shell-critical.css', new Set([
+    '.el-radio-button',
+    '.el-radio-button__inner',
+    '.el-radio-group',
     '.el-theme-mode-toggle',
     '.el-theme-mode-toggle__menu',
     '.el-theme-mode-toggle__menu-button',

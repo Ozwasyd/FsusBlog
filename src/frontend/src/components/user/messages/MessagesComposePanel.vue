@@ -7,25 +7,25 @@
       <div v-if="mobile" class="messages-subheader">{{ title }}</div>
       <el-form label-position="top">
         <template v-if="mode === 'admin'">
-          <el-form-item label="目标账号 ID">
+          <el-form-item :label="composeCopy.targetAccountIdLabel">
             <el-input
               :model-value="systemTargetAccountId"
               :name="mobile ? 'systemTargetAccountIdMobile' : 'systemTargetAccountIdDesktop'"
-              placeholder="请输入账号 ID"
+              :placeholder="composeCopy.targetAccountIdPlaceholder"
               @update:model-value="emit('update:systemTargetAccountId', $event)"
             />
           </el-form-item>
-          <el-form-item label="主题">
+          <el-form-item :label="composeCopy.subjectLabel">
             <el-input
               :model-value="systemSubject"
               :name="mobile ? 'systemSubjectMobile' : 'systemSubjectDesktop'"
               maxlength="160"
               show-word-limit
-              placeholder="例如：系统通知"
+              :placeholder="composeCopy.systemSubjectPlaceholder"
               @update:model-value="emit('update:systemSubject', $event)"
             />
           </el-form-item>
-          <el-form-item label="内容">
+          <el-form-item :label="composeCopy.bodyLabel">
             <el-input
               :model-value="systemBody"
               :name="mobile ? 'systemBodyMobile' : 'systemBodyDesktop'"
@@ -33,25 +33,25 @@
               :rows="4"
               maxlength="4000"
               show-word-limit
-              placeholder="请输入消息正文"
+              :placeholder="composeCopy.bodyPlaceholderAdmin"
               @update:model-value="emit('update:systemBody', $event)"
             />
           </el-form-item>
-          <el-button type="success" :loading="loading" @click="emit('submit')">发送系统消息</el-button>
+          <el-button type="primary" :loading="loading" @click="emit('submit')">{{ composeCopy.submitAdminCta }}</el-button>
         </template>
 
         <template v-else>
-          <el-form-item label="主题">
+          <el-form-item :label="composeCopy.subjectLabel">
             <el-input
               :model-value="createSubject"
               :name="mobile ? 'ticketSubjectMobile' : 'ticketSubjectDesktop'"
               maxlength="160"
               show-word-limit
-              placeholder="例如：账号误封申诉"
+              :placeholder="composeCopy.accountSubjectPlaceholder"
               @update:model-value="emit('update:createSubject', $event)"
             />
           </el-form-item>
-          <el-form-item label="内容">
+          <el-form-item :label="composeCopy.bodyLabel">
             <el-input
               :model-value="createBody"
               :name="mobile ? 'ticketBodyMobile' : 'ticketBodyDesktop'"
@@ -59,11 +59,11 @@
               :rows="4"
               maxlength="4000"
               show-word-limit
-              placeholder="请描述问题与诉求"
+              :placeholder="composeCopy.bodyPlaceholderAccount"
               @update:model-value="emit('update:createBody', $event)"
             />
           </el-form-item>
-          <el-button type="success" :loading="loading" @click="emit('submit')">提交工单</el-button>
+          <el-button type="primary" :loading="loading" @click="emit('submit')">{{ composeCopy.submitAccountCta }}</el-button>
         </template>
       </el-form>
     </div>
@@ -72,6 +72,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { FSUSBLOG_MESSAGES_COPY } from '@/copy'
+
+const composeCopy = FSUSBLOG_MESSAGES_COPY.composePanel
 
 const props = withDefaults(defineProps<{
   mode: 'admin' | 'account'
@@ -100,7 +103,7 @@ const emit = defineEmits<{
   submit: []
 }>()
 
-const title = computed(() => (props.mode === 'admin' ? '发送系统消息' : '新建申诉工单'))
+const title = computed(() => (props.mode === 'admin' ? composeCopy.titleAdmin : composeCopy.titleAccount))
 </script>
 
 <style scoped>

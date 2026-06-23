@@ -6,6 +6,10 @@ const adapterSource = readFileSync(
   resolve(process.cwd(), 'src/components/layout/SiteChromeHeaderAdapter.vue'),
   'utf8',
 )
+const themeModeLabelsSource = readFileSync(
+  resolve(process.cwd(), 'src/components/ui/themeModeLabels.ts'),
+  'utf8',
+)
 const fsusUiSiteHeaderSource = readFileSync(
   resolve(process.cwd(), 'src/fsusui/siteHeader.ts'),
   'utf8',
@@ -70,15 +74,16 @@ describe('SiteChromeHeaderAdapter contract', () => {
     expect(adapterSource).toContain('showDesktopThemeToggle')
     expect(adapterSource).toContain('showMobileThemeToggle')
     expect(adapterSource).toContain('ThemeModeToggle')
-    expect(adapterSource).toContain("system: '跟随系统'")
+    expect(adapterSource).toContain('FSUSBLOG_THEME_MODE_LABELS')
+    expect(themeModeLabelsSource).toContain("system: '跟随系统'")
     expect(adapterSource).toContain(':data-public-nav="item.key"')
   })
 
   it('keeps defineProps defaults independent from script setup locals', () => {
-    expect(adapterSource).not.toContain(
-      'themeModeLabels: () => PUBLIC_THEME_MODE_LABELS',
+    expect(adapterSource).toContain(
+      'themeModeLabels: () => FSUSBLOG_THEME_MODE_LABELS',
     )
-    expect(adapterSource).toContain('themeModeLabels: () => ({')
+    expect(adapterSource).not.toContain('themeModeLabels: () => ({')
   })
 
   it('includes the new primitive in the local FsusUI export contract', () => {

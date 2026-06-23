@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     :model-value="visible"
-    title="添加通行密钥"
+    :title="copy.dialogTitle"
     width="min(92vw, 28rem)"
     destroy-on-close
     :show-close="false"
@@ -12,18 +12,18 @@
     <!-- 步骤 1：设备名称 -->
     <template v-if="step === 'name'">
       <p class="text-sm text-[var(--fsusblog-text-muted)] leading-relaxed mb-6">
-        {{ recoverySessionToken ? 'Recovery Key 已验证，请为此账号绑定新的通行密钥。' : '通行密钥由设备安全芯片或生物识别保护，无需密码即可安全登录。' }}
+        {{ stepNameHint }}
       </p>
 
       <div>
-        <label for="passkey-register-name" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">设备名称（可选）</label>
+        <label for="passkey-register-name" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">{{ copy.deviceNameLabel }}</label>
         <el-input
           id="passkey-register-name"
           ref="nameInput"
           v-model="friendlyName"
           type="text"
           autocomplete="webauthn"
-          placeholder="例如：我的 MacBook Touch ID"
+          :placeholder="copy.deviceNamePlaceholder"
           :disabled="loading"
           maxlength="64"
           show-word-limit
@@ -35,12 +35,12 @@
     <!-- 步骤 2：MFA 验证（仅当用户已启用 TOTP 时） -->
     <template v-else-if="step === 'mfa'">
       <p class="text-sm text-[var(--fsusblog-text-muted)] leading-relaxed mb-6">
-        为保护账户安全，注册通行密钥需要先完成可选 TOTP step-up 验证。TOTP 恢复码不是 Recovery Key。
+        {{ copy.mfaStepHint }}
       </p>
 
       <div class="space-y-4">
         <div>
-          <label for="passkey-register-mfa-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">验证码</label>
+          <label for="passkey-register-mfa-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">{{ copy.mfaCodeLabel }}</label>
           <el-input
             id="passkey-register-mfa-code"
             ref="mfaCodeInput"
@@ -48,19 +48,19 @@
             type="text"
             autocomplete="one-time-code"
             inputmode="numeric"
-            placeholder="6 位验证码"
+            :placeholder="copy.mfaCodePlaceholder"
             :disabled="loading"
             @keyup.enter="onMfaVerify"
           />
         </div>
         <div>
-          <label for="passkey-register-recovery-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">TOTP 恢复码（可选）</label>
+          <label for="passkey-register-recovery-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">{{ copy.mfaRecoveryCodeLabel }}</label>
           <el-input
             id="passkey-register-recovery-code"
             v-model="mfaRecoveryCode"
             type="text"
             autocomplete="one-time-code"
-            placeholder="TOTP 恢复码"
+            :placeholder="copy.mfaRecoveryCodePlaceholder"
             :disabled="loading"
             @keyup.enter="onMfaVerify"
           />
@@ -74,7 +74,7 @@
         <div class="h-3 w-32">
           <el-skeleton animated :rows="1" />
         </div>
-        <p class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">正在等待认证器响应...</p>
+        <p class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ copy.waitingAuthenticator }}</p>
       </div>
     </template>
 
@@ -84,8 +84,8 @@
         <div class="w-12 h-12 rounded-[var(--fsus-radius-panel)] bg-[var(--fsusblog-text-primary)] flex items-center justify-center">
           <Check class="w-6 h-6 text-[var(--fsusblog-page-bg)]" aria-hidden="true" />
         </div>
-        <p class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">通行密钥注册成功</p>
-        <p class="text-[12px] text-[var(--fsusblog-text-muted)]">下次登录时可直接使用此密钥</p>
+        <p class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">{{ copy.successTitle }}</p>
+        <p class="text-[12px] text-[var(--fsusblog-text-muted)]">{{ copy.successHint }}</p>
       </div>
     </template>
 
@@ -94,11 +94,11 @@
     <template #footer>
       <div class="dialog-footer flex justify-end gap-5 mt-4">
         <template v-if="step === 'success'">
-          <el-button type="primary" @click="handleClose">完成</el-button>
+          <el-button type="primary" @click="handleClose">{{ copy.closeCta }}</el-button>
         </template>
         <template v-else-if="step === 'ceremony'" />
         <template v-else>
-          <el-button @click="handleClose" :disabled="loading">取消</el-button>
+          <el-button @click="handleClose" :disabled="loading">{{ copy.cancelCta }}</el-button>
           <el-button
             v-if="step === 'name'"
             type="primary"
@@ -106,7 +106,7 @@
             :disabled="loading"
             @click="onNameNext"
           >
-            {{ needsMfa ? '下一步' : '开始注册' }}
+            {{ needsMfa ? copy.nextCta : copy.registerCta }}
           </el-button>
           <el-button
             v-if="step === 'mfa'"
@@ -115,7 +115,7 @@
             :disabled="loading || (!mfaCode.trim() && !mfaRecoveryCode.trim())"
             @click="onMfaVerify"
           >
-            {{ loading ? '验证中...' : '验证并注册' }}
+            {{ loading ? copy.verifying : copy.verifyCta }}
           </el-button>
         </template>
       </div>
@@ -128,8 +128,11 @@ import { Check } from '@/fsusui/icons'
 import { computed, nextTick, ref, watch } from 'vue'
 import { startRegistration } from '@simplewebauthn/browser'
 import { beginRecoveryPasskeyRegistration, completeRecoveryPasskeyRegistration, passkeyRegisterBegin, passkeyRegisterComplete, startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
+import { FSUSBLOG_SECURITY_COPY } from '@/copy'
 
 type Step = 'name' | 'mfa' | 'ceremony' | 'success'
+
+const copy = FSUSBLOG_SECURITY_COPY.passkeyRegister
 
 const props = withDefaults(defineProps<{
   visible: boolean
@@ -155,11 +158,14 @@ const errorMessage = ref('')
 const nameInput = ref<HTMLElement | null>(null)
 const mfaCodeInput = ref<HTMLElement | null>(null)
 const stepStatusText = computed(() => {
-  if (step.value === 'name') return '步骤 1，填写通行密钥设备名称'
-  if (step.value === 'mfa') return '步骤 2，完成 MFA 验证'
-  if (step.value === 'ceremony') return '步骤 3，等待浏览器认证器响应'
-  return '步骤 4，通行密钥注册成功'
+  if (step.value === 'name') return copy.stepStatusName
+  if (step.value === 'mfa') return copy.stepStatusMfa
+  if (step.value === 'ceremony') return copy.stepStatusCeremony
+  return copy.stepStatusSuccess
 })
+const stepNameHint = computed(() =>
+  props.recoverySessionToken ? copy.stepNameHintWithSession : copy.stepNameHintStandalone
+)
 
 watch(() => props.visible, (val) => {
   if (val) {
@@ -195,7 +201,6 @@ const onMfaVerify = async () => {
   loading.value = true
   errorMessage.value = ''
   try {
-    // 获取用于 passkey_register 的 proofToken
     const challengeResult = await startMfaChallenge('passkey_register')
     const challengeToken = challengeResult.proofToken ?? (challengeResult as any).challengeToken
 
@@ -207,13 +212,13 @@ const onMfaVerify = async () => {
     })
 
     if (!verifyResult.proofToken) {
-      errorMessage.value = '验证码错误，请重试'
+      errorMessage.value = copy.mfaCodeInvalid
       return
     }
 
     await runCeremony(verifyResult.proofToken)
   } catch (e: any) {
-    errorMessage.value = e?.response?.data?.message ?? 'MFA 验证失败'
+    errorMessage.value = e?.response?.data?.message ?? copy.mfaVerifyFailed
   } finally {
     loading.value = false
   }
@@ -224,7 +229,6 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
   errorMessage.value = ''
   step.value = 'ceremony'
   try {
-    // 1. 获取注册选项
     const beginResp = props.recoverySessionToken
       ? await beginRecoveryPasskeyRegistration(props.recoverySessionToken)
       : await passkeyRegisterBegin()
@@ -232,10 +236,9 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
     const options = (beginResp as any).options || (beginResp as any).Options
 
     if (!sessionKey || !options) {
-      throw new Error('服务器返回的注册会话无效')
+      throw new Error(copy.invalidCeremonySession)
     }
 
-    // 2. 浏览器仪式
     let attestation: Awaited<ReturnType<typeof startRegistration>>
     try {
       attestation = await startRegistration({ ['options' + String.fromCharCode(74, 83, 79, 78)]: options } as any)
@@ -247,7 +250,6 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
       throw e
     }
 
-    // 3. 提交服务器
     if (props.recoverySessionToken) {
       await completeRecoveryPasskeyRegistration({
         recoverySessionToken: props.recoverySessionToken,
@@ -266,7 +268,7 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
 
     step.value = 'success'
   } catch (e: any) {
-    errorMessage.value = e?.message || '注册失败，请重试'
+    errorMessage.value = e?.message || copy.registerFailed
     step.value = props.needsMfa ? 'mfa' : 'name'
   } finally {
     loading.value = false

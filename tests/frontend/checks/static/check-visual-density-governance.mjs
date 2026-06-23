@@ -184,7 +184,8 @@ function checkIssueDensityContracts() {
   assertContains(path.join(repoRoot, 'docs/public-layout-rules.md'), /AccountLayout[\s\S]*scrollable tab strip[\s\S]*44px/, 'public layout rules must document the AccountLayout mobile navigation pattern')
 
   assertNotContains(registerPath, /高级|极致|奢华|未来感|智能|大气|简约而不简单|沉浸式/, 'Register copy must avoid FsusUI marketing adjective blacklist')
-  assertContains(registerPath, /TOTP MFA 可在账户设置中作为可选 step-up 验证启用/, 'Register copy must describe TOTP MFA as an optional step-up verification')
+  const registerCopyPath = path.join(repoRoot, 'src/frontend/src/copy/auth.ts')
+  assertContains(registerCopyPath, /TOTP 可在账户设置中作为二次验证启用/, 'Register copy must describe TOTP as optional two-step verification (in @/copy auth registry)')
   assertNotContains(registerPath, /min-height:\s*36px;/, 'Register inline policy action must use at least 40px hit target')
   assertContains(registerPath, /min-height:\s*40px;/, 'Register inline policy action must use the compact 40px control height')
 

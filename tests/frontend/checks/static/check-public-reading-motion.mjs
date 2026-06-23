@@ -171,7 +171,8 @@ expectIncludes(publicArticleDetail, 'id="fsus-comments-island"', 'PublicArticleD
 expectIncludes(toc, '<el-drawer', 'ArticleTocPanel.vue drawer')
 
 expectIncludes(featuredArticles, '聚焦', 'FeaturedArticlesSection.vue')
-expectIncludes(homeRecommendations, '热门文章', 'HomeTextFirstRecommendations.vue')
+const homeRecommendationsCopy = read('src/frontend/src/copy/layout.ts')
+expectIncludes(homeRecommendationsCopy, '热门文章', 'HomeTextFirstRecommendations.vue eyebrow (via @/copy layout registry)')
 expectIncludes(hotArticlesIsland, '热门文章', 'homeHotArticlesIsland.ts')
 expectNotMatches(homeRecommendations, /顺着读/, 'HomeTextFirstRecommendations.vue hot fallback heading must not drift to 顺着读')
 

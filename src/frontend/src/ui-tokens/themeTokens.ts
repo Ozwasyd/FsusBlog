@@ -42,7 +42,7 @@ export const themeTokens: ThemeTokenContract = {
     tagLink: `text-[11px] sm:text-xs font-bold uppercase tracking-normal ${textMuted} hover:text-[var(--fsusblog-text-primary)] ${colorTransition} outline-none ${focusRing}`,
     commentsRoot: `mt-12 sm:mt-16 pt-8 sm:pt-10 border-t ${lineBorder} pb-24`,
     commentsHeading: `text-xs font-semibold ${textMuted} uppercase tracking-normal mb-6`,
-    commentsPlaceholderRoot: `flex items-center justify-center gap-2 py-6 text-sm ${textTertiary} font-light normal-case tracking-normal`,
+    commentsPlaceholderRoot: `flex items-center justify-center gap-2 rounded-[var(--fsusblog-reading-radius-panel)] py-6 text-sm ${textTertiary} font-light normal-case tracking-normal shadow-none`,
     commentsPlaceholderDot: `inline-block h-1 w-1 shrink-0 rounded-full bg-[var(--fsusblog-text-muted)] align-middle`,
     commentsPlaceholderText: `${textTertiary}`
   },

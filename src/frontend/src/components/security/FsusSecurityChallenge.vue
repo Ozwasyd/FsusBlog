@@ -2,7 +2,7 @@
   <section class="fsus-security-challenge" data-fsus-security-challenge="true" :aria-busy="busy">
     <header class="fsus-security-challenge__header">
       <div>
-        <p class="fsus-security-challenge__eyebrow">安全验证</p>
+        <p class="fsus-security-challenge__eyebrow">{{ copy.eyebrow }}</p>
         <h3 class="fsus-security-challenge__title">{{ title }}</h3>
       </div>
       <el-button
@@ -10,7 +10,7 @@
         :disabled="busy || disabled"
         @click="refreshChallenge"
       >
-        刷新
+        {{ copy.refreshCta }}
       </el-button>
     </header>
 
@@ -42,14 +42,14 @@
       :challenge="perceptionRuntime.challenge"
       :renderer="perceptionRuntime.renderer"
       :client="perceptionRuntime.client"
-      title="完成安全验证"
-      eyebrow="Perception v2"
-      refresh-label="刷新"
-      retry-label="重试"
-      cancel-label="取消"
-      loading-text="正在准备安全验证"
-      failed-text="验证未通过，请重试。"
-      expired-text="验证已过期，请重试。"
+      :title="copy.perceptionTitle"
+      :eyebrow="copy.perceptionEyebrow"
+      :refresh-label="copy.perceptionRefresh"
+      :retry-label="copy.perceptionRetry"
+      :cancel-label="copy.perceptionCancel"
+      :loading-text="copy.perceptionLoading"
+      :failed-text="copy.perceptionFailed"
+      :expired-text="copy.perceptionExpired"
       @verified="handlePerceptionVerified"
       @error="setError"
       @refresh="refreshChallenge"
@@ -93,12 +93,12 @@
 
     <div v-else-if="kindGroup === 'unsupported'" class="fsus-security-challenge__panel">
       <slot name="unsupported" :assignment="assignment" :provider-payload="providerPayload" :refresh="refreshChallenge">
-        <p data-test="security-challenge-unsupported">暂不支持该验证方式。</p>
+        <p data-test="security-challenge-unsupported">{{ copy.unsupported }}</p>
       </slot>
     </div>
 
     <div v-else class="fsus-security-challenge__panel" role="status">
-      <p>正在准备安全验证。</p>
+      <p>{{ copy.preparing }}</p>
     </div>
   </section>
 </template>
@@ -133,6 +133,9 @@ import {
   isPerceptionChallengeKind,
   type PerceptionChallengeRuntime
 } from '@/services/securityPerceptionChallengeFlow'
+import { FSUSBLOG_SECURITY_COPY } from '@/copy'
+
+const copy = FSUSBLOG_SECURITY_COPY.challenge
 
 const props = withDefaults(defineProps<{
   action: string
@@ -145,7 +148,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   autoLoad: true,
   disabled: false,
-  title: '完成安全验证'
+  title: FSUSBLOG_SECURITY_COPY.challenge.defaultTitle
 })
 
 const emit = defineEmits<{
@@ -300,7 +303,7 @@ function handleVerified(value: SecurityChallengeVerifyResponse): void {
 function handlePerceptionVerified(value: PerceptionChallengeVerifyResult): void {
   const currentAssignment = assignment.value
   if (!value.verified || !currentAssignment) {
-    setError('验证未通过，请重试。')
+    setError(copy.perceptionFailed)
     return
   }
 
@@ -317,13 +320,13 @@ function handlePerceptionVerified(value: PerceptionChallengeVerifyResult): void 
 
 function handlePerceptionExpired(): void {
   client().clearProof(context())
-  setError('验证已过期，请重试。')
+  setError(copy.perceptionExpired)
   emit('expired')
 }
 
 function handlePerceptionCancel(): void {
   client().clearProof(context())
-  setError('验证已取消。')
+  setError(copy.perceptionCancelled)
   emit('cancel')
 }
 

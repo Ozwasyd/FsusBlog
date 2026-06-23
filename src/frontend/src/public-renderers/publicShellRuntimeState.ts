@@ -6,6 +6,7 @@ export type PublicShellRuntimeAuthState = Pick<PublicShellState, 'authLabel' | '
 
 export type PublicShellRuntimeAuthUser = Readonly<{
   accountId?: number | null
+  canManage?: boolean | null
 }> | null
 
 const anonymousAuthState: PublicShellRuntimeAuthState = {
@@ -23,7 +24,7 @@ export function resolvePublicShellRuntimeAuthState(
   const shellState = createPublicShellViewState({
     isRuntimeAuthResolved: true,
     isLoggedIn: Boolean(user),
-    isAdmin: false
+    isAdmin: Boolean(user?.canManage)
   })
 
   return {

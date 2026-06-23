@@ -2,7 +2,7 @@
 
 import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { encodeIdentityAccountSnapshotFrame } from '../../support/aeds-envelope.mjs'
+import { encodeAdminPrincipalSnapshotFrame, encodeIdentityAccountSnapshotFrame } from '../../support/aeds-envelope.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
@@ -42,6 +42,17 @@ function assert(condition, message) {
   }
 }
 
+function assertNear(actual, expected, tolerance, message) {
+  if (Math.abs(actual - expected) > tolerance) {
+    throw new Error(`${message}: expected ${expected}, got ${actual}`)
+  }
+}
+
+function assertBoxMetric(box, metric, expected, label) {
+  assert(box && typeof box[metric] === 'number', `${label}: missing ${metric}`)
+  assertNear(box[metric], expected, 1, `${label}: ${metric}`)
+}
+
 function normalizeCssValue(value) {
   return String(value || '').trim().toLowerCase()
 }
@@ -65,6 +76,23 @@ async function installAuthFixture(context, authMode) {
           identityKind: 'anonymous_account',
           status: 0,
         })),
+      })
+      return
+    }
+
+    await requestRoute.fulfill({
+      status: 401,
+      headers: { 'content-type': 'application/octet-stream' },
+      body: Buffer.alloc(0),
+    })
+  })
+
+  await context.route('**/api/binary/auth/admin/me', async (requestRoute) => {
+    if (authMode.response === 'admin') {
+      await requestRoute.fulfill({
+        status: 200,
+        headers: { 'content-type': 'application/octet-stream' },
+        body: Buffer.from(encodeAdminPrincipalSnapshotFrame()),
       })
       return
     }
@@ -120,6 +148,16 @@ async function inspectHeader(page, width, route, theme, authMode) {
     const headerStyle = header ? getComputedStyle(header) : null
     const getDisplay = (element) => element ? getComputedStyle(element).display : null
     const getWidth = (element) => element ? Number.parseFloat(getComputedStyle(element).width) : null
+    const getBox = (element) => {
+      if (!element) {
+        return null
+      }
+      const box = element.getBoundingClientRect()
+      return {
+        height: Number(box.height.toFixed(2)),
+        centerY: Number((box.top + box.height / 2).toFixed(2)),
+      }
+    }
 
     return {
       resolvedTheme: document.documentElement.dataset.themeResolved || '',
@@ -151,6 +189,16 @@ async function inspectHeader(page, width, route, theme, authMode) {
       desktopActionsDisplay: getDisplay(desktopActions),
       desktopNavDisplay: getDisplay(desktopNav),
       desktopSearchWidth: getWidth(desktopSearch),
+      innerBox: getBox(document.querySelector('.el-public-shell__inner')),
+      primaryBox: getBox(document.querySelector('.el-public-shell__primary-row')),
+      brandBox: getBox(document.querySelector('.el-public-shell__brand')),
+      desktopNavLinkBox: getBox(document.querySelector('.el-public-shell__desktop-nav .el-public-shell__nav-link')),
+      desktopSearchBox: getBox(desktopSearch),
+      desktopThemeBox: getBox(document.querySelector('.el-theme-mode-toggle--desktop')),
+      desktopAuthBox: getBox(document.querySelector('.el-public-shell__actions .el-public-shell__auth-link')),
+      mobileSearchBox: getBox(trigger),
+      mobileThemeBox: getBox(document.querySelector('.el-theme-mode-toggle--mobile .el-theme-mode-toggle__menu-button')),
+      mobileAuthBox: getBox(document.querySelector('.el-public-shell__auth-link--mobile')),
       authText: authLink?.textContent?.trim() ?? '',
       authHref: authLink?.getAttribute('href') ?? '',
       oldMobileTheme: Boolean(document.querySelector('.el-public-shell__mobile-actions .el-theme-mode-toggle')),
@@ -187,18 +235,36 @@ async function inspectHeader(page, width, route, theme, authMode) {
     const searchRoute = route.startsWith('/search')
     const initiallyExpanded = state.triggerExpanded === 'true'
     assert(state.primaryActionsDisplay !== 'none', `${label}: mobile primary actions hidden`)
-    assert(state.mobileToolbarDisplay !== 'none', `${label}: mobile toolbar hidden`)
     assert(state.desktopActionsDisplay === 'none', `${label}: desktop actions visible on mobile`)
     assert(state.desktopNavDisplay === 'none', `${label}: desktop nav visible on mobile`)
+    for (const [boxLabel, box] of [
+      ['brand', state.brandBox],
+      ['mobile search', state.mobileSearchBox],
+      ['mobile theme', state.mobileThemeBox],
+      ['mobile auth', state.mobileAuthBox],
+    ]) {
+      assertBoxMetric(box, 'height', 40, `${label}: ${boxLabel}`)
+      assertBoxMetric(
+        { centerY: Math.abs(box.centerY - state.primaryBox.centerY) },
+        'centerY',
+        0,
+        `${label}: ${boxLabel} center delta`,
+      )
+    }
     if (searchRoute) {
       assert(['搜索', '取消'].includes(state.triggerText), `${label}: trigger text ${state.triggerText}`)
       assert(['false', 'true'].includes(state.triggerExpanded), `${label}: trigger expanded ${state.triggerExpanded}`)
       if (initiallyExpanded) {
+        assert(state.mobileToolbarDisplay !== 'none', `${label}: search route toolbar hidden`)
         assert(state.mobileSearchRowDisplay !== 'none', `${label}: search route row hidden`)
+      } else {
+        assert(state.mobileToolbarDisplay === 'none', `${label}: collapsed search route toolbar display ${state.mobileToolbarDisplay}`)
+        assert(state.mobileSearchRowDisplay === 'none', `${label}: collapsed search route row display ${state.mobileSearchRowDisplay}`)
       }
     } else {
       assert(state.triggerText === '搜索', `${label}: trigger text ${state.triggerText}`)
       assert(state.triggerExpanded === 'false', `${label}: trigger expanded ${state.triggerExpanded}`)
+      assert(state.mobileToolbarDisplay === 'none', `${label}: collapsed mobile toolbar display ${state.mobileToolbarDisplay}`)
       assert(state.mobileSearchRowDisplay === 'none', `${label}: collapsed search row display ${state.mobileSearchRowDisplay}`)
     }
     assert(state.menuText === theme.menuText, `${label}: menu text ${state.menuText}`)
@@ -210,12 +276,14 @@ async function inspectHeader(page, width, route, theme, authMode) {
     }
     const expanded = await page.evaluate(() => {
       const trigger = document.querySelector('.el-public-shell__mobile-search-trigger')
+      const toolbar = document.querySelector('.el-public-shell__mobile-toolbar')
       const row = document.querySelector('.el-public-shell__mobile-search-row')
       const search = row?.querySelector('.el-public-shell__search')
       const input = row?.querySelector('input.el-input__inner')
       return {
         triggerText: trigger?.textContent?.trim() ?? '',
         triggerExpanded: trigger?.getAttribute('aria-expanded') ?? '',
+        toolbarDisplay: toolbar ? getComputedStyle(toolbar).display : '',
         rowWidth: row?.getBoundingClientRect().width ?? 0,
         searchWidth: search?.getBoundingClientRect().width ?? 0,
         activeInput: document.activeElement === input,
@@ -224,6 +292,7 @@ async function inspectHeader(page, width, route, theme, authMode) {
     })
     assert(expanded.triggerText === '取消', `${label}: expanded trigger text ${expanded.triggerText}`)
     assert(expanded.triggerExpanded === 'true', `${label}: expanded aria ${expanded.triggerExpanded}`)
+    assert(expanded.toolbarDisplay !== 'none', `${label}: expanded toolbar display ${expanded.toolbarDisplay}`)
     assert(expanded.searchWidth >= expanded.rowWidth - 2, `${label}: expanded search width ${expanded.searchWidth}, row ${expanded.rowWidth}`)
     if (!initiallyExpanded) {
       assert(expanded.activeInput, `${label}: expanded search input not focused`)
@@ -235,6 +304,21 @@ async function inspectHeader(page, width, route, theme, authMode) {
     assert(state.primaryActionsDisplay === 'none', `${label}: mobile primary actions visible on desktop`)
     assert(state.mobileToolbarDisplay === 'none', `${label}: mobile toolbar visible on desktop`)
     assert(state.desktopSearchWidth >= 170 && state.desktopSearchWidth <= 180, `${label}: desktop search width ${state.desktopSearchWidth}`)
+    for (const [boxLabel, box] of [
+      ['brand', state.brandBox],
+      ['desktop nav', state.desktopNavLinkBox],
+      ['desktop search', state.desktopSearchBox],
+      ['desktop theme', state.desktopThemeBox],
+      ['desktop auth', state.desktopAuthBox],
+    ]) {
+      assertBoxMetric(box, 'height', 40, `${label}: ${boxLabel}`)
+      assertBoxMetric(
+        { centerY: Math.abs(box.centerY - state.primaryBox.centerY) },
+        'centerY',
+        0,
+        `${label}: ${boxLabel} center delta`,
+      )
+    }
   }
 }
 

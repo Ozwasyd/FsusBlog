@@ -2,17 +2,17 @@
   <div class="space-y-8">
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-        <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略回放</div>
-        <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">预览差异</h2>
-        <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">回放执行前必须先生成预览；执行需要 admin passkey step-up、确认短语和高价值审计。</p>
+        <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ copy.sectionEyebrow }}</div>
+        <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">{{ copy.sectionTitle }}</h2>
+        <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">{{ copy.sectionDescription }}</p>
       </div>
 
       <div class="grid gap-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-4 md:grid-cols-5">
-        <el-input v-model="form.region" clearable placeholder="地区" aria-label="地区" />
-        <el-input v-model="form.policyVersion" clearable placeholder="上一版策略号" aria-label="策略版本" />
-        <el-input v-model="form.dictionaryId" clearable placeholder="词库 ID" aria-label="词库 ID" />
-        <el-input-number v-model="form.limit" :min="1" :max="200" controls-position="right" aria-label="扫描数量" />
-        <el-button type="primary" :icon="DocumentChecked" :loading="loading" @click="runPreview">生成预览</el-button>
+        <el-input v-model="form.region" clearable :placeholder="copy.inputRegionPlaceholder" :aria-label="copy.inputRegionAriaLabel" />
+        <el-input v-model="form.policyVersion" clearable :placeholder="copy.inputPolicyVersionPlaceholder" :aria-label="copy.inputPolicyVersionAriaLabel" />
+        <el-input v-model="form.dictionaryId" clearable :placeholder="copy.inputDictionaryIdPlaceholder" :aria-label="copy.inputDictionaryIdAriaLabel" />
+        <el-input-number v-model="form.limit" :min="1" :max="200" controls-position="right" :aria-label="copy.inputLimitAriaLabel" />
+        <el-button type="primary" :icon="DocumentChecked" :loading="loading" @click="runPreview">{{ copy.generatePreviewCta }}</el-button>
       </div>
 
       <div v-if="preview" class="grid gap-3 md:grid-cols-4">
@@ -24,8 +24,8 @@
 
       <div v-if="preview" class="blog-scroll-x-safe moderation-replay-table-scroll">
         <el-table v-loading="loading" :data="preview.items" row-key="commentId">
-          <el-table-column label="评论" width="110" prop="commentId" />
-          <el-table-column label="策略版本" min-width="240">
+          <el-table-column :label="copy.columnComment" width="110" prop="commentId" />
+          <el-table-column :label="copy.columnPolicyVersion" min-width="240">
             <template #default="{ row }: { row: ModerationReplayPreviewItemResponse }">
               <div class="text-xs text-[var(--fsusblog-text-secondary)]">
                 <div>{{ row.previousPolicyVersion }}</div>
@@ -33,46 +33,46 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="拦截地区" min-width="220">
+          <el-table-column :label="copy.columnBlockedRegions" min-width="220">
             <template #default="{ row }: { row: ModerationReplayPreviewItemResponse }">
               <div class="flex flex-wrap gap-1">
                 <el-tag v-for="region in row.addedBlockedRegions" :key="`add-${region}`" size="small" type="danger">+ {{ region }}</el-tag>
                 <el-tag v-for="region in row.removedBlockedRegions" :key="`remove-${region}`" size="small" type="info">- {{ region }}</el-tag>
-                <span v-if="row.addedBlockedRegions.length + row.removedBlockedRegions.length === 0">-</span>
+                <span v-if="row.addedBlockedRegions.length + row.removedBlockedRegions.length === 0">{{ copy.blockedRegionsEmpty }}</span>
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="风险标签" min-width="220">
+          <el-table-column :label="copy.columnRiskLabels" min-width="220">
             <template #default="{ row }: { row: ModerationReplayPreviewItemResponse }">
               <div class="flex flex-wrap gap-1">
                 <el-tag v-for="label in row.addedRiskLabels" :key="`add-${label}`" size="small" type="warning">+ {{ label }}</el-tag>
                 <el-tag v-for="label in row.removedRiskLabels" :key="`remove-${label}`" size="small" type="info">- {{ label }}</el-tag>
-                <span v-if="row.addedRiskLabels.length + row.removedRiskLabels.length === 0">-</span>
+                <span v-if="row.addedRiskLabels.length + row.removedRiskLabels.length === 0">{{ copy.riskLabelsEmpty }}</span>
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="可见性" width="140">
+          <el-table-column :label="copy.columnVisibility" width="140">
             <template #default="{ row }: { row: ModerationReplayPreviewItemResponse }">
-              <el-tag :type="row.publicVisibilityChanged ? 'warning' : 'info'">{{ row.publicVisibilityChanged ? '已变化' : '未变化' }}</el-tag>
+              <el-tag :type="row.publicVisibilityChanged ? 'warning' : 'info'">{{ row.publicVisibilityChanged ? copy.visibilityChanged : copy.visibilityUnchanged }}</el-tag>
             </template>
           </el-table-column>
           <template #empty>
             <AdminInlineEmptyState
-              title="预览暂无差异"
-              description="当前参数没有命中需要比较的评论，调整地区、策略版本或扫描数量后可重新生成预览。"
+              :title="copy.emptyPreviewTitle"
+              :description="copy.emptyPreviewDescription"
             />
           </template>
         </el-table>
       </div>
       <AdminInlineEmptyState
         v-else
-        title="尚未生成回放预览"
-        description="填写地区、上一版策略号或词库 ID 后，先生成预览再进入后续执行流程。"
+        :title="copy.notGeneratedTitle"
+        :description="copy.notGeneratedDescription"
       />
     </section>
 
     <section class="border-l-4 border-[var(--fsusblog-color-warning)] bg-[var(--fsusblog-page-bg)] px-5 py-4 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
-      回放执行当前不提供直接按钮。执行流程必须基于上方预览，完成 admin passkey step-up、确认短语、高价值审计、可中断进度与失败重试后才能进入执行。
+      {{ copy.executionNotice }}
     </section>
   </div>
 </template>
@@ -87,6 +87,9 @@ import {
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { DocumentChecked } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
+import { FSUSBLOG_ADMIN_COPY } from '@/copy'
+
+const copy = FSUSBLOG_ADMIN_COPY.moderationReplay
 
 const loading = shallowRef(false)
 const preview = shallowRef<ModerationReplayPreviewResponse | null>(null)
@@ -100,14 +103,14 @@ const form = reactive({
 const metrics = computed(() => {
   if (!preview.value) return []
   return [
-    { label: '扫描评论', value: preview.value.scannedCount },
-    { label: '受影响评论', value: preview.value.affectedCommentCount },
-    { label: '可见性变化', value: preview.value.publicVisibilityChangedCount },
-    { label: '高风险变更', value: preview.value.highRiskChangeCount },
-    { label: '新增拦截地区', value: preview.value.addedBlockedRegionCount },
-    { label: '移除拦截地区', value: preview.value.removedBlockedRegionCount },
-    { label: '新增风险标签', value: preview.value.addedRiskLabelCount },
-    { label: '移除风险标签', value: preview.value.removedRiskLabelCount }
+    { label: copy.metricScanned, value: preview.value.scannedCount },
+    { label: copy.metricAffected, value: preview.value.affectedCommentCount },
+    { label: copy.metricVisibilityChanged, value: preview.value.publicVisibilityChangedCount },
+    { label: copy.metricHighRiskChanged, value: preview.value.highRiskChangeCount },
+    { label: copy.metricAddedRegions, value: preview.value.addedBlockedRegionCount },
+    { label: copy.metricRemovedRegions, value: preview.value.removedBlockedRegionCount },
+    { label: copy.metricAddedRiskLabels, value: preview.value.addedRiskLabelCount },
+    { label: copy.metricRemovedRiskLabels, value: preview.value.removedRiskLabelCount }
   ]
 })
 
@@ -121,7 +124,7 @@ const runPreview = async (): Promise<void> => {
       limit: form.limit
     })
   } catch (error) {
-    showErrorToast(error, '策略回放预览失败')
+    showErrorToast(error, copy.errorToastFallback)
   } finally {
     loading.value = false
   }

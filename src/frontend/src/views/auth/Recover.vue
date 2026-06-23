@@ -6,12 +6,12 @@
           id="recover-title"
           class="text-3xl font-extrabold leading-tight text-[var(--fsusblog-text-primary)] sm:text-4xl"
         >
-          恢复访问
+          {{ copy.title }}
         </h1>
         <p
           class="mt-3 max-w-sm text-sm leading-7 text-[var(--fsusblog-text-secondary)]"
         >
-          验证 Recovery Key 后，绑定新的通行密钥继续使用账号。
+          {{ copy.description }}
         </p>
       </header>
 
@@ -25,11 +25,10 @@
               id="recovery-key-title"
               class="text-sm font-semibold text-[var(--fsusblog-text-primary)]"
             >
-              Recovery Key
+              {{ copy.sectionTitle }}
             </h2>
             <p class="mt-2 text-xs leading-6 text-[var(--fsusblog-text-muted)]">
-              Recovery Key 是账号恢复凭据，不是 TOTP
-              恢复码。验证后可绑定新的通行密钥。
+              {{ copy.sectionHint }}
             </p>
           </div>
 
@@ -38,7 +37,7 @@
               for="recovery-key"
               class="mb-2 block text-xs font-semibold text-[var(--fsusblog-text-secondary)]"
             >
-              Recovery Key
+              {{ copy.keyLabel }}
             </label>
             <el-input
               id="recovery-key"
@@ -46,7 +45,7 @@
               name="recoveryKey"
               type="textarea"
               :rows="3"
-              placeholder="粘贴以 frk_ 开头的 Recovery Key"
+              :placeholder="copy.keyPlaceholder"
               autocomplete="off"
               aria-required="true"
               :aria-invalid="Boolean(recoveryKeyError)"
@@ -57,7 +56,7 @@
               id="recovery-key-help"
               class="mt-2 text-xs leading-6 text-[var(--fsusblog-text-muted)]"
             >
-              若 Recovery Key 丢失且没有可用通行密钥，账号可能无法恢复。
+              {{ copy.keyHelp }}
             </p>
           </div>
 
@@ -66,7 +65,7 @@
             v-model="recoveryRevokePasskeys"
             :disabled="recoveryKeyLoading"
           >
-            恢复后撤销旧通行密钥
+            {{ copy.revokePasskeys }}
           </el-checkbox>
 
           <div
@@ -85,8 +84,7 @@
             aria-live="polite"
             class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg-soft)] px-4 py-3 text-xs leading-6 text-[var(--fsusblog-text-secondary)]"
           >
-            Recovery Key 已验证，恢复会话有效至
-            {{ recoverySessionExpiresAt }}。请继续绑定新的通行密钥。
+            {{ sessionReadyText }}
           </div>
 
           <div class="grid gap-3 pt-1">
@@ -96,14 +94,14 @@
               :loading="recoveryKeyLoading"
               @click="handleRecoveryKeyVerify"
             >
-              验证 Recovery Key
+              {{ copy.verifyCta }}
             </el-button>
             <el-button
               v-if="recoverySessionToken"
               :disabled="recoveryKeyLoading"
               @click="recoveryPasskeyVisible = true"
             >
-              绑定新的通行密钥
+              {{ copy.bindNewPasskeyCta }}
             </el-button>
           </div>
         </section>
@@ -117,14 +115,14 @@
           class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none"
           :class="focusRingClass"
         >
-          返回登录
+          {{ copy.returnLoginLink }}
         </router-link>
         <router-link
           to="/"
           class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none"
           :class="focusRingClass"
         >
-          取消
+          {{ copy.cancelLink }}
         </router-link>
       </footer>
     </section>
@@ -143,7 +141,9 @@ import { verifyRecoveryKey } from '@/api/auth'
 import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import { toAppError } from '@/utils/appError'
+import { FSUSBLOG_AUTH_COPY } from '@/copy'
 
+const copy = FSUSBLOG_AUTH_COPY.recover
 const focusRingClass = themeTokens.focusRing
 const recoveryKeyInput = ref('')
 const recoveryRevokePasskeys = ref(true)
@@ -152,6 +152,10 @@ const recoveryKeyError = ref('')
 const recoverySessionToken = ref('')
 const recoverySessionExpiresAt = ref('')
 const recoveryPasskeyVisible = ref(false)
+
+const sessionReadyText = computed(() =>
+  copy.sessionReadyHint.replace('{expiresAt}', recoverySessionExpiresAt.value)
+)
 
 const canVerifyRecoveryKey = computed(
   () =>
@@ -182,8 +186,8 @@ const handleRecoveryKeyVerify = async (): Promise<void> => {
     ).toLocaleString()
   } catch (error) {
     recoveryKeyError.value =
-      toAppError(error, 'Recovery Key 验证失败，请检查后重试').message ||
-      'Recovery Key 验证失败，请检查后重试'
+      toAppError(error, copy.verifyFailedFallback).message ||
+      copy.verifyFailedFallback
   } finally {
     recoveryKeyLoading.value = false
   }
