@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Konscious.Security.Cryptography;
@@ -273,7 +274,7 @@ public sealed class TotpService : ITotpService
             (hash[offset + 2] << 8) |
             hash[offset + 3];
         int otp = binary % 1_000_000;
-        return otp.ToString("D6");
+        return otp.ToString("D6", CultureInfo.InvariantCulture);
     }
 
     private static string SanitizeTotpCode(string code)

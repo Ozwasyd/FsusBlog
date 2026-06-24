@@ -1,6 +1,9 @@
+using System.Globalization;
+using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.DataProtection;
-using System.Security.Cryptography;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -20,6 +23,29 @@ public class TotpServiceTests
             ? TotpService.RecoveryCodeHashPolicy.Production
             : new TotpService.RecoveryCodeHashPolicy(1024, 1, 1);
         return new TotpService(provider, timeProvider, hashPolicy);
+    }
+
+    private static string InvokeComputeTotp(byte[] secret, long timestep)
+    {
+        MethodInfo method = typeof(TotpService).GetMethod("ComputeTotp", BindingFlags.NonPublic | BindingFlags.Static)!;
+        return (string)method.Invoke(null, [secret, timestep])!;
+    }
+
+    private static T RunWithCulture<T>(CultureInfo culture, Func<T> action)
+    {
+        CultureInfo previousCulture = CultureInfo.CurrentCulture;
+        CultureInfo previousUiCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentCulture = culture;
+            CultureInfo.CurrentUICulture = culture;
+            return action();
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+            CultureInfo.CurrentUICulture = previousUiCulture;
+        }
     }
 
     // ── GenerateSecret ────────────────────────────────────────────────────────
@@ -209,6 +235,53 @@ public class TotpServiceTests
         // Non-digit code results in empty after filtering
         var result = svc.VerifyCode("JBSWY3DPEHPK3PXP", "abcdef");
         Assert.False(result);
+    }
+
+    [Fact]
+    public void ComputeTotp_FormatsAsciiDigitsAcrossCultures()
+    {
+        byte[] secret = Encoding.ASCII.GetBytes("12345678901234567890");
+        CultureInfo[] cultures =
+        [
+            CultureInfo.InvariantCulture,
+            CultureInfo.GetCultureInfo("en-US"),
+            CultureInfo.GetCultureInfo("fa-IR"),
+            CultureInfo.GetCultureInfo("ar-SA"),
+            CultureInfo.GetCultureInfo("th-TH")
+        ];
+
+        foreach (CultureInfo culture in cultures)
+        {
+            string code = RunWithCulture(culture, () => InvokeComputeTotp(secret, timestep: 1));
+
+            Assert.Matches("^[0-9]{6}$", code);
+        }
+    }
+
+    [Fact]
+    public void VerifyCode_FaIrCultureAcceptsAsciiTotpCode()
+    {
+        const string secretBase32 = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+        byte[] secret = Encoding.ASCII.GetBytes("12345678901234567890");
+        long currentStep = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 30;
+        string asciiCode = RunWithCulture(
+            CultureInfo.InvariantCulture,
+            () => InvokeComputeTotp(secret, currentStep));
+        var svc = MakeService();
+
+        bool accepted = RunWithCulture(
+            CultureInfo.GetCultureInfo("fa-IR"),
+            () => svc.VerifyCode(secretBase32, asciiCode));
+
+        Assert.True(accepted);
+    }
+
+    [Fact]
+    public void TotpService_SourceUsesInvariantCultureForOtpFormatting()
+    {
+        string source = FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/TotpService.cs");
+
+        Assert.Contains("otp.ToString(\"D6\", CultureInfo.InvariantCulture)", source, StringComparison.Ordinal);
     }
 
     // ── GenerateRecoveryCodes ─────────────────────────────────────────────────
