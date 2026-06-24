@@ -84,12 +84,25 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
-    public async Task RemoveManyAsync_DeletesL1RedisKeysAndRegistryMembersInBatches()
+    public async Task RemoveManyAsync_DeletesRedisKeysAndRegistryMembersAtomically()
     {
         using var memory = new MemoryCache(new MemoryCacheOptions());
         var db = Substitute.For<IDatabase>();
-        db.KeyDeleteAsync(Arg.Any<RedisKey[]>(), Arg.Any<CommandFlags>()).Returns(Task.FromResult(2L));
-        db.SetRemoveAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue[]>(), Arg.Any<CommandFlags>()).Returns(Task.FromResult(2L));
+        string? capturedScript = null;
+        RedisKey[]? capturedKeys = null;
+        RedisValue[]? capturedValues = null;
+        db.ScriptEvaluateAsync(
+                Arg.Any<string>(),
+                Arg.Any<RedisKey[]>(),
+                Arg.Any<RedisValue[]>(),
+                Arg.Any<CommandFlags>())
+            .Returns(call =>
+            {
+                capturedScript = call.ArgAt<string>(0);
+                capturedKeys = call.ArgAt<RedisKey[]>(1);
+                capturedValues = call.ArgAt<RedisValue[]>(2);
+                return Task.FromResult(RedisResult.Create((RedisValue)2L));
+            });
         UnifiedCache cache = CreateCache(memory, db);
         string firstKey = cache.BuildKey(CachePolicyId.CommentCursor, "article:42:root:1");
         string secondKey = cache.BuildKey(CachePolicyId.CommentCursor, "article:42:page:1");
@@ -104,13 +117,30 @@ public sealed class UnifiedCacheTests
 
         Assert.False(memory.TryGetValue(firstKey, out _));
         Assert.False(memory.TryGetValue(secondKey, out _));
-        await db.Received(1).KeyDeleteAsync(
-            Arg.Is<RedisKey[]>(keys => ContainsAll(keys, firstKey, secondKey)),
-            Arg.Any<CommandFlags>());
-        await db.Received(1).SetRemoveAsync(
-            Arg.Is<RedisKey>(key => key.ToString() == UnifiedCache.BuildRegistryKeyForTests(CachePolicyId.CommentCursor)),
-            Arg.Is<RedisValue[]>(values => ContainsAll(values, firstKey, secondKey)),
-            Arg.Any<CommandFlags>());
+        Assert.NotNull(capturedScript);
+        Assert.Contains("redis.call('DEL'", capturedScript, StringComparison.Ordinal);
+        Assert.Contains("redis.call('SREM'", capturedScript, StringComparison.Ordinal);
+        Assert.NotNull(capturedKeys);
+        Assert.Equal(UnifiedCache.BuildRegistryKeyForTests(CachePolicyId.CommentCursor), capturedKeys[0].ToString());
+        Assert.True(ContainsAll(capturedKeys, firstKey, secondKey));
+        Assert.NotNull(capturedValues);
+        Assert.Empty(capturedValues);
+        await db.DidNotReceive().KeyDeleteAsync(Arg.Any<RedisKey[]>(), Arg.Any<CommandFlags>());
+        await db.DidNotReceive().SetRemoveAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue[]>(), Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
+    public void RemoveManyAsync_SourceUsesSingleLuaScriptForDeleteAndRegistryRemoval()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Cache/IUnifiedCache.cs"));
+        string method = ExtractMethodBlock(source, "public async Task RemoveManyAsync");
+        string helper = ExtractMethodBlock(source, "private async Task<int> DeleteKeysAndRegistryMembersAtomicAsync");
+
+        Assert.Contains("DeleteKeysAndRegistryMembersAtomicAsync", method, StringComparison.Ordinal);
+        Assert.Contains("ScriptEvaluateAsync", helper, StringComparison.Ordinal);
+        Assert.Contains("DeleteKeysAndRegistryMembersScript", helper, StringComparison.Ordinal);
+        Assert.DoesNotContain("KeyDeleteAsync(redisKeys.ToArray())", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("SetRemoveAsync(ResolveRegistryKey(policyId), members.ToArray())", method, StringComparison.Ordinal);
     }
 
     [Fact]

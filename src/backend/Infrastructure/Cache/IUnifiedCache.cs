@@ -59,6 +59,13 @@ public sealed class UnifiedCache(
     private static readonly TimeSpan MissingPolicyL2Ttl = TimeSpan.FromMinutes(5);
     private const string RegistryKeyPrefix = "cache:registry:";
     private const int PrefixInvalidationBatchSize = 256;
+    private const string DeleteKeysAndRegistryMembersScript = """
+        for i = 2, #KEYS do
+            redis.call('DEL', KEYS[i])
+            redis.call('SREM', KEYS[1], KEYS[i])
+        end
+        return #KEYS - 1
+        """;
 
     private readonly IConnectionMultiplexer _redis = redis;
     private readonly IDatabase _db = redis.GetDatabase();
@@ -438,7 +445,7 @@ return current
         FsusObservability.SetTag(activity, "fsus.cache.operation", "remove_many");
         FsusObservability.SetTag(activity, "fsus.cache.policy", "mixed");
 
-        var redisKeys = new List<RedisKey>(keys.Count);
+        var unregisteredRedisKeys = new List<RedisKey>(keys.Count);
         var registryMembersByPolicy = new Dictionary<CachePolicyId, List<RedisValue>>();
         var seenKeys = new HashSet<string>(StringComparer.Ordinal);
         foreach (CacheKeyIdentity identity in keys)
@@ -452,7 +459,6 @@ return current
             }
 
             memoryCache.Remove(key);
-            redisKeys.Add(key);
             if (policy.RegisterKeysForPrefixInvalidation)
             {
                 if (!registryMembersByPolicy.TryGetValue(identity.PolicyId, out List<RedisValue>? members))
@@ -462,13 +468,16 @@ return current
                 }
 
                 members.Add(key);
+                continue;
             }
+
+            unregisteredRedisKeys.Add(key);
         }
 
         int redisBatches = 0;
-        if (redisKeys.Count > 0)
+        if (unregisteredRedisKeys.Count > 0)
         {
-            await _db.KeyDeleteAsync(redisKeys.ToArray()).ConfigureAwait(false);
+            await _db.KeyDeleteAsync(unregisteredRedisKeys.ToArray()).ConfigureAwait(false);
             redisBatches++;
         }
 
@@ -480,13 +489,41 @@ return current
                 continue;
             }
 
-            await _db.SetRemoveAsync(ResolveRegistryKey(policyId), members.ToArray()).ConfigureAwait(false);
-            redisBatches++;
+            redisBatches += await DeleteKeysAndRegistryMembersAtomicAsync(policyId, members, cancellationToken).ConfigureAwait(false);
         }
 
         TimeSpan elapsed = FsusObservability.GetElapsed(startedAt);
         FsusObservability.RecordCacheOperation("remove_many", "mixed", "l2", "ok", elapsed);
-        FsusObservability.RecordCacheRemoveMany(redisKeys.Count, redisBatches, elapsed);
+        FsusObservability.RecordCacheRemoveMany(seenKeys.Count, redisBatches, elapsed);
+    }
+
+    private async Task<int> DeleteKeysAndRegistryMembersAtomicAsync(
+        CachePolicyId policyId,
+        List<RedisValue> members,
+        CancellationToken cancellationToken)
+    {
+        string registryKey = ResolveRegistryKey(policyId);
+        int batches = 0;
+        for (int offset = 0; offset < members.Count; offset += PrefixInvalidationBatchSize)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int take = Math.Min(PrefixInvalidationBatchSize, members.Count - offset);
+            RedisKey[] scriptKeys = new RedisKey[take + 1];
+            scriptKeys[0] = registryKey;
+            for (int i = 0; i < take; i++)
+            {
+                scriptKeys[i + 1] = members[offset + i].ToString();
+            }
+
+            await _db.ScriptEvaluateAsync(
+                    DeleteKeysAndRegistryMembersScript,
+                    scriptKeys,
+                    Array.Empty<RedisValue>())
+                .ConfigureAwait(false);
+            batches++;
+        }
+
+        return batches;
     }
 
     public async Task RemoveByPrefixAsync(CachePolicyId policyId, string identityPrefix, CancellationToken cancellationToken = default)
