@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
 using Microsoft.Extensions.Primitives;
 using StackExchange.Redis;
@@ -248,6 +249,7 @@ public static class ProductionStartupValidator
         ValidateFido2Settings(fido2ServerDomain, fido2Origins, seoBaseUrl, corsOrigins, enforceProductionRules, errors);
         ValidateAuthCookieSettings(configuration, enforceProductionRules, errors);
         ValidateAnonymousIdentityMode(anonymousIdentityMode, enforceProductionRules, errors);
+        ValidateAntiSpamHttpJsonProvider(configuration, enforceProductionRules, errors);
         ValidateZkProdSettings(configuration, enforceProductionRules, zkProdReadiness ?? ZkProdRuntimeReadiness.Missing, errors);
 
         return new ProductionStartupValidationReport(SchemaVersion, enforceProductionRules, requirements, errors);
@@ -476,6 +478,41 @@ public static class ProductionStartupValidator
             {
                 errors.Add($"ReverseProxy:KnownNetworks contains an invalid or unsafe CIDR: {knownNetwork}");
             }
+        }
+    }
+
+    private static void ValidateAntiSpamHttpJsonProvider(IConfiguration configuration, bool enforceProductionRules, List<string> errors)
+    {
+        if (!enforceProductionRules)
+        {
+            return;
+        }
+
+        bool enabled = configuration.GetValue<bool>("Moderation:AntiSpamModel:Enabled");
+        string? provider = configuration["Moderation:AntiSpamModel:Provider"];
+        bool isHttpJsonProvider = string.Equals(provider, "http-json", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(provider, "http", StringComparison.OrdinalIgnoreCase);
+        if (!enabled || !isHttpJsonProvider)
+        {
+            return;
+        }
+
+        bool externalAllowed = configuration.GetValue<bool>("Moderation:AntiSpamModel:AllowExternalProvider");
+        bool externalReviewed = configuration.GetValue<bool>("Moderation:AntiSpamModel:ExternalProviderReviewed");
+        if (!externalAllowed || !externalReviewed)
+        {
+            return;
+        }
+
+        const string endpointKey = "Moderation:AntiSpamModel:Providers:http-json:Endpoint";
+        const string allowlistKey = "Moderation:AntiSpamModel:Providers:http-json:AllowedHosts";
+        AntiSpamModerationService.AntiSpamProviderEndpointValidation validation =
+            AntiSpamModerationService.ValidateHttpJsonProviderEndpointConfiguration(
+                configuration[endpointKey],
+                configuration[allowlistKey]);
+        if (!validation.Allowed)
+        {
+            errors.Add($"{endpointKey} is not allowed for reviewed http-json anti-spam provider: {validation.Reason}.");
         }
     }
 

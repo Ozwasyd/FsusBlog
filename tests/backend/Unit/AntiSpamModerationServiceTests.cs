@@ -6,6 +6,51 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class AntiSpamModerationServiceTests
 {
+    [Theory]
+    [InlineData("http://moderation.example.com/v1/score", "moderation.example.com", "https_required")]
+    [InlineData("file:///etc/passwd", "moderation.example.com", "absolute_https_endpoint_required")]
+    [InlineData("https://moderation.example.com/v1/score", "other.example.com", "host_not_allowlisted")]
+    [InlineData("https://127.0.0.1/v1/score", "127.0.0.1", "private_or_reserved_address")]
+    [InlineData("https://169.254.169.254/latest/meta-data/", "169.254.169.254", "private_or_reserved_address")]
+    [InlineData("https://10.0.0.5/v1/score", "10.0.0.5", "private_or_reserved_address")]
+    public void ValidateHttpJsonProviderEndpointConfiguration_RejectsUnsafeEndpoint(
+        string endpoint,
+        string allowedHosts,
+        string expectedReason)
+    {
+        var result = AntiSpamModerationService.ValidateHttpJsonProviderEndpointConfiguration(endpoint, allowedHosts);
+
+        Assert.False(result.Allowed);
+        Assert.Equal(expectedReason, result.Reason);
+    }
+
+    [Fact]
+    public void ValidateHttpJsonProviderEndpointConfiguration_AcceptsHttpsAllowlistedPublicEndpoint()
+    {
+        var result = AntiSpamModerationService.ValidateHttpJsonProviderEndpointConfiguration(
+            "https://8.8.8.8/v1/moderation/score",
+            "8.8.8.8;moderation.example.com");
+
+        Assert.True(result.Allowed);
+        Assert.Equal("8.8.8.8", result.Uri?.Host);
+    }
+
+    [Fact]
+    public void ScoreHttpJsonAsync_SourceValidatesEndpointBeforePosting()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Moderation/AntiSpamModerationService.cs");
+        string method = source[
+            source.IndexOf("private async Task<AntiSpamModerationResult> ScoreHttpJsonAsync", StringComparison.Ordinal)..
+            source.IndexOf("public static AntiSpamModerationResult ValidateProviderResultJson", StringComparison.Ordinal)];
+
+        Assert.Contains("ValidateHttpJsonEndpointAsync", method, StringComparison.Ordinal);
+        Assert.Contains("validatedEndpoint.Uri!", method, StringComparison.Ordinal);
+        Assert.True(
+            method.IndexOf("ValidateHttpJsonEndpointAsync", StringComparison.Ordinal) <
+            method.IndexOf("PostAsJsonAsync", StringComparison.Ordinal));
+        Assert.DoesNotContain("PostAsJsonAsync(endpoint", method, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void ValidateProviderResultJson_RejectsFinalActionFields()
     {

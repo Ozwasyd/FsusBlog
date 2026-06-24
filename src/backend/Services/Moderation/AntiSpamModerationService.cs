@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -20,6 +21,7 @@ public sealed class AntiSpamModerationService(
     IModerationRuntimeStateService? runtimeState = null) : IAntiSpamModerationService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private const string HttpJsonAllowedHostsKey = "Moderation:AntiSpamModel:Providers:http-json:AllowedHosts";
 
     private static readonly HashSet<string> AllowedCategories = new(StringComparer.Ordinal)
     {
@@ -330,6 +332,15 @@ public sealed class AntiSpamModerationService(
             return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, "http_endpoint_missing", AntiSpamModerationStatuses.Unavailable, TimeSpan.Zero, runtimeModel);
         }
 
+        AntiSpamProviderEndpointValidation validatedEndpoint = await ValidateHttpJsonEndpointAsync(
+            endpoint,
+            configuration[HttpJsonAllowedHostsKey],
+            cancellationToken).ConfigureAwait(false);
+        if (!validatedEndpoint.Allowed)
+        {
+            return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, $"http_endpoint_{validatedEndpoint.Reason}", AntiSpamModerationStatuses.Unavailable, TimeSpan.Zero, runtimeModel);
+        }
+
         string contractVersion = ResolveContractVersion(runtimeModel);
         var payload = new
         {
@@ -346,7 +357,7 @@ public sealed class AntiSpamModerationService(
         ValidateProviderRequestJson(JsonSerializer.Serialize(payload, JsonOptions));
         Stopwatch stopwatch = Stopwatch.StartNew();
         using HttpClient client = httpClientFactory.CreateClient(nameof(AntiSpamModerationService));
-        using HttpResponseMessage response = await client.PostAsJsonAsync(endpoint, payload, JsonOptions, cancellationToken).ConfigureAwait(false);
+        using HttpResponseMessage response = await client.PostAsJsonAsync(validatedEndpoint.Uri!, payload, JsonOptions, cancellationToken).ConfigureAwait(false);
         string json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         stopwatch.Stop();
         if (!response.IsSuccessStatusCode)
@@ -363,6 +374,163 @@ public sealed class AntiSpamModerationService(
             logger.LogWarning(ex, "anti-spam provider contract invalid");
             return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, "provider_contract_invalid", AntiSpamModerationStatuses.ContractInvalid, stopwatch.Elapsed, runtimeModel);
         }
+    }
+
+    public static AntiSpamProviderEndpointValidation ValidateHttpJsonProviderEndpointConfiguration(string? endpoint, string? allowedHosts)
+    {
+        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out Uri? uri) || string.IsNullOrWhiteSpace(uri.Host))
+        {
+            return AntiSpamProviderEndpointValidation.Deny("absolute_https_endpoint_required");
+        }
+
+        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+                ? AntiSpamProviderEndpointValidation.Deny("https_required")
+                : AntiSpamProviderEndpointValidation.Deny("absolute_https_endpoint_required");
+        }
+
+        if (!string.IsNullOrEmpty(uri.UserInfo))
+        {
+            return AntiSpamProviderEndpointValidation.Deny("endpoint_userinfo_not_allowed");
+        }
+
+        if (!TryBuildAllowedProviderHostSet(allowedHosts, out HashSet<string>? hostSet) || hostSet is null)
+        {
+            return AntiSpamProviderEndpointValidation.Deny("host_allowlist_missing");
+        }
+
+        string host = NormalizeProviderHost(uri.Host);
+        if (!hostSet.Contains(host))
+        {
+            return AntiSpamProviderEndpointValidation.Deny("host_not_allowlisted", uri);
+        }
+
+        if (IPAddress.TryParse(host, out IPAddress? literalAddress) && IsPrivateOrReservedProviderAddress(literalAddress))
+        {
+            return AntiSpamProviderEndpointValidation.Deny("private_or_reserved_address", uri);
+        }
+
+        return AntiSpamProviderEndpointValidation.Allow(uri);
+    }
+
+    private static async Task<AntiSpamProviderEndpointValidation> ValidateHttpJsonEndpointAsync(
+        string endpoint,
+        string? allowedHosts,
+        CancellationToken cancellationToken)
+    {
+        AntiSpamProviderEndpointValidation configurationValidation = ValidateHttpJsonProviderEndpointConfiguration(endpoint, allowedHosts);
+        if (!configurationValidation.Allowed || configurationValidation.Uri is not { } uri)
+        {
+            return configurationValidation;
+        }
+
+        if (IPAddress.TryParse(uri.Host, out _))
+        {
+            return configurationValidation;
+        }
+
+        IPAddress[] addresses;
+        try
+        {
+            addresses = await Dns.GetHostAddressesAsync(uri.IdnHost, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return AntiSpamProviderEndpointValidation.Deny("dns_resolution_failed", uri);
+        }
+
+        if (addresses.Length == 0)
+        {
+            return AntiSpamProviderEndpointValidation.Deny("dns_resolution_failed", uri);
+        }
+
+        return addresses.Any(IsPrivateOrReservedProviderAddress)
+            ? AntiSpamProviderEndpointValidation.Deny("private_or_reserved_address", uri)
+            : configurationValidation;
+    }
+
+    private static bool TryBuildAllowedProviderHostSet(string? allowedHosts, out HashSet<string>? hostSet)
+    {
+        hostSet = null;
+        if (string.IsNullOrWhiteSpace(allowedHosts))
+        {
+            return false;
+        }
+
+        string[] hosts = allowedHosts
+            .Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(NormalizeProviderHost)
+            .Where(static host => host.Length > 0 && host != "*")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (hosts.Length == 0)
+        {
+            return false;
+        }
+
+        hostSet = hosts.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return true;
+    }
+
+    private static string NormalizeProviderHost(string host)
+        => host.Trim().TrimEnd('.').ToLowerInvariant();
+
+    private static bool IsPrivateOrReservedProviderAddress(IPAddress address)
+    {
+        if (address.IsIPv4MappedToIPv6)
+        {
+            address = address.MapToIPv4();
+        }
+
+        if (IPAddress.IsLoopback(address)
+            || IPAddress.Any.Equals(address)
+            || IPAddress.None.Equals(address)
+            || IPAddress.IPv6Any.Equals(address)
+            || IPAddress.IPv6None.Equals(address))
+        {
+            return true;
+        }
+
+        byte[] bytes = address.GetAddressBytes();
+        if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+        {
+            byte first = bytes[0];
+            byte second = bytes[1];
+            return first == 0
+                || first == 10
+                || first == 127
+                || (first == 100 && second is >= 64 and <= 127)
+                || (first == 169 && second == 254)
+                || (first == 172 && second is >= 16 and <= 31)
+                || (first == 192 && second == 168)
+                || (first == 192 && second == 0)
+                || (first == 192 && second == 2)
+                || (first == 198 && second is 18 or 19)
+                || (first == 198 && second == 51 && bytes[2] == 100)
+                || (first == 203 && second == 0 && bytes[2] == 113)
+                || first >= 224;
+        }
+
+        if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+        {
+            return address.Equals(IPAddress.IPv6Loopback)
+                || bytes[0] == 0
+                || (bytes[0] & 0xfe) == 0xfc
+                || (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80)
+                || bytes[0] == 0xff;
+        }
+
+        return true;
+    }
+
+    public sealed record AntiSpamProviderEndpointValidation(bool Allowed, string Reason, Uri? Uri)
+    {
+        public static AntiSpamProviderEndpointValidation Allow(Uri uri)
+            => new(true, "ok", uri);
+
+        public static AntiSpamProviderEndpointValidation Deny(string reason, Uri? uri = null)
+            => new(false, reason, uri);
     }
 
     public static AntiSpamModerationResult ValidateProviderResultJson(

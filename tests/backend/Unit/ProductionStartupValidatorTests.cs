@@ -48,6 +48,45 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    public void ValidateCore_RejectsReviewedHttpJsonAntiSpamEndpointWithoutSafeAllowlist()
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            ["Moderation:Pepper"] = "production-moderation-pepper-with-at-least-thirty-two-chars",
+            ["Moderation:AntiSpamModel:Enabled"] = "true",
+            ["Moderation:AntiSpamModel:Provider"] = "http-json",
+            ["Moderation:AntiSpamModel:AllowExternalProvider"] = "true",
+            ["Moderation:AntiSpamModel:ExternalProviderReviewed"] = "true",
+            ["Moderation:AntiSpamModel:Providers:http-json:Endpoint"] = "https://169.254.169.254/latest/meta-data/",
+            ["Moderation:AntiSpamModel:Providers:http-json:AllowedHosts"] = "169.254.169.254"
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.Contains(errors, static error => error.Contains("Moderation:AntiSpamModel:Providers:http-json:Endpoint", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("private_or_reserved_address", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ValidateCore_AcceptsReviewedHttpJsonAntiSpamEndpointWithSafeAllowlist()
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            ["Moderation:Pepper"] = "production-moderation-pepper-with-at-least-thirty-two-chars",
+            ["Moderation:AntiSpamModel:Enabled"] = "true",
+            ["Moderation:AntiSpamModel:Provider"] = "http-json",
+            ["Moderation:AntiSpamModel:AllowExternalProvider"] = "true",
+            ["Moderation:AntiSpamModel:ExternalProviderReviewed"] = "true",
+            ["Moderation:AntiSpamModel:Providers:http-json:Endpoint"] = "https://8.8.8.8/v1/moderation/score",
+            ["Moderation:AntiSpamModel:Providers:http-json:AllowedHosts"] = "8.8.8.8"
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.DoesNotContain(errors, static error => error.Contains("Moderation:AntiSpamModel:Providers:http-json:Endpoint", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ValidateCore_RejectsProductionDefaultsAndInsecureOrigins()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>
