@@ -336,7 +336,7 @@ public class VisitLogProcessorService : BackgroundService
                         "访问日志已落库但阅读量投影失败，后台 reconciliation worker 将从 visit_log 修复 article.views。");
                 }
 
-                MarkStatsAfterFlush(scope.ServiceProvider, batch);
+                await MarkStatsAfterFlushAsync(scope.ServiceProvider, batch, token).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
@@ -362,15 +362,15 @@ public class VisitLogProcessorService : BackgroundService
         await projectionService.ApplyAsync(batch, token);
     }
 
-    private void MarkStatsAfterFlush(IServiceProvider scopedServices, List<VisitLogEntity> batch)
+    private async Task MarkStatsAfterFlushAsync(IServiceProvider scopedServices, List<VisitLogEntity> batch, CancellationToken token)
     {
         try
         {
             var coalescer = scopedServices.GetRequiredService<IHotStatsInvalidationCoalescer>();
-            coalescer.MarkStatsDirty("visit-log-flush");
+            await coalescer.MarkStatsDirtyAsync("visit-log-flush", token).ConfigureAwait(false);
             if (batch.Any(static item => item.EventType == HumanReadEventTypes.ArticleRead))
             {
-                coalescer.MarkHotArticlesDirty("article-read-projection");
+                await coalescer.MarkHotArticlesDirtyAsync("article-read-projection", token).ConfigureAwait(false);
             }
         }
         catch (Exception ex)

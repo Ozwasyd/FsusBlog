@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
 using NSubstitute;
@@ -141,9 +142,47 @@ public sealed class CacheInvalidationDispatcherTests
         Assert.Equal("anonymous-comment-policy:v12", runtimeState.Snapshot().LastDetail);
     }
 
+    [Fact]
+    public async Task RuntimeState_RecordAsync_AggregatesCountsAcrossInstances()
+    {
+        var cache = CreateSharedCounterCache();
+        var first = new CacheInvalidationRuntimeState(cache);
+        var second = new CacheInvalidationRuntimeState(cache);
+
+        await first.RecordAsync("article", "first-node");
+        await second.RecordAsync("article", "second-node");
+
+        CacheInvalidationRuntimeSnapshot snapshot = await first.SnapshotAsync();
+
+        Assert.Equal(2, snapshot.ArticleMutationCount);
+        await cache.Received().IncrementAsync(CachePolicyId.AdminStats, "cache-invalidation:article", 1, Arg.Any<CancellationToken>());
+    }
+
     private static bool HasKey(IReadOnlyList<CacheKeyIdentity> keys, CachePolicyId policyId, string identity)
         => keys.Any(key => key.PolicyId == policyId && key.Identity == identity);
 
     private static bool HasPrefix(IReadOnlyList<CachePrefixIdentity> prefixes, CachePolicyId policyId, string identityPrefix)
         => prefixes.Any(prefix => prefix.PolicyId == policyId && prefix.IdentityPrefix == identityPrefix);
+
+    private static IUnifiedCache CreateSharedCounterCache()
+    {
+        var values = new ConcurrentDictionary<string, long>(StringComparer.Ordinal);
+        var cache = Substitute.For<IUnifiedCache>();
+        cache.IncrementAsync(Arg.Any<CachePolicyId>(), Arg.Any<string>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                string identity = call.ArgAt<string>(1);
+                long value = call.ArgAt<long>(2);
+                return values.AddOrUpdate(identity, value, (_, current) => current + value);
+            });
+        cache.GetStringAsync(Arg.Any<CachePolicyId>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                string identity = call.ArgAt<string>(1);
+                return values.TryGetValue(identity, out long value)
+                    ? value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    : null;
+            });
+        return cache;
+    }
 }

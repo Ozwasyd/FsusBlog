@@ -50,8 +50,8 @@ public sealed class ArticleViewProjectionService(
                 invalidated);
         }
 
-        hotStatsInvalidation.MarkStatsDirty("article-view-projection");
-        hotStatsInvalidation.MarkHotArticlesDirty("article-view-projection");
+        await hotStatsInvalidation.MarkStatsDirtyAsync("article-view-projection", cancellationToken).ConfigureAwait(false);
+        await hotStatsInvalidation.MarkHotArticlesDirtyAsync("article-view-projection", cancellationToken).ConfigureAwait(false);
 
         if (!publicHotUpdates.TryEnqueue(null, "article-view-projection-batch"))
         {

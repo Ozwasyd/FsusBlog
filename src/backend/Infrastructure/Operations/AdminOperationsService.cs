@@ -163,8 +163,8 @@ public sealed class AdminOperationsService(
             aot,
             search,
             distribution,
-            cacheInvalidationRuntime.Snapshot(),
-            hotStatsInvalidation.Snapshot(),
+            await cacheInvalidationRuntime.SnapshotAsync(cancellationToken),
+            await hotStatsInvalidation.SnapshotAsync(cancellationToken),
             new OutputCacheDiagnosticsResponse(
                 "ok",
                 Enabled: true,

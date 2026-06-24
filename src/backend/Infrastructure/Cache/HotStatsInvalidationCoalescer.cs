@@ -1,10 +1,12 @@
 using FsusBlog.Server.Infrastructure.Observability;
+using System.Globalization;
 
 namespace FsusBlog.Server.Infrastructure.Cache;
 
 public sealed class HotStatsInvalidationCoalescer(
     IServiceScopeFactory scopeFactory,
-    ILogger<HotStatsInvalidationCoalescer> logger) : BackgroundService, IHotStatsInvalidationCoalescer, IHotArticlesCacheVersionPublisher
+    ILogger<HotStatsInvalidationCoalescer> logger,
+    IUnifiedCache? sharedCache = null) : BackgroundService, IHotStatsInvalidationCoalescer, IHotArticlesCacheVersionPublisher
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan HotArticlesDebounce = TimeSpan.FromSeconds(2);
@@ -49,8 +51,9 @@ public sealed class HotStatsInvalidationCoalescer(
     public string BuildVersionedHotArticlesIdentity(string identity)
         => $"v{CurrentHotArticlesVersion}:{identity}";
 
-    public void MarkStatsDirty(string reason)
+    public async Task MarkStatsDirtyAsync(string reason, CancellationToken cancellationToken = default)
     {
+        long? sharedDirtyCount = null;
         lock (_gate)
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -66,11 +69,21 @@ public sealed class HotStatsInvalidationCoalescer(
             };
         }
 
+        sharedDirtyCount = await IncrementSharedCounterAsync("hot-stats:stats:dirty", 1, cancellationToken).ConfigureAwait(false);
+        if (sharedDirtyCount.HasValue)
+        {
+            lock (_gate)
+            {
+                _snapshot = _snapshot with { StatsDirtyCount = Math.Max(_snapshot.StatsDirtyCount, sharedDirtyCount.Value) };
+            }
+        }
+
         FsusObservability.RecordHotStatsInvalidation("stats", "dirty", reason, 1);
     }
 
-    public void MarkHotArticlesDirty(string reason)
+    public async Task MarkHotArticlesDirtyAsync(string reason, CancellationToken cancellationToken = default)
     {
+        long? sharedDirtyCount = null;
         lock (_gate)
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -84,6 +97,15 @@ public sealed class HotStatsInvalidationCoalescer(
                 LastDirtyAt = now,
                 LastDirtyReason = _pendingHotArticlesReason
             };
+        }
+
+        sharedDirtyCount = await IncrementSharedCounterAsync("hot-stats:hot-articles:dirty", 1, cancellationToken).ConfigureAwait(false);
+        if (sharedDirtyCount.HasValue)
+        {
+            lock (_gate)
+            {
+                _snapshot = _snapshot with { HotArticlesDirtyCount = Math.Max(_snapshot.HotArticlesDirtyCount, sharedDirtyCount.Value) };
+            }
         }
 
         FsusObservability.RecordHotStatsInvalidation("hot_articles", "dirty", reason, 1);
@@ -110,6 +132,25 @@ public sealed class HotStatsInvalidationCoalescer(
         {
             return _snapshot;
         }
+    }
+
+    public async Task<HotStatsInvalidationSnapshot> SnapshotAsync(CancellationToken cancellationToken = default)
+    {
+        HotStatsInvalidationSnapshot current = Snapshot();
+        if (sharedCache is null)
+        {
+            return current;
+        }
+
+        return current with
+        {
+            StatsDirtyCount = Math.Max(current.StatsDirtyCount, await ReadSharedCounterAsync("hot-stats:stats:dirty", cancellationToken).ConfigureAwait(false)),
+            StatsFlushCount = Math.Max(current.StatsFlushCount, await ReadSharedCounterAsync("hot-stats:stats:flush", cancellationToken).ConfigureAwait(false)),
+            StatsCoalescedDirtyCount = Math.Max(current.StatsCoalescedDirtyCount, await ReadSharedCounterAsync("hot-stats:stats:coalesced", cancellationToken).ConfigureAwait(false)),
+            HotArticlesDirtyCount = Math.Max(current.HotArticlesDirtyCount, await ReadSharedCounterAsync("hot-stats:hot-articles:dirty", cancellationToken).ConfigureAwait(false)),
+            HotArticlesFlushCount = Math.Max(current.HotArticlesFlushCount, await ReadSharedCounterAsync("hot-stats:hot-articles:flush", cancellationToken).ConfigureAwait(false)),
+            HotArticlesCoalescedDirtyCount = Math.Max(current.HotArticlesCoalescedDirtyCount, await ReadSharedCounterAsync("hot-stats:hot-articles:coalesced", cancellationToken).ConfigureAwait(false))
+        };
     }
 
     public async Task FlushPendingAsync(CancellationToken cancellationToken = default)
@@ -282,6 +323,8 @@ public sealed class HotStatsInvalidationCoalescer(
             };
         }
 
+        await IncrementSharedCounterAsync("hot-stats:stats:flush", 1, cancellationToken).ConfigureAwait(false);
+        await IncrementSharedCounterAsync("hot-stats:stats:coalesced", dirtyCount, cancellationToken).ConfigureAwait(false);
         FsusObservability.RecordHotStatsInvalidation("stats", "flush", reason ?? "unknown", dirtyCount);
     }
 
@@ -292,8 +335,10 @@ public sealed class HotStatsInvalidationCoalescer(
         await httpCacheInvalidator.InvalidateAsync(CacheTag.HotArticles).ConfigureAwait(false);
 
         long version = PublishNextHotArticlesVersion($"hot_articles:{reason ?? "unknown"}");
-        scope.ServiceProvider.GetService<CacheInvalidationRuntimeState>()
-            ?.Record("hot_articles", $"coalesced:v{version};dirty:{dirtyCount};reason:{reason ?? "unknown"}");
+        if (scope.ServiceProvider.GetService<CacheInvalidationRuntimeState>() is { } runtimeState)
+        {
+            await runtimeState.RecordAsync("hot_articles", $"coalesced:v{version};dirty:{dirtyCount};reason:{reason ?? "unknown"}", cancellationToken).ConfigureAwait(false);
+        }
 
         lock (_gate)
         {
@@ -306,8 +351,31 @@ public sealed class HotStatsInvalidationCoalescer(
             };
         }
 
+        await IncrementSharedCounterAsync("hot-stats:hot-articles:flush", 1, cancellationToken).ConfigureAwait(false);
+        await IncrementSharedCounterAsync("hot-stats:hot-articles:coalesced", dirtyCount, cancellationToken).ConfigureAwait(false);
         FsusObservability.RecordHotStatsInvalidation("hot_articles", "flush", reason ?? "unknown", dirtyCount);
         FsusObservability.RecordHotArticlesVersion(version);
+    }
+
+    private async Task<long?> IncrementSharedCounterAsync(string identity, long value, CancellationToken cancellationToken)
+    {
+        if (sharedCache is null)
+        {
+            return null;
+        }
+
+        return await sharedCache.IncrementAsync(CachePolicyId.AdminStats, identity, value, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<long> ReadSharedCounterAsync(string identity, CancellationToken cancellationToken)
+    {
+        if (sharedCache is null)
+        {
+            return 0;
+        }
+
+        string? value = await sharedCache.GetStringAsync(CachePolicyId.AdminStats, identity, cancellationToken).ConfigureAwait(false);
+        return long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long parsed) ? parsed : 0;
     }
 
     private static string NormalizeReason(string? reason)

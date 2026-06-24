@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using FsusBlog.Server.Infrastructure.Cache;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -24,8 +25,8 @@ public sealed class HotStatsInvalidationCoalescerTests
 
         for (int i = 0; i < 10; i++)
         {
-            sut.MarkStatsDirty("visit-log-flush");
-            sut.MarkHotArticlesDirty("article-read-projection");
+            await sut.MarkStatsDirtyAsync("visit-log-flush");
+            await sut.MarkHotArticlesDirtyAsync("article-read-projection");
         }
 
         long beforeVersion = sut.CurrentHotArticlesVersion;
@@ -33,7 +34,7 @@ public sealed class HotStatsInvalidationCoalescerTests
 
         await dispatcher.Received(1).InvalidateStatsAsync(Arg.Any<CancellationToken>());
         await httpInvalidator.Received(1).InvalidateAsync(CacheTag.HotArticles);
-        HotStatsInvalidationSnapshot snapshot = sut.Snapshot();
+        HotStatsInvalidationSnapshot snapshot = await sut.SnapshotAsync();
         Assert.False(snapshot.StatsDirty);
         Assert.False(snapshot.HotArticlesDirty);
         Assert.Equal(10, snapshot.StatsDirtyCount);
@@ -62,12 +63,12 @@ public sealed class HotStatsInvalidationCoalescerTests
             provider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<HotStatsInvalidationCoalescer>.Instance);
 
-        sut.MarkHotArticlesDirty("article-read-projection");
+        await sut.MarkHotArticlesDirtyAsync("article-read-projection");
         long beforeVersion = sut.CurrentHotArticlesVersion;
 
         await sut.FlushPendingAsync();
 
-        HotStatsInvalidationSnapshot snapshot = sut.Snapshot();
+        HotStatsInvalidationSnapshot snapshot = await sut.SnapshotAsync();
         Assert.Equal(beforeVersion, snapshot.HotArticlesVersion);
         Assert.True(snapshot.HotArticlesDirty);
         Assert.Equal(1, snapshot.HotArticlesDirtyCount);
@@ -82,9 +83,64 @@ public sealed class HotStatsInvalidationCoalescerTests
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/VisitLog/VisitLogProcessorService.cs"));
 
         Assert.Contains("GetRequiredService<IHotStatsInvalidationCoalescer>()", source, StringComparison.Ordinal);
-        Assert.Contains("MarkStatsDirty(\"visit-log-flush\")", source, StringComparison.Ordinal);
-        Assert.Contains("MarkHotArticlesDirty(\"article-read-projection\")", source, StringComparison.Ordinal);
+        Assert.Contains("MarkStatsDirtyAsync(\"visit-log-flush\"", source, StringComparison.Ordinal);
+        Assert.Contains("MarkHotArticlesDirtyAsync(\"article-read-projection\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("InvalidateStatsAsync(token)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("InvalidateHotArticlesAsync(token)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task MarkDirtyAsync_AggregatesDirtyCountsAcrossInstances()
+    {
+        var cache = CreateSharedCounterCache();
+        var dispatcher = Substitute.For<ICacheInvalidationDispatcher>();
+        var httpInvalidator = Substitute.For<IHttpCacheInvalidator>();
+        await using ServiceProvider provider = new ServiceCollection()
+            .AddSingleton(dispatcher)
+            .AddSingleton(httpInvalidator)
+            .AddSingleton(new CacheInvalidationRuntimeState(cache))
+            .BuildServiceProvider();
+        var first = new HotStatsInvalidationCoalescer(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<HotStatsInvalidationCoalescer>.Instance,
+            cache);
+        var second = new HotStatsInvalidationCoalescer(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<HotStatsInvalidationCoalescer>.Instance,
+            cache);
+
+        await first.MarkStatsDirtyAsync("visit-log-flush");
+        await second.MarkStatsDirtyAsync("visit-log-flush");
+        await first.MarkHotArticlesDirtyAsync("article-read-projection");
+        await second.MarkHotArticlesDirtyAsync("article-read-projection");
+
+        HotStatsInvalidationSnapshot snapshot = await first.SnapshotAsync();
+
+        Assert.Equal(2, snapshot.StatsDirtyCount);
+        Assert.Equal(2, snapshot.HotArticlesDirtyCount);
+        await cache.Received().IncrementAsync(CachePolicyId.AdminStats, "hot-stats:stats:dirty", 1, Arg.Any<CancellationToken>());
+        await cache.Received().IncrementAsync(CachePolicyId.AdminStats, "hot-stats:hot-articles:dirty", 1, Arg.Any<CancellationToken>());
+    }
+
+    private static IUnifiedCache CreateSharedCounterCache()
+    {
+        var values = new ConcurrentDictionary<string, long>(StringComparer.Ordinal);
+        var cache = Substitute.For<IUnifiedCache>();
+        cache.IncrementAsync(Arg.Any<CachePolicyId>(), Arg.Any<string>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                string identity = call.ArgAt<string>(1);
+                long value = call.ArgAt<long>(2);
+                return values.AddOrUpdate(identity, value, (_, current) => current + value);
+            });
+        cache.GetStringAsync(Arg.Any<CachePolicyId>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                string identity = call.ArgAt<string>(1);
+                return values.TryGetValue(identity, out long value)
+                    ? value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    : null;
+            });
+        return cache;
     }
 }
