@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Net;
+using System.Numerics;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -31,6 +33,10 @@ namespace FsusBlog.Server.Tests.Unit;
 [Collection(nameof(SchemaMigrationPostgresCollection))]
 public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixture fixture)
 {
+    private static readonly BigInteger CircuitNativeScalarOrder = BigInteger.Parse(
+        "21888242871839275222246405745257275088548364400416034343698204186575808495617",
+        CultureInfo.InvariantCulture);
+
     [Fact]
     public void Migration_CreatesIssuanceAuditWithoutCredentialMapping()
     {
@@ -156,6 +162,41 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
         {
             Directory.Delete(tempRoot, recursive: true);
         }
+    }
+
+    [Fact]
+    public void ManagedCircuitNativeCredentialSigner_SignsLowSAndRejectsHighSResponse()
+    {
+        byte[] privateKey = CreateManagedCircuitNativePrivateKey();
+        byte[] publicKey = ManagedCircuitNativeCredentialSigner.DerivePublicKey(privateKey);
+
+        for (int i = 0; i < 4; i++)
+        {
+            CircuitNativeCredentialIssueMaterial material = CreateManagedCircuitNativeIssueMaterial() with
+            {
+                CredentialEpoch = 10_000 + i
+            };
+            byte[] signature = ManagedCircuitNativeCredentialSigner.Sign(privateKey, publicKey, material);
+            BigInteger response = ReadSignatureResponse(signature);
+
+            Assert.InRange(response, BigInteger.One, (CircuitNativeScalarOrder / 2) - BigInteger.One);
+            Assert.True(ManagedCircuitNativeCredentialSigner.Verify(publicKey, material, signature));
+
+            byte[] highSVariant = [.. signature];
+            WriteSignatureResponse(CircuitNativeScalarOrder - response, highSVariant);
+            Assert.False(ManagedCircuitNativeCredentialSigner.Verify(publicKey, material, highSVariant));
+        }
+    }
+
+    [Fact]
+    public void ManagedCircuitNativeCredentialSigner_VerifyKeepsSubgroupChecksOnPublicKeyAndNoncePoint()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/ManagedCircuitNativeCredentialSigner.cs");
+
+        Assert.Contains("IsInPrimeOrderSubgroup(point)", source, StringComparison.Ordinal);
+        Assert.Contains("MultiplyUnreduced(point, ScalarOrder)", source, StringComparison.Ordinal);
+        Assert.Contains("CurvePoint issuerPublicKey = ReadPublicKey(publicKey);", source, StringComparison.Ordinal);
+        Assert.Contains("CurvePoint noncePoint = ReadPublicKey(signature[..PublicKeyBytes]);", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -744,6 +785,17 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             CircuitId: AnonymousPrivacyContract.CircuitId,
             CredentialLevel: AnonymousCredentialLevels.StrongAnonymous,
             CredentialRequest: [.. Enumerable.Range(0, 64).Select(static value => (byte)value)]);
+
+    private static BigInteger ReadSignatureResponse(ReadOnlySpan<byte> signature)
+        => new(signature.Slice(ManagedCircuitNativeCredentialSigner.PublicKeyBytes, 32), isUnsigned: true, isBigEndian: true);
+
+    private static void WriteSignatureResponse(BigInteger response, Span<byte> signature)
+    {
+        Span<byte> destination = signature.Slice(ManagedCircuitNativeCredentialSigner.PublicKeyBytes, 32);
+        destination.Clear();
+        byte[] bytes = response.ToByteArray(isUnsigned: true, isBigEndian: true);
+        bytes.CopyTo(destination[(destination.Length - bytes.Length)..]);
+    }
 
     private Task<SqlSugarClient> CreateDbAsync()
         => PostgresSqlSugarTestClient.CreateAsync(fixture);

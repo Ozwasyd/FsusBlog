@@ -23,6 +23,9 @@ proof.
 
 - Anonymous credential scheme: `circuit-native-credential-v2`.
 - Credential signature curve: bn254-compatible circuit-native field.
+- Credential signatures are canonical `R.x || R.y || s` values with low-S
+  response enforcement; verifier implementations must reject high-S responses,
+  non-curve points, and non-prime-order subgroup points.
 - Proof system: Groth16.
 - Comment circuit id: `fsus.anonymous.comment.v2`.
 - Public input layout: `public_input_layout_version = 3`.
@@ -100,7 +103,8 @@ admin permissions.
 
 The `comment.v2` Groth16 circuit must constrain:
 
-- circuit-native credential signature possession for an accepted issuer key;
+- circuit-native credential signature possession for an accepted issuer key,
+  using the canonical low-S issuer signature accepted by the backend;
 - selective disclosure of `credential_level` and reputation bucket without
   exposing account identity fields;
 - membership in the current credential root for the declared epoch;

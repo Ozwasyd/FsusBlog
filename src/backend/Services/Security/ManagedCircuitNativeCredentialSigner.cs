@@ -13,6 +13,7 @@ internal static class ManagedCircuitNativeCredentialSigner
     public const int SignatureBytes = 96;
 
     private const string TranscriptDomain = "fsus.anonymous.comment.v2:credential-signature:v1";
+    private const int MaxSigningAttempts = 1024;
 
     private static readonly BigInteger FieldPrime = BigInteger.Parse(
         "21888242871839275222246405745257275088696311157297823662689037894645226208583",
@@ -20,6 +21,7 @@ internal static class ManagedCircuitNativeCredentialSigner
     private static readonly BigInteger ScalarOrder = BigInteger.Parse(
         "21888242871839275222246405745257275088548364400416034343698204186575808495617",
         CultureInfo.InvariantCulture);
+    private static readonly BigInteger LowSUpperBound = ScalarOrder / 2;
     private static readonly CurvePoint Generator = new(BigInteger.One, new BigInteger(2), false);
 
     public static byte[] DerivePublicKey(ReadOnlySpan<byte> privateKey)
@@ -48,11 +50,28 @@ internal static class ManagedCircuitNativeCredentialSigner
         }
 
         byte[] canonical = Canonicalize(material);
-        BigInteger nonce = HashToScalar("nonce", privateKey, publicKey, canonical);
-        CurvePoint noncePoint = Multiply(Generator, nonce);
-        byte[] nonceBytes = WritePublicKey(noncePoint);
-        BigInteger challenge = HashToScalar("challenge", publicKey, nonceBytes, canonical);
-        BigInteger response = Mod(nonce + challenge * secret, ScalarOrder);
+        byte[]? nonceBytes = null;
+        BigInteger response = BigInteger.Zero;
+        for (int attempt = 0; attempt < MaxSigningAttempts; attempt++)
+        {
+            BigInteger nonce = HashToScalar(ResolveNoncePurpose(attempt), privateKey, publicKey, canonical);
+            CurvePoint noncePoint = Multiply(Generator, nonce);
+            nonceBytes = WritePublicKey(noncePoint);
+            BigInteger challenge = HashToScalar("challenge", publicKey, nonceBytes, canonical);
+            response = Mod(nonce + challenge * secret, ScalarOrder);
+            if (response.Sign > 0 && response < LowSUpperBound)
+            {
+                break;
+            }
+
+            nonceBytes = null;
+            response = BigInteger.Zero;
+        }
+
+        if (nonceBytes is null || response.Sign <= 0)
+        {
+            throw new CryptographicException("unable to generate canonical circuit-native signature");
+        }
 
         byte[] signature = new byte[SignatureBytes];
         nonceBytes.CopyTo(signature.AsSpan(0, PublicKeyBytes));
@@ -75,7 +94,7 @@ internal static class ManagedCircuitNativeCredentialSigner
             CurvePoint issuerPublicKey = ReadPublicKey(publicKey);
             CurvePoint noncePoint = ReadPublicKey(signature[..PublicKeyBytes]);
             BigInteger response = ReadScalar(signature.Slice(PublicKeyBytes, 32));
-            if (response.Sign <= 0 || response >= ScalarOrder)
+            if (response.Sign <= 0 || response >= LowSUpperBound)
             {
                 return false;
             }
@@ -205,6 +224,11 @@ internal static class ManagedCircuitNativeCredentialSigner
         return output;
     }
 
+    private static string ResolveNoncePurpose(int attempt)
+        => attempt == 0
+            ? "nonce"
+            : string.Concat("nonce:", attempt.ToString(CultureInfo.InvariantCulture));
+
     private static void WriteString(byte[] output, ref int offset, string value)
         => WriteBytes(output, ref offset, Encoding.UTF8.GetBytes(value));
 
@@ -248,6 +272,11 @@ internal static class ManagedCircuitNativeCredentialSigner
         if (!IsOnCurve(point))
         {
             throw new CryptographicException("invalid circuit-native public key");
+        }
+
+        if (!IsInPrimeOrderSubgroup(point))
+        {
+            throw new CryptographicException("invalid circuit-native public key subgroup");
         }
 
         return point;
@@ -327,9 +356,17 @@ internal static class ManagedCircuitNativeCredentialSigner
         return left == right;
     }
 
+    private static bool IsInPrimeOrderSubgroup(CurvePoint point)
+        => PointEquals(MultiplyUnreduced(point, ScalarOrder), CurvePoint.InfinityPoint);
+
     private static CurvePoint Multiply(CurvePoint point, BigInteger scalar)
     {
         scalar = Mod(scalar, ScalarOrder);
+        return MultiplyUnreduced(point, scalar);
+    }
+
+    private static CurvePoint MultiplyUnreduced(CurvePoint point, BigInteger scalar)
+    {
         CurvePoint result = CurvePoint.InfinityPoint;
         CurvePoint addend = point;
         while (scalar > BigInteger.Zero)
