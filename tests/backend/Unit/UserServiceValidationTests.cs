@@ -97,32 +97,24 @@ public class UserServiceValidationTests
     public async Task UpdatePublicHandleAsync_ValidHandle_SavesNormalizedHandle()
     {
         var db = Substitute.For<ISqlSugarClient>();
-        var queryable = Substitute.For<ISugarQueryable<User>>();
-        db.Queryable<User>().Returns(queryable);
-        queryable.InSingleAsync(7).Returns(Task.FromResult(new User { Id = 7, PublicHandle = null }));
-        queryable.AnyAsync(Arg.Any<Expression<Func<User, bool>>>()).Returns(Task.FromResult(false));
-        var update = Substitute.For<IUpdateable<User>>();
-        update.SetColumns(Arg.Any<Expression<Func<User, bool>>>()).Returns(update);
-        update.Where(Arg.Any<Expression<Func<User, bool>>>()).Returns(update);
-        update.ExecuteCommandAsync().Returns(Task.FromResult(1));
-        db.Updateable<User>().Returns(update);
+        db.Ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(Task.FromResult(1));
         var svc = BuildService(db, Substitute.For<IJwtHelper>());
 
         var (success, message) = await svc.UpdatePublicHandleAsync(7, "QuietReader#123");
 
         Assert.True(success, message);
         Assert.Equal("公开称呼已保存", message);
-        await update.Received(1).ExecuteCommandAsync();
+        await db.Ado.Received(1).ExecuteCommandAsync(
+            Arg.Is<string>(sql => sql.Contains("NOT EXISTS", StringComparison.Ordinal)),
+            Arg.Any<SugarParameter[]>());
     }
 
     [Fact]
     public async Task UpdatePublicHandleAsync_DuplicateHandle_ReturnsConflict()
     {
         var db = Substitute.For<ISqlSugarClient>();
-        var queryable = Substitute.For<ISugarQueryable<User>>();
-        db.Queryable<User>().Returns(queryable);
-        queryable.InSingleAsync(7).Returns(Task.FromResult(new User { Id = 7, PublicHandle = null }));
-        queryable.AnyAsync(Arg.Any<Expression<Func<User, bool>>>()).Returns(Task.FromResult(true));
+        db.Ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(Task.FromResult(0));
+        db.Ado.GetIntAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(Task.FromResult(1));
         var svc = BuildService(db, Substitute.For<IJwtHelper>());
 
         var (success, message) = await svc.UpdatePublicHandleAsync(7, "QuietReader");
@@ -130,6 +122,20 @@ public class UserServiceValidationTests
         Assert.False(success);
         Assert.Equal("公开称呼已被占用", message);
         db.DidNotReceive().Updateable<User>();
+    }
+
+    [Fact]
+    public async Task UpdatePublicHandleAsync_UniqueConstraintViolation_ReturnsConflict()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        db.Ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
+            .Returns<Task<int>>(_ => throw new Exception("23505 duplicate key value violates unique constraint"));
+        var svc = BuildService(db, Substitute.For<IJwtHelper>());
+
+        var (success, message) = await svc.UpdatePublicHandleAsync(7, "QuietReader");
+
+        Assert.False(success);
+        Assert.Equal("公开称呼已被占用", message);
     }
 
     [Fact]
@@ -147,22 +153,33 @@ public class UserServiceValidationTests
     public async Task UpdatePublicHandleAsync_EmptyHandle_ClearsPublicHandle()
     {
         var db = Substitute.For<ISqlSugarClient>();
-        var queryable = Substitute.For<ISugarQueryable<User>>();
-        db.Queryable<User>().Returns(queryable);
-        queryable.InSingleAsync(7).Returns(Task.FromResult(new User { Id = 7, PublicHandle = "quietreader" }));
-        var update = Substitute.For<IUpdateable<User>>();
-        update.SetColumns(Arg.Any<Expression<Func<User, bool>>>()).Returns(update);
-        update.Where(Arg.Any<Expression<Func<User, bool>>>()).Returns(update);
-        update.ExecuteCommandAsync().Returns(Task.FromResult(1));
-        db.Updateable<User>().Returns(update);
+        db.Ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(Task.FromResult(1));
         var svc = BuildService(db, Substitute.For<IJwtHelper>());
 
         var (success, message) = await svc.UpdatePublicHandleAsync(7, "   ");
 
         Assert.True(success, message);
         Assert.Equal("公开称呼已清空", message);
-        await update.Received(1).ExecuteCommandAsync();
-        await queryable.DidNotReceive().AnyAsync(Arg.Any<Expression<Func<User, bool>>>());
+        await db.Ado.Received(1).ExecuteCommandAsync(
+            Arg.Is<string>(sql => sql.Contains("SET public_handle = NULL", StringComparison.Ordinal)),
+            Arg.Any<SugarParameter[]>());
+    }
+
+    [Fact]
+    public void UpdatePublicHandleAsync_SourceUsesAtomicUniqueUpdate()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+        string method = ExtractUserServiceMethod(
+            source,
+            "public async Task<(bool Success, string Message)> UpdatePublicHandleAsync",
+            "public async Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync");
+
+        Assert.Contains("NOT EXISTS", method, StringComparison.Ordinal);
+        Assert.Contains("public_handle = @publicHandle", method, StringComparison.Ordinal);
+        Assert.Contains("id <> @userId", method, StringComparison.Ordinal);
+        Assert.Contains("IsUniqueViolation", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("AnyAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Updateable<User>()", method, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -5,6 +5,7 @@ namespace FsusBlog.Server.Entities;
 
 [SugarTable("sys_user")]
 [SugarIndex("idx_create_time", nameof(User.CreateTime), OrderByType.Desc)]
+[SugarIndex("idx_user_public_handle_unique", nameof(PublicHandle), OrderByType.Asc, true)]
 // 为状态字段增加索引，确保系统启动时能瞬间捞出所有黑名单
 [SugarIndex("idx_user_status", nameof(User.Status), OrderByType.Asc)]
 public class User

@@ -18,6 +18,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Server.Services.Security;
+using Npgsql;
 
 namespace FsusBlog.Server.Services;
 
@@ -178,27 +179,72 @@ public partial class UserService(
             return (false, handle.Message);
         }
 
-        var user = await _db.Queryable<User>().InSingleAsync(userId);
-        if (user == null)
+        try
         {
-            return (false, "用户不存在");
-        }
+            int updated = handle.PublicHandle is null
+                ? await _db.Ado.ExecuteCommandAsync(
+                    """
+                    UPDATE sys_user
+                    SET public_handle = NULL
+                    WHERE id = @userId;
+                    """,
+                    new SugarParameter[] { new("@userId", userId) })
+                : await _db.Ado.ExecuteCommandAsync(
+                    """
+                    UPDATE sys_user
+                    SET public_handle = @publicHandle
+                    WHERE id = @userId
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM sys_user
+                          WHERE public_handle = @publicHandle
+                            AND id <> @userId
+                      );
+                    """,
+                    new SugarParameter[]
+                    {
+                        new("@userId", userId),
+                        new("@publicHandle", handle.PublicHandle)
+                    });
 
-        if (handle.PublicHandle is { Length: > 0 } normalizedHandle &&
-            await _db.Queryable<User>().AnyAsync(u => u.PublicHandle == normalizedHandle && u.Id != userId))
+            if (updated > 0)
+            {
+                return handle.PublicHandle is null
+                    ? (true, "公开称呼已清空")
+                    : (true, "公开称呼已保存");
+            }
+        }
+        catch (Exception ex) when (IsUniqueViolation(ex))
         {
             return (false, "公开称呼已被占用");
         }
 
-        await _db.Updateable<User>()
-            .SetColumns(u => u.PublicHandle == handle.PublicHandle)
-            .Where(u => u.Id == userId)
-            .ExecuteCommandAsync();
+        if (!await UserExistsAsync(userId))
+        {
+            return (false, "用户不存在");
+        }
 
-        return handle.PublicHandle is null
-            ? (true, "公开称呼已清空")
-            : (true, "公开称呼已保存");
+        return (false, "公开称呼已被占用");
     }
+
+    private async Task<bool> UserExistsAsync(int userId)
+    {
+        int exists = await _db.Ado.GetIntAsync(
+            """
+            SELECT COUNT(1)
+            FROM sys_user
+            WHERE id = @userId;
+            """,
+            new SugarParameter[] { new("@userId", userId) });
+        return exists > 0;
+    }
+
+    private static bool IsUniqueViolation(Exception exception)
+        => exception is PostgresException postgres &&
+            string.Equals(postgres.SqlState, PostgresErrorCodes.UniqueViolation, StringComparison.Ordinal)
+            || exception.Message.Contains("23505", StringComparison.OrdinalIgnoreCase)
+            || exception.Message.Contains("Duplicate", StringComparison.OrdinalIgnoreCase)
+            || exception.Message.Contains("Unique", StringComparison.OrdinalIgnoreCase);
 
     public async Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken)
     {
