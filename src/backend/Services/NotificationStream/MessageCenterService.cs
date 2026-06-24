@@ -445,36 +445,86 @@ public sealed class MessageCenterService(
 
     public async Task<Result> MarkConversationReadAsync(int accountId, long conversationId)
     {
-        var state = await db.Queryable<ConversationParticipantState>()
-            .Where(it => it.AccountId == accountId && it.ConversationId == conversationId)
-            .FirstAsync();
-        if (state is null)
+        DateTime now = DateTime.UtcNow;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            bool locked = await LockConversationParticipantReadStateAsync(accountId, conversationId);
+            if (!locked)
+            {
+                return new MarkConversationReadResult(false, null);
+            }
+
+            return await MarkConversationReadAndReturnLastMessageIdAsync(accountId, conversationId, now);
+        });
+
+        if (!TransactionSideEffectGuard.CanPublishAfterCommit(transaction, logger, "message-center-mark-read"))
+        {
+            return Result.Failure(ErrorCode.InfraFailure, "标记已读失败");
+        }
+
+        MarkConversationReadResult readResult = transaction.Data;
+        if (!readResult.Found)
         {
             return Result.Failure(ErrorCode.NotFound, "会话不存在");
         }
 
-        DateTime now = DateTime.UtcNow;
-        await db.Updateable<ConversationParticipantState>()
-            .SetColumns(it => new ConversationParticipantState
-            {
-                UnreadCount = 0,
-                LastReadMessageId = SqlFunc.Subqueryable<ConversationMessage>()
-                    .Where(message => message.ConversationId == conversationId)
-                    .Max(message => message.Id),
-                LastReadAt = now,
-                UpdatedAt = now
-            })
-            .Where(it => it.AccountId == accountId && it.ConversationId == conversationId)
-            .ExecuteCommandAsync();
-
-        long? lastMessageId = await db.Queryable<ConversationParticipantState>()
-            .Where(it => it.AccountId == accountId && it.ConversationId == conversationId)
-            .Select(it => it.LastReadMessageId)
-            .FirstAsync();
-
         int totalUnread = await RefreshUnreadCacheAsync(accountId);
-        await PublishReadUpdatedAsync(accountId, conversationId, lastMessageId, 0, totalUnread);
+        await PublishReadUpdatedAsync(accountId, conversationId, readResult.LastMessageId, 0, totalUnread);
         return Result.Success();
+    }
+
+    private sealed record MarkConversationReadResult(bool Found, long? LastMessageId);
+
+    private async Task<bool> LockConversationParticipantReadStateAsync(int accountId, long conversationId)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT 1
+            FROM msg_participant_state
+            WHERE accountid = @AccountId
+              AND conversationid = @ConversationId
+            FOR UPDATE;
+            """,
+            new SugarParameter("@AccountId", accountId),
+            new SugarParameter("@ConversationId", conversationId));
+
+        return await reader.ReadAsync();
+    }
+
+    private async Task<MarkConversationReadResult> MarkConversationReadAndReturnLastMessageIdAsync(
+        int accountId,
+        long conversationId,
+        DateTime now)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            UPDATE msg_participant_state state
+            SET unreadcount = 0,
+                lastreadmessageid = latest.last_message_id,
+                lastreadat = @Now,
+                updatedat = @Now
+            FROM (
+                SELECT MAX(id) AS last_message_id
+                FROM msg_message
+                WHERE conversationid = @ConversationId
+            ) latest
+            WHERE state.accountid = @AccountId
+              AND state.conversationid = @ConversationId
+            RETURNING state.lastreadmessageid;
+            """,
+            new SugarParameter("@AccountId", accountId),
+            new SugarParameter("@ConversationId", conversationId),
+            new SugarParameter("@Now", now));
+
+        if (!await reader.ReadAsync())
+        {
+            return new MarkConversationReadResult(false, null);
+        }
+
+        long? lastMessageId = reader.IsDBNull(0)
+            ? null
+            : Convert.ToInt64(reader.GetValue(0), CultureInfo.InvariantCulture);
+        return new MarkConversationReadResult(true, lastMessageId);
     }
 
     public async Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync(long conversationId, string body, AdminMessageActor adminActor)

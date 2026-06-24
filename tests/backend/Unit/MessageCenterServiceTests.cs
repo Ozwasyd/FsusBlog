@@ -247,8 +247,16 @@ public sealed class MessageCenterServiceTests
             "public async Task<Result> MarkConversationReadAsync",
             "public async Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync");
 
-        Assert.Contains("LastReadMessageId = SqlFunc.Subqueryable<ConversationMessage>()", method, StringComparison.Ordinal);
+        Assert.Contains("UseTranAsync", method, StringComparison.Ordinal);
+        Assert.Contains("LockConversationParticipantReadStateAsync(accountId, conversationId)", method, StringComparison.Ordinal);
+        Assert.Contains("MarkConversationReadAndReturnLastMessageIdAsync(accountId, conversationId, now)", method, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", method, StringComparison.Ordinal);
+        Assert.Contains("RETURNING state.lastreadmessageid", method, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("TransactionSideEffectGuard.CanPublishAfterCommit(transaction", method, StringComparison.Ordinal);
+        Assert.Contains("PublishReadUpdatedAsync(accountId, conversationId, readResult.LastMessageId", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("LastReadMessageId = SqlFunc.Subqueryable<ConversationMessage>()", method, StringComparison.Ordinal);
         Assert.DoesNotContain("long? lastMessageId = await db.Queryable<ConversationMessage>()", method, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Select(it => it.LastReadMessageId)", method, StringComparison.Ordinal);
         Assert.DoesNotContain(".OrderByDescending(it => it.Id)", method, StringComparison.Ordinal);
     }
 
