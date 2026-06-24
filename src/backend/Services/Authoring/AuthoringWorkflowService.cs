@@ -2472,7 +2472,6 @@ fsusMetadataJson: {encodedMetadata}
             return 0;
         }
 
-        await db.Deleteable<ArticleRevision>().Where(it => it.ArticleId == articleId).ExecuteCommandAsync(cancellationToken);
         var revisions = metadata.Revisions
             .OrderBy(static revision => revision.RevisionNo)
             .Select(revision => new ArticleRevision
@@ -2495,7 +2494,30 @@ fsusMetadataJson: {encodedMetadata}
             return 0;
         }
 
-        await db.Insertable(revisions).ExecuteCommandAsync(cancellationToken);
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                """
+                SELECT 1
+                FROM article
+                WHERE id = @ArticleId
+                FOR UPDATE;
+                """,
+                new SugarParameter("@ArticleId", articleId));
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                throw new InvalidOperationException("Article must exist before restoring imported revisions.");
+            }
+
+            await db.Deleteable<ArticleRevision>().Where(it => it.ArticleId == articleId).ExecuteCommandAsync(cancellationToken);
+            await db.Insertable(revisions).ExecuteCommandAsync(cancellationToken);
+        });
+        if (!transaction.IsSuccess)
+        {
+            throw new InvalidOperationException("Imported revision restore failed.", transaction.ErrorException);
+        }
+
         return revisions.Count;
     }
 

@@ -95,6 +95,21 @@ public sealed class AuthoringWorkflowServiceTests
     }
 
     [Fact]
+    public void RestoreImportedRevisionsAsync_SourceUsesTransactionAndArticleLock()
+    {
+        string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string method = Slice(
+            service,
+            "private async Task<int> RestoreImportedRevisionsAsync",
+            "private static string EscapeFrontmatterValue");
+
+        Assert.Contains("db.Ado.UseTranAsync(async ()", method, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", method, StringComparison.Ordinal);
+        Assert.Contains("Deleteable<ArticleRevision>()", method, StringComparison.Ordinal);
+        Assert.Contains("Insertable(revisions)", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ContentExportContracts_DoNotCarryImportableNumericActorIds()
     {
         string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
