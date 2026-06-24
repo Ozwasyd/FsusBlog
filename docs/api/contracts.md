@@ -1538,7 +1538,7 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 - `GET|PUT /api/binary/admin/security/anti-crawler/options` 读取或更新 `AntiCrawlerPolicySnapshot`。
 - `POST /api/binary/admin/security/anti-crawler/options/rollback` 回滚上一份反爬虫策略快照。
 - `GET|POST /api/binary/admin/security/anti-crawler/crawler-ranges/status|sync` 查看 CIDR worker 状态或手动同步。
-- `GET /api/binary/admin/security/anti-crawler/risk-events`、`GET /api/binary/admin/security/risk/events`、`GET /api/binary/admin/security/risk/snapshots` 分别读取反爬虫事件、统一风险事件和风险主体快照。
+- `GET /api/binary/admin/security/anti-crawler/risk-events`、`GET /api/binary/admin/security/risk/events`、`GET /api/binary/admin/security/risk/snapshots` 分别读取反爬虫事件、统一风险事件和风险主体快照。事件/快照列表的 `limit` 缺省为 `100`，服务端强制 clamp 到 `1..1000`，并挂 `fixed_ip` rate limit，避免 admin 可控大 limit 放大为内存或慢查询 DoS。
 - `GET|POST|PUT|DELETE /api/binary/admin/security/anti-crawler/rules` 管理运行时反爬虫规则。
 - `GET|POST|DELETE /api/binary/admin/security/anti-crawler/allowlist|blocklist` 管理运行时 allow/blocklist。
 - `POST /api/binary/admin/security/anti-crawler/simulate` 只返回 dry-run 结果，不修改策略或风险分。

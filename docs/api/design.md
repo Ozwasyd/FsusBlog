@@ -164,6 +164,8 @@ TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account
 
 不存在额外的 Shield 来源校验头或旧文本 PoW answer/challenge 头运行时契约；新增 `X-Fsus-*` 头必须先登记到本表、OpenAPI `x-fsus-*` 扩展或对应 contract 文档。
 
+Admin security 控制面中的事件/快照列表属于高放大读取面：`limit` 这类 caller-controlled 数量参数必须在 endpoint 边界 clamp 到明确上限，并挂后台 `fixed_ip` rate limit。服务层不得直接接收未限制的列表数量参数。
+
 ### FPOW proof 信封
 
 HTTP 动态公开 API 使用 `X-Fsus-Pow-Proof`，notification stream 匿名连接的 legacy 兼容路径使用 `pow` query 参数；两者都承载同一种 base64 文本形式的二进制 FPOW 信封。前端实现位于 `src/frontend/src/services/powProofCodec.ts`。

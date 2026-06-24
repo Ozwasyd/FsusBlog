@@ -311,7 +311,7 @@
 | POST | `/api/binary/admin/security/anti-crawler/options/rollback` | 👑🚦 MFA | 回滚上一份反爬虫策略快照 |
 | GET | `/api/binary/admin/security/anti-crawler/crawler-ranges/status` | 👑 | CIDR worker 状态、更新时间、下次同步和 range 数量 |
 | POST | `/api/binary/admin/security/anti-crawler/crawler-ranges/sync` | 👑🚦 MFA | 手动同步 Google/Bing crawler CIDR |
-| GET | `/api/binary/admin/security/anti-crawler/risk-events` | 👑 | 反爬虫风险事件列表 |
+| GET | `/api/binary/admin/security/anti-crawler/risk-events` | 👑 | 反爬虫风险事件列表；`limit` clamp 到 1..1000 |
 | GET | `/api/binary/admin/security/anti-crawler/rules` | 👑 | 反爬虫规则列表 |
 | POST | `/api/binary/admin/security/anti-crawler/rules` | 👑🚦 MFA | 新增反爬虫规则 |
 | PUT | `/api/binary/admin/security/anti-crawler/rules/{id}` | 👑🚦 MFA | 更新反爬虫规则 |
@@ -327,9 +327,9 @@
 | GET | `/api/binary/admin/security/pow/options` | 👑 | PoW 独立策略快照 |
 | PUT | `/api/binary/admin/security/pow/options` | 👑🚦 MFA | 更新 PoW mode、difficulty、TTL、replay 和风险联动 |
 | POST | `/api/binary/admin/security/pow/options/rollback` | 👑🚦 MFA | 回滚上一份 PoW 策略快照 |
-| GET | `/api/binary/admin/security/pow/events` | 👑 | PoW 风险事件 |
-| GET | `/api/binary/admin/security/risk/events` | 👑 | 统一安全风险事件 |
-| GET | `/api/binary/admin/security/risk/snapshots` | 👑 | 统一安全风险主体快照 |
+| GET | `/api/binary/admin/security/pow/events` | 👑 | PoW 风险事件；`limit` clamp 到 1..1000 |
+| GET | `/api/binary/admin/security/risk/events` | 👑 | 统一安全风险事件；`limit` clamp 到 1..1000 |
+| GET | `/api/binary/admin/security/risk/snapshots` | 👑 | 统一安全风险主体快照；`limit` clamp 到 1..1000 |
 | POST | `/api/binary/admin/security/risk/ip/reset` | 👑🚦 MFA | 重置指定 IP 风险分 |
 | GET | `/api/binary/author/content/export` | 👑 | 全站内容备份包 |
 | GET | `/api/binary/author/articles/{articleId}/export` | 👑 | 导出 Markdown + frontmatter |

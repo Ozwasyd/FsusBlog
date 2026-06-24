@@ -22,6 +22,8 @@ public static class SecurityEndpoints
     private const string AdminSensitiveAction = "admin-sensitive";
     private const string MfaProofHeader = "X-Fsus-Mfa-Proof";
     private const string BinaryPrefix = "/api/binary/admin/security";
+    private const int DefaultRiskListLimit = 100;
+    private const int MaxRiskListLimit = 1000;
 
     public static IEndpointRouteBuilder MapSecurityEndpoints(this IEndpointRouteBuilder app)
     {
@@ -524,8 +526,8 @@ public static class SecurityEndpoints
             int? limit,
             ISecurityAdminPolicyService policy) =>
         {
-            return Ok(context, aeds, policy.ListRiskEvents(source, reason, limit ?? 100));
-        });
+            return Ok(context, aeds, policy.ListRiskEvents(source, reason, ClampRiskListLimit(limit)));
+        }).RequireRateLimiting("fixed_ip");
 
         group.MapGet("/anti-crawler/risk-events", (
             HttpContext context,
@@ -535,8 +537,8 @@ public static class SecurityEndpoints
             int? limit,
             ISecurityAdminPolicyService policy) =>
         {
-            return Ok(context, aeds, policy.ListRiskEvents(source, reason, limit ?? 100));
-        });
+            return Ok(context, aeds, policy.ListRiskEvents(source, reason, ClampRiskListLimit(limit)));
+        }).RequireRateLimiting("fixed_ip");
 
         group.MapGet("/risk/events", (
             HttpContext context,
@@ -546,15 +548,16 @@ public static class SecurityEndpoints
             int? limit,
             ISecurityAdminPolicyService policy) =>
         {
-            return Ok(context, aeds, policy.ListRiskEvents(source, reason, limit ?? 100));
-        });
+            return Ok(context, aeds, policy.ListRiskEvents(source, reason, ClampRiskListLimit(limit)));
+        }).RequireRateLimiting("fixed_ip");
 
         group.MapGet("/risk/snapshots", (
             HttpContext context,
             IAedsEncoder aeds,
             int? limit,
             ISecurityAdminPolicyService policy) =>
-            Ok(context, aeds, policy.ListRiskSnapshots(limit ?? 100)));
+            Ok(context, aeds, policy.ListRiskSnapshots(ClampRiskListLimit(limit))))
+            .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/risk/{dimension}/reset", async (
             string dimension,
@@ -822,7 +825,8 @@ public static class SecurityEndpoints
             IAedsEncoder aeds,
             int? limit,
             ISecurityAdminPolicyService policy) =>
-            Ok(context, aeds, policy.ListRiskEvents(SecurityRiskSources.Pow, null, limit ?? 100)));
+            Ok(context, aeds, policy.ListRiskEvents(SecurityRiskSources.Pow, null, ClampRiskListLimit(limit))))
+            .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/pow/simulate", async (
             HttpContext context,
@@ -1697,6 +1701,9 @@ public static class SecurityEndpoints
 
     private static string ResolveActor(HttpContext context)
         => FormatAdminActor(ResolveAdminPrincipalId(context));
+
+    private static int ClampRiskListLimit(int? limit)
+        => Math.Clamp(limit ?? DefaultRiskListLimit, 1, MaxRiskListLimit);
 
     private static long ResolveAdminPrincipalId(HttpContext context)
     {

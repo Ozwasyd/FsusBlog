@@ -1,3 +1,5 @@
+using System.Reflection;
+using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -190,6 +192,45 @@ public sealed class AntiCrawlerSecurityContractTests
     }
 
     [Fact]
+    public void SecurityAdminRiskListLimits_AreClampedAndRateLimited()
+    {
+        string endpoints = Read("src/backend/Modules/Endpoints/SecurityEndpoints.cs");
+        string[] routes =
+        [
+            "group.MapGet(\"/anti-crawler/events\"",
+            "group.MapGet(\"/anti-crawler/risk-events\"",
+            "group.MapGet(\"/risk/events\"",
+            "group.MapGet(\"/risk/snapshots\"",
+            "group.MapGet(\"/pow/events\""
+        ];
+
+        foreach (string route in routes)
+        {
+            string block = ExtractRouteBlock(endpoints, route);
+            Assert.Contains("ClampRiskListLimit(limit)", block, StringComparison.Ordinal);
+            Assert.Contains(".RequireRateLimiting(\"fixed_ip\")", block, StringComparison.Ordinal);
+        }
+
+        Assert.DoesNotContain("limit ?? 100", endpoints, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(null, 100)]
+    [InlineData(-1, 1)]
+    [InlineData(0, 1)]
+    [InlineData(50, 50)]
+    [InlineData(2147483647, 1000)]
+    public void ClampRiskListLimit_ClampsUntrustedAdminInput(int? input, int expected)
+    {
+        var method = typeof(SecurityEndpoints).GetMethod("ClampRiskListLimit", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        int result = (int)method.Invoke(null, [input])!;
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
     public void DistributionResources_UseCdnFriendlyCacheAndExplicitRobotsPolicy()
     {
         string endpoints = Read("src/backend/Modules/Endpoints/DistributionEndpoints.cs");
@@ -213,4 +254,18 @@ public sealed class AntiCrawlerSecurityContractTests
 
     private static string Read(string relativePath)
         => File.ReadAllText(Path.Combine(RepoRoot, relativePath));
+
+    private static string ExtractRouteBlock(string source, string routeSignature)
+    {
+        int start = source.IndexOf(routeSignature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing route marker: {routeSignature}");
+        int next = source.IndexOf("\n\n        group.Map", start + routeSignature.Length, StringComparison.Ordinal);
+        if (next < 0)
+        {
+            next = source.IndexOf("\n    private", start + routeSignature.Length, StringComparison.Ordinal);
+        }
+
+        Assert.True(next > start, $"Missing route end for: {routeSignature}");
+        return source[start..next];
+    }
 }
