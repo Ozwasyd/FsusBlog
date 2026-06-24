@@ -63,6 +63,20 @@ public sealed class AuthoringWorkflowServiceTests
     }
 
     [Fact]
+    public void RebuildAssetLibraryAsync_SourceUsesTransactionAndLocks()
+    {
+        string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string method = Slice(
+            service,
+            "private async Task RebuildAssetLibraryAsync",
+            "public async Task<AuthorAnalyticsResponse> GetAnalyticsAsync");
+
+        Assert.Contains("db.Ado.UseTranAsync(async ()", method, StringComparison.Ordinal);
+        Assert.Contains("pg_advisory_xact_lock", method, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ContentExportContracts_DoNotCarryImportableNumericActorIds()
     {
         string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");

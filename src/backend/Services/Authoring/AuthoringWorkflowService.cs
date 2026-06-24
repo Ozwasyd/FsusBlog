@@ -1,4 +1,5 @@
 using System.Net;
+using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -317,65 +318,152 @@ public sealed class AuthoringWorkflowService(
 
     private async Task RebuildAssetLibraryAsync(CancellationToken cancellationToken)
     {
-        DateTime now = DateTime.UtcNow;
-        List<ArticleBody> bodies = await db.Queryable<ArticleBody>().ToListAsync(cancellationToken);
-        List<int> articleIds = [.. bodies.Select(static body => body.ArticleId).Distinct()];
-        List<Article> articles = articleIds.Count == 0
-            ? []
-            : await db.Queryable<Article>()
-                .ClearFilter()
-                .Where(it => articleIds.Contains(it.Id))
-                .ToListAsync(cancellationToken);
-        Dictionary<int, Article> articleById = articles.ToDictionary(static article => article.Id);
-        var assets = new Dictionary<string, AssetReferenceAggregate>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (ArticleBody body in bodies)
+        var transaction = await db.Ado.UseTranAsync(async () =>
         {
-            foreach (ImageHelper.IllustrationReference reference in ImageHelper.ExtractIllustrationReferences(body.MarkdownContent))
-            {
-                AddAssetReference(assets, reference.Url, reference.AltText, body.ArticleId);
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            await AcquireAssetLibraryRebuildLockAsync(cancellationToken);
+            DateTime now = DateTime.UtcNow;
+            List<ArticleBody> bodies = await db.Queryable<ArticleBody>().ToListAsync(cancellationToken);
+            List<int> articleIds = [.. bodies.Select(static body => body.ArticleId).Distinct()];
+            List<Article> articles = articleIds.Count == 0
+                ? []
+                : await db.Queryable<Article>()
+                    .ClearFilter()
+                    .Where(it => articleIds.Contains(it.Id))
+                    .ToListAsync(cancellationToken);
+            Dictionary<int, Article> articleById = articles.ToDictionary(static article => article.Id);
+            var assets = new Dictionary<string, AssetReferenceAggregate>(StringComparer.OrdinalIgnoreCase);
 
-            if (articleById.TryGetValue(body.ArticleId, out Article? article) && IsUploadAssetUrl(article.CoverImageUrl))
+            foreach (ArticleBody body in bodies)
             {
-                AddAssetReference(assets, article.CoverImageUrl!, null, body.ArticleId);
-            }
-        }
-
-        List<AssetLibraryItem> existingAssets = await db.Queryable<AssetLibraryItem>().ToListAsync(cancellationToken);
-        HashSet<string> activeUrls = [.. assets.Keys];
-        foreach (AssetReferenceAggregate asset in assets.Values)
-        {
-            AssetLibraryItem? existing = existingAssets.FirstOrDefault(item => string.Equals(item.Url, asset.Url, StringComparison.OrdinalIgnoreCase));
-            if (existing is null)
-            {
-                await db.Insertable(new AssetLibraryItem
+                foreach (ImageHelper.IllustrationReference reference in ImageHelper.ExtractIllustrationReferences(body.MarkdownContent))
                 {
-                    Url = asset.Url,
-                    AltText = asset.AltText,
-                    SourceArticleId = asset.SourceArticleId,
-                    Sha256 = HashText(asset.Url),
-                    ReferenceCount = asset.ReferenceCount,
-                    CreatedAt = now,
-                    UpdatedAt = now
-                }).ExecuteCommandAsync(cancellationToken);
-                continue;
+                    AddAssetReference(assets, reference.Url, reference.AltText, body.ArticleId);
+                }
+
+                if (articleById.TryGetValue(body.ArticleId, out Article? article) && IsUploadAssetUrl(article.CoverImageUrl))
+                {
+                    AddAssetReference(assets, article.CoverImageUrl!, null, body.ArticleId);
+                }
             }
 
-            existing.AltText = asset.AltText ?? existing.AltText;
-            existing.SourceArticleId ??= asset.SourceArticleId;
-            existing.Sha256 ??= HashText(asset.Url);
-            existing.ReferenceCount = asset.ReferenceCount;
-            existing.UpdatedAt = now;
-            await db.Updateable(existing).ExecuteCommandAsync(cancellationToken);
+            List<AssetLibraryItem> existingAssets = await LoadAssetLibraryForUpdateAsync(cancellationToken);
+            HashSet<string> activeUrls = [.. assets.Keys];
+            foreach (AssetReferenceAggregate asset in assets.Values)
+            {
+                AssetLibraryItem? existing = existingAssets.FirstOrDefault(item => string.Equals(item.Url, asset.Url, StringComparison.OrdinalIgnoreCase));
+                if (existing is null)
+                {
+                    await InsertAssetAsync(asset, now, cancellationToken);
+                    continue;
+                }
+
+                await UpdateAssetAsync(existing, asset, now, cancellationToken);
+            }
+
+            foreach (AssetLibraryItem orphan in existingAssets.Where(item => !activeUrls.Contains(item.Url) && item.ReferenceCount != 0))
+            {
+                await MarkAssetOrphanAsync(orphan.Id, now, cancellationToken);
+            }
+        });
+
+        if (!transaction.IsSuccess)
+        {
+            throw new InvalidOperationException("Asset library rebuild failed.", transaction.ErrorException);
+        }
+    }
+
+    private async Task AcquireAssetLibraryRebuildLockAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            "SELECT pg_advisory_xact_lock(785);");
+        await reader.ReadAsync(cancellationToken);
+    }
+
+    private async Task<List<AssetLibraryItem>> LoadAssetLibraryForUpdateAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT id, url, alt_text, source_article_id, width, height, sha256, reference_count, created_at, updated_at
+            FROM asset_library_item
+            ORDER BY id
+            FOR UPDATE;
+            """);
+        var assets = new List<AssetLibraryItem>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            assets.Add(new AssetLibraryItem
+            {
+                Id = reader.GetInt64(0),
+                Url = reader.GetString(1),
+                AltText = reader.IsDBNull(2) ? null : reader.GetString(2),
+                SourceArticleId = reader.IsDBNull(3) ? null : reader.GetInt32(3),
+                Width = reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                Height = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                Sha256 = reader.IsDBNull(6) ? null : reader.GetString(6),
+                ReferenceCount = reader.GetInt32(7),
+                CreatedAt = reader.GetDateTime(8),
+                UpdatedAt = reader.GetDateTime(9)
+            });
         }
 
-        foreach (AssetLibraryItem orphan in existingAssets.Where(item => !activeUrls.Contains(item.Url) && item.ReferenceCount != 0))
-        {
-            orphan.ReferenceCount = 0;
-            orphan.UpdatedAt = now;
-            await db.Updateable(orphan).ExecuteCommandAsync(cancellationToken);
-        }
+        return assets;
+    }
+
+    private async Task InsertAssetAsync(AssetReferenceAggregate asset, DateTime now, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO asset_library_item
+                (url, alt_text, source_article_id, sha256, reference_count, created_at, updated_at)
+            VALUES
+                (@Url, @AltText, @SourceArticleId, @Sha256, @ReferenceCount, @Now, @Now);
+            """,
+            new SugarParameter("@Url", asset.Url),
+            new SugarParameter("@AltText", DbValue(asset.AltText)),
+            new SugarParameter("@SourceArticleId", asset.SourceArticleId),
+            new SugarParameter("@Sha256", HashText(asset.Url)),
+            new SugarParameter("@ReferenceCount", asset.ReferenceCount),
+            new SugarParameter("@Now", now));
+    }
+
+    private async Task UpdateAssetAsync(AssetLibraryItem existing, AssetReferenceAggregate asset, DateTime now, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE asset_library_item
+            SET alt_text = COALESCE(@AltText, alt_text),
+                source_article_id = COALESCE(source_article_id, @SourceArticleId),
+                sha256 = COALESCE(sha256, @Sha256),
+                reference_count = @ReferenceCount,
+                updated_at = @UpdatedAt
+            WHERE id = @Id;
+            """,
+            new SugarParameter("@Id", existing.Id),
+            new SugarParameter("@AltText", DbValue(asset.AltText)),
+            new SugarParameter("@SourceArticleId", asset.SourceArticleId),
+            new SugarParameter("@Sha256", HashText(asset.Url)),
+            new SugarParameter("@ReferenceCount", asset.ReferenceCount),
+            new SugarParameter("@UpdatedAt", now));
+    }
+
+    private async Task MarkAssetOrphanAsync(long assetId, DateTime now, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE asset_library_item
+            SET reference_count = 0,
+                updated_at = @UpdatedAt
+            WHERE id = @Id
+              AND reference_count <> 0;
+            """,
+            new SugarParameter("@Id", assetId),
+            new SugarParameter("@UpdatedAt", now));
     }
 
     public async Task<AuthorAnalyticsResponse> GetAnalyticsAsync(CancellationToken cancellationToken = default)
