@@ -10,7 +10,8 @@ namespace FsusBlog.Server.Services.Background;
 public sealed class ArticleMutationOutboxDispatcher(
     IServiceScopeFactory scopeFactory,
     ILogger<ArticleMutationOutboxDispatcher> logger,
-    TimeProvider timeProvider) : BackgroundService
+    TimeProvider timeProvider,
+    IBackgroundWorkerLease workerLease) : BackgroundService
 {
     private const int BatchSize = 50;
     private const int PoisonRetryThreshold = 10;
@@ -21,7 +22,8 @@ public sealed class ArticleMutationOutboxDispatcher(
         using PeriodicTimer timer = new(PollInterval, timeProvider);
         while (!stoppingToken.IsCancellationRequested)
         {
-            await ProcessPendingAsync(stoppingToken).ConfigureAwait(false);
+            await workerLease.TryRunAsLeaderAsync("article-mutation-outbox-dispatcher", token => ProcessPendingAsync(token), stoppingToken)
+                .ConfigureAwait(false);
             try
             {
                 await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false);

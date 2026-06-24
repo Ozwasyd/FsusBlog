@@ -1,5 +1,6 @@
 ﻿using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using SqlSugar;
 using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
@@ -16,7 +17,8 @@ namespace FsusBlog.Server.Services.Background;
 /// </summary>
 public class LogCleanupService(
     IServiceProvider _serviceProvider,
-    ILogger<LogCleanupService> _logger) : BackgroundService
+    ILogger<LogCleanupService> _logger,
+    IBackgroundWorkerLease workerLease) : BackgroundService
 {
     private const int ChunkSize = 5000;
     private const int MaxChunksPerCycle = 200;
@@ -32,7 +34,7 @@ public class LogCleanupService(
         await BackgroundTaskExecutor.RunLoopAsync(
             async token =>
             {
-                await CleanupOnceAsync(token);
+                await workerLease.TryRunAsLeaderAsync("log-cleanup-worker", CleanupOnceAsync, token);
                 return await timer.WaitForNextTickAsync(token);
             },
             _logger,

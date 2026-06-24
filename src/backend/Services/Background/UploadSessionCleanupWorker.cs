@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using FsusBlog.Server.Infrastructure.Cache;
 
 namespace FsusBlog.Server.Services.Background;
 
@@ -20,7 +21,8 @@ public sealed class UploadSessionCleanupWorker(
     UploadSessionCleanupQueue queue,
     IServiceScopeFactory scopeFactory,
     ILogger<UploadSessionCleanupWorker> logger,
-    TimeProvider timeProvider) : BackgroundService
+    TimeProvider timeProvider,
+    IBackgroundWorkerLease workerLease) : BackgroundService
 {
     private static readonly TimeSpan ScanInterval = TimeSpan.FromMinutes(5);
 
@@ -57,7 +59,8 @@ public sealed class UploadSessionCleanupWorker(
                     break;
                 }
 
-                await RunCleanupOnceAsync(stoppingToken).ConfigureAwait(false);
+                await workerLease.TryRunAsLeaderAsync("upload-session-cleanup-worker", RunCleanupOnceAsync, stoppingToken)
+                    .ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

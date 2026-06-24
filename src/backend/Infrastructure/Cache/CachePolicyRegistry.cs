@@ -53,7 +53,8 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
             [CachePolicyId.UserCommentCursorFrame] = new(CachePolicyId.UserCommentCursorFrame, "blog", "user-comment-cursor-frame", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5), null, [CacheTag.Stats]),
             [CachePolicyId.CategoryFrame] = new(CachePolicyId.CategoryFrame, "blog", "category-frame", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), null, [CacheTag.Category], false, 0.10d, false),
             [CachePolicyId.TagFrame] = new(CachePolicyId.TagFrame, "blog", "tag-frame", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), null, [CacheTag.Tag], false, 0.10d, false),
-            [CachePolicyId.AdminStatsFrame] = new(CachePolicyId.AdminStatsFrame, "admin", "stats-frame", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), null, [CacheTag.Stats], false, 0.10d, false)
+            [CachePolicyId.AdminStatsFrame] = new(CachePolicyId.AdminStatsFrame, "admin", "stats-frame", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), null, [CacheTag.Stats], false, 0.10d, false),
+            [CachePolicyId.BackgroundWorkerLease] = new(CachePolicyId.BackgroundWorkerLease, "runtime", "worker-lease", TimeSpan.Zero, TimeSpan.FromSeconds(30), null, null, false, 0d, false)
         }.ToFrozenDictionary();
 
     public bool TryGet(CachePolicyId id, out CachePolicy policy)

@@ -1,3 +1,4 @@
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using SqlSugar;
 
@@ -6,7 +7,8 @@ namespace FsusBlog.Server.Services.VisitLog;
 public sealed class ArticleViewProjectionRepairWorker(
     IServiceScopeFactory scopeFactory,
     ILogger<ArticleViewProjectionRepairWorker> logger,
-    TimeProvider timeProvider) : BackgroundService
+    TimeProvider timeProvider,
+    IBackgroundWorkerLease workerLease) : BackgroundService
 {
     private static readonly TimeSpan ReconcileInterval = TimeSpan.FromMinutes(10);
 
@@ -15,7 +17,8 @@ public sealed class ArticleViewProjectionRepairWorker(
         using PeriodicTimer timer = new(ReconcileInterval, timeProvider);
         while (!stoppingToken.IsCancellationRequested)
         {
-            await ReconcileOnceAsync(stoppingToken).ConfigureAwait(false);
+            await workerLease.TryRunAsLeaderAsync("article-view-projection-repair-worker", token => ReconcileOnceAsync(token), stoppingToken)
+                .ConfigureAwait(false);
             try
             {
                 await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false);

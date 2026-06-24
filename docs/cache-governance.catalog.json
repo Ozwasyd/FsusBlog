@@ -85,6 +85,28 @@
       "l2JitterRatio": 0.1
     },
     {
+      "id": "AnonymousCommentPolicyVersion",
+      "domain": "sec",
+      "resource": "anonymous-comment-policy-version",
+      "l1Ttl": "TimeSpan.FromMinutes(1)",
+      "l2Ttl": "TimeSpan.FromDays(7)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "AnonymousCommentTicket",
+      "domain": "sec",
+      "resource": "anonymous-comment-ticket",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromMinutes(2)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
       "id": "ArticleDetail",
       "domain": "blog",
       "resource": "article-detail",
@@ -215,6 +237,17 @@
       "l2JitterRatio": 0
     },
     {
+      "id": "BackgroundWorkerLease",
+      "domain": "runtime",
+      "resource": "worker-lease",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromSeconds(30)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": false,
+      "l2JitterRatio": 0
+    },
+    {
       "id": "CategoryFrame",
       "domain": "blog",
       "resource": "category-frame",
@@ -317,7 +350,7 @@
       "domain": "sec",
       "resource": "blacklist-user",
       "l1Ttl": "TimeSpan.FromMinutes(2)",
-      "l2Ttl": "TimeSpan.FromDays(7)",
+      "l2Ttl": "Timeout.InfiniteTimeSpan",
       "negativeTtl": "null",
       "invalidationTags": [],
       "securityCritical": true,
@@ -329,6 +362,39 @@
       "resource": "blocked-user",
       "l1Ttl": "TimeSpan.FromMinutes(1)",
       "l2Ttl": "TimeSpan.FromMinutes(20)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "SecurityCaptchaChallenge",
+      "domain": "sec",
+      "resource": "captcha-challenge",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromMinutes(5)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "SecurityChallengeProof",
+      "domain": "sec",
+      "resource": "challenge-proof",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromMinutes(5)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "SecurityChallengeVerifyRateLimit",
+      "domain": "sec",
+      "resource": "challenge-verify-rate",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromMinutes(2)",
       "negativeTtl": "null",
       "invalidationTags": [],
       "securityCritical": true,
@@ -379,6 +445,28 @@
       "l2JitterRatio": 0
     },
     {
+      "id": "SecurityPerceptionChallenge",
+      "domain": "sec",
+      "resource": "perception-challenge",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromMinutes(5)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "SecurityPoSpaceChallenge",
+      "domain": "sec",
+      "resource": "pospace-challenge",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromMinutes(5)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
       "id": "SecurityPowProof",
       "domain": "sec",
       "resource": "pow-proof",
@@ -395,6 +483,39 @@
       "resource": "pow-risk",
       "l1Ttl": "TimeSpan.FromSeconds(10)",
       "l2Ttl": "TimeSpan.FromMinutes(2)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "SecurityRecoveryKeyAttempt",
+      "domain": "sec",
+      "resource": "rk-attempt",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromMinutes(10)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "SecurityRecoveryKeySession",
+      "domain": "sec",
+      "resource": "rk-session",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromMinutes(10)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "SiteSubscriptionUnsubscribeProof",
+      "domain": "sec",
+      "resource": "site-subscription-unsubscribe-proof",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromMinutes(15)",
       "negativeTtl": "null",
       "invalidationTags": [],
       "securityCritical": true,

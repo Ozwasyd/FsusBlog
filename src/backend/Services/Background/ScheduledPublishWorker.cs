@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
 using SqlSugar;
@@ -10,7 +11,8 @@ public sealed class ScheduledPublishWorker(
     IServiceScopeFactory scopeFactory,
     ILogger<ScheduledPublishWorker> logger,
     TimeProvider timeProvider,
-    ScheduledPublishRuntimeState runtimeState) : BackgroundService
+    ScheduledPublishRuntimeState runtimeState,
+    IBackgroundWorkerLease workerLease) : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
 
@@ -19,7 +21,7 @@ public sealed class ScheduledPublishWorker(
         using PeriodicTimer timer = new(Interval, timeProvider);
         while (!stoppingToken.IsCancellationRequested)
         {
-            await PublishDueArticlesAsync(stoppingToken);
+            await workerLease.TryRunAsLeaderAsync("scheduled-publish-worker", token => PublishDueArticlesAsync(token), stoppingToken);
             try
             {
                 await timer.WaitForNextTickAsync(stoppingToken);

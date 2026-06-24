@@ -310,6 +310,7 @@ SPA hydration
 - `VisitLogMiddleware` 仅保留为管线兼容占位，不再从 GET 请求采样。
 - `VisitLogProcessorService` 只负责读取事件批次与落库，文章浏览量投影由 `IArticleViewProjectionService` 聚合后通过单条 `VALUES` 更新批量写入，Redis 热榜使用 batch/pipeline，详情失效设置批次上限，PublicHot 只收到一个 `article-view-projection-batch` dirty event。
 - `ArticleViewProjectionRepairWorker` 周期性从 `sys_visit_log` 重新聚合 `article_read` 事件修复 `article.views`，保证访问日志已落库但投影失败时不会永久漂移。访问日志落库、投影修复、定时发布和 PublicHot rebuild 都走 `DbConcurrencyGate`，避免后台任务绕过 DB 并发预算。
+- 多实例部署下，带全局副作用的后台 worker 通过 `IBackgroundWorkerLease` 在 Redis L2 上执行 leader election。`ArticleMutationOutboxDispatcher`、`LogCleanupService`、`ScheduledPublishWorker`、`UploadSessionCleanupWorker`、`PublicAotBackfillWorker`、`CrawlerUpdateWorker`、`PowLoadResetWorker` 与 `ArticleViewProjectionRepairWorker` 每轮实际工作前先用 `CachePolicyId.BackgroundWorkerLease` 抢占 5 秒 lease，并在长任务内按 2 秒周期续租；standby 实例跳过本轮，leader 失联后 lease TTL 自动释放并由下一实例接任。该 lease 只保护 worker 运行权，不改变任务周期、数据库事务语义或 outbox/retry 语义。
 
 ## Service Worker 搜索
 

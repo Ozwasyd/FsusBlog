@@ -144,6 +144,11 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     {
         services.AddSingleton<ICachePolicyRegistry, CachePolicyRegistry>();
         services.AddSingleton<IUnifiedCache, UnifiedCache>();
+        services.AddSingleton(new BackgroundWorkerLeaseOptions(
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(2),
+            $"{Environment.MachineName}:{Environment.ProcessId}"));
+        services.AddSingleton<IBackgroundWorkerLease, BackgroundWorkerLease>();
         services.AddSingleton<ICacheMissCoordinator, CacheMissCoordinator>();
         services.AddSingleton<IDbConcurrencyGate, DbConcurrencyGate>();
         services.AddSingleton<CacheInvalidationRuntimeState>();

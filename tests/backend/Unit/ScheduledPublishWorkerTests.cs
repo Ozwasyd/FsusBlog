@@ -1,5 +1,6 @@
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Infrastructure.Cache;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -43,7 +44,8 @@ public sealed class ScheduledPublishWorkerTests
             scopeFactory,
             NullLogger<ScheduledPublishWorker>.Instance,
             TimeProvider.System,
-            runtimeState);
+            runtimeState,
+            new TestBackgroundWorkerLease());
 
         int published = await worker.PublishDueArticlesAsync(CancellationToken.None);
 
@@ -64,5 +66,14 @@ public sealed class ScheduledPublishWorkerTests
         int end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
         Assert.True(end > start, $"Missing end marker: {endMarker}");
         return source[start..end];
+    }
+
+    private sealed class TestBackgroundWorkerLease : IBackgroundWorkerLease
+    {
+        public Task<bool> TryRunAsLeaderAsync(
+            string workerName,
+            Func<CancellationToken, Task> action,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
     }
 }

@@ -49,5 +49,6 @@ public enum CachePolicyId
     SecurityPerceptionChallenge = 44,
     SiteSubscriptionUnsubscribeProof = 45,
     SecurityChallengeVerifyRateLimit = 46,
-    AnonymousCommentPolicyVersion = 47
+    AnonymousCommentPolicyVersion = 47,
+    BackgroundWorkerLease = 48
 }

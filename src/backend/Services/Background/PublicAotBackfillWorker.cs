@@ -1,3 +1,4 @@
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Testing;
 
@@ -7,8 +8,11 @@ public sealed class PublicAotBackfillWorker(
     PublicAotBackfillScheduler scheduler,
     IServiceScopeFactory scopeFactory,
     IConfiguration configuration,
-    ILogger<PublicAotBackfillWorker> logger) : BackgroundService
+    ILogger<PublicAotBackfillWorker> logger,
+    IBackgroundWorkerLease workerLease) : BackgroundService
 {
+    private static readonly TimeSpan StandbyDelay = TimeSpan.FromSeconds(5);
+
     private readonly int _backfillConcurrency = NormalizeBackfillConcurrency(
         configuration.GetValue<int?>("PublicAot:BackfillConcurrency") ?? 1);
 
@@ -19,11 +23,24 @@ public sealed class PublicAotBackfillWorker(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        Task[] workers = Enumerable.Range(0, _backfillConcurrency)
-            .Select(_ => RunBackfillLoopAsync(stoppingToken))
-            .ToArray();
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            bool ran = await workerLease.TryRunAsLeaderAsync("public-aot-backfill-worker",
+                    async token =>
+                    {
+                        Task[] workers = Enumerable.Range(0, _backfillConcurrency)
+                            .Select(_ => RunBackfillLoopAsync(token))
+                            .ToArray();
 
-        await Task.WhenAll(workers);
+                        await Task.WhenAll(workers).ConfigureAwait(false);
+                    },
+                    stoppingToken)
+                .ConfigureAwait(false);
+            if (!ran)
+            {
+                await Task.Delay(StandbyDelay, stoppingToken).ConfigureAwait(false);
+            }
+        }
     }
 
     private async Task RunBackfillLoopAsync(CancellationToken stoppingToken)

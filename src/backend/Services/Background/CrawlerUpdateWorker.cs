@@ -1,4 +1,5 @@
 ﻿using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
@@ -15,7 +16,8 @@ public class CrawlerUpdateWorker(
     IConfiguration _configuration,
     IHttpClientFactory _httpClientFactory,
     IAntiCrawlerPolicyProvider _policyProvider,
-    ILogger<CrawlerUpdateWorker> _logger) : BackgroundService, ICrawlerRangeSyncService
+    ILogger<CrawlerUpdateWorker> _logger,
+    IBackgroundWorkerLease workerLease) : BackgroundService, ICrawlerRangeSyncService
 {
     private const int MaxCidrsPerProvider = 8192;
     private static readonly Uri DefaultGoogleRangeUrl = new("https://developers.google.com/static/search/apis/ipranges/googlebot.json");
@@ -41,7 +43,7 @@ public class CrawlerUpdateWorker(
                 AntiCrawlerPolicyOptions options = _policyProvider.Current.Options;
                 if (options.CidrAutoUpdateEnabled)
                 {
-                    await SynchronizeOnceAsync(token);
+                    await workerLease.TryRunAsLeaderAsync("crawler-update-worker", syncToken => SynchronizeOnceAsync(syncToken), token);
                 }
 
                 await WaitForNextPolicyTickAsync(token);
