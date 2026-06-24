@@ -745,7 +745,12 @@ return current
 
             if (!singleFlight.TryAddReference())
             {
-                _singleFlightEntries.TryRemove(new KeyValuePair<string, SingleFlightEntry>(lockKey, singleFlight));
+                if (singleFlight.TryRetireIfIdle())
+                {
+                    _singleFlightEntries.TryRemove(new KeyValuePair<string, SingleFlightEntry>(lockKey, singleFlight));
+                }
+
+                await Task.Yield();
                 continue;
             }
 
@@ -1001,67 +1006,90 @@ return current
 
     internal sealed class SingleFlightEntry : IDisposable
     {
-        private readonly object _sync = new();
         private int _referenceCount;
         private int _disposed;
-        private bool _retired;
+        private int _retired;
 
         public SemaphoreSlim Semaphore { get; } = new(1, 1);
 
         public bool TryAddReference()
         {
-            lock (_sync)
+            while (true)
             {
-                if (_retired || Volatile.Read(ref _disposed) == 1)
+                if (Volatile.Read(ref _retired) == 1 || Volatile.Read(ref _disposed) == 1)
                 {
                     return false;
                 }
 
-                _referenceCount++;
-                return true;
+                int current = Volatile.Read(ref _referenceCount);
+                if (Interlocked.CompareExchange(ref _referenceCount, current + 1, current) != current)
+                {
+                    continue;
+                }
+
+                if (Volatile.Read(ref _retired) == 0 && Volatile.Read(ref _disposed) == 0)
+                {
+                    return true;
+                }
+
+                ReleaseReference();
+                return false;
             }
         }
 
         public bool ReleaseReference(bool retireWhenIdle = false)
         {
-            bool shouldDispose;
-            lock (_sync)
+            int remaining;
+            while (true)
             {
-                if (_referenceCount <= 0)
+                int current = Volatile.Read(ref _referenceCount);
+                if (current <= 0)
                 {
                     throw new InvalidOperationException("Single-flight reference count is already zero.");
                 }
 
-                _referenceCount--;
-                if (retireWhenIdle && _referenceCount == 0)
+                remaining = current - 1;
+                if (Interlocked.CompareExchange(ref _referenceCount, remaining, current) == current)
                 {
-                    _retired = true;
+                    break;
                 }
-
-                shouldDispose = _retired && _referenceCount == 0;
             }
 
-            if (shouldDispose)
+            if (retireWhenIdle && remaining == 0)
+            {
+                Volatile.Write(ref _retired, 1);
+            }
+
+            if (Volatile.Read(ref _retired) == 1 && remaining == 0)
             {
                 Dispose();
+                return true;
             }
 
-            return shouldDispose;
+            return false;
         }
 
         public void MarkRetired()
+            => _ = TryRetireIfIdle(force: true);
+
+        public bool TryRetireIfIdle()
+            => TryRetireIfIdle(force: false);
+
+        private bool TryRetireIfIdle(bool force)
         {
-            bool shouldDispose;
-            lock (_sync)
+            if (!force && Volatile.Read(ref _referenceCount) != 0)
             {
-                _retired = true;
-                shouldDispose = _referenceCount == 0;
+                return false;
             }
 
-            if (shouldDispose)
+            Volatile.Write(ref _retired, 1);
+            if (Volatile.Read(ref _referenceCount) == 0)
             {
                 Dispose();
+                return true;
             }
+
+            return false;
         }
 
         public void Dispose()

@@ -459,6 +459,21 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    public async Task SingleFlightEntry_TryRetireIfIdle_DoesNotDisposeReferencedSemaphore()
+    {
+        var entry = new UnifiedCache.SingleFlightEntry();
+
+        Assert.True(entry.TryAddReference());
+        Assert.False(entry.TryRetireIfIdle());
+
+        await entry.Semaphore.WaitAsync();
+        entry.Semaphore.Release();
+
+        Assert.True(entry.ReleaseReference(retireWhenIdle: true));
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await entry.Semaphore.WaitAsync());
+    }
+
+    [Fact]
     public void AcquireSingleFlightAsync_DoesNotUseMemoryCacheEvictionForSingleFlight()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "Cache", "IUnifiedCache.cs"));
@@ -468,6 +483,29 @@ public sealed class UnifiedCacheTests
         Assert.DoesNotContain("RegisterPostEvictionCallback", method, StringComparison.Ordinal);
         Assert.Contains("_singleFlightEntries.GetOrAdd", method, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void AcquireSingleFlightAsync_SourceBacksOffAndConditionallyRemovesRetiredEntry()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "Cache", "IUnifiedCache.cs"));
+        string method = ExtractMethodBlock(source, "public async Task<IAsyncDisposable> AcquireSingleFlightAsync");
+
+        Assert.Contains("await Task.Yield()", method, StringComparison.Ordinal);
+        Assert.Contains("singleFlight.TryRetireIfIdle()", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("_singleFlightEntries.TryRemove(new KeyValuePair<string, SingleFlightEntry>(lockKey, singleFlight));\n                continue;", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SingleFlightEntry_SourceUsesInterlockedReferenceCounting()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "Cache", "IUnifiedCache.cs"));
+        string type = ExtractTypeBlock(source, "internal sealed class SingleFlightEntry");
+
+        Assert.Contains("Interlocked.CompareExchange(ref _referenceCount", type, StringComparison.Ordinal);
+        Assert.Contains("Volatile.Read(ref _referenceCount)", type, StringComparison.Ordinal);
+        Assert.DoesNotContain("lock (_sync)", type, StringComparison.Ordinal);
+    }
+
     private static string ExtractMethodBlock(string source, string signature)
     {
         int start = source.IndexOf(signature, StringComparison.Ordinal);
@@ -494,6 +532,9 @@ public sealed class UnifiedCacheTests
 
         throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
+
+    private static string ExtractTypeBlock(string source, string signature)
+        => ExtractMethodBlock(source, signature);
 
     private static UnifiedCache CreateCache(IMemoryCache memory, IDatabase db)
     {
