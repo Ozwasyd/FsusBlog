@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Mapping.Models;
@@ -6,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -127,6 +129,65 @@ public sealed class ArticleEndpointServiceTests
     }
 
     [Fact]
+    public async Task GetPageListAsync_ConcurrentColdFrameMiss_CoalescesCoreLoadAndCacheSet()
+    {
+        const int callers = 16;
+        var core = Substitute.For<IArticleCoreService>();
+        var cache = new CoordinatedArticleFrameCache(callers);
+        var service = Create(
+            core,
+            cache: cache,
+            cacheMissCoordinator: new CacheMissCoordinator(cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance));
+        var releaseCore = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstCoreLoadStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var page = new CorePageResult<ArticleListCoreModel>([], 0);
+        int coreLoads = 0;
+
+        core.GetPageListAsync(
+                Arg.Any<int>(),
+                Arg.Any<int>(),
+                Arg.Any<int?>(),
+                Arg.Any<int?>(),
+                Arg.Any<bool>(),
+                Arg.Any<int?>(),
+                Arg.Any<bool>(),
+                Arg.Any<string?>(),
+                Arg.Any<long?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(async _ =>
+            {
+                if (Interlocked.Increment(ref coreLoads) == 1)
+                {
+                    firstCoreLoadStarted.SetResult(true);
+                }
+
+                await releaseCore.Task;
+                return Result<CorePageResult<ArticleListCoreModel>>.Success(page);
+            });
+
+        Task<ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>>[] tasks = Enumerable.Range(0, callers)
+            .Select(_ => service.GetPageListAsync(
+                1,
+                10,
+                categoryId: null,
+                tagId: null,
+                isDeleted: false,
+                canReadDeleted: true,
+                status: null,
+                canReadPrivate: true))
+            .ToArray();
+
+        await cache.InitialColdReadsCompleted.WaitAsync(TimeSpan.FromSeconds(5));
+        await firstCoreLoadStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        releaseCore.SetResult(true);
+        ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>[] results = await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.All(results, result => Assert.True(result.HasCachedFrame));
+        Assert.Equal(1, Volatile.Read(ref coreLoads));
+        Assert.Equal(1, cache.RawSetCount);
+    }
+
+    [Fact]
     public async Task GetPublicArtifactBackedDetailAsync_Miss_QueuesBackfillWithoutCoreQuery()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -174,8 +235,10 @@ public sealed class ArticleEndpointServiceTests
         IArticleDetailAedsArtifactStore? artifacts = null,
         IArticleDetailAedsArtifactBackfillScheduler? scheduler = null,
         IUnifiedCache? cache = null,
-        IArticleService? articles = null)
+        IArticleService? articles = null,
+        ICacheMissCoordinator? cacheMissCoordinator = null)
     {
+        cache ??= Substitute.For<IUnifiedCache>();
         var hotVersion = Substitute.For<IHotArticlesCacheVersionProvider>();
         hotVersion.BuildVersionedHotArticlesIdentity(Arg.Any<string>())
             .Returns(call => $"v1:{call.Arg<string>()}");
@@ -183,10 +246,131 @@ public sealed class ArticleEndpointServiceTests
         return new ArticleEndpointService(
             core,
             articles ?? Substitute.For<IArticleService>(),
-            cache ?? Substitute.For<IUnifiedCache>(),
+            cache,
+            cacheMissCoordinator ?? new PassthroughCacheMissCoordinator(),
             new AedsEncoder(),
             artifacts ?? Substitute.For<IArticleDetailAedsArtifactStore>(),
             scheduler ?? Substitute.For<IArticleDetailAedsArtifactBackfillScheduler>(),
             hotVersion);
+    }
+
+    private sealed class PassthroughCacheMissCoordinator : ICacheMissCoordinator
+    {
+        public async Task<T?> CoordinateAsync<T>(
+            CachePolicyId policyId,
+            string identity,
+            Func<CancellationToken, Task<CacheReadResult<T>>> tryReadAsync,
+            Func<CancellationToken, Task<T?>> rebuildAsync,
+            string operation,
+            CancellationToken cancellationToken = default,
+            CacheRebuildStrategy? strategy = null)
+        {
+            CacheReadResult<T> cached = await tryReadAsync(cancellationToken);
+            return cached.Hit ? cached.Value : await rebuildAsync(cancellationToken);
+        }
+    }
+
+    private sealed class CoordinatedArticleFrameCache(int expectedColdReads) : IUnifiedCache
+    {
+        private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
+        private readonly TaskCompletionSource<bool> _initialColdReadsCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private byte[]? _articleListFrame;
+        private int _coldReads;
+        private int _rawSetCount;
+
+        public Task InitialColdReadsCompleted => _initialColdReadsCompleted.Task;
+
+        public int RawSetCount => Volatile.Read(ref _rawSetCount);
+
+        public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public async Task<CacheReadResult<ReadOnlyMemory<byte>>> TryGetRawReadonlyAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+        {
+            byte[]? current = Volatile.Read(ref _articleListFrame);
+            if (current is not null)
+            {
+                return new CacheReadResult<ReadOnlyMemory<byte>>(true, current);
+            }
+
+            if (policyId == CachePolicyId.ArticleListFrame)
+            {
+                if (Interlocked.Increment(ref _coldReads) >= expectedColdReads)
+                {
+                    _initialColdReadsCompleted.TrySetResult(true);
+                }
+
+                await _initialColdReadsCompleted.Task.WaitAsync(cancellationToken);
+            }
+
+            return new CacheReadResult<ReadOnlyMemory<byte>>(false, default);
+        }
+
+        public Task SetRawAsync(CachePolicyId policyId, string identity, byte[] value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
+        {
+            if (policyId == CachePolicyId.ArticleListFrame)
+            {
+                Interlocked.Increment(ref _rawSetCount);
+                Volatile.Write(ref _articleListFrame, value.ToArray());
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task SetNegativeAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<string?> GetStringAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => Task.FromResult<string?>("7");
+
+        public Task SetStringAsync(CachePolicyId policyId, string identity, string value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<long> IncrementAsync(CachePolicyId policyId, string identity, long value = 1, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
+
+        public Task<bool> ConsumeOnceAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task RemoveAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task RemoveManyAsync(IReadOnlyList<CacheKeyIdentity> keys, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task RemoveByPrefixAsync(CachePolicyId policyId, string identityPrefix, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task RemoveByPrefixManyAsync(IReadOnlyList<CachePrefixIdentity> prefixes, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public async Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+        {
+            string key = $"{(int)policyId}:{identity}";
+            SemaphoreSlim semaphore = _locks.GetOrAdd(key, static _ => new SemaphoreSlim(1, 1));
+            await semaphore.WaitAsync(cancellationToken);
+            return new AsyncReleaser(semaphore);
+        }
+
+        public string BuildKey(CachePolicyId policyId, string identity, string? version = null)
+            => $"{(int)policyId}:{identity}:{version}";
+
+        private sealed class AsyncReleaser(SemaphoreSlim semaphore) : IAsyncDisposable
+        {
+            public ValueTask DisposeAsync()
+            {
+                semaphore.Release();
+                return ValueTask.CompletedTask;
+            }
+        }
     }
 }

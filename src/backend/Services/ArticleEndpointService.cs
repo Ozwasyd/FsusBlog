@@ -17,6 +17,7 @@ public sealed class ArticleEndpointService(
     IArticleCoreService core,
     IArticleService articles,
     IUnifiedCache cache,
+    ICacheMissCoordinator cacheMissCoordinator,
     IAedsEncoder aeds,
     IArticleDetailAedsArtifactStore detailArtifacts,
     IArticleDetailAedsArtifactBackfillScheduler detailArtifactBackfill,
@@ -55,35 +56,50 @@ public sealed class ArticleEndpointService(
         long version = await GetArticleListCacheVersionAsync(cancellationToken);
         string normalizedKeyword = NormalizeArticleListKeyword(keyword);
         string identity = BuildArticleListCacheIdentity(version, page, size, categoryId, tagId, isDeleted, status, canReadPrivate, normalizedKeyword);
-        CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleListFrame, identity, cancellationToken);
-        if (frame.Hit && frame.Value.Length > 0)
-        {
-            return new(frame.Value, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.None, "cache-hit"));
-        }
+        ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>? coordinated = await cacheMissCoordinator.CoordinateAsync(
+            CachePolicyId.ArticleListFrame,
+            identity,
+            async token =>
+            {
+                CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleListFrame, identity, token);
+                return frame.Hit && frame.Value.Length > 0
+                    ? new CacheReadResult<ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>>(
+                        true,
+                        new ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>(
+                            frame.Value,
+                            Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.None, "cache-hit")))
+                    : new CacheReadResult<ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>>(false, default);
+            },
+            async token =>
+            {
+                token.ThrowIfCancellationRequested();
+                Result<CorePageResult<ArticleListCoreModel>> result = await core.GetPageListAsync(
+                    page,
+                    size,
+                    categoryId,
+                    tagId,
+                    isDeleted,
+                    status,
+                    canReadPrivate,
+                    normalizedKeyword,
+                    version,
+                    token);
+                if (!result.IsSuccess)
+                {
+                    return new ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>(default, result);
+                }
 
-        cancellationToken.ThrowIfCancellationRequested();
-        Result<CorePageResult<ArticleListCoreModel>> result = await core.GetPageListAsync(
-            page,
-            size,
-            categoryId,
-            tagId,
-            isDeleted,
-            status,
-            canReadPrivate,
-            normalizedKeyword,
-            version,
+                token.ThrowIfCancellationRequested();
+                byte[] payload = PodBinaryCodec.EncodeArticlePage(result.Value);
+                byte[] encodedFrame = aeds.Encode(AedsFrameType.ArticleList, payload);
+                token.ThrowIfCancellationRequested();
+                await cache.SetRawAsync(CachePolicyId.ArticleListFrame, identity, encodedFrame, TimeSpan.FromMinutes(10), token);
+                return new ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>(encodedFrame, result);
+            },
+            "article-list-frame",
             cancellationToken);
-        if (!result.IsSuccess)
-        {
-            return new(default, result);
-        }
 
-        cancellationToken.ThrowIfCancellationRequested();
-        byte[] payload = PodBinaryCodec.EncodeArticlePage(result.Value);
-        byte[] encodedFrame = aeds.Encode(AedsFrameType.ArticleList, payload);
-        cancellationToken.ThrowIfCancellationRequested();
-        await cache.SetRawAsync(CachePolicyId.ArticleListFrame, identity, encodedFrame, TimeSpan.FromMinutes(10), cancellationToken);
-        return new(encodedFrame, result);
+        return coordinated ?? new(default, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.InfraFailure, "article_list_frame_rebuild_failed"));
     }
 
     public Task<Result<ArticleDetailCoreModel?>> GetByIdAsync(
