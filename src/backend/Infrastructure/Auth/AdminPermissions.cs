@@ -11,6 +11,7 @@ public static class AdminPermissions
     public const string AnonymousNullifierBlock = "anonymous.nullifier.block";
     public const string AnonymousCredentialRevoke = "anonymous.credential.revoke";
     public const string AuditRead = "audit.read";
+    public const string AuditInvestigate = "audit.investigate";
     public const string SystemConfig = "system.config";
     public const string AdminManage = "admin.manage";
 
@@ -23,6 +24,7 @@ public static class AdminPermissions
         AnonymousNullifierBlock,
         AnonymousCredentialRevoke,
         AuditRead,
+        AuditInvestigate,
         SystemConfig,
         AdminManage
     ];

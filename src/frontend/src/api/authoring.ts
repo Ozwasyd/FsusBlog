@@ -140,6 +140,8 @@ export interface AuditLogRuntimeResponse {
   lastFallbackWriteUtc: string | null
 }
 
+export type AuditPiiMode = 'pii-redacted' | 'investigation'
+
 export interface AuditLogItemResponse {
   id: string
   source: string
@@ -167,6 +169,7 @@ export interface AuditLogItemResponse {
   prevHash: string | null
   recordHash: string | null
   recordMac: string | null
+  piiMode: AuditPiiMode
 }
 
 export interface AuditLogListResponse {
@@ -454,6 +457,7 @@ export interface AuditLogQueryParams {
   severity?: string | null
   fromUtc?: string | null
   toUtc?: string | null
+  piiMode?: AuditPiiMode | null
 }
 
 export const CommentModerationStatus = {
@@ -1053,8 +1057,18 @@ export async function getAuditLogSummary(
   return requestAuthoringBinary<AuditLogSummaryResponse>(`/audit/summary?${search.toString()}`, FrameType.AuditLogSummary, config)
 }
 
-export async function getAuditLogDetail(id: string, config?: ApiRequestConfig): Promise<AuditLogDetailResponse> {
-  return requestAuthoringBinary<AuditLogDetailResponse>(`/audit/${id}`, FrameType.AuditLogDetail, config)
+export async function getAuditLogDetail(
+  id: string,
+  piiMode?: AuditPiiMode | null,
+  config?: ApiRequestConfig
+): Promise<AuditLogDetailResponse> {
+  const search = new URLSearchParams()
+  if (piiMode) {
+    search.set('piiMode', piiMode)
+  }
+  const query = search.toString()
+  const suffix = query ? `?${query}` : ''
+  return requestAuthoringBinary<AuditLogDetailResponse>(`/audit/${id}${suffix}`, FrameType.AuditLogDetail, config)
 }
 
 export async function verifyAuditLog(id: string, config?: ApiRequestConfig): Promise<AuditTamperVerifyResponse> {

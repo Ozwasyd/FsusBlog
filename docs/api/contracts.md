@@ -1480,9 +1480,9 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 | GET | `/api/binary/author/content/export` | 全站内容备份包，包含每篇 Markdown + frontmatter |
 | GET | `/api/binary/author/articles/{articleId}/export` | Markdown + frontmatter 导出 |
 | POST | `/api/binary/author/articles/import` | Markdown + frontmatter 导入 |
-| GET | `/api/binary/author/audit` | 结构化审计日志列表，支持 actor/action/target/outcome/severity/time 过滤 |
+| GET | `/api/binary/author/audit` | 结构化审计日志列表，支持 actor/action/target/outcome/severity/time 过滤；默认 `piiMode=pii-redacted`，完整 `IpHash`/`UserAgentHash`/`SessionIdHash`/`DeviceFingerprintHash` 仅限具备 `audit.investigate` 且显式传 `piiMode=investigation` 的 admin，并写高价值审计 |
 | GET | `/api/binary/author/audit/summary` | 当前过滤条件下的审计 facet 与写入 runtime |
-| GET | `/api/binary/author/audit/{id}` | 审计详情、context JSON 与防篡改校验结果 |
+| GET | `/api/binary/author/audit/{id}` | 审计详情、context JSON 与防篡改校验结果；敏感 hash 字段与列表相同，默认 redacted，investigation 读取要求 `audit.investigate` |
 | GET | `/api/binary/author/audit/{id}/verify` | 单条审计 `record_hash` / `record_mac` 与同链 `prev_hash` 前驱校验 |
 | GET | `/api/binary/author/ops/health` | 运维健康面板数据：PostgreSQL、Redis、audit、Crawler CIDR、备份、PublicHotRead、search、worker、队列和结构化最近错误 |
 | GET | `/api/ops/health/ready-detail` | 受保护详细 readiness JSON：配置、PostgreSQL、Redis、资源、runtime、observability、RiskControl/perception-sealed@v2 gate；要求 admin principal `audit.read` |

@@ -1255,13 +1255,15 @@ public static class AuthoringEndpoints
             string? severity,
             DateTime? fromUtc,
             DateTime? toUtc,
+            string? piiMode,
             AuditQueryService auditQuery,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
+            AuditDisclosureMode disclosureMode = ResolveAuditDisclosureMode(context, piiMode);
             AuditLogQueryRequest query = BuildAuditLogQuery(page, pageSize, source, type, actor, action, targetType, targetId, outcome, severity, fromUtc, toUtc);
-            AuditLogListResponse response = await auditQuery.ListAsync(query, cancellationToken);
-            await auditEvents.RecordAsync(new AuditEvent(
+            AuditLogListResponse response = await auditQuery.ListAsync(query, cancellationToken, disclosureMode);
+            await RecordAuditQueryAsync(auditEvents, new AuditEvent(
                 AuditSourceCatalog.Admin,
                 AuditTypeCatalog.Audit,
                 AuditActionCatalog.AuditQueried,
@@ -1269,7 +1271,7 @@ public static class AuthoringEndpoints
                 AuditSeverityCatalog.Info,
                 "管理员查询审计日志列表",
                 TargetType: "audit_log",
-                Context: BuildAuditQueryContext(query)), cancellationToken);
+                Context: BuildAuditQueryContext(query, disclosureMode, piiMode, context)), disclosureMode, cancellationToken);
             return Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.AuditRead)
@@ -1312,12 +1314,14 @@ public static class AuthoringEndpoints
             long id,
             HttpContext context,
             IAedsEncoder aeds,
+            string? piiMode,
             AuditQueryService auditQuery,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            AuditLogDetailResponse? response = await auditQuery.GetAsync(id, cancellationToken);
-            await auditEvents.RecordAsync(new AuditEvent(
+            AuditDisclosureMode disclosureMode = ResolveAuditDisclosureMode(context, piiMode);
+            AuditLogDetailResponse? response = await auditQuery.GetAsync(id, cancellationToken, disclosureMode);
+            await RecordAuditQueryAsync(auditEvents, new AuditEvent(
                 AuditSourceCatalog.Admin,
                 AuditTypeCatalog.Audit,
                 AuditActionCatalog.AuditQueried,
@@ -1325,7 +1329,8 @@ public static class AuthoringEndpoints
                 response is null ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Info,
                 "管理员查看审计日志详情",
                 TargetType: "audit_log",
-                TargetId: id.ToString(System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
+                TargetId: id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Context: BuildAuditDisclosureContext(disclosureMode, piiMode, context)), disclosureMode, cancellationToken);
             return response is null
                 ? AedsJsonResults.NotFound(aeds, "audit_log_not_found")
                 : Ok(context, aeds, response);
@@ -1870,7 +1875,11 @@ public static class AuthoringEndpoints
             fromUtc,
             toUtc);
 
-    private static IReadOnlyDictionary<string, object?> BuildAuditQueryContext(AuditLogQueryRequest query)
+    private static IReadOnlyDictionary<string, object?> BuildAuditQueryContext(
+        AuditLogQueryRequest query,
+        AuditDisclosureMode disclosureMode = AuditDisclosureMode.PiiRedacted,
+        string? requestedPiiMode = null,
+        HttpContext? context = null)
         => new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["page"] = query.Page,
@@ -1884,8 +1893,50 @@ public static class AuthoringEndpoints
             ["outcome"] = query.Outcome,
             ["severity"] = query.Severity,
             ["fromUtc"] = query.FromUtc,
-            ["toUtc"] = query.ToUtc
+            ["toUtc"] = query.ToUtc,
+            ["piiMode"] = FormatAuditDisclosureMode(disclosureMode),
+            ["requestedPiiMode"] = NormalizePiiMode(requestedPiiMode),
+            ["sensitiveFieldsRead"] = disclosureMode == AuditDisclosureMode.Investigation,
+            ["hasAuditInvestigationPermission"] = context is not null && HasAuditInvestigationPermission(context)
         };
+
+    private static IReadOnlyDictionary<string, object?> BuildAuditDisclosureContext(
+        AuditDisclosureMode disclosureMode,
+        string? requestedPiiMode,
+        HttpContext context)
+        => new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["piiMode"] = FormatAuditDisclosureMode(disclosureMode),
+            ["requestedPiiMode"] = NormalizePiiMode(requestedPiiMode),
+            ["sensitiveFieldsRead"] = disclosureMode == AuditDisclosureMode.Investigation,
+            ["hasAuditInvestigationPermission"] = HasAuditInvestigationPermission(context)
+        };
+
+    internal static AuditDisclosureMode ResolveAuditDisclosureMode(HttpContext context, string? piiMode)
+        => string.Equals(NormalizePiiMode(piiMode), "investigation", StringComparison.Ordinal)
+           && HasAuditInvestigationPermission(context)
+            ? AuditDisclosureMode.Investigation
+            : AuditDisclosureMode.PiiRedacted;
+
+    private static bool HasAuditInvestigationPermission(HttpContext context)
+        => context.User.HasClaim(AdminPermissions.PermissionClaimType, AdminPermissions.AuditInvestigate);
+
+    private static string NormalizePiiMode(string? piiMode)
+        => string.IsNullOrWhiteSpace(piiMode) ? "pii-redacted" : piiMode.Trim().ToLowerInvariant();
+
+    private static string FormatAuditDisclosureMode(AuditDisclosureMode disclosureMode)
+        => disclosureMode == AuditDisclosureMode.Investigation ? "investigation" : "pii-redacted";
+
+    private static Task RecordAuditQueryAsync(
+        IAuditEventService auditEvents,
+        AuditEvent auditEvent,
+        AuditDisclosureMode disclosureMode,
+        CancellationToken cancellationToken)
+        => disclosureMode == AuditDisclosureMode.Investigation
+            ? auditEvents.RecordHighValueAsync(
+                auditEvent with { IsHighValue = true, Severity = AuditSeverityCatalog.Warning },
+                cancellationToken)
+            : auditEvents.RecordAsync(auditEvent, cancellationToken);
 
     private static async Task<IReadOnlyList<AdminCategoryItemResponse>> ListAdminCategoriesAsync(ISqlSugarClient db, CancellationToken cancellationToken)
     {

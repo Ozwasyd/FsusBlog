@@ -5,6 +5,12 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Audit;
 
+public enum AuditDisclosureMode
+{
+    PiiRedacted,
+    Investigation
+}
+
 public sealed class AuditQueryService(
     ISqlSugarClient db,
     AuditLogRuntimeState runtimeState,
@@ -14,7 +20,10 @@ public sealed class AuditQueryService(
     private readonly AuditLogRuntimeState _runtimeState = runtimeState;
     private readonly byte[]? _tamperKey = AuditTamperEvidence.ResolveKey(configuration);
 
-    public async Task<AuditLogListResponse> ListAsync(AuditLogQueryRequest request, CancellationToken cancellationToken)
+    public async Task<AuditLogListResponse> ListAsync(
+        AuditLogQueryRequest request,
+        CancellationToken cancellationToken,
+        AuditDisclosureMode disclosureMode = AuditDisclosureMode.PiiRedacted)
     {
         int page = Math.Max(request.Page, 1);
         int pageSize = Math.Clamp(request.PageSize, 1, 200);
@@ -30,14 +39,17 @@ public sealed class AuditQueryService(
         await Task.WhenAll(totalTask, rowsTask);
 
         return new AuditLogListResponse(
-            [.. rowsTask.Result.Select(ToItemResponse)],
+            [.. rowsTask.Result.Select(row => ToItemResponse(row, disclosureMode))],
             totalTask.Result,
             page,
             pageSize,
             ToRuntimeResponse(_runtimeState.Snapshot()));
     }
 
-    public async Task<AuditLogDetailResponse?> GetAsync(long id, CancellationToken cancellationToken)
+    public async Task<AuditLogDetailResponse?> GetAsync(
+        long id,
+        CancellationToken cancellationToken,
+        AuditDisclosureMode disclosureMode = AuditDisclosureMode.PiiRedacted)
     {
         AuditLog? row = await _db.Queryable<AuditLog>()
             .Where(it => it.Id == id)
@@ -45,7 +57,7 @@ public sealed class AuditQueryService(
 
         return row is null
             ? null
-            : new AuditLogDetailResponse(ToItemResponse(row), row.ContextJson, await VerifyWithChainAsync(row, cancellationToken));
+            : new AuditLogDetailResponse(ToItemResponse(row, disclosureMode), row.ContextJson, await VerifyWithChainAsync(row, cancellationToken));
     }
 
     public async Task<AuditTamperVerifyResponse?> VerifyAsync(long id, CancellationToken cancellationToken)
@@ -144,7 +156,44 @@ public sealed class AuditQueryService(
             .ToListAsync(cancellationToken))
             .Select(static it => new AuditFacetResponse(it.Value, it.Count))];
 
-    private static AuditLogItemResponse ToItemResponse(AuditLog row)
+    internal static AuditLogItemResponse ToItemResponse(AuditLog row, AuditDisclosureMode disclosureMode)
+    {
+        AuditLogPublicItemResponse publicItem = ToPublicItemResponse(row);
+        AuditLogInvestigationFieldsResponse investigation = ToInvestigationFieldsResponse(row);
+        bool revealSensitive = disclosureMode == AuditDisclosureMode.Investigation;
+        string piiMode = revealSensitive ? "investigation" : "pii-redacted";
+
+        return new AuditLogItemResponse(
+            publicItem.Id,
+            publicItem.Source,
+            publicItem.Type,
+            publicItem.Action,
+            publicItem.Outcome,
+            publicItem.Severity,
+            publicItem.IsHighValue,
+            publicItem.ActorType,
+            publicItem.ActorId,
+            publicItem.ActorRole,
+            publicItem.TargetType,
+            publicItem.TargetId,
+            publicItem.ReasonCode,
+            publicItem.OccurredAtUtc,
+            publicItem.EventInfo,
+            publicItem.TraceId,
+            publicItem.RequestPath,
+            publicItem.RequestMethod,
+            revealSensitive ? investigation.IpHash : RedactSensitiveHash(investigation.IpHash),
+            revealSensitive ? investigation.UserAgentHash : RedactSensitiveHash(investigation.UserAgentHash),
+            revealSensitive ? investigation.SessionIdHash : RedactSensitiveHash(investigation.SessionIdHash),
+            revealSensitive ? investigation.DeviceFingerprintHash : RedactSensitiveHash(investigation.DeviceFingerprintHash),
+            publicItem.ChainId,
+            publicItem.PrevHash,
+            publicItem.RecordHash,
+            publicItem.RecordMac,
+            piiMode);
+    }
+
+    private static AuditLogPublicItemResponse ToPublicItemResponse(AuditLog row)
         => new(
             row.Id.ToString(CultureInfo.InvariantCulture),
             row.Source,
@@ -164,14 +213,16 @@ public sealed class AuditQueryService(
             row.TraceId,
             row.RequestPath,
             row.RequestMethod,
-            row.IpHash,
-            row.UserAgentHash,
-            row.SessionIdHash,
-            row.DeviceFingerprintHash,
             row.ChainId,
             row.PrevHash,
             row.RecordHash,
             row.RecordMac);
+
+    private static AuditLogInvestigationFieldsResponse ToInvestigationFieldsResponse(AuditLog row)
+        => new(row.IpHash, row.UserAgentHash, row.SessionIdHash, row.DeviceFingerprintHash);
+
+    private static string? RedactSensitiveHash(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : "pii-redacted";
 
     private static AuditLogRuntimeResponse ToRuntimeResponse(AuditLogRuntimeSnapshot snapshot)
         => new(

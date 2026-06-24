@@ -21,6 +21,36 @@ public sealed record AuditLogListResponse(
     int PageSize,
     AuditLogRuntimeResponse Runtime);
 
+public sealed record AuditLogPublicItemResponse(
+    string Id,
+    string Source,
+    string Type,
+    string Action,
+    string Outcome,
+    string Severity,
+    bool IsHighValue,
+    string? ActorType,
+    string? ActorId,
+    string? ActorRole,
+    string? TargetType,
+    string? TargetId,
+    string? ReasonCode,
+    DateTime OccurredAtUtc,
+    string EventInfo,
+    string? TraceId,
+    string? RequestPath,
+    string? RequestMethod,
+    string? ChainId,
+    string? PrevHash,
+    string? RecordHash,
+    string? RecordMac);
+
+public sealed record AuditLogInvestigationFieldsResponse(
+    string? IpHash,
+    string? UserAgentHash,
+    string? SessionIdHash,
+    string? DeviceFingerprintHash);
+
 public sealed record AuditLogItemResponse(
     string Id,
     string Source,
@@ -47,7 +77,8 @@ public sealed record AuditLogItemResponse(
     string? ChainId,
     string? PrevHash,
     string? RecordHash,
-    string? RecordMac);
+    string? RecordMac,
+    string PiiMode);
 
 public sealed record AuditLogDetailResponse(
     AuditLogItemResponse Item,

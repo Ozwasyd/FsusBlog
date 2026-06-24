@@ -1,6 +1,10 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
 
 namespace FsusBlog.Server.Tests;
 
@@ -68,6 +72,72 @@ public sealed class AuditSystemContractTests
     }
 
     [Fact]
+    public void AuditProjection_RedactedMode_DoesNotExposeSensitiveHashes()
+    {
+        AuditLog row = CreateSensitiveAuditLog();
+
+        var item = AuditQueryService.ToItemResponse(row, AuditDisclosureMode.PiiRedacted);
+
+        Assert.Equal("pii-redacted", item.PiiMode);
+        Assert.NotEqual(row.IpHash, item.IpHash);
+        Assert.NotEqual(row.UserAgentHash, item.UserAgentHash);
+        Assert.NotEqual(row.SessionIdHash, item.SessionIdHash);
+        Assert.NotEqual(row.DeviceFingerprintHash, item.DeviceFingerprintHash);
+        Assert.Equal("pii-redacted", item.IpHash);
+    }
+
+    [Fact]
+    public void AuditProjection_InvestigationMode_ExposesSensitiveHashes()
+    {
+        AuditLog row = CreateSensitiveAuditLog();
+
+        var item = AuditQueryService.ToItemResponse(row, AuditDisclosureMode.Investigation);
+
+        Assert.Equal("investigation", item.PiiMode);
+        Assert.Equal(row.IpHash, item.IpHash);
+        Assert.Equal(row.UserAgentHash, item.UserAgentHash);
+        Assert.Equal(row.SessionIdHash, item.SessionIdHash);
+        Assert.Equal(row.DeviceFingerprintHash, item.DeviceFingerprintHash);
+    }
+
+    [Fact]
+    public void AuditEndpoint_SourceGatesInvestigationFieldsAndAuditsSensitiveReads()
+    {
+        string root = BackendTestPaths.RepositoryRoot;
+        string permissions = File.ReadAllText(Path.Combine(root, "src/backend/Infrastructure/Auth/AdminPermissions.cs"));
+        string endpoints = File.ReadAllText(Path.Combine(root, "src/backend/Modules/Endpoints/AuthoringEndpoints.cs"));
+        string dtos = File.ReadAllText(Path.Combine(root, "src/backend/Models/Dtos/AuditDtos.cs"));
+
+        Assert.Contains("AuditInvestigate", permissions, StringComparison.Ordinal);
+        Assert.Contains("piiMode", endpoints, StringComparison.Ordinal);
+        Assert.Contains("HasAuditInvestigationPermission", endpoints, StringComparison.Ordinal);
+        Assert.Contains("RecordHighValueAsync", endpoints, StringComparison.Ordinal);
+        Assert.Contains("sensitiveFieldsRead", endpoints, StringComparison.Ordinal);
+        Assert.Contains("AuditLogPublicItemResponse", dtos, StringComparison.Ordinal);
+        Assert.Contains("AuditLogInvestigationFieldsResponse", dtos, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AuditEndpoint_OrdinaryAdminInvestigationRequestFallsBackToRedacted()
+    {
+        var context = CreateAdminContext(AdminPermissions.AuditRead);
+
+        AuditDisclosureMode mode = AuthoringEndpoints.ResolveAuditDisclosureMode(context, "investigation");
+
+        Assert.Equal(AuditDisclosureMode.PiiRedacted, mode);
+    }
+
+    [Fact]
+    public void AuditEndpoint_AuditInvestigationPermissionCanRequestSensitiveHashes()
+    {
+        var context = CreateAdminContext(AdminPermissions.AuditRead, AdminPermissions.AuditInvestigate);
+
+        AuditDisclosureMode mode = AuthoringEndpoints.ResolveAuditDisclosureMode(context, "investigation");
+
+        Assert.Equal(AuditDisclosureMode.Investigation, mode);
+    }
+
+    [Fact]
     public void AuditFallbackWriter_SourceBatchesFallbackWrites()
     {
         string root = BackendTestPaths.RepositoryRoot;
@@ -79,6 +149,42 @@ public sealed class AuditSystemContractTests
         Assert.DoesNotContain("File.AppendAllTextAsync", fallbackWriter, StringComparison.Ordinal);
         Assert.DoesNotContain("Directory.CreateDirectory", writeAsync, StringComparison.Ordinal);
     }
+
+    private static AuditLog CreateSensitiveAuditLog()
+        => new()
+        {
+            Id = 42,
+            Source = "auth",
+            Type = "security",
+            Action = "auth.test",
+            Outcome = "success",
+            Severity = "info",
+            ActorType = "admin",
+            ActorId = "7",
+            TargetType = "session",
+            TargetId = "42",
+            EventInfo = "unit audit",
+            OccurredAtUtc = DateTime.UtcNow,
+            IpHash = "ip-hash-full",
+            UserAgentHash = "ua-hash-full",
+            SessionIdHash = "session-hash-full",
+            DeviceFingerprintHash = "device-hash-full"
+        };
+
+    private static DefaultHttpContext CreateAdminContext(params string[] permissions)
+    {
+        var claims = new List<Claim>
+        {
+            new("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
+            new("admin_id", "7")
+        };
+        claims.AddRange(permissions.Select(static permission => new Claim(AdminPermissions.PermissionClaimType, permission)));
+
+        var context = new DefaultHttpContext();
+        context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "unit"));
+        return context;
+    }
+
     private static string ExtractMethodBlock(string source, string signature)
     {
         int start = source.IndexOf(signature, StringComparison.Ordinal);
