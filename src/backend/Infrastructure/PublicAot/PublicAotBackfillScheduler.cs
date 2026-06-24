@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Threading.Channels;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -7,9 +8,11 @@ public sealed class PublicAotBackfillScheduler : IPublicAotBackfillScheduler
 {
     private readonly Channel<PublicAotBackfillRequest> _channel;
     private readonly ConcurrentDictionary<string, byte> _inFlight = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, byte> _inFlightRouteKeys = new(StringComparer.Ordinal);
     private readonly PublicAotSsrRuntimeState _runtimeState;
     private readonly int _queueCapacity;
     internal int InFlightCount => _inFlight.Count;
+    internal int InFlightRouteKeyCount => _inFlightRouteKeys.Count;
 
     public PublicAotBackfillScheduler(IConfiguration configuration)
         : this(configuration, new PublicAotSsrRuntimeState(configuration))
@@ -41,8 +44,16 @@ public sealed class PublicAotBackfillScheduler : IPublicAotBackfillScheduler
             return false;
         }
 
+        string routeIdentity = BuildRouteIdentity(request);
+        if (!_inFlightRouteKeys.TryAdd(routeIdentity, 0))
+        {
+            _runtimeState.RecordBackfillDropped(request, "duplicate-route-key", InFlightCount);
+            return false;
+        }
+
         if (!_inFlight.TryAdd(request.CacheKey, 0))
         {
+            _inFlightRouteKeys.TryRemove(routeIdentity, out _);
             _runtimeState.RecordBackfillDropped(request, "duplicate-cache-key", InFlightCount);
             return false;
         }
@@ -54,6 +65,7 @@ public sealed class PublicAotBackfillScheduler : IPublicAotBackfillScheduler
         }
 
         _inFlight.TryRemove(request.CacheKey, out _);
+        _inFlightRouteKeys.TryRemove(routeIdentity, out _);
         _runtimeState.RecordBackfillDropped(request, "queue-full", InFlightCount);
         return false;
     }
@@ -62,5 +74,13 @@ public sealed class PublicAotBackfillScheduler : IPublicAotBackfillScheduler
         => _channel.Reader.ReadAllAsync(cancellationToken);
 
     internal void Complete(PublicAotBackfillRequest request)
-        => _inFlight.TryRemove(request.CacheKey, out _);
+    {
+        _inFlight.TryRemove(request.CacheKey, out _);
+        _inFlightRouteKeys.TryRemove(BuildRouteIdentity(request), out _);
+    }
+
+    private static string BuildRouteIdentity(PublicAotBackfillRequest request)
+        => string.Create(
+            CultureInfo.InvariantCulture,
+            $"{request.TestSessionId ?? string.Empty}|{request.Kind}|{request.RouteKey}");
 }

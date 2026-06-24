@@ -61,6 +61,25 @@ public sealed class PublicAotBackfillSchedulerTests
     }
 
     [Fact]
+    public void TrySchedule_DuplicateRouteKeyAcrossCacheKeys_IsDeduplicatedUntilComplete()
+    {
+        IConfiguration configuration = new ConfigurationBuilder().Build();
+        var scheduler = new PublicAotBackfillScheduler(configuration);
+        var first = new PublicAotBackfillRequest(PublicPageKind.ArticleDetail, "article:42", "/article/42", string.Empty, "cache:first");
+        var duplicateRoute = new PublicAotBackfillRequest(PublicPageKind.ArticleDetail, "article:42", "/article/42?from=feed", string.Empty, "cache:second");
+
+        bool firstQueued = scheduler.TrySchedule(first);
+        bool duplicateQueued = scheduler.TrySchedule(duplicateRoute);
+        scheduler.Complete(first);
+        bool queuedAfterComplete = scheduler.TrySchedule(duplicateRoute);
+
+        Assert.True(firstQueued);
+        Assert.False(duplicateQueued);
+        Assert.True(queuedAfterComplete);
+        Assert.Equal(1, scheduler.InFlightCount);
+    }
+
+    [Fact]
     public void TrySchedule_WhenSsrCircuitIsOpen_DropsWithoutLeakingInFlight()
     {
         IConfiguration configuration = new ConfigurationBuilder()
@@ -109,6 +128,20 @@ public sealed class PublicAotBackfillSchedulerTests
         Assert.DoesNotContain("DefaultHttpContext", source, StringComparison.Ordinal);
         Assert.DoesNotContain("HttpContext =", source, StringComparison.Ordinal);
         Assert.Contains("BeginScope(request.TestSessionId)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PublicAotFileShellCache_SourceWritesTempFileThenAtomicMove()
+    {
+        string source = ReadSource("src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs");
+
+        int tempWrite = source.IndexOf("File.WriteAllBytesAsync(tempPath, payload, cancellationToken)", StringComparison.Ordinal);
+        int atomicMove = source.IndexOf("File.Move(tempPath, targetPath, overwrite: true)", StringComparison.Ordinal);
+        int memoryPublish = source.IndexOf("_memoryCache[entry.CacheKey] = CreateMemoryCacheEntry(entry)", StringComparison.Ordinal);
+
+        Assert.True(tempWrite >= 0, "Public AOT cache must write complete payload to a temp file first.");
+        Assert.True(atomicMove > tempWrite, "Public AOT cache must atomically move the temp file into place after the write.");
+        Assert.True(memoryPublish > atomicMove, "Memory cache publish must happen only after the atomic file move.");
     }
 
     [Fact]
