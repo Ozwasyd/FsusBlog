@@ -681,24 +681,43 @@ public partial class CommentService(
         CommentModerationStatus previousStatus = comment.ModerationStatus;
         DateTime moderatedAt = DateTime.UtcNow;
         string reason = NormalizeNullable($"model_policy:{disposition.Reason}", 256) ?? disposition.Reason;
-        int affected = await db.Updateable<Comment>()
-            .SetColumns(c => new Comment
-            {
-                ModerationStatus = disposition.NextStatus,
-                ModerationReason = reason,
-                ModeratedByAdminPrincipalId = null,
-                ModeratedAt = moderatedAt
-            })
-            .Where(c => c.Id == comment.Id && !c.IsDeleted && c.ModerationStatus == previousStatus)
-            .ExecuteCommandAsync(cancellationToken);
-        if (affected <= 0)
+        AutomaticModerationTarget? target = await LoadAutomaticModerationTargetAsync(comment.Id, cancellationToken);
+        if (target is null || target.ModerationStatus != previousStatus)
         {
             logger.LogInformation(
-                "模型审核自动处置未应用，评论状态已变化 | CommentId: {CommentId} | Previous: {PreviousStatus} | Next: {NextStatus}",
+                "模型审核自动处置未应用，评论状态已变化 | CommentId: {CommentId} | Previous: {PreviousStatus} | Current: {CurrentStatus} | Next: {NextStatus}",
                 comment.Id,
                 previousStatus,
+                target?.ModerationStatus,
                 disposition.NextStatus);
             return;
+        }
+
+        bool applied = await TryApplyAutomaticModerationDispositionAsync(target, disposition.NextStatus, reason, moderatedAt);
+        if (!applied)
+        {
+            AutomaticModerationTarget? latest = await LoadAutomaticModerationTargetAsync(comment.Id, cancellationToken);
+            if (latest is null || latest.ModerationStatus != previousStatus)
+            {
+                logger.LogInformation(
+                    "模型审核自动处置未应用，评论状态已变化 | CommentId: {CommentId} | Previous: {PreviousStatus} | Current: {CurrentStatus} | Next: {NextStatus}",
+                    comment.Id,
+                    previousStatus,
+                    latest?.ModerationStatus,
+                    disposition.NextStatus);
+                return;
+            }
+
+            applied = await TryApplyAutomaticModerationDispositionAsync(latest, disposition.NextStatus, reason, moderatedAt);
+            if (!applied)
+            {
+                logger.LogWarning(
+                    "模型审核自动处置重试仍未应用，保留评论在人工审核队列 | CommentId: {CommentId} | Previous: {PreviousStatus} | Next: {NextStatus}",
+                    comment.Id,
+                    previousStatus,
+                    disposition.NextStatus);
+                return;
+            }
         }
 
         comment.ModerationStatus = disposition.NextStatus;
@@ -707,6 +726,59 @@ public partial class CommentService(
         comment.ModeratedAt = moderatedAt;
         WriteAutomaticDispositionAudit(comment, disposition);
     }
+
+    private async Task<AutomaticModerationTarget?> LoadAutomaticModerationTargetAsync(long commentId, CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT id,
+                   moderation_status,
+                   xmin::text AS row_version
+            FROM comment
+            WHERE id = @CommentId
+              AND is_deleted = false;
+            """,
+            new SugarParameter("@CommentId", commentId));
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        return new AutomaticModerationTarget(
+            reader.GetInt64(0),
+            (CommentModerationStatus)reader.GetInt32(1),
+            reader.GetString(2));
+    }
+
+    private async Task<bool> TryApplyAutomaticModerationDispositionAsync(
+        AutomaticModerationTarget target,
+        CommentModerationStatus nextStatus,
+        string reason,
+        DateTime moderatedAt)
+    {
+        int affected = await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE comment
+            SET moderation_status = @NextStatus,
+                moderation_reason = @Reason,
+                moderated_by_admin_principal_id = NULL,
+                moderated_at = CAST(@ModeratedAt AS timestamp)
+            WHERE id = @CommentId
+              AND is_deleted = false
+              AND xmin::text = @RowVersion;
+            """,
+            new SugarParameter("@CommentId", target.Id),
+            new SugarParameter("@NextStatus", (int)nextStatus),
+            new SugarParameter("@Reason", reason),
+            new SugarParameter("@ModeratedAt", moderatedAt),
+            new SugarParameter("@RowVersion", target.RowVersion));
+        return affected > 0;
+    }
+
+    private sealed record AutomaticModerationTarget(
+        long Id,
+        CommentModerationStatus ModerationStatus,
+        string RowVersion);
 
     private void WriteAutomaticDispositionAudit(Comment comment, CommentModerationDisposition disposition)
     {

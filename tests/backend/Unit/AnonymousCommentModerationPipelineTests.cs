@@ -111,6 +111,34 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
+    public void CommentService_AutomaticDispositionUsesRowVersionGuardAndRetry()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
+        string entity = BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/Comment.cs");
+        string applyMethod = source[
+            source.IndexOf("private async Task ApplyAutomaticModerationDispositionAsync", StringComparison.Ordinal)..
+            source.IndexOf("private async Task<AutomaticModerationTarget?> LoadAutomaticModerationTargetAsync", StringComparison.Ordinal)];
+        string loadMethod = source[
+            source.IndexOf("private async Task<AutomaticModerationTarget?> LoadAutomaticModerationTargetAsync", StringComparison.Ordinal)..
+            source.IndexOf("private async Task<bool> TryApplyAutomaticModerationDispositionAsync", StringComparison.Ordinal)];
+        string updateMethod = source[
+            source.IndexOf("private async Task<bool> TryApplyAutomaticModerationDispositionAsync", StringComparison.Ordinal)..
+            source.IndexOf("private void WriteAutomaticDispositionAudit", StringComparison.Ordinal)];
+
+        Assert.Contains("public string? RowVersion", entity, StringComparison.Ordinal);
+        Assert.Contains("LoadAutomaticModerationTargetAsync(comment.Id", applyMethod, StringComparison.Ordinal);
+        Assert.Contains("TryApplyAutomaticModerationDispositionAsync(", applyMethod, StringComparison.Ordinal);
+        Assert.Contains("LoadAutomaticModerationTargetAsync(comment.Id", applyMethod, StringComparison.Ordinal);
+        Assert.Contains("target is null || target.ModerationStatus != previousStatus", applyMethod, StringComparison.Ordinal);
+        Assert.Contains("latest is null || latest.ModerationStatus != previousStatus", applyMethod, StringComparison.Ordinal);
+        Assert.Contains("xmin::text AS row_version", loadMethod, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND xmin::text = @RowVersion", updateMethod, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND is_deleted = false", updateMethod, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Updateable<Comment>()", applyMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("ModerationStatus == previousStatus", updateMethod, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CommentService_EnforcesAnonymousNullifierBeforeCommitAndIncrementsAfterInsert()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");

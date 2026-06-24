@@ -92,6 +92,9 @@ public class Comment
     [SugarColumn(ColumnName = "moderated_at", IsNullable = true)]
     public DateTime? ModeratedAt { get; set; }
 
+    [SugarColumn(IsIgnore = true)]
+    public string? RowVersion { get; set; }
+
     [Navigate(NavigateType.OneToOne, nameof(ArticleId))]
     public Article? Article { get; set; }
 
