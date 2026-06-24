@@ -110,6 +110,22 @@ public sealed class AuthoringWorkflowServiceTests
     }
 
     [Fact]
+    public void ModerateCommentsAsync_SourceUsesSharedTransactionBeforeSideEffects()
+    {
+        string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string method = Slice(
+            service,
+            "public async Task<CommentModerationBulkResponse> ModerateCommentsAsync",
+            "public async Task<ContentExportResponse?> ExportArticleAsync");
+
+        Assert.Contains("db.Ado.UseTranAsync(async ()", method, StringComparison.Ordinal);
+        Assert.Contains("updatedRows", method, StringComparison.Ordinal);
+        AssertContainsAfter(method, "if (!transaction.IsSuccess)", "foreach (CommentModerationStateRow row in updatedRows)");
+        AssertContainsAfter(method, "if (!transaction.IsSuccess)", "InvalidateModeratedCommentAsync");
+        AssertContainsAfter(method, "if (!transaction.IsSuccess)", "PublishModerationRealtimeAsync");
+    }
+
+    [Fact]
     public void ContentExportContracts_DoNotCarryImportableNumericActorIds()
     {
         string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
@@ -537,6 +553,14 @@ const value = "<script>alert(1)</script>";
         int end = content.IndexOf(endMarker, start + startMarker.Length, StringComparison.Ordinal);
         Assert.True(end > start, $"Missing end marker: {endMarker}");
         return content[start..end];
+    }
+
+    private static void AssertContainsAfter(string content, string first, string second)
+    {
+        int firstIndex = content.IndexOf(first, StringComparison.Ordinal);
+        Assert.True(firstIndex >= 0, $"Missing first marker: {first}");
+        int secondIndex = content.IndexOf(second, firstIndex + first.Length, StringComparison.Ordinal);
+        Assert.True(secondIndex > firstIndex, $"Missing second marker after {first}: {second}");
     }
 
     private static AuthoringWorkflowService BuildService(

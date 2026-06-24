@@ -656,8 +656,7 @@ public sealed class AuthoringWorkflowService(
         }
 
         List<CommentModerationStateRow> rows = await LoadCommentModerationStatesAsync(ids, cancellationToken);
-        int updated = 0;
-        var updatedIds = new List<long>(rows.Count);
+        var eligibleRows = new List<CommentModerationStateRow>(rows.Count);
         DateTime moderatedAt = DateTime.UtcNow;
         string? normalizedReason = NormalizeNullable(request.Reason, 256);
         foreach (CommentModerationStateRow row in rows)
@@ -672,24 +671,48 @@ public sealed class AuthoringWorkflowService(
                 continue;
             }
 
-            int affected = await db.Updateable<Comment>()
-                .SetColumns(it => it.ModerationStatus == request.Status)
-                .SetColumns(it => it.ModerationReason == normalizedReason)
-                .SetColumns(it => it.ModeratedByAdminPrincipalId == actorAdminPrincipalId)
-                .SetColumns(it => it.ModeratedAt == moderatedAt)
-                .Where(it => it.Id == row.Id && !it.IsDeleted && it.ModerationStatus == row.Status)
-                .ExecuteCommandAsync(cancellationToken);
-            if (affected <= 0)
-            {
-                continue;
-            }
+            eligibleRows.Add(row);
+        }
 
-            updated++;
-            updatedIds.Add(row.Id);
+        if (eligibleRows.Count == 0)
+        {
+            return new CommentModerationBulkResponse(0, 0);
+        }
+
+        var updatedRows = new List<CommentModerationStateRow>(eligibleRows.Count);
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            foreach (CommentModerationStateRow row in eligibleRows)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                int affected = await db.Updateable<Comment>()
+                    .SetColumns(it => it.ModerationStatus == request.Status)
+                    .SetColumns(it => it.ModerationReason == normalizedReason)
+                    .SetColumns(it => it.ModeratedByAdminPrincipalId == actorAdminPrincipalId)
+                    .SetColumns(it => it.ModeratedAt == moderatedAt)
+                    .Where(it => it.Id == row.Id && !it.IsDeleted && it.ModerationStatus == row.Status)
+                    .ExecuteCommandAsync(cancellationToken);
+                if (affected <= 0)
+                {
+                    throw new InvalidOperationException("Comment moderation bulk update conflicted.");
+                }
+
+                updatedRows.Add(row);
+            }
+        });
+        if (!transaction.IsSuccess)
+        {
+            throw new InvalidOperationException("Comment moderation bulk update failed.", transaction.ErrorException);
+        }
+
+        foreach (CommentModerationStateRow row in updatedRows)
+        {
             await InvalidateModeratedCommentAsync(row, request.Status, cancellationToken);
             await PublishModerationRealtimeAsync(row, request.Status, moderatedAt);
         }
 
+        int updated = updatedRows.Count;
+        long[] updatedIds = [.. updatedRows.Select(static row => row.Id)];
         int banned = updated > 0 && request.BanUsers && ShouldLinkBan(request.Status)
             ? await BanModerationUsersAsync(updatedIds, request.Reason, cancellationToken)
             : 0;
@@ -1106,7 +1129,7 @@ public sealed class AuthoringWorkflowService(
         }
 
         string effectiveReason = NormalizeNullable(reason, 256) ?? "评论审核处置";
-        int banned = 0;
+        var bannedUserIds = new List<int>();
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             List<UserBanCandidate> banTargets = await LoadUserBanCandidatesAsync(uniqueUserIds, cancellationToken);
@@ -1117,8 +1140,7 @@ public sealed class AuthoringWorkflowService(
                     continue;
                 }
 
-                await blacklistService.BanUserAsync(target.Id, effectiveReason);
-                banned++;
+                bannedUserIds.Add(target.Id);
             }
         });
         if (!transaction.IsSuccess)
@@ -1126,7 +1148,12 @@ public sealed class AuthoringWorkflowService(
             throw new InvalidOperationException("Comment moderation user ban failed.", transaction.ErrorException);
         }
 
-        return banned;
+        foreach (int userId in bannedUserIds)
+        {
+            await blacklistService.BanUserAsync(userId, effectiveReason);
+        }
+
+        return bannedUserIds.Count;
     }
 
     private async Task<List<UserBanCandidate>> LoadUserBanCandidatesAsync(int[] userIds, CancellationToken cancellationToken)
