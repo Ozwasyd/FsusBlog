@@ -275,7 +275,7 @@ Use dry-run cleanup to verify retention behavior before deleting local artifacts
 tools/operations/cleanup-retention.sh
 ```
 
-The retention script records intended cleanup for release/security evidence, coverage, upload sessions and historical AOT/search files. It must not delete article-referenced assets or the only copy of audit/security evidence required by the current release. Author asset cleanup is narrower: `/api/binary/author/assets/orphans` removes only zero-reference `asset_library_item` rows after an admin reindex/audit, and does not remove files under `/uploads/illustration/`.
+The retention script records intended cleanup for release/security evidence, coverage, upload sessions and historical AOT/search files. Runtime `LogCleanupService` separately enforces database retention for visit logs, RUM metrics, ordinary audit logs, and `anonymous_credential_issuance_audit` rows older than 90 days. It must not delete article-referenced assets or the only copy of audit/security evidence required by the current release. Author asset cleanup is narrower: `/api/binary/author/assets/orphans` removes only zero-reference `asset_library_item` rows after an admin reindex/audit, and does not remove files under `/uploads/illustration/`.
 
 Upload asset file deletion is opt-in and guarded. Set `FSUSBLOG_RETENTION_SCAN_UPLOAD_ASSETS=1` only with a non-empty `FSUSBLOG_RETENTION_REFERENCED_ASSETS` file containing `/uploads/illustration/*` URLs; referenced files are counted as `assetGuard.protectedReferencedAssets` and are never deleted. The fixture test `tools/operations/test-retention-cleanup-fixture.sh` proves an old referenced asset survives while an old unreferenced fixture asset is removed.
 

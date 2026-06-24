@@ -18,6 +18,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Modules.Endpoints.Binary;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Validation;
@@ -507,6 +508,56 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
     }
 
     [Fact]
+    public void IssuerService_SourceRequiresIndependentSubjectHashPepperWithoutFallbacks()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialIssuerService.cs");
+
+        Assert.Contains("AnonymousCredentialIssuer:SubjectHashPepper", source, StringComparison.Ordinal);
+        Assert.Contains("must be configured with at least 32 characters", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("configuration[\"Jwt:SecretKey\"]", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("development-anonymous-credential-subject-hash-pepper", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task LogCleanupService_AnonymousCredentialIssuanceAuditRetentionDeletesRowsOlderThan90Days()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        PostgresSqlSugarTestClient.InitTables(db, typeof(AnonymousCredentialIssuanceAudit));
+        await db.Insertable(new[]
+        {
+            new AnonymousCredentialIssuanceAudit
+            {
+                SubjectHash = HashSubject("expired-subject"),
+                Epoch = 1001,
+                Status = AnonymousCredentialIssuanceStatuses.Issued,
+                CreatedAtUtc = new DateTime(2026, 3, 25, 23, 59, 59, DateTimeKind.Utc),
+                TraceId = "expired"
+            },
+            new AnonymousCredentialIssuanceAudit
+            {
+                SubjectHash = HashSubject("retained-subject"),
+                Epoch = 1002,
+                Status = AnonymousCredentialIssuanceStatuses.Issued,
+                CreatedAtUtc = new DateTime(2026, 3, 26, 0, 0, 0, DateTimeKind.Utc),
+                TraceId = "retained"
+            }
+        }).ExecuteCommandAsync();
+
+        int deleted = await LogCleanupService.CleanupAnonymousCredentialIssuanceAuditAsync(
+            db,
+            new DateTime(2026, 3, 26, 0, 0, 0, DateTimeKind.Utc),
+            CancellationToken.None);
+
+        Assert.Equal(1, deleted);
+        List<AnonymousCredentialIssuanceAudit> rows = await db.Queryable<AnonymousCredentialIssuanceAudit>()
+            .OrderBy(static row => row.Epoch)
+            .ToListAsync();
+        AnonymousCredentialIssuanceAudit retained = Assert.Single(rows);
+        Assert.Equal(1002, retained.Epoch);
+        Assert.Equal("retained", retained.TraceId);
+    }
+
+    [Fact]
     public async Task IssueAsync_BannedAccountRequiresExplicitAllowConfiguration()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -843,6 +894,9 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
 
     private static byte[] CreateManagedCircuitNativePrivateKey()
         => [.. Enumerable.Range(1, 32).Select(static value => (byte)value)];
+
+    private static string HashSubject(string value)
+        => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
     private static CircuitNativeCredentialIssueMaterial CreateManagedCircuitNativeIssueMaterial()
         => new(

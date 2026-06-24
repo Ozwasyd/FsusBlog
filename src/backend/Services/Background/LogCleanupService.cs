@@ -23,6 +23,7 @@ public class LogCleanupService(
     private const int VisitLogRetentionDays = 30;
     private const int RumRetentionDays = 14;
     private const int AuditLogRetentionDays = 365;
+    private const int AnonymousCredentialIssuanceAuditRetentionDays = 90;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -61,6 +62,7 @@ public class LogCleanupService(
         DateTime visitExpireDate = DateTime.UtcNow.AddDays(-VisitLogRetentionDays);
         DateTime rumExpireDate = DateTime.UtcNow.AddDays(-RumRetentionDays);
         DateTime auditExpireDate = DateTime.UtcNow.AddDays(-AuditLogRetentionDays);
+        DateTime anonymousCredentialAuditExpireDate = DateTime.UtcNow.AddDays(-AnonymousCredentialIssuanceAuditRetentionDays);
 
         _logger.LogDebug("执行计划启动：寻找过期访问/RUM/普通审计日志...");
 
@@ -87,10 +89,19 @@ public class LogCleanupService(
 
         int rumDeleted = await CleanupRumMetricsAsync(db, rumExpireDate, token);
         int auditDeleted = await CleanupAuditLogsAsync(db, auditExpireDate, token);
+        int anonymousCredentialAuditDeleted = await CleanupAnonymousCredentialIssuanceAuditAsync(
+            db,
+            anonymousCredentialAuditExpireDate,
+            token);
 
-        if (visitDeleted > 0 || rumDeleted > 0 || auditDeleted > 0)
+        if (visitDeleted > 0 || rumDeleted > 0 || auditDeleted > 0 || anonymousCredentialAuditDeleted > 0)
         {
-            _logger.LogInformation("日志自动清理成功 | visit={VisitCount} rum={RumCount} audit={AuditCount}", visitDeleted, rumDeleted, auditDeleted);
+            _logger.LogInformation(
+                "日志自动清理成功 | visit={VisitCount} rum={RumCount} audit={AuditCount} anonymousCredentialAudit={AnonymousCredentialAuditCount}",
+                visitDeleted,
+                rumDeleted,
+                auditDeleted,
+                anonymousCredentialAuditDeleted);
         }
     }
 
@@ -141,6 +152,36 @@ public class LogCleanupService(
             }
 
             totalDeleted += await db.Deleteable<AuditLog>()
+                .In(ids)
+                .ExecuteCommandAsync(token);
+            processedChunks++;
+            await Task.Delay(50, token);
+        }
+
+        return totalDeleted;
+    }
+
+    internal static async Task<int> CleanupAnonymousCredentialIssuanceAuditAsync(
+        ISqlSugarClient db,
+        DateTime expireDate,
+        CancellationToken token)
+    {
+        int totalDeleted = 0;
+        int processedChunks = 0;
+        while (!token.IsCancellationRequested && processedChunks < MaxChunksPerCycle)
+        {
+            List<long> ids = await db.Queryable<AnonymousCredentialIssuanceAudit>()
+                .Where(it => it.CreatedAtUtc < expireDate)
+                .Select(it => it.Id)
+                .Take(ChunkSize)
+                .ToListAsync(token);
+
+            if (ids.Count == 0)
+            {
+                break;
+            }
+
+            totalDeleted += await db.Deleteable<AnonymousCredentialIssuanceAudit>()
                 .In(ids)
                 .ExecuteCommandAsync(token);
             processedChunks++;
