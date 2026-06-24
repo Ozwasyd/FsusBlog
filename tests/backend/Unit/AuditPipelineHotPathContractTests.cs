@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Infrastructure.Audit;
@@ -94,6 +95,30 @@ public sealed class AuditPipelineHotPathContractTests
     }
 
     [Fact]
+    public void AuditTamperEvidence_FallbackChainIdIsInvariantAcrossCultures()
+    {
+        string[] chainIds = [];
+        foreach (string cultureName in new[] { "en-US", "fa-IR", "ar-SA", "th-TH" })
+        {
+            chainIds = [.. chainIds, RunWithCulture(cultureName, () => AuditTamperEvidence.Sign(BuildTamperRecord(), null).ChainId)];
+        }
+
+        Assert.All(chainIds, chainId => Assert.Equal("20260614", chainId));
+    }
+
+    [Fact]
+    public void AuditTamperEvidence_CrossNodeFallbackChainHeadIsConsistent()
+    {
+        byte[] key = Encoding.UTF8.GetBytes("secret");
+        AuditTamperEvidenceResult enUs = RunWithCulture("en-US", () => AuditTamperEvidence.Sign(BuildTamperRecord(), key));
+        AuditTamperEvidenceResult faIr = RunWithCulture("fa-IR", () => AuditTamperEvidence.Sign(BuildTamperRecord(), key));
+
+        Assert.Equal(enUs.ChainId, faIr.ChainId);
+        Assert.Equal(enUs.RecordHash, faIr.RecordHash);
+        Assert.Equal(enUs.RecordMac, faIr.RecordMac);
+    }
+
+    [Fact]
     public void AuditContextJsonSerializer_DecodesBinaryPayloadWithoutReflectionJson()
     {
         byte[] payload = PublicAotBinaryPayload.EncodeObjectFrame(new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -110,6 +135,36 @@ public sealed class AuditPipelineHotPathContractTests
         string? json = AuditContextJsonSerializer.Serialize(payload);
 
         Assert.Equal("{\"trace\":\"trace-1\",\"count\":2,\"ok\":true,\"nested\":{\"value\":\"x\"}}", json);
+    }
+
+    private static AuditRecord BuildTamperRecord()
+        => new(
+            AuditSourceCatalog.Auth,
+            AuditTypeCatalog.Security,
+            new DateTime(2026, 6, 14, 12, 0, 0, DateTimeKind.Utc),
+            "event",
+            null,
+            Action: "auth.test",
+            Outcome: AuditOutcomeCatalog.Success,
+            Severity: AuditSeverityCatalog.Info,
+            PrevHash: "prev");
+
+    private static T RunWithCulture<T>(string cultureName, Func<T> action)
+    {
+        CultureInfo previousCulture = CultureInfo.CurrentCulture;
+        CultureInfo previousUiCulture = CultureInfo.CurrentUICulture;
+        CultureInfo culture = CultureInfo.GetCultureInfo(cultureName);
+        CultureInfo.CurrentCulture = culture;
+        CultureInfo.CurrentUICulture = culture;
+        try
+        {
+            return action();
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+            CultureInfo.CurrentUICulture = previousUiCulture;
+        }
     }
 
     private static string ReadRepoFile(string relativePath)

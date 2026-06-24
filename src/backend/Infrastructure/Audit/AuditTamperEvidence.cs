@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -23,7 +24,7 @@ internal static class AuditTamperEvidence
 
     public static AuditTamperEvidenceResult Sign(AuditRecord record, byte[]? key)
     {
-        string chainId = record.ChainId ?? record.OccurredAtUtc.ToString("yyyyMMdd");
+        string chainId = record.ChainId ?? record.OccurredAtUtc.ToUniversalTime().ToString("yyyyMMdd", CultureInfo.InvariantCulture);
         var canonical = new ArrayBufferWriter<byte>(1024);
         WriteCanonical(record, chainId, canonical);
         ReadOnlySpan<byte> canonicalBytes = canonical.WrittenSpan;
@@ -62,7 +63,7 @@ internal static class AuditTamperEvidence
         writer.WriteStartObject();
         writer.WriteString("Source", record.Source);
         writer.WriteString("Type", record.Type);
-        writer.WriteString("OccurredAtUtc", record.OccurredAtUtc.ToUniversalTime().ToString("O"));
+        writer.WriteString("OccurredAtUtc", record.OccurredAtUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
         writer.WriteString("Action", NormalizeNonEmpty(record.Action, AuditActionCatalog.LogRecorded));
         writer.WriteString("Outcome", NormalizeNonEmpty(record.Outcome, AuditOutcomeCatalog.Unknown));
         writer.WriteString("Severity", NormalizeNonEmpty(record.Severity, AuditSeverityCatalog.Info));
