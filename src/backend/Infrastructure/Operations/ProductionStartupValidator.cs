@@ -254,6 +254,7 @@ public static class ProductionStartupValidator
         ValidateAnonymousIdentityMode(anonymousIdentityMode, enforceProductionRules, errors);
         ValidatePerceptionSealedTokenSettings(configuration, enforceProductionRules, errors);
         ValidateAntiSpamHttpJsonProvider(configuration, enforceProductionRules, errors);
+        ValidateCrawlerRangeUrls(configuration, enforceProductionRules, errors);
         ValidateZkProdSettings(configuration, enforceProductionRules, zkProdReadiness ?? ZkProdRuntimeReadiness.Missing, errors);
 
         return new ProductionStartupValidationReport(SchemaVersion, enforceProductionRules, requirements, errors);
@@ -630,6 +631,25 @@ public static class ProductionStartupValidator
         if (!validation.Allowed)
         {
             errors.Add($"{endpointKey} is not allowed for reviewed http-json anti-spam provider: {validation.Reason}.");
+        }
+    }
+
+    private static void ValidateCrawlerRangeUrls(IConfiguration configuration, bool enforceProductionRules, List<string> errors)
+    {
+        if (!enforceProductionRules)
+        {
+            return;
+        }
+
+        ValidateCrawlerRangeUrl(configuration, "Security:CrawlerCidrs:GoogleUrl", errors);
+        ValidateCrawlerRangeUrl(configuration, "Security:CrawlerCidrs:BingUrl", errors);
+    }
+
+    private static void ValidateCrawlerRangeUrl(IConfiguration configuration, string key, List<string> errors)
+    {
+        if (!CrawlerRangeUrlPolicy.TryValidateConfiguredUrl(configuration[key], out string error))
+        {
+            errors.Add($"{key} must be an HTTPS URL hosted by developers.google.com or www.bing.com: {error}.");
         }
     }
 

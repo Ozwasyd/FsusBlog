@@ -1,6 +1,10 @@
 using System.Reflection;
 using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Models.Security;
+using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -83,6 +87,76 @@ public sealed class AntiCrawlerSecurityContractTests
         Assert.Contains("/api/ops/crawler-ranges/status", health, StringComparison.Ordinal);
         Assert.Contains("/anti-crawler/crawler-ranges/status", endpoints, StringComparison.Ordinal);
         Assert.Contains("/anti-crawler/crawler-ranges/sync", endpoints, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("http://developers.google.com/static/search/apis/ipranges/googlebot.json")]
+    [InlineData("https://internal-admin/api/secrets")]
+    [InlineData("https://169.254.169.254/latest/meta-data/")]
+    public void CrawlerRangeResolver_RejectsUnsafeRemoteUrls(string configured)
+    {
+        var method = typeof(CrawlerUpdateWorker).GetMethod("ResolveUri", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var ex = Assert.Throws<TargetInvocationException>(() => method.Invoke(null, [configured, new Uri("https://developers.google.com/static/search/apis/ipranges/googlebot.json")]));
+
+        Assert.IsType<InvalidOperationException>(ex.InnerException);
+    }
+
+    [Theory]
+    [InlineData(null, "https://developers.google.com/static/search/apis/ipranges/googlebot.json")]
+    [InlineData("https://developers.google.com/static/search/apis/ipranges/googlebot.json", "https://developers.google.com/static/search/apis/ipranges/googlebot.json")]
+    [InlineData("https://www.bing.com/toolbox/bingbot.json", "https://www.bing.com/toolbox/bingbot.json")]
+    public void CrawlerRangeResolver_AcceptsOnlyOfficialHttpsUrls(string? configured, string expected)
+    {
+        var method = typeof(CrawlerUpdateWorker).GetMethod("ResolveUri", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var uri = (Uri)method.Invoke(null, [configured, new Uri("https://developers.google.com/static/search/apis/ipranges/googlebot.json")])!;
+
+        Assert.Equal(expected, uri.ToString());
+    }
+
+    [Theory]
+    [InlineData("http://developers.google.com/static/search/apis/ipranges/googlebot.json")]
+    [InlineData("https://internal-admin/api/secrets")]
+    public void SecurityAdminPolicy_RejectsUnsafeCrawlerRangeUrlUpdates(string configured)
+    {
+        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var request = new AntiCrawlerOptionsUpdateRequest(
+            Mode: null,
+            PublicReadChallengeEnabled: null,
+            SearchCrawlerVerificationEnabled: null,
+            SocialPreviewGuardEnabled: null,
+            RiskScoringEnabled: null,
+            EventPersistenceEnabled: null,
+            DashboardAggregationEnabled: null,
+            CidrAutoUpdateEnabled: null,
+            IllegalPathHardAbortEnabled: null,
+            RequireChallengeScore: null,
+            BlockScore: null,
+            MaxRiskScore: null,
+            DefaultRiskTtlSeconds: null,
+            ZeroRiskCacheTtlSeconds: null,
+            FixedIpPermitLimit: null,
+            FixedIpQueueLimit: null,
+            VerifiedCrawlerFixedIpPermitLimit: null,
+            PublicReadPermitLimit: null,
+            PublicReadQueueLimit: null,
+            VerifiedCrawlerPublicReadPermitLimit: null,
+            SocialPreviewPublicReadPermitLimit: null,
+            ReadProofPermitLimit: null,
+            CidrUpdateIntervalMinutes: null,
+            CidrInitialDelaySeconds: null,
+            CidrMinUpdateIntervalMinutes: null,
+            GoogleCrawlerRangesUrl: configured,
+            BingCrawlerRangesUrl: null,
+            SnapshotPath: null,
+            SocialPreviewAllowedPathPrefixes: null,
+            BlockedUserAgentKeywords: null,
+            Reason: "test");
+
+        Assert.Throws<ArgumentException>(() => service.UpdateAntiCrawlerOptions(request, "test"));
     }
 
     [Fact]

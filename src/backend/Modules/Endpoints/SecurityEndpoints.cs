@@ -412,7 +412,16 @@ public static class SecurityEndpoints
                 return stepUp;
             }
 
-            AntiCrawlerPolicySnapshot snapshot = policy.UpdateAntiCrawlerOptions(request, ResolveActor(context));
+            AntiCrawlerPolicySnapshot snapshot;
+            try
+            {
+                snapshot = policy.UpdateAntiCrawlerOptions(request, ResolveActor(context));
+            }
+            catch (ArgumentException ex)
+            {
+                return AedsJsonResults.BadRequest(aeds, ex.Message);
+            }
+
             await policySnapshots.ActivateAsync(
                 SecurityPolicyIds.AntiCrawler,
                 snapshot.Options.Mode,

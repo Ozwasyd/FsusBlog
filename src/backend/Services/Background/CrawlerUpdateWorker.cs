@@ -218,9 +218,7 @@ public class CrawlerUpdateWorker(
 
     private static Uri ResolveUri(string? configured, Uri fallback)
     {
-        return Uri.TryCreate(configured, UriKind.Absolute, out Uri? uri)
-            ? uri
-            : fallback;
+        return CrawlerRangeUrlPolicy.ResolveOrThrow(configured, fallback, "Security:CrawlerCidrs remote URL");
     }
 
     private async Task<List<string>> FetchRemoteCidrsAsync(Uri uri, string provider, List<string> errors, CancellationToken token)

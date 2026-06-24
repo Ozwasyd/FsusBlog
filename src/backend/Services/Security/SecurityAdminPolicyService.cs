@@ -1044,8 +1044,14 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             interval,
             Math.Clamp(ReadInt(configuration, "Security:CrawlerCidrs:InitialDelaySeconds", 0), 0, 3600),
             minInterval,
-            configuration["Security:CrawlerCidrs:GoogleUrl"] ?? "https://developers.google.com/static/search/apis/ipranges/googlebot.json",
-            configuration["Security:CrawlerCidrs:BingUrl"] ?? "https://www.bing.com/toolbox/bingbot.json",
+            NormalizeUrl(
+                configuration["Security:CrawlerCidrs:GoogleUrl"],
+                "https://developers.google.com/static/search/apis/ipranges/googlebot.json",
+                "Security:CrawlerCidrs:GoogleUrl"),
+            NormalizeUrl(
+                configuration["Security:CrawlerCidrs:BingUrl"],
+                "https://www.bing.com/toolbox/bingbot.json",
+                "Security:CrawlerCidrs:BingUrl"),
             NormalizeNullable(configuration["Security:CrawlerCidrs:SnapshotPath"]),
             ReadStringList(configuration, "AntiCrawler:SocialPreviewAllowedPathPrefixes",
             [
@@ -1125,8 +1131,8 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             CidrUpdateIntervalMinutes = interval,
             CidrInitialDelaySeconds = Math.Clamp(request.CidrInitialDelaySeconds ?? current.CidrInitialDelaySeconds, 0, 3600),
             CidrMinUpdateIntervalMinutes = minInterval,
-            GoogleCrawlerRangesUrl = NormalizeUrl(request.GoogleCrawlerRangesUrl, current.GoogleCrawlerRangesUrl),
-            BingCrawlerRangesUrl = NormalizeUrl(request.BingCrawlerRangesUrl, current.BingCrawlerRangesUrl),
+            GoogleCrawlerRangesUrl = NormalizeUrl(request.GoogleCrawlerRangesUrl, current.GoogleCrawlerRangesUrl, nameof(request.GoogleCrawlerRangesUrl)),
+            BingCrawlerRangesUrl = NormalizeUrl(request.BingCrawlerRangesUrl, current.BingCrawlerRangesUrl, nameof(request.BingCrawlerRangesUrl)),
             SnapshotPath = request.SnapshotPath is null ? current.SnapshotPath : NormalizeNullable(request.SnapshotPath),
             SocialPreviewAllowedPathPrefixes = NormalizePathPrefixes(request.SocialPreviewAllowedPathPrefixes, current.SocialPreviewAllowedPathPrefixes),
             BlockedUserAgentKeywords = NormalizeKeywords(request.BlockedUserAgentKeywords, current.BlockedUserAgentKeywords)
@@ -1295,11 +1301,8 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         return NormalizeKeywords(value.Split([',', ';', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), fallback);
     }
 
-    private static string NormalizeUrl(string? value, string fallback)
-        => Uri.TryCreate(value, UriKind.Absolute, out Uri? uri)
-            && uri.Scheme is "https" or "http"
-            ? uri.ToString()
-            : fallback;
+    private static string NormalizeUrl(string? value, string fallback, string settingName)
+        => CrawlerRangeUrlPolicy.NormalizeOrThrow(value, fallback, settingName);
 
     private static string NormalizeListType(string value)
         => string.Equals(value, "allow", StringComparison.OrdinalIgnoreCase) ||

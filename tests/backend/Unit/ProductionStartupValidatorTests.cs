@@ -49,6 +49,38 @@ public sealed class ProductionStartupValidatorTests
         Assert.Empty(errors);
     }
 
+    [Theory]
+    [InlineData("Security:CrawlerCidrs:GoogleUrl", "http://developers.google.com/static/search/apis/ipranges/googlebot.json")]
+    [InlineData("Security:CrawlerCidrs:GoogleUrl", "https://internal-admin/api/secrets")]
+    [InlineData("Security:CrawlerCidrs:BingUrl", "http://www.bing.com/toolbox/bingbot.json")]
+    [InlineData("Security:CrawlerCidrs:BingUrl", "https://169.254.169.254/latest/meta-data/")]
+    public void ValidateCore_RejectsUnsafeCrawlerRangeUrls(string key, string value)
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            [key] = value
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.Contains(errors, error => error.Contains(key, StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("Security:CrawlerCidrs:GoogleUrl", "https://developers.google.com/static/search/apis/ipranges/googlebot.json")]
+    [InlineData("Security:CrawlerCidrs:BingUrl", "https://www.bing.com/toolbox/bingbot.json")]
+    public void ValidateCore_AcceptsOfficialCrawlerRangeUrls(string key, string value)
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            [key] = value
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.DoesNotContain(errors, error => error.Contains(key, StringComparison.Ordinal));
+    }
+
     [Fact]
     public void ValidateCore_RejectsReviewedHttpJsonAntiSpamEndpointWithoutSafeAllowlist()
     {

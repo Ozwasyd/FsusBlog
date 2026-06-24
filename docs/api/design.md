@@ -2,7 +2,7 @@
 
 本文件说明 FsusBlog API 层的设计原则与约定，是所有 API 变更的**必读前提文件**。
 
-> 最近更新：2026-06-21 — Recovery Key verify request 不再携带 account id，改由 key 内 lookup id 定位候选记录。
+> 最近更新：2026-06-25 — 管理端安全配置写入 fail closed，crawler range 远程 URL 只允许官方 HTTPS host。
 
 ---
 
@@ -33,6 +33,8 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 ### 4. 原生 AEDS 内部 API 原则
 
 作者工作台 `/api/binary/author/**` 与管理端 security `/api/binary/admin/security/**` 的生产入口必须直接实现 AEDS v2 frame：endpoint 自己读取 route-specific request frame，成功响应直接写 route-specific response frame，错误统一写 `ApiError` frame。RiskControl 控制面读取与运行态写入（`risk-control/overview`、`risk-control/options`、`risk-control/options/rollback`、`challenges/overview`、`policies/overview`）也只允许通过原生 binary endpoint 暴露，不能恢复 `/api/admin/security/**` JSON fallback。
+
+管理端安全配置写入必须 fail closed：外部 URL、回调地址、provider endpoint 等可触发服务端出站请求的字段必须在写入入口和使用入口同时校验 allowlist / scheme / port，非法值返回 `ApiError`，不得静默回退到旧配置或默认配置。Crawler range 远程 URL 只允许 HTTPS `developers.google.com` / `www.bing.com`，用于防止通过 admin 配置把后台 worker 变成 SSRF 出站通道。
 
 `JsonApiResponse<T>`、`Results.Ok(JsonApiResponse<...>)` 与 `/_fsus/internal/binary-bridge/**` 不得用于运行时内部业务 API。浏览器可达的 `/api/binary/**` 端点不得直接暴露 JSON envelope；新增业务端点默认按 [aeds-only-policy.md#内部应用-api-定义](aeds-only-policy.md#内部应用-api-定义) 设计，不新增 runtime compatibility bridge。装载点见 `src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs`，allowlist 见 [aeds-only-policy.md#允许豁免](aeds-only-policy.md#允许豁免)。
 

@@ -1374,7 +1374,7 @@ feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale
 |------|------|------|------|
 | GET | `/api/ops/crawler-ranges/status` | admin | 返回 Google/Bing CIDR 数量、最近同步时间、最近成功时间、来源和错误摘要 |
 
-该状态来自 `CrawlerUpdateWorker` 的远程官方 JSON → last-known-good snapshot → 配置项 → empty degraded 加载链，只用于运维诊断，不返回客户端 IP、User-Agent 或用户数据。
+该状态来自 `CrawlerUpdateWorker` 的远程官方 JSON → last-known-good snapshot → 配置项 → empty degraded 加载链，只用于运维诊断，不返回客户端 IP、User-Agent 或用户数据。远程 CIDR URL 必须是 HTTPS，host 只允许 `developers.google.com` 或 `www.bing.com`，且不得使用非默认 HTTPS 端口；生产启动校验、`PUT /api/binary/admin/security/anti-crawler/options` 和 worker 同步前都会拒绝非法 URL，不做兼容回退。
 
 ### Site Subscription
 
