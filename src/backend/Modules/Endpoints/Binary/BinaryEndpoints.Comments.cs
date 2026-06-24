@@ -35,13 +35,15 @@ public static partial class BinaryEndpoints
 {
     private static void MapBinaryCommentEndpoints(IEndpointRouteBuilder group)
     {
-        group.MapGet("/comment/policy", static BinaryFrameResult (
+        group.MapGet("/comment/policy", static async Task<BinaryFrameResult> (
             IAnonymousCommentPolicyService policyService,
             IZkAnonymousProofService zkProofService,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
+            AnonymousCommentPolicySnapshot policy = await policyService.GetCurrentAsync(cancellationToken);
             CommentPolicySnapshotCoreModel snapshot = ToCommentPolicyCore(
-                policyService.Current,
+                policy,
                 zkProofService.CurrentZkProdPolicy);
             return BinaryResults.Frame(
                 aeds,

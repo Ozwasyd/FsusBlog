@@ -116,9 +116,10 @@ public sealed class CommentActorResolver(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        CommentAuthorModeDecision decision = policyService.EvaluateAuthorMode(
+        CommentAuthorModeDecision decision = await policyService.EvaluateAuthorModeAsync(
             request.AuthorMode,
-            request.PublicSendExplicitlySelected);
+            request.PublicSendExplicitlySelected,
+            cancellationToken);
         if (!decision.Allowed)
         {
             return CommentActorResolveResult.Reject(decision.Status, decision.Message);

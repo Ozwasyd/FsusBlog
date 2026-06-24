@@ -255,11 +255,12 @@ public static class AuthoringEndpoints
         })
         .RequireAdminPermission(AdminPermissions.CommentModerate);
 
-        group.MapGet("/moderation/anonymous-comment-policy", (
+        group.MapGet("/moderation/anonymous-comment-policy", async Task<IResult> (
             HttpContext context,
             IAedsEncoder aeds,
-            IAnonymousCommentPolicyService policyService) =>
-            Ok(context, aeds, policyService.Current))
+            IAnonymousCommentPolicyService policyService,
+            CancellationToken cancellationToken) =>
+            Ok(context, aeds, await policyService.GetCurrentAsync(cancellationToken)))
         .RequireAdminPermission(AdminPermissions.AnonymousCommentConfigure)
         .RequireRateLimiting("fixed_ip");
 
@@ -291,7 +292,7 @@ public static class AuthoringEndpoints
             AnonymousCommentPolicySnapshot snapshot;
             try
             {
-                snapshot = policyService.UpdatePolicy(request, context.GetUserId());
+                snapshot = await policyService.UpdatePolicyAsync(request, context.GetUserId(), cancellationToken);
             }
             catch (ArgumentException ex) when (ex.ParamName == nameof(AnonymousCommentPolicyUpdateRequest.DefaultAuthorMode))
             {

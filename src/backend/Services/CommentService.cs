@@ -405,7 +405,9 @@ public partial class CommentService(
         comment.Id = generatedId;
         if (antiSpamModerationService is not null)
         {
-            AnonymousCommentPolicySnapshot? policySnapshot = anonymousCommentPolicyService?.Current;
+            AnonymousCommentPolicySnapshot? policySnapshot = anonymousCommentPolicyService is null
+                ? null
+                : await anonymousCommentPolicyService.GetCurrentAsync(cancellationToken);
             AntiSpamModerationResult? modelResult = await antiSpamModerationService.ScoreCommentAsync(
                 new AntiSpamCommentModerationContext(
                     comment.Id,

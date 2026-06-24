@@ -12,9 +12,21 @@ public interface IAnonymousCommentPolicyService
 {
     AnonymousCommentPolicySnapshot Current { get; }
 
+    Task<AnonymousCommentPolicySnapshot> GetCurrentAsync(CancellationToken cancellationToken = default);
+
     AnonymousCommentPolicySnapshot UpdatePolicy(AnonymousCommentPolicyUpdateRequest request, long? adminPrincipalId = null);
 
+    Task<AnonymousCommentPolicySnapshot> UpdatePolicyAsync(
+        AnonymousCommentPolicyUpdateRequest request,
+        long? adminPrincipalId = null,
+        CancellationToken cancellationToken = default);
+
     CommentAuthorModeDecision EvaluateAuthorMode(string? requestedAuthorMode, bool publicSendExplicitlySelected);
+
+    Task<CommentAuthorModeDecision> EvaluateAuthorModeAsync(
+        string? requestedAuthorMode,
+        bool publicSendExplicitlySelected,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IAnonymousCommentPolicyInvalidationSink
@@ -27,71 +39,132 @@ public sealed class AnonymousCommentPolicyService(
     IServiceScopeFactory? scopeFactory = null,
     ILogger<AnonymousCommentPolicyService>? logger = null) : IAnonymousCommentPolicyService, IAnonymousCommentPolicyInvalidationSink
 {
-    private readonly object _gate = new();
+    private readonly SemaphoreSlim _gate = new(1, 1);
     private AnonymousCommentPolicySnapshot? _current;
 
     public AnonymousCommentPolicySnapshot Current
     {
         get
         {
-            lock (_gate)
+            AnonymousCommentPolicySnapshot? current = _current;
+            if (current is not null)
             {
-                if (scopeFactory is not null)
-                {
-                    AnonymousCommentPolicySnapshot? persisted = LoadPersistedPolicy();
-                    if (persisted is not null)
-                    {
-                        _current = persisted;
-                        return persisted;
-                    }
-
-                    return BuildInitialPolicy();
-                }
-
-                return _current ??= BuildInitialPolicy();
+                return current;
             }
+
+            AnonymousCommentPolicySnapshot initial = BuildInitialPolicy();
+            if (scopeFactory is null)
+            {
+                _current = initial;
+            }
+
+            return initial;
         }
     }
 
     public AnonymousCommentPolicySnapshot UpdatePolicy(AnonymousCommentPolicyUpdateRequest request, long? adminPrincipalId = null)
     {
-        lock (_gate)
+        if (scopeFactory is not null)
         {
-            AnonymousCommentPolicySnapshot current = Current;
-            string defaultAuthorMode = current.DefaultAuthorMode;
-            if (request.DefaultAuthorMode is not null && !TryNormalizeAuthorMode(request.DefaultAuthorMode, out defaultAuthorMode))
-            {
-                throw new ArgumentException("author_mode_invalid", nameof(request.DefaultAuthorMode));
-            }
-
-            AnonymousCommentPolicySnapshot next = BuildRuntimeSnapshot(
-                new AnonymousCommentPolicySnapshot(
-                request.AnonymousCommentsEnabled ?? current.AnonymousCommentsEnabled,
-                request.PublicCommentsEnabled ?? current.PublicCommentsEnabled,
-                request.ZkAnonymousEnabled ?? current.ZkAnonymousEnabled,
-                defaultAuthorMode,
-                NormalizeLanguages(request.SupportedDisplayLanguages, current.SupportedDisplayLanguages)),
-                ChangedBy(adminPrincipalId),
-                NormalizeNullable(request.Reason, 256),
-                DateTime.UtcNow);
-            PersistPolicy(next, adminPrincipalId);
-            _current = next;
-            InvalidatePolicyCache();
-            return _current;
+            throw new InvalidOperationException("anonymous_comment_policy_async_required");
         }
+
+        AnonymousCommentPolicySnapshot next = BuildNextPolicy(Current, request, adminPrincipalId);
+        _current = next;
+        return next;
     }
 
     public void InvalidateLocalSnapshot()
     {
-        lock (_gate)
-        {
-            _current = null;
-        }
+        _current = null;
     }
 
     public CommentAuthorModeDecision EvaluateAuthorMode(string? requestedAuthorMode, bool publicSendExplicitlySelected)
+        => EvaluateAuthorMode(Current, requestedAuthorMode, publicSendExplicitlySelected);
+
+    public async Task<AnonymousCommentPolicySnapshot> GetCurrentAsync(CancellationToken cancellationToken = default)
     {
-        AnonymousCommentPolicySnapshot policy = Current;
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            return await LoadCurrentUnsafeAsync(cancellationToken);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task<AnonymousCommentPolicySnapshot> UpdatePolicyAsync(
+        AnonymousCommentPolicyUpdateRequest request,
+        long? adminPrincipalId = null,
+        CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            AnonymousCommentPolicySnapshot current = await LoadCurrentUnsafeAsync(cancellationToken);
+            AnonymousCommentPolicySnapshot next = BuildNextPolicy(current, request, adminPrincipalId);
+            await PersistPolicyAsync(next, adminPrincipalId, cancellationToken);
+            _current = next;
+            await InvalidatePolicyCacheAsync(cancellationToken);
+            return _current;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task<CommentAuthorModeDecision> EvaluateAuthorModeAsync(
+        string? requestedAuthorMode,
+        bool publicSendExplicitlySelected,
+        CancellationToken cancellationToken = default)
+        => EvaluateAuthorMode(await GetCurrentAsync(cancellationToken), requestedAuthorMode, publicSendExplicitlySelected);
+
+    private async Task<AnonymousCommentPolicySnapshot> LoadCurrentUnsafeAsync(CancellationToken cancellationToken)
+    {
+        if (scopeFactory is not null)
+        {
+            AnonymousCommentPolicySnapshot? persisted = await LoadPersistedPolicyAsync(cancellationToken);
+            if (persisted is not null)
+            {
+                _current = persisted;
+                return persisted;
+            }
+        }
+
+        return _current ??= BuildInitialPolicy();
+    }
+
+    private static AnonymousCommentPolicySnapshot BuildNextPolicy(
+        AnonymousCommentPolicySnapshot current,
+        AnonymousCommentPolicyUpdateRequest request,
+        long? adminPrincipalId)
+    {
+        string defaultAuthorMode = current.DefaultAuthorMode;
+        if (request.DefaultAuthorMode is not null && !TryNormalizeAuthorMode(request.DefaultAuthorMode, out defaultAuthorMode))
+        {
+            throw new ArgumentException("author_mode_invalid", nameof(request.DefaultAuthorMode));
+        }
+
+        return BuildRuntimeSnapshot(
+            new AnonymousCommentPolicySnapshot(
+            request.AnonymousCommentsEnabled ?? current.AnonymousCommentsEnabled,
+            request.PublicCommentsEnabled ?? current.PublicCommentsEnabled,
+            request.ZkAnonymousEnabled ?? current.ZkAnonymousEnabled,
+            defaultAuthorMode,
+            NormalizeLanguages(request.SupportedDisplayLanguages, current.SupportedDisplayLanguages)),
+            ChangedBy(adminPrincipalId),
+            NormalizeNullable(request.Reason, 256),
+            DateTime.UtcNow);
+    }
+
+    private static CommentAuthorModeDecision EvaluateAuthorMode(
+        AnonymousCommentPolicySnapshot policy,
+        string? requestedAuthorMode,
+        bool publicSendExplicitlySelected)
+    {
         string mode;
         if (string.IsNullOrWhiteSpace(requestedAuthorMode))
         {
@@ -147,7 +220,7 @@ public sealed class AnonymousCommentPolicyService(
             "bootstrap_fallback",
             DateTime.UtcNow);
 
-    private AnonymousCommentPolicySnapshot? LoadPersistedPolicy()
+    private async Task<AnonymousCommentPolicySnapshot?> LoadPersistedPolicyAsync(CancellationToken cancellationToken)
     {
         if (scopeFactory is null)
         {
@@ -158,11 +231,9 @@ public sealed class AnonymousCommentPolicyService(
         {
             using IServiceScope scope = scopeFactory.CreateScope();
             ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
-            AnonymousCommentPolicy? entity = db.Queryable<AnonymousCommentPolicy>()
+            AnonymousCommentPolicy? entity = await db.Queryable<AnonymousCommentPolicy>()
                 .Where(static item => item.Id == 1)
-                .FirstAsync()
-                .GetAwaiter()
-                .GetResult();
+                .FirstAsync(cancellationToken);
             return entity is null ? null : FromEntity(entity);
         }
         catch (Exception ex)
@@ -172,7 +243,10 @@ public sealed class AnonymousCommentPolicyService(
         }
     }
 
-    private void PersistPolicy(AnonymousCommentPolicySnapshot snapshot, long? adminPrincipalId)
+    private async Task PersistPolicyAsync(
+        AnonymousCommentPolicySnapshot snapshot,
+        long? adminPrincipalId,
+        CancellationToken cancellationToken)
     {
         if (scopeFactory is null)
         {
@@ -184,18 +258,16 @@ public sealed class AnonymousCommentPolicyService(
             using IServiceScope scope = scopeFactory.CreateScope();
             ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
             AnonymousCommentPolicy entity = ToEntity(snapshot, adminPrincipalId);
-            AnonymousCommentPolicy? existing = db.Queryable<AnonymousCommentPolicy>()
+            AnonymousCommentPolicy? existing = await db.Queryable<AnonymousCommentPolicy>()
                 .Where(static item => item.Id == 1)
-                .FirstAsync()
-                .GetAwaiter()
-                .GetResult();
+                .FirstAsync(cancellationToken);
             if (existing is null)
             {
-                db.Insertable(entity).ExecuteCommandAsync().GetAwaiter().GetResult();
+                await db.Insertable(entity).ExecuteCommandAsync(cancellationToken);
             }
             else
             {
-                db.Updateable(entity).ExecuteCommandAsync().GetAwaiter().GetResult();
+                await db.Updateable(entity).ExecuteCommandAsync(cancellationToken);
             }
         }
         catch (Exception ex)
@@ -205,7 +277,7 @@ public sealed class AnonymousCommentPolicyService(
         }
     }
 
-    private void InvalidatePolicyCache()
+    private async Task InvalidatePolicyCacheAsync(CancellationToken cancellationToken)
     {
         if (scopeFactory is null)
         {
@@ -215,10 +287,11 @@ public sealed class AnonymousCommentPolicyService(
         try
         {
             using IServiceScope scope = scopeFactory.CreateScope();
-            scope.ServiceProvider.GetService<ICacheInvalidationDispatcher>()
-                ?.InvalidateCommentPolicyAsync()
-                .GetAwaiter()
-                .GetResult();
+            ICacheInvalidationDispatcher? dispatcher = scope.ServiceProvider.GetService<ICacheInvalidationDispatcher>();
+            if (dispatcher is not null)
+            {
+                await dispatcher.InvalidateCommentPolicyAsync(cancellationToken);
+            }
         }
         catch (Exception ex)
         {

@@ -128,8 +128,8 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
         string endpoints = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
 
         Assert.Contains("IServiceScopeFactory", service, StringComparison.Ordinal);
-        Assert.Contains("LoadPersistedPolicy", service, StringComparison.Ordinal);
-        Assert.Contains("PersistPolicy", service, StringComparison.Ordinal);
+        Assert.Contains("LoadPersistedPolicyAsync", service, StringComparison.Ordinal);
+        Assert.Contains("PersistPolicyAsync", service, StringComparison.Ordinal);
         Assert.Contains("Queryable<AnonymousCommentPolicy>()", service, StringComparison.Ordinal);
         Assert.Contains("Updateable(entity)", service, StringComparison.Ordinal);
         Assert.Contains("SnapshotHash", service, StringComparison.Ordinal);
@@ -139,7 +139,7 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
         Assert.Contains("IAnonymousCommentPolicyInvalidationSink", service, StringComparison.Ordinal);
         Assert.Contains("InvalidateLocalSnapshot", service, StringComparison.Ordinal);
         Assert.Contains("scopeFactory is not null", service, StringComparison.Ordinal);
-        Assert.Contains("LoadPersistedPolicy()", service, StringComparison.Ordinal);
+        Assert.Contains("GetCurrentAsync", service, StringComparison.Ordinal);
         Assert.Contains("InvalidateCommentPolicyAsync", cache, StringComparison.Ordinal);
         Assert.Contains("AnonymousCommentPolicyVersion", cache, StringComparison.Ordinal);
         Assert.Contains("snapshot.SnapshotHash", endpoints, StringComparison.Ordinal);
@@ -242,9 +242,9 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
             });
 
             var service = new AnonymousCommentPolicyService(configuration, scopeFactory);
-            AnonymousCommentPolicySnapshot initial = service.Current;
+            AnonymousCommentPolicySnapshot initial = await service.GetCurrentAsync();
             var secondInstance = new AnonymousCommentPolicyService(configuration, scopeFactory);
-            AnonymousCommentPolicySnapshot secondInitial = secondInstance.Current;
+            AnonymousCommentPolicySnapshot secondInitial = await secondInstance.GetCurrentAsync();
 
             Assert.False(initial.AnonymousCommentsEnabled);
             Assert.False(initial.PublicCommentsEnabled);
@@ -253,7 +253,7 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
             Assert.Equal(["en"], initial.SupportedDisplayLanguages);
             Assert.Equal(initial.SnapshotHash, secondInitial.SnapshotHash);
 
-            AnonymousCommentPolicySnapshot updated = service.UpdatePolicy(new AnonymousCommentPolicyUpdateRequest(
+            AnonymousCommentPolicySnapshot updated = await service.UpdatePolicyAsync(new AnonymousCommentPolicyUpdateRequest(
                 AnonymousCommentsEnabled: true,
                 PublicCommentsEnabled: true,
                 ZkAnonymousEnabled: true,
@@ -273,7 +273,7 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
 
             await dispatcher.Received(1).InvalidateCommentPolicyAsync(Arg.Any<CancellationToken>());
 
-            AnonymousCommentPolicySnapshot secondReloaded = secondInstance.Current;
+            AnonymousCommentPolicySnapshot secondReloaded = await secondInstance.GetCurrentAsync();
             Assert.True(secondReloaded.AnonymousCommentsEnabled);
             Assert.True(secondReloaded.PublicCommentsEnabled);
             Assert.True(secondReloaded.ZkAnonymousEnabled);
@@ -301,7 +301,7 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
                 ["AnonymousIdentity:DefaultAuthorMode"] = CommentAuthorModes.Public
             }), scopeFactory);
 
-            AnonymousCommentPolicySnapshot reloaded = restarted.Current;
+            AnonymousCommentPolicySnapshot reloaded = await restarted.GetCurrentAsync();
             Assert.True(reloaded.AnonymousCommentsEnabled);
             Assert.True(reloaded.PublicCommentsEnabled);
             Assert.True(reloaded.ZkAnonymousEnabled);

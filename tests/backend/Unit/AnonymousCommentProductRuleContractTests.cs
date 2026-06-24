@@ -2,6 +2,11 @@ using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
+using SqlSugar;
+using System.Linq.Expressions;
+using FsusBlog.Server.Entities;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -46,6 +51,72 @@ public sealed class AnonymousCommentProductRuleContractTests
         Assert.False(disabled.EvaluateAuthorMode(CommentAuthorModes.Anonymous, publicSendExplicitlySelected: false).Allowed);
         Assert.False(disabled.EvaluateAuthorMode(CommentAuthorModes.ZkAnonymous, publicSendExplicitlySelected: false).Allowed);
         Assert.True(disabled.EvaluateAuthorMode(CommentAuthorModes.Public, publicSendExplicitlySelected: true).Allowed);
+    }
+
+    [Fact]
+    public void AnonymousCommentPolicyService_DoesNotBlockOnSqlSugarAsyncCalls()
+    {
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCommentPolicyService.cs");
+
+        Assert.DoesNotContain(".GetAwaiter().GetResult()", service, StringComparison.Ordinal);
+        Assert.Contains("Task<AnonymousCommentPolicySnapshot> GetCurrentAsync", service, StringComparison.Ordinal);
+        Assert.Contains("Task<AnonymousCommentPolicySnapshot> UpdatePolicyAsync", service, StringComparison.Ordinal);
+        Assert.Contains("Task<CommentAuthorModeDecision> EvaluateAuthorModeAsync", service, StringComparison.Ordinal);
+        Assert.Contains("LoadPersistedPolicyAsync", service, StringComparison.Ordinal);
+        Assert.Contains("PersistPolicyAsync", service, StringComparison.Ordinal);
+        Assert.Contains("InvalidatePolicyCacheAsync", service, StringComparison.Ordinal);
+        Assert.Contains(".FirstAsync(cancellationToken)", service, StringComparison.Ordinal);
+        Assert.Contains(".ExecuteCommandAsync(cancellationToken)", service, StringComparison.Ordinal);
+        Assert.Contains(".InvalidateCommentPolicyAsync(cancellationToken)", service, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AnonymousCommentPolicyService_GetCurrentAsyncYieldsWhilePolicyQueryIsSlow()
+    {
+        var queryStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseQuery = new TaskCompletionSource<AnonymousCommentPolicy>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var queryable = Substitute.For<ISugarQueryable<AnonymousCommentPolicy>>();
+        queryable.Where(Arg.Any<Expression<Func<AnonymousCommentPolicy, bool>>>()).Returns(queryable);
+        queryable.FirstAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            queryStarted.TrySetResult();
+            return releaseQuery.Task;
+        });
+
+        var db = Substitute.For<ISqlSugarClient>();
+        db.Queryable<AnonymousCommentPolicy>().Returns(queryable);
+        await using ServiceProvider provider = new ServiceCollection()
+            .AddSingleton(db)
+            .BuildServiceProvider();
+        var service = new AnonymousCommentPolicyService(
+            BuildConfiguration([]),
+            provider.GetRequiredService<IServiceScopeFactory>());
+
+        Task<AnonymousCommentPolicySnapshot> loadTask = service.GetCurrentAsync(CancellationToken.None);
+        await queryStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        Task<int> unrelatedWork = Task.Run(static () => Environment.CurrentManagedThreadId);
+
+        Assert.Same(unrelatedWork, await Task.WhenAny(unrelatedWork, Task.Delay(TimeSpan.FromMilliseconds(250))));
+        Assert.False(loadTask.IsCompleted);
+
+        releaseQuery.SetResult(new AnonymousCommentPolicy
+        {
+            Id = 1,
+            AnonymousCommentsEnabled = false,
+            PublicCommentsEnabled = true,
+            ZkAnonymousEnabled = true,
+            DefaultAuthorMode = CommentAuthorModes.ZkAnonymous,
+            SupportedDisplayLanguages = "en",
+            ChangedBy = "test",
+            UpdatedReason = "slow-db",
+            UpdatedAtUtc = new DateTime(2026, 6, 24, 0, 0, 0, DateTimeKind.Utc)
+        });
+        AnonymousCommentPolicySnapshot snapshot = await loadTask.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.False(snapshot.AnonymousCommentsEnabled);
+        Assert.True(snapshot.PublicCommentsEnabled);
+        Assert.True(snapshot.ZkAnonymousEnabled);
+        Assert.Equal(CommentAuthorModes.ZkAnonymous, snapshot.DefaultAuthorMode);
     }
 
     [Fact]
