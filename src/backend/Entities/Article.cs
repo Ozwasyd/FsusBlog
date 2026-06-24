@@ -79,6 +79,9 @@ public class Article
     // 逻辑删除
     [SugarColumn(IsNullable = false, DefaultValue = "false")]
     public bool IsDeleted { get; set; }
+
+    [SugarColumn(IsIgnore = true)]
+    public string? RowVersion { get; set; }
 }
 
 public enum ArticleStatus

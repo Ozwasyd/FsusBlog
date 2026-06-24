@@ -585,13 +585,12 @@ public class ArticleService(
     {
         CancellationToken ct = ResolveCancellationToken(cancellationToken);
         ct.ThrowIfCancellationRequested();
-        var originalCategoryId = await _db.Queryable<Article>()
-            .ClearFilter()
-            .Where(it => it.Id == id)
-            .Select(it => it.CategoryId)
-            .FirstAsync();
-        ct.ThrowIfCancellationRequested();
-        var originalTagIds = await LoadArticleTagIdsAsync(id);
+        var state = await LoadArticleUpdateStateAsync(id);
+        if (state is null)
+        {
+            return false;
+        }
+
         var title = NormalizeText(dto.Title, MaxTitleLength);
         var content = NormalizeText(dto.Content, MaxContentLength);
         var summary = NormalizeText(dto.Summary, MaxSummaryLength);
@@ -607,30 +606,27 @@ public class ArticleService(
         bool articleUpdated = false;
         var result = await _db.Ado.UseTranAsync(async () =>
         {
-            int affectedRows = await _db.Updateable<Article>()
-                .SetColumns(it => it.Title == title)
-                .SetColumns(it => it.Summary == safeSummary)
-                .SetColumns(it => it.CoverImageUrl == coverImageUrl)
-                .SetColumns(it => it.CategoryId == dto.CategoryId)
-                .SetColumns(it => it.Status == status)
-                .SetColumns(it => it.ScheduledPublishAt == scheduledPublishAt)
-                .SetColumns(it => it.PublishedAt == publishedAt)
-                .SetColumns(it => it.ArchivedAt == archivedAt)
-                .SetColumns(it => it.IsDeleted == (status == ArticleStatus.Deleted))
-                .SetColumns(it => it.DeletedAt == (status == ArticleStatus.Deleted ? now : null))
-                .Where(it => it.Id == id).ExecuteCommandAsync();
-            if (affectedRows == 0)
+            bool updated = await TryUpdateArticleRowAsync(
+                state,
+                id,
+                title,
+                safeSummary,
+                coverImageUrl,
+                dto.CategoryId,
+                status,
+                scheduledPublishAt,
+                publishedAt,
+                archivedAt,
+                status == ArticleStatus.Deleted,
+                status == ArticleStatus.Deleted ? now : null);
+            if (!updated)
             {
                 return;
             }
 
             articleUpdated = true;
             await _db.Storageable(new ArticleBody { ArticleId = id, MarkdownContent = content, UpdatedAt = DateTime.UtcNow }).ExecuteCommandAsync();
-            await _db.Deleteable<ArticleTag>().Where(it => it.ArticleId == id).ExecuteCommandAsync();
-            if (tagIds.Count > 0)
-            {
-                await _db.Insertable(BuildArticleTags(id, tagIds)).ExecuteCommandAsync();
-            }
+            await ApplyArticleTagsAsync(id, tagIds);
             await SaveArticleRevisionAsync(id, title, content, safeSummary, coverImageUrl, dto.CategoryId, tagIds, "article updated");
             await RecordArticleMutationOutboxAsync(id, "updated");
         });
@@ -642,8 +638,8 @@ public class ArticleService(
             ct.ThrowIfCancellationRequested();
             await InvalidatePublicAotAsync(
                 id,
-                MergeIds([originalCategoryId], [dto.CategoryId]),
-                MergeIds(originalTagIds, tagIds),
+                MergeIds([state.CategoryId], [dto.CategoryId]),
+                MergeIds(state.TagIds, tagIds),
                 "update");
             ct.ThrowIfCancellationRequested();
             ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(id);
@@ -653,6 +649,131 @@ public class ArticleService(
         }
         return false;
     }
+
+    private async Task<ArticleUpdateState?> LoadArticleUpdateStateAsync(int articleId)
+    {
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            """
+            SELECT a.categoryid,
+                   a.xmin::text AS row_version,
+                   COALESCE(
+                       array_agg(at.tagid ORDER BY at.tagid)
+                           FILTER (WHERE at.tagid IS NOT NULL),
+                       ARRAY[]::integer[]
+                   ) AS tag_ids
+            FROM article a
+            LEFT JOIN article_tag at ON at.articleid = a.id
+            WHERE a.id = @ArticleId
+              AND a.isdeleted = false
+            GROUP BY a.id, a.categoryid, a.xmin;
+            """,
+            new SugarParameter("@ArticleId", articleId));
+        if (!await reader.ReadAsync(Ct))
+        {
+            return null;
+        }
+
+        int categoryId = reader.GetInt32(0);
+        string rowVersion = reader.GetString(1);
+        int[] tags = reader.GetFieldValue<int[]>(2);
+        return new ArticleUpdateState(categoryId, tags.ToList(), rowVersion);
+    }
+
+    private async Task<bool> TryUpdateArticleRowAsync(
+        ArticleUpdateState state,
+        int articleId,
+        string title,
+        string summary,
+        string? coverImageUrl,
+        int categoryId,
+        ArticleStatus status,
+        DateTime? scheduledPublishAt,
+        DateTime? publishedAt,
+        DateTime? archivedAt,
+        bool isDeleted,
+        DateTime? deletedAt)
+    {
+        int affectedRows = await _db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE article
+            SET title = @Title,
+                summary = @Summary,
+                coverimageurl = @CoverImageUrl,
+                categoryid = @CategoryId,
+                status = @Status,
+                scheduled_publish_at = CAST(@ScheduledPublishAt AS timestamp),
+                published_at = CAST(@PublishedAt AS timestamp),
+                archived_at = CAST(@ArchivedAt AS timestamp),
+                isdeleted = @IsDeleted,
+                deleted_at = CAST(@DeletedAt AS timestamp)
+            WHERE id = @ArticleId
+              AND isdeleted = false
+              AND xmin::text = @RowVersion;
+            """,
+            new SugarParameter("@ArticleId", articleId),
+            new SugarParameter("@RowVersion", state.RowVersion),
+            new SugarParameter("@Title", title),
+            new SugarParameter("@Summary", summary),
+            new SugarParameter("@CoverImageUrl", (object?)coverImageUrl ?? DBNull.Value),
+            new SugarParameter("@CategoryId", categoryId),
+            new SugarParameter("@Status", (int)status),
+            new SugarParameter("@ScheduledPublishAt", (object?)scheduledPublishAt ?? DBNull.Value),
+            new SugarParameter("@PublishedAt", (object?)publishedAt ?? DBNull.Value),
+            new SugarParameter("@ArchivedAt", (object?)archivedAt ?? DBNull.Value),
+            new SugarParameter("@IsDeleted", isDeleted),
+            new SugarParameter("@DeletedAt", (object?)deletedAt ?? DBNull.Value));
+        return affectedRows > 0;
+    }
+
+    private async Task ApplyArticleTagsAsync(int articleId, List<int> tagIds)
+    {
+        var parameters = new List<SugarParameter>(tagIds.Count + 1)
+        {
+            new("@ArticleId", articleId)
+        };
+        string desiredTagsSql;
+        if (tagIds.Count == 0)
+        {
+            desiredTagsSql = "SELECT NULL::integer AS tagid WHERE false";
+        }
+        else
+        {
+            var values = new string[tagIds.Count];
+            for (int i = 0; i < tagIds.Count; i++)
+            {
+                string parameterName = string.Concat("@TagId", i.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                values[i] = string.Concat("(", parameterName, ")");
+                parameters.Add(new SugarParameter(parameterName, tagIds[i]));
+            }
+
+            desiredTagsSql = string.Concat("VALUES ", string.Join(", ", values));
+        }
+
+        await _db.Ado.ExecuteCommandAsync(
+            $"""
+            WITH desired_tags AS (
+                SELECT DISTINCT tagid
+                FROM ({desiredTagsSql}) AS input(tagid)
+            ),
+            deleted_tags AS (
+                DELETE FROM article_tag existing
+                WHERE existing.articleid = @ArticleId
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM desired_tags desired
+                      WHERE desired.tagid = existing.tagid
+                  )
+                RETURNING existing.tagid
+            )
+            INSERT INTO article_tag (articleid, tagid)
+            SELECT @ArticleId, desired.tagid
+            FROM desired_tags desired
+            ON CONFLICT (articleid, tagid) DO NOTHING;
+            """,
+            parameters);
+    }
+
+    private sealed record ArticleUpdateState(int CategoryId, List<int> TagIds, string RowVersion);
 
     public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {

@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Http;
@@ -66,6 +67,99 @@ public sealed class ArticleRevisionConcurrencyTests(PostgresSchemaMigrationFixtu
         int revisionCount = await db.Queryable<ArticleRevision>()
             .CountAsync(revision => revision.ArticleId == articleId);
         Assert.Equal(0, revisionCount);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ConcurrentRowVersionMismatchDoesNotRewriteArticleOrTags()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        await SeedTaxonomyAsync(setupDb);
+        int articleId = await SeedArticleAsync(setupDb);
+        await SeedBodyAsync(setupDb, articleId, "# original");
+        await SeedTagsAsync(setupDb, articleId, [1, 2]);
+        using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
+        ArticleService service = CreateService(serviceDb);
+
+        await using var holder = new Npgsql.NpgsqlConnection(connectionString);
+        await holder.OpenAsync();
+        await using Npgsql.NpgsqlTransaction concurrentChange = await holder.BeginTransactionAsync();
+        await using (var updateCommand = new Npgsql.NpgsqlCommand(
+            "UPDATE article SET views = views + 1 WHERE id = @ArticleId;",
+            holder,
+            concurrentChange))
+        {
+            updateCommand.Parameters.AddWithValue("@ArticleId", articleId);
+            Assert.Equal(1, await updateCommand.ExecuteNonQueryAsync());
+        }
+
+        Task<bool> updateTask = service.UpdateAsync(articleId, new UpdateArticleRequest
+        {
+            Title = "Concurrent overwrite",
+            Summary = "changed",
+            Content = "# changed",
+            CategoryId = 2,
+            TagIds = [3, 4],
+            Status = ArticleStatus.Published
+        });
+        await Task.Delay(TimeSpan.FromMilliseconds(300));
+        Assert.False(updateTask.IsCompleted);
+
+        await concurrentChange.CommitAsync();
+        bool updated = await updateTask.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Article article = await setupDb.Queryable<Article>().InSingleAsync(articleId);
+        ArticleBody body = await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId);
+        List<int> tagIds = await setupDb.Queryable<ArticleTag>()
+            .Where(tag => tag.ArticleId == articleId)
+            .OrderBy(tag => tag.TagId)
+            .Select(tag => tag.TagId)
+            .ToListAsync();
+
+        Assert.False(updated);
+        Assert.Equal("Title", article.Title);
+        Assert.Equal(1, article.CategoryId);
+        Assert.Equal("# original", body.MarkdownContent);
+        Assert.Equal([1, 2], tagIds);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_SuccessfulUpdateRewritesTagSetWithAtomicUpsert()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        await SeedTaxonomyAsync(setupDb);
+        int articleId = await SeedArticleAsync(setupDb);
+        await SeedBodyAsync(setupDb, articleId, "# original");
+        await SeedTagsAsync(setupDb, articleId, [1, 2]);
+        using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
+        ArticleService service = CreateService(serviceDb);
+
+        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
+        {
+            Title = "Updated",
+            Summary = "changed",
+            Content = "# changed",
+            CategoryId = 2,
+            TagIds = [2, 3, 3],
+            Status = ArticleStatus.Published
+        });
+
+        Article article = await setupDb.Queryable<Article>().InSingleAsync(articleId);
+        ArticleBody body = await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId);
+        List<int> tagIds = await setupDb.Queryable<ArticleTag>()
+            .Where(tag => tag.ArticleId == articleId)
+            .OrderBy(tag => tag.TagId)
+            .Select(tag => tag.TagId)
+            .ToListAsync();
+
+        Assert.True(updated);
+        Assert.Equal("Updated", article.Title);
+        Assert.Equal(2, article.CategoryId);
+        Assert.Equal("# changed", body.MarkdownContent);
+        Assert.Equal([2, 3], tagIds);
     }
 
     private static async Task SaveRevisionInTransactionAsync(
@@ -143,11 +237,47 @@ public sealed class ArticleRevisionConcurrencyTests(PostgresSchemaMigrationFixtu
             CreatedAt = DateTime.UtcNow
         }).ExecuteCommandAsync();
 
+    private static async Task SeedTaxonomyAsync(SqlSugarClient db)
+    {
+        await db.Insertable(new[]
+        {
+            new Category { Id = 1, Name = "Category 1" },
+            new Category { Id = 2, Name = "Category 2" }
+        }).ExecuteCommandAsync();
+        await db.Insertable(new[]
+        {
+            new Tag { Id = 1, Name = "Tag 1" },
+            new Tag { Id = 2, Name = "Tag 2" },
+            new Tag { Id = 3, Name = "Tag 3" },
+            new Tag { Id = 4, Name = "Tag 4" }
+        }).ExecuteCommandAsync();
+    }
+
+    private static async Task SeedBodyAsync(SqlSugarClient db, int articleId, string content)
+        => await db.Insertable(new ArticleBody
+        {
+            ArticleId = articleId,
+            MarkdownContent = content,
+            UpdatedAt = DateTime.UtcNow
+        }).ExecuteCommandAsync();
+
+    private static async Task SeedTagsAsync(SqlSugarClient db, int articleId, int[] tagIds)
+        => await db.Insertable(tagIds.Select(tagId => new ArticleTag
+        {
+            ArticleId = articleId,
+            TagId = tagId
+        }).ToArray()).ExecuteCommandAsync();
+
     private static void CreateTables(SqlSugarClient db)
         => PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(Article),
-            typeof(ArticleRevision));
+            typeof(ArticleBody),
+            typeof(ArticleTag),
+            typeof(Category),
+            typeof(Tag),
+            typeof(ArticleRevision),
+            typeof(ArticleMutationOutboxEvent));
 
     private static ArticleService CreateService(SqlSugarClient db)
     {

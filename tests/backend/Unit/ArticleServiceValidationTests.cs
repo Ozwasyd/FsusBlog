@@ -79,8 +79,8 @@ public class ArticleServiceValidationTests
         int deleteMethod = source.IndexOf("public async Task<bool> DeleteAsync", StringComparison.Ordinal);
         string method = source[updateMethod..deleteMethod];
 
-        int affectedAssignment = method.IndexOf("int affectedRows = await _db.Updateable<Article>()", StringComparison.Ordinal);
-        int zeroRowReturn = method.IndexOf("if (affectedRows == 0)", StringComparison.Ordinal);
+        int affectedAssignment = method.IndexOf("bool updated = await TryUpdateArticleRowAsync", StringComparison.Ordinal);
+        int zeroRowReturn = method.IndexOf("if (!updated)", StringComparison.Ordinal);
         int bodyWrite = method.IndexOf("Storageable(new ArticleBody", StringComparison.Ordinal);
         int revisionWrite = method.IndexOf("SaveArticleRevisionAsync", StringComparison.Ordinal);
         int successGuard = method.IndexOf("if (result.IsSuccess && articleUpdated)", StringComparison.Ordinal);
@@ -122,6 +122,36 @@ public class ArticleServiceValidationTests
         Assert.True(zeroGuard > nonDeletedFilter);
         Assert.True(redisRemove > zeroGuard);
         Assert.True(redisIncrement > redisRemove);
+    }
+
+    [Fact]
+    public void UpdateAsync_SourceUsesRowVersionGuardAndAtomicTagSetRewrite()
+    {
+        string articleService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        string articleEntity = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Entities/Article.cs"));
+        int updateStart = articleService.IndexOf("public async Task<bool> UpdateAsync", StringComparison.Ordinal);
+        int deleteStart = articleService.IndexOf("public async Task<bool> DeleteAsync", updateStart, StringComparison.Ordinal);
+        string updateMethod = articleService[updateStart..deleteStart];
+        int stateStart = articleService.IndexOf("private async Task<ArticleUpdateState?> LoadArticleUpdateStateAsync", StringComparison.Ordinal);
+        int rowUpdateStart = articleService.IndexOf("private async Task<bool> TryUpdateArticleRowAsync", StringComparison.Ordinal);
+        int tagStart = articleService.IndexOf("private async Task ApplyArticleTagsAsync", StringComparison.Ordinal);
+        int nextMethod = articleService.IndexOf("public async Task<bool> DeleteAsync", StringComparison.Ordinal);
+        string loadMethod = articleService[stateStart..rowUpdateStart];
+        string rowUpdateMethod = articleService[rowUpdateStart..tagStart];
+        string tagMethod = articleService[tagStart..nextMethod];
+
+        Assert.Contains("public string? RowVersion", articleEntity, StringComparison.Ordinal);
+        Assert.Contains("LoadArticleUpdateStateAsync(id)", updateMethod, StringComparison.Ordinal);
+        Assert.Contains("TryUpdateArticleRowAsync(", updateMethod, StringComparison.Ordinal);
+        Assert.Contains("state,", updateMethod, StringComparison.Ordinal);
+        Assert.Contains("ApplyArticleTagsAsync(id, tagIds)", updateMethod, StringComparison.Ordinal);
+        Assert.Contains("xmin::text AS row_version", loadMethod, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND xmin::text = @RowVersion", rowUpdateMethod, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND isdeleted = false", rowUpdateMethod, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("WITH desired_tags", tagMethod, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ON CONFLICT (articleid, tagid) DO NOTHING", tagMethod, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("DELETE FROM article_tag", tagMethod, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Deleteable<ArticleTag>()", updateMethod, StringComparison.Ordinal);
     }
 
     [Fact]
