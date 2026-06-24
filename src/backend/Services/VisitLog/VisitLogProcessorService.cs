@@ -403,17 +403,12 @@ public class VisitLogProcessorService : BackgroundService
     private static byte[] CreateIpHashKey(IConfiguration? configuration)
     {
         string? pepper = configuration?[VisitLogIpHashPepperKey];
-        if (string.IsNullOrWhiteSpace(pepper))
+        if (string.IsNullOrWhiteSpace(pepper) || pepper.Trim().Length < 32)
         {
-            pepper = configuration?["Jwt:SecretKey"];
+            throw new InvalidOperationException("VisitLog:IpHashPepper must be configured with at least 32 characters.");
         }
 
-        if (string.IsNullOrWhiteSpace(pepper))
-        {
-            pepper = string.Concat("FsusBlog:VisitLog:IpHashPepper:Fallback:", Environment.MachineName, ":", AppContext.BaseDirectory);
-        }
-
-        return SHA256.HashData(Encoding.UTF8.GetBytes(pepper));
+        return SHA256.HashData(Encoding.UTF8.GetBytes(pepper.Trim()));
     }
 
     internal static bool TryClassifyLocalNetwork(string ip, out string region)

@@ -17,7 +17,7 @@ public sealed class VisitLogProcessorServiceTests
     [Fact]
     public async Task DrainBatchWithFlushWindowAsync_LowTrafficWaitsForFlushWindow()
     {
-        await using ServiceProvider provider = new ServiceCollection().BuildServiceProvider();
+        await using ServiceProvider provider = CreateServiceProvider();
         var channel = new VisitLogChannel();
         var worker = new VisitLogProcessorService(
             channel,
@@ -38,7 +38,7 @@ public sealed class VisitLogProcessorServiceTests
     [Fact]
     public async Task DrainBatchWithFlushWindowAsync_FullBatchReturnsWithoutWaitingForFlushWindow()
     {
-        await using ServiceProvider provider = new ServiceCollection().BuildServiceProvider();
+        await using ServiceProvider provider = CreateServiceProvider();
         var channel = new VisitLogChannel();
         var worker = new VisitLogProcessorService(
             channel,
@@ -61,7 +61,7 @@ public sealed class VisitLogProcessorServiceTests
     [Fact]
     public async Task DrainBatchWithFlushWindowAsync_DoesNotSwallowShutdownCancellation()
     {
-        await using ServiceProvider provider = new ServiceCollection().BuildServiceProvider();
+        await using ServiceProvider provider = CreateServiceProvider();
         var channel = new VisitLogChannel();
         var worker = new VisitLogProcessorService(
             channel,
@@ -78,14 +78,7 @@ public sealed class VisitLogProcessorServiceTests
     [Fact]
     public async Task DrainBatchWithFlushWindowAsync_AnonymizesIpBeforePersistence()
     {
-        await using ServiceProvider provider = new ServiceCollection()
-            .AddSingleton<IConfiguration>(new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["VisitLog:IpHashPepper"] = "unit-test-visit-log-ip-hash-pepper-with-enough-entropy"
-                })
-                .Build())
-            .BuildServiceProvider();
+        await using ServiceProvider provider = CreateServiceProvider();
         var channel = new VisitLogChannel();
         var worker = new VisitLogProcessorService(
             channel,
@@ -121,7 +114,7 @@ public sealed class VisitLogProcessorServiceTests
     [Fact]
     public async Task ExecuteAsync_ContinuesProcessingAfterSingleMessageFailure()
     {
-        await using ServiceProvider provider = new ServiceCollection().BuildServiceProvider();
+        await using ServiceProvider provider = CreateServiceProvider();
         var channel = new VisitLogChannel();
         var pool = new SequencedFaultPool();
         var worker = new VisitLogProcessorService(
@@ -149,7 +142,7 @@ public sealed class VisitLogProcessorServiceTests
     [Fact]
     public async Task StopAsync_DoesNotThrowWhenPendingMessagesAreFaulty()
     {
-        await using ServiceProvider provider = new ServiceCollection().BuildServiceProvider();
+        await using ServiceProvider provider = CreateServiceProvider();
         var channel = new VisitLogChannel();
         var worker = new VisitLogProcessorService(
             channel,
@@ -167,6 +160,16 @@ public sealed class VisitLogProcessorServiceTests
 
     private static VisitLogMessage CreateMessage(string ip) =>
         new(ip, DateTime.UtcNow, HumanReadEventTypes.SiteRead, "home", null, "viewer", "proof", 8000);
+
+    private static ServiceProvider CreateServiceProvider()
+        => new ServiceCollection()
+            .AddSingleton<IConfiguration>(new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["VisitLog:IpHashPepper"] = "unit-test-visit-log-ip-hash-pepper-with-enough-entropy"
+                })
+                .Build())
+            .BuildServiceProvider();
 
     private static async Task DrainBatchAsync(VisitLogProcessorService worker, List<VisitLogEntity> batch, CancellationToken token)
     {

@@ -49,7 +49,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 7;
+    private const int SchemaVersion = 8;
     private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object CoreValidationCacheLock = new();
     private static CoreValidationCacheEntry? s_coreValidationCache;
@@ -100,8 +100,12 @@ public static class ProductionStartupValidator
         Value("Seo:BaseUrl"),
         Value("Fido2:ServerDomain"),
         new("Fido2:Origins", ReadOriginList),
+        Value("Security:Pow:SigningKey"),
+        Value("Security:CaptchaV1:SigningKey"),
+        Value("Security:RecoveryKeyPepper"),
         Value("AnonymousCredentialIssuer:SubjectHashPepper"),
         Value("VisitLog:IpHashPepper"),
+        Value("Moderation:RegionPolicy:IpHashKey"),
         Value(AnonymousIdentityRuntime.ModeEnvironmentVariable)
     ];
 
@@ -192,8 +196,12 @@ public static class ProductionStartupValidator
         string? seoBaseUrl = values["Seo:BaseUrl"];
         string? fido2ServerDomain = values["Fido2:ServerDomain"];
         string? fido2Origins = values["Fido2:Origins"];
+        string? powSigningKey = values["Security:Pow:SigningKey"];
+        string? captchaSigningKey = values["Security:CaptchaV1:SigningKey"];
+        string? recoveryKeyPepper = values["Security:RecoveryKeyPepper"];
         string? subjectHashPepper = values["AnonymousCredentialIssuer:SubjectHashPepper"];
         string? visitLogIpHashPepper = values["VisitLog:IpHashPepper"];
+        string? regionIpHashKey = values["Moderation:RegionPolicy:IpHashKey"];
         string? anonymousIdentityMode = values[AnonymousIdentityRuntime.ModeEnvironmentVariable];
 
         if (!string.IsNullOrWhiteSpace(jwtSecret))
@@ -214,45 +222,12 @@ public static class ProductionStartupValidator
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(subjectHashPepper))
-        {
-            if (subjectHashPepper.Length < 32)
-            {
-                errors.Add("AnonymousCredentialIssuer:SubjectHashPepper must be at least 32 characters.");
-            }
-
-            if (DefaultSubjectHashPeppers.Contains(subjectHashPepper, StringComparer.Ordinal))
-            {
-                errors.Add("AnonymousCredentialIssuer:SubjectHashPepper must not use a development/template/default value.");
-            }
-
-            if (subjectHashPepper.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase) ||
-                subjectHashPepper.Contains("MUST_BE_OVERRIDDEN", StringComparison.OrdinalIgnoreCase) ||
-                subjectHashPepper.Contains("replace-with", StringComparison.OrdinalIgnoreCase))
-            {
-                errors.Add("AnonymousCredentialIssuer:SubjectHashPepper must not use a template placeholder.");
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(visitLogIpHashPepper))
-        {
-            if (visitLogIpHashPepper.Length < 32)
-            {
-                errors.Add("VisitLog:IpHashPepper must be at least 32 characters.");
-            }
-
-            if (DefaultVisitLogIpHashPeppers.Contains(visitLogIpHashPepper, StringComparer.Ordinal))
-            {
-                errors.Add("VisitLog:IpHashPepper must not use a development/template/default value.");
-            }
-
-            if (visitLogIpHashPepper.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase) ||
-                visitLogIpHashPepper.Contains("MUST_BE_OVERRIDDEN", StringComparison.OrdinalIgnoreCase) ||
-                visitLogIpHashPepper.Contains("replace-with", StringComparison.OrdinalIgnoreCase))
-            {
-                errors.Add("VisitLog:IpHashPepper must not use a template placeholder.");
-            }
-        }
+        ValidateIndependentSecuritySecret("Security:Pow:SigningKey", powSigningKey, jwtSecret, [], errors);
+        ValidateIndependentSecuritySecret("Security:CaptchaV1:SigningKey", captchaSigningKey, jwtSecret, [], errors);
+        ValidateIndependentSecuritySecret("Security:RecoveryKeyPepper", recoveryKeyPepper, jwtSecret, [], errors);
+        ValidateIndependentSecuritySecret("AnonymousCredentialIssuer:SubjectHashPepper", subjectHashPepper, jwtSecret, DefaultSubjectHashPeppers, errors);
+        ValidateIndependentSecuritySecret("VisitLog:IpHashPepper", visitLogIpHashPepper, jwtSecret, DefaultVisitLogIpHashPeppers, errors);
+        ValidateIndependentSecuritySecret("Moderation:RegionPolicy:IpHashKey", regionIpHashKey, jwtSecret, [], errors);
 
         ValidateRedisConnection("ConnectionStrings:Redis", redisConnection, enforceProductionRules, errors);
         ValidateRedisConnection("RedisOptions:Configuration", redisOptionsConnection, enforceProductionRules, errors);
@@ -291,6 +266,42 @@ public static class ProductionStartupValidator
             .ToArray();
 
         return children.Length == 0 ? null : string.Join(',', children);
+    }
+
+    private static void ValidateIndependentSecuritySecret(
+        string key,
+        string? value,
+        string? jwtSecret,
+        IReadOnlyCollection<string> defaultValues,
+        List<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        string trimmed = value.Trim();
+        if (trimmed.Length < 32)
+        {
+            errors.Add($"{key} must be at least 32 characters.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(jwtSecret) && string.Equals(trimmed, jwtSecret.Trim(), StringComparison.Ordinal))
+        {
+            errors.Add($"{key} must be configured independently and must not equal Jwt:SecretKey.");
+        }
+
+        if (defaultValues.Contains(trimmed, StringComparer.Ordinal))
+        {
+            errors.Add($"{key} must not use a development/template/default value.");
+        }
+
+        if (trimmed.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Contains("MUST_BE_OVERRIDDEN", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Contains("replace-with", StringComparison.OrdinalIgnoreCase))
+        {
+            errors.Add($"{key} must not use a template placeholder.");
+        }
     }
 
     private static void ValidateRedisConnection(string key, string? connectionString, bool enforceProductionRules, List<string> errors)
@@ -669,6 +680,12 @@ public static class ProductionStartupValidator
 
     private static bool IsSecurityCriticalStartupError(string error)
         => error.Contains("Jwt:SecretKey", StringComparison.Ordinal)
+            || error.Contains("Security:Pow:SigningKey", StringComparison.Ordinal)
+            || error.Contains("Security:CaptchaV1:SigningKey", StringComparison.Ordinal)
+            || error.Contains("Security:RecoveryKeyPepper", StringComparison.Ordinal)
+            || error.Contains("AnonymousCredentialIssuer:SubjectHashPepper", StringComparison.Ordinal)
+            || error.Contains("VisitLog:IpHashPepper", StringComparison.Ordinal)
+            || error.Contains("Moderation:RegionPolicy:IpHashKey", StringComparison.Ordinal)
             || error.Contains("AllowedHosts must not use wildcard", StringComparison.Ordinal)
             || error.Contains("ReverseProxy:KnownProxies or ReverseProxy:KnownNetworks", StringComparison.Ordinal)
             || error.Contains("CORS_ALLOWED_HOSTS origin must use HTTPS", StringComparison.Ordinal)

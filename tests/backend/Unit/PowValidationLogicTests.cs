@@ -97,7 +97,7 @@ public sealed class PowValidationLogicTests
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Jwt:SecretKey"] = "unit-test-secret-key-with-enough-entropy"
+                ["Security:Pow:SigningKey"] = "unit-test-pow-signing-key-with-enough-entropy"
             })
             .Build();
         var governor = new AdaptivePowGovernor(cache);

@@ -22,9 +22,7 @@ public class RedisPowService : IPowService
     private const int MaxSignatureUtf8Bytes = 128;
     private const int MaxBrowserFingerprintUtf8Bytes = 256;
     private static readonly TimeSpan ProofReplayTtl = TimeSpan.FromMinutes(5);
-    private static long _lastFallbackWarningTicks;
     private readonly byte[] _cachedPowKey;
-    private readonly bool _isFallbackKey;
     private readonly ILogger<RedisPowService> _logger;
     private readonly AdaptivePowGovernor _governor;
     private readonly IUnifiedCache _cache;
@@ -39,28 +37,17 @@ public class RedisPowService : IPowService
         _governor = governor;
         _cache = cache;
 
-        string? secretKey = config["Jwt:SecretKey"];
-        if (string.IsNullOrEmpty(secretKey))
+        string? secretKey = config["Security:Pow:SigningKey"];
+        if (string.IsNullOrWhiteSpace(secretKey) || secretKey.Trim().Length < 32)
         {
-            _isFallbackKey = true;
-            var fallback = string.Concat("FsusBlog:Pow:Fallback:", Environment.MachineName, ":", AppContext.BaseDirectory);
-            _cachedPowKey = SHA256.HashData(Encoding.UTF8.GetBytes(fallback));
-            _logger.LogCritical("POW SecretKey 缺失，已启用降级密钥。请立即配置 Jwt:SecretKey。");
+            throw new InvalidOperationException("Security:Pow:SigningKey must be configured with at least 32 characters.");
         }
-        else
-        {
-            _isFallbackKey = false;
-            _cachedPowKey = SHA256.HashData(Encoding.UTF8.GetBytes(secretKey));
-        }
+
+        _cachedPowKey = SHA256.HashData(Encoding.UTF8.GetBytes(secretKey.Trim()));
     }
 
     public async Task<bool> VerifyAsync(IPowRequest req, string clientIp)
     {
-        if (_isFallbackKey)
-        {
-            LogFallbackModeThrottled();
-        }
-
         if (!HasValidFieldLengths(req))
         {
             _logger.LogWarning("PoW 字段长度超限 | Salt: {Salt}", req.PowSalt);
@@ -79,19 +66,6 @@ public class RedisPowService : IPowService
 
         // 3. Redis-backed consume-once protection: the same normalized proof can be accepted only once.
         return await TryConsumeProofOnceAsync(req, clientIp).ConfigureAwait(false);
-    }
-
-    private void LogFallbackModeThrottled()
-    {
-        long now = DateTime.UtcNow.Ticks;
-        long last = Interlocked.Read(ref _lastFallbackWarningTicks);
-        if (now - last < TimeSpan.FromMinutes(5).Ticks)
-        {
-            return;
-        }
-
-        Interlocked.Exchange(ref _lastFallbackWarningTicks, now);
-        _logger.LogWarning("POW 当前运行在降级密钥模式。");
     }
 
     public async Task<PowChallenge> GenerateChallengeAsync(string clientIp)

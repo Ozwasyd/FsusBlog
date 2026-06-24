@@ -651,21 +651,34 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
         CapturingAuditEventService auditEvents,
         IReadOnlyDictionary<string, string?>? config = null,
         ICircuitNativeCredentialIssuer? credentialIssuer = null)
-        => new(
+    {
+        Dictionary<string, string?> values = new(StringComparer.Ordinal)
+        {
+            ["AnonymousCredentialIssuer:AllowBannedAccountIssuance"] = "false",
+            ["AnonymousCredentialIssuer:MaxCredentialRequestBytes"] = "8192",
+            ["AnonymousCredentialIssuer:MaxClientNonceBytes"] = "128",
+            ["AnonymousCredentialIssuer:EpochDurationMinutes"] = "1440",
+            ["AnonymousCredentialIssuer:CredentialTtlMinutes"] = "1440",
+            ["AnonymousCredentialIssuer:SubjectHashPepper"] = "unit-test-subject-hash-pepper-with-enough-entropy"
+        };
+
+        if (config is not null)
+        {
+            foreach (KeyValuePair<string, string?> item in config)
+            {
+                values[item.Key] = item.Value;
+            }
+        }
+
+        return new AnonymousCredentialIssuerService(
             db,
             new AnonymousCredentialIssuanceAuditStore(db),
             credentialIssuer ?? new CapturingCircuitNativeCredentialIssuer(),
             auditEvents,
             new ConfigurationBuilder()
-                .AddInMemoryCollection(config ?? new Dictionary<string, string?>
-                {
-                    ["AnonymousCredentialIssuer:AllowBannedAccountIssuance"] = "false",
-                    ["AnonymousCredentialIssuer:MaxCredentialRequestBytes"] = "8192",
-                    ["AnonymousCredentialIssuer:MaxClientNonceBytes"] = "128",
-                    ["AnonymousCredentialIssuer:EpochDurationMinutes"] = "1440",
-                    ["AnonymousCredentialIssuer:CredentialTtlMinutes"] = "1440"
-                })
+                .AddInMemoryCollection(values)
                 .Build());
+    }
 
     private static AnonymousCredentialIssueRequestCoreModel CreateIssueRequest(long epoch = 1042)
         => new(

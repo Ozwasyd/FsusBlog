@@ -31,8 +31,12 @@ public sealed class ProductionStartupValidatorTests
             ["Seo:BaseUrl"] = "https://fsus.blog",
             ["Fido2:ServerDomain"] = "fsus.blog",
             ["Fido2:Origins:0"] = "https://fsus.blog",
+            ["Security:Pow:SigningKey"] = "production-pow-signing-key-with-at-least-thirty-two-chars",
+            ["Security:CaptchaV1:SigningKey"] = "production-captcha-signing-key-with-at-least-thirty-two-chars",
+            ["Security:RecoveryKeyPepper"] = "production-recovery-key-pepper-with-at-least-thirty-two-chars",
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
             ["VisitLog:IpHashPepper"] = "production-visit-log-ip-hash-pepper-with-at-least-thirty-two-chars",
+            ["Moderation:RegionPolicy:IpHashKey"] = "production-region-ip-hash-key-with-at-least-thirty-two-chars",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         });
@@ -71,8 +75,74 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains(errors, static error => error.Contains("Seo:BaseUrl", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Fido2:ServerDomain", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Fido2:Origins", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("Security:Pow:SigningKey", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("Security:CaptchaV1:SigningKey", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("Security:RecoveryKeyPepper", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("AnonymousCredentialIssuer:SubjectHashPepper", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("VisitLog:IpHashPepper", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("Moderation:RegionPolicy:IpHashKey", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("Security:Pow:SigningKey")]
+    [InlineData("Security:CaptchaV1:SigningKey")]
+    [InlineData("Security:RecoveryKeyPepper")]
+    [InlineData("AnonymousCredentialIssuer:SubjectHashPepper")]
+    [InlineData("VisitLog:IpHashPepper")]
+    [InlineData("Moderation:RegionPolicy:IpHashKey")]
+    public void ValidateCore_RejectsProductionWhenIndependentSecuritySecretIsMissing(string key)
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            [key] = null
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.Contains(errors, error => error.Contains(key, StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("Security:Pow:SigningKey")]
+    [InlineData("Security:CaptchaV1:SigningKey")]
+    [InlineData("Security:RecoveryKeyPepper")]
+    [InlineData("AnonymousCredentialIssuer:SubjectHashPepper")]
+    [InlineData("VisitLog:IpHashPepper")]
+    [InlineData("Moderation:RegionPolicy:IpHashKey")]
+    public void ValidateCore_RejectsProductionSecuritySecretSharedWithJwtSecret(string key)
+    {
+        const string sharedSecret = "shared-jwt-secret-that-must-not-seed-other-security-domains";
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            ["Jwt:SecretKey"] = sharedSecret,
+            [key] = sharedSecret
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.Contains(errors, error => error.Contains(key, StringComparison.Ordinal)
+            && error.Contains("Jwt:SecretKey", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void SecurityDomainSecrets_DoNotFallBackToJwtSecretOrHardCodedMaterial()
+    {
+        string[] sources =
+        [
+            "src/backend/Services/Security/RedisPowService.cs",
+            "src/backend/Services/Security/CaptchaV1ChallengeProvider.cs",
+            "src/backend/Services/Security/RecoveryKeyService.cs",
+            "src/backend/Services/Security/AnonymousCredentialIssuerService.cs",
+            "src/backend/Services/VisitLog/VisitLogProcessorService.cs",
+            "src/backend/Services/Moderation/ClientRegionResolver.cs"
+        ];
+        string combined = string.Join('\n', sources.Select(static path => BackendTestPaths.ReadAllTextFromRoot(path)));
+
+        Assert.DoesNotContain("configuration[\"Jwt:SecretKey\"]", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("config[\"Jwt:SecretKey\"]", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("Fallback:", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("development-key", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("development-anonymous-credential-subject-hash-pepper", combined, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -235,7 +305,7 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(7, report.SchemaVersion);
+        Assert.Equal(8, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
@@ -245,8 +315,12 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("AllowedHosts", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Fido2:ServerDomain", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Fido2:Origins", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("Security:Pow:SigningKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("Security:CaptchaV1:SigningKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("Security:RecoveryKeyPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AnonymousCredentialIssuer:SubjectHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("VisitLog:IpHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("Moderation:RegionPolicy:IpHashKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains(
             "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
             ProductionStartupValidator.CurrentSchema.DefaultJwtSecrets);
@@ -481,8 +555,12 @@ public sealed class ProductionStartupValidatorTests
             ["Seo:BaseUrl"] = "https://fsus.blog",
             ["Fido2:ServerDomain"] = "fsus.blog",
             ["Fido2:Origins:0"] = "https://fsus.blog",
+            ["Security:Pow:SigningKey"] = "production-pow-signing-key-with-at-least-thirty-two-chars",
+            ["Security:CaptchaV1:SigningKey"] = "production-captcha-signing-key-with-at-least-thirty-two-chars",
+            ["Security:RecoveryKeyPepper"] = "production-recovery-key-pepper-with-at-least-thirty-two-chars",
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
             ["VisitLog:IpHashPepper"] = "production-visit-log-ip-hash-pepper-with-at-least-thirty-two-chars",
+            ["Moderation:RegionPolicy:IpHashKey"] = "production-region-ip-hash-key-with-at-least-thirty-two-chars",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         };

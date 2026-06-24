@@ -414,10 +414,11 @@ Health/ops 协议独立于 PublicAOT 与 AEDS payload。`ProductionHealthEndpoin
 服务器通过 HostedService 在启动后执行以下生产校验，失败时进入可观测降级状态而不是直接终止进程：
 
 - JWT 密钥不得为默认占位值
+- `Security:Pow:SigningKey`、`Security:CaptchaV1:SigningKey`、`Security:RecoveryKeyPepper`、`AnonymousCredentialIssuer:SubjectHashPepper`、`VisitLog:IpHashPepper`、`Moderation:RegionPolicy:IpHashKey` 必须使用独立高熵值，且不得等于 `Jwt:SecretKey`
 - Redis 密码不得为空
 - `SITE_BASEURL` 必须为 HTTPS
 - CORS 配置的 Origins 不得包含 HTTP 来源
 
-降级状态会写入运行时状态任务 `productionStartupValidation`。回退路径是修复环境变量或依赖服务后重启应用；无需修改路由、中间件或健康探针代码。
+降级状态会写入运行时状态任务 `productionStartupValidation`。回退路径是修复环境变量或依赖服务后重启应用；密钥类错误只能恢复对应安全域的上一个密钥，不能临时复用 JWT 密钥，也无需修改路由、中间件或健康探针代码。
 
 详细部署流程见 [production.md](production.md)。

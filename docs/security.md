@@ -12,6 +12,12 @@
 客户端      SameSite Cookie、HttpOnly、Secure；CSP、XFO、XCTO、Referrer-Policy、Permissions-Policy；真人阅读 proof
 ```
 
+## 安全密钥域隔离
+
+`Jwt:SecretKey` 只用于 JWT 签发和校验，不能作为其他安全子系统的派生材料。生产启动校验要求以下配置项全部存在、长度至少 32 字符，且不得与 `Jwt:SecretKey` 相同：`Security:Pow:SigningKey`、`Security:CaptchaV1:SigningKey`、`Security:RecoveryKeyPepper`、`AnonymousCredentialIssuer:SubjectHashPepper`、`VisitLog:IpHashPepper`、`Moderation:RegionPolicy:IpHashKey`。缺失、模板值或跨域复用会使生产启动失败；运行时服务本身也会 fail closed，不回退到 JWT、本机名、应用目录或硬编码开发字面量。
+
+这些密钥分别保护 PoW 签名、CaptchaV1 provider payload、Recovery Key lookup/hash、匿名凭证签发限频 subject hash、阅读 IP 匿名化和地区策略 IP hash。任一密钥泄露只允许影响其所属安全域；轮换时只替换对应配置并滚动重启，不应同步替换其他域密钥，除非有明确的泄露范围证据。
+
 ---
 
 ## Proof of Work (PoW)
@@ -378,6 +384,7 @@ tools/operations/backup-site.sh
 ```
 
 - `Jwt__SecretKey`：生成新 secret 后滚动重启应用；旧 JWT 立即失效，依赖 refresh cookie 的会话也应通过用户 session 撤销或强制重新登录收口。
+- 独立安全域密钥：`Security__Pow__SigningKey`、`Security__CaptchaV1__SigningKey`、`Security__RecoveryKeyPepper`、`AnonymousCredentialIssuer__SubjectHashPepper`、`VisitLog__IpHashPepper`、`Moderation__RegionPolicy__IpHashKey` 必须分别生成和轮换，不能复制 `Jwt__SecretKey`。PoW/Captcha/Recovery/SubjectHash/VisitLog/Region 任一路径缺少对应密钥都会 fail closed；回滚方式是恢复上一个同域密钥并滚动重启，而不是临时复用 JWT。
 - DataProtection keyring：默认追加新 key，不删除旧 key；只有确认旧 cookie、MFA pending payload 和恢复窗口全部过期后，才在离线维护窗口清理旧 key。迁移服务器时必须恢复 `data-protection-keyring.tar.gz`，否则受保护 cookie/MFA payload 不可读。
 - Redis password：先更新 Redis ACL/密码，再更新 `ConnectionStrings__Redis` / `RedisOptions__Configuration`，重启后用 `/api/binary/author/ops/health` 验证 Redis 状态。Redis 数据不作为业务恢复来源。
 - PostgreSQL password：先创建或切换数据库凭据，再更新 `ConnectionStrings__DefaultConnection`，重启前保留旧凭据到 readiness 通过。失败时恢复旧连接串或用最近数据库 dump 恢复。

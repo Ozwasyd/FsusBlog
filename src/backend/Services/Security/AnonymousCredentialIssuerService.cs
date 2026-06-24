@@ -539,14 +539,9 @@ public sealed class AnonymousCredentialIssuerService(
     private static byte[] ResolveSubjectHashKey(IConfiguration configuration)
     {
         string? value = configuration["AnonymousCredentialIssuer:SubjectHashPepper"];
-        if (string.IsNullOrWhiteSpace(value))
+        if (string.IsNullOrWhiteSpace(value) || value.Trim().Length < 32)
         {
-            value = configuration["Jwt:SecretKey"];
-        }
-
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            value = "fsusblog-development-anonymous-credential-subject-hash-pepper";
+            throw new InvalidOperationException("AnonymousCredentialIssuer:SubjectHashPepper must be configured with at least 32 characters.");
         }
 
         return SHA256.HashData(Encoding.UTF8.GetBytes(value.Trim()));

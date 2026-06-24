@@ -267,14 +267,13 @@ public sealed class RecoveryKeyService(
     {
         string? value = configuration["Security:RecoveryKeyPepper"]
             ?? configuration["RecoveryKeyPepper"]
-            ?? Environment.GetEnvironmentVariable("FSUSBLOG_RECOVERY_KEY_PEPPER")
-            ?? configuration["Jwt:SecretKey"];
-        if (string.IsNullOrWhiteSpace(value))
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_RECOVERY_KEY_PEPPER");
+        if (string.IsNullOrWhiteSpace(value) || value.Trim().Length < 32)
         {
-            throw new InvalidOperationException("RecoveryKeyPepper is not configured.");
+            throw new InvalidOperationException("Security:RecoveryKeyPepper is not configured with at least 32 characters.");
         }
 
-        return Encoding.UTF8.GetBytes(value);
+        return Encoding.UTF8.GetBytes(value.Trim());
     }
 
     private static RecoveryKeyGeneration GenerateRecoveryKey(byte[] pepper)

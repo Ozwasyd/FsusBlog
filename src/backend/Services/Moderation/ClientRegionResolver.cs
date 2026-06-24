@@ -48,8 +48,13 @@ public sealed class ClientRegionResolver(
 
     private string HashIp(string ip)
     {
-        string key = configuration["Moderation:RegionPolicy:IpHashKey"] ?? "fsusblog-region-ip-hash-development-key";
-        byte[] bytes = HMACSHA256.HashData(Encoding.UTF8.GetBytes(key), Encoding.UTF8.GetBytes(ip));
+        string? key = configuration["Moderation:RegionPolicy:IpHashKey"];
+        if (string.IsNullOrWhiteSpace(key) || key.Trim().Length < 32)
+        {
+            throw new InvalidOperationException("Moderation:RegionPolicy:IpHashKey must be configured with at least 32 characters.");
+        }
+
+        byte[] bytes = HMACSHA256.HashData(Encoding.UTF8.GetBytes(key.Trim()), Encoding.UTF8.GetBytes(ip));
         return Convert.ToHexStringLower(bytes);
     }
 }

@@ -226,15 +226,13 @@ public sealed class CaptchaV1ChallengeProvider(
 
     private static byte[] ResolveSigningKey(IConfiguration configuration)
     {
-        string key = configuration["Security:CaptchaV1:SigningKey"]
-            ?? configuration["Jwt:SecretKey"]
-            ?? string.Empty;
-        if (key.Length < 32)
+        string key = configuration["Security:CaptchaV1:SigningKey"] ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(key) || key.Trim().Length < 32)
         {
-            throw new InvalidOperationException("Security:CaptchaV1:SigningKey or Jwt:SecretKey must be at least 32 characters.");
+            throw new InvalidOperationException("Security:CaptchaV1:SigningKey must be configured with at least 32 characters.");
         }
 
-        return Encoding.UTF8.GetBytes(key);
+        return Encoding.UTF8.GetBytes(key.Trim());
     }
 
     private static string HashPayload(IReadOnlyDictionary<string, string> payload)
