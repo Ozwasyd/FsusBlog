@@ -72,22 +72,55 @@ public partial class UserService(
     private async Task UpsertUserMfaProfileAsync(UserMfaProfile profile)
     {
         profile.UpdatedAtUtc = DateTime.UtcNow;
-        int updated = await _db.Updateable<UserMfaProfile>()
-            .SetColumns(p => p.MfaSecretEncrypted == profile.MfaSecretEncrypted)
-            .SetColumns(p => p.MfaPendingSecretEncrypted == profile.MfaPendingSecretEncrypted)
-            .SetColumns(p => p.MfaPendingCreatedAt == profile.MfaPendingCreatedAt)
-            .SetColumns(p => p.MfaVerifiedAt == profile.MfaVerifiedAt)
-            .SetColumns(p => p.MfaRecoveryCodesHash == profile.MfaRecoveryCodesHash)
-            .SetColumns(p => p.MfaRecoveryCodesHashVersion == profile.MfaRecoveryCodesHashVersion)
-            .SetColumns(p => p.UpdatedAtUtc == profile.UpdatedAtUtc)
-            .Where(p => p.UserId == profile.UserId)
-            .ExecuteCommandAsync();
+        const string sql = """
+            INSERT INTO user_mfa_profile (
+                user_id,
+                mfa_secret_encrypted,
+                mfa_pending_secret_encrypted,
+                mfa_pending_created_at,
+                mfa_verified_at,
+                mfa_recovery_codes_hash,
+                hash_version,
+                updated_at_utc
+            )
+            VALUES (
+                @UserId,
+                @MfaSecretEncrypted,
+                @MfaPendingSecretEncrypted,
+                @MfaPendingCreatedAt,
+                @MfaVerifiedAt,
+                @MfaRecoveryCodesHash,
+                @MfaRecoveryCodesHashVersion,
+                @UpdatedAtUtc
+            )
+            ON CONFLICT (user_id) DO UPDATE SET
+                mfa_secret_encrypted = EXCLUDED.mfa_secret_encrypted,
+                mfa_pending_secret_encrypted = EXCLUDED.mfa_pending_secret_encrypted,
+                mfa_pending_created_at = EXCLUDED.mfa_pending_created_at,
+                mfa_verified_at = EXCLUDED.mfa_verified_at,
+                mfa_recovery_codes_hash = EXCLUDED.mfa_recovery_codes_hash,
+                hash_version = EXCLUDED.hash_version,
+                updated_at_utc = EXCLUDED.updated_at_utc;
+            """;
 
-        if (updated == 0)
+        await _db.Ado.ExecuteCommandAsync(sql, new SugarParameter[]
         {
-            await _db.Insertable(profile).ExecuteCommandAsync();
-        }
+            new SugarParameter("@UserId", profile.UserId),
+            new SugarParameter("@MfaSecretEncrypted", DbValue(profile.MfaSecretEncrypted)),
+            new SugarParameter("@MfaPendingSecretEncrypted", DbValue(profile.MfaPendingSecretEncrypted)),
+            new SugarParameter("@MfaPendingCreatedAt", DbValue(profile.MfaPendingCreatedAt)),
+            new SugarParameter("@MfaVerifiedAt", DbValue(profile.MfaVerifiedAt)),
+            new SugarParameter("@MfaRecoveryCodesHash", DbValue(profile.MfaRecoveryCodesHash)),
+            new SugarParameter("@MfaRecoveryCodesHashVersion", profile.MfaRecoveryCodesHashVersion),
+            new SugarParameter("@UpdatedAtUtc", profile.UpdatedAtUtc)
+        });
     }
+
+    private static object DbValue(string? value)
+        => value is null ? DBNull.Value : value;
+
+    private static object DbValue(DateTime? value)
+        => value.HasValue ? value.Value : DBNull.Value;
 
     private static (bool Success, string? PublicHandle, string Message) NormalizePublicHandle(string? publicHandle)
     {

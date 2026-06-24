@@ -239,6 +239,59 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    public async Task StartMfaSetupAsync_UsesAtomicMfaProfileUpsert()
+    {
+        using var _ = SetAnonymousIdentityMode("1");
+        var db = Substitute.For<ISqlSugarClient>();
+        var userQueryable = Substitute.For<ISugarQueryable<User>>();
+        db.Queryable<User>().Returns(userQueryable);
+        userQueryable.InSingleAsync(42).Returns(Task.FromResult(new User
+        {
+            Id = 42,
+            IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+            MfaEnabled = false
+        }));
+        var profileQueryable = Substitute.For<ISugarQueryable<UserMfaProfile>>();
+        db.Queryable<UserMfaProfile>().Returns(profileQueryable);
+        profileQueryable.Where(Arg.Any<Expression<Func<UserMfaProfile, bool>>>()).Returns(profileQueryable);
+        profileQueryable.FirstAsync().Returns(Task.FromResult((UserMfaProfile)null!));
+        db.Ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(Task.FromResult(1));
+        var totp = Substitute.For<ITotpService>();
+        totp.GenerateSecret().Returns("SECRET");
+        totp.ProtectSecret("SECRET").Returns("protected-secret");
+        totp.BuildOtpAuthUri("FsusBlog", "FsusBlog:account:42", "SECRET").Returns("otpauth://totp/FsusBlog:account:42");
+        var svc = BuildService(db, Substitute.For<IJwtHelper>(), totp);
+
+        var (success, _, message) = await svc.StartMfaSetupAsync(42, "FsusBlog");
+
+        Assert.True(success, message);
+        await db.Ado.Received(1).ExecuteCommandAsync(
+            Arg.Is<string>(sql =>
+                sql.Contains("INSERT INTO user_mfa_profile", StringComparison.Ordinal) &&
+                sql.Contains("ON CONFLICT (user_id) DO UPDATE SET", StringComparison.Ordinal) &&
+                !sql.Contains("UPDATE user_mfa_profile", StringComparison.Ordinal)),
+            Arg.Is<SugarParameter[]>(parameters => parameters.Any(parameter => parameter.ParameterName == "@UserId" && Equals(parameter.Value, 42))));
+        db.DidNotReceive().Updateable<UserMfaProfile>();
+        db.DidNotReceive().Insertable(Arg.Any<UserMfaProfile>());
+    }
+
+    [Fact]
+    public void UserService_MfaProfileUpsertUsesSingleConflictSafeStatement()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+        string method = ExtractUserServiceMethod(
+            source,
+            "private async Task UpsertUserMfaProfileAsync",
+            "private static (bool Success, string? PublicHandle, string Message) NormalizePublicHandle");
+
+        Assert.Contains("INSERT INTO user_mfa_profile", method, StringComparison.Ordinal);
+        Assert.Contains("ON CONFLICT (user_id) DO UPDATE SET", method, StringComparison.Ordinal);
+        Assert.Contains("ExecuteCommandAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Updateable<UserMfaProfile>()", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Insertable(profile)", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UserService_SourceDoesNotWriteSysUserLegacySecurityColumns()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
@@ -258,7 +311,7 @@ public class UserServiceValidationTests
             Assert.DoesNotContain(forbidden, source, StringComparison.Ordinal);
         }
 
-        Assert.Contains("Updateable<UserMfaProfile>()", source, StringComparison.Ordinal);
+        Assert.Contains("INSERT INTO user_mfa_profile", source, StringComparison.Ordinal);
     }
 
     [Fact]
