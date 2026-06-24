@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace FsusBlog.Server.Services;
 
@@ -85,7 +86,7 @@ public class RedisPowService : IPowService
         Span<byte> hashResult = stackalloc byte[32];
         HMACSHA256.HashData(_cachedPowKey, buffer[..bytesWritten], hashResult);
 
-        return new PowChallenge(salt, difficulty, timestamp, Convert.ToBase64String(hashResult));
+        return new PowChallenge(salt, difficulty, timestamp, Base64UrlEncode(hashResult));
     }
 
     private bool BasicValidate(IPowRequest req, string ip)
@@ -103,15 +104,34 @@ public class RedisPowService : IPowService
         Span<byte> computedHash = stackalloc byte[32];
         HMACSHA256.HashData(_cachedPowKey, buffer[..bytesWritten], computedHash);
 
-        // 核心修复 (2026-02-22)：消除异常控制流，防范畸形 Base64 引发的 DoS 攻击
-        Span<byte> clientSignature = stackalloc byte[32];
-        if (!Convert.TryFromBase64Chars(req.PowSignature.AsSpan(), clientSignature, out int sigBytesWritten) || sigBytesWritten != 32)
+        byte[] clientSignature = DecodeBase64UrlSignatureOrEmpty(req.PowSignature);
+        if (clientSignature.Length != 32)
         {
             return false;
         }
 
         // 安全性保障：恒定时间比较，防止时序攻击
         return CryptographicOperations.FixedTimeEquals(computedHash, clientSignature);
+    }
+
+    private static string Base64UrlEncode(ReadOnlySpan<byte> value)
+        => Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+    private static byte[] DecodeBase64UrlSignatureOrEmpty(string value)
+    {
+        if (string.IsNullOrEmpty(value) || value.AsSpan().IndexOfAny('+', '/', '=') >= 0)
+        {
+            return [];
+        }
+
+        try
+        {
+            return WebEncoders.Base64UrlDecode(value);
+        }
+        catch (FormatException)
+        {
+            return [];
+        }
     }
 
     private static bool TryFormatSignatureData(Span<byte> destination, string ip, string salt, int diff, long ts, out int bytesWritten)

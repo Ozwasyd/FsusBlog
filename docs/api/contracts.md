@@ -107,7 +107,7 @@ challenge 签发与验证审计由 `security_challenge` 和 `security_challenge_
 
 challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 与上表 `SecurityChallengeKind` 一致。`SecurityChallengeOrchestrator` 根据 `RiskDecision.RequiredChallenges` 调用 provider，可返回单个或多个 `SecurityChallengeAssignment`，并可携带按 `challengeId` 分组的 provider payload 供 binary response 编码；provider missing、provider failure、assignment 无效或 proof mint failure 必须返回可观测错误并 fail closed，不得落入具体业务 endpoint 的 fallback 分支。
 
-`sha256PowV1` provider 的 issue payload 只包含 legacy PoW challenge 必需字段：`salt`、`difficulty`、`timestamp`、`signature`。verify payload 必须包含 `proof`，其值为旧 `X-Fsus-Pow-Proof` 使用的 Base64 FPOW binary proof；服务端复用同一解析器、`IPowService.VerifyAsync` 和 `AdaptivePowGovernor` difficulty 裁决。该 provider 不引入公开 JSON fallback，不改变现有 FPOW wire format，也不删除 `GET /api/binary/auth/pow-challenge` 或 `X-Fsus-Pow-Proof` legacy 路径。
+`sha256PowV1` provider 的 issue payload 只包含 legacy PoW challenge 必需字段：`salt`、`difficulty`、`timestamp`、`signature`。`signature` 是无 padding Base64Url HMAC，不能使用旧标准 Base64 `+`、`/`、`=` 兼容格式。verify payload 必须包含 `proof`，其值为旧 `X-Fsus-Pow-Proof` 使用的 Base64 FPOW binary proof；服务端复用同一解析器、`IPowService.VerifyAsync` 和 `AdaptivePowGovernor` difficulty 裁决。该 provider 不引入公开 JSON fallback，不改变现有 FPOW wire format，也不删除 `GET /api/binary/auth/pow-challenge` 或 `X-Fsus-Pow-Proof` legacy 路径。
 
 `captchaV1` provider 使用 `fsu.captcha/chebyshev-noise@v1` wire algorithm。issue payload 包含 `algorithm`、`polynomialSeedHex`、`noiseSeedHex`、`seedPayloadBase64`、`signatureHex`、`gridWidth`、`gridHeight`、`distortionLevel`、`powDifficultyBits`、`issuedAtUnixMs` 和 `expiresAtUnixMs`；服务端不生成 PNG、像素或图片字段，只下发可由客户端渲染的 seed 与参数。`seedPayloadBase64` 绑定 challengeId、action、routeKey、subject/client/device hash、policyVersion、seed、参数和时间窗口，`signatureHex` 为服务端 HMAC-SHA256 签名。verify payload 必须回传 issue payload 字段，并追加 `answerText`、`responseTokenHex`、`nonceHex`、`solveDurationMs`。服务端先验证签名和绑定字段，再通过 `SecurityCaptchaChallenge` cache 一次性消费 challenge，随后派生期望答案、校验 nonce 前导零证明、校验 response token 和 solve duration。错误答案、签名/seed 篡改、token/nonce 错误写 `CaptchaInvalid` 风险 detail；重放写 `CaptchaReplay`；过快 / 过慢分别写 `CaptchaSolveTooFast` / `CaptchaSolveTooSlow`。默认 V2 policy 中，`auth.login` 仅是 legacy reserved action，不再对应生产用户侧 password endpoint；`recovery-key.verify` 从 0 风险分起要求 `captchaV1` proof，并在高风险时升级到组合 challenge。
 
@@ -165,7 +165,7 @@ perception-sealed@v2 的验证矩阵：
 | `policyVersion` | string | 产生该裁决的 RiskControl policy version |
 | `retryAfterMs` | int | 限流 / 排队建议等待时间；当前 endpoint 返回 0 |
 | `envelope` | `SecurityChallengeEnvelope?` | `challenge` / `stepUp` 时返回 assignment 集合；非 challenge 裁决为空 |
-| `providerPayloads` | array | 按 `challengeId` 返回 provider payload JSON；`sha256PowV1` 包含 `salt`、`difficulty`、`timestamp`、`signature` |
+| `providerPayloads` | array | 按 `challengeId` 返回 provider payload JSON；`sha256PowV1` 包含 `salt`、`difficulty`、`timestamp`、Base64Url `signature` |
 
 `SecurityChallengeVerifyRequest` 字段：
 

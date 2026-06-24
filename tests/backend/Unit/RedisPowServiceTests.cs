@@ -7,6 +7,8 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
+using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -33,6 +35,64 @@ public sealed class RedisPowServiceTests
         };
 
         Assert.True(await service.VerifyAsync(request, "127.0.0.1"));
+        Assert.False(await service.VerifyAsync(request, "127.0.0.1"));
+    }
+
+    [Fact]
+    public async Task GenerateChallengeAsync_UsesUrlSafeSignatureEncoding()
+    {
+        var cache = new OneShotCache();
+        var service = CreateService(cache);
+
+        PowChallenge challenge = await service.GenerateChallengeAsync("127.0.0.1");
+
+        Assert.DoesNotContain("+", challenge.Signature, StringComparison.Ordinal);
+        Assert.DoesNotContain("/", challenge.Signature, StringComparison.Ordinal);
+        Assert.DoesNotContain("=", challenge.Signature, StringComparison.Ordinal);
+        Assert.Equal(32, WebEncoders.Base64UrlDecode(challenge.Signature).Length);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_AcceptsChallengeSignatureAfterUrlQueryRoundTrip()
+    {
+        var cache = new OneShotCache();
+        var service = CreateService(cache);
+        PowChallenge challenge = await service.GenerateChallengeAsync("127.0.0.1");
+        string transmittedSignature = Uri.UnescapeDataString(Uri.EscapeDataString(challenge.Signature));
+        string browserFingerprint = "unit-browser";
+        string nonce = SolveNonce(challenge.Salt, browserFingerprint, challenge.Difficulty);
+        var request = new VirtualPowRequest
+        {
+            PowSalt = challenge.Salt,
+            PowNonce = nonce,
+            Difficulty = challenge.Difficulty,
+            PowTimestamp = challenge.Timestamp,
+            PowSignature = transmittedSignature,
+            BrowserFp = browserFingerprint
+        };
+
+        Assert.True(await service.VerifyAsync(request, "127.0.0.1"));
+    }
+
+    [Fact]
+    public async Task VerifyAsync_RejectsStandardBase64SignatureCompatibilityFormat()
+    {
+        var cache = new OneShotCache();
+        var service = CreateService(cache);
+        PowChallenge challenge = await service.GenerateChallengeAsync("127.0.0.1");
+        string standardBase64Signature = Convert.ToBase64String(WebEncoders.Base64UrlDecode(challenge.Signature));
+        string browserFingerprint = "unit-browser";
+        string nonce = SolveNonce(challenge.Salt, browserFingerprint, challenge.Difficulty);
+        var request = new VirtualPowRequest
+        {
+            PowSalt = challenge.Salt,
+            PowNonce = nonce,
+            Difficulty = challenge.Difficulty,
+            PowTimestamp = challenge.Timestamp,
+            PowSignature = standardBase64Signature,
+            BrowserFp = browserFingerprint
+        };
+
         Assert.False(await service.VerifyAsync(request, "127.0.0.1"));
     }
 
