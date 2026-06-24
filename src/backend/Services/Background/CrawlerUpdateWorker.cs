@@ -272,13 +272,36 @@ public class CrawlerUpdateWorker(
         string path = ResolveSnapshotPath(options);
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             var json = JsonSerializer.Serialize(snapshot);
-            File.WriteAllText(path, json);
+            WriteSnapshotAtomically(path, json);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "写入 crawler CIDR last-known-good snapshot 失败: {Path}", path);
+        }
+    }
+
+    internal static void WriteSnapshotAtomically(string path, string json)
+    {
+        string? directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        string tempDirectory = string.IsNullOrWhiteSpace(directory) ? "." : directory;
+        string tempPath = Path.Combine(tempDirectory, $"{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.WriteAllText(tempPath, json);
+            File.Move(tempPath, path, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
         }
     }
 

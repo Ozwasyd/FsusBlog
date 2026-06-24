@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Background;
@@ -87,6 +88,42 @@ public sealed class AntiCrawlerSecurityContractTests
         Assert.Contains("/api/ops/crawler-ranges/status", health, StringComparison.Ordinal);
         Assert.Contains("/anti-crawler/crawler-ranges/status", endpoints, StringComparison.Ordinal);
         Assert.Contains("/anti-crawler/crawler-ranges/sync", endpoints, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CrawlerRanges_SourceWritesSnapshotWithTempRename()
+    {
+        string worker = Read("src/backend/Services/Background/CrawlerUpdateWorker.cs");
+
+        Assert.Contains("WriteSnapshotAtomically(path, json)", worker, StringComparison.Ordinal);
+        Assert.Contains("File.WriteAllText(tempPath, json)", worker, StringComparison.Ordinal);
+        Assert.Contains("File.Move(tempPath, path, overwrite: true)", worker, StringComparison.Ordinal);
+        Assert.DoesNotContain("File.WriteAllText(path, json)", worker, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CrawlerRanges_AtomicSnapshotWriteProducesCompleteJson()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"fsus-crawler-snapshot-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string path = Path.Combine(directory, "crawler-ranges.snapshot.json");
+            string json = """
+                {"Google":["66.249.64.0/19"],"Bing":["40.77.167.0/24"],"SavedAt":"2026-06-25T00:00:00+00:00"}
+                """;
+
+            CrawlerUpdateWorker.WriteSnapshotAtomically(path, json);
+
+            using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.Equal("66.249.64.0/19", document.RootElement.GetProperty("Google")[0].GetString());
+            Assert.Equal("40.77.167.0/24", document.RootElement.GetProperty("Bing")[0].GetString());
+            Assert.Empty(Directory.GetFiles(directory, "*.tmp"));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     [Theory]
