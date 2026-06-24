@@ -319,7 +319,8 @@ public class ArticleServiceValidationTests
 
         Assert.Contains("ShouldUsePublicKeysetPagination(isDeleted, status, includePrivate)", methodBlock, StringComparison.Ordinal);
         Assert.Contains("LoadPublicArticleListPageByKeysetAsync", methodBlock, StringComparison.Ordinal);
-        Assert.Contains("a.createtime < @CursorTime OR (a.createtime = @CursorTime AND a.id < @CursorId)", methodBlock, StringComparison.Ordinal);
+        Assert.Contains("ArticleListCursorWhereClause", source, StringComparison.Ordinal);
+        Assert.Contains("a.createtime < @CursorTime OR (a.createtime = @CursorTime AND a.id < @CursorId)", source, StringComparison.Ordinal);
         Assert.Contains("ORDER BY a.createtime DESC, a.id DESC", methodBlock, StringComparison.Ordinal);
 
         int keysetMethod = methodBlock.IndexOf("LoadPublicArticleListPageByKeysetAsync", StringComparison.Ordinal);
@@ -341,6 +342,26 @@ public class ArticleServiceValidationTests
         Assert.True(emptyGuard >= 0);
         Assert.True(lastAccess > emptyGuard);
         Assert.Contains("currentPage += 1", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LoadPublicArticleListPageByKeysetAsync_SourceBuildsCursorSqlOutsideLoop()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        int methodStart = source.IndexOf("private async Task<ArticleListPageReadModel> LoadPublicArticleListPageByKeysetAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("private static string BuildArticleListKeysetPageSql", StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        int firstPageSql = method.IndexOf("string firstPageSql = BuildArticleListKeysetPageSql(whereSql)", StringComparison.Ordinal);
+        int cursorPageSql = method.IndexOf("string cursorPageSql = BuildArticleListKeysetPageSql(whereSql + ArticleListCursorWhereClause)", StringComparison.Ordinal);
+        int loop = method.IndexOf("while (currentPage <= page)", StringComparison.Ordinal);
+
+        Assert.Contains("private const string ArticleListCursorWhereClause", source, StringComparison.Ordinal);
+        Assert.True(firstPageSql >= 0 && firstPageSql < loop);
+        Assert.True(cursorPageSql >= 0 && cursorPageSql < loop);
+        Assert.Contains("pageSql = cursorPageSql", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("pageWhereSql +=", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildArticleListKeysetPageSql(pageWhereSql)", method, StringComparison.Ordinal);
     }
 
     [Fact]

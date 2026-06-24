@@ -43,6 +43,7 @@ public class ArticleService(
     private readonly record struct TrashArticleRow(int Id, int CategoryId);
 
     private const int MaxPageSize = 100;
+    private const string ArticleListCursorWhereClause = " AND (a.createtime < @CursorTime OR (a.createtime = @CursorTime AND a.id < @CursorId))";
     private const int MaxSearchKeywordLength = 128;
     private const int MaxHotArticlesCount = 100;
     private const int MaxTitleLength = 256;
@@ -1356,19 +1357,20 @@ public class ArticleService(
         DateTime? cursorTime = null;
         int? cursorId = null;
         List<ArticleListItemReadModel> pageItems = [];
+        string firstPageSql = BuildArticleListKeysetPageSql(whereSql);
+        string cursorPageSql = BuildArticleListKeysetPageSql(whereSql + ArticleListCursorWhereClause);
         int currentPage = 1;
         while (currentPage <= page)
         {
             List<SugarParameter> pageParameters = CloneArticleListParameters(baseParameters);
-            string pageWhereSql = whereSql;
+            string pageSql = firstPageSql;
             if (cursorTime.HasValue && cursorId.HasValue)
             {
-                pageWhereSql += " AND (a.createtime < @CursorTime OR (a.createtime = @CursorTime AND a.id < @CursorId))";
+                pageSql = cursorPageSql;
                 pageParameters.Add(new SugarParameter("@CursorTime", cursorTime.Value));
                 pageParameters.Add(new SugarParameter("@CursorId", cursorId.Value));
             }
 
-            string pageSql = BuildArticleListKeysetPageSql(pageWhereSql);
             var currentItems = new List<ArticleListItemReadModel>(size);
             using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(pageSql, pageParameters))
             {
