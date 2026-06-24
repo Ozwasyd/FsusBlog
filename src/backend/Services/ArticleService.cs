@@ -71,20 +71,37 @@ public class ArticleService(
             return;
         }
 
-        int affectedRows = await _db.Updateable<Article>()
-            .SetColumns(it => it.Views == it.Views + count)
-            .Where(it => it.Id == id && !it.IsDeleted)
-            .ExecuteCommandAsync();
-        if (affectedRows == 0)
+        int? currentViews = await TryIncreaseArticleViewsAsync(id, count);
+        if (!currentViews.HasValue)
         {
             await _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), id);
             return;
         }
 
-        await _redis.SortedSetIncrementAsync(RedisKey("blog:top_articles"), id, count);
+        await _redis.SortedSetAddAsync(RedisKey("blog:top_articles"), id, currentViews.Value);
 
         // 逻辑自洽：增加阅读量不触发全局列表版本号变更
         await _cache.RemoveAsync(CachePolicyId.ArticleDetail, id.ToString());
+    }
+
+    private async Task<int?> TryIncreaseArticleViewsAsync(int id, int count)
+    {
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            """
+            UPDATE article
+            SET views = views + @Count
+            WHERE id = @Id
+              AND isdeleted = false
+            RETURNING views;
+            """,
+            new SugarParameter("@Id", id),
+            new SugarParameter("@Count", count));
+        if (!await reader.ReadAsync(Ct))
+        {
+            return null;
+        }
+
+        return reader.GetInt32(0);
     }
 
     public async ValueTask<IReadOnlySet<int>> IncreaseViewCountsAsync(
@@ -208,49 +225,74 @@ public class ArticleService(
         CancellationToken effectiveCt = ResolveCancellationToken(cancellationToken);
         effectiveCt.ThrowIfCancellationRequested();
         string cacheIdentity = id.ToString();
-        if (!includePrivate)
+        if (includePrivate)
         {
-            var detailCache = await _cache.TryGetAsync(CachePolicyId.ArticleDetail, cacheIdentity, ServerCacheBinaryCodec.DecodeArticleDetail, effectiveCt);
-            if (detailCache.Hit)
-            {
-                ArticleDetailReadModel? cached = detailCache.Value;
-                if (cached is null)
-                {
-                    return null;
-                }
-
-                if (!string.IsNullOrWhiteSpace(cached.Content))
-                {
-                    return cached;
-                }
-
-                string healedContent = await LoadArticleContentAsync(id, effectiveCt);
-                if (string.IsNullOrWhiteSpace(healedContent))
-                {
-                    healedContent = cached.Summary ?? string.Empty;
-                }
-
-                if (string.IsNullOrWhiteSpace(healedContent))
-                {
-                    return cached;
-                }
-
-                int healedWordCount = CalculateReadableLength(healedContent);
-                var healed = cached with
-                {
-                    Content = healedContent,
-                    WordCount = healedWordCount,
-                    EstimatedReadingMinutes = Math.Max(1, (healedWordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute),
-                    ShowReadingNotice = healedWordCount > LongReadThreshold
-                };
-                effectiveCt.ThrowIfCancellationRequested();
-                byte[] encodedHealed = ServerCacheBinaryCodec.EncodeArticleDetail(healed);
-                effectiveCt.ThrowIfCancellationRequested();
-                await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity, encodedHealed, null, effectiveCt);
-                return healed;
-            }
+            return await LoadArticleDetailFromDbAsync(id, includePrivate: true, cacheIdentity: null, effectiveCt);
         }
 
+        return await _cacheMissCoordinator.CoordinateAsync(
+            CachePolicyId.ArticleDetail,
+            cacheIdentity,
+            gateCt => TryReadArticleDetailCacheAsync(id, cacheIdentity, gateCt),
+            gateCt => LoadArticleDetailFromDbAsync(id, includePrivate: false, cacheIdentity, gateCt),
+            "article-detail",
+            effectiveCt);
+    }
+
+    private async Task<CacheReadResult<ArticleDetailReadModel>> TryReadArticleDetailCacheAsync(
+        int id,
+        string cacheIdentity,
+        CancellationToken cancellationToken)
+    {
+        var detailCache = await _cache.TryGetAsync(CachePolicyId.ArticleDetail, cacheIdentity, ServerCacheBinaryCodec.DecodeArticleDetail, cancellationToken);
+        if (!detailCache.Hit)
+        {
+            return new CacheReadResult<ArticleDetailReadModel>(false, default);
+        }
+
+        ArticleDetailReadModel? cached = detailCache.Value;
+        if (cached is null)
+        {
+            return new CacheReadResult<ArticleDetailReadModel>(true, default);
+        }
+
+        if (!string.IsNullOrWhiteSpace(cached.Content))
+        {
+            return new CacheReadResult<ArticleDetailReadModel>(true, cached);
+        }
+
+        string healedContent = await LoadArticleContentAsync(id, cancellationToken);
+        if (string.IsNullOrWhiteSpace(healedContent))
+        {
+            healedContent = cached.Summary ?? string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(healedContent))
+        {
+            return new CacheReadResult<ArticleDetailReadModel>(true, cached);
+        }
+
+        int healedWordCount = CalculateReadableLength(healedContent);
+        var healed = cached with
+        {
+            Content = healedContent,
+            WordCount = healedWordCount,
+            EstimatedReadingMinutes = Math.Max(1, (healedWordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute),
+            ShowReadingNotice = healedWordCount > LongReadThreshold
+        };
+        cancellationToken.ThrowIfCancellationRequested();
+        byte[] encodedHealed = ServerCacheBinaryCodec.EncodeArticleDetail(healed);
+        cancellationToken.ThrowIfCancellationRequested();
+        await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity, encodedHealed, null, cancellationToken);
+        return new CacheReadResult<ArticleDetailReadModel>(true, healed);
+    }
+
+    private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync(
+        int id,
+        bool includePrivate,
+        string? cacheIdentity,
+        CancellationToken cancellationToken)
+    {
         DateTime utcNow = DateTime.UtcNow;
         var baseQuery = _db.Queryable<Article>()
             .LeftJoin<Category>((a, c) => a.CategoryId == c.Id)
@@ -267,10 +309,10 @@ public class ArticleService(
 
         var sqlObj = query.ToSql();
         ArticleDetailReadModel? article = null;
-        effectiveCt.ThrowIfCancellationRequested();
+        cancellationToken.ThrowIfCancellationRequested();
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
         {
-            if (await reader.ReadAsync(effectiveCt))
+            if (await reader.ReadAsync(cancellationToken))
             {
                 int fId = reader.GetOrdinal("Id"), fTitle = reader.GetOrdinal("Title"),
                     fSum = reader.GetOrdinal("Summary"), fCover = reader.GetOrdinal("CoverImageUrl"),
@@ -299,7 +341,7 @@ public class ArticleService(
 
         if (article != null)
         {
-            string content = await LoadArticleContentAsync(id, effectiveCt);
+            string content = await LoadArticleContentAsync(id, cancellationToken);
             if (string.IsNullOrWhiteSpace(content) && !string.IsNullOrWhiteSpace(article.Summary))
             {
                 content = article.Summary;
@@ -308,7 +350,7 @@ public class ArticleService(
             int estimatedReadingMinutes = Math.Max(1, (wordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute);
             bool showReadingNotice = wordCount > LongReadThreshold;
 
-            var tags = await LoadArticleTagsAsync(id, effectiveCt);
+            var tags = await LoadArticleTagsAsync(id, cancellationToken);
             article = article with
             {
                 Content = content,
@@ -317,18 +359,18 @@ public class ArticleService(
                 ShowReadingNotice = showReadingNotice,
                 Tags = tags
             };
-            if (!includePrivate)
+            if (!includePrivate && cacheIdentity is not null)
             {
-                effectiveCt.ThrowIfCancellationRequested();
+                cancellationToken.ThrowIfCancellationRequested();
                 byte[] encoded = ServerCacheBinaryCodec.EncodeArticleDetail(article);
-                effectiveCt.ThrowIfCancellationRequested();
-                await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity, encoded, null, effectiveCt);
+                cancellationToken.ThrowIfCancellationRequested();
+                await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity, encoded, null, cancellationToken);
             }
         }
-        else if (!includePrivate)
+        else if (!includePrivate && cacheIdentity is not null)
         {
-            effectiveCt.ThrowIfCancellationRequested();
-            await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity, Array.Empty<byte>(), TimeSpan.FromMinutes(5), effectiveCt);
+            cancellationToken.ThrowIfCancellationRequested();
+            await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity, Array.Empty<byte>(), TimeSpan.FromMinutes(5), cancellationToken);
         }
 
         return article;

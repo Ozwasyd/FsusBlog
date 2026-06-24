@@ -104,24 +104,40 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
-    public void IncreaseViewCountAsync_SourceChecksAffectedRowsBeforeRedisHotRanking()
+    public void IncreaseViewCountAsync_SourceUsesDbReturnedViewsBeforeRedisHotRanking()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
         int methodStart = source.IndexOf("public async ValueTask IncreaseViewCountAsync(int id, int count)", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("public async Task<ArticleListPageReadModel>", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("public async ValueTask<IReadOnlySet<int>> IncreaseViewCountsAsync", StringComparison.Ordinal);
         string method = source[methodStart..nextMethod];
 
-        int affectedAssignment = method.IndexOf("int affectedRows = await _db.Updateable<Article>()", StringComparison.Ordinal);
-        int nonDeletedFilter = method.IndexOf(".Where(it => it.Id == id && !it.IsDeleted)", StringComparison.Ordinal);
-        int zeroGuard = method.IndexOf("if (affectedRows == 0)", StringComparison.Ordinal);
+        int returnedViews = method.IndexOf("int? currentViews = await TryIncreaseArticleViewsAsync(id, count)", StringComparison.Ordinal);
+        int zeroGuard = method.IndexOf("if (!currentViews.HasValue)", StringComparison.Ordinal);
         int redisRemove = method.IndexOf("SortedSetRemoveAsync", StringComparison.Ordinal);
-        int redisIncrement = method.IndexOf("SortedSetIncrementAsync", StringComparison.Ordinal);
+        int redisSet = method.IndexOf("SortedSetAddAsync", StringComparison.Ordinal);
+        int cacheRemove = method.IndexOf("RemoveAsync(CachePolicyId.ArticleDetail", StringComparison.Ordinal);
 
-        Assert.True(affectedAssignment >= 0);
-        Assert.True(nonDeletedFilter > affectedAssignment);
-        Assert.True(zeroGuard > nonDeletedFilter);
+        Assert.True(returnedViews >= 0);
+        Assert.True(zeroGuard > returnedViews);
         Assert.True(redisRemove > zeroGuard);
-        Assert.True(redisIncrement > redisRemove);
+        Assert.True(redisSet > zeroGuard);
+        Assert.True(cacheRemove > redisSet);
+        Assert.DoesNotContain("SortedSetIncrementAsync", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetByIdAsync_SourceCoordinatesPublicArticleDetailCacheMiss()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        int methodStart = source.IndexOf("public async Task<ArticleDetailReadModel?> GetByIdAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("private async Task<CacheReadResult<ArticleDetailReadModel>> TryReadArticleDetailCacheAsync", StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        Assert.Contains("_cacheMissCoordinator.CoordinateAsync", method, StringComparison.Ordinal);
+        Assert.Contains("CachePolicyId.ArticleDetail", method, StringComparison.Ordinal);
+        Assert.Contains("TryReadArticleDetailCacheAsync", method, StringComparison.Ordinal);
+        Assert.Contains("LoadArticleDetailFromDbAsync", method, StringComparison.Ordinal);
+        Assert.Contains("article-detail", method, StringComparison.Ordinal);
     }
 
     [Fact]
