@@ -17,6 +17,7 @@ internal sealed class PublicAotEntryPayloadView
     private const byte BoolKind = 5;
     private const byte ObjectKind = 6;
     private const byte ArrayKind = 7;
+    private const byte DecimalKind = 8;
 
     private PublicAotEntryPayloadView(
         IReadOnlyDictionary<string, object?> bootstrap,
@@ -194,6 +195,14 @@ internal sealed class PublicAotEntryPayloadView
                     return TryReadObject(out value);
                 case ArrayKind:
                     return TryReadArray(out value);
+                case DecimalKind:
+                    if (!TryReadDecimal(out decimal decimalValue))
+                    {
+                        return false;
+                    }
+
+                    value = decimalValue;
+                    return true;
                 default:
                     return false;
             }
@@ -315,6 +324,31 @@ internal sealed class PublicAotEntryPayloadView
 
             value = BinaryPrimitives.ReadDoubleLittleEndian(_source.Slice(_offset, sizeof(double)));
             _offset += sizeof(double);
+            return true;
+        }
+
+        private bool TryReadDecimal(out decimal value)
+        {
+            value = 0m;
+            if (!TryReadInt32(out int lo) ||
+                !TryReadInt32(out int mid) ||
+                !TryReadInt32(out int hi) ||
+                !TryReadInt32(out int flags))
+            {
+                return false;
+            }
+
+            const int signMask = unchecked((int)0x80000000);
+            const int scaleMask = 0x00FF0000;
+            int reservedBits = flags & ~(signMask | scaleMask);
+            byte scale = (byte)((flags >> 16) & 0xFF);
+            if (reservedBits != 0 || scale > 28)
+            {
+                return false;
+            }
+
+            bool isNegative = (flags & signMask) != 0;
+            value = new decimal(lo, mid, hi, isNegative, scale);
             return true;
         }
     }

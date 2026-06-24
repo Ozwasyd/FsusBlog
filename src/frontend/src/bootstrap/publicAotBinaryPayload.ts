@@ -11,6 +11,7 @@ const DOUBLE_KIND = 4
 const BOOL_KIND = 5
 const OBJECT_KIND = 6
 const ARRAY_KIND = 7
+const DECIMAL_KIND = 8
 
 export function encodePublicAotPayload(value: unknown): string {
   const payload = new BinaryWriter()
@@ -230,6 +231,8 @@ class BinaryValueReader {
         return this.readObject()
       case ARRAY_KIND:
         return this.readArray()
+      case DECIMAL_KIND:
+        return this.readDecimal()
       default:
         throw new Error('public_aot_value_kind_invalid')
     }
@@ -259,6 +262,23 @@ class BinaryValueReader {
     const value = this.view.getFloat64(this.offset, true)
     this.offset += 8
     return value
+  }
+
+  private readDecimal(): string {
+    const lo = BigInt.asUintN(32, BigInt(this.readInt32()))
+    const mid = BigInt.asUintN(32, BigInt(this.readInt32()))
+    const hi = BigInt.asUintN(32, BigInt(this.readInt32()))
+    const flags = this.readInt32() >>> 0
+    const scale = (flags >>> 16) & 0xff
+    const reservedBits = flags & 0x7f00ffff
+    if (reservedBits !== 0 || scale > 28) throw new Error('public_aot_decimal_flags_invalid')
+
+    const coefficient = (hi << 64n) | (mid << 32n) | lo
+    const sign = (flags & 0x80000000) !== 0 && coefficient !== 0n ? '-' : ''
+    if (scale === 0) return `${sign}${coefficient.toString()}`
+
+    const digits = coefficient.toString().padStart(scale + 1, '0')
+    return `${sign}${digits.slice(0, -scale)}.${digits.slice(-scale)}`
   }
 
   private readString(): string {

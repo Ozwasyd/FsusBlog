@@ -117,6 +117,44 @@ public sealed class CacheHashSerializationHotPathContractTests
     }
 
     [Fact]
+    public void PublicAotBinaryPayload_WritesDecimalAsFixedPointBits()
+    {
+        string source = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotBinaryPayload.cs");
+        string writeDecimal = ExtractMethodBlock(source, "private void WriteDecimal");
+        string tryReadDecimal = ExtractMethodBlock(source, "private bool TryReadDecimal");
+
+        Assert.Contains("decimal.GetBits(value)", writeDecimal, StringComparison.Ordinal);
+        Assert.DoesNotContain("WriteDouble", writeDecimal, StringComparison.Ordinal);
+        Assert.DoesNotContain("(double)", writeDecimal, StringComparison.Ordinal);
+        Assert.Contains("new decimal(lo, mid, hi, isNegative, scale)", tryReadDecimal, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryReadDouble", tryReadDecimal, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PublicAotBinaryPayload_RoundTripsDecimalPayloadsWithoutPrecisionDrift()
+    {
+        const decimal scoreWeight = 0.1234567890123456789012345678m;
+        const decimal negativeFloor = -0.0000000000000000000000000001m;
+        var payload = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["scoreWeight"] = scoreWeight,
+            ["negativeFloor"] = negativeFloor,
+            ["nested"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["max"] = decimal.MaxValue
+            }
+        };
+
+        byte[] frame = PublicAotBinaryPayload.EncodeObjectFrame(payload);
+
+        Assert.True(PublicAotBinaryPayload.TryDecodeObject(frame, out Dictionary<string, object?> decoded));
+        Assert.Equal(scoreWeight, Assert.IsType<decimal>(decoded["scoreWeight"]));
+        Assert.Equal(negativeFloor, Assert.IsType<decimal>(decoded["negativeFloor"]));
+        var nested = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(decoded["nested"]);
+        Assert.Equal(decimal.MaxValue, Assert.IsType<decimal>(nested["max"]));
+    }
+
+    [Fact]
     public void RumTelemetry_UsesFrozenAllowlistsAndSourceGeneratedJson()
     {
         string source = ReadRepoFile("src/backend/Services/Telemetry/RumTelemetryService.cs");

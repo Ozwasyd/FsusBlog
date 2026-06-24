@@ -92,6 +92,7 @@ const PUBLIC_AOT_DOUBLE_KIND = 4
 const PUBLIC_AOT_BOOL_KIND = 5
 const PUBLIC_AOT_OBJECT_KIND = 6
 const PUBLIC_AOT_ARRAY_KIND = 7
+const PUBLIC_AOT_DECIMAL_KIND = 8
 const SEARCH_MANIFEST_MAGIC = 0x4d495346
 const SEARCH_MANIFEST_BINARY_VERSION = 1
 const DOTNET_EPOCH_OFFSET_MS = 62135596800000
@@ -1790,6 +1791,8 @@ class PublicAotValueReader {
         return this.readObject()
       case PUBLIC_AOT_ARRAY_KIND:
         return this.readArray()
+      case PUBLIC_AOT_DECIMAL_KIND:
+        return this.readDecimal()
       default:
         throw new Error('public_aot_value_kind_invalid')
     }
@@ -1819,6 +1822,23 @@ class PublicAotValueReader {
     const value = this.view.getFloat64(this.offset, true)
     this.offset += 8
     return value
+  }
+
+  readDecimal() {
+    const lo = BigInt.asUintN(32, BigInt(this.readInt32()))
+    const mid = BigInt.asUintN(32, BigInt(this.readInt32()))
+    const hi = BigInt.asUintN(32, BigInt(this.readInt32()))
+    const flags = this.readInt32() >>> 0
+    const scale = (flags >>> 16) & 0xff
+    const reservedBits = flags & 0x7f00ffff
+    if (reservedBits !== 0 || scale > 28) throw new Error('public_aot_decimal_flags_invalid')
+
+    const coefficient = (hi << 64n) | (mid << 32n) | lo
+    const sign = (flags & 0x80000000) !== 0 && coefficient !== 0n ? '-' : ''
+    if (scale === 0) return `${sign}${coefficient.toString()}`
+
+    const digits = coefficient.toString().padStart(scale + 1, '0')
+    return `${sign}${digits.slice(0, -scale)}.${digits.slice(-scale)}`
   }
 
   readString() {

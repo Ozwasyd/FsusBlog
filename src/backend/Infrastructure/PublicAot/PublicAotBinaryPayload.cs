@@ -16,6 +16,7 @@ internal static class PublicAotBinaryPayload
     private const byte BoolKind = 5;
     private const byte ObjectKind = 6;
     private const byte ArrayKind = 7;
+    private const byte DecimalKind = 8;
     private const int MaxStringBytes = 2 * 1024 * 1024;
     private const int MaxCollectionCount = 100_000;
 
@@ -159,8 +160,8 @@ internal static class PublicAotBinaryPayload
                     WriteDouble(Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture));
                     return;
                 case decimal decimalValue:
-                    WriteByte(DoubleKind);
-                    WriteDouble((double)decimalValue);
+                    WriteByte(DecimalKind);
+                    WriteDecimal(decimalValue);
                     return;
                 case DateTime dateTime:
                     WriteByte(StringKind);
@@ -282,6 +283,15 @@ internal static class PublicAotBinaryPayload
             _target.Advance(sizeof(double));
         }
 
+        private void WriteDecimal(decimal value)
+        {
+            int[] bits = decimal.GetBits(value);
+            WriteInt32(bits[0]);
+            WriteInt32(bits[1]);
+            WriteInt32(bits[2]);
+            WriteInt32(bits[3]);
+        }
+
         private void WriteBytes(ReadOnlySpan<byte> bytes)
         {
             Span<byte> span = _target.GetSpan(bytes.Length);
@@ -353,6 +363,14 @@ internal static class PublicAotBinaryPayload
                     return TryReadObject(out value);
                 case ArrayKind:
                     return TryReadArray(out value);
+                case DecimalKind:
+                    if (!TryReadDecimal(out decimal decimalValue))
+                    {
+                        return false;
+                    }
+
+                    value = decimalValue;
+                    return true;
                 default:
                     return false;
             }
@@ -474,6 +492,31 @@ internal static class PublicAotBinaryPayload
 
             value = BinaryPrimitives.ReadDoubleLittleEndian(_source.Slice(_offset, sizeof(double)));
             _offset += sizeof(double);
+            return true;
+        }
+
+        private bool TryReadDecimal(out decimal value)
+        {
+            value = 0m;
+            if (!TryReadInt32(out int lo) ||
+                !TryReadInt32(out int mid) ||
+                !TryReadInt32(out int hi) ||
+                !TryReadInt32(out int flags))
+            {
+                return false;
+            }
+
+            const int signMask = unchecked((int)0x80000000);
+            const int scaleMask = 0x00FF0000;
+            int reservedBits = flags & ~(signMask | scaleMask);
+            byte scale = (byte)((flags >> 16) & 0xFF);
+            if (reservedBits != 0 || scale > 28)
+            {
+                return false;
+            }
+
+            bool isNegative = (flags & signMask) != 0;
+            value = new decimal(lo, mid, hi, isNegative, scale);
             return true;
         }
     }
