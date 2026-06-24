@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Execution;
+using System.Collections.Concurrent;
 
 namespace FsusBlog.Server.Infrastructure.Cache;
 
@@ -21,6 +22,7 @@ public sealed class CacheMissCoordinator(
     ICachePolicyRegistry policyRegistry,
     ILogger<CacheMissCoordinator> logger) : ICacheMissCoordinator
 {
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _rebuildSemaphores = new(StringComparer.Ordinal);
     private static readonly TimeSpan MinLeaseTtl = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan MaxLeaseTtl = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan MinWaitTimeout = TimeSpan.FromMilliseconds(750);
@@ -62,7 +64,8 @@ public sealed class CacheMissCoordinator(
                 operation,
                 policyId,
                 identity);
-            return await rebuildAsync(cancellationToken).ConfigureAwait(false);
+            return await RebuildWithSemaphoreAsync(policyId, identity, tryReadAsync, rebuildAsync, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         logger.LogDebug(
@@ -84,7 +87,65 @@ public sealed class CacheMissCoordinator(
             return waited.Value;
         }
 
-        return await rebuildAsync(cancellationToken).ConfigureAwait(false);
+        string fallbackLeaseValue = $"{Environment.ProcessId}:{Guid.NewGuid():N}";
+        if (await cache.TryAcquireLeaseAsync(policyId, leaseIdentity, fallbackLeaseValue, effectiveStrategy.LeaseTtl, cancellationToken).ConfigureAwait(false))
+        {
+            logger.LogDebug(
+                "cache-lease-fallback-hit {Operation} {PolicyId} {Identity}",
+                operation,
+                policyId,
+                identity);
+            return await RebuildWithSemaphoreAsync(policyId, identity, tryReadAsync, rebuildAsync, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        logger.LogDebug(
+            "cache-lease-fallback-miss {Operation} {PolicyId} {Identity}",
+            operation,
+            policyId,
+            identity);
+
+        CacheReadResult<T> fallbackWaited = await WaitForRefillAsync(
+            tryReadAsync,
+            operation,
+            policyId,
+            identity,
+            effectiveStrategy,
+            cancellationToken).ConfigureAwait(false);
+
+        if (fallbackWaited.Hit)
+        {
+            return fallbackWaited.Value;
+        }
+
+        return await RebuildWithSemaphoreAsync(policyId, identity, tryReadAsync, rebuildAsync, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<T?> RebuildWithSemaphoreAsync<T>(
+        CachePolicyId policyId,
+        string identity,
+        Func<CancellationToken, Task<CacheReadResult<T>>> tryReadAsync,
+        Func<CancellationToken, Task<T?>> rebuildAsync,
+        CancellationToken cancellationToken)
+    {
+        string semaphoreKey = $"{(int)policyId}:{identity}";
+        SemaphoreSlim semaphore = _rebuildSemaphores.GetOrAdd(semaphoreKey, static _ => new SemaphoreSlim(1, 1));
+        await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            CacheReadResult<T> hit = await tryReadAsync(cancellationToken).ConfigureAwait(false);
+            if (hit.Hit)
+            {
+                return hit.Value;
+            }
+
+            return await rebuildAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            semaphore.Release();
+        }
     }
 
     private async Task<CacheReadResult<T>> WaitForRefillAsync<T>(

@@ -163,12 +163,107 @@ public sealed class CacheMissCoordinatorTests
         Assert.True(readCount >= callers.Length);
     }
 
+    [Fact]
+    public async Task CoordinateAsync_LeaseTimeout_ReelectsSingleFallbackRebuilder()
+    {
+        const int callersCount = 16;
+        int leaseAttempts = 0;
+        var cache = new CoordinatingCache
+        {
+            DisableLocalSingleFlight = true,
+            TryAcquireLeaseHandler = (_, _, _, _, _) =>
+            {
+                int attempt = Interlocked.Increment(ref leaseAttempts);
+                return Task.FromResult(attempt == callersCount + 1);
+            }
+        };
+        var coordinator = new CacheMissCoordinator(cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        string? current = null;
+        int rebuildCount = 0;
+        var strategy = new CacheRebuildStrategy(
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(40),
+            TimeSpan.FromMilliseconds(5));
+
+        Task<string?>[] callers = Enumerable.Range(0, callersCount)
+            .Select(_ => coordinator.CoordinateAsync(
+                CachePolicyId.ArticleDetail,
+                "timeout-hot:42",
+                _ => Task.FromResult(current is null
+                    ? new CacheReadResult<string>(false, default)
+                    : new CacheReadResult<string>(true, current)),
+                async _ =>
+                {
+                    Interlocked.Increment(ref rebuildCount);
+                    await Task.Delay(25);
+                    current = "fallback-rebuilt";
+                    return current;
+                },
+                "article-detail",
+                strategy: strategy))
+            .ToArray();
+
+        string?[] results = await Task.WhenAll(callers).WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.All(results, result => Assert.Equal("fallback-rebuilt", result));
+        Assert.Equal(1, rebuildCount);
+        Assert.True(leaseAttempts > callersCount);
+    }
+
+    [Fact]
+    public async Task CoordinateAsync_RebuildSemaphoreLimitsSameKeyConcurrency()
+    {
+        var cache = new CoordinatingCache
+        {
+            DisableLocalSingleFlight = true,
+            TryAcquireLeaseHandler = static (_, _, _, _, _) => Task.FromResult(true)
+        };
+        var coordinator = new CacheMissCoordinator(cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        string? current = null;
+        int activeRebuilds = 0;
+        int maxActiveRebuilds = 0;
+        int rebuildCount = 0;
+
+        Task<string?>[] callers = Enumerable.Range(0, 24)
+            .Select(_ => coordinator.CoordinateAsync(
+                CachePolicyId.ArticleDetail,
+                "semaphore-hot:42",
+                _ => Task.FromResult(current is null
+                    ? new CacheReadResult<string>(false, default)
+                    : new CacheReadResult<string>(true, current)),
+                async _ =>
+                {
+                    int active = Interlocked.Increment(ref activeRebuilds);
+                    int observed;
+                    while (active > (observed = Volatile.Read(ref maxActiveRebuilds)))
+                    {
+                        Interlocked.CompareExchange(ref maxActiveRebuilds, active, observed);
+                    }
+
+                    Interlocked.Increment(ref rebuildCount);
+                    await Task.Delay(40);
+                    current = "semaphore-rebuilt";
+                    Interlocked.Decrement(ref activeRebuilds);
+                    return current;
+                },
+                "article-detail"))
+            .ToArray();
+
+        string?[] results = await Task.WhenAll(callers).WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.All(results, result => Assert.Equal("semaphore-rebuilt", result));
+        Assert.Equal(1, rebuildCount);
+        Assert.Equal(1, maxActiveRebuilds);
+    }
+
     private sealed class CoordinatingCache : IUnifiedCache
     {
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
 
         public Func<CachePolicyId, string, string, TimeSpan, CancellationToken, Task<bool>> TryAcquireLeaseHandler { get; init; }
             = static (_, _, _, _, _) => Task.FromResult(false);
+
+        public bool DisableLocalSingleFlight { get; init; }
 
         public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
@@ -217,6 +312,11 @@ public sealed class CacheMissCoordinatorTests
 
         public async Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
         {
+            if (DisableLocalSingleFlight)
+            {
+                return NoopAsyncDisposable.Instance;
+            }
+
             string key = $"{(int)policyId}:{identity}";
             SemaphoreSlim semaphore = _locks.GetOrAdd(key, static _ => new SemaphoreSlim(1, 1));
             await semaphore.WaitAsync(cancellationToken);
@@ -233,6 +333,13 @@ public sealed class CacheMissCoordinatorTests
                 semaphore.Release();
                 return ValueTask.CompletedTask;
             }
+        }
+
+        private sealed class NoopAsyncDisposable : IAsyncDisposable
+        {
+            public static readonly NoopAsyncDisposable Instance = new();
+
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         }
     }
 }
