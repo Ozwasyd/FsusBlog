@@ -5,14 +5,39 @@ namespace FsusBlog.Server.Services.Background;
 
 public sealed class UploadSessionCleanupQueue
 {
-    private readonly Channel<byte> _requests = Channel.CreateBounded<byte>(new BoundedChannelOptions(1)
+    internal const int SignalCapacity = 64;
+    private int _overflowedSignal;
+    private readonly Channel<byte> _requests = Channel.CreateBounded<byte>(new BoundedChannelOptions(SignalCapacity)
     {
         SingleReader = true,
         SingleWriter = false,
-        FullMode = BoundedChannelFullMode.DropWrite
+        FullMode = BoundedChannelFullMode.Wait
     });
 
-    public bool TryRequestScan() => _requests.Writer.TryWrite(0);
+    public bool TryRequestScan()
+    {
+        if (_requests.Writer.TryWrite(0))
+        {
+            return true;
+        }
+
+        Volatile.Write(ref _overflowedSignal, 1);
+        return false;
+    }
+
+    internal int DrainPendingSignals()
+    {
+        int drained = 0;
+        while (_requests.Reader.TryRead(out _))
+        {
+            drained++;
+        }
+
+        return drained;
+    }
+
+    internal bool ConsumeOverflowedSignal()
+        => Interlocked.Exchange(ref _overflowedSignal, 0) == 1;
 
     internal ChannelReader<byte> Reader => _requests.Reader;
 }
@@ -37,6 +62,7 @@ public sealed class UploadSessionCleanupWorker(
             while (!stoppingToken.IsCancellationRequested)
             {
                 Task completed = await Task.WhenAny(timerTask, signalTask).ConfigureAwait(false);
+                bool refreshSignalTask = false;
                 if (completed == timerTask)
                 {
                     if (!await timerTask.ConfigureAwait(false))
@@ -48,24 +74,36 @@ public sealed class UploadSessionCleanupWorker(
                 }
                 else if (await signalTask.ConfigureAwait(false))
                 {
-                    while (queue.Reader.TryRead(out _))
-                    {
-                    }
-
-                    signalTask = queue.Reader.WaitToReadAsync(stoppingToken).AsTask();
+                    refreshSignalTask = true;
                 }
                 else
                 {
                     break;
                 }
 
-                await workerLease.TryRunAsLeaderAsync("upload-session-cleanup-worker", RunCleanupOnceAsync, stoppingToken)
-                    .ConfigureAwait(false);
+                await RunCleanupUntilSignalsFlushedAsync(stoppingToken).ConfigureAwait(false);
+                if (refreshSignalTask)
+                {
+                    signalTask = queue.Reader.WaitToReadAsync(stoppingToken).AsTask();
+                }
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
         }
+    }
+
+    private async Task RunCleanupUntilSignalsFlushedAsync(CancellationToken stoppingToken)
+    {
+        bool runAgain;
+        do
+        {
+            queue.DrainPendingSignals();
+            bool ran = await workerLease.TryRunAsLeaderAsync("upload-session-cleanup-worker", RunCleanupOnceAsync, stoppingToken)
+                .ConfigureAwait(false);
+            runAgain = ran && queue.ConsumeOverflowedSignal();
+        }
+        while (runAgain && !stoppingToken.IsCancellationRequested);
     }
 
     internal async Task RunCleanupOnceAsync(CancellationToken cancellationToken)
