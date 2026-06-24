@@ -1,11 +1,7 @@
 using System.Diagnostics;
 using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
-using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
-using FsusBlog.Server.Interfaces;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Background;
@@ -52,11 +48,6 @@ public sealed class ScheduledPublishWorker(
                     await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
                     ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
                     IDbConcurrencyGate dbGate = scope.ServiceProvider.GetRequiredService<IDbConcurrencyGate>();
-                    ICacheInvalidationDispatcher invalidation = scope.ServiceProvider.GetRequiredService<ICacheInvalidationDispatcher>();
-                    IPublicAotInvalidationService publicAotInvalidation =
-                        scope.ServiceProvider.GetRequiredService<IPublicAotInvalidationService>();
-                    ISearchIndexService searchIndex = scope.ServiceProvider.GetRequiredService<ISearchIndexService>();
-                    PublicHotArtifactUpdateQueue publicHotUpdates = scope.ServiceProvider.GetRequiredService<PublicHotArtifactUpdateQueue>();
                     DateTime now = timeProvider.GetUtcNow().UtcDateTime;
 
                     List<Article> due = await dbGate.ExecuteAsync(
@@ -76,44 +67,6 @@ public sealed class ScheduledPublishWorker(
                         resultForMetrics = "empty";
                         return 0;
                     }
-
-                    int[] dueArticleIds = [.. due.Select(static article => article.Id)];
-                    List<ArticleBody> bodies = await dbGate.ExecuteAsync(
-                        "scheduled-publish-body-batch-query",
-                        gateCt => db.Queryable<ArticleBody>()
-                            .Where(body => dueArticleIds.Contains(body.ArticleId))
-                            .Select(body => new ArticleBody
-                            {
-                                ArticleId = body.ArticleId,
-                                MarkdownContent = body.MarkdownContent
-                            })
-                            .ToListAsync(gateCt),
-                        _ => Task.FromResult(new List<ArticleBody>()),
-                        cancellationToken);
-                    Dictionary<int, string> bodyByArticleId = bodies
-                        .GroupBy(static body => body.ArticleId)
-                        .ToDictionary(
-                            static group => group.Key,
-                            static group => group.First().MarkdownContent,
-                            EqualityComparer<int>.Default);
-                    List<ArticleTag> articleTags = await dbGate.ExecuteAsync(
-                        "scheduled-publish-tags-batch-query",
-                        gateCt => db.Queryable<ArticleTag>()
-                            .Where(articleTag => dueArticleIds.Contains(articleTag.ArticleId))
-                            .Select(articleTag => new ArticleTag
-                            {
-                                ArticleId = articleTag.ArticleId,
-                                TagId = articleTag.TagId
-                            })
-                            .ToListAsync(gateCt),
-                        _ => Task.FromResult(new List<ArticleTag>()),
-                        cancellationToken);
-                    Dictionary<int, List<int>> tagIdsByArticleId = articleTags
-                        .GroupBy(static articleTag => articleTag.ArticleId)
-                        .ToDictionary(
-                            static group => group.Key,
-                            static group => group.Select(static articleTag => articleTag.TagId).ToList(),
-                            EqualityComparer<int>.Default);
 
                     int published = 0;
                     int failed = 0;
@@ -162,28 +115,7 @@ public sealed class ScheduledPublishWorker(
                             article.Status = ArticleStatus.Published;
                             article.PublishedAt = now;
                             article.ScheduledPublishAt = null;
-                            article.Content = bodyByArticleId.GetValueOrDefault(article.Id, string.Empty);
-                            List<int> tagIds = tagIdsByArticleId.GetValueOrDefault(article.Id, []);
                             published++;
-                            try
-                            {
-                                await searchIndex.AddOrUpdateIndexAsync(article);
-                                await publicAotInvalidation.InvalidateArticleMutationAsync(
-                                    article.Id,
-                                    [article.CategoryId],
-                                    tagIds,
-                                    cancellationToken);
-                                await invalidation.InvalidateArticleMutationAsync(article.Id, cancellationToken);
-                            }
-                            catch (Exception ex) when (ex is not OperationCanceledException)
-                            {
-                                failed++;
-                                logger.LogError(
-                                    ex,
-                                    "Scheduled publish side effects failed for article {ArticleId}; article mutation outbox {OutboxEventId} will retry.",
-                                    article.Id,
-                                    commit.OutboxEventId);
-                            }
                         }
                         catch (Exception ex) when (ex is not OperationCanceledException)
                         {
@@ -210,10 +142,6 @@ public sealed class ScheduledPublishWorker(
                     failedForMetrics = failed;
                     backlogForMetrics = backlog;
                     resultForMetrics = failed > 0 ? "partial_failure" : "ok";
-                    if (published > 0 && !publicHotUpdates.TryEnqueue(null, "scheduled-publish"))
-                    {
-                        logger.LogWarning("public-hot-read-update-enqueue-failed {Reason}", "scheduled-publish");
-                    }
 
                     return published;
                 },

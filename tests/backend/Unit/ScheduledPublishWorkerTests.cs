@@ -9,7 +9,7 @@ namespace FsusBlog.Server.Tests;
 public sealed class ScheduledPublishWorkerTests
 {
     [Fact]
-    public void ScheduledPublish_SourceWritesOutboxWithPublishedStateCommit()
+    public void ScheduledPublish_SourceWritesOnlyOutboxWithPublishedStateCommit()
     {
         string source = ReadSource("src/backend/Services/Background/ScheduledPublishWorker.cs");
         string method = Slice(source, "internal async Task<int> PublishDueArticlesAsync", "        finally");
@@ -20,13 +20,17 @@ public sealed class ScheduledPublishWorkerTests
         Assert.Contains("\"scheduled-published\"", source, StringComparison.Ordinal);
         Assert.Contains("TransactionSideEffectGuard.CanPublishAfterCommit", method, StringComparison.Ordinal);
         Assert.DoesNotContain("it remains scheduled for retry", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("ISearchIndexService", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("IPublicAotInvalidationService", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("ICacheInvalidationDispatcher", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("searchIndex.AddOrUpdateIndexAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("publicAotInvalidation.InvalidateArticleMutationAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("invalidation.InvalidateArticleMutationAsync", method, StringComparison.Ordinal);
 
         int outbox = method.IndexOf("BuildScheduledPublishOutboxEvent(article.Id, outboxEventId, now)", StringComparison.Ordinal);
         int commitGuard = method.IndexOf("TransactionSideEffectGuard.CanPublishAfterCommit", StringComparison.Ordinal);
-        int sideEffect = method.IndexOf("searchIndex.AddOrUpdateIndexAsync(article)", StringComparison.Ordinal);
         Assert.True(outbox >= 0);
         Assert.True(commitGuard > outbox);
-        Assert.True(sideEffect > commitGuard);
     }
 
     [Fact]

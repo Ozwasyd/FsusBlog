@@ -123,26 +123,26 @@ public sealed class PublicContentInvalidationFlowTests
     }
 
     [Fact]
-    public void ScheduledPublish_InvalidatesPublicAotForNewlyPublishedArticles()
+    public void ScheduledPublish_ReliesOnOutboxForNewlyPublishedArticleSideEffects()
     {
         string source = ReadRepoFile("src/backend/Services/Background/ScheduledPublishWorker.cs");
         string method = Slice(source, "internal async Task<int> PublishDueArticlesAsync", "        finally");
 
-        Assert.Contains("IPublicAotInvalidationService publicAotInvalidation", source, StringComparison.Ordinal);
         Assert.Contains(".OrderBy(article => new { article.ScheduledPublishAt, article.Id })", method, StringComparison.Ordinal);
-        Assert.Contains("\"scheduled-publish-body-batch-query\"", method, StringComparison.Ordinal);
-        Assert.Contains("\"scheduled-publish-tags-batch-query\"", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"scheduled-publish-body-batch-query\"", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"scheduled-publish-tags-batch-query\"", method, StringComparison.Ordinal);
         Assert.DoesNotContain("\"scheduled-publish-body-query\"", method, StringComparison.Ordinal);
         Assert.DoesNotContain("\"scheduled-publish-tags-query\"", method, StringComparison.Ordinal);
-        Assert.Contains("publicAotInvalidation.InvalidateArticleMutationAsync", method, StringComparison.Ordinal);
+        Assert.Contains("BuildScheduledPublishOutboxEvent(article.Id, outboxEventId, now)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("searchIndex.AddOrUpdateIndexAsync(article)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("publicAotInvalidation.InvalidateArticleMutationAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("invalidation.InvalidateArticleMutationAsync(article.Id", method, StringComparison.Ordinal);
 
-        int searchProjection = method.IndexOf("searchIndex.AddOrUpdateIndexAsync(article)", StringComparison.Ordinal);
-        int aotInvalidation = method.IndexOf("publicAotInvalidation.InvalidateArticleMutationAsync", StringComparison.Ordinal);
-        int cacheInvalidation = method.IndexOf("invalidation.InvalidateArticleMutationAsync(article.Id", StringComparison.Ordinal);
+        int commitGuard = method.IndexOf("TransactionSideEffectGuard.CanPublishAfterCommit", StringComparison.Ordinal);
+        int outbox = method.IndexOf("BuildScheduledPublishOutboxEvent(article.Id, outboxEventId, now)", StringComparison.Ordinal);
 
-        Assert.True(searchProjection >= 0);
-        Assert.True(aotInvalidation > searchProjection);
-        Assert.True(cacheInvalidation > aotInvalidation);
+        Assert.True(outbox >= 0);
+        Assert.True(commitGuard > outbox);
     }
 
     [Fact]
