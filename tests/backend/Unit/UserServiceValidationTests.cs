@@ -292,6 +292,67 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    public async Task VerifyMfaOrRecoveryCodeAsync_RecoveryCodeCasConflictReturnsFalse()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var queryable = Substitute.For<ISugarQueryable<UserMfaProfile>>();
+        db.Queryable<UserMfaProfile>().Returns(queryable);
+        queryable.Where(Arg.Any<Expression<Func<UserMfaProfile, bool>>>()).Returns(queryable);
+        queryable.FirstAsync().Returns(Task.FromResult(new UserMfaProfile
+        {
+            UserId = 42,
+            MfaSecretEncrypted = "protected-secret",
+            MfaRecoveryCodesHash = "old-hashes",
+            MfaRecoveryCodesHashVersion = TotpService.CurrentRecoveryCodeHashVersion
+        }));
+        db.Ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(Task.FromResult(0));
+        var totp = Substitute.For<ITotpService>();
+        totp.ConsumeRecoveryCode("old-hashes", "RECOVERY").Returns(new RecoveryCodeConsumeResult(
+            Success: true,
+            UpdatedHashes: "new-hashes",
+            ConsumedLegacyHash: false,
+            LegacyHashExpired: false,
+            RequiresRecoveryCodeRegeneration: false));
+        var svc = BuildService(db, Substitute.For<IJwtHelper>(), totp);
+
+        bool verified = await svc.VerifyMfaOrRecoveryCodeAsync(
+            new User { Id = 42, MfaEnabled = true },
+            code: null,
+            recoveryCode: "RECOVERY",
+            persistRecoveryConsumption: true);
+
+        Assert.False(verified);
+        await db.Ado.Received(1).ExecuteCommandAsync(
+            Arg.Is<string>(sql =>
+                sql.Contains("UPDATE user_mfa_profile", StringComparison.Ordinal) &&
+                sql.Contains("mfa_recovery_codes_hash = @UpdatedHashes", StringComparison.Ordinal) &&
+                sql.Contains("mfa_recovery_codes_hash = @OldHashes", StringComparison.Ordinal)),
+            Arg.Is<SugarParameter[]>(parameters =>
+                parameters.Any(parameter => parameter.ParameterName == "@OldHashes" && Equals(parameter.Value, "old-hashes")) &&
+                parameters.Any(parameter => parameter.ParameterName == "@UpdatedHashes" && Equals(parameter.Value, "new-hashes"))));
+    }
+
+    [Fact]
+    public void UserService_RecoveryCodeConsumptionUsesHashCompareAndSwap()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+        string verifyMethod = ExtractUserServiceMethod(
+            source,
+            "public async Task<bool> VerifyMfaOrRecoveryCodeAsync",
+            "private async Task RevokeLikelyRefreshReplayAsync");
+        string casMethod = ExtractUserServiceMethod(
+            source,
+            "private async Task<bool> TryPersistRecoveryCodeConsumptionAsync",
+            "private async Task RevokeLikelyRefreshReplayAsync");
+
+        Assert.Contains("TryPersistRecoveryCodeConsumptionAsync", verifyMethod, StringComparison.Ordinal);
+        Assert.Contains("UPDATE user_mfa_profile", casMethod, StringComparison.Ordinal);
+        Assert.Contains("mfa_recovery_codes_hash = @UpdatedHashes", casMethod, StringComparison.Ordinal);
+        Assert.Contains("mfa_recovery_codes_hash = @OldHashes", casMethod, StringComparison.Ordinal);
+        AssertContainsAfter(verifyMethod, "RecoveryCodeConsumeResult consumeResult", "TryPersistRecoveryCodeConsumptionAsync");
+    }
+
+    [Fact]
     public void UserService_SourceDoesNotWriteSysUserLegacySecurityColumns()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
@@ -660,5 +721,13 @@ public class UserServiceValidationTests
         var result = InvokePrivateStatic<string>("BuildDeviceLabel", [longAgent, null]);
         Assert.EndsWith("...", result);
         Assert.Equal(99, result.Length); // 96 + "..."
+    }
+
+    private static void AssertContainsAfter(string source, string first, string second)
+    {
+        int firstIndex = source.IndexOf(first, StringComparison.Ordinal);
+        Assert.True(firstIndex >= 0, $"Missing '{first}'.");
+        int secondIndex = source.IndexOf(second, firstIndex + first.Length, StringComparison.Ordinal);
+        Assert.True(secondIndex >= 0, $"Missing '{second}' after '{first}'.");
     }
 }

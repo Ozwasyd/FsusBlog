@@ -1086,17 +1086,52 @@ public partial class UserService(
             {
                 if (persistRecoveryConsumption)
                 {
-                    profile.MfaRecoveryCodesHash = consumeResult.UpdatedHashes;
-                    profile.MfaRecoveryCodesHashVersion = consumeResult.RequiresRecoveryCodeRegeneration
+                    string oldHashes = profile.MfaRecoveryCodesHash ?? string.Empty;
+                    short nextHashVersion = consumeResult.RequiresRecoveryCodeRegeneration
                         ? string.IsNullOrWhiteSpace(consumeResult.UpdatedHashes) ? (short)0 : (short)1
                         : TotpService.CurrentRecoveryCodeHashVersion;
-                    await UpsertUserMfaProfileAsync(profile);
+                    if (!await TryPersistRecoveryCodeConsumptionAsync(
+                        user.Id,
+                        oldHashes,
+                        consumeResult.UpdatedHashes,
+                        nextHashVersion))
+                    {
+                        return false;
+                    }
+
+                    profile.MfaRecoveryCodesHash = consumeResult.UpdatedHashes;
+                    profile.MfaRecoveryCodesHashVersion = nextHashVersion;
                 }
                 return true;
             }
         }
 
         return false;
+    }
+
+    private async Task<bool> TryPersistRecoveryCodeConsumptionAsync(
+        int userId,
+        string oldHashes,
+        string updatedHashes,
+        short hashVersion)
+    {
+        const string sql = """
+            UPDATE user_mfa_profile
+            SET mfa_recovery_codes_hash = @UpdatedHashes,
+                hash_version = @HashVersion,
+                updated_at_utc = @UpdatedAtUtc
+            WHERE user_id = @UserId
+              AND mfa_recovery_codes_hash = @OldHashes;
+            """;
+        int updated = await _db.Ado.ExecuteCommandAsync(sql, new SugarParameter[]
+        {
+            new("@UpdatedHashes", updatedHashes),
+            new("@HashVersion", hashVersion),
+            new("@UpdatedAtUtc", DateTime.UtcNow),
+            new("@UserId", userId),
+            new("@OldHashes", oldHashes)
+        });
+        return updated > 0;
     }
 
     private async Task RevokeLikelyRefreshReplayAsync(string sessionId, string staleHash)
