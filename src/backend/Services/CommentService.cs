@@ -352,6 +352,11 @@ public partial class CommentService(
                 }
             }
 
+            if (!await LockVisibleCommentTargetAsync(articleId, parentId, rootId, now, cancellationToken))
+            {
+                throw new CommentTargetNotVisibleException();
+            }
+
             generatedId = await db.Insertable(comment).ExecuteReturnSnowflakeIdAsync();
             if (generatedId <= 0)
             {
@@ -385,6 +390,11 @@ public partial class CommentService(
                     actor.AnonymousScope,
                     rejected.Status);
                 await RecordNullifierAbuseRiskSignalAsync(actor.AnonymousScope, rejected.Status, cancellationToken);
+                return false;
+            }
+
+            if (insertResult.ErrorException is CommentTargetNotVisibleException)
+            {
                 return false;
             }
 
@@ -441,6 +451,91 @@ public partial class CommentService(
             comment.ParentId);
 
         return true;
+    }
+
+    private async Task<bool> LockVisibleCommentTargetAsync(
+        int articleId,
+        long? parentId,
+        long? rootId,
+        DateTime utcNow,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!await HasLockedVisibleArticleAsync(articleId, utcNow, cancellationToken))
+        {
+            return false;
+        }
+
+        if (!parentId.HasValue)
+        {
+            return true;
+        }
+
+        if (!rootId.HasValue)
+        {
+            return false;
+        }
+
+        return await HasLockedVisibleCommentAsync(
+                parentId.Value,
+                articleId,
+                rootId.Value,
+                requireRoot: false,
+                cancellationToken)
+            && await HasLockedVisibleCommentAsync(
+                rootId.Value,
+                articleId,
+                rootId.Value,
+                requireRoot: true,
+                cancellationToken);
+    }
+
+    private async Task<bool> HasLockedVisibleArticleAsync(
+        int articleId,
+        DateTime utcNow,
+        CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT 1
+            FROM article
+            WHERE id = @ArticleId
+              AND isdeleted = false
+              AND status = @PublishedStatus
+              AND (published_at IS NULL OR published_at <= @Now)
+              AND (scheduled_publish_at IS NULL OR scheduled_publish_at <= @Now)
+            FOR SHARE;
+            """,
+            new SugarParameter("@ArticleId", articleId),
+            new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published),
+            new SugarParameter("@Now", utcNow));
+        return await reader.ReadAsync(cancellationToken);
+    }
+
+    private async Task<bool> HasLockedVisibleCommentAsync(
+        long commentId,
+        int articleId,
+        long rootId,
+        bool requireRoot,
+        CancellationToken cancellationToken)
+    {
+        string rootPredicate = requireRoot ? "AND parent_id IS NULL" : "AND COALESCE(root_id, id) = @RootId";
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            $"""
+            SELECT 1
+            FROM comment
+            WHERE id = @CommentId
+              AND article_id = @ArticleId
+              AND moderation_status = @ApprovedStatus
+              AND is_deleted = false
+              {rootPredicate}
+            FOR SHARE;
+            """,
+            new SugarParameter("@CommentId", commentId),
+            new SugarParameter("@ArticleId", articleId),
+            new SugarParameter("@RootId", rootId),
+            new SugarParameter("@ApprovedStatus", (int)CommentModerationStatus.Approved));
+        return await reader.ReadAsync(cancellationToken);
     }
 
     private static bool RequiresAnonymousNullifierEnforcement(CommentActor actor)
@@ -565,6 +660,10 @@ public partial class CommentService(
     private sealed class AnonymousNullifierRejectedException(string status, string message) : Exception(message)
     {
         public string Status { get; } = status;
+    }
+
+    private sealed class CommentTargetNotVisibleException : Exception
+    {
     }
 
     private async Task ApplyAutomaticModerationDispositionAsync(

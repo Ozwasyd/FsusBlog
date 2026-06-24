@@ -180,6 +180,59 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
+    public async Task CreateStrongAnonymousCommentAsync_ArticleDeletedAfterPrecheck_IsRejected()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        var tickets = new RecordingTicketService();
+        tickets.Add(Ticket, TicketPayload(articleId: 42));
+        var nullifiers = new MutatingNullifierService(() => db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE article
+            SET isdeleted = true
+            WHERE id = @ArticleId;
+            """,
+            new SugarParameter("@ArticleId", 42)));
+        CommentService service = CreateService(db, tickets, nullifiers);
+
+        bool created = await service.CreateStrongAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None);
+
+        Assert.False(created);
+        Assert.Equal(0, db.Queryable<Comment>().Count());
+        Assert.False(db.Queryable<Article>().InSingle(42).IsDeleted);
+        Assert.Empty(nullifiers.Increments);
+    }
+
+    [Fact]
+    public async Task CreateStrongAnonymousCommentAsync_ParentHiddenAfterPrecheck_IsRejected()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedApprovedComment(db, commentId: 100, articleId: 42, userId: 7);
+        var tickets = new RecordingTicketService();
+        tickets.Add(Ticket, TicketPayload(articleId: 42, parentId: 100, rootId: 100, replyToCommentId: 100));
+        var nullifiers = new MutatingNullifierService(() => db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE comment
+            SET moderation_status = @HiddenStatus
+            WHERE id = @ParentId;
+            """,
+            new SugarParameter("@HiddenStatus", (int)CommentModerationStatus.Hidden),
+            new SugarParameter("@ParentId", 100L)));
+        CommentService service = CreateService(db, tickets, nullifiers);
+        AnonymousCommentCreateRequestCoreModel request = CreateRequest(parentId: "100", rootId: "100", replyToCommentId: "100");
+
+        bool created = await service.CreateStrongAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None);
+
+        Assert.False(created);
+        Assert.Equal(1, db.Queryable<Comment>().Count());
+        Assert.Equal(CommentModerationStatus.Approved, db.Queryable<Comment>().InSingle(100).ModerationStatus);
+        Assert.Empty(nullifiers.Increments);
+    }
+
+    [Fact]
     public async Task GetCommentThreadsByCursorAsync_LegacyUserNameFallback_IsNotPubliclyExposed()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -448,7 +501,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     private static CommentService CreateService(
         SqlSugarClient db,
         RecordingTicketService ticketService,
-        RecordingNullifierService? nullifierService = null,
+        ICommentAnonymousNullifierService? nullifierService = null,
         RecordingCacheInvalidationDispatcher? dispatcher = null)
     {
         nullifierService ??= new RecordingNullifierService();
@@ -710,6 +763,33 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         {
             Reservations.Add((nullifierHash, scope));
             return Task.FromResult(new NullifierReservationResult(true, "reserved", "reserved", 0));
+        }
+
+        public Task<bool> IncrementUsageAsync(string nullifierHash, string scope, long commentId, CancellationToken cancellationToken = default)
+        {
+            Increments.Add((nullifierHash, scope, commentId));
+            return Task.FromResult(true);
+        }
+
+        public Task<bool> BlockAsync(string nullifierHash, string scope, string reason, CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
+    }
+
+    private sealed class MutatingNullifierService(Func<Task> mutateAsync) : ICommentAnonymousNullifierService
+    {
+        private bool _mutated;
+
+        public List<(string NullifierHash, string Scope, long CommentId)> Increments { get; } = [];
+
+        public async Task<NullifierReservationResult> CheckAndReserveAsync(string nullifierHash, string scope, CancellationToken cancellationToken = default)
+        {
+            if (!_mutated)
+            {
+                _mutated = true;
+                await mutateAsync();
+            }
+
+            return new NullifierReservationResult(true, "reserved", "reserved", 0);
         }
 
         public Task<bool> IncrementUsageAsync(string nullifierHash, string scope, long commentId, CancellationToken cancellationToken = default)
