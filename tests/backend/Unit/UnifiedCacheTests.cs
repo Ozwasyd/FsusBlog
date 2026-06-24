@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using FsusBlog.Server.Infrastructure.Cache;
 using System.Text;
 using Microsoft.Extensions.Caching.Memory;
@@ -474,6 +475,36 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    public async Task AcquireSingleFlightAsync_RemovesEntryAfterOperationCompletes()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        UnifiedCache cache = CreateCache(memory, db);
+
+        await using (await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleListFrame, "article:list:1"))
+        {
+            Assert.Equal(1, GetSingleFlightEntryCount(cache));
+        }
+
+        Assert.Equal(0, GetSingleFlightEntryCount(cache));
+    }
+
+    [Fact]
+    public async Task AcquireSingleFlightAsync_ManyUniqueKeysKeepsEntryCountBounded()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        UnifiedCache cache = CreateCache(memory, db);
+
+        for (int i = 0; i < 100_000; i++)
+        {
+            await using IAsyncDisposable lease = await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleListFrame, $"article:list:{i}");
+        }
+
+        Assert.Equal(0, GetSingleFlightEntryCount(cache));
+    }
+
+    [Fact]
     public void AcquireSingleFlightAsync_DoesNotUseMemoryCacheEvictionForSingleFlight()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "Cache", "IUnifiedCache.cs"));
@@ -546,6 +577,14 @@ public sealed class UnifiedCacheTests
             new CachePolicyRegistry(),
             new DefaultRuntimeKeyScope(),
             NullLogger<UnifiedCache>.Instance);
+    }
+
+    private static int GetSingleFlightEntryCount(UnifiedCache cache)
+    {
+        var field = typeof(UnifiedCache).GetField("_singleFlightEntries", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(field);
+        var entries = Assert.IsType<ConcurrentDictionary<string, UnifiedCache.SingleFlightEntry>>(field.GetValue(cache));
+        return entries.Count;
     }
 
     private sealed class RemoveTrackingMemoryCache : IMemoryCache
