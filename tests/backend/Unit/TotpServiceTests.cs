@@ -11,11 +11,15 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public class TotpServiceTests
 {
-    private static TotpService MakeService()
+    private static TotpService MakeService(DateTimeOffset? utcNow = null, bool productionHashPolicy = false)
     {
         // EphemeralDataProtectionProvider works in-memory without any file system
         var provider = new EphemeralDataProtectionProvider();
-        return new TotpService(provider);
+        var timeProvider = new StaticTimeProvider(utcNow ?? DateTimeOffset.Parse("2026-06-24T00:00:00Z"));
+        var hashPolicy = productionHashPolicy
+            ? TotpService.RecoveryCodeHashPolicy.Production
+            : new TotpService.RecoveryCodeHashPolicy(1024, 1, 1);
+        return new TotpService(provider, timeProvider, hashPolicy);
     }
 
     // ── GenerateSecret ────────────────────────────────────────────────────────
@@ -323,118 +327,162 @@ public class TotpServiceTests
     }
 
     [Fact]
-    public void HashRecoveryCodes_HashesUseVersionedSlowHashFormat()
+    public void HashRecoveryCodes_HashesUseVersionedArgon2idFormat()
     {
-        var svc = MakeService();
+        var svc = MakeService(productionHashPolicy: true);
         var result = svc.HashRecoveryCodes(["TESTCODE01"]);
-        Assert.Matches("^v2\\$pbkdf2-sha256\\$100000\\$[0-9A-F]{32}\\$[0-9A-F]{64}$", result);
+        Assert.Matches("^v3\\$argon2id\\$m=65536,t=3,p=4\\$[0-9A-F]{32}\\$[0-9A-F]{64}$", result);
     }
 
-    // ── TryConsumeRecoveryCode ────────────────────────────────────────────────
+    // ── ConsumeRecoveryCode ──────────────────────────────────────────────────
 
     [Fact]
-    public void TryConsumeRecoveryCode_NullStoredHashes_ReturnsFalse()
+    public void ConsumeRecoveryCode_NullStoredHashes_ReturnsFalse()
     {
         var svc = MakeService();
-        var result = svc.TryConsumeRecoveryCode(null, "ABCD1234EF", out _);
-        Assert.False(result);
+        var result = svc.ConsumeRecoveryCode(null, "ABCD1234EF");
+        Assert.False(result.Success);
     }
 
     [Fact]
-    public void TryConsumeRecoveryCode_EmptyStoredHashes_ReturnsFalse()
+    public void ConsumeRecoveryCode_EmptyStoredHashes_ReturnsFalse()
     {
         var svc = MakeService();
-        var result = svc.TryConsumeRecoveryCode("", "ABCD1234EF", out _);
-        Assert.False(result);
+        var result = svc.ConsumeRecoveryCode("", "ABCD1234EF");
+        Assert.False(result.Success);
     }
 
     [Fact]
-    public void TryConsumeRecoveryCode_NullInputCode_ReturnsFalse()
-    {
-        var svc = MakeService();
-        var hashes = svc.HashRecoveryCodes(["ABCD1234EF"]);
-        var result = svc.TryConsumeRecoveryCode(hashes, null, out _);
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void TryConsumeRecoveryCode_EmptyInputCode_ReturnsFalse()
+    public void ConsumeRecoveryCode_NullInputCode_ReturnsFalse()
     {
         var svc = MakeService();
         var hashes = svc.HashRecoveryCodes(["ABCD1234EF"]);
-        var result = svc.TryConsumeRecoveryCode(hashes, "", out _);
-        Assert.False(result);
+        var result = svc.ConsumeRecoveryCode(hashes, null);
+        Assert.False(result.Success);
     }
 
     [Fact]
-    public void TryConsumeRecoveryCode_ValidCode_ReturnsTrue()
+    public void ConsumeRecoveryCode_EmptyInputCode_ReturnsFalse()
+    {
+        var svc = MakeService();
+        var hashes = svc.HashRecoveryCodes(["ABCD1234EF"]);
+        var result = svc.ConsumeRecoveryCode(hashes, "");
+        Assert.False(result.Success);
+    }
+
+    [Fact]
+    public void ConsumeRecoveryCode_ValidCode_ReturnsTrue()
     {
         var svc = MakeService();
         var codes = svc.GenerateRecoveryCodes(3);
         var hashes = svc.HashRecoveryCodes(codes);
 
-        var result = svc.TryConsumeRecoveryCode(hashes, codes[0], out var updatedHashes);
+        var result = svc.ConsumeRecoveryCode(hashes, codes[0]);
 
-        Assert.True(result);
+        Assert.True(result.Success);
         // After consuming, updated hashes should have 2 entries
-        var remaining = updatedHashes.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var remaining = result.UpdatedHashes.Split('\n', StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal(2, remaining.Length);
     }
 
     [Fact]
-    public void TryConsumeRecoveryCode_WrongCode_ReturnsFalse()
+    public void ConsumeRecoveryCode_WrongCode_ReturnsFalse()
     {
         var svc = MakeService();
         var hashes = svc.HashRecoveryCodes(["GOODCODE01"]);
-        var result = svc.TryConsumeRecoveryCode(hashes, "BADCODE001", out _);
-        Assert.False(result);
+        var result = svc.ConsumeRecoveryCode(hashes, "BADCODE001");
+        Assert.False(result.Success);
     }
 
     [Fact]
-    public void TryConsumeRecoveryCode_UsedCode_CannotBeReused()
+    public void ConsumeRecoveryCode_UsedCode_CannotBeReused()
     {
         var svc = MakeService();
         var codes = svc.GenerateRecoveryCodes(2);
         var hashes = svc.HashRecoveryCodes(codes);
 
         // Consume first code
-        var success1 = svc.TryConsumeRecoveryCode(hashes, codes[0], out var updatedHashes);
-        Assert.True(success1);
+        var success1 = svc.ConsumeRecoveryCode(hashes, codes[0]);
+        Assert.True(success1.Success);
 
         // Try to reuse the same code
-        var success2 = svc.TryConsumeRecoveryCode(updatedHashes, codes[0], out _);
-        Assert.False(success2);
+        var success2 = svc.ConsumeRecoveryCode(success1.UpdatedHashes, codes[0]);
+        Assert.False(success2.Success);
     }
 
     [Fact]
-    public void TryConsumeRecoveryCode_CaseInsensitive()
+    public void ConsumeRecoveryCode_CaseInsensitive()
     {
         var svc = MakeService();
         // Generate code (will be uppercase hex) and try lowercase
         var hashes = svc.HashRecoveryCodes(["ABCDEF1234"]);
-        var result = svc.TryConsumeRecoveryCode(hashes, "abcdef1234", out _);
-        Assert.True(result);
+        var result = svc.ConsumeRecoveryCode(hashes, "abcdef1234");
+        Assert.True(result.Success);
     }
 
     [Fact]
-    public void TryConsumeRecoveryCode_LegacySha256Hash_CanBeConsumedOnce()
+    public void ConsumeRecoveryCode_LegacySha256Hash_CanBeConsumedOnce()
     {
         var svc = MakeService();
         string legacyHash = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("ABCDEF1234")));
 
-        var result = svc.TryConsumeRecoveryCode(legacyHash, "abcdef1234", out var updatedHashes);
+        var result = svc.ConsumeRecoveryCode(legacyHash, "abcdef1234");
 
-        Assert.True(result);
-        Assert.Equal(string.Empty, updatedHashes);
+        Assert.True(result.Success);
+        Assert.Equal(string.Empty, result.UpdatedHashes);
     }
 
     [Fact]
-    public void TryConsumeRecoveryCode_InvalidHashOnly_ReturnsFalse()
+    public void ConsumeRecoveryCode_LegacySha256HashBeforeDeadline_RequiresRegeneration()
+    {
+        var svc = MakeService(DateTimeOffset.Parse("2026-08-31T23:59:59Z"));
+        string legacyHash = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("ABCDEF1234")));
+
+        RecoveryCodeConsumeResult result = svc.ConsumeRecoveryCode(legacyHash, "abcdef1234");
+
+        Assert.True(result.Success);
+        Assert.True(result.RequiresRecoveryCodeRegeneration);
+        Assert.True(result.ConsumedLegacyHash);
+        Assert.False(result.LegacyHashExpired);
+        Assert.Equal(string.Empty, result.UpdatedHashes);
+    }
+
+    [Fact]
+    public void ConsumeRecoveryCode_LegacySha256HashAfterDeadline_ReturnsFalse()
+    {
+        var svc = MakeService(DateTimeOffset.Parse("2026-09-01T00:00:00Z"));
+        string legacyHash = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("ABCDEF1234")));
+
+        RecoveryCodeConsumeResult result = svc.ConsumeRecoveryCode(legacyHash, "abcdef1234");
+
+        Assert.False(result.Success);
+        Assert.False(result.RequiresRecoveryCodeRegeneration);
+        Assert.True(result.LegacyHashExpired);
+        Assert.Equal(legacyHash, result.UpdatedHashes);
+    }
+
+    [Fact]
+    public void TotpService_SourceUsesMemoryHardArgon2idForRecoveryCodes()
+    {
+        string source = FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/TotpService.cs");
+
+        Assert.Contains("new Argon2id", source, StringComparison.Ordinal);
+        Assert.Contains("MemorySize = policy.MemoryKib", source, StringComparison.Ordinal);
+        Assert.Contains("RecoveryCodeHashPolicy.Production", source, StringComparison.Ordinal);
+        Assert.Contains("RecoveryCodeArgon2MemoryKib = 64 * 1024", source, StringComparison.Ordinal);
+        Assert.Contains("RecoveryCodeArgon2Iterations = 3", source, StringComparison.Ordinal);
+        Assert.Contains("RecoveryCodeArgon2Parallelism = 4", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryConsumeRecoveryCode", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("v2$pbkdf2-sha256", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConsumeRecoveryCode_InvalidHashOnly_ReturnsFalse()
     {
         var svc = MakeService();
         // Non-empty input code that produces empty normalized form
-        var result = svc.TryConsumeRecoveryCode("SOMEHASH", "   ", out _);
-        Assert.False(result);
+        var result = svc.ConsumeRecoveryCode("SOMEHASH", "   ");
+        Assert.False(result.Success);
     }
 
     // ── ProtectSecret / UnprotectSecret ──────────────────────────────────────
@@ -483,5 +531,10 @@ public class TotpServiceTests
         var p1 = svc.ProtectSecret("same");
         var p2 = svc.ProtectSecret("same");
         Assert.NotEqual(p1, p2);
+    }
+
+    private sealed class StaticTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 }

@@ -935,10 +935,12 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         mfa_pending_created_at timestamp NULL,
                         mfa_verified_at timestamp NULL,
                         mfa_recovery_codes_hash text NULL,
+                        hash_version smallint NOT NULL DEFAULT 1,
                         updated_at_utc timestamp NOT NULL DEFAULT now()
                     );
                     CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_user_mfa_profile_user ON user_mfa_profile(user_id);
                     """),
+                new EnsureColumnStep("user_mfa_profile", "hash_version", "smallint NOT NULL DEFAULT 1"),
                 new RawSqlStep("""
                     DO $$
                     DECLARE
@@ -1003,9 +1005,10 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                                     mfa_pending_created_at,
                                     mfa_verified_at,
                                     mfa_recovery_codes_hash,
+                                    hash_version,
                                     updated_at_utc
                                 )
-                                SELECT id, %1$s, %2$s, %3$s, %4$s, %5$s, now()
+                                SELECT id, %1$s, %2$s, %3$s, %4$s, %5$s, 1, now()
                                 FROM sys_user
                                 WHERE %6$s = true
                                    OR %1$s IS NOT NULL
@@ -1017,6 +1020,10 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                                     mfa_pending_created_at = COALESCE(EXCLUDED.mfa_pending_created_at, user_mfa_profile.mfa_pending_created_at),
                                     mfa_verified_at = COALESCE(EXCLUDED.mfa_verified_at, user_mfa_profile.mfa_verified_at),
                                     mfa_recovery_codes_hash = COALESCE(EXCLUDED.mfa_recovery_codes_hash, user_mfa_profile.mfa_recovery_codes_hash),
+                                    hash_version = CASE
+                                        WHEN EXCLUDED.mfa_recovery_codes_hash IS NOT NULL THEN 1
+                                        ELSE user_mfa_profile.hash_version
+                                    END,
                                     updated_at_utc = now();',
                                 secret_expr,
                                 pending_secret_expr,

@@ -72,6 +72,7 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("user_mfa_profile", fingerprint, StringComparison.Ordinal);
         Assert.Contains("mfa_secret_encrypted text", fingerprint, StringComparison.Ordinal);
         Assert.Contains("mfa_recovery_codes_hash text", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("hash_version smallint NOT NULL DEFAULT 1", fingerprint, StringComparison.Ordinal);
         Assert.Contains("INSERT INTO user_mfa_profile", fingerprint, StringComparison.Ordinal);
         Assert.Contains("sys_user.lastloginip", fingerprint, StringComparison.Ordinal);
         Assert.Contains("sys_user.lastlogintime", fingerprint, StringComparison.Ordinal);

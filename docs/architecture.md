@@ -212,6 +212,8 @@ Client
 
 MFA challenge ticket 属于短 TTL 安全缓存，内部只保存账号容器 `AccountId` 与稳定 `AccountSubjectHash`。验证失败计数通过 `IUnifiedCache.IncrementAsync(CachePolicyId.SecurityMfaChallenge, ...)` 并行写入 ticket、subject、IP 三个维度，其中账号维度固定为 `fail:subject:{accountSubjectHash}`，不得使用 `fail:user:{userId}`；高价值/安全 audit scope 只写 `AccountId`、`AccountSubjectHash` 与 hash 后的 ticket/IP/UA。运行时回退路径是删除 `SecurityMfaChallenge` 下对应 `fail:subject:*` 或 challenge ticket key，让客户端重新发起短 TTL MFA challenge；不需要重启服务，也不得通过恢复裸 user id key 降级。
 
+TOTP recovery code 的持久化状态只在 `user_mfa_profile`：`mfa_recovery_codes_hash` 保存换行分隔的 `v3$argon2id$m=65536,t=3,p=4$...` 条目，`hash_version` 标记当前集合版本。schema migration 会为旧 profile 补 `hash_version=1`；运行时只接受当前 v3 或 deadline 前的裸 SHA-256 legacy 迁移输入，旧 hash 被消费或正常 TOTP 验证成功后不得继续留作可用恢复码。回退路径是让用户重新走 `/api/binary/auth/mfa/recovery/regenerate` 生成 v3 恢复码，不恢复 PBKDF2 或旧消费 API。
+
 ## 发布构建边界
 
 `src/backend/FsusBlog.Server.csproj` 的 Release publish 默认会检查 `src/frontend/node_modules`、执行 `npm run build:release` 并复制 `src/frontend/dist` 与前端 runtime 文件，保证单体发布产物一致。需要后端-only 诊断或临时发布时，可显式传入 `/p:PublishClientAssets=false`，跳过前端依赖检查、前端构建和前端 artifact copy；该开关不改变生产默认行为。

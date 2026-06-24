@@ -152,6 +152,11 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             await fixture.QueryScalarAsync<string>(
                 connectionString,
                 "SELECT mfa_recovery_codes_hash FROM user_mfa_profile WHERE user_id = 101;"));
+        Assert.Equal(
+            1,
+            await fixture.QueryScalarAsync<int>(
+                connectionString,
+                "SELECT hash_version FROM user_mfa_profile WHERE user_id = 101;"));
 
         foreach (string legacyColumn in new[]
         {

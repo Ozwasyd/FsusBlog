@@ -27,6 +27,9 @@ public class UserMfaProfile
     [SugarColumn(ColumnName = "mfa_recovery_codes_hash", IsNullable = true, ColumnDataType = "text")]
     public string? MfaRecoveryCodesHash { get; set; }
 
+    [SugarColumn(ColumnName = "hash_version")]
+    public short MfaRecoveryCodesHashVersion { get; set; } = 1;
+
     [SugarColumn(ColumnName = "updated_at_utc")]
     public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
 }

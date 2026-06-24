@@ -77,6 +77,7 @@ public partial class UserService(
             .SetColumns(p => p.MfaPendingCreatedAt == profile.MfaPendingCreatedAt)
             .SetColumns(p => p.MfaVerifiedAt == profile.MfaVerifiedAt)
             .SetColumns(p => p.MfaRecoveryCodesHash == profile.MfaRecoveryCodesHash)
+            .SetColumns(p => p.MfaRecoveryCodesHashVersion == profile.MfaRecoveryCodesHashVersion)
             .SetColumns(p => p.UpdatedAtUtc == profile.UpdatedAtUtc)
             .Where(p => p.UserId == profile.UserId)
             .ExecuteCommandAsync();
@@ -758,6 +759,7 @@ public partial class UserService(
         profile.MfaSecretEncrypted = profile.MfaPendingSecretEncrypted;
         profile.MfaVerifiedAt = DateTime.UtcNow;
         profile.MfaRecoveryCodesHash = recoveryHashes;
+        profile.MfaRecoveryCodesHashVersion = TotpService.CurrentRecoveryCodeHashVersion;
         profile.MfaPendingSecretEncrypted = null;
         profile.MfaPendingCreatedAt = null;
         await UpsertUserMfaProfileAsync(profile);
@@ -815,6 +817,7 @@ public partial class UserService(
             profile.MfaPendingSecretEncrypted = null;
             profile.MfaPendingCreatedAt = null;
             profile.MfaRecoveryCodesHash = null;
+            profile.MfaRecoveryCodesHashVersion = 1;
             profile.MfaVerifiedAt = null;
             await UpsertUserMfaProfileAsync(profile);
         }
@@ -867,6 +870,7 @@ public partial class UserService(
         string recoveryHashes = _totpService.HashRecoveryCodes(recoveryCodes);
 
         profile.MfaRecoveryCodesHash = recoveryHashes;
+        profile.MfaRecoveryCodesHashVersion = TotpService.CurrentRecoveryCodeHashVersion;
         await UpsertUserMfaProfileAsync(profile);
 
         return (true, new MfaSetupVerifyDto
@@ -888,6 +892,7 @@ public partial class UserService(
             .SetColumns(p => p.MfaPendingSecretEncrypted == null)
             .SetColumns(p => p.MfaPendingCreatedAt == null)
             .SetColumns(p => p.MfaRecoveryCodesHash == null)
+            .SetColumns(p => p.MfaRecoveryCodesHashVersion == 1)
             .SetColumns(p => p.MfaVerifiedAt == null)
             .SetColumns(p => p.UpdatedAtUtc == DateTime.UtcNow)
             .Where(p => p.UserId == userId)
@@ -918,17 +923,30 @@ public partial class UserService(
             string secret = secretResult.Value;
             if (_totpService.VerifyCode(secret, code))
             {
+                if (persistRecoveryConsumption &&
+                    profile.MfaRecoveryCodesHashVersion < TotpService.CurrentRecoveryCodeHashVersion &&
+                    !string.IsNullOrWhiteSpace(profile.MfaRecoveryCodesHash))
+                {
+                    profile.MfaRecoveryCodesHash = string.Empty;
+                    profile.MfaRecoveryCodesHashVersion = 0;
+                    await UpsertUserMfaProfileAsync(profile);
+                }
+
                 return true;
             }
         }
 
         if (!string.IsNullOrWhiteSpace(recoveryCode))
         {
-            if (_totpService.TryConsumeRecoveryCode(profile.MfaRecoveryCodesHash, recoveryCode, out string updatedHashes))
+            RecoveryCodeConsumeResult consumeResult = _totpService.ConsumeRecoveryCode(profile.MfaRecoveryCodesHash, recoveryCode);
+            if (consumeResult.Success)
             {
                 if (persistRecoveryConsumption)
                 {
-                    profile.MfaRecoveryCodesHash = updatedHashes;
+                    profile.MfaRecoveryCodesHash = consumeResult.UpdatedHashes;
+                    profile.MfaRecoveryCodesHashVersion = consumeResult.RequiresRecoveryCodeRegeneration
+                        ? string.IsNullOrWhiteSpace(consumeResult.UpdatedHashes) ? (short)0 : (short)1
+                        : TotpService.CurrentRecoveryCodeHashVersion;
                     await UpsertUserMfaProfileAsync(profile);
                 }
                 return true;

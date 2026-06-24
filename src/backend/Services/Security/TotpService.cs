@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Konscious.Security.Cryptography;
 using Microsoft.AspNetCore.DataProtection;
 
 namespace FsusBlog.Server.Services.Security;
@@ -11,20 +12,48 @@ public interface ITotpService
     bool VerifyCode(string secretBase32, string code, int allowedDriftSteps = 1);
     IReadOnlyList<string> GenerateRecoveryCodes(int count = 8);
     string HashRecoveryCodes(IEnumerable<string> codes);
-    bool TryConsumeRecoveryCode(string? storedHashes, string? inputCode, out string updatedHashes);
+    RecoveryCodeConsumeResult ConsumeRecoveryCode(string? storedHashes, string? inputCode);
     string ProtectSecret(string plainSecret);
     string UnprotectSecret(string protectedSecret);
 }
 
-public sealed class TotpService(IDataProtectionProvider dataProtectionProvider) : ITotpService
+public sealed record RecoveryCodeConsumeResult(
+    bool Success,
+    string UpdatedHashes,
+    bool ConsumedLegacyHash,
+    bool LegacyHashExpired,
+    bool RequiresRecoveryCodeRegeneration);
+
+public sealed class TotpService : ITotpService
 {
     private const int SecretBytesLength = 20;
     private const int TimeStepSeconds = 30;
     private const int RecoveryCodeBytesLength = 16;
     private const int RecoveryCodeSaltBytesLength = 16;
     private const int RecoveryCodeHashBytesLength = 32;
-    private const int RecoveryCodeIterations = 100_000;
-    private readonly IDataProtector _protector = dataProtectionProvider.CreateProtector("fsusblog.auth.totp.v1");
+    private const int RecoveryCodeArgon2MemoryKib = 64 * 1024;
+    private const int RecoveryCodeArgon2Iterations = 3;
+    private const int RecoveryCodeArgon2Parallelism = 4;
+    public const short CurrentRecoveryCodeHashVersion = 3;
+    private static readonly DateTimeOffset LegacyRecoveryCodeDeadlineUtc = new(2026, 9, 1, 0, 0, 0, TimeSpan.Zero);
+    private readonly IDataProtector _protector;
+    private readonly TimeProvider _timeProvider;
+    private readonly RecoveryCodeHashPolicy _recoveryCodeHashPolicy;
+
+    public TotpService(IDataProtectionProvider dataProtectionProvider, TimeProvider timeProvider)
+        : this(dataProtectionProvider, timeProvider, RecoveryCodeHashPolicy.Production)
+    {
+    }
+
+    internal TotpService(
+        IDataProtectionProvider dataProtectionProvider,
+        TimeProvider timeProvider,
+        RecoveryCodeHashPolicy recoveryCodeHashPolicy)
+    {
+        _protector = dataProtectionProvider.CreateProtector("fsusblog.auth.totp.v1");
+        _timeProvider = timeProvider;
+        _recoveryCodeHashPolicy = recoveryCodeHashPolicy;
+    }
 
     public string GenerateSecret()
     {
@@ -89,24 +118,24 @@ public sealed class TotpService(IDataProtectionProvider dataProtectionProvider) 
     public string HashRecoveryCodes(IEnumerable<string> codes)
     {
         var hashes = codes
-            .Select(static c => HashRecoveryCode(c))
+            .Select(HashRecoveryCode)
             .Where(static c => c.Length > 0)
             .ToArray();
         return string.Join('\n', hashes);
     }
 
-    public bool TryConsumeRecoveryCode(string? storedHashes, string? inputCode, out string updatedHashes)
+    public RecoveryCodeConsumeResult ConsumeRecoveryCode(string? storedHashes, string? inputCode)
     {
-        updatedHashes = storedHashes ?? string.Empty;
+        string initialHashes = storedHashes ?? string.Empty;
         if (string.IsNullOrWhiteSpace(storedHashes) || string.IsNullOrWhiteSpace(inputCode))
         {
-            return false;
+            return new RecoveryCodeConsumeResult(false, initialHashes, false, false, false);
         }
 
         string normalized = SanitizeRecoveryCode(inputCode);
         if (normalized.Length == 0)
         {
-            return false;
+            return new RecoveryCodeConsumeResult(false, initialHashes, false, false, false);
         }
 
         var lines = storedHashes
@@ -114,23 +143,37 @@ public sealed class TotpService(IDataProtectionProvider dataProtectionProvider) 
             .ToList();
 
         int matchedIndex = -1;
+        bool consumedLegacyHash = false;
+        bool legacyHashExpired = false;
         for (int index = 0; index < lines.Count; index++)
         {
-            if (VerifyRecoveryCodeHash(lines[index], normalized))
+            RecoveryCodeHashVerification verification = VerifyRecoveryCodeHash(lines[index], normalized, _timeProvider.GetUtcNow());
+            if (verification.LegacyHashExpired)
+            {
+                legacyHashExpired = true;
+            }
+
+            if (verification.Success)
             {
                 matchedIndex = index;
+                consumedLegacyHash = verification.LegacyHash;
                 break;
             }
         }
 
         if (matchedIndex < 0)
         {
-            return false;
+            return new RecoveryCodeConsumeResult(false, initialHashes, false, legacyHashExpired, false);
         }
 
         lines.RemoveAt(matchedIndex);
-        updatedHashes = string.Join('\n', lines);
-        return true;
+        string updatedHashes = string.Join('\n', lines);
+        return new RecoveryCodeConsumeResult(
+            true,
+            updatedHashes,
+            consumedLegacyHash,
+            false,
+            consumedLegacyHash);
     }
 
     public string ProtectSecret(string plainSecret)
@@ -139,7 +182,7 @@ public sealed class TotpService(IDataProtectionProvider dataProtectionProvider) 
     public string UnprotectSecret(string protectedSecret)
         => _protector.Unprotect(protectedSecret);
 
-    private static string HashRecoveryCode(string code)
+    private string HashRecoveryCode(string code)
     {
         string normalized = SanitizeRecoveryCode(code);
         if (normalized.Length == 0)
@@ -148,41 +191,49 @@ public sealed class TotpService(IDataProtectionProvider dataProtectionProvider) 
         }
 
         byte[] salt = RandomNumberGenerator.GetBytes(RecoveryCodeSaltBytesLength);
-        byte[] hash = Rfc2898DeriveBytes.Pbkdf2(
-            Encoding.UTF8.GetBytes(normalized),
-            salt,
-            RecoveryCodeIterations,
-            HashAlgorithmName.SHA256,
-            RecoveryCodeHashBytesLength);
-        return $"v2$pbkdf2-sha256${RecoveryCodeIterations}${Convert.ToHexString(salt)}${Convert.ToHexString(hash)}";
+        byte[] hash = ComputeArgon2idHash(normalized, salt, _recoveryCodeHashPolicy);
+        return $"v3$argon2id$m={_recoveryCodeHashPolicy.MemoryKib},t={_recoveryCodeHashPolicy.Iterations},p={_recoveryCodeHashPolicy.Parallelism}${Convert.ToHexString(salt)}${Convert.ToHexString(hash)}";
     }
 
-    private static bool VerifyRecoveryCodeHash(string storedHash, string normalizedCode)
+    private RecoveryCodeHashVerification VerifyRecoveryCodeHash(string storedHash, string normalizedCode, DateTimeOffset nowUtc)
     {
-        if (storedHash.StartsWith("v2$pbkdf2-sha256$", StringComparison.Ordinal))
+        if (storedHash.StartsWith("v3$argon2id$", StringComparison.Ordinal))
         {
             string[] parts = storedHash.Split('$');
             if (parts.Length != 5 ||
-                !int.TryParse(parts[2], out int iterations) ||
-                iterations < 10_000 ||
+                !string.Equals(parts[2], $"m={_recoveryCodeHashPolicy.MemoryKib},t={_recoveryCodeHashPolicy.Iterations},p={_recoveryCodeHashPolicy.Parallelism}", StringComparison.Ordinal) ||
                 !TryDecodeHex(parts[3], RecoveryCodeSaltBytesLength, out byte[] salt) ||
                 !TryDecodeHex(parts[4], RecoveryCodeHashBytesLength, out byte[] expectedHash))
             {
-                return false;
+                return RecoveryCodeHashVerification.Failed;
             }
 
-            byte[] actualHash = Rfc2898DeriveBytes.Pbkdf2(
-                Encoding.UTF8.GetBytes(normalizedCode),
-                salt,
-                iterations,
-                HashAlgorithmName.SHA256,
-                expectedHash.Length);
-            return CryptographicOperations.FixedTimeEquals(actualHash, expectedHash);
+            byte[] actualHash = ComputeArgon2idHash(normalizedCode, salt, _recoveryCodeHashPolicy);
+            return RecoveryCodeHashVerification.FromSuccess(CryptographicOperations.FixedTimeEquals(actualHash, expectedHash), legacyHash: false);
+        }
+
+        if (nowUtc >= LegacyRecoveryCodeDeadlineUtc)
+        {
+            return RecoveryCodeHashVerification.ExpiredLegacy;
         }
 
         byte[] legacyHash = SHA256.HashData(Encoding.UTF8.GetBytes(normalizedCode));
         string legacyHex = Convert.ToHexString(legacyHash);
-        return FixedTimeEqualsHash(storedHash, Encoding.UTF8.GetBytes(legacyHex));
+        return RecoveryCodeHashVerification.FromSuccess(
+            FixedTimeEqualsHash(storedHash, Encoding.UTF8.GetBytes(legacyHex)),
+            legacyHash: true);
+    }
+
+    private static byte[] ComputeArgon2idHash(string normalizedCode, byte[] salt, RecoveryCodeHashPolicy policy)
+    {
+        var argon = new Argon2id(Encoding.UTF8.GetBytes(normalizedCode))
+        {
+            Salt = salt,
+            MemorySize = policy.MemoryKib,
+            Iterations = policy.Iterations,
+            DegreeOfParallelism = policy.Parallelism
+        };
+        return argon.GetBytes(RecoveryCodeHashBytesLength);
     }
 
     private static bool TryDecodeHex(string value, int expectedBytes, out byte[] bytes)
@@ -279,6 +330,23 @@ public sealed class TotpService(IDataProtectionProvider dataProtectionProvider) 
         Span<byte> storedHashBytes = stackalloc byte[64];
         Encoding.UTF8.GetBytes(storedHash.AsSpan(), storedHashBytes);
         return CryptographicOperations.FixedTimeEquals(storedHashBytes, codeHashBytes);
+    }
+
+    private readonly record struct RecoveryCodeHashVerification(bool Success, bool LegacyHash, bool LegacyHashExpired)
+    {
+        public static RecoveryCodeHashVerification Failed => new(false, false, false);
+        public static RecoveryCodeHashVerification ExpiredLegacy => new(false, true, true);
+
+        public static RecoveryCodeHashVerification FromSuccess(bool success, bool legacyHash)
+            => success ? new RecoveryCodeHashVerification(true, legacyHash, false) : Failed;
+    }
+
+    internal readonly record struct RecoveryCodeHashPolicy(int MemoryKib, int Iterations, int Parallelism)
+    {
+        public static RecoveryCodeHashPolicy Production => new(
+            RecoveryCodeArgon2MemoryKib,
+            RecoveryCodeArgon2Iterations,
+            RecoveryCodeArgon2Parallelism);
     }
 
     private static string Base32Encode(ReadOnlySpan<byte> data)

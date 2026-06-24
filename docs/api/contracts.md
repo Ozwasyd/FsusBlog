@@ -273,7 +273,7 @@ admin step-up challenge 绑定 `identity_kind=admin_principal`、`admin_id`、�
 
 匿名身份模式下，TOTP 只作为敏感操作 step-up，不作为账户恢复凭据。`POST /api/binary/auth/mfa/setup/start` 使用 `FsusBlog:account:{accountId}` 作为 TOTP issuer account label，不得暴露 legacy `sys_user.username`；TOTP secret、pending secret、verified time 和 TOTP recovery-code hash 只允许存储在 `user_mfa_profile`，`sys_user` 只保留 `MfaEnabled` 状态投影。已启用 TOTP 的重新绑定 action 为 `mfa_setup_rebind`，初次启用 action 为 `mfa_setup`。`/mfa/setup/start`、`/mfa/disable` 与 `/mfa/recovery/regenerate` 在 anonymous identity mode 下都必须通过 `X-Fsus-Mfa-Proof` 提交对应 action 的一次性 proof，不接收 `MfaPasswordProofRequest` body。缺失、action 不匹配、过期或重放 proof 返回 `428` + AEDS `ApiError`，且不得进入 secret 写入、停用或恢复码重生成。
 
-TOTP recovery code 只允许绕过或完成 TOTP step-up；它不是账户 `Recovery Key`，不得用于匿名账号恢复、Passkey 重绑或 recovery session 签发。非匿名 legacy 模式可继续使用 `MfaPasswordProofRequest` 支持旧密码 + 当前 TOTP/恢复码证明，但生产匿名模式必须走 header proof。
+TOTP recovery code 只允许绕过或完成 TOTP step-up；它不是账户 `Recovery Key`，不得用于匿名账号恢复、Passkey 重绑或 recovery session 签发。服务端只在 `user_mfa_profile.mfa_recovery_codes_hash` 存储 `v3$argon2id$m=65536,t=3,p=4$...` 哈希条目，并用 `user_mfa_profile.hash_version` 标记集合版本；裸 SHA-256 legacy 恢复码只允许在 2026-09-01 00:00:00Z 前消费并触发重生成，deadline 后 fail closed。非匿名 legacy 模式可继续使用 `MfaPasswordProofRequest` 支持旧密码 + 当前 TOTP/恢复码证明，但生产匿名模式必须走 header proof。
 
 MFA challenge ticket 的内部契约使用 `AccountId` 与 `AccountSubjectHash`，不再暴露或序列化 `MfaChallengeTicket.UserId`。`/api/binary/auth/mfa/challenge` 验证失败时，attempt limiter 通过 `SecurityMfaChallenge` cache policy 写入 `fail:ticket:{ticketId}`、`fail:subject:{accountSubjectHash}` 与 `fail:ip:{clientIpHash}` 三类计数；主体窗口按 stable subject hash 聚合，不按可重排的账号容器 id 聚合。audit context 字段为 `AccountId`、`AccountSubjectHash`、`TicketHash`、`ClientIpHash`、`UserAgentHash` 与失败计数，不得恢复 `UserId`。
 
