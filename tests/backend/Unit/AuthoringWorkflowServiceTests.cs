@@ -48,6 +48,21 @@ public sealed class AuthoringWorkflowServiceTests
     }
 
     [Fact]
+    public void SaveDraftAsync_SourceUsesAtomicUpsert()
+    {
+        string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string method = Slice(
+            service,
+            "public async Task<ServerDraftResponse> SaveDraftAsync",
+            "public async Task<ServerDraftResponse?> GetDraftAsync");
+
+        Assert.Contains("ON CONFLICT (owner_admin_principal_id, draft_key) DO UPDATE", method, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Queryable<ArticleDraft>()", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Insertable(existing)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Updateable(existing)", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ContentExportContracts_DoNotCarryImportableNumericActorIds()
     {
         string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");

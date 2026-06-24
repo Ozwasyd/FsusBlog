@@ -43,44 +43,94 @@ public sealed class AuthoringWorkflowService(
     {
         string draftKey = NormalizeDraftKey(request.DraftKey, request.ArticleId);
         string tagIds = string.Join(',', NormalizeTagIds(request.TagIds));
-        ArticleDraft? existing = await db.Queryable<ArticleDraft>()
-            .Where(it => it.OwnerAdminPrincipalId == ownerAdminPrincipalId && it.DraftKey == draftKey)
-            .FirstAsync(cancellationToken);
         DateTime now = DateTime.UtcNow;
-
-        if (existing is null)
+        var draft = new ArticleDraft
         {
-            existing = new ArticleDraft
-            {
-                OwnerAdminPrincipalId = ownerAdminPrincipalId,
-                DraftKey = draftKey,
-                CreatedAt = now
-            };
-        }
+            OwnerAdminPrincipalId = ownerAdminPrincipalId,
+            DraftKey = draftKey,
+            ArticleId = request.ArticleId,
+            Title = Normalize(request.Title, 256),
+            Summary = NormalizeNullable(request.Summary, 512),
+            CoverImageUrl = NormalizeNullable(request.CoverImageUrl, 512),
+            CategoryId = Math.Max(0, request.CategoryId),
+            TagIds = tagIds,
+            MarkdownContent = Normalize(request.Content, 200_000),
+            Status = NormalizeArticleStatus(request.Status),
+            ClientRevision = NormalizeNullable(request.ClientRevision, 64),
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+        draft.ScheduledPublishAt = draft.Status == ArticleStatus.Scheduled ? request.ScheduledPublishAt : null;
 
-        existing.ArticleId = request.ArticleId;
-        existing.Title = Normalize(request.Title, 256);
-        existing.Summary = NormalizeNullable(request.Summary, 512);
-        existing.CoverImageUrl = NormalizeNullable(request.CoverImageUrl, 512);
-        existing.CategoryId = Math.Max(0, request.CategoryId);
-        existing.TagIds = tagIds;
-        existing.MarkdownContent = Normalize(request.Content, 200_000);
-        existing.Status = NormalizeArticleStatus(request.Status);
-        existing.ScheduledPublishAt = existing.Status == ArticleStatus.Scheduled ? request.ScheduledPublishAt : null;
-        existing.ClientRevision = NormalizeNullable(request.ClientRevision, 64);
-        existing.UpdatedAt = now;
-
-        if (existing.Id > 0)
-        {
-            await db.Updateable(existing).ExecuteCommandAsync(cancellationToken);
-        }
-        else
-        {
-            await db.Insertable(existing).ExecuteCommandAsync(cancellationToken);
-        }
+        await UpsertDraftAsync(draft, cancellationToken);
 
         WriteAudit(AuditSourceCatalog.Article, "server-draft-save", ownerAdminPrincipalId, draftKey);
-        return ToDraftResponse(existing);
+        return ToDraftResponse(draft);
+    }
+
+    private async Task UpsertDraftAsync(ArticleDraft draft, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO article_draft (
+                owner_admin_principal_id,
+                article_id,
+                draft_key,
+                title,
+                summary,
+                cover_image_url,
+                categoryid,
+                tag_ids,
+                markdown_content,
+                client_revision,
+                status,
+                scheduled_publish_at,
+                created_at,
+                updated_at
+            ) VALUES (
+                @OwnerAdminPrincipalId,
+                CAST(@ArticleId AS integer),
+                @DraftKey,
+                @Title,
+                @Summary,
+                @CoverImageUrl,
+                @CategoryId,
+                @TagIds,
+                @MarkdownContent,
+                @ClientRevision,
+                @Status,
+                CAST(@ScheduledPublishAt AS timestamp),
+                @CreatedAt,
+                @UpdatedAt
+            )
+            ON CONFLICT (owner_admin_principal_id, draft_key) DO UPDATE SET
+                article_id = EXCLUDED.article_id,
+                title = EXCLUDED.title,
+                summary = EXCLUDED.summary,
+                cover_image_url = EXCLUDED.cover_image_url,
+                categoryid = EXCLUDED.categoryid,
+                tag_ids = EXCLUDED.tag_ids,
+                markdown_content = EXCLUDED.markdown_content,
+                client_revision = EXCLUDED.client_revision,
+                status = EXCLUDED.status,
+                scheduled_publish_at = EXCLUDED.scheduled_publish_at,
+                updated_at = EXCLUDED.updated_at;
+            """,
+            new SugarParameter("@OwnerAdminPrincipalId", draft.OwnerAdminPrincipalId),
+            new SugarParameter("@ArticleId", DbValue(draft.ArticleId)),
+            new SugarParameter("@DraftKey", draft.DraftKey),
+            new SugarParameter("@Title", draft.Title),
+            new SugarParameter("@Summary", DbValue(draft.Summary)),
+            new SugarParameter("@CoverImageUrl", DbValue(draft.CoverImageUrl)),
+            new SugarParameter("@CategoryId", draft.CategoryId),
+            new SugarParameter("@TagIds", draft.TagIds),
+            new SugarParameter("@MarkdownContent", draft.MarkdownContent),
+            new SugarParameter("@ClientRevision", DbValue(draft.ClientRevision)),
+            new SugarParameter("@Status", (int)draft.Status),
+            new SugarParameter("@ScheduledPublishAt", DbValue(draft.ScheduledPublishAt)),
+            new SugarParameter("@CreatedAt", draft.CreatedAt),
+            new SugarParameter("@UpdatedAt", draft.UpdatedAt));
     }
 
     public async Task<ServerDraftResponse?> GetDraftAsync(long ownerAdminPrincipalId, string draftKey, CancellationToken cancellationToken = default)
@@ -1773,6 +1823,15 @@ public sealed class AuthoringWorkflowService(
         string value = Normalize(raw, maxLength);
         return value.Length == 0 ? null : value;
     }
+
+    private static object DbValue(string? value)
+        => string.IsNullOrWhiteSpace(value) ? DBNull.Value : value;
+
+    private static object DbValue(int? value)
+        => value.HasValue ? value.Value : DBNull.Value;
+
+    private static object DbValue(DateTime? value)
+        => value.HasValue ? value.Value : DBNull.Value;
 
     private static string NormalizeAiAssistProvider(string? raw)
     {
