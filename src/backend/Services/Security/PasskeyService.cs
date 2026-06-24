@@ -577,32 +577,66 @@ public sealed class PasskeyService(
             return existing;
         }
 
-        byte[] generated = RandomNumberGenerator.GetBytes(PasskeyUserHandleBytes);
-        string encoded = Base64Url.EncodeToString(generated);
-        int updated = await db.Ado.ExecuteCommandAsync(
-            """
-            UPDATE sys_user
-            SET passkey_user_handle = @PasskeyUserHandle
-            WHERE id = @UserId
-              AND (passkey_user_handle IS NULL OR passkey_user_handle = @ObservedPasskeyUserHandle);
-            """,
-            new SugarParameter("@PasskeyUserHandle", encoded),
-            new SugarParameter("@UserId", user.Id),
-            new SugarParameter("@ObservedPasskeyUserHandle", user.PasskeyUserHandle ?? string.Empty));
-        if (updated > 0)
+        byte[]? finalHandle = null;
+        string? finalEncoded = null;
+        var transaction = await db.Ado.UseTranAsync(async () =>
         {
-            user.PasskeyUserHandle = encoded;
-            return generated;
+            using (var lockedReader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                """
+                SELECT passkey_user_handle
+                FROM sys_user
+                WHERE id = @UserId
+                FOR UPDATE;
+                """,
+                new SugarParameter[] { new("@UserId", user.Id) }))
+            {
+                if (!await lockedReader.ReadAsync(cancellationToken))
+                {
+                    throw new InvalidOperationException("Unable to allocate stable passkey user handle.");
+                }
+
+                string? lockedHandle = lockedReader.IsDBNull(0) ? null : lockedReader.GetString(0);
+                if (TryDecodeStoredPasskeyUserHandle(lockedHandle, out existing))
+                {
+                    finalHandle = existing;
+                    finalEncoded = lockedHandle;
+                    return;
+                }
+            }
+
+            byte[] generated = RandomNumberGenerator.GetBytes(PasskeyUserHandleBytes);
+            string encoded = Base64Url.EncodeToString(generated);
+            using var updateReader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                """
+                UPDATE sys_user
+                SET passkey_user_handle = @PasskeyUserHandle
+                WHERE id = @UserId
+                  AND passkey_user_handle IS NULL
+                RETURNING passkey_user_handle AS final_handle;
+                """,
+                new SugarParameter[]
+                {
+                    new("@PasskeyUserHandle", encoded),
+                    new("@UserId", user.Id)
+                });
+            if (await updateReader.ReadAsync(cancellationToken))
+            {
+                string returnedHandle = updateReader.GetString(0);
+                if (TryDecodeStoredPasskeyUserHandle(returnedHandle, out existing))
+                {
+                    finalHandle = existing;
+                    finalEncoded = returnedHandle;
+                }
+            }
+        });
+
+        if (!transaction.IsSuccess || finalHandle is null || finalEncoded is null)
+        {
+            throw new InvalidOperationException("Unable to allocate stable passkey user handle.", transaction.ErrorException);
         }
 
-        User? refreshed = await db.Queryable<User>().InSingleAsync(user.Id);
-        if (refreshed is not null && TryDecodeStoredPasskeyUserHandle(refreshed.PasskeyUserHandle, out existing))
-        {
-            user.PasskeyUserHandle = refreshed.PasskeyUserHandle;
-            return existing;
-        }
-
-        throw new InvalidOperationException("Unable to allocate stable passkey user handle.");
+        user.PasskeyUserHandle = finalEncoded;
+        return finalHandle;
     }
 
     private static bool IsUserHandleOwnerOfCredential(byte[]? userHandle, string? storedUserHandle)

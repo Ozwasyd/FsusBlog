@@ -328,6 +328,22 @@ public sealed class PasskeyServiceTests
         Assert.DoesNotContain("db.Updateable(storedCred)", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void StablePasskeyUserHandle_SourceLocksUserRowAndReturnsSingleFinalHandle()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/PasskeyService.cs");
+        int methodStart = source.IndexOf("private async Task<byte[]> GetOrCreateStablePasskeyUserHandleAsync", StringComparison.Ordinal);
+        int methodEnd = source.IndexOf("private static bool IsUserHandleOwnerOfCredential", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..methodEnd];
+
+        Assert.Contains("FOR UPDATE", method, StringComparison.Ordinal);
+        Assert.Contains("passkey_user_handle IS NULL", method, StringComparison.Ordinal);
+        Assert.Contains("RETURNING passkey_user_handle", method, StringComparison.Ordinal);
+        Assert.Contains("final_handle", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("@ObservedPasskeyUserHandle", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("passkey_user_handle = @ObservedPasskeyUserHandle", method, StringComparison.Ordinal);
+    }
+
     private static object InvokeMetadataBuilder(
         string? publicHandle,
         bool anonymousIdentityModeEnabled,

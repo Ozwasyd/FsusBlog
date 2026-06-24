@@ -32,6 +32,42 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         .GetMethod("TryUpdateAdminPasskeySignCountAsync", BindingFlags.Instance | BindingFlags.NonPublic)
         ?? throw new InvalidOperationException("TryUpdateAdminPasskeySignCountAsync should exist.");
 
+    private static readonly MethodInfo GetOrCreateStablePasskeyUserHandle = typeof(PasskeyService)
+        .GetMethod("GetOrCreateStablePasskeyUserHandleAsync", BindingFlags.Instance | BindingFlags.NonPublic)
+        ?? throw new InvalidOperationException("GetOrCreateStablePasskeyUserHandleAsync should exist.");
+
+    [Fact]
+    public async Task StablePasskeyUserHandle_ConcurrentFirstRegistrationReturnsOneFinalHandle()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(setupDb, typeof(User));
+        int accountId = await setupDb.Insertable(new User
+        {
+            PublicHandle = "writer",
+            PasskeyUserHandle = null,
+            Status = 0
+        }).ExecuteReturnIdentityAsync();
+        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
+        PasskeyService firstService = CreatePasskeyService(firstDb);
+        PasskeyService secondService = CreatePasskeyService(secondDb);
+        var firstStaleUser = new User { Id = accountId, PasskeyUserHandle = null };
+        var secondStaleUser = new User { Id = accountId, PasskeyUserHandle = null };
+        using var barrier = new Barrier(2);
+
+        byte[][] handles = await Task.WhenAll(
+                StartBarrierTaskAsync(barrier, () => InvokeGetOrCreateStablePasskeyUserHandleAsync(firstService, firstStaleUser)),
+                StartBarrierTaskAsync(barrier, () => InvokeGetOrCreateStablePasskeyUserHandleAsync(secondService, secondStaleUser)))
+            .WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.True(handles[0].AsSpan().SequenceEqual(handles[1]));
+        User stored = await setupDb.Queryable<User>().SingleAsync(item => item.Id == accountId);
+        Assert.False(string.IsNullOrWhiteSpace(stored.PasskeyUserHandle));
+        Assert.Equal(stored.PasskeyUserHandle, firstStaleUser.PasskeyUserHandle);
+        Assert.Equal(stored.PasskeyUserHandle, secondStaleUser.PasskeyUserHandle);
+    }
+
     [Fact]
     public async Task UserPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate()
     {
@@ -119,6 +155,9 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
 
     private static async Task<string?> InvokeLoadPasskeyRowVersionAsync(PasskeyService service, int id)
         => await (Task<string?>)LoadPasskeyRowVersion.Invoke(service, [id, CancellationToken.None])!;
+
+    private static async Task<byte[]> InvokeGetOrCreateStablePasskeyUserHandleAsync(PasskeyService service, User user)
+        => await (Task<byte[]>)GetOrCreateStablePasskeyUserHandle.Invoke(service, [user, CancellationToken.None])!;
 
     private static async Task<bool> InvokeTryUpdatePasskeySignCountAsync(
         PasskeyService service,
