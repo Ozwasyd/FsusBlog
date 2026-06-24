@@ -69,6 +69,42 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
     }
 
     [Fact]
+    public async Task RemoveCredentialAsync_ConcurrentDeletesKeepOnePasskeyWithoutRecovery()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(setupDb, typeof(User), typeof(PasskeyCredential));
+        int accountId = await setupDb.Insertable(new User
+        {
+            PublicHandle = "writer",
+            PasskeyEnabled = true,
+            RecoveryEnabled = false,
+            Status = 0
+        }).ExecuteReturnIdentityAsync();
+        int firstCredentialId = await InsertCredentialAsync(setupDb, accountId, "first");
+        int secondCredentialId = await InsertCredentialAsync(setupDb, accountId, "second");
+        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
+        PasskeyService firstService = CreatePasskeyService(firstDb);
+        PasskeyService secondService = CreatePasskeyService(secondDb);
+        using var barrier = new Barrier(2);
+
+        PasskeyCredentialMutationResult[] results = await Task.WhenAll(
+                StartBarrierTaskAsync(barrier, () => firstService.RemoveCredentialAsync(accountId, firstCredentialId, CancellationToken.None)),
+                StartBarrierTaskAsync(barrier, () => secondService.RemoveCredentialAsync(accountId, secondCredentialId, CancellationToken.None)))
+            .WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Single(results, static result => result.Success);
+        Assert.Single(results, static result => !result.Success && result.Message == PasskeyService.CannotRemoveLastCredentialWithoutRecovery);
+        int remainingCredentials = await setupDb.Queryable<PasskeyCredential>()
+            .CountAsync(item => item.AccountId == accountId);
+        User stored = await setupDb.Queryable<User>().SingleAsync(item => item.Id == accountId);
+        Assert.Equal(1, remainingCredentials);
+        Assert.True(stored.PasskeyEnabled);
+        Assert.False(stored.RecoveryEnabled);
+    }
+
+    [Fact]
     public async Task UserPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
@@ -152,6 +188,16 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
             Substitute.For<IJwtHelper>(),
             new ConfigurationBuilder().Build(),
             NullLogger<AdminPrincipalService>.Instance);
+
+    private static async Task<int> InsertCredentialAsync(SqlSugarClient db, int accountId, string credentialId)
+        => await db.Insertable(new PasskeyCredential
+        {
+            AccountId = accountId,
+            CredentialId = credentialId,
+            PublicKey = "public-key",
+            SignCount = 0,
+            AaGuid = Guid.Empty.ToString()
+        }).ExecuteReturnIdentityAsync();
 
     private static async Task<string?> InvokeLoadPasskeyRowVersionAsync(PasskeyService service, int id)
         => await (Task<string?>)LoadPasskeyRowVersion.Invoke(service, [id, CancellationToken.None])!;

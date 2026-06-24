@@ -298,6 +298,8 @@ public sealed class PasskeyServiceTests
         SugarIndexAttribute[] indexes = typeof(PasskeyCredential).GetCustomAttributes<SugarIndexAttribute>().ToArray();
         Assert.Contains(indexes, static index => index.IndexName == "idx_passkey_account_id");
         Assert.DoesNotContain(indexes, static index => index.IndexName == "idx_passkey_user_id");
+        Assert.True(typeof(PasskeyCredential).GetProperty(nameof(PasskeyCredential.RowVersion))
+            ?.GetCustomAttribute<SugarColumn>()?.IsIgnore);
     }
 
     [Fact]
@@ -342,6 +344,23 @@ public sealed class PasskeyServiceTests
         Assert.Contains("final_handle", method, StringComparison.Ordinal);
         Assert.DoesNotContain("@ObservedPasskeyUserHandle", method, StringComparison.Ordinal);
         Assert.DoesNotContain("passkey_user_handle = @ObservedPasskeyUserHandle", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RemoveCredentialAsync_SourceSerializesLastCredentialProtection()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/PasskeyService.cs");
+        int methodStart = source.IndexOf("public async Task<PasskeyCredentialMutationResult> RemoveCredentialAsync", StringComparison.Ordinal);
+        int methodEnd = source.IndexOf("public async Task<bool> RenameCredentialAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..methodEnd];
+
+        Assert.Contains("UseTranAsync", method, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", method, StringComparison.Ordinal);
+        Assert.Contains("TryDeletePasskeyCredentialAsync", method, StringComparison.Ordinal);
+        Assert.Contains("SELECT COUNT(*)", source, StringComparison.Ordinal);
+        Assert.Contains(">= 2", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(".CountAsync()", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("db.Deleteable<PasskeyCredential>()", method, StringComparison.Ordinal);
     }
 
     private static object InvokeMetadataBuilder(

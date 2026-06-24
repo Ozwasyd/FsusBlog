@@ -710,51 +710,63 @@ public sealed class PasskeyService(
     public async Task<PasskeyCredentialMutationResult> RemoveCredentialAsync(int accountId, int credId, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var credential = await db.Queryable<PasskeyCredential>()
-            .Where(c => c.Id == credId && c.AccountId == accountId)
-            .FirstAsync();
-        if (credential is null)
+        PasskeyCredentialMutationResult result = PasskeyCredentialMutationResult.Missing("通行密钥不存在");
+        int remaining = 0;
+        var transaction = await db.Ado.UseTranAsync(async () =>
         {
-            return PasskeyCredentialMutationResult.Missing("通行密钥不存在");
-        }
-
-        if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
-        {
-            User? user = await db.Queryable<User>().InSingleAsync(accountId);
+            User? user = await LockPasskeyAccountForUpdateAsync(accountId, cancellationToken);
             if (user is null || user.DeletedAt.HasValue || user.Status == 2)
             {
-                return PasskeyCredentialMutationResult.Missing("用户不存在");
+                result = PasskeyCredentialMutationResult.Missing("用户不存在");
+                return;
             }
 
-            int usableCredentialCount = await db.Queryable<PasskeyCredential>()
-                .Where(c => c.AccountId == accountId)
-                .CountAsync();
-            if (usableCredentialCount <= 1 && !user.RecoveryEnabled)
+            await db.Ado.ExecuteCommandAsync(
+                """
+                SELECT id
+                FROM passkey_credential
+                WHERE account_id = @accountId
+                ORDER BY id
+                FOR UPDATE;
+                """,
+                new SugarParameter[] { new("@accountId", accountId) });
+
+            var credential = await db.Queryable<PasskeyCredential>()
+                .Where(c => c.Id == credId && c.AccountId == accountId)
+                .FirstAsync(cancellationToken);
+            if (credential is null)
             {
-                return PasskeyCredentialMutationResult.Rejected(CannotRemoveLastCredentialWithoutRecovery);
+                result = PasskeyCredentialMutationResult.Missing("通行密钥不存在");
+                return;
             }
-        }
 
-        int deleted = await db.Deleteable<PasskeyCredential>()
-            .Where(c => c.Id == credId && c.AccountId == accountId)
-            .ExecuteCommandAsync();
-        if (deleted <= 0)
+            bool recoveryEnabled = user.RecoveryEnabled;
+            int deleted = await TryDeletePasskeyCredentialAsync(accountId, credId, recoveryEnabled, cancellationToken);
+            if (deleted <= 0)
+            {
+                result = PasskeyCredentialMutationResult.Rejected(CannotRemoveLastCredentialWithoutRecovery);
+                return;
+            }
+
+            remaining = await db.Queryable<PasskeyCredential>()
+                .Where(c => c.AccountId == accountId)
+                .CountAsync(cancellationToken);
+            if (remaining == 0)
+            {
+                await db.Updateable<User>()
+                    .Where(u => u.Id == accountId)
+                    .SetColumns(u => u.PasskeyEnabled == false)
+                    .ExecuteCommandAsync(cancellationToken);
+            }
+
+            result = PasskeyCredentialMutationResult.Succeeded("通行密钥已删除");
+        });
+        if (!transaction.IsSuccess)
         {
-            return PasskeyCredentialMutationResult.Missing("通行密钥不存在");
+            throw new InvalidOperationException("passkey_credential_remove_failed", transaction.ErrorException);
         }
 
-        int remaining = await db.Queryable<PasskeyCredential>()
-            .Where(c => c.AccountId == accountId)
-            .CountAsync();
-        if (remaining == 0)
-        {
-            await db.Updateable<User>()
-                .Where(u => u.Id == accountId)
-                .SetColumns(u => u.PasskeyEnabled == false)
-                .ExecuteCommandAsync();
-        }
-
-        return PasskeyCredentialMutationResult.Succeeded("通行密钥已删除");
+        return result;
     }
 
     public async Task<bool> RenameCredentialAsync(int accountId, int credId, string name, CancellationToken cancellationToken = default)
@@ -768,6 +780,56 @@ public sealed class PasskeyService(
             .SetColumns(c => c.DeviceFriendlyName == trimmed)
             .ExecuteCommandAsync();
         return updated > 0;
+    }
+
+    private async Task<User?> LockPasskeyAccountForUpdateAsync(int accountId, CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT id, deleted_at, status, recovery_enabled
+            FROM sys_user
+            WHERE id = @accountId
+            FOR UPDATE;
+            """,
+            new SugarParameter[] { new("@accountId", accountId) });
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        return new User
+        {
+            Id = reader.GetInt32(0),
+            DeletedAt = reader.IsDBNull(1) ? null : reader.GetDateTime(1),
+            Status = reader.GetInt32(2),
+            RecoveryEnabled = reader.GetBoolean(3)
+        };
+    }
+
+    private async Task<int> TryDeletePasskeyCredentialAsync(
+        int accountId,
+        int credId,
+        bool recoveryEnabled,
+        CancellationToken cancellationToken)
+    {
+        int deleted = await db.Ado.ExecuteCommandAsync(
+            """
+            DELETE FROM passkey_credential
+            WHERE id = @credId
+              AND account_id = @accountId
+              AND (
+                  @recoveryEnabled = true
+                  OR (SELECT COUNT(*) FROM passkey_credential WHERE account_id = @accountId) >= 2
+              );
+            """,
+            new SugarParameter[]
+            {
+                new("@credId", credId),
+                new("@accountId", accountId),
+                new("@recoveryEnabled", recoveryEnabled)
+            });
+        cancellationToken.ThrowIfCancellationRequested();
+        return deleted;
     }
 
     private async Task<string?> LoadPasskeyRowVersionAsync(int id, CancellationToken cancellationToken)

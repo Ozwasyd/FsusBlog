@@ -26,6 +26,9 @@ public class PasskeyCredential
     [SugarColumn(DefaultValue = "0")]
     public long SignCount { get; set; }
 
+    [SugarColumn(IsIgnore = true)]
+    public string? RowVersion { get; set; }
+
     /// <summary>用户自定义设备名称</summary>
     [SugarColumn(Length = 64, IsNullable = true)]
     public string? DeviceFriendlyName { get; set; }
