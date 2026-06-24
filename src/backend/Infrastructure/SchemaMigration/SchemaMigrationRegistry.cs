@@ -41,6 +41,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAnonymousCredentialRootLifecycleMigration(),
         BuildSecurityRiskEventPersistenceMigration(),
         BuildSecurityPolicySnapshotMigration(),
+        BuildSecurityPolicyVersionCounterMigration(),
         BuildSecurityChallengePersistenceMigration(),
         BuildCommentActorPreCodeFirstMigration(),
         BuildCommentActorMigration(),
@@ -1665,6 +1666,11 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         rollback_of_version bigint NULL,
                         reason varchar(128) NULL
                     );
+                    CREATE TABLE IF NOT EXISTS security_policy_version_counter (
+                        policy_id varchar(64) PRIMARY KEY,
+                        last_version bigint NOT NULL DEFAULT 0,
+                        updated_at_utc timestamp NOT NULL DEFAULT now()
+                    );
                     CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_security_policy_snapshot_policy_version
                         ON security_policy_snapshot(policy_id, version);
                     CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_security_policy_snapshot_active
@@ -1672,6 +1678,25 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         WHERE activated_at_utc IS NOT NULL AND revoked_at_utc IS NULL;
                     CREATE INDEX IF NOT EXISTS idx_security_policy_snapshot_lkg
                         ON security_policy_snapshot(policy_id, is_last_known_good, version DESC);
+                    """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildSecurityPolicyVersionCounterMigration()
+        => new SchemaMigrationDescriptor(
+            "20260625-post-security-policy-version-counter",
+            "Create per-policy locked version counters for security policy snapshots.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "security_policy_version_counter",
+                    """
+                    CREATE TABLE IF NOT EXISTS security_policy_version_counter (
+                        policy_id varchar(64) PRIMARY KEY,
+                        last_version bigint NOT NULL DEFAULT 0,
+                        updated_at_utc timestamp NOT NULL DEFAULT now()
+                    );
                     """)
             ]);
 

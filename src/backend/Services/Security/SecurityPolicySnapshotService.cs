@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Text.Json;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
@@ -216,11 +217,94 @@ public sealed class SecurityPolicySnapshotService(
 
     private async Task<long> ResolveNextVersionAsync(string policyId, CancellationToken cancellationToken)
     {
-        SecurityPolicySnapshot? latest = await db.Queryable<SecurityPolicySnapshot>()
+        await EnsureVersionCounterAsync(policyId, cancellationToken);
+
+        long lastVersion;
+        using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT last_version
+            FROM security_policy_version_counter
+            WHERE policy_id = @policyId
+            FOR UPDATE;
+            """,
+            new SugarParameter[] { new("@policyId", policyId) }))
+        {
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                throw new InvalidOperationException("security_policy_version_counter_missing");
+            }
+
+            lastVersion = reader.GetInt64(0);
+        }
+
+        long nextVersion = checked(lastVersion + 1);
+        int updated = await db.Updateable<SecurityPolicyVersionCounter>()
+            .SetColumns(item => item.LastVersion == nextVersion)
+            .SetColumns(item => item.UpdatedAtUtc == timeProvider.GetUtcNow().UtcDateTime)
+            .Where(item => item.PolicyId == policyId && item.LastVersion == lastVersion)
+            .ExecuteCommandAsync(cancellationToken);
+        if (updated != 1)
+        {
+            throw new InvalidOperationException("security_policy_version_counter_update_conflict");
+        }
+
+        return nextVersion;
+    }
+
+    private async Task EnsureVersionCounterAsync(string policyId, CancellationToken cancellationToken)
+    {
+        DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
+        if (db.CurrentConnectionConfig.DbType == DbType.PostgreSQL)
+        {
+            await db.Ado.ExecuteCommandAsync(
+                """
+                INSERT INTO security_policy_version_counter(policy_id, last_version, updated_at_utc)
+                SELECT @policyId, COALESCE(MAX(version), 0), @updatedAtUtc
+                FROM security_policy_snapshot
+                WHERE policy_id = @policyId
+                ON CONFLICT (policy_id) DO NOTHING;
+                """,
+                new SugarParameter[]
+                {
+                    new("@policyId", policyId),
+                    new("@updatedAtUtc", utcNow)
+                });
+            return;
+        }
+
+        if (db.CurrentConnectionConfig.DbType == DbType.MySql)
+        {
+            await db.Ado.ExecuteCommandAsync(
+                """
+                INSERT IGNORE INTO security_policy_version_counter(policy_id, last_version, updated_at_utc)
+                SELECT @policyId, COALESCE(MAX(version), 0), @updatedAtUtc
+                FROM security_policy_snapshot
+                WHERE policy_id = @policyId;
+                """,
+                new SugarParameter[]
+                {
+                    new("@policyId", policyId),
+                    new("@updatedAtUtc", utcNow)
+                });
+            return;
+        }
+
+        bool exists = await db.Queryable<SecurityPolicyVersionCounter>()
+            .AnyAsync(item => item.PolicyId == policyId, cancellationToken);
+        if (exists)
+        {
+            return;
+        }
+
+        long lastVersion = await db.Queryable<SecurityPolicySnapshot>()
             .Where(item => item.PolicyId == policyId)
-            .OrderBy(item => item.Version, OrderByType.Desc)
-            .FirstAsync(cancellationToken);
-        return (latest?.Version ?? 0) + 1;
+            .MaxAsync(item => item.Version);
+        await db.Insertable(new SecurityPolicyVersionCounter
+        {
+            PolicyId = policyId,
+            LastVersion = Math.Max(0, lastVersion),
+            UpdatedAtUtc = utcNow
+        }).ExecuteCommandAsync(cancellationToken);
     }
 
     private async Task RecordAuditAsync(

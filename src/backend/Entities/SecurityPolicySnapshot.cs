@@ -43,3 +43,16 @@ public sealed class SecurityPolicySnapshot
     [SugarColumn(ColumnName = "reason", Length = 128, IsNullable = true)]
     public string? Reason { get; set; }
 }
+
+[SugarTable("security_policy_version_counter")]
+public sealed class SecurityPolicyVersionCounter
+{
+    [SugarColumn(IsPrimaryKey = true, ColumnName = "policy_id", Length = 64)]
+    public string PolicyId { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "last_version")]
+    public long LastVersion { get; set; }
+
+    [SugarColumn(ColumnName = "updated_at_utc")]
+    public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+}

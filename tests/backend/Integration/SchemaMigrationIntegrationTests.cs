@@ -220,6 +220,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         await RunMigrationsAsync(connectionString);
 
         Assert.True(await fixture.TableExistsAsync(connectionString, "security_policy_snapshot"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "security_policy_version_counter"));
         foreach (string column in new[]
         {
             "policy_id",
@@ -243,6 +244,12 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_security_policy_snapshot_policy_version"));
         Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_security_policy_snapshot_active"));
         Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_security_policy_snapshot_lkg"));
+        foreach (string column in new[] { "policy_id", "last_version", "updated_at_utc" })
+        {
+            Assert.True(
+                await fixture.ColumnExistsAsync(connectionString, "security_policy_version_counter", column),
+                $"security_policy_version_counter.{column} was not created");
+        }
     }
 
     [Fact]

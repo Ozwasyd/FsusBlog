@@ -33,6 +33,9 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         Assert.Contains("created_by_admin_id bigint NULL", fingerprint, StringComparison.Ordinal);
         Assert.Contains("activated_at_utc timestamp NULL", fingerprint, StringComparison.Ordinal);
         Assert.Contains("revoked_at_utc timestamp NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS security_policy_version_counter", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("policy_id varchar(64) PRIMARY KEY", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("last_version bigint NOT NULL DEFAULT 0", fingerprint, StringComparison.Ordinal);
         Assert.Contains("unique_idx_security_policy_snapshot_policy_version", fingerprint, StringComparison.Ordinal);
         Assert.Contains("unique_idx_security_policy_snapshot_active", fingerprint, StringComparison.Ordinal);
     }
@@ -69,6 +72,66 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
             Assert.NotNull(rows[0].RevokedAtUtc);
             Assert.Null(rows[1].RevokedAtUtc);
             Assert.NotEqual(rows[0].Document, rows[1].Document);
+    }
+
+    [Fact]
+    public async Task ActivateAsync_ConcurrentSamePolicyIdProducesStrictlyMonotonicVersions()
+    {
+        string connectionString = await CreateConnectionStringAsync();
+        using SqlSugarClient setupDb = CreateDb(connectionString);
+        CreateTable(setupDb);
+        using SqlSugarClient firstDb = CreateDb(connectionString);
+        using SqlSugarClient secondDb = CreateDb(connectionString);
+        var firstService = new SecurityPolicySnapshotService(firstDb, new StaticTimeProvider(BaselineNow));
+        var secondService = new SecurityPolicySnapshotService(secondDb, new StaticTimeProvider(BaselineNow.AddSeconds(1)));
+        using var barrier = new Barrier(2);
+
+        SecurityPolicySnapshotRecord[] records = await Task.WhenAll(
+                StartBarrierTaskAsync(
+                    barrier,
+                    () => firstService.ActivateAsync(
+                        SecurityPolicyIds.AntiCrawler,
+                        SecuritySystemModes.Observe,
+                        CreateAntiCrawlerSnapshot("first-concurrent", SecuritySystemModes.Observe),
+                        createdByAdminId: 7,
+                        reason: "first",
+                        CancellationToken.None)),
+                StartBarrierTaskAsync(
+                    barrier,
+                    () => secondService.ActivateAsync(
+                        SecurityPolicyIds.AntiCrawler,
+                        SecuritySystemModes.Enforce,
+                        CreateAntiCrawlerSnapshot("second-concurrent", SecuritySystemModes.Enforce),
+                        createdByAdminId: 8,
+                        reason: "second",
+                        CancellationToken.None)))
+            .WaitAsync(TimeSpan.FromSeconds(30));
+
+        long[] returnedVersions = records.Select(static item => item.Version).Order().ToArray();
+        Assert.Equal([1, 2], returnedVersions);
+
+        List<long> storedVersions = await setupDb.Queryable<SecurityPolicySnapshot>()
+            .Where(static item => item.PolicyId == SecurityPolicyIds.AntiCrawler)
+            .OrderBy(static item => item.Version)
+            .Select(static item => item.Version)
+            .ToListAsync();
+        Assert.Equal([1, 2], storedVersions);
+        Assert.Equal(1, storedVersions.Count(static version => version == 1));
+        Assert.Equal(1, storedVersions.Count(static version => version == 2));
+    }
+
+    [Fact]
+    public void ResolveNextVersionAsync_SourceUsesCounterRowLockInsteadOfSnapshotMax()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/SecurityPolicySnapshotService.cs");
+        int methodStart = source.IndexOf("private async Task<long> ResolveNextVersionAsync", StringComparison.Ordinal);
+        int methodEnd = source.IndexOf("private async Task RecordAuditAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..methodEnd];
+
+        Assert.Contains("SecurityPolicyVersionCounter", source, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("OrderBy(item => item.Version, OrderByType.Desc)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("latest?.Version", method, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -241,7 +304,23 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         => PostgresSqlSugarTestClient.Create(connectionString);
 
     private static void CreateTable(SqlSugarClient db)
-        => PostgresSqlSugarTestClient.InitTables(db, typeof(SecurityPolicySnapshot));
+        => PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(SecurityPolicySnapshot),
+            typeof(SecurityPolicyVersionCounter));
+
+    private static Task<T> StartBarrierTaskAsync<T>(Barrier barrier, Func<Task<T>> action)
+        => Task.Factory.StartNew(
+            async () =>
+            {
+                Assert.True(
+                    barrier.SignalAndWait(TimeSpan.FromSeconds(30)),
+                    "Timed out waiting for concurrent security policy writers.");
+                return await action();
+            },
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default).Unwrap();
 
     private sealed class CapturingAuditEventService : IAuditEventService
     {
