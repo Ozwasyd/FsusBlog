@@ -1015,22 +1015,7 @@ public partial class CommentService(
 
     private async Task<bool> DeleteCommentInternalAsync(long id, int currentUserId, bool isAdmin, string reason)
     {
-        var row = await db.Queryable<Comment, Article>((c, a) => c.ArticleId == a.Id)
-            .Where((c, a) => c.Id == id)
-            .Select((c, a) => new
-            {
-                c.Id,
-                c.UserId,
-                c.ArticleId,
-                c.ParentId,
-                c.RootId,
-                c.Content,
-                c.IsDeleted,
-                c.AuthorMode,
-                ArticleTitle = a.Title
-            })
-            .FirstAsync();
-
+        DeleteCommentRow? row = await LoadDeleteCommentRowAsync(id);
         if (row is null)
         {
             return false;
@@ -1042,26 +1027,17 @@ public partial class CommentService(
             return false;
         }
 
-        if (!row.IsDeleted)
+        if (row.IsDeleted)
         {
-            DateTime deletedAt = DateTime.UtcNow;
-            string? normalizedReason = NormalizeNullable(reason, 256);
-            int affected = await db.Updateable<Comment>()
-                .SetColumns(c => new Comment
-                {
-                    IsDeleted = true,
-                    DeleteReason = reason,
-                    DeleteTime = deletedAt,
-                    ModerationStatus = CommentModerationStatus.Hidden,
-                    ModerationReason = normalizedReason
-                })
-                .Where(c => c.Id == id)
-                .ExecuteCommandAsync();
+            return false;
+        }
 
-            if (affected <= 0)
-            {
-                return false;
-            }
+        DateTime deletedAt = DateTime.UtcNow;
+        string? normalizedReason = NormalizeNullable(reason, 256);
+        bool deleted = await TrySoftDeleteCommentAsync(row.Id, row.RowVersion, reason, normalizedReason, deletedAt);
+        if (!deleted)
+        {
+            return false;
         }
 
         await cacheInvalidationDispatcher.InvalidateCommentMutationAsync(
@@ -1087,6 +1063,83 @@ public partial class CommentService(
 
         return true;
     }
+
+    private async Task<DeleteCommentRow?> LoadDeleteCommentRowAsync(long id)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT c.id,
+                   c.user_id,
+                   c.article_id,
+                   c.parent_id,
+                   c.root_id,
+                   c.content,
+                   c.is_deleted,
+                   c.author_mode,
+                   a.title,
+                   c.xmin::text AS row_version
+            FROM comment c
+            INNER JOIN article a ON c.article_id = a.id
+            WHERE c.id = @CommentId;
+            """,
+            new SugarParameter("@CommentId", id));
+        if (!await reader.ReadAsync())
+        {
+            return null;
+        }
+
+        return new DeleteCommentRow(
+            reader.GetInt64(0),
+            reader.IsDBNull(1) ? null : reader.GetInt32(1),
+            reader.GetInt32(2),
+            reader.IsDBNull(3) ? null : reader.GetInt64(3),
+            reader.IsDBNull(4) ? null : reader.GetInt64(4),
+            reader.GetString(5),
+            reader.GetBoolean(6),
+            reader.GetString(7),
+            reader.IsDBNull(8) ? null : reader.GetString(8),
+            reader.GetString(9));
+    }
+
+    private async Task<bool> TrySoftDeleteCommentAsync(
+        long id,
+        string rowVersion,
+        string reason,
+        string? normalizedReason,
+        DateTime deletedAt)
+    {
+        int affected = await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE comment
+            SET is_deleted = true,
+                delete_reason = @Reason,
+                delete_time = CAST(@DeletedAt AS timestamp),
+                moderation_status = @ModerationStatus,
+                moderation_reason = @ModerationReason
+            WHERE id = @CommentId
+              AND is_deleted = false
+              AND xmin::text = @RowVersion;
+            """,
+            new SugarParameter("@CommentId", id),
+            new SugarParameter("@RowVersion", rowVersion),
+            new SugarParameter("@Reason", reason),
+            new SugarParameter("@DeletedAt", deletedAt),
+            new SugarParameter("@ModerationStatus", (int)CommentModerationStatus.Hidden),
+            new SugarParameter("@ModerationReason", (object?)normalizedReason ?? DBNull.Value));
+        return affected > 0;
+    }
+
+    private sealed record DeleteCommentRow(
+        long Id,
+        int? UserId,
+        int ArticleId,
+        long? ParentId,
+        long? RootId,
+        string Content,
+        bool IsDeleted,
+        string AuthorMode,
+        string? ArticleTitle,
+        string RowVersion);
 
     private async Task<List<ThreadRootRow>> QueryThreadRootsAsync(
         int articleId,

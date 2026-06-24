@@ -369,6 +369,62 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
+    public async Task DeleteCommentAsync_RepeatedDeleteDoesNotOverwriteReasonOrRepeatSideEffects()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedApprovedComment(db, commentId: 101, articleId: 42, userId: 7);
+        var dispatcher = new RecordingCacheInvalidationDispatcher();
+        IMessageRealtimePublisher realtime = Substitute.For<IMessageRealtimePublisher>();
+        CommentService service = CreateService(db, new RecordingTicketService(), dispatcher: dispatcher, realtime: realtime);
+
+        bool first = await service.DeleteCommentAsync(101, currentUserId: 7, isAdmin: false, reason: "first-delete");
+        bool second = await service.DeleteCommentAsync(101, currentUserId: 7, isAdmin: false, reason: "second-delete");
+
+        Assert.True(first);
+        Assert.False(second);
+        Comment comment = db.Queryable<Comment>().Single(static item => item.Id == 101);
+        Assert.True(comment.IsDeleted);
+        Assert.Equal("first-delete", comment.DeleteReason);
+        Assert.Equal(CommentModerationStatus.Hidden, comment.ModerationStatus);
+        Assert.Single(dispatcher.CommentScopes);
+        await realtime.Received(1).PushCommentRemoveAsync(42, 101, 101, null);
+    }
+
+    [Fact]
+    public void DeleteCommentAsync_SourceUsesRowVersionGuardBeforeSideEffects()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
+        string entity = BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/Comment.cs");
+        string deleteBlock = ExtractBetween(
+            source,
+            "private async Task<bool> DeleteCommentInternalAsync",
+            "private async Task<DeleteCommentRow?> LoadDeleteCommentRowAsync");
+        string loadBlock = ExtractBetween(
+            source,
+            "private async Task<DeleteCommentRow?> LoadDeleteCommentRowAsync",
+            "private async Task<bool> TrySoftDeleteCommentAsync");
+        string updateBlock = ExtractBetween(
+            source,
+            "private async Task<bool> TrySoftDeleteCommentAsync",
+            "private async Task<List<ThreadRootRow>> QueryThreadRootsAsync");
+
+        Assert.Contains("public string? RowVersion", entity, StringComparison.Ordinal);
+        Assert.Contains("LoadDeleteCommentRowAsync(id)", deleteBlock, StringComparison.Ordinal);
+        Assert.Contains("c.xmin::text AS row_version", loadBlock, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("row.IsDeleted", deleteBlock, StringComparison.Ordinal);
+        Assert.Contains("TrySoftDeleteCommentAsync(row.Id, row.RowVersion", deleteBlock, StringComparison.Ordinal);
+        Assert.Contains("if (!deleted)", deleteBlock, StringComparison.Ordinal);
+        Assert.True(
+            deleteBlock.IndexOf("if (!deleted)", StringComparison.Ordinal) <
+            deleteBlock.IndexOf("InvalidateCommentMutationAsync", StringComparison.Ordinal));
+        Assert.Contains("AND is_deleted = false", updateBlock, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND xmin::text = @RowVersion", updateBlock, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Updateable<Comment>()", deleteBlock, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task AnonymousCommentCreateEndpoint_DecodesFrameAndReturnsEmptySuccess()
     {
         var aeds = new AedsEncoder();
@@ -502,14 +558,15 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         SqlSugarClient db,
         RecordingTicketService ticketService,
         ICommentAnonymousNullifierService? nullifierService = null,
-        RecordingCacheInvalidationDispatcher? dispatcher = null)
+        RecordingCacheInvalidationDispatcher? dispatcher = null,
+        IMessageRealtimePublisher? realtime = null)
     {
         nullifierService ??= new RecordingNullifierService();
         dispatcher ??= new RecordingCacheInvalidationDispatcher();
         return new CommentService(
             db,
             NullLogger<CommentService>.Instance,
-            Substitute.For<IMessageRealtimePublisher>(),
+            realtime ?? Substitute.For<IMessageRealtimePublisher>(),
             Substitute.For<IMessageCommandService>(),
             dispatcher,
             new RegionLegalModerationService(),
