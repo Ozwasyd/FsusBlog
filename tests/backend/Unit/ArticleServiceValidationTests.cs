@@ -280,6 +280,22 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
+    public void LoadPublicArticleListPageByKeysetAsync_SourceGuardsEmptyPageBeforeCursorAdvance()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        int methodStart = source.IndexOf("private async Task<ArticleListPageReadModel> LoadPublicArticleListPageByKeysetAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("private static string BuildArticleListKeysetPageSql", StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        Assert.Contains("while (currentPage <= page)", method, StringComparison.Ordinal);
+        int emptyGuard = method.IndexOf("if (currentItems.Count == 0)", StringComparison.Ordinal);
+        int lastAccess = method.IndexOf("currentItems[^1]", StringComparison.Ordinal);
+        Assert.True(emptyGuard >= 0);
+        Assert.True(lastAccess > emptyGuard);
+        Assert.Contains("currentPage += 1", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ArticleEntity_DefinesPublicListStatusTimeIndexes()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Entities/Article.cs"));

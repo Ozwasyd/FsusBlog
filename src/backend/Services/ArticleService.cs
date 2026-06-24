@@ -1354,7 +1354,8 @@ public class ArticleService(
         DateTime? cursorTime = null;
         int? cursorId = null;
         List<ArticleListItemReadModel> pageItems = [];
-        for (int currentPage = 1; currentPage <= page; currentPage++)
+        int currentPage = 1;
+        while (currentPage <= page)
         {
             List<SugarParameter> pageParameters = CloneArticleListParameters(baseParameters);
             string pageWhereSql = whereSql;
@@ -1378,6 +1379,12 @@ public class ArticleService(
                 break;
             }
 
+            if (currentItems.Count == 0)
+            {
+                pageItems = [];
+                break;
+            }
+
             if (currentItems.Count < size)
             {
                 pageItems = [];
@@ -1387,6 +1394,7 @@ public class ArticleService(
             ArticleListItemReadModel last = currentItems[^1];
             cursorTime = last.CreateTime;
             cursorId = last.Id;
+            currentPage += 1;
         }
 
         await AttachArticleListTagsAsync(pageItems, cancellationToken);
