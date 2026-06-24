@@ -22,10 +22,7 @@ public class CrawlerUpdateWorker(
     private const int MaxCidrsPerProvider = 8192;
     private static readonly Uri DefaultGoogleRangeUrl = new("https://developers.google.com/static/search/apis/ipranges/googlebot.json");
     private static readonly Uri DefaultBingRangeUrl = new("https://www.bing.com/toolbox/bingbot.json");
-    private DateTimeOffset? _nextSyncAt;
-    private DateTimeOffset? _lastStartedAt;
-    private DateTimeOffset? _lastFinishedAt;
-    private volatile string _lastOutcome = "not_started";
+    private CrawlerUpdateRuntimeState _runtimeState = CrawlerUpdateRuntimeState.Initial;
     private int _running;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -65,16 +62,17 @@ public class CrawlerUpdateWorker(
         var detector = scope.ServiceProvider.GetRequiredService<CrawlerDetectorService>();
         CrawlerRangeStatus status = detector.GetRangeStatus();
         AntiCrawlerPolicyOptions options = _policyProvider.Current.Options;
+        CrawlerUpdateRuntimeState runtimeState = Volatile.Read(ref _runtimeState);
         return new CrawlerRangesAdminStatus(
             options.CidrAutoUpdateEnabled,
             options.CidrUpdateIntervalMinutes,
             options.CidrMinUpdateIntervalMinutes,
             options.CidrInitialDelaySeconds,
-            _nextSyncAt,
-            _lastStartedAt,
-            _lastFinishedAt,
-            _lastOutcome,
-            Volatile.Read(ref _running) == 1,
+            runtimeState.NextSyncAt,
+            runtimeState.LastStartedAt,
+            runtimeState.LastFinishedAt,
+            runtimeState.LastOutcome,
+            runtimeState.Running,
             status.GoogleRanges,
             status.BingRanges,
             status.LastSyncAt,
@@ -93,25 +91,47 @@ public class CrawlerUpdateWorker(
             return new CrawlerRangeSyncResponse(GetStatus(), "already_running", DateTimeOffset.UtcNow);
         }
 
-        _lastStartedAt = DateTimeOffset.UtcNow;
-        _lastOutcome = "running";
+        DateTimeOffset startedAt = DateTimeOffset.UtcNow;
+        DateTimeOffset? finishedAt = null;
+        string? finalOutcome = null;
+        PublishRuntimeState(state => state with
+        {
+            LastStartedAt = startedAt,
+            LastOutcome = "running",
+            Running = true
+        });
         try
         {
             CrawlerRangeStatus status = await SynchronizeCoreAsync(token);
-            _lastFinishedAt = DateTimeOffset.UtcNow;
-            _lastOutcome = string.IsNullOrWhiteSpace(status.LastError) ? "success" : "degraded";
-            return new CrawlerRangeSyncResponse(GetStatus(), _lastOutcome, _lastFinishedAt.Value);
+            finishedAt = DateTimeOffset.UtcNow;
+            finalOutcome = string.IsNullOrWhiteSpace(status.LastError) ? "success" : "degraded";
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !token.IsCancellationRequested)
         {
-            _lastFinishedAt = DateTimeOffset.UtcNow;
-            _lastOutcome = ex.GetType().Name;
+            finishedAt = DateTimeOffset.UtcNow;
+            finalOutcome = ex.GetType().Name;
             throw;
         }
         finally
         {
+            if (finishedAt is { } completedAt && finalOutcome is not null)
+            {
+                PublishRuntimeState(state => state with
+                {
+                    LastFinishedAt = completedAt,
+                    LastOutcome = finalOutcome,
+                    Running = false
+                });
+            }
+            else
+            {
+                PublishRuntimeState(state => state with { Running = false });
+            }
+
             Volatile.Write(ref _running, 0);
         }
+
+        return new CrawlerRangeSyncResponse(GetStatus(), finalOutcome!, finishedAt!.Value);
     }
 
     private async Task<CrawlerRangeStatus> SynchronizeCoreAsync(CancellationToken token)
@@ -174,15 +194,15 @@ public class CrawlerUpdateWorker(
             AntiCrawlerPolicyOptions options = _policyProvider.Current.Options;
             if (!options.CidrAutoUpdateEnabled)
             {
-                _nextSyncAt = null;
+                PublishRuntimeState(state => state with { NextSyncAt = null });
                 await Task.Delay(TimeSpan.FromSeconds(30), token);
                 continue;
             }
 
             TimeSpan interval = TimeSpan.FromMinutes(Math.Max(options.CidrUpdateIntervalMinutes, options.CidrMinUpdateIntervalMinutes));
-            DateTimeOffset anchor = _lastFinishedAt ?? DateTimeOffset.UtcNow;
+            DateTimeOffset anchor = Volatile.Read(ref _runtimeState).LastFinishedAt ?? DateTimeOffset.UtcNow;
             DateTimeOffset next = anchor.Add(interval);
-            _nextSyncAt = next;
+            PublishRuntimeState(state => state with { NextSyncAt = next });
             TimeSpan remaining = next - DateTimeOffset.UtcNow;
             if (remaining <= TimeSpan.Zero)
             {
@@ -190,6 +210,19 @@ public class CrawlerUpdateWorker(
             }
 
             await Task.Delay(remaining < TimeSpan.FromSeconds(30) ? remaining : TimeSpan.FromSeconds(30), token);
+        }
+    }
+
+    private void PublishRuntimeState(Func<CrawlerUpdateRuntimeState, CrawlerUpdateRuntimeState> update)
+    {
+        while (true)
+        {
+            CrawlerUpdateRuntimeState current = Volatile.Read(ref _runtimeState);
+            CrawlerUpdateRuntimeState next = update(current);
+            if (ReferenceEquals(Interlocked.CompareExchange(ref _runtimeState, next, current), current))
+            {
+                return;
+            }
         }
     }
 
@@ -395,4 +428,14 @@ public class CrawlerUpdateWorker(
     private sealed record RangeSelection(List<string> Ranges, string Source);
 
     private sealed record CrawlerRangeSnapshot(List<string> Google, List<string> Bing, DateTimeOffset SavedAt);
+
+    private sealed record CrawlerUpdateRuntimeState(
+        DateTimeOffset? NextSyncAt,
+        DateTimeOffset? LastStartedAt,
+        DateTimeOffset? LastFinishedAt,
+        string LastOutcome,
+        bool Running)
+    {
+        public static readonly CrawlerUpdateRuntimeState Initial = new(null, null, null, "not_started", false);
+    }
 }

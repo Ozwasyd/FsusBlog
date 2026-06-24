@@ -126,6 +126,33 @@ public sealed class AntiCrawlerSecurityContractTests
         }
     }
 
+    [Fact]
+    public void CrawlerRanges_SourceUsesAtomicRuntimeStateForStatus()
+    {
+        string worker = Read("src/backend/Services/Background/CrawlerUpdateWorker.cs");
+
+        Assert.Contains("CrawlerUpdateRuntimeState", worker, StringComparison.Ordinal);
+        Assert.Contains("Volatile.Read(ref _runtimeState)", worker, StringComparison.Ordinal);
+        Assert.Contains("PublishRuntimeState", worker, StringComparison.Ordinal);
+        Assert.DoesNotContain("DateTimeOffset? _nextSyncAt", worker, StringComparison.Ordinal);
+        Assert.DoesNotContain("DateTimeOffset? _lastStartedAt", worker, StringComparison.Ordinal);
+        Assert.DoesNotContain("DateTimeOffset? _lastFinishedAt", worker, StringComparison.Ordinal);
+        Assert.DoesNotContain("volatile string _lastOutcome", worker, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CrawlerRanges_ExceptionPathPublishesFinishedStateBeforeClearingRunning()
+    {
+        string worker = Read("src/backend/Services/Background/CrawlerUpdateWorker.cs");
+        string syncMethod = Slice(worker, "public async Task<CrawlerRangeSyncResponse> SynchronizeOnceAsync", "    private async Task<CrawlerRangeStatus> SynchronizeCoreAsync");
+        string finallyBlock = Slice(syncMethod, "finally", "        return new CrawlerRangeSyncResponse");
+
+        Assert.Contains("finalOutcome = ex.GetType().Name", syncMethod, StringComparison.Ordinal);
+        Assert.Contains("PublishRuntimeState", finallyBlock, StringComparison.Ordinal);
+        Assert.Contains("Running = false", finallyBlock, StringComparison.Ordinal);
+        Assert.Contains("Volatile.Write(ref _running, 0)", finallyBlock, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("http://developers.google.com/static/search/apis/ipranges/googlebot.json")]
     [InlineData("https://internal-admin/api/secrets")]
@@ -365,6 +392,15 @@ public sealed class AntiCrawlerSecurityContractTests
 
     private static string Read(string relativePath)
         => File.ReadAllText(Path.Combine(RepoRoot, relativePath));
+
+    private static string Slice(string source, string startMarker, string endMarker)
+    {
+        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing start marker: {startMarker}");
+        int end = source.IndexOf(endMarker, start + startMarker.Length, StringComparison.Ordinal);
+        Assert.True(end > start, $"Missing end marker: {endMarker}");
+        return source[start..end];
+    }
 
     private static string ExtractRouteBlock(string source, string routeSignature)
     {
