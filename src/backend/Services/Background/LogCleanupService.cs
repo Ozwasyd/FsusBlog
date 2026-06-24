@@ -3,7 +3,6 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using SqlSugar;
-using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
 
 namespace FsusBlog.Server.Services.Background;
 
@@ -26,6 +25,57 @@ public class LogCleanupService(
     private const int RumRetentionDays = 14;
     private const int AuditLogRetentionDays = 365;
     private const int AnonymousCredentialIssuanceAuditRetentionDays = 90;
+    private static readonly TimeSpan DelayBetweenChunks = TimeSpan.FromMilliseconds(50);
+    private const string CleanupVisitLogsSql = """
+        WITH expired AS (
+            SELECT id
+            FROM sys_visit_log
+            WHERE createtime < @ExpireDate
+            ORDER BY id
+            LIMIT @ChunkSize
+        )
+        DELETE FROM sys_visit_log target
+        USING expired
+        WHERE target.id = expired.id;
+        """;
+    private const string CleanupRumMetricsSql = """
+        WITH expired AS (
+            SELECT id
+            FROM frontend_rum_metric
+            WHERE occurred_at_utc < @ExpireDate
+            ORDER BY id
+            LIMIT @ChunkSize
+        )
+        DELETE FROM frontend_rum_metric target
+        USING expired
+        WHERE target.id = expired.id;
+        """;
+    private const string CleanupAuditLogsSql = """
+        WITH expired AS (
+            SELECT id
+            FROM sys_audit_log
+            WHERE occurred_at_utc < @ExpireDate
+              AND is_high_value = false
+              AND severity <> @CriticalSeverity
+            ORDER BY id
+            LIMIT @ChunkSize
+        )
+        DELETE FROM sys_audit_log target
+        USING expired
+        WHERE target.id = expired.id;
+        """;
+    private const string CleanupAnonymousCredentialIssuanceAuditSql = """
+        WITH expired AS (
+            SELECT id
+            FROM anonymous_credential_issuance_audit
+            WHERE created_at_utc < @ExpireDate
+            ORDER BY id
+            LIMIT @ChunkSize
+        )
+        DELETE FROM anonymous_credential_issuance_audit target
+        USING expired
+        WHERE target.id = expired.id;
+        """;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -68,27 +118,7 @@ public class LogCleanupService(
 
         _logger.LogDebug("执行计划启动：寻找过期访问/RUM/普通审计日志...");
 
-        int visitDeleted = 0;
-        int processedChunks = 0;
-        while (!token.IsCancellationRequested && processedChunks < MaxChunksPerCycle)
-        {
-            var ids = await db.Queryable<VisitLogEntity>()
-                .Where(it => it.CreateTime < visitExpireDate)
-                .Select(it => it.Id)
-                .Take(ChunkSize)
-                .ToListAsync(token);
-
-            if (ids.Count == 0) break;
-
-            var deletedCount = await db.Deleteable<VisitLogEntity>()
-                .In(ids)
-                .ExecuteCommandAsync(token);
-
-            visitDeleted += deletedCount;
-            processedChunks++;
-            await Task.Delay(50, token);
-        }
-
+        int visitDeleted = await CleanupVisitLogsAsync(db, visitExpireDate, token);
         int rumDeleted = await CleanupRumMetricsAsync(db, rumExpireDate, token);
         int auditDeleted = await CleanupAuditLogsAsync(db, auditExpireDate, token);
         int anonymousCredentialAuditDeleted = await CleanupAnonymousCredentialIssuanceAuditAsync(
@@ -107,89 +137,123 @@ public class LogCleanupService(
         }
     }
 
-    private static async Task<int> CleanupRumMetricsAsync(ISqlSugarClient db, DateTime expireDate, CancellationToken token)
-    {
-        int totalDeleted = 0;
-        int processedChunks = 0;
-        while (!token.IsCancellationRequested && processedChunks < MaxChunksPerCycle)
-        {
-            List<long> ids = await db.Queryable<FrontendRumMetric>()
-                .Where(it => it.OccurredAtUtc < expireDate)
-                .Select(it => it.Id)
-                .Take(ChunkSize)
-                .ToListAsync(token);
+    internal static Task<int> CleanupVisitLogsAsync(
+        ISqlSugarClient db,
+        DateTime expireDate,
+        CancellationToken token)
+        => CleanupVisitLogsAsync(db, expireDate, ChunkSize, MaxChunksPerCycle, DelayBetweenChunks, token);
 
-            if (ids.Count == 0)
-            {
-                break;
-            }
+    internal static Task<int> CleanupVisitLogsAsync(
+        ISqlSugarClient db,
+        DateTime expireDate,
+        int chunkSize,
+        int maxChunks,
+        TimeSpan delayBetweenChunks,
+        CancellationToken token)
+        => CleanupByServerSideLimitAsync(
+            db,
+            CleanupVisitLogsSql,
+            expireDate,
+            chunkSize,
+            maxChunks,
+            delayBetweenChunks,
+            token);
 
-            totalDeleted += await db.Deleteable<FrontendRumMetric>()
-                .In(ids)
-                .ExecuteCommandAsync(token);
-            processedChunks++;
-            await Task.Delay(50, token);
-        }
+    private static Task<int> CleanupRumMetricsAsync(ISqlSugarClient db, DateTime expireDate, CancellationToken token)
+        => CleanupByServerSideLimitAsync(
+            db,
+            CleanupRumMetricsSql,
+            expireDate,
+            ChunkSize,
+            MaxChunksPerCycle,
+            DelayBetweenChunks,
+            token);
 
-        return totalDeleted;
-    }
-
-    private static async Task<int> CleanupAuditLogsAsync(ISqlSugarClient db, DateTime expireDate, CancellationToken token)
-    {
-        int totalDeleted = 0;
-        int processedChunks = 0;
-        while (!token.IsCancellationRequested && processedChunks < MaxChunksPerCycle)
-        {
-            List<long> ids = await db.Queryable<AuditLog>()
-                .Where(it => it.OccurredAtUtc < expireDate
-                    && !it.IsHighValue
-                    && it.Severity != AuditSeverityCatalog.Critical)
-                .Select(it => it.Id)
-                .Take(ChunkSize)
-                .ToListAsync(token);
-
-            if (ids.Count == 0)
-            {
-                break;
-            }
-
-            totalDeleted += await db.Deleteable<AuditLog>()
-                .In(ids)
-                .ExecuteCommandAsync(token);
-            processedChunks++;
-            await Task.Delay(50, token);
-        }
-
-        return totalDeleted;
-    }
+    private static Task<int> CleanupAuditLogsAsync(ISqlSugarClient db, DateTime expireDate, CancellationToken token)
+        => CleanupByServerSideLimitAsync(
+            db,
+            CleanupAuditLogsSql,
+            expireDate,
+            ChunkSize,
+            MaxChunksPerCycle,
+            DelayBetweenChunks,
+            token,
+            new SugarParameter("@CriticalSeverity", AuditSeverityCatalog.Critical));
 
     internal static async Task<int> CleanupAnonymousCredentialIssuanceAuditAsync(
         ISqlSugarClient db,
         DateTime expireDate,
         CancellationToken token)
     {
+        return await CleanupByServerSideLimitAsync(
+            db,
+            CleanupAnonymousCredentialIssuanceAuditSql,
+            expireDate,
+            ChunkSize,
+            MaxChunksPerCycle,
+            DelayBetweenChunks,
+            token);
+    }
+
+    private static async Task<int> CleanupByServerSideLimitAsync(
+        ISqlSugarClient db,
+        string sql,
+        DateTime expireDate,
+        int chunkSize,
+        int maxChunks,
+        TimeSpan delayBetweenChunks,
+        CancellationToken token,
+        params SugarParameter[] extraParameters)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        if (chunkSize <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(chunkSize), "Cleanup chunk size must be positive.");
+        }
+
+        if (maxChunks <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxChunks), "Cleanup max chunks must be positive.");
+        }
+
         int totalDeleted = 0;
         int processedChunks = 0;
-        while (!token.IsCancellationRequested && processedChunks < MaxChunksPerCycle)
+        while (!token.IsCancellationRequested && processedChunks < maxChunks)
         {
-            List<long> ids = await db.Queryable<AnonymousCredentialIssuanceAudit>()
-                .Where(it => it.CreatedAtUtc < expireDate)
-                .Select(it => it.Id)
-                .Take(ChunkSize)
-                .ToListAsync(token);
-
-            if (ids.Count == 0)
+            token.ThrowIfCancellationRequested();
+            int deletedCount = await db.Ado.ExecuteCommandAsync(sql, BuildCleanupParameters(expireDate, chunkSize, extraParameters))
+                .ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            if (deletedCount == 0)
             {
                 break;
             }
 
-            totalDeleted += await db.Deleteable<AnonymousCredentialIssuanceAudit>()
-                .In(ids)
-                .ExecuteCommandAsync(token);
+            totalDeleted += deletedCount;
             processedChunks++;
-            await Task.Delay(50, token);
+            if (delayBetweenChunks > TimeSpan.Zero)
+            {
+                await Task.Delay(delayBetweenChunks, token);
+            }
         }
 
         return totalDeleted;
+    }
+
+    private static SugarParameter[] BuildCleanupParameters(
+        DateTime expireDate,
+        int chunkSize,
+        SugarParameter[] extraParameters)
+    {
+        var parameters = new SugarParameter[2 + extraParameters.Length];
+        parameters[0] = new SugarParameter("@ExpireDate", expireDate);
+        parameters[1] = new SugarParameter("@ChunkSize", chunkSize);
+        for (int i = 0; i < extraParameters.Length; i++)
+        {
+            SugarParameter source = extraParameters[i];
+            parameters[i + 2] = new SugarParameter(source.ParameterName, source.Value);
+        }
+
+        return parameters;
     }
 }
