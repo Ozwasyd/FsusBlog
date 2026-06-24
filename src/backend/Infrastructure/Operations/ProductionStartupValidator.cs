@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
 using StackExchange.Redis;
 
@@ -50,7 +51,8 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 9;
+    private const int SchemaVersion = 10;
+    private const int PerceptionSealedTokenKeyByteCount = 32;
     private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object CoreValidationCacheLock = new();
     private static CoreValidationCacheEntry? s_coreValidationCache;
@@ -110,6 +112,7 @@ public static class ProductionStartupValidator
         new("Fido2:Origins", ReadOriginList),
         Value("Security:Pow:SigningKey"),
         Value("Security:CaptchaV1:SigningKey"),
+        Value($"{PerceptionSealedTokenOptions.SectionName}:CurrentKeyVersion"),
         Value("Security:RecoveryKeyPepper"),
         Value("AnonymousCredentialIssuer:SubjectHashPepper"),
         Value("VisitLog:IpHashPepper"),
@@ -249,6 +252,7 @@ public static class ProductionStartupValidator
         ValidateFido2Settings(fido2ServerDomain, fido2Origins, seoBaseUrl, corsOrigins, enforceProductionRules, errors);
         ValidateAuthCookieSettings(configuration, enforceProductionRules, errors);
         ValidateAnonymousIdentityMode(anonymousIdentityMode, enforceProductionRules, errors);
+        ValidatePerceptionSealedTokenSettings(configuration, enforceProductionRules, errors);
         ValidateAntiSpamHttpJsonProvider(configuration, enforceProductionRules, errors);
         ValidateZkProdSettings(configuration, enforceProductionRules, zkProdReadiness ?? ZkProdRuntimeReadiness.Missing, errors);
 
@@ -314,6 +318,119 @@ public static class ProductionStartupValidator
         {
             errors.Add($"{key} must not use a template placeholder.");
         }
+    }
+
+    private static void ValidatePerceptionSealedTokenSettings(
+        IConfiguration configuration,
+        bool enforceProductionRules,
+        List<string> errors)
+    {
+        if (!enforceProductionRules)
+        {
+            return;
+        }
+
+        const string sectionName = PerceptionSealedTokenOptions.SectionName;
+        string currentKeyVersion = (configuration[$"{sectionName}:CurrentKeyVersion"] ?? string.Empty).Trim();
+        if (currentKeyVersion.Length == 0)
+        {
+            return;
+        }
+
+        IConfigurationSection keysSection = configuration.GetSection($"{sectionName}:Keys");
+        if (!keysSection.GetChildren().Any(static child => !string.IsNullOrWhiteSpace(child.Key)))
+        {
+            errors.Add($"{sectionName}:Keys must contain at least one signing key.");
+            return;
+        }
+
+        string currentKeyPath = $"{sectionName}:Keys:{currentKeyVersion}";
+        string? currentKey = configuration[currentKeyPath];
+        if (string.IsNullOrWhiteSpace(currentKey))
+        {
+            errors.Add($"{sectionName}:CurrentKeyVersion '{currentKeyVersion}' must reference configured {currentKeyPath}.");
+            return;
+        }
+
+        if (!TryDecodePerceptionSealedTokenKey(currentKey, out _))
+        {
+            errors.Add($"{currentKeyPath} must be a 32-byte hex/base64/base64url key.");
+        }
+    }
+
+    private static bool TryDecodePerceptionSealedTokenKey(string? encodedKey, out byte[] key)
+    {
+        key = [];
+        string value = (encodedKey ?? string.Empty).Trim();
+        if (value.Length == 0)
+        {
+            return false;
+        }
+
+        if (value.StartsWith("hex:", StringComparison.OrdinalIgnoreCase))
+        {
+            return TryDecodeHexPerceptionSealedTokenKey(value[4..], out key);
+        }
+
+        if (value.StartsWith("base64:", StringComparison.OrdinalIgnoreCase))
+        {
+            return TryDecodeBase64PerceptionSealedTokenKey(value[7..], out key);
+        }
+
+        if (value.StartsWith("base64url:", StringComparison.OrdinalIgnoreCase))
+        {
+            return TryDecodeBase64UrlPerceptionSealedTokenKey(value[10..], out key);
+        }
+
+        return value.Length == PerceptionSealedTokenKeyByteCount * 2 && value.All(Uri.IsHexDigit)
+            ? TryDecodeHexPerceptionSealedTokenKey(value, out key)
+            : TryDecodeBase64PerceptionSealedTokenKey(value, out key)
+                || TryDecodeBase64UrlPerceptionSealedTokenKey(value, out key);
+    }
+
+    private static bool TryDecodeHexPerceptionSealedTokenKey(string value, out byte[] key)
+    {
+        key = [];
+        try
+        {
+            key = Convert.FromHexString(value);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        return key.Length == PerceptionSealedTokenKeyByteCount;
+    }
+
+    private static bool TryDecodeBase64PerceptionSealedTokenKey(string value, out byte[] key)
+    {
+        key = [];
+        try
+        {
+            key = Convert.FromBase64String(value);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        return key.Length == PerceptionSealedTokenKeyByteCount;
+    }
+
+    private static bool TryDecodeBase64UrlPerceptionSealedTokenKey(string value, out byte[] key)
+    {
+        key = [];
+        try
+        {
+            key = WebEncoders.Base64UrlDecode(value);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        return key.Length == PerceptionSealedTokenKeyByteCount;
     }
 
     private static void ValidateRedisConnection(string key, string? connectionString, bool enforceProductionRules, List<string> errors)

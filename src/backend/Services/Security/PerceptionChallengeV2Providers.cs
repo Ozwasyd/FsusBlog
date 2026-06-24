@@ -935,15 +935,13 @@ internal static class PerceptionChallengeV2StandaloneFactory
 
         if (options.Keys.Count == 0)
         {
-            string signingMaterial = NormalizeToken(
-                configuration["Security:PerceptionV2:SigningKey"],
-                "perception-v2-local-test-signing-key");
-            options.Keys[currentKeyVersion] = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(signingMaterial)));
+            throw new InvalidOperationException($"{PerceptionSealedTokenOptions.SectionName}:Keys must contain at least one signing key.");
         }
 
         if (!options.Keys.ContainsKey(options.CurrentKeyVersion))
         {
-            options.CurrentKeyVersion = options.Keys.Keys.First();
+            throw new InvalidOperationException(
+                $"{PerceptionSealedTokenOptions.SectionName}:CurrentKeyVersion '{options.CurrentKeyVersion}' must reference configured {PerceptionSealedTokenOptions.SectionName}:Keys:{options.CurrentKeyVersion}.");
         }
 
         return options;

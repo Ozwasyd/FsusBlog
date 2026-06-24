@@ -33,6 +33,8 @@ public sealed class ProductionStartupValidatorTests
             ["Fido2:Origins:0"] = "https://fsus.blog",
             ["Security:Pow:SigningKey"] = "production-pow-signing-key-with-at-least-thirty-two-chars",
             ["Security:CaptchaV1:SigningKey"] = "production-captcha-signing-key-with-at-least-thirty-two-chars",
+            ["Security:PerceptionSealedToken:CurrentKeyVersion"] = "k1",
+            ["Security:PerceptionSealedToken:Keys:k1"] = new string('a', 64),
             ["Security:RecoveryKeyPepper"] = "production-recovery-key-pepper-with-at-least-thirty-two-chars",
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
             ["VisitLog:IpHashPepper"] = "production-visit-log-ip-hash-pepper-with-at-least-thirty-two-chars",
@@ -65,6 +67,33 @@ public sealed class ProductionStartupValidatorTests
 
         Assert.Contains(errors, static error => error.Contains("Moderation:AntiSpamModel:Providers:http-json:Endpoint", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("private_or_reserved_address", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ValidateCore_RejectsProductionPerceptionSealedTokenWithoutSigningKey()
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            ["Security:PerceptionSealedToken:Keys:k1"] = null
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.Contains(errors, static error => error.Contains("Security:PerceptionSealedToken:Keys:k1", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ValidateCore_RejectsProductionPerceptionSealedTokenStaleCurrentKeyVersion()
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            ["Security:PerceptionSealedToken:CurrentKeyVersion"] = "k2"
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.Contains(errors, static error => error.Contains("Security:PerceptionSealedToken:CurrentKeyVersion", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("k2", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -346,7 +375,7 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(9, report.SchemaVersion);
+        Assert.Equal(10, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
@@ -358,6 +387,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("Fido2:Origins", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Security:Pow:SigningKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Security:CaptchaV1:SigningKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("Security:PerceptionSealedToken:CurrentKeyVersion", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Security:RecoveryKeyPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AnonymousCredentialIssuer:SubjectHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("VisitLog:IpHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
@@ -599,10 +629,13 @@ public sealed class ProductionStartupValidatorTests
             ["Fido2:Origins:0"] = "https://fsus.blog",
             ["Security:Pow:SigningKey"] = "production-pow-signing-key-with-at-least-thirty-two-chars",
             ["Security:CaptchaV1:SigningKey"] = "production-captcha-signing-key-with-at-least-thirty-two-chars",
+            ["Security:PerceptionSealedToken:CurrentKeyVersion"] = "k1",
+            ["Security:PerceptionSealedToken:Keys:k1"] = new string('a', 64),
             ["Security:RecoveryKeyPepper"] = "production-recovery-key-pepper-with-at-least-thirty-two-chars",
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
             ["VisitLog:IpHashPepper"] = "production-visit-log-ip-hash-pepper-with-at-least-thirty-two-chars",
             ["Moderation:RegionPolicy:IpHashKey"] = "production-region-ip-hash-key-with-at-least-thirty-two-chars",
+            ["Moderation:Pepper"] = "production-moderation-pepper-with-at-least-thirty-two-chars",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         };

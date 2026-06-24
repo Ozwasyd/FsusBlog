@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Reflection;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -435,6 +436,37 @@ public sealed class PerceptionChallengeProviderTests
         Assert.Equal(3, enabledDecision.EscalationLevel);
     }
 
+    [Fact]
+    public void StandaloneFactory_RejectsMissingPerceptionSealedTokenKeys()
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>())
+            .Build();
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+            () => InvokeStandaloneCreateIssueService(configuration));
+
+        Assert.Contains("Security:PerceptionSealedToken:Keys", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StandaloneFactory_RejectsStalePerceptionSealedTokenCurrentKeyVersion()
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Security:PerceptionSealedToken:CurrentKeyVersion"] = "k2",
+                ["Security:PerceptionSealedToken:Keys:k1"] = new string('a', 64)
+            })
+            .Build();
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+            () => InvokeStandaloneCreateIssueService(configuration));
+
+        Assert.Contains("Security:PerceptionSealedToken:CurrentKeyVersion", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("k2", exception.Message, StringComparison.Ordinal);
+    }
+
     private static ProviderFixture<PerceptionTextTaskV2Provider> CreateTextFixture()
     {
         var persistence = new RecordingChallengePersistence();
@@ -508,6 +540,22 @@ public sealed class PerceptionChallengeProviderTests
             clock);
         tokenProtector = new PerceptionChallengeV2TokenProtector(tokenService);
         return new PerceptionChallengeV2IssueService(taskSource, tokenProtector, clock);
+    }
+
+    private static object InvokeStandaloneCreateIssueService(IConfiguration configuration)
+    {
+        Type factoryType = typeof(PerceptionTextTaskV2Provider).Assembly.GetType(
+            "FsusBlog.Server.Services.Security.PerceptionChallengeV2StandaloneFactory")!;
+        MethodInfo method = factoryType.GetMethod("CreateIssueService", BindingFlags.Public | BindingFlags.Static)!;
+
+        try
+        {
+            return method.Invoke(null, [configuration, new MutableTimeProvider(BaselineNow)])!;
+        }
+        catch (TargetInvocationException exception) when (exception.InnerException is not null)
+        {
+            throw exception.InnerException;
+        }
     }
 
     private static IConfiguration CreateConfiguration(bool microInteractionEnabled = true)

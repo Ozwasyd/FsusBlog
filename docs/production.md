@@ -64,7 +64,7 @@ The compose file binds Kestrel to `127.0.0.1:8080:8080`. Do not change it back t
 
 Health checks are an ops JSON protocol. They do not emit PublicAOT bootstrap frames or AEDS binary payloads, so rollout probes can evolve independently from public-page payload changes.
 
-perception-sealed@v2 readiness fails closed when `Security:PerceptionSealedToken:CurrentKeyVersion` is missing or its `Security:PerceptionSealedToken:Keys:{version}` value is not a 32-byte hex/base64/base64url key. Performance-budget warnings in ready-detail are advisory rollout signals; they do not mark public `/health/ready` down unless a hard dependency gate fails.
+perception-sealed@v2 startup validation and readiness fail closed when `Security:PerceptionSealedToken:CurrentKeyVersion` is missing, points at a missing key, or its `Security:PerceptionSealedToken:Keys:{version}` value is not a 32-byte hex/base64/base64url key. There is no `Security:PerceptionV2:SigningKey` compatibility fallback. Performance-budget warnings in ready-detail are advisory rollout signals; they do not mark public `/health/ready` down unless a hard dependency gate fails.
 
 Use readiness before switching traffic:
 
