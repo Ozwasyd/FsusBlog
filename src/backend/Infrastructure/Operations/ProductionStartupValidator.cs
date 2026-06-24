@@ -49,7 +49,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 8;
+    private const int SchemaVersion = 9;
     private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object CoreValidationCacheLock = new();
     private static CoreValidationCacheEntry? s_coreValidationCache;
@@ -89,6 +89,13 @@ public static class ProductionStartupValidator
         "development-visit-log-ip-hash-pepper-change-before-shared-use"
     ];
 
+    private static readonly string[] DefaultModerationPeppers =
+    [
+        "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
+        "replace-with-stable-random-moderation-pepper",
+        "development-moderation-pepper-change-before-shared-use"
+    ];
+
     private static readonly RequiredSettingRule[] RequiredSettings =
     [
         ConnectionString("DefaultConnection"),
@@ -106,6 +113,7 @@ public static class ProductionStartupValidator
         Value("AnonymousCredentialIssuer:SubjectHashPepper"),
         Value("VisitLog:IpHashPepper"),
         Value("Moderation:RegionPolicy:IpHashKey"),
+        Value("Moderation:Pepper"),
         Value(AnonymousIdentityRuntime.ModeEnvironmentVariable)
     ];
 
@@ -202,6 +210,7 @@ public static class ProductionStartupValidator
         string? subjectHashPepper = values["AnonymousCredentialIssuer:SubjectHashPepper"];
         string? visitLogIpHashPepper = values["VisitLog:IpHashPepper"];
         string? regionIpHashKey = values["Moderation:RegionPolicy:IpHashKey"];
+        string? moderationPepper = values["Moderation:Pepper"];
         string? anonymousIdentityMode = values[AnonymousIdentityRuntime.ModeEnvironmentVariable];
 
         if (!string.IsNullOrWhiteSpace(jwtSecret))
@@ -228,6 +237,7 @@ public static class ProductionStartupValidator
         ValidateIndependentSecuritySecret("AnonymousCredentialIssuer:SubjectHashPepper", subjectHashPepper, jwtSecret, DefaultSubjectHashPeppers, errors);
         ValidateIndependentSecuritySecret("VisitLog:IpHashPepper", visitLogIpHashPepper, jwtSecret, DefaultVisitLogIpHashPeppers, errors);
         ValidateIndependentSecuritySecret("Moderation:RegionPolicy:IpHashKey", regionIpHashKey, jwtSecret, [], errors);
+        ValidateIndependentSecuritySecret("Moderation:Pepper", moderationPepper, jwtSecret, DefaultModerationPeppers, errors);
 
         ValidateRedisConnection("ConnectionStrings:Redis", redisConnection, enforceProductionRules, errors);
         ValidateRedisConnection("RedisOptions:Configuration", redisOptionsConnection, enforceProductionRules, errors);
@@ -686,6 +696,7 @@ public static class ProductionStartupValidator
             || error.Contains("AnonymousCredentialIssuer:SubjectHashPepper", StringComparison.Ordinal)
             || error.Contains("VisitLog:IpHashPepper", StringComparison.Ordinal)
             || error.Contains("Moderation:RegionPolicy:IpHashKey", StringComparison.Ordinal)
+            || error.Contains("Moderation:Pepper", StringComparison.Ordinal)
             || error.Contains("AllowedHosts must not use wildcard", StringComparison.Ordinal)
             || error.Contains("ReverseProxy:KnownProxies or ReverseProxy:KnownNetworks", StringComparison.Ordinal)
             || error.Contains("CORS_ALLOWED_HOSTS origin must use HTTPS", StringComparison.Ordinal)

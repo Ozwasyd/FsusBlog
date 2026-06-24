@@ -1,4 +1,6 @@
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
@@ -23,6 +25,7 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -36,6 +39,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
 {
     private static readonly byte[] Ticket = Enumerable.Range(0, 32).Select(static value => (byte)(value + 1)).ToArray();
     private const string NullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    private const string ModerationPepper = "unit-test-moderation-pepper-with-at-least-thirty-two-chars";
 
     [Fact]
     public async Task CreateStrongAnonymousCommentAsync_ValidTicket_WritesPendingAnonymousCommentGovernanceFieldsAndInvalidatesScope()
@@ -60,6 +64,11 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         Assert.Equal("strong_anonymous", comment.CredentialLevel);
         Assert.Equal("rep-low", comment.ReputationBucket);
         Assert.Equal("credential_bound", comment.AccountAgeBucket);
+        Assert.Equal(
+            Convert.ToHexStringLower(HMACSHA256.HashData(
+                Encoding.UTF8.GetBytes(ModerationPepper),
+                Encoding.UTF8.GetBytes(NullifierHash))),
+            comment.ModerationSubjectHash);
         Assert.Equal(CommentModerationStatus.Pending, comment.ModerationStatus);
         Assert.DoesNotContain(Convert.ToHexString(Ticket), comment.Content, StringComparison.OrdinalIgnoreCase);
 
@@ -453,8 +462,17 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
             new RegionLegalModerationService(),
             anonymousNullifierService: nullifierService,
             anonymousCommentTicketService: ticketService,
-            anonymousDisplayNameGenerator: new CommentAnonymousDisplayNameGenerator());
+            anonymousDisplayNameGenerator: new CommentAnonymousDisplayNameGenerator(),
+            configuration: BuildConfiguration());
     }
+
+    private static IConfiguration BuildConfiguration()
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Moderation:Pepper"] = ModerationPepper
+            })
+            .Build();
 
     private static AnonymousCommentCreateRequestCoreModel CreateRequest(
         string content = "anonymous comment",

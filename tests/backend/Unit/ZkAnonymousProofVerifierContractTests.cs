@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Infrastructure.Bootstrap;
@@ -22,6 +24,7 @@ public sealed class ZkAnonymousProofVerifierContractTests
     private static readonly string IssuerPublicKeyHash = new('f', 64);
     private const string PublicInputNullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string CredentialCommitment = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    private const string ModerationPepper = "unit-test-moderation-pepper-with-at-least-thirty-two-chars";
     private static readonly string PolicyHash = new('9', 64);
 
     [Fact]
@@ -152,15 +155,18 @@ public sealed class ZkAnonymousProofVerifierContractTests
     {
         ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
         var proofService = new CapturingZkProofService(ZkProofVerificationResult.Success());
+        IConfiguration configuration = BuildConfiguration(new Dictionary<string, string?>
+        {
+            ["AnonymousIdentity:ZkAnonymousCommentsEnabled"] = "true",
+            ["Moderation:Pepper"] = ModerationPepper
+        });
         var resolver = new CommentActorResolver(
             db,
-            new AnonymousCommentPolicyService(BuildConfiguration(new Dictionary<string, string?>
-            {
-                ["AnonymousIdentity:ZkAnonymousCommentsEnabled"] = "true"
-            })),
+            new AnonymousCommentPolicyService(configuration),
             new CommentAnonymousDisplayNameGenerator(),
             new ThrowingCredentialService(),
-            proofService);
+            proofService,
+            configuration);
 
         CommentActorResolveResult result = await resolver.ResolveAsync(ValidActorResolveRequest() with
         {
@@ -174,6 +180,11 @@ public sealed class ZkAnonymousProofVerifierContractTests
         Assert.Equal(CommentAuthorModes.ZkAnonymous, result.Actor.AuthorMode);
         Assert.Equal(PublicInputNullifierHash, result.Actor.AnonymousNullifierHash);
         Assert.Equal("article:42", result.Actor.AnonymousScope);
+        Assert.Equal(
+            Convert.ToHexStringLower(HMACSHA256.HashData(
+                Encoding.UTF8.GetBytes(ModerationPepper),
+                Encoding.UTF8.GetBytes(PublicInputNullifierHash))),
+            result.Actor.ModerationSubjectHash);
         Assert.Equal(AnonymousCredentialLevels.StrongAnonymous, result.Actor.CredentialLevel);
         Assert.Equal(PublicInputNullifierHash, proofService.LastRequest.NullifierHash);
         Assert.Equal(CredentialCommitment, proofService.LastRequest.CredentialCommitment);
@@ -195,15 +206,18 @@ public sealed class ZkAnonymousProofVerifierContractTests
     public async Task CommentActorResolver_ZkAnonymousMissingPublicInputIsRejectedBeforeVerifier(string missingField)
     {
         var proofService = new CapturingZkProofService(ZkProofVerificationResult.Success());
+        IConfiguration configuration = BuildConfiguration(new Dictionary<string, string?>
+        {
+            ["AnonymousIdentity:ZkAnonymousCommentsEnabled"] = "true",
+            ["Moderation:Pepper"] = ModerationPepper
+        });
         var resolver = new CommentActorResolver(
             Substitute.For<ISqlSugarClient>(),
-            new AnonymousCommentPolicyService(BuildConfiguration(new Dictionary<string, string?>
-            {
-                ["AnonymousIdentity:ZkAnonymousCommentsEnabled"] = "true"
-            })),
+            new AnonymousCommentPolicyService(configuration),
             new CommentAnonymousDisplayNameGenerator(),
             new ThrowingCredentialService(),
-            proofService);
+            proofService,
+            configuration);
         CommentActorResolveRequest request = missingField switch
         {
             "nullifier" => ValidActorResolveRequest() with { NullifierHash = string.Empty },

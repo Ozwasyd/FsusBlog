@@ -246,7 +246,13 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             new RegionLegalModerationService(),
             anonymousNullifierService: nullifierService,
             anonymousCommentTicketService: ticketService,
-            anonymousDisplayNameGenerator: new CommentAnonymousDisplayNameGenerator());
+            anonymousDisplayNameGenerator: new CommentAnonymousDisplayNameGenerator(),
+            configuration: new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Moderation:Pepper"] = "unit-test-moderation-pepper-with-at-least-thirty-two-chars"
+                })
+                .Build());
 
     private static AnonymousCommentTicketRequestCoreModel ValidTicketRequest(
         TempNativeZkFixture temp,
@@ -371,7 +377,8 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
                 ["AnonymousIdentity:ZkProd:VerifierBackend"] = ZkProdOptions.NativeGroth16Backend,
                 ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = verifyingKeyHash,
                 ["AnonymousIdentity:ZkProd:TrustedSetupVerified"] = "true",
-                ["AnonymousIdentity:ZkProd:CredentialReady"] = "true"
+                ["AnonymousIdentity:ZkProd:CredentialReady"] = "true",
+                ["Moderation:Pepper"] = "unit-test-moderation-pepper-with-at-least-thirty-two-chars"
             })
             .Build();
 

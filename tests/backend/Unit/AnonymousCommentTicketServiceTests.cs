@@ -29,6 +29,7 @@ public sealed class AnonymousCommentTicketServiceTests
     private static readonly byte[] RevocationRoot = Enumerable.Repeat((byte)0xD4, 32).ToArray();
     private static readonly string VerifyingKeyHash = new('e', 64);
     private static readonly string PolicyHash = new('9', 64);
+    private const string ModerationPepper = "unit-test-moderation-pepper-with-at-least-thirty-two-chars";
     private static readonly ZkProdPolicySnapshot ReadyZkProdPolicy = new(
         true,
         true,
@@ -93,6 +94,21 @@ public sealed class AnonymousCommentTicketServiceTests
 
         CacheReadResult<AnonymousCommentTicketPayload> replay = await service.ConsumeTicketAsync(result.Response.Ticket, CancellationToken.None);
         Assert.False(replay.Hit);
+    }
+
+    [Fact]
+    public void ModerationSubjectHash_UsesPepperAndIgnoresScope()
+    {
+        string nullifierHash = Convert.ToHexStringLower(Nullifier);
+        IConfiguration configuration = BuildConfiguration();
+
+        byte[] first = AnonymousCommentTicketService.CreateModerationSubjectHash(nullifierHash, configuration);
+        byte[] second = AnonymousCommentTicketService.CreateModerationSubjectHash(nullifierHash, configuration);
+
+        Assert.Equal(first, second);
+        Assert.Equal(ExpectedModerationSubjectHash(), first);
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCommentTicketService.cs");
+        Assert.DoesNotContain("scope}:{nullifierHash", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -310,13 +326,16 @@ public sealed class AnonymousCommentTicketServiceTests
             CircuitMetadata: []);
 
     private static byte[] ExpectedModerationSubjectHash()
-        => SHA256.HashData(Encoding.UTF8.GetBytes($"article:42:{Convert.ToHexStringLower(Nullifier)}"));
+        => HMACSHA256.HashData(
+            Encoding.UTF8.GetBytes(ModerationPepper),
+            Encoding.UTF8.GetBytes(Convert.ToHexStringLower(Nullifier)));
 
     private static IConfiguration BuildConfiguration()
         => new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["AnonymousIdentity:AnonymousCommentTicketTtlSeconds"] = "120"
+                ["AnonymousIdentity:AnonymousCommentTicketTtlSeconds"] = "120",
+                ["Moderation:Pepper"] = ModerationPepper
             })
             .Build();
 

@@ -18,6 +18,7 @@ using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
+using Microsoft.Extensions.Configuration;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services;
@@ -38,7 +39,8 @@ public partial class CommentService(
     ISecurityRiskSignalSink? securityRiskSignalSink = null,
     IHttpContextAccessor? httpContextAccessor = null,
     IAnonymousCommentTicketService? anonymousCommentTicketService = null,
-    ICommentAnonymousDisplayNameGenerator? anonymousDisplayNameGenerator = null) : ICommentService, ICommentEndpointService
+    ICommentAnonymousDisplayNameGenerator? anonymousDisplayNameGenerator = null,
+    IConfiguration? configuration = null) : ICommentService, ICommentEndpointService
 {
     private const int DefaultReplyPreviewLimit = 3;
     private const string DeletedPlaceholder = "该回复已删除";
@@ -469,7 +471,9 @@ public partial class CommentService(
             DisplayLanguage: display.DisplayLanguage,
             AnonymousNullifierHash: ticket.NullifierHash,
             AnonymousScope: ticket.Scope,
-            ModerationSubjectHash: Sha256Hex($"comment:moderation:{CommentAuthorModes.ZkAnonymous}:{ticket.Scope}:{ticket.NullifierHash}"),
+            ModerationSubjectHash: Convert.ToHexStringLower(AnonymousCommentTicketService.CreateModerationSubjectHash(
+                ticket.NullifierHash,
+                configuration ?? throw new InvalidOperationException("Moderation:Pepper must be configured."))),
             CredentialLevel: credentialLevel,
             ReputationBucket: reputationBucket,
             AccountAgeBucket: "credential_bound");

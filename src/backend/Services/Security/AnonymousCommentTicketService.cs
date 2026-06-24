@@ -74,7 +74,9 @@ public sealed class AnonymousCommentTicketService(
     private const string ActionContext = "comment.create";
     private const string DefaultCredentialLevel = "strong_anonymous";
     private const string DefaultReputationBucket = "unrated";
+    private const string ModerationPepperKey = "Moderation:Pepper";
     private static readonly TimeSpan DefaultTicketTtl = TimeSpan.FromSeconds(120);
+    private readonly byte[] _moderationSubjectHashKey = CreateModerationSubjectHashKey(configuration);
 
     public const int MaxRequestFrameBytes = 32 * 1024;
 
@@ -173,7 +175,7 @@ public sealed class AnonymousCommentTicketService(
             ttl,
             cancellationToken);
 
-        byte[] moderationSubjectHash = SHA256.HashData(Encoding.UTF8.GetBytes($"{scope}:{nullifierHash}"));
+        byte[] moderationSubjectHash = CreateModerationSubjectHash(nullifierHash, _moderationSubjectHashKey);
         var response = new AnonymousCommentTicketResponseCoreModel(
             request.CredentialEpoch,
             expiresAt.ToUnixTimeMilliseconds(),
@@ -201,6 +203,23 @@ public sealed class AnonymousCommentTicketService(
 
     public static string HashTicket(byte[] ticket)
         => Convert.ToHexStringLower(SHA256.HashData(ticket ?? []));
+
+    public static byte[] CreateModerationSubjectHash(string nullifierHash, IConfiguration configuration)
+        => CreateModerationSubjectHash(nullifierHash, CreateModerationSubjectHashKey(configuration));
+
+    private static byte[] CreateModerationSubjectHash(string nullifierHash, byte[] key)
+        => HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(nullifierHash));
+
+    private static byte[] CreateModerationSubjectHashKey(IConfiguration configuration)
+    {
+        string? pepper = configuration[ModerationPepperKey];
+        if (string.IsNullOrWhiteSpace(pepper) || pepper.Trim().Length < 32)
+        {
+            throw new InvalidOperationException("Moderation:Pepper must be configured with at least 32 characters.");
+        }
+
+        return Encoding.UTF8.GetBytes(pepper.Trim());
+    }
 
     private static bool PassesCheapValidation(AnonymousCommentTicketRequestCoreModel request, string scope)
     {

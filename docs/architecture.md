@@ -418,7 +418,7 @@ Health/ops 协议独立于 PublicAOT 与 AEDS payload。`ProductionHealthEndpoin
 服务器通过 HostedService 在启动后执行以下生产校验，失败时进入可观测降级状态而不是直接终止进程：
 
 - JWT 密钥不得为默认占位值
-- `Security:Pow:SigningKey`、`Security:CaptchaV1:SigningKey`、`Security:RecoveryKeyPepper`、`AnonymousCredentialIssuer:SubjectHashPepper`、`VisitLog:IpHashPepper`、`Moderation:RegionPolicy:IpHashKey` 必须使用独立高熵值，且不得等于 `Jwt:SecretKey`
+- `Security:Pow:SigningKey`、`Security:CaptchaV1:SigningKey`、`Security:RecoveryKeyPepper`、`AnonymousCredentialIssuer:SubjectHashPepper`、`VisitLog:IpHashPepper`、`Moderation:RegionPolicy:IpHashKey`、`Moderation:Pepper` 必须使用独立高熵值，且不得等于 `Jwt:SecretKey`
 - Redis 密码不得为空
 - `SITE_BASEURL` 必须为 HTTPS
 - CORS 配置的 Origins 不得包含 HTTP 来源

@@ -108,7 +108,8 @@ public sealed class CommentActorResolver(
     IAnonymousCommentPolicyService policyService,
     ICommentAnonymousDisplayNameGenerator displayNameGenerator,
     IAnonymousCredentialService credentialService,
-    IZkAnonymousProofService zkProofService) : ICommentActorResolver
+    IZkAnonymousProofService zkProofService,
+    IConfiguration configuration) : ICommentActorResolver
 {
     public async Task<CommentActorResolveResult> ResolveAsync(
         CommentActorResolveRequest request,
@@ -227,7 +228,8 @@ public sealed class CommentActorResolver(
         string reputationBucket,
         string accountAgeBucket)
     {
-        string moderationSubjectHash = Sha256Hex($"comment:moderation:{authorMode}:{scope}:{nullifierHash}");
+        string moderationSubjectHash = Convert.ToHexStringLower(
+            AnonymousCommentTicketService.CreateModerationSubjectHash(nullifierHash, configuration));
         CommentAnonymousDisplayName display = displayNameGenerator.Generate(new CommentAnonymousDisplayNameRequest(
             language,
             scope,

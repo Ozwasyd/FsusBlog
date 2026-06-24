@@ -37,6 +37,7 @@ public sealed class ProductionStartupValidatorTests
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
             ["VisitLog:IpHashPepper"] = "production-visit-log-ip-hash-pepper-with-at-least-thirty-two-chars",
             ["Moderation:RegionPolicy:IpHashKey"] = "production-region-ip-hash-key-with-at-least-thirty-two-chars",
+            ["Moderation:Pepper"] = "production-moderation-pepper-with-at-least-thirty-two-chars",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         });
@@ -80,6 +81,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains(errors, static error => error.Contains("Security:RecoveryKeyPepper", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("AnonymousCredentialIssuer:SubjectHashPepper", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("VisitLog:IpHashPepper", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("Moderation:Pepper", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Moderation:RegionPolicy:IpHashKey", StringComparison.Ordinal));
     }
 
@@ -305,7 +307,7 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(8, report.SchemaVersion);
+        Assert.Equal(9, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
@@ -321,6 +323,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("AnonymousCredentialIssuer:SubjectHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("VisitLog:IpHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Moderation:RegionPolicy:IpHashKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("Moderation:Pepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains(
             "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
             ProductionStartupValidator.CurrentSchema.DefaultJwtSecrets);
