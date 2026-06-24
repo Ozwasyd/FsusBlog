@@ -5,6 +5,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Shared.Contracts.Security;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -315,7 +316,7 @@ public static class CaptchaV1ChallengeCodec
             $"powDifficultyBits={powDifficultyBits.ToString(CultureInfo.InvariantCulture)}",
             $"issuedAtUnixMs={issuedAtUnixMs.ToString(CultureInfo.InvariantCulture)}",
             $"expiresAtUnixMs={expiresAtUnixMs.ToString(CultureInfo.InvariantCulture)}");
-        return Convert.ToBase64String(Encoding.UTF8.GetBytes(payload));
+        return WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(payload));
     }
 
     public static string SignSeedPayload(string seedPayloadBase64, byte[] signingKey)
@@ -586,9 +587,14 @@ public static class CaptchaV1ChallengeCodec
     private static bool TryDecodeSeedPayload(string seedPayloadBase64, out IReadOnlyDictionary<string, string> claims)
     {
         claims = new Dictionary<string, string>(0, StringComparer.Ordinal);
+        if (seedPayloadBase64.AsSpan().IndexOfAny('+', '/', '=') >= 0)
+        {
+            return false;
+        }
+
         try
         {
-            string text = Encoding.UTF8.GetString(Convert.FromBase64String(seedPayloadBase64));
+            string text = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(seedPayloadBase64));
             var result = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (string line in text.Split('\n'))
             {

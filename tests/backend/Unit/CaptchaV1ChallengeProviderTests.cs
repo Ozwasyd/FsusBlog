@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -7,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,6 +17,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class CaptchaV1ChallengeProviderTests
 {
     private static readonly DateTimeOffset BaselineNow = DateTimeOffset.Parse("2026-06-18T12:00:00Z");
+    private const string SigningKey = "captcha-unit-test-signing-key-with-enough-entropy";
     private const string HashA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string HashB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     private const string HashC = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
@@ -51,6 +54,10 @@ public sealed class CaptchaV1ChallengeProviderTests
         Assert.Matches("^[0-9a-f]{64}$", result.ProviderPayload["polynomialSeedHex"]);
         Assert.Matches("^[0-9a-f]{64}$", result.ProviderPayload["noiseSeedHex"]);
         Assert.Matches("^[0-9a-f]{64}$", result.ProviderPayload["signatureHex"]);
+        Assert.DoesNotContain("+", result.ProviderPayload["seedPayloadBase64"], StringComparison.Ordinal);
+        Assert.DoesNotContain("/", result.ProviderPayload["seedPayloadBase64"], StringComparison.Ordinal);
+        Assert.DoesNotContain("=", result.ProviderPayload["seedPayloadBase64"], StringComparison.Ordinal);
+        Assert.Contains("v=1", Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(result.ProviderPayload["seedPayloadBase64"])), StringComparison.Ordinal);
         Assert.False(result.ProviderPayload.ContainsKey("png"));
         Assert.False(result.ProviderPayload.ContainsKey("image"));
         Assert.False(result.ProviderPayload.ContainsKey("pixels"));
@@ -87,6 +94,41 @@ public sealed class CaptchaV1ChallengeProviderTests
         Assert.Equal(SecurityChallengeAttemptOutcomes.Verified, fixture.Persistence.Attempts[0].Outcome);
         Assert.Equal(SecurityChallengeAttemptOutcomes.Replayed, fixture.Persistence.Attempts[1].Outcome);
         Assert.Equal("CaptchaReplay", Assert.Single(fixture.RiskSink.Signals).Detail);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_AcceptsSeedPayloadAfterUrlQueryRoundTrip()
+    {
+        ProviderFixture fixture = CreateFixture();
+        SecurityChallengeProviderIssueResult issued = await fixture.Provider.IssueAsync(CreateIssueRequest(), CancellationToken.None);
+        Dictionary<string, string> payload = CreateValidVerifyPayload(issued.ProviderPayload, solveDurationMs: 2500);
+        payload["seedPayloadBase64"] = Uri.UnescapeDataString(Uri.EscapeDataString(payload["seedPayloadBase64"]));
+
+        SecurityChallengeProviderVerifyResult result = await fixture.Provider.VerifyAsync(
+            CreateVerifyRequest(issued.Assignment!.ChallengeId, payload),
+            CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.Reason);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_RejectsStandardBase64SeedPayloadCompatibilityFormat()
+    {
+        ProviderFixture fixture = CreateFixture();
+        SecurityChallengeProviderIssueResult issued = await fixture.Provider.IssueAsync(CreateIssueRequest(), CancellationToken.None);
+        Dictionary<string, string> payload = CreateValidVerifyPayload(issued.ProviderPayload, solveDurationMs: 2500);
+        string standardSeedPayload = Convert.ToBase64String(WebEncoders.Base64UrlDecode(payload["seedPayloadBase64"]));
+        payload["seedPayloadBase64"] = standardSeedPayload;
+        payload["signatureHex"] = CaptchaV1ChallengeCodec.SignSeedPayload(
+            standardSeedPayload,
+            Encoding.UTF8.GetBytes(SigningKey));
+
+        SecurityChallengeProviderVerifyResult result = await fixture.Provider.VerifyAsync(
+            CreateVerifyRequest(issued.Assignment!.ChallengeId, payload),
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("captcha_signature_invalid", result.Reason);
     }
 
     [Fact]
@@ -199,7 +241,7 @@ public sealed class CaptchaV1ChallengeProviderTests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Jwt:SecretKey"] = "unit-test-secret-key-with-enough-entropy",
-                ["Security:CaptchaV1:SigningKey"] = "captcha-unit-test-signing-key-with-enough-entropy"
+                ["Security:CaptchaV1:SigningKey"] = SigningKey
             })
             .Build();
 
