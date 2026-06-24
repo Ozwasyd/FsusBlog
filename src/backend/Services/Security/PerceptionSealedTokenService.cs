@@ -54,6 +54,8 @@ public sealed record class PerceptionSealedTokenPayload(
     public double? ExpectedY { get; init; }
 
     public double? CoordinateTolerance { get; init; }
+
+    public string PayloadBindingHashHex { get; init; } = string.Empty;
 }
 
 public sealed record PerceptionSealedTokenOpenResult(
@@ -94,18 +96,18 @@ public sealed class PerceptionSealedTokenService(
             payload,
             currentOptions.CurrentKeyVersion,
             allowCurrentKeyVersionFallback: true);
+        normalized = normalized with { PayloadBindingHashHex = ComputePayloadBindingHash(normalized) };
         byte[] key = ResolveKeyOrThrow(currentOptions, normalized.KeyVersion);
 
         byte[] nonce = RandomNumberGenerator.GetBytes(NonceByteCount);
         byte[] plaintext = JsonSerializer.SerializeToUtf8Bytes(normalized, JsonOptions);
         byte[] ciphertext = new byte[plaintext.Length];
         byte[] tag = new byte[TagByteCount];
-        byte[] aad = BuildAad(normalized);
+        byte[] aad = BuildAad(normalized, ciphertext);
+        EncryptPayload(key, nonce, plaintext, ciphertext, tag, aad);
 
-        using (var aes = new AesGcm(key, TagByteCount))
-        {
-            aes.Encrypt(nonce, plaintext, ciphertext, tag, aad);
-        }
+        aad = BuildAad(normalized, ciphertext);
+        EncryptPayload(key, nonce, plaintext, ciphertext, tag, aad);
 
         var envelope = new PerceptionSealedTokenEnvelope(
             EnvelopeVersion,
@@ -146,7 +148,7 @@ public sealed class PerceptionSealedTokenService(
         byte[] plaintext = new byte[ciphertext.Length];
         try
         {
-            byte[] aad = BuildAad(envelope);
+            byte[] aad = BuildAad(envelope, ciphertext);
             using var aes = new AesGcm(key, TagByteCount);
             aes.Decrypt(nonce, ciphertext, tag, plaintext, aad);
         }
@@ -187,9 +189,9 @@ public sealed class PerceptionSealedTokenService(
             return PerceptionSealedTokenOpenResult.Rejected("token_invalid");
         }
 
-        if (!EnvelopeMatchesPayload(envelope, normalized))
+        if (!PayloadBindingHashMatches(normalized) || !EnvelopeMatchesPayload(envelope, normalized))
         {
-            return PerceptionSealedTokenOpenResult.Rejected("aad_mismatch");
+            return PerceptionSealedTokenOpenResult.Rejected("context_mismatch");
         }
 
         if (normalized.ExpiresAtUnixMs <= timeProvider.GetUtcNow().ToUnixTimeMilliseconds())
@@ -327,11 +329,12 @@ public sealed class PerceptionSealedTokenService(
             ExpectedStepHashHex = NormalizeOptionalHash(payload.ExpectedStepHashHex, nameof(payload.ExpectedStepHashHex)),
             NonceHex = NormalizeHex(payload.NonceHex, nameof(payload.NonceHex), 128),
             KeyVersion = keyVersion,
-            PolicyVersion = NormalizeRequired(payload.PolicyVersion, nameof(payload.PolicyVersion), 64)
+            PolicyVersion = NormalizeRequired(payload.PolicyVersion, nameof(payload.PolicyVersion), 64),
+            PayloadBindingHashHex = NormalizeOptionalHash(payload.PayloadBindingHashHex, nameof(payload.PayloadBindingHashHex))
         };
     }
 
-    private static byte[] BuildAad(PerceptionSealedTokenPayload payload)
+    private static byte[] BuildAad(PerceptionSealedTokenPayload payload, byte[] ciphertext)
         => JsonSerializer.SerializeToUtf8Bytes(
             new PerceptionSealedTokenAad(
                 payload.ChallengeId,
@@ -342,10 +345,11 @@ public sealed class PerceptionSealedTokenService(
                 payload.RecipeHashHex,
                 payload.IssuedAtUnixMs,
                 payload.ExpiresAtUnixMs,
-                payload.KeyVersion),
+                payload.KeyVersion,
+                Sha256Hex(ciphertext)),
             JsonOptions);
 
-    private static byte[] BuildAad(PerceptionSealedTokenEnvelope envelope)
+    private static byte[] BuildAad(PerceptionSealedTokenEnvelope envelope, byte[] ciphertext)
         => JsonSerializer.SerializeToUtf8Bytes(
             new PerceptionSealedTokenAad(
                 envelope.ChallengeId,
@@ -356,8 +360,42 @@ public sealed class PerceptionSealedTokenService(
                 envelope.RecipeHashHex.ToLowerInvariant(),
                 envelope.IssuedAtUnixMs,
                 envelope.ExpiresAtUnixMs,
-                envelope.KeyVersion),
+                envelope.KeyVersion,
+                Sha256Hex(ciphertext)),
             JsonOptions);
+
+    private static void EncryptPayload(
+        byte[] key,
+        byte[] nonce,
+        byte[] plaintext,
+        byte[] ciphertext,
+        byte[] tag,
+        byte[] aad)
+    {
+        using var aes = new AesGcm(key, TagByteCount);
+        aes.Encrypt(nonce, plaintext, ciphertext, tag, aad);
+    }
+
+    private static bool PayloadBindingHashMatches(PerceptionSealedTokenPayload payload)
+    {
+        if (!IsSha256Hex(payload.PayloadBindingHashHex))
+        {
+            return false;
+        }
+
+        return FixedEquals(payload.PayloadBindingHashHex, ComputePayloadBindingHash(payload));
+    }
+
+    private static string ComputePayloadBindingHash(PerceptionSealedTokenPayload payload)
+    {
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(
+            payload with { PayloadBindingHashHex = string.Empty },
+            JsonOptions);
+        return Sha256Hex(bytes);
+    }
+
+    private static string Sha256Hex(ReadOnlySpan<byte> bytes)
+        => Convert.ToHexStringLower(SHA256.HashData(bytes));
 
     private static bool EnvelopeMatchesPayload(
         PerceptionSealedTokenEnvelope envelope,
@@ -575,5 +613,6 @@ public sealed class PerceptionSealedTokenService(
         string RecipeHashHex,
         long IssuedAtUnixMs,
         long ExpiresAtUnixMs,
-        string KeyVersion);
+        string KeyVersion,
+        string PayloadCiphertextHashHex);
 }

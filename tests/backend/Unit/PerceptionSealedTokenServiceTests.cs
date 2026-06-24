@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Security.Cryptography;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.WebUtilities;
@@ -50,7 +51,9 @@ public sealed class PerceptionSealedTokenServiceTests
         Assert.StartsWith("fpst_", token, StringComparison.Ordinal);
         Assert.True(result.Succeeded, result.Reason);
         Assert.Equal("ok", result.Reason);
-        Assert.Equal(payload, result.Payload);
+        Assert.NotNull(result.Payload);
+        Assert.Matches("^[0-9a-f]{64}$", result.Payload.PayloadBindingHashHex);
+        Assert.Equal(payload, result.Payload! with { PayloadBindingHashHex = string.Empty });
     }
 
     [Fact]
@@ -96,6 +99,40 @@ public sealed class PerceptionSealedTokenServiceTests
 
         Assert.False(result.Succeeded);
         Assert.Equal("token_tampered", result.Reason);
+        Assert.Null(result.Payload);
+    }
+
+    [Fact]
+    public void Open_RejectsCrossActionRouteEnvelopeSwap()
+    {
+        IPerceptionSealedTokenService service = CreateService(new MutableTimeProvider(BaselineNow), ("v2", KeyMaterial(2)));
+        string token = service.Seal(CreatePayload(keyVersion: "v2"));
+        string tampered = MutateEnvelope(
+            MutateEnvelope(token, "action", "comment.delete"),
+            "routeKey",
+            "article:99");
+
+        PerceptionSealedTokenOpenResult result = service.Open(tampered);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("token_tampered", result.Reason);
+        Assert.Null(result.Payload);
+    }
+
+    [Fact]
+    public void Open_RejectsPayloadOnlyFieldMutation()
+    {
+        IPerceptionSealedTokenService service = CreateService(new MutableTimeProvider(BaselineNow), ("v2", KeyMaterial(2)));
+        string token = service.Seal(CreatePayload(keyVersion: "v2"));
+        string tampered = ReencryptPayloadOnlyMutation(token, KeyMaterial(2), payload =>
+        {
+            payload["subjectHash"] = HashC;
+        });
+
+        PerceptionSealedTokenOpenResult result = service.Open(tampered);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("context_mismatch", result.Reason);
         Assert.Null(result.Payload);
     }
 
@@ -224,6 +261,54 @@ public sealed class PerceptionSealedTokenServiceTests
         byte[] json = JsonSerializer.SerializeToUtf8Bytes(root);
         return "fpst_" + WebEncoders.Base64UrlEncode(json);
     }
+
+    private static string ReencryptPayloadOnlyMutation(string token, string keyMaterial, Action<JsonObject> mutate)
+    {
+        JsonObject envelope = JsonNode.Parse(DecodeEnvelopeJson(token))?.AsObject()
+            ?? throw new InvalidOperationException("token envelope missing");
+        byte[] key = Convert.FromBase64String(keyMaterial);
+        byte[] nonce = WebEncoders.Base64UrlDecode(envelope["nonce"]!.GetValue<string>());
+        byte[] ciphertext = WebEncoders.Base64UrlDecode(envelope["ciphertext"]!.GetValue<string>());
+        byte[] tag = WebEncoders.Base64UrlDecode(envelope["tag"]!.GetValue<string>());
+        byte[] plaintext = new byte[ciphertext.Length];
+
+        using (var aes = new AesGcm(key, tag.Length))
+        {
+            aes.Decrypt(nonce, ciphertext, tag, plaintext, BuildTestAad(envelope, ciphertext));
+        }
+
+        JsonObject payload = JsonNode.Parse(plaintext)?.AsObject()
+            ?? throw new InvalidOperationException("token payload missing");
+        mutate(payload);
+        byte[] mutatedPlaintext = JsonSerializer.SerializeToUtf8Bytes(payload);
+        byte[] mutatedCiphertext = new byte[mutatedPlaintext.Length];
+        byte[] mutatedTag = new byte[tag.Length];
+
+        using (var aes = new AesGcm(key, tag.Length))
+        {
+            aes.Encrypt(nonce, mutatedPlaintext, mutatedCiphertext, mutatedTag, BuildTestAad(envelope, mutatedCiphertext));
+            aes.Encrypt(nonce, mutatedPlaintext, mutatedCiphertext, mutatedTag, BuildTestAad(envelope, mutatedCiphertext));
+        }
+
+        envelope["ciphertext"] = WebEncoders.Base64UrlEncode(mutatedCiphertext);
+        envelope["tag"] = WebEncoders.Base64UrlEncode(mutatedTag);
+        return "fpst_" + WebEncoders.Base64UrlEncode(JsonSerializer.SerializeToUtf8Bytes(envelope));
+    }
+
+    private static byte[] BuildTestAad(JsonObject envelope, byte[] ciphertext)
+        => JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            challengeId = envelope["challengeId"]!.GetValue<string>(),
+            algorithm = envelope["algorithm"]!.GetValue<string>(),
+            taskKind = envelope["taskKind"]!.GetValue<string>(),
+            action = envelope["action"]!.GetValue<string>(),
+            routeKey = envelope["routeKey"]!.GetValue<string>(),
+            recipeHashHex = envelope["recipeHashHex"]!.GetValue<string>().ToLowerInvariant(),
+            issuedAtUnixMs = envelope["issuedAtUnixMs"]!.GetValue<long>(),
+            expiresAtUnixMs = envelope["expiresAtUnixMs"]!.GetValue<long>(),
+            keyVersion = envelope["keyVersion"]!.GetValue<string>(),
+            payloadCiphertextHashHex = Convert.ToHexStringLower(SHA256.HashData(ciphertext))
+        });
 
     private static string MutateBase64Url(string value)
         => string.IsNullOrEmpty(value)
