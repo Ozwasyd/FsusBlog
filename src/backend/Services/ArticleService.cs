@@ -491,26 +491,76 @@ public class ArticleService(
         string diffSummary)
     {
         await _db.Ado.ExecuteCommandAsync(
-            "SELECT id FROM article WHERE id = @id FOR UPDATE;",
-            new SugarParameter[] { new("@id", articleId) });
-        int lastRevision = await _db.Queryable<ArticleRevision>()
-            .Where(it => it.ArticleId == articleId)
-            .MaxAsync(it => it.RevisionNo);
+            """
+            SELECT pg_advisory_xact_lock(hashtext('article_revision'), @articleId);
+            LOCK TABLE article_revision IN ROW EXCLUSIVE MODE;
+            """,
+            new SugarParameter[] { new("@articleId", articleId) });
         long actorAdminPrincipalId = ResolveRevisionAdminPrincipalId();
-        await _db.Insertable(new ArticleRevision
-        {
-            ArticleId = articleId,
-            RevisionNo = Math.Max(0, lastRevision) + 1,
-            Title = title,
-            Summary = summary,
-            CoverImageUrl = coverImageUrl,
-            CategoryId = categoryId,
-            TagIds = string.Join(',', tagIds.OrderBy(static id => id)),
-            MarkdownContent = content,
-            DiffSummary = diffSummary,
-            CreatedByAdminPrincipalId = actorAdminPrincipalId,
-            CreatedAt = DateTime.UtcNow
-        }).ExecuteCommandAsync();
+        string orderedTagIds = string.Join(',', tagIds.OrderBy(static id => id));
+        await _db.Ado.ExecuteCommandAsync(
+            """
+            WITH locked_article AS (
+                SELECT id, xmin::text AS row_version
+                FROM article
+                WHERE id = @articleId
+                  AND isdeleted = false
+                FOR UPDATE
+            ),
+            locked_revisions AS (
+                SELECT revision_no
+                FROM article_revision
+                WHERE article_id = @articleId
+                FOR UPDATE
+            ),
+            next_revision AS (
+                SELECT locked_article.id AS article_id,
+                       locked_article.row_version,
+                       COALESCE(MAX(revision_no), 0) + 1 AS revision_no
+                FROM locked_article
+                LEFT JOIN locked_revisions ON TRUE
+                GROUP BY locked_article.id, locked_article.row_version
+            )
+            INSERT INTO article_revision (
+                article_id,
+                revision_no,
+                title,
+                summary,
+                cover_image_url,
+                categoryid,
+                tag_ids,
+                markdown_content,
+                diff_summary,
+                created_by_admin_principal_id,
+                created_at
+            )
+            SELECT
+                article_id,
+                revision_no,
+                @title,
+                @summary,
+                @coverImageUrl,
+                @categoryId,
+                @tagIds,
+                @content,
+                @diffSummary,
+                @createdByAdminPrincipalId,
+                @createdAt
+            FROM next_revision;
+            """,
+            new SugarParameter[]
+            {
+                new("@articleId", articleId),
+                new("@title", title),
+                new("@summary", summary),
+                new("@coverImageUrl", coverImageUrl),
+                new("@categoryId", categoryId),
+                new("@tagIds", orderedTagIds),
+                new("@content", content),
+                new("@diffSummary", diffSummary),
+                new("@createdByAdminPrincipalId", actorAdminPrincipalId),
+                new("@createdAt", DateTime.UtcNow)
+            });
     }
 
     private long ResolveRevisionAdminPrincipalId()

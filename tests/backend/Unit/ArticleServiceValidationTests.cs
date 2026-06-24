@@ -160,9 +160,31 @@ public class ArticleServiceValidationTests
     {
         string articleService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
         string entities = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Entities/Article.cs"));
+        string migrations = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs"));
 
         Assert.Contains("FOR UPDATE", articleService, StringComparison.Ordinal);
         Assert.Contains("ux_article_revision_article_revision_no", entities, StringComparison.Ordinal);
+        Assert.Contains("ux_article_revision_article_revision_no", migrations, StringComparison.Ordinal);
+        Assert.Contains("ON article_revision(article_id, revision_no)", migrations, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SaveArticleRevisionAsync_SourceAllocatesRevisionNoAtomicallyAndRejectsDeletedArticle()
+    {
+        string articleService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        int methodStart = articleService.IndexOf("private async Task SaveArticleRevisionAsync", StringComparison.Ordinal);
+        int methodEnd = articleService.IndexOf("private long ResolveRevisionAdminPrincipalId", methodStart, StringComparison.Ordinal);
+        string method = articleService[methodStart..methodEnd];
+
+        Assert.Contains("xmin", method, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("isdeleted = false", method, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("FOR UPDATE", method, StringComparison.Ordinal);
+        Assert.Contains("LOCK TABLE article_revision IN ROW EXCLUSIVE MODE", method, StringComparison.Ordinal);
+        Assert.Contains("INSERT INTO article_revision", method, StringComparison.Ordinal);
+        Assert.Contains("COALESCE(MAX(revision_no), 0) + 1", method, StringComparison.Ordinal);
+        Assert.Contains("WHERE article_id = @articleId", method, StringComparison.Ordinal);
+        Assert.DoesNotContain(".MaxAsync(it => it.RevisionNo)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("RevisionNo = Math.Max", method, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -174,7 +196,8 @@ public class ArticleServiceValidationTests
         string method = articleService[methodStart..methodEnd];
 
         Assert.Contains("ResolveRevisionAdminPrincipalId()", articleService, StringComparison.Ordinal);
-        Assert.Contains("CreatedByAdminPrincipalId = actorAdminPrincipalId", method, StringComparison.Ordinal);
+        Assert.Contains("created_by_admin_principal_id", method, StringComparison.Ordinal);
+        Assert.Contains("@createdByAdminPrincipalId", method, StringComparison.Ordinal);
         Assert.DoesNotContain("GetUserId()", method, StringComparison.Ordinal);
         Assert.DoesNotContain("CreatedByUserId", method, StringComparison.Ordinal);
     }

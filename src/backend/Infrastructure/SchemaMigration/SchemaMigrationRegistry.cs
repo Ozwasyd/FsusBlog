@@ -58,6 +58,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildSingleAuthorArticleLifecycleIndexMigration(),
         BuildArticleMutationOutboxEdgeMigration(),
         BuildAuthoringWorkspaceTablesMigration(),
+        BuildArticleRevisionAtomicRevisionNoMigration(),
         BuildAuthoringDraftLifecycleMigration(),
         BuildAuthoringAdminPrincipalAttributionIndexMigration(),
         BuildCommentModerationMigration(),
@@ -2370,6 +2371,9 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_article_revision_article_time",
                     "CREATE INDEX IF NOT EXISTS idx_article_revision_article_time ON article_revision(article_id, created_at DESC);"),
+                new CreateIndexStep(
+                    "ux_article_revision_article_revision_no",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ux_article_revision_article_revision_no ON article_revision(article_id, revision_no);"),
                 new EnsureTableStep(
                     "asset_library_item",
                     """
@@ -2440,6 +2444,19 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     TargetSqlExpression: null,
                     PredicateSql: "moderated_by_admin_principal_id IS NULL"),
                 new DropColumnStep("comment", "moderated_by_user_id")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildArticleRevisionAtomicRevisionNoMigration()
+        => new SchemaMigrationDescriptor(
+            "20260625-post-article-revision-atomic-revision-no",
+            "Enforce per-article unique revision numbers before atomic revision allocation.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new CreateIndexStep(
+                    "ux_article_revision_article_revision_no",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ux_article_revision_article_revision_no ON article_revision(article_id, revision_no);")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAuthoringDraftLifecycleMigration()
