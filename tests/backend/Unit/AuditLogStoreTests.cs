@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Linq.Expressions;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using Microsoft.Extensions.Configuration;
@@ -88,6 +90,36 @@ public class AuditLogStoreTests
         Assert.Equal("{\"trace\":\"trace-1\",\"count\":2}", ReadStringParameter(capturedParameters!, "@context_json_0"));
     }
 
+    [Fact]
+    public async Task WriteBatchAsync_UsesInvariantChainIdAcrossCultures()
+    {
+        string[] chainIds = [];
+        foreach (string cultureName in new[] { "en-US", "fa-IR", "ar-SA", "th-TH" })
+        {
+            chainIds = [.. chainIds, await CaptureWrittenChainIdAsync(cultureName)];
+        }
+
+        Assert.All(chainIds, chainId => Assert.Equal("20260614", chainId));
+    }
+
+    [Fact]
+    public async Task WriteBatchAsync_ChainTailQueryHitsInvariantChainAcrossCultures()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        Expression<Func<AuditLog, bool>>? capturedWhere = null;
+        db.Ado.Returns(ado);
+        ConfigureChainTail(db, "previous-record-hash", where => capturedWhere = where);
+        ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(Task.FromResult(1));
+        var store = new AuditLogStore(db, new ConfigurationBuilder().Build());
+
+        await RunWithCultureAsync("fa-IR", () => store.WriteBatchAsync([BuildRecord("cross-node")], CancellationToken.None));
+
+        Assert.NotNull(capturedWhere);
+        Func<AuditLog, bool> predicate = capturedWhere!.Compile();
+        Assert.True(predicate(new AuditLog { ChainId = "20260614", RecordHash = "previous-record-hash" }));
+    }
+
     private static AuditRecord BuildRecord(string eventInfo)
         => new(
             AuditSourceCatalog.Auth,
@@ -99,20 +131,60 @@ public class AuditLogStoreTests
             Outcome: AuditOutcomeCatalog.Success,
             Severity: AuditSeverityCatalog.Info);
 
+    private static async Task<string> CaptureWrittenChainIdAsync(string cultureName)
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        SugarParameter[]? capturedParameters = null;
+        db.Ado.Returns(ado);
+        ConfigureChainTail(db, null);
+        ado.ExecuteCommandAsync(
+                Arg.Any<string>(),
+                Arg.Do<SugarParameter[]>(parameters => capturedParameters = parameters))
+            .Returns(Task.FromResult(1));
+        var store = new AuditLogStore(db, new ConfigurationBuilder().Build());
+
+        await RunWithCultureAsync(cultureName, () => store.WriteBatchAsync([BuildRecord(cultureName)], CancellationToken.None));
+
+        Assert.NotNull(capturedParameters);
+        return ReadStringParameter(capturedParameters!, "@chain_id_0")!;
+    }
+
+    private static async Task RunWithCultureAsync(string cultureName, Func<Task> action)
+    {
+        CultureInfo previousCulture = CultureInfo.CurrentCulture;
+        CultureInfo previousUiCulture = CultureInfo.CurrentUICulture;
+        CultureInfo culture = CultureInfo.GetCultureInfo(cultureName);
+        CultureInfo.CurrentCulture = culture;
+        CultureInfo.CurrentUICulture = culture;
+        try
+        {
+            await action();
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+            CultureInfo.CurrentUICulture = previousUiCulture;
+        }
+    }
+
     private static string? ReadStringParameter(SugarParameter[] parameters, string name)
     {
         var value = parameters.Single(parameter => parameter.ParameterName == name).Value;
         return value == DBNull.Value ? null : (string?)value;
     }
 
-    private static void ConfigureChainTail(ISqlSugarClient db, string? tail)
+    private static void ConfigureChainTail(
+        ISqlSugarClient db,
+        string? tail,
+        Action<Expression<Func<AuditLog, bool>>>? captureWhere = null)
     {
-        var queryable = Substitute.For<ISugarQueryable<FsusBlog.Server.Entities.AuditLog>>();
+        var queryable = Substitute.For<ISugarQueryable<AuditLog>>();
         var hashQueryable = Substitute.For<ISugarQueryable<string>>();
-        db.Queryable<FsusBlog.Server.Entities.AuditLog>().Returns(queryable);
-        queryable.Where(Arg.Any<Expression<Func<FsusBlog.Server.Entities.AuditLog, bool>>>()).Returns(queryable);
-        queryable.OrderByDescending(Arg.Any<Expression<Func<FsusBlog.Server.Entities.AuditLog, object>>>()).Returns(queryable);
-        queryable.Select(Arg.Any<Expression<Func<FsusBlog.Server.Entities.AuditLog, string>>>()).Returns(hashQueryable);
+        db.Queryable<AuditLog>().Returns(queryable);
+        queryable.Where(Arg.Do<Expression<Func<AuditLog, bool>>>(where => captureWhere?.Invoke(where))).Returns(queryable);
+        queryable.OrderByDescending(Arg.Any<Expression<Func<AuditLog, object>>>()).Returns(queryable);
+        queryable.Select(Arg.Any<Expression<Func<AuditLog, string>>>()).Returns(hashQueryable);
         hashQueryable.FirstAsync(Arg.Any<CancellationToken>())
             .Returns(tail is null ? Task.FromResult<string>(null!) : Task.FromResult(tail));
     }

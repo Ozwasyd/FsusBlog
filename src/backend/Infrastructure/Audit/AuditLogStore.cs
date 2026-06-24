@@ -1,6 +1,7 @@
 using FsusBlog.Server.Entities;
 using SqlSugar;
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Text;
 
 namespace FsusBlog.Server.Infrastructure.Audit;
@@ -211,7 +212,7 @@ public sealed class AuditLogStore(ISqlSugarClient db, IConfiguration configurati
 
     private static string ResolveChainId(AuditRecord record)
         => string.IsNullOrWhiteSpace(record.ChainId)
-            ? record.OccurredAtUtc.ToUniversalTime().ToString("yyyyMMdd")
+            ? record.OccurredAtUtc.ToUniversalTime().ToString("yyyyMMdd", CultureInfo.InvariantCulture)
             : record.ChainId.Trim();
 
     private sealed record AuditLogInsertBatchShape(string Sql, string[] ParameterNames);
