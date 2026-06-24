@@ -72,7 +72,9 @@ export const showToast = (options: ToastOptions | string): ToastHandle => {
   const messageOptions: Record<string, unknown> = {
     message: messageVNode,
     type: elType as any,
-    customClass: `fsusblog-motion-toast fsusblog-motion-toast--${fsusBlogMotionPresets.toast}`
+    appendTo: document.body,
+    customClass: `fsusblog-motion-toast fsusblog-motion-toast--${fsusBlogMotionPresets.toast} fsusblog-motion-toast--viewport-bottom`,
+    motion: fsusBlogMotionPresets.toast
   }
 
   if (opts.duration !== undefined) {

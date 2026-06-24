@@ -295,10 +295,10 @@ function bucketText(label: string, value: string | null | undefined): string {
 
 function nullifierStatusText(item: CommentModerationItemResponse, isAnonymousActor: boolean): string {
   if (!isAnonymousActor) {
-    return 'Nullifier：公开账号'
+    return '匿名标识：公开账号'
   }
 
-  return cleanText(item.nullifierStatusLabel) ?? 'Nullifier：未记录'
+  return cleanText(item.nullifierStatusLabel) ?? '匿名标识：未记录'
 }
 
 function buildRecommendedAction(item: CommentModerationItemResponse): Pick<CommentModerationViewItem, 'recommendedStatus' | 'recommendedActionLabel' | 'recommendedActionReason'> {

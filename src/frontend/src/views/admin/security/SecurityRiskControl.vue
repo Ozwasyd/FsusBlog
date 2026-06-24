@@ -9,12 +9,7 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadConsole">刷新</el-button>
       </template>
 
-      <div class="grid gap-3 md:grid-cols-4">
-        <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
-          <div class="mt-3 break-words text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
-        </div>
-      </div>
+      <AdminStatusMatrix :items="metrics" density="compact" aria-label="RiskControl 指标" />
     </FsusUiSettingsSection>
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)]">
@@ -101,6 +96,7 @@
 <script setup lang="ts">
 import { computed, onMounted, shallowRef } from 'vue'
 import { getRiskControlConsole, type RiskControlConsoleResponse, type SecurityRiskActionPolicy } from '@/api/security'
+import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
@@ -151,7 +147,7 @@ const subsystemRows = computed(() =>
   Object.entries(activePolicy.value?.subsystemModes ?? {}).map(([name, mode]) => ({ name, mode }))
 )
 
-const metrics = computed(() => [
+const metrics = computed<AdminStatusMatrixItem[]>(() => [
   { label: '全局模式', value: formatSecurityMode(activePolicy.value?.globalMode) },
   { label: '24 小时风险事件', value: consoleState.value?.risk.eventsLastDay ?? '-' },
   { label: '挑战成功率', value: formatPercent(consoleState.value?.challengeMetrics.successRate) },

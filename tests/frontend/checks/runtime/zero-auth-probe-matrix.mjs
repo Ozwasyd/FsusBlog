@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { encodeAdminPrincipalSnapshotFrame, encodeIdentityAccountSnapshotFrame } from '../../support/aeds-envelope.mjs'
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs'
+import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
@@ -14,9 +15,7 @@ const baseUrl = (
   || process.env.FSUSBLOG_BASE_URL
   || 'http://127.0.0.1:3000'
 ).replace(/\/+$/u, '')
-const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH
-  || ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser']
-    .find((candidate) => existsSync(candidate))
+const executablePath = resolveSystemChromiumExecutablePath()
 const publicFixtureIds = readPublicFixtureIds()
 
 const AUTH_ME_PATTERN = /\/api\/binary\/auth\/me(?:[?#]|$)/u

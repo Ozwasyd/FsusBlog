@@ -3,20 +3,14 @@
 import { createRequire } from 'node:module'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require(require.resolve('@playwright/test', { paths: [resolve(process.cwd(), 'node_modules')] }))
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:8080'
 const articlePath = process.env.FSUSBLOG_PWA_OFFLINE_ARTICLE_PATH || '/article/1'
-const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH
-  || [
-    'C:/Program Files/Google/Chrome/Application/chrome.exe',
-    'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser'
-  ].find((candidate) => existsSync(candidate))
+const executablePath = resolveSystemChromiumExecutablePath()
 
 function assert(condition, message) {
   if (!condition) {

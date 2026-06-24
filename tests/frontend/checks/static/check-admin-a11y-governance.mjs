@@ -5,6 +5,12 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const failures = []
+const adminAccountRoots = [
+  'src/frontend/src/views/admin',
+  'src/frontend/src/views/user',
+  'src/frontend/src/components/admin',
+  'src/frontend/src/components/user'
+].map((dir) => path.join(repoRoot, dir))
 
 const rel = (file) => path.relative(repoRoot, file).replaceAll(path.sep, '/')
 const read = (file) => fs.readFileSync(file, 'utf8')
@@ -40,6 +46,35 @@ function assertEveryElIconHidden(file) {
   let match
   while ((match = pattern.exec(source)) !== null) {
     fail(file, lineOf(source, match[0]), 'decorative el-icon must declare aria-hidden="true"')
+  }
+}
+
+function walk(dir, files = []) {
+  if (!fs.existsSync(dir)) {
+    return files
+  }
+
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name)
+    if (entry.isDirectory()) {
+      walk(fullPath, files)
+      continue
+    }
+
+    if (entry.isFile() && /\.(vue|ts)$/.test(entry.name)) {
+      files.push(fullPath)
+    }
+  }
+
+  return files
+}
+
+function assertSwitchesDoNotUseVisibleStateText(file) {
+  const source = read(file)
+  for (const token of ['active-text=', 'inactive-text=']) {
+    if (source.includes(token)) {
+      fail(file, lineOf(source, token), 'admin/account switches must not use visible active/inactive text; use row labels plus aria-label')
+    }
   }
 }
 
@@ -153,7 +188,11 @@ requireToken(settingsPath, settings, '<button', 'settings dropzone empty state m
 requireToken(settingsPath, settings, 'type="button"', 'settings dropzone empty state button must not submit forms')
 requireToken(settingsPath, settings, 'aria-label="上传预览图"', 'settings dropzone button must expose an accessible name')
 requireToken(settingsPath, settings, '<el-icon :size="20" aria-hidden="true"><Plus /></el-icon>', 'settings dropzone icon must be decorative and 20px')
-forbidToken(settingsPath, settings, '<el-icon size="24"><Plus /></el-icon>', 'settings dropzone must not use a decorative 24px placeholder icon')
+  forbidToken(settingsPath, settings, '<el-icon size="24"><Plus /></el-icon>', 'settings dropzone must not use a decorative 24px placeholder icon')
+
+for (const file of adminAccountRoots.flatMap((dir) => walk(dir))) {
+  assertSwitchesDoNotUseVisibleStateText(file)
+}
 
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 const packageJson = JSON.parse(read(packageJsonPath))

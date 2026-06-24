@@ -2,6 +2,7 @@
 
 import { createRequire } from 'node:module';
 import { loginWithPow } from '../../support/auth-helpers.mjs';
+import { systemChromiumLaunchOptions } from '../../support/system-chromium.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
 
 const frontendBaseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
@@ -94,7 +95,7 @@ async function assertPageA11y(page, label) {
 }
 
 async function main() {
-  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  const browser = await chromium.launch(systemChromiumLaunchOptions({ headless: true }));
   try {
     const guestContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
     const guestPage = await guestContext.newPage();

@@ -18,6 +18,7 @@
  */
 import { createRequire } from 'node:module'
 import { dirname } from 'node:path'
+import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { readAedsResponse } from '../../support/aeds-envelope.mjs'
@@ -26,8 +27,7 @@ import { readPublicFixtureIds } from '../../support/public-fixtures.mjs'
 const require = createRequire(import.meta.url)
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
 const publicFixtureIds = readPublicFixtureIds()
-const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH
-  || ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find((candidate) => existsSync(candidate))
+const executablePath = resolveSystemChromiumExecutablePath()
 
 const PUBLIC_HYDRATION_TIMEOUT_MS = 12000
 const PUBLIC_RUNTIME_TIMEOUT_MS = 10000

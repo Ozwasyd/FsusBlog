@@ -463,6 +463,10 @@ export default defineConfig(({ mode }) => {
                 })
             }
         },
+        '^/__local/.*$': {
+            target: apiBaseUrl,
+            changeOrigin: true
+        },
         '^/uploads/.*$': {
             target: apiBaseUrl,
             changeOrigin: true

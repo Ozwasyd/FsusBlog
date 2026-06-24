@@ -1,8 +1,31 @@
-import { ElPageHeader } from '@ozwasyd/element-plus'
-import type { Component } from 'vue'
+import { defineComponent, h } from 'vue'
 
-// FsusUI page-header 替代 admin 自造的 AccountPageHeader：
-// - title 取代旧组件的 title
-// - content 取代旧组件的 description
-// - 通过 fsusui/ 适配层暴露，避开业务代码直接 import FsusUI 组件
-export const FsusUiPageHeader = ElPageHeader as Component
+export const FsusUiPageHeader = defineComponent({
+  name: 'FsusUiPageHeader',
+  inheritAttrs: false,
+  props: {
+    title: {
+      type: String,
+      required: true
+    },
+    content: {
+      type: String,
+      default: ''
+    }
+  },
+  setup(props, { attrs, slots }) {
+    return () => h(
+      'header',
+      {
+        ...attrs,
+        class: ['account-page-header', attrs.class]
+      },
+      [
+        h('h1', { class: 'account-page-title' }, slots.title?.() ?? props.title),
+        (slots.default || props.content)
+          ? h('p', { class: 'account-page-description' }, slots.default?.() ?? props.content)
+          : null
+      ]
+    )
+  }
+})

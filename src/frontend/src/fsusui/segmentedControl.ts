@@ -1,5 +1,6 @@
 import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CSSProperties, PropType } from 'vue'
+import { RouterLink } from 'vue-router'
 
 export type FsusUiSegmentedControlValue = string | number | boolean
 
@@ -7,6 +8,8 @@ export interface FsusUiSegmentedControlItem {
   label: string
   value: FsusUiSegmentedControlValue
   disabled?: boolean
+  to?: string
+  href?: string
 }
 
 export const FsusUiSegmentedControl = defineComponent({
@@ -32,6 +35,10 @@ export const FsusUiSegmentedControl = defineComponent({
     density: {
       type: String,
       default: 'default'
+    },
+    selectionMode: {
+      type: String as PropType<'radio' | 'link'>,
+      default: 'radio'
     }
   },
   emits: {
@@ -159,7 +166,7 @@ export const FsusUiSegmentedControl = defineComponent({
         },
         attrs.style as CSSProperties | undefined
       ],
-      role: 'radiogroup',
+      role: props.selectionMode === 'radio' ? 'radiogroup' : 'navigation',
       'aria-label': props.ariaLabel,
       'aria-labelledby': props.ariaLabelledby
     }, [
@@ -188,9 +195,12 @@ export const FsusUiSegmentedControl = defineComponent({
       }),
       ...props.items.map((item, index) => {
       const selected = item.value === props.modelValue
-      return h('button', {
+      const linkMode = props.selectionMode === 'link' && (item.to || item.href)
+      const rendersLink = Boolean(item.to || item.href)
+      const itemProps = {
         key: String(item.value),
         ref: (element) => setButtonRef(element, index),
+        href: item.disabled ? undefined : item.href,
         class: [
           'el-segmented-control__item',
           { 'is-active': selected }
@@ -205,16 +215,41 @@ export const FsusUiSegmentedControl = defineComponent({
               }
             : undefined)
         },
-        disabled: item.disabled,
-        role: 'radio',
-        type: 'button',
-        'aria-checked': selected,
-        tabindex: selected ? 0 : -1,
+        disabled: rendersLink ? undefined : item.disabled,
+        'aria-disabled': item.disabled ? 'true' : undefined,
+        role: linkMode ? undefined : 'radio',
+        type: rendersLink ? undefined : 'button',
+        'aria-checked': linkMode ? undefined : selected,
+        'aria-current': linkMode && selected ? 'page' : undefined,
+        tabindex: linkMode ? undefined : (selected ? 0 : -1),
         onClick: () => selectItem(item),
         onKeydown: (event: KeyboardEvent) => handleKeydown(event, index)
-      }, slots.item
+      }
+      const itemContent = slots.item
         ? slots.item({ item, selected })
-        : item.label)
+        : item.label
+
+      if (item.to) {
+        return h(RouterLink, {
+          key: String(item.value),
+          to: item.to,
+          custom: true
+        }, {
+          default: ({ href, navigate }: { href: string; navigate: (event?: MouseEvent) => void }) =>
+            h('a', {
+              ...itemProps,
+              href: item.disabled ? undefined : href,
+              onClick: (event: MouseEvent) => {
+                selectItem(item)
+                if (!item.disabled) {
+                  navigate(event)
+                }
+              }
+            }, itemContent)
+        })
+      }
+
+      return h(item.href ? 'a' : 'button', itemProps, itemContent)
       })
     ])
   }

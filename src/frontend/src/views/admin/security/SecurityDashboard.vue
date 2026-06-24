@@ -1,41 +1,42 @@
 <template>
-  <div class="space-y-8">
-    <FsusUiSettingsSection
-      title="安全运行总览"
-      :description="overview ? `检查时间：${formatTime(overview.checkedAtUtc)}` : ''"
-      id="security-overview-title"
+  <div class="security-dashboard">
+    <section
+      class="security-dashboard__overview"
+      aria-labelledby="security-overview-title"
     >
-      <template #actions>
-        <el-button :icon="Refresh" :loading="loading" @click="loadOverview">刷新</el-button>
-      </template>
-
-      <div class="grid gap-3 md:grid-cols-4">
-        <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
-          <div class="mt-3 break-words text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
+      <div class="security-dashboard__overview-toolbar">
+        <div class="security-dashboard__overview-copy">
+          <h2 id="security-overview-title">安全运行总览</h2>
+          <p v-if="overview">检查时间：{{ formatTime(overview.checkedAtUtc) }}</p>
         </div>
+        <el-button :icon="Refresh" :loading="loading" @click="loadOverview">刷新</el-button>
       </div>
-    </FsusUiSettingsSection>
 
-    <section class="grid gap-8 lg:grid-cols-3">
+      <AdminStatusMatrix :items="metrics" density="compact" />
+    </section>
+
+    <section class="security-dashboard__links" aria-label="安全系统入口">
       <RouterLink
         v-for="link in links"
         :key="link.name"
         :to="{ name: link.name }"
-        class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] p-5 transition hover:bg-[var(--fsusblog-page-bg-soft)]"
+        class="security-dashboard__link"
       >
-        <div class="text-xl font-bold text-[var(--fsusblog-text-primary)]">{{ link.label }}</div>
-        <p class="mt-2 text-[12px] leading-6 text-[var(--fsusblog-text-muted)]">{{ link.helper }}</p>
+        <span class="security-dashboard__link-copy">
+          <strong>{{ link.label }}</strong>
+          <span>{{ link.helper }}</span>
+        </span>
+        <ArrowRight class="security-dashboard__link-icon" aria-hidden="true" />
       </RouterLink>
     </section>
 
-    <section class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.65fr)]">
+    <section class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.65fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
-        <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
+        <div class="border-b border-[var(--fsusblog-panel-border)] px-4 py-3">
           <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">模块边界</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
-          <div v-for="row in boundaryRows" :key="row.label" class="p-5">
+          <div v-for="row in boundaryRows" :key="row.label" class="px-4 py-3">
             <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ row.label }}</div>
             <p class="mt-1 text-[12px] leading-6 text-[var(--fsusblog-text-muted)]">{{ row.value }}</p>
           </div>
@@ -43,15 +44,10 @@
       </div>
 
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
-        <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
+        <div class="border-b border-[var(--fsusblog-panel-border)] px-4 py-3">
           <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">风险摘要</div>
         </div>
-        <div class="grid gap-3">
-          <div v-for="row in riskRows" :key="row.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ row.label }}</div>
-            <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ row.value }}</div>
-          </div>
-        </div>
+        <AdminStatusMatrix :items="riskRows" density="compact" />
       </div>
     </section>
   </div>
@@ -61,8 +57,8 @@
 import { computed, onMounted, shallowRef } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getSecurityOverview, type SecurityOverviewResponse } from '@/api/security'
-import { FsusUiSettingsSection } from '@/fsusui'
-import { Refresh } from '@/fsusui/icons'
+import AdminStatusMatrix, { type AdminStatusMatrixItem, type AdminStatusMatrixTone } from '@/components/admin/AdminStatusMatrix.vue'
+import { ArrowRight, Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 
 const loading = shallowRef(false)
@@ -82,22 +78,57 @@ const formatSecurityMode = (mode: string | null | undefined): string => {
   const labels: Record<string, string> = {
     disabled: '已关闭',
     observe: '观察',
-    enforce: '执行',
+    enforce: '执行中',
     strict: '严格'
   }
   return mode ? labels[mode] ?? mode : '未配置'
 }
 
-const metrics = computed(() => [
-  { label: '反爬虫模式', value: formatSecurityMode(overview.value?.antiCrawler.mode) },
-  { label: 'CIDR 来源', value: overview.value?.antiCrawler.cidrSource ?? '未记录' },
-  { label: 'PoW 模式', value: formatSecurityMode(overview.value?.pow.policy.options.mode) },
-  { label: '高风险主体', value: overview.value?.risk.highRiskSnapshotCount ?? '未记录' }
+const modeTone = (mode: string | null | undefined): AdminStatusMatrixTone => {
+  if (mode === 'disabled') return 'neutral'
+  if (mode === 'observe') return 'info'
+  if (mode === 'strict') return 'warning'
+  if (mode === 'enforce') return 'success'
+  return 'neutral'
+}
+
+const countTone = (value: number | null | undefined): AdminStatusMatrixTone =>
+  value && value > 0 ? 'warning' : 'neutral'
+
+const metrics = computed<AdminStatusMatrixItem[]>(() => [
+  {
+    label: '反爬虫',
+    value: formatSecurityMode(overview.value?.antiCrawler.mode),
+    tone: modeTone(overview.value?.antiCrawler.mode)
+  },
+  {
+    label: 'CIDR',
+    value: overview.value?.antiCrawler.cidrSource ?? '未记录',
+    tone: overview.value?.antiCrawler.cidrSource ? 'info' : 'neutral'
+  },
+  {
+    label: 'PoW',
+    value: formatSecurityMode(overview.value?.pow.policy.options.mode),
+    tone: modeTone(overview.value?.pow.policy.options.mode)
+  },
+  {
+    label: '高风险主体',
+    value: overview.value?.risk.highRiskSnapshotCount ?? '未记录',
+    tone: countTone(overview.value?.risk.highRiskSnapshotCount)
+  }
 ])
 
-const riskRows = computed(() => [
-  { label: '1 小时风险事件', value: overview.value?.risk.eventsLastHour ?? '未记录' },
-  { label: '24 小时风险事件', value: overview.value?.risk.eventsLastDay ?? '未记录' },
+const riskRows = computed<AdminStatusMatrixItem[]>(() => [
+  {
+    label: '1 小时事件',
+    value: overview.value?.risk.eventsLastHour ?? '未记录',
+    tone: countTone(overview.value?.risk.eventsLastHour)
+  },
+  {
+    label: '24 小时事件',
+    value: overview.value?.risk.eventsLastDay ?? '未记录',
+    tone: countTone(overview.value?.risk.eventsLastDay)
+  },
   { label: '主要原因', value: overview.value?.risk.topReason ?? '未记录' },
   { label: '主要来源', value: overview.value?.risk.topSource ?? '未记录' }
 ])
@@ -125,3 +156,112 @@ onMounted(() => {
   void loadOverview()
 })
 </script>
+
+<style scoped>
+.security-dashboard {
+  display: grid;
+  gap: 24px;
+}
+
+.security-dashboard__overview {
+  display: grid;
+  gap: 12px;
+}
+
+.security-dashboard__overview-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+.security-dashboard__overview-copy {
+  min-width: 0;
+}
+
+.security-dashboard__overview-copy h2 {
+  color: var(--fsusblog-text-primary);
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.security-dashboard__overview-copy p {
+  margin-top: 4px;
+  color: var(--fsusblog-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.security-dashboard__links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  overflow: hidden;
+  border-top: 1px solid var(--fsusblog-panel-border);
+  border-left: 1px solid var(--fsusblog-panel-border);
+  background: var(--fsusblog-page-bg);
+}
+
+.security-dashboard__link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 12px 16px;
+  color: var(--fsusblog-text-primary);
+  background: var(--fsusblog-page-bg);
+  border-right: 1px solid var(--fsusblog-panel-border);
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+  transition:
+    background-color var(--fsus-motion-control),
+    color var(--fsus-motion-control);
+}
+
+.security-dashboard__link:hover {
+  color: var(--fsusblog-color-primary);
+  background: var(--fsusblog-page-bg-soft);
+}
+
+.security-dashboard__link-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.security-dashboard__link-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.security-dashboard__link-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fsusblog-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.security-dashboard__link-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--fsusblog-text-muted);
+}
+
+@media (max-width: 480px) {
+  .security-dashboard {
+    gap: 20px;
+  }
+
+  .security-dashboard__links {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

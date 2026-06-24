@@ -187,6 +187,37 @@ for (const viewport of [
       }
     })
 
+    test('audit log facet summary supports quick filter URL toggle', async ({ browser }) => {
+      const session = await openAuditedPage(browser, storageState)
+      try {
+        await session.page.goto('/user/manage/audit', { waitUntil: 'domcontentloaded' })
+        await waitForAppReady(session.page)
+        await settlePage(session.page)
+
+        await expect(session.page.getByRole('list', { name: '动作 facet 过滤' })).toBeVisible()
+        await expect(session.page.getByRole('list', { name: '结果 facet 过滤' })).toBeVisible()
+        await expect(session.page.getByRole('list', { name: '严重度 facet 过滤' })).toBeVisible()
+
+        const actionButtons = session.page.getByRole('list', { name: '动作 facet 过滤' }).getByRole('button')
+        await expect(actionButtons.first()).toBeVisible()
+        await actionButtons.first().click()
+
+        await expect
+          .poll(() => session.page.evaluate(() => new URL(location.href).searchParams.get('action')))
+          .not.toBeNull()
+        await expect(session.page.getByRole('list', { name: '动作 facet 过滤' }).getByRole('button', { pressed: true }).first()).toBeVisible()
+
+        await session.page.getByRole('list', { name: '动作 facet 过滤' }).getByRole('button', { pressed: true }).first().click()
+        await expect
+          .poll(() => session.page.evaluate(() => new URL(location.href).searchParams.get('action')))
+          .toBeNull()
+
+        await assertNoHorizontalOverflow(session.page)
+      } finally {
+        await session.close()
+      }
+    })
+
     test('dashboard, article write and admin workbench actions stay usable', async ({ browser }) => {
       await discardServerDraft(storageState, 'fsus:article-draft:create')
       const session = await openAuditedPage(browser, storageState)

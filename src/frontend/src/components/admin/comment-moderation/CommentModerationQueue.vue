@@ -83,8 +83,8 @@
                 <el-button :icon="Check" size="small" type="success" :disabled="!(item as CommentModerationViewItem).regionCanApprove" :loading="processingId === (item as CommentModerationViewItem).id" @click="emit('apply', item as CommentModerationViewItem, CommentModerationStatus.Approved)">通过评论</el-button>
                 <el-button :icon="Hide" size="small" :loading="processingId === (item as CommentModerationViewItem).id" @click="emit('apply', item as CommentModerationViewItem, CommentModerationStatus.Hidden)">隐藏评论</el-button>
                 <el-button :icon="Close" size="small" type="danger" :loading="processingId === (item as CommentModerationViewItem).id" @click="emit('apply', item as CommentModerationViewItem, CommentModerationStatus.Rejected)">拒绝评论</el-button>
-                <el-button v-if="(item as CommentModerationViewItem).hasAnonymousNullifier" size="small" type="danger" plain :disabled="!(item as CommentModerationViewItem).canBlockAnonymousNullifier" @click="emit('block-anonymous-nullifier', item as CommentModerationViewItem)">封禁 Nullifier</el-button>
-                <el-button v-if="(item as CommentModerationViewItem).hasAnonymousCredential" size="small" type="danger" plain :disabled="!(item as CommentModerationViewItem).canRevokeAnonymousCredential" @click="emit('revoke-anonymous-credential', item as CommentModerationViewItem)">撤销匿名凭证</el-button>
+                <el-button v-if="(item as CommentModerationViewItem).hasAnonymousNullifier" size="small" type="danger" plain :disabled="!(item as CommentModerationViewItem).canBlockAnonymousNullifier" @click="emit('block-anonymous-nullifier', item as CommentModerationViewItem)">封禁匿名标识</el-button>
+                <el-button v-if="(item as CommentModerationViewItem).hasAnonymousCredential" size="small" type="danger" plain :disabled="!(item as CommentModerationViewItem).canRevokeAnonymousCredential" @click="emit('revoke-anonymous-credential', item as CommentModerationViewItem)">撤销匿名资格</el-button>
               </div>
             </div>
           </div>
@@ -217,8 +217,8 @@
                         <el-dropdown-item :icon="Check" :disabled="!row.regionCanApprove" @click="emit('apply', row, CommentModerationStatus.Approved)">通过评论</el-dropdown-item>
                         <el-dropdown-item :icon="Hide" @click="emit('apply', row, CommentModerationStatus.Hidden)">隐藏评论</el-dropdown-item>
                         <el-dropdown-item :icon="Close" @click="emit('apply', row, CommentModerationStatus.Rejected)">拒绝评论</el-dropdown-item>
-                        <el-dropdown-item v-if="row.hasAnonymousNullifier" divided :disabled="!row.canBlockAnonymousNullifier" @click="emit('block-anonymous-nullifier', row)">封禁 Nullifier</el-dropdown-item>
-                        <el-dropdown-item v-if="row.hasAnonymousCredential" :disabled="!row.canRevokeAnonymousCredential" @click="emit('revoke-anonymous-credential', row)">撤销匿名凭证</el-dropdown-item>
+                        <el-dropdown-item v-if="row.hasAnonymousNullifier" divided :disabled="!row.canBlockAnonymousNullifier" @click="emit('block-anonymous-nullifier', row)">封禁匿名标识</el-dropdown-item>
+                        <el-dropdown-item v-if="row.hasAnonymousCredential" :disabled="!row.canRevokeAnonymousCredential" @click="emit('revoke-anonymous-credential', row)">撤销匿名资格</el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>

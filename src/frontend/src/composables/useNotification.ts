@@ -342,6 +342,9 @@ export function useNotification() {
                 }
 
                 await runInitialization(nextMode)
+                if (pendingInitMode === nextMode) {
+                    pendingInitMode = ''
+                }
             }
         })()
 

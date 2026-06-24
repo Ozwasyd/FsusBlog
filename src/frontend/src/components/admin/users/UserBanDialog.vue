@@ -16,7 +16,7 @@
         </div>
       </div>
 
-      <div class="mb-8 border border-[var(--fsusblog-color-warning-border)] bg-[var(--fsusblog-color-warning-bg)] p-5 text-[12px] leading-relaxed text-[var(--fsusblog-color-warning-text)]">
+      <div class="admin-muted-alert admin-muted-alert--warning mb-8 p-5 text-[12px] leading-relaxed">
         <p class="font-bold mb-2">封禁影响</p>
         <p>账号容器将无法登录，当前在线会话将失效，封禁原因将展示给账号持有者，并写入审计日志。</p>
       </div>

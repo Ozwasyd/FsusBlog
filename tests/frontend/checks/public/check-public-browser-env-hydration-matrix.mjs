@@ -6,6 +6,7 @@ import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { encodeAdminPrincipalSnapshotFrame, encodeIdentityAccountSnapshotFrame } from '../../support/aeds-envelope.mjs'
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs'
+import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
@@ -20,8 +21,7 @@ const baseUrl = (
   || 'http://127.0.0.1:7568'
 ).replace(/\/+$/u, '')
 const publicFixtureIds = readPublicFixtureIds()
-const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH
-  || ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find((candidate) => existsSync(candidate))
+const executablePath = resolveSystemChromiumExecutablePath()
 
 const HYDRATION_KEYWORDS = [
   'Hydration',

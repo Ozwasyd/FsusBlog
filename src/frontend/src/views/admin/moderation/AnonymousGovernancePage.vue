@@ -6,6 +6,7 @@
     />
 
     <FsusUiSettingsSection
+      class="anonymous-governance-section"
       title="运行状态"
       :description="section.caption"
       :title-tag="'h2'"
@@ -20,8 +21,9 @@
     </FsusUiSettingsSection>
 
     <FsusUiSettingsSection
+      class="anonymous-governance-section"
       title="匿名评论策略"
-      description="需要 anonymous.comment.configure 权限；公开-only 模式只开放具名发送，不开放匿名主体。"
+      description="配置匿名评论与公开发送策略。"
       :title-tag="'h2'"
     >
       <div class="anonymous-governance-controls">
@@ -33,8 +35,6 @@
           <el-switch
             :model-value="anonymousCommentsEnabled"
             :disabled="!canConfigureAnonymousPolicy"
-            active-text="启用"
-            inactive-text="关闭"
             aria-label="匿名评论开关"
             @change="(value: string | number | boolean) => updatePolicy('anonymousCommentsEnabled', value)"
           />
@@ -42,28 +42,24 @@
         <label class="anonymous-governance-control">
           <span>
             <strong>仅公开发送</strong>
-            <small>匿名关闭但公开发送开启时进入 public-only 保护。</small>
+            <small>匿名关闭时，只允许公开身份评论。</small>
           </span>
           <el-switch
             :model-value="publicSendOptionEnabled"
             :disabled="!canConfigureAnonymousPolicy"
-            active-text="允许"
-            inactive-text="禁止"
             aria-label="公开发送开关"
             @change="(value: string | number | boolean) => updatePolicy('publicSendOptionEnabled', value)"
           />
         </label>
         <label class="anonymous-governance-control">
           <span>
-            <strong>ZK 匿名</strong>
-            <small>只影响匿名评论证明能力，不表示 ZK 登录。</small>
+            <strong>隐私证明</strong>
+            <small>仅用于匿名评论证明。</small>
           </span>
           <el-switch
             :model-value="zkAnonymousEnabled"
             :disabled="!canConfigureAnonymousPolicy || !zkAnonymousConfigurable"
-            active-text="可用"
-            inactive-text="未启用"
-            aria-label="ZK 匿名开关"
+            aria-label="隐私证明开关"
             @change="(value: string | number | boolean) => updatePolicy('zkAnonymousEnabled', value)"
           />
         </label>
@@ -71,114 +67,151 @@
     </FsusUiSettingsSection>
 
     <FsusUiSettingsSection
-      title="匿名风险概览"
-      description="展示 author mode、语言、scope、credential、声誉桶、账号年龄桶和风险标签；不提供从 nullifier 到账号的常规反查入口。"
+      class="anonymous-governance-section"
+      title="治理记录"
+      description="匿名主体、标识封禁与资格撤销记录。"
       :title-tag="'h2'"
     >
-      <div class="blog-scroll-x-safe anonymous-governance-table-scroll">
-        <el-table v-loading="loadingStatus" :data="riskRows" row-key="subject" class="anonymous-governance-table">
-          <el-table-column label="主体" min-width="190">
-            <template #default="{ row }: { row: AnonymousRiskRow }">
-              <div class="anonymous-governance-subject">
-                <strong>{{ row.displayName }}</strong>
-                <span>{{ row.subject }}</span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="匿名信号" min-width="260">
-            <template #default="{ row }: { row: AnonymousRiskRow }">
-              <div class="anonymous-governance-tags">
-                <el-tag size="small" type="info">{{ row.authorMode }}</el-tag>
-                <el-tag size="small" type="info">{{ row.displayLanguage }}</el-tag>
-                <el-tag size="small" type="info">{{ row.scope }}</el-tag>
-                <el-tag size="small" type="info">{{ row.credential }}</el-tag>
-                <el-tag size="small" type="info">{{ row.reputation }}</el-tag>
-                <el-tag size="small" type="info">{{ row.accountAge }}</el-tag>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="风险标签" min-width="180">
-            <template #default="{ row }: { row: AnonymousRiskRow }">
-              <div class="anonymous-governance-tags">
-                <el-tag v-for="label in row.riskLabels" :key="label" size="small" type="warning">
-                  {{ label }}
-                </el-tag>
-              </div>
-            </template>
-          </el-table-column>
-          <template #empty>
-            <AdminInlineEmptyState title="暂无匿名风险主体" content="匿名评论进入审核队列后会在这里汇总主体信号。" />
-          </template>
-        </el-table>
+      <div class="anonymous-governance-records">
+        <section class="anonymous-governance-record-block">
+          <header class="anonymous-governance-record-block__header">
+            <div>
+              <h3>匿名主体</h3>
+              <p>汇总匿名评论的审核信号；不提供账号反查。</p>
+            </div>
+            <span class="anonymous-governance-record-count">{{ riskRows.length }} 条</span>
+          </header>
+          <div v-if="hasRiskRows" class="blog-scroll-x-safe anonymous-governance-table-scroll">
+            <el-table v-loading="loadingStatus" :data="riskRows" row-key="subject" class="anonymous-governance-table">
+              <el-table-column label="主体" min-width="190">
+                <template #default="{ row }: { row: AnonymousRiskRow }">
+                  <div class="anonymous-governance-subject">
+                    <strong>{{ row.displayName }}</strong>
+                    <span>{{ row.subject }}</span>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="审核信号" min-width="260">
+                <template #default="{ row }: { row: AnonymousRiskRow }">
+                  <div class="anonymous-governance-tags">
+                    <el-tag size="small" type="info">{{ row.authorMode }}</el-tag>
+                    <el-tag size="small" type="info">{{ row.displayLanguage }}</el-tag>
+                    <el-tag size="small" type="info">{{ row.scope }}</el-tag>
+                    <el-tag size="small" type="info">{{ row.credential }}</el-tag>
+                    <el-tag size="small" type="info">{{ row.reputation }}</el-tag>
+                    <el-tag size="small" type="info">{{ row.accountAge }}</el-tag>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="处置标签" min-width="180">
+                <template #default="{ row }: { row: AnonymousRiskRow }">
+                  <div class="anonymous-governance-tags">
+                    <el-tag v-for="label in row.riskLabels" :key="label" size="small" type="warning">
+                      {{ label }}
+                    </el-tag>
+                  </div>
+                </template>
+              </el-table-column>
+              <template #empty>
+                <AdminInlineEmptyState title="主体记录为空" description="匿名评论进入审核队列后显示。" />
+              </template>
+            </el-table>
+          </div>
+          <AdminInlineEmptyState
+            v-else
+            class="anonymous-governance-empty"
+            title="主体记录为空"
+            description="匿名评论进入审核队列后显示。"
+          />
+        </section>
+
+        <section class="anonymous-governance-record-block">
+          <header class="anonymous-governance-record-block__header">
+            <div>
+              <h3>匿名标识</h3>
+              <p>按匿名标识处理评论来源；不展示账号身份。</p>
+            </div>
+            <span class="anonymous-governance-record-count">{{ nullifierRows.length }} 条</span>
+          </header>
+          <div v-if="hasNullifierRows" class="blog-scroll-x-safe anonymous-governance-table-scroll">
+            <el-table v-loading="loadingNullifiers" :data="nullifierRows" row-key="key" class="anonymous-governance-table">
+              <el-table-column prop="scope" label="适用范围" min-width="160" />
+              <el-table-column prop="maskedHash" label="匿名标识" min-width="220" />
+              <el-table-column prop="status" label="状态" min-width="120" />
+              <el-table-column label="操作" width="170" align="right">
+                <template #default="{ row }: { row: AnonymousNullifierRow }">
+                  <el-button
+                    type="danger"
+                    plain
+                    size="small"
+                    :disabled="!canBlockAnonymousNullifier || row.status === 'blocked'"
+                    :loading="processingAction === row.key"
+                    @click="previewNullifierBlock(row)"
+                  >
+                    封禁标识
+                  </el-button>
+                </template>
+              </el-table-column>
+              <template #empty>
+                <AdminInlineEmptyState title="标识记录为空" description="观察或封禁记录显示在这里。" />
+              </template>
+            </el-table>
+          </div>
+          <AdminInlineEmptyState
+            v-else
+            class="anonymous-governance-empty"
+            title="标识记录为空"
+            description="观察或封禁记录显示在这里。"
+          />
+        </section>
+
+        <section class="anonymous-governance-record-block">
+          <header class="anonymous-governance-record-block__header">
+            <div>
+              <h3>匿名资格</h3>
+              <p>查看匿名资格状态；撤销动作独立于账号资料。</p>
+            </div>
+            <span class="anonymous-governance-record-count">{{ credentialRows.length }} 条</span>
+          </header>
+          <div v-if="hasCredentialRows" class="blog-scroll-x-safe anonymous-governance-table-scroll">
+            <el-table v-loading="loadingStatus" :data="credentialRows" row-key="id" class="anonymous-governance-table">
+              <el-table-column prop="id" label="资格" min-width="180" />
+              <el-table-column prop="level" label="级别" min-width="120" />
+              <el-table-column prop="status" label="状态" min-width="120" />
+              <el-table-column prop="revocation" label="撤销状态" min-width="150" />
+              <el-table-column label="操作" width="170" align="right">
+                <template #default="{ row }: { row: AnonymousCredentialRow }">
+                  <el-button
+                    type="danger"
+                    plain
+                    size="small"
+                    :disabled="!canRevokeAnonymousCredential"
+                    :loading="processingAction === row.id"
+                    @click="previewCredentialRevoke(row)"
+                  >
+                    撤销匿名资格
+                  </el-button>
+                </template>
+              </el-table-column>
+              <template #empty>
+                <AdminInlineEmptyState title="资格记录为空" description="资格状态和撤销记录显示在这里。" />
+              </template>
+            </el-table>
+          </div>
+          <AdminInlineEmptyState
+            v-else
+            class="anonymous-governance-empty"
+            title="资格记录为空"
+            description="资格状态和撤销记录显示在这里。"
+          />
+        </section>
       </div>
     </FsusUiSettingsSection>
 
     <FsusUiSettingsSection
-      title="Nullifier 治理"
-      description="scope 内 hash 可被封禁；界面只展示治理状态，不暴露原文或账号身份。"
-      :title-tag="'h2'"
-    >
-      <div class="blog-scroll-x-safe anonymous-governance-table-scroll">
-        <el-table v-loading="loadingNullifiers" :data="nullifierRows" row-key="key" class="anonymous-governance-table">
-          <el-table-column prop="scope" label="scope" min-width="160" />
-          <el-table-column prop="maskedHash" label="Nullifier" min-width="220" />
-          <el-table-column prop="status" label="状态" min-width="120" />
-          <el-table-column label="操作" width="170" align="right">
-            <template #default="{ row }: { row: AnonymousNullifierRow }">
-              <el-button
-                type="danger"
-                plain
-                size="small"
-                :disabled="!canBlockAnonymousNullifier || row.status === 'blocked'"
-                :loading="processingAction === row.key"
-                @click="previewNullifierBlock(row)"
-              >
-                封禁 Nullifier
-              </el-button>
-            </template>
-          </el-table-column>
-          <template #empty>
-            <AdminInlineEmptyState title="暂无 Nullifier 记录" content="命中封禁或观察状态的匿名 nullifier 会显示在这里。" />
-          </template>
-        </el-table>
-      </div>
-    </FsusUiSettingsSection>
-
-    <FsusUiSettingsSection
-      title="匿名凭证"
-      description="credential 状态和撤销动作独立于普通账号资料；需要 anonymous.credential.revoke 权限。"
-      :title-tag="'h2'"
-    >
-      <div class="blog-scroll-x-safe anonymous-governance-table-scroll">
-        <el-table v-loading="loadingStatus" :data="credentialRows" row-key="id" class="anonymous-governance-table">
-          <el-table-column prop="id" label="credential" min-width="180" />
-          <el-table-column prop="level" label="level" min-width="120" />
-          <el-table-column prop="status" label="状态" min-width="120" />
-          <el-table-column prop="revocation" label="撤销状态" min-width="150" />
-          <el-table-column label="操作" width="170" align="right">
-            <template #default="{ row }: { row: AnonymousCredentialRow }">
-              <el-button
-                type="danger"
-                plain
-                size="small"
-                :disabled="!canRevokeAnonymousCredential"
-                :loading="processingAction === row.id"
-                @click="previewCredentialRevoke(row)"
-              >
-                撤销匿名凭证
-              </el-button>
-            </template>
-          </el-table-column>
-          <template #empty>
-            <AdminInlineEmptyState title="暂无匿名凭证" content="匿名凭证状态和撤销记录会显示在这里。" />
-          </template>
-        </el-table>
-      </div>
-    </FsusUiSettingsSection>
-
-    <FsusUiSettingsSection
-      title="ZK 匿名状态"
-      description="Verifier、public inputs 与 fail-closed 状态只服务匿名评论证明，不改变登录链路。"
+      class="anonymous-governance-section"
+      title="隐私证明状态"
+      description="查看隐私证明配置状态；不改变登录链路。"
       :title-tag="'h2'"
     >
       <div class="anonymous-governance-zk">
@@ -218,7 +251,7 @@ const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 const sections = {
   ManageAnonymousCommentPolicy: {
     title: '匿名评论策略',
-    description: '配置匿名评论、公开发送和 ZK 匿名能力的运行策略。',
+    description: '配置匿名评论、公开发送和隐私证明策略。',
     caption: '需要 anonymous.comment.configure 权限。'
   },
   ManageAnonymousRisk: {
@@ -227,18 +260,18 @@ const sections = {
     caption: '展示匿名信号，不提供真实账号反查。'
   },
   ManageAnonymousCredentials: {
-    title: '匿名凭证',
-    description: '查看 credential 状态并执行撤销操作。',
+    title: '匿名资格',
+    description: '查看匿名资格状态并执行撤销操作。',
     caption: '需要 anonymous.credential.revoke 权限。'
   },
   ManageAnonymousNullifiers: {
-    title: 'Nullifier 治理',
-    description: '按 scope 内 hash 封禁匿名评论 nullifier。',
+    title: '匿名标识治理',
+    description: '按匿名标识处理评论来源。',
     caption: '需要 anonymous.nullifier.block 权限。'
   },
   ManageZkAnonymousStatus: {
-    title: 'ZK 匿名状态',
-    description: '查看 ZK anonymous verifier 与策略配置状态。',
+    title: '隐私证明状态',
+    description: '查看匿名评论证明与策略配置状态。',
     caption: '需要 anonymous.comment.configure 权限。'
   }
 } as const
@@ -303,22 +336,22 @@ const policySignals = computed(() => [
   {
     label: '匿名评论',
     value: anonymousCommentsEnabled.value ? '启用' : '关闭',
-    helper: anonymousCommentsEnabled.value ? '匿名与强匿名主体可进入评论流。' : '匿名主体不会开放给评论提交。'
+    helper: anonymousCommentsEnabled.value ? '匿名评论可提交。' : '匿名评论不可提交。'
   },
   {
     label: '仅公开',
     value: publicOnlyMode.value ? '启用' : '关闭',
-    helper: publicOnlyMode.value ? '匿名关闭时仍允许公开身份评论。' : '匿名策略按完整模式运行。'
+    helper: publicOnlyMode.value ? '仅允许公开身份评论。' : '匿名与公开按策略并行。'
   },
   {
-    label: 'Root epoch',
+    label: '凭据批次',
     value: governanceStatus.value?.root.credentialEpoch ? String(governanceStatus.value.root.credentialEpoch) : '未就绪',
-    helper: governanceStatus.value?.root.maskedRootHash ? `root ${governanceStatus.value.root.maskedRootHash}` : '当前没有可用匿名 credential root。'
+    helper: governanceStatus.value?.root.maskedRootHash ? `批次 ${governanceStatus.value.root.maskedRootHash}` : '当前没有可用凭据批次。'
   },
   {
-    label: 'ZK 匿名',
+    label: '隐私证明',
     value: governanceStatus.value?.verifier.configured ? '可用' : '未启用',
-    helper: governanceStatus.value?.verifier.circuitStatus ?? (zkAnonymousConfigurable.value ? '配置入口可见，且仅用于匿名评论。' : '当前环境隐藏配置入口。')
+    helper: governanceStatus.value?.verifier.circuitStatus ?? (zkAnonymousConfigurable.value ? '仅用于匿名评论证明。' : '当前环境隐藏配置入口。')
   }
 ])
 
@@ -334,7 +367,7 @@ const riskRows = computed<AnonymousRiskRow[]>(() => {
     authorMode: `匿名 ${stats.totalAnonymous}`,
     displayLanguage: '按评论记录',
     scope: `待审 ${stats.pendingAnonymous}`,
-    credential: `ZK ${stats.zkAnonymous}`,
+    credential: `证明 ${stats.zkAnonymous}`,
     reputation: `通过 ${stats.approvedAnonymous}`,
     accountAge: `隐藏 ${stats.hiddenAnonymous}`,
     riskLabels: [
@@ -357,19 +390,23 @@ const credentialRows = computed<AnonymousCredentialRow[]>(() =>
     revocation: `${item.maskedRevocationRootHash} / ${item.revocationCount}`
   })))
 
+const hasRiskRows = computed(() => riskRows.value.length > 0)
+const hasNullifierRows = computed(() => nullifierRows.value.length > 0)
+const hasCredentialRows = computed(() => credentialRows.value.length > 0)
+
 const zkStatusRows = computed(() => [
   {
-    label: 'Verifier',
+    label: '校验器',
     value: governanceStatus.value?.verifier.configured ? '已启用' : '未启用',
     helper: governanceStatus.value?.verifier.circuitStatus ?? '用于匿名评论证明校验，不参与登录认证。'
   },
   {
-    label: 'root',
+    label: '凭据根',
     value: governanceStatus.value?.root.maskedRootHash ?? '未就绪',
-    helper: governanceStatus.value?.root.circuitId ?? '只展示公开 root 状态，不展示账号身份。'
+    helper: governanceStatus.value?.root.circuitId ?? '只展示公开校验状态，不展示账号身份。'
   },
   {
-    label: 'revocation',
+    label: '撤销记录',
     value: governanceStatus.value?.revocation.maskedRevocationRootHash ?? '未就绪',
     helper: governanceStatus.value?.revocation.latestRevokedAtUtc
       ? `最近撤销 ${formatDate(governanceStatus.value.revocation.latestRevokedAtUtc)}`
@@ -421,7 +458,7 @@ const loadNullifiers = async (): Promise<void> => {
       useCount: item.useCount
     }))
   } catch (error) {
-    showErrorToast(governanceErrorMessage(error, 'Nullifier 治理列表加载失败'), 'Nullifier 治理')
+    showErrorToast(governanceErrorMessage(error, '匿名标识列表加载失败'), '匿名标识治理')
   } finally {
     loadingNullifiers.value = false
   }
@@ -429,11 +466,11 @@ const loadNullifiers = async (): Promise<void> => {
 
 const previewNullifierBlock = async (row: AnonymousNullifierRow): Promise<void> => {
   if (!canBlockAnonymousNullifier.value) {
-    showWarningToast('当前管理员没有封禁匿名 Nullifier 的权限')
+    showWarningToast('当前管理员没有封禁匿名标识的权限')
     return
   }
 
-  const reason = await promptText('输入处理原因', '封禁匿名 Nullifier', {
+  const reason = await promptText('输入处理原因', '封禁匿名标识', {
     confirmButtonText: '封禁',
     inputPlaceholder: '说明封禁原因'
   })
@@ -453,10 +490,10 @@ const previewNullifierBlock = async (row: AnonymousNullifierRow): Promise<void> 
       throw new Error('ANONYMOUS_GOVERNANCE_NOT_APPLIED')
     }
 
-    toast.success('匿名 Nullifier 已封禁')
+    toast.success('匿名标识已封禁')
     await loadNullifiers()
   } catch (error) {
-    showErrorToast(governanceErrorMessage(error, '匿名 Nullifier 封禁失败'), 'Nullifier 治理')
+    showErrorToast(governanceErrorMessage(error, '匿名标识封禁失败'), '匿名标识治理')
   } finally {
     processingAction.value = null
   }
@@ -464,21 +501,21 @@ const previewNullifierBlock = async (row: AnonymousNullifierRow): Promise<void> 
 
 const previewCredentialRevoke = async (row: AnonymousCredentialRow): Promise<void> => {
   if (!canRevokeAnonymousCredential.value) {
-    showWarningToast('当前管理员没有撤销匿名凭证的权限')
+    showWarningToast('当前管理员没有撤销匿名资格的权限')
     return
   }
 
-  const revocationHandleHash = await promptText('输入 revocation handle hash', '撤销匿名凭证资格', {
+  const revocationHandleHash = await promptText('输入撤销标识', '撤销匿名资格', {
     confirmButtonText: '继续',
-    inputPlaceholder: 'revocation handle hash'
+    inputPlaceholder: '撤销标识'
   })
   if (revocationHandleHash === null) {
     return
   }
 
-  const revocationRootHash = await promptText('输入更新后的 revocation root', '撤销匿名凭证资格', {
+  const revocationRootHash = await promptText('输入更新后的撤销根', '撤销匿名资格', {
     confirmButtonText: '撤销',
-    inputPlaceholder: 'revocation root hash'
+    inputPlaceholder: '撤销根'
   })
   if (revocationRootHash === null) {
     return
@@ -498,10 +535,10 @@ const previewCredentialRevoke = async (row: AnonymousCredentialRow): Promise<voi
       throw new Error('ANONYMOUS_GOVERNANCE_NOT_APPLIED')
     }
 
-    toast.success('匿名凭证资格已撤销')
+    toast.success('匿名资格已撤销')
     await loadGovernanceStatus()
   } catch (error) {
-    showErrorToast(governanceErrorMessage(error, '匿名凭证撤销失败'), '匿名凭证')
+    showErrorToast(governanceErrorMessage(error, '匿名资格撤销失败'), '匿名资格')
   } finally {
     processingAction.value = null
   }
@@ -572,6 +609,10 @@ watch(() => route.name, () => {
   max-width: 100%;
 }
 
+.anonymous-governance-section {
+  border-top: 0;
+}
+
 .anonymous-governance-status-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -619,17 +660,10 @@ watch(() => route.name, () => {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border-bottom: 1px solid var(--fsusblog-panel-border);
-  padding: 0.75rem 0;
-}
-
-.anonymous-governance-control:first-child {
-  padding-top: 0;
-}
-
-.anonymous-governance-control:last-child {
-  border-bottom: 0;
-  padding-bottom: 0;
+  border: 0;
+  border-radius: var(--fsus-radius-control);
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--fsusblog-panel-bg) 46%, transparent);
 }
 
 .anonymous-governance-control span {
@@ -661,6 +695,76 @@ watch(() => route.name, () => {
   overflow-x: auto;
 }
 
+.anonymous-governance-records {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--fsusblog-panel-border);
+  border-radius: var(--fsus-radius-panel);
+  background: var(--fsusblog-page-bg);
+}
+
+.anonymous-governance-record-block {
+  display: grid;
+  gap: var(--fsus-space-3);
+  min-width: 0;
+  padding: var(--fsus-space-4);
+  border-top: 1px solid var(--fsusblog-panel-border);
+}
+
+.anonymous-governance-record-block:first-child {
+  border-top: 0;
+}
+
+.anonymous-governance-record-block__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--fsus-space-4);
+  min-width: 0;
+}
+
+.anonymous-governance-record-block__header div {
+  min-width: 0;
+}
+
+.anonymous-governance-record-block__header h3 {
+  margin: 0;
+  color: var(--fsusblog-text-primary);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.anonymous-governance-record-block__header p {
+  margin: 0.25rem 0 0;
+  color: var(--fsusblog-text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.anonymous-governance-record-count {
+  flex: 0 0 auto;
+  min-width: 3rem;
+  border: 1px solid var(--fsusblog-panel-border);
+  border-radius: var(--fsus-radius-pill);
+  padding: 0.125rem 0.5rem;
+  color: var(--fsusblog-text-muted);
+  background: color-mix(in srgb, var(--fsusblog-page-bg) 82%, var(--fsusblog-panel-bg) 18%);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.anonymous-governance-empty {
+  min-height: 5rem;
+  border: 1px dashed color-mix(in srgb, var(--fsusblog-text-muted) 34%, transparent);
+  border-radius: var(--fsus-radius-control);
+  background: color-mix(in srgb, var(--fsusblog-panel-bg) 68%, var(--fsusblog-page-bg) 32%);
+  padding: var(--fsus-space-4);
+}
+
 .anonymous-governance-subject {
   display: grid;
   gap: 0.25rem;
@@ -681,6 +785,14 @@ watch(() => route.name, () => {
   .anonymous-governance-control {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .anonymous-governance-record-block {
+    padding: var(--fsus-space-4) var(--fsus-space-3);
+  }
+
+  .anonymous-governance-record-block__header {
+    gap: var(--fsus-space-3);
   }
 }
 </style>

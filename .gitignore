@@ -131,6 +131,7 @@ src/frontend/.playwright-fixtures.json
 src/frontend/.playwright-fixtures/
 src/frontend/playwright-report/
 src/frontend/test-results/
+test-results/
 src/frontend/tmp-*.mjs
 src/frontend/*.trace.zip
 src/frontend/*.trace

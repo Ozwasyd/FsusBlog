@@ -5,6 +5,7 @@ import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { useAppShellStore } from '@/store/appShell'
 import { useUserStore } from '@/store/user'
 import { isAuthFailureError } from '@/utils/errorKinds'
+import { ensureLocalFixtureSessionCookies, isLocalFixtureSessionActive } from '@/services/localFixtureSession'
 
 const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000
 const REFRESH_LEEWAY_MS = 2 * 60 * 1000
@@ -90,6 +91,14 @@ class AuthSessionRuntime {
   }
 
   private async refreshIfNeeded(): Promise<void> {
+    if (isLocalFixtureSessionActive()) {
+      const appShellStore = useAppShellStore()
+      await ensureLocalFixtureSessionCookies()
+      appShellStore.markSessionActive()
+      this.stopTimer()
+      return
+    }
+
     if (this.inflight) {
       return this.inflight
     }
@@ -109,6 +118,7 @@ class AuthSessionRuntime {
         this.scheduleNextRefresh()
       } catch (error: unknown) {
         if (isAuthFailureError(error)) {
+          userStore.markGuest()
           appShellStore.markSessionExpired()
           authBroadcastRuntime.broadcastExpired()
         } else {

@@ -9,12 +9,7 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadPolicies">刷新</el-button>
       </template>
 
-      <div class="grid gap-3 md:grid-cols-4">
-        <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
-          <div class="mt-3 break-words text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
-        </div>
-      </div>
+      <AdminStatusMatrix :items="metrics" density="compact" aria-label="策略版本指标" />
     </FsusUiSettingsSection>
 
     <section class="grid gap-8 lg:grid-cols-2">
@@ -77,6 +72,7 @@
 import { computed, onMounted, shallowRef } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getSecurityPolicyConsole, type SecurityPolicyConsoleResponse } from '@/api/security'
+import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
@@ -99,7 +95,7 @@ const formatSecurityMode = (mode: string | null | undefined): string => {
 const formatTime = (value: string | null | undefined): string =>
   value ? new Date(value).toLocaleString() : '-'
 
-const metrics = computed(() => [
+const metrics = computed<AdminStatusMatrixItem[]>(() => [
   { label: 'RiskControl', value: formatSecurityMode(consoleState.value?.activePolicy.globalMode) },
   { label: '反爬虫', value: formatSecurityMode(consoleState.value?.antiCrawler.options.mode) },
   { label: 'PoW', value: formatSecurityMode(consoleState.value?.pow.options.mode) },

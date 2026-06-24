@@ -6,7 +6,7 @@
       class="account-page-header--compact"
     />
 
-    <section class="mb-8 border-l-4 border-[var(--fsusblog-color-warning)] bg-[var(--fsusblog-page-bg)] px-5 py-4 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
+    <section class="admin-muted-alert admin-muted-alert--warning mb-8 px-5 py-4 text-[12px] leading-6">
       <strong class="text-[var(--fsusblog-text-primary)]">地区法律策略优先级高于反垃圾模型。</strong>
       <span class="ml-2">模型输出只作为风险信号；最终动作来自地区策略、硬词库和管理员审核。</span>
     </section>

@@ -5,6 +5,7 @@ import { notificationStreamRuntime } from '@/services/notificationStreamRuntime'
 import { useNotificationStreamStore } from '@/store/notificationStream'
 import { isAbortError } from '@/utils/errors'
 import { getKnownErrorInfo, isAuthFailureError } from '@/utils/errorKinds'
+import { clearLocalFixtureSession } from '@/services/localFixtureSession'
 
 function createMemoryStorage(): Storage {
     const store = new Map<string, string>()
@@ -196,6 +197,7 @@ export const useUserStore = defineStore('user', () => {
         } catch (error) {
             console.warn('[UserStore] Logout partial failure.');
         } finally {
+            clearLocalFixtureSession()
             markGuest()
             void import('@/services/authBroadcastRuntime')
                 .then(({ authBroadcastRuntime }) => authBroadcastRuntime.broadcastLogout())

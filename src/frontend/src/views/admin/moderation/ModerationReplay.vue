@@ -15,12 +15,7 @@
         <el-button type="primary" :icon="DocumentChecked" :loading="loading" @click="runPreview">{{ copy.generatePreviewCta }}</el-button>
       </div>
 
-      <div v-if="preview" class="grid gap-3 md:grid-cols-4">
-        <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
-          <div class="mt-3 text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
-        </div>
-      </div>
+      <AdminStatusMatrix v-if="preview" :items="metrics" density="compact" :aria-label="copy.previewMetricsAriaLabel" />
 
       <div v-if="preview" class="blog-scroll-x-safe moderation-replay-table-scroll">
         <el-table v-loading="loading" :data="preview.items" row-key="commentId">
@@ -71,7 +66,7 @@
       />
     </section>
 
-    <section class="border-l-4 border-[var(--fsusblog-color-warning)] bg-[var(--fsusblog-page-bg)] px-5 py-4 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
+    <section class="admin-muted-alert admin-muted-alert--warning px-5 py-4 text-[12px] leading-6">
       {{ copy.executionNotice }}
     </section>
   </div>
@@ -85,6 +80,7 @@ import {
   type ModerationReplayPreviewResponse
 } from '@/api/authoring'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
+import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import { DocumentChecked } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { FSUSBLOG_ADMIN_COPY } from '@/copy'
@@ -100,7 +96,7 @@ const form = reactive({
   limit: 50
 })
 
-const metrics = computed(() => {
+const metrics = computed<AdminStatusMatrixItem[]>(() => {
   if (!preview.value) return []
   return [
     { label: copy.metricScanned, value: preview.value.scannedCount },

@@ -65,6 +65,7 @@
         class="account-mobile-group-control"
         :model-value="activeMobileGroupKey"
         :items="mobileGroupSegmentItems"
+        selection-mode="link"
         aria-label="账户导航分组"
         @item-click="selectMobileGroupFromSegment"
         @update:model-value="selectMobileGroupFromSegment"
@@ -167,7 +168,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import PolicyModal from '@/components/PolicyModal.vue'
 import SiteChromeHeaderAdapter from '@/components/layout/SiteChromeHeaderAdapter.vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
@@ -179,6 +180,7 @@ import { useAccountWorkspaceContext } from '@/layouts/accountWorkspaceContext'
 import { showErrorToast } from '@/utils/errorPresentation'
 
 const route = useRoute()
+const router = useRouter()
 const workspaceContext = useAccountWorkspaceContext()
 
 const showPolicy = ref(false)
@@ -210,7 +212,8 @@ const navGroups = computed(() => getAccountNavGroups(workspaceContext.value))
 const mobileGroupSegmentItems = computed(() =>
   navGroups.value.map((group) => ({
     label: group.label,
-    value: group.key
+    value: group.key,
+    to: group.items[0]?.to
   }))
 )
 const selectedMobileGroup = computed<AccountNavGroup | undefined>(() =>
@@ -267,7 +270,15 @@ const adminContentClass = computed(() => {
 })
 
 const accountRouteViewKey = computed(() => {
-  const routeName = typeof route.name === 'string' ? route.name : route.path
+  const accountRootIndex = route.matched.findIndex((record) => record.path === '/user')
+  const accountViewRecord = accountRootIndex >= 0
+    ? route.matched[accountRootIndex + 1]
+    : undefined
+  const routeName = typeof accountViewRecord?.name === 'string'
+    ? accountViewRecord.name
+    : typeof route.name === 'string'
+      ? route.name
+      : route.path
   const id = route.params.id
   if (Array.isArray(id)) {
     return `${routeName}:${id.join('/')}`
@@ -286,8 +297,20 @@ const isNavItemActive = (item: AccountNavItem): boolean => {
   return route.path === item.to || route.path.startsWith(`${item.to}/`)
 }
 
-const selectMobileGroup = (key: AccountNavGroupKey): void => {
+const selectMobileGroup = async (key: AccountNavGroupKey): Promise<void> => {
+  const group = navGroups.value.find((candidate) => candidate.key === key)
+  if (!group) {
+    return
+  }
+
   openMobileGroupKey.value = key
+
+  if (key !== currentNavGroupKey.value) {
+    const target = group.items[0]?.to
+    if (target && target !== route.path) {
+      await router.push(target)
+    }
+  }
 }
 
 const selectMobileGroupFromSegment = (value: string | number | boolean): void => {
@@ -299,7 +322,7 @@ const selectMobileGroupFromSegment = (value: string | number | boolean): void =>
     return
   }
 
-  selectMobileGroup(value as AccountNavGroupKey)
+  void selectMobileGroup(value as AccountNavGroupKey)
 }
 
 const updateMobileLinkIndicator = async (): Promise<void> => {

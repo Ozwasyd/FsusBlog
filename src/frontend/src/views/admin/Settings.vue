@@ -10,15 +10,15 @@
     <section
       role="status"
       aria-labelledby="settings-privileged-mode-title"
-      class="mb-12 border-l-2 border-[var(--fsusblog-color-warning-border)] bg-[var(--fsusblog-color-warning-bg)] px-6 py-5 rounded-r-[var(--fsus-radius-control)]"
+      class="admin-muted-alert admin-muted-alert--warning mb-8 px-5 py-4"
     >
       <div class="flex items-center gap-3 mb-2">
-        <span class="text-[var(--fsusblog-color-warning-text)]">
+        <span class="text-[var(--fsusblog-admin-status-warning)]">
           <el-icon aria-hidden="true"><Warning /></el-icon>
         </span>
-        <span id="settings-privileged-mode-title" class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-color-warning-text)]">高权限管理模式</span>
+        <span id="settings-privileged-mode-title" class="admin-muted-alert__title text-xs font-semibold normal-case tracking-normal">高权限管理模式</span>
       </div>
-      <p class="text-[13px] leading-relaxed text-[var(--fsusblog-color-warning-text)] font-medium">
+      <p class="text-[13px] leading-relaxed font-medium">
         变更站点全局配置将立即触发物理磁盘 AOT 缓存清理。若同步失败，系统将执行原子化回滚。
       </p>
     </section>
@@ -42,7 +42,7 @@
             </header>
 
             <div class="max-w-4xl">
-              <div v-if="siteLoadFailed" class="mb-8 border border-[var(--fsusblog-color-error-border)] bg-[var(--fsusblog-color-error-bg)] p-5 text-[12px] text-[var(--fsusblog-color-error)]">
+              <div v-if="siteLoadFailed" class="admin-muted-alert admin-muted-alert--danger mb-8 p-5 text-[12px]">
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <span class="font-bold">站点配置加载失败，已暂停保存以避免覆盖线上配置。</span>
                   <el-button size="small" :disabled="loadingSite" @click="loadSiteConfig">重试</el-button>
@@ -277,7 +277,7 @@
               <p class="section-caption mt-4">维护公开 footer、RSS 版权和大陆部署检查清单。备案信息只负责展示，请以工信部和公安备案平台审核结果为准。</p>
             </header>
 
-            <div v-if="complianceLoadFailed" class="mb-8 border border-[var(--fsusblog-color-error-border)] bg-[var(--fsusblog-color-error-bg)] p-5 text-[12px] text-[var(--fsusblog-color-error)]">
+            <div v-if="complianceLoadFailed" class="admin-muted-alert admin-muted-alert--danger mb-8 p-5 text-[12px]">
               <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <span class="font-bold">合规配置加载失败，已暂停保存以避免覆盖线上配置。</span>
                 <el-button size="small" :disabled="loadingCompliance" @click="loadComplianceConfig">重试</el-button>
@@ -291,8 +291,6 @@
                     <el-switch
                       v-model="complianceForm.enabled"
                       :disabled="complianceFormDisabled"
-                      active-text="启用"
-                      inactive-text="关闭"
                     />
                     <div class="text-[11px] font-bold text-[var(--fsusblog-text-muted)] mt-4 normal-case tracking-normal">
                       关闭时不展示备案号和许可说明；基础版权与页脚导航仍会保留。

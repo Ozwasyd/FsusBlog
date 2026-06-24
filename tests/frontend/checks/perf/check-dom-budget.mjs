@@ -4,6 +4,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { systemChromiumLaunchOptions } from '../../support/system-chromium.mjs'
 
 const require = createRequire(import.meta.url)
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
@@ -146,7 +147,7 @@ function writeReleaseSummary(summary) {
 
 async function main() {
   ensureDir(outDir)
-  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] })
+  const browser = await chromium.launch(systemChromiumLaunchOptions({ headless: true }))
   const context = await browser.newContext({
     baseURL: baseUrl,
     extraHTTPHeaders: process.env.FSUSBLOG_TEST_SESSION

@@ -122,7 +122,7 @@
     <section class="border-t border-[var(--fsusblog-panel-border)]" aria-labelledby="article-list-title">
       <AdminCollectionSummary id="article-list-title" title="文章列表" :meta="articleListResultText" />
       <p
-        v-if="rowMotion.summary.value"
+        v-if="hasArticleRows && rowMotion.summary.value"
         class="sr-only blog-motion-summary-enter"
         role="status"
         aria-live="polite"
@@ -130,6 +130,7 @@
         {{ rowMotion.summary.value }}
       </p>
       <el-responsive-collection
+        v-if="hasArticleRows"
         v-loading="loading"
         :items="articleListView"
         :row-key="getArticleRowKey"
@@ -144,15 +145,6 @@
             @view="handleViewArticle"
             @move-to-trash="handleMoveToTrash"
           />
-        </template>
-
-        <template #empty>
-          <AdminInlineEmptyState title="没有找到匹配的文章" description="调整筛选条件或新建文章。">
-            <template #actions>
-              <el-button link type="primary" :disabled="isBusy" @click="resetQuery">清空筛选</el-button>
-              <el-button link type="primary" @click="goToWriteArticle">写新文章</el-button>
-            </template>
-          </AdminInlineEmptyState>
         </template>
 
         <template #table>
@@ -251,20 +243,30 @@
                 </div>
               </template>
             </el-table-column>
-
-            <template #empty>
-              <AdminInlineEmptyState title="没有找到匹配的文章" description="调整筛选条件或新建文章。">
-                <template #actions>
-                  <el-button link type="primary" :disabled="isBusy" @click="resetQuery">清空筛选</el-button>
-                  <el-button link type="primary" @click="goToWriteArticle">写新文章</el-button>
-                </template>
-              </AdminInlineEmptyState>
-            </template>
           </el-table>
         </template>
       </el-responsive-collection>
 
-      <div class="article-list-pagination px-4 py-4 border-t border-[var(--fsusblog-panel-border)] flex items-center justify-between">
+      <div
+        v-else
+        v-loading="loading"
+        class="article-list-empty-container"
+      >
+        <AdminInlineEmptyState
+          class="article-list-empty-state"
+          title="没有找到匹配的文章"
+          description="调整筛选条件或新建文章。"
+        >
+          <template #actions>
+            <div class="article-list-empty-actions">
+              <el-button class="article-list-empty-action" :disabled="isBusy" @click="resetQuery">清空筛选</el-button>
+              <el-button class="article-list-empty-action" type="primary" @click="goToWriteArticle">写新文章</el-button>
+            </div>
+          </template>
+        </AdminInlineEmptyState>
+      </div>
+
+      <div v-if="total > 0" class="article-list-pagination px-4 py-4 border-t border-[var(--fsusblog-panel-border)] flex items-center justify-between">
         <span class="text-[12px] text-[var(--fsusblog-text-muted)] font-medium tabular-nums">
           {{ totalText }}
         </span>
@@ -340,6 +342,7 @@ const articleRowMotionClass = (id: number): string => rowMotion.classFor(id)
 const articleTableRowClassName = ({ row }: { row: ArticleListViewItem }): string => articleRowMotionClass(row.id)
 const isCompactPagination = useMediaQuery('(max-width: 639px)')
 const articleListResultText = computed(() => `文章列表 · ${total.value} 条结果`)
+const hasArticleRows = computed(() => articleListView.value.length > 0)
 const handleStatusFilterChange = (value: string | number | boolean | undefined): void => {
   setStatusFilter(typeof value === 'number' ? value as Parameters<typeof setStatusFilter>[0] : undefined)
 }
@@ -409,6 +412,42 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.article-list-empty-container {
+  min-height: 10rem;
+  border-top: 1px solid var(--fsusblog-panel-border);
+  padding-block: 1.25rem 1.5rem;
+}
+
+.article-list-empty-state {
+  min-height: 7rem;
+  padding: 1.5rem 1.5rem;
+}
+
+.article-list-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.article-list-empty-action {
+  min-width: 6.5rem;
+}
+
+@media (max-width: 639px) {
+  .article-list-empty-state {
+    padding-inline: 1.25rem;
+  }
+
+  .article-list-empty-actions {
+    gap: 0.625rem;
+  }
+
+  .article-list-empty-action {
+    min-width: 6rem;
+  }
 }
 
 @media (max-width: 639px) {

@@ -5,6 +5,7 @@ import { createRequire } from 'node:module'
 import { decodeSearchManifest, readAedsResponse } from '../../support/aeds-envelope.mjs'
 import { fetchWithTimeout, parseTimeoutMs, probeReachable } from '../../support/http.mjs'
 import { testSessionHeaders } from '../../support/test-session.mjs'
+import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
 
 const baseUrl =
   process.env.PLAYWRIGHT_BASE_URL
@@ -12,8 +13,7 @@ const baseUrl =
   || process.env.FSUSBLOG_BASE_URL
   || 'http://127.0.0.1:3000'
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000)
-const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH
-  || ['/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find((candidate) => existsSync(candidate))
+const executablePath = resolveSystemChromiumExecutablePath()
 const require = createRequire(import.meta.url)
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
 

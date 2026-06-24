@@ -3,6 +3,7 @@
 import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { encodeAdminPrincipalSnapshotFrame, encodeIdentityAccountSnapshotFrame } from '../../support/aeds-envelope.mjs'
+import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
@@ -13,9 +14,7 @@ const baseUrl =
   || process.env.FSUSBLOG_BASE_URL
   || 'http://127.0.0.1:3000'
 
-const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH
-  || ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser']
-    .find((candidate) => existsSync(candidate))
+const executablePath = resolveSystemChromiumExecutablePath()
 
 const widths = [320, 375, 390, 430, 594, 768, 1024, 1280, 1440]
 const routes = ['/', '/archive', '/about', '/search?q=test']

@@ -9,12 +9,7 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
       </template>
 
-      <div class="grid gap-3 md:grid-cols-5">
-        <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
-          <div class="mt-3 text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
-        </div>
-      </div>
+      <AdminStatusMatrix :items="metrics" density="compact" aria-label="审核指标" />
     </FsusUiSettingsSection>
 
     <section
@@ -24,20 +19,23 @@
         'blog-motion-task-region--settled': isTaskHighlighted('moderation-global-runtime')
       }"
     >
-      <div class="grid gap-3 md:grid-cols-5">
-        <div v-for="item in runtimeRows" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</div>
-          <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.value }}</div>
-        </div>
-      </div>
-      <div class="flex flex-col gap-3 border-t border-[var(--fsusblog-panel-border)] p-5 md:flex-row md:items-end">
-        <label class="w-full space-y-2 md:max-w-xs">
-          <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">全局运行状态</span>
+      <AdminStatusMatrix :items="runtimeRows" density="compact" aria-label="审核运行状态" />
+      <div class="moderation-runtime-control">
+        <label class="moderation-runtime-control__field">
+          <span class="moderation-runtime-control__label">全局运行状态</span>
           <el-select v-model="globalStateDraft" aria-label="全局审核运行状态">
             <el-option v-for="option in globalStateOptions" :key="option.value" :label="option.label" :value="option.value" />
           </el-select>
         </label>
-        <el-button type="primary" :icon="Connection" :loading="savingGlobalState" @click="saveGlobalState">应用全局状态</el-button>
+        <el-button
+          class="moderation-runtime-control__button"
+          type="primary"
+          :icon="Connection"
+          :loading="savingGlobalState"
+          @click="saveGlobalState"
+        >
+          应用全局状态
+        </el-button>
       </div>
     </section>
 
@@ -47,25 +45,25 @@
           <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
             <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">关键检查</div>
           </div>
-          <div class="divide-y divide-[var(--fsusblog-panel-border)]">
-            <div class="flex flex-wrap items-center justify-between gap-3 p-5">
+          <div class="moderation-check-list">
+            <div class="moderation-check-row flex flex-wrap items-center justify-between gap-3 p-5">
               <div>
                 <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">中国大陆严格策略</div>
                 <p class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">大陆 IP 政治敏感与色情内容屏蔽依赖该策略。</p>
               </div>
               <el-tag :type="mainlandStatusType">{{ formatRuntimeStatus(overview?.mainlandStrictStatus) }}</el-tag>
             </div>
-            <div v-if="overview?.mainlandStrictStatus !== 'enabled'" class="border-l-4 border-[var(--fsusblog-color-warning)] p-5 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
+            <div v-if="overview?.mainlandStrictStatus !== 'enabled'" class="moderation-check-alert admin-muted-alert admin-muted-alert--warning px-5 py-4 text-[12px] leading-6">
               中国大陆严格策略未启用：大陆 IP 政治敏感与色情内容屏蔽可能失效。
             </div>
-            <div class="flex flex-wrap items-center justify-between gap-3 p-5">
+            <div class="moderation-check-row flex flex-wrap items-center justify-between gap-3 p-5">
               <div>
                 <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">词库快照</div>
                 <p class="mt-1 break-all text-[12px] text-[var(--fsusblog-text-muted)]">{{ overview?.dictionaryLastError ?? '词库已载入' }}</p>
               </div>
               <el-tag :type="overview?.dictionaryLastError ? 'danger' : 'success'">{{ overview?.dictionaryLastError ? '异常' : '已载入' }}</el-tag>
             </div>
-            <div class="flex flex-wrap items-center justify-between gap-3 p-5">
+            <div class="moderation-check-row flex flex-wrap items-center justify-between gap-3 p-5">
               <div>
                 <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">审核模型</div>
                 <p class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">{{ overview?.modelContractVersion ?? '-' }} / {{ overview?.modelTimeoutMs ?? '-' }}ms</p>
@@ -110,6 +108,7 @@ import {
   type ModerationRuntimeStatusResponse
 } from '@/api/authoring'
 import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
+import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { Connection, Refresh } from '@/fsusui/icons'
 import { toast } from '@/fsusui/feedback'
@@ -160,7 +159,7 @@ const internalLinks = [
   { label: '审核审计', helper: '跳转通用审计日志并预置审核动作。', name: 'ManageModerationAudit' }
 ] as const
 
-const metrics = computed(() => [
+const metrics = computed<AdminStatusMatrixItem[]>(() => [
   { label: '待审', value: overview.value?.pendingCount ?? '-' },
   { label: '已拒绝', value: overview.value?.rejectedCount ?? '-' },
   { label: '已隐藏', value: overview.value?.hiddenCount ?? '-' },
@@ -168,7 +167,7 @@ const metrics = computed(() => [
   { label: '地区策略', value: overview.value?.regionPolicyCount ?? '-' }
 ])
 
-const runtimeRows = computed(() => [
+const runtimeRows = computed<AdminStatusMatrixItem[]>(() => [
   { label: '全局状态', value: formatRuntimeStatus(runtime.value?.globalState) },
   { label: '地区覆盖', value: Object.keys(runtime.value?.regionStates ?? {}).length },
   { label: '已关闭词库', value: runtime.value?.disabledDictionaryIds.length ?? '-' },
@@ -239,5 +238,53 @@ onMounted(() => {
 <style scoped>
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.moderation-runtime-control {
+  display: grid;
+  grid-template-columns: minmax(12rem, 16rem) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--fsusblog-panel-border);
+}
+
+.moderation-runtime-control__field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.moderation-runtime-control__label {
+  color: var(--fsusblog-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.moderation-runtime-control__button {
+  justify-self: start;
+}
+
+.moderation-check-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.moderation-check-row + .moderation-check-row {
+  border-top: 1px solid var(--fsusblog-panel-border);
+}
+
+.moderation-check-alert {
+  margin: 0 0 0.75rem;
+}
+
+@media (max-width: 480px) {
+  .moderation-runtime-control {
+    grid-template-columns: 1fr;
+  }
+
+  .moderation-runtime-control__button {
+    justify-self: stretch;
+  }
 }
 </style>

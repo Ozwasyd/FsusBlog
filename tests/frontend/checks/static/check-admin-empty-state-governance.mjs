@@ -18,6 +18,7 @@ const adminAccountRoots = [
 ].map((dir) => path.join(repoRoot, dir))
 
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
+const adminInlineEmptyStatePath = path.join(sourceRoot, 'components/admin/AdminInlineEmptyState.vue')
 
 const directElEmptyAllowlist = new Map()
 
@@ -76,11 +77,16 @@ function tableTokens(line) {
 function checkTables(file, content) {
   const stack = []
   const lines = content.split(/\r?\n/)
+  const hasStandaloneInlineEmptyState = /<AdminInlineEmptyState\b/.test(content)
+
+  const hasStandaloneEmptyFallback = (line) =>
+    /\bv-(?:else-)?if\s*=\s*["'][^"']*(?:has[A-Za-z0-9_]*Rows|filteredList\.length\s*>\s*0|\.length\s*>\s*0)[^"']*["']/.test(line) &&
+    hasStandaloneInlineEmptyState
 
   lines.forEach((line, index) => {
     for (const token of tableTokens(line)) {
       if (token.value.startsWith('<el-table')) {
-        stack.push({ line: index + 1, hasEmpty: false })
+        stack.push({ line: index + 1, hasEmpty: false, hasStandaloneFallback: hasStandaloneEmptyFallback(line) })
         continue
       }
 
@@ -93,7 +99,7 @@ function checkTables(file, content) {
       }
 
       const current = stack.pop()
-      if (current && !current.hasEmpty) {
+      if (current && !current.hasEmpty && !current.hasStandaloneFallback) {
         fail(file, current.line, 'admin/account el-table must provide a localized compact #empty slot')
       }
     }
@@ -138,6 +144,17 @@ for (const file of adminAccountRoots.flatMap((dir) => walk(dir))) {
       fail(file, index + 1, 'standalone "-" must not be used as a panel empty state; use contextual copy')
     }
   })
+}
+
+const adminInlineEmptyState = read(adminInlineEmptyStatePath)
+if (!adminInlineEmptyState.includes('class="admin-inline-empty-state"')) {
+  fail(adminInlineEmptyStatePath, 1, 'AdminInlineEmptyState must own the admin empty-state inset contract')
+}
+if (!adminInlineEmptyState.includes('admin-inline-empty-state__actions')) {
+  fail(adminInlineEmptyStatePath, 1, 'AdminInlineEmptyState must own action spacing for compact empty states')
+}
+if (!adminInlineEmptyState.includes('props.description || props.content')) {
+  fail(adminInlineEmptyStatePath, 1, 'AdminInlineEmptyState must support content fallback for existing admin callers')
 }
 
 const packageJson = JSON.parse(read(packageJsonPath))

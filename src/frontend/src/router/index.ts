@@ -14,6 +14,14 @@ import { isPublicSeoRouteName, isPublicShellRouteName } from '@/public-renderers
 import { ACCOUNT_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
 import { PUBLIC_BLOG_CHILD_ROUTES } from '@/public-renderers/publicRouteRegistry'
 import { useAdminStore } from '@/store/admin'
+import {
+  activateLocalFixtureSession,
+  createLocalFixtureAccountSnapshot,
+  createLocalFixtureAdminPrincipal,
+  ensureLocalFixtureSessionCookies,
+  isLocalFixtureQueryEnabled,
+  isLocalFixtureSessionActive
+} from '@/services/localFixtureSession'
 
 type ProgressModule = typeof import('nprogress')
 const PROGRESS_DELAY_MS = 120
@@ -170,8 +178,8 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
           { path: 'dictionaries', name: 'ManageModerationDictionaries', component: () => import('@/views/admin/moderation/ModerationDictionaries.vue'), meta: manageMeta('词库管理', ['comment.moderate']) },
           { path: 'anonymous-policy', name: 'ManageAnonymousCommentPolicy', component: () => import('@/views/admin/moderation/AnonymousGovernancePage.vue'), meta: manageMeta('匿名评论策略', ['anonymous.comment.configure']) },
           { path: 'anonymous-risk', name: 'ManageAnonymousRisk', component: () => import('@/views/admin/moderation/AnonymousGovernancePage.vue'), meta: manageMeta('匿名风险', ['comment.moderate']) },
-          { path: 'anonymous-credentials', name: 'ManageAnonymousCredentials', component: () => import('@/views/admin/moderation/AnonymousGovernancePage.vue'), meta: manageMeta('匿名凭证', ['anonymous.credential.revoke']) },
-          { path: 'nullifiers', name: 'ManageAnonymousNullifiers', component: () => import('@/views/admin/moderation/AnonymousGovernancePage.vue'), meta: manageMeta('Nullifier 治理', ['anonymous.nullifier.block']) },
+          { path: 'anonymous-credentials', name: 'ManageAnonymousCredentials', component: () => import('@/views/admin/moderation/AnonymousGovernancePage.vue'), meta: manageMeta('匿名资格', ['anonymous.credential.revoke']) },
+          { path: 'nullifiers', name: 'ManageAnonymousNullifiers', component: () => import('@/views/admin/moderation/AnonymousGovernancePage.vue'), meta: manageMeta('匿名标识', ['anonymous.nullifier.block']) },
           { path: 'zk-anonymous', name: 'ManageZkAnonymousStatus', component: () => import('@/views/admin/moderation/AnonymousGovernancePage.vue'), meta: manageMeta('隐私证明状态', ['anonymous.comment.configure']) },
           { path: 'policies', name: 'ManageModerationPolicies', component: () => import('@/views/admin/moderation/ModerationPolicies.vue'), meta: manageMeta('地区策略', ['comment.moderate']) },
           { path: 'regions', name: 'ManageModerationRegions', component: () => import('@/views/admin/moderation/ModerationRegions.vue'), meta: manageMeta('地区管理', ['comment.moderate']) },
@@ -218,8 +226,31 @@ function readRouteRequiredPermissions(route: RouteLocationNormalized): string[] 
     : []
 }
 
+function readAccountShellRouteKey(route: RouteLocationNormalized): string | null {
+  const accountRootIndex = route.matched.findIndex((record) => record.path === '/user')
+  if (accountRootIndex < 0) {
+    return null
+  }
+
+  const shellRecord = route.matched[accountRootIndex + 1]
+  return shellRecord?.name !== undefined ? String(shellRecord.name) : shellRecord?.path ?? null
+}
+
+function isSameAccountShellChildSwitch(to: RouteLocationNormalized, from: RouteLocationNormalized): boolean {
+  const toShellKey = readAccountShellRouteKey(to)
+  const fromShellKey = readAccountShellRouteKey(from)
+  if (!toShellKey || toShellKey !== fromShellKey) {
+    return false
+  }
+
+  const toAccountRootIndex = to.matched.findIndex((record) => record.path === '/user')
+  const fromAccountRootIndex = from.matched.findIndex((record) => record.path === '/user')
+  return to.matched.length > toAccountRootIndex + 2
+    || from.matched.length > fromAccountRootIndex + 2
+}
+
 function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): void {
-  router.beforeEach(async (to) => {
+  router.beforeEach(async (to, from) => {
     const sessionBootstrap = useSessionBootstrap()
     const { userStore, siteStore } = sessionBootstrap
     const adminStore = useAdminStore()
@@ -231,7 +262,7 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       && isPublicSeoRouteName(to.name)
       && hasServerAotShell(appRoot)
 
-    if (!options.ssr && !shouldDeferPublicBootstrap) {
+    if (!options.ssr && !shouldDeferPublicBootstrap && !isSameAccountShellChildSwitch(to, from)) {
       scheduleProgressForSlowNavigation()
     }
 
@@ -249,34 +280,24 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       return true
     }
 
-    const forceLocalFixtureSession = to.query.fsusLocalFixtureLogin === '1'
+    if (isLocalFixtureQueryEnabled(to.query.fsusLocalFixtureLogin)) {
+      activateLocalFixtureSession()
+    }
+    const forceLocalFixtureSession = isLocalFixtureSessionActive()
 
     if (to.meta.guestOnly) {
       await sessionBootstrap.ensureAccountSession({ reason: 'route' })
     } else if (manageRoute) {
-      await Promise.all([
-        sessionBootstrap.ensureAccountSession({ reason: 'route', force: forceLocalFixtureSession }),
-        sessionBootstrap.ensureAdminSession({ reason: 'route', force: forceLocalFixtureSession })
-      ])
-      if (import.meta.env.DEV && forceLocalFixtureSession && !adminStore.canManage) {
-        adminStore.setAdminPrincipal({
-          id: '1',
-          displayName: 'binaryadmin',
-          source: 'independent',
-          adminSessionStatus: 'active',
-          permissions: [
-            'article.write',
-            'article.publish',
-            'comment.moderate',
-            'anonymous.comment.configure',
-            'anonymous.nullifier.block',
-            'anonymous.credential.revoke',
-            'audit.read',
-            'system.config',
-            'admin.manage'
-          ],
-          totpStepUpRequired: true
-        })
+      if (forceLocalFixtureSession) {
+        await ensureLocalFixtureSessionCookies(to.fullPath)
+        userStore.markAuthenticated(createLocalFixtureAccountSnapshot())
+        adminStore.setAdminPrincipal(createLocalFixtureAdminPrincipal())
+        sessionBootstrap.syncAuthPhase()
+      } else {
+        await Promise.all([
+          sessionBootstrap.ensureAccountSession({ reason: 'route' }),
+          sessionBootstrap.ensureAdminSession({ reason: 'route' })
+        ])
       }
     } else if (to.meta.requiresAuth) {
       await sessionBootstrap.ensureAccountSession({ reason: 'route' })

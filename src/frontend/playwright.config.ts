@@ -7,7 +7,14 @@ const workers = Number.isFinite(configuredWorkers) && configuredWorkers > 0
   ? Math.floor(configuredWorkers)
   : (process.env.CI ? 4 : 4)
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH
-  || ['/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find((candidate) => existsSync(candidate))
+  || [
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser'
+  ].find((candidate) => existsSync(candidate))
 
 const chromiumLaunchOptions: {
   executablePath?: string

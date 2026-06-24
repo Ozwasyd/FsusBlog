@@ -38,10 +38,16 @@ if (!fs.existsSync(files.adminSystemTabs)) {
   fail(files.adminSystemTabs, 1, 'AdminSystemTabs.vue is missing')
 } else {
   const source = read(files.adminSystemTabs)
-  for (const token of ['FsusUiSectionNav', 'router.resolve', 'ariaLabel', 'current: route.name === item.name']) {
+  for (const token of ['FsusUiSectionNav', 'router.resolve', 'ariaLabel', 'current: route.name === item.name', 'event.preventDefault()', 'router.push(nextLocation)']) {
     if (!source.includes(token)) {
       fail(files.adminSystemTabs, 1, `AdminSystemTabs contract is missing ${token}`)
     }
+  }
+  if (!/closest<HTMLAnchorElement>\('a\[href\]'\)/.test(source)) {
+    fail(files.adminSystemTabs, 1, 'AdminSystemTabs must intercept SectionNav anchor clicks at the adapter boundary')
+  }
+  if (!source.includes("destination.origin !== window.location.origin")) {
+    fail(files.adminSystemTabs, 1, 'AdminSystemTabs must keep external links on native anchor navigation')
   }
 }
 

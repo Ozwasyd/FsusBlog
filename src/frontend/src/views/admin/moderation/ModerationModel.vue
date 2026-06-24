@@ -10,17 +10,12 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadStatus">刷新</el-button>
       </div>
 
-      <div class="border-l-4 border-[var(--fsusblog-color-warning)] px-5 py-4 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
+      <div class="admin-muted-alert admin-muted-alert--warning mx-5 mt-5 px-5 py-4 text-[12px] leading-6">
         <strong class="text-[var(--fsusblog-text-primary)]">地区法律策略优先级高于反垃圾模型。</strong>
         <span class="ml-2">模型风险信号不能覆盖拦截地区、提交动作、展示动作或人工审核状态。</span>
       </div>
 
-      <div class="grid gap-3 md:grid-cols-4">
-        <div v-for="item in statusRows" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</div>
-          <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.value }}</div>
-        </div>
-      </div>
+      <AdminStatusMatrix :items="statusRows" density="compact" aria-label="审核模型状态" />
     </section>
 
     <section class="grid gap-8 lg:grid-cols-2">
@@ -89,12 +84,7 @@
             <el-button :icon="RefreshRight" type="warning" :loading="reloading" @click="reloadRuntime">重新载入</el-button>
             <el-button :icon="RefreshLeft" type="warning" :loading="rollingBack" @click="rollbackRuntime">回滚</el-button>
           </div>
-          <div class="grid gap-3 md:grid-cols-2">
-            <div v-for="item in runtimeRows" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-4">
-              <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</div>
-              <div class="mt-2 break-all text-[12px] font-bold text-[var(--fsusblog-text-primary)]">{{ item.value }}</div>
-            </div>
-          </div>
+          <AdminStatusMatrix :items="runtimeRows" density="compact" aria-label="模型运行快照" />
           <el-button :icon="Cpu" disabled>测试样本文本评分</el-button>
           <RouterLink :to="{ name: 'ManageAuditLog', query: { action: 'model_moderation_scored' } }" class="inline-flex">
             <el-button :icon="Warning">查看最近模型错误</el-button>
@@ -117,6 +107,7 @@ import {
   type ModerationModelStatusResponse,
   type ModerationRuntimeStatusResponse
 } from '@/api/authoring'
+import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { Connection, Cpu, Refresh, RefreshLeft, RefreshRight, Warning } from '@/fsusui/icons'
 import { toast } from '@/fsusui/feedback'
@@ -166,7 +157,7 @@ const formatMode = (value: string | null | undefined): string => {
 
 const formatReviewed = (value: boolean | null | undefined): string => value ? '已复核' : '未复核'
 
-const statusRows = computed(() => [
+const statusRows = computed<AdminStatusMatrixItem[]>(() => [
   { label: '启用状态', value: formatEnabled(status.value?.enabled) },
   { label: '模型来源', value: formatProvider(status.value?.provider) },
   { label: '模型模式', value: formatMode(status.value?.mode) },
@@ -177,7 +168,7 @@ const statusRows = computed(() => [
   { label: '外部复核', value: formatReviewed(status.value?.externalProviderReviewed) }
 ])
 
-const runtimeRows = computed(() => [
+const runtimeRows = computed<AdminStatusMatrixItem[]>(() => [
   { label: '快照', value: runtime.value?.model.snapshotId ?? '-' },
   { label: '校验值', value: runtime.value?.model.configChecksum ?? '-' },
   { label: '载入人', value: runtime.value?.model.loadedBy ?? '-' },

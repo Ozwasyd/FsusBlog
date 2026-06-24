@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { getAdminMe } from '@/api/auth'
 import { isAuthFailureError } from '@/utils/errorKinds'
+import { clearLocalFixtureSession } from '@/services/localFixtureSession'
 
 export type AdminSessionStatus = 'missing' | 'active' | 'expired' | 'step_up_required'
 export type AdminSessionState = 'unknown' | AdminSessionStatus
@@ -131,6 +132,7 @@ export const useAdminStore = defineStore('admin', () => {
   }
 
   const logout = async (): Promise<void> => {
+    clearLocalFixtureSession()
     clearAdminPrincipal()
 
     if (typeof window !== 'undefined') {

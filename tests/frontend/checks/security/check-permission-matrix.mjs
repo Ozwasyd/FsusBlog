@@ -14,6 +14,7 @@ import { decodeAedsFrame } from '../../support/aeds-envelope.mjs';
 import { fetchWithTimeout } from '../../support/http.mjs';
 import { buildMarkdownExtremeCorpus } from '../../support/markdown-extreme-corpus.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
+import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
 
 const frontendBaseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
@@ -24,8 +25,7 @@ const repoRoot = resolve(process.cwd(), '..', '..');
 const evidenceDir = process.env.FSUSBLOG_SECURITY_EVIDENCE_DIR || resolve(repoRoot, '.tmp/security');
 const require = createRequire(import.meta.url);
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }));
-const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH
-  || ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find((candidate) => existsSync(candidate));
+const executablePath = resolveSystemChromiumExecutablePath()
 
 const DENIED_STATUSES = new Set([400, 401, 403, 404, 405, 409, 413, 415, 422, 428, 429]);
 

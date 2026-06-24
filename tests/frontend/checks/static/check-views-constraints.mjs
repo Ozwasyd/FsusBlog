@@ -248,11 +248,29 @@ if (!accountLayoutSource.includes('openMobileGroupKey')) {
 if (accountLayoutSource.includes("'account-mobile-tab-link-active': openMobileGroupKey === group.key")) {
   hardViolations.push('src/layouts/AccountLayout.vue: mobile account group active state must not be driven by openMobileGroupKey');
 }
+if (!/if\s*\(\s*key\s*!==\s*currentNavGroupKey\.value\s*\)[\s\S]*?router\.push\(target\)/.test(accountLayoutSource)) {
+  hardViolations.push('src/layouts/AccountLayout.vue: mobile account group changes must navigate to the selected group entry, not leave route and open group mismatched');
+}
+if (!/to:\s*group\.items\[0\]\?\.to/.test(accountLayoutSource)) {
+  hardViolations.push('src/layouts/AccountLayout.vue: mobile account group segments must expose each group entry route for router-link navigation semantics');
+}
+if (!accountLayoutSource.includes('selection-mode="link"')) {
+  hardViolations.push('src/layouts/AccountLayout.vue: mobile account group segments must use link mode instead of radio-only selection semantics');
+}
 if (!accountLayoutSource.includes('FsusUiSegmentedControl')) {
   hardViolations.push('src/layouts/AccountLayout.vue: mobile account group navigation must use the FsusUI segmented-control adapter');
 }
 if (accountLayoutSource.includes('class="account-mobile-tab-link"')) {
   hardViolations.push('src/layouts/AccountLayout.vue: mobile account group navigation must not regress to the legacy hand-rolled tab buttons');
+}
+if (!accountLayoutSource.includes('accountViewRecord')) {
+  hardViolations.push('src/layouts/AccountLayout.vue: account route view key must be based on the direct AccountLayout child record');
+}
+if (/const\s+routeName\s*=\s*typeof\s+route\.name\s*===\s*'string'\s*\?\s*route\.name\s*:\s*route\.path/.test(accountLayoutSource)) {
+  hardViolations.push('src/layouts/AccountLayout.vue: account route view key must not use the deepest route.name because nested admin tabs would remount their parent layout');
+}
+if (!/route\.matched\.findIndex\(\(record\)\s*=>\s*record\.path\s*===\s*'\/user'\)/.test(accountLayoutSource)) {
+  hardViolations.push('src/layouts/AccountLayout.vue: account route view key must locate the /user root before choosing the direct child record');
 }
 
 const accountNavPath = join(srcDir, 'layouts', 'accountNav.ts');
@@ -262,6 +280,18 @@ if (!/label:\s*'身份中心'[\s\S]*?match:\s*\(\)\s*=>\s*false/.test(accountNav
 }
 if (!/label:\s*'身份总览'[\s\S]*?match:\s*\(path\)\s*=>\s*path\s*===\s*'\/user\/identity'/.test(accountNavSource)) {
   hardViolations.push('src/layouts/accountNav.ts: 身份总览 must use exact /user/identity matching to avoid double-active subroutes');
+}
+
+const routerPath = join(srcDir, 'router', 'index.ts');
+const routerSource = readFileSync(routerPath, 'utf8');
+if (!routerSource.includes('isSameAccountShellChildSwitch')) {
+  hardViolations.push('src/router/index.ts: route progress must skip nested account shell tab switches');
+}
+if (!/router\.beforeEach\(async\s*\(\s*to\s*,\s*from\s*\)/.test(routerSource)) {
+  hardViolations.push('src/router/index.ts: route progress guard must inspect both to and from routes');
+}
+if (!routerSource.includes('!isSameAccountShellChildSwitch(to, from)')) {
+  hardViolations.push('src/router/index.ts: nested admin tabs must not start global nprogress');
 }
 
 for (const line of hardViolations) {

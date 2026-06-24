@@ -200,6 +200,7 @@ export const refreshToken = (config?: ApiRequestConfig) => {
     binaryRoute: { operationId: 'binary_post_auth_refresh_token' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
+    suppressAuthFailureTelemetry: true,
     requestOptions: {
       method: 'POST'
     }
@@ -475,6 +476,7 @@ export const adminStepUpPasskeyBegin = (config?: ApiRequestConfig) =>
     binaryRoute: { operationId: 'binary_post_auth_admin_step_up_passkey_begin' },
     frameType: FrameType.PasskeyLoginBegin,
     signal: config?.signal as AbortSignal | undefined,
+    suppressAuthFailureTelemetry: true,
     requestOptions: { method: 'POST' }
   })
 

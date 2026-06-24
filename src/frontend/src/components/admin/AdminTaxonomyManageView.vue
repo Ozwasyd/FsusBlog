@@ -29,7 +29,7 @@
         <el-skeleton :rows="6" animated />
       </div>
 
-      <el-table v-else v-loading="loading" :data="filteredList" :row-key="getRowKey">
+      <el-table v-else-if="hasTaxonomyRows" v-loading="loading" :data="filteredList" :row-key="getRowKey">
         <el-table-column v-if="!isCompact" prop="id" label="ID" width="100" align="center">
           <template #default="{ row }"><span class="tabular-nums">{{ row.id }}</span></template>
         </el-table-column>
@@ -78,15 +78,26 @@
             </div>
           </template>
         </el-table-column>
-        <template #empty>
-          <AdminInlineEmptyState :title="emptyTitle" :description="emptyDescription">
-            <template #actions>
-              <el-button v-if="hasFilters" link type="primary" @click="state.resetFilters">清除筛选</el-button>
-              <el-button v-else link type="primary" @click="state.openDialog()">{{ schema.newButtonLabel }}</el-button>
-            </template>
-          </AdminInlineEmptyState>
-        </template>
       </el-table>
+
+      <div
+        v-else
+        v-loading="loading"
+        class="taxonomy-empty-container"
+      >
+        <AdminInlineEmptyState
+          class="taxonomy-empty-state"
+          :title="emptyTitle"
+          :description="emptyDescription"
+        >
+          <template #actions>
+            <div class="taxonomy-empty-actions">
+              <el-button v-if="hasFilters" class="taxonomy-empty-action" @click="state.resetFilters">清除筛选</el-button>
+              <el-button v-else class="taxonomy-empty-action" type="primary" @click="state.openDialog()">{{ schema.newButtonLabel }}</el-button>
+            </div>
+          </template>
+        </AdminInlineEmptyState>
+      </div>
     </section>
 
     <el-dialog v-model="state.dialogVisible.value" :title="dialogTitle" :width="schema.dialogWidth" destroy-on-close :close-on-click-modal="false">
@@ -142,6 +153,7 @@ const stateText = computed(() => `${props.schema.entityLabel} · ${list.value.le
 const resultText = computed(() => `${props.schema.listTitle} · ${filteredList.value.length} 条结果`)
 const emptyTitle = computed(() => hasFilters.value ? props.schema.filteredEmptyTitle : props.schema.emptyTitle)
 const emptyDescription = computed(() => hasFilters.value ? props.schema.filteredEmptyDescription : props.schema.emptyDescription)
+const hasTaxonomyRows = computed(() => filteredList.value.length > 0)
 const nameColumnWidth = computed(() => isCompact.value ? props.schema.nameColumnWidth.compact : props.schema.nameColumnWidth.wide)
 const relationColumnWidth = computed(() => isCompact.value ? props.schema.relationColumnWidth.compact : props.schema.relationColumnWidth.wide)
 const actionColumnWidth = computed(() => isCompact.value ? props.schema.actionColumnWidth.compact : props.schema.actionColumnWidth.wide)
@@ -157,3 +169,37 @@ const submitForm = (): void => {
   void props.state.submitForm(formRef.value)
 }
 </script>
+
+<style scoped>
+.taxonomy-empty-container {
+  min-height: 10rem;
+  border-top: 1px solid var(--fsusblog-panel-border);
+  padding-block: 1.25rem 1.5rem;
+}
+
+.taxonomy-empty-state {
+  min-height: 7rem;
+  padding: 1.5rem;
+}
+
+.taxonomy-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.taxonomy-empty-action {
+  min-width: 6.5rem;
+}
+
+@media (max-width: 639px) {
+  .taxonomy-empty-state {
+    padding-inline: 1.25rem;
+  }
+
+  .taxonomy-empty-action {
+    min-width: 6rem;
+  }
+}
+</style>

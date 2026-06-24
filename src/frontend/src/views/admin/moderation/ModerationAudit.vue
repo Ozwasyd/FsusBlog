@@ -1,21 +1,33 @@
 <template>
-  <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
-    <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-      <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核审计</div>
-      <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">审核系统事件索引</h2>
-      <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">审计明细仍由通用审计日志承载，这里只保留审核系统动作入口。</p>
-    </div>
+  <section class="moderation-audit-index" aria-labelledby="moderation-audit-title">
+    <header class="moderation-audit-index__header">
+      <div>
+        <h2 id="moderation-audit-title">事件索引</h2>
+      </div>
+      <p>动作类型 / 审计入口</p>
+    </header>
 
-    <div class="grid gap-3 md:grid-cols-2">
+    <div class="moderation-audit-index__list" role="list">
+      <div class="moderation-audit-index__row moderation-audit-index__row--head" aria-hidden="true">
+        <span>域</span>
+        <span>事件</span>
+        <span>动作代码</span>
+        <span>入口</span>
+      </div>
       <RouterLink
         v-for="event in events"
         :key="event.action"
         :to="{ name: 'ManageAuditLog', query: { action: event.action } }"
-        class="bg-[var(--fsusblog-page-bg)] p-5 hover:bg-[var(--fsusblog-page-bg-soft)]"
+        class="moderation-audit-index__row"
+        role="listitem"
       >
-        <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ event.label }}</div>
-        <p class="mt-2 text-[12px] leading-6 text-[var(--fsusblog-text-muted)]">{{ event.detail }}</p>
-        <p class="mt-1 break-all text-[11px] leading-5 text-[var(--fsusblog-text-muted)]">动作代码：{{ event.action }}</p>
+        <span class="moderation-audit-index__kind">{{ event.kind }}</span>
+        <span class="moderation-audit-index__main">
+          <strong>{{ readAuditActionText(event.action) }}</strong>
+          <small>{{ event.detail }}</small>
+        </span>
+        <code><AuditActionLabel :value="event.action" /></code>
+        <span class="moderation-audit-index__action">查看</span>
       </RouterLink>
     </div>
   </section>
@@ -23,17 +35,215 @@
 
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
+import AuditActionLabel from '@/components/admin/AuditActionLabel.vue'
+import { formatAuditAction } from '@/view-contracts/auditActionLabels'
 
 const events = [
-  { action: 'dictionary_loaded', label: '词库已载入', detail: '词库快照加载成功。' },
-  { action: 'dictionary_reload_failed', label: '词库重新载入失败', detail: '词库重新载入失败但保留旧快照。' },
-  { action: 'dictionary_checksum_changed', label: '词库校验值变化', detail: '词库校验值发生变化。' },
-  { action: 'region_policy_loaded', label: '地区策略已载入', detail: '地区策略加载成功。' },
-  { action: 'region_policy_reload_failed', label: '地区策略重新载入失败', detail: '地区策略重新载入失败。' },
-  { action: 'region_policy_replay_started', label: '地区策略回放开始', detail: '地区策略回放预览或执行开始。' },
-  { action: 'region_policy_replay_completed', label: '地区策略回放完成', detail: '地区策略回放预览或执行完成。' },
-  { action: 'model_moderation_scored', label: '模型风险评分完成', detail: '模型风险信号评分完成。' },
-  { action: 'region_moderation_rejected', label: '地区策略拒绝发布', detail: '地区策略拒绝发布。' },
-  { action: 'region_moderation_geo_blocked', label: '地区策略按地区拦截', detail: '地区策略产生访问地区拦截。' }
+  { kind: '词库', action: 'dictionary_loaded', detail: '词库快照加载成功。' },
+  { kind: '词库', action: 'dictionary_reload_failed', detail: '保留旧快照。' },
+  { kind: '词库', action: 'dictionary_checksum_changed', detail: '校验值发生变化。' },
+  { kind: '地区', action: 'region_policy_loaded', detail: '地区策略加载成功。' },
+  { kind: '地区', action: 'region_policy_reload_failed', detail: '地区策略重新载入失败。' },
+  { kind: '地区', action: 'region_policy_replay_started', detail: '回放预览或执行开始。' },
+  { kind: '地区', action: 'region_policy_replay_completed', detail: '回放预览或执行完成。' },
+  { kind: '模型', action: 'model_moderation_scored', detail: '模型风险信号评分完成。' },
+  { kind: '地区', action: 'region_moderation_rejected', detail: '地区策略拒绝发布。' },
+  { kind: '地区', action: 'region_moderation_geo_blocked', detail: '产生访问地区拦截。' }
 ] as const
+
+const readAuditActionText = (value: string): string => {
+  const display = formatAuditAction(value)
+  return display.kind === 'label'
+    ? display.text
+    : display.namespace
+      ? `${display.namespace} · ${display.name}`
+      : display.name
+}
 </script>
+
+<style scoped>
+.moderation-audit-index {
+  display: grid;
+  gap: var(--fsus-space-3);
+  min-width: 0;
+}
+
+.moderation-audit-index__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fsus-space-3);
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+  padding-bottom: var(--fsus-space-3);
+}
+
+.moderation-audit-index__header div {
+  min-width: 0;
+}
+
+.moderation-audit-index__header h2 {
+  margin: 0;
+  color: var(--fsusblog-text-primary);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.moderation-audit-index__header p {
+  margin: 0;
+  color: var(--fsusblog-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.moderation-audit-index__list {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--fsusblog-panel-border);
+  border-radius: var(--fsus-radius-panel);
+  background: var(--fsusblog-page-bg);
+}
+
+.moderation-audit-index__row {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(12rem, 1fr) minmax(18rem, 1.1fr) 3rem;
+  gap: var(--fsus-space-3);
+  align-items: center;
+  min-width: 0;
+  border-top: 1px solid var(--fsusblog-panel-border);
+  padding: 0.625rem var(--fsus-space-3);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    background-color var(--fsus-motion-control, 220ms) var(--fsus-motion-standard, ease),
+    color var(--fsus-motion-control, 220ms) var(--fsus-motion-standard, ease);
+}
+
+.moderation-audit-index__row:first-child {
+  border-top: 0;
+}
+
+.moderation-audit-index__row--head {
+  color: var(--fsusblog-text-muted);
+  background: color-mix(in srgb, var(--fsusblog-panel-bg) 62%, transparent);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.moderation-audit-index__row:hover,
+.moderation-audit-index__row:focus-visible {
+  background: var(--fsusblog-page-bg-soft);
+}
+
+.moderation-audit-index__row:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--fsus-scholarly-blue, #2a599c);
+}
+
+.moderation-audit-index__kind {
+  width: fit-content;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  color: var(--fsusblog-text-secondary);
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.moderation-audit-index__main {
+  display: flex;
+  align-items: baseline;
+  gap: var(--fsus-space-2);
+  min-width: 0;
+}
+
+.moderation-audit-index__main strong {
+  flex: 0 0 auto;
+  overflow: hidden;
+  color: var(--fsusblog-text-primary);
+  font-size: 0.8125rem;
+  font-weight: 800;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moderation-audit-index__main small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fsusblog-text-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moderation-audit-index__row code {
+  overflow: hidden;
+  color: var(--fsusblog-text-muted);
+  font-family: var(--fsus-font-family-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moderation-audit-index__action {
+  color: var(--fsus-scholarly-blue, #2a599c);
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .moderation-audit-index__header {
+    display: grid;
+    align-items: start;
+  }
+
+  .moderation-audit-index__header p {
+    max-width: none;
+    text-align: left;
+  }
+
+  .moderation-audit-index__row {
+    grid-template-columns: 3.5rem minmax(0, 1fr) 2.5rem;
+    align-items: center;
+    padding: var(--fsus-space-3);
+  }
+
+  .moderation-audit-index__row--head {
+    display: none;
+  }
+
+  .moderation-audit-index__row code,
+  .moderation-audit-index__action {
+    grid-column: 2;
+  }
+
+  .moderation-audit-index__row code {
+    grid-column: 2 / 4;
+  }
+
+  .moderation-audit-index__action {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .moderation-audit-index__main strong,
+  .moderation-audit-index__main small,
+  .moderation-audit-index__row code {
+    white-space: normal;
+  }
+}
+</style>

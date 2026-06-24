@@ -2,6 +2,17 @@
   background: var(--fsusblog-page-bg, Canvas);
   color: var(--fsusblog-text-primary);
   font-family: var(--font-sans, "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif);
+  --fsusblog-admin-status-info: color-mix(in srgb, var(--fsusblog-color-primary) 46%, var(--fsusblog-text-muted));
+  --fsusblog-admin-status-success: color-mix(in srgb, var(--fsusblog-color-success) 42%, var(--fsusblog-text-muted));
+  --fsusblog-admin-status-warning: color-mix(in srgb, var(--fsusblog-color-warning) 42%, var(--fsusblog-text-muted));
+  --fsusblog-admin-status-danger: color-mix(in srgb, var(--fsusblog-color-error) 46%, var(--fsusblog-text-muted));
+  --fsusblog-admin-status-info-border: color-mix(in srgb, var(--fsusblog-admin-status-info) 24%, var(--fsusblog-panel-border));
+  --fsusblog-admin-status-success-border: color-mix(in srgb, var(--fsusblog-admin-status-success) 24%, var(--fsusblog-panel-border));
+  --fsusblog-admin-status-warning-border: color-mix(in srgb, var(--fsusblog-admin-status-warning) 26%, var(--fsusblog-panel-border));
+  --fsusblog-admin-status-danger-border: color-mix(in srgb, var(--fsusblog-admin-status-danger) 28%, var(--fsusblog-panel-border));
+  --fsusblog-admin-status-weak-bg: color-mix(in srgb, var(--fsusblog-panel-bg) 76%, var(--fsusblog-page-bg) 24%);
+  --fsusblog-admin-alert-bg: color-mix(in srgb, var(--fsusblog-panel-bg) 84%, var(--fsusblog-page-bg) 16%);
+  --fsusblog-admin-alert-border: color-mix(in srgb, var(--fsusblog-text-muted) 18%, var(--fsusblog-panel-border));
 }
 
 /* FsusUI ElSectionHeader 自造修饰：保留旧 DashboardSectionHeader 的 flush + note 视觉 */
@@ -16,6 +27,31 @@
   color: var(--fsusblog-text-muted);
   font-size: 0.8125rem;
   line-height: 1.6;
+}
+
+.admin-muted-alert {
+  border: 1px solid var(--fsusblog-admin-alert-border);
+  border-left: 2px solid var(--fsusblog-admin-alert-accent, var(--fsusblog-admin-status-info-border));
+  border-radius: var(--fsus-radius-control);
+  background: var(--fsusblog-admin-alert-bg);
+  color: var(--fsusblog-text-secondary);
+}
+
+.admin-muted-alert--info {
+  --fsusblog-admin-alert-accent: var(--fsusblog-admin-status-info-border);
+}
+
+.admin-muted-alert--warning {
+  --fsusblog-admin-alert-accent: var(--fsusblog-admin-status-warning-border);
+}
+
+.admin-muted-alert--danger {
+  --fsusblog-admin-alert-accent: var(--fsusblog-admin-status-danger-border);
+}
+
+.admin-muted-alert strong,
+.admin-muted-alert__title {
+  color: var(--fsusblog-text-primary);
 }
 
 .account-shell-panel {

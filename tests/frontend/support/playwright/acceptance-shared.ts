@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { expect } from '@playwright/test'
 import type { Browser, BrowserContextOptions, Locator, Page, ScreenshotOptions, StorageState } from '@playwright/test'
@@ -116,6 +116,7 @@ const ACCEPTANCE_UTF8_DECODER = new TextDecoder()
 const ACCEPTANCE_UTF8_ENCODER = new TextEncoder()
 const ACCEPTANCE_API_ERROR_POD_SIZE = 584
 const acceptancePowWasmRoot = new URL('../../../../src/frontend/public/wasm/', import.meta.url)
+const acceptanceFixtureRoot = new URL('../../../../src/frontend/.playwright-fixtures/', import.meta.url)
 const acceptanceNodePowAssetKinds = ['relaxed', 'simd', 'basic'] as const
 const acceptanceNodePowBatchSize = Math.max(
   1,
@@ -136,6 +137,18 @@ type AcceptancePowRuntimeModule = {
     outputLength: number
   ) => number
   HEAPU8: Uint8Array
+}
+
+type AcceptanceFixtureCookie = {
+  name: string
+  value: string
+  url?: string
+  domain?: string
+  path?: string
+  expires?: number
+  httpOnly?: boolean
+  secure?: boolean
+  sameSite?: 'Strict' | 'Lax' | 'None'
 }
 
 let acceptanceNodePowModulePromise: Promise<AcceptancePowRuntimeModule | null> | null = null
@@ -410,15 +423,51 @@ export async function captureStorageState(
   password: string,
   redirectTo: string
 ): Promise<StorageState> {
+  void browser
+  void password
   void redirectTo
-  const context = await browser.newContext(withAcceptanceContextOptions())
+  const storageStateFile = username === adminName
+    ? 'admin.storage-state.json'
+    : 'user.storage-state.json'
+  const storageStateUrl = new URL(storageStateFile, acceptanceFixtureRoot)
 
-  try {
-    const cookies = await loginViaApi(username, password)
-    await context.addCookies(cookies)
-    return await context.storageState()
-  } finally {
-    await context.close()
+  if (!existsSync(storageStateUrl)) {
+    throw new Error(`acceptance storage state fixture is missing: ${storageStateFile}; run npm --prefix src/frontend run prepare:playwright:sessions or open with fsusLocalFixtureLogin=1`)
+  }
+
+  const storageState = JSON.parse(await readFile(storageStateUrl, 'utf8')) as StorageState
+  return normalizeFixtureStorageState(storageState)
+}
+
+function normalizeFixtureStorageState(storageState: StorageState): StorageState {
+  const baseUrl = new URL(
+    process.env.PLAYWRIGHT_BASE_URL
+      || process.env.FSUSBLOG_PUBLIC_BASE_URL
+      || 'http://127.0.0.1:3000'
+  )
+
+  const cookies: StorageState['cookies'] = []
+  for (const rawCookie of storageState.cookies) {
+    const cookie = rawCookie as AcceptanceFixtureCookie
+    if (baseUrl.protocol !== 'https:' && cookie.name.startsWith('__Host-')) {
+      continue
+    }
+
+    cookies.push({
+      name: cookie.name,
+      value: cookie.value,
+      domain: cookie.domain ?? baseUrl.hostname,
+      path: cookie.path ?? '/',
+      expires: cookie.expires ?? -1,
+      httpOnly: Boolean(cookie.httpOnly),
+      secure: baseUrl.protocol === 'https:' && Boolean(cookie.secure),
+      sameSite: cookie.sameSite ?? 'Lax'
+    })
+  }
+
+  return {
+    cookies,
+    origins: storageState.origins ?? []
   }
 }
 
@@ -746,59 +795,6 @@ function normalizeRequestHeaders(headers: HeadersInit | undefined): Record<strin
   }
 
   return headers
-}
-
-async function loginViaApi(username: string, password: string) {
-  void username
-  void password
-  throw new Error('acceptance password login is retired; use admin passkey/session fixture injection')
-}
-
-function parseSetCookie(header: string, hostname: string) {
-  const [pair, ...attributes] = header.split(';').map((part) => part.trim())
-  if (!pair) {
-    return null
-  }
-
-  const separatorIndex = pair.indexOf('=')
-  if (separatorIndex <= 0) {
-    return null
-  }
-
-  const name = pair.slice(0, separatorIndex)
-  const value = pair.slice(separatorIndex + 1)
-  let path = '/'
-  let secure = false
-  let httpOnly = false
-  let sameSite: 'Lax' | 'None' | 'Strict' = 'Lax'
-
-  for (const attribute of attributes) {
-    const [rawKey, rawValue] = attribute.split('=')
-    const key = rawKey.trim().toLowerCase()
-    const parsedValue = rawValue?.trim()
-
-    if (key === 'path' && parsedValue) {
-      path = parsedValue
-    } else if (key === 'secure') {
-      secure = true
-    } else if (key === 'httponly') {
-      httpOnly = true
-    } else if (key === 'samesite' && parsedValue) {
-      if (parsedValue.toLowerCase() === 'none') sameSite = 'None'
-      if (parsedValue.toLowerCase() === 'strict') sameSite = 'Strict'
-      if (parsedValue.toLowerCase() === 'lax') sameSite = 'Lax'
-    }
-  }
-
-  return {
-    name,
-    value,
-    domain: hostname,
-    path,
-    httpOnly,
-    secure,
-    sameSite
-  }
 }
 
 export async function loginViaUi(

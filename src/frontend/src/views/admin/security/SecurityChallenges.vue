@@ -9,12 +9,7 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadMetrics">刷新</el-button>
       </template>
 
-      <div class="grid gap-3 md:grid-cols-5">
-        <div v-for="metric in headerMetrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
-          <div class="mt-3 break-words text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
-        </div>
-      </div>
+      <AdminStatusMatrix :items="headerMetrics" density="compact" aria-label="挑战状态指标" />
     </FsusUiSettingsSection>
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
@@ -74,6 +69,7 @@
 <script setup lang="ts">
 import { computed, onMounted, shallowRef } from 'vue'
 import { getSecurityChallengeMetrics, type SecurityChallengeMetricsResponse } from '@/api/security'
+import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
@@ -102,7 +98,7 @@ const formatOutcome = (value: string | null | undefined): string => {
   return value ? labels[value] ?? `结果代码：${value}` : '结果未知'
 }
 
-const headerMetrics = computed(() => [
+const headerMetrics = computed<AdminStatusMatrixItem[]>(() => [
   { label: '签发总量', value: metricsState.value?.totalIssued ?? '-' },
   { label: '尝试总量', value: metricsState.value?.totalAttempts ?? '-' },
   { label: '成功', value: metricsState.value?.verified ?? '-' },

@@ -9,12 +9,7 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadMetrics">刷新</el-button>
       </template>
 
-      <div class="grid gap-3 md:grid-cols-4">
-        <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
-          <div class="mt-3 break-words text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
-        </div>
-      </div>
+      <AdminStatusMatrix :items="metrics" density="compact" aria-label="Captcha 指标" />
     </FsusUiSettingsSection>
 
     <section class="grid gap-8 lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)]">
@@ -22,12 +17,7 @@
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
           <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">运行状态</div>
         </div>
-        <div class="divide-y divide-[var(--fsusblog-panel-border)]">
-          <div v-for="row in statusRows" :key="row.label" class="flex items-center justify-between gap-4 p-5">
-            <span class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ row.label }}</span>
-            <span class="text-sm text-[var(--fsusblog-text-secondary)]">{{ row.value }}</span>
-          </div>
-        </div>
+        <AdminStatusMatrix :items="statusRows" density="compact" aria-label="Captcha 运行状态" />
       </div>
 
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
@@ -52,6 +42,7 @@
 <script setup lang="ts">
 import { computed, onMounted, shallowRef } from 'vue'
 import { getSecurityChallengeMetrics, type SecurityChallengeMetricsResponse } from '@/api/security'
+import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
@@ -75,14 +66,14 @@ const formatOutcome = (value: string | null | undefined): string => {
   return value ? labels[value] ?? `结果代码：${value}` : '结果未知'
 }
 
-const metrics = computed(() => [
+const metrics = computed<AdminStatusMatrixItem[]>(() => [
   { label: '签发', value: metricsState.value?.totalIssued ?? '-' },
   { label: '尝试', value: metricsState.value?.totalAttempts ?? '-' },
   { label: '成功率', value: formatPercent(metricsState.value?.successRate) },
   { label: '失败率', value: formatPercent(metricsState.value?.failureRate) }
 ])
 
-const statusRows = computed(() => [
+const statusRows = computed<AdminStatusMatrixItem[]>(() => [
   { label: 'kind', value: captchaV1 },
   { label: 'verified', value: String(metricsState.value?.verified ?? 0) },
   { label: 'failed', value: String(metricsState.value?.failed ?? 0) },

@@ -9,12 +9,7 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadPage">刷新</el-button>
       </template>
 
-      <div class="grid gap-3 md:grid-cols-4">
-        <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
-          <div class="mt-3 break-words text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
-        </div>
-      </div>
+      <AdminStatusMatrix :items="metrics" density="compact" aria-label="PoSpace 指标" />
     </FsusUiSettingsSection>
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
@@ -57,6 +52,7 @@ import {
   type SecurityChallengeMetricsResponse,
   type SecurityPolicyConsoleResponse
 } from '@/api/security'
+import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
@@ -89,14 +85,14 @@ const hardChallengeActions = computed(() => {
     .map((item) => item.actionName)
 })
 
-const policyRows = computed(() => [
+const policyRows = computed<AdminStatusMatrixItem[]>(() => [
   { label: 'kind', value: argon2idPoSpaceV1 },
   { label: '全局模式', value: policyState.value?.activePolicy.globalMode ?? '-' },
   { label: '硬挑战动作', value: hardChallengeActions.value.join(', ') || '-' },
   { label: '最大风险分', value: String(policyState.value?.activePolicy.maxRiskScore ?? '-') }
 ])
 
-const metrics = computed(() => [
+const metrics = computed<AdminStatusMatrixItem[]>(() => [
   { label: '签发', value: metricsState.value?.totalIssued ?? '-' },
   { label: '尝试', value: metricsState.value?.totalAttempts ?? '-' },
   { label: '成功率', value: formatPercent(metricsState.value?.successRate) },

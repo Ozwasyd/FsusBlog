@@ -9,12 +9,7 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadCrawler">刷新</el-button>
       </template>
 
-      <div class="grid gap-3 md:grid-cols-5">
-        <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
-          <div class="mt-3 break-words text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
-        </div>
-      </div>
+      <AdminStatusMatrix :items="metrics" density="compact" aria-label="反爬虫指标" />
     </FsusUiSettingsSection>
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
@@ -73,12 +68,7 @@
           </div>
           <el-button type="primary" :loading="syncing" @click="syncRanges">手动同步</el-button>
         </div>
-        <div class="grid gap-3 md:grid-cols-2">
-          <div v-for="row in rangeRows" :key="row.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ row.label }}</div>
-            <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ row.value }}</div>
-          </div>
-        </div>
+        <AdminStatusMatrix :items="rangeRows" density="compact" aria-label="CIDR 来源状态" />
       </div>
     </section>
 
@@ -224,6 +214,7 @@ import {
   type SecurityMode,
   type SecurityRiskSnapshotResponse
 } from '@/api/security'
+import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
@@ -338,7 +329,7 @@ const toggles = [
   { key: 'illegalPathHardAbortEnabled', label: '非法路径硬拦截', caption: '路径穿越等基础安全硬拦截。' }
 ] as const
 
-const metrics = computed(() => [
+const metrics = computed<AdminStatusMatrixItem[]>(() => [
   { label: '运行模式', value: formatSecurityMode(overview.value?.summary.mode) },
   { label: '1 小时事件', value: overview.value?.summary.eventsLastHour ?? '-' },
   { label: '伪造爬虫', value: overview.value?.summary.fakeCrawlerEvents ?? '-' },
@@ -354,7 +345,7 @@ const blocklist = computed<AntiCrawlerListEntryResponse[]>(() => overview.value?
 
 const formatTime = (value: string | null | undefined): string => value ? new Date(value).toLocaleString() : '-'
 
-const rangeRows = computed(() => [
+const rangeRows = computed<AdminStatusMatrixItem[]>(() => [
   { label: '自动更新', value: formatEnabled(ranges.value?.autoUpdateEnabled) },
   { label: '更新间隔', value: `${ranges.value?.updateIntervalMinutes ?? '-'} 分钟` },
   { label: '下次同步', value: formatTime(ranges.value?.nextSyncAt) },

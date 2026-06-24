@@ -9,12 +9,7 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadPow">刷新</el-button>
       </template>
 
-      <div class="grid gap-3 md:grid-cols-4">
-        <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
-          <div class="mt-3 break-words text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
-        </div>
-      </div>
+      <AdminStatusMatrix :items="metrics" density="compact" aria-label="PoW 指标" />
     </FsusUiSettingsSection>
 
     <section class="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
@@ -78,12 +73,7 @@
       <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
         <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">运行状态</div>
       </div>
-      <div class="grid gap-3 md:grid-cols-4">
-        <div v-for="row in statusRows" :key="row.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ row.label }}</div>
-          <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ row.value }}</div>
-        </div>
-      </div>
+      <AdminStatusMatrix :items="statusRows" density="compact" aria-label="PoW 运行状态" />
     </section>
   </div>
 </template>
@@ -98,6 +88,7 @@ import {
   type PowPolicyOptions,
   type SecurityMode
 } from '@/api/security'
+import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
@@ -145,14 +136,14 @@ const toggles = [
   { key: 'riskScoreLinkEnabled', label: '风险分联动', caption: '读取统一安全风险分。' }
 ] as const
 
-const metrics = computed(() => [
+const metrics = computed<AdminStatusMatrixItem[]>(() => [
   { label: '运行模式', value: formatSecurityMode(overview.value?.policy.options.mode) },
   { label: '默认难度', value: overview.value?.policy.options.defaultDifficulty ?? '-' },
   { label: '1 小时校验失败', value: overview.value?.validationFailuresLastHour ?? '-' },
   { label: '1 小时重放拒绝', value: overview.value?.replayRejectsLastHour ?? '-' }
 ])
 
-const statusRows = computed(() => [
+const statusRows = computed<AdminStatusMatrixItem[]>(() => [
   { label: '挑战端点', value: overview.value?.policy.options.challengeEndpoint ?? '-' },
   { label: '端点状态', value: overview.value?.challengeEndpointStatus ?? '-' },
   { label: '验证策略', value: overview.value?.policy.options.verificationStrategy ?? '-' },

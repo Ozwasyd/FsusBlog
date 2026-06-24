@@ -274,6 +274,84 @@ function checkDashboardPopularArticlesFocusContract() {
   }
 }
 
+function checkAdminColorGovernance() {
+  const governedFiles = [
+    'src/frontend/src/components/admin/AdminStatusMatrix.vue',
+    'src/frontend/src/views/admin/moderation/ModerationLayout.vue',
+    'src/frontend/src/views/admin/moderation/ModerationDashboard.vue',
+    'src/frontend/src/views/admin/moderation/ModerationModel.vue',
+    'src/frontend/src/views/admin/moderation/ModerationReplay.vue',
+    'src/frontend/src/views/admin/moderation/ModerationDictionaries.vue',
+    'src/frontend/src/views/admin/security/SecurityLayout.vue',
+    'src/frontend/src/views/admin/Settings.vue',
+    'src/frontend/src/components/admin/users/UserBanDialog.vue'
+  ]
+
+  assertContains(
+    accountShellPath,
+    /--fsusblog-admin-status-success:/,
+    'account/admin shells must expose muted admin status tokens for task surfaces'
+  )
+  assertContains(
+    accountShellPath,
+    /\.admin-muted-alert\s*\{/,
+    'account/admin shells must expose a muted alert primitive for non-critical task notices'
+  )
+
+  for (const relativePath of governedFiles) {
+    const file = path.join(repoRoot, relativePath)
+    assertNotContains(
+      file,
+      /border-l-4\s+border-\[var\(--fsusblog-color-(?:primary|success|warning|error|danger)\)\]/,
+      'admin task notices must not use high-saturation 4px semantic rails'
+    )
+  }
+
+  const statusMatrixPath = path.join(repoRoot, 'src/frontend/src/components/admin/AdminStatusMatrix.vue')
+  assertNotContains(
+    statusMatrixPath,
+    /border-left-color:\s*var\(--fsusblog-color-(?:success|warning|error|primary)\)/,
+    'AdminStatusMatrix must not use high-saturation semantic rails for repeated status cells'
+  )
+  assertNotContains(
+    statusMatrixPath,
+    /background:\s*var\(--fsusblog-color-(?:success|warning|error|primary)\)/,
+    'AdminStatusMatrix bars and dots must use muted admin status tokens'
+  )
+
+  const motionPath = path.join(repoRoot, 'src/frontend/src/assets/motion.css')
+  assertNotContains(
+    motionPath,
+    /--blog-motion-highlight-(?:bg|border):\s*color-mix\(in srgb, var\(--fsusblog-color-primary[^)]*\)\s+(?:[7-9]|[1-9]\d)%/,
+    'blog motion highlight must keep primary tint below the large-area task-surface threshold'
+  )
+  assertNotContains(
+    motionPath,
+    /color-mix\(in srgb, var\(--fsusblog-color-error[^)]*\)\s+(?:[7-9]|[1-9]\d)%/,
+    'blog motion error feedback must use muted danger tokens instead of bright large-area error tint'
+  )
+}
+
+function checkAdminStatusDensityGovernance() {
+  const governedRoots = [
+    'src/frontend/src/views/admin/moderation',
+    'src/frontend/src/views/admin/security'
+  ].map((dir) => path.join(repoRoot, dir))
+
+  for (const file of governedRoots.flatMap((dir) => walk(dir))) {
+    const source = read(file)
+    const largeMetricCardPattern = /class="[^"]*\bgrid\b[^"]*\b(?:md|lg):grid-cols-[^"]*"[\s\S]{0,700}<div\s+v-for="[^"]+"[^>]*class="[^"]*\bp-5\b[^"]*"[\s\S]{0,500}\btext-2xl\b/
+    const match = largeMetricCardPattern.exec(source)
+    if (match?.index !== undefined) {
+      fail(
+        file,
+        lineNumberFromSource(source, match.index),
+        'admin moderation/security status metrics must use AdminStatusMatrix compact density instead of p-5 text-2xl cards'
+      )
+    }
+  }
+}
+
 for (const file of adminAccountRoots.flatMap((dir) => walk(dir))) {
   checkSourceFile(file, 'admin/account')
 }
@@ -288,6 +366,8 @@ for (const file of walk(productionSourceRoot)) {
 
 checkDashboardPopularArticlesFocusContract()
 checkIssueDensityContracts()
+checkAdminColorGovernance()
+checkAdminStatusDensityGovernance()
 
 const accountShell = read(accountShellPath)
 if (/\.account-(?:page-eyebrow|section-title)[\s\S]*?text-transform:\s*uppercase/.test(accountShell)) {

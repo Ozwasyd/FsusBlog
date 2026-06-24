@@ -14,8 +14,8 @@
   --blog-motion-overlay: var(--fsus-motion-overlay, 300ms);
   --blog-motion-ease: var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1));
   --blog-motion-ease-emphasized: var(--fsus-motion-emphasized, var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1)));
-  --blog-motion-highlight-bg: color-mix(in srgb, var(--fsusblog-color-primary, Highlight) 10%, transparent);
-  --blog-motion-highlight-border: color-mix(in srgb, var(--fsusblog-color-primary, Highlight) 24%, transparent);
+  --blog-motion-highlight-bg: color-mix(in srgb, var(--fsusblog-color-primary, Highlight) 5%, transparent);
+  --blog-motion-highlight-border: color-mix(in srgb, var(--fsusblog-color-primary, Highlight) 6%, transparent);
 }
 
 .blog-motion-page-enter,
@@ -82,8 +82,8 @@
 }
 
 .blog-motion-row-error {
-  background-color: color-mix(in srgb, var(--fsusblog-color-error, CanvasText) 9%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fsusblog-color-error, CanvasText) 24%, transparent);
+  background-color: color-mix(in srgb, var(--fsusblog-admin-status-danger, var(--fsusblog-color-error, CanvasText)) 5%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fsusblog-admin-status-danger, var(--fsusblog-color-error, CanvasText)) 16%, transparent);
 }
 
 .blog-motion-summary-enter {
@@ -96,6 +96,24 @@
 
 .blog-motion-safe-transform {
   transition: transform var(--blog-motion-fast) var(--blog-motion-ease);
+}
+
+.fsusblog-motion-toast--viewport-bottom {
+  position: fixed !important;
+  left: 50%;
+  top: auto !important;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  transform: translate3d(-50%, calc(var(--el-message-stack-y, 0px) * -1), 0);
+}
+
+.fsusblog-motion-toast--viewport-bottom[class~='el-message-fade-enter-from'],
+.fsusblog-motion-toast--viewport-bottom[class~='el-message-fade-leave-to'] {
+  opacity: 0;
+  transform: translate3d(-50%, calc((var(--el-message-stack-y, 0px) * -1) + 0.75rem), 0);
+}
+
+.fsusblog-motion-toast--viewport-bottom [class~='el-message__icon'] {
+  display: none;
 }
 
 @keyframes blog-motion-page-enter {
@@ -142,9 +160,17 @@
   .blog-motion-row-error,
   .blog-motion-summary-enter,
   .blog-motion-highlight,
-  .blog-motion-safe-transform {
+  .blog-motion-safe-transform,
+  .fsusblog-motion-toast--viewport-bottom,
+  .fsusblog-motion-toast--viewport-bottom[class~='el-message-fade-enter-from'],
+  .fsusblog-motion-toast--viewport-bottom[class~='el-message-fade-leave-to'] {
     animation: none !important;
     transition: none !important;
-    transform: none !important;
+  }
+
+  .fsusblog-motion-toast--viewport-bottom,
+  .fsusblog-motion-toast--viewport-bottom[class~='el-message-fade-enter-from'],
+  .fsusblog-motion-toast--viewport-bottom[class~='el-message-fade-leave-to'] {
+    transform: translate3d(-50%, calc(var(--el-message-stack-y, 0px) * -1), 0) !important;
   }
 }

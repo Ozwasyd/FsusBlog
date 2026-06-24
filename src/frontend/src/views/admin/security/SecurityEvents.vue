@@ -18,9 +18,9 @@
           <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">条数</span>
           <el-input-number v-model="filters.limit" class="mt-2 w-full" :min="10" :max="200" controls-position="right" />
         </label>
-        <div class="bg-[var(--fsusblog-page-bg)] p-5">
+        <div class="bg-[var(--fsusblog-page-bg)] p-4">
           <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">事件总数</div>
-          <div class="mt-3 text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ events.length }}</div>
+          <div class="mt-2 text-base font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ events.length }}</div>
         </div>
       </div>
     </FsusUiSettingsSection>

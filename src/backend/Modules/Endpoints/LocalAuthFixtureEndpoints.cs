@@ -69,11 +69,12 @@ public static class LocalAuthFixtureEndpoints
 
         var statusHandler = (HttpContext context) => Results.Json(new
         {
-            hasAccessToken = context.Request.Cookies.ContainsKey("AccessToken"),
-            hasSessionId = context.Request.Cookies.ContainsKey("SessionId"),
-            hasAdminAccessToken = context.Request.Cookies.ContainsKey("AdminAccessToken"),
-            hasAdminSessionId = context.Request.Cookies.ContainsKey("AdminSessionId"),
-            hasHostAdminAccessToken = context.Request.Cookies.ContainsKey("__Host-AdminAccessToken")
+            hasAccessToken = HasCookie(context, "AccessToken"),
+            hasSessionId = HasCookie(context, "SessionId"),
+            hasAdminAccessToken = HasCookie(context, "AdminAccessToken"),
+            hasAdminSessionId = HasCookie(context, "AdminSessionId"),
+            hasHostAccessToken = HasCookie(context, "__Host-AccessToken"),
+            hasHostAdminAccessToken = HasCookie(context, "__Host-AdminAccessToken")
         });
         app.MapGet("/api/local/auth-fixture/status", statusHandler).AllowAnonymous();
         app.MapGet("/__local/auth-fixture/status", statusHandler).AllowAnonymous();
@@ -236,6 +237,10 @@ public static class LocalAuthFixtureEndpoints
 
         return false;
     }
+
+    private static bool HasCookie(HttpContext context, string cookieName)
+        => context.Request.Cookies.TryGetValue(cookieName, out string? value) &&
+           !string.IsNullOrWhiteSpace(value);
 
     private static string SanitizeRedirectPath(string? redirect, bool forceLocalFixtureRefresh = false)
     {

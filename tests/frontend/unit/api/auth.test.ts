@@ -15,9 +15,20 @@ vi.mock('@/api/index', () => ({
 }))
 
 import { requestBinaryOnly } from '@/services/binaryTransport'
-import { beginRecoveryPasskeyRegistration, bootstrapAnonymousAccount, completeRecoveryPasskeyRegistration, createRecoveryKey, deleteAccount, deletePasskey, disableMfa, getMe, getMfaProfile, getPowChallenge, listPasskeys, listSessions, logout, passkeyLoginBegin, passkeyLoginComplete, passkeyRegisterBegin, passkeyRegisterComplete, refreshToken, regenerateMfaRecoveryCodes, renamePasskey, revokeOtherSessions, revokeSession, rotateRecoveryKey, startMfaChallenge, startMfaSetup, updatePublicHandle, verifyMfaChallenge, verifyMfaSetup, verifyRecoveryKey } from '@/api/auth'
+import { adminStepUpPasskeyBegin, beginRecoveryPasskeyRegistration, bootstrapAnonymousAccount, completeRecoveryPasskeyRegistration, createRecoveryKey, deleteAccount, deletePasskey, disableMfa, getMe, getMfaProfile, getPowChallenge, listPasskeys, listSessions, logout, passkeyLoginBegin, passkeyLoginComplete, passkeyRegisterBegin, passkeyRegisterComplete, refreshToken, regenerateMfaRecoveryCodes, renamePasskey, revokeOtherSessions, revokeSession, rotateRecoveryKey, startMfaChallenge, startMfaSetup, updatePublicHandle, verifyMfaChallenge, verifyMfaSetup, verifyRecoveryKey } from '@/api/auth'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
+
+const expectBinaryRoute = (operationId: string, frameType: FrameType, requestOptions?: unknown) => {
+  expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+    binaryRoute: { operationId },
+    frameType,
+    ...(requestOptions ? { requestOptions } : {})
+  }))
+}
+
+const findBinaryRouteCall = (operationId: string) =>
+  mockBinary.mock.calls.find(([request]) => request.binaryRoute?.operationId === operationId)?.[0]
 
 describe('auth API binary base session flow', () => {
   beforeEach(() => {
@@ -27,57 +38,47 @@ describe('auth API binary base session flow', () => {
 
   it('anonymous bootstrap sends the passkey-first account bootstrap request', async () => {
     await bootstrapAnonymousAccount({ publicHandle: 'alice', acceptedGuidelines: true })
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/anonymous/bootstrap',
-      frameType: FrameType.AuthLoginFlow,
-      requestOptions: expect.objectContaining({
-        method: 'POST',
-        requiresPow: true,
-        body: expect.any(ArrayBuffer)
-      })
+    expectBinaryRoute('binary_post_auth_anonymous_bootstrap', FrameType.AuthLoginFlow, expect.objectContaining({
+      method: 'POST',
+      requiresPow: true,
+      body: expect.any(ArrayBuffer)
     }))
   })
 
   it('getMe uses binary anonymous identity account frame', async () => {
     await getMe()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/me',
-      frameType: FrameType.IdentityAccountSnapshot
+      binaryRoute: { operationId: 'binary_get_auth_me' },
+      frameType: FrameType.IdentityAccountSnapshot,
+      suppressAuthFailureTelemetry: true
     }))
   })
 
   it('refreshToken uses binary empty success frame', async () => {
     await refreshToken()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/refresh-token',
+      binaryRoute: { operationId: 'binary_post_auth_refresh_token' },
       frameType: FrameType.EmptySuccess,
+      suppressAuthFailureTelemetry: true,
       requestOptions: expect.objectContaining({ method: 'POST' })
     }))
   })
 
   it('updatePublicHandle sends a dedicated binary public handle request', async () => {
     await updatePublicHandle({ publicHandle: 'QuietReader' })
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/public-handle',
-      frameType: FrameType.EmptySuccess,
-      requestOptions: expect.objectContaining({
-        method: 'PUT',
-        body: expect.any(ArrayBuffer)
-      })
+    expectBinaryRoute('binary_put_auth_public_handle', FrameType.EmptySuccess, expect.objectContaining({
+      method: 'PUT',
+      body: expect.any(ArrayBuffer)
     }))
   })
 
   it('deleteAccount sends anonymous delete request with step-up proof and no password payload', async () => {
     await deleteAccount({ confirmText: 'DELETE', mfaProofToken: 'proof-delete' })
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/delete-account',
-      frameType: FrameType.EmptySuccess,
-      requestOptions: expect.objectContaining({
-        method: 'POST',
-        requiresPow: true,
-        headers: expect.any(Headers),
-        body: expect.any(ArrayBuffer)
-      })
+    expectBinaryRoute('binary_post_auth_delete_account', FrameType.EmptySuccess, expect.objectContaining({
+      method: 'POST',
+      requiresPow: true,
+      headers: expect.any(Headers),
+      body: expect.any(ArrayBuffer)
     }))
     const call = mockBinary.mock.calls.at(-1)?.[0]
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-delete')
@@ -88,16 +89,13 @@ describe('auth API binary base session flow', () => {
 
   it('listSessions uses binary session list frame', async () => {
     await listSessions()
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/sessions',
-      frameType: FrameType.AuthSessionList
-    }))
+    expectBinaryRoute('binary_get_auth_sessions', FrameType.AuthSessionList)
   })
 
   it('revokeSession uses binary empty success frame', async () => {
     await revokeSession('session/id')
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/sessions/session%2Fid/revoke',
+      binaryRoute: { operationId: 'binary_post_auth_sessions_id_revoke', params: { id: 'session/id' } },
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({ method: 'POST' })
     }))
@@ -105,18 +103,21 @@ describe('auth API binary base session flow', () => {
 
   it('revokeOtherSessions uses binary empty success frame', async () => {
     await revokeOtherSessions()
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/sessions/revoke-others',
-      frameType: FrameType.EmptySuccess,
-      requestOptions: expect.objectContaining({ method: 'POST' })
-    }))
+    expectBinaryRoute('binary_post_auth_sessions_revoke_others', FrameType.EmptySuccess, expect.objectContaining({ method: 'POST' }))
   })
 
   it('getPowChallenge uses binary pow frame', async () => {
     await getPowChallenge()
+    expectBinaryRoute('binary_get_auth_pow_challenge', FrameType.PowChallenge)
+  })
+
+  it('admin passkey step-up begin suppresses expected auth failure telemetry', async () => {
+    await adminStepUpPasskeyBegin()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/pow-challenge',
-      frameType: FrameType.PowChallenge
+      binaryRoute: { operationId: 'binary_post_auth_admin_step_up_passkey_begin' },
+      frameType: FrameType.PasskeyLoginBegin,
+      suppressAuthFailureTelemetry: true,
+      requestOptions: expect.objectContaining({ method: 'POST' })
     }))
   })
 
@@ -129,13 +130,13 @@ describe('auth API binary base session flow', () => {
     await startMfaChallenge('recovery-key.rotate')
     await verifyMfaChallenge({ challengeToken: 'ticket', code: '123456', action: 'login' })
 
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({ binaryUrl: '/api/binary/auth/mfa/setup/start', frameType: FrameType.MfaSetupStart }))
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({ binaryUrl: '/api/binary/auth/mfa/profile', frameType: FrameType.MfaProfile }))
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({ binaryUrl: '/api/binary/auth/mfa/setup/verify', frameType: FrameType.MfaSetupVerify }))
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({ binaryUrl: '/api/binary/auth/mfa/disable', frameType: FrameType.EmptySuccess }))
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({ binaryUrl: '/api/binary/auth/mfa/recovery/regenerate', frameType: FrameType.MfaSetupVerify }))
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({ binaryUrl: '/api/binary/auth/mfa/challenge/start', frameType: FrameType.MfaChallengeResult }))
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({ binaryUrl: '/api/binary/auth/mfa/challenge', frameType: FrameType.MfaChallengeResult }))
+    expectBinaryRoute('binary_post_auth_mfa_setup_start', FrameType.MfaSetupStart)
+    expectBinaryRoute('binary_get_auth_mfa_profile', FrameType.MfaProfile)
+    expectBinaryRoute('binary_post_auth_mfa_setup_verify', FrameType.MfaSetupVerify)
+    expectBinaryRoute('binary_post_auth_mfa_disable', FrameType.EmptySuccess)
+    expectBinaryRoute('binary_post_auth_mfa_recovery_regenerate', FrameType.MfaSetupVerify)
+    expectBinaryRoute('binary_post_auth_mfa_challenge_start', FrameType.MfaChallengeResult)
+    expectBinaryRoute('binary_post_auth_mfa_challenge', FrameType.MfaChallengeResult)
   })
 
   it('anonymous MFA mutations use step-up proof headers without password payloads', async () => {
@@ -143,9 +144,9 @@ describe('auth API binary base session flow', () => {
     await disableMfa({ mfaProofToken: 'proof-disable' })
     await regenerateMfaRecoveryCodes({ mfaProofToken: 'proof-regenerate' })
 
-    const setup = mockBinary.mock.calls.find(([call]) => call.binaryUrl === '/api/binary/auth/mfa/setup/start')?.[0]
-    const disable = mockBinary.mock.calls.find(([call]) => call.binaryUrl === '/api/binary/auth/mfa/disable')?.[0]
-    const regenerate = mockBinary.mock.calls.find(([call]) => call.binaryUrl === '/api/binary/auth/mfa/recovery/regenerate')?.[0]
+    const setup = findBinaryRouteCall('binary_post_auth_mfa_setup_start')
+    const disable = findBinaryRouteCall('binary_post_auth_mfa_disable')
+    const regenerate = findBinaryRouteCall('binary_post_auth_mfa_recovery_regenerate')
 
     for (const call of [setup, disable, regenerate]) {
       expect(call?.requestOptions).toEqual(expect.objectContaining({ method: 'POST' }))
@@ -157,11 +158,7 @@ describe('auth API binary base session flow', () => {
 
   it('logout uses binary empty success frame', async () => {
     await logout()
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/logout',
-      frameType: FrameType.EmptySuccess,
-      requestOptions: expect.objectContaining({ method: 'POST' })
-    }))
+    expectBinaryRoute('binary_post_auth_logout', FrameType.EmptySuccess, expect.objectContaining({ method: 'POST' }))
   })
 
   it('Passkey methods use binary frames', async () => {
@@ -198,22 +195,18 @@ describe('auth API binary base session flow', () => {
     await deletePasskey(7)
     await renamePasskey(7, 'Phone')
 
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({ binaryUrl: '/api/binary/auth/passkey/register/begin', frameType: FrameType.PasskeyRegisterBegin }))
+    expectBinaryRoute('binary_post_auth_passkey_register_begin', FrameType.PasskeyRegisterBegin, expect.objectContaining({ method: 'POST' }))
+    expectBinaryRoute('binary_post_auth_passkey_register_complete', FrameType.EmptySuccess, expect.objectContaining({ method: 'POST', body: expect.any(ArrayBuffer) }))
+    expectBinaryRoute('binary_post_auth_passkey_login_begin', FrameType.PasskeyLoginBegin, expect.objectContaining({ method: 'POST' }))
+    expectBinaryRoute('binary_post_auth_passkey_login_complete', FrameType.AuthLoginFlow, expect.objectContaining({ method: 'POST', body: expect.any(ArrayBuffer) }))
+    expectBinaryRoute('binary_get_auth_passkey_credentials', FrameType.PasskeyCredentialList)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/passkey/register/complete',
+      binaryRoute: { operationId: 'binary_delete_auth_passkey_credentials_id_int', params: { id: 7 } },
       frameType: FrameType.EmptySuccess,
-      requestOptions: expect.objectContaining({ method: 'POST', body: expect.any(ArrayBuffer) })
+      requestOptions: expect.objectContaining({ method: 'DELETE' })
     }))
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({ binaryUrl: '/api/binary/auth/passkey/login/begin', frameType: FrameType.PasskeyLoginBegin }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/passkey/login/complete',
-      frameType: FrameType.AuthLoginFlow,
-      requestOptions: expect.objectContaining({ method: 'POST', body: expect.any(ArrayBuffer) })
-    }))
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({ binaryUrl: '/api/binary/auth/passkey/credentials', frameType: FrameType.PasskeyCredentialList }))
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({ binaryUrl: '/api/binary/auth/passkey/credentials/7', frameType: FrameType.EmptySuccess, requestOptions: expect.objectContaining({ method: 'DELETE' }) }))
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/passkey/credentials/7/name',
+      binaryRoute: { operationId: 'binary_put_auth_passkey_credentials_id_int_name', params: { id: 7 } },
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({ method: 'PUT', body: expect.any(ArrayBuffer) })
     }))
@@ -223,12 +216,8 @@ describe('auth API binary base session flow', () => {
     await deletePasskey(7, { mfaProofToken: 'proof-delete-passkey' })
     await renamePasskey(7, 'Phone', { mfaProofToken: 'proof-rename-passkey' })
 
-    const remove = mockBinary.mock.calls.find(([request]) =>
-      request.binaryUrl === '/api/binary/auth/passkey/credentials/7'
-    )?.[0]
-    const rename = mockBinary.mock.calls.find(([request]) =>
-      request.binaryUrl === '/api/binary/auth/passkey/credentials/7/name'
-    )?.[0]
+    const remove = findBinaryRouteCall('binary_delete_auth_passkey_credentials_id_int')
+    const rename = findBinaryRouteCall('binary_put_auth_passkey_credentials_id_int_name')
 
     expect(remove?.requestOptions).toEqual(expect.objectContaining({
       method: 'DELETE',
@@ -270,28 +259,14 @@ describe('auth API binary base session flow', () => {
       }
     })
 
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/recovery-key/create',
-      frameType: FrameType.RecoveryKeyCreateResponse,
-      requestOptions: expect.objectContaining({ method: 'POST' })
+    expectBinaryRoute('binary_post_auth_recovery_key_create', FrameType.RecoveryKeyCreateResponse, expect.objectContaining({ method: 'POST' }))
+    expectBinaryRoute('binary_post_auth_recovery_key_rotate', FrameType.RecoveryKeyCreateResponse, expect.objectContaining({ method: 'POST' }))
+    expectBinaryRoute('binary_post_auth_recovery_key_verify', FrameType.RecoveryKeyVerifyResponse, expect.objectContaining({
+      method: 'POST',
+      requiresPow: true,
+      body: expect.any(ArrayBuffer)
     }))
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/recovery-key/rotate',
-      frameType: FrameType.RecoveryKeyCreateResponse,
-      requestOptions: expect.objectContaining({ method: 'POST' })
-    }))
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/recovery-key/verify',
-      frameType: FrameType.RecoveryKeyVerifyResponse,
-      requestOptions: expect.objectContaining({
-        method: 'POST',
-        requiresPow: true,
-        body: expect.any(ArrayBuffer)
-      })
-    }))
-    const verifyCall = mockBinary.mock.calls.find(([request]) =>
-      request.binaryUrl === '/api/binary/auth/recovery-key/verify'
-    )?.[0]
+    const verifyCall = findBinaryRouteCall('binary_post_auth_recovery_key_verify')
     expect(verifyCall).toBeTruthy()
     const body = new Uint8Array(verifyCall?.requestOptions?.body as ArrayBuffer)
     const view = new DataView(body.buffer, body.byteOffset, body.byteLength)
@@ -305,21 +280,13 @@ describe('auth API binary base session flow', () => {
     expect(view.getInt32(payloadOffset + 8, true)).toBe(recoveryKeyLength)
     expect(view.getInt32(payloadOffset + 12, true)).toBe(recoveryKeyLength)
     expect(new TextDecoder().decode(body.subarray(payloadOffset + 16))).toBe(recoveryKey)
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/recovery-key/passkey/register/begin',
-      frameType: FrameType.PasskeyRegisterBegin,
-      requestOptions: expect.objectContaining({
-        method: 'POST',
-        body: expect.any(ArrayBuffer)
-      })
+    expectBinaryRoute('binary_post_auth_recovery_key_passkey_register_begin', FrameType.PasskeyRegisterBegin, expect.objectContaining({
+      method: 'POST',
+      body: expect.any(ArrayBuffer)
     }))
-    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/auth/recovery-key/passkey/register/complete',
-      frameType: FrameType.EmptySuccess,
-      requestOptions: expect.objectContaining({
-        method: 'POST',
-        body: expect.any(ArrayBuffer)
-      })
+    expectBinaryRoute('binary_post_auth_recovery_key_passkey_register_complete', FrameType.EmptySuccess, expect.objectContaining({
+      method: 'POST',
+      body: expect.any(ArrayBuffer)
     }))
   })
 
@@ -327,12 +294,8 @@ describe('auth API binary base session flow', () => {
     await createRecoveryKey({ mfaProofToken: 'proof-create-recovery-key' })
     await rotateRecoveryKey({ mfaProofToken: 'proof-rotate-recovery-key' })
 
-    const create = mockBinary.mock.calls.find(([request]) =>
-      request.binaryUrl === '/api/binary/auth/recovery-key/create'
-    )?.[0]
-    const rotate = mockBinary.mock.calls.find(([request]) =>
-      request.binaryUrl === '/api/binary/auth/recovery-key/rotate'
-    )?.[0]
+    const create = findBinaryRouteCall('binary_post_auth_recovery_key_create')
+    const rotate = findBinaryRouteCall('binary_post_auth_recovery_key_rotate')
 
     for (const [call, proof] of [
       [create, 'proof-create-recovery-key'],

@@ -61,25 +61,42 @@
         </div>
       </div>
 
-      <div class="flex flex-wrap gap-2 border-b border-[var(--fsusblog-panel-border)] px-4 py-3">
-        <el-tag v-for="facet in summary?.actions ?? []" :key="`action-${facet.value}`" type="info">
-          {{ formatAuditAction(facet.value) }} {{ facet.count }}
-        </el-tag>
-        <el-tag
-          v-for="facet in summary?.outcomes ?? []"
-          :key="`outcome-${facet.value}`"
-          :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(facet.value)])"
-        >
-          {{ adminStatusLabel[toAdminSystemStatus(facet.value)] }} {{ facet.count }}
-        </el-tag>
-        <el-tag
-          v-for="facet in summary?.severities ?? []"
-          :key="`severity-${facet.value}`"
-          :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(facet.value)])"
-        >
-          {{ adminStatusLabel[toAdminSystemStatus(facet.value)] }} {{ facet.count }}
-        </el-tag>
-      </div>
+      <section class="audit-facet-grid border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)]">
+        <div class="audit-facet-grid__col audit-facet-grid__col--actions">
+          <header class="audit-facet-grid__header">动作 ({{ actionFacets.length }})</header>
+          <AdminStatusMatrix
+            :items="actionFacets"
+            clickable
+            :active-value="filters.action"
+            aria-label="动作 facet 过滤"
+            @item-click="(item) => selectFacet('action', String(item.value))"
+          />
+        </div>
+
+        <div class="audit-facet-grid__col audit-facet-grid__col--results">
+          <div class="audit-facet-grid__group">
+            <header class="audit-facet-grid__header">结果 ({{ outcomeFacets.length }})</header>
+            <AdminStatusMatrix
+              :items="outcomeFacets"
+              clickable
+              :active-value="filters.outcome"
+              aria-label="结果 facet 过滤"
+              @item-click="(item) => selectFacet('outcome', String(item.value))"
+            />
+          </div>
+
+          <div class="audit-facet-grid__group">
+            <header class="audit-facet-grid__header">严重度 ({{ severityFacets.length }})</header>
+            <AdminStatusMatrix
+              :items="severityFacets"
+              clickable
+              :active-value="filters.severity"
+              aria-label="严重度 facet 过滤"
+              @item-click="(item) => selectFacet('severity', String(item.value))"
+            />
+          </div>
+        </div>
+      </section>
 
       <p
         v-if="auditRowMotion.summary.value"
@@ -104,67 +121,54 @@
       >
         <template #card="{ item }">
           <article
-            class="border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] px-4 py-5"
+            class="audit-compact-row"
             :class="auditRowClassName({ rowData: item as AuditLogItemResponse })"
             role="listitem"
           >
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div class="min-w-0">
+            <div class="audit-compact-row__main">
+              <div class="audit-compact-row__header">
                 <time
-                  class="text-xs font-semibold tabular-nums text-[var(--fsusblog-text-muted)]"
+                  class="audit-compact-row__time"
                   :datetime="(item as AuditLogItemResponse).occurredAtUtc"
                 >
                   {{ formatTime((item as AuditLogItemResponse).occurredAtUtc) }}
                 </time>
-                <h2 class="mt-2 text-sm font-bold text-[var(--fsusblog-text-primary)]">
-                  {{ formatAuditAction((item as AuditLogItemResponse).action) }}
-                </h2>
-                <p class="mt-1 break-words text-[12px] text-[var(--fsusblog-text-muted)]">
-                  {{ (item as AuditLogItemResponse).eventInfo }}
-                </p>
+                <span class="audit-compact-row__status">
+                  <el-tag size="small" :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus((item as AuditLogItemResponse).outcome)])">
+                    {{ adminStatusLabel[toAdminSystemStatus((item as AuditLogItemResponse).outcome)] }}
+                  </el-tag>
+                  <el-tag size="small" :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus((item as AuditLogItemResponse).severity)])">
+                    {{ adminStatusLabel[toAdminSystemStatus((item as AuditLogItemResponse).severity)] }}
+                  </el-tag>
+                </span>
               </div>
-              <div class="flex shrink-0 flex-col items-end gap-1">
-                <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus((item as AuditLogItemResponse).outcome)])">
-                  {{ adminStatusLabel[toAdminSystemStatus((item as AuditLogItemResponse).outcome)] }}
-                </el-tag>
-                <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus((item as AuditLogItemResponse).severity)])">
-                  {{ adminStatusLabel[toAdminSystemStatus((item as AuditLogItemResponse).severity)] }}
-                </el-tag>
+
+              <h2 class="audit-compact-row__title">
+                <AuditActionLabel :value="(item as AuditLogItemResponse).action" />
+              </h2>
+
+              <p class="audit-compact-row__message">
+                {{ (item as AuditLogItemResponse).eventInfo }}
+              </p>
+
+              <div class="audit-compact-row__meta">
+                <span>操作者 {{ formatAuditActor(item as AuditLogItemResponse) }}</span>
+                <span>目标 {{ formatAuditTarget(item as AuditLogItemResponse) }}</span>
               </div>
             </div>
 
-            <dl class="mt-4 grid gap-3 text-xs sm:grid-cols-2">
-              <div>
-                <dt class="font-bold text-[var(--fsusblog-text-muted)]">操作者</dt>
-                <dd class="mt-1 text-[var(--fsusblog-text-primary)]">
-                  {{ (item as AuditLogItemResponse).actorType ?? '-' }}
-                  <span class="text-[var(--fsusblog-text-muted)]">
-                    / {{ (item as AuditLogItemResponse).actorId ?? (item as AuditLogItemResponse).actorRole ?? '-' }}
-                  </span>
-                </dd>
-              </div>
-              <div>
-                <dt class="font-bold text-[var(--fsusblog-text-muted)]">目标</dt>
-                <dd class="mt-1 text-[var(--fsusblog-text-primary)]">
-                  {{ (item as AuditLogItemResponse).targetType ?? '-' }}
-                  <span class="text-[var(--fsusblog-text-muted)]">
-                    / {{ (item as AuditLogItemResponse).targetId ?? '-' }}
-                  </span>
-                </dd>
-              </div>
-            </dl>
-
-            <div class="mt-4 flex flex-wrap justify-end gap-2">
+            <div class="audit-compact-row__actions">
               <el-tooltip content="校验防篡改证据">
                 <el-button
+                  class="audit-compact-row__action"
                   :icon="Lock"
+                  link
                   :loading="verifyingId === (item as AuditLogItemResponse).id"
+                  aria-label="校验证据"
                   @click="verifyRow(item as AuditLogItemResponse)"
-                >
-                  校验证据
-                </el-button>
+                />
               </el-tooltip>
-              <el-button type="primary" :icon="View" @click="openDetail(item as AuditLogItemResponse)">查看详情</el-button>
+              <el-button class="audit-compact-row__action" link type="primary" :icon="View" aria-label="查看详情" @click="openDetail(item as AuditLogItemResponse)">查看</el-button>
             </div>
           </article>
         </template>
@@ -201,7 +205,7 @@
 
                     <div v-else-if="column.key === 'action'" class="min-w-0">
                       <div class="font-semibold text-[var(--fsusblog-text-primary)]">
-                        {{ formatAuditAction((rowData as AuditLogItemResponse).action) }}
+                        <AuditActionLabel :value="(rowData as AuditLogItemResponse).action" />
                       </div>
                       <p class="mt-1 truncate text-[11px] text-[var(--fsusblog-text-muted)]">
                         {{ (rowData as AuditLogItemResponse).eventInfo }}
@@ -313,7 +317,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   getAuditLogDetail,
   getAuditLogSummary,
@@ -327,7 +331,9 @@ import {
 } from '@/api/authoring'
 import { FsusUiPageHeader } from "@/fsusui"
 import { FsusUiSettingsSection } from '@/fsusui'
+import AuditActionLabel from '@/components/admin/AuditActionLabel.vue'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
+import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
 import { Aim, Lock, Operation, Refresh, RefreshLeft, Search, User, View } from '@/fsusui/icons'
 import { toFsusUiTagType } from '@/fsusui/primitiveAdapters'
@@ -338,6 +344,7 @@ import {
   adminStatusTone,
   type AdminSystemStatus
 } from '@/view-contracts/adminStatus'
+import { formatAuditAction } from '@/view-contracts/auditActionLabels'
 
 type AuditDateRange = [Date, Date] | null
 type TableV2Column<T> = {
@@ -351,6 +358,7 @@ type TableV2Column<T> = {
 }
 
 const route = useRoute()
+const router = useRouter()
 
 const emptyRuntime: AuditLogRuntimeResponse = {
   queuedCount: 0,
@@ -397,6 +405,47 @@ const auditTableColumns: TableV2Column<AuditLogItemResponse>[] = [
 ]
 
 const runtime = computed(() => summary.value?.runtime ?? emptyRuntime)
+const actionFacets = computed<AdminStatusMatrixItem[]>(() => {
+  const totalCount = Math.max(1, summary.value?.total ?? 0)
+  return (summary.value?.actions ?? []).map((facet) => {
+    const display = formatAuditAction(facet.value)
+    const label = display.kind === 'label'
+      ? '动作'
+      : display.namespace || '动作'
+    const displayValue = display.kind === 'label' ? display.text : display.name
+
+    return {
+      label,
+      value: facet.value,
+      displayValue,
+      tone: 'neutral' as const,
+      meta: String(facet.count),
+      bar: { percent: Math.round((facet.count / totalCount) * 100) }
+    }
+  })
+})
+const outcomeFacets = computed<AdminStatusMatrixItem[]>(() =>
+  (summary.value?.outcomes ?? []).map((facet) => {
+    const status = toAdminSystemStatus(facet.value)
+    return {
+      label: adminStatusLabel[status],
+      value: facet.value,
+      displayValue: facet.count,
+      tone: adminStatusTone[status],
+    }
+  })
+)
+const severityFacets = computed<AdminStatusMatrixItem[]>(() =>
+  (summary.value?.severities ?? []).map((facet) => {
+    const status = toAdminSystemStatus(facet.value)
+    return {
+      label: adminStatusLabel[status],
+      value: facet.value,
+      displayValue: facet.count,
+      tone: adminStatusTone[status],
+    }
+  })
+)
 const isAuditInitialLoading = computed(() => loading.value && !hasLoadedAudit.value)
 const hasAuditFilters = computed(() =>
   filters.source.trim() !== ''
@@ -483,6 +532,17 @@ const resetFilters = async (): Promise<void> => {
   await applyFilters()
 }
 
+const selectFacet = (dimension: 'action' | 'outcome' | 'severity', value: string): void => {
+  filters[dimension] = filters[dimension] === value ? '' : value
+  void router.replace({
+    query: {
+      ...route.query,
+      [dimension]: filters[dimension] || undefined
+    }
+  })
+  void applyFilters()
+}
+
 const handleSizeChange = async (): Promise<void> => {
   page.value = 1
   await loadAudit()
@@ -520,25 +580,16 @@ const verifyRow = async (row: AuditLogItemResponse): Promise<void> => {
 const formatTime = (value: string): string => new Date(value).toLocaleString()
 const auditRowClassName = ({ rowData }: { rowData: AuditLogItemResponse }): string => auditRowMotion.classFor(rowData.id)
 
-const formatAuditAction = (value: string | null | undefined): string => {
-  if (!value) return '-'
-  const labels: Record<string, string> = {
-    dictionary_loaded: '词库已载入',
-    dictionary_reload_failed: '词库重新载入失败',
-    dictionary_checksum_changed: '词库校验值变化',
-    region_policy_loaded: '地区策略已载入',
-    region_policy_reload_failed: '地区策略重新载入失败',
-    region_policy_replay_started: '地区策略回放开始',
-    region_policy_replay_completed: '地区策略回放完成',
-    model_moderation_scored: '模型风险评分完成',
-    region_moderation_rejected: '地区策略拒绝发布',
-    region_moderation_geo_blocked: '地区策略按地区拦截'
-  }
-  return labels[value] ?? `动作代码：${value}`
-}
+const formatAuditActor = (item: AuditLogItemResponse): string =>
+  `${item.actorType ?? '-'} / ${item.actorId ?? item.actorRole ?? '-'}`
+
+const formatAuditTarget = (item: AuditLogItemResponse): string =>
+  `${item.targetType ?? '-'} / ${item.targetId ?? '-'}`
 
 const applyRouteQueryFilters = (): void => {
   filters.action = typeof route.query.action === 'string' ? route.query.action : ''
+  filters.outcome = typeof route.query.outcome === 'string' ? route.query.outcome : ''
+  filters.severity = typeof route.query.severity === 'string' ? route.query.severity : ''
   filters.source = typeof route.query.source === 'string' ? route.query.source : filters.source
   filters.type = typeof route.query.type === 'string' ? route.query.type : filters.type
   filters.targetType = typeof route.query.targetType === 'string' ? route.query.targetType : filters.targetType
@@ -559,6 +610,121 @@ onMounted(() => {
   min-width: 0;
 }
 
+.audit-facet-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 16px;
+  gap: 16px;
+}
+
+.audit-facet-grid__col,
+.audit-facet-grid__group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.audit-facet-grid__col--results {
+  gap: 16px;
+  border-top: 1px solid var(--fsusblog-panel-border);
+  padding-top: 16px;
+}
+
+.audit-facet-grid__header {
+  padding-bottom: 8px;
+  color: var(--fsusblog-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+
+.audit-compact-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  min-width: 0;
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+  background: var(--fsusblog-page-bg);
+  padding: 10px 16px 12px;
+}
+
+.audit-compact-row__main {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.audit-compact-row__header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.audit-compact-row__time {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fsusblog-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.audit-compact-row__status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.audit-compact-row__title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fsusblog-text-primary);
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-compact-row__message,
+.audit-compact-row__meta {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fsusblog-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-compact-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  color: var(--fsusblog-text-secondary);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.audit-compact-row__actions {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  gap: 6px;
+}
+
+.audit-compact-row__action {
+  min-height: 32px;
+  padding-inline: 6px;
+}
+
 .audit-table-v2-frame {
   height: clamp(360px, 58vh, 640px);
   border-bottom: 1px solid var(--fsusblog-panel-border);
@@ -574,6 +740,23 @@ onMounted(() => {
 @media (min-width: 1024px) {
   .audit-filter-grid {
     grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .audit-facet-grid {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+
+  .audit-facet-grid__col--results {
+    border-top: 0;
+    border-left: 1px solid var(--fsusblog-panel-border);
+    padding-top: 0;
+    padding-left: 16px;
+  }
+}
+
+@media (max-width: 1023px) {
+  :deep(.audit-facet-grid .admin-status-matrix__bar) {
+    display: none;
   }
 }
 </style>

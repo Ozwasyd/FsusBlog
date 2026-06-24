@@ -68,14 +68,9 @@
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
           <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">decision</div>
-          <div class="mt-2 text-2xl font-bold text-[var(--fsusblog-text-primary)]">{{ result?.decision ?? '-' }}</div>
+          <div class="mt-2 text-base font-bold text-[var(--fsusblog-text-primary)]">{{ result?.decision ?? '-' }}</div>
         </div>
-        <div class="grid grid-cols-2 gap-px bg-[var(--fsusblog-panel-border)]">
-          <div v-for="metric in resultMetrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
-            <div class="mt-2 break-words text-lg font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
-          </div>
-        </div>
+        <AdminStatusMatrix :items="resultMetrics" density="compact" aria-label="RiskControl 模拟结果指标" />
       </div>
 
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
@@ -105,6 +100,7 @@
 <script setup lang="ts">
 import { computed, reactive, shallowRef } from 'vue'
 import { simulateRiskControl, type RiskControlSimulationRequest, type RiskControlSimulationResponse } from '@/api/security'
+import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
@@ -147,7 +143,7 @@ const presets: Preset[] = [
   { label: 'block', riskScore: 125 }
 ]
 
-const resultMetrics = computed(() => [
+const resultMetrics = computed<AdminStatusMatrixItem[]>(() => [
   { label: 'riskScore', value: result.value?.riskScore ?? '-' },
   { label: 'effectiveRiskScore', value: result.value?.effectiveRiskScore ?? '-' },
   { label: 'escalationLevel', value: result.value?.escalationLevel ?? '-' },
