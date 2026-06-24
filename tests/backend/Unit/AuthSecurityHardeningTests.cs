@@ -59,6 +59,39 @@ public sealed class AuthSecurityHardeningTests
     }
 
     [Fact]
+    public void UserService_MfaStateMutationsAreTransactionalAndLockUserRow()
+    {
+        string source = ReadSource("src/backend/Services/UserService.cs");
+        string verify = ExtractBetween(
+            source,
+            "public async Task<(bool Success, MfaSetupVerifyDto? Data, string Message)> VerifyMfaSetupAsync",
+            "public async Task<(bool Success, string Message)> DisableMfaAsync");
+        string disable = ExtractBetween(
+            source,
+            "public async Task<(bool Success, string Message)> DisableMfaAsync",
+            "public async Task<(bool Success, MfaSetupVerifyDto? Data, string Message)> RegenerateMfaRecoveryCodesAsync");
+        string reset = ExtractBetween(
+            source,
+            "public async Task<bool> ResetMfaByAdminAsync",
+            "public async Task<bool> VerifyMfaOrRecoveryCodeAsync");
+        string lockHelper = ExtractBetween(
+            source,
+            "private async Task<bool?> LockUserMfaStateForUpdateAsync",
+            "private async Task RevokeLikelyRefreshReplayAsync");
+
+        foreach (string method in new[] { verify, disable, reset })
+        {
+            Assert.Contains("_db.Ado.UseTranAsync(async ()", method, StringComparison.Ordinal);
+            Assert.Contains("LockUserMfaStateForUpdateAsync(userId)", method, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("FOR UPDATE", lockHelper, StringComparison.Ordinal);
+        AssertContainsAfter(verify, "_db.Ado.UseTranAsync(async ()", "MfaEnabled == true");
+        AssertContainsAfter(disable, "_db.Ado.UseTranAsync(async ()", "MfaEnabled == false");
+        AssertContainsAfter(reset, "_db.Ado.UseTranAsync(async ()", "MfaEnabled == false");
+    }
+
+    [Fact]
     public void MfaChallengeEndpoint_IsRateLimitedAndCountsFailures()
     {
         string endpoint = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
@@ -161,6 +194,14 @@ public sealed class AuthSecurityHardeningTests
 
     private static string ReadSource(string relativePath, [CallerFilePath] string sourceFilePath = "")
         => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
+
+    private static void AssertContainsAfter(string source, string first, string second)
+    {
+        int firstIndex = source.IndexOf(first, StringComparison.Ordinal);
+        Assert.True(firstIndex >= 0, $"Missing '{first}'.");
+        int secondIndex = source.IndexOf(second, firstIndex + first.Length, StringComparison.Ordinal);
+        Assert.True(secondIndex >= 0, $"Missing '{second}' after '{first}'.");
+    }
 
     private static string ExtractBetween(string source, string start, string end)
     {

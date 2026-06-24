@@ -831,17 +831,31 @@ public partial class UserService(
         var recoveryCodes = _totpService.GenerateRecoveryCodes(10);
         string recoveryHashes = _totpService.HashRecoveryCodes(recoveryCodes);
 
-        await _db.Updateable<User>()
-            .SetColumns(u => u.MfaEnabled == true)
-            .Where(u => u.Id == userId)
-            .ExecuteCommandAsync();
         profile.MfaSecretEncrypted = profile.MfaPendingSecretEncrypted;
         profile.MfaVerifiedAt = DateTime.UtcNow;
         profile.MfaRecoveryCodesHash = recoveryHashes;
         profile.MfaRecoveryCodesHashVersion = TotpService.CurrentRecoveryCodeHashVersion;
         profile.MfaPendingSecretEncrypted = null;
         profile.MfaPendingCreatedAt = null;
-        await UpsertUserMfaProfileAsync(profile);
+        var tran = await _db.Ado.UseTranAsync(async () =>
+        {
+            bool? lockedMfaEnabled = await LockUserMfaStateForUpdateAsync(userId);
+            if (lockedMfaEnabled is null)
+            {
+                throw new InvalidOperationException("mfa_user_missing");
+            }
+
+            await _db.Updateable<User>()
+                .SetColumns(u => u.MfaEnabled == true)
+                .Where(u => u.Id == userId)
+                .ExecuteCommandAsync();
+            await UpsertUserMfaProfileAsync(profile);
+        });
+        if (!tran.IsSuccess)
+        {
+            _logger.LogError(tran.ErrorException, "MFA setup verification transaction failed for user {UserId}", userId);
+            return (false, null, "MFA_ENABLE_FAILED");
+        }
 
         return (true, new MfaSetupVerifyDto
         {
@@ -886,10 +900,6 @@ public partial class UserService(
             }
         }
 
-        await _db.Updateable<User>()
-            .SetColumns(u => u.MfaEnabled == false)
-            .Where(u => u.Id == userId)
-            .ExecuteCommandAsync();
         if (profile is not null)
         {
             profile.MfaSecretEncrypted = null;
@@ -898,7 +908,28 @@ public partial class UserService(
             profile.MfaRecoveryCodesHash = null;
             profile.MfaRecoveryCodesHashVersion = 1;
             profile.MfaVerifiedAt = null;
-            await UpsertUserMfaProfileAsync(profile);
+        }
+        var tran = await _db.Ado.UseTranAsync(async () =>
+        {
+            bool? lockedMfaEnabled = await LockUserMfaStateForUpdateAsync(userId);
+            if (lockedMfaEnabled is null)
+            {
+                throw new InvalidOperationException("mfa_user_missing");
+            }
+
+            await _db.Updateable<User>()
+                .SetColumns(u => u.MfaEnabled == false)
+                .Where(u => u.Id == userId)
+                .ExecuteCommandAsync();
+            if (profile is not null)
+            {
+                await UpsertUserMfaProfileAsync(profile);
+            }
+        });
+        if (!tran.IsSuccess)
+        {
+            _logger.LogError(tran.ErrorException, "MFA disable transaction failed for user {UserId}", userId);
+            return (false, "MFA_DISABLE_FAILED");
         }
 
         return (true, "MFA_DISABLED");
@@ -961,23 +992,56 @@ public partial class UserService(
 
     public async Task<bool> ResetMfaByAdminAsync(int userId)
     {
-        int updated = await _db.Updateable<User>()
-            .SetColumns(u => u.MfaEnabled == false)
-            .Where(u => u.Id == userId)
-            .ExecuteCommandAsync();
+        int updated = 0;
+        var tran = await _db.Ado.UseTranAsync(async () =>
+        {
+            bool? lockedMfaEnabled = await LockUserMfaStateForUpdateAsync(userId);
+            if (lockedMfaEnabled is null)
+            {
+                return;
+            }
 
-        await _db.Updateable<UserMfaProfile>()
-            .SetColumns(p => p.MfaSecretEncrypted == null)
-            .SetColumns(p => p.MfaPendingSecretEncrypted == null)
-            .SetColumns(p => p.MfaPendingCreatedAt == null)
-            .SetColumns(p => p.MfaRecoveryCodesHash == null)
-            .SetColumns(p => p.MfaRecoveryCodesHashVersion == 1)
-            .SetColumns(p => p.MfaVerifiedAt == null)
-            .SetColumns(p => p.UpdatedAtUtc == DateTime.UtcNow)
-            .Where(p => p.UserId == userId)
-            .ExecuteCommandAsync();
+            updated = await _db.Updateable<User>()
+                .SetColumns(u => u.MfaEnabled == false)
+                .Where(u => u.Id == userId)
+                .ExecuteCommandAsync();
+
+            await _db.Updateable<UserMfaProfile>()
+                .SetColumns(p => p.MfaSecretEncrypted == null)
+                .SetColumns(p => p.MfaPendingSecretEncrypted == null)
+                .SetColumns(p => p.MfaPendingCreatedAt == null)
+                .SetColumns(p => p.MfaRecoveryCodesHash == null)
+                .SetColumns(p => p.MfaRecoveryCodesHashVersion == 1)
+                .SetColumns(p => p.MfaVerifiedAt == null)
+                .SetColumns(p => p.UpdatedAtUtc == DateTime.UtcNow)
+                .Where(p => p.UserId == userId)
+                .ExecuteCommandAsync();
+        });
+        if (!tran.IsSuccess)
+        {
+            _logger.LogError(tran.ErrorException, "Admin MFA reset transaction failed for user {UserId}", userId);
+            return false;
+        }
 
         return updated > 0;
+    }
+
+    private async Task<bool?> LockUserMfaStateForUpdateAsync(int userId)
+    {
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            """
+            SELECT COALESCE(mfaenabled, false)
+            FROM sys_user
+            WHERE id = @UserId
+            FOR UPDATE;
+            """,
+            new SugarParameter[] { new("@UserId", userId) });
+        if (!await reader.ReadAsync())
+        {
+            return null;
+        }
+
+        return reader.GetBoolean(0);
     }
 
     public async Task<bool> VerifyMfaOrRecoveryCodeAsync(User user, string? code, string? recoveryCode, bool persistRecoveryConsumption)
