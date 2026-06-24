@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Globalization;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -792,12 +793,7 @@ public sealed class MessageCenterService(
             .ToListAsync();
 
         var mapped = await MapMessagesAsync(rows);
-        var mappedByMessageId = new Dictionary<long, ConversationMessagePreviewResponse>(mapped.Count);
-        for (int i = 0; i < mapped.Count; i++)
-        {
-            ConversationMessageResponse item = mapped[i];
-            mappedByMessageId[long.Parse(item.MessageId)] = ToMessagePreview(item)!;
-        }
+        Dictionary<long, ConversationMessagePreviewResponse> mappedByMessageId = BuildMessagePreviewMap(mapped, logger);
 
         return BuildLatestMessageMap(
             [.. latestRows.Select(static row => (row.ConversationId, row.MessageId))],
@@ -829,6 +825,32 @@ public sealed class MessageCenterService(
         }
 
         return latestByConversation;
+    }
+
+    internal static Dictionary<long, ConversationMessagePreviewResponse> BuildMessagePreviewMap(
+        IReadOnlyList<ConversationMessageResponse> mapped,
+        ILogger logger)
+    {
+        var mappedByMessageId = new Dictionary<long, ConversationMessagePreviewResponse>(mapped.Count);
+        for (int i = 0; i < mapped.Count; i++)
+        {
+            ConversationMessageResponse item = mapped[i];
+            if (!long.TryParse(item.MessageId, NumberStyles.Integer, CultureInfo.InvariantCulture, out long messageId))
+            {
+                logger.LogWarning(
+                    "Skipping corrupt message center cache row. MessageId: {MessageId}",
+                    item.MessageId);
+                continue;
+            }
+
+            ConversationMessagePreviewResponse? preview = ToMessagePreview(item);
+            if (preview is not null)
+            {
+                mappedByMessageId[messageId] = preview;
+            }
+        }
+
+        return mappedByMessageId;
     }
 
     private static Task<List<ConversationMessageResponse>> MapMessagesAsync(List<ConversationMessage> rows)

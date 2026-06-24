@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SqlSugar;
@@ -202,6 +203,42 @@ public sealed class MessageCenterServiceTests
     }
 
     [Fact]
+    public void BuildMessagePreviewMap_SkipsInvalidMessageIdAndLogsWarning()
+    {
+        var logger = new CapturingLogger<MessageCenterService>();
+        var createdAt = DateTime.UtcNow;
+        IReadOnlyList<ConversationMessageResponse> mapped =
+        [
+            new()
+            {
+                MessageId = "not-a-number",
+                SenderType = ConversationSenderValue.System,
+                SenderName = "system",
+                Body = "corrupt",
+                CreatedAt = createdAt
+            },
+            new()
+            {
+                MessageId = "42",
+                SenderType = ConversationSenderValue.Account,
+                SenderName = "account",
+                Body = "valid",
+                CreatedAt = createdAt
+            }
+        ];
+
+        Dictionary<long, ConversationMessagePreviewResponse> result =
+            MessageCenterService.BuildMessagePreviewMap(mapped, logger);
+
+        ConversationMessagePreviewResponse preview = Assert.Single(result).Value;
+        Assert.Equal("valid", preview.BodyPreview);
+        Assert.Contains(logger.Entries, entry =>
+            entry.Level == LogLevel.Warning &&
+            entry.Message.Contains("Skipping corrupt message center cache row", StringComparison.Ordinal) &&
+            entry.Message.Contains("not-a-number", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void MarkConversationReadAsync_SourceUsesAtomicLastMessageUpdate()
     {
         string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
@@ -298,6 +335,35 @@ public sealed class MessageCenterServiceTests
 
     private static string ReadSource(string relativePath)
         => BackendTestPaths.ReadAllTextFromRoot(relativePath);
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state)
+            where TState : notnull
+            => NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel)
+            => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+            => Entries.Add((logLevel, formatter(state, exception)));
+
+        private sealed class NullScope : IDisposable
+        {
+            public static readonly NullScope Instance = new();
+
+            public void Dispose()
+            {
+            }
+        }
+    }
 
     [Theory]
     [InlineData(null, "")]
