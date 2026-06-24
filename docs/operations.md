@@ -279,6 +279,8 @@ The retention script records intended cleanup for release/security evidence, cov
 
 Upload asset file deletion is opt-in and guarded. Set `FSUSBLOG_RETENTION_SCAN_UPLOAD_ASSETS=1` only with a non-empty `FSUSBLOG_RETENTION_REFERENCED_ASSETS` file containing `/uploads/illustration/*` URLs; referenced files are counted as `assetGuard.protectedReferencedAssets` and are never deleted. The fixture test `tools/operations/test-retention-cleanup-fixture.sh` proves an old referenced asset survives while an old unreferenced fixture asset is removed.
 
+When rotating `Moderation:RegionPolicy:IpHashKey`, old `comment_region_compliance.submit_ip_hash` values cannot be recomputed because raw IPs are not stored. Run `tools/security/rotate-region-ip-hash-pepper.sh` after deploying the new pepper to invalidate old hashes. The tool defaults to dry-run and requires `FSUSBLOG_CONFIRM_REGION_IP_HASH_ROTATION=INVALIDATE_OLD_REGION_IP_HASHES`; set `FSUSBLOG_REGION_IP_HASH_ROTATION_DRY_RUN=0` only after checking the row count.
+
 ## Disk Hygiene
 
 - Serilog file logs are retained by app settings.

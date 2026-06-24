@@ -1,6 +1,10 @@
 using System.Runtime.CompilerServices;
+using System.Net;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -57,6 +61,38 @@ public sealed class CommentSecurityHardeningTests
         Assert.Contains("IsRegionApprovalAllowed", authoringSource);
         Assert.Contains("RegionCanPublish", authoringSource);
         Assert.Contains("RegionLegalModerationService.DeserializeRegions", authoringSource);
+    }
+
+    [Fact]
+    public void ClientRegionResolver_KeyRotationInvalidatesPreviousIpHash()
+    {
+        var context = new DefaultHttpContext();
+        context.Connection.RemoteIpAddress = IPAddress.Parse("203.0.113.10");
+        var regionService = new RegionLegalModerationService();
+        var firstResolver = new ClientRegionResolver(
+            CreateRegionPolicyConfiguration("first-region-ip-hash-key-with-at-least-thirty-two-chars"),
+            regionService);
+        var secondResolver = new ClientRegionResolver(
+            CreateRegionPolicyConfiguration("second-region-ip-hash-key-with-at-least-thirty-two-chars"),
+            regionService);
+
+        string? firstHash = firstResolver.Resolve(context).ClientIpHash;
+        string? secondHash = secondResolver.Resolve(context).ClientIpHash;
+
+        Assert.Matches("^[0-9a-f]{64}$", firstHash);
+        Assert.Matches("^[0-9a-f]{64}$", secondHash);
+        Assert.NotEqual(firstHash, secondHash);
+    }
+
+    [Fact]
+    public void RegionIpHashPepperRotationTool_InvalidatesStoredSubmitIpHashes()
+    {
+        string source = ReadRepoFile("tools/security/rotate-region-ip-hash-pepper.sh");
+
+        Assert.Contains("UPDATE comment_region_compliance", source, StringComparison.Ordinal);
+        Assert.Contains("submit_ip_hash = NULL", source, StringComparison.Ordinal);
+        Assert.Contains("FSUSBLOG_CONFIRM_REGION_IP_HASH_ROTATION", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("fsusblog-region-ip-hash-development-key", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -163,4 +199,12 @@ public sealed class CommentSecurityHardeningTests
 
     private static string ReadRepoFile(string relativePath)
         => BackendTestPaths.ReadAllTextFromRoot(relativePath);
+
+    private static IConfiguration CreateRegionPolicyConfiguration(string ipHashKey)
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Moderation:RegionPolicy:IpHashKey"] = ipHashKey
+            })
+            .Build();
 }
