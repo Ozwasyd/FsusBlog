@@ -7,10 +7,12 @@ namespace FsusBlog.Core.Services.Implementations;
 
 public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCoreService
 {
+    private const int MaxPageSize = 100;
+
     public async Task<Result<CorePageResult<ArticleListCoreModel>>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string? keyword = null, long? listCacheVersion = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (page <= 0 || size <= 0)
+        if (page <= 0 || size <= 0 || size > MaxPageSize)
         {
             return Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Validation, "分页参数非法");
         }

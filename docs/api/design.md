@@ -112,6 +112,8 @@ TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account
 
 查询参数：`?page=1&pageSize=20`
 
+文章列表分页不做静默修正：`page` 必须大于等于 `1`，`pageSize` / binary `size` 必须在 `1..100`。缺省值仍为 `page=1`、`size=10`；显式传入 `page<1`、`size<1` 或 `size>100` 返回 `400 Bad Request`，不得回退到第一页或截断到最大值。
+
 ### 基于游标的分页（`CursorResponse<T>`）
 
 适用于：评论线程、消息流等无限下拉场景。

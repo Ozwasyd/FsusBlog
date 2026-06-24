@@ -28,6 +28,10 @@ namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
 public static partial class BinaryEndpoints
 {
+    private const int ArticleListDefaultPage = 1;
+    private const int ArticleListDefaultSize = 10;
+    private const int ArticleListMaxSize = 100;
+
     private static void MapBinaryArticleEndpoints(IEndpointRouteBuilder group)
     {
         group.MapGet("/article/{articleId:int}/related.aeds", static async Task<BinaryFrameResult> (
@@ -60,8 +64,11 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            int pageValue = Math.Max(page ?? 1, 1);
-            int sizeValue = Math.Clamp(size ?? 10, 1, 100);
+            if (!TryBindArticleListPagination(page, size, out int pageValue, out int sizeValue, out ErrorDetail paginationError))
+            {
+                return BinaryResults.FromError(paginationError, aeds);
+            }
+
             int? status = null;
             if (httpContext.Request.Query.TryGetValue("status", out var rawStatus))
             {
@@ -269,5 +276,30 @@ public static partial class BinaryEndpoints
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();
+    }
+
+    private static bool TryBindArticleListPagination(
+        int? page,
+        int? size,
+        out int pageValue,
+        out int sizeValue,
+        out ErrorDetail error)
+    {
+        pageValue = page ?? ArticleListDefaultPage;
+        sizeValue = size ?? ArticleListDefaultSize;
+        if (pageValue < 1)
+        {
+            error = ErrorDetail.Create(ErrorCode.Validation, "分页页码参数非法");
+            return false;
+        }
+
+        if (sizeValue < 1 || sizeValue > ArticleListMaxSize)
+        {
+            error = ErrorDetail.Create(ErrorCode.Validation, "分页大小参数非法");
+            return false;
+        }
+
+        error = ErrorDetail.None;
+        return true;
     }
 }

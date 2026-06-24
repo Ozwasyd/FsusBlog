@@ -56,6 +56,32 @@ public sealed class ArticleEndpointServiceTests
         await core.DidNotReceiveWithAnyArgs().GetPageListAsync(default, default, default, default, default);
     }
 
+    [Theory]
+    [InlineData(0, 10)]
+    [InlineData(1, 999999)]
+    public async Task GetPageListAsync_InvalidPagination_ReturnsValidationFailureWithoutCacheOrCore(int page, int size)
+    {
+        var core = Substitute.For<IArticleCoreService>();
+        var cache = Substitute.For<IUnifiedCache>();
+        var service = Create(core, cache: cache);
+
+        var result = await service.GetPageListAsync(
+            page,
+            size,
+            categoryId: null,
+            tagId: null,
+            isDeleted: false,
+            canReadDeleted: true,
+            status: null,
+            canReadPrivate: true);
+
+        Assert.False(result.Result.IsSuccess);
+        Assert.Equal(ErrorCode.Validation, result.Result.Error.Code);
+        await cache.DidNotReceiveWithAnyArgs().GetStringAsync(default, default!, default);
+        await cache.DidNotReceiveWithAnyArgs().TryGetRawReadonlyAsync(default, default!, default);
+        await core.DidNotReceiveWithAnyArgs().GetPageListAsync(default, default, default, default, default);
+    }
+
     [Fact]
     public async Task GetPageListAsync_WhenCancelledAfterCoreLoad_SkipsFrameCacheSet()
     {

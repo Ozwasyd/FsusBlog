@@ -354,6 +354,8 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 }
 ```
 
+文章列表页码参数不得静默修正：`page` 必须大于等于 `1`，`pageSize` / binary `size` 必须在 `1..100`。缺省参数仍按 `page=1`、`size=10` 处理；显式非法值返回 HTTP `400` + AEDS `ApiError`，不回退第一页，也不截断到最大页大小。
+
 ### `CursorResponse<T>`（基于游标）
 
 ```json
@@ -1415,7 +1417,7 @@ feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale
 
 Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tagIds` + blob 作为主体，并在尾部追加 `status:int32` 与 `scheduledPublishAtUnixMs:int64`；缺省尾部按 `Published`、无定时发布处理。`ArticleDetail` 在 cover blob 与 `isDeleted:byte` 后追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`publishedAtUnixMs:int64`，admin 读取未发布文章时依赖该尾部恢复编辑器状态。
 
-`GET /api/binary/admin/article` 的 `status` 查询参数仅 admin 可用。公开 `/api/binary/article/**.aeds` 不接受 query string、请求体或 credentials；admin 不带 `status` 时读取所有非删除状态，带 `status=0/1/2/3/4` 时读取对应 draft/scheduled/published/archived/deleted 集合。
+`GET /api/binary/admin/article` 的 `status` 查询参数仅 admin 可用。公开 `/api/binary/article/**.aeds` 不接受 query string、请求体或 credentials；admin 不带 `status` 时读取所有非删除状态，带 `status=0/1/2/3/4` 时读取对应 draft/scheduled/published/archived/deleted 集合。admin article list 的 `page` / `size` 缺省为 `1` / `10`，显式传入 `page<1`、`size<1` 或 `size>100` 返回 `400`。
 
 公开与管理端文章响应矩阵：
 

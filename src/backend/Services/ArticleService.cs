@@ -176,13 +176,15 @@ public class ArticleService(
     {
         CancellationToken effectiveCt = ResolveCancellationToken(cancellationToken);
         effectiveCt.ThrowIfCancellationRequested();
-        page = page < 1 ? 1 : page;
-        size = size switch
+        if (page < 1)
         {
-            < 1 => 10,
-            > MaxPageSize => MaxPageSize,
-            _ => size
-        };
+            throw new ArgumentOutOfRangeException(nameof(page), page, "Article list page must be greater than zero.");
+        }
+
+        if (size < 1 || size > MaxPageSize)
+        {
+            throw new ArgumentOutOfRangeException(nameof(size), size, $"Article list size must be between 1 and {MaxPageSize}.");
+        }
 
         string normalizedKeyword = NormalizeArticleListKeyword(keyword);
         long version = await GetListCacheVersionAsync(effectiveCt);

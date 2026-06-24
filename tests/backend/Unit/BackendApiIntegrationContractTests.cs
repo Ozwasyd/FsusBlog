@@ -95,6 +95,25 @@ public sealed partial class BackendApiIntegrationContractTests
     }
 
     [Fact]
+    public void BinaryAdminArticleListEndpoint_RejectsInvalidPaginationInsteadOfCoercing()
+    {
+        string articles = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs");
+        int routeStart = articles.IndexOf("MapGet(\"/admin/article\"", StringComparison.Ordinal);
+        int nextRoute = articles.IndexOf("MapGet(\"/admin/article/{id:int}\"", routeStart, StringComparison.Ordinal);
+        string route = articles[routeStart..nextRoute];
+        int helperStart = articles.IndexOf("private static bool TryBindArticleListPagination", StringComparison.Ordinal);
+        string helper = articles[helperStart..];
+
+        Assert.Contains("TryBindArticleListPagination(page, size", route, StringComparison.Ordinal);
+        Assert.Contains("return BinaryResults.FromError(paginationError, aeds)", route, StringComparison.Ordinal);
+        Assert.Contains("pageValue = page ?? ArticleListDefaultPage", helper, StringComparison.Ordinal);
+        Assert.Contains("sizeValue = size ?? ArticleListDefaultSize", helper, StringComparison.Ordinal);
+        Assert.Contains("sizeValue < 1 || sizeValue > ArticleListMaxSize", helper, StringComparison.Ordinal);
+        Assert.DoesNotContain("Math.Max(page", route, StringComparison.Ordinal);
+        Assert.DoesNotContain("Math.Clamp(size", route, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void HumanReadProofBinaryEndpoints_RetainSecurityBoundariesAndApiError()
     {
         string readProof = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.ReadProof.cs");

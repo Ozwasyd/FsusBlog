@@ -24,6 +24,7 @@ public class ArticleCoreServiceTests
     [InlineData(-1, 10)]
     [InlineData(1, 0)]
     [InlineData(1, -5)]
+    [InlineData(1, 999999)]
     public async Task GetPageList_InvalidPagination_ReturnsValidationFailure(int page, int size)
     {
         var result = await Svc().GetPageListAsync(page, size, null, null, false);

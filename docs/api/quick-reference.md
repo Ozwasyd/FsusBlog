@@ -194,7 +194,7 @@
 | 方法 | 路径 | 权限 | FrameType | 说明 |
 |------|------|------|-----------|------|
 | GET | `/api/binary/stats` | 👑 📦 | `AdminStats`(7) | Binary 聚合统计（overview + recent comments + regions） |
-| GET | `/api/binary/admin/article` | 👑 📦 | `ArticleList`(1) | 管理端文章列表，可带 `status` / `isDeleted` |
+| GET | `/api/binary/admin/article` | 👑 📦 | `ArticleList`(1) | 管理端文章列表，可带 `status` / `isDeleted`；`page>=1`、`size=1..100`，非法值返回 400 |
 | GET | `/api/binary/admin/article/{id}` | 👑 📦 | `ArticleDetail`(2) | 管理端文章详情 |
 | POST | `/api/binary/upload/init` | 👑 | `UploadInit`(20) | 初始化分片上传 |
 | GET | `/api/binary/upload/{id}` | 👑 📦 | `UploadStatus`(21) | 查询上传状态 |

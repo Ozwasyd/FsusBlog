@@ -93,6 +93,21 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
+    public void GetPageListAsync_SourceRejectsInvalidPaginationWithoutSilentCoercion()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        int methodStart = source.IndexOf("public async Task<ArticleListPageReadModel> GetPageListAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("public async Task<ArticleDetailReadModel?> GetByIdAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        Assert.Contains("throw new ArgumentOutOfRangeException(nameof(page)", method, StringComparison.Ordinal);
+        Assert.Contains("throw new ArgumentOutOfRangeException(nameof(size)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("page = page < 1 ? 1 : page", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("< 1 => 10", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("> MaxPageSize => MaxPageSize", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DeleteAndRestore_SourceInvalidatePublicAotWithCurrentStateAfterMutation()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));

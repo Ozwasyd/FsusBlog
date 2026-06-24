@@ -22,6 +22,8 @@ public sealed class ArticleEndpointService(
     IArticleDetailAedsArtifactBackfillScheduler detailArtifactBackfill,
     IHotArticlesCacheVersionProvider hotArticlesVersionProvider) : IArticleEndpointService
 {
+    private const int MaxPageSize = 100;
+
     public async Task<ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>> GetPageListAsync(
         int page,
         int size,
@@ -35,6 +37,11 @@ public sealed class ArticleEndpointService(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (page <= 0 || size <= 0 || size > MaxPageSize)
+        {
+            return new(default, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Validation, "分页参数非法"));
+        }
+
         if (isDeleted && !canReadDeleted)
         {
             return new(default, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Forbidden, "权限不足"));
