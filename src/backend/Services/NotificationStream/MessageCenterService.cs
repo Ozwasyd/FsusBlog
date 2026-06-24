@@ -1,3 +1,4 @@
+using System.Data.Common;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -239,40 +240,38 @@ public sealed class MessageCenterService(
             return Result<ConversationMessageResponse>.Failure(ErrorCode.Validation, "内容不能为空");
         }
 
-        var conversation = await db.Queryable<MessageConversation>().InSingleAsync(conversationId);
-        if (conversation is null)
-        {
-            return Result<ConversationMessageResponse>.Failure(ErrorCode.NotFound, "会话不存在");
-        }
-
-        if (conversation.Status == ConversationStatus.Closed)
-        {
-            return Result<ConversationMessageResponse>.Failure(ErrorCode.Conflict, "会话已关闭");
-        }
-
-        var participant = await db.Queryable<ConversationParticipantState>()
-            .Where(it => it.ConversationId == conversationId && it.AccountId == accountId)
-            .FirstAsync();
-        if (participant is null)
-        {
-            return Result<ConversationMessageResponse>.Failure(ErrorCode.Forbidden, "无权访问该会话");
-        }
-
         long messageId = SnowFlakeSingle.Instance.NextId();
         DateTime now = DateTime.UtcNow;
-        bool replyAccepted = false;
+        ReplyAccountWriteOutcome writeOutcome = ReplyAccountWriteOutcome.NotFound;
         var tran = await db.Ado.UseTranAsync(async () =>
         {
-            int conversationUpdated = await db.Updateable<MessageConversation>()
-                .SetColumns(it => new MessageConversation { UpdatedAt = now, LastMessageAt = now })
-                .Where(it => it.Id == conversationId && it.Status != ConversationStatus.Closed)
-                .ExecuteCommandAsync();
-            if (conversationUpdated <= 0)
+            ReplyConversationLock? conversation = await LoadReplyConversationForUpdateAsync(conversationId);
+            if (conversation is null)
             {
+                writeOutcome = ReplyAccountWriteOutcome.NotFound;
                 return;
             }
 
-            replyAccepted = true;
+            if (conversation.Status == ConversationStatus.Closed)
+            {
+                writeOutcome = ReplyAccountWriteOutcome.Closed;
+                return;
+            }
+
+            ReplyParticipantLock? participant = await LoadReplyParticipantForUpdateAsync(conversationId, accountId);
+            if (participant is null)
+            {
+                writeOutcome = ReplyAccountWriteOutcome.Forbidden;
+                return;
+            }
+
+            bool conversationUpdated = await TryUpdateReplyConversationActivityAsync(conversationId, now);
+            if (!conversationUpdated)
+            {
+                writeOutcome = ReplyAccountWriteOutcome.Closed;
+                return;
+            }
+
             await db.Insertable(new ConversationMessage
             {
                 Id = messageId,
@@ -283,25 +282,22 @@ public sealed class MessageCenterService(
                 CreatedAt = now
             }).ExecuteCommandAsync();
 
-            await db.Updateable<ConversationParticipantState>()
-                .SetColumns(it => new ConversationParticipantState
-                {
-                    LastReadMessageId = messageId,
-                    LastReadAt = now,
-                    UpdatedAt = now,
-                    UnreadCount = 0
-                })
-                .Where(it => it.ConversationId == conversationId && it.AccountId == accountId)
-                .ExecuteCommandAsync();
+            bool participantUpdated = await TryMarkReplyParticipantReadAsync(participant, messageId, now);
+            if (!participantUpdated)
+            {
+                throw new ReplyParticipantConcurrencyException(conversationId, accountId);
+            }
+
+            writeOutcome = ReplyAccountWriteOutcome.Accepted;
         });
 
         if (!TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "message-center-reply-account"))
         {
             return Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败");
         }
-        if (!replyAccepted)
+        if (writeOutcome != ReplyAccountWriteOutcome.Accepted)
         {
-            return Result<ConversationMessageResponse>.Failure(ErrorCode.Conflict, "会话已关闭");
+            return MapReplyAccountWriteOutcome(writeOutcome);
         }
 
         var message = await BuildMessageResponseAsync(conversationId, messageId);
@@ -312,10 +308,138 @@ public sealed class MessageCenterService(
 
         int totalUnread = await RefreshUnreadCacheAsync(accountId);
         await Task.WhenAll(
-            PublishReadUpdatedAsync(participant.AccountId, conversationId, messageId, 0, totalUnread),
+            PublishReadUpdatedAsync(accountId, conversationId, messageId, 0, totalUnread),
             PublishMessageAppendAsync(conversationId.ToString(), message, 0, totalUnread),
             PublishConversationUpsertToAdminsAsync(conversationId));
         return Result<ConversationMessageResponse>.Success(message);
+    }
+
+    private async Task<ReplyConversationLock?> LoadReplyConversationForUpdateAsync(long conversationId)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT id,
+                   status
+            FROM msg_conversation
+            WHERE id = @ConversationId
+            FOR UPDATE;
+            """,
+            new SugarParameter("@ConversationId", conversationId));
+        if (!await reader.ReadAsync())
+        {
+            return null;
+        }
+
+        return new ReplyConversationLock(
+            reader.GetInt64(0),
+            (ConversationStatus)reader.GetInt32(1));
+    }
+
+    private async Task<ReplyParticipantLock?> LoadReplyParticipantForUpdateAsync(long conversationId, int accountId)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT conversationid,
+                   accountid,
+                   lastreadmessageid
+            FROM msg_participant_state
+            WHERE conversationid = @ConversationId
+              AND accountid = @AccountId
+            FOR UPDATE;
+            """,
+            new SugarParameter("@ConversationId", conversationId),
+            new SugarParameter("@AccountId", accountId));
+        if (!await reader.ReadAsync())
+        {
+            return null;
+        }
+
+        return new ReplyParticipantLock(
+            reader.GetInt64(0),
+            reader.GetInt32(1),
+            reader.IsDBNull(2) ? null : reader.GetInt64(2));
+    }
+
+    private async Task<bool> TryUpdateReplyConversationActivityAsync(long conversationId, DateTime now)
+    {
+        int updated = await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE msg_conversation
+            SET updatedat = @Now,
+                lastmessageat = @Now
+            WHERE id = @ConversationId
+              AND status <> @ClosedStatus;
+            """,
+            new SugarParameter("@ConversationId", conversationId),
+            new SugarParameter("@Now", now),
+            new SugarParameter("@ClosedStatus", (int)ConversationStatus.Closed));
+        return updated > 0;
+    }
+
+    private async Task<bool> TryMarkReplyParticipantReadAsync(ReplyParticipantLock participant, long messageId, DateTime now)
+    {
+        if (participant.LastReadMessageId is null)
+        {
+            int updated = await db.Ado.ExecuteCommandAsync(
+                """
+                UPDATE msg_participant_state
+                SET lastreadmessageid = @MessageId,
+                    lastreadat = @Now,
+                    updatedat = @Now,
+                    unreadcount = 0
+                WHERE conversationid = @ConversationId
+                  AND accountid = @AccountId
+                  AND lastreadmessageid IS NULL;
+                """,
+                new SugarParameter("@ConversationId", participant.ConversationId),
+                new SugarParameter("@AccountId", participant.AccountId),
+                new SugarParameter("@MessageId", messageId),
+                new SugarParameter("@Now", now));
+            return updated > 0;
+        }
+
+        int matched = await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE msg_participant_state
+            SET lastreadmessageid = @MessageId,
+                lastreadat = @Now,
+                updatedat = @Now,
+                unreadcount = 0
+            WHERE conversationid = @ConversationId
+              AND accountid = @AccountId
+              AND lastreadmessageid = @PreviousLastReadMessageId;
+            """,
+            new SugarParameter("@ConversationId", participant.ConversationId),
+            new SugarParameter("@AccountId", participant.AccountId),
+            new SugarParameter("@PreviousLastReadMessageId", participant.LastReadMessageId.Value),
+            new SugarParameter("@MessageId", messageId),
+            new SugarParameter("@Now", now));
+        return matched > 0;
+    }
+
+    private static Result<ConversationMessageResponse> MapReplyAccountWriteOutcome(ReplyAccountWriteOutcome outcome)
+        => outcome switch
+        {
+            ReplyAccountWriteOutcome.Forbidden => Result<ConversationMessageResponse>.Failure(ErrorCode.Forbidden, "无权访问该会话"),
+            ReplyAccountWriteOutcome.Closed => Result<ConversationMessageResponse>.Failure(ErrorCode.Conflict, "会话已关闭"),
+            _ => Result<ConversationMessageResponse>.Failure(ErrorCode.NotFound, "会话不存在")
+        };
+
+    private enum ReplyAccountWriteOutcome
+    {
+        NotFound,
+        Forbidden,
+        Closed,
+        Accepted
+    }
+
+    private sealed record ReplyConversationLock(long Id, ConversationStatus Status);
+
+    private sealed record ReplyParticipantLock(long ConversationId, int AccountId, long? LastReadMessageId);
+
+    private sealed class ReplyParticipantConcurrencyException(long conversationId, int accountId)
+        : InvalidOperationException($"Participant read state changed while replying. ConversationId={conversationId}; AccountId={accountId}.")
+    {
     }
 
     public async Task<Result> MarkConversationReadAsync(int accountId, long conversationId)

@@ -223,15 +223,33 @@ public sealed class MessageCenterServiceTests
             source,
             "public async Task<Result<ConversationMessageResponse>> ReplyAsAccountAsync",
             "public async Task<Result> MarkConversationReadAsync");
+        string conversationLock = ExtractMethod(
+            source,
+            "private async Task<ReplyConversationLock?> LoadReplyConversationForUpdateAsync",
+            "private async Task<ReplyParticipantLock?> LoadReplyParticipantForUpdateAsync");
+        string participantLock = ExtractMethod(
+            source,
+            "private async Task<ReplyParticipantLock?> LoadReplyParticipantForUpdateAsync",
+            "private async Task<bool> TryUpdateReplyConversationActivityAsync");
+        string participantUpdate = ExtractMethod(
+            source,
+            "private async Task<bool> TryMarkReplyParticipantReadAsync",
+            "private static Result<ConversationMessageResponse> MapReplyAccountWriteOutcome");
 
-        Assert.Contains("bool replyAccepted = false", method, StringComparison.Ordinal);
-        Assert.Contains(".Where(it => it.Id == conversationId && it.Status != ConversationStatus.Closed)", method, StringComparison.Ordinal);
-        Assert.Contains("if (conversationUpdated <= 0)", method, StringComparison.Ordinal);
-        Assert.Contains("replyAccepted = true", method, StringComparison.Ordinal);
+        Assert.Contains("LoadReplyConversationForUpdateAsync(conversationId)", method, StringComparison.Ordinal);
+        Assert.Contains("LoadReplyParticipantForUpdateAsync(conversationId, accountId)", method, StringComparison.Ordinal);
+        Assert.Contains("TryMarkReplyParticipantReadAsync(participant", method, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", conversationLock, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", participantLock, StringComparison.Ordinal);
+        Assert.Contains("status <> @ClosedStatus", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("lastreadmessageid IS NULL", participantUpdate, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("lastreadmessageid = @PreviousLastReadMessageId", participantUpdate, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ReplyAccountWriteOutcome.Forbidden", method, StringComparison.Ordinal);
+        Assert.Contains("ReplyAccountWriteOutcome.Closed", method, StringComparison.Ordinal);
         Assert.Contains("ErrorCode.Conflict", method, StringComparison.Ordinal);
         Assert.True(
-            method.IndexOf("conversationUpdated", StringComparison.Ordinal) < method.IndexOf("db.Insertable(new ConversationMessage", StringComparison.Ordinal),
-            "The status write barrier must run before inserting the account reply.");
+            method.IndexOf("LoadReplyConversationForUpdateAsync", StringComparison.Ordinal) < method.IndexOf("db.Insertable(new ConversationMessage", StringComparison.Ordinal),
+            "The locked conversation recheck must run before inserting the account reply.");
     }
 
     [Fact]
