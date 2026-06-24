@@ -191,7 +191,7 @@ RiskControl 新 challenge provider 不得自定义平行 assignment 结构。PoW
 | `404 Not Found` | 资源不存在 |
 | `405 Method Not Allowed` | 方法不允许；L0 artifact 只接受 `GET` / `HEAD` |
 | `406 Not Acceptable` | `Accept` 与 artifact 类型不匹配 |
-| `409 Conflict` | 资源冲突（如用户名已存在） |
+| `409 Conflict` | 资源冲突（如用户名已存在、状态变更并发冲突） |
 | `416 Range Not Satisfiable` | L0 artifact 不支持 Range；`.aeds` 命中声明 `Accept-Ranges: none` |
 | `423 Locked` | 登录用户处于封禁/受限状态，notification stream 使用 `account_blocked`，普通业务写入锁使用 Binary `ApiError.Details = ACCOUNT_BANNED_WRITE_LOCKED` |
 | `429 Too Many Requests` | 速率限制触发，响应含 `Retry-After` 头 |

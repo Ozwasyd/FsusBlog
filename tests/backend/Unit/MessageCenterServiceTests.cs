@@ -290,6 +290,26 @@ public sealed class MessageCenterServiceTests
     }
 
     [Fact]
+    public void UpdateConversationStatusAsync_SourceUsesRowVersionAndExpectedStatusGuard()
+    {
+        string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
+        string entity = ReadSource("src/backend/Entities/Message.cs");
+        string method = ExtractMethod(
+            source,
+            "public async Task<Result> UpdateConversationStatusAsync",
+            "public async Task<Result<ConversationDetailResponse>> SendSystemMessageAsync");
+
+        Assert.Contains("public string? RowVersion", entity, StringComparison.Ordinal);
+        Assert.Contains("LoadConversationStatusUpdateStateAsync(conversationId)", method, StringComparison.Ordinal);
+        Assert.Contains("TryUpdateConversationStatusAsync(conversationId, status, currentState, now)", method, StringComparison.Ordinal);
+        Assert.Contains("ErrorCode.Conflict", method, StringComparison.Ordinal);
+        Assert.Contains("xmin::text AS row_version", method, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND status = @ExpectedStatus", method, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND xmin::text = @RowVersion", method, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(".Where(it => it.Id == conversationId)", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PublishPreparedParticipantMessageAsync_SourceUsesStoredUnreadCount()
     {
         string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");

@@ -798,6 +798,8 @@ interface AdminTagItemResponse extends AdminCategoryItemResponse {
 
 普通消息端点 `/api/binary/messages/**` 只接受 `identity_kind=anonymous_account` 的账号主体，并从 `AccountPrincipalContext.AccountId` 解析当前账号；不得使用 legacy `CurrentUser` 参数绑定器或把 AdminPrincipal 的 `NameIdentifier` 当作账号 id。管理消息端点 `/api/binary/admin/messages/**` 继续要求 admin principal + `admin.manage`，并用 `AdminMessageActor` 携带 `admin_id/admin_sid`。
 
+管理员更新对话状态时只接受当前数据库行版本上的状态转换：服务端先读取 `msg_conversation.status + xmin`，再用 `id + expected status + row version` 执行更新。并发 close/pending/open 修改中只有一个写入会生效；后到请求如果命中旧版本，返回 HTTP `409` + AEDS `ApiError`，不得以 last-write-wins 覆盖。
+
 消息表最终 schema 只允许账号 / 管理员主体列：`msg_conversation.initiatoraccountid`、`msg_message.senderaccountid`、`msg_participant_state.accountid` 以及对应 admin-principal 列。`msg_conversation.initiatoruserid`、`msg_message.senderid`、`msg_participant_state.userid` 和 `*_identity_sync` trigger/function 只属于一次性迁移兼容面，finalize 后不得出现在备份、恢复或运行时契约中。
 
 ### `ConversationMessageResponse`

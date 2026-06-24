@@ -543,17 +543,16 @@ public sealed class MessageCenterService(
     public async Task<Result> UpdateConversationStatusAsync(long conversationId, ConversationStatusValue status, AdminMessageActor adminActor)
     {
         var now = DateTime.UtcNow;
-        int affected = await db.Updateable<MessageConversation>()
-            .SetColumns(it => new MessageConversation
-            {
-                Status = ToStatusEntity(status),
-                UpdatedAt = now
-            })
-            .Where(it => it.Id == conversationId)
-            .ExecuteCommandAsync();
-        if (affected <= 0)
+        ConversationStatusUpdateState? currentState = await LoadConversationStatusUpdateStateAsync(conversationId);
+        if (currentState is null)
         {
             return Result.Failure(ErrorCode.NotFound, "会话不存在");
+        }
+
+        int affected = await TryUpdateConversationStatusAsync(conversationId, status, currentState, now);
+        if (affected <= 0)
+        {
+            return Result.Failure(ErrorCode.Conflict, "会话状态已被其他管理员修改");
         }
 
         var participants = await db.Queryable<ConversationParticipantState>()
@@ -570,6 +569,49 @@ public sealed class MessageCenterService(
         await Task.WhenAll(publishTasks);
         return Result.Success();
     }
+
+    private sealed record ConversationStatusUpdateState(ConversationStatus Status, string RowVersion);
+
+    private async Task<ConversationStatusUpdateState?> LoadConversationStatusUpdateStateAsync(long conversationId)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT status,
+                   xmin::text AS row_version
+            FROM msg_conversation
+            WHERE id = @ConversationId;
+            """,
+            new SugarParameter("@ConversationId", conversationId));
+
+        if (!await reader.ReadAsync())
+        {
+            return null;
+        }
+
+        return new ConversationStatusUpdateState(
+            (ConversationStatus)reader.GetInt32(0),
+            reader.GetString(1));
+    }
+
+    private Task<int> TryUpdateConversationStatusAsync(
+        long conversationId,
+        ConversationStatusValue status,
+        ConversationStatusUpdateState currentState,
+        DateTime now)
+        => db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE msg_conversation
+            SET status = @Status,
+                updatedat = @UpdatedAt
+            WHERE id = @ConversationId
+              AND status = @ExpectedStatus
+              AND xmin::text = @RowVersion;
+            """,
+            new SugarParameter("@ConversationId", conversationId),
+            new SugarParameter("@Status", (int)ToStatusEntity(status)),
+            new SugarParameter("@ExpectedStatus", (int)currentState.Status),
+            new SugarParameter("@RowVersion", currentState.RowVersion),
+            new SugarParameter("@UpdatedAt", now));
 
     public async Task<Result<ConversationDetailResponse>> SendSystemMessageAsync(string subject, string body, long? targetAccountId, AdminMessageActor adminActor)
     {

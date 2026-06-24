@@ -64,6 +64,9 @@ public sealed class MessageConversation
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime LastMessageAt { get; set; } = DateTime.UtcNow;
+
+    [SugarColumn(IsIgnore = true)]
+    public string? RowVersion { get; set; }
 }
 
 [SugarTable("msg_message")]

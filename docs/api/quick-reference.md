@@ -228,7 +228,7 @@
 | GET | `/api/binary/admin/messages/conversations` | 所有对话列表 |
 | GET | `/api/binary/admin/messages/conversations/{id}` | 对话详情 |
 | POST | `/api/binary/admin/messages/conversations/{id}/reply` | 以管理员身份回复 |
-| POST | `/api/binary/admin/messages/conversations/{id}/status` | 更新对话状态（open/closed） |
+| POST | `/api/binary/admin/messages/conversations/{id}/status` | 更新对话状态（open/pending/closed）；并发状态冲突返回 409 |
 | POST | `/api/binary/admin/messages/system-send` | 单账号系统消息；`targetAccountId` 必填 |
 
 ## 开放分发与作者工作台
