@@ -1122,12 +1122,13 @@ public sealed class MessageCenterService(
     }
 
     private async Task<int> RefreshUnreadCacheAsync(int accountId)
+        => await cache.RefreshUnreadAsync(accountId, () => LoadTotalUnreadAsync(accountId));
+
+    private async Task<int> LoadTotalUnreadAsync(int accountId)
     {
-        int unread = await db.Queryable<ConversationParticipantState>()
+        return await db.Queryable<ConversationParticipantState>()
             .Where(it => it.AccountId == accountId)
             .SumAsync(it => it.UnreadCount);
-        await cache.SetUnreadAsync(accountId, unread);
-        return unread;
     }
 
     private static string NormalizeSubject(string? input, string fallback)

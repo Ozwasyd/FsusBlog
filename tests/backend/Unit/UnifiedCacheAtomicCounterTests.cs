@@ -28,6 +28,20 @@ public sealed class UnifiedCacheAtomicCounterTests
         Assert.DoesNotContain("KeyExpireAsync", method, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void UnifiedCache_TrySetStringIfValueUsesRedisTransactionCondition()
+    {
+        string source = ReadSource("src/backend/Infrastructure/Cache/IUnifiedCache.cs");
+        string method = ExtractMethodBlock(source, "public async Task<bool> TrySetStringIfValueAsync");
+
+        Assert.Contains("_db.CreateTransaction()", method, StringComparison.Ordinal);
+        Assert.Contains("Condition.StringEqual(compareKey, expectedCompareValue)", method, StringComparison.Ordinal);
+        Assert.Contains("transaction.StringSetAsync(key", method, StringComparison.Ordinal);
+        Assert.Contains("transaction.ExecuteAsync", method, StringComparison.Ordinal);
+        Assert.Contains("return false", method, StringComparison.Ordinal);
+        Assert.Contains("SetL1(policyId, key, cachedValue)", method, StringComparison.Ordinal);
+    }
+
     private static string ReadSource(string relativePath, [CallerFilePath] string sourceFilePath = "")
         => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 

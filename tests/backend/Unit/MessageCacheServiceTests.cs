@@ -33,6 +33,32 @@ public sealed class MessageCacheServiceTests
     }
 
     [Fact]
+    public async Task RefreshUnreadAsync_RetriesWhenVersionCompareAndSetFails()
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        cache.IncrementAsync(CachePolicyId.MessageUnread, "account:42:refresh-version", 1, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(1L), Task.FromResult(2L));
+        cache.TrySetStringIfValueAsync(CachePolicyId.MessageUnread, "account:42", "5", "account:42:refresh-version", "1", null, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(false));
+        cache.TrySetStringIfValueAsync(CachePolicyId.MessageUnread, "account:42", "7", "account:42:refresh-version", "2", null, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(true));
+        int loads = 0;
+        var sut = new MessageCacheService(cache);
+
+        int result = await sut.RefreshUnreadAsync(42, () =>
+        {
+            loads += 1;
+            return Task.FromResult(loads == 1 ? 5 : 7);
+        });
+
+        Assert.Equal(7, result);
+        Assert.Equal(2, loads);
+        await cache.Received(2).IncrementAsync(CachePolicyId.MessageUnread, "account:42:refresh-version", 1, Arg.Any<CancellationToken>());
+        await cache.Received(1).TrySetStringIfValueAsync(CachePolicyId.MessageUnread, "account:42", "5", "account:42:refresh-version", "1", null, Arg.Any<CancellationToken>());
+        await cache.Received(1).TrySetStringIfValueAsync(CachePolicyId.MessageUnread, "account:42", "7", "account:42:refresh-version", "2", null, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task GetOrLoadUserCommentsAsync_UsesAccountCommentIdentityPrefix()
     {
         var cache = Substitute.For<IUnifiedCache>();

@@ -330,6 +330,26 @@ public sealed class MessageCenterServiceTests
         Assert.DoesNotContain("participant.UnreadCount + 1", method, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void RefreshUnreadCacheAsync_SourceUsesVersionedCacheRefresh()
+    {
+        string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
+        string refreshMethod = ExtractMethod(
+            source,
+            "private async Task<int> RefreshUnreadCacheAsync",
+            "private async Task<int> LoadTotalUnreadAsync");
+        string loadMethod = ExtractMethod(
+            source,
+            "private async Task<int> LoadTotalUnreadAsync",
+            "private static ConversationStatusValue ToStatusValue");
+
+        Assert.Contains("cache.RefreshUnreadAsync(accountId", refreshMethod, StringComparison.Ordinal);
+        Assert.Contains("LoadTotalUnreadAsync(accountId)", refreshMethod, StringComparison.Ordinal);
+        Assert.Contains("SumAsync(it => it.UnreadCount)", loadMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("cache.SetUnreadAsync", refreshMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("cache.SetUnreadAsync", loadMethod, StringComparison.Ordinal);
+    }
+
     // ── Private static helpers via reflection ──────────────────────────────────
 
     private static T InvokePrivateStatic<T>(string methodName, object?[] args)

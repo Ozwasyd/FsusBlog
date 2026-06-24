@@ -33,6 +33,8 @@ public interface IUnifiedCache
     Task SetNegativeAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
     Task<string?> GetStringAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
     Task SetStringAsync(CachePolicyId policyId, string identity, string value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default);
+    Task<bool> TrySetStringIfValueAsync(CachePolicyId policyId, string identity, string value, string compareIdentity, string expectedCompareValue, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This cache implementation does not support compare-and-set string writes.");
     Task<long> IncrementAsync(CachePolicyId policyId, string identity, long value = 1, CancellationToken cancellationToken = default);
     Task<long> IncrementWithExpiryAsync(CachePolicyId policyId, string identity, TimeSpan ttl, long value = 1, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("This cache implementation does not support atomic expiring counters.");
@@ -234,6 +236,45 @@ public sealed class UnifiedCache(
     public async Task SetStringAsync(CachePolicyId policyId, string identity, string value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
     {
         await SetRawAsync(policyId, identity, System.Text.Encoding.UTF8.GetBytes(value), l2TtlOverride, cancellationToken);
+    }
+
+    public async Task<bool> TrySetStringIfValueAsync(
+        CachePolicyId policyId,
+        string identity,
+        string value,
+        string compareIdentity,
+        string expectedCompareValue,
+        TimeSpan? l2TtlOverride = null,
+        CancellationToken cancellationToken = default)
+    {
+        long startedAt = Stopwatch.GetTimestamp();
+        using Activity? activity = FsusObservability.StartActivity("cache.set_cas", "cache", ActivityKind.Client);
+        FsusObservability.SetTag(activity, "fsus.cache.operation", "set_cas");
+        FsusObservability.SetTag(activity, "fsus.cache.policy", policyId.ToString());
+        string key = BuildKey(policyId, identity);
+        string compareKey = BuildKey(policyId, compareIdentity);
+        cancellationToken.ThrowIfCancellationRequested();
+        CachePolicy policy = ResolvePolicy(policyId);
+        TimeSpan? l2Ttl = ResolveL2Expiry(key, policy, l2TtlOverride);
+        byte[] cachedValue = System.Text.Encoding.UTF8.GetBytes(value);
+        memoryCache.Remove(key);
+        cancellationToken.ThrowIfCancellationRequested();
+        ITransaction transaction = _db.CreateTransaction();
+        transaction.AddCondition(Condition.StringEqual(compareKey, expectedCompareValue));
+        Task<bool> setTask = transaction.StringSetAsync(key, cachedValue, l2Ttl, When.Always, CommandFlags.None);
+        bool committed = await transaction.ExecuteAsync(CommandFlags.None).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!committed || !await setTask.ConfigureAwait(false))
+        {
+            FsusObservability.RecordCacheOperation("set_cas", policyId.ToString(), "l2", "conflict", FsusObservability.GetElapsed(startedAt));
+            return false;
+        }
+
+        await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        SetL1(policyId, key, cachedValue);
+        FsusObservability.RecordCacheOperation("set_cas", policyId.ToString(), "l2", "ok", FsusObservability.GetElapsed(startedAt));
+        return true;
     }
 
     public async Task<long> IncrementAsync(CachePolicyId policyId, string identity, long value = 1, CancellationToken cancellationToken = default)
