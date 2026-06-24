@@ -214,6 +214,8 @@ internal sealed record CircuitNativeCredentialIssuerOptions(
 
     public CircuitNativeCredentialIssuerConfiguration ValidateConfiguration()
     {
+        ValidatePrivateKeyFileSecurity();
+
         bool privateKeyReadable = ManagedCircuitNativeCredentialSigner.TryReadPrivateKeyFile(
             IssuerPrivateKeyPath,
             out byte[] privateKey);
@@ -258,6 +260,52 @@ internal sealed record CircuitNativeCredentialIssuerOptions(
             status,
             hasRealSigningBackend ? privateKey : [],
             hasRealSigningBackend ? publicKey : []);
+    }
+
+    private void ValidatePrivateKeyFileSecurity()
+    {
+        if (!Enabled || string.IsNullOrWhiteSpace(IssuerPrivateKeyPath))
+        {
+            return;
+        }
+
+        string fullPath;
+        try
+        {
+            fullPath = Path.GetFullPath(IssuerPrivateKeyPath);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            throw new InvalidOperationException(
+                "AnonymousCredentialIssuer:CircuitNative:IssuerPrivateKeyPath must be a valid local file path.",
+                ex);
+        }
+
+        string[] segments = fullPath.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        string? forbiddenSegment = segments.FirstOrDefault(static segment =>
+            string.Equals(segment, "wwwroot", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(segment, "uploads", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(segment, "backups", StringComparison.OrdinalIgnoreCase));
+        if (forbiddenSegment is not null)
+        {
+            throw new InvalidOperationException(
+                $"AnonymousCredentialIssuer:CircuitNative:IssuerPrivateKeyPath must not be stored under {forbiddenSegment}.");
+        }
+
+        if (OperatingSystem.IsWindows() || !File.Exists(fullPath))
+        {
+            return;
+        }
+
+        UnixFileMode mode = File.GetUnixFileMode(fullPath);
+        const UnixFileMode allowedMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        if ((mode & ~allowedMode) != 0)
+        {
+            throw new InvalidOperationException(
+                "AnonymousCredentialIssuer:CircuitNative:IssuerPrivateKeyPath must use Unix permissions no broader than 0600.");
+        }
     }
 
     private static string NormalizePath(string? value)

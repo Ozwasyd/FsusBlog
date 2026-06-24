@@ -256,6 +256,66 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
     }
 
     [Fact]
+    public void ProductionCircuitNativeCredentialIssuer_WorldReadablePrivateKey_ThrowsOnStartup()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        string tempRoot = Path.Combine(Path.GetTempPath(), $"fsus-circuit-native-issuer-mode-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+        try
+        {
+            IConfiguration configuration = CreateManagedCircuitNativeIssuerConfiguration(tempRoot);
+            string privateKeyPath = configuration["AnonymousCredentialIssuer:CircuitNative:IssuerPrivateKeyPath"]!;
+            File.SetUnixFileMode(
+                privateKeyPath,
+                UnixFileMode.UserRead |
+                UnixFileMode.UserWrite |
+                UnixFileMode.GroupRead |
+                UnixFileMode.OtherRead);
+
+            InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+                new ProductionCircuitNativeCredentialIssuer(
+                    configuration,
+                    NullLogger<ProductionCircuitNativeCredentialIssuer>.Instance));
+
+            Assert.Contains("IssuerPrivateKeyPath", error.Message, StringComparison.Ordinal);
+            Assert.Contains("0600", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ProductionCircuitNativeCredentialIssuer_PrivateKeyUnderWwwroot_ThrowsOnStartup()
+    {
+        string tempRoot = Path.Combine(Path.GetTempPath(), $"fsus-circuit-native-issuer-wwwroot-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+        try
+        {
+            IConfiguration configuration = CreateManagedCircuitNativeIssuerConfiguration(
+                tempRoot,
+                privateKeyPathOverride: Path.Combine(tempRoot, "wwwroot", "issuer.sk"));
+
+            InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+                new ProductionCircuitNativeCredentialIssuer(
+                    configuration,
+                    NullLogger<ProductionCircuitNativeCredentialIssuer>.Instance));
+
+            Assert.Contains("IssuerPrivateKeyPath", error.Message, StringComparison.Ordinal);
+            Assert.Contains("wwwroot", error.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ProductionCircuitNativeCredentialIssuer_UsesBoundedConcurrencyAndDoesNotLogPayloads()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialIssuerService.cs");
@@ -746,16 +806,23 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
         string tempRoot,
         string? publicKeyHashOverride = null,
         byte[]? privateKey = null,
-        bool writePrivateKey = true)
+        bool writePrivateKey = true,
+        string? privateKeyPathOverride = null)
     {
-        string privateKeyPath = Path.Combine(tempRoot, "issuer.sk");
+        string privateKeyPath = privateKeyPathOverride ?? Path.Combine(tempRoot, "issuer.sk");
         string publicKeyPath = Path.Combine(tempRoot, "issuer.pk");
         privateKey ??= CreateManagedCircuitNativePrivateKey();
         byte[] publicKey = ManagedCircuitNativeCredentialSigner.DerivePublicKey(privateKey);
         if (writePrivateKey)
         {
+            Directory.CreateDirectory(Path.GetDirectoryName(privateKeyPath)!);
             File.WriteAllBytes(privateKeyPath, privateKey);
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(privateKeyPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            }
         }
+        Directory.CreateDirectory(Path.GetDirectoryName(publicKeyPath)!);
         File.WriteAllBytes(publicKeyPath, publicKey);
         string publicKeyHash = publicKeyHashOverride ?? Convert.ToHexStringLower(SHA256.HashData(publicKey));
 
