@@ -1105,32 +1105,81 @@ public sealed class AuthoringWorkflowService(
             return 0;
         }
 
-        List<int> banTargets = await db.Queryable<User>()
-            .Where(user => uniqueUserIds.Contains(user.Id) && user.Status != 2 && user.DeletedAt == null)
-            .Select(user => user.Id)
-            .ToListAsync(cancellationToken);
-        if (banTargets.Count == 0)
-        {
-            return 0;
-        }
-
         string effectiveReason = NormalizeNullable(reason, 256) ?? "评论审核处置";
-        int updated = await db.Updateable<User>()
-            .SetColumns(user => user.Status == 1)
-            .SetColumns(user => user.BanReason == effectiveReason)
-            .Where(user => banTargets.Contains(user.Id))
-            .ExecuteCommandAsync(cancellationToken);
-        if (updated <= 0)
+        int banned = 0;
+        var transaction = await db.Ado.UseTranAsync(async () =>
         {
-            return 0;
+            List<UserBanCandidate> banTargets = await LoadUserBanCandidatesAsync(uniqueUserIds, cancellationToken);
+            foreach (UserBanCandidate target in banTargets)
+            {
+                if (!await TryBanUserCandidateAsync(target, effectiveReason, cancellationToken))
+                {
+                    continue;
+                }
+
+                await blacklistService.BanUserAsync(target.Id, effectiveReason);
+                banned++;
+            }
+        });
+        if (!transaction.IsSuccess)
+        {
+            throw new InvalidOperationException("Comment moderation user ban failed.", transaction.ErrorException);
         }
 
-        foreach (int userId in banTargets)
+        return banned;
+    }
+
+    private async Task<List<UserBanCandidate>> LoadUserBanCandidatesAsync(int[] userIds, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (userIds.Length == 0)
         {
-            await blacklistService.BanUserAsync(userId, effectiveReason);
+            return [];
         }
 
-        return banTargets.Count;
+        string[] parameterNames = new string[userIds.Length];
+        var parameters = new SugarParameter[userIds.Length];
+        for (int i = 0; i < userIds.Length; i++)
+        {
+            string parameterName = string.Concat("@UserId", i.ToString(CultureInfo.InvariantCulture));
+            parameterNames[i] = parameterName;
+            parameters[i] = new SugarParameter(parameterName, userIds[i]);
+        }
+
+        string sql = $"""
+            SELECT id, xmin::text AS row_version
+            FROM sys_user
+            WHERE id IN ({string.Join(", ", parameterNames)})
+              AND status <> 2
+              AND deleted_at IS NULL;
+            """;
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sql, parameters);
+        var candidates = new List<UserBanCandidate>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            candidates.Add(new UserBanCandidate(reader.GetInt32(0), reader.GetString(1)));
+        }
+
+        return candidates;
+    }
+
+    private async Task<bool> TryBanUserCandidateAsync(UserBanCandidate target, string reason, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        int updated = await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE sys_user
+            SET status = 1,
+                banreason = @Reason
+            WHERE id = @UserId
+              AND status <> 2
+              AND deleted_at IS NULL
+              AND xmin::text = @RowVersion;
+            """,
+            new SugarParameter("@UserId", target.Id),
+            new SugarParameter("@Reason", reason),
+            new SugarParameter("@RowVersion", target.RowVersion));
+        return updated > 0;
     }
 
     private async Task<CommentModerationStateRow?> LoadCommentModerationStateAsync(long commentId, CancellationToken cancellationToken)
@@ -1813,6 +1862,8 @@ public sealed class AuthoringWorkflowService(
         public int SourceArticleId { get; } = sourceArticleId;
         public int ReferenceCount { get; set; }
     }
+
+    private sealed record UserBanCandidate(int Id, string RowVersion);
 
     private sealed class CommentModerationQueueRow
     {

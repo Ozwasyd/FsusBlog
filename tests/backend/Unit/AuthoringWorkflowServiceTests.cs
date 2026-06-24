@@ -77,6 +77,24 @@ public sealed class AuthoringWorkflowServiceTests
     }
 
     [Fact]
+    public void BanModerationUsersAsync_SourceUsesXminPredicateAndTransaction()
+    {
+        string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string method = Slice(
+            service,
+            "private async Task<int> BanModerationUsersAsync",
+            "private async Task<CommentModerationStateRow?> LoadCommentModerationStateAsync");
+        string userEntity = ReadRepoFile("src/backend/Entities/User.cs");
+
+        Assert.Contains("RowVersion", userEntity, StringComparison.Ordinal);
+        Assert.Contains("db.Ado.UseTranAsync(async ()", method, StringComparison.Ordinal);
+        Assert.Contains("xmin::text", method, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("status <> 2", method, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("deleted_at IS NULL", method, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("xmin::text = @RowVersion", method, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ContentExportContracts_DoNotCarryImportableNumericActorIds()
     {
         string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");

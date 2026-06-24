@@ -21,11 +21,15 @@ public class BlacklistService(
     public async Task BanUserAsync(int userId, string? reason)
     {
         var finalReason = NormalizeReason(reason);
-        await db.Updateable<User>()
+        int updated = await db.Updateable<User>()
             .SetColumns(u => u.Status == UserStatusBanned)
             .SetColumns(u => u.BanReason == finalReason)
-            .Where(u => u.Id == userId)
+            .Where(u => u.Id == userId && u.Status != 2 && u.DeletedAt == null)
             .ExecuteCommandAsync();
+        if (updated <= 0)
+        {
+            return;
+        }
 
         string cacheKey = await ResolveAccountSubjectCacheKeyAsync(userId).ConfigureAwait(false);
         await cache.SetStringAsync(CachePolicyId.SecurityBlacklistUser, cacheKey, finalReason);

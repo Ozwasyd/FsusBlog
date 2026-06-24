@@ -80,4 +80,7 @@ public class User
     /// </summary>
     [SugarColumn(IsNullable = true, Length = 256, ColumnName = "deleted_reason")]
     public string? DeletedReason { get; set; }
+
+    [SugarColumn(IsIgnore = true)]
+    public string? RowVersion { get; set; }
 }
