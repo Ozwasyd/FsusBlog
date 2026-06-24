@@ -1,14 +1,18 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using NSubstitute;
 using SqlSugar;
@@ -63,6 +67,90 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
         Assert.Empty(blacklist.BannedUsers);
         Assert.Equal(2, user.Status);
         Assert.NotNull(user.DeletedAt);
+    }
+
+    [Fact]
+    public async Task AdminChangeStatusAsync_ConcurrentAccountDeletionDoesNotRestoreBannedStatus()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        SeedUser(setupDb, 17);
+        using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
+        var blacklist = new RecordingBlacklistService();
+        UserService service = CreateUserService(serviceDb, blacklist);
+
+        await using var holder = new NpgsqlConnection(connectionString);
+        await holder.OpenAsync();
+        await using NpgsqlTransaction deletion = await holder.BeginTransactionAsync();
+        await using (var deleteCommand = new NpgsqlCommand(
+            "UPDATE sys_user SET status = 2, deleted_at = now() WHERE id = 17;",
+            holder,
+            deletion))
+        {
+            Assert.Equal(1, await deleteCommand.ExecuteNonQueryAsync());
+        }
+
+        Task<(bool Success, string Message)> statusTask = service.AdminChangeStatusAsync(new AdminChangeStatusDto
+        {
+            AccountId = 17,
+            Status = 1,
+            Reason = "policy"
+        });
+        await Task.Delay(TimeSpan.FromMilliseconds(300));
+        Assert.False(statusTask.IsCompleted);
+
+        await deletion.CommitAsync();
+        (bool success, string message) = await statusTask.WaitAsync(TimeSpan.FromSeconds(10));
+
+        var user = setupDb.Queryable<User>().InSingle(17);
+        Assert.False(success);
+        Assert.Equal("已注销账户不可变更状态", message);
+        Assert.Empty(blacklist.BannedUsers);
+        Assert.Equal(2, user.Status);
+        Assert.NotNull(user.DeletedAt);
+    }
+
+    [Fact]
+    public async Task AdminChangeStatusAsync_ConcurrentRowVersionMismatchReturnsConflictWithoutBlacklistWrite()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        SeedUser(setupDb, 18);
+        using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
+        var blacklist = new RecordingBlacklistService();
+        UserService service = CreateUserService(serviceDb, blacklist);
+
+        await using var holder = new NpgsqlConnection(connectionString);
+        await holder.OpenAsync();
+        await using NpgsqlTransaction concurrentChange = await holder.BeginTransactionAsync();
+        await using (var updateCommand = new NpgsqlCommand(
+            "UPDATE sys_user SET riskflags = 8 WHERE id = 18;",
+            holder,
+            concurrentChange))
+        {
+            Assert.Equal(1, await updateCommand.ExecuteNonQueryAsync());
+        }
+
+        Task<(bool Success, string Message)> statusTask = service.AdminChangeStatusAsync(new AdminChangeStatusDto
+        {
+            AccountId = 18,
+            Status = 1,
+            Reason = "policy"
+        });
+        await Task.Delay(TimeSpan.FromMilliseconds(300));
+        Assert.False(statusTask.IsCompleted);
+
+        await concurrentChange.CommitAsync();
+        (bool success, string message) = await statusTask.WaitAsync(TimeSpan.FromSeconds(10));
+
+        var user = setupDb.Queryable<User>().InSingle(18);
+        Assert.False(success);
+        Assert.Equal("账户状态已变化，请刷新后重试", message);
+        Assert.Empty(blacklist.BannedUsers);
+        Assert.Equal(0, user.Status);
+        Assert.Equal(8, user.RiskFlags);
     }
 
     private static void CreateTables(SqlSugarClient db)
@@ -130,6 +218,29 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
             new AuditLogChannel(),
             new ConfigurationBuilder().Build(),
             Substitute.For<ILogger<AuthoringWorkflowService>>());
+    }
+
+    private static UserService CreateUserService(SqlSugarClient db, IBlacklistService blacklist)
+    {
+        var messages = Substitute.For<IMessageCommandService>();
+        messages.SendAccountBannedNoticeAsync(Arg.Any<int>(), Arg.Any<string>())
+            .Returns(Task.CompletedTask);
+        messages.SendAccountUnbannedNoticeAsync(Arg.Any<int>())
+            .Returns(Task.CompletedTask);
+        var realtime = Substitute.For<IMessageRealtimePublisher>();
+        realtime.PushAccountStatusAsync(Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string?>())
+            .Returns(Task.CompletedTask);
+
+        return new UserService(
+            _db: db,
+            _logger: NullLogger<UserService>.Instance,
+            _jwtHelper: Substitute.For<IJwtHelper>(),
+            _cache: Substitute.For<IUnifiedCache>(),
+            _blacklistService: blacklist,
+            _messageCommandService: messages,
+            _messageRealtimePublisher: realtime,
+            _totpService: Substitute.For<ITotpService>(),
+            _authRiskService: Substitute.For<IAuthRiskService>());
     }
 
     private sealed class RecordingBlacklistService : IBlacklistService

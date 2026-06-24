@@ -394,7 +394,7 @@ public partial class UserService(
             return (false, "管理员接口只允许封禁或解封用户");
         }
 
-        var user = await _db.Queryable<User>().InSingleAsync(dto.AccountId);
+        var user = await LoadAdminStatusTargetAsync(dto.AccountId);
         if (user == null) return (false, "用户不存在");
         if (string.Equals(user.IdentityKind, AnonymousIdentityRuntime.AdminPrincipalKind, StringComparison.Ordinal))
         {
@@ -405,11 +405,22 @@ public partial class UserService(
 
         string? effectiveReason = dto.Status == 1 ? (dto.Reason ?? "违反社区规定") : null;
 
-        await _db.Updateable<User>()
-                .SetColumns(u => u.Status == dto.Status)
-                .SetColumns(u => u.BanReason == effectiveReason)
-                .Where(u => u.Id == dto.AccountId)
-                .ExecuteCommandAsync();
+        if (!await TryUpdateAdminStatusAsync(user, dto.Status, effectiveReason))
+        {
+            var current = await LoadAdminStatusTargetAsync(dto.AccountId);
+            if (current == null) return (false, "用户不存在");
+            if (string.Equals(current.IdentityKind, AnonymousIdentityRuntime.AdminPrincipalKind, StringComparison.Ordinal))
+            {
+                return (false, "管理员主体不通过普通账号状态接口治理");
+            }
+
+            if (current.Status == UserStatusDeleted || current.DeletedAt.HasValue)
+            {
+                return (false, "已注销账户不可变更状态");
+            }
+
+            return (false, "账户状态已变化，请刷新后重试");
+        }
 
         if (dto.Status == UserStatusBanned)
         {
@@ -424,6 +435,60 @@ public partial class UserService(
 
         return (true, dto.Status == UserStatusBanned ? "用户已封禁" : "用户已解封");
     }
+
+    private async Task<AdminStatusTarget?> LoadAdminStatusTargetAsync(int accountId)
+    {
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            """
+            SELECT id,
+                   identity_kind,
+                   status,
+                   deleted_at,
+                   xmin::text AS row_version
+            FROM sys_user
+            WHERE id = @AccountId;
+            """,
+            new SugarParameter("@AccountId", accountId));
+        if (!await reader.ReadAsync())
+        {
+            return null;
+        }
+
+        return new AdminStatusTarget(
+            reader.GetInt32(0),
+            reader.IsDBNull(1) ? AnonymousIdentityRuntime.AnonymousAccountKind : reader.GetString(1),
+            reader.GetInt32(2),
+            reader.IsDBNull(3) ? null : reader.GetDateTime(3),
+            reader.GetString(4));
+    }
+
+    private async Task<bool> TryUpdateAdminStatusAsync(AdminStatusTarget target, int status, string? banReason)
+    {
+        int updated = await _db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE sys_user
+            SET status = @Status,
+                banreason = @BanReason
+            WHERE id = @AccountId
+              AND identity_kind = @IdentityKind
+              AND status <> 2
+              AND deleted_at IS NULL
+              AND xmin::text = @RowVersion;
+            """,
+            new SugarParameter("@AccountId", target.Id),
+            new SugarParameter("@IdentityKind", target.IdentityKind),
+            new SugarParameter("@Status", status),
+            new SugarParameter("@BanReason", banReason),
+            new SugarParameter("@RowVersion", target.RowVersion));
+        return updated > 0;
+    }
+
+    private sealed record AdminStatusTarget(
+        int Id,
+        string IdentityKind,
+        int Status,
+        DateTime? DeletedAt,
+        string RowVersion);
 
     public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync(
         User user,

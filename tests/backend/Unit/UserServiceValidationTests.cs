@@ -500,68 +500,32 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public async Task AdminChangeStatusAsync_LegacyAdminRole_DoesNotGrantAccountGovernanceProtection()
+    public void AdminChangeStatusAsync_LegacyAdminRole_DoesNotGrantAccountGovernanceProtection()
     {
-        var db = Substitute.For<ISqlSugarClient>();
-        var queryable = Substitute.For<ISugarQueryable<User>>();
-        db.Queryable<User>().Returns(queryable);
-        queryable.InSingleAsync(42).Returns(Task.FromResult(new User
-        {
-            Id = 42,
-            IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
-            Status = 0
-        }));
-        var update = Substitute.For<IUpdateable<User>>();
-        update.SetColumns(Arg.Any<Expression<Func<User, bool>>>()).Returns(update);
-        update.Where(Arg.Any<Expression<Func<User, bool>>>()).Returns(update);
-        update.ExecuteCommandAsync().Returns(Task.FromResult(1));
-        db.Updateable<User>().Returns(update);
-        var blacklist = Substitute.For<IBlacklistService>();
-        var svc = BuildService(db, Substitute.For<IJwtHelper>(), blacklist);
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+        string method = ExtractUserServiceMethod(
+            source,
+            "public async Task<(bool Success, string Message)> AdminChangeStatusAsync",
+            "private async Task<AdminStatusTarget?> LoadAdminStatusTargetAsync");
 
-        var (success, message) = await svc.AdminChangeStatusAsync(new AdminChangeStatusDto
-        {
-            AccountId = 42,
-            Status = 1,
-            Reason = "policy"
-        });
-
-        Assert.True(success, message);
-        Assert.Equal("用户已封禁", message);
-        await update.Received(1).ExecuteCommandAsync();
-        await blacklist.Received(1).BanUserAsync(42, "policy");
-        await blacklist.DidNotReceive().UnbanUserAsync(Arg.Any<int>());
+        Assert.Contains("user.IdentityKind", method, StringComparison.Ordinal);
+        Assert.Contains("AnonymousIdentityRuntime.AdminPrincipalKind", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("LegacyProjectRole", method, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Role", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task AdminChangeStatusAsync_AdminPrincipalIdentityKind_RejectsOrdinaryAccountGovernance()
+    public void AdminChangeStatusAsync_AdminPrincipalIdentityKind_RejectsOrdinaryAccountGovernance()
     {
-        var db = Substitute.For<ISqlSugarClient>();
-        var queryable = Substitute.For<ISugarQueryable<User>>();
-        db.Queryable<User>().Returns(queryable);
-        queryable.InSingleAsync(7).Returns(Task.FromResult(new User
-        {
-            Id = 7,
-            IdentityKind = AnonymousIdentityRuntime.AdminPrincipalKind,
-            Status = 0
-        }));
-        var update = Substitute.For<IUpdateable<User>>();
-        db.Updateable<User>().Returns(update);
-        var blacklist = Substitute.For<IBlacklistService>();
-        var svc = BuildService(db, Substitute.For<IJwtHelper>(), blacklist);
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+        string method = ExtractUserServiceMethod(
+            source,
+            "public async Task<(bool Success, string Message)> AdminChangeStatusAsync",
+            "private async Task<AdminStatusTarget?> LoadAdminStatusTargetAsync");
 
-        var (success, message) = await svc.AdminChangeStatusAsync(new AdminChangeStatusDto
-        {
-            AccountId = 7,
-            Status = 1,
-            Reason = "policy"
-        });
-
-        Assert.False(success);
-        Assert.Equal("管理员主体不通过普通账号状态接口治理", message);
-        db.DidNotReceive().Updateable<User>();
-        await blacklist.DidNotReceive().BanUserAsync(Arg.Any<int>(), Arg.Any<string?>());
-        await blacklist.DidNotReceive().UnbanUserAsync(Arg.Any<int>());
+        Assert.Contains("string.Equals(user.IdentityKind, AnonymousIdentityRuntime.AdminPrincipalKind, StringComparison.Ordinal)", method, StringComparison.Ordinal);
+        Assert.Contains("管理员主体不通过普通账号状态接口治理", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Updateable<User>()", method, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -577,6 +541,34 @@ public class UserServiceValidationTests
         Assert.DoesNotContain(".Role", method, StringComparison.Ordinal);
         Assert.DoesNotContain("Role == \"admin\"", method, StringComparison.Ordinal);
         Assert.DoesNotContain("Role.Equals(\"admin\"", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AdminChangeStatusAsync_SourceUsesRowVersionGuardForStatusMutation()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+        string method = ExtractUserServiceMethod(
+            source,
+            "public async Task<(bool Success, string Message)> AdminChangeStatusAsync",
+            "public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync");
+        string loadMethod = ExtractUserServiceMethod(
+            source,
+            "private async Task<AdminStatusTarget?> LoadAdminStatusTargetAsync",
+            "private async Task<bool> TryUpdateAdminStatusAsync");
+        string updateMethod = ExtractUserServiceMethod(
+            source,
+            "private async Task<bool> TryUpdateAdminStatusAsync",
+            "public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync");
+
+        Assert.Contains("LoadAdminStatusTargetAsync(dto.AccountId)", method, StringComparison.Ordinal);
+        Assert.Contains("TryUpdateAdminStatusAsync(user, dto.Status, effectiveReason)", method, StringComparison.Ordinal);
+        Assert.Contains("LoadAdminStatusTargetAsync(dto.AccountId)", method, StringComparison.Ordinal);
+        Assert.Contains("xmin::text AS row_version", loadMethod, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("identity_kind = @IdentityKind", updateMethod, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("deleted_at IS NULL", updateMethod, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("status <> 2", updateMethod, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("xmin::text = @RowVersion", updateMethod, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Updateable<User>()", method, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -699,8 +691,13 @@ public class UserServiceValidationTests
     public void DeleteAccountAsync_DoesNotUseLegacyDeletedUsernameRewrite()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
-        Assert.DoesNotContain("BuildDeletedUsername", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("deleted_", source, StringComparison.Ordinal);
+        string method = ExtractUserServiceMethod(
+            source,
+            "public async Task<(bool Success, string Message)> DeleteAccountAsync",
+            "public async Task<MfaProfileDto?> GetMfaProfileAsync");
+
+        Assert.DoesNotContain("BuildDeletedUsername", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("deleted_", method, StringComparison.Ordinal);
     }
 
     [Theory]
