@@ -1,8 +1,14 @@
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -64,6 +70,8 @@ public sealed class AdminPrincipalSecurityContractTests
 
         Assert.Contains("MapLocalAuthFixtureEndpoints", composition, StringComparison.Ordinal);
         Assert.Contains(".Environment.IsDevelopment()", endpoints, StringComparison.Ordinal);
+        Assert.Contains("AllowLocalAuthFixtureConfigurationKey", endpoints, StringComparison.Ordinal);
+        Assert.Contains("fsus:allowLocalAuthFixture", endpoints, StringComparison.Ordinal);
         Assert.Contains("/api/local/auth-fixture/admin", endpoints, StringComparison.Ordinal);
         Assert.Contains("user.storage-state.json", endpoints, StringComparison.Ordinal);
         Assert.Contains("admin.storage-state.json", endpoints, StringComparison.Ordinal);
@@ -72,6 +80,41 @@ public sealed class AdminPrincipalSecurityContractTests
         Assert.Contains("SetAdminSessionCookies", endpoints, StringComparison.Ordinal);
         Assert.Contains("Results.Redirect", endpoints, StringComparison.Ordinal);
         Assert.Contains("AllowAnonymous", endpoints, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("Production", "true", false)]
+    [InlineData("Development", null, false)]
+    [InlineData("Development", "false", false)]
+    [InlineData("Development", "true", true)]
+    public async Task LocalAuthFixtureEndpoints_RegisterOnlyForDevelopmentWithExplicitFlag(
+        string environmentName,
+        string? allowFixture,
+        bool shouldRegister)
+    {
+        var options = new WebApplicationOptions { EnvironmentName = environmentName };
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(options);
+        if (allowFixture is not null)
+        {
+            builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [LocalAuthFixtureEndpoints.AllowLocalAuthFixtureConfigurationKey] = allowFixture
+            });
+        }
+
+        await using WebApplication app = builder.Build();
+        app.MapLocalAuthFixtureEndpoints();
+
+        string[] routes = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(dataSource => dataSource.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Select(endpoint => endpoint.RoutePattern.RawText ?? string.Empty)
+            .ToArray();
+
+        Assert.Equal(shouldRegister, routes.Contains("/__local/auth-fixture/admin", StringComparer.Ordinal));
+        Assert.Equal(shouldRegister, routes.Contains("/api/local/auth-fixture/admin", StringComparer.Ordinal));
+        Assert.Equal(shouldRegister, routes.Contains("/__local/auth-fixture/status", StringComparer.Ordinal));
+        Assert.Equal(shouldRegister, routes.Contains("/api/local/auth-fixture/status", StringComparer.Ordinal));
     }
 
     [Fact]

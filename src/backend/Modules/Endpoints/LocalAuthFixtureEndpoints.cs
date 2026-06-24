@@ -4,17 +4,21 @@ using System.Text.Json;
 using FsusBlog.Server.Infrastructure.Auth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Modules.Endpoints;
 
 public static class LocalAuthFixtureEndpoints
 {
+    internal const string AllowLocalAuthFixtureConfigurationKey = "fsus:allowLocalAuthFixture";
     private const string UserStorageStateFileName = "user.storage-state.json";
     private const string AdminStorageStateFileName = "admin.storage-state.json";
 
     public static void MapLocalAuthFixtureEndpoints(this WebApplication app)
     {
-        if (!app.Environment.IsDevelopment())
+        if (!app.Environment.IsDevelopment()
+            || !app.Configuration.GetValue<bool>(AllowLocalAuthFixtureConfigurationKey))
         {
             return;
         }
@@ -22,7 +26,7 @@ public static class LocalAuthFixtureEndpoints
         var handler = async Task<IResult> (
             HttpContext context,
             IWebHostEnvironment environment,
-            AuthCookieService authCookieService,
+            [FromServices] AuthCookieService authCookieService,
             string? redirect,
             CancellationToken cancellationToken) =>
         {
