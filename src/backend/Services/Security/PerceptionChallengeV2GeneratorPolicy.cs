@@ -251,6 +251,11 @@ public static class PerceptionChallengeV2GeneratorSelector
     private static T Pick<T>(IReadOnlyList<T> candidates, string entropyMaterial, string salt)
         where T : IWeightedCandidate
     {
+        if (candidates.Count == 0)
+        {
+            throw new InvalidOperationException("Perception challenge weighted candidate set is empty.");
+        }
+
         long total = 0;
         for (int i = 0; i < candidates.Count; i++)
         {

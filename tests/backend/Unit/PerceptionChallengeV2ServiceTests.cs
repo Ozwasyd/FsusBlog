@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
 using FsusBlog.Server.Infrastructure.Bootstrap;
@@ -185,6 +186,36 @@ public sealed class PerceptionChallengeV2ServiceTests
         Assert.Equal("cut-b", riskSelection.Variant);
         Assert.Contains(fallbackSelection.Family, PerceptionChallengeV2GeneratorFamilyRegistry.SupportedFamilies);
         Assert.False(string.IsNullOrWhiteSpace(fallbackSelection.Variant));
+    }
+
+    [Fact]
+    public void GeneratorSelector_PickRejectsEmptyCandidatesWithClearError()
+    {
+        Type weightedVariantType = GetWeightedVariantType();
+        Array candidates = Array.CreateInstance(weightedVariantType, 0);
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+            () => InvokeWeightedPick(candidates));
+
+        Assert.Contains("candidate set is empty", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GeneratorSelector_PickReturnsSingleCandidate()
+    {
+        Type weightedVariantType = GetWeightedVariantType();
+        Array candidates = Array.CreateInstance(weightedVariantType, 1);
+        object candidate = Activator.CreateInstance(
+            weightedVariantType,
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            args: ["single-variant", 100],
+            culture: null)!;
+        candidates.SetValue(candidate, 0);
+
+        object selected = InvokeWeightedPick(candidates);
+
+        Assert.Same(candidate, selected);
     }
 
     [Fact]
@@ -705,6 +736,26 @@ public sealed class PerceptionChallengeV2ServiceTests
         => new(
             "unit-generator-policy",
             families);
+
+    private static Type GetWeightedVariantType()
+        => typeof(PerceptionChallengeV2GeneratorSelector).GetNestedType("WeightedVariant", BindingFlags.NonPublic)!;
+
+    private static object InvokeWeightedPick(Array candidates)
+    {
+        Type candidateType = candidates.GetType().GetElementType()!;
+        MethodInfo pick = typeof(PerceptionChallengeV2GeneratorSelector)
+            .GetMethod("Pick", BindingFlags.NonPublic | BindingFlags.Static)!
+            .MakeGenericMethod(candidateType);
+
+        try
+        {
+            return pick.Invoke(null, [candidates, "seed", "variant"])!;
+        }
+        catch (TargetInvocationException exception) when (exception.InnerException is not null)
+        {
+            throw exception.InnerException;
+        }
+    }
 
     private static Dictionary<string, string> CreateProviderPayload(PerceptionChallengeV2TokenClaims claims)
         => new(StringComparer.Ordinal)
