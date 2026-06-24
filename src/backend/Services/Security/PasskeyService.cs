@@ -5,6 +5,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using System.Buffers.Text;
+using System.Data.Common;
 using System.Security.Cryptography;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -273,8 +274,15 @@ public sealed class PasskeyService(
             return (false, "账户不存在或已注销", null);
         }
 
+        string? rowVersion = await LoadPasskeyRowVersionAsync(storedCred.Id, cancellationToken);
+        if (rowVersion is null)
+        {
+            return (false, "通行密钥验证失败，请重试", null);
+        }
+
         string? storedUserHandle = user.PasskeyUserHandle;
         byte[] storedPublicKey = Base64Url.DecodeFromChars(storedCred.PublicKey);
+        long expectedSignCount = storedCred.SignCount;
 
         VerifyAssertionResult verifyResult;
         try
@@ -301,12 +309,10 @@ public sealed class PasskeyService(
             return (false, "通行密钥验证失败，请重试", null);
         }
 
-        // 更新签名计数 + 上次使用时间
-        storedCred.SignCount = (long)verifyResult.SignCount;
-        storedCred.LastUsedAt = DateTime.UtcNow;
-        await db.Updateable(storedCred)
-            .UpdateColumns(c => new { c.SignCount, c.LastUsedAt })
-            .ExecuteCommandAsync();
+        if (!await TryUpdatePasskeySignCountAsync(storedCred.Id, expectedSignCount, rowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
+        {
+            return (false, "通行密钥验证失败，请重试", null);
+        }
 
         return (true, "验证成功", user);
     }
@@ -394,8 +400,15 @@ public sealed class PasskeyService(
             return (false, "账户不存在或已注销");
         }
 
+        string? rowVersion = await LoadPasskeyRowVersionAsync(storedCred.Id, cancellationToken);
+        if (rowVersion is null)
+        {
+            return (false, "通行密钥 step-up 验证失败，请重试");
+        }
+
         string? storedUserHandle = user.PasskeyUserHandle;
         byte[] storedPublicKey = Base64Url.DecodeFromChars(storedCred.PublicKey);
+        long expectedSignCount = storedCred.SignCount;
         VerifyAssertionResult verifyResult;
         try
         {
@@ -421,11 +434,10 @@ public sealed class PasskeyService(
             return (false, "通行密钥 step-up 验证失败，请重试");
         }
 
-        storedCred.SignCount = (long)verifyResult.SignCount;
-        storedCred.LastUsedAt = DateTime.UtcNow;
-        await db.Updateable(storedCred)
-            .UpdateColumns(c => new { c.SignCount, c.LastUsedAt })
-            .ExecuteCommandAsync();
+        if (!await TryUpdatePasskeySignCountAsync(storedCred.Id, expectedSignCount, rowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
+        {
+            return (false, "通行密钥 step-up 验证失败，请重试");
+        }
 
         return (true, "step-up 验证成功");
     }
@@ -722,5 +734,51 @@ public sealed class PasskeyService(
             .SetColumns(c => c.DeviceFriendlyName == trimmed)
             .ExecuteCommandAsync();
         return updated > 0;
+    }
+
+    private async Task<string?> LoadPasskeyRowVersionAsync(int id, CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT xmin::text
+            FROM passkey_credential
+            WHERE id = @id;
+            """,
+            new SugarParameter[] { new("@id", id) });
+        return await reader.ReadAsync(cancellationToken) ? reader.GetString(0) : null;
+    }
+
+    private async Task<bool> TryUpdatePasskeySignCountAsync(
+        int id,
+        long expectedSignCount,
+        string rowVersion,
+        long newSignCount,
+        DateTime lastUsedAt,
+        CancellationToken cancellationToken)
+    {
+        int updated = await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE passkey_credential
+            SET signcount = @newSignCount,
+                lastusedat = @lastUsedAt
+            WHERE id = @id
+              AND signcount = @expectedSignCount
+              AND xmin::text = @rowVersion;
+            """,
+            new SugarParameter[]
+            {
+                new("@id", id),
+                new("@expectedSignCount", expectedSignCount),
+                new("@rowVersion", rowVersion),
+                new("@newSignCount", newSignCount),
+                new("@lastUsedAt", lastUsedAt)
+            });
+        cancellationToken.ThrowIfCancellationRequested();
+        if (updated != 1)
+        {
+            return false;
+        }
+
+        return true;
     }
 }

@@ -224,6 +224,22 @@ public sealed class AdminPrincipalSecurityContractTests
     }
 
     [Fact]
+    public void AdminPasskeyAssertion_SourceUsesOptimisticSignCountUpdate()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");
+
+        Assert.Contains("LoadAdminPasskeyRowVersionAsync", source, StringComparison.Ordinal);
+        Assert.Contains("TryUpdateAdminPasskeySignCountAsync", source, StringComparison.Ordinal);
+        Assert.Contains("xmin::text", source, StringComparison.Ordinal);
+        Assert.Contains("signcount = @expectedSignCount", source, StringComparison.Ordinal);
+        Assert.Contains("id = @id", source, StringComparison.Ordinal);
+        Assert.Contains("updated != 1", source, StringComparison.Ordinal);
+        Assert.Contains("Admin Passkey assertion failed", source, StringComparison.Ordinal);
+        Assert.Contains("Admin step-up Passkey assertion failed", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("db.Updateable(storedCred)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RootAdminBootstrap_UsesDatabaseUniquenessAndTransaction()
     {
         string migrations = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");

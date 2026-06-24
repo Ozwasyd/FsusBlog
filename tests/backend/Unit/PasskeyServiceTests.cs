@@ -313,6 +313,21 @@ public sealed class PasskeyServiceTests
         Assert.DoesNotContain("UserId = userId", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void PasskeyAssertion_SourceUsesOptimisticSignCountUpdate()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/PasskeyService.cs");
+
+        Assert.Contains("LoadPasskeyRowVersionAsync", source, StringComparison.Ordinal);
+        Assert.Contains("TryUpdatePasskeySignCountAsync", source, StringComparison.Ordinal);
+        Assert.Contains("xmin::text", source, StringComparison.Ordinal);
+        Assert.Contains("signcount = @expectedSignCount", source, StringComparison.Ordinal);
+        Assert.Contains("id = @id", source, StringComparison.Ordinal);
+        Assert.Contains("updated != 1", source, StringComparison.Ordinal);
+        Assert.Contains("通行密钥验证失败，请重试", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("db.Updateable(storedCred)", source, StringComparison.Ordinal);
+    }
+
     private static object InvokeMetadataBuilder(
         string? publicHandle,
         bool anonymousIdentityModeEnabled,

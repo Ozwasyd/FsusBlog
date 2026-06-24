@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Data.Common;
 using System.Text;
 using System.Text.Json;
 using System.Globalization;
@@ -320,6 +321,14 @@ public sealed class AdminPrincipalService(
             return (false, "Admin principal is disabled", null);
         }
 
+        string? rowVersion = await LoadAdminPasskeyRowVersionAsync(storedCred.Id, cancellationToken);
+        if (rowVersion is null)
+        {
+            await WriteAuditAsync(storedCred.AdminPrincipalId, null, "admin.login.passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
+            return (false, "Admin Passkey assertion failed", null);
+        }
+
+        long expectedSignCount = storedCred.SignCount;
         VerifyAssertionResult verifyResult;
         try
         {
@@ -340,11 +349,11 @@ public sealed class AdminPrincipalService(
             return (false, "Admin Passkey assertion failed", null);
         }
 
-        storedCred.SignCount = (long)verifyResult.SignCount;
-        storedCred.LastUsedAtUtc = DateTime.UtcNow;
-        await db.Updateable(storedCred)
-            .UpdateColumns(c => new { c.SignCount, c.LastUsedAtUtc })
-            .ExecuteCommandAsync();
+        if (!await TryUpdateAdminPasskeySignCountAsync(storedCred.Id, expectedSignCount, rowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
+        {
+            await WriteAuditAsync(storedCred.AdminPrincipalId, null, "admin.login.passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
+            return (false, "Admin Passkey assertion failed", null);
+        }
 
         principal.LastLoginAtUtc = DateTime.UtcNow;
         await db.Updateable(principal)
@@ -447,6 +456,14 @@ public sealed class AdminPrincipalService(
             return (false, "Admin principal is disabled", null);
         }
 
+        string? rowVersion = await LoadAdminPasskeyRowVersionAsync(storedCred.Id, cancellationToken);
+        if (rowVersion is null)
+        {
+            await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
+            return (false, "Admin step-up Passkey assertion failed", null);
+        }
+
+        long expectedSignCount = storedCred.SignCount;
         VerifyAssertionResult verifyResult;
         try
         {
@@ -467,11 +484,11 @@ public sealed class AdminPrincipalService(
             return (false, "Admin step-up Passkey assertion failed", null);
         }
 
-        storedCred.SignCount = (long)verifyResult.SignCount;
-        storedCred.LastUsedAtUtc = DateTime.UtcNow;
-        await db.Updateable(storedCred)
-            .UpdateColumns(c => new { c.SignCount, c.LastUsedAtUtc })
-            .ExecuteCommandAsync();
+        if (!await TryUpdateAdminPasskeySignCountAsync(storedCred.Id, expectedSignCount, rowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
+        {
+            await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
+            return (false, "Admin step-up Passkey assertion failed", null);
+        }
 
         string proofToken = await CreateAdminStepUpProofTokenAsync(adminPrincipalId, adminSessionId, AdminSensitiveAction, StepUpProofTtl, cancellationToken);
         await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.completed", "success", clientContext, highImpact: true, cancellationToken);
@@ -518,6 +535,14 @@ public sealed class AdminPrincipalService(
             return (false, "Admin principal is disabled");
         }
 
+        string? rowVersion = await LoadAdminPasskeyRowVersionAsync(storedCred.Id, cancellationToken);
+        if (rowVersion is null)
+        {
+            await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.risk_control_passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
+            return (false, "Admin step-up Passkey assertion failed");
+        }
+
+        long expectedSignCount = storedCred.SignCount;
         VerifyAssertionResult verifyResult;
         try
         {
@@ -538,11 +563,11 @@ public sealed class AdminPrincipalService(
             return (false, "Admin step-up Passkey assertion failed");
         }
 
-        storedCred.SignCount = (long)verifyResult.SignCount;
-        storedCred.LastUsedAtUtc = DateTime.UtcNow;
-        await db.Updateable(storedCred)
-            .UpdateColumns(c => new { c.SignCount, c.LastUsedAtUtc })
-            .ExecuteCommandAsync();
+        if (!await TryUpdateAdminPasskeySignCountAsync(storedCred.Id, expectedSignCount, rowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
+        {
+            await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.risk_control_passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
+            return (false, "Admin step-up Passkey assertion failed");
+        }
 
         await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.risk_control_verified", "success", clientContext, highImpact: true, cancellationToken);
         return (true, "Admin step-up verified");
@@ -744,6 +769,52 @@ public sealed class AdminPrincipalService(
             BackupState = result.IsBackedUp,
             CreatedAtUtc = DateTime.UtcNow
         };
+
+    private async Task<string?> LoadAdminPasskeyRowVersionAsync(long id, CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT xmin::text
+            FROM admin_passkey_credential
+            WHERE id = @id;
+            """,
+            new SugarParameter[] { new("@id", id) });
+        return await reader.ReadAsync(cancellationToken) ? reader.GetString(0) : null;
+    }
+
+    private async Task<bool> TryUpdateAdminPasskeySignCountAsync(
+        long id,
+        long expectedSignCount,
+        string rowVersion,
+        long newSignCount,
+        DateTime lastUsedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        int updated = await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE admin_passkey_credential
+            SET signcount = @newSignCount,
+                lastusedatutc = @lastUsedAtUtc
+            WHERE id = @id
+              AND signcount = @expectedSignCount
+              AND xmin::text = @rowVersion;
+            """,
+            new SugarParameter[]
+            {
+                new("@id", id),
+                new("@expectedSignCount", expectedSignCount),
+                new("@rowVersion", rowVersion),
+                new("@newSignCount", newSignCount),
+                new("@lastUsedAtUtc", lastUsedAtUtc)
+            });
+        cancellationToken.ThrowIfCancellationRequested();
+        if (updated != 1)
+        {
+            return false;
+        }
+
+        return true;
+    }
 
     private async Task WriteAuditAsync(
         long? adminPrincipalId,
