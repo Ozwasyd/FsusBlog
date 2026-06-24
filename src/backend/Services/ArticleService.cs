@@ -844,7 +844,7 @@ public class ArticleService(
         {
             await InvalidateCache(id);
             ct.ThrowIfCancellationRequested();
-            await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "delete");
+            await InvalidatePublicAotWithCurrentStateAsync(id, state, "delete");
             ct.ThrowIfCancellationRequested();
             await _mutationSideEffects.AfterDeletedAsync(id);
         }
@@ -879,7 +879,7 @@ public class ArticleService(
         {
             await InvalidateCache(id);
             ct.ThrowIfCancellationRequested();
-            await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "restore");
+            await InvalidatePublicAotWithCurrentStateAsync(id, state, "restore");
             ct.ThrowIfCancellationRequested();
             ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(id);
             ct.ThrowIfCancellationRequested();
@@ -1662,6 +1662,19 @@ public class ArticleService(
             () => _publicAotInvalidationService.InvalidateArticleMutationAsync(articleId, categoryIds, tagIds, Ct),
             _logger,
             $"invalidate-article-aot:{operation}");
+    }
+
+    private async Task InvalidatePublicAotWithCurrentStateAsync(
+        int articleId,
+        (List<int> CategoryIds, List<int> TagIds) beforeState,
+        string operation)
+    {
+        var currentState = await LoadArticleAotStateAsync(articleId);
+        await InvalidatePublicAotAsync(
+            articleId,
+            MergeIds(beforeState.CategoryIds, currentState.CategoryIds),
+            MergeIds(beforeState.TagIds, currentState.TagIds),
+            operation);
     }
 
     private async Task InvalidatePublicAotBatchAsync(IEnumerable<int> articleIds, IEnumerable<int>? categoryIds, IEnumerable<int>? tagIds, string operation)

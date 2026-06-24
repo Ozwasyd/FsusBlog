@@ -93,6 +93,39 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
+    public void DeleteAndRestore_SourceInvalidatePublicAotWithCurrentStateAfterMutation()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        int deleteMethod = source.IndexOf("public async Task<bool> DeleteAsync", StringComparison.Ordinal);
+        int restoreMethod = source.IndexOf("public async Task<bool> RestoreAsync", deleteMethod, StringComparison.Ordinal);
+        int permanentDeleteMethod = source.IndexOf("public async Task<bool> PermanentlyDeleteArticleAsync", restoreMethod, StringComparison.Ordinal);
+        string deleteBlock = source[deleteMethod..restoreMethod];
+        string restoreBlock = source[restoreMethod..permanentDeleteMethod];
+
+        Assert.Contains("var state = await LoadArticleAotStateAsync(id)", deleteBlock, StringComparison.Ordinal);
+        Assert.Contains("await InvalidatePublicAotWithCurrentStateAsync(id, state, \"delete\")", deleteBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, \"delete\")", deleteBlock, StringComparison.Ordinal);
+
+        Assert.Contains("var state = await LoadArticleAotStateAsync(id)", restoreBlock, StringComparison.Ordinal);
+        Assert.Contains("await InvalidatePublicAotWithCurrentStateAsync(id, state, \"restore\")", restoreBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, \"restore\")", restoreBlock, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArticleService_SourceInvalidatesPublicAotCategoryAndTagUnions()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        int methodStart = source.IndexOf("private async Task InvalidatePublicAotWithCurrentStateAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("private async Task InvalidatePublicAotBatchAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        Assert.Contains("var currentState = await LoadArticleAotStateAsync(articleId)", method, StringComparison.Ordinal);
+        Assert.Contains("MergeIds(beforeState.CategoryIds, currentState.CategoryIds)", method, StringComparison.Ordinal);
+        Assert.Contains("MergeIds(beforeState.TagIds, currentState.TagIds)", method, StringComparison.Ordinal);
+        Assert.Contains("await InvalidatePublicAotAsync(", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ArticleService_SourceUsesProcessWideLegacySchemaCapabilityCache()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
