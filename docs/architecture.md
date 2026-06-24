@@ -423,6 +423,8 @@ Health/ops 协议独立于 PublicAOT 与 AEDS payload。`ProductionHealthEndpoin
 - `SITE_BASEURL` 必须为 HTTPS
 - CORS 配置的 Origins 不得包含 HTTP 来源
 
+运行期日志的隐私边界与生产启动密钥边界一致：原始客户端 IP 只能参与本地判定，不能进入日志、指标或 fallback structured event。PoW、RiskControl、visit log 和审计链路需要来源关联时必须写 HMAC 后的 `ClientIpHash` / `IpHash`；PoW 日志使用 `VisitLog:IpHashPepper`，缺失该配置时不得回退到 JWT、localhost、raw remote IP 或请求头。
+
 降级状态会写入运行时状态任务 `productionStartupValidation`。回退路径是修复环境变量或依赖服务后重启应用；密钥类错误只能恢复对应安全域的上一个密钥，不能临时复用 JWT 密钥，也无需修改路由、中间件或健康探针代码。
 
 详细部署流程见 [production.md](production.md)。

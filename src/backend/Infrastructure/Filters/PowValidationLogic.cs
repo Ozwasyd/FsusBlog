@@ -3,6 +3,8 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FsusBlog.Server.Infrastructure.Filters;
 
@@ -60,14 +62,16 @@ internal static partial class PowValidationLogic
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "PoW 内部校验异常已归一为拒绝 | IP: {IP} | TraceId: {TraceId}", clientIp, httpContext.TraceIdentifier);
+            string clientIpHash = ResolveClientIpHashForLog(httpContext, clientIp);
+            logger.LogWarning(ex, "PoW 内部校验异常已归一为拒绝 | ClientIpHash: {ClientIpHash} | TraceId: {TraceId}", clientIpHash, httpContext.TraceIdentifier);
             await AddRiskAsync(httpContext, SecurityRiskReason.PowInvalid, 10);
             return new UnauthorizedObjectResult(Fail(httpContext, ErrorCode.Unauthorized, "安全校验未通过或凭证已过期"));
         }
 
         if (!isValid)
         {
-            LogAccessDenied(logger, clientIp, httpContext.TraceIdentifier, "Signature/Nonce Verification Failed");
+            string clientIpHash = ResolveClientIpHashForLog(httpContext, clientIp);
+            LogAccessDenied(logger, clientIpHash, httpContext.TraceIdentifier, "Signature/Nonce Verification Failed");
             await AddRiskAsync(httpContext, SecurityRiskReason.PowInvalid, 10);
             return new UnauthorizedObjectResult(Fail(httpContext, ErrorCode.Unauthorized, "安全校验未通过或凭证已过期"));
         }
@@ -103,6 +107,24 @@ internal static partial class PowValidationLogic
         }
     }
 
-    [LoggerMessage(EventId = 101, Level = LogLevel.Information, Message = "PoW 验证逻辑拒绝访问 | IP: {IP} | TraceId: {TraceId} | 原因: {Reason}")]
-    private static partial void LogAccessDenied(ILogger logger, string ip, string traceId, string reason);
+    private static string ResolveClientIpHashForLog(HttpContext httpContext, string clientIp)
+    {
+        var configuration = httpContext.RequestServices.GetService<IConfiguration>();
+        if (configuration is null)
+        {
+            return "ip_hash_unavailable";
+        }
+
+        try
+        {
+            return VisitLogIpHashing.HashIp(clientIp, configuration);
+        }
+        catch
+        {
+            return "ip_hash_unavailable";
+        }
+    }
+
+    [LoggerMessage(EventId = 101, Level = LogLevel.Information, Message = "PoW 验证逻辑拒绝访问 | ClientIpHash: {ClientIpHash} | TraceId: {TraceId} | 原因: {Reason}")]
+    private static partial void LogAccessDenied(ILogger logger, string clientIpHash, string traceId, string reason);
 }

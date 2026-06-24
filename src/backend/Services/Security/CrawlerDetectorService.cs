@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Caching.Memory;
+﻿using FsusBlog.Server.Infrastructure.Security;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
@@ -10,7 +12,10 @@ namespace FsusBlog.Server.Services.Security;
 /// 修复日期: 2026-02-22 (修复 GetHostEntryAsync 重载问题及可空引用警告，确保严苛编译环境下 0 错误 0 警告)
 /// 职责: 维护各大搜索引擎的 IP CIDR 白名单，并提供 rDNS 动态验证能力
 /// </summary>
-public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMemoryCache cache)
+public class CrawlerDetectorService(
+    ILogger<CrawlerDetectorService> logger,
+    IMemoryCache cache,
+    IConfiguration? configuration = null)
 {
     private const int MaxCidrRangesPerProvider = 8192;
     private const int MaxUserAgentLength = 512;
@@ -172,7 +177,7 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
         }
         catch (OperationCanceledException)
         {
-            logger.LogWarning("rDNS 验证遭遇 200ms 超时熔断: {IP}", ipStr);
+            logger.LogWarning("rDNS 验证遭遇 200ms 超时熔断: {ClientIpHash}", ResolveClientIpHashForLog(ipStr));
             result = false;
         }
         catch
@@ -200,6 +205,26 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
 
     internal static string BuildCrawlerVerificationCacheKey(string ipStr)
         => string.Concat("crawler:verified:", ipStr);
+
+    private static string ResolveClientIpHashForLog(string ip, IConfiguration? configuration)
+    {
+        if (configuration is null)
+        {
+            return "ip_hash_unavailable";
+        }
+
+        try
+        {
+            return VisitLogIpHashing.HashIp(ip, configuration);
+        }
+        catch
+        {
+            return "ip_hash_unavailable";
+        }
+    }
+
+    private string ResolveClientIpHashForLog(string ip)
+        => ResolveClientIpHashForLog(ip, configuration);
 }
 
 public sealed record CrawlerRangeStatus(

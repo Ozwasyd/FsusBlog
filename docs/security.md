@@ -18,6 +18,8 @@
 
 这些密钥分别保护 PoW 签名、CaptchaV1 provider payload、Recovery Key lookup/hash、匿名凭证签发限频 subject hash、阅读 IP 匿名化和地区策略 IP hash。任一密钥泄露只允许影响其所属安全域；轮换时只替换对应配置并滚动重启，不应同步替换其他域密钥，除非有明确的泄露范围证据。
 
+日志、审计、指标和 structured fallback 不得打印原始客户端 IP。需要关联访问来源时，只能写入由所属安全域 pepper 派生的 HMAC-SHA256 hash；PoW 验证日志统一使用 `VisitLog:IpHashPepper` 生成 `ClientIpHash`，不得回退到 raw `GetClientIp()`、`RemoteIpAddress`、`X-Forwarded-For` 或 `X-Real-IP`。
+
 ---
 
 ## Proof of Work (PoW)
@@ -28,6 +30,7 @@
 - 有效期：挑战存入 Redis，TTL 过期后自动失效
 - 服务端验证：注册 / 登录端点在执行业务逻辑前校验 PoW 解答，失败拒绝请求
 - IP 绑定：PoW proof 的 HMAC 签名和一次性 replay identity 只绑定 `GetClientIp()` 返回的规范化客户端 IP；PoW 层不探测 raw remote IP、localhost 或 Docker bridge gateway。代理迁移必须通过 `ForwardedHeadersMiddleware` 的 `ReverseProxy:KnownProxies` / `ReverseProxy:KnownNetworks` 配置修正。
+- 日志隐私：PoW 内部异常和拒绝访问日志只能写 `ClientIpHash`，该值由 `VisitLog:IpHashPepper` 对规范化客户端 IP 做 HMAC-SHA256 生成；日志模板禁止出现 `{IP}` 或原始 IP 参数。
 - 安全门控覆盖：缺失、篡改、重放形态的 PoW 请求不得产生 2xx，且不得写入业务状态。
 - 难度语义：`difficulty` 表示 SHA-256 摘要的 bit 级前导零数量，而不是半字节 / nibble 数；默认阶梯为 16/20/24/28 bits。
 - 客户端求解器：PoW 延迟优化只发生在 `src/frontend/wasm/pow` 的 C++23/Wasm 层，proof wire 格式与 Redis/HMAC 绑定语义不变。

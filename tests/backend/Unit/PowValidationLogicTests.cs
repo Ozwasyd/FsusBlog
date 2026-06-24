@@ -9,11 +9,13 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -91,6 +93,78 @@ public sealed class PowValidationLogicTests
         Assert.IsType<UnauthorizedObjectResult>(result);
     }
 
+    [Fact]
+    public async Task ValidateAsync_InternalPowExceptionLog_UsesIpHashAndOmitsRawClientIp()
+    {
+        const string clientIp = "203.0.113.10";
+        const string pepper = "unit-test-visit-log-ip-hash-pepper-with-enough-entropy";
+        var fixture = CreateFixture();
+        string proof = await CreateEncodedProofAsync(fixture.Service, clientIp);
+        var context = CreatePowContext(clientIp, proof, new Dictionary<string, string?>
+        {
+            ["VisitLog:IpHashPepper"] = pepper
+        });
+        var logger = new CapturingLogger();
+
+        IActionResult? result = await PowValidationLogic.ValidateAsync(
+            context,
+            logger,
+            new ThrowingPowService(),
+            fixture.Governor);
+
+        Assert.IsType<UnauthorizedObjectResult>(result);
+        string rendered = Assert.Single(logger.Messages);
+        Assert.DoesNotContain(clientIp, rendered, StringComparison.Ordinal);
+        Assert.Contains(ExpectedIpHash(clientIp, pepper), rendered, StringComparison.Ordinal);
+        Assert.Contains("ClientIpHash", rendered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_AccessDeniedLog_UsesIpHashAndOmitsRawClientIp()
+    {
+        const string clientIp = "203.0.113.10";
+        const string pepper = "unit-test-visit-log-ip-hash-pepper-with-enough-entropy";
+        var fixture = CreateFixture();
+        string proof = await CreateEncodedProofAsync(fixture.Service, clientIp);
+        var context = CreatePowContext(clientIp, proof, new Dictionary<string, string?>
+        {
+            ["VisitLog:IpHashPepper"] = pepper
+        });
+        var logger = new CapturingLogger();
+
+        IActionResult? result = await PowValidationLogic.ValidateAsync(
+            context,
+            logger,
+            new RejectingPowService(),
+            fixture.Governor);
+
+        Assert.IsType<UnauthorizedObjectResult>(result);
+        string rendered = Assert.Single(logger.Messages);
+        Assert.DoesNotContain(clientIp, rendered, StringComparison.Ordinal);
+        Assert.Contains(ExpectedIpHash(clientIp, pepper), rendered, StringComparison.Ordinal);
+        Assert.Contains("ClientIpHash", rendered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PowValidationLogic_LoggingContract_DoesNotPrintRawClientIp()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Filters/PowValidationLogic.cs");
+        string hashing = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Security/VisitLogIpHashing.cs");
+        string crawlerDetector = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CrawlerDetectorService.cs");
+        string userService = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+
+        Assert.DoesNotContain("| IP: {IP}", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("LogAccessDenied(logger, clientIp,", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("clientIp, httpContext.TraceIdentifier", source, StringComparison.Ordinal);
+        Assert.Contains("ClientIpHash", source, StringComparison.Ordinal);
+        Assert.Contains("VisitLog:IpHashPepper", hashing, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("{IP}", crawlerDetector, StringComparison.Ordinal);
+        Assert.DoesNotContain("{IpAddress}", userService, StringComparison.Ordinal);
+        Assert.Contains("ClientIpHash", crawlerDetector, StringComparison.Ordinal);
+        Assert.Contains("ClientIpHash", userService, StringComparison.Ordinal);
+    }
+
     private static PowFixture CreateFixture()
     {
         var cache = new OneShotCache();
@@ -124,15 +198,33 @@ public sealed class PowValidationLogicTests
         return EncodeBinaryProof(request);
     }
 
-    private static DefaultHttpContext CreatePowContext(string remoteIp, string proof)
+    private static DefaultHttpContext CreatePowContext(
+        string remoteIp,
+        string proof,
+        IReadOnlyDictionary<string, string?>? configurationValues = null)
     {
+        var services = new ServiceCollection();
+        if (configurationValues is not null)
+        {
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(configurationValues)
+                .Build();
+            services.AddSingleton(configuration);
+        }
+
         var context = new DefaultHttpContext
         {
-            RequestServices = new ServiceCollection().BuildServiceProvider()
+            RequestServices = services.BuildServiceProvider()
         };
         context.Connection.RemoteIpAddress = IPAddress.Parse(remoteIp);
         context.Request.Headers["X-Fsus-Pow-Proof"] = proof;
         return context;
+    }
+
+    private static string ExpectedIpHash(string ip, string pepper)
+    {
+        byte[] key = SHA256.HashData(Encoding.UTF8.GetBytes(pepper));
+        return Convert.ToHexStringLower(HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(ip)));
     }
 
     private static string EncodeBinaryProof(VirtualPowRequest request)
@@ -210,6 +302,36 @@ public sealed class PowValidationLogicTests
 
         public Task<bool> VerifyAsync(IPowRequest req, string clientIp)
             => throw new OverflowException("unit pow failure");
+    }
+
+    private sealed class RejectingPowService : IPowService
+    {
+        public Task<PowChallenge> GenerateChallengeAsync(string clientIp)
+            => throw new NotSupportedException();
+
+        public Task<bool> VerifyAsync(IPowRequest req, string clientIp)
+            => Task.FromResult(false);
+    }
+
+    private sealed class CapturingLogger : ILogger
+    {
+        public List<string> Messages { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull
+            => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Messages.Add(formatter(state, exception));
+        }
     }
 
     private sealed class OneShotCache : IUnifiedCache

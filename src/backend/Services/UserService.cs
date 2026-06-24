@@ -1047,8 +1047,8 @@ public partial class UserService(
     [LoggerMessage(EventId = 1, Level = LogLevel.Warning, Message = "匿名账号初始化竞态冲突 | AccountSubject: {AccountSubject}")]
     private partial void LogRegistrationConflict(string accountSubject);
 
-    [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "登录验证未通过 | AccountSubject: {AccountSubject} | IP: {IpAddress}")]
-    private partial void LogLoginFailure(string accountSubject, string ipAddress);
+    [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "登录验证未通过 | AccountSubject: {AccountSubject} | ClientIpHash: {ClientIpHash}")]
+    private partial void LogLoginFailure(string accountSubject, string clientIpHash);
 
     [LoggerMessage(EventId = 3, Level = LogLevel.Information, Message = "封禁账号登录 | AccountSubject: {AccountSubject}")]
     private partial void LogBannedAccountLogin(string accountSubject);

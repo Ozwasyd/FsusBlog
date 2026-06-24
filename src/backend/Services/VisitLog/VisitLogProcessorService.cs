@@ -1,12 +1,11 @@
 ﻿using System.Diagnostics;
 using System.Net;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Channels;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using IP2Location;
 using Microsoft.Extensions.Configuration;
@@ -69,7 +68,6 @@ public class VisitLogProcessorService : BackgroundService
 {
     private const int BatchSize = 500;
     private const int MaxIpLength = 64;
-    private const string VisitLogIpHashPepperKey = "VisitLog:IpHashPepper";
     private const string UnknownRegion = "Unknown";
     internal static readonly TimeSpan FlushWindow = TimeSpan.FromMilliseconds(200);
     private static readonly long FlushWindowStopwatchTicks = Math.Max(1, (long)(FlushWindow.TotalSeconds * Stopwatch.Frequency));
@@ -89,7 +87,7 @@ public class VisitLogProcessorService : BackgroundService
         _channel = channel;
         _serviceProvider = serviceProvider;
         _logger = logger;
-        _ipHashKey = CreateIpHashKey(serviceProvider.GetService<IConfiguration>());
+        _ipHashKey = VisitLogIpHashing.CreateKey(serviceProvider.GetService<IConfiguration>());
         _ipPool = ipPool;
     }
 
@@ -398,18 +396,7 @@ public class VisitLogProcessorService : BackgroundService
     }
 
     private string HashIp(string ip)
-        => Convert.ToHexStringLower(HMACSHA256.HashData(_ipHashKey, Encoding.UTF8.GetBytes(ip)));
-
-    private static byte[] CreateIpHashKey(IConfiguration? configuration)
-    {
-        string? pepper = configuration?[VisitLogIpHashPepperKey];
-        if (string.IsNullOrWhiteSpace(pepper) || pepper.Trim().Length < 32)
-        {
-            throw new InvalidOperationException("VisitLog:IpHashPepper must be configured with at least 32 characters.");
-        }
-
-        return SHA256.HashData(Encoding.UTF8.GetBytes(pepper.Trim()));
-    }
+        => VisitLogIpHashing.HashIp(ip, _ipHashKey);
 
     internal static bool TryClassifyLocalNetwork(string ip, out string region)
     {
