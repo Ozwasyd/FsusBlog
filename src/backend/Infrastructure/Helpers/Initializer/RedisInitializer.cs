@@ -31,23 +31,90 @@ public static class RedisInitializer
         redisOptions.AsyncTimeout = 15000;
         redisOptions.SyncTimeout = 15000;
 
-        // 核心性能优化：延迟+异步连接。
-        // 不要在 ConfigureServices 阶段同步阻塞主线程。使用 Lazy 包装异步连接，
-        // 确保应用能瞬间启动并响应 K8s 的 Liveness 探针，直到第一次实际调用才建立连接。
-        var lazyMultiplexer = new Lazy<Task<IConnectionMultiplexer>>(
-            async () => await ConnectionMultiplexer.ConnectAsync(redisOptions)
-        );
-
-        // 注册工厂方法，解析时解包 Task
-        services.AddSingleton(sp => lazyMultiplexer.Value.GetAwaiter().GetResult());
+        var multiplexerHolder = new RedisConnectionMultiplexerHolder();
+        services.AddSingleton(multiplexerHolder);
+        services.AddSingleton<IRedisConnectionMultiplexerConnector, StackExchangeRedisConnectionMultiplexerConnector>();
+        services.AddHostedService(sp => new RedisMultiplexerHostedService(
+            redisOptions,
+            multiplexerHolder,
+            sp.GetRequiredService<IRedisConnectionMultiplexerConnector>(),
+            sp.GetRequiredService<ILogger<RedisMultiplexerHostedService>>()));
+        services.AddSingleton<IConnectionMultiplexer>(_ => multiplexerHolder.Current);
 
         var instanceName = configuration.GetSection("RedisOptions:InstanceName").Value ?? "FsusBlog_";
 
         services.AddStackExchangeRedisCache(options =>
         {
-            // 通过 ConnectionMultiplexerFactory 共享底层被延迟创建的连接实例
-            options.ConnectionMultiplexerFactory = () => lazyMultiplexer.Value;
+            options.ConnectionMultiplexerFactory = () => multiplexerHolder.WaitAsync();
             options.InstanceName = instanceName;
         });
     }
+}
+
+internal interface IRedisConnectionMultiplexerConnector
+{
+    Task<IConnectionMultiplexer> ConnectAsync(ConfigurationOptions options);
+}
+
+internal sealed class StackExchangeRedisConnectionMultiplexerConnector : IRedisConnectionMultiplexerConnector
+{
+    public async Task<IConnectionMultiplexer> ConnectAsync(ConfigurationOptions options)
+        => await ConnectionMultiplexer.ConnectAsync(options);
+}
+
+internal sealed class RedisConnectionMultiplexerHolder : IDisposable
+{
+    private readonly TaskCompletionSource<IConnectionMultiplexer> _ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private IConnectionMultiplexer? _multiplexer;
+
+    public IConnectionMultiplexer Current
+        => _multiplexer ?? throw new InvalidOperationException("redis_multiplexer_not_initialized");
+
+    public Task<IConnectionMultiplexer> WaitAsync()
+        => _ready.Task;
+
+    public void Set(IConnectionMultiplexer multiplexer)
+    {
+        _multiplexer = multiplexer;
+        _ready.TrySetResult(multiplexer);
+    }
+
+    public void SetException(Exception exception)
+        => _ready.TrySetException(exception);
+
+    public void Dispose()
+        => _multiplexer?.Dispose();
+}
+
+internal sealed partial class RedisMultiplexerHostedService(
+    ConfigurationOptions options,
+    RedisConnectionMultiplexerHolder holder,
+    IRedisConnectionMultiplexerConnector connector,
+    ILogger<RedisMultiplexerHostedService> logger) : IHostedService
+{
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            IConnectionMultiplexer multiplexer = await connector.ConnectAsync(options);
+            cancellationToken.ThrowIfCancellationRequested();
+            holder.Set(multiplexer);
+        }
+        catch (Exception ex)
+        {
+            holder.SetException(ex);
+            LogRedisConnectFailed(logger, ex);
+            throw;
+        }
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        holder.Dispose();
+        return Task.CompletedTask;
+    }
+
+    [LoggerMessage(EventId = 3101, Level = LogLevel.Critical, Message = "Redis multiplexer startup connection failed")]
+    private static partial void LogRedisConnectFailed(ILogger logger, Exception exception);
 }
