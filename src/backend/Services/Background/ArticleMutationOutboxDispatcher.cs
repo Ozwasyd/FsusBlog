@@ -250,17 +250,41 @@ public sealed class ArticleMutationOutboxDispatcher(
         string status = nextRetryCount >= PoisonRetryThreshold ? "poison" : "pending";
         DateTime nextRetryAt = timeProvider.GetUtcNow().UtcDateTime.Add(ComputeBackoff(nextRetryCount));
         string lastError = NormalizeLastError(error);
-        await dbGate.ExecuteAsync(
+        int updatedRows = await dbGate.ExecuteAsync(
             "article-outbox-retry",
-            gateCt => db.Updateable<ArticleMutationOutboxEvent>()
-                .SetColumns(e => e.Status == status)
-                .SetColumns(e => e.RetryCount == nextRetryCount)
-                .SetColumns(e => e.NextRetryAt == nextRetryAt)
-                .SetColumns(e => e.LastError == lastError)
-                .Where(e => e.Id == item.Id)
-                .ExecuteCommandAsync(gateCt),
+            gateCt => db.Ado.ExecuteCommandAsync(
+                """
+                UPDATE article_mutation_outbox
+                SET retry_count = retry_count + 1,
+                    status = CASE
+                        WHEN retry_count + 1 >= @PoisonRetryThreshold THEN 'poison'
+                        ELSE 'pending'
+                    END,
+                    next_retry_at = @NextRetryAt,
+                    last_error = @LastError
+                WHERE id = @Id
+                  AND retry_count = @ExpectedRetryCount
+                  AND status = 'processing';
+                """,
+                new SugarParameter("@Id", item.Id),
+                new SugarParameter("@ExpectedRetryCount", item.RetryCount),
+                new SugarParameter("@PoisonRetryThreshold", PoisonRetryThreshold),
+                new SugarParameter("@NextRetryAt", nextRetryAt),
+                new SugarParameter("@LastError", lastError)),
             _ => Task.FromResult(0),
             cancellationToken).ConfigureAwait(false);
+        if (updatedRows == 0)
+        {
+            logger.LogWarning(
+                "article-mutation-outbox-retry-stale {OutboxId} {ArticleId} {EventType} {ExpectedRetryCount} {Error}",
+                item.Id,
+                item.AggregateId,
+                item.EventType,
+                item.RetryCount,
+                lastError);
+            return false;
+        }
+
         logger.LogWarning(
             exception,
             "article-mutation-outbox-retry {OutboxId} {ArticleId} {EventType} {RetryCount} {Status} {Error}",

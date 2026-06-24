@@ -39,9 +39,11 @@ public sealed class PublicContentInvalidationFlowTests
         Assert.Contains("if (!replay.IsSuccess)", processOne, StringComparison.Ordinal);
         Assert.Contains("return await MarkRetryAsync", processOne, StringComparison.Ordinal);
         Assert.Contains("\"article-outbox-retry\"", dispatcher, StringComparison.Ordinal);
-        Assert.Contains(".SetColumns(e => e.RetryCount == nextRetryCount)", dispatcher, StringComparison.Ordinal);
-        Assert.Contains(".SetColumns(e => e.NextRetryAt == nextRetryAt)", dispatcher, StringComparison.Ordinal);
-        Assert.Contains(".SetColumns(e => e.LastError == lastError)", dispatcher, StringComparison.Ordinal);
+        Assert.Contains("retry_count = retry_count + 1", dispatcher, StringComparison.Ordinal);
+        Assert.Contains("retry_count = @ExpectedRetryCount", dispatcher, StringComparison.Ordinal);
+        Assert.Contains("status = 'processing'", dispatcher, StringComparison.Ordinal);
+        Assert.Contains("if (updatedRows == 0)", dispatcher, StringComparison.Ordinal);
+        Assert.DoesNotContain(".SetColumns(e => e.RetryCount == nextRetryCount)", dispatcher, StringComparison.Ordinal);
 
         int replay = processOne.IndexOf("ArticleMutationReplayResult replay = await coordinator.ReplayOutboxAsync", StringComparison.Ordinal);
         int resultGuard = processOne.IndexOf("if (!replay.IsSuccess)", StringComparison.Ordinal);
