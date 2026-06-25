@@ -35,6 +35,9 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
             "group.MapGet(\"/auth/me\"");
         Assert.Contains(".RequireAdminPermission(AdminPermissions.AdminManage)", adminBlock, StringComparison.Ordinal);
         Assert.DoesNotContain("ClearTokenCookies", adminBlock, StringComparison.Ordinal);
+        Assert.Contains("AdminSessionRevokeResult.Conflict", adminBlock, StringComparison.Ordinal);
+        Assert.Contains("ErrorCode.Conflict", adminBlock, StringComparison.Ordinal);
+        Assert.Contains("StatusCodes.Status409Conflict", adminBlock, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -50,6 +53,51 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
         AdminSession session = await db.Queryable<AdminSession>().SingleAsync(s => s.SessionId == "current");
         Assert.NotNull(session.RevokedAtUtc);
         Assert.Equal("logout", session.RevokeReason);
+    }
+
+    [Fact]
+    public void AdminSessionEntity_ExposesRowVersionForRevokeGuards()
+    {
+        Assert.True(typeof(AdminSession).GetProperty("RowVersion") is { });
+
+        string entity = BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/AdminSession.cs");
+        Assert.Contains("public string? RowVersion", entity, StringComparison.Ordinal);
+        Assert.Contains("[SugarColumn(IsIgnore = true)]", entity, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AdminSessionRevoke_SourceUsesRowVersionConflictAndAudit()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");
+        string revoke = ExtractBetween(
+            source,
+            "public async Task<AdminSessionRevokeResult> RevokeAdminSessionAsync",
+            "public async Task<int> RevokeOtherAdminSessionsAsync");
+
+        Assert.Contains("LoadAdminSessionRevokeCandidateAsync", revoke, StringComparison.Ordinal);
+        Assert.Contains("TryRevokeAdminSessionAsync(candidate", revoke, StringComparison.Ordinal);
+        Assert.Contains("AdminSessionRevokeResult.Conflict", revoke, StringComparison.Ordinal);
+        Assert.Contains("WriteAdminSessionRevokeAuditAsync", revoke, StringComparison.Ordinal);
+        Assert.Contains("xmin::text = @RowVersion", source, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RevokeAdminSessionAsync_RepeatedRevokeWritesOnlyOneAuditAndPreservesFirstReason()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        Seed(db, CreateSession("current"));
+        AdminPrincipalService service = CreateService(db);
+
+        object first = await service.RevokeAdminSessionAsync(1, "current", "logout", CancellationToken.None);
+        object second = await service.RevokeAdminSessionAsync(1, "current", "forced_logout", CancellationToken.None);
+
+        Assert.Equal("Revoked", first.ToString());
+        Assert.Equal("Conflict", second.ToString());
+        AdminSession session = await db.Queryable<AdminSession>().SingleAsync(s => s.SessionId == "current");
+        Assert.Equal("logout", session.RevokeReason);
+        Assert.Equal(1, await db.Queryable<AdminAuditLog>()
+            .Where(log => log.AdminPrincipalId == 1 && log.AdminSessionId == "current" && log.Action == "admin.session.revoked")
+            .CountAsync());
     }
 
     [Fact]
@@ -143,7 +191,8 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
         PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(AdminPrincipal),
-            typeof(AdminSession));
+            typeof(AdminSession),
+            typeof(AdminAuditLog));
     }
 
     private static string ExtractBetween(string source, string start, string end)

@@ -267,7 +267,7 @@ admin 登录只接受 Passkey/Security Key assertion。成功会写入独立 `Ad
 
 admin step-up challenge 绑定 `identity_kind=admin_principal`、`admin_id`、当前 `admin_sid`、action=`admin-sensitive`、challenge token 和过期时间。complete 成功后返回 `MfaChallengeResult(verified=true, action=admin-sensitive, proofToken=...)`；proof 存储使用 `CachePolicyId.SecurityMfaProof`，key 形如 `admin:{adminId}:{adminSid}:admin-sensitive:{token}`，只能消费一次，不能跨 admin principal 或 session 使用。敏感写入继续通过 `X-Fsus-Mfa-Proof` 传递该 proof header；缺失、过期、复用或 session 不匹配返回 `428` + `MFA_PROOF_REQUIRED`。
 
-`POST /api/binary/auth/admin/logout` 会把当前 `admin_session.RevokedAtUtc` 置为当前 UTC 时间、`RevokeReason=logout`，并只清理 `AdminAccessToken` / `AdminSessionId` 及 `__Host-*` admin Cookie，不触碰普通用户 Cookie。普通用户旧未前缀 `AccessToken` / `RefreshToken` / `SessionId` 也只允许在 Development/Local 且显式 `AuthCookies:AllowLegacyPlainCookieRead=true` 时读取；生产只信任 `__Host-*`，但 logout/clear 仍删除 legacy Cookie 以帮助迁移。`POST /api/binary/auth/admin/sessions/revoke-others` 必须保留当前 `admin_sid` 对应 session。
+`POST /api/binary/auth/admin/logout` 会把当前 `admin_session.RevokedAtUtc` 置为当前 UTC 时间、`RevokeReason=logout`，并只清理 `AdminAccessToken` / `AdminSessionId` 及 `__Host-*` admin Cookie，不触碰普通用户 Cookie。普通用户旧未前缀 `AccessToken` / `RefreshToken` / `SessionId` 也只允许在 Development/Local 且显式 `AuthCookies:AllowLegacyPlainCookieRead=true` 时读取；生产只信任 `__Host-*`，但 logout/clear 仍删除 legacy Cookie 以帮助迁移。`POST /api/binary/auth/admin/sessions/{sessionId}/revoke` 使用 `admin_session` row-version guard；目标不存在返回 `NotFound`，目标已被并发撤销或版本不匹配返回 `Conflict`，成功只写一条 `admin.session.revoked` admin audit。`POST /api/binary/auth/admin/sessions/revoke-others` 必须保留当前 `admin_sid` 对应 session，并逐 session 使用同样的 row-version revoke。
 
 ### User MFA / TOTP step-up
 

@@ -327,10 +327,13 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
             }
 
-            bool revoked = await adminPrincipals.RevokeAdminSessionAsync(adminPrincipalId, sessionId, "revoked_by_admin", cancellationToken);
-            return revoked
-                ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "admin_session_not_found"), aeds);
+            AdminSessionRevokeResult revoked = await adminPrincipals.RevokeAdminSessionAsync(adminPrincipalId, sessionId, "revoked_by_admin", cancellationToken);
+            return revoked switch
+            {
+                AdminSessionRevokeResult.Revoked => BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess),
+                AdminSessionRevokeResult.Conflict => BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Conflict, "admin_session_revoke_conflict"), aeds, StatusCodes.Status409Conflict),
+                _ => BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "admin_session_not_found"), aeds)
+            };
         })
         .RequireAdminPermission(AdminPermissions.AdminManage)
         .RequireNoStoreResponse();

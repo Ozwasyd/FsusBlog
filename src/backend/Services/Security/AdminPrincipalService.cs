@@ -81,7 +81,7 @@ public interface IAdminPrincipalService
         string sessionId,
         CancellationToken cancellationToken = default);
 
-    Task<bool> RevokeAdminSessionAsync(
+    Task<AdminSessionRevokeResult> RevokeAdminSessionAsync(
         long adminPrincipalId,
         string sessionId,
         string reason,
@@ -105,6 +105,13 @@ public sealed record AdminAuthClientContext(string ClientIp, string? DeviceFinge
 }
 
 public sealed record AdminSessionTokens(string AccessToken, string SessionId, DateTime IdleExpiresAtUtc);
+
+public enum AdminSessionRevokeResult
+{
+    Revoked,
+    NotFound,
+    Conflict
+}
 
 public sealed class AdminPrincipalService(
     IFido2 fido2,
@@ -634,9 +641,12 @@ public sealed class AdminPrincipalService(
         long adminPrincipalId,
         string sessionId,
         CancellationToken cancellationToken = default)
-        => RevokeAdminSessionAsync(adminPrincipalId, sessionId, "logout", cancellationToken);
+        => LogoutAdminSessionCoreAsync(adminPrincipalId, sessionId, cancellationToken);
 
-    public async Task<bool> RevokeAdminSessionAsync(
+    private async Task<bool> LogoutAdminSessionCoreAsync(long adminPrincipalId, string sessionId, CancellationToken cancellationToken)
+        => await RevokeAdminSessionAsync(adminPrincipalId, sessionId, "logout", cancellationToken) == AdminSessionRevokeResult.Revoked;
+
+    public async Task<AdminSessionRevokeResult> RevokeAdminSessionAsync(
         long adminPrincipalId,
         string sessionId,
         string reason,
@@ -645,18 +655,30 @@ public sealed class AdminPrincipalService(
         cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(sessionId))
         {
-            return false;
+            return AdminSessionRevokeResult.NotFound;
         }
 
         DateTime now = DateTime.UtcNow;
-        int updated = await db.Updateable<AdminSession>()
-            .SetColumns(s => s.RevokedAtUtc == now)
-            .SetColumns(s => s.RevokeReason == NormalizeRevokeReason(reason))
-            .Where(s => s.AdminPrincipalId == adminPrincipalId &&
-                s.SessionId == sessionId &&
-                s.RevokedAtUtc == null)
-            .ExecuteCommandAsync();
-        return updated > 0;
+        AdminSessionRevokeCandidate? candidate = await LoadAdminSessionRevokeCandidateAsync(adminPrincipalId, sessionId, cancellationToken);
+        if (candidate is null)
+        {
+            return AdminSessionRevokeResult.NotFound;
+        }
+
+        if (candidate.RevokedAtUtc.HasValue)
+        {
+            return AdminSessionRevokeResult.Conflict;
+        }
+
+        string normalizedReason = NormalizeRevokeReason(reason);
+        bool revoked = await TryRevokeAdminSessionAsync(candidate, now, normalizedReason, cancellationToken);
+        if (!revoked)
+        {
+            return AdminSessionRevokeResult.Conflict;
+        }
+
+        await WriteAdminSessionRevokeAuditAsync(adminPrincipalId, sessionId, normalizedReason, now, cancellationToken);
+        return AdminSessionRevokeResult.Revoked;
     }
 
     public async Task<int> RevokeOtherAdminSessionsAsync(
@@ -671,14 +693,135 @@ public sealed class AdminPrincipalService(
         }
 
         DateTime now = DateTime.UtcNow;
-        return await db.Updateable<AdminSession>()
-            .SetColumns(s => s.RevokedAtUtc == now)
-            .SetColumns(s => s.RevokeReason == "revoke_others")
-            .Where(s => s.AdminPrincipalId == adminPrincipalId &&
-                s.SessionId != currentSessionId &&
-                s.RevokedAtUtc == null)
-            .ExecuteCommandAsync();
+        List<AdminSessionRevokeCandidate> candidates = await LoadOtherActiveAdminSessionRevokeCandidatesAsync(
+            adminPrincipalId,
+            currentSessionId,
+            cancellationToken);
+
+        int revoked = 0;
+        foreach (AdminSessionRevokeCandidate candidate in candidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (await TryRevokeAdminSessionAsync(candidate, now, "revoke_others", cancellationToken))
+            {
+                await WriteAdminSessionRevokeAuditAsync(adminPrincipalId, candidate.SessionId, "revoke_others", now, cancellationToken);
+                revoked++;
+            }
+        }
+
+        return revoked;
     }
+
+    private async Task<AdminSessionRevokeCandidate?> LoadAdminSessionRevokeCandidateAsync(
+        long adminPrincipalId,
+        string sessionId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT sessionid,
+                   revokedatutc,
+                   xmin::text AS row_version
+            FROM admin_session
+            WHERE adminprincipalid = @AdminPrincipalId
+              AND sessionid = @SessionId;
+            """,
+            new SugarParameter("@AdminPrincipalId", adminPrincipalId),
+            new SugarParameter("@SessionId", sessionId));
+
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        return new AdminSessionRevokeCandidate(
+            reader.GetString(0),
+            reader.IsDBNull(1) ? null : reader.GetDateTime(1),
+            reader.GetString(2));
+    }
+
+    private async Task<List<AdminSessionRevokeCandidate>> LoadOtherActiveAdminSessionRevokeCandidatesAsync(
+        long adminPrincipalId,
+        string currentSessionId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var candidates = new List<AdminSessionRevokeCandidate>();
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT sessionid,
+                   revokedatutc,
+                   xmin::text AS row_version
+            FROM admin_session
+            WHERE adminprincipalid = @AdminPrincipalId
+              AND sessionid <> @CurrentSessionId
+              AND revokedatutc IS NULL;
+            """,
+            new SugarParameter("@AdminPrincipalId", adminPrincipalId),
+            new SugarParameter("@CurrentSessionId", currentSessionId));
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            candidates.Add(new AdminSessionRevokeCandidate(
+                reader.GetString(0),
+                reader.IsDBNull(1) ? null : reader.GetDateTime(1),
+                reader.GetString(2)));
+        }
+
+        return candidates;
+    }
+
+    private async Task<bool> TryRevokeAdminSessionAsync(
+        AdminSessionRevokeCandidate candidate,
+        DateTime revokedAtUtc,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        int updated = await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE admin_session
+            SET revokedatutc = @RevokedAtUtc,
+                revokereason = @Reason
+            WHERE sessionid = @SessionId
+              AND revokedatutc IS NULL
+              AND xmin::text = @RowVersion;
+            """,
+            new SugarParameter("@SessionId", candidate.SessionId),
+            new SugarParameter("@RevokedAtUtc", revokedAtUtc),
+            new SugarParameter("@Reason", reason),
+            new SugarParameter("@RowVersion", candidate.RowVersion));
+        return updated == 1;
+    }
+
+    private async Task WriteAdminSessionRevokeAuditAsync(
+        long adminPrincipalId,
+        string sessionId,
+        string reason,
+        DateTime occurredAtUtc,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var audit = new AdminAuditLog
+        {
+            AdminPrincipalId = adminPrincipalId,
+            AdminSessionId = sessionId,
+            Action = "admin.session.revoked",
+            Outcome = "success",
+            TargetType = "admin_session",
+            TargetId = sessionId,
+            IsHighImpact = true,
+            MetadataJson = JsonSerializer.Serialize(new Dictionary<string, string>
+            {
+                ["reason"] = reason
+            }),
+            OccurredAtUtc = occurredAtUtc
+        };
+        await db.Insertable(audit).ExecuteCommandAsync();
+    }
+
+    private sealed record AdminSessionRevokeCandidate(string SessionId, DateTime? RevokedAtUtc, string RowVersion);
 
     private async Task<AdminSessionTokens> CreateSessionAndTokenAsync(
         AdminPrincipal principal,

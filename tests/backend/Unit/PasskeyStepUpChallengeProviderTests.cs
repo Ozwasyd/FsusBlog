@@ -384,7 +384,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
         public Task<bool> ValidateAndConsumeAdminStepUpProofTokenAsync(long adminPrincipalId, string adminSessionId, string action, string token, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<AdminSessionSummaryDto>> GetAdminSessionsAsync(long adminPrincipalId, string currentSessionId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<bool> LogoutAdminSessionAsync(long adminPrincipalId, string sessionId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<bool> RevokeAdminSessionAsync(long adminPrincipalId, string sessionId, string reason, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<AdminSessionRevokeResult> RevokeAdminSessionAsync(long adminPrincipalId, string sessionId, string reason, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<int> RevokeOtherAdminSessionsAsync(long adminPrincipalId, string currentSessionId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 

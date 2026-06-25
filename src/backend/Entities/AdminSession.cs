@@ -41,4 +41,7 @@ public sealed class AdminSession
 
     [SugarColumn(DefaultValue = "false")]
     public bool StepUpVerified { get; set; }
+
+    [SugarColumn(IsIgnore = true)]
+    public string? RowVersion { get; set; }
 }
