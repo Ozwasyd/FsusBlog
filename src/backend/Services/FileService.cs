@@ -536,7 +536,7 @@ public sealed partial class FileService : IFileService
         string expectedPrefix = _cleanSubFolderWeb + "/";
         if (!normalizedUrl.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase))
         {
-            LogSecurityWarning(normalizedUrl);
+            LogSecurityWarning(SanitizeLogPath(normalizedUrl));
             return Task.FromResult(false);
         }
 
@@ -549,7 +549,7 @@ public sealed partial class FileService : IFileService
         string filePath = Path.GetFullPath(Path.Combine(_folderPath, relativePath.Replace('/', Path.DirectorySeparatorChar)));
         if (!filePath.StartsWith(_sandboxAbsolutePath, StringComparison.OrdinalIgnoreCase))
         {
-            LogSecurityWarning(filePath);
+            LogSecurityWarning(SanitizeLogPath(filePath));
             return Task.FromResult(false);
         }
 
@@ -1339,6 +1339,33 @@ public sealed partial class FileService : IFileService
                 && header[8] == 0x61 && header[9] == 0x76 && header[10] == 0x69 && header[11] == 0x66,
             _ => false
         };
+    }
+
+    private static string SanitizeLogPath(string value)
+    {
+        StringBuilder? builder = null;
+        for (int i = 0; i < value.Length; i++)
+        {
+            string? replacement = value[i] switch
+            {
+                '\r' => "\\r",
+                '\n' => "\\n",
+                '\t' => "\\t",
+                var ch when char.IsControl(ch) => $"\\u{(int)ch:X4}",
+                _ => null
+            };
+
+            if (replacement is null)
+            {
+                builder?.Append(value[i]);
+                continue;
+            }
+
+            builder ??= new StringBuilder(value.Length + 8).Append(value, 0, i);
+            builder.Append(replacement);
+        }
+
+        return builder?.ToString() ?? value;
     }
 
     private sealed record AssembledUploadFile(

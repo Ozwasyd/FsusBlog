@@ -7,6 +7,7 @@ using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -427,6 +428,9 @@ public sealed class FileServiceTests
     private static FileService CreateService(string root)
         => new(new TestWebHostEnvironment(root), NullLogger<FileService>.Instance);
 
+    private static FileService CreateService(string root, ILogger<FileService> logger)
+        => new(new TestWebHostEnvironment(root), logger);
+
     // ── InitUploadSessionAsync – validation guards ─────────────────────────────
 
     [Fact]
@@ -697,6 +701,28 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task DeleteImageAsync_SanitizesSecurityWarningPathBeforeLogging()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var logger = new CapturingLogger<FileService>();
+            var svc = CreateService(root, logger);
+
+            bool deleted = await svc.DeleteImageAsync("/outside\r\nINJECT\u001b[31m");
+
+            Assert.False(deleted);
+            string message = Assert.Single(logger.Messages);
+            Assert.DoesNotContain('\r', message);
+            Assert.DoesNotContain('\n', message);
+            Assert.DoesNotContain('\u001b', message);
+            Assert.Contains("\\r\\n", message, StringComparison.Ordinal);
+            Assert.Contains("\\u001B", message, StringComparison.Ordinal);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
     public async Task CompleteUploadAsync_InvalidSha256_ReturnsFail()
     {
         ResetSessionLocks();
@@ -922,6 +948,27 @@ public sealed class FileServiceTests
         public string EnvironmentName { get; set; } = "Development";
         public string ContentRootPath { get; set; } = root;
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<string> Messages { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull
+            => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Messages.Add(formatter(state, exception));
+        }
     }
 
     // ── Private static helpers via reflection ──────────────────────────────────
