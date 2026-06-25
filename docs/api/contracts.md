@@ -275,7 +275,7 @@ admin step-up challenge 绑定 `identity_kind=admin_principal`、`admin_id`、�
 
 TOTP recovery code 只允许绕过或完成 TOTP step-up；它不是账户 `Recovery Key`，不得用于匿名账号恢复、Passkey 重绑或 recovery session 签发。服务端只在 `user_mfa_profile.mfa_recovery_codes_hash` 存储 `v3$argon2id$m=65536,t=3,p=4$...` 哈希条目，并用 `user_mfa_profile.hash_version` 标记集合版本；裸 SHA-256 legacy 恢复码只允许在 2026-09-01 00:00:00Z 前消费并触发重生成，deadline 后 fail closed。非匿名 legacy 模式可继续使用 `MfaPasswordProofRequest` 支持旧密码 + 当前 TOTP/恢复码证明，但生产匿名模式必须走 header proof。
 
-MFA challenge ticket 的内部契约使用 `AccountId` 与 `AccountSubjectHash`，不再暴露或序列化 `MfaChallengeTicket.UserId`。`/api/binary/auth/mfa/challenge` 验证失败时，attempt limiter 通过 `SecurityMfaChallenge` cache policy 写入 `fail:ticket:{ticketId}`、`fail:subject:{accountSubjectHash}` 与 `fail:ip:{clientIpHash}` 三类计数；主体窗口按 stable subject hash 聚合，不按可重排的账号容器 id 聚合。audit context 字段为 `AccountId`、`AccountSubjectHash`、`TicketHash`、`ClientIpHash`、`UserAgentHash` 与失败计数，不得恢复 `UserId`。
+MFA challenge ticket 的内部契约使用 `AccountId` 与 `AccountSubjectHash`，不再暴露或序列化 `MfaChallengeTicket.UserId`。`/api/binary/auth/mfa/challenge` 验证失败时，attempt limiter 通过 `SecurityMfaChallenge` cache policy 写入 `fail:ticket:{ticketId}`、`fail:subject:{accountSubjectHash}` 与 `fail:ip:{clientIpHash}` 三类计数；这三类计数必须用统一缓存的单次 Redis Lua primitive 原子递增并返回同一 post-increment 快照，lock 决策不得混用分散递增结果。主体窗口按 stable subject hash 聚合，不按可重排的账号容器 id 聚合。audit context 字段为 `AccountId`、`AccountSubjectHash`、`TicketHash`、`ClientIpHash`、`UserAgentHash` 与失败计数，不得恢复 `UserId`。
 
 ### Recovery Key AEDS frames
 

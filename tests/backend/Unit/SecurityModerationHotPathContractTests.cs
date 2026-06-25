@@ -53,14 +53,15 @@ public sealed class SecurityModerationHotPathContractTests
     }
 
     [Fact]
-    public void MfaFailureCounters_ArePipelinedAndHashIdentityIsSpanBased()
+    public void MfaFailureCounters_UseAtomicSnapshotAndHashIdentityIsSpanBased()
     {
         string source = ReadRepoFile("src/backend/Services/Security/MfaChallengeService.cs");
         string recordFailure = ExtractBetween(source, "public async Task<bool> RecordFailureAsync", "public async Task<string> CreateProofTokenAsync");
         string hashIdentity = ExtractBetween(source, "private static string HashIdentity", "private static byte[] Base64UrlDecode");
 
-        Assert.Contains("Task.WhenAll", recordFailure, StringComparison.Ordinal);
+        Assert.Contains("IncrementManyAsync", recordFailure, StringComparison.Ordinal);
         Assert.DoesNotContain("long ticketFailures = await cache.IncrementAsync", recordFailure, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.WhenAll", recordFailure, StringComparison.Ordinal);
         Assert.DoesNotContain("Encoding.UTF8.GetBytes(value.Trim())", hashIdentity, StringComparison.Ordinal);
         Assert.Contains("Convert.ToHexStringLower", hashIdentity, StringComparison.Ordinal);
     }

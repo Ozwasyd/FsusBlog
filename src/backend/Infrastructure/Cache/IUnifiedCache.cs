@@ -36,6 +36,8 @@ public interface IUnifiedCache
     Task<bool> TrySetStringIfValueAsync(CachePolicyId policyId, string identity, string value, string compareIdentity, string expectedCompareValue, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("This cache implementation does not support compare-and-set string writes.");
     Task<long> IncrementAsync(CachePolicyId policyId, string identity, long value = 1, CancellationToken cancellationToken = default);
+    Task<long[]> IncrementManyAsync(CachePolicyId policyId, IReadOnlyList<string> identities, long value = 1, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This cache implementation does not support atomic multi-counter increments.");
     Task<long> IncrementWithExpiryAsync(CachePolicyId policyId, string identity, TimeSpan ttl, long value = 1, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("This cache implementation does not support atomic expiring counters.");
     Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default);
@@ -298,6 +300,65 @@ public sealed class UnifiedCache(
         cancellationToken.ThrowIfCancellationRequested();
         await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
         FsusObservability.RecordCacheOperation("increment", policyId.ToString(), "l2", "ok", FsusObservability.GetElapsed(startedAt));
+        return updated;
+    }
+
+    public async Task<long[]> IncrementManyAsync(
+        CachePolicyId policyId,
+        IReadOnlyList<string> identities,
+        long value = 1,
+        CancellationToken cancellationToken = default)
+    {
+        if (identities.Count == 0)
+        {
+            return [];
+        }
+
+        long startedAt = Stopwatch.GetTimestamp();
+        using Activity? activity = FsusObservability.StartActivity("cache.increment_many", "cache", ActivityKind.Client);
+        FsusObservability.SetTag(activity, "fsus.cache.operation", "increment_many");
+        FsusObservability.SetTag(activity, "fsus.cache.policy", policyId.ToString());
+        cancellationToken.ThrowIfCancellationRequested();
+        RedisKey[] keys = new RedisKey[identities.Count];
+        string[] keyStrings = new string[identities.Count];
+        for (int i = 0; i < identities.Count; i++)
+        {
+            string key = BuildKey(policyId, identities[i]);
+            keyStrings[i] = key;
+            keys[i] = key;
+            memoryCache.Remove(key);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        const string script = """
+local result = {}
+for i = 1, #KEYS do
+  result[i] = redis.call('INCRBY', KEYS[i], ARGV[1])
+end
+return result
+""";
+        RedisResult result = await _db.ScriptEvaluateAsync(
+                script,
+                keys,
+                [value],
+                CommandFlags.None)
+            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        RedisResult[] values = (RedisResult[])result!;
+        if (values.Length != keys.Length)
+        {
+            throw new InvalidOperationException("Redis returned an invalid multi-counter increment result.");
+        }
+
+        long[] updated = new long[values.Length];
+        for (int i = 0; i < keys.Length; i++)
+        {
+            updated[i] = (long)values[i];
+            await RegisterKeyAsync(policyId, keyStrings[i]).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        FsusObservability.RecordCacheOperation("increment_many", policyId.ToString(), "l2", "ok", FsusObservability.GetElapsed(startedAt));
         return updated;
     }
 

@@ -270,6 +270,54 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    public async Task IncrementManyAsync_UsesSingleRedisScriptAndReturnsAtomicSnapshot()
+    {
+        using var memory = new RemoveTrackingMemoryCache();
+        var db = Substitute.For<IDatabase>();
+        UnifiedCache cache = CreateCache(memory, db);
+        string ticketKey = cache.BuildKey(CachePolicyId.SecurityMfaChallenge, "fail:ticket:t1");
+        string subjectKey = cache.BuildKey(CachePolicyId.SecurityMfaChallenge, "fail:subject:s1");
+        string ipKey = cache.BuildKey(CachePolicyId.SecurityMfaChallenge, "fail:ip:i1");
+        string? capturedScript = null;
+        RedisKey[]? capturedKeys = null;
+        RedisValue[]? capturedValues = null;
+        db.ScriptEvaluateAsync(
+                Arg.Any<string>(),
+                Arg.Any<RedisKey[]>(),
+                Arg.Any<RedisValue[]>(),
+                Arg.Any<CommandFlags>())
+            .Returns(call =>
+            {
+                capturedScript = call.ArgAt<string>(0);
+                capturedKeys = call.ArgAt<RedisKey[]>(1);
+                capturedValues = call.ArgAt<RedisValue[]>(2);
+                return Task.FromResult(RedisResult.Create(
+                    [
+                        RedisResult.Create((RedisValue)1L),
+                        RedisResult.Create((RedisValue)10L),
+                        RedisResult.Create((RedisValue)3L)
+                    ]));
+            });
+
+        long[] updated = await cache.IncrementManyAsync(
+            CachePolicyId.SecurityMfaChallenge,
+            ["fail:ticket:t1", "fail:subject:s1", "fail:ip:i1"]);
+
+        Assert.Equal([1L, 10L, 3L], updated);
+        Assert.NotNull(capturedScript);
+        Assert.Contains("INCRBY", capturedScript, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(capturedKeys);
+        Assert.Equal([new RedisKey(ticketKey), new RedisKey(subjectKey), new RedisKey(ipKey)], capturedKeys);
+        Assert.NotNull(capturedValues);
+        Assert.Equal((RedisValue)1L, capturedValues![0]);
+        Assert.Equal(ipKey, memory.RemovedKeys.Last());
+        await db.DidNotReceive().StringIncrementAsync(
+            Arg.Any<RedisKey>(),
+            Arg.Any<long>(),
+            Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
     public async Task IncrementWithExpiryAsync_UsesAtomicRedisScriptWithExpiryAndBypassesL1()
     {
         using var memory = new RemoveTrackingMemoryCache();
@@ -621,6 +669,7 @@ public sealed class UnifiedCacheTests
     {
         public bool Removed { get; private set; }
         public object? RemovedKey { get; private set; }
+        public List<object> RemovedKeys { get; } = [];
 
         public bool TryGetValue(object key, out object? value)
         {
@@ -635,6 +684,7 @@ public sealed class UnifiedCacheTests
         {
             Removed = true;
             RemovedKey = key;
+            RemovedKeys.Add(key);
         }
 
         public void Dispose()

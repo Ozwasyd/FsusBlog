@@ -75,13 +75,13 @@ public sealed class MfaChallengeService(IUnifiedCache cache, ILogger<MfaChalleng
         string ticketIdentity = string.Concat("fail:ticket:", ticket.TicketId);
         string subjectIdentity = string.Concat("fail:subject:", accountSubjectHash);
         string ipIdentity = string.Concat("fail:ip:", clientIpHash);
-        Task<long> ticketFailuresTask = cache.IncrementAsync(CachePolicyId.SecurityMfaChallenge, ticketIdentity);
-        Task<long> subjectFailuresTask = cache.IncrementAsync(CachePolicyId.SecurityMfaChallenge, subjectIdentity);
-        Task<long> ipFailuresTask = cache.IncrementAsync(CachePolicyId.SecurityMfaChallenge, ipIdentity);
-        await Task.WhenAll(ticketFailuresTask, subjectFailuresTask, ipFailuresTask).ConfigureAwait(false);
-        long ticketFailures = ticketFailuresTask.Result;
-        long subjectFailures = subjectFailuresTask.Result;
-        long ipFailures = ipFailuresTask.Result;
+        long[] failures = await cache.IncrementManyAsync(
+                CachePolicyId.SecurityMfaChallenge,
+                [ticketIdentity, subjectIdentity, ipIdentity])
+            .ConfigureAwait(false);
+        long ticketFailures = failures[0];
+        long subjectFailures = failures[1];
+        long ipFailures = failures[2];
 
         bool locked = ticketFailures >= MaxTicketFailures ||
             subjectFailures >= MaxSubjectWindowFailures ||

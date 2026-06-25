@@ -58,6 +58,56 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
+    public async Task RecordFailureAsync_UsesSingleAtomicCounterSnapshot()
+    {
+        var cache = new RecordingCounterCache();
+        var service = new MfaChallengeService(cache, NullLogger<MfaChallengeService>.Instance);
+
+        await service.RecordFailureAsync(
+            new MfaChallengeTicket
+            {
+                TicketId = "ticket-atomic",
+                AccountId = 42,
+                AccountSubjectHash = "subject-atomic",
+                Type = "action",
+                Action = "passkey.delete"
+            },
+            "203.0.113.10",
+            "unit-test");
+
+        string[] batch = Assert.Single(cache.AtomicIncrementBatches);
+        Assert.Equal(
+            ["fail:ticket:ticket-atomic", "fail:subject:subject-atomic"],
+            batch.Take(2).ToArray());
+        Assert.StartsWith("fail:ip:", batch[2], StringComparison.Ordinal);
+        Assert.Equal(0, cache.SingleIncrementCalls);
+    }
+
+    [Fact]
+    public async Task RecordFailureAsync_LockDecisionUsesAtomicSubjectCount()
+    {
+        var cache = new RecordingCounterCache();
+        cache.Counters["fail:subject:subject-lock"] = 9;
+        var service = new MfaChallengeService(cache, NullLogger<MfaChallengeService>.Instance);
+
+        bool locked = await service.RecordFailureAsync(
+            new MfaChallengeTicket
+            {
+                TicketId = "ticket-lock",
+                AccountId = 42,
+                AccountSubjectHash = "subject-lock",
+                Type = "action",
+                Action = "passkey.delete"
+            },
+            "203.0.113.10",
+            "unit-test");
+
+        Assert.True(locked);
+        Assert.Equal(10, cache.Counters["fail:subject:subject-lock"]);
+        Assert.Contains("ticket-lock", cache.Removed);
+    }
+
+    [Fact]
     public void MfaFailureLimiter_UsesStableAccountSubjectHashAndAccountAuditField()
     {
         string source = ReadSource("src/backend/Services/Security/MfaChallengeService.cs");
@@ -99,6 +149,8 @@ public sealed class MfaChallengeServiceTests
     {
         public Dictionary<string, long> Counters { get; } = new(StringComparer.Ordinal);
         public HashSet<string> Removed { get; } = new(StringComparer.Ordinal);
+        public List<string[]> AtomicIncrementBatches { get; } = [];
+        public int SingleIncrementCalls { get; private set; }
 
         public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
             => Task.FromResult(new CacheReadResult<T>(false, default));
@@ -123,10 +175,27 @@ public sealed class MfaChallengeServiceTests
 
         public Task<long> IncrementAsync(CachePolicyId policyId, string identity, long value = 1, CancellationToken cancellationToken = default)
         {
+            SingleIncrementCalls++;
             Counters.TryGetValue(identity, out long current);
             current += value;
             Counters[identity] = current;
             return Task.FromResult(current);
+        }
+
+        public Task<long[]> IncrementManyAsync(CachePolicyId policyId, IReadOnlyList<string> identities, long value = 1, CancellationToken cancellationToken = default)
+        {
+            AtomicIncrementBatches.Add([.. identities]);
+            long[] values = new long[identities.Count];
+            for (int i = 0; i < identities.Count; i++)
+            {
+                string identity = identities[i];
+                Counters.TryGetValue(identity, out long current);
+                current += value;
+                Counters[identity] = current;
+                values[i] = current;
+            }
+
+            return Task.FromResult(values);
         }
 
         public Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default)
