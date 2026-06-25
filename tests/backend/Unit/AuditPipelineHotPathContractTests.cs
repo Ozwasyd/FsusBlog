@@ -86,6 +86,16 @@ public sealed class AuditPipelineHotPathContractTests
     }
 
     [Fact]
+    public void AuditTamperEvidence_SourceFormatsFallbackChainIdWithInvariantCulture()
+    {
+        string source = ReadRepoFile("src/backend/Infrastructure/Audit/AuditTamperEvidence.cs");
+        string signMethod = ExtractMethodBlock(source, "public static AuditTamperEvidenceResult Sign");
+
+        Assert.Contains("OccurredAtUtc.ToUniversalTime().ToString(\"yyyyMMdd\", CultureInfo.InvariantCulture)", signMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("ToString(\"yyyyMMdd\")", signMethod, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AuditTamperEvidence_SignatureMatchesCanonicalGolden()
     {
         var occurredAt = new DateTime(2026, 6, 14, 12, 0, 0, DateTimeKind.Utc);
