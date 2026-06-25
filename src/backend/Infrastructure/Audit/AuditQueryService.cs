@@ -245,7 +245,7 @@ public sealed class AuditQueryService(
         string? expectedPrevHash = await ResolvePreviousHashAsync(row, cancellationToken);
         return string.IsNullOrWhiteSpace(row.PrevHash)
             ? expectedPrevHash is null
-            : string.Equals(row.PrevHash, expectedPrevHash, StringComparison.Ordinal);
+            : AuditTamperEvidence.FixedTimeEqualsHexSha256(row.PrevHash, expectedPrevHash);
     }
 
     private async Task<string?> ResolvePreviousHashAsync(AuditLog row, CancellationToken cancellationToken)

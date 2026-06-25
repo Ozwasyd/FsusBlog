@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -30,6 +31,23 @@ public sealed class AuditPipelineHotPathContractTests
         Assert.DoesNotContain("JsonSerializer.Serialize(new", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Encoding.UTF8.GetBytes(BuildCanonical", source, StringComparison.Ordinal);
         Assert.Contains("Convert.ToHexStringLower", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AuditTamperEvidence_SourceComparesTamperHashesWithFixedTimeHex()
+    {
+        string evidenceSource = ReadRepoFile("src/backend/Infrastructure/Audit/AuditTamperEvidence.cs");
+        string querySource = ReadRepoFile("src/backend/Infrastructure/Audit/AuditQueryService.cs");
+        string verifyMethod = ExtractMethodBlock(evidenceSource, "public static bool Verify");
+        string verifyWithChainMethod = ExtractMethodBlock(querySource, "private async Task<bool> VerifyWithChainAsync");
+
+        Assert.Contains("CryptographicOperations.FixedTimeEquals", evidenceSource, StringComparison.Ordinal);
+        Assert.Contains("FixedTimeEqualsHexSha256(log.RecordHash, evidence.RecordHash)", verifyMethod, StringComparison.Ordinal);
+        Assert.Contains("FixedTimeEqualsHexSha256(log.RecordMac, evidence.RecordMac)", verifyMethod, StringComparison.Ordinal);
+        Assert.Contains("AuditTamperEvidence.FixedTimeEqualsHexSha256(row.PrevHash, expectedPrevHash)", verifyWithChainMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("string.Equals(log.RecordHash", verifyMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("string.Equals(log.RecordMac", verifyMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("string.Equals(row.PrevHash", verifyWithChainMethod, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -95,6 +113,21 @@ public sealed class AuditPipelineHotPathContractTests
     }
 
     [Fact]
+    public void AuditTamperEvidence_VerifyUsesFixedLengthHexComparison()
+    {
+        byte[] key = Encoding.UTF8.GetBytes("secret");
+        AuditRecord record = BuildTamperRecord();
+        AuditTamperEvidenceResult result = AuditTamperEvidence.Sign(record, key);
+        AuditLog validLog = ToAuditLog(record, result);
+
+        Assert.True(AuditTamperEvidence.Verify(validLog, key));
+        Assert.True(AuditTamperEvidence.FixedTimeEqualsHexSha256(result.RecordHash, result.RecordHash.ToUpperInvariant()));
+        Assert.False(AuditTamperEvidence.FixedTimeEqualsHexSha256(result.RecordHash, result.RecordHash[..^2]));
+        Assert.False(AuditTamperEvidence.Verify(ToAuditLog(record, result, recordHash: result.RecordHash[..^2]), key));
+        Assert.False(AuditTamperEvidence.Verify(ToAuditLog(record, result, recordMac: result.RecordMac![..^2]), key));
+    }
+
+    [Fact]
     public void AuditTamperEvidence_FallbackChainIdIsInvariantAcrossCultures()
     {
         string[] chainIds = [];
@@ -148,6 +181,42 @@ public sealed class AuditPipelineHotPathContractTests
             Outcome: AuditOutcomeCatalog.Success,
             Severity: AuditSeverityCatalog.Info,
             PrevHash: "prev");
+
+    private static AuditLog ToAuditLog(
+        AuditRecord record,
+        AuditTamperEvidenceResult evidence,
+        string? recordHash = null,
+        string? recordMac = null)
+        => new()
+        {
+            Source = record.Source,
+            Type = record.Type,
+            OccurredAtUtc = record.OccurredAtUtc,
+            EventInfo = record.EventInfo,
+            ContextPayload = record.ContextPayload,
+            Action = record.Action,
+            Outcome = record.Outcome,
+            Severity = record.Severity,
+            ActorType = record.ActorType,
+            ActorId = record.ActorId,
+            ActorRole = record.ActorRole,
+            TargetType = record.TargetType,
+            TargetId = record.TargetId,
+            IsHighValue = record.IsHighValue,
+            TraceId = record.TraceId,
+            RequestPath = record.RequestPath,
+            RequestMethod = record.RequestMethod,
+            IpHash = record.IpHash,
+            UserAgentHash = record.UserAgentHash,
+            SessionIdHash = record.SessionIdHash,
+            DeviceFingerprintHash = record.DeviceFingerprintHash,
+            ReasonCode = record.ReasonCode,
+            ContextJson = record.ContextJson,
+            ChainId = evidence.ChainId,
+            PrevHash = record.PrevHash,
+            RecordHash = recordHash ?? evidence.RecordHash,
+            RecordMac = recordMac ?? evidence.RecordMac
+        };
 
     private static T RunWithCulture<T>(string cultureName, Func<T> action)
     {

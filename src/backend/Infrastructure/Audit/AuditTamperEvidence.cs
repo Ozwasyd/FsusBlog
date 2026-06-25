@@ -47,14 +47,50 @@ internal static class AuditTamperEvidence
 
         AuditRecord record = FromLog(log);
         AuditTamperEvidenceResult evidence = Sign(record with { RecordHash = null, RecordMac = null }, key);
-        if (!string.Equals(log.RecordHash, evidence.RecordHash, StringComparison.Ordinal))
+        if (!FixedTimeEqualsHexSha256(log.RecordHash, evidence.RecordHash))
         {
             return false;
         }
 
         return string.IsNullOrWhiteSpace(log.RecordMac)
             || string.IsNullOrWhiteSpace(evidence.RecordMac)
-            || string.Equals(log.RecordMac, evidence.RecordMac, StringComparison.Ordinal);
+            || FixedTimeEqualsHexSha256(log.RecordMac, evidence.RecordMac);
+    }
+
+    internal static bool FixedTimeEqualsHexSha256(string? left, string? right)
+    {
+        Span<byte> leftBytes = stackalloc byte[SHA256.HashSizeInBytes];
+        Span<byte> rightBytes = stackalloc byte[SHA256.HashSizeInBytes];
+        bool leftDecoded = TryDecodeSha256Hex(left, leftBytes);
+        bool rightDecoded = TryDecodeSha256Hex(right, rightBytes);
+
+        bool matches = CryptographicOperations.FixedTimeEquals(leftBytes, rightBytes);
+        return leftDecoded & rightDecoded & matches;
+    }
+
+    private static bool TryDecodeSha256Hex(string? value, Span<byte> destination)
+    {
+        if (value is null || value.Length != SHA256.HashSizeInBytes * 2)
+        {
+            return false;
+        }
+
+        try
+        {
+            byte[] decoded = Convert.FromHexString(value);
+            if (decoded.Length != destination.Length)
+            {
+                return false;
+            }
+
+            decoded.CopyTo(destination);
+            return true;
+        }
+        catch (FormatException)
+        {
+            destination.Clear();
+            return false;
+        }
     }
 
     private static void WriteCanonical(AuditRecord record, string chainId, IBufferWriter<byte> buffer)
