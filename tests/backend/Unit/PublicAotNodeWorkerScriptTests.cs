@@ -53,6 +53,22 @@ public sealed class PublicAotNodeWorkerScriptTests
     }
 
     [Fact]
+    public void PooledWorkerPipeLoops_StartDirectlyAndPropagateCancellation()
+    {
+        string source = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotNodeSsrRenderer.cs");
+
+        Assert.DoesNotContain("Task.Run(() => ReadStdoutLoopAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.Run(() => ReadStderrLoopAsync", source, StringComparison.Ordinal);
+        Assert.Contains("_stdoutLoop = ReadStdoutLoopAsync(process, generation, _lifetimeCts.Token);", source, StringComparison.Ordinal);
+        Assert.Contains("_stderrLoop = ReadStderrLoopAsync(process, generation, _lifetimeCts.Token);", source, StringComparison.Ordinal);
+        Assert.Contains("ReadStdoutLoopAsync(Process process, int generation, CancellationToken cancellationToken)", source, StringComparison.Ordinal);
+        Assert.Contains("ReadStderrLoopAsync(Process process, int generation, CancellationToken cancellationToken)", source, StringComparison.Ordinal);
+        Assert.Contains("ReadLineAsync(cancellationToken)", source, StringComparison.Ordinal);
+        Assert.Contains("catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)", source, StringComparison.Ordinal);
+        Assert.Contains("lifetimeCts.Cancel();", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ProductionWorkerResource_RequiresPrebuiltBundle()
     {
         using var temp = new TempDirectory();

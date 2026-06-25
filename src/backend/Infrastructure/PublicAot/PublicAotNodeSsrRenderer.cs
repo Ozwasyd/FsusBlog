@@ -572,6 +572,7 @@ public sealed class PublicAotNodeSsrRenderer(
             WorkerProtocolSupportsMultiplexing ? Environment.ProcessorCount : 1,
             WorkerProtocolSupportsMultiplexing ? Environment.ProcessorCount : 1);
         private readonly ConcurrentDictionary<string, TaskCompletionSource<string>> _pending = new(StringComparer.Ordinal);
+        private CancellationTokenSource _lifetimeCts = new();
         private Process? _process;
         private Task? _stdoutLoop;
         private Task? _stderrLoop;
@@ -582,7 +583,7 @@ public sealed class PublicAotNodeSsrRenderer(
             await _sendGate.WaitAsync(cancellationToken);
             try
             {
-                EnsureStarted();
+                await EnsureStartedAsync(cancellationToken);
                 Process process = _process!;
                 string requestId = Guid.NewGuid().ToString("N");
                 var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -605,8 +606,13 @@ public sealed class PublicAotNodeSsrRenderer(
                     }
                     catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                     {
-                        Restart();
+                        await RestartAsync();
                         throw new TimeoutException("public AOT pooled SSR worker timed out");
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        await RestartAsync();
+                        throw;
                     }
                     finally
                     {
@@ -644,30 +650,23 @@ public sealed class PublicAotNodeSsrRenderer(
             }
             finally
             {
-                Interlocked.Increment(ref _generation);
-                _process.Dispose();
-                _process = null;
-                await AwaitReaderLoopsAsync(_stdoutLoop, _stderrLoop);
+                await StopCurrentWorkerAsync();
             }
         }
 
-        private void EnsureStarted()
+        private async Task EnsureStartedAsync(CancellationToken cancellationToken)
         {
             if (_process is { HasExited: false })
             {
                 return;
             }
 
-            Restart();
+            await RestartAsync(cancellationToken);
         }
 
-        private void Restart()
+        private async Task RestartAsync(CancellationToken cancellationToken = default)
         {
-            if (_process is not null)
-            {
-                TryKill(_process);
-                _process.Dispose();
-            }
+            await StopCurrentWorkerAsync();
 
             foreach (TaskCompletionSource<string> pending in _pending.Values)
             {
@@ -675,6 +674,8 @@ public sealed class PublicAotNodeSsrRenderer(
             }
             _pending.Clear();
 
+            _lifetimeCts = new CancellationTokenSource();
+            cancellationToken.ThrowIfCancellationRequested();
             ProcessStartInfo startInfo = CreateStartInfo(clientRoot, workerScript, nodeExecutable);
             startInfo.ArgumentList.Add("--worker");
             _process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
@@ -686,18 +687,41 @@ public sealed class PublicAotNodeSsrRenderer(
 
             Process process = _process;
             int generation = Interlocked.Increment(ref _generation);
-            _stdoutLoop = Task.Run(() => ReadStdoutLoopAsync(process, generation));
-            _stderrLoop = Task.Run(() => ReadStderrLoopAsync(process, generation));
+            _stdoutLoop = ReadStdoutLoopAsync(process, generation, _lifetimeCts.Token);
+            _stderrLoop = ReadStderrLoopAsync(process, generation, _lifetimeCts.Token);
             logger.LogInformation("Started public AOT pooled worker #{WorkerIndex}", index);
         }
 
-        private async Task ReadStdoutLoopAsync(Process process, int generation)
+        private async Task StopCurrentWorkerAsync()
+        {
+            Process? process = _process;
+            Task? stdoutLoop = _stdoutLoop;
+            Task? stderrLoop = _stderrLoop;
+            CancellationTokenSource lifetimeCts = _lifetimeCts;
+
+            Interlocked.Increment(ref _generation);
+            lifetimeCts.Cancel();
+            if (process is not null)
+            {
+                TryKill(process);
+                process.Dispose();
+            }
+
+            _process = null;
+            _stdoutLoop = null;
+            _stderrLoop = null;
+
+            await AwaitReaderLoopsAsync(stdoutLoop, stderrLoop);
+            lifetimeCts.Dispose();
+        }
+
+        private async Task ReadStdoutLoopAsync(Process process, int generation, CancellationToken cancellationToken)
         {
             try
             {
-                while (!process.HasExited && Volatile.Read(ref _generation) == generation)
+                while (!cancellationToken.IsCancellationRequested && !process.HasExited && Volatile.Read(ref _generation) == generation)
                 {
-                    string? line = await process.StandardOutput.ReadLineAsync();
+                    string? line = await process.StandardOutput.ReadLineAsync(cancellationToken);
                     if (line is null)
                     {
                         break;
@@ -712,19 +736,22 @@ public sealed class PublicAotNodeSsrRenderer(
                     }
                 }
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Public AOT pooled worker stdout loop failed.");
             }
         }
 
-        private async Task ReadStderrLoopAsync(Process process, int generation)
+        private async Task ReadStderrLoopAsync(Process process, int generation, CancellationToken cancellationToken)
         {
             try
             {
-                while (!process.HasExited && Volatile.Read(ref _generation) == generation)
+                while (!cancellationToken.IsCancellationRequested && !process.HasExited && Volatile.Read(ref _generation) == generation)
                 {
-                    string? line = await process.StandardError.ReadLineAsync();
+                    string? line = await process.StandardError.ReadLineAsync(cancellationToken);
                     if (line is null)
                     {
                         break;
@@ -733,6 +760,9 @@ public sealed class PublicAotNodeSsrRenderer(
                     runtimeState.RecordWorkerStderrWarning(line);
                     logger.LogWarning("Public AOT worker #{WorkerIndex}: {Message}", index, line);
                 }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
             }
             catch (Exception ex)
             {
