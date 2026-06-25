@@ -359,13 +359,13 @@ public static class WebApplicationCompositionExtensions
             return;
         }
 
-        if (ctx.File.Name.EndsWith(".js")
-            || ctx.File.Name.EndsWith(".css")
-            || ctx.File.Name.EndsWith(".wasm")
-            || ctx.File.Name.EndsWith(".woff")
-            || ctx.File.Name.EndsWith(".woff2")
-            || ctx.File.Name.EndsWith(".ttf")
-            || ctx.File.Name.EndsWith(".otf"))
+        if (ctx.File.Name.EndsWith(".js", StringComparison.OrdinalIgnoreCase)
+            || ctx.File.Name.EndsWith(".css", StringComparison.OrdinalIgnoreCase)
+            || ctx.File.Name.EndsWith(".wasm", StringComparison.OrdinalIgnoreCase)
+            || ctx.File.Name.EndsWith(".woff", StringComparison.OrdinalIgnoreCase)
+            || ctx.File.Name.EndsWith(".woff2", StringComparison.OrdinalIgnoreCase)
+            || ctx.File.Name.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase)
+            || ctx.File.Name.EndsWith(".otf", StringComparison.OrdinalIgnoreCase))
         {
             headers["Cache-Control"] = ImmutableStaticAssetCacheControl;
             headers.Remove("ETag");

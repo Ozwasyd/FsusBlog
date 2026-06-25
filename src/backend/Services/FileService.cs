@@ -54,10 +54,10 @@ public sealed partial class FileService : IFileService
         _sessionRootPath = Path.GetFullPath(Path.Combine(_env.ContentRootPath, ".upload-sessions"));
 
         string absPath = Path.GetFullPath(_folderPath);
-        _sandboxAbsolutePath = absPath.EndsWith(Path.DirectorySeparatorChar)
+        _sandboxAbsolutePath = absPath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
             ? absPath
             : absPath + Path.DirectorySeparatorChar;
-        _sessionRootAbsolutePath = _sessionRootPath.EndsWith(Path.DirectorySeparatorChar)
+        _sessionRootAbsolutePath = _sessionRootPath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
             ? _sessionRootPath
             : _sessionRootPath + Path.DirectorySeparatorChar;
 
@@ -672,7 +672,7 @@ public sealed partial class FileService : IFileService
         }
 
         string value = ext.Trim().ToLowerInvariant();
-        return value.StartsWith('.') ? value : "." + value;
+        return value.StartsWith(".", StringComparison.Ordinal) ? value : "." + value;
     }
 
     private static bool IsAllowedExtension(string extension)

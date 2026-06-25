@@ -67,6 +67,50 @@ public partial class SystemService(
     private const string Key_CompliancePoliceBadgeIconUrl = "Compliance_PoliceBadgeIconUrl";
     private const string Key_ComplianceOperatorName = "Compliance_OperatorName";
     private const string Key_ComplianceContactEmail = "Compliance_ContactEmail";
+    private static readonly string[] SeoConfigKeys =
+    [
+        Key_Title,
+        Key_Desc,
+        Key_Keywords,
+        Key_Author,
+        Key_OgImage,
+        Key_BaseUrl,
+        Key_FaviconSvgUrl,
+        Key_FaviconIcoUrl,
+        Key_FaviconPngUrl,
+        Key_AppleTouchIconUrl,
+        Key_ManifestName,
+        Key_ManifestShortName,
+        Key_PwaIcon192Url,
+        Key_PwaIcon512Url,
+        Key_PwaMaskableIconUrl,
+        Key_ThemeColor,
+        Key_BackgroundColor,
+        Key_SiteLogoUrl,
+        Key_SiteLogoDarkUrl,
+        Key_SiteWordmarkUrl,
+        Key_AdminLogoUrl,
+        Key_AdminCollapsedIconUrl,
+        Key_LoginLogoUrl,
+        Key_LoginIconUrl
+    ];
+    private static readonly string[] ComplianceConfigKeys =
+    [
+        Key_ComplianceEnabled,
+        Key_ComplianceRegionMode,
+        Key_ComplianceCopyrightOwner,
+        Key_ComplianceCopyrightStartYear,
+        Key_ComplianceCopyrightText,
+        Key_ComplianceContentLicenseName,
+        Key_ComplianceContentLicenseUrl,
+        Key_ComplianceIcpRecordNumber,
+        Key_ComplianceIcpRecordUrl,
+        Key_CompliancePoliceRecordNumber,
+        Key_CompliancePoliceRecordUrl,
+        Key_CompliancePoliceBadgeIconUrl,
+        Key_ComplianceOperatorName,
+        Key_ComplianceContactEmail
+    ];
     private const string MissingPageContent = "页面内容正在准备中，请稍后再试。";
     private const string DefaultIcpRecordUrl = "https://beian.miit.gov.cn/";
     private const string DefaultPoliceRecordUrl = "https://beian.mps.gov.cn/";
@@ -604,7 +648,7 @@ public partial class SystemService(
     private async Task<SeoConfigReadModel> LoadSeoConfigFromDbAsync(CancellationToken cancellationToken)
     {
         var query = _db.Queryable<SystemConfig>()
-            .Where(c => c.Key.StartsWith("Seo_"))
+            .Where(c => SeoConfigKeys.Contains(c.Key))
             .Select(c => new { c.Key, c.Value });
 
         var sqlObj = query.ToSql();
@@ -655,7 +699,7 @@ public partial class SystemService(
     private async Task<SiteComplianceConfigReadModel> LoadComplianceConfigFromDbAsync(CancellationToken cancellationToken)
     {
         var query = _db.Queryable<SystemConfig>()
-            .Where(c => c.Key.StartsWith("Compliance_"))
+            .Where(c => ComplianceConfigKeys.Contains(c.Key))
             .Select(c => new { c.Key, c.Value });
 
         var sqlObj = query.ToSql();

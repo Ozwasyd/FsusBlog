@@ -411,7 +411,7 @@ public sealed class ModerationRegionCatalogService(
             }
 
             string trimmed = StripComment(line).Trim();
-            if (trimmed.Length == 0 || trimmed.EndsWith(':'))
+            if (trimmed.Length == 0 || trimmed.EndsWith(":", StringComparison.Ordinal))
             {
                 continue;
             }
@@ -502,7 +502,7 @@ public sealed class ModerationRegionCatalogService(
         }
 
         string trimmed = value.Trim();
-        if (trimmed.StartsWith('[') && trimmed.EndsWith(']'))
+        if (trimmed.StartsWith("[", StringComparison.Ordinal) && trimmed.EndsWith("]", StringComparison.Ordinal))
         {
             trimmed = trimmed[1..^1];
         }

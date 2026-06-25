@@ -3215,7 +3215,7 @@ public sealed partial class SearchIndexService(
             foreach (string raw in File.ReadLines(path, Encoding.UTF8))
             {
                 string line = raw.Trim();
-                if (line.Length == 0 || line.StartsWith('#'))
+                if (line.Length == 0 || line.StartsWith("#", StringComparison.Ordinal))
                 {
                     continue;
                 }

@@ -1719,12 +1719,12 @@ public sealed class AuthoringWorkflowService(
             return LinkValidationResult.Empty;
         }
 
-        if (value.StartsWith('#'))
+        if (value.StartsWith("#", StringComparison.Ordinal))
         {
             return LinkValidationResult.Valid;
         }
 
-        if (value.StartsWith('/'))
+        if (value.StartsWith("/", StringComparison.Ordinal))
         {
             return ValidatePublicInternalPath(value);
         }
@@ -1746,12 +1746,12 @@ public sealed class AuthoringWorkflowService(
     private static bool IsAuthoringUrlAllowed(string rawUrl, bool allowMailTo)
     {
         string value = rawUrl.Trim().Trim('<', '>');
-        if (value.Length == 0 || value.StartsWith('#'))
+        if (value.Length == 0 || value.StartsWith("#", StringComparison.Ordinal))
         {
             return false;
         }
 
-        if (value.StartsWith('/'))
+        if (value.StartsWith("/", StringComparison.Ordinal))
         {
             LinkValidationResult result = ValidatePublicInternalPath(value);
             return result is LinkValidationResult.Valid or LinkValidationResult.UnknownInternalRoute;
