@@ -481,11 +481,11 @@ public sealed class AuthoringWorkflowService(
 
         int averageDwellMs = recentReads.Count == 0
             ? 0
-            : (int)Math.Round(recentReads.Average(static item => Math.Max(0, item.DwellMs)));
+            : RoundingHelper.RoundToInt(recentReads.Average(static item => Math.Max(0, item.DwellMs)));
         VisitLogEntity[] articleReads = [.. recentReads.Where(static item => item.EventType == HumanReadEventTypes.ArticleRead)];
         double readingCompletionRate = articleReads.Length == 0
             ? 0d
-            : Math.Round(articleReads.Count(static item => item.DwellMs >= 30_000) / (double)articleReads.Length, 4);
+            : RoundingHelper.Round4(articleReads.Count(static item => item.DwellMs >= 30_000) / (double)articleReads.Length);
 
         List<AuditLog> recentAotLogs = await db.Queryable<AuditLog>()
             .Where(it => it.Source == AuditSourceCatalog.PublicAot)
@@ -501,7 +501,7 @@ public sealed class AuthoringWorkflowService(
         int aotMisses = recentAotLogs.Count(static item => item.EventInfo.Contains("Public AOT cache miss", StringComparison.OrdinalIgnoreCase));
         double aotHitRate = reads <= 0
             ? 0d
-            : Math.Round(Math.Clamp((reads - aotMisses) / (double)reads, 0d, 1d), 4);
+            : RoundingHelper.Round4(Math.Clamp((reads - aotMisses) / (double)reads, 0d, 1d));
 
         return new AuthorAnalyticsResponse(
             published,
@@ -1488,7 +1488,7 @@ public sealed class AuthoringWorkflowService(
                     group.Key,
                     samples.Length,
                     Percentile(samples, 0.75d),
-                    Math.Round(samples.Average(), 2));
+                    RoundingHelper.Round2(samples.Average()));
             })
             .OrderBy(static item => item.Name, StringComparer.Ordinal)
             .Take(8)
@@ -1530,7 +1530,7 @@ public sealed class AuthoringWorkflowService(
 
         int index = (int)Math.Ceiling(sortedSamples.Length * percentile) - 1;
         index = Math.Clamp(index, 0, sortedSamples.Length - 1);
-        return Math.Round(sortedSamples[index], 2);
+        return RoundingHelper.Round2(sortedSamples[index]);
     }
 
     private static string? NormalizeAnalyticsRouteKey(string? routeKey)

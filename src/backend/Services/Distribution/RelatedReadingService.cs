@@ -1,6 +1,7 @@
 using System.Data.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.Extensions.Caching.Memory;
 using SqlSugar;
@@ -245,7 +246,7 @@ public sealed class RelatedReadingService(
             reasons.Add("全文关键词");
         }
 
-        int publishedDistance = Math.Abs((int)Math.Round((candidate.SortTime - source.SortTime).TotalDays));
+        int publishedDistance = Math.Abs(RoundingHelper.RoundToInt((candidate.SortTime - source.SortTime).TotalDays));
         if (publishedDistance <= 14)
         {
             score += Math.Max(1, 20 - publishedDistance);

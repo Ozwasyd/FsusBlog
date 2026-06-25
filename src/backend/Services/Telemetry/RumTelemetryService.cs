@@ -2,6 +2,7 @@ using System.Collections.Frozen;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Shared.Contracts.Outputs;
 using SqlSugar;
@@ -183,7 +184,7 @@ public sealed class RumTelemetryService(ISqlSugarClient db) : IRumTelemetryServi
             return null;
         }
 
-        return Math.Round(Math.Clamp(value.Value, 0d, 600_000d), 4);
+        return RoundingHelper.Round4(Math.Clamp(value.Value, 0d, 600_000d));
     }
 
     internal static bool IsBatchItemShapeAllowed(RumMetricBatchItem item)

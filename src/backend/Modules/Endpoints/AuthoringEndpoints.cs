@@ -860,7 +860,7 @@ public static class AuthoringEndpoints
                 lastSuccess.Count > 0 ? lastSuccess[0] : null,
                 lastError.Count > 0 ? lastError[0].ErrorCode : null,
                 lastError.Count > 0 ? lastError[0].CreatedAtUtc : null,
-                latencies.Count > 0 ? Math.Round(latencies.Average(), 2) : 0d,
+                latencies.Count > 0 ? RoundingHelper.Round2(latencies.Average()) : 0d,
                 ResolveP95Latency(latencies));
             return Ok(context, aeds, response);
         })

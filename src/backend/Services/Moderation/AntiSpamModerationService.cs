@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Moderation;
 using SqlSugar;
@@ -655,7 +656,7 @@ public sealed class AntiSpamModerationService(
             RiskCategories = result.Categories.Count == 0 ? null : string.Join(',', result.Categories.Select(static item => item.Id).Distinct(StringComparer.Ordinal)),
             EvidenceJson = result.Evidence.Count == 0 ? null : JsonSerializer.Serialize(result.Evidence, JsonOptions),
             RawReason = NormalizeNullable(result.RawReason, 4_096),
-            LatencyMs = Math.Max(0, (int)Math.Round(result.Latency.TotalMilliseconds)),
+            LatencyMs = Math.Max(0, RoundingHelper.RoundToInt(result.Latency.TotalMilliseconds)),
             Status = Normalize(result.Status, 32),
             ErrorCode = NormalizeNullable(result.ErrorCode, 64),
             ThresholdProfile = NormalizeNullable(result.ThresholdProfile, 128),
