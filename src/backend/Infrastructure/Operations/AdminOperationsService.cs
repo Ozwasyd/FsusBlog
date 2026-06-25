@@ -306,8 +306,9 @@ public sealed class AdminOperationsService(
         Task<int> failedTask = QueryWithNewClientAsync(queryDb => queryDb.Queryable<ArticleMutationOutboxEvent>()
             .Where(item => item.Status == "failed")
             .CountAsync(cancellationToken));
-        await Task.WhenAll(pendingTask, failedTask);
-        return new QueueBacklogResponse(pendingTask.Result, failedTask.Result, audit.QueuedCount, audit.DroppedCount);
+        int pending = await pendingTask;
+        int failed = await failedTask;
+        return new QueueBacklogResponse(pending, failed, audit.QueuedCount, audit.DroppedCount);
     }
 
     private async Task<IReadOnlyList<RecentOpsErrorResponse>> LoadRecentErrorsAsync(CancellationToken cancellationToken)
@@ -645,31 +646,30 @@ public sealed class AdminOperationsService(
                 Url = asset.Url
             })
             .ToListAsync(cancellationToken));
-        await Task.WhenAll(
-            articlesTask,
-            bodiesTask,
-            revisionsTask,
-            categoriesTask,
-            tagsTask,
-            articleTagsTask,
-            commentsTask,
-            usersTask,
-            sessionsTask,
-            assetsTask);
+        List<IntegrityArticleRow> articles = await articlesTask;
+        List<IntegrityArticleBodyRow> bodies = await bodiesTask;
+        List<IntegrityArticleRevisionRow> revisions = await revisionsTask;
+        List<IntegrityCategoryRow> categories = await categoriesTask;
+        List<IntegrityTagRow> tags = await tagsTask;
+        List<IntegrityArticleTagRow> articleTags = await articleTagsTask;
+        List<IntegrityCommentRow> comments = await commentsTask;
+        List<IntegrityUserRow> users = await usersTask;
+        List<IntegritySessionRow> sessions = await sessionsTask;
+        List<IntegrityAssetRow> assets = await assetsTask;
 
         string webRoot = ResolveWebRoot();
 
         return new IntegrityData(
-            articlesTask.Result,
-            bodiesTask.Result,
-            revisionsTask.Result,
-            categoriesTask.Result,
-            tagsTask.Result,
-            articleTagsTask.Result,
-            commentsTask.Result,
-            usersTask.Result,
-            sessionsTask.Result,
-            assetsTask.Result,
+            articles,
+            bodies,
+            revisions,
+            categories,
+            tags,
+            articleTags,
+            comments,
+            users,
+            sessions,
+            assets,
             webRoot);
     }
 

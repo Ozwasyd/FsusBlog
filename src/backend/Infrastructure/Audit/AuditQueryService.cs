@@ -36,11 +36,12 @@ public sealed class AuditQueryService(
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync(cancellationToken));
-        await Task.WhenAll(totalTask, rowsTask);
+        int total = await totalTask;
+        List<AuditLog> rows = await rowsTask;
 
         return new AuditLogListResponse(
-            [.. rowsTask.Result.Select(row => ToItemResponse(row, disclosureMode))],
-            totalTask.Result,
+            [.. rows.Select(row => ToItemResponse(row, disclosureMode))],
+            total,
             page,
             pageSize,
             ToRuntimeResponse(_runtimeState.Snapshot()));
@@ -79,14 +80,18 @@ public sealed class AuditQueryService(
         Task<IReadOnlyList<AuditFacetResponse>> actionTask = QueryWithNewClientAsync(queryDb => BuildActionFacetAsync(queryDb, request, cancellationToken));
         Task<IReadOnlyList<AuditFacetResponse>> outcomeTask = QueryWithNewClientAsync(queryDb => BuildOutcomeFacetAsync(queryDb, request, cancellationToken));
         Task<IReadOnlyList<AuditFacetResponse>> severityTask = QueryWithNewClientAsync(queryDb => BuildSeverityFacetAsync(queryDb, request, cancellationToken));
-        await Task.WhenAll(totalTask, sourceTask, actionTask, outcomeTask, severityTask);
+        int total = await totalTask;
+        IReadOnlyList<AuditFacetResponse> source = await sourceTask;
+        IReadOnlyList<AuditFacetResponse> action = await actionTask;
+        IReadOnlyList<AuditFacetResponse> outcome = await outcomeTask;
+        IReadOnlyList<AuditFacetResponse> severity = await severityTask;
 
         return new AuditLogSummaryResponse(
-            totalTask.Result,
-            sourceTask.Result,
-            actionTask.Result,
-            outcomeTask.Result,
-            severityTask.Result,
+            total,
+            source,
+            action,
+            outcome,
+            severity,
             ToRuntimeResponse(_runtimeState.Snapshot()));
     }
 

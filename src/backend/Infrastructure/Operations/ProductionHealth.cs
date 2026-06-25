@@ -119,9 +119,8 @@ public sealed class ProductionReadinessProbe(
             ["runtime"] = CheckRuntime()
         };
 
-        await Task.WhenAll(postgresTask, redisTask);
-        checks["postgres"] = postgresTask.Result;
-        checks["redis"] = redisTask.Result;
+        checks["postgres"] = await postgresTask;
+        checks["redis"] = await redisTask;
         checks["riskControl"] = await riskControlTask;
 
         bool healthy = checks.Values.All(IsHealthyCheck);

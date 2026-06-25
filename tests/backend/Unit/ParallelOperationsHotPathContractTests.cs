@@ -43,7 +43,9 @@ public sealed class ParallelOperationsHotPathContractTests
         string source = ReadRepoFile("src/backend/Infrastructure/Operations/AdminOperationsService.cs");
         string load = ExtractMethodBlock(source, "private async Task<IntegrityData> LoadIntegrityDataAsync");
 
-        Assert.Contains("Task.WhenAll", load, StringComparison.Ordinal);
+        Assert.Contains("Task<List<IntegrityArticleRow>> articlesTask", load, StringComparison.Ordinal);
+        Assert.Contains("List<IntegrityArticleRow> articles = await articlesTask", load, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Result", load, StringComparison.Ordinal);
         Assert.Contains("IntegrityArticleRow", source, StringComparison.Ordinal);
         Assert.Contains("Select(article => new IntegrityArticleRow", load, StringComparison.Ordinal);
         Assert.DoesNotContain("List<Article> articles = await", load, StringComparison.Ordinal);
@@ -68,13 +70,15 @@ public sealed class ParallelOperationsHotPathContractTests
         string list = ExtractMethodBlock(source, "public async Task<AuditLogListResponse> ListAsync");
         Assert.Contains("Task<int> totalTask", list, StringComparison.Ordinal);
         Assert.Contains("Task<List<AuditLog>> rowsTask", list, StringComparison.Ordinal);
-        Assert.Contains("Task.WhenAll(totalTask, rowsTask)", list, StringComparison.Ordinal);
+        Assert.Contains("int total = await totalTask", list, StringComparison.Ordinal);
+        Assert.Contains("List<AuditLog> rows = await rowsTask", list, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Result", list, StringComparison.Ordinal);
         Assert.DoesNotContain("int total = await filtered.CountAsync", list, StringComparison.Ordinal);
 
         string summary = ExtractMethodBlock(source, "public async Task<AuditLogSummaryResponse> GetSummaryAsync");
-        Assert.Contains("Task.WhenAll(totalTask, sourceTask, actionTask, outcomeTask, severityTask)", summary, StringComparison.Ordinal);
-        Assert.DoesNotContain("await BuildSourceFacetAsync", summary, StringComparison.Ordinal);
-        Assert.DoesNotContain("await BuildActionFacetAsync", summary, StringComparison.Ordinal);
+        Assert.Contains("int total = await totalTask", summary, StringComparison.Ordinal);
+        Assert.Contains("IReadOnlyList<AuditFacetResponse> source = await sourceTask", summary, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Result", summary, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -87,10 +91,10 @@ public sealed class ParallelOperationsHotPathContractTests
 
         Assert.Contains("Task<SeoConfigReadModel> seoTask", source, StringComparison.Ordinal);
         Assert.Contains("Task<SiteComplianceConfigReadModel> complianceTask", source, StringComparison.Ordinal);
-        Assert.Contains("Task.WhenAll(seoTask, complianceTask)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Task.WhenAll", homeProvider, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Result", source, StringComparison.Ordinal);
         Assert.Contains("List<PopularArticleSummaryDto> hotArticles = await articleService.GetHotArticlesAsync", homeProvider, StringComparison.Ordinal);
-        Assert.True(CountOccurrences(source, "Task.WhenAll") >= 4, "Expected AOT providers to fan out independent reads except Home article reads that share one DB scope.");
+        Assert.True(CountOccurrences(source, "Task<PublicAotSeoSnapshot> seoTask") >= 4, "Expected AOT providers to start independent SEO reads except Home article reads that share one DB scope.");
     }
 
     [Fact]
@@ -103,7 +107,9 @@ public sealed class ParallelOperationsHotPathContractTests
         Assert.Contains("ProductionDependencyHealthCheck", health, StringComparison.Ordinal);
         Assert.Contains("Task<ProductionDependencyHealthCheck> postgresTask", check, StringComparison.Ordinal);
         Assert.Contains("Task<ProductionDependencyHealthCheck> redisTask", check, StringComparison.Ordinal);
-        Assert.Contains("Task.WhenAll(postgresTask, redisTask)", check, StringComparison.Ordinal);
+        Assert.Contains("checks[\"postgres\"] = await postgresTask", check, StringComparison.Ordinal);
+        Assert.Contains("checks[\"redis\"] = await redisTask", check, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Result", check, StringComparison.Ordinal);
         Assert.DoesNotContain("GetProperty(\"status\"", health, StringComparison.Ordinal);
         Assert.DoesNotContain("ExtractProperty(check", adminOperations, StringComparison.Ordinal);
     }

@@ -23,10 +23,9 @@ public abstract class PublicAotBootstrapProviderBase(ISystemService systemServic
     {
         Task<SeoConfigReadModel> seoTask = systemService.GetSeoConfigAsync();
         Task<SiteComplianceConfigReadModel> complianceTask = systemService.GetSiteComplianceConfigAsync();
-        await Task.WhenAll(seoTask, complianceTask);
 
-        SeoConfigReadModel seo = seoTask.Result;
-        SiteComplianceConfigReadModel compliance = complianceTask.Result;
+        SeoConfigReadModel seo = await seoTask;
+        SiteComplianceConfigReadModel compliance = await complianceTask;
         return new PublicAotSeoSnapshot(
             seo.Title,
             seo.Description,
@@ -142,15 +141,14 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         DateTime utcNow = DateTime.UtcNow;
         Task<PublicAotSeoSnapshot> seoTask = LoadSeoSnapshotAsync();
         Task<ArticleDetailAotProjection?> articleTask = LoadPublicArticleForAotAsync(articleId, utcNow, cancellationToken);
-        await Task.WhenAll(seoTask, articleTask);
 
-        ArticleDetailAotProjection? article = articleTask.Result;
+        ArticleDetailAotProjection? article = await articleTask;
         if (article is null)
         {
             return Result<PublicPageSnapshot>.Failure(ErrorCode.NotFound, "public_aot_article_not_found");
         }
 
-        PublicAotSeoSnapshot seo = seoTask.Result;
+        PublicAotSeoSnapshot seo = await seoTask;
         RelatedReadingResponse? relatedReading = await relatedReadingService.BuildAsync(articleId, cancellationToken);
         return Result<PublicPageSnapshot>.Success(new PublicArticlePageSnapshot(
             seo,
@@ -285,10 +283,9 @@ public sealed class PublicAotFilterBootstrapProvider(
         Task<ArticleListPageReadModel> pageTask = !identity.IsInvalidTarget
             ? articleService.GetPageListAsync(pageIndex, pageSize, identity.CategoryId, identity.TagId, false, cancellationToken: cancellationToken)
             : Task.FromResult(new ArticleListPageReadModel { Items = [], Total = 0 });
-        await Task.WhenAll(seoTask, pageTask);
 
-        PublicAotSeoSnapshot seo = seoTask.Result;
-        ArticleListPageReadModel page = pageTask.Result;
+        PublicAotSeoSnapshot seo = await seoTask;
+        ArticleListPageReadModel page = await pageTask;
         string title = ResolveFilterTitle(identity);
 
         return Result<PublicPageSnapshot>.Success(new PublicFilterPageSnapshot(
@@ -379,10 +376,9 @@ public abstract class PublicAotStaticPageBootstrapProvider : PublicAotBootstrapP
     {
         Task<PublicAotSeoSnapshot> seoTask = LoadSeoSnapshotAsync();
         Task<PageContentReadModel> pageTask = _systemService.GetPageContentAsync(PublicAotPageIdentity.GetCanonicalSlug(_kind));
-        await Task.WhenAll(seoTask, pageTask);
 
-        PublicAotSeoSnapshot seo = seoTask.Result;
-        PageContentReadModel page = pageTask.Result;
+        PublicAotSeoSnapshot seo = await seoTask;
+        PageContentReadModel page = await pageTask;
         return Result<PublicPageSnapshot>.Success(new PublicStaticPageSnapshot(
             _kind,
             seo,
@@ -414,10 +410,9 @@ public sealed class PublicAotArchiveBootstrapProvider(
     {
         Task<PublicAotSeoSnapshot> seoTask = LoadSeoSnapshotAsync();
         Task<List<ArchiveArticleAotProjection>> articlesTask = ListPublicArchiveArticlesAsync(cancellationToken);
-        await Task.WhenAll(seoTask, articlesTask);
 
-        PublicAotSeoSnapshot seo = seoTask.Result;
-        IReadOnlyList<ArchiveArticleAotProjection> articles = articlesTask.Result;
+        PublicAotSeoSnapshot seo = await seoTask;
+        IReadOnlyList<ArchiveArticleAotProjection> articles = await articlesTask;
         return Result<PublicPageSnapshot>.Success(new PublicArchivePageSnapshot(
             seo,
             articles.Select(static article => new PublicArchiveArticleSnapshot(article.Id, article.Title, article.CreateTime)).ToArray(),
