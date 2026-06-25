@@ -128,6 +128,26 @@ public sealed class AuthoringWorkflowServiceTests
     }
 
     [Fact]
+    public void ModerateCommentsAsync_SourceKeepsSideEffectsOutsideTransaction()
+    {
+        string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string method = Slice(
+            service,
+            "public async Task<CommentModerationBulkResponse> ModerateCommentsAsync",
+            "public async Task<ContentExportResponse?> ExportArticleAsync");
+        string transactionBlock = Slice(
+            method,
+            "var transaction = await db.Ado.UseTranAsync(async () =>",
+            "if (!transaction.IsSuccess)");
+
+        Assert.Contains("db.Updateable<Comment>()", transactionBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("InvalidateModeratedCommentAsync", transactionBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("PublishModerationRealtimeAsync", transactionBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("WriteAudit", transactionBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("BanModerationUsersAsync", transactionBlock, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RumMetricSummaries_AverageUsesUnsortedSamplesAndP75UsesSortedSamples()
     {
         RumMetricAuditContext[] values =
