@@ -47,4 +47,7 @@ public class UserSession
 
     [SugarColumn(ColumnName = "rememberme", DefaultValue = "false")]
     public bool RememberMe { get; set; }
+
+    [SugarColumn(IsIgnore = true)]
+    public string? RowVersion { get; set; }
 }

@@ -20,6 +20,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildMessageLegacyIdentityColumnsFinalizeMigration(),
         BuildUserSoftDeleteMigration(),
         BuildUserSessionFinalizeMigration(),
+        BuildUserSessionActiveUniqueMigration(),
         BuildUserAuthSecurityHardeningMigration(),
         BuildAnonymousIdentityAccountSchemaMigration(),
         BuildPasskeyRecoveryKeyAccountIdMigration(),
@@ -882,6 +883,39 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     """),
                 new DropColumnStep("sys_user_session", "expires_at"),
                 new DropColumnStep("sys_user_session", "expiresat")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildUserSessionActiveUniqueMigration()
+        => new SchemaMigrationDescriptor(
+            "20260625-post-user-session-active-unique",
+            "Enforce one active user session per account.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new RawSqlStep("""
+                    WITH ranked_active_sessions AS (
+                        SELECT sessionid,
+                               ROW_NUMBER() OVER (
+                                   PARTITION BY userid
+                                   ORDER BY lastseenat DESC NULLS LAST,
+                                            createdat DESC,
+                                            sessionid DESC
+                               ) AS rn
+                        FROM sys_user_session
+                        WHERE revokedat IS NULL
+                    )
+                    UPDATE sys_user_session session
+                    SET revokedat = now(),
+                        revokereason = 'active_unique_migration'
+                    FROM ranked_active_sessions ranked
+                    WHERE session.sessionid = ranked.sessionid
+                      AND ranked.rn > 1
+                      AND session.revokedat IS NULL;
+                    """),
+                new CreateIndexStep(
+                    "ux_user_session_one_active_per_user",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ux_user_session_one_active_per_user ON sys_user_session(userid) WHERE revokedat IS NULL;")
             ]);
 
     private static ISchemaMigrationDescriptor BuildUserAuthSecurityHardeningMigration()

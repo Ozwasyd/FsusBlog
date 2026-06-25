@@ -304,9 +304,9 @@ ZK-Prod 后端依赖策略固定为 .NET 10 + `System.Text.Json`。trusted setup
 
 ## 会话管理
 
-- 每次登录创建会话记录（设备、IP、时间），存储于 PostgreSQL + Redis
+- 每次登录创建会话记录（设备、IP、时间），存储于 PostgreSQL + Redis；普通账号只允许一个 active `UserSession`，新登录必须在同一数据库事务内撤销旧 active session 后插入新 session。
 - 匿名账号 bootstrap 与 Passkey login complete 复用同一会话创建逻辑（`CompleteLoginAsync`），bootstrap 默认创建非 remember-me 标准会话，Passkey 登录按客户端 rememberMe 请求创建。
-- `CompleteLoginAsync` 是 access token、refresh token 与 `UserSession` 记录的最终签发边界；MFA、Passkey 或匿名 bootstrap 已完成验证后，`User.Status == Banned` 会签发受限会话并写入 session，用于展示账号状态、登出、撤销会话、删除本人账号等安全收尾操作。`Deleted` / `DeletedAt` 仍必须返回注销失败且不得生成 token。
+- `CompleteLoginAsync` 是 access token、refresh token 与 `UserSession` 记录的最终签发边界；该边界使用 PostgreSQL transaction-scoped advisory lock、`xmin` row-version 谓词和 `sys_user_session(userid) WHERE revokedat IS NULL` partial unique index 保证同一账号最后一次登录才保持 active。MFA、Passkey 或匿名 bootstrap 已完成验证后，`User.Status == Banned` 会签发受限会话并写入 session，用于展示账号状态、登出、撤销会话、删除本人账号等安全收尾操作。`Deleted` / `DeletedAt` 仍必须返回注销失败且不得生成 token。
 - 封禁状态的业务真源是 PostgreSQL `sys_user.Status/BanReason`。`SecurityBlacklistUser` Redis key 只作为无过期加速缓存，suffix 固定为 `account:{accountSubjectHash}`，不得使用裸 `UserId` / `AccountId`。任何缓存 miss 都必须回查 `sys_user.Status == Banned` 并重新回填缓存，不能把 Redis 过期、驱逐或 flush 解释为用户已解封。若需要在线降级或纠错，只删除受影响的 `account:{accountSubjectHash}` key，让下一次请求按 PostgreSQL 真源回填；不得重建旧 `userId` key 空间。
 - `GET /api/binary/auth/sessions`：列出当前活跃会话
 - `POST /api/binary/auth/sessions/{id}/revoke`：主动吊销单个会话

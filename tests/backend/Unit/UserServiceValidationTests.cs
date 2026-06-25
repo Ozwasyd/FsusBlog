@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Linq.Expressions;
+using System.Data;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -52,6 +53,16 @@ public class UserServiceValidationTests
 
     private static (IInsertable<UserSession> SessionInsert, IUpdateable<User> UserUpdate) ConfigureLoginPersistence(ISqlSugarClient db)
     {
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        ado.UseTranAsync(Arg.Any<Func<Task>>()).Returns(async call =>
+        {
+            await call.Arg<Func<Task>>()();
+            return new DbResult<bool> { IsSuccess = true };
+        });
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
+            .Returns(_ => Task.FromResult((IDataReader)new DataTable().CreateDataReader()));
+
         var sessionInsert = Substitute.For<IInsertable<UserSession>>();
         sessionInsert.ExecuteCommandAsync().Returns(Task.FromResult(1));
         db.Insertable(Arg.Any<UserSession>()).Returns(sessionInsert);
@@ -497,6 +508,43 @@ public class UserServiceValidationTests
         jwt.Received(1).GenerateAccessToken(user, Arg.Any<string>(), true);
         await persistence.SessionInsert.Received(1).ExecuteCommandAsync();
         await persistence.UserUpdate.DidNotReceive().ExecuteCommandAsync();
+    }
+
+    [Fact]
+    public void CompleteLoginAsync_SourceRevokesPreviousSessionsAndInsertsNewSessionInTransaction()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+        string method = ExtractUserServiceMethod(
+            source,
+            "public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync",
+            "public async Task<UserSession?> GetSessionByRefreshTokenAsync");
+
+        Assert.Contains("_db.Ado.UseTranAsync(async () =>", method, StringComparison.Ordinal);
+        AssertContainsAfter(method, "_db.Ado.UseTranAsync(async () =>", "LoadActiveUserSessionVersionsAsync(user.Id)");
+        AssertContainsAfter(method, "LoadActiveUserSessionVersionsAsync(user.Id)", "TryRevokeSessionAsync(activeSession.SessionId, activeSession.RowVersion");
+        AssertContainsAfter(method, "TryRevokeSessionAsync(activeSession.SessionId, activeSession.RowVersion", "_db.Insertable(session).ExecuteCommandAsync()");
+        Assert.Contains("if (!tran.IsSuccess)", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UserSessionEntity_ExposesPostgresRowVersionForSessionRevocationGuards()
+    {
+        Assert.True(typeof(UserSession).GetProperty("RowVersion") is { });
+
+        string entity = BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/UserSession.cs");
+        Assert.Contains("public string? RowVersion", entity, StringComparison.Ordinal);
+        Assert.Contains("[SugarColumn(IsIgnore = true)]", entity, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SchemaMigrationRegistry_UserSessionActiveUniqueIndex_BlocksTwoActiveSessions()
+    {
+        string migrations = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
+
+        Assert.Contains("20260625-post-user-session-active-unique", migrations, StringComparison.Ordinal);
+        Assert.Contains("ux_user_session_one_active_per_user", migrations, StringComparison.Ordinal);
+        Assert.Contains("CREATE UNIQUE INDEX IF NOT EXISTS ux_user_session_one_active_per_user", migrations, StringComparison.Ordinal);
+        Assert.Contains("ON sys_user_session(userid) WHERE revokedat IS NULL", migrations, StringComparison.Ordinal);
     }
 
     [Fact]

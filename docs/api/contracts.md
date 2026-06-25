@@ -483,7 +483,7 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 }
 ```
 
-普通账号 session list 不返回 `lastIp`、region、raw user agent 或 user id。服务端可继续在 `sys_user_session.last_ip` 内部用于风险判定，但 `AuthSessionList` 的 `UserSessionSummaryPod` 不包含该字段，IdentityCenter 不显示原始 IP。
+普通账号同时只保留一个 active `UserSession`；新登录会在事务内撤销同账号旧 active session，因此 session list 正常只返回当前 active session。该列表不返回 `lastIp`、region、raw user agent 或 user id。服务端可继续在 `sys_user_session.last_ip` 内部用于风险判定，但 `AuthSessionList` 的 `UserSessionSummaryPod` 不包含该字段，IdentityCenter 不显示原始 IP。
 
 ### `AdminSessionSummaryDto`（管理员会话列表项）
 

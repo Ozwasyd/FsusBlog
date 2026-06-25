@@ -44,6 +44,7 @@ public partial class UserService(
     private const int MaxPublicHandleLength = 20;
     private const int MaxAdminPageSize = 200;
     private const int MaxIpLength = 64;
+    private const int UserSessionLoginLockNamespace = 833064;
     private static readonly TimeSpan StandardSessionIdleTtl = TimeSpan.FromDays(7);
     private static readonly TimeSpan RememberMeSessionIdleTtl = TimeSpan.FromDays(30);
     private static readonly TimeSpan StandardSessionAbsoluteTtl = TimeSpan.FromDays(30);
@@ -538,10 +539,81 @@ public partial class UserService(
             RememberMe = rememberMe
         };
 
-        await _db.Insertable(session).ExecuteCommandAsync();
+        var tran = await _db.Ado.UseTranAsync(async () =>
+        {
+            await AcquireUserSessionLoginLockAsync(user.Id);
+
+            List<ActiveUserSessionVersion> activeSessions = await LoadActiveUserSessionVersionsAsync(user.Id);
+            foreach (ActiveUserSessionVersion activeSession in activeSessions)
+            {
+                await TryRevokeSessionAsync(activeSession.SessionId, activeSession.RowVersion, now, "login_replaced");
+            }
+
+            await _db.Insertable(session).ExecuteCommandAsync();
+        });
+        if (!tran.IsSuccess)
+        {
+            _logger.LogError(tran.ErrorException, "User session login transaction failed for account {AccountId}", user.Id);
+            return (false, "登录失败，请重试", null, null);
+        }
 
         return (true, "登录成功", new SessionTokenResponseDto(accessToken, refreshToken, idleExpiresAt), user);
     }
+
+    private async Task AcquireUserSessionLoginLockAsync(int userId)
+    {
+        if (_db.CurrentConnectionConfig?.DbType != SqlSugar.DbType.PostgreSQL)
+        {
+            return;
+        }
+
+        await _db.Ado.ExecuteCommandAsync(
+            "SELECT pg_advisory_xact_lock(@LockNamespace, @UserId);",
+            new SugarParameter("@LockNamespace", UserSessionLoginLockNamespace),
+            new SugarParameter("@UserId", userId));
+    }
+
+    private async Task<List<ActiveUserSessionVersion>> LoadActiveUserSessionVersionsAsync(int userId)
+    {
+        var sessions = new List<ActiveUserSessionVersion>();
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            """
+            SELECT sessionid,
+                   xmin::text AS row_version
+            FROM sys_user_session
+            WHERE userid = @UserId
+              AND revokedat IS NULL
+            ORDER BY createdat ASC;
+            """,
+            new SugarParameter("@UserId", userId));
+
+        while (await reader.ReadAsync())
+        {
+            sessions.Add(new ActiveUserSessionVersion(reader.GetString(0), reader.GetString(1)));
+        }
+
+        return sessions;
+    }
+
+    private async Task<bool> TryRevokeSessionAsync(string sessionId, string rowVersion, DateTime revokedAt, string reason)
+    {
+        int updated = await _db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE sys_user_session
+            SET revokedat = @RevokedAt,
+                revokereason = @Reason
+            WHERE sessionid = @SessionId
+              AND revokedat IS NULL
+              AND xmin::text = @RowVersion;
+            """,
+            new SugarParameter("@SessionId", sessionId),
+            new SugarParameter("@RevokedAt", revokedAt),
+            new SugarParameter("@Reason", reason),
+            new SugarParameter("@RowVersion", rowVersion));
+        return updated == 1;
+    }
+
+    private sealed record ActiveUserSessionVersion(string SessionId, string RowVersion);
 
     public async Task<UserSession?> GetSessionByRefreshTokenAsync(string refreshToken)
     {

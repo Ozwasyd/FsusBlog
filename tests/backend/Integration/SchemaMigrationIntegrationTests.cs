@@ -711,6 +711,62 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    public async Task RunAsync_UserSessionActiveUniqueIndexBlocksTwoActiveSessions()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_user_session_one_active_per_user"));
+
+        await fixture.ExecuteAsync(connectionString, """
+            INSERT INTO sys_user_session(
+                sessionid,
+                userid,
+                refreshtokenhash,
+                createdat,
+                idleexpiresat,
+                absoluteexpiresat,
+                rememberme
+            )
+            VALUES (
+                'sess-active-1',
+                42,
+                'hash-active-1',
+                TIMESTAMP '2026-06-25 00:00:00',
+                TIMESTAMP '2026-07-02 00:00:00',
+                TIMESTAMP '2026-07-25 00:00:00',
+                false
+            );
+            """);
+
+        PostgresException duplicate = await Assert.ThrowsAsync<PostgresException>(async () =>
+            await fixture.ExecuteAsync(connectionString, """
+                INSERT INTO sys_user_session(
+                    sessionid,
+                    userid,
+                    refreshtokenhash,
+                    createdat,
+                    idleexpiresat,
+                    absoluteexpiresat,
+                    rememberme
+                )
+                VALUES (
+                    'sess-active-2',
+                    42,
+                    'hash-active-2',
+                    TIMESTAMP '2026-06-25 00:01:00',
+                    TIMESTAMP '2026-07-02 00:01:00',
+                    TIMESTAMP '2026-07-25 00:01:00',
+                    false
+                );
+                """));
+
+        Assert.Equal(PostgresErrorCodes.UniqueViolation, duplicate.SqlState);
+    }
+
+    [Fact]
     public async Task RunAsync_UpgradesLegacyCommentSchemaAndRealignsIndexes()
     {
         string databaseName = await fixture.CreateDatabaseAsync();
