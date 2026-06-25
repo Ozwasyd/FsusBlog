@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Reflection;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Services.Security;
@@ -42,6 +43,48 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
         AdminSession session = await db.Queryable<AdminSession>().SingleAsync(s => s.SessionId == "sid-1");
         Assert.NotNull(session.LastSeenAtUtc);
         Assert.True(session.LastSeenAtUtc > before);
+    }
+
+    [Fact]
+    public void ValidateAsync_SourceUsesRowVersionGuardForLastSeenTouch()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminSessionValidationService.cs");
+
+        Assert.Contains("LoadAdminSessionValidationStateAsync", source, StringComparison.Ordinal);
+        Assert.Contains("TryTouchAdminSessionAsync(session, now", source, StringComparison.Ordinal);
+        Assert.Contains("xmin::text AS row_version", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND xmin::text = @RowVersion", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND accesstokenhash = @AccessTokenHash", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND idleexpiresatutc = @IdleExpiresAtUtc", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("admin_session_conflict", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Where(s => s.SessionId == sessionId && s.RevokedAtUtc == null)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TouchAdminSessionAsync_StaleRowVersionAfterRevokeDoesNotAdvanceLastSeen()
+    {
+        string connectionString = await CreateConnectionStringAsync();
+        const string token = "stale-admin-token";
+        DateTime before = DateTime.UtcNow.AddMinutes(-5);
+
+        using SqlSugarClient db = CreateDb(connectionString);
+        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), CreateSession(accessTokenHash: HashForStorage(token), lastSeenAtUtc: before));
+        var service = new AdminSessionValidationService(db);
+        object state = await InvokeLoadAdminSessionValidationStateAsync(service, "sid-1");
+
+        DateTime revokedAt = DateTime.UtcNow;
+        await db.Updateable<AdminSession>()
+            .SetColumns(session => session.RevokedAtUtc == revokedAt)
+            .SetColumns(session => session.RevokeReason == "test_revoke")
+            .Where(session => session.SessionId == "sid-1")
+            .ExecuteCommandAsync();
+
+        bool touched = await InvokeTryTouchAdminSessionAsync(service, state, DateTime.UtcNow);
+
+        Assert.False(touched);
+        AdminSession session = await db.Queryable<AdminSession>().SingleAsync(item => item.SessionId == "sid-1");
+        Assert.Equal("test_revoke", session.RevokeReason);
+        Assert.Equal(before, session.LastSeenAtUtc!.Value, TimeSpan.FromSeconds(1));
     }
 
     [Fact]
@@ -148,6 +191,32 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
 
     private static string HashForStorage(string value)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    private static async Task<object> InvokeLoadAdminSessionValidationStateAsync(
+        AdminSessionValidationService service,
+        string sessionId)
+    {
+        MethodInfo method = typeof(AdminSessionValidationService).GetMethod(
+            "LoadAdminSessionValidationStateAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        object taskObject = method.Invoke(service, [sessionId, CancellationToken.None])!;
+        await (Task)taskObject;
+        object? state = taskObject.GetType().GetProperty("Result")!.GetValue(taskObject);
+        return state ?? throw new InvalidOperationException("Expected validation state.");
+    }
+
+    private static async Task<bool> InvokeTryTouchAdminSessionAsync(
+        AdminSessionValidationService service,
+        object state,
+        DateTime now)
+    {
+        MethodInfo method = typeof(AdminSessionValidationService).GetMethod(
+            "TryTouchAdminSessionAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        object taskObject = method.Invoke(service, [state, now, CancellationToken.None])!;
+        await (Task)taskObject;
+        return (bool)taskObject.GetType().GetProperty("Result")!.GetValue(taskObject)!;
+    }
 
     private Task<string> CreateConnectionStringAsync()
         => PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Data.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
@@ -47,7 +48,7 @@ public sealed class AdminSessionValidationService(ISqlSugarClient db) : IAdminSe
             return AdminSessionValidationResult.Invalid("admin_access_token_missing");
         }
 
-        AdminSession? session = await db.Queryable<AdminSession>().InSingleAsync(sessionId);
+        AdminSessionValidationState? session = await LoadAdminSessionValidationStateAsync(sessionId, cancellationToken);
         if (session is null)
         {
             return AdminSessionValidationResult.Invalid("admin_session_not_found");
@@ -86,13 +87,90 @@ public sealed class AdminSessionValidationService(ISqlSugarClient db) : IAdminSe
             return AdminSessionValidationResult.Invalid("admin_session_token_mismatch");
         }
 
-        await db.Updateable<AdminSession>()
-            .SetColumns(s => s.LastSeenAtUtc == now)
-            .Where(s => s.SessionId == sessionId && s.RevokedAtUtc == null)
-            .ExecuteCommandAsync();
+        if (!await TryTouchAdminSessionAsync(session, now, cancellationToken))
+        {
+            return AdminSessionValidationResult.Invalid("admin_session_conflict");
+        }
 
         return AdminSessionValidationResult.Valid;
     }
+
+    private async Task<AdminSessionValidationState?> LoadAdminSessionValidationStateAsync(
+        string sessionId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT sessionid,
+                   adminprincipalid,
+                   accesstokenhash,
+                   revokedatutc,
+                   idleexpiresatutc,
+                   absoluteexpiresatutc,
+                   xmin::text AS row_version
+            FROM admin_session
+            WHERE sessionid = @SessionId;
+            """,
+            new SugarParameter("@SessionId", sessionId));
+
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        return new AdminSessionValidationState(
+            reader.GetString(0),
+            reader.GetInt64(1),
+            reader.GetString(2),
+            reader.IsDBNull(3) ? null : AsUtc(reader.GetDateTime(3)),
+            AsUtc(reader.GetDateTime(4)),
+            AsUtc(reader.GetDateTime(5)),
+            reader.GetString(6));
+    }
+
+    private async Task<bool> TryTouchAdminSessionAsync(
+        AdminSessionValidationState session,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        int updated = await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE admin_session
+            SET lastseenatutc = @LastSeenAtUtc
+            WHERE sessionid = @SessionId
+              AND revokedatutc IS NULL
+              AND accesstokenhash = @AccessTokenHash
+              AND idleexpiresatutc = @IdleExpiresAtUtc
+              AND absoluteexpiresatutc = @AbsoluteExpiresAtUtc
+              AND xmin::text = @RowVersion;
+            """,
+            new SugarParameter("@SessionId", session.SessionId),
+            new SugarParameter("@LastSeenAtUtc", now),
+            new SugarParameter("@AccessTokenHash", session.AccessTokenHash),
+            new SugarParameter("@IdleExpiresAtUtc", session.IdleExpiresAtUtc),
+            new SugarParameter("@AbsoluteExpiresAtUtc", session.AbsoluteExpiresAtUtc),
+            new SugarParameter("@RowVersion", session.RowVersion));
+        return updated == 1;
+    }
+
+    private sealed record AdminSessionValidationState(
+        string SessionId,
+        long AdminPrincipalId,
+        string AccessTokenHash,
+        DateTime? RevokedAtUtc,
+        DateTime IdleExpiresAtUtc,
+        DateTime AbsoluteExpiresAtUtc,
+        string RowVersion);
+
+    private static DateTime AsUtc(DateTime value)
+        => value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
 
     private static string HashAccessTokenForStorage(string value)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
