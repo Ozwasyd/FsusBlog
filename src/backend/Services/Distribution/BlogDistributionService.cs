@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json.Serialization;
 using System.Xml.Linq;
 using FsusBlog.Server.Entities;
@@ -58,7 +59,7 @@ public sealed class BlogDistributionService(
                 new XElement(AtomNamespace + "title", snapshot.Seo.Title),
                 new XElement(AtomNamespace + "subtitle", snapshot.Seo.Description),
                 new XElement(AtomNamespace + "id", snapshot.BaseUrl),
-                new XElement(AtomNamespace + "updated", snapshot.UpdatedAt.ToUniversalTime().ToString("O")),
+                new XElement(AtomNamespace + "updated", ToWireIsoDate(snapshot.UpdatedAt)),
                 new XElement(AtomNamespace + "link", new XAttribute("href", snapshot.BaseUrl), new XAttribute("rel", "alternate")),
                 new XElement(AtomNamespace + "link", new XAttribute("href", $"{snapshot.BaseUrl}/feed/atom.xml"), new XAttribute("rel", "self")),
                 new XElement(AtomNamespace + "author", new XElement(AtomNamespace + "name", snapshot.Seo.Author)),
@@ -67,7 +68,7 @@ public sealed class BlogDistributionService(
                     new XElement(AtomNamespace + "title", article.Title),
                     new XElement(AtomNamespace + "id", article.CanonicalUrl),
                     new XElement(AtomNamespace + "link", new XAttribute("href", article.CanonicalUrl), new XAttribute("rel", "alternate")),
-                    new XElement(AtomNamespace + "updated", article.UpdatedAt.ToUniversalTime().ToString("O")),
+                    new XElement(AtomNamespace + "updated", ToWireIsoDate(article.UpdatedAt)),
                     new XElement(AtomNamespace + "summary", article.Summary)))));
         return document.ToString(SaveOptions.DisableFormatting);
     }
@@ -118,7 +119,7 @@ public sealed class BlogDistributionService(
                 urls.Select(url => new XElement(
                     ns + "url",
                     new XElement(ns + "loc", url.Location),
-                    new XElement(ns + "lastmod", url.UpdatedAt.ToUniversalTime().ToString("yyyy-MM-dd")),
+                    new XElement(ns + "lastmod", ToWireSitemapDate(url.UpdatedAt)),
                     new XElement(ns + "priority", url.Priority)))));
         return document.ToString(SaveOptions.DisableFormatting);
     }
@@ -251,7 +252,19 @@ public sealed class BlogDistributionService(
     }
 
     private static string FormatRfc822(DateTimeOffset value)
-        => value.ToUniversalTime().ToString("r", System.Globalization.CultureInfo.InvariantCulture);
+        => value.ToUniversalTime().ToString("r", CultureInfo.InvariantCulture);
+
+    private static string ToWireIsoDate(DateTimeOffset value)
+        => value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+
+    private static string ToWireSitemapDate(DateTimeOffset value)
+        => value.ToUniversalTime().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    internal static string ToWireIsoDateForTests(DateTimeOffset value)
+        => ToWireIsoDate(value);
+
+    internal static string ToWireSitemapDateForTests(DateTimeOffset value)
+        => ToWireSitemapDate(value);
 
     private sealed record DistributionSnapshot(
         SeoConfigReadModel Seo,
