@@ -4,11 +4,13 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using SqlSugar;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 
@@ -123,6 +125,43 @@ public sealed class AuthoringWorkflowServiceTests
         AssertContainsAfter(method, "if (!transaction.IsSuccess)", "foreach (CommentModerationStateRow row in updatedRows)");
         AssertContainsAfter(method, "if (!transaction.IsSuccess)", "InvalidateModeratedCommentAsync");
         AssertContainsAfter(method, "if (!transaction.IsSuccess)", "PublishModerationRealtimeAsync");
+    }
+
+    [Fact]
+    public void RumMetricSummaries_AverageUsesUnsortedSamplesAndP75UsesSortedSamples()
+    {
+        RumMetricAuditContext[] values =
+        [
+            CreateRumMetric("LCP", 5),
+            CreateRumMetric("LCP", 1),
+            CreateRumMetric("LCP", 4),
+            CreateRumMetric("LCP", 2),
+            CreateRumMetric("LCP", 3)
+        ];
+
+        AuthorRumMetricResponse metric = Assert.Single(InvokeBuildRumMetricSummaries(values));
+
+        Assert.Equal("LCP", metric.Name);
+        Assert.Equal(5, metric.Count);
+        Assert.Equal(3d, metric.Average);
+        Assert.Equal(4d, metric.P75);
+    }
+
+    [Fact]
+    public void RumMetricSummaries_SourceDoesNotSortBeforeAverage()
+    {
+        string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string method = Slice(
+            service,
+            "private static IReadOnlyList<AuthorRumMetricResponse> BuildRumMetricSummaries",
+            "private static RumMetricAuditContext? TryReadRumMetric");
+
+        Assert.DoesNotContain("double[] samples = [.. group.Select(static item => item.Value!.Value).Order()];", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("RoundingHelper.Round2(samples.Average())", method, StringComparison.Ordinal);
+        Assert.Contains("double average = RoundingHelper.Round2(group.Average(static item => item.Value!.Value));", method, StringComparison.Ordinal);
+        Assert.Contains("double[] sortedSamples = [.. group.Select(static item => item.Value!.Value).Order()];", method, StringComparison.Ordinal);
+        Assert.Contains("Percentile(sortedSamples, 0.75d)", method, StringComparison.Ordinal);
+        Assert.Contains("average);", method, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -545,6 +584,20 @@ const value = "<script>alert(1)</script>";
 
     private static string ReadRepoFile(string relativePath)
         => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
+
+    private static RumMetricAuditContext CreateRumMetric(string name, double value)
+        => new(name, "article", "server", value, [], DateTime.UnixEpoch);
+
+    private static IReadOnlyList<AuthorRumMetricResponse> InvokeBuildRumMetricSummaries(IEnumerable<RumMetricAuditContext> values)
+    {
+        MethodInfo? method = typeof(AuthoringWorkflowService).GetMethod(
+            "BuildRumMetricSummaries",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        object? result = method.Invoke(null, [values]);
+        return Assert.IsAssignableFrom<IReadOnlyList<AuthorRumMetricResponse>>(result);
+    }
 
     private static string Slice(string content, string startMarker, string endMarker)
     {

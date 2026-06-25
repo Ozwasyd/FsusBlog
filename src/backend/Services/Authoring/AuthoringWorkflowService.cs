@@ -1483,12 +1483,13 @@ public sealed class AuthoringWorkflowService(
             .GroupBy(static value => value.Name, StringComparer.Ordinal)
             .Select(static group =>
             {
-                double[] samples = [.. group.Select(static item => item.Value!.Value).Order()];
+                double average = RoundingHelper.Round2(group.Average(static item => item.Value!.Value));
+                double[] sortedSamples = [.. group.Select(static item => item.Value!.Value).Order()];
                 return new AuthorRumMetricResponse(
                     group.Key,
-                    samples.Length,
-                    Percentile(samples, 0.75d),
-                    RoundingHelper.Round2(samples.Average()));
+                    sortedSamples.Length,
+                    Percentile(sortedSamples, 0.75d),
+                    average);
             })
             .OrderBy(static item => item.Name, StringComparer.Ordinal)
             .Take(8)
