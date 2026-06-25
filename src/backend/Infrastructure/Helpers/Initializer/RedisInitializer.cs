@@ -39,7 +39,7 @@ public static class RedisInitializer
             multiplexerHolder,
             sp.GetRequiredService<IRedisConnectionMultiplexerConnector>(),
             sp.GetRequiredService<ILogger<RedisMultiplexerHostedService>>()));
-        services.AddSingleton<IConnectionMultiplexer>(_ => multiplexerHolder.Current);
+        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisOptions));
 
         var instanceName = configuration.GetSection("RedisOptions:InstanceName").Value ?? "FsusBlog_";
 

@@ -176,6 +176,7 @@ src/backend/LuceneIndex/
 build_windows/
 FsusBlog.Wasm/build/
 FsusBlog.Wasm/build_windows/
+src/frontend/public/wasm/
 src/frontend/src/wasm/dist/
 src/frontend/wasm/build/
 src/frontend/wasm/pow/build/
