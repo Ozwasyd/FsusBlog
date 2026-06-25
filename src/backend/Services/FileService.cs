@@ -17,7 +17,7 @@ public sealed partial class FileService : IFileService
     private const int DefaultChunkSize = 512 * 1024;
     private const int MaxChunkSize = 2 * 1024 * 1024;
     private const int UploadStreamBufferSize = 81920;
-    private const int ImageSignatureHeaderLength = 16;
+    private const int ImageSignatureHeaderLength = 512;
     private const long MaxUploadBytes = 20 * 1024 * 1024;
     private const uint UploadSessionMagic = 0x53505546; // FUPS
     private const byte UploadSessionVersion = 1;
@@ -1337,6 +1337,11 @@ public sealed partial class FileService : IFileService
             return false;
         }
 
+        if (ContainsHtmlPolyglotMarker(header))
+        {
+            return false;
+        }
+
         int read = header.Length;
         string format = targetFormat.TrimStart('.').ToLowerInvariant();
         return format switch
@@ -1352,6 +1357,45 @@ public sealed partial class FileService : IFileService
                 && header[8] == 0x61 && header[9] == 0x76 && header[10] == 0x69 && header[11] == 0x66,
             _ => false
         };
+    }
+
+    private static bool ContainsHtmlPolyglotMarker(ReadOnlySpan<byte> header)
+        => ContainsAsciiIgnoreCase(header, "<script"u8)
+            || ContainsAsciiIgnoreCase(header, "<html"u8)
+            || ContainsAsciiIgnoreCase(header, "<!doctype"u8);
+
+    private static bool ContainsAsciiIgnoreCase(ReadOnlySpan<byte> value, ReadOnlySpan<byte> marker)
+    {
+        if (marker.Length == 0 || value.Length < marker.Length)
+        {
+            return false;
+        }
+
+        for (int i = 0; i <= value.Length - marker.Length; i++)
+        {
+            bool matched = true;
+            for (int j = 0; j < marker.Length; j++)
+            {
+                byte current = value[i + j];
+                if (current is >= (byte)'A' and <= (byte)'Z')
+                {
+                    current = (byte)(current + 32);
+                }
+
+                if (current != marker[j])
+                {
+                    matched = false;
+                    break;
+                }
+            }
+
+            if (matched)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static string SanitizeLogPath(string value)

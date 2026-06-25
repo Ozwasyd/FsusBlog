@@ -720,6 +720,59 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task UploadImageAsync_RejectsGifPolyglotPayload()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var svc = CreateService(root);
+            byte[] payload = Encoding.ASCII.GetBytes("GIF89a<script>alert(1)</script>");
+            var file = new FormFile(new MemoryStream(payload), 0, payload.Length, "file", "polyglot.gif");
+
+            FileUploadResult result = await svc.UploadImageAsync(file);
+
+            Assert.False(result.Success);
+            Assert.Empty(Directory.GetFiles(GetIllustrationFolder(root)));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public async Task CompleteUploadAsync_RejectsGifPolyglotPayload()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            var svc = CreateService(root);
+            byte[] payload = Encoding.ASCII.GetBytes("GIF89a<script>alert(1)</script>");
+            string sha256 = Convert.ToHexStringLower(SHA256.HashData(payload));
+            Result<UploadInitDto> init = await svc.InitUploadSessionAsync(new UploadInitRequestDto
+            {
+                FileName = "polyglot.gif",
+                MimeType = "image/gif",
+                TargetFormat = "gif",
+                TotalBytes = payload.Length,
+                ChunkSize = payload.Length
+            });
+
+            Assert.True(init.IsSuccess);
+            Result<UploadPartAckDto> upload = await svc.UploadPartAsync(init.Value!.UploadId, 0, 0, CreateFormFile(payload, "chunk"), sha256);
+            Assert.True(upload.IsSuccess, upload.Error.Message);
+
+            Result<UploadCompleteDto> complete = await svc.CompleteUploadAsync(init.Value.UploadId, sha256);
+
+            Assert.False(complete.IsSuccess);
+            Assert.Equal(ErrorCode.Validation, complete.Error.Code);
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task DeleteImageAsync_DeletesFromWebRootUploadFolderWhenContentRootDiffers()
     {
         string root = CreateTempDirectory();
