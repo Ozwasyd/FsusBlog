@@ -1,6 +1,11 @@
+using System.Linq.Expressions;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.Extensions.Configuration;
+using NSubstitute;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -144,6 +149,77 @@ public sealed class CommentActorContractTests
     }
 
     [Fact]
+    public async Task CommentActorResolver_AnonymousModeDropsRequestUserId()
+    {
+        var credentialService = Substitute.For<IAnonymousCredentialService>();
+        credentialService.GetAccountCredentialLevelAsync(42, null, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<string?>(AnonymousCredentialLevels.Trusted));
+        var resolver = new CommentActorResolver(
+            Substitute.For<ISqlSugarClient>(),
+            new AnonymousCommentPolicyService(BuildConfiguration([])),
+            new CommentAnonymousDisplayNameGenerator(),
+            credentialService,
+            Substitute.For<IZkAnonymousProofService>(),
+            BuildConfiguration([]));
+
+        CommentActorResolveResult result = await resolver.ResolveAsync(new CommentActorResolveRequest(
+            UserId: 42,
+            ArticleId: 7,
+            AuthorMode: CommentAuthorModes.Anonymous,
+            PublicSendExplicitlySelected: false,
+            AnonymousScope: "article:7",
+            DisplayLanguage: "en",
+            ProofToken: "proof-token",
+            ZkProof: null,
+            SubmitRegion: "US"));
+
+        Assert.True(result.Allowed, result.Message);
+        Assert.NotNull(result.Actor);
+        Assert.Null(result.Actor.UserId);
+        Assert.Equal(CommentAuthorModes.Anonymous, result.Actor.AuthorMode);
+        Assert.Null(result.Actor.PublicHandle);
+        Assert.NotNull(result.Actor.AnonymousHandle);
+        Assert.Equal(AnonymousCredentialLevels.Trusted, result.Actor.CredentialLevel);
+    }
+
+    [Fact]
+    public async Task CommentActorResolver_PublicModeKeepsRequestUserId()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var users = Substitute.For<ISugarQueryable<User>>();
+        var handles = Substitute.For<ISugarQueryable<string>>();
+        db.Queryable<User>().Returns(users);
+        users.Where(Arg.Any<Expression<Func<User, bool>>>()).Returns(users);
+        users.Select(Arg.Any<Expression<Func<User, string>>>()).Returns(handles);
+        handles.FirstAsync().Returns(Task.FromResult("PublicHandle"));
+        var resolver = new CommentActorResolver(
+            db,
+            new AnonymousCommentPolicyService(BuildConfiguration([])),
+            new CommentAnonymousDisplayNameGenerator(),
+            Substitute.For<IAnonymousCredentialService>(),
+            Substitute.For<IZkAnonymousProofService>(),
+            BuildConfiguration([]));
+
+        CommentActorResolveResult result = await resolver.ResolveAsync(new CommentActorResolveRequest(
+            UserId: 42,
+            ArticleId: 7,
+            AuthorMode: CommentAuthorModes.Public,
+            PublicSendExplicitlySelected: true,
+            AnonymousScope: null,
+            DisplayLanguage: "en",
+            ProofToken: null,
+            ZkProof: null,
+            SubmitRegion: "US"));
+
+        Assert.True(result.Allowed, result.Message);
+        Assert.NotNull(result.Actor);
+        Assert.Equal(42, result.Actor.UserId);
+        Assert.Equal(CommentAuthorModes.Public, result.Actor.AuthorMode);
+        Assert.Equal("PublicHandle", result.Actor.PublicHandle);
+        Assert.Null(result.Actor.AnonymousHandle);
+    }
+
+    [Fact]
     public void AnonymousDisplayNameGenerator_LocalizesStablyWithoutIdentityLeakage()
     {
         var generator = new CommentAnonymousDisplayNameGenerator();
@@ -180,5 +256,16 @@ public sealed class CommentActorContractTests
         int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
         Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
         return source[startIndex..endIndex];
+    }
+
+    private static IConfiguration BuildConfiguration(Dictionary<string, string?> values)
+    {
+        var merged = new Dictionary<string, string?>(values, StringComparer.OrdinalIgnoreCase)
+        {
+            ["Moderation:Pepper"] = "unit-test-moderation-pepper-32-bytes-minimum"
+        };
+        return new ConfigurationBuilder()
+            .AddInMemoryCollection(merged)
+            .Build();
     }
 }
