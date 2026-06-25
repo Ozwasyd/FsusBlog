@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Text;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
@@ -683,6 +684,42 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task UploadImageAsync_RejectsJpegExtensionWithHtmlPayload()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var svc = CreateService(root);
+            byte[] payload = Encoding.UTF8.GetBytes("<script>alert(1)</script>");
+            var file = new FormFile(new MemoryStream(payload), 0, payload.Length, "file", "attack.jpg");
+
+            FileUploadResult result = await svc.UploadImageAsync(file);
+
+            Assert.False(result.Success);
+            Assert.Empty(Directory.GetFiles(GetIllustrationFolder(root)));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public async Task UploadImageAsync_RejectsPngExtensionWithGifHeader()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var svc = CreateService(root);
+            byte[] payload = Encoding.ASCII.GetBytes("GIF89a<script>alert(1)</script>");
+            var file = new FormFile(new MemoryStream(payload), 0, payload.Length, "file", "polyglot.png");
+
+            FileUploadResult result = await svc.UploadImageAsync(file);
+
+            Assert.False(result.Success);
+            Assert.Empty(Directory.GetFiles(GetIllustrationFolder(root)));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
     public async Task DeleteImageAsync_DeletesFromWebRootUploadFolderWhenContentRootDiffers()
     {
         string root = CreateTempDirectory();
@@ -908,6 +945,9 @@ public sealed class FileServiceTests
         Directory.CreateDirectory(path);
         return path;
     }
+
+    private static string GetIllustrationFolder(string root)
+        => Path.Combine(root, "wwwroot", "uploads", "illustration");
 
     private static string ReadFileServiceSource()
     {

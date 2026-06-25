@@ -329,6 +329,7 @@ public static class WebApplicationCompositionExtensions
     {
         string requestPath = ctx.Context.Request.Path.Value ?? string.Empty;
         var headers = ctx.Context.Response.Headers;
+        headers["X-Content-Type-Options"] = "nosniff";
 
         if (string.Equals(requestPath, "/sw.js", StringComparison.Ordinal)
             || string.Equals(requestPath, "/search/index.manifest.aeds", StringComparison.Ordinal)

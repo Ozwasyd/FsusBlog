@@ -502,6 +502,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         DefaultHttpContext result = await site.GetAsync("/search/index.core.0123456789abcdef.bin");
 
         Assert.Equal(StatusCodes.Status200OK, result.Response.StatusCode);
+        Assert.Equal("nosniff", result.Response.Headers["X-Content-Type-Options"].ToString());
         Assert.Equal("public,max-age=31536000,immutable", result.Response.Headers["Cache-Control"].ToString());
         Assert.True(string.IsNullOrEmpty(result.Response.Headers["ETag"].ToString()));
         Assert.True(string.IsNullOrEmpty(result.Response.Headers["Last-Modified"].ToString()));

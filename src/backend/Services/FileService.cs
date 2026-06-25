@@ -80,6 +80,11 @@ public sealed partial class FileService : IFileService
             return new FileUploadResult { Success = false, Message = "格式不支持" };
         }
 
+        if (!await ValidateImageSignatureAsync(file, extension))
+        {
+            return new FileUploadResult { Success = false, Message = "图片签名不匹配" };
+        }
+
         string fileName = $"{Guid.NewGuid():N}{extension}";
         string filePath = Path.Combine(_folderPath, fileName);
         string relativeUrl = $"{_cleanSubFolderWeb}/{fileName}";
@@ -1314,6 +1319,14 @@ public sealed partial class FileService : IFileService
         });
 
         int read = await stream.ReadAsync(header.AsMemory(0, header.Length), cancellationToken);
+        return ValidateImageSignature(header.AsSpan(0, read), targetFormat);
+    }
+
+    private static async Task<bool> ValidateImageSignatureAsync(IFormFile file, string targetFormat)
+    {
+        byte[] header = new byte[16];
+        await using Stream stream = file.OpenReadStream();
+        int read = await stream.ReadAsync(header.AsMemory(0, header.Length));
         return ValidateImageSignature(header.AsSpan(0, read), targetFormat);
     }
 
