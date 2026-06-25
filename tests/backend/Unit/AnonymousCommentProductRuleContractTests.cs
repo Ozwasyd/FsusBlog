@@ -59,12 +59,13 @@ public sealed class AnonymousCommentProductRuleContractTests
         string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCommentPolicyService.cs");
 
         Assert.DoesNotContain(".GetAwaiter().GetResult()", service, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Wait(", service, StringComparison.Ordinal);
         Assert.Contains("Task<AnonymousCommentPolicySnapshot> GetCurrentAsync", service, StringComparison.Ordinal);
         Assert.Contains("Task<AnonymousCommentPolicySnapshot> UpdatePolicyAsync", service, StringComparison.Ordinal);
         Assert.Contains("Task<CommentAuthorModeDecision> EvaluateAuthorModeAsync", service, StringComparison.Ordinal);
-        Assert.Contains("LoadPersistedPolicyAsync", service, StringComparison.Ordinal);
-        Assert.Contains("PersistPolicyAsync", service, StringComparison.Ordinal);
-        Assert.Contains("InvalidatePolicyCacheAsync", service, StringComparison.Ordinal);
+        Assert.Contains("private async Task<AnonymousCommentPolicySnapshot?> LoadPersistedPolicyAsync(CancellationToken cancellationToken)", service, StringComparison.Ordinal);
+        Assert.Contains("private async Task PersistPolicyAsync(", service, StringComparison.Ordinal);
+        Assert.Contains("private async Task InvalidatePolicyCacheAsync(CancellationToken cancellationToken)", service, StringComparison.Ordinal);
         Assert.Contains(".FirstAsync(cancellationToken)", service, StringComparison.Ordinal);
         Assert.Contains(".ExecuteCommandAsync(cancellationToken)", service, StringComparison.Ordinal);
         Assert.Contains(".InvalidateCommentPolicyAsync(cancellationToken)", service, StringComparison.Ordinal);
