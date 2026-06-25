@@ -434,7 +434,14 @@ internal static class ServerCacheBinaryCodec
     }
 
     private static void WriteDateTime(BinaryWriter writer, DateTime value)
-        => writer.Write(value.ToUniversalTime().Ticks);
+    {
+        if (value.Kind != DateTimeKind.Utc)
+        {
+            throw new InvalidOperationException("Server cache binary timestamps must be UTC DateTime values.");
+        }
+
+        writer.Write(value.Ticks);
+    }
 
     private static DateTime ReadDateTime(BinaryReader reader)
         => new(reader.ReadInt64(), DateTimeKind.Utc);
