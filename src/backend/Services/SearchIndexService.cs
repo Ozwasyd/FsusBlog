@@ -1560,13 +1560,18 @@ public sealed partial class SearchIndexService(
                 Tags = tagMap.TryGetValue(row.Id, out List<SearchTagItem>? tags) ? tags : [],
                 Views = row.Views,
                 CommentCount = commentMap.TryGetValue(row.Id, out int count) ? count : 0,
-                CreateTime = DateTime.SpecifyKind(row.CreateTime, DateTimeKind.Utc),
+                CreateTime = NormalizeCreateTimeUtc(row.CreateTime),
                 DocLength = docLength
             });
         }
 
         return list;
     }
+
+    private static DateTime NormalizeCreateTimeUtc(DateTime value)
+        => value.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(value, DateTimeKind.Utc)
+            : value.ToUniversalTime();
 
     private static int CountVisibleTokenOccurrences(string body)
     {
@@ -2474,6 +2479,9 @@ public sealed partial class SearchIndexService(
         int patchBytesLength,
         int shardBytesLength)
         => ShouldEmitPatch(shardDocCount, patchDocCount, tombstoneCount, patchBytesLength, shardBytesLength);
+
+    internal static DateTime NormalizeCreateTimeUtcForTests(DateTime value)
+        => NormalizeCreateTimeUtc(value);
 
     internal static double ComputeRuntimeBm25ForTests(
         double weightedTermFrequency,

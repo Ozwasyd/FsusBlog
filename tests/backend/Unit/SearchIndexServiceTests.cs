@@ -55,6 +55,25 @@ public sealed class SearchIndexServiceTests
     }
 
     [Fact]
+    public void NormalizeCreateTimeUtcForTests_ConvertsLocalButMarksUnspecifiedAsUtc()
+    {
+        var unspecified = new DateTime(2026, 6, 25, 9, 30, 0, DateTimeKind.Unspecified);
+        var local = new DateTime(2026, 6, 25, 9, 30, 0, DateTimeKind.Local);
+        var utc = new DateTime(2026, 6, 25, 9, 30, 0, DateTimeKind.Utc);
+
+        DateTime normalizedUnspecified = SearchIndexService.NormalizeCreateTimeUtcForTests(unspecified);
+        DateTime normalizedLocal = SearchIndexService.NormalizeCreateTimeUtcForTests(local);
+        DateTime normalizedUtc = SearchIndexService.NormalizeCreateTimeUtcForTests(utc);
+
+        Assert.Equal(DateTimeKind.Utc, normalizedUnspecified.Kind);
+        Assert.Equal(unspecified.Ticks, normalizedUnspecified.Ticks);
+        Assert.Equal(local.ToUniversalTime(), normalizedLocal);
+        Assert.Equal(DateTimeKind.Utc, normalizedLocal.Kind);
+        Assert.Equal(utc, normalizedUtc);
+        Assert.Equal(DateTimeKind.Utc, normalizedUtc.Kind);
+    }
+
+    [Fact]
     public void TokenizeForTests_PrefersHigherFrequencyLongerPath_AndEmitsDictionarySubtokens()
     {
         string lexiconRoot = CreateLexiconRoot(
