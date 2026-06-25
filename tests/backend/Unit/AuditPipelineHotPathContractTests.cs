@@ -122,16 +122,26 @@ public sealed class AuditPipelineHotPathContractTests
         AuditRecord record = BuildTamperRecord();
         AuditTamperEvidenceResult result = AuditTamperEvidence.Sign(record, key);
         AuditLog validLog = ToAuditLog(record, result);
-        AuditLog missingMacLog = ToAuditLog(record, result);
-        missingMacLog.RecordMac = null;
 
         Assert.True(AuditTamperEvidence.Verify(validLog, key));
-        Assert.False(AuditTamperEvidence.Verify(validLog, null));
-        Assert.False(AuditTamperEvidence.Verify(missingMacLog, key));
         Assert.True(AuditTamperEvidence.FixedTimeEqualsHexSha256(result.RecordHash, result.RecordHash.ToUpperInvariant()));
         Assert.False(AuditTamperEvidence.FixedTimeEqualsHexSha256(result.RecordHash, result.RecordHash[..^2]));
         Assert.False(AuditTamperEvidence.Verify(ToAuditLog(record, result, recordHash: result.RecordHash[..^2]), key));
         Assert.False(AuditTamperEvidence.Verify(ToAuditLog(record, result, recordMac: result.RecordMac![..^2]), key));
+    }
+
+    [Fact]
+    public void AuditTamperEvidence_VerifyFailsClosedWhenKeyOrRecordMacMissing()
+    {
+        byte[] key = Encoding.UTF8.GetBytes(ValidTamperKey);
+        AuditRecord record = BuildTamperRecord();
+        AuditTamperEvidenceResult result = AuditTamperEvidence.Sign(record, key);
+        AuditLog validLog = ToAuditLog(record, result);
+        AuditLog missingMacLog = ToAuditLog(record, result);
+        missingMacLog.RecordMac = null;
+
+        Assert.False(AuditTamperEvidence.Verify(validLog, null));
+        Assert.False(AuditTamperEvidence.Verify(missingMacLog, key));
     }
 
     [Fact]
