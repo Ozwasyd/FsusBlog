@@ -22,6 +22,7 @@ public sealed partial class FileService : IFileService
     private const uint UploadSessionMagic = 0x53505546; // FUPS
     private const byte UploadSessionVersion = 1;
     private static readonly TimeSpan SessionTtl = TimeSpan.FromHours(6);
+    private static readonly TimeSpan SessionLockTtl = TimeSpan.FromHours(6);
     private static readonly TimeSpan ManifestlessSessionGracePeriod = TimeSpan.FromMinutes(1);
 
     private readonly IWebHostEnvironment _env;
@@ -579,6 +580,7 @@ public sealed partial class FileService : IFileService
             throw new InvalidOperationException("Upload session id is invalid.");
         }
 
+        CleanupStaleSessionLocks(DateTimeOffset.UtcNow);
         while (true)
         {
             SessionLockEntry entry = _sessionLocks.GetOrAdd(uploadId, static _ => new SessionLockEntry());
@@ -1083,15 +1085,39 @@ public sealed partial class FileService : IFileService
         }
     }
 
+    internal static int CleanupStaleSessionLocks(DateTimeOffset now)
+    {
+        DateTimeOffset cutoff = now - SessionLockTtl;
+        int removed = 0;
+        foreach (KeyValuePair<string, SessionLockEntry> pair in _sessionLocks)
+        {
+            if (!pair.Value.IsIdleSince(cutoff))
+            {
+                continue;
+            }
+
+            pair.Value.MarkRetired();
+            int before = _sessionLocks.Count;
+            TryDisposeSessionLock(pair.Key, pair.Value);
+            if (_sessionLocks.Count < before)
+            {
+                removed++;
+            }
+        }
+
+        return removed;
+    }
+
     internal sealed class SessionLockEntry : IDisposable
     {
         private int _referenceCount;
         private int _retired;
         private int _disposed;
+        private long _lastTouchedUtcTicks = DateTimeOffset.UtcNow.UtcTicks;
 
         public SemaphoreSlim Semaphore { get; } = new(1, 1);
 
-        public bool CanDispose => Volatile.Read(ref _retired) == 1 && Volatile.Read(ref _referenceCount) == 0;
+        public bool CanDispose => Volatile.Read(ref _referenceCount) == 0;
 
         public bool TryAddReference()
         {
@@ -1114,13 +1140,32 @@ public sealed partial class FileService : IFileService
                     return false;
                 }
 
+                Touch();
                 return true;
             }
         }
 
-        public void ReleaseReference() => Interlocked.Decrement(ref _referenceCount);
+        public void ReleaseReference()
+        {
+            Interlocked.Decrement(ref _referenceCount);
+            Touch();
+        }
 
-        public void MarkRetired() => Volatile.Write(ref _retired, 1);
+        public void MarkRetired()
+        {
+            Volatile.Write(ref _retired, 1);
+            Touch();
+        }
+
+        public bool IsIdleSince(DateTimeOffset cutoff)
+            => Volatile.Read(ref _referenceCount) == 0 &&
+                new DateTimeOffset(Volatile.Read(ref _lastTouchedUtcTicks), TimeSpan.Zero) <= cutoff;
+
+        internal void SetLastTouchedUtcForTests(DateTimeOffset timestamp)
+            => Volatile.Write(ref _lastTouchedUtcTicks, timestamp.UtcTicks);
+
+        private void Touch()
+            => Volatile.Write(ref _lastTouchedUtcTicks, DateTimeOffset.UtcNow.UtcTicks);
 
         public void Dispose()
         {

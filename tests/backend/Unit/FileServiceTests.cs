@@ -385,6 +385,36 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task AcquireSessionLockAsync_CanceledWaitRemovesEntry()
+    {
+        ResetSessionLocks();
+        string uploadId = Guid.NewGuid().ToString("N");
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            async () => await AcquireSessionLockForTestsAsync(uploadId, cts.Token));
+
+        Assert.Equal(0, GetSessionLockCount());
+    }
+
+    [Fact]
+    public async Task CleanupStaleSessionLocks_RemovesIdleExpiredEntry()
+    {
+        ResetSessionLocks();
+        var entry = new FileService.SessionLockEntry();
+        string uploadId = Guid.NewGuid().ToString("N");
+        RegisterSessionLock(uploadId, entry);
+        entry.SetLastTouchedUtcForTests(DateTimeOffset.UtcNow - TimeSpan.FromHours(7));
+
+        int removed = FileService.CleanupStaleSessionLocks(DateTimeOffset.UtcNow);
+
+        Assert.Equal(1, removed);
+        Assert.Equal(0, GetSessionLockCount());
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await entry.Semaphore.WaitAsync());
+    }
+
+    [Fact]
     public void SessionLockEntry_RetiredEntryRejectsNewReferences()
     {
         var entry = new FileService.SessionLockEntry();
@@ -814,6 +844,13 @@ public sealed class FileServiceTests
     {
         MethodInfo method = typeof(FileService).GetMethod("TryDisposeSessionLock", BindingFlags.Static | BindingFlags.NonPublic)!;
         method.Invoke(null, [uploadId, entry]);
+    }
+
+    private static async Task AcquireSessionLockForTestsAsync(string uploadId, CancellationToken cancellationToken)
+    {
+        MethodInfo method = typeof(FileService).GetMethod("AcquireSessionLockAsync", BindingFlags.Static | BindingFlags.NonPublic)!;
+        var task = (Task)method.Invoke(null, [uploadId, cancellationToken])!;
+        await task;
     }
 
     private static string GetSessionPath(string root, string uploadId)
