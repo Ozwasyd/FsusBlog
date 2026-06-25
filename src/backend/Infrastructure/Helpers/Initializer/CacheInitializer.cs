@@ -48,29 +48,7 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
 
         List<CacheInitializationRollbackEntry> rollbackEntries = await LoadRollbackEntriesAsync(bannedUsers).ConfigureAwait(false);
 
-        // 2. 并发预热 Redis (冷启动速度优化)
-        // 核心优化：避免串行 await 带来的大量 RTT (往返时间) 堆叠。
-        // 将请求分块，每批并发 100 个请求。既能将预热速度提升数十倍，又不会引发连接池饥饿。
-        var tasks = new List<Task>(100);
-        for (int i = 0; i < bannedUsers.Count; i += 100)
-        {
-            // 复用集合，拒绝在循环内创建 new List
-            tasks.Clear();
-            int count = Math.Min(100, bannedUsers.Count - i);
-
-            for (int j = 0; j < count; j++)
-            {
-                var user = bannedUsers[i + j];
-                tasks.Add(_cache.SetStringAsync(
-                    CachePolicyId.SecurityBlacklistUser,
-                    BuildAccountSubjectCacheKey(user.AccountSubjectHash),
-                    user.BanReason ?? "违反社区规定"));
-            }
-
-            // 并发执行这一批次的 Redis 写入
-            await Task.WhenAll(tasks);
-        }
-
+        // LoadRollbackEntriesAsync routes through BlacklistService, which warms the versioned ban-state cache.
         return new CacheInitializationResult(rollbackEntries);
     }
 

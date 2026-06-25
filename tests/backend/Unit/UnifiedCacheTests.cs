@@ -247,6 +247,74 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    public async Task TrySetVersionedStringAsync_UsesLuaVersionGuardAndUpdatesL1OnlyOnSuccess()
+    {
+        using var memory = new RemoveTrackingMemoryCache();
+        var db = Substitute.For<IDatabase>();
+        UnifiedCache cache = CreateCache(memory, db);
+        string key = cache.BuildKey(CachePolicyId.SecurityBlacklistUser, "account:abc");
+        string? capturedScript = null;
+        RedisKey[]? capturedKeys = null;
+        RedisValue[]? capturedValues = null;
+        db.ScriptEvaluateAsync(
+                Arg.Any<string>(),
+                Arg.Any<RedisKey[]>(),
+                Arg.Any<RedisValue[]>(),
+                Arg.Any<CommandFlags>())
+            .Returns(call =>
+            {
+                capturedScript = call.ArgAt<string>(0);
+                capturedKeys = call.ArgAt<RedisKey[]>(1);
+                capturedValues = call.ArgAt<RedisValue[]>(2);
+                return Task.FromResult(RedisResult.Create((RedisValue)1L));
+            });
+
+        bool updated = await cache.TrySetVersionedStringAsync(
+            CachePolicyId.SecurityBlacklistUser,
+            "account:abc",
+            "v1|7|1|YmFu",
+            "7");
+
+        Assert.True(updated);
+        Assert.True(memory.Removed);
+        Assert.Equal(key, memory.RemovedKey);
+        Assert.NotNull(capturedScript);
+        Assert.Contains("currentVersion ~= ARGV[2]", capturedScript, StringComparison.Ordinal);
+        Assert.Contains("return 0", capturedScript, StringComparison.Ordinal);
+        Assert.NotNull(capturedKeys);
+        Assert.Equal([new RedisKey(key)], capturedKeys);
+        Assert.NotNull(capturedValues);
+        Assert.Equal((RedisValue)"v1|7|1|YmFu", capturedValues![0]);
+        Assert.Equal((RedisValue)"7", capturedValues[1]);
+        Assert.Equal((RedisValue)(-1L), capturedValues[2]);
+        Assert.Equal((RedisValue)"0", capturedValues[3]);
+    }
+
+    [Fact]
+    public async Task TrySetVersionedStringAsync_ConflictDoesNotSetL1()
+    {
+        using var memory = new RemoveTrackingMemoryCache();
+        var db = Substitute.For<IDatabase>();
+        db.ScriptEvaluateAsync(
+                Arg.Any<string>(),
+                Arg.Any<RedisKey[]>(),
+                Arg.Any<RedisValue[]>(),
+                Arg.Any<CommandFlags>())
+            .Returns(Task.FromResult(RedisResult.Create((RedisValue)0L)));
+        UnifiedCache cache = CreateCache(memory, db);
+
+        bool updated = await cache.TrySetVersionedStringAsync(
+            CachePolicyId.SecurityBlacklistUser,
+            "account:abc",
+            "v1|7|1|YmFu",
+            "7");
+
+        Assert.False(updated);
+        Assert.True(memory.Removed);
+        Assert.Empty(memory.CreatedKeys);
+    }
+
+    [Fact]
     public async Task IncrementAsync_RemovesL1BeforeRedisIncrement()
     {
         using var memory = new RemoveTrackingMemoryCache();
@@ -670,6 +738,7 @@ public sealed class UnifiedCacheTests
         public bool Removed { get; private set; }
         public object? RemovedKey { get; private set; }
         public List<object> RemovedKeys { get; } = [];
+        public List<object> CreatedKeys { get; } = [];
 
         public bool TryGetValue(object key, out object? value)
         {
@@ -678,7 +747,10 @@ public sealed class UnifiedCacheTests
         }
 
         public ICacheEntry CreateEntry(object key)
-            => new TestCacheEntry(key);
+        {
+            CreatedKeys.Add(key);
+            return new TestCacheEntry(key);
+        }
 
         public void Remove(object key)
         {

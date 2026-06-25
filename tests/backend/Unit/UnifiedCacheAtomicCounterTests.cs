@@ -42,6 +42,20 @@ public sealed class UnifiedCacheAtomicCounterTests
         Assert.Contains("SetL1(policyId, key, cachedValue)", method, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void UnifiedCache_TrySetVersionedStringUsesSingleLuaVersionGuard()
+    {
+        string source = ReadSource("src/backend/Infrastructure/Cache/IUnifiedCache.cs");
+        string method = ExtractMethodBlock(source, "public async Task<bool> TrySetVersionedStringAsync");
+
+        Assert.Contains("ScriptEvaluateAsync", method, StringComparison.Ordinal);
+        Assert.Contains("currentVersion ~= ARGV[2]", method, StringComparison.Ordinal);
+        Assert.Contains("return 0", method, StringComparison.Ordinal);
+        Assert.Contains("allowOverwrite ? \"1\" : \"0\"", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("StringSetAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("_db.CreateTransaction()", method, StringComparison.Ordinal);
+    }
+
     private static string ReadSource(string relativePath, [CallerFilePath] string sourceFilePath = "")
         => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 

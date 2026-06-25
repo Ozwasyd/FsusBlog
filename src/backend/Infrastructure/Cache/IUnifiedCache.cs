@@ -35,6 +35,8 @@ public interface IUnifiedCache
     Task SetStringAsync(CachePolicyId policyId, string identity, string value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default);
     Task<bool> TrySetStringIfValueAsync(CachePolicyId policyId, string identity, string value, string compareIdentity, string expectedCompareValue, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("This cache implementation does not support compare-and-set string writes.");
+    Task<bool> TrySetVersionedStringAsync(CachePolicyId policyId, string identity, string value, string version, bool allowOverwrite = false, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This cache implementation does not support version-guarded string writes.");
     Task<long> IncrementAsync(CachePolicyId policyId, string identity, long value = 1, CancellationToken cancellationToken = default);
     Task<long[]> IncrementManyAsync(CachePolicyId policyId, IReadOnlyList<string> identities, long value = 1, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("This cache implementation does not support atomic multi-counter increments.");
@@ -283,6 +285,77 @@ public sealed class UnifiedCache(
         cancellationToken.ThrowIfCancellationRequested();
         SetL1(policyId, key, cachedValue);
         FsusObservability.RecordCacheOperation("set_cas", policyId.ToString(), "l2", "ok", FsusObservability.GetElapsed(startedAt));
+        return true;
+    }
+
+    public async Task<bool> TrySetVersionedStringAsync(
+        CachePolicyId policyId,
+        string identity,
+        string value,
+        string version,
+        bool allowOverwrite = false,
+        TimeSpan? l2TtlOverride = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            throw new ArgumentException("Cache version must be non-empty.", nameof(version));
+        }
+
+        long startedAt = Stopwatch.GetTimestamp();
+        using Activity? activity = FsusObservability.StartActivity("cache.set_versioned", "cache", ActivityKind.Client);
+        FsusObservability.SetTag(activity, "fsus.cache.operation", "set_versioned");
+        FsusObservability.SetTag(activity, "fsus.cache.policy", policyId.ToString());
+        string key = BuildKey(policyId, identity);
+        cancellationToken.ThrowIfCancellationRequested();
+        CachePolicy policy = ResolvePolicy(policyId);
+        TimeSpan? l2Ttl = ResolveL2Expiry(key, policy, l2TtlOverride);
+        long ttlMilliseconds = l2Ttl.HasValue
+            ? Math.Max(1L, (long)Math.Ceiling(l2Ttl.Value.TotalMilliseconds))
+            : -1L;
+        memoryCache.Remove(key);
+        cancellationToken.ThrowIfCancellationRequested();
+        const string script = """
+local current = redis.call('GET', KEYS[1])
+if current and ARGV[4] == '0' then
+  local first = string.find(current, '|', 1, true)
+  local second = nil
+  if first then
+    second = string.find(current, '|', first + 1, true)
+  end
+  if not first or not second or string.sub(current, 1, first - 1) ~= 'v1' then
+    return 0
+  end
+  local currentVersion = string.sub(current, first + 1, second - 1)
+  if currentVersion ~= ARGV[2] then
+    return 0
+  end
+end
+if tonumber(ARGV[3]) and tonumber(ARGV[3]) > 0 then
+  redis.call('SET', KEYS[1], ARGV[1], 'PX', ARGV[3])
+else
+  redis.call('SET', KEYS[1], ARGV[1])
+end
+return 1
+""";
+        RedisResult result = await _db.ScriptEvaluateAsync(
+                script,
+                [key],
+                [value, version, ttlMilliseconds, allowOverwrite ? "1" : "0"],
+                CommandFlags.None)
+            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        bool updated = (long)result == 1L;
+        if (!updated)
+        {
+            FsusObservability.RecordCacheOperation("set_versioned", policyId.ToString(), "l2", "conflict", FsusObservability.GetElapsed(startedAt));
+            return false;
+        }
+
+        await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        SetL1(policyId, key, System.Text.Encoding.UTF8.GetBytes(value));
+        FsusObservability.RecordCacheOperation("set_versioned", policyId.ToString(), "l2", "ok", FsusObservability.GetElapsed(startedAt));
         return true;
     }
 
