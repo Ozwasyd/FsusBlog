@@ -31,6 +31,7 @@ using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services;
 using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Primitives;
@@ -853,7 +854,7 @@ public static class WebApplicationCompositionExtensions
     }
 
     private static string CreateCspNonce()
-        => Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
+        => WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(16));
 
     private static async Task WriteSpaHtmlResponseAsync(
         HttpContext ctx,

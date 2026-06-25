@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -48,6 +49,35 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.Contains("<meta property=\"csp-nonce\" nonce=\"old\" />", rendered);
         Assert.Contains("<script nonce=\"old\"></script>", rendered);
         Assert.DoesNotContain("nonce=\"new\"", rendered);
+    }
+
+    [Fact]
+    public void EnsureCspNonce_GeneratesUrlSafeBase64Nonce()
+    {
+        for (int i = 0; i < 16; i++)
+        {
+            var context = new DefaultHttpContext();
+            string nonce = WebApplicationCompositionExtensions.EnsureCspNonce(context);
+
+            Assert.DoesNotContain("+", nonce, StringComparison.Ordinal);
+            Assert.DoesNotContain("/", nonce, StringComparison.Ordinal);
+            Assert.DoesNotContain("=", nonce, StringComparison.Ordinal);
+            Assert.Equal(nonce, QueryHelpers.ParseQuery($"?nonce={nonce}")["nonce"].ToString());
+        }
+    }
+
+    [Fact]
+    public void GeneratedCspNonce_MatchesHeaderAndInlineScript()
+    {
+        var context = new DefaultHttpContext();
+        string nonce = WebApplicationCompositionExtensions.EnsureCspNonce(context);
+        string csp = WebApplicationCompositionExtensions.BuildHtmlCsp(isDevelopment: false, nonce);
+        string html = "<html><head></head><body><script type=\"module\"></script></body></html>";
+
+        string rendered = WebApplicationCompositionExtensions.ApplyCspNonceToHtml(context, html);
+
+        Assert.Contains($"'nonce-{nonce}'", csp, StringComparison.Ordinal);
+        Assert.Contains($"<script nonce=\"{nonce}\" type=\"module\">", rendered, StringComparison.Ordinal);
     }
 
     [Theory]
