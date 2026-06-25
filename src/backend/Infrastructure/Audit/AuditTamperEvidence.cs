@@ -9,17 +9,24 @@ namespace FsusBlog.Server.Infrastructure.Audit;
 
 internal static class AuditTamperEvidence
 {
+    internal const int MinimumTamperEvidenceKeyByteCount = 32;
+    private const int MinimumTamperEvidenceKeyDistinctCharacters = 8;
+
     public static byte[]? ResolveKey(IConfiguration configuration)
     {
         string? configured = configuration["Audit:TamperEvidenceKey"];
         if (string.IsNullOrWhiteSpace(configured))
         {
-            configured = configuration["Security:AuditTamperEvidenceKey"];
+            return null;
         }
 
-        return string.IsNullOrWhiteSpace(configured)
-            ? null
-            : Encoding.UTF8.GetBytes(configured.Trim());
+        string trimmed = configured.Trim();
+        if (!TryValidateKeyMaterial(trimmed, out string error))
+        {
+            throw new InvalidOperationException(error);
+        }
+
+        return Encoding.UTF8.GetBytes(trimmed);
     }
 
     public static AuditTamperEvidenceResult Sign(AuditRecord record, byte[]? key)
@@ -32,6 +39,7 @@ internal static class AuditTamperEvidence
         string? recordMac = record.RecordMac;
         if (recordMac is null && key is { Length: > 0 })
         {
+            EnsureUsableKey(key);
             recordMac = Convert.ToHexStringLower(HMACSHA256.HashData(key, canonicalBytes));
         }
 
@@ -45,6 +53,11 @@ internal static class AuditTamperEvidence
             return false;
         }
 
+        if (!IsUsableKey(key))
+        {
+            return false;
+        }
+
         AuditRecord record = FromLog(log);
         AuditTamperEvidenceResult evidence = Sign(record with { RecordHash = null, RecordMac = null }, key);
         if (!FixedTimeEqualsHexSha256(log.RecordHash, evidence.RecordHash))
@@ -52,10 +65,61 @@ internal static class AuditTamperEvidence
             return false;
         }
 
-        return string.IsNullOrWhiteSpace(log.RecordMac)
-            || string.IsNullOrWhiteSpace(evidence.RecordMac)
-            || FixedTimeEqualsHexSha256(log.RecordMac, evidence.RecordMac);
+        return !string.IsNullOrWhiteSpace(log.RecordMac)
+            && !string.IsNullOrWhiteSpace(evidence.RecordMac)
+            && FixedTimeEqualsHexSha256(log.RecordMac, evidence.RecordMac);
     }
+
+    internal static bool TryValidateKeyMaterial(string? configured, out string error)
+    {
+        string value = configured?.Trim() ?? string.Empty;
+        if (value.Length == 0)
+        {
+            error = "Audit:TamperEvidenceKey is required.";
+            return false;
+        }
+
+        if (Encoding.UTF8.GetByteCount(value) < MinimumTamperEvidenceKeyByteCount)
+        {
+            error = $"Audit:TamperEvidenceKey must be at least {MinimumTamperEvidenceKeyByteCount} bytes.";
+            return false;
+        }
+
+        if (!HasMinimumCharacterDiversity(value))
+        {
+            error = $"Audit:TamperEvidenceKey must include at least {MinimumTamperEvidenceKeyDistinctCharacters} distinct characters.";
+            return false;
+        }
+
+        if (value.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("MUST_BE_OVERRIDDEN", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("replace-with", StringComparison.OrdinalIgnoreCase))
+        {
+            error = "Audit:TamperEvidenceKey must not use a template placeholder.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private static void EnsureUsableKey(byte[] key)
+    {
+        if (!IsUsableKey(key))
+        {
+            throw new InvalidOperationException(
+                $"Audit tamper evidence key must be at least {MinimumTamperEvidenceKeyByteCount} bytes and include sufficient diversity.");
+        }
+    }
+
+    private static bool IsUsableKey(byte[]? key)
+        => key is { Length: >= MinimumTamperEvidenceKeyByteCount } && HasMinimumByteDiversity(key);
+
+    private static bool HasMinimumCharacterDiversity(string value)
+        => value.Distinct().Take(MinimumTamperEvidenceKeyDistinctCharacters).Count() == MinimumTamperEvidenceKeyDistinctCharacters;
+
+    private static bool HasMinimumByteDiversity(byte[] value)
+        => value.Distinct().Take(MinimumTamperEvidenceKeyDistinctCharacters).Count() == MinimumTamperEvidenceKeyDistinctCharacters;
 
     internal static bool FixedTimeEqualsHexSha256(string? left, string? right)
     {

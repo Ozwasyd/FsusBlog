@@ -5,11 +5,14 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AuditPipelineHotPathContractTests
 {
+    private const string ValidTamperKey = "unit-test-audit-tamper-evidence-key-with-enough-entropy";
+
     [Fact]
     public void AuditEventService_SourceDoesNotSerializeContextJsonOnRequestPath()
     {
@@ -103,7 +106,7 @@ public sealed class AuditPipelineHotPathContractTests
             ContextJson: "{\"ok\":true}",
             ChainId: "20260614",
             PrevHash: "prev");
-        byte[] key = Encoding.UTF8.GetBytes("secret");
+        byte[] key = Encoding.UTF8.GetBytes(ValidTamperKey);
         const string canonical = "{\"Source\":\"auth\",\"Type\":\"security\",\"OccurredAtUtc\":\"2026-06-14T12:00:00.0000000Z\",\"Action\":\"auth.test\",\"Outcome\":\"success\",\"Severity\":\"info\",\"ActorType\":\"admin\",\"ActorId\":\"7\",\"ActorRole\":\"admin\",\"TargetType\":\"session\",\"TargetId\":\"42\",\"IsHighValue\":true,\"TraceId\":\"trace\",\"RequestPath\":\"/login\",\"RequestMethod\":\"POST\",\"IpHash\":\"ip\",\"UserAgentHash\":\"ua\",\"SessionIdHash\":\"sid\",\"DeviceFingerprintHash\":\"fp\",\"ReasonCode\":\"risk\",\"EventInfo\":\"event\",\"ContextJson\":\"{\\u0022ok\\u0022:true}\",\"ChainId\":\"20260614\",\"PrevHash\":\"prev\"}";
 
         AuditTamperEvidenceResult result = AuditTamperEvidence.Sign(record, key);
@@ -115,16 +118,42 @@ public sealed class AuditPipelineHotPathContractTests
     [Fact]
     public void AuditTamperEvidence_VerifyUsesFixedLengthHexComparison()
     {
-        byte[] key = Encoding.UTF8.GetBytes("secret");
+        byte[] key = Encoding.UTF8.GetBytes(ValidTamperKey);
         AuditRecord record = BuildTamperRecord();
         AuditTamperEvidenceResult result = AuditTamperEvidence.Sign(record, key);
         AuditLog validLog = ToAuditLog(record, result);
+        AuditLog missingMacLog = ToAuditLog(record, result);
+        missingMacLog.RecordMac = null;
 
         Assert.True(AuditTamperEvidence.Verify(validLog, key));
+        Assert.False(AuditTamperEvidence.Verify(validLog, null));
+        Assert.False(AuditTamperEvidence.Verify(missingMacLog, key));
         Assert.True(AuditTamperEvidence.FixedTimeEqualsHexSha256(result.RecordHash, result.RecordHash.ToUpperInvariant()));
         Assert.False(AuditTamperEvidence.FixedTimeEqualsHexSha256(result.RecordHash, result.RecordHash[..^2]));
         Assert.False(AuditTamperEvidence.Verify(ToAuditLog(record, result, recordHash: result.RecordHash[..^2]), key));
         Assert.False(AuditTamperEvidence.Verify(ToAuditLog(record, result, recordMac: result.RecordMac![..^2]), key));
+    }
+
+    [Fact]
+    public void AuditTamperEvidence_ResolveKeyRejectsWeakOrLegacyConfiguration()
+    {
+        IConfiguration shortKeyConfiguration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Audit:TamperEvidenceKey"] = "short-key"
+            })
+            .Build();
+        IConfiguration legacyKeyConfiguration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Security:AuditTamperEvidenceKey"] = ValidTamperKey
+            })
+            .Build();
+
+        void ResolveShortKey() => AuditTamperEvidence.ResolveKey(shortKeyConfiguration);
+
+        Assert.Throws<InvalidOperationException>(ResolveShortKey);
+        Assert.Null(AuditTamperEvidence.ResolveKey(legacyKeyConfiguration));
     }
 
     [Fact]
@@ -142,7 +171,7 @@ public sealed class AuditPipelineHotPathContractTests
     [Fact]
     public void AuditTamperEvidence_CrossNodeFallbackChainHeadIsConsistent()
     {
-        byte[] key = Encoding.UTF8.GetBytes("secret");
+        byte[] key = Encoding.UTF8.GetBytes(ValidTamperKey);
         AuditTamperEvidenceResult enUs = RunWithCulture("en-US", () => AuditTamperEvidence.Sign(BuildTamperRecord(), key));
         AuditTamperEvidenceResult faIr = RunWithCulture("fa-IR", () => AuditTamperEvidence.Sign(BuildTamperRecord(), key));
 

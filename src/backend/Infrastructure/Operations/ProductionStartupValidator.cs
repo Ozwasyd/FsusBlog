@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
@@ -51,7 +52,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 10;
+    private const int SchemaVersion = 11;
     private const int PerceptionSealedTokenKeyByteCount = 32;
     private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object CoreValidationCacheLock = new();
@@ -114,6 +115,7 @@ public static class ProductionStartupValidator
         Value("Security:CaptchaV1:SigningKey"),
         Value($"{PerceptionSealedTokenOptions.SectionName}:CurrentKeyVersion"),
         Value("Security:RecoveryKeyPepper"),
+        Value("Audit:TamperEvidenceKey"),
         Value("AnonymousCredentialIssuer:SubjectHashPepper"),
         Value("VisitLog:IpHashPepper"),
         Value("Moderation:RegionPolicy:IpHashKey"),
@@ -211,6 +213,7 @@ public static class ProductionStartupValidator
         string? powSigningKey = values["Security:Pow:SigningKey"];
         string? captchaSigningKey = values["Security:CaptchaV1:SigningKey"];
         string? recoveryKeyPepper = values["Security:RecoveryKeyPepper"];
+        string? auditTamperEvidenceKey = values["Audit:TamperEvidenceKey"];
         string? subjectHashPepper = values["AnonymousCredentialIssuer:SubjectHashPepper"];
         string? visitLogIpHashPepper = values["VisitLog:IpHashPepper"];
         string? regionIpHashKey = values["Moderation:RegionPolicy:IpHashKey"];
@@ -238,6 +241,7 @@ public static class ProductionStartupValidator
         ValidateIndependentSecuritySecret("Security:Pow:SigningKey", powSigningKey, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("Security:CaptchaV1:SigningKey", captchaSigningKey, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("Security:RecoveryKeyPepper", recoveryKeyPepper, jwtSecret, [], errors);
+        ValidateAuditTamperEvidenceKey(auditTamperEvidenceKey, jwtSecret, errors);
         ValidateIndependentSecuritySecret("AnonymousCredentialIssuer:SubjectHashPepper", subjectHashPepper, jwtSecret, DefaultSubjectHashPeppers, errors);
         ValidateIndependentSecuritySecret("VisitLog:IpHashPepper", visitLogIpHashPepper, jwtSecret, DefaultVisitLogIpHashPeppers, errors);
         ValidateIndependentSecuritySecret("Moderation:RegionPolicy:IpHashKey", regionIpHashKey, jwtSecret, [], errors);
@@ -318,6 +322,25 @@ public static class ProductionStartupValidator
             trimmed.Contains("replace-with", StringComparison.OrdinalIgnoreCase))
         {
             errors.Add($"{key} must not use a template placeholder.");
+        }
+    }
+
+    private static void ValidateAuditTamperEvidenceKey(string? value, string? jwtSecret, List<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        string trimmed = value.Trim();
+        if (!AuditTamperEvidence.TryValidateKeyMaterial(trimmed, out string error))
+        {
+            errors.Add(error);
+        }
+
+        if (!string.IsNullOrWhiteSpace(jwtSecret) && string.Equals(trimmed, jwtSecret.Trim(), StringComparison.Ordinal))
+        {
+            errors.Add("Audit:TamperEvidenceKey must be configured independently and must not equal Jwt:SecretKey.");
         }
     }
 
