@@ -9,6 +9,7 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Security;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -147,6 +148,63 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal(challengeId, orchestrator.LastVerifyRequest.ChallengeId);
         Assert.Equal(Sha256PowChallengeProvider.WireKind, orchestrator.LastVerifyRequest.Kind);
         Assert.Equal("fpow", orchestrator.LastVerifyRequest.ProviderPayload["proof"]);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_ProviderPayloadWithOversizedValue_ReturnsApiErrorWithoutCallingOrchestrator()
+    {
+        var aeds = new AedsEncoder();
+        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        string providerPayloadJson = $$"""{"proof":"{{new string('x', 20 * 1024)}}"}""";
+        var request = new SecurityChallengeVerifyBinaryRequest(
+            challengeId,
+            SecurityChallengeKind.Sha256PowV1,
+            "public.read",
+            "article:42",
+            providerPayloadJson);
+        var context = CreateContext(
+            AedsFrameType.SecurityChallengeVerifyRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request)));
+        var orchestrator = new FakeChallengeOrchestrator
+        {
+            VerifyResult = SecurityChallengeOrchestrationVerifyResult.Success("fcp_token")
+        };
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
+            context,
+            aeds,
+            new FixedRiskPolicyProvider(CreatePolicy(Sha256PowChallengeProvider.WireKind)),
+            new RiskControlContextFactory(),
+            orchestrator,
+            new AllowingSecurityChallengeVerifyRateLimiter(),
+            new NullRiskSink(),
+            CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+
+        Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
+        Assert.Equal("security_challenge_payload_invalid", PodBinaryCodec.ToErrorDetail(errorPod).Message);
+        Assert.Equal(0, orchestrator.VerifyCallCount);
+    }
+
+    [Fact]
+    public void SecurityChallengePayloadDeserializers_SourceUseBoundedWebJsonOptions()
+    {
+        string endpointSource = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs");
+        string adminPrincipalSource = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");
+
+        Assert.Contains("new(JsonSerializerDefaults.Web)", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("MaxDepth = 32", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("MaxSecurityChallengeProviderPayloadEntries", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("MaxSecurityChallengeProviderPayloadValueChars", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("parsed.Count > MaxSecurityChallengeProviderPayloadEntries", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("item.Value.Length > MaxSecurityChallengeProviderPayloadValueChars", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("JsonSerializer.Deserialize<Dictionary<string, string>>(payloadJson, SecurityChallengeProviderPayloadJsonOptions)", endpointSource, StringComparison.Ordinal);
+
+        Assert.Contains("new(JsonSerializerDefaults.Web)", adminPrincipalSource, StringComparison.Ordinal);
+        Assert.Contains("MaxDepth = 32", adminPrincipalSource, StringComparison.Ordinal);
+        Assert.Contains("JsonSerializer.Deserialize<T>(value, ChallengeCacheJsonOptions)", adminPrincipalSource, StringComparison.Ordinal);
     }
 
     [Theory]

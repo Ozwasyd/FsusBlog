@@ -16,8 +16,14 @@ namespace FsusBlog.Server.Modules.Endpoints.Binary;
 public static partial class BinaryEndpoints
 {
     private const int SecurityChallengeMaxFrameBytes = 64 * 1024;
+    private const int MaxSecurityChallengeProviderPayloadEntries = 64;
+    private const int MaxSecurityChallengeProviderPayloadValueChars = 16 * 1024;
     private const string SecurityChallengeTenantId = "tenant-main";
     private const string SecurityChallengeVerifyGenericFailure = "challenge_failed";
+    private static readonly JsonSerializerOptions SecurityChallengeProviderPayloadJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        MaxDepth = 32
+    };
 
     private static void MapBinarySecurityChallengeEndpoints(IEndpointRouteBuilder group)
     {
@@ -352,13 +358,24 @@ public static partial class BinaryEndpoints
 
         try
         {
-            Dictionary<string, string>? parsed = JsonSerializer.Deserialize<Dictionary<string, string>>(payloadJson);
-            if (parsed is null)
+            Dictionary<string, string>? parsed = JsonSerializer.Deserialize<Dictionary<string, string>>(payloadJson, SecurityChallengeProviderPayloadJsonOptions);
+            if (parsed is null || parsed.Count > MaxSecurityChallengeProviderPayloadEntries)
             {
                 return false;
             }
 
-            payload = new Dictionary<string, string>(parsed, StringComparer.Ordinal);
+            var bounded = new Dictionary<string, string>(parsed.Count, StringComparer.Ordinal);
+            foreach (KeyValuePair<string, string> item in parsed)
+            {
+                if (item.Value is null || item.Value.Length > MaxSecurityChallengeProviderPayloadValueChars)
+                {
+                    return false;
+                }
+
+                bounded[item.Key] = item.Value;
+            }
+
+            payload = bounded;
             return true;
         }
         catch (JsonException)

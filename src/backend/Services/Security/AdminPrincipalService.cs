@@ -130,6 +130,10 @@ public sealed class AdminPrincipalService(
     private static readonly TimeSpan ChallengeTtl = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan StepUpProofTtl = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan AdminIdleSessionTtl = TimeSpan.FromHours(8);
+    private static readonly JsonSerializerOptions ChallengeCacheJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        MaxDepth = 32
+    };
     private static readonly TimeSpan AdminAbsoluteSessionTtl = TimeSpan.FromHours(12);
 
     public async Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginBootstrapPasskeyRegistrationAsync(
@@ -1123,7 +1127,7 @@ public sealed class AdminPrincipalService(
                     return (false, default);
                 }
 
-                T? challenge = JsonSerializer.Deserialize<T>(value);
+                T? challenge = JsonSerializer.Deserialize<T>(value, ChallengeCacheJsonOptions);
                 return challenge is null ? (false, default) : (true, challenge);
             },
             cancellationToken);
