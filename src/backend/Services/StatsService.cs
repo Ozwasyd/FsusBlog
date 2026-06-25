@@ -77,93 +77,103 @@ public partial class StatsService(
     private async Task<AdminStatsOverviewDto> LoadAdminStatsOverviewFromDbAsync(CancellationToken cancellationToken)
     {
         LogStatsCalculationStarted();
-
-        var articleCountQuery = _db.Queryable<Article>()
-            .Select(a => new
-            {
-                Total = SqlFunc.AggregateCount(a.Id),
-                Trash = SqlFunc.AggregateSum(SqlFunc.IIF(a.IsDeleted, 1, 0))
-            });
-        int totalArticles = 0;
-        int trashCount = 0;
-        var articleCountSql = articleCountQuery.ToSql();
-        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(articleCountSql.Key, articleCountSql.Value))
+        _db.Ado.BeginTran(IsolationLevel.Serializable);
+        try
         {
-            if (await reader.ReadAsync(cancellationToken))
+            var articleCountQuery = _db.Queryable<Article>()
+                .Select(a => new
+                {
+                    Total = SqlFunc.AggregateCount(a.Id),
+                    Trash = SqlFunc.AggregateSum(SqlFunc.IIF(a.IsDeleted, 1, 0))
+                });
+            int totalArticles = 0;
+            int trashCount = 0;
+            var articleCountSql = articleCountQuery.ToSql();
+            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(articleCountSql.Key, articleCountSql.Value))
             {
-                totalArticles = reader.IsDBNull(0) ? 0 : (int)reader.GetInt64(0);
-                trashCount = reader.IsDBNull(1) ? 0 : (int)reader.GetInt64(1);
+                if (await reader.ReadAsync(cancellationToken))
+                {
+                    totalArticles = reader.IsDBNull(0) ? 0 : (int)reader.GetInt64(0);
+                    trashCount = reader.IsDBNull(1) ? 0 : (int)reader.GetInt64(1);
+                }
             }
-        }
 
-        int totalComments = await _db.Queryable<Comment>().CountAsync();
+            int totalComments = await _db.Queryable<Comment>().CountAsync();
 
-        var popularQuery = _db.Queryable<Article>()
-            .OrderByDescending(a => a.Views)
-            .Take(5)
-            .Select(a => new { a.Id, a.Title, a.Views });
+            var popularQuery = _db.Queryable<Article>()
+                .OrderByDescending(a => a.Views)
+                .Take(5)
+                .Select(a => new { a.Id, a.Title, a.Views });
 
-        var popularSql = popularQuery.ToSql();
-        var popularArticles = new List<PopularArticleStatItemDto>(5);
+            var popularSql = popularQuery.ToSql();
+            var popularArticles = new List<PopularArticleStatItemDto>(5);
 
-        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(popularSql.Key, popularSql.Value))
-        {
-            int fId = reader.GetOrdinal("Id");
-            int fTitle = reader.GetOrdinal("Title");
-            int fViews = reader.GetOrdinal("Views");
-
-            while (await reader.ReadAsync(cancellationToken))
+            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(popularSql.Key, popularSql.Value))
             {
-                popularArticles.Add(new PopularArticleStatItemDto(
-                    reader.GetInt32(fId),
-                    reader.GetString(fTitle),
-                    reader.GetInt32(fViews)));
+                int fId = reader.GetOrdinal("Id");
+                int fTitle = reader.GetOrdinal("Title");
+                int fViews = reader.GetOrdinal("Views");
+
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    popularArticles.Add(new PopularArticleStatItemDto(
+                        reader.GetInt32(fId),
+                        reader.GetString(fTitle),
+                        reader.GetInt32(fViews)));
+                }
             }
-        }
 
-        const string readStatsSql = """
-            SELECT
-                COUNT(1)::bigint AS "TotalReads",
-                COUNT(proof_id)::bigint AS "HumanVerifiedReads",
-                COUNT(DISTINCT viewer_key_hash)::bigint AS "UniqueViewerKeyEstimate",
-                COUNT(*) FILTER (WHERE event_type = 'article_read')::bigint AS "ArticleReads",
-                COUNT(*) FILTER (WHERE event_type = 'site_read')::bigint AS "SiteReads"
-            FROM sys_visit_log;
-            """;
+            const string readStatsSql = """
+                SELECT
+                    COUNT(1)::bigint AS "TotalReads",
+                    COUNT(proof_id)::bigint AS "HumanVerifiedReads",
+                    COUNT(DISTINCT viewer_key_hash)::bigint AS "UniqueViewerKeyEstimate",
+                    COUNT(*) FILTER (WHERE event_type = 'article_read')::bigint AS "ArticleReads",
+                    COUNT(*) FILTER (WHERE event_type = 'site_read')::bigint AS "SiteReads"
+                FROM sys_visit_log;
+                """;
 
-        int totalReads = 0;
-        int humanVerifiedReads = 0;
-        int uniqueViewerKeyEstimate = 0;
-        int articleReads = 0;
-        int siteReads = 0;
+            int totalReads = 0;
+            int humanVerifiedReads = 0;
+            int uniqueViewerKeyEstimate = 0;
+            int articleReads = 0;
+            int siteReads = 0;
 
-        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(readStatsSql))
-        {
-            if (await reader.ReadAsync(cancellationToken))
+            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(readStatsSql))
             {
-                totalReads = reader.IsDBNull(0) ? 0 : (int)reader.GetInt64(0);
-                humanVerifiedReads = reader.IsDBNull(1) ? 0 : (int)reader.GetInt64(1);
-                uniqueViewerKeyEstimate = reader.IsDBNull(2) ? 0 : (int)reader.GetInt64(2);
-                articleReads = reader.IsDBNull(3) ? 0 : (int)reader.GetInt64(3);
-                siteReads = reader.IsDBNull(4) ? 0 : (int)reader.GetInt64(4);
+                if (await reader.ReadAsync(cancellationToken))
+                {
+                    totalReads = reader.IsDBNull(0) ? 0 : (int)reader.GetInt64(0);
+                    humanVerifiedReads = reader.IsDBNull(1) ? 0 : (int)reader.GetInt64(1);
+                    uniqueViewerKeyEstimate = reader.IsDBNull(2) ? 0 : (int)reader.GetInt64(2);
+                    articleReads = reader.IsDBNull(3) ? 0 : (int)reader.GetInt64(3);
+                    siteReads = reader.IsDBNull(4) ? 0 : (int)reader.GetInt64(4);
+                }
             }
-        }
 
-        return new AdminStatsOverviewDto
-        {
-            Summary = new StatsSummaryDto
+            var result = new AdminStatsOverviewDto
             {
-                TotalArticles = totalArticles,
-                TotalComments = totalComments,
-                TrashCount = trashCount,
-                TotalReads = totalReads,
-                HumanVerifiedReads = humanVerifiedReads,
-                UniqueViewerKeyEstimate = uniqueViewerKeyEstimate,
-                ArticleReads = articleReads,
-                SiteReads = siteReads
-            },
-            PopularArticles = popularArticles,
-        };
+                Summary = new StatsSummaryDto
+                {
+                    TotalArticles = totalArticles,
+                    TotalComments = totalComments,
+                    TrashCount = trashCount,
+                    TotalReads = totalReads,
+                    HumanVerifiedReads = humanVerifiedReads,
+                    UniqueViewerKeyEstimate = uniqueViewerKeyEstimate,
+                    ArticleReads = articleReads,
+                    SiteReads = siteReads
+                },
+                PopularArticles = popularArticles,
+            };
+            _db.Ado.CommitTran();
+            return result;
+        }
+        catch
+        {
+            _db.Ado.RollbackTran();
+            throw;
+        }
     }
 
     private async Task<List<RecentCommentStatItemDto>> LoadRecentCommentsAsync(CancellationToken cancellationToken)
