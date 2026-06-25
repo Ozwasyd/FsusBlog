@@ -1141,9 +1141,9 @@ AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相
 - 服务端 backfill 使用 `PublicAot:SsrWorkerMode=Pooled` 的 Node/Vue SSR worker 池生成条目；
   如缓存未命中或 worker 不可用，公开页请求返回 SPA index fallback，并通过
   `X-Fsus-Public-Aot-Backfill` 标记 `queued` 或 `dropped`。
-- 过期但 renderer/frontend asset version 兼容的条目可作为 stale HTML 返回，同时排队刷新；
-  响应头用 `X-Fsus-Public-Aot-State: fresh|stale|fallback` 与
-  `X-Fsus-Public-Aot-Stale: 1` 区分 fresh 命中、SWR stale 命中和 SPA fallback。
+- 过期或 renderer/frontend asset version 不匹配的条目不得作为 stale HTML 返回；运行时必须删除旧
+  artifact，返回 SPA index fallback，并排队 backfill。响应头只用
+  `X-Fsus-Public-Aot-State: fresh|fallback` 区分 fresh 命中和 SPA fallback。
 - AOT HTML 缓存同时校验 `rendererVersion` 与 frontend asset version；前端 `index.html` 或
   `.vite/manifest.json` 变化会自动拒绝旧缓存，并按 frontend asset version 隔离文件 artifact。
 - AOT HTML 模板只接受以下 5 个具名 sentinel；sentinel 是字符串相等匹配，不接受通配式标记：

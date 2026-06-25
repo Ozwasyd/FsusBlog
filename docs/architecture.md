@@ -114,8 +114,8 @@ Browser
   → Kestrel（项目内基线）
     → Kestrel 尝试读取 Public AOT document cache
       → 命中且 renderer/assets version 匹配 → 直接输出 HTML
-      → 过期但 version 兼容 → 输出 stale HTML + 排队 refresh
-      → 未命中或 version 不兼容 → 返回 SPA index.html + 排队 backfill
+      → 过期或 version 不兼容 → 删除旧 artifact，返回 SPA index.html + 排队 backfill
+      → 未命中 → 返回 SPA index.html + 排队 backfill
       → backfill worker → bootstrap provider → Node/Vue SSR worker pool → document cache
     → SPA index.html fallback：客户端 hydration 接管
 

@@ -253,14 +253,12 @@ function readRouteArtifact(session) {
   }
 
   if (entry.frontendAssetVersion !== currentAssetVersion) {
-    session.events.push({ event: 'public_aot_cache_stale_compatible', reason: 'asset-version-mismatch' })
+    deleteInvalidDocument(session, 'asset-version-mismatch')
+    session.events.push({ event: 'public_aot_cache_stale_removed', reason: 'asset-version-mismatch' })
     return {
-      observedState: 'stale',
-      headers: {
-        'x-fsus-public-aot-cache': 'stale',
-        'x-fsus-public-aot-stale-reason': 'asset-version-mismatch'
-      },
-      entry
+      observedState: 'fallback',
+      headers: { 'x-fsus-public-aot-cache': 'fallback; reason=asset-version-mismatch' },
+      reason: 'asset-version-mismatch'
     }
   }
 
@@ -457,7 +455,7 @@ const cases = [
       verified: sha256(fs.readFileSync(warmed.sidecar.path)) !== warmed.sidecar.sha256
     }
   }),
-  runCase('old-asset-version', 'stale', (session) => {
+  runCase('old-asset-version', 'fallback', (session) => {
     const mutated = mutateDocument(session, (entry) => ({
       ...entry,
       frontendAssetVersion: 'frontend-old-fixture'

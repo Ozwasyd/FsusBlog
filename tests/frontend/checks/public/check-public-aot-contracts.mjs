@@ -445,15 +445,26 @@ function assertStaticContracts() {
       fail(`release evidence collector missing public hydration token: ${token}`)
     }
   }
-  for (const token of ['PublicAotStateContextKey', 'IsStaleCompatibleCacheEntry', 'stale-refresh-queued']) {
+  for (const token of ['PublicAotStateContextKey', 'PublicAotBackfillContextKey']) {
     if (!shellService.includes(token)) {
-      fail(`Public AOT shell service missing SWR state token: ${token}`)
+      fail(`Public AOT shell service missing fallback state token: ${token}`)
     }
   }
-  for (const token of ['frontend', 'ResolveVersionedEntryPathForTests', 'public_aot_cache_stale_compatible', 'public_aot_cache_sidecar_hash_mismatch']) {
+  for (const token of ['IsStaleCompatibleCacheEntry', 'stale-refresh-queued']) {
+    if (shellService.includes(token)) {
+      fail(`Public AOT shell service still contains stale compatibility token: ${token}`)
+    }
+  }
+  for (const token of ['frontend', 'ResolveVersionedEntryPathForTests', 'public_aot_cache_stale_removed', 'public_aot_cache_sidecar_hash_mismatch']) {
     if (!fileCache.includes(token)) {
       fail(`Public AOT file cache missing artifact versioning token: ${token}`)
     }
+  }
+  if (fileCache.includes('public_aot_cache_stale_compatible')) {
+    fail('Public AOT file cache still contains stale compatibility token')
+  }
+  if (webApplicationComposition.includes('X-Fsus-Public-Aot-Stale')) {
+    fail('Public AOT response composition still emits stale compatibility header')
   }
   for (const token of ['PublicAotSsrCircuitState', 'PublicAotSsrFailureClass', 'TryBeginBackfill', 'route-quarantined', 'half-open-probe', 'RecordBackfillFailure']) {
     if (!runtimeState.includes(token)) {

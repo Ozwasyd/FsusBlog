@@ -84,16 +84,6 @@ public sealed class PublicAotShellService(
         }
 
         string pagePrefixKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty));
-        if (IsStaleCompatibleCacheEntry(entry, frontendAssetVersion))
-        {
-            bool staleQueued = ScheduleBackfill(context, match, documentCacheKey, pagePrefixKey);
-            context.Items[PublicAotSourceContextKey] = entry!.Source.ToHeaderValue();
-            context.Items[PublicAotVersionContextKey] = entry.RendererVersion;
-            context.Items[PublicAotBackfillContextKey] = staleQueued ? "stale-refresh-queued" : "stale-refresh-dropped";
-            context.Items[PublicAotStateContextKey] = "stale";
-            return entry;
-        }
-
         if (entry is not null)
         {
             await cache.RemoveAsync(documentCacheKey, cancellationToken);
@@ -255,10 +245,6 @@ public sealed class PublicAotShellService(
     internal static bool IsRenderableCacheEntry(PublicAotCacheEntry? entry, string frontendAssetVersion)
         => IsCompatibleCacheEntry(entry, frontendAssetVersion)
             && entry!.ExpiresAtUtc > DateTimeOffset.UtcNow;
-
-    internal static bool IsStaleCompatibleCacheEntry(PublicAotCacheEntry? entry, string frontendAssetVersion)
-        => IsCompatibleCacheEntry(entry, frontendAssetVersion)
-            && entry!.ExpiresAtUtc <= DateTimeOffset.UtcNow;
 
     private static bool IsCompatibleCacheEntry(PublicAotCacheEntry? entry, string frontendAssetVersion)
     {

@@ -179,8 +179,10 @@ public sealed class PublicAotFileShellCache(
             _memoryCache[cacheKey] = CreateMemoryCacheEntry(entry);
             if (entry.ExpiresAtUtc <= DateTimeOffset.UtcNow)
             {
-                RecordCacheRead("stale", "file", "public_aot_cache_stale_compatible", cacheKey, TimeSpan.Zero);
-                return entry;
+                _memoryCache.TryRemove(cacheKey, out _);
+                DeleteExpiredEntryFile(path);
+                RecordCacheRead("stale", "file", "public_aot_cache_stale_removed", cacheKey, TimeSpan.Zero);
+                return null;
             }
 
             RecordCacheRead("hit", "file", "public_aot_cache_file_hit", cacheKey, TimeSpan.Zero);
@@ -217,8 +219,10 @@ public sealed class PublicAotFileShellCache(
 
         if (cached.ExpiresAtUtc <= DateTimeOffset.UtcNow)
         {
-            RecordCacheRead("stale", "memory", "public_aot_cache_stale_compatible", cacheKey, TimeSpan.Zero);
-            return true;
+            _memoryCache.TryRemove(cacheKey, out _);
+            DeleteExpiredEntryFile(GetEntryPath(cacheKey, cached.FrontendAssetVersion, cached.Entry.PageId));
+            RecordCacheRead("stale", "memory", "public_aot_cache_stale_removed", cacheKey, TimeSpan.Zero);
+            return false;
         }
 
         RecordCacheRead("hit", "memory", "public_aot_cache_memory_hit", cacheKey, TimeSpan.Zero);
@@ -401,9 +405,6 @@ public sealed class PublicAotFileShellCache(
             case "public_aot_cache_stale_removed":
                 logger.LogDebug("public_aot_cache_stale_removed {CacheKey}", cacheKey);
                 break;
-            case "public_aot_cache_stale_compatible":
-                logger.LogDebug("public_aot_cache_stale_compatible {CacheKey}", cacheKey);
-                break;
             case "public_aot_cache_sidecar_missing":
                 logger.LogDebug("public_aot_cache_sidecar_missing {CacheKey}", cacheKey);
                 break;
@@ -413,25 +414,13 @@ public sealed class PublicAotFileShellCache(
         }
     }
 
-    private void QueueExpiredFileDelete(string path)
-    {
-        _ = Task.Run(() =>
-        {
-            try
-            {
-                if (File.Exists(path))
-                {
-                    File.Delete(path);
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogDebug(ex, "public_aot_cache_expired_delete_failed {Path}", path);
-            }
-        });
-    }
+    private void DeleteExpiredEntryFile(string path)
+        => DeleteEntryFile(path, "public_aot_cache_expired_delete_failed", LogLevel.Warning);
 
     private void DeleteInvalidEntryFile(string path)
+        => DeleteEntryFile(path, "public_aot_cache_invalid_entry_delete_failed", LogLevel.Debug);
+
+    private void DeleteEntryFile(string path, string failureToken, LogLevel failureLevel)
     {
         try
         {
@@ -442,7 +431,7 @@ public sealed class PublicAotFileShellCache(
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "public_aot_cache_invalid_entry_delete_failed {Path}", path);
+            logger.Log(failureLevel, ex, "{FailureToken} {Path}", failureToken, path);
         }
     }
 

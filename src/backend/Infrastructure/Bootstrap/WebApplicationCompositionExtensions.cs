@@ -700,10 +700,6 @@ public static class WebApplicationCompositionExtensions
         headers["X-Fsus-Public-Aot-Backfill"] = backfill;
         headers["X-Fsus-Public-Aot-State"] = state;
         headers["X-Fsus-Public-Aot-Asset-Mode"] = string.IsNullOrWhiteSpace(assetMode) ? "unknown" : assetMode;
-        if (string.Equals(state, "stale", StringComparison.Ordinal))
-        {
-            headers["X-Fsus-Public-Aot-Stale"] = "1";
-        }
 
         headers["Cache-Control"] = string.IsNullOrWhiteSpace(document.CacheControl)
             ? PublicAotHtmlArtifactOptions.DefaultCacheControl

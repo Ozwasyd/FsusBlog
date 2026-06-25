@@ -214,7 +214,7 @@ public sealed class PublicAotFileShellCacheTests
     }
 
     [Fact]
-    public async Task TryGetEntryAsync_ReturnsExpiredCompatibleEntryForSwr()
+    public async Task TryGetEntryAsync_RemovesExpiredEntryAndReturnsMiss()
     {
         using var temp = new TempDirectory();
         var entry = CreateEntry("public:aot:v2:doc:2:article:42") with
@@ -233,9 +233,8 @@ public sealed class PublicAotFileShellCacheTests
 
         PublicAotCacheEntry? stale = await cache.TryGetEntryAsync(entry.CacheKey, entry.FrontendAssetVersion);
 
-        Assert.NotNull(stale);
-        Assert.True(stale.ExpiresAtUtc <= DateTimeOffset.UtcNow);
-        Assert.Equal(entry.Value, stale.Value);
+        Assert.Null(stale);
+        Assert.False(File.Exists(path));
     }
 
     [Fact]
@@ -525,7 +524,8 @@ public sealed class PublicAotFileShellCacheTests
         Assert.Contains("public_aot_cache_miss", source);
         Assert.Contains("public_aot_cache_file_read_ms", source);
         Assert.Contains("public_aot_cache_stale_removed", source);
-        Assert.Contains("public_aot_cache_stale_compatible", source);
+        Assert.DoesNotContain("public_aot_cache_stale_compatible", source);
+        Assert.DoesNotContain("Task.Run", source);
         Assert.Contains("public_aot_cache_sidecar_missing", source);
         Assert.Contains("public_aot_cache_sidecar_hash_mismatch", source);
         Assert.Contains("public_aot_cache_read_error", source);

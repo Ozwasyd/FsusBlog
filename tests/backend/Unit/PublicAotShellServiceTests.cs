@@ -227,7 +227,7 @@ public sealed class PublicAotShellServiceTests
     }
 
     [Fact]
-    public async Task RenderAsync_WhenCacheEntryIsExpiredButCompatible_ReturnsStaleDocument_AndQueuesRefresh()
+    public async Task RenderAsync_WhenCacheEntryIsExpiredButCompatible_RemovesEntry_ReturnsSpaFallback_AndQueuesBackfill()
     {
         var match = HomeMatch();
         string cacheKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey);
@@ -242,7 +242,7 @@ public sealed class PublicAotShellServiceTests
                 RendererVersion = PublicAotShellService.PublicRendererVersion,
                 FrontendAssetVersion = "frontend-v1",
                 ExpiresAtUtc = DateTimeOffset.UtcNow.AddSeconds(-5),
-                Value = "<!doctype html><html><body>stale-compatible</body></html>"
+                Value = "<!doctype html><html><body>expired-compatible</body></html>"
             }
         };
         var scheduler = new RecordingBackfillScheduler();
@@ -251,13 +251,11 @@ public sealed class PublicAotShellServiceTests
 
         PublicAotCacheEntry? rendered = await sut.RenderAsync(context, match);
 
-        Assert.NotNull(rendered);
-        Assert.Same(cache.Entry, rendered);
-        Assert.Equal(cache.Entry.Value, rendered.GetHtml());
-        Assert.Equal("server-ssr", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
-        Assert.Equal("stale-refresh-queued", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
-        Assert.Equal("stale", context.Items[PublicAotShellService.PublicAotStateContextKey]);
-        Assert.Empty(cache.RemovedKeys);
+        Assert.Null(rendered);
+        Assert.Equal("spa-fallback", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
+        Assert.Equal("queued", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
+        Assert.Equal("fallback", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+        Assert.Collection(cache.RemovedKeys, removed => Assert.Equal(cacheKey, removed));
         Assert.Single(scheduler.Requests);
     }
 
