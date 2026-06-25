@@ -72,6 +72,17 @@ public sealed class AnonymousCommentProductRuleContractTests
     }
 
     [Fact]
+    public void AnonymousCommentPolicyService_DoesNotBlockOnCacheInvalidationAsync()
+    {
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCommentPolicyService.cs");
+        string invalidate = ExtractMethodBlock(service, "private async Task InvalidatePolicyCacheAsync");
+
+        Assert.DoesNotContain(".GetAwaiter().GetResult()", invalidate, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Wait(", invalidate, StringComparison.Ordinal);
+        Assert.Contains("await dispatcher.InvalidateCommentPolicyAsync(cancellationToken)", invalidate, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task AnonymousCommentPolicyService_GetCurrentAsyncYieldsWhilePolicyQueryIsSlow()
     {
         var queryStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -154,4 +165,31 @@ public sealed class AnonymousCommentProductRuleContractTests
         => new ConfigurationBuilder()
             .AddInMemoryCollection(values)
             .Build();
+
+    private static string ExtractMethodBlock(string source, string signature)
+    {
+        int start = source.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing method signature: {signature}");
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart >= 0, $"Missing method body: {signature}");
+
+        int depth = 0;
+        for (int i = braceStart; i < source.Length; i++)
+        {
+            if (source[i] == '{')
+            {
+                depth++;
+            }
+            else if (source[i] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[start..(i + 1)];
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"Unable to extract method body: {signature}");
+    }
 }
