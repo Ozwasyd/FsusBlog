@@ -93,8 +93,9 @@ class AuthSessionRuntime {
   private async refreshIfNeeded(): Promise<void> {
     if (isLocalFixtureSessionActive()) {
       const appShellStore = useAppShellStore()
-      await ensureLocalFixtureSessionCookies()
-      appShellStore.markSessionActive()
+      if (await ensureLocalFixtureSessionCookies()) {
+        appShellStore.markSessionActive()
+      }
       this.stopTimer()
       return
     }

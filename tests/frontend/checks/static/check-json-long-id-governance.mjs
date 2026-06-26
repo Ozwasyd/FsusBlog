@@ -25,11 +25,15 @@ for (const token of [
   'createdByAdminPrincipalId: string',
   'export async function getArticleRevision(\n  articleId: number,\n  revisionId: string',
   'export async function rollbackArticleRevision(\n  articleId: number,\n  revisionId: string',
-  'export async function getAuditLogDetail(id: string',
   'export async function verifyAuditLog(id: string'
 ]) {
   assert(authoringApi.includes(token), `frontend authoring API long id boundary missing: ${token}`)
 }
+
+assert(
+  /export async function getAuditLogDetail\(\s*id: string/.test(authoringApi),
+  'frontend authoring API long id boundary missing: export async function getAuditLogDetail(id: string'
+)
 
 for (const forbidden of [
   'createdByAdminPrincipalId: number',

@@ -109,6 +109,7 @@ export Jwt__SecretKey="${FSUSBLOG_DEV_JWT_SECRET:-local-development-jwt-secret-c
 export Jwt__Issuer="${FSUSBLOG_DEV_JWT_ISSUER:-FsusBlogServer}"
 export Jwt__Audience="${FSUSBLOG_DEV_JWT_AUDIENCE:-FsusBlogClient}"
 export Jwt__AccessTokenExpiresMinutes="${FSUSBLOG_DEV_JWT_ACCESS_TOKEN_EXPIRES_MINUTES:-1440}"
+export fsus__allowLocalAuthFixture="${FSUSBLOG_ALLOW_LOCAL_AUTH_FIXTURE:-true}"
 export FSUSBLOG_ANONYMOUS_IDENTITY_MODE="${FSUSBLOG_ANONYMOUS_IDENTITY_MODE:-1}"
 export CORS_ALLOWED_HOSTS="http://localhost:3000,http://127.0.0.1:3000"
 export Seo__BaseUrl="http://127.0.0.1:3000"

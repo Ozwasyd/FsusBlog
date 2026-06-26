@@ -13,7 +13,6 @@
       :loading="loading"
       :total="allItems.length"
       :filtered-total="filteredItems.length"
-      :counters="counters"
       :hit-reason-options="hitReasonOptions"
       :blocked-region-options="blockedRegionOptions"
       :model-label-options="modelLabelOptions"
@@ -54,7 +53,7 @@
       :processing-id="processingId"
       :highlighted-ids="taskFeedbackHighlightedIds"
       :empty-title="commentQueueEmptyTitle"
-      :empty-content="commentQueueEmptyDescription"
+      :empty-description="commentQueueEmptyDescription"
       @toggle="toggleSelection"
       @detail="openDetail"
       @apply="(item, status) => applySingle(item, status, refreshAndPrune)"
@@ -80,6 +79,7 @@ import CommentModerationQueue from '@/components/admin/comment-moderation/Commen
 import CommentModerationToolbar from '@/components/admin/comment-moderation/CommentModerationToolbar.vue'
 import { useCommentModerationActions } from '@/composables/useCommentModerationActions'
 import {
+  commentModerationStatusLabel,
   type CommentModerationFilterKey,
   type CommentModerationViewItem,
   useCommentModerationQueue
@@ -97,7 +97,6 @@ const {
   filters,
   allItems,
   filteredItems,
-  counters,
   hitReasonOptions,
   blockedRegionOptions,
   modelLabelOptions,
@@ -132,13 +131,14 @@ const {
 const detailVisible = ref(false)
 const detailItem = ref<CommentModerationViewItem | null>(null)
 const hasAdditionalQueueFilters = computed(() => activeFilterChips.value.length > 1)
+const currentStatusLabel = computed(() => commentModerationStatusLabel(filters.status))
 const commentQueueEmptyTitle = computed(() =>
-  hasAdditionalQueueFilters.value ? '没有匹配的评论审核项' : '当前队列暂无评论'
+  hasAdditionalQueueFilters.value ? `没有匹配的${currentStatusLabel.value}评论` : `${currentStatusLabel.value}队列暂无评论`
 )
 const commentQueueEmptyDescription = computed(() =>
   hasAdditionalQueueFilters.value
     ? '调整关键词、文章、用户或风险筛选后再查看；也可以点击上方重置。'
-    : '切换状态可查看已隐藏或已拒绝评论，新的待审核评论会自动进入队列。'
+    : '切换状态查看其他审核结果。'
 )
 
 const pruneVisibleSelection = (): void => {

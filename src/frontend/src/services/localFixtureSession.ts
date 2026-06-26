@@ -31,11 +31,24 @@ export function clearLocalFixtureSession(): void {
   sessionStorage.removeItem(LOCAL_FIXTURE_SESSION_KEY)
 }
 
+function hasLocalFixtureQueryFlag(): boolean {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return new URLSearchParams(window.location.search).get('fsusLocalFixtureLogin') === '1'
+}
+
 export function isLocalFixtureSessionActive(): boolean {
   return Boolean(
     import.meta.env.DEV
-    && typeof sessionStorage !== 'undefined'
-    && sessionStorage.getItem(LOCAL_FIXTURE_SESSION_KEY) === '1'
+    && (
+      hasLocalFixtureQueryFlag()
+      || (
+        typeof sessionStorage !== 'undefined'
+        && sessionStorage.getItem(LOCAL_FIXTURE_SESSION_KEY) === '1'
+      )
+    )
   )
 }
 
@@ -47,7 +60,7 @@ function currentRedirectPath(fallback = '/user/manage'): string {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`
 }
 
-function hasCompleteFixtureCookies(status: LocalFixtureStatus): boolean {
+export function hasCompleteFixtureCookies(status: LocalFixtureStatus): boolean {
   return Boolean(
     (status.hasAccessToken || status.hasHostAccessToken)
     && status.hasSessionId
@@ -56,7 +69,7 @@ function hasCompleteFixtureCookies(status: LocalFixtureStatus): boolean {
   )
 }
 
-async function readFixtureStatus(): Promise<LocalFixtureStatus | null> {
+export async function readFixtureStatus(): Promise<LocalFixtureStatus | null> {
   const response = await fetch('/api/local/auth-fixture/status', {
     cache: 'no-store',
     credentials: 'include'
@@ -69,15 +82,10 @@ async function readFixtureStatus(): Promise<LocalFixtureStatus | null> {
   return await response.json() as LocalFixtureStatus
 }
 
-async function refreshFixtureCookies(redirectPath: string): Promise<boolean> {
+export function buildLocalFixtureAdminUrl(redirectPath: string): string {
   const endpoint = new URL('/api/local/auth-fixture/admin', window.location.origin)
   endpoint.searchParams.set('redirect', redirectPath)
-  const response = await fetch(endpoint.toString(), {
-    cache: 'no-store',
-    credentials: 'include',
-    redirect: 'follow'
-  })
-  return response.ok
+  return endpoint.toString()
 }
 
 export async function ensureLocalFixtureSessionCookies(redirectPath = currentRedirectPath()): Promise<boolean> {
@@ -96,12 +104,8 @@ export async function ensureLocalFixtureSessionCookies(redirectPath = currentRed
         return true
       }
 
-      if (!await refreshFixtureCookies(redirectPath)) {
-        return false
-      }
-
-      const refreshedStatus = await readFixtureStatus()
-      return Boolean(refreshedStatus && hasCompleteFixtureCookies(refreshedStatus))
+      void redirectPath
+      return false
     } catch {
       return false
     } finally {

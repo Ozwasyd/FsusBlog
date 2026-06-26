@@ -30,25 +30,9 @@
       </RouterLink>
     </section>
 
-    <section class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.65fr)]">
-      <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
-        <div class="border-b border-[var(--fsusblog-panel-border)] px-4 py-3">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">模块边界</div>
-        </div>
-        <div class="divide-y divide-[var(--fsusblog-panel-border)]">
-          <div v-for="row in boundaryRows" :key="row.label" class="px-4 py-3">
-            <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ row.label }}</div>
-            <p class="mt-1 text-[12px] leading-6 text-[var(--fsusblog-text-muted)]">{{ row.value }}</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
-        <div class="border-b border-[var(--fsusblog-panel-border)] px-4 py-3">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">风险摘要</div>
-        </div>
-        <AdminStatusMatrix :items="riskRows" density="compact" />
-      </div>
+    <section class="security-dashboard__risk" aria-label="风险摘要">
+      <div class="security-dashboard__section-label">风险摘要</div>
+      <AdminStatusMatrix :items="riskRows" density="compact" />
     </section>
   </div>
 </template>
@@ -132,12 +116,6 @@ const riskRows = computed<AdminStatusMatrixItem[]>(() => [
   { label: '主要原因', value: overview.value?.risk.topReason ?? '未记录' },
   { label: '主要来源', value: overview.value?.risk.topSource ?? '未记录' }
 ])
-
-const boundaryRows = [
-  { label: '反爬虫', value: '只处理爬虫识别、爬虫策略和爬虫事件，并向 SecurityRisk 写入信号。' },
-  { label: 'PoW', value: '只处理 challenge、proof、difficulty；它是安全系统能力，不挂在反爬虫下面。' },
-  { label: 'ReadProof / 限流', value: '只写入各自来源的风险信号，不依赖反爬虫具体实现。' }
-] as const
 
 const formatTime = (value: string | null | undefined): string => value ? new Date(value).toLocaleString() : '未记录'
 
@@ -253,6 +231,20 @@ onMounted(() => {
   width: 16px;
   height: 16px;
   color: var(--fsusblog-text-muted);
+}
+
+.security-dashboard__risk {
+  display: grid;
+  gap: 10px;
+  padding-top: 2px;
+  border-top: 1px solid var(--fsusblog-panel-border);
+}
+
+.security-dashboard__section-label {
+  color: var(--fsusblog-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 @media (max-width: 480px) {

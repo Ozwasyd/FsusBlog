@@ -1,26 +1,28 @@
 <template>
   <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] p-6" aria-label="评论审核筛选">
-    <div class="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-      <div class="grid grid-cols-1 gap-3 border border-[var(--fsusblog-panel-border)] sm:grid-cols-3">
-        <div v-for="counter in counters" :key="counter.label" class="bg-[var(--fsusblog-page-bg)] px-5 py-4">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ counter.label }}</div>
-          <div class="mt-2 text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ counter.value }}</div>
-        </div>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-3">
-        <el-radio-group
-          :model-value="filters.status"
-          aria-label="评论审核状态筛选"
+    <div class="flex flex-wrap items-center gap-3">
+      <div
+        class="comment-moderation-status-tabs"
+        role="radiogroup"
+        aria-label="评论审核状态筛选"
+      >
+        <button
+          v-for="option in statusOptions"
+          :key="option.value"
+          type="button"
+          class="comment-moderation-status-tabs__item"
+          :class="{ 'is-active': filters.status === option.value }"
+          role="radio"
+          :aria-checked="filters.status === option.value"
           :disabled="loading"
-          @update:model-value="onStatusChange"
+          @mousedown="onStatusChange(option.value)"
+          @pointerdown="onStatusChange(option.value)"
+          @click="onStatusChange(option.value)"
         >
-          <el-radio-button v-for="option in statusOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </el-radio-button>
-        </el-radio-group>
-        <el-button :icon="Refresh" :loading="loading" @click="emit('refresh')">刷新</el-button>
+          {{ option.label }}
+        </button>
       </div>
+      <el-button :icon="Refresh" :loading="loading" @click="emit('refresh')">刷新</el-button>
     </div>
 
     <div class="mt-6 grid grid-cols-1 gap-3 lg:grid-cols-12">
@@ -191,12 +193,11 @@ import {
 } from '@/composables/useCommentModerationQueue'
 import type { CommentModerationStatus } from '@/api/authoring'
 
-defineProps<{
+const props = defineProps<{
   filters: CommentModerationFilters
   loading: boolean
   total: number
   filteredTotal: number
-  counters: ReadonlyArray<{ label: string; value: number }>
   hitReasonOptions: ReadonlyArray<{ value: string; label: string }>
   blockedRegionOptions: ReadonlyArray<{ value: string; label: string }>
   modelLabelOptions: ReadonlyArray<{ value: string; label: string }>
@@ -221,7 +222,11 @@ const emit = defineEmits<{
 }>()
 
 const onStatusChange = (value: string | number | boolean): void => {
-  emit('update:status', Number(value) as CommentModerationStatus)
+  const nextStatus = Number(value) as CommentModerationStatus
+  if (nextStatus === props.filters.status) {
+    return
+  }
+  emit('update:status', nextStatus)
 }
 
 const onHitReasonChange = (value: string | null): void => {
@@ -252,5 +257,57 @@ const onDateRangeChange = (value: unknown): void => {
 <style scoped>
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.comment-moderation-status-tabs {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--fsusblog-panel-border);
+  border-radius: var(--fsus-radius-control);
+  background: var(--fsusblog-surface-bg);
+}
+
+.comment-moderation-status-tabs__item {
+  min-height: 40px;
+  border: 0;
+  border-right: 1px solid var(--fsusblog-panel-border);
+  background: transparent;
+  color: var(--fsusblog-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 18px;
+  transition:
+    background-color var(--fsus-motion-control, 160ms ease),
+    color var(--fsus-motion-control, 160ms ease),
+    box-shadow var(--fsus-motion-control, 160ms ease);
+}
+
+.comment-moderation-status-tabs__item:last-child {
+  border-right: 0;
+}
+
+.comment-moderation-status-tabs__item:hover:not(:disabled) {
+  color: var(--fsusblog-text-primary);
+}
+
+.comment-moderation-status-tabs__item.is-active {
+  background: var(--fsusblog-page-bg);
+  color: var(--fsusblog-text-primary);
+  box-shadow: inset 0 -2px 0 var(--fsusblog-color-primary);
+}
+
+.comment-moderation-status-tabs__item:focus-visible {
+  outline: 2px solid var(--fsusblog-color-primary);
+  outline-offset: -2px;
+}
+
+.comment-moderation-status-tabs__item:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 </style>

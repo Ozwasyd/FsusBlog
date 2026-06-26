@@ -220,6 +220,8 @@ function checkIssueDensityContracts() {
   assertNotContains(adminDashboardPath, /DashboardAuthorAnalyticsPanel|DashboardCommentModerationPanel|DashboardQuickActionsPanel|DashboardPopularArticles|DashboardRecentComments|访客来源|地域访问/, 'ManageDashboard must stay a lightweight overview and link out to dedicated workspaces')
   assertContains(adminAnalyticsPath, /DashboardAuthorAnalyticsPanel/, 'ManageAnalytics must own the author analytics panel')
   assertContains(adminAnalyticsPath, /访客来源[\s\S]*地域访问/, 'ManageAnalytics must own traffic source and region panels')
+  assertContains(path.join(repoRoot, 'src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue'), /AdminStatusMatrix/, 'ManageAnalytics content and technical metrics must use AdminStatusMatrix compact density')
+  assertNotContains(path.join(repoRoot, 'src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue'), /text-2xl|class="[^"]*\bp-6\b[^"]*"[\s\S]{0,240}\{\{\s*metric\.value\s*\}\}/, 'ManageAnalytics metrics must not regress to large KPI cards')
 
   for (const relativePath of dashboardDensityFiles) {
     const file = path.join(repoRoot, relativePath)

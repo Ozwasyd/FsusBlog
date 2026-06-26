@@ -44,7 +44,16 @@ const forbiddenTokens = [
   '.integrity-danger-zone',
   '.integrity-risk-notice',
   '.integrity-destructive-panel',
-  '.integrity-step-up-field'
+  '.integrity-step-up-field',
+  'description="输入确认短语后才能应用安全修复。"',
+  'description="如系统要求二次验证，请填写凭据。"',
+  'FsusUiFormSection',
+  'FsusUiTypedConfirmField',
+  'FsusUiDestructiveActionPanel',
+  'FsusUiRiskNotice',
+  '提交边界',
+  '只提交安全字段；确认差异后输入短语。',
+  '<code class="integrity-confirm-token">{{ CONFIRM_PHRASE }}</code>'
 ]
 
 for (const token of forbiddenTokens) {
@@ -64,11 +73,13 @@ const requiredTokens = [
   '没有可安全修复差异',
   '差异预览加载失败',
   '请重新运行内容一致性检查。',
-  'FsusUiTypedConfirmField',
-  'phrase="APPLY_SAFE_FIXES"',
-  '输入确认短语后才能应用安全修复。',
+  '写入前确认差异与短语。',
+  "const USER_CONFIRM_PHRASE = '确认修复'",
   '二次验证凭据',
-  '如系统要求二次验证，请填写凭据。',
+  '二次验证（如要求）',
+  'class="integrity-apply-row"',
+  'class="integrity-apply-controls"',
+  'class="integrity-confirm-token"',
   'copyDiffValue',
   'formatDiffValue',
   'isTechnicalDiffValue',
@@ -76,10 +87,7 @@ const requiredTokens = [
   '复制字段',
   '未填写',
   '展示变更字段',
-  'FsusUiDangerZone',
-  'FsusUiRiskNotice',
-  'FsusUiDestructiveActionPanel',
-  'FsusUiFormSection'
+  'FsusUiDangerZone'
 ]
 
 for (const token of requiredTokens) {

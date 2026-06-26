@@ -260,6 +260,12 @@ public static class LocalAuthFixtureEndpoints
             return redirect;
         }
 
+        if (redirect.Contains("?fsusLocalFixtureLogin=1", StringComparison.Ordinal) ||
+            redirect.Contains("&fsusLocalFixtureLogin=1", StringComparison.Ordinal))
+        {
+            return redirect;
+        }
+
         char separator = redirect.Contains('?', StringComparison.Ordinal) ? '&' : '?';
         return $"{redirect}{separator}fsusLocalFixtureLogin=1";
     }

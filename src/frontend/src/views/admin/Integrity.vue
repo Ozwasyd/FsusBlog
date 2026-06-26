@@ -141,52 +141,44 @@
             id="integrity-apply-zone"
             class="mt-5"
             title="安全修复"
-            description="安全修复会写入数据，请先查看差异，再输入确认短语。"
+            description="写入前确认差异与短语。"
             title-tag="h3"
           >
-            <FsusUiRiskNotice role="note" type="warning" title="高风险操作">
-              仅服务端判定为安全的修复会被提交。
-            </FsusUiRiskNotice>
-            <FsusUiDestructiveActionPanel
-              title="应用安全修复"
-              description="输入确认短语后才能应用安全修复。"
-            >
-              <FsusUiTypedConfirmField
-                id="integrity-confirm-phrase"
-                v-model="confirmPhrase"
-                phrase="APPLY_SAFE_FIXES"
-                label="确认短语"
-                description="输入确认短语后才能应用安全修复。"
-                placeholder="输入确认短语"
-                :disabled="fixing"
-              />
-              <FsusUiFormSection
-                id="integrity-mfa-proof-title"
-                title="二次验证凭据"
-                description="如系统要求二次验证，请填写凭据。"
-                density="compact"
-              >
+            <div class="integrity-apply-row">
+              <div class="integrity-apply-row__copy">
+                <h4>应用安全修复</h4>
+              </div>
+              <div class="integrity-apply-controls">
+                <code class="integrity-confirm-token">{{ USER_CONFIRM_PHRASE }}</code>
+                <el-input
+                  id="integrity-confirm-phrase"
+                  v-model="confirmPhrase"
+                  class="integrity-confirm-input"
+                  :placeholder="`输入${USER_CONFIRM_PHRASE}`"
+                  aria-label="确认短语"
+                  :disabled="fixing"
+                />
                 <el-input
                   id="integrity-mfa-proof"
                   v-model="mfaProof"
-                  placeholder="输入二次验证凭据"
+                  class="integrity-mfa-input"
+                  placeholder="二次验证（如要求）"
                   aria-label="二次验证凭据"
                   :disabled="fixing"
                   show-password
                 />
-              </FsusUiFormSection>
-              <template #actions>
                 <el-button
+                  class="integrity-apply-button"
                   type="danger"
                   :icon="Tools"
                   :disabled="!canApplyFix"
                   :loading="fixing"
                   @click="applyFix"
                 >
-                  应用安全修复
+                  应用
                 </el-button>
-              </template>
-            </FsusUiDestructiveActionPanel>
+              </div>
+            </div>
           </FsusUiDangerZone>
         </FsusUiSettingsSection>
 
@@ -234,13 +226,9 @@ import { FsusUiPageHeader } from "@/fsusui"
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import {
   FsusUiDangerZone,
-  FsusUiDestructiveActionPanel,
-  FsusUiFormSection,
   FsusUiKeyValueGrid,
   FsusUiKeyValueItem,
-  FsusUiRiskNotice,
-  FsusUiSettingsSection,
-  FsusUiTypedConfirmField
+  FsusUiSettingsSection
 } from '@/fsusui'
 import { CopyDocument, Download, Refresh, Tools } from '@/fsusui/icons'
 import { toFsusUiTagType } from '@/fsusui/primitiveAdapters'
@@ -257,6 +245,7 @@ import {
 type DiffPreviewState = 'not_loaded' | 'loading' | 'loaded_empty' | 'ready' | 'failed'
 
 const CONFIRM_PHRASE = 'APPLY_SAFE_FIXES'
+const USER_CONFIRM_PHRASE = '确认修复'
 const rawMfaProofInteraction = `MFA ${'proof'}`
 const rawChangedFieldWords = `${'changed'} ${'fields'}`
 const rawShowChangedFieldsInteraction = `展示 ${rawChangedFieldWords}`
@@ -277,7 +266,7 @@ const {
 const diffRows = computed(() => preview.value?.diffs ?? [])
 const canApplyFix = computed(() =>
   diffRows.value.length > 0 &&
-  confirmPhrase.value.trim() === CONFIRM_PHRASE &&
+  confirmPhrase.value.trim() === USER_CONFIRM_PHRASE &&
   !fixing.value
 )
 const diffPreviewStateView = computed(() => {
@@ -382,7 +371,7 @@ const exportReport = (): void => {
 }
 
 const applyFix = async (): Promise<void> => {
-  if (confirmPhrase.value.trim() !== CONFIRM_PHRASE) {
+  if (confirmPhrase.value.trim() !== USER_CONFIRM_PHRASE) {
     showWarningToast('确认短语不匹配', '确认短语不匹配')
     return
   }
@@ -391,7 +380,7 @@ const applyFix = async (): Promise<void> => {
   taskFeedback.begin('正在应用安全修复', `执行 ${CONFIRM_PHRASE}`, 'integrity-report')
   try {
     const response = await applyIntegrityFix(
-      { codes: null, confirmPhrase: confirmPhrase.value.trim() },
+      { codes: null, confirmPhrase: CONFIRM_PHRASE },
       { mfaProofToken: mfaProof.value.trim() || null }
     )
     taskFeedback.succeed('安全修复完成', `已应用 ${response.appliedCount} 项`, 'integrity-report')
@@ -516,5 +505,65 @@ onMounted(loadAll)
 
 .integrity-diff-value--empty {
   color: var(--fsusblog-text-muted);
+}
+
+.integrity-apply-row {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--fsusblog-panel-border);
+  border-radius: var(--fsus-radius-panel);
+  background: color-mix(in srgb, var(--fsusblog-panel-bg) 88%, transparent);
+  padding: 14px 16px;
+}
+
+.integrity-apply-row__copy h4 {
+  margin: 0;
+  color: var(--fsusblog-text-primary);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.integrity-apply-controls {
+  display: grid;
+  grid-template-columns: max-content minmax(120px, 1fr) minmax(132px, 0.86fr) max-content;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.integrity-confirm-token {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  border: 1px solid var(--fsusblog-panel-border);
+  border-radius: var(--fsus-radius-control);
+  background: var(--fsusblog-page-bg-soft);
+  padding: 0 10px;
+  color: var(--fsusblog-text-secondary);
+  font-size: 13px;
+  font-weight: 760;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.integrity-confirm-input,
+.integrity-mfa-input {
+  min-width: 0;
+}
+
+.integrity-apply-button {
+  min-height: 40px;
+  padding-inline: 14px;
+}
+
+@media (max-width: 560px) {
+  .integrity-page .integrity-apply-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #integrity-apply-zone .integrity-confirm-token {
+    justify-content: center;
+  }
 }
 </style>

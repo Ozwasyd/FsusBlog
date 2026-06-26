@@ -87,12 +87,17 @@ public sealed class AdminSessionValidationService(ISqlSugarClient db) : IAdminSe
             return AdminSessionValidationResult.Invalid("admin_session_token_mismatch");
         }
 
-        if (!await TryTouchAdminSessionAsync(session, now, cancellationToken))
+        if (await TryTouchAdminSessionAsync(session, now, cancellationToken))
         {
-            return AdminSessionValidationResult.Invalid("admin_session_conflict");
+            return AdminSessionValidationResult.Valid;
         }
 
-        return AdminSessionValidationResult.Valid;
+        return await ValidateCurrentSessionAfterTouchConflictAsync(
+            adminId,
+            sessionId,
+            currentTokenHash,
+            now,
+            cancellationToken);
     }
 
     private async Task<AdminSessionValidationState?> LoadAdminSessionValidationStateAsync(
@@ -153,6 +158,47 @@ public sealed class AdminSessionValidationService(ISqlSugarClient db) : IAdminSe
             new SugarParameter("@AbsoluteExpiresAtUtc", session.AbsoluteExpiresAtUtc),
             new SugarParameter("@RowVersion", session.RowVersion));
         return updated == 1;
+    }
+
+    private async Task<AdminSessionValidationResult> ValidateCurrentSessionAfterTouchConflictAsync(
+        long adminId,
+        string sessionId,
+        string currentTokenHash,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        AdminSessionValidationState? current = await LoadAdminSessionValidationStateAsync(sessionId, cancellationToken);
+        if (current is null)
+        {
+            return AdminSessionValidationResult.Invalid("admin_session_not_found");
+        }
+
+        if (current.AdminPrincipalId != adminId)
+        {
+            return AdminSessionValidationResult.Invalid("admin_session_principal_mismatch");
+        }
+
+        if (current.RevokedAtUtc.HasValue)
+        {
+            return AdminSessionValidationResult.Invalid("admin_session_revoked");
+        }
+
+        if (current.IdleExpiresAtUtc <= now)
+        {
+            return AdminSessionValidationResult.Invalid("admin_session_idle_expired");
+        }
+
+        if (current.AbsoluteExpiresAtUtc <= now)
+        {
+            return AdminSessionValidationResult.Invalid("admin_session_absolute_expired");
+        }
+
+        if (!FixedTimeHexEquals(current.AccessTokenHash, currentTokenHash))
+        {
+            return AdminSessionValidationResult.Invalid("admin_session_token_mismatch");
+        }
+
+        return AdminSessionValidationResult.Valid;
     }
 
     private sealed record AdminSessionValidationState(

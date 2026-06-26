@@ -107,12 +107,16 @@ const emit = defineEmits<{
 
 .admin-status-matrix--compact .admin-status-matrix__item {
   min-height: 44px;
-  padding: 8px 10px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 2px 10px;
+  padding: 10px 12px;
 }
 
 .admin-status-matrix--compact .admin-status-matrix__label {
   gap: 6px;
-  line-height: 1.25;
+  line-height: 1.2;
 }
 
 .admin-status-matrix__label {
@@ -160,12 +164,14 @@ const emit = defineEmits<{
 }
 
 .admin-status-matrix--compact .admin-status-matrix__value {
-  margin-top: 3px;
-  font-size: 14px;
-  line-height: 1.3;
+  margin-top: 0;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.2;
 }
 
 .admin-status-matrix--compact .admin-status-matrix__helper {
+  grid-column: 1 / -1;
   margin-top: 2px;
 }
 

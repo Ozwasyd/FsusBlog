@@ -27,8 +27,8 @@
                   <div class="divide-y divide-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]">
                     <div v-for="check in row.criticalChecks" :key="check.code" class="flex flex-wrap items-center justify-between gap-3 p-3">
                       <div>
-                        <div class="text-xs font-bold text-[var(--fsusblog-text-primary)]">{{ check.label }}</div>
-                        <div class="mt-1 text-[11px] text-[var(--fsusblog-text-muted)]">{{ check.detail }}</div>
+                        <div class="text-xs font-bold text-[var(--fsusblog-text-primary)]">{{ formatPolicyCheckLabel(check) }}</div>
+                        <div class="mt-1 text-[11px] text-[var(--fsusblog-text-muted)]">{{ formatPolicyCheckDetail(check) }}</div>
                       </div>
                       <el-tag :type="checkType(check.status)">{{ formatCheckStatus(check.status) }}</el-tag>
                     </div>
@@ -37,13 +37,30 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="地区" width="150" prop="region" />
-          <el-table-column label="继承来源" min-width="160">
+          <el-table-column label="地区" min-width="160" class-name="moderation-policy-table-cell">
             <template #default="{ row }: { row: RegionPolicySummaryResponse }">
-              <span>{{ row.inherits.length ? row.inherits.join(', ') : '-' }}</span>
+              <div class="moderation-policy-region" :title="row.region">
+                <span class="moderation-policy-region__name">{{ formatRegionName(row.region) }}</span>
+              </div>
             </template>
           </el-table-column>
-          <el-table-column label="策略版本" min-width="190" prop="version" />
+          <el-table-column label="继承来源" min-width="160" class-name="moderation-policy-table-cell">
+            <template #default="{ row }: { row: RegionPolicySummaryResponse }">
+              <div v-if="row.inherits.length" class="moderation-policy-inline-list">
+                <span v-for="region in row.inherits" :key="region" class="moderation-policy-region" :title="region">
+                  <span class="moderation-policy-region__name">{{ formatRegionName(region) }}</span>
+                </span>
+              </div>
+              <span v-else class="moderation-policy-region moderation-policy-region--muted">无继承</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="策略版本" min-width="210" class-name="moderation-policy-table-cell">
+            <template #default="{ row }: { row: RegionPolicySummaryResponse }">
+              <div class="moderation-policy-region" :title="row.version">
+                <span class="moderation-policy-region__name">{{ formatPolicyVersion(row.version) }}</span>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column label="词库数" width="130" align="right">
             <template #default="{ row }: { row: RegionPolicySummaryResponse }">{{ row.dictionaryIds.length }}</template>
           </el-table-column>
@@ -90,13 +107,15 @@
 
     <section v-if="mainlandPolicy" class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-        <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">CN-MAINLAND 必要检查</div>
+        <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+          {{ formatRegionName(mainlandPolicy.region) }}必要检查
+        </div>
       </div>
       <div class="divide-y divide-[var(--fsusblog-panel-border)]">
         <div v-for="check in mainlandPolicy.criticalChecks" :key="check.code" class="flex flex-wrap items-center justify-between gap-3 p-5">
           <div>
-            <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ check.label }}</div>
-            <p class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">{{ check.detail }}</p>
+            <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ formatPolicyCheckLabel(check) }}</div>
+            <p class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">{{ formatPolicyCheckDetail(check) }}</p>
           </div>
           <el-tag :type="checkType(check.status)">{{ formatCheckStatus(check.status) }}</el-tag>
         </div>
@@ -112,6 +131,7 @@ import {
   listModerationPolicies,
   setModerationRegionState,
   type ModerationRuntimeStatusResponse,
+  type RegionPolicyCheckResponse,
   type RegionPolicySummaryResponse
 } from '@/api/authoring'
 import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
@@ -119,8 +139,38 @@ import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { Connection, Refresh } from '@/fsusui/icons'
 import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
+import { formatModerationRegionName, formatModerationRegionVersion } from '@/utils/moderationRegionDisplay'
 
 const MainlandChangeConfirmPhrase = 'CONFIRM CN-MAINLAND MODERATION CHANGE'
+const dictionaryDisplayNames: Record<string, string> = {
+  'cn-mainland.political-sensitive': '政治敏感词库',
+  'cn-mainland.porn-strict': '色情内容词库',
+  'cn-mainland.public-order': '公共秩序词库',
+  'cn-mainland.national-security': '国家安全词库'
+}
+const policyCheckLabels: Record<string, string> = {
+  'inherits-global': '继承全局策略',
+  'political-sensitive-submit': '政治敏感提交动作',
+  'political-sensitive-display': '政治敏感展示动作',
+  'pornographic-submit': '色情内容提交动作',
+  'pornographic-display': '色情内容展示动作',
+  'policy-version': '策略版本'
+}
+const policyCheckSuccessDetails: Record<string, string> = {
+  'inherits-global': '中国大陆策略继承全局策略。',
+  'political-sensitive-submit': '命中后拒绝提交。',
+  'political-sensitive-display': '命中后按地区屏蔽展示。',
+  'pornographic-submit': '命中后拒绝提交。',
+  'pornographic-display': '命中后按地区屏蔽展示。'
+}
+const policyCheckFailureDetails: Record<string, string> = {
+  'inherits-global': '中国大陆策略未继承全局策略。',
+  'political-sensitive-submit': '提交动作未设置为拒绝。',
+  'political-sensitive-display': '展示动作未设置为地区屏蔽。',
+  'pornographic-submit': '提交动作未设置为拒绝。',
+  'pornographic-display': '展示动作未设置为地区屏蔽。',
+  'policy-version': '缺少策略版本。'
+}
 
 const loading = shallowRef(false)
 const runtimeActionRegion = shallowRef<string | null>(null)
@@ -136,6 +186,30 @@ const regionStateOptions = [
   { label: '只读', value: 'read_only' },
   { label: '已关闭', value: 'disabled' }
 ] as const
+
+const formatRegionName = (region: string): string => formatModerationRegionName(region)
+const formatPolicyVersion = (version: string): string => formatModerationRegionVersion(version)
+
+const formatPolicyCheckLabel = (check: RegionPolicyCheckResponse): string => {
+  if (check.code.startsWith('dictionary:')) {
+    const dictionaryId = check.code.slice('dictionary:'.length)
+    return dictionaryDisplayNames[dictionaryId] ?? '必要词库'
+  }
+  return policyCheckLabels[check.code] ?? check.label
+}
+
+const formatPolicyCheckDetail = (check: RegionPolicyCheckResponse): string => {
+  if (check.code.startsWith('dictionary:')) {
+    return check.status === 'ok' ? '词库已载入。' : '词库缺失。'
+  }
+  if (check.code === 'policy-version' && check.status === 'ok') {
+    return `当前版本 ${formatPolicyVersion(check.detail)}。`
+  }
+  if (check.status === 'ok') {
+    return policyCheckSuccessDetails[check.code] ?? check.detail
+  }
+  return policyCheckFailureDetails[check.code] ?? check.detail
+}
 
 const formatCheckStatus = (status: string): string => {
   const labels: Record<string, string> = {
@@ -193,7 +267,7 @@ const resolveRegionConfirmPhrase = async (region: string, state: string): Promis
     return null
   }
 
-  return await promptText(`输入 ${MainlandChangeConfirmPhrase}`, 'CN-MAINLAND 策略确认', {
+  return await promptText('输入确认短语以停用中国大陆策略', '中国大陆策略确认', {
     confirmButtonText: '确认',
     cancelButtonText: '取消',
     inputPlaceholder: MainlandChangeConfirmPhrase,
@@ -218,7 +292,7 @@ const saveRegionState = async (policy: RegionPolicySummaryResponse): Promise<voi
       confirmPhrase
     }, { mfaProofToken })
     regionStateDrafts[policy.region] = runtime.value.regionStates[policy.region] ?? 'enabled'
-    toast.success(`${policy.region} 运行状态已更新`)
+    toast.success(`${formatRegionName(policy.region)}运行状态已更新`)
   } catch (error) {
     showErrorToast(error, '地区运行状态更新失败')
   } finally {
@@ -235,5 +309,41 @@ onMounted(() => {
 .moderation-policies-table-scroll {
   max-width: 100%;
   overflow-x: auto;
+}
+
+.moderation-policy-region {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  min-height: 22px;
+}
+
+.moderation-policy-region__name {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--fsusblog-text-primary);
+}
+
+.moderation-policy-region--muted {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--fsusblog-text-muted);
+}
+
+.moderation-policy-inline-list {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-height: 22px;
+}
+
+:deep(.moderation-policy-table-cell .cell) {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
 }
 </style>

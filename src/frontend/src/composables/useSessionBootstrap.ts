@@ -5,6 +5,11 @@ import { useAdminStore } from '@/store/admin'
 import { useSiteStore } from '@/store/site'
 import { useUserStore } from '@/store/user'
 import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIdentityDefaults'
+import {
+  createLocalFixtureAccountSnapshot,
+  createLocalFixtureAdminPrincipal,
+  isLocalFixtureSessionActive
+} from '@/services/localFixtureSession'
 
 export interface AccountSessionEnsureOptions {
   force?: boolean
@@ -44,6 +49,14 @@ export function useSessionBootstrap() {
   }
 
   const ensureAccountSession = async (options: AccountSessionEnsureOptions = {}): Promise<void> => {
+    if (isLocalFixtureSessionActive()) {
+      if (!userStore.isLoggedIn) {
+        userStore.markAuthenticated(createLocalFixtureAccountSnapshot())
+      }
+      appShellStore.syncAuthPhase()
+      return
+    }
+
     if (options.maxAgeMs !== undefined || options.forceWhenUnknown !== undefined) {
       await userStore.ensureUserInfoFresh({
         maxAgeMs: options.maxAgeMs,
@@ -56,6 +69,11 @@ export function useSessionBootstrap() {
   }
 
   const ensureAdminSession = async (options: AdminSessionEnsureOptions = {}): Promise<void> => {
+    if (isLocalFixtureSessionActive()) {
+      adminStore.setAdminPrincipal(createLocalFixtureAdminPrincipal())
+      return
+    }
+
     await adminStore.ensureAdminSessionFresh({ force: options.force })
   }
 

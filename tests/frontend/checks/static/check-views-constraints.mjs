@@ -293,6 +293,49 @@ if (!/router\.beforeEach\(async\s*\(\s*to\s*,\s*from\s*\)/.test(routerSource)) {
 if (!routerSource.includes('!isSameAccountShellChildSwitch(to, from)')) {
   hardViolations.push('src/router/index.ts: nested admin tabs must not start global nprogress');
 }
+const fixtureGateIndex = routerSource.indexOf('const fixtureQueryEnabled = isLocalFixtureQueryEnabled');
+const bootstrapIndex = routerSource.indexOf('sessionBootstrap.ensureBootstrap()');
+const accountSessionIndex = routerSource.indexOf('sessionBootstrap.ensureAccountSession({ reason: \'route\' })');
+if (fixtureGateIndex < 0) {
+  hardViolations.push('src/router/index.ts: local fixture cookie gate must be explicit in the route guard');
+}
+if (fixtureGateIndex >= 0 && bootstrapIndex >= 0 && fixtureGateIndex > bootstrapIndex) {
+  hardViolations.push('src/router/index.ts: local fixture cookie gate must run before app bootstrap to avoid pre-cookie admin 401s');
+}
+if (fixtureGateIndex >= 0 && accountSessionIndex >= 0 && fixtureGateIndex > accountSessionIndex) {
+  hardViolations.push('src/router/index.ts: local fixture cookie gate must run before account session checks to avoid negative auth cache pollution');
+}
+if (!routerSource.includes('window.location.replace(buildLocalFixtureAdminUrl(to.fullPath))')) {
+  hardViolations.push('src/router/index.ts: local fixture admin cookie redirect must be explicit in the route guard');
+}
+
+const localFixtureSessionPath = join(srcDir, 'services', 'localFixtureSession.ts');
+const localFixtureSessionSource = readFileSync(localFixtureSessionPath, 'utf8');
+const ensureFixtureBlock = localFixtureSessionSource.match(/export\s+async\s+function\s+ensureLocalFixtureSessionCookies[\s\S]*?^}/m)?.[0] ?? '';
+if (/window\.location\.(?:assign|replace|href)\b/.test(ensureFixtureBlock)) {
+  hardViolations.push('src/services/localFixtureSession.ts: ensureLocalFixtureSessionCookies must not hide full-page navigation inside a helper');
+}
+if (!localFixtureSessionSource.includes('export function buildLocalFixtureAdminUrl')) {
+  hardViolations.push('src/services/localFixtureSession.ts: local fixture admin endpoint builder must stay explicit for route guard redirects');
+}
+if (!localFixtureSessionSource.includes('new URLSearchParams(window.location.search)') || !localFixtureSessionSource.includes("get('fsusLocalFixtureLogin') === '1'")) {
+  hardViolations.push('src/services/localFixtureSession.ts: local fixture active state must include the current URL flag before router guard writes sessionStorage');
+}
+
+const sessionBootstrapPath = join(srcDir, 'composables', 'useSessionBootstrap.ts');
+const sessionBootstrapSource = readFileSync(sessionBootstrapPath, 'utf8');
+if (!sessionBootstrapSource.includes('isLocalFixtureSessionActive()')) {
+  hardViolations.push('src/composables/useSessionBootstrap.ts: local fixture mode must short-circuit account/admin session refreshes');
+}
+const fixtureSessionIndex = sessionBootstrapSource.indexOf('isLocalFixtureSessionActive()');
+const userFetchIndex = sessionBootstrapSource.indexOf('userStore.fetchUserInfo');
+const adminFetchIndex = sessionBootstrapSource.indexOf('adminStore.ensureAdminSessionFresh');
+if (fixtureSessionIndex >= 0 && userFetchIndex >= 0 && fixtureSessionIndex > userFetchIndex) {
+  hardViolations.push('src/composables/useSessionBootstrap.ts: fixture account short-circuit must run before auth/me refresh');
+}
+if (fixtureSessionIndex >= 0 && adminFetchIndex >= 0 && fixtureSessionIndex > adminFetchIndex) {
+  hardViolations.push('src/composables/useSessionBootstrap.ts: fixture admin short-circuit must run before admin/me refresh');
+}
 
 for (const line of hardViolations) {
   console.error(`[views-constraints] hard: ${line}`);

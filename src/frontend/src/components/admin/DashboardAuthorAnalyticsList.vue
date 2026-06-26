@@ -1,19 +1,19 @@
 <template>
-  <section class="bg-[var(--fsusblog-page-bg)] p-6">
-    <h3 class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ title }}</h3>
-    <p v-if="items.length === 0" class="mt-5 text-[11px] text-[var(--fsusblog-text-tertiary)]">
+  <section class="analytics-list">
+    <h3 class="analytics-list__title">{{ title }}</h3>
+    <p v-if="items.length === 0" class="analytics-list__empty">
       {{ emptyText }}
     </p>
-    <ol v-else class="mt-5 space-y-3">
+    <ol v-else class="analytics-list__items">
       <li
         v-for="(item, index) in items"
         :key="item.label"
-        class="flex items-center justify-between gap-4 border-b border-[var(--fsusblog-panel-border)] pb-3 last:border-b-0"
+        class="analytics-list__item"
       >
-        <span class="min-w-0 truncate text-xs font-bold text-[var(--fsusblog-text-secondary)]">
+        <span class="analytics-list__label">
           {{ index + 1 }}. {{ item.label }}
         </span>
-        <span class="shrink-0 text-xs font-bold tabular-nums text-[var(--fsusblog-text-muted)]">
+        <span class="analytics-list__value">
           {{ item.count }}
         </span>
       </li>
@@ -30,3 +30,87 @@ defineProps<{
   items: readonly AuthorAnalyticsListItem[]
 }>()
 </script>
+
+<style scoped>
+.analytics-list {
+  min-width: 0;
+  padding: 16px;
+  background: var(--fsusblog-page-bg);
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+}
+
+.analytics-list:last-child {
+  border-bottom: 0;
+}
+
+.analytics-list__title {
+  margin: 0;
+  color: var(--fsusblog-text-primary);
+  font-size: 0.9375rem;
+  font-weight: 720;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+
+.analytics-list__empty {
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--fsusblog-panel-border);
+  color: var(--fsusblog-text-tertiary);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.analytics-list__items {
+  display: grid;
+  gap: 0;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--fsusblog-panel-border);
+}
+
+.analytics-list__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 36px;
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+}
+
+.analytics-list__item:last-child {
+  border-bottom: 0;
+}
+
+.analytics-list__label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fsusblog-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analytics-list__value {
+  flex: 0 0 auto;
+  color: var(--fsusblog-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
+@media (min-width: 1024px) {
+  .analytics-list {
+    border-right: 1px solid var(--fsusblog-panel-border);
+    border-bottom: 0;
+  }
+
+  .analytics-list:last-child {
+    border-right: 0;
+  }
+}
+</style>

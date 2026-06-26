@@ -16,11 +16,13 @@ import { PUBLIC_BLOG_CHILD_ROUTES } from '@/public-renderers/publicRouteRegistry
 import { useAdminStore } from '@/store/admin'
 import {
   activateLocalFixtureSession,
+  buildLocalFixtureAdminUrl,
   createLocalFixtureAccountSnapshot,
   createLocalFixtureAdminPrincipal,
-  ensureLocalFixtureSessionCookies,
+  hasCompleteFixtureCookies,
   isLocalFixtureQueryEnabled,
-  isLocalFixtureSessionActive
+  isLocalFixtureSessionActive,
+  readFixtureStatus
 } from '@/services/localFixtureSession'
 
 type ProgressModule = typeof import('nprogress')
@@ -255,6 +257,26 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
     const { userStore, siteStore } = sessionBootstrap
     const adminStore = useAdminStore()
     const manageRoute = isManageAccountRoute(to)
+    const fixtureQueryEnabled = isLocalFixtureQueryEnabled(to.query.fsusLocalFixtureLogin)
+    if (!options.ssr && fixtureQueryEnabled) {
+      activateLocalFixtureSession()
+    }
+    const forceLocalFixtureSession = !options.ssr && isLocalFixtureSessionActive()
+
+    if (manageRoute && forceLocalFixtureSession) {
+      const status = await readFixtureStatus()
+      if (!status || !hasCompleteFixtureCookies(status)) {
+        if (typeof window !== 'undefined') {
+          window.location.replace(buildLocalFixtureAdminUrl(to.fullPath))
+        }
+        return false
+      }
+
+      userStore.markAuthenticated(createLocalFixtureAccountSnapshot())
+      adminStore.setAdminPrincipal(createLocalFixtureAdminPrincipal())
+      sessionBootstrap.syncAuthPhase()
+    }
+
     const publicShellRoute = isPublicShellRouteName(to.name)
     const appRoot = typeof document !== 'undefined' ? document.getElementById('app') : null
     const shouldDeferPublicBootstrap =
@@ -280,16 +302,10 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       return true
     }
 
-    if (isLocalFixtureQueryEnabled(to.query.fsusLocalFixtureLogin)) {
-      activateLocalFixtureSession()
-    }
-    const forceLocalFixtureSession = isLocalFixtureSessionActive()
-
     if (to.meta.guestOnly) {
       await sessionBootstrap.ensureAccountSession({ reason: 'route' })
     } else if (manageRoute) {
       if (forceLocalFixtureSession) {
-        await ensureLocalFixtureSessionCookies(to.fullPath)
         userStore.markAuthenticated(createLocalFixtureAccountSnapshot())
         adminStore.setAdminPrincipal(createLocalFixtureAdminPrincipal())
         sessionBootstrap.syncAuthPhase()

@@ -648,7 +648,7 @@ public partial class SystemService(
     private async Task<SeoConfigReadModel> LoadSeoConfigFromDbAsync(CancellationToken cancellationToken)
     {
         var query = _db.Queryable<SystemConfig>()
-            .Where(c => SeoConfigKeys.Contains(c.Key))
+            .In(c => c.Key, SeoConfigKeys)
             .Select(c => new { c.Key, c.Value });
 
         var sqlObj = query.ToSql();
@@ -699,7 +699,7 @@ public partial class SystemService(
     private async Task<SiteComplianceConfigReadModel> LoadComplianceConfigFromDbAsync(CancellationToken cancellationToken)
     {
         var query = _db.Queryable<SystemConfig>()
-            .Where(c => ComplianceConfigKeys.Contains(c.Key))
+            .In(c => c.Key, ComplianceConfigKeys)
             .Select(c => new { c.Key, c.Value });
 
         var sqlObj = query.ToSql();

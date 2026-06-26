@@ -1,6 +1,6 @@
 <template>
   <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-labelledby="author-analytics-title">
-    <header class="border-b border-[var(--fsusblog-panel-border)] px-6 py-5">
+    <header class="dashboard-analytics-header">
       <FsusUiSectionHeader
         id="author-analytics-title"
         class="dashboard-section-header--flush"
@@ -14,55 +14,53 @@
       </FsusUiSectionHeader>
     </header>
 
-    <div class="grid grid-cols-1 gap-5 lg:grid-cols-4">
-      <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-6">
-        <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
-        <div class="mt-3 text-2xl font-bold tracking-normal text-[var(--fsusblog-text-primary)] tabular-nums">{{ metric.value }}</div>
-        <p class="mt-2 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">{{ metric.description }}</p>
-      </div>
-    </div>
+    <AdminStatusMatrix
+      :items="metrics"
+      density="compact"
+      aria-label="内容与技术表现指标"
+    />
 
-    <div class="grid grid-cols-1 gap-5 border-t border-[var(--fsusblog-panel-border)] lg:grid-cols-3">
+    <div class="dashboard-analytics-grid dashboard-analytics-grid--lists">
       <AnalyticsList title="搜索关键词" empty-text="暂无搜索关键词" :items="analytics.topSearchKeywords" />
       <AnalyticsList title="来源路径" empty-text="暂无来源路径" :items="analytics.topSourceRoutes" />
       <AnalyticsList title="404 热点" empty-text="暂无 404 热点" :items="analytics.notFoundHotspots" />
     </div>
 
-    <div class="grid grid-cols-1 gap-5 border-t border-[var(--fsusblog-panel-border)] lg:grid-cols-3">
-      <section class="bg-[var(--fsusblog-page-bg)] p-6">
-        <h3 class="text-base font-bold leading-tight text-[var(--fsusblog-text-primary)]">Core Web Vitals</h3>
-        <p class="mt-1 text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">关键渲染指标。</p>
+    <div class="dashboard-analytics-grid">
+      <section class="dashboard-analytics-panel">
+        <h3 class="dashboard-analytics-panel__title">Core Web Vitals</h3>
+        <p class="dashboard-analytics-panel__description">关键渲染指标。</p>
         <FsusUiEmptyState
           v-if="rumMetricRows.length === 0"
-          class="mt-4 border-t border-[var(--fsusblog-panel-border)] pt-4"
+          class="dashboard-analytics-panel__empty"
           role="status"
           title="暂无浏览器性能样本"
           description="有运行时样本后将在这里显示 P75 和平均值。"
         />
-        <FsusUiMetricList v-else class="mt-4" density="compact">
-          <FsusUiMetricItem
+        <dl v-else class="dashboard-analytics-panel__content dashboard-rum-metrics">
+          <div
             v-for="metric in rumMetricRows"
             :key="metric.label"
-            density="compact"
-            :label="metric.label"
-            :primary="metric.primary"
-            :secondary="metric.secondary"
-            :meta="metric.meta"
-          />
-        </FsusUiMetricList>
+            class="dashboard-rum-metric"
+          >
+            <dt class="dashboard-rum-metric__name">{{ metric.primary }}</dt>
+            <dd class="dashboard-rum-metric__value">{{ metric.label }}</dd>
+            <dd class="dashboard-rum-metric__meta">{{ metric.secondary.join(' · ') }} · {{ metric.meta }}</dd>
+          </div>
+        </dl>
       </section>
 
-      <section class="bg-[var(--fsusblog-page-bg)] p-6">
-        <h3 class="text-base font-bold leading-tight text-[var(--fsusblog-text-primary)]">RUM 页面类型</h3>
-        <p class="mt-1 text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">页面访问分布。</p>
+      <section class="dashboard-analytics-panel">
+        <h3 class="dashboard-analytics-panel__title">RUM 页面类型</h3>
+        <p class="dashboard-analytics-panel__description">页面访问分布。</p>
         <FsusUiEmptyState
           v-if="rumPageTypeRows.length === 0"
-          class="mt-4 border-t border-[var(--fsusblog-panel-border)] pt-4"
+          class="dashboard-analytics-panel__empty"
           role="status"
           title="暂无 RUM 页面样本"
           description="有访问记录后将在这里显示分布。"
         />
-        <FsusUiDistributionList v-else class="mt-4" density="compact">
+        <FsusUiDistributionList v-else class="dashboard-analytics-panel__content" density="compact">
           <FsusUiDistributionBarRow
             v-for="item in rumPageTypeRows"
             :key="item.label"
@@ -75,17 +73,17 @@
         </FsusUiDistributionList>
       </section>
 
-      <section class="bg-[var(--fsusblog-page-bg)] p-6">
-        <h3 class="text-base font-bold leading-tight text-[var(--fsusblog-text-primary)]">AOT 来源</h3>
-        <p class="mt-1 text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">渲染来源分布。</p>
+      <section class="dashboard-analytics-panel">
+        <h3 class="dashboard-analytics-panel__title">AOT 来源</h3>
+        <p class="dashboard-analytics-panel__description">渲染来源分布。</p>
         <FsusUiEmptyState
           v-if="rumAotSourceRows.length === 0"
-          class="mt-4 border-t border-[var(--fsusblog-panel-border)] pt-4"
+          class="dashboard-analytics-panel__empty"
           role="status"
           title="暂无 AOT 来源样本"
           description="有 AOT 运行记录后将在这里显示分布。"
         />
-        <FsusUiDistributionList v-else class="mt-4" density="compact">
+        <FsusUiDistributionList v-else class="dashboard-analytics-panel__content" density="compact">
           <FsusUiDistributionBarRow
             v-for="item in rumAotSourceRows"
             :key="item.label"
@@ -107,10 +105,9 @@ import {
   FsusUiDistributionBarRow,
   FsusUiDistributionList,
   FsusUiEmptyState,
-  FsusUiMetricItem,
-  FsusUiMetricList,
   FsusUiSectionHeader
 } from '@/fsusui'
+import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import AnalyticsList from '@/components/admin/DashboardAuthorAnalyticsList.vue'
 import type { AdminDashboardViewContract, AuthorAnalyticsListItem } from '@/view-contracts/adminStats'
 
@@ -135,26 +132,26 @@ type DistributionRow = {
   rank: number
 }
 
-const metrics = computed(() => [
+const metrics = computed<readonly AdminStatusMatrixItem[]>(() => [
   {
     label: '真实阅读',
     value: analytics.value.totalHumanReadEvents,
-    description: 'HumanReadProof 接受的站点和文章阅读事件。'
+    helper: '站点和文章阅读事件。'
   },
   {
     label: '阅读完成度',
     value: analytics.value.readingCompletionText,
-    description: '近 5000 条文章阅读中停留 30s 以上的比例。'
+    helper: '近 5000 条；停留 30s 以上。'
   },
   {
     label: 'AOT 命中率',
     value: analytics.value.aotHitRateText,
-    description: '按公开阅读事件与 AOT miss 日志估算。'
+    helper: '按公开阅读与 AOT miss 估算。'
   },
   {
     label: '平均停留',
     value: analytics.value.averageDwellText,
-    description: '近 5000 条真实阅读事件的平均 dwell。'
+    helper: '近 5000 条真实阅读事件。'
   }
 ])
 
@@ -199,8 +196,8 @@ const toDistributionRows = (items: readonly AuthorAnalyticsListItem[]): readonly
 }
 
 const rumMetricRows = computed<readonly MetricRow[]>(() => rumMetrics.value.map((item) => ({
-  label: formatRumMetricName(item.name),
-  primary: `P75 ${item.p75Text}`,
+  label: `P75 ${item.p75Text}`,
+  primary: formatRumMetricName(item.name),
   secondary: [`平均 ${item.averageText}`],
   meta: `${item.count} 次记录`
 })))
@@ -208,3 +205,114 @@ const rumMetricRows = computed<readonly MetricRow[]>(() => rumMetrics.value.map(
 const rumPageTypeRows = computed(() => toDistributionRows(analytics.value.rumPageTypes))
 const rumAotSourceRows = computed(() => toDistributionRows(analytics.value.rumAotSources))
 </script>
+
+<style scoped>
+.dashboard-analytics-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+}
+
+.dashboard-analytics-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border-top: 1px solid var(--fsusblog-panel-border);
+}
+
+.dashboard-analytics-panel {
+  min-width: 0;
+  padding: 16px;
+  background: var(--fsusblog-page-bg);
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+}
+
+.dashboard-analytics-panel:last-child {
+  border-bottom: 0;
+}
+
+.dashboard-analytics-panel__title {
+  margin: 0;
+  color: var(--fsusblog-text-primary);
+  font-size: 0.9375rem;
+  font-weight: 720;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+
+.dashboard-analytics-panel__description {
+  margin: 4px 0 0;
+  color: var(--fsusblog-text-tertiary);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.dashboard-analytics-panel__content,
+.dashboard-analytics-panel__empty {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--fsusblog-panel-border);
+}
+
+@media (min-width: 1024px) {
+  .dashboard-analytics-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dashboard-analytics-panel {
+    border-right: 1px solid var(--fsusblog-panel-border);
+    border-bottom: 0;
+  }
+
+  .dashboard-analytics-panel:last-child {
+    border-right: 0;
+  }
+}
+
+.dashboard-rum-metrics {
+  display: grid;
+  gap: 0;
+  margin-bottom: 0;
+}
+
+.dashboard-rum-metric {
+  min-width: 0;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+}
+
+.dashboard-rum-metric:first-child {
+  padding-top: 0;
+}
+
+.dashboard-rum-metric:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.dashboard-rum-metric__name,
+.dashboard-rum-metric__value,
+.dashboard-rum-metric__meta {
+  margin: 0;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+
+.dashboard-rum-metric__name {
+  color: var(--fsusblog-text-primary);
+  font-size: 0.9375rem;
+  font-weight: 760;
+}
+
+.dashboard-rum-metric__value {
+  margin-top: 4px;
+  color: var(--fsusblog-text-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.dashboard-rum-metric__meta {
+  margin-top: 2px;
+  color: var(--fsusblog-text-tertiary);
+  font-size: 0.75rem;
+  font-weight: 560;
+}
+</style>

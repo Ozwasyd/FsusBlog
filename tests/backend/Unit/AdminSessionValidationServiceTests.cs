@@ -46,6 +46,32 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    public async Task ValidateCurrentSessionAfterTouchConflict_AllowsConcurrentLastSeenUpdate()
+    {
+        string connectionString = await CreateConnectionStringAsync();
+        const string token = "concurrent-admin-token";
+        DateTime before = DateTime.UtcNow.AddMinutes(-5);
+
+        using SqlSugarClient db = CreateDb(connectionString);
+        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), CreateSession(accessTokenHash: HashForStorage(token), lastSeenAtUtc: before));
+        var service = new AdminSessionValidationService(db);
+
+        await db.Updateable<AdminSession>()
+            .SetColumns(session => session.LastSeenAtUtc == DateTime.UtcNow)
+            .Where(session => session.SessionId == "sid-1")
+            .ExecuteCommandAsync();
+
+        AdminSessionValidationResult result = await InvokeValidateCurrentSessionAfterTouchConflictAsync(
+            service,
+            adminId: 1,
+            sessionId: "sid-1",
+            currentTokenHash: HashForStorage(token),
+            now: DateTime.UtcNow);
+
+        Assert.True(result.IsValid, result.Reason);
+    }
+
+    [Fact]
     public void ValidateAsync_SourceUsesRowVersionGuardForLastSeenTouch()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminSessionValidationService.cs");
@@ -56,7 +82,8 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
         Assert.Contains("AND xmin::text = @RowVersion", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("AND accesstokenhash = @AccessTokenHash", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("AND idleexpiresatutc = @IdleExpiresAtUtc", source, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("admin_session_conflict", source, StringComparison.Ordinal);
+        Assert.Contains("ValidateCurrentSessionAfterTouchConflictAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Invalid(\"admin_session_conflict\")", source, StringComparison.Ordinal);
         Assert.DoesNotContain(".Where(s => s.SessionId == sessionId && s.RevokedAtUtc == null)", source, StringComparison.Ordinal);
     }
 
@@ -216,6 +243,21 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
         object taskObject = method.Invoke(service, [state, now, CancellationToken.None])!;
         await (Task)taskObject;
         return (bool)taskObject.GetType().GetProperty("Result")!.GetValue(taskObject)!;
+    }
+
+    private static async Task<AdminSessionValidationResult> InvokeValidateCurrentSessionAfterTouchConflictAsync(
+        AdminSessionValidationService service,
+        long adminId,
+        string sessionId,
+        string currentTokenHash,
+        DateTime now)
+    {
+        MethodInfo method = typeof(AdminSessionValidationService).GetMethod(
+            "ValidateCurrentSessionAfterTouchConflictAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        object taskObject = method.Invoke(service, [adminId, sessionId, currentTokenHash, now, CancellationToken.None])!;
+        await (Task)taskObject;
+        return (AdminSessionValidationResult)taskObject.GetType().GetProperty("Result")!.GetValue(taskObject)!;
     }
 
     private Task<string> CreateConnectionStringAsync()
