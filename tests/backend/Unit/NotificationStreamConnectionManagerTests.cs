@@ -20,21 +20,50 @@ public sealed class NotificationStreamConnectionManagerTests
     }
 
     [Fact]
+    public void Source_PublishUsesCachedIndexSnapshotsInsteadOfPerPublishToArray()
+    {
+        string source = ReadManagerSource();
+        string publishPath = ExtractBetween(
+            source,
+            "public int Publish(",
+            "    private static void AddToIndex");
+
+        Assert.Contains("ConnectionIndexBucket", source, StringComparison.Ordinal);
+        Assert.Contains(".Snapshot", publishPath, StringComparison.Ordinal);
+        Assert.DoesNotContain(".ToArray()", publishPath, StringComparison.Ordinal);
+        Assert.Contains("NotificationStreamMetrics.RecordPublishFanout", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Source_MultiUserTargetAvoidsPerUserArraySnapshotsAndDedupesOnce()
+    {
+        string source = ReadManagerSource();
+        string method = ExtractBetween(
+            source,
+            "private IReadOnlyList<NotificationStreamConnection> ResolveMultiUser",
+            "    private static void AddToIndex");
+
+        Assert.Contains("seenConnectionIds", method, StringComparison.Ordinal);
+        Assert.Contains(".Snapshot", method, StringComparison.Ordinal);
+        Assert.DoesNotContain(".ToArray()", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TryRemoveBucketIfCurrent_DoesNotRemoveReplacedBucket()
     {
         const string key = "user:42";
-        var oldBucket = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
-        var newBucket = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
-        newBucket.TryAdd("conn-new", 0);
+        var oldBucket = new ConnectionIndexBucket();
+        var newBucket = new ConnectionIndexBucket();
+        newBucket.Add("conn-new");
 
-        var index = new ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>(StringComparer.Ordinal);
+        var index = new ConcurrentDictionary<string, ConnectionIndexBucket>(StringComparer.Ordinal);
         index[key] = oldBucket;
         index[key] = newBucket;
 
         bool removed = NotificationStreamConnectionManager.TryRemoveBucketIfCurrent(index, key, oldBucket);
 
         Assert.False(removed);
-        Assert.True(index.TryGetValue(key, out ConcurrentDictionary<string, byte>? currentBucket));
+        Assert.True(index.TryGetValue(key, out ConnectionIndexBucket? currentBucket));
         Assert.Same(newBucket, currentBucket);
     }
 
@@ -42,9 +71,9 @@ public sealed class NotificationStreamConnectionManagerTests
     public void TryRemoveBucketIfCurrent_RemovesWhenCurrent()
     {
         const string key = "user:99";
-        var bucket = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
+        var bucket = new ConnectionIndexBucket();
 
-        var index = new ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>(StringComparer.Ordinal);
+        var index = new ConcurrentDictionary<string, ConnectionIndexBucket>(StringComparer.Ordinal);
         index[key] = bucket;
 
         bool removed = NotificationStreamConnectionManager.TryRemoveBucketIfCurrent(index, key, bucket);
@@ -57,18 +86,18 @@ public sealed class NotificationStreamConnectionManagerTests
     public void TryRemoveBucketIfCurrent_DoesNotRemoveCurrentNonEmptyBucket()
     {
         const string key = "user:100";
-        var bucket = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
-        bucket.TryAdd("conn-new", 0);
+        var bucket = new ConnectionIndexBucket();
+        bucket.Add("conn-new");
 
-        var index = new ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>(StringComparer.Ordinal);
+        var index = new ConcurrentDictionary<string, ConnectionIndexBucket>(StringComparer.Ordinal);
         index[key] = bucket;
 
         bool removed = NotificationStreamConnectionManager.TryRemoveBucketIfCurrent(index, key, bucket);
 
         Assert.False(removed);
-        Assert.True(index.TryGetValue(key, out ConcurrentDictionary<string, byte>? currentBucket));
+        Assert.True(index.TryGetValue(key, out ConnectionIndexBucket? currentBucket));
         Assert.Same(bucket, currentBucket);
-        Assert.True(currentBucket.ContainsKey("conn-new"));
+        Assert.Contains("conn-new", currentBucket.Snapshot);
     }
 
     [Fact]
@@ -97,6 +126,15 @@ public sealed class NotificationStreamConnectionManagerTests
             "Infrastructure",
             "NotificationStream",
             "NotificationStreamConnectionManager.cs");
+
+    private static string ExtractBetween(string source, string start, string end)
+    {
+        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
+        int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
+        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
+        return source[startIndex..endIndex];
+    }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -434,7 +472,7 @@ public class NotificationStreamConnectionManagerIntegrationTests
     public async Task RegisterPublishRemove_AllowsConcurrentConnections()
     {
         const int count = 128;
-        var mgr = MakeManager(queueCapacity: 512);
+        var mgr = MakeManager(queueCapacity: 512, maxConnectionsPerIp: count);
 
         await Task.WhenAll(Enumerable.Range(0, count).Select(i =>
             Task.Run(() => mgr.RegisterConnection($"conn-{i}", $"user-{i % 16}", ["group-all"]))));

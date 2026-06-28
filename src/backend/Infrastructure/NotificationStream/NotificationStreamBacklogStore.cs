@@ -86,11 +86,9 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
             bool missedGap = false;
             int scannedEntries = 0;
             List<ReplayEntry> replayEntries = [];
-            Task<RouteReplayRead>[] routeReads = replayRoutes
-                .Select(route => ReadRouteReplayAsync(route, start, cursor.Value))
-                .ToArray();
-
-            RouteReplayRead[] reads = await Task.WhenAll(routeReads).ConfigureAwait(false);
+            RouteReplayReadBatch routeReplayBatch = await ReadRouteReplaysAsync(replayRoutes, start, cursor.Value).ConfigureAwait(false);
+            RouteReplayRead[] reads = routeReplayBatch.Reads;
+            int redisCommandCount = routeReplayBatch.RedisCommandCount;
             for (int routeIndex = 0; routeIndex < reads.Length; routeIndex++)
             {
                 RouteReplayRead read = reads[routeIndex];
@@ -139,7 +137,7 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
                 frames.Add(SharedNotificationStreamFrame.FromArray(buffer));
             }
 
-            NotificationStreamMetrics.RecordReplay(frames.Count, missedGap, replayRoutes.Count, scannedEntries, dedupedEntries);
+            NotificationStreamMetrics.RecordReplay(frames.Count, missedGap, replayRoutes.Count, scannedEntries, dedupedEntries, redisCommandCount);
             return new NotificationStreamReplayBatch(frames, missedGap);
         }
         catch (Exception ex)
@@ -151,6 +149,55 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
 
     private string RouteStreamKey(string route)
         => keyScope.PrefixKey(RouteStreamPrefix + route);
+
+    private async Task<RouteReplayReadBatch> ReadRouteReplaysAsync(IReadOnlyList<string> routes, string start, long cursorValue)
+    {
+        if (routes.Count == 0)
+        {
+            return new RouteReplayReadBatch([], 0);
+        }
+
+        if (routes.Count == 1)
+        {
+            RouteReplayRead read = await ReadRouteReplayAsync(routes[0], start, cursorValue).ConfigureAwait(false);
+            return new RouteReplayReadBatch([read], 3);
+        }
+
+        IBatch batch = _database.CreateBatch();
+        PendingRouteReplayRead[] pendingReads = new PendingRouteReplayRead[routes.Count];
+        string cursorUpperBound = string.Create(CultureInfo.InvariantCulture, $"{cursorValue}-0");
+        for (int i = 0; i < routes.Count; i++)
+        {
+            string streamKey = RouteStreamKey(routes[i]);
+            pendingReads[i] = new PendingRouteReplayRead(
+                batch.StreamRangeAsync(streamKey, count: 1),
+                batch.StreamRangeAsync(streamKey, start, "+", MaxReplayEntries),
+                batch.StreamRangeAsync(
+                    streamKey,
+                    "-",
+                    cursorUpperBound,
+                    count: 1,
+                    messageOrder: Order.Descending));
+        }
+
+        batch.Execute();
+
+        RouteReplayRead[] reads = new RouteReplayRead[pendingReads.Length];
+        for (int i = 0; i < pendingReads.Length; i++)
+        {
+            PendingRouteReplayRead pending = pendingReads[i];
+            await Task.WhenAll(pending.First, pending.Entries, pending.CursorFloor).ConfigureAwait(false);
+            StreamEntry[] first = await pending.First.ConfigureAwait(false);
+            StreamEntry[] cursorFloor = await pending.CursorFloor.ConfigureAwait(false);
+            bool missedGap = first.Length > 0
+                && TryParseEventId(first[0].Id, out long firstEventId)
+                && firstEventId > cursorValue + 1
+                && !HasRetainedCursorFloor(cursorFloor, cursorValue);
+            reads[i] = new RouteReplayRead(await pending.Entries.ConfigureAwait(false), missedGap);
+        }
+
+        return new RouteReplayReadBatch(reads, routes.Count);
+    }
 
     private async Task<RouteReplayRead> ReadRouteReplayAsync(string route, string start, long cursorValue)
     {
@@ -210,6 +257,11 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
 
     private readonly record struct ReplayEntry(long EventId, RedisValue Frame);
     private readonly record struct RouteReplayRead(StreamEntry[] Entries, bool MissedGap);
+    private readonly record struct PendingRouteReplayRead(
+        Task<StreamEntry[]> First,
+        Task<StreamEntry[]> Entries,
+        Task<StreamEntry[]> CursorFloor);
+    private readonly record struct RouteReplayReadBatch(RouteReplayRead[] Reads, int RedisCommandCount);
 }
 
 public sealed record NotificationStreamReplayBatch(IReadOnlyList<SharedNotificationStreamFrame> Frames, bool MissedGap)

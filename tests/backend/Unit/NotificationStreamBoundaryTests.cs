@@ -397,6 +397,22 @@ public class NotificationStreamBoundaryTests
     }
 
     [Fact]
+    public void BacklogReplay_SourceBatchesRouteReadsAndRecordsRedisCommandCount()
+    {
+        string backlog = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamBacklogStore.cs"));
+        string metrics = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamMetrics.cs"));
+        string replay = ExtractMethodBlock(backlog, "public async Task<NotificationStreamReplayBatch> ReplayAsync");
+
+        Assert.Contains("ReadRouteReplaysAsync", backlog, StringComparison.Ordinal);
+        Assert.Contains("IBatch batch = _database.CreateBatch()", backlog, StringComparison.Ordinal);
+        Assert.Contains("redisCommandCount", replay, StringComparison.Ordinal);
+        Assert.Contains("RecordReplay(frames.Count, missedGap, replayRoutes.Count, scannedEntries, dedupedEntries, redisCommandCount)", replay, StringComparison.Ordinal);
+        Assert.Contains("fsus.notification_stream.replay_redis_commands", metrics, StringComparison.Ordinal);
+        Assert.Contains("fsus.notification_stream.publish_fanout", metrics, StringComparison.Ordinal);
+        Assert.Contains("fsus.notification_stream.publish_allocation_estimate_bytes", metrics, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SessionService_SourceClosesSocketUnderSendGate()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamSessionService.cs"));
@@ -429,7 +445,8 @@ public class NotificationStreamBoundaryTests
 
         Assert.Contains("drillSlowConsumer", source, StringComparison.Ordinal);
         Assert.Contains("drillQueueCapacity", source, StringComparison.Ordinal);
-        Assert.Contains("RegisterConnection(connectionId, handshake.UserId, handshake.Groups, drillQueueCapacity)", source, StringComparison.Ordinal);
+        Assert.Contains("manager.RegisterConnection(", source, StringComparison.Ordinal);
+        Assert.Contains("context.GetClientIp()", source, StringComparison.Ordinal);
         Assert.Contains("IsDevelopment()", source, StringComparison.Ordinal);
         Assert.Contains("IsEnvironment(\"Test\")", source, StringComparison.Ordinal);
     }

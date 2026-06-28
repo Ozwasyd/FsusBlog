@@ -14,11 +14,14 @@ internal static class NotificationStreamMetrics
     private static readonly Counter<long> ReplayCounter = Meter.CreateCounter<long>("fsus.notification_stream.replay_hits");
     private static readonly Counter<long> ReplayMissCounter = Meter.CreateCounter<long>("fsus.notification_stream.replay_misses");
     private static readonly Counter<long> ReplayDedupedCounter = Meter.CreateCounter<long>("fsus.notification_stream.replay_deduped_entries");
+    private static readonly Counter<long> PublishFanoutCounter = Meter.CreateCounter<long>("fsus.notification_stream.publish_fanout");
     private static readonly Histogram<int> QueueDepthHistogram = Meter.CreateHistogram<int>("fsus.notification_stream.queue_depth");
     private static readonly Histogram<int> FlushBatchHistogram = Meter.CreateHistogram<int>("fsus.notification_stream.flush_batch_size");
     private static readonly Histogram<double> FlushDurationHistogram = Meter.CreateHistogram<double>("fsus.notification_stream.flush_duration_ms");
     private static readonly Histogram<int> ReplayRouteHistogram = Meter.CreateHistogram<int>("fsus.notification_stream.replay_routes");
     private static readonly Histogram<int> ReplayScanHistogram = Meter.CreateHistogram<int>("fsus.notification_stream.replay_scanned_entries");
+    private static readonly Histogram<int> ReplayRedisCommandHistogram = Meter.CreateHistogram<int>("fsus.notification_stream.replay_redis_commands");
+    private static readonly Histogram<long> PublishAllocationEstimateHistogram = Meter.CreateHistogram<long>("fsus.notification_stream.publish_allocation_estimate_bytes");
 
     static NotificationStreamMetrics()
     {
@@ -43,10 +46,12 @@ internal static class NotificationStreamMetrics
         bool missedGap,
         int routeCount = 0,
         int scannedEntries = 0,
-        int dedupedEntries = 0)
+        int dedupedEntries = 0,
+        int redisCommandCount = 0)
     {
         ReplayRouteHistogram.Record(routeCount);
         ReplayScanHistogram.Record(scannedEntries);
+        ReplayRedisCommandHistogram.Record(redisCommandCount);
 
         if (hitCount > 0)
         {
@@ -62,6 +67,20 @@ internal static class NotificationStreamMetrics
         {
             ReplayMissCounter.Add(1);
         }
+    }
+
+    public static void RecordPublishFanout(int delivered, NotificationStreamTarget target, long allocationEstimateBytes)
+    {
+        string targetType = target switch
+        {
+            NotificationStreamUserTarget => "user",
+            NotificationStreamGroupTarget => "group",
+            NotificationStreamMultiUserTarget => "multi_user",
+            _ => "unknown"
+        };
+
+        PublishFanoutCounter.Add(delivered, new KeyValuePair<string, object?>("target", targetType));
+        PublishAllocationEstimateHistogram.Record(allocationEstimateBytes, new KeyValuePair<string, object?>("target", targetType));
     }
 
     public static void RecordFlushBatch(int batchSize, TimeSpan duration)

@@ -12,7 +12,9 @@ public sealed class BinaryTransportHotPathContractTests
         Assert.DoesNotContain("_indexGate", source, StringComparison.Ordinal);
         Assert.DoesNotContain("lock (_indexGate)", source, StringComparison.Ordinal);
         Assert.Contains("ResolveConnectionsSnapshot", source, StringComparison.Ordinal);
-        Assert.Contains("connectionIds.ToArray()", source, StringComparison.Ordinal);
+        Assert.Contains("ConnectionIndexBucket", source, StringComparison.Ordinal);
+        Assert.Contains("bucket.Snapshot", source, StringComparison.Ordinal);
+        Assert.Contains("RefreshSnapshot", source, StringComparison.Ordinal);
         Assert.Contains("Channel.CreateBounded<SharedNotificationStreamFrame>", source, StringComparison.Ordinal);
     }
 

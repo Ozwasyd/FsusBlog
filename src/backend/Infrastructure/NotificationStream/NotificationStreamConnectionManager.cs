@@ -25,8 +25,8 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
     private const int DefaultMaxConnectionsPerAccount = 10;
 
     private readonly ConcurrentDictionary<string, NotificationStreamConnection> _byConnectionId = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _byUserId = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _byGroup = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, ConnectionIndexBucket> _byUserId = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, ConnectionIndexBucket> _byGroup = new(StringComparer.Ordinal);
     private readonly object _quotaGate = new();
     private readonly Dictionary<string, int> _connectionsByIp = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _connectionsByAccount = new(StringComparer.Ordinal);
@@ -133,18 +133,23 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
 
     public int Publish(SharedNotificationStreamFrame frame, NotificationStreamTarget target)
     {
-        int delivered = 0;
-        foreach (NotificationStreamConnection connection in ResolveConnectionsSnapshot(target))
+        long allocationEstimateBytes = EstimatePublishAllocationBytes(target);
+        int delivered = target switch
         {
-            frame.Retain();
-            if (connection.TryEnqueue(frame))
-            {
-                delivered++;
-            }
-        }
+            NotificationStreamUserTarget account => PublishByIndexSnapshot(frame, _byUserId, account.AccountId),
+            NotificationStreamGroupTarget group => PublishByIndexSnapshot(frame, _byGroup, group.GroupName),
+            NotificationStreamMultiUserTarget multi => PublishMultiUser(frame, multi.UserIds),
+            _ => 0
+        };
 
+        NotificationStreamMetrics.RecordPublishFanout(delivered, target, allocationEstimateBytes);
         return delivered;
     }
+
+    private static long EstimatePublishAllocationBytes(NotificationStreamTarget target)
+        => target is NotificationStreamMultiUserTarget multi
+            ? Math.Max(0, multi.UserIds.Count) * 32L
+            : 0;
 
     private IReadOnlyList<NotificationStreamConnection> ResolveConnectionsSnapshot(NotificationStreamTarget target)
     {
@@ -160,21 +165,21 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
     private IReadOnlyList<NotificationStreamConnection> ResolveAccountTarget(NotificationStreamUserTarget target)
         => ResolveByIndexSnapshot(_byUserId, target.AccountId);
 
-    private IReadOnlyList<NotificationStreamConnection> ResolveByIndexSnapshot(ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> index, string key)
+    private IReadOnlyList<NotificationStreamConnection> ResolveByIndexSnapshot(ConcurrentDictionary<string, ConnectionIndexBucket> index, string key)
     {
-        if (!index.TryGetValue(key, out ConcurrentDictionary<string, byte>? connectionIds))
+        if (!index.TryGetValue(key, out ConnectionIndexBucket? bucket))
         {
             return [];
         }
 
-        KeyValuePair<string, byte>[] snapshot = connectionIds.ToArray();
+        string[] snapshot = bucket.Snapshot;
         if (snapshot.Length == 0)
         {
             return [];
         }
 
         var connections = new List<NotificationStreamConnection>(snapshot.Length);
-        foreach ((string connectionId, _) in snapshot)
+        foreach (string connectionId in snapshot)
         {
             if (_byConnectionId.TryGetValue(connectionId, out NotificationStreamConnection? connection))
             {
@@ -185,22 +190,52 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
         return connections;
     }
 
-    private IReadOnlyList<NotificationStreamConnection> ResolveMultiUser(IReadOnlyList<string> userIds)
+    private int PublishByIndexSnapshot(SharedNotificationStreamFrame frame, ConcurrentDictionary<string, ConnectionIndexBucket> index, string key)
     {
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        List<NotificationStreamConnection>? connections = null;
-
-        foreach (string userId in userIds)
+        if (!index.TryGetValue(key, out ConnectionIndexBucket? bucket))
         {
-            if (!_byUserId.TryGetValue(userId, out ConcurrentDictionary<string, byte>? connectionIds))
+            return 0;
+        }
+
+        return PublishToConnectionIds(frame, bucket.Snapshot);
+    }
+
+    private int PublishToConnectionIds(SharedNotificationStreamFrame frame, IReadOnlyList<string> connectionIds)
+    {
+        int delivered = 0;
+        foreach (string connectionId in connectionIds)
+        {
+            if (!_byConnectionId.TryGetValue(connectionId, out NotificationStreamConnection? connection))
             {
                 continue;
             }
 
-            KeyValuePair<string, byte>[] snapshot = connectionIds.ToArray();
-            foreach ((string connectionId, _) in snapshot)
+            frame.Retain();
+            if (connection.TryEnqueue(frame))
             {
-                if (!seen.Add(connectionId))
+                delivered++;
+            }
+        }
+
+        return delivered;
+    }
+
+    private IReadOnlyList<NotificationStreamConnection> ResolveMultiUser(IReadOnlyList<string> userIds)
+    {
+        var seenConnectionIds = new HashSet<string>(StringComparer.Ordinal);
+        List<NotificationStreamConnection>? connections = null;
+
+        foreach (string userId in userIds)
+        {
+            if (!_byUserId.TryGetValue(userId, out ConnectionIndexBucket? bucket))
+            {
+                continue;
+            }
+
+            string[] snapshot = bucket.Snapshot;
+            foreach (string connectionId in snapshot)
+            {
+                if (!seenConnectionIds.Add(connectionId))
                 {
                     continue;
                 }
@@ -216,20 +251,55 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
         return connections ?? [];
     }
 
-    private static void AddToIndex(ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> index, string key, string connectionId)
+    private int PublishMultiUser(SharedNotificationStreamFrame frame, IReadOnlyList<string> userIds)
     {
-        while (true)
+        var seenConnectionIds = new HashSet<string>(StringComparer.Ordinal);
+        int delivered = 0;
+
+        foreach (string userId in userIds)
         {
-            ConcurrentDictionary<string, byte> connections = index.GetOrAdd(key, static _ => new ConcurrentDictionary<string, byte>(StringComparer.Ordinal));
-            lock (connections)
+            if (!_byUserId.TryGetValue(userId, out ConnectionIndexBucket? bucket))
             {
-                // The bucket may have been removed after GetOrAdd returned; never add to an orphaned bucket.
-                if (!index.TryGetValue(key, out ConcurrentDictionary<string, byte>? current) || !ReferenceEquals(current, connections))
+                continue;
+            }
+
+            foreach (string connectionId in bucket.Snapshot)
+            {
+                if (!seenConnectionIds.Add(connectionId))
                 {
                     continue;
                 }
 
-                connections.TryAdd(connectionId, 0);
+                if (!_byConnectionId.TryGetValue(connectionId, out NotificationStreamConnection? connection))
+                {
+                    continue;
+                }
+
+                frame.Retain();
+                if (connection.TryEnqueue(frame))
+                {
+                    delivered++;
+                }
+            }
+        }
+
+        return delivered;
+    }
+
+    private static void AddToIndex(ConcurrentDictionary<string, ConnectionIndexBucket> index, string key, string connectionId)
+    {
+        while (true)
+        {
+            ConnectionIndexBucket bucket = index.GetOrAdd(key, static _ => new ConnectionIndexBucket());
+            lock (bucket)
+            {
+                // The bucket may have been removed after GetOrAdd returned; never add to an orphaned bucket.
+                if (!index.TryGetValue(key, out ConnectionIndexBucket? current) || !ReferenceEquals(current, bucket))
+                {
+                    continue;
+                }
+
+                bucket.Add(connectionId);
                 return;
             }
         }
@@ -304,34 +374,63 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
     private static string NormalizeQuotaKey(string? value, string fallback)
         => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 
-    private static void RemoveFromIndex(ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> index, string key, string connectionId)
+    private static void RemoveFromIndex(ConcurrentDictionary<string, ConnectionIndexBucket> index, string key, string connectionId)
     {
-        if (!index.TryGetValue(key, out ConcurrentDictionary<string, byte>? connections))
+        if (!index.TryGetValue(key, out ConnectionIndexBucket? bucket))
         {
             return;
         }
 
-        lock (connections)
+        lock (bucket)
         {
-            connections.TryRemove(connectionId, out _);
-            if (connections.IsEmpty)
+            bucket.Remove(connectionId);
+            if (bucket.IsEmpty)
             {
-                TryRemoveBucketIfCurrent(index, key, connections);
+                TryRemoveBucketIfCurrent(index, key, bucket);
             }
         }
     }
 
     internal static bool TryRemoveBucketIfCurrent(
-        ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> index,
+        ConcurrentDictionary<string, ConnectionIndexBucket> index,
         string key,
-        ConcurrentDictionary<string, byte> connections)
+        ConnectionIndexBucket bucket)
     {
-        lock (connections)
+        lock (bucket)
         {
-            return connections.IsEmpty
-                && index.TryRemove(new KeyValuePair<string, ConcurrentDictionary<string, byte>>(key, connections));
+            return bucket.IsEmpty
+                && index.TryRemove(new KeyValuePair<string, ConnectionIndexBucket>(key, bucket));
         }
     }
+}
+
+internal sealed class ConnectionIndexBucket
+{
+    private readonly ConcurrentDictionary<string, byte> _connections = new(StringComparer.Ordinal);
+    private string[] _snapshot = [];
+
+    public string[] Snapshot => Volatile.Read(ref _snapshot);
+
+    public bool IsEmpty => _connections.IsEmpty;
+
+    public void Add(string connectionId)
+    {
+        if (_connections.TryAdd(connectionId, 0))
+        {
+            RefreshSnapshot();
+        }
+    }
+
+    public void Remove(string connectionId)
+    {
+        if (_connections.TryRemove(connectionId, out _))
+        {
+            RefreshSnapshot();
+        }
+    }
+
+    private void RefreshSnapshot()
+        => Volatile.Write(ref _snapshot, _connections.Keys.ToArray());
 }
 
 public sealed class NotificationStreamConnection
