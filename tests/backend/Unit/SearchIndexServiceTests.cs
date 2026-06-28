@@ -600,12 +600,42 @@ public sealed class SearchIndexServiceTests
         Assert.Contains("cache.IncrementAsync(CachePolicyId.ArticleSearchVersion, \"main\")", block, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SearchIndexService_SourceUsesIncrementalMutationPathAndSafeFallback()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/SearchIndexService.cs"));
+        string addOrUpdate = ExtractBetween(source, "public Task AddOrUpdateIndexAsync", "public Task DeleteIndexAsync");
+        string delete = ExtractBetween(source, "public Task DeleteIndexAsync", "public static string? NormalizeTokenForTests");
+        string search = ExtractBetween(source, "public Task<List<Article>> SearchAsync", "public Task AddOrUpdateIndexAsync");
+        string runtimeDocument = ExtractBetween(source, "private sealed record SearchRuntimeDocument", "private readonly record struct SearchRuntimePosting");
+
+        Assert.Contains("ApplyIncrementalSearchIndexAsync", addOrUpdate, StringComparison.Ordinal);
+        Assert.Contains("ApplyIncrementalSearchIndexAsync", delete, StringComparison.Ordinal);
+        Assert.DoesNotContain("RebuildSearchIndexAsync", addOrUpdate, StringComparison.Ordinal);
+        Assert.DoesNotContain("RebuildSearchIndexAsync", delete, StringComparison.Ordinal);
+        Assert.DoesNotContain("MarkdownContent.Contains", search, StringComparison.Ordinal);
+        Assert.DoesNotContain("ArticleBody", search, StringComparison.Ordinal);
+        Assert.DoesNotContain("string Body", runtimeDocument, StringComparison.Ordinal);
+        Assert.Contains("SnippetWindow", runtimeDocument, StringComparison.Ordinal);
+        Assert.Contains("EstimatedMemoryBytes", source, StringComparison.Ordinal);
+        Assert.Contains("RecordSearchRuntimeSnapshotMemory", source, StringComparison.Ordinal);
+    }
+
     // ── Private static helpers via reflection ──────────────────────────────────
 
     private static T InvokePrivateStatic<T>(string methodName, object?[] args)
     {
         var method = typeof(SearchIndexService).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!;
         return (T)method.Invoke(null, args)!;
+    }
+
+    private static string ExtractBetween(string source, string start, string end)
+    {
+        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
+        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
+        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
+        return source[startIndex..endIndex];
     }
 
     [Theory]

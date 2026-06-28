@@ -136,35 +136,9 @@ public sealed partial class SearchIndexService(
                     {
                         Id = article.Id,
                         Title = article.Title,
-                        Summary = article.Summary,
-                        MarkdownContent = null
+                        Summary = article.Summary
                     })
                     .ToListAsync();
-
-                if (rows.Count < 200)
-                {
-                    int[] matchedIds = [.. rows.Select(static row => row.Id)];
-                    var bodyRows = await db.Queryable<Article>()
-                        .InnerJoin<ArticleBody>((article, body) => article.Id == body.ArticleId)
-                        .Where((article, body) => !article.IsDeleted
-                            && article.Status == ArticleStatus.Published
-                            && (article.PublishedAt == null || article.PublishedAt <= now)
-                            && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now)
-                            && body.MarkdownContent.Contains(normalizedKeyword))
-                        .WhereIF(matchedIds.Length > 0, (article, body) => !matchedIds.Contains(article.Id))
-                        .OrderByDescending((article, body) => article.Views)
-                        .OrderByDescending((article, body) => article.CreateTime)
-                        .Take(200 - rows.Count)
-                        .Select((article, body) => new SearchArticleResultRow
-                        {
-                            Id = article.Id,
-                            Title = article.Title,
-                            Summary = article.Summary,
-                            MarkdownContent = body.MarkdownContent
-                        })
-                        .ToListAsync();
-                    rows.AddRange(bodyRows);
-                }
 
                 var results = new List<Article>(rows.Count);
                 foreach (SearchArticleResultRow row in rows)
@@ -173,7 +147,7 @@ public sealed partial class SearchIndexService(
                     {
                         Id = row.Id,
                         Title = row.Title ?? string.Empty,
-                        Content = BuildServerSearchSnippet(normalizedKeyword, row.Title, row.Summary, row.MarkdownContent)
+                        Content = BuildServerSearchSnippet(normalizedKeyword, row.Title, row.Summary, body: null)
                     });
                 }
 
@@ -197,10 +171,10 @@ public sealed partial class SearchIndexService(
             LogLevel.Error);
 
     public Task AddOrUpdateIndexAsync(Article article)
-        => RebuildSearchIndexAsync([article.Id], []);
+        => ApplyIncrementalSearchIndexAsync([article.Id], []);
 
     public Task DeleteIndexAsync(int id)
-        => RebuildSearchIndexAsync([], [id]);
+        => ApplyIncrementalSearchIndexAsync([], [id]);
 
     public static string? NormalizeTokenForTests(string input)
     {
@@ -303,7 +277,9 @@ public sealed partial class SearchIndexService(
                 using var dictionary = SearchDictionaryRuntime.Open(lexiconPath);
 
                 SearchBuildArtifacts artifacts = BuildArtifacts(articles, dictionary);
-                _runtimeSnapshot = SearchRuntimeSnapshot.Build(articles, dictionary);
+                SearchRuntimeSnapshot runtimeSnapshot = SearchRuntimeSnapshot.Build(articles, dictionary);
+                _runtimeSnapshot = runtimeSnapshot;
+                FsusObservability.RecordSearchRuntimeSnapshotMemory(runtimeSnapshot.EstimatedMemoryBytes, "full");
                 await PublishArtifactsAsync(root, artifacts, upsertArticleIds, deletedArticleIds);
                 }
                 catch
@@ -319,6 +295,58 @@ public sealed partial class SearchIndexService(
             },
             logger,
             "search-index-rebuild",
+            LogLevel.Error);
+
+    private Task ApplyIncrementalSearchIndexAsync(IReadOnlyCollection<int> upsertArticleIds, IReadOnlyCollection<int> deletedArticleIds)
+        => BoundaryExecutor.ExecuteAsync(
+            async () =>
+            {
+                long startedAt = Stopwatch.GetTimestamp();
+                string result = "ok";
+                using Activity? activity = FsusObservability.StartActivity("search.incremental", "search");
+                FsusObservability.SetTag(activity, "fsus.search.mode", "incremental");
+                try
+                {
+                    string root = ResolveSearchRoot();
+                    string manifestPath = Path.Combine(root, SearchManifestFileName);
+                    SearchIndexManifest? previousManifest = ReadManifest(manifestPath);
+                    if (previousManifest is null)
+                    {
+                        await RebuildSearchIndexAsync(upsertArticleIds, deletedArticleIds).ConfigureAwait(false);
+                        result = "full_compact";
+                        return;
+                    }
+
+                    await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+                    ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+                    List<SearchSourceArticle> changedArticles = await LoadArticlesByIdsAsync(db, [.. upsertArticleIds]).ConfigureAwait(false);
+                    string dictionariesDirectory = Path.Combine(root, SearchDictionaryDirectory);
+                    Directory.CreateDirectory(dictionariesDirectory);
+                    string lexiconPath = Path.Combine(dictionariesDirectory, SearchLexiconBinaryFileName);
+                    SearchDictionaryCompiler.CompileIfNeeded(
+                        Path.Combine(environment.ContentRootPath, SearchLexiconSourceDirectory),
+                        lexiconPath,
+                        logger);
+                    using var dictionary = SearchDictionaryRuntime.Open(lexiconPath);
+
+                    SearchBuildArtifacts changedArtifacts = BuildArtifacts(changedArticles, dictionary);
+                    await PublishIncrementalPatchAsync(root, previousManifest, changedArtifacts, upsertArticleIds, deletedArticleIds).ConfigureAwait(false);
+                    _runtimeSnapshot = null;
+                    FsusObservability.RecordSearchRuntimeSnapshotMemory(0, "incremental-invalidated");
+                }
+                catch
+                {
+                    result = "failed";
+                    throw;
+                }
+                finally
+                {
+                    FsusObservability.SetTag(activity, "fsus.result", result);
+                    FsusObservability.RecordSearchOperation("incremental", result, FsusObservability.GetElapsed(startedAt));
+                }
+            },
+            logger,
+            "search-index-incremental",
             LogLevel.Error);
 
     private string ResolveSearchRoot()
@@ -496,6 +524,67 @@ public sealed partial class SearchIndexService(
                 new SearchIndexUpdatePayload(artifacts.Version, "/search/index.manifest.aeds", artifacts.GeneratedAt),
                 new NotificationStreamGroupTarget(NotificationStreamTargetCollections.ContentFeed));
         }
+    }
+
+    private async Task PublishIncrementalPatchAsync(
+        string root,
+        SearchIndexManifest previousManifest,
+        SearchBuildArtifacts changedArtifacts,
+        IReadOnlyCollection<int> upsertArticleIds,
+        IReadOnlyCollection<int> deletedArticleIds)
+    {
+        Directory.CreateDirectory(root);
+        string patchRoot = Path.Combine(root, SearchPatchDirectory);
+        Directory.CreateDirectory(patchRoot);
+
+        HashSet<int> changedDocumentIds = [.. upsertArticleIds];
+        changedDocumentIds.UnionWith(deletedArticleIds);
+        string incrementalVersion = ComputeVersion(
+            Encoding.UTF8.GetBytes(previousManifest.CurrentVersion),
+            Encoding.UTF8.GetBytes(string.Join(',', changedDocumentIds.Order())),
+            Encoding.UTF8.GetBytes(DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture)));
+        DateTime generatedAt = DateTime.UtcNow;
+
+        var shardManifests = new List<SearchShardManifest>(previousManifest.Shards.Count);
+        lock (SearchIndexWriteGate)
+        {
+            foreach (SearchShardManifest previousShard in previousManifest.Shards)
+            {
+                SearchShardArtifact? changedShard = changedArtifacts.Shards.FirstOrDefault(it => it.Role == previousShard.Role);
+                byte[] patchShardBytes = changedShard is null || (changedShard.Data.Documents.Length == 0 && changedShard.Data.Terms.Length == 0)
+                    ? []
+                    : SerializeShard(changedShard.Data);
+                byte[] patchBytes = SearchIndexDeltaCodec.CreatePatch(
+                    changedDocumentIds.Select(id => (uint)id).Distinct().OrderBy(id => id).ToArray(),
+                    patchShardBytes);
+                string patchFileName = $"index.{previousShard.Role.ToString().ToLowerInvariant()}.{previousShard.FullSha256[..16]}-{incrementalVersion}.patch";
+                string patchPath = Path.Combine(patchRoot, patchFileName);
+                string patchUrl = $"/search/{SearchPatchDirectory}/{patchFileName}";
+                string patchSha = ToLowerHex(SHA256.HashData(patchBytes));
+                WriteFileAtomically(patchPath, patchBytes);
+
+                shardManifests.Add(previousShard with
+                {
+                    PatchUrl = patchUrl,
+                    PatchSha256 = patchSha
+                });
+            }
+
+            SearchIndexManifest manifest = previousManifest with
+            {
+                CurrentVersion = incrementalVersion,
+                GeneratedAt = generatedAt,
+                Shards = shardManifests
+            };
+
+            WriteFileAtomically(Path.Combine(root, SearchManifestFileName), EncodeManifest(manifest));
+        }
+
+        await cache.IncrementAsync(CachePolicyId.ArticleSearchVersion, "main").ConfigureAwait(false);
+        await notificationStreamPublisher.PublishAsync(
+            NotificationStreamEventType.SearchIndexUpdated,
+            new SearchIndexUpdatePayload(incrementalVersion, "/search/index.manifest.aeds", generatedAt),
+            new NotificationStreamGroupTarget(NotificationStreamTargetCollections.ContentFeed));
     }
 
     private static SearchShardData BuildPatchShard(SearchShardData shard, IReadOnlySet<int> changedDocumentIds)
@@ -1551,6 +1640,22 @@ public sealed partial class SearchIndexService(
     private async Task<List<SearchSourceArticle>> LoadArticlesAsync(ISqlSugarClient db)
     {
         List<SearchArticleRow> articleRows = await LoadArticleRowsAsync(db);
+        return await LoadSearchSourceArticlesAsync(db, articleRows).ConfigureAwait(false);
+    }
+
+    private async Task<List<SearchSourceArticle>> LoadArticlesByIdsAsync(ISqlSugarClient db, int[] articleIds)
+    {
+        if (articleIds.Length == 0)
+        {
+            return [];
+        }
+
+        List<SearchArticleRow> articleRows = await LoadArticleRowsByIdsAsync(db, articleIds).ConfigureAwait(false);
+        return await LoadSearchSourceArticlesAsync(db, articleRows).ConfigureAwait(false);
+    }
+
+    private static async Task<List<SearchSourceArticle>> LoadSearchSourceArticlesAsync(ISqlSugarClient db, List<SearchArticleRow> articleRows)
+    {
         if (articleRows.Count == 0)
         {
             return [];
@@ -1622,6 +1727,29 @@ public sealed partial class SearchIndexService(
         DateTime now = DateTime.UtcNow;
         return await db.Queryable<Article, Category>((a, c) => a.CategoryId == c.Id)
             .Where((a, c) => !a.IsDeleted
+                && a.Status == ArticleStatus.Published
+                && (a.PublishedAt == null || a.PublishedAt <= now)
+                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
+            .OrderByDescending((a, c) => a.CreateTime)
+            .Select((a, c) => new SearchArticleRow
+            {
+                Id = a.Id,
+                Title = a.Title,
+                Summary = a.Summary,
+                CategoryId = a.CategoryId,
+                CategoryName = c.Name,
+                Views = a.Views,
+                CreateTime = a.CreateTime
+            })
+            .ToListAsync();
+    }
+
+    private static async Task<List<SearchArticleRow>> LoadArticleRowsByIdsAsync(ISqlSugarClient db, int[] articleIds)
+    {
+        DateTime now = DateTime.UtcNow;
+        return await db.Queryable<Article, Category>((a, c) => a.CategoryId == c.Id)
+            .Where((a, c) => articleIds.Contains(a.Id)
+                && !a.IsDeleted
                 && a.Status == ArticleStatus.Published
                 && (a.PublishedAt == null || a.PublishedAt <= now)
                 && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
@@ -1747,6 +1875,20 @@ public sealed partial class SearchIndexService(
         }
 
         return CreateSnippetWindow(plain, hitIndex);
+    }
+
+    private static string BuildRuntimeSnippetWindow(string? summary, string? body)
+    {
+        string preferred = !string.IsNullOrWhiteSpace(summary) ? summary! : body ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(preferred))
+        {
+            return string.Empty;
+        }
+
+        string plain = NormalizeSnippetText(preferred);
+        return plain.Length <= MaxSummaryLength
+            ? plain
+            : string.Concat(plain.AsSpan(0, MaxSummaryLength), "...");
     }
 
     private static string NormalizeSnippetText(string value)
@@ -1881,6 +2023,8 @@ public sealed partial class SearchIndexService(
         private readonly FrozenDictionary<int, SearchRuntimeDocument> _documentsById;
         private readonly ISearchDictionaryLookup _queryDictionary;
 
+        public long EstimatedMemoryBytes { get; }
+
         public SearchRuntimeSnapshot(
             FrozenDictionary<uint, SearchRuntimePosting[]> postingsByHash,
             FrozenDictionary<uint, SearchRuntimePostingBlock[]> postingBlocksByHash,
@@ -1891,6 +2035,7 @@ public sealed partial class SearchIndexService(
             _postingBlocksByHash = postingBlocksByHash;
             _documentsById = documentsById;
             _queryDictionary = queryDictionary;
+            EstimatedMemoryBytes = EstimateMemoryBytes(postingsByHash, postingBlocksByHash, documentsById);
         }
 
         public static SearchRuntimeSnapshot Build(List<SearchSourceArticle> articles, SearchDictionaryRuntime dictionary)
@@ -1984,10 +2129,10 @@ public sealed partial class SearchIndexService(
                 return CreateSnippetWindowFromRaw(document.Summary, summaryHit);
             }
 
-            int bodyHit = document.Body.IndexOf(keyword, StringComparison.OrdinalIgnoreCase);
+            int bodyHit = document.SnippetWindow.IndexOf(keyword, StringComparison.OrdinalIgnoreCase);
             if (bodyHit >= 0)
             {
-                return CreateSnippetWindowFromRaw(document.Body, bodyHit);
+                return CreateSnippetWindowFromRaw(document.SnippetWindow, bodyHit);
             }
 
             if (!string.IsNullOrWhiteSpace(document.Summary))
@@ -1998,6 +2143,31 @@ public sealed partial class SearchIndexService(
             }
 
             return document.Title;
+        }
+
+        private static long EstimateMemoryBytes(
+            FrozenDictionary<uint, SearchRuntimePosting[]> postingsByHash,
+            FrozenDictionary<uint, SearchRuntimePostingBlock[]> postingBlocksByHash,
+            FrozenDictionary<int, SearchRuntimeDocument> documentsById)
+        {
+            long bytes = 0;
+            foreach (SearchRuntimePosting[] postings in postingsByHash.Values)
+            {
+                bytes += postings.Length * (sizeof(int) + sizeof(double));
+            }
+
+            foreach (SearchRuntimePostingBlock[] blocks in postingBlocksByHash.Values)
+            {
+                bytes += blocks.Length * (sizeof(int) + sizeof(int) + sizeof(double));
+            }
+
+            foreach (SearchRuntimeDocument document in documentsById.Values)
+            {
+                bytes += sizeof(int) * 3 + sizeof(long);
+                bytes += (document.Title.Length + document.Summary.Length + document.SnippetWindow.Length) * sizeof(char);
+            }
+
+            return bytes;
         }
     }
 
@@ -2018,7 +2188,7 @@ public sealed partial class SearchIndexService(
                 article.Id,
                 article.Title,
                 article.Summary,
-                article.Body,
+                BuildRuntimeSnippetWindow(article.Summary, article.Body),
                 article.Views,
                 article.CreateTime,
                 Math.Max(article.DocLength, 1));
@@ -2118,7 +2288,7 @@ public sealed partial class SearchIndexService(
         int Id,
         string Title,
         string Summary,
-        string Body,
+        string SnippetWindow,
         int Views,
         DateTime CreateTime,
         int DocLength);
@@ -2286,7 +2456,6 @@ public sealed partial class SearchIndexService(
         public int Id { get; init; }
         public string? Title { get; init; }
         public string? Summary { get; init; }
-        public string? MarkdownContent { get; init; }
     }
 
     private sealed record SearchTagItem(int Id, string Name);

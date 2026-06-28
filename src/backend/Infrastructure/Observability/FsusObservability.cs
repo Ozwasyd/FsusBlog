@@ -95,6 +95,7 @@ public static class FsusObservability
     private static readonly Histogram<double> DbOperationDuration = Meter.CreateHistogram<double>("fsus.db.operation.duration", "ms");
     private static readonly Histogram<double> AotRenderDuration = Meter.CreateHistogram<double>("fsus.aot.render.duration", "ms");
     private static readonly Histogram<double> SearchOperationDuration = Meter.CreateHistogram<double>("fsus.search.operation.duration", "ms");
+    private static readonly Histogram<double> SearchRuntimeSnapshotMemoryBytes = Meter.CreateHistogram<double>("fsus.search.runtime_snapshot.memory", "By");
     private static readonly Histogram<double> BackgroundJobDuration = Meter.CreateHistogram<double>("fsus.background.job.duration", "ms");
     private static readonly Counter<long> VisitLogFlushCounter = Meter.CreateCounter<long>("fsus.visitlog.flush.count");
     private static readonly Counter<long> HotArticlesDirtyCounter = Meter.CreateCounter<long>("fsus.cache.hot_articles.dirty.count");
@@ -503,6 +504,13 @@ public static class FsusObservability
         TagList tags = CreateBaseTags("search", mode, result);
         tags.Add("fsus.search.mode", mode);
         SearchOperationDuration.Record(duration.TotalMilliseconds, tags);
+    }
+
+    public static void RecordSearchRuntimeSnapshotMemory(long estimatedBytes, string source)
+    {
+        TagList tags = CreateBaseTags("search", "runtime_snapshot_memory", "ok");
+        tags.Add("fsus.search.source", source);
+        RecordNonNegativeHistogram(SearchRuntimeSnapshotMemoryBytes, estimatedBytes, tags);
     }
 
     public static void RecordBackgroundJob(string job, string result, TimeSpan duration, int? published = null, int? failed = null, int? backlog = null)
