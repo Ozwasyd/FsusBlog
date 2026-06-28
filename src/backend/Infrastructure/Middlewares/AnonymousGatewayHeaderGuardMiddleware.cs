@@ -15,9 +15,13 @@ public sealed partial class AnonymousGatewayHeaderGuardMiddleware
         "X-Fsus-Challenge-Id",
         "X-Fsus-Challenge-Kind",
         "X-Fsus-Challenge-Proof",
+        "X-Fsus-Csrf-Token",
         "X-Fsus-Device-Fp",
         "X-Fsus-Mfa-Proof",
+        "X-Fsus-Notification-Drill-Nonce",
         "X-Fsus-Notification-Drill-Secret",
+        "X-Fsus-Notification-Drill-Signature",
+        "X-Fsus-Notification-Drill-Timestamp",
         "X-Fsus-Notification-Stream-Protocol",
         "X-Fsus-Pow-Proof",
         "X-Fsus-Public-Aot-Token",
@@ -27,7 +31,8 @@ public sealed partial class AnonymousGatewayHeaderGuardMiddleware
         "X-Fsus-Test-Session",
         "X-Fsus-Upload-Offset",
         "X-Fsus-Upload-Part",
-        "X-Fsus-Upload-Payload-Hash"
+        "X-Fsus-Upload-Payload-Hash",
+        "X-Fsus-Upload-Token"
     };
 
     private static readonly string[] AllowedPrefixes =

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -71,8 +72,8 @@ public static class LocalAuthFixtureEndpoints
             return Results.Redirect(SanitizeRedirectPath(redirect, forceLocalFixtureRefresh: true));
         };
 
-        app.MapGet("/__local/auth-fixture/admin", handler).AllowAnonymous().AddEndpointFilter(RequireLocalFixtureSecret);
-        app.MapGet("/api/local/auth-fixture/admin", handler).AllowAnonymous().AddEndpointFilter(RequireLocalFixtureSecret);
+        app.MapGet("/__local/auth-fixture/admin", handler).AllowAnonymous().AddEndpointFilter(RequireLocalFixtureSecret).AddEndpointFilter(RequireLoopbackCaller);
+        app.MapGet("/api/local/auth-fixture/admin", handler).AllowAnonymous().AddEndpointFilter(RequireLocalFixtureSecret).AddEndpointFilter(RequireLoopbackCaller);
 
         var statusHandler = (HttpContext context) => Results.Json(new
         {
@@ -99,6 +100,19 @@ public static class LocalAuthFixtureEndpoints
             !FixedTimeEquals(expectedSecret.Trim(), providedSecret.Trim()))
         {
             return Results.Unauthorized();
+        }
+
+        return await next(context);
+    }
+
+    private static async ValueTask<object?> RequireLoopbackCaller(
+        EndpointFilterInvocationContext context,
+        EndpointFilterDelegate next)
+    {
+        IPAddress? remoteAddress = context.HttpContext.Connection.RemoteIpAddress;
+        if (remoteAddress is null || !IPAddress.IsLoopback(remoteAddress))
+        {
+            return Results.NotFound();
         }
 
         return await next(context);

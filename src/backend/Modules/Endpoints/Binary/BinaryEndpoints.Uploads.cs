@@ -88,6 +88,12 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传分片必须使用 application/octet-stream"), aeds);
             }
 
+            string uploadToken = ReadUploadToken(httpContext);
+            if (!await fileService.ValidateUploadSessionTokenAsync(uploadId, uploadToken, cancellationToken))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, "UPLOAD_TOKEN_REQUIRED"), aeds, StatusCodes.Status403Forbidden);
+            }
+
             if (!int.TryParse(httpContext.Request.Headers[UploadPartHeader], out int partNumber))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "分片索引非法"), aeds);
@@ -113,8 +119,7 @@ public static partial class BinaryEndpoints
 
             var result = await fileService.UploadPartAsync(uploadId, partNumber, offset, file, payloadHash, cancellationToken);
             return BinaryResults.FromResult(result, aeds, AedsFrameType.UploadPartAck, static (value, writer) => PodBinaryCodec.WriteUploadPartAck(value, writer));
-        })
-        .DisableAntiforgery();
+        });
 
         uploadGroup.MapPost("/{uploadId}/complete", static async Task<BinaryFrameResult> (
             string uploadId,
@@ -127,6 +132,12 @@ public static partial class BinaryEndpoints
             if (!payload.IsSuccess)
             {
                 return BinaryResults.FromError(payload.Error, aeds);
+            }
+
+            string uploadToken = ReadUploadToken(httpContext);
+            if (!await fileService.ValidateUploadSessionTokenAsync(uploadId, uploadToken, cancellationToken))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, "UPLOAD_TOKEN_REQUIRED"), aeds, StatusCodes.Status403Forbidden);
             }
 
             if (!PodBinaryCodec.TryDecodeUploadCompleteRequest(payload.Payload, out var dto))

@@ -22,6 +22,7 @@ using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Testing;
@@ -208,6 +209,8 @@ public static class WebApplicationCompositionExtensions
 
         app.UseOutputCache();
         app.UseCors();
+        app.UseAntiforgery();
+        app.UseFsusCsrfOriginGuard();
         app.UseMiddleware<AnonymousGatewayHeaderGuardMiddleware>();
         app.UseAuthentication();
         app.UseRateLimiter();

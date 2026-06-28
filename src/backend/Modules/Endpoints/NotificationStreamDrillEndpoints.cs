@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
@@ -14,6 +16,9 @@ public static class NotificationStreamDrillEndpoints
 {
     private const string DrillPublishPath = "/_fsus/testing/notification-stream/publish";
     private const string DrillSecretHeader = "X-Fsus-Notification-Drill-Secret";
+    private const string DrillTimestampHeader = "X-Fsus-Notification-Drill-Timestamp";
+    private const string DrillNonceHeader = "X-Fsus-Notification-Drill-Nonce";
+    private const string DrillSignatureHeader = "X-Fsus-Notification-Drill-Signature";
     private const string DrillSecretConfigKey = "NotificationStream:DrillSecret";
     private const string DrillSecretEnvironmentKey = "FSUSBLOG_NOTIFICATION_DRILL_SECRET";
     private const int DefaultEventCount = 96;
@@ -38,6 +43,7 @@ public static class NotificationStreamDrillEndpoints
     private static async Task<IResult> PublishAsync(
         HttpContext context,
         IConfiguration configuration,
+        IUnifiedCache cache,
         INotificationStreamPublisher publisher,
         CancellationToken cancellationToken)
     {
@@ -47,8 +53,8 @@ public static class NotificationStreamDrillEndpoints
             return Results.NotFound();
         }
 
-        string providedSecret = context.Request.Headers[DrillSecretHeader].ToString();
-        if (!SecretEquals(configuredSecret, providedSecret))
+        string body = await ReadRequestBodyAsync(context.Request, cancellationToken);
+        if (!await ValidateSignedDrillRequestAsync(context, cache, configuredSecret, body, cancellationToken))
         {
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         }
@@ -56,7 +62,7 @@ public static class NotificationStreamDrillEndpoints
         NotificationStreamDrillPublishRequest? request;
         try
         {
-            request = await context.Request.ReadFromJsonAsync<NotificationStreamDrillPublishRequest>(cancellationToken: cancellationToken);
+            request = JsonSerializer.Deserialize<NotificationStreamDrillPublishRequest>(body);
         }
         catch (JsonException)
         {
@@ -76,7 +82,7 @@ public static class NotificationStreamDrillEndpoints
         }
 
         string routeKey = routeResult.Value;
-        string body = payloadBytes == 0 ? string.Empty : new string('x', payloadBytes);
+        string eventBody = payloadBytes == 0 ? string.Empty : new string('x', payloadBytes);
         long[] eventIds = new long[count];
         for (int i = 0; i < count; i++)
         {
@@ -84,7 +90,7 @@ public static class NotificationStreamDrillEndpoints
                 drillId,
                 i + 1,
                 routeKey,
-                body,
+                eventBody,
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             Result<NotificationStreamCursor> published = await publisher.PublishAsync(
                 NotificationStreamEventType.CacheControl,
@@ -121,6 +127,59 @@ public static class NotificationStreamDrillEndpoints
         }
 
         return string.IsNullOrWhiteSpace(secret) ? null : secret;
+    }
+
+    private static async Task<bool> ValidateSignedDrillRequestAsync(
+        HttpContext context,
+        IUnifiedCache cache,
+        string secret,
+        string body,
+        CancellationToken cancellationToken)
+    {
+        if (!SecretEquals(secret, context.Request.Headers[DrillSecretHeader].ToString()))
+        {
+            return false;
+        }
+
+        string timestampValue = context.Request.Headers[DrillTimestampHeader].ToString();
+        string nonce = context.Request.Headers[DrillNonceHeader].ToString().Trim();
+        string providedSignature = context.Request.Headers[DrillSignatureHeader].ToString().Trim();
+        if (!long.TryParse(timestampValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out long timestampUnixSeconds) ||
+            nonce.Length is < 16 or > 128 ||
+            providedSignature.Length == 0)
+        {
+            return false;
+        }
+
+        DateTimeOffset timestamp = DateTimeOffset.FromUnixTimeSeconds(timestampUnixSeconds);
+        if (DateTimeOffset.UtcNow - timestamp > TimeSpan.FromSeconds(60) ||
+            timestamp - DateTimeOffset.UtcNow > TimeSpan.FromSeconds(60))
+        {
+            return false;
+        }
+
+        string expectedSignature = ComputeDrillSignature(secret, timestampValue, nonce, body);
+        if (!SecretEquals(expectedSignature, providedSignature))
+        {
+            return false;
+        }
+
+        string nonceIdentity = $"{timestampValue}:{nonce}";
+        return await cache.TryAcquireLeaseAsync(CachePolicyId.NotificationStreamDrillNonce, nonceIdentity, "1", TimeSpan.FromSeconds(60), cancellationToken);
+    }
+
+    private static string ComputeDrillSignature(string secret, string timestamp, string nonce, string body)
+    {
+        byte[] key = Encoding.UTF8.GetBytes(secret);
+        byte[] payload = Encoding.UTF8.GetBytes($"{timestamp}\n{nonce}\n{body}");
+        byte[] signature = HMACSHA256.HashData(key, payload);
+        return Convert.ToHexStringLower(signature);
+    }
+
+    private static async Task<string> ReadRequestBodyAsync(HttpRequest request, CancellationToken cancellationToken)
+    {
+        using var reader = new StreamReader(request.Body, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, leaveOpen: false);
+        return await reader.ReadToEndAsync(cancellationToken);
     }
 
     private static bool SecretEquals(string expected, string provided)

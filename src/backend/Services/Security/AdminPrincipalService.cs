@@ -76,6 +76,11 @@ public interface IAdminPrincipalService
         string currentSessionId,
         CancellationToken cancellationToken = default);
 
+    Task<bool> EnsureAdminSessionBelongsToPrincipalAsync(
+        long adminPrincipalId,
+        string sessionId,
+        CancellationToken cancellationToken = default);
+
     Task<bool> LogoutAdminSessionAsync(
         long adminPrincipalId,
         string sessionId,
@@ -128,7 +133,7 @@ public sealed class AdminPrincipalService(
     private const string AdminSensitiveAction = "admin-sensitive";
     private const long RootBootstrapAdvisoryLockKey = 761245219401267874L;
     private static readonly TimeSpan ChallengeTtl = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan StepUpProofTtl = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan StepUpProofTtl = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan AdminIdleSessionTtl = TimeSpan.FromHours(8);
     private static readonly JsonSerializerOptions ChallengeCacheJsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -639,6 +644,22 @@ public sealed class AdminPrincipalService(
             session.AbsoluteExpiresAtUtc,
             string.Equals(session.SessionId, currentSessionId, StringComparison.Ordinal),
             session.RevokedAtUtc.HasValue)).ToArray();
+    }
+
+    public async Task<bool> EnsureAdminSessionBelongsToPrincipalAsync(
+        long adminPrincipalId,
+        string sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        if (adminPrincipalId <= 0 || string.IsNullOrWhiteSpace(sessionId))
+        {
+            return false;
+        }
+
+        int count = await db.Queryable<AdminSession>()
+            .Where(s => s.AdminPrincipalId == adminPrincipalId && s.SessionId == sessionId)
+            .CountAsync(cancellationToken);
+        return count == 1;
     }
 
     public Task<bool> LogoutAdminSessionAsync(

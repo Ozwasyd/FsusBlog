@@ -24,6 +24,7 @@ internal sealed record class UploadSessionRecord
     public long TotalBytes { get; init; }
     public int ChunkSize { get; init; }
     public int TotalParts { get; init; }
+    public string UploadToken { get; init; } = string.Empty;
     public string? Sha256 { get; init; }
     public string Status { get; set; } = "pending";
     public DateTime CreatedAt { get; init; }

@@ -594,6 +594,7 @@ public sealed record class UploadInitDto
     public int ChunkSize { get; init; }
     public int TotalParts { get; init; }
     public DateTime ExpiresAt { get; init; }
+    public string UploadToken { get; init; } = string.Empty;
 }
 
 public sealed record class UploadStatusDto

@@ -103,7 +103,8 @@ public static partial class PodBinaryCodec
             TotalBytes = pod.TotalBytes,
             ChunkSize = pod.ChunkSize,
             TotalParts = pod.TotalParts,
-            ExpiresAt = FromUnixMs(pod.ExpiresAtUnixMs)
+            ExpiresAt = FromUnixMs(pod.ExpiresAtUnixMs),
+            UploadToken = PodUtf8Codec.FromFixed128(pod.UploadToken)
         };
         return true;
     }
@@ -268,7 +269,8 @@ public static partial class PodBinaryCodec
             TotalBytes = value.TotalBytes,
             ChunkSize = value.ChunkSize,
             TotalParts = value.TotalParts,
-            ExpiresAtUnixMs = ToUnixMs(value.ExpiresAt)
+            ExpiresAtUnixMs = ToUnixMs(value.ExpiresAt),
+            UploadToken = PodUtf8Codec.ToFixed128(value.UploadToken)
         };
         return Cast<MutableUploadInitPod, UploadInitPod>(mutable);
     }
@@ -394,6 +396,7 @@ public static partial class PodBinaryCodec
         public int ChunkSize;
         public int TotalParts;
         public long ExpiresAtUnixMs;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 UploadToken;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

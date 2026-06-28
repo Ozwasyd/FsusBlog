@@ -33,6 +33,10 @@ public static class ServiceCollectionExtensions
         });
 
         services.AddOutputCache();
+        services.AddAntiforgery(options =>
+        {
+            options.HeaderName = "X-Fsus-Csrf-Token";
+        });
         services.AddHttpContextAccessor();
         services.AddSingleton<ITestSessionKeyScope, HttpTestSessionKeyScope>();
         services.AddScoped<ITestSessionContext, TestSessionContext>();

@@ -6,6 +6,8 @@ namespace FsusBlog.Server.Modules.Endpoints;
 
 public static class DistributionEndpoints
 {
+    private const string DistributionVaryHeader = "Accept-Encoding, CF-IPCountry, X-Fsus-Region";
+
     public static IEndpointRouteBuilder MapDistributionEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/feed/rss.xml", async (HttpContext ctx, BlogDistributionService service, CancellationToken cancellationToken) =>
@@ -58,6 +60,7 @@ public static class DistributionEndpoints
     private static IResult BuildCachedTextResult(HttpContext ctx, string body, string contentType)
     {
         ctx.Response.Headers.CacheControl = "public, max-age=60, stale-while-revalidate=300";
+        ctx.Response.Headers.Vary = DistributionVaryHeader;
 
         return Results.Content(body, contentType);
     }

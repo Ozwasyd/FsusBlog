@@ -537,6 +537,31 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task ValidateUploadSessionTokenAsync_RequiresInitToken()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var svc = CreateService(root);
+            Result<UploadInitDto> init = await svc.InitUploadSessionAsync(new UploadInitRequestDto
+            {
+                FileName = "photo.png",
+                MimeType = "image/png",
+                TargetFormat = "png",
+                TotalBytes = 200,
+                ChunkSize = 200
+            });
+
+            Assert.True(init.IsSuccess);
+            Assert.False(string.IsNullOrWhiteSpace(init.Value!.UploadToken));
+            Assert.True(await svc.ValidateUploadSessionTokenAsync(init.Value.UploadId, init.Value.UploadToken));
+            Assert.False(await svc.ValidateUploadSessionTokenAsync(init.Value.UploadId, "wrong-token"));
+            Assert.False(await svc.ValidateUploadSessionTokenAsync(init.Value.UploadId, null));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
     public async Task GetUploadStatusAsync_UnknownId_ReturnsFail()
     {
         string root = CreateTempDirectory();

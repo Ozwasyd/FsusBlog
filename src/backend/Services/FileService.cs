@@ -20,7 +20,7 @@ public sealed partial class FileService : IFileService
     private const int ImageSignatureHeaderLength = 512;
     private const long MaxUploadBytes = 20 * 1024 * 1024;
     private const uint UploadSessionMagic = 0x53505546; // FUPS
-    private const byte UploadSessionVersion = 1;
+    private const byte UploadSessionVersion = 2;
     private static readonly TimeSpan SessionTtl = TimeSpan.FromHours(6);
     private static readonly TimeSpan SessionLockTtl = TimeSpan.FromHours(6);
     private static readonly TimeSpan ManifestlessSessionGracePeriod = TimeSpan.FromMinutes(1);
@@ -149,11 +149,13 @@ public sealed partial class FileService : IFileService
         int chunkSize = Math.Clamp(dto.ChunkSize <= 0 ? DefaultChunkSize : dto.ChunkSize, 64 * 1024, MaxChunkSize);
         int totalParts = checked((int)Math.Ceiling(dto.TotalBytes / (double)chunkSize));
         string uploadId = Guid.NewGuid().ToString("N");
+        string uploadToken = CreateUploadSessionToken();
         DateTime expiresAt = DateTime.UtcNow.Add(SessionTtl);
 
         var record = new UploadSessionRecord
         {
             UploadId = uploadId,
+            UploadToken = uploadToken,
             FileName = Path.GetFileName(dto.FileName),
             MimeType = string.IsNullOrWhiteSpace(dto.MimeType) ? $"image/{targetFormat}" : dto.MimeType.Trim(),
             TargetFormat = targetFormat,
@@ -190,7 +192,8 @@ public sealed partial class FileService : IFileService
             TotalBytes = record.TotalBytes,
             ChunkSize = record.ChunkSize,
             TotalParts = record.TotalParts,
-            ExpiresAt = record.ExpiresAt
+            ExpiresAt = record.ExpiresAt,
+            UploadToken = record.UploadToken
         });
     }
 
@@ -250,6 +253,25 @@ public sealed partial class FileService : IFileService
             UploadId = record.UploadId,
             UploadedRanges = BuildUploadedRanges(UploadedParts(record))
         });
+    }
+
+    public async Task<bool> ValidateUploadSessionTokenAsync(string uploadId, string? uploadToken, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(uploadToken) ||
+            !TryNormalizeUploadId(uploadId, out string normalizedUploadId))
+        {
+            return false;
+        }
+
+        var record = await LoadSessionAsync(normalizedUploadId, cancellationToken);
+        if (record is null || string.IsNullOrWhiteSpace(record.UploadToken))
+        {
+            return false;
+        }
+
+        byte[] expected = Encoding.UTF8.GetBytes(record.UploadToken);
+        byte[] provided = Encoding.UTF8.GetBytes(uploadToken.Trim());
+        return expected.Length == provided.Length && CryptographicOperations.FixedTimeEquals(expected, provided);
     }
 
     public async Task<Result<UploadPartAckDto>> UploadPartAsync(
@@ -666,6 +688,9 @@ public sealed partial class FileService : IFileService
         return true;
     }
 
+    private static string CreateUploadSessionToken()
+        => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+
     private static string NormalizeHash(string? value)
         => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant();
 
@@ -834,6 +859,7 @@ public sealed partial class FileService : IFileService
         byte[] targetFormat = Encoding.UTF8.GetBytes(record.TargetFormat);
         byte[] sha256 = Encoding.UTF8.GetBytes(record.Sha256 ?? string.Empty);
         byte[] status = Encoding.UTF8.GetBytes(record.Status);
+        byte[] uploadToken = Encoding.UTF8.GetBytes(record.UploadToken);
         int length = 4 + 1 + 8 + 4 + 4 + 8 + 8 + 8 + 4
             + uploadedParts.Count * sizeof(int)
             + (2 + uploadId.Length)
@@ -841,7 +867,8 @@ public sealed partial class FileService : IFileService
             + (2 + mimeType.Length)
             + (2 + targetFormat.Length)
             + (2 + sha256.Length)
-            + (2 + status.Length);
+            + (2 + status.Length)
+            + (2 + uploadToken.Length);
         byte[] bytes = new byte[length];
         Span<byte> span = bytes;
         BinaryPrimitives.WriteUInt32LittleEndian(span[..4], UploadSessionMagic);
@@ -866,6 +893,7 @@ public sealed partial class FileService : IFileService
         WriteSessionString(bytes, ref offset, targetFormat);
         WriteSessionString(bytes, ref offset, sha256);
         WriteSessionString(bytes, ref offset, status);
+        WriteSessionString(bytes, ref offset, uploadToken);
         return bytes;
     }
 
@@ -873,7 +901,7 @@ public sealed partial class FileService : IFileService
     {
         if (bytes.Length < 49 ||
             BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(0, 4)) != UploadSessionMagic ||
-            bytes[4] != UploadSessionVersion)
+            (bytes[4] < 1 || bytes[4] > UploadSessionVersion))
         {
             return null;
         }
@@ -900,6 +928,7 @@ public sealed partial class FileService : IFileService
             string targetFormat = ReadSessionString(bytes, ref offset);
             string sha256 = ReadSessionString(bytes, ref offset);
             string status = ReadSessionString(bytes, ref offset);
+            string uploadToken = bytes[4] >= 2 ? ReadSessionString(bytes, ref offset) : string.Empty;
             if (offset != bytes.Length || string.IsNullOrWhiteSpace(uploadId))
             {
                 return null;
@@ -918,6 +947,7 @@ public sealed partial class FileService : IFileService
                 ExpiresAt = new DateTime(BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(29, 8)), DateTimeKind.Utc),
                 UploadedBytes = BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(37, 8)),
                 UploadedParts = parts,
+                UploadToken = uploadToken,
                 Sha256 = string.IsNullOrWhiteSpace(sha256) ? null : sha256,
                 Status = string.IsNullOrWhiteSpace(status) ? "pending" : status
             };

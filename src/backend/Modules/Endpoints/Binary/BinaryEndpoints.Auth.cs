@@ -327,6 +327,11 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
             }
 
+            if (!await adminPrincipals.EnsureAdminSessionBelongsToPrincipalAsync(adminPrincipalId, sessionId, cancellationToken))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "admin_session_not_found"), aeds);
+            }
+
             AdminSessionRevokeResult revoked = await adminPrincipals.RevokeAdminSessionAsync(adminPrincipalId, sessionId, "revoked_by_admin", cancellationToken);
             return revoked switch
             {

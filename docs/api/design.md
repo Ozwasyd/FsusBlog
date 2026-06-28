@@ -157,10 +157,12 @@ TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account
 | 安全强制 | `X-Fsus-Challenge-Kind` | 请求 | 与 `X-Fsus-Challenge-Proof` 绑定的 provider kind，例如 `sha256PowV1`；legacy alias `security.pow` 只作为兼容输入规范化。 |
 | 安全强制 | `X-Fsus-Subscription-Proof` | 请求 | 公开站点订阅退订的一次性 opaque proof；必须由服务端 proof API 签发并绑定 `SHA256(normalizedEmail)` 与归一化 channel，`DELETE /api/binary/subscriptions` 消费，缺失、重放、过期或绑定不匹配返回 428。 |
 | 安全强制 | `X-Fsus-Device-Fp` | 请求 | 认证、HumanReadProof、审计和风险信号使用的设备指纹；不得包含可逆身份信息。 |
+| 安全强制 | `X-Fsus-Csrf-Token` | 请求 | ASP.NET antiforgery header 名；cookie 凭据的状态变更请求同时受同源 `Origin` / `Referer` guard 保护。 |
+| 上传会话 | `X-Fsus-Upload-Token` | 请求 | `/api/binary/upload/{uploadId}/part` 与 `/complete` 必须提交的会话 token，由 `/init` 响应返回并绑定 upload session。 |
 | 通知通道 | `X-Fsus-Notification-Stream-Protocol` | 请求 | notification preflight fallback 协议头；正式 WebSocket 仍使用 `Sec-WebSocket-Protocol: fsus-aeds.v2`。 |
 | 通知通道 | `X-Fsus-Notification-Stream-Error-Code` | 响应 | notification preflight / WebSocket 握手失败业务码，例如 `account_blocked`、`auth_failed`、`pow_failed`、`risk_challenge_required`。 |
 | 通知通道 | `X-Fsus-Notification-Stream-Status-Code` | 响应 | notification preflight / WebSocket 握手失败映射的 HTTP status。 |
-| 测试工具 | `X-Fsus-Notification-Drill-Secret` | 请求 | 仅 Development/Test 映射的 notification slow-consumer resilience drill 凭据；必须匹配 `FSUSBLOG_NOTIFICATION_DRILL_SECRET` / `NotificationStream:DrillSecret`。 |
+| 测试工具 | `X-Fsus-Notification-Drill-Secret` / `X-Fsus-Notification-Drill-Timestamp` / `X-Fsus-Notification-Drill-Nonce` / `X-Fsus-Notification-Drill-Signature` | 请求 | 仅 Development/Test 映射的 notification slow-consumer resilience drill 凭据；secret 必须匹配配置，signature 为 timestamp + nonce + body 的 HMAC，timestamp 窗口为 60 秒，nonce 一次性。 |
 | AOT 运维 | `X-Fsus-Public-Aot-Token` | 请求 | `GET /internal/public-aot/manifest` 与 `GET /internal/public-aot/health` 在配置 `PublicAot:ManifestToken` 时要求的 tooling token。 |
 | 可观测性 | `X-Fsus-Trace-Id` | 响应 | 与 `HttpContext.TraceIdentifier`、OpenTelemetry trace 和审计上下文对齐的排障 ID；不是认证凭据。 |
 | L0 artifact | `X-Fsus-Frame-Encoding` | 响应 | `.aeds` artifact 命中时标记 raw/br/gzip variant。 |
@@ -290,11 +292,11 @@ AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行�
 
 公开页结构的 SSR 入口是 [`src/frontend/src/public-renderers/renderPublicPage.ts`](../../src/frontend/src/public-renderers/renderPublicPage.ts)，该入口向 server SSR worker 暴露 `buildPublicEntry`、payload codec 与 renderer version；具体页面组合由 `publicEntryRegistry.ts`、`pageAssemblies.ts` 与 `scaffold.ts` 维护。文档和实现不得再引入额外 helper 作为公开页结构真相源。服务端 AOT provider 只提供数据型 options，不手写 hydration props、不渲染 Markdown、不拼页面内部 HTML；Node/Vue SSR worker 负责生成 `html / bootstrapPayload / hydrationPropsPayload`，服务端只做文档包装、hydration `.aeds` sidecar 写出、缓存与降级。hydration sidecar 是 content-hash URL，使用 `application/vnd.fsus.aeds` 与 immutable cache；运行时 `/api/binary/**` 仍使用 `application/octet-stream`。
 
-`GET /api/public/navigation-snapshot.aeds?path={publicPath}` 是公开 SPA micro-navigation 的原子接管快照端点。它只接受同站相对路径，并通过 Public AOT route registry fail closed 校验首页、归档、文章详情、分类、标签和固定静态页；账号、搜索、admin、协议相对 URL 和绝对外链不进入快照链路。响应使用 `application/vnd.fsus.aeds`，AEDS frame 复用 `PublicAotBootstrap`，外层 envelope 的 `kind` 固定为 `public-navigation-snapshot`，内层 `bootstrapPayload` / `hydrationPropsPayload` 仍由同一个 Node/Vue SSR worker `buildEntry` 生成，避免 HTML、bootstrap 与 hydration 分裂为三套真相源。
+`GET /api/public/navigation-snapshot.aeds?path={publicPath}` 是公开 SPA micro-navigation 的原子接管快照端点。它只接受长度不超过 512 字符的同站相对路径，并通过 Public AOT route registry fail closed 校验首页、归档、文章详情、分类、标签和固定静态页；账号、搜索、admin、协议相对 URL 和绝对外链不进入快照链路。该端点挂 `public_read` 限流，响应使用 `application/vnd.fsus.aeds`，AEDS frame 复用 `PublicAotBootstrap`，外层 envelope 的 `kind` 固定为 `public-navigation-snapshot`，内层 `bootstrapPayload` / `hydrationPropsPayload` 仍由同一个 Node/Vue SSR worker `buildEntry` 生成，避免 HTML、bootstrap 与 hydration 分裂为三套真相源。
 
 ### feed / sitemap / robots 缓存约束
 
-feed、sitemap 与 robots 等开放分发文本端点只负责生成标准格式正文、声明 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 并挂载 OutputCache ArticleList/Seo tag；端点本身不得按响应正文手写 ETag、解析 `If-None-Match` 或绕过统一缓存失效链路。
+feed、sitemap 与 robots 等开放分发文本端点只负责生成标准格式正文、声明 `Cache-Control: public, max-age=60, stale-while-revalidate=300`、`Vary: Accept-Encoding, CF-IPCountry, X-Fsus-Region` 并挂载 OutputCache ArticleList/Seo tag；端点本身不得按响应正文手写 ETag、解析 `If-None-Match` 或绕过统一缓存失效链路。
 
 代码证据：[`DistributionEndpoints.cs`](../../src/backend/Modules/Endpoints/DistributionEndpoints.cs)、[`BlogDistributionService.cs`](../../src/backend/Services/Distribution/BlogDistributionService.cs)；JSON/feed 豁免见 [`aeds-only-policy.md#允许豁免`](aeds-only-policy.md#允许豁免)。
 
@@ -422,7 +424,7 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 资产库是作者工作台内的复用索引，不是公开文件浏览 API。索引只记录 `/uploads/illustration/*` 的正文图片和文章封面、alt text、来源文章、hash 与引用计数；重建操作先把失去引用的行标成 `referenceCount=0`，作者确认后再通过孤儿清理删除资产库记录。孤儿清理不删除上传文件本体；物理删除必须通过独立的文件删除动作和二次确认完成。
 
-分片上传会话的 `uploadId` 是服务端能力 token，不是客户端可构造路径。所有 `/api/binary/upload/{uploadId}` 后续动作只接受可规范化为 32 位 GUID `N` 格式的值；服务层在进入 session lock、manifest、parts 和 abort cleanup 前统一规范化，并用 `.upload-sessions` full path containment 作为最终文件系统边界。非法 `uploadId` 只能得到 validation/not found，不得触发目录遍历、递归删除或物理路径泄露。
+分片上传会话的 `uploadId` 是服务端分配的会话 id，不是客户端可构造路径；`UploadInit` 还会返回 `uploadToken`，后续 `part` 和 `complete` 必须用 `X-Fsus-Upload-Token` 提交该 token。所有 `/api/binary/upload/{uploadId}` 后续动作只接受可规范化为 32 位 GUID `N` 格式的值；服务层在进入 session lock、manifest、parts 和 abort cleanup 前统一规范化，并用 `.upload-sessions` full path containment 作为最终文件系统边界。非法 `uploadId` 或缺失/错误 upload token 只能得到 validation/not found/forbidden，不得触发目录遍历、递归删除或物理路径泄露。
 
 ### 评论治理
 

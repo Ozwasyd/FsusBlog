@@ -237,44 +237,71 @@ public static partial class BinaryEndpoints
 
         group.MapDelete("/admin/article/{id:int}", static async Task<BinaryFrameResult> (
             int id,
+            HttpContext httpContext,
             IArticleEndpointService articles,
+            IAdminPrincipalService adminPrincipals,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
+            if (stepUp is not null)
+            {
+                return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
+            }
+
             bool success = await articles.DeleteAsync(id, cancellationToken);
             return success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "操作失败：资源不存在"), aeds);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
+        .RequireRateLimiting("fixed_ip")
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapPut("/admin/article/restore/{id:int}", static async Task<BinaryFrameResult> (
             int id,
+            HttpContext httpContext,
             IArticleEndpointService articles,
+            IAdminPrincipalService adminPrincipals,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
+            if (stepUp is not null)
+            {
+                return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
+            }
+
             bool success = await articles.RestoreAsync(id, cancellationToken);
             return success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "恢复失败：资源不存在"), aeds);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
+        .RequireRateLimiting("fixed_ip")
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapDelete("/admin/article/permanent/{id:int}", static async Task<BinaryFrameResult> (
             int id,
+            HttpContext httpContext,
             IArticleEndpointService articles,
+            IAdminPrincipalService adminPrincipals,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
+            if (stepUp is not null)
+            {
+                return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
+            }
+
             bool success = await articles.PermanentlyDeleteArticleAsync(id, cancellationToken);
             return success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "操作失败：资源不存在"), aeds);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
+        .RequireRateLimiting("fixed_ip")
         .AddEndpointFilter<RequiresPowFilter>();
     }
 

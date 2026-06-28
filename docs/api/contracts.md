@@ -895,7 +895,7 @@ int64 timestampUnixMs
 
 ### Development/Test drill publish
 
-`POST /_fsus/testing/notification-stream/publish` 只在 Development/Test 环境映射，并要求 `X-Fsus-Notification-Drill-Secret` 匹配 `FSUSBLOG_NOTIFICATION_DRILL_SECRET` / `NotificationStream:DrillSecret`。请求体为 JSON tooling payload：
+`POST /_fsus/testing/notification-stream/publish` 只在 Development/Test 环境映射，并要求 `X-Fsus-Notification-Drill-Secret` 匹配 `FSUSBLOG_NOTIFICATION_DRILL_SECRET` / `NotificationStream:DrillSecret`。请求还必须携带 `X-Fsus-Notification-Drill-Timestamp`、`X-Fsus-Notification-Drill-Nonce` 与 `X-Fsus-Notification-Drill-Signature`；signature 为 `HMAC-SHA256(secret, timestamp + "\n" + nonce + "\n" + rawBody)` 的小写 hex，timestamp 允许偏差 60 秒，nonce 在同窗口内只能使用一次。请求体为 JSON tooling payload：
 
 ```json
 {
@@ -910,7 +910,7 @@ int64 timestampUnixMs
 
 ### Development local auth fixture
 
-`GET /__local/auth-fixture/admin` 与 `GET /api/local/auth-fixture/admin` 只在 `Development` 且 `fsus:allowLocalAuthFixture=true` 时映射；调用方还必须提供 `X-Fsus-Local-Auth-Fixture-Secret`，其值用固定时间比较匹配 `fsus:localAuthFixtureSecret`。该入口只用于本地 Playwright fixture 刷新和 cookie 注入，不能在测试、预发布或生产环境作为匿名 admin 登录 fallback。
+`GET /__local/auth-fixture/admin` 与 `GET /api/local/auth-fixture/admin` 只在 `Development` 且 `fsus:allowLocalAuthFixture=true` 时映射；调用方还必须来自 loopback 地址，并提供 `X-Fsus-Local-Auth-Fixture-Secret`，其值用固定时间比较匹配 `fsus:localAuthFixtureSecret`。生产启动校验会拒绝 `fsus:allowLocalAuthFixture=true`。该入口只用于本地 Playwright fixture 刷新和 cookie 注入，不能在测试、预发布或生产环境作为匿名 admin 登录 fallback。
 
 ### `NotificationStreamEventType` 枚举
 
@@ -958,16 +958,21 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
 
 源码：`src/shared/Contracts/Outputs/ServerResponseContracts.cs`
 
-所有上传端点在 `/api/binary/upload/` 路径下，需要 admin principal + `article.write` 权限。`uploadId` 由服务端生成并返回，wire 格式固定为 32 位 GUID `N` 格式；status、part map、part upload、complete 和 abort 路由只接受该形态并规范化为小写 canonical 值，非法值返回 validation error，不会被当作文件系统路径继续解析。
+所有上传端点在 `/api/binary/upload/` 路径下，需要 admin principal + `article.write` 权限。`uploadId` 由服务端生成并返回，wire 格式固定为 32 位 GUID `N` 格式；status、part map、part upload、complete 和 abort 路由只接受该形态并规范化为小写 canonical 值，非法值返回 validation error，不会被当作文件系统路径继续解析。`/part` 和 `/complete` 还必须携带 `X-Fsus-Upload-Token`，其值来自初始化响应的 `uploadToken`。
 
 ### `UploadInitDto`（初始化响应）
 
 ```json
 {
   "uploadId": "32-char-guid-n",
-  "partSize": 5242880,
+  "fileName": "image.png",
+  "mimeType": "image/png",
+  "targetFormat": "png",
+  "totalBytes": 15728640,
+  "chunkSize": 5242880,
   "totalParts": 3,
-  "expiresAt": "2026-01-01T01:00:00Z"
+  "expiresAt": "2026-01-01T01:00:00Z",
+  "uploadToken": "64-char-random-hex"
 }
 ```
 
@@ -1202,7 +1207,7 @@ AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相
 
 `GET /api/public/navigation-snapshot.aeds?path={publicPath}` 返回公开路由的原子接管快照，供 SPA 在路由切换前预取并写入 `PublicRouteSeedStore`。该端点匿名可读，`Accept` 允许空值、`*/*`、`application/octet-stream` 或 `application/vnd.fsus.aeds`；成功响应固定为 `Content-Type: application/vnd.fsus.aeds`，AEDS frame type 复用 `PublicAotBootstrap`。
 
-`path` 必须是同站相对 URL，可包含 query；服务端会丢弃 fragment，并通过 Public AOT route registry 校验目标。允许范围与 SEO/AOT 公开页一致：`/`、`/archive`、`/article/{id}`、`/category/{id}`、`/tag/{id|name}`、`/about`、`/privacy`、`/guidelines`、`/copyright`。`/account`、`/search`、`/admin`、空 path、协议相对 URL 和绝对外链必须 fail closed。
+`path` 必须是同站相对 URL、长度不超过 512 字符，可包含 query；服务端会丢弃 fragment，并通过 Public AOT route registry 校验目标。允许范围与 SEO/AOT 公开页一致：`/`、`/archive`、`/article/{id}`、`/category/{id}`、`/tag/{id|name}`、`/about`、`/privacy`、`/guidelines`、`/copyright`。`/account`、`/search`、`/admin`、空 path、协议相对 URL 和绝对外链必须 fail closed。端点受 `public_read` 限流。
 
 成功 body 是 `PublicAotBootstrap` frame 包裹的对象：
 

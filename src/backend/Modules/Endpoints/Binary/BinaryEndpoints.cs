@@ -15,6 +15,7 @@ using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models;
 using FsusBlog.Server.Models.Dtos;
@@ -38,6 +39,8 @@ public static partial class BinaryEndpoints
     private const string UploadPartHeader = "X-Fsus-Upload-Part";
     private const string UploadOffsetHeader = "X-Fsus-Upload-Offset";
     private const string UploadPayloadHashHeader = "X-Fsus-Upload-Payload-Hash";
+    private const string UploadTokenHeader = "X-Fsus-Upload-Token";
+    private const string CanonicalIllustrationUploadPrefix = "/uploads/illustration/";
     private static readonly HashSet<string> AllowedPageSlugs = new(StringComparer.OrdinalIgnoreCase)
     {
         "about", "privacy", "guidelines", "copyright"
@@ -95,6 +98,11 @@ public static partial class BinaryEndpoints
             return (ErrorDetail.Create(ErrorCode.Unauthorized, "UNAUTHORIZED"), StatusCodes.Status401Unauthorized);
         }
 
+        if (!TrustedRequestOrigin.RequireTrustedOriginOrReferer(httpContext))
+        {
+            return (ErrorDetail.Create(ErrorCode.Forbidden, "ORIGIN_NOT_ALLOWED"), StatusCodes.Status403Forbidden);
+        }
+
         string proofToken = httpContext.Request.Headers.TryGetValue(MfaProofHeader, out var values)
             ? values.ToString().Trim()
             : string.Empty;
@@ -133,7 +141,10 @@ public static partial class BinaryEndpoints
             relativeWebPathSpan = url.AsSpan();
         }
 
-        if (!relativeWebPathSpan.Contains("/uploads/illustration/", StringComparison.OrdinalIgnoreCase) ||
+        string relativeWebPath = relativeWebPathSpan.ToString();
+        if (relativeWebPath.Contains('\\', StringComparison.Ordinal) ||
+            relativeWebPath.Contains(':', StringComparison.Ordinal) ||
+            !relativeWebPath.StartsWith(CanonicalIllustrationUploadPrefix, StringComparison.OrdinalIgnoreCase) ||
             relativeWebPathSpan.Contains("..", StringComparison.Ordinal))
         {
             ioRelativePath = string.Empty;
@@ -141,10 +152,7 @@ public static partial class BinaryEndpoints
             return false;
         }
 
-        var trimmedSpan = relativeWebPathSpan.TrimStart('/');
-        ioRelativePath = trimmedSpan.StartsWith("wwwroot", StringComparison.OrdinalIgnoreCase)
-            ? trimmedSpan.ToString()
-            : $"wwwroot/{trimmedSpan}";
+        ioRelativePath = $"wwwroot/{relativeWebPath.TrimStart('/')}";
         return true;
     }
 
@@ -187,6 +195,9 @@ public static partial class BinaryEndpoints
 
     private static bool TryReadMfaProof(HttpContext context, out string proofToken)
         => RequestContext(context).TryReadMfaProof(context, out proofToken);
+
+    private static string ReadUploadToken(HttpContext context)
+        => context.Request.Headers[UploadTokenHeader].ToString().Trim();
 
     private static IBinaryEndpointRequestContext RequestContext(HttpContext context)
         => context.RequestServices.GetRequiredService<IBinaryEndpointRequestContext>();

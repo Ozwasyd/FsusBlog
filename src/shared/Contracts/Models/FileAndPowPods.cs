@@ -22,6 +22,7 @@ public readonly struct UploadInitPod
     public readonly int ChunkSize;
     public readonly int TotalParts;
     public readonly long ExpiresAtUnixMs;
+    public readonly Utf8Fixed128 UploadToken;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

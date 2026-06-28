@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Results;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
@@ -2405,6 +2406,11 @@ public static class AuthoringEndpoints
         }
 
         string adminSessionId = context.User.GetAdminSessionId()!;
+        if (!TrustedRequestOrigin.RequireTrustedOriginOrReferer(context))
+        {
+            return AedsJsonResults.Error(aeds, ErrorCode.Forbidden, "ORIGIN_NOT_ALLOWED", StatusCodes.Status403Forbidden);
+        }
+
         string proofToken = context.Request.Headers.TryGetValue(MfaProofHeader, out var values)
             ? values.ToString().Trim()
             : string.Empty;

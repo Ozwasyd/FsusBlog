@@ -50,5 +50,6 @@ public enum CachePolicyId
     SiteSubscriptionUnsubscribeProof = 45,
     SecurityChallengeVerifyRateLimit = 46,
     AnonymousCommentPolicyVersion = 47,
-    BackgroundWorkerLease = 48
+    BackgroundWorkerLease = 48,
+    NotificationStreamDrillNonce = 49
 }

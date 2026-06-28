@@ -2,6 +2,7 @@ using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.WebUtilities;
@@ -233,6 +234,8 @@ public static class ProductionStartupValidator
                 errors.Add($"{rule.Key} is required.");
             }
         }
+
+        ValidateLocalAuthFixtureSettings(configuration, enforceProductionRules, errors);
 
         string? redisConnection = values["ConnectionStrings:Redis"];
         string? redisOptionsConnection = values["RedisOptions:Configuration"];
@@ -706,6 +709,14 @@ public static class ProductionStartupValidator
 
         ValidateCrawlerRangeUrl(configuration, "Security:CrawlerCidrs:GoogleUrl", errors);
         ValidateCrawlerRangeUrl(configuration, "Security:CrawlerCidrs:BingUrl", errors);
+    }
+
+    private static void ValidateLocalAuthFixtureSettings(IConfiguration configuration, bool enforceProductionRules, List<string> errors)
+    {
+        if (enforceProductionRules && configuration.GetValue<bool>(LocalAuthFixtureEndpoints.AllowLocalAuthFixtureConfigurationKey))
+        {
+            errors.Add("fsus:allowLocalAuthFixture must be false outside Development.");
+        }
     }
 
     private static void ValidateCrawlerRangeUrl(IConfiguration configuration, string key, List<string> errors)

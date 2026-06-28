@@ -45,6 +45,7 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
             [CachePolicyId.SecurityChallengeVerifyRateLimit] = new(CachePolicyId.SecurityChallengeVerifyRateLimit, "sec", "challenge-verify-rate", TimeSpan.Zero, TimeSpan.FromMinutes(2), null, null, true, 0d, false),
             [CachePolicyId.HumanReadProof] = new(CachePolicyId.HumanReadProof, "sec", "human-read-proof", TimeSpan.Zero, TimeSpan.FromDays(1), null, null, true, 0d, false),
             [CachePolicyId.SecurityPowProof] = new(CachePolicyId.SecurityPowProof, "sec", "pow-proof", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true, 0d, false),
+            [CachePolicyId.NotificationStreamDrillNonce] = new(CachePolicyId.NotificationStreamDrillNonce, "sec", "notification-drill-nonce", TimeSpan.Zero, TimeSpan.FromMinutes(1), null, null, true, 0d, false),
             [CachePolicyId.ArticleListFrame] = new(CachePolicyId.ArticleListFrame, "blog", "article-list-frame", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), null, [CacheTag.ArticleList, CacheTag.Category], false, 0.10d, false),
             [CachePolicyId.ArticleDetailFrame] = new(CachePolicyId.ArticleDetailFrame, "blog", "article-detail-frame", TimeSpan.FromMinutes(5), TimeSpan.FromHours(1), null, [CacheTag.ArticleList], false, 0.10d, false),
             [CachePolicyId.ArticleHotFrame] = new(CachePolicyId.ArticleHotFrame, "blog", "article-hot-frame", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), null, [CacheTag.HotArticles], false, 0.10d),

@@ -402,7 +402,7 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 | 类型 | 字节数 |
 |------|--------|
 | `FileUploadOutputPod` | 640 |
-| `UploadInitPod` | 440 |
+| `UploadInitPod` | 568 |
 | `UploadStatusPod` | 136 |
 | `UploadPartMapPod` | 72 |
 | `UploadPartRangePod` | 8 |
