@@ -51,12 +51,14 @@ public sealed class CommentSecurityHardeningTests
         Assert.Contains("regionLegalModerationService.EvaluateOnSubmit", endpointSource);
         Assert.Contains("CreateAttributablePublicCommentAsync(account, request, regionDecision)", endpointSource);
         Assert.Contains(":region:{NormalizeCommentFrameRegion(viewerRegion)}", endpointSource);
+        Assert.Contains("RecordCommentFrameCacheResult(\"roots\", viewerRegion", endpointSource);
+        Assert.Contains("RecordCommentFrameCacheResult(\"replies\", viewerRegion", endpointSource);
 
         Assert.Contains("CommentRegionCompliance", serviceSource);
         Assert.Contains("RegionDecision = regionDecision", serviceSource);
         Assert.Contains("BlockedRegions = RegionLegalModerationService.SerializeRegions", serviceSource);
-        Assert.Contains("RegionLegalModerationService.SerializeRegions([normalizedViewerRegion])", serviceSource);
-        Assert.Contains("comment_region_compliance crc", serviceSource);
+        Assert.Contains("CommentBlockedRegion", serviceSource);
+        Assert.Contains("comment_blocked_region br", serviceSource);
 
         Assert.Contains("IsRegionApprovalAllowed", authoringSource);
         Assert.Contains("RegionCanPublish", authoringSource);
@@ -101,9 +103,11 @@ public sealed class CommentSecurityHardeningTests
         string serviceSource = ReadRepoFile("src/backend/Services/CommentService.cs");
 
         Assert.DoesNotContain("rc.BlockedRegions != string.Empty", serviceSource, StringComparison.Ordinal);
-        Assert.Contains("comment_region_compliance crc", serviceSource, StringComparison.Ordinal);
-        Assert.Contains("crc.blocked_regions <> ''", serviceSource, StringComparison.Ordinal);
-        Assert.Contains("position(@BlockedToken in crc.blocked_regions) > 0", serviceSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("position(@BlockedToken in crc.blocked_regions)", serviceSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("@BlockedToken", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("comment_blocked_region br", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("br.region_code = @ViewerRegion", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("@ConservativeUnknownViewer = true", serviceSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -180,6 +184,9 @@ public sealed class CommentSecurityHardeningTests
         Assert.Contains("idx_comment_public_create_time_desc", source);
         Assert.Contains("idx_comment_region_compliance_comment", source);
         Assert.Contains("idx_comment_region_compliance_submit_region", source);
+        Assert.Contains("comment_blocked_region", source);
+        Assert.Contains("PRIMARY KEY(comment_id, region_code)", source);
+        Assert.Contains("idx_comment_blocked_region_region_comment", source);
         Assert.Contains("WHERE parent_id IS NULL AND moderation_status = 1 AND is_deleted = false", source);
         Assert.Contains("WHERE parent_id IS NOT NULL AND moderation_status = 1 AND is_deleted = false", source);
     }

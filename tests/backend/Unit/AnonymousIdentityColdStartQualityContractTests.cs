@@ -22,6 +22,7 @@ public sealed class AnonymousIdentityColdStartQualityContractTests
         foreach (string destructiveDelete in new[]
         {
             "DELETE FROM comment_moderation_signal",
+            "DELETE FROM comment_blocked_region",
             "DELETE FROM comment_region_compliance",
             "DELETE FROM comment_anonymous_nullifier",
             "DELETE FROM comment",

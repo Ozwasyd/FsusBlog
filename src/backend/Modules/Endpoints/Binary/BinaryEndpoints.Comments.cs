@@ -12,6 +12,7 @@ using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
@@ -199,6 +200,7 @@ public static partial class BinaryEndpoints
             string viewerRegion = regionResolver.Resolve(httpContext).Region;
             string identity = BuildCommentThreadFrameIdentity(articleId, bind.Request, previewLimit: 3, viewerRegion);
             CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CommentCursorFrame, identity, httpContext.RequestAborted);
+            RecordCommentFrameCacheResult("roots", viewerRegion, frame.Hit && frame.Value.Length > 0);
             if (frame.Hit && frame.Value.Length > 0)
             {
                 return BinaryResults.PreencodedFrame(frame.Value);
@@ -235,6 +237,7 @@ public static partial class BinaryEndpoints
             string viewerRegion = regionResolver.Resolve(httpContext).Region;
             string identity = BuildCommentReplyFrameIdentity(articleId, rootId, bind.Request, viewerRegion);
             CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CommentCursorFrame, identity, httpContext.RequestAborted);
+            RecordCommentFrameCacheResult("replies", viewerRegion, frame.Hit && frame.Value.Length > 0);
             if (frame.Hit && frame.Value.Length > 0)
             {
                 return BinaryResults.PreencodedFrame(frame.Value);
@@ -569,6 +572,14 @@ public static partial class BinaryEndpoints
 
     private static string BuildUserCommentFrameIdentity(int accountId, CursorPageRequest<long> request)
         => $"account:{accountId}:comments:{request.Cursor?.ToString() ?? "0"}:{request.Limit}";
+
+    private static void RecordCommentFrameCacheResult(string frameKind, string viewerRegion, bool hit)
+        => FsusObservability.RecordCacheOperation(
+            "read",
+            "comment-cursor-frame",
+            $"comment:{frameKind}:region:{NormalizeCommentFrameRegion(viewerRegion)}",
+            hit ? "hit" : "miss",
+            TimeSpan.Zero);
 
     private static string? ResolveCommentCursorTenant(HttpContext httpContext)
         => httpContext.Request.Headers.TryGetValue("X-Fsus-Tenant", out var tenantValues)

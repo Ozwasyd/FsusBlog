@@ -645,6 +645,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
             typeof(User),
             typeof(Article),
             typeof(Comment),
+            typeof(CommentBlockedRegion),
             typeof(CommentRegionCompliance));
     }
 

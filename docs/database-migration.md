@@ -76,7 +76,7 @@ Run the reset only against an isolated restored database first:
 
 1. Create a full site backup and restore it to an isolated PostgreSQL database.
 2. Start the server once with `FSUSBLOG_CONFIRM_IDENTITY_RESET=DELETE_LEGACY_USERS`.
-3. Confirm `sys_user`, `sys_user_session`, `passkey_credential`, `account_recovery_key`, `anonymous_credential`, `anonymous_credential_issuance_audit`, `comment`, `comment_anonymous_nullifier`, `comment_region_compliance`, and `comment_moderation_signal` all contain zero legacy/user-bound rows.
+3. Confirm `sys_user`, `sys_user_session`, `passkey_credential`, `account_recovery_key`, `anonymous_credential`, `anonymous_credential_issuance_audit`, `comment`, `comment_anonymous_nullifier`, `comment_blocked_region`, `comment_region_compliance`, and `comment_moderation_signal` all contain zero legacy/user-bound rows.
 4. Confirm user-bound `msg_participant_state`, `msg_message`, and `msg_conversation` rows have been removed.
 5. Confirm public ZK circuit/root metadata such as `anonymous_credential_root`, `anonymous_credential_epoch`, and `anonymous_credential_revocation` is either preserved for the new anonymous system or rebuilt by the root lifecycle process; it is not deleted as legacy user data.
 6. Repeat the same guarded startup on the production cold-start database only after the rehearsal result is accepted.

@@ -114,6 +114,7 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
             typeof(FsusBlog.Server.Entities.AnonymousCredentialIssuanceAudit),
             typeof(FsusBlog.Server.Entities.CommentAnonymousNullifier),
             typeof(FsusBlog.Server.Entities.Comment),
+            typeof(FsusBlog.Server.Entities.CommentBlockedRegion),
             typeof(FsusBlog.Server.Entities.CommentRegionCompliance),
             typeof(FsusBlog.Server.Entities.CommentModerationSignal),
             typeof(FsusBlog.Server.Entities.MessageConversation),

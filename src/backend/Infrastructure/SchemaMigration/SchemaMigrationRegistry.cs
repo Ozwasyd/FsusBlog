@@ -68,6 +68,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildCommentModerationAdminPrincipalAttributionMigration(),
         BuildCommentModerationIndexMigration(),
         BuildCommentRegionComplianceMigration(),
+        BuildCommentBlockedRegionLookupMigration(),
         BuildCommentModerationSignalMigration(),
         BuildCommentPublicHotPathIndexMigration()
     ];
@@ -2625,6 +2626,38 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_comment_region_compliance_policy",
                     "CREATE INDEX IF NOT EXISTS idx_comment_region_compliance_policy ON comment_region_compliance(policy_version, created_at_utc DESC);")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildCommentBlockedRegionLookupMigration()
+        => new SchemaMigrationDescriptor(
+            "20260628-post-comment-blocked-region-lookup",
+            "Create indexable per-region comment visibility lookup rows.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "comment_blocked_region",
+                    """
+                    CREATE TABLE IF NOT EXISTS comment_blocked_region (
+                        comment_id bigint NOT NULL,
+                        region_code varchar(64) NOT NULL,
+                        PRIMARY KEY(comment_id, region_code)
+                    );
+                    """),
+                new CreateIndexStep(
+                    "idx_comment_blocked_region_region_comment",
+                    "CREATE INDEX IF NOT EXISTS idx_comment_blocked_region_region_comment ON comment_blocked_region(region_code, comment_id);"),
+                new BackfillSqlStep(
+                    """
+                    INSERT INTO comment_blocked_region(comment_id, region_code)
+                    SELECT DISTINCT crc.comment_id, upper(trim(region_code)) AS region_code
+                    FROM comment_region_compliance crc
+                    CROSS JOIN LATERAL regexp_split_to_table(trim(both ',' from crc.blocked_regions), ',') AS region_code
+                    WHERE crc.blocked_regions <> ''
+                      AND trim(region_code) <> ''
+                    ON CONFLICT (comment_id, region_code) DO NOTHING;
+                    """)
             ]);
 
     private static ISchemaMigrationDescriptor BuildCommentModerationSignalMigration()

@@ -368,6 +368,7 @@ public partial class CommentService(
             }
 
             await db.Insertable(BuildRegionCompliance(generatedId, regionDecision)).ExecuteCommandAsync();
+            await ReplaceBlockedRegionsAsync(generatedId, regionDecision.BlockedRegions, cancellationToken);
 
             if (enforceAnonymousNullifier)
             {
@@ -1193,11 +1194,11 @@ WHERE c.article_id = @ArticleId
   AND c.is_deleted = false
   AND NOT EXISTS (
       SELECT 1
-      FROM comment_region_compliance crc
-      WHERE crc.comment_id = c.id
+      FROM comment_blocked_region br
+      WHERE br.comment_id = c.id
         AND (
-            (@ConservativeUnknownViewer = true AND crc.blocked_regions <> '')
-            OR (@ConservativeUnknownViewer = false AND position(@BlockedToken in crc.blocked_regions) > 0)
+            @ConservativeUnknownViewer = true
+            OR br.region_code = @ViewerRegion
         )
   )
 """);
@@ -1264,11 +1265,11 @@ WHERE c.id = @RootId
   AND c.is_deleted = false
   AND NOT EXISTS (
       SELECT 1
-      FROM comment_region_compliance crc
-      WHERE crc.comment_id = c.id
+      FROM comment_blocked_region br
+      WHERE br.comment_id = c.id
         AND (
-            (@ConservativeUnknownViewer = true AND crc.blocked_regions <> '')
-            OR (@ConservativeUnknownViewer = false AND position(@BlockedToken in crc.blocked_regions) > 0)
+            @ConservativeUnknownViewer = true
+            OR br.region_code = @ViewerRegion
         )
   )
 LIMIT 1;
@@ -1324,11 +1325,11 @@ WHERE c.article_id = @ArticleId
   AND c.is_deleted = false
   AND NOT EXISTS (
       SELECT 1
-      FROM comment_region_compliance crc
-      WHERE crc.comment_id = c.id
+      FROM comment_blocked_region br
+      WHERE br.comment_id = c.id
         AND (
-            (@ConservativeUnknownViewer = true AND crc.blocked_regions <> '')
-            OR (@ConservativeUnknownViewer = false AND position(@BlockedToken in crc.blocked_regions) > 0)
+            @ConservativeUnknownViewer = true
+            OR br.region_code = @ViewerRegion
         )
   )
 """);
@@ -1402,7 +1403,7 @@ WHERE c.article_id = @ArticleId
         {
             new("@ArticleId", articleId),
             new("@Approved", (int)CommentModerationStatus.Approved),
-            new("@BlockedToken", RegionLegalModerationService.SerializeRegions([normalizedViewerRegion])),
+            new("@ViewerRegion", normalizedViewerRegion),
             new("@ConservativeUnknownViewer", normalizedViewerRegion == RegionCodes.Unknown)
         };
 
@@ -1479,7 +1480,7 @@ FROM (
             new("@ArticleId", articleId),
             new("@Approved", (int)CommentModerationStatus.Approved),
             new("@PreviewLimit", limit),
-            new("@BlockedToken", RegionLegalModerationService.SerializeRegions([normalizedViewerRegion])),
+            new("@ViewerRegion", normalizedViewerRegion),
             new("@ConservativeUnknownViewer", normalizedViewerRegion == RegionCodes.Unknown)
         };
         for (int i = 0; i < rootIds.Length; i++)
@@ -1501,11 +1502,11 @@ FROM (
       AND c.is_deleted = false
       AND NOT EXISTS (
           SELECT 1
-          FROM comment_region_compliance crc
-          WHERE crc.comment_id = c.id
+          FROM comment_blocked_region br
+          WHERE br.comment_id = c.id
             AND (
-                (@ConservativeUnknownViewer = true AND crc.blocked_regions <> '')
-                OR (@ConservativeUnknownViewer = false AND position(@BlockedToken in crc.blocked_regions) > 0)
+                @ConservativeUnknownViewer = true
+                OR br.region_code = @ViewerRegion
             )
       )
 ) x
@@ -1734,6 +1735,28 @@ ORDER BY x.root_id, x.id;
             CreatedAtUtc = now,
             UpdatedAtUtc = now
         };
+    }
+
+    private async Task ReplaceBlockedRegionsAsync(long commentId, IReadOnlyCollection<string> blockedRegions, CancellationToken cancellationToken)
+    {
+        await db.Deleteable<CommentBlockedRegion>()
+            .Where(row => row.CommentId == commentId)
+            .ExecuteCommandAsync(cancellationToken);
+
+        CommentBlockedRegion[] rows = [.. blockedRegions
+            .Where(static region => !string.IsNullOrWhiteSpace(region))
+            .Select(static region => region.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static region => region, StringComparer.Ordinal)
+            .Select(region => new CommentBlockedRegion
+            {
+                CommentId = commentId,
+                RegionCode = NormalizeNullable(region, 64) ?? RegionCodes.Unknown
+            })];
+        if (rows.Length > 0)
+        {
+            await db.Insertable(rows).ExecuteCommandAsync(cancellationToken);
+        }
     }
 
     private async Task NotifyDeletionAsync(int userId, string articleTitle, string commentSnippet, string reason)

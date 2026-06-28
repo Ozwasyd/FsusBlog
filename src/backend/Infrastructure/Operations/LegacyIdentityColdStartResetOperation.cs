@@ -69,7 +69,11 @@ public sealed class LegacyIdentityColdStartResetOperation(
             int moderationSignalsDeleted = await DeleteAndCountAsync(
                 "DELETE FROM comment_moderation_signal",
                 cancellationToken);
-            int regionComplianceDeleted = await DeleteAndCountAsync(
+            int blockedRegionsDeleted = await DeleteAndCountIfTableExistsAsync(
+                "comment_blocked_region",
+                "DELETE FROM comment_blocked_region",
+                cancellationToken);
+            int regionComplianceDeleted = blockedRegionsDeleted + await DeleteAndCountAsync(
                 "DELETE FROM comment_region_compliance",
                 cancellationToken);
             int commentAnonymousNullifiersDeleted = await DeleteAndCountIfTableExistsAsync(
