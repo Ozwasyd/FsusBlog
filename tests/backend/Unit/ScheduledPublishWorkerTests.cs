@@ -14,12 +14,13 @@ public sealed class ScheduledPublishWorkerTests
     {
         string source = ReadSource("src/backend/Services/Background/ScheduledPublishWorker.cs");
         string method = Slice(source, "internal async Task<int> PublishDueArticlesAsync", "        finally");
+        string claim = Slice(source, "private static async Task<ScheduledPublishBatchCommit> ClaimDueArticlesAsync", "    private static async Task<int> EstimateBacklogAsync");
 
-        Assert.Contains("db.Ado.UseTranAsync", method, StringComparison.Ordinal);
-        Assert.Contains("BuildScheduledPublishOutboxEvent(article.Id, outboxEventId, now)", method, StringComparison.Ordinal);
+        Assert.Contains("db.Ado.UseTranAsync", claim, StringComparison.Ordinal);
+        Assert.Contains("BuildScheduledPublishOutboxEvent(articleId, now)", source, StringComparison.Ordinal);
         Assert.Contains("ArticleMutationOutboxEvent", source, StringComparison.Ordinal);
         Assert.Contains("\"scheduled-published\"", source, StringComparison.Ordinal);
-        Assert.Contains("TransactionSideEffectGuard.CanPublishAfterCommit", method, StringComparison.Ordinal);
+        Assert.Contains("TransactionSideEffectGuard.CanPublishAfterCommit", claim, StringComparison.Ordinal);
         Assert.DoesNotContain("it remains scheduled for retry", method, StringComparison.Ordinal);
         Assert.DoesNotContain("ISearchIndexService", method, StringComparison.Ordinal);
         Assert.DoesNotContain("IPublicAotInvalidationService", method, StringComparison.Ordinal);
@@ -28,10 +29,30 @@ public sealed class ScheduledPublishWorkerTests
         Assert.DoesNotContain("publicAotInvalidation.InvalidateArticleMutationAsync", method, StringComparison.Ordinal);
         Assert.DoesNotContain("invalidation.InvalidateArticleMutationAsync", method, StringComparison.Ordinal);
 
-        int outbox = method.IndexOf("BuildScheduledPublishOutboxEvent(article.Id, outboxEventId, now)", StringComparison.Ordinal);
-        int commitGuard = method.IndexOf("TransactionSideEffectGuard.CanPublishAfterCommit", StringComparison.Ordinal);
+        int outbox = claim.IndexOf("BuildScheduledPublishOutboxEvent(articleId, now)", StringComparison.Ordinal);
+        int commitGuard = claim.IndexOf("TransactionSideEffectGuard.CanPublishAfterCommit", StringComparison.Ordinal);
         Assert.True(outbox >= 0);
         Assert.True(commitGuard > outbox);
+    }
+
+    [Fact]
+    public void ScheduledPublish_SourceClaimsAndOutboxesDueArticlesInOneBatchTransaction()
+    {
+        string source = ReadSource("src/backend/Services/Background/ScheduledPublishWorker.cs");
+        string publish = Slice(source, "internal async Task<int> PublishDueArticlesAsync", "        finally");
+        string claim = Slice(source, "private static async Task<ScheduledPublishBatchCommit> ClaimDueArticlesAsync", "    private static async Task<int> EstimateBacklogAsync");
+
+        Assert.Contains("\"scheduled-publish-batch-commit\"", publish, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"scheduled-publish-due-query\"", publish, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"scheduled-publish-commit\"", publish, StringComparison.Ordinal);
+        Assert.DoesNotContain("foreach (Article article in due)", publish, StringComparison.Ordinal);
+
+        Assert.Contains("UPDATE article", claim, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE SKIP LOCKED", claim, StringComparison.Ordinal);
+        Assert.Contains("RETURNING id", claim, StringComparison.Ordinal);
+        Assert.Contains("BuildScheduledPublishOutboxEvent(articleId, now)", claim, StringComparison.Ordinal);
+        Assert.Contains("db.Insertable(outboxEvents).ExecuteCommandAsync", claim, StringComparison.Ordinal);
+        Assert.Contains("ScheduledPublishBatchCommit", source, StringComparison.Ordinal);
     }
 
     [Fact]

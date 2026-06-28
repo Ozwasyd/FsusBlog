@@ -143,19 +143,22 @@ public sealed class PublicContentInvalidationFlowTests
     {
         string source = ReadRepoFile("src/backend/Services/Background/ScheduledPublishWorker.cs");
         string method = Slice(source, "internal async Task<int> PublishDueArticlesAsync", "        finally");
+        string claim = Slice(source, "private static async Task<ScheduledPublishBatchCommit> ClaimDueArticlesAsync", "    private static async Task<int> EstimateBacklogAsync");
 
-        Assert.Contains(".OrderBy(article => new { article.ScheduledPublishAt, article.Id })", method, StringComparison.Ordinal);
+        Assert.Contains("ORDER BY scheduled_publish_at, id", claim, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE SKIP LOCKED", claim, StringComparison.Ordinal);
         Assert.DoesNotContain("\"scheduled-publish-body-batch-query\"", method, StringComparison.Ordinal);
         Assert.DoesNotContain("\"scheduled-publish-tags-batch-query\"", method, StringComparison.Ordinal);
         Assert.DoesNotContain("\"scheduled-publish-body-query\"", method, StringComparison.Ordinal);
         Assert.DoesNotContain("\"scheduled-publish-tags-query\"", method, StringComparison.Ordinal);
-        Assert.Contains("BuildScheduledPublishOutboxEvent(article.Id, outboxEventId, now)", method, StringComparison.Ordinal);
+        Assert.Contains("BuildScheduledPublishOutboxEvent(articleId, now)", claim, StringComparison.Ordinal);
+        Assert.Contains("insertedOutboxEvents != claimedArticleIds.Count", claim, StringComparison.Ordinal);
         Assert.DoesNotContain("searchIndex.AddOrUpdateIndexAsync(article)", method, StringComparison.Ordinal);
         Assert.DoesNotContain("publicAotInvalidation.InvalidateArticleMutationAsync", method, StringComparison.Ordinal);
         Assert.DoesNotContain("invalidation.InvalidateArticleMutationAsync(article.Id", method, StringComparison.Ordinal);
 
-        int commitGuard = method.IndexOf("TransactionSideEffectGuard.CanPublishAfterCommit", StringComparison.Ordinal);
-        int outbox = method.IndexOf("BuildScheduledPublishOutboxEvent(article.Id, outboxEventId, now)", StringComparison.Ordinal);
+        int commitGuard = claim.IndexOf("TransactionSideEffectGuard.CanPublishAfterCommit", StringComparison.Ordinal);
+        int outbox = claim.IndexOf("BuildScheduledPublishOutboxEvent(articleId, now)", StringComparison.Ordinal);
 
         Assert.True(outbox >= 0);
         Assert.True(commitGuard > outbox);

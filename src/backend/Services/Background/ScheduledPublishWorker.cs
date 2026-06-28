@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Diagnostics;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -52,98 +53,42 @@ public sealed class ScheduledPublishWorker(
                     IDbConcurrencyGate dbGate = scope.ServiceProvider.GetRequiredService<IDbConcurrencyGate>();
                     DateTime now = timeProvider.GetUtcNow().UtcDateTime;
 
-                    List<Article> due = await dbGate.ExecuteAsync(
-                        "scheduled-publish-due-query",
-                        gateCt => db.Queryable<Article>()
-                            .Where(article => !article.IsDeleted
-                                && article.Status == ArticleStatus.Scheduled
-                                && article.ScheduledPublishAt <= now)
-                            .OrderBy(article => new { article.ScheduledPublishAt, article.Id })
-                            .Take(100)
-                            .ToListAsync(gateCt),
-                        _ => Task.FromResult(new List<Article>()),
+                    ScheduledPublishBatchCommit commit = await dbGate.ExecuteAsync(
+                        "scheduled-publish-batch-commit",
+                        gateCt => ClaimDueArticlesAsync(db, now, logger, gateCt),
+                        _ => Task.FromResult(ScheduledPublishBatchCommit.Timeout),
                         cancellationToken);
-                    if (due.Count == 0)
+                    if (!commit.Committed)
+                    {
+                        runtimeState.ReportResult(0, 1, 1, "batch_commit_failed");
+                        failedForMetrics = 1;
+                        backlogForMetrics = 1;
+                        resultForMetrics = "failed";
+                        logger.LogError("Scheduled publish batch commit failed; scheduled rows remain eligible if unchanged.");
+                        return 0;
+                    }
+
+                    if (commit.ClaimedArticleIds.Count == 0)
                     {
                         runtimeState.ReportResult(0, 0, 0);
                         resultForMetrics = "empty";
                         return 0;
                     }
 
-                    int published = 0;
-                    int failed = 0;
-                    foreach (Article article in due)
-                    {
-                        try
-                        {
-                            ScheduledPublishCommit commit = await dbGate.ExecuteAsync(
-                                "scheduled-publish-commit",
-                                async gateCt =>
-                                {
-                                    int updatedRows = 0;
-                                    string outboxEventId = Guid.NewGuid().ToString("N");
-                                    var tran = await db.Ado.UseTranAsync(async () =>
-                                    {
-                                        updatedRows = await db.Updateable<Article>()
-                                            .SetColumns(it => it.Status == ArticleStatus.Published)
-                                            .SetColumns(it => it.PublishedAt == now)
-                                            .SetColumns(it => it.ScheduledPublishAt == null)
-                                            .Where(it => it.Id == article.Id && it.Status == ArticleStatus.Scheduled)
-                                            .ExecuteCommandAsync(gateCt);
-                                        if (updatedRows > 0)
-                                        {
-                                            await db.Insertable(BuildScheduledPublishOutboxEvent(article.Id, outboxEventId, now))
-                                                .ExecuteCommandAsync(gateCt);
-                                        }
-                                    });
-
-                                    bool committed = TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "scheduled-publish-commit");
-                                    return new ScheduledPublishCommit(updatedRows, outboxEventId, committed);
-                                },
-                                _ => Task.FromResult(ScheduledPublishCommit.Timeout),
-                                cancellationToken);
-                            if (!commit.Committed)
-                            {
-                                failed++;
-                                logger.LogError("Scheduled publish commit failed for article {ArticleId}; scheduled row remains eligible if unchanged.", article.Id);
-                                continue;
-                            }
-
-                            if (commit.UpdatedRows == 0)
-                            {
-                                continue;
-                            }
-
-                            article.Status = ArticleStatus.Published;
-                            article.PublishedAt = now;
-                            article.ScheduledPublishAt = null;
-                            published++;
-                        }
-                        catch (Exception ex) when (ex is not OperationCanceledException)
-                        {
-                            failed++;
-                            logger.LogError(ex, "Scheduled publish failed before durable outbox for article {ArticleId}.", article.Id);
-                        }
-                    }
-
+                    int published = commit.ClaimedArticleIds.Count;
                     int backlog = await dbGate.ExecuteAsync(
-                        "scheduled-publish-backlog-count",
-                        gateCt => db.Queryable<Article>()
-                            .Where(article => !article.IsDeleted
-                                && article.Status == ArticleStatus.Scheduled
-                                && article.ScheduledPublishAt <= now)
-                            .CountAsync(gateCt),
-                        _ => Task.FromResult(0),
+                        "scheduled-publish-backlog-exists",
+                        gateCt => EstimateBacklogAsync(db, now, gateCt),
+                        _ => Task.FromResult(1),
                         cancellationToken);
                     runtimeState.ReportResult(
                         published,
-                        failed,
-                        backlog,
-                        failed > 0 ? "one_or_more_articles_failed" : null);
+                        0,
+                        backlog);
                     publishedForMetrics = published;
-                    failedForMetrics = failed;
+                    failedForMetrics = 0;
                     backlogForMetrics = backlog;
-                    resultForMetrics = failed > 0 ? "partial_failure" : "ok";
+                    resultForMetrics = "ok";
 
                     return published;
                 },
@@ -171,10 +116,82 @@ public sealed class ScheduledPublishWorker(
         }
     }
 
-    private static ArticleMutationOutboxEvent BuildScheduledPublishOutboxEvent(int articleId, string eventId, DateTime now)
+    private static async Task<ScheduledPublishBatchCommit> ClaimDueArticlesAsync(
+        ISqlSugarClient db,
+        DateTime now,
+        ILogger<ScheduledPublishWorker> logger,
+        CancellationToken cancellationToken)
+    {
+        List<int> claimedArticleIds = [];
+        int insertedOutboxEvents = 0;
+        var tran = await db.Ado.UseTranAsync(async () =>
+        {
+            using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                """
+                UPDATE article
+                SET status = @PublishedStatus,
+                    published_at = @Now,
+                    scheduled_publish_at = NULL
+                WHERE id IN (
+                    SELECT id
+                    FROM article
+                    WHERE isdeleted = false
+                      AND status = @ScheduledStatus
+                      AND scheduled_publish_at <= @Now
+                    ORDER BY scheduled_publish_at, id
+                    LIMIT @BatchSize
+                    FOR UPDATE SKIP LOCKED
+                )
+                RETURNING id;
+                """,
+                new SugarParameter[]
+                {
+                    new("@PublishedStatus", (int)ArticleStatus.Published),
+                    new("@Now", now),
+                    new("@ScheduledStatus", (int)ArticleStatus.Scheduled),
+                    new("@BatchSize", 100)
+                });
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                claimedArticleIds.Add(reader.GetInt32(0));
+            }
+
+            if (claimedArticleIds.Count == 0)
+            {
+                return;
+            }
+
+            List<ArticleMutationOutboxEvent> outboxEvents = claimedArticleIds
+                .Select(articleId => BuildScheduledPublishOutboxEvent(articleId, now))
+                .ToList();
+            insertedOutboxEvents = await db.Insertable(outboxEvents).ExecuteCommandAsync(cancellationToken);
+            if (insertedOutboxEvents != claimedArticleIds.Count)
+            {
+                throw new InvalidOperationException("Scheduled publish outbox batch did not match claimed article count.");
+            }
+        });
+
+        bool committed = TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "scheduled-publish-batch-commit");
+        return new ScheduledPublishBatchCommit(
+            committed ? claimedArticleIds : [],
+            committed,
+            committed ? insertedOutboxEvents : 0);
+    }
+
+    private static async Task<int> EstimateBacklogAsync(ISqlSugarClient db, DateTime now, CancellationToken cancellationToken)
+    {
+        bool hasBacklog = await db.Queryable<Article>()
+            .Where(article => !article.IsDeleted
+                && article.Status == ArticleStatus.Scheduled
+                && article.ScheduledPublishAt <= now)
+            .AnyAsync(cancellationToken);
+        return hasBacklog ? 1 : 0;
+    }
+
+    private static ArticleMutationOutboxEvent BuildScheduledPublishOutboxEvent(int articleId, DateTime now)
         => new()
         {
-            EventId = eventId,
+            EventId = Guid.NewGuid().ToString("N"),
             AggregateId = articleId,
             EventType = "scheduled-published",
             PayloadJson = $"{{\"articleId\":{articleId},\"eventType\":\"scheduled-published\"}}",
@@ -184,8 +201,11 @@ public sealed class ScheduledPublishWorker(
             CreatedAt = now
         };
 
-    private sealed record ScheduledPublishCommit(int UpdatedRows, string OutboxEventId, bool Committed)
+    private sealed record ScheduledPublishBatchCommit(
+        IReadOnlyList<int> ClaimedArticleIds,
+        bool Committed,
+        int OutboxInsertCount)
     {
-        public static readonly ScheduledPublishCommit Timeout = new(0, string.Empty, false);
+        public static readonly ScheduledPublishBatchCommit Timeout = new(Array.Empty<int>(), false, 0);
     }
 }
