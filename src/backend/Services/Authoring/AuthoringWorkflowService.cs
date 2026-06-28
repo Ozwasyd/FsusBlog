@@ -990,26 +990,73 @@ public sealed class AuthoringWorkflowService(
 
     public async Task<ContentBackupExportResponse> ExportContentBackupAsync(CancellationToken cancellationToken = default)
     {
-        List<int> articleIds = await db.Queryable<Article>()
-            .ClearFilter()
-            .OrderBy(it => it.Id)
-            .Select(it => it.Id)
-            .ToListAsync(cancellationToken);
-        var articles = new List<ContentExportResponse>(articleIds.Count);
-        foreach (int articleId in articleIds)
-        {
-            ContentExportResponse? exported = await ExportArticleAsync(articleId, cancellationToken);
-            if (exported is not null)
-            {
-                articles.Add(exported);
-            }
-        }
-
+        IReadOnlyList<ContentExportResponse> articles = await LoadContentBackupArticlesAsync(cancellationToken);
         DateTime now = DateTime.UtcNow;
         return new ContentBackupExportResponse(
             $"fsusblog-content-{now:yyyyMMddHHmmss}.json",
             now,
             articles);
+    }
+
+    private async Task<IReadOnlyList<ContentExportResponse>> LoadContentBackupArticlesAsync(CancellationToken cancellationToken)
+    {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        List<Article> articles = await db.Queryable<Article>()
+            .ClearFilter()
+            .OrderBy(it => it.Id)
+            .ToListAsync(cancellationToken);
+        if (articles.Count == 0)
+        {
+            logger.LogInformation("content-backup-export articleCount=0 revisionCount=0 dbCommandCount=1 elapsedMs={ElapsedMs}", stopwatch.ElapsedMilliseconds);
+            return [];
+        }
+
+        List<int> ids = [.. articles.Select(static article => article.Id)];
+        Dictionary<int, string> bodyByArticleId = (await db.Queryable<ArticleBody>()
+            .Where(it => ids.Contains(it.ArticleId))
+            .ToListAsync(cancellationToken))
+            .GroupBy(static body => body.ArticleId)
+            .ToDictionary(static group => group.Key, static group => group.First().MarkdownContent ?? string.Empty);
+        Dictionary<int, List<int>> tagIdsByArticleId = (await db.Queryable<ArticleTag>()
+            .Where(it => ids.Contains(it.ArticleId))
+            .ToListAsync(cancellationToken))
+            .GroupBy(static tag => tag.ArticleId)
+            .ToDictionary(
+                static group => group.Key,
+                static group => group.Select(static tag => tag.TagId).ToList());
+        Dictionary<int, List<ArticleRevision>> revisionsByArticleId = (await db.Queryable<ArticleRevision>()
+            .Where(it => ids.Contains(it.ArticleId))
+            .OrderBy(it => it.ArticleId)
+            .OrderBy(it => it.RevisionNo)
+            .ToListAsync(cancellationToken))
+            .GroupBy(static revision => revision.ArticleId)
+            .ToDictionary(static group => group.Key, static group => group.ToList());
+
+        var exports = new List<ContentExportResponse>(articles.Count);
+        int revisionCount = 0;
+        foreach (Article article in articles)
+        {
+            bodyByArticleId.TryGetValue(article.Id, out string? content);
+            tagIdsByArticleId.TryGetValue(article.Id, out List<int>? tagIds);
+            revisionsByArticleId.TryGetValue(article.Id, out List<ArticleRevision>? revisions);
+            tagIds ??= [];
+            revisions ??= [];
+            revisionCount += revisions.Count;
+
+            ContentExportMetadataResponse metadata = BuildExportMetadata(article, tagIds, revisions);
+            exports.Add(new ContentExportResponse(
+                $"article-{article.Id}.md",
+                BuildArticleExportMarkdown(article, content ?? string.Empty, metadata),
+                metadata));
+        }
+
+        logger.LogInformation(
+            "content-backup-export articleCount={ArticleCount} revisionCount={RevisionCount} dbCommandCount={DbCommandCount} elapsedMs={ElapsedMs}",
+            exports.Count,
+            revisionCount,
+            4,
+            stopwatch.ElapsedMilliseconds);
+        return exports;
     }
 
     public async Task<ContentImportResponse> ImportArticleAsync(ContentImportRequest request, CancellationToken cancellationToken = default)

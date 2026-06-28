@@ -170,6 +170,28 @@ public sealed class AuthoringWorkflowServiceTests
     }
 
     [Fact]
+    public void ExportContentBackupAsync_SourceUsesBatchLoadInsteadOfPerArticleExport()
+    {
+        string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string backup = Slice(
+            service,
+            "public async Task<ContentBackupExportResponse> ExportContentBackupAsync",
+            "public async Task<ContentImportResponse> ImportArticleAsync");
+        string batch = Slice(
+            service,
+            "private async Task<IReadOnlyList<ContentExportResponse>> LoadContentBackupArticlesAsync",
+            "public async Task<ContentImportResponse> ImportArticleAsync");
+
+        Assert.Contains("LoadContentBackupArticlesAsync(cancellationToken)", backup, StringComparison.Ordinal);
+        Assert.DoesNotContain("ExportArticleAsync(articleId", backup, StringComparison.Ordinal);
+        Assert.Contains("Queryable<ArticleBody>()", batch, StringComparison.Ordinal);
+        Assert.Contains("Queryable<ArticleTag>()", batch, StringComparison.Ordinal);
+        Assert.Contains("Queryable<ArticleRevision>()", batch, StringComparison.Ordinal);
+        Assert.Contains("ids.Contains", batch, StringComparison.Ordinal);
+        Assert.Contains("BuildExportMetadata(article", batch, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RumMetricSummaries_AverageUsesUnsortedSamplesAndP75UsesSortedSamples()
     {
         RumMetricAuditContext[] values =
