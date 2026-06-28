@@ -143,6 +143,10 @@ public static class FsusObservability
     private static readonly Counter<long> ModerationDictionaryMatchedTerms = Meter.CreateCounter<long>("fsus.moderation.dictionary.matched_term_count");
     private static readonly Histogram<double> ModerationDictionaryMatchElapsed = Meter.CreateHistogram<double>("fsus.moderation.dictionary.match_elapsed_ms", "ms");
     private static readonly Counter<long> ModerationDictionaryEvaluatedRegions = Meter.CreateCounter<long>("fsus.moderation.dictionary.evaluated_region_count");
+    private static readonly Counter<long> TaxonomyFrameCacheAccess = Meter.CreateCounter<long>("fsus.taxonomy.frame.cache_access");
+    private static readonly Histogram<double> TaxonomyFrameColdMissElapsed = Meter.CreateHistogram<double>("fsus.taxonomy.frame.cold_miss_elapsed_ms", "ms");
+    private static readonly Counter<long> TaxonomyProjectionUpdateCount = Meter.CreateCounter<long>("fsus.taxonomy.projection.update_count");
+    private static readonly Counter<long> TaxonomyFrameVersionCounter = Meter.CreateCounter<long>("fsus.taxonomy.frame.version_bump");
 
     public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
 
@@ -691,6 +695,43 @@ public static class FsusObservability
             ModerationDictionaryMatchedTerms.Add(Math.Max(0, matchedTermCount), tags);
             ModerationDictionaryMatchElapsed.Record(elapsed.TotalMilliseconds, tags);
             ModerationDictionaryEvaluatedRegions.Add(Math.Max(0, evaluatedRegionCount), tags);
+        });
+    }
+
+    public static void RecordTaxonomyFrameCache(string frame, bool hit)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("taxonomy-frame", NormalizeTelemetryValue(frame, "unknown"), hit ? "hit" : "miss");
+            TaxonomyFrameCacheAccess.Add(1, tags);
+        });
+    }
+
+    public static void RecordTaxonomyFrameColdMiss(string frame, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("taxonomy-frame", NormalizeTelemetryValue(frame, "unknown"), "miss");
+            TaxonomyFrameColdMissElapsed.Record(elapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordTaxonomyProjectionUpdate(long updatedRows, long frameVersion, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("taxonomy-projection", frameVersion > 0 ? "changed" : "unchanged", "ok");
+            TaxonomyProjectionUpdateCount.Add(Math.Max(0, updatedRows), tags);
+            TaxonomyFrameColdMissElapsed.Record(elapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordTaxonomyFrameVersion(long version, string reason)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("taxonomy-frame", NormalizeTelemetryValue(reason, "unknown"), "version");
+            TaxonomyFrameVersionCounter.Add(version > 0 ? 1 : 0, tags);
         });
     }
 

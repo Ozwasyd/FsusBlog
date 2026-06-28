@@ -12,6 +12,7 @@ using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
@@ -20,11 +21,13 @@ using FsusBlog.Server.Models;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Taxonomy;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 using SqlSugar;
 using System.Buffers;
 using System.Data.Common;
+using System.Diagnostics;
 
 namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
@@ -37,27 +40,24 @@ public static partial class BinaryEndpoints
             IUnifiedCache cache,
             IAedsEncoder aeds) =>
         {
-            const string identity = "all";
+            string identity = await ResolveTaxonomyFrameIdentityAsync(cache);
             CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CategoryFrame, identity);
             if (frame.Hit && frame.Value.Length > 0)
             {
+                FsusObservability.RecordTaxonomyFrameCache("category", hit: true);
                 return BinaryResults.PreencodedFrame(frame.Value);
             }
 
-            DateTime now = DateTime.UtcNow;
+            FsusObservability.RecordTaxonomyFrameCache("category", hit: false);
+            Stopwatch stopwatch = Stopwatch.StartNew();
             var query = db.Queryable<Category>()
-                .LeftJoin<Article>((c, a) => c.Id == a.CategoryId
-                    && a.IsDeleted == false
-                    && a.Status == ArticleStatus.Published
-                    && (a.PublishedAt == null || a.PublishedAt <= now)
-                    && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
-                .GroupBy(c => new { c.Id, c.Name })
+                .LeftJoin<CategoryPublicArticleCount>((c, count) => c.Id == count.CategoryId)
                 .OrderBy(c => c.Id)
-                .Select((c, a) => new
+                .Select((c, count) => new
                 {
                     c.Id,
                     c.Name,
-                    ArticleCount = SqlFunc.AggregateCount(a.Id)
+                    ArticleCount = SqlFunc.MappingColumn<long>("COALESCE(count.article_count, 0)")
                 });
 
             var sqlObj = query.ToSql();
@@ -81,6 +81,7 @@ public static partial class BinaryEndpoints
             byte[] payload = PodBinaryCodec.EncodeCategoryList(result);
             byte[] encodedFrame = aeds.Encode(AedsFrameType.CategoryList, payload);
             await cache.SetRawAsync(CachePolicyId.CategoryFrame, identity, encodedFrame, TimeSpan.FromMinutes(10));
+            FsusObservability.RecordTaxonomyFrameColdMiss("category", stopwatch.Elapsed);
             return BinaryResults.PreencodedFrame(encodedFrame);
         })
         .AllowAnonymous()
@@ -93,28 +94,24 @@ public static partial class BinaryEndpoints
             IUnifiedCache cache,
             IAedsEncoder aeds) =>
         {
-            const string identity = "all";
+            string identity = await ResolveTaxonomyFrameIdentityAsync(cache);
             CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.TagFrame, identity);
             if (frame.Hit && frame.Value.Length > 0)
             {
+                FsusObservability.RecordTaxonomyFrameCache("tag", hit: true);
                 return BinaryResults.PreencodedFrame(frame.Value);
             }
 
-            DateTime now = DateTime.UtcNow;
+            FsusObservability.RecordTaxonomyFrameCache("tag", hit: false);
+            Stopwatch stopwatch = Stopwatch.StartNew();
             var query = db.Queryable<Tag>()
-                .LeftJoin<ArticleTag>((t, at) => t.Id == at.TagId)
-                .LeftJoin<Article>((t, at, a) => at.ArticleId == a.Id
-                    && a.IsDeleted == false
-                    && a.Status == ArticleStatus.Published
-                    && (a.PublishedAt == null || a.PublishedAt <= now)
-                    && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
-                .GroupBy(t => new { t.Id, t.Name })
+                .LeftJoin<TagPublicArticleCount>((t, count) => t.Id == count.TagId)
                 .OrderBy(t => t.Id)
-                .Select((t, at, a) => new
+                .Select((t, count) => new
                 {
                     t.Id,
                     t.Name,
-                    ArticleCount = SqlFunc.AggregateCount(a.Id)
+                    ArticleCount = SqlFunc.MappingColumn<long>("COALESCE(count.article_count, 0)")
                 });
 
             var sqlObj = query.ToSql();
@@ -138,6 +135,7 @@ public static partial class BinaryEndpoints
             byte[] payload = PodBinaryCodec.EncodeTagWithCountList(result);
             byte[] encodedFrame = aeds.Encode(AedsFrameType.TagList, payload);
             await cache.SetRawAsync(CachePolicyId.TagFrame, identity, encodedFrame, TimeSpan.FromMinutes(10));
+            FsusObservability.RecordTaxonomyFrameColdMiss("tag", stopwatch.Elapsed);
             return BinaryResults.PreencodedFrame(encodedFrame);
         })
         .AllowAnonymous()
@@ -149,6 +147,7 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            ITaxonomyCountProjectionService taxonomyProjection,
             PublicHotArtifactUpdateQueue publicHotUpdates,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
@@ -183,6 +182,7 @@ public static partial class BinaryEndpoints
                 AuditTypeCatalog.Audit,
                 new KeyValuePair<string, object?>("AuditAction", "category.create"),
                 new KeyValuePair<string, object?>("CategoryName", trimmedName));
+            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-category-created", cancellationToken);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
             publicHotUpdates.TryEnqueue(null, "taxonomy-category-created");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
@@ -195,6 +195,7 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            ITaxonomyCountProjectionService taxonomyProjection,
             PublicHotArtifactUpdateQueue publicHotUpdates,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
@@ -234,6 +235,7 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("AuditAction", "category.update"),
                 new KeyValuePair<string, object?>("CategoryId", id),
                 new KeyValuePair<string, object?>("CategoryName", trimmedName));
+            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-category-updated", cancellationToken);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
             publicHotUpdates.TryEnqueue(null, "taxonomy-category-updated");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
@@ -245,7 +247,9 @@ public static partial class BinaryEndpoints
             int id,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            ITaxonomyCountProjectionService taxonomyProjection,
             PublicHotArtifactUpdateQueue publicHotUpdates,
+            CancellationToken cancellationToken,
             IAedsEncoder aeds) =>
         {
             bool hasArticles = await db.Queryable<Article>().AnyAsync(a => a.CategoryId == id && !a.IsDeleted && a.Status != ArticleStatus.Deleted);
@@ -265,6 +269,7 @@ public static partial class BinaryEndpoints
                 AuditTypeCatalog.Audit,
                 new KeyValuePair<string, object?>("AuditAction", "category.delete"),
                 new KeyValuePair<string, object?>("CategoryId", id));
+            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-category-deleted", cancellationToken);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
             publicHotUpdates.TryEnqueue(null, "taxonomy-category-deleted");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
@@ -276,6 +281,7 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            ITaxonomyCountProjectionService taxonomyProjection,
             PublicHotArtifactUpdateQueue publicHotUpdates,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
@@ -309,6 +315,7 @@ public static partial class BinaryEndpoints
                 AuditTypeCatalog.Audit,
                 new KeyValuePair<string, object?>("AuditAction", "tag.create"),
                 new KeyValuePair<string, object?>("TagName", trimmedName));
+            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-tag-created", cancellationToken);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
             publicHotUpdates.TryEnqueue(null, "taxonomy-tag-created");
             return BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(newId, writer));
@@ -321,6 +328,7 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            ITaxonomyCountProjectionService taxonomyProjection,
             PublicHotArtifactUpdateQueue publicHotUpdates,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
@@ -360,6 +368,7 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("AuditAction", "tag.update"),
                 new KeyValuePair<string, object?>("TagId", id),
                 new KeyValuePair<string, object?>("TagName", trimmedName));
+            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-tag-updated", cancellationToken);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
             publicHotUpdates.TryEnqueue(null, "taxonomy-tag-updated");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
@@ -371,7 +380,9 @@ public static partial class BinaryEndpoints
             int id,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            ITaxonomyCountProjectionService taxonomyProjection,
             PublicHotArtifactUpdateQueue publicHotUpdates,
+            CancellationToken cancellationToken,
             IAedsEncoder aeds) =>
         {
             bool hasArticleLinks = await db.Queryable<ArticleTag>().AnyAsync(at => at.TagId == id);
@@ -391,11 +402,20 @@ public static partial class BinaryEndpoints
                 AuditTypeCatalog.Audit,
                 new KeyValuePair<string, object?>("AuditAction", "tag.delete"),
                 new KeyValuePair<string, object?>("TagId", id));
+            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-tag-deleted", cancellationToken);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
             publicHotUpdates.TryEnqueue(null, "taxonomy-tag-deleted");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();
+    }
+
+    private static async Task<string> ResolveTaxonomyFrameIdentityAsync(IUnifiedCache cache)
+    {
+        string? raw = await cache.GetStringAsync(CachePolicyId.TaxonomyFrameVersion, "main");
+        return long.TryParse(raw, out long version) && version > 0
+            ? $"v:{version}:all"
+            : "v:0:all";
     }
 }

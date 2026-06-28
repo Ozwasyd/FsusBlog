@@ -55,6 +55,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildHumanReadEventMigration(),
         BuildVisitLogStatsRollupMigration(),
         BuildArticleViewProjectionWatermarkMigration(),
+        BuildTaxonomyCountProjectionMigration(),
         BuildAuthorAnalyticsRollupMigration(),
         BuildVisitLogAnonymousAttributionFinalizeMigration(),
         BuildVisitLogIpAnonymizationMigration(),
@@ -2368,6 +2369,87 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         now() AT TIME ZONE 'utc'
                     FROM sys_visit_log
                     ON CONFLICT (id) DO NOTHING;
+                    """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildTaxonomyCountProjectionMigration()
+        => new SchemaMigrationDescriptor(
+            "20260629-post-taxonomy-count-projection",
+            "Create public taxonomy count rollups for category/tag binary frames.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "category_public_article_count",
+                    """
+                    CREATE TABLE IF NOT EXISTS category_public_article_count (
+                        category_id integer PRIMARY KEY,
+                        article_count bigint NOT NULL DEFAULT 0,
+                        updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+                    );
+                    """),
+                new EnsureTableStep(
+                    "tag_public_article_count",
+                    """
+                    CREATE TABLE IF NOT EXISTS tag_public_article_count (
+                        tag_id integer PRIMARY KEY,
+                        article_count bigint NOT NULL DEFAULT 0,
+                        updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+                    );
+                    """),
+                new EnsureTableStep(
+                    "article_public_taxonomy_projection",
+                    """
+                    CREATE TABLE IF NOT EXISTS article_public_taxonomy_projection (
+                        article_id integer PRIMARY KEY,
+                        category_id integer NULL,
+                        tag_ids text NOT NULL DEFAULT '',
+                        updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+                    );
+                    """),
+                new BackfillSqlStep(
+                    """
+                    INSERT INTO article_public_taxonomy_projection(article_id, category_id, tag_ids, updated_at_utc)
+                    SELECT
+                        a.id,
+                        a.categoryid,
+                        COALESCE(string_agg(at.tagid::text, ',' ORDER BY at.tagid), ''),
+                        now() AT TIME ZONE 'utc'
+                    FROM article a
+                    LEFT JOIN article_tag at ON at.articleid = a.id
+                    WHERE a.isdeleted = false
+                      AND a.status = 2
+                      AND (a.published_at IS NULL OR a.published_at <= now() AT TIME ZONE 'utc')
+                      AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= now() AT TIME ZONE 'utc')
+                    GROUP BY a.id, a.categoryid
+                    ON CONFLICT (article_id) DO UPDATE
+                    SET category_id = EXCLUDED.category_id,
+                        tag_ids = EXCLUDED.tag_ids,
+                        updated_at_utc = EXCLUDED.updated_at_utc;
+                    """),
+                new BackfillSqlStep(
+                    """
+                    INSERT INTO category_public_article_count(category_id, article_count, updated_at_utc)
+                    SELECT category_id, COUNT(1)::bigint, now() AT TIME ZONE 'utc'
+                    FROM article_public_taxonomy_projection
+                    WHERE category_id IS NOT NULL
+                    GROUP BY category_id
+                    ON CONFLICT (category_id) DO UPDATE
+                    SET article_count = EXCLUDED.article_count,
+                        updated_at_utc = EXCLUDED.updated_at_utc;
+                    """),
+                new BackfillSqlStep(
+                    """
+                    INSERT INTO tag_public_article_count(tag_id, article_count, updated_at_utc)
+                    SELECT tag_id::integer, COUNT(1)::bigint, now() AT TIME ZONE 'utc'
+                    FROM article_public_taxonomy_projection,
+                         regexp_split_to_table(tag_ids, ',') AS tag_id
+                    WHERE tag_ids <> ''
+                    GROUP BY tag_id
+                    ON CONFLICT (tag_id) DO UPDATE
+                    SET article_count = EXCLUDED.article_count,
+                        updated_at_utc = EXCLUDED.updated_at_utc;
                     """)
             ]);
 

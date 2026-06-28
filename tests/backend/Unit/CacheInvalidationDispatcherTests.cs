@@ -27,11 +27,13 @@ public sealed class CacheInvalidationDispatcherTests
             HasKey(keys, CachePolicyId.ArticleRss, "main")
             && HasKey(keys, CachePolicyId.AdminStats, "main")
             && HasKey(keys, CachePolicyId.AdminStats, "core:main")
-            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:main")
-            && HasKey(keys, CachePolicyId.CategoryFrame, "all")
-            && HasKey(keys, CachePolicyId.TagFrame, "all")), Arg.Any<CancellationToken>());
+            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:main")), Arg.Any<CancellationToken>());
+        await cache.DidNotReceive().RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
+            HasKey(keys, CachePolicyId.CategoryFrame, "all")
+            || HasKey(keys, CachePolicyId.TagFrame, "all")), Arg.Any<CancellationToken>());
         await httpCacheInvalidator.Received(1).InvalidateAsync(Arg.Is<CacheTag[]>(tags =>
-            tags.Contains(CacheTag.Category)
+            !tags.Contains(CacheTag.Category)
+            && !tags.Contains(CacheTag.Tag)
             && tags.Contains(CacheTag.ArticleList)
             && tags.Contains(CacheTag.HotArticles)
             && tags.Contains(CacheTag.Stats)));

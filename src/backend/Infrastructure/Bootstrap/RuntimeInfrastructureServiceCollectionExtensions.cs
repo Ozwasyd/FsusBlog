@@ -15,6 +15,7 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.NotificationStream;
+using FsusBlog.Server.Services.Taxonomy;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Server.Services.VisitLog;
 using Microsoft.AspNetCore.Hosting;
@@ -157,6 +158,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<IHotStatsInvalidationCoalescer>(sp => sp.GetRequiredService<HotStatsInvalidationCoalescer>());
         services.AddSingleton<IHotArticlesCacheVersionProvider>(sp => sp.GetRequiredService<HotStatsInvalidationCoalescer>());
         services.AddSingleton<IHotArticlesCacheVersionPublisher>(sp => sp.GetRequiredService<HotStatsInvalidationCoalescer>());
+        services.AddScoped<ITaxonomyCountProjectionService, TaxonomyCountProjectionService>();
         services.AddScoped<IHttpCacheInvalidator, HttpCacheInvalidator>();
         services.AddScoped<ICacheInvalidationDispatcher, CacheInvalidationDispatcher>();
         if (!OpenApiExportMode.IsEnabled())

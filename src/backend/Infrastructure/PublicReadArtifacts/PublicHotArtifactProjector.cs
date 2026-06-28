@@ -976,20 +976,14 @@ public sealed class PublicHotArtifactProjector(
 
     private async Task<PublicBinaryArtifact> BuildCategoryFrameAsync(long version, PublicHotReadOptions options, CancellationToken ct)
     {
-        DateTime now = DateTime.UtcNow;
         var query = db.Queryable<Category>()
-            .LeftJoin<Article>((c, a) => c.Id == a.CategoryId
-                && a.IsDeleted == false
-                && a.Status == ArticleStatus.Published
-                && (a.PublishedAt == null || a.PublishedAt <= now)
-                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
-            .GroupBy(c => new { c.Id, c.Name })
+            .LeftJoin<CategoryPublicArticleCount>((c, count) => c.Id == count.CategoryId)
             .OrderBy(c => c.Id)
-            .Select((c, a) => new
+            .Select((c, count) => new
             {
                 c.Id,
                 c.Name,
-                ArticleCount = SqlFunc.AggregateCount(a.Id)
+                ArticleCount = SqlFunc.MappingColumn<long>("COALESCE(count.article_count, 0)")
             });
 
         var sqlObj = query.ToSql();
@@ -1014,21 +1008,14 @@ public sealed class PublicHotArtifactProjector(
 
     private async Task<PublicBinaryArtifact> BuildTagFrameAsync(long version, PublicHotReadOptions options, CancellationToken ct)
     {
-        DateTime now = DateTime.UtcNow;
         var query = db.Queryable<Tag>()
-            .LeftJoin<ArticleTag>((t, at) => t.Id == at.TagId)
-            .LeftJoin<Article>((t, at, a) => at.ArticleId == a.Id
-                && a.IsDeleted == false
-                && a.Status == ArticleStatus.Published
-                && (a.PublishedAt == null || a.PublishedAt <= now)
-                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
-            .GroupBy(t => new { t.Id, t.Name })
+            .LeftJoin<TagPublicArticleCount>((t, count) => t.Id == count.TagId)
             .OrderBy(t => t.Id)
-            .Select((t, at, a) => new
+            .Select((t, count) => new
             {
                 t.Id,
                 t.Name,
-                ArticleCount = SqlFunc.AggregateCount(a.Id)
+                ArticleCount = SqlFunc.MappingColumn<long>("COALESCE(count.article_count, 0)")
             });
 
         var sqlObj = query.ToSql();

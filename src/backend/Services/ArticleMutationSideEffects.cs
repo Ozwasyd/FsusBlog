@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Services.Taxonomy;
 using FsusBlog.Shared.Contracts.Outputs;
 using SqlSugar;
 using StackExchange.Redis;
@@ -43,6 +44,7 @@ public static class ArticleMutationReplayEdges
     public const string HttpCacheInvalidation = "http-cache-invalidation";
     public const string SearchProjection = "search-projection";
     public const string ArticleDetailAeds = "article-detail-aeds";
+    public const string TaxonomyProjection = "taxonomy-projection";
     public const string PublicHotRead = "public-hot-read";
     public const string Notification = "notification";
 
@@ -52,6 +54,7 @@ public static class ArticleMutationReplayEdges
         HttpCacheInvalidation,
         SearchProjection,
         ArticleDetailAeds,
+        TaxonomyProjection,
         PublicHotRead
     };
 }
@@ -117,6 +120,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
     IRuntimeKeyScope runtimeKeyScope,
     IUnifiedCache cache,
     ArticleSearchProjector searchProjector,
+    ITaxonomyCountProjectionService taxonomyProjection,
     IArticleDetailAedsArtifactProjector articleDetailArtifacts,
     PublicHotArtifactUpdateQueue publicHotUpdates,
     ArticleRealtimeNotifier realtimeNotifier,
@@ -132,6 +136,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
                 article.Id = articleId;
                 await RunSideEffectsSequentiallyAsync(
                     () => searchProjector.ProjectAsync(article),
+                    () => taxonomyProjection.ReconcileArticleAsync(articleId),
                     () => articleDetailArtifacts.GenerateAndStoreAsync(articleId),
                     () => QueuePublicHotUpdateAsync(articleId, "article-created"),
                     () => realtimeNotifier.PushChangedAsync(articleId, "Created", preview));
@@ -150,6 +155,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
                 await RunSideEffectsSequentiallyAsync(
                     () => searchProjector.ProjectAsync(article),
+                    () => taxonomyProjection.ReconcileArticleAsync(articleId),
                     () => articleDetailArtifacts.GenerateAndStoreAsync(articleId),
                     () => QueuePublicHotUpdateAsync(articleId, "article-updated"),
                     () => realtimeNotifier.PushChangedAsync(articleId, "Updated", preview));
@@ -162,6 +168,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
             {
                 await RunSideEffectsSequentiallyAsync(
                     () => searchProjector.DeleteAsync(articleId),
+                    () => taxonomyProjection.ReconcileArticleAsync(articleId),
                     () => articleDetailArtifacts.RemoveAsync(articleId),
                     () => QueuePublicHotUpdateAsync(articleId, "article-deleted"),
                     () => _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId),
@@ -181,6 +188,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
                 await RunSideEffectsSequentiallyAsync(
                     () => searchProjector.ProjectAsync(article),
+                    () => taxonomyProjection.ReconcileArticleAsync(articleId),
                     () => articleDetailArtifacts.GenerateAndStoreAsync(articleId),
                     () => QueuePublicHotUpdateAsync(articleId, "article-restored"),
                     () => _redis.SortedSetAddAsync(RedisKey("blog:top_articles"), articleId, article.Views),
@@ -194,6 +202,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
             {
                 await RunSideEffectsSequentiallyAsync(
                     () => searchProjector.DeleteAsync(articleId),
+                    () => taxonomyProjection.ReconcileArticleAsync(articleId, cancellationToken),
                     () => articleDetailArtifacts.RemoveAsync(articleId),
                     () => QueuePublicHotUpdateAsync(articleId, "article-permanently-deleted"),
                     () => _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId),
@@ -217,6 +226,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
                         await RunSideEffectsSequentiallyAsync(
                             () => _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId),
                             () => cache.RemoveAsync(CachePolicyId.ArticleDetail, articleId.ToString(), cancellationToken),
+                            () => taxonomyProjection.ReconcileArticleAsync(articleId, cancellationToken),
                             () => articleDetailArtifacts.RemoveAsync(articleId, cancellationToken),
                             () => searchProjector.DeleteAsync(articleId));
                     }
@@ -303,6 +313,10 @@ public sealed class ArticleMutationSideEffectCoordinator(
             if (!await RunEdgeAsync(ArticleMutationReplayEdges.SearchProjection, () => searchProjector.ProjectAsync(article))
                     .ConfigureAwait(false)
                 || !await RunEdgeAsync(
+                        ArticleMutationReplayEdges.TaxonomyProjection,
+                        () => taxonomyProjection.ReconcileArticleAsync(articleId, cancellationToken))
+                    .ConfigureAwait(false)
+                || !await RunEdgeAsync(
                         ArticleMutationReplayEdges.ArticleDetailAeds,
                         () => articleDetailArtifacts.GenerateAndStoreAsync(articleId, cancellationToken))
                     .ConfigureAwait(false)
@@ -343,6 +357,10 @@ public sealed class ArticleMutationSideEffectCoordinator(
             if (!await RunEdgeAsync(ArticleMutationReplayEdges.SearchProjection, () => searchProjector.DeleteAsync(articleId))
                     .ConfigureAwait(false)
                 || !await RunEdgeAsync(
+                        ArticleMutationReplayEdges.TaxonomyProjection,
+                        () => taxonomyProjection.ReconcileArticleAsync(articleId, cancellationToken))
+                    .ConfigureAwait(false)
+                || !await RunEdgeAsync(
                         ArticleMutationReplayEdges.ArticleDetailAeds,
                         () => articleDetailArtifacts.RemoveAsync(articleId, cancellationToken))
                     .ConfigureAwait(false)
@@ -366,6 +384,10 @@ public sealed class ArticleMutationSideEffectCoordinator(
         async Task<ArticleMutationReplayResult> ReplayMissingArticleEdgesAsync(string normalized)
         {
             if (!await RunEdgeAsync(ArticleMutationReplayEdges.SearchProjection, () => searchProjector.DeleteAsync(articleId))
+                    .ConfigureAwait(false)
+                || !await RunEdgeAsync(
+                        ArticleMutationReplayEdges.TaxonomyProjection,
+                        () => taxonomyProjection.ReconcileArticleAsync(articleId, cancellationToken))
                     .ConfigureAwait(false)
                 || !await RunEdgeAsync(
                         ArticleMutationReplayEdges.ArticleDetailAeds,

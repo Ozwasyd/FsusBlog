@@ -208,13 +208,11 @@ public sealed class CacheInvalidationDispatcher(
                 new(CachePolicyId.AdminStatsRecentComments, "core:main"),
                 new(CachePolicyId.AdminStatsRegions, "main"),
                 new(CachePolicyId.AdminStatsRegions, "core:main"),
-                new(CachePolicyId.AdminStatsFrame, "core:main"),
-                new(CachePolicyId.CategoryFrame, "all"),
-                new(CachePolicyId.TagFrame, "all")
+                new(CachePolicyId.AdminStatsFrame, "core:main")
             ],
             cancellationToken);
         long hotVersion = PublishHotArticlesVersion("article-mutation");
-        await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList, CacheTag.HotArticles, CacheTag.Stats);
+        await httpCacheInvalidator.InvalidateAsync(CacheTag.ArticleList, CacheTag.HotArticles, CacheTag.Stats);
         await RecordRuntimeAsync("article", articleId is > 0 ? $"article:{articleId.Value};hot:v{hotVersion};search:v{searchVersion}" : $"all;hot:v{hotVersion};search:v{searchVersion}", cancellationToken);
     }
 
@@ -241,6 +239,7 @@ public sealed class CacheInvalidationDispatcher(
 
     public async Task InvalidateCategoryTagAsync(CancellationToken cancellationToken = default)
     {
+        await cache.IncrementAsync(CachePolicyId.TaxonomyFrameVersion, "main", 1, cancellationToken);
         await cache.RemoveManyAsync(
             [
                 new(CachePolicyId.CategoryFrame, "all"),
