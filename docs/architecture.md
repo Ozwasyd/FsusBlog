@@ -163,6 +163,8 @@ IPublicAotRouteRegistry
 
 测试 fixture 不得把可复用密码、JWT signing key、生产域名或固定数据库行 ID 写成源码默认值。需要伪造本地 session 的 Playwright / smoke 脚本必须显式使用 `loginWithFixtureSessionBypass`，并通过 `FSUSBLOG_TEST_SESSION_SECRET` 或测试专用 `Jwt__SecretKey` 提供短期签名密钥；会执行 SQL 的 fixture 只能连接 `fsusblog-dev*`、`fsusblog-test*` 或 `fsusblog-ci*` 容器。生成的 `.playwright-fixtures` storage-state 属于本地临时凭据，运行后应清理，不参与提交、缓存或跨环境复用。
 
+部署与 CI 供应链同样属于运行时边界：OpenResty 模板收口 TLS/HSTS/跨源安全头，生产配置显式覆盖 `AllowedHosts`，Docker build context 排除 `.env` 系列本地机密；GitHub Actions 使用 SHA pinning，Dockerfile 对 vcpkg commit 与 wasm release artifact checksum fail closed。`check:infra-security-governance` 负责防止这些部署护栏退化。
+
 ### Public Route Identity
 
 公开页路由身份采用集中规范，避免服务端与预热脚本各自推导：

@@ -53,6 +53,7 @@
     "check:error-code-alignment": "node ../../tests/frontend/checks/static/check-error-code-alignment.mjs",
     "check:no-runtime-message-branching": "node ../../tests/frontend/checks/static/check-no-runtime-message-branching.mjs",
     "check:security-consistency": "node ../../tests/frontend/checks/static/check-security-consistency.mjs",
+    "check:infra-security-governance": "node ../../tests/frontend/checks/static/check-infra-security-governance.mjs",
     "check:test-fixture-secret-governance": "node ../../tests/frontend/checks/static/check-test-fixture-secret-governance.mjs",
     "check:server-try-catch": "node ../../tests/frontend/checks/static/check-server-try-catch.mjs",
     "check:telemetry-privacy": "node ../../tests/frontend/checks/static/check-telemetry-privacy.mjs",

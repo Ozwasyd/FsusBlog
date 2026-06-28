@@ -372,6 +372,12 @@ FsusBlog 采用三级角色体系：
 - 测试代码不得内置可复用的 admin/user 密码、JWT signing key 或生产域名配置；需要登录真实 UI 的验收脚本必须从 `FSUSBLOG_USER_PASSWORD` / `FSUSBLOG_ADMIN_PASSWORD` 读取，fixture token 生成必须显式提供 `FSUSBLOG_TEST_SESSION_SECRET` 或测试环境专用 `Jwt__SecretKey`。
 - Playwright / smoke fixture 允许使用 `loginWithFixtureSessionBypass` 直接生成本地测试 session，但该名称必须保持显式，不得重新包装成密码登录语义。生成的 storage-state 凭据属于短期本地工件，运行后应清理，不得提交或长期保留。
 - 会执行 SQL 的 fixture 脚本只允许连接名称匹配 `fsusblog-dev*`、`fsusblog-test*` 或 `fsusblog-ci*` 的容器；对 admin draft 的 raw cookie replay cleanup 只能指向 localhost / 127.0.0.1 / ::1 后端。
+
+## 部署与 CI 供应链护栏
+
+- 生产 OpenResty 模板必须显式限定 `TLSv1.2 TLSv1.3`、固定现代 AEAD cipher/curve、关闭 session tickets，并使用 `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`。网关必须提供 CSP、COOP、COEP、CORP 与 `X-Permitted-Cross-Domain-Policies: none` 作为应用层 sanitizer 之外的防线。
+- `appsettings.Production.json` 必须显式声明生产 `AllowedHosts`，不得依赖基础配置里的 wildcard；Docker build context 必须忽略 `.env` / `.env.*`，仅允许示例模板进入上下文。
+- GitHub Actions 的 `uses:` 必须 pin 到 40 位 commit SHA，并在注释里保留原版本 tag。Dockerfile 只接受 detached checkout 到固定 `VCPKG_COMMIT`，外部 wasm release artifact 必须带 `SHA256SUMS` 并在 frontend build stage 校验。
 - related-reading 只基于公开文章的分类、标签、正文关键词和发布时间生成，不使用点赞、收藏、关注、登录用户、订阅邮箱或用户画像；端点和 PublicAOT 共用同一服务，防止 SPA/AOT 暴露面分叉。
 - SEO 预览只读取当前表单和站点 SEO 配置；canonical/slug/OG image 预览不得对外生成路由或缓存。发布/定时发布前检查返回的 `error` 必须阻断提交，覆盖危险 HTML、未闭合代码块、不安全协议、私有站内路径和无效 public route 格式；`warning` 只能在作者填写跳过理由后继续提交，并由服务端记录 `prepublish-warning-override` 审计事件，不能自动降级为公开可见内容。
 - 统一 SEO/品牌配置的 favicon、PWA icon、logo、wordmark、admin/login 图标 URL 只能保存空值、站内绝对路径或 `http/https` 绝对 URL；后端拒绝 `javascript:`、`data:`、协议相对 URL 和空字节。外部图片展示只扩展 `img-src`，不得扩展 script/style/connect CSP。当前品牌资产字段只引用已存在上传/静态资源；如果后续支持 SVG 原文上传或服务端转存，必须先做 MIME/header 校验与 SVG 脚本/外链清洗，并继续走 admin + PoW + 审计链路。

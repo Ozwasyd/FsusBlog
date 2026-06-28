@@ -49,7 +49,8 @@ const clientDir = process.env.CLIENT_DIR;
 const entries = fs.readdirSync(artifactDir, { withFileTypes: true });
 const files = entries.filter((entry) => entry.isFile()).map((entry) => entry.name).sort();
 const manifestName = path.basename(manifestPath);
-const invalidFiles = files.filter((name) => !name.endsWith('.js') && !name.endsWith('.wasm') && name !== manifestName);
+const checksumName = 'SHA256SUMS';
+const invalidFiles = files.filter((name) => !name.endsWith('.js') && !name.endsWith('.wasm') && name !== manifestName && name !== checksumName);
 if (invalidFiles.length > 0) {
   console.error(`[build-wasm-artifact] fatal: artifact directory contains unsupported files: ${invalidFiles.join(', ')}`);
   process.exit(1);
@@ -62,7 +63,7 @@ if (!fs.existsSync(manifestPath)) {
 
 const manifest = parseManifest(fs.readFileSync(manifestPath, 'utf8'));
 const requiredFiles = Array.isArray(manifest.outputFiles) ? [...manifest.outputFiles].sort() : [];
-const actualOutputFiles = files.filter((name) => name !== manifestName).sort();
+const actualOutputFiles = files.filter((name) => name !== manifestName && name !== checksumName).sort();
 
 if (requiredFiles.length !== actualOutputFiles.length ||
     requiredFiles.some((name, index) => name !== actualOutputFiles[index])) {
@@ -138,5 +139,11 @@ function parseManifest(raw) {
   return manifest;
 }
 EOF
+
+(
+  cd "${ARTIFACT_DIR}"
+  find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\0' | sort -z | xargs -0 sha256sum > SHA256SUMS
+  sha256sum -c SHA256SUMS >/dev/null
+)
 
 log "artifact ready at ${ARTIFACT_DIR}"

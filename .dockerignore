@@ -4,6 +4,10 @@
 .idea/
 .DS_Store
 Thumbs.db
+.env
+.env.*
+!.env.example
+!.env.production-template
 
 **/bin/
 **/obj/

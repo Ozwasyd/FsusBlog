@@ -46,7 +46,8 @@ COPY src/frontend/ /work/FsusBlog.Client/
 
 RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg && \
     cd /opt/vcpkg && \
-    git checkout "${VCPKG_COMMIT}" && \
+    git -c advice.detachedHead=false checkout --detach "${VCPKG_COMMIT}" && \
+    test "$(git rev-parse HEAD)" = "${VCPKG_COMMIT}" && \
     /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 
 RUN bash -lc 'set -euo pipefail; \
@@ -161,6 +162,7 @@ COPY src/shared/ /src/shared/
 RUN mkdir -p /src && ln -sfn /app /src/frontend
 COPY build/artifacts/wasm-release/ ./public/wasm/
 
+RUN test -f public/wasm/SHA256SUMS && sha256sum -c public/wasm/SHA256SUMS
 RUN node ../../tools/frontend/ensure-wasm.mjs status
 
 RUN npm run build:release
