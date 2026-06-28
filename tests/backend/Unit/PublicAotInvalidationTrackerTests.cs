@@ -140,6 +140,58 @@ public sealed class PublicAotInvalidationTrackerTests
     }
 
     [Fact]
+    public async Task InvalidateArticleMutationAsync_BumpsListingVersionsWithoutPrefixScanning()
+    {
+        var tracker = new PublicAotInvalidationTracker();
+        var cache = new RecordingAotCache();
+        var scheduler = new RecordingBackfillScheduler();
+        var service = new PublicAotInvalidationService(
+            cache,
+            new DefaultRuntimeKeyScope(),
+            tracker,
+            scheduler,
+            new RecordingRouteManifestProvider(),
+            new PublicHotReadStore(),
+            new FixedTestSessionKeyScope(null),
+            new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
+            NullLogger<PublicAotInvalidationService>.Instance);
+        string homeKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Home, "home");
+        string homePrefixKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Home, string.Empty);
+        string articleKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.ArticleDetail, "article:42");
+        string articlePrefixKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.ArticleDetail, string.Empty);
+        string filterKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, "category:7");
+        string filterPrefixKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, string.Empty);
+        var homeRequest = new PublicAotBackfillRequest(PublicPageKind.Home, "home", "/", string.Empty, homeKey)
+        {
+            PagePrefixKey = homePrefixKey,
+            ScheduledInvalidationVersion = tracker.GetCurrentVersion(homeKey, homePrefixKey)
+        };
+        var articleRequest = new PublicAotBackfillRequest(PublicPageKind.ArticleDetail, "article:42", "/article/42", string.Empty, articleKey)
+        {
+            PagePrefixKey = articlePrefixKey,
+            ScheduledInvalidationVersion = tracker.GetCurrentVersion(articleKey, articlePrefixKey)
+        };
+        var filterRequest = new PublicAotBackfillRequest(PublicPageKind.Filter, "category:7", "/category/7", string.Empty, filterKey)
+        {
+            PagePrefixKey = filterPrefixKey,
+            ScheduledInvalidationVersion = tracker.GetCurrentVersion(filterKey, filterPrefixKey)
+        };
+
+        await service.InvalidateArticleMutationAsync(42, [7], [9]);
+
+        Assert.Empty(cache.PrefixesRemoved);
+        Assert.Contains(articleKey, cache.KeysRemoved);
+        Assert.Contains(filterKey, cache.KeysRemoved);
+        Assert.True(tracker.WasInvalidatedAfter(homeRequest));
+        Assert.True(tracker.WasInvalidatedAfter(articleRequest));
+        Assert.True(tracker.WasInvalidatedAfter(filterRequest));
+        Assert.Contains(scheduler.Requests, request => request.RouteKey == "home");
+        Assert.Contains(scheduler.Requests, request => request.RouteKey == "archive");
+        Assert.Contains(scheduler.Requests, request => request.RouteKey == "category:7");
+        Assert.Contains(scheduler.Requests, request => request.RouteKey == "tag:9");
+    }
+
+    [Fact]
     public void TrackerSource_DoesNotRebuildUnscopedPagePrefix()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "PublicAot", "PublicAotInvalidationTracker.cs"));
@@ -151,6 +203,10 @@ public sealed class PublicAotInvalidationTrackerTests
     {
         public bool InvalidatedAll { get; private set; }
 
+        public List<string> KeysRemoved { get; } = [];
+
+        public List<string> PrefixesRemoved { get; } = [];
+
         public Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
             => Task.FromResult<PublicAotCacheEntry?>(null);
 
@@ -161,13 +217,22 @@ public sealed class PublicAotInvalidationTrackerTests
             => Task.CompletedTask;
 
         public Task RemoveAsync(string cacheKey, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        {
+            KeysRemoved.Add(cacheKey);
+            return Task.CompletedTask;
+        }
 
         public Task RemoveManyAsync(IReadOnlyCollection<string> cacheKeys, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        {
+            KeysRemoved.AddRange(cacheKeys);
+            return Task.CompletedTask;
+        }
 
         public Task RemoveByPrefixAsync(string prefix, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        {
+            PrefixesRemoved.Add(prefix);
+            return Task.CompletedTask;
+        }
 
         public Task InvalidateAllAsync(CancellationToken cancellationToken = default)
         {

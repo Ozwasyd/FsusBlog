@@ -60,7 +60,9 @@ public sealed class PublicAotShellService(
 
     public async Task<PublicAotCacheEntry?> RenderAsync(HttpContext context, PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
-        string documentCacheKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
+        string baseDocumentCacheKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
+        string pagePrefixKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty));
+        string documentCacheKey = ResolveVersionedDocumentCacheKey(match.PageId, baseDocumentCacheKey, pagePrefixKey);
         string frontendAssetVersion = assetManifest.GetFrontendAssetVersion(context);
         string assetMode = ResolveAssetMode(frontendAssetVersion);
         context.Items[PublicAotAssetModeContextKey] = assetMode;
@@ -83,7 +85,6 @@ public sealed class PublicAotShellService(
             return entry;
         }
 
-        string pagePrefixKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty));
         if (entry is not null)
         {
             await cache.RemoveAsync(documentCacheKey, cancellationToken);
@@ -267,6 +268,20 @@ public sealed class PublicAotShellService(
         => string.Equals(frontendAssetVersion, SpaAssetManifestService.DevSourceAssetVersion, StringComparison.Ordinal)
             ? SpaAssetManifestService.DevSourceAssetVersion
             : "prod-manifest";
+
+    private string ResolveVersionedDocumentCacheKey(PublicPageId pageId, string cacheKey, string pagePrefixKey)
+    {
+        if (!UsesListVersion(pageId))
+        {
+            return cacheKey;
+        }
+
+        long version = invalidationTracker.GetCurrentVersion(cacheKey, pagePrefixKey);
+        return string.Concat(cacheKey, ":lv:", version.ToString());
+    }
+
+    private static bool UsesListVersion(PublicPageId pageId)
+        => pageId is PublicPageId.Home or PublicPageId.Archive or PublicPageId.Filter;
 
     private async Task<Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)>> BuildBackfillDocumentAsync(
         PublicAotBackfillRequest request,

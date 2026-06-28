@@ -68,7 +68,7 @@ public sealed class PublicAotShellServiceTests
         PublicAotBackfillRequest request = Assert.Single(scheduler.Requests);
         Assert.Equal(match.Kind, request.Kind);
         Assert.Equal(match.RouteKey, request.RouteKey);
-        Assert.Equal(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey), request.CacheKey);
+        Assert.Equal(VersionedListKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey)), request.CacheKey);
         Assert.Equal(CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty), request.PagePrefixKey);
         Assert.Empty(cache.RemovedKeys);
     }
@@ -151,7 +151,7 @@ public sealed class PublicAotShellServiceTests
 
         PublicAotBackfillRequest request = Assert.Single(scheduler.Requests);
         Assert.Equal("pw-0", request.TestSessionId);
-        Assert.Equal($"e2e:pw-0:{CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey)}", request.CacheKey);
+        Assert.Equal(VersionedListKey($"e2e:pw-0:{CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey)}"), request.CacheKey);
         Assert.Equal($"e2e:pw-0:{CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty)}", request.PagePrefixKey);
     }
 
@@ -183,7 +183,7 @@ public sealed class PublicAotShellServiceTests
         Assert.Null(rendered);
         Assert.Equal("spa-fallback", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
         Assert.Equal("queued", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
-        Assert.Collection(cache.RemovedKeys, removed => Assert.Equal(cacheKey, removed));
+        Assert.Collection(cache.RemovedKeys, removed => Assert.Equal(VersionedListKey(cacheKey), removed));
         Assert.Single(scheduler.Requests);
     }
 
@@ -255,8 +255,45 @@ public sealed class PublicAotShellServiceTests
         Assert.Equal("spa-fallback", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
         Assert.Equal("queued", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
         Assert.Equal("fallback", context.Items[PublicAotShellService.PublicAotStateContextKey]);
-        Assert.Collection(cache.RemovedKeys, removed => Assert.Equal(cacheKey, removed));
+        Assert.Collection(cache.RemovedKeys, removed => Assert.Equal(VersionedListKey(cacheKey), removed));
         Assert.Single(scheduler.Requests);
+    }
+
+    [Fact]
+    public async Task RenderAsync_WhenListVersionBumps_UsesVersionedDocumentKeyInsteadOfOldKey()
+    {
+        var match = HomeMatch();
+        string baseCacheKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey);
+        var cache = new RecordingAotCache
+        {
+            EntriesByKey =
+            {
+                [VersionedListKey(baseCacheKey, 0)] = new PublicAotCacheEntry
+                {
+                    CacheKey = VersionedListKey(baseCacheKey, 0),
+                    RouteKey = match.RouteKey,
+                    PageId = match.PageId,
+                    Source = PublicAotWriteSource.ServerSsrBackfill,
+                    RendererVersion = PublicAotShellService.PublicRendererVersion,
+                    FrontendAssetVersion = "frontend-v1",
+                    ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(5),
+                    Value = "<!doctype html><html><body>old-list</body></html>"
+                }
+            }
+        };
+        var tracker = new PublicAotInvalidationTracker();
+        tracker.MarkKey(baseCacheKey);
+        var scheduler = new RecordingBackfillScheduler();
+        PublicAotShellService sut = CreateService(match, cache, scheduler, invalidationTracker: tracker);
+        var context = new DefaultHttpContext();
+
+        PublicAotCacheEntry? rendered = await sut.RenderAsync(context, match);
+
+        Assert.Null(rendered);
+        Assert.Contains(VersionedListKey(baseCacheKey, 1), cache.RequestedKeys);
+        Assert.DoesNotContain(baseCacheKey, cache.RequestedKeys);
+        PublicAotBackfillRequest request = Assert.Single(scheduler.Requests);
+        Assert.Equal(VersionedListKey(baseCacheKey, 1), request.CacheKey);
     }
 
     [Fact]
@@ -377,7 +414,8 @@ public sealed class PublicAotShellServiceTests
         ISpaAssetManifestService? assetManifest = null,
         PublicAotSsrRuntimeState? runtimeState = null,
         IPublicAotEntryRenderer? entryRenderer = null,
-        IDbConcurrencyGate? dbConcurrencyGate = null)
+        IDbConcurrencyGate? dbConcurrencyGate = null,
+        PublicAotInvalidationTracker? invalidationTracker = null)
         => new(
             dbConcurrencyGate ?? Substitute.For<IDbConcurrencyGate>(),
             new FixedRouteRegistry(match),
@@ -389,9 +427,12 @@ public sealed class PublicAotShellServiceTests
             scheduler,
             assetManifest ?? new FixedAssetManifestService("frontend-v1"),
             runtimeKeyScope ?? new DefaultRuntimeKeyScope(),
-            new PublicAotInvalidationTracker(),
+            invalidationTracker ?? new PublicAotInvalidationTracker(),
             runtimeState ?? new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
             NullLogger<PublicAotShellService>.Instance);
+
+    private static string VersionedListKey(string cacheKey, long version = 0)
+        => string.Concat(cacheKey, ":lv:", version.ToString());
 
     private static IEnumerable<IPublicAotBootstrapProvider> CreateBootstrapProviders()
     {
@@ -417,13 +458,21 @@ public sealed class PublicAotShellServiceTests
     private sealed class RecordingAotCache : IPublicAotShellCache
     {
         public PublicAotCacheEntry? Entry { get; init; }
+        public Dictionary<string, PublicAotCacheEntry> EntriesByKey { get; } = new(StringComparer.Ordinal);
+        public List<string> RequestedKeys { get; } = [];
         public List<string> RemovedKeys { get; } = [];
 
         public Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
-            => Task.FromResult(Entry);
+        {
+            RequestedKeys.Add(cacheKey);
+            return Task.FromResult(EntriesByKey.TryGetValue(cacheKey, out PublicAotCacheEntry? entry) ? entry : Entry);
+        }
 
         public Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, string? frontendAssetVersion, CancellationToken cancellationToken = default)
-            => Task.FromResult(Entry);
+        {
+            RequestedKeys.Add(cacheKey);
+            return Task.FromResult(EntriesByKey.TryGetValue(cacheKey, out PublicAotCacheEntry? entry) ? entry : Entry);
+        }
 
         public Task SetAsync(PublicAotCacheEntry entry, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
