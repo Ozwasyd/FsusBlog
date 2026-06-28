@@ -317,18 +317,6 @@ public partial class CommentService(
         long generatedId = 0;
         var insertResult = await db.Ado.UseTranAsync(async () =>
         {
-            if (enforceAnonymousNullifier)
-            {
-                NullifierReservationResult reservation = await anonymousNullifierService!.CheckAndReserveAsync(
-                    actor.AnonymousNullifierHash!,
-                    actor.AnonymousScope!,
-                    cancellationToken);
-                if (!reservation.Allowed)
-                {
-                    throw new AnonymousNullifierRejectedException(reservation.Status, reservation.Message);
-                }
-            }
-
             if (!await LockVisibleCommentTargetAsync(articleId, parentId, rootId, now, cancellationToken))
             {
                 throw new CommentTargetNotVisibleException();
@@ -345,16 +333,14 @@ public partial class CommentService(
 
             if (enforceAnonymousNullifier)
             {
-                bool incremented = await anonymousNullifierService!.IncrementUsageAsync(
+                NullifierReservationResult consume = await anonymousNullifierService!.TryConsumeAsync(
                     actor.AnonymousNullifierHash!,
                     actor.AnonymousScope!,
                     generatedId,
                     cancellationToken);
-                if (!incremented)
+                if (!consume.Allowed)
                 {
-                    throw new AnonymousNullifierRejectedException(
-                        "scope_limit_exceeded",
-                        "Anonymous nullifier usage could not be incremented.");
+                    throw new AnonymousNullifierRejectedException(consume.Status, consume.Message);
                 }
             }
         });

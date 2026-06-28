@@ -139,29 +139,39 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
-    public void CommentService_EnforcesAnonymousNullifierBeforeCommitAndIncrementsAfterInsert()
+    public void CommentService_EnforcesAnonymousNullifierWithAtomicConsumeBeforeCommit()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
+        string create = source[
+            source.IndexOf("private async Task<bool> CreateResolvedCommentAsync", StringComparison.Ordinal)..
+            source.IndexOf("private async Task<ReplyTargetRow?> LoadVisibleReplyTargetAsync", StringComparison.Ordinal)];
 
         Assert.Contains("ICommentAnonymousNullifierService", source, StringComparison.Ordinal);
         Assert.Contains("RequiresAnonymousNullifierEnforcement(actor)", source, StringComparison.Ordinal);
-        Assert.Contains("CheckAndReserveAsync", source, StringComparison.Ordinal);
-        Assert.Contains("IncrementUsageAsync", source, StringComparison.Ordinal);
-        Assert.Contains("db.Ado.UseTranAsync(async () =>", source, StringComparison.Ordinal);
-        Assert.Contains("AnonymousNullifierRejectedException", source, StringComparison.Ordinal);
+        Assert.Contains("db.Ado.UseTranAsync(async () =>", create, StringComparison.Ordinal);
+        Assert.Contains("TryConsumeAsync", create, StringComparison.Ordinal);
+        Assert.DoesNotContain("CheckAndReserveAsync", create, StringComparison.Ordinal);
+        Assert.DoesNotContain("IncrementUsageAsync", create, StringComparison.Ordinal);
+        Assert.Contains("AnonymousNullifierRejectedException", create, StringComparison.Ordinal);
         Assert.Contains("CommentAuthorModes.ZkAnonymous", source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void NullifierService_UsesAtomicReservationAndLimitAwareIncrement()
+    public void NullifierService_UsesPrecheckAndAtomicConsume()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CommentAnonymousNullifierService.cs");
 
+        Assert.Contains("PrecheckAsync", source, StringComparison.Ordinal);
+        Assert.Contains("TryConsumeAsync", source, StringComparison.Ordinal);
         Assert.Contains("ON CONFLICT (nullifier_hash, scope) DO NOTHING", source, StringComparison.Ordinal);
+        Assert.Contains("ON CONFLICT (nullifier_hash, scope) DO UPDATE", source, StringComparison.Ordinal);
         Assert.Contains("UPDATE comment_anonymous_nullifier", source, StringComparison.Ordinal);
-        Assert.Contains("use_count = use_count + 1", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("use_count = comment_anonymous_nullifier.use_count + 1", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("first_comment_id = COALESCE(comment_anonymous_nullifier.first_comment_id, @CommentId)", source, StringComparison.Ordinal);
         Assert.Contains("use_count < @MaxUseCount", source, StringComparison.Ordinal);
-        Assert.Contains("RETURNING blocked, use_count", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("RETURNING true AS allowed, 'reserved'::text AS status, use_count", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("RecordAnonymousNullifierPrecheck", source, StringComparison.Ordinal);
+        Assert.Contains("RecordAnonymousNullifierAtomicIncrement", source, StringComparison.Ordinal);
         Assert.DoesNotContain("FOR UPDATE", source, StringComparison.Ordinal);
         Assert.DoesNotContain("n.UseCount < maxUseCount", source, StringComparison.Ordinal);
         Assert.Contains("\"scope_limit_exceeded\"", source, StringComparison.Ordinal);

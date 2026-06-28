@@ -42,6 +42,7 @@ public static class FsusObservability
         "fsus.admin.account_list.keyword_type",
         "fsus.admin.account_list.page",
         "fsus.admin.account_list.page_size",
+        "fsus.anonymous_nullifier.status",
         "fsus.background.backlog",
         "fsus.background.failed",
         "fsus.background.job",
@@ -186,6 +187,10 @@ public static class FsusObservability
     private static readonly Histogram<double> ReadinessSnapshotFreshCheckElapsed = Meter.CreateHistogram<double>("fsus.readiness.snapshot.fresh_check_elapsed_ms", "ms");
     private static readonly Counter<long> ReadinessSnapshotDependencyCheckCount = Meter.CreateCounter<long>("fsus.readiness.snapshot.dependency_check_count");
     private static readonly Histogram<double> ReadinessSnapshotAge = Meter.CreateHistogram<double>("fsus.readiness.snapshot.age_ms", "ms");
+    private static readonly Counter<long> AnonymousNullifierPrecheckCount = Meter.CreateCounter<long>("fsus.anonymous_nullifier.precheck_count");
+    private static readonly Histogram<double> AnonymousNullifierAtomicIncrementElapsed = Meter.CreateHistogram<double>("fsus.anonymous_nullifier.atomic_increment_elapsed_ms", "ms");
+    private static readonly Counter<long> AnonymousNullifierScopeLimitRejectedCount = Meter.CreateCounter<long>("fsus.anonymous_nullifier.scope_limit_rejected_count");
+    private static readonly Counter<long> AnonymousNullifierBlockedRejectedCount = Meter.CreateCounter<long>("fsus.anonymous_nullifier.blocked_rejected_count");
 
     public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
 
@@ -965,6 +970,46 @@ public static class FsusObservability
             ReadinessSnapshotFreshCheckElapsed.Record(freshCheckElapsed.TotalMilliseconds, tags);
             ReadinessSnapshotDependencyCheckCount.Add(Math.Max(0, dependencyCheckCount), tags);
             ReadinessSnapshotAge.Record(Math.Max(0, snapshotAge.TotalMilliseconds), tags);
+        });
+    }
+
+    public static void RecordAnonymousNullifierPrecheck()
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("anonymous-nullifier", "precheck", "ok");
+            AnonymousNullifierPrecheckCount.Add(1, tags);
+        });
+    }
+
+    public static void RecordAnonymousNullifierAtomicIncrement(TimeSpan elapsed, string status)
+    {
+        TryRecord(() =>
+        {
+            string normalizedStatus = NormalizeTelemetryValue(status, "unknown");
+            TagList tags = CreateBaseTags("anonymous-nullifier", "atomic_increment", normalizedStatus);
+            tags.Add("fsus.anonymous_nullifier.status", normalizedStatus);
+            RecordNonNegativeHistogram(AnonymousNullifierAtomicIncrementElapsed, elapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordAnonymousNullifierRejected(string status)
+    {
+        TryRecord(() =>
+        {
+            string normalizedStatus = NormalizeTelemetryValue(status, "unknown");
+            TagList tags = CreateBaseTags("anonymous-nullifier", "reject", normalizedStatus);
+            tags.Add("fsus.anonymous_nullifier.status", normalizedStatus);
+            if (string.Equals(normalizedStatus, "blocked", StringComparison.Ordinal))
+            {
+                AnonymousNullifierBlockedRejectedCount.Add(1, tags);
+                return;
+            }
+
+            if (string.Equals(normalizedStatus, "scope_limit_exceeded", StringComparison.Ordinal))
+            {
+                AnonymousNullifierScopeLimitRejectedCount.Add(1, tags);
+            }
         });
     }
 

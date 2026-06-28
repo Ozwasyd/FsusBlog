@@ -367,6 +367,8 @@ Binary 文章列表缓存使用 `core:v4:{public|admin}:...:{status}` 身份隔�
 
 [ADR-ZK-CircuitNative-Groth16.md](architecture/decisions/ADR-ZK-CircuitNative-Groth16.md) 是生产匿名评论密码学选型的架构来源：凭证签发使用 circuit-native credential v2，匿名评论证明使用 Groth16 anonymous comment proof。运行时标识固定为 `fsus.anonymous.comment.v2`，AEDS / circuit 绑定使用 `public_input_layout_version = 3`，`verifying_key_hash` 只能来自最终 trusted setup vk hash；credential root / revocation root 和 `nullifier = PRF(credential_secret, action_context, scope)` 是电路与服务端 ticket 校验的共同边界。只要 circuit-native issuer、Groth16、trusted setup、native verifier 或 wasm prover 任一生产组件未就绪，`zk_anonymous` ticket 链路必须保持 fail-closed，不得回退到 deterministic verifier、普通匿名、公开评论或托管网络。
 
+强匿名评论的 nullifier 防重放分为两段：ticket issue 只在 proof 校验后读取 `comment_anonymous_nullifier` 做 blocked/scope-limit 预检查，不预留或递增使用次数；submit 在 `CommentService` 的评论写事务内调用 nullifier consume，用单条 SQL 完成 missing row 插入、blocked/limit 判定、`use_count` 原子递增和 `first_comment_id`/`last_comment_id` 绑定。consume 拒绝时抛出匿名 nullifier rejection 并回滚评论、地区合规和 blocked-region 写入，保留并发 submit 下的单次消费语义，同时减少 issue + submit 重复 DB 往返。
+
 circuit-native credential issuer 私钥是匿名凭证签发根密钥，不属于 web asset、上传资产或备份下载面。`AnonymousCredentialIssuer:CircuitNative:IssuerPrivateKeyPath` 必须指向非 `wwwroot`、非 `uploads`、非 `backups` 的本地文件；Unix mode 必须不宽于 `0600`。该校验是启动就绪边界，失败时中止 issuer 构造，回退只能是修正部署路径或文件权限后重启。
 
 预览输出带 `data-preview-only=true` 和 `data-markdown-renderer=server-preview`，只走 admin JSON API，不写 PublicAOT cache，不进入 feed/search/sitemap。订阅表只保存 email hash 与 channel，避免把站点更新订阅扩展成社交关系链。

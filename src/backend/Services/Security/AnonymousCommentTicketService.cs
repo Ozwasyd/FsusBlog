@@ -142,10 +142,10 @@ public sealed class AnonymousCommentTicketService(
             return AnonymousCommentTicketIssueResult.Failure(AnonymousCommentTicketStatuses.ProofInvalid);
         }
 
-        NullifierReservationResult reservation = await nullifierService.CheckAndReserveAsync(nullifierHash, scope, cancellationToken);
-        if (!reservation.Allowed)
+        NullifierReservationResult precheck = await nullifierService.PrecheckAsync(nullifierHash, scope, cancellationToken);
+        if (!precheck.Allowed)
         {
-            string status = string.Equals(reservation.Status, "blocked", StringComparison.Ordinal)
+            string status = string.Equals(precheck.Status, "blocked", StringComparison.Ordinal)
                 ? AnonymousCommentTicketStatuses.NullifierBlocked
                 : AnonymousCommentTicketStatuses.ScopeLimitExceeded;
             return AnonymousCommentTicketIssueResult.Failure(status);

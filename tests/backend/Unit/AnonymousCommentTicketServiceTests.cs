@@ -165,7 +165,7 @@ public sealed class AnonymousCommentTicketServiceTests
     [Theory]
     [InlineData("blocked", AnonymousCommentTicketStatuses.NullifierBlocked)]
     [InlineData("scope_limit_exceeded", AnonymousCommentTicketStatuses.ScopeLimitExceeded)]
-    public async Task IssueAsync_NullifierReservationFailuresDoNotStoreTicket(string reservationStatus, string expectedStatus)
+    public async Task IssueAsync_NullifierPrecheckFailuresDoNotStoreTicket(string reservationStatus, string expectedStatus)
     {
         var cache = new CapturingUnifiedCache(new MutableTimeProvider(DateTimeOffset.UtcNow));
         var nullifiers = new RecordingNullifierService(new NullifierReservationResult(false, reservationStatus, reservationStatus, 1));
@@ -176,7 +176,20 @@ public sealed class AnonymousCommentTicketServiceTests
         Assert.False(result.Issued);
         Assert.Equal(expectedStatus, result.Status);
         Assert.Empty(cache.Writes);
-        Assert.Single(nullifiers.Reservations);
+        Assert.Single(nullifiers.Prechecks);
+        Assert.Empty(nullifiers.Reservations);
+    }
+
+    [Fact]
+    public void AnonymousCommentTicketIssue_UsesPrecheckInsteadOfReservation()
+    {
+        string ticketService = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCommentTicketService.cs");
+        string issue = ExtractMethodBlock(ticketService, "public async Task<AnonymousCommentTicketIssueResult> IssueAsync");
+        string nullifierService = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CommentAnonymousNullifierService.cs");
+
+        Assert.Contains("PrecheckAsync", issue, StringComparison.Ordinal);
+        Assert.DoesNotContain("CheckAndReserveAsync", issue, StringComparison.Ordinal);
+        Assert.Contains("RecordAnonymousNullifierPrecheck", nullifierService, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -193,16 +206,18 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
-    public async Task IssueAsync_ConcurrentSameNullifierOnlyOneTicketIssued()
+    public async Task IssueAsync_ConcurrentSameNullifierPrechecksWithoutSpendingNullifier()
     {
-        var nullifiers = new SingleWinnerNullifierService();
+        var nullifiers = new ConcurrentPrecheckNullifierService();
         var service = CreateService(nullifierService: nullifiers);
 
         AnonymousCommentTicketIssueResult[] results = await Task.WhenAll(
             Enumerable.Range(0, 16).Select(_ => service.IssueAsync(ValidRequest(), CancellationToken.None)));
 
-        Assert.Equal(1, results.Count(static item => item.Issued));
-        Assert.Equal(15, results.Count(static item => item.Status == AnonymousCommentTicketStatuses.ScopeLimitExceeded));
+        Assert.Equal(16, results.Count(static item => item.Issued));
+        Assert.Equal(16, nullifiers.PrecheckCount);
+        Assert.Equal(0, nullifiers.ReservationCount);
+        Assert.Equal(0, nullifiers.ConsumeCount);
     }
 
     [Fact]
@@ -367,6 +382,33 @@ public sealed class AnonymousCommentTicketServiceTests
         return decoded.Value;
     }
 
+    private static string ExtractMethodBlock(string source, string signature)
+    {
+        int start = source.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing method: {signature}");
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart >= 0, $"Missing body: {signature}");
+        int depth = 0;
+        for (int index = braceStart; index < source.Length; index++)
+        {
+            if (source[index] == '{')
+            {
+                depth++;
+            }
+            else if (source[index] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[braceStart..(index + 1)];
+                }
+            }
+        }
+
+        Assert.Fail($"Unclosed method: {signature}");
+        return string.Empty;
+    }
+
     private sealed class FixedRootService(Result<AnonymousCredentialRootSnapshotCoreModel> result) : IAnonymousCredentialRootService
     {
         public Task<Result<AnonymousCredentialRootSnapshotCoreModel>> GetCurrentSnapshotAsync(CancellationToken cancellationToken = default)
@@ -418,13 +460,24 @@ public sealed class AnonymousCommentTicketServiceTests
     {
         private readonly NullifierReservationResult _result = result ?? new(true, "reserved", "reserved", 0);
 
+        public List<(string NullifierHash, string Scope)> Prechecks { get; } = [];
+
         public List<(string NullifierHash, string Scope)> Reservations { get; } = [];
+
+        public Task<NullifierReservationResult> PrecheckAsync(string nullifierHash, string scope, CancellationToken cancellationToken = default)
+        {
+            Prechecks.Add((nullifierHash, scope));
+            return Task.FromResult(_result);
+        }
 
         public Task<NullifierReservationResult> CheckAndReserveAsync(string nullifierHash, string scope, CancellationToken cancellationToken = default)
         {
             Reservations.Add((nullifierHash, scope));
             return Task.FromResult(_result);
         }
+
+        public Task<NullifierReservationResult> TryConsumeAsync(string nullifierHash, string scope, long commentId, CancellationToken cancellationToken = default)
+            => Task.FromResult(_result);
 
         public Task<bool> IncrementUsageAsync(string nullifierHash, string scope, long commentId, CancellationToken cancellationToken = default)
             => Task.FromResult(true);
@@ -433,16 +486,32 @@ public sealed class AnonymousCommentTicketServiceTests
             => Task.FromResult(true);
     }
 
-    private sealed class SingleWinnerNullifierService : ICommentAnonymousNullifierService
+    private sealed class ConcurrentPrecheckNullifierService : ICommentAnonymousNullifierService
     {
-        private int _winnerIssued;
+        private int _precheckCount;
+        private int _reservationCount;
+        private int _consumeCount;
+
+        public int PrecheckCount => _precheckCount;
+        public int ReservationCount => _reservationCount;
+        public int ConsumeCount => _consumeCount;
+
+        public Task<NullifierReservationResult> PrecheckAsync(string nullifierHash, string scope, CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _precheckCount);
+            return Task.FromResult(new NullifierReservationResult(true, "prechecked", "prechecked", 0));
+        }
 
         public Task<NullifierReservationResult> CheckAndReserveAsync(string nullifierHash, string scope, CancellationToken cancellationToken = default)
         {
-            bool winner = Interlocked.CompareExchange(ref _winnerIssued, 1, 0) == 0;
-            return Task.FromResult(winner
-                ? new NullifierReservationResult(true, "reserved", "reserved", 0)
-                : new NullifierReservationResult(false, "scope_limit_exceeded", "scope_limit_exceeded", 1));
+            Interlocked.Increment(ref _reservationCount);
+            return Task.FromResult(new NullifierReservationResult(false, "scope_limit_exceeded", "scope_limit_exceeded", 1));
+        }
+
+        public Task<NullifierReservationResult> TryConsumeAsync(string nullifierHash, string scope, long commentId, CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _consumeCount);
+            return Task.FromResult(new NullifierReservationResult(true, "reserved", "reserved", 1));
         }
 
         public Task<bool> IncrementUsageAsync(string nullifierHash, string scope, long commentId, CancellationToken cancellationToken = default)

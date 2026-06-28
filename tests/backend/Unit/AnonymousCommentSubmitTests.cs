@@ -77,16 +77,65 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         Assert.Equal(RegionCodes.Singapore, compliance.SubmitRegion);
         Assert.True(compliance.CanPublish);
 
-        var increment = Assert.Single(nullifiers.Increments);
-        Assert.Equal(NullifierHash, increment.NullifierHash);
-        Assert.Equal("article:42", increment.Scope);
-        Assert.Equal(comment.Id, increment.CommentId);
+        var consume = Assert.Single(nullifiers.Consumes);
+        Assert.Equal(NullifierHash, consume.NullifierHash);
+        Assert.Equal("article:42", consume.Scope);
+        Assert.Equal(comment.Id, consume.CommentId);
+        Assert.Empty(nullifiers.Reservations);
+        Assert.Empty(nullifiers.Increments);
 
         CommentCacheInvalidationScope scope = Assert.Single(dispatcher.CommentScopes)!;
         Assert.Equal(42, scope.ArticleId);
         Assert.Equal(comment.Id, scope.RootId);
         Assert.Null(scope.AccountId);
         Assert.False(scope.PublicArticleChanged);
+    }
+
+    [Fact]
+    public void CreateStrongAnonymousCommentAsync_UsesAtomicNullifierConsume()
+    {
+        string comments = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
+        string create = ExtractMethodBlock(comments, "private async Task<bool> CreateResolvedCommentAsync");
+        string nullifier = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CommentAnonymousNullifierService.cs");
+        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
+
+        Assert.Contains("TryConsumeAsync", create, StringComparison.Ordinal);
+        Assert.DoesNotContain("CheckAndReserveAsync", create, StringComparison.Ordinal);
+        Assert.DoesNotContain("IncrementUsageAsync", create, StringComparison.Ordinal);
+        Assert.Contains("WITH consumed AS", nullifier, StringComparison.Ordinal);
+        Assert.Contains("ON CONFLICT (nullifier_hash, scope) DO UPDATE", nullifier, StringComparison.Ordinal);
+        Assert.Contains("use_count = comment_anonymous_nullifier.use_count + 1", nullifier, StringComparison.Ordinal);
+        Assert.Contains("first_comment_id = COALESCE(comment_anonymous_nullifier.first_comment_id, @CommentId)", nullifier, StringComparison.Ordinal);
+        Assert.Contains("RecordAnonymousNullifierAtomicIncrement", nullifier, StringComparison.Ordinal);
+        Assert.Contains("fsus.anonymous_nullifier.precheck_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.anonymous_nullifier.atomic_increment_elapsed_ms", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.anonymous_nullifier.scope_limit_rejected_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.anonymous_nullifier.blocked_rejected_count", observability, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CommentAnonymousNullifierService_TryConsumeAsync_InsertsAndLinksFirstUse()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        PostgresSqlSugarTestClient.InitTables(db, typeof(CommentAnonymousNullifier));
+        var service = new CommentAnonymousNullifierService(db, BuildConfiguration());
+
+        NullifierReservationResult result = await service.TryConsumeAsync(
+            NullifierHash,
+            "article:42",
+            commentId: 1234,
+            CancellationToken.None);
+
+        Assert.True(result.Allowed);
+        Assert.Equal("reserved", result.Status);
+        Assert.Equal(1, result.CurrentUseCount);
+        CommentAnonymousNullifier row = Assert.Single(db.Queryable<CommentAnonymousNullifier>().ToList());
+        Assert.Equal(NullifierHash, row.NullifierHash);
+        Assert.Equal("article:42", row.Scope);
+        Assert.Equal(1, row.UseCount);
+        Assert.Equal(1234, row.FirstCommentId);
+        Assert.Equal(1234, row.LastCommentId);
+        Assert.False(row.Blocked);
     }
 
     [Fact]
@@ -185,23 +234,24 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         SeedArticle(db, articleId: 42);
-        var tickets = new RecordingTicketService();
-        tickets.Add(Ticket, TicketPayload(articleId: 42));
-        var nullifiers = new MutatingNullifierService(() => db.Ado.ExecuteCommandAsync(
+        var tickets = new RecordingTicketService(onConsumeAsync: () => db.Ado.ExecuteCommandAsync(
             """
             UPDATE article
             SET isdeleted = true
             WHERE id = @ArticleId;
             """,
             new SugarParameter("@ArticleId", 42)));
+        tickets.Add(Ticket, TicketPayload(articleId: 42));
+        var nullifiers = new RecordingNullifierService();
         CommentService service = CreateService(db, tickets, nullifiers);
 
         bool created = await service.CreateStrongAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None);
 
         Assert.False(created);
         Assert.Equal(0, db.Queryable<Comment>().Count());
-        Assert.False(db.Queryable<Article>().InSingle(42).IsDeleted);
+        Assert.True(db.Queryable<Article>().InSingle(42).IsDeleted);
         Assert.Empty(nullifiers.Increments);
+        Assert.Empty(nullifiers.Consumes);
     }
 
     [Fact]
@@ -211,9 +261,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         CreateTables(db);
         SeedArticle(db, articleId: 42);
         SeedApprovedComment(db, commentId: 100, articleId: 42, userId: 7);
-        var tickets = new RecordingTicketService();
-        tickets.Add(Ticket, TicketPayload(articleId: 42, parentId: 100, rootId: 100, replyToCommentId: 100));
-        var nullifiers = new MutatingNullifierService(() => db.Ado.ExecuteCommandAsync(
+        var tickets = new RecordingTicketService(onConsumeAsync: () => db.Ado.ExecuteCommandAsync(
             """
             UPDATE comment
             SET moderation_status = @HiddenStatus
@@ -221,6 +269,8 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
             """,
             new SugarParameter("@HiddenStatus", (int)CommentModerationStatus.Hidden),
             new SugarParameter("@ParentId", 100L)));
+        tickets.Add(Ticket, TicketPayload(articleId: 42, parentId: 100, rootId: 100, replyToCommentId: 100));
+        var nullifiers = new RecordingNullifierService();
         CommentService service = CreateService(db, tickets, nullifiers);
         AnonymousCommentCreateRequestCoreModel request = CreateRequest(parentId: "100", rootId: "100", replyToCommentId: "100");
 
@@ -228,8 +278,9 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
 
         Assert.False(created);
         Assert.Equal(1, db.Queryable<Comment>().Count());
-        Assert.Equal(CommentModerationStatus.Approved, db.Queryable<Comment>().InSingle(100).ModerationStatus);
+        Assert.Equal(CommentModerationStatus.Hidden, db.Queryable<Comment>().InSingle(100).ModerationStatus);
         Assert.Empty(nullifiers.Increments);
+        Assert.Empty(nullifiers.Consumes);
     }
 
     [Fact]
@@ -790,7 +841,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         return source[startIndex..endIndex];
     }
 
-    private sealed class RecordingTicketService : IAnonymousCommentTicketService
+    private sealed class RecordingTicketService(Func<Task>? onConsumeAsync = null) : IAnonymousCommentTicketService
     {
         private readonly Dictionary<string, AnonymousCommentTicketPayload> _payloads = new(StringComparer.Ordinal);
 
@@ -802,13 +853,21 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         public Task<AnonymousCommentTicketIssueResult> IssueAsync(AnonymousCommentTicketRequestCoreModel request, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public Task<CacheReadResult<AnonymousCommentTicketPayload>> ConsumeTicketAsync(byte[] ticket, CancellationToken cancellationToken = default)
+        public async Task<CacheReadResult<AnonymousCommentTicketPayload>> ConsumeTicketAsync(byte[] ticket, CancellationToken cancellationToken = default)
         {
             ConsumeAttempts++;
             string hash = AnonymousCommentTicketService.HashTicket(ticket);
-            return Task.FromResult(_payloads.Remove(hash, out AnonymousCommentTicketPayload? payload)
-                ? new CacheReadResult<AnonymousCommentTicketPayload>(true, payload)
-                : new CacheReadResult<AnonymousCommentTicketPayload>(false, default));
+            if (!_payloads.Remove(hash, out AnonymousCommentTicketPayload? payload))
+            {
+                return new CacheReadResult<AnonymousCommentTicketPayload>(false, default);
+            }
+
+            if (onConsumeAsync is not null)
+            {
+                await onConsumeAsync();
+            }
+
+            return new CacheReadResult<AnonymousCommentTicketPayload>(true, payload);
         }
     }
 
@@ -818,37 +877,21 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
 
         public List<(string NullifierHash, string Scope, long CommentId)> Increments { get; } = [];
 
+        public List<(string NullifierHash, string Scope, long CommentId)> Consumes { get; } = [];
+
+        public Task<NullifierReservationResult> PrecheckAsync(string nullifierHash, string scope, CancellationToken cancellationToken = default)
+            => Task.FromResult(new NullifierReservationResult(true, "prechecked", "prechecked", 0));
+
         public Task<NullifierReservationResult> CheckAndReserveAsync(string nullifierHash, string scope, CancellationToken cancellationToken = default)
         {
             Reservations.Add((nullifierHash, scope));
             return Task.FromResult(new NullifierReservationResult(true, "reserved", "reserved", 0));
         }
 
-        public Task<bool> IncrementUsageAsync(string nullifierHash, string scope, long commentId, CancellationToken cancellationToken = default)
+        public Task<NullifierReservationResult> TryConsumeAsync(string nullifierHash, string scope, long commentId, CancellationToken cancellationToken = default)
         {
-            Increments.Add((nullifierHash, scope, commentId));
-            return Task.FromResult(true);
-        }
-
-        public Task<bool> BlockAsync(string nullifierHash, string scope, string reason, CancellationToken cancellationToken = default)
-            => Task.FromResult(true);
-    }
-
-    private sealed class MutatingNullifierService(Func<Task> mutateAsync) : ICommentAnonymousNullifierService
-    {
-        private bool _mutated;
-
-        public List<(string NullifierHash, string Scope, long CommentId)> Increments { get; } = [];
-
-        public async Task<NullifierReservationResult> CheckAndReserveAsync(string nullifierHash, string scope, CancellationToken cancellationToken = default)
-        {
-            if (!_mutated)
-            {
-                _mutated = true;
-                await mutateAsync();
-            }
-
-            return new NullifierReservationResult(true, "reserved", "reserved", 0);
+            Consumes.Add((nullifierHash, scope, commentId));
+            return Task.FromResult(new NullifierReservationResult(true, "reserved", "reserved", 1));
         }
 
         public Task<bool> IncrementUsageAsync(string nullifierHash, string scope, long commentId, CancellationToken cancellationToken = default)
@@ -924,6 +967,33 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     {
         public ClientRegionResolution Resolve(HttpContext httpContext)
             => new(RegionCodes.Singapore, "unit", 0.95d, "198.51.100.17", "ip-hash");
+    }
+
+    private static string ExtractMethodBlock(string source, string signature)
+    {
+        int start = source.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing method: {signature}");
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart >= 0, $"Missing body: {signature}");
+        int depth = 0;
+        for (int index = braceStart; index < source.Length; index++)
+        {
+            if (source[index] == '{')
+            {
+                depth++;
+            }
+            else if (source[index] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[braceStart..(index + 1)];
+                }
+            }
+        }
+
+        Assert.Fail($"Unclosed method: {signature}");
+        return string.Empty;
     }
 
     private sealed class NullRiskSignalSink : ISecurityRiskSignalSink

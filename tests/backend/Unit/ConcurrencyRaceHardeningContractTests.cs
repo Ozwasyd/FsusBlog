@@ -6,21 +6,28 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ConcurrencyRaceHardeningContractTests
 {
     [Fact]
-    public void AnonymousNullifierReservation_IsSingleAtomicSpendBeforeCommentInsert()
+    public void AnonymousNullifierConsume_IsSingleAtomicSpendInsideCommentTransaction()
     {
         string nullifier = ReadSource("src/backend/Services/Security/CommentAnonymousNullifierService.cs");
         string comments = ReadSource("src/backend/Services/CommentService.cs");
 
         Assert.Contains("UPDATE comment_anonymous_nullifier", nullifier, StringComparison.Ordinal);
-        Assert.Contains("SET use_count = use_count + 1", nullifier, StringComparison.Ordinal);
-        Assert.Contains("RETURNING blocked, use_count", nullifier, StringComparison.Ordinal);
+        Assert.Contains("WITH consumed AS", nullifier, StringComparison.Ordinal);
+        Assert.Contains("ON CONFLICT (nullifier_hash, scope) DO UPDATE", nullifier, StringComparison.Ordinal);
+        Assert.Contains("SET use_count = comment_anonymous_nullifier.use_count + 1", nullifier, StringComparison.Ordinal);
+        Assert.Contains("first_comment_id = COALESCE(comment_anonymous_nullifier.first_comment_id, @CommentId)", nullifier, StringComparison.Ordinal);
+        Assert.Contains("RETURNING true AS allowed, 'reserved'::text AS status, use_count", nullifier, StringComparison.Ordinal);
         Assert.DoesNotContain("SetColumns(n => n.UseCount", ExtractBetween(nullifier, "public async Task<bool> IncrementUsageAsync", "public async Task<bool> BlockAsync"), StringComparison.Ordinal);
 
         string create = ExtractBetween(comments, "private async Task<bool> CreateResolvedCommentAsync", "private async Task<bool> LockVisibleCommentTargetAsync");
+        string transaction = ExtractBetween(create, "db.Ado.UseTranAsync(async () =>", "});");
+        Assert.Contains("TryConsumeAsync", transaction, StringComparison.Ordinal);
+        Assert.DoesNotContain("CheckAndReserveAsync", create, StringComparison.Ordinal);
+        Assert.DoesNotContain("IncrementUsageAsync", create, StringComparison.Ordinal);
         Assert.True(
-            create.IndexOf("CheckAndReserveAsync", StringComparison.Ordinal) <
-            create.IndexOf("ExecuteReturnSnowflakeIdAsync", StringComparison.Ordinal),
-            "anonymous nullifier spend must happen before comment insertion inside the write transaction.");
+            transaction.IndexOf("ExecuteReturnSnowflakeIdAsync", StringComparison.Ordinal) <
+            transaction.IndexOf("TryConsumeAsync", StringComparison.Ordinal),
+            "anonymous nullifier consume needs the generated comment id and must remain inside the write transaction.");
         Assert.True(
             create.IndexOf("LockVisibleCommentTargetAsync", StringComparison.Ordinal) <
             create.IndexOf("ExecuteReturnSnowflakeIdAsync", StringComparison.Ordinal),

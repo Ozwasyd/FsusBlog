@@ -1,16 +1,42 @@
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Observability;
 using Microsoft.Extensions.Configuration;
 using SqlSugar;
 using System.Data.Common;
+using System.Diagnostics;
 
 namespace FsusBlog.Server.Services.Security;
 
 public interface ICommentAnonymousNullifierService
 {
+    Task<NullifierReservationResult> PrecheckAsync(
+        string nullifierHash,
+        string scope,
+        CancellationToken cancellationToken = default)
+        => CheckAndReserveAsync(nullifierHash, scope, cancellationToken);
+
     Task<NullifierReservationResult> CheckAndReserveAsync(
         string nullifierHash,
         string scope,
         CancellationToken cancellationToken = default);
+
+    async Task<NullifierReservationResult> TryConsumeAsync(
+        string nullifierHash,
+        string scope,
+        long commentId,
+        CancellationToken cancellationToken = default)
+    {
+        NullifierReservationResult reserved = await CheckAndReserveAsync(nullifierHash, scope, cancellationToken);
+        if (!reserved.Allowed)
+        {
+            return reserved;
+        }
+
+        bool linked = await IncrementUsageAsync(nullifierHash, scope, commentId, cancellationToken);
+        return linked
+            ? reserved
+            : new NullifierReservationResult(false, "scope_limit_exceeded", "Anonymous nullifier usage could not be linked.", reserved.CurrentUseCount);
+    }
 
     Task<bool> IncrementUsageAsync(
         string nullifierHash,
@@ -29,6 +55,38 @@ public sealed class CommentAnonymousNullifierService(
     ISqlSugarClient db,
     IConfiguration configuration) : ICommentAnonymousNullifierService
 {
+    public async Task<NullifierReservationResult> PrecheckAsync(
+        string nullifierHash,
+        string scope,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string normalizedHash = NormalizeRequired(nullifierHash, nameof(nullifierHash));
+        string normalizedScope = NormalizeRequired(scope, nameof(scope));
+        int maxUseCount = Math.Max(1, configuration.GetValue("AnonymousIdentity:NullifierScopeUseLimit", 1));
+
+        FsusObservability.RecordAnonymousNullifierPrecheck();
+        NullifierState? state = await TryReadStateAsync(normalizedHash, normalizedScope, cancellationToken);
+        if (state is null)
+        {
+            return new NullifierReservationResult(true, "prechecked", "Nullifier has no prior usage", 0);
+        }
+
+        if (state.Value.Blocked)
+        {
+            FsusObservability.RecordAnonymousNullifierRejected("blocked");
+            return new NullifierReservationResult(false, "blocked", "Nullifier is blocked", state.Value.UseCount);
+        }
+
+        if (state.Value.UseCount >= maxUseCount)
+        {
+            FsusObservability.RecordAnonymousNullifierRejected("scope_limit_exceeded");
+            return new NullifierReservationResult(false, "scope_limit_exceeded", "Nullifier scope limit exceeded", state.Value.UseCount);
+        }
+
+        return new NullifierReservationResult(true, "prechecked", "Nullifier prechecked", state.Value.UseCount);
+    }
+
     public async Task<NullifierReservationResult> CheckAndReserveAsync(
         string nullifierHash,
         string scope,
@@ -77,6 +135,76 @@ public sealed class CommentAnonymousNullifierService(
         return state.Blocked
             ? new NullifierReservationResult(false, "blocked", "Nullifier is blocked", state.UseCount)
             : new NullifierReservationResult(false, "scope_limit_exceeded", "Nullifier scope limit exceeded", state.UseCount);
+    }
+
+    public async Task<NullifierReservationResult> TryConsumeAsync(
+        string nullifierHash,
+        string scope,
+        long commentId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string normalizedHash = NormalizeRequired(nullifierHash, nameof(nullifierHash));
+        string normalizedScope = NormalizeRequired(scope, nameof(scope));
+        int maxUseCount = Math.Max(1, configuration.GetValue("AnonymousIdentity:NullifierScopeUseLimit", 1));
+        DateTime now = DateTime.UtcNow;
+        long startedAt = Stopwatch.GetTimestamp();
+
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            WITH consumed AS (
+                INSERT INTO comment_anonymous_nullifier
+                    (nullifier_hash, scope, use_count, blocked, first_comment_id, last_comment_id, created_at_utc, updated_at_utc)
+                VALUES
+                    (@NullifierHash, @Scope, 1, false, @CommentId, @CommentId, @Now, @Now)
+                ON CONFLICT (nullifier_hash, scope) DO UPDATE
+                SET use_count = comment_anonymous_nullifier.use_count + 1,
+                    first_comment_id = COALESCE(comment_anonymous_nullifier.first_comment_id, @CommentId),
+                    last_comment_id = @CommentId,
+                    updated_at_utc = @Now
+                WHERE comment_anonymous_nullifier.blocked = false
+                  AND comment_anonymous_nullifier.use_count < @MaxUseCount
+                RETURNING true AS allowed, 'reserved'::text AS status, use_count
+            ),
+            current_state AS (
+                SELECT blocked, use_count
+                FROM comment_anonymous_nullifier
+                WHERE nullifier_hash = @NullifierHash AND scope = @Scope
+            )
+            SELECT allowed, status, use_count
+            FROM consumed
+            UNION ALL
+            SELECT
+                false AS allowed,
+                CASE WHEN blocked THEN 'blocked' ELSE 'scope_limit_exceeded' END AS status,
+                use_count
+            FROM current_state
+            WHERE NOT EXISTS (SELECT 1 FROM consumed)
+            LIMIT 1;
+            """,
+            new SugarParameter("@NullifierHash", normalizedHash),
+            new SugarParameter("@Scope", normalizedScope),
+            new SugarParameter("@CommentId", commentId),
+            new SugarParameter("@MaxUseCount", maxUseCount),
+            new SugarParameter("@Now", now));
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return new NullifierReservationResult(false, "scope_limit_exceeded", "Nullifier scope limit exceeded", maxUseCount);
+        }
+
+        bool allowed = reader.GetBoolean(0);
+        string status = reader.GetString(1);
+        int useCount = reader.GetInt32(2);
+        TimeSpan elapsed = FsusObservability.GetElapsed(startedAt);
+        FsusObservability.RecordAnonymousNullifierAtomicIncrement(elapsed, status);
+        if (!allowed)
+        {
+            FsusObservability.RecordAnonymousNullifierRejected(status);
+        }
+
+        return allowed
+            ? new NullifierReservationResult(true, status, "Nullifier reserved", useCount)
+            : new NullifierReservationResult(false, status, status, useCount);
     }
 
     public async Task<bool> IncrementUsageAsync(
@@ -134,6 +262,17 @@ public sealed class CommentAnonymousNullifierService(
 
     private async Task<NullifierState> ReadStateAsync(string nullifierHash, string scope, CancellationToken cancellationToken)
     {
+        NullifierState? state = await TryReadStateAsync(nullifierHash, scope, cancellationToken);
+        if (state is null)
+        {
+            throw new InvalidOperationException("Anonymous nullifier reservation was not created.");
+        }
+
+        return state.Value;
+    }
+
+    private async Task<NullifierState?> TryReadStateAsync(string nullifierHash, string scope, CancellationToken cancellationToken)
+    {
         using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             SELECT blocked, use_count
@@ -144,7 +283,7 @@ public sealed class CommentAnonymousNullifierService(
             new SugarParameter("@Scope", scope));
         if (!await reader.ReadAsync(cancellationToken))
         {
-            throw new InvalidOperationException("Anonymous nullifier reservation was not created.");
+            return null;
         }
 
         return new NullifierState(reader.GetBoolean(0), reader.GetInt32(1));
