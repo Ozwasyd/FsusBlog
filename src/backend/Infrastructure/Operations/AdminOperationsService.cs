@@ -724,7 +724,8 @@ public sealed class AdminOperationsService(
 
     private static IReadOnlyList<string> MissingAssetFiles(IntegrityData data)
         => data.Assets
-            .Where(asset => IsUploadUrl(asset.Url) && !File.Exists(ToUploadPath(data.WebRoot, asset.Url)))
+            .Where(asset => IsUploadUrl(asset.Url) &&
+                (!TryResolveUploadPath(data.WebRoot, asset.Url, out string path) || !File.Exists(path)))
             .Select(asset => $"asset:{asset.Id}:{asset.Url}")
             .ToArray();
 
@@ -862,8 +863,22 @@ public sealed class AdminOperationsService(
     private static bool IsUploadUrl(string? url)
         => !string.IsNullOrWhiteSpace(url) && url.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase);
 
-    private static string ToUploadPath(string webRoot, string url)
-        => Path.Combine(webRoot, url.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+    private static bool TryResolveUploadPath(string webRoot, string url, out string path)
+    {
+        path = Path.GetFullPath(Path.Combine(webRoot, url.TrimStart('/').Replace('/', Path.DirectorySeparatorChar)));
+        string uploadRoot = Path.GetFullPath(Path.Combine(webRoot, "uploads"));
+        return IsPathWithinDirectory(uploadRoot, path);
+    }
+
+    private static bool IsPathWithinDirectory(string directory, string candidatePath)
+    {
+        string root = Path.GetFullPath(directory);
+        string candidate = Path.GetFullPath(candidatePath);
+        string relative = Path.GetRelativePath(root, candidate);
+        return relative.Length == 0 ||
+            (!relative.StartsWith("..", StringComparison.Ordinal) &&
+             !Path.IsPathRooted(relative));
+    }
 
     private BackupArtifactResponse FindLatestArtifact(string backupRoot, string kind, string[] nameHints, string[] patterns)
     {

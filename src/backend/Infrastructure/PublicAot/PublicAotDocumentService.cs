@@ -101,7 +101,12 @@ public sealed class PublicAotDocumentService(
         string relativePath = PublicAotDocumentComposer.BuildPayloadSidecarUrl(hydrationPayload)
             .TrimStart('/')
             .Replace('/', Path.DirectorySeparatorChar);
-        string targetPath = Path.Combine(webRoot, relativePath);
+        if (!TryResolveHydrationSidecarPath(webRoot, relativePath, out string targetPath))
+        {
+            logger.LogWarning("public_aot_hydration_sidecar_path_invalid");
+            return;
+        }
+
         Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
 
         if (File.Exists(targetPath))
@@ -112,6 +117,22 @@ public sealed class PublicAotDocumentService(
         string tempPath = Path.Combine(Path.GetDirectoryName(targetPath)!, $"{Path.GetFileName(targetPath)}.{Guid.NewGuid():N}.tmp");
         await File.WriteAllBytesAsync(tempPath, PublicAotDocumentComposer.DecodePayloadFrameBytes(hydrationPayload), cancellationToken).ConfigureAwait(false);
         File.Move(tempPath, targetPath, overwrite: true);
+    }
+
+    private static bool TryResolveHydrationSidecarPath(string webRoot, string relativePath, out string targetPath)
+    {
+        targetPath = Path.GetFullPath(Path.Combine(webRoot, relativePath));
+        return IsPathWithinDirectory(webRoot, targetPath);
+    }
+
+    private static bool IsPathWithinDirectory(string directory, string candidatePath)
+    {
+        string root = Path.GetFullPath(directory);
+        string candidate = Path.GetFullPath(candidatePath);
+        string relative = Path.GetRelativePath(root, candidate);
+        return relative.Length == 0 ||
+            (!relative.StartsWith("..", StringComparison.Ordinal) &&
+             !Path.IsPathRooted(relative));
     }
 
     private static string BuildHeadLinks(string rawTemplate, SpaAssetSet assetSet, SeoConfigReadModel seo)

@@ -210,17 +210,42 @@ public sealed class PublicAotNodeSsrRenderer(
 
     private static ProcessStartInfo CreateStartInfo(string clientRoot, string workerScript, string nodeExecutable)
     {
+        string resolvedWorkerScript = ResolveWorkerScriptPath(clientRoot, workerScript);
         var startInfo = new ProcessStartInfo
         {
             FileName = nodeExecutable,
-            WorkingDirectory = clientRoot,
+            WorkingDirectory = Path.GetFullPath(clientRoot),
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false
         };
-        startInfo.ArgumentList.Add(workerScript);
+        startInfo.ArgumentList.Add(resolvedWorkerScript);
         return startInfo;
+    }
+
+    private static string ResolveWorkerScriptPath(string clientRoot, string workerScript)
+    {
+        string root = Path.GetFullPath(clientRoot);
+        string candidate = Path.GetFullPath(Path.IsPathRooted(workerScript)
+            ? workerScript
+            : Path.Combine(root, workerScript));
+        if (!IsPathWithinDirectory(root, candidate))
+        {
+            throw new InvalidOperationException("public_aot_worker_script_outside_client_root");
+        }
+
+        return candidate;
+    }
+
+    private static bool IsPathWithinDirectory(string directory, string candidatePath)
+    {
+        string root = Path.GetFullPath(directory);
+        string candidate = Path.GetFullPath(candidatePath);
+        string relative = Path.GetRelativePath(root, candidate);
+        return relative.Length == 0 ||
+            (!relative.StartsWith("..", StringComparison.Ordinal) &&
+             !Path.IsPathRooted(relative));
     }
 
     private Result<RendererCommandResponse> ParseResponse(string stdout)

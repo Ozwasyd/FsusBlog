@@ -914,6 +914,8 @@ int64 timestampUnixMs
 
 `GET /__local/auth-fixture/admin` 与 `GET /api/local/auth-fixture/admin` 只在 `Development` 且 `fsus:allowLocalAuthFixture=true` 时映射；调用方还必须来自 loopback 地址，并提供 `X-Fsus-Local-Auth-Fixture-Secret`，其值用固定时间比较匹配 `fsus:localAuthFixtureSecret`。配套的 `/status` 端点使用相同的 loopback + shared-secret 门控。生产启动校验会拒绝 `fsus:allowLocalAuthFixture=true`。该入口只用于本地 Playwright fixture 刷新和 cookie 注入，不能在测试、预发布或生产环境作为匿名 admin 登录 fallback；刷新失败只返回固定失败文案，不回显脚本 stderr/stdout、异常消息或本地 storage-state 绝对路径。
 
+fixture 刷新进程只能通过 `UseShellExecute=false` + `ArgumentList` 调用仓库内固定脚本 `tests/frontend/fixtures/prepare-auth-smoke-users.mjs`。服务端在启动子进程前必须对 repo root、fixtures 目录和脚本路径执行 canonical path 校验，确认目标仍位于预期 fixtures 目录内；脚本路径不接受请求参数、环境派生的相对逃逸或替换文件名。
+
 ### `NotificationStreamEventType` 枚举
 
 | 值 | 名称 | 载荷类型 | 说明 |
@@ -1233,6 +1235,8 @@ AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相
 ```
 
 `bootstrapPayload` 与 `hydrationPropsPayload` 必须来自 `PublicAotRenderRequest` -> `PublicAotShellEntryContract` 的同一条 renderer 输出，不能由 endpoint 自行重建。成功响应写入 `ETag`、`Cache-Control: public, max-age=30, stale-while-revalidate=300`、`Vary: Accept`，并暴露 `X-Fsus-Public-Aot-Route-Key`、`X-Fsus-Public-Aot-Renderer-Version`、`X-Fsus-Public-Aot-Frontend-Asset-Version`。`If-None-Match` 命中返回 `304`。path 语法错误返回 `400`，不支持或不可公开的 route 返回 `404`，内容协商失败返回 `406`，renderer/provider/gate 失败返回 `503`；所有负响应固定 `Cache-Control: no-store`。
+
+hydration payload sidecar 的 URL 只允许解析到 web root 内的静态文件路径。AOT cache 读取持久化 entry、document service 写入 sidecar、Node SSR worker script 启动前都必须使用 canonical full path + relative path 校验确认目标没有逃逸各自 root；越界 sidecar 视为 cache entry 无效或跳过写入，越界 worker script 直接 fail closed，不尝试执行。
 
 ### `PublicAotShellEntryContract`
 

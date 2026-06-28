@@ -137,7 +137,12 @@ public static class LocalAuthFixtureEndpoints
         CancellationToken cancellationToken)
     {
         string repoRoot = ResolveRepoRoot(environment);
-        string scriptPath = Path.Combine(repoRoot, "tests", "frontend", "fixtures", "prepare-auth-smoke-users.mjs");
+        string scriptPath = Path.GetFullPath(Path.Combine(repoRoot, "tests", "frontend", "fixtures", "prepare-auth-smoke-users.mjs"));
+        if (!ValidateLocalAuthFixtureScriptPath(repoRoot, scriptPath))
+        {
+            return (false, "local auth fixture script path is invalid");
+        }
+
         if (!File.Exists(scriptPath))
         {
             return (false, "local auth fixture script is missing");
@@ -204,6 +209,23 @@ public static class LocalAuthFixtureEndpoints
         }
 
         return (true, string.Empty);
+    }
+
+    private static bool ValidateLocalAuthFixtureScriptPath(string repoRoot, string scriptPath)
+    {
+        string expectedDirectory = Path.GetFullPath(Path.Combine(repoRoot, "tests", "frontend", "fixtures"));
+        return string.Equals(Path.GetFileName(scriptPath), "prepare-auth-smoke-users.mjs", StringComparison.Ordinal) &&
+            IsPathWithinDirectory(expectedDirectory, scriptPath);
+    }
+
+    private static bool IsPathWithinDirectory(string directory, string candidatePath)
+    {
+        string root = Path.GetFullPath(directory);
+        string candidate = Path.GetFullPath(candidatePath);
+        string relative = Path.GetRelativePath(root, candidate);
+        return relative.Length == 0 ||
+            (!relative.StartsWith("..", StringComparison.Ordinal) &&
+             !Path.IsPathRooted(relative));
     }
 
     private static string ResolveRepoRoot(IWebHostEnvironment environment)

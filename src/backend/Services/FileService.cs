@@ -575,7 +575,7 @@ public sealed partial class FileService : IFileService
         }
 
         string filePath = Path.GetFullPath(Path.Combine(_folderPath, relativePath.Replace('/', Path.DirectorySeparatorChar)));
-        if (!filePath.StartsWith(_sandboxAbsolutePath, StringComparison.OrdinalIgnoreCase))
+        if (!IsPathWithinDirectory(_sandboxAbsolutePath, filePath))
         {
             LogSecurityWarning(SanitizeLogPath(filePath));
             return Task.FromResult(false);
@@ -1500,6 +1500,16 @@ public sealed partial class FileService : IFileService
         }
 
         return builder?.ToString() ?? value;
+    }
+
+    private static bool IsPathWithinDirectory(string directory, string candidatePath)
+    {
+        string root = Path.GetFullPath(directory);
+        string candidate = Path.GetFullPath(candidatePath);
+        string relative = Path.GetRelativePath(root, candidate);
+        return relative.Length == 0 ||
+            (!relative.StartsWith("..", StringComparison.Ordinal) &&
+             !Path.IsPathRooted(relative));
     }
 
     private sealed record AssembledUploadFile(

@@ -20,6 +20,8 @@
 
 日志、审计、指标和 structured fallback 不得打印原始客户端 IP。需要关联访问来源时，只能写入由所属安全域 pepper 派生的 HMAC-SHA256 hash；PoW 验证日志统一使用 `VisitLog:IpHashPepper` 生成 `ClientIpHash`，不得回退到 raw `GetClientIp()`、`RemoteIpAddress`、`X-Forwarded-For` 或 `X-Real-IP`。普通日志同样不得输出 raw PoW salt、MFA `AccountId`、audit `TargetId`、SQL 文本/参数、LocalAuth fixture stdout/stderr、本地绝对路径、moderation dictionary exception message、issuer private/public key readiness flag、raw User-Agent、raw request path 或可逆 token/proof/challenge material；需要排障时只记录短 hash、固定错误类别、数量或低基数状态。
 
+文件系统路径和本地脚本执行必须先转换为 `Path.GetFullPath` 后再用 `Path.GetRelativePath` 确认仍位于预期根目录内，不能只依赖字符串 `StartsWith`。LocalAuth fixture 只能执行仓库 `tests/frontend/fixtures/prepare-auth-smoke-users.mjs`；Public AOT hydration sidecar 读写必须留在 web root；SSR worker script 必须留在 frontend client root；upload/image 和 integrity asset file 检查必须留在 `wwwroot/uploads` 或对应 upload sandbox。任何越界、绝对路径覆盖、`..` segment 逃逸或控制字符日志输入都按固定类别拒绝或降级，不回显路径细节。
+
 ---
 
 ## Proof of Work (PoW)

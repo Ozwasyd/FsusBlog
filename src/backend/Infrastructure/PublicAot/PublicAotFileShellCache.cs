@@ -309,7 +309,16 @@ public sealed class PublicAotFileShellCache(
             return true;
         }
 
-        string sidecarPath = ResolveHydrationSidecarPath(sidecar);
+        if (!TryResolveHydrationSidecarPath(sidecar, out string sidecarPath))
+        {
+            logger.LogWarning(
+                "public_aot_cache_sidecar_path_invalid {CacheKey} {RouteKey} {SidecarUrl}",
+                entry.CacheKey,
+                entry.RouteKey,
+                sidecar.Url);
+            return false;
+        }
+
         if (!File.Exists(sidecarPath))
         {
             logger.LogWarning(
@@ -374,10 +383,21 @@ public sealed class PublicAotFileShellCache(
         return PublicAotHydrationSidecarReference.TryFromHtml(entry.GetHtml(), out sidecar);
     }
 
-    private string ResolveHydrationSidecarPath(PublicAotHydrationSidecarReference sidecar)
+    private bool TryResolveHydrationSidecarPath(PublicAotHydrationSidecarReference sidecar, out string path)
     {
         string webRoot = Path.GetDirectoryName(_cacheRoot) ?? _cacheRoot;
-        return Path.Combine(webRoot, sidecar.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+        path = Path.GetFullPath(Path.Combine(webRoot, sidecar.RelativePath.Replace('/', Path.DirectorySeparatorChar)));
+        return IsPathWithinDirectory(webRoot, path);
+    }
+
+    private static bool IsPathWithinDirectory(string directory, string candidatePath)
+    {
+        string root = Path.GetFullPath(directory);
+        string candidate = Path.GetFullPath(candidatePath);
+        string relative = Path.GetRelativePath(root, candidate);
+        return relative.Length == 0 ||
+            (!relative.StartsWith("..", StringComparison.Ordinal) &&
+             !Path.IsPathRooted(relative));
     }
 
     private MemoryCacheEntry CreateMemoryCacheEntry(PublicAotCacheEntry entry)

@@ -138,10 +138,11 @@ public sealed class HumanReadProofService(
         if (!accepted || saturated)
         {
             logger.LogWarning(
-                "真人阅读事件通道出现写入压力 | Accepted: {Accepted} | Saturated: {Saturated} | Scope: {Scope}",
+                "真人阅读事件通道出现写入压力 | Accepted: {Accepted} | Saturated: {Saturated} | Scope: {Scope} | RouteKey: {RouteKey}",
                 accepted,
                 saturated,
-                payload.Scope);
+                SanitizeLogValue(payload.Scope),
+                SanitizeLogValue(payload.RouteKey));
         }
 
         return new HumanReadSubmitResponse(accepted, accepted ? "counted" : "queue_rejected");
@@ -447,6 +448,33 @@ public sealed class HumanReadProofService(
 
     private static string HashValue(string value)
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    private static string SanitizeLogValue(string value)
+    {
+        StringBuilder? builder = null;
+        for (int i = 0; i < value.Length; i++)
+        {
+            string? replacement = value[i] switch
+            {
+                '\r' => "\\r",
+                '\n' => "\\n",
+                '\t' => "\\t",
+                var ch when char.IsControl(ch) => $"\\u{(int)ch:X4}",
+                _ => null
+            };
+
+            if (replacement is null)
+            {
+                builder?.Append(value[i]);
+                continue;
+            }
+
+            builder ??= new StringBuilder(value.Length + 8).Append(value, 0, i);
+            builder.Append(replacement);
+        }
+
+        return builder?.ToString() ?? value;
+    }
 
     private static bool FixedHashEquals(string left, string right)
     {
