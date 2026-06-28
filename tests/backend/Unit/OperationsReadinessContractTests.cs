@@ -178,6 +178,31 @@ public sealed class OperationsReadinessContractTests
     }
 
     [Fact]
+    public void OpsHealthDistributionDiagnostics_UseLightweightCountsInsteadOfXmlBuildAndParse()
+    {
+        string root = BackendTestPaths.RepositoryRoot;
+        string distribution = File.ReadAllText(Path.Combine(root, "src/backend/Services/Distribution/BlogDistributionService.cs"));
+        string operationsService = File.ReadAllText(Path.Combine(root, "src/backend/Infrastructure/Operations/AdminOperationsService.cs"));
+        string observability = File.ReadAllText(Path.Combine(root, "src/backend/Infrastructure/Observability/FsusObservability.cs"));
+        string diagnosticsMethod = ExtractMethodBlock(operationsService, "private async Task<DistributionDiagnosticsResponse> GetDistributionDiagnosticsAsync");
+
+        Assert.DoesNotContain("BuildSitemapAsync", diagnosticsMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildRssAsync", diagnosticsMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("XDocument.Parse", diagnosticsMethod, StringComparison.Ordinal);
+        Assert.Contains("GetDiagnosticsCountsAsync", diagnosticsMethod, StringComparison.Ordinal);
+
+        Assert.Contains("GetDiagnosticsCountsAsync", distribution, StringComparison.Ordinal);
+        Assert.Contains("DiagnosticsCacheTtl", distribution, StringComparison.Ordinal);
+        Assert.Contains("CountSitemapUrlsAsync", distribution, StringComparison.Ordinal);
+        Assert.Contains("CountFeedItemsAsync", distribution, StringComparison.Ordinal);
+        Assert.Contains("FeedLimit", distribution, StringComparison.Ordinal);
+
+        Assert.Contains("fsus.distribution.diagnostics.elapsed_ms", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.distribution.diagnostics.cache_access", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.distribution.diagnostics.db_command_count", observability, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DangerousOperations_RequireDiffConfirmationAdminStepUpAndAudit()
     {
         string root = BackendTestPaths.RepositoryRoot;
@@ -191,6 +216,35 @@ public sealed class OperationsReadinessContractTests
         Assert.Contains("RequireAdminSensitiveStepUpAsync", endpoints, StringComparison.Ordinal);
         Assert.Contains("admin.integrity.safe_fix_applied", endpoints, StringComparison.Ordinal);
         Assert.Contains("RecordHighValueAsync", endpoints, StringComparison.Ordinal);
+    }
+
+    private static string ExtractMethodBlock(string source, string signature)
+    {
+        int start = source.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"{signature} missing");
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart >= 0, $"{signature} body missing");
+
+        int depth = 0;
+        for (int index = braceStart; index < source.Length; index++)
+        {
+            char character = source[index];
+            if (character == '{')
+            {
+                depth++;
+            }
+            else if (character == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[braceStart..(index + 1)];
+                }
+            }
+        }
+
+        Assert.Fail($"{signature} body not closed");
+        return string.Empty;
     }
 
     private static void AssertScriptExists(string root, string relativePath)

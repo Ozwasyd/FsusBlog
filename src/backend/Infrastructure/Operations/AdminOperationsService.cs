@@ -2,7 +2,6 @@ using System.Data.Common;
 using System.Diagnostics;
 using System.Reflection;
 using System.Text;
-using System.Xml.Linq;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Bootstrap;
@@ -507,12 +506,15 @@ public sealed class AdminOperationsService(
     {
         try
         {
-            string sitemap = await distributionService.BuildSitemapAsync(cancellationToken);
-            string rss = await distributionService.BuildRssAsync(cancellationToken);
-            int sitemapUrlCount = XDocument.Parse(sitemap).Descendants().Count(static node => node.Name.LocalName == "url");
-            int feedItemCount = XDocument.Parse(rss).Descendants().Count(static node => node.Name.LocalName == "item");
-            DateTimeOffset checkedAt = DateTimeOffset.UtcNow;
-            return new DistributionDiagnosticsResponse("ok", checkedAt, sitemapUrlCount, feedItemCount, checkedAt, checkedAt, null);
+            DistributionDiagnosticsCounts counts = await distributionService.GetDiagnosticsCountsAsync(cancellationToken);
+            return new DistributionDiagnosticsResponse(
+                "ok",
+                counts.CheckedAt,
+                counts.SitemapUrlCount,
+                counts.FeedItemCount,
+                counts.CheckedAt,
+                counts.CheckedAt,
+                null);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

@@ -170,6 +170,9 @@ public static class FsusObservability
     private static readonly Counter<long> PasskeyAssertionDbCommandCount = Meter.CreateCounter<long>("fsus.passkey.assertion.db_command_count");
     private static readonly Histogram<double> PasskeyAssertionElapsed = Meter.CreateHistogram<double>("fsus.passkey.assertion.elapsed_ms", "ms");
     private static readonly Counter<long> PasskeySignCountUpdateConflictCount = Meter.CreateCounter<long>("fsus.passkey.sign_count.update_conflict_count");
+    private static readonly Histogram<double> DistributionDiagnosticsElapsed = Meter.CreateHistogram<double>("fsus.distribution.diagnostics.elapsed_ms", "ms");
+    private static readonly Counter<long> DistributionDiagnosticsCacheAccess = Meter.CreateCounter<long>("fsus.distribution.diagnostics.cache_access");
+    private static readonly Counter<long> DistributionDiagnosticsDbCommandCount = Meter.CreateCounter<long>("fsus.distribution.diagnostics.db_command_count");
 
     public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
 
@@ -868,6 +871,17 @@ public static class FsusObservability
             TagList tags = CreateBaseTags("passkey", "sign_count_update", "conflict");
             tags.Add("fsus.passkey.assertion.kind", NormalizeTelemetryValue(kind, "unknown"));
             PasskeySignCountUpdateConflictCount.Add(1, tags);
+        });
+    }
+
+    public static void RecordDistributionDiagnostics(bool cacheHit, long dbCommandCount, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("distribution", "diagnostics", cacheHit ? "hit" : "miss");
+            DistributionDiagnosticsElapsed.Record(elapsed.TotalMilliseconds, tags);
+            DistributionDiagnosticsCacheAccess.Add(1, tags);
+            DistributionDiagnosticsDbCommandCount.Add(Math.Max(0, dbCommandCount), tags);
         });
     }
 

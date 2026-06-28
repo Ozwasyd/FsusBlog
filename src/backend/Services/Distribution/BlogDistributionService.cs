@@ -1,20 +1,27 @@
 using System.Globalization;
+using System.Diagnostics;
 using System.Text.Json.Serialization;
 using System.Xml.Linq;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.Extensions.Caching.Memory;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Distribution;
 
 public sealed class BlogDistributionService(
     ISqlSugarClient db,
-    ISystemService systemService)
+    ISystemService systemService,
+    IMemoryCache memoryCache)
 {
     private const int FeedLimit = 50;
+    private const int StaticSitemapPageCount = 6;
+    private const string DiagnosticsCacheKey = "distribution:diagnostics-counts:v1";
+    private static readonly TimeSpan DiagnosticsCacheTtl = TimeSpan.FromSeconds(45);
     private static readonly XNamespace AtomNamespace = "http://www.w3.org/2005/Atom";
 
     public async Task<string> BuildRssAsync(CancellationToken cancellationToken = default)
@@ -124,6 +131,39 @@ public sealed class BlogDistributionService(
         return document.ToString(SaveOptions.DisableFormatting);
     }
 
+    public async Task<DistributionDiagnosticsCounts> GetDiagnosticsCountsAsync(CancellationToken cancellationToken = default)
+    {
+        long startedAt = Stopwatch.GetTimestamp();
+        if (memoryCache.TryGetValue(DiagnosticsCacheKey, out DistributionDiagnosticsCounts? cached) && cached is not null)
+        {
+            FsusObservability.RecordDistributionDiagnostics(cacheHit: true, dbCommandCount: 0, FsusObservability.GetElapsed(startedAt));
+            return cached;
+        }
+
+        int dbCommandCount = 0;
+        int publicArticleCount = await CountPublicArticlesAsync(cancellationToken);
+        dbCommandCount++;
+        int publicCategoryCount = await CountPublicCategoriesAsync(cancellationToken);
+        dbCommandCount++;
+        int publicTagCount = await CountPublicTagsAsync(cancellationToken);
+        dbCommandCount++;
+
+        DateTimeOffset checkedAt = DateTimeOffset.UtcNow;
+        var counts = new DistributionDiagnosticsCounts(
+            StaticSitemapPageCount + publicArticleCount + publicCategoryCount + publicTagCount,
+            Math.Min(publicArticleCount, FeedLimit),
+            checkedAt);
+        memoryCache.Set(DiagnosticsCacheKey, counts, DiagnosticsCacheTtl);
+        FsusObservability.RecordDistributionDiagnostics(cacheHit: false, dbCommandCount, FsusObservability.GetElapsed(startedAt));
+        return counts;
+    }
+
+    public async Task<int> CountSitemapUrlsAsync(CancellationToken cancellationToken = default)
+        => (await GetDiagnosticsCountsAsync(cancellationToken)).SitemapUrlCount;
+
+    public async Task<int> CountFeedItemsAsync(CancellationToken cancellationToken = default)
+        => (await GetDiagnosticsCountsAsync(cancellationToken)).FeedItemCount;
+
     public async Task<string> BuildRobotsAsync(CancellationToken cancellationToken = default)
     {
         SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
@@ -189,6 +229,52 @@ public sealed class BlogDistributionService(
                 new DateTimeOffset(row.UpdatedAt, TimeSpan.Zero))).ToArray());
     }
 
+    private async Task<int> CountPublicArticlesAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        int count = await db.Ado.GetIntAsync("""
+            SELECT COUNT(1)
+            FROM article a
+            WHERE a.isdeleted = false
+              AND a.status = @Status
+              AND (a.published_at IS NULL OR a.published_at <= @Now)
+              AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now);
+            """, CreatePublicVisibilityParameters());
+        cancellationToken.ThrowIfCancellationRequested();
+        return count;
+    }
+
+    private async Task<int> CountPublicCategoriesAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        int count = await db.Ado.GetIntAsync("""
+            SELECT COUNT(DISTINCT a.categoryid)
+            FROM article a
+            WHERE a.isdeleted = false
+              AND a.status = @Status
+              AND (a.published_at IS NULL OR a.published_at <= @Now)
+              AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now);
+            """, CreatePublicVisibilityParameters());
+        cancellationToken.ThrowIfCancellationRequested();
+        return count;
+    }
+
+    private async Task<int> CountPublicTagsAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        int count = await db.Ado.GetIntAsync("""
+            SELECT COUNT(DISTINCT at.tagid)
+            FROM article_tag at
+            INNER JOIN article a ON a.id = at.articleid
+            WHERE a.isdeleted = false
+              AND a.status = @Status
+              AND (a.published_at IS NULL OR a.published_at <= @Now)
+              AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now);
+            """, CreatePublicVisibilityParameters());
+        cancellationToken.ThrowIfCancellationRequested();
+        return count;
+    }
+
     private async Task<IReadOnlyList<DistributionTaxonomyRow>> LoadCategoriesAsync(CancellationToken cancellationToken)
     {
         DateTime now = DateTime.UtcNow;
@@ -227,6 +313,13 @@ public sealed class BlogDistributionService(
 
     private static string NormalizeBaseUrl(string? raw)
         => string.IsNullOrWhiteSpace(raw) ? "https://fsus.blog" : raw.Trim().TrimEnd('/');
+
+    private static SugarParameter[] CreatePublicVisibilityParameters()
+        =>
+        [
+            new("@Status", (int)ArticleStatus.Published),
+            new("@Now", DateTime.UtcNow)
+        ];
 
     private static string MakeAbsoluteUrl(string baseUrl, string url)
         => Uri.TryCreate(url, UriKind.Absolute, out _)
@@ -320,3 +413,8 @@ public sealed record JsonFeedItem(
     [property: JsonPropertyName("summary")] string Summary,
     [property: JsonPropertyName("date_published")] DateTimeOffset DatePublished,
     [property: JsonPropertyName("image")] string? Image);
+
+public sealed record DistributionDiagnosticsCounts(
+    int SitemapUrlCount,
+    int FeedItemCount,
+    DateTimeOffset CheckedAt);
