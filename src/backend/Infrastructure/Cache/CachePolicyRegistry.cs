@@ -15,6 +15,7 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
             [CachePolicyId.ArticleRss] = new(CachePolicyId.ArticleRss, "blog", "article-rss", TimeSpan.FromMinutes(3), TimeSpan.FromMinutes(30), null, [CacheTag.ArticleList], false, 0d, false),
             [CachePolicyId.ArticleListVersion] = new(CachePolicyId.ArticleListVersion, "blog", "article-list-version", TimeSpan.FromMinutes(1), TimeSpan.FromDays(7), null, [CacheTag.ArticleList], false, 0d, false),
             [CachePolicyId.ArticleSearchVersion] = new(CachePolicyId.ArticleSearchVersion, "blog", "article-search-version", TimeSpan.FromMinutes(1), TimeSpan.FromDays(7), null, [CacheTag.ArticleList], false, 0d, false),
+            [CachePolicyId.RelatedReading] = new(CachePolicyId.RelatedReading, "blog", "related-reading", TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(30), null, [CacheTag.ArticleList], false, 0d, false),
             [CachePolicyId.TopArticles] = new(CachePolicyId.TopArticles, "blog", "top-articles", TimeSpan.FromMinutes(2), TimeSpan.FromHours(2), null, [CacheTag.HotArticles], false, 0d, false),
             [CachePolicyId.CommentCursor] = new(CachePolicyId.CommentCursor, "blog", "comment-cursor", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5), null, [CacheTag.Stats], false, 0d, false),
             [CachePolicyId.UserCommentCursor] = new(CachePolicyId.UserCommentCursor, "blog", "user-comment-cursor", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5), null, [CacheTag.Stats], false, 0d, false),

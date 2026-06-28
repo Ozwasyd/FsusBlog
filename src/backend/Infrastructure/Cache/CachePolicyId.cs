@@ -58,5 +58,6 @@ public enum CachePolicyId
     AdminStatsRecentComments = 53,
     AdminStatsRegions = 54,
     CommentCursorVersion = 55,
-    UserCommentCursorVersion = 56
+    UserCommentCursorVersion = 56,
+    RelatedReading = 57
 }

@@ -5,6 +5,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.Extensions.Caching.Memory;
 using SqlSugar;
+using System.Text.Json;
 
 namespace FsusBlog.Server.Services.Distribution;
 
@@ -16,6 +17,7 @@ public sealed class RelatedReadingService(
     private const int RelatedLimit = 6;
     private const int CandidateWindow = 120;
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private static readonly HashSet<string> StopWords = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -30,10 +32,21 @@ public sealed class RelatedReadingService(
         }
 
         long version = await GetArticleListVersionAsync(cancellationToken);
-        string cacheKey = $"related-reading:{version}:{articleId}";
+        string cacheKey = $"article:{articleId}:v:{version}";
         if (memoryCache.TryGetValue(cacheKey, out RelatedReadingResponse? cached) && cached is not null)
         {
             return cached;
+        }
+
+        CacheReadResult<RelatedReadingResponse> sharedCached = await cache.TryGetAsync(
+            CachePolicyId.RelatedReading,
+            cacheKey,
+            DecodeRelatedReading,
+            cancellationToken);
+        if (sharedCached.Hit && sharedCached.Value is not null)
+        {
+            memoryCache.Set(cacheKey, sharedCached.Value, CacheTtl);
+            return sharedCached.Value;
         }
 
         DateTime now = DateTime.UtcNow;
@@ -49,29 +62,9 @@ public sealed class RelatedReadingService(
             .Select(tag => tag.TagId)
             .ToListAsync(cancellationToken)];
         HashSet<int> sourceTags = sourceTagIds.ToHashSet();
-        string[] keywords = ExtractKeywords(article.Title, article.Summary, article.MarkdownContent);
+        string[] keywords = ExtractKeywords(article.Title, article.Summary);
 
-        List<RelatedArticleRow> candidates = await db.Queryable<Article>()
-            .LeftJoin<ArticleBody>((candidate, body) => candidate.Id == body.ArticleId)
-            .Where((candidate, body) => candidate.Id != articleId
-                && !candidate.IsDeleted
-                && candidate.Status == ArticleStatus.Published
-                && (candidate.PublishedAt == null || candidate.PublishedAt <= now)
-                && (candidate.ScheduledPublishAt == null || candidate.ScheduledPublishAt <= now))
-            .OrderByDescending((candidate, body) => candidate.PublishedAt ?? candidate.CreateTime)
-            .OrderByDescending((candidate, body) => candidate.Id)
-            .Take(CandidateWindow)
-            .Select((candidate, body) => new RelatedArticleRow
-            {
-                Id = candidate.Id,
-                Title = candidate.Title,
-                Summary = candidate.Summary,
-                CreateTime = candidate.CreateTime,
-                PublishedAt = candidate.PublishedAt,
-                CategoryId = candidate.CategoryId,
-                MarkdownContent = body.MarkdownContent
-            })
-            .ToListAsync(cancellationToken);
+        List<RelatedArticleRow> candidates = await LoadCandidateIndexAsync(articleId, article.CategoryId, sourceTagIds, now, cancellationToken);
 
         Dictionary<int, HashSet<int>> candidateTags = await LoadTagMapAsync(candidates.Select(static candidate => candidate.Id).ToArray(), cancellationToken);
         List<RelatedReadingItem> related = candidates
@@ -92,7 +85,14 @@ public sealed class RelatedReadingService(
             previous is null ? null : ToItem(previous, "上一篇"),
             next is null ? null : ToItem(next, "下一篇"));
         memoryCache.Set(cacheKey, response, CacheTtl);
+        await cache.SetRawAsync(CachePolicyId.RelatedReading, cacheKey, JsonSerializer.SerializeToUtf8Bytes(response, JsonOptions), CacheTtl, cancellationToken);
         return response;
+    }
+
+    private static (bool Success, RelatedReadingResponse? Value) DecodeRelatedReading(ReadOnlyMemory<byte> bytes)
+    {
+        RelatedReadingResponse? value = JsonSerializer.Deserialize<RelatedReadingResponse>(bytes.Span, JsonOptions);
+        return (value is not null, value);
     }
 
     private async ValueTask<long> GetArticleListVersionAsync(CancellationToken cancellationToken)
@@ -114,9 +114,7 @@ public sealed class RelatedReadingService(
                 a.createtime AS "CreateTime",
                 a.published_at AS "PublishedAt",
                 a.categoryid AS "CategoryId",
-                b.markdown_content AS "MarkdownContent"
             FROM article a
-            LEFT JOIN article_body b ON a.id = b.article_id
             WHERE a.id = @ArticleId
               AND a.isdeleted = false
               AND a.status = @PublishedStatus
@@ -142,7 +140,6 @@ public sealed class RelatedReadingService(
         int fCreateTime = reader.GetOrdinal("CreateTime");
         int fPublishedAt = reader.GetOrdinal("PublishedAt");
         int fCategoryId = reader.GetOrdinal("CategoryId");
-        int fMarkdownContent = reader.GetOrdinal("MarkdownContent");
 
         return new RelatedArticleRow
         {
@@ -151,9 +148,50 @@ public sealed class RelatedReadingService(
             Summary = reader.IsDBNull(fSummary) ? null : reader.GetString(fSummary),
             CreateTime = reader.GetDateTime(fCreateTime),
             PublishedAt = reader.IsDBNull(fPublishedAt) ? null : reader.GetDateTime(fPublishedAt),
-            CategoryId = reader.GetInt32(fCategoryId),
-            MarkdownContent = reader.IsDBNull(fMarkdownContent) ? null : reader.GetString(fMarkdownContent)
+            CategoryId = reader.GetInt32(fCategoryId)
         };
+    }
+
+    private async Task<List<RelatedArticleRow>> LoadCandidateIndexAsync(
+        int articleId,
+        int categoryId,
+        int[] sourceTagIds,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        ISugarQueryable<Article> query = db.Queryable<Article>()
+            .Where(candidate => candidate.Id != articleId
+                && !candidate.IsDeleted
+                && candidate.Status == ArticleStatus.Published
+                && (candidate.PublishedAt == null || candidate.PublishedAt <= now)
+                && (candidate.ScheduledPublishAt == null || candidate.ScheduledPublishAt <= now));
+
+        if (sourceTagIds.Length > 0)
+        {
+            query = query.Where(candidate => candidate.CategoryId == categoryId
+                || SqlFunc.Subqueryable<ArticleTag>()
+                    .Where(tag => tag.ArticleId == candidate.Id && sourceTagIds.Contains(tag.TagId))
+                    .Any());
+        }
+        else
+        {
+            query = query.Where(candidate => candidate.CategoryId == categoryId);
+        }
+
+        return await query
+            .OrderByDescending(candidate => candidate.PublishedAt ?? candidate.CreateTime)
+            .OrderByDescending(candidate => candidate.Id)
+            .Take(CandidateWindow)
+            .Select(candidate => new RelatedArticleRow
+            {
+                Id = candidate.Id,
+                Title = candidate.Title,
+                Summary = candidate.Summary,
+                CreateTime = candidate.CreateTime,
+                PublishedAt = candidate.PublishedAt,
+                CategoryId = candidate.CategoryId
+            })
+            .ToListAsync(cancellationToken);
     }
 
     private async Task<Dictionary<int, HashSet<int>>> LoadTagMapAsync(int[] articleIds, CancellationToken cancellationToken)
@@ -268,7 +306,7 @@ public sealed class RelatedReadingService(
             return 0;
         }
 
-        string haystack = string.Join(' ', candidate.Title, candidate.Summary, candidate.MarkdownContent).ToLowerInvariant();
+        string haystack = string.Join(' ', candidate.Title, candidate.Summary).ToLowerInvariant();
         int count = 0;
         foreach (string keyword in keywords)
         {
@@ -335,7 +373,6 @@ public sealed class RelatedReadingService(
         public DateTime CreateTime { get; init; }
         public DateTime? PublishedAt { get; init; }
         public int CategoryId { get; init; }
-        public string? MarkdownContent { get; init; }
         public DateTime SortTime => PublishedAt ?? CreateTime;
     }
 
