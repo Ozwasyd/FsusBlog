@@ -1024,26 +1024,37 @@ public partial class CommentService(
 
     private async Task<bool> DeleteCommentInternalAsync(long id, int currentUserId, bool isAdmin, string reason)
     {
-        DeleteCommentRow? row = await LoadDeleteCommentRowAsync(id);
-        if (row is null)
-        {
-            return false;
-        }
-
-        bool isAttributableUserComment = IsAttributableUserComment(row.AuthorMode, row.UserId);
-        if ((!isAttributableUserComment || row.UserId != currentUserId) && !isAdmin)
-        {
-            return false;
-        }
-
-        if (row.IsDeleted)
-        {
-            return false;
-        }
-
         DateTime deletedAt = DateTime.UtcNow;
         string? normalizedReason = NormalizeNullable(reason, 256);
-        bool deleted = await TrySoftDeleteCommentAsync(row.Id, row.RowVersion, reason, normalizedReason, deletedAt);
+        DeleteCommentRow? row = null;
+        bool isAttributableUserComment = false;
+        bool deleted = false;
+        var result = await db.Ado.UseTranAsync(async () =>
+        {
+            row = await LoadDeleteCommentRowAsync(id);
+            if (row is null)
+            {
+                return;
+            }
+
+            isAttributableUserComment = IsAttributableUserComment(row.AuthorMode, row.UserId);
+            if ((!isAttributableUserComment || row.UserId != currentUserId) && !isAdmin)
+            {
+                return;
+            }
+
+            if (row.IsDeleted)
+            {
+                return;
+            }
+
+            deleted = await TrySoftDeleteCommentAsync(row.Id, row.RowVersion, reason, normalizedReason, deletedAt);
+        });
+        if (!result.IsSuccess || row is null)
+        {
+            return false;
+        }
+
         if (!deleted)
         {
             return false;
@@ -1089,7 +1100,9 @@ public partial class CommentService(
                    c.xmin::text AS row_version
             FROM comment c
             INNER JOIN article a ON c.article_id = a.id
-            WHERE c.id = @CommentId;
+            WHERE c.id = @CommentId
+              AND a.isdeleted = false
+            FOR UPDATE OF c;
             """,
             new SugarParameter("@CommentId", id));
         if (!await reader.ReadAsync())

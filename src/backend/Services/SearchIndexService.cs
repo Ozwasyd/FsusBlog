@@ -106,6 +106,7 @@ public sealed partial class SearchIndexService(
                     return runtimeSnapshot.Search(normalizedKeyword);
                 }
 
+                string fallbackKeyword = NormalizeKeywordForFallback(normalizedKeyword);
                 await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
                 ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
                 DateTime now = DateTime.UtcNow;
@@ -115,8 +116,8 @@ public sealed partial class SearchIndexService(
                         && article.Status == ArticleStatus.Published
                         && (article.PublishedAt == null || article.PublishedAt <= now)
                         && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now)
-                        && (article.Title.Contains(normalizedKeyword)
-                            || article.Summary!.Contains(normalizedKeyword)))
+                        && (article.Title.ToLower().Contains(fallbackKeyword)
+                            || (article.Summary != null && article.Summary.ToLower().Contains(fallbackKeyword))))
                     .OrderByDescending(article => article.Views)
                     .OrderByDescending(article => article.CreateTime)
                     .Take(200)
@@ -169,6 +170,7 @@ public sealed partial class SearchIndexService(
                 }
                 catch
                 {
+                    _runtimeSnapshot = null;
                     result = "failed";
                     throw;
                 }
@@ -210,6 +212,9 @@ public sealed partial class SearchIndexService(
 
         return new string(buffer);
     }
+
+    private static string NormalizeKeywordForFallback(string keyword)
+        => NormalizeTokenForTests(keyword) ?? keyword.Trim().ToLowerInvariant();
 
     public static uint HashTokenForTests(string input)
     {

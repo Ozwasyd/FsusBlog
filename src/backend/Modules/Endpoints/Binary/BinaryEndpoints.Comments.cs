@@ -183,10 +183,14 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ICommentEndpointService commentService,
             IClientRegionResolver regionResolver,
+            ICommentCursorPolicyResolver cursorPolicies,
             IUnifiedCache cache,
             IAedsEncoder aeds) =>
         {
-            CursorBindResult<long> bind = CursorPageBinder.Bind(httpContext.Request, CommentCursorPolicies.Threads, Int64CursorCodec.Instance);
+            CursorBindResult<long> bind = CursorPageBinder.Bind(
+                httpContext.Request,
+                cursorPolicies.Resolve(CommentCursorPolicyKind.Threads, ResolveCommentCursorTenant(httpContext)),
+                Int64CursorCodec.Instance);
             if (!bind.IsSuccess)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, bind.ErrorMessage ?? "游标参数非法"), aeds);
@@ -215,10 +219,14 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ICommentEndpointService commentService,
             IClientRegionResolver regionResolver,
+            ICommentCursorPolicyResolver cursorPolicies,
             IUnifiedCache cache,
             IAedsEncoder aeds) =>
         {
-            CursorBindResult<long> bind = CursorPageBinder.Bind(httpContext.Request, CommentCursorPolicies.Replies, Int64CursorCodec.Instance);
+            CursorBindResult<long> bind = CursorPageBinder.Bind(
+                httpContext.Request,
+                cursorPolicies.Resolve(CommentCursorPolicyKind.Replies, ResolveCommentCursorTenant(httpContext)),
+                Int64CursorCodec.Instance);
             if (!bind.IsSuccess)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, bind.ErrorMessage ?? "游标参数非法"), aeds);
@@ -245,10 +253,14 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             AccountPrincipalContext account,
             ICommentCoreService core,
+            ICommentCursorPolicyResolver cursorPolicies,
             IUnifiedCache cache,
             IAedsEncoder aeds) =>
         {
-            CursorBindResult<long> bind = CursorPageBinder.Bind(httpContext.Request, CommentCursorPolicies.UserComments, Int64CursorCodec.Instance);
+            CursorBindResult<long> bind = CursorPageBinder.Bind(
+                httpContext.Request,
+                cursorPolicies.Resolve(CommentCursorPolicyKind.UserComments, ResolveCommentCursorTenant(httpContext)),
+                Int64CursorCodec.Instance);
             if (!bind.IsSuccess)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, bind.ErrorMessage ?? "游标参数非法"), aeds);
@@ -557,6 +569,11 @@ public static partial class BinaryEndpoints
 
     private static string BuildUserCommentFrameIdentity(int accountId, CursorPageRequest<long> request)
         => $"account:{accountId}:comments:{request.Cursor?.ToString() ?? "0"}:{request.Limit}";
+
+    private static string? ResolveCommentCursorTenant(HttpContext httpContext)
+        => httpContext.Request.Headers.TryGetValue("X-Fsus-Tenant", out var tenantValues)
+            ? tenantValues.FirstOrDefault()
+            : null;
 
     private static string NormalizeCommentFrameRegion(string? viewerRegion)
     {

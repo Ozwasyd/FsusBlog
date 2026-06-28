@@ -2,6 +2,7 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Entities;
 
+// backfill-only legacy view seed. Runtime article view/read counters must not read this table as live state.
 [SugarTable("article_view_seed")]
 public sealed class ArticleViewSeed
 {

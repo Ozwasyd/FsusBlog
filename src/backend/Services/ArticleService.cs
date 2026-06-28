@@ -520,7 +520,7 @@ public class ArticleService(
                 : ArticleStatus.Published;
         }
 
-        return requested is ArticleStatus.Draft or ArticleStatus.Published or ArticleStatus.Archived or ArticleStatus.Deleted
+        return requested is ArticleStatus.Draft or ArticleStatus.Published or ArticleStatus.Archived
             ? requested
             : ArticleStatus.Published;
     }
@@ -643,6 +643,11 @@ public class ArticleService(
         var tagIds = NormalizeTagIds(dto.TagIds);
         var safeSummary = string.IsNullOrWhiteSpace(summary) ? GenerateSafeSummary(content) : summary;
         DateTime now = DateTime.UtcNow;
+        if (dto.Status == ArticleStatus.Deleted)
+        {
+            return false;
+        }
+
         ArticleStatus status = NormalizeWriteStatus(dto.Status, dto.ScheduledPublishAt, now);
         DateTime? scheduledPublishAt = status == ArticleStatus.Scheduled ? dto.ScheduledPublishAt : null;
         DateTime? publishedAt = status == ArticleStatus.Published ? now : null;
@@ -662,8 +667,8 @@ public class ArticleService(
                 scheduledPublishAt,
                 publishedAt,
                 archivedAt,
-                status == ArticleStatus.Deleted,
-                status == ArticleStatus.Deleted ? now : null);
+                false,
+                null);
             if (!updated)
             {
                 return;
@@ -833,7 +838,7 @@ public class ArticleService(
                 .SetColumns(it => it.IsDeleted == true)
                 .SetColumns(it => it.Status == ArticleStatus.Deleted)
                 .SetColumns(it => it.DeletedAt == now)
-                .Where(it => it.Id == id)
+                .Where(it => it.Id == id && !it.IsDeleted)
                 .ExecuteCommandAsync();
             if (updated > 0)
             {
@@ -865,10 +870,10 @@ public class ArticleService(
         {
             int updated = await _db.Updateable<Article>()
                 .SetColumns(it => it.IsDeleted == false)
-                .SetColumns(it => it.Status == ArticleStatus.Published)
+                .SetColumns(it => it.Status == ArticleStatus.Draft)
                 .SetColumns(it => it.DeletedAt == null)
-                .SetColumns(it => it.PublishedAt == now)
-                .Where(it => it.Id == id)
+                .SetColumns(it => it.PublishedAt == null)
+                .Where(it => it.Id == id && it.IsDeleted)
                 .ExecuteCommandAsync();
             if (updated > 0)
             {

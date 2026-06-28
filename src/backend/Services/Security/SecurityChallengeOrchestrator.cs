@@ -10,6 +10,8 @@ public interface ISecurityChallengeProvider
 {
     string Kind { get; }
 
+    // Provider IssueAsync must persist the challenge before returning a successful assignment.
+    // SecurityChallengeOrchestrator only builds the client envelope after every provider succeeds.
     Task<SecurityChallengeProviderIssueResult> IssueAsync(SecurityChallengeProviderIssueRequest request, CancellationToken cancellationToken = default);
 
     Task<SecurityChallengeProviderVerifyResult> VerifyAsync(SecurityChallengeProviderVerifyRequest request, CancellationToken cancellationToken = default);

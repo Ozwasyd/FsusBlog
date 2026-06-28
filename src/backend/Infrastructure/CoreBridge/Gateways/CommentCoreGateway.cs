@@ -11,7 +11,10 @@ using FsusBlog.Server.Services;
 
 namespace FsusBlog.Server.Infrastructure.CoreBridge.Gateways;
 
-public sealed class CommentCoreGateway(CommentService service, CommentCoreQueryCache queryCache) : ICommentCoreGateway
+public sealed class CommentCoreGateway(
+    CommentService service,
+    CommentCoreQueryCache queryCache,
+    ICommentCursorPolicyResolver cursorPolicies) : ICommentCoreGateway
 {
     private static readonly Int64CursorCodec CursorCodec = Int64CursorCodec.Instance;
 
@@ -36,7 +39,7 @@ public sealed class CommentCoreGateway(CommentService service, CommentCoreQueryC
         var request = new CursorPageRequest<long>(
             cursor.HasValue ? CursorCodec.Format(cursor.Value) : null,
             cursor,
-            CommentCursorPolicies.Threads.NormalizeLimit(limit));
+            cursorPolicies.Resolve(CommentCursorPolicyKind.Threads).NormalizeLimit(limit));
         CursorResponse<CommentQueryResultDto> source = await service.GetCommentsByCursorAsync(articleId, request);
         return CursorInterop.ToCore(source, item =>
         {
@@ -50,7 +53,7 @@ public sealed class CommentCoreGateway(CommentService service, CommentCoreQueryC
         var request = new CursorPageRequest<long>(
             cursor.HasValue ? CursorCodec.Format(cursor.Value) : null,
             cursor,
-            CommentCursorPolicies.UserComments.NormalizeLimit(limit));
+            cursorPolicies.Resolve(CommentCursorPolicyKind.UserComments).NormalizeLimit(limit));
         CursorResponse<UserCommentResponse> source = await service.GetAttributableCommentsAsync(userId, request);
         return CursorInterop.ToCore(source, item => CommentProjection.ToCoreModel(new UserCommentReadModel
         {

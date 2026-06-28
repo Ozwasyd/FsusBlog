@@ -27,7 +27,7 @@ public class BlacklistService(
         int updated = await db.Updateable<User>()
             .SetColumns(u => u.Status == UserStatusBanned)
             .SetColumns(u => u.BanReason == finalReason)
-            .Where(u => u.Id == userId && u.Status != 2 && u.DeletedAt == null)
+            .Where(u => u.Id == userId && u.Status != UserStatusDeleted && u.DeletedAt == null)
             .ExecuteCommandAsync();
         if (updated <= 0)
         {
@@ -46,11 +46,15 @@ public class BlacklistService(
     /// </summary>
     public async Task UnbanUserAsync(int userId)
     {
-        await db.Updateable<User>()
+        int updated = await db.Updateable<User>()
             .SetColumns(u => u.Status == UserStatusNormal)
             .SetColumns(u => u.BanReason == null)
-            .Where(u => u.Id == userId)
+            .Where(u => u.Id == userId && u.DeletedAt == null)
             .ExecuteCommandAsync();
+        if (updated <= 0)
+        {
+            return;
+        }
 
         BlacklistCacheRow? row = await LoadBanStateRowAsync(userId).ConfigureAwait(false);
         if (row is not null)
@@ -73,13 +77,13 @@ public class BlacklistService(
         }
 
         BlacklistCacheRow? row = await LoadBanStateRowAsync(accountId).ConfigureAwait(false);
-        if (row is null || !string.Equals(row.CacheKey, cacheKey, StringComparison.Ordinal))
+        if (row is null)
         {
             return new BanStateSnapshot(false, null, null);
         }
 
         var snapshot = ToSnapshot(row.Status, row.BanReason);
-        bool warmed = await PublishBanStateAsync(row, allowOverwrite: false).ConfigureAwait(false);
+        bool warmed = await PublishBanStateAsync(row with { CacheKey = cacheKey }, allowOverwrite: false).ConfigureAwait(false);
         if (!warmed)
         {
             string? current = await cache.GetStringAsync(CachePolicyId.SecurityBlacklistUser, cacheKey).ConfigureAwait(false);

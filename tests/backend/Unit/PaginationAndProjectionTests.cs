@@ -5,6 +5,7 @@ using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -54,6 +55,30 @@ public class CursorPolicyTests
     {
         Assert.Equal(20, CommentCursorPolicies.Replies.DefaultLimit);
         Assert.Equal(100, CommentCursorPolicies.Replies.MaxLimit);
+    }
+
+    [Fact]
+    public void CommentCursorPolicyResolver_AppliesTenantOverrideAndClamps()
+    {
+        IConfiguration config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["CommentCursorPolicies:Threads:DefaultLimit"] = "12",
+                ["CommentCursorPolicies:Threads:MinLimit"] = "4",
+                ["CommentCursorPolicies:Threads:MaxLimit"] = "40",
+                ["CommentCursorPolicies:Tenants:tenant-main:Threads:DefaultLimit"] = "1000",
+                ["CommentCursorPolicies:Tenants:tenant-main:Threads:MaxLimit"] = "25"
+            })
+            .Build();
+        var resolver = new ConfigurationCommentCursorPolicyResolver(config);
+
+        CursorPolicy global = resolver.Resolve(CommentCursorPolicyKind.Threads);
+        CursorPolicy tenant = resolver.Resolve(CommentCursorPolicyKind.Threads, "Tenant-Main");
+
+        Assert.Equal(12, global.DefaultLimit);
+        Assert.Equal(40, global.MaxLimit);
+        Assert.Equal(25, tenant.DefaultLimit);
+        Assert.Equal(25, tenant.MaxLimit);
     }
 }
 

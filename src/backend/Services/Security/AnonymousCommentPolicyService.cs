@@ -239,6 +239,7 @@ public sealed class AnonymousCommentPolicyService(
         catch (Exception ex)
         {
             logger?.LogWarning(ex, "匿名评论策略持久化快照加载失败，回退配置文件");
+            _current = null;
             return null;
         }
     }

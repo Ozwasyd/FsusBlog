@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -92,14 +93,23 @@ public class CrawlerDetectorService(
     private static string NormalizeCrawlerUserAgent(string userAgent)
     {
         int length = Math.Min(userAgent.Length, MaxUserAgentLength);
-        return string.Create(length, userAgent, static (destination, source) =>
+        var builder = new StringBuilder(length);
+        for (int i = 0; i < length; i++)
         {
-            for (int i = 0; i < destination.Length; i++)
+            char normalized = NormalizeUserAgentRune(userAgent[i]);
+            if (normalized != '\0')
             {
-                destination[i] = char.ToLowerInvariant(source[i]);
+                builder.Append(normalized);
             }
-        });
+        }
+
+        return builder.ToString();
     }
+
+    private static char NormalizeUserAgentRune(char value)
+        => value is '\u200B' or '\u200C' or '\u200D' or '\u200E' or '\u200F' or '\uFEFF'
+            ? '\0'
+            : char.ToLowerInvariant(value);
 
     private static IpRadixTree BuildTree(List<string> ranges, int maxCount)
     {
@@ -168,8 +178,8 @@ public class CrawlerDetectorService(
             if (isValidDomain)
             {
                 // 3. A 记录回查: 域名 -> IP (防黑客伪造 PTR 记录)
-                var forwardEntry = await Dns.GetHostEntryAsync(hostName, cts.Token);
-                if (forwardEntry.AddressList.Any(x => x.Equals(ip)))
+                IPAddress[] forwardAddresses = await Dns.GetHostAddressesAsync(hostName, cts.Token);
+                if (forwardAddresses.Any(x => x.Equals(ip)))
                 {
                     result = true;
                 }
@@ -193,10 +203,10 @@ public class CrawlerDetectorService(
             }
         }
 
-        // C. 写入缓存 (真爬虫存 24h，假爬虫存 1h 防止频繁重试攻击消耗内存与 CPU)
+        // C. 写入缓存 (真爬虫存 1h，假爬虫存 15m，避免 DNS 瞬态污染长期放大)
         var options = new MemoryCacheEntryOptions
         {
-            AbsoluteExpirationRelativeToNow = result ? TimeSpan.FromHours(24) : TimeSpan.FromHours(1)
+            AbsoluteExpirationRelativeToNow = result ? TimeSpan.FromHours(1) : TimeSpan.FromMinutes(15)
         };
         cache.Set(cacheKey, result, options);
 

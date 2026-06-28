@@ -128,18 +128,23 @@ public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : IS
             int updated = await db.Ado.ExecuteCommandAsync(
                 """
                 UPDATE security_challenge
-                SET status = @Status,
-                    verified_at_utc = CASE WHEN @Status = 'verified' THEN @AttemptedAt ELSE verified_at_utc END,
-                    revoked_at_utc = CASE WHEN @Status = 'revoked' THEN @AttemptedAt ELSE revoked_at_utc END,
-                    updated_at_utc = @AttemptedAt
-                WHERE challenge_id = @ChallengeId;
+                SET status = CASE WHEN status NOT IN ('verified', 'revoked', 'expired') THEN @Status ELSE status END,
+                    verified_at_utc = CASE WHEN status NOT IN ('verified', 'revoked', 'expired') AND @Status = 'verified' THEN @AttemptedAt ELSE verified_at_utc END,
+                    revoked_at_utc = CASE WHEN status NOT IN ('verified', 'revoked', 'expired') AND @Status = 'revoked' THEN @AttemptedAt ELSE revoked_at_utc END,
+                    updated_at_utc = CASE WHEN status NOT IN ('verified', 'revoked', 'expired') THEN @AttemptedAt ELSE updated_at_utc END
+                WHERE challenge_id = @ChallengeId
+                  AND status NOT IN ('verified', 'revoked', 'expired');
                 """,
                 new SugarParameter("@Status", outcome),
                 new SugarParameter("@AttemptedAt", attemptedAt),
                 new SugarParameter("@ChallengeId", challengeId));
             if (updated <= 0)
             {
-                throw new InvalidOperationException("Security challenge not found.");
+                bool exists = await db.Queryable<SecurityChallenge>().AnyAsync(item => item.ChallengeId == challengeId, cancellationToken);
+                if (!exists)
+                {
+                    throw new InvalidOperationException("Security challenge not found.");
+                }
             }
 
             return updated;

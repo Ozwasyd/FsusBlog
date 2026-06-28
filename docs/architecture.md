@@ -242,7 +242,7 @@ TOTP recovery code 的持久化状态只在 `user_mfa_profile`：`mfa_recovery_c
 
 站点合规配置使用 `CachePolicyId.SystemCompliance` 进入 L1/L2/raw binary cache。admin 保存后由 `ICacheInvalidationDispatcher.InvalidateComplianceAsync` 清除 compliance cache、SEO/distribution output cache 与相关 AOT 静态页，并推送 `CacheControl` shell invalidate 事件；因此 ICP/公安备案、版权与许可 footer、RSS copyright 和 sitemap 静态页可在不重启服务的情况下收敛。
 
-评论缓存失效由 `ICacheInvalidationDispatcher.InvalidateCommentMutationAsync(CommentCacheInvalidationScope)` 承载：公开可见性变化只删除 `CommentCursor` 的 `article:{articleId}:` 前缀，特定回复树变化可额外删除 `article:{articleId}:root:{rootId}:`，个人评论历史只删除 `UserCommentCursor` 的 `account:{accountId}:` 前缀；不得再用空 prefix 或 `CacheTag.Comment` 全局清除公开评论 output cache。公开评论 frame identity 包含 viewer region，保证 `comment_region_compliance.blocked_regions` 过滤后的 CN-MAINLAND/UNKNOWN/其他地区读模型不会共享同一个缓存条目。公开评论线程/回复端点不挂 HTTP OutputCache，避免审核 notification stream、地区过滤与浏览器缓存产生状态分叉。
+评论缓存失效由 `ICacheInvalidationDispatcher.InvalidateCommentMutationAsync(CommentCacheInvalidationScope)` 承载：公开可见性变化只删除 `CommentCursor` 的 `article:{articleId}:` 前缀，特定回复树变化可额外删除 `article:{articleId}:root:{rootId}:`，个人评论历史只删除 `UserCommentCursor` 的 `account:{accountId}:` 前缀；不得再用空 prefix 或 `CacheTag.Comment` 全局清除公开评论 output cache。公开评论 frame identity 包含 viewer region，保证 `comment_region_compliance.blocked_regions` 过滤后的 CN-MAINLAND/UNKNOWN/其他地区读模型不会共享同一个缓存条目。公开评论线程/回复端点不挂 HTTP OutputCache，避免审核 notification stream、地区过滤与浏览器缓存产生状态分叉。评论 cursor limit 由 `ICommentCursorPolicyResolver` 从 `CommentCursorPolicies` / `CommentCursorPolicies:Tenants:{tenant}` 配置解析；缺省仍使用 threads 10/50、replies 20/100、user comments 10/50，端点和 Core gateway 不得直接硬编码分页上限。
 
 ## AEDS Binary 链
 
@@ -308,7 +308,7 @@ SPA hydration
 ```
 
 - `sys_visit_log` 是文章浏览与站点访问统计的单一事件源，字段包含 `event_type`、`route_key`、`article_id`、`viewer_key_hash`、`proof_id`、`dwell_ms`；最终态不保留历史 `userid` / `user_id` 账号绑定列。
-- `article_view_seed` 保存迁移时的历史 `article.views`，用于重建 `Article.Views = legacy_views + article_read events` 投影。
+- `article_view_seed` / `ArticleViewSeed` 只保存迁移时的历史 `article.views`，用于重建 `Article.Views = legacy_views + article_read events` 投影；运行时详情、热榜、搜索或公开读链不得把它当作实时浏览量来源。
 - 直接读取 `/api/binary/article/{id}.aeds`、AOT 首屏、无 JS、爬虫和预取请求不会增加计数。
 - `VisitLogMiddleware` 仅保留为管线兼容占位，不再从 GET 请求采样。
 - `VisitLogProcessorService` 只负责读取事件批次与落库，文章浏览量投影由 `IArticleViewProjectionService` 聚合后通过单条 `VALUES` 更新批量写入，Redis 热榜使用 batch/pipeline，详情失效设置批次上限，PublicHot 只收到一个 `article-view-projection-batch` dirty event。
