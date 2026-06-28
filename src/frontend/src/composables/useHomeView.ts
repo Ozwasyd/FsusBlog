@@ -23,6 +23,8 @@ const HOME_HOT_ARTICLE_DISPLAY_COUNT = 5
 const HOME_SECONDARY_CONTENT_SENTINEL_ID = 'fsus-home-secondary-content-sentinel'
 const HOME_SECONDARY_LIST_ROOT_MARGIN = '600px 0px 600px 0px'
 const HOME_SECONDARY_LIST_FALLBACK_DELAY_MS = 2500
+const HOME_ARTICLE_BATCH_REFRESH_DELAY_MS = 100
+const HOME_SECONDARY_REFRESH_DELAY_MS = 500
 
 const parsePageQuery = (value: unknown): number => {
   const raw = Array.isArray(value) ? value[0] : value
@@ -105,7 +107,18 @@ export function useHomeView() {
 
   const articleTask = useAbortableTask()
   const featuredTask = useAbortableTask()
-  let featuredDebounceTimer: ReturnType<typeof setTimeout> | null = null
+  const homeRuntimeMetrics = {
+    patchApplied: 0,
+    fallbackSync: 0,
+    secondaryRefresh: 0,
+    stalePageMarks: 0
+  }
+  const pendingArticleBatchRefresh = {
+    syncList: false,
+    refreshSecondary: false
+  }
+  let articleRefreshTimer: ReturnType<typeof setTimeout> | null = null
+  let secondaryRefreshTimer: ReturnType<typeof setTimeout> | null = null
   let secondaryListObserver: IntersectionObserver | null = null
   let secondaryListFallbackTimer: ReturnType<typeof setTimeout> | null = null
   let secondaryListsLoaded = initialFeaturedArticles.length > 0 || initialHotArticles.length > 0
@@ -115,8 +128,11 @@ export function useHomeView() {
     onDispose: () => {
       articleTask.cancel()
       featuredTask.cancel()
-      if (featuredDebounceTimer) {
-        clearTimeout(featuredDebounceTimer)
+      if (articleRefreshTimer) {
+        clearTimeout(articleRefreshTimer)
+      }
+      if (secondaryRefreshTimer) {
+        clearTimeout(secondaryRefreshTimer)
       }
       clearSecondaryListFallbackTimer()
       disconnectSecondaryListObserver()
@@ -231,7 +247,7 @@ export function useHomeView() {
     secondaryListObserver = null
   }
 
-  const loadFeaturedArticles = async (showLoading = true): Promise<void> => {
+  const loadHomeSecondaryArticles = async (showLoading = true): Promise<void> => {
     if (secondaryListRequestInFlight) {
       return
     }
@@ -258,6 +274,7 @@ export function useHomeView() {
           .filter(a => !featuredIds.has(a.id))
           .slice(0, HOME_HOT_ARTICLE_DISPLAY_COUNT)
         secondaryListsLoaded = true
+        homeRuntimeMetrics.secondaryRefresh++
       }
     } catch (caught: unknown) {
       if (isAbortError(caught)) {
@@ -275,7 +292,7 @@ export function useHomeView() {
   const triggerSecondaryListLoad = (showLoading = true): void => {
     clearSecondaryListFallbackTimer()
     disconnectSecondaryListObserver()
-    void loadFeaturedArticles(showLoading)
+    void loadHomeSecondaryArticles(showLoading)
   }
 
   const scheduleSecondaryListLoad = async (): Promise<void> => {
@@ -315,25 +332,51 @@ export function useHomeView() {
     secondaryListObserver.observe(target)
   }
 
-  const dispatchFeaturedUpdate = (): void => {
+  const scheduleHomeSecondaryRefresh = (showLoading = false): void => {
     if (!secondaryListsLoaded && !secondaryListRequestInFlight) {
       return
     }
 
-    if (featuredDebounceTimer) {
-      clearTimeout(featuredDebounceTimer)
+    if (secondaryRefreshTimer) {
+      clearTimeout(secondaryRefreshTimer)
     }
 
-    featuredDebounceTimer = setTimeout(() => {
-      void loadFeaturedArticles(false)
-      featuredDebounceTimer = null
-    }, 500)
+    secondaryRefreshTimer = setTimeout(() => {
+      void loadHomeSecondaryArticles(showLoading)
+      secondaryRefreshTimer = null
+    }, HOME_SECONDARY_REFRESH_DELAY_MS)
   }
 
-  const dispatchListUpdate = (): void => {
-    lifecycle.scheduleSync(() => {
-      void loadArticles(false)
-    })
+  const scheduleArticleBatchRefresh = (request: { syncList: boolean; refreshSecondary: boolean }): void => {
+    pendingArticleBatchRefresh.syncList ||= request.syncList
+    pendingArticleBatchRefresh.refreshSecondary ||= request.refreshSecondary
+
+    if (articleRefreshTimer) {
+      clearTimeout(articleRefreshTimer)
+    }
+
+    articleRefreshTimer = setTimeout(() => {
+      const shouldSyncList = pendingArticleBatchRefresh.syncList
+      const shouldRefreshSecondary = pendingArticleBatchRefresh.refreshSecondary
+      pendingArticleBatchRefresh.syncList = false
+      pendingArticleBatchRefresh.refreshSecondary = false
+      articleRefreshTimer = null
+
+      if (!lifecycle.isActive()) {
+        return
+      }
+
+      if (shouldSyncList) {
+        homeRuntimeMetrics.fallbackSync++
+        lifecycle.scheduleSync(() => {
+          void loadArticles(false)
+        })
+      }
+
+      if (shouldRefreshSecondary) {
+        scheduleHomeSecondaryRefresh(false)
+      }
+    }, HOME_ARTICLE_BATCH_REFRESH_DELAY_MS)
   }
 
   const applyArticlePatch = (payload: ArticleUpdatePayload): boolean => {
@@ -351,18 +394,31 @@ export function useHomeView() {
       if (currentPage.value === 1) {
         initialViewItems.value = null
         articleItems.value = upsertArticlePreview(articleItems.value, payload.preview).slice(0, pageSize.value)
+        homeRuntimeMetrics.patchApplied++
+      } else {
+        homeRuntimeMetrics.stalePageMarks++
       }
 
       return true
     }
 
     if (payload.action === 'Updated') {
-      if (!exists || !payload.preview) {
+      if (!payload.preview) {
+        return false
+      }
+
+      if (!exists && currentPage.value !== 1) {
+        homeRuntimeMetrics.stalePageMarks++
+        return true
+      }
+
+      if (!exists) {
         return false
       }
 
       articleItems.value = upsertArticlePreview(articleItems.value, payload.preview)
       initialViewItems.value = null
+      homeRuntimeMetrics.patchApplied++
       return true
     }
 
@@ -373,6 +429,12 @@ export function useHomeView() {
     articleItems.value = removeArticlePreview(articleItems.value, payload.articleId)
     initialViewItems.value = null
     setPageTotal(Math.max(0, total.value - 1))
+    homeRuntimeMetrics.patchApplied++
+    if (currentPage.value !== 1) {
+      homeRuntimeMetrics.stalePageMarks++
+      return true
+    }
+
     return currentPage.value === 1 && articleItems.value.length >= pageSize.value
   }
 
@@ -403,12 +465,11 @@ export function useHomeView() {
       }
     }
 
-    if (needsSync && lifecycle.isActive()) {
-      dispatchListUpdate()
-    }
-
-    if (needsFeaturedSync && lifecycle.isActive()) {
-      dispatchFeaturedUpdate()
+    if ((needsSync || needsFeaturedSync) && lifecycle.isActive()) {
+      scheduleArticleBatchRefresh({
+        syncList: needsSync,
+        refreshSecondary: needsFeaturedSync
+      })
     }
   }
 
@@ -458,12 +519,17 @@ export function useHomeView() {
   )
 
   onUnmounted(() => {
-    if (featuredDebounceTimer) {
-      clearTimeout(featuredDebounceTimer)
+    if (articleRefreshTimer) {
+      clearTimeout(articleRefreshTimer)
+    }
+    if (secondaryRefreshTimer) {
+      clearTimeout(secondaryRefreshTimer)
     }
     clearSecondaryListFallbackTimer()
     disconnectSecondaryListObserver()
   })
+
+  const loadFeaturedArticles = loadHomeSecondaryArticles
 
   return {
     listView,
