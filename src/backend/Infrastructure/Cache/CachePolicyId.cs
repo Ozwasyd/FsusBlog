@@ -56,5 +56,7 @@ public enum CachePolicyId
     ArticleSearchVersion = 51,
     AdminStatsOverview = 52,
     AdminStatsRecentComments = 53,
-    AdminStatsRegions = 54
+    AdminStatsRegions = 54,
+    CommentCursorVersion = 55,
+    UserCommentCursorVersion = 56
 }

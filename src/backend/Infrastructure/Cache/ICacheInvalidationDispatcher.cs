@@ -260,46 +260,35 @@ public sealed class CacheInvalidationDispatcher(
 
     public async Task InvalidateCommentMutationAsync(CommentCacheInvalidationScope? scope = null, CancellationToken cancellationToken = default)
     {
-        if (scope is null)
-        {
-            await cache.RemoveByPrefixManyAsync(
-                [
-                    new(CachePolicyId.CommentCursor, "article:"),
-                    new(CachePolicyId.UserCommentCursor, "account:"),
-                    new(CachePolicyId.CommentCursorFrame, "article:"),
-                    new(CachePolicyId.UserCommentCursorFrame, "account:")
-                ],
-                cancellationToken);
-        }
-        else
-        {
-            var prefixes = new List<CachePrefixIdentity>(6);
-            if (scope.PublicArticleChanged && scope.ArticleId is > 0)
-            {
-                prefixes.Add(new CachePrefixIdentity(CachePolicyId.CommentCursor, $"article:{scope.ArticleId.Value}:"));
-                prefixes.Add(new CachePrefixIdentity(CachePolicyId.CommentCursorFrame, $"article:{scope.ArticleId.Value}:"));
-            }
-
-            if (scope.ArticleId is > 0 && scope.RootId is > 0)
-            {
-                prefixes.Add(new CachePrefixIdentity(CachePolicyId.CommentCursor, $"article:{scope.ArticleId.Value}:root:{scope.RootId.Value}:"));
-                prefixes.Add(new CachePrefixIdentity(CachePolicyId.CommentCursorFrame, $"article:{scope.ArticleId.Value}:root:{scope.RootId.Value}:"));
-            }
-
-            if (scope.UserCommentsChanged && scope.AccountId is > 0)
-            {
-                prefixes.Add(new CachePrefixIdentity(CachePolicyId.UserCommentCursor, $"account:{scope.AccountId.Value}:"));
-                prefixes.Add(new CachePrefixIdentity(CachePolicyId.UserCommentCursorFrame, $"account:{scope.AccountId.Value}:"));
-            }
-
-            if (prefixes.Count > 0)
-            {
-                await cache.RemoveByPrefixManyAsync(prefixes, cancellationToken);
-            }
-        }
+        await IncrementCommentCursorVersionsAsync(scope, cancellationToken);
 
         await InvalidateStatsAsync(cancellationToken);
         await RecordRuntimeAsync("comment", scope is null ? "all" : $"article:{scope.ArticleId?.ToString() ?? "*"} root:{scope.RootId?.ToString() ?? "*"} account:{scope.AccountId?.ToString() ?? "*"}", cancellationToken);
+    }
+
+    private async Task IncrementCommentCursorVersionsAsync(CommentCacheInvalidationScope? scope, CancellationToken cancellationToken)
+    {
+        if (scope is null)
+        {
+            await cache.IncrementAsync(CachePolicyId.CommentCursorVersion, "global", 1, cancellationToken);
+            await cache.IncrementAsync(CachePolicyId.UserCommentCursorVersion, "global", 1, cancellationToken);
+            return;
+        }
+
+        if (scope.PublicArticleChanged && scope.ArticleId is > 0)
+        {
+            await cache.IncrementAsync(CachePolicyId.CommentCursorVersion, $"article:{scope.ArticleId.Value}", 1, cancellationToken);
+        }
+
+        if (scope.ArticleId is > 0 && scope.RootId is > 0)
+        {
+            await cache.IncrementAsync(CachePolicyId.CommentCursorVersion, $"article:{scope.ArticleId.Value}:root:{scope.RootId.Value}", 1, cancellationToken);
+        }
+
+        if (scope.UserCommentsChanged && scope.AccountId is > 0)
+        {
+            await cache.IncrementAsync(CachePolicyId.UserCommentCursorVersion, $"account:{scope.AccountId.Value}", 1, cancellationToken);
+        }
     }
 
     public async Task InvalidateStatsAsync(CancellationToken cancellationToken = default)

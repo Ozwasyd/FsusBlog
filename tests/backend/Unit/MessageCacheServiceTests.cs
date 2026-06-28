@@ -59,10 +59,11 @@ public sealed class MessageCacheServiceTests
     }
 
     [Fact]
-    public async Task GetOrLoadUserCommentsAsync_UsesAccountCommentIdentityPrefix()
+    public async Task GetOrLoadUserCommentsAsync_UsesVersionedAccountCommentIdentityPrefix()
     {
         var cache = Substitute.For<IUnifiedCache>();
-        cache.AcquireSingleFlightAsync(CachePolicyId.UserCommentCursor, "account:7:comments:123:20", Arg.Any<CancellationToken>())
+        const string identity = "account:7:v:UserCommentCursorVersion:0:0:comments:123:20";
+        cache.AcquireSingleFlightAsync(CachePolicyId.UserCommentCursor, identity, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IAsyncDisposable>(NullAsyncDisposable.Instance));
         var sut = new CommentCoreQueryCache(cache);
 
@@ -74,10 +75,12 @@ public sealed class MessageCacheServiceTests
 
         await cache.Received(1).SetRawAsync(
             CachePolicyId.UserCommentCursor,
-            "account:7:comments:123:20",
+            identity,
             Arg.Any<byte[]>(),
             TimeSpan.FromMinutes(5),
             Arg.Any<CancellationToken>());
+        await cache.Received(1).GetStringAsync(CachePolicyId.UserCommentCursorVersion, "global", Arg.Any<CancellationToken>());
+        await cache.Received(1).GetStringAsync(CachePolicyId.UserCommentCursorVersion, "account:7", Arg.Any<CancellationToken>());
     }
 
     [Fact]

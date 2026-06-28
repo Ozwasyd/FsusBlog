@@ -71,7 +71,7 @@ public sealed class CacheInvalidationDispatcherTests
     }
 
     [Fact]
-    public async Task InvalidateCommentMutationAsync_WithoutScope_RemovesCommentCursorFamiliesAndStats()
+    public async Task InvalidateCommentMutationAsync_WithoutScope_BumpsCommentCursorVersionsAndStats()
     {
         var cache = Substitute.For<IUnifiedCache>();
         var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
@@ -79,11 +79,9 @@ public sealed class CacheInvalidationDispatcherTests
 
         await sut.InvalidateCommentMutationAsync();
 
-        await cache.Received(1).RemoveByPrefixManyAsync(Arg.Is<IReadOnlyList<CachePrefixIdentity>>(prefixes =>
-            HasPrefix(prefixes, CachePolicyId.CommentCursor, "article:")
-            && HasPrefix(prefixes, CachePolicyId.UserCommentCursor, "account:")
-            && HasPrefix(prefixes, CachePolicyId.CommentCursorFrame, "article:")
-            && HasPrefix(prefixes, CachePolicyId.UserCommentCursorFrame, "account:")), Arg.Any<CancellationToken>());
+        await cache.Received(1).IncrementAsync(CachePolicyId.CommentCursorVersion, "global", 1, Arg.Any<CancellationToken>());
+        await cache.Received(1).IncrementAsync(CachePolicyId.UserCommentCursorVersion, "global", 1, Arg.Any<CancellationToken>());
+        await cache.DidNotReceive().RemoveByPrefixManyAsync(Arg.Any<IReadOnlyList<CachePrefixIdentity>>(), Arg.Any<CancellationToken>());
         await cache.Received(1).RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
             HasKey(keys, CachePolicyId.AdminStats, "main")
             && HasKey(keys, CachePolicyId.AdminStats, "core:main")
@@ -93,7 +91,7 @@ public sealed class CacheInvalidationDispatcherTests
     }
 
     [Fact]
-    public async Task InvalidateCommentMutationAsync_WithScope_RemovesOnlyAffectedArticleAndUser()
+    public async Task InvalidateCommentMutationAsync_WithScope_BumpsOnlyAffectedArticleRootAndUser()
     {
         var cache = Substitute.For<IUnifiedCache>();
         var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
@@ -106,13 +104,10 @@ public sealed class CacheInvalidationDispatcherTests
             PublicArticleChanged: true,
             UserCommentsChanged: true));
 
-        await cache.Received(1).RemoveByPrefixManyAsync(Arg.Is<IReadOnlyList<CachePrefixIdentity>>(prefixes =>
-            HasPrefix(prefixes, CachePolicyId.CommentCursor, "article:42:")
-            && HasPrefix(prefixes, CachePolicyId.CommentCursorFrame, "article:42:")
-            && HasPrefix(prefixes, CachePolicyId.CommentCursor, "article:42:root:99:")
-            && HasPrefix(prefixes, CachePolicyId.CommentCursorFrame, "article:42:root:99:")
-            && HasPrefix(prefixes, CachePolicyId.UserCommentCursor, "account:7:")
-            && HasPrefix(prefixes, CachePolicyId.UserCommentCursorFrame, "account:7:")), Arg.Any<CancellationToken>());
+        await cache.Received(1).IncrementAsync(CachePolicyId.CommentCursorVersion, "article:42", 1, Arg.Any<CancellationToken>());
+        await cache.Received(1).IncrementAsync(CachePolicyId.CommentCursorVersion, "article:42:root:99", 1, Arg.Any<CancellationToken>());
+        await cache.Received(1).IncrementAsync(CachePolicyId.UserCommentCursorVersion, "account:7", 1, Arg.Any<CancellationToken>());
+        await cache.DidNotReceive().RemoveByPrefixManyAsync(Arg.Any<IReadOnlyList<CachePrefixIdentity>>(), Arg.Any<CancellationToken>());
         await cache.Received(1).RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
             HasKey(keys, CachePolicyId.AdminStats, "main")
             && HasKey(keys, CachePolicyId.AdminStats, "core:main")

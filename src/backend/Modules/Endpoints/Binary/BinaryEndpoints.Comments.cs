@@ -198,7 +198,8 @@ public static partial class BinaryEndpoints
             }
 
             string viewerRegion = regionResolver.Resolve(httpContext).Region;
-            string identity = BuildCommentThreadFrameIdentity(articleId, bind.Request, previewLimit: 3, viewerRegion);
+            string version = await ReadCommentCursorVersionAsync(cache, articleId, rootId: null, accountId: null, httpContext.RequestAborted);
+            string identity = BuildCommentThreadFrameIdentity(articleId, bind.Request, previewLimit: 3, viewerRegion, version);
             CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CommentCursorFrame, identity, httpContext.RequestAborted);
             RecordCommentFrameCacheResult("roots", viewerRegion, frame.Hit && frame.Value.Length > 0);
             if (frame.Hit && frame.Value.Length > 0)
@@ -235,7 +236,8 @@ public static partial class BinaryEndpoints
             }
 
             string viewerRegion = regionResolver.Resolve(httpContext).Region;
-            string identity = BuildCommentReplyFrameIdentity(articleId, rootId, bind.Request, viewerRegion);
+            string version = await ReadCommentCursorVersionAsync(cache, articleId, rootId, accountId: null, httpContext.RequestAborted);
+            string identity = BuildCommentReplyFrameIdentity(articleId, rootId, bind.Request, viewerRegion, version);
             CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CommentCursorFrame, identity, httpContext.RequestAborted);
             RecordCommentFrameCacheResult("replies", viewerRegion, frame.Hit && frame.Value.Length > 0);
             if (frame.Hit && frame.Value.Length > 0)
@@ -269,7 +271,8 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, bind.ErrorMessage ?? "游标参数非法"), aeds);
             }
 
-            string identity = BuildUserCommentFrameIdentity(account.AccountId, bind.Request);
+            string version = await ReadCommentCursorVersionAsync(cache, articleId: null, rootId: null, accountId: account.AccountId, httpContext.RequestAborted);
+            string identity = BuildUserCommentFrameIdentity(account.AccountId, bind.Request, version);
             CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.UserCommentCursorFrame, identity, httpContext.RequestAborted);
             if (frame.Hit && frame.Value.Length > 0)
             {
@@ -564,14 +567,56 @@ public static partial class BinaryEndpoints
         return frameWriter.WrittenFrame.ToArray();
     }
 
-    private static string BuildCommentThreadFrameIdentity(int articleId, CursorPageRequest<long> request, int previewLimit, string viewerRegion)
-        => $"article:{articleId}:roots:{request.Cursor?.ToString() ?? "0"}:{request.Limit}:{previewLimit}:region:{NormalizeCommentFrameRegion(viewerRegion)}";
+    private static string BuildCommentThreadFrameIdentity(int articleId, CursorPageRequest<long> request, int previewLimit, string viewerRegion, string version)
+        => $"article:{articleId}:v:{version}:roots:{request.Cursor?.ToString() ?? "0"}:{request.Limit}:{previewLimit}:region:{NormalizeCommentFrameRegion(viewerRegion)}";
 
-    private static string BuildCommentReplyFrameIdentity(int articleId, long rootId, CursorPageRequest<long> request, string viewerRegion)
-        => $"article:{articleId}:root:{rootId}:replies:{request.Cursor?.ToString() ?? "0"}:{request.Limit}:region:{NormalizeCommentFrameRegion(viewerRegion)}";
+    private static string BuildCommentReplyFrameIdentity(int articleId, long rootId, CursorPageRequest<long> request, string viewerRegion, string version)
+        => $"article:{articleId}:root:{rootId}:v:{version}:replies:{request.Cursor?.ToString() ?? "0"}:{request.Limit}:region:{NormalizeCommentFrameRegion(viewerRegion)}";
 
-    private static string BuildUserCommentFrameIdentity(int accountId, CursorPageRequest<long> request)
-        => $"account:{accountId}:comments:{request.Cursor?.ToString() ?? "0"}:{request.Limit}";
+    private static string BuildUserCommentFrameIdentity(int accountId, CursorPageRequest<long> request, string version)
+        => $"account:{accountId}:v:{version}:comments:{request.Cursor?.ToString() ?? "0"}:{request.Limit}";
+
+    private static async Task<string> ReadCommentCursorVersionAsync(
+        IUnifiedCache cache,
+        int? articleId,
+        long? rootId,
+        int? accountId,
+        CancellationToken cancellationToken)
+    {
+        if (accountId is > 0)
+        {
+            long global = await ReadVersionAsync(cache, CachePolicyId.UserCommentCursorVersion, "global", cancellationToken);
+            long account = await ReadVersionAsync(cache, CachePolicyId.UserCommentCursorVersion, $"account:{accountId.Value}", cancellationToken);
+            return $"ug{global}:u{account}";
+        }
+
+        long commentGlobal = await ReadVersionAsync(cache, CachePolicyId.CommentCursorVersion, "global", cancellationToken);
+        if (articleId is not > 0)
+        {
+            return $"cg{commentGlobal}";
+        }
+
+        long article = await ReadVersionAsync(cache, CachePolicyId.CommentCursorVersion, $"article:{articleId.Value}", cancellationToken);
+        if (rootId is > 0)
+        {
+            long root = await ReadVersionAsync(cache, CachePolicyId.CommentCursorVersion, $"article:{articleId.Value}:root:{rootId.Value}", cancellationToken);
+            return $"cg{commentGlobal}:a{article}:r{root}";
+        }
+
+        return $"cg{commentGlobal}:a{article}";
+    }
+
+    private static async Task<long> ReadVersionAsync(
+        IUnifiedCache cache,
+        CachePolicyId policyId,
+        string identity,
+        CancellationToken cancellationToken)
+    {
+        string? value = await cache.GetStringAsync(policyId, identity, cancellationToken);
+        return long.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out long version)
+            ? version
+            : 0;
+    }
 
     private static void RecordCommentFrameCacheResult(string frameKind, string viewerRegion, bool hit)
         => FsusObservability.RecordCacheOperation(

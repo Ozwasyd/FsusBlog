@@ -163,13 +163,15 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
-    public void CommentCacheInvalidation_RemovesScopedPrefixesWithoutGlobalCommentOutputTag()
+    public void CommentCacheInvalidation_BumpsScopedVersionsWithoutGlobalCommentOutputTag()
     {
         string source = ReadRepoFile("src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs");
 
-        Assert.Contains("article:{scope.ArticleId.Value}:", source);
-        Assert.Contains("article:{scope.ArticleId.Value}:root:{scope.RootId.Value}:", source);
-        Assert.Contains("account:{scope.AccountId.Value}:", source);
+        Assert.Contains("CachePolicyId.CommentCursorVersion", source);
+        Assert.Contains("article:{scope.ArticleId.Value}", source);
+        Assert.Contains("article:{scope.ArticleId.Value}:root:{scope.RootId.Value}", source);
+        Assert.Contains("CachePolicyId.UserCommentCursorVersion", source);
+        Assert.Contains("account:{scope.AccountId.Value}", source);
         Assert.DoesNotContain("CacheTag.Comment", source, StringComparison.Ordinal);
         Assert.DoesNotContain("RemoveByPrefixAsync(CachePolicyId.CommentCursor, string.Empty", source, StringComparison.Ordinal);
     }

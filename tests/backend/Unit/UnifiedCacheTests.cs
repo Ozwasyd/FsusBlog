@@ -104,15 +104,15 @@ public sealed class UnifiedCacheTests
                 return Task.FromResult(RedisResult.Create((RedisValue)2L));
             });
         UnifiedCache cache = CreateCache(memory, db);
-        string firstKey = cache.BuildKey(CachePolicyId.CommentCursor, "article:42:root:1");
-        string secondKey = cache.BuildKey(CachePolicyId.CommentCursor, "article:42:page:1");
+        string firstKey = cache.BuildKey(CachePolicyId.ArticleHot, "article:42:root:1");
+        string secondKey = cache.BuildKey(CachePolicyId.ArticleHot, "article:42:page:1");
         memory.Set(firstKey, new byte[] { 1 });
         memory.Set(secondKey, new byte[] { 2 });
 
         await cache.RemoveManyAsync(
             [
-                new(CachePolicyId.CommentCursor, "article:42:root:1"),
-                new(CachePolicyId.CommentCursor, "article:42:page:1")
+                new(CachePolicyId.ArticleHot, "article:42:root:1"),
+                new(CachePolicyId.ArticleHot, "article:42:page:1")
             ]);
 
         Assert.False(memory.TryGetValue(firstKey, out _));
@@ -121,7 +121,7 @@ public sealed class UnifiedCacheTests
         Assert.Contains("redis.call('DEL'", capturedScript, StringComparison.Ordinal);
         Assert.Contains("redis.call('SREM'", capturedScript, StringComparison.Ordinal);
         Assert.NotNull(capturedKeys);
-        Assert.Equal(UnifiedCache.BuildRegistryKeyForTests(CachePolicyId.CommentCursor), capturedKeys[0].ToString());
+        Assert.Equal(UnifiedCache.BuildRegistryKeyForTests(CachePolicyId.ArticleHot), capturedKeys[0].ToString());
         Assert.True(ContainsAll(capturedKeys, firstKey, secondKey));
         Assert.NotNull(capturedValues);
         Assert.Empty(capturedValues);
@@ -218,8 +218,35 @@ public sealed class UnifiedCacheTests
         Assert.True(registry.TryGet(CachePolicyId.SecurityPowRisk, out CachePolicy securityRisk));
         Assert.False(securityRisk.RegisterKeysForPrefixInvalidation);
 
+        Assert.True(registry.TryGet(CachePolicyId.CommentCursor, out CachePolicy commentCursor));
+        Assert.False(commentCursor.RegisterKeysForPrefixInvalidation);
+
+        Assert.True(registry.TryGet(CachePolicyId.UserCommentCursor, out CachePolicy userCommentCursor));
+        Assert.False(userCommentCursor.RegisterKeysForPrefixInvalidation);
+
         Assert.True(registry.TryGet(CachePolicyId.CommentCursorFrame, out CachePolicy commentFrame));
-        Assert.True(commentFrame.RegisterKeysForPrefixInvalidation);
+        Assert.False(commentFrame.RegisterKeysForPrefixInvalidation);
+
+        Assert.True(registry.TryGet(CachePolicyId.UserCommentCursorFrame, out CachePolicy userCommentFrame));
+        Assert.False(userCommentFrame.RegisterKeysForPrefixInvalidation);
+    }
+
+    [Fact]
+    public void CommentMutationInvalidation_UsesVersionBumpsInsteadOfCursorPrefixScans()
+    {
+        string invalidation = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs"));
+        string method = ExtractMethodBlock(invalidation, "public async Task InvalidateCommentMutationAsync");
+        string commentsEndpoint = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs"));
+        string queryCache = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/CoreBridge/Caching/CommentCoreQueryCache.cs"));
+
+        Assert.Contains("IncrementCommentCursorVersionsAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("RemoveByPrefixManyAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("CachePolicyId.CommentCursor,", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("CachePolicyId.UserCommentCursor,", method, StringComparison.Ordinal);
+        Assert.Contains("ReadCommentCursorVersionAsync", commentsEndpoint, StringComparison.Ordinal);
+        Assert.Contains("ReadCommentCursorVersionAsync", queryCache, StringComparison.Ordinal);
+        Assert.Contains("CommentCursorVersion", commentsEndpoint, StringComparison.Ordinal);
+        Assert.Contains("CommentCursorVersion", queryCache, StringComparison.Ordinal);
     }
 
     [Fact]

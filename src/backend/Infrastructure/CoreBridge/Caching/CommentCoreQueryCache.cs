@@ -12,7 +12,8 @@ public sealed class CommentCoreQueryCache(IUnifiedCache cache)
         int limit,
         Func<Task<CoreCursorResult<CommentQueryCoreModel>>> loader)
     {
-        string identity = $"article:{articleId}:roots:{cursor?.ToString() ?? "0"}:{limit}:1";
+        string version = await ReadCommentCursorVersionAsync(CachePolicyId.CommentCursorVersion, $"article:{articleId}");
+        string identity = $"article:{articleId}:v:{version}:roots:{cursor?.ToString() ?? "0"}:{limit}:1";
         var hit = await cache.TryGetAsync(CachePolicyId.CommentCursor, identity, DecodeCommentCursor);
         if (hit.Hit && hit.Value is not null)
         {
@@ -37,7 +38,8 @@ public sealed class CommentCoreQueryCache(IUnifiedCache cache)
         int limit,
         Func<Task<CoreCursorResult<UserCommentCoreModel>>> loader)
     {
-        string identity = $"account:{accountId}:comments:{cursor?.ToString() ?? "0"}:{limit}";
+        string version = await ReadCommentCursorVersionAsync(CachePolicyId.UserCommentCursorVersion, $"account:{accountId}");
+        string identity = $"account:{accountId}:v:{version}:comments:{cursor?.ToString() ?? "0"}:{limit}";
         var hit = await cache.TryGetAsync(CachePolicyId.UserCommentCursor, identity, DecodeUserCommentCursor);
         if (hit.Hit && hit.Value is not null)
         {
@@ -66,5 +68,20 @@ public sealed class CommentCoreQueryCache(IUnifiedCache cache)
     {
         bool success = PodBinaryCodec.TryDecodeUserCommentCursor(bytes, out CoreCursorResult<UserCommentCoreModel> value);
         return (success, success ? value : default);
+    }
+
+    private async Task<string> ReadCommentCursorVersionAsync(CachePolicyId policyId, string identity)
+    {
+        long global = await ReadVersionAsync(policyId, "global");
+        long scoped = await ReadVersionAsync(policyId, identity);
+        return $"{policyId}:{global}:{scoped}";
+    }
+
+    private async Task<long> ReadVersionAsync(CachePolicyId policyId, string identity)
+    {
+        string? value = await cache.GetStringAsync(policyId, identity);
+        return long.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out long version)
+            ? version
+            : 0;
     }
 }
