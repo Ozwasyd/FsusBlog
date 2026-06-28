@@ -90,6 +90,9 @@ public sealed class PublicHotArtifactUpdateWorker(
             string reason = first.Reason;
             PublicHotArtifactDirtyReason dirtyReason = first.DirtyReason;
             int coalesced = 1;
+            var articleIds = new HashSet<int>();
+            bool requiresFullRebuild = false;
+            CollectUpdate(first, articleIds, ref requiresFullRebuild);
             TimeSpan debounce = TimeSpan.FromMilliseconds(Math.Clamp(options.Value.UpdateDebounceMilliseconds, 0, 30_000));
             if (debounce > TimeSpan.Zero)
             {
@@ -101,6 +104,7 @@ public sealed class PublicHotArtifactUpdateWorker(
                 reason = string.Concat(reason, "+", next.Reason);
                 dirtyReason |= next.DirtyReason;
                 coalesced++;
+                CollectUpdate(next, articleIds, ref requiresFullRebuild);
             }
 
             if (dirtyReason == PublicHotArtifactDirtyReason.ViewProjection)
@@ -123,9 +127,21 @@ public sealed class PublicHotArtifactUpdateWorker(
             {
                 await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
                 var projector = scope.ServiceProvider.GetRequiredService<IPublicHotArtifactProjector>();
-                PublicHotReadSnapshot snapshot = await projector
-                    .RebuildAfterArticleMutationAsync(store.Current, first.ArticleId ?? 0, stoppingToken)
-                    .ConfigureAwait(false);
+                PublicHotReadSnapshot snapshot = store.Current;
+                if (requiresFullRebuild || articleIds.Count == 0)
+                {
+                    snapshot = await projector.BuildInitialSnapshotAsync(stoppingToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    foreach (int articleId in articleIds)
+                    {
+                        snapshot = await projector
+                            .RebuildAfterArticleMutationAsync(snapshot, articleId, stoppingToken)
+                            .ConfigureAwait(false);
+                    }
+                }
+
                 store.Publish(snapshot);
                 logger.LogInformation("public-hot-read-snapshot-updated {Version} {Reason} {Coalesced}", snapshot.Version, reason, coalesced);
             }
@@ -139,5 +155,19 @@ public sealed class PublicHotArtifactUpdateWorker(
                 logger.LogWarning(ex, "public-hot-read-snapshot-update-failed {Reason} {Coalesced}", reason, coalesced);
             }
         }
+    }
+
+    private static void CollectUpdate(
+        PublicHotArtifactUpdate update,
+        HashSet<int> articleIds,
+        ref bool requiresFullRebuild)
+    {
+        if (update.ArticleId is int id && id > 0)
+        {
+            articleIds.Add(id);
+            return;
+        }
+
+        requiresFullRebuild = true;
     }
 }

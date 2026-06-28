@@ -125,6 +125,20 @@ public sealed class PublicContentInvalidationFlowTests
     }
 
     [Fact]
+    public void PublicHotUpdateWorker_ReplaysEveryCoalescedArticleId()
+    {
+        string queue = ReadRepoFile("src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs");
+        string worker = Slice(queue, "protected override async Task ExecuteAsync", "    }\n}");
+
+        Assert.Contains("var articleIds = new HashSet<int>();", worker, StringComparison.Ordinal);
+        Assert.Contains("CollectUpdate(first, articleIds, ref requiresFullRebuild);", worker, StringComparison.Ordinal);
+        Assert.Contains("CollectUpdate(next, articleIds, ref requiresFullRebuild);", worker, StringComparison.Ordinal);
+        Assert.Contains("foreach (int articleId in articleIds)", worker, StringComparison.Ordinal);
+        Assert.Contains("RebuildAfterArticleMutationAsync(snapshot, articleId, stoppingToken)", worker, StringComparison.Ordinal);
+        Assert.DoesNotContain("first.ArticleId ?? 0", worker, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ScheduledPublish_ReliesOnOutboxForNewlyPublishedArticleSideEffects()
     {
         string source = ReadRepoFile("src/backend/Services/Background/ScheduledPublishWorker.cs");
