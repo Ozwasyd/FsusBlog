@@ -319,13 +319,25 @@ public sealed class PasskeyServiceTests
     public void PasskeyAssertion_SourceUsesOptimisticSignCountUpdate()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/PasskeyService.cs");
+        string loginAssertion = ExtractMethodBlock(source, "public async Task<(bool Success, string Message, User? User)> CompleteAssertionAsync");
+        string stepUpAssertion = ExtractMethodBlock(source, "public async Task<(bool Success, string Message)> CompleteStepUpAssertionAsync");
+        string loadState = ExtractMethodBlock(source, "private async Task<PasskeyAssertionState?> LoadPasskeyAssertionStateAsync");
 
-        Assert.Contains("LoadPasskeyRowVersionAsync", source, StringComparison.Ordinal);
+        Assert.Contains("LoadPasskeyAssertionStateAsync(credentialIdBase64, accountId: null", loginAssertion, StringComparison.Ordinal);
+        Assert.Contains("LoadPasskeyAssertionStateAsync(credentialIdBase64, accountId", stepUpAssertion, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadPasskeyRowVersionAsync", loginAssertion, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadPasskeyRowVersionAsync", stepUpAssertion, StringComparison.Ordinal);
+        Assert.Contains("JOIN sys_user", loadState, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pc.xmin::text AS row_version", loadState, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pc.credentialid", loadState, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("u.passkey_user_handle", loadState, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("TryUpdatePasskeySignCountAsync", source, StringComparison.Ordinal);
         Assert.Contains("xmin::text", source, StringComparison.Ordinal);
         Assert.Contains("signcount = @expectedSignCount", source, StringComparison.Ordinal);
         Assert.Contains("id = @id", source, StringComparison.Ordinal);
         Assert.Contains("updated != 1", source, StringComparison.Ordinal);
+        Assert.Contains("RecordPasskeyAssertion", source, StringComparison.Ordinal);
+        Assert.Contains("RecordPasskeySignCountConflict", source, StringComparison.Ordinal);
         Assert.Contains("通行密钥验证失败，请重试", source, StringComparison.Ordinal);
         Assert.DoesNotContain("db.Updateable(storedCred)", source, StringComparison.Ordinal);
     }
@@ -355,11 +367,14 @@ public sealed class PasskeyServiceTests
         string method = source[methodStart..methodEnd];
 
         Assert.Contains("UseTranAsync", method, StringComparison.Ordinal);
-        Assert.Contains("FOR UPDATE", method, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", source, StringComparison.Ordinal);
         Assert.Contains("TryDeletePasskeyCredentialAsync", method, StringComparison.Ordinal);
+        Assert.Contains("DELETE FROM passkey_credential", source, StringComparison.Ordinal);
+        Assert.Contains("RETURNING", source, StringComparison.Ordinal);
         Assert.Contains("SELECT COUNT(*)", source, StringComparison.Ordinal);
         Assert.Contains(">= 2", source, StringComparison.Ordinal);
         Assert.DoesNotContain(".CountAsync()", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("LockPasskeyAccountForUpdateAsync", method, StringComparison.Ordinal);
         Assert.DoesNotContain("db.Deleteable<PasskeyCredential>()", method, StringComparison.Ordinal);
     }
 

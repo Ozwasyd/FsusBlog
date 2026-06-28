@@ -4,6 +4,8 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Observability;
+using System.Diagnostics;
 using System.Buffers.Text;
 using System.Data.Common;
 using System.Security.Cryptography;
@@ -29,6 +31,8 @@ public interface IPasskeyService
 public sealed record PasskeyRegBeginData(PasskeyRegisterBeginCoreModel Options);
 public sealed record PasskeyAuthBeginData(PasskeyLoginBeginCoreModel Options);
 internal readonly record struct PasskeyAccountMetadata(string Name, string DisplayName, byte[] UserHandle);
+internal sealed record PasskeyAssertionState(PasskeyCredential Credential, User User, string RowVersion);
+internal readonly record struct PasskeyDeleteState(bool UserFound, bool CredentialFound, bool Deleted, int Remaining);
 public readonly record struct PasskeyCredentialMutationResult(bool Success, string Message, bool NotFound)
 {
     public static PasskeyCredentialMutationResult Succeeded(string message) => new(true, message, false);
@@ -237,6 +241,7 @@ public sealed class PasskeyService(
 
     public async Task<(bool Success, string Message, User? User)> CompleteAssertionAsync(PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default)
     {
+        long started = Stopwatch.GetTimestamp();
         cancellationToken.ThrowIfCancellationRequested();
         var cached = await cache.TryGetAsync<PasskeyLoginBeginCoreModel>(
             CachePolicyId.SecurityPasskeyAuthChallenge,
@@ -261,27 +266,21 @@ public sealed class PasskeyService(
         AuthenticatorAssertionRawResponse assertionResponse = ToAssertionResponse(request);
 
         string credentialIdBase64 = assertionResponse.Id;
-        var storedCred = await db.Queryable<PasskeyCredential>()
-            .Where(c => c.CredentialId == credentialIdBase64)
-            .FirstAsync();
+        PasskeyAssertionState? assertionState = await LoadPasskeyAssertionStateAsync(credentialIdBase64, accountId: null, cancellationToken);
 
-        if (storedCred == null)
+        if (assertionState is null)
         {
+            FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "credential_not_found");
             return (false, "未找到对应的通行密钥", null);
         }
 
-        var user = await db.Queryable<User>()
-            .InSingleAsync(storedCred.AccountId);
+        PasskeyCredential storedCred = assertionState.Credential;
+        User user = assertionState.User;
 
-        if (user == null || user.Status == 2 || user.DeletedAt.HasValue)
+        if (user.Status == 2 || user.DeletedAt.HasValue)
         {
+            FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "account_deleted");
             return (false, "账户不存在或已注销", null);
-        }
-
-        string? rowVersion = await LoadPasskeyRowVersionAsync(storedCred.Id, cancellationToken);
-        if (rowVersion is null)
-        {
-            return (false, "通行密钥验证失败，请重试", null);
         }
 
         string? storedUserHandle = user.PasskeyUserHandle;
@@ -310,15 +309,19 @@ public sealed class PasskeyService(
                 HashForLog(credentialIdBase64),
                 AccountSubjectHasher.Create(user),
                 ex.GetType().Name);
+            FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "verify_failed");
             return (false, "通行密钥验证失败，请重试", null);
         }
 
         if (!IsPasskeySignCountValid(expectedSignCount, (long)verifyResult.SignCount) ||
-            !await TryUpdatePasskeySignCountAsync(storedCred.Id, expectedSignCount, rowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
+            !await TryUpdatePasskeySignCountAsync(storedCred.Id, expectedSignCount, assertionState.RowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
         {
+            FsusObservability.RecordPasskeySignCountConflict("login");
+            FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "sign_count_conflict");
             return (false, "通行密钥验证失败，请重试", null);
         }
 
+        FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "success");
         return (true, "验证成功", user);
     }
 
@@ -370,6 +373,7 @@ public sealed class PasskeyService(
         PasskeyLoginCompleteCoreModel request,
         CancellationToken cancellationToken = default)
     {
+        long started = Stopwatch.GetTimestamp();
         cancellationToken.ThrowIfCancellationRequested();
         if (accountId <= 0)
         {
@@ -396,24 +400,19 @@ public sealed class PasskeyService(
 
         AuthenticatorAssertionRawResponse assertionResponse = ToAssertionResponse(request);
         string credentialIdBase64 = assertionResponse.Id;
-        PasskeyCredential? storedCred = await db.Queryable<PasskeyCredential>()
-            .Where(c => c.CredentialId == credentialIdBase64 && c.AccountId == accountId)
-            .FirstAsync();
-        if (storedCred is null)
+        PasskeyAssertionState? assertionState = await LoadPasskeyAssertionStateAsync(credentialIdBase64, accountId, cancellationToken);
+        if (assertionState is null)
         {
+            FsusObservability.RecordPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(started), "credential_not_found");
             return (false, "未找到当前用户的通行密钥");
         }
 
-        User? user = await db.Queryable<User>().InSingleAsync(accountId);
-        if (user is null || user.Status == 2 || user.DeletedAt.HasValue)
+        PasskeyCredential storedCred = assertionState.Credential;
+        User user = assertionState.User;
+        if (user.Status == 2 || user.DeletedAt.HasValue)
         {
+            FsusObservability.RecordPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(started), "account_deleted");
             return (false, "账户不存在或已注销");
-        }
-
-        string? rowVersion = await LoadPasskeyRowVersionAsync(storedCred.Id, cancellationToken);
-        if (rowVersion is null)
-        {
-            return (false, "通行密钥 step-up 验证失败，请重试");
         }
 
         string? storedUserHandle = user.PasskeyUserHandle;
@@ -441,16 +440,89 @@ public sealed class PasskeyService(
                 HashForLog(credentialIdBase64),
                 await ResolveAccountSubjectHashForLogAsync(accountId, cancellationToken),
                 ex.GetType().Name);
+            FsusObservability.RecordPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(started), "verify_failed");
             return (false, "通行密钥 step-up 验证失败，请重试");
         }
 
         if (!IsPasskeySignCountValid(expectedSignCount, (long)verifyResult.SignCount) ||
-            !await TryUpdatePasskeySignCountAsync(storedCred.Id, expectedSignCount, rowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
+            !await TryUpdatePasskeySignCountAsync(storedCred.Id, expectedSignCount, assertionState.RowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
         {
+            FsusObservability.RecordPasskeySignCountConflict("step_up");
+            FsusObservability.RecordPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(started), "sign_count_conflict");
             return (false, "通行密钥 step-up 验证失败，请重试");
         }
 
+        FsusObservability.RecordPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(started), "success");
         return (true, "step-up 验证成功");
+    }
+
+    private async Task<PasskeyAssertionState?> LoadPasskeyAssertionStateAsync(
+        string credentialId,
+        int? accountId,
+        CancellationToken cancellationToken)
+    {
+        string accountPredicate = accountId.HasValue ? " AND pc.account_id = @AccountId" : string.Empty;
+        string sql = $$"""
+            SELECT pc.id AS credential_row_id,
+                   pc.account_id AS account_id,
+                   pc.credentialid AS credential_id,
+                   pc.publickey AS public_key,
+                   pc.signcount AS sign_count,
+                   pc.aaguid AS aa_guid,
+                   pc.xmin::text AS row_version,
+                   u.id AS user_id,
+                   u.public_handle AS public_handle,
+                   u.identity_kind AS identity_kind,
+                   u.passkey_enabled AS passkey_enabled,
+                   u.passkey_user_handle AS passkey_user_handle,
+                   u.recovery_enabled AS recovery_enabled,
+                   u.status AS user_status,
+                   u.deleted_at AS deleted_at
+            FROM passkey_credential pc
+            JOIN sys_user u ON u.id = pc.account_id
+            WHERE pc.credentialid = @CredentialId{{accountPredicate}}
+            LIMIT 1;
+            """;
+        var parameters = new List<SugarParameter>
+        {
+            new("@CredentialId", credentialId)
+        };
+        if (accountId.HasValue)
+        {
+            parameters.Add(new SugarParameter("@AccountId", accountId.Value));
+        }
+
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sql, parameters.ToArray());
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        var credential = new PasskeyCredential
+        {
+            Id = reader.GetInt32(reader.GetOrdinal("credential_row_id")),
+            AccountId = reader.GetInt32(reader.GetOrdinal("account_id")),
+            CredentialId = reader.GetString(reader.GetOrdinal("credential_id")),
+            PublicKey = reader.GetString(reader.GetOrdinal("public_key")),
+            SignCount = reader.GetInt64(reader.GetOrdinal("sign_count")),
+            AaGuid = reader.GetString(reader.GetOrdinal("aa_guid"))
+        };
+        string rowVersion = reader.GetString(reader.GetOrdinal("row_version"));
+        var user = new User
+        {
+            Id = reader.GetInt32(reader.GetOrdinal("user_id")),
+            PublicHandle = reader.IsDBNull(reader.GetOrdinal("public_handle")) ? null : reader.GetString(reader.GetOrdinal("public_handle")),
+            IdentityKind = reader.IsDBNull(reader.GetOrdinal("identity_kind"))
+                ? AnonymousIdentityRuntime.AnonymousAccountKind
+                : reader.GetString(reader.GetOrdinal("identity_kind")),
+            PasskeyEnabled = !reader.IsDBNull(reader.GetOrdinal("passkey_enabled")) && reader.GetBoolean(reader.GetOrdinal("passkey_enabled")),
+            PasskeyUserHandle = reader.IsDBNull(reader.GetOrdinal("passkey_user_handle")) ? null : reader.GetString(reader.GetOrdinal("passkey_user_handle")),
+            RecoveryEnabled = !reader.IsDBNull(reader.GetOrdinal("recovery_enabled")) && reader.GetBoolean(reader.GetOrdinal("recovery_enabled")),
+            Status = reader.GetInt32(reader.GetOrdinal("user_status")),
+            DeletedAt = reader.IsDBNull(reader.GetOrdinal("deleted_at")) ? null : reader.GetDateTime(reader.GetOrdinal("deleted_at"))
+        };
+
+        return new PasskeyAssertionState(credential, user, rowVersion);
     }
 
     private static PasskeyRegisterBeginCoreModel ToRegisterBeginCore(string sessionKey, CredentialCreateOptions options)
@@ -736,47 +808,28 @@ public sealed class PasskeyService(
     {
         cancellationToken.ThrowIfCancellationRequested();
         PasskeyCredentialMutationResult result = PasskeyCredentialMutationResult.Missing("通行密钥不存在");
-        int remaining = 0;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
-            User? user = await LockPasskeyAccountForUpdateAsync(accountId, cancellationToken);
-            if (user is null || user.DeletedAt.HasValue || user.Status == 2)
+            PasskeyDeleteState deleteState = await TryDeletePasskeyCredentialAsync(accountId, credId, cancellationToken);
+            if (!deleteState.UserFound)
             {
                 result = PasskeyCredentialMutationResult.Missing("用户不存在");
                 return;
             }
 
-            await db.Ado.ExecuteCommandAsync(
-                """
-                SELECT id
-                FROM passkey_credential
-                WHERE account_id = @accountId
-                ORDER BY id
-                FOR UPDATE;
-                """,
-                new SugarParameter[] { new("@accountId", accountId) });
-
-            var credential = await db.Queryable<PasskeyCredential>()
-                .Where(c => c.Id == credId && c.AccountId == accountId)
-                .FirstAsync(cancellationToken);
-            if (credential is null)
+            if (!deleteState.CredentialFound)
             {
                 result = PasskeyCredentialMutationResult.Missing("通行密钥不存在");
                 return;
             }
 
-            bool recoveryEnabled = user.RecoveryEnabled;
-            int deleted = await TryDeletePasskeyCredentialAsync(accountId, credId, recoveryEnabled, cancellationToken);
-            if (deleted <= 0)
+            if (!deleteState.Deleted)
             {
                 result = PasskeyCredentialMutationResult.Rejected(CannotRemoveLastCredentialWithoutRecovery);
                 return;
             }
 
-            remaining = await db.Queryable<PasskeyCredential>()
-                .Where(c => c.AccountId == accountId)
-                .CountAsync(cancellationToken);
-            if (remaining == 0)
+            if (deleteState.Remaining == 0)
             {
                 await db.Updateable<User>()
                     .Where(u => u.Id == accountId)
@@ -807,66 +860,73 @@ public sealed class PasskeyService(
         return updated > 0;
     }
 
-    private async Task<User?> LockPasskeyAccountForUpdateAsync(int accountId, CancellationToken cancellationToken)
+    private async Task<PasskeyDeleteState> TryDeletePasskeyCredentialAsync(
+        int accountId,
+        int credId,
+        CancellationToken cancellationToken)
     {
         using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
-            SELECT id, deleted_at, status, recovery_enabled
-            FROM sys_user
-            WHERE id = @accountId
-            FOR UPDATE;
-            """,
-            new SugarParameter[] { new("@accountId", accountId) });
-        if (!await reader.ReadAsync(cancellationToken))
-        {
-            return null;
-        }
-
-        return new User
-        {
-            Id = reader.GetInt32(0),
-            DeletedAt = reader.IsDBNull(1) ? null : reader.GetDateTime(1),
-            Status = reader.GetInt32(2),
-            RecoveryEnabled = reader.GetBoolean(3)
-        };
-    }
-
-    private async Task<int> TryDeletePasskeyCredentialAsync(
-        int accountId,
-        int credId,
-        bool recoveryEnabled,
-        CancellationToken cancellationToken)
-    {
-        int deleted = await db.Ado.ExecuteCommandAsync(
-            """
-            DELETE FROM passkey_credential
-            WHERE id = @credId
-              AND account_id = @accountId
-              AND (
-                  @recoveryEnabled = true
-                  OR (SELECT COUNT(*) FROM passkey_credential WHERE account_id = @accountId) >= 2
-              );
+            WITH locked_user AS (
+                SELECT id, deleted_at, status, recovery_enabled
+                FROM sys_user
+                WHERE id = @accountId
+                FOR UPDATE
+            ),
+            locked_credentials AS (
+                SELECT id
+                FROM passkey_credential
+                WHERE account_id = @accountId
+                ORDER BY id
+                FOR UPDATE
+            ),
+            target AS (
+                SELECT id
+                FROM locked_credentials
+                WHERE id = @credId
+            ),
+            deleted AS (
+                DELETE FROM passkey_credential pc
+                WHERE pc.id = @credId
+                  AND pc.account_id = @accountId
+                  AND EXISTS (
+                      SELECT 1
+                      FROM locked_user
+                      WHERE deleted_at IS NULL
+                        AND status <> 2
+                  )
+                  AND EXISTS (SELECT 1 FROM target)
+                  AND (
+                      (SELECT recovery_enabled FROM locked_user) = true
+                      OR (SELECT COUNT(*) FROM locked_credentials) >= 2
+                  )
+                RETURNING pc.id
+            )
+            SELECT EXISTS (
+                       SELECT 1
+                       FROM locked_user
+                       WHERE deleted_at IS NULL
+                         AND status <> 2
+                   ) AS user_found,
+                   EXISTS (SELECT 1 FROM target) AS credential_found,
+                   EXISTS (SELECT 1 FROM deleted) AS deleted,
+                   (SELECT COUNT(*) FROM locked_credentials) - (SELECT COUNT(*) FROM deleted) AS remaining;
             """,
             new SugarParameter[]
             {
                 new("@credId", credId),
-                new("@accountId", accountId),
-                new("@recoveryEnabled", recoveryEnabled)
+                new("@accountId", accountId)
             });
-        cancellationToken.ThrowIfCancellationRequested();
-        return deleted;
-    }
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return new PasskeyDeleteState(UserFound: false, CredentialFound: false, Deleted: false, Remaining: 0);
+        }
 
-    private async Task<string?> LoadPasskeyRowVersionAsync(int id, CancellationToken cancellationToken)
-    {
-        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-            """
-            SELECT xmin::text
-            FROM passkey_credential
-            WHERE id = @id;
-            """,
-            new SugarParameter[] { new("@id", id) });
-        return await reader.ReadAsync(cancellationToken) ? reader.GetString(0) : null;
+        return new PasskeyDeleteState(
+            reader.GetBoolean(0),
+            reader.GetBoolean(1),
+            reader.GetBoolean(2),
+            Convert.ToInt32(reader.GetValue(3), System.Globalization.CultureInfo.InvariantCulture));
     }
 
     private async Task<bool> TryUpdatePasskeySignCountAsync(

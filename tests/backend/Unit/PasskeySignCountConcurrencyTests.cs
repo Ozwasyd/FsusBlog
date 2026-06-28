@@ -16,10 +16,6 @@ namespace FsusBlog.Server.Tests.Unit;
 [Collection(nameof(SchemaMigrationPostgresCollection))]
 public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixture fixture)
 {
-    private static readonly MethodInfo LoadPasskeyRowVersion = typeof(PasskeyService)
-        .GetMethod("LoadPasskeyRowVersionAsync", BindingFlags.Instance | BindingFlags.NonPublic)
-        ?? throw new InvalidOperationException("LoadPasskeyRowVersionAsync should exist.");
-
     private static readonly MethodInfo TryUpdatePasskeySignCount = typeof(PasskeyService)
         .GetMethod("TryUpdatePasskeySignCountAsync", BindingFlags.Instance | BindingFlags.NonPublic)
         ?? throw new InvalidOperationException("TryUpdatePasskeySignCountAsync should exist.");
@@ -118,8 +114,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
             SignCount = 7,
             AaGuid = Guid.Empty.ToString()
         }).ExecuteReturnIdentityAsync();
-        PasskeyService setupService = CreatePasskeyService(setupDb);
-        string? loadedRowVersion = await InvokeLoadPasskeyRowVersionAsync(setupService, credentialId);
+        string? loadedRowVersion = await LoadPasskeyRowVersionForTestAsync(setupDb, credentialId);
         Assert.NotNull(loadedRowVersion);
         string rowVersion = loadedRowVersion;
         using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
@@ -199,8 +194,17 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
             AaGuid = Guid.Empty.ToString()
         }).ExecuteReturnIdentityAsync();
 
-    private static async Task<string?> InvokeLoadPasskeyRowVersionAsync(PasskeyService service, int id)
-        => await (Task<string?>)LoadPasskeyRowVersion.Invoke(service, [id, CancellationToken.None])!;
+    private static async Task<string?> LoadPasskeyRowVersionForTestAsync(SqlSugarClient db, int id)
+    {
+        using var reader = (System.Data.Common.DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT xmin::text
+            FROM passkey_credential
+            WHERE id = @id;
+            """,
+            new SugarParameter[] { new("@id", id) });
+        return await reader.ReadAsync() ? reader.GetString(0) : null;
+    }
 
     private static async Task<byte[]> InvokeGetOrCreateStablePasskeyUserHandleAsync(PasskeyService service, User user)
         => await (Task<byte[]>)GetOrCreateStablePasskeyUserHandle.Invoke(service, [user, CancellationToken.None])!;

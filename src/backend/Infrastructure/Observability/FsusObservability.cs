@@ -55,6 +55,7 @@ public static class FsusObservability
         "fsus.exporter.enabled",
         "fsus.http.status_code",
         "fsus.operation",
+        "fsus.passkey.assertion.kind",
         "fsus.result",
         "fsus.route_kind",
         "fsus.security.action",
@@ -166,6 +167,9 @@ public static class FsusObservability
     private static readonly Counter<long> UploadSessionCleanupDeletedSessions = Meter.CreateCounter<long>("fsus.upload.cleanup.deleted_sessions");
     private static readonly Histogram<double> UploadSessionCleanupElapsed = Meter.CreateHistogram<double>("fsus.upload.cleanup.elapsed_ms", "ms");
     private static readonly Counter<long> UploadSessionCleanupSignalCount = Meter.CreateCounter<long>("fsus.upload.cleanup.signal_count");
+    private static readonly Counter<long> PasskeyAssertionDbCommandCount = Meter.CreateCounter<long>("fsus.passkey.assertion.db_command_count");
+    private static readonly Histogram<double> PasskeyAssertionElapsed = Meter.CreateHistogram<double>("fsus.passkey.assertion.elapsed_ms", "ms");
+    private static readonly Counter<long> PasskeySignCountUpdateConflictCount = Meter.CreateCounter<long>("fsus.passkey.sign_count.update_conflict_count");
 
     public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
 
@@ -843,6 +847,27 @@ public static class FsusObservability
             TagList tags = CreateBaseTags("upload-session-cleanup", "signal", normalized);
             tags.Add("fsus.upload.cleanup.signal", normalized);
             UploadSessionCleanupSignalCount.Add(1, tags);
+        });
+    }
+
+    public static void RecordPasskeyAssertion(string kind, long dbCommandCount, TimeSpan elapsed, string result)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("passkey", "assertion", NormalizeTelemetryValue(result, "unknown"));
+            tags.Add("fsus.passkey.assertion.kind", NormalizeTelemetryValue(kind, "unknown"));
+            PasskeyAssertionDbCommandCount.Add(Math.Max(0, dbCommandCount), tags);
+            PasskeyAssertionElapsed.Record(elapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordPasskeySignCountConflict(string kind)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("passkey", "sign_count_update", "conflict");
+            tags.Add("fsus.passkey.assertion.kind", NormalizeTelemetryValue(kind, "unknown"));
+            PasskeySignCountUpdateConflictCount.Add(1, tags);
         });
     }
 
