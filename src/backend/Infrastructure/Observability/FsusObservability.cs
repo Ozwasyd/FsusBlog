@@ -38,6 +38,10 @@ public static class FsusObservability
     [
         "fsus.aot.backfill",
         "fsus.aot.source",
+        "fsus.admin.account_list.cursor",
+        "fsus.admin.account_list.keyword_type",
+        "fsus.admin.account_list.page",
+        "fsus.admin.account_list.page_size",
         "fsus.background.backlog",
         "fsus.background.failed",
         "fsus.background.job",
@@ -154,6 +158,9 @@ public static class FsusObservability
     private static readonly Counter<long> LoginReplacedSessionCount = Meter.CreateCounter<long>("fsus.auth.login.replaced_session_count");
     private static readonly Histogram<double> LoginTransactionElapsed = Meter.CreateHistogram<double>("fsus.auth.login.transaction_elapsed_ms", "ms");
     private static readonly Counter<long> LoginSessionRevokeCommandCount = Meter.CreateCounter<long>("fsus.auth.login.session_revoke_command_count");
+    private static readonly Histogram<double> AdminAccountListQueryElapsed = Meter.CreateHistogram<double>("fsus.admin.account_list.query_elapsed_ms", "ms");
+    private static readonly Counter<long> AdminAccountListCountUsed = Meter.CreateCounter<long>("fsus.admin.account_list.count_used");
+    private static readonly Counter<long> AdminAccountListCountSkipped = Meter.CreateCounter<long>("fsus.admin.account_list.count_skipped");
 
     public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
 
@@ -781,6 +788,34 @@ public static class FsusObservability
             LoginReplacedSessionCount.Add(Math.Max(0, replacedSessionCount), tags);
             LoginSessionRevokeCommandCount.Add(Math.Max(0, sessionRevokeCommandCount), tags);
             LoginTransactionElapsed.Record(transactionElapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordAdminAccountListQuery(
+        string keywordType,
+        int page,
+        int pageSize,
+        bool cursor,
+        bool totalCountUsed,
+        TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            string result = totalCountUsed ? "count_used" : "count_skipped";
+            TagList tags = CreateBaseTags("admin-account-list", "query", result);
+            tags.Add("fsus.admin.account_list.keyword_type", NormalizeTelemetryValue(keywordType, "none"));
+            tags.Add("fsus.admin.account_list.page", Math.Max(1, page));
+            tags.Add("fsus.admin.account_list.page_size", Math.Max(1, pageSize));
+            tags.Add("fsus.admin.account_list.cursor", cursor);
+
+            AdminAccountListQueryElapsed.Record(elapsed.TotalMilliseconds, tags);
+            if (totalCountUsed)
+            {
+                AdminAccountListCountUsed.Add(1, tags);
+                return;
+            }
+
+            AdminAccountListCountSkipped.Add(1, tags);
         });
     }
 

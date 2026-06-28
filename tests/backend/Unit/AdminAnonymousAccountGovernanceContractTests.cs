@@ -71,20 +71,39 @@ public sealed class AdminAnonymousAccountGovernanceContractTests
     {
         string userService = Read("src/backend/Services/UserService.cs");
         string method = ExtractMethod(userService, "public async Task<PageResult<AdminAccountListItemDto>> GetAdminUserListAsync");
+        string observability = Read("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string migrations = Read("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
 
-        Assert.Contains("u.IdentityKind", method, StringComparison.Ordinal);
-        Assert.Contains("u.PublicHandle", method, StringComparison.Ordinal);
-        Assert.Contains("u.PasskeyEnabled", method, StringComparison.Ordinal);
-        Assert.Contains("u.RecoveryEnabled", method, StringComparison.Ordinal);
-        Assert.Contains("u.AnonymousCredentialStatus", method, StringComparison.Ordinal);
-        Assert.Contains("u.AnonymousCredentialLevel", method, StringComparison.Ordinal);
-        Assert.Contains("u.RiskFlags", method, StringComparison.Ordinal);
-        Assert.Contains("u.PrivacyInitializedAt", method, StringComparison.Ordinal);
+        Assert.Contains("identity_kind AS", userService, StringComparison.Ordinal);
+        Assert.Contains("public_handle AS", userService, StringComparison.Ordinal);
+        Assert.Contains("passkey_enabled AS", userService, StringComparison.Ordinal);
+        Assert.Contains("recovery_enabled AS", userService, StringComparison.Ordinal);
+        Assert.Contains("anonymous_credential_status AS", userService, StringComparison.Ordinal);
+        Assert.Contains("anonymous_credential_level AS", userService, StringComparison.Ordinal);
+        Assert.Contains("riskflags AS", userService, StringComparison.Ordinal);
+        Assert.Contains("privacy_initialized_at AS", userService, StringComparison.Ordinal);
 
         Assert.DoesNotContain("u.Username.Contains", method, StringComparison.Ordinal);
         Assert.DoesNotContain("u.Role", method, StringComparison.Ordinal);
         Assert.DoesNotContain("u.LastLoginIp", method, StringComparison.Ordinal);
         Assert.DoesNotContain("u.Password", method, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Skip(", method, StringComparison.Ordinal);
+        Assert.DoesNotContain(".CountAsync()", method, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Contains(keyword)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("IdentityKind.Contains", method, StringComparison.Ordinal);
+        Assert.Contains("ORDER BY createtime DESC, id DESC", userService, StringComparison.Ordinal);
+        Assert.Contains("public_handle LIKE @SearchPublicHandlePrefix", userService, StringComparison.Ordinal);
+        Assert.Contains("ApplyAdminAccountSearch", method, StringComparison.Ordinal);
+        Assert.Contains("LoadAdminAccountListWindowAsync", method, StringComparison.Ordinal);
+        Assert.Contains("RecordAdminAccountListQuery", method, StringComparison.Ordinal);
+        Assert.Contains("fsus.admin.account_list.query_elapsed_ms", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.admin.account_list.count_used", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.admin.account_list.count_skipped", observability, StringComparison.Ordinal);
+        Assert.Contains("idx_user_admin_list_time_id", migrations, StringComparison.Ordinal);
+        Assert.Contains("idx_user_admin_list_status_time_id", migrations, StringComparison.Ordinal);
+        Assert.Contains("idx_user_admin_list_identity_time_id", migrations, StringComparison.Ordinal);
+        Assert.Contains("idx_user_public_handle_prefix", migrations, StringComparison.Ordinal);
+        Assert.Contains("public_handle text_pattern_ops", migrations, StringComparison.Ordinal);
     }
 
     [Fact]

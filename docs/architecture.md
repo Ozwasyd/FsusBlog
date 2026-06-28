@@ -202,6 +202,8 @@ Article/comment binary endpoints 只面向应用 facade：文章端点通过 `IA
 
 用户域对外按不重叠 facade 拆分：`IUserAccountReader` 只返回 `UserAccountSnapshot`，`IUserLoginWorkflowService` 负责登录/MFA 风险/最终签发，`IUserProfileCommandService` 负责资料与注销，`IUserSessionCommandService` 负责 refresh/session revoke，`IUserAdminModerationService` 负责后台治理。`User`/`UserSession` ORM entity 只在 `UserService` 兼容实现内部流转，不作为 endpoint、middleware 或 notification stream admission 的读取契约。
 
+管理端账号列表保留 page/pageSize 兼容参数，但服务端内部必须使用 `(createtime DESC, id DESC)` keyset window 逐页推进，不执行 `COUNT + OFFSET`。搜索维度只允许 accountId 精确匹配、`identity_kind` 枚举精确匹配和 `public_handle` 前缀匹配；对应索引为 `idx_user_admin_list_time_id`、`idx_user_admin_list_status_time_id`、`idx_user_admin_list_identity_time_id` 与 `idx_user_public_handle_prefix`。默认列表返回已观察到的总数下界并记录 `fsus.admin.account_list.query_elapsed_ms`、count skipped/used 与 keyword type/page/pageSize/cursor 指标。
+
 ### 认证写请求（注册 / 登录）
 
 ```text

@@ -23,6 +23,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildUserSessionActiveUniqueMigration(),
         BuildUserAuthSecurityHardeningMigration(),
         BuildAnonymousIdentityAccountSchemaMigration(),
+        BuildAdminAccountListKeysetIndexMigration(),
         BuildPasskeyRecoveryKeyAccountIdMigration(),
         BuildPasskeyUserHandleMigration(),
         BuildSysUserSecurityProfileSplitMigration(),
@@ -1236,6 +1237,28 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_user_public_handle_unique",
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_public_handle_unique ON sys_user(public_handle) WHERE public_handle IS NOT NULL;")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAdminAccountListKeysetIndexMigration()
+        => new SchemaMigrationDescriptor(
+            "20260629-pre-admin-account-list-keyset-indexes",
+            "Add keyset and prefix-search indexes for admin anonymous account listing.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new CreateIndexStep(
+                    "idx_user_admin_list_time_id",
+                    "CREATE INDEX IF NOT EXISTS idx_user_admin_list_time_id ON sys_user(createtime DESC, id DESC);"),
+                new CreateIndexStep(
+                    "idx_user_admin_list_status_time_id",
+                    "CREATE INDEX IF NOT EXISTS idx_user_admin_list_status_time_id ON sys_user(status, createtime DESC, id DESC);"),
+                new CreateIndexStep(
+                    "idx_user_admin_list_identity_time_id",
+                    "CREATE INDEX IF NOT EXISTS idx_user_admin_list_identity_time_id ON sys_user(identity_kind, createtime DESC, id DESC);"),
+                new CreateIndexStep(
+                    "idx_user_public_handle_prefix",
+                    "CREATE INDEX IF NOT EXISTS idx_user_public_handle_prefix ON sys_user(public_handle text_pattern_ops) WHERE public_handle IS NOT NULL;")
             ]);
 
     private static ISchemaMigrationDescriptor BuildPasskeyUserHandleMigration()

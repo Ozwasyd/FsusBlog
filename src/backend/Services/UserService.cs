@@ -305,6 +305,7 @@ public partial class UserService(
 
     public async Task<PageResult<AdminAccountListItemDto>> GetAdminUserListAsync(UserQueryDto dto)
     {
+        long started = Stopwatch.GetTimestamp();
         var page = dto.Page < 1 ? 1 : dto.Page;
         var pageSize = dto.PageSize switch
         {
@@ -313,44 +314,103 @@ public partial class UserService(
             _ => dto.PageSize
         };
 
-        string? keyword = dto.Keyword?.Trim();
-        var query = _db.Queryable<User>();
-        if (!string.IsNullOrWhiteSpace(keyword))
+        AdminAccountSearchPlan search = ApplyAdminAccountSearch(dto.Keyword);
+        var list = new List<AdminAccountListItemDto>(pageSize);
+        DateTime? cursorTime = null;
+        int? cursorId = null;
+        bool hasMore = false;
+        int observedRows = 0;
+        for (int currentPage = 1; currentPage <= page; currentPage++)
         {
-            query = int.TryParse(keyword, out int accountId) && accountId > 0
-                ? query.Where(u => u.Id == accountId || u.PublicHandle!.Contains(keyword) || u.IdentityKind.Contains(keyword))
-                : query.Where(u => u.PublicHandle!.Contains(keyword) || u.IdentityKind.Contains(keyword));
+            List<AdminAccountListItemDto> window = await LoadAdminAccountListWindowAsync(
+                pageSize + 1,
+                cursorTime,
+                cursorId,
+                dto.Status,
+                search);
+            hasMore = window.Count > pageSize;
+            if (hasMore)
+            {
+                window.RemoveAt(window.Count - 1);
+            }
+
+            if (currentPage == page || window.Count == 0)
+            {
+                list = window;
+                observedRows += window.Count + (hasMore ? 1 : 0);
+                break;
+            }
+
+            observedRows += window.Count;
+            AdminAccountListItemDto last = window[^1];
+            cursorTime = last.CreateTime;
+            cursorId = last.AccountId;
         }
 
-        query = query.WhereIF(dto.Status.HasValue, u => u.Status == dto.Status);
+        FsusObservability.RecordAdminAccountListQuery(
+            search.Kind,
+            page,
+            pageSize,
+            cursorTime.HasValue,
+            totalCountUsed: false,
+            Stopwatch.GetElapsedTime(started));
 
-        int total = await query.CountAsync();
-        if (total == 0) return new PageResult<AdminAccountListItemDto> { Total = 0, Items = [] };
+        return new PageResult<AdminAccountListItemDto>
+        {
+            Total = observedRows,
+            Items = list
+        };
+    }
 
-        var sqlObj = query
-            .OrderByDescending(u => u.CreateTime)
-            .Select(u => new
-            {
-                u.Id,
-                u.IdentityKind,
-                u.PublicHandle,
-                u.PasskeyEnabled,
-                u.RecoveryEnabled,
-                u.PrivacyInitializedAt,
-                u.AnonymousCredentialStatus,
-                u.AnonymousCredentialLevel,
-                u.RiskFlags,
-                u.Status,
-                u.CreateTime,
-                u.DeletedAt
-            })
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToSql();
+    private async Task<List<AdminAccountListItemDto>> LoadAdminAccountListWindowAsync(
+        int limit,
+        DateTime? cursorTime,
+        int? cursorId,
+        int? status,
+        AdminAccountSearchPlan search)
+    {
+        var where = new StringBuilder("WHERE 1 = 1");
+        var parameters = new List<SugarParameter>
+        {
+            new("@Limit", limit)
+        };
 
-        var list = new List<AdminAccountListItemDto>(pageSize);
+        if (status.HasValue)
+        {
+            where.AppendLine(" AND status = @Status");
+            parameters.Add(new SugarParameter("@Status", status.Value));
+        }
 
-        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+        if (cursorTime.HasValue && cursorId.HasValue)
+        {
+            where.AppendLine(" AND (createtime < @CursorTime OR (createtime = @CursorTime AND id < @CursorId))");
+            parameters.Add(new SugarParameter("@CursorTime", cursorTime.Value));
+            parameters.Add(new SugarParameter("@CursorId", cursorId.Value));
+        }
+
+        search.AppendWhere(where, parameters);
+
+        string sql = $$"""
+            SELECT id AS "Id",
+                   identity_kind AS "IdentityKind",
+                   public_handle AS "PublicHandle",
+                   passkey_enabled AS "PasskeyEnabled",
+                   recovery_enabled AS "RecoveryEnabled",
+                   privacy_initialized_at AS "PrivacyInitializedAt",
+                   anonymous_credential_status AS "AnonymousCredentialStatus",
+                   anonymous_credential_level AS "AnonymousCredentialLevel",
+                   riskflags AS "RiskFlags",
+                   status AS "Status",
+                   createtime AS "CreateTime",
+                   deleted_at AS "DeletedAt"
+            FROM sys_user
+            {{where}}
+            ORDER BY createtime DESC, id DESC
+            LIMIT @Limit;
+            """;
+
+        var list = new List<AdminAccountListItemDto>(Math.Min(limit, MaxAdminPageSize + 1));
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sql, parameters.ToArray()))
         {
             int fId = reader.GetOrdinal("Id");
             int fIdentityKind = reader.GetOrdinal("IdentityKind");
@@ -383,11 +443,59 @@ public partial class UserService(
             }
         }
 
-        return new PageResult<AdminAccountListItemDto>
+        return list;
+    }
+
+    private static AdminAccountSearchPlan ApplyAdminAccountSearch(string? keyword)
+    {
+        string normalized = keyword?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalized))
         {
-            Total = total,
-            Items = list
-        };
+            return AdminAccountSearchPlan.None;
+        }
+
+        if (int.TryParse(normalized, out int accountId) && accountId > 0)
+        {
+            return AdminAccountSearchPlan.AccountId(accountId);
+        }
+
+        if (string.Equals(normalized, AnonymousIdentityRuntime.AnonymousAccountKind, StringComparison.Ordinal)
+            || string.Equals(normalized, AnonymousIdentityRuntime.AdminPrincipalKind, StringComparison.Ordinal))
+        {
+            return AdminAccountSearchPlan.IdentityKind(normalized);
+        }
+
+        string handlePrefix = NormalizePublicHandleToken(normalized);
+        return string.IsNullOrWhiteSpace(handlePrefix)
+            ? AdminAccountSearchPlan.NoMatch("empty")
+            : AdminAccountSearchPlan.PublicHandlePrefix(handlePrefix);
+    }
+
+    private sealed record AdminAccountSearchPlan(string Kind, string? Sql, IReadOnlyList<SugarParameter> Parameters)
+    {
+        public static AdminAccountSearchPlan None { get; } = new("none", null, []);
+
+        public static AdminAccountSearchPlan AccountId(int accountId)
+            => new("account_id", " AND id = @SearchAccountId", [new SugarParameter("@SearchAccountId", accountId)]);
+
+        public static AdminAccountSearchPlan IdentityKind(string identityKind)
+            => new("identity_kind", " AND identity_kind = @SearchIdentityKind", [new SugarParameter("@SearchIdentityKind", identityKind)]);
+
+        public static AdminAccountSearchPlan PublicHandlePrefix(string publicHandlePrefix)
+            => new("public_handle_prefix", " AND public_handle LIKE @SearchPublicHandlePrefix", [new SugarParameter("@SearchPublicHandlePrefix", publicHandlePrefix + "%")]);
+
+        public static AdminAccountSearchPlan NoMatch(string reason)
+            => new($"no_match_{reason}", " AND 1 = 0", []);
+
+        public void AppendWhere(StringBuilder where, List<SugarParameter> parameters)
+        {
+            if (!string.IsNullOrWhiteSpace(Sql))
+            {
+                where.AppendLine(Sql);
+            }
+
+            parameters.AddRange(Parameters);
+        }
     }
 
     public async Task<(bool Success, string Message)> AdminChangeStatusAsync(AdminChangeStatusDto dto)
