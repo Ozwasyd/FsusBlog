@@ -237,6 +237,48 @@ public class BackgroundWorkflowSourceTests
     }
 
     [Fact]
+    public void ArticleViewProjectionRepairWorker_SourceUsesIncrementalWatermarkBeforeFullReconcile()
+    {
+        string repair = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/VisitLog/ArticleViewProjectionRepairWorker.cs"));
+        string reconcile = ExtractMethodBlock(repair, "internal async Task<int> ReconcileOnceAsync");
+
+        Assert.Contains("article_view_projection_watermark", repair, StringComparison.Ordinal);
+        Assert.Contains("WHERE id > @LastVisitLogId", reconcile, StringComparison.Ordinal);
+        Assert.Contains("MAX(id)", reconcile, StringComparison.Ordinal);
+        Assert.Contains("COALESCE(MAX(id), 0)", repair, StringComparison.Ordinal);
+        Assert.Contains("RunFullReconcileAsync", repair, StringComparison.Ordinal);
+        Assert.DoesNotContain("GROUP BY article_id", reconcile, StringComparison.Ordinal);
+    }
+
+    private static string ExtractMethodBlock(string source, string signature)
+    {
+        int start = source.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing method signature: {signature}");
+
+        int brace = source.IndexOf('{', start);
+        Assert.True(brace >= 0, $"Missing method body for: {signature}");
+
+        int depth = 0;
+        for (int index = brace; index < source.Length; index++)
+        {
+            if (source[index] == '{')
+            {
+                depth++;
+            }
+            else if (source[index] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[brace..(index + 1)];
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"Unterminated method body: {signature}");
+    }
+
+    [Fact]
     public void PublicHotUpdateQueue_ReturnsRejectedResultWhenCapacityIsFull()
     {
         var queue = new PublicHotArtifactUpdateQueue(Options.Create(new PublicHotReadOptions

@@ -291,6 +291,24 @@ public sealed class SchemaMigrationRegistryTests
     }
 
     [Fact]
+    public void GetDescriptors_ArticleViewProjectionWatermark_CreatesDurableRepairState()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260629-post-article-view-projection-watermark");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+        string runner = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs");
+
+        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
+        Assert.Contains("article_view_projection_watermark", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("last_visit_log_id integer NOT NULL DEFAULT 0", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("last_full_reconcile_utc timestamp", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("article_view_projection_watermark", runner, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GetDescriptors_AnonymousCommentGovernance_SeedsRequiredPolicyDefaults()
     {
         var registry = new SchemaMigrationRegistry();

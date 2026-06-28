@@ -54,6 +54,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildCoverImageMigration(),
         BuildHumanReadEventMigration(),
         BuildVisitLogStatsRollupMigration(),
+        BuildArticleViewProjectionWatermarkMigration(),
         BuildVisitLogAnonymousAttributionFinalizeMigration(),
         BuildVisitLogIpAnonymizationMigration(),
         BuildAuthoringAdminPrincipalAttributionMigration(),
@@ -2328,6 +2329,42 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     ON CONFLICT (event_type) DO UPDATE
                     SET read_count = EXCLUDED.read_count,
                         updated_at_utc = EXCLUDED.updated_at_utc;
+                    """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildArticleViewProjectionWatermarkMigration()
+        => new SchemaMigrationDescriptor(
+            "20260629-post-article-view-projection-watermark",
+            "Create durable article view projection repair watermark state.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "article_view_projection_watermark",
+                    """
+                    CREATE TABLE IF NOT EXISTS article_view_projection_watermark (
+                        id varchar(96) PRIMARY KEY,
+                        last_visit_log_id integer NOT NULL DEFAULT 0,
+                        last_full_reconcile_utc timestamp NULL,
+                        updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+                    );
+                    """),
+                new BackfillSqlStep(
+                    """
+                    INSERT INTO article_view_projection_watermark(
+                        id,
+                        last_visit_log_id,
+                        last_full_reconcile_utc,
+                        updated_at_utc
+                    )
+                    SELECT
+                        'article_view_projection_watermark',
+                        COALESCE(MAX(id), 0),
+                        now() AT TIME ZONE 'utc',
+                        now() AT TIME ZONE 'utc'
+                    FROM sys_visit_log
+                    ON CONFLICT (id) DO NOTHING;
                     """)
             ]);
 
