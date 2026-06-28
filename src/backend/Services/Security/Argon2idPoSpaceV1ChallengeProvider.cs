@@ -24,10 +24,10 @@ public sealed class Argon2idPoSpaceV1ChallengeProvider(
     private const int SaltBytes = 16;
     private const int NonceBytes = 16;
     private const int ProofBytes = 32;
-    private const int MinMemoryKib = 1024;
+    private const int MinMemoryKib = 19_456;
     private const int MaxMemoryKib = 65_536;
     private const int MobileMaxMemoryKib = 8192;
-    private const int MinIterations = 1;
+    private const int MinIterations = 2;
     private const int MaxIterations = 6;
     private const int MinLanes = 1;
     private const int MaxLanes = 4;

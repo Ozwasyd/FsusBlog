@@ -649,10 +649,15 @@ public sealed class AnonymousCredentialIssuerService(
 
     private static string NormalizeIssuerPublicKeyId(string? value)
     {
-        string normalized = (value ?? "issuer-key:local").Trim();
+        string normalized = (value ?? string.Empty).Trim();
         if (normalized.Length == 0)
         {
-            normalized = "issuer-key:local";
+            throw new InvalidOperationException("AnonymousCredentialIssuer:IssuerPublicKeyId must be configured.");
+        }
+
+        if (string.Equals(normalized, "CHANGE_ME_ISSUER_PUBLIC_KEY_ID", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("AnonymousCredentialIssuer:IssuerPublicKeyId must not use the checked-in placeholder value.");
         }
 
         return normalized.Length <= AnonymousCredentialIssuerLimits.MaxIssuerPublicKeyIdChars

@@ -39,7 +39,7 @@ public sealed class RecoveryKeyService(
     private const int RecoveryKeyRandomBytes = 32;
     private const int RecoveryKeySaltBytes = 16;
     private const int RecoveryKeyHashBytes = 32;
-    private const int RecoveryKeyPbkdf2Iterations = 210_000;
+    private const int RecoveryKeyPbkdf2Iterations = 600_000;
     private const int MaxRecoveryKeyChars = 256;
     private const int MaxFailedAttempts = 8;
     private static readonly TimeSpan FailureWindow = TimeSpan.FromMinutes(10);

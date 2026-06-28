@@ -574,7 +574,7 @@ public sealed class AnonymousCredentialRootLifecycleService(
             return normalized.ToLowerInvariant();
         }
 
-        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("issuer-key:local")));
+        return string.Empty;
     }
 
     private static DateTime AsUtc(DateTime value)
@@ -757,7 +757,7 @@ internal static class AnonymousCredentialRootAttestation
             return normalized.ToLowerInvariant();
         }
 
-        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("issuer-key:local")));
+        return string.Empty;
     }
 
     private static string NormalizeToken(string? value, int maxLength)

@@ -54,7 +54,7 @@ internal static class ManagedCircuitNativeCredentialSigner
         BigInteger response = BigInteger.Zero;
         for (int attempt = 0; attempt < MaxSigningAttempts; attempt++)
         {
-            BigInteger nonce = HashToScalar(ResolveNoncePurpose(attempt), privateKey, publicKey, canonical);
+            BigInteger nonce = DeriveDeterministicNonce(attempt, privateKey, publicKey, canonical);
             CurvePoint noncePoint = Multiply(Generator, nonce);
             nonceBytes = WritePublicKey(noncePoint);
             BigInteger challenge = HashToScalar("challenge", publicKey, nonceBytes, canonical);
@@ -224,11 +224,6 @@ internal static class ManagedCircuitNativeCredentialSigner
         return output;
     }
 
-    private static string ResolveNoncePurpose(int attempt)
-        => attempt == 0
-            ? "nonce"
-            : string.Concat("nonce:", attempt.ToString(CultureInfo.InvariantCulture));
-
     private static void WriteString(byte[] output, ref int offset, string value)
         => WriteBytes(output, ref offset, Encoding.UTF8.GetBytes(value));
 
@@ -334,6 +329,89 @@ internal static class ManagedCircuitNativeCredentialSigner
         byte[] digest = hash.GetHashAndReset();
         BigInteger scalar = Mod(new BigInteger(digest, isUnsigned: true, isBigEndian: true), ScalarOrder);
         return scalar.Sign == 0 ? BigInteger.One : scalar;
+    }
+
+    private static BigInteger DeriveDeterministicNonce(
+        int attempt,
+        ReadOnlySpan<byte> privateKey,
+        ReadOnlySpan<byte> publicKey,
+        ReadOnlySpan<byte> canonical)
+    {
+        byte[] seed = BuildNonceSeed(attempt, privateKey, publicKey, canonical);
+        byte[] k = new byte[32];
+        byte[] v = new byte[32];
+        Array.Fill(v, (byte)0x01);
+
+        k = Hmac(k, Combine(v, [0x00], seed));
+        v = Hmac(k, v);
+        k = Hmac(k, Combine(v, [0x01], seed));
+        v = Hmac(k, v);
+
+        for (int counter = 0; counter < MaxSigningAttempts; counter++)
+        {
+            v = Hmac(k, v);
+            BigInteger candidate = new(v, isUnsigned: true, isBigEndian: true);
+            if (candidate.Sign > 0 && candidate < ScalarOrder)
+            {
+                return candidate;
+            }
+
+            k = Hmac(k, Combine(v, [0x00]));
+            v = Hmac(k, v);
+        }
+
+        throw new CryptographicException("unable to derive deterministic circuit-native nonce");
+    }
+
+    private static byte[] BuildNonceSeed(
+        int attempt,
+        ReadOnlySpan<byte> privateKey,
+        ReadOnlySpan<byte> publicKey,
+        ReadOnlySpan<byte> canonical)
+    {
+        using var stream = new MemoryStream();
+        WriteLengthPrefixed(stream, Encoding.UTF8.GetBytes(TranscriptDomain));
+        WriteLengthPrefixed(stream, Encoding.UTF8.GetBytes("nonce-hmac-drbg-v1"));
+        Span<byte> attemptBytes = stackalloc byte[4];
+        BinaryPrimitives.WriteInt32LittleEndian(attemptBytes, attempt);
+        WriteLengthPrefixed(stream, attemptBytes);
+        WriteLengthPrefixed(stream, privateKey);
+        WriteLengthPrefixed(stream, publicKey);
+        WriteLengthPrefixed(stream, canonical);
+        return stream.ToArray();
+    }
+
+    private static void WriteLengthPrefixed(Stream stream, ReadOnlySpan<byte> value)
+    {
+        Span<byte> length = stackalloc byte[4];
+        BinaryPrimitives.WriteInt32LittleEndian(length, value.Length);
+        stream.Write(length);
+        stream.Write(value);
+    }
+
+    private static byte[] Hmac(byte[] key, byte[] value)
+    {
+        using var hmac = new HMACSHA256(key);
+        return hmac.ComputeHash(value);
+    }
+
+    private static byte[] Combine(params byte[][] values)
+    {
+        int length = 0;
+        foreach (byte[] value in values)
+        {
+            length += value.Length;
+        }
+
+        byte[] output = new byte[length];
+        int offset = 0;
+        foreach (byte[] value in values)
+        {
+            value.CopyTo(output.AsSpan(offset, value.Length));
+            offset += value.Length;
+        }
+
+        return output;
     }
 
     private static void AppendHash(IncrementalHash hash, ReadOnlySpan<byte> value)

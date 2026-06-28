@@ -1251,7 +1251,7 @@ public sealed class AdminPrincipalService(
                 AdminPrincipalId == adminPrincipalId &&
                 string.Equals(AdminSessionId, adminSessionId, StringComparison.Ordinal) &&
                 string.Equals(Action, action, StringComparison.Ordinal) &&
-                string.Equals(ChallengeToken, challengeToken, StringComparison.Ordinal) &&
+                FixedTimeEquals(ChallengeToken, challengeToken) &&
                 ExpiresAtUtc > DateTime.UtcNow;
     }
 }

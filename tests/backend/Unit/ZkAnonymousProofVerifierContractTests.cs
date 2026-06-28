@@ -16,11 +16,11 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ZkAnonymousProofVerifierContractTests
 {
     private const string CircuitId = "fsus.anonymous.comment.v2";
-    private const string VerifyingKeyHash = "vk-sha256";
+    private static readonly string VerifyingKeyHash = new('d', 64);
     private const ushort PublicInputLayoutVersion = 3;
     private const long CredentialEpoch = 7;
-    private const string CredentialRoot = "credential-root-active";
-    private const string RevocationRoot = "revocation-root-active";
+    private static readonly string CredentialRoot = new('e', 64);
+    private static readonly string RevocationRoot = new('8', 64);
     private static readonly string IssuerPublicKeyHash = new('f', 64);
     private const string PublicInputNullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string CredentialCommitment = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -289,9 +289,9 @@ public sealed class ZkAnonymousProofVerifierContractTests
     }
 
     [Theory]
-    [InlineData("other.circuit", VerifyingKeyHash, PublicInputLayoutVersion)]
+    [InlineData("other.circuit", "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", PublicInputLayoutVersion)]
     [InlineData(CircuitId, "other-vk", PublicInputLayoutVersion)]
-    [InlineData(CircuitId, VerifyingKeyHash, (ushort)9)]
+    [InlineData(CircuitId, "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", (ushort)9)]
     public async Task ProductionZkProofVerifier_RejectsPublicInputMetadataMismatch(
         string circuitId,
         string verifyingKeyHash,
@@ -318,7 +318,7 @@ public sealed class ZkAnonymousProofVerifierContractTests
     {
         var backend = new RecordingProductionZkProofBackend();
         var verifier = CreateProductionVerifier(
-            roots: new FixedRootReader("different-root", CredentialEpoch),
+            roots: new FixedRootReader(new string('7', 64), CredentialEpoch),
             backend: backend);
 
         ZkProofVerificationResult result = await verifier.VerifyAsync(ValidRequest());
@@ -329,7 +329,7 @@ public sealed class ZkAnonymousProofVerifierContractTests
     }
 
     [Theory]
-    [InlineData("revocation-root-other", null)]
+    [InlineData("7777777777777777777777777777777777777777777777777777777777777777", null)]
     [InlineData(null, "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")]
     public async Task ProductionZkProofVerifier_RejectsRevocationRootOrIssuerMismatch(
         string? revocationRoot,

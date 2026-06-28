@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -27,6 +28,11 @@ public sealed class CaptchaV1ChallengeProvider(
     private const int DistortionLevel = 18;
     private const int PowDifficultyBits = 8;
     private static readonly TimeSpan RiskSignalTtl = TimeSpan.FromMinutes(10);
+    private static readonly HashSet<string> KnownDevelopmentSigningKeys = new(StringComparer.Ordinal)
+    {
+        "development-captcha-signing-key-change-before-shared-use",
+        "CHANGE_ME_CAPTCHA_SIGNING_KEY"
+    };
 
     public string Kind => WireKind;
 
@@ -233,21 +239,34 @@ public sealed class CaptchaV1ChallengeProvider(
             throw new InvalidOperationException("Security:CaptchaV1:SigningKey must be configured with at least 32 characters.");
         }
 
-        return Encoding.UTF8.GetBytes(key.Trim());
+        string normalized = key.Trim();
+        if (KnownDevelopmentSigningKeys.Contains(normalized))
+        {
+            throw new InvalidOperationException("Security:CaptchaV1:SigningKey must not use a checked-in development value.");
+        }
+
+        return Encoding.UTF8.GetBytes(normalized);
     }
 
     private static string HashPayload(IReadOnlyDictionary<string, string> payload)
     {
-        var builder = new StringBuilder();
+        using var stream = new MemoryStream();
         foreach (KeyValuePair<string, string> item in payload.OrderBy(static item => item.Key, StringComparer.Ordinal))
         {
-            builder.Append(item.Key);
-            builder.Append('\0');
-            builder.Append(item.Value);
-            builder.Append('\n');
+            WriteLengthPrefixed(stream, item.Key);
+            WriteLengthPrefixed(stream, item.Value);
         }
 
-        return HashValue(builder.ToString());
+        return Convert.ToHexStringLower(SHA256.HashData(stream.ToArray()));
+    }
+
+    private static void WriteLengthPrefixed(Stream stream, string value)
+    {
+        byte[] bytes = Encoding.UTF8.GetBytes(value);
+        Span<byte> length = stackalloc byte[4];
+        BinaryPrimitives.WriteInt32LittleEndian(length, bytes.Length);
+        stream.Write(length);
+        stream.Write(bytes);
     }
 
     private static string HashValue(string value)

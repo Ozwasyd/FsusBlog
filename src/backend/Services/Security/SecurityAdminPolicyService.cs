@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
+using System.Security.Cryptography;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -1400,5 +1401,5 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     }
 
     private static string CreateSnapshotId(string prefix, DateTimeOffset timestamp)
-        => $"{prefix}-{timestamp:yyyyMMddHHmmssfff}-{Random.Shared.Next(1000, 9999)}";
+        => $"{prefix}-{timestamp:yyyyMMddHHmmssfff}-{Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(8))}";
 }

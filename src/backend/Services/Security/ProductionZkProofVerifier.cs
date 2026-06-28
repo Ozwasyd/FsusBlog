@@ -202,11 +202,11 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
         }
 
         return IsScope(request.Scope) &&
-            IsHexHash(request.NullifierHash, minLength: 32, maxLength: 128) &&
-            IsHexHash(request.CredentialCommitment, minLength: 32, maxLength: 128) &&
-            IsToken(request.CredentialRoot, maxLength: 128) &&
-            IsToken(request.RevocationRoot, maxLength: 128) &&
-            IsHexHash(request.IssuerPublicKeyHash, minLength: 32, maxLength: 128) &&
+            IsHexHash(request.NullifierHash, minLength: 64, maxLength: 128) &&
+            IsHexHash(request.CredentialCommitment, minLength: 64, maxLength: 128) &&
+            IsHexHash(request.CredentialRoot, minLength: 64, maxLength: 128) &&
+            IsHexHash(request.RevocationRoot, minLength: 64, maxLength: 128) &&
+            IsHexHash(request.IssuerPublicKeyHash, minLength: 64, maxLength: 128) &&
             IsHexHash(request.PolicyHash, minLength: 64, maxLength: 64) &&
             IsToken(request.CredentialLevel, maxLength: 32) &&
             IsToken(request.ReputationBucket, maxLength: 64);

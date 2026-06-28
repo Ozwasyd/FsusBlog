@@ -193,6 +193,12 @@ public sealed class AnonymousCredentialRootService(
             return Result<AnonymousCredentialRootSnapshotCoreModel>.Failure(ErrorCode.InfraFailure, "anonymous_root_unavailable");
         }
 
+        string issuerPublicKeyHash = ResolveIssuerPublicKeyHash(record.Value.IssuerPublicKeyHash, configuration);
+        if (issuerPublicKeyHash.Length == 0)
+        {
+            return Result<AnonymousCredentialRootSnapshotCoreModel>.Failure(ErrorCode.InfraFailure, "anonymous_root_unavailable");
+        }
+
         var snapshot = new AnonymousCredentialRootSnapshotCoreModel(
             record.Value.CredentialEpoch,
             ToUtcOffset(record.Value.ExpiresAtUtc).ToUnixTimeMilliseconds(),
@@ -203,7 +209,7 @@ public sealed class AnonymousCredentialRootService(
             verifier.IsConfigured,
             record.Value.CircuitId,
             record.Value.VerifyingKeyHash,
-            ResolveIssuerPublicKeyHash(record.Value.IssuerPublicKeyHash, configuration),
+            issuerPublicKeyHash,
             [.. record.Value.CredentialRoot],
             [.. record.Value.RevocationRoot],
             [.. record.Value.CircuitMetadata]);
@@ -220,8 +226,14 @@ public sealed class AnonymousCredentialRootService(
                 : stored[..AnonymousPrivacyContract.MaxIssuerPublicKeyHashBytes].ToLowerInvariant();
         }
 
-        string issuerPublicKeyId = configuration["AnonymousCredentialIssuer:IssuerPublicKeyId"] ?? "issuer-key:local";
-        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(issuerPublicKeyId.Trim())));
+        string issuerPublicKeyId = (configuration["AnonymousCredentialIssuer:IssuerPublicKeyId"] ?? string.Empty).Trim();
+        if (issuerPublicKeyId.Length == 0 ||
+            string.Equals(issuerPublicKeyId, "CHANGE_ME_ISSUER_PUBLIC_KEY_ID", StringComparison.Ordinal))
+        {
+            return string.Empty;
+        }
+
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(issuerPublicKeyId)));
     }
 
     private static DateTimeOffset ResolveCacheExpiry(

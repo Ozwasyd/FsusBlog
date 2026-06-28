@@ -62,8 +62,8 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
         Assert.Equal(
             ["algorithm", "iterations", "lanes", "memoryKib", "saltHex", "targetDurationMs"],
             result.ProviderPayload.Keys.Order(StringComparer.Ordinal));
-        Assert.Equal("1024", result.ProviderPayload["memoryKib"]);
-        Assert.Equal("1", result.ProviderPayload["iterations"]);
+        Assert.Equal("19456", result.ProviderPayload["memoryKib"]);
+        Assert.Equal("2", result.ProviderPayload["iterations"]);
         Assert.Equal("1", result.ProviderPayload["lanes"]);
         Assert.Equal("100", result.ProviderPayload["targetDurationMs"]);
         SecurityChallengeIssueRequest issued = Assert.Single(fixture.Persistence.Issues);
@@ -76,14 +76,14 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
     }
 
     [Theory]
-    [InlineData(512, 1, 1, 100)]
-    [InlineData(65_537, 1, 1, 100)]
-    [InlineData(1024, 0, 1, 100)]
-    [InlineData(1024, 7, 1, 100)]
-    [InlineData(1024, 1, 0, 100)]
-    [InlineData(1024, 1, 5, 100)]
-    [InlineData(1024, 1, 1, 99)]
-    [InlineData(1024, 1, 1, 5_001)]
+    [InlineData(19_455, 2, 1, 100)]
+    [InlineData(65_537, 2, 1, 100)]
+    [InlineData(19_456, 1, 1, 100)]
+    [InlineData(19_456, 7, 1, 100)]
+    [InlineData(19_456, 2, 0, 100)]
+    [InlineData(19_456, 2, 5, 100)]
+    [InlineData(19_456, 2, 1, 99)]
+    [InlineData(19_456, 2, 1, 5_001)]
     public async Task IssueAsync_RejectsParameterBounds(int memoryKib, int iterations, int lanes, int targetDurationMs)
     {
         ProviderFixture fixture = CreateFixture(
@@ -103,7 +103,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
     [Fact]
     public async Task IssueAsync_MobileUserAgentAboveMobileMemoryLimit_FailsClosed()
     {
-        ProviderFixture fixture = CreateFixture(mode: SecuritySystemModes.Enforce, memoryKib: 16_384);
+        ProviderFixture fixture = CreateFixture(mode: SecuritySystemModes.Enforce, memoryKib: 19_456);
 
         SecurityChallengeProviderIssueResult result = await fixture.Provider.IssueAsync(
             CreateIssueRequest(CreateContext("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)")),
@@ -163,8 +163,8 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
 
     private static ProviderFixture CreateFixture(
         string mode,
-        int memoryKib = 1024,
-        int iterations = 1,
+        int memoryKib = 19_456,
+        int iterations = 2,
         int lanes = 1,
         int targetDurationMs = 100)
     {

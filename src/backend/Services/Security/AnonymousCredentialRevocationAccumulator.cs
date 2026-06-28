@@ -360,9 +360,9 @@ public static class AnonymousCredentialRevocationAccumulator
             revokedHandleHashes);
         return expected.IsSuccess &&
             expected.Value is not null &&
-            string.Equals(expected.Value.PreviousRevocationHandleHash, NormalizeHexToken(witness.PreviousRevocationHandleHash, 128), StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(expected.Value.NextRevocationHandleHash, NormalizeHexToken(witness.NextRevocationHandleHash, 128), StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(expected.Value.WitnessHash, NormalizeHexToken(witness.WitnessHash, 128), StringComparison.OrdinalIgnoreCase);
+            FixedHexEquals(expected.Value.PreviousRevocationHandleHash, NormalizeHexToken(witness.PreviousRevocationHandleHash, 128)) &&
+            FixedHexEquals(expected.Value.NextRevocationHandleHash, NormalizeHexToken(witness.NextRevocationHandleHash, 128)) &&
+            FixedHexEquals(expected.Value.WitnessHash, NormalizeHexToken(witness.WitnessHash, 128));
     }
 
     public static bool VerifyCircuitFriendlyNonMembershipWitness(
@@ -392,7 +392,7 @@ public static class AnonymousCredentialRevocationAccumulator
             expectedRoot.Value is null ||
             normalizedHandles.Value is null ||
             normalizedHandles.Value.Contains(handle, StringComparer.OrdinalIgnoreCase) ||
-            !string.Equals(expectedRoot.Value, root, StringComparison.OrdinalIgnoreCase))
+            !FixedHexEquals(expectedRoot.Value, root))
         {
             return false;
         }
@@ -445,8 +445,18 @@ public static class AnonymousCredentialRevocationAccumulator
             handle,
             FormatCircuitFriendlyLeafKey(key),
             ComputeSiblingDigest(siblingHashes));
-        return string.Equals(computed, root, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(witnessHash, NormalizeHexToken(witness.WitnessHash, 128), StringComparison.OrdinalIgnoreCase);
+        return FixedHexEquals(computed, root) &&
+            FixedHexEquals(witnessHash, NormalizeHexToken(witness.WitnessHash, 128));
+    }
+
+    private static bool FixedHexEquals(string expected, string actual)
+    {
+        string normalizedExpected = NormalizeHexToken(expected, 128);
+        string normalizedActual = NormalizeHexToken(actual, 128);
+        return normalizedExpected.Length == normalizedActual.Length &&
+            CryptographicOperations.FixedTimeEquals(
+                Encoding.ASCII.GetBytes(normalizedExpected),
+                Encoding.ASCII.GetBytes(normalizedActual));
     }
 
     private static bool TryNormalizeCircuitFriendlyWitness(

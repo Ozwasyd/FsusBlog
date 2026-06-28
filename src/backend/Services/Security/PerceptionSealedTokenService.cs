@@ -76,6 +76,7 @@ public sealed class PerceptionSealedTokenService(
 {
     private const string TokenPrefix = "fpst_";
     private const string EnvelopeVersion = "fsus.perception.sealed-token@v1";
+    private const string CiphertextAadMarker = "aes-gcm-tag-bound";
     private const int NonceByteCount = 12;
     private const int TagByteCount = 16;
     private const int KeyByteCount = 32;
@@ -104,9 +105,6 @@ public sealed class PerceptionSealedTokenService(
         byte[] ciphertext = new byte[plaintext.Length];
         byte[] tag = new byte[TagByteCount];
         byte[] aad = BuildAad(normalized, ciphertext);
-        EncryptPayload(key, nonce, plaintext, ciphertext, tag, aad);
-
-        aad = BuildAad(normalized, ciphertext);
         EncryptPayload(key, nonce, plaintext, ciphertext, tag, aad);
 
         var envelope = new PerceptionSealedTokenEnvelope(
@@ -346,7 +344,7 @@ public sealed class PerceptionSealedTokenService(
                 payload.IssuedAtUnixMs,
                 payload.ExpiresAtUnixMs,
                 payload.KeyVersion,
-                Sha256Hex(ciphertext)),
+                CiphertextAadMarker),
             JsonOptions);
 
     private static byte[] BuildAad(PerceptionSealedTokenEnvelope envelope, byte[] ciphertext)
@@ -361,7 +359,7 @@ public sealed class PerceptionSealedTokenService(
                 envelope.IssuedAtUnixMs,
                 envelope.ExpiresAtUnixMs,
                 envelope.KeyVersion,
-                Sha256Hex(ciphertext)),
+                CiphertextAadMarker),
             JsonOptions);
 
     private static void EncryptPayload(

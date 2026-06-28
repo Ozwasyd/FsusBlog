@@ -94,7 +94,7 @@ public sealed class TotpService : ITotpService
         for (int i = -allowedDriftSteps; i <= allowedDriftSteps; i++)
         {
             long candidateStep = nowStep + i;
-            if (ComputeTotp(secret, candidateStep) == sanitizedCode)
+            if (FixedTimeEquals(ComputeTotp(secret, candidateStep), sanitizedCode))
             {
                 matchedStep = candidateStep;
                 return true;
@@ -338,6 +338,19 @@ public sealed class TotpService : ITotpService
         Span<byte> storedHashBytes = stackalloc byte[64];
         Encoding.UTF8.GetBytes(storedHash.AsSpan(), storedHashBytes);
         return CryptographicOperations.FixedTimeEquals(storedHashBytes, codeHashBytes);
+    }
+
+    private static bool FixedTimeEquals(string expected, string actual)
+    {
+        Span<byte> expectedBytes = stackalloc byte[6];
+        Span<byte> actualBytes = stackalloc byte[6];
+        if (Encoding.ASCII.GetBytes(expected.AsSpan(), expectedBytes) != 6 ||
+            Encoding.ASCII.GetBytes(actual.AsSpan(), actualBytes) != 6)
+        {
+            return false;
+        }
+
+        return CryptographicOperations.FixedTimeEquals(expectedBytes, actualBytes);
     }
 
     private readonly record struct RecoveryCodeHashVerification(bool Success, bool LegacyHash, bool LegacyHashExpired)

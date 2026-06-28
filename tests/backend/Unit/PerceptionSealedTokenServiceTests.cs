@@ -287,7 +287,6 @@ public sealed class PerceptionSealedTokenServiceTests
         using (var aes = new AesGcm(key, tag.Length))
         {
             aes.Encrypt(nonce, mutatedPlaintext, mutatedCiphertext, mutatedTag, BuildTestAad(envelope, mutatedCiphertext));
-            aes.Encrypt(nonce, mutatedPlaintext, mutatedCiphertext, mutatedTag, BuildTestAad(envelope, mutatedCiphertext));
         }
 
         envelope["ciphertext"] = WebEncoders.Base64UrlEncode(mutatedCiphertext);
@@ -307,7 +306,7 @@ public sealed class PerceptionSealedTokenServiceTests
             issuedAtUnixMs = envelope["issuedAtUnixMs"]!.GetValue<long>(),
             expiresAtUnixMs = envelope["expiresAtUnixMs"]!.GetValue<long>(),
             keyVersion = envelope["keyVersion"]!.GetValue<string>(),
-            payloadCiphertextHashHex = Convert.ToHexStringLower(SHA256.HashData(ciphertext))
+            payloadCiphertextHashHex = "aes-gcm-tag-bound"
         });
 
     private static string MutateBase64Url(string value)
