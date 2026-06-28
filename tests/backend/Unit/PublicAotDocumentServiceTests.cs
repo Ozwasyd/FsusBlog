@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Models.Requests;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -18,6 +19,21 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class PublicAotDocumentServiceTests
 {
+    [Fact]
+    public void Source_CachesPreparedTemplateHeadLinksAndHydrationSidecarExists()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "PublicAot", "PublicAotDocumentService.cs"));
+        string compose = ExtractMethodBlock(source, "public async Task<Result<string>> ComposeAsync");
+
+        Assert.Contains("PreparedTemplateCache", source, StringComparison.Ordinal);
+        Assert.Contains("HeadLinksCache", source, StringComparison.Ordinal);
+        Assert.Contains("HydrationSidecarExistsCache", source, StringComparison.Ordinal);
+        Assert.Contains("GetPreparedTemplateAsync", compose, StringComparison.Ordinal);
+        Assert.Contains("GetHeadLinks", compose, StringComparison.Ordinal);
+        Assert.DoesNotContain("PreparePublicDocumentTemplate(rawTemplate)", compose, StringComparison.Ordinal);
+        Assert.Contains("HydrationSidecarExistsCache.TryAdd", source, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task ComposeAsync_WritesHydrationPayloadSidecarAsRawAedsFrame()
     {
@@ -166,7 +182,9 @@ public sealed class PublicAotDocumentServiceTests
 
             Assert.True(result.IsSuccess, result.Error.Message);
             string html = result.Value!;
-            Assert.Contains("href=\"https://selfhost.example/article/42\"", html, StringComparison.Ordinal);
+            Assert.True(
+                html.Contains("href=\"https://selfhost.example/article/42\"", StringComparison.Ordinal),
+                html);
             Assert.Contains("property=\"og:url\" content=\"https://selfhost.example/article/42\"", html, StringComparison.Ordinal);
             Assert.Contains("\"url\":\"https://selfhost.example/article/42\"", html, StringComparison.Ordinal);
             Assert.Contains("\"headline\":\"Nested Article\"", html, StringComparison.Ordinal);
@@ -274,6 +292,33 @@ public sealed class PublicAotDocumentServiceTests
         string sidecarPath = Path.Combine(root, "wwwroot", sidecarUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
         Assert.True(File.Exists(sidecarPath), sidecarPath);
         return await File.ReadAllBytesAsync(sidecarPath);
+    }
+
+    private static string ExtractMethodBlock(string source, string signature)
+    {
+        int start = source.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing method signature: {signature}");
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart > start, $"Missing method body: {signature}");
+
+        int depth = 0;
+        for (int i = braceStart; i < source.Length; i++)
+        {
+            if (source[i] == '{')
+            {
+                depth++;
+            }
+            else if (source[i] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[start..(i + 1)];
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"Unable to extract method: {signature}");
     }
 
     private static PublicAotShellEntryContract CreateEntry(string hydrationPayload)

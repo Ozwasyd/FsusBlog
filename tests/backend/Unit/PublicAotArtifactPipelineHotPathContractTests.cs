@@ -94,8 +94,9 @@ public sealed class PublicAotArtifactPipelineHotPathContractTests
         string source = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicSpaTemplateLocator.cs");
 
         Assert.DoesNotContain("Lock CacheGate", source, StringComparison.Ordinal);
-        Assert.Contains("Volatile.Read(ref _cachedTemplate)", source, StringComparison.Ordinal);
-        Assert.Contains("Interlocked.Exchange(ref _cachedTemplate", source, StringComparison.Ordinal);
+        Assert.Contains("_templateCache", source, StringComparison.Ordinal);
+        Assert.Contains("Path.GetFullPath(indexPath)", source, StringComparison.Ordinal);
+        Assert.Contains("lastWriteTimeUtc.Ticks", source, StringComparison.Ordinal);
         Assert.Contains("_assetPathCache", source, StringComparison.Ordinal);
         Assert.Contains("LazyText", source, StringComparison.Ordinal);
         Assert.DoesNotContain("string Text, string AssetVersion", source, StringComparison.Ordinal);

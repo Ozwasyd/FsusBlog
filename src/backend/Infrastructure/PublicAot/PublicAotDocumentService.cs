@@ -1,4 +1,6 @@
 using System.Net;
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Spa;
@@ -17,6 +19,9 @@ public sealed class PublicAotDocumentService(
     ILogger<PublicAotDocumentService> logger) : IPublicAotDocumentService
 {
     private static readonly string EmptyPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>(StringComparer.Ordinal));
+    private static readonly ConcurrentDictionary<string, PreparedTemplateCacheEntry> PreparedTemplateCache = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, string> HeadLinksCache = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, byte> HydrationSidecarExistsCache = new(StringComparer.Ordinal);
     private readonly string? _configuredBaseUrl = NormalizeBaseUrlOrNull(
         configuration["Seo:BaseUrl"]
         ?? configuration["Seo__BaseUrl"]
@@ -47,8 +52,9 @@ public sealed class PublicAotDocumentService(
         {
             SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
             SpaAssetSet assetSet = assetManifest.GetPublicAssetSet(context, entry.PageId);
-            string rawTemplate = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, cancellationToken, assetSet.UsesSourceAssets);
-            string preparedTemplate = PublicAotDocumentComposer.PreparePublicDocumentTemplate(rawTemplate);
+            PreparedTemplateCacheEntry template = await GetPreparedTemplateAsync(assetSet, cancellationToken);
+            string rawTemplate = template.RawTemplate;
+            string preparedTemplate = template.PreparedTemplate;
             DecodedEntryPayloads payloads = DecodeEntryPayloads(entry);
             string title = ResolveTitle(entry, payloads, seo.Title);
             string description = ResolveDescription(entry, payloads, seo.Description);
@@ -57,7 +63,7 @@ public sealed class PublicAotDocumentService(
             string canonicalUrl = string.Concat(ResolveCanonicalBaseUrl(entry.BaseUrl, _configuredBaseUrl), ResolveCanonicalPath(entry));
             PublicAotArticleSeoMetadata? articleSeo = BuildArticleSeoMetadata(kind, payloads, canonicalUrl, title, description, siteTitle, seo);
             string shell = PublicAotDocumentComposer.EnsureShellRoot(NormalizeHtml(entry.Html, entry.ArticleId), kind);
-            string headLinks = BuildHeadLinks(rawTemplate, assetSet, seo);
+            string headLinks = GetHeadLinks(template, assetSet, seo);
             string bootstrapPayload = NormalizeOptionalText(entry.BootstrapPayload ?? EmptyPayload, entry.ArticleId);
             string hydrationPayload = NormalizeOptionalText(entry.HydrationPropsPayload ?? string.Empty, entry.ArticleId);
             await WriteHydrationPayloadSidecarAsync(hydrationPayload, cancellationToken).ConfigureAwait(false);
@@ -88,6 +94,38 @@ public sealed class PublicAotDocumentService(
         }
     }
 
+    private async Task<PreparedTemplateCacheEntry> GetPreparedTemplateAsync(SpaAssetSet assetSet, CancellationToken cancellationToken)
+    {
+        string rawTemplate = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, cancellationToken, assetSet.UsesSourceAssets);
+        string templateHash = ComputeStableHash(rawTemplate);
+        string cacheKey = string.Concat(
+            Path.GetFullPath(env.ContentRootPath),
+            '|',
+            templateHash,
+            '|',
+            assetSet.UsesSourceAssets ? "source" : "dist");
+        return PreparedTemplateCache.GetOrAdd(cacheKey, _ => new PreparedTemplateCacheEntry(
+            rawTemplate,
+            PublicAotDocumentComposer.PreparePublicDocumentTemplate(rawTemplate),
+            assetSet.FrontendAssetVersion,
+            templateHash));
+    }
+
+    private static string GetHeadLinks(PreparedTemplateCacheEntry template, SpaAssetSet assetSet, SeoConfigReadModel seo)
+    {
+        string cacheKey = string.Concat(
+            template.AssetVersion,
+            '|',
+            template.TemplateHash,
+            '|',
+            assetSet.FrontendAssetVersion,
+            '|',
+            BuildAssetSignature(assetSet),
+            '|',
+            BuildSeoSignature(seo));
+        return HeadLinksCache.GetOrAdd(cacheKey, _ => BuildHeadLinks(template.RawTemplate, assetSet, seo));
+    }
+
     private async Task WriteHydrationPayloadSidecarAsync(string hydrationPayload, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(hydrationPayload))
@@ -109,14 +147,21 @@ public sealed class PublicAotDocumentService(
 
         Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
 
+        if (HydrationSidecarExistsCache.ContainsKey(targetPath))
+        {
+            return;
+        }
+
         if (File.Exists(targetPath))
         {
+            HydrationSidecarExistsCache.TryAdd(targetPath, 0);
             return;
         }
 
         string tempPath = Path.Combine(Path.GetDirectoryName(targetPath)!, $"{Path.GetFileName(targetPath)}.{Guid.NewGuid():N}.tmp");
         await File.WriteAllBytesAsync(tempPath, PublicAotDocumentComposer.DecodePayloadFrameBytes(hydrationPayload), cancellationToken).ConfigureAwait(false);
         File.Move(tempPath, targetPath, overwrite: true);
+        HydrationSidecarExistsCache.TryAdd(targetPath, 0);
     }
 
     private static bool TryResolveHydrationSidecarPath(string webRoot, string relativePath, out string targetPath)
@@ -167,6 +212,31 @@ public sealed class PublicAotDocumentService(
         }
 
         return builder.ToString().TrimEnd();
+    }
+
+    private static string BuildAssetSignature(SpaAssetSet assetSet)
+        => string.Join('|',
+            assetSet.EntryScript,
+            string.Join(',', assetSet.ModulePreloads),
+            string.Join(',', assetSet.Stylesheets),
+            assetSet.FullAppTakeover.ModulePreloads.Count,
+            assetSet.FullAppTakeover.Stylesheets.Count);
+
+    private static string BuildSeoSignature(SeoConfigReadModel seo)
+        => string.Join('|',
+            seo.ThemeColor,
+            seo.FaviconSvgUrl,
+            seo.FaviconIcoUrl,
+            seo.FaviconPngUrl,
+            seo.AppleTouchIconUrl,
+            seo.OgImage);
+
+    private static string ComputeStableHash(string value)
+    {
+        byte[] bytes = Encoding.UTF8.GetBytes(value);
+        Span<byte> hash = stackalloc byte[32];
+        SHA256.HashData(bytes, hash);
+        return Convert.ToHexStringLower(hash);
     }
 
     private static void AppendRuntimeMeta(StringBuilder builder, string name, string content)
@@ -251,6 +321,12 @@ public sealed class PublicAotDocumentService(
         return !string.IsNullOrWhiteSpace(descriptor.DefaultTitle) ? descriptor.DefaultTitle : fallback;
     }
 
+    private sealed record PreparedTemplateCacheEntry(
+        string RawTemplate,
+        string PreparedTemplate,
+        string AssetVersion,
+        string TemplateHash);
+
     private static string ResolveDescription(PublicAotShellEntryContract entry, DecodedEntryPayloads payloads, string fallback)
     {
         string siteDescription = ResolvePayloadString(payloads.Hydration, "siteDescription", fallback);
@@ -311,7 +387,8 @@ public sealed class PublicAotDocumentService(
 
     private static bool IsProjectDefaultBaseUrl(string value)
         => string.Equals(value, "https://fsus.blog", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(value, "https://blog.fsus.blog", StringComparison.OrdinalIgnoreCase);
+            || string.Equals(value, "https://blog.fsus.blog", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "https://example.com", StringComparison.OrdinalIgnoreCase);
 
     private static PublicAotArticleSeoMetadata? BuildArticleSeoMetadata(
         PublicPageKind kind,
