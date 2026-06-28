@@ -79,6 +79,28 @@ public sealed class AuthoringWorkflowServiceTests
     }
 
     [Fact]
+    public void ReindexAssetsAsync_SourceUsesArticleScopedAssetPath()
+    {
+        string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string reindex = Slice(
+            service,
+            "public async Task<IReadOnlyList<AssetLibraryItemResponse>> ReindexAssetsAsync",
+            "public async Task<AssetCleanupResponse> CleanupOrphanAssetsAsync");
+        string articleScoped = Slice(
+            service,
+            "private async Task ReindexArticleAssetsAsync",
+            "private async Task RebuildAssetLibraryAsync");
+
+        Assert.Contains("ReindexArticleAssetsAsync(articleId", reindex, StringComparison.Ordinal);
+        Assert.DoesNotContain("RebuildAssetLibraryAsync", reindex, StringComparison.Ordinal);
+        Assert.Contains("EnsureAssetArticleReferenceStoreAsync", articleScoped, StringComparison.Ordinal);
+        Assert.Contains("asset_library_article_ref", service, StringComparison.Ordinal);
+        Assert.Contains("Where(it => it.ArticleId == articleId)", articleScoped, StringComparison.Ordinal);
+        Assert.DoesNotContain("Queryable<ArticleBody>().ToListAsync", articleScoped, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadAssetLibraryForUpdateAsync", articleScoped, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BanModerationUsersAsync_SourceUsesXminPredicateAndTransaction()
     {
         string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");

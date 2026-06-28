@@ -39,6 +39,7 @@ public sealed class AuthoringWorkflowService(
     private const int MaxDraftKeyLength = 96;
     private const int PreviewLength = 24_000;
     private const int WarningOverrideReasonLength = 180;
+    private static int assetArticleReferenceStoreEnsured;
 
     public async Task<ServerDraftResponse> SaveDraftAsync(long ownerAdminPrincipalId, ServerDraftSaveRequest request, CancellationToken cancellationToken = default)
     {
@@ -296,7 +297,7 @@ public sealed class AuthoringWorkflowService(
             return await ListAssetsAsync(cancellationToken);
         }
 
-        await RebuildAssetLibraryAsync(cancellationToken);
+        await ReindexArticleAssetsAsync(articleId, cancellationToken);
         return await ListAssetsAsync(cancellationToken);
     }
 
@@ -316,8 +317,59 @@ public sealed class AuthoringWorkflowService(
             .Select(ToAssetResponse)
             .ToArray();
 
+    private async Task ReindexArticleAssetsAsync(int articleId, CancellationToken cancellationToken)
+    {
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await AcquireAssetLibraryRebuildLockAsync(cancellationToken).ConfigureAwait(false);
+            await EnsureAssetArticleReferenceStoreAsync(cancellationToken).ConfigureAwait(false);
+            DateTime now = DateTime.UtcNow;
+
+            Article? article = await db.Queryable<Article>()
+                .ClearFilter()
+                .Where(it => it.Id == articleId)
+                .FirstAsync(cancellationToken);
+            string markdown = await db.Queryable<ArticleBody>()
+                .Where(it => it.ArticleId == articleId)
+                .Select(it => it.MarkdownContent)
+                .FirstAsync(cancellationToken) ?? string.Empty;
+
+            Dictionary<string, AssetReferenceAggregate> currentAssets = BuildArticleAssetReferences(articleId, markdown, article?.CoverImageUrl);
+            List<AssetArticleReferenceRow> previousRefs = await LoadArticleAssetReferencesForUpdateAsync(articleId, cancellationToken)
+                .ConfigureAwait(false);
+            HashSet<string> touchedUrls = new(StringComparer.OrdinalIgnoreCase);
+            foreach (string url in currentAssets.Keys)
+            {
+                touchedUrls.Add(url);
+            }
+
+            foreach (AssetArticleReferenceRow previous in previousRefs)
+            {
+                touchedUrls.Add(previous.Url);
+                if (!currentAssets.ContainsKey(previous.Url))
+                {
+                    await DeleteAssetArticleReferenceAsync(articleId, previous.Url, cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            foreach (AssetReferenceAggregate asset in currentAssets.Values)
+            {
+                await UpsertAssetArticleReferenceAsync(asset, now, cancellationToken).ConfigureAwait(false);
+            }
+
+            await RefreshAssetLibraryItemsForUrlsAsync(touchedUrls, now, cancellationToken).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+        if (!transaction.IsSuccess)
+        {
+            throw new InvalidOperationException("Article asset reindex failed.", transaction.ErrorException);
+        }
+    }
+
     private async Task RebuildAssetLibraryAsync(CancellationToken cancellationToken)
     {
+        await EnsureAssetArticleReferenceStoreAsync(cancellationToken).ConfigureAwait(false);
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -333,25 +385,33 @@ public sealed class AuthoringWorkflowService(
                     .ToListAsync(cancellationToken);
             Dictionary<int, Article> articleById = articles.ToDictionary(static article => article.Id);
             var assets = new Dictionary<string, AssetReferenceAggregate>(StringComparer.OrdinalIgnoreCase);
+            var articleAssetReferences = new List<AssetReferenceAggregate>();
 
             foreach (ArticleBody body in bodies)
             {
-                foreach (ImageHelper.IllustrationReference reference in ImageHelper.ExtractIllustrationReferences(body.MarkdownContent))
+                articleById.TryGetValue(body.ArticleId, out Article? article);
+                Dictionary<string, AssetReferenceAggregate> articleAssets = BuildArticleAssetReferences(body.ArticleId, body.MarkdownContent, article?.CoverImageUrl);
+                foreach (AssetReferenceAggregate articleAsset in articleAssets.Values)
                 {
-                    AddAssetReference(assets, reference.Url, reference.AltText, body.ArticleId);
-                }
-
-                if (articleById.TryGetValue(body.ArticleId, out Article? article) && IsUploadAssetUrl(article.CoverImageUrl))
-                {
-                    AddAssetReference(assets, article.CoverImageUrl!, null, body.ArticleId);
+                    articleAssetReferences.Add(articleAsset);
+                    MergeAssetReference(assets, articleAsset);
                 }
             }
 
             List<AssetLibraryItem> existingAssets = await LoadAssetLibraryForUpdateAsync(cancellationToken);
+            Dictionary<string, AssetLibraryItem> existingAssetsByUrl = existingAssets
+                .GroupBy(static item => item.Url, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.OrdinalIgnoreCase);
             HashSet<string> activeUrls = [.. assets.Keys];
+            await db.Ado.ExecuteCommandAsync("DELETE FROM asset_library_article_ref;").ConfigureAwait(false);
+            foreach (AssetReferenceAggregate articleAsset in articleAssetReferences)
+            {
+                await UpsertAssetArticleReferenceAsync(articleAsset, now, cancellationToken).ConfigureAwait(false);
+            }
+
             foreach (AssetReferenceAggregate asset in assets.Values)
             {
-                AssetLibraryItem? existing = existingAssets.FirstOrDefault(item => string.Equals(item.Url, asset.Url, StringComparison.OrdinalIgnoreCase));
+                existingAssetsByUrl.TryGetValue(asset.Url, out AssetLibraryItem? existing);
                 if (existing is null)
                 {
                     await InsertAssetAsync(asset, now, cancellationToken);
@@ -412,6 +472,172 @@ public sealed class AuthoringWorkflowService(
         return assets;
     }
 
+    private async Task EnsureAssetArticleReferenceStoreAsync(CancellationToken cancellationToken)
+    {
+        if (Volatile.Read(ref assetArticleReferenceStoreEnsured) == 1)
+        {
+            return;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        await db.Ado.ExecuteCommandAsync("""
+            CREATE TABLE IF NOT EXISTS asset_library_article_ref (
+                url varchar(512) NOT NULL,
+                article_id integer NOT NULL,
+                alt_text varchar(256) NULL,
+                reference_count integer NOT NULL DEFAULT 0,
+                updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+                PRIMARY KEY (url, article_id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_asset_library_article_ref_article
+            ON asset_library_article_ref(article_id);
+            """).ConfigureAwait(false);
+        Volatile.Write(ref assetArticleReferenceStoreEnsured, 1);
+    }
+
+    private async Task<List<AssetArticleReferenceRow>> LoadArticleAssetReferencesForUpdateAsync(int articleId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT url, article_id, alt_text, reference_count
+            FROM asset_library_article_ref
+            WHERE article_id = @ArticleId
+            FOR UPDATE;
+            """,
+            new SugarParameter("@ArticleId", articleId));
+        var rows = new List<AssetArticleReferenceRow>();
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            rows.Add(new AssetArticleReferenceRow(
+                reader.GetString(0),
+                reader.GetInt32(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                reader.GetInt32(3)));
+        }
+
+        return rows;
+    }
+
+    private async Task UpsertAssetArticleReferenceAsync(AssetReferenceAggregate asset, DateTime now, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO asset_library_article_ref
+                (url, article_id, alt_text, reference_count, updated_at_utc)
+            VALUES
+                (@Url, @ArticleId, @AltText, @ReferenceCount, @UpdatedAtUtc)
+            ON CONFLICT (url, article_id) DO UPDATE
+            SET alt_text = EXCLUDED.alt_text,
+                reference_count = EXCLUDED.reference_count,
+                updated_at_utc = EXCLUDED.updated_at_utc;
+            """,
+            new SugarParameter("@Url", asset.Url),
+            new SugarParameter("@ArticleId", asset.SourceArticleId),
+            new SugarParameter("@AltText", DbValue(asset.AltText)),
+            new SugarParameter("@ReferenceCount", asset.ReferenceCount),
+            new SugarParameter("@UpdatedAtUtc", now)).ConfigureAwait(false);
+    }
+
+    private async Task DeleteAssetArticleReferenceAsync(int articleId, string url, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await db.Ado.ExecuteCommandAsync(
+            """
+            DELETE FROM asset_library_article_ref
+            WHERE article_id = @ArticleId
+              AND lower(url) = lower(@Url);
+            """,
+            new SugarParameter("@ArticleId", articleId),
+            new SugarParameter("@Url", url)).ConfigureAwait(false);
+    }
+
+    private async Task RefreshAssetLibraryItemsForUrlsAsync(IReadOnlyCollection<string> urls, DateTime now, CancellationToken cancellationToken)
+    {
+        foreach (string url in urls)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            AssetReferenceAggregate? aggregate = await LoadAssetReferenceAggregateAsync(url, cancellationToken).ConfigureAwait(false);
+            if (aggregate is null)
+            {
+                await MarkAssetOrphanByUrlAsync(url, now, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            AssetLibraryItem? existing = await LoadAssetLibraryItemByUrlForUpdateAsync(url, cancellationToken).ConfigureAwait(false);
+            if (existing is null)
+            {
+                await InsertAssetAsync(aggregate, now, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            await UpdateAssetAsync(existing, aggregate, now, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<AssetReferenceAggregate?> LoadAssetReferenceAggregateAsync(string url, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT
+                url,
+                MIN(article_id) AS source_article_id,
+                MAX(alt_text) FILTER (WHERE alt_text IS NOT NULL AND alt_text <> '') AS alt_text,
+                SUM(reference_count)::integer AS reference_count
+            FROM asset_library_article_ref
+            WHERE lower(url) = lower(@Url)
+            GROUP BY url;
+            """,
+            new SugarParameter("@Url", url));
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        var aggregate = new AssetReferenceAggregate(reader.GetString(0), reader.GetInt32(1))
+        {
+            AltText = reader.IsDBNull(2) ? null : reader.GetString(2),
+            ReferenceCount = reader.GetInt32(3)
+        };
+        return aggregate;
+    }
+
+    private async Task<AssetLibraryItem?> LoadAssetLibraryItemByUrlForUpdateAsync(string url, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT id, url, alt_text, source_article_id, width, height, sha256, reference_count, created_at, updated_at
+            FROM asset_library_item
+            WHERE lower(url) = lower(@Url)
+            ORDER BY id
+            LIMIT 1
+            FOR UPDATE;
+            """,
+            new SugarParameter("@Url", url));
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return new AssetLibraryItem
+        {
+            Id = reader.GetInt64(0),
+            Url = reader.GetString(1),
+            AltText = reader.IsDBNull(2) ? null : reader.GetString(2),
+            SourceArticleId = reader.IsDBNull(3) ? null : reader.GetInt32(3),
+            Width = reader.IsDBNull(4) ? null : reader.GetInt32(4),
+            Height = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+            Sha256 = reader.IsDBNull(6) ? null : reader.GetString(6),
+            ReferenceCount = reader.GetInt32(7),
+            CreatedAt = reader.GetDateTime(8),
+            UpdatedAt = reader.GetDateTime(9)
+        };
+    }
+
     private async Task InsertAssetAsync(AssetReferenceAggregate asset, DateTime now, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -464,6 +690,21 @@ public sealed class AuthoringWorkflowService(
             """,
             new SugarParameter("@Id", assetId),
             new SugarParameter("@UpdatedAt", now));
+    }
+
+    private async Task MarkAssetOrphanByUrlAsync(string url, DateTime now, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE asset_library_item
+            SET reference_count = 0,
+                updated_at = @UpdatedAt
+            WHERE lower(url) = lower(@Url)
+              AND reference_count <> 0;
+            """,
+            new SugarParameter("@Url", url),
+            new SugarParameter("@UpdatedAt", now)).ConfigureAwait(false);
     }
 
     public async Task<AuthorAnalyticsResponse> GetAnalyticsAsync(CancellationToken cancellationToken = default)
@@ -1872,6 +2113,37 @@ public sealed class AuthoringWorkflowService(
         }
     }
 
+    private static Dictionary<string, AssetReferenceAggregate> BuildArticleAssetReferences(int articleId, string markdownContent, string? coverImageUrl)
+    {
+        var assets = new Dictionary<string, AssetReferenceAggregate>(StringComparer.OrdinalIgnoreCase);
+        foreach (ImageHelper.IllustrationReference reference in ImageHelper.ExtractIllustrationReferences(markdownContent))
+        {
+            AddAssetReference(assets, reference.Url, reference.AltText, articleId);
+        }
+
+        if (IsUploadAssetUrl(coverImageUrl))
+        {
+            AddAssetReference(assets, coverImageUrl!, null, articleId);
+        }
+
+        return assets;
+    }
+
+    private static void MergeAssetReference(Dictionary<string, AssetReferenceAggregate> assets, AssetReferenceAggregate source)
+    {
+        if (!assets.TryGetValue(source.Url, out AssetReferenceAggregate? aggregate))
+        {
+            aggregate = new AssetReferenceAggregate(source.Url, source.SourceArticleId);
+            assets[source.Url] = aggregate;
+        }
+
+        aggregate.ReferenceCount += source.ReferenceCount;
+        if (string.IsNullOrWhiteSpace(aggregate.AltText) && !string.IsNullOrWhiteSpace(source.AltText))
+        {
+            aggregate.AltText = source.AltText;
+        }
+    }
+
     private static bool IsUploadAssetUrl(string? url)
         => !string.IsNullOrWhiteSpace(url)
             && url.StartsWith("/uploads/illustration/", StringComparison.OrdinalIgnoreCase)
@@ -1889,6 +2161,12 @@ public sealed class AuthoringWorkflowService(
         public int SourceArticleId { get; } = sourceArticleId;
         public int ReferenceCount { get; set; }
     }
+
+    private sealed record AssetArticleReferenceRow(
+        string Url,
+        int ArticleId,
+        string? AltText,
+        int ReferenceCount);
 
     private sealed record UserBanCandidate(int Id, string RowVersion);
 

@@ -62,6 +62,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildSingleAuthorArticleLifecycleIndexMigration(),
         BuildPublicArticleListKeysetIndexMigration(),
         BuildArticleMutationOutboxEdgeMigration(),
+        BuildAssetLibraryArticleRefMigration(),
         BuildAuthoringWorkspaceTablesMigration(),
         BuildArticleRevisionAtomicRevisionNoMigration(),
         BuildAuthoringDraftLifecycleMigration(),
@@ -2529,6 +2530,34 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     """
                     CREATE INDEX IF NOT EXISTS idx_article_mutation_outbox_edge_status
                     ON article_mutation_outbox_edge(status, updated_at DESC);
+                    """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAssetLibraryArticleRefMigration()
+        => new SchemaMigrationDescriptor(
+            "20260629-post-asset-library-article-ref",
+            "Create article-scoped asset reference projection for targeted reindex.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "asset_library_article_ref",
+                    """
+                    CREATE TABLE IF NOT EXISTS asset_library_article_ref (
+                        url varchar(512) NOT NULL,
+                        article_id integer NOT NULL,
+                        alt_text varchar(256) NULL,
+                        reference_count integer NOT NULL DEFAULT 0,
+                        updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+                        PRIMARY KEY (url, article_id)
+                    );
+                    """),
+                new CreateIndexStep(
+                    "idx_asset_library_article_ref_article",
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_asset_library_article_ref_article
+                    ON asset_library_article_ref(article_id);
                     """)
             ]);
 

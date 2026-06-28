@@ -46,7 +46,7 @@ public sealed class AuthoringAssetLibraryRebuildTests(PostgresSchemaMigrationFix
         CreateTables(db);
         SeedArticleWithBody(db, 42, "![Active](/uploads/illustration/active.png)");
         SeedAsset(db, "/uploads/illustration/orphan.png", referenceCount: 7);
-        InstallFailingOrphanUpdateTrigger(db);
+        InstallFailingActiveAssetInsertTrigger(db);
         AuthoringWorkflowService service = CreateService(db);
 
         await Assert.ThrowsAnyAsync<Exception>(() => service.ReindexAssetsAsync(42, CancellationToken.None));
@@ -55,14 +55,30 @@ public sealed class AuthoringAssetLibraryRebuildTests(PostgresSchemaMigrationFix
             .First(asset => asset.Url == "/uploads/illustration/orphan.png");
         Assert.False(db.Queryable<AssetLibraryItem>().Any(asset => asset.Url == "/uploads/illustration/active.png"));
         Assert.Equal(7, orphan.ReferenceCount);
+        Assert.Equal(
+            0,
+            db.Ado.GetInt("SELECT COUNT(1) FROM asset_library_article_ref WHERE url = '/uploads/illustration/active.png';"));
     }
 
     private static void CreateTables(SqlSugarClient db)
-        => PostgresSqlSugarTestClient.InitTables(
+    {
+        PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(Article),
             typeof(ArticleBody),
             typeof(AssetLibraryItem));
+        db.Ado.ExecuteCommand(
+            """
+            CREATE TABLE IF NOT EXISTS asset_library_article_ref (
+                url varchar(512) NOT NULL,
+                article_id integer NOT NULL,
+                alt_text varchar(256) NULL,
+                reference_count integer NOT NULL DEFAULT 0,
+                updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+                PRIMARY KEY (url, article_id)
+            );
+            """);
+    }
 
     private static void SeedArticleWithBody(SqlSugarClient db, int articleId, string markdown)
     {
@@ -95,26 +111,26 @@ public sealed class AuthoringAssetLibraryRebuildTests(PostgresSchemaMigrationFix
             UpdatedAt = DateTime.UtcNow.AddMinutes(-5)
         }).ExecuteCommand();
 
-    private static void InstallFailingOrphanUpdateTrigger(SqlSugarClient db)
+    private static void InstallFailingActiveAssetInsertTrigger(SqlSugarClient db)
         => db.Ado.ExecuteCommand(
             """
-            CREATE OR REPLACE FUNCTION fail_orphan_asset_update()
+            CREATE OR REPLACE FUNCTION fail_active_asset_insert()
             RETURNS trigger
             LANGUAGE plpgsql
             AS $$
             BEGIN
-                IF OLD.url = '/uploads/illustration/orphan.png' THEN
-                    RAISE EXCEPTION 'unit orphan asset update failure';
+                IF NEW.url = '/uploads/illustration/active.png' THEN
+                    RAISE EXCEPTION 'unit active asset insert failure';
                 END IF;
 
                 RETURN NEW;
             END;
             $$;
 
-            CREATE TRIGGER fail_orphan_asset_update
-            BEFORE UPDATE ON asset_library_item
+            CREATE TRIGGER fail_active_asset_insert
+            BEFORE INSERT ON asset_library_item
             FOR EACH ROW
-            EXECUTE FUNCTION fail_orphan_asset_update();
+            EXECUTE FUNCTION fail_active_asset_insert();
             """);
 
     private static AuthoringWorkflowService CreateService(SqlSugarClient db)

@@ -61,7 +61,8 @@ public sealed class SchemaMigrationRunner(
                 "daily_read_stats",
                 "region_read_stats",
                 "event_type_read_stats",
-                "article_view_projection_watermark"
+                "article_view_projection_watermark",
+                "asset_library_article_ref"
             ],
             cancellationToken).ConfigureAwait(false);
 

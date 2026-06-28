@@ -309,6 +309,25 @@ public sealed class SchemaMigrationRegistryTests
     }
 
     [Fact]
+    public void GetDescriptors_AssetLibraryArticleRef_CreatesArticleScopedAssetProjection()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260629-post-asset-library-article-ref");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+        string runner = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs");
+
+        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
+        Assert.Contains("asset_library_article_ref", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("PRIMARY KEY (url, article_id)", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("reference_count integer NOT NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_asset_library_article_ref_article", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("asset_library_article_ref", runner, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GetDescriptors_AnonymousCommentGovernance_SeedsRequiredPolicyDefaults()
     {
         var registry = new SchemaMigrationRegistry();
