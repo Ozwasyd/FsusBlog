@@ -194,6 +194,26 @@ public static class ServiceCollectionExtensions
                 return CreateFixedWindowPartition($"read-proof:{key}", policy.ReadProofPermitLimit, 0);
             });
 
+            options.AddPolicy("notification_stream", httpContext =>
+            {
+                var configuration = httpContext.RequestServices.GetRequiredService<IConfiguration>();
+                string clientIp = httpContext.GetClientIp();
+                string account = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                    ?? httpContext.User.FindFirst("nameid")?.Value
+                    ?? "anonymous";
+                string path = httpContext.Request.Path.Value ?? "/api/notifications/stream";
+                int permitLimit = Math.Clamp(
+                    configuration.GetValue("RateLimiting:NotificationStreamPermitLimit", 120),
+                    1,
+                    100_000);
+                int queueLimit = Math.Clamp(
+                    configuration.GetValue("RateLimiting:NotificationStreamQueueLimit", 0),
+                    0,
+                    10_000);
+
+                return CreateFixedWindowPartition($"notification-stream:{clientIp}:{account}:{path}", permitLimit, queueLimit);
+            });
+
             options.AddPolicy("public_read", httpContext =>
             {
                 string clientIp = httpContext.GetClientIp();

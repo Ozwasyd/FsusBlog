@@ -105,12 +105,35 @@ public sealed class NotificationStreamConnectionManagerTests
 
 public class NotificationStreamConnectionManagerIntegrationTests
 {
-    private static NotificationStreamConnectionManager MakeManager(int? queueCapacity = null)
+    private static NotificationStreamConnectionManager MakeManager(
+        int? queueCapacity = null,
+        int? maxGlobalConnections = null,
+        int? maxConnectionsPerIp = null,
+        int? maxConnectionsPerAccount = null)
     {
+        var values = new Dictionary<string, string?>();
+        if (queueCapacity.HasValue)
+        {
+            values["NotificationStream:QueueCapacity"] = queueCapacity.ToString();
+        }
+
+        if (maxGlobalConnections.HasValue)
+        {
+            values["NotificationStream:MaxConnectionsGlobal"] = maxGlobalConnections.ToString();
+        }
+
+        if (maxConnectionsPerIp.HasValue)
+        {
+            values["NotificationStream:MaxConnectionsPerIp"] = maxConnectionsPerIp.ToString();
+        }
+
+        if (maxConnectionsPerAccount.HasValue)
+        {
+            values["NotificationStream:MaxConnectionsPerAccount"] = maxConnectionsPerAccount.ToString();
+        }
+
         var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(queueCapacity.HasValue
-                ? new Dictionary<string, string?> { ["NotificationStream:QueueCapacity"] = queueCapacity.ToString() }
-                : new Dictionary<string, string?>())
+            .AddInMemoryCollection(values)
             .Build();
         return new NotificationStreamConnectionManager(config, NullLogger<NotificationStreamConnectionManager>.Instance);
     }
@@ -209,6 +232,60 @@ public class NotificationStreamConnectionManagerIntegrationTests
         var ex = Assert.Throws<InvalidOperationException>(() =>
             mgr.RegisterConnection("conn1", null, []));
         Assert.Contains("conn1", ex.Message);
+    }
+
+    [Fact]
+    public void RegisterConnection_WhenGlobalQuotaExceeded_RejectsBeforeConnectionIsIndexed()
+    {
+        var mgr = MakeManager(maxGlobalConnections: 1);
+        mgr.RegisterConnection("conn1", "user1", []);
+
+        var ex = Assert.Throws<NotificationStreamConnectionLimitExceededException>(() =>
+            mgr.RegisterConnection("conn2", "user2", [], clientIp: "203.0.113.20"));
+
+        Assert.Equal(NotificationStreamConnectionLimitScope.Global, ex.Scope);
+        Assert.Equal(1, mgr.ConnectionCount);
+    }
+
+    [Fact]
+    public void RegisterConnection_WhenAccountQuotaExceeded_RejectsSameAccountOnly()
+    {
+        var mgr = MakeManager(maxConnectionsPerAccount: 1);
+        mgr.RegisterConnection("conn1", "user1", []);
+
+        var ex = Assert.Throws<NotificationStreamConnectionLimitExceededException>(() =>
+            mgr.RegisterConnection("conn2", "user1", [], clientIp: "203.0.113.21"));
+
+        Assert.Equal(NotificationStreamConnectionLimitScope.Account, ex.Scope);
+        Assert.Equal(1, mgr.ConnectionCount);
+
+        mgr.RegisterConnection("conn3", "user2", [], clientIp: "203.0.113.21");
+        Assert.Equal(2, mgr.ConnectionCount);
+    }
+
+    [Fact]
+    public void RegisterConnection_WhenIpQuotaExceeded_RejectsAcrossAccounts()
+    {
+        var mgr = MakeManager(maxConnectionsPerIp: 1);
+        mgr.RegisterConnection("conn1", "user1", [], clientIp: "203.0.113.22");
+
+        var ex = Assert.Throws<NotificationStreamConnectionLimitExceededException>(() =>
+            mgr.RegisterConnection("conn2", "user2", [], clientIp: "203.0.113.22"));
+
+        Assert.Equal(NotificationStreamConnectionLimitScope.Ip, ex.Scope);
+        Assert.Equal(1, mgr.ConnectionCount);
+    }
+
+    [Fact]
+    public void RemoveConnection_ReleasesConnectionQuota()
+    {
+        var mgr = MakeManager(maxGlobalConnections: 1, maxConnectionsPerIp: 1, maxConnectionsPerAccount: 1);
+        mgr.RegisterConnection("conn1", "user1", [], clientIp: "203.0.113.23");
+        mgr.RemoveConnection("conn1");
+
+        mgr.RegisterConnection("conn2", "user1", [], clientIp: "203.0.113.23");
+
+        Assert.Equal(1, mgr.ConnectionCount);
     }
 
     [Fact]

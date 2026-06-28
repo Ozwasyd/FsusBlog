@@ -255,12 +255,14 @@ public static class WebApplicationCompositionExtensions
             IAedsEncoder aeds,
             CancellationToken ct) => ValidateNotificationStreamPreflightAsync(ctx, handshakeService, aeds, ct))
             .AllowAnonymous()
+            .RequireRateLimiting("notification_stream")
             .WithMetadata(new FsusRouteKindMetadata("notification-stream"));
         app.MapGet("/api/notifications/stream", (
             HttpContext ctx,
             INotificationStreamHandler handler,
             CancellationToken ct) => handler.HandleAsync(ctx, ct))
             .AllowAnonymous()
+            .RequireRateLimiting("notification_stream")
             .WithMetadata(new FsusRouteKindMetadata("notification-stream"));
         app.Map("/api/{**path}", (IAedsEncoder aeds) =>
         {

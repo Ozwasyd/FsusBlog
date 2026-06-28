@@ -1,6 +1,7 @@
 using System.Net.WebSockets;
 using System.Globalization;
 using System.Threading.Channels;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using Microsoft.Extensions.Hosting;
 
@@ -32,7 +33,12 @@ internal sealed class NotificationStreamSessionService(
         NotificationStreamCursor cursor = ResolveCursor(context);
         TimeSpan? drillSendDelay = ResolveDrillSendDelay(context);
         int? drillQueueCapacity = ResolveDrillQueueCapacity(context);
-        NotificationStreamConnection connection = manager.RegisterConnection(connectionId, handshake.UserId, handshake.Groups, drillQueueCapacity);
+        NotificationStreamConnection connection = manager.RegisterConnection(
+            connectionId,
+            handshake.UserId,
+            handshake.Groups,
+            drillQueueCapacity,
+            context.GetClientIp());
 
         try
         {

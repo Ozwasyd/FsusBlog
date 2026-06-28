@@ -286,6 +286,7 @@ Client
 - 该通道不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`，每条消息都是完整 AEDS v2 binary frame。
 - Preflight 与正式 WebSocket 握手共用 `NotificationStreamHandshakeService`，先校验 Origin allowlist，再验证认证、RiskControl / legacy PoW、cursor 和协议语义；preflight 不要求 WebSocket upgrade，且只校验一次性 RiskControl proof 的存在性和 kind，正式 WebSocket 握手才消费 proof。
 - 握手失败统一写入 `X-Fsus-Notification-Stream-Error-Code` 与 `X-Fsus-Notification-Stream-Status-Code`，并返回 AEDS `ApiError` frame。
+- Preflight 与正式 WebSocket endpoint 都使用 `notification_stream` 固定窗口策略；正式连接在 `NotificationStreamConnectionManager.RegisterConnection` 内、`AcceptWebSocketAsync` 与 per-connection channel 分配之前获取全局 / IP / 账号原子租约。配额由 `NotificationStream:MaxConnectionsGlobal`、`NotificationStream:MaxConnectionsPerIp`、`NotificationStream:MaxConnectionsPerAccount` 控制，超限返回 `429 notification_connection_limit`，并在 `RemoveConnection`、accept 失败、backlog/heartbeat/pump 异常与请求取消路径释放租约。
 - 通知握手只编排协议、RiskControl / legacy PoW 与握手结果。账号封禁/注销准入下沉到 `NotificationStreamAdmissionService`，notification stream audience 分组下沉到 `NotificationStreamAudienceResolver`，消息域到 user/group route 的映射下沉到 `MessageNotificationStreamPort`。
 - Notification stream backlog 按 route 写入 Redis stream（`u:{id}` / `g:{group}`；multi-user target 展开为多个 user route），多目标 backlog 写入通过 Redis batch/pipeline 一次提交；replay 只读取当前连接可见的 user/group stream 后按 event id 合并，不再从全局流拉取后置过滤。
 - 业务发布路径只负责写 backlog 并把本地 fanout 意图放入 `NotificationStreamLocalFanoutQueue`，`NotificationStreamLocalFanoutWorker` 再遍历本机连接。慢连接仍由每连接队列和 slow-consumer 断开保护兜底，突变请求不随本机连接数线性放大。

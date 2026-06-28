@@ -30,6 +30,22 @@ internal sealed class NotificationStreamHandler(
             return;
         }
 
-        await sessionService.RunAsync(context, result.Handshake!, cancellationToken);
+        try
+        {
+            await sessionService.RunAsync(context, result.Handshake!, cancellationToken);
+        }
+        catch (NotificationStreamConnectionLimitExceededException ex)
+        {
+            NotificationStreamMetrics.RecordHandshakeFailure("notification_connection_limit");
+            context.Response.Headers["Retry-After"] = "60";
+            context.Response.Headers["X-Fsus-Notification-Stream-Error-Code"] = "notification_connection_limit";
+            context.Response.Headers["X-Fsus-Notification-Stream-Status-Code"] = StatusCodes.Status429TooManyRequests.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            context.Response.Headers["X-Fsus-Notification-Stream-Limit-Scope"] = ex.Scope.ToString();
+            await envelopePolicy.WriteApiErrorAsync(
+                context,
+                context.Response.Body,
+                ErrorDetail.Create(ErrorCode.Validation, "notification_connection_limit", traceId: context.TraceIdentifier),
+                StatusCodes.Status429TooManyRequests);
+        }
     }
 }

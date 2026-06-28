@@ -3,29 +3,62 @@ using System.Threading.Channels;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
+public enum NotificationStreamConnectionLimitScope
+{
+    Global,
+    Ip,
+    Account
+}
+
+public sealed class NotificationStreamConnectionLimitExceededException(NotificationStreamConnectionLimitScope scope)
+    : InvalidOperationException($"Notification stream connection limit exceeded: {scope}")
+{
+    public NotificationStreamConnectionLimitScope Scope { get; } = scope;
+}
+
 public sealed class NotificationStreamConnectionManager(IConfiguration configuration, ILogger<NotificationStreamConnectionManager> logger)
 {
     private const int MinQueueCapacity = 32;
     private const int MaxQueueCapacity = 4096;
+    private const int DefaultMaxConnectionsGlobal = 10_000;
+    private const int DefaultMaxConnectionsPerIp = 100;
+    private const int DefaultMaxConnectionsPerAccount = 10;
 
     private readonly ConcurrentDictionary<string, NotificationStreamConnection> _byConnectionId = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _byUserId = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _byGroup = new(StringComparer.Ordinal);
+    private readonly object _quotaGate = new();
+    private readonly Dictionary<string, int> _connectionsByIp = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _connectionsByAccount = new(StringComparer.Ordinal);
     private readonly int _queueCapacity = NormalizeQueueCapacity(configuration.GetValue<int?>("NotificationStream:QueueCapacity") ?? 256);
+    private readonly int _maxConnectionsGlobal = NormalizeLimit(configuration.GetValue<int?>("NotificationStream:MaxConnectionsGlobal"), DefaultMaxConnectionsGlobal);
+    private readonly int _maxConnectionsPerIp = NormalizeLimit(configuration.GetValue<int?>("NotificationStream:MaxConnectionsPerIp"), DefaultMaxConnectionsPerIp);
+    private readonly int _maxConnectionsPerAccount = NormalizeLimit(configuration.GetValue<int?>("NotificationStream:MaxConnectionsPerAccount"), DefaultMaxConnectionsPerAccount);
+    private int _reservedConnectionCount;
 
     public int ConnectionCount => _byConnectionId.Count;
 
-    public NotificationStreamConnection RegisterConnection(string connectionId, string? userId, IReadOnlyCollection<string> groups, int? queueCapacityOverride = null)
+    public NotificationStreamConnection RegisterConnection(
+        string connectionId,
+        string? userId,
+        IReadOnlyCollection<string> groups,
+        int? queueCapacityOverride = null,
+        string? clientIp = null)
     {
         if (_byConnectionId.ContainsKey(connectionId))
         {
             throw new InvalidOperationException($"Duplicate notification stream connection id: {connectionId}");
         }
 
+        string ipQuotaKey = NormalizeQuotaKey(clientIp, "unknown-ip");
+        string accountQuotaKey = ResolveAccountQuotaKey(userId, ipQuotaKey);
+        AcquireQuota(ipQuotaKey, accountQuotaKey);
+
         int queueCapacity = queueCapacityOverride.HasValue ? NormalizeQueueCapacity(queueCapacityOverride.Value) : _queueCapacity;
-        var connection = new NotificationStreamConnection(connectionId, userId, groups, queueCapacity);
+        var connection = new NotificationStreamConnection(connectionId, userId, groups, queueCapacity, ipQuotaKey, accountQuotaKey);
         if (!_byConnectionId.TryAdd(connectionId, connection))
         {
+            ReleaseQuota(ipQuotaKey, accountQuotaKey);
             connection.Complete();
             connection.Drain();
             throw new InvalidOperationException($"Duplicate notification stream connection id: {connectionId}");
@@ -46,6 +79,7 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
         catch
         {
             _byConnectionId.TryRemove(connectionId, out _);
+            ReleaseQuota(ipQuotaKey, accountQuotaKey);
             if (!string.IsNullOrEmpty(userId))
             {
                 RemoveFromIndex(_byUserId, userId, connectionId);
@@ -69,6 +103,9 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
     private static int NormalizeQueueCapacity(int value)
         => Math.Clamp(value, MinQueueCapacity, MaxQueueCapacity);
 
+    private static int NormalizeLimit(int? value, int fallback)
+        => Math.Clamp(value.GetValueOrDefault(fallback), 1, 1_000_000);
+
     public void RemoveConnection(string connectionId)
     {
         if (!_byConnectionId.TryRemove(connectionId, out NotificationStreamConnection? connection))
@@ -88,6 +125,7 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
 
         connection.Complete();
         connection.Drain();
+        ReleaseQuota(connection.IpQuotaKey, connection.AccountQuotaKey);
         NotificationStreamMetrics.ConnectionClosed();
 
         logger.LogDebug("Notification stream connection removed. ConnectionId: {ConnectionId}", connectionId);
@@ -197,6 +235,75 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
         }
     }
 
+    private void AcquireQuota(string ipQuotaKey, string accountQuotaKey)
+    {
+        lock (_quotaGate)
+        {
+            if (_reservedConnectionCount >= _maxConnectionsGlobal)
+            {
+                throw new NotificationStreamConnectionLimitExceededException(NotificationStreamConnectionLimitScope.Global);
+            }
+
+            if (GetCount(_connectionsByIp, ipQuotaKey) >= _maxConnectionsPerIp)
+            {
+                throw new NotificationStreamConnectionLimitExceededException(NotificationStreamConnectionLimitScope.Ip);
+            }
+
+            if (GetCount(_connectionsByAccount, accountQuotaKey) >= _maxConnectionsPerAccount)
+            {
+                throw new NotificationStreamConnectionLimitExceededException(NotificationStreamConnectionLimitScope.Account);
+            }
+
+            _reservedConnectionCount++;
+            Increment(_connectionsByIp, ipQuotaKey);
+            Increment(_connectionsByAccount, accountQuotaKey);
+        }
+    }
+
+    private void ReleaseQuota(string ipQuotaKey, string accountQuotaKey)
+    {
+        lock (_quotaGate)
+        {
+            if (_reservedConnectionCount > 0)
+            {
+                _reservedConnectionCount--;
+            }
+
+            Decrement(_connectionsByIp, ipQuotaKey);
+            Decrement(_connectionsByAccount, accountQuotaKey);
+        }
+    }
+
+    private static int GetCount(Dictionary<string, int> counts, string key)
+        => counts.TryGetValue(key, out int count) ? count : 0;
+
+    private static void Increment(Dictionary<string, int> counts, string key)
+        => counts[key] = GetCount(counts, key) + 1;
+
+    private static void Decrement(Dictionary<string, int> counts, string key)
+    {
+        if (!counts.TryGetValue(key, out int count))
+        {
+            return;
+        }
+
+        if (count <= 1)
+        {
+            counts.Remove(key);
+            return;
+        }
+
+        counts[key] = count - 1;
+    }
+
+    private static string ResolveAccountQuotaKey(string? userId, string ipQuotaKey)
+        => string.IsNullOrWhiteSpace(userId)
+            ? string.Concat("anonymous:", ipQuotaKey)
+            : string.Concat("account:", userId.Trim());
+
+    private static string NormalizeQuotaKey(string? value, string fallback)
+        => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+
     private static void RemoveFromIndex(ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> index, string key, string connectionId)
     {
         if (!index.TryGetValue(key, out ConcurrentDictionary<string, byte>? connections))
@@ -236,10 +343,18 @@ public sealed class NotificationStreamConnection
     private int _closed;
     private long _lastActivityUnixMs;
 
-    internal NotificationStreamConnection(string connectionId, string? userId, IReadOnlyCollection<string> groups, int queueCapacity)
+    internal NotificationStreamConnection(
+        string connectionId,
+        string? userId,
+        IReadOnlyCollection<string> groups,
+        int queueCapacity,
+        string ipQuotaKey = "unknown-ip",
+        string accountQuotaKey = "anonymous:unknown-ip")
     {
         ConnectionId = connectionId;
         UserId = userId;
+        IpQuotaKey = ipQuotaKey;
+        AccountQuotaKey = accountQuotaKey;
         _groups = new HashSet<string>(groups, StringComparer.Ordinal);
         _queueCapacity = queueCapacity;
         _queue = Channel.CreateBounded<SharedNotificationStreamFrame>(new BoundedChannelOptions(queueCapacity)
@@ -256,6 +371,10 @@ public sealed class NotificationStreamConnection
     public string ConnectionId { get; }
 
     public string? UserId { get; }
+
+    internal string IpQuotaKey { get; }
+
+    internal string AccountQuotaKey { get; }
 
     public IReadOnlySet<string> Groups => _groups;
 

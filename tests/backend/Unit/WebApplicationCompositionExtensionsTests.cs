@@ -125,6 +125,22 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
+    public void NotificationStreamEndpoints_UseDedicatedRateLimiter()
+    {
+        string source = ReadCompositionSource();
+
+        Assert.Contains(
+            "app.MapGet(\"/api/notifications/stream/preflight\"",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "app.MapGet(\"/api/notifications/stream\"",
+            source,
+            StringComparison.Ordinal);
+        Assert.Equal(2, CountOccurrences(source, ".RequireRateLimiting(\"notification_stream\")"));
+    }
+
+    [Fact]
     public void SpaFallbackHeadInjectionCache_ReusesRouteBytesForSameVersionAndRoute()
     {
         WebApplicationCompositionExtensions.ResetSpaHeadInjectionCacheForTests();
@@ -565,6 +581,19 @@ public sealed class WebApplicationCompositionExtensionsTests
             "Infrastructure",
             "Bootstrap",
             "WebApplicationCompositionExtensions.cs"));
+    }
+
+    private static int CountOccurrences(string source, string value)
+    {
+        int count = 0;
+        int index = 0;
+        while ((index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+
+        return count;
     }
 
     private static string ExtractStaticNoCacheEntryBranch(string source)

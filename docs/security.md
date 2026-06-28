@@ -169,6 +169,8 @@ AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关�
 - 载荷：所有通知、心跳和正式 WebSocket 握手失败均为 AEDS binary frame；握手失败返回 `ApiError` frame
 - 匿名订阅：优先通过 `notification.subscribe` RiskControl action 准入；preflight 可携带 `X-Fsus-Challenge-Proof`、`X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind`，正式 WebSocket 可携带等价的 `challengeProof`、`challengeId`、`challengeKind` query 参数，preflight 不消费一次性 proof，正式握手消费。旧 `pow` query 参数继续兼容，值为二进制 FPOW 证明的 base64 文本形式
 - 登录订阅：复用同站点认证 Cookie，不接受文本事件流降级
+- 资源配额：preflight 与正式 WebSocket endpoint 都挂 `notification_stream` 固定窗口限流；正式连接在 `AcceptWebSocketAsync` / per-connection channel 分配之前获取实例内原子租约，默认 `NotificationStream:MaxConnectionsGlobal=10000`、`NotificationStream:MaxConnectionsPerIp=100`、`NotificationStream:MaxConnectionsPerAccount=10`。账号分区使用认证账号，匿名分区使用 `anonymous:{clientIp}`；超限返回 `429`、`notification_connection_limit`、`Retry-After: 60` 与 `X-Fsus-Notification-Stream-Limit-Scope`。
+- 回退：若误伤正常流量，优先热调大 `RateLimiting:NotificationStreamPermitLimit` / `RateLimiting:NotificationStreamQueueLimit` 与上述 `NotificationStream:*` 配额；已经建立的连接在断开、握手失败、accept 失败、heartbeat/backlog 异常或请求取消路径都会释放租约，不需要重启进程清理计数。
 - 续传：客户端用 `cursor` query 参数提交最后消费的事件 ID
 - 封禁/删除账号：握手层返回 `account_blocked` 或 `account_deleted`，前端必须停止重连并展示账户状态错误
 
