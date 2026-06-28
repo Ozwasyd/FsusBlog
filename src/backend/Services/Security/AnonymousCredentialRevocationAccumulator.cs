@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Numerics;
 using System.Security.Cryptography;
@@ -53,15 +54,19 @@ public static class AnonymousCredentialRevocationAccumulator
     private const string CircuitFriendlyEmptyLeafDomain = "fsus.anonymous.revocation.circuit.empty.v1";
     private const string CircuitFriendlySiblingDigestDomain = "fsus.anonymous.revocation.circuit.sibling-digest.v1";
     private const string CircuitFriendlyMimcRoundDomain = "fsus.anonymous.revocation.circuit.mimc7.bn254.round.v1";
+    private const string CircuitFriendlyHandleSetDomain = "fsus.anonymous.revocation.circuit.handle-set.v1";
     private const string CircuitFriendlyHashId = "mimc7-bn254.v1";
     private const string CircuitFriendlyTreeId = "sparse-merkle.v1";
     private const int CircuitFriendlyTreeDepth = 128;
     private const int CircuitFriendlyMimcRounds = 91;
+    private const int CircuitFriendlyRootCacheMaxEntries = 64;
     private static readonly BigInteger CircuitFriendlyFieldPrime = BigInteger.Parse(
         "21888242871839275222246405745257275088548364400416034343698204186575808495617",
         CultureInfo.InvariantCulture);
     private static readonly Lazy<BigInteger[]> CircuitFriendlyMimcRoundConstants = new(BuildCircuitFriendlyMimcRoundConstants);
     private static readonly Lazy<string[]> CircuitFriendlyDefaultSparseRoots = new(BuildCircuitFriendlyDefaultSparseRoots);
+    private static readonly ConcurrentDictionary<CircuitFriendlyTreeCacheKey, Lazy<Result<CircuitFriendlySparseTree>>> CircuitFriendlyTreeCache = new();
+    private static long CircuitFriendlyTreeCacheEpoch;
 
     public const string LegacySha256HashTreeAlgorithmId = "legacy-sha256-hash-tree.v1";
     public const string CircuitFriendlyNonMembershipAlgorithmId = "circuit-friendly-non-membership.v1";
@@ -547,8 +552,70 @@ public static class AnonymousCredentialRevocationAccumulator
             return Result<CircuitFriendlySparseTree>.Failure(ErrorCode.Validation, "anonymous_credential_accumulator_invalid");
         }
 
+        return GetOrBuildCircuitFriendlySparseTree(epoch, issuer, normalizedHandles.Value);
+    }
+
+    private static Result<CircuitFriendlySparseTree> GetOrBuildCircuitFriendlySparseTree(
+        long epoch,
+        string issuer,
+        string[] normalizedHandles)
+    {
+        TryEvictCircuitFriendlyTreeCacheEpoch(epoch);
+        var key = new CircuitFriendlyTreeCacheKey(epoch, issuer, ComputeCircuitFriendlyHandleSetHash(normalizedHandles));
+        Lazy<Result<CircuitFriendlySparseTree>> lazy = CircuitFriendlyTreeCache.GetOrAdd(
+            key,
+            static (cacheKey, state) => new Lazy<Result<CircuitFriendlySparseTree>>(
+                () => BuildCircuitFriendlySparseTreeCore(cacheKey.Epoch, cacheKey.IssuerPublicKeyHash, state),
+                LazyThreadSafetyMode.ExecutionAndPublication),
+            normalizedHandles);
+        Result<CircuitFriendlySparseTree> result = lazy.Value;
+        if (CircuitFriendlyTreeCache.Count > CircuitFriendlyRootCacheMaxEntries)
+        {
+            foreach (CircuitFriendlyTreeCacheKey candidate in CircuitFriendlyTreeCache.Keys)
+            {
+                if (CircuitFriendlyTreeCache.Count <= CircuitFriendlyRootCacheMaxEntries)
+                {
+                    break;
+                }
+
+                CircuitFriendlyTreeCache.TryRemove(candidate, out _);
+            }
+        }
+
+        return result;
+    }
+
+    private static void TryEvictCircuitFriendlyTreeCacheEpoch(long epoch)
+    {
+        long current = Volatile.Read(ref CircuitFriendlyTreeCacheEpoch);
+        if (current == epoch)
+        {
+            return;
+        }
+
+        long previous = Interlocked.CompareExchange(ref CircuitFriendlyTreeCacheEpoch, epoch, current);
+        if (previous == current)
+        {
+            CircuitFriendlyTreeCache.Clear();
+        }
+    }
+
+    internal static void ClearCircuitFriendlyRootCacheForTests()
+    {
+        CircuitFriendlyTreeCache.Clear();
+        Volatile.Write(ref CircuitFriendlyTreeCacheEpoch, 0);
+    }
+
+    private static string ComputeCircuitFriendlyHandleSetHash(IReadOnlyList<string> normalizedHandles)
+        => Sha256Hex(CircuitFriendlyHandleSetDomain, string.Join('\n', normalizedHandles));
+
+    private static Result<CircuitFriendlySparseTree> BuildCircuitFriendlySparseTreeCore(
+        long epoch,
+        string issuer,
+        string[] normalizedHandles)
+    {
         var leaves = new Dictionary<BigInteger, string>();
-        foreach (string handle in normalizedHandles.Value)
+        foreach (string handle in normalizedHandles)
         {
             BigInteger key = ResolveCircuitFriendlyLeafKey(handle);
             string leaf = CircuitFriendlyHash(
@@ -594,7 +661,7 @@ public static class AnonymousCredentialRevocationAccumulator
         return Result<CircuitFriendlySparseTree>.Success(new CircuitFriendlySparseTree(
             root,
             levels,
-            normalizedHandles.Value));
+            normalizedHandles));
     }
 
     private static string ComputeRootCore(long epoch, string issuerPublicKeyHash, IReadOnlyList<string> handles)
@@ -626,19 +693,19 @@ public static class AnonymousCredentialRevocationAccumulator
 
     private static (string Previous, string Next) ResolveNeighbors(IReadOnlyList<string> sortedHandles, string handle)
     {
-        string previous = string.Empty;
-        foreach (string current in sortedHandles)
+        string[] handles = sortedHandles as string[] ?? sortedHandles.ToArray();
+        int index = Array.BinarySearch(handles, handle, StringComparer.OrdinalIgnoreCase);
+        if (index < 0)
         {
-            int comparison = string.Compare(current, handle, StringComparison.OrdinalIgnoreCase);
-            if (comparison > 0)
-            {
-                return (previous, current);
-            }
-
-            previous = current;
+            index = ~index;
+            string previous = index > 0 ? handles[index - 1] : string.Empty;
+            string next = index < handles.Length ? handles[index] : string.Empty;
+            return (previous, next);
         }
 
-        return (previous, string.Empty);
+        return (
+            index > 0 ? handles[index - 1] : string.Empty,
+            index + 1 < handles.Length ? handles[index + 1] : string.Empty);
     }
 
     private static BigInteger ResolveCircuitFriendlyLeafKey(string handle)
@@ -802,6 +869,11 @@ public static class AnonymousCredentialRevocationAccumulator
 
     private static string Sha256Hex(params string[] parts)
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\0', parts))));
+
+    private readonly record struct CircuitFriendlyTreeCacheKey(
+        long Epoch,
+        string IssuerPublicKeyHash,
+        string HandleSetHash);
 
     private sealed record CircuitFriendlySparseTree(
         string RootHash,

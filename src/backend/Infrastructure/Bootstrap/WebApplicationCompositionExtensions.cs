@@ -210,6 +210,7 @@ public static class WebApplicationCompositionExtensions
             app.UseMiddleware<TestSessionValidationMiddleware>();
         }
 
+        app.UseResponseCompression();
         app.UseOutputCache();
         app.UseCors();
         app.UseAntiforgery();

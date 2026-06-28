@@ -1,7 +1,9 @@
-using System.Threading.RateLimiting;
 using System.Collections.Concurrent;
+using System.IO.Compression;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.ResponseCompression;
 using FsusBlog.Core.DependencyInjection;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Filters;
@@ -33,6 +35,23 @@ public static class ServiceCollectionExtensions
             });
         });
 
+        services.AddResponseCompression(options =>
+        {
+            options.EnableForHttps = true;
+            options.Providers.Add<BrotliCompressionProvider>();
+            options.Providers.Add<GzipCompressionProvider>();
+            options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
+            [
+                "application/json",
+                "application/aeds",
+                "application/octet-stream",
+                "application/vnd.fsus.aeds",
+                "application/wasm",
+                "image/svg+xml"
+            ]);
+        });
+        services.Configure<BrotliCompressionProviderOptions>(static options => options.Level = CompressionLevel.Fastest);
+        services.Configure<GzipCompressionProviderOptions>(static options => options.Level = CompressionLevel.Fastest);
         services.AddOutputCache();
         services.AddAntiforgery(options =>
         {

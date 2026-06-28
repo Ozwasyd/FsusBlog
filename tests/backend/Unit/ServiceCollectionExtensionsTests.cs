@@ -15,6 +15,21 @@ namespace FsusBlog.Server.Tests;
 public sealed class ServiceCollectionExtensionsTests
 {
     [Fact]
+    public void AddFsusApiFoundation_RegistersFastestResponseCompressionForApiPayloads()
+    {
+        string source = File.ReadAllText(Path.Combine(
+            BackendTestPaths.RepositoryRoot,
+            "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs"));
+
+        Assert.Contains("services.AddResponseCompression", source, StringComparison.Ordinal);
+        Assert.Contains("BrotliCompressionProvider", source, StringComparison.Ordinal);
+        Assert.Contains("GzipCompressionProvider", source, StringComparison.Ordinal);
+        Assert.Contains("CompressionLevel.Fastest", source, StringComparison.Ordinal);
+        Assert.Contains("\"application/json\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"application/vnd.fsus.aeds\"", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AddFsusApiFoundation_PersistsDataProtectionKeysToConfiguredDirectory()
     {
         string keyRingPath = Path.Combine(Path.GetTempPath(), "fsusblog-data-protection-tests", Guid.NewGuid().ToString("N"));

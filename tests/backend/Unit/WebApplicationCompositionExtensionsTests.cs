@@ -126,6 +126,16 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
+    public void EndpointPipeline_CompressesDynamicApiResponsesBeforeOutputCache()
+    {
+        string source = ReadCompositionSource();
+        string endpointPipeline = ExtractEndpointPipeline(source);
+
+        Assert.Contains("app.UseResponseCompression();", endpointPipeline, StringComparison.Ordinal);
+        AssertBefore(endpointPipeline, "app.UseResponseCompression();", "app.UseOutputCache();");
+    }
+
+    [Fact]
     public void NotificationStreamEndpoints_UseDedicatedRateLimiter()
     {
         string source = ReadCompositionSource();
