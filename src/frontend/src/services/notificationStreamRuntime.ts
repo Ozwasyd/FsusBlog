@@ -38,6 +38,13 @@ type RuntimeCallbacks = {
   onReconnectSuccess?: (replayMissed: boolean) => void
 }
 
+export type NotificationStreamRuntimeTelemetrySnapshot = Readonly<{
+  preflightCount: number
+  wsReconnectCount: number
+  cursorSnapshotBytes: number
+  eventProcessMs: number
+}>
+
 export function resolveNotificationStreamEndpointUrl(
   path: string,
   protocol: NotificationStreamEndpointProtocol,
@@ -60,16 +67,28 @@ export function resolveNotificationStreamEndpointUrl(
   return url
 }
 
-class NotificationStreamRuntime {
+export class NotificationStreamRuntime {
   private socket: WebSocket | null = null
   private currentMode: NotificationStreamMode = 'guest'
   private currentPow: PowParams | undefined
   private cursor: NotificationStreamCursor = { lastEventId: 0, recentEventIds: [] }
   private recentEventIds = new Set<number>()
+  private readonly recentEventRing = new Array<number>(RECENT_EVENT_WINDOW)
+  private recentEventRingStart = 0
+  private recentEventRingLength = 0
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private cursorChangeTimer: ReturnType<typeof setTimeout> | null = null
   private retryCount = 0
   private isReconnecting = false
   private isConnectedFlag = false
+  private hasSuccessfulConnection = false
+  private requirePreflightOnNextConnect = false
+  private telemetry = {
+    preflightCount: 0,
+    wsReconnectCount: 0,
+    cursorSnapshotBytes: 0,
+    eventProcessMs: 0
+  }
 
   public onEvent?: RuntimeCallbacks['onEvent']
   public onCursorChange?: RuntimeCallbacks['onCursorChange']
@@ -119,10 +138,16 @@ class NotificationStreamRuntime {
   }
 
   public snapshotCursor(): NotificationStreamCursor {
+    const recentEventIds = this.copyRecentEventIds()
+    this.telemetry.cursorSnapshotBytes += recentEventIds.length * 8
     return {
       lastEventId: this.cursor.lastEventId,
-      recentEventIds: [...this.cursor.recentEventIds]
+      recentEventIds
     }
+  }
+
+  public snapshotTelemetry(): NotificationStreamRuntimeTelemetrySnapshot {
+    return { ...this.telemetry }
   }
 
   private async connect(isReconnect: boolean): Promise<void> {
@@ -141,19 +166,37 @@ class NotificationStreamRuntime {
       requestUrl.searchParams.set('pow', encodeNotificationStreamPowProof(this.currentPow))
     }
 
-    const preflightFailure = await this.runHandshakePreflight(requestUrl)
-    if (preflightFailure) {
-      this.isConnectedFlag = false
-      this.isReconnecting = false
-      this.onStatusChange?.('idle', this.retryCount)
-      this.onHandshakeFailure?.(preflightFailure)
-      return
+    if (this.shouldRunHandshakePreflight(isReconnect)) {
+      const preflightFailure = await this.runHandshakePreflight(requestUrl)
+      if (preflightFailure) {
+        this.requirePreflightOnNextConnect = true
+        this.isConnectedFlag = false
+        this.isReconnecting = false
+        this.onStatusChange?.('idle', this.retryCount)
+        this.onHandshakeFailure?.(preflightFailure)
+        return
+      }
+
+      this.requirePreflightOnNextConnect = false
     }
 
     await this.openWebSocket(requestUrl, isReconnect)
   }
 
+  private shouldRunHandshakePreflight(isReconnect: boolean): boolean {
+    if (this.currentMode === 'guest' || this.currentPow) {
+      return true
+    }
+
+    if (this.requirePreflightOnNextConnect) {
+      return true
+    }
+
+    return !(isReconnect && this.hasSuccessfulConnection)
+  }
+
   private async runHandshakePreflight(webSocketUrl: URL): Promise<NotificationStreamFailureCode | null> {
+    this.telemetry.preflightCount += 1
     const preflightUrl = resolveNotificationStreamEndpointUrl('/api/notifications/stream/preflight', 'http')
     for (const [key, value] of webSocketUrl.searchParams.entries()) {
       preflightUrl.searchParams.set(key, value)
@@ -193,9 +236,11 @@ class NotificationStreamRuntime {
         if (this.socket !== socket) return
         opened = true
         this.isConnectedFlag = true
+        this.hasSuccessfulConnection = true
         this.onStatusChange?.('connected', this.retryCount)
 
         if (isReconnect) {
+          this.telemetry.wsReconnectCount += 1
           this.retryCount = 0
           this.isReconnecting = false
           this.onReconnectSuccess?.(false)
@@ -222,6 +267,7 @@ class NotificationStreamRuntime {
           }
           this.isConnectedFlag = false
           this.isReconnecting = false
+          this.requirePreflightOnNextConnect = true
           this.onStatusChange?.('idle', this.retryCount)
           this.onHandshakeFailure?.(this.currentMode === 'auth' ? NotificationStreamFailureCodes.AuthFailed : NotificationStreamFailureCodes.PowFailed)
           resolve()
@@ -234,6 +280,7 @@ class NotificationStreamRuntime {
         this.isConnectedFlag = false
         if (!opened) {
           this.isReconnecting = false
+          this.requirePreflightOnNextConnect = true
           this.onStatusChange?.('idle', this.retryCount)
           this.onHandshakeFailure?.(this.currentMode === 'auth' ? NotificationStreamFailureCodes.AuthFailed : NotificationStreamFailureCodes.PowFailed)
           resolve()
@@ -248,6 +295,7 @@ class NotificationStreamRuntime {
   }
 
   private processNotificationFrame(buffer: ArrayBuffer): void {
+    const startedAt = performance.now()
     let event: NotificationStreamEventV2
     try {
       const decoded = decodeNotificationFrame(buffer)
@@ -273,6 +321,7 @@ class NotificationStreamRuntime {
     }
 
     this.onEvent?.(event)
+    this.telemetry.eventProcessMs += Math.max(0, performance.now() - startedAt)
   }
 
   private isValidEvent(event: NotificationStreamEventV2): boolean {
@@ -297,18 +346,48 @@ class NotificationStreamRuntime {
     }
 
     this.cursor.lastEventId = eventId
-    this.cursor.recentEventIds.push(eventId)
-    this.recentEventIds.add(eventId)
+    this.appendRecentEventId(eventId)
+    this.scheduleCursorChange()
+    return 'accepted'
+  }
 
-    while (this.cursor.recentEventIds.length > RECENT_EVENT_WINDOW) {
-      const dropped = this.cursor.recentEventIds.shift()
-      if (dropped !== undefined) {
-        this.recentEventIds.delete(dropped)
-      }
+  private appendRecentEventId(eventId: number): void {
+    if (this.recentEventRingLength < RECENT_EVENT_WINDOW) {
+      const writeIndex = (this.recentEventRingStart + this.recentEventRingLength) % RECENT_EVENT_WINDOW
+      this.recentEventRing[writeIndex] = eventId
+      this.recentEventRingLength += 1
+      this.recentEventIds.add(eventId)
+      return
+    }
+
+    const dropped = this.recentEventRing[this.recentEventRingStart]
+    if (dropped !== undefined) {
+      this.recentEventIds.delete(dropped)
+    }
+
+    this.recentEventRing[this.recentEventRingStart] = eventId
+    this.recentEventRingStart = (this.recentEventRingStart + 1) % RECENT_EVENT_WINDOW
+    this.recentEventIds.add(eventId)
+  }
+
+  private scheduleCursorChange(): void {
+    if (!this.onCursorChange || this.cursorChangeTimer !== null) {
+      return
+    }
+
+    this.cursorChangeTimer = setTimeout(() => {
+      this.cursorChangeTimer = null
+      this.onCursorChange?.(this.snapshotCursor())
+    }, 16)
+  }
+
+  private emitCursorChangeNow(): void {
+    if (this.cursorChangeTimer !== null) {
+      clearTimeout(this.cursorChangeTimer)
+      this.cursorChangeTimer = null
     }
 
     this.onCursorChange?.(this.snapshotCursor())
-    return 'accepted'
   }
 
   private handleProtocolMismatch(reason: string): void {
@@ -330,7 +409,7 @@ class NotificationStreamRuntime {
     const delay = Math.min(RETRY_BASE_DELAY_MS * 2 ** Math.max(0, this.retryCount - 1), RETRY_MAX_DELAY_MS)
     const jitter = Math.floor(Math.random() * 250)
 
-    this.reconnectTimer = window.setTimeout(() => {
+    this.reconnectTimer = setTimeout(() => {
       if (!this.isReconnecting) {
         return
       }
@@ -340,25 +419,52 @@ class NotificationStreamRuntime {
   }
 
   private restoreCursor(cursor: NotificationStreamCursor): void {
+    const recentEventIds = [...cursor.recentEventIds].slice(-RECENT_EVENT_WINDOW)
     this.cursor = {
       lastEventId: cursor.lastEventId || 0,
-      recentEventIds: [...cursor.recentEventIds].slice(-RECENT_EVENT_WINDOW)
+      recentEventIds: []
     }
 
-    this.recentEventIds = new Set<number>(this.cursor.recentEventIds)
-    this.onCursorChange?.(this.snapshotCursor())
+    this.rebuildRecentEventRing(recentEventIds)
+    this.emitCursorChangeNow()
   }
 
   private resetCursor(): void {
     this.cursor = { lastEventId: 0, recentEventIds: [] }
+    this.rebuildRecentEventRing([])
+    this.emitCursorChangeNow()
+  }
+
+  private copyRecentEventIds(): number[] {
+    const ids: number[] = []
+    for (let offset = 0; offset < this.recentEventRingLength; offset += 1) {
+      const value = this.recentEventRing[(this.recentEventRingStart + offset) % RECENT_EVENT_WINDOW]
+      if (value !== undefined) {
+        ids.push(value)
+      }
+    }
+
+    return ids
+  }
+
+  private rebuildRecentEventRing(ids: number[]): void {
     this.recentEventIds.clear()
-    this.onCursorChange?.(this.snapshotCursor())
+    this.recentEventRingStart = 0
+    this.recentEventRingLength = 0
+    for (const id of ids) {
+      this.appendRecentEventId(id)
+    }
   }
 
   private clearReconnectTimer(): void {
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
+    }
+
+    if (this.cursorChangeTimer !== null) {
+      clearTimeout(this.cursorChangeTimer)
+      this.cursorChangeTimer = null
     }
   }
 
