@@ -1,10 +1,13 @@
 ﻿using System.Collections.Concurrent;
 using System.Buffers;
 using System.Buffers.Binary;
+using System.Diagnostics;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Background;
@@ -25,9 +28,12 @@ public sealed partial class FileService : IFileService
     private const int ManifestFlushPartInterval = 8;
     private const string WorkingUploadFileName = "upload.tmp";
     private const string UploadPartBitmapFileName = "parts.bitmap";
+    private const string ExpirationIndexDirectoryName = "expires";
+    private const string ExpirationBucketFormat = "yyyyMMddHH";
     private static readonly TimeSpan SessionTtl = TimeSpan.FromHours(6);
     private static readonly TimeSpan SessionLockTtl = TimeSpan.FromHours(6);
     private static readonly TimeSpan ManifestlessSessionGracePeriod = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan LegacySessionRootSweepInterval = TimeSpan.FromHours(1);
 
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<FileService> _logger;
@@ -37,7 +43,9 @@ public sealed partial class FileService : IFileService
     private readonly string _sandboxAbsolutePath;
     private readonly string _sessionRootPath;
     private readonly string _sessionRootAbsolutePath;
+    private readonly string _expirationIndexRootPath;
     private readonly UploadSessionCleanupQueue? _cleanupQueue;
+    private DateTime _lastLegacySessionRootSweepUtc = DateTime.MinValue;
 
     private static readonly string[] _allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
     private static readonly string[] _allowedFormats = ["jpg", "jpeg", "png", "gif", "webp"];
@@ -56,6 +64,7 @@ public sealed partial class FileService : IFileService
         string webRoot = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
         _folderPath = Path.Combine(webRoot, _subFolder);
         _sessionRootPath = Path.GetFullPath(Path.Combine(_env.ContentRootPath, ".upload-sessions"));
+        _expirationIndexRootPath = Path.Combine(_sessionRootPath, ExpirationIndexDirectoryName);
 
         string absPath = Path.GetFullPath(_folderPath);
         _sandboxAbsolutePath = absPath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
@@ -69,6 +78,7 @@ public sealed partial class FileService : IFileService
 
         Directory.CreateDirectory(_folderPath);
         EnsureRestrictedDirectory(_sessionRootPath);
+        EnsureRestrictedDirectory(_expirationIndexRootPath);
     }
 
     public async Task<FileUploadResult> UploadImageAsync(IFormFile file)
@@ -694,6 +704,69 @@ public sealed partial class FileService : IFileService
         return sessionPath;
     }
 
+    private string GetExpirationBucketPath(DateTime expiresAtUtc)
+    {
+        string bucket = expiresAtUtc.ToUniversalTime().ToString(ExpirationBucketFormat, CultureInfo.InvariantCulture);
+        string bucketPath = Path.GetFullPath(Path.Combine(_expirationIndexRootPath, bucket));
+        if (!IsPathUnderSessionRoot(bucketPath))
+        {
+            throw new InvalidOperationException("upload expiration index path escaped sandbox.");
+        }
+
+        return bucketPath;
+    }
+
+    private string GetExpirationIndexPath(string uploadId, DateTime expiresAtUtc)
+    {
+        if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId)
+            || !string.Equals(uploadId, normalizedUploadId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Upload session id is invalid.");
+        }
+
+        string indexPath = Path.GetFullPath(Path.Combine(GetExpirationBucketPath(expiresAtUtc), normalizedUploadId));
+        if (!IsPathUnderSessionRoot(indexPath))
+        {
+            throw new InvalidOperationException("upload expiration index path escaped sandbox.");
+        }
+
+        return indexPath;
+    }
+
+    private async Task WriteExpirationIndexAsync(UploadSessionRecord record, CancellationToken cancellationToken)
+    {
+        string indexPath = GetExpirationIndexPath(record.UploadId, record.ExpiresAt);
+        EnsureRestrictedDirectory(Path.GetDirectoryName(indexPath)!);
+        await File.WriteAllBytesAsync(indexPath, Array.Empty<byte>(), cancellationToken);
+        RestrictFile(indexPath);
+    }
+
+    private void DeleteExpirationIndexes(string uploadId)
+    {
+        if (!Directory.Exists(_expirationIndexRootPath)
+            || !TryNormalizeUploadId(uploadId, out string normalizedUploadId))
+        {
+            return;
+        }
+
+        foreach (string bucketPath in Directory.EnumerateDirectories(_expirationIndexRootPath))
+        {
+            string fullBucketPath = Path.GetFullPath(bucketPath);
+            if (!IsPathUnderSessionRoot(fullBucketPath))
+            {
+                continue;
+            }
+
+            string indexPath = Path.Combine(fullBucketPath, normalizedUploadId);
+            if (File.Exists(indexPath))
+            {
+                File.Delete(indexPath);
+            }
+
+            DeleteDirectoryIfEmpty(fullBucketPath);
+        }
+    }
+
     private string GetPartsPath(string uploadId) => GetSessionChildPath(uploadId, "parts");
     private string GetManifestPath(string uploadId) => GetSessionChildPath(uploadId, "manifest.aeds");
     private string GetPartBitmapPath(string uploadId) => GetSessionChildPath(uploadId, UploadPartBitmapFileName);
@@ -918,7 +991,8 @@ public sealed partial class FileService : IFileService
         string tempPath = Path.Combine(
             manifestDirectory,
             $"{Path.GetFileName(manifestPath)}.{Path.GetRandomFileName()}.tmp");
-        byte[] payload = EncodeSession(record with { UploadId = normalizedUploadId });
+        UploadSessionRecord normalizedRecord = record with { UploadId = normalizedUploadId };
+        byte[] payload = EncodeSession(normalizedRecord);
         try
         {
             await using (var stream = new FileStream(tempPath, CreatePrivateWriteOptions(FileMode.CreateNew)))
@@ -936,6 +1010,7 @@ public sealed partial class FileService : IFileService
             }
 
             RestrictFile(manifestPath);
+            await WriteExpirationIndexAsync(normalizedRecord, cancellationToken);
         }
         finally
         {
@@ -1305,31 +1380,154 @@ public sealed partial class FileService : IFileService
 
     internal async Task CleanupExpiredSessionsAsync(CancellationToken cancellationToken)
     {
+        long started = Stopwatch.GetTimestamp();
+        long scannedSessions = 0;
+        long deletedSessions = 0;
+        var deletedUploadIds = new List<string>();
         if (!Directory.Exists(_sessionRootPath))
         {
+            FsusObservability.RecordUploadSessionCleanup(scannedSessions, deletedSessions, Stopwatch.GetElapsedTime(started));
             return;
         }
 
+        DateTime nowUtc = DateTime.UtcNow;
+        foreach (string bucketPath in EnumerateExpiredExpirationBuckets(nowUtc))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (string indexPath in Directory.EnumerateFiles(bucketPath))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                string uploadId = Path.GetFileName(indexPath);
+                if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId))
+                {
+                    File.Delete(indexPath);
+                    continue;
+                }
+
+                scannedSessions++;
+                string sessionPath = GetSessionPath(normalizedUploadId);
+                string manifestPath = GetManifestPath(normalizedUploadId);
+                if (!File.Exists(manifestPath))
+                {
+                    File.Delete(indexPath);
+                    continue;
+                }
+
+                bool shouldDelete = await BoundaryExecutor.ExecuteValueAsync(
+                    async () =>
+                    {
+                        UploadSessionRecord? record = await ReadSessionAsync(manifestPath, cancellationToken);
+                        return record is null || record.ExpiresAt <= nowUtc;
+                    },
+                    _ => true,
+                    _logger,
+                    $"cleanup-upload-session:{sessionPath}");
+                if (shouldDelete)
+                {
+                    await DeleteSessionDirectoryAsync(normalizedUploadId, deleteIndexes: false);
+                    if (File.Exists(indexPath))
+                    {
+                        File.Delete(indexPath);
+                    }
+
+                    deletedUploadIds.Add(normalizedUploadId);
+                    deletedSessions++;
+                    continue;
+                }
+
+                UploadSessionRecord? freshRecord = await ReadSessionAsync(manifestPath, cancellationToken);
+                if (freshRecord is not null)
+                {
+                    await WriteExpirationIndexAsync(freshRecord, cancellationToken);
+                }
+
+                File.Delete(indexPath);
+            }
+
+            DeleteDirectoryIfEmpty(bucketPath);
+        }
+
+        foreach (string uploadId in deletedUploadIds)
+        {
+            DeleteExpirationIndexes(uploadId);
+        }
+
+        (long legacyScanned, long legacyDeleted) = await CleanupLegacySessionRootSweepAsync(nowUtc, cancellationToken);
+        scannedSessions += legacyScanned;
+        deletedSessions += legacyDeleted;
+        FsusObservability.RecordUploadSessionCleanup(scannedSessions, deletedSessions, Stopwatch.GetElapsedTime(started));
+    }
+
+    private IEnumerable<string> EnumerateExpiredExpirationBuckets(DateTime nowUtc)
+    {
+        if (!Directory.Exists(_expirationIndexRootPath))
+        {
+            yield break;
+        }
+
+        foreach (string bucketPath in Directory.EnumerateDirectories(_expirationIndexRootPath))
+        {
+            string fullBucketPath = Path.GetFullPath(bucketPath);
+            if (!IsPathUnderSessionRoot(fullBucketPath))
+            {
+                continue;
+            }
+
+            string bucket = Path.GetFileName(fullBucketPath);
+            if (!DateTime.TryParseExact(
+                    bucket,
+                    ExpirationBucketFormat,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                    out DateTime bucketUtc))
+            {
+                continue;
+            }
+
+            if (bucketUtc <= TruncateToHour(nowUtc))
+            {
+                yield return fullBucketPath;
+            }
+        }
+    }
+
+    private async Task<(long Scanned, long Deleted)> CleanupLegacySessionRootSweepAsync(DateTime nowUtc, CancellationToken cancellationToken)
+    {
+        if (_lastLegacySessionRootSweepUtc != DateTime.MinValue
+            && nowUtc - _lastLegacySessionRootSweepUtc < LegacySessionRootSweepInterval)
+        {
+            return (0, 0);
+        }
+
+        _lastLegacySessionRootSweepUtc = nowUtc;
+        long scanned = 0;
+        long deleted = 0;
         foreach (string sessionPath in Directory.EnumerateDirectories(_sessionRootPath))
         {
             cancellationToken.ThrowIfCancellationRequested();
             string fullSessionPath = Path.GetFullPath(sessionPath);
+            if (string.Equals(Path.GetFileName(fullSessionPath), ExpirationIndexDirectoryName, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             string uploadId = Path.GetFileName(fullSessionPath);
             if (!IsPathUnderSessionRoot(fullSessionPath) || !TryNormalizeUploadId(uploadId, out string normalizedUploadId))
             {
                 continue;
             }
 
-            string manifestPath = Path.Combine(sessionPath, "manifest.aeds");
+            scanned++;
+            string manifestPath = Path.Combine(fullSessionPath, "manifest.aeds");
             if (!File.Exists(manifestPath))
             {
-                if (!IsStaleManifestlessSession(sessionPath))
+                if (!IsStaleManifestlessSession(fullSessionPath))
                 {
                     continue;
                 }
 
-                Directory.Delete(sessionPath, true);
-                RetireSessionLock(normalizedUploadId);
+                await DeleteSessionDirectoryAsync(normalizedUploadId);
+                deleted++;
                 continue;
             }
 
@@ -1337,17 +1535,19 @@ public sealed partial class FileService : IFileService
                 async () =>
                 {
                     UploadSessionRecord? record = await ReadSessionAsync(manifestPath, cancellationToken);
-                    return record is null || record.ExpiresAt <= DateTime.UtcNow;
+                    return record is null || record.ExpiresAt <= nowUtc;
                 },
                 _ => true,
                 _logger,
-                $"cleanup-upload-session:{sessionPath}");
+                $"cleanup-upload-session:{fullSessionPath}");
             if (shouldDelete)
             {
-                Directory.Delete(sessionPath, true);
-                RetireSessionLock(normalizedUploadId);
+                await DeleteSessionDirectoryAsync(normalizedUploadId);
+                deleted++;
             }
         }
+
+        return (scanned, deleted);
     }
 
     private static bool IsStaleManifestlessSession(string sessionPath)
@@ -1362,7 +1562,20 @@ public sealed partial class FileService : IFileService
         return lastActivityUtc <= DateTime.UtcNow.Subtract(ManifestlessSessionGracePeriod);
     }
 
-    private async Task DeleteSessionDirectoryAsync(string uploadId)
+    private static DateTime TruncateToHour(DateTime value)
+        => new(value.Year, value.Month, value.Day, value.Hour, 0, 0, DateTimeKind.Utc);
+
+    private static void DeleteDirectoryIfEmpty(string path)
+    {
+        if (!Directory.Exists(path) || Directory.EnumerateFileSystemEntries(path).Any())
+        {
+            return;
+        }
+
+        Directory.Delete(path);
+    }
+
+    private async Task DeleteSessionDirectoryAsync(string uploadId, bool deleteIndexes = true)
     {
         if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId))
         {
@@ -1371,6 +1584,11 @@ public sealed partial class FileService : IFileService
 
         uploadId = normalizedUploadId;
         string sessionPath = GetSessionPath(uploadId);
+        if (deleteIndexes)
+        {
+            DeleteExpirationIndexes(uploadId);
+        }
+
         if (Directory.Exists(sessionPath))
         {
             await BoundaryExecutor.ExecuteAsync(

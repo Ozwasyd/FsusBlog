@@ -65,7 +65,8 @@ public static class FsusObservability
         "fsus.security.source",
         "fsus.security.task_kind",
         "fsus.search.mode",
-        "fsus.notification_stream.operation"
+        "fsus.notification_stream.operation",
+        "fsus.upload.cleanup.signal"
     ];
 
     private static readonly FrozenSet<string> AllowedCustomAttributes = AllowedCustomAttributeNames.ToFrozenSet(StringComparer.Ordinal);
@@ -161,6 +162,10 @@ public static class FsusObservability
     private static readonly Histogram<double> AdminAccountListQueryElapsed = Meter.CreateHistogram<double>("fsus.admin.account_list.query_elapsed_ms", "ms");
     private static readonly Counter<long> AdminAccountListCountUsed = Meter.CreateCounter<long>("fsus.admin.account_list.count_used");
     private static readonly Counter<long> AdminAccountListCountSkipped = Meter.CreateCounter<long>("fsus.admin.account_list.count_skipped");
+    private static readonly Counter<long> UploadSessionCleanupScannedSessions = Meter.CreateCounter<long>("fsus.upload.cleanup.scanned_sessions");
+    private static readonly Counter<long> UploadSessionCleanupDeletedSessions = Meter.CreateCounter<long>("fsus.upload.cleanup.deleted_sessions");
+    private static readonly Histogram<double> UploadSessionCleanupElapsed = Meter.CreateHistogram<double>("fsus.upload.cleanup.elapsed_ms", "ms");
+    private static readonly Counter<long> UploadSessionCleanupSignalCount = Meter.CreateCounter<long>("fsus.upload.cleanup.signal_count");
 
     public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
 
@@ -816,6 +821,28 @@ public static class FsusObservability
             }
 
             AdminAccountListCountSkipped.Add(1, tags);
+        });
+    }
+
+    public static void RecordUploadSessionCleanup(long scannedSessions, long deletedSessions, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("upload-session-cleanup", "scan", "ok");
+            UploadSessionCleanupScannedSessions.Add(Math.Max(0, scannedSessions), tags);
+            UploadSessionCleanupDeletedSessions.Add(Math.Max(0, deletedSessions), tags);
+            UploadSessionCleanupElapsed.Record(elapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordUploadSessionCleanupSignal(string result)
+    {
+        TryRecord(() =>
+        {
+            string normalized = NormalizeTelemetryValue(result, "unknown");
+            TagList tags = CreateBaseTags("upload-session-cleanup", "signal", normalized);
+            tags.Add("fsus.upload.cleanup.signal", normalized);
+            UploadSessionCleanupSignalCount.Add(1, tags);
         });
     }
 

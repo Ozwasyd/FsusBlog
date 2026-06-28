@@ -8,7 +8,7 @@ public sealed class UploadSessionCleanupQueueTests
     [Fact]
     public void TryRequestScan_BuffersSignalsArrivingDuringCleanup()
     {
-        var queue = new UploadSessionCleanupQueue();
+        var queue = new UploadSessionCleanupQueue(minSignalInterval: TimeSpan.Zero);
 
         for (int i = 0; i < UploadSessionCleanupQueue.SignalCapacity; i++)
         {
@@ -22,7 +22,7 @@ public sealed class UploadSessionCleanupQueueTests
     [Fact]
     public void TryRequestScan_WhenChannelIsFullMarksOverflow()
     {
-        var queue = new UploadSessionCleanupQueue();
+        var queue = new UploadSessionCleanupQueue(minSignalInterval: TimeSpan.Zero);
         for (int i = 0; i < UploadSessionCleanupQueue.SignalCapacity; i++)
         {
             Assert.True(queue.TryRequestScan());
@@ -42,5 +42,17 @@ public sealed class UploadSessionCleanupQueueTests
         Assert.Contains("FullMode = BoundedChannelFullMode.Wait", source, StringComparison.Ordinal);
         Assert.DoesNotContain("BoundedChannelFullMode.DropWrite", source, StringComparison.Ordinal);
         Assert.Contains("queue.ConsumeOverflowedSignal()", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TryRequestScan_DefaultWindowCoalescesRepeatedSignals()
+    {
+        var queue = new UploadSessionCleanupQueue();
+
+        Assert.True(queue.TryRequestScan());
+        Assert.False(queue.TryRequestScan());
+        Assert.False(queue.TryRequestScan());
+
+        Assert.Equal(1, queue.DrainPendingSignals());
     }
 }

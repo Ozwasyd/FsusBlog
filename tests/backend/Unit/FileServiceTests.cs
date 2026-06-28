@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Core.Common;
@@ -1102,6 +1103,100 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public void UploadSessionCleanup_SourceUsesExpirationBucketIndex()
+    {
+        string source = ReadFileServiceSource();
+        string cleanup = ExtractMethodBlock(source, "internal async Task CleanupExpiredSessionsAsync");
+
+        Assert.Contains("WriteExpirationIndexAsync", source, StringComparison.Ordinal);
+        Assert.Contains("EnumerateExpiredExpirationBuckets", source, StringComparison.Ordinal);
+        Assert.Contains("RecordUploadSessionCleanup", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("foreach (string sessionPath in Directory.EnumerateDirectories(_sessionRootPath))", cleanup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UploadSessionExpirationIndex_IsCreatedAndRemovedWithSession()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            var svc = CreateService(root);
+
+            Result<UploadInitDto> init = await svc.InitUploadSessionAsync(new UploadInitRequestDto
+            {
+                FileName = "sample.png",
+                MimeType = "image/png",
+                TargetFormat = "png",
+                TotalBytes = 8,
+                ChunkSize = 8
+            });
+
+            Assert.True(init.IsSuccess, init.Error.Message);
+            string uploadId = init.Value!.UploadId;
+            Assert.Single(GetExpirationIndexFiles(root, uploadId));
+
+            Result<bool> abort = await svc.AbortUploadAsync(uploadId);
+
+            Assert.True(abort.IsSuccess, abort.Error.Message);
+            Assert.Empty(GetExpirationIndexFiles(root, uploadId));
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task CleanupExpiredSessionsAsync_RemovesExpiredSessionFromBucketIndex()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            var svc = CreateService(root);
+            Result<UploadInitDto> expiredInit = await svc.InitUploadSessionAsync(new UploadInitRequestDto
+            {
+                FileName = "expired.png",
+                MimeType = "image/png",
+                TargetFormat = "png",
+                TotalBytes = 8,
+                ChunkSize = 8
+            });
+            Result<UploadInitDto> freshInit = await svc.InitUploadSessionAsync(new UploadInitRequestDto
+            {
+                FileName = "fresh.png",
+                MimeType = "image/png",
+                TargetFormat = "png",
+                TotalBytes = 8,
+                ChunkSize = 8
+            });
+
+            Assert.True(expiredInit.IsSuccess, expiredInit.Error.Message);
+            Assert.True(freshInit.IsSuccess, freshInit.Error.Message);
+            string expiredUploadId = expiredInit.Value!.UploadId;
+            UploadSessionRecord expired = (await ReadManifestAsync(root, expiredUploadId)) with
+            {
+                ExpiresAt = DateTime.UtcNow.AddMinutes(-5)
+            };
+            await WriteManifestAsync(GetManifestPath(root, expiredUploadId), expired);
+            WriteExpirationIndex(root, expiredUploadId, expired.ExpiresAt);
+
+            await svc.CleanupExpiredSessionsAsync(CancellationToken.None);
+
+            Assert.False(Directory.Exists(GetSessionPath(root, expiredUploadId)));
+            Assert.True(Directory.Exists(GetSessionPath(root, freshInit.Value!.UploadId)));
+            Assert.Empty(GetExpirationIndexFiles(root, expiredUploadId));
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void UploadSessionRoot_IsPrivateOnUnix()
     {
         if (OperatingSystem.IsWindows())
@@ -1189,6 +1284,22 @@ public sealed class FileServiceTests
 
     private static string GetWorkingFilePath(string root, string uploadId)
         => Path.Combine(GetSessionPath(root, uploadId), "upload.tmp");
+
+    private static string[] GetExpirationIndexFiles(string root, string uploadId)
+    {
+        string indexRoot = Path.Combine(root, ".upload-sessions", "expires");
+        return Directory.Exists(indexRoot)
+            ? Directory.GetFiles(indexRoot, uploadId, SearchOption.AllDirectories)
+            : [];
+    }
+
+    private static void WriteExpirationIndex(string root, string uploadId, DateTime expiresAtUtc)
+    {
+        string bucket = expiresAtUtc.ToUniversalTime().ToString("yyyyMMddHH", CultureInfo.InvariantCulture);
+        string bucketPath = Path.Combine(root, ".upload-sessions", "expires", bucket);
+        Directory.CreateDirectory(bucketPath);
+        File.WriteAllBytes(Path.Combine(bucketPath, uploadId), []);
+    }
 
     private static async Task<UploadSessionRecord> ReadManifestAsync(string root, string uploadId)
     {

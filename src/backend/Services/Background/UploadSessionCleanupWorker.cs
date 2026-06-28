@@ -1,11 +1,16 @@
 using System.Threading.Channels;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Observability;
 
 namespace FsusBlog.Server.Services.Background;
 
 public sealed class UploadSessionCleanupQueue
 {
     internal const int SignalCapacity = 64;
+    private static readonly TimeSpan DefaultMinSignalInterval = TimeSpan.FromSeconds(45);
+    private readonly TimeProvider _timeProvider;
+    private readonly TimeSpan _minSignalInterval;
+    private long _lastAcceptedSignalTicks;
     private int _overflowedSignal;
     private readonly Channel<byte> _requests = Channel.CreateBounded<byte>(new BoundedChannelOptions(SignalCapacity)
     {
@@ -14,15 +19,52 @@ public sealed class UploadSessionCleanupQueue
         FullMode = BoundedChannelFullMode.Wait
     });
 
+    public UploadSessionCleanupQueue(TimeProvider? timeProvider = null, TimeSpan? minSignalInterval = null)
+    {
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _minSignalInterval = minSignalInterval ?? DefaultMinSignalInterval;
+    }
+
     public bool TryRequestScan()
     {
+        if (!TryAcquireSignalWindow())
+        {
+            FsusObservability.RecordUploadSessionCleanupSignal("dropped");
+            return false;
+        }
+
         if (_requests.Writer.TryWrite(0))
         {
+            FsusObservability.RecordUploadSessionCleanupSignal("accepted");
             return true;
         }
 
         Volatile.Write(ref _overflowedSignal, 1);
+        FsusObservability.RecordUploadSessionCleanupSignal("coalesced");
         return false;
+    }
+
+    private bool TryAcquireSignalWindow()
+    {
+        if (_minSignalInterval <= TimeSpan.Zero)
+        {
+            return true;
+        }
+
+        long nowTicks = _timeProvider.GetUtcNow().UtcTicks;
+        while (true)
+        {
+            long lastTicks = Volatile.Read(ref _lastAcceptedSignalTicks);
+            if (lastTicks > 0 && nowTicks - lastTicks < _minSignalInterval.Ticks)
+            {
+                return false;
+            }
+
+            if (Interlocked.CompareExchange(ref _lastAcceptedSignalTicks, nowTicks, lastTicks) == lastTicks)
+            {
+                return true;
+            }
+        }
     }
 
     internal int DrainPendingSignals()
