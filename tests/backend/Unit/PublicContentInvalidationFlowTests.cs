@@ -9,10 +9,10 @@ public sealed class PublicContentInvalidationFlowTests
     public void OutboxReplay_InvalidatesPublicAotBeforeReplayingSideEffects()
     {
         string source = ReadRepoFile("src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs");
-        string method = Slice(source, "private async Task<bool> ProcessOneAsync", "private static async Task<ArticleMutationAotScope>");
+        string method = Slice(source, "private async Task<bool> ProcessOneAsync", "    private static async Task<List<ArticleMutationOutboxEvent>> ClaimPendingOutboxEventsAsync");
 
         Assert.Contains("IPublicAotInvalidationService publicAotInvalidation", source, StringComparison.Ordinal);
-        Assert.Contains("LoadAotScopeAsync", source, StringComparison.Ordinal);
+        Assert.Contains("LoadAotScopesByArticleIdAsync", source, StringComparison.Ordinal);
         Assert.Contains("publicAotInvalidation.InvalidateArticleMutationAsync", method, StringComparison.Ordinal);
 
         int aotInvalidation = method.IndexOf("publicAotInvalidation.InvalidateArticleMutationAsync", StringComparison.Ordinal);
@@ -30,7 +30,7 @@ public sealed class PublicContentInvalidationFlowTests
         string sideEffects = ReadRepoFile("src/backend/Services/ArticleMutationSideEffects.cs");
         string dispatcher = ReadRepoFile("src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs");
         string replayMethod = Slice(sideEffects, "public async Task<ArticleMutationReplayResult> ReplayOutboxAsync", "    private async Task<Article?> LoadArticleWithContentAsync");
-        string processOne = Slice(dispatcher, "private async Task<bool> ProcessOneAsync", "private static async Task<ArticleMutationAotScope>");
+        string processOne = Slice(dispatcher, "private async Task<bool> ProcessOneAsync", "    private static async Task<List<ArticleMutationOutboxEvent>> ClaimPendingOutboxEventsAsync");
 
         Assert.Contains("public sealed record ArticleMutationReplayResult", sideEffects, StringComparison.Ordinal);
         Assert.Contains("Task<ArticleMutationReplayResult> ReplayOutboxAsync", sideEffects, StringComparison.Ordinal);
@@ -60,7 +60,7 @@ public sealed class PublicContentInvalidationFlowTests
         string migrations = ReadRepoFile("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
         string sideEffects = ReadRepoFile("src/backend/Services/ArticleMutationSideEffects.cs");
         string dispatcher = ReadRepoFile("src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs");
-        string processOne = Slice(dispatcher, "private async Task<bool> ProcessOneAsync", "private static async Task<ArticleMutationAotScope>");
+        string processOne = Slice(dispatcher, "private async Task<bool> ProcessOneAsync", "    private static async Task<List<ArticleMutationOutboxEvent>> ClaimPendingOutboxEventsAsync");
 
         Assert.Contains("public class ArticleMutationOutboxEdge", entities, StringComparison.Ordinal);
         Assert.Contains("[SugarTable(\"article_mutation_outbox_edge\")]", entities, StringComparison.Ordinal);
@@ -81,25 +81,50 @@ public sealed class PublicContentInvalidationFlowTests
         Assert.Contains("IReadOnlySet<string> CompletedEdges", sideEffects, StringComparison.Ordinal);
         Assert.Contains("IReadOnlyDictionary<string, string> FailedEdges", sideEffects, StringComparison.Ordinal);
 
-        Assert.Contains("LoadCompletedEdgesAsync", processOne, StringComparison.Ordinal);
+        Assert.Contains("LoadCompletedEdgesByOutboxIdAsync", dispatcher, StringComparison.Ordinal);
         Assert.Contains("coordinator.ReplayOutboxAsync(item.AggregateId, item.EventType, completedEdges", processOne, StringComparison.Ordinal);
-        Assert.Contains("RecordReplayEdgesAsync", processOne, StringComparison.Ordinal);
+        Assert.Contains("UpsertReplayEdgesAsync", processOne, StringComparison.Ordinal);
         Assert.Contains("ArticleMutationReplayEdges.Required.All(completedAfterReplay.Contains)", processOne, StringComparison.Ordinal);
         Assert.Contains("!requiredEdgesComplete", processOne, StringComparison.Ordinal);
         Assert.Contains("return await MarkRetryAsync", processOne, StringComparison.Ordinal);
-        Assert.Contains("\"article-outbox-edge-complete\"", dispatcher, StringComparison.Ordinal);
-        Assert.Contains("\"article-outbox-edge-failed\"", dispatcher, StringComparison.Ordinal);
+        Assert.Contains("\"article-outbox-edge-upsert\"", dispatcher, StringComparison.Ordinal);
 
-        int loadEdges = processOne.IndexOf("LoadCompletedEdgesAsync", StringComparison.Ordinal);
+        int loadEdges = dispatcher.IndexOf("LoadCompletedEdgesByOutboxIdAsync", StringComparison.Ordinal);
         int replay = processOne.IndexOf("ArticleMutationReplayResult replay = await coordinator.ReplayOutboxAsync", StringComparison.Ordinal);
-        int recordEdges = processOne.IndexOf("RecordReplayEdgesAsync", StringComparison.Ordinal);
+        int recordEdges = processOne.IndexOf("UpsertReplayEdgesAsync", StringComparison.Ordinal);
         int requiredGuard = processOne.IndexOf("!requiredEdgesComplete", StringComparison.Ordinal);
         int complete = processOne.IndexOf("\"article-outbox-complete\"", StringComparison.Ordinal);
         Assert.True(loadEdges >= 0);
-        Assert.True(replay > loadEdges);
+        Assert.True(replay >= 0);
         Assert.True(recordEdges > replay);
         Assert.True(requiredGuard > recordEdges);
         Assert.True(complete > requiredGuard);
+    }
+
+    [Fact]
+    public void OutboxDispatcher_BatchesClaimScopeAndReplayEdgeWrites()
+    {
+        string dispatcher = ReadRepoFile("src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs");
+        string processPending = Slice(dispatcher, "internal async Task<int> ProcessPendingAsync", "    private async Task<bool> ProcessOneAsync");
+        string claim = Slice(dispatcher, "private static async Task<List<ArticleMutationOutboxEvent>> ClaimPendingOutboxEventsAsync", "    private static async Task<Dictionary<long, HashSet<string>>> LoadCompletedEdgesByOutboxIdAsync");
+        string upsert = Slice(dispatcher, "private async Task UpsertReplayEdgesAsync", "    private static TimeSpan ComputeBackoff");
+
+        Assert.Contains("ClaimPendingOutboxEventsAsync", processPending, StringComparison.Ordinal);
+        Assert.Contains("LoadCompletedEdgesByOutboxIdAsync", processPending, StringComparison.Ordinal);
+        Assert.Contains("LoadAotScopesByArticleIdAsync", processPending, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"article-outbox-read\"", processPending, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"article-outbox-claim\"", processPending, StringComparison.Ordinal);
+
+        Assert.Contains("UPDATE article_mutation_outbox", claim, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE SKIP LOCKED", claim, StringComparison.Ordinal);
+        Assert.Contains("RETURNING", claim, StringComparison.Ordinal);
+        Assert.Contains("GetDataReaderAsync", claim, StringComparison.Ordinal);
+
+        Assert.Contains("ON CONFLICT (outbox_event_id, edge_name) DO UPDATE", upsert, StringComparison.Ordinal);
+        Assert.DoesNotContain("FirstAsync", upsert, StringComparison.Ordinal);
+        Assert.DoesNotContain("RecordReplayEdgeAsync", dispatcher, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"article-outbox-aot-scope-category\"", dispatcher, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"article-outbox-aot-scope-tags\"", dispatcher, StringComparison.Ordinal);
     }
 
     [Fact]

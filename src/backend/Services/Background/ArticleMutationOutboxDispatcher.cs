@@ -1,3 +1,4 @@
+using System.Data.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -50,22 +51,44 @@ public sealed class ArticleMutationOutboxDispatcher(
 
             DateTime now = timeProvider.GetUtcNow().UtcDateTime;
             List<ArticleMutationOutboxEvent> pending = await dbGate.ExecuteAsync(
-                "article-outbox-read",
-                gateCt => db.Queryable<ArticleMutationOutboxEvent>()
-                    .Where(e => e.AggregateType == "article"
-                        && (e.Status == "pending" || e.Status == "processing")
-                        && e.NextRetryAt <= now)
-                    .OrderBy(e => e.Id)
-                    .Take(BatchSize)
-                    .ToListAsync(gateCt),
+                "article-outbox-batch-claim",
+                gateCt => ClaimPendingOutboxEventsAsync(db, now, now.AddMinutes(5), gateCt),
                 _ => Task.FromResult(new List<ArticleMutationOutboxEvent>()),
                 cancellationToken).ConfigureAwait(false);
+            if (pending.Count == 0)
+            {
+                return 0;
+            }
+
+            Dictionary<long, HashSet<string>> completedEdgesByOutboxId = await LoadCompletedEdgesByOutboxIdAsync(
+                    db,
+                    dbGate,
+                    pending.Select(static item => item.Id).ToArray(),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            Dictionary<int, ArticleMutationAotScope> aotScopesByArticleId = await LoadAotScopesByArticleIdAsync(
+                    db,
+                    dbGate,
+                    pending.Select(static item => item.AggregateId).Where(static articleId => articleId > 0).Distinct().ToArray(),
+                    cancellationToken)
+                .ConfigureAwait(false);
 
             int processed = 0;
             foreach (ArticleMutationOutboxEvent item in pending)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                bool ok = await ProcessOneAsync(db, dbGate, cacheInvalidation, publicAotInvalidation, coordinator, item, cancellationToken)
+                completedEdgesByOutboxId.TryGetValue(item.Id, out HashSet<string>? completedEdges);
+                aotScopesByArticleId.TryGetValue(item.AggregateId, out ArticleMutationAotScope? aotScope);
+                bool ok = await ProcessOneAsync(
+                        db,
+                        dbGate,
+                        cacheInvalidation,
+                        publicAotInvalidation,
+                        coordinator,
+                        item,
+                        completedEdges ?? [],
+                        aotScope ?? ArticleMutationAotScope.Empty,
+                        cancellationToken)
                     .ConfigureAwait(false);
                 if (ok)
                 {
@@ -93,34 +116,14 @@ public sealed class ArticleMutationOutboxDispatcher(
         IPublicAotInvalidationService publicAotInvalidation,
         IArticleMutationSideEffectCoordinator coordinator,
         ArticleMutationOutboxEvent item,
+        IReadOnlySet<string> completedEdges,
+        ArticleMutationAotScope aotScope,
         CancellationToken cancellationToken)
     {
-        DateTime claimNow = timeProvider.GetUtcNow().UtcDateTime;
-        DateTime claimDeadline = claimNow.AddMinutes(5);
-        int claimed = await dbGate.ExecuteAsync(
-            "article-outbox-claim",
-            gateCt => db.Updateable<ArticleMutationOutboxEvent>()
-                .SetColumns(e => e.Status == "processing")
-                .SetColumns(e => e.NextRetryAt == claimDeadline)
-                .Where(e => e.Id == item.Id
-                    && (e.Status == "pending" || e.Status == "processing")
-                    && e.NextRetryAt <= claimNow)
-                .ExecuteCommandAsync(gateCt),
-            _ => Task.FromResult(0),
-            cancellationToken).ConfigureAwait(false);
-        if (claimed == 0)
-        {
-            return false;
-        }
-
         try
         {
-            IReadOnlySet<string> completedEdges = await LoadCompletedEdgesAsync(db, dbGate, item.Id, cancellationToken)
-                .ConfigureAwait(false);
             var completedAfterReplay = new HashSet<string>(completedEdges, StringComparer.Ordinal);
 
-            ArticleMutationAotScope aotScope = await LoadAotScopeAsync(db, dbGate, item.AggregateId, cancellationToken)
-                .ConfigureAwait(false);
             if (!await RunDispatcherEdgeAsync(
                     db,
                     dbGate,
@@ -147,7 +150,7 @@ public sealed class ArticleMutationOutboxDispatcher(
 
             ArticleMutationReplayResult replay = await coordinator.ReplayOutboxAsync(item.AggregateId, item.EventType, completedEdges, cancellationToken)
                 .ConfigureAwait(false);
-            await RecordReplayEdgesAsync(db, dbGate, item.Id, replay, cancellationToken)
+            await UpsertReplayEdgesAsync(db, dbGate, item.Id, replay, cancellationToken)
                 .ConfigureAwait(false);
             completedAfterReplay.UnionWith(replay.CompletedEdges);
             bool requiredEdgesComplete = ArticleMutationReplayEdges.Required.All(completedAfterReplay.Contains);
@@ -210,7 +213,7 @@ public sealed class ArticleMutationOutboxDispatcher(
         {
             await action(cancellationToken).ConfigureAwait(false);
             completedAfterReplay.Add(edgeName);
-            await RecordReplayEdgesAsync(
+            await UpsertReplayEdgesAsync(
                     db,
                     dbGate,
                     item.Id,
@@ -226,7 +229,7 @@ public sealed class ArticleMutationOutboxDispatcher(
         catch (Exception ex)
         {
             string error = NormalizeLastError(ex.Message);
-            await RecordReplayEdgesAsync(
+            await UpsertReplayEdgesAsync(
                     db,
                     dbGate,
                     item.Id,
@@ -299,157 +302,260 @@ public sealed class ArticleMutationOutboxDispatcher(
         return false;
     }
 
-    private static async Task<IReadOnlySet<string>> LoadCompletedEdgesAsync(
+    private static async Task<List<ArticleMutationOutboxEvent>> ClaimPendingOutboxEventsAsync(
         ISqlSugarClient db,
-        IDbConcurrencyGate dbGate,
-        long outboxEventId,
+        DateTime claimNow,
+        DateTime claimDeadline,
         CancellationToken cancellationToken)
     {
+        var claimed = new List<ArticleMutationOutboxEvent>(BatchSize);
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            UPDATE article_mutation_outbox
+            SET status = 'processing',
+                next_retry_at = @ClaimDeadline
+            WHERE id IN (
+                SELECT id
+                FROM article_mutation_outbox
+                WHERE aggregate_type = 'article'
+                  AND (status = 'pending' OR status = 'processing')
+                  AND next_retry_at <= @ClaimNow
+                ORDER BY id
+                LIMIT @BatchSize
+                FOR UPDATE SKIP LOCKED
+            )
+            RETURNING id,
+                      event_id,
+                      aggregate_type,
+                      aggregate_id,
+                      event_type,
+                      payload_json,
+                      status,
+                      retry_count,
+                      next_retry_at,
+                      created_at,
+                      processed_at,
+                      last_error;
+            """,
+            new SugarParameter[]
+            {
+                new("@ClaimNow", claimNow),
+                new("@ClaimDeadline", claimDeadline),
+                new("@BatchSize", BatchSize)
+            });
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            claimed.Add(new ArticleMutationOutboxEvent
+            {
+                Id = reader.GetInt64(0),
+                EventId = reader.GetString(1),
+                AggregateType = reader.GetString(2),
+                AggregateId = reader.GetInt32(3),
+                EventType = reader.GetString(4),
+                PayloadJson = reader.GetString(5),
+                Status = reader.GetString(6),
+                RetryCount = reader.GetInt32(7),
+                NextRetryAt = reader.GetDateTime(8),
+                CreatedAt = reader.GetDateTime(9),
+                ProcessedAt = reader.IsDBNull(10) ? null : reader.GetDateTime(10),
+                LastError = reader.IsDBNull(11) ? null : reader.GetString(11)
+            });
+        }
+
+        return claimed;
+    }
+
+    private static async Task<Dictionary<long, HashSet<string>>> LoadCompletedEdgesByOutboxIdAsync(
+        ISqlSugarClient db,
+        IDbConcurrencyGate dbGate,
+        IReadOnlyCollection<long> outboxEventIds,
+        CancellationToken cancellationToken)
+    {
+        if (outboxEventIds.Count == 0)
+        {
+            return [];
+        }
+
         List<ArticleMutationOutboxEdge> completedEdges = await dbGate.ExecuteAsync(
-                "article-outbox-edge-read",
+                "article-outbox-edge-batch-read",
                 gateCt => db.Queryable<ArticleMutationOutboxEdge>()
-                    .Where(edge => edge.OutboxEventId == outboxEventId
+                    .Where(edge => outboxEventIds.Contains(edge.OutboxEventId)
                         && edge.Status == ArticleMutationOutboxEdgeStatus.Completed)
                     .ToListAsync(gateCt),
                 _ => Task.FromResult(new List<ArticleMutationOutboxEdge>()),
                 cancellationToken)
             .ConfigureAwait(false);
 
-        return completedEdges
-            .Select(static edge => edge.EdgeName)
-            .Where(static edgeName => !string.IsNullOrWhiteSpace(edgeName))
-            .ToHashSet(StringComparer.Ordinal);
+        var result = new Dictionary<long, HashSet<string>>();
+        foreach (ArticleMutationOutboxEdge edge in completedEdges)
+        {
+            if (string.IsNullOrWhiteSpace(edge.EdgeName))
+            {
+                continue;
+            }
+
+            if (!result.TryGetValue(edge.OutboxEventId, out HashSet<string>? edgeNames))
+            {
+                edgeNames = new HashSet<string>(StringComparer.Ordinal);
+                result[edge.OutboxEventId] = edgeNames;
+            }
+
+            edgeNames.Add(edge.EdgeName);
+        }
+
+        return result;
     }
 
-    private async Task RecordReplayEdgesAsync(
+    private async Task UpsertReplayEdgesAsync(
         ISqlSugarClient db,
         IDbConcurrencyGate dbGate,
         long outboxEventId,
         ArticleMutationReplayResult replay,
         CancellationToken cancellationToken)
     {
+        var rows = new List<ArticleMutationOutboxEdgeWrite>(replay.CompletedEdges.Count + replay.FailedEdges.Count);
         foreach (string edgeName in replay.CompletedEdges)
         {
-            await RecordReplayEdgeAsync(
-                    db,
-                    dbGate,
+            if (!string.IsNullOrWhiteSpace(edgeName))
+            {
+                rows.Add(new ArticleMutationOutboxEdgeWrite(
                     outboxEventId,
                     edgeName,
                     ArticleMutationOutboxEdgeStatus.Completed,
-                    null,
-                    incrementAttempt: true,
-                    cancellationToken)
-                .ConfigureAwait(false);
+                    null));
+            }
         }
 
         foreach (KeyValuePair<string, string> failedEdge in replay.FailedEdges)
         {
-            await RecordReplayEdgeAsync(
-                    db,
-                    dbGate,
+            if (!string.IsNullOrWhiteSpace(failedEdge.Key))
+            {
+                rows.Add(new ArticleMutationOutboxEdgeWrite(
                     outboxEventId,
                     failedEdge.Key,
                     ArticleMutationOutboxEdgeStatus.Failed,
-                    failedEdge.Value,
-                    incrementAttempt: true,
-                    cancellationToken)
-                .ConfigureAwait(false);
+                    failedEdge.Value));
+            }
         }
-    }
 
-    private async Task RecordReplayEdgeAsync(
-        ISqlSugarClient db,
-        IDbConcurrencyGate dbGate,
-        long outboxEventId,
-        string edgeName,
-        string status,
-        string? lastError,
-        bool incrementAttempt,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(edgeName))
+        if (rows.Count == 0)
         {
             return;
         }
 
-        string operation = status == ArticleMutationOutboxEdgeStatus.Completed
-            ? "article-outbox-edge-complete"
-            : "article-outbox-edge-failed";
         DateTime updatedAt = timeProvider.GetUtcNow().UtcDateTime;
-        string? normalizedError = lastError is null ? null : NormalizeLastError(lastError);
         await dbGate.ExecuteAsync(
-            operation,
-            async gateCt =>
-            {
-                ArticleMutationOutboxEdge? existing = await db.Queryable<ArticleMutationOutboxEdge>()
-                    .Where(edge => edge.OutboxEventId == outboxEventId && edge.EdgeName == edgeName)
-                    .FirstAsync(gateCt)
-                    .ConfigureAwait(false);
-                if (existing is null)
-                {
-                    await db.Insertable(new ArticleMutationOutboxEdge
-                        {
-                            OutboxEventId = outboxEventId,
-                            EdgeName = edgeName,
-                            Status = status,
-                            AttemptCount = incrementAttempt ? 1 : 0,
-                            LastError = normalizedError,
-                            UpdatedAt = updatedAt
-                        })
-                        .ExecuteCommandAsync(gateCt)
-                        .ConfigureAwait(false);
-                    return 1;
-                }
-
-                int nextAttemptCount = incrementAttempt ? existing.AttemptCount + 1 : existing.AttemptCount;
-                return await db.Updateable<ArticleMutationOutboxEdge>()
-                    .SetColumns(edge => edge.Status == status)
-                    .SetColumns(edge => edge.AttemptCount == nextAttemptCount)
-                    .SetColumns(edge => edge.LastError == normalizedError)
-                    .SetColumns(edge => edge.UpdatedAt == updatedAt)
-                    .Where(edge => edge.Id == existing.Id)
-                    .ExecuteCommandAsync(gateCt)
-                    .ConfigureAwait(false);
-            },
+            "article-outbox-edge-upsert",
+            gateCt => db.Ado.ExecuteCommandAsync(
+                BuildReplayEdgeUpsertSql(rows.Count),
+                BuildReplayEdgeUpsertParameters(rows, updatedAt)),
             _ => Task.FromResult(0),
             cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task<ArticleMutationAotScope> LoadAotScopeAsync(
+    private static async Task<Dictionary<int, ArticleMutationAotScope>> LoadAotScopesByArticleIdAsync(
         ISqlSugarClient db,
         IDbConcurrencyGate dbGate,
-        int articleId,
+        IReadOnlyCollection<int> articleIds,
         CancellationToken cancellationToken)
     {
-        if (articleId <= 0)
+        if (articleIds.Count == 0)
         {
-            return ArticleMutationAotScope.Empty;
+            return [];
         }
 
-        int categoryId = await dbGate.ExecuteAsync(
-                "article-outbox-aot-scope-category",
+        List<ArticleAotCategoryRow> categories = await dbGate.ExecuteAsync(
+                "article-outbox-aot-scope-batch-category",
                 gateCt => db.Queryable<Article>()
                     .ClearFilter()
-                    .Where(article => article.Id == articleId)
-                    .Select(article => article.CategoryId)
-                    .FirstAsync(gateCt),
-                _ => Task.FromResult(0),
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        List<int> tagIds = await dbGate.ExecuteAsync(
-                "article-outbox-aot-scope-tags",
-                gateCt => db.Queryable<ArticleTag>()
-                    .Where(articleTag => articleTag.ArticleId == articleId)
-                    .Select(articleTag => articleTag.TagId)
+                    .Where(article => articleIds.Contains(article.Id))
+                    .Select(article => new ArticleAotCategoryRow
+                    {
+                        ArticleId = article.Id,
+                        CategoryId = article.CategoryId
+                    })
                     .ToListAsync(gateCt),
-                _ => Task.FromResult(new List<int>()),
+                _ => Task.FromResult(new List<ArticleAotCategoryRow>()),
                 cancellationToken)
             .ConfigureAwait(false);
 
-        return new ArticleMutationAotScope(
-            categoryId > 0 ? [categoryId] : [],
-            tagIds);
+        List<ArticleAotTagRow> tags = await dbGate.ExecuteAsync(
+                "article-outbox-aot-scope-batch-tags",
+                gateCt => db.Queryable<ArticleTag>()
+                    .Where(articleTag => articleIds.Contains(articleTag.ArticleId))
+                    .Select(articleTag => new ArticleAotTagRow
+                    {
+                        ArticleId = articleTag.ArticleId,
+                        TagId = articleTag.TagId
+                    })
+                    .ToListAsync(gateCt),
+                _ => Task.FromResult(new List<ArticleAotTagRow>()),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var categoryMap = categories.ToDictionary(static row => row.ArticleId, static row => row.CategoryId);
+        var tagMap = tags
+            .GroupBy(static row => row.ArticleId)
+            .ToDictionary(
+                static group => group.Key,
+                static group => (IReadOnlyList<int>)group.Select(static row => row.TagId).Distinct().ToArray());
+        var result = new Dictionary<int, ArticleMutationAotScope>();
+        foreach (int articleId in articleIds)
+        {
+            categoryMap.TryGetValue(articleId, out int categoryId);
+            tagMap.TryGetValue(articleId, out IReadOnlyList<int>? tagIds);
+            result[articleId] = new ArticleMutationAotScope(
+                categoryId > 0 ? [categoryId] : [],
+                tagIds ?? []);
+        }
+
+        return result;
+    }
+
+    private static string BuildReplayEdgeUpsertSql(int count)
+    {
+        var values = new List<string>(count);
+        for (int i = 0; i < count; i++)
+        {
+            values.Add($"(@OutboxEventId{i}, @EdgeName{i}, @Status{i}, 1, @LastError{i}, @UpdatedAt)");
+        }
+
+        return $$"""
+            INSERT INTO article_mutation_outbox_edge (
+                outbox_event_id,
+                edge_name,
+                status,
+                attempt_count,
+                last_error,
+                updated_at
+            )
+            VALUES {{string.Join(", ", values)}}
+            ON CONFLICT (outbox_event_id, edge_name) DO UPDATE
+            SET status = EXCLUDED.status,
+                attempt_count = article_mutation_outbox_edge.attempt_count + EXCLUDED.attempt_count,
+                last_error = EXCLUDED.last_error,
+                updated_at = EXCLUDED.updated_at;
+            """;
+    }
+
+    private static SugarParameter[] BuildReplayEdgeUpsertParameters(
+        IReadOnlyList<ArticleMutationOutboxEdgeWrite> rows,
+        DateTime updatedAt)
+    {
+        var parameters = new List<SugarParameter>(rows.Count * 4 + 1)
+        {
+            new("@UpdatedAt", updatedAt)
+        };
+        for (int i = 0; i < rows.Count; i++)
+        {
+            ArticleMutationOutboxEdgeWrite row = rows[i];
+            parameters.Add(new SugarParameter($"@OutboxEventId{i}", row.OutboxEventId));
+            parameters.Add(new SugarParameter($"@EdgeName{i}", row.EdgeName));
+            parameters.Add(new SugarParameter($"@Status{i}", row.Status));
+            parameters.Add(new SugarParameter($"@LastError{i}", row.LastError is null ? DBNull.Value : NormalizeLastError(row.LastError)));
+        }
+
+        return parameters.ToArray();
     }
 
     private static TimeSpan ComputeBackoff(int retryCount)
@@ -461,5 +567,25 @@ public sealed class ArticleMutationOutboxDispatcher(
     private sealed record ArticleMutationAotScope(IReadOnlyList<int> CategoryIds, IReadOnlyList<int> TagIds)
     {
         public static readonly ArticleMutationAotScope Empty = new([], []);
+    }
+
+    private sealed record ArticleMutationOutboxEdgeWrite(
+        long OutboxEventId,
+        string EdgeName,
+        string Status,
+        string? LastError);
+
+    private sealed class ArticleAotCategoryRow
+    {
+        public int ArticleId { get; set; }
+
+        public int CategoryId { get; set; }
+    }
+
+    private sealed class ArticleAotTagRow
+    {
+        public int ArticleId { get; set; }
+
+        public int TagId { get; set; }
     }
 }
