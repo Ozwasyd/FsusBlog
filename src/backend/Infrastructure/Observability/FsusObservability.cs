@@ -139,6 +139,10 @@ public static class FsusObservability
     private static readonly Counter<long> AdminIntegrityTotalCount = Meter.CreateCounter<long>("fsus.admin.integrity.total_count");
     private static readonly Counter<long> AdminIntegritySampleCount = Meter.CreateCounter<long>("fsus.admin.integrity.sample_count");
     private static readonly Counter<long> AdminIntegrityScannedFiles = Meter.CreateCounter<long>("fsus.admin.integrity.scanned_files");
+    private static readonly Counter<long> ModerationDictionaryScannedContent = Meter.CreateCounter<long>("fsus.moderation.dictionary.scanned_content_count");
+    private static readonly Counter<long> ModerationDictionaryMatchedTerms = Meter.CreateCounter<long>("fsus.moderation.dictionary.matched_term_count");
+    private static readonly Histogram<double> ModerationDictionaryMatchElapsed = Meter.CreateHistogram<double>("fsus.moderation.dictionary.match_elapsed_ms", "ms");
+    private static readonly Counter<long> ModerationDictionaryEvaluatedRegions = Meter.CreateCounter<long>("fsus.moderation.dictionary.evaluated_region_count");
 
     public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
 
@@ -671,6 +675,22 @@ public static class FsusObservability
             AdminIntegrityTotalCount.Add(Math.Max(0, totalCount), tags);
             AdminIntegritySampleCount.Add(Math.Max(0, sampleCount), tags);
             AdminIntegrityScannedFiles.Add(Math.Max(0, scannedFileCount), tags);
+        });
+    }
+
+    public static void RecordRegionModerationDictionaryMatch(
+        long scannedContentCount,
+        long matchedTermCount,
+        TimeSpan elapsed,
+        long evaluatedRegionCount)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("moderation", "region_dictionary_match", "ok");
+            ModerationDictionaryScannedContent.Add(Math.Max(0, scannedContentCount), tags);
+            ModerationDictionaryMatchedTerms.Add(Math.Max(0, matchedTermCount), tags);
+            ModerationDictionaryMatchElapsed.Record(elapsed.TotalMilliseconds, tags);
+            ModerationDictionaryEvaluatedRegions.Add(Math.Max(0, evaluatedRegionCount), tags);
         });
     }
 

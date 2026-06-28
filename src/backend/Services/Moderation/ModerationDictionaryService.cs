@@ -148,6 +148,9 @@ public sealed class ModerationDictionaryService(
     }
 
     public IReadOnlyList<ModerationDictionaryMatch> Match(string content, string region)
+        => FilterMatchesForRegion(MatchAll(content), region);
+
+    public IReadOnlyList<ModerationDictionaryMatch> MatchAll(string content)
     {
         if (string.IsNullOrWhiteSpace(content))
         {
@@ -155,21 +158,9 @@ public sealed class ModerationDictionaryService(
         }
 
         ModerationDictionarySnapshot snapshot = CurrentSnapshot;
-        string normalizedRegion = NormalizeRegion(region);
-        string[] dictionaryIds = ResolveRuntimeDictionaryIds(snapshot, normalizedRegion);
-        if (dictionaryIds.Length == 0 && normalizedRegion != RegionCodes.Global)
-        {
-            dictionaryIds = ResolveRuntimeDictionaryIds(snapshot, RegionCodes.Global);
-        }
-
         var matches = new List<ModerationDictionaryMatch>();
-        foreach (string dictionaryId in dictionaryIds)
+        foreach (ModerationDictionaryDefinition dictionary in snapshot.Dictionaries.Values)
         {
-            if (!snapshot.Dictionaries.TryGetValue(dictionaryId, out ModerationDictionaryDefinition? dictionary))
-            {
-                continue;
-            }
-
             foreach (ModerationDictionaryTerm term in dictionary.Terms)
             {
                 string? evidence = MatchTerm(content, term);
@@ -185,16 +176,39 @@ public sealed class ModerationDictionaryService(
                     term.Reason,
                     term.EvidencePolicy,
                     term.EvidencePolicy == ModerationEvidencePolicies.Redact ? null : evidence,
-                    normalizedRegion));
+                    dictionary.Region ?? RegionCodes.Global));
             }
         }
 
-        return matches
-            .GroupBy(static item => $"{item.DictionaryId}:{item.Category}:{item.Reason}", StringComparer.Ordinal)
-            .Select(static group => group.First())
-            .OrderBy(static item => item.DictionaryId, StringComparer.Ordinal)
-            .ThenBy(static item => item.Category, StringComparer.Ordinal)
-            .ToArray();
+        return NormalizeMatches(matches);
+    }
+
+    public IReadOnlyList<ModerationDictionaryMatch> FilterMatchesForRegion(
+        IReadOnlyList<ModerationDictionaryMatch> matches,
+        string region)
+    {
+        if (matches.Count == 0)
+        {
+            return [];
+        }
+
+        ModerationDictionarySnapshot snapshot = CurrentSnapshot;
+        string normalizedRegion = NormalizeRegion(region);
+        string[] dictionaryIds = ResolveRuntimeDictionaryIds(snapshot, normalizedRegion);
+        if (dictionaryIds.Length == 0 && normalizedRegion != RegionCodes.Global)
+        {
+            dictionaryIds = ResolveRuntimeDictionaryIds(snapshot, RegionCodes.Global);
+        }
+
+        if (dictionaryIds.Length == 0)
+        {
+            return [];
+        }
+
+        HashSet<string> allowed = dictionaryIds.ToHashSet(StringComparer.Ordinal);
+        return NormalizeMatches(matches
+            .Where(match => allowed.Contains(match.DictionaryId))
+            .Select(match => match with { MatchedRegion = normalizedRegion }));
     }
 
     public ModerationPolicyAction ResolveAction(string region, string category)
@@ -575,6 +589,14 @@ public sealed class ModerationDictionaryService(
 
         return null;
     }
+
+    private static IReadOnlyList<ModerationDictionaryMatch> NormalizeMatches(IEnumerable<ModerationDictionaryMatch> matches)
+        => matches
+            .GroupBy(static item => $"{item.DictionaryId}:{item.Category}:{item.Reason}", StringComparer.Ordinal)
+            .Select(static group => group.First())
+            .OrderBy(static item => item.DictionaryId, StringComparer.Ordinal)
+            .ThenBy(static item => item.Category, StringComparer.Ordinal)
+            .ToArray();
 
     private static Dictionary<string, string> ParseTopLevelScalars(string raw)
     {

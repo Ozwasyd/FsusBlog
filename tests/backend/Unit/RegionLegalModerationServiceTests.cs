@@ -39,6 +39,34 @@ public sealed class RegionLegalModerationServiceTests
     }
 
     [Fact]
+    public void EvaluateOnSubmit_ReusesSingleDictionaryContentMatchAcrossRegions()
+    {
+        var dictionary = new CountingModerationDictionaryService();
+        var service = new RegionLegalModerationService(dictionary);
+
+        RegionModerationDecision decision = service.EvaluateOnSubmit(MakeRequest(
+            "political_sensitive alias",
+            RegionCodes.Singapore));
+
+        Assert.True(decision.CanPublish);
+        Assert.Equal([RegionCodes.MainlandChina], decision.BlockedRegions);
+        Assert.Equal(1, dictionary.MatchAllCallCount);
+        Assert.Equal(0, dictionary.MatchCallCount);
+
+        string source = File.ReadAllText(Path.Combine(
+            FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.RepositoryRoot,
+            "src/backend/Services/Moderation/RegionLegalModerationService.cs"));
+        string observability = File.ReadAllText(Path.Combine(
+            FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.RepositoryRoot,
+            "src/backend/Infrastructure/Observability/FsusObservability.cs"));
+        Assert.Contains("RecordRegionModerationDictionaryMatch", source, StringComparison.Ordinal);
+        Assert.Contains("fsus.moderation.dictionary.scanned_content_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.moderation.dictionary.matched_term_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.moderation.dictionary.match_elapsed_ms", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.moderation.dictionary.evaluated_region_count", observability, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void EvaluateOnSubmit_UnknownSubmitRegion_HidesUntilManualReview()
     {
         RegionModerationDecision decision = _service.EvaluateOnSubmit(MakeRequest(
@@ -134,5 +162,53 @@ public sealed class RegionLegalModerationServiceTests
         }
 
         return records;
+    }
+
+    private sealed class CountingModerationDictionaryService : FsusBlog.Server.Interfaces.IModerationDictionaryService
+    {
+        private readonly ModerationDictionaryMatch _match = new(
+            "cn-mainland.political-sensitive",
+            ModerationRiskCategories.PoliticalSensitive,
+            "critical",
+            "cn_mainland_political_sensitive",
+            ModerationEvidencePolicies.Redact,
+            null,
+            RegionCodes.Global);
+
+        public int MatchCallCount { get; private set; }
+        public int MatchAllCallCount { get; private set; }
+
+        public ModerationDictionarySnapshot CurrentSnapshot => ModerationDictionarySnapshot.Empty;
+        public string? LastError => null;
+
+        public IReadOnlyList<ModerationDictionaryMatch> Match(string content, string region)
+        {
+            MatchCallCount++;
+            return region == RegionCodes.MainlandChina ? [_match with { MatchedRegion = region }] : [];
+        }
+
+        public IReadOnlyList<ModerationDictionaryMatch> MatchAll(string content)
+        {
+            MatchAllCallCount++;
+            return [_match];
+        }
+
+        public IReadOnlyList<ModerationDictionaryMatch> FilterMatchesForRegion(
+            IReadOnlyList<ModerationDictionaryMatch> matches,
+            string region)
+            => region == RegionCodes.MainlandChina
+                ? matches.Select(match => match with { MatchedRegion = region }).ToArray()
+                : [];
+
+        public ModerationPolicyAction ResolveAction(string region, string category)
+            => region == RegionCodes.MainlandChina && category == ModerationRiskCategories.PoliticalSensitive
+                ? new ModerationPolicyAction(ModerationDictionaryActions.RejectSubmit, ModerationDictionaryActions.GeoBlock)
+                : new ModerationPolicyAction(ModerationDictionaryActions.Allow, ModerationDictionaryActions.Allow);
+
+        public IReadOnlyList<ModerationDictionaryTerm> GetGlobalHardFilterTerms() => [];
+        public ModerationDictionaryRuntimeSnapshot GetRuntimeSnapshot()
+            => new(string.Empty, string.Empty, string.Empty, DateTime.MinValue, [], [], null);
+        public FsusBlog.Core.Common.Result Reload() => FsusBlog.Core.Common.Result.Success();
+        public FsusBlog.Core.Common.Result Rollback() => FsusBlog.Core.Common.Result.Success();
     }
 }

@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Models.Moderation;
 
 namespace FsusBlog.Server.Services.Moderation;
@@ -127,14 +129,17 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
         var blockedRegions = new SortedSet<string>(StringComparer.Ordinal);
         var riskLabels = new SortedSet<string>(StringComparer.Ordinal);
         var hits = new List<RegionRuleHit>();
-        IReadOnlyList<ModerationDictionaryMatch> submitMatches = MatchDictionaries(request.Content, submitRegion);
+        long dictionaryStarted = Stopwatch.GetTimestamp();
+        ModerationContentMatches contentMatches = BuildContentMatches(request.Content);
+        var actionCache = new Dictionary<(string Region, string Category), ModerationPolicyAction>();
+        IReadOnlyList<ModerationDictionaryMatch> submitMatches = MatchDictionaries(contentMatches, submitRegion);
         bool submitRejected = false;
         bool requiresManualReview = false;
         bool hideUntilReviewed = false;
 
         foreach (ModerationDictionaryMatch match in submitMatches)
         {
-            ModerationPolicyAction action = ResolveAction(submitRegion, match.Category);
+            ModerationPolicyAction action = ResolveAction(actionCache, submitRegion, match.Category);
             if (action.SubmitAction == ModerationDictionaryActions.RejectSubmit)
             {
                 submitRejected = true;
@@ -153,10 +158,10 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
 
         foreach (string viewerRegion in EnabledViewerRegions)
         {
-            IReadOnlyList<ModerationDictionaryMatch> viewerMatches = MatchDictionaries(request.Content, viewerRegion);
+            IReadOnlyList<ModerationDictionaryMatch> viewerMatches = MatchDictionaries(contentMatches, viewerRegion);
             foreach (ModerationDictionaryMatch match in viewerMatches)
             {
-                ModerationPolicyAction action = ResolveAction(viewerRegion, match.Category);
+                ModerationPolicyAction action = ResolveAction(actionCache, viewerRegion, match.Category);
                 if (action.DisplayAction == ModerationDictionaryActions.GeoBlock)
                 {
                     blockedRegions.Add(viewerRegion);
@@ -188,6 +193,11 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
                                 : blockedRegions.Count > 0
                                     ? "viewer_region_geo_block"
                                     : "region_policy_allow";
+        FsusObservability.RecordRegionModerationDictionaryMatch(
+            contentMatches.ScannedContentCount,
+            contentMatches.MatchCount,
+            FsusObservability.GetElapsed(dictionaryStarted),
+            EnabledViewerRegions.Length + 1);
 
         return new RegionModerationDecision(
             CanPublish: !submitRejected,
@@ -347,11 +357,24 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
     private static bool HasMainlandStrictHit(IEnumerable<string> categories)
         => categories.Any(MainlandStrictCategories.Contains);
 
-    private IReadOnlyList<ModerationDictionaryMatch> MatchDictionaries(string content, string region)
+    private ModerationContentMatches BuildContentMatches(string content)
+    {
+        IReadOnlyList<ModerationDictionaryMatch> dictionaryMatches = _dictionaryService is null
+            ? []
+            : _dictionaryService.MatchAll(content);
+        string[] fallbackCategories = DetectCategories(content);
+        return new ModerationContentMatches(
+            dictionaryMatches,
+            fallbackCategories,
+            string.IsNullOrWhiteSpace(content) ? 0 : 1,
+            dictionaryMatches.Count + fallbackCategories.Length);
+    }
+
+    private IReadOnlyList<ModerationDictionaryMatch> MatchDictionaries(ModerationContentMatches contentMatches, string region)
     {
         if (_dictionaryService is not null)
         {
-            IReadOnlyList<ModerationDictionaryMatch> matches = _dictionaryService.Match(content, region);
+            IReadOnlyList<ModerationDictionaryMatch> matches = _dictionaryService.FilterMatchesForRegion(contentMatches.DictionaryMatches, region);
             if (matches.Count > 0)
             {
                 return matches;
@@ -359,7 +382,7 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
         }
 
         string normalizedRegion = NormalizeRegion(region);
-        return DetectCategories(content)
+        return contentMatches.FallbackCategories
             .Select(category => new ModerationDictionaryMatch(
                 "fallback.inline",
                 category,
@@ -381,6 +404,22 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
         return NormalizeRegion(region) == RegionCodes.MainlandChina && MainlandStrictCategories.Contains(category)
             ? new ModerationPolicyAction(ModerationDictionaryActions.RejectSubmit, ModerationDictionaryActions.GeoBlock)
             : new ModerationPolicyAction(ModerationDictionaryActions.Allow, ModerationDictionaryActions.Allow);
+    }
+
+    private ModerationPolicyAction ResolveAction(
+        Dictionary<(string Region, string Category), ModerationPolicyAction> cache,
+        string region,
+        string category)
+    {
+        string normalizedRegion = NormalizeRegion(region);
+        var key = (normalizedRegion, category);
+        if (!cache.TryGetValue(key, out ModerationPolicyAction? action))
+        {
+            action = ResolveAction(normalizedRegion, category);
+            cache.Add(key, action);
+        }
+
+        return action;
     }
 
     private static string BuildRiskLabel(string region, ModerationDictionaryMatch match)
@@ -461,4 +500,10 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
             "UNKNOWN" or "" => RegionCodes.Unknown,
             var value => value
         };
+
+    private sealed record ModerationContentMatches(
+        IReadOnlyList<ModerationDictionaryMatch> DictionaryMatches,
+        IReadOnlyList<string> FallbackCategories,
+        long ScannedContentCount,
+        long MatchCount);
 }
