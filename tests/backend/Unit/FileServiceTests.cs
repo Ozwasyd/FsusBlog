@@ -233,6 +233,64 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task CompleteUploadAsync_NewSessionCompletesFromRandomAccessWorkingFileWithoutPartFiles()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(root);
+            byte[] part0 = new byte[64 * 1024];
+            byte[] part1 = new byte[64 * 1024];
+            byte[] pngHeader = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+            pngHeader.CopyTo(part0, 0);
+            Array.Fill<byte>(part0, 0x11, pngHeader.Length, part0.Length - pngHeader.Length);
+            Array.Fill<byte>(part1, 0x22);
+            byte[] payload = [.. part0, .. part1];
+            string finalSha256 = Convert.ToHexStringLower(SHA256.HashData(payload));
+
+            Result<UploadInitDto> init = await service.InitUploadSessionAsync(new UploadInitRequestDto
+            {
+                FileName = "sample.png",
+                MimeType = "image/png",
+                TargetFormat = "png",
+                TotalBytes = payload.Length,
+                ChunkSize = part0.Length,
+                Sha256 = finalSha256
+            });
+
+            Assert.True(init.IsSuccess);
+            Result<UploadPartAckDto> second = await service.UploadPartAsync(
+                init.Value!.UploadId,
+                1,
+                part0.Length,
+                CreateFormFile(part1, "chunk1"),
+                Convert.ToHexStringLower(SHA256.HashData(part1)));
+            Result<UploadPartAckDto> first = await service.UploadPartAsync(
+                init.Value.UploadId,
+                0,
+                0,
+                CreateFormFile(part0, "chunk0"),
+                Convert.ToHexStringLower(SHA256.HashData(part0)));
+
+            Assert.True(second.IsSuccess, second.Error.Message);
+            Assert.True(first.IsSuccess, first.Error.Message);
+            Assert.True(File.Exists(GetWorkingFilePath(root, init.Value.UploadId)));
+            Directory.Delete(Path.Combine(GetSessionPath(root, init.Value.UploadId), "parts"), recursive: true);
+
+            Result<UploadCompleteDto> complete = await service.CompleteUploadAsync(init.Value.UploadId, finalSha256);
+
+            Assert.True(complete.IsSuccess, complete.Error.Message);
+            Assert.Equal(payload.Length, complete.Value!.TotalBytes);
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task GetUploadStatusAsync_RecomputesUploadedBytesForPersistedManifest()
     {
         ResetSessionLocks();
@@ -268,6 +326,65 @@ public sealed class FileServiceTests
 
             UploadSessionRecord persisted = await ReadManifestAsync(root, init.Value.UploadId);
             Assert.Equal(payload.Length, persisted.UploadedBytes);
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task GetUploadStatusAsync_RecognizesBitmapSidecarBeyondManifestCheckpoint()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(root);
+            byte[][] parts =
+            [
+                CreatePngPart(64 * 1024, 0x11, includeHeader: true),
+                CreatePngPart(64 * 1024, 0x22),
+                CreatePngPart(64 * 1024, 0x33),
+                CreatePngPart(64 * 1024, 0x44)
+            ];
+            int totalParts = 10;
+            Result<UploadInitDto> init = await service.InitUploadSessionAsync(new UploadInitRequestDto
+            {
+                FileName = "sample.png",
+                MimeType = "image/png",
+                TargetFormat = "png",
+                TotalBytes = totalParts * parts[0].Length,
+                ChunkSize = parts[0].Length,
+            });
+
+            Assert.True(init.IsSuccess);
+            for (int i = 0; i < parts.Length; i++)
+            {
+                Result<UploadPartAckDto> upload = await service.UploadPartAsync(
+                    init.Value!.UploadId,
+                    i,
+                    (long)i * parts[i].Length,
+                    CreateFormFile(parts[i], $"chunk{i}"),
+                    Convert.ToHexStringLower(SHA256.HashData(parts[i])));
+                Assert.True(upload.IsSuccess, upload.Error.Message);
+            }
+
+            UploadSessionRecord checkpoint = await ReadManifestAsync(root, init.Value!.UploadId);
+            Assert.True(checkpoint.ManifestCheckpointPartCount < parts.Length);
+
+            var resumedService = CreateService(root);
+            Result<UploadStatusDto> status = await resumedService.GetUploadStatusAsync(init.Value.UploadId);
+            Result<UploadPartMapDto> partMap = await resumedService.GetUploadPartMapAsync(init.Value.UploadId);
+
+            Assert.True(status.IsSuccess, status.Error.Message);
+            Assert.Equal(parts.Length, status.Value!.UploadedPartCount);
+            Assert.Equal(parts.Sum(static part => part.Length), status.Value.UploadedBytes);
+            Assert.True(partMap.IsSuccess, partMap.Error.Message);
+            UploadPartRangeDto range = Assert.Single(partMap.Value!.UploadedRanges);
+            Assert.Equal(0, range.Start);
+            Assert.Equal(parts.Length - 1, range.End);
         }
         finally
         {
@@ -966,7 +1083,8 @@ public sealed class FileServiceTests
         Assert.DoesNotContain("ComputeSha256Async(partPath", uploadPart, StringComparison.Ordinal);
         Assert.DoesNotContain("ComputeSha256Async(tempPath", complete, StringComparison.Ordinal);
         Assert.DoesNotContain("ValidateImageSignatureAsync(tempPath", complete, StringComparison.Ordinal);
-        Assert.Contains("WritePartAndComputeHashAsync", uploadPart, StringComparison.Ordinal);
+        Assert.Contains("WritePartToWorkingFileAndComputeHashAsync", uploadPart, StringComparison.Ordinal);
+        Assert.Contains("AnalyzeWorkingUploadAsync", complete, StringComparison.Ordinal);
         Assert.Contains("AssembleUploadAsync", complete, StringComparison.Ordinal);
         Assert.Contains("ValidateImageSignature(assembled.Header", complete, StringComparison.Ordinal);
     }
@@ -1013,6 +1131,19 @@ public sealed class FileServiceTests
         return new FormFile(stream, 0, payload.Length, name, $"{name}.bin");
     }
 
+    private static byte[] CreatePngPart(int size, byte fill, bool includeHeader = false)
+    {
+        byte[] part = new byte[size];
+        Array.Fill(part, fill);
+        if (includeHeader)
+        {
+            byte[] pngHeader = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+            pngHeader.CopyTo(part, 0);
+        }
+
+        return part;
+    }
+
     private static int GetSessionLockCount()
     {
         FieldInfo field = typeof(FileService).GetField("_sessionLocks", BindingFlags.Static | BindingFlags.NonPublic)!;
@@ -1055,6 +1186,9 @@ public sealed class FileServiceTests
 
     private static string GetPartPath(string root, string uploadId, int partNumber)
         => Path.Combine(GetSessionPath(root, uploadId), "parts", $"{partNumber:D8}.part");
+
+    private static string GetWorkingFilePath(string root, string uploadId)
+        => Path.Combine(GetSessionPath(root, uploadId), "upload.tmp");
 
     private static async Task<UploadSessionRecord> ReadManifestAsync(string root, string uploadId)
     {

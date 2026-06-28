@@ -31,4 +31,7 @@ internal sealed record class UploadSessionRecord
     public DateTime ExpiresAt { get; set; }
     public long UploadedBytes { get; set; }
     public List<int>? UploadedParts { get; set; }
+    public string WorkingFileName { get; init; } = string.Empty;
+    public string UploadedPartBitmapBase64 { get; set; } = string.Empty;
+    public int ManifestCheckpointPartCount { get; set; }
 }
