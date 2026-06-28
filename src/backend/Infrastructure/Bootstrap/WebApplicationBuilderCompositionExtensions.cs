@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Serilog;
 
@@ -17,7 +18,7 @@ public static class WebApplicationBuilderCompositionExtensions
 
             options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
             options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(10);
-            options.Limits.MaxRequestBodySize = 8 * 1024 * 1024;
+            options.Limits.MaxRequestBodySize = FileService.UploadRequestBodyLimitBytes;
 
             options.Limits.Http2.MaxStreamsPerConnection = 128;
             options.Limits.Http2.HeaderTableSize = 4096;

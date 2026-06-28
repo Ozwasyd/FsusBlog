@@ -328,6 +328,7 @@ public static class WebApplicationCompositionExtensions
         provider.Mappings[".wasm"] = "application/wasm";
         provider.Mappings[".patch"] = "application/octet-stream";
         provider.Mappings[".aeds"] = "application/octet-stream";
+        provider.Mappings.Remove(".avif");
         return provider;
     }
 
@@ -768,7 +769,6 @@ public static class WebApplicationCompositionExtensions
             || path.EndsWith(".jpeg".AsSpan(), StringComparison.OrdinalIgnoreCase)
             || path.EndsWith(".gif".AsSpan(), StringComparison.OrdinalIgnoreCase)
             || path.EndsWith(".webp".AsSpan(), StringComparison.OrdinalIgnoreCase)
-            || path.EndsWith(".avif".AsSpan(), StringComparison.OrdinalIgnoreCase)
             || path.EndsWith(".svg".AsSpan(), StringComparison.OrdinalIgnoreCase)
             || path.EndsWith(".ico".AsSpan(), StringComparison.OrdinalIgnoreCase)
             || path.EndsWith(".map".AsSpan(), StringComparison.OrdinalIgnoreCase);

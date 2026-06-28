@@ -1880,7 +1880,6 @@ public sealed class AuthoringWorkflowService(
                 || url.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
                 || url.EndsWith(".gif", StringComparison.OrdinalIgnoreCase)
                 || url.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)
-                || url.EndsWith(".avif", StringComparison.OrdinalIgnoreCase)
                 || url.EndsWith(".svg", StringComparison.OrdinalIgnoreCase));
 
     private sealed class AssetReferenceAggregate(string url, int sourceArticleId)

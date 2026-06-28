@@ -18,7 +18,8 @@ public sealed partial class FileService : IFileService
     private const int MaxChunkSize = 2 * 1024 * 1024;
     private const int UploadStreamBufferSize = 81920;
     private const int ImageSignatureHeaderLength = 512;
-    private const long MaxUploadBytes = 20 * 1024 * 1024;
+    public const long MaxUploadBytes = 20 * 1024 * 1024;
+    public const long UploadRequestBodyLimitBytes = MaxUploadBytes + 1024 * 1024;
     private const uint UploadSessionMagic = 0x53505546; // FUPS
     private const byte UploadSessionVersion = 2;
     private static readonly TimeSpan SessionTtl = TimeSpan.FromHours(6);
@@ -35,8 +36,8 @@ public sealed partial class FileService : IFileService
     private readonly string _sessionRootAbsolutePath;
     private readonly UploadSessionCleanupQueue? _cleanupQueue;
 
-    private static readonly string[] _allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"];
-    private static readonly string[] _allowedFormats = ["jpg", "jpeg", "png", "gif", "webp", "avif"];
+    private static readonly string[] _allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
+    private static readonly string[] _allowedFormats = ["jpg", "jpeg", "png", "gif", "webp"];
     private static readonly ConcurrentDictionary<string, SessionLockEntry> _sessionLocks = new(StringComparer.Ordinal);
 
     public FileService(
@@ -64,7 +65,7 @@ public sealed partial class FileService : IFileService
         _cleanSubFolderWeb = "/" + _subFolder.Trim('/', '\\').Replace('\\', '/');
 
         Directory.CreateDirectory(_folderPath);
-        Directory.CreateDirectory(_sessionRootPath);
+        EnsureRestrictedDirectory(_sessionRootPath);
     }
 
     public async Task<FileUploadResult> UploadImageAsync(IFormFile file)
@@ -171,8 +172,8 @@ public sealed partial class FileService : IFileService
         Result initResult = await BoundaryExecutor.ExecuteResultAsync(
             async () =>
             {
-                Directory.CreateDirectory(GetSessionPath(uploadId));
-                Directory.CreateDirectory(GetPartsPath(uploadId));
+                EnsureRestrictedDirectory(GetSessionPath(uploadId));
+                EnsureRestrictedDirectory(GetPartsPath(uploadId));
                 await SaveSessionAsync(record, cancellationToken);
             },
             _ => ErrorDetail.Create(ErrorCode.InfraFailure, "上传会话初始化失败"),
@@ -662,6 +663,43 @@ public sealed partial class FileService : IFileService
         return childPath;
     }
 
+    private static void EnsureRestrictedDirectory(string path)
+    {
+        Directory.CreateDirectory(path);
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(
+                path,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
+    private static FileStreamOptions CreatePrivateWriteOptions(FileMode mode)
+    {
+        var options = new FileStreamOptions
+        {
+            Mode = mode,
+            Access = FileAccess.Write,
+            Share = FileShare.None,
+            BufferSize = UploadStreamBufferSize,
+            Options = FileOptions.Asynchronous
+        };
+        if (!OperatingSystem.IsWindows())
+        {
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        }
+
+        return options;
+    }
+
+    private static void RestrictFile(string path)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+    }
+
     private bool IsPathUnderSessionRoot(string path)
         => path.StartsWith(_sessionRootAbsolutePath, StringComparison.OrdinalIgnoreCase);
 
@@ -721,7 +759,6 @@ public sealed partial class FileService : IFileService
             "image/png" => true,
             "image/gif" => true,
             "image/webp" => true,
-            "image/avif" => true,
             _ => false
         };
     }
@@ -740,7 +777,6 @@ public sealed partial class FileService : IFileService
             "png" => "image/png",
             "gif" => "image/gif",
             "webp" => "image/webp",
-            "avif" => "image/avif",
             _ => string.Empty
         };
 
@@ -821,11 +857,36 @@ public sealed partial class FileService : IFileService
         }
 
         string manifestPath = GetManifestPath(normalizedUploadId);
-        string tempPath = manifestPath + ".tmp";
+        string manifestDirectory = Path.GetDirectoryName(manifestPath)!;
+        string tempPath = Path.Combine(
+            manifestDirectory,
+            $"{Path.GetFileName(manifestPath)}.{Path.GetRandomFileName()}.tmp");
         byte[] payload = EncodeSession(record with { UploadId = normalizedUploadId });
-        await File.WriteAllBytesAsync(tempPath, payload, cancellationToken);
+        try
+        {
+            await using (var stream = new FileStream(tempPath, CreatePrivateWriteOptions(FileMode.CreateNew)))
+            {
+                await stream.WriteAsync(payload, cancellationToken);
+            }
 
-        File.Move(tempPath, manifestPath, true);
+            if (File.Exists(manifestPath))
+            {
+                File.Replace(tempPath, manifestPath, null);
+            }
+            else
+            {
+                File.Move(tempPath, manifestPath);
+            }
+
+            RestrictFile(manifestPath);
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+        }
     }
 
     private async Task<long> GetUploadedBytesAsync(string uploadId, IEnumerable<int> parts, CancellationToken cancellationToken)
@@ -1240,16 +1301,9 @@ public sealed partial class FileService : IFileService
         bool computeHash,
         CancellationToken cancellationToken)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(partPath)!);
+        EnsureRestrictedDirectory(Path.GetDirectoryName(partPath)!);
         await using Stream input = part.OpenReadStream();
-        await using var output = new FileStream(partPath, new FileStreamOptions
-        {
-            Mode = FileMode.Create,
-            Access = FileAccess.Write,
-            Share = FileShare.None,
-            BufferSize = UploadStreamBufferSize,
-            Options = FileOptions.Asynchronous
-        });
+        await using var output = new FileStream(partPath, CreatePrivateWriteOptions(FileMode.Create));
         using IncrementalHash? hasher = computeHash
             ? IncrementalHash.CreateHash(HashAlgorithmName.SHA256)
             : null;
@@ -1280,14 +1334,7 @@ public sealed partial class FileService : IFileService
         bool computeHash,
         CancellationToken cancellationToken)
     {
-        await using var output = new FileStream(tempPath, new FileStreamOptions
-        {
-            Mode = FileMode.Create,
-            Access = FileAccess.Write,
-            Share = FileShare.None,
-            BufferSize = UploadStreamBufferSize,
-            Options = FileOptions.Asynchronous
-        });
+        await using var output = new FileStream(tempPath, CreatePrivateWriteOptions(FileMode.Create));
         using IncrementalHash? hasher = computeHash
             ? IncrementalHash.CreateHash(HashAlgorithmName.SHA256)
             : null;

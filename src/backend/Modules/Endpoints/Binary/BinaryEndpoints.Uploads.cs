@@ -104,6 +104,13 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "分片偏移非法"), aeds);
             }
 
+            string transferEncoding = httpContext.Request.Headers["Transfer-Encoding"].ToString();
+            if (!httpContext.Request.ContentLength.HasValue ||
+                transferEncoding.Contains("chunked", StringComparison.OrdinalIgnoreCase))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传分片必须携带 Content-Length"), aeds, StatusCodes.Status411LengthRequired);
+            }
+
             long payloadLength = httpContext.Request.ContentLength.GetValueOrDefault();
             if (payloadLength <= 0)
             {

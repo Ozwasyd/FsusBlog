@@ -486,6 +486,23 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task InitUploadAsync_AvifRequest_ReturnsFail()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var svc = CreateService(root);
+            var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
+            {
+                FileName = "photo.avif", MimeType = "image/avif", TargetFormat = "avif",
+                TotalBytes = 100, ChunkSize = 100
+            });
+            Assert.False(result.IsSuccess);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
     public async Task InitUploadAsync_MismatchedMimeAndFormat_ReturnsFail()
     {
         string root = CreateTempDirectory();
@@ -954,6 +971,42 @@ public sealed class FileServiceTests
         Assert.Contains("ValidateImageSignature(assembled.Header", complete, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void UploadSessionStorage_UsesRandomPrivateManifestTempFiles()
+    {
+        string source = ReadFileServiceSource();
+        string saveSession = ExtractMethodBlock(source, "private async Task SaveSessionAsync");
+
+        Assert.DoesNotContain("manifestPath + \".tmp\"", saveSession, StringComparison.Ordinal);
+        Assert.Contains("Path.GetRandomFileName()", saveSession, StringComparison.Ordinal);
+        Assert.Contains("File.Replace", saveSession, StringComparison.Ordinal);
+        Assert.Contains("CreatePrivateWriteOptions", saveSession, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UploadSessionRoot_IsPrivateOnUnix()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        string root = CreateTempDirectory();
+        try
+        {
+            _ = CreateService(root);
+            UnixFileMode mode = File.GetUnixFileMode(Path.Combine(root, ".upload-sessions"));
+
+            Assert.False(mode.HasFlag(UnixFileMode.GroupRead));
+            Assert.False(mode.HasFlag(UnixFileMode.GroupWrite));
+            Assert.False(mode.HasFlag(UnixFileMode.GroupExecute));
+            Assert.False(mode.HasFlag(UnixFileMode.OtherRead));
+            Assert.False(mode.HasFlag(UnixFileMode.OtherWrite));
+            Assert.False(mode.HasFlag(UnixFileMode.OtherExecute));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
     private static FormFile CreateFormFile(byte[] payload, string name)
     {
         var stream = new MemoryStream(payload, writable: false);
@@ -1126,7 +1179,7 @@ public sealed class FileServiceTests
     [InlineData(".png", true)]
     [InlineData(".gif", true)]
     [InlineData(".webp", true)]
-    [InlineData(".avif", true)]
+    [InlineData(".avif", false)]
     [InlineData(".bmp", false)]
     [InlineData(".exe", false)]
     public void IsAllowedExtension_ReturnsExpected(string ext, bool expected)
@@ -1140,7 +1193,7 @@ public sealed class FileServiceTests
     [InlineData("image/png", true)]
     [InlineData("image/gif", true)]
     [InlineData("image/webp", true)]
-    [InlineData("image/avif", true)]
+    [InlineData("image/avif", false)]
     [InlineData("image/bmp", false)]
     [InlineData(null, false)]
     [InlineData("", false)]

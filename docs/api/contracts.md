@@ -958,7 +958,7 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
 
 源码：`src/shared/Contracts/Outputs/ServerResponseContracts.cs`
 
-所有上传端点在 `/api/binary/upload/` 路径下，需要 admin principal + `article.write` 权限。`uploadId` 由服务端生成并返回，wire 格式固定为 32 位 GUID `N` 格式；status、part map、part upload、complete 和 abort 路由只接受该形态并规范化为小写 canonical 值，非法值返回 validation error，不会被当作文件系统路径继续解析。`/part` 和 `/complete` 还必须携带 `X-Fsus-Upload-Token`，其值来自初始化响应的 `uploadToken`。
+所有上传端点在 `/api/binary/upload/` 路径下，需要 admin principal + `article.write` 权限。`uploadId` 由服务端生成并返回，wire 格式固定为 32 位 GUID `N` 格式；status、part map、part upload、complete 和 abort 路由只接受该形态并规范化为小写 canonical 值，非法值返回 validation error，不会被当作文件系统路径继续解析。`/part` 和 `/complete` 还必须携带 `X-Fsus-Upload-Token`，其值来自初始化响应的 `uploadToken`。`/part` 必须携带明确 `Content-Length`，chunked transfer-encoding 返回 411；上传总大小上限为 20 MiB，Kestrel request body limit 必须覆盖该上限和协议开销。允许的目标图片格式固定为 jpg/jpeg/png/gif/webp；AVIF 在具备像素维度、metadata bomb 和 decoder 风险防护前不属于 upload 或静态 content-type allow-list。`.upload-sessions` manifest 和 part 文件只允许 owner read/write，manifest 使用随机 sibling temp path 后原子发布。
 
 ### `UploadInitDto`（初始化响应）
 
