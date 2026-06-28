@@ -217,7 +217,7 @@ public sealed class NativeGroth16ZkProofBackendTests
         var nativeLibrary = new HashingNativeGroth16FixtureLibrary
         {
             AcceptAnyProof = true,
-            Delay = TimeSpan.FromMilliseconds(100)
+            Delay = TimeSpan.FromMilliseconds(500)
         };
         var backend = CreateFixtureBackend(temp, nativeLibrary);
         var logger = new CapturingLogger<ProductionZkProofVerifier>();
@@ -227,7 +227,7 @@ public sealed class NativeGroth16ZkProofBackendTests
             logger,
             overrides: new Dictionary<string, string?>
             {
-                ["AnonymousIdentity:ZkVerifier:BackendTimeoutMs"] = "5"
+                ["AnonymousIdentity:ZkVerifier:BackendTimeoutMs"] = "20"
             });
 
         ZkProofVerificationResult result = await verifier.VerifyAsync(ValidVerificationRequest([1, 2, 3], temp.VerifyingKeySha256));

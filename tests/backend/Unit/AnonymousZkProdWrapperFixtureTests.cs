@@ -250,7 +250,8 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             configuration: new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["Moderation:Pepper"] = "unit-test-moderation-pepper-with-at-least-thirty-two-chars"
+                    ["Moderation:Pepper"] = "unit-test-moderation-pepper-with-at-least-thirty-two-chars",
+                    ["AnonymousIdentity:NullifierPepper"] = "unit-test-anonymous-nullifier-pepper-32-bytes-minimum"
                 })
                 .Build());
 
@@ -364,6 +365,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             {
                 ["AnonymousIdentity:AnonymousCommentsEnabled"] = "true",
                 ["AnonymousIdentity:ZkAnonymousCommentsEnabled"] = "true",
+                ["AnonymousIdentity:NullifierPepper"] = "unit-test-anonymous-nullifier-pepper-32-bytes-minimum",
                 ["AnonymousIdentity:AnonymousCommentTicketTtlSeconds"] = "120",
                 ["AnonymousIdentity:ZkVerifier:Enabled"] = "true",
                 ["AnonymousIdentity:ZkVerifier:CircuitId"] = AnonymousPrivacyContract.CircuitId,

@@ -36,6 +36,12 @@ public sealed class AnonymousCredentialRoot
     [SugarColumn(ColumnName = "circuit_metadata", ColumnDataType = "text", IsNullable = true)]
     public string? CircuitMetadata { get; set; }
 
+    [SugarColumn(ColumnName = "root_attestation", Length = 128)]
+    public string RootAttestation { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "root_attestation_key_id", Length = 96)]
+    public string RootAttestationKeyId { get; set; } = string.Empty;
+
     [SugarColumn(ColumnName = "created_at_utc")]
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 

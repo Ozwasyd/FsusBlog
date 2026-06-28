@@ -262,7 +262,8 @@ public sealed class CommentActorContractTests
     {
         var merged = new Dictionary<string, string?>(values, StringComparer.OrdinalIgnoreCase)
         {
-            ["Moderation:Pepper"] = "unit-test-moderation-pepper-32-bytes-minimum"
+            ["Moderation:Pepper"] = "unit-test-moderation-pepper-32-bytes-minimum",
+            ["AnonymousIdentity:NullifierPepper"] = "unit-test-anonymous-nullifier-pepper-32-bytes-minimum"
         };
         return new ConfigurationBuilder()
             .AddInMemoryCollection(merged)

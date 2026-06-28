@@ -38,6 +38,8 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
         Assert.Contains("unique_idx_anonymous_credential_root_hash", fingerprint, StringComparison.Ordinal);
         Assert.Contains("unique_idx_anonymous_credential_root_single_active", fingerprint, StringComparison.Ordinal);
         Assert.Contains("idx_anonymous_credential_root_status_epoch", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("root_attestation", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("root_attestation_key_id", fingerprint, StringComparison.Ordinal);
         Assert.Contains("unique_idx_anonymous_credential_revocation_epoch_handle", fingerprint, StringComparison.Ordinal);
     }
 
@@ -136,6 +138,102 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
             Assert.Empty(reader.CurrentSnapshot.AcceptedRoots);
             Assert.False(reader.IsRootAccepted("ee07", 160));
             Assert.False(reader.IsRootAccepted("ee07", RevocationRoot(160), IssuerPublicKeyHash, 160));
+    }
+
+    [Fact]
+    public async Task RootLifecycle_RefreshExcludesProductionRootWithoutTrustedAttestation()
+    {
+        string connectionString = await CreateConnectionStringAsync();
+        using SqlSugarClient setup = CreateDb(connectionString);
+            CreateLifecycleTables(setup);
+            SeedRoot(
+                setup,
+                epoch: 162,
+                rootHash: "ee09",
+                status: AnonymousCredentialRootStatuses.Active,
+                graceMinutes: 120,
+                circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata);
+
+            await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
+            var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
+
+            await reader.RefreshAsync(CancellationToken.None);
+
+            Assert.Empty(reader.CurrentSnapshot.AcceptedRoots);
+            Assert.False(reader.IsRootAccepted("ee09", CircuitFriendlyRevocationRoot(162), IssuerPublicKeyHash, 162));
+    }
+
+    [Fact]
+    public async Task RootStore_ReturnsOnlyAttestedActiveRoot()
+    {
+        string connectionString = await CreateConnectionStringAsync();
+        using SqlSugarClient setup = CreateDb(connectionString);
+            CreateLifecycleTables(setup);
+            SeedRoot(
+                setup,
+                epoch: 166,
+                rootHash: "ee13",
+                status: AnonymousCredentialRootStatuses.Active,
+                graceMinutes: 120,
+                circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata);
+            var store = new AnonymousCredentialRootStore(setup, BuildRootAttestationConfiguration());
+
+            AnonymousCredentialRootRecord? unattested = await store.GetCurrentAsync(BaselineNow, CancellationToken.None);
+
+            Assert.Null(unattested);
+
+            await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
+            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+            string attestedRevocationRoot = CircuitFriendlyRevocationRoot(167);
+            Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(
+                epoch: 167,
+                rootHash: "ee14",
+                revocationRootHash: attestedRevocationRoot,
+                circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata), CancellationToken.None);
+
+            Assert.True(rotated.IsSuccess, rotated.Error.Message);
+            AnonymousCredentialRootRecord? attested = await store.GetCurrentAsync(BaselineNow, CancellationToken.None);
+            Assert.NotNull(attested);
+            Assert.Equal(167, attested.Value.CredentialEpoch);
+            Assert.Equal("ee14", attested.Value.RootHash);
+    }
+
+    [Fact]
+    public async Task RootLifecycle_GraceRootExpiresFromProductionSnapshotAfterFreshnessWindow()
+    {
+        string connectionString = await CreateConnectionStringAsync();
+        using SqlSugarClient setup = CreateDb(connectionString);
+            CreateLifecycleTables(setup);
+
+            var clock = new MutableTimeProvider(BaselineNow);
+            await using ServiceProvider provider = BuildProvider(connectionString, clock, Substitute.For<IAnonymousCredentialRootService>());
+            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+            var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
+            string firstRoot = CircuitFriendlyRevocationRoot(163);
+            string secondRoot = CircuitFriendlyRevocationRoot(164);
+
+            Result<AnonymousCredentialRootRecord> first = await writer.RotateAsync(CreateRotation(
+                epoch: 163,
+                rootHash: "ee10",
+                revocationRootHash: firstRoot,
+                circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata), CancellationToken.None);
+            clock.Advance(TimeSpan.FromSeconds(10));
+            Result<AnonymousCredentialRootRecord> second = await writer.RotateAsync(CreateRotation(
+                epoch: 164,
+                rootHash: "ee11",
+                revocationRootHash: secondRoot,
+                circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata), CancellationToken.None);
+
+            Assert.True(first.IsSuccess, first.Error.Message);
+            Assert.True(second.IsSuccess, second.Error.Message);
+            Assert.True(reader.IsRootAccepted("ee10", firstRoot, IssuerPublicKeyHash, 163));
+            Assert.True(reader.IsRootAccepted("ee11", secondRoot, IssuerPublicKeyHash, 164));
+
+            clock.Advance(TimeSpan.FromSeconds(301));
+            await reader.RefreshAsync(CancellationToken.None);
+
+            Assert.False(reader.IsRootAccepted("ee10", firstRoot, IssuerPublicKeyHash, 163));
+            Assert.True(reader.IsRootAccepted("ee11", secondRoot, IssuerPublicKeyHash, 164));
     }
 
     [Fact]
@@ -256,6 +354,14 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
             Assert.Equal(AnonymousCredentialRootStatuses.Active, accepted.Status);
             Assert.True(accepted.GraceExpiresAtUtc > BaselineNow);
             Assert.True(reader.IsRootAccepted("ff01", emptyRoot, IssuerPublicKeyHash, 171));
+            using (SqlSugarClient attestationDb = CreateDb(connectionString))
+            {
+                AnonymousCredentialRoot storedRoot = await attestationDb.Queryable<AnonymousCredentialRoot>()
+                    .Where(static item => item.Epoch == 171)
+                    .FirstAsync();
+                Assert.False(string.IsNullOrWhiteSpace(storedRoot.RootAttestation));
+                Assert.Equal("local-test-root-attestation", storedRoot.RootAttestationKeyId);
+            }
 
             Result revoked = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
                 Epoch: 171,
@@ -421,6 +527,28 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
         Assert.Equal("legacy_sha256_not_circuit_friendly", legacy.UnavailableReason);
         Assert.True(reservedCircuitFriendly.IsProductionZkCompatible);
         Assert.Equal(string.Empty, reservedCircuitFriendly.UnavailableReason);
+        Assert.Equal(128, reservedCircuitFriendly.PathDepth);
+        Assert.Equal("mimc7-bn254.v1", reservedCircuitFriendly.HashId);
+        Assert.Equal("sparse-merkle.v1", reservedCircuitFriendly.TreeId);
+    }
+
+    [Fact]
+    public async Task RootLifecycle_RejectsProductionAccumulatorWithPathDepthMismatch()
+    {
+        string connectionString = await CreateConnectionStringAsync();
+        using SqlSugarClient setup = CreateDb(connectionString);
+            CreateLifecycleTables(setup);
+
+            await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
+            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+
+            Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(
+                epoch: 165,
+                rootHash: "ee12",
+                circuitMetadata: CircuitFriendlyWrongDepthRevocationAccumulatorMetadata), CancellationToken.None);
+
+            Assert.True(rotated.IsFailure);
+            Assert.Equal("anonymous_credential_revocation_accumulator_not_production_ready", rotated.Error.Message);
     }
 
     [Fact]
@@ -455,6 +583,9 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
 
     private const string CircuitFriendlyRevocationAccumulatorMetadata =
         "{\"layout\":3,\"revocationAccumulator\":{\"algorithm\":\"circuit-friendly-non-membership.v1\",\"productionZkReady\":true,\"hash\":\"mimc7-bn254.v1\",\"tree\":\"sparse-merkle.v1\",\"depth\":128}}";
+
+    private const string CircuitFriendlyWrongDepthRevocationAccumulatorMetadata =
+        "{\"layout\":3,\"revocationAccumulator\":{\"algorithm\":\"circuit-friendly-non-membership.v1\",\"productionZkReady\":true,\"hash\":\"mimc7-bn254.v1\",\"tree\":\"sparse-merkle.v1\",\"depth\":64}}";
 
     private static AnonymousCredentialRootRotationRequest CreateRotation(
         long epoch,
@@ -503,6 +634,7 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
         IAnonymousCredentialRootService rootCache)
     {
         var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(BuildRootAttestationConfiguration());
         services.AddSingleton(timeProvider);
         services.AddSingleton(rootCache);
         services.AddSingleton<CapturingAuditEventService>();
@@ -518,6 +650,15 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
             ValidateScopes = true
         });
     }
+
+    private static IConfiguration BuildRootAttestationConfiguration()
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AnonymousCredentialRoot:AttestationKey"] = "unit-test-root-attestation-key-with-at-least-thirty-two-chars",
+                ["AnonymousCredentialRoot:AttestationKeyId"] = "local-test-root-attestation"
+            })
+            .Build();
 
     private Task<string> CreateConnectionStringAsync()
         => PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);

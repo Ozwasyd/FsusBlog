@@ -164,44 +164,10 @@ public sealed class CommentActorResolver(
         string scope = NormalizeScope(request.AnonymousScope, request.ArticleId);
         if (string.Equals(decision.EffectiveAuthorMode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal))
         {
-            if (!TryNormalizeZkPublicInputs(request, out ZkAnonymousPublicInputs publicInputs))
-            {
-                return CommentActorResolveResult.Reject(
-                    ZkProofVerificationStatuses.MissingProof,
-                    ZkProofVerificationResult.MissingProof().Message);
-            }
-
-            ZkProofVerificationResult proof = await zkProofService.VerifyCommentProofAsync(
-                new ZkProofVerificationRequest(
-                    ActionContext: "comment.create",
-                    Scope: scope,
-                    CircuitId: publicInputs.CircuitId,
-                    VerifyingKeyHash: publicInputs.VerifyingKeyHash,
-                    PublicInputLayoutVersion: publicInputs.PublicInputLayoutVersion,
-                    CredentialEpoch: publicInputs.CredentialEpoch,
-                    NullifierHash: publicInputs.NullifierHash,
-                    CredentialCommitment: publicInputs.CredentialCommitment,
-                    CredentialRoot: publicInputs.CredentialRoot,
-                    CredentialLevel: AnonymousCredentialLevels.StrongAnonymous,
-                    ReputationBucket: publicInputs.ReputationBucket ?? ResolveReputationBucket(AnonymousCredentialLevels.StrongAnonymous),
-                    PolicyHash: AnonymousCommentPolicySnapshotHash.Resolve(zkProofService.CurrentCommentPolicy),
-                    Proof: request.ZkProof ?? [],
-                    RevocationRoot: publicInputs.RevocationRoot,
-                    IssuerPublicKeyHash: publicInputs.IssuerPublicKeyHash),
-                cancellationToken);
-            if (!proof.Verified)
-            {
-                return CommentActorResolveResult.Reject(proof.Status, proof.Message);
-            }
-
-            return CommentActorResolveResult.Allow(BuildAnonymousActor(
-                decision.EffectiveAuthorMode,
-                scope,
-                language,
-                publicInputs.NullifierHash,
-                AnonymousCredentialLevels.StrongAnonymous,
-                publicInputs.ReputationBucket ?? ResolveReputationBucket(AnonymousCredentialLevels.StrongAnonymous),
-                "credential_bound"));
+            _ = zkProofService;
+            return CommentActorResolveResult.Reject(
+                "anonymous_ticket_required",
+                "ZK anonymous comments must be submitted with a single-use anonymous comment ticket");
         }
 
         string nullifierHash = DeriveEngineeringNullifierHash(
@@ -270,59 +236,32 @@ public sealed class CommentActorResolver(
             _ => "basic"
         };
 
-    private static string DeriveEngineeringNullifierHash(
+    private string DeriveEngineeringNullifierHash(
         string authorMode,
         string scope,
         int? userId,
         string? proofToken)
     {
-        string account = userId is > 0
-            ? userId.Value.ToString(CultureInfo.InvariantCulture)
-            : "none";
-        string proof = NormalizeToken(proofToken, 256) ?? "none";
-        return Sha256Hex($"comment:nullifier:{authorMode}|{scope}|account:{account}|proof:{proof}");
+        _ = userId;
+        _ = proofToken;
+        byte[] key = ResolveNullifierPepper(configuration);
+        byte[] material = Encoding.UTF8.GetBytes(string.Concat(
+            "fsus.anonymous.nullifier.v2|",
+            NormalizeToken(authorMode, 32) ?? CommentAuthorModes.Anonymous,
+            "|",
+            NormalizeRequiredToken(scope, 256) ?? "global"));
+        return Convert.ToHexStringLower(HMACSHA256.HashData(key, material));
     }
 
-    private static bool TryNormalizeZkPublicInputs(
-        CommentActorResolveRequest request,
-        out ZkAnonymousPublicInputs publicInputs)
+    private static byte[] ResolveNullifierPepper(IConfiguration configuration)
     {
-        publicInputs = default;
-        string? nullifierHash = NormalizeHexHash(request.NullifierHash, minLength: 32, maxLength: 128);
-        string? credentialCommitment = NormalizeHexHash(request.CredentialCommitment, minLength: 32, maxLength: 128);
-        string? credentialRoot = NormalizeRequiredToken(request.CredentialRoot, 128);
-        string? revocationRoot = NormalizeRequiredToken(request.RevocationRoot, 128);
-        string? issuerPublicKeyHash = NormalizeHexHash(request.IssuerPublicKeyHash, minLength: 32, maxLength: 128);
-        string? circuitId = NormalizeRequiredToken(request.CircuitId, 128);
-        string? verifyingKeyHash = NormalizeRequiredToken(request.VerifyingKeyHash, 128);
-        string? reputationBucket = NormalizeToken(request.ReputationBucket, 64);
-        if (nullifierHash is null ||
-            credentialCommitment is null ||
-            credentialRoot is null ||
-            revocationRoot is null ||
-            issuerPublicKeyHash is null ||
-            circuitId is null ||
-            verifyingKeyHash is null ||
-            request.CredentialEpoch <= 0 ||
-            request.PublicInputLayoutVersion == 0 ||
-            request.ZkProof is null ||
-            request.ZkProof.Length == 0)
+        string? value = configuration["AnonymousIdentity:NullifierPepper"];
+        if (string.IsNullOrWhiteSpace(value) || value.Trim().Length < 32)
         {
-            return false;
+            throw new InvalidOperationException("AnonymousIdentity:NullifierPepper must be configured with at least 32 characters.");
         }
 
-        publicInputs = new ZkAnonymousPublicInputs(
-            nullifierHash,
-            credentialCommitment,
-            credentialRoot,
-            revocationRoot,
-            issuerPublicKeyHash,
-            request.CredentialEpoch,
-            circuitId,
-            verifyingKeyHash,
-            request.PublicInputLayoutVersion,
-            reputationBucket);
-        return true;
+        return SHA256.HashData(Encoding.UTF8.GetBytes(value.Trim()));
     }
 
     private static string NormalizeScope(string? value, int articleId)
@@ -342,19 +281,6 @@ public sealed class CommentActorResolver(
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
     }
 
-    private static string? NormalizeHexHash(string? value, int minLength, int maxLength)
-    {
-        string? normalized = NormalizeRequiredToken(value, maxLength);
-        if (normalized is null ||
-            normalized.Length < minLength ||
-            !IsHexHash(normalized.AsSpan()))
-        {
-            return null;
-        }
-
-        return normalized.ToLowerInvariant();
-    }
-
     private static string? NormalizeRequiredToken(string? value, int maxLength)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -366,31 +292,7 @@ public sealed class CommentActorResolver(
         return normalized.Length <= maxLength ? normalized : null;
     }
 
-    private static bool IsHexHash(ReadOnlySpan<char> value)
-    {
-        foreach (char ch in value)
-        {
-            if (!Uri.IsHexDigit(ch))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     private static string Sha256Hex(string value)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
 
-    private readonly record struct ZkAnonymousPublicInputs(
-        string NullifierHash,
-        string CredentialCommitment,
-        string CredentialRoot,
-        string RevocationRoot,
-        string IssuerPublicKeyHash,
-        long CredentialEpoch,
-        string CircuitId,
-        string VerifyingKeyHash,
-        ushort PublicInputLayoutVersion,
-        string? ReputationBucket);
 }

@@ -107,6 +107,18 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
     }
 
     [Fact]
+    public void EngineeringAnonymousNullifier_UsesPepperedDomainSeparatedHmacWithoutAccountOrProof()
+    {
+        string actorResolver = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CommentActorResolver.cs");
+
+        Assert.Contains("HMACSHA256.HashData", actorResolver, StringComparison.Ordinal);
+        Assert.Contains("fsus.anonymous.nullifier.v2", actorResolver, StringComparison.Ordinal);
+        Assert.Contains("AnonymousIdentity:NullifierPepper", actorResolver, StringComparison.Ordinal);
+        Assert.DoesNotContain("account:{account}", actorResolver, StringComparison.Ordinal);
+        Assert.DoesNotContain("proof:{proof}", actorResolver, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AnonymousCommentGovernance_RegistersPolicyCredentialAndNullifierServices()
     {
         string services = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Bootstrap/RuntimeSecurityAndLifecycleServiceCollectionExtensions.cs");

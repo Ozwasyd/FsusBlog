@@ -41,7 +41,7 @@ public readonly record struct AnonymousCredentialRootRecord(
     string Status,
     byte[] CircuitMetadata);
 
-public sealed class AnonymousCredentialRootStore(ISqlSugarClient db) : IAnonymousCredentialRootStore
+public sealed class AnonymousCredentialRootStore(ISqlSugarClient db, IConfiguration configuration) : IAnonymousCredentialRootStore
 {
     public async Task<AnonymousCredentialRootRecord?> GetCurrentAsync(
         DateTimeOffset now,
@@ -49,11 +49,13 @@ public sealed class AnonymousCredentialRootStore(ISqlSugarClient db) : IAnonymou
     {
         cancellationToken.ThrowIfCancellationRequested();
         DateTime utcNow = now.UtcDateTime;
-        AnonymousCredentialRoot? root = await db.Queryable<AnonymousCredentialRoot>()
+        List<AnonymousCredentialRoot> roots = await db.Queryable<AnonymousCredentialRoot>()
             .Where(static item => item.Status == AnonymousCredentialRootStatuses.Active)
             .Where(item => item.GraceExpiresAtUtc > utcNow)
             .OrderBy(item => item.Epoch, OrderByType.Desc)
-            .FirstAsync(cancellationToken);
+            .ToListAsync(cancellationToken);
+        AnonymousCredentialRoot? root = roots.FirstOrDefault(item =>
+            AnonymousCredentialRootAttestation.Verify(item, configuration));
         return root is null ? null : ToRecord(root);
     }
 

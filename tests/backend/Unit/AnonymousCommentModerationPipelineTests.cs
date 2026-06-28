@@ -158,10 +158,26 @@ public sealed class AnonymousCommentModerationPipelineTests
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CommentAnonymousNullifierService.cs");
 
         Assert.Contains("ON CONFLICT (nullifier_hash, scope) DO NOTHING", source, StringComparison.Ordinal);
-        Assert.Contains("FOR UPDATE", source, StringComparison.Ordinal);
-        Assert.Contains("n.UseCount < maxUseCount", source, StringComparison.Ordinal);
+        Assert.Contains("UPDATE comment_anonymous_nullifier", source, StringComparison.Ordinal);
+        Assert.Contains("use_count = use_count + 1", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("use_count < @MaxUseCount", source, StringComparison.Ordinal);
+        Assert.Contains("RETURNING blocked, use_count", source, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("FOR UPDATE", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("n.UseCount < maxUseCount", source, StringComparison.Ordinal);
         Assert.Contains("\"scope_limit_exceeded\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("GetAccount", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CommentService_AnonymousFailureLogsDoNotWriteRawAnonymousScope()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
+
+        Assert.Contains("HashAnonymousScopeForLog(actor.AnonymousScope)", source, StringComparison.Ordinal);
+        Assert.Contains("HashAnonymousScopeForLog(NormalizeAnonymousScope(request.AnonymousScope, request.ArticleId))", source, StringComparison.Ordinal);
+        Assert.Contains("ScopeHash", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Scope: {Scope}", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("actor.AnonymousScope,\n                    rejected.Status", source, StringComparison.Ordinal);
     }
 
     [Fact]

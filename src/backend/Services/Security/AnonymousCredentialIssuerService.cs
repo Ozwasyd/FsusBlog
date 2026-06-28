@@ -43,6 +43,8 @@ public interface ICircuitNativeCredentialIssuer
     ValueTask<Result<CircuitNativeCredentialIssueResult>> SignAsync(
         CircuitNativeCredentialIssueMaterial material,
         CancellationToken cancellationToken = default);
+
+    bool VerifyIssuerSignature(CircuitNativeCredentialIssueMaterial material, ReadOnlySpan<byte> signature);
 }
 
 public readonly record struct CircuitNativeCredentialIssueMaterial(
@@ -85,6 +87,9 @@ public sealed class UnavailableCircuitNativeCredentialIssuer(IConfiguration conf
             ErrorCode.InfraFailure,
             "anonymous_credential_issuer_unavailable"));
     }
+
+    public bool VerifyIssuerSignature(CircuitNativeCredentialIssueMaterial material, ReadOnlySpan<byte> signature)
+        => false;
 }
 
 public sealed class ProductionCircuitNativeCredentialIssuer : ICircuitNativeCredentialIssuer, IDisposable
@@ -178,6 +183,9 @@ public sealed class ProductionCircuitNativeCredentialIssuer : ICircuitNativeCred
             _signatureSlots.Release();
         }
     }
+
+    public bool VerifyIssuerSignature(CircuitNativeCredentialIssueMaterial material, ReadOnlySpan<byte> signature)
+        => IsConfigured && ManagedCircuitNativeCredentialSigner.Verify(_issuerPublicKey, material, signature);
 
     public void Dispose() => _signatureSlots.Dispose();
 }
@@ -396,6 +404,8 @@ public sealed class AnonymousCredentialIssuerService(
     private const int UserStatusDeleted = 2;
     private const int DefaultEpochDurationMinutes = 1440;
     private const int DefaultCredentialTtlMinutes = 1440;
+    private const int DefaultSlidingWindowHours = 24;
+    private const int DefaultSlidingWindowMaxIssuances = 2;
 
     public async Task<Result<AnonymousCredentialIssueResponseCoreModel>> IssueAsync(
         int userId,
@@ -499,12 +509,20 @@ public sealed class AnonymousCredentialIssuerService(
         byte[] issuerSignature = [.. issuerSignatureResult.Value.IssuerSignature];
         if (issuerPublicKeyId.Length == 0 ||
             issuerSignature.Length == 0 ||
-            issuerSignature.Length > AnonymousPrivacyContract.MaxCircuitNativeIssuerSignatureBytes)
+            issuerSignature.Length > AnonymousPrivacyContract.MaxCircuitNativeIssuerSignatureBytes ||
+            !credentialIssuer.VerifyIssuerSignature(material, issuerSignature))
         {
             await RecordIssuanceAuditAsync(subjectHash, epoch, "issuer_invalid_response", traceId, cancellationToken);
             return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(
                 ErrorCode.InfraFailure,
                 "anonymous_credential_issuer_unavailable");
+        }
+
+        int recentIssuanceCount = await CountRecentIssuedCredentialsAsync(subjectHash, now.UtcDateTime, cancellationToken);
+        if (recentIssuanceCount >= options.SlidingWindowMaxIssuances)
+        {
+            await RecordIssuanceAuditAsync(subjectHash, epoch, "rate_limited", traceId, cancellationToken);
+            return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(ErrorCode.Conflict, "anonymous_credential_issue_rate_limited");
         }
 
         bool recorded = await issuanceAudit.TryRecordIssuedAsync(
@@ -572,6 +590,20 @@ public sealed class AnonymousCredentialIssuerService(
             cancellationToken);
     }
 
+    private async Task<int> CountRecentIssuedCredentialsAsync(
+        string subjectHash,
+        DateTime nowUtc,
+        CancellationToken cancellationToken)
+    {
+        AnonymousCredentialIssuerOptions options = ResolveOptions(configuration);
+        DateTime windowStart = nowUtc.AddHours(-options.SlidingWindowHours);
+        return await db.Queryable<AnonymousCredentialIssuanceAudit>()
+            .Where(row => row.SubjectHash == subjectHash
+                && row.Status == AnonymousCredentialIssuanceStatuses.Issued
+                && row.CreatedAtUtc >= windowStart)
+            .CountAsync(cancellationToken);
+    }
+
     internal static string BuildSubjectHashForTests(int userId, IConfiguration configuration)
         => BuildSubjectHash(userId, configuration);
 
@@ -607,7 +639,9 @@ public sealed class AnonymousCredentialIssuerService(
             Math.Clamp(configuredCredentialRequestBytes, 1, AnonymousCredentialIssuerLimits.MaxCredentialRequestBytes),
             Math.Clamp(section.GetValue("MaxClientNonceBytes", AnonymousCredentialIssuerLimits.MaxClientNonceBytes), 1, AnonymousCredentialIssuerLimits.MaxClientNonceBytes),
             Math.Clamp(section.GetValue("EpochDurationMinutes", DefaultEpochDurationMinutes), 60, 60 * 24 * 31),
-            Math.Clamp(section.GetValue("CredentialTtlMinutes", DefaultCredentialTtlMinutes), 60, 60 * 24 * 31));
+            Math.Clamp(section.GetValue("CredentialTtlMinutes", DefaultCredentialTtlMinutes), 60, 60 * 24 * 31),
+            Math.Clamp(section.GetValue("SlidingWindowHours", DefaultSlidingWindowHours), 1, 24 * 31),
+            Math.Clamp(section.GetValue("SlidingWindowMaxIssuances", DefaultSlidingWindowMaxIssuances), 1, 100));
     }
 
     internal static string ResolveIssuerPublicKeyId(IConfiguration configuration)
@@ -657,9 +691,11 @@ public sealed class AnonymousCredentialIssuerService(
     private sealed record AnonymousCredentialIssuerOptions(
         bool AllowBannedAccountIssuance,
         int MaxCredentialRequestBytes,
-        int MaxClientNonceBytes,
-        int EpochDurationMinutes,
-        int CredentialTtlMinutes);
+    int MaxClientNonceBytes,
+    int EpochDurationMinutes,
+    int CredentialTtlMinutes,
+    int SlidingWindowHours,
+    int SlidingWindowMaxIssuances);
 
     private sealed class AnonymousCredentialEligibilityRow
     {

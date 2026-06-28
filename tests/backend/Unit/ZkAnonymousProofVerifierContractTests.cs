@@ -151,7 +151,7 @@ public sealed class ZkAnonymousProofVerifierContractTests
     }
 
     [Fact]
-    public async Task CommentActorResolver_ZkAnonymousUsesPublicInputNullifierWithoutUserOrProofTokenDerivation()
+    public async Task CommentActorResolver_ZkAnonymousRequiresSingleUseTicketInsteadOfDirectProof()
     {
         ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
         var proofService = new CapturingZkProofService(ZkProofVerificationResult.Success());
@@ -174,27 +174,10 @@ public sealed class ZkAnonymousProofVerifierContractTests
             ProofToken = "proof-token-must-not-be-used"
         });
 
-        Assert.True(result.Allowed, result.Message);
-        Assert.NotNull(result.Actor);
-        Assert.Null(result.Actor.UserId);
-        Assert.Equal(CommentAuthorModes.ZkAnonymous, result.Actor.AuthorMode);
-        Assert.Equal(PublicInputNullifierHash, result.Actor.AnonymousNullifierHash);
-        Assert.Equal("article:42", result.Actor.AnonymousScope);
-        Assert.Equal(
-            Convert.ToHexStringLower(HMACSHA256.HashData(
-                Encoding.UTF8.GetBytes(ModerationPepper),
-                Encoding.UTF8.GetBytes(PublicInputNullifierHash))),
-            result.Actor.ModerationSubjectHash);
-        Assert.Equal(AnonymousCredentialLevels.StrongAnonymous, result.Actor.CredentialLevel);
-        Assert.Equal(PublicInputNullifierHash, proofService.LastRequest.NullifierHash);
-        Assert.Equal(CredentialCommitment, proofService.LastRequest.CredentialCommitment);
-        Assert.Equal(CredentialRoot, proofService.LastRequest.CredentialRoot);
-        Assert.Equal(RevocationRoot, proofService.LastRequest.RevocationRoot);
-        Assert.Equal(IssuerPublicKeyHash, proofService.LastRequest.IssuerPublicKeyHash);
-        Assert.Equal(CredentialEpoch, proofService.LastRequest.CredentialEpoch);
-        Assert.Equal(CircuitId, proofService.LastRequest.CircuitId);
-        Assert.Equal(VerifyingKeyHash, proofService.LastRequest.VerifyingKeyHash);
-        Assert.Equal(PublicInputLayoutVersion, proofService.LastRequest.PublicInputLayoutVersion);
+        Assert.False(result.Allowed);
+        Assert.Null(result.Actor);
+        Assert.Equal("anonymous_ticket_required", result.Status);
+        Assert.Equal(0, proofService.CallCount);
         Assert.Empty(db.ReceivedCalls());
     }
 
@@ -203,7 +186,7 @@ public sealed class ZkAnonymousProofVerifierContractTests
     [InlineData("credentialRoot")]
     [InlineData("revocationRoot")]
     [InlineData("issuerPublicKeyHash")]
-    public async Task CommentActorResolver_ZkAnonymousMissingPublicInputIsRejectedBeforeVerifier(string missingField)
+    public async Task CommentActorResolver_ZkAnonymousDirectProofInputIsRejectedBeforeVerifier(string missingField)
     {
         var proofService = new CapturingZkProofService(ZkProofVerificationResult.Success());
         IConfiguration configuration = BuildConfiguration(new Dictionary<string, string?>
@@ -230,7 +213,7 @@ public sealed class ZkAnonymousProofVerifierContractTests
         CommentActorResolveResult result = await resolver.ResolveAsync(request);
 
         Assert.False(result.Allowed);
-        Assert.Equal(ZkProofVerificationStatuses.MissingProof, result.Status);
+        Assert.Equal("anonymous_ticket_required", result.Status);
         Assert.Equal(0, proofService.CallCount);
     }
 
@@ -245,8 +228,9 @@ public sealed class ZkAnonymousProofVerifierContractTests
 
         Assert.DoesNotContain("account:{request.UserId", zkBlock, StringComparison.Ordinal);
         Assert.DoesNotContain("proof:{request.ProofToken", zkBlock, StringComparison.Ordinal);
-        Assert.DoesNotContain("CredentialCommitment: string.Empty", zkBlock, StringComparison.Ordinal);
-        Assert.DoesNotContain("CredentialRoot: string.Empty", zkBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("VerifyCommentProofAsync", zkBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("new ZkProofVerificationRequest", zkBlock, StringComparison.Ordinal);
+        Assert.Contains("anonymous_ticket_required", zkBlock, StringComparison.Ordinal);
         Assert.DoesNotContain("string.Join", zkBlock, StringComparison.Ordinal);
     }
 
@@ -696,6 +680,8 @@ public sealed class ZkAnonymousProofVerifierContractTests
             ProductionZkProofBackendRequest request,
             CancellationToken cancellationToken = default)
         {
+            using CancellationTokenRegistration registration =
+                cancellationToken.Register(static state => ((BlockingProductionZkProofBackend)state!).WasCanceled = true, this);
             try
             {
                 await Task.Delay(TimeSpan.FromMinutes(1), cancellationToken);

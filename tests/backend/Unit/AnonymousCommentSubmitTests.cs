@@ -580,7 +580,8 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         => new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Moderation:Pepper"] = ModerationPepper
+                ["Moderation:Pepper"] = ModerationPepper,
+                ["AnonymousIdentity:NullifierPepper"] = "unit-test-anonymous-nullifier-pepper-32-bytes-minimum"
             })
             .Build();
 

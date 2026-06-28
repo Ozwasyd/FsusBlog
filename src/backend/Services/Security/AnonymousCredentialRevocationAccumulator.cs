@@ -18,7 +18,10 @@ public sealed record AnonymousCredentialRevocationAccumulatorProfile(
     AnonymousCredentialRevocationAccumulatorAlgorithm Algorithm,
     string AlgorithmId,
     bool ProductionZkReady,
-    string UnavailableReason)
+    string UnavailableReason,
+    ushort PathDepth = 0,
+    string HashId = "",
+    string TreeId = "")
 {
     public bool IsProductionZkCompatible => ProductionZkReady && string.IsNullOrWhiteSpace(UnavailableReason);
 }
@@ -50,6 +53,8 @@ public static class AnonymousCredentialRevocationAccumulator
     private const string CircuitFriendlyEmptyLeafDomain = "fsus.anonymous.revocation.circuit.empty.v1";
     private const string CircuitFriendlySiblingDigestDomain = "fsus.anonymous.revocation.circuit.sibling-digest.v1";
     private const string CircuitFriendlyMimcRoundDomain = "fsus.anonymous.revocation.circuit.mimc7.bn254.round.v1";
+    private const string CircuitFriendlyHashId = "mimc7-bn254.v1";
+    private const string CircuitFriendlyTreeId = "sparse-merkle.v1";
     private const int CircuitFriendlyTreeDepth = 128;
     private const int CircuitFriendlyMimcRounds = 91;
     private static readonly BigInteger CircuitFriendlyFieldPrime = BigInteger.Parse(
@@ -64,8 +69,8 @@ public static class AnonymousCredentialRevocationAccumulator
 
     public static AnonymousCredentialRevocationAccumulatorProfile LegacySha256Profile { get; } = new(
         AnonymousCredentialRevocationAccumulatorAlgorithm.LegacySha256HashTreeV1,
-        LegacySha256HashTreeAlgorithmId,
-        ProductionZkReady: false,
+                LegacySha256HashTreeAlgorithmId,
+                ProductionZkReady: false,
         "legacy_sha256_not_circuit_friendly");
 
     public static string DeriveHandleHash(string issuerPublicKeyHash, string credentialBinding)
@@ -92,7 +97,10 @@ public static class AnonymousCredentialRevocationAccumulator
 
             string algorithmId = ReadString(accumulator, "algorithm");
             bool productionZkReady = ReadBoolean(accumulator, "productionZkReady");
-            return ResolveProfile(algorithmId, productionZkReady);
+            ushort depth = ReadUInt16(accumulator, "depth");
+            string hashId = ReadString(accumulator, "hash");
+            string treeId = ReadString(accumulator, "tree");
+            return ResolveProfile(algorithmId, productionZkReady, depth, hashId, treeId);
         }
         catch (JsonException)
         {
@@ -106,7 +114,10 @@ public static class AnonymousCredentialRevocationAccumulator
 
     public static AnonymousCredentialRevocationAccumulatorProfile ResolveProfile(
         string? algorithmId,
-        bool productionZkReady)
+        bool productionZkReady,
+        ushort pathDepth = 0,
+        string? hashId = null,
+        string? treeId = null)
     {
         string normalized = NormalizeToken(algorithmId, 128).ToLowerInvariant();
         if (normalized.Length == 0 || string.Equals(normalized, LegacySha256HashTreeAlgorithmId, StringComparison.Ordinal))
@@ -120,11 +131,30 @@ public static class AnonymousCredentialRevocationAccumulator
 
         if (string.Equals(normalized, CircuitFriendlyNonMembershipAlgorithmId, StringComparison.Ordinal))
         {
+            ushort effectiveDepth = pathDepth == 0 ? (ushort)CircuitFriendlyTreeDepth : pathDepth;
+            string effectiveHash = NormalizeToken(hashId, 64).ToLowerInvariant();
+            string effectiveTree = NormalizeToken(treeId, 64).ToLowerInvariant();
+            if (effectiveHash.Length == 0)
+            {
+                effectiveHash = CircuitFriendlyHashId;
+            }
+
+            if (effectiveTree.Length == 0)
+            {
+                effectiveTree = CircuitFriendlyTreeId;
+            }
+
+            string unavailable = productionZkReady
+                ? ResolveCircuitFriendlyProfileUnavailableReason(effectiveDepth, effectiveHash, effectiveTree)
+                : "circuit_friendly_accumulator_not_marked_production_ready";
             return new AnonymousCredentialRevocationAccumulatorProfile(
                 AnonymousCredentialRevocationAccumulatorAlgorithm.CircuitFriendlyNonMembershipV1,
                 CircuitFriendlyNonMembershipAlgorithmId,
                 productionZkReady,
-                productionZkReady ? string.Empty : "circuit_friendly_accumulator_not_marked_production_ready");
+                unavailable,
+                effectiveDepth,
+                effectiveHash,
+                effectiveTree);
         }
 
         return new AnonymousCredentialRevocationAccumulatorProfile(
@@ -138,6 +168,26 @@ public static class AnonymousCredentialRevocationAccumulator
         => profile.IsProductionZkCompatible
             ? Result.Success()
             : Result.Failure(ErrorCode.Validation, "anonymous_credential_revocation_accumulator_not_production_ready");
+
+    private static string ResolveCircuitFriendlyProfileUnavailableReason(
+        ushort pathDepth,
+        string hashId,
+        string treeId)
+    {
+        if (pathDepth != CircuitFriendlyTreeDepth)
+        {
+            return "circuit_friendly_accumulator_depth_mismatch";
+        }
+
+        if (!string.Equals(hashId, CircuitFriendlyHashId, StringComparison.Ordinal))
+        {
+            return "circuit_friendly_accumulator_hash_mismatch";
+        }
+
+        return string.Equals(treeId, CircuitFriendlyTreeId, StringComparison.Ordinal)
+            ? string.Empty
+            : "circuit_friendly_accumulator_tree_mismatch";
+    }
 
     public static Result<string> TryComputeRoot(
         long epoch,
@@ -318,7 +368,20 @@ public static class AnonymousCredentialRevocationAccumulator
     public static bool VerifyCircuitFriendlyNonMembershipWitness(
         AnonymousCredentialNonMembershipWitness witness,
         IEnumerable<string> revokedHandleHashes)
+        => VerifyCircuitFriendlyNonMembershipWitness(witness, revokedHandleHashes, ResolveProfile(
+            CircuitFriendlyNonMembershipAlgorithmId,
+            productionZkReady: true));
+
+    public static bool VerifyCircuitFriendlyNonMembershipWitness(
+        AnonymousCredentialNonMembershipWitness witness,
+        IEnumerable<string> revokedHandleHashes,
+        AnonymousCredentialRevocationAccumulatorProfile profile)
     {
+        if (!profile.IsProductionZkCompatible)
+        {
+            return false;
+        }
+
         string root = NormalizeHexToken(witness.RevocationRootHash, 128);
         string issuer = NormalizeHexToken(witness.IssuerPublicKeyHash, 128);
         string handle = NormalizeHexToken(witness.RevocationHandleHash, 128);
@@ -334,13 +397,26 @@ public static class AnonymousCredentialRevocationAccumulator
             return false;
         }
 
-        return VerifyCircuitFriendlyNonMembershipWitness(witness);
+        return VerifyCircuitFriendlyNonMembershipWitness(witness, profile);
     }
 
     public static bool VerifyCircuitFriendlyNonMembershipWitness(AnonymousCredentialNonMembershipWitness witness)
+        => VerifyCircuitFriendlyNonMembershipWitness(witness, ResolveProfile(
+            CircuitFriendlyNonMembershipAlgorithmId,
+            productionZkReady: true));
+
+    public static bool VerifyCircuitFriendlyNonMembershipWitness(
+        AnonymousCredentialNonMembershipWitness witness,
+        AnonymousCredentialRevocationAccumulatorProfile profile)
     {
+        if (!profile.IsProductionZkCompatible)
+        {
+            return false;
+        }
+
         if (!TryNormalizeCircuitFriendlyWitness(
                 witness,
+                profile,
                 out string root,
                 out string issuer,
                 out string handle,
@@ -375,6 +451,7 @@ public static class AnonymousCredentialRevocationAccumulator
 
     private static bool TryNormalizeCircuitFriendlyWitness(
         AnonymousCredentialNonMembershipWitness witness,
+        AnonymousCredentialRevocationAccumulatorProfile profile,
         out string root,
         out string issuer,
         out string handle,
@@ -389,9 +466,9 @@ public static class AnonymousCredentialRevocationAccumulator
 
         if (witness.Epoch <= 0 ||
             !string.Equals(witness.AlgorithmId, CircuitFriendlyNonMembershipAlgorithmId, StringComparison.Ordinal) ||
-            witness.PathDepth != CircuitFriendlyTreeDepth ||
+            witness.PathDepth != profile.PathDepth ||
             witness.SiblingHashes is null ||
-            witness.SiblingHashes.Count != CircuitFriendlyTreeDepth ||
+            witness.SiblingHashes.Count != profile.PathDepth ||
             !IsHexHash(root, minLength: 32, maxLength: 128) ||
             !IsHexHash(issuer, minLength: 32, maxLength: 128) ||
             !IsHexHash(handle, minLength: 32, maxLength: 128))
@@ -705,6 +782,13 @@ public static class AnonymousCredentialRevocationAccumulator
     private static bool ReadBoolean(JsonElement parent, string propertyName)
         => parent.TryGetProperty(propertyName, out JsonElement value) &&
             value.ValueKind == JsonValueKind.True;
+
+    private static ushort ReadUInt16(JsonElement parent, string propertyName)
+        => parent.TryGetProperty(propertyName, out JsonElement value) &&
+            value.ValueKind == JsonValueKind.Number &&
+            value.TryGetUInt16(out ushort result)
+            ? result
+            : (ushort)0;
 
     private static string Sha256Hex(params string[] parts)
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\0', parts))));

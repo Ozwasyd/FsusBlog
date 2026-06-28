@@ -151,9 +151,9 @@ public partial class CommentService(
         if (!AnonymousTicketMatchesRequest(ticket, request))
         {
             logger.LogInformation(
-                "匿名评论 ticket 绑定校验失败 | Article: {ArticleId} | Scope: {Scope}",
+                "匿名评论 ticket 绑定校验失败 | Article: {ArticleId} | ScopeHash: {ScopeHash}",
                 request.ArticleId,
-                NormalizeAnonymousScope(request.AnonymousScope, request.ArticleId));
+                HashAnonymousScopeForLog(NormalizeAnonymousScope(request.AnonymousScope, request.ArticleId)));
             return false;
         }
 
@@ -216,7 +216,10 @@ public partial class CommentService(
         bool enforceAnonymousNullifier = RequiresAnonymousNullifierEnforcement(actor);
         if (enforceAnonymousNullifier && anonymousNullifierService is null)
         {
-            logger.LogWarning("匿名评论 nullifier enforcement 未注册，拒绝评论写入 | Article: {ArticleId} | Scope: {Scope}", articleId, actor.AnonymousScope);
+            logger.LogWarning(
+                "匿名评论 nullifier enforcement 未注册，拒绝评论写入 | Article: {ArticleId} | ScopeHash: {ScopeHash}",
+                articleId,
+                HashAnonymousScopeForLog(actor.AnonymousScope));
             return false;
         }
 
@@ -385,9 +388,9 @@ public partial class CommentService(
             if (insertResult.ErrorException is AnonymousNullifierRejectedException rejected)
             {
                 logger.LogInformation(
-                    "匿名评论 nullifier enforcement 拒绝写入 | Article: {ArticleId} | Scope: {Scope} | Status: {Status}",
+                    "匿名评论 nullifier enforcement 拒绝写入 | Article: {ArticleId} | ScopeHash: {ScopeHash} | Status: {Status}",
                     articleId,
-                    actor.AnonymousScope,
+                    HashAnonymousScopeForLog(actor.AnonymousScope),
                     rejected.Status);
                 await RecordNullifierAbuseRiskSignalAsync(actor.AnonymousScope, rejected.Status, cancellationToken);
                 return false;
@@ -545,6 +548,12 @@ public partial class CommentService(
             && !string.IsNullOrWhiteSpace(actor.AnonymousScope)
             && (string.Equals(actor.AuthorMode, CommentAuthorModes.Anonymous, StringComparison.Ordinal)
                 || string.Equals(actor.AuthorMode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal));
+
+    private static string HashAnonymousScopeForLog(string? scope)
+    {
+        string normalized = string.IsNullOrWhiteSpace(scope) ? "unknown" : scope.Trim();
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)))[..16];
+    }
 
     private CommentActor BuildAnonymousTicketActor(
         AnonymousCommentTicketPayload ticket,

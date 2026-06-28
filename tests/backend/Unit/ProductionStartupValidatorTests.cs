@@ -42,6 +42,8 @@ public sealed class ProductionStartupValidatorTests
             ["Moderation:RegionPolicy:IpHashKey"] = "production-region-ip-hash-key-with-at-least-thirty-two-chars",
             ["Moderation:Pepper"] = "production-moderation-pepper-with-at-least-thirty-two-chars",
             ["Subscription:EmailHashPepper"] = "production-subscription-email-hash-pepper-with-at-least-thirty-two-chars",
+            ["AnonymousIdentity:NullifierPepper"] = "production-anonymous-nullifier-pepper-with-at-least-thirty-two-chars",
+            ["AnonymousCredentialRoot:AttestationKey"] = "production-anonymous-root-attestation-key-with-at-least-thirty-two-chars",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         });
@@ -447,6 +449,8 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("Moderation:RegionPolicy:IpHashKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Moderation:Pepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Subscription:EmailHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("AnonymousIdentity:NullifierPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("AnonymousCredentialRoot:AttestationKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains(
             "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
             ProductionStartupValidator.CurrentSchema.DefaultJwtSecrets);
@@ -692,6 +696,8 @@ public sealed class ProductionStartupValidatorTests
             ["Moderation:RegionPolicy:IpHashKey"] = "production-region-ip-hash-key-with-at-least-thirty-two-chars",
             ["Moderation:Pepper"] = "production-moderation-pepper-with-at-least-thirty-two-chars",
             ["Subscription:EmailHashPepper"] = "production-subscription-email-hash-pepper-with-at-least-thirty-two-chars",
+            ["AnonymousIdentity:NullifierPepper"] = "production-anonymous-nullifier-pepper-with-at-least-thirty-two-chars",
+            ["AnonymousCredentialRoot:AttestationKey"] = "production-anonymous-root-attestation-key-with-at-least-thirty-two-chars",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         };

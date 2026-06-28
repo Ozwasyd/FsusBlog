@@ -52,14 +52,30 @@ public sealed class CommentAnonymousNullifierService(
             new SugarParameter("@Scope", normalizedScope),
             new SugarParameter("@Now", now));
 
-        NullifierState state = await ReadForUpdateAsync(normalizedHash, normalizedScope);
-        if (state.Blocked)
+        using var reservedReader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            UPDATE comment_anonymous_nullifier
+            SET use_count = use_count + 1,
+                updated_at_utc = @Now
+            WHERE nullifier_hash = @NullifierHash
+              AND scope = @Scope
+              AND blocked = false
+              AND use_count < @MaxUseCount
+            RETURNING blocked, use_count;
+            """,
+            new SugarParameter("@NullifierHash", normalizedHash),
+            new SugarParameter("@Scope", normalizedScope),
+            new SugarParameter("@MaxUseCount", maxUseCount),
+            new SugarParameter("@Now", now));
+        if (await reservedReader.ReadAsync(cancellationToken))
         {
-            return new NullifierReservationResult(false, "blocked", "Nullifier is blocked", state.UseCount);
+            int reservedUseCount = reservedReader.GetInt32(1);
+            return new NullifierReservationResult(true, "reserved", "Nullifier reserved", reservedUseCount);
         }
 
-        return state.UseCount < maxUseCount
-            ? new NullifierReservationResult(true, "reserved", "Nullifier reserved", state.UseCount)
+        NullifierState state = await ReadStateAsync(normalizedHash, normalizedScope, cancellationToken);
+        return state.Blocked
+            ? new NullifierReservationResult(false, "blocked", "Nullifier is blocked", state.UseCount)
             : new NullifierReservationResult(false, "scope_limit_exceeded", "Nullifier scope limit exceeded", state.UseCount);
     }
 
@@ -76,14 +92,13 @@ public sealed class CommentAnonymousNullifierService(
         int maxUseCount = Math.Max(1, configuration.GetValue("AnonymousIdentity:NullifierScopeUseLimit", 1));
 
         return await db.Updateable<CommentAnonymousNullifier>()
-            .SetColumns(n => n.UseCount == n.UseCount + 1)
             .SetColumns(n => n.FirstCommentId == (n.FirstCommentId ?? commentId))
             .SetColumns(n => n.LastCommentId == commentId)
             .SetColumns(n => n.UpdatedAtUtc == now)
             .Where(n => n.NullifierHash == normalizedHash
                 && n.Scope == normalizedScope
                 && !n.Blocked
-                && n.UseCount < maxUseCount)
+                && n.UseCount <= maxUseCount)
             .ExecuteCommandAsync() > 0;
     }
 
@@ -117,18 +132,17 @@ public sealed class CommentAnonymousNullifierService(
         return normalized;
     }
 
-    private async Task<NullifierState> ReadForUpdateAsync(string nullifierHash, string scope)
+    private async Task<NullifierState> ReadStateAsync(string nullifierHash, string scope, CancellationToken cancellationToken)
     {
         using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             SELECT blocked, use_count
             FROM comment_anonymous_nullifier
-            WHERE nullifier_hash = @NullifierHash AND scope = @Scope
-            FOR UPDATE;
+            WHERE nullifier_hash = @NullifierHash AND scope = @Scope;
             """,
             new SugarParameter("@NullifierHash", nullifierHash),
             new SugarParameter("@Scope", scope));
-        if (!await reader.ReadAsync())
+        if (!await reader.ReadAsync(cancellationToken))
         {
             throw new InvalidOperationException("Anonymous nullifier reservation was not created.");
         }

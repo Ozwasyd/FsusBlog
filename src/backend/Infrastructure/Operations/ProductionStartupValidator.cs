@@ -107,6 +107,20 @@ public static class ProductionStartupValidator
         "development-subscription-email-hash-pepper-change-before-shared-use"
     ];
 
+    private static readonly string[] DefaultAnonymousNullifierPeppers =
+    [
+        "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
+        "replace-with-stable-random-anonymous-nullifier-pepper",
+        "development-anonymous-nullifier-pepper-change-before-shared-use"
+    ];
+
+    private static readonly string[] DefaultAnonymousRootAttestationKeys =
+    [
+        "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
+        "replace-with-stable-random-anonymous-root-attestation-key",
+        "development-anonymous-root-attestation-key-change-before-shared-use"
+    ];
+
     private static readonly RequiredSettingRule[] RequiredSettings =
     [
         ConnectionString("DefaultConnection"),
@@ -128,6 +142,8 @@ public static class ProductionStartupValidator
         Value("Moderation:RegionPolicy:IpHashKey"),
         Value("Moderation:Pepper"),
         Value("Subscription:EmailHashPepper"),
+        Value("AnonymousIdentity:NullifierPepper"),
+        Value("AnonymousCredentialRoot:AttestationKey"),
         Value(AnonymousIdentityRuntime.ModeEnvironmentVariable)
     ];
 
@@ -227,6 +243,8 @@ public static class ProductionStartupValidator
         string? regionIpHashKey = values["Moderation:RegionPolicy:IpHashKey"];
         string? moderationPepper = values["Moderation:Pepper"];
         string? subscriptionEmailHashPepper = values["Subscription:EmailHashPepper"];
+        string? anonymousNullifierPepper = values["AnonymousIdentity:NullifierPepper"];
+        string? anonymousRootAttestationKey = values["AnonymousCredentialRoot:AttestationKey"];
         string? anonymousIdentityMode = values[AnonymousIdentityRuntime.ModeEnvironmentVariable];
 
         if (!string.IsNullOrWhiteSpace(jwtSecret))
@@ -256,6 +274,8 @@ public static class ProductionStartupValidator
         ValidateIndependentSecuritySecret("Moderation:RegionPolicy:IpHashKey", regionIpHashKey, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("Moderation:Pepper", moderationPepper, jwtSecret, DefaultModerationPeppers, errors);
         ValidateIndependentSecuritySecret("Subscription:EmailHashPepper", subscriptionEmailHashPepper, jwtSecret, DefaultSubscriptionEmailHashPeppers, errors);
+        ValidateIndependentSecuritySecret("AnonymousIdentity:NullifierPepper", anonymousNullifierPepper, jwtSecret, DefaultAnonymousNullifierPeppers, errors);
+        ValidateIndependentSecuritySecret("AnonymousCredentialRoot:AttestationKey", anonymousRootAttestationKey, jwtSecret, DefaultAnonymousRootAttestationKeys, errors);
 
         ValidateRedisConnection("ConnectionStrings:Redis", redisConnection, enforceProductionRules, errors);
         ValidateRedisConnection("RedisOptions:Configuration", redisOptionsConnection, enforceProductionRules, errors);

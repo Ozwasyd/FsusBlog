@@ -256,6 +256,6 @@ public sealed class AnonymousPrivacyMatrixTests
         Assert.Contains("does not require the full revoked handle set", docs, StringComparison.Ordinal);
         Assert.Contains("empty-leaf sparse Merkle path", circuitDocs, StringComparison.Ordinal);
         Assert.Contains("public static bool VerifyCircuitFriendlyNonMembershipWitness(", accumulator, StringComparison.Ordinal);
-        Assert.Contains("VerifyCircuitFriendlyNonMembershipWitness(witness)", witnessService, StringComparison.Ordinal);
+        Assert.Contains("VerifyCircuitFriendlyNonMembershipWitness(witness, profile)", witnessService, StringComparison.Ordinal);
     }
 }

@@ -471,6 +471,42 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
     }
 
     [Fact]
+    public async Task IssueAsync_RejectsIssuerSignatureThatFailsServerSideVerification()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedUser(db, status: 0);
+        var credentialIssuer = new CapturingCircuitNativeCredentialIssuer { ForceVerifyFailure = true };
+        var service = CreateService(db, new CapturingAuditEventService(), credentialIssuer: credentialIssuer);
+
+        Result<AnonymousCredentialIssueResponseCoreModel> result = await service.IssueAsync(
+            42,
+            CreateIssueRequest(),
+            "trace-invalid-signature",
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorCode.InfraFailure, result.Error.Code);
+        Assert.Equal("anonymous_credential_issuer_unavailable", result.Error.Message);
+        Assert.Empty(await db.Queryable<AnonymousCredentialIssuanceAudit>().ToListAsync());
+    }
+
+    [Fact]
+    public void IssuerService_VerifiesReturnedIssuerSignatureBeforePersistingAudit()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialIssuerService.cs");
+        string issueMethod = source[
+            source.IndexOf("public async Task<Result<AnonymousCredentialIssueResponseCoreModel>> IssueAsync", StringComparison.Ordinal)..
+            source.IndexOf("private Task RecordIssuanceAuditAsync", StringComparison.Ordinal)];
+
+        Assert.Contains("VerifyIssuerSignature", issueMethod, StringComparison.Ordinal);
+        Assert.True(
+            issueMethod.IndexOf("VerifyIssuerSignature", StringComparison.Ordinal) <
+            issueMethod.IndexOf("issuanceAudit.TryRecordIssuedAsync", StringComparison.Ordinal),
+            "issuer signature must be verified before the issuance audit row is persisted");
+    }
+
+    [Fact]
     public async Task IssueAsync_DifferentAccountsSameEpoch_UseDifferentSubjectHashesAndBothIssue()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -492,6 +528,28 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
         Assert.All(rows, static row => Assert.Equal(64, row.SubjectHash.Length));
         Assert.NotEqual(rows[0].SubjectHash, rows[1].SubjectHash);
         Assert.All(rows, row => Assert.Equal(2042, row.Epoch));
+    }
+
+    [Fact]
+    public async Task IssueAsync_RejectsSlidingWindowBurstAcrossManyEpochs()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedUser(db, status: 0);
+        var service = CreateService(db, new CapturingAuditEventService(), credentialIssuer: new CapturingCircuitNativeCredentialIssuer());
+
+        Result<AnonymousCredentialIssueResponseCoreModel> first = await service.IssueAsync(42, CreateIssueRequest(epoch: 3042), "trace-1", CancellationToken.None);
+        Result<AnonymousCredentialIssueResponseCoreModel> second = await service.IssueAsync(42, CreateIssueRequest(epoch: 3043), "trace-2", CancellationToken.None);
+        Result<AnonymousCredentialIssueResponseCoreModel> third = await service.IssueAsync(42, CreateIssueRequest(epoch: 3044), "trace-3", CancellationToken.None);
+
+        Assert.True(first.IsSuccess, first.Error.Message);
+        Assert.True(second.IsSuccess, second.Error.Message);
+        Assert.True(third.IsFailure);
+        Assert.Equal(ErrorCode.Conflict, third.Error.Code);
+        Assert.Equal("anonymous_credential_issue_rate_limited", third.Error.Message);
+        Assert.Equal(2, await db.Queryable<AnonymousCredentialIssuanceAudit>()
+            .Where(static row => row.Status == AnonymousCredentialIssuanceStatuses.Issued)
+            .CountAsync());
     }
 
     [Fact]
@@ -1028,6 +1086,7 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
         public bool IsConfigured => true;
         public string IssuerPublicKeyId { get; init; } = "issuer-key:local";
         public string IssuerPublicKeyHash => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(IssuerPublicKeyId)));
+        public bool ForceVerifyFailure { get; init; }
         public List<CircuitNativeCredentialIssueMaterial> Requests { get; } = [];
 
         public ValueTask<Result<CircuitNativeCredentialIssueResult>> SignAsync(
@@ -1042,8 +1101,8 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
                 CreateSignature(captured))));
         }
 
-        public bool VerifyIssuerSignature(CircuitNativeCredentialIssueMaterial material, byte[] signature)
-            => CryptographicOperations.FixedTimeEquals(CreateSignature(material), signature);
+        public bool VerifyIssuerSignature(CircuitNativeCredentialIssueMaterial material, ReadOnlySpan<byte> signature)
+            => !ForceVerifyFailure && CryptographicOperations.FixedTimeEquals(CreateSignature(material), signature);
 
         private static byte[] CreateSignature(CircuitNativeCredentialIssueMaterial material)
         {

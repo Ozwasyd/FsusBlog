@@ -69,7 +69,7 @@ public sealed class AnonymousCredentialRevocationWitnessService(
             return Result<AnonymousCredentialRevocationWitnessResponseCoreModel>.Failure(witness.Error);
         }
 
-        return ToResponse(witness.Value);
+        return ToResponse(witness.Value, profile);
     }
 
     private static Result ValidateRequestAgainstSnapshot(
@@ -102,9 +102,10 @@ public sealed class AnonymousCredentialRevocationWitnessService(
     }
 
     private static Result<AnonymousCredentialRevocationWitnessResponseCoreModel> ToResponse(
-        AnonymousCredentialNonMembershipWitness witness)
+        AnonymousCredentialNonMembershipWitness witness,
+        AnonymousCredentialRevocationAccumulatorProfile profile)
     {
-        if (!AnonymousCredentialRevocationAccumulator.VerifyCircuitFriendlyNonMembershipWitness(witness))
+        if (!AnonymousCredentialRevocationAccumulator.VerifyCircuitFriendlyNonMembershipWitness(witness, profile))
         {
             return Result<AnonymousCredentialRevocationWitnessResponseCoreModel>.Failure(
                 ErrorCode.Validation,

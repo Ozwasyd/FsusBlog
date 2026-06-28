@@ -82,7 +82,8 @@ public sealed record AnonymousCredentialRootRuntimeSnapshot(
 public sealed class AnonymousCredentialRootLifecycleService(
     IServiceScopeFactory scopeFactory,
     IAnonymousCredentialRootService rootSnapshotCache,
-    TimeProvider timeProvider) : IAnonymousCredentialRootReader, IAnonymousCredentialRootWriter, IAnonymousCredentialRevocationService
+    TimeProvider timeProvider,
+    IConfiguration configuration) : IAnonymousCredentialRootReader, IAnonymousCredentialRootWriter, IAnonymousCredentialRevocationService
 {
     private AnonymousCredentialRootRuntimeSnapshot _snapshot = AnonymousCredentialRootRuntimeSnapshot.Empty;
     private long _version;
@@ -104,7 +105,7 @@ public sealed class AnonymousCredentialRootLifecycleService(
             .ToListAsync(cancellationToken);
 
         AnonymousCredentialAcceptedRoot[] accepted = roots
-            .Select(static item => new AcceptedRootCandidate(
+            .Select(item => new AcceptedRootCandidate(
                 new AnonymousCredentialAcceptedRoot(
                     item.Epoch,
                     NormalizeToken(item.RootHash, 128),
@@ -112,12 +113,16 @@ public sealed class AnonymousCredentialRootLifecycleService(
                     ResolveIssuerPublicKeyHash(item.IssuerPublicKeyHash),
                     NormalizeToken(item.Status, 32),
                     ToUtcOffset(item.GraceExpiresAtUtc)),
-                AnonymousCredentialRevocationAccumulator.ResolveProfileFromCircuitMetadata(item.CircuitMetadata)))
+                AnonymousCredentialRevocationAccumulator.ResolveProfileFromCircuitMetadata(item.CircuitMetadata),
+                AnonymousCredentialRootAttestation.Verify(item, configuration),
+                IsRootFreshForProductionSnapshot(item, now)))
             .Where(static item =>
                 item.Root.RootHash.Length > 0 &&
                 item.Root.RevocationRootHash.Length > 0 &&
                 item.Root.IssuerPublicKeyHash.Length > 0 &&
-                item.RevocationAccumulatorProfile.IsProductionZkCompatible)
+                item.RevocationAccumulatorProfile.IsProductionZkCompatible &&
+                item.AttestationValid &&
+                item.FreshForProductionSnapshot)
             .Select(static item => item.Root)
             .ToArray();
         var snapshot = new AnonymousCredentialRootRuntimeSnapshot(
@@ -241,6 +246,19 @@ public sealed class AnonymousCredentialRootLifecycleService(
                 Reason = rotation.Reason
             };
             await db.Insertable(epoch).ExecuteCommandAsync(cancellationToken);
+            string attestationKeyId = AnonymousCredentialRootAttestation.ResolveKeyId(configuration);
+            string rootAttestation = AnonymousCredentialRootAttestation.Create(
+                rotation.Epoch,
+                rotation.RootHash,
+                rotation.RevocationRootHash,
+                rotation.IssuerPublicKeyHash,
+                rotation.CircuitId,
+                rotation.CircuitNumericId,
+                rotation.VerifyingKeyHash,
+                rotation.PublicInputLayoutVersion,
+                rotation.CircuitMetadata,
+                configuration,
+                attestationKeyId);
 
             inserted = new AnonymousCredentialRoot
             {
@@ -253,6 +271,8 @@ public sealed class AnonymousCredentialRootLifecycleService(
                 IssuerPublicKeyHash = rotation.IssuerPublicKeyHash,
                 PublicInputLayoutVersion = rotation.PublicInputLayoutVersion,
                 CircuitMetadata = rotation.CircuitMetadata,
+                RootAttestation = rootAttestation,
+                RootAttestationKeyId = attestationKeyId,
                 CreatedAtUtc = utcNow,
                 ActivatedAtUtc = utcNow,
                 ExpiresAtUtc = rotation.ExpiresAtUtc.UtcDateTime,
@@ -346,6 +366,19 @@ public sealed class AnonymousCredentialRootLifecycleService(
 
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            string attestationKeyId = AnonymousCredentialRootAttestation.ResolveKeyId(configuration);
+            string rootAttestation = AnonymousCredentialRootAttestation.Create(
+                root.Epoch,
+                root.RootHash,
+                revocation.RevocationRootHash,
+                issuerPublicKeyHash,
+                root.CircuitId,
+                root.CircuitNumericId <= 0 ? 0U : (uint)root.CircuitNumericId,
+                root.VerifyingKeyHash,
+                root.PublicInputLayoutVersion <= 0 ? (ushort)0 : (ushort)Math.Min(root.PublicInputLayoutVersion, ushort.MaxValue),
+                root.CircuitMetadata,
+                configuration,
+                attestationKeyId);
             var row = new AnonymousCredentialRevocation
             {
                 Epoch = revocation.Epoch,
@@ -360,6 +393,8 @@ public sealed class AnonymousCredentialRootLifecycleService(
 
             await db.Updateable<AnonymousCredentialRoot>()
                 .SetColumns(item => item.RevocationRootHash == revocation.RevocationRootHash)
+                .SetColumns(item => item.RootAttestation == rootAttestation)
+                .SetColumns(item => item.RootAttestationKeyId == attestationKeyId)
                 .SetColumns(item => item.UpdatedAtUtc == utcNow)
                 .Where(item => item.Epoch == root.Epoch)
                 .ExecuteCommandAsync(cancellationToken);
@@ -556,6 +591,22 @@ public sealed class AnonymousCredentialRootLifecycleService(
         return new DateTimeOffset(utc);
     }
 
+    private bool IsRootFreshForProductionSnapshot(AnonymousCredentialRoot root, DateTimeOffset now)
+    {
+        string status = NormalizeToken(root.Status, 32);
+        if (!string.Equals(status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        DateTimeOffset updatedAt = ToUtcOffset(root.UpdatedAtUtc);
+        TimeSpan maxAge = TimeSpan.FromSeconds(Math.Clamp(
+            configuration.GetValue("AnonymousCredentialRoot:GraceRootMaxAgeSeconds", 300),
+            30,
+            3600));
+        return updatedAt.Add(maxAge) > now;
+    }
+
     private static byte[] DecodePublicBytes(string? value)
     {
         string normalized = NormalizeToken(value, 4096);
@@ -602,7 +653,124 @@ public sealed class AnonymousCredentialRootLifecycleService(
 
     private sealed record AcceptedRootCandidate(
         AnonymousCredentialAcceptedRoot Root,
-        AnonymousCredentialRevocationAccumulatorProfile RevocationAccumulatorProfile);
+        AnonymousCredentialRevocationAccumulatorProfile RevocationAccumulatorProfile,
+        bool AttestationValid,
+        bool FreshForProductionSnapshot);
+}
+
+internal static class AnonymousCredentialRootAttestation
+{
+    public static bool Verify(AnonymousCredentialRoot root, IConfiguration configuration)
+    {
+        string attestation = NormalizeToken(root.RootAttestation, 128).ToLowerInvariant();
+        if (!AnonymousCredentialRevocationAccumulator.IsHexHash(attestation))
+        {
+            return false;
+        }
+
+        string keyId = NormalizeToken(root.RootAttestationKeyId, 96);
+        try
+        {
+            if (!string.Equals(keyId, ResolveKeyId(configuration), StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            string expected = Create(
+                root.Epoch,
+                NormalizeToken(root.RootHash, 128),
+                NormalizeToken(root.RevocationRootHash, 128),
+                ResolveIssuerPublicKeyHash(root.IssuerPublicKeyHash),
+                NormalizeToken(root.CircuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars),
+                root.CircuitNumericId <= 0 ? 0U : (uint)root.CircuitNumericId,
+                NormalizeToken(root.VerifyingKeyHash, 128),
+                root.PublicInputLayoutVersion <= 0 ? (ushort)0 : (ushort)Math.Min(root.PublicInputLayoutVersion, ushort.MaxValue),
+                NormalizeNullable(root.CircuitMetadata, 4096),
+                configuration,
+                keyId);
+
+            byte[] actualBytes = Convert.FromHexString(attestation);
+            byte[] expectedBytes = Convert.FromHexString(expected);
+            return CryptographicOperations.FixedTimeEquals(actualBytes, expectedBytes);
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+
+    public static string Create(
+        long epoch,
+        string rootHash,
+        string revocationRootHash,
+        string issuerPublicKeyHash,
+        string circuitId,
+        uint circuitNumericId,
+        string verifyingKeyHash,
+        ushort publicInputLayoutVersion,
+        string? circuitMetadata,
+        IConfiguration configuration,
+        string attestationKeyId)
+    {
+        string payload = string.Join('\n',
+            "fsus.anonymous.root-attestation.v1",
+            attestationKeyId,
+            epoch.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            NormalizeToken(rootHash, 128).ToLowerInvariant(),
+            NormalizeToken(revocationRootHash, 128).ToLowerInvariant(),
+            ResolveIssuerPublicKeyHash(issuerPublicKeyHash),
+            NormalizeToken(circuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars),
+            circuitNumericId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            NormalizeToken(verifyingKeyHash, 128).ToLowerInvariant(),
+            publicInputLayoutVersion.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            NormalizeNullable(circuitMetadata, 4096) ?? string.Empty);
+        return Convert.ToHexStringLower(HMACSHA256.HashData(
+            ResolveKey(configuration),
+            Encoding.UTF8.GetBytes(payload)));
+    }
+
+    public static string ResolveKeyId(IConfiguration configuration)
+        => NormalizeToken(configuration["AnonymousCredentialRoot:AttestationKeyId"], 96) is { Length: > 0 } keyId
+            ? keyId
+            : "default";
+
+    private static byte[] ResolveKey(IConfiguration configuration)
+    {
+        string? value = configuration["AnonymousCredentialRoot:AttestationKey"];
+        if (string.IsNullOrWhiteSpace(value) || value.Trim().Length < 32)
+        {
+            throw new InvalidOperationException("AnonymousCredentialRoot:AttestationKey must be configured with at least 32 characters.");
+        }
+
+        return SHA256.HashData(Encoding.UTF8.GetBytes(value.Trim()));
+    }
+
+    private static string ResolveIssuerPublicKeyHash(string? value)
+    {
+        string normalized = NormalizeToken(value, 128);
+        if (normalized.Length > 0)
+        {
+            return normalized.ToLowerInvariant();
+        }
+
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("issuer-key:local")));
+    }
+
+    private static string NormalizeToken(string? value, int maxLength)
+    {
+        string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
+    }
+
+    private static string? NormalizeNullable(string? value, int maxLength)
+    {
+        string normalized = NormalizeToken(value, maxLength);
+        return normalized.Length == 0 ? null : normalized;
+    }
 }
 
 public sealed class AnonymousCredentialRootRefreshHostedService(

@@ -262,7 +262,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 163 | `IdentityAccountSnapshot` | `IdentityAccountSnapshotPod` | `GET /api/binary/auth/me`；匿名身份 account id、identity kind、public handle、Passkey/Recovery/TOTP/anonymous credential 和状态字段；不暴露 internalUserId |
 | 164 | `CommentPolicySnapshot` | `CommentPolicySnapshotPod` | 评论 composer 渲染前策略：anonymous/public/ZK 开关、ZK-Prod readiness、默认 author mode、语言列表、策略 snapshot hash |
 | 165 | `CommentPolicyUpdateRequest` | `CommentPolicyUpdateRequestPod` | admin 匿名评论策略 patch 请求体 |
-| 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | 新评论创建请求；包含匿名 scope、author mode、language hint、普通 proof token 和 ZK proof bytes；旧 replyToUserId 兼容槽固定为 0/0，不得从 userId/ProofToken 派生 ZK nullifier |
+| 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | 新评论创建请求；仅用于 public/普通匿名兼容字段，`authorMode=zk_anonymous` 必须拒绝为 `anonymous_ticket_required`；强匿名 proof 只能走 `AnonymousCommentTicketRequest`，旧 replyToUserId 兼容槽固定为 0/0，不得从 userId/ProofToken 派生 ZK nullifier |
 | 167 | `CommentAuthorView` | `CommentAuthorViewPod` | 评论作者展示投影；评论 cursor 必须显式携带，客户端不得从 legacy identity string 伪造匿名/公开显示名 |
 | 177 | `AnonymousCredentialIssueRequest` | `AnonymousCredentialIssueRequestPod` | `POST /api/binary/anonymous-credential/issue` 请求体；包含 circuit-native credential request、client nonce 与 layout version |
 | 178 | `AnonymousCredentialIssueResponse` | `AnonymousCredentialIssueResponsePod` | 匿名凭证签发响应契约；circuit-native issuer signature、issuer public key id、expires_at，不返回 SHA256 commitment 或可逆身份 |
