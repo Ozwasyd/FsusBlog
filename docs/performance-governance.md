@@ -15,7 +15,7 @@ Admin code is split by domain instead of a single oversized `route-admin` chunk:
 - `route-admin-content`
 - `route-admin-messages`
 
-`check:asset-size-budget` enforces raw, gzip, and brotli budgets for `route-admin-*` chunks. ECharts must stay in the lazy `echartsRuntime` boundary and must not be imported directly by public routes or ordinary components.
+`check:asset-size-budget` enforces raw, gzip, and brotli budgets for `route-admin-*` chunks. `check:route-asset-budget` runs after a Vite build and reads `.vite/manifest.json` to report route-level raw/gzip/brotli first-entry cost, async dependency count, and forbidden public imports; it writes `.tmp/frontend/route-asset-budget.json` for CI evidence. ECharts must stay in the lazy `echartsRuntime` boundary and must not be imported directly by public routes or ordinary components.
 
 ## Public image delivery
 
@@ -37,6 +37,10 @@ High-frequency info telemetry must not write to the production console by defaul
 ## Route render pressure
 
 `check:route-render-pressure` and `check:dom-budget` cover public, user, and admin domains. Admin moderation and security routes are included so new policy/model/security surfaces cannot grow without render-pressure evidence.
+
+## Full app takeover
+
+Public shell takeover must keep non-first-frame plugins out of the mount window. `FsuMotion` is dynamically installed after mount through an idle/timer gate, while `scheduleFullAppRuntime` remains responsible for runtime activation. New full app plugins should either be required for first paint or follow the same deferred installation pattern.
 
 ## Perception-sealed v2 security budget
 

@@ -559,7 +559,7 @@ export default defineConfig(({ mode }) => {
             minify: true,
             manifest: true,
             // 针对大型项目优化块大小
-            chunkSizeWarningLimit: 1000,
+            chunkSizeWarningLimit: 650,
             rolldownOptions: {
                 onwarn(warning, warn) {
                     if (shouldIgnoreBuildWarning(warning)) {
@@ -584,50 +584,50 @@ export default defineConfig(({ mode }) => {
                                         name: 'entry-runtime',
                                         test: /node_modules[\\/]@ozwasyd[\\/]element-plus[\\/]es[\\/]components[\\/]config-provider[\\/]src[\\/]theme-mode/,
                                         priority: 110,
-                                        minSize: 1
+                                        minSize: 4096
                                     },
                                     {
                                         name: 'vendor-element-plus',
                                         test: /node_modules[\\/](?:@ozwasyd[\\/]element-plus|@element-plus[\\/]icons-vue|@popperjs[\\/]core|@floating-ui|async-validator|dayjs|@ctrl[\\/]tinycolor|motion-dom)/,
                                         priority: 100,
-                                        minSize: 1
+                                        minSize: 4096
                                     },
                                     {
                                         name: 'vendor-vue',
                                         test: /node_modules[\\/](?:@vue|vue)[\\/]/,
                                         priority: 90,
-                                        minSize: 1
+                                        minSize: 4096
                                     },
                                     {
                                         name: 'vendor-runtime',
                                         test: /node_modules[\\/](?:pinia|pinia-plugin-persistedstate|vue-router)[\\/]/,
                                         priority: 80,
-                                        minSize: 1
+                                        minSize: 4096
                                     },
                                     {
                                         name: 'vendor-echarts',
                                         test: /node_modules[\\/]echarts[\\/]/,
                                         priority: 70,
-                                        minSize: 1
+                                        minSize: 4096
                                     },
                                     {
                                         name: 'vendor-progress',
                                         test: /node_modules[\\/]nprogress[\\/]/,
                                         priority: 70,
-                                        minSize: 1
+                                        minSize: 4096
                                     },
                                     {
                                         name: 'vendor-vueuse',
                                         test: /node_modules[\\/]@unhead[\\/]/,
                                         priority: 70,
-                                        minSize: 1
+                                        minSize: 4096
                                     },
                                     {
                                         name(moduleId: string) {
                                             return resolveManualChunk(moduleId) ?? null
                                         },
                                         priority: 10,
-                                        minSize: 1
+                                        minSize: 4096
                                     }
                                 ]
                             }

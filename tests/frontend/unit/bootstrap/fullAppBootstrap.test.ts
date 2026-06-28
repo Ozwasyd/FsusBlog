@@ -39,7 +39,12 @@ const beginPublicTakeoverVisualGuard = vi.fn((options: { navigationId: string; t
 }))
 const waitForPublicTakeoverVisualReady = vi.fn(async () => {})
 
-vi.mock('vue', () => ({ createApp }))
+vi.mock('vue', () => ({
+  createApp,
+  ref: vi.fn((value) => ({ value })),
+  shallowRef: vi.fn((value) => ({ value })),
+  triggerRef: vi.fn()
+}))
 vi.mock('pinia', () => ({ createPinia }))
 vi.mock('@unhead/vue/client', () => ({ createHead }))
 vi.mock('pinia-plugin-persistedstate', () => ({ default: vi.fn() }))

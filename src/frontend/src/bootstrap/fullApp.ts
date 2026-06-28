@@ -6,7 +6,6 @@ import App from '@/App.vue'
 import router from '@/router'
 import { provideFsusUiAppContext } from '@/fsusui/appContext'
 import { installFsusUiLoading } from '@/fsusui/feedback'
-import { FsuMotion } from '@ozwasyd/element-plus/motion'
 import { scheduleNonCriticalResources } from '@/bootstrap/nonCriticalResources'
 import { scheduleFullAppRuntime } from '@/bootstrap/runtimeGate'
 import { removeGlobalLoader } from '@/bootstrap/publicShellPrimitives'
@@ -53,6 +52,11 @@ export type PreparedFullApp = Readonly<{
 }>
 
 let bootstrapPromise: Promise<typeof router> | null = null
+let deferredMotionInstallStarted = false
+
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+}
 
 function disposePublicShellForClientMount(): void {
   const appRoot = document.getElementById('app')
@@ -101,8 +105,33 @@ function installFullAppPlugins(prepared: PreparedFullApp): void {
   app.use(pinia)
   app.use(router)
   installFsusUiLoading(app)
-  app.use(FsuMotion)
   provideFsusUiAppContext(app)
+}
+
+function installDeferredFsusMotion(prepared: PreparedFullApp): void {
+  if (deferredMotionInstallStarted) {
+    return
+  }
+
+  deferredMotionInstallStarted = true
+  const install = (): void => {
+    void import('@ozwasyd/element-plus/motion')
+      .then(({ FsuMotion }) => {
+        prepared.app.use(FsuMotion)
+        markStartup('full-app-bootstrap:motion-ready')
+      })
+      .catch(() => {
+        deferredMotionInstallStarted = false
+      })
+  }
+
+  const idleWindow = window as IdleWindow
+  if (typeof idleWindow.requestIdleCallback === 'function') {
+    idleWindow.requestIdleCallback(install, { timeout: 1600 })
+    return
+  }
+
+  window.setTimeout(install, 1200)
 }
 
 export function prepareFullApp(options: BootstrapFullAppOptions = {}): PreparedFullApp {
@@ -166,6 +195,7 @@ export async function commitPreparedFullApp(
       allowIdleActivation: !prepared.isPublicShellTakeover,
       allowScrollActivation: !prepared.isPublicShellTakeover
     })
+    installDeferredFsusMotion(prepared)
     scheduleNonCriticalResources()
 
     await router.isReady()
