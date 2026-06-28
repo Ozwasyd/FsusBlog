@@ -167,6 +167,11 @@ public static class FsusObservability
     private static readonly Counter<long> UploadSessionCleanupDeletedSessions = Meter.CreateCounter<long>("fsus.upload.cleanup.deleted_sessions");
     private static readonly Histogram<double> UploadSessionCleanupElapsed = Meter.CreateHistogram<double>("fsus.upload.cleanup.elapsed_ms", "ms");
     private static readonly Counter<long> UploadSessionCleanupSignalCount = Meter.CreateCounter<long>("fsus.upload.cleanup.signal_count");
+    private static readonly Histogram<double> UploadSessionLockCurrentCount = Meter.CreateHistogram<double>("fsus.upload.session_lock.current_count");
+    private static readonly Counter<long> UploadSessionLockStaleScannedCount = Meter.CreateCounter<long>("fsus.upload.session_lock.stale_scanned_count");
+    private static readonly Counter<long> UploadSessionLockStaleDisposedCount = Meter.CreateCounter<long>("fsus.upload.session_lock.stale_disposed_count");
+    private static readonly Histogram<double> UploadSessionLockCleanupElapsed = Meter.CreateHistogram<double>("fsus.upload.session_lock.cleanup_elapsed_ms", "ms");
+    private static readonly Histogram<double> UploadSessionLockAcquireElapsed = Meter.CreateHistogram<double>("fsus.upload.session_lock.acquire_elapsed_ms", "ms");
     private static readonly Counter<long> PasskeyAssertionDbCommandCount = Meter.CreateCounter<long>("fsus.passkey.assertion.db_command_count");
     private static readonly Histogram<double> PasskeyAssertionElapsed = Meter.CreateHistogram<double>("fsus.passkey.assertion.elapsed_ms", "ms");
     private static readonly Counter<long> PasskeySignCountUpdateConflictCount = Meter.CreateCounter<long>("fsus.passkey.sign_count.update_conflict_count");
@@ -854,6 +859,32 @@ public static class FsusObservability
             TagList tags = CreateBaseTags("upload-session-cleanup", "signal", normalized);
             tags.Add("fsus.upload.cleanup.signal", normalized);
             UploadSessionCleanupSignalCount.Add(1, tags);
+        });
+    }
+
+    public static void RecordUploadSessionLockAcquire(long currentLockCount, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("upload-session-lock", "acquire", "ok");
+            UploadSessionLockCurrentCount.Record(Math.Max(0, currentLockCount), tags);
+            UploadSessionLockAcquireElapsed.Record(elapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordUploadSessionLockCleanup(
+        long currentLockCount,
+        long scannedLockCount,
+        long disposedLockCount,
+        TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("upload-session-lock", "cleanup", "ok");
+            UploadSessionLockCurrentCount.Record(Math.Max(0, currentLockCount), tags);
+            UploadSessionLockStaleScannedCount.Add(Math.Max(0, scannedLockCount), tags);
+            UploadSessionLockStaleDisposedCount.Add(Math.Max(0, disposedLockCount), tags);
+            UploadSessionLockCleanupElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 

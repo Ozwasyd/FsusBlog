@@ -535,6 +535,31 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task CleanupExpiredSessionsAsync_RemovesStaleSessionLocks()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(root);
+            var entry = new FileService.SessionLockEntry();
+            string uploadId = Guid.NewGuid().ToString("N");
+            RegisterSessionLock(uploadId, entry);
+            entry.SetLastTouchedUtcForTests(DateTimeOffset.UtcNow - TimeSpan.FromHours(7));
+
+            await service.CleanupExpiredSessionsAsync(CancellationToken.None);
+
+            Assert.Equal(0, GetSessionLockCount());
+            await Assert.ThrowsAsync<ObjectDisposedException>(async () => await entry.Semaphore.WaitAsync());
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void SessionLockEntry_RetiredEntryRejectsNewReferences()
     {
         var entry = new FileService.SessionLockEntry();
@@ -1112,6 +1137,25 @@ public sealed class FileServiceTests
         Assert.Contains("EnumerateExpiredExpirationBuckets", source, StringComparison.Ordinal);
         Assert.Contains("RecordUploadSessionCleanup", source, StringComparison.Ordinal);
         Assert.DoesNotContain("foreach (string sessionPath in Directory.EnumerateDirectories(_sessionRootPath))", cleanup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UploadSessionLockCleanup_RunsOutsideAcquireHotPath()
+    {
+        string source = ReadFileServiceSource();
+        string acquire = ExtractMethodBlock(source, "private static async Task<SessionLockLease> AcquireSessionLockAsync");
+        string cleanup = ExtractMethodBlock(source, "internal async Task CleanupExpiredSessionsAsync");
+        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
+
+        Assert.DoesNotContain("CleanupStaleSessionLocks", acquire, StringComparison.Ordinal);
+        Assert.Contains("RecordUploadSessionLockAcquire", acquire, StringComparison.Ordinal);
+        Assert.Contains("CleanupStaleSessionLocks", cleanup, StringComparison.Ordinal);
+        Assert.Contains("RecordUploadSessionLockCleanup", cleanup, StringComparison.Ordinal);
+        Assert.Contains("fsus.upload.session_lock.current_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.upload.session_lock.stale_scanned_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.upload.session_lock.stale_disposed_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.upload.session_lock.cleanup_elapsed_ms", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.upload.session_lock.acquire_elapsed_ms", observability, StringComparison.Ordinal);
     }
 
     [Fact]

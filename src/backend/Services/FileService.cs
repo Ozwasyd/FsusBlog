@@ -659,13 +659,13 @@ public sealed partial class FileService : IFileService
 
     private static async Task<SessionLockLease> AcquireSessionLockAsync(string uploadId, CancellationToken cancellationToken)
     {
+        long started = Stopwatch.GetTimestamp();
         if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId)
             || !string.Equals(uploadId, normalizedUploadId, StringComparison.Ordinal))
         {
             throw new InvalidOperationException("Upload session id is invalid.");
         }
 
-        CleanupStaleSessionLocks(DateTimeOffset.UtcNow);
         while (true)
         {
             SessionLockEntry entry = _sessionLocks.GetOrAdd(uploadId, static _ => new SessionLockEntry());
@@ -677,6 +677,7 @@ public sealed partial class FileService : IFileService
             try
             {
                 await entry.Semaphore.WaitAsync(cancellationToken);
+                FsusObservability.RecordUploadSessionLockAcquire(_sessionLocks.Count, Stopwatch.GetElapsedTime(started));
                 return new SessionLockLease(uploadId, entry);
             }
             catch
@@ -1456,6 +1457,14 @@ public sealed partial class FileService : IFileService
         scannedSessions += legacyScanned;
         deletedSessions += legacyDeleted;
         FsusObservability.RecordUploadSessionCleanup(scannedSessions, deletedSessions, Stopwatch.GetElapsedTime(started));
+
+        long lockStarted = Stopwatch.GetTimestamp();
+        int disposedLocks = CleanupStaleSessionLocks(DateTimeOffset.UtcNow, out int scannedLocks);
+        FsusObservability.RecordUploadSessionLockCleanup(
+            _sessionLocks.Count,
+            scannedLocks,
+            disposedLocks,
+            Stopwatch.GetElapsedTime(lockStarted));
     }
 
     private IEnumerable<string> EnumerateExpiredExpirationBuckets(DateTime nowUtc)
@@ -1641,11 +1650,16 @@ public sealed partial class FileService : IFileService
     }
 
     internal static int CleanupStaleSessionLocks(DateTimeOffset now)
+        => CleanupStaleSessionLocks(now, out _);
+
+    private static int CleanupStaleSessionLocks(DateTimeOffset now, out int scanned)
     {
         DateTimeOffset cutoff = now - SessionLockTtl;
+        scanned = 0;
         int removed = 0;
         foreach (KeyValuePair<string, SessionLockEntry> pair in _sessionLocks)
         {
+            scanned++;
             if (!pair.Value.IsIdleSince(cutoff))
             {
                 continue;
