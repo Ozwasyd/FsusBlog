@@ -215,6 +215,29 @@ public sealed class AuthoringWorkflowServiceTests
     }
 
     [Fact]
+    public void ModerationQueue_SourceLoadsLatestSignalAndCountsWithSingleAggregates()
+    {
+        string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string migrations = ReadRepoFile("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
+        string queue = Slice(
+            service,
+            "public async Task<CommentModerationQueueResponse> ListCommentModerationQueueAsync",
+            "public async Task<bool> ModerateCommentAsync");
+        string signals = Slice(
+            service,
+            "private async Task<IReadOnlyDictionary<long, CommentModerationModelSignalResponse>> LoadLatestModelSignalsAsync",
+            "private async Task LoadAnonymousNullifierSummariesAsync");
+
+        Assert.Contains("LoadCommentModerationQueueCountsAsync", queue, StringComparison.Ordinal);
+        Assert.DoesNotContain("CountAsync(cancellationToken)", queue, StringComparison.Ordinal);
+        Assert.Contains("SUM(CASE WHEN moderation_status", service, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("DISTINCT ON (comment_id)", signals, StringComparison.Ordinal);
+        Assert.Contains("ORDER BY comment_id, created_at_utc DESC", signals, StringComparison.Ordinal);
+        Assert.DoesNotContain("GroupBy(static signal => signal.CommentId)", signals, StringComparison.Ordinal);
+        Assert.Contains("idx_comment_moderation_signal_comment_created", migrations, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RumMetricSummaries_AverageUsesUnsortedSamplesAndP75UsesSortedSamples()
     {
         RumMetricAuditContext[] values =

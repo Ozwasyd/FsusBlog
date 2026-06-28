@@ -74,6 +74,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildCommentRegionComplianceMigration(),
         BuildCommentBlockedRegionLookupMigration(),
         BuildCommentModerationSignalMigration(),
+        BuildCommentModerationSignalLatestIndexMigration(),
         BuildCommentPublicHotPathIndexMigration()
     ];
 
@@ -3034,6 +3035,19 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_comment_moderation_signal_second_round",
                     "CREATE INDEX IF NOT EXISTS idx_comment_moderation_signal_second_round ON comment_moderation_signal(needs_second_round, created_at_utc DESC);")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildCommentModerationSignalLatestIndexMigration()
+        => new SchemaMigrationDescriptor(
+            "20260629-post-comment-moderation-signal-latest-index",
+            "Index moderation signals for latest-per-comment queue lookups.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new CreateIndexStep(
+                    "idx_comment_moderation_signal_comment_created",
+                    "CREATE INDEX IF NOT EXISTS idx_comment_moderation_signal_comment_created ON comment_moderation_signal(comment_id, created_at_utc DESC, id DESC);")
             ]);
 
     private static ISchemaMigrationDescriptor BuildCommentPublicHotPathIndexMigration()

@@ -917,15 +917,37 @@ public sealed class AuthoringWorkflowService(
             }
         }
 
-        int pending = await db.Queryable<Comment>().Where(static item => item.ModerationStatus == CommentModerationStatus.Pending && !item.IsDeleted).CountAsync(cancellationToken);
-        int rejected = await db.Queryable<Comment>().Where(static item => item.ModerationStatus == CommentModerationStatus.Rejected && !item.IsDeleted).CountAsync(cancellationToken);
-        int hidden = await db.Queryable<Comment>().Where(static item => item.ModerationStatus == CommentModerationStatus.Hidden && !item.IsDeleted).CountAsync(cancellationToken);
+        CommentModerationQueueCounts counts = await LoadCommentModerationQueueCountsAsync(cancellationToken).ConfigureAwait(false);
 
         return new CommentModerationQueueResponse(
             rows.Select(ToCommentModerationItem).ToArray(),
-            pending,
-            rejected,
-            hidden);
+            counts.Pending,
+            counts.Rejected,
+            counts.Hidden);
+    }
+
+    private async Task<CommentModerationQueueCounts> LoadCommentModerationQueueCountsAsync(CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
+            SELECT
+                SUM(CASE WHEN moderation_status = @PendingStatus THEN 1 ELSE 0 END)::integer AS pending,
+                SUM(CASE WHEN moderation_status = @RejectedStatus THEN 1 ELSE 0 END)::integer AS rejected,
+                SUM(CASE WHEN moderation_status = @HiddenStatus THEN 1 ELSE 0 END)::integer AS hidden
+            FROM comment
+            WHERE is_deleted = false;
+            """,
+            new SugarParameter("@PendingStatus", (int)CommentModerationStatus.Pending),
+            new SugarParameter("@RejectedStatus", (int)CommentModerationStatus.Rejected),
+            new SugarParameter("@HiddenStatus", (int)CommentModerationStatus.Hidden));
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return new CommentModerationQueueCounts(0, 0, 0);
+        }
+
+        return new CommentModerationQueueCounts(
+            reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
+            reader.IsDBNull(1) ? 0 : reader.GetInt32(1),
+            reader.IsDBNull(2) ? 0 : reader.GetInt32(2));
     }
 
     public async Task<bool> ModerateCommentAsync(long actorAdminPrincipalId, long commentId, CommentModerationRequest request, CancellationToken cancellationToken = default)
@@ -1417,16 +1439,76 @@ public sealed class AuthoringWorkflowService(
             return new Dictionary<long, CommentModerationModelSignalResponse>();
         }
 
-        List<CommentModerationSignal> signals = await db.Queryable<CommentModerationSignal>()
-            .Where(signal => commentIds.Contains(signal.CommentId))
-            .OrderByDescending(static signal => signal.CreatedAtUtc)
-            .ToListAsync(cancellationToken);
-        return signals
-            .GroupBy(static signal => signal.CommentId)
-            .ToDictionary(
-                static group => group.Key,
-                group => ToModelSignalResponse(group.First()));
+        string[] parameterNames = new string[commentIds.Length];
+        var parameters = new SugarParameter[commentIds.Length];
+        for (int i = 0; i < commentIds.Length; i++)
+        {
+            string parameterName = string.Concat("@CommentId", i.ToString(CultureInfo.InvariantCulture));
+            parameterNames[i] = parameterName;
+            parameters[i] = new SugarParameter(parameterName, commentIds[i]);
+        }
+
+        string sql = $"""
+            SELECT DISTINCT ON (comment_id)
+                id,
+                comment_id,
+                provider,
+                model,
+                contract_version,
+                label,
+                severity,
+                confidence,
+                primary_reason,
+                needs_second_round,
+                risk_categories,
+                evidence_json,
+                raw_reason,
+                latency_ms,
+                status,
+                error_code,
+                threshold_profile,
+                metadata_json,
+                created_at_utc
+            FROM comment_moderation_signal
+            WHERE comment_id IN ({string.Join(", ", parameterNames)})
+            ORDER BY comment_id, created_at_utc DESC, id DESC;
+            """;
+
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sql, parameters);
+        var signals = new Dictionary<long, CommentModerationModelSignalResponse>();
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            CommentModerationSignal signal = ReadCommentModerationSignal(reader);
+            signals[signal.CommentId] = ToModelSignalResponse(signal);
+        }
+
+        logger.LogDebug("comment-moderation-latest-signals queueRows={QueueRows} loadedSignalRows={LoadedSignalRows}", rows.Count, signals.Count);
+        return signals;
     }
+
+    private static CommentModerationSignal ReadCommentModerationSignal(DbDataReader reader)
+        => new()
+        {
+            Id = reader.GetInt64(0),
+            CommentId = reader.GetInt64(1),
+            Provider = reader.GetString(2),
+            Model = reader.GetString(3),
+            ContractVersion = reader.GetString(4),
+            Label = reader.GetString(5),
+            Severity = reader.GetString(6),
+            Confidence = reader.GetDouble(7),
+            PrimaryReason = reader.IsDBNull(8) ? null : reader.GetString(8),
+            NeedsSecondRound = reader.GetBoolean(9),
+            RiskCategories = reader.IsDBNull(10) ? null : reader.GetString(10),
+            EvidenceJson = reader.IsDBNull(11) ? null : reader.GetString(11),
+            RawReason = reader.IsDBNull(12) ? null : reader.GetString(12),
+            LatencyMs = reader.GetInt32(13),
+            Status = reader.GetString(14),
+            ErrorCode = reader.IsDBNull(15) ? null : reader.GetString(15),
+            ThresholdProfile = reader.IsDBNull(16) ? null : reader.GetString(16),
+            MetadataJson = reader.IsDBNull(17) ? null : reader.GetString(17),
+            CreatedAtUtc = reader.GetDateTime(18)
+        };
 
     private async Task LoadAnonymousNullifierSummariesAsync(
         IReadOnlyList<CommentModerationQueueRow> rows,
@@ -2321,6 +2403,11 @@ public sealed class AuthoringWorkflowService(
         long TotalReads,
         int AverageDwellMs,
         double ReadingCompletionRate);
+
+    private sealed record CommentModerationQueueCounts(
+        int Pending,
+        int Rejected,
+        int Hidden);
 
     private sealed record UserBanCandidate(int Id, string RowVersion);
 
