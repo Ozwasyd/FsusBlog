@@ -29,12 +29,13 @@ public sealed class CommentSecurityHardeningTests
     {
         string source = ReadRepoFile("src/backend/Services/CommentService.cs");
 
-        Assert.Contains("a.Status == ArticleStatus.Published", source);
-        Assert.Contains("a.PublishedAt == null || a.PublishedAt <= now", source);
-        Assert.Contains("a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now", source);
-        Assert.Contains("c.ModerationStatus == CommentModerationStatus.Approved", source);
-        Assert.Contains("&& !c.IsDeleted", source);
-        Assert.Contains("rootIsVisible", source);
+        Assert.Contains("a.status = @PublishedStatus", source);
+        Assert.Contains("a.published_at IS NULL OR a.published_at <= @Now", source);
+        Assert.Contains("a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now", source);
+        Assert.Contains("pc.moderation_status = @ApprovedStatus", source);
+        Assert.Contains("rc.moderation_status = @ApprovedStatus", source);
+        Assert.Contains("FROM article a, comment pc, comment rc", source);
+        Assert.Contains("COALESCE(pc.root_id, pc.id) = @RootId", source);
         Assert.Contains("RootId: comment.RootId ?? comment.Id", source);
         Assert.Equal(CommentLimits.ContentMaxChars, 1000);
         Assert.Equal(CommentLimits.ContentMaxUtf8Bytes, 4096);

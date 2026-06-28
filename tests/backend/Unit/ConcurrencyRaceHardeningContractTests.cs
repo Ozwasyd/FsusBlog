@@ -25,6 +25,14 @@ public sealed class ConcurrencyRaceHardeningContractTests
             create.IndexOf("LockVisibleCommentTargetAsync", StringComparison.Ordinal) <
             create.IndexOf("ExecuteReturnSnowflakeIdAsync", StringComparison.Ordinal),
             "comment target locks must be held until the insert commits.");
+
+        string lockTarget = ExtractBetween(comments, "private async Task<bool> LockVisibleCommentTargetAsync", "private static bool RequiresAnonymousNullifierEnforcement");
+        Assert.Equal(2, CountOccurrences(lockTarget, "GetDataReaderAsync"));
+        Assert.Contains("FROM article a, comment pc, comment rc", lockTarget, StringComparison.Ordinal);
+        Assert.Contains("COALESCE(pc.root_id, pc.id) = @RootId", lockTarget, StringComparison.Ordinal);
+        Assert.Contains("rc.parent_id IS NULL", lockTarget, StringComparison.Ordinal);
+        Assert.DoesNotContain("HasLockedVisibleArticleAsync", comments, StringComparison.Ordinal);
+        Assert.DoesNotContain("HasLockedVisibleCommentAsync", comments, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -96,5 +104,18 @@ public sealed class ConcurrencyRaceHardeningContractTests
         int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
         Assert.True(endIndex >= 0, $"Missing end marker: {end}");
         return source[startIndex..endIndex];
+    }
+
+    private static int CountOccurrences(string source, string value)
+    {
+        int count = 0;
+        int index = 0;
+        while ((index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+
+        return count;
     }
 }

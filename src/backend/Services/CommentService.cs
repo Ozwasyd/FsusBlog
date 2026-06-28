@@ -262,23 +262,8 @@ public partial class CommentService(
                 requestedReplyToCommentId = parsedReplyToCommentId;
             }
 
-            var parent = await db.Queryable<Comment>()
-                .Where(c => c.Id == parsedParentId
-                    && c.ArticleId == articleId
-                    && c.ModerationStatus == CommentModerationStatus.Approved
-                    && !c.IsDeleted)
-                .Select(c => new
-                {
-                    c.Id,
-                    c.ArticleId,
-                    c.RootId,
-                    c.ParentId,
-                    c.Depth,
-                    c.UserId
-                })
-                .FirstAsync();
-
-            if (parent is null || parent.ArticleId != articleId)
+            ReplyTargetRow? parent = await LoadVisibleReplyTargetAsync(parsedParentId, articleId, cancellationToken);
+            if (parent is null)
             {
                 return false;
             }
@@ -286,18 +271,6 @@ public partial class CommentService(
             parentId = parent.Id;
             rootId = parent.RootId ?? parent.Id;
             if (requestedRootId.HasValue && requestedRootId.Value != rootId.Value)
-            {
-                return false;
-            }
-
-            bool rootIsVisible = await db.Queryable<Comment>()
-                .Where(c => c.Id == rootId.Value
-                    && c.ArticleId == articleId
-                    && c.ParentId == null
-                    && c.ModerationStatus == CommentModerationStatus.Approved
-                    && !c.IsDeleted)
-                .AnyAsync();
-            if (!rootIsVisible)
             {
                 return false;
             }
@@ -460,6 +433,51 @@ public partial class CommentService(
         return true;
     }
 
+    private async Task<ReplyTargetRow?> LoadVisibleReplyTargetAsync(long parentId, int articleId, CancellationToken cancellationToken)
+    {
+        await using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT
+                p.id AS "Id",
+                p.article_id AS "ArticleId",
+                p.root_id AS "RootId",
+                p.parent_id AS "ParentId",
+                p.depth AS "Depth",
+                p.user_id AS "UserId"
+            FROM comment p
+            JOIN comment r
+              ON r.id = COALESCE(p.root_id, p.id)
+             AND r.article_id = p.article_id
+             AND r.parent_id IS NULL
+             AND r.moderation_status = @ApprovedStatus
+             AND r.is_deleted = false
+            WHERE p.id = @ParentId
+              AND p.article_id = @ArticleId
+              AND p.moderation_status = @ApprovedStatus
+              AND p.is_deleted = false
+            LIMIT 1;
+            """,
+            new SugarParameter("@ParentId", parentId),
+            new SugarParameter("@ArticleId", articleId),
+            new SugarParameter("@ApprovedStatus", (int)CommentModerationStatus.Approved));
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        int fRootId = reader.GetOrdinal("RootId");
+        int fParentId = reader.GetOrdinal("ParentId");
+        int fDepth = reader.GetOrdinal("Depth");
+        int fUserId = reader.GetOrdinal("UserId");
+        return new ReplyTargetRow(
+            reader.GetInt64(reader.GetOrdinal("Id")),
+            reader.GetInt32(reader.GetOrdinal("ArticleId")),
+            reader.IsDBNull(fRootId) ? null : reader.GetInt64(fRootId),
+            reader.IsDBNull(fParentId) ? null : reader.GetInt64(fParentId),
+            reader.IsDBNull(fDepth) ? 0 : reader.GetInt32(fDepth),
+            reader.IsDBNull(fUserId) ? null : reader.GetInt32(fUserId));
+    }
+
     private async Task<bool> LockVisibleCommentTargetAsync(
         int articleId,
         long? parentId,
@@ -468,14 +486,23 @@ public partial class CommentService(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!await HasLockedVisibleArticleAsync(articleId, utcNow, cancellationToken))
-        {
-            return false;
-        }
-
         if (!parentId.HasValue)
         {
-            return true;
+            await using var rootReader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                """
+                SELECT 1
+                FROM article a
+                WHERE a.id = @ArticleId
+                  AND a.isdeleted = false
+                  AND a.status = @PublishedStatus
+                  AND (a.published_at IS NULL OR a.published_at <= @Now)
+                  AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now)
+                FOR SHARE;
+                """,
+                new SugarParameter("@ArticleId", articleId),
+                new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published),
+                new SugarParameter("@Now", utcNow));
+            return await rootReader.ReadAsync(cancellationToken);
         }
 
         if (!rootId.HasValue)
@@ -483,67 +510,38 @@ public partial class CommentService(
             return false;
         }
 
-        return await HasLockedVisibleCommentAsync(
-                parentId.Value,
-                articleId,
-                rootId.Value,
-                requireRoot: false,
-                cancellationToken)
-            && await HasLockedVisibleCommentAsync(
-                rootId.Value,
-                articleId,
-                rootId.Value,
-                requireRoot: true,
-                cancellationToken);
-    }
-
-    private async Task<bool> HasLockedVisibleArticleAsync(
-        int articleId,
-        DateTime utcNow,
-        CancellationToken cancellationToken)
-    {
-        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        await using var replyReader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             SELECT 1
-            FROM article
-            WHERE id = @ArticleId
-              AND isdeleted = false
-              AND status = @PublishedStatus
-              AND (published_at IS NULL OR published_at <= @Now)
-              AND (scheduled_publish_at IS NULL OR scheduled_publish_at <= @Now)
-            FOR SHARE;
+            FROM article a, comment pc, comment rc
+            WHERE a.id = @ArticleId
+              AND a.isdeleted = false
+              AND a.status = @PublishedStatus
+              AND (a.published_at IS NULL OR a.published_at <= @Now)
+              AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now)
+              AND pc.id = @ParentId
+              AND pc.article_id = a.id
+              AND COALESCE(pc.root_id, pc.id) = @RootId
+              AND pc.moderation_status = @ApprovedStatus
+              AND pc.is_deleted = false
+              AND rc.id = @RootId
+              AND rc.article_id = a.id
+              AND rc.parent_id IS NULL
+              AND rc.moderation_status = @ApprovedStatus
+              AND rc.is_deleted = false
+            FOR SHARE
+            LIMIT 1;
             """,
             new SugarParameter("@ArticleId", articleId),
+            new SugarParameter("@ParentId", parentId.Value),
+            new SugarParameter("@RootId", rootId.Value),
             new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published),
+            new SugarParameter("@ApprovedStatus", (int)CommentModerationStatus.Approved),
             new SugarParameter("@Now", utcNow));
-        return await reader.ReadAsync(cancellationToken);
+        return await replyReader.ReadAsync(cancellationToken);
     }
 
-    private async Task<bool> HasLockedVisibleCommentAsync(
-        long commentId,
-        int articleId,
-        long rootId,
-        bool requireRoot,
-        CancellationToken cancellationToken)
-    {
-        string rootPredicate = requireRoot ? "AND parent_id IS NULL" : "AND COALESCE(root_id, id) = @RootId";
-        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-            $"""
-            SELECT 1
-            FROM comment
-            WHERE id = @CommentId
-              AND article_id = @ArticleId
-              AND moderation_status = @ApprovedStatus
-              AND is_deleted = false
-              {rootPredicate}
-            FOR SHARE;
-            """,
-            new SugarParameter("@CommentId", commentId),
-            new SugarParameter("@ArticleId", articleId),
-            new SugarParameter("@RootId", rootId),
-            new SugarParameter("@ApprovedStatus", (int)CommentModerationStatus.Approved));
-        return await reader.ReadAsync(cancellationToken);
-    }
+    private sealed record ReplyTargetRow(long Id, int ArticleId, long? RootId, long? ParentId, int Depth, int? UserId);
 
     private static bool RequiresAnonymousNullifierEnforcement(CommentActor actor)
         => !string.IsNullOrWhiteSpace(actor.AnonymousNullifierHash)
