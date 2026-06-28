@@ -68,10 +68,8 @@ public class ShieldMiddleware(
         var uaSpan = (ua ?? string.Empty).AsSpan();
 
         // 3. 智能爬虫鉴别 (逻辑自洽的核心)
-        // 极速自动机扫描代替耗时的 || 与 .Contains()
-        bool isClaimingToBeBot = uaSpan.ContainsAny(_botKeywords);
-
-        if (antiCrawlerEnabled && isClaimingToBeBot)
+        // 先识别声明的 crawler/social-preview family，再把通用关键词交给 unknown bot 分支。
+        if (antiCrawlerEnabled)
         {
             string clientIp = context.GetClientIp();
 
@@ -113,19 +111,16 @@ public class ShieldMiddleware(
 
                 await RecordRiskAsync(context, SecurityRiskReason.UnknownBot, "social_preview", 0, options, SecurityRiskSources.AntiCrawler, "social_preview");
             }
-            else
+            else if (uaSpan.ContainsAny(_botKeywords))
             {
                 if (await RejectOrObserveAsync(context, SecurityRiskReason.UnknownBot, StatusCodes.Status403Forbidden, "unknown_bot", 15, antiCrawlerEnforcing, options))
                 {
                     return;
                 }
             }
-        }
-        else if (antiCrawlerEnabled)
-        {
-            // 不是爬虫，通过自动机状态库极速检查是否在工具黑名单中
-            if (uaSpan.ContainsAny(_blockedUserAgents) || options.BlockedUserAgentKeywords.Any(keyword => ua?.Contains(keyword, StringComparison.OrdinalIgnoreCase) == true))
+            else if (uaSpan.ContainsAny(_blockedUserAgents) || options.BlockedUserAgentKeywords.Any(keyword => ua?.Contains(keyword, StringComparison.OrdinalIgnoreCase) == true))
             {
+                // 不是声明 crawler/social-preview，通过自动机状态库极速检查是否在工具黑名单中
                 if (await RejectOrObserveAsync(context, SecurityRiskReason.BlockedUserAgent, StatusCodes.Status403Forbidden, "blocked_user_agent", 10, antiCrawlerEnforcing, options))
                 {
                     return;

@@ -53,7 +53,7 @@
 
 ## 防爬虫闭环
 
-`ShieldMiddleware` 在常规 endpoint 前分类处理请求：
+`ShieldMiddleware` 在常规 endpoint 前分类处理请求；精确的 search crawler / social-preview family 必须先于通用 `bot|spider|crawler` unknown-bot 关键词判断：
 
 - search crawler：`Googlebot` / `Google-InspectionTool` / `bingbot` / `msnbot` 先按 CIDR 验证，`Baiduspider` / `Sogou` 继续使用 rDNS + forward DNS；只有验证通过后才写 `HttpContext.Items["VerifiedCrawler"] = true`。`observe` 模式下验证失败会放行并记录 `FakeCrawler` 风险事件，但不得设置 verified crawler 标记或进入高额度限流分区。
 - social preview bot：`Twitterbot`、`facebookexternalhit`、`Discordbot`、`Slackbot`、`TelegramBot`、`LinkedInBot`、`WhatsApp` 只允许公开 HTML、OG/静态资源、`robots.txt` 的 GET/HEAD，不允许访问 `/api/**`。

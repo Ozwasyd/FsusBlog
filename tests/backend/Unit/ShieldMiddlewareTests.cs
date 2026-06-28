@@ -202,6 +202,34 @@ public sealed class ShieldMiddlewareTests
         Assert.False(ctx.Items.ContainsKey("CrawlerProvider"));
     }
 
+    [Theory]
+    [InlineData("Mozilla/5.0 (compatible; Googlebot/2.1)")]
+    [InlineData("Google-InspectionTool/1.0")]
+    [InlineData("Mozilla/5.0 (compatible; bingbot/2.0)")]
+    [InlineData("msnbot/2.0")]
+    [InlineData("Baiduspider/2.0")]
+    [InlineData("Sogou")]
+    public async Task InvokeAsync_ObserveModeDeclaredSearchCrawlerUserAgents_EnterSearchCrawlerBranch(string ua)
+    {
+        bool nextCalled = false;
+        var riskSink = new CapturingSecurityRiskSink();
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            securityRisk: riskSink,
+            antiCrawlerPolicy: new TestAntiCrawlerPolicyProvider(SecuritySystemModes.Observe),
+            onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var ctx = BuildContext("/article/42", ua);
+        ctx.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.42");
+
+        await sut.InvokeAsync(ctx);
+
+        Assert.True(nextCalled);
+        Assert.False(ctx.Items.ContainsKey("VerifiedCrawler"));
+        Assert.Contains(riskSink.Signals, signal =>
+            signal.Reason == SecurityRiskReason.FakeCrawler
+            && signal.Detail == "fake_crawler");
+    }
+
     // ─── Path traversal protection ────────────────────────────────────────
 
     [Fact]
@@ -327,6 +355,27 @@ public sealed class ShieldMiddlewareTests
 
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status403Forbidden, ctx.Response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("Twitterbot/1.0")]
+    [InlineData("facebookexternalhit/1.1")]
+    [InlineData("Discordbot/2.0")]
+    [InlineData("Slackbot-LinkExpanding 1.0")]
+    [InlineData("TelegramBot")]
+    [InlineData("LinkedInBot/1.0")]
+    [InlineData("WhatsApp/2.0")]
+    public async Task InvokeAsync_SocialPreviewUserAgents_ApiReadDeniedAndMarked(string ua)
+    {
+        bool nextCalled = false;
+        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var ctx = BuildContext("/api/binary/category", ua, method: "GET");
+
+        await sut.InvokeAsync(ctx);
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status403Forbidden, ctx.Response.StatusCode);
+        Assert.True(ctx.Items.TryGetValue("SocialPreviewBot", out object? socialPreview) && socialPreview is true);
     }
 
     [Fact]
