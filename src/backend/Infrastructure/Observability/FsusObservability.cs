@@ -135,6 +135,10 @@ public static class FsusObservability
     private static readonly Counter<long> PublicHotDeltaRebuiltListCounter = Meter.CreateCounter<long>("fsus.public_hot.delta.rebuilt_lists");
     private static readonly Counter<long> PublicHotDeltaRebuiltTaxonomyCounter = Meter.CreateCounter<long>("fsus.public_hot.delta.rebuilt_taxonomy");
     private static readonly Histogram<double> PublicHotDeltaElapsed = Meter.CreateHistogram<double>("fsus.public_hot.delta.elapsed_ms", "ms");
+    private static readonly Histogram<double> AdminIntegrityCheckElapsed = Meter.CreateHistogram<double>("fsus.admin.integrity.check_elapsed_ms", "ms");
+    private static readonly Counter<long> AdminIntegrityTotalCount = Meter.CreateCounter<long>("fsus.admin.integrity.total_count");
+    private static readonly Counter<long> AdminIntegritySampleCount = Meter.CreateCounter<long>("fsus.admin.integrity.sample_count");
+    private static readonly Counter<long> AdminIntegrityScannedFiles = Meter.CreateCounter<long>("fsus.admin.integrity.scanned_files");
 
     public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
 
@@ -651,6 +655,23 @@ public static class FsusObservability
         PublicHotDeltaRebuiltListCounter.Add(Math.Max(0, rebuiltListFrames));
         PublicHotDeltaRebuiltTaxonomyCounter.Add(Math.Max(0, rebuiltTaxonomyFrames));
         PublicHotDeltaElapsed.Record(elapsed.TotalMilliseconds);
+    }
+
+    public static void RecordAdminIntegrityCheck(
+        string code,
+        TimeSpan elapsed,
+        long totalCount,
+        long sampleCount,
+        long scannedFileCount)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("admin-integrity", NormalizeTelemetryValue(code, "unknown"), totalCount == 0 ? "ok" : "issue");
+            AdminIntegrityCheckElapsed.Record(elapsed.TotalMilliseconds, tags);
+            AdminIntegrityTotalCount.Add(Math.Max(0, totalCount), tags);
+            AdminIntegritySampleCount.Add(Math.Max(0, sampleCount), tags);
+            AdminIntegrityScannedFiles.Add(Math.Max(0, scannedFileCount), tags);
+        });
     }
 
     public static TimeSpan GetElapsed(long startTimestamp)

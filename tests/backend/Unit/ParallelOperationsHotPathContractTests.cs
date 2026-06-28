@@ -41,25 +41,36 @@ public sealed class ParallelOperationsHotPathContractTests
     public void AdminOperations_IntegrityLoadsUseNarrowConcurrentProjectionsAndBatchedFixes()
     {
         string source = ReadRepoFile("src/backend/Infrastructure/Operations/AdminOperationsService.cs");
-        string load = ExtractMethodBlock(source, "private async Task<IntegrityData> LoadIntegrityDataAsync");
+        string observability = ReadRepoFile("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string inspect = ExtractMethodBlock(source, "public async Task<IntegrityReportResponse> InspectIntegrityAsync");
+        string preview = ExtractMethodBlock(source, "public async Task<IntegrityFixPreviewResponse> PreviewIntegrityFixAsync");
 
-        Assert.Contains("Task<List<IntegrityArticleRow>> articlesTask", load, StringComparison.Ordinal);
-        Assert.Contains("List<IntegrityArticleRow> articles = await articlesTask", load, StringComparison.Ordinal);
-        Assert.DoesNotContain(".Result", load, StringComparison.Ordinal);
-        Assert.Contains("IntegrityArticleRow", source, StringComparison.Ordinal);
-        Assert.Contains("Select(article => new IntegrityArticleRow", load, StringComparison.Ordinal);
-        Assert.DoesNotContain("List<Article> articles = await", load, StringComparison.Ordinal);
-        Assert.DoesNotContain("Queryable<Article>().ToListAsync", load, StringComparison.Ordinal);
-        Assert.DoesNotContain("Queryable<User>().ToListAsync", load, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadIntegrityDataAsync", inspect, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadIntegrityDataAsync", preview, StringComparison.Ordinal);
+        Assert.Contains("BuildIntegrityChecksAsync", inspect, StringComparison.Ordinal);
+        Assert.Contains("BuildSafeFixDiffsAsync", preview, StringComparison.Ordinal);
+        Assert.Contains("RunIntegritySqlCheckAsync", source, StringComparison.Ordinal);
+        Assert.Contains("COUNT(*)", source, StringComparison.Ordinal);
+        Assert.Contains("LIMIT 10", source, StringComparison.Ordinal);
+        Assert.Contains("MaxUntrackedUploadScanFiles", source, StringComparison.Ordinal);
+        Assert.Contains("RecordAdminIntegrityCheck", source, StringComparison.Ordinal);
+        Assert.Contains("fsus.admin.integrity.check_elapsed_ms", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.admin.integrity.total_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.admin.integrity.sample_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.admin.integrity.scanned_files", observability, StringComparison.Ordinal);
+        Assert.DoesNotContain("Directory.EnumerateFiles(uploadRoot, \"*\", SearchOption.AllDirectories)", source, StringComparison.Ordinal);
 
         string apply = ExtractMethodBlock(source, "public async Task<IntegrityFixResponse> ApplyIntegrityFixAsync");
         Assert.Contains("DeleteInvalidArticleTagsAsync", apply, StringComparison.Ordinal);
         Assert.Contains("RevokeDeletedUserSessionsAsync", apply, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadIntegrityDataAsync", apply, StringComparison.Ordinal);
         Assert.DoesNotContain("foreach (ArticleTag tag", apply, StringComparison.Ordinal);
         Assert.DoesNotContain("foreach (UserSession session", apply, StringComparison.Ordinal);
-
-        Assert.Contains("ActiveUserIds", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Users.Any(user =>", source, StringComparison.Ordinal);
+        string deleteArticleTagBatch = ExtractMethodBlock(source, "private async Task DeleteArticleTagBatchAsync");
+        Assert.Contains("articleid = ", deleteArticleTagBatch, StringComparison.Ordinal);
+        Assert.Contains("tagid = ", deleteArticleTagBatch, StringComparison.Ordinal);
+        Assert.DoesNotContain("article_id = ", deleteArticleTagBatch, StringComparison.Ordinal);
+        Assert.DoesNotContain("tag_id = ", deleteArticleTagBatch, StringComparison.Ordinal);
     }
 
     [Fact]

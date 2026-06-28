@@ -1,3 +1,5 @@
+using System.Data.Common;
+using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 using System.Xml.Linq;
@@ -47,6 +49,7 @@ public sealed class AdminOperationsService(
     private const int RecentErrorDisplayLimit = 5;
     private const int RecentErrorMessageMaxLength = 140;
     private const int RecentErrorDetailMaxLength = 2000;
+    private const int MaxUntrackedUploadScanFiles = 10_000;
 
     public async Task<OpsHealthResponse> GetOpsHealthAsync(CancellationToken cancellationToken)
     {
@@ -251,23 +254,7 @@ public sealed class AdminOperationsService(
 
     public async Task<IntegrityReportResponse> InspectIntegrityAsync(CancellationToken cancellationToken)
     {
-        IntegrityData data = await LoadIntegrityDataAsync(cancellationToken);
-        List<IntegrityCheckResponse> checks =
-        [
-            BuildCheck("article_missing_body", "文章缺少 ArticleBody", MissingBody(data), "warning", true, "可通过内容导入或人工补正文修复。"),
-            BuildCheck("article_body_without_revision", "正文缺少 revision", BodyWithoutRevision(data), "warning", false, "需要人工确认首个 revision 的正文来源。"),
-            BuildCheck("article_missing_category", "文章引用不存在分类", MissingCategory(data), "error", false, "需要重新指定分类或恢复分类。"),
-            BuildCheck("article_tag_missing_tag", "文章标签关联不存在 tag", MissingArticleTag(data), "warning", true, "安全修复会删除无效 article_tag 关联。"),
-            BuildCheck("article_tag_missing_article", "标签关联不存在文章", MissingArticleTagArticle(data), "warning", true, "安全修复会删除无效 article_tag 关联。"),
-            BuildCheck("comment_missing_article", "评论指向不存在文章", MissingCommentArticle(data), "error", false, "需要人工确认评论是否删除或迁移。"),
-            BuildCheck("comment_chain_invalid", "评论 root/parent 链异常", InvalidCommentChain(data), "warning", false, "需要人工判断楼层结构。"),
-            BuildCheck("session_deleted_user", "session 指向已注销用户", DeletedUserSessions(data), "warning", true, "安全修复会撤销这些 session。"),
-            BuildCheck("upload_untracked", "uploads 文件未进 asset library", UntrackedUploads(data), "info", false, "可通过文章资产重建补齐。"),
-            BuildCheck("asset_missing_file", "asset library 指向不存在文件", MissingAssetFiles(data), "warning", false, "需要人工确认是否清理资产记录。"),
-            BuildCheck("sitemap_visibility", "sitemap 公开性", [], "info", false, "sitemap 文章、分类、标签均复用 published visibility 过滤。"),
-            BuildCheck("search_visibility", "搜索公开性", [], "info", false, "SearchIndexService 只加载 published 且已到发布时间的文章。"),
-            BuildCheck("taxonomy_count_runtime", "taxonomy 公开计数", [], "info", false, "后台 taxonomy 计数实时聚合，不依赖易漂移的持久计数字段。")
-        ];
+        IReadOnlyList<IntegrityCheckResponse> checks = await BuildIntegrityChecksAsync(cancellationToken);
 
         int issueCount = checks.Count(static item => item.Count > 0);
         return new IntegrityReportResponse(
@@ -280,8 +267,7 @@ public sealed class AdminOperationsService(
 
     public async Task<IntegrityFixPreviewResponse> PreviewIntegrityFixAsync(CancellationToken cancellationToken)
     {
-        IntegrityData data = await LoadIntegrityDataAsync(cancellationToken);
-        IReadOnlyList<AdminDiffResponse> diffs = BuildSafeFixDiffs(data);
+        IReadOnlyList<AdminDiffResponse> diffs = await BuildSafeFixDiffsAsync(cancellationToken);
         return new IntegrityFixPreviewResponse(
             diffs.Count == 0 ? "empty" : "ready",
             DateTimeOffset.UtcNow,
@@ -300,17 +286,16 @@ public sealed class AdminOperationsService(
         HashSet<string> codes = request.Codes is { Count: > 0 }
             ? request.Codes.ToHashSet(StringComparer.OrdinalIgnoreCase)
             : ["article_tag_missing_tag", "article_tag_missing_article", "session_deleted_user"];
-        IntegrityData data = await LoadIntegrityDataAsync(cancellationToken);
         List<AdminDiffResponse> diffs = [];
 
         if (codes.Contains("article_tag_missing_tag") || codes.Contains("article_tag_missing_article"))
         {
-            diffs.AddRange(await DeleteInvalidArticleTagsAsync(data, cancellationToken));
+            diffs.AddRange(await DeleteInvalidArticleTagsAsync(await QueryInvalidArticleTagsAsync(cancellationToken), cancellationToken));
         }
 
         if (codes.Contains("session_deleted_user"))
         {
-            diffs.AddRange(await RevokeDeletedUserSessionsAsync(data, cancellationToken));
+            diffs.AddRange(await RevokeDeletedUserSessionsAsync(await QueryDeletedUserSessionsAsync(cancellationToken), cancellationToken));
         }
 
         return new IntegrityFixResponse(
@@ -626,6 +611,199 @@ public sealed class AdminOperationsService(
             sampleKeys.Take(10).ToArray(),
             autoFixAvailable ? sampleKeys.Take(10).Select(key => new AdminDiffResponse(key, "present", "fixed")).ToArray() : []);
 
+    private IntegrityCheckResponse BuildCheck(
+        string code,
+        string title,
+        IntegrityCheckSample sample,
+        string severity,
+        bool autoFixAvailable,
+        string detail)
+        => new(
+            code,
+            title,
+            sample.Count == 0 ? "ok" : "issue",
+            sample.Count == 0 ? "ok" : severity,
+            sample.Count,
+            autoFixAvailable && sample.Count > 0,
+            sample.ScannedFileCount > 0 ? $"{detail} scannedFiles={sample.ScannedFileCount}" : detail,
+            sample.SampleKeys,
+            autoFixAvailable ? sample.SampleKeys.Select(key => new AdminDiffResponse(key, "present", "fixed")).ToArray() : []);
+
+    private async Task<IReadOnlyList<IntegrityCheckResponse>> BuildIntegrityChecksAsync(CancellationToken cancellationToken)
+    {
+        IntegrityCheckSample missingBody = await RunIntegritySqlCheckAsync("article_missing_body", $$"""
+            SELECT 'article:' || a.id AS sample_key
+            FROM article a
+            LEFT JOIN article_body b ON b.article_id = a.id
+            WHERE a.status <> {{(int)ArticleStatus.Deleted}}
+              AND b.article_id IS NULL
+            ORDER BY a.id
+            """, cancellationToken);
+        IntegrityCheckSample bodyWithoutRevision = await RunIntegritySqlCheckAsync("article_body_without_revision", """
+            SELECT 'article:' || b.article_id AS sample_key
+            FROM article_body b
+            LEFT JOIN article_revision r ON r.article_id = b.article_id
+            WHERE r.article_id IS NULL
+            ORDER BY b.article_id
+            """, cancellationToken);
+        IntegrityCheckSample missingCategory = await RunIntegritySqlCheckAsync("article_missing_category", $$"""
+            SELECT 'article:' || a.id || ':category:' || a.categoryid AS sample_key
+            FROM article a
+            LEFT JOIN category c ON c.id = a.categoryid
+            WHERE a.status <> {{(int)ArticleStatus.Deleted}}
+              AND c.id IS NULL
+            ORDER BY a.id
+            """, cancellationToken);
+        IntegrityCheckSample missingTag = await RunIntegritySqlCheckAsync("article_tag_missing_tag", """
+            SELECT 'article_tag:' || at.articleid || ':' || at.tagid AS sample_key
+            FROM article_tag at
+            LEFT JOIN tag t ON t.id = at.tagid
+            WHERE t.id IS NULL
+            ORDER BY at.articleid, at.tagid
+            """, cancellationToken);
+        IntegrityCheckSample missingTagArticle = await RunIntegritySqlCheckAsync("article_tag_missing_article", """
+            SELECT 'article_tag:' || at.articleid || ':' || at.tagid AS sample_key
+            FROM article_tag at
+            LEFT JOIN article a ON a.id = at.articleid
+            WHERE a.id IS NULL
+            ORDER BY at.articleid, at.tagid
+            """, cancellationToken);
+        IntegrityCheckSample missingCommentArticle = await RunIntegritySqlCheckAsync("comment_missing_article", """
+            SELECT 'comment:' || c.id || ':article:' || c.article_id AS sample_key
+            FROM comment c
+            LEFT JOIN article a ON a.id = c.article_id
+            WHERE a.id IS NULL
+            ORDER BY c.id
+            """, cancellationToken);
+        IntegrityCheckSample invalidCommentChain = await RunIntegritySqlCheckAsync("comment_chain_invalid", """
+            SELECT 'comment:' || c.id AS sample_key
+            FROM comment c
+            LEFT JOIN comment p ON p.id = c.parent_id
+            LEFT JOIN comment r ON r.id = c.root_id
+            WHERE (c.parent_id IS NOT NULL AND c.parent_id > 0 AND p.id IS NULL)
+               OR (c.root_id IS NOT NULL AND c.root_id > 0 AND r.id IS NULL)
+            ORDER BY c.id
+            """, cancellationToken);
+        IntegrityCheckSample deletedUserSessions = await RunIntegritySqlCheckAsync("session_deleted_user", """
+            SELECT 'session:' || s.sessionid || ':user:' || s.userid AS sample_key
+            FROM sys_user_session s
+            LEFT JOIN sys_user u ON u.id = s.userid
+            WHERE s.revokedat IS NULL
+              AND (u.id IS NULL OR u.status = 2 OR u.deleted_at IS NOT NULL)
+            ORDER BY s.sessionid
+            """, cancellationToken);
+        IntegrityCheckSample untrackedUploads = await BuildUntrackedUploadsCheckAsync(cancellationToken);
+        IntegrityCheckSample missingAssetFiles = await BuildMissingAssetFilesCheckAsync(cancellationToken);
+
+        return
+        [
+            BuildCheck("article_missing_body", "文章缺少 ArticleBody", missingBody, "warning", true, "可通过内容导入或人工补正文修复。"),
+            BuildCheck("article_body_without_revision", "正文缺少 revision", bodyWithoutRevision, "warning", false, "需要人工确认首个 revision 的正文来源。"),
+            BuildCheck("article_missing_category", "文章引用不存在分类", missingCategory, "error", false, "需要重新指定分类或恢复分类。"),
+            BuildCheck("article_tag_missing_tag", "文章标签关联不存在 tag", missingTag, "warning", true, "安全修复会删除无效 article_tag 关联。"),
+            BuildCheck("article_tag_missing_article", "标签关联不存在文章", missingTagArticle, "warning", true, "安全修复会删除无效 article_tag 关联。"),
+            BuildCheck("comment_missing_article", "评论指向不存在文章", missingCommentArticle, "error", false, "需要人工确认评论是否删除或迁移。"),
+            BuildCheck("comment_chain_invalid", "评论 root/parent 链异常", invalidCommentChain, "warning", false, "需要人工判断楼层结构。"),
+            BuildCheck("session_deleted_user", "session 指向已注销用户", deletedUserSessions, "warning", true, "安全修复会撤销这些 session。"),
+            BuildCheck("upload_untracked", "uploads 文件未进 asset library", untrackedUploads, "info", false, "可通过文章资产重建补齐。"),
+            BuildCheck("asset_missing_file", "asset library 指向不存在文件", missingAssetFiles, "warning", false, "需要人工确认是否清理资产记录。"),
+            BuildCheck("sitemap_visibility", "sitemap 公开性", new IntegrityCheckSample(0, []), "info", false, "sitemap 文章、分类、标签均复用 published visibility 过滤。"),
+            BuildCheck("search_visibility", "搜索公开性", new IntegrityCheckSample(0, []), "info", false, "SearchIndexService 只加载 published 且已到发布时间的文章。"),
+            BuildCheck("taxonomy_count_runtime", "taxonomy 公开计数", new IntegrityCheckSample(0, []), "info", false, "后台 taxonomy 计数实时聚合，不依赖易漂移的持久计数字段。")
+        ];
+    }
+
+    private async Task<IntegrityCheckSample> RunIntegritySqlCheckAsync(string code, string issueSql, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        long started = Stopwatch.GetTimestamp();
+        int count = await db.Ado.GetIntAsync($"SELECT COUNT(*) FROM ({issueSql}) AS integrity_issues;");
+        var sampleKeys = new List<string>(Math.Min(10, Math.Max(0, count)));
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync($"SELECT sample_key FROM ({issueSql}) AS integrity_issues LIMIT 10;");
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            sampleKeys.Add(reader.IsDBNull(0) ? string.Empty : reader.GetString(0));
+        }
+
+        IntegrityCheckSample sample = new(count, sampleKeys);
+        FsusObservability.RecordAdminIntegrityCheck(code, FsusObservability.GetElapsed(started), sample.Count, sample.SampleKeys.Count, sample.ScannedFileCount);
+        return sample;
+    }
+
+    private async Task<IntegrityCheckSample> BuildUntrackedUploadsCheckAsync(CancellationToken cancellationToken)
+    {
+        long started = Stopwatch.GetTimestamp();
+        string uploadRoot = Path.Combine(ResolveWebRoot(), "uploads");
+        if (!Directory.Exists(uploadRoot))
+        {
+            IntegrityCheckSample empty = new(0, []);
+            FsusObservability.RecordAdminIntegrityCheck("upload_untracked", FsusObservability.GetElapsed(started), empty.Count, empty.SampleKeys.Count, empty.ScannedFileCount);
+            return empty;
+        }
+
+        HashSet<string> assetUrls = await LoadAssetUrlSetAsync(cancellationToken);
+        var samples = new List<string>(10);
+        int count = 0;
+        int scanned = 0;
+        foreach (string path in EnumerateUploadFilesBounded(uploadRoot, MaxUntrackedUploadScanFiles))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            scanned++;
+            string url = "/uploads/" + Path.GetRelativePath(uploadRoot, path).Replace(Path.DirectorySeparatorChar, '/');
+            if (assetUrls.Contains(url))
+            {
+                continue;
+            }
+
+            count++;
+            if (samples.Count < 10)
+            {
+                samples.Add(url);
+            }
+        }
+
+        IntegrityCheckSample sample = new(count, samples, scanned);
+        FsusObservability.RecordAdminIntegrityCheck("upload_untracked", FsusObservability.GetElapsed(started), sample.Count, sample.SampleKeys.Count, sample.ScannedFileCount);
+        return sample;
+    }
+
+    private async Task<IntegrityCheckSample> BuildMissingAssetFilesCheckAsync(CancellationToken cancellationToken)
+    {
+        long started = Stopwatch.GetTimestamp();
+        List<IntegrityAssetRow> assets = await db.Queryable<AssetLibraryItem>()
+            .Where(asset => asset.Url.StartsWith("/uploads/"))
+            .Select(asset => new IntegrityAssetRow { Id = asset.Id, Url = asset.Url })
+            .ToListAsync(cancellationToken);
+        string webRoot = ResolveWebRoot();
+        var samples = new List<string>(10);
+        int count = 0;
+        foreach (IntegrityAssetRow asset in assets)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!TryResolveUploadPath(webRoot, asset.Url, out string path) || !File.Exists(path))
+            {
+                count++;
+                if (samples.Count < 10)
+                {
+                    samples.Add($"asset:{asset.Id}:{asset.Url}");
+                }
+            }
+        }
+
+        IntegrityCheckSample sample = new(count, samples, assets.Count);
+        FsusObservability.RecordAdminIntegrityCheck("asset_missing_file", FsusObservability.GetElapsed(started), sample.Count, sample.SampleKeys.Count, sample.ScannedFileCount);
+        return sample;
+    }
+
+    private async Task<HashSet<string>> LoadAssetUrlSetAsync(CancellationToken cancellationToken)
+    {
+        List<string> urls = await db.Queryable<AssetLibraryItem>()
+            .Where(asset => asset.Url != null && asset.Url != "")
+            .Select(asset => asset.Url)
+            .ToListAsync(cancellationToken);
+        return urls.ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
     private async Task<IntegrityData> LoadIntegrityDataAsync(CancellationToken cancellationToken)
     {
         Task<List<IntegrityArticleRow>> articlesTask = QueryWithNewClientAsync(queryDb => queryDb.Queryable<Article>()
@@ -782,11 +960,73 @@ public sealed class AdminOperationsService(
             .Select(static asset => asset.Url)
             .Where(static url => !string.IsNullOrWhiteSpace(url))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return Directory.EnumerateFiles(uploadRoot, "*", SearchOption.AllDirectories)
+        return EnumerateUploadFilesBounded(uploadRoot, MaxUntrackedUploadScanFiles)
             .Select(path => "/uploads/" + Path.GetRelativePath(uploadRoot, path).Replace(Path.DirectorySeparatorChar, '/'))
             .Where(url => !assetUrls.Contains(url))
             .Take(1000)
             .ToArray();
+    }
+
+    private async Task<IReadOnlyList<AdminDiffResponse>> BuildSafeFixDiffsAsync(CancellationToken cancellationToken)
+    {
+        List<IntegrityArticleTagRow> invalidTags = await QueryInvalidArticleTagsAsync(cancellationToken);
+        List<IntegritySessionRow> sessions = await QueryDeletedUserSessionsAsync(cancellationToken);
+        var diffs = new List<AdminDiffResponse>(invalidTags.Count + sessions.Count);
+        diffs.AddRange(invalidTags.Select(tag => new AdminDiffResponse($"article_tag:{tag.ArticleId}:{tag.TagId}", "present", "deleted")));
+        diffs.AddRange(sessions.Select(session => new AdminDiffResponse($"session:{session.SessionId}", "active", "revoked")));
+        return diffs;
+    }
+
+    private async Task<List<IntegrityArticleTagRow>> QueryInvalidArticleTagsAsync(CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
+            SELECT at.articleid AS "ArticleId", at.tagid AS "TagId"
+            FROM article_tag at
+            LEFT JOIN tag t ON t.id = at.tagid
+            LEFT JOIN article a ON a.id = at.articleid
+            WHERE t.id IS NULL OR a.id IS NULL
+            ORDER BY at.articleid, at.tagid;
+            """);
+        var result = new List<IntegrityArticleTagRow>();
+        int fArticleId = reader.GetOrdinal("ArticleId");
+        int fTagId = reader.GetOrdinal("TagId");
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            result.Add(new IntegrityArticleTagRow
+            {
+                ArticleId = reader.GetInt32(fArticleId),
+                TagId = reader.GetInt32(fTagId)
+            });
+        }
+
+        return result;
+    }
+
+    private async Task<List<IntegritySessionRow>> QueryDeletedUserSessionsAsync(CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
+            SELECT s.sessionid AS "SessionId", s.userid AS "UserId", s.revokedat AS "RevokedAt"
+            FROM sys_user_session s
+            LEFT JOIN sys_user u ON u.id = s.userid
+            WHERE s.revokedat IS NULL
+              AND (u.id IS NULL OR u.status = 2 OR u.deleted_at IS NOT NULL)
+            ORDER BY s.sessionid;
+            """);
+        var result = new List<IntegritySessionRow>();
+        int fSessionId = reader.GetOrdinal("SessionId");
+        int fUserId = reader.GetOrdinal("UserId");
+        int fRevokedAt = reader.GetOrdinal("RevokedAt");
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            result.Add(new IntegritySessionRow
+            {
+                SessionId = reader.GetString(fSessionId),
+                UserId = reader.GetInt32(fUserId),
+                RevokedAt = reader.IsDBNull(fRevokedAt) ? null : reader.GetDateTime(fRevokedAt)
+            });
+        }
+
+        return result;
     }
 
     private static IReadOnlyList<AdminDiffResponse> BuildSafeFixDiffs(IntegrityData data)
@@ -802,30 +1042,26 @@ public sealed class AdminOperationsService(
     }
 
     private async Task<IReadOnlyList<AdminDiffResponse>> DeleteInvalidArticleTagsAsync(
-        IntegrityData data,
+        IReadOnlyList<IntegrityArticleTagRow> invalidTags,
         CancellationToken cancellationToken)
     {
-        IntegrityArticleTagRow[] invalidTags =
-        [
-            .. data.ArticleTags.Where(tag => !data.TagIds.Contains(tag.TagId) || !data.ArticleIds.Contains(tag.ArticleId))
-        ];
-        if (invalidTags.Length == 0)
+        if (invalidTags.Count == 0)
         {
             return [];
         }
 
-        var diffs = new List<AdminDiffResponse>(invalidTags.Length);
-        for (int i = 0; i < invalidTags.Length; i++)
+        var diffs = new List<AdminDiffResponse>(invalidTags.Count);
+        for (int i = 0; i < invalidTags.Count; i++)
         {
             IntegrityArticleTagRow tag = invalidTags[i];
             diffs.Add(new AdminDiffResponse($"article_tag:{tag.ArticleId}:{tag.TagId}", "present", "deleted"));
         }
 
         const int BatchSize = 500;
-        for (int offset = 0; offset < invalidTags.Length; offset += BatchSize)
+        for (int offset = 0; offset < invalidTags.Count; offset += BatchSize)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            int count = Math.Min(BatchSize, invalidTags.Length - offset);
+            int count = Math.Min(BatchSize, invalidTags.Count - offset);
             await DeleteArticleTagBatchAsync(invalidTags, offset, count);
         }
 
@@ -849,9 +1085,9 @@ public sealed class AdminOperationsService(
             int parameterIndex = offset + i;
             string articleParameter = $"@article_id_{parameterIndex}";
             string tagParameter = $"@tag_id_{parameterIndex}";
-            sql.Append("(article_id = ")
+            sql.Append("(articleid = ")
                 .Append(articleParameter)
-                .Append(" AND tag_id = ")
+                .Append(" AND tagid = ")
                 .Append(tagParameter)
                 .Append(')');
             IntegrityArticleTagRow tag = tags[parameterIndex];
@@ -863,32 +1099,28 @@ public sealed class AdminOperationsService(
     }
 
     private async Task<IReadOnlyList<AdminDiffResponse>> RevokeDeletedUserSessionsAsync(
-        IntegrityData data,
+        IReadOnlyList<IntegritySessionRow> sessions,
         CancellationToken cancellationToken)
     {
-        IntegritySessionRow[] sessions =
-        [
-            .. data.Sessions.Where(session => data.DeletedOrMissingUserIds.Contains(session.UserId) && session.RevokedAt is null)
-        ];
-        if (sessions.Length == 0)
+        if (sessions.Count == 0)
         {
             return [];
         }
 
-        var diffs = new List<AdminDiffResponse>(sessions.Length);
-        for (int i = 0; i < sessions.Length; i++)
+        var diffs = new List<AdminDiffResponse>(sessions.Count);
+        for (int i = 0; i < sessions.Count; i++)
         {
             diffs.Add(new AdminDiffResponse($"session:{sessions[i].SessionId}", "active", "revoked"));
         }
 
         DateTime now = DateTime.UtcNow;
         const int BatchSize = 500;
-        for (int offset = 0; offset < sessions.Length; offset += BatchSize)
+        for (int offset = 0; offset < sessions.Count; offset += BatchSize)
         {
             cancellationToken.ThrowIfCancellationRequested();
             string[] sessionIds = sessions
                 .Skip(offset)
-                .Take(Math.Min(BatchSize, sessions.Length - offset))
+                .Take(Math.Min(BatchSize, sessions.Count - offset))
                 .Select(static session => session.SessionId)
                 .ToArray();
             await db.Updateable<UserSession>()
@@ -903,6 +1135,65 @@ public sealed class AdminOperationsService(
 
     private static bool IsUploadUrl(string? url)
         => !string.IsNullOrWhiteSpace(url) && url.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase);
+
+    private static IEnumerable<string> EnumerateUploadFilesBounded(string uploadRoot, int maxFiles)
+    {
+        if (maxFiles <= 0)
+        {
+            yield break;
+        }
+
+        var pending = new Stack<string>();
+        pending.Push(uploadRoot);
+        int yielded = 0;
+        while (pending.Count > 0 && yielded < maxFiles)
+        {
+            string current = pending.Pop();
+            IEnumerable<string> files;
+            try
+            {
+                files = Directory.EnumerateFiles(current);
+            }
+            catch (IOException)
+            {
+                continue;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                continue;
+            }
+
+            foreach (string file in files)
+            {
+                if (yielded >= maxFiles)
+                {
+                    yield break;
+                }
+
+                yielded++;
+                yield return file;
+            }
+
+            IEnumerable<string> directories;
+            try
+            {
+                directories = Directory.EnumerateDirectories(current);
+            }
+            catch (IOException)
+            {
+                continue;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                continue;
+            }
+
+            foreach (string directory in directories)
+            {
+                pending.Push(directory);
+            }
+        }
+    }
 
     private static bool TryResolveUploadPath(string webRoot, string url, out string path)
     {
@@ -1072,6 +1363,11 @@ public sealed class AdminOperationsService(
             .Where(userId => !ActiveUserIds.Contains(userId))
             .ToHashSet();
     }
+
+    private sealed record IntegrityCheckSample(
+        int Count,
+        IReadOnlyList<string> SampleKeys,
+        int ScannedFileCount = 0);
 
     private sealed class IntegrityArticleRow
     {
