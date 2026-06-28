@@ -91,6 +91,11 @@ public static class FsusObservability
     private static readonly Histogram<double> SecurityChallengeV2IssueDuration = Meter.CreateHistogram<double>("fsus.security.challenge.v2.issue.duration", "ms");
     private static readonly Histogram<double> SecurityChallengeV2ClientRenderDuration = Meter.CreateHistogram<double>("fsus.security.challenge.v2.client.render.duration", "ms");
     private static readonly Counter<long> SecurityDecisionCounter = Meter.CreateCounter<long>("fsus.security.decision.count");
+    private static readonly Histogram<double> SecurityRiskEventBatchSize = Meter.CreateHistogram<double>("fsus.security.risk_event.batch_size");
+    private static readonly Histogram<double> SecurityRiskEventFlushElapsed = Meter.CreateHistogram<double>("fsus.security.risk_event.flush_elapsed_ms", "ms");
+    private static readonly Counter<long> SecurityRiskEventInsertedRows = Meter.CreateCounter<long>("fsus.security.risk_event.inserted_rows");
+    private static readonly Counter<long> SecurityRiskEventFailedBatches = Meter.CreateCounter<long>("fsus.security.risk_event.failed_batches");
+    private static readonly Counter<long> SecurityRiskEventFallbackSingleInserts = Meter.CreateCounter<long>("fsus.security.risk_event.fallback_single_inserts");
     private static readonly Histogram<double> CacheOperationDuration = Meter.CreateHistogram<double>("fsus.cache.operation.duration", "ms");
     private static readonly Histogram<double> DbOperationDuration = Meter.CreateHistogram<double>("fsus.db.operation.duration", "ms");
     private static readonly Histogram<double> AotRenderDuration = Meter.CreateHistogram<double>("fsus.aot.render.duration", "ms");
@@ -277,6 +282,23 @@ public static class FsusObservability
             tags.Add("fsus.security.reason", NormalizeTelemetryValue(reason, "unknown"));
             tags.Add("fsus.security.action", NormalizeTelemetryValue(action, "unknown"));
             SecurityRiskEventCounter.Add(1, tags);
+        });
+    }
+
+    public static void RecordSecurityRiskEventBatch(
+        long batchSize,
+        TimeSpan flushElapsed,
+        long insertedRows,
+        long failedBatches,
+        long fallbackSingleInserts)
+    {
+        TryRecord(() =>
+        {
+            SecurityRiskEventBatchSize.Record(Math.Max(0, batchSize));
+            SecurityRiskEventFlushElapsed.Record(flushElapsed.TotalMilliseconds);
+            SecurityRiskEventInsertedRows.Add(Math.Max(0, insertedRows));
+            SecurityRiskEventFailedBatches.Add(Math.Max(0, failedBatches));
+            SecurityRiskEventFallbackSingleInserts.Add(Math.Max(0, fallbackSingleInserts));
         });
     }
 

@@ -73,6 +73,8 @@ public interface ISecurityRiskEventStore
 {
     Task AppendAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken = default);
 
+    Task AppendBatchAsync(IReadOnlyList<SecurityRiskEventWrite> writes, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<SecurityRiskEventRecord>> QueryAsync(SecurityRiskEventQuery query, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<SecurityRiskEventRecord>> ListActiveForScoreAsync(
@@ -92,28 +94,27 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
     public async Task AppendAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var entity = new SecurityRiskEvent
+        await db.Insertable(ToEntity(write)).ExecuteCommandAsync();
+    }
+
+    public async Task AppendBatchAsync(
+        IReadOnlyList<SecurityRiskEventWrite> writes,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (writes.Count == 0)
         {
-            Id = Normalize(write.Id, 64) ?? Guid.NewGuid().ToString("N"),
-            OccurredAtUtc = write.OccurredAtUtc.UtcDateTime,
-            Source = Normalize(write.Source, 64) ?? SecurityRiskSources.RiskControl,
-            Reason = Normalize(write.Reason, 64) ?? nameof(SecurityRiskReason.SecurityChallengeRejected),
-            Action = Normalize(write.Action, 96) ?? "security_risk",
-            ScoreDelta = write.ScoreDelta,
-            TotalScore = write.TotalScore,
-            TtlSeconds = Math.Max(0, write.TtlSeconds),
-            ExpiresAtUtc = write.ExpiresAtUtc.UtcDateTime,
-            SubjectHash = NormalizeHash(write.SubjectHash),
-            RouteKey = Normalize(write.RouteKey, 160),
-            ClientIpHash = NormalizeHash(write.ClientIpHash),
-            DeviceFpHash = NormalizeHash(write.DeviceFpHash),
-            Path = Normalize(write.Path, 256),
-            Method = Normalize(write.Method, 16),
-            UserAgent = Normalize(write.UserAgent, 256),
-            Detail = Normalize(write.Detail, 256),
-            TraceId = Normalize(write.TraceId, 64)
-        };
-        await db.Insertable(entity).ExecuteCommandAsync();
+            return;
+        }
+
+        var entities = new List<SecurityRiskEvent>(writes.Count);
+        foreach (SecurityRiskEventWrite write in writes)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            entities.Add(ToEntity(write));
+        }
+
+        await db.Insertable(entities).ExecuteCommandAsync();
     }
 
     public async Task<IReadOnlyList<SecurityRiskEventRecord>> QueryAsync(
@@ -222,6 +223,29 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
             item.UserAgent,
             item.Detail,
             item.TraceId);
+
+    private static SecurityRiskEvent ToEntity(SecurityRiskEventWrite write)
+        => new()
+        {
+            Id = Normalize(write.Id, 64) ?? Guid.NewGuid().ToString("N"),
+            OccurredAtUtc = write.OccurredAtUtc.UtcDateTime,
+            Source = Normalize(write.Source, 64) ?? SecurityRiskSources.RiskControl,
+            Reason = Normalize(write.Reason, 64) ?? nameof(SecurityRiskReason.SecurityChallengeRejected),
+            Action = Normalize(write.Action, 96) ?? "security_risk",
+            ScoreDelta = write.ScoreDelta,
+            TotalScore = write.TotalScore,
+            TtlSeconds = Math.Max(0, write.TtlSeconds),
+            ExpiresAtUtc = write.ExpiresAtUtc.UtcDateTime,
+            SubjectHash = NormalizeHash(write.SubjectHash),
+            RouteKey = Normalize(write.RouteKey, 160),
+            ClientIpHash = NormalizeHash(write.ClientIpHash),
+            DeviceFpHash = NormalizeHash(write.DeviceFpHash),
+            Path = Normalize(write.Path, 256),
+            Method = Normalize(write.Method, 16),
+            UserAgent = Normalize(write.UserAgent, 256),
+            Detail = Normalize(write.Detail, 256),
+            TraceId = Normalize(write.TraceId, 64)
+        };
 
     private static string? Normalize(string? value, int maxLength)
     {

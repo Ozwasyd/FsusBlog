@@ -196,6 +196,26 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    public void SecurityRiskEventWriter_SourcePersistsFlushWithBatchInsert()
+    {
+        string writer = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs"));
+        string persistence = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Security/SecurityRiskEventPersistence.cs"));
+        string observability = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Observability/FsusObservability.cs"));
+        string persist = ExtractMethodBlock(writer, "internal async Task PersistSafelyAsync");
+
+        Assert.Contains("Task AppendBatchAsync(IReadOnlyList<SecurityRiskEventWrite> writes", persistence, StringComparison.Ordinal);
+        Assert.Contains("store.AppendBatchAsync(batch, cancellationToken)", persist, StringComparison.Ordinal);
+        Assert.DoesNotContain("foreach (SecurityRiskEventWrite write in batch)", persist, StringComparison.Ordinal);
+        Assert.Contains("RetryBatchByHalvesAsync", writer, StringComparison.Ordinal);
+        Assert.Contains("RecordSecurityRiskEventBatch", writer, StringComparison.Ordinal);
+        Assert.Contains("fsus.security.risk_event.batch_size", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.security.risk_event.flush_elapsed_ms", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.security.risk_event.inserted_rows", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.security.risk_event.failed_batches", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.security.risk_event.fallback_single_inserts", observability, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task SecurityRiskEventWriterWorker_FlushOnceAsync_PersistsQueuedRiskEvents()
     {
         var store = new RecordingRiskEventStore();
@@ -222,6 +242,8 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
 
         Assert.Equal(2, flushed);
         Assert.Equal(2, store.Writes.Count);
+        Assert.Equal(1, store.BatchAppendCount);
+        Assert.Equal(0, store.SingleAppendCount);
         Assert.Equal(0, queue.Snapshot().QueuedCount);
     }
 
@@ -490,6 +512,9 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         public Task AppendAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("store down");
 
+        public Task AppendBatchAsync(IReadOnlyList<SecurityRiskEventWrite> writes, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("store down");
+
         public Task<IReadOnlyList<SecurityRiskEventRecord>> QueryAsync(SecurityRiskEventQuery query, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<SecurityRiskEventRecord>>([]);
 
@@ -507,6 +532,12 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             return Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
         }
 
+        public Task AppendBatchAsync(IReadOnlyList<SecurityRiskEventWrite> writes, CancellationToken cancellationToken = default)
+        {
+            AppendStarted = true;
+            return Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        }
+
         public Task<IReadOnlyList<SecurityRiskEventRecord>> QueryAsync(SecurityRiskEventQuery query, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<SecurityRiskEventRecord>>([]);
 
@@ -517,10 +548,20 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     private sealed class RecordingRiskEventStore : ISecurityRiskEventStore
     {
         public List<SecurityRiskEventWrite> Writes { get; } = [];
+        public int BatchAppendCount { get; private set; }
+        public int SingleAppendCount { get; private set; }
 
         public Task AppendAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken = default)
         {
+            SingleAppendCount++;
             Writes.Add(write);
+            return Task.CompletedTask;
+        }
+
+        public Task AppendBatchAsync(IReadOnlyList<SecurityRiskEventWrite> writes, CancellationToken cancellationToken = default)
+        {
+            BatchAppendCount++;
+            Writes.AddRange(writes);
             return Task.CompletedTask;
         }
 
@@ -564,6 +605,34 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         public void Dispose()
         {
         }
+    }
+
+    private static string ExtractMethodBlock(string source, string signature)
+    {
+        int start = source.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing method signature: {signature}");
+
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart >= 0, $"Missing method body: {signature}");
+
+        int depth = 0;
+        for (int i = braceStart; i < source.Length; i++)
+        {
+            if (source[i] == '{')
+            {
+                depth++;
+            }
+            else if (source[i] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[start..(i + 1)];
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
 
     private const string StableAccountSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";

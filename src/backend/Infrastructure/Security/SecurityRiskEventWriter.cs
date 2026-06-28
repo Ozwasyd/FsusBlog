@@ -1,8 +1,14 @@
 using System.Diagnostics;
 using System.Threading.Channels;
+using FsusBlog.Server.Infrastructure.Observability;
 using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Infrastructure.Security;
+
+internal readonly record struct SecurityRiskEventBatchPersistResult(
+    int InsertedRows,
+    int FailedBatches,
+    int FallbackSingleInserts);
 
 public sealed class SecurityRiskEventWriterOptions
 {
@@ -157,27 +163,118 @@ public sealed class SecurityRiskEventWriterWorker(
 
     internal async Task PersistSafelyAsync(IReadOnlyList<SecurityRiskEventWrite> batch, CancellationToken cancellationToken)
     {
+        long started = Stopwatch.GetTimestamp();
+        int insertedRows = 0;
+        int failedBatches = 0;
+        int fallbackSingleInserts = 0;
         try
         {
             await using AsyncServiceScope scope = _scopeFactory.CreateAsyncScope();
             ISecurityRiskEventStore store = scope.ServiceProvider.GetRequiredService<ISecurityRiskEventStore>();
-            foreach (SecurityRiskEventWrite write in batch)
+            try
             {
-                await store.AppendAsync(write, cancellationToken);
+                await store.AppendBatchAsync(batch, cancellationToken);
+                insertedRows = batch.Count;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                SecurityRiskEventBatchPersistResult fallback = await RetryBatchByHalvesAsync(
+                    store,
+                    batch,
+                    cancellationToken).ConfigureAwait(false);
+                insertedRows = fallback.InsertedRows;
+                failedBatches = fallback.FailedBatches + 1;
+                fallbackSingleInserts = fallback.FallbackSingleInserts;
+                LogPersistFailure(ex, batch);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            SecurityRiskEventWrite first = batch[0];
-            _logger.LogWarning(
-                ex,
-                "security-risk-persist-failed Count={Count} Source={Source} Reason={Reason} Action={Action} TraceId={TraceId}",
-                batch.Count,
-                first.Source,
-                first.Reason,
-                first.Action,
-                first.TraceId);
+            failedBatches++;
+            LogPersistFailure(ex, batch);
         }
+        finally
+        {
+            FsusObservability.RecordSecurityRiskEventBatch(
+                batch.Count,
+                Stopwatch.GetElapsedTime(started),
+                insertedRows,
+                failedBatches,
+                fallbackSingleInserts);
+        }
+    }
+
+    private async Task<SecurityRiskEventBatchPersistResult> RetryBatchByHalvesAsync(
+        ISecurityRiskEventStore store,
+        IReadOnlyList<SecurityRiskEventWrite> batch,
+        CancellationToken cancellationToken)
+    {
+        if (batch.Count == 0)
+        {
+            return new SecurityRiskEventBatchPersistResult(0, 0, 0);
+        }
+
+        if (batch.Count == 1)
+        {
+            try
+            {
+                await store.AppendAsync(batch[0], cancellationToken).ConfigureAwait(false);
+                return new SecurityRiskEventBatchPersistResult(1, 0, 1);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                LogPersistFailure(ex, batch);
+                return new SecurityRiskEventBatchPersistResult(0, 0, 0);
+            }
+        }
+
+        int split = batch.Count / 2;
+        SecurityRiskEventBatchPersistResult left = await PersistBatchPartOrRetryAsync(
+            store,
+            batch.Take(split).ToArray(),
+            cancellationToken).ConfigureAwait(false);
+        SecurityRiskEventBatchPersistResult right = await PersistBatchPartOrRetryAsync(
+            store,
+            batch.Skip(split).ToArray(),
+            cancellationToken).ConfigureAwait(false);
+        return new SecurityRiskEventBatchPersistResult(
+            left.InsertedRows + right.InsertedRows,
+            left.FailedBatches + right.FailedBatches,
+            left.FallbackSingleInserts + right.FallbackSingleInserts);
+    }
+
+    private async Task<SecurityRiskEventBatchPersistResult> PersistBatchPartOrRetryAsync(
+        ISecurityRiskEventStore store,
+        IReadOnlyList<SecurityRiskEventWrite> batch,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await store.AppendBatchAsync(batch, cancellationToken).ConfigureAwait(false);
+            return new SecurityRiskEventBatchPersistResult(batch.Count, 0, 0);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            SecurityRiskEventBatchPersistResult fallback = await RetryBatchByHalvesAsync(
+                store,
+                batch,
+                cancellationToken).ConfigureAwait(false);
+            LogPersistFailure(ex, batch);
+            return fallback with { FailedBatches = fallback.FailedBatches + 1 };
+        }
+    }
+
+    private void LogPersistFailure(Exception ex, IReadOnlyList<SecurityRiskEventWrite> batch)
+    {
+        SecurityRiskEventWrite first = batch[0];
+        _logger.LogWarning(
+            ex,
+            "security-risk-persist-failed Count={Count} Source={Source} Reason={Reason} Action={Action} TraceId={TraceId}",
+            batch.Count,
+            first.Source,
+            first.Reason,
+            first.Action,
+            first.TraceId);
     }
 
     private async Task FillBatchUntilFlushWindowAsync(List<SecurityRiskEventWrite> batch, CancellationToken stoppingToken)
