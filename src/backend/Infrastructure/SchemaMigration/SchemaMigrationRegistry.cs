@@ -55,6 +55,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildHumanReadEventMigration(),
         BuildVisitLogStatsRollupMigration(),
         BuildArticleViewProjectionWatermarkMigration(),
+        BuildAuthorAnalyticsRollupMigration(),
         BuildVisitLogAnonymousAttributionFinalizeMigration(),
         BuildVisitLogIpAnonymizationMigration(),
         BuildAuthoringAdminPrincipalAttributionMigration(),
@@ -2366,6 +2367,181 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         now() AT TIME ZONE 'utc'
                     FROM sys_visit_log
                     ON CONFLICT (id) DO NOTHING;
+                    """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAuthorAnalyticsRollupMigration()
+        => new SchemaMigrationDescriptor(
+            "20260629-post-author-analytics-rollups",
+            "Create rollup tables for author analytics dashboard reads.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "author_daily_read_stats",
+                    """
+                    CREATE TABLE IF NOT EXISTS author_daily_read_stats (
+                        stat_date date PRIMARY KEY,
+                        total_reads bigint NOT NULL DEFAULT 0,
+                        article_reads bigint NOT NULL DEFAULT 0,
+                        completed_article_reads bigint NOT NULL DEFAULT 0,
+                        dwell_ms_total bigint NOT NULL DEFAULT 0,
+                        updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+                    );
+                    """),
+                new EnsureTableStep(
+                    "author_route_stats",
+                    """
+                    CREATE TABLE IF NOT EXISTS author_route_stats (
+                        metric_kind varchar(32) NOT NULL,
+                        label varchar(128) NOT NULL,
+                        event_count integer NOT NULL DEFAULT 0,
+                        updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+                        PRIMARY KEY (metric_kind, label)
+                    );
+                    """),
+                new EnsureTableStep(
+                    "author_rum_stats",
+                    """
+                    CREATE TABLE IF NOT EXISTS author_rum_stats (
+                        name varchar(64) PRIMARY KEY,
+                        event_count integer NOT NULL DEFAULT 0,
+                        p75 double precision NOT NULL DEFAULT 0,
+                        average double precision NOT NULL DEFAULT 0,
+                        updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+                    );
+                    """),
+                new EnsureTableStep(
+                    "author_rum_page_type_stats",
+                    """
+                    CREATE TABLE IF NOT EXISTS author_rum_page_type_stats (
+                        page_type varchar(32) PRIMARY KEY,
+                        event_count integer NOT NULL DEFAULT 0,
+                        updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+                    );
+                    """),
+                new EnsureTableStep(
+                    "author_rum_aot_source_stats",
+                    """
+                    CREATE TABLE IF NOT EXISTS author_rum_aot_source_stats (
+                        aot_source varchar(32) PRIMARY KEY,
+                        event_count integer NOT NULL DEFAULT 0,
+                        updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+                    );
+                    """),
+                new EnsureTableStep(
+                    "author_aot_stats",
+                    """
+                    CREATE TABLE IF NOT EXISTS author_aot_stats (
+                        metric_kind varchar(32) PRIMARY KEY,
+                        event_count bigint NOT NULL DEFAULT 0,
+                        updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+                    );
+                    """),
+                new BackfillSqlStep(
+                    """
+                    INSERT INTO author_daily_read_stats(stat_date, total_reads, article_reads, completed_article_reads, dwell_ms_total, updated_at_utc)
+                    SELECT
+                        createtime::date,
+                        COUNT(1)::bigint,
+                        COUNT(*) FILTER (WHERE event_type = 'article_read')::bigint,
+                        COUNT(*) FILTER (WHERE event_type = 'article_read' AND dwell_ms >= 30000)::bigint,
+                        COALESCE(SUM(GREATEST(dwell_ms, 0)), 0)::bigint,
+                        now() AT TIME ZONE 'utc'
+                    FROM sys_visit_log
+                    WHERE event_type IN ('article_read', 'site_read')
+                    GROUP BY createtime::date
+                    ON CONFLICT (stat_date) DO UPDATE
+                    SET total_reads = EXCLUDED.total_reads,
+                        article_reads = EXCLUDED.article_reads,
+                        completed_article_reads = EXCLUDED.completed_article_reads,
+                        dwell_ms_total = EXCLUDED.dwell_ms_total,
+                        updated_at_utc = EXCLUDED.updated_at_utc;
+                    """),
+                new BackfillSqlStep(
+                    """
+                    INSERT INTO author_route_stats(metric_kind, label, event_count, updated_at_utc)
+                    SELECT
+                        CASE
+                            WHEN lower(route_key) LIKE 'search:%' THEN 'search_keyword'
+                            WHEN lower(route_key) LIKE 'not-found:%' THEN 'not_found_path'
+                            ELSE 'source_route'
+                        END,
+                        CASE
+                            WHEN lower(route_key) LIKE 'search:%' THEN btrim(substr(route_key, 8))
+                            WHEN lower(route_key) LIKE 'not-found:%' THEN btrim(substr(route_key, 11))
+                            WHEN lower(route_key) = 'home' THEN '/'
+                            WHEN lower(route_key) = 'about' THEN '/about'
+                            WHEN lower(route_key) = 'archive' THEN '/archive'
+                            WHEN lower(route_key) = 'search' THEN '/search'
+                            WHEN lower(route_key) LIKE 'article:%' THEN '/article/' || substr(route_key, 9)
+                            WHEN lower(route_key) LIKE 'category:%' THEN '/category/' || substr(route_key, 10)
+                            WHEN lower(route_key) LIKE 'tag:%' THEN '/tag/' || substr(route_key, 5)
+                            WHEN lower(route_key) LIKE 'tag-name:%' THEN '/tag/' || substr(route_key, 10)
+                            ELSE btrim(route_key)
+                        END,
+                        COUNT(1)::integer,
+                        now() AT TIME ZONE 'utc'
+                    FROM sys_visit_log
+                    WHERE route_key IS NOT NULL
+                      AND btrim(route_key) <> ''
+                      AND event_type IN ('article_read', 'site_read')
+                    GROUP BY 1, 2
+                    ON CONFLICT (metric_kind, label) DO UPDATE
+                    SET event_count = EXCLUDED.event_count,
+                        updated_at_utc = EXCLUDED.updated_at_utc;
+                    """),
+                new BackfillSqlStep(
+                    """
+                    INSERT INTO author_rum_stats(name, event_count, p75, average, updated_at_utc)
+                    SELECT
+                        name,
+                        COUNT(1)::integer,
+                        COALESCE(percentile_disc(0.75) WITHIN GROUP (ORDER BY value), 0)::double precision,
+                        COALESCE(AVG(value), 0)::double precision,
+                        now() AT TIME ZONE 'utc'
+                    FROM frontend_rum_metric
+                    WHERE value IS NOT NULL
+                    GROUP BY name
+                    ON CONFLICT (name) DO UPDATE
+                    SET event_count = EXCLUDED.event_count,
+                        p75 = EXCLUDED.p75,
+                        average = EXCLUDED.average,
+                        updated_at_utc = EXCLUDED.updated_at_utc;
+                    """),
+                new BackfillSqlStep(
+                    """
+                    INSERT INTO author_rum_page_type_stats(page_type, event_count, updated_at_utc)
+                    SELECT page_type, COUNT(1)::integer, now() AT TIME ZONE 'utc'
+                    FROM frontend_rum_metric
+                    GROUP BY page_type
+                    ON CONFLICT (page_type) DO UPDATE
+                    SET event_count = EXCLUDED.event_count,
+                        updated_at_utc = EXCLUDED.updated_at_utc;
+                    """),
+                new BackfillSqlStep(
+                    """
+                    INSERT INTO author_rum_aot_source_stats(aot_source, event_count, updated_at_utc)
+                    SELECT aot_source, COUNT(1)::integer, now() AT TIME ZONE 'utc'
+                    FROM frontend_rum_metric
+                    GROUP BY aot_source
+                    ON CONFLICT (aot_source) DO UPDATE
+                    SET event_count = EXCLUDED.event_count,
+                        updated_at_utc = EXCLUDED.updated_at_utc;
+                    """),
+                new BackfillSqlStep(
+                    """
+                    INSERT INTO author_aot_stats(metric_kind, event_count, updated_at_utc)
+                    SELECT
+                        'miss',
+                        COUNT(*) FILTER (WHERE event_info ILIKE '%Public AOT cache miss%')::bigint,
+                        now() AT TIME ZONE 'utc'
+                    FROM sys_audit_log
+                    WHERE source = 'public_aot'
+                    ON CONFLICT (metric_kind) DO UPDATE
+                    SET event_count = EXCLUDED.event_count,
+                        updated_at_utc = EXCLUDED.updated_at_utc;
                     """)
             ]);
 

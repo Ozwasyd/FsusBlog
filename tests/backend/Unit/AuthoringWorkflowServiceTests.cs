@@ -192,6 +192,29 @@ public sealed class AuthoringWorkflowServiceTests
     }
 
     [Fact]
+    public void GetAnalyticsAsync_SourceReadsRollupsInsteadOfRawLogWindows()
+    {
+        string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string method = Slice(
+            service,
+            "public async Task<AuthorAnalyticsResponse> GetAnalyticsAsync",
+            "public async Task<CommentModerationQueueResponse> ListCommentModerationQueueAsync");
+
+        Assert.Contains("LoadArticleStatusCountsAsync", method, StringComparison.Ordinal);
+        Assert.Contains("LoadAuthorReadRollupAsync", method, StringComparison.Ordinal);
+        Assert.Contains("LoadAuthorRouteRollupsAsync", method, StringComparison.Ordinal);
+        Assert.Contains("LoadAuthorRumRollupsAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Take(5_000)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Take(2_000)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Queryable<VisitLogEntity>()", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Queryable<FrontendRumMetric>()", method, StringComparison.Ordinal);
+        Assert.Contains("SUM(CASE WHEN", service, StringComparison.Ordinal);
+        Assert.Contains("author_route_stats", service, StringComparison.Ordinal);
+        Assert.Contains("author_rum_stats", service, StringComparison.Ordinal);
+        Assert.Contains("author_aot_stats", service, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RumMetricSummaries_AverageUsesUnsortedSamplesAndP75UsesSortedSamples()
     {
         RumMetricAuditContext[] values =

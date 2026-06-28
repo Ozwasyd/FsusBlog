@@ -709,57 +709,153 @@ public sealed class AuthoringWorkflowService(
 
     public async Task<AuthorAnalyticsResponse> GetAnalyticsAsync(CancellationToken cancellationToken = default)
     {
-        int published = await db.Queryable<Article>().Where(it => !it.IsDeleted && it.Status == ArticleStatus.Published).CountAsync(cancellationToken);
-        int draft = await db.Queryable<Article>().Where(it => !it.IsDeleted && it.Status == ArticleStatus.Draft).CountAsync(cancellationToken);
-        int scheduled = await db.Queryable<Article>().Where(it => !it.IsDeleted && it.Status == ArticleStatus.Scheduled).CountAsync(cancellationToken);
-        int archived = await db.Queryable<Article>().Where(it => !it.IsDeleted && it.Status == ArticleStatus.Archived).CountAsync(cancellationToken);
-        int reads = await db.Queryable<VisitLogEntity>().Where(it => it.EventType == HumanReadEventTypes.ArticleRead || it.EventType == HumanReadEventTypes.SiteRead).CountAsync(cancellationToken);
-        List<VisitLogEntity> recentReads = await db.Queryable<VisitLogEntity>()
-            .Where(it => it.EventType == HumanReadEventTypes.ArticleRead || it.EventType == HumanReadEventTypes.SiteRead)
-            .OrderByDescending(it => it.CreateTime)
-            .Take(5_000)
-            .ToListAsync(cancellationToken);
-
-        int averageDwellMs = recentReads.Count == 0
-            ? 0
-            : RoundingHelper.RoundToInt(recentReads.Average(static item => Math.Max(0, item.DwellMs)));
-        VisitLogEntity[] articleReads = [.. recentReads.Where(static item => item.EventType == HumanReadEventTypes.ArticleRead)];
-        double readingCompletionRate = articleReads.Length == 0
+        AuthorArticleStatusCounts articleCounts = await LoadArticleStatusCountsAsync(cancellationToken).ConfigureAwait(false);
+        AuthorReadRollup readRollup = await LoadAuthorReadRollupAsync(cancellationToken).ConfigureAwait(false);
+        long aotMisses = await LoadAuthorAotRollupAsync(cancellationToken).ConfigureAwait(false);
+        double aotHitRate = readRollup.TotalReads <= 0
             ? 0d
-            : RoundingHelper.Round4(articleReads.Count(static item => item.DwellMs >= 30_000) / (double)articleReads.Length);
-
-        List<AuditLog> recentAotLogs = await db.Queryable<AuditLog>()
-            .Where(it => it.Source == AuditSourceCatalog.PublicAot)
-            .OrderByDescending(it => it.OccurredAtUtc)
-            .Take(2_000)
-            .ToListAsync(cancellationToken);
-        List<RumMetricAuditContext> recentRumMetrics = [.. (await db.Queryable<FrontendRumMetric>()
-            .OrderByDescending(it => it.OccurredAtUtc)
-            .Take(5_000)
-            .ToListAsync(cancellationToken))
-            .Select(TryReadRumMetric)
-            .OfType<RumMetricAuditContext>()];
-        int aotMisses = recentAotLogs.Count(static item => item.EventInfo.Contains("Public AOT cache miss", StringComparison.OrdinalIgnoreCase));
-        double aotHitRate = reads <= 0
-            ? 0d
-            : RoundingHelper.Round4(Math.Clamp((reads - aotMisses) / (double)reads, 0d, 1d));
+            : RoundingHelper.Round4(Math.Clamp((readRollup.TotalReads - aotMisses) / (double)readRollup.TotalReads, 0d, 1d));
 
         return new AuthorAnalyticsResponse(
-            published,
-            draft,
-            scheduled,
-            archived,
-            reads,
-            published,
+            articleCounts.Published,
+            articleCounts.Draft,
+            articleCounts.Scheduled,
+            articleCounts.Archived,
+            RoundingHelper.RoundToInt(readRollup.TotalReads),
+            articleCounts.Published,
             aotHitRate,
-            averageDwellMs,
-            readingCompletionRate,
-            BuildRankedMetrics(recentReads.Select(static item => TryExtractSearchKeyword(item.RouteKey))),
-            BuildRankedMetrics(recentReads.Select(static item => NormalizeAnalyticsRouteKey(item.RouteKey))),
-            BuildRankedMetrics(recentReads.Select(static item => TryExtractNotFoundPath(item.RouteKey))),
-            BuildRumMetricSummaries(recentRumMetrics),
-            BuildRankedMetrics(recentRumMetrics.Select(static item => item.PageType)),
-            BuildRankedMetrics(recentRumMetrics.Select(static item => item.AotSource)));
+            readRollup.AverageDwellMs,
+            readRollup.ReadingCompletionRate,
+            await LoadAuthorRouteRollupsAsync("search_keyword", cancellationToken).ConfigureAwait(false),
+            await LoadAuthorRouteRollupsAsync("source_route", cancellationToken).ConfigureAwait(false),
+            await LoadAuthorRouteRollupsAsync("not_found_path", cancellationToken).ConfigureAwait(false),
+            await LoadAuthorRumRollupsAsync(cancellationToken).ConfigureAwait(false),
+            await LoadAuthorMetricRollupsAsync("author_rum_page_type_stats", "page_type", cancellationToken).ConfigureAwait(false),
+            await LoadAuthorMetricRollupsAsync("author_rum_aot_source_stats", "aot_source", cancellationToken).ConfigureAwait(false));
+    }
+
+    private async Task<AuthorArticleStatusCounts> LoadArticleStatusCountsAsync(CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
+            SELECT
+                SUM(CASE WHEN isdeleted = false AND status = @PublishedStatus THEN 1 ELSE 0 END)::integer AS published,
+                SUM(CASE WHEN isdeleted = false AND status = @DraftStatus THEN 1 ELSE 0 END)::integer AS draft,
+                SUM(CASE WHEN isdeleted = false AND status = @ScheduledStatus THEN 1 ELSE 0 END)::integer AS scheduled,
+                SUM(CASE WHEN isdeleted = false AND status = @ArchivedStatus THEN 1 ELSE 0 END)::integer AS archived
+            FROM article;
+            """,
+            new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published),
+            new SugarParameter("@DraftStatus", (int)ArticleStatus.Draft),
+            new SugarParameter("@ScheduledStatus", (int)ArticleStatus.Scheduled),
+            new SugarParameter("@ArchivedStatus", (int)ArticleStatus.Archived));
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return new AuthorArticleStatusCounts(0, 0, 0, 0);
+        }
+
+        return new AuthorArticleStatusCounts(
+            reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
+            reader.IsDBNull(1) ? 0 : reader.GetInt32(1),
+            reader.IsDBNull(2) ? 0 : reader.GetInt32(2),
+            reader.IsDBNull(3) ? 0 : reader.GetInt32(3));
+    }
+
+    private async Task<AuthorReadRollup> LoadAuthorReadRollupAsync(CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
+            SELECT
+                COALESCE(SUM(total_reads), 0)::bigint AS total_reads,
+                COALESCE(SUM(article_reads), 0)::bigint AS article_reads,
+                COALESCE(SUM(completed_article_reads), 0)::bigint AS completed_article_reads,
+                COALESCE(SUM(dwell_ms_total), 0)::bigint AS dwell_ms_total,
+                MAX(updated_at_utc) AS updated_at_utc
+            FROM author_daily_read_stats;
+            """);
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return new AuthorReadRollup(0, 0, 0);
+        }
+
+        long totalReads = reader.GetInt64(0);
+        long articleReads = reader.GetInt64(1);
+        long completedArticleReads = reader.GetInt64(2);
+        long dwellMsTotal = reader.GetInt64(3);
+        int averageDwellMs = totalReads <= 0 ? 0 : RoundingHelper.RoundToInt(dwellMsTotal / (double)totalReads);
+        double readingCompletionRate = articleReads <= 0
+            ? 0d
+            : RoundingHelper.Round4(completedArticleReads / (double)articleReads);
+        return new AuthorReadRollup(totalReads, averageDwellMs, readingCompletionRate);
+    }
+
+    private async Task<long> LoadAuthorAotRollupAsync(CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
+            SELECT COALESCE(SUM(event_count), 0)::bigint
+            FROM author_aot_stats
+            WHERE metric_kind = 'miss';
+            """);
+        return await reader.ReadAsync(cancellationToken).ConfigureAwait(false)
+            ? reader.GetInt64(0)
+            : 0;
+    }
+
+    private async Task<IReadOnlyList<AuthorAnalyticsMetricResponse>> LoadAuthorRouteRollupsAsync(string metricKind, CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
+            SELECT label, event_count
+            FROM author_route_stats
+            WHERE metric_kind = @MetricKind
+              AND event_count > 0
+            ORDER BY event_count DESC, label ASC
+            LIMIT 6;
+            """, new SugarParameter("@MetricKind", metricKind));
+        return await ReadMetricRowsAsync(reader, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<AuthorAnalyticsMetricResponse>> LoadAuthorMetricRollupsAsync(string tableName, string labelColumn, CancellationToken cancellationToken)
+    {
+        string sql = $"""
+            SELECT {labelColumn}, event_count
+            FROM {tableName}
+            WHERE event_count > 0
+            ORDER BY event_count DESC, {labelColumn} ASC
+            LIMIT 6;
+            """;
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sql);
+        return await ReadMetricRowsAsync(reader, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<AuthorRumMetricResponse>> LoadAuthorRumRollupsAsync(CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
+            SELECT name, event_count, p75, average
+            FROM author_rum_stats
+            WHERE event_count > 0
+            ORDER BY name ASC
+            LIMIT 8;
+            """);
+        var rows = new List<AuthorRumMetricResponse>();
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            rows.Add(new AuthorRumMetricResponse(
+                reader.GetString(0),
+                reader.GetInt32(1),
+                reader.GetDouble(2),
+                reader.GetDouble(3)));
+        }
+
+        return rows;
+    }
+
+    private static async Task<IReadOnlyList<AuthorAnalyticsMetricResponse>> ReadMetricRowsAsync(DbDataReader reader, CancellationToken cancellationToken)
+    {
+        var rows = new List<AuthorAnalyticsMetricResponse>();
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            rows.Add(new AuthorAnalyticsMetricResponse(reader.GetString(0), reader.GetInt32(1)));
+        }
+
+        return rows;
     }
 
     public async Task<CommentModerationQueueResponse> ListCommentModerationQueueAsync(
@@ -2214,6 +2310,17 @@ public sealed class AuthoringWorkflowService(
         int ArticleId,
         string? AltText,
         int ReferenceCount);
+
+    private sealed record AuthorArticleStatusCounts(
+        int Published,
+        int Draft,
+        int Scheduled,
+        int Archived);
+
+    private sealed record AuthorReadRollup(
+        long TotalReads,
+        int AverageDwellMs,
+        double ReadingCompletionRate);
 
     private sealed record UserBanCandidate(int Id, string RowVersion);
 
