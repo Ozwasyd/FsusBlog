@@ -92,8 +92,8 @@ public sealed class HumanReadProofServiceTests
         Assert.DoesNotContain("anonymousVisits", frontendStats, StringComparison.Ordinal);
         Assert.Contains("ip_hash", visitLog, StringComparison.Ordinal);
         Assert.Contains("IpHash =", visitProcessor, StringComparison.Ordinal);
-        Assert.Contains("viewer_key_hash", stats, StringComparison.Ordinal);
-        Assert.Contains("proof_id", stats, StringComparison.Ordinal);
+        Assert.Contains("unique_viewer_estimate", stats, StringComparison.Ordinal);
+        Assert.Contains("human_verified_reads", stats, StringComparison.Ordinal);
         Assert.Contains("TotalReads", outputs, StringComparison.Ordinal);
         Assert.Contains("UniqueViewerKeyEstimate", outputs, StringComparison.Ordinal);
     }

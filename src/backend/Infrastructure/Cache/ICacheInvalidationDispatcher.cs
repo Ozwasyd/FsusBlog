@@ -203,6 +203,11 @@ public sealed class CacheInvalidationDispatcher(
                 new(CachePolicyId.ArticleRss, "main"),
                 new(CachePolicyId.AdminStats, "main"),
                 new(CachePolicyId.AdminStats, "core:main"),
+                new(CachePolicyId.AdminStatsOverview, "main"),
+                new(CachePolicyId.AdminStatsRecentComments, "main"),
+                new(CachePolicyId.AdminStatsRecentComments, "core:main"),
+                new(CachePolicyId.AdminStatsRegions, "main"),
+                new(CachePolicyId.AdminStatsRegions, "core:main"),
                 new(CachePolicyId.AdminStatsFrame, "core:main"),
                 new(CachePolicyId.CategoryFrame, "all"),
                 new(CachePolicyId.TagFrame, "all")
@@ -303,6 +308,11 @@ public sealed class CacheInvalidationDispatcher(
             [
                 new(CachePolicyId.AdminStats, "main"),
                 new(CachePolicyId.AdminStats, "core:main"),
+                new(CachePolicyId.AdminStatsOverview, "main"),
+                new(CachePolicyId.AdminStatsRecentComments, "main"),
+                new(CachePolicyId.AdminStatsRecentComments, "core:main"),
+                new(CachePolicyId.AdminStatsRegions, "main"),
+                new(CachePolicyId.AdminStatsRegions, "core:main"),
                 new(CachePolicyId.AdminStatsFrame, "core:main")
             ],
             cancellationToken);

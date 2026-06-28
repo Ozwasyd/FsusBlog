@@ -25,17 +25,17 @@ public partial class StatsService(
         => new()
         {
             Overview = await GetAdminStatsOverviewAsync(),
-            RecentComments = await LoadRecentCommentsAsync(CancellationToken.None),
-            Regions = await LoadRegionStatsAsync(CancellationToken.None)
+            RecentComments = await GetAdminRecentCommentsAsync(),
+            Regions = await GetAdminRegionStatsAsync()
         };
 
     public async Task<AdminStatsOverviewDto> GetAdminStatsOverviewAsync()
     {
         return await _cacheMissCoordinator.CoordinateAsync(
-                CachePolicyId.AdminStats,
+                CachePolicyId.AdminStatsOverview,
                 "main",
                 ct => BoundaryExecutor.ExecuteValueAsync(
-                    () => _cache.TryGetAsync(CachePolicyId.AdminStats, "main", ServerCacheBinaryCodec.DecodeAdminStats, ct),
+                    () => _cache.TryGetAsync(CachePolicyId.AdminStatsOverview, "main", ServerCacheBinaryCodec.DecodeAdminStats, ct),
                     _ => new CacheReadResult<AdminStatsOverviewDto>(false, default),
                     _logger,
                     "stats-cache-read",
@@ -46,7 +46,7 @@ public partial class StatsService(
                     {
                         AdminStatsOverviewDto result = await LoadAdminStatsOverviewFromDbAsync(gateCt);
                         await BoundaryExecutor.ExecuteAsync(
-                            () => _cache.SetRawAsync(CachePolicyId.AdminStats, "main", ServerCacheBinaryCodec.EncodeAdminStats(result), null, gateCt),
+                            () => _cache.SetRawAsync(CachePolicyId.AdminStatsOverview, "main", ServerCacheBinaryCodec.EncodeAdminStats(result), null, gateCt),
                             _logger,
                             "stats-cache-write",
                             LogLevel.Error);
@@ -54,7 +54,7 @@ public partial class StatsService(
                     },
                     async gateCt =>
                     {
-                        CacheReadResult<AdminStatsOverviewDto> retry = await _cache.TryGetAsync(CachePolicyId.AdminStats, "main", ServerCacheBinaryCodec.DecodeAdminStats, gateCt);
+                        CacheReadResult<AdminStatsOverviewDto> retry = await _cache.TryGetAsync(CachePolicyId.AdminStatsOverview, "main", ServerCacheBinaryCodec.DecodeAdminStats, gateCt);
                         if (retry.Hit && retry.Value is not null)
                         {
                             return retry.Value;
@@ -69,17 +69,42 @@ public partial class StatsService(
     }
 
     public async Task<List<RecentCommentStatItemDto>> GetAdminRecentCommentsAsync()
-        => (await GetAdminStatsAsync()).RecentComments;
+    {
+        return await _cacheMissCoordinator.CoordinateAsync(
+                CachePolicyId.AdminStatsRecentComments,
+                "main",
+                ct => _cache.TryGetAsync(CachePolicyId.AdminStatsRecentComments, "main", ServerCacheBinaryCodec.DecodeRecentCommentStats, ct),
+                async ct =>
+                {
+                    List<RecentCommentStatItemDto> result = await LoadRecentCommentsAsync(ct);
+                    await _cache.SetRawAsync(CachePolicyId.AdminStatsRecentComments, "main", ServerCacheBinaryCodec.EncodeRecentCommentStats(result), null, ct);
+                    return result;
+                },
+                "admin-stats-recent-comments")
+            .ConfigureAwait(false)
+            ?? [];
+    }
 
     public async Task<List<RegionStatItemDto>> GetAdminRegionStatsAsync()
-        => (await GetAdminStatsAsync()).Regions;
+    {
+        return await _cacheMissCoordinator.CoordinateAsync(
+                CachePolicyId.AdminStatsRegions,
+                "main",
+                ct => _cache.TryGetAsync(CachePolicyId.AdminStatsRegions, "main", ServerCacheBinaryCodec.DecodeRegionStats, ct),
+                async ct =>
+                {
+                    List<RegionStatItemDto> result = await LoadRegionStatsAsync(ct);
+                    await _cache.SetRawAsync(CachePolicyId.AdminStatsRegions, "main", ServerCacheBinaryCodec.EncodeRegionStats(result), null, ct);
+                    return result;
+                },
+                "admin-stats-regions")
+            .ConfigureAwait(false)
+            ?? [];
+    }
 
     private async Task<AdminStatsOverviewDto> LoadAdminStatsOverviewFromDbAsync(CancellationToken cancellationToken)
     {
         LogStatsCalculationStarted();
-        _db.Ado.BeginTran(IsolationLevel.Serializable);
-        try
-        {
             var articleCountQuery = _db.Queryable<Article>()
                 .Select(a => new
                 {
@@ -125,12 +150,11 @@ public partial class StatsService(
 
             const string readStatsSql = """
                 SELECT
-                    COUNT(1)::bigint AS "TotalReads",
-                    COUNT(proof_id)::bigint AS "HumanVerifiedReads",
-                    COUNT(DISTINCT viewer_key_hash)::bigint AS "UniqueViewerKeyEstimate",
-                    COUNT(*) FILTER (WHERE event_type = 'article_read')::bigint AS "ArticleReads",
-                    COUNT(*) FILTER (WHERE event_type = 'site_read')::bigint AS "SiteReads"
-                FROM sys_visit_log;
+                    COALESCE((SELECT SUM(total_reads)::bigint FROM daily_read_stats), 0)::bigint AS "TotalReads",
+                    COALESCE((SELECT SUM(human_verified_reads)::bigint FROM daily_read_stats), 0)::bigint AS "HumanVerifiedReads",
+                    COALESCE((SELECT SUM(unique_viewer_estimate)::bigint FROM daily_read_stats), 0)::bigint AS "UniqueViewerKeyEstimate",
+                    COALESCE((SELECT SUM(read_count)::bigint FROM event_type_read_stats WHERE event_type = 'article_read'), 0)::bigint AS "ArticleReads",
+                    COALESCE((SELECT SUM(read_count)::bigint FROM event_type_read_stats WHERE event_type = 'site_read'), 0)::bigint AS "SiteReads";
                 """;
 
             int totalReads = 0;
@@ -166,14 +190,7 @@ public partial class StatsService(
                 },
                 PopularArticles = popularArticles,
             };
-            _db.Ado.CommitTran();
             return result;
-        }
-        catch
-        {
-            _db.Ado.RollbackTran();
-            throw;
-        }
     }
 
     private async Task<List<RecentCommentStatItemDto>> LoadRecentCommentsAsync(CancellationToken cancellationToken)
@@ -301,12 +318,13 @@ public partial class StatsService(
                             OR btrim(region) = '未知'
                         THEN '未知地区'
                         ELSE btrim(region)
-                    END AS "Region"
-                FROM sys_visit_log
+                    END AS "Region",
+                    read_count
+                FROM region_read_stats
             )
             SELECT
                 "Region",
-                COUNT(1)::bigint AS "Count"
+                SUM(read_count)::bigint AS "Count"
             FROM normalized_regions
             GROUP BY "Region"
             ORDER BY "Count" DESC, "Region" ASC

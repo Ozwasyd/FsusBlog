@@ -13,6 +13,8 @@ internal static class ServerCacheBinaryCodec
     private const uint SeoMagic = 0x4F455346; // FSEO
     private const uint ComplianceMagic = 0x504D4F43; // COMP
     private const uint AdminStatsMagic = 0x42545346; // FSTB
+    private const uint RecentCommentStatsMagic = 0x43545346; // FSTC
+    private const uint RegionStatsMagic = 0x52545346; // FSTR
     private const uint Version = 2;
     private const int ArticleListPageMetadataMarker = -1;
     private const int MaxStringBytes = 2 * 1024 * 1024;
@@ -313,6 +315,98 @@ internal static class ServerCacheBinaryCodec
             return EnsureFullyRead(reader)
                 ? (true, new AdminStatsOverviewDto { Summary = summary, PopularArticles = popular })
                 : (false, null);
+        }
+        catch
+        {
+            return (false, null);
+        }
+    }
+
+    internal static byte[] EncodeRecentCommentStats(IReadOnlyList<RecentCommentStatItemDto> value)
+    {
+        using var stream = new MemoryStream();
+        using var writer = CreateWriter(stream);
+        WriteHeader(writer, RecentCommentStatsMagic);
+        writer.Write(value.Count);
+        foreach (RecentCommentStatItemDto item in value)
+        {
+            WriteString(writer, item.AuthorDisplayName);
+            WriteString(writer, item.AuthorMode);
+            WriteNullableString(writer, item.AuthorBadge);
+            WriteNullableString(writer, item.AuthorScopeLabel);
+            WriteNullableString(writer, item.CredentialLevel);
+            WriteString(writer, item.Content);
+            writer.Write(item.CreateTime.ToBinary());
+        }
+
+        return stream.ToArray();
+    }
+
+    internal static (bool Success, List<RecentCommentStatItemDto>? Value) DecodeRecentCommentStats(ReadOnlyMemory<byte> bytes)
+    {
+        try
+        {
+            using var reader = CreateReader(bytes);
+            if (!ReadHeader(reader, RecentCommentStatsMagic))
+            {
+                return (false, null);
+            }
+
+            int count = ReadCount(reader);
+            var items = new List<RecentCommentStatItemDto>(count);
+            for (int i = 0; i < count; i++)
+            {
+                items.Add(new RecentCommentStatItemDto(
+                    ReadString(reader),
+                    ReadString(reader),
+                    ReadNullableString(reader),
+                    ReadNullableString(reader),
+                    ReadNullableString(reader),
+                    ReadString(reader),
+                    DateTime.FromBinary(reader.ReadInt64())));
+            }
+
+            return EnsureFullyRead(reader) ? (true, items) : (false, null);
+        }
+        catch
+        {
+            return (false, null);
+        }
+    }
+
+    internal static byte[] EncodeRegionStats(IReadOnlyList<RegionStatItemDto> value)
+    {
+        using var stream = new MemoryStream();
+        using var writer = CreateWriter(stream);
+        WriteHeader(writer, RegionStatsMagic);
+        writer.Write(value.Count);
+        foreach (RegionStatItemDto item in value)
+        {
+            WriteString(writer, item.Region);
+            writer.Write(item.Count);
+        }
+
+        return stream.ToArray();
+    }
+
+    internal static (bool Success, List<RegionStatItemDto>? Value) DecodeRegionStats(ReadOnlyMemory<byte> bytes)
+    {
+        try
+        {
+            using var reader = CreateReader(bytes);
+            if (!ReadHeader(reader, RegionStatsMagic))
+            {
+                return (false, null);
+            }
+
+            int count = ReadCount(reader);
+            var items = new List<RegionStatItemDto>(count);
+            for (int i = 0; i < count; i++)
+            {
+                items.Add(new RegionStatItemDto(ReadString(reader), reader.ReadInt32()));
+            }
+
+            return EnsureFullyRead(reader) ? (true, items) : (false, null);
         }
         catch
         {

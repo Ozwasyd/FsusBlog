@@ -27,10 +27,20 @@ public sealed class StatsServiceCoreAdapter(IStatsCoreService core) : IStatsServ
         => (await GetAdminStatsAsync()).Overview;
 
     public async Task<List<RecentCommentStatItemDto>> GetAdminRecentCommentsAsync()
-        => (await GetAdminStatsAsync()).RecentComments;
+    {
+        var result = await core.GetAdminRecentCommentsAsync();
+        return result.IsSuccess && result.Value is not null
+            ? ToRecentComments(result.Value)
+            : [];
+    }
 
     public async Task<List<RegionStatItemDto>> GetAdminRegionStatsAsync()
-        => (await GetAdminStatsAsync()).Regions;
+    {
+        var result = await core.GetAdminRegionStatsAsync();
+        return result.IsSuccess && result.Value is not null
+            ? ToRegionStats(result.Value)
+            : [];
+    }
 
     private static AdminStatsOverviewDto ToOverview(FsusBlog.Core.Mapping.Models.SiteStatsCoreModel value)
     {

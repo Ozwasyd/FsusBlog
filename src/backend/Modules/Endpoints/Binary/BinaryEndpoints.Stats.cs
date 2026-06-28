@@ -59,26 +59,26 @@ public static partial class BinaryEndpoints
             IStatsCoreService core,
             IAedsEncoder aeds) =>
         {
-            var result = await core.GetAdminStatsAsync();
+            var result = await core.GetAdminRecentCommentsAsync();
             if (!result.IsSuccess)
             {
                 return BinaryResults.FromError(result.Error, aeds);
             }
 
-            return BinaryResults.Frame(aeds, AedsFrameType.RecentCommentStats, writer => PodBinaryCodec.WriteRecentCommentStats(result.Value.RecentComments, writer));
+            return BinaryResults.Frame(aeds, AedsFrameType.RecentCommentStats, writer => PodBinaryCodec.WriteRecentCommentStats(result.Value ?? [], writer));
         }).RequireAdminPermission(AdminPermissions.AuditRead);
 
         group.MapGet("/stats/regions", static async Task<BinaryFrameResult> (
             IStatsCoreService core,
             IAedsEncoder aeds) =>
         {
-            var result = await core.GetAdminStatsAsync();
+            var result = await core.GetAdminRegionStatsAsync();
             if (!result.IsSuccess)
             {
                 return BinaryResults.FromError(result.Error, aeds);
             }
 
-            return BinaryResults.Frame(aeds, AedsFrameType.RegionStats, writer => PodBinaryCodec.WriteRegionStats(result.Value.RegionDistributions, writer));
+            return BinaryResults.Frame(aeds, AedsFrameType.RegionStats, writer => PodBinaryCodec.WriteRegionStats(result.Value ?? [], writer));
         }).RequireAdminPermission(AdminPermissions.AuditRead);
     }
 }

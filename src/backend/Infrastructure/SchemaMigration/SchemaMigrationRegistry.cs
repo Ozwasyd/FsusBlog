@@ -53,6 +53,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildFrontendRumMetricMigration(),
         BuildCoverImageMigration(),
         BuildHumanReadEventMigration(),
+        BuildVisitLogStatsRollupMigration(),
         BuildVisitLogAnonymousAttributionFinalizeMigration(),
         BuildVisitLogIpAnonymizationMigration(),
         BuildAuthoringAdminPrincipalAttributionMigration(),
@@ -2242,6 +2243,92 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_visit_proof_id",
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_visit_proof_id ON sys_visit_log(proof_id) WHERE proof_id IS NOT NULL;")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildVisitLogStatsRollupMigration()
+        => new SchemaMigrationDescriptor(
+            "20260629-post-visit-log-stats-rollup",
+            "Add pre-aggregated visit log rollups for admin statistics.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "daily_read_stats",
+                    """
+                    CREATE TABLE IF NOT EXISTS daily_read_stats (
+                        stat_date date PRIMARY KEY,
+                        total_reads bigint NOT NULL DEFAULT 0,
+                        human_verified_reads bigint NOT NULL DEFAULT 0,
+                        unique_viewer_estimate bigint NOT NULL DEFAULT 0,
+                        updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+                    );
+                    """),
+                new EnsureTableStep(
+                    "region_read_stats",
+                    """
+                    CREATE TABLE IF NOT EXISTS region_read_stats (
+                        region varchar(128) PRIMARY KEY,
+                        read_count bigint NOT NULL DEFAULT 0,
+                        updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+                    );
+                    """),
+                new EnsureTableStep(
+                    "event_type_read_stats",
+                    """
+                    CREATE TABLE IF NOT EXISTS event_type_read_stats (
+                        event_type varchar(32) PRIMARY KEY,
+                        read_count bigint NOT NULL DEFAULT 0,
+                        updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+                    );
+                    """),
+                new BackfillSqlStep(
+                    """
+                    INSERT INTO daily_read_stats(stat_date, total_reads, human_verified_reads, unique_viewer_estimate, updated_at_utc)
+                    SELECT
+                        createtime::date,
+                        COUNT(1)::bigint,
+                        COUNT(proof_id)::bigint,
+                        COUNT(DISTINCT viewer_key_hash)::bigint,
+                        now() AT TIME ZONE 'utc'
+                    FROM sys_visit_log
+                    GROUP BY createtime::date
+                    ON CONFLICT (stat_date) DO UPDATE
+                    SET total_reads = EXCLUDED.total_reads,
+                        human_verified_reads = EXCLUDED.human_verified_reads,
+                        unique_viewer_estimate = EXCLUDED.unique_viewer_estimate,
+                        updated_at_utc = EXCLUDED.updated_at_utc;
+                    """),
+                new BackfillSqlStep(
+                    """
+                    INSERT INTO region_read_stats(region, read_count, updated_at_utc)
+                    SELECT
+                        CASE
+                            WHEN region IS NULL
+                                OR btrim(region) = ''
+                                OR lower(btrim(region)) = 'unknown'
+                                OR btrim(region) = '未知'
+                            THEN '未知地区'
+                            ELSE btrim(region)
+                        END,
+                        COUNT(1)::bigint,
+                        now() AT TIME ZONE 'utc'
+                    FROM sys_visit_log
+                    GROUP BY 1
+                    ON CONFLICT (region) DO UPDATE
+                    SET read_count = EXCLUDED.read_count,
+                        updated_at_utc = EXCLUDED.updated_at_utc;
+                    """),
+                new BackfillSqlStep(
+                    """
+                    INSERT INTO event_type_read_stats(event_type, read_count, updated_at_utc)
+                    SELECT event_type, COUNT(1)::bigint, now() AT TIME ZONE 'utc'
+                    FROM sys_visit_log
+                    GROUP BY event_type
+                    ON CONFLICT (event_type) DO UPDATE
+                    SET read_count = EXCLUDED.read_count,
+                        updated_at_utc = EXCLUDED.updated_at_utc;
+                    """)
             ]);
 
     private static ISchemaMigrationDescriptor BuildVisitLogAnonymousAttributionFinalizeMigration()

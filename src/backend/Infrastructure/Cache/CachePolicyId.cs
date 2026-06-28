@@ -53,5 +53,8 @@ public enum CachePolicyId
     BackgroundWorkerLease = 48,
     NotificationStreamDrillNonce = 49,
     ArticleListCount = 50,
-    ArticleSearchVersion = 51
+    ArticleSearchVersion = 51,
+    AdminStatsOverview = 52,
+    AdminStatsRecentComments = 53,
+    AdminStatsRegions = 54
 }

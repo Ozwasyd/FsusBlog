@@ -56,7 +56,12 @@ public sealed class SchemaMigrationRunner(
         await _inspector.ValidateAsync(
             _db,
             entityTypes,
-            [HistoryTableName],
+            [
+                HistoryTableName,
+                "daily_read_stats",
+                "region_read_stats",
+                "event_type_read_stats"
+            ],
             cancellationToken).ConfigureAwait(false);
 
         if (executedDescriptors.Count > 0)
