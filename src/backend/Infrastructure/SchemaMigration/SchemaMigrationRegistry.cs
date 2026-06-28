@@ -51,6 +51,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAuditLogMigration(),
         BuildAuditLogStructuredFieldsPreCodeFirstMigration(),
         BuildAuditLogStructuredFieldsMigration(),
+        BuildAuditLogChainTailIndexMigration(),
         BuildFrontendRumMetricMigration(),
         BuildCoverImageMigration(),
         BuildHumanReadEventMigration(),
@@ -2185,6 +2186,19 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         END IF;
                     END $$;
                     """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAuditLogChainTailIndexMigration()
+        => new SchemaMigrationDescriptor(
+            "20260629-post-audit-chain-tail-index",
+            "Add chain tail index for audit tamper evidence append lookups.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new CreateIndexStep(
+                    "idx_audit_chain_tail",
+                    "CREATE INDEX IF NOT EXISTS idx_audit_chain_tail ON sys_audit_log(chain_id, id DESC) WHERE record_hash IS NOT NULL;")
             ]);
 
     private static ISchemaMigrationDescriptor BuildFrontendRumMetricMigration()

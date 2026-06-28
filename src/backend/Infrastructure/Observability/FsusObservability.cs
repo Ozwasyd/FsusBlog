@@ -102,6 +102,10 @@ public static class FsusObservability
     private static readonly Counter<long> SecurityRiskEventInsertedRows = Meter.CreateCounter<long>("fsus.security.risk_event.inserted_rows");
     private static readonly Counter<long> SecurityRiskEventFailedBatches = Meter.CreateCounter<long>("fsus.security.risk_event.failed_batches");
     private static readonly Counter<long> SecurityRiskEventFallbackSingleInserts = Meter.CreateCounter<long>("fsus.security.risk_event.fallback_single_inserts");
+    private static readonly Counter<long> AuditChainTailCacheAccess = Meter.CreateCounter<long>("fsus.audit.chain_tail.cache_access");
+    private static readonly Histogram<double> AuditChainTailQueryElapsed = Meter.CreateHistogram<double>("fsus.audit.chain_tail.query_elapsed_ms", "ms");
+    private static readonly Histogram<double> AuditBatchSize = Meter.CreateHistogram<double>("fsus.audit.batch.size");
+    private static readonly Histogram<double> AuditBatchWriteElapsed = Meter.CreateHistogram<double>("fsus.audit.batch.write_elapsed_ms", "ms");
     private static readonly Histogram<double> CacheOperationDuration = Meter.CreateHistogram<double>("fsus.cache.operation.duration", "ms");
     private static readonly Histogram<double> DbOperationDuration = Meter.CreateHistogram<double>("fsus.db.operation.duration", "ms");
     private static readonly Histogram<double> AotRenderDuration = Meter.CreateHistogram<double>("fsus.aot.render.duration", "ms");
@@ -346,6 +350,34 @@ public static class FsusObservability
             SecurityRiskEventInsertedRows.Add(Math.Max(0, insertedRows));
             SecurityRiskEventFailedBatches.Add(Math.Max(0, failedBatches));
             SecurityRiskEventFallbackSingleInserts.Add(Math.Max(0, fallbackSingleInserts));
+        });
+    }
+
+    public static void RecordAuditChainTailCache(bool hit)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("audit", "chain_tail_cache", hit ? "hit" : "miss");
+            AuditChainTailCacheAccess.Add(1, tags);
+        });
+    }
+
+    public static void RecordAuditChainTailQuery(TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("audit", "chain_tail_query", "ok");
+            AuditChainTailQueryElapsed.Record(elapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordAuditBatchWrite(long batchSize, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("audit", "batch_write", "ok");
+            AuditBatchSize.Record(Math.Max(0, batchSize), tags);
+            AuditBatchWriteElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 

@@ -66,6 +66,31 @@ public class AuditLogStoreTests
     }
 
     [Fact]
+    public async Task WriteBatchAsync_ReusesCachedChainTailAcrossBatches()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        var capturedBatches = new List<SugarParameter[]>();
+        db.Ado.Returns(ado);
+        ConfigureChainTail(db, null);
+        ado.ExecuteCommandAsync(
+                Arg.Any<string>(),
+                Arg.Do<SugarParameter[]>(parameters => capturedBatches.Add(parameters)))
+            .Returns(Task.FromResult(1));
+        var store = new AuditLogStore(db, new ConfigurationBuilder().Build());
+
+        await store.WriteBatchAsync([BuildRecord("first")], CancellationToken.None);
+        await store.WriteBatchAsync([BuildRecord("second")], CancellationToken.None);
+
+        Assert.Equal(2, capturedBatches.Count);
+        string firstRecordHash = ReadStringParameter(capturedBatches[0], "@record_hash_0")!;
+        string? secondPrevHash = ReadStringParameter(capturedBatches[1], "@prev_hash_0");
+        Assert.False(string.IsNullOrWhiteSpace(firstRecordHash));
+        Assert.Equal(firstRecordHash, secondPrevHash);
+        db.Received(1).Queryable<AuditLog>();
+    }
+
+    [Fact]
     public async Task WriteBatchAsync_GeneratesContextJsonFromBinaryPayload()
     {
         var db = Substitute.For<ISqlSugarClient>();
@@ -179,6 +204,7 @@ public class AuditLogStoreTests
         string? tail,
         Action<Expression<Func<AuditLog, bool>>>? captureWhere = null)
     {
+        AuditLogStore.ClearChainTailCacheForTests();
         var queryable = Substitute.For<ISugarQueryable<AuditLog>>();
         var hashQueryable = Substitute.For<ISugarQueryable<string>>();
         db.Queryable<AuditLog>().Returns(queryable);

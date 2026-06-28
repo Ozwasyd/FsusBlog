@@ -10,6 +10,7 @@ namespace FsusBlog.Server.Entities;
 [SugarIndex("idx_audit_actor_time", nameof(ActorId), OrderByType.Asc, nameof(OccurredAtUtc), OrderByType.Desc, false)]
 [SugarIndex("idx_audit_target_time", nameof(TargetType), OrderByType.Asc, nameof(TargetId), OrderByType.Asc, nameof(OccurredAtUtc), OrderByType.Desc, false)]
 [SugarIndex("idx_audit_outcome_time", nameof(Outcome), OrderByType.Asc, nameof(OccurredAtUtc), OrderByType.Desc, false)]
+[SugarIndex("idx_audit_chain_tail", nameof(ChainId), OrderByType.Asc, nameof(Id), OrderByType.Desc, false)]
 public sealed class AuditLog
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]

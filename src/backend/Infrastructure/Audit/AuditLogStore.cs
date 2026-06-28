@@ -1,6 +1,8 @@
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Observability;
 using SqlSugar;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 
@@ -15,6 +17,7 @@ public sealed class AuditLogStore(ISqlSugarClient db, IConfiguration configurati
 {
     private const int ColumnCount = 27;
     private static readonly ConcurrentDictionary<int, AuditLogInsertBatchShape> InsertBatchShapes = new();
+    private static readonly ConcurrentDictionary<string, string> ChainTailCache = new(StringComparer.Ordinal);
     private static readonly string[] ParameterColumns =
     [
         "source",
@@ -56,6 +59,7 @@ public sealed class AuditLogStore(ISqlSugarClient db, IConfiguration configurati
             return;
         }
 
+        long startedAt = Stopwatch.GetTimestamp();
         AuditLogInsertBatchShape shape = InsertBatchShapes.GetOrAdd(records.Count, BuildInsertBatchShape);
         var parameters = new SugarParameter[records.Count * ColumnCount];
         var chainTails = new Dictionary<string, string?>(StringComparer.Ordinal);
@@ -66,7 +70,15 @@ public sealed class AuditLogStore(ISqlSugarClient db, IConfiguration configurati
             string chainId = ResolveChainId(record);
             if (!chainTails.TryGetValue(chainId, out string? prevHash))
             {
-                prevHash = await ResolveChainTailAsync(chainId, cancellationToken);
+                if (ChainTailCache.TryGetValue(chainId, out prevHash))
+                {
+                    FsusObservability.RecordAuditChainTailCache(hit: true);
+                }
+                else
+                {
+                    FsusObservability.RecordAuditChainTailCache(hit: false);
+                    prevHash = await ResolveChainTailAsync(chainId, cancellationToken);
+                }
             }
 
             AuditRecord signed = SignRecord(record with
@@ -80,6 +92,15 @@ public sealed class AuditLogStore(ISqlSugarClient db, IConfiguration configurati
         }
 
         await _db.Ado.ExecuteCommandAsync(shape.Sql, parameters);
+        foreach ((string chainId, string? recordHash) in chainTails)
+        {
+            if (!string.IsNullOrWhiteSpace(recordHash))
+            {
+                ChainTailCache[chainId] = recordHash;
+            }
+        }
+
+        FsusObservability.RecordAuditBatchWrite(records.Count, FsusObservability.GetElapsed(startedAt));
     }
 
     private static AuditLogInsertBatchShape BuildInsertBatchShape(int recordCount)
@@ -184,11 +205,16 @@ public sealed class AuditLogStore(ISqlSugarClient db, IConfiguration configurati
             : record with { ContextJson = AuditContextJsonSerializer.Serialize(record.ContextPayload) };
 
     private async Task<string?> ResolveChainTailAsync(string chainId, CancellationToken cancellationToken)
-        => await _db.Queryable<AuditLog>()
+    {
+        long startedAt = Stopwatch.GetTimestamp();
+        string? tail = await _db.Queryable<AuditLog>()
             .Where(it => it.ChainId == chainId && it.RecordHash != null)
             .OrderByDescending(it => it.Id)
             .Select(it => it.RecordHash)
             .FirstAsync(cancellationToken);
+        FsusObservability.RecordAuditChainTailQuery(FsusObservability.GetElapsed(startedAt));
+        return tail;
+    }
 
     private AuditRecord SignRecord(AuditRecord record)
     {
@@ -214,6 +240,9 @@ public sealed class AuditLogStore(ISqlSugarClient db, IConfiguration configurati
         => string.IsNullOrWhiteSpace(record.ChainId)
             ? record.OccurredAtUtc.ToUniversalTime().ToString("yyyyMMdd", CultureInfo.InvariantCulture)
             : record.ChainId.Trim();
+
+    internal static void ClearChainTailCacheForTests()
+        => ChainTailCache.Clear();
 
     private sealed record AuditLogInsertBatchShape(string Sql, string[] ParameterNames);
 }

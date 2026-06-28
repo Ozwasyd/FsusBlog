@@ -102,6 +102,34 @@ public sealed class AuditPipelineHotPathContractTests
     }
 
     [Fact]
+    public void AuditLogStore_SourceCachesChainTailAndIndexesColdMissQuery()
+    {
+        string store = ReadRepoFile("src/backend/Infrastructure/Audit/AuditLogStore.cs");
+        string entity = ReadRepoFile("src/backend/Entities/AuditLog.cs");
+        string migration = ReadRepoFile("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
+        string observability = ReadRepoFile("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string writeBatch = ExtractMethodBlock(store, "public async Task WriteBatchAsync");
+        string resolveTail = ExtractMethodBlock(store, "private async Task<string?> ResolveChainTailAsync");
+
+        Assert.Contains("ChainTailCache", store, StringComparison.Ordinal);
+        Assert.Contains("TryGetValue(chainId", writeBatch, StringComparison.Ordinal);
+        Assert.Contains("ChainTailCache[chainId]", writeBatch, StringComparison.Ordinal);
+        Assert.Contains("RecordAuditChainTailCache", store, StringComparison.Ordinal);
+        Assert.Contains("RecordAuditBatchWrite", store, StringComparison.Ordinal);
+
+        Assert.Contains("idx_audit_chain_tail", entity, StringComparison.Ordinal);
+        Assert.Contains("idx_audit_chain_tail", migration, StringComparison.Ordinal);
+        Assert.Contains("chain_id, id DESC", migration, StringComparison.Ordinal);
+        Assert.Contains("WHERE record_hash IS NOT NULL", migration, StringComparison.Ordinal);
+        Assert.Contains("OrderByDescending(it => it.Id)", resolveTail, StringComparison.Ordinal);
+
+        Assert.Contains("fsus.audit.chain_tail.cache_access", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.audit.chain_tail.query_elapsed_ms", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.audit.batch.size", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.audit.batch.write_elapsed_ms", observability, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AuditLogStore_SourceFormatsChainIdWithInvariantCulture()
     {
         string source = ReadRepoFile("src/backend/Infrastructure/Audit/AuditLogStore.cs");
