@@ -51,14 +51,14 @@ public class RedisPowService : IPowService
     {
         if (!HasValidFieldLengths(req))
         {
-            _logger.LogWarning("PoW 字段长度超限 | Salt: {Salt}", req.PowSalt);
+            _logger.LogWarning("PoW 字段长度超限 | SaltHash={SaltHash}", HashForLog(req.PowSalt));
             return false;
         }
 
         // 1. 签名校验 (防重放与篡改)
         if (!BasicValidate(req, clientIp))
         {
-            _logger.LogInformation("PoW 签名非法 | Salt: {Salt}", req.PowSalt);
+            _logger.LogInformation("PoW 签名非法 | SaltHash={SaltHash}", HashForLog(req.PowSalt));
             return false;
         }
 
@@ -245,7 +245,7 @@ public class RedisPowService : IPowService
         bool acquired = await _cache.TryAcquireLeaseAsync(CachePolicyId.SecurityPowProof, identity, "1", ttl).ConfigureAwait(false);
         if (!acquired)
         {
-            _logger.LogWarning("PoW 重放被拒绝 | Salt: {Salt}", req.PowSalt);
+            _logger.LogWarning("PoW 重放被拒绝 | SaltHash={SaltHash}", HashForLog(req.PowSalt));
         }
 
         return acquired;
@@ -375,6 +375,12 @@ public class RedisPowService : IPowService
         => Encoding.UTF8.GetByteCount(value) <= maxBytes;
 
     private static string NormalizeIp(string ip) => System.Net.IPAddress.TryParse(ip, out var parsed) ? parsed.ToString() : ip;
+
+    private static string HashForLog(string? value)
+    {
+        byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(value ?? string.Empty));
+        return Convert.ToHexStringLower(hash.AsSpan(0, 8));
+    }
 
     private static string GenerateRandomSalt()
     {

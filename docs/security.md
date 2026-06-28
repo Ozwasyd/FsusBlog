@@ -14,11 +14,11 @@
 
 ## 安全密钥域隔离
 
-`Jwt:SecretKey` 只用于 JWT 签发和校验，不能作为其他安全子系统的派生材料。生产启动校验要求以下配置项全部存在、长度至少 32 字符，且不得与 `Jwt:SecretKey` 相同：`Security:Pow:SigningKey`、`Security:CaptchaV1:SigningKey`、`Security:RecoveryKeyPepper`、`MfaChallenge:TicketSigningKey`、`AnonymousCredentialIssuer:SubjectHashPepper`、`VisitLog:IpHashPepper`、`Moderation:RegionPolicy:IpHashKey`、`Moderation:Pepper`。缺失、模板值或跨域复用会使生产启动失败；运行时服务本身也会 fail closed，不回退到 JWT、本机名、应用目录或硬编码开发字面量。
+`Jwt:SecretKey` 只用于 JWT 签发和校验，不能作为其他安全子系统的派生材料。生产启动校验要求以下配置项全部存在、长度至少 32 字符，且不得与 `Jwt:SecretKey` 相同：`Security:Pow:SigningKey`、`Security:CaptchaV1:SigningKey`、`Security:RecoveryKeyPepper`、`MfaChallenge:TicketSigningKey`、`AnonymousCredentialIssuer:SubjectHashPepper`、`VisitLog:IpHashPepper`、`Moderation:RegionPolicy:IpHashKey`、`Moderation:Pepper`。缺失、模板值或跨域复用会使生产启动失败；运行时服务本身也会 fail closed，不回退到 JWT、本机名、应用目录或硬编码开发字面量。提交到仓库的 `appsettings.json` 不保存 secret 占位字面量，secret-bearing 默认值保持为空；示例值只允许出现在 `appsettings.example.json` 或部署文档中。
 
 这些密钥分别保护 PoW 签名、CaptchaV1 provider payload、Recovery Key lookup/hash、匿名凭证签发限频 subject hash、阅读 IP 匿名化和地区策略 IP hash。任一密钥泄露只允许影响其所属安全域；轮换时只替换对应配置并滚动重启，不应同步替换其他域密钥，除非有明确的泄露范围证据。
 
-日志、审计、指标和 structured fallback 不得打印原始客户端 IP。需要关联访问来源时，只能写入由所属安全域 pepper 派生的 HMAC-SHA256 hash；PoW 验证日志统一使用 `VisitLog:IpHashPepper` 生成 `ClientIpHash`，不得回退到 raw `GetClientIp()`、`RemoteIpAddress`、`X-Forwarded-For` 或 `X-Real-IP`。
+日志、审计、指标和 structured fallback 不得打印原始客户端 IP。需要关联访问来源时，只能写入由所属安全域 pepper 派生的 HMAC-SHA256 hash；PoW 验证日志统一使用 `VisitLog:IpHashPepper` 生成 `ClientIpHash`，不得回退到 raw `GetClientIp()`、`RemoteIpAddress`、`X-Forwarded-For` 或 `X-Real-IP`。普通日志同样不得输出 raw PoW salt、MFA `AccountId`、audit `TargetId`、SQL 文本/参数、LocalAuth fixture stdout/stderr、本地绝对路径、moderation dictionary exception message、issuer private/public key readiness flag、raw User-Agent、raw request path 或可逆 token/proof/challenge material；需要排障时只记录短 hash、固定错误类别、数量或低基数状态。
 
 ---
 
@@ -351,7 +351,7 @@ FsusBlog 采用三级角色体系：
 
 - Refresh Token 使用 `SameSite=Strict, HttpOnly, Secure` Cookie
 - 生产环境认证 Cookie 使用 `__Host-*` 前缀、`Path=/`、无 `Domain`、`HttpOnly`、`Secure`、`SameSite=Strict`
-- 生产认证读取只接受 `__Host-AccessToken`、`__Host-RefreshToken`、`__Host-SessionId`、`__Host-AdminAccessToken` 与 `__Host-AdminSessionId`；未前缀 legacy Cookie 只保留在清理路径，或在 Development/Local 且显式 `AuthCookies:AllowLegacyPlainCookieRead=true` 时用于普通用户本地迁移。AdminPrincipal Cookie 不支持未前缀读取 fallback，生产启动校验拒绝开启该 flag。
+- 生产认证读取只接受 `__Host-AccessToken`、`__Host-RefreshToken`、`__Host-SessionId`、`__Host-AdminAccessToken` 与 `__Host-AdminSessionId`；未前缀 legacy Cookie 只保留在清理路径，或在 `Development` 且显式 `AuthCookies:AllowLegacyPlainCookieRead=true` 时用于普通用户本地迁移。`ASPNETCORE_ENVIRONMENT=Local` 不能单独启用未前缀读取 fallback。AdminPrincipal Cookie 不支持未前缀读取 fallback，生产启动校验拒绝开启该 flag。
 - `SameSite=Strict` 阻止跨站请求自动携带 Cookie
 - 前端主调用凭据是 HttpOnly Cookie session / AEDS auth frame；如服务端内部仍签发短期 JWT，它不是浏览器主调用的 Bearer Header 事实。高风险写操作还会叠加 PoW、admin step-up proof、RBAC 与 no-store metadata，避免只依赖自动携带 Cookie。
 
@@ -437,7 +437,7 @@ Secret 轮换、站点备份导出、数据巡检修复、批量封禁、匿名�
 
 ## 生产安全检查清单
 
-生产环境通过 `ProductionStartupValidator`、最小 `/health/ready` 与 `./tools/test.sh security` 执行以下校验；详细失败明细只通过受保护的 `/api/ops/health/ready-detail` 暴露。启动阶段校验失败会 fail-closed 阻止应用启动；危险开关 `FSUSBLOG_ALLOW_INSECURE_STARTUP=true` 仅限本地诊断，且不能绕过 JWT 默认/占位密钥、wildcard `AllowedHosts`、缺失反向代理信任边界或 HTTP 生产来源这类安全关键错误。允许降级的非关键项也必须写出 critical 告警，readiness 仍会返回 `503`，发布流程必须把该状态视为阻断。
+生产环境通过 `ProductionStartupValidator`、最小 `/health/ready` 与 `./tools/test.sh security` 执行以下校验；详细失败明细只通过受保护的 `/api/ops/health/ready-detail` 暴露。匿名 `/health/ready` 只能公开整体状态和固定失败类别，例如 `configuration_invalid` / `dependency_unavailable`，不得返回配置键、origin、CIDR、连接串、backend/provider 名称、exception type 或 validator 原始错误列表。启动阶段校验失败会 fail-closed 阻止应用启动；危险开关 `FSUSBLOG_ALLOW_INSECURE_STARTUP=true` 仅限本地诊断，且不能绕过 JWT 默认/占位密钥、wildcard `AllowedHosts`、缺失反向代理信任边界或 HTTP 生产来源这类安全关键错误。允许降级的非关键项也必须写出 critical 告警，readiness 仍会返回 `503`，发布流程必须把该状态视为阻断。启动 validator 日志只记录错误数量和固定类别，不写入完整 validation error 字符串。
 
 - [ ] JWT 密钥来自部署 secret，不在共享配置中保存默认值，且不为默认/占位/短密钥
 - [ ] Redis 密码不为空

@@ -113,7 +113,7 @@ public sealed class ProductionReadinessProbe(
         Task<ProductionRiskControlHealthCheck> riskControlTask = CheckRiskControlAsync(cancellationToken);
         Dictionary<string, object?> checks = new(StringComparer.Ordinal)
         {
-            ["configuration"] = CheckConfiguration(),
+            ["configuration"] = RedactConfigurationHealth(CheckConfiguration()),
             ["observability"] = CheckObservability(),
             ["resources"] = CheckResources(),
             ["runtime"] = CheckRuntime()
@@ -140,6 +140,11 @@ public sealed class ProductionReadinessProbe(
             ? new ProductionConfigurationHealthCheck("ok", [])
             : new ProductionConfigurationHealthCheck("failed", errors);
     }
+
+    private static ProductionConfigurationHealthCheck RedactConfigurationHealth(ProductionConfigurationHealthCheck check)
+        => string.Equals(check.Status, "ok", StringComparison.Ordinal)
+            ? check
+            : new ProductionConfigurationHealthCheck("failed", ["configuration_invalid"]);
 
     private ZkProdRuntimeReadiness ResolveZkProdReadiness()
     {
@@ -291,7 +296,7 @@ public sealed class ProductionReadinessProbe(
                 PerceptionAeadKey: false,
                 PerceptionMode: "unknown",
                 PerceptionPerformanceBudget: FsusObservability.CreateSecurityChallengeV2PerformanceBudgetSnapshot(),
-                Error: ex.GetType().Name);
+                Error: "dependency_unavailable");
         }
     }
 
@@ -472,7 +477,7 @@ public sealed class ProductionReadinessProbe(
         {
             logger.LogWarning(ex, "postgres readiness check failed");
             FsusObservability.RecordDbOperation("ping", "failed", FsusObservability.GetElapsed(startedAt));
-            return new ProductionDependencyHealthCheck("failed", Error: ex.GetType().Name);
+            return new ProductionDependencyHealthCheck("failed", Error: "dependency_unavailable");
         }
     }
 
@@ -495,7 +500,7 @@ public sealed class ProductionReadinessProbe(
         {
             logger.LogWarning(ex, "redis readiness check failed");
             FsusObservability.RecordCacheOperation("ping", "redis", "l2", "failed", FsusObservability.GetElapsed(startedAt));
-            return new ProductionDependencyHealthCheck("failed", Error: ex.GetType().Name);
+            return new ProductionDependencyHealthCheck("failed", Error: "dependency_unavailable");
         }
     }
 

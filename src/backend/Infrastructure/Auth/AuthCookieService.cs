@@ -163,9 +163,7 @@ public sealed class AuthCookieService
             return false;
         }
 
-        bool isLocalCompatibleEnvironment =
-            _environment?.IsDevelopment() == true ||
-            string.Equals(_environment?.EnvironmentName, "Local", StringComparison.OrdinalIgnoreCase);
+        bool isLocalCompatibleEnvironment = _environment?.IsDevelopment() == true;
         if (!isLocalCompatibleEnvironment)
         {
             return false;

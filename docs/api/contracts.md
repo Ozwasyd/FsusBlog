@@ -42,6 +42,8 @@ HTML L0 只暴露 `/api/binary/article/html/{pathKey}.html` 诊断/预览路径�
 
 所有 HTTP 响应都会带 `X-Fsus-Trace-Id`，值与当前 OpenTelemetry `Activity.TraceId`、`HttpContext.TraceIdentifier`、Serilog/audit `TraceId` 对齐。客户端可用该值报告问题；它不是认证凭据，也不得包含用户身份或请求正文。
 
+未被业务显式捕获的异常只能返回固定、客户端安全的错误消息。`ArgumentException` / malformed request / auth / not-found 等 4xx 映射不得把 `exception.Message`、SQL、配置键、文件路径、后端类型名或 token 片段写入 `ApiError.Message` / `Details`；Development 500 诊断输出仅限本地开发，不构成运行时 API 契约。生产和共享环境的 binary/json 错误响应只暴露稳定错误码、HTTP 状态、固定文案和 trace id。
+
 ### AEDS 通用响应 POD
 
 源码：`src/shared/Contracts/Models/CommonPods.cs`
@@ -50,7 +52,7 @@ HTML L0 只暴露 `/api/binary/article/html/{pathKey}.html` 诊断/预览路径�
 |-----------|-----|------|
 | `EmptySuccess` (`240`) | `EmptySuccessPod` | 无数据成功响应，`Ok = 1` |
 | `MutationId` (`241`) | `MutationIdPod` | 写操作返回的 `int64 Id` |
-| `ApiError` (`251`) | `ApiErrorPod` | Binary 错误响应，包含 `Code`、`Category`、`HttpStatus`、`Message`、`Details`、`TraceId` |
+| `ApiError` (`251`) | `ApiErrorPod` | Binary 错误响应，包含 `Code`、`Category`、`HttpStatus`、`Message`、`Details`、`TraceId`；非业务错误不得回显内部 exception/message |
 
 ### AEDS v2 payload layout
 
@@ -267,7 +269,7 @@ admin 登录只接受 Passkey/Security Key assertion。成功会写入独立 `Ad
 
 admin step-up challenge 绑定 `identity_kind=admin_principal`、`admin_id`、当前 `admin_sid`、action=`admin-sensitive`、challenge token 和过期时间。complete 成功后返回 `MfaChallengeResult(verified=true, action=admin-sensitive, proofToken=...)`；proof 存储使用 `CachePolicyId.SecurityMfaProof`，key 形如 `admin:{adminId}:{adminSid}:admin-sensitive:{token}`，只能消费一次，不能跨 admin principal 或 session 使用。敏感写入继续通过 `X-Fsus-Mfa-Proof` 传递该 proof header；缺失、过期、复用或 session 不匹配返回 `428` + `MFA_PROOF_REQUIRED`。
 
-`POST /api/binary/auth/admin/logout` 会把当前 `admin_session.RevokedAtUtc` 置为当前 UTC 时间、`RevokeReason=logout`，并只清理 `AdminAccessToken` / `AdminSessionId` 及 `__Host-*` admin Cookie，不触碰普通用户 Cookie。普通用户旧未前缀 `AccessToken` / `RefreshToken` / `SessionId` 也只允许在 Development/Local 且显式 `AuthCookies:AllowLegacyPlainCookieRead=true` 时读取；生产只信任 `__Host-*`，但 logout/clear 仍删除 legacy Cookie 以帮助迁移。`POST /api/binary/auth/admin/sessions/{sessionId}/revoke` 使用 `admin_session` row-version guard；目标不存在返回 `NotFound`，目标已被并发撤销或版本不匹配返回 `Conflict`，成功只写一条 `admin.session.revoked` admin audit。`POST /api/binary/auth/admin/sessions/revoke-others` 必须保留当前 `admin_sid` 对应 session，并逐 session 使用同样的 row-version revoke。
+`POST /api/binary/auth/admin/logout` 会把当前 `admin_session.RevokedAtUtc` 置为当前 UTC 时间、`RevokeReason=logout`，并只清理 `AdminAccessToken` / `AdminSessionId` 及 `__Host-*` admin Cookie，不触碰普通用户 Cookie。普通用户旧未前缀 `AccessToken` / `RefreshToken` / `SessionId` 也只允许在 `Development` 且显式 `AuthCookies:AllowLegacyPlainCookieRead=true` 时读取；生产和非 Development 环境只信任 `__Host-*`，但 logout/clear 仍删除 legacy Cookie 以帮助迁移。`POST /api/binary/auth/admin/sessions/{sessionId}/revoke` 使用 `admin_session` row-version guard；目标不存在返回 `NotFound`，目标已被并发撤销或版本不匹配返回 `Conflict`，成功只写一条 `admin.session.revoked` admin audit。`POST /api/binary/auth/admin/sessions/revoke-others` 必须保留当前 `admin_sid` 对应 session，并逐 session 使用同样的 row-version revoke。
 
 ### User MFA / TOTP step-up
 
@@ -910,7 +912,7 @@ int64 timestampUnixMs
 
 ### Development local auth fixture
 
-`GET /__local/auth-fixture/admin` 与 `GET /api/local/auth-fixture/admin` 只在 `Development` 且 `fsus:allowLocalAuthFixture=true` 时映射；调用方还必须来自 loopback 地址，并提供 `X-Fsus-Local-Auth-Fixture-Secret`，其值用固定时间比较匹配 `fsus:localAuthFixtureSecret`。生产启动校验会拒绝 `fsus:allowLocalAuthFixture=true`。该入口只用于本地 Playwright fixture 刷新和 cookie 注入，不能在测试、预发布或生产环境作为匿名 admin 登录 fallback。
+`GET /__local/auth-fixture/admin` 与 `GET /api/local/auth-fixture/admin` 只在 `Development` 且 `fsus:allowLocalAuthFixture=true` 时映射；调用方还必须来自 loopback 地址，并提供 `X-Fsus-Local-Auth-Fixture-Secret`，其值用固定时间比较匹配 `fsus:localAuthFixtureSecret`。配套的 `/status` 端点使用相同的 loopback + shared-secret 门控。生产启动校验会拒绝 `fsus:allowLocalAuthFixture=true`。该入口只用于本地 Playwright fixture 刷新和 cookie 注入，不能在测试、预发布或生产环境作为匿名 admin 登录 fallback；刷新失败只返回固定失败文案，不回显脚本 stderr/stdout、异常消息或本地 storage-state 绝对路径。
 
 ### `NotificationStreamEventType` 枚举
 
@@ -1503,6 +1505,9 @@ delete、restore、permanent-delete 必须先读取 article `xmin`，写入时�
 | GET | `/api/binary/author/audit/{id}/verify` | 单条审计 `record_hash` / `record_mac` 与同链 `prev_hash` 前驱校验 |
 | GET | `/api/binary/author/ops/health` | 运维健康面板数据：PostgreSQL、Redis、audit、Crawler CIDR、备份、PublicHotRead、search、worker、队列和结构化最近错误 |
 | GET | `/api/ops/health/ready-detail` | 受保护详细 readiness JSON：配置、PostgreSQL、Redis、资源、runtime、observability、RiskControl/perception-sealed@v2 gate；要求 admin principal `audit.read` |
+
+匿名 `/health/ready` 只返回最小 readiness 结果，配置错误和依赖异常必须被归一为 `configuration_invalid`、`dependency_unavailable` 等固定类别，不暴露配置键、validation error 列表、连接串、URL、CIDR、exception type 或 provider/backend 细节。完整失败明细只允许在受保护的 `/api/ops/health/ready-detail` 和后台运维视图中按权限查看。
+
 | GET | `/api/binary/author/ops/backup` | 最近站点备份状态，扫描 database/uploads/DataProtection keyring/config/site-package/restore-drill artifacts |
 | GET | `/api/binary/author/ops/dangerous-operations/policy` | 管理端危险操作等级、admin passkey step-up、强确认和 diff 策略 |
 | GET | `/api/binary/author/cache/diagnostics?articleId={id}` | AOT/PublicHotRead/search/sitemap/feed/comment cache/output cache 诊断，可选单文章定位 |

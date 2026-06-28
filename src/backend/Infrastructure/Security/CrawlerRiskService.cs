@@ -95,6 +95,8 @@ public sealed class CrawlerRiskService(
             }
         }
 
+        string ipHash = HashForLog(ip);
+        string userAgentHash = HashForLog(signal.Context.GetUserAgent());
         var riskEvent = new AntiCrawlerRiskEventResponse(
             Guid.NewGuid().ToString("N"),
             DateTimeOffset.UtcNow,
@@ -103,10 +105,10 @@ public sealed class CrawlerRiskService(
             signal.Action,
             scoreDelta,
             next,
-            ip,
-            signal.Context.Request.Path.Value ?? "/",
+            ipHash,
+            signal.Action,
             signal.Context.Request.Method,
-            signal.Context.GetUserAgent(),
+            userAgentHash,
             signal.Detail);
         securityPolicy.RecordRiskEvent(riskEvent);
         if (scoreDelta > 0 || current > 0)
@@ -140,6 +142,12 @@ public sealed class CrawlerRiskService(
         }
 
         return await GetRiskScoreForIpAsync(ip, cancellationToken);
+    }
+
+    private static string HashForLog(string? value)
+    {
+        byte[] hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value ?? string.Empty));
+        return Convert.ToHexStringLower(hash.AsSpan(0, 8));
     }
 
     public async Task<int> GetRiskScoreAsync(SecurityRiskSubject subject, CancellationToken cancellationToken = default)

@@ -104,16 +104,16 @@ public sealed class MfaChallengeService(
         if (locked)
         {
             logger.LogWarning(
-                "MFA challenge verification failed. AccountId={AccountId} TicketHash={TicketHash} Locked={Locked}",
-                ticket.AccountId,
+                "MFA challenge verification failed. AccountSubjectHash={AccountSubjectHash} TicketHash={TicketHash} Locked={Locked}",
+                accountSubjectHash,
                 ticketHash,
                 locked);
         }
         else
         {
             logger.LogInformation(
-                "MFA challenge verification failed. AccountId={AccountId} TicketHash={TicketHash} Locked={Locked}",
-                ticket.AccountId,
+                "MFA challenge verification failed. AccountSubjectHash={AccountSubjectHash} TicketHash={TicketHash} Locked={Locked}",
+                accountSubjectHash,
                 ticketHash,
                 locked);
         }

@@ -232,9 +232,9 @@ public sealed class AdminPrincipalService(
                 IsCredentialIdUniqueToUserCallback = IsAdminCredentialIdUniqueAsync
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            logger.LogWarning(ex, "Admin bootstrap Passkey registration failed. SessionKeyHash={SessionKeyHash}", HashForLog(request.SessionKey));
+            logger.LogWarning("Admin bootstrap Passkey registration failed. SessionKeyHash={SessionKeyHash}", HashForLog(request.SessionKey));
             await WriteAuditAsync(null, null, "admin.bootstrap.passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
             return (false, "Admin Passkey registration failed", null);
         }
@@ -358,9 +358,9 @@ public sealed class AdminPrincipalService(
                     Task.FromResult(IsAdminUserHandleOwner(param.UserHandle, storedCred.UserHandle))
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            logger.LogWarning(ex, "Admin Passkey assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash}", HashForLog(request.ChallengeToken), HashForLog(credentialIdBase64));
+            logger.LogWarning("Admin Passkey assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash}", HashForLog(request.ChallengeToken), HashForLog(credentialIdBase64));
             await WriteAuditAsync(storedCred.AdminPrincipalId, null, "admin.login.passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
             return (false, "Admin Passkey assertion failed", null);
         }
@@ -493,9 +493,9 @@ public sealed class AdminPrincipalService(
                     Task.FromResult(IsAdminUserHandleOwner(param.UserHandle, storedCred.UserHandle))
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            logger.LogWarning(ex, "Admin step-up Passkey assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash}", HashForLog(request.ChallengeToken), HashForLog(credentialIdBase64));
+            logger.LogWarning("Admin step-up Passkey assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash}", HashForLog(request.ChallengeToken), HashForLog(credentialIdBase64));
             await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
             return (false, "Admin step-up Passkey assertion failed", null);
         }
@@ -572,9 +572,9 @@ public sealed class AdminPrincipalService(
                     Task.FromResult(IsAdminUserHandleOwner(param.UserHandle, storedCred.UserHandle))
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            logger.LogWarning(ex, "Admin RiskControl step-up Passkey assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash}", HashForLog(request.ChallengeToken), HashForLog(credentialIdBase64));
+            logger.LogWarning("Admin RiskControl step-up Passkey assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash}", HashForLog(request.ChallengeToken), HashForLog(credentialIdBase64));
             await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.risk_control_passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
             return (false, "Admin step-up Passkey assertion failed");
         }

@@ -51,7 +51,8 @@ public sealed class ModerationDictionaryService(
             Result<ModerationDictionarySnapshot> result = BuildSnapshot();
             if (result.IsFailure)
             {
-                Volatile.Write(ref _lastError, result.Error.Message);
+                const string publicMessage = "moderation_dictionary_reload_failed";
+                Volatile.Write(ref _lastError, publicMessage);
                 WriteAudit(
                     "dictionary_reload_failed",
                     AuditOutcomeCatalog.Failure,
@@ -60,7 +61,7 @@ public sealed class ModerationDictionaryService(
                     "current",
                     new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
-                        ["message"] = result.Error.Message,
+                        ["message"] = publicMessage,
                         ["previousSnapshotId"] = _snapshot.SnapshotId,
                         ["previousChecksum"] = _snapshot.Checksum
                     });
@@ -72,11 +73,11 @@ public sealed class ModerationDictionaryService(
                     "current",
                     new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
-                        ["message"] = result.Error.Message,
+                        ["message"] = publicMessage,
                         ["previousSnapshotId"] = _snapshot.SnapshotId,
                         ["previousChecksum"] = _snapshot.Checksum
                     });
-                logger.LogWarning("moderation dictionary reload failed; keeping previous snapshot: {Message}", result.Error.Message);
+                logger.LogWarning("moderation dictionary reload failed; keeping previous snapshot");
                 return Result.Failure(result.Error);
             }
 
@@ -309,12 +310,12 @@ public sealed class ModerationDictionaryService(
                 checksum,
                 DateTime.UtcNow));
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return Result<ModerationDictionarySnapshot>.Failure(ErrorDetail.Create(
                 ErrorCode.InfraFailure,
                 "moderation dictionary snapshot build failed",
-                $"{root}: {ex.Message}"));
+                "moderation_dictionary_load_failed"));
         }
     }
 

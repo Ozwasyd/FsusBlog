@@ -120,13 +120,9 @@ public sealed class ProductionCircuitNativeCredentialIssuer : ICircuitNativeCred
         if (_options.Enabled && !IsConfigured)
         {
             _logger.LogWarning(
-                "Managed circuit-native credential issuer is enabled but not configured. backend={Backend} supported={Supported} hasPrivateKey={HasPrivateKey} hasPublicKey={HasPublicKey} publicKeyHashMatches={PublicKeyHashMatches} backendLoaded={BackendLoaded}",
+                "Managed circuit-native credential issuer is enabled but not configured. backend={Backend} issuer_unconfigured={IssuerUnconfigured}",
                 _options.Backend,
-                _status.HasSupportedBackend,
-                _status.HasPrivateKey,
-                _status.HasPublicKey,
-                _status.PublicKeyHashMatches,
-                _status.HasRealSigningBackend);
+                true);
         }
     }
 

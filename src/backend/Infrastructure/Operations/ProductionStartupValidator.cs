@@ -1020,20 +1020,20 @@ internal sealed class ProductionStartupValidationHostedService(
             return Task.CompletedTask;
         }
 
-        string detail = string.Join("; ", report.Errors);
+        string detail = $"production_startup_validation_failed:{report.Errors.Count}";
         if (configuration.GetValue<bool>(AllowInsecureStartupKey)
             && !ProductionStartupValidator.HasSecurityCriticalStartupError(report.Errors))
         {
             runtimeState.ReportStartupTask(TaskName, "degraded", detail);
             logger.LogCritical(
-                "Production startup validation was bypassed by {BypassKey}=true. Errors: {Errors}",
+                "Production startup validation was bypassed by {BypassKey}=true. ErrorCount={ErrorCount}",
                 AllowInsecureStartupKey,
-                detail);
+                report.Errors.Count);
             return Task.CompletedTask;
         }
 
         runtimeState.ReportStartupTask(TaskName, "failed", detail);
-        logger.LogCritical("Production startup validation failed closed: {Errors}", detail);
+        logger.LogCritical("Production startup validation failed closed. ErrorCount={ErrorCount}", report.Errors.Count);
         throw new ProductionStartupValidationException(report.Errors);
     }
 

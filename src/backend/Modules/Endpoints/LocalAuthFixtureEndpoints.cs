@@ -84,8 +84,8 @@ public static class LocalAuthFixtureEndpoints
             hasHostAccessToken = HasCookie(context, "__Host-AccessToken"),
             hasHostAdminAccessToken = HasCookie(context, "__Host-AdminAccessToken")
         });
-        app.MapGet("/api/local/auth-fixture/status", statusHandler).AllowAnonymous();
-        app.MapGet("/__local/auth-fixture/status", statusHandler).AllowAnonymous();
+        app.MapGet("/api/local/auth-fixture/status", statusHandler).AllowAnonymous().AddEndpointFilter(RequireLocalFixtureSecret).AddEndpointFilter(RequireLoopbackCaller);
+        app.MapGet("/__local/auth-fixture/status", statusHandler).AllowAnonymous().AddEndpointFilter(RequireLocalFixtureSecret).AddEndpointFilter(RequireLoopbackCaller);
     }
 
     private static async ValueTask<object?> RequireLocalFixtureSecret(
@@ -128,25 +128,7 @@ public static class LocalAuthFixtureEndpoints
 
     private static string ResolveStorageStatePath(IWebHostEnvironment environment, string fileName)
     {
-        string root = environment.ContentRootPath;
-        for (int depth = 0; depth < 6; depth += 1)
-        {
-            string candidate = Path.Combine(root, "src", "frontend", ".playwright-fixtures", fileName);
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(root);
-            if (parent is null)
-            {
-                break;
-            }
-
-            root = parent.FullName;
-        }
-
-        return Path.Combine(environment.ContentRootPath, "..", "..", "src", "frontend", ".playwright-fixtures", fileName);
+        return Path.Combine(ResolveRepoRoot(environment), "src", "frontend", ".playwright-fixtures", fileName);
     }
 
     private static async Task<(bool Success, string Message)> RefreshPersistedAuthFixturesAsync(
@@ -213,13 +195,12 @@ public static class LocalAuthFixtureEndpoints
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            return (false, $"local auth fixture refresh failed: {ex.Message}");
+            return (false, "local auth fixture refresh failed");
         }
 
         if (process.ExitCode != 0)
         {
-            string message = stderr.Length > 0 ? stderr.ToString().Trim() : stdout.ToString().Trim();
-            return (false, $"local auth fixture refresh failed: {message}");
+            return (false, "local auth fixture refresh failed");
         }
 
         return (true, string.Empty);
@@ -227,21 +208,19 @@ public static class LocalAuthFixtureEndpoints
 
     private static string ResolveRepoRoot(IWebHostEnvironment environment)
     {
-        string root = environment.ContentRootPath;
-        for (int depth = 0; depth < 6; depth += 1)
+        string[] candidates =
+        {
+            environment.ContentRootPath,
+            Directory.GetCurrentDirectory(),
+            Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..")),
+            Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..", ".."))
+        };
+        foreach (string root in candidates)
         {
             if (File.Exists(Path.Combine(root, "tests", "frontend", "fixtures", "prepare-auth-smoke-users.mjs")))
             {
                 return root;
             }
-
-            DirectoryInfo? parent = Directory.GetParent(root);
-            if (parent is null)
-            {
-                break;
-            }
-
-            root = parent.FullName;
         }
 
         return environment.ContentRootPath;

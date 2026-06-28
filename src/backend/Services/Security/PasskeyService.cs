@@ -160,8 +160,8 @@ public sealed class PasskeyService(
         {
             logger.LogWarning(
                 ex,
-                "Passkey registration failed. AccountId={AccountId} SessionKeyHash={SessionKeyHash} ExceptionType={ExceptionType}",
-                accountId,
+                "Passkey registration failed. AccountSubjectHash={AccountSubjectHash} SessionKeyHash={SessionKeyHash} ExceptionType={ExceptionType}",
+                await ResolveAccountSubjectHashForLogAsync(accountId, cancellationToken),
                 HashForLog(request.SessionKey),
                 ex.GetType().Name);
             return (false, "通行密钥验证失败，请重试");
@@ -305,10 +305,10 @@ public sealed class PasskeyService(
         {
             logger.LogWarning(
                 ex,
-                "Passkey assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash} AccountId={AccountId} ExceptionType={ExceptionType}",
+                "Passkey assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash} AccountSubjectHash={AccountSubjectHash} ExceptionType={ExceptionType}",
                 HashForLog(request.ChallengeToken),
                 HashForLog(credentialIdBase64),
-                storedCred.AccountId,
+                AccountSubjectHasher.Create(user),
                 ex.GetType().Name);
             return (false, "通行密钥验证失败，请重试", null);
         }
@@ -436,10 +436,10 @@ public sealed class PasskeyService(
         {
             logger.LogWarning(
                 ex,
-                "Passkey step-up assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash} AccountId={AccountId} ExceptionType={ExceptionType}",
+                "Passkey step-up assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash} AccountSubjectHash={AccountSubjectHash} ExceptionType={ExceptionType}",
                 HashForLog(request.ChallengeToken),
                 HashForLog(credentialIdBase64),
-                accountId,
+                await ResolveAccountSubjectHashForLogAsync(accountId, cancellationToken),
                 ex.GetType().Name);
             return (false, "通行密钥 step-up 验证失败，请重试");
         }
@@ -557,6 +557,14 @@ public sealed class PasskeyService(
             },
             ClientExtensionResults = new AuthenticationExtensionsClientOutputs()
         };
+
+    private async Task<string> ResolveAccountSubjectHashForLogAsync(int accountId, CancellationToken cancellationToken)
+    {
+        User? user = await db.Queryable<User>().InSingleAsync(accountId);
+        return user is null
+            ? AccountSubjectHasher.Create(AnonymousIdentityRuntime.AnonymousAccountKind, string.Concat("anonymous-account:", accountId.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+            : AccountSubjectHasher.Create(user);
+    }
 
     private static string HashForLog(string? value)
         => string.IsNullOrWhiteSpace(value)

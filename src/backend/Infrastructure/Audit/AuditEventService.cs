@@ -52,7 +52,7 @@ public sealed class AuditEventService(
         if (!_channel.TryWrite(record))
         {
             using var _ = AuditLogScope.SkipPersistence();
-            _logger.LogWarning("audit-log degraded: structured event channel write failed. Action={Action} TargetType={TargetType} TargetId={TargetId}", record.Action, record.TargetType, record.TargetId);
+            _logger.LogWarning("audit-log degraded: structured event channel write failed. Action={Action} TargetType={TargetType} TargetIdHash={TargetIdHash}", record.Action, record.TargetType, HashForLog(record.TargetId));
         }
     }
 
@@ -70,9 +70,15 @@ public sealed class AuditEventService(
         {
             _runtimeState.RecordWriteFailure(1);
             using var _ = AuditLogScope.SkipPersistence();
-            _logger.LogError(ex, "audit-log critical write failed; writing local fallback. Action={Action} TargetType={TargetType} TargetId={TargetId}", record.Action, record.TargetType, record.TargetId);
+            _logger.LogError(ex, "audit-log critical write failed; writing local fallback. Action={Action} TargetType={TargetType} TargetIdHash={TargetIdHash}", record.Action, record.TargetType, HashForLog(record.TargetId));
             await _fallbackWriter.WriteAsync(record, ex, cancellationToken);
         }
+    }
+
+    private static string HashForLog(string? value)
+    {
+        byte[] hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value ?? string.Empty));
+        return Convert.ToHexStringLower(hash.AsSpan(0, 8));
     }
 
     private AuditRecord BuildRecord(AuditEvent auditEvent)

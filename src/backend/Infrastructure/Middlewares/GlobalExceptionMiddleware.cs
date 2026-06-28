@@ -43,15 +43,7 @@ public partial class GlobalExceptionMiddleware(RequestDelegate _next, ILogger<Gl
         }
 
         // 4. 【状态码映射】
-        ErrorDetail error = ex switch
-        {
-            BadHttpRequestException => ErrorDetail.Create(ErrorCode.Validation, BadRequestMessage),
-            ArgumentException => ErrorDetail.Create(ErrorCode.Validation, ex.Message),
-            UnauthorizedAccessException => ErrorDetail.Create(ErrorCode.Unauthorized, ex.Message),
-            KeyNotFoundException => ErrorDetail.Create(ErrorCode.NotFound, ex.Message),
-            NotImplementedException => ErrorDetail.Create(ErrorCode.InfraFailure, ex.Message),
-            _ => ErrorDetail.Create(ErrorCode.InfraFailure, ex.Message)
-        };
+        ErrorDetail error = CreateClientSafeError(ex);
         int statusCode = error.Code == ErrorCode.InfraFailure && ex is NotImplementedException
             ? (int)HttpStatusCode.NotImplemented
             : BinaryResults.MapStatusCode(error);
@@ -78,9 +70,13 @@ public partial class GlobalExceptionMiddleware(RequestDelegate _next, ILogger<Gl
         {
             errorMsg = "服务器内部错误，请稍后重试";
         }
+        else if (statusCode >= 500 && _env.IsDevelopment())
+        {
+            errorMsg = ex.Message;
+        }
         else
         {
-            // 4xx 错误或开发环境下，直接显示真实错误信息
+            // 4xx 错误使用 client-safe 文案，避免把内部异常消息回显给调用方。
             errorMsg = error.Message;
         }
 
@@ -91,6 +87,17 @@ public partial class GlobalExceptionMiddleware(RequestDelegate _next, ILogger<Gl
             ErrorDetail.Create(error.Code, errorMsg, traceId: Activity.Current?.Id),
             statusCode);
     }
+
+    private static ErrorDetail CreateClientSafeError(Exception ex)
+        => ex switch
+        {
+            BadHttpRequestException => ErrorDetail.Create(ErrorCode.Validation, BadRequestMessage),
+            ArgumentException => ErrorDetail.Create(ErrorCode.Validation, BadRequestMessage),
+            UnauthorizedAccessException => ErrorDetail.Create(ErrorCode.Unauthorized, "未授权访问"),
+            KeyNotFoundException => ErrorDetail.Create(ErrorCode.NotFound, "资源不存在"),
+            NotImplementedException => ErrorDetail.Create(ErrorCode.InfraFailure, "功能暂不可用"),
+            _ => ErrorDetail.Create(ErrorCode.InfraFailure, "服务器内部错误，请稍后重试")
+        };
 
     // ====================================================================
     // 高性能日志源生成器声明区 (彻底消灭装箱与 object[] 分配)

@@ -211,7 +211,7 @@ public sealed class GlobalExceptionMiddlewareTests
         Assert.Equal(AedsFrameType.ApiError, decoded.Value.FrameType);
         Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Value.Payload, out var pod));
         Assert.Equal(StatusCodes.Status400BadRequest, pod.HttpStatus);
-        Assert.Equal("bad binary", PodUtf8Codec.FromFixed256(pod.Message));
+        Assert.Equal("请求参数非法", PodUtf8Codec.FromFixed256(pod.Message));
     }
 
     [Fact]

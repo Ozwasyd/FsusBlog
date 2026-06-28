@@ -143,16 +143,14 @@ public static class SqlSugarInitializer
                 // 执行超过 1 秒的语句记录为 Warning
                 if (executionTime > 1)
                 {
-                    var fullSql = UtilMethods.GetSqlString(DbType.PostgreSQL, sql, pars);
-                    _logger.LogWarning("慢 SQL 警报 ({Time:F2}s): {Sql}", executionTime, fullSql);
+                    _logger.LogWarning("慢 SQL 警报 ({Time:F2}s): sql_fingerprint_unavailable", executionTime);
                 }
             };
 
             // 错误日志
             dbClient.Aop.OnError = exp =>
             {
-                // 记录完整的堆栈信息与直接引发异常的 SQL
-                _logger.LogError(exp, "SQL 执行异常 | SQL: {Sql}", exp.Sql);
+                _logger.LogError(exp, "SQL 执行异常 | sql_redacted");
             };
         }
     }
