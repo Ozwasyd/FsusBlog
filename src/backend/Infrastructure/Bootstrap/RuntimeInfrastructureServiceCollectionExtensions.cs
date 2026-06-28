@@ -15,6 +15,7 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.NotificationStream;
+using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Server.Services.VisitLog;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -211,6 +212,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         {
             services.AddHostedService<LogCleanupService>();
             services.AddHostedService<ArticleMutationOutboxDispatcher>();
+            services.AddHostedService<RumTelemetryFlushWorker>();
         }
         services.AddSingleton<ScheduledPublishRuntimeState>();
         if (!OpenApiExportMode.IsEnabled())

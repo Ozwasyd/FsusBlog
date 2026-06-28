@@ -7,6 +7,44 @@ namespace FsusBlog.Server.Tests;
 public sealed class RumTelemetryServiceTests
 {
     [Fact]
+    public void RumTelemetry_SourceUsesBoundedChannelAndMovesDbInsertToWorker()
+    {
+        string source = ReadSource("src/backend/Services/Telemetry/RumTelemetryService.cs");
+        string service = Slice(source, "public sealed class RumTelemetryService", "public sealed class RumTelemetryFlushWorker");
+        string worker = Slice(source, "public sealed class RumTelemetryFlushWorker", "internal sealed record RumMetricAuditContext");
+        string registrations = ReadSource("src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs")
+            + ReadSource("src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs");
+
+        Assert.Contains("public sealed class RumTelemetryChannel", source, StringComparison.Ordinal);
+        Assert.Contains("BoundedChannelFullMode.DropOldest", source, StringComparison.Ordinal);
+        Assert.Contains("TryEnqueue", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("Insertable", service, StringComparison.Ordinal);
+        Assert.Contains("Insertable", worker, StringComparison.Ordinal);
+        Assert.Contains("AddSingleton<RumTelemetryChannel>()", registrations, StringComparison.Ordinal);
+        Assert.Contains("AddHostedService<RumTelemetryFlushWorker>()", registrations, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RumTelemetryChannel_WhenFull_DropsOldestAndKeepsNewest()
+    {
+        var channel = new RumTelemetryChannel(capacity: 1);
+        var oldest = CreateBatch("home");
+        var newest = CreateBatch("article");
+
+        RumTelemetryEnqueueResult first = channel.TryEnqueue(oldest);
+        RumTelemetryEnqueueResult second = channel.TryEnqueue(newest);
+
+        Assert.True(first.Accepted);
+        Assert.True(second.Accepted);
+        Assert.Equal(1, second.DroppedCount);
+        Assert.True(channel.TryRead(out RumMetricBatchRequest? queued));
+        Assert.Equal("article", queued!.PageType);
+        RumTelemetryChannelSnapshot snapshot = channel.CreateSnapshot();
+        Assert.Equal(2, snapshot.AcceptedBatches);
+        Assert.Equal(1, snapshot.DroppedBatches);
+    }
+
+    [Fact]
     public void Normalize_AcceptsOnlyBoundedAnonymousMetricFields()
     {
         RumMetricAuditContext? context = RumTelemetryService.Normalize(new RumMetricRequest(
@@ -96,5 +134,31 @@ public sealed class RumTelemetryServiceTests
                 ["extra"] = 1
             },
             null)));
+    }
+
+    private static RumMetricBatchRequest CreateBatch(string pageType)
+        => new(
+            pageType,
+            "route",
+            "server-aot",
+            [
+                new RumMetricBatchItem(
+                    "web_vital_lcp",
+                    1234,
+                    DateTime.UtcNow,
+                    new Dictionary<string, double> { ["value"] = 1234 },
+                    null)
+            ]);
+
+    private static string ReadSource(string relativePath)
+        => File.ReadAllText(Path.Combine(TestInfrastructure.BackendTestPaths.RepositoryRoot, relativePath));
+
+    private static string Slice(string source, string startMarker, string endMarker)
+    {
+        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing start marker: {startMarker}");
+        int end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
+        Assert.True(end > start, $"Missing end marker: {endMarker}");
+        return source[start..end];
     }
 }

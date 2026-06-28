@@ -69,6 +69,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<AuthoringWorkflowService>();
         services.AddScoped<BlogDistributionService>();
         services.AddScoped<RelatedReadingService>();
+        services.AddSingleton<RumTelemetryChannel>();
         services.AddScoped<RumTelemetryService>();
         services.AddScoped<IRumTelemetryService>(sp => sp.GetRequiredService<RumTelemetryService>());
         services.AddScoped<ArticleCoreQueryCache>();

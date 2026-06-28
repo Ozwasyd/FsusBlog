@@ -1,8 +1,11 @@
 using System.Collections.Frozen;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.Channels;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Shared.Contracts.Outputs;
 using SqlSugar;
@@ -16,7 +19,7 @@ public interface IRumTelemetryService
     Task<RumMetricIngestResponse> IngestBatchAsync(RumMetricBatchRequest request, CancellationToken cancellationToken = default);
 }
 
-public sealed class RumTelemetryService(ISqlSugarClient db) : IRumTelemetryService
+public sealed class RumTelemetryService(RumTelemetryChannel channel) : IRumTelemetryService
 {
     public const int MaxFrameBytes = RumTelemetryContractLimits.MaxFrameBytes;
 
@@ -65,30 +68,33 @@ public sealed class RumTelemetryService(ISqlSugarClient db) : IRumTelemetryServi
 
     public async Task<RumMetricIngestResponse> IngestAsync(RumMetricRequest request, CancellationToken cancellationToken = default)
     {
-        RumMetricAuditContext? context = Normalize(request);
-        if (context is null)
-        {
-            return new RumMetricIngestResponse(false, 0, 1);
-        }
-
-        var metric = CreateMetricEntity(context, DateTime.UtcNow);
-
-        await db.Insertable(metric).ExecuteCommandAsync(cancellationToken);
-        return new RumMetricIngestResponse(true, 1, 0);
+        var batch = new RumMetricBatchRequest(
+            request.PageType,
+            request.PageType,
+            request.AotSource,
+            [
+                new RumMetricBatchItem(
+                    request.Name,
+                    request.Value,
+                    request.Timestamp,
+                    request.Metrics,
+                    null)
+            ]);
+        return await IngestBatchAsync(batch, cancellationToken);
     }
 
-    public async Task<RumMetricIngestResponse> IngestBatchAsync(RumMetricBatchRequest request, CancellationToken cancellationToken = default)
+    public Task<RumMetricIngestResponse> IngestBatchAsync(RumMetricBatchRequest request, CancellationToken cancellationToken = default)
     {
         IReadOnlyList<RumMetricBatchItem> items = request.Metrics ?? [];
         if (items.Count is <= 0 or > RumTelemetryContractLimits.MaxMetricsPerBatch ||
             (request.RouteKey?.Length ?? 0) > RumTelemetryContractLimits.MaxRouteKeyLength)
         {
-            return new RumMetricIngestResponse(false, 0, Math.Max(items.Count, 1));
+            channel.RecordRejectedBatch();
+            return Task.FromResult(new RumMetricIngestResponse(false, 0, Math.Max(items.Count, 1)));
         }
 
         int rejected = 0;
-        DateTime createdAt = DateTime.UtcNow;
-        var entities = new List<FrontendRumMetric>(items.Count);
+        var acceptedItems = new List<RumMetricBatchItem>(items.Count);
         foreach (RumMetricBatchItem item in items)
         {
             if (!IsBatchItemShapeAllowed(item))
@@ -97,28 +103,68 @@ public sealed class RumTelemetryService(ISqlSugarClient db) : IRumTelemetryServi
                 continue;
             }
 
-            RumMetricAuditContext? context = Normalize(new RumMetricRequest(
-                item.Name,
-                request.PageType,
-                request.AotSource,
-                item.Value,
-                item.Metrics,
-                item.Timestamp));
-            if (context is null)
+            acceptedItems.Add(item);
+        }
+
+        if (acceptedItems.Count == 0)
+        {
+            channel.RecordRejectedBatch();
+            return Task.FromResult(new RumMetricIngestResponse(false, 0, rejected));
+        }
+
+        RumTelemetryEnqueueResult enqueue = channel.TryEnqueue(request with { Metrics = acceptedItems });
+        if (!enqueue.Accepted)
+        {
+            return Task.FromResult(new RumMetricIngestResponse(false, 0, rejected + acceptedItems.Count));
+        }
+
+        return Task.FromResult(new RumMetricIngestResponse(
+            true,
+            acceptedItems.Count,
+            rejected + enqueue.DroppedMetricCount));
+    }
+
+    internal static RumTelemetryBuildResult BuildMetricEntities(
+        IReadOnlyList<RumMetricBatchRequest> requests,
+        DateTime createdAt)
+    {
+        var entities = new List<FrontendRumMetric>();
+        int rejected = 0;
+        foreach (RumMetricBatchRequest request in requests)
+        {
+            IReadOnlyList<RumMetricBatchItem> items = request.Metrics ?? [];
+            if (items.Count == 0 || (request.RouteKey?.Length ?? 0) > RumTelemetryContractLimits.MaxRouteKeyLength)
             {
-                rejected++;
+                rejected += Math.Max(items.Count, 1);
                 continue;
             }
 
-            entities.Add(CreateMetricEntity(context, createdAt));
+            foreach (RumMetricBatchItem item in items)
+            {
+                if (!IsBatchItemShapeAllowed(item))
+                {
+                    rejected++;
+                    continue;
+                }
+
+                RumMetricAuditContext? context = Normalize(new RumMetricRequest(
+                    item.Name,
+                    request.PageType,
+                    request.AotSource,
+                    item.Value,
+                    item.Metrics,
+                    item.Timestamp));
+                if (context is null)
+                {
+                    rejected++;
+                    continue;
+                }
+
+                entities.Add(CreateMetricEntity(context, createdAt));
+            }
         }
 
-        if (entities.Count > 0)
-        {
-            await db.Insertable(entities).ExecuteCommandAsync(cancellationToken);
-        }
-
-        return new RumMetricIngestResponse(entities.Count > 0, entities.Count, rejected);
+        return new RumTelemetryBuildResult(entities, rejected);
     }
 
     internal static RumMetricAuditContext? Normalize(RumMetricRequest request)
@@ -239,6 +285,203 @@ public sealed class RumTelemetryService(ISqlSugarClient db) : IRumTelemetryServi
             CreatedAtUtc = createdAt
         };
 }
+
+public sealed class RumTelemetryChannel
+{
+    private const int DefaultCapacity = 4096;
+    private readonly Channel<RumMetricBatchRequest> channel;
+    private readonly object gate = new();
+    private readonly int capacity;
+    private int queuedBatches;
+    private long acceptedBatches;
+    private long rejectedBatches;
+    private long droppedBatches;
+    private long droppedMetrics;
+
+    public RumTelemetryChannel()
+        : this(DefaultCapacity)
+    {
+    }
+
+    public RumTelemetryChannel(int capacity)
+    {
+        this.capacity = Math.Clamp(capacity, 1, 1_000_000);
+        channel = Channel.CreateBounded<RumMetricBatchRequest>(new BoundedChannelOptions(this.capacity)
+        {
+            SingleReader = true,
+            SingleWriter = false,
+            FullMode = BoundedChannelFullMode.DropOldest
+        });
+    }
+
+    public RumTelemetryEnqueueResult TryEnqueue(RumMetricBatchRequest request)
+    {
+        int droppedBatch = 0;
+        int droppedMetric = 0;
+        lock (gate)
+        {
+            if (queuedBatches >= capacity)
+            {
+                if (channel.Reader.TryRead(out RumMetricBatchRequest? dropped))
+                {
+                    queuedBatches--;
+                    droppedBatch = 1;
+                    droppedMetric = dropped.Metrics?.Count ?? 0;
+                    droppedBatches++;
+                    droppedMetrics += droppedMetric;
+                }
+                else
+                {
+                    queuedBatches = 0;
+                }
+            }
+
+            if (!channel.Writer.TryWrite(request))
+            {
+                if (queuedBatches > 0)
+                {
+                    queuedBatches--;
+                }
+
+                rejectedBatches++;
+                return new RumTelemetryEnqueueResult(false, droppedBatch, droppedMetric);
+            }
+
+            queuedBatches++;
+            acceptedBatches++;
+            return new RumTelemetryEnqueueResult(true, droppedBatch, droppedMetric);
+        }
+    }
+
+    public void RecordRejectedBatch()
+        => Interlocked.Increment(ref rejectedBatches);
+
+    public ValueTask<bool> WaitToReadAsync(CancellationToken cancellationToken)
+        => channel.Reader.WaitToReadAsync(cancellationToken);
+
+    public bool TryRead(out RumMetricBatchRequest? request)
+    {
+        lock (gate)
+        {
+            if (!channel.Reader.TryRead(out request))
+            {
+                return false;
+            }
+
+            if (queuedBatches > 0)
+            {
+                queuedBatches--;
+            }
+
+            return true;
+        }
+    }
+
+    public RumTelemetryChannelSnapshot CreateSnapshot()
+        => new(
+            Volatile.Read(ref acceptedBatches),
+            Volatile.Read(ref rejectedBatches),
+            Volatile.Read(ref droppedBatches),
+            Volatile.Read(ref droppedMetrics),
+            Volatile.Read(ref queuedBatches));
+}
+
+public sealed class RumTelemetryFlushWorker(
+    RumTelemetryChannel channel,
+    IServiceScopeFactory scopeFactory,
+    ILogger<RumTelemetryFlushWorker> logger) : BackgroundService
+{
+    private const int MaxRequestsPerFlush = 128;
+    private static readonly TimeSpan IdleFlushDelay = TimeSpan.FromMilliseconds(250);
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                if (!await channel.WaitToReadAsync(stoppingToken))
+                {
+                    break;
+                }
+
+                var requests = new List<RumMetricBatchRequest>(MaxRequestsPerFlush);
+                while (requests.Count < MaxRequestsPerFlush && channel.TryRead(out RumMetricBatchRequest? request))
+                {
+                    if (request is not null)
+                    {
+                        requests.Add(request);
+                    }
+                }
+
+                if (requests.Count == 0)
+                {
+                    continue;
+                }
+
+                await FlushAsync(requests, stoppingToken);
+                await Task.Delay(IdleFlushDelay, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "rum-telemetry-flush-worker-failed");
+            }
+        }
+    }
+
+    internal async Task FlushAsync(IReadOnlyList<RumMetricBatchRequest> requests, CancellationToken cancellationToken)
+    {
+        long startedAt = Stopwatch.GetTimestamp();
+        string result = "ok";
+        int accepted = 0;
+        int rejected = 0;
+        try
+        {
+            RumTelemetryBuildResult build = RumTelemetryService.BuildMetricEntities(requests, DateTime.UtcNow);
+            accepted = build.Entities.Count;
+            rejected = build.RejectedCount;
+            if (build.Entities.Count == 0)
+            {
+                result = "empty";
+                return;
+            }
+
+            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+            ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+            await db.Insertable(build.Entities).ExecuteCommandAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            result = "failed";
+            logger.LogWarning(ex, "rum-telemetry-flush-failed {RequestCount}", requests.Count);
+        }
+        finally
+        {
+            FsusObservability.RecordBackgroundJob(
+                "rum_telemetry_flush",
+                result,
+                FsusObservability.GetElapsed(startedAt),
+                accepted,
+                rejected,
+                (int)Math.Min(int.MaxValue, channel.CreateSnapshot().DroppedBatches));
+        }
+    }
+}
+
+public sealed record RumTelemetryEnqueueResult(bool Accepted, int DroppedCount, int DroppedMetricCount);
+
+public sealed record RumTelemetryChannelSnapshot(
+    long AcceptedBatches,
+    long RejectedBatches,
+    long DroppedBatches,
+    long DroppedMetrics,
+    int QueuedBatches);
+
+internal sealed record RumTelemetryBuildResult(List<FrontendRumMetric> Entities, int RejectedCount);
 
 internal sealed record RumMetricAuditContext(
     string Name,
