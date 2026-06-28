@@ -6,6 +6,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
@@ -19,6 +20,7 @@ using System.Text.RegularExpressions;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Server.Services.Security;
 using Npgsql;
+using System.Diagnostics;
 
 namespace FsusBlog.Server.Services;
 
@@ -539,18 +541,20 @@ public partial class UserService(
             RememberMe = rememberMe
         };
 
+        long transactionStarted = Stopwatch.GetTimestamp();
+        int replacedSessionCount = 0;
         var tran = await _db.Ado.UseTranAsync(async () =>
         {
             await AcquireUserSessionLoginLockAsync(user.Id);
 
-            List<ActiveUserSessionVersion> activeSessions = await LoadActiveUserSessionVersionsAsync(user.Id);
-            foreach (ActiveUserSessionVersion activeSession in activeSessions)
-            {
-                await TryRevokeSessionAsync(activeSession.SessionId, activeSession.RowVersion, now, "login_replaced");
-            }
+            replacedSessionCount = await RevokeActiveUserSessionsForLoginAsync(user.Id, now);
 
             await _db.Insertable(session).ExecuteCommandAsync();
         });
+        FsusObservability.RecordLoginSessionReplacement(
+            replacedSessionCount,
+            sessionRevokeCommandCount: tran.IsSuccess ? 1 : 0,
+            Stopwatch.GetElapsedTime(transactionStarted));
         if (!tran.IsSuccess)
         {
             _logger.LogError(tran.ErrorException, "User session login transaction failed for account {AccountId}", user.Id);
@@ -558,6 +562,29 @@ public partial class UserService(
         }
 
         return (true, "登录成功", new SessionTokenResponseDto(accessToken, refreshToken, idleExpiresAt), user);
+    }
+
+    private async Task<int> RevokeActiveUserSessionsForLoginAsync(int userId, DateTime revokedAt)
+    {
+        int count = 0;
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            """
+            UPDATE sys_user_session
+            SET revokedat = @RevokedAt,
+                revokereason = 'login_replaced'
+            WHERE userid = @UserId
+              AND revokedat IS NULL
+            RETURNING sessionid;
+            """,
+            new SugarParameter("@UserId", userId),
+            new SugarParameter("@RevokedAt", revokedAt));
+
+        while (await reader.ReadAsync())
+        {
+            count++;
+        }
+
+        return count;
     }
 
     private async Task AcquireUserSessionLoginLockAsync(int userId)
@@ -572,48 +599,6 @@ public partial class UserService(
             new SugarParameter("@LockNamespace", UserSessionLoginLockNamespace),
             new SugarParameter("@UserId", userId));
     }
-
-    private async Task<List<ActiveUserSessionVersion>> LoadActiveUserSessionVersionsAsync(int userId)
-    {
-        var sessions = new List<ActiveUserSessionVersion>();
-        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
-            """
-            SELECT sessionid,
-                   xmin::text AS row_version
-            FROM sys_user_session
-            WHERE userid = @UserId
-              AND revokedat IS NULL
-            ORDER BY createdat ASC;
-            """,
-            new SugarParameter("@UserId", userId));
-
-        while (await reader.ReadAsync())
-        {
-            sessions.Add(new ActiveUserSessionVersion(reader.GetString(0), reader.GetString(1)));
-        }
-
-        return sessions;
-    }
-
-    private async Task<bool> TryRevokeSessionAsync(string sessionId, string rowVersion, DateTime revokedAt, string reason)
-    {
-        int updated = await _db.Ado.ExecuteCommandAsync(
-            """
-            UPDATE sys_user_session
-            SET revokedat = @RevokedAt,
-                revokereason = @Reason
-            WHERE sessionid = @SessionId
-              AND revokedat IS NULL
-              AND xmin::text = @RowVersion;
-            """,
-            new SugarParameter("@SessionId", sessionId),
-            new SugarParameter("@RevokedAt", revokedAt),
-            new SugarParameter("@Reason", reason),
-            new SugarParameter("@RowVersion", rowVersion));
-        return updated == 1;
-    }
-
-    private sealed record ActiveUserSessionVersion(string SessionId, string RowVersion);
 
     public async Task<UserSession?> GetSessionByRefreshTokenAsync(string refreshToken)
     {

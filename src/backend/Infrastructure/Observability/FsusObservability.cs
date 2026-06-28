@@ -151,6 +151,9 @@ public static class FsusObservability
     private static readonly Counter<long> NotificationStreamAdmissionAccountStateCache = Meter.CreateCounter<long>("fsus.notification_stream.admission.account_state_cache");
     private static readonly Counter<long> NotificationStreamAdmissionDbReadCount = Meter.CreateCounter<long>("fsus.notification_stream.admission.db_read_count");
     private static readonly Counter<long> NotificationStreamAdmissionRejectedCount = Meter.CreateCounter<long>("fsus.notification_stream.admission.rejected_reason_count");
+    private static readonly Counter<long> LoginReplacedSessionCount = Meter.CreateCounter<long>("fsus.auth.login.replaced_session_count");
+    private static readonly Histogram<double> LoginTransactionElapsed = Meter.CreateHistogram<double>("fsus.auth.login.transaction_elapsed_ms", "ms");
+    private static readonly Counter<long> LoginSessionRevokeCommandCount = Meter.CreateCounter<long>("fsus.auth.login.session_revoke_command_count");
 
     public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
 
@@ -767,6 +770,17 @@ public static class FsusObservability
         {
             TagList tags = CreateBaseTags("notification-stream", NormalizeTelemetryValue(reason, "unknown"), "rejected");
             NotificationStreamAdmissionRejectedCount.Add(1, tags);
+        });
+    }
+
+    public static void RecordLoginSessionReplacement(long replacedSessionCount, long sessionRevokeCommandCount, TimeSpan transactionElapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("auth-login", "session-replacement", "ok");
+            LoginReplacedSessionCount.Add(Math.Max(0, replacedSessionCount), tags);
+            LoginSessionRevokeCommandCount.Add(Math.Max(0, sessionRevokeCommandCount), tags);
+            LoginTransactionElapsed.Record(transactionElapsed.TotalMilliseconds, tags);
         });
     }
 

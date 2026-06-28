@@ -540,11 +540,26 @@ public class UserServiceValidationTests
             source,
             "public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync",
             "public async Task<UserSession?> GetSessionByRefreshTokenAsync");
+        string bulkRevoke = ExtractUserServiceMethod(
+            source,
+            "private async Task<int> RevokeActiveUserSessionsForLoginAsync",
+            "private async Task AcquireUserSessionLoginLockAsync");
+        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
 
         Assert.Contains("_db.Ado.UseTranAsync(async () =>", method, StringComparison.Ordinal);
-        AssertContainsAfter(method, "_db.Ado.UseTranAsync(async () =>", "LoadActiveUserSessionVersionsAsync(user.Id)");
-        AssertContainsAfter(method, "LoadActiveUserSessionVersionsAsync(user.Id)", "TryRevokeSessionAsync(activeSession.SessionId, activeSession.RowVersion");
-        AssertContainsAfter(method, "TryRevokeSessionAsync(activeSession.SessionId, activeSession.RowVersion", "_db.Insertable(session).ExecuteCommandAsync()");
+        AssertContainsAfter(method, "_db.Ado.UseTranAsync(async () =>", "RevokeActiveUserSessionsForLoginAsync(user.Id, now)");
+        AssertContainsAfter(method, "RevokeActiveUserSessionsForLoginAsync(user.Id, now)", "_db.Insertable(session).ExecuteCommandAsync()");
+        Assert.DoesNotContain("LoadActiveUserSessionVersionsAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("foreach (ActiveUserSessionVersion", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryRevokeSessionAsync(activeSession.SessionId", method, StringComparison.Ordinal);
+        Assert.Contains("UPDATE sys_user_session", bulkRevoke, StringComparison.Ordinal);
+        Assert.Contains("WHERE userid = @UserId", bulkRevoke, StringComparison.Ordinal);
+        Assert.Contains("AND revokedat IS NULL", bulkRevoke, StringComparison.Ordinal);
+        Assert.Contains("RETURNING sessionid", bulkRevoke, StringComparison.Ordinal);
+        Assert.Contains("RecordLoginSessionReplacement", source, StringComparison.Ordinal);
+        Assert.Contains("fsus.auth.login.replaced_session_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.auth.login.transaction_elapsed_ms", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.auth.login.session_revoke_command_count", observability, StringComparison.Ordinal);
         Assert.Contains("if (!tran.IsSuccess)", method, StringComparison.Ordinal);
     }
 

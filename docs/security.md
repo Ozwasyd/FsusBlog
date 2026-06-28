@@ -200,7 +200,7 @@ AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关�
 | 续签方式 | `POST /api/binary/auth/refresh-token`，基于 `UserSession.RefreshTokenHash` 的原子 CAS 轮换（旧 Token 立即失效） |
 | 签名算法 | HS256（密钥来自环境变量，生产启动时强制校验非占位值） |
 
-Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再保存明文 Refresh Token 或全局刷新过期时间。刷新请求必须同时匹配当前 session id、旧 refresh hash、未撤销状态、idle/absolute 过期窗口；CAS 失败或旧 Token 重用会撤销对应 session 并清理客户端 Cookie。
+Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再保存明文 Refresh Token 或全局刷新过期时间。普通登录在同一事务内获取账号级 PostgreSQL advisory lock，使用单条 `UPDATE ... RETURNING sessionid` 将旧 active session 标记为 `login_replaced` 后插入新 session，避免按旧 session 数逐条更新。刷新请求必须同时匹配当前 session id、旧 refresh hash、未撤销状态、idle/absolute 过期窗口；CAS 失败或旧 Token 重用会撤销对应 session 并清理客户端 Cookie。
 
 **生产启动保护**：如果 JWT 密钥与已知占位值相同，服务器拒绝启动，防止弱密钥上线。
 
