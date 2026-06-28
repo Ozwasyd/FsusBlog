@@ -1,3 +1,4 @@
+using System.Text;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -589,7 +590,39 @@ public class ApiBinaryResponseMiddlewareTests
     }
 
     [Fact]
-    public async Task InvokeAsync_BinaryAcceptWithTextSuccess_ReturnsApiErrorFrame()
+    public async Task InvokeAsync_UnmarkedApiWithBinaryAccept_DoesNotCaptureResponseBody()
+    {
+        Stream? endpointBody = null;
+        static async Task Next(HttpContext context)
+        {
+            context.Response.StatusCode = StatusCodes.Status200OK;
+            context.Response.ContentType = "text/plain; charset=utf-8";
+            await context.Response.WriteAsync("ok");
+        }
+
+        async Task CaptureBodyNext(HttpContext context)
+        {
+            endpointBody = context.Response.Body;
+            await Next(context);
+        }
+
+        var context = CreateContext();
+        context.Request.Path = "/api/test";
+        context.Request.Headers.Accept = "application/octet-stream";
+        await using var body = new MemoryStream();
+        context.Response.Body = body;
+
+        var middleware = new ApiBinaryResponseMiddleware(CaptureBodyNext);
+        await middleware.InvokeAsync(context, new AedsEncoder());
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal("text/plain; charset=utf-8", context.Response.ContentType);
+        Assert.Equal("ok", Encoding.UTF8.GetString(body.ToArray()));
+        Assert.Same(body, endpointBody);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_MarkedLegacyApiWithBinaryAccept_ReturnsApiErrorFrame()
     {
         static async Task Next(HttpContext context)
         {
@@ -601,6 +634,10 @@ public class ApiBinaryResponseMiddlewareTests
         var context = CreateContext();
         context.Request.Path = "/api/test";
         context.Request.Headers.Accept = "application/octet-stream";
+        context.SetEndpoint(new Endpoint(
+            _ => Task.CompletedTask,
+            new EndpointMetadataCollection(ApiBinaryResponseMiddleware.LegacyBinaryEnvelopeFallbackMetadata.Instance),
+            "legacy text api"));
         await using var body = new MemoryStream();
         context.Response.Body = body;
 
@@ -611,8 +648,7 @@ public class ApiBinaryResponseMiddlewareTests
         Assert.Equal(StatusCodes.Status406NotAcceptable, context.Response.StatusCode);
         Assert.Equal("application/octet-stream", context.Response.ContentType);
 
-        byte[] frameBytes = body.ToArray();
-        var decoded = encoder.TryDecode(frameBytes);
+        var decoded = encoder.TryDecode(body.ToArray());
         Assert.True(decoded.IsSuccess);
         Assert.Equal(AedsFrameType.ApiError, decoded.Value.FrameType);
         Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Value.Payload, out var errorPod));
@@ -621,7 +657,7 @@ public class ApiBinaryResponseMiddlewareTests
     }
 
     [Fact]
-    public async Task InvokeAsync_BinaryAcceptWithLargeTextResponse_ReturnsCaptureLimitApiError()
+    public async Task InvokeAsync_MarkedLegacyApiWithLargeTextResponse_ReturnsCaptureLimitApiError()
     {
         static async Task Next(HttpContext context)
         {
@@ -634,6 +670,10 @@ public class ApiBinaryResponseMiddlewareTests
         var context = CreateContext();
         context.Request.Path = "/api/test";
         context.Request.Headers.Accept = "application/octet-stream";
+        context.SetEndpoint(new Endpoint(
+            _ => Task.CompletedTask,
+            new EndpointMetadataCollection(ApiBinaryResponseMiddleware.LegacyBinaryEnvelopeFallbackMetadata.Instance),
+            "legacy text api"));
         await using var body = new MemoryStream();
         context.Response.Body = body;
 
@@ -650,5 +690,17 @@ public class ApiBinaryResponseMiddlewareTests
         Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Value.Payload, out var errorPod));
         Assert.Equal(StatusCodes.Status413PayloadTooLarge, errorPod.HttpStatus);
         Assert.Equal("binary_response_capture_limit_exceeded", PodUtf8Codec.FromFixed256(errorPod.Message));
+    }
+
+    [Fact]
+    public void Source_RequiresExplicitMetadataBeforeLegacyCaptureStream()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Middlewares/ApiBinaryResponseMiddleware.cs");
+        int optInCheck = source.IndexOf("RequiresLegacyBinaryEnvelopeFallback(context)", StringComparison.Ordinal);
+        int capture = source.IndexOf("new PooledCaptureStream", StringComparison.Ordinal);
+
+        Assert.True(optInCheck >= 0);
+        Assert.True(capture > optInCheck);
+        Assert.Contains("GetMetadata<LegacyBinaryEnvelopeFallbackMetadata>()", source, StringComparison.Ordinal);
     }
 }

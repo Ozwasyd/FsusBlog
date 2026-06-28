@@ -64,6 +64,11 @@ public sealed class ApiBinaryResponseMiddleware
             await _next(context);
             return;
         }
+        else if (!RequiresLegacyBinaryEnvelopeFallback(context))
+        {
+            await _next(context);
+            return;
+        }
 
         Stream originalBody = context.Response.Body;
         await using var capture = new PooledCaptureStream(MaxCapturedResponseBytes);
@@ -157,6 +162,9 @@ public sealed class ApiBinaryResponseMiddleware
     {
         return request.Headers.Accept.Count > 0 && !envelopePolicy.AcceptsBinaryEnvelope(request);
     }
+
+    private static bool RequiresLegacyBinaryEnvelopeFallback(HttpContext context)
+        => context.GetEndpoint()?.Metadata.GetMetadata<LegacyBinaryEnvelopeFallbackMetadata>() is not null;
 
     private static bool IsCorsPreflight(HttpRequest request)
     {
@@ -298,5 +306,14 @@ public sealed class ApiBinaryResponseMiddleware
 
     private sealed class BinaryResponseCaptureLimitExceededException : Exception
     {
+    }
+
+    public sealed class LegacyBinaryEnvelopeFallbackMetadata
+    {
+        public static readonly LegacyBinaryEnvelopeFallbackMetadata Instance = new();
+
+        private LegacyBinaryEnvelopeFallbackMetadata()
+        {
+        }
     }
 }
