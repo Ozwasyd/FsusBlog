@@ -145,7 +145,7 @@ internal sealed class FsusHostRuntimeTuningLogService(
     public Task StartAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation(
-            "Runtime tuning effective values | ReadyToRun={ReadyToRun} StartupEnvMutated={ReadyToRunApplied} | QuickJitForLoops={QuickJitForLoops} StartupEnvMutated={QuickJitForLoopsApplied} | TieredPGO={TieredPgo} StartupEnvMutated={TieredPgoApplied} | ThreadPoolApplied={ThreadPoolApplied} | WorkerThreads={BeforeWorkerThreads}->{AfterWorkerThreads} | CompletionPortThreads={BeforeCompletionPortThreads}->{AfterCompletionPortThreads}",
+            "Runtime tuning effective values | ReadyToRunObserved={ReadyToRun} ReadyToRunInProcessApplied={ReadyToRunApplied} | QuickJitForLoopsObserved={QuickJitForLoops} QuickJitForLoopsInProcessApplied={QuickJitForLoopsApplied} | TieredPGOObserved={TieredPgo} TieredPGOInProcessApplied={TieredPgoApplied} | ThreadPoolApplied={ThreadPoolApplied} | WorkerThreads={BeforeWorkerThreads}->{AfterWorkerThreads} | CompletionPortThreads={BeforeCompletionPortThreads}->{AfterCompletionPortThreads}",
             report.ReadyToRun ?? "(unchanged)",
             report.ReadyToRunApplied,
             report.QuickJitForLoops ?? "(unchanged)",

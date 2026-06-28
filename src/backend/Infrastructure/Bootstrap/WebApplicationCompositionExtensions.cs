@@ -98,8 +98,11 @@ public static class WebApplicationCompositionExtensions
     private static readonly ConditionalWeakTable<string, CspNonceHtmlTemplate> CspNonceHtmlTemplates = new();
     private static readonly ConditionalWeakTable<byte[], SpaHtmlByteTemplate> SpaHtmlByteTemplates = new();
     private static readonly ConcurrentDictionary<HeadInjectionCacheKey, CachedHeadInjection> SpaHeadInjectionCache = new();
+    private static readonly ConcurrentDictionary<string, CachedDynamicManifest> DynamicManifestCache = new(StringComparer.Ordinal);
     private static long SpaHeadInjectionBuildCount;
     private static long SpaHeadInjectionHitCount;
+
+    private sealed record CachedDynamicManifest(byte[] Bytes, string Etag);
 
     public static void UseFsusApplicationPipeline(this WebApplication app)
     {
@@ -391,6 +394,30 @@ public static class WebApplicationCompositionExtensions
 
     private static async Task WriteDynamicManifestAsync(HttpContext ctx, SeoConfigReadModel seo)
     {
+        string cacheKey = BuildDynamicManifestCacheKey(seo);
+        CachedDynamicManifest cached = DynamicManifestCache.GetOrAdd(cacheKey, _ => BuildDynamicManifest(seo));
+        ctx.Response.Headers["Cache-Control"] = "no-cache";
+        ctx.Response.Headers["ETag"] = cached.Etag;
+        if (ctx.Request.Headers.IfNoneMatch.Any(value => string.Equals(value, cached.Etag, StringComparison.Ordinal)))
+        {
+            ctx.Response.StatusCode = StatusCodes.Status304NotModified;
+            ctx.Response.ContentLength = 0;
+            return;
+        }
+
+        ctx.Response.StatusCode = StatusCodes.Status200OK;
+        ctx.Response.ContentType = "application/manifest+json; charset=utf-8";
+        ctx.Response.ContentLength = cached.Bytes.Length;
+        if (HttpMethods.IsHead(ctx.Request.Method))
+        {
+            return;
+        }
+
+        await ctx.Response.BodyWriter.WriteAsync(cached.Bytes, ctx.RequestAborted);
+    }
+
+    private static CachedDynamicManifest BuildDynamicManifest(SeoConfigReadModel seo)
+    {
         var icons = new List<Dictionary<string, string>>(3);
         AddManifestIcon(icons, seo.PwaIcon192Url, "192x192", "image/png", "any");
         AddManifestIcon(icons, seo.PwaIcon512Url, "512x512", "image/png", "any");
@@ -410,18 +437,28 @@ public static class WebApplicationCompositionExtensions
         };
 
         byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(manifest);
-        ctx.Response.StatusCode = StatusCodes.Status200OK;
-        ctx.Response.ContentType = "application/manifest+json; charset=utf-8";
-        ctx.Response.ContentLength = bytes.Length;
-        ctx.Response.Headers["Cache-Control"] = "no-cache";
-        ctx.Response.Headers.Remove("ETag");
-        ctx.Response.Headers.Remove("Last-Modified");
-        if (HttpMethods.IsHead(ctx.Request.Method))
-        {
-            return;
-        }
+        return new CachedDynamicManifest(bytes, ComputeDynamicManifestEtag(bytes));
+    }
 
-        await ctx.Response.BodyWriter.WriteAsync(bytes, ctx.RequestAborted);
+    private static string BuildDynamicManifestCacheKey(SeoConfigReadModel seo)
+    {
+        return string.Join('\u001F',
+            seo.ManifestName,
+            seo.ManifestShortName,
+            seo.Title,
+            seo.Description,
+            seo.BackgroundColor,
+            seo.ThemeColor,
+            seo.PwaIcon192Url,
+            seo.PwaIcon512Url,
+            seo.PwaMaskableIconUrl);
+    }
+
+    private static string ComputeDynamicManifestEtag(byte[] bytes)
+    {
+        Span<byte> hash = stackalloc byte[32];
+        SHA256.HashData(bytes, hash);
+        return string.Concat("\"manifest-", Convert.ToHexString(hash[..8]).ToLowerInvariant(), "\"");
     }
 
     private static void AddManifestIcon(List<Dictionary<string, string>> icons, string src, string sizes, string type, string purpose)
@@ -1144,6 +1181,9 @@ public static class WebApplicationCompositionExtensions
             state,
             "prod-manifest",
             CancellationToken.None);
+
+    internal static Task WriteDynamicManifestForTestsAsync(HttpContext ctx, SeoConfigReadModel seo)
+        => WriteDynamicManifestAsync(ctx, seo);
 
     private static ReadOnlyMemory<byte> BuildRoutePreloadHeadInjection(IReadOnlyList<string> preloads)
     {

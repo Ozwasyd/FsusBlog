@@ -65,6 +65,20 @@ public sealed class FsusHostRuntimeTuningTests
     }
 
     [Fact]
+    public void RuntimeTuningLog_SourceSeparatesObservedConfigFromInProcessApplied()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Bootstrap/WebApplicationBuilderCompositionExtensions.cs"));
+
+        Assert.Contains("ReadyToRunObserved={ReadyToRun}", source, StringComparison.Ordinal);
+        Assert.Contains("ReadyToRunInProcessApplied={ReadyToRunApplied}", source, StringComparison.Ordinal);
+        Assert.Contains("QuickJitForLoopsObserved={QuickJitForLoops}", source, StringComparison.Ordinal);
+        Assert.Contains("QuickJitForLoopsInProcessApplied={QuickJitForLoopsApplied}", source, StringComparison.Ordinal);
+        Assert.Contains("TieredPGOObserved={TieredPgo}", source, StringComparison.Ordinal);
+        Assert.Contains("TieredPGOInProcessApplied={TieredPgoApplied}", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("StartupEnvMutated", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DockerAndProjectFiles_UseConsistentThroughputReadyToRunProfile()
     {
         string root = BackendTestPaths.RepositoryRoot;

@@ -30,6 +30,20 @@ public sealed class AntiCrawlerSecurityContractTests
     }
 
     [Fact]
+    public void RateLimiter_RejectionRiskWriteUsesBoundedSampler()
+    {
+        string source = Read("src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs");
+        int start = source.IndexOf("options.OnRejected", StringComparison.Ordinal);
+        int end = source.IndexOf("options.AddPolicy(\"fixed_ip\"", start, StringComparison.Ordinal);
+        string onRejected = source[start..end];
+
+        Assert.Contains("RateLimiterRejectionRiskSampler", source, StringComparison.Ordinal);
+        Assert.Contains("ShouldWriteRiskSignal", onRejected, StringComparison.Ordinal);
+        Assert.Contains("RecordRateLimiterRiskSample", onRejected, StringComparison.Ordinal);
+        Assert.Contains("RecordRateLimiterRiskDrop", onRejected, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ProductionGateway_LimitsBinaryAuthAdminAndAuthorRoutes()
     {
         string gateway = Read("deploy/production-openresty.conf");

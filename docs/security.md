@@ -50,7 +50,7 @@
 - 公开读策略：`public_read` 按 `IP + path` 分区；verified search crawler 使用独立高额度分区，social preview bot 使用低额度公开 HTML/静态资源分区，普通匿名公开 API 使用中等配额。
 - 强匿名评论 ticket 申请使用 `public_read` 分区，并额外要求强匿名请求不得携带 Cookie、session、Authorization 或其他登录态污染；污染失败返回 AEDS `ApiError`，业务 handler 不会执行。
 - 真人阅读策略：`read_proof` 专门保护 `/api/binary/read-proof/challenge.aeds` 与 `/api/binary/read-proof/submit.aeds`，按 `IP + route` 或 `IP + deviceFp + route` 分区，避免匿名 challenge/submit 被无限打。旧 `/api/read-proof/**` JSON 路径已移除。
-- 超限响应：`429 Too Many Requests`，响应头携带 `Retry-After`，并通过 `ISecurityRiskSignalSink` 写入 `RateLimited` 风险事件。
+- 超限响应：`429 Too Many Requests`，响应头携带 `Retry-After`。RateLimiter 拒绝路径通过 `RateLimiterRejectionRiskSampler` 按 IP/route/minute 对 `ISecurityRiskSignalSink` 写入做上限采样；采样命中写入 `RateLimited` 风险事件，超出上限只记录 `rate_limiter_risk` drop 指标，避免攻击流量把拒绝路径反向放大成 DB/Redis/后台风险写入压力。
 - 客户端 IP 提取：`GetClientIp()` 只读取 `ForwardedHeadersMiddleware` 按 `ReverseProxy:KnownProxies` / `ReverseProxy:KnownNetworks` 处理后的 `Connection.RemoteIpAddress`；业务代码不得直接信任原始 `X-Forwarded-For` / `X-Real-IP` 请求头。
 - 受保护端点：PoW 挑战、匿名账号 bootstrap、Token 续签、Passkey 登录开始/完成、MFA challenge verify、Recovery Key verify、评论审核队列和单条/批量审核写入、ReadProof challenge/submit、RiskControl challenge issue/verify、公开评论读取、公开 taxonomy 与 related-reading。
 - MFA challenge verify 的失败计数同时按 ticket、客户端 IP hash 和账号稳定 subject hash 累加；三类计数必须通过统一缓存的单次 Redis Lua 原子递增并返回同一 post-increment 快照，lock 决策只能使用该快照。账号维度固定为 `fail:subject:{accountSubjectHash}`，不得恢复 `fail:user:{userId}`。`accountSubjectHash` 来自匿名账号快照或 ticket 内保存的 subject hash，短 TTL 旧 ticket 缺失该字段时只允许按 `legacy-account:{accountId}` fallback 重新派生。MFA failure audit context 使用 `AccountId` 与 `AccountSubjectHash`，不得写 `UserId`。

@@ -257,6 +257,12 @@ public static class FsusObservability
         SecurityEventCounter.Add(1, tags);
     }
 
+    public static void RecordRateLimiterRiskSample()
+        => RecordSecurityEvent("rate_limiter_risk", "rate_limited", "sampled");
+
+    public static void RecordRateLimiterRiskDrop()
+        => RecordSecurityEvent("rate_limiter_risk", "rate_limited", "dropped");
+
     public static void RecordSecurityRiskEvent(string source, string reason, string action, string result)
     {
         TryRecord(() =>

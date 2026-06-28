@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using System.Collections.Concurrent;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using FsusBlog.Core.DependencyInjection;
@@ -138,8 +139,9 @@ public static class ServiceCollectionExtensions
                 context.HttpContext.Response.Headers["Retry-After"] = "60";
                 FsusObservability.RecordSecurityEvent("rate_limited", "rate_limited", "rejected");
                 var risk = context.HttpContext.RequestServices.GetService<ISecurityRiskSignalSink>();
-                if (risk is not null)
+                if (risk is not null && RateLimiterRejectionRiskSampler.ShouldWriteRiskSignal(context.HttpContext))
                 {
+                    FsusObservability.RecordRateLimiterRiskSample();
                     await risk.AddRiskAsync(new SecurityRiskSignal(
                         context.HttpContext,
                         SecurityRiskReason.RateLimited,
@@ -148,6 +150,10 @@ public static class ServiceCollectionExtensions
                         SecurityRiskSources.RateLimiter,
                         "rate_limited",
                         "fixed_window_rejected"), cancellationToken);
+                }
+                else
+                {
+                    FsusObservability.RecordRateLimiterRiskDrop();
                 }
             };
 
@@ -269,4 +275,42 @@ public static class ServiceCollectionExtensions
             QueueLimit = queueLimit,
             QueueProcessingOrder = QueueProcessingOrder.OldestFirst
         });
+}
+
+internal static class RateLimiterRejectionRiskSampler
+{
+    private const int MaxRiskWritesPerBucket = 4;
+    private const int MaxTrackedBuckets = 4096;
+    private static readonly ConcurrentDictionary<string, int> BucketCounts = new(StringComparer.Ordinal);
+
+    public static bool ShouldWriteRiskSignal(HttpContext context)
+    {
+        long minute = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 60;
+        string key = string.Concat(
+            minute.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            '|',
+            context.GetClientIp(),
+            '|',
+            context.Request.Path.Value ?? "/");
+
+        int count = BucketCounts.AddOrUpdate(key, 1, static (_, current) => current + 1);
+        if (BucketCounts.Count > MaxTrackedBuckets)
+        {
+            TrimOldBuckets(minute);
+        }
+
+        return count <= MaxRiskWritesPerBucket;
+    }
+
+    private static void TrimOldBuckets(long currentMinute)
+    {
+        string keepPrefix = string.Concat(currentMinute.ToString(System.Globalization.CultureInfo.InvariantCulture), "|");
+        foreach (string key in BucketCounts.Keys)
+        {
+            if (!key.StartsWith(keepPrefix, StringComparison.Ordinal))
+            {
+                BucketCounts.TryRemove(key, out _);
+            }
+        }
+    }
 }

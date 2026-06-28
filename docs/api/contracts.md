@@ -1018,7 +1018,7 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
 
 ### `SeoConfigContract`
 
-`SeoConfig` 同时用于公开 SEO/head/PWA manifest、admin 统一 SEO 设置页和运行时品牌资产。公开端点为 `GET /api/binary/system/seo`，admin 读取为 `GET /api/binary/system/admin/seo`，保存为 `PUT /api/binary/system/seo` + `SeoConfigUpdateRequest`，写入必须携带 PoW。保存后必须失效 system SEO cache、Public AOT shell、动态 `manifest.webmanifest` 和公开 shell hydration。
+`SeoConfig` 同时用于公开 SEO/head/PWA manifest、admin 统一 SEO 设置页和运行时品牌资产。公开端点为 `GET /api/binary/system/seo`，admin 读取为 `GET /api/binary/system/admin/seo`，保存为 `PUT /api/binary/system/seo` + `SeoConfigUpdateRequest`，写入必须携带 PoW。保存后必须失效 system SEO cache、Public AOT shell、动态 `manifest.webmanifest` 和公开 shell hydration。动态 `/manifest.webmanifest` 是 SEO 配置派生资源，服务端按 SEO/PWA 字段缓存序列化后的 manifest bytes，使用派生 bytes hash 生成 ETag；`If-None-Match` 命中时返回 `304` 且不重复写完整 manifest body。
 
 ```json
 {

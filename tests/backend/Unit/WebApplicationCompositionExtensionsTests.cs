@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Spa;
+using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -500,6 +501,64 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.DoesNotContain("headers.Remove(\"Last-Modified\")", branch, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void DynamicManifest_SourceUsesDerivedBytesCacheAndConditionalEtag()
+    {
+        string source = ReadCompositionSource();
+        int methodStart = source.IndexOf("private static async Task WriteDynamicManifestAsync", StringComparison.Ordinal);
+        int methodEnd = source.IndexOf("private static void AddManifestIcon", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..methodEnd];
+
+        Assert.Contains("DynamicManifestCache", source, StringComparison.Ordinal);
+        Assert.Contains("BuildDynamicManifestCacheKey", method, StringComparison.Ordinal);
+        Assert.Contains("ComputeDynamicManifestEtag", method, StringComparison.Ordinal);
+        Assert.Contains("IfNoneMatch", method, StringComparison.Ordinal);
+        Assert.Contains("StatusCodes.Status304NotModified", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Headers.Remove(\"ETag\")", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DynamicManifest_ReturnsNotModifiedForMatchingEtagAndChangesEtagWhenSeoChanges()
+    {
+        var seo = new SeoConfigReadModel
+        {
+            ManifestName = "FsusBlog",
+            ManifestShortName = "Fsus",
+            Title = "FsusBlog",
+            Description = "Initial description",
+            ThemeColor = "#111111",
+            BackgroundColor = "#ffffff"
+        };
+        DefaultHttpContext first = CreateManifestContext();
+
+        await WebApplicationCompositionExtensions.WriteDynamicManifestForTestsAsync(first, seo);
+
+        Assert.Equal(StatusCodes.Status200OK, first.Response.StatusCode);
+        Assert.Equal("no-cache", first.Response.Headers["Cache-Control"].ToString());
+        string firstEtag = first.Response.Headers["ETag"].ToString();
+        Assert.StartsWith("\"manifest-", firstEtag, StringComparison.Ordinal);
+        Assert.True(first.Response.Body.Length > 0);
+
+        DefaultHttpContext second = CreateManifestContext(firstEtag);
+
+        await WebApplicationCompositionExtensions.WriteDynamicManifestForTestsAsync(second, seo);
+
+        Assert.Equal(StatusCodes.Status304NotModified, second.Response.StatusCode);
+        Assert.Equal(firstEtag, second.Response.Headers["ETag"].ToString());
+        Assert.Equal(0, second.Response.ContentLength);
+        Assert.Equal(0, second.Response.Body.Length);
+
+        DefaultHttpContext changed = CreateManifestContext(firstEtag);
+
+        await WebApplicationCompositionExtensions.WriteDynamicManifestForTestsAsync(
+            changed,
+            seo with { ThemeColor = "#222222" });
+
+        Assert.Equal(StatusCodes.Status200OK, changed.Response.StatusCode);
+        Assert.NotEqual(firstEtag, changed.Response.Headers["ETag"].ToString());
+        Assert.True(changed.Response.Body.Length > 0);
+    }
+
     [Theory]
     [InlineData("/sw.js", "self.__fsus_test = 1;")]
     [InlineData("/search/index.manifest.aeds", "manifest-v1")]
@@ -675,6 +734,20 @@ public sealed class WebApplicationCompositionExtensionsTests
         context.Request.Path = "/user/manage";
         context.Request.Headers.AcceptEncoding = acceptEncoding;
         context.Response.Body = new MemoryStream();
+        return context;
+    }
+
+    private static DefaultHttpContext CreateManifestContext(string? ifNoneMatch = null)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Method = HttpMethods.Get;
+        context.Request.Path = "/manifest.webmanifest";
+        context.Response.Body = new MemoryStream();
+        if (!string.IsNullOrWhiteSpace(ifNoneMatch))
+        {
+            context.Request.Headers.IfNoneMatch = ifNoneMatch;
+        }
+
         return context;
     }
 
