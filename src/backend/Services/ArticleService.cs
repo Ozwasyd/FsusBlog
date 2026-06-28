@@ -285,23 +285,78 @@ public class ArticleService(
         CancellationToken cancellationToken)
     {
         DateTime utcNow = DateTime.UtcNow;
-        var baseQuery = _db.Queryable<Article>()
-            .LeftJoin<Category>((a, c) => a.CategoryId == c.Id)
-            .Where(a => a.Id == id);
+        bool hasLegacyContentColumn = await LegacyArticleContentColumnExistsAsync(cancellationToken).ConfigureAwait(false);
+        string contentExpression = hasLegacyContentColumn
+            ? "COALESCE(NULLIF(ab.markdown_content, ''), NULLIF(a.content, ''), '')"
+            : "COALESCE(ab.markdown_content, '')";
+        string legacyGroupBy = hasLegacyContentColumn ? ", a.content" : string.Empty;
+        string visibilitySql = string.Empty;
+        var parameters = new List<SugarParameter>
+        {
+            new("@Id", id),
+            new("@Now", utcNow)
+        };
         if (!includePrivate)
         {
-            baseQuery = baseQuery.Where(a => a.IsDeleted == false
-                && a.Status == ArticleStatus.Published
-                && (a.PublishedAt == null || a.PublishedAt <= utcNow)
-                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= utcNow));
+            visibilitySql = """
+                  AND a.isdeleted = false
+                  AND a.status = @PublishedStatus
+                  AND (a.published_at IS NULL OR a.published_at <= @Now)
+                  AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now)
+                """;
+            parameters.Add(new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published));
         }
 
-        var query = baseQuery.Select((a, c) => new { a.Id, a.Title, a.Summary, a.CoverImageUrl, a.CategoryId, a.Views, a.CreateTime, a.IsDeleted, a.Status, a.ScheduledPublishAt, a.PublishedAt, CategoryName = c.Name });
-
-        var sqlObj = query.ToSql();
         ArticleDetailReadModel? article = null;
         cancellationToken.ThrowIfCancellationRequested();
-        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+        string sql = $$"""
+            SELECT
+                a.id AS "Id",
+                a.title AS "Title",
+                a.summary AS "Summary",
+                a.coverimageurl AS "CoverImageUrl",
+                a.categoryid AS "CategoryId",
+                a.views AS "Views",
+                a.createtime AS "CreateTime",
+                a.isdeleted AS "IsDeleted",
+                a.status AS "Status",
+                a.scheduled_publish_at AS "ScheduledPublishAt",
+                a.published_at AS "PublishedAt",
+                c.name AS "CategoryName",
+                {{contentExpression}} AS "Content",
+                COALESCE(
+                    array_agg(t.id ORDER BY t.id)
+                        FILTER (WHERE t.id IS NOT NULL),
+                    ARRAY[]::integer[]
+                ) AS "TagIds",
+                COALESCE(
+                    array_agg(t.name ORDER BY t.id)
+                        FILTER (WHERE t.id IS NOT NULL),
+                    ARRAY[]::text[]
+                ) AS "TagNames"
+            FROM article a
+            LEFT JOIN category c ON a.categoryid = c.id
+            LEFT JOIN article_body ab ON ab.article_id = a.id
+            LEFT JOIN article_tag at ON at.articleid = a.id
+            LEFT JOIN tag t ON t.id = at.tagid
+            WHERE a.id = @Id
+            {{visibilitySql}}
+            GROUP BY
+                a.id,
+                a.title,
+                a.summary,
+                a.coverimageurl,
+                a.categoryid,
+                a.views,
+                a.createtime,
+                a.isdeleted,
+                a.status,
+                a.scheduled_publish_at,
+                a.published_at,
+                c.name,
+                ab.markdown_content{{legacyGroupBy}};
+            """;
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sql, parameters))
         {
             if (await reader.ReadAsync(cancellationToken))
             {
@@ -309,13 +364,22 @@ public class ArticleService(
                     fSum = reader.GetOrdinal("Summary"), fCover = reader.GetOrdinal("CoverImageUrl"),
                     fCatId = reader.GetOrdinal("CategoryId"), fViews = reader.GetOrdinal("Views"),
                     fTime = reader.GetOrdinal("CreateTime"), fIsDel = reader.GetOrdinal("IsDeleted"), fStatus = reader.GetOrdinal("Status"),
-                    fScheduled = reader.GetOrdinal("ScheduledPublishAt"), fPublished = reader.GetOrdinal("PublishedAt"), fCatName = reader.GetOrdinal("CategoryName");
+                    fScheduled = reader.GetOrdinal("ScheduledPublishAt"), fPublished = reader.GetOrdinal("PublishedAt"), fCatName = reader.GetOrdinal("CategoryName"),
+                    fContent = reader.GetOrdinal("Content"), fTagIds = reader.GetOrdinal("TagIds"), fTagNames = reader.GetOrdinal("TagNames");
+                string content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent);
+                string? summary = reader.IsDBNull(fSum) ? string.Empty : reader.GetString(fSum);
+                if (string.IsNullOrWhiteSpace(content) && !string.IsNullOrWhiteSpace(summary))
+                {
+                    content = summary;
+                }
+
+                int wordCount = CalculateReadableLength(content);
 
                 article = new ArticleDetailReadModel
                 {
                     Id = reader.GetInt32(fId),
                     Title = reader.GetString(fTitle),
-                    Summary = reader.IsDBNull(fSum) ? string.Empty : reader.GetString(fSum),
+                    Summary = summary,
                     CoverImageUrl = reader.IsDBNull(fCover) ? null : reader.GetString(fCover),
                     CategoryId = reader.GetInt32(fCatId),
                     Views = reader.GetInt32(fViews),
@@ -325,31 +389,17 @@ public class ArticleService(
                     ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : reader.GetDateTime(fScheduled),
                     PublishedAt = reader.IsDBNull(fPublished) ? null : reader.GetDateTime(fPublished),
                     CategoryName = reader.IsDBNull(fCatName) ? "默认分类" : reader.GetString(fCatName),
-                    Tags = ArticleReadModelCollections.EmptyTags
+                    Content = content,
+                    WordCount = wordCount,
+                    EstimatedReadingMinutes = Math.Max(1, (wordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute),
+                    ShowReadingNotice = wordCount > LongReadThreshold,
+                    Tags = ReadArticleDetailTags(reader, fTagIds, fTagNames)
                 };
             }
         }
 
         if (article != null)
         {
-            string content = await LoadArticleContentAsync(id, cancellationToken);
-            if (string.IsNullOrWhiteSpace(content) && !string.IsNullOrWhiteSpace(article.Summary))
-            {
-                content = article.Summary;
-            }
-            int wordCount = CalculateReadableLength(content);
-            int estimatedReadingMinutes = Math.Max(1, (wordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute);
-            bool showReadingNotice = wordCount > LongReadThreshold;
-
-            var tags = await LoadArticleTagsAsync(id, cancellationToken);
-            article = article with
-            {
-                Content = content,
-                WordCount = wordCount,
-                EstimatedReadingMinutes = estimatedReadingMinutes,
-                ShowReadingNotice = showReadingNotice,
-                Tags = tags
-            };
             if (!includePrivate && cacheIdentity is not null)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -365,6 +415,30 @@ public class ArticleService(
         }
 
         return article;
+    }
+
+    private static IReadOnlyList<TagReadModel> ReadArticleDetailTags(DbDataReader reader, int tagIdsOrdinal, int tagNamesOrdinal)
+    {
+        if (reader.IsDBNull(tagIdsOrdinal) || reader.IsDBNull(tagNamesOrdinal))
+        {
+            return ArticleReadModelCollections.EmptyTags;
+        }
+
+        int[] tagIds = reader.GetFieldValue<int[]>(tagIdsOrdinal);
+        string[] tagNames = reader.GetFieldValue<string[]>(tagNamesOrdinal);
+        int count = Math.Min(tagIds.Length, tagNames.Length);
+        if (count == 0)
+        {
+            return ArticleReadModelCollections.EmptyTags;
+        }
+
+        var tags = new List<TagReadModel>(count);
+        for (int i = 0; i < count; i++)
+        {
+            tags.Add(new TagReadModel { Id = tagIds[i], Name = tagNames[i] });
+        }
+
+        return tags;
     }
 
     private async Task<string> LoadArticleContentAsync(int articleId, CancellationToken cancellationToken)

@@ -183,6 +183,38 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
+    public void LoadArticleDetailFromDbAsync_SourceUsesSingleSqlForMetadataContentAndTags()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        int methodStart = source.IndexOf("private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("private async Task<string> LoadArticleContentAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        Assert.Contains("LEFT JOIN article_body ab ON ab.article_id = a.id", method, StringComparison.Ordinal);
+        Assert.Contains("array_agg(t.id ORDER BY t.id)", method, StringComparison.Ordinal);
+        Assert.Contains("array_agg(t.name ORDER BY t.id)", method, StringComparison.Ordinal);
+        Assert.Contains("ReadArticleDetailTags", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadArticleContentAsync(id", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadArticleTagsAsync(id", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArticleDetailAedsArtifactProjector_SourceUsesSingleSqlForDetailArtifactBackfill()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs"));
+        int methodStart = source.IndexOf("private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("private async Task<string> LoadArticleContentAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        Assert.Contains("LEFT JOIN article_body ab ON ab.article_id = a.id", method, StringComparison.Ordinal);
+        Assert.Contains("array_agg(t.id ORDER BY t.id)", method, StringComparison.Ordinal);
+        Assert.Contains("array_agg(t.name ORDER BY t.id)", method, StringComparison.Ordinal);
+        Assert.Contains("ReadArticleDetailTags", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadArticleContentAsync(id", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadArticleTagMapAsync([id]", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UpdateAsync_SourceUsesRowVersionGuardAndAtomicTagSetRewrite()
     {
         string articleService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));

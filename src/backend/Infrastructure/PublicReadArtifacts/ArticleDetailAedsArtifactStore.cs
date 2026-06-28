@@ -251,32 +251,67 @@ public sealed class ArticleDetailAedsArtifactProjector(
     private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync(int id, CancellationToken ct)
     {
         DateTime utcNow = DateTime.UtcNow;
-        var query = db.Queryable<Article>()
-            .LeftJoin<Category>((a, c) => a.CategoryId == c.Id)
-            .Where(a => a.Id == id
-                && a.IsDeleted == false
-                && a.Status == ArticleStatus.Published
-                && (a.PublishedAt == null || a.PublishedAt <= utcNow)
-                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= utcNow))
-            .Select((a, c) => new
-            {
-                a.Id,
-                a.Title,
-                a.Summary,
-                a.CoverImageUrl,
-                a.CategoryId,
-                a.Views,
-                a.CreateTime,
-                a.IsDeleted,
-                a.Status,
-                a.ScheduledPublishAt,
-                a.PublishedAt,
-                CategoryName = c.Name
-            });
-
-        var sqlObj = query.ToSql();
+        bool hasLegacyContentColumn = await LegacyArticleContentColumnExistsAsync().ConfigureAwait(false);
+        string contentExpression = hasLegacyContentColumn
+            ? "COALESCE(NULLIF(ab.markdown_content, ''), NULLIF(a.content, ''), '')"
+            : "COALESCE(ab.markdown_content, '')";
+        string legacyGroupBy = hasLegacyContentColumn ? ", a.content" : string.Empty;
+        string sql = $$"""
+            SELECT
+                a.id AS "Id",
+                a.title AS "Title",
+                a.summary AS "Summary",
+                a.coverimageurl AS "CoverImageUrl",
+                a.categoryid AS "CategoryId",
+                a.views AS "Views",
+                a.createtime AS "CreateTime",
+                a.isdeleted AS "IsDeleted",
+                a.status AS "Status",
+                a.scheduled_publish_at AS "ScheduledPublishAt",
+                a.published_at AS "PublishedAt",
+                c.name AS "CategoryName",
+                {{contentExpression}} AS "Content",
+                COALESCE(
+                    array_agg(t.id ORDER BY t.id)
+                        FILTER (WHERE t.id IS NOT NULL),
+                    ARRAY[]::integer[]
+                ) AS "TagIds",
+                COALESCE(
+                    array_agg(t.name ORDER BY t.id)
+                        FILTER (WHERE t.id IS NOT NULL),
+                    ARRAY[]::text[]
+                ) AS "TagNames"
+            FROM article a
+            LEFT JOIN category c ON a.categoryid = c.id
+            LEFT JOIN article_body ab ON ab.article_id = a.id
+            LEFT JOIN article_tag at ON at.articleid = a.id
+            LEFT JOIN tag t ON t.id = at.tagid
+            WHERE a.id = @Id
+              AND a.isdeleted = false
+              AND a.status = @PublishedStatus
+              AND (a.published_at IS NULL OR a.published_at <= @Now)
+              AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now)
+            GROUP BY
+                a.id,
+                a.title,
+                a.summary,
+                a.coverimageurl,
+                a.categoryid,
+                a.views,
+                a.createtime,
+                a.isdeleted,
+                a.status,
+                a.scheduled_publish_at,
+                a.published_at,
+                c.name,
+                ab.markdown_content{{legacyGroupBy}};
+            """;
         ArticleDetailReadModel? article = null;
-        using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+        using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            sql,
+            new SugarParameter("@Id", id),
+            new SugarParameter("@Now", utcNow),
+            new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published)))
         {
             if (await reader.ReadAsync(ct).ConfigureAwait(false))
             {
@@ -292,12 +327,23 @@ public sealed class ArticleDetailAedsArtifactProjector(
                 int fScheduled = reader.GetOrdinal("ScheduledPublishAt");
                 int fPublished = reader.GetOrdinal("PublishedAt");
                 int fCatName = reader.GetOrdinal("CategoryName");
+                int fContent = reader.GetOrdinal("Content");
+                int fTagIds = reader.GetOrdinal("TagIds");
+                int fTagNames = reader.GetOrdinal("TagNames");
+                string content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent);
+                string summary = reader.IsDBNull(fSum) ? string.Empty : reader.GetString(fSum);
+                if (string.IsNullOrWhiteSpace(content) && !string.IsNullOrWhiteSpace(summary))
+                {
+                    content = summary;
+                }
+
+                int wordCount = CalculateReadableLength(content);
 
                 article = new ArticleDetailReadModel
                 {
                     Id = reader.GetInt32(fId),
                     Title = reader.IsDBNull(fTitle) ? string.Empty : reader.GetString(fTitle),
-                    Summary = reader.IsDBNull(fSum) ? string.Empty : reader.GetString(fSum),
+                    Summary = summary,
                     CoverImageUrl = reader.IsDBNull(fCover) ? null : reader.GetString(fCover),
                     CategoryId = reader.GetInt32(fCatId),
                     Views = reader.GetInt32(fViews),
@@ -307,32 +353,40 @@ public sealed class ArticleDetailAedsArtifactProjector(
                     ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : reader.GetDateTime(fScheduled),
                     PublishedAt = reader.IsDBNull(fPublished) ? null : reader.GetDateTime(fPublished),
                     CategoryName = reader.IsDBNull(fCatName) ? "默认分类" : reader.GetString(fCatName),
-                    Tags = []
+                    Content = content,
+                    WordCount = wordCount,
+                    EstimatedReadingMinutes = Math.Max(1, (wordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute),
+                    ShowReadingNotice = wordCount > LongReadThreshold,
+                    Tags = ReadArticleDetailTags(reader, fTagIds, fTagNames)
                 };
             }
         }
 
-        if (article is null)
+        return article;
+    }
+
+    private static IReadOnlyList<TagReadModel> ReadArticleDetailTags(DbDataReader reader, int tagIdsOrdinal, int tagNamesOrdinal)
+    {
+        if (reader.IsDBNull(tagIdsOrdinal) || reader.IsDBNull(tagNamesOrdinal))
         {
-            return null;
+            return ArticleReadModelCollections.EmptyTags;
         }
 
-        string content = await LoadArticleContentAsync(id, ct).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(content) && !string.IsNullOrWhiteSpace(article.Summary))
+        int[] tagIds = reader.GetFieldValue<int[]>(tagIdsOrdinal);
+        string[] tagNames = reader.GetFieldValue<string[]>(tagNamesOrdinal);
+        int count = Math.Min(tagIds.Length, tagNames.Length);
+        if (count == 0)
         {
-            content = article.Summary;
+            return ArticleReadModelCollections.EmptyTags;
         }
 
-        int wordCount = CalculateReadableLength(content);
-        IReadOnlyDictionary<int, List<TagReadModel>> tagMap = await LoadArticleTagMapAsync([id], ct).ConfigureAwait(false);
-        return article with
+        var tags = new List<TagReadModel>(count);
+        for (int i = 0; i < count; i++)
         {
-            Content = content,
-            WordCount = wordCount,
-            EstimatedReadingMinutes = Math.Max(1, (wordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute),
-            ShowReadingNotice = wordCount > LongReadThreshold,
-            Tags = tagMap.TryGetValue(id, out var tags) ? tags : []
-        };
+            tags.Add(new TagReadModel { Id = tagIds[i], Name = tagNames[i] });
+        }
+
+        return tags;
     }
 
     private async Task<string> LoadArticleContentAsync(int articleId, CancellationToken ct)
