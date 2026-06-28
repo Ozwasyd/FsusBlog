@@ -1378,14 +1378,14 @@ feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale
 
 ### Site Subscription
 
-订阅表单使用 AEDS，不保存明文 email；服务端只写入 `SHA256(normalizedEmail)` 与归一化 channel。公开退订必须额外携带一次性 `X-Fsus-Subscription-Proof`，proof 由服务端订阅 proof API 签发，绑定 email hash 与 channel。
+订阅表单使用 AEDS，不保存明文 email；服务端只写入 `SHA256(normalizedEmail)` 与归一化 channel。公开退订必须额外携带一次性 `X-Fsus-Subscription-Proof`，proof 由服务内部签发并可交给受控外部投递域发送，绑定 email hash 与 channel；当前公开 API 不提供明文 email 查询或无 proof 退订入口。
 
 | 方法 | 路径 | 请求帧 | 响应帧 | 说明 |
 |------|------|--------|--------|------|
 | POST | `/api/binary/subscriptions` | `SiteSubscriptionRequest` | `SiteSubscriptionResponse` | 启用订阅，响应只包含 `subscribed=true` 与归一化 channel |
 | DELETE | `/api/binary/subscriptions` | `SiteSubscriptionRequest` + `X-Fsus-Subscription-Proof` | `SiteSubscriptionResponse` | 退订；缺失、重放、过期或绑定不匹配返回 428 + `ApiError` frame，DB 不更新 |
 
-`SiteSubscriptionRequest` payload 是 `SiteSubscriptionRequestPod`：fixed UTF-8 `Email(256)` + `Channel(32)`。`SiteSubscriptionResponse` payload 是 `SiteSubscriptionResponsePod`：`subscribed:byte`、`unsubscribed:byte`、reserved、fixed UTF-8 `Channel(32)`。非法 email 返回 HTTP 400 + `ApiError` frame，响应不得回显明文 email。退订 proof 不进入 AEDS payload，cache key 只使用 proof token hash，不包含原始 email；proof 成功消费后才允许按绑定的 `email_hash` + `channel` 更新 `site_subscription`。
+`SiteSubscriptionRequest` payload 是 `SiteSubscriptionRequestPod`：fixed UTF-8 `Email(256)` + `Channel(32)`。`SiteSubscriptionResponse` payload 是 `SiteSubscriptionResponsePod`：`subscribed:byte`、`unsubscribed:byte`、reserved、fixed UTF-8 `Channel(32)`。非法 email 返回 HTTP 400 + `ApiError` frame，响应不得回显明文 email。退订 proof 不进入 AEDS payload，cache key 只使用 proof token hash，不包含原始 email；DELETE 先按绑定的 `email_hash` + `channel` 非消费校验 proof，只有 `site_subscription` 更新成功后才提交一次性消费，DB 失败或请求取消时 proof 保持可重试。
 
 `ArticleRelatedReading` frame payload 使用 `RelatedReadingHeaderPod` + `RelatedReadingItemPod[]` + UTF-8 blob 编码；业务视图为 `RelatedReadingResponse`：
 
@@ -1591,7 +1591,7 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 ### 订阅
 
-`POST /api/binary/subscriptions` 与 `DELETE /api/binary/subscriptions` 使用 `SiteSubscriptionRequest` / `SiteSubscriptionResponse` AEDS frame，只保存 `SHA256(email)`、`channel`、启用状态和退订时间，不保存明文 email。`DELETE` 还必须携带 `X-Fsus-Subscription-Proof`；proof 与 email/channel 绑定、TTL 生效并一次性消费，旧 email-only 退订返回 428 且不得更新 DB。订阅能力是 RSS/Atom 的增强，不构成关注、点赞、收藏或社交关系链。默认实现不发送邮件或 Web Push；`channel=email` 只记录读者显式偏好，外发增强必须以后续配置开关和退订 smoke 为准。
+`POST /api/binary/subscriptions` 与 `DELETE /api/binary/subscriptions` 使用 `SiteSubscriptionRequest` / `SiteSubscriptionResponse` AEDS frame，只保存 `SHA256(email)`、`channel`、启用状态和退订时间，不保存明文 email。`DELETE` 还必须携带 `X-Fsus-Subscription-Proof`；proof 与 email/channel 绑定、TTL 生效，端点先非消费校验，DB 退订成功后再一次性消费，旧 email-only 退订返回 428 且不得更新 DB。订阅能力是 RSS/Atom 的增强，不构成关注、点赞、收藏或社交关系链。默认实现不发送邮件或 Web Push；`channel=email` 只记录读者显式偏好，外发增强必须以后续配置开关和退订 smoke 为准。
 
 ---
 

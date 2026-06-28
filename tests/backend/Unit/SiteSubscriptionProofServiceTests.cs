@@ -91,6 +91,36 @@ public sealed class SiteSubscriptionProofServiceTests
         Assert.Equal("proof_replayed_or_missing", replay.Reason);
     }
 
+    [Fact]
+    public async Task ValidateUnsubscribeProofAsync_DoesNotConsumeUntilCommit()
+    {
+        var cache = new MemoryProofCache();
+        var clock = new MutableTimeProvider(BaselineNow);
+        var service = new SiteSubscriptionProofService(cache, clock);
+        SiteSubscriptionUnsubscribeProofIssueResult issued = await service.IssueUnsubscribeProofAsync(
+            CreateIssueRequest(),
+            CancellationToken.None);
+
+        SiteSubscriptionUnsubscribeProofConsumeResult first = await service.ValidateUnsubscribeProofAsync(
+            CreateConsumeRequest(issued.ProofToken),
+            CancellationToken.None);
+        SiteSubscriptionUnsubscribeProofConsumeResult second = await service.ValidateUnsubscribeProofAsync(
+            CreateConsumeRequest(issued.ProofToken),
+            CancellationToken.None);
+        SiteSubscriptionUnsubscribeProofConsumeResult committed = await service.CommitUnsubscribeProofAsync(
+            CreateConsumeRequest(issued.ProofToken),
+            CancellationToken.None);
+        SiteSubscriptionUnsubscribeProofConsumeResult replay = await service.ValidateUnsubscribeProofAsync(
+            CreateConsumeRequest(issued.ProofToken),
+            CancellationToken.None);
+
+        Assert.True(first.Accepted);
+        Assert.True(second.Accepted);
+        Assert.True(committed.Accepted);
+        Assert.False(replay.Accepted);
+        Assert.Equal("proof_replayed_or_missing", replay.Reason);
+    }
+
     [Theory]
     [InlineData("email", "email_hash_mismatch")]
     [InlineData("channel", "channel_mismatch")]
@@ -118,7 +148,7 @@ public sealed class SiteSubscriptionProofServiceTests
     }
 
     [Fact]
-    public async Task ConsumeUnsubscribeProofAsync_RejectsExpiredProofAfterConsume()
+    public async Task ConsumeUnsubscribeProofAsync_RejectsExpiredProofWithoutConsuming()
     {
         var cache = new MemoryProofCache();
         var clock = new MutableTimeProvider(BaselineNow);
@@ -137,7 +167,7 @@ public sealed class SiteSubscriptionProofServiceTests
         SiteSubscriptionUnsubscribeProofConsumeResult replay = await service.ConsumeUnsubscribeProofAsync(
             CreateConsumeRequest(issued.ProofToken),
             CancellationToken.None);
-        Assert.Equal("proof_replayed_or_missing", replay.Reason);
+        Assert.Equal("proof_expired", replay.Reason);
     }
 
     private static SiteSubscriptionUnsubscribeProofIssueRequest CreateIssueRequest()
@@ -189,7 +219,23 @@ public sealed class SiteSubscriptionProofServiceTests
         public string BuildKey(CachePolicyId policyId, string identity, string? version = null)
             => $"{policyId}:{identity}";
 
-        public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<CacheReadResult<T>> TryGetAsync<T>(
+            CachePolicyId policyId,
+            string identity,
+            Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder,
+            CancellationToken cancellationToken = default)
+        {
+            string key = BuildKey(policyId, identity);
+            if (!_values.TryGetValue(key, out byte[]? value))
+            {
+                return Task.FromResult(new CacheReadResult<T>(false, default));
+            }
+
+            var (success, decoded) = decoder(value);
+            return Task.FromResult(success
+                ? new CacheReadResult<T>(true, decoded)
+                : new CacheReadResult<T>(false, default));
+        }
         public Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<CacheReadResult<ReadOnlyMemory<byte>>> TryGetRawReadonlyAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task SetNegativeAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();

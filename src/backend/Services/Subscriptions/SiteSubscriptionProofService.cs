@@ -16,6 +16,14 @@ public interface ISiteSubscriptionProofService
     Task<SiteSubscriptionUnsubscribeProofConsumeResult> ConsumeUnsubscribeProofAsync(
         SiteSubscriptionUnsubscribeProofConsumeRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<SiteSubscriptionUnsubscribeProofConsumeResult> ValidateUnsubscribeProofAsync(
+        SiteSubscriptionUnsubscribeProofConsumeRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SiteSubscriptionUnsubscribeProofConsumeResult> CommitUnsubscribeProofAsync(
+        SiteSubscriptionUnsubscribeProofConsumeRequest request,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record SiteSubscriptionUnsubscribeProofIssueRequest(
@@ -102,6 +110,51 @@ public sealed class SiteSubscriptionProofService(
     }
 
     public async Task<SiteSubscriptionUnsubscribeProofConsumeResult> ConsumeUnsubscribeProofAsync(
+        SiteSubscriptionUnsubscribeProofConsumeRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        SiteSubscriptionUnsubscribeProofConsumeResult validated = await ValidateUnsubscribeProofAsync(request, cancellationToken);
+        return !validated.Accepted
+            ? validated
+            : await CommitUnsubscribeProofAsync(request, cancellationToken);
+    }
+
+    public async Task<SiteSubscriptionUnsubscribeProofConsumeResult> ValidateUnsubscribeProofAsync(
+        SiteSubscriptionUnsubscribeProofConsumeRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string emailHash = SiteSubscriptionIdentity.HashEmail(request.Email);
+        if (emailHash.Length == 0)
+        {
+            return SiteSubscriptionUnsubscribeProofConsumeResult.Rejected("email_invalid");
+        }
+
+        string proofToken = (request.ProofToken ?? string.Empty).Trim();
+        if (proofToken.Length == 0 || proofToken.Length > 256)
+        {
+            return SiteSubscriptionUnsubscribeProofConsumeResult.Rejected("proof_replayed_or_missing");
+        }
+
+        CacheReadResult<SiteSubscriptionUnsubscribeProofClaims> cached = await cache.TryGetAsync(
+            CachePolicyId.SiteSubscriptionUnsubscribeProof,
+            BuildProofIdentity(proofToken),
+            DecodeClaims,
+            cancellationToken);
+
+        if (!cached.Hit || cached.Value is null)
+        {
+            return SiteSubscriptionUnsubscribeProofConsumeResult.Rejected("proof_replayed_or_missing");
+        }
+
+        SiteSubscriptionUnsubscribeProofClaims claims = cached.Value;
+        string? rejection = ValidateClaims(claims, emailHash, SiteSubscriptionIdentity.NormalizeChannel(request.Channel), timeProvider.GetUtcNow());
+        return rejection is null
+            ? SiteSubscriptionUnsubscribeProofConsumeResult.Success(claims)
+            : SiteSubscriptionUnsubscribeProofConsumeResult.Rejected(rejection, claims);
+    }
+
+    public async Task<SiteSubscriptionUnsubscribeProofConsumeResult> CommitUnsubscribeProofAsync(
         SiteSubscriptionUnsubscribeProofConsumeRequest request,
         CancellationToken cancellationToken = default)
     {

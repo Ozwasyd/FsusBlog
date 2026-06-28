@@ -74,11 +74,12 @@ public static partial class BinaryEndpoints
                     StatusCodes.Status428PreconditionRequired);
             }
 
-            SiteSubscriptionUnsubscribeProofConsumeResult proof = await proofService.ConsumeUnsubscribeProofAsync(
-                new SiteSubscriptionUnsubscribeProofConsumeRequest(
-                    ReadSiteSubscriptionProofToken(httpContext),
-                    request.Email,
-                    request.Channel),
+            var proofRequest = new SiteSubscriptionUnsubscribeProofConsumeRequest(
+                ReadSiteSubscriptionProofToken(httpContext),
+                request.Email,
+                request.Channel);
+            SiteSubscriptionUnsubscribeProofConsumeResult proof = await proofService.ValidateUnsubscribeProofAsync(
+                proofRequest,
                 cancellationToken);
             if (!proof.Accepted || proof.Claims is null)
             {
@@ -95,6 +96,10 @@ public static partial class BinaryEndpoints
             }
 
             response = await SubscriptionEndpoints.UnsubscribeAsync(request, db, proof.Claims, cancellationToken);
+            if (response is not null)
+            {
+                _ = await proofService.CommitUnsubscribeProofAsync(proofRequest, cancellationToken);
+            }
         }
 
         if (response is null)

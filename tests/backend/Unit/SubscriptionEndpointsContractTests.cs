@@ -32,18 +32,23 @@ public sealed class SubscriptionEndpointsContractTests
     }
 
     [Fact]
-    public void BinarySubscriptionUnsubscribe_ConsumesProofBeforeDatabaseMutation()
+    public void BinarySubscriptionUnsubscribe_CommitsProofOnlyAfterDatabaseMutation()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Modules", "Endpoints", "Binary", "BinaryEndpoints.Subscriptions.cs"));
 
         Assert.Contains("ISiteSubscriptionProofService", source, StringComparison.Ordinal);
         Assert.Contains("SiteSubscriptionProofService.HeaderName", source, StringComparison.Ordinal);
-        Assert.Contains("ConsumeUnsubscribeProofAsync", source, StringComparison.Ordinal);
+        Assert.Contains("ValidateUnsubscribeProofAsync", source, StringComparison.Ordinal);
+        Assert.Contains("CommitUnsubscribeProofAsync", source, StringComparison.Ordinal);
         Assert.Contains("StatusCodes.Status428PreconditionRequired", source, StringComparison.Ordinal);
         Assert.True(
-            source.IndexOf("ConsumeUnsubscribeProofAsync", StringComparison.Ordinal) <
+            source.IndexOf("ValidateUnsubscribeProofAsync", StringComparison.Ordinal) <
             source.IndexOf("SubscriptionEndpoints.UnsubscribeAsync", StringComparison.Ordinal),
-            "unsubscribe proof must be consumed before DB mutation is invoked");
+            "unsubscribe proof must be validated before DB mutation is invoked");
+        Assert.True(
+            source.IndexOf("SubscriptionEndpoints.UnsubscribeAsync", StringComparison.Ordinal) <
+            source.IndexOf("CommitUnsubscribeProofAsync", StringComparison.Ordinal),
+            "unsubscribe proof must be committed only after DB mutation succeeds");
     }
 
     private static string ExtractMethodBlock(string source, string signature)
