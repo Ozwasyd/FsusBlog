@@ -1085,16 +1085,100 @@ public sealed class MessageCenterService(
             return;
         }
 
-        var tasks = new List<Task>(participants.Count);
-        for (int i = 0; i < participants.Count; i++)
+        IReadOnlyList<ParticipantMessageFanoutPayload> fanout = await PrepareParticipantMessageFanoutAsync(conversationId, message, participants);
+        var tasks = new List<Task>(fanout.Count);
+        for (int i = 0; i < fanout.Count; i++)
         {
-            ConversationParticipantState participant = participants[i];
-            int totalUnread = await RefreshUnreadCacheAsync(participant.AccountId);
-            ConversationListItemResponse? item = await BuildConversationListItemForAccountAsync(participant.AccountId, conversationId);
-            tasks.Add(PublishPreparedParticipantMessageAsync(conversationId, message, participant, item, totalUnread));
+            ParticipantMessageFanoutPayload payload = fanout[i];
+            tasks.Add(PublishPreparedParticipantMessageAsync(conversationId, message, payload.Participant, payload.Item, payload.TotalUnread));
         }
 
         await Task.WhenAll(tasks);
+    }
+
+    private async Task<IReadOnlyList<ParticipantMessageFanoutPayload>> PrepareParticipantMessageFanoutAsync(
+        long conversationId,
+        ConversationMessageResponse message,
+        IReadOnlyList<ConversationParticipantState> participants)
+    {
+        if (participants.Count == 0)
+        {
+            return [];
+        }
+
+        int[] accountIds = [.. participants.Select(static item => item.AccountId).Distinct()];
+        Dictionary<int, int> totalUnreadMap = await LoadTotalUnreadMapAsync(accountIds);
+        Dictionary<int, ConversationListItemResponse> itemMap = await BuildParticipantConversationItemsAsync(conversationId, message, participants);
+        var payloads = new List<ParticipantMessageFanoutPayload>(participants.Count);
+        for (int i = 0; i < participants.Count; i++)
+        {
+            ConversationParticipantState participant = participants[i];
+            totalUnreadMap.TryGetValue(participant.AccountId, out int totalUnread);
+            await cache.SetUnreadAsync(participant.AccountId, totalUnread);
+            itemMap.TryGetValue(participant.AccountId, out ConversationListItemResponse? item);
+            payloads.Add(new ParticipantMessageFanoutPayload(participant, item, totalUnread));
+        }
+
+        return payloads;
+    }
+
+    private async Task<Dictionary<int, int>> LoadTotalUnreadMapAsync(IReadOnlyCollection<int> accountIds)
+    {
+        if (accountIds.Count == 0)
+        {
+            return [];
+        }
+
+        var rows = await db.Queryable<ConversationParticipantState>()
+            .Where(it => accountIds.Contains(it.AccountId))
+            .GroupBy(it => it.AccountId)
+            .Select(it => new AccountUnreadRow
+            {
+                AccountId = it.AccountId,
+                UnreadCount = SqlFunc.AggregateSum(it.UnreadCount)
+            })
+            .ToListAsync();
+        var map = new Dictionary<int, int>(rows.Count);
+        for (int i = 0; i < rows.Count; i++)
+        {
+            AccountUnreadRow row = rows[i];
+            map[row.AccountId] = row.UnreadCount;
+        }
+
+        return map;
+    }
+
+    private async Task<Dictionary<int, ConversationListItemResponse>> BuildParticipantConversationItemsAsync(
+        long conversationId,
+        ConversationMessageResponse message,
+        IReadOnlyList<ConversationParticipantState> participants)
+    {
+        MessageConversation? conversation = await db.Queryable<MessageConversation>().InSingleAsync(conversationId);
+        if (conversation is null)
+        {
+            return [];
+        }
+
+        ConversationMessagePreviewResponse? lastMessage = ToMessagePreview(message);
+        var map = new Dictionary<int, ConversationListItemResponse>(participants.Count);
+        for (int i = 0; i < participants.Count; i++)
+        {
+            ConversationParticipantState participant = participants[i];
+            map[participant.AccountId] = new ConversationListItemResponse
+            {
+                ConversationId = conversation.Id.ToString(CultureInfo.InvariantCulture),
+                Subject = conversation.Subject,
+                Status = ToStatusValue(conversation.Status),
+                IsSystemSource = conversation.IsSystemSource,
+                CanReply = conversation.Status != ConversationStatus.Closed,
+                UnreadCount = participant.UnreadCount,
+                LastMessageAt = conversation.LastMessageAt,
+                UpdatedAt = conversation.UpdatedAt,
+                LastMessage = lastMessage
+            };
+        }
+
+        return map;
     }
 
     private async Task PublishPreparedParticipantMessageAsync(
@@ -1247,6 +1331,17 @@ public sealed class MessageCenterService(
     private sealed class UnreadRow
     {
         public long ConversationId { get; set; }
+        public int UnreadCount { get; set; }
+    }
+
+    private sealed record ParticipantMessageFanoutPayload(
+        ConversationParticipantState Participant,
+        ConversationListItemResponse? Item,
+        int TotalUnread);
+
+    private sealed class AccountUnreadRow
+    {
+        public int AccountId { get; set; }
         public int UnreadCount { get; set; }
     }
 }

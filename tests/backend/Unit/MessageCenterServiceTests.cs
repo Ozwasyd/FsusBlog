@@ -331,6 +331,23 @@ public sealed class MessageCenterServiceTests
     }
 
     [Fact]
+    public void PublishParticipantMessageFanoutAsync_SourcePreparesPayloadsInBatch()
+    {
+        string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
+        string method = ExtractMethod(
+            source,
+            "private async Task PublishParticipantMessageFanoutAsync",
+            "private async Task PublishPreparedParticipantMessageAsync");
+
+        Assert.Contains("PrepareParticipantMessageFanoutAsync", method, StringComparison.Ordinal);
+        Assert.Contains("Task.WhenAll(tasks)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("await RefreshUnreadCacheAsync(participant.AccountId)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("await BuildConversationListItemForAccountAsync(participant.AccountId, conversationId)", method, StringComparison.Ordinal);
+        Assert.Contains("LoadTotalUnreadMapAsync", source, StringComparison.Ordinal);
+        Assert.Contains("BuildParticipantConversationItemsAsync", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RefreshUnreadCacheAsync_SourceUsesVersionedCacheRefresh()
     {
         string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
