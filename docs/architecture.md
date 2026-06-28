@@ -340,7 +340,7 @@ Service Worker → 缓存 manifest/shard/patch 并按版本隔离旧索引
 
 文章删除、恢复与永久删除都使用 PostgreSQL `xmin` 作为 row-version guard。软删除只匹配当前未删除 row-version；恢复只匹配当前已删除 row-version，并恢复为 Draft；永久删除在同一事务内先按 `isdeleted=true + xmin` 执行 `FOR UPDATE`，锁定成功后才清理 comment/tag/body/article，避免 stale restore/delete interleaving 删除子表或发出重复 outbox。
 
-Binary 文章列表缓存使用 `core:v3:{public|admin}:...:{status}` 身份隔离，HTTP OutputCache 的 ArticleList 策略也必须按 `page/size/categoryId/tagId/isDeleted/status` vary。匿名列表只缓存 public published 视图；admin 状态筛选可缓存 draft/scheduled/archived/deleted 视图，但 admin 详情读取未发布文章时绕过公开详情缓存，避免草稿负缓存或私有正文污染匿名 `/article/{id}` 读链。
+Binary 文章列表缓存使用 `core:v4:{public|admin}:...:{status}` 身份隔离，HTTP OutputCache 的 ArticleList 策略也必须按 `page/size/categoryId/tagId/isDeleted/status` vary。匿名列表只缓存 public published 视图；admin 状态筛选可缓存 draft/scheduled/archived/deleted 视图，但 admin 详情读取未发布文章时绕过公开详情缓存，避免草稿负缓存或私有正文污染匿名 `/article/{id}` 读链。公共文章列表 page URL 只作为兼容层，DB 读取必须走 `(createtime DESC, id DESC)` keyset walk，`ArticleList` AEDS payload 通过 cursor envelope 暴露 `nextCursor/hasMore`；公共列表总数使用 `ArticleListCount` 缓存并绑定 `ArticleListVersion + filter`，内容变更后随列表版本自然失效。
 
 开放分发层由 `BlogDistributionService` 与 `DistributionEndpoints` 提供：
 

@@ -6,8 +6,28 @@ import { readCategoryPod, readFeaturedArticleItem, readTagList } from './podRead
 import { readArrayEnvelope } from './envelopeReaders';
 import { ARTICLE_DETAIL_POD_SIZE, ARTICLE_LIST_ITEM_POD_SIZE, RELATED_READING_HEADER_POD_SIZE, RELATED_READING_ITEM_POD_SIZE } from './types';
 
+const ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC = 0x41535046;
+const ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION = 1;
+
 export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<ArticleListItemResponse> {
-  const reader = new BinaryReader(payload);
+  let payloadBody = payload;
+  let hasCursorMetadata = false;
+  let nextCursorUnixMs = 0;
+  let hasMore = false;
+  if (payload.byteLength >= 17 && readInt32(payload, 0) === ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC) {
+    const version = readInt32(payload, 4);
+    if (version !== ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION) {
+      throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_version_invalid');
+    }
+
+    const view = new DataView(payload.buffer, payload.byteOffset + 8, 8);
+    nextCursorUnixMs = Number(view.getBigInt64(0, true));
+    hasMore = payload[16] === 1;
+    hasCursorMetadata = true;
+    payloadBody = payload.subarray(17);
+  }
+
+  const reader = new BinaryReader(payloadBody);
   const total = reader.readInt32();
   const count = readCountChecked(reader, 'article_page_count_invalid');
   const tagRecordCount = readCountChecked(reader, 'article_page_tag_count_invalid');
@@ -100,7 +120,18 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
     items[i] = item;
   }
 
-  return { items, total };
+  if (!hasCursorMetadata) {
+    return { items, total };
+  }
+
+  return {
+    items,
+    total,
+    nextCursor: hasMore && nextCursorUnixMs > 0 && items.length > 0
+      ? `${nextCursorUnixMs}:${items[items.length - 1]!.id}`
+      : null,
+    hasMore
+  };
 }
 
 export function mapArticleSearchFromPodPayload(payload: Uint8Array): PageResponse<ArticleListItemResponse> {

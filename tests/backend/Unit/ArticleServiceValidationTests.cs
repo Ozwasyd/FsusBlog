@@ -362,13 +362,17 @@ public class ArticleServiceValidationTests
 
         Assert.Contains("ShouldUsePublicKeysetPagination(isDeleted, status, includePrivate)", methodBlock, StringComparison.Ordinal);
         Assert.Contains("LoadPublicArticleListPageByKeysetAsync", methodBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("page <= PublicKeysetWalkPageThreshold", methodBlock, StringComparison.Ordinal);
         Assert.Contains("ArticleListCursorWhereClause", source, StringComparison.Ordinal);
         Assert.Contains("a.createtime < @CursorTime OR (a.createtime = @CursorTime AND a.id < @CursorId)", source, StringComparison.Ordinal);
-        Assert.Contains("ORDER BY a.createtime DESC, a.id DESC", methodBlock, StringComparison.Ordinal);
+        Assert.Contains("ORDER BY a.createtime DESC, a.id DESC", source, StringComparison.Ordinal);
 
-        int keysetMethod = methodBlock.IndexOf("LoadPublicArticleListPageByKeysetAsync", StringComparison.Ordinal);
-        int offset = methodBlock.IndexOf("OFFSET @Offset", StringComparison.Ordinal);
-        Assert.True(offset > keysetMethod);
+        int publicKeysetBranch = methodBlock.IndexOf("if (ShouldUsePublicKeysetPagination", StringComparison.Ordinal);
+        int keysetReturn = methodBlock.IndexOf("return await LoadPublicArticleListPageByKeysetAsync", publicKeysetBranch, StringComparison.Ordinal);
+        int offsetFallback = methodBlock.IndexOf("parameters.Add(new SugarParameter(\"@Offset\"", StringComparison.Ordinal);
+        Assert.True(publicKeysetBranch >= 0);
+        Assert.True(keysetReturn > publicKeysetBranch);
+        Assert.True(offsetFallback > keysetReturn);
     }
 
     [Fact]
@@ -408,6 +412,21 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
+    public void PublicArticleListCount_SourceUsesVersionedCountCache()
+    {
+        string articleService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        string cachePolicyIds = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Cache/CachePolicyId.cs"));
+        string cacheRegistry = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs"));
+
+        Assert.Contains("ArticleListCount", cachePolicyIds, StringComparison.Ordinal);
+        Assert.Contains("[CachePolicyId.ArticleListCount]", cacheRegistry, StringComparison.Ordinal);
+        Assert.Contains("GetCachedArticleListTotalCountAsync", articleService, StringComparison.Ordinal);
+        Assert.Contains("_cache.GetStringAsync(CachePolicyId.ArticleListCount", articleService, StringComparison.Ordinal);
+        Assert.Contains("_cache.SetStringAsync(", articleService, StringComparison.Ordinal);
+        Assert.Contains("CachePolicyId.ArticleListCount,", articleService, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ArticleEntity_DefinesPublicListStatusTimeIndexes()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Entities/Article.cs"));
@@ -415,5 +434,17 @@ public class ArticleServiceValidationTests
         Assert.Contains("idx_article_public_status_time", source, StringComparison.Ordinal);
         Assert.Contains("idx_article_public_category_status_time", source, StringComparison.Ordinal);
         Assert.Contains("nameof(Status), OrderByType.Asc, nameof(CreateTime), OrderByType.Desc", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SchemaMigrationRegistry_SourceDefinesPublicArticleListKeysetIndexes()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs"));
+
+        Assert.Contains("BuildPublicArticleListKeysetIndexMigration()", source, StringComparison.Ordinal);
+        Assert.Contains("idx_article_public_status_deleted_publish_schedule_time_id", source, StringComparison.Ordinal);
+        Assert.Contains("idx_article_public_category_status_deleted_time_id", source, StringComparison.Ordinal);
+        Assert.Contains("idx_article_tag_tagid_articleid", source, StringComparison.Ordinal);
+        Assert.Contains("createtime DESC, id DESC", source, StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -2,7 +2,7 @@ using FsusBlog.Shared.Contracts.Models;
 
 namespace FsusBlog.Core.Mapping.Models;
 
-public readonly record struct CorePageResult<T>(IReadOnlyList<T> Items, int Total);
+public readonly record struct CorePageResult<T>(IReadOnlyList<T> Items, int Total, string? NextCursor = null, bool HasMore = false);
 
 public readonly record struct CoreCursorResult<T>(IReadOnlyList<T> Data, long? NextCursor, bool HasMore);
 

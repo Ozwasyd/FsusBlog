@@ -51,5 +51,6 @@ public enum CachePolicyId
     SecurityChallengeVerifyRateLimit = 46,
     AnonymousCommentPolicyVersion = 47,
     BackgroundWorkerLease = 48,
-    NotificationStreamDrillNonce = 49
+    NotificationStreamDrillNonce = 49,
+    ArticleListCount = 50
 }

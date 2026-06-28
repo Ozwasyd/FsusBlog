@@ -12,6 +12,9 @@ namespace FsusBlog.Core.Cache;
 
 public static partial class PodBinaryCodec
 {
+    private const int ArticlePageCursorEnvelopeMagic = 0x41535046; // FSPA
+    private const int ArticlePageCursorEnvelopeVersion = 1;
+
     public static void WriteArticleWriteRequest(ArticleWriteRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(Math.Max(512, request.Title.Length + request.Content.Length + (request.Summary?.Length ?? 0) + (request.CoverImageUrl?.Length ?? 0)));
@@ -217,6 +220,10 @@ public static partial class PodBinaryCodec
         }
 
         var writer = new BinaryPodWriter(destination);
+        writer.WriteInt32(ArticlePageCursorEnvelopeMagic);
+        writer.WriteInt32(ArticlePageCursorEnvelopeVersion);
+        writer.WriteInt64(ParseArticleListCursorUnixMs(page.NextCursor));
+        writer.WriteByte(page.HasMore ? (byte)1 : (byte)0);
         writer.WriteInt32(page.Total);
         writer.WriteInt32(page.Items.Count);
         writer.WriteInt32(tagRecords.Count);
@@ -255,7 +262,31 @@ public static partial class PodBinaryCodec
     public static bool TryDecodeArticlePage(ReadOnlyMemory<byte> bytes, out CorePageResult<ArticleListCoreModel> page)
     {
         var reader = new BinaryPodReader(bytes.Span);
-        if (!reader.TryReadInt32(out int total) ||
+        long nextCursorUnixMs = 0;
+        bool hasMore = false;
+        if (!reader.TryReadInt32(out int total))
+        {
+            page = default;
+            return false;
+        }
+
+        if (total == ArticlePageCursorEnvelopeMagic)
+        {
+            if (!reader.TryReadInt32(out int version) ||
+                version != ArticlePageCursorEnvelopeVersion ||
+                !reader.TryReadInt64(out nextCursorUnixMs) ||
+                !reader.TryReadByte(out byte hasMoreByte) ||
+                hasMoreByte > 1 ||
+                !reader.TryReadInt32(out total))
+            {
+                page = default;
+                return false;
+            }
+
+            hasMore = hasMoreByte == 1;
+        }
+
+        if (
             !reader.TryReadInt32(out int count) ||
             !reader.TryReadInt32(out int tagRecordCount) ||
             count < 0 ||
@@ -360,9 +391,29 @@ public static partial class PodBinaryCodec
                 record.PublishedAt));
         }
 
-        page = new CorePageResult<ArticleListCoreModel>(items, total);
+        string? nextCursor = hasMore && nextCursorUnixMs > 0 && items.Count > 0
+            ? FormatArticleListCursor(nextCursorUnixMs, items[^1].Id)
+            : null;
+        page = new CorePageResult<ArticleListCoreModel>(items, total, nextCursor, hasMore);
         return reader.IsConsumed;
     }
+
+    private static long ParseArticleListCursorUnixMs(string? cursor)
+    {
+        if (string.IsNullOrWhiteSpace(cursor))
+        {
+            return 0;
+        }
+
+        int separator = cursor.IndexOf(':', StringComparison.Ordinal);
+        string value = separator > 0 ? cursor[..separator] : cursor;
+        return long.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out long parsed)
+            ? parsed
+            : 0;
+    }
+
+    private static string FormatArticleListCursor(long unixMs, int id)
+        => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{unixMs}:{id}");
 
     public static void WriteArticleDetail(ArticleDetailCoreModel item, IBufferWriter<byte> destination)
     {

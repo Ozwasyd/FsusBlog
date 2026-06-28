@@ -124,7 +124,7 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
         CancellationToken cancellationToken)
     {
         ArticleListPageReadModel source = await service.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, keyword, cancellationToken);
-        return new CorePageResult<ArticleListCoreModel>(ToCoreListModels(source.Items), source.Total);
+        return new CorePageResult<ArticleListCoreModel>(ToCoreListModels(source.Items), source.Total, source.NextCursor, source.HasMore);
     }
 
     private async Task<IReadOnlyList<ArticleListCoreModel>> LoadSearchAsync(string keyword, CancellationToken cancellationToken)

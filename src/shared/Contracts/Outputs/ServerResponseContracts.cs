@@ -22,6 +22,8 @@ public sealed record class PageResponse<T>
 {
     public List<T> Items { get; init; } = [];
     public int Total { get; init; }
+    public string? NextCursor { get; init; }
+    public bool HasMore { get; init; }
 }
 
 public sealed record class CursorResponse<T>

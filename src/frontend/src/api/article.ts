@@ -100,6 +100,8 @@ export type ArticlePublishStatus = typeof ArticlePublishStatus[keyof typeof Arti
 export interface PageResponse<T> {
   items: T[]
   total: number
+  nextCursor?: string | null
+  hasMore?: boolean
 }
 
 export interface ArticleWriteRequest {
@@ -121,7 +123,7 @@ export interface ArticleWriteRequest {
 
 /** 获取文章列表 */
 export const getArticles = (
-  params: { page?: number; size?: number; categoryId?: number; tagId?: number; listKind?: 'home' | 'archive' },
+  params: { page?: number; size?: number; categoryId?: number; tagId?: number; cursor?: string | null; listKind?: 'home' | 'archive' },
   config?: ApiRequestConfig
 ) => {
   const normalized = {
@@ -129,6 +131,7 @@ export const getArticles = (
     size: params.size ?? 10,
     categoryId: params.categoryId,
     tagId: params.tagId,
+    cursor: params.cursor,
     listKind: params.listKind
   };
 
@@ -306,29 +309,42 @@ export const permanentDeleteArticle = (id: number, config?: ApiRequestConfig) =>
     }
   })
 
-function buildPublicArticleListRoute(params: { page: number; size: number; categoryId?: number; tagId?: number; listKind?: 'home' | 'archive' }) {
+function buildPublicArticleListRoute(params: { page: number; size: number; categoryId?: number; tagId?: number; cursor?: string | null; listKind?: 'home' | 'archive' }) {
   const page = normalizePositiveInt(params.page, 1)
   const size = normalizeSize(params.size, 10)
   if (params.categoryId !== undefined) {
-    return {
+    return withArticleCursorQuery({
       operationId: 'binary_get_article_list_category_categoryId_page_size_aeds' as const,
       params: { categoryId: normalizePositiveInt(params.categoryId, 1), page, size }
-    }
+    }, params.cursor)
   }
 
   if (params.tagId !== undefined) {
-    return {
+    return withArticleCursorQuery({
       operationId: 'binary_get_article_list_tag_tagId_page_size_aeds' as const,
       params: { tagId: normalizePositiveInt(params.tagId, 1), page, size }
-    }
+    }, params.cursor)
   }
 
-  return {
+  return withArticleCursorQuery({
     operationId: params.listKind === 'archive'
       ? 'binary_get_article_list_archive_page_size_aeds' as const
       : 'binary_get_article_list_home_page_size_aeds' as const,
     params: { page, size }
+  }, params.cursor)
+}
+
+function withArticleCursorQuery<T extends { operationId: string; params?: Record<string, string | number | bigint> }>(
+  route: T,
+  cursor?: string | null
+): T | (T & { query: URLSearchParams }) {
+  if (!cursor) {
+    return route
   }
+
+  const query = new URLSearchParams()
+  query.set('cursor', cursor)
+  return { ...route, query }
 }
 
 function normalizePositiveInt(value: number, fallback: number): number {

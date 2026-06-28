@@ -75,7 +75,13 @@ public static class ArticleProjection
             items.Add(ToResponse(page.Items[i]));
         }
 
-        return new PageResponse<ArticleListItemResponse> { Items = items, Total = page.Total };
+        return new PageResponse<ArticleListItemResponse>
+        {
+            Items = items,
+            Total = page.Total,
+            NextCursor = page.NextCursor,
+            HasMore = page.HasMore
+        };
     }
 
     public static ArticleListCoreModel ToCoreListModel(ArticleListItemReadModel item)

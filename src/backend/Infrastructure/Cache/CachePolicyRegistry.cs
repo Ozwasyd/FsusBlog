@@ -8,6 +8,7 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
         new Dictionary<CachePolicyId, CachePolicy>
         {
             [CachePolicyId.ArticleList] = new(CachePolicyId.ArticleList, "blog", "article-list", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), null, [CacheTag.ArticleList, CacheTag.Category], false, 0.10d, false),
+            [CachePolicyId.ArticleListCount] = new(CachePolicyId.ArticleListCount, "blog", "article-list-count", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(30), null, [CacheTag.ArticleList, CacheTag.Category], false, 0.10d, false),
             [CachePolicyId.ArticleDetail] = new(CachePolicyId.ArticleDetail, "blog", "article-detail", TimeSpan.FromMinutes(5), TimeSpan.FromHours(1), TimeSpan.FromMinutes(5), [CacheTag.ArticleList], false, 0.10d, false),
             [CachePolicyId.ArticleHot] = new(CachePolicyId.ArticleHot, "blog", "article-hot", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), null, [CacheTag.HotArticles], false, 0.10d),
             [CachePolicyId.ArticleSearch] = new(CachePolicyId.ArticleSearch, "blog", "article-search", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(10), null, [CacheTag.ArticleList], false, 0.10d, false),

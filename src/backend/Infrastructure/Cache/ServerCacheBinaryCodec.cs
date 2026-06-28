@@ -14,6 +14,7 @@ internal static class ServerCacheBinaryCodec
     private const uint ComplianceMagic = 0x504D4F43; // COMP
     private const uint AdminStatsMagic = 0x42545346; // FSTB
     private const uint Version = 2;
+    private const int ArticleListPageMetadataMarker = -1;
     private const int MaxStringBytes = 2 * 1024 * 1024;
     private const int MaxCollectionCount = 10_000;
 
@@ -23,6 +24,9 @@ internal static class ServerCacheBinaryCodec
         using var writer = CreateWriter(stream);
         WriteHeader(writer, ArticleListPageMagic);
         writer.Write(value.Total);
+        writer.Write(ArticleListPageMetadataMarker);
+        writer.Write(value.HasMore);
+        WriteString(writer, value.NextCursor ?? string.Empty);
         WriteArticleListItems(writer, value.Items);
         return stream.ToArray();
     }
@@ -38,9 +42,24 @@ internal static class ServerCacheBinaryCodec
             }
 
             int total = reader.ReadInt32();
-            List<ArticleListItemReadModel> items = ReadArticleListItems(reader);
+            bool hasMore = false;
+            string? nextCursor = null;
+            int countOrMarker = reader.ReadInt32();
+            List<ArticleListItemReadModel> items;
+            if (countOrMarker == ArticleListPageMetadataMarker)
+            {
+                hasMore = reader.ReadBoolean();
+                string decodedCursor = ReadString(reader);
+                nextCursor = string.IsNullOrEmpty(decodedCursor) ? null : decodedCursor;
+                items = ReadArticleListItems(reader);
+            }
+            else
+            {
+                items = ReadArticleListItems(reader, countOrMarker);
+            }
+
             return EnsureFullyRead(reader)
-                ? (true, new ArticleListPageReadModel { Total = total, Items = items })
+                ? (true, new ArticleListPageReadModel { Total = total, Items = items, NextCursor = nextCursor, HasMore = hasMore })
                 : (false, null);
         }
         catch
@@ -343,6 +362,16 @@ internal static class ServerCacheBinaryCodec
     private static List<ArticleListItemReadModel> ReadArticleListItems(BinaryReader reader)
     {
         int count = ReadCount(reader);
+        return ReadArticleListItems(reader, count);
+    }
+
+    private static List<ArticleListItemReadModel> ReadArticleListItems(BinaryReader reader, int count)
+    {
+        if (count < 0 || count > MaxCollectionCount)
+        {
+            throw new InvalidDataException("Invalid cached article list item count.");
+        }
+
         var items = new List<ArticleListItemReadModel>(count);
         for (int i = 0; i < count; i++)
         {

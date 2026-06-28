@@ -58,6 +58,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAuthoringAdminPrincipalAttributionMigration(),
         BuildSingleAuthorArticleLifecycleMigration(),
         BuildSingleAuthorArticleLifecycleIndexMigration(),
+        BuildPublicArticleListKeysetIndexMigration(),
         BuildArticleMutationOutboxEdgeMigration(),
         BuildAuthoringWorkspaceTablesMigration(),
         BuildArticleRevisionAtomicRevisionNoMigration(),
@@ -2350,6 +2351,25 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_article_scheduled_publish",
                     "CREATE INDEX IF NOT EXISTS idx_article_scheduled_publish ON article(status, scheduled_publish_at) WHERE status = 1;")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildPublicArticleListKeysetIndexMigration()
+        => new SchemaMigrationDescriptor(
+            "20260628-post-public-article-list-keyset-indexes",
+            "Ensure public article list keyset pagination and tag filters use covering indexes.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new CreateIndexStep(
+                    "idx_article_public_status_deleted_publish_schedule_time_id",
+                    "CREATE INDEX IF NOT EXISTS idx_article_public_status_deleted_publish_schedule_time_id ON article(status, isdeleted, published_at, scheduled_publish_at, createtime DESC, id DESC);"),
+                new CreateIndexStep(
+                    "idx_article_public_category_status_deleted_time_id",
+                    "CREATE INDEX IF NOT EXISTS idx_article_public_category_status_deleted_time_id ON article(categoryid, status, isdeleted, createtime DESC, id DESC);"),
+                new CreateIndexStep(
+                    "idx_article_tag_tagid_articleid",
+                    "CREATE INDEX IF NOT EXISTS idx_article_tag_tagid_articleid ON article_tag(tagid, articleid);")
             ]);
 
     private static ISchemaMigrationDescriptor BuildArticleMutationOutboxEdgeMigration()

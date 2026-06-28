@@ -472,6 +472,24 @@ describe('mapArticlePageFromPodPayload', () => {
     expect(result.items[0]!.category.id).toBe(9)
     expect(result.items[0]!.category.name).toBe('Backend')
   })
+
+  it('reads cursor metadata from versioned article list payloads', () => {
+    const legacy = buildArticleListPayload([
+      { id: 1, categoryId: 9, categoryName: 'Backend', title: 'Post A' }
+    ])
+    const payload = new Uint8Array(17 + legacy.byteLength)
+    const view = new DataView(payload.buffer)
+    view.setInt32(0, 0x41535046, true)
+    view.setInt32(4, 1, true)
+    view.setBigInt64(8, 1_715_299_200_000n, true)
+    payload[16] = 1
+    payload.set(legacy, 17)
+
+    const result = mapArticlePageFromPodPayload(payload)
+
+    expect(result.nextCursor).toBe('1715299200000:1')
+    expect(result.hasMore).toBe(true)
+  })
 })
 
 describe('mapArticleSearchFromPodPayload', () => {

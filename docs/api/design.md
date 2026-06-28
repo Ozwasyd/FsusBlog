@@ -109,6 +109,8 @@ TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account
 {
   "items": [...],
   "total": 100,
+  "nextCursor": "1715299200000:42",
+  "hasMore": true,
   "page": 1,
   "pageSize": 20
 }
@@ -117,6 +119,7 @@ TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account
 查询参数：`?page=1&pageSize=20`
 
 文章列表分页不做静默修正：`page` 必须大于等于 `1`，`pageSize` / binary `size` 必须在 `1..100`。缺省值仍为 `page=1`、`size=10`；显式传入 `page<1`、`size<1` 或 `size>100` 返回 `400 Bad Request`，不得回退到第一页或截断到最大值。
+公共文章列表的 page URL 是兼容层；服务端内部必须使用 `(createtime, id)` keyset walk 读取深页，并在响应上返回可选 `nextCursor` / `hasMore` 供客户端后续切换 cursor 翻页。公共列表 count 按 `ArticleListVersion + filter` 缓存，文章内容 mutation 通过 ArticleList version 失效，不允许每次公开读取都重新执行大范围 `COUNT + OFFSET`。
 
 ### 基于游标的分页（`CursorResponse<T>`）
 

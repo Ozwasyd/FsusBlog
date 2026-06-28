@@ -53,7 +53,6 @@ public class ArticleService(
     private const int MaxTagIds = 32;
     private const int LongReadThreshold = 5_000;
     private const int ReadingCharsPerMinute = 300;
-    private const int PublicKeysetWalkPageThreshold = 3;
 
     private readonly IDatabase _redis = _redisConnection.GetDatabase();
     private static int s_legacyArticleContentColumnState;
@@ -174,7 +173,7 @@ public class ArticleService(
                     "article-list",
                     async gateCt =>
                     {
-                        ArticleListPageReadModel result = await LoadArticleListPageFromDbAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword, gateCt);
+                        ArticleListPageReadModel result = await LoadArticleListPageFromDbAsync(version, page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword, gateCt);
                         gateCt.ThrowIfCancellationRequested();
                         byte[] encoded = ServerCacheBinaryCodec.EncodeArticleListPage(result);
                         gateCt.ThrowIfCancellationRequested();
@@ -1253,6 +1252,7 @@ public class ArticleService(
         => !string.IsNullOrWhiteSpace(coverImageUrl);
 
     private async Task<ArticleListPageReadModel> LoadArticleListPageFromDbAsync(
+        long version,
         int page,
         int size,
         int? categoryId,
@@ -1309,10 +1309,10 @@ public class ArticleService(
         }
 
         string whereSql = string.Join(" AND ", whereClauses);
-        if (ShouldUsePublicKeysetPagination(isDeleted, status, includePrivate)
-            && page <= PublicKeysetWalkPageThreshold)
+        if (ShouldUsePublicKeysetPagination(isDeleted, status, includePrivate))
         {
-            return await LoadPublicArticleListPageByKeysetAsync(page, size, whereSql, parameters, cancellationToken);
+            string countIdentity = BuildArticleListCountIdentity(version, categoryId, tagId, isDeleted, status, includePrivate, keyword);
+            return await LoadPublicArticleListPageByKeysetAsync(page, size, whereSql, parameters, countIdentity, cancellationToken);
         }
 
         parameters.Add(new SugarParameter("@Offset", (page - 1) * size));
@@ -1372,22 +1372,10 @@ public class ArticleService(
         int size,
         string whereSql,
         IReadOnlyCollection<SugarParameter> baseParameters,
+        string countIdentity,
         CancellationToken cancellationToken)
     {
-        string countSql = $$"""
-            SELECT COUNT(1) AS "__TotalCount"
-            FROM article a
-            WHERE {{whereSql}};
-            """;
-
-        int totalCount = 0;
-        using (var countReader = (DbDataReader)await _db.Ado.GetDataReaderAsync(countSql, CloneArticleListParameters(baseParameters)))
-        {
-            if (await countReader.ReadAsync(cancellationToken))
-            {
-                totalCount = countReader.IsDBNull(0) ? 0 : Convert.ToInt32(countReader.GetValue(0));
-            }
-        }
+        int totalCount = await GetCachedArticleListTotalCountAsync(countIdentity, whereSql, baseParameters, cancellationToken);
 
         DateTime? cursorTime = null;
         int? cursorId = null;
@@ -1437,7 +1425,50 @@ public class ArticleService(
         }
 
         await AttachArticleListTagsAsync(pageItems, cancellationToken);
-        return new ArticleListPageReadModel { Items = pageItems, Total = totalCount };
+        ArticleListItemReadModel? lastItem = pageItems.Count > 0 ? pageItems[^1] : null;
+        bool hasMore = totalCount > page * size;
+        return new ArticleListPageReadModel
+        {
+            Items = pageItems,
+            Total = totalCount,
+            NextCursor = hasMore && lastItem is not null ? FormatArticleListCursor(lastItem) : null,
+            HasMore = hasMore
+        };
+    }
+
+    private async Task<int> GetCachedArticleListTotalCountAsync(
+        string countIdentity,
+        string whereSql,
+        IReadOnlyCollection<SugarParameter> baseParameters,
+        CancellationToken cancellationToken)
+    {
+        string? cached = await _cache.GetStringAsync(CachePolicyId.ArticleListCount, countIdentity, cancellationToken).ConfigureAwait(false);
+        if (int.TryParse(cached, out int parsed) && parsed >= 0)
+        {
+            return parsed;
+        }
+
+        string countSql = $$"""
+            SELECT COUNT(1) AS "__TotalCount"
+            FROM article a
+            WHERE {{whereSql}};
+            """;
+
+        int totalCount = 0;
+        using (var countReader = (DbDataReader)await _db.Ado.GetDataReaderAsync(countSql, CloneArticleListParameters(baseParameters)))
+        {
+            if (await countReader.ReadAsync(cancellationToken))
+            {
+                totalCount = countReader.IsDBNull(0) ? 0 : Convert.ToInt32(countReader.GetValue(0));
+            }
+        }
+
+        await _cache.SetStringAsync(
+            CachePolicyId.ArticleListCount,
+            countIdentity,
+            totalCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return totalCount;
     }
 
     private static string BuildArticleListKeysetPageSql(string whereSql)
@@ -2063,6 +2094,24 @@ public class ArticleService(
             ":",
             keyword);
     }
+
+    private static string BuildArticleListCountIdentity(long version, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate, string keyword)
+        => string.Concat(
+            includePrivate ? "admin:" : "public:",
+            version.ToString(System.Globalization.CultureInfo.InvariantCulture), ":",
+            categoryId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "0", ":",
+            tagId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "0", ":",
+            isDeleted ? "1" : "0",
+            ":",
+            status?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "-1",
+            ":",
+            keyword);
+
+    private static string FormatArticleListCursor(ArticleListItemReadModel item)
+        => string.Concat(
+            new DateTimeOffset(DateTime.SpecifyKind(item.CreateTime, DateTimeKind.Utc)).ToUnixTimeMilliseconds().ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ":",
+            item.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
     private static string NormalizeArticleListKeyword(string? keyword)
     {

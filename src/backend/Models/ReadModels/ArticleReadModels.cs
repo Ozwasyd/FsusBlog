@@ -51,6 +51,8 @@ public sealed record class ArticleListPageReadModel
 {
     public List<ArticleListItemReadModel> Items { get; init; } = [];
     public int Total { get; init; }
+    public string? NextCursor { get; init; }
+    public bool HasMore { get; init; }
 }
 
 public static class ArticleReadModelCollections

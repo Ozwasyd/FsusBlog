@@ -353,12 +353,15 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 {
   "items": [ /* T[] */ ],
   "total": 100,
+  "nextCursor": "1715299200000:42",
+  "hasMore": true,
   "page": 1,
   "pageSize": 20
 }
 ```
 
 文章列表页码参数不得静默修正：`page` 必须大于等于 `1`，`pageSize` / binary `size` 必须在 `1..100`。缺省参数仍按 `page=1`、`size=10` 处理；显式非法值返回 HTTP `400` + AEDS `ApiError`，不回退第一页，也不截断到最大页大小。
+公共文章列表保留 page URL 兼容层，但 AEDS `ArticleList` 响应会额外携带可选 `nextCursor` / `hasMore`。`nextCursor` 使用 `{createTimeUnixMs}:{id}`，排序仍固定为 `createtime DESC, id DESC`；服务端深页内部用 `(createtime, id)` keyset walk，不允许为公共列表回退 `OFFSET`。
 
 ### `CursorResponse<T>`（基于游标）
 
@@ -384,6 +387,8 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 | | Reserved | int | 保留（填 0）|
 | `PageEnvelope` | Total | int | 总记录数 |
 | | Count | int | 当前页记录数 |
+| `ArticleListCursorEnvelope` | NextCursorUnixMs | long | 下一页游标时间戳；无更多时为 `0` |
+| | HasMore | bool | 是否还有后续文章 |
 | `CursorEnvelope` | NextCursor | long | 下一页游标值（-1 表示无更多） |
 | | HasMore | bool | 是否有更多 |
 
