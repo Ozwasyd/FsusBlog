@@ -7,6 +7,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Tests.Fixtures;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -18,7 +19,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class JwtHelperTests
 {
     private static JwtHelper CreateHelper(
-        string secretKey = "SuperSecretTestKeyThatIs32Chars!!",
+        string secretKey = TestSecrets.JwtSigningKey,
         string issuer = "test-issuer",
         string audience = "test-audience",
         int expiresMinutes = 15)

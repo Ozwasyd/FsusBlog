@@ -131,7 +131,7 @@ public sealed class PublicAotDocumentServiceTests
             var service = new PublicAotDocumentService(
                 new TestWebHostEnvironment(root, Environments.Production),
                 configuration,
-                new FixedSystemService(baseUrl: "https://fsus.blog"),
+                new FixedSystemService(baseUrl: "https://example.com"),
                 new ContextAwareAssetManifest(),
                 NullLogger<PublicAotDocumentService>.Instance);
 
@@ -142,7 +142,7 @@ public sealed class PublicAotDocumentServiceTests
                 ArticleId = 42,
                 Html = "<article>Article</article>",
                 Title = "Article",
-                BaseUrl = "https://fsus.blog",
+                BaseUrl = "https://example.com",
                 BootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
                 {
                     ["kind"] = "ArticleDetail"
@@ -174,7 +174,7 @@ public sealed class PublicAotDocumentServiceTests
             Assert.Contains("\"dateModified\":\"2026-06-16T08:15:00.0000000Z\"", html, StringComparison.Ordinal);
             Assert.Contains("\"name\":\"Alice\"", html, StringComparison.Ordinal);
             Assert.Contains("\"image\":\"https://selfhost.example/uploads/cover.png\"", html, StringComparison.Ordinal);
-            Assert.DoesNotContain("https://fsus.blog/article/42", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("https://example.com/article/42", html, StringComparison.Ordinal);
         }
         finally
         {
@@ -325,7 +325,7 @@ public sealed class PublicAotDocumentServiceTests
             => context?.Request.Headers["X-Forwarded-Host"].ToString().Contains(":3000", StringComparison.Ordinal) == true;
     }
 
-    private sealed class FixedSystemService(string baseUrl = "https://fsus.blog") : ISystemService
+    private sealed class FixedSystemService(string baseUrl = "https://example.com") : ISystemService
     {
         public Task<SeoConfigReadModel> GetSeoConfigAsync()
             => Task.FromResult(new SeoConfigReadModel

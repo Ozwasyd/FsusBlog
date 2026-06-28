@@ -18,9 +18,9 @@ const APP_READY_TIMEOUT_MS = 30_000
 const WARMUP_TIMEOUT_MS = 45_000
 
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser'
-const userPassword = process.env.FSUSBLOG_USER_PASSWORD || 'BinaryUserPass123!'
+const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? ''
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin'
-const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdminPass123!'
+const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? ''
 const fixtures = loadAuditFixtures()
 const anonymousRoutes = buildAnonymousRoutes(fixtures)
 const userRoutes = buildUserRoutes()

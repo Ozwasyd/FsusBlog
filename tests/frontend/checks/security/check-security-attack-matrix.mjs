@@ -9,7 +9,7 @@ import {
   baseUrl,
   buildPowHeaders,
   fetchChallenge,
-  loginWithPow,
+  loginWithFixtureSessionBypass,
   requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
 import {
@@ -19,9 +19,9 @@ import {
 import { fetchWithTimeout } from '../../support/http.mjs';
 
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
-const userPassword = process.env.FSUSBLOG_USER_PASSWORD || 'BinaryUserPass123!';
+const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? '';
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
-const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdminPass123!';
+const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? '';
 const deniedStatuses = new Set([400, 401, 403, 404, 405, 406, 409, 413, 415, 422, 423, 428, 429]);
 const FRAME_AUTH_ANONYMOUS_BOOTSTRAP_REQUEST = 189;
 const AUTH_BOOTSTRAP_PATH = '/api/binary/auth/anonymous/bootstrap';
@@ -305,10 +305,10 @@ async function main() {
   await resetAndWaitForPow('attack matrix positive sessions');
 
   const userSession = await withFreshPowBudget('attack matrix user login pow', async () =>
-    await loginWithPow(userName, userPassword, false, 'attack-user', requestTimeoutMs)
+    await loginWithFixtureSessionBypass(userName, userPassword, false, 'attack-user', requestTimeoutMs)
   );
   const adminSession = await withFreshPowBudget('attack matrix admin login pow', async () =>
-    await loginWithPow(adminName, adminPassword, false, 'attack-admin', requestTimeoutMs)
+    await loginWithFixtureSessionBypass(adminName, adminPassword, false, 'attack-admin', requestTimeoutMs)
   );
 
   const csrfCategory = await withFreshPowBudget('attack matrix csrf pow', async () =>

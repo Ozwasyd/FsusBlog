@@ -4,12 +4,12 @@ import {
   authBinary,
   baseUrl,
   createTotp,
-  loginWithPow,
+  loginWithFixtureSessionBypass,
   requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
 
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
-const userPassword = process.env.FSUSBLOG_USER_PASSWORD || 'BinaryUserPass123!';
+const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? '';
 const deviceFingerprint = process.env.FSUSBLOG_DEVICE_FP || 'auth-mfa-smoke-node';
 
 function assert(condition, message) {
@@ -49,7 +49,7 @@ async function mintMfaProof({ action, cookieHeader, code, recoveryCode }) {
 }
 
 async function main() {
-  const session = await loginWithPow(userName, userPassword, false, deviceFingerprint, requestTimeoutMs);
+  const session = await loginWithFixtureSessionBypass(userName, userPassword, false, deviceFingerprint, requestTimeoutMs);
 
   const startSetup = await authBinary('/api/Auth/mfa/setup/start', {
     method: 'POST',

@@ -169,7 +169,7 @@ function createCompliance(mode) {
     icpRecordUrl: 'https://beian.miit.gov.cn/',
     policeRecordNumber: 'Police fixture',
     policeRecordUrl: 'https://www.beian.gov.cn/',
-    policeBadgeIconUrl: 'https://fsus.blog/police.png',
+    policeBadgeIconUrl: 'https://example.com/police.png',
     operatorName: 'Fixture Ops',
     contactEmail: 'ops@fsus.blog',
   }
@@ -179,7 +179,7 @@ function commonOptions(overrides = {}) {
   return {
     siteTitle: 'FsusBlog Payload Matrix',
     siteDescription: 'Payload fixture matrix for public AOT hydration.',
-    baseUrl: 'https://fsus.blog',
+    baseUrl: 'https://example.com',
     renderTimestamp: RENDER_TIMESTAMP,
     compliance: createCompliance('partial'),
     ...overrides,
@@ -204,7 +204,7 @@ function featuredArticle(id, overrides = {}) {
   return {
     id,
     title: `Featured fixture ${id}`,
-    coverImageUrl: `https://fsus.blog/assets/featured-${id}.jpg`,
+    coverImageUrl: `https://example.com/assets/featured-${id}.jpg`,
     views: 100 + id,
     createTime: articleSummary(id).createTime,
     category: { id: 8, name: 'Featured' },
@@ -302,7 +302,7 @@ export const PUBLIC_PAYLOAD_FIXTURES = [
       'logo:present',
     ],
     options: commonOptions({
-      siteLogoUrl: 'https://fsus.blog/assets/logo.svg',
+      siteLogoUrl: 'https://example.com/assets/logo.svg',
       articles: [articleSummary(1101, { title: longTitle, summary: longSummary })],
       featuredArticles: [featuredArticle(2101)],
       hotArticles: [],

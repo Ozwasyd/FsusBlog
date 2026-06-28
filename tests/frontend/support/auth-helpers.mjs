@@ -352,7 +352,7 @@ export function extractSessionId(cookieMap) {
   return cookieMap.get('SessionId') ?? cookieMap.get('__Host-SessionId') ?? null;
 }
 
-export async function loginWithPow(username, password, rememberMe, deviceFingerprint, timeoutMs = requestTimeoutMs) {
+export async function loginWithFixtureSessionBypass(username, password, rememberMe, deviceFingerprint, timeoutMs = requestTimeoutMs) {
   void password;
   void timeoutMs;
   if (isFixtureAdminHandle(username)) {
@@ -368,6 +368,10 @@ export async function loginWithPow(username, password, rememberMe, deviceFingerp
     rememberMe,
     deviceFingerprint
   });
+}
+
+export async function loginWithPow() {
+  throw new Error('loginWithPow was retired for test fixtures; use loginWithFixtureSessionBypass explicitly.');
 }
 
 export async function registerWithPow(username, password, deviceFingerprint, timeoutMs = requestTimeoutMs) {

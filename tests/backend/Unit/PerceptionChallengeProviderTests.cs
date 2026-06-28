@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Security;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -562,7 +563,7 @@ public sealed class PerceptionChallengeProviderTests
         => new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Jwt:SecretKey"] = "unit-test-secret-key-with-enough-entropy",
+                ["Jwt:SecretKey"] = TestSecrets.SecondaryJwtSigningKey,
                 ["Security:PerceptionV2:SigningKey"] = "perception-unit-test-signing-key-with-enough-entropy",
                 ["Security:PerceptionV2:TextTask:FixedText"] = "F7KA2",
                 ["Security:PerceptionV2:Localization:FixedX"] = "192",

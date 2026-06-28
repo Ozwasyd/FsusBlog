@@ -149,7 +149,7 @@ function createEntryOptions(clockCase, kind, timestampCase = ARTICLE_TIMESTAMPS[
   const common = {
     siteTitle: 'FsusBlog Clock Matrix',
     siteDescription: 'Deterministic public AOT clock matrix.',
-    baseUrl: 'https://fsus.blog',
+    baseUrl: 'https://example.com',
     renderTimestamp: clockCase.ssrClock,
     compliance: createCompliance(clockCase.complianceStartYear),
   }

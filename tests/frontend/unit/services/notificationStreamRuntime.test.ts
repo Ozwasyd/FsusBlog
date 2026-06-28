@@ -22,10 +22,10 @@ describe('resolveNotificationStreamEndpointUrl', () => {
       '/api/notifications/stream/preflight',
       'http',
       undefined,
-      'https://fsus.blog'
+      'https://example.com'
     )
 
-    expect(url.toString()).toBe('https://fsus.blog/api/notifications/stream/preflight')
+    expect(url.toString()).toBe('https://example.com/api/notifications/stream/preflight')
   })
 
   it('preserves RiskControl handshake failure codes from preflight responses', () => {

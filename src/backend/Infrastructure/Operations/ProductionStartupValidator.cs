@@ -8,6 +8,8 @@ using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
 using StackExchange.Redis;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace FsusBlog.Server.Infrastructure.Operations;
 
@@ -73,11 +75,11 @@ public static class ProductionStartupValidator
         IChangeToken ReloadToken,
         ProductionStartupValidationReport Report);
 
-    private static readonly string[] DefaultJwtSecrets =
+    private static readonly string[] DefaultJwtSecretHashes =
     [
-        "Were_I_you_I_would_get_high_like_some_airplanes",
-        "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
-        "Local_Release_Smoke_Key_For_FsusBlog_2026_Only"
+        "sha256:8AE781617F18436996EC2FDDE2F601E24F737FDB607C5423A6140412F33D2E4A",
+        "sha256:91445D22CD01562A9AB14D304FBFADE49F48C9E729E782855630A3DE79ACE275",
+        "sha256:B9471D38BB8BAB7EA081015F342BFA2D8A4B87B448482D318200AB516175EAEE"
     ];
 
     private static readonly string[] DefaultSubjectHashPeppers =
@@ -159,7 +161,7 @@ public static class ProductionStartupValidator
     public static ProductionStartupValidationSchema CurrentSchema { get; } = new(
         SchemaVersion,
         RequiredSettings.Select(static rule => rule.Key).ToArray(),
-        DefaultJwtSecrets);
+        DefaultJwtSecretHashes);
 
     public static void Validate(IConfiguration configuration, IWebHostEnvironment environment)
     {
@@ -266,7 +268,7 @@ public static class ProductionStartupValidator
                 errors.Add("Jwt:SecretKey must be at least 32 characters.");
             }
 
-            if (DefaultJwtSecrets.Contains(jwtSecret, StringComparer.Ordinal))
+            if (DefaultJwtSecretHashes.Contains(ComputeSecretHash(jwtSecret), StringComparer.Ordinal))
             {
                 errors.Add("Jwt:SecretKey must not use a development/template/default value.");
             }
@@ -952,6 +954,9 @@ public static class ProductionStartupValidator
             || error.Contains("Seo:BaseUrl must use HTTPS", StringComparison.Ordinal)
             || error.Contains("Fido2:Origins origin must use HTTPS", StringComparison.Ordinal)
             || error.Contains("AnonymousIdentity:ZkProd:", StringComparison.Ordinal);
+
+    private static string ComputeSecretHash(string value)
+        => "sha256:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
     private static Uri? TryParseOriginLikeBaseUrl(string? value)
     {

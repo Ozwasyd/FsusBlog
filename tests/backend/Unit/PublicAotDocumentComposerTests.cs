@@ -18,7 +18,7 @@ public sealed class PublicAotDocumentComposerTests
             "首页",
             "FsusBlog",
             "描述",
-            "https://fsus.blog/",
+            "https://example.com/",
             "<main>hello</main>",
             AedsPayload(("pageKind", "Home")),
             AedsPayload(("pageKind", "Home"), ("routeKey", "home")),

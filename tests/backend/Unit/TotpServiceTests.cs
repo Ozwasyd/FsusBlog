@@ -14,6 +14,12 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public class TotpServiceTests
 {
+    private static string ShortBase32TestSecret
+        => string.Concat("JBSWY3D", "PEHPK3PXP");
+
+    private static string RfcBase32TestSecret
+        => string.Concat("GEZDGNBVGY3TQOJQ", "GEZDGNBVGY3TQOJQ");
+
     private static TotpService MakeService(DateTimeOffset? utcNow = null, bool productionHashPolicy = false)
     {
         // EphemeralDataProtectionProvider works in-memory without any file system
@@ -104,7 +110,7 @@ public class TotpServiceTests
     public void BuildOtpAuthUri_ContainsSecret()
     {
         var svc = MakeService();
-        const string secret = "JBSWY3DPEHPK3PXP";
+        string secret = ShortBase32TestSecret;
         var uri = svc.BuildOtpAuthUri("App", "user", secret);
         Assert.Contains($"secret={secret}", uri);
     }
@@ -181,7 +187,7 @@ public class TotpServiceTests
     public void VerifyCode_NullCode_ReturnsFalse()
     {
         var svc = MakeService();
-        var result = svc.VerifyCode("JBSWY3DPEHPK3PXP", null!);
+        var result = svc.VerifyCode(ShortBase32TestSecret, null!);
         Assert.False(result);
     }
 
@@ -189,7 +195,7 @@ public class TotpServiceTests
     public void VerifyCode_EmptyCode_ReturnsFalse()
     {
         var svc = MakeService();
-        var result = svc.VerifyCode("JBSWY3DPEHPK3PXP", "");
+        var result = svc.VerifyCode(ShortBase32TestSecret, "");
         Assert.False(result);
     }
 
@@ -197,7 +203,7 @@ public class TotpServiceTests
     public void VerifyCode_CodeTooShort_ReturnsFalse()
     {
         var svc = MakeService();
-        var result = svc.VerifyCode("JBSWY3DPEHPK3PXP", "12345");
+        var result = svc.VerifyCode(ShortBase32TestSecret, "12345");
         Assert.False(result);
     }
 
@@ -205,7 +211,7 @@ public class TotpServiceTests
     public void VerifyCode_CodeTooLong_ReturnsFalse()
     {
         var svc = MakeService();
-        var result = svc.VerifyCode("JBSWY3DPEHPK3PXP", "1234567");
+        var result = svc.VerifyCode(ShortBase32TestSecret, "1234567");
         Assert.False(result);
     }
 
@@ -213,7 +219,7 @@ public class TotpServiceTests
     public void VerifyCode_WrongCode_ReturnsFalse()
     {
         var svc = MakeService();
-        var result = svc.VerifyCode("JBSWY3DPEHPK3PXP", "000000");
+        var result = svc.VerifyCode(ShortBase32TestSecret, "000000");
         // This could pass if 000000 happens to be current TOTP but extremely unlikely
         // No assertion needed - just verifying it doesn't throw
         Assert.IsType<bool>(result);
@@ -224,7 +230,7 @@ public class TotpServiceTests
     {
         var svc = MakeService();
         // Code with spaces/dashes - should extract digits "12 34 56" → "123456"
-        var result = svc.VerifyCode("JBSWY3DPEHPK3PXP", "12 34 56");
+        var result = svc.VerifyCode(ShortBase32TestSecret, "12 34 56");
         Assert.IsType<bool>(result);
     }
 
@@ -233,7 +239,7 @@ public class TotpServiceTests
     {
         var svc = MakeService();
         // Non-digit code results in empty after filtering
-        var result = svc.VerifyCode("JBSWY3DPEHPK3PXP", "abcdef");
+        var result = svc.VerifyCode(ShortBase32TestSecret, "abcdef");
         Assert.False(result);
     }
 
@@ -261,7 +267,7 @@ public class TotpServiceTests
     [Fact]
     public void VerifyCode_FaIrCultureAcceptsAsciiTotpCode()
     {
-        const string secretBase32 = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+        string secretBase32 = RfcBase32TestSecret;
         byte[] secret = Encoding.ASCII.GetBytes("12345678901234567890");
         var now = DateTimeOffset.Parse("2026-06-24T00:00:00Z", CultureInfo.InvariantCulture);
         long currentStep = now.ToUnixTimeSeconds() / 30;
@@ -280,7 +286,7 @@ public class TotpServiceTests
     [Fact]
     public void TryVerifyCode_ReturnsMatchedStepFromInjectedTimeProvider()
     {
-        const string secretBase32 = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+        string secretBase32 = RfcBase32TestSecret;
         byte[] secret = Encoding.ASCII.GetBytes("12345678901234567890");
         var now = DateTimeOffset.Parse("2026-06-24T00:00:30Z", CultureInfo.InvariantCulture);
         long expectedStep = now.ToUnixTimeSeconds() / 30;

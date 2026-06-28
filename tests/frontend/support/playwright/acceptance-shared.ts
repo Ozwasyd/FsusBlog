@@ -105,9 +105,9 @@ export const TALL_DESKTOP_VIEWPORT = uxViewportSize('tall-desktop')
 export const FOUR_K_VIEWPORT = uxViewportSize('four-k')
 
 export const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser'
-export const userPassword = process.env.FSUSBLOG_USER_PASSWORD || 'BinaryUserPass123!'
+export const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? ''
 export const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin'
-export const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdminPass123!'
+export const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? ''
 export const fixtures = loadAuditFixtures()
 export type ThemeMode = 'light' | 'dark'
 const acceptanceBackendUrl = process.env.FSUSBLOG_ACCEPTANCE_BACKEND_URL || 'http://127.0.0.1:7568'

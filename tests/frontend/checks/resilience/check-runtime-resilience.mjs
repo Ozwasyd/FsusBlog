@@ -3,16 +3,16 @@
 import { createRequire } from 'node:module';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { authBinary, baseUrl, loginWithPow } from '../../support/auth-helpers.mjs';
+import { authBinary, baseUrl, loginWithFixtureSessionBypass } from '../../support/auth-helpers.mjs';
 import { buildMarkdownExtremeCorpus, fnv1a32, normalizeMarkdownExtremeSize } from '../../support/markdown-extreme-corpus.mjs';
 import { systemChromiumLaunchOptions } from '../../support/system-chromium.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
 
 const frontendBaseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
-const userPassword = process.env.FSUSBLOG_USER_PASSWORD || 'BinaryUserPass123!';
+const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? '';
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
-const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdminPass123!';
+const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? '';
 const markdownExtremeSize = normalizeMarkdownExtremeSize(process.env.FSUSBLOG_MARKDOWN_EXTREME_SIZE);
 const appSettleDelayMs = Number.parseInt(process.env.FSUSBLOG_PLAYWRIGHT_SETTLE_MS || '2600', 10);
 const hydrationReadyTimeoutMs = Number.parseInt(process.env.FSUSBLOG_HYDRATION_READY_TIMEOUT_MS || '12000', 10);
@@ -280,8 +280,8 @@ async function main() {
     auditGuest();
     await guest.close();
 
-    const userSession = await loginWithPow(userName, userPassword, false, 'runtime-user');
-    const adminSession = await loginWithPow(adminName, adminPassword, false, 'runtime-admin');
+    const userSession = await loginWithFixtureSessionBypass(userName, userPassword, false, 'runtime-user');
+    const adminSession = await loginWithFixtureSessionBypass(adminName, adminPassword, false, 'runtime-admin');
     const userContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
     await addSessionCookies(userContext, userSession);
     const userPage = await userContext.newPage();

@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 import {
   authBinary,
   baseUrl,
-  loginWithPow,
+  loginWithFixtureSessionBypass,
   requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
 import { decodeAedsFrame } from '../../support/aeds-envelope.mjs';
@@ -18,9 +18,9 @@ import { resolveSystemChromiumExecutablePath } from '../../support/system-chromi
 
 const frontendBaseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
-const userPassword = process.env.FSUSBLOG_USER_PASSWORD || 'BinaryUserPass123!';
+const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? '';
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
-const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdminPass123!';
+const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? '';
 const repoRoot = resolve(process.cwd(), '..', '..');
 const evidenceDir = process.env.FSUSBLOG_SECURITY_EVIDENCE_DIR || resolve(repoRoot, '.tmp/security');
 const require = createRequire(import.meta.url);
@@ -283,7 +283,7 @@ async function assertGuestAndRoleRoutes() {
     assert(guestPage.url().includes('/login'), 'guest visiting /user/profile should redirect to login');
     await guest.close();
 
-    const userSession = await loginWithPow(userName, userPassword, false, 'permission-user');
+    const userSession = await loginWithFixtureSessionBypass(userName, userPassword, false, 'permission-user');
     const userContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
     await userContext.addCookies(toPlaywrightSessionCookies(userSession.cookieMap));
     const userPage = await userContext.newPage();
@@ -292,7 +292,7 @@ async function assertGuestAndRoleRoutes() {
     assert(new URL(userPage.url()).pathname === '/user/profile', 'normal user should be redirected to /user/profile');
     await userContext.close();
 
-    const adminSession = await loginWithPow(adminName, adminPassword, false, 'permission-admin');
+    const adminSession = await loginWithFixtureSessionBypass(adminName, adminPassword, false, 'permission-admin');
     const adminContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
     await adminContext.addCookies(toPlaywrightSessionCookies(adminSession.cookieMap));
     const adminPage = await adminContext.newPage();
@@ -902,8 +902,8 @@ async function assertAdminPositivePowCrud(adminSession) {
 }
 
 async function assertApiMatrix() {
-  const userSession = await loginWithPow(userName, userPassword, false, 'permission-api-user');
-  const adminSession = await loginWithPow(adminName, adminPassword, false, 'permission-api-admin');
+  const userSession = await loginWithFixtureSessionBypass(userName, userPassword, false, 'permission-api-user');
+  const adminSession = await loginWithFixtureSessionBypass(adminName, adminPassword, false, 'permission-api-admin');
   const articleId = await fetchFirstArticleId(adminSession);
   const categoryId = await fetchFirstCategoryId(adminSession);
   const marker = `perm-user-attack-${Date.now()}`;

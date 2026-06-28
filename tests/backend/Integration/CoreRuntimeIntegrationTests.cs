@@ -4,6 +4,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.NotificationStream;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -18,7 +19,7 @@ public sealed class CoreRuntimeIntegrationTests
     {
         var settings = new JwtSettings
         {
-            SecretKey = "integration-test-secret-key-with-at-least-thirty-two-chars",
+            SecretKey = TestSecrets.IntegrationJwtSigningKey,
             Issuer = "fsusblog-tests",
             Audience = "fsusblog-tests",
             AccessTokenExpiresMinutes = 10

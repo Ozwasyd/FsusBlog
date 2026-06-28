@@ -3,12 +3,12 @@
 import {
   authBinary,
   baseUrl,
-  loginWithPow,
+  loginWithFixtureSessionBypass,
   requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
 
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
-const userPassword = process.env.FSUSBLOG_USER_PASSWORD || 'BinaryUserPass123!';
+const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? '';
 const deviceFingerprint = process.env.FSUSBLOG_DEVICE_FP || 'auth-passkey-smoke-node';
 
 function assert(condition, message) {
@@ -124,7 +124,7 @@ async function main() {
 
   // ── 5. Authenticated operations ───────────────────────────────────────────
 
-  const session = await loginWithPow(userName, userPassword, false, deviceFingerprint, requestTimeoutMs);
+  const session = await loginWithFixtureSessionBypass(userName, userPassword, false, deviceFingerprint, requestTimeoutMs);
 
   // Pre-cleanup: remove any passkeys accumulated from prior CI runs
   await cleanupExistingPasskeys(session);

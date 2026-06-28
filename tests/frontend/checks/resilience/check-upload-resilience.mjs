@@ -4,12 +4,12 @@ import {
   authBinary,
   baseUrl,
   buildPowHeaders,
-  loginWithPow,
+  loginWithFixtureSessionBypass,
   requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
 
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
-const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdminPass123!';
+const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? '';
 const deviceFingerprint = process.env.FSUSBLOG_DEVICE_FP || 'upload-resilience-node';
 const pngSample = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==',
@@ -54,7 +54,7 @@ async function uploadPart(uploadId, session, partNumber, offset, payload, expect
 }
 
 async function main() {
-  const session = await loginWithPow(adminName, adminPassword, false, deviceFingerprint, requestTimeoutMs);
+  const session = await loginWithFixtureSessionBypass(adminName, adminPassword, false, deviceFingerprint, requestTimeoutMs);
   const invalidMime = await authBinary('/api/File/upload/init', {
     method: 'POST',
     cookieHeader: session.cookieHeader,

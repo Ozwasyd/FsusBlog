@@ -366,6 +366,12 @@ FsusBlog 采用三级角色体系：
 - 修订历史正文详情只允许 admin 在作者工作台读取；回滚必须走正式文章更新服务以写入新修订、审计记录和分发缓存失效，不允许通过 SQL/API 直接覆盖公开正文。
 - `/api/binary/upload/**` 分片上传会话只接受可规范化为 32 位 GUID `N` 格式的 `uploadId`。`FileService` 在 status、part map、part upload、complete、abort、cleanup 和 session lock 边界统一规范化为小写 canonical 值；`.upload-sessions` 使用 full path 作为目录沙箱，Unix 平台上 session root / session / parts 目录必须限制为 owner-only，manifest 和 part 文件以 owner read/write 创建。manifest 写入必须使用随机 sibling temp path + private file mode，并通过 replace/move 原子发布，不得使用固定 `manifest.aeds.tmp`。非法 `uploadId` 返回 validation/not found，不创建 session lock，不执行递归删除，也不向响应泄露物理路径。上传总大小上限为 20 MiB，Kestrel request body limit 必须覆盖该上限和协议开销；`/part` 必须携带明确 `Content-Length`，不接受 chunked transfer-encoding。上传图片只允许 jpg/jpeg/png/gif/webp，AVIF 在引入像素维度和 decoder bomb 防护前不得进入 allow-list 或静态 content-type provider。
 - 未发布正文只允许出现在 admin-only JSON 响应中；预览 HTML 带 `data-preview-only=true` 和 `data-markdown-renderer=server-preview`，所有 Markdown HTML 输入先转义，前端写入 `srcdoc` 前再次剥离可执行标签/事件属性，并仅以 sandboxed unique-origin iframe 展示，不得写入 PublicAOT cache、search index、feed、sitemap 或 related-reading。
+
+## 测试 Fixture Secret 与本地护栏
+
+- 测试代码不得内置可复用的 admin/user 密码、JWT signing key 或生产域名配置；需要登录真实 UI 的验收脚本必须从 `FSUSBLOG_USER_PASSWORD` / `FSUSBLOG_ADMIN_PASSWORD` 读取，fixture token 生成必须显式提供 `FSUSBLOG_TEST_SESSION_SECRET` 或测试环境专用 `Jwt__SecretKey`。
+- Playwright / smoke fixture 允许使用 `loginWithFixtureSessionBypass` 直接生成本地测试 session，但该名称必须保持显式，不得重新包装成密码登录语义。生成的 storage-state 凭据属于短期本地工件，运行后应清理，不得提交或长期保留。
+- 会执行 SQL 的 fixture 脚本只允许连接名称匹配 `fsusblog-dev*`、`fsusblog-test*` 或 `fsusblog-ci*` 的容器；对 admin draft 的 raw cookie replay cleanup 只能指向 localhost / 127.0.0.1 / ::1 后端。
 - related-reading 只基于公开文章的分类、标签、正文关键词和发布时间生成，不使用点赞、收藏、关注、登录用户、订阅邮箱或用户画像；端点和 PublicAOT 共用同一服务，防止 SPA/AOT 暴露面分叉。
 - SEO 预览只读取当前表单和站点 SEO 配置；canonical/slug/OG image 预览不得对外生成路由或缓存。发布/定时发布前检查返回的 `error` 必须阻断提交，覆盖危险 HTML、未闭合代码块、不安全协议、私有站内路径和无效 public route 格式；`warning` 只能在作者填写跳过理由后继续提交，并由服务端记录 `prepublish-warning-override` 审计事件，不能自动降级为公开可见内容。
 - 统一 SEO/品牌配置的 favicon、PWA icon、logo、wordmark、admin/login 图标 URL 只能保存空值、站内绝对路径或 `http/https` 绝对 URL；后端拒绝 `javascript:`、`data:`、协议相对 URL 和空字节。外部图片展示只扩展 `img-src`，不得扩展 script/style/connect CSP。当前品牌资产字段只引用已存在上传/静态资源；如果后续支持 SVG 原文上传或服务端转存，必须先做 MIME/header 校验与 SVG 脚本/外链清洗，并继续走 admin + PoW + 审计链路。

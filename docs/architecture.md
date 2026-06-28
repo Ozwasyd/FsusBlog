@@ -161,6 +161,8 @@ IPublicAotRouteRegistry
 
 生产缓存、Redis L2、notification stream backlog 与文章运行时 key 前缀只依赖 `IRuntimeKeyScope`。测试会话隔离通过 `TestAwareRuntimeKeyScope` 适配 `ITestSessionKeyScope`，`X-Fsus-Test-Session` 语义不得向默认生产缓存、notification stream 或业务 service 扩散。
 
+测试 fixture 不得把可复用密码、JWT signing key、生产域名或固定数据库行 ID 写成源码默认值。需要伪造本地 session 的 Playwright / smoke 脚本必须显式使用 `loginWithFixtureSessionBypass`，并通过 `FSUSBLOG_TEST_SESSION_SECRET` 或测试专用 `Jwt__SecretKey` 提供短期签名密钥；会执行 SQL 的 fixture 只能连接 `fsusblog-dev*`、`fsusblog-test*` 或 `fsusblog-ci*` 容器。生成的 `.playwright-fixtures` storage-state 属于本地临时凭据，运行后应清理，不参与提交、缓存或跨环境复用。
+
 ### Public Route Identity
 
 公开页路由身份采用集中规范，避免服务端与预热脚本各自推导：

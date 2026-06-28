@@ -4,14 +4,14 @@ import { Buffer } from 'node:buffer';
 import {
   authBinary,
   baseUrl,
-  loginWithPow,
+  loginWithFixtureSessionBypass,
   requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
 import { readAedsResponse } from '../../support/aeds-envelope.mjs';
 import { fetchWithTimeout } from '../../support/http.mjs';
 
 const adminUsername = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
-const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdminPass123!';
+const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? '';
 const publicBaseUrl = process.env.FSUSBLOG_PUBLIC_BASE_URL || baseUrl;
 const timeoutMs = Math.max(requestTimeoutMs, 30_000);
 const coherenceTimeoutMs = Math.max(timeoutMs * 3, 90_000);
@@ -313,7 +313,7 @@ async function mutateArticle(session, path, method, operation, marker) {
 }
 
 async function main() {
-  const session = await loginWithPow(adminUsername, adminPassword, false, 'distribution-admin-login', timeoutMs);
+  const session = await loginWithFixtureSessionBypass(adminUsername, adminPassword, false, 'distribution-admin-login', timeoutMs);
   const categoryId = await fetchTaxonomy('/api/Category', session, 'Distribution Category');
   const tagId = await fetchTaxonomy('/api/Tag', session, 'Distribution Tag');
   const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;

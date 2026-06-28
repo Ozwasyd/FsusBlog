@@ -30,7 +30,7 @@ const defaultAdminPermissions = [
   'admin.manage'
 ];
 
-const pgContainer = process.env.FSUSBLOG_PG_CONTAINER || 'fsusblog-postgres';
+const pgContainer = process.env.FSUSBLOG_PG_CONTAINER || '';
 const pgUser = process.env.FSUSBLOG_PG_USER || 'fsusblog';
 const pgDb = process.env.FSUSBLOG_PG_DB || 'fsusblog';
 const testSession = process.env.FSUSBLOG_TEST_SESSION || '';
@@ -39,7 +39,8 @@ const persistAuthFixtures = process.env.FSUSBLOG_PERSIST_AUTH_FIXTURES !== '0';
 const jwtSecret = process.env.Jwt__SecretKey
   || process.env.JWT_SECRET
   || process.env.FSUSBLOG_JWT_SECRET
-  || 'local-dev-secret-key-32-chars-min-aaaaaa';
+  || process.env.FSUSBLOG_TEST_SESSION_SECRET
+  || '';
 const jwtIssuer = process.env.Jwt__Issuer
   || process.env.FSUSBLOG_JWT_ISSUER
   || 'fsusblog-dev';
@@ -70,7 +71,21 @@ function searchPathSql() {
   return schema ? `set search_path to "${schema}", public;` : '';
 }
 
+function assertSafeFixtureContainer() {
+  if (!/^fsusblog-(?:dev|test|ci)(?:[-_.a-zA-Z0-9]*)$/.test(pgContainer)) {
+    throw new Error('FSUSBLOG_PG_CONTAINER must name a dev/test/ci fixture container before SQL fixtures can run.');
+  }
+}
+
+function assertTestJwtSecretConfigured() {
+  if (jwtSecret.length < 32) {
+    throw new Error('FSUSBLOG_TEST_SESSION_SECRET or Jwt__SecretKey must be set to a test-only secret with at least 32 characters.');
+  }
+}
+
 function runPsql(sql) {
+  assertSafeFixtureContainer();
+  assertTestJwtSecretConfigured();
   const result = spawnSync('docker', [
     'exec',
     '-i',
@@ -118,6 +133,7 @@ function sha256Hex(value) {
 }
 
 function signJwt(payload) {
+  assertTestJwtSecretConfigured();
   const header = {
     alg: 'HS256',
     typ: 'JWT'

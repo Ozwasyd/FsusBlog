@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '../../..');
 const clientRoot = path.join(repoRoot, 'src', 'frontend');
 const fixtureScriptRoot = path.join(repoRoot, 'tests', 'frontend', 'fixtures');
-const pgContainer = process.env.FSUSBLOG_PG_CONTAINER || 'fsusblog-postgres';
+const pgContainer = process.env.FSUSBLOG_PG_CONTAINER || '';
 const pgUser = process.env.FSUSBLOG_PG_USER || 'fsusblog';
 const pgDb = process.env.FSUSBLOG_PG_DB || 'fsusblog';
 const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || 'fsusblog-redis';
@@ -37,7 +37,14 @@ function run(command, args, options = {}) {
   return result.stdout.trim();
 }
 
+function assertSafeFixtureContainer(container, label) {
+  if (!/^fsusblog-(?:dev|test|ci)(?:[-_.a-zA-Z0-9]*)$/.test(container)) {
+    throw new Error(`${label} must name a dev/test/ci fixture container.`);
+  }
+}
+
 function runPsql(sql) {
+  assertSafeFixtureContainer(pgContainer, 'FSUSBLOG_PG_CONTAINER');
   return run('docker', [
     'exec',
     '-i',

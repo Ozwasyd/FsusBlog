@@ -6,6 +6,7 @@ using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Security;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.WebUtilities;
@@ -240,7 +241,7 @@ public sealed class CaptchaV1ChallengeProviderTests
         => new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Jwt:SecretKey"] = "unit-test-secret-key-with-enough-entropy",
+                ["Jwt:SecretKey"] = TestSecrets.SecondaryJwtSigningKey,
                 ["Security:CaptchaV1:SigningKey"] = SigningKey
             })
             .Build();

@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'node:module';
-import { loginWithPow } from '../../support/auth-helpers.mjs';
+import { loginWithFixtureSessionBypass } from '../../support/auth-helpers.mjs';
 import { systemChromiumLaunchOptions } from '../../support/system-chromium.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
 
 const frontendBaseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
-const userPassword = process.env.FSUSBLOG_USER_PASSWORD || 'BinaryUserPass123!';
+const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? '';
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
-const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdminPass123!';
+const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? '';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }));
 
@@ -105,8 +105,8 @@ async function main() {
     await assertPageA11y(guestPage, 'login');
     await guestContext.close();
 
-    const userSession = await loginWithPow(userName, userPassword, false, 'a11y-user');
-    const adminSession = await loginWithPow(adminName, adminPassword, false, 'a11y-admin');
+    const userSession = await loginWithFixtureSessionBypass(userName, userPassword, false, 'a11y-user');
+    const adminSession = await loginWithFixtureSessionBypass(adminName, adminPassword, false, 'a11y-admin');
     const userContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
     await addSessionCookies(userContext, userSession);
     const userPage = await userContext.newPage();

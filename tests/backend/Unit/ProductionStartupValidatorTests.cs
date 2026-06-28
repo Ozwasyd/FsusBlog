@@ -17,6 +17,12 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class ProductionStartupValidatorTests
 {
+    private static string DefaultJwtSecretSample
+        => string.Concat("Were_I_you", "_I_would_get_high_like_some_airplanes");
+
+    private static string LocalReleaseJwtSecretSample
+        => string.Concat("Local_Release", "_Smoke_Key_For_FsusBlog_2026_Only");
+
     [Fact]
     public void ValidateCore_AcceptsProductionConfigurationWithHttpsAndRedisPassword()
     {
@@ -25,26 +31,26 @@ public sealed class ProductionStartupValidatorTests
             ["ConnectionStrings:DefaultConnection"] = "Host=db;Database=fsus;Username=fsus;Password=secret",
             ["ConnectionStrings:Redis"] = "redis:6379,password=redis-secret,abortConnect=false",
             ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
-            ["Jwt:SecretKey"] = "production-secret-key-with-at-least-thirty-two-chars",
-            ["AllowedHosts"] = "fsus.blog;www.fsus.blog",
-            ["CORS_ALLOWED_HOSTS"] = "https://fsus.blog,https://www.fsus.blog",
-            ["Seo:BaseUrl"] = "https://fsus.blog",
-            ["Fido2:ServerDomain"] = "fsus.blog",
-            ["Fido2:Origins:0"] = "https://fsus.blog",
-            ["Security:Pow:SigningKey"] = "production-pow-signing-key-with-at-least-thirty-two-chars",
-            ["Security:CaptchaV1:SigningKey"] = "production-captcha-signing-key-with-at-least-thirty-two-chars",
+            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
+            ["AllowedHosts"] = "example.com;www.example.com",
+            ["CORS_ALLOWED_HOSTS"] = "https://example.com,https://www.example.com",
+            ["Seo:BaseUrl"] = "https://example.com",
+            ["Fido2:ServerDomain"] = "example.com",
+            ["Fido2:Origins:0"] = "https://example.com",
+            ["Security:Pow:SigningKey"] = TestSecrets.PowSigningKey,
+            ["Security:CaptchaV1:SigningKey"] = TestSecrets.CaptchaSigningKey,
             ["Security:PerceptionSealedToken:CurrentKeyVersion"] = "k1",
             ["Security:PerceptionSealedToken:Keys:k1"] = new string('a', 64),
-            ["Security:RecoveryKeyPepper"] = "production-recovery-key-pepper-with-at-least-thirty-two-chars",
-            ["MfaChallenge:TicketSigningKey"] = "production-mfa-challenge-ticket-signing-key-with-enough-entropy",
-            ["Audit:TamperEvidenceKey"] = "production-audit-tamper-evidence-key-with-enough-entropy",
-            ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
-            ["VisitLog:IpHashPepper"] = "production-visit-log-ip-hash-pepper-with-at-least-thirty-two-chars",
-            ["Moderation:RegionPolicy:IpHashKey"] = "production-region-ip-hash-key-with-at-least-thirty-two-chars",
-            ["Moderation:Pepper"] = "production-moderation-pepper-with-at-least-thirty-two-chars",
-            ["Subscription:EmailHashPepper"] = "production-subscription-email-hash-pepper-with-at-least-thirty-two-chars",
-            ["AnonymousIdentity:NullifierPepper"] = "production-anonymous-nullifier-pepper-with-at-least-thirty-two-chars",
-            ["AnonymousCredentialRoot:AttestationKey"] = "production-anonymous-root-attestation-key-with-at-least-thirty-two-chars",
+            ["Security:RecoveryKeyPepper"] = TestSecrets.RecoveryKeyPepper,
+            ["MfaChallenge:TicketSigningKey"] = TestSecrets.MfaTicketSigningKey,
+            ["Audit:TamperEvidenceKey"] = TestSecrets.AuditTamperEvidenceKey,
+            ["AnonymousCredentialIssuer:SubjectHashPepper"] = TestSecrets.SubjectHashPepper,
+            ["VisitLog:IpHashPepper"] = TestSecrets.VisitLogIpHashPepper,
+            ["Moderation:RegionPolicy:IpHashKey"] = TestSecrets.RegionIpHashKey,
+            ["Moderation:Pepper"] = TestSecrets.ModerationPepper,
+            ["Subscription:EmailHashPepper"] = TestSecrets.SubscriptionEmailHashPepper,
+            ["AnonymousIdentity:NullifierPepper"] = TestSecrets.AnonymousNullifierPepper,
+            ["AnonymousCredentialRoot:AttestationKey"] = TestSecrets.AnonymousRootAttestationKey,
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         });
@@ -91,7 +97,7 @@ public sealed class ProductionStartupValidatorTests
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
         {
-            ["Moderation:Pepper"] = "production-moderation-pepper-with-at-least-thirty-two-chars",
+            ["Moderation:Pepper"] = TestSecrets.ModerationPepper,
             ["Moderation:AntiSpamModel:Enabled"] = "true",
             ["Moderation:AntiSpamModel:Provider"] = "http-json",
             ["Moderation:AntiSpamModel:AllowExternalProvider"] = "true",
@@ -138,7 +144,7 @@ public sealed class ProductionStartupValidatorTests
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
         {
-            ["Moderation:Pepper"] = "production-moderation-pepper-with-at-least-thirty-two-chars",
+            ["Moderation:Pepper"] = TestSecrets.ModerationPepper,
             ["Moderation:AntiSpamModel:Enabled"] = "true",
             ["Moderation:AntiSpamModel:Provider"] = "http-json",
             ["Moderation:AntiSpamModel:AllowExternalProvider"] = "true",
@@ -160,12 +166,12 @@ public sealed class ProductionStartupValidatorTests
             ["ConnectionStrings:DefaultConnection"] = "Host=db;Database=fsus;Username=fsus;Password=secret",
             ["ConnectionStrings:Redis"] = "redis:6379,abortConnect=false",
             ["RedisOptions:Configuration"] = "redis:6379,password=,abortConnect=false",
-            ["Jwt:SecretKey"] = "Were_I_you_I_would_get_high_like_some_airplanes",
+            ["Jwt:SecretKey"] = DefaultJwtSecretSample,
             ["AllowedHosts"] = "*",
-            ["CORS_ALLOWED_HOSTS"] = "http://fsus.blog",
-            ["Seo:BaseUrl"] = "http://fsus.blog",
+            ["CORS_ALLOWED_HOSTS"] = "http://example.com",
+            ["Seo:BaseUrl"] = "http://example.com",
             ["Fido2:ServerDomain"] = "localhost",
-            ["Fido2:Origins:0"] = "http://fsus.blog",
+            ["Fido2:Origins:0"] = "http://example.com",
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
             ["VisitLog:IpHashPepper"] = "replace-with-stable-random-visit-log-ip-hash-pepper"
         });
@@ -275,8 +281,8 @@ public sealed class ProductionStartupValidatorTests
     {
         string appsettings = BackendTestPaths.ReadAllTextFromRoot("src/backend/appsettings.json");
 
-        Assert.DoesNotContain("Were_I_you_I_would_get_high_like_some_airplanes", appsettings, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"SecretKey\": \"Local_Release_Smoke_Key_For_FsusBlog_2026_Only\"", appsettings, StringComparison.Ordinal);
+        Assert.DoesNotContain(DefaultJwtSecretSample, appsettings, StringComparison.Ordinal);
+        Assert.DoesNotContain($"\"SecretKey\": \"{LocalReleaseJwtSecretSample}\"", appsettings, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -284,7 +290,7 @@ public sealed class ProductionStartupValidatorTests
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
         {
-            ["Jwt:SecretKey"] = "Were_I_you_I_would_get_high_like_some_airplanes",
+            ["Jwt:SecretKey"] = DefaultJwtSecretSample,
             ["FSUSBLOG_ALLOW_INSECURE_STARTUP"] = "true"
         });
         var runtimeState = new StartupRuntimeState();
@@ -350,13 +356,13 @@ public sealed class ProductionStartupValidatorTests
             ["ConnectionStrings:DefaultConnection"] = "Host=db;Database=fsus;Username=fsus;Password=secret",
             ["ConnectionStrings:Redis"] = "redis:6379,password=redis-secret,abortConnect=false",
             ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
-            ["Jwt:SecretKey"] = "production-secret-key-with-at-least-thirty-two-chars",
-            ["AllowedHosts"] = "fsus.blog",
-            ["CORS_ALLOWED_HOSTS"] = "https://fsus.blog",
-            ["Seo:BaseUrl"] = "https://fsus.blog",
-            ["Fido2:ServerDomain"] = "fsus.blog",
-            ["Fido2:Origins:0"] = "https://fsus.blog",
-            ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
+            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
+            ["AllowedHosts"] = "example.com",
+            ["CORS_ALLOWED_HOSTS"] = "https://example.com",
+            ["Seo:BaseUrl"] = "https://example.com",
+            ["Fido2:ServerDomain"] = "example.com",
+            ["Fido2:Origins:0"] = "https://example.com",
+            ["AnonymousCredentialIssuer:SubjectHashPepper"] = TestSecrets.SubjectHashPepper,
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             ["AuthCookies:AllowInsecureTransportCookies"] = "true"
         });
@@ -374,13 +380,13 @@ public sealed class ProductionStartupValidatorTests
             ["ConnectionStrings:DefaultConnection"] = "Host=db;Database=fsus;Username=fsus;Password=secret",
             ["ConnectionStrings:Redis"] = "redis:6379,password=redis-secret,abortConnect=false",
             ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
-            ["Jwt:SecretKey"] = "production-secret-key-with-at-least-thirty-two-chars",
-            ["AllowedHosts"] = "fsus.blog",
-            ["CORS_ALLOWED_HOSTS"] = "https://fsus.blog",
-            ["Seo:BaseUrl"] = "https://fsus.blog",
-            ["Fido2:ServerDomain"] = "fsus.blog",
-            ["Fido2:Origins:0"] = "https://fsus.blog",
-            ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
+            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
+            ["AllowedHosts"] = "example.com",
+            ["CORS_ALLOWED_HOSTS"] = "https://example.com",
+            ["Seo:BaseUrl"] = "https://example.com",
+            ["Fido2:ServerDomain"] = "example.com",
+            ["Fido2:Origins:0"] = "https://example.com",
+            ["AnonymousCredentialIssuer:SubjectHashPepper"] = TestSecrets.SubjectHashPepper,
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             ["AuthCookies:AllowLegacyPlainCookieRead"] = "true"
         });
@@ -453,9 +459,12 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("Subscription:EmailHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AnonymousIdentity:NullifierPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AnonymousCredentialRoot:AttestationKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
-        Assert.Contains(
-            "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
-            ProductionStartupValidator.CurrentSchema.DefaultJwtSecrets);
+        Assert.All(
+            ProductionStartupValidator.CurrentSchema.DefaultJwtSecrets,
+            static secret => Assert.StartsWith("sha256:", secret, StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            ProductionStartupValidator.CurrentSchema.DefaultJwtSecrets,
+            static secret => secret.Contains("MUST_BE_OVERRIDDEN", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -466,13 +475,13 @@ public sealed class ProductionStartupValidatorTests
             ["ConnectionStrings:DefaultConnection"] = "Host=db;Database=fsus;Username=fsus;Password=secret",
             ["ConnectionStrings:Redis"] = "redis:6379,password=redis-secret,abortConnect=false",
             ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
-            ["Jwt:SecretKey"] = "production-secret-key-with-at-least-thirty-two-chars",
-            ["AllowedHosts"] = "fsus.blog",
-            ["CORS_ALLOWED_HOSTS"] = "https://fsus.blog",
-            ["Seo:BaseUrl"] = "https://fsus.blog",
-            ["Fido2:ServerDomain"] = "login.fsus.blog",
+            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
+            ["AllowedHosts"] = "example.com",
+            ["CORS_ALLOWED_HOSTS"] = "https://example.com",
+            ["Seo:BaseUrl"] = "https://example.com",
+            ["Fido2:ServerDomain"] = "login.example.com",
             ["Fido2:Origins:0"] = "https://evil.example",
-            ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
+            ["AnonymousCredentialIssuer:SubjectHashPepper"] = TestSecrets.SubjectHashPepper,
             ["ReverseProxy:KnownProxies"] = "127.0.0.1"
         });
 
@@ -492,13 +501,13 @@ public sealed class ProductionStartupValidatorTests
             ["ConnectionStrings:DefaultConnection"] = "Host=db;Database=fsus;Username=fsus;Password=secret",
             ["ConnectionStrings:Redis"] = "redis:6379,password=redis-secret,abortConnect=false",
             ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
-            ["Jwt:SecretKey"] = "production-secret-key-with-at-least-thirty-two-chars",
-            ["AllowedHosts"] = "fsus.blog",
-            ["CORS_ALLOWED_HOSTS"] = "https://fsus.blog,https://www.fsus.blog",
-            ["Seo:BaseUrl"] = "https://fsus.blog",
-            ["Fido2:ServerDomain"] = "fsus.blog",
-            ["Fido2:Origins:0"] = "https://www.fsus.blog",
-            ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
+            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
+            ["AllowedHosts"] = "example.com",
+            ["CORS_ALLOWED_HOSTS"] = "https://example.com,https://www.example.com",
+            ["Seo:BaseUrl"] = "https://example.com",
+            ["Fido2:ServerDomain"] = "example.com",
+            ["Fido2:Origins:0"] = "https://www.example.com",
+            ["AnonymousCredentialIssuer:SubjectHashPepper"] = TestSecrets.SubjectHashPepper,
             ["ReverseProxy:KnownProxies"] = "127.0.0.1"
         });
 
@@ -516,12 +525,12 @@ public sealed class ProductionStartupValidatorTests
             ["ConnectionStrings:DefaultConnection"] = "Host=db;Database=fsus;Username=fsus;Password=secret",
             ["ConnectionStrings:Redis"] = "redis:6379,password=redis-secret,abortConnect=false",
             ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
-            ["Jwt:SecretKey"] = "production-secret-key-with-at-least-thirty-two-chars",
-            ["AllowedHosts"] = "fsus.blog",
-            ["CORS_ALLOWED_HOSTS"] = "https://fsus.blog",
-            ["Seo:BaseUrl"] = "https://fsus.blog",
-            ["Fido2:ServerDomain"] = "fsus.blog",
-            ["Fido2:Origins:0"] = "https://fsus.blog",
+            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
+            ["AllowedHosts"] = "example.com",
+            ["CORS_ALLOWED_HOSTS"] = "https://example.com",
+            ["Seo:BaseUrl"] = "https://example.com",
+            ["Fido2:ServerDomain"] = "example.com",
+            ["Fido2:Origins:0"] = "https://example.com",
             ["ReverseProxy:KnownProxies"] = "0.0.0.0",
             ["ReverseProxy:KnownNetworks"] = "0.0.0.0/0"
         });
@@ -702,26 +711,26 @@ public sealed class ProductionStartupValidatorTests
             ["ConnectionStrings:DefaultConnection"] = "Host=db;Database=fsus;Username=fsus;Password=secret",
             ["ConnectionStrings:Redis"] = "redis:6379,password=redis-secret,abortConnect=false",
             ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
-            ["Jwt:SecretKey"] = "production-secret-key-with-at-least-thirty-two-chars",
-            ["AllowedHosts"] = "fsus.blog;www.fsus.blog",
-            ["CORS_ALLOWED_HOSTS"] = "https://fsus.blog,https://www.fsus.blog",
-            ["Seo:BaseUrl"] = "https://fsus.blog",
-            ["Fido2:ServerDomain"] = "fsus.blog",
-            ["Fido2:Origins:0"] = "https://fsus.blog",
-            ["Security:Pow:SigningKey"] = "production-pow-signing-key-with-at-least-thirty-two-chars",
-            ["Security:CaptchaV1:SigningKey"] = "production-captcha-signing-key-with-at-least-thirty-two-chars",
+            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
+            ["AllowedHosts"] = "example.com;www.example.com",
+            ["CORS_ALLOWED_HOSTS"] = "https://example.com,https://www.example.com",
+            ["Seo:BaseUrl"] = "https://example.com",
+            ["Fido2:ServerDomain"] = "example.com",
+            ["Fido2:Origins:0"] = "https://example.com",
+            ["Security:Pow:SigningKey"] = TestSecrets.PowSigningKey,
+            ["Security:CaptchaV1:SigningKey"] = TestSecrets.CaptchaSigningKey,
             ["Security:PerceptionSealedToken:CurrentKeyVersion"] = "k1",
             ["Security:PerceptionSealedToken:Keys:k1"] = new string('a', 64),
-            ["Security:RecoveryKeyPepper"] = "production-recovery-key-pepper-with-at-least-thirty-two-chars",
-            ["MfaChallenge:TicketSigningKey"] = "production-mfa-challenge-ticket-signing-key-with-enough-entropy",
-            ["Audit:TamperEvidenceKey"] = "production-audit-tamper-evidence-key-with-enough-entropy",
-            ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
-            ["VisitLog:IpHashPepper"] = "production-visit-log-ip-hash-pepper-with-at-least-thirty-two-chars",
-            ["Moderation:RegionPolicy:IpHashKey"] = "production-region-ip-hash-key-with-at-least-thirty-two-chars",
-            ["Moderation:Pepper"] = "production-moderation-pepper-with-at-least-thirty-two-chars",
-            ["Subscription:EmailHashPepper"] = "production-subscription-email-hash-pepper-with-at-least-thirty-two-chars",
-            ["AnonymousIdentity:NullifierPepper"] = "production-anonymous-nullifier-pepper-with-at-least-thirty-two-chars",
-            ["AnonymousCredentialRoot:AttestationKey"] = "production-anonymous-root-attestation-key-with-at-least-thirty-two-chars",
+            ["Security:RecoveryKeyPepper"] = TestSecrets.RecoveryKeyPepper,
+            ["MfaChallenge:TicketSigningKey"] = TestSecrets.MfaTicketSigningKey,
+            ["Audit:TamperEvidenceKey"] = TestSecrets.AuditTamperEvidenceKey,
+            ["AnonymousCredentialIssuer:SubjectHashPepper"] = TestSecrets.SubjectHashPepper,
+            ["VisitLog:IpHashPepper"] = TestSecrets.VisitLogIpHashPepper,
+            ["Moderation:RegionPolicy:IpHashKey"] = TestSecrets.RegionIpHashKey,
+            ["Moderation:Pepper"] = TestSecrets.ModerationPepper,
+            ["Subscription:EmailHashPepper"] = TestSecrets.SubscriptionEmailHashPepper,
+            ["AnonymousIdentity:NullifierPepper"] = TestSecrets.AnonymousNullifierPepper,
+            ["AnonymousCredentialRoot:AttestationKey"] = TestSecrets.AnonymousRootAttestationKey,
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         };

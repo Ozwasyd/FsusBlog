@@ -121,14 +121,30 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
             typeof(FsusBlog.Server.Entities.ConversationParticipantState)
         ]);
 
-        await db.Ado.ExecuteCommandAsync("""
+        int baseId = Random.Shared.Next(100_000, int.MaxValue - 10_000);
+        int userId = baseId;
+        int passkeyId = baseId + 1;
+        int recoveryKeyId = baseId + 2;
+        int credentialId = baseId + 3;
+        int auditId = baseId + 4;
+        int rootCommentId = baseId + 100;
+        int replyCommentId = baseId + 101;
+        int nullifierId = baseId + 200;
+        int regionComplianceId = baseId + 300;
+        int moderationSignalId = baseId + 400;
+        int conversationId = baseId + 500;
+        int messageId = baseId + 501;
+        string suffix = Guid.NewGuid().ToString("N")[..12];
+        string emptyMetadataJson = "{}";
+
+        await db.Ado.ExecuteCommandAsync($"""
             INSERT INTO sys_user(
                 id, public_handle, identity_kind, passkey_enabled, passkey_user_handle,
                 recovery_enabled, privacy_initialized_at, anonymous_credential_level,
                 anonymous_credential_status, status, createtime, mfaenabled, riskflags
             )
             VALUES (
-                42, 'legacy-admin', 'anonymous_account', true, 'legacy-passkey-handle',
+                {userId}, 'cold-start-{suffix}', 'anonymous_account', true, 'cold-start-passkey-{suffix}',
                 true, TIMESTAMP '2024-01-01 00:00:00', 'basic',
                 'active', 0, TIMESTAMP '2024-01-01 00:00:00', true, 0
             );
@@ -138,8 +154,8 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
                 createdat, idleexpiresat, absoluteexpiresat, mfaverified, rememberme
             )
             VALUES (
-                'legacy-session', 42, 'legacy-refresh-hash', 'legacy-device',
-                '127.0.0.1', 'legacy-agent', TIMESTAMP '2024-01-01 00:00:00',
+                'cold-start-session-{suffix}', {userId}, 'cold-start-refresh-{suffix}', 'cold-start-device-{suffix}',
+                '127.0.0.1', 'cold-start-agent', TIMESTAMP '2024-01-01 00:00:00',
                 TIMESTAMP '2024-01-08 00:00:00', TIMESTAMP '2024-02-01 00:00:00',
                 true, true
             );
@@ -149,8 +165,8 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
                 aaguid, backupeligible, backupstate, createdat
             )
             VALUES (
-                7, 42, 'legacy-credential', 'legacy-public-key', 5,
-                'legacy-device', '00000000-0000-0000-0000-000000000000',
+                {passkeyId}, {userId}, 'cold-start-credential-{suffix}', 'cold-start-public-key-{suffix}', 5,
+                'cold-start-device-{suffix}', '00000000-0000-0000-0000-000000000000',
                 true, true, TIMESTAMP '2024-01-01 00:00:00'
             );
 
@@ -158,7 +174,7 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
                 id, account_id, key_hash, key_version, created_at, used_at, revoked_at
             )
             VALUES (
-                11, 42, 'legacy-recovery-key-hash', 1,
+                {recoveryKeyId}, {userId}, 'cold-start-recovery-key-hash-{suffix}', 1,
                 TIMESTAMP '2024-01-01 00:00:00', NULL, NULL
             );
 
@@ -167,16 +183,16 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
                 status, issued_at_utc, revoked_at_utc, metadata_json
             )
             VALUES (
-                12, 42, 'legacy-account-binding', 'account_bound', 'basic',
-                'active', TIMESTAMP '2024-01-01 00:00:00', NULL, '{}'
+                {credentialId}, {userId}, 'cold-start-account-binding-{suffix}', 'account_bound', 'basic',
+                'active', TIMESTAMP '2024-01-01 00:00:00', NULL, '{emptyMetadataJson}'
             );
 
             INSERT INTO anonymous_credential_issuance_audit(
                 id, subject_hash, epoch, status, created_at_utc, trace_id
             )
             VALUES (
-                13, '1111111111111111111111111111111111111111111111111111111111111111',
-                20260620, 'issued', TIMESTAMP '2024-01-01 00:00:00', 'legacy-trace'
+                {auditId}, '1111111111111111111111111111111111111111111111111111111111111111',
+                20260620, 'issued', TIMESTAMP '2024-01-01 00:00:00', 'cold-start-trace-{suffix}'
             );
 
             INSERT INTO comment(
@@ -187,12 +203,12 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
             )
             VALUES
                 (
-                    1001, 9, 'legacy root', TIMESTAMP '2024-01-02 00:00:00', 42, NULL, NULL, NULL, NULL, 0, false, 1,
-                    'public', 'legacy-admin', 'legacy admin', 'en', 'legacy-subject-root', 'basic', 'legacy', 'known'
+                    {rootCommentId}, 9, 'cold-start root', TIMESTAMP '2024-01-02 00:00:00', {userId}, NULL, NULL, NULL, NULL, 0, false, 1,
+                    'public', 'cold-start-{suffix}', 'cold start admin', 'en', 'cold-start-subject-root-{suffix}', 'basic', 'cold-start', 'known'
                 ),
                 (
-                    1002, 9, 'legacy reply', TIMESTAMP '2024-01-02 00:01:00', 42, 1001, 1001, 42, 1001, 1, false, 1,
-                    'public', 'legacy-admin', 'legacy admin', 'en', 'legacy-subject-reply', 'basic', 'legacy', 'known'
+                    {replyCommentId}, 9, 'cold-start reply', TIMESTAMP '2024-01-02 00:01:00', {userId}, {rootCommentId}, {rootCommentId}, {userId}, {rootCommentId}, 1, false, 1,
+                    'public', 'cold-start-{suffix}', 'cold start admin', 'en', 'cold-start-subject-reply-{suffix}', 'basic', 'cold-start', 'known'
                 );
 
             INSERT INTO comment_anonymous_nullifier(
@@ -200,7 +216,7 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
                 blocked, block_reason, created_at_utc, updated_at_utc
             )
             VALUES (
-                14, 'legacy-nullifier', 'article:9', 2, 1001, 1002,
+                {nullifierId}, 'cold-start-nullifier-{suffix}', 'article:9', 2, {rootCommentId}, {replyCommentId},
                 false, NULL, TIMESTAMP '2024-01-02 00:00:00', TIMESTAMP '2024-01-02 00:01:00'
             );
 
@@ -210,7 +226,7 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
                 blocked_regions, risk_labels, created_at_utc, updated_at_utc
             )
             VALUES (
-                2001, 1001, 'UNKNOWN', 0, 'fixture', 'legacy', true, false, false,
+                {regionComplianceId}, {rootCommentId}, 'UNKNOWN', 0, 'fixture', 'cold-start', true, false, false,
                 '', '', TIMESTAMP '2024-01-02 00:00:00', TIMESTAMP '2024-01-02 00:00:00'
             );
 
@@ -219,7 +235,7 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
                 confidence, needs_second_round, latency_ms, status, created_at_utc
             )
             VALUES (
-                3001, 1001, 'fixture', 'legacy', 'v1', 'ok', 'low',
+                {moderationSignalId}, {rootCommentId}, 'fixture', 'cold-start', 'v1', 'ok', 'low',
                 0.1, false, 3, 'ok', TIMESTAMP '2024-01-02 00:00:00'
             );
 
@@ -228,7 +244,7 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
                 createdbyaccountid, createdat, updatedat, lastmessageat
             )
             VALUES (
-                4001, 'legacy conversation', 42, 0, false, 0, 42,
+                {conversationId}, 'cold-start conversation', {userId}, 0, false, 0, {userId},
                 TIMESTAMP '2024-01-03 00:00:00',
                 TIMESTAMP '2024-01-03 00:00:00',
                 TIMESTAMP '2024-01-03 00:00:00'
@@ -238,14 +254,14 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
                 id, conversationid, sendertype, senderaccountid, body, isinternalnote, createdat
             )
             VALUES (
-                4002, 4001, 0, 42, 'legacy message', false,
+                {messageId}, {conversationId}, 0, {userId}, 'cold-start message', false,
                 TIMESTAMP '2024-01-03 00:01:00'
             );
 
             INSERT INTO msg_participant_state(
                 conversationid, accountid, unreadcount, muted, updatedat
             )
-            VALUES (4001, 42, 1, false, TIMESTAMP '2024-01-03 00:02:00');
+            VALUES ({conversationId}, {userId}, 1, false, TIMESTAMP '2024-01-03 00:02:00');
             """);
     }
 

@@ -29,6 +29,7 @@ import { readAedsResponse } from '../../support/aeds-envelope.mjs'
 const createdArticleTitle = `Acceptance Article ${Date.now()}`
 const articleCoverFixturePath = path.resolve(process.cwd(), '../../tests/frontend/fixtures/assets/article-cover-16x9.png')
 const acceptanceBackendUrl = process.env.FSUSBLOG_ACCEPTANCE_BACKEND_URL || 'http://127.0.0.1:7568'
+const acceptancePgContainer = process.env.FSUSBLOG_PG_CONTAINER || ''
 const execFileAsync = promisify(execFile)
 let adminStorageStatePromise: Promise<Awaited<ReturnType<typeof captureStorageState>>> | null = null
 
@@ -37,7 +38,21 @@ const cookieHeaderFromStorageState = (state: StorageState): string =>
 
 const serverDraftPath = (draftKey: string): string => `/api/author/drafts/${encodeURIComponent(draftKey)}`
 
+const assertLocalAcceptanceBackend = (): void => {
+  const url = new URL(acceptanceBackendUrl)
+  if (!['localhost', '127.0.0.1', '::1'].includes(url.hostname)) {
+    throw new Error('admin acceptance cleanup may only replay cookies against a local backend')
+  }
+}
+
+const assertLocalAcceptancePgContainer = (): void => {
+  if (!/^fsusblog-(?:dev|test|ci)(?:[-_.a-zA-Z0-9]*)$/.test(acceptancePgContainer)) {
+    throw new Error('FSUSBLOG_PG_CONTAINER must name a dev/test/ci fixture container for acceptance reset SQL')
+  }
+}
+
 const discardServerDraft = async (state: StorageState, draftKey: string): Promise<void> => {
+  assertLocalAcceptanceBackend()
   await fetch(`${acceptanceBackendUrl}${serverDraftPath(draftKey)}`, {
     method: 'DELETE',
     headers: {
@@ -53,9 +68,10 @@ const resetLocalAcceptanceUserStatus = async (username: string): Promise<void> =
   }
 
   try {
+    assertLocalAcceptancePgContainer()
     await execFileAsync('docker', [
       'exec',
-      'fsusblog-postgres',
+      acceptancePgContainer,
       'psql',
       '-U',
       'fsusblog',

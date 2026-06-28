@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { authBinary, loginWithPow, requestTimeoutMs as defaultRequestTimeoutMs } from '../support/auth-helpers.mjs'
+import { authBinary, loginWithFixtureSessionBypass, requestTimeoutMs as defaultRequestTimeoutMs } from '../support/auth-helpers.mjs'
 import { readAedsResponse } from '../support/aeds-envelope.mjs'
 import { fetchWithTimeout, parseTimeoutMs, probeReachable } from '../support/http.mjs'
 
@@ -17,13 +17,13 @@ const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568'
 const outputPath = process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE
   || path.join(clientRoot, '.playwright-fixtures.aeds')
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, defaultRequestTimeoutMs)
-const pgContainer = process.env.FSUSBLOG_PG_CONTAINER || 'fsusblog-postgres'
+const pgContainer = process.env.FSUSBLOG_PG_CONTAINER || ''
 const pgUser = process.env.FSUSBLOG_PG_USER || 'fsusblog'
 const pgDb = process.env.FSUSBLOG_PG_DB || 'fsusblog'
 const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || 'fsusblog-redis'
 const testSession = process.env.FSUSBLOG_TEST_SESSION || ''
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin'
-const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdminPass123!'
+const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? ''
 const deviceFingerprint = process.env.FSUSBLOG_DEVICE_FP || 'playwright-fixtures-node'
 const seedCategoryName = process.env.FSUSBLOG_PLAYWRIGHT_CATEGORY_NAME || 'Acceptance Category'
 const seedTagName = process.env.FSUSBLOG_PLAYWRIGHT_TAG_NAME || 'AcceptanceTag'
@@ -58,6 +58,12 @@ const seedPublicHomeArticles = [
   }
 ]
 const publicArticlePageSize = 5
+
+function assertSafeFixtureContainer(container, label) {
+  if (!/^fsusblog-(?:dev|test|ci)(?:[-_.a-zA-Z0-9]*)$/.test(container)) {
+    throw new Error(`${label} must name a dev/test/ci fixture container.`)
+  }
+}
 
 function escapeXml(value) {
   return String(value ?? '')
@@ -163,7 +169,7 @@ async function fetchPublicHotArticles(size = 5) {
 }
 
 async function loginAdminSession() {
-  const session = await loginWithPow(adminName, adminPassword, false, deviceFingerprint, requestTimeoutMs)
+  const session = await loginWithFixtureSessionBypass(adminName, adminPassword, false, deviceFingerprint, requestTimeoutMs)
   return session.cookieHeader
 }
 
@@ -277,6 +283,7 @@ function escapeSqlLiteral(value) {
 }
 
 function runPsql(sql) {
+  assertSafeFixtureContainer(pgContainer, 'FSUSBLOG_PG_CONTAINER')
   const schema = testSession ? `fsus_e2e_${testSession.replaceAll('-', '_')}` : ''
   const scopedSql = schema ? `set search_path to "${schema}", public;\n${sql}` : sql
   const result = spawnSync('docker', [

@@ -150,8 +150,8 @@ public class NotificationStreamBoundaryTests
     {
         NotificationStreamHandshakeService service = CreateHandshakeService(
             new TestWebHostEnvironment { EnvironmentName = Environments.Production },
-            ["Seo:BaseUrl=https://fsus.blog", "CORS_ALLOWED_HOSTS=https://fsus.blog", "Fido2:Origins:0=https://fsus.blog"]);
-        DefaultHttpContext context = CreateHandshakeContext("https://evil.example", "fsus.blog");
+            ["Seo:BaseUrl=https://example.com", "CORS_ALLOWED_HOSTS=https://example.com", "Fido2:Origins:0=https://example.com"]);
+        DefaultHttpContext context = CreateHandshakeContext("https://evil.example", "example.com");
 
         NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None, requireWebSocket);
 
@@ -167,8 +167,8 @@ public class NotificationStreamBoundaryTests
     {
         NotificationStreamHandshakeService service = CreateHandshakeService(
             new TestWebHostEnvironment { EnvironmentName = Environments.Production },
-            ["Seo:BaseUrl=https://fsus.blog", "CORS_ALLOWED_HOSTS=https://fsus.blog", "Fido2:Origins:0=https://fsus.blog"]);
-        DefaultHttpContext context = CreateHandshakeContext("https://fsus.blog", "fsus.blog");
+            ["Seo:BaseUrl=https://example.com", "CORS_ALLOWED_HOSTS=https://example.com", "Fido2:Origins:0=https://example.com"]);
+        DefaultHttpContext context = CreateHandshakeContext("https://example.com", "example.com");
 
         NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None, requireWebSocket);
 
@@ -182,9 +182,9 @@ public class NotificationStreamBoundaryTests
         var admission = new CapturingAdmissionService();
         NotificationStreamHandshakeService service = CreateHandshakeService(
             new TestWebHostEnvironment { EnvironmentName = Environments.Production },
-            ["Seo:BaseUrl=https://fsus.blog", "CORS_ALLOWED_HOSTS=https://fsus.blog", "Fido2:Origins:0=https://fsus.blog"],
+            ["Seo:BaseUrl=https://example.com", "CORS_ALLOWED_HOSTS=https://example.com", "Fido2:Origins:0=https://example.com"],
             admissionService: admission);
-        DefaultHttpContext context = CreateHandshakeContext("https://fsus.blog", "fsus.blog");
+        DefaultHttpContext context = CreateHandshakeContext("https://example.com", "example.com");
         context.User = new ClaimsPrincipal(new ClaimsIdentity(
             [
                 new Claim(ClaimTypes.NameIdentifier, "42"),
@@ -239,10 +239,10 @@ public class NotificationStreamBoundaryTests
         var proof = new CapturingProofService();
         NotificationStreamHandshakeService service = CreateHandshakeService(
             new TestWebHostEnvironment { EnvironmentName = Environments.Production },
-            ["Seo:BaseUrl=https://fsus.blog", "CORS_ALLOWED_HOSTS=https://fsus.blog", "Fido2:Origins:0=https://fsus.blog"],
+            ["Seo:BaseUrl=https://example.com", "CORS_ALLOWED_HOSTS=https://example.com", "Fido2:Origins:0=https://example.com"],
             riskScore: 50,
             proof);
-        DefaultHttpContext context = CreateAnonymousHandshakeContext("https://fsus.blog", "fsus.blog");
+        DefaultHttpContext context = CreateAnonymousHandshakeContext("https://example.com", "example.com");
         AddRiskControlHeaders(context);
 
         NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None, requireWebSocket: false);
@@ -257,10 +257,10 @@ public class NotificationStreamBoundaryTests
         var proof = new CapturingProofService();
         NotificationStreamHandshakeService service = CreateHandshakeService(
             new TestWebHostEnvironment { EnvironmentName = Environments.Production },
-            ["Seo:BaseUrl=https://fsus.blog", "CORS_ALLOWED_HOSTS=https://fsus.blog", "Fido2:Origins:0=https://fsus.blog"],
+            ["Seo:BaseUrl=https://example.com", "CORS_ALLOWED_HOSTS=https://example.com", "Fido2:Origins:0=https://example.com"],
             riskScore: 50,
             proof);
-        DefaultHttpContext context = CreateAnonymousHandshakeContext("https://fsus.blog", "fsus.blog");
+        DefaultHttpContext context = CreateAnonymousHandshakeContext("https://example.com", "example.com");
         AddRiskControlQuery(context);
 
         NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None);
@@ -282,11 +282,11 @@ public class NotificationStreamBoundaryTests
         var proof = new CapturingProofService();
         NotificationStreamHandshakeService service = CreateHandshakeService(
             new TestWebHostEnvironment { EnvironmentName = Environments.Production },
-            ["Seo:BaseUrl=https://fsus.blog", "CORS_ALLOWED_HOSTS=https://fsus.blog", "Fido2:Origins:0=https://fsus.blog"],
+            ["Seo:BaseUrl=https://example.com", "CORS_ALLOWED_HOSTS=https://example.com", "Fido2:Origins:0=https://example.com"],
             riskScore: 50,
             proof,
             powService);
-        DefaultHttpContext context = CreateAnonymousHandshakeContext("https://fsus.blog", "fsus.blog");
+        DefaultHttpContext context = CreateAnonymousHandshakeContext("https://example.com", "example.com");
         AddLegacyPowQuery(context);
 
         NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None);
@@ -308,9 +308,9 @@ public class NotificationStreamBoundaryTests
     {
         NotificationStreamHandshakeService service = CreateHandshakeService(
             new TestWebHostEnvironment { EnvironmentName = Environments.Production },
-            ["Seo:BaseUrl=https://fsus.blog", "CORS_ALLOWED_HOSTS=https://fsus.blog", "Fido2:Origins:0=https://fsus.blog"],
+            ["Seo:BaseUrl=https://example.com", "CORS_ALLOWED_HOSTS=https://example.com", "Fido2:Origins:0=https://example.com"],
             riskScore: 50);
-        DefaultHttpContext context = CreateAnonymousHandshakeContext("https://fsus.blog", "fsus.blog");
+        DefaultHttpContext context = CreateAnonymousHandshakeContext("https://example.com", "example.com");
 
         NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None, requireWebSocket: false);
 

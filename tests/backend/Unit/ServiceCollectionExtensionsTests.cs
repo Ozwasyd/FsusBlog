@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -25,7 +26,7 @@ public sealed class ServiceCollectionExtensionsTests
                 {
                     ["ASPNETCORE_ENVIRONMENT"] = "Development",
                     ["ConnectionStrings:Redis"] = "localhost:6379",
-                    ["Jwt:SecretKey"] = "unit-test-secret-key-with-at-least-32-chars",
+                    ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
                     ["Jwt:Issuer"] = "FsusBlog.Tests",
                     ["Jwt:Audience"] = "FsusBlog.Tests",
                     ["DataProtection:KeyRingPath"] = keyRingPath,

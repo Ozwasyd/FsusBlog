@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-import { authBinary, loginWithPow } from '../../support/auth-helpers.mjs';
+import { authBinary, loginWithFixtureSessionBypass } from '../../support/auth-helpers.mjs';
 import { fetchWithTimeout, probeReachable, parseTimeoutMs } from '../../support/http.mjs';
 
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568';
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
-const userPassword = process.env.FSUSBLOG_USER_PASSWORD || 'BinaryUserPass123!';
+const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? '';
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000);
 const baseDeviceFingerprint = process.env.FSUSBLOG_DEVICE_FP || 'auth-session-smoke-node';
 
@@ -29,8 +29,8 @@ async function main() {
   const standardFp = `${baseDeviceFingerprint}-standard`;
   const rememberFp = `${baseDeviceFingerprint}-remember`;
 
-  const standard = await loginWithPow(userName, userPassword, false, standardFp, requestTimeoutMs);
-  const remembered = await loginWithPow(userName, userPassword, true, rememberFp, requestTimeoutMs);
+  const standard = await loginWithFixtureSessionBypass(userName, userPassword, false, standardFp, requestTimeoutMs);
+  const remembered = await loginWithFixtureSessionBypass(userName, userPassword, true, rememberFp, requestTimeoutMs);
 
   const sessionsResult = await callBinary('/api/Auth/sessions', remembered.cookieHeader, rememberFp);
   assert(sessionsResult.response.ok, `list sessions failed: ${sessionsResult.response.status}`);
