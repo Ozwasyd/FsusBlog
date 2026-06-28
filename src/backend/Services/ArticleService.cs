@@ -825,21 +825,36 @@ public class ArticleService(
 
     private sealed record ArticleUpdateState(int CategoryId, List<int> TagIds, string RowVersion);
 
+    private sealed record ArticleMutationState(List<int> CategoryIds, List<int> TagIds, string RowVersion);
+
     public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         CancellationToken ct = ResolveCancellationToken(cancellationToken);
         ct.ThrowIfCancellationRequested();
-        var state = await LoadArticleAotStateAsync(id);
+        ArticleMutationState? state = await LoadArticleMutationStateAsync(id, isDeleted: false);
+        if (state is null)
+        {
+            return false;
+        }
+
         DateTime now = DateTime.UtcNow;
         bool success = false;
         var result = await _db.Ado.UseTranAsync(async () =>
         {
-            int updated = await _db.Updateable<Article>()
-                .SetColumns(it => it.IsDeleted == true)
-                .SetColumns(it => it.Status == ArticleStatus.Deleted)
-                .SetColumns(it => it.DeletedAt == now)
-                .Where(it => it.Id == id && !it.IsDeleted)
-                .ExecuteCommandAsync();
+            int updated = await _db.Ado.ExecuteCommandAsync(
+                """
+                UPDATE article
+                SET isdeleted = true,
+                    status = @Status,
+                    deleted_at = CAST(@DeletedAt AS timestamp)
+                WHERE id = @ArticleId
+                  AND isdeleted = false
+                  AND xmin::text = @RowVersion;
+                """,
+                new SugarParameter("@ArticleId", id),
+                new SugarParameter("@Status", (int)ArticleStatus.Deleted),
+                new SugarParameter("@DeletedAt", now),
+                new SugarParameter("@RowVersion", state.RowVersion));
             if (updated > 0)
             {
                 success = true;
@@ -852,7 +867,7 @@ public class ArticleService(
         {
             await InvalidateCache(id);
             ct.ThrowIfCancellationRequested();
-            await InvalidatePublicAotWithCurrentStateAsync(id, state, "delete");
+            await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "delete");
             ct.ThrowIfCancellationRequested();
             await _mutationSideEffects.AfterDeletedAsync(id);
         }
@@ -863,18 +878,29 @@ public class ArticleService(
     {
         CancellationToken ct = ResolveCancellationToken(cancellationToken);
         ct.ThrowIfCancellationRequested();
-        var state = await LoadArticleAotStateAsync(id);
-        DateTime now = DateTime.UtcNow;
+        ArticleMutationState? state = await LoadArticleMutationStateAsync(id, isDeleted: true);
+        if (state is null)
+        {
+            return false;
+        }
+
         bool success = false;
         var result = await _db.Ado.UseTranAsync(async () =>
         {
-            int updated = await _db.Updateable<Article>()
-                .SetColumns(it => it.IsDeleted == false)
-                .SetColumns(it => it.Status == ArticleStatus.Draft)
-                .SetColumns(it => it.DeletedAt == null)
-                .SetColumns(it => it.PublishedAt == null)
-                .Where(it => it.Id == id && it.IsDeleted)
-                .ExecuteCommandAsync();
+            int updated = await _db.Ado.ExecuteCommandAsync(
+                """
+                UPDATE article
+                SET isdeleted = false,
+                    status = @Status,
+                    deleted_at = NULL,
+                    published_at = NULL
+                WHERE id = @ArticleId
+                  AND isdeleted = true
+                  AND xmin::text = @RowVersion;
+                """,
+                new SugarParameter("@ArticleId", id),
+                new SugarParameter("@Status", (int)ArticleStatus.Draft),
+                new SugarParameter("@RowVersion", state.RowVersion));
             if (updated > 0)
             {
                 success = true;
@@ -887,7 +913,7 @@ public class ArticleService(
         {
             await InvalidateCache(id);
             ct.ThrowIfCancellationRequested();
-            await InvalidatePublicAotWithCurrentStateAsync(id, state, "restore");
+            await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "restore");
             ct.ThrowIfCancellationRequested();
             ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(id);
             ct.ThrowIfCancellationRequested();
@@ -900,28 +926,43 @@ public class ArticleService(
     {
         CancellationToken ct = ResolveCancellationToken(cancellationToken);
         ct.ThrowIfCancellationRequested();
+        ArticleMutationState? state = await LoadArticleMutationStateAsync(id, isDeleted: true);
+        if (state is null) return false;
         var article = await _db.Queryable<Article>().ClearFilter().InSingleAsync(id);
-        if (article == null) return false;
+        if (article == null || !article.IsDeleted) return false;
         ct.ThrowIfCancellationRequested();
         article.Content = await _db.Queryable<ArticleBody>().Where(it => it.ArticleId == id).Select(it => it.MarkdownContent).FirstAsync() ?? string.Empty;
         ct.ThrowIfCancellationRequested();
-        var tagIds = await LoadArticleTagIdsAsync(id);
         var imageUrls = ImageHelper.ExtractIllustrationUrls(article.Content);
 
         var result = await _db.Ado.UseTranAsync(async () => {
+            bool locked = await LockDeletedArticleForMutationAsync(id, state.RowVersion);
+            if (!locked)
+            {
+                return 0;
+            }
+
             await _db.Deleteable<Comment>().Where(c => c.ArticleId == id).ExecuteCommandAsync();
             await _db.Deleteable<ArticleTag>().Where(at => at.ArticleId == id).ExecuteCommandAsync();
             await _db.Deleteable<ArticleBody>().Where(it => it.ArticleId == id).ExecuteCommandAsync();
             await RecordArticleMutationOutboxAsync(id, "permanently-deleted");
-            return await _db.Deleteable<Article>().In(id).ExecuteCommandAsync();
+            return await _db.Ado.ExecuteCommandAsync(
+                """
+                DELETE FROM article
+                WHERE id = @ArticleId
+                  AND isdeleted = true
+                  AND xmin::text = @RowVersion;
+                """,
+                new SugarParameter("@ArticleId", id),
+                new SugarParameter("@RowVersion", state.RowVersion));
         });
 
         ct.ThrowIfCancellationRequested();
-        if (result.IsSuccess)
+        if (result.IsSuccess && result.Data > 0)
         {
             await InvalidateCache(id);
             ct.ThrowIfCancellationRequested();
-            await InvalidatePublicAotAsync(id, [article.CategoryId], tagIds, "permanent-delete");
+            await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "permanent-delete");
             ct.ThrowIfCancellationRequested();
             await _mutationSideEffects.AfterPermanentlyDeletedAsync(id, imageUrls, ct);
             return true;
@@ -1720,6 +1761,52 @@ public class ArticleService(
             .FirstAsync();
 
         return ([categoryId], await LoadArticleTagIdsAsync(articleId));
+    }
+
+    private async Task<ArticleMutationState?> LoadArticleMutationStateAsync(int articleId, bool isDeleted)
+    {
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            """
+            SELECT a.categoryid,
+                   a.xmin::text AS row_version,
+                   COALESCE(
+                       array_agg(at.tagid ORDER BY at.tagid)
+                           FILTER (WHERE at.tagid IS NOT NULL),
+                       ARRAY[]::integer[]
+                   ) AS tag_ids
+            FROM article a
+            LEFT JOIN article_tag at ON at.articleid = a.id
+            WHERE a.id = @ArticleId
+              AND a.isdeleted = @IsDeleted
+            GROUP BY a.id, a.categoryid, a.xmin;
+            """,
+            new SugarParameter("@ArticleId", articleId),
+            new SugarParameter("@IsDeleted", isDeleted));
+        if (!await reader.ReadAsync(Ct))
+        {
+            return null;
+        }
+
+        int categoryId = reader.GetInt32(0);
+        string rowVersion = reader.GetString(1);
+        int[] tags = reader.GetFieldValue<int[]>(2);
+        return new ArticleMutationState([categoryId], tags.ToList(), rowVersion);
+    }
+
+    private async Task<bool> LockDeletedArticleForMutationAsync(int articleId, string rowVersion)
+    {
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            """
+            SELECT 1
+            FROM article
+            WHERE id = @ArticleId
+              AND isdeleted = true
+              AND xmin::text = @RowVersion
+            FOR UPDATE;
+            """,
+            new SugarParameter("@ArticleId", articleId),
+            new SugarParameter("@RowVersion", rowVersion));
+        return await reader.ReadAsync(Ct);
     }
 
     private async Task<ArticleListItemResponse?> LoadRealtimePreviewAsync(int id)

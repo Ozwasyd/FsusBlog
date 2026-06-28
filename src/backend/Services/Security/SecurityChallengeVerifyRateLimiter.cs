@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -23,7 +22,6 @@ public sealed class SecurityChallengeVerifyRateLimiter(
     private const int MaxAttempts = 3;
     private const int MaxChallengeIdLength = 64;
     private const int MaxActionLength = 96;
-    private static readonly TimeSpan Window = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan CacheExpiry = TimeSpan.FromMinutes(2);
 
     public async Task<bool> TryAcquireAsync(
@@ -48,8 +46,7 @@ public sealed class SecurityChallengeVerifyRateLimiter(
 
     private string BuildIdentity(HttpContext httpContext, string challengeId, string action)
     {
-        long nowTicks = timeProvider.GetUtcNow().UtcTicks;
-        long windowStartTicks = nowTicks - (nowTicks % Window.Ticks);
+        _ = timeProvider.GetUtcNow();
         RiskControlProofBinding binding = RiskControlProofBindingFactory.Create(riskContextFactory.Create(httpContext));
         string normalizedAction = NormalizeAction(action);
         string challengeHash = HashValue(string.Concat("challenge:", NormalizeRequired(challengeId, MaxChallengeIdLength)));
@@ -57,7 +54,6 @@ public sealed class SecurityChallengeVerifyRateLimiter(
         return string.Join(
             ':',
             "verify",
-            windowStartTicks.ToString(CultureInfo.InvariantCulture),
             binding.ClientIpHash,
             binding.DeviceFpHash,
             normalizedAction,

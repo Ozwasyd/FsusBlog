@@ -359,9 +359,7 @@ public class RedisPowService : IPowService
             return TimeSpan.FromSeconds(1);
         }
 
-        long elapsed = timestamp <= now ? now - timestamp : timestamp - now;
-        long remainingSeconds = Math.Max(1, 300 - elapsed);
-        return TimeSpan.FromSeconds(Math.Min(remainingSeconds, (long)ProofReplayTtl.TotalSeconds));
+        return ProofReplayTtl;
     }
 
     private static bool IsTimestampWithinWindow(long timestamp, long now)

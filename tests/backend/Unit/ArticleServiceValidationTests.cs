@@ -117,13 +117,13 @@ public class ArticleServiceValidationTests
         string deleteBlock = source[deleteMethod..restoreMethod];
         string restoreBlock = source[restoreMethod..permanentDeleteMethod];
 
-        Assert.Contains("var state = await LoadArticleAotStateAsync(id)", deleteBlock, StringComparison.Ordinal);
-        Assert.Contains("await InvalidatePublicAotWithCurrentStateAsync(id, state, \"delete\")", deleteBlock, StringComparison.Ordinal);
-        Assert.DoesNotContain("await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, \"delete\")", deleteBlock, StringComparison.Ordinal);
+        Assert.Contains("LoadArticleMutationStateAsync(id, isDeleted: false)", deleteBlock, StringComparison.Ordinal);
+        Assert.Contains("xmin::text = @RowVersion", deleteBlock, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, \"delete\")", deleteBlock, StringComparison.Ordinal);
 
-        Assert.Contains("var state = await LoadArticleAotStateAsync(id)", restoreBlock, StringComparison.Ordinal);
-        Assert.Contains("await InvalidatePublicAotWithCurrentStateAsync(id, state, \"restore\")", restoreBlock, StringComparison.Ordinal);
-        Assert.DoesNotContain("await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, \"restore\")", restoreBlock, StringComparison.Ordinal);
+        Assert.Contains("LoadArticleMutationStateAsync(id, isDeleted: true)", restoreBlock, StringComparison.Ordinal);
+        Assert.Contains("xmin::text = @RowVersion", restoreBlock, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, \"restore\")", restoreBlock, StringComparison.Ordinal);
     }
 
     [Fact]

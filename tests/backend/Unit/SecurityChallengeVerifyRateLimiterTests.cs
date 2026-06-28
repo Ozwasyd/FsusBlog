@@ -49,7 +49,7 @@ public sealed class SecurityChallengeVerifyRateLimiterTests
     }
 
     [Fact]
-    public async Task TryAcquireAsync_NewWindowResetsCounter()
+    public async Task TryAcquireAsync_TimeBoundaryDoesNotResetCounterIdentity()
     {
         Type limiterType = typeof(SecurityChallengeProofService).Assembly.GetType(
             "FsusBlog.Server.Services.Security.SecurityChallengeVerifyRateLimiter")
@@ -69,8 +69,8 @@ public sealed class SecurityChallengeVerifyRateLimiterTests
         Assert.False(await InvokeAsync(method, limiter, CreateContext(), "challenge-1", "public.read"));
         clock.UtcNow = BaselineNow.AddMinutes(1);
 
-        Assert.True(await InvokeAsync(method, limiter, CreateContext(), "challenge-1", "public.read"));
-        Assert.Equal(2, cache.Identities.Count);
+        Assert.False(await InvokeAsync(method, limiter, CreateContext(), "challenge-1", "public.read"));
+        Assert.Single(cache.Identities);
     }
 
     [Fact]

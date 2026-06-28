@@ -1432,6 +1432,8 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 文章更新请求不得把 `status` 设为 `Deleted`；删除必须走专用 delete endpoint，以便写入回收站状态、失效缓存、搜索、PublicAOT、notification stream 和 outbox。对已删除文章重复删除必须是 no-op，不得重复触发派生副作用。restore 只允许从 `IsDeleted=true` 恢复，并恢复为 `Draft`、清空 `PublishedAt`；发布必须由后续显式发布/更新动作完成，避免把删除前的草稿、归档或定时文章意外公开。
 
+delete、restore、permanent-delete 必须先读取 article `xmin`，写入时带 `xmin::text = @RowVersion` 和对应 trash 状态条件。permanent-delete 只允许处理 `IsDeleted=true` 的文章，并在事务内先 `FOR UPDATE` 锁定同一 row-version，再删除评论、标签、正文和文章主行；若 row-version 或 trash 状态已变化，返回 no-op，不得删除子表或发出新 outbox 事件。
+
 公开与管理端文章响应矩阵：
 
 | 路径族 | 身份 | 状态范围 | 失败语义 |
