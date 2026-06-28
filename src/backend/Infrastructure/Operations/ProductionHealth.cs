@@ -509,6 +509,85 @@ public sealed class ProductionReadinessProbe(
             && string.Equals(health.Status, "ok", StringComparison.Ordinal);
 }
 
+public sealed class ProductionReadinessSnapshotCache
+{
+    private static readonly TimeSpan ReadinessSnapshotTtl = TimeSpan.FromSeconds(5);
+    private readonly Func<CancellationToken, Task<ProductionHealthReport>> _refreshAsync;
+    private readonly TimeSpan _ttl;
+    private readonly SemaphoreSlim _refreshGate = new(1, 1);
+    private ProductionHealthReport? _snapshot;
+
+    public ProductionReadinessSnapshotCache(IServiceScopeFactory scopeFactory)
+        : this(async cancellationToken =>
+        {
+            using IServiceScope scope = scopeFactory.CreateScope();
+            ProductionReadinessProbe probe = scope.ServiceProvider.GetRequiredService<ProductionReadinessProbe>();
+            return await probe.CheckAsync(cancellationToken);
+        }, ReadinessSnapshotTtl)
+    {
+    }
+
+    internal ProductionReadinessSnapshotCache(
+        Func<CancellationToken, Task<ProductionHealthReport>> refreshAsync,
+        TimeSpan ttl)
+    {
+        _refreshAsync = refreshAsync;
+        _ttl = ttl;
+    }
+
+    public async Task<ProductionHealthReport> GetSnapshotAsync(bool forceRefresh, CancellationToken cancellationToken)
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        if (!forceRefresh && TryGetFreshSnapshot(now, out ProductionHealthReport? cached))
+        {
+            RecordCacheHit(cached, now);
+            return cached;
+        }
+
+        await _refreshGate.WaitAsync(cancellationToken);
+        try
+        {
+            now = DateTimeOffset.UtcNow;
+            if (!forceRefresh && TryGetFreshSnapshot(now, out cached))
+            {
+                RecordCacheHit(cached, now);
+                return cached;
+            }
+
+            long startedAt = Stopwatch.GetTimestamp();
+            ProductionHealthReport report = await _refreshAsync(cancellationToken);
+            _snapshot = report;
+            FsusObservability.RecordReadinessSnapshot(
+                cacheHit: false,
+                FsusObservability.GetElapsed(startedAt),
+                CountDependencyChecks(report),
+                TimeSpan.Zero);
+            return report;
+        }
+        finally
+        {
+            _refreshGate.Release();
+        }
+    }
+
+    private bool TryGetFreshSnapshot(DateTimeOffset now, out ProductionHealthReport report)
+    {
+        report = _snapshot!;
+        return report is not null && now - report.CheckedAt <= _ttl;
+    }
+
+    private static void RecordCacheHit(ProductionHealthReport report, DateTimeOffset now)
+        => FsusObservability.RecordReadinessSnapshot(
+            cacheHit: true,
+            freshCheckElapsed: TimeSpan.Zero,
+            dependencyCheckCount: 0,
+            snapshotAge: now - report.CheckedAt);
+
+    private static int CountDependencyChecks(ProductionHealthReport report)
+        => report.Checks.Values.Count(static check =>
+            check is ProductionDependencyHealthCheck or ProductionRiskControlHealthCheck);
+}
+
 public static class ProductionHealthEndpoints
 {
     public static IEndpointRouteBuilder MapProductionHealthEndpoints(this IEndpointRouteBuilder endpoints)
@@ -516,10 +595,10 @@ public static class ProductionHealthEndpoints
         endpoints.MapGet("/health/live", () => TypedResults.Json(ProductionLivenessProbe.CreateReport())).AllowAnonymous();
 
         endpoints.MapGet("/health/ready", async Task<IResult> (
-            ProductionReadinessProbe probe,
+            ProductionReadinessSnapshotCache snapshotCache,
             CancellationToken cancellationToken) =>
         {
-            ProductionHealthReport report = await probe.CheckAsync(cancellationToken);
+            ProductionHealthReport report = await snapshotCache.GetSnapshotAsync(forceRefresh: false, cancellationToken);
             int statusCode = report.Status == "ready"
                 ? StatusCodes.Status200OK
                 : StatusCodes.Status503ServiceUnavailable;
@@ -527,10 +606,11 @@ public static class ProductionHealthEndpoints
         }).AllowAnonymous();
 
         endpoints.MapGet("/api/ops/health/ready-detail", async Task<IResult> (
-            ProductionReadinessProbe probe,
-            CancellationToken cancellationToken) =>
+            ProductionReadinessSnapshotCache snapshotCache,
+            CancellationToken cancellationToken,
+            bool forceRefresh = true) =>
         {
-            ProductionHealthReport report = await probe.CheckAsync(cancellationToken);
+            ProductionHealthReport report = await snapshotCache.GetSnapshotAsync(forceRefresh, cancellationToken);
             int statusCode = report.Status == "ready"
                 ? StatusCodes.Status200OK
                 : StatusCodes.Status503ServiceUnavailable;

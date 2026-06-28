@@ -71,6 +71,82 @@ public sealed class ProductionHealthTests
     }
 
     [Fact]
+    public void ProductionReadiness_UsesShortTtlSnapshotCacheForPublicProbe()
+    {
+        string health = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Operations/ProductionHealth.cs");
+        string serviceCollection = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Bootstrap/RuntimePublicAotServiceCollectionExtensions.cs");
+        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string publicReady = ExtractBetween(
+            health,
+            "endpoints.MapGet(\"/health/ready\"",
+            "endpoints.MapGet(\"/api/ops/health/ready-detail\"");
+        string readyDetail = ExtractBetween(
+            health,
+            "endpoints.MapGet(\"/api/ops/health/ready-detail\"",
+            "endpoints.MapGet(\"/api/ops/crawler-ranges/status\"");
+
+        Assert.Contains("ProductionReadinessSnapshotCache", health, StringComparison.Ordinal);
+        Assert.Contains("ReadinessSnapshotTtl", health, StringComparison.Ordinal);
+        Assert.Contains("SemaphoreSlim", health, StringComparison.Ordinal);
+        Assert.Contains("GetSnapshotAsync", health, StringComparison.Ordinal);
+
+        Assert.Contains("ProductionReadinessSnapshotCache snapshotCache", publicReady, StringComparison.Ordinal);
+        Assert.Contains("snapshotCache.GetSnapshotAsync(forceRefresh: false", publicReady, StringComparison.Ordinal);
+        Assert.DoesNotContain("probe.CheckAsync", publicReady, StringComparison.Ordinal);
+
+        Assert.Contains("bool forceRefresh", readyDetail, StringComparison.Ordinal);
+        Assert.Contains("snapshotCache.GetSnapshotAsync(forceRefresh", readyDetail, StringComparison.Ordinal);
+        Assert.Contains(".RequireAdminPermission(AdminPermissions.AuditRead)", readyDetail, StringComparison.Ordinal);
+
+        Assert.Contains("AddSingleton<ProductionReadinessSnapshotCache>", serviceCollection, StringComparison.Ordinal);
+        Assert.Contains("fsus.readiness.snapshot.cache_access", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.readiness.snapshot.fresh_check_elapsed_ms", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.readiness.snapshot.dependency_check_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.readiness.snapshot.age_ms", observability, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReadinessSnapshotCache_ReturnsSameSnapshotInsideTtl()
+    {
+        int refreshCount = 0;
+        var cache = new ProductionReadinessSnapshotCache(
+            _ => Task.FromResult(CreateReadinessReport(Interlocked.Increment(ref refreshCount))),
+            TimeSpan.FromMinutes(1));
+
+        ProductionHealthReport first = await cache.GetSnapshotAsync(forceRefresh: false, CancellationToken.None);
+        ProductionHealthReport second = await cache.GetSnapshotAsync(forceRefresh: false, CancellationToken.None);
+
+        Assert.Same(first, second);
+        Assert.Equal(1, refreshCount);
+    }
+
+    [Fact]
+    public async Task ReadinessSnapshotCache_CoalescesConcurrentColdRefreshes()
+    {
+        int refreshCount = 0;
+        var releaseRefresh = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cache = new ProductionReadinessSnapshotCache(
+            async _ =>
+            {
+                Interlocked.Increment(ref refreshCount);
+                await releaseRefresh.Task;
+                return CreateReadinessReport(refreshCount);
+            },
+            TimeSpan.FromMinutes(1));
+
+        Task<ProductionHealthReport>[] requests = Enumerable.Range(0, 8)
+            .Select(_ => cache.GetSnapshotAsync(forceRefresh: false, CancellationToken.None))
+            .ToArray();
+        await WaitUntilAsync(() => Volatile.Read(ref refreshCount) == 1);
+
+        releaseRefresh.SetResult();
+        ProductionHealthReport[] reports = await Task.WhenAll(requests);
+
+        Assert.Equal(1, refreshCount);
+        Assert.All(reports, report => Assert.Same(reports[0], report));
+    }
+
+    [Fact]
     public void RuntimeHealth_DegradesWhenPublicHotArticleFrameLimitIsExceeded()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Operations/ProductionHealth.cs");
@@ -333,6 +409,42 @@ public sealed class ProductionHealthTests
                 ["Security:PerceptionSealedToken:Keys:k1"] = new string('a', 64)
             })
             .Build();
+
+    private static ProductionHealthReport CreateReadinessReport(int sequence)
+        => new(
+            "ready",
+            DateTimeOffset.UtcNow.AddTicks(sequence),
+            new Dictionary<string, object?>
+            {
+                ["postgres"] = new ProductionDependencyHealthCheck("ok", LatencyMs: 1),
+                ["redis"] = new ProductionDependencyHealthCheck("ok", LatencyMs: 1),
+                ["riskControl"] = new ProductionRiskControlHealthCheck(
+                    "ok",
+                    ActivePolicy: true,
+                    LastKnownGoodPolicy: true,
+                    RedisConsumeOnce: true,
+                    ChallengeProviderRegistry: true,
+                    PolicyVersion: "test",
+                    Providers: [],
+                    PerceptionAeadKey: true,
+                    PerceptionMode: "enforce",
+                    PerceptionPerformanceBudget: FsusObservability.CreateSecurityChallengeV2PerformanceBudgetSnapshot())
+            });
+
+    private static async Task WaitUntilAsync(Func<bool> predicate)
+    {
+        for (int attempt = 0; attempt < 100; attempt++)
+        {
+            if (predicate())
+            {
+                return;
+            }
+
+            await Task.Delay(10);
+        }
+
+        Assert.True(predicate(), "Condition was not met before timeout.");
+    }
 
     private sealed class FixedRiskPolicyProvider(SecurityRiskPolicySnapshotV2 policy) : ISecurityRiskPolicyProvider
     {

@@ -173,6 +173,10 @@ public static class FsusObservability
     private static readonly Histogram<double> DistributionDiagnosticsElapsed = Meter.CreateHistogram<double>("fsus.distribution.diagnostics.elapsed_ms", "ms");
     private static readonly Counter<long> DistributionDiagnosticsCacheAccess = Meter.CreateCounter<long>("fsus.distribution.diagnostics.cache_access");
     private static readonly Counter<long> DistributionDiagnosticsDbCommandCount = Meter.CreateCounter<long>("fsus.distribution.diagnostics.db_command_count");
+    private static readonly Counter<long> ReadinessSnapshotCacheAccess = Meter.CreateCounter<long>("fsus.readiness.snapshot.cache_access");
+    private static readonly Histogram<double> ReadinessSnapshotFreshCheckElapsed = Meter.CreateHistogram<double>("fsus.readiness.snapshot.fresh_check_elapsed_ms", "ms");
+    private static readonly Counter<long> ReadinessSnapshotDependencyCheckCount = Meter.CreateCounter<long>("fsus.readiness.snapshot.dependency_check_count");
+    private static readonly Histogram<double> ReadinessSnapshotAge = Meter.CreateHistogram<double>("fsus.readiness.snapshot.age_ms", "ms");
 
     public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
 
@@ -882,6 +886,22 @@ public static class FsusObservability
             DistributionDiagnosticsElapsed.Record(elapsed.TotalMilliseconds, tags);
             DistributionDiagnosticsCacheAccess.Add(1, tags);
             DistributionDiagnosticsDbCommandCount.Add(Math.Max(0, dbCommandCount), tags);
+        });
+    }
+
+    public static void RecordReadinessSnapshot(
+        bool cacheHit,
+        TimeSpan freshCheckElapsed,
+        long dependencyCheckCount,
+        TimeSpan snapshotAge)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("readiness", "snapshot", cacheHit ? "hit" : "miss");
+            ReadinessSnapshotCacheAccess.Add(1, tags);
+            ReadinessSnapshotFreshCheckElapsed.Record(freshCheckElapsed.TotalMilliseconds, tags);
+            ReadinessSnapshotDependencyCheckCount.Add(Math.Max(0, dependencyCheckCount), tags);
+            ReadinessSnapshotAge.Record(Math.Max(0, snapshotAge.TotalMilliseconds), tags);
         });
     }
 
