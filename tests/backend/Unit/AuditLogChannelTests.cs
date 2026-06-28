@@ -23,4 +23,27 @@ public sealed class AuditLogChannelTests
         Assert.Equal(1, channel.DrainDroppedCount());
         Assert.Equal(0, channel.DrainDroppedCount());
     }
+
+    [Fact]
+    public void TryWrite_DurableRecordUsesIndependentLaneWhenBestEffortChannelIsFull()
+    {
+        var channel = new AuditLogChannel(new BoundedChannelOptions(1)
+        {
+            SingleReader = true,
+            SingleWriter = false,
+            FullMode = BoundedChannelFullMode.Wait
+        });
+
+        bool bestEffort = channel.TryWrite(new AuditRecord("request", "business", DateTime.UtcNow, "normal", null));
+        bool durable = channel.TryWrite(new AuditRecord("security", "security", DateTime.UtcNow, "critical", null, IsHighValue: true));
+        bool overflow = channel.TryWrite(new AuditRecord("request", "business", DateTime.UtcNow, "overflow", null));
+
+        Assert.True(bestEffort);
+        Assert.True(durable);
+        Assert.False(overflow);
+        AuditLogChannelSnapshot snapshot = channel.Snapshot();
+        Assert.Equal(2, snapshot.QueuedCount);
+        Assert.Equal(1, snapshot.DroppedCount);
+        Assert.Equal(1, snapshot.DroppedBySourceType["request:business"]);
+    }
 }

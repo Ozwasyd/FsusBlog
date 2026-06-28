@@ -65,6 +65,23 @@ public sealed class AuditLogEventMapper
         "backfill completed"
     ];
 
+    public static bool IsAuditCandidate(LogEvent logEvent)
+        => logEvent.Exception is not null
+           || logEvent.Level >= LogEventLevel.Warning
+           || logEvent.Properties.ContainsKey(AuditPropertyNames.Source)
+           || logEvent.Properties.ContainsKey(AuditPropertyNames.Type)
+           || logEvent.Properties.ContainsKey(AuditPropertyNames.Action)
+           || logEvent.Properties.ContainsKey(AuditPropertyNames.Outcome)
+           || logEvent.Properties.ContainsKey(AuditPropertyNames.Severity)
+           || logEvent.Properties.ContainsKey(AuditPropertyNames.ActorType)
+           || logEvent.Properties.ContainsKey(AuditPropertyNames.ActorId)
+           || logEvent.Properties.ContainsKey(AuditPropertyNames.ActorRole)
+           || logEvent.Properties.ContainsKey(AuditPropertyNames.TargetType)
+           || logEvent.Properties.ContainsKey(AuditPropertyNames.TargetId)
+           || logEvent.Properties.ContainsKey(AuditPropertyNames.HighValue)
+           || logEvent.Properties.ContainsKey(AuditPropertyNames.ReasonCode)
+           || logEvent.Properties.ContainsKey(AuditPropertyNames.SkipPersistence);
+
     public AuditRecord? Map(LogEvent logEvent)
     {
         if (TryGetBoolean(logEvent, AuditPropertyNames.SkipPersistence) is true)
@@ -308,6 +325,7 @@ public sealed class AuditLogEventMapper
                 or AuditPropertyNames.HighValue
                 or AuditPropertyNames.ReasonCode
                 or AuditPropertyNames.SkipPersistence
+                or AuditPropertyNames.MappedRecord
                 or "MessageTemplate"
                 or "Renderings")
             {

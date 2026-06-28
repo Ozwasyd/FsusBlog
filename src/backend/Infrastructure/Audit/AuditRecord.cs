@@ -141,6 +141,7 @@ public static class AuditPropertyNames
     public const string HighValue = "AuditHighValue";
     public const string ReasonCode = "AuditReasonCode";
     public const string SkipPersistence = "SkipAuditPersistence";
+    public const string MappedRecord = "__FsusAuditMappedRecord";
 }
 
 public static class AuditLogScope

@@ -49,6 +49,7 @@ public sealed class AuditLogRuntimeState(AuditLogChannel channel)
         return new AuditLogRuntimeSnapshot(
             channel.QueuedCount,
             channel.DroppedCount,
+            channel.DroppedBySourceType,
             Volatile.Read(ref _writeSuccessCount),
             Volatile.Read(ref _writeFailureCount),
             Volatile.Read(ref _fallbackWriteCount),
@@ -64,6 +65,7 @@ public sealed class AuditLogRuntimeState(AuditLogChannel channel)
 public sealed record AuditLogRuntimeSnapshot(
     long QueuedCount,
     long DroppedCount,
+    IReadOnlyDictionary<string, long> DroppedBySourceType,
     long WriteSuccessCount,
     long WriteFailureCount,
     long FallbackWriteCount,

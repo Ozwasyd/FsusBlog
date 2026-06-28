@@ -9,15 +9,22 @@ public sealed class AuditSerilogEnricher(AuditLogEventMapper mapper) : ILogEvent
 
     public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
     {
+        if (!AuditLogEventMapper.IsAuditCandidate(logEvent))
+        {
+            return;
+        }
+
+        AuditRecord? mappedRecord = TryGetMappedRecord(logEvent);
         string? source = TryGetString(logEvent, AuditPropertyNames.Source);
         if (string.IsNullOrWhiteSpace(source))
         {
-            AuditRecord? record = _mapper.Map(logEvent);
+            AuditRecord? record = mappedRecord ?? _mapper.Map(logEvent);
             if (record is null)
             {
                 return;
             }
 
+            logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty(AuditPropertyNames.MappedRecord, record));
             logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty(AuditPropertyNames.Source, record.Source));
             logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty(AuditPropertyNames.Type, record.Type));
             return;
@@ -26,12 +33,13 @@ public sealed class AuditSerilogEnricher(AuditLogEventMapper mapper) : ILogEvent
         string? type = TryGetString(logEvent, AuditPropertyNames.Type);
         if (string.IsNullOrWhiteSpace(type))
         {
-            AuditRecord? record = _mapper.Map(logEvent);
+            AuditRecord? record = mappedRecord ?? _mapper.Map(logEvent);
             if (record is null)
             {
                 return;
             }
 
+            logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty(AuditPropertyNames.MappedRecord, record));
             logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty(AuditPropertyNames.Type, record.Type));
         }
     }
@@ -40,6 +48,12 @@ public sealed class AuditSerilogEnricher(AuditLogEventMapper mapper) : ILogEvent
         => logEvent.Properties.TryGetValue(propertyName, out LogEventPropertyValue? value)
            && value is ScalarValue { Value: not null } scalar
             ? Convert.ToString(scalar.Value)
+            : null;
+
+    internal static AuditRecord? TryGetMappedRecord(LogEvent logEvent)
+        => logEvent.Properties.TryGetValue(AuditPropertyNames.MappedRecord, out LogEventPropertyValue? value)
+           && value is ScalarValue { Value: AuditRecord record }
+            ? record
             : null;
 }
 
@@ -50,7 +64,13 @@ public sealed class AuditSerilogSink(AuditLogChannel channel, AuditLogEventMappe
 
     public void Emit(LogEvent logEvent)
     {
-        AuditRecord? record = _mapper.Map(logEvent);
+        AuditRecord? record = AuditSerilogEnricher.TryGetMappedRecord(logEvent);
+        if (record is null && !AuditLogEventMapper.IsAuditCandidate(logEvent))
+        {
+            return;
+        }
+
+        record ??= _mapper.Map(logEvent);
         if (record is null)
         {
             return;

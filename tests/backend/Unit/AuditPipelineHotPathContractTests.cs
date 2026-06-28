@@ -64,6 +64,31 @@ public sealed class AuditPipelineHotPathContractTests
     }
 
     [Fact]
+    public void AuditSerilogBridge_SourceReusesMappedRecordAndFastRejectsNonCandidates()
+    {
+        string source = ReadRepoFile("src/backend/Infrastructure/Audit/AuditSerilogBridge.cs");
+        string enrich = ExtractMethodBlock(source, "public void Enrich");
+        string emit = ExtractMethodBlock(source, "public void Emit");
+
+        Assert.Contains("AuditPropertyNames.MappedRecord", source, StringComparison.Ordinal);
+        Assert.Contains("CreateProperty(AuditPropertyNames.MappedRecord", enrich, StringComparison.Ordinal);
+        Assert.Contains("TryGetMappedRecord(logEvent)", emit, StringComparison.Ordinal);
+        Assert.Contains("AuditLogEventMapper.IsAuditCandidate(logEvent)", emit, StringComparison.Ordinal);
+        Assert.DoesNotContain("AuditRecord? record = _mapper.Map(logEvent);", emit, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SerilogAuditSink_SourceIsIsolatedBehindAuditCandidateFilter()
+    {
+        string source = ReadRepoFile("src/backend/Infrastructure/Bootstrap/WebApplicationBuilderCompositionExtensions.cs");
+        string configure = ExtractMethodBlock(source, "public static WebApplicationBuilder ConfigureFsusApplication");
+
+        Assert.Contains(".WriteTo.Logger(audit => audit", configure, StringComparison.Ordinal);
+        Assert.Contains(".Filter.ByIncludingOnly(AuditLogEventMapper.IsAuditCandidate)", configure, StringComparison.Ordinal);
+        Assert.Contains(".WriteTo.Sink(services.GetRequiredService<AuditSerilogSink>())", configure, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AuditLogStore_SourceCachesBatchSqlSkeletonAndFillsParameterArray()
     {
         string source = ReadRepoFile("src/backend/Infrastructure/Audit/AuditLogStore.cs");

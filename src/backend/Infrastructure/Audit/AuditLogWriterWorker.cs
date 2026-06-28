@@ -27,7 +27,7 @@ public sealed class AuditLogWriterWorker(
         {
             try
             {
-                if (!await _channel.Reader.WaitToReadAsync(stoppingToken))
+                if (!await _channel.WaitToReadAsync(stoppingToken))
                 {
                     continue;
                 }
@@ -71,9 +71,8 @@ public sealed class AuditLogWriterWorker(
     {
         var batch = new List<AuditRecord>(BatchSize);
 
-        while (_channel.Reader.TryRead(out AuditRecord? record))
+        while (_channel.TryRead(out AuditRecord? record))
         {
-            _channel.MarkRead();
             batch.Add(record);
             if (batch.Count >= BatchSize)
             {
@@ -134,9 +133,7 @@ public sealed class AuditLogWriterWorker(
 
     private async ValueTask<AuditRecord> ReadRecordAsync(CancellationToken cancellationToken)
     {
-        AuditRecord record = await _channel.Reader.ReadAsync(cancellationToken);
-        _channel.MarkRead();
-        return record;
+        return await _channel.ReadAsync(cancellationToken);
     }
 
     private async Task FillBatchUntilFlushWindowAsync(List<AuditRecord> batch, CancellationToken stoppingToken)
@@ -144,9 +141,8 @@ public sealed class AuditLogWriterWorker(
         long startedAt = Stopwatch.GetTimestamp();
         while (batch.Count < BatchSize)
         {
-            while (batch.Count < BatchSize && _channel.Reader.TryRead(out AuditRecord? ready))
+            while (batch.Count < BatchSize && _channel.TryRead(out AuditRecord? ready))
             {
-                _channel.MarkRead();
                 batch.Add(ready);
             }
 
@@ -161,7 +157,7 @@ public sealed class AuditLogWriterWorker(
                 return;
             }
 
-            ValueTask<bool> waitToRead = _channel.Reader.WaitToReadAsync(stoppingToken);
+            ValueTask<bool> waitToRead = _channel.WaitToReadAsync(stoppingToken);
             if (waitToRead.IsCompletedSuccessfully)
             {
                 if (!waitToRead.Result)
