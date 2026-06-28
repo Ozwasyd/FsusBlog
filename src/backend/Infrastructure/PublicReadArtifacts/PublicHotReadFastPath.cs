@@ -124,6 +124,9 @@ public sealed record PublicHotReadRuntimeSnapshot(
     string State,
     long Version,
     int ArticleFrameCount,
+    int PublicArticleCount,
+    int ArticleFrameLimit,
+    bool ArticleFrameLimitExceeded,
     int ListFrameCount,
     bool CategoryFrameReady,
     bool TagFrameReady,
@@ -158,7 +161,9 @@ public sealed class PublicHotReadSnapshot
         FrozenDictionary<PublicListKey, PublicBinaryArtifact> listFrames,
         PublicBinaryArtifact categoryFrame,
         PublicBinaryArtifact tagFrame,
-        FrozenDictionary<string, PublicHtmlArtifact> htmlByPath)
+        FrozenDictionary<string, PublicHtmlArtifact> htmlByPath,
+        int? publicArticleCount = null,
+        int? articleFrameLimit = null)
         : this(
             version,
             articleFramesById,
@@ -168,7 +173,9 @@ public sealed class PublicHotReadSnapshot
             htmlByPath,
             FrozenDictionary<string, PublicHtmlArtifact>.Empty,
             FrozenSet<string>.Empty,
-            htmlByPath.Count)
+            htmlByPath.Count,
+            publicArticleCount ?? articleFramesById.Count,
+            articleFrameLimit ?? articleFramesById.Count)
     {
     }
 
@@ -181,7 +188,9 @@ public sealed class PublicHotReadSnapshot
         FrozenDictionary<string, PublicHtmlArtifact> htmlBaseByPath,
         FrozenDictionary<string, PublicHtmlArtifact> htmlOverlayByPath,
         FrozenSet<string> htmlRemovedPaths,
-        int htmlFrameCount)
+        int htmlFrameCount,
+        int publicArticleCount,
+        int articleFrameLimit)
     {
         Version = version;
         _articleFramesById = articleFramesById;
@@ -192,11 +201,16 @@ public sealed class PublicHotReadSnapshot
         _htmlOverlayByPath = htmlOverlayByPath;
         _htmlRemovedPaths = htmlRemovedPaths;
         _htmlFrameCount = htmlFrameCount;
+        PublicArticleCount = Math.Max(publicArticleCount, articleFramesById.Count);
+        ArticleFrameLimit = Math.Max(articleFrameLimit, 0);
     }
 
     public long Version { get; }
 
     public int ArticleFrameCount => _articleFramesById.Count;
+    public int PublicArticleCount { get; }
+    public int ArticleFrameLimit { get; }
+    public bool ArticleFrameLimitExceeded => ArticleFrameLimit > 0 && PublicArticleCount > ArticleFrameLimit;
     public int ListFrameCount => _listFrames.Count;
     public bool CategoryFrameReady => !_categoryFrame.Frame.IsEmpty;
     public bool TagFrameReady => !_tagFrame.Frame.IsEmpty;
@@ -284,7 +298,9 @@ public sealed class PublicHotReadSnapshot
             _htmlBaseByPath,
             nextOverlay.ToFrozenDictionary(StringComparer.Ordinal),
             nextRemoved,
-            hadVisible ? _htmlFrameCount : _htmlFrameCount + 1);
+            hadVisible ? _htmlFrameCount : _htmlFrameCount + 1,
+            PublicArticleCount,
+            ArticleFrameLimit);
     }
 
     public PublicHotReadSnapshot WithoutHtml(string path)
@@ -321,7 +337,9 @@ public sealed class PublicHotReadSnapshot
             _htmlBaseByPath,
             nextOverlay,
             nextRemoved,
-            _htmlFrameCount - 1);
+            _htmlFrameCount - 1,
+            PublicArticleCount,
+            ArticleFrameLimit);
     }
 
     public PublicHotReadSnapshot WithoutAllHtml()
@@ -336,7 +354,9 @@ public sealed class PublicHotReadSnapshot
                 FrozenDictionary<string, PublicHtmlArtifact>.Empty,
                 FrozenDictionary<string, PublicHtmlArtifact>.Empty,
                 FrozenSet<string>.Empty,
-                0);
+                0,
+                PublicArticleCount,
+                ArticleFrameLimit);
 }
 
 public sealed class PublicHotReadStore
@@ -348,6 +368,9 @@ public sealed class PublicHotReadStore
         nameof(PublicHotReadState.NotStarted),
         0,
         0,
+        0,
+        0,
+        false,
         0,
         false,
         false,
@@ -458,6 +481,9 @@ public sealed class PublicHotReadStore
             state,
             snapshot.Version,
             snapshot.ArticleFrameCount,
+            snapshot.PublicArticleCount,
+            snapshot.ArticleFrameLimit,
+            snapshot.ArticleFrameLimitExceeded,
             snapshot.ListFrameCount,
             snapshot.CategoryFrameReady,
             snapshot.TagFrameReady,

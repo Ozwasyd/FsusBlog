@@ -223,7 +223,8 @@ public sealed class ProductionReadinessProbe(
         PublicHotReadRuntimeSnapshot? publicHotRead = serviceProvider.GetService<PublicHotReadStore>()?.CreateRuntimeSnapshot();
         AuditLogRuntimeSnapshot? auditLog = serviceProvider.GetService<AuditLogRuntimeState>()?.Snapshot();
         string status = publicHotRead is null
-            || string.Equals(publicHotRead.State, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
+            || (string.Equals(publicHotRead.State, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
+                && !publicHotRead.ArticleFrameLimitExceeded)
             ? "ok"
             : "degraded";
 

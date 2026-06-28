@@ -71,6 +71,21 @@ public sealed class ProductionHealthTests
     }
 
     [Fact]
+    public void RuntimeHealth_DegradesWhenPublicHotArticleFrameLimitIsExceeded()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Operations/ProductionHealth.cs");
+        string runtime = ExtractBetween(
+            source,
+            "private RuntimeHealthSnapshot CheckRuntime()",
+            "    private async Task<ProductionRiskControlHealthCheck>");
+
+        Assert.Contains("publicHotRead.ArticleFrameLimitExceeded", runtime, StringComparison.Ordinal);
+        Assert.Contains("&& !publicHotRead.ArticleFrameLimitExceeded", runtime, StringComparison.Ordinal);
+        Assert.Contains("? \"ok\"", runtime, StringComparison.Ordinal);
+        Assert.Contains(": \"degraded\"", runtime, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ResourcePathResolver_FindsIp2LocationBinUnderWwwrootResources()
     {
         string tempRoot = Path.Combine(Path.GetTempPath(), "fsusblog-health-" + Guid.NewGuid().ToString("N"));

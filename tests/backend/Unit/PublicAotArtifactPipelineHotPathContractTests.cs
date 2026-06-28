@@ -28,6 +28,21 @@ public sealed class PublicAotArtifactPipelineHotPathContractTests
     }
 
     [Fact]
+    public void PublicHotArtifactProjector_ExposesArticleFrameLimitOverflowInsteadOfSilentTruncation()
+    {
+        string source = ReadRepoFile("src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs");
+        string queryPublicIds = ExtractMethodBlock(source, "private async Task<PublicArticleFrameSelection> QueryPublicArticleIdsAsync");
+        string buildSnapshot = ExtractMethodBlock(source, "private async Task<PublicHotReadSnapshot> BuildSnapshotCoreAsync");
+
+        Assert.Contains("int publicArticleCount = await publicArticles.CountAsync", queryPublicIds, StringComparison.Ordinal);
+        Assert.Contains(".Take(limit)", queryPublicIds, StringComparison.Ordinal);
+        Assert.Contains("new PublicArticleFrameSelection(articleIds, publicArticleCount, limit)", queryPublicIds, StringComparison.Ordinal);
+        Assert.Contains("selection.PublicArticleCount", buildSnapshot, StringComparison.Ordinal);
+        Assert.Contains("selection.ArticleFrameLimit", buildSnapshot, StringComparison.Ordinal);
+        Assert.Contains("ArticleFrameLimitExceeded", ReadRepoFile("src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs"), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PublicAotInvalidation_BatchesRouteRemovalsThroughCacheInterface()
     {
         string interfaceSource = ReadRepoFile("src/backend/Infrastructure/PublicAot/IPublicAotShellCache.cs");

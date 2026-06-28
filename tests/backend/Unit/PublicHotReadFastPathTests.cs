@@ -40,6 +40,30 @@ public sealed class PublicHotReadFastPathTests
     }
 
     [Fact]
+    public void RuntimeSnapshot_ExposesArticleFrameLimitOverflow()
+    {
+        var store = new PublicHotReadStore();
+        PublicBinaryArtifact article = new(CreateFrame(AedsFrameType.ArticleDetail), "\"detail\"", "public,max-age=60", 1, AedsFrameType.ArticleDetail);
+        var snapshot = new PublicHotReadSnapshot(
+            2,
+            new Dictionary<int, PublicBinaryArtifact> { [42] = article }.ToFrozenDictionary(),
+            FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
+            default,
+            default,
+            FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+            publicArticleCount: 2,
+            articleFrameLimit: 1);
+
+        store.Publish(snapshot);
+
+        PublicHotReadRuntimeSnapshot runtime = store.CreateRuntimeSnapshot();
+        Assert.Equal(1, runtime.ArticleFrameCount);
+        Assert.Equal(2, runtime.PublicArticleCount);
+        Assert.Equal(1, runtime.ArticleFrameLimit);
+        Assert.True(runtime.ArticleFrameLimitExceeded);
+    }
+
+    [Fact]
     public async Task TryServeAsync_DetailHeadHit_WritesHeadersWithoutBody()
     {
         byte[] frame = CreateFrame(AedsFrameType.ArticleDetail);

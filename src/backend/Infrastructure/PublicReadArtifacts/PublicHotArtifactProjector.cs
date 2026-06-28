@@ -24,6 +24,11 @@ public interface IPublicHotArtifactProjector
         CancellationToken ct);
 }
 
+internal sealed record PublicArticleFrameSelection(
+    IReadOnlyList<int> ArticleIds,
+    int PublicArticleCount,
+    int ArticleFrameLimit);
+
 public sealed class PublicHotArtifactProjector(
     ISqlSugarClient db,
     IAedsEncoder aeds,
@@ -76,8 +81,8 @@ public sealed class PublicHotArtifactProjector(
         PublicHotReadOptions value = options.Value;
         DateTime utcNow = DateTime.UtcNow;
         long version = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        List<int> articleIds = await QueryPublicArticleIdsAsync(utcNow, value, ct).ConfigureAwait(false);
-        FrozenDictionary<int, PublicBinaryArtifact> articleFrames = await BuildArticleFramesAsync(articleIds, version, value, ct).ConfigureAwait(false);
+        PublicArticleFrameSelection selection = await QueryPublicArticleIdsAsync(utcNow, value, ct).ConfigureAwait(false);
+        FrozenDictionary<int, PublicBinaryArtifact> articleFrames = await BuildArticleFramesAsync(selection.ArticleIds, version, value, ct).ConfigureAwait(false);
         FrozenDictionary<PublicListKey, PublicBinaryArtifact> listFrames = await BuildListFramesAsync(utcNow, version, value, ct).ConfigureAwait(false);
         PublicBinaryArtifact categoryFrame = await BuildCategoryFrameAsync(version, value, ct).ConfigureAwait(false);
         PublicBinaryArtifact tagFrame = await BuildTagFrameAsync(version, value, ct).ConfigureAwait(false);
@@ -89,7 +94,9 @@ public sealed class PublicHotArtifactProjector(
             listFrames,
             categoryFrame,
             tagFrame,
-            html);
+            html,
+            selection.PublicArticleCount,
+            selection.ArticleFrameLimit);
     }
 
     private async Task<PublicHotReadSnapshot> BuildDeltaSnapshotCoreAsync(
@@ -127,19 +134,24 @@ public sealed class PublicHotArtifactProjector(
             html);
     }
 
-    private async Task<List<int>> QueryPublicArticleIdsAsync(DateTime utcNow, PublicHotReadOptions options, CancellationToken ct)
+    private async Task<PublicArticleFrameSelection> QueryPublicArticleIdsAsync(DateTime utcNow, PublicHotReadOptions options, CancellationToken ct)
     {
-        return await db.Queryable<Article>()
+        int limit = Math.Clamp(options.MaxArticleFrames, 1, 1_000_000);
+        ISugarQueryable<Article> publicArticles = db.Queryable<Article>()
             .Where(article => !article.IsDeleted
                 && article.Status == ArticleStatus.Published
                 && (article.PublishedAt == null || article.PublishedAt <= utcNow)
-                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= utcNow))
+                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= utcNow));
+        int publicArticleCount = await publicArticles.CountAsync(ct).ConfigureAwait(false);
+        List<int> articleIds = await publicArticles
             .OrderBy(article => article.PublishedAt, OrderByType.Desc)
             .OrderBy(article => article.Id, OrderByType.Desc)
-            .Take(Math.Clamp(options.MaxArticleFrames, 1, 1_000_000))
+            .Take(limit)
             .Select(article => article.Id)
             .ToListAsync(ct)
             .ConfigureAwait(false);
+
+        return new PublicArticleFrameSelection(articleIds, publicArticleCount, limit);
     }
 
     private async Task<FrozenDictionary<int, PublicBinaryArtifact>> BuildArticleFramesAsync(
