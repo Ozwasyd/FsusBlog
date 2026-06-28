@@ -5,6 +5,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
@@ -36,6 +37,7 @@ public sealed class AdminOperationsService(
     PublicHotArtifactUpdateQueue publicHotArtifactUpdateQueue,
     IPublicAotInvalidationService publicAotInvalidationService,
     ICacheInvalidationDispatcher cacheInvalidationDispatcher,
+    IUnifiedCache cache,
     ILogger<AdminOperationsService> logger)
 {
     private const uint SearchManifestMagic = 0x4D495346;
@@ -144,6 +146,7 @@ public sealed class AdminOperationsService(
         ArticleCacheDiagnosisResponse? article = articleId is > 0
             ? await DiagnoseArticleCacheAsync(articleId.Value, cancellationToken)
             : null;
+        IReadOnlyList<ArticleCachePolicyDiagnosticsResponse> articlePolicies = await BuildArticleCachePolicyDiagnosticsAsync(cancellationToken);
 
         AotDiagnosticsResponse aot = new(
             publicHot.LastBuildStatus == "failed" ? "degraded" : "ok",
@@ -170,8 +173,46 @@ public sealed class AdminOperationsService(
                 Enabled: true,
                 Tags: Enum.GetNames<CacheTag>(),
                 Detail: "ASP.NET OutputCache + IHttpCacheInvalidator tag eviction"),
+            articlePolicies,
             publicHotReadCounters.Snapshot(),
             article);
+    }
+
+    private async Task<IReadOnlyList<ArticleCachePolicyDiagnosticsResponse>> BuildArticleCachePolicyDiagnosticsAsync(CancellationToken cancellationToken)
+    {
+        CachePolicyId[] policyIds = ArticleCacheOwnershipCatalog.Policies.Keys.OrderBy(static policy => (int)policy).ToArray();
+        IReadOnlyList<CachePolicyStorageSnapshot> storage = await cache.GetPolicyStorageSnapshotsAsync(policyIds, cancellationToken);
+        Dictionary<CachePolicyId, CachePolicyStorageSnapshot> storageByPolicy = storage.ToDictionary(static item => item.PolicyId);
+        IReadOnlyList<CacheOperationRuntimeCounter> counters = FsusObservability.GetCacheOperationCounters();
+        var result = new List<ArticleCachePolicyDiagnosticsResponse>(policyIds.Length);
+        foreach (CachePolicyId policyId in policyIds)
+        {
+            ArticleCacheOwnership ownership = ArticleCacheOwnershipCatalog.Policies[policyId];
+            storageByPolicy.TryGetValue(policyId, out CachePolicyStorageSnapshot? snapshot);
+            string policyName = policyId.ToString();
+            long hits = counters
+                .Where(counter => string.Equals(counter.Policy, policyName, StringComparison.Ordinal)
+                    && counter.Result.Contains("hit", StringComparison.OrdinalIgnoreCase))
+                .Sum(static counter => counter.Count);
+            long misses = counters
+                .Where(counter => string.Equals(counter.Policy, policyName, StringComparison.Ordinal)
+                    && counter.Result.Contains("miss", StringComparison.OrdinalIgnoreCase))
+                .Sum(static counter => counter.Count);
+            result.Add(new ArticleCachePolicyDiagnosticsResponse(
+                policyId,
+                policyName,
+                ownership.Owner,
+                ownership.Consumers,
+                ownership.Writes,
+                ownership.Invalidation,
+                ownership.Retention,
+                snapshot?.KeyCount ?? 0,
+                snapshot?.Bytes ?? 0,
+                hits,
+                misses));
+        }
+
+        return result;
     }
 
     public async Task<AdminCacheActionResponse> RunCacheActionAsync(AdminCacheActionRequest request, CancellationToken cancellationToken)

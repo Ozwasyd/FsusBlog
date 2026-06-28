@@ -20,6 +20,13 @@ public sealed record SecurityChallengeV2PerformanceBudgetSnapshot(
     int ClientRenderP95BudgetMs,
     IReadOnlyList<string> Warnings);
 
+public sealed record CacheOperationRuntimeCounter(
+    string Operation,
+    string Policy,
+    string Layer,
+    string Result,
+    long Count);
+
 public static class FsusObservability
 {
     public const string DefaultServiceName = "FsusBlog";
@@ -63,6 +70,7 @@ public static class FsusObservability
 
     private static readonly Meter Meter = new(MeterName, ServiceVersion);
     private static readonly Counter<long> OperationCounter = Meter.CreateCounter<long>("fsus.operation.count");
+    private static readonly ConcurrentDictionary<string, long> CacheOperationRuntimeCounters = new(StringComparer.Ordinal);
     private static readonly Histogram<double> OperationDuration = Meter.CreateHistogram<double>("fsus.operation.duration", "ms");
     private static readonly Counter<long> CacheOperationCounter = Meter.CreateCounter<long>("fsus.cache.operation.count");
     private static readonly Counter<long> SecurityEventCounter = Meter.CreateCounter<long>("fsus.security.event.count");
@@ -219,6 +227,27 @@ public static class FsusObservability
         tags.Add("fsus.cache.layer", layer);
         CacheOperationCounter.Add(1, tags);
         CacheOperationDuration.Record(duration.TotalMilliseconds, tags);
+        CacheOperationRuntimeCounters.AddOrUpdate(
+            string.Concat(operation, '|', policyId, '|', layer, '|', result),
+            1,
+            static (_, current) => current + 1);
+    }
+
+    public static IReadOnlyList<CacheOperationRuntimeCounter> GetCacheOperationCounters()
+    {
+        var counters = new List<CacheOperationRuntimeCounter>(CacheOperationRuntimeCounters.Count);
+        foreach ((string key, long count) in CacheOperationRuntimeCounters)
+        {
+            string[] parts = key.Split('|');
+            if (parts.Length != 4)
+            {
+                continue;
+            }
+
+            counters.Add(new CacheOperationRuntimeCounter(parts[0], parts[1], parts[2], parts[3], count));
+        }
+
+        return counters;
     }
 
     public static void RecordSecurityEvent(string operation, string reason, string result)

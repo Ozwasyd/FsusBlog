@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -73,17 +74,19 @@ public sealed class ArticleEndpointService(
             async token =>
             {
                 token.ThrowIfCancellationRequested();
-                Result<CorePageResult<ArticleListCoreModel>> result = await core.GetPageListAsync(
-                    page,
-                    size,
-                    categoryId,
-                    tagId,
-                    isDeleted,
-                    status,
-                    canReadPrivate,
-                    normalizedKeyword,
-                    version,
-                    token);
+                Result<CorePageResult<ArticleListCoreModel>> result = ShouldBypassCoreArticleListCacheForPublicFrame(isDeleted, canReadDeleted, status, canReadPrivate)
+                    ? await LoadPublicArticleListFrameSourceAsync(page, size, categoryId, tagId, normalizedKeyword, token)
+                    : await core.GetPageListAsync(
+                        page,
+                        size,
+                        categoryId,
+                        tagId,
+                        isDeleted,
+                        status,
+                        canReadPrivate,
+                        normalizedKeyword,
+                        version,
+                        token);
                 if (!result.IsSuccess)
                 {
                     return new ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>(default, result);
@@ -198,6 +201,46 @@ public sealed class ArticleEndpointService(
     {
         string? version = await cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", cancellationToken);
         return long.TryParse(version, out long parsed) ? parsed : 0;
+    }
+
+    private async Task<Result<CorePageResult<ArticleListCoreModel>>> LoadPublicArticleListFrameSourceAsync(
+        int page,
+        int size,
+        int? categoryId,
+        int? tagId,
+        string keyword,
+        CancellationToken cancellationToken)
+    {
+        ArticleListPageReadModel source = await articles.GetPageListAsync(
+            page,
+            size,
+            categoryId,
+            tagId,
+            isDeleted: false,
+            status: null,
+            includePrivate: false,
+            keyword,
+            cancellationToken);
+        return Result<CorePageResult<ArticleListCoreModel>>.Success(
+            new CorePageResult<ArticleListCoreModel>(
+                ToCoreListModels(source.Items),
+                source.Total,
+                source.NextCursor,
+                source.HasMore));
+    }
+
+    private static bool ShouldBypassCoreArticleListCacheForPublicFrame(bool isDeleted, bool canReadDeleted, int? status, bool canReadPrivate)
+        => !isDeleted && !canReadDeleted && status is null && !canReadPrivate;
+
+    private static List<ArticleListCoreModel> ToCoreListModels(IReadOnlyList<ArticleListItemReadModel> source)
+    {
+        var items = new List<ArticleListCoreModel>(source.Count);
+        for (int i = 0; i < source.Count; i++)
+        {
+            items.Add(ArticleProjection.ToCoreListModel(source[i]));
+        }
+
+        return items;
     }
 
     private static string BuildArticleListCacheIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate, string keyword)

@@ -12,6 +12,7 @@ namespace FsusBlog.Server.Infrastructure.Cache;
 public readonly record struct CacheReadResult<T>(bool Hit, T? Value);
 public readonly record struct CacheKeyIdentity(CachePolicyId PolicyId, string Identity);
 public readonly record struct CachePrefixIdentity(CachePolicyId PolicyId, string IdentityPrefix);
+public sealed record CachePolicyStorageSnapshot(CachePolicyId PolicyId, long KeyCount, long Bytes);
 
 public interface IUnifiedCache
 {
@@ -49,6 +50,9 @@ public interface IUnifiedCache
     Task RemoveManyAsync(IReadOnlyList<CacheKeyIdentity> keys, CancellationToken cancellationToken = default);
     Task RemoveByPrefixAsync(CachePolicyId policyId, string identityPrefix, CancellationToken cancellationToken = default);
     Task RemoveByPrefixManyAsync(IReadOnlyList<CachePrefixIdentity> prefixes, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<CachePolicyStorageSnapshot>> GetPolicyStorageSnapshotsAsync(IReadOnlyList<CachePolicyId> policyIds, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<CachePolicyStorageSnapshot>>(
+            policyIds.Select(static policyId => new CachePolicyStorageSnapshot(policyId, 0, 0)).ToArray());
     Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
     string BuildKey(CachePolicyId policyId, string identity, string? version = null);
 }
@@ -761,6 +765,40 @@ return current
         TimeSpan elapsed = FsusObservability.GetElapsed(startedAt);
         FsusObservability.RecordCacheOperation("remove_prefix_many", "mixed", "l2", "ok", elapsed);
         FsusObservability.RecordCacheRemovePrefixMany(prefixes.Count, registryScans, deletedKeys, elapsed);
+    }
+
+    public async Task<IReadOnlyList<CachePolicyStorageSnapshot>> GetPolicyStorageSnapshotsAsync(
+        IReadOnlyList<CachePolicyId> policyIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (policyIds.Count == 0)
+        {
+            return Array.Empty<CachePolicyStorageSnapshot>();
+        }
+
+        var snapshots = new List<CachePolicyStorageSnapshot>(policyIds.Count);
+        foreach (CachePolicyId policyId in policyIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            string registryKey = ResolveRegistryKey(policyId);
+            long keyCount = 0;
+            long bytes = 0;
+            foreach (RedisValue registeredKey in _db.SetScan(registryKey, pageSize: PrefixInvalidationBatchSize))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!registeredKey.HasValue)
+                {
+                    continue;
+                }
+
+                keyCount++;
+                bytes += await _db.StringLengthAsync((RedisKey)registeredKey.ToString()).ConfigureAwait(false);
+            }
+
+            snapshots.Add(new CachePolicyStorageSnapshot(policyId, keyCount, bytes));
+        }
+
+        return snapshots;
     }
 
     private async Task DeleteRegisteredKeysByPrefixAsync(

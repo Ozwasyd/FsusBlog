@@ -29,6 +29,37 @@ public sealed class OperationsReadinessContractTests
     }
 
     [Fact]
+    public void CacheDiagnostics_ExposesArticlePolicyOwnershipAndRuntimeCounters()
+    {
+        string root = BackendTestPaths.RepositoryRoot;
+        string catalogPath = Path.Combine(root, "src/backend/Infrastructure/Cache/ArticleCacheOwnershipCatalog.cs");
+        string dtos = File.ReadAllText(Path.Combine(root, "src/backend/Models/Dtos/OperationsDtos.cs"));
+        string operations = File.ReadAllText(Path.Combine(root, "src/backend/Infrastructure/Operations/AdminOperationsService.cs"));
+
+        Assert.True(File.Exists(catalogPath), "Article cache policies must have an ownership catalog.");
+        string catalog = File.ReadAllText(catalogPath);
+        foreach (string policy in new[]
+        {
+            "ArticleList",
+            "ArticleListFrame",
+            "ArticleDetail",
+            "ArticleDetailFrame",
+            "ArticleHot",
+            "ArticleHotFrame",
+            "ArticleSearch"
+        })
+        {
+            Assert.Contains($"CachePolicyId.{policy}", catalog, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("ArticleCachePolicyDiagnosticsResponse", dtos, StringComparison.Ordinal);
+        Assert.Contains("IReadOnlyList<ArticleCachePolicyDiagnosticsResponse> ArticlePolicies", dtos, StringComparison.Ordinal);
+        Assert.Contains("ArticleCacheOwnershipCatalog.Policies", operations, StringComparison.Ordinal);
+        Assert.Contains("GetPolicyStorageSnapshotsAsync", operations, StringComparison.Ordinal);
+        Assert.Contains("FsusObservability.GetCacheOperationCounters", operations, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BackupRestoreAndSupplyChainScripts_AreDocumentedAndExecutable()
     {
         string root = BackendTestPaths.RepositoryRoot;

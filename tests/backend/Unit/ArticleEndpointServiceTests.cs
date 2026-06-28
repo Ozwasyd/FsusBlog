@@ -6,6 +6,7 @@ using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -185,6 +186,66 @@ public sealed class ArticleEndpointServiceTests
         Assert.All(results, result => Assert.True(result.HasCachedFrame));
         Assert.Equal(1, Volatile.Read(ref coreLoads));
         Assert.Equal(1, cache.RawSetCount);
+    }
+
+    [Fact]
+    public async Task GetPageListAsync_PublicFrameMiss_UsesServiceDtoProjectionWithoutCoreListCache()
+    {
+        var core = Substitute.For<IArticleCoreService>();
+        var articles = Substitute.For<IArticleService>();
+        var cache = Substitute.For<IUnifiedCache>();
+        var service = Create(core, cache: cache, articles: articles);
+        var page = new ArticleListPageReadModel
+        {
+            Items = [],
+            Total = 0,
+            NextCursor = "next",
+            HasMore = true
+        };
+
+        cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>())
+            .Returns("9");
+        cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleListFrame, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new CacheReadResult<ReadOnlyMemory<byte>>(false, default));
+        articles.GetPageListAsync(
+                Arg.Any<int>(),
+                Arg.Any<int>(),
+                Arg.Any<int?>(),
+                Arg.Any<int?>(),
+                Arg.Any<bool>(),
+                Arg.Any<int?>(),
+                Arg.Any<bool>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+            .Returns(page);
+
+        ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>> result = await service.GetPageListAsync(
+            1,
+            10,
+            categoryId: null,
+            tagId: null,
+            isDeleted: false,
+            canReadDeleted: false,
+            status: null,
+            canReadPrivate: false,
+            keyword: "  fsus  ");
+
+        Assert.True(result.Result.IsSuccess);
+        Assert.True(result.HasCachedFrame);
+        Assert.Equal("next", result.Result.Value.NextCursor);
+        Assert.True(result.Result.Value.HasMore);
+        await core.DidNotReceiveWithAnyArgs().GetPageListAsync(default, default, default, default, default);
+        await articles.Received(1).GetPageListAsync(
+            1,
+            10,
+            null,
+            null,
+            false,
+            null,
+            false,
+            "fsus",
+            Arg.Any<CancellationToken>());
+        await cache.Received(1).SetRawAsync(CachePolicyId.ArticleListFrame, Arg.Any<string>(), Arg.Any<byte[]>(), TimeSpan.FromMinutes(10), Arg.Any<CancellationToken>());
     }
 
     [Fact]

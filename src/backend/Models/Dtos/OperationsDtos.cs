@@ -91,6 +91,19 @@ public sealed record OutputCacheDiagnosticsResponse(
     IReadOnlyList<string> Tags,
     string Detail);
 
+public sealed record ArticleCachePolicyDiagnosticsResponse(
+    CachePolicyId PolicyId,
+    string Policy,
+    string Owner,
+    string Consumers,
+    string Writes,
+    string Invalidation,
+    string Retention,
+    long KeyCount,
+    long Bytes,
+    long HitCount,
+    long MissCount);
+
 public sealed record ArticleCacheDiagnosisResponse(
     int ArticleId,
     bool PubliclyVisible,
@@ -109,6 +122,7 @@ public sealed record CacheDiagnosticsResponse(
     CacheInvalidationRuntimeSnapshot CommentCache,
     HotStatsInvalidationSnapshot HotStatsInvalidation,
     OutputCacheDiagnosticsResponse OutputCache,
+    IReadOnlyList<ArticleCachePolicyDiagnosticsResponse> ArticlePolicies,
     PublicHotReadCounterSnapshot PublicHotReadCounters,
     ArticleCacheDiagnosisResponse? Article);
 
