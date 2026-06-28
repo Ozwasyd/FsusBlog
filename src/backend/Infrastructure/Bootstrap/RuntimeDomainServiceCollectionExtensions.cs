@@ -25,6 +25,9 @@ internal static class RuntimeDomainServiceCollectionExtensions
 
     private static IServiceCollection AddContentRuntimeServices(this IServiceCollection services)
     {
+        services.AddSingleton<IArticleViewWriteBuffer, ArticleViewWriteBuffer>();
+        services.AddScoped<IArticleViewFlushSink, ArticleServiceViewFlushSink>();
+        services.AddHostedService<ArticleViewFlushWorker>();
         services.AddScoped<ArticleService>();
         services.AddScoped<CommentService>();
         services.AddSingleton<ICommentCursorPolicyResolver, ConfigurationCommentCursorPolicyResolver>();

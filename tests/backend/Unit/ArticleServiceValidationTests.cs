@@ -34,7 +34,8 @@ public class ArticleServiceValidationTests
             _logger: NullLogger<ArticleService>.Instance,
             _publicAotInvalidationService: Substitute.For<IPublicAotInvalidationService>(),
             _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
-            _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>());
+            _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
+            _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>());
     }
 
     // ─── SearchArticlesAsync guard ────────────────────────────────────────────
@@ -152,25 +153,18 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
-    public void IncreaseViewCountAsync_SourceUsesDbReturnedViewsBeforeRedisHotRanking()
+    public void IncreaseViewCountAsync_SourceEnqueuesViewsWithoutSynchronousDbRedisOrDetailInvalidation()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
         int methodStart = source.IndexOf("public async ValueTask IncreaseViewCountAsync(int id, int count)", StringComparison.Ordinal);
         int nextMethod = source.IndexOf("public async ValueTask<IReadOnlySet<int>> IncreaseViewCountsAsync", StringComparison.Ordinal);
         string method = source[methodStart..nextMethod];
 
-        int returnedViews = method.IndexOf("int? currentViews = await TryIncreaseArticleViewsAsync(id, count)", StringComparison.Ordinal);
-        int zeroGuard = method.IndexOf("if (!currentViews.HasValue)", StringComparison.Ordinal);
-        int redisRemove = method.IndexOf("SortedSetRemoveAsync", StringComparison.Ordinal);
-        int redisSet = method.IndexOf("SortedSetAddAsync", StringComparison.Ordinal);
-        int cacheRemove = method.IndexOf("RemoveAsync(CachePolicyId.ArticleDetail", StringComparison.Ordinal);
-
-        Assert.True(returnedViews >= 0);
-        Assert.True(zeroGuard > returnedViews);
-        Assert.True(redisRemove > zeroGuard);
-        Assert.True(redisSet > zeroGuard);
-        Assert.True(cacheRemove > redisSet);
+        Assert.Contains("_viewWriteBuffer.EnqueueAsync(id, count", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryIncreaseArticleViewsAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("SortedSetAddAsync", method, StringComparison.Ordinal);
         Assert.DoesNotContain("SortedSetIncrementAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("RemoveAsync(CachePolicyId.ArticleDetail", method, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -297,7 +291,7 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
-    public void IncreaseViewCountsAsync_SourceUsesSingleValuesUpdateAndRedisBatch()
+    public void IncreaseViewCountsAsync_SourceUsesSingleValuesUpdateAndRedisBatchWithoutDetailInvalidation()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
         int methodStart = source.IndexOf("public async ValueTask<IReadOnlySet<int>> IncreaseViewCountsAsync", StringComparison.Ordinal);
@@ -305,8 +299,57 @@ public class ArticleServiceValidationTests
         string method = source[methodStart..nextMethod];
 
         Assert.Contains("FROM (VALUES", method, StringComparison.Ordinal);
-        Assert.Contains("RETURNING a.id", method, StringComparison.Ordinal);
+        Assert.Contains("RETURNING a.id, a.views", method, StringComparison.Ordinal);
         Assert.Contains("IBatch redisBatch = _redis.CreateBatch()", method, StringComparison.Ordinal);
+        Assert.Contains("SortedSetAddAsync(hotRankKey, articleId, currentViews)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("RemoveAsync(CachePolicyId.ArticleDetail", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetByIdAsync_SourceOverlaysProjectedViewsOnCachedArticleDetail()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+
+        Assert.Contains("OverlayProjectedViewsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("SortedSetScoreAsync(RedisKey(\"blog:top_articles\"), article.Id)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RuntimeDomainServices_SourceRegistersArticleViewBufferAndWorker()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs"));
+
+        Assert.Contains("AddSingleton<IArticleViewWriteBuffer, ArticleViewWriteBuffer>()", source, StringComparison.Ordinal);
+        Assert.Contains("AddScoped<IArticleViewFlushSink, ArticleServiceViewFlushSink>()", source, StringComparison.Ordinal);
+        Assert.Contains("AddHostedService<ArticleViewFlushWorker>()", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArticleViewFlushSink_SourceMarksHotStatsAndPublicHotDirtyAfterFlush()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleViewWriteBuffer.cs"));
+        int methodStart = source.IndexOf("public async ValueTask<IReadOnlySet<int>> FlushArticleViewsAsync", StringComparison.Ordinal);
+        int nextType = source.IndexOf("public sealed class ArticleViewFlushWorker", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..nextType];
+
+        Assert.Contains("IncreaseViewCountsAsync(articleCounts, cancellationToken)", method, StringComparison.Ordinal);
+        Assert.Contains("MarkStatsDirtyAsync(reason, cancellationToken)", method, StringComparison.Ordinal);
+        Assert.Contains("MarkHotArticlesDirtyAsync(reason, cancellationToken)", method, StringComparison.Ordinal);
+        Assert.Contains("TryEnqueue(null, reason)", method, StringComparison.Ordinal);
+        Assert.Contains("article-view-projection-buffer-flush", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArticleViewInvalidation_SourceDoesNotRemoveArticleDetailContentCache()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs"));
+        int methodStart = source.IndexOf("public async Task InvalidateArticleViewAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("public async Task InvalidateHotArticlesAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        Assert.Contains("RecordRuntimeAsync(\"article_view\"", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("CachePolicyId.ArticleDetail", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("CachePolicyId.ArticleDetailFrame", method, StringComparison.Ordinal);
     }
 
     [Fact]

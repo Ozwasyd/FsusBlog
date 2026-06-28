@@ -38,7 +38,8 @@ public class ArticleService(
     ILogger<ArticleService> _logger,
     IPublicAotInvalidationService _publicAotInvalidationService,
     ICacheInvalidationDispatcher _cacheInvalidationDispatcher,
-    IArticleMutationSideEffectCoordinator _mutationSideEffects) : IArticleService
+    IArticleMutationSideEffectCoordinator _mutationSideEffects,
+    IArticleViewWriteBuffer _viewWriteBuffer) : IArticleService
 {
     private readonly record struct TrashArticleRow(int Id, int CategoryId);
 
@@ -67,42 +68,12 @@ public class ArticleService(
 
     public async ValueTask IncreaseViewCountAsync(int id, int count)
     {
-        if (count <= 0)
+        if (id <= 0 || count <= 0)
         {
             return;
         }
 
-        int? currentViews = await TryIncreaseArticleViewsAsync(id, count);
-        if (!currentViews.HasValue)
-        {
-            await _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), id);
-            return;
-        }
-
-        await _redis.SortedSetAddAsync(RedisKey("blog:top_articles"), id, currentViews.Value);
-
-        // 逻辑自洽：增加阅读量不触发全局列表版本号变更
-        await _cache.RemoveAsync(CachePolicyId.ArticleDetail, id.ToString());
-    }
-
-    private async Task<int?> TryIncreaseArticleViewsAsync(int id, int count)
-    {
-        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
-            """
-            UPDATE article
-            SET views = views + @Count
-            WHERE id = @Id
-              AND isdeleted = false
-            RETURNING views;
-            """,
-            new SugarParameter("@Id", id),
-            new SugarParameter("@Count", count));
-        if (!await reader.ReadAsync(Ct))
-        {
-            return null;
-        }
-
-        return reader.GetInt32(0);
+        await _viewWriteBuffer.EnqueueAsync(id, count, Ct);
     }
 
     public async ValueTask<IReadOnlySet<int>> IncreaseViewCountsAsync(
@@ -140,14 +111,18 @@ public class ArticleService(
         }
 
         sql.Append(
-            ") AS v(id, delta) WHERE a.id = v.id AND a.isdeleted = false RETURNING a.id;");
+            ") AS v(id, delta) WHERE a.id = v.id AND a.isdeleted = false RETURNING a.id, a.views;");
 
         var updatedIds = new HashSet<int>();
+        var updatedViews = new Dictionary<int, int>();
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sql.ToString(), parameters))
         {
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                updatedIds.Add(reader.GetInt32(0));
+                int articleId = reader.GetInt32(0);
+                int currentViews = reader.GetInt32(1);
+                updatedIds.Add(articleId);
+                updatedViews[articleId] = currentViews;
             }
         }
 
@@ -159,8 +134,8 @@ public class ArticleService(
             cancellationToken.ThrowIfCancellationRequested();
             if (updatedIds.Contains(articleId))
             {
-                redisTasks.Add(redisBatch.SortedSetIncrementAsync(hotRankKey, articleId, count));
-                redisTasks.Add(_cache.RemoveAsync(CachePolicyId.ArticleDetail, articleId.ToString(), cancellationToken));
+                int currentViews = updatedViews[articleId];
+                redisTasks.Add(redisBatch.SortedSetAddAsync(hotRankKey, articleId, currentViews));
             }
             else
             {
@@ -261,7 +236,7 @@ public class ArticleService(
 
         if (!string.IsNullOrWhiteSpace(cached.Content))
         {
-            return new CacheReadResult<ArticleDetailReadModel>(true, cached);
+            return new CacheReadResult<ArticleDetailReadModel>(true, await OverlayProjectedViewsAsync(cached, cancellationToken));
         }
 
         string healedContent = await LoadArticleContentAsync(id, cancellationToken);
@@ -272,7 +247,7 @@ public class ArticleService(
 
         if (string.IsNullOrWhiteSpace(healedContent))
         {
-            return new CacheReadResult<ArticleDetailReadModel>(true, cached);
+            return new CacheReadResult<ArticleDetailReadModel>(true, await OverlayProjectedViewsAsync(cached, cancellationToken));
         }
 
         int healedWordCount = CalculateReadableLength(healedContent);
@@ -287,7 +262,21 @@ public class ArticleService(
         byte[] encodedHealed = ServerCacheBinaryCodec.EncodeArticleDetail(healed);
         cancellationToken.ThrowIfCancellationRequested();
         await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity, encodedHealed, null, cancellationToken);
-        return new CacheReadResult<ArticleDetailReadModel>(true, healed);
+        return new CacheReadResult<ArticleDetailReadModel>(true, await OverlayProjectedViewsAsync(healed, cancellationToken));
+    }
+
+    private async Task<ArticleDetailReadModel> OverlayProjectedViewsAsync(
+        ArticleDetailReadModel article,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        double? projectedViews = await _redis.SortedSetScoreAsync(RedisKey("blog:top_articles"), article.Id).ConfigureAwait(false);
+        if (!projectedViews.HasValue || projectedViews.Value < article.Views || projectedViews.Value > int.MaxValue)
+        {
+            return article;
+        }
+
+        return article with { Views = (int)Math.Round(projectedViews.Value) };
     }
 
     private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync(

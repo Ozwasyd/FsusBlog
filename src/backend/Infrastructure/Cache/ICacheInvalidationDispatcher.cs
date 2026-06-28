@@ -311,18 +311,6 @@ public sealed class CacheInvalidationDispatcher(
 
     public async Task InvalidateArticleViewAsync(int articleId, CancellationToken cancellationToken = default)
     {
-        if (articleId > 0)
-        {
-            await cache.RemoveManyAsync(
-                [
-                    new(CachePolicyId.ArticleDetail, articleId.ToString()),
-                    new(CachePolicyId.ArticleDetail, $"core:v2:{articleId}"),
-                    new(CachePolicyId.ArticleDetail, $"core:v3:{articleId}"),
-                    new(CachePolicyId.ArticleDetailFrame, $"core:v3:{articleId}")
-                ],
-                cancellationToken);
-        }
-
         await RecordRuntimeAsync("article_view", articleId > 0 ? $"article:{articleId}" : "unknown", cancellationToken);
     }
 

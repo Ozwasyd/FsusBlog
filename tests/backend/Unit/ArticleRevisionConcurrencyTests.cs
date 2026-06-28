@@ -296,6 +296,7 @@ public sealed class ArticleRevisionConcurrencyTests(PostgresSchemaMigrationFixtu
             _logger: NullLogger<ArticleService>.Instance,
             _publicAotInvalidationService: Substitute.For<IPublicAotInvalidationService>(),
             _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
-            _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>());
+            _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
+            _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>());
     }
 }
