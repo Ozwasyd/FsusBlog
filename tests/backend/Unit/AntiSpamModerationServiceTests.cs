@@ -1,4 +1,7 @@
 using System.Text.Json;
+using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -45,10 +48,86 @@ public sealed class AntiSpamModerationServiceTests
 
         Assert.Contains("ValidateHttpJsonEndpointAsync", method, StringComparison.Ordinal);
         Assert.Contains("validatedEndpoint.Uri!", method, StringComparison.Ordinal);
+        Assert.Contains("HttpCompletionOption.ResponseHeadersRead", method, StringComparison.Ordinal);
+        Assert.Contains("ValidateHttpJsonProviderResponseHeaders(response)", method, StringComparison.Ordinal);
+        Assert.Contains("ReadProviderResponseJsonAsync(response.Content", method, StringComparison.Ordinal);
         Assert.True(
             method.IndexOf("ValidateHttpJsonEndpointAsync", StringComparison.Ordinal) <
-            method.IndexOf("PostAsJsonAsync", StringComparison.Ordinal));
-        Assert.DoesNotContain("PostAsJsonAsync(endpoint", method, StringComparison.Ordinal);
+            method.IndexOf("SendAsync", StringComparison.Ordinal));
+        Assert.DoesNotContain("PostAsJsonAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadAsStringAsync", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ServiceCollection_RegistersDedicatedAntiSpamHttpClientWithoutRedirects()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs");
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Moderation/AntiSpamModerationService.cs");
+
+        Assert.Contains("AddHttpClient(nameof(AntiSpamModerationService))", source, StringComparison.Ordinal);
+        Assert.Contains("CreateHttpJsonProviderHandler", source, StringComparison.Ordinal);
+        Assert.Contains("AllowAutoRedirect = false", service, StringComparison.Ordinal);
+        Assert.Contains("ConnectCallback", service, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ValidateHttpJsonProviderResolvedAddresses_RejectsConnectionTimePrivateAddress()
+    {
+        var uri = new Uri("https://moderation.example.com/v1/score");
+
+        AntiSpamModerationService.AntiSpamProviderEndpointValidation result =
+            AntiSpamModerationService.ValidateHttpJsonProviderResolvedAddresses(
+                uri,
+                [IPAddress.Parse("10.0.0.5")]);
+
+        Assert.False(result.Allowed);
+        Assert.Equal("private_or_reserved_address", result.Reason);
+    }
+
+    [Fact]
+    public void ValidateHttpJsonProviderResponseHeaders_RejectsOversizedContentLength()
+    {
+        using var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{}", Encoding.UTF8, "application/json")
+        };
+        response.Content.Headers.ContentLength = AntiSpamModerationService.MaxHttpJsonProviderResponseBytes + 1;
+
+        AntiSpamModerationService.AntiSpamProviderResponseValidation result =
+            AntiSpamModerationService.ValidateHttpJsonProviderResponseHeaders(response);
+
+        Assert.False(result.Allowed);
+        Assert.Equal("provider_response_too_large", result.Reason);
+    }
+
+    [Fact]
+    public void ValidateHttpJsonProviderResponseHeaders_RejectsNonJsonContentType()
+    {
+        using var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new ByteArrayContent([])
+        };
+        response.Content.Headers.ContentType = new MediaTypeHeaderValue("text/html");
+
+        AntiSpamModerationService.AntiSpamProviderResponseValidation result =
+            AntiSpamModerationService.ValidateHttpJsonProviderResponseHeaders(response);
+
+        Assert.False(result.Allowed);
+        Assert.Equal("provider_content_type_invalid", result.Reason);
+    }
+
+    [Fact]
+    public async Task ReadProviderResponseJsonAsync_RejectsChunkedResponseOverByteLimit()
+    {
+        byte[] oversized = new byte[AntiSpamModerationService.MaxHttpJsonProviderResponseBytes + 1];
+        Array.Fill(oversized, (byte)' ');
+        using var content = new StreamContent(new MemoryStream(oversized));
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+        var ex = await Assert.ThrowsAnyAsync<InvalidOperationException>(() =>
+            AntiSpamModerationService.ReadProviderResponseJsonAsync(content, CancellationToken.None));
+
+        Assert.Contains("byte limit", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

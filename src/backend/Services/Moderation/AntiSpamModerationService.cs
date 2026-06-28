@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -23,6 +25,7 @@ public sealed class AntiSpamModerationService(
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private const string HttpJsonAllowedHostsKey = "Moderation:AntiSpamModel:Providers:http-json:AllowedHosts";
+    public const long MaxHttpJsonProviderResponseBytes = 256 * 1024;
 
     private static readonly HashSet<string> AllowedCategories = new(StringComparer.Ordinal)
     {
@@ -358,23 +361,118 @@ public sealed class AntiSpamModerationService(
         ValidateProviderRequestJson(JsonSerializer.Serialize(payload, JsonOptions));
         Stopwatch stopwatch = Stopwatch.StartNew();
         using HttpClient client = httpClientFactory.CreateClient(nameof(AntiSpamModerationService));
-        using HttpResponseMessage response = await client.PostAsJsonAsync(validatedEndpoint.Uri!, payload, JsonOptions, cancellationToken).ConfigureAwait(false);
-        string json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        stopwatch.Stop();
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, validatedEndpoint.Uri!)
+        {
+            Content = JsonContent.Create(payload, options: JsonOptions)
+        };
+        using HttpResponseMessage response = await client.SendAsync(
+            httpRequest,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
+            stopwatch.Stop();
             return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, $"http_{(int)response.StatusCode}", AntiSpamModerationStatuses.Unavailable, stopwatch.Elapsed, runtimeModel);
+        }
+
+        AntiSpamProviderResponseValidation responseValidation = ValidateHttpJsonProviderResponseHeaders(response);
+        if (!responseValidation.Allowed)
+        {
+            stopwatch.Stop();
+            return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, responseValidation.Reason, AntiSpamModerationStatuses.Unavailable, stopwatch.Elapsed, runtimeModel);
         }
 
         try
         {
+            string json = await ReadProviderResponseJsonAsync(response.Content, cancellationToken).ConfigureAwait(false);
+            stopwatch.Stop();
             return ValidateProviderResultJson(json, contractVersion, AntiSpamModerationProviders.HttpJson, stopwatch.Elapsed);
+        }
+        catch (ProviderResponseTooLargeException ex)
+        {
+            stopwatch.Stop();
+            logger.LogWarning(ex, "anti-spam provider response exceeded byte limit");
+            return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, "provider_response_too_large", AntiSpamModerationStatuses.Unavailable, stopwatch.Elapsed, runtimeModel);
         }
         catch (InvalidOperationException ex)
         {
+            stopwatch.Stop();
             logger.LogWarning(ex, "anti-spam provider contract invalid");
             return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, "provider_contract_invalid", AntiSpamModerationStatuses.ContractInvalid, stopwatch.Elapsed, runtimeModel);
         }
+    }
+
+    public static SocketsHttpHandler CreateHttpJsonProviderHandler()
+        => new()
+        {
+            AllowAutoRedirect = false,
+            AutomaticDecompression = DecompressionMethods.None,
+            ConnectTimeout = TimeSpan.FromSeconds(5),
+            PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+            ConnectCallback = ConnectToValidatedProviderEndpointAsync
+        };
+
+    private static async ValueTask<Stream> ConnectToValidatedProviderEndpointAsync(
+        SocketsHttpConnectionContext context,
+        CancellationToken cancellationToken)
+    {
+        IPAddress[] addresses;
+        if (IPAddress.TryParse(context.DnsEndPoint.Host, out IPAddress? literalAddress))
+        {
+            addresses = [literalAddress];
+        }
+        else
+        {
+            addresses = await Dns.GetHostAddressesAsync(context.DnsEndPoint.Host, cancellationToken).ConfigureAwait(false);
+        }
+
+        var uriBuilder = new UriBuilder(Uri.UriSchemeHttps, context.DnsEndPoint.Host, context.DnsEndPoint.Port);
+        AntiSpamProviderEndpointValidation validation = ValidateHttpJsonProviderResolvedAddresses(uriBuilder.Uri, addresses);
+        if (!validation.Allowed)
+        {
+            throw new HttpRequestException($"anti-spam provider endpoint rejected at connect time: {validation.Reason}");
+        }
+
+        IPAddress address = addresses.First(static item => !IsPrivateOrReservedProviderAddress(item));
+        var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
+        {
+            NoDelay = true
+        };
+
+        try
+        {
+            await socket.ConnectAsync(address, context.DnsEndPoint.Port, cancellationToken).ConfigureAwait(false);
+            return new NetworkStream(socket, ownsSocket: true);
+        }
+        catch
+        {
+            socket.Dispose();
+            throw;
+        }
+    }
+
+    internal static async Task<string> ReadProviderResponseJsonAsync(HttpContent content, CancellationToken cancellationToken)
+    {
+        await using Stream stream = await content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using var buffer = new MemoryStream(capacity: (int)Math.Min(MaxHttpJsonProviderResponseBytes, 8192));
+        byte[] chunk = new byte[8192];
+        while (true)
+        {
+            int read = await stream.ReadAsync(chunk, cancellationToken).ConfigureAwait(false);
+            if (read == 0)
+            {
+                break;
+            }
+
+            if (buffer.Length + read > MaxHttpJsonProviderResponseBytes)
+            {
+                throw new ProviderResponseTooLargeException();
+            }
+
+            buffer.Write(chunk, 0, read);
+        }
+
+        return Encoding.UTF8.GetString(buffer.ToArray());
     }
 
     public static AntiSpamProviderEndpointValidation ValidateHttpJsonProviderEndpointConfiguration(string? endpoint, string? allowedHosts)
@@ -446,10 +544,44 @@ public sealed class AntiSpamModerationService(
             return AntiSpamProviderEndpointValidation.Deny("dns_resolution_failed", uri);
         }
 
+        AntiSpamProviderEndpointValidation addressValidation = ValidateHttpJsonProviderResolvedAddresses(uri, addresses);
+        return addressValidation.Allowed ? configurationValidation : addressValidation;
+    }
+
+    public static AntiSpamProviderEndpointValidation ValidateHttpJsonProviderResolvedAddresses(
+        Uri uri,
+        IReadOnlyCollection<IPAddress> addresses)
+    {
+        if (addresses.Count == 0)
+        {
+            return AntiSpamProviderEndpointValidation.Deny("dns_resolution_failed", uri);
+        }
+
         return addresses.Any(IsPrivateOrReservedProviderAddress)
             ? AntiSpamProviderEndpointValidation.Deny("private_or_reserved_address", uri)
-            : configurationValidation;
+            : AntiSpamProviderEndpointValidation.Allow(uri);
     }
+
+    public static AntiSpamProviderResponseValidation ValidateHttpJsonProviderResponseHeaders(HttpResponseMessage response)
+    {
+        MediaTypeHeaderValue? contentType = response.Content.Headers.ContentType;
+        if (contentType is null || !IsJsonMediaType(contentType.MediaType))
+        {
+            return AntiSpamProviderResponseValidation.Deny("provider_content_type_invalid");
+        }
+
+        long? contentLength = response.Content.Headers.ContentLength;
+        if (contentLength > MaxHttpJsonProviderResponseBytes)
+        {
+            return AntiSpamProviderResponseValidation.Deny("provider_response_too_large");
+        }
+
+        return AntiSpamProviderResponseValidation.Allow();
+    }
+
+    private static bool IsJsonMediaType(string? mediaType)
+        => string.Equals(mediaType, "application/json", StringComparison.OrdinalIgnoreCase)
+            || (mediaType?.EndsWith("+json", StringComparison.OrdinalIgnoreCase) ?? false);
 
     private static bool TryBuildAllowedProviderHostSet(string? allowedHosts, out HashSet<string>? hostSet)
     {
@@ -533,6 +665,18 @@ public sealed class AntiSpamModerationService(
         public static AntiSpamProviderEndpointValidation Deny(string reason, Uri? uri = null)
             => new(false, reason, uri);
     }
+
+    public sealed record AntiSpamProviderResponseValidation(bool Allowed, string Reason)
+    {
+        public static AntiSpamProviderResponseValidation Allow()
+            => new(true, "ok");
+
+        public static AntiSpamProviderResponseValidation Deny(string reason)
+            => new(false, reason);
+    }
+
+    private sealed class ProviderResponseTooLargeException()
+        : InvalidOperationException("anti-spam provider response exceeded the configured byte limit");
 
     public static AntiSpamModerationResult ValidateProviderResultJson(
         string json,

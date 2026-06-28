@@ -10,6 +10,7 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Services.Moderation;
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
@@ -48,6 +49,8 @@ public static class ServiceCollectionExtensions
         services.AddFsusDataProtection(configuration);
         services.AddMemoryCache();
         services.AddHttpClient();
+        services.AddHttpClient(nameof(AntiSpamModerationService))
+            .ConfigurePrimaryHttpMessageHandler(static () => AntiSpamModerationService.CreateHttpJsonProviderHandler());
 
         return services;
     }
