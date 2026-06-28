@@ -81,6 +81,20 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    public void RecordAttemptAsync_UsesReturningMetricsWithoutPostTransactionAttemptChallengeReloads()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/Security/SecurityChallengePersistenceService.cs"));
+        string record = ExtractMethodBlock(source, "public async Task<SecurityChallengeAttempt> RecordAttemptAsync");
+
+        Assert.Contains("RETURNING", source, StringComparison.Ordinal);
+        Assert.Contains("ReadChallengeMetricContextAsync", record, StringComparison.Ordinal);
+        Assert.DoesNotContain("storedAttempt", record, StringComparison.Ordinal);
+        Assert.DoesNotContain("storedChallenge", record, StringComparison.Ordinal);
+        Assert.DoesNotContain("SingleAsync(item => item.AttemptId", record, StringComparison.Ordinal);
+        Assert.DoesNotContain("SingleAsync(item => item.ChallengeId", record, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task IssueAsync_PersistsChallengeHashMetadata()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -235,5 +249,33 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
             db,
             typeof(SecurityChallenge),
             typeof(SecurityChallengeAttempt));
+    }
+
+    private static string ExtractMethodBlock(string source, string signature)
+    {
+        int start = source.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing method signature: {signature}");
+
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart >= 0, $"Missing method body: {signature}");
+
+        int depth = 0;
+        for (int i = braceStart; i < source.Length; i++)
+        {
+            if (source[i] == '{')
+            {
+                depth++;
+            }
+            else if (source[i] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[start..(i + 1)];
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
 }

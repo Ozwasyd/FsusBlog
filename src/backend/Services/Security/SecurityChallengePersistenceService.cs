@@ -1,3 +1,4 @@
+using System.Data.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Observability;
 using SqlSugar;
@@ -41,6 +42,12 @@ public sealed record SecurityChallengeAttemptRequest(
     string? TraceId,
     string? Traceparent,
     DateTime? AttemptedAtUtc = null);
+
+internal sealed record SecurityChallengeMetricContext(
+    string Kind,
+    string Action,
+    string PolicyVersion,
+    DateTime IssuedAtUtc);
 
 public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : ISecurityChallengePersistenceService
 {
@@ -125,29 +132,21 @@ public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : IS
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             await db.Insertable(attempt).ExecuteCommandAsync();
-            int updated = await db.Ado.ExecuteCommandAsync(
-                """
-                UPDATE security_challenge
-                SET status = CASE WHEN status NOT IN ('verified', 'revoked', 'expired') THEN @Status ELSE status END,
-                    verified_at_utc = CASE WHEN status NOT IN ('verified', 'revoked', 'expired') AND @Status = 'verified' THEN @AttemptedAt ELSE verified_at_utc END,
-                    revoked_at_utc = CASE WHEN status NOT IN ('verified', 'revoked', 'expired') AND @Status = 'revoked' THEN @AttemptedAt ELSE revoked_at_utc END,
-                    updated_at_utc = CASE WHEN status NOT IN ('verified', 'revoked', 'expired') THEN @AttemptedAt ELSE updated_at_utc END
-                WHERE challenge_id = @ChallengeId
-                  AND status NOT IN ('verified', 'revoked', 'expired');
-                """,
-                new SugarParameter("@Status", outcome),
-                new SugarParameter("@AttemptedAt", attemptedAt),
-                new SugarParameter("@ChallengeId", challengeId));
-            if (updated <= 0)
+            SecurityChallengeMetricContext? metric = await ReadChallengeMetricContextAsync(
+                    challengeId,
+                    outcome,
+                    attemptedAt)
+                .ConfigureAwait(false);
+            if (metric is null)
             {
-                bool exists = await db.Queryable<SecurityChallenge>().AnyAsync(item => item.ChallengeId == challengeId, cancellationToken);
-                if (!exists)
+                metric = await LoadChallengeMetricContextAsync(challengeId).ConfigureAwait(false);
+                if (metric is null)
                 {
                     throw new InvalidOperationException("Security challenge not found.");
                 }
             }
 
-            return updated;
+            return metric;
         });
 
         if (!transaction.IsSuccess)
@@ -155,10 +154,8 @@ public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : IS
             throw new InvalidOperationException("Security challenge attempt persistence failed.", transaction.ErrorException);
         }
 
-        SecurityChallengeAttempt storedAttempt = await db.Queryable<SecurityChallengeAttempt>().SingleAsync(item => item.AttemptId == attempt.AttemptId);
-        SecurityChallenge storedChallenge = await db.Queryable<SecurityChallenge>().SingleAsync(item => item.ChallengeId == challengeId);
-        RecordAttemptMetric(storedChallenge, storedAttempt);
-        return storedAttempt;
+        RecordAttemptMetric(transaction.Data, attempt);
+        return attempt;
     }
 
     public async Task<bool> ExpireAsync(string challengeId, string? reason = null, CancellationToken cancellationToken = default)
@@ -179,7 +176,7 @@ public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : IS
                 cancellationToken);
             return true;
         }
-        catch (InvalidOperationException ex) when (ex.InnerException?.Message.Contains("not found", StringComparison.OrdinalIgnoreCase) == true)
+        catch (InvalidOperationException ex) when (IsNotFoundError(ex))
         {
             return false;
         }
@@ -203,13 +200,76 @@ public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : IS
                 cancellationToken);
             return true;
         }
-        catch (InvalidOperationException ex) when (ex.InnerException?.Message.Contains("not found", StringComparison.OrdinalIgnoreCase) == true)
+        catch (InvalidOperationException ex) when (IsNotFoundError(ex))
         {
             return false;
         }
     }
 
-    private static void RecordAttemptMetric(SecurityChallenge challenge, SecurityChallengeAttempt attempt)
+    private async Task<SecurityChallengeMetricContext?> ReadChallengeMetricContextAsync(
+        string challengeId,
+        string outcome,
+        DateTime attemptedAt)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            UPDATE security_challenge
+            SET status = CASE WHEN status NOT IN ('verified', 'revoked', 'expired') THEN @Status ELSE status END,
+                verified_at_utc = CASE WHEN status NOT IN ('verified', 'revoked', 'expired') AND @Status = 'verified' THEN @AttemptedAt ELSE verified_at_utc END,
+                revoked_at_utc = CASE WHEN status NOT IN ('verified', 'revoked', 'expired') AND @Status = 'revoked' THEN @AttemptedAt ELSE revoked_at_utc END,
+                updated_at_utc = CASE WHEN status NOT IN ('verified', 'revoked', 'expired') THEN @AttemptedAt ELSE updated_at_utc END
+            WHERE challenge_id = @ChallengeId
+              AND status NOT IN ('verified', 'revoked', 'expired')
+            RETURNING
+                kind AS "Kind",
+                action AS "Action",
+                policy_version AS "PolicyVersion",
+                issued_at_utc AS "IssuedAtUtc";
+            """,
+            new SugarParameter("@Status", outcome),
+            new SugarParameter("@AttemptedAt", attemptedAt),
+            new SugarParameter("@ChallengeId", challengeId));
+
+        return await ReadMetricContextAsync(reader).ConfigureAwait(false);
+    }
+
+    private async Task<SecurityChallengeMetricContext?> LoadChallengeMetricContextAsync(string challengeId)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT
+                kind AS "Kind",
+                action AS "Action",
+                policy_version AS "PolicyVersion",
+                issued_at_utc AS "IssuedAtUtc"
+            FROM security_challenge
+            WHERE challenge_id = @ChallengeId
+            LIMIT 1;
+            """,
+            new SugarParameter("@ChallengeId", challengeId));
+
+        return await ReadMetricContextAsync(reader).ConfigureAwait(false);
+    }
+
+    private static async Task<SecurityChallengeMetricContext?> ReadMetricContextAsync(DbDataReader reader)
+    {
+        if (!await reader.ReadAsync().ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        int fKind = reader.GetOrdinal("Kind");
+        int fAction = reader.GetOrdinal("Action");
+        int fPolicyVersion = reader.GetOrdinal("PolicyVersion");
+        int fIssuedAt = reader.GetOrdinal("IssuedAtUtc");
+        return new SecurityChallengeMetricContext(
+            reader.IsDBNull(fKind) ? string.Empty : reader.GetString(fKind),
+            reader.IsDBNull(fAction) ? string.Empty : reader.GetString(fAction),
+            reader.IsDBNull(fPolicyVersion) ? string.Empty : reader.GetString(fPolicyVersion),
+            reader.GetDateTime(fIssuedAt));
+    }
+
+    private static void RecordAttemptMetric(SecurityChallengeMetricContext challenge, SecurityChallengeAttempt attempt)
     {
         TimeSpan? solveDuration = attempt.AttemptedAtUtc >= challenge.IssuedAtUtc
             ? attempt.AttemptedAtUtc - challenge.IssuedAtUtc
@@ -307,4 +367,8 @@ public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : IS
 
         return true;
     }
+
+    private static bool IsNotFoundError(InvalidOperationException ex)
+        => ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase)
+            || ex.InnerException?.Message.Contains("not found", StringComparison.OrdinalIgnoreCase) == true;
 }

@@ -60,8 +60,9 @@ public sealed class BusinessLogicHardeningContractTests
         string source = ReadSource("src/backend/Services/Security/SecurityChallengePersistenceService.cs");
         string record = ExtractBetween(source, "public async Task<SecurityChallengeAttempt> RecordAttemptAsync", "public async Task<bool> ExpireAsync");
 
-        Assert.Contains("status NOT IN ('verified', 'revoked', 'expired')", record, StringComparison.Ordinal);
-        Assert.Contains("CASE WHEN status NOT IN", record, StringComparison.Ordinal);
+        Assert.Contains("ReadChallengeMetricContextAsync", record, StringComparison.Ordinal);
+        Assert.Contains("status NOT IN ('verified', 'revoked', 'expired')", source, StringComparison.Ordinal);
+        Assert.Contains("CASE WHEN status NOT IN", source, StringComparison.Ordinal);
     }
 
     [Fact]
