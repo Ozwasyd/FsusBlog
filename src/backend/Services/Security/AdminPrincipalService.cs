@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Data.Common;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Globalization;
@@ -11,6 +12,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
@@ -110,6 +112,8 @@ public sealed record AdminAuthClientContext(string ClientIp, string? DeviceFinge
 }
 
 public sealed record AdminSessionTokens(string AccessToken, string SessionId, DateTime IdleExpiresAtUtc);
+
+internal sealed record AdminPasskeyAssertionState(AdminPasskeyCredential Credential, AdminPrincipal Principal, string RowVersion);
 
 public enum AdminSessionRevokeResult
 {
@@ -321,27 +325,26 @@ public sealed class AdminPrincipalService(
             return (false, "Admin login challenge expired", null);
         }
 
+        long startedAt = Stopwatch.GetTimestamp();
         AuthenticatorAssertionRawResponse assertionResponse = ToAssertionResponse(request);
         string credentialIdBase64 = assertionResponse.Id;
-        AdminPasskeyCredential? storedCred = await db.Queryable<AdminPasskeyCredential>()
-            .Where(c => c.CredentialId == credentialIdBase64)
-            .FirstAsync();
-        if (storedCred is null)
+        AdminPasskeyAssertionState? assertionState = await LoadAdminPasskeyAssertionStateAsync(
+            credentialIdBase64,
+            adminPrincipalId: null,
+            adminSessionId: null,
+            cancellationToken);
+        if (assertionState is null)
         {
+            FsusObservability.RecordAdminPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(startedAt), "credential_not_found");
             return (false, "Admin Passkey credential not found", null);
         }
 
-        AdminPrincipal? principal = await db.Queryable<AdminPrincipal>().InSingleAsync(storedCred.AdminPrincipalId);
-        if (principal is null || !string.Equals(principal.Status, AdminPrincipalStatus.Active, StringComparison.Ordinal))
+        AdminPasskeyCredential storedCred = assertionState.Credential;
+        AdminPrincipal principal = assertionState.Principal;
+        if (!string.Equals(principal.Status, AdminPrincipalStatus.Active, StringComparison.Ordinal))
         {
+            FsusObservability.RecordAdminPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(startedAt), "principal_disabled");
             return (false, "Admin principal is disabled", null);
-        }
-
-        string? rowVersion = await LoadAdminPasskeyRowVersionAsync(storedCred.Id, cancellationToken);
-        if (rowVersion is null)
-        {
-            await WriteAuditAsync(storedCred.AdminPrincipalId, null, "admin.login.passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
-            return (false, "Admin Passkey assertion failed", null);
         }
 
         long expectedSignCount = storedCred.SignCount;
@@ -362,12 +365,15 @@ public sealed class AdminPrincipalService(
         {
             logger.LogWarning("Admin Passkey assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash}", HashForLog(request.ChallengeToken), HashForLog(credentialIdBase64));
             await WriteAuditAsync(storedCred.AdminPrincipalId, null, "admin.login.passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
+            FsusObservability.RecordAdminPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(startedAt), "verify_failed");
             return (false, "Admin Passkey assertion failed", null);
         }
 
-        if (!await TryUpdateAdminPasskeySignCountAsync(storedCred.Id, expectedSignCount, rowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
+        if (!await TryUpdateAdminPasskeySignCountAsync(storedCred.Id, expectedSignCount, assertionState.RowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
         {
             await WriteAuditAsync(storedCred.AdminPrincipalId, null, "admin.login.passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
+            FsusObservability.RecordAdminPasskeySignCountConflict("login");
+            FsusObservability.RecordAdminPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(startedAt), "sign_count_conflict");
             return (false, "Admin Passkey assertion failed", null);
         }
 
@@ -378,6 +384,7 @@ public sealed class AdminPrincipalService(
 
         AdminSessionTokens tokens = await CreateSessionAndTokenAsync(principal, clientContext, stepUpVerified: false, cancellationToken);
         await WriteAuditAsync(principal.Id, tokens.SessionId, "admin.login.completed", "success", clientContext, highImpact: true, cancellationToken);
+        FsusObservability.RecordAdminPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(startedAt), "success");
         return (true, "Admin login completed", tokens);
     }
 
@@ -455,28 +462,27 @@ public sealed class AdminPrincipalService(
             return (false, "Admin step-up challenge mismatch", null);
         }
 
+        long startedAt = Stopwatch.GetTimestamp();
         AuthenticatorAssertionRawResponse assertionResponse = ToAssertionResponse(request);
         string credentialIdBase64 = assertionResponse.Id;
-        AdminPasskeyCredential? storedCred = await db.Queryable<AdminPasskeyCredential>()
-            .Where(c => c.CredentialId == credentialIdBase64)
-            .FirstAsync();
-        if (storedCred is null || storedCred.AdminPrincipalId != adminPrincipalId)
+        AdminPasskeyAssertionState? assertionState = await LoadAdminPasskeyAssertionStateAsync(
+            credentialIdBase64,
+            adminPrincipalId,
+            adminSessionId,
+            cancellationToken);
+        if (assertionState is null)
         {
             await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.credential_mismatch", "failure", clientContext, highImpact: true, cancellationToken);
+            FsusObservability.RecordAdminPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(startedAt), "credential_not_found");
             return (false, "Admin Passkey credential not found", null);
         }
 
-        AdminPrincipal? principal = await db.Queryable<AdminPrincipal>().InSingleAsync(adminPrincipalId);
-        if (principal is null || !string.Equals(principal.Status, AdminPrincipalStatus.Active, StringComparison.Ordinal))
+        AdminPasskeyCredential storedCred = assertionState.Credential;
+        AdminPrincipal principal = assertionState.Principal;
+        if (!string.Equals(principal.Status, AdminPrincipalStatus.Active, StringComparison.Ordinal))
         {
+            FsusObservability.RecordAdminPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(startedAt), "principal_disabled");
             return (false, "Admin principal is disabled", null);
-        }
-
-        string? rowVersion = await LoadAdminPasskeyRowVersionAsync(storedCred.Id, cancellationToken);
-        if (rowVersion is null)
-        {
-            await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
-            return (false, "Admin step-up Passkey assertion failed", null);
         }
 
         long expectedSignCount = storedCred.SignCount;
@@ -497,17 +503,21 @@ public sealed class AdminPrincipalService(
         {
             logger.LogWarning("Admin step-up Passkey assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash}", HashForLog(request.ChallengeToken), HashForLog(credentialIdBase64));
             await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
+            FsusObservability.RecordAdminPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(startedAt), "verify_failed");
             return (false, "Admin step-up Passkey assertion failed", null);
         }
 
-        if (!await TryUpdateAdminPasskeySignCountAsync(storedCred.Id, expectedSignCount, rowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
+        if (!await TryUpdateAdminPasskeySignCountAsync(storedCred.Id, expectedSignCount, assertionState.RowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
         {
             await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
+            FsusObservability.RecordAdminPasskeySignCountConflict("step_up");
+            FsusObservability.RecordAdminPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(startedAt), "sign_count_conflict");
             return (false, "Admin step-up Passkey assertion failed", null);
         }
 
         string proofToken = await CreateAdminStepUpProofTokenAsync(adminPrincipalId, adminSessionId, AdminSensitiveAction, StepUpProofTtl, cancellationToken);
         await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.completed", "success", clientContext, highImpact: true, cancellationToken);
+        FsusObservability.RecordAdminPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(startedAt), "success");
         return (true, "Admin step-up completed", proofToken);
     }
 
@@ -534,28 +544,27 @@ public sealed class AdminPrincipalService(
             return (false, "Admin step-up challenge mismatch");
         }
 
+        long startedAt = Stopwatch.GetTimestamp();
         AuthenticatorAssertionRawResponse assertionResponse = ToAssertionResponse(request);
         string credentialIdBase64 = assertionResponse.Id;
-        AdminPasskeyCredential? storedCred = await db.Queryable<AdminPasskeyCredential>()
-            .Where(c => c.CredentialId == credentialIdBase64)
-            .FirstAsync();
-        if (storedCred is null || storedCred.AdminPrincipalId != adminPrincipalId)
+        AdminPasskeyAssertionState? assertionState = await LoadAdminPasskeyAssertionStateAsync(
+            credentialIdBase64,
+            adminPrincipalId,
+            adminSessionId,
+            cancellationToken);
+        if (assertionState is null)
         {
             await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.credential_mismatch", "failure", clientContext, highImpact: true, cancellationToken);
+            FsusObservability.RecordAdminPasskeyAssertion("risk_step_up", 1, Stopwatch.GetElapsedTime(startedAt), "credential_not_found");
             return (false, "Admin Passkey credential not found");
         }
 
-        AdminPrincipal? principal = await db.Queryable<AdminPrincipal>().InSingleAsync(adminPrincipalId);
-        if (principal is null || !string.Equals(principal.Status, AdminPrincipalStatus.Active, StringComparison.Ordinal))
+        AdminPasskeyCredential storedCred = assertionState.Credential;
+        AdminPrincipal principal = assertionState.Principal;
+        if (!string.Equals(principal.Status, AdminPrincipalStatus.Active, StringComparison.Ordinal))
         {
+            FsusObservability.RecordAdminPasskeyAssertion("risk_step_up", 1, Stopwatch.GetElapsedTime(startedAt), "principal_disabled");
             return (false, "Admin principal is disabled");
-        }
-
-        string? rowVersion = await LoadAdminPasskeyRowVersionAsync(storedCred.Id, cancellationToken);
-        if (rowVersion is null)
-        {
-            await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.risk_control_passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
-            return (false, "Admin step-up Passkey assertion failed");
         }
 
         long expectedSignCount = storedCred.SignCount;
@@ -576,16 +585,20 @@ public sealed class AdminPrincipalService(
         {
             logger.LogWarning("Admin RiskControl step-up Passkey assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash}", HashForLog(request.ChallengeToken), HashForLog(credentialIdBase64));
             await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.risk_control_passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
+            FsusObservability.RecordAdminPasskeyAssertion("risk_step_up", 1, Stopwatch.GetElapsedTime(startedAt), "verify_failed");
             return (false, "Admin step-up Passkey assertion failed");
         }
 
-        if (!await TryUpdateAdminPasskeySignCountAsync(storedCred.Id, expectedSignCount, rowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
+        if (!await TryUpdateAdminPasskeySignCountAsync(storedCred.Id, expectedSignCount, assertionState.RowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
         {
             await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.risk_control_passkey_failed", "failure", clientContext, highImpact: true, cancellationToken);
+            FsusObservability.RecordAdminPasskeySignCountConflict("risk_step_up");
+            FsusObservability.RecordAdminPasskeyAssertion("risk_step_up", 1, Stopwatch.GetElapsedTime(startedAt), "sign_count_conflict");
             return (false, "Admin step-up Passkey assertion failed");
         }
 
         await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.risk_control_verified", "success", clientContext, highImpact: true, cancellationToken);
+        FsusObservability.RecordAdminPasskeyAssertion("risk_step_up", 1, Stopwatch.GetElapsedTime(startedAt), "success");
         return (true, "Admin step-up verified");
     }
 
@@ -937,6 +950,110 @@ public sealed class AdminPrincipalService(
             BackupState = result.IsBackedUp,
             CreatedAtUtc = DateTime.UtcNow
         };
+
+    private async Task<AdminPasskeyAssertionState?> LoadAdminPasskeyAssertionStateAsync(
+        string credentialId,
+        long? adminPrincipalId,
+        string? adminSessionId,
+        CancellationToken cancellationToken)
+    {
+        bool bindSession = !string.IsNullOrWhiteSpace(adminSessionId);
+        string principalPredicate = adminPrincipalId.HasValue ? " AND pc.adminprincipalid = @AdminPrincipalId" : string.Empty;
+        string sessionJoin = bindSession
+            ? """
+              JOIN admin_session s ON s.adminprincipalid = ap.id
+                  AND s.sessionid = @AdminSessionId
+                  AND s.revokedatutc IS NULL
+                  AND s.idleexpiresatutc > @Now
+                  AND s.absoluteexpiresatutc > @Now
+              """
+            : string.Empty;
+        string sql = $$"""
+            SELECT pc.id AS credential_row_id,
+                   pc.adminprincipalid AS admin_principal_id,
+                   pc.credentialid AS credential_id,
+                   pc.userhandle AS user_handle,
+                   pc.publickey AS public_key,
+                   pc.signcount AS sign_count,
+                   pc.devicefriendlyname AS device_friendly_name,
+                   pc.aaguid AS aa_guid,
+                   pc.transports AS transports,
+                   pc.backupeligible AS backup_eligible,
+                   pc.backupstate AS backup_state,
+                   pc.createdatutc AS credential_created_at,
+                   pc.lastusedatutc AS credential_last_used_at,
+                   pc.xmin::text AS row_version,
+                   ap.id AS principal_id,
+                   ap.handle AS handle,
+                   ap.displayname AS display_name,
+                   ap.status AS principal_status,
+                   ap.isroot AS is_root,
+                   ap.permissions AS permissions,
+                   ap.createdatutc AS principal_created_at,
+                   ap.lastloginatutc AS principal_last_login_at,
+                   ap.totpenabled AS totp_enabled,
+                   ap.totpsecretencrypted AS totp_secret_encrypted,
+                   ap.totpverifiedatutc AS totp_verified_at
+            FROM admin_passkey_credential pc
+            JOIN admin_principal ap ON ap.id = pc.adminprincipalid
+            {{sessionJoin}}
+            WHERE pc.credentialid = @CredentialId{{principalPredicate}}
+            LIMIT 1;
+            """;
+        var parameters = new List<SugarParameter>
+        {
+            new("@CredentialId", credentialId)
+        };
+        if (adminPrincipalId.HasValue)
+        {
+            parameters.Add(new SugarParameter("@AdminPrincipalId", adminPrincipalId.Value));
+        }
+
+        if (bindSession)
+        {
+            parameters.Add(new SugarParameter("@AdminSessionId", adminSessionId));
+            parameters.Add(new SugarParameter("@Now", DateTime.UtcNow));
+        }
+
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sql, parameters.ToArray());
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        var credential = new AdminPasskeyCredential
+        {
+            Id = reader.GetInt64(reader.GetOrdinal("credential_row_id")),
+            AdminPrincipalId = reader.GetInt64(reader.GetOrdinal("admin_principal_id")),
+            CredentialId = reader.GetString(reader.GetOrdinal("credential_id")),
+            UserHandle = reader.GetString(reader.GetOrdinal("user_handle")),
+            PublicKey = reader.GetString(reader.GetOrdinal("public_key")),
+            SignCount = reader.GetInt64(reader.GetOrdinal("sign_count")),
+            DeviceFriendlyName = reader.IsDBNull(reader.GetOrdinal("device_friendly_name")) ? null : reader.GetString(reader.GetOrdinal("device_friendly_name")),
+            AaGuid = reader.GetString(reader.GetOrdinal("aa_guid")),
+            Transports = reader.IsDBNull(reader.GetOrdinal("transports")) ? null : reader.GetString(reader.GetOrdinal("transports")),
+            BackupEligible = reader.GetBoolean(reader.GetOrdinal("backup_eligible")),
+            BackupState = reader.GetBoolean(reader.GetOrdinal("backup_state")),
+            CreatedAtUtc = reader.GetDateTime(reader.GetOrdinal("credential_created_at")),
+            LastUsedAtUtc = reader.IsDBNull(reader.GetOrdinal("credential_last_used_at")) ? null : reader.GetDateTime(reader.GetOrdinal("credential_last_used_at"))
+        };
+        var principal = new AdminPrincipal
+        {
+            Id = reader.GetInt64(reader.GetOrdinal("principal_id")),
+            Handle = reader.GetString(reader.GetOrdinal("handle")),
+            DisplayName = reader.IsDBNull(reader.GetOrdinal("display_name")) ? null : reader.GetString(reader.GetOrdinal("display_name")),
+            Status = reader.GetString(reader.GetOrdinal("principal_status")),
+            IsRoot = reader.GetBoolean(reader.GetOrdinal("is_root")),
+            Permissions = reader.GetString(reader.GetOrdinal("permissions")),
+            CreatedAtUtc = reader.GetDateTime(reader.GetOrdinal("principal_created_at")),
+            LastLoginAtUtc = reader.IsDBNull(reader.GetOrdinal("principal_last_login_at")) ? null : reader.GetDateTime(reader.GetOrdinal("principal_last_login_at")),
+            TotpEnabled = reader.GetBoolean(reader.GetOrdinal("totp_enabled")),
+            TotpSecretEncrypted = reader.IsDBNull(reader.GetOrdinal("totp_secret_encrypted")) ? null : reader.GetString(reader.GetOrdinal("totp_secret_encrypted")),
+            TotpVerifiedAtUtc = reader.IsDBNull(reader.GetOrdinal("totp_verified_at")) ? null : reader.GetDateTime(reader.GetOrdinal("totp_verified_at"))
+        };
+        string rowVersion = reader.GetString(reader.GetOrdinal("row_version"));
+        return new AdminPasskeyAssertionState(credential, principal, rowVersion);
+    }
 
     private async Task<string?> LoadAdminPasskeyRowVersionAsync(long id, CancellationToken cancellationToken)
     {

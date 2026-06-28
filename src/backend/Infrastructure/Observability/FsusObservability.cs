@@ -183,6 +183,9 @@ public static class FsusObservability
     private static readonly Counter<long> PasskeyAssertionDbCommandCount = Meter.CreateCounter<long>("fsus.passkey.assertion.db_command_count");
     private static readonly Histogram<double> PasskeyAssertionElapsed = Meter.CreateHistogram<double>("fsus.passkey.assertion.elapsed_ms", "ms");
     private static readonly Counter<long> PasskeySignCountUpdateConflictCount = Meter.CreateCounter<long>("fsus.passkey.sign_count.update_conflict_count");
+    private static readonly Counter<long> AdminPasskeyAssertionDbCommandCount = Meter.CreateCounter<long>("fsus.admin.passkey.assertion.db_command_count");
+    private static readonly Histogram<double> AdminPasskeyAssertionElapsed = Meter.CreateHistogram<double>("fsus.admin.passkey.assertion.elapsed_ms", "ms");
+    private static readonly Counter<long> AdminPasskeySignCountConflictCount = Meter.CreateCounter<long>("fsus.admin.passkey.sign_count.conflict_count");
     private static readonly Histogram<double> DistributionDiagnosticsElapsed = Meter.CreateHistogram<double>("fsus.distribution.diagnostics.elapsed_ms", "ms");
     private static readonly Counter<long> DistributionDiagnosticsCacheAccess = Meter.CreateCounter<long>("fsus.distribution.diagnostics.cache_access");
     private static readonly Counter<long> DistributionDiagnosticsDbCommandCount = Meter.CreateCounter<long>("fsus.distribution.diagnostics.db_command_count");
@@ -965,6 +968,27 @@ public static class FsusObservability
             TagList tags = CreateBaseTags("passkey", "sign_count_update", "conflict");
             tags.Add("fsus.passkey.assertion.kind", NormalizeTelemetryValue(kind, "unknown"));
             PasskeySignCountUpdateConflictCount.Add(1, tags);
+        });
+    }
+
+    public static void RecordAdminPasskeyAssertion(string kind, long dbCommandCount, TimeSpan elapsed, string result)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("admin-passkey", "assertion", NormalizeTelemetryValue(result, "unknown"));
+            tags.Add("fsus.admin.passkey.assertion.kind", NormalizeTelemetryValue(kind, "unknown"));
+            AdminPasskeyAssertionDbCommandCount.Add(Math.Max(0, dbCommandCount), tags);
+            AdminPasskeyAssertionElapsed.Record(elapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordAdminPasskeySignCountConflict(string kind)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("admin-passkey", "sign_count_update", "conflict");
+            tags.Add("fsus.admin.passkey.assertion.kind", NormalizeTelemetryValue(kind, "unknown"));
+            AdminPasskeySignCountConflictCount.Add(1, tags);
         });
     }
 

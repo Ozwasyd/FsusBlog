@@ -283,6 +283,58 @@ public sealed class AdminPrincipalSecurityContractTests
     }
 
     [Fact]
+    public void AdminPasskeyAssertion_LoadsCredentialPrincipalAndRowVersionInSingleJoinedRead()
+    {
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");
+        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string loginComplete = ExtractMethodBlock(service, "public async Task<(bool Success, string Message, AdminSessionTokens? Tokens)> CompleteAdminAssertionAsync");
+        string stepUpComplete = ExtractMethodBlock(service, "public async Task<(bool Success, string Message, string? ProofToken)> CompleteAdminStepUpAssertionAsync");
+        string riskStepUpVerify = ExtractMethodBlock(service, "public async Task<(bool Success, string Message)> VerifyAdminStepUpAssertionAsync");
+        string loader = ExtractMethodBlock(service, "private async Task<AdminPasskeyAssertionState?> LoadAdminPasskeyAssertionStateAsync");
+
+        Assert.Equal(
+            3,
+            CountOccurrences(loginComplete + stepUpComplete + riskStepUpVerify, "LoadAdminPasskeyAssertionStateAsync("));
+        Assert.Contains("AdminPasskeyAssertionState", service, StringComparison.Ordinal);
+        Assert.Contains("FROM admin_passkey_credential pc", loader, StringComparison.Ordinal);
+        Assert.Contains("JOIN admin_principal ap ON ap.id = pc.adminprincipalid", loader, StringComparison.Ordinal);
+        Assert.Contains("pc.xmin::text AS row_version", loader, StringComparison.Ordinal);
+        Assert.Contains("ap.status AS principal_status", loader, StringComparison.Ordinal);
+        Assert.Contains("ap.permissions AS permissions", loader, StringComparison.Ordinal);
+        Assert.Contains("ap.isroot AS is_root", loader, StringComparison.Ordinal);
+        Assert.Contains("ap.displayname AS display_name", loader, StringComparison.Ordinal);
+        Assert.Contains("s.sessionid = @AdminSessionId", loader, StringComparison.Ordinal);
+        Assert.Contains("s.revokedatutc IS NULL", loader, StringComparison.Ordinal);
+        Assert.Contains("s.idleexpiresatutc > @Now", loader, StringComparison.Ordinal);
+        Assert.Contains("s.absoluteexpiresatutc > @Now", loader, StringComparison.Ordinal);
+
+        Assert.Contains("LoadAdminPasskeyAssertionStateAsync(", loginComplete, StringComparison.Ordinal);
+        Assert.Contains("adminPrincipalId: null", loginComplete, StringComparison.Ordinal);
+        Assert.Contains("adminSessionId: null", loginComplete, StringComparison.Ordinal);
+        Assert.Contains("LoadAdminPasskeyAssertionStateAsync(", stepUpComplete, StringComparison.Ordinal);
+        Assert.Contains("adminPrincipalId", stepUpComplete, StringComparison.Ordinal);
+        Assert.Contains("adminSessionId", stepUpComplete, StringComparison.Ordinal);
+        Assert.Contains("LoadAdminPasskeyAssertionStateAsync(", riskStepUpVerify, StringComparison.Ordinal);
+        Assert.Contains("adminPrincipalId", riskStepUpVerify, StringComparison.Ordinal);
+        Assert.Contains("adminSessionId", riskStepUpVerify, StringComparison.Ordinal);
+        Assert.DoesNotContain("Queryable<AdminPasskeyCredential>()", loginComplete, StringComparison.Ordinal);
+        Assert.DoesNotContain("Queryable<AdminPrincipal>()", loginComplete, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadAdminPasskeyRowVersionAsync", loginComplete, StringComparison.Ordinal);
+        Assert.DoesNotContain("Queryable<AdminPasskeyCredential>()", stepUpComplete, StringComparison.Ordinal);
+        Assert.DoesNotContain("Queryable<AdminPrincipal>()", stepUpComplete, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadAdminPasskeyRowVersionAsync", stepUpComplete, StringComparison.Ordinal);
+        Assert.DoesNotContain("Queryable<AdminPasskeyCredential>()", riskStepUpVerify, StringComparison.Ordinal);
+        Assert.DoesNotContain("Queryable<AdminPrincipal>()", riskStepUpVerify, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadAdminPasskeyRowVersionAsync", riskStepUpVerify, StringComparison.Ordinal);
+
+        Assert.Contains("fsus.admin.passkey.assertion.db_command_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.admin.passkey.assertion.elapsed_ms", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.admin.passkey.sign_count.conflict_count", observability, StringComparison.Ordinal);
+        Assert.Contains("RecordAdminPasskeyAssertion", service, StringComparison.Ordinal);
+        Assert.Contains("RecordAdminPasskeySignCountConflict", service, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RootAdminBootstrap_UsesDatabaseUniquenessAndTransaction()
     {
         string migrations = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
