@@ -1,8 +1,8 @@
+using System.Collections.Frozen;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.DependencyInjection;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
@@ -17,7 +17,8 @@ public sealed class HumanReadProofService(
     IUnifiedCache cache,
     VisitLogChannel channel,
     TimeProvider timeProvider,
-    ILogger<HumanReadProofService> logger) : IHumanReadProofService
+    ILogger<HumanReadProofService> logger,
+    IWebHostEnvironment? environment = null) : IHumanReadProofService
 {
     private const int DefaultMinDwellMs = 8000;
     private const int MaxRouteKeyLength = 200;
@@ -27,6 +28,7 @@ public sealed class HumanReadProofService(
     private static readonly TimeSpan ReplayTtl = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan ViewerDedupTtl = TimeSpan.FromHours(24);
     private readonly byte[] _hmacKey = CreateHmacKey(configuration);
+    private readonly FrozenSet<string> _trustedOrigins = BuildTrustedOriginSnapshot(configuration, environment);
 
     public ValueTask<HumanReadChallengeResponse?> CreateChallengeAsync(
         HttpContext context,
@@ -167,7 +169,7 @@ public sealed class HumanReadProofService(
         return !string.Equals(mode, "paused", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool TryValidateRequestContext(HttpContext context, out string deviceFp, out string? reason, out bool browserContext)
+    private bool TryValidateRequestContext(HttpContext context, out string deviceFp, out string? reason, out bool browserContext)
     {
         deviceFp = string.Empty;
         reason = null;
@@ -243,18 +245,19 @@ public sealed class HumanReadProofService(
         return siteOk && modeOk && destOk;
     }
 
-    private static bool HasTrustedOriginOrReferer(HttpContext context)
+    private bool HasTrustedOriginOrReferer(HttpContext context)
     {
-        var trusted = ResolveTrustedOrigins(context);
         string origin = context.Request.Headers.Origin.ToString();
-        if (!string.IsNullOrWhiteSpace(origin) && trusted.Contains(NormalizeOrigin(origin)))
+        if (!string.IsNullOrWhiteSpace(origin)
+            && (IsCurrentRequestAuthority(context, origin) || _trustedOrigins.Contains(NormalizeOrigin(origin))))
         {
             return true;
         }
 
         string referer = context.Request.Headers.Referer.ToString();
         if (Uri.TryCreate(referer, UriKind.Absolute, out Uri? refererUri)
-            && trusted.Contains(refererUri.GetLeftPart(UriPartial.Authority)))
+            && (IsCurrentRequestAuthority(context, refererUri.GetLeftPart(UriPartial.Authority))
+                || _trustedOrigins.Contains(refererUri.GetLeftPart(UriPartial.Authority))))
         {
             return true;
         }
@@ -262,13 +265,21 @@ public sealed class HumanReadProofService(
         return false;
     }
 
-    private static HashSet<string> ResolveTrustedOrigins(HttpContext context)
+    private static bool IsCurrentRequestAuthority(HttpContext context, string candidate)
     {
-        var trusted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        trusted.Add($"{context.Request.Scheme}://{context.Request.Host.Value}");
+        if (!Uri.TryCreate(candidate, UriKind.Absolute, out Uri? uri))
+        {
+            return false;
+        }
 
-        IConfiguration config = context.RequestServices.GetRequiredService<IConfiguration>();
-        string? configured = config["CORS_ALLOWED_HOSTS"];
+        return string.Equals(uri.Scheme, context.Request.Scheme, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(uri.Authority, context.Request.Host.Value, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static FrozenSet<string> BuildTrustedOriginSnapshot(IConfiguration configuration, IWebHostEnvironment? environment)
+    {
+        var trusted = new List<string>();
+        string? configured = configuration["CORS_ALLOWED_HOSTS"];
         if (!string.IsNullOrWhiteSpace(configured))
         {
             foreach (string raw in configured.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
@@ -281,13 +292,13 @@ public sealed class HumanReadProofService(
             }
         }
 
-        if (context.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment())
+        if (environment?.IsDevelopment() == true)
         {
             trusted.Add("http://localhost:3000");
             trusted.Add("http://127.0.0.1:3000");
         }
 
-        return trusted;
+        return trusted.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
     }
 
     private static string NormalizeOrigin(string value)

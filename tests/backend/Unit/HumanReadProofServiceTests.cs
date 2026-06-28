@@ -99,6 +99,23 @@ public sealed class HumanReadProofServiceTests
     }
 
     [Fact]
+    public void SubmitAsync_SourceCachesTrustedOriginsAndUsesCurrentAuthorityFastPath()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/HumanReadProofService.cs");
+        string method = source[
+            source.IndexOf("private bool HasTrustedOriginOrReferer", StringComparison.Ordinal)..
+            source.IndexOf("private static bool IsCurrentRequestAuthority", StringComparison.Ordinal)];
+
+        Assert.Contains("FrozenSet<string> _trustedOrigins", source, StringComparison.Ordinal);
+        Assert.Contains("BuildTrustedOriginSnapshot", source, StringComparison.Ordinal);
+        Assert.Contains("IsCurrentRequestAuthority", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("ResolveTrustedOrigins", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetRequiredService<IConfiguration>", method, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Split(", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("new HashSet<string>", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task SubmitAsync_ReplayedProof_DoesNotWriteSecondEvent()
     {
         var fixture = CreateFixture();
