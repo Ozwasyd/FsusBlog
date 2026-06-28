@@ -4,6 +4,7 @@ using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Services.Subscriptions;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.Extensions.Configuration;
 using SqlSugar;
 
 namespace FsusBlog.Server.Modules.Endpoints.Binary;
@@ -16,8 +17,9 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ISqlSugarClient db,
             IAedsEncoder aeds,
+            IConfiguration configuration,
             CancellationToken cancellationToken) =>
-            await HandleSiteSubscriptionAsync(httpContext, db, aeds, subscribe: true, cancellationToken))
+            await HandleSiteSubscriptionAsync(httpContext, db, aeds, configuration, subscribe: true, cancellationToken))
         .AllowAnonymous()
         .RequireRateLimiting("fixed_ip");
 
@@ -25,9 +27,10 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ISqlSugarClient db,
             IAedsEncoder aeds,
+            IConfiguration configuration,
             ISiteSubscriptionProofService proofService,
             CancellationToken cancellationToken) =>
-            await HandleSiteSubscriptionAsync(httpContext, db, aeds, subscribe: false, cancellationToken, proofService))
+            await HandleSiteSubscriptionAsync(httpContext, db, aeds, configuration, subscribe: false, cancellationToken, proofService))
         .AllowAnonymous()
         .RequireRateLimiting("fixed_ip");
     }
@@ -36,6 +39,7 @@ public static partial class BinaryEndpoints
         HttpContext httpContext,
         ISqlSugarClient db,
         IAedsEncoder aeds,
+        IConfiguration configuration,
         bool subscribe,
         CancellationToken cancellationToken,
         ISiteSubscriptionProofService? proofService = null)
@@ -62,7 +66,7 @@ public static partial class BinaryEndpoints
         SiteSubscriptionBinaryResponse? response;
         if (subscribe)
         {
-            response = await SubscriptionEndpoints.SubscribeAsync(request, db, cancellationToken);
+            response = await SubscriptionEndpoints.SubscribeAsync(request, db, configuration, cancellationToken);
         }
         else
         {
@@ -95,7 +99,7 @@ public static partial class BinaryEndpoints
                     statusCode);
             }
 
-            response = await SubscriptionEndpoints.UnsubscribeAsync(request, db, proof.Claims, cancellationToken);
+            response = await SubscriptionEndpoints.UnsubscribeAsync(request, db, proof.Claims, configuration, cancellationToken);
             if (response is not null)
             {
                 _ = await proofService.CommitUnsubscribeProofAsync(proofRequest, cancellationToken);

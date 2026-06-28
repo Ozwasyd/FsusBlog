@@ -100,6 +100,13 @@ public static class ProductionStartupValidator
         "development-moderation-pepper-change-before-shared-use"
     ];
 
+    private static readonly string[] DefaultSubscriptionEmailHashPeppers =
+    [
+        "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
+        "replace-with-stable-random-subscription-email-hash-pepper",
+        "development-subscription-email-hash-pepper-change-before-shared-use"
+    ];
+
     private static readonly RequiredSettingRule[] RequiredSettings =
     [
         ConnectionString("DefaultConnection"),
@@ -120,6 +127,7 @@ public static class ProductionStartupValidator
         Value("VisitLog:IpHashPepper"),
         Value("Moderation:RegionPolicy:IpHashKey"),
         Value("Moderation:Pepper"),
+        Value("Subscription:EmailHashPepper"),
         Value(AnonymousIdentityRuntime.ModeEnvironmentVariable)
     ];
 
@@ -218,6 +226,7 @@ public static class ProductionStartupValidator
         string? visitLogIpHashPepper = values["VisitLog:IpHashPepper"];
         string? regionIpHashKey = values["Moderation:RegionPolicy:IpHashKey"];
         string? moderationPepper = values["Moderation:Pepper"];
+        string? subscriptionEmailHashPepper = values["Subscription:EmailHashPepper"];
         string? anonymousIdentityMode = values[AnonymousIdentityRuntime.ModeEnvironmentVariable];
 
         if (!string.IsNullOrWhiteSpace(jwtSecret))
@@ -246,6 +255,7 @@ public static class ProductionStartupValidator
         ValidateIndependentSecuritySecret("VisitLog:IpHashPepper", visitLogIpHashPepper, jwtSecret, DefaultVisitLogIpHashPeppers, errors);
         ValidateIndependentSecuritySecret("Moderation:RegionPolicy:IpHashKey", regionIpHashKey, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("Moderation:Pepper", moderationPepper, jwtSecret, DefaultModerationPeppers, errors);
+        ValidateIndependentSecuritySecret("Subscription:EmailHashPepper", subscriptionEmailHashPepper, jwtSecret, DefaultSubscriptionEmailHashPeppers, errors);
 
         ValidateRedisConnection("ConnectionStrings:Redis", redisConnection, enforceProductionRules, errors);
         ValidateRedisConnection("RedisOptions:Configuration", redisOptionsConnection, enforceProductionRules, errors);

@@ -334,6 +334,9 @@ public class SiteSubscription
     [SugarColumn(ColumnName = "email_hash", Length = 64)]
     public string EmailHash { get; set; } = string.Empty;
 
+    [SugarColumn(ColumnName = "hash_version", Length = 16)]
+    public string HashVersion { get; set; } = "hmac-v1";
+
     [SugarColumn(ColumnName = "channel", Length = 32)]
     public string Channel { get; set; } = "rss";
 

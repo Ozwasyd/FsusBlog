@@ -41,6 +41,7 @@ public sealed class ProductionStartupValidatorTests
             ["VisitLog:IpHashPepper"] = "production-visit-log-ip-hash-pepper-with-at-least-thirty-two-chars",
             ["Moderation:RegionPolicy:IpHashKey"] = "production-region-ip-hash-key-with-at-least-thirty-two-chars",
             ["Moderation:Pepper"] = "production-moderation-pepper-with-at-least-thirty-two-chars",
+            ["Subscription:EmailHashPepper"] = "production-subscription-email-hash-pepper-with-at-least-thirty-two-chars",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         });
@@ -445,6 +446,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("VisitLog:IpHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Moderation:RegionPolicy:IpHashKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Moderation:Pepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("Subscription:EmailHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains(
             "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
             ProductionStartupValidator.CurrentSchema.DefaultJwtSecrets);
@@ -689,6 +691,7 @@ public sealed class ProductionStartupValidatorTests
             ["VisitLog:IpHashPepper"] = "production-visit-log-ip-hash-pepper-with-at-least-thirty-two-chars",
             ["Moderation:RegionPolicy:IpHashKey"] = "production-region-ip-hash-key-with-at-least-thirty-two-chars",
             ["Moderation:Pepper"] = "production-moderation-pepper-with-at-least-thirty-two-chars",
+            ["Subscription:EmailHashPepper"] = "production-subscription-email-hash-pepper-with-at-least-thirty-two-chars",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         };

@@ -3,6 +3,7 @@ using System.Text;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Subscriptions;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -43,7 +44,7 @@ public sealed class SiteSubscriptionProofServiceTests
     {
         var cache = new MemoryProofCache();
         var clock = new MutableTimeProvider(BaselineNow);
-        var service = new SiteSubscriptionProofService(cache, clock);
+        var service = CreateService(cache, clock);
 
         SiteSubscriptionUnsubscribeProofIssueResult result = await service.IssueUnsubscribeProofAsync(
             new SiteSubscriptionUnsubscribeProofIssueRequest(
@@ -68,11 +69,28 @@ public sealed class SiteSubscriptionProofServiceTests
     }
 
     [Fact]
+    public void HashEmail_UsesSubscriptionPepperHmac()
+    {
+        IConfiguration first = CreateConfiguration("subscription-email-hash-pepper-one-with-enough-entropy");
+        IConfiguration second = CreateConfiguration("subscription-email-hash-pepper-two-with-enough-entropy");
+
+        string firstHash = SiteSubscriptionIdentity.HashEmail(" Reader@Example.COM ", first);
+        string repeatHash = SiteSubscriptionIdentity.HashEmail("reader@example.com", first);
+        string secondHash = SiteSubscriptionIdentity.HashEmail("reader@example.com", second);
+        string bareSha = ExpectedBareShaEmailHash("reader@example.com");
+
+        Assert.Equal(repeatHash, firstHash);
+        Assert.NotEqual(firstHash, secondHash);
+        Assert.NotEqual(bareSha, firstHash);
+        Assert.Equal(ExpectedHmacEmailHash("reader@example.com", "subscription-email-hash-pepper-one-with-enough-entropy"), firstHash);
+    }
+
+    [Fact]
     public async Task ConsumeUnsubscribeProofAsync_AcceptsMatchingProofAndRejectsReplay()
     {
         var cache = new MemoryProofCache();
         var clock = new MutableTimeProvider(BaselineNow);
-        var service = new SiteSubscriptionProofService(cache, clock);
+        var service = CreateService(cache, clock);
         SiteSubscriptionUnsubscribeProofIssueResult issued = await service.IssueUnsubscribeProofAsync(
             CreateIssueRequest(),
             CancellationToken.None);
@@ -96,7 +114,7 @@ public sealed class SiteSubscriptionProofServiceTests
     {
         var cache = new MemoryProofCache();
         var clock = new MutableTimeProvider(BaselineNow);
-        var service = new SiteSubscriptionProofService(cache, clock);
+        var service = CreateService(cache, clock);
         SiteSubscriptionUnsubscribeProofIssueResult issued = await service.IssueUnsubscribeProofAsync(
             CreateIssueRequest(),
             CancellationToken.None);
@@ -128,7 +146,7 @@ public sealed class SiteSubscriptionProofServiceTests
     {
         var cache = new MemoryProofCache();
         var clock = new MutableTimeProvider(BaselineNow);
-        var service = new SiteSubscriptionProofService(cache, clock);
+        var service = CreateService(cache, clock);
         SiteSubscriptionUnsubscribeProofIssueResult issued = await service.IssueUnsubscribeProofAsync(
             CreateIssueRequest(),
             CancellationToken.None);
@@ -152,7 +170,7 @@ public sealed class SiteSubscriptionProofServiceTests
     {
         var cache = new MemoryProofCache();
         var clock = new MutableTimeProvider(BaselineNow);
-        var service = new SiteSubscriptionProofService(cache, clock);
+        var service = CreateService(cache, clock);
         SiteSubscriptionUnsubscribeProofIssueResult issued = await service.IssueUnsubscribeProofAsync(
             CreateIssueRequest(),
             CancellationToken.None);
@@ -176,8 +194,27 @@ public sealed class SiteSubscriptionProofServiceTests
     private static SiteSubscriptionUnsubscribeProofConsumeRequest CreateConsumeRequest(string proofToken)
         => new(proofToken, "reader@example.com", "email");
 
+    private static SiteSubscriptionProofService CreateService(MemoryProofCache cache, MutableTimeProvider clock)
+        => new(cache, clock, CreateConfiguration("unit-test-subscription-email-hash-pepper-with-enough-entropy"));
+
+    private static IConfiguration CreateConfiguration(string pepper)
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Subscription:EmailHashPepper"] = pepper
+            })
+            .Build();
+
     private static string ExpectedEmailHash(string normalizedEmail)
+        => ExpectedHmacEmailHash(normalizedEmail, "unit-test-subscription-email-hash-pepper-with-enough-entropy");
+
+    private static string ExpectedBareShaEmailHash(string normalizedEmail)
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(normalizedEmail)));
+
+    private static string ExpectedHmacEmailHash(string normalizedEmail, string pepper)
+        => Convert.ToHexStringLower(HMACSHA256.HashData(
+            Encoding.UTF8.GetBytes(pepper),
+            Encoding.UTF8.GetBytes(normalizedEmail)));
 
     private sealed class MemoryProofCache : IUnifiedCache
     {

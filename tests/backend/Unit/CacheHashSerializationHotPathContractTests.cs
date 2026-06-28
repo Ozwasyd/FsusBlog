@@ -176,7 +176,7 @@ public sealed class CacheHashSerializationHotPathContractTests
         Assert.DoesNotContain("IfNoneMatch", distribution, StringComparison.Ordinal);
         Assert.DoesNotContain(".Split(',',", distribution, StringComparison.Ordinal);
         Assert.Contains("ON CONFLICT (email_hash) DO UPDATE", subscription, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Convert.ToHexStringLower", subscription, StringComparison.Ordinal);
+        Assert.Contains("SiteSubscriptionIdentity.HashEmail(request.Email, configuration)", subscription, StringComparison.Ordinal);
     }
 
     private static string ReadRepoFile(string relativePath, [CallerFilePath] string sourceFile = "")

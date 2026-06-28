@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FsusBlog.Server.Infrastructure.Cache;
+using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Services.Subscriptions;
 
@@ -61,7 +62,8 @@ public sealed record SiteSubscriptionUnsubscribeProofClaims(
 
 public sealed class SiteSubscriptionProofService(
     IUnifiedCache cache,
-    TimeProvider timeProvider) : ISiteSubscriptionProofService
+    TimeProvider timeProvider,
+    IConfiguration configuration) : ISiteSubscriptionProofService
 {
     public const string HeaderName = "X-Fsus-Subscription-Proof";
 
@@ -82,7 +84,7 @@ public sealed class SiteSubscriptionProofService(
             throw new ArgumentException("ttl must be positive", nameof(request));
         }
 
-        string emailHash = SiteSubscriptionIdentity.HashEmail(request.Email);
+        string emailHash = SiteSubscriptionIdentity.HashEmail(request.Email, configuration);
         if (emailHash.Length == 0)
         {
             throw new ArgumentException("email is invalid", nameof(request));
@@ -124,7 +126,7 @@ public sealed class SiteSubscriptionProofService(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string emailHash = SiteSubscriptionIdentity.HashEmail(request.Email);
+        string emailHash = SiteSubscriptionIdentity.HashEmail(request.Email, configuration);
         if (emailHash.Length == 0)
         {
             return SiteSubscriptionUnsubscribeProofConsumeResult.Rejected("email_invalid");
@@ -159,7 +161,7 @@ public sealed class SiteSubscriptionProofService(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string emailHash = SiteSubscriptionIdentity.HashEmail(request.Email);
+        string emailHash = SiteSubscriptionIdentity.HashEmail(request.Email, configuration);
         if (emailHash.Length == 0)
         {
             return SiteSubscriptionUnsubscribeProofConsumeResult.Rejected("email_invalid");
@@ -248,17 +250,45 @@ public sealed class SiteSubscriptionProofService(
 
 internal static class SiteSubscriptionIdentity
 {
-    public static string HashEmail(string? email)
+    public const string EmailHashPepperConfigurationKey = "Subscription:EmailHashPepper";
+    public const string CurrentHashVersion = "hmac-v1";
+    public const string LegacySha256HashVersion = "sha256-legacy";
+
+    public static string HashEmail(string? email, IConfiguration configuration)
     {
-        string normalized = email?.Trim().ToLowerInvariant() ?? string.Empty;
-        if (normalized.Length < 5 || !normalized.Contains('@', StringComparison.Ordinal))
+        string normalized = NormalizeEmail(email);
+        if (normalized.Length == 0)
         {
             return string.Empty;
         }
 
-        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
+        string pepper = (configuration[EmailHashPepperConfigurationKey] ?? string.Empty).Trim();
+        if (pepper.Length < 32)
+        {
+            throw new InvalidOperationException($"{EmailHashPepperConfigurationKey} must be configured with at least 32 characters.");
+        }
+
+        return Convert.ToHexStringLower(HMACSHA256.HashData(
+            Encoding.UTF8.GetBytes(pepper),
+            Encoding.UTF8.GetBytes(normalized)));
+    }
+
+    public static string LegacySha256EmailHash(string? email)
+    {
+        string normalized = NormalizeEmail(email);
+        return normalized.Length == 0
+            ? string.Empty
+            : Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
     }
 
     public static string NormalizeChannel(string? channel)
         => string.Equals(channel, "email", StringComparison.OrdinalIgnoreCase) ? "email" : "rss";
+
+    private static string NormalizeEmail(string? email)
+    {
+        string normalized = email?.Trim().ToLowerInvariant() ?? string.Empty;
+        return normalized.Length < 5 || !normalized.Contains('@', StringComparison.Ordinal)
+            ? string.Empty
+            : normalized;
+    }
 }
