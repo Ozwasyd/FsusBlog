@@ -56,6 +56,8 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     private static IServiceCollection AddNotificationRuntime(this IServiceCollection services)
     {
         services.AddSingleton<INotificationFrameCodec, NotificationFrameCodec>();
+        services.AddSingleton<NotificationStreamOriginSnapshotProvider>();
+        services.AddSingleton<NotificationStreamAccountAdmissionCache>();
         services.AddScoped<INotificationStreamAdmissionService, NotificationStreamAdmissionService>();
         services.AddScoped<INotificationStreamAudienceResolver, NotificationStreamAudienceResolver>();
         services.AddScoped<INotificationStreamHandshakeService, NotificationStreamHandshakeService>();

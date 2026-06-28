@@ -107,6 +107,31 @@ public class NotificationStreamBoundaryTests
     }
 
     [Fact]
+    public async Task Admission_CachesAccountStateAcrossReconnectsButStillChecksBanState()
+    {
+        var blacklist = Substitute.For<IBlacklistService>();
+        blacklist.GetBanStateAsync(42, "subject-hash-42")
+            .Returns(Task.FromResult(new BanStateSnapshot(false, null, null)));
+        var users = Substitute.For<IUserAccountReader>();
+        users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(new UserAccountSnapshot(
+            42,
+            1,
+            "active",
+            false,
+            null,
+            AccountSubjectHash: "subject-hash-42")));
+        var admission = new NotificationStreamAdmissionService(blacklist, users, new NotificationStreamAccountAdmissionCache());
+
+        NotificationStreamAdmissionResult first = await admission.ValidateAsync("42", CancellationToken.None);
+        NotificationStreamAdmissionResult second = await admission.ValidateAsync("42", CancellationToken.None);
+
+        Assert.True(first.IsAllowed);
+        Assert.True(second.IsAllowed);
+        await users.Received(1).GetAccountByIdAsync(42);
+        await blacklist.Received(2).GetBanStateAsync(42, "subject-hash-42");
+    }
+
+    [Fact]
     public void AudienceResolver_DoesNotMapRoleOnlyUserToAdminGroup()
     {
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
@@ -219,6 +244,9 @@ public class NotificationStreamBoundaryTests
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamHandshakeService.cs"));
         string validate = ExtractMethodBlock(source, "public async Task<NotificationStreamHandshakeResult> ValidateAsync");
+        string validateOrigin = ExtractMethodBlock(source, "private NotificationStreamHandshakeResult? ValidateOrigin");
+        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string runtimeServices = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs");
 
         Assert.Contains("ValidateOrigin(context)", validate, StringComparison.Ordinal);
         Assert.Contains("origin_not_allowed", source, StringComparison.Ordinal);
@@ -231,6 +259,17 @@ public class NotificationStreamBoundaryTests
         Assert.Contains("CORS_ALLOWED_HOSTS", source, StringComparison.Ordinal);
         Assert.Contains("IsDevelopment()", source, StringComparison.Ordinal);
         Assert.Contains("localhost", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("NotificationStreamOriginSnapshot", source, StringComparison.Ordinal);
+        Assert.Contains("originSnapshotProvider.Current", validateOrigin, StringComparison.Ordinal);
+        Assert.Contains("ChangeToken.OnChange(configuration.GetReloadToken", source, StringComparison.Ordinal);
+        Assert.Contains("fsus.notification_stream.handshake.origin_validation_elapsed_ms", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.notification_stream.admission.account_state_cache", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.notification_stream.admission.db_read_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.notification_stream.admission.rejected_reason_count", observability, StringComparison.Ordinal);
+        Assert.Contains("AddSingleton<NotificationStreamOriginSnapshotProvider>", runtimeServices, StringComparison.Ordinal);
+        Assert.Contains("AddSingleton<NotificationStreamAccountAdmissionCache>", runtimeServices, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildAllowedOrigins", validateOrigin, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildAllowedHosts", validateOrigin, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -508,7 +547,7 @@ public class NotificationStreamBoundaryTests
             new CapturingRiskSink(),
             admissionService ?? new AllowingAdmissionService(),
             new NotificationStreamAudienceResolver(),
-            configuration,
+            new NotificationStreamOriginSnapshotProvider(configuration),
             environment,
             NullLoggerFactory.Instance);
     }

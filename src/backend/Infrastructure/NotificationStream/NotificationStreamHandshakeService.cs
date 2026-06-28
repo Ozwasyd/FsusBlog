@@ -1,13 +1,17 @@
+using System.Collections.Frozen;
 using System.Security.Claims;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Primitives;
+using System.Diagnostics;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
@@ -55,7 +59,7 @@ internal sealed class NotificationStreamHandshakeService(
     ISecurityRiskSignalSink riskSignalSink,
     INotificationStreamAdmissionService admissionService,
     INotificationStreamAudienceResolver audienceResolver,
-    IConfiguration configuration,
+    NotificationStreamOriginSnapshotProvider originSnapshotProvider,
     IWebHostEnvironment environment,
     ILoggerFactory loggerFactory) : INotificationStreamHandshakeService
 {
@@ -260,6 +264,7 @@ internal sealed class NotificationStreamHandshakeService(
 
     private NotificationStreamHandshakeResult? ValidateOrigin(HttpContext context)
     {
+        long started = Stopwatch.GetTimestamp();
         string originHeader = context.Request.Headers.Origin.ToString();
         if (string.IsNullOrWhiteSpace(originHeader))
         {
@@ -283,19 +288,21 @@ internal sealed class NotificationStreamHandshakeService(
             return NotificationStreamHandshakeResult.Failure(StatusCodes.Status403Forbidden, "origin_not_allowed");
         }
 
-        HashSet<string> allowedOrigins = BuildAllowedOrigins();
+        NotificationStreamOriginSnapshot originSnapshot = originSnapshotProvider.Current;
         string normalizedOrigin = NormalizeOrigin(origin);
-        if (!allowedOrigins.Contains(normalizedOrigin))
+        if (!originSnapshot.AllowedOrigins.Contains(normalizedOrigin))
         {
+            FsusObservability.RecordNotificationStreamOriginValidation("origin", false, Stopwatch.GetElapsedTime(started));
             return NotificationStreamHandshakeResult.Failure(StatusCodes.Status403Forbidden, "origin_not_allowed");
         }
 
-        HashSet<string> allowedHosts = BuildAllowedHosts(allowedOrigins);
-        if (!allowedHosts.Contains(origin.Host))
+        if (!originSnapshot.AllowedHosts.Contains(origin.Host))
         {
+            FsusObservability.RecordNotificationStreamOriginValidation("host", false, Stopwatch.GetElapsedTime(started));
             return NotificationStreamHandshakeResult.Failure(StatusCodes.Status403Forbidden, "origin_not_allowed");
         }
 
+        FsusObservability.RecordNotificationStreamOriginValidation("origin", true, Stopwatch.GetElapsedTime(started));
         return null;
     }
 
@@ -422,7 +429,7 @@ internal sealed class NotificationStreamHandshakeService(
         return false;
     }
 
-    private HashSet<string> BuildAllowedOrigins()
+    internal static HashSet<string> BuildAllowedOrigins(IConfiguration configuration)
     {
         var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         AddOrigin(allowed, configuration["Seo:BaseUrl"]);
@@ -436,7 +443,7 @@ internal sealed class NotificationStreamHandshakeService(
         return allowed;
     }
 
-    private HashSet<string> BuildAllowedHosts(HashSet<string> allowedOrigins)
+    internal static HashSet<string> BuildAllowedHosts(IConfiguration configuration, HashSet<string> allowedOrigins)
     {
         var hosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (string origin in allowedOrigins)
@@ -528,5 +535,39 @@ internal sealed class NotificationStreamHandshakeService(
                 : origin.Scheme.ToLowerInvariant();
         string port = origin.IsDefaultPort ? string.Empty : $":{origin.Port}";
         return $"{scheme}://{origin.IdnHost.ToLowerInvariant()}{port}";
+    }
+}
+
+internal sealed record NotificationStreamOriginSnapshot(
+    FrozenSet<string> AllowedOrigins,
+    FrozenSet<string> AllowedHosts);
+
+internal sealed class NotificationStreamOriginSnapshotProvider
+{
+    private readonly IConfiguration _configuration;
+    private NotificationStreamOriginSnapshot _current;
+    private IDisposable? _reloadRegistration;
+
+    public NotificationStreamOriginSnapshotProvider(IConfiguration configuration)
+    {
+        _configuration = configuration;
+        _current = BuildSnapshot(configuration);
+        _reloadRegistration = ChangeToken.OnChange(configuration.GetReloadToken, Refresh);
+    }
+
+    public NotificationStreamOriginSnapshot Current => Volatile.Read(ref _current);
+
+    private void Refresh()
+    {
+        Volatile.Write(ref _current, BuildSnapshot(_configuration));
+    }
+
+    private static NotificationStreamOriginSnapshot BuildSnapshot(IConfiguration configuration)
+    {
+        HashSet<string> origins = NotificationStreamHandshakeService.BuildAllowedOrigins(configuration);
+        HashSet<string> hosts = NotificationStreamHandshakeService.BuildAllowedHosts(configuration, origins);
+        return new NotificationStreamOriginSnapshot(
+            origins.ToFrozenSet(StringComparer.OrdinalIgnoreCase),
+            hosts.ToFrozenSet(StringComparer.OrdinalIgnoreCase));
     }
 }

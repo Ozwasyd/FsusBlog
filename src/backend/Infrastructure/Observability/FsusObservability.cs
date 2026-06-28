@@ -147,6 +147,10 @@ public static class FsusObservability
     private static readonly Histogram<double> TaxonomyFrameColdMissElapsed = Meter.CreateHistogram<double>("fsus.taxonomy.frame.cold_miss_elapsed_ms", "ms");
     private static readonly Counter<long> TaxonomyProjectionUpdateCount = Meter.CreateCounter<long>("fsus.taxonomy.projection.update_count");
     private static readonly Counter<long> TaxonomyFrameVersionCounter = Meter.CreateCounter<long>("fsus.taxonomy.frame.version_bump");
+    private static readonly Histogram<double> NotificationStreamOriginValidationElapsed = Meter.CreateHistogram<double>("fsus.notification_stream.handshake.origin_validation_elapsed_ms", "ms");
+    private static readonly Counter<long> NotificationStreamAdmissionAccountStateCache = Meter.CreateCounter<long>("fsus.notification_stream.admission.account_state_cache");
+    private static readonly Counter<long> NotificationStreamAdmissionDbReadCount = Meter.CreateCounter<long>("fsus.notification_stream.admission.db_read_count");
+    private static readonly Counter<long> NotificationStreamAdmissionRejectedCount = Meter.CreateCounter<long>("fsus.notification_stream.admission.rejected_reason_count");
 
     public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
 
@@ -732,6 +736,37 @@ public static class FsusObservability
         {
             TagList tags = CreateBaseTags("taxonomy-frame", NormalizeTelemetryValue(reason, "unknown"), "version");
             TaxonomyFrameVersionCounter.Add(version > 0 ? 1 : 0, tags);
+        });
+    }
+
+    public static void RecordNotificationStreamOriginValidation(string stage, bool accepted, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("notification-stream", NormalizeTelemetryValue(stage, "origin"), accepted ? "accepted" : "rejected");
+            NotificationStreamOriginValidationElapsed.Record(elapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordNotificationStreamAdmissionAccountState(bool hit, bool loadedFromDb)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("notification-stream", "account_state", hit ? "hit" : "miss");
+            NotificationStreamAdmissionAccountStateCache.Add(1, tags);
+            if (loadedFromDb)
+            {
+                NotificationStreamAdmissionDbReadCount.Add(1, tags);
+            }
+        });
+    }
+
+    public static void RecordNotificationStreamAdmissionRejected(string reason)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("notification-stream", NormalizeTelemetryValue(reason, "unknown"), "rejected");
+            NotificationStreamAdmissionRejectedCount.Add(1, tags);
         });
     }
 
