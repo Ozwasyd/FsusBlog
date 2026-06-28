@@ -43,6 +43,7 @@ public partial class CommentService(
     IConfiguration? configuration = null) : ICommentService, ICommentEndpointService
 {
     private const int DefaultReplyPreviewLimit = 3;
+    private const int MaxReplyPreviewRootIds = 50;
     private const string DeletedPlaceholder = "该回复已删除";
     private static readonly Int64CursorCodec CursorCodec = Int64CursorCodec.Instance;
 
@@ -1512,7 +1513,7 @@ WHERE x.rn <= @PreviewLimit
 ORDER BY x.root_id, x.id;
 """);
 
-        var rows = new List<ReplyRow>(rootIds.Length * limit);
+        var rows = new List<ReplyRow>(Math.Min(rootIds.Length, MaxReplyPreviewRootIds) * limit);
         using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sql.ToString(), parameters))
         {
             int fId = reader.GetOrdinal("Id");

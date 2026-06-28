@@ -16,6 +16,8 @@ public static class LocalAuthFixtureEndpoints
     internal const string AllowLocalAuthFixtureConfigurationKey = "fsus:allowLocalAuthFixture";
     internal const string LocalAuthFixtureSecretConfigurationKey = "fsus:localAuthFixtureSecret";
     private const string LocalAuthFixtureSecretHeaderName = "X-Fsus-Local-Auth-Fixture-Secret";
+    private const int MaxRedirectPathChars = 2048;
+    private const long MaxStorageStateBytes = 256 * 1024;
     private const string UserStorageStateFileName = "user.storage-state.json";
     private const string AdminStorageStateFileName = "admin.storage-state.json";
 
@@ -263,6 +265,11 @@ public static class LocalAuthFixtureEndpoints
     {
         value = string.Empty;
         using FileStream stream = File.OpenRead(storageStatePath);
+        if (stream.Length > MaxStorageStateBytes)
+        {
+            return false;
+        }
+
         using JsonDocument document = JsonDocument.Parse(stream);
         if (!document.RootElement.TryGetProperty("cookies", out JsonElement cookies) ||
             cookies.ValueKind != JsonValueKind.Array)
@@ -292,6 +299,7 @@ public static class LocalAuthFixtureEndpoints
     private static string SanitizeRedirectPath(string? redirect, bool forceLocalFixtureRefresh = false)
     {
         if (string.IsNullOrWhiteSpace(redirect) ||
+            redirect.Length > MaxRedirectPathChars ||
             !redirect.StartsWith("/", StringComparison.Ordinal) ||
             redirect.StartsWith("//", StringComparison.Ordinal))
         {

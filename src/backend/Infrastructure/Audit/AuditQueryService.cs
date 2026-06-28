@@ -16,6 +16,8 @@ public sealed class AuditQueryService(
     AuditLogRuntimeState runtimeState,
     IConfiguration configuration)
 {
+    private const int MaxAuditPage = 50_000;
+
     private readonly ISqlSugarClient _db = db;
     private readonly AuditLogRuntimeState _runtimeState = runtimeState;
     private readonly byte[]? _tamperKey = AuditTamperEvidence.ResolveKey(configuration);
@@ -25,7 +27,7 @@ public sealed class AuditQueryService(
         CancellationToken cancellationToken,
         AuditDisclosureMode disclosureMode = AuditDisclosureMode.PiiRedacted)
     {
-        int page = Math.Max(request.Page, 1);
+        int page = Math.Clamp(request.Page, 1, MaxAuditPage);
         int pageSize = Math.Clamp(request.PageSize, 1, 200);
         Task<int> totalTask = QueryWithNewClientAsync(queryDb =>
             ApplyFilters(queryDb.Queryable<AuditLog>(), request)

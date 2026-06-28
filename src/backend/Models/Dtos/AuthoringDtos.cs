@@ -4,17 +4,24 @@ using FsusBlog.Server.Models.Moderation;
 namespace FsusBlog.Server.Models.Dtos;
 
 public sealed record class ServerDraftSaveRequest(
+    [property: System.ComponentModel.DataAnnotations.MaxLength(96)]
     string DraftKey,
     int? ArticleId,
+    [property: System.ComponentModel.DataAnnotations.MaxLength(200)]
     string Title,
+    [property: System.ComponentModel.DataAnnotations.MaxLength(262144)]
     string Content,
+    [property: System.ComponentModel.DataAnnotations.MaxLength(500)]
     string? Summary,
+    [property: System.ComponentModel.DataAnnotations.MaxLength(2048)]
     string? CoverImageUrl,
     int CategoryId,
     IReadOnlyList<int> TagIds,
+    [property: System.ComponentModel.DataAnnotations.MaxLength(128)]
     string? ClientRevision,
     int? Status,
     DateTime? ScheduledPublishAt,
+    [property: System.ComponentModel.DataAnnotations.MaxLength(500)]
     string? WarningOverrideReason = null);
 
 public sealed record class ServerDraftResponse(

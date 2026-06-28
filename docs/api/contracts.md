@@ -73,6 +73,8 @@ compact record 内所有文本字段均为 `Utf8SliceRef`，指向当前 payload
 
 payload 字典化的第一阶段采用兼容 layout：ArticleList/ArticleSearch/Conversation 等重复文本均落到单个 shared UTF-8 blob，records 只保存 `Utf8SliceRef`；前端 ArticlePage decode 不再创建 object records 数组，也不使用 `tagRecords.slice(...)` 复制 tag range。后续若引入 `ArticleListV4` category/tag dictionary，必须保持现有 frame type 的 downgrade 路径和 golden fixture。
 
+搜索运行时拒绝超过 128 字符的 keyword，避免在 DB fallback、runtime token hashing 和 snippet 构建前处理超大输入。搜索索引构建对正文 tokenization 只处理前 256 KiB，CJK 连续 segment 超过 4096 rune 时退回 bounded unigram fallback。
+
 ### Read-proof AEDS frames
 
 `/api/binary/read-proof/**` 使用 request/response AEDS frame；错误语义统一为 `ApiError`。旧 `/api/read-proof/**` JSON endpoint 已移除，前端运行时不得调用或回退。
@@ -916,6 +918,8 @@ int64 timestampUnixMs
 
 fixture 刷新进程只能通过 `UseShellExecute=false` + `ArgumentList` 调用仓库内固定脚本 `tests/frontend/fixtures/prepare-auth-smoke-users.mjs`。服务端在启动子进程前必须对 repo root、fixtures 目录和脚本路径执行 canonical path 校验，确认目标仍位于预期 fixtures 目录内；脚本路径不接受请求参数、环境派生的相对逃逸或替换文件名。
 
+fixture redirect query 最大 2048 字符；`user.storage-state.json` / `admin.storage-state.json` 单文件最大 256 KiB，超过上限视为 fixture 不可用，不解析 JSON。
+
 ### `NotificationStreamEventType` 枚举
 
 | 值 | 名称 | 载荷类型 | 说明 |
@@ -1238,6 +1242,8 @@ AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相
 
 hydration payload sidecar 的 URL 只允许解析到 web root 内的静态文件路径。AOT cache 读取持久化 entry、document service 写入 sidecar、Node SSR worker script 启动前都必须使用 canonical full path + relative path 校验确认目标没有逃逸各自 root；越界 sidecar 视为 cache entry 无效或跳过写入，越界 worker script 直接 fail closed，不尝试执行。
 
+`/api/public/navigation-snapshot` 的 `path` query 最大 512 字符，且必须是站内相对公开路径；超长、跨站 URL、反斜杠、CR/LF 或私有路径一律返回固定错误。
+
 ### `PublicAotShellEntryContract`
 
 ```text
@@ -1402,6 +1408,8 @@ feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale
 
 `SiteSubscriptionRequest` payload 是 `SiteSubscriptionRequestPod`：fixed UTF-8 `Email(256)` + `Channel(32)`。`SiteSubscriptionResponse` payload 是 `SiteSubscriptionResponsePod`：`subscribed:byte`、`unsubscribed:byte`、reserved、fixed UTF-8 `Channel(32)`。非法 email 返回 HTTP 400 + `ApiError` frame，响应不得回显明文 email。退订 proof 不进入 AEDS payload，cache key 只使用 proof token hash，不包含原始 email；DELETE 先按绑定的 `email_hash` + `channel` 非消费校验 proof，只有 `site_subscription` 更新成功后才提交一次性消费，DB 失败或请求取消时 proof 保持可重试。
 
+服务端在 normalization、lowercase、HMAC/SHA-256 前拒绝超过 254 字符的 email，避免匿名订阅接口对超大输入执行无意义分配或 hash。
+
 `ArticleRelatedReading` frame payload 使用 `RelatedReadingHeaderPod` + `RelatedReadingItemPod[]` + UTF-8 blob 编码；业务视图为 `RelatedReadingResponse`：
 
 | 字段 | 类型 | 说明 |
@@ -1452,6 +1460,8 @@ delete、restore、permanent-delete 必须先读取 article `xmin`，写入时�
 ### Admin 作者工作台
 
 生产前端使用 `/api/binary/author/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AuthorDraftSaveRequest`、`ModerationRuntimeGlobalStateRequest`、`ContentImportRequest`），响应使用 route-specific response frame（如 `AuthorDraftResponse`、`ModerationRuntimeStatus`、`AuditLogList`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。授权、MFA、fixed_ip rate limit、审计和缓存失效边界均由原生 authoring binary endpoint 直接执行；外部 `/api/author/**` JSON endpoint 已移除，且不保留 internal bridge 兼容层：
+
+Authoring binary 写入请求 body 最大 1 MiB。`ServerDraftSaveRequest` 字段上限为：`DraftKey` 96、`Title` 200、`Content` 262144、`Summary` 500、`CoverImageUrl` 2048、`ClientRevision` 128、`WarningOverrideReason` 500；超限请求在 Markdown、内容过滤、快照构建或持久化前按 validation fail closed。
 
 | 方法 | 路径 | 说明 |
 |------|------|------|

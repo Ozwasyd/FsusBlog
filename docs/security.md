@@ -22,6 +22,8 @@
 
 文件系统路径和本地脚本执行必须先转换为 `Path.GetFullPath` 后再用 `Path.GetRelativePath` 确认仍位于预期根目录内，不能只依赖字符串 `StartsWith`。LocalAuth fixture 只能执行仓库 `tests/frontend/fixtures/prepare-auth-smoke-users.mjs`；Public AOT hydration sidecar 读写必须留在 web root；SSR worker script 必须留在 frontend client root；upload/image 和 integrity asset file 检查必须留在 `wwwroot/uploads` 或对应 upload sandbox。任何越界、绝对路径覆盖、`..` segment 逃逸或控制字符日志输入都按固定类别拒绝或降级，不回显路径细节。
 
+所有匿名或后台可触达的文本输入在进入昂贵 DB/regex/tokenizer/ArrayPool 路径前必须有显式长度上限。搜索 keyword 最大 128 字符，search index body tokenization 最大 256 KiB，CJK 连续 segment 最大 4096 rune；ContentFilter 在租用 `ArrayPool<char>` 前以 256 KiB fail closed；authoring binary body 最大 1 MiB，draft 字段保留独立 MaxLength；subscription email 最大 254 字符；public navigation snapshot path 最大 512 字符；LocalAuth fixture redirect 最大 2048 字符且 storage-state JSON 最大 256 KiB；audit 列表页码最大 50000。超过上限的请求必须在业务昂贵路径前返回 validation/empty/fail-closed，不得只依赖 Kestrel 默认 body limit 或数据库 `Take`。
+
 ---
 
 ## Proof of Work (PoW)

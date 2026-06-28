@@ -42,6 +42,9 @@ public sealed partial class SearchIndexService(
     private const int QuantizedTfMaxExact = 10;
     private const int HotFrequencyPercentile = 95;
     private const int RecentYearsWindow = 2;
+    private const int MaxSearchKeywordChars = 128;
+    private const int MaxIndexedBodyChars = 256 * 1024;
+    private const int MaxCjkSegmentRunes = 4096;
     private const int SearchManifestSchemaVersion = 3;
     private const int PatchRebuildDocThresholdPercent = 20;
     private const int PatchRebuildByteThresholdPercent = 25;
@@ -100,6 +103,12 @@ public sealed partial class SearchIndexService(
                 }
 
                 string normalizedKeyword = keyword.Trim();
+                if (normalizedKeyword.Length > MaxSearchKeywordChars)
+                {
+                    result = "keyword_too_long";
+                    return [];
+                }
+
                 SearchRuntimeSnapshot? runtimeSnapshot = _runtimeSnapshot;
                 if (runtimeSnapshot is not null)
                 {
@@ -1580,6 +1589,7 @@ public sealed partial class SearchIndexService(
 
     private static int CountVisibleTokenOccurrences(string body)
     {
+        body = TrimSearchBodyForTokenization(body);
         string plain = MdLinkRegex().Replace(body, m => m.Groups["text"].Value);
         plain = HtmlTagRegex().Replace(plain, string.Empty);
         plain = MdSymbolRegex().Replace(plain, " ");
@@ -1600,6 +1610,9 @@ public sealed partial class SearchIndexService(
 
         return count;
     }
+
+    private static string TrimSearchBodyForTokenization(string body)
+        => body.Length > MaxIndexedBodyChars ? body[..MaxIndexedBodyChars] : body;
 
     private static async Task<List<SearchArticleRow>> LoadArticleRowsAsync(ISqlSugarClient db)
     {
@@ -2717,6 +2730,11 @@ public sealed partial class SearchIndexService(
             }
 
             if (runeCount == 0 || cursor <= segmentStart)
+            {
+                return false;
+            }
+
+            if (runeCount > MaxCjkSegmentRunes)
             {
                 return false;
             }

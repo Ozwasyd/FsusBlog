@@ -8,12 +8,19 @@ namespace FsusBlog.Server.Modules.Endpoints;
 
 public static class SubscriptionEndpoints
 {
+    private const int MaxEmailChars = 254;
+
     public static async Task<SiteSubscriptionBinaryResponse?> SubscribeAsync(
         SiteSubscriptionBinaryRequest request,
         ISqlSugarClient db,
         IConfiguration configuration,
         CancellationToken cancellationToken)
     {
+        if (request.Email.Length > MaxEmailChars)
+        {
+            return null;
+        }
+
         string hash = SiteSubscriptionIdentity.HashEmail(request.Email, configuration);
         if (hash.Length == 0)
         {
@@ -62,6 +69,11 @@ public static class SubscriptionEndpoints
         IConfiguration configuration,
         CancellationToken cancellationToken)
     {
+        if (request.Email.Length > MaxEmailChars)
+        {
+            return null;
+        }
+
         string hash = SiteSubscriptionIdentity.HashEmail(request.Email, configuration);
         if (hash.Length == 0)
         {

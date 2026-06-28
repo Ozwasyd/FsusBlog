@@ -19,6 +19,8 @@ namespace FsusBlog.Server.Services.Security;
 /// </summary>
 public partial class ContentFilterService : IContentFilterService, IDisposable
 {
+    private const int MaxValidationTextChars = 256 * 1024;
+
     private readonly ILogger<ContentFilterService> _logger;
     private readonly IModerationDictionaryService? _moderationDictionaryService;
 
@@ -222,6 +224,10 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
     public ContentValidationResult ValidateContent(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return new ContentValidationResult(true, "ok", string.Empty);
+        if (text.Length > MaxValidationTextChars)
+        {
+            return new ContentValidationResult(false, "content_too_large", "内容长度超过安全检查上限");
+        }
 
         char[]? rentedBuffer = null;
         try

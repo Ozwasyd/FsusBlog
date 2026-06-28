@@ -25,6 +25,7 @@ public static class AuthoringEndpoints
     private const string AdminSensitiveAction = "admin-sensitive";
     private const string MfaProofHeader = "X-Fsus-Mfa-Proof";
     private const string BinaryPrefix = "/api/binary/author";
+    private const int MaxAuthoringRequestBytes = 1 * 1024 * 1024;
     private static readonly string[] MainlandMandatoryDictionaryIds =
     [
         "cn-mainland.political-sensitive",
@@ -1610,11 +1611,16 @@ public static class AuthoringEndpoints
             return AedsJsonRequest<T>.Failure(ErrorDetail.Create(FsusBlog.Core.Common.ErrorCode.Validation, "authoring_binary_body_not_allowed"));
         }
 
+        if (context.Request.ContentLength > MaxAuthoringRequestBytes)
+        {
+            return AedsJsonRequest<T>.Failure(ErrorDetail.Create(FsusBlog.Core.Common.ErrorCode.Validation, "authoring_binary_body_too_large"));
+        }
+
         return await AedsJsonResults.ReadAsync<T>(
             context,
             aeds,
             route.RequestFrame.Value,
-            AedsJsonResults.MaxAuthoringFrameBytes,
+            MaxAuthoringRequestBytes,
             invalidMessage,
             cancellationToken);
     }
