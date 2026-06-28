@@ -130,4 +130,17 @@ public class CachePolicyRegistryTests
         Assert.True(policy.SecurityCritical);
         Assert.False(policy.RegisterKeysForPrefixInvalidation);
     }
+
+    [Fact]
+    public void ArticleSearchVersion_UsesLongLivedVersionCounterPolicy()
+    {
+        Assert.True(Enum.TryParse("ArticleSearchVersion", out CachePolicyId policyId));
+        Assert.True(_registry.TryGet(policyId, out CachePolicy policy));
+
+        Assert.Equal("blog", policy.Domain);
+        Assert.Equal("article-search-version", policy.Resource);
+        Assert.True(policy.L2Ttl >= TimeSpan.FromDays(7));
+        Assert.False(policy.SecurityCritical);
+        Assert.False(policy.RegisterKeysForPrefixInvalidation);
+    }
 }

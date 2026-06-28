@@ -3,6 +3,7 @@ using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
@@ -14,6 +15,7 @@ using StackExchange.Redis;
 using System.Data;
 using System.Data.Common;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace FsusBlog.Server.Services;
 
@@ -46,6 +48,8 @@ public class ArticleService(
     private const int MaxPageSize = 100;
     private const string ArticleListCursorWhereClause = " AND (a.createtime < @CursorTime OR (a.createtime = @CursorTime AND a.id < @CursorId))";
     private const int MaxSearchKeywordLength = 128;
+    private const int MinCacheableSearchKeywordLength = 2;
+    private const int MaxCacheableSearchKeywordLength = 64;
     private const int MaxHotArticlesCount = 100;
     private const int MaxTitleLength = 256;
     private const int MaxSummaryLength = 512;
@@ -1113,18 +1117,25 @@ public class ArticleService(
     {
         CancellationToken effectiveCt = ResolveCancellationToken(cancellationToken);
         effectiveCt.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(keyword))
+        string normalizedKeyword = NormalizeSearchKeyword(keyword);
+        if (normalizedKeyword.Length == 0)
         {
             return [];
         }
 
-        keyword = keyword.Trim();
-        if (keyword.Length > MaxSearchKeywordLength)
+        if (!ShouldCacheSearchKeyword(normalizedKeyword))
         {
-            keyword = keyword[..MaxSearchKeywordLength];
+            FsusObservability.RecordCacheOperation("search", CachePolicyId.ArticleSearch.ToString(), "policy", "bypass_low_value_keyword", TimeSpan.Zero);
+            return await _dbConcurrencyGate.ExecuteAsync(
+                    "article-search-uncached",
+                    gateCt => LoadSearchArticlesFromSourceAsync(normalizedKeyword, gateCt),
+                    _ => Task.FromException<List<ArticleListItemReadModel>>(new TimeoutException($"db-gate-timeout:article-search-uncached:{normalizedKeyword}")),
+                    effectiveCt)
+                .ConfigureAwait(false);
         }
 
-        string cacheIdentity = $"keyword:{keyword}";
+        long searchVersion = await GetSearchCacheVersionAsync(effectiveCt);
+        string cacheIdentity = BuildArticleSearchIdentity(searchVersion, normalizedKeyword);
 
         return await _cacheMissCoordinator.CoordinateAsync(
                 CachePolicyId.ArticleSearch,
@@ -1134,11 +1145,12 @@ public class ArticleService(
                     "article-search",
                     async gateCt =>
                     {
-                        List<ArticleListItemReadModel> result = await LoadSearchArticlesFromSourceAsync(keyword, gateCt);
+                        List<ArticleListItemReadModel> result = await LoadSearchArticlesFromSourceAsync(normalizedKeyword, gateCt);
                         gateCt.ThrowIfCancellationRequested();
                         byte[] encoded = ServerCacheBinaryCodec.EncodeArticleSearch(result);
                         gateCt.ThrowIfCancellationRequested();
                         await _cache.SetRawAsync(CachePolicyId.ArticleSearch, cacheIdentity, encoded, null, gateCt);
+                        FsusObservability.RecordCacheOperation("search", CachePolicyId.ArticleSearch.ToString(), "l2", "write_versioned", TimeSpan.Zero);
                         return result;
                     },
                     async gateCt =>
@@ -1149,7 +1161,7 @@ public class ArticleService(
                             return retry.Value ?? [];
                         }
 
-                        throw new TimeoutException($"db-gate-timeout:article-search:{keyword}");
+                        throw new TimeoutException($"db-gate-timeout:article-search:{normalizedKeyword}");
                     },
                     ct),
                 "article-search",
@@ -2151,7 +2163,97 @@ public class ArticleService(
         return long.TryParse(ver, out long parsed) ? parsed : 0;
     }
 
+    private async ValueTask<long> GetSearchCacheVersionAsync(CancellationToken cancellationToken)
+    {
+        string? ver = await _cache.GetStringAsync(CachePolicyId.ArticleSearchVersion, "main", cancellationToken);
+        return long.TryParse(ver, out long parsed) ? parsed : 0;
+    }
+
     private string RedisKey(string key) => _runtimeKeyScope.PrefixKey(key);
+
+    internal static string NormalizeSearchKeyword(string? keyword)
+    {
+        if (string.IsNullOrWhiteSpace(keyword))
+        {
+            return string.Empty;
+        }
+
+        string normalized = keyword.Normalize(NormalizationForm.FormKC).Trim();
+        var builder = new StringBuilder(Math.Min(normalized.Length, MaxSearchKeywordLength));
+        bool previousWhitespace = false;
+        foreach (char ch in normalized)
+        {
+            if (char.IsWhiteSpace(ch))
+            {
+                if (builder.Length > 0 && !previousWhitespace)
+                {
+                    builder.Append(' ');
+                    previousWhitespace = true;
+                }
+
+                continue;
+            }
+
+            builder.Append(char.ToLowerInvariant(ch));
+            previousWhitespace = false;
+            if (builder.Length >= MaxSearchKeywordLength)
+            {
+                break;
+            }
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    internal static bool ShouldCacheSearchKeyword(string normalizedKeyword)
+    {
+        if (normalizedKeyword.Length < MinCacheableSearchKeywordLength || normalizedKeyword.Length > MaxCacheableSearchKeywordLength)
+        {
+            return false;
+        }
+
+        int lettersOrDigits = 0;
+        int digits = 0;
+        int spaces = 0;
+        Span<bool> asciiSeen = stackalloc bool[128];
+        int distinctAscii = 0;
+        foreach (char ch in normalizedKeyword)
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                lettersOrDigits++;
+                if (char.IsDigit(ch))
+                {
+                    digits++;
+                }
+            }
+
+            if (ch == ' ')
+            {
+                spaces++;
+            }
+
+            if (ch < asciiSeen.Length && !asciiSeen[ch])
+            {
+                asciiSeen[ch] = true;
+                distinctAscii++;
+            }
+        }
+
+        if (lettersOrDigits == 0)
+        {
+            return false;
+        }
+
+        bool looksRandom = normalizedKeyword.Length >= 24
+            && spaces == 0
+            && digits > 0
+            && distinctAscii >= 12;
+        return !looksRandom;
+    }
+
+    internal static string BuildArticleSearchIdentity(long version, string normalizedKeyword)
+        => string.Concat("search:v", version.ToString(), ":", normalizedKeyword.Replace(':', '_'));
 
     private static string BuildArticleListIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate, string keyword)
     {

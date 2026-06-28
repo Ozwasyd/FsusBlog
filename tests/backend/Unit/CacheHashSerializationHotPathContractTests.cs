@@ -14,7 +14,6 @@ public sealed class CacheHashSerializationHotPathContractTests
 
         Assert.Contains("BuildArticleListIdentity", source, StringComparison.Ordinal);
         Assert.Contains("BuildArticleDetailIdentity", source, StringComparison.Ordinal);
-        Assert.Contains("BuildArticleSearchIdentity", source, StringComparison.Ordinal);
         Assert.Contains("string.Create", source, StringComparison.Ordinal);
         Assert.DoesNotContain("string identity = $\"", source, StringComparison.Ordinal);
     }
@@ -26,9 +25,21 @@ public sealed class CacheHashSerializationHotPathContractTests
             "core:v4:public:42:3:20:0:7:0:-1:fsus",
             ArticleCoreQueryCache.BuildArticleListIdentity("public", 42, 3, 20, null, 7, false, null, "fsus"));
         Assert.Equal("core:v3:99", ArticleCoreQueryCache.BuildArticleDetailIdentity(99));
-        Assert.Equal("core:v2:keyword", ArticleCoreQueryCache.BuildArticleSearchIdentity("keyword"));
         Assert.Equal("core:v2:12", ArticleCoreQueryCache.BuildHotArticlesBaseIdentity(12));
         Assert.Equal("core:v2:featured:6", ArticleCoreQueryCache.BuildFeaturedArticlesIdentity(6));
+    }
+
+    [Fact]
+    public void ArticleCoreQueryCache_DoesNotDuplicateServiceSearchCache()
+    {
+        string source = ReadRepoFile("src/backend/Infrastructure/CoreBridge/Caching/ArticleCoreQueryCache.cs");
+        int methodStart = source.IndexOf("public async Task<IReadOnlyList<ArticleListCoreModel>> GetOrLoadSearchAsync", StringComparison.Ordinal);
+        int methodEnd = source.IndexOf("public async Task<IReadOnlyList<PopularArticleCoreModel>> GetOrLoadHotArticlesAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..methodEnd];
+
+        Assert.Contains("return await loader(cancellationToken)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("CachePolicyId.ArticleSearch", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("SetRawAsync", method, StringComparison.Ordinal);
     }
 
     [Fact]

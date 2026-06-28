@@ -52,5 +52,6 @@ public enum CachePolicyId
     AnonymousCommentPolicyVersion = 47,
     BackgroundWorkerLease = 48,
     NotificationStreamDrillNonce = 49,
-    ArticleListCount = 50
+    ArticleListCount = 50,
+    ArticleSearchVersion = 51
 }

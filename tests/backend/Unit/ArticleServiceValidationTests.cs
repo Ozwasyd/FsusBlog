@@ -73,6 +73,33 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
+    public void SearchArticlesAsync_SourceUsesVersionedNormalizedCacheIdentity()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        int methodStart = source.IndexOf("public async Task<List<ArticleListItemReadModel>> SearchArticlesAsync", StringComparison.Ordinal);
+        int methodEnd = source.IndexOf("public async Task<List<PopularArticleSummaryDto>> GetHotArticlesAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..methodEnd];
+
+        Assert.Contains("NormalizeSearchKeyword", method, StringComparison.Ordinal);
+        Assert.Contains("GetSearchCacheVersionAsync", method, StringComparison.Ordinal);
+        Assert.Contains("BuildArticleSearchIdentity", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("$\"keyword:{keyword}\"", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SearchArticlesAsync_SourceBypassesLongLivedCacheForLowValueKeywords()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        int methodStart = source.IndexOf("public async Task<List<ArticleListItemReadModel>> SearchArticlesAsync", StringComparison.Ordinal);
+        int methodEnd = source.IndexOf("public async Task<List<PopularArticleSummaryDto>> GetHotArticlesAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..methodEnd];
+
+        Assert.Contains("ShouldCacheSearchKeyword", method, StringComparison.Ordinal);
+        Assert.Contains("LoadSearchArticlesFromSourceAsync(normalizedKeyword", method, StringComparison.Ordinal);
+        Assert.Contains("FsusObservability.RecordCacheOperation", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UpdateAsync_SourceChecksAffectedRowsBeforeDependentWrites()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));

@@ -22,6 +22,7 @@ public sealed class CacheInvalidationDispatcherTests
             && HasKey(keys, CachePolicyId.ArticleDetail, "core:v3:42")
             && HasKey(keys, CachePolicyId.ArticleDetailFrame, "core:v3:42")), Arg.Any<CancellationToken>());
         await cache.Received(1).IncrementAsync(CachePolicyId.ArticleListVersion, "main", 1, Arg.Any<CancellationToken>());
+        await cache.Received(1).IncrementAsync(CachePolicyId.ArticleSearchVersion, "main", 1, Arg.Any<CancellationToken>());
         await cache.Received(1).RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
             HasKey(keys, CachePolicyId.ArticleRss, "main")
             && HasKey(keys, CachePolicyId.AdminStats, "main")

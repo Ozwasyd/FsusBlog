@@ -197,6 +197,7 @@ public sealed class CacheInvalidationDispatcher(
         }
 
         await cache.IncrementAsync(CachePolicyId.ArticleListVersion, "main", 1, cancellationToken);
+        long searchVersion = await cache.IncrementAsync(CachePolicyId.ArticleSearchVersion, "main", 1, cancellationToken);
         await cache.RemoveManyAsync(
             [
                 new(CachePolicyId.ArticleRss, "main"),
@@ -209,7 +210,7 @@ public sealed class CacheInvalidationDispatcher(
             cancellationToken);
         long hotVersion = PublishHotArticlesVersion("article-mutation");
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList, CacheTag.HotArticles, CacheTag.Stats);
-        await RecordRuntimeAsync("article", articleId is > 0 ? $"article:{articleId.Value};hot:v{hotVersion}" : $"all;hot:v{hotVersion}", cancellationToken);
+        await RecordRuntimeAsync("article", articleId is > 0 ? $"article:{articleId.Value};hot:v{hotVersion};search:v{searchVersion}" : $"all;hot:v{hotVersion};search:v{searchVersion}", cancellationToken);
     }
 
     public async Task InvalidateSeoAsync(CancellationToken cancellationToken = default)

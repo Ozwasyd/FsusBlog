@@ -589,6 +589,17 @@ public sealed class SearchIndexServiceTests
         Assert.DoesNotContain(".OrderByDescending(entry => entry.Score)", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SearchIndexService_SourceIncrementsSearchCacheVersionWhenManifestVersionChanges()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/SearchIndexService.cs"));
+        int versionChanged = source.IndexOf("!string.Equals(previousManifest?.CurrentVersion, artifacts.Version", StringComparison.Ordinal);
+        int publish = source.IndexOf("NotificationStreamEventType.SearchIndexUpdated", versionChanged, StringComparison.Ordinal);
+        string block = source[versionChanged..publish];
+
+        Assert.Contains("cache.IncrementAsync(CachePolicyId.ArticleSearchVersion, \"main\")", block, StringComparison.Ordinal);
+    }
+
     // ── Private static helpers via reflection ──────────────────────────────────
 
     private static T InvokePrivateStatic<T>(string methodName, object?[] args)

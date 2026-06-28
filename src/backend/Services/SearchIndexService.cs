@@ -1,5 +1,6 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.NotificationStream;
@@ -32,6 +33,7 @@ public sealed partial class SearchIndexService(
     IServiceScopeFactory scopeFactory,
     IWebHostEnvironment environment,
     INotificationStreamPublisher notificationStreamPublisher,
+    IUnifiedCache cache,
     ILogger<SearchIndexService> logger) : ISearchIndexService
 {
     private const uint ShardMagic = 0x32534846; // FHS2
@@ -488,6 +490,7 @@ public sealed partial class SearchIndexService(
 
         if (!string.Equals(previousManifest?.CurrentVersion, artifacts.Version, StringComparison.Ordinal))
         {
+            await cache.IncrementAsync(CachePolicyId.ArticleSearchVersion, "main").ConfigureAwait(false);
             await notificationStreamPublisher.PublishAsync(
                 NotificationStreamEventType.SearchIndexUpdated,
                 new SearchIndexUpdatePayload(artifacts.Version, "/search/index.manifest.aeds", artifacts.GeneratedAt),

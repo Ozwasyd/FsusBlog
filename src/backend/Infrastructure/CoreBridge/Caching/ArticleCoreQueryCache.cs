@@ -86,26 +86,7 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache, IHotArticlesCache
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string identity = BuildArticleSearchIdentity(keyword);
-        var hit = await cache.TryGetAsync(CachePolicyId.ArticleSearch, identity, DecodeArticleSearch, cancellationToken);
-        if (hit.Hit)
-        {
-            return hit.Value ?? Array.Empty<ArticleListCoreModel>();
-        }
-
-        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleSearch, identity, cancellationToken);
-        hit = await cache.TryGetAsync(CachePolicyId.ArticleSearch, identity, DecodeArticleSearch, cancellationToken);
-        if (hit.Hit)
-        {
-            return hit.Value ?? Array.Empty<ArticleListCoreModel>();
-        }
-
-        IReadOnlyList<ArticleListCoreModel> loaded = await loader(cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        byte[] encoded = PodBinaryCodec.EncodeArticleSearch(loaded);
-        cancellationToken.ThrowIfCancellationRequested();
-        await cache.SetRawAsync(CachePolicyId.ArticleSearch, identity, encoded, TimeSpan.FromMinutes(10), cancellationToken);
-        return loaded;
+        return await loader(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<PopularArticleCoreModel>> GetOrLoadHotArticlesAsync(
@@ -216,9 +197,6 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache, IHotArticlesCache
 
     internal static string BuildArticleDetailIdentity(int id)
         => string.Create(CultureInfo.InvariantCulture, $"core:v3:{id}");
-
-    internal static string BuildArticleSearchIdentity(string keyword)
-        => string.Create(CultureInfo.InvariantCulture, $"core:v2:{keyword}");
 
     internal static string BuildHotArticlesBaseIdentity(int count)
         => string.Create(CultureInfo.InvariantCulture, $"core:v2:{count}");
