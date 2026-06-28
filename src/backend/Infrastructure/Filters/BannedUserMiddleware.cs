@@ -59,7 +59,8 @@ public class BannedUserMiddleware(RequestDelegate _next)
         if (int.TryParse(accountIdClaim, out int accountId))
         {
             string accountSubjectHash = AccountSubjectHasher.FromPrincipalOrFallback(context.User, accountId);
-            UserAccountSnapshot? user = await GetAccountStateAsync(accountId, accountSubjectHash, users, accountStateCache, forceRefresh: isWriteAction);
+            bool forceAccountStateRefresh = endpoint?.Metadata.GetMetadata<ForceAccountStateRefreshMetadata>() != null;
+            UserAccountSnapshot? user = await GetAccountStateAsync(accountId, accountSubjectHash, users, accountStateCache, forceRefresh: forceAccountStateRefresh);
             if (user == null || user.Value.DeletedAt.HasValue || user.Value.Status == 2)
             {
                 await MiddlewareResults.WriteErrorAsync(context, "账户已注销", StatusCodes.Status401Unauthorized);

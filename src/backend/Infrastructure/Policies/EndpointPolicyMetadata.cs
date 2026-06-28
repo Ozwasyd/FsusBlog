@@ -25,6 +25,15 @@ public sealed class NoStoreResponseMetadata
     }
 }
 
+public sealed class ForceAccountStateRefreshMetadata
+{
+    public static readonly ForceAccountStateRefreshMetadata Instance = new();
+
+    private ForceAccountStateRefreshMetadata()
+    {
+    }
+}
+
 public static class EndpointPolicyMetadataExtensions
 {
     public static TBuilder AllowRestrictedAccountAction<TBuilder>(this TBuilder builder, RestrictedAccountAction action)
@@ -38,6 +47,13 @@ public static class EndpointPolicyMetadataExtensions
         where TBuilder : IEndpointConventionBuilder
     {
         builder.WithMetadata(NoStoreResponseMetadata.Instance);
+        return builder;
+    }
+
+    public static TBuilder ForceAccountStateRefresh<TBuilder>(this TBuilder builder)
+        where TBuilder : IEndpointConventionBuilder
+    {
+        builder.WithMetadata(ForceAccountStateRefreshMetadata.Instance);
         return builder;
     }
 }

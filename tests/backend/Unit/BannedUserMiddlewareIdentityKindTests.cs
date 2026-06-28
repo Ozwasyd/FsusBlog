@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Filters;
+using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -82,6 +83,64 @@ public sealed class BannedUserMiddlewareIdentityKindTests
         Assert.Equal(StatusCodes.Status423Locked, context.Response.StatusCode);
         await users.Received(1).GetAccountByIdAsync(42);
         await blacklist.Received(1).GetBanStateAsync(42, Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task InvokeAsync_OrdinaryWriteRequestUsesCachedAccountStateButStillChecksBanState()
+    {
+        int nextCalls = 0;
+        var middleware = new BannedUserMiddleware(context =>
+        {
+            nextCalls++;
+            context.Response.StatusCode = StatusCodes.Status204NoContent;
+            return Task.CompletedTask;
+        });
+        var blacklist = Substitute.For<IBlacklistService>();
+        blacklist.GetBanStateAsync(42, Arg.Any<string>())
+            .Returns(Task.FromResult(new BanStateSnapshot(false, null, null)));
+        var users = Substitute.For<IUserAccountReader>();
+        users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(CreateActiveUser(42)));
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var first = CreateContext("POST", CreateLegacyUser(42));
+        var second = CreateContext("POST", CreateLegacyUser(42));
+
+        await middleware.InvokeAsync(first, blacklist, users, cache);
+        await middleware.InvokeAsync(second, blacklist, users, cache);
+
+        Assert.Equal(2, nextCalls);
+        Assert.Equal(StatusCodes.Status204NoContent, first.Response.StatusCode);
+        Assert.Equal(StatusCodes.Status204NoContent, second.Response.StatusCode);
+        await users.Received(1).GetAccountByIdAsync(42);
+        await blacklist.Received(2).GetBanStateAsync(42, Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ForceAccountStateRefreshMetadataBypassesAccountStateCache()
+    {
+        int nextCalls = 0;
+        var middleware = new BannedUserMiddleware(context =>
+        {
+            nextCalls++;
+            context.Response.StatusCode = StatusCodes.Status204NoContent;
+            return Task.CompletedTask;
+        });
+        var blacklist = Substitute.For<IBlacklistService>();
+        blacklist.GetBanStateAsync(42, Arg.Any<string>())
+            .Returns(Task.FromResult(new BanStateSnapshot(false, null, null)));
+        var users = Substitute.For<IUserAccountReader>();
+        users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(CreateActiveUser(42)));
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var first = CreateContext("POST", CreateLegacyUser(42));
+        var second = CreateContext("POST", CreateLegacyUser(42));
+        SetForceAccountStateRefreshEndpoint(first);
+        SetForceAccountStateRefreshEndpoint(second);
+
+        await middleware.InvokeAsync(first, blacklist, users, cache);
+        await middleware.InvokeAsync(second, blacklist, users, cache);
+
+        Assert.Equal(2, nextCalls);
+        await users.Received(2).GetAccountByIdAsync(42);
+        await blacklist.Received(2).GetBanStateAsync(42, Arg.Any<string>());
     }
 
     [Fact]
@@ -174,6 +233,12 @@ public sealed class BannedUserMiddlewareIdentityKindTests
         context.User = user;
         return context;
     }
+
+    private static void SetForceAccountStateRefreshEndpoint(DefaultHttpContext context)
+        => context.SetEndpoint(new Endpoint(
+            _ => Task.CompletedTask,
+            new EndpointMetadataCollection(ForceAccountStateRefreshMetadata.Instance),
+            "force-account-state-refresh"));
 
     private static ClaimsPrincipal CreateAdminPrincipal(int adminId)
         => CreatePrincipal(
