@@ -795,6 +795,7 @@ public partial class UserService(
 
     public async Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken, string? sessionId)
     {
+        long startedAt = Stopwatch.GetTimestamp();
         if (string.IsNullOrWhiteSpace(refreshToken))
         {
             using var _ = AuditLogScope.Push(
@@ -867,6 +868,7 @@ public partial class UserService(
         if (rotated != 1)
         {
             await RevokeLikelyRefreshReplayAsync(session.SessionId, hash);
+            FsusObservability.RecordAuthRefreshReplayDetected();
             using var _ = AuditLogScope.Push(
                 AuditSourceCatalog.Auth,
                 AuditTypeCatalog.Security,
@@ -877,7 +879,8 @@ public partial class UserService(
             return (false, null);
         }
 
-        return (true, new TokenResponseDto(accessToken, newRefreshToken));
+        FsusObservability.RecordAuthRefreshSuccess(3, FsusObservability.GetElapsed(startedAt));
+        return (true, new TokenResponseDto(accessToken, newRefreshToken, idleExpiresAt));
     }
 
     public async Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync(

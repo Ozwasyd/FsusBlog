@@ -165,6 +165,9 @@ public static class FsusObservability
     private static readonly Counter<long> LoginReplacedSessionCount = Meter.CreateCounter<long>("fsus.auth.login.replaced_session_count");
     private static readonly Histogram<double> LoginTransactionElapsed = Meter.CreateHistogram<double>("fsus.auth.login.transaction_elapsed_ms", "ms");
     private static readonly Counter<long> LoginSessionRevokeCommandCount = Meter.CreateCounter<long>("fsus.auth.login.session_revoke_command_count");
+    private static readonly Counter<long> AuthRefreshSuccessDbCommandCount = Meter.CreateCounter<long>("fsus.auth.refresh.success_db_command_count");
+    private static readonly Histogram<double> AuthRefreshSuccessElapsed = Meter.CreateHistogram<double>("fsus.auth.refresh.success_elapsed_ms", "ms");
+    private static readonly Counter<long> AuthRefreshReplayDetectedCount = Meter.CreateCounter<long>("fsus.auth.refresh.replay_detected_count");
     private static readonly Histogram<double> AdminAccountListQueryElapsed = Meter.CreateHistogram<double>("fsus.admin.account_list.query_elapsed_ms", "ms");
     private static readonly Counter<long> AdminAccountListCountUsed = Meter.CreateCounter<long>("fsus.admin.account_list.count_used");
     private static readonly Counter<long> AdminAccountListCountSkipped = Meter.CreateCounter<long>("fsus.admin.account_list.count_skipped");
@@ -846,6 +849,25 @@ public static class FsusObservability
             LoginReplacedSessionCount.Add(Math.Max(0, replacedSessionCount), tags);
             LoginSessionRevokeCommandCount.Add(Math.Max(0, sessionRevokeCommandCount), tags);
             LoginTransactionElapsed.Record(transactionElapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordAuthRefreshSuccess(long dbCommandCount, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("auth-refresh", "refresh", "success");
+            AuthRefreshSuccessDbCommandCount.Add(Math.Max(0, dbCommandCount), tags);
+            AuthRefreshSuccessElapsed.Record(elapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordAuthRefreshReplayDetected()
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("auth-refresh", "refresh", "replay_detected");
+            AuthRefreshReplayDetectedCount.Add(1, tags);
         });
     }
 

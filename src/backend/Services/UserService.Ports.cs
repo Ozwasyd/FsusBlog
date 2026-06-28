@@ -130,9 +130,8 @@ public sealed class UserSessionCommandService(UserService users) : IUserSessionC
             return (false, null, DateTime.UtcNow);
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
-        UserSession? session = await users.GetSessionByRefreshTokenAsync(result.Data.Value.RefreshToken);
-        return (true, result.Data, session?.IdleExpiresAt ?? DateTime.UtcNow.AddDays(7));
+        DateTime expiresAt = result.Data.Value.RefreshTokenExpiresAt ?? DateTime.UtcNow.AddDays(7);
+        return (true, result.Data, expiresAt);
     }
 
     public Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken, string? sessionId, CancellationToken cancellationToken = default)

@@ -404,11 +404,13 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 ```json
 {
   "accessToken": "eyJhbG...",
-  "refreshToken": "随机刷新令牌"
+  "refreshToken": "随机刷新令牌",
+  "refreshTokenExpiresAt": "2026-06-29T12:34:56Z"
 }
 ```
 
 - 该结构主要用于服务端内部登录/续签流程，不直接作为公开认证 API 的最终响应体
+- `refreshTokenExpiresAt` 对齐 `sys_user_session.IdleExpiresAt`，用于 refresh-token 成功路径直接写 Cookie expiry，避免按新 refresh token 回查 session
 - 对外认证接口成功后统一返回 `AuthLoginFlowDto`，认证 Cookie 通过 `Set-Cookie` 下发
 
 ### `AccountSnapshotContract`（shared/core 账号快照）

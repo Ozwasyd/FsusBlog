@@ -448,7 +448,7 @@ public readonly record struct RecentCommentStatItemDto(
     DateTime CreateTime);
 public readonly record struct RegionStatItemDto(string Region, int Count);
 
-public readonly record struct TokenResponseDto(string AccessToken, string RefreshToken);
+public readonly record struct TokenResponseDto(string AccessToken, string RefreshToken, DateTime? RefreshTokenExpiresAt = null);
 public readonly record struct AuthIdentitySnapshotDto(int AccountId, string IdentityKind);
 public readonly record struct AuthLoginFlowDto(
     int AccountId,

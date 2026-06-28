@@ -471,6 +471,33 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    public void RefreshTokenAsync_SourceReturnsIdleExpiryWithoutFacadeSessionLookup()
+    {
+        string userService = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+        string refreshMethod = ExtractUserServiceMethod(
+            userService,
+            "public async Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken, string? sessionId)",
+            "public async Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync");
+        string ports = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.Ports.cs");
+        string refreshFacade = ExtractUserServiceMethod(
+            ports,
+            "public async Task<(bool Success, TokenResponseDto? Data, DateTime ExpiresAt)> RefreshTokenWithExpiryAsync",
+            "public Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync");
+        string contracts = BackendTestPaths.ReadAllTextFromRoot("src/shared/Contracts/Outputs/ServerResponseContracts.cs");
+        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
+
+        Assert.Contains("RefreshTokenExpiresAt", contracts, StringComparison.Ordinal);
+        Assert.Contains("new TokenResponseDto(accessToken, newRefreshToken, idleExpiresAt)", refreshMethod, StringComparison.Ordinal);
+        Assert.Contains("result.Data.Value.RefreshTokenExpiresAt", refreshFacade, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetSessionByRefreshTokenAsync(result.Data.Value.RefreshToken)", refreshFacade, StringComparison.Ordinal);
+        Assert.Contains("RecordAuthRefreshSuccess", refreshMethod, StringComparison.Ordinal);
+        Assert.Contains("RecordAuthRefreshReplayDetected", refreshMethod, StringComparison.Ordinal);
+        Assert.Contains("fsus.auth.refresh.success_db_command_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.auth.refresh.success_elapsed_ms", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.auth.refresh.replay_detected_count", observability, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CompleteLoginAsync_BannedUser_IssuesRestrictedSessionToken()
     {
         var db = Substitute.For<ISqlSugarClient>();
