@@ -492,16 +492,18 @@ function checkSetup(setup, circuitHash) {
   if (setupProductionUsable && setup.ceremony_status !== 'verified') {
     fail('setup.ceremony_status must be verified when production_usable=true')
   }
-  if (!setupProductionUsable && setup.ceremony_status !== 'not-run') {
-    fail('setup.ceremony_status must be not-run while production_usable=false')
+  if (!setupProductionUsable && !['not-run', 'placeholder_not_trusted_setup'].includes(setup.ceremony_status)) {
+    fail('setup.ceremony_status must be not-run or placeholder_not_trusted_setup while production_usable=false')
+  }
+  if (!setupProductionUsable && String(setup.fail_closed_reason ?? '').trim().length === 0) {
+    fail('setup.fail_closed_reason must be set while production_usable=false')
   }
 
   assertNoPlaceholder('setup.verifying_key_hash', setup.verifying_key_hash)
-  if (!setupProductionUsable && !isBlank(setup.verifying_key_hash)) {
-    fail('setup.verifying_key_hash must remain empty while production_usable=false')
-  }
   if (setupProductionUsable && !isSha256Hex(setup.verifying_key_hash)) {
     fail('setup.verifying_key_hash must be a 64-character SHA-256 hex digest when production_usable=true')
+  } else if (!isBlank(setup.verifying_key_hash) && !isSha256Hex(setup.verifying_key_hash)) {
+    fail('setup.verifying_key_hash must be empty or a 64-character SHA-256 hex digest when production_usable=false')
   }
 
   const runtimeBinding = asArray(setup.hash_binding?.runtime_binding)
@@ -512,7 +514,11 @@ function checkSetup(setup, circuitHash) {
   ])
 
   for (const phase of ['phase1', 'phase2']) {
-    const expectedStatus = setupProductionUsable ? 'verified' : 'required'
+    const expectedStatus = setupProductionUsable
+      ? 'verified'
+      : setup.ceremony_status === 'placeholder_not_trusted_setup'
+        ? 'placeholder'
+        : 'required'
     if (setup[phase]?.status !== expectedStatus) {
       fail(`setup.${phase}.status must be ${expectedStatus}`)
     }
@@ -536,8 +542,13 @@ function checkSetup(setup, circuitHash) {
   const artifacts = setup.artifacts ?? {}
   for (const key of ['r1cs', 'groth16_r1cs', 'proving_key', 'verifying_key', 'verifying_key_json', 'wasm_prover_bundle']) {
     const artifact = artifacts[key] ?? {}
-    if (artifact.status !== 'required') {
-      fail(`setup.artifacts.${key}.status must be required`)
+    const expectedStatus = setupProductionUsable
+      ? 'required'
+      : setup.ceremony_status === 'placeholder_not_trusted_setup'
+        ? 'placeholder'
+        : 'required'
+    if (artifact.status !== expectedStatus) {
+      fail(`setup.artifacts.${key}.status must be ${expectedStatus}`)
     }
     if (String(artifact.path ?? '').trim().length === 0) {
       fail(`setup.artifacts.${key}.path is required`)
@@ -550,7 +561,9 @@ function checkSetup(setup, circuitHash) {
       }
       const artifactPath = resolveRepoPath(artifact.path)
       if (!fs.existsSync(artifactPath)) {
-        fail(`setup.artifacts.${key}.sha256 is set but file is missing: ${artifact.path}`)
+        if (setupProductionUsable || artifact.status !== 'placeholder') {
+          fail(`setup.artifacts.${key}.sha256 is set but file is missing: ${artifact.path}`)
+        }
       } else if (sha256File(artifactPath) !== artifact.sha256) {
         fail(`setup.artifacts.${key}.sha256 does not match ${artifact.path}`)
       }
@@ -622,11 +635,10 @@ function checkConfig(config, setup) {
     fail('config.production_usable must match setup.production_usable')
   }
   assertNoPlaceholder('config.verifying_key_hash', config.verifying_key_hash)
-  if (!setupProductionUsable && !isBlank(config.verifying_key_hash)) {
-    fail('config.verifying_key_hash must remain empty while production_usable=false')
-  }
   if (setupProductionUsable && !isSha256Hex(config.verifying_key_hash)) {
     fail('config.verifying_key_hash must be a 64-character SHA-256 hex digest when production_usable=true')
+  } else if (!isBlank(config.verifying_key_hash) && !isSha256Hex(config.verifying_key_hash)) {
+    fail('config.verifying_key_hash must be empty or a 64-character SHA-256 hex digest when production_usable=false')
   }
   if (config.verifying_key_hash !== setup.verifying_key_hash) {
     fail('config.verifying_key_hash must match setup.verifying_key_hash')

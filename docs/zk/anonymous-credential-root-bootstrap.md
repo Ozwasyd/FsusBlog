@@ -19,8 +19,10 @@ real production material:
 - The credential root and revocation accumulator root were computed by the
   issuer/root ceremony outside this repository.
 
-The committed fail-closed manifests intentionally have empty verifying-key
-hashes and are rejected by this bootstrap flow.
+The committed fail-closed manifests intentionally keep
+`production_usable=false` and are rejected by this bootstrap flow. They may carry
+the current placeholder verifying-key artifact hash only for repository
+consistency checks; that hash is not production rollout approval.
 
 ## Input
 

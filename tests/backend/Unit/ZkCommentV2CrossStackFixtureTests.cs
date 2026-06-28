@@ -97,6 +97,27 @@ public sealed class ZkCommentV2CrossStackFixtureTests
             $"MCL fixture best observed p99 {bestP99:F2}ms exceeds {manifest.NativeVerifierP99MsMax}ms budget.");
     }
 
+    [Fact]
+    public void RepositoryCommentV2PlaceholderArtifacts_AreMarkedFailClosedForProduction()
+    {
+        JsonObject trustedSetup = BackendTestPaths.ReadJsonFromRoot("security", "zk", "comment-v2-trusted-setup.manifest.json");
+        JsonObject verifyingKey = BackendTestPaths.ReadJsonFromRoot("config", "zk", "anonymous-comment-v2-verifying-key.manifest.json");
+        string readme = BackendTestPaths.ReadAllTextFromRoot("circuits", "anonymous-comment-v2", "README.md");
+
+        Assert.Contains("This is not a trusted setup result", readme, StringComparison.Ordinal);
+        Assert.False(trustedSetup["production_usable"]!.GetValue<bool>());
+        Assert.NotEqual("verified", trustedSetup["ceremony_status"]!.GetValue<string>());
+        Assert.False(string.IsNullOrWhiteSpace(trustedSetup["fail_closed_reason"]!.GetValue<string>()));
+        Assert.False(verifyingKey["production_usable"]!.GetValue<bool>());
+        Assert.NotEqual(
+            "verified-production-artifacts",
+            verifyingKey["artifact_status"]!.GetValue<string>());
+
+        AssertPlaceholderArtifactFailsClosed(trustedSetup, "groth16_r1cs", minimumProductionBytes: 1_000_000);
+        AssertPlaceholderArtifactFailsClosed(trustedSetup, "proving_key", minimumProductionBytes: 1_000_000);
+        AssertPlaceholderArtifactFailsClosed(trustedSetup, "verifying_key", minimumProductionBytes: 1_024);
+    }
+
     private static FixtureManifest LoadManifest()
     {
         JsonObject manifest = BackendTestPaths.ReadJsonFromRoot("tests", "fixtures", "zk", "comment-v2", "mcl-pairing", "fixture.manifest.json");
@@ -126,6 +147,16 @@ public sealed class ZkCommentV2CrossStackFixtureTests
         string expected = Artifact(manifest, key)["sha256"]!.GetValue<string>();
         string actual = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
         Assert.Equal(expected, actual);
+    }
+
+    private static void AssertPlaceholderArtifactFailsClosed(JsonObject manifest, string artifactKey, long minimumProductionBytes)
+    {
+        JsonObject artifact = manifest["artifacts"]![artifactKey]!.AsObject();
+        string path = BackendTestPaths.FromRoot(artifact["path"]!.GetValue<string>());
+        long length = new FileInfo(path).Length;
+
+        Assert.True(length < minimumProductionBytes, $"{artifactKey} fixture unexpectedly exceeds production-size floor.");
+        Assert.False(manifest["production_usable"]!.GetValue<bool>());
     }
 
     private static ProductionZkProofBackendRequest ValidRequest(byte[] proof, string verifyingKeyHash)

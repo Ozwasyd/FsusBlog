@@ -45,21 +45,24 @@ The checked-in self-written setup provides:
 The verifier must reject a proof if the public input layout version, circuit id,
 or verifying key hash differs from the active root/config snapshot.
 
-## Verified Artifact State
+## Committed Artifact State
 
 The committed manifests now deliberately use:
 
-- `ceremony_status: "verified"`
-- `production_usable: true`
+- `ceremony_status: "placeholder_not_trusted_setup"`
+- `production_usable: false`
 - `verifying_key_hash =
   27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c`
-- hash-bound pk, vk, phase transcript, and browser prover bundle artifacts
+- a non-empty `fail_closed_reason`
+- hash-bound placeholder pk, vk, phase transcript, and browser prover bundle
+  artifacts
 
-That state is valid for repository artifact verification. It is not by itself a
-runtime rollout approval. `AnonymousIdentity:ZkProd:Enabled=true` still requires
-native verifier configuration, trusted setup verification, circuit-native
-credential issuer readiness, active credential roots, real smoke evidence, and
-release gate success before startup/readiness can pass.
+That state is valid only for repository artifact consistency checks. It is not a
+trusted setup result and cannot satisfy production readiness.
+`AnonymousIdentity:ZkProd:Enabled=true` still requires #552 to replace the
+placeholder artifacts with a real ceremony, plus native verifier configuration,
+circuit-native credential issuer readiness, active credential roots, real smoke
+evidence, and release gate success before startup/readiness can pass.
 
 ## Upgrade Rule
 

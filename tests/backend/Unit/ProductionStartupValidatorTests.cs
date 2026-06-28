@@ -603,6 +603,27 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    public void ValidateCore_RejectsProductionZkProdWhenManifestIsNotProductionUsable()
+    {
+        IConfiguration configuration = CreateZkProdProductionConfiguration(new Dictionary<string, string?>
+        {
+            ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = "27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c",
+            ["AnonymousIdentity:ZkProd:TrustedSetupManifestPath"] = "security/zk/comment-v2-trusted-setup.manifest.json",
+            ["AnonymousIdentity:ZkProd:VerifyingKeyManifestPath"] = "config/zk/anonymous-comment-v2-verifying-key.manifest.json"
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            enforceProductionRules: true,
+            new ZkProdRuntimeReadiness(
+                NativeVerifierConfigured: true,
+                CredentialRootReady: true,
+                CredentialIssuerConfigured: true));
+
+        Assert.Contains(errors, static error => error.Contains("trusted setup", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void ValidateCore_RejectsProductionZkProdEnabledWithoutCredentialRootReadiness()
     {
         IConfiguration configuration = CreateZkProdProductionConfiguration([]);
@@ -726,7 +747,7 @@ public sealed class ProductionStartupValidatorTests
             ["AnonymousIdentity:ZkProd:VerifierBackend"] = "native_groth16",
             ["AnonymousIdentity:ZkProd:TrustedSetupVerified"] = "true",
             ["AnonymousIdentity:ZkProd:CredentialReady"] = "true",
-            ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = "vk-sha256"
+            ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = "27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c"
         };
 
         foreach ((string key, string? value) in overrides)

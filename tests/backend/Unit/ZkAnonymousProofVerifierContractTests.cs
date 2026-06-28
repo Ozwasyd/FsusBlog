@@ -366,6 +366,34 @@ public sealed class ZkAnonymousProofVerifierContractTests
         Assert.Equal(0, backend.CallCount);
     }
 
+    [Theory]
+    [InlineData("nullifier")]
+    [InlineData("credentialCommitment")]
+    [InlineData("credentialRoot")]
+    [InlineData("revocationRoot")]
+    [InlineData("issuerPublicKeyHash")]
+    public async Task ProductionZkProofVerifier_RejectsOversizedHexPublicInputsBeforeBackendCall(string field)
+    {
+        var backend = new RecordingProductionZkProofBackend();
+        var verifier = CreateProductionVerifier(backend: backend);
+        string oversizedHex = new('a', 128);
+        ZkProofVerificationRequest request = field switch
+        {
+            "nullifier" => ValidRequest() with { NullifierHash = oversizedHex },
+            "credentialCommitment" => ValidRequest() with { CredentialCommitment = oversizedHex },
+            "credentialRoot" => ValidRequest() with { CredentialRoot = oversizedHex },
+            "revocationRoot" => ValidRequest() with { RevocationRoot = oversizedHex },
+            "issuerPublicKeyHash" => ValidRequest() with { IssuerPublicKeyHash = oversizedHex },
+            _ => ValidRequest()
+        };
+
+        ZkProofVerificationResult result = await verifier.VerifyAsync(request);
+
+        Assert.False(result.Verified);
+        Assert.Equal(ZkProofVerificationStatuses.InvalidProof, result.Status);
+        Assert.Equal(0, backend.CallCount);
+    }
+
     [Fact]
     public async Task ProductionZkProofVerifier_RejectsOversizedProofBeforeBackendCall()
     {

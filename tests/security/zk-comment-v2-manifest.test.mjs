@@ -379,6 +379,9 @@ test('checker accepts self-written verified setup when all artifacts are hash-bo
       documents.setup.phase2.transcript_sha256 = artifacts.phase2.sha256
       documents.setup.phase2.verification_command = 'dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v2/comment_v2_groth16.r1cs artifacts/zk/comment-v2/comment_v2_final.fsg16pk'
 
+      for (const artifact of Object.values(documents.setup.artifacts)) {
+        artifact.status = 'required'
+      }
       documents.setup.artifacts.proving_key.path = artifacts.provingKey.relative
       documents.setup.artifacts.proving_key.sha256 = artifacts.provingKey.sha256
       documents.setup.artifacts.verifying_key.path = artifacts.verifyingKey.relative

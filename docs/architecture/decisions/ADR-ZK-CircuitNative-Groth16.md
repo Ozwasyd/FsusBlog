@@ -126,11 +126,13 @@ The repository asset contract for this decision is:
 - `config/zk/anonymous-comment-v2-verifying-key.manifest.json`
 
 The repository now includes self-authored circuit source, deterministic R1CS IR,
-binary Groth16 R1CS, verified self-written phase transcripts, final proving key,
-canonical verifying key, and browser WASM prover bundle for `comment.v2`. The
-trusted setup/config manifests are hash-bound and `production_usable=true`, but
-runtime ZK-Prod still requires issuer readiness, active credential roots,
-smoke/release evidence, and rollout configuration before enablement.
+binary Groth16 R1CS, self-written phase transcript placeholders, a placeholder
+proving key, canonical verifying key fixture, and browser WASM prover bundle for
+`comment.v2`. The trusted setup/config manifests are hash-bound but deliberately
+`production_usable=false`; runtime ZK-Prod remains fail-closed until #552 replaces
+the checked-in KB-scale placeholders with real ceremony artifacts, issuer
+readiness, active credential roots, smoke/release evidence, and rollout
+configuration.
 
 ## Security Assertion Boundary
 

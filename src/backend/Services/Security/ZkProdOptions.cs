@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Services.Security;
@@ -15,6 +16,8 @@ public sealed class ZkProdOptions
     public bool FallbackToLegacyAnonymous { get; init; }
     public string VerifierBackend { get; init; } = NativeGroth16Backend;
     public string? VerifyingKeyHash { get; init; }
+    public string? TrustedSetupManifestPath { get; init; }
+    public string? VerifyingKeyManifestPath { get; init; }
     public bool TrustedSetupVerified { get; init; }
     public bool CredentialReady { get; init; }
 
@@ -31,6 +34,8 @@ public sealed class ZkProdOptions
             FallbackToLegacyAnonymous = section.GetValue(nameof(FallbackToLegacyAnonymous), false),
             VerifierBackend = Normalize(section[nameof(VerifierBackend)], NativeGroth16Backend, 64),
             VerifyingKeyHash = NormalizeNullable(section[nameof(VerifyingKeyHash)], 128),
+            TrustedSetupManifestPath = NormalizeNullable(section[nameof(TrustedSetupManifestPath)], 512),
+            VerifyingKeyManifestPath = NormalizeNullable(section[nameof(VerifyingKeyManifestPath)], 512),
             TrustedSetupVerified = section.GetValue(nameof(TrustedSetupVerified), false),
             CredentialReady = section.GetValue(nameof(CredentialReady), false)
         };
@@ -96,8 +101,122 @@ public static class ZkProdPolicySnapshotFactory
     }
 
     public static bool IsTrustedSetupVerified(ZkProdOptions options, IConfiguration configuration)
-        => options.TrustedSetupVerified &&
-            ZkProdOptions.ResolveVerifyingKeyHash(configuration, options).Length > 0;
+    {
+        string verifyingKeyHash = ZkProdOptions.ResolveVerifyingKeyHash(configuration, options);
+        return options.TrustedSetupVerified &&
+            IsHexHash(verifyingKeyHash) &&
+            ProductionManifestsAllowUse(options, verifyingKeyHash);
+    }
+
+    private static bool ProductionManifestsAllowUse(ZkProdOptions options, string verifyingKeyHash)
+    {
+        if (string.IsNullOrWhiteSpace(options.TrustedSetupManifestPath) &&
+            string.IsNullOrWhiteSpace(options.VerifyingKeyManifestPath))
+        {
+            return true;
+        }
+
+        return ManifestAllowsProduction(options.TrustedSetupManifestPath, verifyingKeyHash) &&
+            ManifestAllowsProduction(options.VerifyingKeyManifestPath, verifyingKeyHash);
+    }
+
+    private static bool ManifestAllowsProduction(string? path, string verifyingKeyHash)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        try
+        {
+            string resolvedPath = ResolveManifestPath(path);
+            if (!File.Exists(resolvedPath))
+            {
+                return false;
+            }
+
+            using FileStream stream = File.OpenRead(resolvedPath);
+            using JsonDocument document = JsonDocument.Parse(stream);
+            JsonElement root = document.RootElement;
+            return TryGetBoolean(root, "production_usable", out bool productionUsable) &&
+                productionUsable &&
+                TryGetString(root, "verifying_key_hash", out string? manifestHash) &&
+                string.Equals(manifestHash, verifyingKeyHash, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static string ResolveManifestPath(string path)
+    {
+        if (Path.IsPathRooted(path))
+        {
+            return Path.GetFullPath(path);
+        }
+
+        string currentDirectoryPath = Path.GetFullPath(path, Directory.GetCurrentDirectory());
+        if (File.Exists(currentDirectoryPath))
+        {
+            return currentDirectoryPath;
+        }
+
+        return Path.GetFullPath(path, AppContext.BaseDirectory);
+    }
+
+    private static bool TryGetBoolean(JsonElement root, string propertyName, out bool value)
+    {
+        value = false;
+        if (!root.TryGetProperty(propertyName, out JsonElement property) ||
+            (property.ValueKind != JsonValueKind.True && property.ValueKind != JsonValueKind.False))
+        {
+            return false;
+        }
+
+        value = property.GetBoolean();
+        return true;
+    }
+
+    private static bool TryGetString(JsonElement root, string propertyName, out string? value)
+    {
+        value = null;
+        if (!root.TryGetProperty(propertyName, out JsonElement property) ||
+            property.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        value = property.GetString();
+        return !string.IsNullOrWhiteSpace(value);
+    }
+
+    private static bool IsHexHash(string value)
+    {
+        string normalized = ZkProdOptions.Normalize(value, fallback: string.Empty, maxLength: 65);
+        if (normalized.Length != 64)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < normalized.Length; i++)
+        {
+            if (!Uri.IsHexDigit(normalized[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     private static string ResolveUnavailableReason(
         ZkProdOptions options,
