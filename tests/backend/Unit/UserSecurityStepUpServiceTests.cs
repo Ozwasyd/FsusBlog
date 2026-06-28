@@ -14,7 +14,7 @@ public sealed class UserSecurityStepUpServiceTests
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
         IMfaChallengeService mfa = Substitute.For<IMfaChallengeService>();
         users.GetAccountByIdAsync(42).Returns(CreateUser(mfaEnabled: true));
-        mfa.ValidateAndConsumeProofTokenAsync(42, UserSecurityStepUpActions.PasskeyDelete, "proof-1")
+        mfa.ValidateAndConsumeProofTokenAsync(42, "subject-42", UserSecurityStepUpActions.PasskeyDelete, "proof-1")
             .Returns(true, false);
         var service = new UserSecurityStepUpService(users, mfa);
 
@@ -37,8 +37,8 @@ public sealed class UserSecurityStepUpServiceTests
         Assert.True(first.Success);
         Assert.False(replay.Success);
         Assert.False(wrongAction.Success);
-        await mfa.Received(2).ValidateAndConsumeProofTokenAsync(42, UserSecurityStepUpActions.PasskeyDelete, "proof-1");
-        await mfa.Received(1).ValidateAndConsumeProofTokenAsync(42, UserSecurityStepUpActions.RecoveryKeyCreate, "proof-1");
+        await mfa.Received(2).ValidateAndConsumeProofTokenAsync(42, "subject-42", UserSecurityStepUpActions.PasskeyDelete, "proof-1");
+        await mfa.Received(1).ValidateAndConsumeProofTokenAsync(42, "subject-42", UserSecurityStepUpActions.RecoveryKeyCreate, "proof-1");
     }
 
     [Fact]
@@ -165,5 +165,6 @@ public sealed class UserSecurityStepUpServiceTests
             PublicHandle: null,
             IdentityKind: AnonymousIdentityRuntime.AnonymousAccountKind,
             PasskeyEnabled: true,
-            RecoveryEnabled: true);
+            RecoveryEnabled: true,
+            AccountSubjectHash: "subject-42");
 }

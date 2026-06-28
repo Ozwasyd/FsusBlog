@@ -348,6 +348,75 @@ public sealed class EndpointPolicyContractTests
     }
 
     [Fact]
+    public void PasskeyService_UsesCsprngTokensAndConsumesRegistrationChallengeAfterVerification()
+    {
+        string source = ReadRepoFile(
+            "src",
+            "backend",
+            "Services",
+            "Security",
+            "PasskeyService.cs");
+        string beginRegistration = ExtractBetween(
+            source,
+            "public async Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync",
+            "public async Task<(bool Success, string Message)> CompleteRegistrationAsync");
+        string completeRegistration = ExtractBetween(
+            source,
+            "public async Task<(bool Success, string Message)> CompleteRegistrationAsync",
+            "private async Task<bool> IsCredentialIdUniqueAsync");
+
+        Assert.Contains("RandomNumberGenerator.GetBytes(32)", beginRegistration, StringComparison.Ordinal);
+        Assert.DoesNotContain("Guid.NewGuid().ToByteArray()", beginRegistration, StringComparison.Ordinal);
+        int verifyIndex = completeRegistration.IndexOf("MakeNewCredentialAsync", StringComparison.Ordinal);
+        int removeIndex = completeRegistration.IndexOf("RemoveAsync(CachePolicyId.SecurityPasskeyRegChallenge", StringComparison.Ordinal);
+        Assert.True(verifyIndex >= 0, "registration verification call missing");
+        Assert.True(removeIndex > verifyIndex, "registration challenge must be removed only after successful verification");
+    }
+
+    [Fact]
+    public void PasskeyAssertion_RejectsNonMonotonicSignatureCounters()
+    {
+        string source = ReadRepoFile(
+            "src",
+            "backend",
+            "Services",
+            "Security",
+            "PasskeyService.cs");
+        string assertion = ExtractBetween(
+            source,
+            "public async Task<(bool Success, string Message, User? User)> CompleteAssertionAsync",
+            "public async Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginStepUpAssertionAsync");
+
+        Assert.Contains("IsPasskeySignCountValid", assertion, StringComparison.Ordinal);
+        Assert.Contains("verifyResult.SignCount", assertion, StringComparison.Ordinal);
+        Assert.Contains("expectedSignCount", assertion, StringComparison.Ordinal);
+        Assert.Contains("UserVerificationRequirement.Required", assertion, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LocalAuthFixtureEndpoints_RequireDevelopmentAndSharedSecretHeader()
+    {
+        string source = ReadRepoFile(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "LocalAuthFixtureEndpoints.cs");
+
+        Assert.Contains("app.Environment.IsDevelopment()", source, StringComparison.Ordinal);
+        Assert.Contains("LocalAuthFixtureSecretConfigurationKey", source, StringComparison.Ordinal);
+        Assert.Contains("X-Fsus-Local-Auth-Fixture-Secret", source, StringComparison.Ordinal);
+        Assert.Contains("CryptographicOperations.FixedTimeEquals", source, StringComparison.Ordinal);
+        Assert.Contains("RequireLocalFixtureSecret", source, StringComparison.Ordinal);
+
+        string adminMapBlock = ExtractBetween(
+            source,
+            "app.MapGet(\"/__local/auth-fixture/admin\"",
+            "var statusHandler");
+        Assert.Contains("RequireLocalFixtureSecret", adminMapBlock, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CommentModerationEndpoints_RequireCommentModeratePermission()
     {
         string source = ReadRepoFile(
@@ -551,7 +620,9 @@ public sealed class EndpointPolicyContractTests
         Assert.Contains("IMfaChallengeService mfaChallengeService", handler, StringComparison.Ordinal);
         Assert.Contains("TryReadMfaProof(httpContext, out string proofToken)", anonymousBranch, StringComparison.Ordinal);
         Assert.Contains(action, anonymousBranch, StringComparison.Ordinal);
-        Assert.Contains("ValidateAndConsumeProofTokenAsync(userId,", anonymousBranch, StringComparison.Ordinal);
+        Assert.Contains("ValidateAndConsumeProofTokenAsync(", anonymousBranch, StringComparison.Ordinal);
+        Assert.Contains("userId", anonymousBranch, StringComparison.Ordinal);
+        Assert.Contains("ResolveAccountSubjectHash", anonymousBranch, StringComparison.Ordinal);
         Assert.Contains("proofToken)", anonymousBranch, StringComparison.Ordinal);
         Assert.DoesNotContain("ReadBinaryRequestPayloadAsync", anonymousBranch, StringComparison.Ordinal);
         Assert.DoesNotContain("MfaPasswordProofRequest", anonymousBranch, StringComparison.Ordinal);

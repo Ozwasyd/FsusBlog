@@ -133,6 +133,35 @@ public sealed class MfaChallengeServiceTests
         Assert.DoesNotContain("required int UserId", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void MfaTickets_AreSignedAndLegacyTicketsRejected()
+    {
+        string source = ReadSource("src/backend/Services/Security/MfaChallengeService.cs");
+        string encodeTicket = ExtractBetween(source, "private string EncodeTicket", "private MfaChallengeTicket? DecodeTicket");
+        string decodeTicket = ExtractBetween(source, "private MfaChallengeTicket? DecodeTicket", "private static void WriteString");
+
+        Assert.Contains("HMACSHA256", encodeTicket, StringComparison.Ordinal);
+        Assert.Contains("MfaChallenge:TicketSigningKey", source, StringComparison.Ordinal);
+        Assert.Contains("CryptographicOperations.FixedTimeEquals", decodeTicket, StringComparison.Ordinal);
+        Assert.DoesNotContain("LegacyTicketVersion", decodeTicket, StringComparison.Ordinal);
+        Assert.DoesNotContain("ResolveAccountSubjectHash(accountId, null)", decodeTicket, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MfaProofTokens_AreBoundToSubjectActionAndCryptographicRandomness()
+    {
+        string source = ReadSource("src/backend/Services/Security/MfaChallengeService.cs");
+        string createProof = ExtractBetween(source, "public async Task<string> CreateProofTokenAsync", "public Task<bool> ValidateAndConsumeProofTokenAsync");
+        string validateProof = ExtractBetween(source, "public Task<bool> ValidateAndConsumeProofTokenAsync", "private async Task<MfaChallengeTicket> CreateAsync");
+
+        Assert.Contains("RandomNumberGenerator.GetBytes(32)", createProof, StringComparison.Ordinal);
+        Assert.Contains("BuildProofIdentity", createProof, StringComparison.Ordinal);
+        Assert.Contains("subject", createProof, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("BuildProofIdentity", validateProof, StringComparison.Ordinal);
+        Assert.DoesNotContain("$\"{accountId}:{action}:{token}\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Guid.NewGuid().ToByteArray()", createProof, StringComparison.Ordinal);
+    }
+
     private static string ReadSource(string relativePath)
         => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 

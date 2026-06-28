@@ -279,7 +279,7 @@ MFA challenge ticket 的内部契约使用 `AccountId` 与 `AccountSubjectHash`�
 
 ### Recovery Key AEDS frames
 
-Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery code。新明文格式为 `frk_<lookupId>_<secret>`：`lookupId` 是 128-bit hex 随机不可枚举定位符，`secret` 是完整恢复密钥材料。服务端只存储 `account_recovery_key.account_id`、`lookup_id_hash`、`key_hash`、`key_version`、`created_at`、`used_at`、`revoked_at`；`lookup_id_hash` 与完整 `key_hash` 都使用服务端 `RecoveryKeyPepper` 加固，完整 key hash 使用 PBKDF2-SHA256。`account_recovery_key` 索引最终态为 `idx_account_recovery_key_account`、`idx_account_recovery_key_version(account_id, key_version DESC)`、active unique 和 lookup active unique，历史 `user_id` / `idx_account_recovery_key_user` 只允许在迁移输入中出现。明文 Recovery Key 只在 create/rotate 响应中返回一次，不写数据库、日志、telemetry 或 browser storage。
+Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery code。新明文格式为 `frk_<lookupId>_<secret>`：`lookupId` 是 128-bit hex 随机不可枚举定位符，`secret` 是完整恢复密钥材料；提交值超过 256 字符时必须在 lookup、HMAC 或 PBKDF2 前拒绝为 `RECOVERY_KEY_INVALID`。服务端只存储 `account_recovery_key.account_id`、`lookup_id_hash`、`key_hash`、`key_version`、`created_at`、`used_at`、`revoked_at`；`lookup_id_hash` 与完整 `key_hash` 都使用服务端 `RecoveryKeyPepper` 加固，完整 key hash 使用 PBKDF2-SHA256。`account_recovery_key` 索引最终态为 `idx_account_recovery_key_account`、`idx_account_recovery_key_version(account_id, key_version DESC)`、active unique 和 lookup active unique，历史 `user_id` / `idx_account_recovery_key_user` 只允许在迁移输入中出现。明文 Recovery Key 只在 create/rotate 响应中返回一次，不写数据库、日志、telemetry 或 browser storage。
 
 `POST /api/binary/auth/recovery-key/create` 和 `/rotate` 必须通过统一 user security step-up：`X-Fsus-Mfa-Proof` 绑定 `recovery-key.create` 或 `recovery-key.rotate` 并一次性消费。生产 binary endpoint 不接收 `MfaPasswordProofRequest` body；anonymous identity mode 下发送旧 body proof 会被忽略或拒绝，并按缺失 / 无效 step-up proof 返回 `428` + AEDS `ApiError`。非匿名 legacy password fallback 如仍需保留，必须放在显式隔离的兼容路径，不能进入这些生产匿名敏感操作 endpoint。
 
@@ -907,6 +907,10 @@ int64 timestampUnixMs
 ```
 
 服务端通过真实 `INotificationStreamPublisher` 写入 backlog 并触发本机 fanout，响应包含 `status`、`drillId`、`routeKey`、`eventType`、`count` 与 `eventIds`。该入口只供 resilience evidence 使用，生产环境不映射，未配置 secret 时返回 `404`。
+
+### Development local auth fixture
+
+`GET /__local/auth-fixture/admin` 与 `GET /api/local/auth-fixture/admin` 只在 `Development` 且 `fsus:allowLocalAuthFixture=true` 时映射；调用方还必须提供 `X-Fsus-Local-Auth-Fixture-Secret`，其值用固定时间比较匹配 `fsus:localAuthFixtureSecret`。该入口只用于本地 Playwright fixture 刷新和 cookie 注入，不能在测试、预发布或生产环境作为匿名 admin 登录 fallback。
 
 ### `NotificationStreamEventType` 枚举
 

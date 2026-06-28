@@ -364,6 +364,28 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    public void UserService_TotpVerificationConsumesStepWithCompareAndSwap()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+        string verifyMethod = ExtractUserServiceMethod(
+            source,
+            "public async Task<bool> VerifyMfaOrRecoveryCodeAsync",
+            "private async Task RevokeLikelyRefreshReplayAsync");
+        string consumeMethod = ExtractUserServiceMethod(
+            source,
+            "private async Task<bool> TryConsumeTotpStepAsync",
+            "private async Task<bool> TryPersistRecoveryCodeConsumptionAsync");
+        string profileEntity = BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/UserMfaProfile.cs");
+
+        Assert.Contains("TryVerifyCode(secret, code, out long matchedStep)", verifyMethod, StringComparison.Ordinal);
+        Assert.Contains("TryConsumeTotpStepAsync(user.Id, matchedStep)", verifyMethod, StringComparison.Ordinal);
+        Assert.Contains("last_totp_step", profileEntity, StringComparison.Ordinal);
+        Assert.Contains("UPDATE user_mfa_profile", consumeMethod, StringComparison.Ordinal);
+        Assert.Contains("last_totp_step = @MatchedStep", consumeMethod, StringComparison.Ordinal);
+        Assert.Contains("last_totp_step < @MatchedStep", consumeMethod, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UserService_SourceDoesNotWriteSysUserLegacySecurityColumns()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");

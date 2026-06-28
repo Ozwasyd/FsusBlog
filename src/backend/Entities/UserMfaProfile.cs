@@ -27,6 +27,12 @@ public class UserMfaProfile
     [SugarColumn(ColumnName = "mfa_recovery_codes_hash", IsNullable = true, ColumnDataType = "text")]
     public string? MfaRecoveryCodesHash { get; set; }
 
+    [SugarColumn(ColumnName = "last_totp_step", IsNullable = true)]
+    public long? LastTotpStep { get; set; }
+
+    [SugarColumn(ColumnName = "last_totp_used_at_utc", IsNullable = true)]
+    public DateTime? LastTotpUsedAtUtc { get; set; }
+
     [SugarColumn(ColumnName = "hash_version")]
     public short MfaRecoveryCodesHashVersion { get; set; } = 1;
 

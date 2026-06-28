@@ -127,6 +127,57 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
         Assert.Equal("RECOVERY_KEY_RATE_LIMITED", locked.Error.Message);
     }
 
+    [Fact]
+    public async Task VerifyAsync_OverlongRecoveryKeyRejectsBeforeAttemptCounterOrCredentialLookup()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        RecoveryKeyService service = CreateService(db);
+        string overlong = "frk_" + new string('a', 4096);
+
+        Result<RecoveryKeyVerifyResponseCoreModel> result = await service.VerifyAsync(
+            new RecoveryKeyVerifyRequestCoreModel(
+                overlong,
+                RevokeSessions: false,
+                RevokePasskeys: false),
+            "203.0.113.13",
+            "unit-test",
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCode.Validation, result.Error.Code);
+        Assert.Equal("RECOVERY_KEY_INVALID", result.Error.Message);
+        Assert.Equal(0, db.Queryable<RecoveryKeyCredential>().Count());
+    }
+
+    [Fact]
+    public void RecoveryKeyService_BoundsInputBeforeHmacOrPbkdfAndUsesLookupScopedLimiter()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/RecoveryKeyService.cs");
+        string verify = ExtractBetween(source, "public async Task<Result<RecoveryKeyVerifyResponseCoreModel>> VerifyAsync", "private async Task<Result<RecoveryKeyVerifyResponseCoreModel>> RecordVerificationFailureAsync");
+        string normalize = ExtractBetween(source, "private static string NormalizeRecoveryKey", "private static bool TryParseRecoveryKeyLookup");
+        string attempts = ExtractBetween(source, "private static string BuildAttemptIdentity", "private static string BuildSessionIdentity");
+
+        Assert.Contains("MaxRecoveryKeyChars", source, StringComparison.Ordinal);
+        Assert.Contains("normalized.Length > MaxRecoveryKeyChars", verify, StringComparison.Ordinal);
+        Assert.Contains("normalized.Length > MaxRecoveryKeyChars", normalize, StringComparison.Ordinal);
+        Assert.Contains("lookupIdentity", attempts, StringComparison.Ordinal);
+        Assert.DoesNotContain("clientIp", attempts, StringComparison.Ordinal);
+        Assert.DoesNotContain("userAgent", attempts, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RecoveryKeyService_LocksCandidateRowBeforeVerifyingSecret()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/RecoveryKeyService.cs");
+        string verify = ExtractBetween(source, "public async Task<Result<RecoveryKeyVerifyResponseCoreModel>> VerifyAsync", "public async Task<Result<RecoveryKeySession>> GetRecoverySessionAsync");
+
+        Assert.Contains("UseTranAsync", verify, StringComparison.Ordinal);
+        Assert.Contains("LoadRecoveryKeyCredentialForUpdateAsync", verify, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", source, StringComparison.OrdinalIgnoreCase);
+        AssertContainsAfter(verify, "LoadRecoveryKeyCredentialForUpdateAsync", "VerifyRecoveryKey");
+    }
+
     private Task<SqlSugarClient> CreateDbAsync()
         => PostgresSqlSugarTestClient.CreateAsync(fixture);
 
@@ -184,6 +235,24 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
                     ["Security:RecoveryKeyPepper"] = "unit-test-recovery-key-pepper-with-enough-entropy"
                 })
                 .Build());
+
+    private static string ExtractBetween(string source, string startMarker, string endMarker)
+    {
+        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
+        int end = source.IndexOf(endMarker, start + startMarker.Length, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing start marker: {startMarker}");
+        Assert.True(end > start, $"Missing end marker: {endMarker}");
+        return source[start..end];
+    }
+
+    private static void AssertContainsAfter(string source, string first, string second)
+    {
+        int firstIndex = source.IndexOf(first, StringComparison.Ordinal);
+        int secondIndex = source.IndexOf(second, StringComparison.Ordinal);
+        Assert.True(firstIndex >= 0, $"Missing marker: {first}");
+        Assert.True(secondIndex >= 0, $"Missing marker: {second}");
+        Assert.True(secondIndex > firstIndex, $"{second} must appear after {first}");
+    }
 
     private static IUnifiedCache CreateCache()
     {

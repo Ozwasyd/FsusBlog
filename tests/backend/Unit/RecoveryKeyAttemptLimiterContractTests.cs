@@ -25,7 +25,7 @@ public sealed class RecoveryKeyAttemptLimiterContractTests
         string method = ExtractMethodBlock(source, "public async Task<Result<RecoveryKeyVerifyResponseCoreModel>> VerifyAsync");
 
         int rateLimited = method.IndexOf("RECOVERY_KEY_RATE_LIMITED", StringComparison.Ordinal);
-        int credentialLookup = method.IndexOf("db.Queryable<RecoveryKeyCredential>()", StringComparison.Ordinal);
+        int credentialLookup = method.IndexOf("LoadRecoveryKeyCredentialForUpdateAsync", StringComparison.Ordinal);
 
         Assert.True(rateLimited >= 0, "Recovery key verify must return the generic rate-limit error.");
         Assert.True(credentialLookup > rateLimited, "Rate limiting must happen before credential lookup to avoid state disclosure.");

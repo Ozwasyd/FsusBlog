@@ -11,6 +11,7 @@ public interface ITotpService
     string GenerateSecret();
     string BuildOtpAuthUri(string issuer, string account, string secret);
     bool VerifyCode(string secretBase32, string code, int allowedDriftSteps = 1);
+    bool TryVerifyCode(string secretBase32, string code, out long matchedStep, int allowedDriftSteps = 1);
     IReadOnlyList<string> GenerateRecoveryCodes(int count = 8);
     string HashRecoveryCodes(IEnumerable<string> codes);
     RecoveryCodeConsumeResult ConsumeRecoveryCode(string? storedHashes, string? inputCode);
@@ -71,7 +72,11 @@ public sealed class TotpService : ITotpService
     }
 
     public bool VerifyCode(string secretBase32, string code, int allowedDriftSteps = 1)
+        => TryVerifyCode(secretBase32, code, out _, allowedDriftSteps);
+
+    public bool TryVerifyCode(string secretBase32, string code, out long matchedStep, int allowedDriftSteps = 1)
     {
+        matchedStep = -1;
         if (string.IsNullOrWhiteSpace(secretBase32) || string.IsNullOrWhiteSpace(code))
         {
             return false;
@@ -84,12 +89,14 @@ public sealed class TotpService : ITotpService
         }
 
         byte[] secret = Base32Decode(secretBase32);
-        long nowStep = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / TimeStepSeconds;
+        long nowStep = _timeProvider.GetUtcNow().ToUnixTimeSeconds() / TimeStepSeconds;
 
         for (int i = -allowedDriftSteps; i <= allowedDriftSteps; i++)
         {
-            if (ComputeTotp(secret, nowStep + i) == sanitizedCode)
+            long candidateStep = nowStep + i;
+            if (ComputeTotp(secret, candidateStep) == sanitizedCode)
             {
+                matchedStep = candidateStep;
                 return true;
             }
         }

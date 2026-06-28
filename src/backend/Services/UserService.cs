@@ -517,7 +517,7 @@ public partial class UserService(
 
         string refreshToken = _jwtHelper.GenerateRefreshToken();
         string refreshTokenHash = HashToken(refreshToken);
-        string sessionId = Convert.ToHexString(Guid.NewGuid().ToByteArray());
+        string sessionId = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         string accessToken = _jwtHelper.GenerateAccessToken(user, sessionId, mfaVerified);
         DateTime now = DateTime.UtcNow;
         DateTime idleExpiresAt = now.Add(ResolveIdleSessionTtl(rememberMe));
@@ -960,7 +960,7 @@ public partial class UserService(
         }
         string secret = secretResult.Value;
 
-        if (!_totpService.VerifyCode(secret, code))
+        if (!_totpService.TryVerifyCode(secret, code, out long matchedSetupStep))
         {
             return (false, null, "INVALID_TOTP");
         }
@@ -972,6 +972,8 @@ public partial class UserService(
         profile.MfaVerifiedAt = DateTime.UtcNow;
         profile.MfaRecoveryCodesHash = recoveryHashes;
         profile.MfaRecoveryCodesHashVersion = TotpService.CurrentRecoveryCodeHashVersion;
+        profile.LastTotpStep = matchedSetupStep;
+        profile.LastTotpUsedAtUtc = DateTime.UtcNow;
         profile.MfaPendingSecretEncrypted = null;
         profile.MfaPendingCreatedAt = null;
         var tran = await _db.Ado.UseTranAsync(async () =>
@@ -1201,8 +1203,13 @@ public partial class UserService(
                 return false;
             }
             string secret = secretResult.Value;
-            if (_totpService.VerifyCode(secret, code))
+            if (_totpService.TryVerifyCode(secret, code, out long matchedStep))
             {
+                if (!await TryConsumeTotpStepAsync(user.Id, matchedStep))
+                {
+                    return false;
+                }
+
                 if (persistRecoveryConsumption &&
                     profile.MfaRecoveryCodesHashVersion < TotpService.CurrentRecoveryCodeHashVersion &&
                     !string.IsNullOrWhiteSpace(profile.MfaRecoveryCodesHash))
@@ -1244,6 +1251,27 @@ public partial class UserService(
         }
 
         return false;
+    }
+
+    private async Task<bool> TryConsumeTotpStepAsync(int userId, long matchedStep)
+    {
+        DateTime usedAtUtc = DateTime.UtcNow;
+        const string sql = """
+            UPDATE user_mfa_profile
+            SET last_totp_step = @MatchedStep,
+                last_totp_used_at_utc = @UsedAtUtc,
+                updated_at_utc = @UsedAtUtc
+            WHERE user_id = @UserId
+              AND (last_totp_step IS NULL OR last_totp_step < @MatchedStep);
+            """;
+        int updated = await _db.Ado.ExecuteCommandAsync(sql, new SugarParameter[]
+        {
+            new("@MatchedStep", matchedStep),
+            new("@UsedAtUtc", usedAtUtc),
+            new("@UserId", userId)
+        });
+
+        return updated > 0;
     }
 
     private async Task<bool> TryPersistRecoveryCodeConsumptionAsync(

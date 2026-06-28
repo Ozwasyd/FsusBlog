@@ -263,17 +263,34 @@ public class TotpServiceTests
     {
         const string secretBase32 = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
         byte[] secret = Encoding.ASCII.GetBytes("12345678901234567890");
-        long currentStep = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 30;
+        var now = DateTimeOffset.Parse("2026-06-24T00:00:00Z", CultureInfo.InvariantCulture);
+        long currentStep = now.ToUnixTimeSeconds() / 30;
         string asciiCode = RunWithCulture(
             CultureInfo.InvariantCulture,
             () => InvokeComputeTotp(secret, currentStep));
-        var svc = MakeService();
+        var svc = MakeService(now);
 
         bool accepted = RunWithCulture(
             CultureInfo.GetCultureInfo("fa-IR"),
             () => svc.VerifyCode(secretBase32, asciiCode));
 
         Assert.True(accepted);
+    }
+
+    [Fact]
+    public void TryVerifyCode_ReturnsMatchedStepFromInjectedTimeProvider()
+    {
+        const string secretBase32 = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+        byte[] secret = Encoding.ASCII.GetBytes("12345678901234567890");
+        var now = DateTimeOffset.Parse("2026-06-24T00:00:30Z", CultureInfo.InvariantCulture);
+        long expectedStep = now.ToUnixTimeSeconds() / 30;
+        string code = InvokeComputeTotp(secret, expectedStep);
+        var svc = MakeService(now);
+
+        bool accepted = svc.TryVerifyCode(secretBase32, code, out long matchedStep);
+
+        Assert.True(accepted);
+        Assert.Equal(expectedStep, matchedStep);
     }
 
     [Fact]

@@ -1,5 +1,7 @@
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Interfaces;
+using System.Globalization;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -88,6 +90,7 @@ public sealed class UserSecurityStepUpService(
         {
             bool accepted = await mfaChallenges.ValidateAndConsumeProofTokenAsync(
                 account.Value.Id,
+                ResolveAccountSubjectHash(account.Value),
                 action,
                 proofToken).ConfigureAwait(false);
             return accepted
@@ -114,4 +117,13 @@ public sealed class UserSecurityStepUpService(
 
     private static string Normalize(string? value)
         => (value ?? string.Empty).Trim();
+
+    private static string ResolveAccountSubjectHash(UserAccountSnapshot account)
+        => string.IsNullOrWhiteSpace(account.AccountSubjectHash)
+            ? AccountSubjectHasher.Create(
+                string.IsNullOrWhiteSpace(account.IdentityKind)
+                    ? AnonymousIdentityRuntime.AnonymousAccountKind
+                    : account.IdentityKind.Trim(),
+                string.Concat("legacy-account:", account.Id.ToString(CultureInfo.InvariantCulture)))
+            : account.AccountSubjectHash.Trim().ToLowerInvariant();
 }

@@ -103,7 +103,7 @@ public sealed class PasskeyService(
             AttestationPreference = AttestationConveyancePreference.None
         });
 
-        string sessionKey = Convert.ToHexString(Guid.NewGuid().ToByteArray());
+        string sessionKey = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32));
         var coreOptions = ToRegisterBeginCore(sessionKey, options);
 
         await cache.SetRawAsync(
@@ -133,9 +133,6 @@ public sealed class PasskeyService(
         {
             return (false, "注册会话已过期，请重新开始");
         }
-
-        // 删除 challenge，防止重放
-        await cache.RemoveAsync(CachePolicyId.SecurityPasskeyRegChallenge, request.SessionKey, cancellationToken);
 
         var options = ToCredentialCreateOptions(cached.Value);
         AuthenticatorAttestationRawResponse attestationResponse = ToAttestationResponse(request);
@@ -169,6 +166,8 @@ public sealed class PasskeyService(
                 ex.GetType().Name);
             return (false, "通行密钥验证失败，请重试");
         }
+
+        await cache.RemoveAsync(CachePolicyId.SecurityPasskeyRegChallenge, request.SessionKey, cancellationToken);
 
         string credentialIdBase64 = Base64Url.EncodeToString(result.Id);
         string publicKeyBase64 = Base64Url.EncodeToString(result.PublicKey);
@@ -224,7 +223,7 @@ public sealed class PasskeyService(
             UserVerification = UserVerificationRequirement.Required
         });
 
-        string challengeToken = Convert.ToHexString(Guid.NewGuid().ToByteArray());
+        string challengeToken = GenerateChallengeToken();
         var coreOptions = ToLoginBeginCore(challengeToken, options);
         await cache.SetRawAsync(
             CachePolicyId.SecurityPasskeyAuthChallenge,
@@ -254,6 +253,11 @@ public sealed class PasskeyService(
         await cache.RemoveAsync(CachePolicyId.SecurityPasskeyAuthChallenge, request.ChallengeToken, cancellationToken);
 
         var options = ToAssertionOptions(cached.Value);
+        if (options.UserVerification != UserVerificationRequirement.Required)
+        {
+            return (false, "通行密钥验证失败，请重试", null);
+        }
+
         AuthenticatorAssertionRawResponse assertionResponse = ToAssertionResponse(request);
 
         string credentialIdBase64 = assertionResponse.Id;
@@ -309,7 +313,8 @@ public sealed class PasskeyService(
             return (false, "通行密钥验证失败，请重试", null);
         }
 
-        if (!await TryUpdatePasskeySignCountAsync(storedCred.Id, expectedSignCount, rowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
+        if (!IsPasskeySignCountValid(expectedSignCount, (long)verifyResult.SignCount) ||
+            !await TryUpdatePasskeySignCountAsync(storedCred.Id, expectedSignCount, rowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
         {
             return (false, "通行密钥验证失败，请重试", null);
         }
@@ -348,7 +353,7 @@ public sealed class PasskeyService(
             UserVerification = UserVerificationRequirement.Required
         });
 
-        string challengeToken = Convert.ToHexString(Guid.NewGuid().ToByteArray());
+        string challengeToken = GenerateChallengeToken();
         var coreOptions = ToLoginBeginCore(challengeToken, options);
         await cache.SetRawAsync(
             CachePolicyId.SecurityPasskeyAuthChallenge,
@@ -384,6 +389,11 @@ public sealed class PasskeyService(
         }
 
         var options = ToAssertionOptions(cached.Value);
+        if (options.UserVerification != UserVerificationRequirement.Required)
+        {
+            return (false, "通行密钥 step-up 验证失败，请重试");
+        }
+
         AuthenticatorAssertionRawResponse assertionResponse = ToAssertionResponse(request);
         string credentialIdBase64 = assertionResponse.Id;
         PasskeyCredential? storedCred = await db.Queryable<PasskeyCredential>()
@@ -434,7 +444,8 @@ public sealed class PasskeyService(
             return (false, "通行密钥 step-up 验证失败，请重试");
         }
 
-        if (!await TryUpdatePasskeySignCountAsync(storedCred.Id, expectedSignCount, rowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
+        if (!IsPasskeySignCountValid(expectedSignCount, (long)verifyResult.SignCount) ||
+            !await TryUpdatePasskeySignCountAsync(storedCred.Id, expectedSignCount, rowVersion, (long)verifyResult.SignCount, DateTime.UtcNow, cancellationToken))
         {
             return (false, "通行密钥 step-up 验证失败，请重试");
         }
@@ -493,6 +504,12 @@ public sealed class PasskeyService(
 
     private static string StepUpChallengeIdentity(string challengeToken)
         => $"stepup:{challengeToken}";
+
+    private static string GenerateChallengeToken()
+        => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32));
+
+    private static bool IsPasskeySignCountValid(long expectedSignCount, long actualSignCount)
+        => actualSignCount > expectedSignCount;
 
     private static AssertionOptions ToAssertionOptions(PasskeyLoginBeginCoreModel value)
         => new()

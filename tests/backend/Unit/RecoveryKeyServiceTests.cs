@@ -91,7 +91,7 @@ public sealed class RecoveryKeyServiceTests
         Assert.Contains("PASSWORD_OR_STEP_UP_PROOF_REQUIRED", mfaStart, StringComparison.Ordinal);
         Assert.True(
             mfaStart.IndexOf("UserSecurityStepUpActions.IsCredentialMutation(action)", StringComparison.Ordinal) <
-            mfaStart.IndexOf("CreateProofTokenAsync(user.Value.Id, action", StringComparison.Ordinal));
+            mfaStart.IndexOf("CreateProofTokenAsync", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -163,7 +163,8 @@ public sealed class RecoveryKeyServiceTests
         Assert.Contains("LookupIdHash", source, StringComparison.Ordinal);
         Assert.Contains("HashRecoveryKeyLookupId", source, StringComparison.Ordinal);
         Assert.Contains("TryParseRecoveryKeyLookup", verifyMethod, StringComparison.Ordinal);
-        Assert.Contains("k.LookupIdHash == lookupIdHash", verifyMethod, StringComparison.Ordinal);
+        Assert.Contains("LoadRecoveryKeyCredentialForUpdateAsync(lookupIdHash", verifyMethod, StringComparison.Ordinal);
+        Assert.Contains("WHERE lookup_id_hash = @LookupIdHash", source, StringComparison.Ordinal);
         Assert.DoesNotContain("request.UserId", verifyMethod, StringComparison.Ordinal);
         Assert.DoesNotContain("UserId", attemptHelper, StringComparison.Ordinal);
     }
@@ -230,7 +231,8 @@ public sealed class RecoveryKeyServiceTests
 
         Assert.Contains("ANONYMOUS_MFA_STEP_UP_REQUIRED", endpoints, StringComparison.Ordinal);
         Assert.Contains("TryReadMfaProof(httpContext, out string proofToken)", endpoints, StringComparison.Ordinal);
-        Assert.Contains("ValidateAndConsumeProofTokenAsync(userId", endpoints, StringComparison.Ordinal);
+        Assert.Contains("ValidateAndConsumeProofTokenAsync(", endpoints, StringComparison.Ordinal);
+        Assert.Contains("ResolveAccountSubjectHash", endpoints, StringComparison.Ordinal);
         Assert.Contains("stepUpVerified", userService, StringComparison.Ordinal);
         Assert.Contains("AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()", userService, StringComparison.Ordinal);
     }

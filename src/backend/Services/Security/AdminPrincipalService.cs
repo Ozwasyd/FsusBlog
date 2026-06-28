@@ -178,7 +178,7 @@ public sealed class AdminPrincipalService(
             AttestationPreference = AttestationConveyancePreference.None
         });
 
-        string sessionKey = Convert.ToHexString(Guid.NewGuid().ToByteArray());
+        string sessionKey = GenerateSecretToken();
         PasskeyRegisterBeginCoreModel coreOptions = ToRegisterBeginCore(sessionKey, options);
         var challenge = new AdminBootstrapChallenge(normalizedHandle, userHandle, coreOptions);
         await cache.SetStringAsync(
@@ -289,7 +289,7 @@ public sealed class AdminPrincipalService(
             UserVerification = UserVerificationRequirement.Required
         });
 
-        string challengeToken = Convert.ToHexString(Guid.NewGuid().ToByteArray());
+        string challengeToken = GenerateSecretToken();
         PasskeyLoginBeginCoreModel coreOptions = ToLoginBeginCore(challengeToken, options);
         await cache.SetStringAsync(
             CachePolicyId.SecurityPasskeyAuthChallenge,
@@ -406,7 +406,7 @@ public sealed class AdminPrincipalService(
             UserVerification = UserVerificationRequirement.Required
         });
 
-        string challengeToken = Convert.ToHexString(Guid.NewGuid().ToByteArray());
+        string challengeToken = GenerateSecretToken();
         PasskeyLoginBeginCoreModel coreOptions = ToLoginBeginCore(challengeToken, options);
         var challenge = new AdminStepUpChallenge(
             AnonymousIdentityRuntime.AdminPrincipalKind,
@@ -592,7 +592,7 @@ public sealed class AdminPrincipalService(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string token = Convert.ToHexString(Guid.NewGuid().ToByteArray());
+        string token = GenerateSecretToken();
         string identity = AdminStepUpProofIdentity(adminPrincipalId, adminSessionId, action, token);
         await cache.SetStringAsync(CachePolicyId.SecurityMfaProof, identity, "1", ttl, cancellationToken);
         return token;
@@ -836,7 +836,7 @@ public sealed class AdminPrincipalService(
         DateTime now = DateTime.UtcNow;
         var session = new AdminSession
         {
-            SessionId = Convert.ToHexString(Guid.NewGuid().ToByteArray()),
+            SessionId = GenerateSecretToken(),
             AdminPrincipalId = principal.Id,
             DeviceFingerprint = Truncate(clientContext.DeviceFingerprint, 128),
             LastIp = Truncate(clientContext.ClientIp, 64),
@@ -1210,6 +1210,9 @@ public sealed class AdminPrincipalService(
         string trimmed = value.Trim();
         return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
+
+    private static string GenerateSecretToken()
+        => WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
 
     private sealed record AdminBootstrapChallenge(string Handle, byte[] UserHandle, PasskeyRegisterBeginCoreModel Options);
 

@@ -36,6 +36,7 @@ public sealed class ProductionStartupValidatorTests
             ["Security:PerceptionSealedToken:CurrentKeyVersion"] = "k1",
             ["Security:PerceptionSealedToken:Keys:k1"] = new string('a', 64),
             ["Security:RecoveryKeyPepper"] = "production-recovery-key-pepper-with-at-least-thirty-two-chars",
+            ["MfaChallenge:TicketSigningKey"] = "production-mfa-challenge-ticket-signing-key-with-enough-entropy",
             ["Audit:TamperEvidenceKey"] = "production-audit-tamper-evidence-key-with-enough-entropy",
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
             ["VisitLog:IpHashPepper"] = "production-visit-log-ip-hash-pepper-with-at-least-thirty-two-chars",
@@ -429,7 +430,7 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(11, report.SchemaVersion);
+        Assert.Equal(12, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
@@ -443,6 +444,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("Security:CaptchaV1:SigningKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Security:PerceptionSealedToken:CurrentKeyVersion", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Security:RecoveryKeyPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("MfaChallenge:TicketSigningKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Audit:TamperEvidenceKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AnonymousCredentialIssuer:SubjectHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("VisitLog:IpHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
@@ -690,6 +692,7 @@ public sealed class ProductionStartupValidatorTests
             ["Security:PerceptionSealedToken:CurrentKeyVersion"] = "k1",
             ["Security:PerceptionSealedToken:Keys:k1"] = new string('a', 64),
             ["Security:RecoveryKeyPepper"] = "production-recovery-key-pepper-with-at-least-thirty-two-chars",
+            ["MfaChallenge:TicketSigningKey"] = "production-mfa-challenge-ticket-signing-key-with-enough-entropy",
             ["Audit:TamperEvidenceKey"] = "production-audit-tamper-evidence-key-with-enough-entropy",
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = "production-subject-hash-pepper-with-at-least-thirty-two-chars",
             ["VisitLog:IpHashPepper"] = "production-visit-log-ip-hash-pepper-with-at-least-thirty-two-chars",

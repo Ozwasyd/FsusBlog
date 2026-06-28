@@ -52,7 +52,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 11;
+    private const int SchemaVersion = 12;
     private const int PerceptionSealedTokenKeyByteCount = 32;
     private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object CoreValidationCacheLock = new();
@@ -121,6 +121,13 @@ public static class ProductionStartupValidator
         "development-anonymous-root-attestation-key-change-before-shared-use"
     ];
 
+    private static readonly string[] DefaultMfaChallengeTicketSigningKeys =
+    [
+        "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
+        "replace-with-independent-mfa-challenge-ticket-signing-key",
+        "development-mfa-challenge-ticket-signing-key-change-before-shared-use"
+    ];
+
     private static readonly RequiredSettingRule[] RequiredSettings =
     [
         ConnectionString("DefaultConnection"),
@@ -136,6 +143,7 @@ public static class ProductionStartupValidator
         Value("Security:CaptchaV1:SigningKey"),
         Value($"{PerceptionSealedTokenOptions.SectionName}:CurrentKeyVersion"),
         Value("Security:RecoveryKeyPepper"),
+        Value("MfaChallenge:TicketSigningKey"),
         Value("Audit:TamperEvidenceKey"),
         Value("AnonymousCredentialIssuer:SubjectHashPepper"),
         Value("VisitLog:IpHashPepper"),
@@ -237,6 +245,7 @@ public static class ProductionStartupValidator
         string? powSigningKey = values["Security:Pow:SigningKey"];
         string? captchaSigningKey = values["Security:CaptchaV1:SigningKey"];
         string? recoveryKeyPepper = values["Security:RecoveryKeyPepper"];
+        string? mfaChallengeTicketSigningKey = values["MfaChallenge:TicketSigningKey"];
         string? auditTamperEvidenceKey = values["Audit:TamperEvidenceKey"];
         string? subjectHashPepper = values["AnonymousCredentialIssuer:SubjectHashPepper"];
         string? visitLogIpHashPepper = values["VisitLog:IpHashPepper"];
@@ -268,6 +277,7 @@ public static class ProductionStartupValidator
         ValidateIndependentSecuritySecret("Security:Pow:SigningKey", powSigningKey, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("Security:CaptchaV1:SigningKey", captchaSigningKey, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("Security:RecoveryKeyPepper", recoveryKeyPepper, jwtSecret, [], errors);
+        ValidateIndependentSecuritySecret("MfaChallenge:TicketSigningKey", mfaChallengeTicketSigningKey, jwtSecret, DefaultMfaChallengeTicketSigningKeys, errors);
         ValidateAuditTamperEvidenceKey(auditTamperEvidenceKey, jwtSecret, errors);
         ValidateIndependentSecuritySecret("AnonymousCredentialIssuer:SubjectHashPepper", subjectHashPepper, jwtSecret, DefaultSubjectHashPeppers, errors);
         ValidateIndependentSecuritySecret("VisitLog:IpHashPepper", visitLogIpHashPepper, jwtSecret, DefaultVisitLogIpHashPeppers, errors);
@@ -920,6 +930,7 @@ public static class ProductionStartupValidator
             || error.Contains("Security:Pow:SigningKey", StringComparison.Ordinal)
             || error.Contains("Security:CaptchaV1:SigningKey", StringComparison.Ordinal)
             || error.Contains("Security:RecoveryKeyPepper", StringComparison.Ordinal)
+            || error.Contains("MfaChallenge:TicketSigningKey", StringComparison.Ordinal)
             || error.Contains("AnonymousCredentialIssuer:SubjectHashPepper", StringComparison.Ordinal)
             || error.Contains("VisitLog:IpHashPepper", StringComparison.Ordinal)
             || error.Contains("Moderation:RegionPolicy:IpHashKey", StringComparison.Ordinal)

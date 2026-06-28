@@ -545,8 +545,13 @@ public static partial class BinaryEndpoints
             if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
             {
                 string setupAction = account?.MfaEnabled == true ? "mfa_setup_rebind" : "mfa_setup";
-                if (!TryReadMfaProof(httpContext, out string proofToken) ||
-                    !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(userId, setupAction, proofToken))
+                if (account is null ||
+                    !TryReadMfaProof(httpContext, out string proofToken) ||
+                    !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(
+                        userId,
+                        ResolveAccountSubjectHash(account.Value),
+                        setupAction,
+                        proofToken))
                 {
                     return BinaryResults.FromError(
                         ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_MFA_STEP_UP_REQUIRED"),
@@ -629,6 +634,7 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             IUserMfaCommandService mfaCommands,
             IMfaChallengeService mfaChallengeService,
+            IUserAccountReader users,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -639,8 +645,14 @@ public static partial class BinaryEndpoints
             bool stepUpVerified = false;
             if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
             {
-                if (!TryReadMfaProof(httpContext, out string proofToken) ||
-                    !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(userId, "mfa_disable", proofToken))
+                UserAccountSnapshot? account = await users.GetAccountByIdAsync(userId);
+                if (account is null ||
+                    !TryReadMfaProof(httpContext, out string proofToken) ||
+                    !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(
+                        userId,
+                        ResolveAccountSubjectHash(account.Value),
+                        "mfa_disable",
+                        proofToken))
                 {
                     return BinaryResults.FromError(
                         ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_MFA_STEP_UP_REQUIRED"),
@@ -679,6 +691,7 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             IUserMfaCommandService mfaCommands,
             IMfaChallengeService mfaChallengeService,
+            IUserAccountReader users,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -689,8 +702,14 @@ public static partial class BinaryEndpoints
             bool stepUpVerified = false;
             if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
             {
-                if (!TryReadMfaProof(httpContext, out string proofToken) ||
-                    !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(userId, "mfa_recovery_regenerate", proofToken))
+                UserAccountSnapshot? account = await users.GetAccountByIdAsync(userId);
+                if (account is null ||
+                    !TryReadMfaProof(httpContext, out string proofToken) ||
+                    !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(
+                        userId,
+                        ResolveAccountSubjectHash(account.Value),
+                        "mfa_recovery_regenerate",
+                        proofToken))
                 {
                     return BinaryResults.FromError(
                         ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_MFA_STEP_UP_REQUIRED"),
@@ -771,7 +790,11 @@ public static partial class BinaryEndpoints
                         StatusCodes.Status428PreconditionRequired);
                 }
 
-                string proofToken = await challengeService.CreateProofTokenAsync(user.Value.Id, action, TimeSpan.FromMinutes(5));
+                string proofToken = await challengeService.CreateProofTokenAsync(
+                    user.Value.Id,
+                    ResolveAccountSubjectHash(user.Value),
+                    action,
+                    TimeSpan.FromMinutes(5));
                 var noMfa = new MfaChallengeResultDto(true, action, proofToken, null);
                 return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(noMfa, writer));
             }
@@ -855,7 +878,11 @@ public static partial class BinaryEndpoints
                 return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(loginResult, writer));
             }
 
-            string proofToken = await challengeService.CreateProofTokenAsync(ticket.AccountId, ticket.Action, TimeSpan.FromMinutes(5));
+            string proofToken = await challengeService.CreateProofTokenAsync(
+                ticket.AccountId,
+                ticket.AccountSubjectHash,
+                ticket.Action,
+                TimeSpan.FromMinutes(5));
             var result = new MfaChallengeResultDto(true, ticket.Action, proofToken, null);
             return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(result, writer));
         })
@@ -1143,7 +1170,11 @@ public static partial class BinaryEndpoints
                     return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, "注册通行密钥需要先完成 MFA 验证"), aeds);
                 }
 
-                bool proofValid = await mfaChallengeService.ValidateAndConsumeProofTokenAsync(user.Value.Id, "passkey_register", request.MfaProofToken);
+                bool proofValid = await mfaChallengeService.ValidateAndConsumeProofTokenAsync(
+                    user.Value.Id,
+                    ResolveAccountSubjectHash(user.Value),
+                    "passkey_register",
+                    request.MfaProofToken);
                 if (!proofValid)
                 {
                     return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, "MFA 验证令牌无效或已过期"), aeds);

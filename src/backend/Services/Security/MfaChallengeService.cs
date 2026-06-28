@@ -29,14 +29,18 @@ public interface IMfaChallengeService
     Task ConsumeChallengeAsync(string ticketId);
     Task<bool> RecordFailureAsync(MfaChallengeTicket ticket, string clientIp, string? userAgent);
     Task<string> CreateProofTokenAsync(int accountId, string action, TimeSpan ttl);
+    Task<string> CreateProofTokenAsync(int accountId, string accountSubjectHash, string action, TimeSpan ttl);
     Task<bool> ValidateAndConsumeProofTokenAsync(int accountId, string action, string token);
+    Task<bool> ValidateAndConsumeProofTokenAsync(int accountId, string accountSubjectHash, string action, string token);
 }
 
-public sealed class MfaChallengeService(IUnifiedCache cache, ILogger<MfaChallengeService> logger) : IMfaChallengeService
+public sealed class MfaChallengeService(
+    IUnifiedCache cache,
+    ILogger<MfaChallengeService> logger,
+    IConfiguration? configuration = null) : IMfaChallengeService
 {
     private const uint TicketMagic = 0x41464D46; // FMFA
     private const byte TicketVersion = 2;
-    private const byte LegacyTicketVersion = 1;
     private const int MaxTicketFailures = 5;
     private const int MaxSubjectWindowFailures = 10;
     private const int MaxIpWindowFailures = 25;
@@ -124,20 +128,34 @@ public sealed class MfaChallengeService(IUnifiedCache cache, ILogger<MfaChalleng
 
     public async Task<string> CreateProofTokenAsync(int accountId, string action, TimeSpan ttl)
     {
-        string token = Convert.ToHexString(Guid.NewGuid().ToByteArray());
-        string identity = $"{accountId}:{action}:{token}";
+        string subject = ResolveAccountSubjectHash(accountId, null);
+        return await CreateProofTokenAsync(accountId, subject, action, ttl).ConfigureAwait(false);
+    }
+
+    public async Task<string> CreateProofTokenAsync(int accountId, string accountSubjectHash, string action, TimeSpan ttl)
+    {
+        string token = Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+        string subject = ResolveAccountSubjectHash(accountId, accountSubjectHash);
+        string identity = BuildProofIdentity(accountId, subject, action, token);
         await cache.SetStringAsync(CachePolicyId.SecurityMfaProof, identity, "1", ttl);
         return token;
     }
 
     public Task<bool> ValidateAndConsumeProofTokenAsync(int accountId, string action, string token)
     {
+        string subject = ResolveAccountSubjectHash(accountId, null);
+        return ValidateAndConsumeProofTokenAsync(accountId, subject, action, token);
+    }
+
+    public Task<bool> ValidateAndConsumeProofTokenAsync(int accountId, string accountSubjectHash, string action, string token)
+    {
         if (string.IsNullOrWhiteSpace(token))
         {
             return Task.FromResult(false);
         }
 
-        string identity = $"{accountId}:{action}:{token}";
+        string subject = ResolveAccountSubjectHash(accountId, accountSubjectHash);
+        string identity = BuildProofIdentity(accountId, subject, action, token);
         return cache.ConsumeOnceAsync(CachePolicyId.SecurityMfaProof, identity);
     }
 
@@ -150,7 +168,7 @@ public sealed class MfaChallengeService(IUnifiedCache cache, ILogger<MfaChalleng
         bool rememberMe,
         TimeSpan ttl)
     {
-        string ticketId = Convert.ToHexString(Guid.NewGuid().ToByteArray());
+        string ticketId = Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
         var ticket = new MfaChallengeTicket
         {
             TicketId = ticketId,
@@ -167,7 +185,7 @@ public sealed class MfaChallengeService(IUnifiedCache cache, ILogger<MfaChalleng
         return ticket;
     }
 
-    private static string EncodeTicket(MfaChallengeTicket ticket)
+    private string EncodeTicket(MfaChallengeTicket ticket)
     {
         byte[] ticketId = Encoding.UTF8.GetBytes(ticket.TicketId);
         byte[] accountSubjectHash = Encoding.UTF8.GetBytes(ticket.AccountSubjectHash);
@@ -191,30 +209,46 @@ public sealed class MfaChallengeService(IUnifiedCache cache, ILogger<MfaChalleng
         WriteString(bytes, ref offset, type);
         WriteString(bytes, ref offset, action);
         WriteString(bytes, ref offset, accountSubjectHash);
-        return Base64UrlEncode(bytes);
+        byte[] signingKey = ResolveTicketSigningKey();
+        byte[] mac = HMACSHA256.HashData(signingKey, bytes);
+        byte[] signed = new byte[bytes.Length + mac.Length];
+        bytes.CopyTo(signed.AsSpan());
+        mac.CopyTo(signed.AsSpan(bytes.Length));
+        return Base64UrlEncode(signed);
     }
 
-    private static MfaChallengeTicket? DecodeTicket(string value)
+    private MfaChallengeTicket? DecodeTicket(string value)
     {
         try
         {
-            byte[] bytes = Base64UrlDecode(value);
-            if (bytes.Length < 19 ||
-                BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(0, 4)) != TicketMagic ||
-                (bytes[4] != TicketVersion && bytes[4] != LegacyTicketVersion))
+            byte[] signed = Base64UrlDecode(value);
+            if (signed.Length < 19 + 32)
             {
                 return null;
             }
 
-            byte version = bytes[4];
-            int accountId = BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(5, 4));
+            byte[] signingKey = ResolveTicketSigningKey();
+            ReadOnlySpan<byte> bytes = signed.AsSpan(0, signed.Length - 32);
+            ReadOnlySpan<byte> suppliedMac = signed.AsSpan(signed.Length - 32);
+            byte[] expectedMac = HMACSHA256.HashData(signingKey, bytes);
+            if (!CryptographicOperations.FixedTimeEquals(expectedMac, suppliedMac))
+            {
+                return null;
+            }
+
+            if (bytes.Length < 19 ||
+                BinaryPrimitives.ReadUInt32LittleEndian(bytes[..4]) != TicketMagic ||
+                bytes[4] != TicketVersion)
+            {
+                return null;
+            }
+
+            int accountId = BinaryPrimitives.ReadInt32LittleEndian(bytes.Slice(5, 4));
             int offset = 19;
-            string ticketId = ReadString(bytes, ref offset);
-            string type = ReadString(bytes, ref offset);
-            string action = ReadString(bytes, ref offset);
-            string accountSubjectHash = version == TicketVersion
-                ? ReadString(bytes, ref offset)
-                : ResolveAccountSubjectHash(accountId, null);
+            string ticketId = ReadString(signed, ref offset, bytes.Length);
+            string type = ReadString(signed, ref offset, bytes.Length);
+            string action = ReadString(signed, ref offset, bytes.Length);
+            string accountSubjectHash = ReadString(signed, ref offset, bytes.Length);
             if (offset != bytes.Length || string.IsNullOrWhiteSpace(ticketId) || string.IsNullOrWhiteSpace(type))
             {
                 return null;
@@ -229,7 +263,7 @@ public sealed class MfaChallengeService(IUnifiedCache cache, ILogger<MfaChalleng
                 Action = action,
                 RememberMe = bytes[9] == 1,
                 RiskTriggered = bytes[10] == 1,
-                CreatedAtUtc = new DateTime(BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(11, 8)), DateTimeKind.Utc)
+                CreatedAtUtc = new DateTime(BinaryPrimitives.ReadInt64LittleEndian(bytes.Slice(11, 8)), DateTimeKind.Utc)
             };
         }
         catch (FormatException)
@@ -256,15 +290,18 @@ public sealed class MfaChallengeService(IUnifiedCache cache, ILogger<MfaChalleng
     }
 
     private static string ReadString(byte[] source, ref int offset)
+        => ReadString(source, ref offset, source.Length);
+
+    private static string ReadString(byte[] source, ref int offset, int limit)
     {
-        if (offset + 2 > source.Length)
+        if (offset + 2 > limit)
         {
             throw new ArgumentException("MFA ticket truncated.");
         }
 
         int length = BinaryPrimitives.ReadUInt16LittleEndian(source.AsSpan(offset, 2));
         offset += 2;
-        if (offset + length > source.Length)
+        if (offset + length > limit)
         {
             throw new ArgumentException("MFA ticket string truncated.");
         }
@@ -272,6 +309,30 @@ public sealed class MfaChallengeService(IUnifiedCache cache, ILogger<MfaChalleng
         string value = Encoding.UTF8.GetString(source.AsSpan(offset, length));
         offset += length;
         return value;
+    }
+
+    private byte[] ResolveTicketSigningKey()
+    {
+        string? value = configuration?["MfaChallenge:TicketSigningKey"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_MFA_CHALLENGE_TICKET_SIGNING_KEY");
+        if (string.IsNullOrWhiteSpace(value) || value.Trim().Length < 32)
+        {
+            throw new InvalidOperationException("MfaChallenge:TicketSigningKey is not configured with at least 32 characters.");
+        }
+
+        return Encoding.UTF8.GetBytes(value.Trim());
+    }
+
+    private static string BuildProofIdentity(int accountId, string subject, string action, string token)
+    {
+        string material = string.Join(
+            ':',
+            "mfa-proof",
+            accountId.ToString(CultureInfo.InvariantCulture),
+            subject,
+            action.Trim().ToLowerInvariant(),
+            token.Trim());
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(material)));
     }
 
     private static string Base64UrlEncode(ReadOnlySpan<byte> bytes)

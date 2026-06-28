@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -12,6 +13,8 @@ namespace FsusBlog.Server.Modules.Endpoints;
 public static class LocalAuthFixtureEndpoints
 {
     internal const string AllowLocalAuthFixtureConfigurationKey = "fsus:allowLocalAuthFixture";
+    internal const string LocalAuthFixtureSecretConfigurationKey = "fsus:localAuthFixtureSecret";
+    private const string LocalAuthFixtureSecretHeaderName = "X-Fsus-Local-Auth-Fixture-Secret";
     private const string UserStorageStateFileName = "user.storage-state.json";
     private const string AdminStorageStateFileName = "admin.storage-state.json";
 
@@ -68,8 +71,8 @@ public static class LocalAuthFixtureEndpoints
             return Results.Redirect(SanitizeRedirectPath(redirect, forceLocalFixtureRefresh: true));
         };
 
-        app.MapGet("/__local/auth-fixture/admin", handler).AllowAnonymous();
-        app.MapGet("/api/local/auth-fixture/admin", handler).AllowAnonymous();
+        app.MapGet("/__local/auth-fixture/admin", handler).AllowAnonymous().AddEndpointFilter(RequireLocalFixtureSecret);
+        app.MapGet("/api/local/auth-fixture/admin", handler).AllowAnonymous().AddEndpointFilter(RequireLocalFixtureSecret);
 
         var statusHandler = (HttpContext context) => Results.Json(new
         {
@@ -82,6 +85,31 @@ public static class LocalAuthFixtureEndpoints
         });
         app.MapGet("/api/local/auth-fixture/status", statusHandler).AllowAnonymous();
         app.MapGet("/__local/auth-fixture/status", statusHandler).AllowAnonymous();
+    }
+
+    private static async ValueTask<object?> RequireLocalFixtureSecret(
+        EndpointFilterInvocationContext context,
+        EndpointFilterDelegate next)
+    {
+        IConfiguration configuration = context.HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+        string expectedSecret = configuration[LocalAuthFixtureSecretConfigurationKey] ?? string.Empty;
+        string providedSecret = context.HttpContext.Request.Headers[LocalAuthFixtureSecretHeaderName].ToString();
+        if (string.IsNullOrWhiteSpace(expectedSecret) ||
+            string.IsNullOrWhiteSpace(providedSecret) ||
+            !FixedTimeEquals(expectedSecret.Trim(), providedSecret.Trim()))
+        {
+            return Results.Unauthorized();
+        }
+
+        return await next(context);
+    }
+
+    private static bool FixedTimeEquals(string expected, string actual)
+    {
+        byte[] expectedBytes = Encoding.UTF8.GetBytes(expected);
+        byte[] actualBytes = Encoding.UTF8.GetBytes(actual);
+        return expectedBytes.Length == actualBytes.Length &&
+            CryptographicOperations.FixedTimeEquals(expectedBytes, actualBytes);
     }
 
     private static string ResolveStorageStatePath(IWebHostEnvironment environment, string fileName)

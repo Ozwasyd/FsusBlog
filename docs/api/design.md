@@ -26,6 +26,8 @@
 
 HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提供，包含 method/path/status/content-type/security 与 `x-fsus-*` 扩展；AEDS payload、frame 编号、POD schema 和 golden fixture 仍由 `aeds-protocol.json`、POD 契约和 fixture 负责。
 
+本地/测试辅助端点不得成为生产身份 fallback。任何会写入登录、admin 或安全态 cookie 的 fixture 入口都必须限定到 Development 映射，并使用独立 `X-Fsus-*` shared-secret header 做固定时间比较；未配置 secret 时 fail closed。
+
 ### 3. 统一响应包装
 
 所有运行时主业务响应体均为 AEDS v2 frame。成功写操作使用 `EmptySuccess` 或 `MutationId`；失败、鉴权拒绝、限流和异常兜底统一使用 `ApiError` frame。AEDS v1 frame 不再兼容，也不保留旧 frame fallback。

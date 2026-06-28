@@ -88,6 +88,22 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    public async Task ValidateAsync_RejectsNonAdminPrincipalWhenInvoked()
+    {
+        string connectionString = await CreateConnectionStringAsync();
+        using SqlSugarClient db = CreateDb(connectionString);
+        var service = new AdminSessionValidationService(db);
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, "42")],
+            "unit-test"));
+
+        AdminSessionValidationResult result = await service.ValidateAsync(principal, "not-admin-token", CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("admin_principal_required", result.Reason);
+    }
+
+    [Fact]
     public async Task TouchAdminSessionAsync_StaleRowVersionAfterRevokeDoesNotAdvanceLastSeen()
     {
         string connectionString = await CreateConnectionStringAsync();

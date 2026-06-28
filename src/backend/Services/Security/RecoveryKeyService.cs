@@ -1,4 +1,5 @@
 using System.Buffers.Text;
+using System.Data.Common;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -39,6 +40,7 @@ public sealed class RecoveryKeyService(
     private const int RecoveryKeySaltBytes = 16;
     private const int RecoveryKeyHashBytes = 32;
     private const int RecoveryKeyPbkdf2Iterations = 210_000;
+    private const int MaxRecoveryKeyChars = 256;
     private const int MaxFailedAttempts = 8;
     private static readonly TimeSpan FailureWindow = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan RecoverySessionTtl = TimeSpan.FromMinutes(10);
@@ -61,12 +63,16 @@ public sealed class RecoveryKeyService(
             return Result<RecoveryKeyVerifyResponseCoreModel>.Failure(ErrorCode.Validation, "RECOVERY_KEY_REQUEST_INVALID");
         }
 
+        string normalized = NormalizeRecoveryKey(request.RecoveryKey);
+        if (normalized.Length == 0 || normalized.Length > MaxRecoveryKeyChars)
+        {
+            return Result<RecoveryKeyVerifyResponseCoreModel>.Failure(ErrorCode.Validation, "RECOVERY_KEY_INVALID");
+        }
+
         byte[] pepper = ResolveRecoveryKeyPepper();
-        bool hasLookup = TryParseRecoveryKeyLookup(request.RecoveryKey, pepper, out string lookupIdHash);
+        bool hasLookup = TryParseRecoveryKeyLookup(normalized, pepper, out string lookupIdHash);
         string attemptIdentity = BuildAttemptIdentity(
-            hasLookup ? lookupIdHash : HashRecoveryKeyAttemptIdentity(request.RecoveryKey, pepper),
-            clientIp,
-            userAgent);
+            hasLookup ? lookupIdHash : HashRecoveryKeyAttemptIdentity(normalized, pepper));
         if (await IsVerificationLockedAsync(attemptIdentity, cancellationToken).ConfigureAwait(false))
         {
             return Result<RecoveryKeyVerifyResponseCoreModel>.Failure(ErrorCode.Forbidden, "RECOVERY_KEY_RATE_LIMITED");
@@ -77,56 +83,66 @@ public sealed class RecoveryKeyService(
             return await RecordVerificationFailureAsync(attemptIdentity, cancellationToken).ConfigureAwait(false);
         }
 
-        RecoveryKeyCredential? credential = await db.Queryable<RecoveryKeyCredential>()
-            .Where(k => k.LookupIdHash == lookupIdHash && k.UsedAt == null && k.RevokedAt == null)
-            .OrderBy(k => k.KeyVersion, OrderByType.Desc)
-            .FirstAsync();
-        if (credential is null)
+        Result<RecoveryKeyVerifyResponseCoreModel>? transactionResult = null;
+        var transaction = await db.Ado.UseTranAsync(async () =>
         {
-            return await RecordVerificationFailureAsync(attemptIdentity, cancellationToken).ConfigureAwait(false);
-        }
+            RecoveryKeyCredential? credential = await LoadRecoveryKeyCredentialForUpdateAsync(lookupIdHash, cancellationToken).ConfigureAwait(false);
+            if (credential is null)
+            {
+                transactionResult = await RecordVerificationFailureAsync(attemptIdentity, cancellationToken).ConfigureAwait(false);
+                return;
+            }
 
-        if (!VerifyRecoveryKey(request.RecoveryKey, credential.KeyHash, pepper))
-        {
-            return await RecordVerificationFailureAsync(attemptIdentity, cancellationToken).ConfigureAwait(false);
-        }
+            if (!VerifyRecoveryKey(normalized, credential.KeyHash, pepper))
+            {
+                transactionResult = await RecordVerificationFailureAsync(attemptIdentity, cancellationToken).ConfigureAwait(false);
+                return;
+            }
 
-        DateTime now = DateTime.UtcNow;
-        int consumed = await db.Updateable<RecoveryKeyCredential>()
-            .SetColumns(k => k.UsedAt == now)
-            .Where(k => k.Id == credential.Id && k.UsedAt == null && k.RevokedAt == null)
-            .ExecuteCommandAsync();
-        if (consumed <= 0)
-        {
-            return Result<RecoveryKeyVerifyResponseCoreModel>.Failure(ErrorCode.Unauthorized, "RECOVERY_KEY_ALREADY_USED");
-        }
-
-        await db.Updateable<User>()
-            .SetColumns(u => u.RecoveryEnabled == false)
-            .Where(u => u.Id == credential.AccountId)
-            .ExecuteCommandAsync();
-
-        if (request.RevokeSessions)
-        {
-            await db.Updateable<UserSession>()
-                .SetColumns(s => s.RevokedAt == now)
-                .SetColumns(s => s.RevokeReason == "recovery_key_verified")
-                .Where(s => s.UserId == credential.AccountId && s.RevokedAt == null)
+            DateTime now = DateTime.UtcNow;
+            int consumed = await db.Updateable<RecoveryKeyCredential>()
+                .SetColumns(k => k.UsedAt == now)
+                .Where(k => k.Id == credential.Id && k.UsedAt == null && k.RevokedAt == null)
                 .ExecuteCommandAsync();
+            if (consumed <= 0)
+            {
+                transactionResult = Result<RecoveryKeyVerifyResponseCoreModel>.Failure(ErrorCode.Unauthorized, "RECOVERY_KEY_ALREADY_USED");
+                return;
+            }
+
+            await db.Updateable<User>()
+                .SetColumns(u => u.RecoveryEnabled == false)
+                .Where(u => u.Id == credential.AccountId)
+                .ExecuteCommandAsync();
+
+            if (request.RevokeSessions)
+            {
+                await db.Updateable<UserSession>()
+                    .SetColumns(s => s.RevokedAt == now)
+                    .SetColumns(s => s.RevokeReason == "recovery_key_verified")
+                    .Where(s => s.UserId == credential.AccountId && s.RevokedAt == null)
+                    .ExecuteCommandAsync();
+            }
+
+            string token = GenerateSecretToken();
+            DateTime expiresAt = now.Add(RecoverySessionTtl);
+            var session = new RecoveryKeySession(credential.AccountId, request.RevokePasskeys, now, expiresAt);
+            await cache.SetStringAsync(
+                CachePolicyId.SecurityRecoveryKeySession,
+                BuildSessionIdentity(token),
+                EncodeSession(session),
+                RecoverySessionTtl,
+                cancellationToken).ConfigureAwait(false);
+
+            transactionResult = Result<RecoveryKeyVerifyResponseCoreModel>.Success(
+                new RecoveryKeyVerifyResponseCoreModel(token, expiresAt));
+        });
+        if (!transaction.IsSuccess)
+        {
+            throw transaction.ErrorException ?? new InvalidOperationException("Recovery key verification transaction failed.");
         }
 
-        string token = GenerateSecretToken();
-        DateTime expiresAt = now.Add(RecoverySessionTtl);
-        var session = new RecoveryKeySession(credential.AccountId, request.RevokePasskeys, now, expiresAt);
-        await cache.SetStringAsync(
-            CachePolicyId.SecurityRecoveryKeySession,
-            BuildSessionIdentity(token),
-            EncodeSession(session),
-            RecoverySessionTtl,
-            cancellationToken).ConfigureAwait(false);
-
-        return Result<RecoveryKeyVerifyResponseCoreModel>.Success(
-            new RecoveryKeyVerifyResponseCoreModel(token, expiresAt));
+        return transactionResult ?? Result<RecoveryKeyVerifyResponseCoreModel>.Failure(ErrorCode.Unauthorized, "RECOVERY_KEY_INVALID");
     }
 
     public async Task<Result<RecoveryKeySession>> GetRecoverySessionAsync(string token, CancellationToken cancellationToken = default)
@@ -247,6 +263,48 @@ public sealed class RecoveryKeyService(
         return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int attempts) && attempts >= MaxFailedAttempts;
     }
 
+    private async Task<RecoveryKeyCredential?> LoadRecoveryKeyCredentialForUpdateAsync(
+        string lookupIdHash,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT id,
+                   account_id,
+                   lookup_id_hash,
+                   key_hash,
+                   key_version,
+                   created_at,
+                   used_at,
+                   revoked_at
+            FROM account_recovery_key
+            WHERE lookup_id_hash = @LookupIdHash
+              AND used_at IS NULL
+              AND revoked_at IS NULL
+            ORDER BY key_version DESC
+            LIMIT 1
+            FOR UPDATE;
+            """,
+            new SugarParameter("@LookupIdHash", lookupIdHash));
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return new RecoveryKeyCredential
+        {
+            Id = reader.GetInt32(0),
+            AccountId = reader.GetInt32(1),
+            LookupIdHash = reader.IsDBNull(2) ? null : reader.GetString(2),
+            KeyHash = reader.GetString(3),
+            KeyVersion = reader.GetInt32(4),
+            CreatedAt = reader.GetDateTime(5),
+            UsedAt = reader.IsDBNull(6) ? null : reader.GetDateTime(6),
+            RevokedAt = reader.IsDBNull(7) ? null : reader.GetDateTime(7)
+        };
+    }
+
     private async Task<Result<RecoveryKeyVerifyResponseCoreModel>> RecordVerificationFailureAsync(string identity, CancellationToken cancellationToken)
     {
         long attempts = await cache.IncrementWithExpiryAsync(
@@ -336,7 +394,15 @@ public sealed class RecoveryKeyService(
     }
 
     private static string NormalizeRecoveryKey(string value)
-        => value.Trim();
+    {
+        string normalized = value.Trim();
+        if (normalized.Length > MaxRecoveryKeyChars)
+        {
+            return normalized;
+        }
+
+        return normalized;
+    }
 
     private static bool TryParseRecoveryKeyLookup(string recoveryKey, byte[] pepper, out string lookupIdHash)
     {
@@ -418,16 +484,8 @@ public sealed class RecoveryKeyService(
             pepper,
             Encoding.UTF8.GetBytes("recovery-key-attempt:" + NormalizeRecoveryKey(recoveryKey))))[..32];
 
-    private static string BuildAttemptIdentity(string lookupIdentity, string clientIp, string? userAgent)
-    {
-        string material = string.Concat(
-            lookupIdentity,
-            ':',
-            clientIp,
-            ':',
-            userAgent ?? string.Empty);
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(material)))[..32];
-    }
+    private static string BuildAttemptIdentity(string lookupIdentity)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(lookupIdentity)))[..32];
 
     private static string BuildSessionIdentity(string token)
         => $"token:{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)))[..32]}";

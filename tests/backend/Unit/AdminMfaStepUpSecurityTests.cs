@@ -33,6 +33,22 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    public void AdminStepUpEndpoints_BindChallengeToAuthenticatedPrincipalSession()
+    {
+        string endpoints = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+        string block = ExtractBetween(
+            endpoints,
+            "MapPost(\"/auth/admin/step-up/passkey/begin\"",
+            "group.MapPost(\"/auth/admin/logout\"");
+
+        Assert.True(CountOccurrences(block, "TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId)") >= 2);
+        Assert.DoesNotContain("request.AdminPrincipalId", block, StringComparison.Ordinal);
+        Assert.DoesNotContain("request.AdminSessionId", block, StringComparison.Ordinal);
+        AssertContainsAfter(block, "TryResolveAdminSessionContext", "BeginAdminStepUpAssertionAsync(adminPrincipalId, adminSessionId");
+        AssertContainsAfter(block, "TryResolveAdminSessionContext", "CompleteAdminStepUpAssertionAsync(\n                adminPrincipalId,\n                adminSessionId");
+    }
+
+    [Fact]
     public void AdminSensitiveMutations_UseAdminStepUpProofInsteadOfUserMfa()
     {
         string adminUsers = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AdminUsers.cs");
@@ -66,7 +82,7 @@ public sealed class AdminMfaStepUpSecurityTests
         Assert.Contains("MFA_REQUIRED", mfaStart, StringComparison.Ordinal);
         Assert.True(
             mfaStart.IndexOf("IsAdminSensitiveAction(action)", StringComparison.Ordinal) <
-            mfaStart.IndexOf("CreateProofTokenAsync(user.Value.Id, action", StringComparison.Ordinal));
+            mfaStart.IndexOf("CreateProofTokenAsync", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -238,6 +254,15 @@ public sealed class AdminMfaStepUpSecurityTests
         Assert.True(start >= 0, $"Missing start marker: {startMarker}");
         Assert.True(end > start, $"Missing end marker after {startMarker}: {endMarker}");
         return source[start..end];
+    }
+
+    private static void AssertContainsAfter(string source, string first, string second)
+    {
+        int firstIndex = source.IndexOf(first, StringComparison.Ordinal);
+        int secondIndex = source.IndexOf(second, StringComparison.Ordinal);
+        Assert.True(firstIndex >= 0, $"Missing marker: {first}");
+        Assert.True(secondIndex >= 0, $"Missing marker: {second}");
+        Assert.True(secondIndex > firstIndex, $"{second} must appear after {first}");
     }
 
     private static string ReadRepoFile(string relativePath)

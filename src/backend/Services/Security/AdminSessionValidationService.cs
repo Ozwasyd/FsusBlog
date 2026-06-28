@@ -29,7 +29,7 @@ public sealed class AdminSessionValidationService(ISqlSugarClient db) : IAdminSe
 
         if (principal?.IsAdminPrincipal() != true)
         {
-            return AdminSessionValidationResult.Valid;
+            return AdminSessionValidationResult.Invalid("admin_principal_required");
         }
 
         if (!principal.TryGetAdminPrincipalId(out long adminId))

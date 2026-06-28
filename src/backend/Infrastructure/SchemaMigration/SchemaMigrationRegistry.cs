@@ -971,12 +971,16 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         mfa_pending_created_at timestamp NULL,
                         mfa_verified_at timestamp NULL,
                         mfa_recovery_codes_hash text NULL,
+                        last_totp_step bigint NULL,
+                        last_totp_used_at_utc timestamp NULL,
                         hash_version smallint NOT NULL DEFAULT 1,
                         updated_at_utc timestamp NOT NULL DEFAULT now()
                     );
                     CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_user_mfa_profile_user ON user_mfa_profile(user_id);
                     """),
                 new EnsureColumnStep("user_mfa_profile", "hash_version", "smallint NOT NULL DEFAULT 1"),
+                new EnsureColumnStep("user_mfa_profile", "last_totp_step", "bigint NULL"),
+                new EnsureColumnStep("user_mfa_profile", "last_totp_used_at_utc", "timestamp NULL"),
                 new RawSqlStep("""
                     DO $$
                     DECLARE
