@@ -3,7 +3,7 @@
     <el-markdown-renderer
       ref="rendererRef"
       :content="props.content"
-      :initial-html="props.initialHtml"
+      :initial-html="safeInitialHtml"
       :allow-html="props.allowHtml"
       :allow-latex="props.allowLatex"
       :allow-mermaid="props.allowMermaid"
@@ -19,6 +19,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { MarkdownFeatureActivationResult, MarkdownRenderResult } from '@/fsusui/markdown'
+import { sanitizeMarkdownRuntimeHtml } from '@/utils/safeHtml'
 
 type MarkdownRenderMode = 'article' | 'about' | 'preview' | 'editor'
 type MarkdownRendererExpose = {
@@ -53,6 +54,7 @@ const emit = defineEmits<{
 
 const rendererRef = ref<MarkdownRendererExpose | null>(null)
 const rootEl = computed(() => rendererRef.value?.rootEl ?? null)
+const safeInitialHtml = computed(() => sanitizeMarkdownRuntimeHtml(props.initialHtml))
 
 defineExpose({ rootEl })
 </script>

@@ -35,7 +35,7 @@
         v-if="html"
         class="preview-frame"
         title="私有预览渲染结果"
-        sandbox="allow-scripts"
+        sandbox=""
         :srcdoc="previewDocument"
       ></iframe>
       <p v-else class="preview-empty">暂无预览快照。</p>
@@ -46,6 +46,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { View } from '@/fsusui/icons'
+import { sanitizePreviewHtml } from '@/utils/safeHtml'
 import type { PrepublishIssue } from '@/api/authoring'
 
 const props = defineProps<{
@@ -60,11 +61,7 @@ defineEmits<{
   (e: 'preview'): void
 }>()
 
-const executableHtmlPattern = /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi
-const eventHandlerAttributePattern = /\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi
-const sanitizedHtml = computed(() => props.html
-  .replace(executableHtmlPattern, '')
-  .replace(eventHandlerAttributePattern, ''))
+const sanitizedHtml = computed(() => sanitizePreviewHtml(props.html))
 
 const previewDocument = computed(() => `<!doctype html>
 <html lang="zh-CN">

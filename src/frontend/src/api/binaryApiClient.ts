@@ -180,6 +180,51 @@ async function buildPowHeadersIfNeeded(url: string, options?: BinaryRequestOptio
   return await buildBinaryPowHeaders(options.signal, derivePowScope(url, options))
 }
 
+function isStateChangingRequest(options?: BinaryRequestOptions): boolean {
+  const method = (options?.method ?? 'GET').toUpperCase()
+  return method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS'
+}
+
+function readCookieValue(name: string): string {
+  if (typeof document === 'undefined') {
+    return ''
+  }
+
+  const prefix = `${name}=`
+  for (const item of document.cookie.split(';')) {
+    const trimmed = item.trim()
+    if (trimmed.startsWith(prefix)) {
+      return decodeURIComponent(trimmed.slice(prefix.length))
+    }
+  }
+
+  return ''
+}
+
+export function readCsrfToken(): string {
+  if (typeof document === 'undefined') {
+    return ''
+  }
+
+  const metaToken = document.querySelector<HTMLMetaElement>('meta[name="fsus-csrf-token"]')?.content?.trim()
+  if (metaToken) {
+    return metaToken
+  }
+
+  return readCookieValue('XSRF-TOKEN').trim()
+}
+
+function applyCsrfHeader(headers: Headers, options?: BinaryRequestOptions): void {
+  if (options?.credentials === 'omit' || !isStateChangingRequest(options) || headers.has(FSUS_HEADERS.csrfToken)) {
+    return
+  }
+
+  const token = readCsrfToken()
+  if (token) {
+    headers.set(FSUS_HEADERS.csrfToken, token)
+  }
+}
+
 function decodePowChallenge(buffer: ArrayBuffer): { salt: string; difficulty: number; timestamp: number; signature: string } {
   const frame = decode(buffer)
   if (!frame.ok || frame.frameType !== FrameType.PowChallenge) {
@@ -207,6 +252,7 @@ async function binaryRequestResult(url: string, options?: BinaryRequestOptions):
     headers.delete('cookie')
   }
   applyBinaryRequestHeaders(headers, options?.body !== undefined)
+  applyCsrfHeader(headers, options)
   for (const [key, value] of Object.entries(powHeaders)) {
     headers.set(key, value)
   }

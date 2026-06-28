@@ -8,7 +8,7 @@ namespace FsusBlog.Server.Modules.Endpoints;
 public static class PublicAotEndpoints
 {
     private const string ManifestTokenHeader = "X-Fsus-Public-Aot-Token";
-    private const int MaxNavigationPathChars = 512;
+    private const int MaxNavigationSnapshotPathLength = 512;
 
     public static IEndpointRouteBuilder MapPublicAotEndpoints(this IEndpointRouteBuilder app)
     {
@@ -130,7 +130,7 @@ public static class PublicAotEndpoints
 
         string normalized = rawPath?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(normalized) ||
-            (rawPath is not null && rawPath.Length > MaxNavigationPathChars) ||
+            normalized.Length > MaxNavigationSnapshotPathLength ||
             !normalized.StartsWith("/", StringComparison.Ordinal) ||
             normalized.StartsWith("//", StringComparison.Ordinal) ||
             normalized.Contains("://", StringComparison.Ordinal) ||

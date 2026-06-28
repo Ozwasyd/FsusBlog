@@ -17,8 +17,27 @@ export function isLocalFixtureQueryEnabled(value: unknown): boolean {
   return value === '1'
 }
 
+function isLocalFixtureHost(): boolean {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === '::1'
+}
+
+function canUseLocalFixtureSession(): boolean {
+  return Boolean(
+    import.meta.env.DEV &&
+    import.meta.env.MODE === 'development' &&
+    !import.meta.env.PROD &&
+    isLocalFixtureHost()
+  )
+}
+
 export function activateLocalFixtureSession(): void {
-  if (!import.meta.env.DEV || typeof sessionStorage === 'undefined') {
+  if (!canUseLocalFixtureSession() || typeof sessionStorage === 'undefined') {
     return
   }
   sessionStorage.setItem(LOCAL_FIXTURE_SESSION_KEY, '1')
@@ -41,7 +60,7 @@ function hasLocalFixtureQueryFlag(): boolean {
 
 export function isLocalFixtureSessionActive(): boolean {
   return Boolean(
-    import.meta.env.DEV
+    canUseLocalFixtureSession()
     && (
       hasLocalFixtureQueryFlag()
       || (

@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 
 const srcRoot = resolve(process.cwd(), 'src')
+const repoRoot = resolve(process.cwd(), '..', '..')
 
 const bannedRules = [
   {
@@ -78,6 +79,71 @@ function walk(dir) {
 }
 
 walk(srcRoot)
+
+function readRepoFile(path) {
+  return readFileSync(resolve(repoRoot, path), 'utf8')
+}
+
+function requireContains(file, needle, message) {
+  const content = readRepoFile(file)
+  if (!content.includes(needle)) {
+    violations.push(`${file}: ${message}`)
+  }
+}
+
+function requireNotContains(file, needle, message) {
+  const content = readRepoFile(file)
+  if (content.includes(needle)) {
+    violations.push(`${file}: ${message}`)
+  }
+}
+
+const privatePreview = readRepoFile('src/frontend/src/components/admin/article/ArticlePrivatePreviewPanel.vue')
+if (privatePreview.includes('sandbox="allow-scripts"')) {
+  violations.push('src/frontend/src/components/admin/article/ArticlePrivatePreviewPanel.vue: preview iframe must not allow scripts')
+}
+if (/executableHtmlPattern|eventHandlerAttributePattern|\.replace\(executableHtmlPattern/.test(privatePreview)) {
+  violations.push('src/frontend/src/components/admin/article/ArticlePrivatePreviewPanel.vue: preview sanitizer must not be regex-based')
+}
+if (!privatePreview.includes('sanitizePreviewHtml')) {
+  violations.push('src/frontend/src/components/admin/article/ArticlePrivatePreviewPanel.vue: preview must use audited sanitizePreviewHtml')
+}
+
+const localFixtureSession = readRepoFile('src/frontend/src/services/localFixtureSession.ts')
+for (const token of ['import.meta.env.MODE', 'import.meta.env.PROD', 'isLocalFixtureHost']) {
+  if (!localFixtureSession.includes(token)) {
+    violations.push(`src/frontend/src/services/localFixtureSession.ts: local fixture gate must include ${token}`)
+  }
+}
+
+const binaryClient = readRepoFile('src/frontend/src/api/binaryApiClient.ts')
+const binaryContracts = readRepoFile('src/frontend/src/api/contracts.ts')
+if (!binaryClient.includes('FSUS_HEADERS.csrfToken') || !binaryClient.includes('readCsrfToken') || !binaryContracts.includes("csrfToken: 'X-Fsus-Csrf-Token'")) {
+  violations.push('src/frontend/src/api/binaryApiClient.ts: credentialed mutation requests must attach X-Fsus-Csrf-Token when available')
+}
+
+const adminArticleWrite = readRepoFile('src/frontend/src/composables/useAdminArticleWrite.ts')
+if (/localStorage\.setItem\(key,\s*encodePublicAotPayload\(snapshot\)\)/.test(adminArticleWrite)) {
+  violations.push('src/frontend/src/composables/useAdminArticleWrite.ts: article draft body must not be persisted to localStorage')
+}
+
+const openResty = readRepoFile('deploy/production-openresty.conf')
+for (const header of ['Content-Security-Policy', 'Cross-Origin-Opener-Policy', 'Cross-Origin-Embedder-Policy', 'Cross-Origin-Resource-Policy']) {
+  if (!openResty.includes(header)) {
+    violations.push(`deploy/production-openresty.conf: missing ${header} response header`)
+  }
+}
+
+requireContains(
+  'src/frontend/src/fsusui/markdown.ts',
+  'sanitizeMarkdownRuntimeHtml',
+  'markdown runtime wrapper must apply a second-pass sanitizer'
+)
+requireNotContains(
+  'src/frontend/eslint.config.mjs',
+  'export default []',
+  'eslint config must not be empty for security-sensitive frontend code'
+)
 
 if (violations.length > 0) {
   console.error('[check-security-consistency] failed')

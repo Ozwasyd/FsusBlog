@@ -3,6 +3,7 @@ import {
   type MarkdownRenderResult as FsusMarkdownRenderResult
 } from '@ozwasyd/element-plus/markdown-runtime'
 import type { FsusUiResult } from '@/fsusui/result'
+import { sanitizeMarkdownRuntimeHtml } from '@/utils/safeHtml'
 
 export type MarkdownRenderMode = 'article' | 'about' | 'preview' | 'editor'
 export type MarkdownRenderResult = FsusMarkdownRenderResult
@@ -26,7 +27,7 @@ export async function renderMarkdownWithFsusRuntime(input: {
   baseUrl?: string | null
 }): Promise<FsusUiResult<MarkdownRenderResult>> {
   try {
-    return await renderMarkdownResultWithRuntime({
+    const result = await renderMarkdownResultWithRuntime({
       source: input.source,
       mode: input.mode ?? 'article',
       allowHtml: input.allowHtml ?? false,
@@ -34,6 +35,17 @@ export async function renderMarkdownWithFsusRuntime(input: {
       allowMermaid: input.allowMermaid ?? true,
       baseUrl: input.baseUrl ?? null
     })
+    if (!result.ok || typeof result.value.html !== 'string') {
+      return result
+    }
+
+    return {
+      ...result,
+      value: {
+        ...result.value,
+        html: sanitizeMarkdownRuntimeHtml(result.value.html)
+      }
+    }
   } catch (error: unknown) {
     return unavailable('FsusUI markdown runtime is unavailable.', error)
   }

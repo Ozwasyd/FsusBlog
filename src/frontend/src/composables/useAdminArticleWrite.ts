@@ -65,6 +65,13 @@ interface ArticleDraftSnapshot extends ArticleParams {
   clientRevision: string
 }
 
+interface LocalDraftMetadata {
+  savedAt: number
+  sourceArticleId: number | null
+  isEdit: boolean
+  clientRevision: string
+}
+
 interface ArticleSeoPreviewState {
   title: string
   description: string
@@ -213,7 +220,13 @@ const writeDraftSnapshot = (key: string, snapshot: ArticleDraftSnapshot): void =
   }
 
   try {
-    window.localStorage.setItem(key, encodePublicAotPayload(snapshot))
+    const metadata: LocalDraftMetadata = {
+      savedAt: snapshot.savedAt,
+      sourceArticleId: snapshot.sourceArticleId,
+      isEdit: snapshot.isEdit,
+      clientRevision: snapshot.clientRevision
+    }
+    window.localStorage.setItem(key, encodePublicAotPayload(metadata))
   } catch {
     // Local draft cache is best-effort and must never block editing.
   }

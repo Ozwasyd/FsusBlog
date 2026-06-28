@@ -103,6 +103,21 @@ describe('binaryApiClient credentials handling', () => {
     expect(headers.get('cookie')).toBeNull()
     expect(headers.get('x-test')).toBe('kept')
   })
+
+  it('adds csrf token from document metadata for credentialed mutations', async () => {
+    document.head.innerHTML = '<meta name="fsus-csrf-token" content="csrf-token-value">'
+
+    await binaryRequest('/api/binary/category', {
+      method: 'POST',
+      body: new Uint8Array([1, 2, 3])
+    })
+
+    const fetchMock = vi.mocked(fetch)
+    const [, init] = fetchMock.mock.calls[0]
+    const headers = init?.headers as Headers
+    expect(init?.credentials).toBe('include')
+    expect(headers.get('x-fsus-csrf-token')).toBe('csrf-token-value')
+  })
 })
 
 describe('binaryApiClient pow abort handling', () => {
