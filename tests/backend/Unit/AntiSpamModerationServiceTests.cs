@@ -59,6 +59,28 @@ public sealed class AntiSpamModerationServiceTests
     }
 
     [Fact]
+    public void ScoreHttpJsonAsync_SourceCachesEndpointDnsAndSerializesRequestOnce()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Moderation/AntiSpamModerationService.cs");
+        string method = source[
+            source.IndexOf("private async Task<AntiSpamModerationResult> ScoreHttpJsonAsync", StringComparison.Ordinal)..
+            source.IndexOf("public static AntiSpamModerationResult ValidateProviderResultJson", StringComparison.Ordinal)];
+
+        Assert.Contains("ResolveHttpJsonProviderRuntime", method, StringComparison.Ordinal);
+        Assert.Contains("GetOrValidateHttpJsonEndpointAsync", method, StringComparison.Ordinal);
+        Assert.Contains("JsonSerializer.SerializeToUtf8Bytes(payload, JsonOptions)", method, StringComparison.Ordinal);
+        Assert.Contains("ValidateProviderRequestJson(requestBytes)", method, StringComparison.Ordinal);
+        Assert.Contains("new ByteArrayContent(requestBytes)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("JsonSerializer.Serialize(payload", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("JsonContent.Create", method, StringComparison.Ordinal);
+        Assert.Contains("ConcurrentDictionary<HttpJsonEndpointCacheKey, EndpointCacheEntry>", source, StringComparison.Ordinal);
+        Assert.Contains("cachedEndpoint.ExpiresAtUtc > DateTimeOffset.UtcNow", method, StringComparison.Ordinal);
+        Assert.Contains("ConcurrentDictionary<string, DnsCacheEntry", source, StringComparison.Ordinal);
+        Assert.Contains("FrozenSet<string>", source, StringComparison.Ordinal);
+        Assert.Contains("ForbiddenIdentityFieldSet", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ServiceCollection_RegistersDedicatedAntiSpamHttpClientWithoutRedirects()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs");

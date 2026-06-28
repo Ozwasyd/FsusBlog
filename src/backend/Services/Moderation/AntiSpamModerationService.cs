@@ -1,7 +1,8 @@
+using System.Collections.Concurrent;
+using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -26,6 +27,9 @@ public sealed class AntiSpamModerationService(
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private const string HttpJsonAllowedHostsKey = "Moderation:AntiSpamModel:Providers:http-json:AllowedHosts";
     public const long MaxHttpJsonProviderResponseBytes = 256 * 1024;
+    private static readonly TimeSpan DnsCacheTtl = TimeSpan.FromMinutes(5);
+    private static readonly ConcurrentDictionary<HttpJsonEndpointCacheKey, EndpointCacheEntry> EndpointValidationCache = new();
+    private static readonly ConcurrentDictionary<string, DnsCacheEntry> DnsValidationCache = new(StringComparer.OrdinalIgnoreCase);
 
     private static readonly HashSet<string> AllowedCategories = new(StringComparer.Ordinal)
     {
@@ -100,6 +104,14 @@ public sealed class AntiSpamModerationService(
         "authorization",
         "cookie"
     ];
+
+    private static readonly FrozenSet<string> AllowedRequestMetadataFieldSet = AntiSpamModerationContract.AllowedRequestMetadataFields
+        .Select(NormalizeMetadataKey)
+        .ToFrozenSet(StringComparer.Ordinal);
+    private static readonly FrozenSet<string> ForbiddenIdentityFieldSet = AntiSpamModerationContract.ForbiddenIdentityFields
+        .Concat(ForbiddenProviderMetadataKeys)
+        .Select(NormalizeMetadataKey)
+        .ToFrozenSet(StringComparer.Ordinal);
 
     public async Task<AntiSpamModerationResult?> ScoreCommentAsync(AntiSpamCommentModerationContext context, CancellationToken cancellationToken = default)
     {
@@ -197,22 +209,59 @@ public sealed class AntiSpamModerationService(
     public static void ValidateProviderRequestJson(string json)
     {
         using JsonDocument document = JsonDocument.Parse(json);
-        JsonElement root = document.RootElement;
+        ValidateProviderRequestDocument(document.RootElement);
+    }
+
+    public static void ValidateProviderRequestJson(ReadOnlyMemory<byte> json)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        ValidateProviderRequestDocument(document.RootElement);
+    }
+
+    private static void ValidateProviderRequestDocument(JsonElement root)
+    {
         RejectForbiddenIdentityFields(root, "$");
         if (root.TryGetProperty("metadata", out JsonElement metadata) && metadata.ValueKind == JsonValueKind.Object)
         {
-            HashSet<string> allowedMetadata = AntiSpamModerationContract.AllowedRequestMetadataFields
-                .Select(NormalizeMetadataKey)
-                .ToHashSet(StringComparer.Ordinal);
             foreach (JsonProperty property in metadata.EnumerateObject())
             {
                 string normalizedName = NormalizeMetadataKey(property.Name);
-                if (!allowedMetadata.Contains(normalizedName))
+                if (!AllowedRequestMetadataFieldSet.Contains(normalizedName))
                 {
                     throw new InvalidOperationException($"provider request metadata contains unsupported field: {property.Name}");
                 }
             }
         }
+    }
+
+    private HttpJsonProviderRuntime ResolveHttpJsonProviderRuntime(ModerationModelRuntimeSnapshot? runtimeModel)
+    {
+        bool allowExternal = runtimeModel?.ExternalProviderAllowed ?? configuration.GetValue<bool>("Moderation:AntiSpamModel:AllowExternalProvider");
+        bool reviewed = runtimeModel?.ExternalProviderReviewed ?? configuration.GetValue<bool>("Moderation:AntiSpamModel:ExternalProviderReviewed");
+        string? endpoint = configuration["Moderation:AntiSpamModel:Providers:http-json:Endpoint"];
+        string? allowedHosts = configuration[HttpJsonAllowedHostsKey];
+        _ = TryBuildAllowedProviderHostSet(allowedHosts, out FrozenSet<string>? allowedHostSet);
+        string contractVersion = ResolveContractVersion(runtimeModel);
+        string runtimeVersion = runtimeModel?.ConfigChecksum
+            ?? string.Join(
+                '|',
+                NormalizeProvider(runtimeModel?.Provider ?? configuration["Moderation:AntiSpamModel:Provider"]),
+                runtimeModel?.ModelProfile ?? configuration["Moderation:AntiSpamModel:ModelProfile"],
+                runtimeModel?.ThresholdProfile ?? configuration["Moderation:AntiSpamModel:ThresholdProfile"],
+                contractVersion,
+                runtimeModel?.TimeoutMs.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    ?? Math.Clamp(configuration.GetValue<int?>("Moderation:AntiSpamModel:TimeoutMs") ?? 800, 100, 10_000).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                allowExternal.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                reviewed.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+        return new HttpJsonProviderRuntime(
+            allowExternal,
+            reviewed,
+            endpoint,
+            allowedHosts,
+            allowedHostSet,
+            contractVersion,
+            runtimeVersion);
     }
 
     private static void RejectForbiddenIdentityFields(JsonElement element, string path)
@@ -246,9 +295,7 @@ public sealed class AntiSpamModerationService(
     private static bool IsForbiddenIdentityField(string key)
     {
         string normalized = NormalizeMetadataKey(key);
-        return AntiSpamModerationContract.ForbiddenIdentityFields
-            .Select(NormalizeMetadataKey)
-            .Any(forbidden => string.Equals(normalized, forbidden, StringComparison.Ordinal));
+        return ForbiddenIdentityFieldSet.Contains(normalized);
     }
 
     private static void AddMetadata(IDictionary<string, string> metadata, string key, string? value)
@@ -323,32 +370,28 @@ public sealed class AntiSpamModerationService(
         ModerationModelRuntimeSnapshot? runtimeModel,
         CancellationToken cancellationToken)
     {
-        bool allowExternal = runtimeModel?.ExternalProviderAllowed ?? configuration.GetValue<bool>("Moderation:AntiSpamModel:AllowExternalProvider");
-        bool reviewed = runtimeModel?.ExternalProviderReviewed ?? configuration.GetValue<bool>("Moderation:AntiSpamModel:ExternalProviderReviewed");
-        if (!allowExternal || !reviewed)
+        HttpJsonProviderRuntime runtime = ResolveHttpJsonProviderRuntime(runtimeModel);
+        if (!runtime.AllowExternal || !runtime.Reviewed)
         {
             return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, "external_provider_not_reviewed", AntiSpamModerationStatuses.Unavailable, TimeSpan.Zero, runtimeModel);
         }
 
-        string? endpoint = configuration["Moderation:AntiSpamModel:Providers:http-json:Endpoint"];
-        if (string.IsNullOrWhiteSpace(endpoint))
+        if (string.IsNullOrWhiteSpace(runtime.Endpoint))
         {
             return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, "http_endpoint_missing", AntiSpamModerationStatuses.Unavailable, TimeSpan.Zero, runtimeModel);
         }
 
-        AntiSpamProviderEndpointValidation validatedEndpoint = await ValidateHttpJsonEndpointAsync(
-            endpoint,
-            configuration[HttpJsonAllowedHostsKey],
+        AntiSpamProviderEndpointValidation validatedEndpoint = await GetOrValidateHttpJsonEndpointAsync(
+            runtime,
             cancellationToken).ConfigureAwait(false);
         if (!validatedEndpoint.Allowed)
         {
             return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, $"http_endpoint_{validatedEndpoint.Reason}", AntiSpamModerationStatuses.Unavailable, TimeSpan.Zero, runtimeModel);
         }
 
-        string contractVersion = ResolveContractVersion(runtimeModel);
         var payload = new
         {
-            contract_version = contractVersion,
+            contract_version = runtime.ContractVersion,
             request_id = request.RequestId,
             content_type = request.ContentType,
             text = request.Content,
@@ -358,12 +401,17 @@ public sealed class AntiSpamModerationService(
             max_evidence_items = 8,
             metadata = request.Metadata
         };
-        ValidateProviderRequestJson(JsonSerializer.Serialize(payload, JsonOptions));
+        byte[] requestBytes = JsonSerializer.SerializeToUtf8Bytes(payload, JsonOptions);
+        ValidateProviderRequestJson(requestBytes);
         Stopwatch stopwatch = Stopwatch.StartNew();
         using HttpClient client = httpClientFactory.CreateClient(nameof(AntiSpamModerationService));
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, validatedEndpoint.Uri!)
         {
-            Content = JsonContent.Create(payload, options: JsonOptions)
+            Content = new ByteArrayContent(requestBytes)
+        };
+        httpRequest.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
+        {
+            CharSet = "utf-8"
         };
         using HttpResponseMessage response = await client.SendAsync(
             httpRequest,
@@ -386,7 +434,7 @@ public sealed class AntiSpamModerationService(
         {
             string json = await ReadProviderResponseJsonAsync(response.Content, cancellationToken).ConfigureAwait(false);
             stopwatch.Stop();
-            return ValidateProviderResultJson(json, contractVersion, AntiSpamModerationProviders.HttpJson, stopwatch.Elapsed);
+            return ValidateProviderResultJson(json, runtime.ContractVersion, AntiSpamModerationProviders.HttpJson, stopwatch.Elapsed);
         }
         catch (ProviderResponseTooLargeException ex)
         {
@@ -477,6 +525,14 @@ public sealed class AntiSpamModerationService(
 
     public static AntiSpamProviderEndpointValidation ValidateHttpJsonProviderEndpointConfiguration(string? endpoint, string? allowedHosts)
     {
+        _ = TryBuildAllowedProviderHostSet(allowedHosts, out FrozenSet<string>? hostSet);
+        return ValidateHttpJsonProviderEndpointConfiguration(endpoint, hostSet);
+    }
+
+    private static AntiSpamProviderEndpointValidation ValidateHttpJsonProviderEndpointConfiguration(
+        string? endpoint,
+        FrozenSet<string>? hostSet)
+    {
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out Uri? uri) || string.IsNullOrWhiteSpace(uri.Host))
         {
             return AntiSpamProviderEndpointValidation.Deny("absolute_https_endpoint_required");
@@ -494,7 +550,7 @@ public sealed class AntiSpamModerationService(
             return AntiSpamProviderEndpointValidation.Deny("endpoint_userinfo_not_allowed");
         }
 
-        if (!TryBuildAllowedProviderHostSet(allowedHosts, out HashSet<string>? hostSet) || hostSet is null)
+        if (hostSet is null)
         {
             return AntiSpamProviderEndpointValidation.Deny("host_allowlist_missing");
         }
@@ -517,8 +573,42 @@ public sealed class AntiSpamModerationService(
         string endpoint,
         string? allowedHosts,
         CancellationToken cancellationToken)
+        => await ValidateHttpJsonEndpointAsync(endpoint, allowedHosts, allowedHostSet: null, cancellationToken).ConfigureAwait(false);
+
+    private async Task<AntiSpamProviderEndpointValidation> GetOrValidateHttpJsonEndpointAsync(
+        HttpJsonProviderRuntime runtime,
+        CancellationToken cancellationToken)
     {
-        AntiSpamProviderEndpointValidation configurationValidation = ValidateHttpJsonProviderEndpointConfiguration(endpoint, allowedHosts);
+        var key = new HttpJsonEndpointCacheKey(
+            runtime.Endpoint ?? string.Empty,
+            runtime.AllowedHosts ?? string.Empty,
+            runtime.RuntimeVersion);
+        if (EndpointValidationCache.TryGetValue(key, out EndpointCacheEntry? cachedEndpoint)
+            && cachedEndpoint.ExpiresAtUtc > DateTimeOffset.UtcNow)
+        {
+            return cachedEndpoint.Validation;
+        }
+
+        AntiSpamProviderEndpointValidation validation = await ValidateHttpJsonEndpointAsync(
+            runtime.Endpoint ?? string.Empty,
+            runtime.AllowedHosts,
+            runtime.AllowedHostSet,
+            cancellationToken).ConfigureAwait(false);
+        DateTimeOffset expiresAtUtc = validation.Uri is { } uri && !IPAddress.TryParse(uri.Host, out _)
+            ? DateTimeOffset.UtcNow.Add(DnsCacheTtl)
+            : DateTimeOffset.MaxValue;
+        EndpointValidationCache[key] = new EndpointCacheEntry(validation, expiresAtUtc);
+        return validation;
+    }
+
+    private static async Task<AntiSpamProviderEndpointValidation> ValidateHttpJsonEndpointAsync(
+        string endpoint,
+        string? allowedHosts,
+        FrozenSet<string>? allowedHostSet,
+        CancellationToken cancellationToken)
+    {
+        _ = allowedHosts;
+        AntiSpamProviderEndpointValidation configurationValidation = ValidateHttpJsonProviderEndpointConfiguration(endpoint, allowedHostSet);
         if (!configurationValidation.Allowed || configurationValidation.Uri is not { } uri)
         {
             return configurationValidation;
@@ -527,6 +617,16 @@ public sealed class AntiSpamModerationService(
         if (IPAddress.TryParse(uri.Host, out _))
         {
             return configurationValidation;
+        }
+
+        string dnsCacheKey = NormalizeProviderHost(uri.IdnHost);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        if (DnsValidationCache.TryGetValue(dnsCacheKey, out DnsCacheEntry? cachedDns)
+            && cachedDns.ExpiresAtUtc > now)
+        {
+            return cachedDns.Validation.Allowed
+                ? configurationValidation
+                : AntiSpamProviderEndpointValidation.Deny(cachedDns.Validation.Reason, uri);
         }
 
         IPAddress[] addresses;
@@ -545,6 +645,7 @@ public sealed class AntiSpamModerationService(
         }
 
         AntiSpamProviderEndpointValidation addressValidation = ValidateHttpJsonProviderResolvedAddresses(uri, addresses);
+        DnsValidationCache[dnsCacheKey] = new DnsCacheEntry(addressValidation, now.Add(DnsCacheTtl));
         return addressValidation.Allowed ? configurationValidation : addressValidation;
     }
 
@@ -583,7 +684,7 @@ public sealed class AntiSpamModerationService(
         => string.Equals(mediaType, "application/json", StringComparison.OrdinalIgnoreCase)
             || (mediaType?.EndsWith("+json", StringComparison.OrdinalIgnoreCase) ?? false);
 
-    private static bool TryBuildAllowedProviderHostSet(string? allowedHosts, out HashSet<string>? hostSet)
+    private static bool TryBuildAllowedProviderHostSet(string? allowedHosts, out FrozenSet<string>? hostSet)
     {
         hostSet = null;
         if (string.IsNullOrWhiteSpace(allowedHosts))
@@ -602,7 +703,7 @@ public sealed class AntiSpamModerationService(
             return false;
         }
 
-        hostSet = hosts.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        hostSet = hosts.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
         return true;
     }
 
@@ -677,6 +778,28 @@ public sealed class AntiSpamModerationService(
 
     private sealed class ProviderResponseTooLargeException()
         : InvalidOperationException("anti-spam provider response exceeded the configured byte limit");
+
+    private sealed record HttpJsonProviderRuntime(
+        bool AllowExternal,
+        bool Reviewed,
+        string? Endpoint,
+        string? AllowedHosts,
+        FrozenSet<string>? AllowedHostSet,
+        string ContractVersion,
+        string RuntimeVersion);
+
+    private readonly record struct HttpJsonEndpointCacheKey(
+        string Endpoint,
+        string AllowedHosts,
+        string RuntimeVersion);
+
+    private sealed record EndpointCacheEntry(
+        AntiSpamProviderEndpointValidation Validation,
+        DateTimeOffset ExpiresAtUtc);
+
+    private sealed record DnsCacheEntry(
+        AntiSpamProviderEndpointValidation Validation,
+        DateTimeOffset ExpiresAtUtc);
 
     public static AntiSpamModerationResult ValidateProviderResultJson(
         string json,
