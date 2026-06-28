@@ -53,9 +53,12 @@ public sealed class ArticleViewProjectionService(
         await hotStatsInvalidation.MarkStatsDirtyAsync("article-view-projection", cancellationToken).ConfigureAwait(false);
         await hotStatsInvalidation.MarkHotArticlesDirtyAsync("article-view-projection", cancellationToken).ConfigureAwait(false);
 
-        if (!publicHotUpdates.TryEnqueue(null, "article-view-projection-batch"))
+        foreach (int articleId in updatedArticleIds)
         {
-            logger.LogWarning("public-hot-read-update-enqueue-failed {ArticleId} {Reason}", null, "article-view-projection-batch");
+            if (!publicHotUpdates.TryEnqueue(articleId, "article-view-projection-batch"))
+            {
+                logger.LogWarning("public-hot-read-update-enqueue-failed {ArticleId} {Reason}", articleId, "article-view-projection-batch");
+            }
         }
     }
 

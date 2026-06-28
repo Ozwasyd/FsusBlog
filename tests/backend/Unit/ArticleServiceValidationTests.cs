@@ -394,7 +394,8 @@ public class ArticleServiceValidationTests
         Assert.Contains("IncreaseViewCountsAsync(articleCounts, cancellationToken)", method, StringComparison.Ordinal);
         Assert.Contains("MarkStatsDirtyAsync(reason, cancellationToken)", method, StringComparison.Ordinal);
         Assert.Contains("MarkHotArticlesDirtyAsync(reason, cancellationToken)", method, StringComparison.Ordinal);
-        Assert.Contains("TryEnqueue(null, reason)", method, StringComparison.Ordinal);
+        Assert.Contains("foreach (int articleId in updatedArticleIds)", method, StringComparison.Ordinal);
+        Assert.Contains("TryEnqueue(articleId, reason)", method, StringComparison.Ordinal);
         Assert.Contains("article-view-projection-buffer-flush", method, StringComparison.Ordinal);
     }
 

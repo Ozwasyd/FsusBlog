@@ -164,6 +164,22 @@ public sealed class PublicContentInvalidationFlowTests
     }
 
     [Fact]
+    public void PublicHotViewProjection_RefreshesRankingWithoutFullSnapshotRebuild()
+    {
+        string queue = ReadRepoFile("src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs");
+        string viewProjection = ReadRepoFile("src/backend/Services/VisitLog/ArticleViewProjectionService.cs");
+        string viewBuffer = ReadRepoFile("src/backend/Services/ArticleViewWriteBuffer.cs");
+        string worker = Slice(queue, "protected override async Task ExecuteAsync", "    }\n}");
+
+        Assert.Contains("RebuildAfterViewProjectionAsync(snapshot, articleIds, stoppingToken)", worker, StringComparison.Ordinal);
+        Assert.Contains("dirtyReason == PublicHotArtifactDirtyReason.ViewProjection", worker, StringComparison.Ordinal);
+        Assert.Contains("foreach (int articleId in updatedArticleIds)", viewProjection, StringComparison.Ordinal);
+        Assert.Contains("publicHotUpdates.TryEnqueue(articleId, \"article-view-projection-batch\")", viewProjection, StringComparison.Ordinal);
+        Assert.Contains("foreach (int articleId in updatedArticleIds)", viewBuffer, StringComparison.Ordinal);
+        Assert.Contains("publicHotUpdates.TryEnqueue(articleId, reason)", viewBuffer, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ScheduledPublish_ReliesOnOutboxForNewlyPublishedArticleSideEffects()
     {
         string source = ReadRepoFile("src/backend/Services/Background/ScheduledPublishWorker.cs");

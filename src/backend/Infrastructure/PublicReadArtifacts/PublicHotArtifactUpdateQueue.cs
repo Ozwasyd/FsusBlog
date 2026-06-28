@@ -128,7 +128,13 @@ public sealed class PublicHotArtifactUpdateWorker(
                 await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
                 var projector = scope.ServiceProvider.GetRequiredService<IPublicHotArtifactProjector>();
                 PublicHotReadSnapshot snapshot = store.Current;
-                if (requiresFullRebuild || articleIds.Count == 0)
+                if (dirtyReason == PublicHotArtifactDirtyReason.ViewProjection)
+                {
+                    snapshot = await projector
+                        .RebuildAfterViewProjectionAsync(snapshot, articleIds, stoppingToken)
+                        .ConfigureAwait(false);
+                }
+                else if (requiresFullRebuild || articleIds.Count == 0)
                 {
                     snapshot = await projector.BuildInitialSnapshotAsync(stoppingToken).ConfigureAwait(false);
                 }

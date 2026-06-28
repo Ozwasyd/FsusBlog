@@ -43,6 +43,31 @@ public sealed class PublicAotArtifactPipelineHotPathContractTests
     }
 
     [Fact]
+    public void PublicHotArtifactProjector_DeltaRebuildsOnlyAffectedListScopes()
+    {
+        string projector = ReadRepoFile("src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs");
+        string observability = ReadRepoFile("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string delta = ExtractMethodBlock(projector, "private async Task<PublicHotReadSnapshot> BuildDeltaSnapshotCoreAsync");
+        string scopedLists = ExtractMethodBlock(projector, "private async Task<int> AddAffectedListFramesAsync");
+
+        Assert.DoesNotContain("BuildListFramesAsync", delta, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildCategoryFrameAsync", delta, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildTagFrameAsync", delta, StringComparison.Ordinal);
+        Assert.DoesNotContain("QueryPublicCategoryIdsAsync", delta, StringComparison.Ordinal);
+        Assert.DoesNotContain("QueryPublicTagIdsAsync", delta, StringComparison.Ordinal);
+
+        Assert.Contains("PublicListKind.Home", scopedLists, StringComparison.Ordinal);
+        Assert.Contains("PublicListKind.Archive", scopedLists, StringComparison.Ordinal);
+        Assert.Contains("PublicListKind.Category", scopedLists, StringComparison.Ordinal);
+        Assert.Contains("PublicListKind.Tag", scopedLists, StringComparison.Ordinal);
+        Assert.Contains("RecordPublicHotDelta", projector, StringComparison.Ordinal);
+        Assert.Contains("fsus.public_hot.delta.changed_articles", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.public_hot.delta.rebuilt_lists", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.public_hot.delta.rebuilt_taxonomy", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.public_hot.delta.elapsed_ms", observability, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PublicAotInvalidation_BatchesRouteRemovalsThroughCacheInterface()
     {
         string interfaceSource = ReadRepoFile("src/backend/Infrastructure/PublicAot/IPublicAotShellCache.cs");

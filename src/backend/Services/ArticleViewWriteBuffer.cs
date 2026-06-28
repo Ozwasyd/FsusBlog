@@ -108,9 +108,12 @@ public sealed class ArticleServiceViewFlushSink(
         const string reason = "article-view-projection-buffer-flush";
         await hotStatsInvalidation.MarkStatsDirtyAsync(reason, cancellationToken).ConfigureAwait(false);
         await hotStatsInvalidation.MarkHotArticlesDirtyAsync(reason, cancellationToken).ConfigureAwait(false);
-        if (!publicHotUpdates.TryEnqueue(null, reason))
+        foreach (int articleId in updatedArticleIds)
         {
-            logger.LogWarning("public-hot-read-update-enqueue-failed {ArticleId} {Reason}", null, reason);
+            if (!publicHotUpdates.TryEnqueue(articleId, reason))
+            {
+                logger.LogWarning("public-hot-read-update-enqueue-failed {ArticleId} {Reason}", articleId, reason);
+            }
         }
 
         return updatedArticleIds;

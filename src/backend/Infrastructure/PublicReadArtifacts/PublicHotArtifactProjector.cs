@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.Diagnostics;
 using System.Data.Common;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
@@ -6,6 +7,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -22,12 +24,23 @@ public interface IPublicHotArtifactProjector
         PublicHotReadSnapshot current,
         int articleId,
         CancellationToken ct);
+
+    Task<PublicHotReadSnapshot> RebuildAfterViewProjectionAsync(
+        PublicHotReadSnapshot current,
+        IReadOnlyCollection<int> articleIds,
+        CancellationToken ct);
 }
 
 internal sealed record PublicArticleFrameSelection(
     IReadOnlyList<int> ArticleIds,
     int PublicArticleCount,
     int ArticleFrameLimit);
+
+internal sealed record PublicHotDeltaScope(
+    IReadOnlyList<int> CategoryIds,
+    IReadOnlyList<int> TagIds,
+    bool RebuildHotFrames,
+    bool RebuildFeaturedFrames);
 
 public sealed class PublicHotArtifactProjector(
     ISqlSugarClient db,
@@ -58,6 +71,19 @@ public sealed class PublicHotArtifactProjector(
             gateCt => BuildDeltaSnapshotCoreAsync(current, articleId, gateCt),
             _ => Task.FromException<PublicHotReadSnapshot>(
                 new TimeoutException("db-gate-timeout:public-hot-read-delta")),
+            ct);
+    }
+
+    public Task<PublicHotReadSnapshot> RebuildAfterViewProjectionAsync(
+        PublicHotReadSnapshot current,
+        IReadOnlyCollection<int> articleIds,
+        CancellationToken ct)
+    {
+        return dbConcurrencyGate.ExecuteAsync(
+            "public-hot-read-view-delta",
+            gateCt => BuildViewProjectionSnapshotCoreAsync(current, articleIds, gateCt),
+            _ => Task.FromException<PublicHotReadSnapshot>(
+                new TimeoutException("db-gate-timeout:public-hot-read-view-delta")),
             ct);
     }
 
@@ -104,34 +130,199 @@ public sealed class PublicHotArtifactProjector(
         int articleId,
         CancellationToken ct)
     {
+        long started = Stopwatch.GetTimestamp();
         PublicHotReadOptions value = options.Value;
-        DateTime utcNow = DateTime.UtcNow;
         long version = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var articleFrames = current.ArticleArtifacts.ToDictionary(static pair => pair.Key, static pair => pair.Value);
+        var listFrames = current.ListArtifacts.ToDictionary(static pair => pair.Key, static pair => pair.Value);
         IReadOnlyList<ArticleDetailReadModel> changedArticles = await LoadArticleDetailsFromDbAsync([articleId], ct).ConfigureAwait(false);
         ArticleDetailReadModel? changed = changedArticles.FirstOrDefault(static article => article.Id > 0);
+        PublicHotDeltaScope scope;
         if (changed is null)
         {
             articleFrames.Remove(articleId);
+            scope = await LoadArticleDeltaScopeAsync(articleId, ct).ConfigureAwait(false);
         }
         else
         {
             ArticleDetailCoreModel core = ArticleProjection.ToCoreDetailModel(changed);
             articleFrames[changed.Id] = EncodeFrame(AedsFrameType.ArticleDetail, PodBinaryCodec.EncodeArticleDetail(core), version, value);
+            scope = BuildArticleDeltaScope(changed);
         }
 
-        FrozenDictionary<PublicListKey, PublicBinaryArtifact> listFrames = await BuildListFramesAsync(utcNow, version, value, ct).ConfigureAwait(false);
-        PublicBinaryArtifact categoryFrame = await BuildCategoryFrameAsync(version, value, ct).ConfigureAwait(false);
-        PublicBinaryArtifact tagFrame = await BuildTagFrameAsync(version, value, ct).ConfigureAwait(false);
+        int rebuiltListFrames = await AddAffectedListFramesAsync(listFrames, scope, version, value, ct).ConfigureAwait(false);
+        int rebuiltTaxonomyFrames = 0;
         FrozenDictionary<string, PublicHtmlArtifact> html = current.HtmlArtifacts.ToFrozenDictionary(StringComparer.Ordinal);
+        FsusObservability.RecordPublicHotDelta(
+            changedArticles: 1,
+            rebuiltListFrames,
+            rebuiltTaxonomyFrames,
+            FsusObservability.GetElapsed(started));
+        logger.LogInformation(
+            "public-hot-read-delta {ArticleId} {ListFrames} {CategoryCount} {TagCount} {ElapsedMs}",
+            articleId,
+            rebuiltListFrames,
+            scope.CategoryIds.Count,
+            scope.TagIds.Count,
+            FsusObservability.GetElapsed(started).TotalMilliseconds);
 
         return new PublicHotReadSnapshot(
             version,
             articleFrames.ToFrozenDictionary(),
-            listFrames,
-            categoryFrame,
-            tagFrame,
+            listFrames.ToFrozenDictionary(),
+            current.CategoryFrame,
+            current.TagFrame,
             html);
+    }
+
+    private async Task<PublicHotReadSnapshot> BuildViewProjectionSnapshotCoreAsync(
+        PublicHotReadSnapshot current,
+        IReadOnlyCollection<int> articleIds,
+        CancellationToken ct)
+    {
+        long started = Stopwatch.GetTimestamp();
+        PublicHotReadOptions value = options.Value;
+        long version = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        int[] normalizedArticleIds = NormalizeIds(articleIds);
+        var articleFrames = current.ArticleArtifacts.ToDictionary(static pair => pair.Key, static pair => pair.Value);
+        if (normalizedArticleIds.Length > 0)
+        {
+            IReadOnlyList<ArticleDetailReadModel> changedArticles = await LoadArticleDetailsFromDbAsync(normalizedArticleIds, ct).ConfigureAwait(false);
+            foreach (ArticleDetailReadModel changed in changedArticles)
+            {
+                ArticleDetailCoreModel core = ArticleProjection.ToCoreDetailModel(changed);
+                articleFrames[changed.Id] = EncodeFrame(AedsFrameType.ArticleDetail, PodBinaryCodec.EncodeArticleDetail(core), version, value);
+            }
+        }
+
+        var listFrames = current.ListArtifacts.ToDictionary(static pair => pair.Key, static pair => pair.Value);
+        int rebuiltListFrames = await AddHotRankingFramesAsync(listFrames, version, value, ct).ConfigureAwait(false);
+        FrozenDictionary<string, PublicHtmlArtifact> html = current.HtmlArtifacts.ToFrozenDictionary(StringComparer.Ordinal);
+        FsusObservability.RecordPublicHotDelta(
+            normalizedArticleIds.Length,
+            rebuiltListFrames,
+            rebuiltTaxonomyFrames: 0,
+            FsusObservability.GetElapsed(started));
+        logger.LogInformation(
+            "public-hot-read-view-delta {ArticleCount} {ListFrames} {ElapsedMs}",
+            normalizedArticleIds.Length,
+            rebuiltListFrames,
+            FsusObservability.GetElapsed(started).TotalMilliseconds);
+
+        return new PublicHotReadSnapshot(
+            version,
+            articleFrames.ToFrozenDictionary(),
+            listFrames.ToFrozenDictionary(),
+            current.CategoryFrame,
+            current.TagFrame,
+            html);
+    }
+
+    private static PublicHotDeltaScope BuildArticleDeltaScope(ArticleDetailReadModel article)
+        => new(
+            NormalizeIds([article.CategoryId]),
+            NormalizeIds(article.Tags.Select(static tag => tag.Id)),
+            RebuildHotFrames: true,
+            RebuildFeaturedFrames: true);
+
+    private async Task<PublicHotDeltaScope> LoadArticleDeltaScopeAsync(int articleId, CancellationToken ct)
+    {
+        if (articleId <= 0)
+        {
+            return new PublicHotDeltaScope([], [], RebuildHotFrames: true, RebuildFeaturedFrames: true);
+        }
+
+        var articleRows = await db.Queryable<Article>()
+            .Where(article => article.Id == articleId)
+            .Select(article => new { article.CategoryId })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        IReadOnlyDictionary<int, List<TagReadModel>> tagMap = await LoadArticleTagMapAsync([articleId], ct).ConfigureAwait(false);
+        IEnumerable<int> tagIds = tagMap.TryGetValue(articleId, out List<TagReadModel>? tags)
+            ? tags.Select(static tag => tag.Id)
+            : [];
+
+        return new PublicHotDeltaScope(
+            NormalizeIds(articleRows.Select(static article => article.CategoryId)),
+            NormalizeIds(tagIds),
+            RebuildHotFrames: true,
+            RebuildFeaturedFrames: true);
+    }
+
+    private async Task<int> AddAffectedListFramesAsync(
+        Dictionary<PublicListKey, PublicBinaryArtifact> frames,
+        PublicHotDeltaScope scope,
+        long version,
+        PublicHotReadOptions options,
+        CancellationToken ct)
+    {
+        int rebuilt = 0;
+        int[] pages = NormalizePositive(options.PreloadPages, [1], Math.Clamp(options.MaxPreloadPage, 1, ushort.MaxValue));
+        int[] sizes = NormalizePositive(options.PreloadSizes, [1, 3, 5, 10], Math.Clamp(options.MaxPreloadSize, 1, 100));
+        int[] hotSizes = NormalizePositive(options.HotSizes, [1, 3, 5, 10], Math.Clamp(options.MaxPreloadSize, 1, 100));
+        int[] featuredSizes = NormalizePositive(options.FeaturedSizes, [3, 4, 10], Math.Clamp(options.MaxPreloadSize, 1, 100));
+
+        await AddArticlePageFramesAsync(frames, PublicListKind.Home, 0, pages, sizes, null, null, version, options, ct).ConfigureAwait(false);
+        rebuilt += pages.Length * sizes.Length;
+        await AddArticlePageFramesAsync(frames, PublicListKind.Archive, 0, pages, sizes, null, null, version, options, ct).ConfigureAwait(false);
+        rebuilt += pages.Length * sizes.Length;
+
+        foreach (int categoryId in scope.CategoryIds)
+        {
+            await AddArticlePageFramesAsync(frames, PublicListKind.Category, categoryId, pages, sizes, categoryId, null, version, options, ct).ConfigureAwait(false);
+            rebuilt += pages.Length * sizes.Length;
+        }
+
+        foreach (int tagId in scope.TagIds)
+        {
+            await AddArticlePageFramesAsync(frames, PublicListKind.Tag, tagId, pages, sizes, null, tagId, version, options, ct).ConfigureAwait(false);
+            rebuilt += pages.Length * sizes.Length;
+        }
+
+        if (scope.RebuildHotFrames)
+        {
+            foreach (int size in hotSizes)
+            {
+                await AddHotFrameAsync(frames, size, version, options, ct).ConfigureAwait(false);
+                rebuilt++;
+            }
+        }
+
+        if (scope.RebuildFeaturedFrames)
+        {
+            foreach (int size in featuredSizes)
+            {
+                await AddFeaturedFrameAsync(frames, size, version, options, ct).ConfigureAwait(false);
+                rebuilt++;
+            }
+        }
+
+        return rebuilt;
+    }
+
+    private async Task<int> AddHotRankingFramesAsync(
+        Dictionary<PublicListKey, PublicBinaryArtifact> frames,
+        long version,
+        PublicHotReadOptions options,
+        CancellationToken ct)
+    {
+        int rebuilt = 0;
+        int[] hotSizes = NormalizePositive(options.HotSizes, [1, 3, 5, 10], Math.Clamp(options.MaxPreloadSize, 1, 100));
+        int[] featuredSizes = NormalizePositive(options.FeaturedSizes, [3, 4, 10], Math.Clamp(options.MaxPreloadSize, 1, 100));
+
+        foreach (int size in hotSizes)
+        {
+            await AddHotFrameAsync(frames, size, version, options, ct).ConfigureAwait(false);
+            rebuilt++;
+        }
+
+        foreach (int size in featuredSizes)
+        {
+            await AddFeaturedFrameAsync(frames, size, version, options, ct).ConfigureAwait(false);
+            rebuilt++;
+        }
+
+        return rebuilt;
     }
 
     private async Task<PublicArticleFrameSelection> QueryPublicArticleIdsAsync(DateTime utcNow, PublicHotReadOptions options, CancellationToken ct)
@@ -756,6 +947,13 @@ public sealed class PublicHotArtifactProjector(
             items[i] = item with { Tags = tagMap.TryGetValue(item.Id, out var tags) ? tags : [] };
         }
     }
+
+    private static int[] NormalizeIds(IEnumerable<int> ids)
+        => ids
+            .Where(static id => id > 0)
+            .Distinct()
+            .Order()
+            .ToArray();
 
     private static int CalculateReadableLength(string? content)
     {

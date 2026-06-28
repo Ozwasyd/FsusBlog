@@ -126,6 +126,10 @@ public static class FsusObservability
     private static readonly Counter<long> PublicAotRegistryDeletedKeyCounter = Meter.CreateCounter<long>("public_aot_registry_deleted_keys");
     private static readonly Counter<long> PublicAotPublishCounter = Meter.CreateCounter<long>("public_aot_publish_count");
     private static readonly Histogram<double> PublicAotInvalidationDuration = Meter.CreateHistogram<double>("public_aot_invalidation_duration_ms", "ms");
+    private static readonly Counter<long> PublicHotDeltaChangedArticleCounter = Meter.CreateCounter<long>("fsus.public_hot.delta.changed_articles");
+    private static readonly Counter<long> PublicHotDeltaRebuiltListCounter = Meter.CreateCounter<long>("fsus.public_hot.delta.rebuilt_lists");
+    private static readonly Counter<long> PublicHotDeltaRebuiltTaxonomyCounter = Meter.CreateCounter<long>("fsus.public_hot.delta.rebuilt_taxonomy");
+    private static readonly Histogram<double> PublicHotDeltaElapsed = Meter.CreateHistogram<double>("fsus.public_hot.delta.elapsed_ms", "ms");
 
     public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
 
@@ -613,6 +617,18 @@ public static class FsusObservability
             PublicAotRegistryCleanupCounter.Add(1, tags);
             PublicAotRegistryDeletedKeyCounter.Add(Math.Max(0, registryDeletedKeys), tags);
         }
+    }
+
+    public static void RecordPublicHotDelta(
+        long changedArticles,
+        long rebuiltListFrames,
+        long rebuiltTaxonomyFrames,
+        TimeSpan elapsed)
+    {
+        PublicHotDeltaChangedArticleCounter.Add(Math.Max(0, changedArticles));
+        PublicHotDeltaRebuiltListCounter.Add(Math.Max(0, rebuiltListFrames));
+        PublicHotDeltaRebuiltTaxonomyCounter.Add(Math.Max(0, rebuiltTaxonomyFrames));
+        PublicHotDeltaElapsed.Record(elapsed.TotalMilliseconds);
     }
 
     public static TimeSpan GetElapsed(long startTimestamp)
