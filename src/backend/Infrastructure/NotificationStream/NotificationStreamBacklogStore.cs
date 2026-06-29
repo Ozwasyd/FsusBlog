@@ -161,7 +161,7 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
         if (routes.Count == 1)
         {
             RouteReplayRead read = await ReadRouteReplayAsync(routes[0], start, cursorValue).ConfigureAwait(false);
-            return new RouteReplayReadBatch([read], 3);
+            return new RouteReplayReadBatch([read], 1);
         }
 
         IBatch batch = _database.CreateBatch();
@@ -203,15 +203,17 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
     private async Task<RouteReplayRead> ReadRouteReplayAsync(string route, string start, long cursorValue)
     {
         string streamKey = RouteStreamKey(route);
-        Task<StreamEntry[]> firstTask = _database.StreamRangeAsync(streamKey, count: 1);
-        Task<StreamEntry[]> entriesTask = _database.StreamRangeAsync(streamKey, start, "+", MaxReplayEntries);
+        IBatch batch = _database.CreateBatch();
+        Task<StreamEntry[]> firstTask = batch.StreamRangeAsync(streamKey, count: 1);
+        Task<StreamEntry[]> entriesTask = batch.StreamRangeAsync(streamKey, start, "+", MaxReplayEntries);
         string cursorUpperBound = string.Create(CultureInfo.InvariantCulture, $"{cursorValue}-0");
-        Task<StreamEntry[]> cursorFloorTask = _database.StreamRangeAsync(
+        Task<StreamEntry[]> cursorFloorTask = batch.StreamRangeAsync(
             streamKey,
             "-",
             cursorUpperBound,
             count: 1,
             messageOrder: Order.Descending);
+        batch.Execute();
         await Task.WhenAll(firstTask, entriesTask, cursorFloorTask).ConfigureAwait(false);
 
         StreamEntry[] first = await firstTask.ConfigureAwait(false);

@@ -396,10 +396,12 @@ public class NotificationStreamBoundaryTests
     {
         var redis = Substitute.For<IConnectionMultiplexer>();
         var database = Substitute.For<IDatabase>();
+        var batch = Substitute.For<IBatch>();
         var keyScope = Substitute.For<IRuntimeKeyScope>();
         redis.GetDatabase().Returns(database);
+        database.CreateBatch(Arg.Any<object?>()).Returns(batch);
         keyScope.PrefixKey(Arg.Any<string>()).Returns(call => call.Arg<string>());
-        database.StreamRangeAsync(
+        batch.StreamRangeAsync(
                 Arg.Any<RedisKey>(),
                 Arg.Any<RedisValue>(),
                 Arg.Any<RedisValue>(),
@@ -434,9 +436,12 @@ public class NotificationStreamBoundaryTests
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamBacklogStore.cs"));
         string method = ExtractMethodBlock(source, "private async Task<RouteReplayRead> ReadRouteReplayAsync");
 
+        Assert.Contains("IBatch batch = _database.CreateBatch()", method, StringComparison.Ordinal);
+        Assert.Contains("batch.Execute()", method, StringComparison.Ordinal);
         Assert.Contains("cursorFloorTask", method, StringComparison.Ordinal);
         Assert.Contains("Order.Descending", method, StringComparison.Ordinal);
         Assert.Contains("HasRetainedCursorFloor", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("_database.StreamRangeAsync(streamKey, count: 1)", method, StringComparison.Ordinal);
     }
 
     [Fact]

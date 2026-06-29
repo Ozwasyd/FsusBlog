@@ -436,39 +436,38 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
-    public void LoadPublicArticleListPageByKeysetAsync_SourceGuardsEmptyPageBeforeCursorAdvance()
+    public void LoadPublicArticleListPageByKeysetAsync_SourceUsesSingleOffsetReadAndConcurrentCount()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
         int methodStart = source.IndexOf("private async Task<ArticleListPageReadModel> LoadPublicArticleListPageByKeysetAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("private static string BuildArticleListKeysetPageSql", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("private async Task<List<ArticleListItemReadModel>> LoadPublicArticleListOffsetPageItemsAsync", StringComparison.Ordinal);
+        Assert.True(methodStart >= 0, "LoadPublicArticleListPageByKeysetAsync must exist.");
+        Assert.True(nextMethod > methodStart, "LoadPublicArticleListOffsetPageItemsAsync must follow LoadPublicArticleListPageByKeysetAsync.");
         string method = source[methodStart..nextMethod];
 
-        Assert.Contains("while (currentPage <= page)", method, StringComparison.Ordinal);
-        int emptyGuard = method.IndexOf("if (currentItems.Count == 0)", StringComparison.Ordinal);
-        int lastAccess = method.IndexOf("currentItems[^1]", StringComparison.Ordinal);
-        Assert.True(emptyGuard >= 0);
-        Assert.True(lastAccess > emptyGuard);
-        Assert.Contains("currentPage += 1", method, StringComparison.Ordinal);
+        Assert.Contains("Task<int> totalCountTask", method, StringComparison.Ordinal);
+        Assert.Contains("Task<List<ArticleListItemReadModel>> pageItemsTask", method, StringComparison.Ordinal);
+        Assert.Contains("await Task.WhenAll(totalCountTask, pageItemsTask)", method, StringComparison.Ordinal);
+        Assert.Contains("LoadPublicArticleListOffsetPageItemsAsync", method, StringComparison.Ordinal);
+        Assert.Contains("parameters.Add(new SugarParameter(\"@Offset\", (page - 1) * size))", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("while (currentPage <= page)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("currentPage += 1", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void LoadPublicArticleListPageByKeysetAsync_SourceBuildsCursorSqlOutsideLoop()
+    public void LoadPublicArticleListPageByKeysetAsync_SourceDoesNotCloneParametersPerWalkPage()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
         int methodStart = source.IndexOf("private async Task<ArticleListPageReadModel> LoadPublicArticleListPageByKeysetAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("private static string BuildArticleListKeysetPageSql", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("private async Task<List<ArticleListItemReadModel>> LoadPublicArticleListOffsetPageItemsAsync", StringComparison.Ordinal);
+        Assert.True(methodStart >= 0, "LoadPublicArticleListPageByKeysetAsync must exist.");
+        Assert.True(nextMethod > methodStart, "LoadPublicArticleListOffsetPageItemsAsync must follow LoadPublicArticleListPageByKeysetAsync.");
         string method = source[methodStart..nextMethod];
 
-        int firstPageSql = method.IndexOf("string firstPageSql = BuildArticleListKeysetPageSql(whereSql)", StringComparison.Ordinal);
-        int cursorPageSql = method.IndexOf("string cursorPageSql = BuildArticleListKeysetPageSql(whereSql + ArticleListCursorWhereClause)", StringComparison.Ordinal);
-        int loop = method.IndexOf("while (currentPage <= page)", StringComparison.Ordinal);
-
         Assert.Contains("private const string ArticleListCursorWhereClause", source, StringComparison.Ordinal);
-        Assert.True(firstPageSql >= 0 && firstPageSql < loop);
-        Assert.True(cursorPageSql >= 0 && cursorPageSql < loop);
-        Assert.Contains("pageSql = cursorPageSql", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildArticleListKeysetPageSql(whereSql + ArticleListCursorWhereClause)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("CloneArticleListParameters(baseParameters)", method, StringComparison.Ordinal);
         Assert.DoesNotContain("pageWhereSql +=", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("BuildArticleListKeysetPageSql(pageWhereSql)", method, StringComparison.Ordinal);
     }
 
     [Fact]

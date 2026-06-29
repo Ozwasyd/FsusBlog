@@ -1461,55 +1461,15 @@ public class ArticleService(
         string countIdentity,
         CancellationToken cancellationToken)
     {
-        int totalCount = await GetCachedArticleListTotalCountAsync(countIdentity, whereSql, baseParameters, cancellationToken);
+        Task<int> totalCountTask = GetCachedArticleListTotalCountAsync(countIdentity, whereSql, baseParameters, cancellationToken);
+        var parameters = new List<SugarParameter>(baseParameters.Count + 1);
+        parameters.AddRange(baseParameters);
+        parameters.Add(new SugarParameter("@Offset", (page - 1) * size));
+        Task<List<ArticleListItemReadModel>> pageItemsTask = LoadPublicArticleListOffsetPageItemsAsync(whereSql, parameters, size, cancellationToken);
+        await Task.WhenAll(totalCountTask, pageItemsTask).ConfigureAwait(false);
 
-        DateTime? cursorTime = null;
-        int? cursorId = null;
-        List<ArticleListItemReadModel> pageItems = [];
-        string firstPageSql = BuildArticleListKeysetPageSql(whereSql);
-        string cursorPageSql = BuildArticleListKeysetPageSql(whereSql + ArticleListCursorWhereClause);
-        int currentPage = 1;
-        while (currentPage <= page)
-        {
-            List<SugarParameter> pageParameters = CloneArticleListParameters(baseParameters);
-            string pageSql = firstPageSql;
-            if (cursorTime.HasValue && cursorId.HasValue)
-            {
-                pageSql = cursorPageSql;
-                pageParameters.Add(new SugarParameter("@CursorTime", cursorTime.Value));
-                pageParameters.Add(new SugarParameter("@CursorId", cursorId.Value));
-            }
-
-            var currentItems = new List<ArticleListItemReadModel>(size);
-            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(pageSql, pageParameters))
-            {
-                await ReadArticleListItemsAsync(reader, currentItems, cancellationToken);
-            }
-
-            if (currentPage == page)
-            {
-                pageItems = currentItems;
-                break;
-            }
-
-            if (currentItems.Count == 0)
-            {
-                pageItems = [];
-                break;
-            }
-
-            if (currentItems.Count < size)
-            {
-                pageItems = [];
-                break;
-            }
-
-            ArticleListItemReadModel last = currentItems[^1];
-            cursorTime = last.CreateTime;
-            cursorId = last.Id;
-            currentPage += 1;
-        }
-
+        int totalCount = await totalCountTask.ConfigureAwait(false);
+        List<ArticleListItemReadModel> pageItems = await pageItemsTask.ConfigureAwait(false);
         await AttachArticleListTagsAsync(pageItems, cancellationToken);
         ArticleListItemReadModel? lastItem = pageItems.Count > 0 ? pageItems[^1] : null;
         bool hasMore = totalCount > page * size;
@@ -1521,6 +1481,44 @@ public class ArticleService(
             HasMore = hasMore
         };
     }
+
+    private async Task<List<ArticleListItemReadModel>> LoadPublicArticleListOffsetPageItemsAsync(
+        string whereSql,
+        IReadOnlyCollection<SugarParameter> parameters,
+        int size,
+        CancellationToken cancellationToken)
+    {
+        string pageSql = BuildArticleListOffsetPageSql(whereSql);
+        var pageItems = new List<ArticleListItemReadModel>(size);
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(pageSql, parameters))
+        {
+            await ReadArticleListItemsAsync(reader, pageItems, cancellationToken);
+        }
+
+        return pageItems;
+    }
+
+    private static string BuildArticleListOffsetPageSql(string whereSql)
+        => $$"""
+            SELECT
+                a.id AS "Id",
+                a.title AS "Title",
+                a.summary AS "Summary",
+                a.coverimageurl AS "CoverImageUrl",
+                a.views AS "Views",
+                a.createtime AS "CreateTime",
+                a.categoryid AS "CategoryId",
+                c.name AS "CategoryName",
+                a.isdeleted AS "IsDeleted",
+                a.status AS "Status",
+                a.scheduled_publish_at AS "ScheduledPublishAt",
+                a.published_at AS "PublishedAt"
+            FROM article a
+            LEFT JOIN category c ON a.categoryid = c.id
+            WHERE {{whereSql}}
+            ORDER BY a.createtime DESC, a.id DESC
+            LIMIT @Limit OFFSET @Offset;
+            """;
 
     private async Task<int> GetCachedArticleListTotalCountAsync(
         string countIdentity,
