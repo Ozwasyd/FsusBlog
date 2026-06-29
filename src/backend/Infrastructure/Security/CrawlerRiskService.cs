@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
@@ -75,13 +76,31 @@ public sealed class CrawlerRiskService(
             scoreDelta = 0;
         }
 
-        int current = await GetRiskScoreForIpAsync(ip, cancellationToken);
-        int next = current;
+        int current = 0;
+        int next = 0;
         TimeSpan effectiveTtl = signal.Ttl <= TimeSpan.Zero
             ? TimeSpan.FromSeconds(antiCrawlerOptions.DefaultRiskTtlSeconds)
             : signal.Ttl;
-        if (scoreDelta != 0)
+        if (scoreDelta > 0)
         {
+            long startedAt = Stopwatch.GetTimestamp();
+            zeroRiskCache.Remove(ZeroRiskCacheKey(ip));
+            long updated = await cache.IncrementClampedWithExpiryAsync(
+                CachePolicyId.SecurityPowRisk,
+                ip,
+                scoreDelta,
+                antiCrawlerOptions.MaxRiskScore,
+                effectiveTtl,
+                cancellationToken);
+            next = (int)Math.Clamp(updated, 0, antiCrawlerOptions.MaxRiskScore);
+            FsusObservability.RecordRiskScoreAtomicUpdate(
+                FsusObservability.GetElapsed(startedAt),
+                riskScoreRedisRoundTrips: 1,
+                riskScoreConflictAvoided: 1);
+        }
+        else if (scoreDelta < 0)
+        {
+            current = await GetRiskScoreForIpAsync(ip, cancellationToken);
             next = Math.Clamp(current + scoreDelta, 0, antiCrawlerOptions.MaxRiskScore);
             if (next > 0)
             {
@@ -189,6 +208,7 @@ public sealed class CrawlerRiskService(
         string zeroRiskKey = ZeroRiskCacheKey(ip);
         if (zeroRiskCache.TryGetValue(zeroRiskKey, out byte _))
         {
+            FsusObservability.RecordZeroRiskCacheHit(zeroRiskCacheHit: true);
             return 0;
         }
 

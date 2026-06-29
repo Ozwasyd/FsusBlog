@@ -12,6 +12,7 @@ public sealed class UnifiedCacheAtomicCounterTests
 
         Assert.Contains("IncrementWithExpiryAsync", source, StringComparison.Ordinal);
         Assert.Contains("IncrementManyWithExpiryAsync", source, StringComparison.Ordinal);
+        Assert.Contains("IncrementClampedWithExpiryAsync", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -42,6 +43,24 @@ public sealed class UnifiedCacheAtomicCounterTests
         Assert.Contains("expiryApplied", method, StringComparison.Ordinal);
         Assert.Contains("< 0", method, StringComparison.Ordinal);
         Assert.Contains("for i = 1, #KEYS do", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("StringIncrementAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("KeyExpireAsync", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UnifiedCache_IncrementClampedWithExpiryUsesSingleRedisScriptWithClampAndTtl()
+    {
+        string source = ReadSource("src/backend/Infrastructure/Cache/IUnifiedCache.cs");
+        string method = ExtractMethodBlock(source, "public async Task<long> IncrementClampedWithExpiryAsync");
+
+        Assert.Contains("ScriptEvaluateAsync", method, StringComparison.Ordinal);
+        Assert.Contains("GET", method, StringComparison.Ordinal);
+        Assert.Contains("SET", method, StringComparison.Ordinal);
+        Assert.Contains("PEXPIRE", method, StringComparison.Ordinal);
+        Assert.Contains("maxValue", method, StringComparison.Ordinal);
+        Assert.Contains("Math.Clamp", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("StringGetAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("StringSetAsync", method, StringComparison.Ordinal);
         Assert.DoesNotContain("StringIncrementAsync", method, StringComparison.Ordinal);
         Assert.DoesNotContain("KeyExpireAsync", method, StringComparison.Ordinal);
     }

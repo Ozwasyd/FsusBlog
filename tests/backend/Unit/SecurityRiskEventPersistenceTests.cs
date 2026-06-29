@@ -103,8 +103,8 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     public async Task SecurityRiskEventSink_PersistenceFailureDoesNotBreakHotPathAndWritesFallbackLog()
     {
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
-        cache.GetStringAsync(CachePolicyId.SecurityPowRisk, "198.51.100.20", Arg.Any<CancellationToken>())
-            .Returns("3");
+        cache.IncrementClampedWithExpiryAsync(CachePolicyId.SecurityPowRisk, "198.51.100.20", 5, 200, Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(8L);
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
         var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
@@ -155,8 +155,8 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     public async Task SecurityRiskEventSink_AddRiskAsync_EnqueuesPersistenceWithoutAwaitingStore()
     {
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
-        cache.GetStringAsync(CachePolicyId.SecurityPowRisk, "198.51.100.22", Arg.Any<CancellationToken>())
-            .Returns("3");
+        cache.IncrementClampedWithExpiryAsync(CachePolicyId.SecurityPowRisk, "198.51.100.22", 5, 200, Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(8L);
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
         var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
@@ -427,8 +427,8 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         string clientIp)
     {
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
-        cache.GetStringAsync(CachePolicyId.SecurityPowRisk, clientIp, Arg.Any<CancellationToken>())
-            .Returns("0");
+        cache.IncrementClampedWithExpiryAsync(CachePolicyId.SecurityPowRisk, clientIp, 5, 200, Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(5L);
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
         var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());

@@ -107,8 +107,8 @@ public sealed class SecurityRiskTaxonomyTests
     {
         SecurityRiskReason reason = ParseReason("CaptchaInvalid");
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
-        cache.GetStringAsync(CachePolicyId.SecurityPowRisk, "198.51.100.18", Arg.Any<CancellationToken>())
-            .Returns((string?)null);
+        cache.IncrementClampedWithExpiryAsync(CachePolicyId.SecurityPowRisk, "198.51.100.18", 12, 200, Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(12L);
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
         using var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());

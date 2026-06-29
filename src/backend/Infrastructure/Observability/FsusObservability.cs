@@ -103,6 +103,10 @@ public static class FsusObservability
     private static readonly Counter<long> SecurityRiskEventInsertedRows = Meter.CreateCounter<long>("fsus.security.risk_event.inserted_rows");
     private static readonly Counter<long> SecurityRiskEventFailedBatches = Meter.CreateCounter<long>("fsus.security.risk_event.failed_batches");
     private static readonly Counter<long> SecurityRiskEventFallbackSingleInserts = Meter.CreateCounter<long>("fsus.security.risk_event.fallback_single_inserts");
+    private static readonly Histogram<double> RiskScoreAtomicUpdateElapsed = Meter.CreateHistogram<double>("fsus.security.risk_score.atomic_update_elapsed_ms", "ms");
+    private static readonly Counter<long> RiskScoreRedisRoundTrips = Meter.CreateCounter<long>("fsus.security.risk_score.redis_round_trips");
+    private static readonly Counter<long> RiskScoreConflictAvoided = Meter.CreateCounter<long>("fsus.security.risk_score.conflict_avoided");
+    private static readonly Counter<long> ZeroRiskCacheHit = Meter.CreateCounter<long>("fsus.security.risk_score.zero_cache_hit");
     private static readonly Counter<long> AuditChainTailCacheAccess = Meter.CreateCounter<long>("fsus.audit.chain_tail.cache_access");
     private static readonly Histogram<double> AuditChainTailQueryElapsed = Meter.CreateHistogram<double>("fsus.audit.chain_tail.query_elapsed_ms", "ms");
     private static readonly Histogram<double> AuditBatchSize = Meter.CreateHistogram<double>("fsus.audit.batch.size");
@@ -389,6 +393,30 @@ public static class FsusObservability
             SecurityRiskEventInsertedRows.Add(Math.Max(0, insertedRows));
             SecurityRiskEventFailedBatches.Add(Math.Max(0, failedBatches));
             SecurityRiskEventFallbackSingleInserts.Add(Math.Max(0, fallbackSingleInserts));
+        });
+    }
+
+    public static void RecordRiskScoreAtomicUpdate(
+        TimeSpan riskScoreAtomicUpdateElapsed,
+        long riskScoreRedisRoundTrips,
+        long riskScoreConflictAvoided)
+    {
+        TryRecord(() =>
+        {
+            RiskScoreAtomicUpdateElapsed.Record(riskScoreAtomicUpdateElapsed.TotalMilliseconds);
+            RiskScoreRedisRoundTrips.Add(Math.Max(0, riskScoreRedisRoundTrips));
+            RiskScoreConflictAvoided.Add(Math.Max(0, riskScoreConflictAvoided));
+        });
+    }
+
+    public static void RecordZeroRiskCacheHit(bool zeroRiskCacheHit)
+    {
+        TryRecord(() =>
+        {
+            if (zeroRiskCacheHit)
+            {
+                ZeroRiskCacheHit.Add(1);
+            }
         });
     }
 
