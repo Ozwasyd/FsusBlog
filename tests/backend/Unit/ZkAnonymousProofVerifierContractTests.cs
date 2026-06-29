@@ -110,6 +110,21 @@ public sealed class ZkAnonymousProofVerifierContractTests
     }
 
     [Fact]
+    public void ProductionZkProofVerifier_AwaitsBackendTaskWithoutSecondWaitAsyncWrapper()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/ProductionZkProofVerifier.cs");
+        string verify = ExtractBetween(
+            source,
+            "public async Task<ZkProofVerificationResult> VerifyAsync",
+            "public void Dispose()");
+
+        Assert.Contains("_concurrencyGate.WaitAsync(timeout.Token)", verify, StringComparison.Ordinal);
+        Assert.Contains("ProductionZkProofBackendResult backendResult = await backendTask", verify, StringComparison.Ordinal);
+        Assert.DoesNotContain("backendTask.WaitAsync", verify, StringComparison.Ordinal);
+        Assert.DoesNotContain("WaitAsync(_options.BackendTimeout", verify, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ZkAnonymousProofService_RejectsMissingAndInvalidProof()
     {
         var verifier = new RecordingZkVerifier(configured: true, ZkProofVerificationResult.InvalidProof("bad proof"));

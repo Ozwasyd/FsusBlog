@@ -74,9 +74,53 @@ public sealed record AnonymousCredentialAcceptedRoot(
 public sealed record AnonymousCredentialRootRuntimeSnapshot(
     IReadOnlyList<AnonymousCredentialAcceptedRoot> AcceptedRoots,
     long Version,
-    DateTimeOffset LoadedAtUtc)
+    DateTimeOffset LoadedAtUtc,
+    IReadOnlyDictionary<(long Epoch, string RootHash), AnonymousCredentialAcceptedRoot> AcceptedRootByEpochAndHash,
+    IReadOnlyDictionary<(long Epoch, string RootHash, string RevocationRootHash, string IssuerPublicKeyHash), AnonymousCredentialAcceptedRoot> AcceptedRootLookup)
 {
-    public static AnonymousCredentialRootRuntimeSnapshot Empty { get; } = new([], 0, DateTimeOffset.UnixEpoch);
+    public AnonymousCredentialRootRuntimeSnapshot(
+        IReadOnlyList<AnonymousCredentialAcceptedRoot> acceptedRoots,
+        long version,
+        DateTimeOffset loadedAtUtc)
+        : this(
+            acceptedRoots,
+            version,
+            loadedAtUtc,
+            BuildRootLookup(acceptedRoots),
+            BuildFullLookup(acceptedRoots))
+    {
+    }
+
+    public static AnonymousCredentialRootRuntimeSnapshot Empty { get; } = new(
+        [],
+        0,
+        DateTimeOffset.UnixEpoch,
+        new Dictionary<(long Epoch, string RootHash), AnonymousCredentialAcceptedRoot>(),
+        new Dictionary<(long Epoch, string RootHash, string RevocationRootHash, string IssuerPublicKeyHash), AnonymousCredentialAcceptedRoot>());
+
+    private static Dictionary<(long Epoch, string RootHash), AnonymousCredentialAcceptedRoot> BuildRootLookup(
+        IReadOnlyList<AnonymousCredentialAcceptedRoot> acceptedRoots)
+    {
+        var lookup = new Dictionary<(long Epoch, string RootHash), AnonymousCredentialAcceptedRoot>(acceptedRoots.Count);
+        foreach (AnonymousCredentialAcceptedRoot root in acceptedRoots)
+        {
+            lookup.TryAdd((root.Epoch, root.RootHash), root);
+        }
+
+        return lookup;
+    }
+
+    private static Dictionary<(long Epoch, string RootHash, string RevocationRootHash, string IssuerPublicKeyHash), AnonymousCredentialAcceptedRoot> BuildFullLookup(
+        IReadOnlyList<AnonymousCredentialAcceptedRoot> acceptedRoots)
+    {
+        var lookup = new Dictionary<(long Epoch, string RootHash, string RevocationRootHash, string IssuerPublicKeyHash), AnonymousCredentialAcceptedRoot>(acceptedRoots.Count);
+        foreach (AnonymousCredentialAcceptedRoot root in acceptedRoots)
+        {
+            lookup.TryAdd((root.Epoch, root.RootHash, root.RevocationRootHash, root.IssuerPublicKeyHash), root);
+        }
+
+        return lookup;
+    }
 }
 
 public sealed class AnonymousCredentialRootLifecycleService(
@@ -139,27 +183,16 @@ public sealed class AnonymousCredentialRootLifecycleService(
             return false;
         }
 
-        string normalized = NormalizeToken(rootHash, 128);
-        if (normalized.Length == 0)
+        if (string.IsNullOrWhiteSpace(rootHash))
         {
             return false;
         }
 
         DateTimeOffset now = timeProvider.GetUtcNow();
         AnonymousCredentialRootRuntimeSnapshot snapshot = CurrentSnapshot;
-        foreach (AnonymousCredentialAcceptedRoot root in snapshot.AcceptedRoots)
-        {
-            if (root.Epoch == epoch &&
-                root.GraceExpiresAtUtc > now &&
-                (string.Equals(root.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
-                 string.Equals(root.Status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal)) &&
-                string.Equals(root.RootHash, normalized, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return snapshot.AcceptedRootByEpochAndHash.TryGetValue((epoch, rootHash), out AnonymousCredentialAcceptedRoot? root) &&
+            root.GraceExpiresAtUtc > now &&
+            IsAcceptedStatus(root.Status);
     }
 
     public bool IsRootAccepted(
@@ -173,34 +206,23 @@ public sealed class AnonymousCredentialRootLifecycleService(
             return false;
         }
 
-        string normalizedRoot = NormalizeToken(rootHash, 128);
-        string normalizedRevocationRoot = NormalizeToken(revocationRootHash, 128);
-        string normalizedIssuer = NormalizeToken(issuerPublicKeyHash, 128).ToLowerInvariant();
-        if (normalizedRoot.Length == 0 ||
-            normalizedRevocationRoot.Length == 0 ||
-            normalizedIssuer.Length == 0)
+        if (string.IsNullOrWhiteSpace(rootHash) ||
+            string.IsNullOrWhiteSpace(revocationRootHash) ||
+            string.IsNullOrWhiteSpace(issuerPublicKeyHash))
         {
             return false;
         }
 
         DateTimeOffset now = timeProvider.GetUtcNow();
         AnonymousCredentialRootRuntimeSnapshot snapshot = CurrentSnapshot;
-        foreach (AnonymousCredentialAcceptedRoot root in snapshot.AcceptedRoots)
-        {
-            if (root.Epoch == epoch &&
-                root.GraceExpiresAtUtc > now &&
-                (string.Equals(root.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
-                 string.Equals(root.Status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal)) &&
-                string.Equals(root.RootHash, normalizedRoot, StringComparison.Ordinal) &&
-                string.Equals(root.RevocationRootHash, normalizedRevocationRoot, StringComparison.Ordinal) &&
-                string.Equals(root.IssuerPublicKeyHash, normalizedIssuer, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return snapshot.AcceptedRootLookup.TryGetValue((epoch, rootHash, revocationRootHash, issuerPublicKeyHash), out AnonymousCredentialAcceptedRoot? root) &&
+            root.GraceExpiresAtUtc > now &&
+            IsAcceptedStatus(root.Status);
     }
+
+    private static bool IsAcceptedStatus(string status)
+        => string.Equals(status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
+            string.Equals(status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal);
 
     public async Task<Result<AnonymousCredentialRootRecord>> RotateAsync(
         AnonymousCredentialRootRotationRequest request,

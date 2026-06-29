@@ -136,7 +136,7 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
                         NormalizeToken(request.RevocationRoot, 128),
                         NormalizeToken(request.IssuerPublicKeyHash, 128)),
                     timeout.Token);
-            ProductionZkProofBackendResult backendResult = await backendTask.WaitAsync(_options.BackendTimeout, cancellationToken);
+            ProductionZkProofBackendResult backendResult = await backendTask;
 
             if (backendResult.Verified)
             {

@@ -642,14 +642,16 @@ internal static class NativeGroth16PublicInputCodec
         WriteString(writer, request.PolicyHash);
         WriteString(writer, request.CredentialLevel);
         WriteString(writer, request.ReputationBucket);
-        return writer.WrittenMemory.ToArray();
+        return writer.WrittenMemory;
     }
 
     private static void WriteString(IBufferWriter<byte> writer, string value)
     {
-        byte[] bytes = Encoding.UTF8.GetBytes(value);
-        WriteInt32(writer, bytes.Length);
-        writer.Write(bytes);
+        int byteCount = Encoding.UTF8.GetByteCount(value);
+        WriteInt32(writer, byteCount);
+        Span<byte> span = writer.GetSpan(byteCount);
+        int written = Encoding.UTF8.GetBytes(value, span);
+        writer.Advance(written);
     }
 
     private static void WriteInt32(IBufferWriter<byte> writer, int value)

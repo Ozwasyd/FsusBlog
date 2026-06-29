@@ -145,7 +145,8 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         CommentService commentService = CreateCommentService(db, ticketService, nullifiers);
         AnonymousCommentCreateRequestCoreModel request = CreateSubmitRequest(ticket.Response.Ticket);
 
-        Assert.True(await commentService.CreateStrongAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None));
+        bool firstCreated = await commentService.CreateStrongAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None);
+        Assert.True(firstCreated);
         Assert.False(await commentService.CreateStrongAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None));
 
         Assert.Equal(1, db.Queryable<Comment>().Count());
@@ -409,7 +410,8 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             db,
             typeof(Article),
             typeof(Comment),
-            typeof(CommentRegionCompliance));
+            typeof(CommentRegionCompliance),
+            typeof(CommentBlockedRegion));
     }
 
     private static void SeedArticle(SqlSugarClient db, int articleId)

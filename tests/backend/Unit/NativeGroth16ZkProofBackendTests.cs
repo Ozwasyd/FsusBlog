@@ -5,6 +5,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -15,8 +16,8 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class NativeGroth16ZkProofBackendTests
 {
     private const string CircuitId = "fsus.anonymous.comment.v2";
-    private const string CredentialRoot = "credential-root-active";
-    private const string RevocationRoot = "revocation-root-active";
+    private static readonly string CredentialRoot = new('e', 64);
+    private static readonly string RevocationRoot = new('8', 64);
     private static readonly string IssuerPublicKeyHash = new('f', 64);
     private const long CredentialEpoch = 7;
     private const ushort PublicInputLayoutVersion = 3;
@@ -131,6 +132,22 @@ public sealed class NativeGroth16ZkProofBackendTests
     }
 
     [Fact]
+    public void NativeGroth16PublicInputCodec_UsesSingleOwnedBufferWithoutPerStringByteArrays()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/NativeGroth16ZkProofBackend.cs");
+        string codec = source[source.IndexOf("internal static class NativeGroth16PublicInputCodec", StringComparison.Ordinal)..];
+        string encode = ExtractBetween(codec, "public static ReadOnlyMemory<byte> Encode", "private static void WriteString");
+        string writeString = ExtractBetween(codec, "private static void WriteString", "private static void WriteInt32");
+
+        Assert.Contains("return writer.WrittenMemory", encode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".ToArray()", encode, StringComparison.Ordinal);
+        Assert.Contains("Encoding.UTF8.GetByteCount(value)", writeString, StringComparison.Ordinal);
+        Assert.Contains("Encoding.UTF8.GetBytes(value, span)", writeString, StringComparison.Ordinal);
+        Assert.DoesNotContain("Encoding.UTF8.GetBytes(value)", writeString, StringComparison.Ordinal);
+        Assert.DoesNotContain("byte[] bytes", writeString, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task MclGroth16VerifierLibrary_VerifyP99StaysInsideNativeBudget()
     {
         byte[] verifyingKey = MclGroth16PairingFixture.CreateVerifyingKey();
@@ -214,12 +231,7 @@ public sealed class NativeGroth16ZkProofBackendTests
     public async Task ProductionZkProofVerifier_NativeBackendTimeoutFailsClosed()
     {
         using var temp = TempNativeZkFixture.Create();
-        var nativeLibrary = new HashingNativeGroth16FixtureLibrary
-        {
-            AcceptAnyProof = true,
-            Delay = TimeSpan.FromMilliseconds(500)
-        };
-        var backend = CreateFixtureBackend(temp, nativeLibrary);
+        var backend = new ConcurrencyProbeProductionZkProofBackend(TimeSpan.FromMilliseconds(500));
         var logger = new CapturingLogger<ProductionZkProofVerifier>();
         using ProductionZkProofVerifier verifier = CreateProductionVerifier(
             temp,
@@ -328,6 +340,15 @@ public sealed class NativeGroth16ZkProofBackendTests
             new FixedRootReader(CredentialRoot, CredentialEpoch),
             backend,
             logger ?? new CapturingLogger<ProductionZkProofVerifier>());
+    }
+
+    private static string ExtractBetween(string source, string start, string end)
+    {
+        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
+        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
+        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
+        return source[startIndex..endIndex];
     }
 
     private static IConfiguration BuildNativeConfiguration(TempNativeZkFixture temp, bool missingLibrary)
