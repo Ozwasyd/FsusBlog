@@ -123,12 +123,16 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<AuditLogRuntimeState>();
         services.AddSingleton<AuditSerilogSink>();
         services.AddSingleton<IAuditFallbackWriter, AuditFallbackWriter>();
+        services.AddSingleton<AdminAuditLogChannel>();
+        services.AddSingleton<IAdminAuditLogChannel>(sp => sp.GetRequiredService<AdminAuditLogChannel>());
         services.AddScoped<IAuditEventService, AuditEventService>();
         services.AddScoped<AuditQueryService>();
         services.AddScoped<IAuditLogStore, AuditLogStore>();
+        services.AddScoped<IAdminAuditLogStore, AdminAuditLogStore>();
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<AuditLogWriterWorker>();
+            services.AddHostedService<AdminAuditLogWriterWorker>();
         }
         return services;
     }

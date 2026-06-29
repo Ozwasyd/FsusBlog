@@ -107,6 +107,12 @@ public static class FsusObservability
     private static readonly Histogram<double> AuditChainTailQueryElapsed = Meter.CreateHistogram<double>("fsus.audit.chain_tail.query_elapsed_ms", "ms");
     private static readonly Histogram<double> AuditBatchSize = Meter.CreateHistogram<double>("fsus.audit.batch.size");
     private static readonly Histogram<double> AuditBatchWriteElapsed = Meter.CreateHistogram<double>("fsus.audit.batch.write_elapsed_ms", "ms");
+    private static readonly Counter<long> AdminAuditQueuedCounter = Meter.CreateCounter<long>("fsus.admin.audit.queued_count");
+    private static readonly Counter<long> AdminAuditDroppedCounter = Meter.CreateCounter<long>("fsus.admin.audit.dropped_count");
+    private static readonly Counter<long> AdminAuditFallbackWriteCounter = Meter.CreateCounter<long>("fsus.admin.audit.fallback_write_count");
+    private static readonly Histogram<double> AdminAuditQueueDepth = Meter.CreateHistogram<double>("fsus.admin.audit.queue_depth");
+    private static readonly Histogram<double> AdminAuditBatchSize = Meter.CreateHistogram<double>("fsus.admin.audit.batch_size");
+    private static readonly Histogram<double> AdminAuditWriteElapsed = Meter.CreateHistogram<double>("fsus.admin.audit.write_elapsed_ms", "ms");
     private static readonly Histogram<double> CacheOperationDuration = Meter.CreateHistogram<double>("fsus.cache.operation.duration", "ms");
     private static readonly Histogram<double> DbOperationDuration = Meter.CreateHistogram<double>("fsus.db.operation.duration", "ms");
     private static readonly Histogram<double> AotRenderDuration = Meter.CreateHistogram<double>("fsus.aot.render.duration", "ms");
@@ -378,6 +384,30 @@ public static class FsusObservability
             SecurityRiskEventInsertedRows.Add(Math.Max(0, insertedRows));
             SecurityRiskEventFailedBatches.Add(Math.Max(0, failedBatches));
             SecurityRiskEventFallbackSingleInserts.Add(Math.Max(0, fallbackSingleInserts));
+        });
+    }
+
+    public static void RecordAdminAuditQueue(
+        long adminAuditQueuedCount,
+        long adminAuditDroppedCount,
+        long adminAuditFallbackWriteCount,
+        long queueDepth)
+    {
+        TryRecord(() =>
+        {
+            AdminAuditQueuedCounter.Add(Math.Max(0, adminAuditQueuedCount));
+            AdminAuditDroppedCounter.Add(Math.Max(0, adminAuditDroppedCount));
+            AdminAuditFallbackWriteCounter.Add(Math.Max(0, adminAuditFallbackWriteCount));
+            AdminAuditQueueDepth.Record(Math.Max(0, queueDepth));
+        });
+    }
+
+    public static void RecordAdminAuditBatch(long adminAuditBatchSize, TimeSpan adminAuditWriteElapsed)
+    {
+        TryRecord(() =>
+        {
+            AdminAuditBatchSize.Record(Math.Max(0, adminAuditBatchSize));
+            AdminAuditWriteElapsed.Record(adminAuditWriteElapsed.TotalMilliseconds);
         });
     }
 

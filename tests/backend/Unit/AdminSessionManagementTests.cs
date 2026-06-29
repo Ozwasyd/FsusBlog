@@ -1,5 +1,6 @@
 using Fido2NetLib;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
@@ -200,7 +201,8 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
             Substitute.For<IUnifiedCache>(),
             Substitute.For<IJwtHelper>(),
             new ConfigurationBuilder().Build(),
-            NullLogger<AdminPrincipalService>.Instance);
+            NullLogger<AdminPrincipalService>.Instance,
+            new ImmediateAdminAuditLogChannel(db));
 
     private static void Seed(SqlSugarClient db, params AdminSession[] sessions)
     {
@@ -255,5 +257,23 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
         int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
         Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
         return source[startIndex..endIndex];
+    }
+
+    private sealed class ImmediateAdminAuditLogChannel(SqlSugarClient db) : IAdminAuditLogChannel
+    {
+        public async ValueTask EnqueueAsync(AdminAuditLog audit, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await db.Insertable(audit).ExecuteCommandAsync();
+        }
+
+        public async ValueTask EnqueueManyAsync(IReadOnlyList<AdminAuditLog> audits, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (audits.Count > 0)
+            {
+                await db.Insertable(audits.ToArray()).ExecuteCommandAsync();
+            }
+        }
     }
 }

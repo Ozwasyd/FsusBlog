@@ -1,6 +1,7 @@
 using System.Reflection;
 using Fido2NetLib;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Services.Security;
@@ -182,7 +183,8 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
             Substitute.For<IUnifiedCache>(),
             Substitute.For<IJwtHelper>(),
             new ConfigurationBuilder().Build(),
-            NullLogger<AdminPrincipalService>.Instance);
+            NullLogger<AdminPrincipalService>.Instance,
+            Substitute.For<IAdminAuditLogChannel>());
 
     private static async Task<int> InsertCredentialAsync(SqlSugarClient db, int accountId, string credentialId)
         => await db.Insertable(new PasskeyCredential

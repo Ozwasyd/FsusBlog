@@ -402,7 +402,7 @@ FsusBlog 采用三级角色体系：
 
 ## 审计级别
 
-普通审计记录用于低风险读取、预览和运营查询，允许异步写入并保留低基数 context。高价值审计用于 admin/security/audit、审计 investigation hash 读取、admin passkey step-up、PoW 策略、审核策略、评论公开可见性、不可逆修复、缓存/索引重建和会影响公开分发的写操作；这类事件必须通过 `IAuditEventService.RecordHighValueAsync` 同步落库，失败时写入 `FSUSBLOG_DATA_ROOT/audit-fallback/critical-audit-*.jsonl`，并保留 `source/type/action/outcome/severity/is_high_value/actor/target/trace/path/method/reason_code` 与 hash 化 IP、User-Agent、session id、device fingerprint。
+普通审计记录用于低风险读取、预览和运营查询，允许异步写入并保留低基数 context。高价值审计用于 admin/security/audit、审计 investigation hash 读取、admin passkey step-up、PoW 策略、审核策略、评论公开可见性、不可逆修复、缓存/索引重建和会影响公开分发的写操作；这类事件必须通过 `IAuditEventService.RecordHighValueAsync` 同步落库，失败时写入 `FSUSBLOG_DATA_ROOT/audit-fallback/critical-audit-*.jsonl`，并保留 `source/type/action/outcome/severity/is_high_value/actor/target/trace/path/method/reason_code` 与 hash 化 IP、User-Agent、session id、device fingerprint。admin principal plane 的登录、step-up 和 session revoke 兼容审计仍写 `admin_audit_log`，但必须通过 `IAdminAuditLogChannel` 有界队列和后台批量 flush；队列满或批量写失败时同步 fallback direct write，记录 queued/dropped/batch/fallback 指标，且不得降低现有 admin audit 查询可见性。
 
 审计 context 不得包含 Authorization、Cookie、token、email、用户名、请求/响应正文、原始 IP、原始 User-Agent、裸 `UserId`、`InternalUserId`、`AccountId` 或 `AdminPrincipalId`。配置 `Audit:TamperEvidenceKey` 或 `Security:AuditTamperEvidenceKey` 后，高价值与普通结构化审计都必须维持 `record_hash` / `record_mac` / `prev_hash` 链式证据；`/user/manage/audit` 查询和 verify 端点只展示结构化摘要与防篡改校验结果。
 

@@ -9,6 +9,7 @@ using Fido2NetLib.Objects;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
@@ -128,7 +129,8 @@ public sealed class AdminPrincipalService(
     IUnifiedCache cache,
     IJwtHelper jwtHelper,
     IConfiguration configuration,
-    ILogger<AdminPrincipalService> logger) : IAdminPrincipalService
+    ILogger<AdminPrincipalService> logger,
+    IAdminAuditLogChannel adminAuditLogChannel) : IAdminPrincipalService
 {
     public const string BootstrapTokenEnvironmentVariable = "FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN";
     private const string BootstrapCachePrefix = "admin-bootstrap";
@@ -838,7 +840,7 @@ public sealed class AdminPrincipalService(
             }),
             OccurredAtUtc = occurredAtUtc
         };
-        await db.Insertable(audit).ExecuteCommandAsync();
+        await adminAuditLogChannel.EnqueueAsync(audit, cancellationToken);
     }
 
     private async Task WriteAdminSessionRevokeAuditsAsync(
@@ -870,7 +872,7 @@ public sealed class AdminPrincipalService(
             MetadataJson = metadataJson,
             OccurredAtUtc = occurredAtUtc
         }).ToArray();
-        await db.Insertable(audits).ExecuteCommandAsync();
+        await adminAuditLogChannel.EnqueueManyAsync(audits, cancellationToken);
     }
 
     private sealed record AdminSessionRevokeCandidate(string SessionId, DateTime? RevokedAtUtc, string RowVersion);
@@ -1136,7 +1138,7 @@ public sealed class AdminPrincipalService(
             MetadataJson = "{}",
             OccurredAtUtc = DateTime.UtcNow
         };
-        await db.Insertable(audit).ExecuteCommandAsync();
+        await adminAuditLogChannel.EnqueueAsync(audit, cancellationToken);
     }
 
     private async Task<bool> IsAdminCredentialIdUniqueAsync(IsCredentialIdUniqueToUserParams param, CancellationToken cancellationToken)

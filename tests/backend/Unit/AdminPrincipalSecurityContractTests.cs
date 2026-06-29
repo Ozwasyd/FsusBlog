@@ -379,6 +379,40 @@ public sealed class AdminPrincipalSecurityContractTests
     }
 
     [Fact]
+    public void AdminPrincipalPlane_HighImpactAuditUsesBoundedBatchChannel()
+    {
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");
+        string runtime = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs");
+        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string channel = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Audit/AdminAuditLogChannel.cs");
+        string store = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Audit/AdminAuditLogStore.cs");
+        string worker = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Audit/AdminAuditLogWriterWorker.cs");
+        string writeAudit = ExtractMethodBlock(service, "private async Task WriteAuditAsync");
+        string revokeAudit = ExtractMethodBlock(service, "private async Task WriteAdminSessionRevokeAuditAsync");
+        string revokeAudits = ExtractMethodBlock(service, "private async Task WriteAdminSessionRevokeAuditsAsync");
+
+        Assert.Contains("IAdminAuditLogChannel adminAuditLogChannel", service, StringComparison.Ordinal);
+        Assert.Contains("adminAuditLogChannel.EnqueueAsync(audit", writeAudit, StringComparison.Ordinal);
+        Assert.Contains("adminAuditLogChannel.EnqueueAsync(audit", revokeAudit, StringComparison.Ordinal);
+        Assert.Contains("adminAuditLogChannel.EnqueueManyAsync(audits", revokeAudits, StringComparison.Ordinal);
+        Assert.DoesNotContain("db.Insertable(audit)", writeAudit, StringComparison.Ordinal);
+        Assert.DoesNotContain("db.Insertable(audit)", revokeAudit, StringComparison.Ordinal);
+        Assert.DoesNotContain("db.Insertable(audits)", revokeAudits, StringComparison.Ordinal);
+
+        Assert.Contains("Channel.CreateBounded<AdminAuditLog>", channel, StringComparison.Ordinal);
+        Assert.Contains("BoundedChannelFullMode.Wait", channel, StringComparison.Ordinal);
+        Assert.Contains("WriteFallbackAsync", channel, StringComparison.Ordinal);
+        Assert.Contains("WriteBatchAsync(IReadOnlyList<AdminAuditLog>", store, StringComparison.Ordinal);
+        Assert.Contains("AddHostedService<AdminAuditLogWriterWorker>", runtime, StringComparison.Ordinal);
+        Assert.Contains("adminAuditQueuedCount", observability, StringComparison.Ordinal);
+        Assert.Contains("adminAuditDroppedCount", observability, StringComparison.Ordinal);
+        Assert.Contains("adminAuditBatchSize", observability, StringComparison.Ordinal);
+        Assert.Contains("adminAuditWriteElapsed", observability, StringComparison.Ordinal);
+        Assert.Contains("adminAuditFallbackWriteCount", observability, StringComparison.Ordinal);
+        Assert.Contains("FlushPendingAsync", worker, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AdminPermissionPolicies_RequireIndependentAdminPrincipalId()
     {
         string auth = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Auth/AdminPermissions.cs");

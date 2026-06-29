@@ -1,5 +1,6 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Services.Security;
@@ -207,7 +208,8 @@ public sealed class AdminMfaStepUpSecurityTests
             cache,
             Substitute.For<IJwtHelper>(),
             new ConfigurationBuilder().Build(),
-            NullLogger<AdminPrincipalService>.Instance);
+            NullLogger<AdminPrincipalService>.Instance,
+            Substitute.For<IAdminAuditLogChannel>());
 
     private static SecurityChallengeProofMintRequest CreateChallengeProofMintRequest()
         => new(
