@@ -109,8 +109,6 @@ public class LogCleanupService(
 
     internal async Task CleanupOnceAsync(CancellationToken token)
     {
-        await using var scope = _serviceProvider.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
         DateTime visitExpireDate = DateTime.UtcNow.AddDays(-VisitLogRetentionDays);
         DateTime rumExpireDate = DateTime.UtcNow.AddDays(-RumRetentionDays);
         DateTime auditExpireDate = DateTime.UtcNow.AddDays(-AuditLogRetentionDays);
@@ -118,13 +116,18 @@ public class LogCleanupService(
 
         _logger.LogDebug("执行计划启动：寻找过期访问/RUM/普通审计日志...");
 
-        int visitDeleted = await CleanupVisitLogsAsync(db, visitExpireDate, token);
-        int rumDeleted = await CleanupRumMetricsAsync(db, rumExpireDate, token);
-        int auditDeleted = await CleanupAuditLogsAsync(db, auditExpireDate, token);
-        int anonymousCredentialAuditDeleted = await CleanupAnonymousCredentialIssuanceAuditAsync(
-            db,
-            anonymousCredentialAuditExpireDate,
+        Task<int> visitTask = CleanupWithScopedDbAsync((db, scopedToken) => CleanupVisitLogsAsync(db, visitExpireDate, scopedToken), token);
+        Task<int> rumTask = CleanupWithScopedDbAsync((db, scopedToken) => CleanupRumMetricsAsync(db, rumExpireDate, scopedToken), token);
+        Task<int> auditTask = CleanupWithScopedDbAsync((db, scopedToken) => CleanupAuditLogsAsync(db, auditExpireDate, scopedToken), token);
+        Task<int> anonymousCredentialAuditTask = CleanupWithScopedDbAsync(
+            (db, scopedToken) => CleanupAnonymousCredentialIssuanceAuditAsync(db, anonymousCredentialAuditExpireDate, scopedToken),
             token);
+        await Task.WhenAll(visitTask, rumTask, auditTask, anonymousCredentialAuditTask);
+
+        int visitDeleted = await visitTask;
+        int rumDeleted = await rumTask;
+        int auditDeleted = await auditTask;
+        int anonymousCredentialAuditDeleted = await anonymousCredentialAuditTask;
 
         if (visitDeleted > 0 || rumDeleted > 0 || auditDeleted > 0 || anonymousCredentialAuditDeleted > 0)
         {
@@ -135,6 +138,15 @@ public class LogCleanupService(
                 auditDeleted,
                 anonymousCredentialAuditDeleted);
         }
+    }
+
+    private async Task<int> CleanupWithScopedDbAsync(
+        Func<ISqlSugarClient, CancellationToken, Task<int>> cleanup,
+        CancellationToken token)
+    {
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+        return await cleanup(db, token);
     }
 
     internal static Task<int> CleanupVisitLogsAsync(
@@ -218,10 +230,11 @@ public class LogCleanupService(
 
         int totalDeleted = 0;
         int processedChunks = 0;
+        SugarParameter[] parameters = BuildCleanupParameters(expireDate, chunkSize, extraParameters);
         while (!token.IsCancellationRequested && processedChunks < maxChunks)
         {
             token.ThrowIfCancellationRequested();
-            int deletedCount = await db.Ado.ExecuteCommandAsync(sql, BuildCleanupParameters(expireDate, chunkSize, extraParameters))
+            int deletedCount = await db.Ado.ExecuteCommandAsync(sql, parameters)
                 .ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
             if (deletedCount == 0)

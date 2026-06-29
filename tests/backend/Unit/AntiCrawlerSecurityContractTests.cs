@@ -155,6 +155,26 @@ public sealed class AntiCrawlerSecurityContractTests
     }
 
     [Fact]
+    public void CrawlerRanges_SourceFetchesRemoteProvidersConcurrentlyAndCachesConfiguration()
+    {
+        string worker = Read("src/backend/Services/Background/CrawlerUpdateWorker.cs");
+        string sync = Slice(worker, "private async Task<CrawlerRangeStatus> SynchronizeCoreAsync", "    private async Task WaitForNextPolicyTickAsync");
+        string snapshotPath = Slice(worker, "private string ResolveSnapshotPath", "    private static RangeSelection SelectRanges");
+
+        Assert.Contains("private readonly string? _configuredGoogleCidrs", worker, StringComparison.Ordinal);
+        Assert.Contains("private readonly string? _configuredBingCidrs", worker, StringComparison.Ordinal);
+        Assert.Contains("private readonly string? _configuredSnapshotPath", worker, StringComparison.Ordinal);
+        Assert.Contains("private readonly string _dataRoot", worker, StringComparison.Ordinal);
+        Assert.Contains("Task.WhenAll(remoteGoogleTask, remoteBingTask)", sync, StringComparison.Ordinal);
+        Assert.Contains("ParseConfiguredCidrs(_configuredGoogleCidrs)", sync, StringComparison.Ordinal);
+        Assert.Contains("ParseConfiguredCidrs(_configuredBingCidrs)", sync, StringComparison.Ordinal);
+        Assert.DoesNotContain("_configuration[\"Security:CrawlerCidrs:Google\"]", sync, StringComparison.Ordinal);
+        Assert.DoesNotContain("_configuration[\"Security:CrawlerCidrs:Bing\"]", sync, StringComparison.Ordinal);
+        Assert.DoesNotContain("_configuration[\"Security:CrawlerCidrs:SnapshotPath\"]", snapshotPath, StringComparison.Ordinal);
+        Assert.DoesNotContain("Environment.GetEnvironmentVariable", snapshotPath, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CrawlerRanges_ExceptionPathPublishesFinishedStateBeforeClearingRunning()
     {
         string worker = Read("src/backend/Services/Background/CrawlerUpdateWorker.cs");

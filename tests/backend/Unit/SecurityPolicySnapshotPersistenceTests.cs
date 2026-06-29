@@ -121,17 +121,35 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     [Fact]
-    public void ResolveNextVersionAsync_SourceUsesCounterRowLockInsteadOfSnapshotMax()
+    public void ResolveNextVersionAsync_SourceUsesCounterReturningUpdateInsteadOfSnapshotMax()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/SecurityPolicySnapshotService.cs");
         int methodStart = source.IndexOf("private async Task<long> ResolveNextVersionAsync", StringComparison.Ordinal);
-        int methodEnd = source.IndexOf("private async Task RecordAuditAsync", methodStart, StringComparison.Ordinal);
+        int methodEnd = source.IndexOf("private async Task EnsureVersionCounterAsync", methodStart, StringComparison.Ordinal);
         string method = source[methodStart..methodEnd];
 
         Assert.Contains("SecurityPolicyVersionCounter", source, StringComparison.Ordinal);
-        Assert.Contains("FOR UPDATE", method, StringComparison.Ordinal);
+        Assert.Contains("UPDATE security_policy_version_counter", method, StringComparison.Ordinal);
+        Assert.Contains("RETURNING last_version", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("FOR UPDATE", method, StringComparison.Ordinal);
         Assert.DoesNotContain("OrderBy(item => item.Version, OrderByType.Desc)", method, StringComparison.Ordinal);
         Assert.DoesNotContain("latest?.Version", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ResolveNextVersionAsync_SourceUsesSingleReturningUpdateOnHotPath()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/SecurityPolicySnapshotService.cs");
+        int methodStart = source.IndexOf("private async Task<long> ResolveNextVersionAsync", StringComparison.Ordinal);
+        int methodEnd = source.IndexOf("private async Task EnsureVersionCounterAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..methodEnd];
+
+        Assert.Contains("UPDATE security_policy_version_counter", method, StringComparison.Ordinal);
+        Assert.Contains("RETURNING last_version", method, StringComparison.Ordinal);
+        Assert.Contains("EnsureVersionCounterAsync(policyId, cancellationToken)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("SELECT last_version", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("FOR UPDATE", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("db.Updateable<SecurityPolicyVersionCounter>()", method, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -252,6 +270,20 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         Assert.Contains("policy.ApplyPerceptionSealedV2PolicySnapshot", service, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void StartupLoader_LoadsPolicySnapshotsConcurrently()
+    {
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/SecurityPolicySnapshotService.cs");
+        string start = ExtractBetween(service, "public async Task StartAsync", "    public Task StopAsync");
+
+        Assert.Contains("antiCrawlerTask", start, StringComparison.Ordinal);
+        Assert.Contains("powTask", start, StringComparison.Ordinal);
+        Assert.Contains("riskControlTask", start, StringComparison.Ordinal);
+        Assert.Contains("perceptionV2Task", start, StringComparison.Ordinal);
+        Assert.Contains("Task.WhenAll(antiCrawlerTask, powTask, riskControlTask, perceptionV2Task)", start, StringComparison.Ordinal);
+        Assert.DoesNotContain("SecurityPolicyLoadResult<AntiCrawlerPolicySnapshot> antiCrawler =\n                await", start, StringComparison.Ordinal);
+    }
+
     private static AntiCrawlerPolicySnapshot CreateAntiCrawlerSnapshot(string id, string mode)
         => new(id, BaselineNow, "admin:1", "unit", new AntiCrawlerPolicyOptions(
             mode,
@@ -321,6 +353,15 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
             CancellationToken.None,
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default).Unwrap();
+
+    private static string ExtractBetween(string source, string start, string end)
+    {
+        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
+        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
+        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
+        return source[startIndex..endIndex];
+    }
 
     private sealed class CapturingAuditEventService : IAuditEventService
     {

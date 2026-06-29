@@ -23,6 +23,12 @@ public class CrawlerUpdateWorker(
     private static readonly Uri DefaultGoogleRangeUrl = new("https://developers.google.com/static/search/apis/ipranges/googlebot.json");
     private static readonly Uri DefaultBingRangeUrl = new("https://www.bing.com/toolbox/bingbot.json");
     private CrawlerUpdateRuntimeState _runtimeState = CrawlerUpdateRuntimeState.Initial;
+    private readonly string? _configuredGoogleCidrs = _configuration["Security:CrawlerCidrs:Google"];
+    private readonly string? _configuredBingCidrs = _configuration["Security:CrawlerCidrs:Bing"];
+    private readonly string? _configuredSnapshotPath = _configuration["Security:CrawlerCidrs:SnapshotPath"];
+    private readonly string _dataRoot = _configuration["FSUSBLOG_DATA_ROOT"]
+        ?? Environment.GetEnvironmentVariable("FSUSBLOG_DATA_ROOT")
+        ?? Path.Combine(AppContext.BaseDirectory, "data");
     private int _running;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -146,11 +152,18 @@ public class CrawlerUpdateWorker(
         var errors = new List<string>(2);
         AntiCrawlerPolicyOptions options = _policyProvider.Current.Options;
         CrawlerRangeSnapshot? snapshot = LoadSnapshot(options);
-        var configGoogle = ParseConfiguredCidrs(_configuration["Security:CrawlerCidrs:Google"]);
-        var configBing = ParseConfiguredCidrs(_configuration["Security:CrawlerCidrs:Bing"]);
+        var configGoogle = ParseConfiguredCidrs(_configuredGoogleCidrs);
+        var configBing = ParseConfiguredCidrs(_configuredBingCidrs);
 
-        var remoteGoogle = await FetchRemoteCidrsAsync(ResolveUri(options.GoogleCrawlerRangesUrl, DefaultGoogleRangeUrl), "google", errors, token);
-        var remoteBing = await FetchRemoteCidrsAsync(ResolveUri(options.BingCrawlerRangesUrl, DefaultBingRangeUrl), "bing", errors, token);
+        var googleErrors = new List<string>(1);
+        var bingErrors = new List<string>(1);
+        Task<List<string>> remoteGoogleTask = FetchRemoteCidrsAsync(ResolveUri(options.GoogleCrawlerRangesUrl, DefaultGoogleRangeUrl), "google", googleErrors, token);
+        Task<List<string>> remoteBingTask = FetchRemoteCidrsAsync(ResolveUri(options.BingCrawlerRangesUrl, DefaultBingRangeUrl), "bing", bingErrors, token);
+        await Task.WhenAll(remoteGoogleTask, remoteBingTask);
+        errors.AddRange(googleErrors);
+        errors.AddRange(bingErrors);
+        var remoteGoogle = await remoteGoogleTask;
+        var remoteBing = await remoteBingTask;
 
         var googleSelection = SelectRanges(remoteGoogle, snapshot?.Google, configGoogle);
         var bingSelection = SelectRanges(remoteBing, snapshot?.Bing, configBing);
@@ -340,16 +353,13 @@ public class CrawlerUpdateWorker(
 
     private string ResolveSnapshotPath(AntiCrawlerPolicyOptions options)
     {
-        string? configured = options.SnapshotPath ?? _configuration["Security:CrawlerCidrs:SnapshotPath"];
+        string? configured = options.SnapshotPath ?? _configuredSnapshotPath;
         if (!string.IsNullOrWhiteSpace(configured))
         {
             return configured;
         }
 
-        string dataRoot = _configuration["FSUSBLOG_DATA_ROOT"]
-            ?? Environment.GetEnvironmentVariable("FSUSBLOG_DATA_ROOT")
-            ?? Path.Combine(AppContext.BaseDirectory, "data");
-        return Path.Combine(dataRoot, "security", "crawler-ranges.snapshot.json");
+        return Path.Combine(_dataRoot, "security", "crawler-ranges.snapshot.json");
     }
 
     private static RangeSelection SelectRanges(List<string> remote, IReadOnlyList<string>? snapshot, List<string> config)

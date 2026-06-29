@@ -215,8 +215,38 @@ public sealed class SecurityPolicySnapshotService(
         return new SecurityPolicyRollbackResult<T>(true, document, ToRecord(inserted), "rollback");
     }
 
-    private async Task<long> ResolveNextVersionAsync(string policyId, CancellationToken cancellationToken)
+    private async Task<long?> TryIncrementVersionCounterAsync(string policyId, CancellationToken cancellationToken)
     {
+        DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
+        if (db.CurrentConnectionConfig.DbType == DbType.MySql)
+        {
+            int mysqlUpdated = await db.Ado.ExecuteCommandAsync(
+                """
+                UPDATE security_policy_version_counter
+                SET last_version = last_version + 1,
+                    updated_at_utc = @updatedAtUtc
+                WHERE policy_id = @policyId;
+                """,
+                new SugarParameter[]
+                {
+                    new("@policyId", policyId),
+                    new("@updatedAtUtc", utcNow)
+                });
+            if (mysqlUpdated != 1)
+            {
+                return null;
+            }
+
+            using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                """
+                SELECT last_version
+                FROM security_policy_version_counter
+                WHERE policy_id = @policyId;
+                """,
+                new SugarParameter[] { new("@policyId", policyId) });
+            return await reader.ReadAsync(cancellationToken) ? reader.GetInt64(0) : null;
+        }
+
         await EnsureVersionCounterAsync(policyId, cancellationToken);
 
         long lastVersion;
@@ -249,6 +279,60 @@ public sealed class SecurityPolicySnapshotService(
         }
 
         return nextVersion;
+    }
+
+    private async Task<long> ResolveNextVersionAsync(string policyId, CancellationToken cancellationToken)
+    {
+        if (db.CurrentConnectionConfig.DbType == DbType.PostgreSQL)
+        {
+            async Task<long?> TryIncrementPostgresCounterAsync()
+            {
+                using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                    """
+                    UPDATE security_policy_version_counter
+                    SET last_version = last_version + 1,
+                        updated_at_utc = @updatedAtUtc
+                    WHERE policy_id = @policyId
+                    RETURNING last_version;
+                    """,
+                    new SugarParameter[]
+                    {
+                        new("@policyId", policyId),
+                        new("@updatedAtUtc", timeProvider.GetUtcNow().UtcDateTime)
+                    });
+                return await reader.ReadAsync(cancellationToken) ? reader.GetInt64(0) : null;
+            }
+
+            long? postgresNextVersion = await TryIncrementPostgresCounterAsync();
+            if (postgresNextVersion.HasValue)
+            {
+                return postgresNextVersion.Value;
+            }
+
+            await EnsureVersionCounterAsync(policyId, cancellationToken);
+            postgresNextVersion = await TryIncrementPostgresCounterAsync();
+            if (postgresNextVersion.HasValue)
+            {
+                return postgresNextVersion.Value;
+            }
+
+            throw new InvalidOperationException("security_policy_version_counter_update_conflict");
+        }
+
+        long? nextVersion = await TryIncrementVersionCounterAsync(policyId, cancellationToken);
+        if (nextVersion.HasValue)
+        {
+            return nextVersion.Value;
+        }
+
+        await EnsureVersionCounterAsync(policyId, cancellationToken);
+        nextVersion = await TryIncrementVersionCounterAsync(policyId, cancellationToken);
+        if (nextVersion.HasValue)
+        {
+            return nextVersion.Value;
+        }
+
+        throw new InvalidOperationException("security_policy_version_counter_update_conflict");
     }
 
     private async Task EnsureVersionCounterAsync(string policyId, CancellationToken cancellationToken)
@@ -409,29 +493,36 @@ public sealed class SecurityPolicySnapshotHostedService(
             using IServiceScope scope = scopeFactory.CreateScope();
             ISecurityPolicySnapshotService snapshots = scope.ServiceProvider.GetRequiredService<ISecurityPolicySnapshotService>();
 
-            SecurityPolicyLoadResult<AntiCrawlerPolicySnapshot> antiCrawler =
-                await snapshots.LoadActiveOrLastKnownGoodAsync<AntiCrawlerPolicySnapshot>(SecurityPolicyIds.AntiCrawler, cancellationToken);
+            Task<SecurityPolicyLoadResult<AntiCrawlerPolicySnapshot>> antiCrawlerTask =
+                snapshots.LoadActiveOrLastKnownGoodAsync<AntiCrawlerPolicySnapshot>(SecurityPolicyIds.AntiCrawler, cancellationToken);
+            Task<SecurityPolicyLoadResult<PowPolicySnapshot>> powTask =
+                snapshots.LoadActiveOrLastKnownGoodAsync<PowPolicySnapshot>(SecurityPolicyIds.Pow, cancellationToken);
+            Task<SecurityPolicyLoadResult<SecurityRiskPolicySnapshotV2>> riskControlTask =
+                snapshots.LoadActiveOrLastKnownGoodAsync<SecurityRiskPolicySnapshotV2>(SecurityPolicyIds.RiskControl, cancellationToken);
+            Task<SecurityPolicyLoadResult<PerceptionSealedV2PolicySnapshot>> perceptionV2Task =
+                snapshots.LoadActiveOrLastKnownGoodAsync<PerceptionSealedV2PolicySnapshot>(SecurityPolicyIds.PerceptionSealedV2, cancellationToken);
+
+            await Task.WhenAll(antiCrawlerTask, powTask, riskControlTask, perceptionV2Task);
+
+            SecurityPolicyLoadResult<AntiCrawlerPolicySnapshot> antiCrawler = await antiCrawlerTask;
             if (antiCrawler.Success && antiCrawler.Document is not null)
             {
                 policy.ApplyAntiCrawlerPolicySnapshot(antiCrawler.Document);
             }
 
-            SecurityPolicyLoadResult<PowPolicySnapshot> pow =
-                await snapshots.LoadActiveOrLastKnownGoodAsync<PowPolicySnapshot>(SecurityPolicyIds.Pow, cancellationToken);
+            SecurityPolicyLoadResult<PowPolicySnapshot> pow = await powTask;
             if (pow.Success && pow.Document is not null)
             {
                 policy.ApplyPowPolicySnapshot(pow.Document);
             }
 
-            SecurityPolicyLoadResult<SecurityRiskPolicySnapshotV2> riskControl =
-                await snapshots.LoadActiveOrLastKnownGoodAsync<SecurityRiskPolicySnapshotV2>(SecurityPolicyIds.RiskControl, cancellationToken);
+            SecurityPolicyLoadResult<SecurityRiskPolicySnapshotV2> riskControl = await riskControlTask;
             if (riskControl.Success && riskControl.Document is not null)
             {
                 policy.ApplyRiskControlPolicySnapshot(riskControl.Document);
             }
 
-            SecurityPolicyLoadResult<PerceptionSealedV2PolicySnapshot> perceptionV2 =
-                await snapshots.LoadActiveOrLastKnownGoodAsync<PerceptionSealedV2PolicySnapshot>(SecurityPolicyIds.PerceptionSealedV2, cancellationToken);
+            SecurityPolicyLoadResult<PerceptionSealedV2PolicySnapshot> perceptionV2 = await perceptionV2Task;
             if (perceptionV2.Success && perceptionV2.Document is not null)
             {
                 policy.ApplyPerceptionSealedV2PolicySnapshot(perceptionV2.Document);
