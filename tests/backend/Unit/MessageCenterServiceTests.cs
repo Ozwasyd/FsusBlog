@@ -268,6 +268,10 @@ public sealed class MessageCenterServiceTests
             source,
             "public async Task<Result<ConversationMessageResponse>> ReplyAsAccountAsync",
             "public async Task<Result> MarkConversationReadAsync");
+        string combinedLock = ExtractMethod(
+            source,
+            "private async Task<ReplyLocks?> LoadReplyLocksForUpdateAsync",
+            "private async Task<ReplyConversationLock?> LoadReplyConversationForUpdateAsync");
         string conversationLock = ExtractMethod(
             source,
             "private async Task<ReplyConversationLock?> LoadReplyConversationForUpdateAsync",
@@ -281,9 +285,10 @@ public sealed class MessageCenterServiceTests
             "private async Task<bool> TryMarkReplyParticipantReadAsync",
             "private static Result<ConversationMessageResponse> MapReplyAccountWriteOutcome");
 
-        Assert.Contains("LoadReplyConversationForUpdateAsync(conversationId)", method, StringComparison.Ordinal);
-        Assert.Contains("LoadReplyParticipantForUpdateAsync(conversationId, accountId)", method, StringComparison.Ordinal);
+        Assert.Contains("LoadReplyLocksForUpdateAsync(conversationId, accountId)", method, StringComparison.Ordinal);
         Assert.Contains("TryMarkReplyParticipantReadAsync(participant", method, StringComparison.Ordinal);
+        Assert.Contains("locked_conversation AS", combinedLock, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("locked_participant AS", combinedLock, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("FOR UPDATE", conversationLock, StringComparison.Ordinal);
         Assert.Contains("FOR UPDATE", participantLock, StringComparison.Ordinal);
         Assert.Contains("status <> @ClosedStatus", source, StringComparison.OrdinalIgnoreCase);
@@ -293,7 +298,7 @@ public sealed class MessageCenterServiceTests
         Assert.Contains("ReplyAccountWriteOutcome.Closed", method, StringComparison.Ordinal);
         Assert.Contains("ErrorCode.Conflict", method, StringComparison.Ordinal);
         Assert.True(
-            method.IndexOf("LoadReplyConversationForUpdateAsync", StringComparison.Ordinal) < method.IndexOf("db.Insertable(new ConversationMessage", StringComparison.Ordinal),
+            method.IndexOf("LoadReplyLocksForUpdateAsync", StringComparison.Ordinal) < method.IndexOf("db.Insertable(new ConversationMessage", StringComparison.Ordinal),
             "The locked conversation recheck must run before inserting the account reply.");
     }
 
@@ -345,6 +350,54 @@ public sealed class MessageCenterServiceTests
         Assert.DoesNotContain("await BuildConversationListItemForAccountAsync(participant.AccountId, conversationId)", method, StringComparison.Ordinal);
         Assert.Contains("LoadTotalUnreadMapAsync", source, StringComparison.Ordinal);
         Assert.Contains("BuildParticipantConversationItemsAsync", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MessageCenterRoundTrips_SourceRunsHotReadsInParallelAndTracksPhases()
+    {
+        string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
+        string observability = ReadSource("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string accountList = ExtractMethod(
+            source,
+            "public async Task<PageResponse<ConversationListItemResponse>> GetAccountConversationsAsync",
+            "public async Task<ConversationDetailResponse?> GetAccountConversationDetailAsync");
+        string adminList = ExtractMethod(
+            source,
+            "public async Task<PageResponse<ConversationListItemResponse>> GetAdminConversationsAsync",
+            "public async Task<ConversationDetailResponse?> GetAdminConversationDetailAsync");
+        string reply = ExtractMethod(
+            source,
+            "public async Task<Result<ConversationMessageResponse>> ReplyAsAccountAsync",
+            "private async Task<ReplyConversationLock?> LoadReplyConversationForUpdateAsync");
+        string lastMessageMap = ExtractMethod(
+            source,
+            "private async Task<Dictionary<long, ConversationMessagePreviewResponse>> LoadLastMessageMapAsync",
+            "private static long[] CollectConversationIds");
+        string mapMessages = ExtractMethod(
+            source,
+            "private static Task<List<ConversationMessageResponse>> MapMessagesAsync",
+            "private async Task<ConversationMessageResponse?> BuildMessageResponseAsync");
+
+        Assert.Contains("Task<int> totalTask", accountList, StringComparison.Ordinal);
+        Assert.Contains("Task<List<AccountConversationRow>> rowsTask", accountList, StringComparison.Ordinal);
+        Assert.Contains("await Task.WhenAll(totalTask, rowsTask)", accountList, StringComparison.Ordinal);
+        Assert.Contains("Task<int> totalTask", adminList, StringComparison.Ordinal);
+        Assert.Contains("Task<List<AccountConversationRow>> rowsTask", adminList, StringComparison.Ordinal);
+        Assert.Contains("await Task.WhenAll(totalTask, rowsTask)", adminList, StringComparison.Ordinal);
+
+        Assert.Contains("LoadLastMessagesSingleQueryAsync", lastMessageMap, StringComparison.Ordinal);
+        Assert.DoesNotContain("SqlFunc.AggregateMax", lastMessageMap, StringComparison.Ordinal);
+        Assert.DoesNotContain("messageIds.Contains", lastMessageMap, StringComparison.Ordinal);
+
+        Assert.Contains("ReplyLocks? locks = await LoadReplyLocksForUpdateAsync(conversationId, accountId)", reply, StringComparison.Ordinal);
+        Assert.Contains("WITH locked_conversation AS", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("locked_participant AS", source, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("rows.Sort", mapMessages, StringComparison.Ordinal);
+
+        Assert.Contains("fsus.message.center.list.elapsed", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.message.center.reply.elapsed", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.message.center.fanout.refresh.elapsed", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.message.center.fanout.build_item.elapsed", observability, StringComparison.Ordinal);
     }
 
     [Fact]

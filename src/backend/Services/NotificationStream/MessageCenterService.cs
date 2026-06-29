@@ -1,9 +1,11 @@
 using System.Data.Common;
+using System.Diagnostics;
 using System.Globalization;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.NotificationStream;
@@ -22,15 +24,11 @@ public sealed class MessageCenterService(
 
     public async Task<PageResponse<ConversationListItemResponse>> GetAccountConversationsAsync(int accountId, int page, int size, string? filter)
     {
+        long startedAt = Stopwatch.GetTimestamp();
         int pageNum = Math.Max(1, page);
         int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 50);
-        var query = db.Queryable<ConversationParticipantState, MessageConversation>(
-            (p, c) => p.ConversationId == c.Id)
-            .Where((p, c) => p.AccountId == accountId);
-
-        query = ApplyAccountFilter(query, filter);
-        int total = await query.CountAsync();
-        var rows = await query
+        Task<int> totalTask = BuildAccountConversationQuery(accountId, filter).CountAsync();
+        Task<List<AccountConversationRow>> rowsTask = BuildAccountConversationQuery(accountId, filter)
             .OrderBy((p, c) => c.LastMessageAt, OrderByType.Desc)
             .Select((p, c) => new AccountConversationRow
             {
@@ -45,9 +43,11 @@ public sealed class MessageCenterService(
             .Skip((pageNum - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
+        await Task.WhenAll(totalTask, rowsTask);
 
-        var items = await BuildConversationListAsync(rows, includeUnread: true);
-        return new PageResponse<ConversationListItemResponse> { Items = items, Total = total };
+        var items = await BuildConversationListAsync(await rowsTask, includeUnread: true);
+        FsusObservability.RecordMessageCenterList("account", FsusObservability.GetElapsed(startedAt));
+        return new PageResponse<ConversationListItemResponse> { Items = items, Total = await totalTask };
     }
 
     public async Task<ConversationDetailResponse?> GetAccountConversationDetailAsync(int accountId, long conversationId)
@@ -82,31 +82,11 @@ public sealed class MessageCenterService(
 
     public async Task<PageResponse<ConversationListItemResponse>> GetAdminConversationsAsync(int page, int size, string? filter)
     {
+        long startedAt = Stopwatch.GetTimestamp();
         int pageNum = Math.Max(1, page);
         int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 100);
-        var query = db.Queryable<MessageConversation>();
-
-        if (!string.IsNullOrWhiteSpace(filter))
-        {
-            switch (filter.Trim().ToLowerInvariant())
-            {
-                case "system":
-                    query = query.Where(it => it.IsSystemSource);
-                    break;
-                case "open":
-                    query = query.Where(it => it.Status == ConversationStatus.Open);
-                    break;
-                case "pending":
-                    query = query.Where(it => it.Status == ConversationStatus.Pending);
-                    break;
-                case "closed":
-                    query = query.Where(it => it.Status == ConversationStatus.Closed);
-                    break;
-            }
-        }
-
-        int total = await query.CountAsync();
-        var rows = await query
+        Task<int> totalTask = BuildAdminConversationQuery(filter).CountAsync();
+        Task<List<AccountConversationRow>> rowsTask = BuildAdminConversationQuery(filter)
             .OrderByDescending(it => it.LastMessageAt)
             .Select(it => new AccountConversationRow
             {
@@ -121,7 +101,9 @@ public sealed class MessageCenterService(
             .Skip((pageNum - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
+        await Task.WhenAll(totalTask, rowsTask);
 
+        List<AccountConversationRow> rows = await rowsTask;
         var unreadMap = await GetConversationUnreadMapAsync(CollectConversationIds(rows));
         foreach (var row in rows)
         {
@@ -132,7 +114,8 @@ public sealed class MessageCenterService(
         }
 
         var items = await BuildConversationListAsync(rows, includeUnread: true);
-        return new PageResponse<ConversationListItemResponse> { Items = items, Total = total };
+        FsusObservability.RecordMessageCenterList("admin", FsusObservability.GetElapsed(startedAt));
+        return new PageResponse<ConversationListItemResponse> { Items = items, Total = await totalTask };
     }
 
     public async Task<ConversationDetailResponse?> GetAdminConversationDetailAsync(long conversationId)
@@ -235,6 +218,7 @@ public sealed class MessageCenterService(
 
     public async Task<Result<ConversationMessageResponse>> ReplyAsAccountAsync(int accountId, long conversationId, string body)
     {
+        long startedAt = Stopwatch.GetTimestamp();
         string normalizedBody = NormalizeBody(body);
         if (normalizedBody.Length == 0)
         {
@@ -246,7 +230,8 @@ public sealed class MessageCenterService(
         ReplyAccountWriteOutcome writeOutcome = ReplyAccountWriteOutcome.NotFound;
         var tran = await db.Ado.UseTranAsync(async () =>
         {
-            ReplyConversationLock? conversation = await LoadReplyConversationForUpdateAsync(conversationId);
+            ReplyLocks? locks = await LoadReplyLocksForUpdateAsync(conversationId, accountId);
+            ReplyConversationLock? conversation = locks?.Conversation;
             if (conversation is null)
             {
                 writeOutcome = ReplyAccountWriteOutcome.NotFound;
@@ -259,7 +244,7 @@ public sealed class MessageCenterService(
                 return;
             }
 
-            ReplyParticipantLock? participant = await LoadReplyParticipantForUpdateAsync(conversationId, accountId);
+            ReplyParticipantLock? participant = locks?.Participant;
             if (participant is null)
             {
                 writeOutcome = ReplyAccountWriteOutcome.Forbidden;
@@ -312,7 +297,55 @@ public sealed class MessageCenterService(
             PublishReadUpdatedAsync(accountId, conversationId, messageId, 0, totalUnread),
             PublishMessageAppendAsync(conversationId.ToString(), message, 0, totalUnread),
             PublishConversationUpsertToAdminsAsync(conversationId));
+        FsusObservability.RecordMessageCenterReply("account", FsusObservability.GetElapsed(startedAt));
         return Result<ConversationMessageResponse>.Success(message);
+    }
+
+    private async Task<ReplyLocks?> LoadReplyLocksForUpdateAsync(long conversationId, int accountId)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            WITH locked_conversation AS (
+                SELECT id,
+                       status
+                FROM msg_conversation
+                WHERE id = @ConversationId
+                FOR UPDATE
+            ),
+            locked_participant AS (
+                SELECT conversationid,
+                       accountid,
+                       lastreadmessageid
+                FROM msg_participant_state
+                WHERE conversationid = @ConversationId
+                  AND accountid = @AccountId
+                FOR UPDATE
+            )
+            SELECT c.id,
+                   c.status,
+                   p.conversationid,
+                   p.accountid,
+                   p.lastreadmessageid
+            FROM locked_conversation c
+            LEFT JOIN locked_participant p ON true;
+            """,
+            new SugarParameter("@ConversationId", conversationId),
+            new SugarParameter("@AccountId", accountId));
+        if (!await reader.ReadAsync())
+        {
+            return null;
+        }
+
+        var conversation = new ReplyConversationLock(
+            reader.GetInt64(0),
+            (ConversationStatus)reader.GetInt32(1));
+        ReplyParticipantLock? participant = reader.IsDBNull(2)
+            ? null
+            : new ReplyParticipantLock(
+                reader.GetInt64(2),
+                reader.GetInt32(3),
+                reader.IsDBNull(4) ? null : reader.GetInt64(4));
+        return new ReplyLocks(conversation, participant);
     }
 
     private async Task<ReplyConversationLock?> LoadReplyConversationForUpdateAsync(long conversationId)
@@ -437,6 +470,8 @@ public sealed class MessageCenterService(
     private sealed record ReplyConversationLock(long Id, ConversationStatus Status);
 
     private sealed record ReplyParticipantLock(long ConversationId, int AccountId, long? LastReadMessageId);
+
+    private sealed record ReplyLocks(ReplyConversationLock Conversation, ReplyParticipantLock? Participant);
 
     private sealed class ReplyParticipantConcurrencyException(long conversationId, int accountId)
         : InvalidOperationException($"Participant read state changed while replying. ConversationId={conversationId}; AccountId={accountId}.")
@@ -860,36 +895,47 @@ public sealed class MessageCenterService(
             return [];
         }
 
-        var latestRows = await db.Queryable<ConversationMessage>()
-            .Where(it => conversationIds.Contains(it.ConversationId) && !it.IsInternalNote)
-            .GroupBy(it => it.ConversationId)
-            .Select(it => new
-            {
-                it.ConversationId,
-                MessageId = SqlFunc.AggregateMax(it.Id)
-            })
-            .ToListAsync();
-        if (latestRows.Count == 0)
-        {
-            return [];
-        }
-
-        long[] messageIds = new long[latestRows.Count];
-        for (int i = 0; i < latestRows.Count; i++)
-        {
-            messageIds[i] = latestRows[i].MessageId;
-        }
-
-        var rows = await db.Queryable<ConversationMessage>()
-            .Where(it => messageIds.Contains(it.Id))
-            .ToListAsync();
-
+        List<ConversationMessage> rows = await LoadLastMessagesSingleQueryAsync(conversationIds);
         var mapped = await MapMessagesAsync(rows);
         Dictionary<long, ConversationMessagePreviewResponse> mappedByMessageId = BuildMessagePreviewMap(mapped, logger);
+        var latestRows = new List<(long ConversationId, long MessageId)>(rows.Count);
+        for (int i = 0; i < rows.Count; i++)
+        {
+            ConversationMessage row = rows[i];
+            latestRows.Add((row.ConversationId, row.Id));
+        }
 
-        return BuildLatestMessageMap(
-            [.. latestRows.Select(static row => (row.ConversationId, row.MessageId))],
-            mappedByMessageId);
+        return BuildLatestMessageMap(latestRows, mappedByMessageId);
+    }
+
+    private async Task<List<ConversationMessage>> LoadLastMessagesSingleQueryAsync(long[] conversationIds)
+    {
+        var parameters = new SugarParameter[conversationIds.Length];
+        var placeholders = new string[conversationIds.Length];
+        for (int i = 0; i < conversationIds.Length; i++)
+        {
+            string name = "@ConversationId" + i.ToString(CultureInfo.InvariantCulture);
+            placeholders[i] = name;
+            parameters[i] = new SugarParameter(name, conversationIds[i]);
+        }
+
+        string sql = $"""
+            SELECT DISTINCT ON (conversationid)
+                   id,
+                   conversationid,
+                   sendertype,
+                   senderaccountid,
+                   senderadminprincipalid,
+                   senderadminsessionid,
+                   body,
+                   isinternalnote,
+                   createdat
+            FROM msg_message
+            WHERE conversationid IN ({string.Join(", ", placeholders)})
+              AND isinternalnote = false
+            ORDER BY conversationid, id DESC;
+            """;
+        return await db.Ado.SqlQueryAsync<ConversationMessage>(sql, parameters);
     }
 
     private static long[] CollectConversationIds(IReadOnlyList<AccountConversationRow> rows)
@@ -950,11 +996,6 @@ public sealed class MessageCenterService(
         if (rows.Count == 0)
         {
             return Task.FromResult<List<ConversationMessageResponse>>([]);
-        }
-
-        if (rows.Count > 1)
-        {
-            rows.Sort(static (left, right) => left.Id.CompareTo(right.Id));
         }
 
         var result = new List<ConversationMessageResponse>(rows.Count);
@@ -1107,8 +1148,15 @@ public sealed class MessageCenterService(
         }
 
         int[] accountIds = [.. participants.Select(static item => item.AccountId).Distinct()];
-        Dictionary<int, int> totalUnreadMap = await LoadTotalUnreadMapAsync(accountIds);
-        Dictionary<int, ConversationListItemResponse> itemMap = await BuildParticipantConversationItemsAsync(conversationId, message, participants);
+        long refreshStartedAt = Stopwatch.GetTimestamp();
+        Task<Dictionary<int, int>> totalUnreadTask = LoadTotalUnreadMapAsync(accountIds);
+        long buildStartedAt = Stopwatch.GetTimestamp();
+        Task<Dictionary<int, ConversationListItemResponse>> itemTask = BuildParticipantConversationItemsAsync(conversationId, message, participants);
+        await Task.WhenAll(totalUnreadTask, itemTask);
+        FsusObservability.RecordMessageCenterFanoutRefresh(FsusObservability.GetElapsed(refreshStartedAt));
+        FsusObservability.RecordMessageCenterFanoutBuildItem(FsusObservability.GetElapsed(buildStartedAt));
+        Dictionary<int, int> totalUnreadMap = await totalUnreadTask;
+        Dictionary<int, ConversationListItemResponse> itemMap = await itemTask;
         var payloads = new List<ParticipantMessageFanoutPayload>(participants.Count);
         for (int i = 0; i < participants.Count; i++)
         {
@@ -1282,6 +1330,32 @@ public sealed class MessageCenterService(
             "open" => query.Where((_, c) => c.Status == ConversationStatus.Open),
             "pending" => query.Where((_, c) => c.Status == ConversationStatus.Pending),
             "closed" => query.Where((_, c) => c.Status == ConversationStatus.Closed),
+            _ => query
+        };
+    }
+
+    private ISugarQueryable<ConversationParticipantState, MessageConversation> BuildAccountConversationQuery(int accountId, string? filter)
+    {
+        var query = db.Queryable<ConversationParticipantState, MessageConversation>(
+                (p, c) => p.ConversationId == c.Id)
+            .Where((p, c) => p.AccountId == accountId);
+        return ApplyAccountFilter(query, filter);
+    }
+
+    private ISugarQueryable<MessageConversation> BuildAdminConversationQuery(string? filter)
+    {
+        var query = db.Queryable<MessageConversation>();
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            return query;
+        }
+
+        return filter.Trim().ToLowerInvariant() switch
+        {
+            "system" => query.Where(it => it.IsSystemSource),
+            "open" => query.Where(it => it.Status == ConversationStatus.Open),
+            "pending" => query.Where(it => it.Status == ConversationStatus.Pending),
+            "closed" => query.Where(it => it.Status == ConversationStatus.Closed),
             _ => query
         };
     }

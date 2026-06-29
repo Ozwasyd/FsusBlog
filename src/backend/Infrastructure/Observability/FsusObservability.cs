@@ -241,6 +241,10 @@ public static class FsusObservability
         static () => Ratio(CommentActorResolverCredentialLevelHits, CommentActorResolverCredentialLevelMisses));
     private static readonly Counter<long> CommentActorResolverDbRoundTrips = Meter.CreateCounter<long>("fsus.comment.actor_resolver.db_round_trips");
     private static readonly Histogram<double> AuthMeElapsed = Meter.CreateHistogram<double>("fsus.auth.me.elapsed_ms", "ms");
+    private static readonly Histogram<double> MessageCenterListElapsed = Meter.CreateHistogram<double>("fsus.message.center.list.elapsed", "ms");
+    private static readonly Histogram<double> MessageCenterReplyElapsed = Meter.CreateHistogram<double>("fsus.message.center.reply.elapsed", "ms");
+    private static readonly Histogram<double> MessageCenterFanoutRefreshElapsed = Meter.CreateHistogram<double>("fsus.message.center.fanout.refresh.elapsed", "ms");
+    private static readonly Histogram<double> MessageCenterFanoutBuildItemElapsed = Meter.CreateHistogram<double>("fsus.message.center.fanout.build_item.elapsed", "ms");
     private static readonly Histogram<double> MfaChallengeStartAccountReadElapsed = Meter.CreateHistogram<double>("fsus.mfa.challenge_start.account_read_elapsed_ms", "ms");
     private static readonly Counter<long> MfaFailureCounterKeyCount = Meter.CreateCounter<long>("fsus.mfa.failure_counter.key_count");
     private static readonly Counter<long> MfaCounterExpiredCount = Meter.CreateCounter<long>("fsus.mfa.counter_expired.count");
@@ -1211,6 +1215,42 @@ public static class FsusObservability
         {
             TagList tags = CreateBaseTags("comment-actor", NormalizeTelemetryValue(projection, "account"), "db");
             CommentActorResolverDbRoundTrips.Add(1, tags);
+        });
+    }
+
+    public static void RecordMessageCenterList(string phase, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("message-center", NormalizeTelemetryValue(phase, "list"), "ok");
+            MessageCenterListElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
+        });
+    }
+
+    public static void RecordMessageCenterReply(string phase, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("message-center", NormalizeTelemetryValue(phase, "reply"), "ok");
+            MessageCenterReplyElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
+        });
+    }
+
+    public static void RecordMessageCenterFanoutRefresh(TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("message-center", "fanout-refresh", "ok");
+            MessageCenterFanoutRefreshElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
+        });
+    }
+
+    public static void RecordMessageCenterFanoutBuildItem(TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("message-center", "fanout-build-item", "ok");
+            MessageCenterFanoutBuildItemElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
         });
     }
 
