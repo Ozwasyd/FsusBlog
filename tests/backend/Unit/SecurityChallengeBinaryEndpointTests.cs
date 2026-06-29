@@ -189,18 +189,28 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
-    public void SecurityChallengePayloadDeserializers_SourceUseBoundedWebJsonOptions()
+    public void SecurityChallengePayloadParser_SourceUsesBoundedStreamingParserAfterRateLimit()
     {
         string endpointSource = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs");
         string adminPrincipalSource = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");
 
-        Assert.Contains("new(JsonSerializerDefaults.Web)", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("IsProviderPayloadJsonWithinCheapLimit", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("verifyRateLimiter.TryAcquireAsync", endpointSource, StringComparison.Ordinal);
+        Assert.True(
+            endpointSource.IndexOf("verifyRateLimiter.TryAcquireAsync", StringComparison.Ordinal)
+                < endpointSource.IndexOf("TryDeserializeProviderPayload", StringComparison.Ordinal),
+            "verify rate limit must happen before provider payload JSON deserialization.");
         Assert.Contains("MaxDepth = 32", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("Utf8JsonReader", endpointSource, StringComparison.Ordinal);
         Assert.Contains("MaxSecurityChallengeProviderPayloadEntries", endpointSource, StringComparison.Ordinal);
         Assert.Contains("MaxSecurityChallengeProviderPayloadValueChars", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("parsed.Count > MaxSecurityChallengeProviderPayloadEntries", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("item.Value.Length > MaxSecurityChallengeProviderPayloadValueChars", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("JsonSerializer.Deserialize<Dictionary<string, string>>(payloadJson, SecurityChallengeProviderPayloadJsonOptions)", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("entries > MaxSecurityChallengeProviderPayloadEntries", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("value.Length > MaxSecurityChallengeProviderPayloadValueChars", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("RecordChallengeVerifyRateLimitedBeforeJson", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("RecordProviderPayloadParse", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("RecordProviderPayloadRejectedBytes", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("RecordChallengeVerifyAllocationBytes", endpointSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("JsonSerializer.Deserialize<Dictionary<string, string>>(payloadJson", endpointSource, StringComparison.Ordinal);
 
         Assert.Contains("new(JsonSerializerDefaults.Web)", adminPrincipalSource, StringComparison.Ordinal);
         Assert.Contains("MaxDepth = 32", adminPrincipalSource, StringComparison.Ordinal);
@@ -298,6 +308,48 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal(SecurityRiskReason.SecurityChallengeRejected, signal.Reason);
         Assert.Equal(SecurityRiskSources.RiskControl, signal.Source);
         Assert.Equal("auth.login", signal.Action);
+        Assert.Equal("challenge_verify_rate_limited", signal.Detail);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_RateLimitedMalformedProviderPayload_ReturnsGenericFailureWithoutCallingOrchestrator()
+    {
+        var aeds = new AedsEncoder();
+        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        var request = new SecurityChallengeVerifyBinaryRequest(
+            challengeId,
+            SecurityChallengeKind.PerceptionCharacterV2,
+            "auth.login",
+            "auth.login",
+            """{"answerText":""");
+        var context = CreateContext(
+            AedsFrameType.SecurityChallengeVerifyRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request)));
+        var orchestrator = new FakeChallengeOrchestrator
+        {
+            VerifyResult = SecurityChallengeOrchestrationVerifyResult.Success("should_not_run")
+        };
+        var riskSink = new CapturingRiskSink();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
+            context,
+            aeds,
+            new FixedRiskPolicyProvider(CreatePolicy("perceptionCharacterV2")),
+            new RiskControlContextFactory(),
+            orchestrator,
+            new CountingSecurityChallengeVerifyRateLimiter(maxAttempts: 0),
+            riskSink,
+            CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+
+        Assert.Equal(StatusCodes.Status428PreconditionRequired, context.Response.StatusCode);
+        Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
+        Assert.Equal("challenge_failed", PodBinaryCodec.ToErrorDetail(errorPod).Message);
+        Assert.Equal(0, orchestrator.VerifyCallCount);
+        SecurityRiskSignal signal = Assert.Single(riskSink.Signals);
+        Assert.Equal(SecurityRiskReason.SecurityChallengeRejected, signal.Reason);
         Assert.Equal("challenge_verify_rate_limited", signal.Detail);
     }
 

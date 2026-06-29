@@ -92,6 +92,10 @@ public static class FsusObservability
     private static readonly Counter<long> SecurityChallengeV2FailedCounter = Meter.CreateCounter<long>("fsus.security.challenge.v2.failed.count");
     private static readonly Counter<long> SecurityChallengeV2ReplayedCounter = Meter.CreateCounter<long>("fsus.security.challenge.v2.replayed.count");
     private static readonly Histogram<double> SecurityChallengeV2SolveDuration = Meter.CreateHistogram<double>("fsus.security.challenge.v2.solve.duration", "ms");
+    private static readonly Counter<long> ChallengeVerifyRateLimitedBeforeJson = Meter.CreateCounter<long>("fsus.security.challenge.verify.rate_limited_before_json");
+    private static readonly Histogram<double> ProviderPayloadParseElapsed = Meter.CreateHistogram<double>("fsus.security.challenge.provider_payload.parse_elapsed_ms", "ms");
+    private static readonly Counter<long> ProviderPayloadRejectedBytes = Meter.CreateCounter<long>("fsus.security.challenge.provider_payload.rejected_bytes", "By");
+    private static readonly Histogram<long> ChallengeVerifyAllocationBytes = Meter.CreateHistogram<long>("fsus.security.challenge.verify.allocation_bytes", "By");
     private static readonly Histogram<double> SecurityChallengeV2PayloadBytes = Meter.CreateHistogram<double>("fsus.security.challenge.v2.payload.bytes", "By");
     private static readonly Histogram<double> SecurityChallengeV2VerifyDuration = Meter.CreateHistogram<double>("fsus.security.challenge.v2.verify.duration", "ms");
     private static readonly Counter<long> SecurityChallengeV2TaskKindCounter = Meter.CreateCounter<long>("fsus.security.challenge.v2.task.kind.count");
@@ -542,6 +546,26 @@ public static class FsusObservability
             TagList tags = CreateSecurityChallengeTags("challenge_issue", "issued", kind, action, policyVersion);
             SecurityChallengeIssuedCounter.Add(1, tags);
         });
+    }
+
+    public static void RecordChallengeVerifyRateLimitedBeforeJson()
+    {
+        TryRecord(() => ChallengeVerifyRateLimitedBeforeJson.Add(1));
+    }
+
+    public static void RecordProviderPayloadParse(TimeSpan providerPayloadParseElapsed)
+    {
+        TryRecord(() => ProviderPayloadParseElapsed.Record(providerPayloadParseElapsed.TotalMilliseconds));
+    }
+
+    public static void RecordProviderPayloadRejectedBytes(long providerPayloadRejectedBytes)
+    {
+        TryRecord(() => ProviderPayloadRejectedBytes.Add(Math.Max(0, providerPayloadRejectedBytes)));
+    }
+
+    public static void RecordChallengeVerifyAllocationBytes(long challengeVerifyAllocationBytes)
+    {
+        TryRecord(() => ChallengeVerifyAllocationBytes.Record(Math.Max(0, challengeVerifyAllocationBytes)));
     }
 
     public static void RecordSecurityChallengeVerified(string kind, string action, string policyVersion, TimeSpan? solveDuration = null)

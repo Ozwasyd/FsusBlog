@@ -1,9 +1,12 @@
+using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
@@ -16,14 +19,12 @@ namespace FsusBlog.Server.Modules.Endpoints.Binary;
 public static partial class BinaryEndpoints
 {
     private const int SecurityChallengeMaxFrameBytes = 64 * 1024;
+    private const int MaxSecurityChallengeProviderPayloadJsonChars = 48 * 1024;
+    private const int MaxSecurityChallengeProviderPayloadJsonBytes = 48 * 1024;
     private const int MaxSecurityChallengeProviderPayloadEntries = 64;
     private const int MaxSecurityChallengeProviderPayloadValueChars = 16 * 1024;
     private const string SecurityChallengeTenantId = "tenant-main";
     private const string SecurityChallengeVerifyGenericFailure = "challenge_failed";
-    private static readonly JsonSerializerOptions SecurityChallengeProviderPayloadJsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        MaxDepth = 32
-    };
 
     private static void MapBinarySecurityChallengeEndpoints(IEndpointRouteBuilder group)
     {
@@ -218,15 +219,22 @@ public static partial class BinaryEndpoints
             return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "security_challenge_kind_unsupported"), aeds);
         }
 
-        if (!TryDeserializeProviderPayload(request.ProviderPayloadJson, out IReadOnlyDictionary<string, string> providerPayload))
+        if (!IsProviderPayloadJsonWithinCheapLimit(request.ProviderPayloadJson, out long rejectedPayloadBytes))
         {
+            FsusObservability.RecordProviderPayloadRejectedBytes(rejectedPayloadBytes);
             return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "security_challenge_payload_invalid"), aeds);
         }
 
         if (!await verifyRateLimiter.TryAcquireAsync(httpContext, challengeId, action, cancellationToken))
         {
+            FsusObservability.RecordChallengeVerifyRateLimitedBeforeJson();
             await RecordSecurityChallengeVerifyRejectedAsync(httpContext, riskSignalSink, action, "challenge_verify_rate_limited", cancellationToken);
             return CreateSecurityChallengeVerifyGenericFailure(aeds);
+        }
+
+        if (!TryDeserializeProviderPayload(request.ProviderPayloadJson, out IReadOnlyDictionary<string, string> providerPayload))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "security_challenge_payload_invalid"), aeds);
         }
 
         RiskControlContext baseContext = riskContextFactory.Create(httpContext);
@@ -356,31 +364,74 @@ public static partial class BinaryEndpoints
             return false;
         }
 
+        long startedAt = Stopwatch.GetTimestamp();
+        long allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
         try
         {
-            Dictionary<string, string>? parsed = JsonSerializer.Deserialize<Dictionary<string, string>>(payloadJson, SecurityChallengeProviderPayloadJsonOptions);
-            if (parsed is null || parsed.Count > MaxSecurityChallengeProviderPayloadEntries)
+            byte[] utf8 = Encoding.UTF8.GetBytes(payloadJson);
+            var reader = new Utf8JsonReader(utf8, new JsonReaderOptions { MaxDepth = 32 });
+            if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject)
             {
                 return false;
             }
 
-            var bounded = new Dictionary<string, string>(parsed.Count, StringComparer.Ordinal);
-            foreach (KeyValuePair<string, string> item in parsed)
+            var bounded = new Dictionary<string, string>(StringComparer.Ordinal);
+            int entries = 0;
+            while (reader.Read())
             {
-                if (item.Value is null || item.Value.Length > MaxSecurityChallengeProviderPayloadValueChars)
+                if (reader.TokenType == JsonTokenType.EndObject)
+                {
+                    if (reader.Read())
+                    {
+                        return false;
+                    }
+
+                    payload = bounded;
+                    return true;
+                }
+
+                if (reader.TokenType != JsonTokenType.PropertyName)
                 {
                     return false;
                 }
 
-                bounded[item.Key] = item.Value;
+                if (++entries > MaxSecurityChallengeProviderPayloadEntries)
+                {
+                    return false;
+                }
+
+                string key = reader.GetString() ?? string.Empty;
+                if (!reader.Read() || reader.TokenType != JsonTokenType.String)
+                {
+                    return false;
+                }
+
+                string? value = reader.GetString();
+                if (value is null || value.Length > MaxSecurityChallengeProviderPayloadValueChars)
+                {
+                    return false;
+                }
+
+                bounded[key] = value;
             }
 
-            payload = bounded;
-            return true;
+            return false;
         }
         catch (JsonException)
         {
             return false;
         }
+        finally
+        {
+            FsusObservability.RecordProviderPayloadParse(FsusObservability.GetElapsed(startedAt));
+            FsusObservability.RecordChallengeVerifyAllocationBytes(GC.GetAllocatedBytesForCurrentThread() - allocatedBefore);
+        }
+    }
+
+    private static bool IsProviderPayloadJsonWithinCheapLimit(string payloadJson, out long payloadBytes)
+    {
+        payloadBytes = string.IsNullOrEmpty(payloadJson) ? 0 : Encoding.UTF8.GetByteCount(payloadJson);
+        return payloadJson.Length <= MaxSecurityChallengeProviderPayloadJsonChars
+            && payloadBytes <= MaxSecurityChallengeProviderPayloadJsonBytes;
     }
 }
