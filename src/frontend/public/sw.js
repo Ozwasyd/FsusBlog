@@ -19,6 +19,20 @@ const searchIndexTelemetry = {
   staleShardDeletedCount: 0,
   searchIndexUpdateElapsed: 0
 }
+const shellInvalidateTelemetry = {
+  shellInvalidateScope: null,
+  shellDeletedCount: 0,
+  shellCacheSizeBefore: 0,
+  shellCacheSizeAfter: 0
+}
+const SHELL_INVALIDATION_SCOPE_PATHS = Object.freeze({
+  about: ['/about'],
+  archive: ['/archive'],
+  search: ['/search'],
+  privacy: ['/privacy'],
+  guidelines: ['/guidelines'],
+  copyright: ['/copyright']
+})
 const PUBLIC_SHELL_PATHS = [
   /^\/$/,
   /^\/about\/?$/,
@@ -96,8 +110,14 @@ self.addEventListener('fetch', (event) => {
 async function handleControlMessage(message) {
   switch (message.type) {
     case 'shell.invalidate':
-      await invalidateShellCache()
-      await broadcast({ type: 'shell-updated', scope: message.scope ?? null })
+      {
+        const result = await invalidateShellCache(message.scope ?? null)
+        await broadcast({
+          type: 'shell-updated',
+          scope: message.scope ?? null,
+          deletedCount: result.deletedCount
+        })
+      }
       break
     case 'search-index.updated':
       await ensureLatestSearchIndex({ force: true })
@@ -512,10 +532,63 @@ function normalizeSearchRole(role) {
   }
 }
 
-async function invalidateShellCache() {
+async function invalidateShellCache(scope = null) {
   const cache = await caches.open(SHELL_CACHE)
   const keys = await cache.keys()
-  await Promise.all(keys.map((key) => cache.delete(key)))
+  const targets = resolveShellInvalidationTargets(scope, keys)
+  const deleted = await Promise.all(targets.map((key) => cache.delete(key)))
+  const deletedCount = deleted.filter(Boolean).length
+  const shellCacheSizeBefore = keys.length
+  const shellCacheSizeAfter = Math.max(0, shellCacheSizeBefore - deletedCount)
+  const result = {
+    scope: normalizeShellInvalidationScope(scope),
+    deletedCount,
+    shellCacheSizeBefore,
+    shellCacheSizeAfter
+  }
+  recordShellInvalidateTelemetry(result)
+  return result
+}
+
+function resolveShellInvalidationTargets(scope, keys) {
+  const normalizedScope = normalizeShellInvalidationScope(scope)
+  switch (normalizedScope) {
+    case 'seo':
+    case 'compliance':
+    case null:
+      return keys
+    default:
+      break
+  }
+
+  const paths = SHELL_INVALIDATION_SCOPE_PATHS[normalizedScope]
+  if (!paths) {
+    return keys
+  }
+
+  const targetPaths = new Set(paths.map((path) => normalizeShellPath(path)))
+  return keys.filter((key) => targetPaths.has(normalizeShellPath(key.url)))
+}
+
+function normalizeShellInvalidationScope(scope) {
+  if (typeof scope !== 'string') {
+    return null
+  }
+
+  const normalized = scope.trim().toLowerCase()
+  return normalized.length > 0 ? normalized : null
+}
+
+function normalizeShellPath(value) {
+  const pathname = new URL(value, self.location.origin).pathname.replace(/\/+$/, '')
+  return pathname.length > 0 ? pathname : '/'
+}
+
+function recordShellInvalidateTelemetry(result) {
+  shellInvalidateTelemetry.shellInvalidateScope = result.scope
+  shellInvalidateTelemetry.shellDeletedCount = result.deletedCount
+  shellInvalidateTelemetry.shellCacheSizeBefore = result.shellCacheSizeBefore
+  shellInvalidateTelemetry.shellCacheSizeAfter = result.shellCacheSizeAfter
 }
 
 async function clearNamedCache(cacheName, keys) {

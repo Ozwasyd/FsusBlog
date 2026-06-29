@@ -2,6 +2,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import vm from 'node:vm'
 
 const root = process.cwd()
 const manifestPath = resolve(root, 'public/manifest.webmanifest')
@@ -48,6 +49,15 @@ assert(sw.includes("url.pathname.startsWith('/api/binary/')"), 'binary API reque
 assert(sw.includes('clearLegacyFsusCaches'), 'service worker activate must clear legacy fsus caches')
 assert(sw.includes("key.startsWith('fsus-') && !keep.has(key)"), 'service worker must preserve only current cache names')
 assert(sw.includes("case 'shell.invalidate':"), 'service worker must support explicit shell invalidation')
+assert(sw.includes('invalidateShellCache(message.scope ?? null)'), 'shell.invalidate must pass message scope into shell cache invalidation')
+assert(sw.includes('const SHELL_INVALIDATION_SCOPE_PATHS'), 'service worker must define shell invalidation scope to route mapping')
+assert(sw.includes("about: ['/about']"), 'about shell invalidation must only target /about')
+assert(sw.includes("archive: ['/archive']"), 'archive shell invalidation must only target /archive')
+assert(sw.includes("case 'seo':"), 'seo shell invalidation must remain global')
+assert(sw.includes('shellInvalidateTelemetry'), 'shell invalidation must record telemetry')
+assert(sw.includes('shellDeletedCount'), 'shell invalidation telemetry must record deleted count')
+assert(sw.includes('shellCacheSizeBefore'), 'shell invalidation telemetry must record cache size before')
+assert(sw.includes('shellCacheSizeAfter'), 'shell invalidation telemetry must record cache size after')
 assert(sw.includes("case 'search-index.updated':"), 'service worker must support search index refresh messages')
 assert(sw.includes("case 'asset.clear':"), 'service worker must support targeted cache clearing')
 assert(sw.includes("networkErrorResponse('binary-network-unavailable')"), 'binary API offline failures must not be cached as shells')
@@ -69,5 +79,84 @@ assert(sw.includes('pruneStaleSearchShards'), 'search index updates must prune s
 assert(sw.includes("headers.get('X-Fsus-Search-Version')"), 'stale shard pruning must use cached search version headers')
 assert(sw.includes('SEARCH_ASSET_FETCH_CONCURRENCY'), 'search shard fetches must have an explicit concurrency limit')
 assert(sw.includes('mapWithConcurrency('), 'search shard fetches must use the concurrency limiter')
+
+class MemoryCache {
+  constructor(paths) {
+    this.entries = new Map(paths.map((path) => {
+      const request = new Request(new URL(path, 'https://example.test').href)
+      return [request.url, request]
+    }))
+  }
+
+  async keys() {
+    return Array.from(this.entries.values())
+  }
+
+  async delete(request) {
+    const url = typeof request === 'string' ? new URL(request, 'https://example.test').href : request.url
+    const existed = this.entries.has(url)
+    this.entries.delete(url)
+    return existed
+  }
+
+  has(path) {
+    return this.entries.has(new URL(path, 'https://example.test').href)
+  }
+}
+
+async function runShellInvalidationBehaviorCheck(scope, initialPaths) {
+  const context = {
+    TextDecoder,
+    URL,
+    Request,
+    Response,
+    Headers,
+    Date,
+    Promise,
+    Array,
+    ArrayBuffer,
+    Uint8Array,
+    Set,
+    Map,
+    console,
+    self: {
+      location: { origin: 'https://example.test' },
+      addEventListener() {},
+      skipWaiting: async () => {},
+      clients: { claim: async () => {}, matchAll: async () => [] },
+      crypto: { subtle: { digest: async () => new ArrayBuffer(32) } }
+    }
+  }
+  context.__cache = new MemoryCache(initialPaths)
+  context.caches = {
+    open: async () => context.__cache,
+    keys: async () => [],
+    delete: async () => true
+  }
+  const sandbox = vm.createContext(context)
+  vm.runInContext(sw, sandbox, { filename: 'sw.js' })
+  const result = await vm.runInContext(`invalidateShellCache(${JSON.stringify(scope)})`, sandbox)
+  return { result, cache: context.__cache }
+}
+
+{
+  const { result, cache } = await runShellInvalidationBehaviorCheck('about', ['/', '/about', '/archive'])
+  assert(result.deletedCount === 1, 'about scope must delete exactly one shell entry')
+  assert(!cache.has('/about'), 'about scope must delete /about shell')
+  assert(cache.has('/'), 'about scope must preserve home shell')
+  assert(cache.has('/archive'), 'about scope must preserve archive shell')
+}
+
+{
+  const { result, cache } = await runShellInvalidationBehaviorCheck('seo', ['/', '/about', '/archive'])
+  assert(result.deletedCount === 3, 'seo scope must retain global shell invalidation semantics')
+  assert(!cache.has('/') && !cache.has('/about') && !cache.has('/archive'), 'seo scope must clear all shell entries')
+}
+
+{
+  const { result, cache } = await runShellInvalidationBehaviorCheck('unknown-scope', ['/', '/about', '/archive'])
+  assert(result.deletedCount === 3, 'unknown shell invalidation scope must fall back to global deletion')
+  assert(!cache.has('/') && !cache.has('/about') && !cache.has('/archive'), 'unknown shell invalidation scope must clear all shell entries')
+}
 
 console.log('[check-pwa-offline-policy] ok')
