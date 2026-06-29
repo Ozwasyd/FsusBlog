@@ -216,7 +216,7 @@ Client
 
 注册/登录 binary 端点按 `AuthBinaryRequestReader -> AuthBinaryApplicationFacade -> AuthBinaryResponseWriter` 分层：reader 只负责 AEDS request frame 解码，application facade 只负责注册、凭据校验、MFA 登录分支和最终 session token 结果，endpoint 保留 cookie 写入这一 HTTP side effect，writer 只负责 AEDS `AuthLoginFlow` / `ApiError` frame。
 
-MFA challenge ticket 属于短 TTL 安全缓存，内部只保存账号容器 `AccountId` 与稳定 `AccountSubjectHash`。验证失败计数通过 `IUnifiedCache.IncrementAsync(CachePolicyId.SecurityMfaChallenge, ...)` 并行写入 ticket、subject、IP 三个维度，其中账号维度固定为 `fail:subject:{accountSubjectHash}`，不得使用 `fail:user:{userId}`；高价值/安全 audit scope 只写 `AccountId`、`AccountSubjectHash` 与 hash 后的 ticket/IP/UA。运行时回退路径是删除 `SecurityMfaChallenge` 下对应 `fail:subject:*` 或 challenge ticket key，让客户端重新发起短 TTL MFA challenge；不需要重启服务，也不得通过恢复裸 user id key 降级。
+MFA challenge ticket 属于短 TTL 安全缓存，内部只保存账号容器 `AccountId` 与稳定 `AccountSubjectHash`。验证失败计数通过 `IUnifiedCache.IncrementManyWithExpiryAsync(CachePolicyId.SecurityMfaChallenge, ..., FailureWindowTtl)` 在单个 Redis 脚本中写入 ticket、subject、IP 三个维度，并只在计数 key 缺失 TTL 时设置 10 分钟窗口，避免失败计数与 registry 成为无界增长状态；账号维度固定为 `fail:subject:{accountSubjectHash}`，不得使用 `fail:user:{userId}`；高价值/安全 audit scope 只写 `AccountId`、`AccountSubjectHash` 与 hash 后的 ticket/IP/UA。运行时回退路径是删除 `SecurityMfaChallenge` 下对应 `fail:subject:*` 或 challenge ticket key，让客户端重新发起短 TTL MFA challenge；不需要重启服务，也不得通过恢复裸 user id key 降级。
 
 TOTP recovery code 的持久化状态只在 `user_mfa_profile`：`mfa_recovery_codes_hash` 保存换行分隔的 `v3$argon2id$m=65536,t=3,p=4$...` 条目，`hash_version` 标记当前集合版本。schema migration 会为旧 profile 补 `hash_version=1`；运行时只接受当前 v3 或 deadline 前的裸 SHA-256 legacy 迁移输入，旧 hash 被消费或正常 TOTP 验证成功后不得继续留作可用恢复码。回退路径是让用户重新走 `/api/binary/auth/mfa/recovery/regenerate` 生成 v3 恢复码，不恢复 PBKDF2 或旧消费 API。
 

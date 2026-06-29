@@ -76,10 +76,12 @@ public sealed class MfaChallengeServiceTests
             "unit-test");
 
         string[] batch = Assert.Single(cache.AtomicIncrementBatches);
+        TimeSpan ttl = Assert.Single(cache.AtomicIncrementBatchTtls);
         Assert.Equal(
             ["fail:ticket:ticket-atomic", "fail:subject:subject-atomic"],
             batch.Take(2).ToArray());
         Assert.StartsWith("fail:ip:", batch[2], StringComparison.Ordinal);
+        Assert.Equal(TimeSpan.FromMinutes(10), ttl);
         Assert.Equal(0, cache.SingleIncrementCalls);
     }
 
@@ -119,6 +121,9 @@ public sealed class MfaChallengeServiceTests
         Assert.DoesNotContain("UserId", ticket, StringComparison.Ordinal);
 
         Assert.Contains("fail:subject:", recordFailure, StringComparison.Ordinal);
+        Assert.Contains("IncrementManyWithExpiryAsync", recordFailure, StringComparison.Ordinal);
+        Assert.Contains("FailureWindowTtl", recordFailure, StringComparison.Ordinal);
+        Assert.DoesNotContain("IncrementManyAsync", recordFailure, StringComparison.Ordinal);
         Assert.DoesNotContain("fail:user:", recordFailure, StringComparison.Ordinal);
         Assert.Contains("\"AccountId\"", recordFailure, StringComparison.Ordinal);
         Assert.DoesNotContain("\"UserId\"", recordFailure, StringComparison.Ordinal);
@@ -179,6 +184,7 @@ public sealed class MfaChallengeServiceTests
         public Dictionary<string, long> Counters { get; } = new(StringComparer.Ordinal);
         public HashSet<string> Removed { get; } = new(StringComparer.Ordinal);
         public List<string[]> AtomicIncrementBatches { get; } = [];
+        public List<TimeSpan> AtomicIncrementBatchTtls { get; } = [];
         public int SingleIncrementCalls { get; private set; }
 
         public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
@@ -212,8 +218,12 @@ public sealed class MfaChallengeServiceTests
         }
 
         public Task<long[]> IncrementManyAsync(CachePolicyId policyId, IReadOnlyList<string> identities, long value = 1, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("MFA failure counters must use IncrementManyWithExpiryAsync.");
+
+        public Task<long[]> IncrementManyWithExpiryAsync(CachePolicyId policyId, IReadOnlyList<string> identities, TimeSpan ttl, long value = 1, CancellationToken cancellationToken = default)
         {
             AtomicIncrementBatches.Add([.. identities]);
+            AtomicIncrementBatchTtls.Add(ttl);
             long[] values = new long[identities.Count];
             for (int i = 0; i < identities.Count; i++)
             {

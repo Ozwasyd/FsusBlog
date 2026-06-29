@@ -130,6 +130,9 @@ public static class FsusObservability
     private static readonly Counter<long> CacheRemoveManyKeyCounter = Meter.CreateCounter<long>("fsus.cache.remove_many.keys");
     private static readonly Counter<long> CacheRemoveManyRedisBatchCounter = Meter.CreateCounter<long>("fsus.cache.remove_many.redis_batches");
     private static readonly Histogram<double> CacheRemoveManyElapsed = Meter.CreateHistogram<double>("fsus.cache.remove_many.elapsed_ms", "ms");
+    private static readonly Counter<long> CacheIncrementManyWithExpiryKeyCount = Meter.CreateCounter<long>("fsus.cache.increment_many_with_expiry.key_count");
+    private static readonly Counter<long> CacheIncrementManyWithExpiryAppliedCount = Meter.CreateCounter<long>("fsus.cache.increment_many_with_expiry.expiry_applied_count");
+    private static readonly Histogram<double> CacheIncrementManyWithExpiryElapsed = Meter.CreateHistogram<double>("fsus.cache.increment_many_with_expiry.elapsed_ms", "ms");
     private static readonly Counter<long> CacheRemovePrefixManyPrefixCounter = Meter.CreateCounter<long>("fsus.cache.remove_prefix_many.prefixes");
     private static readonly Counter<long> CacheRemovePrefixManyRegistryScanCounter = Meter.CreateCounter<long>("fsus.cache.remove_prefix_many.registry_scans");
     private static readonly Counter<long> CacheRemovePrefixManyDeletedKeyCounter = Meter.CreateCounter<long>("fsus.cache.remove_prefix_many.deleted_keys");
@@ -168,6 +171,8 @@ public static class FsusObservability
     private static readonly Counter<long> AuthRefreshSuccessDbCommandCount = Meter.CreateCounter<long>("fsus.auth.refresh.success_db_command_count");
     private static readonly Histogram<double> AuthRefreshSuccessElapsed = Meter.CreateHistogram<double>("fsus.auth.refresh.success_elapsed_ms", "ms");
     private static readonly Counter<long> AuthRefreshReplayDetectedCount = Meter.CreateCounter<long>("fsus.auth.refresh.replay_detected_count");
+    private static readonly Counter<long> MfaFailureCounterKeyCount = Meter.CreateCounter<long>("fsus.mfa.failure_counter.key_count");
+    private static readonly Counter<long> MfaCounterExpiredCount = Meter.CreateCounter<long>("fsus.mfa.counter_expired.count");
     private static readonly Histogram<double> AdminAccountListQueryElapsed = Meter.CreateHistogram<double>("fsus.admin.account_list.query_elapsed_ms", "ms");
     private static readonly Counter<long> AdminAccountListCountUsed = Meter.CreateCounter<long>("fsus.admin.account_list.count_used");
     private static readonly Counter<long> AdminAccountListCountSkipped = Meter.CreateCounter<long>("fsus.admin.account_list.count_skipped");
@@ -715,6 +720,18 @@ public static class FsusObservability
         CacheRemovePrefixManyElapsed.Record(elapsed.TotalMilliseconds);
     }
 
+    public static void RecordIncrementManyWithExpiry(string policyId, long keyCount, long expiryAppliedCount, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("cache", "increment_many_with_expiry", "ok");
+            tags.Add("fsus.cache.policy", NormalizeTelemetryValue(policyId, "unknown"));
+            CacheIncrementManyWithExpiryKeyCount.Add(Math.Max(0, keyCount), tags);
+            CacheIncrementManyWithExpiryAppliedCount.Add(Math.Max(0, expiryAppliedCount), tags);
+            CacheIncrementManyWithExpiryElapsed.Record(Math.Max(0d, elapsed.TotalMilliseconds), tags);
+        });
+    }
+
     public static void RecordPublicAotInvalidation(
         long scopes,
         long invalidatedKeys,
@@ -1035,6 +1052,24 @@ public static class FsusObservability
         {
             TagList tags = CreateBaseTags("admin-session", "validation", "cache_hit");
             AdminSessionValidationCacheHit.Add(1, tags);
+        });
+    }
+
+    public static void RecordMfaFailureCounterKeys(long keyCount)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("mfa", "failure_counter", "ok");
+            MfaFailureCounterKeyCount.Add(Math.Max(0, keyCount), tags);
+        });
+    }
+
+    public static void RecordMfaCounterExpired(long count)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("mfa", "failure_counter", "expiry_applied");
+            MfaCounterExpiredCount.Add(Math.Max(0, count), tags);
         });
     }
 

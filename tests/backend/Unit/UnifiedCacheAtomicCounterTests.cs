@@ -11,6 +11,7 @@ public sealed class UnifiedCacheAtomicCounterTests
         string source = ReadSource("src/backend/Infrastructure/Cache/IUnifiedCache.cs");
 
         Assert.Contains("IncrementWithExpiryAsync", source, StringComparison.Ordinal);
+        Assert.Contains("IncrementManyWithExpiryAsync", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -24,6 +25,23 @@ public sealed class UnifiedCacheAtomicCounterTests
         Assert.Contains("PTTL", method, StringComparison.Ordinal);
         Assert.Contains("PEXPIRE", method, StringComparison.Ordinal);
         Assert.Contains("< 0", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("StringIncrementAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("KeyExpireAsync", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UnifiedCache_IncrementManyWithExpiryUsesSingleRedisScriptForAllKeysAndPreservesExistingWindow()
+    {
+        string source = ReadSource("src/backend/Infrastructure/Cache/IUnifiedCache.cs");
+        string method = ExtractMethodBlock(source, "public async Task<long[]> IncrementManyWithExpiryAsync");
+
+        Assert.Contains("ScriptEvaluateAsync", method, StringComparison.Ordinal);
+        Assert.Contains("INCRBY", method, StringComparison.Ordinal);
+        Assert.Contains("PTTL", method, StringComparison.Ordinal);
+        Assert.Contains("PEXPIRE", method, StringComparison.Ordinal);
+        Assert.Contains("expiryApplied", method, StringComparison.Ordinal);
+        Assert.Contains("< 0", method, StringComparison.Ordinal);
+        Assert.Contains("for i = 1, #KEYS do", method, StringComparison.Ordinal);
         Assert.DoesNotContain("StringIncrementAsync", method, StringComparison.Ordinal);
         Assert.DoesNotContain("KeyExpireAsync", method, StringComparison.Ordinal);
     }

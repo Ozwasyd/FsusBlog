@@ -43,6 +43,8 @@ public interface IUnifiedCache
         => throw new NotSupportedException("This cache implementation does not support atomic multi-counter increments.");
     Task<long> IncrementWithExpiryAsync(CachePolicyId policyId, string identity, TimeSpan ttl, long value = 1, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("This cache implementation does not support atomic expiring counters.");
+    Task<long[]> IncrementManyWithExpiryAsync(CachePolicyId policyId, IReadOnlyList<string> identities, TimeSpan ttl, long value = 1, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This cache implementation does not support atomic multi-counter expiring increments.");
     Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default);
     Task<bool> ConsumeOnceAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
     Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default);
@@ -477,6 +479,86 @@ return current
         await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
         FsusObservability.RecordCacheOperation("increment_expiring", policyId.ToString(), "l2", "ok", FsusObservability.GetElapsed(startedAt));
         return (long)result;
+    }
+
+    public async Task<long[]> IncrementManyWithExpiryAsync(
+        CachePolicyId policyId,
+        IReadOnlyList<string> identities,
+        TimeSpan ttl,
+        long value = 1,
+        CancellationToken cancellationToken = default)
+    {
+        if (identities.Count == 0)
+        {
+            return [];
+        }
+
+        if (ttl <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ttl), "Counter expiry must be positive.");
+        }
+
+        long startedAt = Stopwatch.GetTimestamp();
+        using Activity? activity = FsusObservability.StartActivity("cache.increment_many_expiring", "cache", ActivityKind.Client);
+        FsusObservability.SetTag(activity, "fsus.cache.operation", "increment_many_expiring");
+        FsusObservability.SetTag(activity, "fsus.cache.policy", policyId.ToString());
+        cancellationToken.ThrowIfCancellationRequested();
+        RedisKey[] keys = new RedisKey[identities.Count];
+        string[] keyStrings = new string[identities.Count];
+        for (int i = 0; i < identities.Count; i++)
+        {
+            string key = BuildKey(policyId, identities[i]);
+            keyStrings[i] = key;
+            keys[i] = key;
+            memoryCache.Remove(key);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        const string script = """
+local result = {}
+local expiryApplied = 0
+for i = 1, #KEYS do
+  result[i] = redis.call('INCRBY', KEYS[i], ARGV[1])
+  if redis.call('PTTL', KEYS[i]) < 0 then
+    redis.call('PEXPIRE', KEYS[i], ARGV[2])
+    expiryApplied = expiryApplied + 1
+  end
+end
+result[#KEYS + 1] = expiryApplied
+return result
+""";
+        long ttlMilliseconds = Math.Max(1L, (long)Math.Ceiling(ttl.TotalMilliseconds));
+        RedisResult result = await _db.ScriptEvaluateAsync(
+                script,
+                keys,
+                [value, ttlMilliseconds],
+                CommandFlags.None)
+            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        RedisResult[] values = (RedisResult[])result!;
+        if (values.Length != keys.Length && values.Length != keys.Length + 1)
+        {
+            throw new InvalidOperationException("Redis returned an invalid expiring multi-counter increment result.");
+        }
+
+        long expiryApplied = values.Length == keys.Length + 1 ? (long)values[^1] : 0;
+        long[] updated = new long[keys.Length];
+        for (int i = 0; i < keys.Length; i++)
+        {
+            updated[i] = (long)values[i];
+            await RegisterKeyAsync(policyId, keyStrings[i]).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        TimeSpan elapsed = FsusObservability.GetElapsed(startedAt);
+        FsusObservability.RecordCacheOperation("increment_many_expiring", policyId.ToString(), "l2", "ok", elapsed);
+        FsusObservability.RecordIncrementManyWithExpiry(policyId.ToString(), keys.Length, expiryApplied, elapsed);
+        if (policyId == CachePolicyId.SecurityMfaChallenge)
+        {
+            FsusObservability.RecordMfaCounterExpired(expiryApplied);
+        }
+
+        return updated;
     }
 
     public async Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default)

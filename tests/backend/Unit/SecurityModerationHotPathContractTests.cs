@@ -59,7 +59,8 @@ public sealed class SecurityModerationHotPathContractTests
         string recordFailure = ExtractBetween(source, "public async Task<bool> RecordFailureAsync", "public async Task<string> CreateProofTokenAsync");
         string hashIdentity = ExtractBetween(source, "private static string HashIdentity", "private static byte[] Base64UrlDecode");
 
-        Assert.Contains("IncrementManyAsync", recordFailure, StringComparison.Ordinal);
+        Assert.Contains("IncrementManyWithExpiryAsync", recordFailure, StringComparison.Ordinal);
+        Assert.Contains("FailureWindowTtl", recordFailure, StringComparison.Ordinal);
         Assert.DoesNotContain("long ticketFailures = await cache.IncrementAsync", recordFailure, StringComparison.Ordinal);
         Assert.DoesNotContain("Task.WhenAll", recordFailure, StringComparison.Ordinal);
         Assert.DoesNotContain("Encoding.UTF8.GetBytes(value.Trim())", hashIdentity, StringComparison.Ordinal);

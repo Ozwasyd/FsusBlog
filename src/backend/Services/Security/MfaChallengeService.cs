@@ -6,6 +6,7 @@ using System.Text;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Observability;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -44,6 +45,7 @@ public sealed class MfaChallengeService(
     private const int MaxTicketFailures = 5;
     private const int MaxSubjectWindowFailures = 10;
     private const int MaxIpWindowFailures = 25;
+    private static readonly TimeSpan FailureWindowTtl = TimeSpan.FromMinutes(10);
 
     public Task<MfaChallengeTicket> CreateLoginChallengeAsync(int accountId, string accountSubjectHash, bool riskTriggered, bool rememberMe)
         => CreateAsync(accountId, accountSubjectHash, "login", "login", riskTriggered, rememberMe, TimeSpan.FromMinutes(5));
@@ -79,10 +81,12 @@ public sealed class MfaChallengeService(
         string ticketIdentity = string.Concat("fail:ticket:", ticket.TicketId);
         string subjectIdentity = string.Concat("fail:subject:", accountSubjectHash);
         string ipIdentity = string.Concat("fail:ip:", clientIpHash);
-        long[] failures = await cache.IncrementManyAsync(
+        long[] failures = await cache.IncrementManyWithExpiryAsync(
                 CachePolicyId.SecurityMfaChallenge,
-                [ticketIdentity, subjectIdentity, ipIdentity])
+                [ticketIdentity, subjectIdentity, ipIdentity],
+                FailureWindowTtl)
             .ConfigureAwait(false);
+        FsusObservability.RecordMfaFailureCounterKeys(failures.Length);
         long ticketFailures = failures[0];
         long subjectFailures = failures[1];
         long ipFailures = failures[2];

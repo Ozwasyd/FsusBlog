@@ -413,6 +413,66 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    public async Task IncrementManyWithExpiryAsync_UsesSingleRedisScriptWithExpiryForEveryKey()
+    {
+        using var memory = new RemoveTrackingMemoryCache();
+        var db = Substitute.For<IDatabase>();
+        UnifiedCache cache = CreateCache(memory, db);
+        string ticketKey = cache.BuildKey(CachePolicyId.SecurityMfaChallenge, "fail:ticket:t1");
+        string subjectKey = cache.BuildKey(CachePolicyId.SecurityMfaChallenge, "fail:subject:s1");
+        string ipKey = cache.BuildKey(CachePolicyId.SecurityMfaChallenge, "fail:ip:i1");
+        string? capturedScript = null;
+        RedisKey[]? capturedKeys = null;
+        RedisValue[]? capturedValues = null;
+        db.ScriptEvaluateAsync(
+                Arg.Any<string>(),
+                Arg.Any<RedisKey[]>(),
+                Arg.Any<RedisValue[]>(),
+                Arg.Any<CommandFlags>())
+            .Returns(call =>
+            {
+                capturedScript = call.ArgAt<string>(0);
+                capturedKeys = call.ArgAt<RedisKey[]>(1);
+                capturedValues = call.ArgAt<RedisValue[]>(2);
+                return Task.FromResult(RedisResult.Create(
+                    [
+                        RedisResult.Create((RedisValue)2L),
+                        RedisResult.Create((RedisValue)11L),
+                        RedisResult.Create((RedisValue)4L),
+                        RedisResult.Create((RedisValue)3L)
+                    ]));
+            });
+        var method = typeof(UnifiedCache).GetMethod(
+            "IncrementManyWithExpiryAsync",
+            [
+                typeof(CachePolicyId),
+                typeof(IReadOnlyList<string>),
+                typeof(TimeSpan),
+                typeof(long),
+                typeof(CancellationToken)
+            ]);
+
+        Assert.NotNull(method);
+        var task = Assert.IsAssignableFrom<Task<long[]>>(method.Invoke(
+            cache,
+            [CachePolicyId.SecurityMfaChallenge, new[] { "fail:ticket:t1", "fail:subject:s1", "fail:ip:i1" }, TimeSpan.FromMinutes(10), 1L, CancellationToken.None]));
+        long[] updated = await task;
+
+        Assert.Equal([2L, 11L, 4L], updated);
+        Assert.NotNull(capturedScript);
+        Assert.Contains("INCRBY", capturedScript, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("PTTL", capturedScript, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("PEXPIRE", capturedScript, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("< 0", capturedScript, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(capturedKeys);
+        Assert.Equal([new RedisKey(ticketKey), new RedisKey(subjectKey), new RedisKey(ipKey)], capturedKeys);
+        Assert.NotNull(capturedValues);
+        Assert.Equal((RedisValue)1L, capturedValues![0]);
+        Assert.Equal((RedisValue)600000L, capturedValues![1]);
+        Assert.Equal(ipKey, memory.RemovedKeys.Last());
+    }
+
+    [Fact]
     public async Task IncrementWithExpiryAsync_UsesAtomicRedisScriptWithExpiryAndBypassesL1()
     {
         using var memory = new RemoveTrackingMemoryCache();
