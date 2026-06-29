@@ -92,6 +92,7 @@ public sealed class PublicAotSsrRuntimeState
     private long _stderrWarningCount;
     private string? _lastStderrWarning;
     private PublicAotSsrFailureSnapshot? _lastFailure;
+    private PublicAotSsrWorkerResourceStatus? _workerResourceSnapshot;
 
     public PublicAotSsrRuntimeState(IConfiguration configuration)
         : this(configuration, TimeProvider.System)
@@ -269,6 +270,28 @@ public sealed class PublicAotSsrRuntimeState
         {
             _stderrWarningCount++;
             _lastStderrWarning = message;
+        }
+    }
+
+    public PublicAotSsrWorkerResourceStatus GetOrCreateWorkerResourceSnapshot(Func<PublicAotSsrWorkerResourceStatus> factory)
+    {
+        lock (_sync)
+        {
+            if (_workerResourceSnapshot is not null)
+            {
+                return _workerResourceSnapshot;
+            }
+
+            _workerResourceSnapshot = factory();
+            return _workerResourceSnapshot;
+        }
+    }
+
+    public void RecordWorkerResourceSnapshot(PublicAotSsrWorkerResourceStatus status)
+    {
+        lock (_sync)
+        {
+            _workerResourceSnapshot = status;
         }
     }
 

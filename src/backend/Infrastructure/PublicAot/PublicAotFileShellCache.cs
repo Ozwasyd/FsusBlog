@@ -20,6 +20,7 @@ public sealed class PublicAotFileShellCache(
     private readonly IDatabase _db = redis.GetDatabase();
     private readonly string _cacheRoot = ResolveCacheRoot(env);
     private readonly ConcurrentDictionary<string, MemoryCacheEntry> _memoryCache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, FileMetadataCacheEntry> _fileMetadataCache = new(StringComparer.Ordinal);
     private long _memoryGeneration;
     private PublicAotRecordedInvalidation? _lastInvalidation;
 
@@ -51,6 +52,7 @@ public sealed class PublicAotFileShellCache(
         await File.WriteAllBytesAsync(tempPath, payload, cancellationToken);
         File.Move(tempPath, targetPath, overwrite: true);
         _memoryCache[entry.CacheKey] = CreateMemoryCacheEntry(entry);
+        UpdateFileMetadataEntry(targetPath, entry);
 
         await RegisterKeyAsync(entry.CacheKey).ConfigureAwait(false);
         DeleteSupersededVersions(entry.CacheKey, targetPath);
@@ -130,6 +132,7 @@ public sealed class PublicAotFileShellCache(
         long started = Stopwatch.GetTimestamp();
         Interlocked.Increment(ref _memoryGeneration);
         _memoryCache.Clear();
+        _fileMetadataCache.Clear();
         int deletedFiles = 0;
         if (Directory.Exists(_cacheRoot))
         {
@@ -186,10 +189,12 @@ public sealed class PublicAotFileShellCache(
             }
 
             RecordCacheRead("hit", "file", "public_aot_cache_file_hit", cacheKey, TimeSpan.Zero);
+            FsusObservability.RecordPublicAotShellCacheFileAccess(cacheHit: true);
             return entry;
         }
 
         RecordCacheRead("miss", "file", "public_aot_cache_miss", cacheKey, TimeSpan.Zero);
+        FsusObservability.RecordPublicAotShellCacheFileAccess(cacheHit: false);
         return null;
     }
 
@@ -231,9 +236,22 @@ public sealed class PublicAotFileShellCache(
 
     private async Task<PublicAotCacheEntry?> TryReadEntryAsync(string path, CancellationToken cancellationToken)
     {
-        if (!File.Exists(path))
+        var fileInfo = new FileInfo(path);
+        if (!fileInfo.Exists)
         {
             return null;
+        }
+
+        DateTime lastWriteTimeUtc = File.GetLastWriteTimeUtc(path);
+        if (TryGetFileMetadataEntry(path, lastWriteTimeUtc, fileInfo.Length, out PublicAotCacheEntry? cached))
+        {
+            FsusObservability.RecordCacheOperation(
+                "read",
+                nameof(CachePolicyId.PublicAotDocument),
+                "file-metadata",
+                "hit",
+                TimeSpan.Zero);
+            return cached;
         }
 
         long started = Stopwatch.GetTimestamp();
@@ -267,9 +285,18 @@ public sealed class PublicAotFileShellCache(
                     totalRead += read;
                 }
 
-                return totalRead == length
-                    ? PublicAotCacheEntryBinaryCodec.Decode(raw.AsMemory(0, totalRead))
-                    : null;
+                if (totalRead != length)
+                {
+                    return null;
+                }
+
+                PublicAotCacheEntry? entry = PublicAotCacheEntryBinaryCodec.Decode(raw.AsMemory(0, totalRead));
+                if (entry is not null)
+                {
+                    _fileMetadataCache[path] = new FileMetadataCacheEntry(lastWriteTimeUtc, length, entry, Volatile.Read(ref _memoryGeneration));
+                }
+
+                return entry;
             }
             finally
             {
@@ -403,6 +430,44 @@ public sealed class PublicAotFileShellCache(
     private MemoryCacheEntry CreateMemoryCacheEntry(PublicAotCacheEntry entry)
         => new(entry, entry.ExpiresAtUtc, entry.RendererVersion, entry.FrontendAssetVersion, Volatile.Read(ref _memoryGeneration));
 
+    private bool TryGetFileMetadataEntry(
+        string path,
+        DateTime lastWriteTimeUtc,
+        long length,
+        out PublicAotCacheEntry? entry)
+    {
+        entry = null;
+        if (!_fileMetadataCache.TryGetValue(path, out FileMetadataCacheEntry? cached))
+        {
+            return false;
+        }
+
+        long generation = Volatile.Read(ref _memoryGeneration);
+        if (cached.GenerationToken != generation ||
+            cached.LastWriteTimeUtc != lastWriteTimeUtc ||
+            cached.Length != length)
+        {
+            _fileMetadataCache.TryRemove(path, out _);
+            return false;
+        }
+
+        entry = cached.Entry;
+        return true;
+    }
+
+    private void UpdateFileMetadataEntry(string path, PublicAotCacheEntry entry)
+    {
+        var fileInfo = new FileInfo(path);
+        if (fileInfo.Exists)
+        {
+            _fileMetadataCache[path] = new FileMetadataCacheEntry(
+                fileInfo.LastWriteTimeUtc,
+                fileInfo.Length,
+                entry,
+                Volatile.Read(ref _memoryGeneration));
+        }
+    }
+
     private void RecordCacheRead(string result, string layer, string logToken, string cacheKey, TimeSpan duration)
     {
         FsusObservability.RecordCacheOperation(
@@ -447,6 +512,7 @@ public sealed class PublicAotFileShellCache(
             if (File.Exists(path))
             {
                 File.Delete(path);
+                _fileMetadataCache.TryRemove(path, out _);
             }
         }
         catch (Exception ex)
@@ -556,6 +622,7 @@ public sealed class PublicAotFileShellCache(
                 if (File.Exists(path))
                 {
                     File.Delete(path);
+                    _fileMetadataCache.TryRemove(path, out _);
                 }
             }
         }
@@ -699,6 +766,7 @@ public sealed class PublicAotFileShellCache(
             if (File.Exists(path))
             {
                 File.Delete(path);
+                _fileMetadataCache.TryRemove(path, out _);
                 deleted++;
             }
         }
@@ -851,6 +919,7 @@ public sealed class PublicAotFileShellCache(
     {
         Interlocked.Increment(ref _memoryGeneration);
         _memoryCache.Clear();
+        _fileMetadataCache.Clear();
         int deletedFiles = 0;
         if (Directory.Exists(_cacheRoot))
         {
@@ -970,5 +1039,11 @@ public sealed class PublicAotFileShellCache(
         DateTimeOffset ExpiresAtUtc,
         string RendererVersion,
         string FrontendAssetVersion,
+        long GenerationToken);
+
+    private sealed record FileMetadataCacheEntry(
+        DateTime LastWriteTimeUtc,
+        long Length,
+        PublicAotCacheEntry Entry,
         long GenerationToken);
 }

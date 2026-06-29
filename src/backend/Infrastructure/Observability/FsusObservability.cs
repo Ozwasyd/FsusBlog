@@ -179,6 +179,22 @@ public static class FsusObservability
     private static readonly Counter<long> PublicAotRegistryDeletedKeyCounter = Meter.CreateCounter<long>("public_aot_registry_deleted_keys");
     private static readonly Counter<long> PublicAotPublishCounter = Meter.CreateCounter<long>("public_aot_publish_count");
     private static readonly Histogram<double> PublicAotInvalidationDuration = Meter.CreateHistogram<double>("public_aot_invalidation_duration_ms", "ms");
+    private static readonly Histogram<double> PublicAotComposeElapsed = Meter.CreateHistogram<double>("fsus.aot.compose.elapsed", "ms");
+    private static long PublicAotBootstrapSeoSnapshotHits;
+    private static long PublicAotBootstrapSeoSnapshotMisses;
+    private static long PublicAotCacheCodecHits;
+    private static long PublicAotCacheCodecMisses;
+    private static long PublicAotShellCacheFileHits;
+    private static long PublicAotShellCacheFileMisses;
+    private static readonly ObservableGauge<double> PublicAotBootstrapSeoSnapshotHitRatioGauge = Meter.CreateObservableGauge(
+        "fsus.aot.bootstrap.seo_snapshot.hit_ratio",
+        static () => Ratio(PublicAotBootstrapSeoSnapshotHits, PublicAotBootstrapSeoSnapshotMisses));
+    private static readonly ObservableGauge<double> PublicAotCacheCodecHitRatioGauge = Meter.CreateObservableGauge(
+        "fsus.aot.cache.codec.hit_ratio",
+        static () => Ratio(PublicAotCacheCodecHits, PublicAotCacheCodecMisses));
+    private static readonly ObservableGauge<double> PublicAotShellCacheFileHitRatioGauge = Meter.CreateObservableGauge(
+        "fsus.aot.shell_cache.file_hit_ratio",
+        static () => Ratio(PublicAotShellCacheFileHits, PublicAotShellCacheFileMisses));
     private static readonly Counter<long> PublicHotDeltaChangedArticleCounter = Meter.CreateCounter<long>("fsus.public_hot.delta.changed_articles");
     private static readonly Counter<long> PublicHotDeltaRebuiltListCounter = Meter.CreateCounter<long>("fsus.public_hot.delta.rebuilt_lists");
     private static readonly Counter<long> PublicHotDeltaRebuiltTaxonomyCounter = Meter.CreateCounter<long>("fsus.public_hot.delta.rebuilt_taxonomy");
@@ -927,6 +943,48 @@ public static class FsusObservability
         }
     }
 
+    public static void RecordPublicAotCompose(string operation, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("public_aot", NormalizeTelemetryValue(operation, "compose"), "ok");
+            PublicAotComposeElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
+        });
+    }
+
+    public static void RecordPublicAotBootstrapSeoSnapshot(bool cacheHit)
+    {
+        if (cacheHit)
+        {
+            Interlocked.Increment(ref PublicAotBootstrapSeoSnapshotHits);
+            return;
+        }
+
+        Interlocked.Increment(ref PublicAotBootstrapSeoSnapshotMisses);
+    }
+
+    public static void RecordPublicAotCacheCodecAccess(bool cacheHit)
+    {
+        if (cacheHit)
+        {
+            Interlocked.Increment(ref PublicAotCacheCodecHits);
+            return;
+        }
+
+        Interlocked.Increment(ref PublicAotCacheCodecMisses);
+    }
+
+    public static void RecordPublicAotShellCacheFileAccess(bool cacheHit)
+    {
+        if (cacheHit)
+        {
+            Interlocked.Increment(ref PublicAotShellCacheFileHits);
+            return;
+        }
+
+        Interlocked.Increment(ref PublicAotShellCacheFileMisses);
+    }
+
     public static void RecordPublicHotDelta(
         long changedArticles,
         long rebuiltListFrames,
@@ -1393,6 +1451,14 @@ public static class FsusObservability
 
     public static TimeSpan GetElapsed(long startTimestamp)
         => Stopwatch.GetElapsedTime(startTimestamp);
+
+    private static double Ratio(long hitsField, long missesField)
+    {
+        long hits = Volatile.Read(ref hitsField);
+        long misses = Volatile.Read(ref missesField);
+        long total = hits + misses;
+        return total == 0 ? 1 : Math.Round((double)hits / total, 4, MidpointRounding.AwayFromZero);
+    }
 
     private static ConcurrentDictionary<SecurityEventTagCacheKey, TagList> PrewarmSecurityEventTagCache()
     {

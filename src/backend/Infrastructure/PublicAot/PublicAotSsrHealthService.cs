@@ -36,7 +36,8 @@ public sealed class PublicAotSsrHealthService(
     public async Task<PublicAotSsrHealthReport> CheckAsync(CancellationToken cancellationToken = default)
     {
         DateTimeOffset checkedAt = DateTimeOffset.UtcNow;
-        PublicAotSsrWorkerResourceStatus resource = PublicAotNodeSsrRenderer.CheckWorkerResource(env, configuration);
+        PublicAotSsrWorkerResourceStatus resource = runtimeState.GetOrCreateWorkerResourceSnapshot(
+            () => PublicAotNodeSsrRenderer.CheckWorkerResource(env, configuration));
         PublicAotSsrNodeProbeResult node = await ProbeNodeAsync(cancellationToken).ConfigureAwait(false);
         PublicAotSsrWorkerProbeResult sampleWorkerProbe = await ProbeWorkerAsync(resource, cancellationToken).ConfigureAwait(false);
         PublicAotSsrRuntimeSnapshot runtime = runtimeState.CreateSnapshot(scheduler.InFlightCount, scheduler.QueueCapacity);

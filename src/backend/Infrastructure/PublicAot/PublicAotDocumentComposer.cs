@@ -1,4 +1,5 @@
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Spa;
 using System.Net;
 using System.Security.Cryptography;
@@ -92,43 +93,160 @@ internal static class PublicAotDocumentComposer
         string siteRoot,
         PublicAotArticleSeoMetadata? articleSeo)
     {
-        var graph = new List<Dictionary<string, object?>>(3)
+        using var buffer = new PooledByteBufferWriter(1024);
+        using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Encoder = JavaScriptEncoder.Default }))
         {
-            new(StringComparer.Ordinal)
+            writer.WriteStartObject();
+            writer.WriteString("@context", "https://schema.org");
+            writer.WritePropertyName("@graph");
+            writer.WriteStartArray();
+            WriteSiteJsonLd(writer, siteTitle, siteRoot);
+            WriteBreadcrumbJsonLd(writer, kind, fullTitle, canonicalUrl, siteRoot);
+            if (kind == PublicPageKind.ArticleDetail)
             {
-                ["@type"] = "WebSite",
-                ["name"] = siteTitle,
-                ["url"] = siteRoot,
-                ["potentialAction"] = new Dictionary<string, object?>(StringComparer.Ordinal)
-                {
-                    ["@type"] = "SearchAction",
-                    ["target"] = $"{siteRoot.TrimEnd('/')}/search?q={{search_term_string}}",
-                    ["query-input"] = "required name=search_term_string"
-                }
-            },
-            BuildBreadcrumbJsonLd(kind, fullTitle, canonicalUrl, siteRoot)
-        };
+                WriteBlogPostingJsonLd(writer, title, fullTitle, description, canonicalUrl, siteRoot, siteTitle, articleSeo);
+            }
+            else
+            {
+                WritePageJsonLd(writer, fullTitle, description, canonicalUrl);
+            }
 
-        graph.Add(kind == PublicPageKind.ArticleDetail
-            ? BuildBlogPostingJsonLd(title, fullTitle, description, canonicalUrl, siteRoot, siteTitle, articleSeo)
-            : new Dictionary<string, object?>(StringComparer.Ordinal)
-            {
-                ["@type"] = "WebSite",
-                ["name"] = fullTitle,
-                ["url"] = canonicalUrl,
-                ["description"] = description
-            });
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+        }
 
-        return JsonSerializer.Serialize(
-            new Dictionary<string, object?>(StringComparer.Ordinal)
+        return Encoding.UTF8.GetString(buffer.WrittenSpan);
+    }
+
+    private static void WriteSiteJsonLd(Utf8JsonWriter writer, string siteTitle, string siteRoot)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("@type", "WebSite");
+        writer.WriteString("name", siteTitle);
+        writer.WriteString("url", siteRoot);
+        writer.WritePropertyName("potentialAction");
+        writer.WriteStartObject();
+        writer.WriteString("@type", "SearchAction");
+        writer.WriteString("target", $"{siteRoot.TrimEnd('/')}/search?q={{search_term_string}}");
+        writer.WriteString("query-input", "required name=search_term_string");
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+    }
+
+    private static void WriteBreadcrumbJsonLd(
+        Utf8JsonWriter writer,
+        PublicPageKind kind,
+        string fullTitle,
+        string canonicalUrl,
+        string siteRoot)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("@type", "BreadcrumbList");
+        writer.WritePropertyName("itemListElement");
+        writer.WriteStartArray();
+        writer.WriteStartObject();
+        writer.WriteString("@type", "ListItem");
+        writer.WriteNumber("position", 1);
+        writer.WriteString("name", "Home");
+        writer.WriteString("item", siteRoot);
+        writer.WriteEndObject();
+
+        if (kind != PublicPageKind.Home)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("@type", "ListItem");
+            writer.WriteNumber("position", 2);
+            writer.WriteString("name", fullTitle);
+            writer.WriteString("item", canonicalUrl);
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
+        writer.WriteEndObject();
+    }
+
+    private static void WritePageJsonLd(Utf8JsonWriter writer, string fullTitle, string description, string canonicalUrl)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("@type", "WebSite");
+        writer.WriteString("name", fullTitle);
+        writer.WriteString("url", canonicalUrl);
+        writer.WriteString("description", description);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteBlogPostingJsonLd(
+        Utf8JsonWriter writer,
+        string title,
+        string fullTitle,
+        string description,
+        string canonicalUrl,
+        string siteRoot,
+        string siteTitle,
+        PublicAotArticleSeoMetadata? articleSeo)
+    {
+        string headline = NullIfEmpty(articleSeo?.Headline) ?? title;
+        string articleDescription = NullIfEmpty(articleSeo?.Description) ?? description;
+        string articleUrl = NullIfEmpty(articleSeo?.Url) ?? canonicalUrl;
+        string publisherName = NullIfEmpty(articleSeo?.PublisherName) ?? siteTitle;
+        string publisherLogoUrl = MakeAbsoluteUrl(siteRoot, articleSeo?.PublisherLogoUrl ?? string.Empty);
+
+        writer.WriteStartObject();
+        writer.WriteString("@type", "BlogPosting");
+        writer.WriteString("name", fullTitle);
+        writer.WriteString("headline", headline);
+        writer.WriteString("description", articleDescription);
+        writer.WriteString("url", articleUrl);
+        writer.WritePropertyName("mainEntityOfPage");
+        writer.WriteStartObject();
+        writer.WriteString("@type", "WebPage");
+        writer.WriteString("@id", articleUrl);
+        writer.WriteEndObject();
+
+        if (articleSeo?.DatePublished is { } publishedAt)
+        {
+            writer.WriteString("datePublished", publishedAt.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        if (articleSeo?.DateModified is { } modifiedAt)
+        {
+            writer.WriteString("dateModified", modifiedAt.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        if (!string.IsNullOrWhiteSpace(articleSeo?.AuthorName))
+        {
+            writer.WritePropertyName("author");
+            writer.WriteStartObject();
+            writer.WriteString("@type", "Person");
+            writer.WriteString("name", articleSeo.AuthorName.Trim());
+            writer.WriteEndObject();
+        }
+
+        string imageUrl = MakeAbsoluteUrl(siteRoot, articleSeo?.ImageUrl ?? string.Empty);
+        if (!string.IsNullOrWhiteSpace(imageUrl))
+        {
+            writer.WriteString("image", imageUrl);
+        }
+
+        if (!string.IsNullOrWhiteSpace(publisherName))
+        {
+            writer.WritePropertyName("publisher");
+            writer.WriteStartObject();
+            writer.WriteString("@type", "Organization");
+            writer.WriteString("name", publisherName);
+            if (!string.IsNullOrWhiteSpace(publisherLogoUrl))
             {
-                ["@context"] = "https://schema.org",
-                ["@graph"] = graph
-            },
-            new JsonSerializerOptions
-            {
-                Encoder = JavaScriptEncoder.Default
-            });
+                writer.WritePropertyName("logo");
+                writer.WriteStartObject();
+                writer.WriteString("@type", "ImageObject");
+                writer.WriteString("url", publisherLogoUrl);
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndObject();
     }
 
     private static Dictionary<string, object?> BuildBreadcrumbJsonLd(

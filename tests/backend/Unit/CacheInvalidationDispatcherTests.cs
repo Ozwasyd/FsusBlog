@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Services.Security;
 using NSubstitute;
 
@@ -70,6 +71,20 @@ public sealed class CacheInvalidationDispatcherTests
         await cache.DidNotReceive().RemoveByPrefixAsync(CachePolicyId.ArticleHot, Arg.Any<string>(), Arg.Any<CancellationToken>());
         await cache.DidNotReceive().RemoveByPrefixAsync(CachePolicyId.ArticleHotFrame, Arg.Any<string>(), Arg.Any<CancellationToken>());
         await httpCacheInvalidator.Received(1).InvalidateAsync(CacheTag.HotArticles);
+    }
+
+    [Fact]
+    public async Task InvalidateSeoAndComplianceAsync_InvalidatesAotSeoSnapshot()
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
+        var snapshot = Substitute.For<IAotSeoConfigSnapshot>();
+        var sut = new CacheInvalidationDispatcher(cache, httpCacheInvalidator, aotSeoConfigSnapshot: snapshot);
+
+        await sut.InvalidateSeoAsync();
+        await sut.InvalidateComplianceAsync();
+
+        snapshot.Received(2).Invalidate();
     }
 
     [Fact]

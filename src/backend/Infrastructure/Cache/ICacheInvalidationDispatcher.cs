@@ -1,4 +1,5 @@
 using System.Globalization;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Services.Security;
 
 namespace FsusBlog.Server.Infrastructure.Cache;
@@ -180,7 +181,8 @@ public sealed class CacheInvalidationDispatcher(
     IHttpCacheInvalidator httpCacheInvalidator,
     CacheInvalidationRuntimeState? runtimeState = null,
     IHotArticlesCacheVersionPublisher? hotArticlesVersionPublisher = null,
-    IAnonymousCommentPolicyInvalidationSink? commentPolicyInvalidationSink = null) : ICacheInvalidationDispatcher
+    IAnonymousCommentPolicyInvalidationSink? commentPolicyInvalidationSink = null,
+    IAotSeoConfigSnapshot? aotSeoConfigSnapshot = null) : ICacheInvalidationDispatcher
 {
     public async Task InvalidateArticleMutationAsync(int? articleId = null, CancellationToken cancellationToken = default)
     {
@@ -218,6 +220,7 @@ public sealed class CacheInvalidationDispatcher(
 
     public async Task InvalidateSeoAsync(CancellationToken cancellationToken = default)
     {
+        aotSeoConfigSnapshot?.Invalidate();
         await cache.RemoveAsync(CachePolicyId.SystemSeo, "main", cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Seo);
         await RecordRuntimeAsync("seo", "system-seo", cancellationToken);
@@ -225,6 +228,7 @@ public sealed class CacheInvalidationDispatcher(
 
     public async Task InvalidateComplianceAsync(CancellationToken cancellationToken = default)
     {
+        aotSeoConfigSnapshot?.Invalidate();
         await cache.RemoveAsync(CachePolicyId.SystemCompliance, "main", cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Seo);
         await RecordRuntimeAsync("compliance", "site-compliance", cancellationToken);

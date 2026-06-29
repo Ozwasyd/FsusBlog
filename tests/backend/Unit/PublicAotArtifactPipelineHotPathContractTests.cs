@@ -175,6 +175,59 @@ public sealed class PublicAotArtifactPipelineHotPathContractTests
         Assert.DoesNotContain("output.ToArray()", tryCompress, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void PublicAotComposeNonTemplate_UsesSnapshotsAndMetricsForHotInputs()
+    {
+        string bootstrap = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs");
+        string renderer = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotNodeSsrRenderer.cs");
+        string runtimeState = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotSsrRuntimeState.cs");
+        string productionHealth = ReadRepoFile("src/backend/Infrastructure/Operations/ProductionHealth.cs");
+        string registrations = ReadRepoFile("src/backend/Infrastructure/Bootstrap/RuntimePublicAotServiceCollectionExtensions.cs");
+        string observability = ReadRepoFile("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string loadSeoSnapshot = ExtractMethodBlock(bootstrap, "protected async Task<PublicAotSeoSnapshot> LoadSeoSnapshotAsync");
+
+        Assert.Contains("IAotSeoConfigSnapshot", bootstrap, StringComparison.Ordinal);
+        Assert.Contains("AotSeoConfigSnapshotTtl = TimeSpan.FromSeconds(30)", bootstrap, StringComparison.Ordinal);
+        Assert.Contains("RecordPublicAotBootstrapSeoSnapshot", bootstrap, StringComparison.Ordinal);
+        Assert.DoesNotContain("systemService.GetSeoConfigAsync()", loadSeoSnapshot, StringComparison.Ordinal);
+        Assert.DoesNotContain("systemService.GetSiteComplianceConfigAsync()", loadSeoSnapshot, StringComparison.Ordinal);
+
+        Assert.Contains("AddSingleton<IAotSeoConfigSnapshot, AotSeoConfigSnapshot>", registrations, StringComparison.Ordinal);
+        Assert.Contains("RecordPublicAotCompose", renderer, StringComparison.Ordinal);
+        Assert.Contains("GetOrCreateWorkerResourceSnapshot", runtimeState, StringComparison.Ordinal);
+        Assert.Contains("RecordWorkerResourceSnapshot", runtimeState, StringComparison.Ordinal);
+        Assert.Contains("runtimeState.GetOrCreateWorkerResourceSnapshot", renderer, StringComparison.Ordinal);
+        Assert.Contains("publicAotSsrRuntime.GetOrCreateWorkerResourceSnapshot", productionHealth, StringComparison.Ordinal);
+
+        Assert.Contains("fsus.aot.compose.elapsed", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.aot.bootstrap.seo_snapshot.hit_ratio", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.aot.cache.codec.hit_ratio", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.aot.shell_cache.file_hit_ratio", observability, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PublicAotComposeNonTemplate_AvoidsRepeatedCodecJsonLdAndFileIoWork()
+    {
+        string codec = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotCacheEntryBinaryCodec.cs");
+        string documentComposer = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs");
+        string fileCache = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs");
+        string buildJsonLd = ExtractMethodBlock(documentComposer, "private static string BuildJsonLd");
+
+        Assert.Contains("DecodedCacheCapacity = 256", codec, StringComparison.Ordinal);
+        Assert.Contains("TryGetDecodedCacheEntry", codec, StringComparison.Ordinal);
+        Assert.Contains("RecordPublicAotCacheCodecAccess(cacheHit: true)", codec, StringComparison.Ordinal);
+        Assert.Contains("RecordPublicAotCacheCodecAccess(cacheHit: false)", codec, StringComparison.Ordinal);
+
+        Assert.Contains("Utf8JsonWriter", buildJsonLd, StringComparison.Ordinal);
+        Assert.DoesNotContain("new List<Dictionary<string, object?>>", buildJsonLd, StringComparison.Ordinal);
+        Assert.DoesNotContain("JsonSerializer.Serialize", buildJsonLd, StringComparison.Ordinal);
+
+        Assert.Contains("_fileMetadataCache", fileCache, StringComparison.Ordinal);
+        Assert.Contains("TryGetFileMetadataEntry", fileCache, StringComparison.Ordinal);
+        Assert.Contains("File.GetLastWriteTimeUtc", fileCache, StringComparison.Ordinal);
+        Assert.Contains("RecordPublicAotShellCacheFileAccess(cacheHit: true)", fileCache, StringComparison.Ordinal);
+    }
+
     private static string ReadRepoFile(string relativePath, [CallerFilePath] string sourceFile = "")
         => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 

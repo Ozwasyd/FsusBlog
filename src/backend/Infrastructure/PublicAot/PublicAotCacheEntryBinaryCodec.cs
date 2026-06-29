@@ -1,6 +1,9 @@
 using System.Buffers.Binary;
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -11,8 +14,11 @@ internal static class PublicAotCacheEntryBinaryCodec
     private const uint LegacyStringVersion = 1;
     private const uint ArtifactVersion = 2;
     private const uint Version = 3;
+    private const int DecodedCacheCapacity = 256;
     private const int MaxStringBytes = 8 * 1024 * 1024;
     private const int MaxBlobBytes = 32 * 1024 * 1024;
+    private static readonly ConcurrentDictionary<string, PublicAotCacheEntry> DecodedCache = new(StringComparer.Ordinal);
+    private static readonly ConcurrentQueue<string> DecodedCacheKeys = new();
 
     internal static byte[] Encode(PublicAotCacheEntry entry)
     {
@@ -61,7 +67,24 @@ internal static class PublicAotCacheEntryBinaryCodec
     }
 
     internal static PublicAotCacheEntry? Decode(ReadOnlySpan<byte> payload)
-        => TryDecode(payload, out PublicAotCacheEntry? entry) ? entry : null;
+    {
+        string cacheKey = BuildDecodedCacheKey(payload);
+        if (TryGetDecodedCacheEntry(cacheKey, out PublicAotCacheEntry? cached))
+        {
+            FsusObservability.RecordPublicAotCacheCodecAccess(cacheHit: true);
+            return cached;
+        }
+
+        bool success = TryDecode(payload, out PublicAotCacheEntry? entry);
+        FsusObservability.RecordPublicAotCacheCodecAccess(cacheHit: false);
+        if (success && entry is not null)
+        {
+            AddDecodedCacheEntry(cacheKey, entry);
+            return entry;
+        }
+
+        return null;
+    }
 
     internal static PublicAotCacheEntry? Decode(ReadOnlyMemory<byte> payload)
         => Decode(payload.Span);
@@ -112,6 +135,33 @@ internal static class PublicAotCacheEntryBinaryCodec
             expiresTicks,
             version >= Version,
             out entry);
+    }
+
+    private static bool TryGetDecodedCacheEntry(string cacheKey, out PublicAotCacheEntry? entry)
+        => DecodedCache.TryGetValue(cacheKey, out entry);
+
+    private static void AddDecodedCacheEntry(string cacheKey, PublicAotCacheEntry entry)
+    {
+        if (DecodedCache.TryAdd(cacheKey, entry))
+        {
+            DecodedCacheKeys.Enqueue(cacheKey);
+            TrimDecodedCache();
+        }
+    }
+
+    private static void TrimDecodedCache()
+    {
+        while (DecodedCache.Count > DecodedCacheCapacity && DecodedCacheKeys.TryDequeue(out string? oldestKey))
+        {
+            DecodedCache.TryRemove(oldestKey, out _);
+        }
+    }
+
+    private static string BuildDecodedCacheKey(ReadOnlySpan<byte> payload)
+    {
+        Span<byte> hash = stackalloc byte[32];
+        SHA256.HashData(payload, hash);
+        return Convert.ToHexStringLower(hash);
     }
 
     private static bool TryDecodeLegacy(

@@ -165,7 +165,11 @@ public sealed class ProductionReadinessProbe(
         bool webRootExists = Directory.Exists(webRoot);
         bool indexExists = File.Exists(Path.Combine(webRoot, "index.html"));
         bool ip2LocationExists = !string.IsNullOrEmpty(ip2Location);
-        PublicAotSsrWorkerResourceStatus publicAotSsrWorker = PublicAotNodeSsrRenderer.CheckWorkerResource(environment, configuration);
+        PublicAotSsrRuntimeState? publicAotSsrRuntime = serviceProvider.GetService<PublicAotSsrRuntimeState>();
+        PublicAotSsrWorkerResourceStatus publicAotSsrWorker = publicAotSsrRuntime is not null
+            ? publicAotSsrRuntime.GetOrCreateWorkerResourceSnapshot(
+                () => PublicAotNodeSsrRenderer.CheckWorkerResource(environment, configuration))
+            : PublicAotNodeSsrRenderer.CheckWorkerResource(environment, configuration);
         bool publicAotSsrWorkerReady = !environment.IsProduction()
             || string.Equals(publicAotSsrWorker.Status, "ok", StringComparison.Ordinal);
 

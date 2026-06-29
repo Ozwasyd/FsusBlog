@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Text;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -92,23 +93,31 @@ public sealed class PublicAotNodeSsrRenderer(
 
     private async Task<Result<RendererCommandResponse>> InvokeAsync(string command, IReadOnlyDictionary<string, object?> payload, CancellationToken cancellationToken)
     {
+        long startedAt = Stopwatch.GetTimestamp();
         if (_workerOptions.Value.IsFailure || _workerOptions.Value.Value is null)
         {
             return Result<RendererCommandResponse>.Failure(_workerOptions.Value.Error);
         }
 
-        return await BoundaryExecutor.ExecuteValueAsync(
-            async () =>
-            {
-                string raw = IsPerRequestMode()
-                    ? await InvokePerRequestAsync(_workerOptions.Value.Value!, command, payload, cancellationToken)
-                    : await _workerPool.Value.SendAsync(command, payload, cancellationToken);
-                return ParseResponse(raw);
-            },
-            ex => Result<RendererCommandResponse>.Failure(MapRenderException(ex)),
-            logger,
-            $"public-aot-node:{command}",
-            LogLevel.Error);
+        try
+        {
+            return await BoundaryExecutor.ExecuteValueAsync(
+                async () =>
+                {
+                    string raw = IsPerRequestMode()
+                        ? await InvokePerRequestAsync(_workerOptions.Value.Value!, command, payload, cancellationToken)
+                        : await _workerPool.Value.SendAsync(command, payload, cancellationToken);
+                    return ParseResponse(raw);
+                },
+                ex => Result<RendererCommandResponse>.Failure(MapRenderException(ex)),
+                logger,
+                $"public-aot-node:{command}",
+                LogLevel.Error);
+        }
+        finally
+        {
+            FsusObservability.RecordPublicAotCompose(command, FsusObservability.GetElapsed(startedAt));
+        }
     }
 
     private bool IsPerRequestMode()
@@ -365,6 +374,9 @@ public sealed class PublicAotNodeSsrRenderer(
 
     internal static PublicAotSsrWorkerResourceStatus CheckWorkerResourceForTests(IWebHostEnvironment env, IConfiguration configuration)
         => CheckWorkerResource(env, configuration);
+
+    internal PublicAotSsrWorkerResourceStatus GetWorkerResourceStatus()
+        => runtimeState.GetOrCreateWorkerResourceSnapshot(() => CheckWorkerResource(env, configuration));
 
     internal static Task<string> ReadProcessOutputBoundedForTests(string output, int maxBytes, CancellationToken cancellationToken = default)
         => ReadProcessOutputBoundedAsync(new StringReader(output), maxBytes, "stdout", cancellationToken);

@@ -1,5 +1,6 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services.Distribution;
@@ -8,7 +9,77 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
-public abstract class PublicAotBootstrapProviderBase(ISystemService systemService) : IPublicAotBootstrapProvider
+public interface IAotSeoConfigSnapshot
+{
+    Task<PublicAotSeoSnapshot> GetAsync(CancellationToken cancellationToken = default);
+
+    void Invalidate();
+}
+
+public sealed class AotSeoConfigSnapshot(IServiceScopeFactory scopeFactory) : IAotSeoConfigSnapshot
+{
+    private static readonly TimeSpan AotSeoConfigSnapshotTtl = TimeSpan.FromSeconds(30);
+    private readonly SemaphoreSlim _refreshGate = new(1, 1);
+    private PublicAotSeoSnapshot? _snapshot;
+    private DateTimeOffset _expiresAtUtc;
+
+    public async Task<PublicAotSeoSnapshot> GetAsync(CancellationToken cancellationToken = default)
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        PublicAotSeoSnapshot? snapshot = Volatile.Read(ref _snapshot);
+        if (snapshot is not null && now < _expiresAtUtc)
+        {
+            FsusObservability.RecordPublicAotBootstrapSeoSnapshot(cacheHit: true);
+            return snapshot;
+        }
+
+        await _refreshGate.WaitAsync(cancellationToken);
+        try
+        {
+            now = DateTimeOffset.UtcNow;
+            snapshot = Volatile.Read(ref _snapshot);
+            if (snapshot is not null && now < _expiresAtUtc)
+            {
+                FsusObservability.RecordPublicAotBootstrapSeoSnapshot(cacheHit: true);
+                return snapshot;
+            }
+
+            using IServiceScope scope = scopeFactory.CreateScope();
+            ISystemService systemService = scope.ServiceProvider.GetRequiredService<ISystemService>();
+            Task<SeoConfigReadModel> seoTask = systemService.GetSeoConfigAsync();
+            Task<SiteComplianceConfigReadModel> complianceTask = systemService.GetSiteComplianceConfigAsync();
+            await Task.WhenAll(seoTask, complianceTask);
+            SeoConfigReadModel seo = await seoTask;
+            SiteComplianceConfigReadModel compliance = await complianceTask;
+            snapshot = new PublicAotSeoSnapshot(
+                seo.Title,
+                seo.Description,
+                PublicAotBootstrapProviderBase.NormalizeBaseUrl(seo.BaseUrl),
+                PublicAotBootstrapProviderBase.ToComplianceSnapshot(compliance),
+                seo.Author,
+                seo.SiteLogoUrl,
+                seo.SiteLogoDarkUrl,
+                seo.SiteWordmarkUrl,
+                seo.LoginLogoUrl,
+                seo.LoginIconUrl);
+            Volatile.Write(ref _snapshot, snapshot);
+            _expiresAtUtc = now.Add(AotSeoConfigSnapshotTtl);
+            FsusObservability.RecordPublicAotBootstrapSeoSnapshot(cacheHit: false);
+            return snapshot;
+        }
+        finally
+        {
+            _refreshGate.Release();
+        }
+    }
+
+    public void Invalidate()
+    {
+        _expiresAtUtc = DateTimeOffset.MinValue;
+    }
+}
+
+public abstract class PublicAotBootstrapProviderBase(IAotSeoConfigSnapshot seoConfigSnapshot) : IPublicAotBootstrapProvider
 {
     public abstract PublicPageKind Kind { get; }
 
@@ -16,28 +87,8 @@ public abstract class PublicAotBootstrapProviderBase(ISystemService systemServic
         PublicAotRouteMatch match,
         CancellationToken cancellationToken = default);
 
-    protected async Task<SeoConfigReadModel> LoadSeoAsync()
-        => await systemService.GetSeoConfigAsync();
-
     protected async Task<PublicAotSeoSnapshot> LoadSeoSnapshotAsync()
-    {
-        Task<SeoConfigReadModel> seoTask = systemService.GetSeoConfigAsync();
-        Task<SiteComplianceConfigReadModel> complianceTask = systemService.GetSiteComplianceConfigAsync();
-
-        SeoConfigReadModel seo = await seoTask;
-        SiteComplianceConfigReadModel compliance = await complianceTask;
-        return new PublicAotSeoSnapshot(
-            seo.Title,
-            seo.Description,
-            NormalizeBaseUrl(seo.BaseUrl),
-            ToComplianceSnapshot(compliance),
-            seo.Author,
-            seo.SiteLogoUrl,
-            seo.SiteLogoDarkUrl,
-            seo.SiteWordmarkUrl,
-            seo.LoginLogoUrl,
-            seo.LoginIconUrl);
-    }
+        => await seoConfigSnapshot.GetAsync();
 
     protected static PublicAotSeoSnapshot ToSeoSnapshot(SeoConfigReadModel seo)
         => new(
@@ -51,7 +102,7 @@ public abstract class PublicAotBootstrapProviderBase(ISystemService systemServic
             LoginLogoUrl: seo.LoginLogoUrl,
             LoginIconUrl: seo.LoginIconUrl);
 
-    protected static PublicAotSiteComplianceSnapshot ToComplianceSnapshot(SiteComplianceConfigReadModel compliance)
+    internal static PublicAotSiteComplianceSnapshot ToComplianceSnapshot(SiteComplianceConfigReadModel compliance)
         => new(
             compliance.Enabled,
             compliance.RegionMode,
@@ -68,7 +119,7 @@ public abstract class PublicAotBootstrapProviderBase(ISystemService systemServic
             compliance.OperatorName,
             compliance.ContactEmail);
 
-    protected static string? NormalizeBaseUrl(string? value)
+    internal static string? NormalizeBaseUrl(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim().TrimEnd('/');
 
     protected static PublicAotArticleSummarySnapshot ToArticleSummarySnapshot(ArticleListItemReadModel item)
@@ -98,7 +149,7 @@ public abstract class PublicAotBootstrapProviderBase(ISystemService systemServic
 
 public sealed class PublicAotHomeBootstrapProvider(
     IArticleService articleService,
-    ISystemService systemService) : PublicAotBootstrapProviderBase(systemService)
+    IAotSeoConfigSnapshot seoConfigSnapshot) : PublicAotBootstrapProviderBase(seoConfigSnapshot)
 {
     public override PublicPageKind Kind => PublicPageKind.Home;
 
@@ -125,8 +176,8 @@ public sealed class PublicAotHomeBootstrapProvider(
 
 public sealed class PublicAotArticleDetailBootstrapProvider(
     RelatedReadingService relatedReadingService,
-    ISystemService systemService,
-    ISqlSugarClient db) : PublicAotBootstrapProviderBase(systemService)
+    IAotSeoConfigSnapshot seoConfigSnapshot,
+    ISqlSugarClient db) : PublicAotBootstrapProviderBase(seoConfigSnapshot)
 {
     public override PublicPageKind Kind => PublicPageKind.ArticleDetail;
 
@@ -269,8 +320,8 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
 
 public sealed class PublicAotFilterBootstrapProvider(
     IArticleService articleService,
-    ISystemService systemService,
-    ISqlSugarClient db) : PublicAotBootstrapProviderBase(systemService)
+    IAotSeoConfigSnapshot seoConfigSnapshot,
+    ISqlSugarClient db) : PublicAotBootstrapProviderBase(seoConfigSnapshot)
 {
     public override PublicPageKind Kind => PublicPageKind.Filter;
 
@@ -362,8 +413,9 @@ public abstract class PublicAotStaticPageBootstrapProvider : PublicAotBootstrapP
 
     protected PublicAotStaticPageBootstrapProvider(
         ISystemService systemService,
+        IAotSeoConfigSnapshot seoConfigSnapshot,
         PublicPageKind kind,
-        string title) : base(systemService)
+        string title) : base(seoConfigSnapshot)
     {
         _systemService = systemService;
         _kind = kind;
@@ -388,21 +440,21 @@ public abstract class PublicAotStaticPageBootstrapProvider : PublicAotBootstrapP
     }
 }
 
-public sealed class PublicAotAboutBootstrapProvider(ISystemService systemService)
-    : PublicAotStaticPageBootstrapProvider(systemService, PublicPageKind.About, "关于");
+public sealed class PublicAotAboutBootstrapProvider(ISystemService systemService, IAotSeoConfigSnapshot seoConfigSnapshot)
+    : PublicAotStaticPageBootstrapProvider(systemService, seoConfigSnapshot, PublicPageKind.About, "关于");
 
-public sealed class PublicAotPrivacyBootstrapProvider(ISystemService systemService)
-    : PublicAotStaticPageBootstrapProvider(systemService, PublicPageKind.Privacy, "隐私政策");
+public sealed class PublicAotPrivacyBootstrapProvider(ISystemService systemService, IAotSeoConfigSnapshot seoConfigSnapshot)
+    : PublicAotStaticPageBootstrapProvider(systemService, seoConfigSnapshot, PublicPageKind.Privacy, "隐私政策");
 
-public sealed class PublicAotGuidelinesBootstrapProvider(ISystemService systemService)
-    : PublicAotStaticPageBootstrapProvider(systemService, PublicPageKind.Guidelines, "用户守则");
+public sealed class PublicAotGuidelinesBootstrapProvider(ISystemService systemService, IAotSeoConfigSnapshot seoConfigSnapshot)
+    : PublicAotStaticPageBootstrapProvider(systemService, seoConfigSnapshot, PublicPageKind.Guidelines, "用户守则");
 
-public sealed class PublicAotCopyrightBootstrapProvider(ISystemService systemService)
-    : PublicAotStaticPageBootstrapProvider(systemService, PublicPageKind.Copyright, "版权声明");
+public sealed class PublicAotCopyrightBootstrapProvider(ISystemService systemService, IAotSeoConfigSnapshot seoConfigSnapshot)
+    : PublicAotStaticPageBootstrapProvider(systemService, seoConfigSnapshot, PublicPageKind.Copyright, "版权声明");
 
 public sealed class PublicAotArchiveBootstrapProvider(
-    ISystemService systemService,
-    ISqlSugarClient db) : PublicAotBootstrapProviderBase(systemService)
+    IAotSeoConfigSnapshot seoConfigSnapshot,
+    ISqlSugarClient db) : PublicAotBootstrapProviderBase(seoConfigSnapshot)
 {
     public override PublicPageKind Kind => PublicPageKind.Archive;
 
