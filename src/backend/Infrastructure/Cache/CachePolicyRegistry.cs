@@ -28,6 +28,8 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
             [CachePolicyId.AdminStatsOverview] = new(CachePolicyId.AdminStatsOverview, "admin", "stats-overview", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), null, [CacheTag.Stats], false, 0.10d, false),
             [CachePolicyId.AdminStatsRecentComments] = new(CachePolicyId.AdminStatsRecentComments, "admin", "stats-recent-comments", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5), null, [CacheTag.Stats], false, 0.10d, false),
             [CachePolicyId.AdminStatsRegions] = new(CachePolicyId.AdminStatsRegions, "admin", "stats-regions", TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(30), null, [CacheTag.Stats], false, 0.10d, false),
+            [CachePolicyId.AccountSnapshot] = new(CachePolicyId.AccountSnapshot, "sec", "account-snapshot", TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(10), null, null, true, 0d, false),
+            [CachePolicyId.AccountSnapshotVersion] = new(CachePolicyId.AccountSnapshotVersion, "sec", "account-snapshot-version", TimeSpan.FromMinutes(5), TimeSpan.FromDays(7), null, null, true, 0d, false),
             [CachePolicyId.MessageUnread] = new(CachePolicyId.MessageUnread, "msg", "unread", TimeSpan.FromMinutes(2), TimeSpan.FromDays(3), null, null, false, 0d, false),
             [CachePolicyId.MessageGlobalVersion] = new(CachePolicyId.MessageGlobalVersion, "msg", "global-version", TimeSpan.FromMinutes(2), TimeSpan.FromDays(3), null, null, false, 0d, false),
             [CachePolicyId.PublicAotDocument] = new(CachePolicyId.PublicAotDocument, "public", "aot-doc", TimeSpan.FromMinutes(30), TimeSpan.FromDays(30), null, [CacheTag.Aot]),

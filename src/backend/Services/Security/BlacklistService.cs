@@ -39,6 +39,8 @@ public class BlacklistService(
         {
             await PublishBanStateAsync(row, allowOverwrite: true).ConfigureAwait(false);
         }
+
+        await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, userId).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -61,6 +63,8 @@ public class BlacklistService(
         {
             await PublishBanStateAsync(row, allowOverwrite: true).ConfigureAwait(false);
         }
+
+        await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, userId).ConfigureAwait(false);
     }
 
     public async Task<BanStateSnapshot> GetBanStateAsync(int accountId, string accountSubjectHash)

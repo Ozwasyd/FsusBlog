@@ -492,6 +492,50 @@ public sealed class AnonymousAccountOutputContractTests
         Assert.Equal(deletedAt, ReadProperty<DateTime?>(anonymous, "DeletedAt"));
     }
 
+    [Fact]
+    public void UserAccountReader_UsesProjectionAndVersionedSnapshotCache()
+    {
+        string ports = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.Ports.cs");
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+        string policies = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Cache/CachePolicyId.cs");
+        string registry = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Cache/CachePolicyRegistry.cs");
+        string reader = ExtractBetween(ports, "public sealed class UserAccountReader", "public sealed class AnonymousAccountBootstrapService");
+        string projection = ExtractBetween(service, "GetAccountSnapshotProjectionAsync", "public async Task<(bool Success, string Message)> UpdatePublicHandleAsync");
+
+        Assert.DoesNotContain("users.GetByIdAsync", reader, StringComparison.Ordinal);
+        Assert.DoesNotContain("InSingleAsync(id)", reader, StringComparison.Ordinal);
+        Assert.Contains("TryGetAsync", reader, StringComparison.Ordinal);
+        Assert.Contains("SetRawAsync", reader, StringComparison.Ordinal);
+        Assert.Contains("CachePolicyId.AccountSnapshot", reader, StringComparison.Ordinal);
+        Assert.Contains("CachePolicyId.AccountSnapshotVersion", reader, StringComparison.Ordinal);
+
+        Assert.Contains("FROM sys_user", projection, StringComparison.Ordinal);
+        Assert.Contains("passkey_user_handle", projection, StringComparison.Ordinal);
+        Assert.Contains("anonymous_credential_status", projection, StringComparison.Ordinal);
+        Assert.DoesNotContain("SELECT *", projection, StringComparison.OrdinalIgnoreCase);
+
+        Assert.Contains("AccountSnapshot", policies, StringComparison.Ordinal);
+        Assert.Contains("AccountSnapshotVersion", policies, StringComparison.Ordinal);
+        Assert.Contains("CachePolicyId.AccountSnapshot", registry, StringComparison.Ordinal);
+        Assert.Contains("CachePolicyId.AccountSnapshotVersion", registry, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AuthHotPaths_RecordAccountSnapshotMetrics()
+    {
+        string authEndpoints = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string authMe = ExtractEndpointBlock(authEndpoints, "group.MapGet(\"/auth/me\"");
+        string mfaChallengeStart = ExtractEndpointBlock(authEndpoints, "group.MapPost(\"/auth/mfa/challenge/start\"");
+
+        Assert.Contains("RecordAuthMe", authMe, StringComparison.Ordinal);
+        Assert.Contains("RecordMfaChallengeStartAccountRead", mfaChallengeStart, StringComparison.Ordinal);
+        Assert.Contains("AccountSnapshotCacheHit", observability, StringComparison.Ordinal);
+        Assert.Contains("AccountSnapshotDbReadCount", observability, StringComparison.Ordinal);
+        Assert.Contains("AuthMeElapsed", observability, StringComparison.Ordinal);
+        Assert.Contains("MfaChallengeStartAccountReadElapsed", observability, StringComparison.Ordinal);
+    }
+
     private static T? ReadProperty<T>(object instance, string propertyName)
     {
         PropertyInfo? property = instance.GetType().GetProperty(propertyName);

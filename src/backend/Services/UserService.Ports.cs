@@ -1,21 +1,84 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Shared.Contracts.Outputs;
+using System.Globalization;
+using System.Text.Json;
 
 namespace FsusBlog.Server.Services;
 
-public sealed class UserAccountReader(UserService users) : IUserAccountReader
+public sealed class UserAccountReader(UserService users, IUnifiedCache cache) : IUserAccountReader
 {
+    private static readonly JsonSerializerOptions SnapshotJsonOptions = new(JsonSerializerDefaults.Web);
+
     public async Task<UserAccountSnapshot?> GetAccountByIdAsync(int id)
     {
-        User? user = await users.GetByIdAsync(id);
-        return user is null ? null : ToAccountSnapshot(user);
+        long version = await GetSnapshotVersionAsync(id).ConfigureAwait(false);
+        string identity = BuildSnapshotIdentity(id, version);
+        CacheReadResult<AccountSnapshotCacheEnvelope> cached = await cache.TryGetAsync(
+                CachePolicyId.AccountSnapshot,
+                identity,
+                static payload => DecodeSnapshotEnvelope(payload),
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        if (cached.Hit && cached.Value is { } envelope && envelope.Version == version)
+        {
+            FsusObservability.RecordAccountSnapshotCacheHit(hit: true);
+            return envelope.Snapshot;
+        }
+
+        FsusObservability.RecordAccountSnapshotCacheHit(hit: false);
+        FsusObservability.RecordAccountSnapshotDbReadCount();
+        UserAccountSnapshot? snapshot = await users.GetAccountSnapshotProjectionAsync(id).ConfigureAwait(false);
+        if (snapshot.HasValue)
+        {
+            byte[] payload = JsonSerializer.SerializeToUtf8Bytes(
+                new AccountSnapshotCacheEnvelope(version, snapshot.Value),
+                SnapshotJsonOptions);
+            await cache.SetRawAsync(CachePolicyId.AccountSnapshot, identity, payload).ConfigureAwait(false);
+        }
+        else
+        {
+            await cache.RemoveAsync(CachePolicyId.AccountSnapshot, identity).ConfigureAwait(false);
+        }
+
+        return snapshot;
     }
+
+    private async Task<long> GetSnapshotVersionAsync(int id)
+    {
+        string? value = await cache.GetStringAsync(
+                CachePolicyId.AccountSnapshotVersion,
+                id.ToString(CultureInfo.InvariantCulture))
+            .ConfigureAwait(false);
+        return long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long version) && version > 0
+            ? version
+            : 0;
+    }
+
+    private static string BuildSnapshotIdentity(int id, long version)
+        => string.Concat("account:", id.ToString(CultureInfo.InvariantCulture), ":v", version.ToString(CultureInfo.InvariantCulture));
+
+    private static (bool Success, AccountSnapshotCacheEnvelope? Value) DecodeSnapshotEnvelope(ReadOnlyMemory<byte> payload)
+    {
+        try
+        {
+            AccountSnapshotCacheEnvelope? envelope = JsonSerializer.Deserialize<AccountSnapshotCacheEnvelope>(payload.Span, SnapshotJsonOptions);
+            return envelope is null ? (false, null) : (true, envelope);
+        }
+        catch (JsonException)
+        {
+            return (false, null);
+        }
+    }
+
+    private sealed record AccountSnapshotCacheEnvelope(long Version, UserAccountSnapshot Snapshot);
 
     internal static UserAccountSnapshot ToAccountSnapshot(User user)
         => new(

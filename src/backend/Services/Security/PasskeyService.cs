@@ -200,6 +200,7 @@ public sealed class PasskeyService(
             .Where(u => u.Id == accountId)
             .SetColumns(u => u.PasskeyEnabled == true)
             .ExecuteCommandAsync();
+        await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, accountId, cancellationToken).ConfigureAwait(false);
 
         return (true, "通行密钥注册成功");
     }
@@ -835,6 +836,7 @@ public sealed class PasskeyService(
                     .Where(u => u.Id == accountId)
                     .SetColumns(u => u.PasskeyEnabled == false)
                     .ExecuteCommandAsync(cancellationToken);
+                await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, accountId, cancellationToken).ConfigureAwait(false);
             }
 
             result = PasskeyCredentialMutationResult.Succeeded("通行密钥已删除");

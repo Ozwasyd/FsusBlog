@@ -13,6 +13,7 @@ using FsusBlog.Server.Models.Responses;
 using SqlSugar;
 using System.Data;
 using System.Data.Common;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -207,6 +208,74 @@ public partial class UserService(
 
     public async Task<User?> GetByIdAsync(int id) => await _db.Queryable<User>().InSingleAsync(id);
 
+    private Task InvalidateAccountSnapshotAsync(int userId, CancellationToken cancellationToken = default)
+        => AccountSnapshotCacheInvalidator.BumpVersionAsync(_cache, userId, cancellationToken);
+
+    internal async Task<UserAccountSnapshot?> GetAccountSnapshotProjectionAsync(int id)
+    {
+        const string sql = """
+            SELECT id AS "Id",
+                   status AS "Status",
+                   banreason AS "BanReason",
+                   mfaenabled AS "MfaEnabled",
+                   deleted_at AS "DeletedAt",
+                   public_handle AS "PublicHandle",
+                   identity_kind AS "IdentityKind",
+                   passkey_enabled AS "PasskeyEnabled",
+                   recovery_enabled AS "RecoveryEnabled",
+                   anonymous_credential_status AS "AnonymousCredentialStatus",
+                   anonymous_credential_level AS "AnonymousCredentialLevel",
+                   passkey_user_handle AS "PasskeyUserHandle"
+            FROM sys_user
+            WHERE id = @Id
+            LIMIT 1;
+            """;
+
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            sql,
+            new SugarParameter[] { new("@Id", id) }).ConfigureAwait(false);
+        if (!await reader.ReadAsync().ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        int fId = reader.GetOrdinal("Id");
+        int fStatus = reader.GetOrdinal("Status");
+        int fBanReason = reader.GetOrdinal("BanReason");
+        int fMfaEnabled = reader.GetOrdinal("MfaEnabled");
+        int fDeletedAt = reader.GetOrdinal("DeletedAt");
+        int fPublicHandle = reader.GetOrdinal("PublicHandle");
+        int fIdentityKind = reader.GetOrdinal("IdentityKind");
+        int fPasskeyEnabled = reader.GetOrdinal("PasskeyEnabled");
+        int fRecoveryEnabled = reader.GetOrdinal("RecoveryEnabled");
+        int fAnonymousCredentialStatus = reader.GetOrdinal("AnonymousCredentialStatus");
+        int fAnonymousCredentialLevel = reader.GetOrdinal("AnonymousCredentialLevel");
+        int fPasskeyUserHandle = reader.GetOrdinal("PasskeyUserHandle");
+        int accountId = reader.GetInt32(fId);
+        string identityKind = reader.IsDBNull(fIdentityKind)
+            ? AnonymousIdentityRuntime.AnonymousAccountKind
+            : reader.GetString(fIdentityKind);
+        string? publicHandle = reader.IsDBNull(fPublicHandle) ? null : reader.GetString(fPublicHandle);
+        string? passkeyUserHandle = reader.IsDBNull(fPasskeyUserHandle) ? null : reader.GetString(fPasskeyUserHandle);
+        string accountSubjectHash = AccountSubjectHasher.Create(
+            identityKind,
+            passkeyUserHandle ?? publicHandle ?? string.Concat("anonymous-account:", accountId.ToString(CultureInfo.InvariantCulture)));
+
+        return new UserAccountSnapshot(
+            accountId,
+            reader.GetInt32(fStatus),
+            reader.IsDBNull(fBanReason) ? null : reader.GetString(fBanReason),
+            reader.GetBoolean(fMfaEnabled),
+            reader.IsDBNull(fDeletedAt) ? null : reader.GetDateTime(fDeletedAt),
+            publicHandle,
+            identityKind,
+            reader.GetBoolean(fPasskeyEnabled),
+            reader.GetBoolean(fRecoveryEnabled),
+            reader.IsDBNull(fAnonymousCredentialStatus) ? null : reader.GetString(fAnonymousCredentialStatus),
+            reader.IsDBNull(fAnonymousCredentialLevel) ? null : reader.GetString(fAnonymousCredentialLevel),
+            accountSubjectHash);
+    }
+
     public async Task<(bool Success, string Message)> UpdatePublicHandleAsync(int userId, string? publicHandle)
     {
         var handle = NormalizePublicHandle(publicHandle);
@@ -245,6 +314,7 @@ public partial class UserService(
 
             if (updated > 0)
             {
+                await InvalidateAccountSnapshotAsync(userId).ConfigureAwait(false);
                 return handle.PublicHandle is null
                     ? (true, "公开称呼已清空")
                     : (true, "公开称呼已保存");
@@ -544,6 +614,7 @@ public partial class UserService(
             _ = NotifyUserUnbannedAsync(dto.AccountId);
         }
 
+        await InvalidateAccountSnapshotAsync(dto.AccountId).ConfigureAwait(false);
         return (true, dto.Status == UserStatusBanned ? "用户已封禁" : "用户已解封");
     }
 
@@ -1012,6 +1083,7 @@ public partial class UserService(
 
         await _blacklistService.UnbanUserAsync(userId);
         await _cache.RemoveAsync(CachePolicyId.SecurityBlockedUser, userId.ToString());
+        await InvalidateAccountSnapshotAsync(userId).ConfigureAwait(false);
         return (true, "账户已注销");
     }
 
@@ -1092,6 +1164,7 @@ public partial class UserService(
             return (false, null, "MFA_ENABLE_FAILED");
         }
 
+        await InvalidateAccountSnapshotAsync(userId).ConfigureAwait(false);
         return (true, new MfaSetupVerifyDto
         {
             Enabled = true,
@@ -1167,6 +1240,7 @@ public partial class UserService(
             return (false, "MFA_DISABLE_FAILED");
         }
 
+        await InvalidateAccountSnapshotAsync(userId).ConfigureAwait(false);
         return (true, "MFA_DISABLED");
     }
 
@@ -1258,6 +1332,7 @@ public partial class UserService(
             return false;
         }
 
+        await InvalidateAccountSnapshotAsync(userId).ConfigureAwait(false);
         return updated > 0;
     }
 

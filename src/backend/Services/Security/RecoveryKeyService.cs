@@ -114,6 +114,7 @@ public sealed class RecoveryKeyService(
                 .SetColumns(u => u.RecoveryEnabled == false)
                 .Where(u => u.Id == credential.AccountId)
                 .ExecuteCommandAsync();
+            await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, credential.AccountId, cancellationToken).ConfigureAwait(false);
 
             if (request.RevokeSessions)
             {
@@ -202,6 +203,7 @@ public sealed class RecoveryKeyService(
             .SetColumns(u => u.PasskeyEnabled == true)
             .Where(u => u.Id == session.AccountId)
             .ExecuteCommandAsync();
+        await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, session.AccountId, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<RecoveryKeyCreateResponseCoreModel>> CreateOrRotateAsync(int accountId, bool rotate, CancellationToken cancellationToken)
@@ -252,6 +254,7 @@ public sealed class RecoveryKeyService(
             .SetColumns(u => u.RecoveryEnabled == true)
             .Where(u => u.Id == accountId)
             .ExecuteCommandAsync();
+        await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, accountId, cancellationToken).ConfigureAwait(false);
 
         return Result<RecoveryKeyCreateResponseCoreModel>.Success(
             new RecoveryKeyCreateResponseCoreModel(generated.RecoveryKey, nextVersion, now));

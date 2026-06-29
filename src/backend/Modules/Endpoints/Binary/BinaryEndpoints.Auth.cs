@@ -14,6 +14,7 @@ using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
@@ -26,6 +27,7 @@ using FsusBlog.Shared.Contracts.Outputs;
 using SqlSugar;
 using System.Buffers;
 using System.Data.Common;
+using System.Diagnostics;
 using System.Globalization;
 
 namespace FsusBlog.Server.Modules.Endpoints.Binary;
@@ -365,20 +367,28 @@ public static partial class BinaryEndpoints
             IUserAccountReader users,
             IAedsEncoder aeds) =>
         {
-            var userContext = EndpointUserContext.From(httpContext.User);
-            UserAccountSnapshot? user = await users.GetAccountByIdAsync(userContext.AccountId);
-            if (user == null)
+            long startedAt = Stopwatch.GetTimestamp();
+            try
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "用户不存在"), aeds);
-            }
+                var userContext = EndpointUserContext.From(httpContext.User);
+                UserAccountSnapshot? user = await users.GetAccountByIdAsync(userContext.AccountId);
+                if (user == null)
+                {
+                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "用户不存在"), aeds);
+                }
 
-            if (user.Value.Status == 2 || user.Value.DeletedAt.HasValue)
+                if (user.Value.Status == 2 || user.Value.DeletedAt.HasValue)
+                {
+                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "账户已注销"), aeds);
+                }
+
+                var snapshot = UserAccountReader.ToAnonymousAccountSnapshot(user.Value);
+                return BinaryResults.Frame(aeds, AedsFrameType.IdentityAccountSnapshot, writer => PodBinaryCodec.WriteIdentityAccountSnapshot(snapshot, writer));
+            }
+            finally
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "账户已注销"), aeds);
+                FsusObservability.RecordAuthMe(Stopwatch.GetElapsedTime(startedAt));
             }
-
-            var snapshot = UserAccountReader.ToAnonymousAccountSnapshot(user.Value);
-            return BinaryResults.Frame(aeds, AedsFrameType.IdentityAccountSnapshot, writer => PodBinaryCodec.WriteIdentityAccountSnapshot(snapshot, writer));
         })
         .RequireAnonymousAccountPrincipal();
 
@@ -771,7 +781,9 @@ public static partial class BinaryEndpoints
             }
 
             int userId = EndpointUserContext.From(httpContext).AccountId;
+            long accountReadStartedAt = Stopwatch.GetTimestamp();
             UserAccountSnapshot? user = await users.GetAccountByIdAsync(userId);
+            FsusObservability.RecordMfaChallengeStartAccountRead(Stopwatch.GetElapsedTime(accountReadStartedAt));
             if (user == null)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "用户不存在"), aeds);

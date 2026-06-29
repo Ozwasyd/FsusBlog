@@ -60,5 +60,7 @@ public enum CachePolicyId
     CommentCursorVersion = 55,
     UserCommentCursorVersion = 56,
     RelatedReading = 57,
-    TaxonomyFrameVersion = 58
+    TaxonomyFrameVersion = 58,
+    AccountSnapshot = 59,
+    AccountSnapshotVersion = 60
 }

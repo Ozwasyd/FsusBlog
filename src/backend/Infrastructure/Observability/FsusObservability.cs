@@ -171,6 +171,10 @@ public static class FsusObservability
     private static readonly Counter<long> AuthRefreshSuccessDbCommandCount = Meter.CreateCounter<long>("fsus.auth.refresh.success_db_command_count");
     private static readonly Histogram<double> AuthRefreshSuccessElapsed = Meter.CreateHistogram<double>("fsus.auth.refresh.success_elapsed_ms", "ms");
     private static readonly Counter<long> AuthRefreshReplayDetectedCount = Meter.CreateCounter<long>("fsus.auth.refresh.replay_detected_count");
+    private static readonly Counter<long> AccountSnapshotCacheHit = Meter.CreateCounter<long>("fsus.account_snapshot.cache_hit");
+    private static readonly Counter<long> AccountSnapshotDbReadCount = Meter.CreateCounter<long>("fsus.account_snapshot.db_read_count");
+    private static readonly Histogram<double> AuthMeElapsed = Meter.CreateHistogram<double>("fsus.auth.me.elapsed_ms", "ms");
+    private static readonly Histogram<double> MfaChallengeStartAccountReadElapsed = Meter.CreateHistogram<double>("fsus.mfa.challenge_start.account_read_elapsed_ms", "ms");
     private static readonly Counter<long> MfaFailureCounterKeyCount = Meter.CreateCounter<long>("fsus.mfa.failure_counter.key_count");
     private static readonly Counter<long> MfaCounterExpiredCount = Meter.CreateCounter<long>("fsus.mfa.counter_expired.count");
     private static readonly Histogram<double> AdminAccountListQueryElapsed = Meter.CreateHistogram<double>("fsus.admin.account_list.query_elapsed_ms", "ms");
@@ -896,6 +900,42 @@ public static class FsusObservability
         {
             TagList tags = CreateBaseTags("auth-refresh", "refresh", "replay_detected");
             AuthRefreshReplayDetectedCount.Add(1, tags);
+        });
+    }
+
+    public static void RecordAccountSnapshotCacheHit(bool hit)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("account-snapshot", "cache", hit ? "hit" : "miss");
+            AccountSnapshotCacheHit.Add(hit ? 1 : 0, tags);
+        });
+    }
+
+    public static void RecordAccountSnapshotDbReadCount()
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("account-snapshot", "db_read", "ok");
+            AccountSnapshotDbReadCount.Add(1, tags);
+        });
+    }
+
+    public static void RecordAuthMe(TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("auth", "me", "ok");
+            AuthMeElapsed.Record(Math.Max(0d, elapsed.TotalMilliseconds), tags);
+        });
+    }
+
+    public static void RecordMfaChallengeStartAccountRead(TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("mfa", "challenge_start_account_read", "ok");
+            MfaChallengeStartAccountReadElapsed.Record(Math.Max(0d, elapsed.TotalMilliseconds), tags);
         });
     }
 
