@@ -456,6 +456,20 @@ public class NotificationStreamBoundaryTests
     }
 
     [Fact]
+    public void BacklogAppend_SourceUsesSingleFieldStreamAddWithoutPerPublishNameValueArray()
+    {
+        string backlog = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamBacklogStore.cs"));
+        string append = ExtractMethodBlock(backlog, "public async Task<Result> AppendAsync");
+
+        Assert.Contains("StreamAddAsync(", append, StringComparison.Ordinal);
+        Assert.Contains("\"f\"", append, StringComparison.Ordinal);
+        Assert.Contains("frame.BufferMemory", append, StringComparison.Ordinal);
+        Assert.DoesNotContain("NameValueEntry[]", append, StringComparison.Ordinal);
+        Assert.DoesNotContain("new(\"f\", frame.BufferMemory)", append, StringComparison.Ordinal);
+        Assert.DoesNotContain("string.Create(CultureInfo.InvariantCulture", append, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SessionService_SourceClosesSocketUnderSendGate()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamSessionService.cs"));

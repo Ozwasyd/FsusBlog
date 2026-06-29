@@ -33,13 +33,13 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
                 return Result.Failure(ErrorCode.Validation, "Notification stream backlog route invalid");
             }
 
-            NameValueEntry[] fields = [new("f", frame.BufferMemory)];
-            string streamId = string.Create(CultureInfo.InvariantCulture, $"{eventId}-0");
+            RedisValue streamId = string.Concat(eventId.ToString(CultureInfo.InvariantCulture), "-0");
             if (storageRoutes.Count == 1)
             {
                 await _database.StreamAddAsync(
                         RouteStreamKey(storageRoutes[0]),
-                        fields,
+                        "f",
+                        frame.BufferMemory,
                         streamId,
                         StreamMaxLength,
                         useApproximateMaxLength: true)
@@ -53,7 +53,8 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
             {
                 writes[i] = batch.StreamAddAsync(
                     RouteStreamKey(storageRoutes[i]),
-                    fields,
+                    "f",
+                    frame.BufferMemory,
                     streamId,
                     StreamMaxLength,
                     useApproximateMaxLength: true);

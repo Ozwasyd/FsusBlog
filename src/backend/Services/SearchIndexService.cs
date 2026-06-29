@@ -224,26 +224,7 @@ public sealed partial class SearchIndexService(
     }
 
     public static ulong TokenFingerprintForTests(string input)
-    {
-        int byteCount = Encoding.UTF8.GetByteCount(input);
-        byte[]? rented = null;
-        Span<byte> bytes = byteCount <= 512
-            ? stackalloc byte[byteCount]
-            : (rented = ArrayPool<byte>.Shared.Rent(byteCount)).AsSpan(0, byteCount);
-
-        try
-        {
-            Encoding.UTF8.GetBytes(input.AsSpan(), bytes);
-            return SearchTokenHashing.Fingerprint64(bytes[..byteCount]);
-        }
-        finally
-        {
-            if (rented is not null)
-            {
-                ArrayPool<byte>.Shared.Return(rented, clearArray: true);
-            }
-        }
-    }
+        => HashTokenForTests(input);
 
     internal static void ValidateDictionaryHeaderForTests(string path)
     {
@@ -2867,7 +2848,7 @@ public sealed partial class SearchIndexService(
 
                 ReadOnlySpan<byte> unigramBytes = _source.Slice(_index, runeLength);
                 uint unigramHash = MurmurHash3.HashBytes(unigramBytes);
-                token = new SearchToken(unigramHash, SearchTokenHashing.Fingerprint64(unigramBytes), _field, _position, 1, false, _field is SearchFieldKind.Title or SearchFieldKind.Body);
+                token = new SearchToken(unigramHash, unigramHash, _field, _position, 1, false, _field is SearchFieldKind.Title or SearchFieldKind.Body);
                 _index += runeLength;
                 _position++;
                 return true;
@@ -3000,9 +2981,10 @@ public sealed partial class SearchIndexService(
                     bool keepPositions = _field is SearchFieldKind.Title or SearchFieldKind.Body;
 
                     EnsureQueuedCapacity(ref queued, ref queuedRented, queuedCount + 1);
+                    uint tokenHash = MurmurHash3.HashBytes(tokenBytes);
                     queued[queuedCount++] = new SearchToken(
-                        MurmurHash3.HashBytes(tokenBytes),
-                        SearchTokenHashing.Fingerprint64(tokenBytes),
+                        tokenHash,
+                        tokenHash,
                         _field,
                         tokenPosition,
                         (uint)runeLength,
@@ -3084,7 +3066,8 @@ public sealed partial class SearchIndexService(
                 }
             }
 
-            token = new SearchToken(MurmurHash3.HashBytes(lower), SearchTokenHashing.Fingerprint64(lower), _field, _position, 1, false, _field is SearchFieldKind.Title or SearchFieldKind.Body);
+            uint tokenHash = MurmurHash3.HashBytes(lower);
+            token = new SearchToken(tokenHash, tokenHash, _field, _position, 1, false, _field is SearchFieldKind.Title or SearchFieldKind.Body);
             _position++;
             return true;
         }
@@ -3112,9 +3095,10 @@ public sealed partial class SearchIndexService(
                         continue;
                     }
 
+                    uint subHash = MurmurHash3.HashBytes(subBytes);
                     SearchToken subToken = new(
-                        MurmurHash3.HashBytes(subBytes),
-                        SearchTokenHashing.Fingerprint64(subBytes),
+                        subHash,
+                        subHash,
                         _field,
                         basePosition + (uint)subStart,
                         (uint)subLength,

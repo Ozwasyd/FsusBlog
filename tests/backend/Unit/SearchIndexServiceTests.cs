@@ -46,6 +46,19 @@ public sealed class SearchIndexServiceTests
     }
 
     [Fact]
+    public void TokenFingerprint_SourceUsesSingleMurmurHashPass()
+    {
+        string service = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/SearchIndexService.cs"));
+        string searchHashingPath = Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/Search/SearchTokenHashing.cs");
+        string fingerprintForTests = ExtractMethod(service, "public static ulong TokenFingerprintForTests", "internal static void ValidateDictionaryHeaderForTests");
+
+        Assert.False(File.Exists(searchHashingPath));
+        Assert.Contains("=> HashTokenForTests(input)", fingerprintForTests, StringComparison.Ordinal);
+        Assert.DoesNotContain("SearchTokenHashing", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("Fingerprint64", service, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ComputeRuntimeBm25ForTests_PenalizesLongerDocuments()
     {
         double shortDocument = SearchIndexService.ComputeRuntimeBm25ForTests(4, 10, 2, 100, 100);
@@ -736,5 +749,14 @@ public sealed class SearchIndexServiceTests
         h1 *= 0xc2b2ae35;
         h1 ^= h1 >> 16;
         return h1;
+    }
+
+    private static string ExtractMethod(string source, string start, string end)
+    {
+        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
+        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
+        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
+        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
+        return source[startIndex..endIndex];
     }
 }
