@@ -83,7 +83,7 @@ public static partial class BinaryEndpoints
 
             if (result.SessionTokens is { } tokens)
             {
-                authCookieService.SetTokenCookies(httpContext, env, tokens.AccessToken, tokens.RefreshToken, tokens.RefreshTokenExpiresAt);
+                authCookieService.SetTokenCookies(httpContext, env, tokens.AccessToken, tokens.RefreshToken, tokens.SessionId, tokens.RefreshTokenExpiresAt);
             }
 
             return AuthBinaryResponseWriter.LoginFlow(aeds, result.Flow);
@@ -884,7 +884,7 @@ public static partial class BinaryEndpoints
                     return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "LOGIN_FINALIZE_FAILED"), aeds);
                 }
 
-                authCookieService.SetTokenCookies(httpContext, env, login.Data.Value.AccessToken, login.Data.Value.RefreshToken, login.Data.Value.RefreshTokenExpiresAt);
+                authCookieService.SetTokenCookies(httpContext, env, login.Data.Value.AccessToken, login.Data.Value.RefreshToken, login.Data.Value.SessionId, login.Data.Value.RefreshTokenExpiresAt);
                 var loginResult = new MfaChallengeResultDto(
                     true,
                     "login",
@@ -934,6 +934,7 @@ public static partial class BinaryEndpoints
                 env,
                 newTokens.Value.AccessToken,
                 newTokens.Value.RefreshToken,
+                newTokens.Value.SessionId,
                 expiresAt);
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
@@ -1269,6 +1270,7 @@ public static partial class BinaryEndpoints
                 env,
                 login.Data.Value.AccessToken,
                 login.Data.Value.RefreshToken,
+                login.Data.Value.SessionId,
                 login.Data.Value.RefreshTokenExpiresAt);
             var flow = new AuthLoginFlowDto(
                 login.User.Value.Id,

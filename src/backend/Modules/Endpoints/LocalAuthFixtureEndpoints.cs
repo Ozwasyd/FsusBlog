@@ -51,6 +51,7 @@ public static class LocalAuthFixtureEndpoints
 
             if (!TryReadCookie(userStorageStatePath, "AccessToken", out string userAccessToken) ||
                 !TryReadCookie(userStorageStatePath, "RefreshToken", out string refreshToken) ||
+                !TryReadCookie(userStorageStatePath, "SessionId", out string userSessionId) ||
                 !TryReadCookie(adminStorageStatePath, "AdminAccessToken", out string adminAccessToken) ||
                 !TryReadCookie(adminStorageStatePath, "AdminSessionId", out string adminSessionId))
             {
@@ -62,6 +63,7 @@ public static class LocalAuthFixtureEndpoints
                 environment,
                 userAccessToken,
                 refreshToken,
+                userSessionId,
                 DateTime.UtcNow.AddDays(30));
 
             authCookieService.SetAdminSessionCookies(

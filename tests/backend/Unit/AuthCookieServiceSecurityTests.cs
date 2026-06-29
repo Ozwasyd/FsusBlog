@@ -1,6 +1,5 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -15,9 +14,8 @@ public sealed class AuthCookieServiceSecurityTests
     {
         var service = new AuthCookieService(CreateConfiguration());
         var context = new DefaultHttpContext();
-        string accessToken = CreateAccessTokenWithSession("session-123");
 
-        service.SetTokenCookies(context, ProductionEnv(), accessToken, "refresh-token", DateTime.UtcNow.AddDays(7));
+        service.SetTokenCookies(context, ProductionEnv(), "access-token", "refresh-token", "session-123", DateTime.UtcNow.AddDays(7));
 
         string[] setCookies = ReadSetCookieHeaders(context);
 
@@ -36,11 +34,36 @@ public sealed class AuthCookieServiceSecurityTests
         }));
         var context = new DefaultHttpContext();
 
-        service.SetTokenCookies(context, ProductionEnv(), CreateAccessTokenWithSession("session-123"), "refresh-token", DateTime.UtcNow.AddDays(7));
+        service.SetTokenCookies(context, ProductionEnv(), "access-token", "refresh-token", "session-123", DateTime.UtcNow.AddDays(7));
 
         string[] setCookies = ReadSetCookieHeaders(context);
         Assert.Contains(setCookies, static cookie => cookie.StartsWith("__Host-RefreshToken=", StringComparison.Ordinal));
         Assert.All(setCookies, AssertProductionCookieAttributes);
+    }
+
+    [Fact]
+    public void SetTokenCookies_NullSessionId_DoesNotWriteSessionCookie()
+    {
+        var service = new AuthCookieService(CreateConfiguration());
+        var context = new DefaultHttpContext();
+
+        service.SetTokenCookies(context, ProductionEnv(), "access-token", "refresh-token", sessionId: null, DateTime.UtcNow.AddDays(7));
+
+        string[] setCookies = ReadSetCookieHeaders(context);
+        Assert.Contains(setCookies, static cookie => cookie.StartsWith("__Host-AccessToken=", StringComparison.Ordinal));
+        Assert.Contains(setCookies, static cookie => cookie.StartsWith("__Host-RefreshToken=", StringComparison.Ordinal));
+        Assert.DoesNotContain(setCookies, static cookie => cookie.StartsWith("__Host-SessionId=", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AuthCookieService_SourceDoesNotParseJwtWhenWritingCookies()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Auth/AuthCookieService.cs"));
+
+        Assert.Contains("SetTokenCookies(HttpContext context, IWebHostEnvironment env, string accessToken, string refreshToken, string? sessionId, DateTime idleExpiresAt)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("JwtSecurityTokenHandler", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadJwtToken", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadSessionId(string accessToken)", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -190,12 +213,6 @@ public sealed class AuthCookieServiceSecurityTests
             .Where(static value => value is not null)
             .Select(static value => value!)
             .ToArray();
-
-    private static string CreateAccessTokenWithSession(string sessionId)
-    {
-        var token = new JwtSecurityToken(claims: [new Claim("sid", sessionId)]);
-        return new JwtSecurityTokenHandler().WriteToken(token);
-    }
 
     private static IConfiguration CreateConfiguration(Dictionary<string, string?>? values = null)
         => new ConfigurationBuilder()

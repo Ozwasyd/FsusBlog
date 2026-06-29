@@ -2,13 +2,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using System.IdentityModel.Tokens.Jwt;
 
 namespace FsusBlog.Server.Infrastructure.Auth;
 
 public sealed class AuthCookieService
 {
-    private static readonly JwtSecurityTokenHandler JwtHandler = new();
     private const string AccessTokenCookieName = "AccessToken";
     private const string RefreshTokenCookieName = "RefreshToken";
     private const string SessionIdCookieName = "SessionId";
@@ -36,7 +34,7 @@ public sealed class AuthCookieService
         _logger = logger;
     }
 
-    public void SetTokenCookies(HttpContext context, IWebHostEnvironment env, string accessToken, string refreshToken, DateTime idleExpiresAt)
+    public void SetTokenCookies(HttpContext context, IWebHostEnvironment env, string accessToken, string refreshToken, string? sessionId, DateTime idleExpiresAt)
     {
         CookieOptions baseOptions = CreateBaseOptions(env);
         bool useSecureTransportCookies = baseOptions.Secure;
@@ -52,7 +50,6 @@ public sealed class AuthCookieService
             Expires = idleExpiresAt
         });
 
-        string? sessionId = ReadSessionId(accessToken);
         if (!string.IsNullOrWhiteSpace(sessionId))
         {
             context.Response.Cookies.Append(sessionCookieName, sessionId, new CookieOptions(baseOptions)
@@ -196,16 +193,4 @@ public sealed class AuthCookieService
         return null;
     }
 
-    private static string? ReadSessionId(string accessToken)
-    {
-        try
-        {
-            var jwtToken = JwtHandler.ReadJwtToken(accessToken);
-            return jwtToken.Claims.FirstOrDefault(c => c.Type == "sid")?.Value;
-        }
-        catch
-        {
-            return null;
-        }
-    }
 }

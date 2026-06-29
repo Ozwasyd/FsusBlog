@@ -74,6 +74,8 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 
 JWT bearer cookie 入口在 `UseAuthentication()` 内完成。`OnMessageReceived` 对同一请求只解析一次 admin cookie preference，并通过 `HttpContext.Items` 复用 admin raw access token 给 `OnTokenValidated`；endpoint metadata/path 决策不得在同一请求内重复扫描，admin session 校验、host-prefixed cookie 优先级和 legacy plain fallback 语义保持不变。
 
+认证响应写 Cookie 时，普通账号 `SessionId` Cookie 由登录/刷新签发路径已知的 session id 显式传入 `AuthCookieService.SetTokenCookies`。Cookie 写入层不得反向解析 access token 获取 `sid` claim；缺少 session id 时只跳过 session cookie，不改变 access/refresh cookie 策略。
+
 路由组装按 `MapFsusOperationalRoutes`、`MapFsusApiRoutes`、`MapFsusPublicRoutes` 分层，避免在新增 API 时同时触碰健康探针、notification stream、SPA fallback 和静态文件策略。
 
 运行时 DI 组合根按边界拆分：基础设施注册由 `AddBinaryRuntime`、`AddNotificationRuntime`、`AddCrawlerAndSearchRuntime`、`AddFileAndAuthRuntime`、`AddAuditRuntime`、`AddMessagingRuntime`、`AddCacheRuntime`、`AddIdentityRuntime`、`AddBackgroundRuntime`、`AddSpaRuntime`、`AddObjectPools` 分段承载；领域注册由 `AddContentRuntimeServices`、`AddUserRuntimePorts`、`AddGeneralDomainServices`、`AddCoreBridgeServices` 分段承载。新增服务应优先落入对应分组，避免把 Bootstrap 重新变成无边界注册清单。

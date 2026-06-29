@@ -24,6 +24,7 @@ public readonly record struct UserAccountSnapshot(
 public readonly record struct SessionTokenResponseDto(
     string AccessToken,
     string RefreshToken,
+    string SessionId,
     DateTime RefreshTokenExpiresAt);
 
 public interface IUserAccountReader

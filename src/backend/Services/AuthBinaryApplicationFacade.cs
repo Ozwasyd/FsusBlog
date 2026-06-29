@@ -41,6 +41,7 @@ public readonly record struct AuthBinaryClientContext(
 public readonly record struct AuthBinarySessionTokens(
     string AccessToken,
     string RefreshToken,
+    string SessionId,
     DateTime RefreshTokenExpiresAt);
 
 public readonly record struct AuthBinaryFlowResult(
@@ -108,6 +109,7 @@ public sealed class AuthBinaryApplicationFacade(
         var tokens = new AuthBinarySessionTokens(
             login.Data.Value.AccessToken,
             login.Data.Value.RefreshToken,
+            login.Data.Value.SessionId,
             login.Data.Value.RefreshTokenExpiresAt);
         return new AuthBinaryFlowResult(true, ErrorDetail.None, flow, tokens);
     }

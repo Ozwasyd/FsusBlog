@@ -487,7 +487,7 @@ public class UserServiceValidationTests
         string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
 
         Assert.Contains("RefreshTokenExpiresAt", contracts, StringComparison.Ordinal);
-        Assert.Contains("new TokenResponseDto(accessToken, newRefreshToken, idleExpiresAt)", refreshMethod, StringComparison.Ordinal);
+        Assert.Contains("new TokenResponseDto(accessToken, newRefreshToken, idleExpiresAt, session.SessionId)", refreshMethod, StringComparison.Ordinal);
         Assert.Contains("result.Data.Value.RefreshTokenExpiresAt", refreshFacade, StringComparison.Ordinal);
         Assert.DoesNotContain("GetSessionByRefreshTokenAsync(result.Data.Value.RefreshToken)", refreshFacade, StringComparison.Ordinal);
         Assert.Contains("RecordAuthRefreshSuccess", refreshMethod, StringComparison.Ordinal);

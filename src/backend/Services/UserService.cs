@@ -740,7 +740,7 @@ public partial class UserService(
             return (false, "登录失败，请重试", null, null);
         }
 
-        return (true, "登录成功", new SessionTokenResponseDto(accessToken, refreshToken, idleExpiresAt), user);
+        return (true, "登录成功", new SessionTokenResponseDto(accessToken, refreshToken, session.SessionId, idleExpiresAt), user);
     }
 
     private async Task<int> RevokeActiveUserSessionsForLoginAsync(int userId, DateTime revokedAt)
@@ -951,7 +951,7 @@ public partial class UserService(
         }
 
         FsusObservability.RecordAuthRefreshSuccess(3, FsusObservability.GetElapsed(startedAt));
-        return (true, new TokenResponseDto(accessToken, newRefreshToken, idleExpiresAt));
+        return (true, new TokenResponseDto(accessToken, newRefreshToken, idleExpiresAt, session.SessionId));
     }
 
     public async Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync(
