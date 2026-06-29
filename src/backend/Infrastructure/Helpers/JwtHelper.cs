@@ -144,6 +144,9 @@ public class JwtHelper : IJwtHelper
 /// </summary>
 public static class JwtServiceExtensions
 {
+    private const string AdminCookiePathDecisionItemKey = "Fsus.AdminCookiePathDecision";
+    private const string AdminAccessTokenItemKey = "Fsus.AdminAccessToken";
+
     public static void AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
         // 1. 绑定配置
@@ -205,6 +208,7 @@ public static class JwtServiceExtensions
                         authCookies.TryReadAdminAccessToken(context.HttpContext, out string adminToken))
                     {
                         context.Token = adminToken;
+                        context.HttpContext.Items[AdminAccessTokenItemKey] = adminToken;
                     }
                     else
                     {
@@ -226,10 +230,11 @@ public static class JwtServiceExtensions
                     string accessToken = context.SecurityToken is JwtSecurityToken jwtToken
                         ? jwtToken.RawData
                         : string.Empty;
-                    if (string.IsNullOrWhiteSpace(accessToken))
+                    if (string.IsNullOrWhiteSpace(accessToken) &&
+                        context.HttpContext.Items[AdminAccessTokenItemKey] is string cachedAdminAccessToken &&
+                        !string.IsNullOrWhiteSpace(cachedAdminAccessToken))
                     {
-                        context.HttpContext.RequestServices.GetRequiredService<AuthCookieService>()
-                            .TryReadAdminAccessToken(context.HttpContext, out accessToken);
+                        accessToken = cachedAdminAccessToken;
                     }
 
                     var validator = context.HttpContext.RequestServices.GetRequiredService<IAdminSessionValidationService>();
@@ -289,6 +294,19 @@ public static class JwtServiceExtensions
     }
 
     internal static bool ShouldPreferAdminCookie(HttpContext httpContext)
+    {
+        if (httpContext.Items.TryGetValue(AdminCookiePathDecisionItemKey, out object? cachedDecision) &&
+            cachedDecision is bool preferAdminCookie)
+        {
+            return preferAdminCookie;
+        }
+
+        bool result = ComputeShouldPreferAdminCookie(httpContext);
+        httpContext.Items[AdminCookiePathDecisionItemKey] = result;
+        return result;
+    }
+
+    private static bool ComputeShouldPreferAdminCookie(HttpContext httpContext)
     {
         Endpoint? endpoint = httpContext.GetEndpoint();
         if (endpoint != null)

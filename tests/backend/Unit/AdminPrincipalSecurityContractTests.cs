@@ -482,6 +482,36 @@ public sealed class AdminPrincipalSecurityContractTests
     }
 
     [Fact]
+    public void AdminPrincipalCookiePreference_CachesDecisionInHttpContextItems()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = "/api/binary/auth/admin/me";
+        context.SetEndpoint(new Endpoint(
+            static _ => Task.CompletedTask,
+            new EndpointMetadataCollection(new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .RequireClaim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind)
+                .RequireClaim(AdminPermissions.PermissionClaimType, AdminPermissions.AdminManage)
+                .Build()),
+            "principal-admin"));
+
+        Assert.True(JwtServiceExtensions.ShouldPreferAdminCookie(context));
+
+        Assert.True(context.Items.TryGetValue("Fsus.AdminCookiePathDecision", out object? cached));
+        Assert.Equal(true, cached);
+    }
+
+    [Fact]
+    public void JwtBearerEvents_SourceSharesAdminRawAccessTokenThroughHttpContextItems()
+    {
+        string jwt = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Helpers/JwtHelper.cs");
+
+        Assert.Contains("Fsus.AdminAccessToken", jwt, StringComparison.Ordinal);
+        Assert.Contains("context.HttpContext.Items[AdminAccessTokenItemKey]", jwt, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetRequiredService<AuthCookieService>()\n                            .TryReadAdminAccessToken", jwt, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AdminJwtAndCookieSelection_DoNotRetainRoleBasedAdminCompatibility()
     {
         string jwt = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Helpers/JwtHelper.cs");
