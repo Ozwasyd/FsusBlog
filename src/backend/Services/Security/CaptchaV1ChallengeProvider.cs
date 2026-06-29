@@ -298,6 +298,7 @@ public sealed record CaptchaV1ChallengeVerifyPayload(
 public static class CaptchaV1ChallengeCodec
 {
     private static readonly string[] Alphabet = ["A", "E", "F", "H", "K", "M", "R", "T", "Y", "2", "3", "4"];
+    private const int MaxPowNonceAttempts = 1 << (8 + 4);
     private const ulong Mask64 = ulong.MaxValue;
 
     public static string RandomSeedHex()
@@ -452,13 +453,14 @@ public static class CaptchaV1ChallengeCodec
         specMaterial.CopyTo(buffer, 0);
         answerBytes.CopyTo(buffer.AsSpan(specMaterial.Length));
         int nonceOffset = specMaterial.Length + answerBytes.Length;
-        for (uint nonce = 0; nonce < 4_000_000; nonce++)
+        Span<byte> hash = stackalloc byte[32];
+        for (uint nonce = 0; nonce < MaxPowNonceAttempts; nonce++)
         {
             WriteUInt32LittleEndian(buffer.AsSpan(nonceOffset), nonce);
-            byte[] digest = SHA256.HashData(buffer);
-            if (LeadingZeroBits(digest) >= spec.PowDifficultyBits)
+            SHA256.HashData(buffer, hash);
+            if (LeadingZeroBits(hash) >= spec.PowDifficultyBits)
             {
-                return new CaptchaV1ChallengeSolution(answer, Convert.ToHexStringLower(digest), NonceToHex(nonce));
+                return new CaptchaV1ChallengeSolution(answer, Convert.ToHexStringLower(hash), NonceToHex(nonce));
             }
         }
 
@@ -713,10 +715,7 @@ public static class CaptchaV1ChallengeCodec
 
     private static void WriteUInt32LittleEndian(Span<byte> destination, uint value)
     {
-        destination[0] = (byte)(value & 0xff);
-        destination[1] = (byte)((value >> 8) & 0xff);
-        destination[2] = (byte)((value >> 16) & 0xff);
-        destination[3] = (byte)((value >> 24) & 0xff);
+        BinaryPrimitives.WriteUInt32LittleEndian(destination, value);
     }
 
     private static string NonceToHex(uint nonce)
