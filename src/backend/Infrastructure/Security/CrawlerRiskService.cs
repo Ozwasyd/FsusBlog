@@ -142,7 +142,7 @@ public sealed class CrawlerRiskService(
         }
 
         string reasonName = signal.Reason.ToString();
-        FsusObservability.RecordSecurityEvent("security_risk", reasonName, signal.Action);
+        FsusObservability.RecordSecurityEvent("security_risk", signal.Reason, signal.Action);
         logger.LogInformation(
             "security-risk-added {Source} {Reason} {Score} {TotalScore} {TtlSeconds}s",
             signal.Source,

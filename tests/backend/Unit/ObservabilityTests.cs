@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -64,7 +65,7 @@ public sealed class ObservabilityTests
     [Fact]
     public void RiskControlMetrics_EmitNamedMeasurements()
     {
-        var measurements = new List<string>();
+        var measurements = new System.Collections.Concurrent.ConcurrentBag<string>();
         using var listener = new MeterListener();
         listener.InstrumentPublished = (instrument, meterListener) =>
         {
@@ -124,6 +125,56 @@ public sealed class ObservabilityTests
             FsusObservability.RecordSecurityChallengeIssued("sha256PowV1", "public.read", "risk-policy-v2"));
 
         Assert.Null(exception);
+    }
+
+    [Fact]
+    public void SecurityEventMetrics_UseHotTagCacheAndEnumOverload()
+    {
+        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string crawlerRisk = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Security/CrawlerRiskService.cs");
+        string recordSecurityEvent = ExtractMethodBlock(observability, "public static void RecordSecurityEvent(string operation, string reason, string result)");
+
+        Assert.Contains("SecurityEventTagCacheKey", observability, StringComparison.Ordinal);
+        Assert.Contains("ConcurrentDictionary<SecurityEventTagCacheKey, TagList>", observability, StringComparison.Ordinal);
+        Assert.Contains("SecurityEventTagCacheLimit = 256", observability, StringComparison.Ordinal);
+        Assert.Contains("PrewarmSecurityEventTagCache()", observability, StringComparison.Ordinal);
+        Assert.Contains("string.Intern", observability, StringComparison.Ordinal);
+        Assert.Contains("RecordSecurityEvent(string operation, SecurityRiskReason reason, string result)", observability, StringComparison.Ordinal);
+        Assert.Contains("SecurityRiskReasonNames", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.observability.tag_cache.hit_ratio", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.observability.tag_cache.miss_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.observability.record_security_event.elapsed", observability, StringComparison.Ordinal);
+
+        Assert.Contains("TryGetValue(cacheKey", recordSecurityEvent, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateBaseTags(\"security\", operation, result)", recordSecurityEvent, StringComparison.Ordinal);
+        Assert.Contains("RecordSecurityEvent(\"security_risk\", signal.Reason, signal.Action)", crawlerRisk, StringComparison.Ordinal);
+        Assert.DoesNotContain("RecordSecurityEvent(\"security_risk\", reasonName, signal.Action)", crawlerRisk, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SecurityEventMetrics_EmitTagCacheMeasurements()
+    {
+        var measurements = new System.Collections.Concurrent.ConcurrentBag<string>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (string.Equals(instrument.Meter.Name, FsusObservability.MeterName, StringComparison.Ordinal)
+                && instrument.Name.StartsWith("fsus.observability.", StringComparison.Ordinal))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.SetMeasurementEventCallback<double>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.Start();
+
+        FsusObservability.RecordSecurityEvent("shield_reject", "unknown_bot", "rejected");
+        FsusObservability.RecordSecurityEvent("shield_reject", SecurityRiskReason.UnknownBot, "rejected");
+        listener.RecordObservableInstruments();
+
+        Assert.Contains("fsus.observability.tag_cache.hit_ratio", measurements);
+        Assert.Contains("fsus.observability.tag_cache.miss_count", measurements);
+        Assert.Contains("fsus.observability.record_security_event.elapsed", measurements);
     }
 
     [Fact]
@@ -289,5 +340,32 @@ public sealed class ObservabilityTests
         public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
         public string ContentRootPath { get; set; } = string.Empty;
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+
+    private static string ExtractMethodBlock(string source, string signature)
+    {
+        int start = source.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Unable to locate method signature: {signature}");
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart > start, $"Unable to locate method body: {signature}");
+
+        int depth = 0;
+        for (int i = braceStart; i < source.Length; i++)
+        {
+            if (source[i] == '{')
+            {
+                depth++;
+            }
+            else if (source[i] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[start..(i + 1)];
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
 }

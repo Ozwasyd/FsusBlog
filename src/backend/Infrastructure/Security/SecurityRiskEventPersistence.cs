@@ -327,7 +327,7 @@ public sealed class SecurityRiskEventSink(
         }
         catch (Exception ex)
         {
-            FsusObservability.RecordSecurityEvent("security_risk", signal.Reason.ToString(), "persist_failed");
+            FsusObservability.RecordSecurityEvent("security_risk", signal.Reason, "persist_failed");
             FsusObservability.RecordSecurityRiskEvent(signal.Source, signal.Reason.ToString(), signal.Action, "persist_failed");
             logger.LogWarning(
                 ex,

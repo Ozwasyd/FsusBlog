@@ -27,6 +27,8 @@ public sealed record CacheOperationRuntimeCounter(
     string Result,
     long Count);
 
+internal readonly record struct SecurityEventTagCacheKey(string Operation, string Reason, string Result);
+
 public static class FsusObservability
 {
     public const string DefaultServiceName = "FsusBlog";
@@ -78,9 +80,12 @@ public static class FsusObservability
     private static readonly Meter Meter = new(MeterName, ServiceVersion);
     private static readonly Counter<long> OperationCounter = Meter.CreateCounter<long>("fsus.operation.count");
     private static readonly ConcurrentDictionary<string, long> CacheOperationRuntimeCounters = new(StringComparer.Ordinal);
+    private const int SecurityEventTagCacheLimit = 256;
     private static readonly Histogram<double> OperationDuration = Meter.CreateHistogram<double>("fsus.operation.duration", "ms");
     private static readonly Counter<long> CacheOperationCounter = Meter.CreateCounter<long>("fsus.cache.operation.count");
     private static readonly Counter<long> SecurityEventCounter = Meter.CreateCounter<long>("fsus.security.event.count");
+    private static readonly Counter<long> SecurityEventTagCacheMissCounter = Meter.CreateCounter<long>("fsus.observability.tag_cache.miss_count");
+    private static readonly Histogram<double> SecurityEventRecordElapsed = Meter.CreateHistogram<double>("fsus.observability.record_security_event.elapsed", "ms");
     private static readonly Counter<long> SecurityRiskEventCounter = Meter.CreateCounter<long>("fsus.security.risk.event.count");
     private static readonly Counter<long> SecurityChallengeIssuedCounter = Meter.CreateCounter<long>("fsus.security.challenge.issued.count");
     private static readonly Counter<long> SecurityChallengeVerifiedCounter = Meter.CreateCounter<long>("fsus.security.challenge.verified.count");
@@ -140,12 +145,22 @@ public static class FsusObservability
     private static readonly Counter<long> StatsFlushCounter = Meter.CreateCounter<long>("fsus.cache.stats.flush.count");
     private static long HotArticlesVersionValue;
     private static string ActiveSecurityPolicyVersionValue = "unknown";
+    private static long SecurityEventTagCacheHits;
+    private static long SecurityEventTagCacheMisses;
+    private static readonly FrozenDictionary<SecurityRiskReason, string> SecurityRiskReasonNames = Enum
+        .GetValues<SecurityRiskReason>()
+        .ToFrozenDictionary(static reason => reason, static reason => string.Intern(reason.ToString()));
+    private static readonly FrozenSet<string> SecurityEventInternedValues = BuildSecurityEventInternedValues();
+    private static readonly ConcurrentDictionary<SecurityEventTagCacheKey, TagList> SecurityEventTagCache = PrewarmSecurityEventTagCache();
     private static readonly ObservableGauge<long> HotArticlesVersionGauge = Meter.CreateObservableGauge(
         "fsus.cache.hot_articles.version",
         static () => Volatile.Read(ref HotArticlesVersionValue));
     private static readonly ObservableGauge<long> SecurityPolicyVersionActiveGauge = Meter.CreateObservableGauge(
         "fsus.security.policy.version.active",
         ObserveActiveSecurityPolicyVersion);
+    private static readonly ObservableGauge<double> SecurityEventTagCacheHitRatioGauge = Meter.CreateObservableGauge(
+        "fsus.observability.tag_cache.hit_ratio",
+        ObserveSecurityEventTagCacheHitRatio);
     private static readonly Counter<long> CacheRemoveManyKeyCounter = Meter.CreateCounter<long>("fsus.cache.remove_many.keys");
     private static readonly Counter<long> CacheRemoveManyRedisBatchCounter = Meter.CreateCounter<long>("fsus.cache.remove_many.redis_batches");
     private static readonly Histogram<double> CacheRemoveManyElapsed = Meter.CreateHistogram<double>("fsus.cache.remove_many.elapsed_ms", "ms");
@@ -365,10 +380,32 @@ public static class FsusObservability
 
     public static void RecordSecurityEvent(string operation, string reason, string result)
     {
-        TagList tags = CreateBaseTags("security", operation, result);
-        tags.Add("fsus.security.reason", reason);
-        SecurityEventCounter.Add(1, tags);
+        long startedAt = Stopwatch.GetTimestamp();
+        TryRecord(() =>
+        {
+            SecurityEventTagCacheKey cacheKey = CreateSecurityEventTagCacheKey(operation, reason, result);
+            if (SecurityEventTagCache.TryGetValue(cacheKey, out TagList cachedTags))
+            {
+                Interlocked.Increment(ref SecurityEventTagCacheHits);
+                SecurityEventCounter.Add(1, cachedTags);
+                return;
+            }
+
+            Interlocked.Increment(ref SecurityEventTagCacheMisses);
+            SecurityEventTagCacheMissCounter.Add(1);
+            TagList tags = CreateSecurityEventTags(cacheKey.Operation, cacheKey.Reason, cacheKey.Result);
+            if (SecurityEventTagCache.Count < SecurityEventTagCacheLimit)
+            {
+                SecurityEventTagCache.TryAdd(cacheKey, tags);
+            }
+
+            SecurityEventCounter.Add(1, tags);
+        });
+        TryRecord(() => SecurityEventRecordElapsed.Record(Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds));
     }
+
+    public static void RecordSecurityEvent(string operation, SecurityRiskReason reason, string result)
+        => RecordSecurityEvent(operation, ResolveSecurityRiskReasonName(reason), result);
 
     public static void RecordRateLimiterRiskSample()
         => RecordSecurityEvent("rate_limiter_risk", "rate_limited", "sampled");
@@ -1356,6 +1393,135 @@ public static class FsusObservability
 
     public static TimeSpan GetElapsed(long startTimestamp)
         => Stopwatch.GetElapsedTime(startTimestamp);
+
+    private static ConcurrentDictionary<SecurityEventTagCacheKey, TagList> PrewarmSecurityEventTagCache()
+    {
+        var cache = new ConcurrentDictionary<SecurityEventTagCacheKey, TagList>();
+        string[] shieldReasons =
+        [
+            "ua_missing",
+            "fake_crawler",
+            "verified_crawler",
+            "crawler_verification_disabled",
+            "social_preview_scope_denied",
+            "social_preview",
+            "unknown_bot",
+            "blocked_user_agent",
+            "illegal_path",
+            "read_only_mode"
+        ];
+
+        foreach (string reason in shieldReasons)
+        {
+            AddSecurityEventTagCacheEntry(cache, "shield_reject", reason, "rejected");
+            AddSecurityEventTagCacheEntry(cache, "shield_reject", reason, "aborted");
+            AddSecurityEventTagCacheEntry(cache, "shield_observe", reason, "observed");
+            AddSecurityEventTagCacheEntry(cache, "security_risk", reason, "write_failed");
+        }
+
+        foreach (string reason in SecurityRiskReasonNames.Values)
+        {
+            AddSecurityEventTagCacheEntry(cache, "security_risk", reason, "risk_added");
+            AddSecurityEventTagCacheEntry(cache, "security_risk", reason, "shield_rejected");
+            AddSecurityEventTagCacheEntry(cache, "security_risk", reason, "shield_observed");
+            AddSecurityEventTagCacheEntry(cache, "security_risk", reason, "persist_failed");
+        }
+
+        AddSecurityEventTagCacheEntry(cache, "rate_limiter_risk", "rate_limited", "sampled");
+        AddSecurityEventTagCacheEntry(cache, "rate_limiter_risk", "rate_limited", "dropped");
+        AddSecurityEventTagCacheEntry(cache, "rate_limited", "rate_limited", "rejected");
+        AddSecurityEventTagCacheEntry(cache, "security_risk", "aggregate", "fallback_failed");
+        return cache;
+    }
+
+    private static FrozenSet<string> BuildSecurityEventInternedValues()
+    {
+        HashSet<string> values = new(StringComparer.Ordinal)
+        {
+            "aggregate",
+            "aborted",
+            "dropped",
+            "fallback_failed",
+            "blocked_user_agent",
+            "crawler_verification_disabled",
+            "fake_crawler",
+            "illegal_path",
+            "persist_failed",
+            "rate_limited",
+            "rate_limiter_risk",
+            "rejected",
+            "read_only_mode",
+            "sampled",
+            "security_risk",
+            "shield_observe",
+            "shield_observed",
+            "shield_reject",
+            "shield_rejected",
+            "social_preview",
+            "social_preview_scope_denied",
+            "ua_missing",
+            "unknown_bot",
+            "verified_crawler",
+            "write_failed"
+        };
+        foreach (string reason in SecurityRiskReasonNames.Values)
+        {
+            values.Add(reason);
+        }
+
+        foreach (string value in values.ToArray())
+        {
+            values.Add(string.Intern(value));
+        }
+
+        return values.ToFrozenSet(StringComparer.Ordinal);
+    }
+
+    private static void AddSecurityEventTagCacheEntry(
+        ConcurrentDictionary<SecurityEventTagCacheKey, TagList> cache,
+        string operation,
+        string reason,
+        string result)
+    {
+        if (cache.Count >= SecurityEventTagCacheLimit)
+        {
+            return;
+        }
+
+        SecurityEventTagCacheKey key = CreateSecurityEventTagCacheKey(operation, reason, result);
+        cache.TryAdd(key, CreateSecurityEventTags(key.Operation, key.Reason, key.Result));
+    }
+
+    private static SecurityEventTagCacheKey CreateSecurityEventTagCacheKey(string operation, string reason, string result)
+        => new(
+            InternSecurityEventValue(NormalizeTelemetryValue(operation, "unknown")),
+            InternSecurityEventValue(NormalizeTelemetryValue(reason, "unknown")),
+            InternSecurityEventValue(NormalizeTelemetryValue(result, "unknown")));
+
+    private static string InternSecurityEventValue(string value)
+        => SecurityEventInternedValues.Contains(value)
+            ? string.Intern(value)
+            : value;
+
+    private static TagList CreateSecurityEventTags(string operation, string reason, string result)
+    {
+        TagList tags = CreateBaseTags("security", operation, result);
+        tags.Add("fsus.security.reason", reason);
+        return tags;
+    }
+
+    private static string ResolveSecurityRiskReasonName(SecurityRiskReason reason)
+        => SecurityRiskReasonNames.TryGetValue(reason, out string? name)
+            ? name
+            : string.Intern(reason.ToString());
+
+    private static double ObserveSecurityEventTagCacheHitRatio()
+    {
+        long hits = Volatile.Read(ref SecurityEventTagCacheHits);
+        long misses = Volatile.Read(ref SecurityEventTagCacheMisses);
+        long total = hits + misses;
+        return total == 0 ? 1 : Math.Round((double)hits / total, 4, MidpointRounding.AwayFromZero);
+    }
 
     private static TagList CreateBaseTags(string component, string operation, string result)
     {
