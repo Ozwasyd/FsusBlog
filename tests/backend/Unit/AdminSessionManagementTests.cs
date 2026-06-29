@@ -82,6 +82,35 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
+    public void AdminSessionManagement_SourceBoundsListAndBatchRevokesOthers()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");
+        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string list = ExtractBetween(
+            source,
+            "public async Task<IReadOnlyList<AdminSessionSummaryDto>> GetAdminSessionsAsync",
+            "public async Task<bool> EnsureAdminSessionBelongsToPrincipalAsync");
+        string revokeOthers = ExtractBetween(
+            source,
+            "public async Task<int> RevokeOtherAdminSessionsAsync",
+            "private async Task<AdminSessionRevokeCandidate?> LoadAdminSessionRevokeCandidateAsync");
+
+        Assert.Contains("AdminSessionListLimit = 50", source, StringComparison.Ordinal);
+        Assert.Contains(".Take(AdminSessionListLimit)", list, StringComparison.Ordinal);
+        Assert.Contains("RecordAdminSessionList", list, StringComparison.Ordinal);
+        Assert.Contains("UPDATE admin_session", revokeOthers, StringComparison.Ordinal);
+        Assert.Contains("RETURNING sessionid", revokeOthers, StringComparison.Ordinal);
+        Assert.Contains("sessionid <> @CurrentSessionId", revokeOthers, StringComparison.Ordinal);
+        Assert.DoesNotContain("foreach (AdminSessionRevokeCandidate", revokeOthers, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryRevokeAdminSessionAsync(candidate", revokeOthers, StringComparison.Ordinal);
+        Assert.Contains("WriteAdminSessionRevokeAuditsAsync", revokeOthers, StringComparison.Ordinal);
+        Assert.Contains("RecordAdminSessionRevokeOthers", revokeOthers, StringComparison.Ordinal);
+        Assert.Contains("fsus.admin.session.list.returned_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.admin.session.revoke_others.count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.admin.session.revoke_others.elapsed_ms", observability, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RevokeAdminSessionAsync_RepeatedRevokeWritesOnlyOneAuditAndPreservesFirstReason()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -104,19 +133,25 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
     public async Task RevokeOtherAdminSessionsAsync_RevokesOtherSessionsAndKeepsCurrent()
     {
         using SqlSugarClient db = await CreateDbAsync();
-        Seed(db, CreateSession("current"), CreateSession("other-a"), CreateSession("other-b", revoked: true));
+        Seed(db, CreateSession("current"), CreateSession("other-a"), CreateSession("other-b"), CreateSession("other-c", revoked: true));
         AdminPrincipalService service = CreateService(db);
 
         int revoked = await service.RevokeOtherAdminSessionsAsync(1, "current", CancellationToken.None);
 
-        Assert.Equal(1, revoked);
+        Assert.Equal(2, revoked);
         AdminSession current = await db.Queryable<AdminSession>().SingleAsync(s => s.SessionId == "current");
         AdminSession otherA = await db.Queryable<AdminSession>().SingleAsync(s => s.SessionId == "other-a");
         AdminSession otherB = await db.Queryable<AdminSession>().SingleAsync(s => s.SessionId == "other-b");
+        AdminSession otherC = await db.Queryable<AdminSession>().SingleAsync(s => s.SessionId == "other-c");
         Assert.Null(current.RevokedAtUtc);
         Assert.NotNull(otherA.RevokedAtUtc);
         Assert.Equal("revoke_others", otherA.RevokeReason);
         Assert.NotNull(otherB.RevokedAtUtc);
+        Assert.Equal("revoke_others", otherB.RevokeReason);
+        Assert.NotNull(otherC.RevokedAtUtc);
+        Assert.Equal(2, await db.Queryable<AdminAuditLog>()
+            .Where(log => log.AdminPrincipalId == 1 && log.Action == "admin.session.revoked" && log.MetadataJson.Contains("revoke_others"))
+            .CountAsync());
     }
 
     [Fact]
@@ -138,6 +173,24 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
         Assert.NotEqual(default, current.CreatedAtUtc);
         Assert.NotEqual(default, current.IdleExpiresAtUtc);
         Assert.NotEqual(default, current.AbsoluteExpiresAtUtc);
+    }
+
+    [Fact]
+    public async Task GetAdminSessionsAsync_ReturnsAtMostRecentFiftySessions()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        AdminSession[] sessions = Enumerable.Range(0, 60)
+            .Select(index => CreateSession($"session-{index:00}", lastSeenAtUtc: DateTime.UtcNow.AddMinutes(-index)))
+            .ToArray();
+        sessions[0].SessionId = "current";
+        Seed(db, sessions);
+        AdminPrincipalService service = CreateService(db);
+
+        IReadOnlyList<AdminSessionSummaryDto> result = await service.GetAdminSessionsAsync(1, "current", CancellationToken.None);
+
+        Assert.Equal(50, result.Count);
+        Assert.Contains(result, session => session.SessionId == "current" && session.IsCurrent);
+        Assert.DoesNotContain(result, session => session.SessionId == "session-59");
     }
 
     private static AdminPrincipalService CreateService(SqlSugarClient db)
@@ -166,7 +219,7 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
         }
     }
 
-    private static AdminSession CreateSession(string sessionId, bool revoked = false)
+    private static AdminSession CreateSession(string sessionId, bool revoked = false, DateTime? lastSeenAtUtc = null)
         => new()
         {
             SessionId = sessionId,
@@ -176,7 +229,7 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
             LastIp = "127.0.0.1",
             UserAgent = $"agent-{sessionId}",
             CreatedAtUtc = DateTime.UtcNow.AddHours(-1),
-            LastSeenAtUtc = DateTime.UtcNow.AddMinutes(-5),
+            LastSeenAtUtc = lastSeenAtUtc ?? DateTime.UtcNow.AddMinutes(-5),
             IdleExpiresAtUtc = DateTime.UtcNow.AddHours(1),
             AbsoluteExpiresAtUtc = DateTime.UtcNow.AddHours(2),
             RevokedAtUtc = revoked ? DateTime.UtcNow.AddMinutes(-1) : null,

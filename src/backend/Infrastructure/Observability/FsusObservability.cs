@@ -186,6 +186,10 @@ public static class FsusObservability
     private static readonly Counter<long> AdminPasskeyAssertionDbCommandCount = Meter.CreateCounter<long>("fsus.admin.passkey.assertion.db_command_count");
     private static readonly Histogram<double> AdminPasskeyAssertionElapsed = Meter.CreateHistogram<double>("fsus.admin.passkey.assertion.elapsed_ms", "ms");
     private static readonly Counter<long> AdminPasskeySignCountConflictCount = Meter.CreateCounter<long>("fsus.admin.passkey.sign_count.conflict_count");
+    private static readonly Counter<long> AdminSessionListReturnedCount = Meter.CreateCounter<long>("fsus.admin.session.list.returned_count");
+    private static readonly Histogram<double> AdminSessionListElapsed = Meter.CreateHistogram<double>("fsus.admin.session.list.elapsed_ms", "ms");
+    private static readonly Counter<long> AdminSessionRevokeOthersCount = Meter.CreateCounter<long>("fsus.admin.session.revoke_others.count");
+    private static readonly Histogram<double> AdminSessionRevokeOthersElapsed = Meter.CreateHistogram<double>("fsus.admin.session.revoke_others.elapsed_ms", "ms");
     private static readonly Histogram<double> DistributionDiagnosticsElapsed = Meter.CreateHistogram<double>("fsus.distribution.diagnostics.elapsed_ms", "ms");
     private static readonly Counter<long> DistributionDiagnosticsCacheAccess = Meter.CreateCounter<long>("fsus.distribution.diagnostics.cache_access");
     private static readonly Counter<long> DistributionDiagnosticsDbCommandCount = Meter.CreateCounter<long>("fsus.distribution.diagnostics.db_command_count");
@@ -989,6 +993,26 @@ public static class FsusObservability
             TagList tags = CreateBaseTags("admin-passkey", "sign_count_update", "conflict");
             tags.Add("fsus.admin.passkey.assertion.kind", NormalizeTelemetryValue(kind, "unknown"));
             AdminPasskeySignCountConflictCount.Add(1, tags);
+        });
+    }
+
+    public static void RecordAdminSessionList(long returnedCount, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("admin-session", "list", "ok");
+            AdminSessionListReturnedCount.Add(Math.Max(0, returnedCount), tags);
+            AdminSessionListElapsed.Record(elapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordAdminSessionRevokeOthers(long revokedCount, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("admin-session", "revoke_others", "ok");
+            AdminSessionRevokeOthersCount.Add(Math.Max(0, revokedCount), tags);
+            AdminSessionRevokeOthersElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 
