@@ -70,6 +70,12 @@ public sealed record ProductionRiskControlHealthCheck(
     SecurityChallengeV2PerformanceBudgetSnapshot PerceptionPerformanceBudget,
     string? Error = null) : IProductionHealthCheck;
 
+internal sealed record RedisConsumeOnceReadiness(bool Ok);
+
+internal sealed record RedisReadiness(
+    ProductionDependencyHealthCheck Dependency,
+    RedisConsumeOnceReadiness ConsumeOnce);
+
 public sealed record RuntimeHealthSnapshot(
     string Status,
     DbConcurrencyGateSnapshot? DbGate,
@@ -104,26 +110,33 @@ public sealed class ProductionReadinessProbe(
     IConfiguration configuration,
     IWebHostEnvironment environment,
     IServiceProvider serviceProvider,
+    IConfigurationHealthSnapshot configurationSnapshot,
     ILogger<ProductionReadinessProbe> logger)
 {
     public async Task<ProductionHealthReport> CheckAsync(CancellationToken cancellationToken)
     {
-        Task<ProductionDependencyHealthCheck> postgresTask = CheckPostgresAsync(cancellationToken);
-        Task<ProductionDependencyHealthCheck> redisTask = CheckRedisAsync(cancellationToken);
-        Task<ProductionRiskControlHealthCheck> riskControlTask = CheckRiskControlAsync(cancellationToken);
+        long checkStartedAt = Stopwatch.GetTimestamp();
+        Task<ProductionDependencyHealthCheck> postgresTask = RecordReadinessCheckElapsed("postgres", CheckPostgresAsync(cancellationToken));
+        Task<RedisReadiness> redisTask = RecordReadinessCheckElapsed("redis", CheckRedisReadinessAsync(cancellationToken));
+        Task<ProductionRiskControlHealthCheck> riskControlTask = RecordReadinessCheckElapsed("risk_control", CheckRiskControlAsync(redisTask, cancellationToken));
+        Task<RuntimeHealthSnapshot> runtimeTask = RecordReadinessCheckElapsed("runtime", CheckRuntimeAsync(cancellationToken));
         Dictionary<string, object?> checks = new(StringComparer.Ordinal)
         {
             ["configuration"] = RedactConfigurationHealth(CheckConfiguration()),
             ["observability"] = CheckObservability(),
-            ["resources"] = CheckResources(),
-            ["runtime"] = CheckRuntime()
+            ["resources"] = CheckResources()
         };
 
+        await Task.WhenAll(postgresTask, redisTask, riskControlTask, runtimeTask);
+
         checks["postgres"] = await postgresTask;
-        checks["redis"] = await redisTask;
+        RedisReadiness redis = await redisTask;
+        checks["redis"] = redis.Dependency;
         checks["riskControl"] = await riskControlTask;
+        checks["runtime"] = await runtimeTask;
 
         bool healthy = checks.Values.All(IsHealthyCheck);
+        FsusObservability.RecordReadinessCheckElapsed("check", FsusObservability.GetElapsed(checkStartedAt));
         return new ProductionHealthReport(
             healthy ? "ready" : "not_ready",
             DateTimeOffset.UtcNow,
@@ -132,38 +145,13 @@ public sealed class ProductionReadinessProbe(
 
     private ProductionConfigurationHealthCheck CheckConfiguration()
     {
-        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
-            configuration,
-            environment.IsProduction(),
-            ResolveZkProdReadiness());
-        return errors.Count == 0
-            ? new ProductionConfigurationHealthCheck("ok", [])
-            : new ProductionConfigurationHealthCheck("failed", errors);
+        return configurationSnapshot.Current;
     }
 
     private static ProductionConfigurationHealthCheck RedactConfigurationHealth(ProductionConfigurationHealthCheck check)
         => string.Equals(check.Status, "ok", StringComparison.Ordinal)
             ? check
             : new ProductionConfigurationHealthCheck("failed", ["configuration_invalid"]);
-
-    private ZkProdRuntimeReadiness ResolveZkProdReadiness()
-    {
-        IZkProofVerifier? verifier = serviceProvider.GetService<IZkProofVerifier>();
-        IAnonymousCredentialRootReader? rootReader = serviceProvider.GetService<IAnonymousCredentialRootReader>();
-        ICircuitNativeCredentialIssuer? credentialIssuer = serviceProvider.GetService<ICircuitNativeCredentialIssuer>();
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-        bool rootReady = rootReader?.CurrentSnapshot.AcceptedRoots.Any(root =>
-            root.GraceExpiresAtUtc > now &&
-            !string.IsNullOrWhiteSpace(root.RootHash) &&
-            !string.IsNullOrWhiteSpace(root.RevocationRootHash) &&
-            !string.IsNullOrWhiteSpace(root.IssuerPublicKeyHash) &&
-            (string.Equals(root.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
-             string.Equals(root.Status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal))) == true;
-        return new ZkProdRuntimeReadiness(
-            verifier?.IsConfigured == true,
-            rootReady,
-            credentialIssuer?.IsConfigured == true);
-    }
 
     private ProductionResourceHealthCheck CheckResources()
     {
@@ -214,7 +202,7 @@ public sealed class ProductionReadinessProbe(
                 FsusObservability.CustomAttributeNames.Count);
     }
 
-    private RuntimeHealthSnapshot CheckRuntime()
+    private async Task<RuntimeHealthSnapshot> CheckRuntimeAsync(CancellationToken cancellationToken)
     {
         DbConcurrencyGateSnapshot? dbGate = null;
         if (serviceProvider.GetService<IDbConcurrencyGate>() is { } gate)
@@ -225,8 +213,21 @@ public sealed class ProductionReadinessProbe(
         int? notificationStreamConnections = serviceProvider.GetService<NotificationStreamConnectionManager>()?.ConnectionCount;
         StartupRuntimeState? startupRuntime = serviceProvider.GetService<StartupRuntimeState>();
         ScheduledPublishRuntimeState? scheduledPublish = serviceProvider.GetService<ScheduledPublishRuntimeState>();
-        PublicHotReadRuntimeSnapshot? publicHotRead = serviceProvider.GetService<PublicHotReadStore>()?.CreateRuntimeSnapshot();
-        AuditLogRuntimeSnapshot? auditLog = serviceProvider.GetService<AuditLogRuntimeState>()?.Snapshot();
+        PublicHotReadStore? publicHotReadStore = serviceProvider.GetService<PublicHotReadStore>();
+        AuditLogRuntimeState? auditLogRuntime = serviceProvider.GetService<AuditLogRuntimeState>();
+        Task<PublicHotReadRuntimeSnapshot?> publicHotReadTask = Task.Run(
+            () => publicHotReadStore?.CreateRuntimeSnapshot(),
+            cancellationToken);
+        Task<AuditLogRuntimeSnapshot?> auditLogTask = Task.Run(
+            () => auditLogRuntime?.Snapshot(),
+            cancellationToken);
+        Task<RuntimePressureSnapshot> pressureTask = Task.Run(
+            RuntimePressureSnapshot.Capture,
+            cancellationToken);
+        await Task.WhenAll(publicHotReadTask, auditLogTask, pressureTask);
+        PublicHotReadRuntimeSnapshot? publicHotRead = await publicHotReadTask;
+        AuditLogRuntimeSnapshot? auditLog = await auditLogTask;
+        RuntimePressureSnapshot pressure = await pressureTask;
         string status = publicHotRead is null
             || (string.Equals(publicHotRead.State, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
                 && !publicHotRead.ArticleFrameLimitExceeded)
@@ -237,14 +238,16 @@ public sealed class ProductionReadinessProbe(
             status,
             dbGate,
             notificationStreamConnections,
-            RuntimePressureSnapshot.Capture().AvailableWorkerThreads,
+            pressure.AvailableWorkerThreads,
             startupRuntime?.CreateSnapshot(),
             scheduledPublish?.CreateSnapshot(),
             publicHotRead,
             auditLog);
     }
 
-    private async Task<ProductionRiskControlHealthCheck> CheckRiskControlAsync(CancellationToken cancellationToken)
+    private async Task<ProductionRiskControlHealthCheck> CheckRiskControlAsync(
+        Task<RedisReadiness> redisTask,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -263,7 +266,8 @@ public sealed class ProductionReadinessProbe(
 
             IReadOnlyList<string> providers = ResolveChallengeProviders();
             bool challengeProviderRegistry = ChallengeProviderRegistryReady(providers);
-            bool redisConsumeOnce = await CheckRedisConsumeOnceAsync(cancellationToken);
+            RedisReadiness redisReadiness = await redisTask;
+            bool redisConsumeOnce = redisReadiness.ConsumeOnce.Ok;
             bool perceptionAeadKey = CheckPerceptionAeadKey();
             string perceptionMode = ResolvePerceptionMode(policy);
             SecurityChallengeV2PerformanceBudgetSnapshot perceptionBudget =
@@ -426,24 +430,40 @@ public sealed class ProductionReadinessProbe(
         return true;
     }
 
-    private async Task<bool> CheckRedisConsumeOnceAsync(CancellationToken cancellationToken)
+    private async Task<RedisReadiness> CheckRedisReadinessAsync(CancellationToken cancellationToken)
     {
-        IUnifiedCache? cache = serviceProvider.GetService<IUnifiedCache>();
-        if (cache is null)
-        {
-            return false;
-        }
+        Task<ProductionDependencyHealthCheck> dependencyTask = CheckRedisAsync(cancellationToken);
+        Task<RedisConsumeOnceReadiness> consumeOnceTask = CheckRedisConsumeOnceReadinessAsync(cancellationToken);
+        await Task.WhenAll(dependencyTask, consumeOnceTask);
+        return new RedisReadiness(await dependencyTask, await consumeOnceTask);
+    }
 
-        string identity = "risk-control-readiness:" + Guid.NewGuid().ToString("N");
-        await cache.SetStringAsync(
-            CachePolicyId.SecurityChallengeProof,
-            identity,
-            "readiness",
-            TimeSpan.FromSeconds(5),
-            cancellationToken);
-        bool firstConsume = await cache.ConsumeOnceAsync(CachePolicyId.SecurityChallengeProof, identity, cancellationToken);
-        bool replayConsume = await cache.ConsumeOnceAsync(CachePolicyId.SecurityChallengeProof, identity, cancellationToken);
-        return firstConsume && !replayConsume;
+    private async Task<RedisConsumeOnceReadiness> CheckRedisConsumeOnceReadinessAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            IUnifiedCache? cache = serviceProvider.GetService<IUnifiedCache>();
+            if (cache is null)
+            {
+                return new RedisConsumeOnceReadiness(false);
+            }
+
+            string identity = "risk-control-readiness:" + Guid.NewGuid().ToString("N");
+            await cache.SetStringAsync(
+                CachePolicyId.SecurityChallengeProof,
+                identity,
+                "readiness",
+                TimeSpan.FromSeconds(5),
+                cancellationToken);
+            bool firstConsume = await cache.ConsumeOnceAsync(CachePolicyId.SecurityChallengeProof, identity, cancellationToken);
+            bool replayConsume = await cache.ConsumeOnceAsync(CachePolicyId.SecurityChallengeProof, identity, cancellationToken);
+            return new RedisConsumeOnceReadiness(firstConsume && !replayConsume);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "redis consume-once readiness check failed");
+            return new RedisConsumeOnceReadiness(false);
+        }
     }
 
     private async Task<ProductionDependencyHealthCheck> CheckPostgresAsync(CancellationToken cancellationToken)
@@ -507,6 +527,132 @@ public sealed class ProductionReadinessProbe(
     private static bool IsHealthyCheck(object? check)
         => check is IProductionHealthCheck health
             && string.Equals(health.Status, "ok", StringComparison.Ordinal);
+
+    private static async Task<T> RecordReadinessCheckElapsed<T>(string check, Task<T> task)
+    {
+        long startedAt = Stopwatch.GetTimestamp();
+        try
+        {
+            return await task;
+        }
+        finally
+        {
+            FsusObservability.RecordReadinessCheckElapsed(check, FsusObservability.GetElapsed(startedAt));
+        }
+    }
+}
+
+public interface IConfigurationHealthSnapshot
+{
+    ProductionConfigurationHealthCheck Current { get; }
+
+    void Refresh();
+}
+
+public sealed class ConfigurationHealthSnapshot(
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    IServiceProvider serviceProvider,
+    ILogger<ConfigurationHealthSnapshot> logger) : IConfigurationHealthSnapshot
+{
+    private ProductionConfigurationHealthCheck _current = new("failed", ["configuration_snapshot_not_initialized"]);
+    private int _initialized;
+
+    public ProductionConfigurationHealthCheck Current
+    {
+        get
+        {
+            EnsureInitialized();
+            return Volatile.Read(ref _current);
+        }
+    }
+
+    public void Refresh()
+    {
+        try
+        {
+            IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+                configuration,
+                environment.IsProduction(),
+                ResolveZkProdReadiness());
+            Volatile.Write(
+                ref _current,
+                errors.Count == 0
+                    ? new ProductionConfigurationHealthCheck("ok", [])
+                    : new ProductionConfigurationHealthCheck("failed", errors));
+            Volatile.Write(ref _initialized, 1);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "configuration readiness snapshot refresh failed");
+            Volatile.Write(ref _current, new ProductionConfigurationHealthCheck("failed", ["configuration_snapshot_unavailable"]));
+            Volatile.Write(ref _initialized, 1);
+        }
+    }
+
+    private void EnsureInitialized()
+    {
+        if (Volatile.Read(ref _initialized) == 1)
+        {
+            return;
+        }
+
+        Refresh();
+    }
+
+    private ZkProdRuntimeReadiness ResolveZkProdReadiness()
+    {
+        IZkProofVerifier? verifier = serviceProvider.GetService<IZkProofVerifier>();
+        IAnonymousCredentialRootReader? rootReader = serviceProvider.GetService<IAnonymousCredentialRootReader>();
+        ICircuitNativeCredentialIssuer? credentialIssuer = serviceProvider.GetService<ICircuitNativeCredentialIssuer>();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        bool rootReady = rootReader?.CurrentSnapshot.AcceptedRoots.Any(root =>
+            root.GraceExpiresAtUtc > now &&
+            !string.IsNullOrWhiteSpace(root.RootHash) &&
+            !string.IsNullOrWhiteSpace(root.RevocationRootHash) &&
+            !string.IsNullOrWhiteSpace(root.IssuerPublicKeyHash) &&
+            (string.Equals(root.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
+             string.Equals(root.Status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal))) == true;
+        return new ZkProdRuntimeReadiness(
+            verifier?.IsConfigured == true,
+            rootReady,
+            credentialIssuer?.IsConfigured == true);
+    }
+}
+
+public sealed class ConfigurationHealthSnapshotRefreshWorker(
+    IConfigurationHealthSnapshot snapshot,
+    ILogger<ConfigurationHealthSnapshotRefreshWorker> logger) : BackgroundService
+{
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(30);
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        RefreshSnapshot();
+        using PeriodicTimer timer = new(RefreshInterval);
+        try
+        {
+            while (await timer.WaitForNextTickAsync(stoppingToken))
+            {
+                RefreshSnapshot();
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private void RefreshSnapshot()
+    {
+        try
+        {
+            snapshot.Refresh();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "configuration readiness snapshot refresh loop failed");
+        }
+    }
 }
 
 public sealed class ProductionReadinessSnapshotCache

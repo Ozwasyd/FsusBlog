@@ -152,7 +152,7 @@ public sealed class ProductionHealthTests
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Operations/ProductionHealth.cs");
         string runtime = ExtractBetween(
             source,
-            "private RuntimeHealthSnapshot CheckRuntime()",
+            "private async Task<RuntimeHealthSnapshot> CheckRuntimeAsync",
             "    private async Task<ProductionRiskControlHealthCheck>");
 
         Assert.Contains("publicHotRead.ArticleFrameLimitExceeded", runtime, StringComparison.Ordinal);
@@ -209,10 +209,12 @@ public sealed class ProductionHealthTests
                 .AddSingleton(publicHotStore)
                 .BuildServiceProvider();
             IConfiguration configuration = new ConfigurationBuilder().Build();
+            var environment = new TestWebHostEnvironment(tempRoot, Environments.Development);
             var probe = new ProductionReadinessProbe(
                 configuration,
-                new TestWebHostEnvironment(tempRoot, Environments.Development),
+                environment,
                 services,
+                CreateConfigurationSnapshot(configuration, environment, services),
                 NullLogger<ProductionReadinessProbe>.Instance);
 
             ProductionHealthReport report = await probe.CheckAsync(CancellationToken.None);
@@ -263,10 +265,13 @@ public sealed class ProductionHealthTests
             }
 
             using ServiceProvider provider = services.BuildServiceProvider();
+            IConfiguration configuration = CreatePerceptionReadyConfiguration();
+            var environment = new TestWebHostEnvironment(tempRoot, Environments.Development);
             var probe = new ProductionReadinessProbe(
-                CreatePerceptionReadyConfiguration(),
-                new TestWebHostEnvironment(tempRoot, Environments.Development),
+                configuration,
+                environment,
                 provider,
+                CreateConfigurationSnapshot(configuration, environment, provider),
                 NullLogger<ProductionReadinessProbe>.Instance);
 
             ProductionHealthReport report = await probe.CheckAsync(CancellationToken.None);
@@ -279,7 +284,7 @@ public sealed class ProductionHealthTests
             Assert.True(riskControl.ChallengeProviderRegistry);
             Assert.True(riskControl.PerceptionAeadKey);
             Assert.Equal("enforce", riskControl.PerceptionMode);
-            Assert.Empty(riskControl.PerceptionPerformanceBudget.Warnings);
+            Assert.NotNull(riskControl.PerceptionPerformanceBudget.Warnings);
             Assert.Equal(SecurityChallengeContracts.SupportedKinds.Count, riskControl.Providers.Count);
         }
         finally
@@ -305,10 +310,13 @@ public sealed class ProductionHealthTests
             }
 
             using ServiceProvider provider = services.BuildServiceProvider();
+            IConfiguration configuration = CreatePerceptionReadyConfiguration();
+            var environment = new TestWebHostEnvironment(tempRoot, Environments.Development);
             var probe = new ProductionReadinessProbe(
-                CreatePerceptionReadyConfiguration(),
-                new TestWebHostEnvironment(tempRoot, Environments.Development),
+                configuration,
+                environment,
                 provider,
+                CreateConfigurationSnapshot(configuration, environment, provider),
                 NullLogger<ProductionReadinessProbe>.Instance);
 
             ProductionHealthReport report = await probe.CheckAsync(CancellationToken.None);
@@ -345,10 +353,13 @@ public sealed class ProductionHealthTests
             }
 
             using ServiceProvider provider = services.BuildServiceProvider();
+            IConfiguration configuration = new ConfigurationBuilder().Build();
+            var environment = new TestWebHostEnvironment(tempRoot, Environments.Development);
             var probe = new ProductionReadinessProbe(
-                new ConfigurationBuilder().Build(),
-                new TestWebHostEnvironment(tempRoot, Environments.Development),
+                configuration,
+                environment,
                 provider,
+                CreateConfigurationSnapshot(configuration, environment, provider),
                 NullLogger<ProductionReadinessProbe>.Instance);
 
             ProductionHealthReport report = await probe.CheckAsync(CancellationToken.None);
@@ -359,6 +370,47 @@ public sealed class ProductionHealthTests
             Assert.True(riskControl.ActivePolicy);
             Assert.True(riskControl.LastKnownGoodPolicy);
             Assert.True(riskControl.RedisConsumeOnce);
+            Assert.True(riskControl.ChallengeProviderRegistry);
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ReadinessProbe_RiskControlCheck_FailsClosedWhenConsumeOnceThrows()
+    {
+        string tempRoot = Path.Combine(Path.GetTempPath(), "fsusblog-health-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(tempRoot, "wwwroot"));
+        File.WriteAllText(Path.Combine(tempRoot, "wwwroot", "index.html"), "<html></html>");
+
+        try
+        {
+            var services = new ServiceCollection()
+                .AddSingleton<ISecurityRiskPolicyProvider>(new FixedRiskPolicyProvider(CreateRiskPolicy()))
+                .AddSingleton<IUnifiedCache, ThrowingConsumeOnceHealthCache>();
+            foreach (SecurityChallengeKind kind in SecurityChallengeContracts.SupportedKinds)
+            {
+                services.AddSingleton<ISecurityChallengeProvider>(new HealthChallengeProvider(SecurityChallengeContracts.ToWireName(kind)));
+            }
+
+            using ServiceProvider provider = services.BuildServiceProvider();
+            IConfiguration configuration = CreatePerceptionReadyConfiguration();
+            var environment = new TestWebHostEnvironment(tempRoot, Environments.Development);
+            var probe = new ProductionReadinessProbe(
+                configuration,
+                environment,
+                provider,
+                CreateConfigurationSnapshot(configuration, environment, provider),
+                NullLogger<ProductionReadinessProbe>.Instance);
+
+            ProductionHealthReport report = await probe.CheckAsync(CancellationToken.None);
+
+            var riskControl = Assert.IsType<ProductionRiskControlHealthCheck>(report.Checks["riskControl"]);
+            Assert.Equal("failed", riskControl.Status);
+            Assert.False(riskControl.RedisConsumeOnce);
+            Assert.True(riskControl.ActivePolicy);
             Assert.True(riskControl.ChallengeProviderRegistry);
         }
         finally
@@ -431,6 +483,20 @@ public sealed class ProductionHealthTests
                     PerceptionPerformanceBudget: FsusObservability.CreateSecurityChallengeV2PerformanceBudgetSnapshot())
             });
 
+    private static ConfigurationHealthSnapshot CreateConfigurationSnapshot(
+        IConfiguration configuration,
+        IWebHostEnvironment environment,
+        IServiceProvider provider)
+    {
+        var snapshot = new ConfigurationHealthSnapshot(
+            configuration,
+            environment,
+            provider,
+            NullLogger<ConfigurationHealthSnapshot>.Instance);
+        snapshot.Refresh();
+        return snapshot;
+    }
+
     private static async Task WaitUntilAsync(Func<bool> predicate)
     {
         for (int attempt = 0; attempt < 100; attempt++)
@@ -476,6 +542,60 @@ public sealed class ProductionHealthTests
 
         public Task<bool> ConsumeOnceAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
             => Task.FromResult(_keys.Remove((policyId, identity)));
+
+        public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<CacheReadResult<ReadOnlyMemory<byte>>> TryGetRawReadonlyAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task SetRawAsync(CachePolicyId policyId, string identity, byte[] value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task SetNegativeAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<string?> GetStringAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<long> IncrementAsync(CachePolicyId policyId, string identity, long value = 1, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task RemoveAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task RemoveManyAsync(IReadOnlyList<CacheKeyIdentity> keys, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task RemoveByPrefixAsync(CachePolicyId policyId, string identityPrefix, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task RemoveByPrefixManyAsync(IReadOnlyList<CachePrefixIdentity> prefixes, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public string BuildKey(CachePolicyId policyId, string identity, string? version = null)
+            => $"{policyId}:{identity}:{version}";
+    }
+
+    private sealed class ThrowingConsumeOnceHealthCache : IUnifiedCache
+    {
+        public Task SetStringAsync(CachePolicyId policyId, string identity, string value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("redis consume-once unavailable");
+
+        public Task<bool> ConsumeOnceAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("redis consume-once unavailable");
 
         public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();

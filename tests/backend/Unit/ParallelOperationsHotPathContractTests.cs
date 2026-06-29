@@ -117,12 +117,51 @@ public sealed class ParallelOperationsHotPathContractTests
 
         Assert.Contains("ProductionDependencyHealthCheck", health, StringComparison.Ordinal);
         Assert.Contains("Task<ProductionDependencyHealthCheck> postgresTask", check, StringComparison.Ordinal);
-        Assert.Contains("Task<ProductionDependencyHealthCheck> redisTask", check, StringComparison.Ordinal);
+        Assert.Contains("Task<RedisReadiness> redisTask", check, StringComparison.Ordinal);
         Assert.Contains("checks[\"postgres\"] = await postgresTask", check, StringComparison.Ordinal);
-        Assert.Contains("checks[\"redis\"] = await redisTask", check, StringComparison.Ordinal);
+        Assert.Contains("checks[\"redis\"] = redis.Dependency", check, StringComparison.Ordinal);
         Assert.DoesNotContain(".Result", check, StringComparison.Ordinal);
         Assert.DoesNotContain("GetProperty(\"status\"", health, StringComparison.Ordinal);
         Assert.DoesNotContain("ExtractProperty(check", adminOperations, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProductionReadinessProbe_ParallelizesChecksAndReusesRedisReadiness()
+    {
+        string health = ReadRepoFile("src/backend/Infrastructure/Operations/ProductionHealth.cs");
+        string observability = ReadRepoFile("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string check = ExtractMethodBlock(health, "public async Task<ProductionHealthReport> CheckAsync");
+        string riskControl = ExtractMethodBlock(health, "private async Task<ProductionRiskControlHealthCheck> CheckRiskControlAsync");
+
+        Assert.Contains("Task<RuntimeHealthSnapshot> runtimeTask", check, StringComparison.Ordinal);
+        Assert.Contains("Task<ProductionRiskControlHealthCheck> riskControlTask", check, StringComparison.Ordinal);
+        Assert.Contains("await Task.WhenAll(postgresTask, redisTask, riskControlTask, runtimeTask)", check, StringComparison.Ordinal);
+        Assert.Contains("RecordReadinessCheckElapsed(\"postgres\"", check, StringComparison.Ordinal);
+        Assert.Contains("RecordReadinessCheckElapsed(\"redis\"", check, StringComparison.Ordinal);
+        Assert.Contains("RecordReadinessCheckElapsed(\"risk_control\"", check, StringComparison.Ordinal);
+        Assert.Contains("RecordReadinessCheckElapsed(\"runtime\"", check, StringComparison.Ordinal);
+
+        Assert.Contains("RedisReadiness", health, StringComparison.Ordinal);
+        Assert.Contains("Task<RedisReadiness> redisTask", check, StringComparison.Ordinal);
+        Assert.Contains("Task<RedisReadiness> redisTask", riskControl, StringComparison.Ordinal);
+        Assert.Contains("redisReadiness.ConsumeOnce.Ok", riskControl, StringComparison.Ordinal);
+        Assert.Contains("private async Task<RedisReadiness> CheckRedisReadinessAsync", health, StringComparison.Ordinal);
+        Assert.DoesNotContain("await CheckRedisConsumeOnceAsync(cancellationToken)", riskControl, StringComparison.Ordinal);
+
+        Assert.Contains("private async Task<RuntimeHealthSnapshot> CheckRuntimeAsync", health, StringComparison.Ordinal);
+        Assert.Contains("Task<PublicHotReadRuntimeSnapshot?> publicHotReadTask", health, StringComparison.Ordinal);
+        Assert.Contains("Task<AuditLogRuntimeSnapshot?> auditLogTask", health, StringComparison.Ordinal);
+        Assert.Contains("Task<RuntimePressureSnapshot> pressureTask", health, StringComparison.Ordinal);
+
+        Assert.Contains("IConfigurationHealthSnapshot", health, StringComparison.Ordinal);
+        Assert.Contains("configurationSnapshot", health, StringComparison.Ordinal);
+        Assert.DoesNotContain("ProductionStartupValidator.ValidateCore(", ExtractMethodBlock(health, "private ProductionConfigurationHealthCheck CheckConfiguration"), StringComparison.Ordinal);
+
+        Assert.Contains("fsus.readiness.check.elapsed", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.readiness.postgres.elapsed", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.readiness.redis.elapsed", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.readiness.risk_control.elapsed", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.readiness.runtime.elapsed", observability, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -21,7 +21,13 @@ internal static class RuntimePublicAotServiceCollectionExtensions
 
         services.AddSingleton<IContentFilterService, ContentFilterService>();
         services.AddScoped<ProductionReadinessProbe>();
+        services.AddSingleton<ConfigurationHealthSnapshot>();
+        services.AddSingleton<IConfigurationHealthSnapshot>(sp => sp.GetRequiredService<ConfigurationHealthSnapshot>());
         services.AddSingleton<ProductionReadinessSnapshotCache>();
+        if (!OpenApiExportMode.IsEnabled())
+        {
+            services.AddHostedService<ConfigurationHealthSnapshotRefreshWorker>();
+        }
         services.AddSingleton<PublicAotFileShellCache>();
         services.AddSingleton<IPublicAotShellCache>(sp => sp.GetRequiredService<PublicAotFileShellCache>());
         if (!OpenApiExportMode.IsEnabled())

@@ -229,6 +229,11 @@ public static class FsusObservability
     private static readonly Histogram<double> ReadinessSnapshotFreshCheckElapsed = Meter.CreateHistogram<double>("fsus.readiness.snapshot.fresh_check_elapsed_ms", "ms");
     private static readonly Counter<long> ReadinessSnapshotDependencyCheckCount = Meter.CreateCounter<long>("fsus.readiness.snapshot.dependency_check_count");
     private static readonly Histogram<double> ReadinessSnapshotAge = Meter.CreateHistogram<double>("fsus.readiness.snapshot.age_ms", "ms");
+    private static readonly Histogram<double> ReadinessCheckElapsed = Meter.CreateHistogram<double>("fsus.readiness.check.elapsed", "ms");
+    private static readonly Histogram<double> ReadinessPostgresElapsed = Meter.CreateHistogram<double>("fsus.readiness.postgres.elapsed", "ms");
+    private static readonly Histogram<double> ReadinessRedisElapsed = Meter.CreateHistogram<double>("fsus.readiness.redis.elapsed", "ms");
+    private static readonly Histogram<double> ReadinessRiskControlElapsed = Meter.CreateHistogram<double>("fsus.readiness.risk_control.elapsed", "ms");
+    private static readonly Histogram<double> ReadinessRuntimeElapsed = Meter.CreateHistogram<double>("fsus.readiness.runtime.elapsed", "ms");
     private static readonly Counter<long> AnonymousNullifierPrecheckCount = Meter.CreateCounter<long>("fsus.anonymous_nullifier.precheck_count");
     private static readonly Histogram<double> AnonymousNullifierAtomicIncrementElapsed = Meter.CreateHistogram<double>("fsus.anonymous_nullifier.atomic_increment_elapsed_ms", "ms");
     private static readonly Counter<long> AnonymousNullifierScopeLimitRejectedCount = Meter.CreateCounter<long>("fsus.anonymous_nullifier.scope_limit_rejected_count");
@@ -1280,6 +1285,32 @@ public static class FsusObservability
             ReadinessSnapshotFreshCheckElapsed.Record(freshCheckElapsed.TotalMilliseconds, tags);
             ReadinessSnapshotDependencyCheckCount.Add(Math.Max(0, dependencyCheckCount), tags);
             ReadinessSnapshotAge.Record(Math.Max(0, snapshotAge.TotalMilliseconds), tags);
+        });
+    }
+
+    public static void RecordReadinessCheckElapsed(string check, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            string normalized = NormalizeTelemetryValue(check, "unknown");
+            TagList tags = CreateBaseTags("readiness", normalized, "ok");
+            double elapsedMs = Math.Max(0, elapsed.TotalMilliseconds);
+            ReadinessCheckElapsed.Record(elapsedMs, tags);
+            switch (normalized)
+            {
+                case "postgres":
+                    ReadinessPostgresElapsed.Record(elapsedMs, tags);
+                    break;
+                case "redis":
+                    ReadinessRedisElapsed.Record(elapsedMs, tags);
+                    break;
+                case "risk_control":
+                    ReadinessRiskControlElapsed.Record(elapsedMs, tags);
+                    break;
+                case "runtime":
+                    ReadinessRuntimeElapsed.Record(elapsedMs, tags);
+                    break;
+            }
         });
     }
 
