@@ -212,6 +212,12 @@ public static class FsusObservability
     private static readonly Counter<long> TaxonomyProjectionUpdateCount = Meter.CreateCounter<long>("fsus.taxonomy.projection.update_count");
     private static readonly Counter<long> TaxonomyFrameVersionCounter = Meter.CreateCounter<long>("fsus.taxonomy.frame.version_bump");
     private static readonly Histogram<double> NotificationStreamOriginValidationElapsed = Meter.CreateHistogram<double>("fsus.notification_stream.handshake.origin_validation_elapsed_ms", "ms");
+    private static readonly Histogram<double> NotificationStreamOriginCacheElapsed = Meter.CreateHistogram<double>("fsus.notification.handshake.origin_cache.elapsed", "ms");
+    private static long NotificationStreamOriginCacheHits;
+    private static long NotificationStreamOriginCacheMisses;
+    private static readonly ObservableGauge<double> NotificationStreamOriginCacheHitRatioGauge = Meter.CreateObservableGauge(
+        "fsus.notification.handshake.origin_cache.hit_ratio",
+        static () => Ratio(NotificationStreamOriginCacheHits, NotificationStreamOriginCacheMisses));
     private static readonly Counter<long> NotificationStreamAdmissionAccountStateCache = Meter.CreateCounter<long>("fsus.notification_stream.admission.account_state_cache");
     private static readonly Counter<long> NotificationStreamAdmissionDbReadCount = Meter.CreateCounter<long>("fsus.notification_stream.admission.db_read_count");
     private static readonly Counter<long> NotificationStreamAdmissionRejectedCount = Meter.CreateCounter<long>("fsus.notification_stream.admission.rejected_reason_count");
@@ -1073,6 +1079,26 @@ public static class FsusObservability
         {
             TagList tags = CreateBaseTags("notification-stream", NormalizeTelemetryValue(stage, "origin"), accepted ? "accepted" : "rejected");
             NotificationStreamOriginValidationElapsed.Record(elapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordNotificationStreamOriginCacheAccess(TimeSpan elapsed)
+    {
+        Interlocked.Increment(ref NotificationStreamOriginCacheHits);
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("notification-stream", "origin-cache", "hit");
+            NotificationStreamOriginCacheElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
+        });
+    }
+
+    public static void RecordNotificationStreamOriginCacheRebuild(TimeSpan elapsed)
+    {
+        Interlocked.Increment(ref NotificationStreamOriginCacheMisses);
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("notification-stream", "origin-cache", "miss");
+            NotificationStreamOriginCacheElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
         });
     }
 

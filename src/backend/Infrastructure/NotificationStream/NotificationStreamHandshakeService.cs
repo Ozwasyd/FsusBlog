@@ -555,7 +555,16 @@ internal sealed class NotificationStreamOriginSnapshotProvider
         _reloadRegistration = ChangeToken.OnChange(configuration.GetReloadToken, Refresh);
     }
 
-    public NotificationStreamOriginSnapshot Current => Volatile.Read(ref _current);
+    public NotificationStreamOriginSnapshot Current
+    {
+        get
+        {
+            long started = Stopwatch.GetTimestamp();
+            NotificationStreamOriginSnapshot snapshot = Volatile.Read(ref _current);
+            FsusObservability.RecordNotificationStreamOriginCacheAccess(Stopwatch.GetElapsedTime(started));
+            return snapshot;
+        }
+    }
 
     private void Refresh()
     {
@@ -564,10 +573,13 @@ internal sealed class NotificationStreamOriginSnapshotProvider
 
     private static NotificationStreamOriginSnapshot BuildSnapshot(IConfiguration configuration)
     {
+        long started = Stopwatch.GetTimestamp();
         HashSet<string> origins = NotificationStreamHandshakeService.BuildAllowedOrigins(configuration);
         HashSet<string> hosts = NotificationStreamHandshakeService.BuildAllowedHosts(configuration, origins);
-        return new NotificationStreamOriginSnapshot(
+        var snapshot = new NotificationStreamOriginSnapshot(
             origins.ToFrozenSet(StringComparer.OrdinalIgnoreCase),
             hosts.ToFrozenSet(StringComparer.OrdinalIgnoreCase));
+        FsusObservability.RecordNotificationStreamOriginCacheRebuild(Stopwatch.GetElapsedTime(started));
+        return snapshot;
     }
 }

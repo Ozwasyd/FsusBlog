@@ -263,6 +263,10 @@ public class NotificationStreamBoundaryTests
         Assert.Contains("originSnapshotProvider.Current", validateOrigin, StringComparison.Ordinal);
         Assert.Contains("ChangeToken.OnChange(configuration.GetReloadToken", source, StringComparison.Ordinal);
         Assert.Contains("fsus.notification_stream.handshake.origin_validation_elapsed_ms", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.notification.handshake.origin_cache.elapsed", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.notification.handshake.origin_cache.hit_ratio", observability, StringComparison.Ordinal);
+        Assert.Contains("RecordNotificationStreamOriginCacheAccess", source, StringComparison.Ordinal);
+        Assert.Contains("RecordNotificationStreamOriginCacheRebuild", source, StringComparison.Ordinal);
         Assert.Contains("fsus.notification_stream.admission.account_state_cache", observability, StringComparison.Ordinal);
         Assert.Contains("fsus.notification_stream.admission.db_read_count", observability, StringComparison.Ordinal);
         Assert.Contains("fsus.notification_stream.admission.rejected_reason_count", observability, StringComparison.Ordinal);
