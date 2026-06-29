@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Services.Security;
@@ -153,7 +154,7 @@ public sealed class ZkAnonymousProofVerifierContractTests
     [Fact]
     public async Task CommentActorResolver_ZkAnonymousRequiresSingleUseTicketInsteadOfDirectProof()
     {
-        ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
+        IUserAccountReader accountReader = Substitute.For<IUserAccountReader>();
         var proofService = new CapturingZkProofService(ZkProofVerificationResult.Success());
         IConfiguration configuration = BuildConfiguration(new Dictionary<string, string?>
         {
@@ -161,10 +162,9 @@ public sealed class ZkAnonymousProofVerifierContractTests
             ["Moderation:Pepper"] = ModerationPepper
         });
         var resolver = new CommentActorResolver(
-            db,
+            accountReader,
             new AnonymousCommentPolicyService(configuration),
             new CommentAnonymousDisplayNameGenerator(),
-            new ThrowingCredentialService(),
             proofService,
             configuration);
 
@@ -178,7 +178,7 @@ public sealed class ZkAnonymousProofVerifierContractTests
         Assert.Null(result.Actor);
         Assert.Equal("anonymous_ticket_required", result.Status);
         Assert.Equal(0, proofService.CallCount);
-        Assert.Empty(db.ReceivedCalls());
+        Assert.Empty(accountReader.ReceivedCalls());
     }
 
     [Theory]
@@ -195,10 +195,9 @@ public sealed class ZkAnonymousProofVerifierContractTests
             ["Moderation:Pepper"] = ModerationPepper
         });
         var resolver = new CommentActorResolver(
-            Substitute.For<ISqlSugarClient>(),
+            Substitute.For<IUserAccountReader>(),
             new AnonymousCommentPolicyService(configuration),
             new CommentAnonymousDisplayNameGenerator(),
-            new ThrowingCredentialService(),
             proofService,
             configuration);
         CommentActorResolveRequest request = missingField switch

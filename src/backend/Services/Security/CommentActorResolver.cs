@@ -2,9 +2,10 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Moderation;
-using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -104,10 +105,9 @@ public interface ICommentActorResolver
 }
 
 public sealed class CommentActorResolver(
-    ISqlSugarClient db,
+    IUserAccountReader accountReader,
     IAnonymousCommentPolicyService policyService,
     ICommentAnonymousDisplayNameGenerator displayNameGenerator,
-    IAnonymousCredentialService credentialService,
     IZkAnonymousProofService zkProofService,
     IConfiguration configuration) : ICommentActorResolver
 {
@@ -136,10 +136,9 @@ public sealed class CommentActorResolver(
                 return CommentActorResolveResult.Reject("public_user_required", "Public comment mode requires an authenticated user");
             }
 
-            string? publicHandle = await db.Queryable<User>()
-                .Where(u => u.Id == request.UserId.Value)
-                .Select(u => u.PublicHandle)
-                .FirstAsync();
+            UserAccountSnapshot? account = await accountReader.GetAccountByIdAsync(request.UserId.Value);
+            FsusObservability.RecordCommentActorResolverPublicHandleCache(account.HasValue && !string.IsNullOrWhiteSpace(account.Value.PublicHandle));
+            string? publicHandle = account?.PublicHandle;
             if (string.IsNullOrWhiteSpace(publicHandle))
             {
                 return CommentActorResolveResult.Reject("public_handle_required", "Public comment mode requires a saved public handle");
@@ -224,7 +223,9 @@ public sealed class CommentActorResolver(
             return AnonymousCredentialLevels.Basic;
         }
 
-        string? level = await credentialService.GetAccountCredentialLevelAsync(userId.Value, null, cancellationToken);
+        UserAccountSnapshot? account = await accountReader.GetAccountByIdAsync(userId.Value);
+        FsusObservability.RecordCommentActorResolverCredentialLevelCache(account.HasValue && !string.IsNullOrWhiteSpace(account.Value.AnonymousCredentialLevel));
+        string? level = account?.AnonymousCredentialLevel;
         return NormalizeToken(level, 32) ?? AnonymousCredentialLevels.Basic;
     }
 

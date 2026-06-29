@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -140,8 +141,17 @@ public sealed class CommentActorContractTests
     public void PublicCommentActor_RequiresPersistedPublicHandleWithoutUsernameFallback()
     {
         string resolver = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CommentActorResolver.cs");
+        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
 
-        Assert.Contains(".Select(u => u.PublicHandle)", resolver, StringComparison.Ordinal);
+        Assert.Contains("IUserAccountReader", resolver, StringComparison.Ordinal);
+        Assert.Contains("GetAccountByIdAsync", resolver, StringComparison.Ordinal);
+        Assert.DoesNotContain("ISqlSugarClient", resolver, StringComparison.Ordinal);
+        Assert.DoesNotContain("IAnonymousCredentialService", resolver, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Queryable<User>()", resolver, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Select(u => u.PublicHandle)", resolver, StringComparison.Ordinal);
+        Assert.Contains("fsus.comment.actor_resolver.public_handle_cache.hit_ratio", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.comment.actor_resolver.credential_level_cache.hit_ratio", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.comment.actor_resolver.db_round_trips", observability, StringComparison.Ordinal);
         Assert.Contains("public_handle_required", resolver, StringComparison.Ordinal);
         Assert.DoesNotContain(".Select(u => u.Username)", resolver, StringComparison.Ordinal);
         Assert.DoesNotContain("NormalizeToken(username", resolver, StringComparison.Ordinal);
@@ -151,14 +161,13 @@ public sealed class CommentActorContractTests
     [Fact]
     public async Task CommentActorResolver_AnonymousModeDropsRequestUserId()
     {
-        var credentialService = Substitute.For<IAnonymousCredentialService>();
-        credentialService.GetAccountCredentialLevelAsync(42, null, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<string?>(AnonymousCredentialLevels.Trusted));
+        var accountReader = Substitute.For<IUserAccountReader>();
+        accountReader.GetAccountByIdAsync(42)
+            .Returns(Task.FromResult<UserAccountSnapshot?>(CreateAccountSnapshot(42, credentialLevel: AnonymousCredentialLevels.Trusted)));
         var resolver = new CommentActorResolver(
-            Substitute.For<ISqlSugarClient>(),
+            accountReader,
             new AnonymousCommentPolicyService(BuildConfiguration([])),
             new CommentAnonymousDisplayNameGenerator(),
-            credentialService,
             Substitute.For<IZkAnonymousProofService>(),
             BuildConfiguration([]));
 
@@ -185,18 +194,13 @@ public sealed class CommentActorContractTests
     [Fact]
     public async Task CommentActorResolver_PublicModeKeepsRequestUserId()
     {
-        var db = Substitute.For<ISqlSugarClient>();
-        var users = Substitute.For<ISugarQueryable<User>>();
-        var handles = Substitute.For<ISugarQueryable<string>>();
-        db.Queryable<User>().Returns(users);
-        users.Where(Arg.Any<Expression<Func<User, bool>>>()).Returns(users);
-        users.Select(Arg.Any<Expression<Func<User, string>>>()).Returns(handles);
-        handles.FirstAsync().Returns(Task.FromResult("PublicHandle"));
+        var accountReader = Substitute.For<IUserAccountReader>();
+        accountReader.GetAccountByIdAsync(42)
+            .Returns(Task.FromResult<UserAccountSnapshot?>(CreateAccountSnapshot(42, publicHandle: "PublicHandle")));
         var resolver = new CommentActorResolver(
-            db,
+            accountReader,
             new AnonymousCommentPolicyService(BuildConfiguration([])),
             new CommentAnonymousDisplayNameGenerator(),
-            Substitute.For<IAnonymousCredentialService>(),
             Substitute.For<IZkAnonymousProofService>(),
             BuildConfiguration([]));
 
@@ -218,6 +222,19 @@ public sealed class CommentActorContractTests
         Assert.Equal("PublicHandle", result.Actor.PublicHandle);
         Assert.Null(result.Actor.AnonymousHandle);
     }
+
+    private static UserAccountSnapshot CreateAccountSnapshot(
+        int id,
+        string? publicHandle = "public-handle",
+        string? credentialLevel = AnonymousCredentialLevels.Basic)
+        => new(
+            Id: id,
+            Status: 0,
+            BanReason: null,
+            MfaEnabled: false,
+            DeletedAt: null,
+            PublicHandle: publicHandle,
+            AnonymousCredentialLevel: credentialLevel);
 
     [Fact]
     public void AnonymousDisplayNameGenerator_LocalizesStablyWithoutIdentityLeakage()

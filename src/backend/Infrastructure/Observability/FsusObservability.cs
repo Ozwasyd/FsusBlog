@@ -229,6 +229,17 @@ public static class FsusObservability
     private static readonly Counter<long> AuthRefreshReplayDetectedCount = Meter.CreateCounter<long>("fsus.auth.refresh.replay_detected_count");
     private static readonly Counter<long> AccountSnapshotCacheHit = Meter.CreateCounter<long>("fsus.account_snapshot.cache_hit");
     private static readonly Counter<long> AccountSnapshotDbReadCount = Meter.CreateCounter<long>("fsus.account_snapshot.db_read_count");
+    private static long CommentActorResolverPublicHandleHits;
+    private static long CommentActorResolverPublicHandleMisses;
+    private static long CommentActorResolverCredentialLevelHits;
+    private static long CommentActorResolverCredentialLevelMisses;
+    private static readonly ObservableGauge<double> CommentActorResolverPublicHandleHitRatioGauge = Meter.CreateObservableGauge(
+        "fsus.comment.actor_resolver.public_handle_cache.hit_ratio",
+        static () => Ratio(CommentActorResolverPublicHandleHits, CommentActorResolverPublicHandleMisses));
+    private static readonly ObservableGauge<double> CommentActorResolverCredentialLevelHitRatioGauge = Meter.CreateObservableGauge(
+        "fsus.comment.actor_resolver.credential_level_cache.hit_ratio",
+        static () => Ratio(CommentActorResolverCredentialLevelHits, CommentActorResolverCredentialLevelMisses));
+    private static readonly Counter<long> CommentActorResolverDbRoundTrips = Meter.CreateCounter<long>("fsus.comment.actor_resolver.db_round_trips");
     private static readonly Histogram<double> AuthMeElapsed = Meter.CreateHistogram<double>("fsus.auth.me.elapsed_ms", "ms");
     private static readonly Histogram<double> MfaChallengeStartAccountReadElapsed = Meter.CreateHistogram<double>("fsus.mfa.challenge_start.account_read_elapsed_ms", "ms");
     private static readonly Counter<long> MfaFailureCounterKeyCount = Meter.CreateCounter<long>("fsus.mfa.failure_counter.key_count");
@@ -1169,6 +1180,37 @@ public static class FsusObservability
         {
             TagList tags = CreateBaseTags("account-snapshot", "db_read", "ok");
             AccountSnapshotDbReadCount.Add(1, tags);
+        });
+    }
+
+    public static void RecordCommentActorResolverPublicHandleCache(bool hit)
+    {
+        if (hit)
+        {
+            Interlocked.Increment(ref CommentActorResolverPublicHandleHits);
+            return;
+        }
+
+        Interlocked.Increment(ref CommentActorResolverPublicHandleMisses);
+    }
+
+    public static void RecordCommentActorResolverCredentialLevelCache(bool hit)
+    {
+        if (hit)
+        {
+            Interlocked.Increment(ref CommentActorResolverCredentialLevelHits);
+            return;
+        }
+
+        Interlocked.Increment(ref CommentActorResolverCredentialLevelMisses);
+    }
+
+    public static void RecordCommentActorResolverDbRoundTrip(string projection)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("comment-actor", NormalizeTelemetryValue(projection, "account"), "db");
+            CommentActorResolverDbRoundTrips.Add(1, tags);
         });
     }
 

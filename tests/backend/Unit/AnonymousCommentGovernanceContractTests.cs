@@ -79,7 +79,8 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
         Assert.DoesNotContain("IssueAsync(\n        int? userId,\n        string commitmentHash", service, StringComparison.Ordinal);
         Assert.DoesNotContain("GetCredentialLevelAsync(\n        int? userId,\n        string? commitmentHash", service, StringComparison.Ordinal);
 
-        Assert.Contains("GetAccountCredentialLevelAsync(userId.Value", actorResolver, StringComparison.Ordinal);
+        Assert.Contains("accountReader.GetAccountByIdAsync(userId.Value", actorResolver, StringComparison.Ordinal);
+        Assert.Contains("account?.AnonymousCredentialLevel", actorResolver, StringComparison.Ordinal);
         string zkBlock = actorResolver[
             actorResolver.IndexOf("if (string.Equals(decision.EffectiveAuthorMode, CommentAuthorModes.ZkAnonymous", StringComparison.Ordinal)..
             actorResolver.IndexOf("string nullifierHash = DeriveEngineeringNullifierHash", StringComparison.Ordinal)];
