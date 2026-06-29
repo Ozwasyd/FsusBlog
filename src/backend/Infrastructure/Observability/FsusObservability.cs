@@ -277,6 +277,10 @@ public static class FsusObservability
     private static readonly Histogram<double> DistributionDiagnosticsElapsed = Meter.CreateHistogram<double>("fsus.distribution.diagnostics.elapsed_ms", "ms");
     private static readonly Counter<long> DistributionDiagnosticsCacheAccess = Meter.CreateCounter<long>("fsus.distribution.diagnostics.cache_access");
     private static readonly Counter<long> DistributionDiagnosticsDbCommandCount = Meter.CreateCounter<long>("fsus.distribution.diagnostics.db_command_count");
+    private static readonly Histogram<double> RelatedReadingBuildElapsed = Meter.CreateHistogram<double>("fsus.related_reading.build.elapsed_ms", "ms");
+    private static readonly Counter<long> RelatedReadingBuildCacheAccess = Meter.CreateCounter<long>("fsus.related_reading.build.cache_access");
+    private static readonly Histogram<double> SitemapBuildElapsed = Meter.CreateHistogram<double>("fsus.sitemap.build.elapsed_ms", "ms");
+    private static readonly Counter<long> SitemapBuildCacheAccess = Meter.CreateCounter<long>("fsus.sitemap.build.cache_access");
     private static readonly Counter<long> ReadinessSnapshotCacheAccess = Meter.CreateCounter<long>("fsus.readiness.snapshot.cache_access");
     private static readonly Histogram<double> ReadinessSnapshotFreshCheckElapsed = Meter.CreateHistogram<double>("fsus.readiness.snapshot.fresh_check_elapsed_ms", "ms");
     private static readonly Counter<long> ReadinessSnapshotDependencyCheckCount = Meter.CreateCounter<long>("fsus.readiness.snapshot.dependency_check_count");
@@ -1472,6 +1476,26 @@ public static class FsusObservability
             DistributionDiagnosticsElapsed.Record(elapsed.TotalMilliseconds, tags);
             DistributionDiagnosticsCacheAccess.Add(1, tags);
             DistributionDiagnosticsDbCommandCount.Add(Math.Max(0, dbCommandCount), tags);
+        });
+    }
+
+    public static void RecordRelatedReadingBuild(bool cacheHit, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("related-reading", "build", cacheHit ? "hit" : "miss");
+            RelatedReadingBuildElapsed.Record(elapsed.TotalMilliseconds, tags);
+            RelatedReadingBuildCacheAccess.Add(1, tags);
+        });
+    }
+
+    public static void RecordSitemapBuild(bool cacheHit, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("sitemap", "build", cacheHit ? "hit" : "miss");
+            SitemapBuildElapsed.Record(elapsed.TotalMilliseconds, tags);
+            SitemapBuildCacheAccess.Add(1, tags);
         });
     }
 

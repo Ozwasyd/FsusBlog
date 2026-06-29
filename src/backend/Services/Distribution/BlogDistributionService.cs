@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text.Json.Serialization;
 using System.Xml.Linq;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
@@ -16,12 +17,14 @@ namespace FsusBlog.Server.Services.Distribution;
 public sealed class BlogDistributionService(
     ISqlSugarClient db,
     ISystemService systemService,
+    IUnifiedCache cache,
     IMemoryCache memoryCache)
 {
     private const int FeedLimit = 50;
     private const int StaticSitemapPageCount = 6;
     private const string DiagnosticsCacheKey = "distribution:diagnostics-counts:v1";
     private static readonly TimeSpan DiagnosticsCacheTtl = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan SitemapCacheTtl = TimeSpan.FromMinutes(5);
     private static readonly XNamespace AtomNamespace = "http://www.w3.org/2005/Atom";
 
     public async Task<string> BuildRssAsync(CancellationToken cancellationToken = default)
@@ -101,9 +104,23 @@ public sealed class BlogDistributionService(
 
     public async Task<string> BuildSitemapAsync(CancellationToken cancellationToken = default)
     {
-        DistributionSnapshot snapshot = await LoadSnapshotAsync(cancellationToken);
-        IReadOnlyList<DistributionTaxonomyRow> categories = await LoadCategoriesAsync(cancellationToken);
-        IReadOnlyList<DistributionTaxonomyRow> tags = await LoadTagsAsync(cancellationToken);
+        long startedAt = Stopwatch.GetTimestamp();
+        long version = await GetArticleListVersionAsync(cancellationToken);
+        string cacheKey = $"sitemap:v:{version}";
+        if (memoryCache.TryGetValue(cacheKey, out string? cached) && cached is not null)
+        {
+            FsusObservability.RecordSitemapBuild(cacheHit: true, FsusObservability.GetElapsed(startedAt));
+            return cached;
+        }
+
+        Task<DistributionSnapshot> snapshotTask = LoadSnapshotAsync(cancellationToken);
+        Task<IReadOnlyList<DistributionTaxonomyRow>> categoriesTask = LoadCategoriesAsync(cancellationToken);
+        Task<IReadOnlyList<DistributionTaxonomyRow>> tagsTask = LoadTagsAsync(cancellationToken);
+        await Task.WhenAll(snapshotTask, categoriesTask, tagsTask);
+
+        DistributionSnapshot snapshot = await snapshotTask;
+        IReadOnlyList<DistributionTaxonomyRow> categories = await categoriesTask;
+        IReadOnlyList<DistributionTaxonomyRow> tags = await tagsTask;
 
         var urls = new List<(string Location, DateTimeOffset UpdatedAt, string Priority)>
         {
@@ -128,7 +145,10 @@ public sealed class BlogDistributionService(
                     new XElement(ns + "loc", url.Location),
                     new XElement(ns + "lastmod", ToWireSitemapDate(url.UpdatedAt)),
                     new XElement(ns + "priority", url.Priority)))));
-        return document.ToString(SaveOptions.DisableFormatting);
+        string sitemap = document.ToString(SaveOptions.DisableFormatting);
+        memoryCache.Set(cacheKey, sitemap, SitemapCacheTtl);
+        FsusObservability.RecordSitemapBuild(cacheHit: false, FsusObservability.GetElapsed(startedAt));
+        return sitemap;
     }
 
     public async Task<DistributionDiagnosticsCounts> GetDiagnosticsCountsAsync(CancellationToken cancellationToken = default)
@@ -188,11 +208,37 @@ public sealed class BlogDistributionService(
 
     private async Task<DistributionSnapshot> LoadSnapshotAsync(CancellationToken cancellationToken)
     {
-        SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
-        SiteComplianceConfigReadModel compliance = await systemService.GetSiteComplianceConfigAsync();
+        Task<SeoConfigReadModel> seoTask = systemService.GetSeoConfigAsync();
+        Task<SiteComplianceConfigReadModel> complianceTask = systemService.GetSiteComplianceConfigAsync();
+        Task<List<DistributionArticleRow>> rowsTask = LoadDistributionArticlesAsync(cancellationToken);
+        await Task.WhenAll(seoTask, complianceTask, rowsTask);
+
+        SeoConfigReadModel seo = await seoTask;
+        SiteComplianceConfigReadModel compliance = await complianceTask;
+        List<DistributionArticleRow> rows = await rowsTask;
         string baseUrl = NormalizeBaseUrl(seo.BaseUrl);
+
+        DateTimeOffset updatedAt = rows.Count == 0
+            ? DateTimeOffset.UtcNow
+            : rows.Max(static row => new DateTimeOffset(row.UpdatedAt, TimeSpan.Zero));
+        return new DistributionSnapshot(
+            seo,
+            compliance,
+            baseUrl,
+            updatedAt,
+            rows.Select(row => new DistributionArticle(
+                row.Id,
+                row.Title,
+                string.IsNullOrWhiteSpace(row.Summary) ? row.Title : row.Summary!,
+                row.CoverImageUrl,
+                $"{baseUrl}{PublicRouteIdentity.BuildCanonicalPath(PublicPageId.ArticleDetail, PublicRouteIdentity.BuildArticleRouteKey(row.Id), row.Id)}",
+                new DateTimeOffset(row.UpdatedAt, TimeSpan.Zero))).ToArray());
+    }
+
+    private async Task<List<DistributionArticleRow>> LoadDistributionArticlesAsync(CancellationToken cancellationToken)
+    {
         DateTime now = DateTime.UtcNow;
-        List<DistributionArticleRow> rows = await db.Queryable<Article, Category>((article, category) => article.CategoryId == category.Id)
+        return await db.Queryable<Article, Category>((article, category) => article.CategoryId == category.Id)
             .Where((article, category) => article.IsDeleted == false
                 && article.Status == ArticleStatus.Published
                 && (article.PublishedAt == null || article.PublishedAt <= now)
@@ -211,22 +257,12 @@ public sealed class BlogDistributionService(
                 CategoryName = category.Name
             })
             .ToListAsync(cancellationToken);
+    }
 
-        DateTimeOffset updatedAt = rows.Count == 0
-            ? DateTimeOffset.UtcNow
-            : rows.Max(static row => new DateTimeOffset(row.UpdatedAt, TimeSpan.Zero));
-        return new DistributionSnapshot(
-            seo,
-            compliance,
-            baseUrl,
-            updatedAt,
-            rows.Select(row => new DistributionArticle(
-                row.Id,
-                row.Title,
-                string.IsNullOrWhiteSpace(row.Summary) ? row.Title : row.Summary!,
-                row.CoverImageUrl,
-                $"{baseUrl}{PublicRouteIdentity.BuildCanonicalPath(PublicPageId.ArticleDetail, PublicRouteIdentity.BuildArticleRouteKey(row.Id), row.Id)}",
-                new DateTimeOffset(row.UpdatedAt, TimeSpan.Zero))).ToArray());
+    private async ValueTask<long> GetArticleListVersionAsync(CancellationToken cancellationToken)
+    {
+        string? version = await cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", cancellationToken);
+        return long.TryParse(version, out long parsed) ? parsed : 0;
     }
 
     private async Task<int> CountPublicArticlesAsync(CancellationToken cancellationToken)

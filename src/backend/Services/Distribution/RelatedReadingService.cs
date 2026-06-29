@@ -1,7 +1,10 @@
 using System.Data.Common;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.Extensions.Caching.Memory;
 using SqlSugar;
@@ -26,15 +29,22 @@ public sealed class RelatedReadingService(
 
     public async Task<RelatedReadingResponse?> BuildAsync(int articleId, CancellationToken cancellationToken = default)
     {
+        long startedAt = Stopwatch.GetTimestamp();
         if (articleId <= 0)
         {
             return null;
         }
 
-        long version = await GetArticleListVersionAsync(cancellationToken);
+        DateTime now = DateTime.UtcNow;
+        Task<long> versionTask = GetArticleListVersionAsync(cancellationToken).AsTask();
+        Task<RelatedArticleRow?> articleTask = LoadPublicArticleAsync(articleId, now, cancellationToken);
+        await Task.WhenAll(versionTask, articleTask);
+
+        long version = await versionTask;
         string cacheKey = $"article:{articleId}:v:{version}";
         if (memoryCache.TryGetValue(cacheKey, out RelatedReadingResponse? cached) && cached is not null)
         {
+            FsusObservability.RecordRelatedReadingBuild(cacheHit: true, FsusObservability.GetElapsed(startedAt));
             return cached;
         }
 
@@ -46,29 +56,29 @@ public sealed class RelatedReadingService(
         if (sharedCached.Hit && sharedCached.Value is not null)
         {
             memoryCache.Set(cacheKey, sharedCached.Value, CacheTtl);
+            FsusObservability.RecordRelatedReadingBuild(cacheHit: true, FsusObservability.GetElapsed(startedAt));
             return sharedCached.Value;
         }
 
-        DateTime now = DateTime.UtcNow;
-        RelatedArticleRow? article = await LoadPublicArticleAsync(articleId, now, cancellationToken);
+        RelatedArticleRow? article = await articleTask;
 
         if (article is null)
         {
+            FsusObservability.RecordRelatedReadingBuild(cacheHit: false, FsusObservability.GetElapsed(startedAt));
             return null;
         }
 
-        int[] sourceTagIds = [.. await db.Queryable<ArticleTag>()
-            .Where(tag => tag.ArticleId == articleId)
-            .Select(tag => tag.TagId)
-            .ToListAsync(cancellationToken)];
+        Task<int[]> sourceTagIdsTask = LoadSourceTagIdsAsync(articleId, cancellationToken);
+        Task<CandidateIndex> candidateIndexTask = LoadCandidateIndexAsync(articleId, article.CategoryId, now, cancellationToken);
+        await Task.WhenAll(sourceTagIdsTask, candidateIndexTask);
+
+        int[] sourceTagIds = await sourceTagIdsTask;
         HashSet<int> sourceTags = sourceTagIds.ToHashSet();
         string[] keywords = ExtractKeywords(article.Title, article.Summary);
 
-        List<RelatedArticleRow> candidates = await LoadCandidateIndexAsync(articleId, article.CategoryId, sourceTagIds, now, cancellationToken);
-
-        Dictionary<int, HashSet<int>> candidateTags = await LoadTagMapAsync(candidates.Select(static candidate => candidate.Id).ToArray(), cancellationToken);
-        List<RelatedReadingItem> related = candidates
-            .Select(candidate => ScoreCandidate(article, candidate, sourceTags, candidateTags.GetValueOrDefault(candidate.Id), keywords))
+        CandidateIndex candidateIndex = await candidateIndexTask;
+        List<RelatedReadingItem> related = candidateIndex.Rows
+            .Select(candidate => ScoreCandidate(article, candidate, sourceTags, candidateIndex.Tags.GetValueOrDefault(candidate.Id), keywords))
             .OrderByDescending(static scored => scored.Score)
             .ThenBy(static scored => scored.PublishedDistance)
             .ThenByDescending(static scored => scored.Row.SortTime)
@@ -77,8 +87,12 @@ public sealed class RelatedReadingService(
             .Select(static scored => ToItem(scored.Row, scored.Reason))
             .ToList();
 
-        RelatedArticleRow? previous = await LoadAdjacentAsync(article, newer: false, now, cancellationToken);
-        RelatedArticleRow? next = await LoadAdjacentAsync(article, newer: true, now, cancellationToken);
+        Task<RelatedArticleRow?> previousTask = LoadAdjacentAsync(article, newer: false, now, cancellationToken);
+        Task<RelatedArticleRow?> nextTask = LoadAdjacentAsync(article, newer: true, now, cancellationToken);
+        await Task.WhenAll(previousTask, nextTask);
+
+        RelatedArticleRow? previous = await previousTask;
+        RelatedArticleRow? next = await nextTask;
 
         var response = new RelatedReadingResponse(
             related,
@@ -86,6 +100,7 @@ public sealed class RelatedReadingService(
             next is null ? null : ToItem(next, "下一篇"));
         memoryCache.Set(cacheKey, response, CacheTtl);
         await cache.SetRawAsync(CachePolicyId.RelatedReading, cacheKey, JsonSerializer.SerializeToUtf8Bytes(response, JsonOptions), CacheTtl, cancellationToken);
+        FsusObservability.RecordRelatedReadingBuild(cacheHit: false, FsusObservability.GetElapsed(startedAt));
         return response;
     }
 
@@ -113,7 +128,7 @@ public sealed class RelatedReadingService(
                 a.summary AS "Summary",
                 a.createtime AS "CreateTime",
                 a.published_at AS "PublishedAt",
-                a.categoryid AS "CategoryId",
+                a.categoryid AS "CategoryId"
             FROM article a
             WHERE a.id = @ArticleId
               AND a.isdeleted = false
@@ -152,69 +167,107 @@ public sealed class RelatedReadingService(
         };
     }
 
-    private async Task<List<RelatedArticleRow>> LoadCandidateIndexAsync(
+    private async Task<int[]> LoadSourceTagIdsAsync(int articleId, CancellationToken cancellationToken)
+        => [.. await db.Queryable<ArticleTag>()
+            .Where(tag => tag.ArticleId == articleId)
+            .Select(tag => tag.TagId)
+            .ToListAsync(cancellationToken)];
+
+    private async Task<CandidateIndex> LoadCandidateIndexAsync(
         int articleId,
         int categoryId,
-        int[] sourceTagIds,
         DateTime now,
         CancellationToken cancellationToken)
     {
-        ISugarQueryable<Article> query = db.Queryable<Article>()
-            .Where(candidate => candidate.Id != articleId
-                && !candidate.IsDeleted
-                && candidate.Status == ArticleStatus.Published
-                && (candidate.PublishedAt == null || candidate.PublishedAt <= now)
-                && (candidate.ScheduledPublishAt == null || candidate.ScheduledPublishAt <= now));
-
-        if (sourceTagIds.Length > 0)
-        {
-            query = query.Where(candidate => candidate.CategoryId == categoryId
-                || SqlFunc.Subqueryable<ArticleTag>()
-                    .Where(tag => tag.ArticleId == candidate.Id && sourceTagIds.Contains(tag.TagId))
-                    .Any());
-        }
-        else
-        {
-            query = query.Where(candidate => candidate.CategoryId == categoryId);
-        }
-
-        return await query
-            .OrderByDescending(candidate => candidate.PublishedAt ?? candidate.CreateTime)
-            .OrderByDescending(candidate => candidate.Id)
-            .Take(CandidateWindow)
-            .Select(candidate => new RelatedArticleRow
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
+            WITH candidates AS (
+                SELECT
+                    a.id AS "Id",
+                    a.title AS "Title",
+                    a.summary AS "Summary",
+                    a.createtime AS "CreateTime",
+                    a.published_at AS "PublishedAt",
+                    a.categoryid AS "CategoryId",
+                    COALESCE(a.published_at, a.createtime) AS "SortTime"
+                FROM article a
+                WHERE a.id <> @ArticleId
+                  AND a.isdeleted = false
+                  AND a.status = @PublishedStatus
+                  AND (a.published_at IS NULL OR a.published_at <= @Now)
+                  AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now)
+                  AND (
+                      a.categoryid = @CategoryId OR EXISTS (
+                          SELECT 1
+                          FROM article_tag source_tag
+                          INNER JOIN article_tag candidate_tag ON candidate_tag.tagid = source_tag.tagid
+                          WHERE source_tag.articleid = @ArticleId
+                            AND candidate_tag.articleid = a.id
+                      )
+                  )
+                ORDER BY COALESCE(a.published_at, a.createtime) DESC, a.id DESC
+                LIMIT @CandidateWindow
+            )
+            SELECT
+                candidates."Id",
+                candidates."Title",
+                candidates."Summary",
+                candidates."CreateTime",
+                candidates."PublishedAt",
+                candidates."CategoryId",
+                article_tag.tagid AS "TagId"
+            FROM candidates
+            LEFT JOIN article_tag ON article_tag.articleid = candidates."Id"
+            ORDER BY candidates."SortTime" DESC, candidates."Id" DESC;
+            """,
+            new[]
             {
-                Id = candidate.Id,
-                Title = candidate.Title,
-                Summary = candidate.Summary,
-                CreateTime = candidate.CreateTime,
-                PublishedAt = candidate.PublishedAt,
-                CategoryId = candidate.CategoryId
-            })
-            .ToListAsync(cancellationToken);
-    }
+                new SugarParameter("@ArticleId", articleId),
+                new SugarParameter("@CategoryId", categoryId),
+                new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published),
+                new SugarParameter("@Now", now),
+                new SugarParameter("@CandidateWindow", CandidateWindow)
+            });
 
-    private async Task<Dictionary<int, HashSet<int>>> LoadTagMapAsync(int[] articleIds, CancellationToken cancellationToken)
-    {
-        if (articleIds.Length == 0)
+        int fId = reader.GetOrdinal("Id");
+        int fTitle = reader.GetOrdinal("Title");
+        int fSummary = reader.GetOrdinal("Summary");
+        int fCreateTime = reader.GetOrdinal("CreateTime");
+        int fPublishedAt = reader.GetOrdinal("PublishedAt");
+        int fCategoryId = reader.GetOrdinal("CategoryId");
+        int fTagId = reader.GetOrdinal("TagId");
+
+        var rows = new List<RelatedArticleRow>(CandidateWindow);
+        var seenRows = new HashSet<int>();
+        var tags = new Dictionary<int, HashSet<int>>();
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            return [];
+            int id = reader.GetInt32(fId);
+            if (seenRows.Add(id))
+            {
+                rows.Add(new RelatedArticleRow
+                {
+                    Id = id,
+                    Title = reader.IsDBNull(fTitle) ? string.Empty : reader.GetString(fTitle),
+                    Summary = reader.IsDBNull(fSummary) ? null : reader.GetString(fSummary),
+                    CreateTime = reader.GetDateTime(fCreateTime),
+                    PublishedAt = reader.IsDBNull(fPublishedAt) ? null : reader.GetDateTime(fPublishedAt),
+                    CategoryId = reader.GetInt32(fCategoryId)
+                });
+            }
+
+            if (!reader.IsDBNull(fTagId))
+            {
+                if (!tags.TryGetValue(id, out HashSet<int>? articleTags))
+                {
+                    articleTags = [];
+                    tags[id] = articleTags;
+                }
+
+                articleTags.Add(reader.GetInt32(fTagId));
+            }
         }
 
-        List<RelatedTagRow> rows = await db.Queryable<ArticleTag>()
-            .Where(tag => articleIds.Contains(tag.ArticleId))
-            .Select(tag => new RelatedTagRow
-            {
-                ArticleId = tag.ArticleId,
-                TagId = tag.TagId
-            })
-            .ToListAsync(cancellationToken);
-
-        return rows
-            .GroupBy(static row => row.ArticleId)
-            .ToDictionary(
-                static group => group.Key,
-                static group => group.Select(static row => row.TagId).ToHashSet());
+        return new CandidateIndex(rows, tags);
     }
 
     private async Task<RelatedArticleRow?> LoadAdjacentAsync(
@@ -329,7 +382,10 @@ public sealed class RelatedReadingService(
         {
             if (buffer.Count >= 3)
             {
-                string token = new(buffer.ToArray());
+                string token = string.Create(buffer.Count, buffer, static (span, chars) =>
+                {
+                    CollectionsMarshal.AsSpan(chars).CopyTo(span);
+                });
                 if (!StopWords.Contains(token))
                 {
                     tokens.Add(token);
@@ -351,7 +407,11 @@ public sealed class RelatedReadingService(
             FlushWord();
             if (IsCjk(value) && i + 1 < text.Length && IsCjk(text[i + 1]))
             {
-                tokens.Add(text.Substring(i, 2));
+                tokens.Add(string.Create(2, (First: value, Second: text[i + 1]), static (span, pair) =>
+                {
+                    span[0] = pair.First;
+                    span[1] = pair.Second;
+                }));
             }
         }
 
@@ -376,11 +436,9 @@ public sealed class RelatedReadingService(
         public DateTime SortTime => PublishedAt ?? CreateTime;
     }
 
-    private sealed class RelatedTagRow
-    {
-        public int ArticleId { get; init; }
-        public int TagId { get; init; }
-    }
+    private sealed record CandidateIndex(
+        List<RelatedArticleRow> Rows,
+        Dictionary<int, HashSet<int>> Tags);
 
     private sealed record ScoredRelatedArticle(RelatedArticleRow Row, int Score, int PublishedDistance, string Reason);
 }
