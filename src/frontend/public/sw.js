@@ -6,9 +6,19 @@ const SEARCH_ALIAS_PATH = '/search/index.bin'
 const SEARCH_MANIFEST_PATH = '/search/index.manifest.aeds'
 const SEARCH_MANIFEST_MAGIC = 0x4d495346
 const SEARCH_MANIFEST_BINARY_VERSION = 1
+const SEARCH_MANIFEST_MIN_CHECK_INTERVAL_MS = 30000
+const SEARCH_ASSET_FETCH_CONCURRENCY = 3
 const AEDS_BINARY_MEDIA_TYPE = 'application/octet-stream'
 const DOTNET_EPOCH_OFFSET_MS = 62135596800000
 const TEXT_DECODER = new TextDecoder()
+let searchIndexUpdatePromise = null
+let lastSearchManifestCheckAt = 0
+const searchIndexTelemetry = {
+  manifestCheckCount: 0,
+  singleFlightJoinCount: 0,
+  staleShardDeletedCount: 0,
+  searchIndexUpdateElapsed: 0
+}
 const PUBLIC_SHELL_PATHS = [
   /^\/$/,
   /^\/about\/?$/,
@@ -90,7 +100,7 @@ async function handleControlMessage(message) {
       await broadcast({ type: 'shell-updated', scope: message.scope ?? null })
       break
     case 'search-index.updated':
-      await ensureLatestSearchIndex()
+      await ensureLatestSearchIndex({ force: true })
       break
     case 'asset.clear':
       await clearNamedCache(message.cache, message.keys ?? null)
@@ -221,24 +231,53 @@ async function cacheSearchAsset(request) {
   return response
 }
 
-async function ensureLatestSearchIndex() {
-  const manifestResponse = await fetch(SEARCH_MANIFEST_PATH, {
-    cache: 'no-store',
-    headers: { Accept: AEDS_BINARY_MEDIA_TYPE }
-  })
-  if (!manifestResponse.ok) {
-    throw new Error(`search_manifest_fetch_failed:${manifestResponse.status}`)
+function ensureLatestSearchIndex(options = {}) {
+  if (searchIndexUpdatePromise) {
+    recordSearchIndexTelemetry('singleFlightJoinCount')
+    return searchIndexUpdatePromise
   }
 
-  const manifestBytes = new Uint8Array(await manifestResponse.arrayBuffer())
-  const manifest = decodeSearchManifest(manifestBytes)
-  const meta = await readSearchMeta()
-  if (meta?.currentVersion === manifest.currentVersion) {
-    return
+  const force = options.force === true
+  const now = Date.now()
+  if (!force && now - lastSearchManifestCheckAt < SEARCH_MANIFEST_MIN_CHECK_INTERVAL_MS) {
+    return Promise.resolve()
   }
 
-  await storeSearchAssets(manifest, manifestBytes)
-  await broadcast({ type: 'search-index-ready', version: manifest.currentVersion })
+  searchIndexUpdatePromise = ensureLatestSearchIndexCore()
+    .finally(() => {
+      searchIndexUpdatePromise = null
+    })
+  return searchIndexUpdatePromise
+}
+
+async function ensureLatestSearchIndexCore() {
+  const startedAt = Date.now()
+  lastSearchManifestCheckAt = startedAt
+  recordSearchIndexTelemetry('manifestCheckCount')
+  try {
+    const manifestResponse = await fetch(SEARCH_MANIFEST_PATH, {
+      cache: 'no-store',
+      headers: { Accept: AEDS_BINARY_MEDIA_TYPE }
+    })
+    if (!manifestResponse.ok) {
+      throw new Error(`search_manifest_fetch_failed:${manifestResponse.status}`)
+    }
+
+    const manifestBytes = new Uint8Array(await manifestResponse.arrayBuffer())
+    const manifest = decodeSearchManifest(manifestBytes)
+    const meta = await readSearchMeta()
+    if (meta?.currentVersion === manifest.currentVersion) {
+      return
+    }
+
+    await storeSearchAssets(manifest, manifestBytes)
+    await broadcast({ type: 'search-index-ready', version: manifest.currentVersion })
+  } catch (error) {
+    lastSearchManifestCheckAt = 0
+    throw error
+  } finally {
+    recordSearchIndexTelemetry('searchIndexUpdateElapsed', Date.now() - startedAt)
+  }
 }
 
 async function storeSearchAssets(manifest, manifestBytes) {
@@ -252,47 +291,110 @@ async function storeSearchAssets(manifest, manifestBytes) {
     ...(Array.isArray(manifest.backgroundRoles) ? manifest.backgroundRoles : [])
   ])
 
-  if (Array.isArray(manifest.shards)) {
-    for (const shard of manifest.shards) {
+  const eagerShards = Array.isArray(manifest.shards)
+    ? manifest.shards.filter((shard) => {
       const role = normalizeSearchRole(shard.role)
-      if (!role || !eagerRoles.has(role)) {
-        continue
+      return Boolean(role && eagerRoles.has(role))
+    })
+    : []
+
+  await mapWithConcurrency(
+    eagerShards,
+    SEARCH_ASSET_FETCH_CONCURRENCY,
+    (shard) => storeSearchShard(searchCache, manifest.currentVersion, shard)
+  )
+  await pruneStaleSearchShards(searchCache, manifest)
+}
+
+async function storeSearchShard(searchCache, currentVersion, shard) {
+  const fullResponse = await fetch(shard.fullUrl, { cache: 'no-store' })
+  if (!fullResponse.ok) {
+    throw new Error(`search_full_fetch_failed:${fullResponse.status}`)
+  }
+
+  const fullBytes = new Uint8Array(await fullResponse.arrayBuffer())
+  await verifySha256(fullBytes, shard.fullSha256, 'search_full_hash_mismatch')
+  await searchCache.put(shard.fullUrl, new Response(fullBytes.slice(0), {
+    headers: {
+      'Content-Type': AEDS_BINARY_MEDIA_TYPE,
+      'Cache-Control': 'public,max-age=31536000,immutable',
+      'X-Fsus-Search-Version': currentVersion
+    }
+  }))
+
+  if (shard.patchUrl) {
+    const patchResponse = await fetch(shard.patchUrl, { cache: 'no-store' })
+    if (patchResponse.ok) {
+      const patchBytes = new Uint8Array(await patchResponse.arrayBuffer())
+      if (shard.patchSha256) {
+        await verifySha256(patchBytes, shard.patchSha256, 'search_patch_hash_mismatch')
       }
 
-      const fullResponse = await fetch(shard.fullUrl, { cache: 'no-store' })
-      if (!fullResponse.ok) {
-        throw new Error(`search_full_fetch_failed:${fullResponse.status}`)
-      }
-
-      const fullBytes = new Uint8Array(await fullResponse.arrayBuffer())
-      await verifySha256(fullBytes, shard.fullSha256, 'search_full_hash_mismatch')
-      await searchCache.put(shard.fullUrl, new Response(fullBytes.slice(0), {
+      await searchCache.put(shard.patchUrl, new Response(patchBytes.slice(0), {
         headers: {
           'Content-Type': AEDS_BINARY_MEDIA_TYPE,
           'Cache-Control': 'public,max-age=31536000,immutable',
-          'X-Fsus-Search-Version': manifest.currentVersion
+          'X-Fsus-Search-Version': currentVersion
         }
       }))
+    }
+  }
+}
 
+async function pruneStaleSearchShards(searchCache, manifest) {
+  const currentUrls = new Set()
+  if (Array.isArray(manifest.shards)) {
+    for (const shard of manifest.shards) {
+      currentUrls.add(new URL(shard.fullUrl, self.location.origin).href)
       if (shard.patchUrl) {
-        const patchResponse = await fetch(shard.patchUrl, { cache: 'no-store' })
-        if (patchResponse.ok) {
-          const patchBytes = new Uint8Array(await patchResponse.arrayBuffer())
-          if (shard.patchSha256) {
-            await verifySha256(patchBytes, shard.patchSha256, 'search_patch_hash_mismatch')
-          }
-
-          await searchCache.put(shard.patchUrl, new Response(patchBytes.slice(0), {
-            headers: {
-              'Content-Type': AEDS_BINARY_MEDIA_TYPE,
-              'Cache-Control': 'public,max-age=31536000,immutable',
-              'X-Fsus-Search-Version': manifest.currentVersion
-            }
-          }))
-        }
+        currentUrls.add(new URL(shard.patchUrl, self.location.origin).href)
       }
     }
   }
+
+  let staleShardDeletedCount = 0
+  const keys = await searchCache.keys()
+  await Promise.all(keys.map(async (request) => {
+    const url = new URL(request.url)
+    const isSearchShard = url.pathname.startsWith('/search/index.') || url.pathname.startsWith('/search/patches/')
+    if (!isSearchShard || url.pathname === SEARCH_MANIFEST_PATH || url.pathname === SEARCH_ALIAS_PATH) {
+      return
+    }
+
+    const response = await searchCache.match(request)
+    const cachedVersion = response?.headers.get('X-Fsus-Search-Version') ?? null
+    if ((cachedVersion && cachedVersion !== manifest.currentVersion) || !currentUrls.has(url.href)) {
+      if (await searchCache.delete(request)) {
+        staleShardDeletedCount += 1
+      }
+    }
+  }))
+  if (staleShardDeletedCount > 0) {
+    recordSearchIndexTelemetry('staleShardDeletedCount', staleShardDeletedCount)
+  }
+}
+
+async function mapWithConcurrency(items, limit, mapper) {
+  const results = []
+  let nextIndex = 0
+  const workerCount = Math.min(Math.max(1, limit), items.length)
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex)
+    }
+  }))
+  return results
+}
+
+function recordSearchIndexTelemetry(name, value = 1) {
+  if (name === 'searchIndexUpdateElapsed') {
+    searchIndexTelemetry.searchIndexUpdateElapsed = Math.max(0, Number(value) || 0)
+    return
+  }
+
+  searchIndexTelemetry[name] = Math.max(0, (searchIndexTelemetry[name] ?? 0) + (Number(value) || 0))
 }
 
 async function readSearchMeta() {
