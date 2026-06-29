@@ -1,6 +1,11 @@
 using System.Globalization;
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Text;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Models.Dtos;
+using Microsoft.AspNetCore.WebUtilities;
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Audit;
@@ -17,6 +22,8 @@ public sealed class AuditQueryService(
     IConfiguration configuration)
 {
     private const int MaxAuditPage = 50_000;
+    private static readonly TimeSpan SummaryCacheTtl = TimeSpan.FromSeconds(20);
+    private static readonly ConcurrentDictionary<string, AuditSummaryCacheEntry> SummaryCache = new(StringComparer.Ordinal);
 
     private readonly ISqlSugarClient _db = db;
     private readonly AuditLogRuntimeState _runtimeState = runtimeState;
@@ -29,23 +36,37 @@ public sealed class AuditQueryService(
     {
         int page = Math.Clamp(request.Page, 1, MaxAuditPage);
         int pageSize = Math.Clamp(request.PageSize, 1, 200);
-        Task<int> totalTask = QueryWithNewClientAsync(queryDb =>
-            ApplyFilters(queryDb.Queryable<AuditLog>(), request)
-                .CountAsync(cancellationToken));
-        Task<List<AuditLog>> rowsTask = QueryWithNewClientAsync(queryDb =>
-            ApplyFilters(queryDb.Queryable<AuditLog>(), request)
-                .OrderByDescending(static it => it.OccurredAtUtc)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync(cancellationToken));
-        int total = await totalTask;
-        List<AuditLog> rows = await rowsTask;
+        long startedAt = Stopwatch.GetTimestamp();
+        ISugarQueryable<AuditLog> query = ApplyFilters(_db.Queryable<AuditLog>(), request);
+        if (TryDecodeAuditCursor(request.Cursor, out AuditLogCursor cursor))
+        {
+            query = query.Where(it => it.OccurredAtUtc < cursor.OccurredAtUtc
+                || (it.OccurredAtUtc == cursor.OccurredAtUtc && it.Id < cursor.Id));
+        }
+
+        List<AuditLog> rows = await SelectListProjection(query, disclosureMode)
+            .OrderByDescending(static it => it.OccurredAtUtc)
+            .OrderByDescending(static it => it.Id)
+            .Take(pageSize + 1)
+            .ToListAsync(cancellationToken);
+        bool hasMore = rows.Count > pageSize;
+        if (hasMore)
+        {
+            rows.RemoveAt(rows.Count - 1);
+        }
+
+        string? nextCursor = hasMore && rows.Count > 0
+            ? EncodeAuditCursor(rows[^1])
+            : null;
+        int estimatedTotal = Math.Max((page - 1) * pageSize + rows.Count + (hasMore ? 1 : 0), rows.Count);
+        FsusObservability.RecordAuditList(auditListDbCount: 1, auditListElapsed: FsusObservability.GetElapsed(startedAt));
 
         return new AuditLogListResponse(
             [.. rows.Select(row => ToItemResponse(row, disclosureMode))],
-            total,
+            estimatedTotal,
             page,
             pageSize,
+            nextCursor,
             ToRuntimeResponse(_runtimeState.Snapshot()));
     }
 
@@ -76,6 +97,22 @@ public sealed class AuditQueryService(
 
     public async Task<AuditLogSummaryResponse> GetSummaryAsync(AuditLogQueryRequest request, CancellationToken cancellationToken)
     {
+        string cacheKey = NormalizeSummaryCacheKey(request);
+        DateTime now = DateTime.UtcNow;
+        if (SummaryCache.TryGetValue(cacheKey, out AuditSummaryCacheEntry? cached)
+            && cached.ExpiresAtUtc > now)
+        {
+            FsusObservability.RecordAuditSummaryCacheHit(auditSummaryCacheHit: true);
+            return cached.Response with { Runtime = ToRuntimeResponse(_runtimeState.Snapshot()) };
+        }
+
+        if (cached is not null)
+        {
+            SummaryCache.TryRemove(cacheKey, out _);
+        }
+
+        FsusObservability.RecordAuditSummaryCacheHit(auditSummaryCacheHit: false);
+        long startedAt = Stopwatch.GetTimestamp();
         Task<int> totalTask = QueryWithNewClientAsync(queryDb =>
             ApplyFilters(queryDb.Queryable<AuditLog>(), request).CountAsync(cancellationToken));
         Task<IReadOnlyList<AuditFacetResponse>> sourceTask = QueryWithNewClientAsync(queryDb => BuildSourceFacetAsync(queryDb, request, cancellationToken));
@@ -88,13 +125,16 @@ public sealed class AuditQueryService(
         IReadOnlyList<AuditFacetResponse> outcome = await outcomeTask;
         IReadOnlyList<AuditFacetResponse> severity = await severityTask;
 
-        return new AuditLogSummaryResponse(
+        AuditLogSummaryResponse response = new(
             total,
             source,
             action,
             outcome,
             severity,
             ToRuntimeResponse(_runtimeState.Snapshot()));
+        SummaryCache[cacheKey] = new AuditSummaryCacheEntry(response, now.Add(SummaryCacheTtl));
+        FsusObservability.RecordAuditSummary(auditSummaryQueryCount: 5, auditFacetElapsed: FsusObservability.GetElapsed(startedAt));
+        return response;
     }
 
     private ISugarQueryable<AuditLog> ApplyFilters(ISugarQueryable<AuditLog> query, AuditLogQueryRequest request)
@@ -124,7 +164,9 @@ public sealed class AuditQueryService(
     }
 
     private async Task<IReadOnlyList<AuditFacetResponse>> BuildSourceFacetAsync(ISqlSugarClient queryDb, AuditLogQueryRequest request, CancellationToken cancellationToken)
-        => [.. (await ApplyFilters(queryDb.Queryable<AuditLog>(), request)
+    {
+        long startedAt = Stopwatch.GetTimestamp();
+        IReadOnlyList<AuditFacetResponse> result = [.. (await ApplyFilters(queryDb.Queryable<AuditLog>(), request)
             .GroupBy(static it => it.Source)
             .Select(static it => new AuditFacetRow { Value = it.Source, Count = SqlFunc.AggregateCount(it.Id) })
             .MergeTable()
@@ -132,9 +174,14 @@ public sealed class AuditQueryService(
             .Take(12)
             .ToListAsync(cancellationToken))
             .Select(static it => new AuditFacetResponse(it.Value, it.Count))];
+        FsusObservability.RecordAuditFacet("source", FsusObservability.GetElapsed(startedAt));
+        return result;
+    }
 
     private async Task<IReadOnlyList<AuditFacetResponse>> BuildActionFacetAsync(ISqlSugarClient queryDb, AuditLogQueryRequest request, CancellationToken cancellationToken)
-        => [.. (await ApplyFilters(queryDb.Queryable<AuditLog>(), request)
+    {
+        long startedAt = Stopwatch.GetTimestamp();
+        IReadOnlyList<AuditFacetResponse> result = [.. (await ApplyFilters(queryDb.Queryable<AuditLog>(), request)
             .GroupBy(static it => it.Action)
             .Select(static it => new AuditFacetRow { Value = it.Action, Count = SqlFunc.AggregateCount(it.Id) })
             .MergeTable()
@@ -142,9 +189,14 @@ public sealed class AuditQueryService(
             .Take(12)
             .ToListAsync(cancellationToken))
             .Select(static it => new AuditFacetResponse(it.Value, it.Count))];
+        FsusObservability.RecordAuditFacet("action", FsusObservability.GetElapsed(startedAt));
+        return result;
+    }
 
     private async Task<IReadOnlyList<AuditFacetResponse>> BuildOutcomeFacetAsync(ISqlSugarClient queryDb, AuditLogQueryRequest request, CancellationToken cancellationToken)
-        => [.. (await ApplyFilters(queryDb.Queryable<AuditLog>(), request)
+    {
+        long startedAt = Stopwatch.GetTimestamp();
+        IReadOnlyList<AuditFacetResponse> result = [.. (await ApplyFilters(queryDb.Queryable<AuditLog>(), request)
             .GroupBy(static it => it.Outcome)
             .Select(static it => new AuditFacetRow { Value = it.Outcome, Count = SqlFunc.AggregateCount(it.Id) })
             .MergeTable()
@@ -152,9 +204,14 @@ public sealed class AuditQueryService(
             .Take(12)
             .ToListAsync(cancellationToken))
             .Select(static it => new AuditFacetResponse(it.Value, it.Count))];
+        FsusObservability.RecordAuditFacet("outcome", FsusObservability.GetElapsed(startedAt));
+        return result;
+    }
 
     private async Task<IReadOnlyList<AuditFacetResponse>> BuildSeverityFacetAsync(ISqlSugarClient queryDb, AuditLogQueryRequest request, CancellationToken cancellationToken)
-        => [.. (await ApplyFilters(queryDb.Queryable<AuditLog>(), request)
+    {
+        long startedAt = Stopwatch.GetTimestamp();
+        IReadOnlyList<AuditFacetResponse> result = [.. (await ApplyFilters(queryDb.Queryable<AuditLog>(), request)
             .GroupBy(static it => it.Severity)
             .Select(static it => new AuditFacetRow { Value = it.Severity, Count = SqlFunc.AggregateCount(it.Id) })
             .MergeTable()
@@ -162,6 +219,43 @@ public sealed class AuditQueryService(
             .Take(12)
             .ToListAsync(cancellationToken))
             .Select(static it => new AuditFacetResponse(it.Value, it.Count))];
+        FsusObservability.RecordAuditFacet("severity", FsusObservability.GetElapsed(startedAt));
+        return result;
+    }
+
+    private static ISugarQueryable<AuditLog> SelectListProjection(ISugarQueryable<AuditLog> query, AuditDisclosureMode disclosureMode)
+    {
+        _ = disclosureMode;
+        return query.Select(static it => new AuditLog
+        {
+            Id = it.Id,
+            Source = it.Source,
+            Type = it.Type,
+            OccurredAtUtc = it.OccurredAtUtc,
+            ActorType = it.ActorType,
+            ActorId = it.ActorId,
+            ActorRole = it.ActorRole,
+            Action = it.Action,
+            TargetType = it.TargetType,
+            TargetId = it.TargetId,
+            Outcome = it.Outcome,
+            Severity = it.Severity,
+            IsHighValue = it.IsHighValue,
+            TraceId = it.TraceId,
+            RequestPath = it.RequestPath,
+            RequestMethod = it.RequestMethod,
+            IpHash = it.IpHash,
+            UserAgentHash = it.UserAgentHash,
+            SessionIdHash = it.SessionIdHash,
+            DeviceFingerprintHash = it.DeviceFingerprintHash,
+            ReasonCode = it.ReasonCode,
+            EventInfo = it.EventInfo,
+            ChainId = it.ChainId,
+            PrevHash = it.PrevHash,
+            RecordHash = it.RecordHash,
+            RecordMac = it.RecordMac
+        });
+    }
 
     internal static AuditLogItemResponse ToItemResponse(AuditLog row, AuditDisclosureMode disclosureMode)
     {
@@ -272,6 +366,58 @@ public sealed class AuditQueryService(
     private static string? NormalizeFilter(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    private static string NormalizeSummaryCacheKey(AuditLogQueryRequest request)
+        => string.Join(
+            '|',
+            NormalizeFilter(request.Source) ?? string.Empty,
+            NormalizeFilter(request.Type) ?? string.Empty,
+            NormalizeFilter(request.Actor) ?? string.Empty,
+            NormalizeFilter(request.Action) ?? string.Empty,
+            NormalizeFilter(request.TargetType) ?? string.Empty,
+            NormalizeFilter(request.TargetId) ?? string.Empty,
+            NormalizeFilter(request.Outcome) ?? string.Empty,
+            NormalizeFilter(request.Severity) ?? string.Empty,
+            request.FromUtc?.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+            request.ToUtc?.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+
+    internal static string EncodeAuditCursor(AuditLog row)
+    {
+        string payload = string.Concat(
+            row.OccurredAtUtc.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture),
+            ":",
+            row.Id.ToString(CultureInfo.InvariantCulture));
+        return WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(payload));
+    }
+
+    internal static bool TryDecodeAuditCursor(string? value, out AuditLogCursor cursor)
+    {
+        cursor = default;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        try
+        {
+            string payload = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(value));
+            string[] parts = payload.Split(':', 2);
+            if (parts.Length != 2
+                || !long.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out long ticks)
+                || !long.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out long id)
+                || id <= 0)
+            {
+                return false;
+            }
+
+            cursor = new AuditLogCursor(new DateTime(ticks, DateTimeKind.Utc), id);
+            return true;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+
     private async Task<T> QueryWithNewClientAsync<T>(Func<ISqlSugarClient, Task<T>> query)
     {
         using SqlSugarClient queryDb = _db.CopyNew();
@@ -283,4 +429,8 @@ public sealed class AuditQueryService(
         public string Value { get; set; } = string.Empty;
         public int Count { get; set; }
     }
+
+    internal readonly record struct AuditLogCursor(DateTime OccurredAtUtc, long Id);
+
+    private sealed record AuditSummaryCacheEntry(AuditLogSummaryResponse Response, DateTime ExpiresAtUtc);
 }

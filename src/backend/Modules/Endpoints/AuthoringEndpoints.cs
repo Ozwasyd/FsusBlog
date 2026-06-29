@@ -1258,13 +1258,14 @@ public static class AuthoringEndpoints
             string? severity,
             DateTime? fromUtc,
             DateTime? toUtc,
+            string? cursor,
             string? piiMode,
             AuditQueryService auditQuery,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
             AuditDisclosureMode disclosureMode = ResolveAuditDisclosureMode(context, piiMode);
-            AuditLogQueryRequest query = BuildAuditLogQuery(page, pageSize, source, type, actor, action, targetType, targetId, outcome, severity, fromUtc, toUtc);
+            AuditLogQueryRequest query = BuildAuditLogQuery(page, pageSize, source, type, actor, action, targetType, targetId, outcome, severity, fromUtc, toUtc, cursor);
             AuditLogListResponse response = await auditQuery.ListAsync(query, cancellationToken, disclosureMode);
             await RecordAuditQueryAsync(auditEvents, new AuditEvent(
                 AuditSourceCatalog.Admin,
@@ -1297,7 +1298,7 @@ public static class AuthoringEndpoints
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            AuditLogQueryRequest query = BuildAuditLogQuery(1, 1, source, type, actor, action, targetType, targetId, outcome, severity, fromUtc, toUtc);
+            AuditLogQueryRequest query = BuildAuditLogQuery(1, 1, source, type, actor, action, targetType, targetId, outcome, severity, fromUtc, toUtc, null);
             AuditLogSummaryResponse response = await auditQuery.GetSummaryAsync(query, cancellationToken);
             await auditEvents.RecordAsync(new AuditEvent(
                 AuditSourceCatalog.Admin,
@@ -1868,7 +1869,8 @@ public static class AuthoringEndpoints
         string? outcome,
         string? severity,
         DateTime? fromUtc,
-        DateTime? toUtc)
+        DateTime? toUtc,
+        string? cursor)
         => new(
             page ?? 1,
             pageSize ?? 50,
@@ -1881,7 +1883,8 @@ public static class AuthoringEndpoints
             outcome,
             severity,
             fromUtc,
-            toUtc);
+            toUtc,
+            cursor);
 
     private static IReadOnlyDictionary<string, object?> BuildAuditQueryContext(
         AuditLogQueryRequest query,
@@ -1902,6 +1905,7 @@ public static class AuthoringEndpoints
             ["severity"] = query.Severity,
             ["fromUtc"] = query.FromUtc,
             ["toUtc"] = query.ToUtc,
+            ["cursor"] = query.Cursor,
             ["piiMode"] = FormatAuditDisclosureMode(disclosureMode),
             ["requestedPiiMode"] = NormalizePiiMode(requestedPiiMode),
             ["sensitiveFieldsRead"] = disclosureMode == AuditDisclosureMode.Investigation,

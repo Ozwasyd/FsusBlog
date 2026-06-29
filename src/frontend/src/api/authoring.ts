@@ -177,6 +177,7 @@ export interface AuditLogListResponse {
   total: number
   page: number
   pageSize: number
+  nextCursor?: string | null
   runtime: AuditLogRuntimeResponse
 }
 
@@ -457,6 +458,7 @@ export interface AuditLogQueryParams {
   severity?: string | null
   fromUtc?: string | null
   toUtc?: string | null
+  cursor?: string | null
   piiMode?: AuditPiiMode | null
 }
 

@@ -107,6 +107,11 @@ public static class FsusObservability
     private static readonly Histogram<double> AuditChainTailQueryElapsed = Meter.CreateHistogram<double>("fsus.audit.chain_tail.query_elapsed_ms", "ms");
     private static readonly Histogram<double> AuditBatchSize = Meter.CreateHistogram<double>("fsus.audit.batch.size");
     private static readonly Histogram<double> AuditBatchWriteElapsed = Meter.CreateHistogram<double>("fsus.audit.batch.write_elapsed_ms", "ms");
+    private static readonly Counter<long> AuditListDbCounter = Meter.CreateCounter<long>("fsus.audit.list.db_count");
+    private static readonly Histogram<double> AuditListElapsed = Meter.CreateHistogram<double>("fsus.audit.list.elapsed_ms", "ms");
+    private static readonly Counter<long> AuditSummaryQueryCounter = Meter.CreateCounter<long>("fsus.audit.summary.query_count");
+    private static readonly Histogram<double> AuditFacetElapsed = Meter.CreateHistogram<double>("fsus.audit.facet.elapsed_ms", "ms");
+    private static readonly Counter<long> AuditSummaryCacheHitCounter = Meter.CreateCounter<long>("fsus.audit.summary.cache_hit");
     private static readonly Counter<long> AdminAuditQueuedCounter = Meter.CreateCounter<long>("fsus.admin.audit.queued_count");
     private static readonly Counter<long> AdminAuditDroppedCounter = Meter.CreateCounter<long>("fsus.admin.audit.dropped_count");
     private static readonly Counter<long> AdminAuditFallbackWriteCounter = Meter.CreateCounter<long>("fsus.admin.audit.fallback_write_count");
@@ -436,6 +441,44 @@ public static class FsusObservability
             TagList tags = CreateBaseTags("audit", "batch_write", "ok");
             AuditBatchSize.Record(Math.Max(0, batchSize), tags);
             AuditBatchWriteElapsed.Record(elapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordAuditList(long auditListDbCount, TimeSpan auditListElapsed)
+    {
+        TryRecord(() =>
+        {
+            AuditListDbCounter.Add(Math.Max(0, auditListDbCount));
+            AuditListElapsed.Record(auditListElapsed.TotalMilliseconds);
+        });
+    }
+
+    public static void RecordAuditSummary(long auditSummaryQueryCount, TimeSpan auditFacetElapsed)
+    {
+        TryRecord(() =>
+        {
+            AuditSummaryQueryCounter.Add(Math.Max(0, auditSummaryQueryCount));
+            AuditFacetElapsed.Record(auditFacetElapsed.TotalMilliseconds);
+        });
+    }
+
+    public static void RecordAuditFacet(string facet, TimeSpan auditFacetElapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("audit", "facet", NormalizeTelemetryValue(facet, "unknown"));
+            AuditFacetElapsed.Record(auditFacetElapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordAuditSummaryCacheHit(bool auditSummaryCacheHit)
+    {
+        TryRecord(() =>
+        {
+            if (auditSummaryCacheHit)
+            {
+                AuditSummaryCacheHitCounter.Add(1);
+            }
         });
     }
 

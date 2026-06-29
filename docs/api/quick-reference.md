@@ -334,7 +334,7 @@
 | GET | `/api/binary/author/content/export` | 👑 | 全站内容备份包 |
 | GET | `/api/binary/author/articles/{articleId}/export` | 👑 | 导出 Markdown + frontmatter |
 | POST | `/api/binary/author/articles/import` | 👑 | 导入 Markdown + frontmatter |
-| GET | `/api/binary/author/audit` | 👑🚦 | 审计日志列表，支持 actor/action/target/outcome/time 过滤 |
+| GET | `/api/binary/author/audit` | 👑🚦 | 审计日志 cursor 列表，支持 actor/action/target/outcome/time 过滤 |
 | GET | `/api/binary/author/audit/summary` | 👑🚦 | 审计 facet 汇总与写入 runtime |
 | GET | `/api/binary/author/audit/{id}` | 👑🚦 | 审计详情与 context |
 | GET | `/api/binary/author/audit/{id}/verify` | 👑🚦 | 单条防篡改证据校验 |

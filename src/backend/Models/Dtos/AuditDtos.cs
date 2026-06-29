@@ -12,13 +12,15 @@ public sealed record AuditLogQueryRequest(
     string? Outcome = null,
     string? Severity = null,
     DateTime? FromUtc = null,
-    DateTime? ToUtc = null);
+    DateTime? ToUtc = null,
+    string? Cursor = null);
 
 public sealed record AuditLogListResponse(
     IReadOnlyList<AuditLogItemResponse> Items,
     int Total,
     int Page,
     int PageSize,
+    string? NextCursor,
     AuditLogRuntimeResponse Runtime);
 
 public sealed record AuditLogPublicItemResponse(

@@ -388,6 +388,7 @@ const detail = shallowRef<AuditLogDetailResponse | null>(null)
 const page = ref(1)
 const pageSize = ref(50)
 const total = ref(0)
+const cursorByPage = reactive<Record<number, string | null>>({ 1: null })
 const loading = ref(false)
 const hasLoadedAudit = ref(false)
 const verifyingId = ref<number | null>(null)
@@ -479,9 +480,17 @@ const formattedContext = computed(() => {
 const toAdminSystemStatus = (status: string | null | undefined): AdminSystemStatus =>
   status && status in adminStatusTone ? status as AdminSystemStatus : 'unknown'
 
-const buildQuery = (): AuditLogQueryParams => ({
+const resetAuditCursor = (): void => {
+  for (const key of Object.keys(cursorByPage)) {
+    delete cursorByPage[Number(key)]
+  }
+  cursorByPage[1] = null
+}
+
+const buildQuery = (cursor: string | null): AuditLogQueryParams => ({
   page: page.value,
   pageSize: pageSize.value,
+  cursor,
   source: filters.source.trim() || null,
   type: filters.type.trim() || null,
   actor: filters.actor.trim() || null,
@@ -494,16 +503,27 @@ const buildQuery = (): AuditLogQueryParams => ({
   toUtc: dateRange.value?.[1]?.toISOString() ?? null
 })
 
-const loadAudit = async (): Promise<void> => {
+const loadAudit = async (targetPage = page.value): Promise<void> => {
   loading.value = true
   try {
-    const query = buildQuery()
+    let requestedPage = Number.isFinite(Number(targetPage)) ? Math.max(1, Math.trunc(Number(targetPage))) : page.value
+    if (requestedPage > 1 && !(requestedPage in cursorByPage)) {
+      requestedPage = 1
+      page.value = 1
+      resetAuditCursor()
+    }
+
+    page.value = requestedPage
+    const query = buildQuery(cursorByPage[requestedPage] ?? null)
     const [list, facets] = await Promise.all([
       listAuditLogs(query),
       getAuditLogSummary(query)
     ])
     items.value = list.items
-    total.value = list.total
+    cursorByPage[requestedPage + 1] = list.nextCursor ?? null
+    total.value = list.nextCursor
+      ? Math.max(list.total, requestedPage * pageSize.value + 1)
+      : Math.max(list.total, (requestedPage - 1) * pageSize.value + list.items.length)
     summary.value = facets
     auditRowMotion.markUpdated(list.items.slice(0, 20).map((item) => item.id), `审计日志已刷新：${list.items.length} 条可见记录`)
   } catch (error) {
@@ -516,6 +536,7 @@ const loadAudit = async (): Promise<void> => {
 
 const applyFilters = async (): Promise<void> => {
   page.value = 1
+  resetAuditCursor()
   await loadAudit()
 }
 
@@ -545,6 +566,7 @@ const selectFacet = (dimension: 'action' | 'outcome' | 'severity', value: string
 
 const handleSizeChange = async (): Promise<void> => {
   page.value = 1
+  resetAuditCursor()
   await loadAudit()
 }
 
@@ -597,6 +619,7 @@ const applyRouteQueryFilters = (): void => {
 
 onMounted(() => {
   applyRouteQueryFilters()
+  resetAuditCursor()
   void loadAudit()
 })
 </script>

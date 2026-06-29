@@ -72,6 +72,42 @@ public sealed class AuditSystemContractTests
     }
 
     [Fact]
+    public void AuditQuery_SourceUsesCursorListAndSummaryCache()
+    {
+        string root = BackendTestPaths.RepositoryRoot;
+        string queryService = File.ReadAllText(Path.Combine(root, "src/backend/Infrastructure/Audit/AuditQueryService.cs"));
+        string dtos = File.ReadAllText(Path.Combine(root, "src/backend/Models/Dtos/AuditDtos.cs"));
+        string endpoints = File.ReadAllText(Path.Combine(root, "src/backend/Modules/Endpoints/AuthoringEndpoints.cs"));
+        string observability = File.ReadAllText(Path.Combine(root, "src/backend/Infrastructure/Observability/FsusObservability.cs"));
+        string listMethod = ExtractMethodBlock(queryService, "public async Task<AuditLogListResponse> ListAsync");
+        string summaryMethod = ExtractMethodBlock(queryService, "public async Task<AuditLogSummaryResponse> GetSummaryAsync");
+
+        Assert.Contains("string? Cursor", dtos, StringComparison.Ordinal);
+        Assert.Contains("string? NextCursor", dtos, StringComparison.Ordinal);
+        Assert.Contains("string? cursor", endpoints, StringComparison.Ordinal);
+        Assert.Contains("TryDecodeAuditCursor", queryService, StringComparison.Ordinal);
+        Assert.Contains("EncodeAuditCursor", queryService, StringComparison.Ordinal);
+        Assert.Contains("it.OccurredAtUtc < cursor.OccurredAtUtc", listMethod, StringComparison.Ordinal);
+        Assert.Contains("it.OccurredAtUtc == cursor.OccurredAtUtc && it.Id < cursor.Id", listMethod, StringComparison.Ordinal);
+        Assert.Contains("OrderByDescending(static it => it.OccurredAtUtc)", listMethod, StringComparison.Ordinal);
+        Assert.Contains("OrderByDescending(static it => it.Id)", listMethod, StringComparison.Ordinal);
+        Assert.Contains("Take(pageSize + 1)", listMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Skip(", listMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain(".CountAsync", listMethod, StringComparison.Ordinal);
+
+        Assert.Contains("NormalizeSummaryCacheKey", queryService, StringComparison.Ordinal);
+        Assert.Contains("SummaryCacheTtl", queryService, StringComparison.Ordinal);
+        Assert.Contains("SummaryCache", queryService, StringComparison.Ordinal);
+        Assert.Contains("RecordAuditSummaryCacheHit", summaryMethod, StringComparison.Ordinal);
+        Assert.Contains("RecordAuditSummaryCacheHit", observability, StringComparison.Ordinal);
+        Assert.Contains("auditListDbCount", observability, StringComparison.Ordinal);
+        Assert.Contains("auditListElapsed", observability, StringComparison.Ordinal);
+        Assert.Contains("auditSummaryQueryCount", observability, StringComparison.Ordinal);
+        Assert.Contains("auditFacetElapsed", observability, StringComparison.Ordinal);
+        Assert.Contains("auditSummaryCacheHit", observability, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AuditProjection_RedactedMode_DoesNotExposeSensitiveHashes()
     {
         AuditLog row = CreateSensitiveAuditLog();
