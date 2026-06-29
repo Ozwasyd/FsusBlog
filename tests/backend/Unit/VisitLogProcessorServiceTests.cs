@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Services.VisitLog;
 using FsusBlog.Server.Entities;
 using IP2Location;
@@ -7,6 +9,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.ObjectPool;
+using NSubstitute;
+using SqlSugar;
 using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -112,6 +116,26 @@ public sealed class VisitLogProcessorServiceTests
     }
 
     [Fact]
+    public void Source_FlushPathCachesScopedServicesAndUsesAccumulatedStats()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/VisitLog/VisitLogProcessorService.cs"));
+        string flush = ExtractBetween(source, "private async Task FlushBatchAsync", "    private async Task ApplyArticleViewProjectionAsync");
+        string markStats = ExtractBetween(source, "private async Task MarkStatsAfterFlushAsync", "    private static string NormalizeEventType");
+        string process = ExtractBetween(source, "private void ProcessSingleMessageCore", "    private async Task FlushBatchAsync");
+
+        Assert.Contains("private IArticleViewProjectionService? _articleViewProjectionService", source, StringComparison.Ordinal);
+        Assert.Contains("private IHotStatsInvalidationCoalescer? _hotStatsInvalidationCoalescer", source, StringComparison.Ordinal);
+        Assert.Contains("private VisitLogFlushStats _flushStats", source, StringComparison.Ordinal);
+        Assert.Contains("_articleViewProjectionService ??=", source, StringComparison.Ordinal);
+        Assert.Contains("_hotStatsInvalidationCoalescer ??=", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateAsyncScope", flush, StringComparison.Ordinal);
+        Assert.Contains("VisitLogFlushStats stats", markStats, StringComparison.Ordinal);
+        Assert.Contains("stats.HasArticleRead", markStats, StringComparison.Ordinal);
+        Assert.DoesNotContain("batch.Any", markStats, StringComparison.Ordinal);
+        Assert.Contains("RecordFlushStats(eventType)", process, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_ContinuesProcessingAfterSingleMessageFailure()
     {
         await using ServiceProvider provider = CreateServiceProvider();
@@ -169,6 +193,10 @@ public sealed class VisitLogProcessorServiceTests
                     ["VisitLog:IpHashPepper"] = "unit-test-visit-log-ip-hash-pepper-with-enough-entropy"
                 })
                 .Build())
+            .AddScoped(_ => Substitute.For<ISqlSugarClient>())
+            .AddScoped(_ => Substitute.For<IDbConcurrencyGate>())
+            .AddScoped(_ => Substitute.For<IArticleViewProjectionService>())
+            .AddScoped(_ => Substitute.For<IHotStatsInvalidationCoalescer>())
             .BuildServiceProvider();
 
     private static async Task DrainBatchAsync(VisitLogProcessorService worker, List<VisitLogEntity> batch, CancellationToken token)
@@ -177,6 +205,15 @@ public sealed class VisitLogProcessorServiceTests
             .GetMethod("DrainBatchWithFlushWindowAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var task = (Task)method.Invoke(worker, [batch, token])!;
         await task.ConfigureAwait(false);
+    }
+
+    private static string ExtractBetween(string source, string start, string end)
+    {
+        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
+        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
+        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
+        return source[startIndex..endIndex];
     }
 
     [Theory]

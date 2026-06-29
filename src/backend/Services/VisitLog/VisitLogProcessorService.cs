@@ -77,6 +77,9 @@ public class VisitLogProcessorService : BackgroundService
     private readonly ILogger<VisitLogProcessorService> _logger;
     private readonly byte[] _ipHashKey;
     private ObjectPool<Component>? _ipPool;
+    private IArticleViewProjectionService? _articleViewProjectionService;
+    private IHotStatsInvalidationCoalescer? _hotStatsInvalidationCoalescer;
+    private VisitLogFlushStats _flushStats;
 
     public VisitLogProcessorService(
         VisitLogChannel channel,
@@ -93,6 +96,8 @@ public class VisitLogProcessorService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await using AsyncServiceScope scope = _serviceProvider.CreateAsyncScope();
+        VisitLogFlushServices flushServices = ResolveFlushServices(scope.ServiceProvider);
         var batch = new List<VisitLogEntity>(BatchSize);
         await BackgroundTaskExecutor.RunAsync(
             async token =>
@@ -105,7 +110,7 @@ public class VisitLogProcessorService : BackgroundService
 
                         if (batch.Count > 0)
                         {
-                            await FlushBatchAsync(batch, token);
+                            await FlushBatchAsync(flushServices, batch, token);
                         }
                     }
                 }
@@ -135,7 +140,7 @@ public class VisitLogProcessorService : BackgroundService
                     int rescuedCount = batch.Count;
                     try
                     {
-                        await FlushBatchAsync(batch, cts.Token);
+                        await FlushBatchAsync(flushServices, batch, cts.Token);
                         _logger.LogInformation("已抢救持久化系统停机前遗留的 {Count} 条访问记录。", rescuedCount);
                     }
                     catch (Exception ex)
@@ -144,6 +149,17 @@ public class VisitLogProcessorService : BackgroundService
                     }
                 }
             });
+    }
+
+    private VisitLogFlushServices ResolveFlushServices(IServiceProvider scopedServices)
+    {
+        _articleViewProjectionService ??= scopedServices.GetRequiredService<IArticleViewProjectionService>();
+        _hotStatsInvalidationCoalescer ??= scopedServices.GetRequiredService<IHotStatsInvalidationCoalescer>();
+        return new VisitLogFlushServices(
+            scopedServices.GetRequiredService<ISqlSugarClient>(),
+            scopedServices.GetRequiredService<IDbConcurrencyGate>(),
+            _articleViewProjectionService,
+            _hotStatsInvalidationCoalescer);
     }
 
     private async Task DrainBatchWithFlushWindowAsync(List<VisitLogEntity> batch, CancellationToken token)
@@ -243,6 +259,7 @@ public class VisitLogProcessorService : BackgroundService
         var ip = msg.IP.Trim();
         ip = ip.Length > MaxIpLength ? ip[..MaxIpLength] : ip;
         string ipHash = HashIp(ip);
+        string eventType = NormalizeEventType(msg.EventType);
         if (TryClassifyLocalNetwork(ip, out var localRegion))
         {
             batch.Add(new VisitLogEntity
@@ -250,13 +267,14 @@ public class VisitLogProcessorService : BackgroundService
                 IpHash = ipHash,
                 Region = localRegion,
                 CreateTime = msg.CreateTime,
-                EventType = NormalizeEventType(msg.EventType),
+                EventType = eventType,
                 RouteKey = NormalizeOptional(msg.RouteKey, 200),
                 ArticleId = msg.ArticleId,
                 ViewerKeyHash = NormalizeOptional(msg.ViewerKeyHash, 64),
                 ProofId = NormalizeOptional(msg.ProofId, 64),
                 DwellMs = Math.Max(0, msg.DwellMs)
             });
+            RecordFlushStats(eventType);
             return;
         }
 
@@ -297,25 +315,32 @@ public class VisitLogProcessorService : BackgroundService
             IpHash = ipHash,
             Region = region,
             CreateTime = msg.CreateTime,
-            EventType = NormalizeEventType(msg.EventType),
+            EventType = eventType,
             RouteKey = NormalizeOptional(msg.RouteKey, 200),
             ArticleId = msg.ArticleId,
             ViewerKeyHash = NormalizeOptional(msg.ViewerKeyHash, 64),
             ProofId = NormalizeOptional(msg.ProofId, 64),
             DwellMs = Math.Max(0, msg.DwellMs)
         });
+        RecordFlushStats(eventType);
     }
 
-    private async Task FlushBatchAsync(List<VisitLogEntity> batch, CancellationToken token)
+    private void RecordFlushStats(string eventType)
     {
+        if (eventType == HumanReadEventTypes.ArticleRead)
+        {
+            _flushStats.ArticleReadCount++;
+        }
+    }
+
+    private async Task FlushBatchAsync(VisitLogFlushServices services, List<VisitLogEntity> batch, CancellationToken token)
+    {
+        VisitLogFlushStats stats = _flushStats;
         try
         {
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
-            var dbGate = scope.ServiceProvider.GetRequiredService<IDbConcurrencyGate>();
-            int inserted = await dbGate.ExecuteAsync(
+            int inserted = await services.DbGate.ExecuteAsync(
                 "visit-log-flush",
-                gateCt => db.Insertable(batch).ExecuteCommandAsync(gateCt),
+                gateCt => services.Db.Insertable(batch).ExecuteCommandAsync(gateCt),
                 _ => Task.FromResult(0),
                 token);
             if (inserted > 0)
@@ -323,7 +348,7 @@ public class VisitLogProcessorService : BackgroundService
                 FsusObservability.RecordVisitLogFlush(inserted);
                 try
                 {
-                    await ApplyArticleViewProjectionAsync(scope.ServiceProvider, batch, token);
+                    await ApplyArticleViewProjectionAsync(services.ArticleViewProjection, batch, token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -336,7 +361,7 @@ public class VisitLogProcessorService : BackgroundService
                         "访问日志已落库但阅读量投影失败，后台 reconciliation worker 将从 visit_log 修复 article.views。");
                 }
 
-                await MarkStatsAfterFlushAsync(scope.ServiceProvider, batch, token).ConfigureAwait(false);
+                await MarkStatsAfterFlushAsync(services.HotStatsInvalidation, stats, token).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
@@ -349,26 +374,25 @@ public class VisitLogProcessorService : BackgroundService
         }
         finally
         {
+            _flushStats = default;
             batch.Clear();
         }
     }
 
     private async Task ApplyArticleViewProjectionAsync(
-        IServiceProvider scopedServices,
+        IArticleViewProjectionService projectionService,
         List<VisitLogEntity> batch,
         CancellationToken token)
     {
-        var projectionService = scopedServices.GetRequiredService<IArticleViewProjectionService>();
         await projectionService.ApplyAsync(batch, token);
     }
 
-    private async Task MarkStatsAfterFlushAsync(IServiceProvider scopedServices, List<VisitLogEntity> batch, CancellationToken token)
+    private async Task MarkStatsAfterFlushAsync(IHotStatsInvalidationCoalescer coalescer, VisitLogFlushStats stats, CancellationToken token)
     {
         try
         {
-            var coalescer = scopedServices.GetRequiredService<IHotStatsInvalidationCoalescer>();
             await coalescer.MarkStatsDirtyAsync("visit-log-flush", token).ConfigureAwait(false);
-            if (batch.Any(static item => item.EventType == HumanReadEventTypes.ArticleRead))
+            if (stats.HasArticleRead)
             {
                 await coalescer.MarkHotArticlesDirtyAsync("article-read-projection", token).ConfigureAwait(false);
             }
@@ -377,6 +401,18 @@ public class VisitLogProcessorService : BackgroundService
         {
             _logger.LogError(ex, "访问日志批量写入后标记统计缓存失败，统计结果可能等待 TTL 后自然恢复。");
         }
+    }
+
+    private sealed record VisitLogFlushServices(
+        ISqlSugarClient Db,
+        IDbConcurrencyGate DbGate,
+        IArticleViewProjectionService ArticleViewProjection,
+        IHotStatsInvalidationCoalescer HotStatsInvalidation);
+
+    private struct VisitLogFlushStats
+    {
+        public int ArticleReadCount;
+        public readonly bool HasArticleRead => ArticleReadCount > 0;
     }
 
     private static string NormalizeEventType(string? eventType)
