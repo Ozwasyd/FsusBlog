@@ -868,10 +868,22 @@ public sealed class RedisPerceptionChallengeV2Gate(
 
         try
         {
-            long count = await _database.StringIncrementAsync(key, 1, CommandFlags.None).ConfigureAwait(false);
+            const string script = """
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+end
+return count
+""";
+            long ttlMilliseconds = Math.Max(1L, (long)Math.Ceiling(ttl.Value.TotalMilliseconds));
+            RedisResult result = await _database.ScriptEvaluateAsync(
+                    script,
+                    [key],
+                    [ttlMilliseconds],
+                    CommandFlags.None)
+                .ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
-            await _database.KeyExpireAsync(key, ttl, CommandFlags.None).ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
+            long count = (long)result;
             return count <= Math.Max(1, maxAttempts)
                 ? PerceptionChallengeV2AttemptGateResult.Accepted(count)
                 : PerceptionChallengeV2AttemptGateResult.Rejected("attempt_exceeded", count);

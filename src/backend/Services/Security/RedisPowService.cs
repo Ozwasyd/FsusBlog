@@ -56,7 +56,8 @@ public class RedisPowService : IPowService
         }
 
         // 1. 签名校验 (防重放与篡改)
-        if (!BasicValidate(req, clientIp))
+        byte[] signatureHash = new byte[32];
+        if (!BasicValidate(req, clientIp, signatureHash))
         {
             _logger.LogInformation("PoW 签名非法 | SaltHash={SaltHash}", HashForLog(req.PowSalt));
             return false;
@@ -66,7 +67,7 @@ public class RedisPowService : IPowService
         if (!CheckWorkloadWithSpan(req)) return false;
 
         // 3. Redis-backed consume-once protection: the same normalized proof can be accepted only once.
-        return await TryConsumeProofOnceAsync(req, clientIp).ConfigureAwait(false);
+        return await TryConsumeProofOnceAsync(req, clientIp, signatureHash).ConfigureAwait(false);
     }
 
     public async Task<PowChallenge> GenerateChallengeAsync(string clientIp)
@@ -89,7 +90,7 @@ public class RedisPowService : IPowService
         return new PowChallenge(salt, difficulty, timestamp, Base64UrlEncode(hashResult));
     }
 
-    private bool BasicValidate(IPowRequest req, string ip)
+    private bool BasicValidate(IPowRequest req, string ip, byte[] signatureHash)
     {
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         if (!IsTimestampWithinWindow(req.PowTimestamp, now)) return false;
@@ -101,8 +102,7 @@ public class RedisPowService : IPowService
             return false;
         }
 
-        Span<byte> computedHash = stackalloc byte[32];
-        HMACSHA256.HashData(_cachedPowKey, buffer[..bytesWritten], computedHash);
+        HMACSHA256.HashData(_cachedPowKey, buffer[..bytesWritten], signatureHash);
 
         byte[] clientSignature = DecodeBase64UrlSignatureOrEmpty(req.PowSignature);
         if (clientSignature.Length != 32)
@@ -111,7 +111,7 @@ public class RedisPowService : IPowService
         }
 
         // 安全性保障：恒定时间比较，防止时序攻击
-        return CryptographicOperations.FixedTimeEquals(computedHash, clientSignature);
+        return CryptographicOperations.FixedTimeEquals(signatureHash, clientSignature);
     }
 
     private static string Base64UrlEncode(ReadOnlySpan<byte> value)
@@ -238,9 +238,10 @@ public class RedisPowService : IPowService
         return true;
     }
 
-    private async Task<bool> TryConsumeProofOnceAsync(IPowRequest req, string clientIp)
+    private async Task<bool> TryConsumeProofOnceAsync(IPowRequest req, string clientIp, byte[] signatureHash)
     {
-        string identity = BuildProofIdentity(req, NormalizeIp(clientIp));
+        _ = clientIp;
+        string identity = BuildProofIdentity(signatureHash);
         TimeSpan ttl = ResolveReplayTtl(req.PowTimestamp);
         bool acquired = await _cache.TryAcquireLeaseAsync(CachePolicyId.SecurityPowProof, identity, "1", ttl).ConfigureAwait(false);
         if (!acquired)
@@ -251,102 +252,8 @@ public class RedisPowService : IPowService
         return acquired;
     }
 
-    private static string BuildProofIdentity(IPowRequest req, string normalizedIp)
-    {
-        int capacity = GetProofIdentityCapacity(normalizedIp, req);
-        byte[]? rented = null;
-        Span<byte> material = capacity <= 1024
-            ? stackalloc byte[capacity]
-            : rented = System.Buffers.ArrayPool<byte>.Shared.Rent(capacity);
-
-        try
-        {
-            if (!TryFormatProofIdentity(material, normalizedIp, req, out int bytesWritten))
-            {
-                return string.Empty;
-            }
-
-            Span<byte> hash = stackalloc byte[32];
-            SHA256.HashData(material[..bytesWritten], hash);
-            return Convert.ToHexString(hash);
-        }
-        finally
-        {
-            if (rented is not null)
-            {
-                System.Buffers.ArrayPool<byte>.Shared.Return(rented);
-            }
-        }
-    }
-
-    private static int GetProofIdentityCapacity(string normalizedIp, IPowRequest req)
-    {
-        const int separators = 5;
-        const int maxInt64Digits = 20;
-        const int maxInt32Digits = 11;
-        return Encoding.UTF8.GetByteCount(normalizedIp)
-            + Encoding.UTF8.GetByteCount(req.PowSalt)
-            + Encoding.UTF8.GetByteCount(req.PowNonce)
-            + Encoding.UTF8.GetByteCount(req.BrowserFp)
-            + separators
-            + maxInt64Digits
-            + maxInt32Digits;
-    }
-
-    private static bool TryFormatProofIdentity(Span<byte> destination, string normalizedIp, IPowRequest req, out int bytesWritten)
-    {
-        int offset = 0;
-        if (!TryWriteUtf8(normalizedIp, destination, ref offset) || !TryWriteUnitSeparator(destination, ref offset))
-        {
-            bytesWritten = 0;
-            return false;
-        }
-
-        if (!TryWriteUtf8(req.PowSalt, destination, ref offset) || !TryWriteUnitSeparator(destination, ref offset))
-        {
-            bytesWritten = 0;
-            return false;
-        }
-
-        if (!TryWriteUtf8(req.PowNonce, destination, ref offset) || !TryWriteUnitSeparator(destination, ref offset))
-        {
-            bytesWritten = 0;
-            return false;
-        }
-
-        if (!Utf8Formatter.TryFormat(req.PowTimestamp, destination[offset..], out int timestampBytes))
-        {
-            bytesWritten = 0;
-            return false;
-        }
-        offset += timestampBytes;
-        if (!TryWriteUnitSeparator(destination, ref offset))
-        {
-            bytesWritten = 0;
-            return false;
-        }
-
-        if (!Utf8Formatter.TryFormat(req.Difficulty, destination[offset..], out int difficultyBytes))
-        {
-            bytesWritten = 0;
-            return false;
-        }
-        offset += difficultyBytes;
-        if (!TryWriteUnitSeparator(destination, ref offset))
-        {
-            bytesWritten = 0;
-            return false;
-        }
-
-        if (!TryWriteUtf8(req.BrowserFp, destination, ref offset))
-        {
-            bytesWritten = 0;
-            return false;
-        }
-
-        bytesWritten = offset;
-        return true;
-    }
+    private static string BuildProofIdentity(byte[] signatureHash)
+        => Convert.ToHexString(signatureHash);
 
     private static bool TryWriteUnitSeparator(Span<byte> destination, ref int offset)
         => TryWriteByte(0x1F, destination, ref offset);

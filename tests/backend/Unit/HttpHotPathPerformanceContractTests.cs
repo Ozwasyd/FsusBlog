@@ -32,10 +32,16 @@ public sealed class HttpHotPathPerformanceContractTests
     public void PowReplayIdentity_UsesSpanHashingWithoutStringJoinMaterialization()
     {
         string source = ReadRepoFile("src/backend/Services/Security/RedisPowService.cs");
+        string verify = ExtractBetween(source, "public async Task<bool> VerifyAsync", "public async Task<PowChallenge> GenerateChallengeAsync");
+        string identity = ExtractBetween(source, "private static string BuildProofIdentity", "private static TimeSpan ResolveReplayTtl");
 
-        Assert.Contains("TryFormatProofIdentity", source, StringComparison.Ordinal);
+        Assert.Contains("byte[] signatureHash = new byte[32]", verify, StringComparison.Ordinal);
+        Assert.Contains("BasicValidate(req, clientIp, signatureHash)", verify, StringComparison.Ordinal);
+        Assert.Contains("TryConsumeProofOnceAsync(req, clientIp, signatureHash)", verify, StringComparison.Ordinal);
         Assert.DoesNotContain("string.Join", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Encoding.UTF8.GetBytes(material)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("SHA256.HashData", identity, StringComparison.Ordinal);
+        Assert.Contains("Convert.ToHexString(signatureHash)", identity, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -71,5 +77,14 @@ public sealed class HttpHotPathPerformanceContractTests
         string fullPath = BackendTestPaths.FromRoot(relativePath);
         Assert.True(File.Exists(fullPath), $"{relativePath} must exist.");
         return File.ReadAllText(fullPath);
+    }
+
+    private static string ExtractBetween(string source, string start, string end)
+    {
+        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(startIndex >= 0, $"Could not find start marker '{start}'.");
+        int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
+        Assert.True(endIndex > startIndex, $"Could not find end marker '{end}'.");
+        return source[startIndex..endIndex];
     }
 }

@@ -382,23 +382,7 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
         Assert.DoesNotContain(dbColumns, static column => column.Contains("secret", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(dbColumns, static column => column.Contains("witness", StringComparison.OrdinalIgnoreCase));
 
-        AuditEvent audit = Assert.Single(auditEvents.Events);
-        Assert.Equal(AuditActionCatalog.AnonymousCredentialIssued, audit.Action);
-        Assert.Equal(AuditOutcomeCatalog.Success, audit.Outcome);
-        Assert.Equal(AuditActorTypeCatalog.Anonymous, audit.ActorType);
-        Assert.Equal(row.SubjectHash[..16], audit.ActorId);
-        Assert.NotEqual("42", audit.ActorId);
-        Assert.NotNull(audit.Context);
-        Assert.Equal(request.CredentialEpoch, audit.Context!["epoch"]);
-        Assert.Equal(AnonymousCredentialIssuanceStatuses.Issued, audit.Context["status"]);
-        Assert.Equal(row.SubjectHash[..16], audit.Context["subjectHash"]);
-        Assert.Equal("trace-secret", audit.Context["traceId"]);
-        string auditText = string.Join('|', audit.Context.Select(static item => $"{item.Key}:{item.Value}"));
-        Assert.DoesNotContain("credential-request-raw", auditText, StringComparison.Ordinal);
-        Assert.DoesNotContain("credential-secret-token", auditText, StringComparison.Ordinal);
-        Assert.DoesNotContain("request_hash", auditText, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain(Convert.ToHexString(request.CredentialRequest), auditText, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain(Convert.ToHexString(response.IssuerSignature), auditText, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(auditEvents.Events);
     }
 
     [Fact]
@@ -504,6 +488,21 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             issueMethod.IndexOf("VerifyIssuerSignature", StringComparison.Ordinal) <
             issueMethod.IndexOf("issuanceAudit.TryRecordIssuedAsync", StringComparison.Ordinal),
             "issuer signature must be verified before the issuance audit row is persisted");
+    }
+
+    [Fact]
+    public void IssuerService_SuccessPathUsesIssuanceAuditRowWithoutSecondHighValueAuditInsert()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialIssuerService.cs");
+        string issueMethod = source[
+            source.IndexOf("public async Task<Result<AnonymousCredentialIssueResponseCoreModel>> IssueAsync", StringComparison.Ordinal)..
+            source.IndexOf("private Task RecordIssuanceAuditAsync", StringComparison.Ordinal)];
+        string successAuditPath = issueMethod[
+            issueMethod.IndexOf("bool recorded = await issuanceAudit.TryRecordIssuedAsync", StringComparison.Ordinal)..
+            issueMethod.IndexOf("long expiresAtUnixMs", StringComparison.Ordinal)];
+
+        Assert.Contains("issuanceAudit.TryRecordIssuedAsync", successAuditPath, StringComparison.Ordinal);
+        Assert.DoesNotContain("RecordIssuanceAuditAsync(subjectHash, epoch, AnonymousCredentialIssuanceStatuses.Issued", successAuditPath, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -535,8 +535,6 @@ public sealed class AnonymousCredentialIssuerService(
             return Result<AnonymousCredentialIssueResponseCoreModel>.Failure(ErrorCode.Conflict, "anonymous_credential_issue_rate_limited");
         }
 
-        await RecordIssuanceAuditAsync(subjectHash, epoch, AnonymousCredentialIssuanceStatuses.Issued, traceId, cancellationToken);
-
         long expiresAtUnixMs = now.AddMinutes(options.CredentialTtlMinutes).ToUnixTimeMilliseconds();
         var response = new AnonymousCredentialIssueResponseCoreModel(
             epoch,
