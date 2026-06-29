@@ -456,7 +456,7 @@ export function useHomeView() {
       }
 
       const action = patch.event.payload.action
-      if (action === 'Created' || action === 'Deleted' || action === 'Restored' || action === 'Updated') {
+      if (action === 'Created' || action === 'Deleted' || action === 'Restored') {
         needsFeaturedSync = true
       }
 

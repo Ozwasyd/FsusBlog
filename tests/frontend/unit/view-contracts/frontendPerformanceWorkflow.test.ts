@@ -99,6 +99,37 @@ describe('frontend performance workflow contract', () => {
     expect(commentStream).not.toContain('loadingReplies.value = {')
   })
 
+  it('keeps message inbox patch signatures and time formatting off derived row churn', () => {
+    expect(messagesPage).toContain('const formatTimeCache = new Map<string, string>()')
+    expect(messagesPage).toContain('formatTimeCache.get(input)')
+    expect(messagesPage).toContain('formatTimeCache.set(input, formatted)')
+
+    const conversationSignatureStart = messagesPage.indexOf('const conversationSignature = computed')
+    const messageSignatureStart = messagesPage.indexOf('const messageSignature = computed')
+    expect(conversationSignatureStart).toBeGreaterThanOrEqual(0)
+    expect(messageSignatureStart).toBeGreaterThan(conversationSignatureStart)
+    const conversationSignature = messagesPage.slice(conversationSignatureStart, messageSignatureStart)
+    const messageSignature = messagesPage.slice(messageSignatureStart, messagesPage.indexOf('const contextAccountText', messageSignatureStart))
+
+    expect(conversationSignature).toContain('conversations.value')
+    expect(conversationSignature).not.toContain('visibleConversationRows.value')
+    expect(messageSignature).toContain('detail.value?.messages')
+    expect(messageSignature).not.toContain('visibleMessageRows.value')
+    expect(messageSignature).not.toContain('message.body')
+  })
+
+  it('keeps article comment stream push and delete paths on in-place shallowRef triggers', () => {
+    expect(commentStream).toContain("import { reactive, ref, shallowRef, triggerRef } from 'vue'")
+    expect(commentStream).toContain('const notifyThreadsChanged = () => triggerRef(threads)')
+    expect(commentStream).toContain('threads.value.push(item)')
+    expect(commentStream).toContain('threads.value.unshift(thread)')
+    expect(commentStream).toContain('target.repliesPreview.push(reply)')
+    expect(commentStream).toContain('notifyThreadsChanged()')
+    expect(commentStream).not.toContain('const merged = [...threads.value]')
+    expect(commentStream).not.toContain('const nextThreads = [...threads.value]')
+    expect(commentStream).not.toContain('[thread, ...threads.value]')
+  })
+
   it('keeps DOM and markdown render pressure budgets wired into frontend gates', () => {
     expect(packageJson).toContain('check:dom-depth-static')
     expect(packageJson).toContain('check:dom-budget')
@@ -112,7 +143,7 @@ describe('frontend performance workflow contract', () => {
     expect(markdownRenderer).toContain('@features-activated')
     expect(markdownRenderer).toContain("emit('features-activated'")
     expect(markdownRenderer).not.toContain('markdownActivationService')
-    expect(packageJson).toContain('"@ozwasyd/element-plus": "1.5.0"')
+    expect(packageJson).toContain('"@ozwasyd/element-plus": "1.5.1"')
 
     expect(commentList).toContain('COMMENT_CONTENT_CONSTRAINT.rootRenderLimit')
     expect(commentList).toContain('visibleThreadItems')
@@ -124,8 +155,8 @@ describe('frontend performance workflow contract', () => {
   })
 
   it('keeps full app FsusUI registration scoped to required plugins', () => {
-    expect(fullApp).toContain("import { ElLoading } from '@ozwasyd/element-plus'")
-    expect(fullApp).toContain('app.use(ElLoading)')
+    expect(fullApp).toContain("import { installFsusUiLoading } from '@/fsusui/feedback'")
+    expect(fullApp).toContain('installFsusUiLoading(app)')
     expect(fullApp).not.toContain("import ElementPlus from '@ozwasyd/element-plus'")
     expect(fullApp).not.toContain('app.use(ElementPlus)')
   })

@@ -147,6 +147,7 @@ const isAdminView = computed(() => route.name === 'ManageMessages')
 const CONVERSATION_RENDER_WINDOW = 80
 const MESSAGE_RENDER_WINDOW = 80
 const ROW_MOTION_VISIBLE_LIMIT = 20
+const formatTimeCache = new Map<string, string>()
 
 const adminCenter = useAdminMessageCenter(() => isAdminView.value)
 const accountInbox = useAccountMessagesInbox(() => !isAdminView.value)
@@ -273,11 +274,11 @@ const visibleMessageRows = computed(() => {
   }))
 })
 const hiddenMessageCount = computed(() => Math.max(0, (detail.value?.messages.length ?? 0) - visibleMessageRows.value.length))
-const conversationSignature = computed(() => visibleConversationRows.value
+const conversationSignature = computed(() => conversations.value
   .map((item) => `${item.conversationId}:${item.status}:${item.unreadCount}:${item.lastMessageAt}`)
   .join('|'))
-const messageSignature = computed(() => visibleMessageRows.value
-  .map((message) => `${message.messageId}:${message.createdAt}:${message.body}`)
+const messageSignature = computed(() => (detail.value?.messages ?? [])
+  .map((message) => `${message.messageId}:${message.createdAt}`)
   .join('|'))
 const contextAccountText = computed(() => {
   const messages = detail.value?.messages ?? []
@@ -462,9 +463,19 @@ const bubbleClass = (senderType: number): string => {
 }
 
 const formatTime = (input: string): string => {
+  const cached = formatTimeCache.get(input)
+  if (cached) {
+    return cached
+  }
+
   const date = new Date(input)
-  if (Number.isNaN(date.getTime())) return input
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+  if (Number.isNaN(date.getTime())) {
+    formatTimeCache.set(input, input)
+    return input
+  }
+  const formatted = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+  formatTimeCache.set(input, formatted)
+  return formatted
 }
 </script>
 

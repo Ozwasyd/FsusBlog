@@ -1,4 +1,4 @@
-import { reactive, ref, shallowRef } from 'vue'
+import { reactive, ref, shallowRef, triggerRef } from 'vue'
 import {
   getComments,
   getThreadReplies,
@@ -53,6 +53,8 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
   const loadTask = useAbortableTask()
   let observer: IntersectionObserver | null = null
 
+  const notifyThreadsChanged = () => triggerRef(threads)
+
   const updateReplySet = (rootId: string, replies: ReadonlyArray<CommentReplyPreviewItem>) => {
     const set = new Set<string>()
     for (const item of replies) {
@@ -100,7 +102,6 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
   }
 
   const appendThreads = (incoming: ReadonlyArray<CommentThreadItem>) => {
-    const merged = [...threads.value]
     let appended = 0
 
     for (const item of incoming) {
@@ -108,10 +109,10 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
       if (threadIdSet.has(id)) {
         continue
       }
-      merged.push(item)
+      threads.value.push(item)
       threadIdSet.add(id)
       const rootId = String(item.rootId)
-      threadIndexByRoot.set(rootId, merged.length - 1)
+      threadIndexByRoot.set(rootId, threads.value.length - 1)
       updateReplySet(rootId, item.repliesPreview)
       replyCursorByRoot.set(rootId, item.repliesPreview.length > 0 ? String(item.repliesPreview[item.repliesPreview.length - 1]?.id ?? '') : null)
       replyHasMoreByRoot.set(rootId, item.hasMoreReplies && item.repliesPreview.length < COMMENT_CONTENT_CONSTRAINT.replyRenderLimit)
@@ -119,7 +120,7 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
     }
 
     if (appended > 0) {
-      threads.value = merged
+      notifyThreadsChanged()
     }
   }
 
@@ -181,14 +182,14 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
         return
       }
 
-      const nextThreads = [...threads.value]
       const targetIndex = threadIndexByRoot.get(rootId) ?? -1
       if (targetIndex === -1) {
         return
       }
 
       const seen = replyIdSetByRoot.get(rootId) ?? new Set<string>()
-      const mergedReplies = [...nextThreads[targetIndex].repliesPreview]
+      const target = threads.value[targetIndex]
+      const mergedReplies = target.repliesPreview
       for (const reply of res.data) {
         const id = String(reply.id)
         if (seen.has(id)) {
@@ -204,12 +205,9 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
       replyCursorByRoot.set(rootId, res.nextCursor ? String(res.nextCursor) : null)
       replyHasMoreByRoot.set(rootId, res.hasMore && !reachedRenderLimit)
 
-      nextThreads[targetIndex] = {
-        ...nextThreads[targetIndex],
-        repliesPreview: cappedReplies,
-        hasMoreReplies: res.hasMore && !reachedRenderLimit
-      }
-      threads.value = nextThreads
+      target.repliesPreview = cappedReplies
+      target.hasMoreReplies = res.hasMore && !reachedRenderLimit
+      notifyThreadsChanged()
     } catch (error: unknown) {
       if (!isAbortError(error) && options.isMounted()) {
         console.error('[Comments] Load replies failed:', error)
@@ -244,9 +242,9 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
         repliesPreview: []
       }
 
-      const merged = [thread, ...threads.value]
-      if (merged.length > limit) {
-        const removed = merged.pop()
+      threads.value.unshift(thread)
+      if (threads.value.length > limit) {
+        const removed = threads.value.pop()
         if (removed) {
           threadIdSet.delete(String(removed.id))
           replyIdSetByRoot.delete(String(removed.rootId))
@@ -259,8 +257,8 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
       replyIdSetByRoot.set(rootId, new Set())
       replyCursorByRoot.set(rootId, null)
       replyHasMoreByRoot.set(rootId, false)
-      rebuildThreadIndexes(merged)
-      threads.value = merged
+      rebuildThreadIndexes(threads.value)
+      notifyThreadsChanged()
       return true
     }
 
@@ -284,20 +282,16 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
       isDeleted: incoming.isDeleted === true
     }
 
-    const nextThreads = [...threads.value]
-    const target = nextThreads[targetIndex]
-    nextThreads[targetIndex] = {
-      ...target,
-      replyCount: target.replyCount + 1,
-      repliesPreview: target.repliesPreview.length >= COMMENT_CONTENT_CONSTRAINT.replyRenderLimit
-        ? target.repliesPreview
-        : [...target.repliesPreview, reply]
+    const target = threads.value[targetIndex]
+    target.replyCount += 1
+    if (target.repliesPreview.length < COMMENT_CONTENT_CONSTRAINT.replyRenderLimit) {
+      target.repliesPreview.push(reply)
     }
 
     seen.add(incomingId)
     replyIdSetByRoot.set(rootId, seen)
     replyCursorByRoot.set(rootId, incomingId)
-    threads.value = nextThreads
+    notifyThreadsChanged()
     return true
   }
 
@@ -309,19 +303,15 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
         return false
       }
 
-      const nextThreads = [...threads.value]
       const rootIndex = threadIndexByRoot.get(String(rootId ?? targetId))
-      const index = rootIndex ?? nextThreads.findIndex((item) => String(item.id) === targetId)
+      const index = rootIndex ?? threads.value.findIndex((item) => String(item.id) === targetId)
       if (index === -1) {
         return false
       }
 
-      nextThreads[index] = {
-        ...nextThreads[index],
-        isDeleted: true,
-        content: '该回复已删除'
-      }
-      threads.value = nextThreads
+      threads.value[index].isDeleted = true
+      threads.value[index].content = '该回复已删除'
+      notifyThreadsChanged()
       return true
     }
 
@@ -330,29 +320,20 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
       return false
     }
 
-    const nextThreads = [...threads.value]
     const index = threadIndexByRoot.get(rootKey) ?? -1
     if (index === -1) {
       return false
     }
 
-    const replies = [...nextThreads[index].repliesPreview]
+    const replies = threads.value[index].repliesPreview
     const replyIndex = replies.findIndex((item) => String(item.id) === targetId)
     if (replyIndex === -1) {
       return false
     }
 
-    replies[replyIndex] = {
-      ...replies[replyIndex],
-      isDeleted: true,
-      content: '该回复已删除'
-    }
-
-    nextThreads[index] = {
-      ...nextThreads[index],
-      repliesPreview: replies
-    }
-    threads.value = nextThreads
+    replies[replyIndex].isDeleted = true
+    replies[replyIndex].content = '该回复已删除'
+    notifyThreadsChanged()
     return true
   }
 

@@ -60,4 +60,13 @@ describe('useHomeView runtime coalescing contract', () => {
     expect(applyArticlePatch).toContain('currentPage.value !== 1')
     expect(applyArticlePatch).toContain('homeRuntimeMetrics.stalePageMarks++')
   })
+
+  it('does not schedule secondary article refresh for local Updated patches', () => {
+    const source = readSource()
+    const handleArticleBatch = extractFunction(source, 'handleArticleBatch')
+
+    expect(handleArticleBatch).toContain("action === 'Created' || action === 'Deleted' || action === 'Restored'")
+    expect(handleArticleBatch).not.toContain("|| action === 'Updated'")
+    expect(handleArticleBatch).not.toContain("action === 'Updated' ||")
+  })
 })

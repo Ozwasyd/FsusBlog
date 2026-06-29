@@ -316,3 +316,50 @@ describe('binaryApiClient pow in-flight dedupe', () => {
     expect(fetch).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('binaryApiClient binary request in-flight dedupe', () => {
+  beforeEach(() => {
+    powMocks.calculate.mockReset()
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer
+    })))
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('dedupes concurrent identical binary GET requests', async () => {
+    const response = createDeferred<ArrayBuffer>()
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      arrayBuffer: async () => await response.promise
+    })))
+
+    const first = binaryRequest('/api/binary/article/hot/8.aeds')
+    const second = binaryRequest('/api/binary/article/hot/8.aeds')
+
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
+    response.resolve(new Uint8Array([9, 8, 7]).buffer)
+
+    const [firstBuffer, secondBuffer] = await Promise.all([first, second])
+    expect(new Uint8Array(firstBuffer)).toEqual(new Uint8Array([9, 8, 7]))
+    expect(new Uint8Array(secondBuffer)).toEqual(new Uint8Array([9, 8, 7]))
+    expect(secondBuffer).not.toBe(firstBuffer)
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not dedupe different binary request bodies', async () => {
+    await Promise.all([
+      binaryRequest('/api/binary/comment', { method: 'POST', body: new Uint8Array([1]) }),
+      binaryRequest('/api/binary/comment', { method: 'POST', body: new Uint8Array([2]) })
+    ])
+
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+})

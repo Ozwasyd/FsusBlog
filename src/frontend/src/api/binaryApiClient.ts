@@ -6,6 +6,7 @@ import { FrameType } from '@wasm/protocol/frame'
 import { readFixedUtf8, readInt32, readInt64Number } from '@/adapters/binary/reader'
 import { applyBinaryRequestHeaders, FSUS_HEADERS, withBinaryAccept } from './contracts'
 import { encodeBinaryPowProofHeader } from '@/services/powProofCodec'
+import { emitRumMetric } from '@/services/telemetryBus'
 
 export interface BinaryRequestOptions extends RequestInit {
   requiresPow?: boolean
@@ -28,7 +29,9 @@ export class BinaryRequestError extends AppError {
   }
 }
 
-function createAbortError(): DOMException | Error {
+const ABORT_ERROR: DOMException | Error = Object.freeze(createAbortErrorInstance())
+
+function createAbortErrorInstance(): DOMException | Error {
   if (typeof DOMException !== 'undefined') {
     return new DOMException('The operation was aborted.', 'AbortError')
   }
@@ -36,6 +39,10 @@ function createAbortError(): DOMException | Error {
   const error = new Error('The operation was aborted.')
   error.name = 'AbortError'
   return error
+}
+
+function createAbortError(): DOMException | Error {
+  return ABORT_ERROR
 }
 
 function throwIfAborted(signal?: AbortSignal): void {
@@ -50,8 +57,15 @@ type InFlightPowHeaders = {
   waiters: Set<symbol>
 }
 
+type InFlightBinaryRequest = {
+  controller: AbortController
+  promise: Promise<AppResult<ArrayBuffer>>
+  waiters: Set<symbol>
+}
+
 const DEFAULT_POW_SCOPE = 'mutation'
 const inFlightPowHeaders = new Map<string, InFlightPowHeaders>()
+const inFlightBinaryRequests = new Map<string, InFlightBinaryRequest>()
 
 async function buildBinaryPowHeadersFresh(fp: string, signal?: AbortSignal): Promise<Record<string, string>> {
   throwIfAborted(signal)
@@ -177,12 +191,128 @@ async function buildPowHeadersIfNeeded(url: string, options?: BinaryRequestOptio
     return {}
   }
 
-  return await buildBinaryPowHeaders(options.signal, derivePowScope(url, options))
+  return await buildBinaryPowHeaders(options.signal ?? undefined, derivePowScope(url, options))
 }
 
 function isStateChangingRequest(options?: BinaryRequestOptions): boolean {
   const method = (options?.method ?? 'GET').toUpperCase()
   return method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS'
+}
+
+function hashRequestBody(body: BodyInit | null | undefined): string {
+  if (body === undefined || body === null) {
+    return 'no-body'
+  }
+
+  if (typeof body === 'string') {
+    return `text:${body}`
+  }
+
+  if (body instanceof URLSearchParams) {
+    return `search:${body.toString()}`
+  }
+
+  if (body instanceof ArrayBuffer) {
+    return hashBytes(new Uint8Array(body))
+  }
+
+  if (ArrayBuffer.isView(body)) {
+    return hashBytes(new Uint8Array(body.buffer, body.byteOffset, body.byteLength))
+  }
+
+  return `object:${Object.prototype.toString.call(body)}`
+}
+
+function hashBytes(bytes: Uint8Array): string {
+  let hash = 2166136261
+  for (const byte of bytes) {
+    hash ^= byte
+    hash = Math.imul(hash, 16777619)
+  }
+
+  return `bytes:${bytes.byteLength}:${hash >>> 0}`
+}
+
+function shouldDedupeBinaryRequest(url: string, options?: BinaryRequestOptions): boolean {
+  if (options?.requiresPow || url.includes('pow-challenge')) {
+    return false
+  }
+
+  const method = (options?.method ?? 'GET').toUpperCase()
+  return method === 'GET' || method === 'HEAD'
+}
+
+function buildBinaryRequestDedupeKey(url: string, options?: BinaryRequestOptions): string {
+  const method = (options?.method ?? 'GET').toUpperCase()
+  return `${method}:${url}:${hashRequestBody(options?.body ?? null)}`
+}
+
+function emitBinaryDedupMetric(hit: boolean): void {
+  emitRumMetric('fsus.frontend.binary.dedup.hit_ratio', {
+    value: hit ? 1 : 0,
+    hit
+  })
+}
+
+function waitForInFlightBinaryRequest(entry: InFlightBinaryRequest, signal?: AbortSignal): Promise<AppResult<ArrayBuffer>> {
+  return new Promise((resolve, reject) => {
+    const waiter = Symbol('binary-request-waiter')
+    let settled = false
+
+    const cleanup = () => {
+      signal?.removeEventListener('abort', onAbort)
+      entry.waiters.delete(waiter)
+    }
+
+    const onAbort = () => {
+      if (settled) {
+        return
+      }
+
+      settled = true
+      cleanup()
+      reject(createAbortError())
+      if (entry.waiters.size === 0) {
+        entry.controller.abort()
+      }
+    }
+
+    entry.waiters.add(waiter)
+    signal?.addEventListener('abort', onAbort, { once: true })
+
+    entry.promise.then(
+      (result) => {
+        if (settled) {
+          return
+        }
+
+        settled = true
+        cleanup()
+        resolve(cloneBinaryRequestResult(result))
+      },
+      (reason) => {
+        if (settled) {
+          return
+        }
+
+        settled = true
+        cleanup()
+        reject(reason)
+      }
+    )
+
+    if (signal?.aborted) {
+      onAbort()
+    }
+  })
+}
+
+function cloneBinaryRequestResult(result: AppResult<ArrayBuffer>): AppResult<ArrayBuffer> {
+  if (!result.ok) {
+    return result
+  }
+
+  return ok(result.value.slice(0))
 }
 
 function readCookieValue(name: string): string {
@@ -244,7 +374,7 @@ function decodePowChallenge(buffer: ArrayBuffer): { salt: string; difficulty: nu
   }
 }
 
-async function binaryRequestResult(url: string, options?: BinaryRequestOptions): Promise<AppResult<ArrayBuffer>> {
+async function binaryRequestResultFresh(url: string, options?: BinaryRequestOptions): Promise<AppResult<ArrayBuffer>> {
   const powHeaders = await buildPowHeadersIfNeeded(url, options)
   const headers = new Headers(options?.headers)
   if (options?.credentials === 'omit') {
@@ -270,6 +400,39 @@ async function binaryRequestResult(url: string, options?: BinaryRequestOptions):
   }
 
   return ok(buffer);
+}
+
+async function binaryRequestResult(url: string, options?: BinaryRequestOptions): Promise<AppResult<ArrayBuffer>> {
+  throwIfAborted(options?.signal ?? undefined)
+
+  if (!shouldDedupeBinaryRequest(url, options)) {
+    return await binaryRequestResultFresh(url, options)
+  }
+
+  const inFlightKey = buildBinaryRequestDedupeKey(url, options)
+  let entry = inFlightBinaryRequests.get(inFlightKey)
+
+  if (!entry) {
+    emitBinaryDedupMetric(false)
+    const controller = new AbortController()
+    const requestOptions: BinaryRequestOptions = {
+      ...(options ?? {}),
+      signal: controller.signal
+    }
+    const promise = binaryRequestResultFresh(url, requestOptions).finally(() => {
+      inFlightBinaryRequests.delete(inFlightKey)
+    })
+    entry = {
+      controller,
+      promise,
+      waiters: new Set()
+    }
+    inFlightBinaryRequests.set(inFlightKey, entry)
+  } else {
+    emitBinaryDedupMetric(true)
+  }
+
+  return await waitForInFlightBinaryRequest(entry, options?.signal ?? undefined)
 }
 
 export async function binaryRequest(url: string, options?: BinaryRequestOptions): Promise<ArrayBuffer> {
