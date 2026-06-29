@@ -190,6 +190,10 @@ public static class FsusObservability
     private static readonly Histogram<double> AdminSessionListElapsed = Meter.CreateHistogram<double>("fsus.admin.session.list.elapsed_ms", "ms");
     private static readonly Counter<long> AdminSessionRevokeOthersCount = Meter.CreateCounter<long>("fsus.admin.session.revoke_others.count");
     private static readonly Histogram<double> AdminSessionRevokeOthersElapsed = Meter.CreateHistogram<double>("fsus.admin.session.revoke_others.elapsed_ms", "ms");
+    private static readonly Counter<long> AdminSessionValidationDbReadCount = Meter.CreateCounter<long>("fsus.admin.session.validation.db_read_count");
+    private static readonly Counter<long> AdminSessionValidationCacheHit = Meter.CreateCounter<long>("fsus.admin.session.validation.cache_hit");
+    private static readonly Counter<long> AdminSessionTouchSkipped = Meter.CreateCounter<long>("fsus.admin.session.touch_skipped");
+    private static readonly Histogram<double> AdminSessionTouchElapsed = Meter.CreateHistogram<double>("fsus.admin.session.touch_elapsed_ms", "ms");
     private static readonly Histogram<double> DistributionDiagnosticsElapsed = Meter.CreateHistogram<double>("fsus.distribution.diagnostics.elapsed_ms", "ms");
     private static readonly Counter<long> DistributionDiagnosticsCacheAccess = Meter.CreateCounter<long>("fsus.distribution.diagnostics.cache_access");
     private static readonly Counter<long> DistributionDiagnosticsDbCommandCount = Meter.CreateCounter<long>("fsus.distribution.diagnostics.db_command_count");
@@ -1013,6 +1017,42 @@ public static class FsusObservability
             TagList tags = CreateBaseTags("admin-session", "revoke_others", "ok");
             AdminSessionRevokeOthersCount.Add(Math.Max(0, revokedCount), tags);
             AdminSessionRevokeOthersElapsed.Record(elapsed.TotalMilliseconds, tags);
+        });
+    }
+
+    public static void RecordAdminSessionValidationDbRead()
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("admin-session", "validation", "db_read");
+            AdminSessionValidationDbReadCount.Add(1, tags);
+        });
+    }
+
+    public static void RecordAdminSessionValidationCacheHit()
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("admin-session", "validation", "cache_hit");
+            AdminSessionValidationCacheHit.Add(1, tags);
+        });
+    }
+
+    public static void RecordAdminSessionTouchSkipped()
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("admin-session", "touch", "skipped");
+            AdminSessionTouchSkipped.Add(1, tags);
+        });
+    }
+
+    public static void RecordAdminSessionTouch(bool updated, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("admin-session", "touch", updated ? "updated" : "conflict");
+            AdminSessionTouchElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 

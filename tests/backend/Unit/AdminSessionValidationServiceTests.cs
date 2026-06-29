@@ -6,6 +6,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.Extensions.Caching.Memory;
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -75,16 +76,58 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
     public void ValidateAsync_SourceUsesRowVersionGuardForLastSeenTouch()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminSessionValidationService.cs");
+        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
 
         Assert.Contains("LoadAdminSessionValidationStateAsync", source, StringComparison.Ordinal);
         Assert.Contains("TryTouchAdminSessionAsync(session, now", source, StringComparison.Ordinal);
+        Assert.Contains("AdminSessionValidationSnapshot", source, StringComparison.Ordinal);
+        Assert.Contains("MemoryCacheEntryOptions", source, StringComparison.Ordinal);
+        Assert.Contains("AdminSessionValidationSnapshotTtl", source, StringComparison.Ordinal);
+        Assert.Contains("AdminSessionTouchMinInterval", source, StringComparison.Ordinal);
+        Assert.Contains("TryGetValidationSnapshot", source, StringComparison.Ordinal);
+        Assert.Contains("SetValidationSnapshot", source, StringComparison.Ordinal);
+        Assert.Contains("ShouldTouchAdminSession", source, StringComparison.Ordinal);
+        Assert.Contains("JOIN admin_principal ap ON ap.id = s.adminprincipalid", source, StringComparison.Ordinal);
+        Assert.Contains("ap.status AS principal_status", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Queryable<AdminPrincipal>().InSingleAsync", source, StringComparison.Ordinal);
         Assert.Contains("xmin::text AS row_version", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("AND xmin::text = @RowVersion", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("AND accesstokenhash = @AccessTokenHash", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("AND idleexpiresatutc = @IdleExpiresAtUtc", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("ValidateCurrentSessionAfterTouchConflictAsync", source, StringComparison.Ordinal);
+        Assert.Contains("RecordAdminSessionValidationDbRead", source, StringComparison.Ordinal);
+        Assert.Contains("RecordAdminSessionValidationCacheHit", source, StringComparison.Ordinal);
+        Assert.Contains("RecordAdminSessionTouchSkipped", source, StringComparison.Ordinal);
+        Assert.Contains("RecordAdminSessionTouch", source, StringComparison.Ordinal);
+        Assert.Contains("fsus.admin.session.validation.db_read_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.admin.session.validation.cache_hit", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.admin.session.touch_skipped", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.admin.session.touch_elapsed_ms", observability, StringComparison.Ordinal);
         Assert.DoesNotContain("Invalid(\"admin_session_conflict\")", source, StringComparison.Ordinal);
         Assert.DoesNotContain(".Where(s => s.SessionId == sessionId && s.RevokedAtUtc == null)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_SecondSnapshotHitDoesNotTouchLastSeenAgain()
+    {
+        string connectionString = await CreateConnectionStringAsync();
+        const string token = "snapshot-admin-token";
+        DateTime before = DateTime.UtcNow.AddMinutes(-5);
+
+        using SqlSugarClient db = CreateDb(connectionString);
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), CreateSession(accessTokenHash: HashForStorage(token), lastSeenAtUtc: before));
+        var service = new AdminSessionValidationService(db, cache);
+
+        AdminSessionValidationResult first = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), token, CancellationToken.None);
+        AdminSession afterFirst = await db.Queryable<AdminSession>().SingleAsync(s => s.SessionId == "sid-1");
+        AdminSessionValidationResult second = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), token, CancellationToken.None);
+        AdminSession afterSecond = await db.Queryable<AdminSession>().SingleAsync(s => s.SessionId == "sid-1");
+
+        Assert.True(first.IsValid, first.Reason);
+        Assert.True(second.IsValid, second.Reason);
+        Assert.True(afterFirst.LastSeenAtUtc > before);
+        Assert.Equal(afterFirst.LastSeenAtUtc, afterSecond.LastSeenAtUtc);
     }
 
     [Fact]

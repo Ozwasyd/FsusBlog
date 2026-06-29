@@ -2,9 +2,13 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Data.Common;
+using System.Collections.Concurrent;
+using System.Diagnostics;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Observability;
+using Microsoft.Extensions.Caching.Memory;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;
@@ -21,8 +25,25 @@ public sealed record AdminSessionValidationResult(bool IsValid, string Reason)
     public static AdminSessionValidationResult Invalid(string reason) => new(false, reason);
 }
 
-public sealed class AdminSessionValidationService(ISqlSugarClient db) : IAdminSessionValidationService
+public sealed class AdminSessionValidationService : IAdminSessionValidationService
 {
+    private static readonly TimeSpan AdminSessionValidationSnapshotTtl = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan AdminSessionTouchMinInterval = TimeSpan.FromSeconds(45);
+    private static readonly MemoryCacheEntryOptions ValidationSnapshotOptions = new()
+    {
+        AbsoluteExpirationRelativeToNow = AdminSessionValidationSnapshotTtl
+    };
+    private static readonly ConcurrentDictionary<string, DateTime> LastTouchBySession = new(StringComparer.Ordinal);
+
+    private readonly ISqlSugarClient db;
+    private readonly IMemoryCache validationCache;
+
+    public AdminSessionValidationService(ISqlSugarClient db, IMemoryCache? validationCache = null)
+    {
+        this.db = db;
+        this.validationCache = validationCache ?? new MemoryCache(new MemoryCacheOptions());
+    }
+
     public async Task<AdminSessionValidationResult> ValidateAsync(ClaimsPrincipal? principal, string accessToken, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -48,6 +69,15 @@ public sealed class AdminSessionValidationService(ISqlSugarClient db) : IAdminSe
             return AdminSessionValidationResult.Invalid("admin_access_token_missing");
         }
 
+        DateTime now = DateTime.UtcNow;
+        string currentTokenHash = HashAccessTokenForStorage(accessToken);
+        string snapshotKey = SnapshotKey(sessionId, currentTokenHash);
+        if (TryGetValidationSnapshot(snapshotKey, out AdminSessionValidationSnapshot? snapshot) && snapshot is not null)
+        {
+            FsusObservability.RecordAdminSessionValidationCacheHit();
+            return ValidateSnapshot(snapshot, adminId, currentTokenHash, now);
+        }
+
         AdminSessionValidationState? session = await LoadAdminSessionValidationStateAsync(sessionId, cancellationToken);
         if (session is null)
         {
@@ -59,13 +89,11 @@ public sealed class AdminSessionValidationService(ISqlSugarClient db) : IAdminSe
             return AdminSessionValidationResult.Invalid("admin_session_principal_mismatch");
         }
 
-        AdminPrincipal? adminPrincipal = await db.Queryable<AdminPrincipal>().InSingleAsync(adminId);
-        if (adminPrincipal is null || !string.Equals(adminPrincipal.Status, AdminPrincipalStatus.Active, StringComparison.Ordinal))
+        if (!string.Equals(session.PrincipalStatus, AdminPrincipalStatus.Active, StringComparison.Ordinal))
         {
             return AdminSessionValidationResult.Invalid("admin_principal_inactive");
         }
 
-        DateTime now = DateTime.UtcNow;
         if (session.RevokedAtUtc.HasValue)
         {
             return AdminSessionValidationResult.Invalid("admin_session_revoked");
@@ -81,16 +109,24 @@ public sealed class AdminSessionValidationService(ISqlSugarClient db) : IAdminSe
             return AdminSessionValidationResult.Invalid("admin_session_absolute_expired");
         }
 
-        string currentTokenHash = HashAccessTokenForStorage(accessToken);
         if (!FixedTimeHexEquals(session.AccessTokenHash, currentTokenHash))
         {
             return AdminSessionValidationResult.Invalid("admin_session_token_mismatch");
+        }
+
+        SetValidationSnapshot(snapshotKey, AdminSessionValidationSnapshot.From(session));
+        if (!ShouldTouchAdminSession(session.SessionId, session.AccessTokenHash, now))
+        {
+            FsusObservability.RecordAdminSessionTouchSkipped();
+            return AdminSessionValidationResult.Valid;
         }
 
         if (await TryTouchAdminSessionAsync(session, now, cancellationToken))
         {
             return AdminSessionValidationResult.Valid;
         }
+
+        validationCache.Remove(snapshotKey);
 
         return await ValidateCurrentSessionAfterTouchConflictAsync(
             adminId,
@@ -108,16 +144,19 @@ public sealed class AdminSessionValidationService(ISqlSugarClient db) : IAdminSe
         using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             SELECT sessionid,
-                   adminprincipalid,
+                   s.adminprincipalid,
                    accesstokenhash,
                    revokedatutc,
                    idleexpiresatutc,
                    absoluteexpiresatutc,
-                   xmin::text AS row_version
-            FROM admin_session
-            WHERE sessionid = @SessionId;
+                   s.xmin::text AS row_version,
+                   ap.status AS principal_status
+            FROM admin_session s
+            JOIN admin_principal ap ON ap.id = s.adminprincipalid
+            WHERE s.sessionid = @SessionId;
             """,
             new SugarParameter("@SessionId", sessionId));
+        FsusObservability.RecordAdminSessionValidationDbRead();
 
         if (!await reader.ReadAsync(cancellationToken))
         {
@@ -131,7 +170,8 @@ public sealed class AdminSessionValidationService(ISqlSugarClient db) : IAdminSe
             reader.IsDBNull(3) ? null : AsUtc(reader.GetDateTime(3)),
             AsUtc(reader.GetDateTime(4)),
             AsUtc(reader.GetDateTime(5)),
-            reader.GetString(6));
+            reader.GetString(6),
+            reader.GetString(7));
     }
 
     private async Task<bool> TryTouchAdminSessionAsync(
@@ -140,6 +180,7 @@ public sealed class AdminSessionValidationService(ISqlSugarClient db) : IAdminSe
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        long startedAt = Stopwatch.GetTimestamp();
         int updated = await db.Ado.ExecuteCommandAsync(
             """
             UPDATE admin_session
@@ -157,6 +198,7 @@ public sealed class AdminSessionValidationService(ISqlSugarClient db) : IAdminSe
             new SugarParameter("@IdleExpiresAtUtc", session.IdleExpiresAtUtc),
             new SugarParameter("@AbsoluteExpiresAtUtc", session.AbsoluteExpiresAtUtc),
             new SugarParameter("@RowVersion", session.RowVersion));
+        FsusObservability.RecordAdminSessionTouch(updated == 1, Stopwatch.GetElapsedTime(startedAt));
         return updated == 1;
     }
 
@@ -176,6 +218,11 @@ public sealed class AdminSessionValidationService(ISqlSugarClient db) : IAdminSe
         if (current.AdminPrincipalId != adminId)
         {
             return AdminSessionValidationResult.Invalid("admin_session_principal_mismatch");
+        }
+
+        if (!string.Equals(current.PrincipalStatus, AdminPrincipalStatus.Active, StringComparison.Ordinal))
+        {
+            return AdminSessionValidationResult.Invalid("admin_principal_inactive");
         }
 
         if (current.RevokedAtUtc.HasValue)
@@ -201,6 +248,67 @@ public sealed class AdminSessionValidationService(ISqlSugarClient db) : IAdminSe
         return AdminSessionValidationResult.Valid;
     }
 
+    private bool TryGetValidationSnapshot(string snapshotKey, out AdminSessionValidationSnapshot? snapshot)
+        => validationCache.TryGetValue(snapshotKey, out snapshot);
+
+    private void SetValidationSnapshot(string snapshotKey, AdminSessionValidationSnapshot snapshot)
+        => validationCache.Set(snapshotKey, snapshot, ValidationSnapshotOptions);
+
+    private static AdminSessionValidationResult ValidateSnapshot(
+        AdminSessionValidationSnapshot snapshot,
+        long adminId,
+        string currentTokenHash,
+        DateTime now)
+    {
+        if (snapshot.AdminPrincipalId != adminId)
+        {
+            return AdminSessionValidationResult.Invalid("admin_session_principal_mismatch");
+        }
+
+        if (!string.Equals(snapshot.PrincipalStatus, AdminPrincipalStatus.Active, StringComparison.Ordinal))
+        {
+            return AdminSessionValidationResult.Invalid("admin_principal_inactive");
+        }
+
+        if (snapshot.RevokedAtUtc.HasValue)
+        {
+            return AdminSessionValidationResult.Invalid("admin_session_revoked");
+        }
+
+        if (snapshot.IdleExpiresAtUtc <= now)
+        {
+            return AdminSessionValidationResult.Invalid("admin_session_idle_expired");
+        }
+
+        if (snapshot.AbsoluteExpiresAtUtc <= now)
+        {
+            return AdminSessionValidationResult.Invalid("admin_session_absolute_expired");
+        }
+
+        if (!FixedTimeHexEquals(snapshot.AccessTokenHash, currentTokenHash))
+        {
+            return AdminSessionValidationResult.Invalid("admin_session_token_mismatch");
+        }
+
+        return AdminSessionValidationResult.Valid;
+    }
+
+    private static bool ShouldTouchAdminSession(string sessionId, string accessTokenHash, DateTime now)
+    {
+        string touchKey = SnapshotKey(sessionId, accessTokenHash);
+        if (LastTouchBySession.TryGetValue(touchKey, out DateTime lastTouchedAt) &&
+            now - lastTouchedAt < AdminSessionTouchMinInterval)
+        {
+            return false;
+        }
+
+        LastTouchBySession[touchKey] = now;
+        return true;
+    }
+
+    private static string SnapshotKey(string sessionId, string accessTokenHash)
+        => string.Concat("admin-session-validation:", sessionId, ':', accessTokenHash);
+
     private sealed record AdminSessionValidationState(
         string SessionId,
         long AdminPrincipalId,
@@ -208,7 +316,26 @@ public sealed class AdminSessionValidationService(ISqlSugarClient db) : IAdminSe
         DateTime? RevokedAtUtc,
         DateTime IdleExpiresAtUtc,
         DateTime AbsoluteExpiresAtUtc,
-        string RowVersion);
+        string RowVersion,
+        string PrincipalStatus);
+
+    private sealed record AdminSessionValidationSnapshot(
+        long AdminPrincipalId,
+        string AccessTokenHash,
+        DateTime? RevokedAtUtc,
+        DateTime IdleExpiresAtUtc,
+        DateTime AbsoluteExpiresAtUtc,
+        string PrincipalStatus)
+    {
+        public static AdminSessionValidationSnapshot From(AdminSessionValidationState state)
+            => new(
+                state.AdminPrincipalId,
+                state.AccessTokenHash,
+                state.RevokedAtUtc,
+                state.IdleExpiresAtUtc,
+                state.AbsoluteExpiresAtUtc,
+                state.PrincipalStatus);
+    }
 
     private static DateTime AsUtc(DateTime value)
         => value.Kind switch
