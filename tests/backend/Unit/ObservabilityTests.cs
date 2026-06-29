@@ -178,6 +178,30 @@ public sealed class ObservabilityTests
     }
 
     [Fact]
+    public void ObservabilityHotPaths_UseRouteCacheRingBuffersAndInlinedTryRecord()
+    {
+        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string classify = ExtractMethodBlock(observability, "public static string ClassifyRoute");
+        string classifyCore = ExtractMethodBlock(observability, "private static string ClassifyRouteCore");
+        string addDouble = ExtractMethodBlock(observability, "private static void AddBoundedSample(SlidingWindow<double>");
+        string tryRecord = ExtractMethodBlock(observability, "private static void TryRecord");
+
+        Assert.Contains("using System.Runtime.CompilerServices;", observability, StringComparison.Ordinal);
+        Assert.Contains("ConcurrentDictionary<string, string> RouteKindCache", observability, StringComparison.Ordinal);
+        Assert.Contains("RouteKindCache.GetOrAdd(value, ClassifyRouteCore)", classify, StringComparison.Ordinal);
+        Assert.DoesNotContain("StartsWith", classify, StringComparison.Ordinal);
+        Assert.Contains("StartsWith", classifyCore, StringComparison.Ordinal);
+        Assert.Contains("private sealed class SlidingWindow<T>", observability, StringComparison.Ordinal);
+        Assert.Contains("SlidingWindow<double> SecurityChallengeV2IssueSamples", observability, StringComparison.Ordinal);
+        Assert.Contains("SlidingWindow<int> SecurityChallengeV2PayloadSamples", observability, StringComparison.Ordinal);
+        Assert.Contains("Interlocked.Increment(ref _writeIndex)", observability, StringComparison.Ordinal);
+        Assert.DoesNotContain("ConcurrentQueue", observability, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryDequeue", observability, StringComparison.Ordinal);
+        Assert.Contains("window.Add(value)", addDouble, StringComparison.Ordinal);
+        Assert.Contains("[MethodImpl(MethodImplOptions.AggressiveInlining)]", observability, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PerceptionChallengeV2Metrics_EmitNamedMeasurementsAndBudgetWarnings()
     {
         FsusObservability.ResetSecurityChallengeV2RuntimeMetricsForTests();

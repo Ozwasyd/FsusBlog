@@ -2,6 +2,7 @@ using System.Collections.Frozen;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Runtime.CompilerServices;
 using FsusBlog.Server.Infrastructure.Security;
 
 namespace FsusBlog.Server.Infrastructure.Observability;
@@ -81,6 +82,7 @@ public static class FsusObservability
     private static readonly Counter<long> OperationCounter = Meter.CreateCounter<long>("fsus.operation.count");
     private static readonly ConcurrentDictionary<string, long> CacheOperationRuntimeCounters = new(StringComparer.Ordinal);
     private const int SecurityEventTagCacheLimit = 256;
+    private static readonly ConcurrentDictionary<string, string> RouteKindCache = new(StringComparer.Ordinal);
     private static readonly Histogram<double> OperationDuration = Meter.CreateHistogram<double>("fsus.operation.duration", "ms");
     private static readonly Counter<long> CacheOperationCounter = Meter.CreateCounter<long>("fsus.cache.operation.count");
     private static readonly Counter<long> SecurityEventCounter = Meter.CreateCounter<long>("fsus.security.event.count");
@@ -302,10 +304,10 @@ public static class FsusObservability
     internal const int SecurityChallengeV2PayloadP95BudgetBytes = 6200;
     internal const int SecurityChallengeV2ClientRenderP95BudgetMs = 55;
     private const int SecurityChallengeV2SampleLimit = 512;
-    private static readonly ConcurrentQueue<double> SecurityChallengeV2IssueSamples = new();
-    private static readonly ConcurrentQueue<double> SecurityChallengeV2VerifySamples = new();
-    private static readonly ConcurrentQueue<int> SecurityChallengeV2PayloadSamples = new();
-    private static readonly ConcurrentQueue<double> SecurityChallengeV2ClientRenderSamples = new();
+    private static readonly SlidingWindow<double> SecurityChallengeV2IssueSamples = new(SecurityChallengeV2SampleLimit);
+    private static readonly SlidingWindow<double> SecurityChallengeV2VerifySamples = new(SecurityChallengeV2SampleLimit);
+    private static readonly SlidingWindow<int> SecurityChallengeV2PayloadSamples = new(SecurityChallengeV2SampleLimit);
+    private static readonly SlidingWindow<double> SecurityChallengeV2ClientRenderSamples = new(SecurityChallengeV2SampleLimit);
 
     public static bool IsAllowedCustomAttribute(string name)
         => AllowedCustomAttributes.Contains(name);
@@ -331,6 +333,11 @@ public static class FsusObservability
     public static string ClassifyRoute(PathString path)
     {
         string value = path.Value ?? string.Empty;
+        return RouteKindCache.GetOrAdd(value, ClassifyRouteCore);
+    }
+
+    private static string ClassifyRouteCore(string value)
+    {
         if (value.StartsWith("/api/binary", StringComparison.OrdinalIgnoreCase))
         {
             return "binary";
@@ -777,10 +784,10 @@ public static class FsusObservability
 
     public static SecurityChallengeV2PerformanceBudgetSnapshot CreateSecurityChallengeV2PerformanceBudgetSnapshot()
     {
-        double issueP99 = Percentile(SecurityChallengeV2IssueSamples.ToArray(), 0.99);
-        double verifyP99 = Percentile(SecurityChallengeV2VerifySamples.ToArray(), 0.99);
-        int payloadP95 = Percentile(SecurityChallengeV2PayloadSamples.ToArray(), 0.95);
-        double clientRenderP95 = Percentile(SecurityChallengeV2ClientRenderSamples.ToArray(), 0.95);
+        double issueP99 = Percentile(SecurityChallengeV2IssueSamples.Snapshot(), 0.99);
+        double verifyP99 = Percentile(SecurityChallengeV2VerifySamples.Snapshot(), 0.99);
+        int payloadP95 = Percentile(SecurityChallengeV2PayloadSamples.Snapshot(), 0.95);
+        double clientRenderP95 = Percentile(SecurityChallengeV2ClientRenderSamples.Snapshot(), 0.95);
         List<string> warnings = [];
 
         if (issueP99 > SecurityChallengeV2IssueP99BudgetMs)
@@ -818,10 +825,10 @@ public static class FsusObservability
 
     internal static void ResetSecurityChallengeV2RuntimeMetricsForTests()
     {
-        ClearQueue(SecurityChallengeV2IssueSamples);
-        ClearQueue(SecurityChallengeV2VerifySamples);
-        ClearQueue(SecurityChallengeV2PayloadSamples);
-        ClearQueue(SecurityChallengeV2ClientRenderSamples);
+        SecurityChallengeV2IssueSamples.Clear();
+        SecurityChallengeV2VerifySamples.Clear();
+        SecurityChallengeV2PayloadSamples.Clear();
+        SecurityChallengeV2ClientRenderSamples.Clear();
     }
 
     public static void RecordDbOperation(string operation, string result, TimeSpan duration)
@@ -1783,40 +1790,24 @@ public static class FsusObservability
         }
     }
 
-    private static void AddBoundedSample(ConcurrentQueue<double> queue, double value)
+    private static void AddBoundedSample(SlidingWindow<double> window, double value)
     {
         if (!double.IsFinite(value) || value < 0)
         {
             return;
         }
 
-        queue.Enqueue(value);
-        TrimQueue(queue);
+        window.Add(value);
     }
 
-    private static void AddBoundedSample(ConcurrentQueue<int> queue, int value)
+    private static void AddBoundedSample(SlidingWindow<int> window, int value)
     {
         if (value < 0)
         {
             return;
         }
 
-        queue.Enqueue(value);
-        TrimQueue(queue);
-    }
-
-    private static void TrimQueue<T>(ConcurrentQueue<T> queue)
-    {
-        while (queue.Count > SecurityChallengeV2SampleLimit && queue.TryDequeue(out _))
-        {
-        }
-    }
-
-    private static void ClearQueue<T>(ConcurrentQueue<T> queue)
-    {
-        while (queue.TryDequeue(out _))
-        {
-        }
+        window.Add(value);
     }
 
     private static double Percentile(double[] values, double percentile)
@@ -1864,6 +1855,7 @@ public static class FsusObservability
         return normalized.Length <= 96 ? normalized : normalized[..96];
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void TryRecord(Action record)
     {
         try
@@ -1873,6 +1865,65 @@ public static class FsusObservability
         catch
         {
             // Telemetry listeners/exporters must not affect RiskControl decisions.
+        }
+    }
+
+    private sealed class SlidingWindow<T>
+    {
+        private readonly T[] _buffer;
+        private int _writeIndex;
+        private int _count;
+
+        public SlidingWindow(int capacity)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
+            _buffer = new T[capacity];
+        }
+
+        public void Add(T value)
+        {
+            int index = Interlocked.Increment(ref _writeIndex) - 1;
+            _buffer[index % _buffer.Length] = value;
+
+            while (true)
+            {
+                int count = Volatile.Read(ref _count);
+                if (count >= _buffer.Length)
+                {
+                    return;
+                }
+
+                if (Interlocked.CompareExchange(ref _count, count + 1, count) == count)
+                {
+                    return;
+                }
+            }
+        }
+
+        public T[] Snapshot()
+        {
+            int count = Math.Min(Volatile.Read(ref _count), _buffer.Length);
+            if (count == 0)
+            {
+                return [];
+            }
+
+            int writeIndex = Volatile.Read(ref _writeIndex);
+            int start = Math.Max(0, writeIndex - count);
+            var snapshot = new T[count];
+            for (int i = 0; i < count; i++)
+            {
+                snapshot[i] = _buffer[(start + i) % _buffer.Length];
+            }
+
+            return snapshot;
+        }
+
+        public void Clear()
+        {
+            Array.Clear(_buffer);
+            Volatile.Write(ref _writeIndex, 0);
+            Volatile.Write(ref _count, 0);
         }
     }
 }
