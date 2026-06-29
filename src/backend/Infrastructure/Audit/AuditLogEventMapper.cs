@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Collections.Frozen;
 using System.Globalization;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using Serilog.Events;
@@ -64,6 +66,47 @@ public sealed class AuditLogEventMapper
         "同步搜索引擎 IP 白名单",
         "backfill completed"
     ];
+
+    private const int SourceContextCacheLimit = 256;
+    private static readonly FrozenDictionary<string, string> SourceContextExactCatalog = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["FsusBlog.Server.Infrastructure.Middlewares.VisitLogMiddleware"] = AuditSourceCatalog.Access,
+        ["FsusBlog.Server.Services.VisitLogProcessorService"] = AuditSourceCatalog.Access,
+        ["FsusBlog.Server.Modules.Endpoints.AuthEndpoints"] = AuditSourceCatalog.Auth,
+        ["FsusBlog.Server.Services.UserService"] = AuditSourceCatalog.User,
+        ["FsusBlog.Server.Services.StatsService"] = AuditSourceCatalog.Admin,
+        ["FsusBlog.Server.Services.ArticleService"] = AuditSourceCatalog.Article,
+        ["FsusBlog.Server.Services.CommentService"] = AuditSourceCatalog.Comment,
+        ["FsusBlog.Server.Services.SystemService"] = AuditSourceCatalog.System,
+        ["FsusBlog.Server.Services.FileService"] = AuditSourceCatalog.Storage,
+        ["FsusBlog.Server.Infrastructure.Cache.UnifiedCache"] = AuditSourceCatalog.Cache,
+        ["FsusBlog.Server.Infrastructure.Helpers.Initializer.SqlSugarInitializer"] = AuditSourceCatalog.Db,
+        ["FsusBlog.Server.Services.NotificationStream.MessageCenterService"] = AuditSourceCatalog.NotificationStream,
+        ["FsusBlog.Server.Infrastructure.Security.AdaptivePowGovernor"] = AuditSourceCatalog.Security
+    }.ToFrozenDictionary(StringComparer.Ordinal);
+
+    private static readonly SourceContextRule[] SourceContextRules =
+    [
+        new(["VisitLogMiddleware", "VisitLogProcessorService"], AuditSourceCatalog.Access),
+        new(["AuthController", "AuthEndpoints"], AuditSourceCatalog.Auth),
+        new(["UserService"], AuditSourceCatalog.User),
+        new(["StatsController", "StatsService"], AuditSourceCatalog.Admin),
+        new(["ArticleController", "ArticleService"], AuditSourceCatalog.Article),
+        new(["CommentController", "CommentService"], AuditSourceCatalog.Comment),
+        new(["CategoryController"], AuditSourceCatalog.Category),
+        new(["TagController"], AuditSourceCatalog.Tag),
+        new(["SystemController", "SystemService", "SystemEndpoints"], AuditSourceCatalog.System),
+        new(["FileService"], AuditSourceCatalog.Storage),
+        new([".Infrastructure.Cache."], AuditSourceCatalog.Cache),
+        new(["SqlSugar", "DbConcurrencyGate", "SchemaMigration"], AuditSourceCatalog.Db),
+        new([".Infrastructure.NotificationStream.", ".Services.NotificationStream."], AuditSourceCatalog.NotificationStream),
+        new(["PublicAot"], AuditSourceCatalog.PublicAot),
+        new([".Services.Background.", "BackgroundTaskExecutor"], AuditSourceCatalog.Background),
+        new([".Infrastructure.Filters.", ".Infrastructure.Security.", ".Services.Security."], AuditSourceCatalog.Security),
+        new([".Modules.Controllers.", ".Modules.Endpoints."], AuditSourceCatalog.Request)
+    ];
+
+    private static readonly ConcurrentDictionary<string, string> SourceContextCatalogCache = new(StringComparer.Ordinal);
 
     public static bool IsAuditCandidate(LogEvent logEvent)
         => logEvent.Exception is not null
@@ -137,60 +180,53 @@ public sealed class AuditLogEventMapper
             return AuditSourceCatalog.Runtime;
         }
 
-        return sourceContext switch
+        sourceContext = sourceContext.Trim();
+        if (SourceContextExactCatalog.TryGetValue(sourceContext, out string? exactCatalog) ||
+            SourceContextCatalogCache.TryGetValue(sourceContext, out exactCatalog))
         {
-            var value when value.Contains("VisitLogMiddleware", StringComparison.Ordinal)
-                || value.Contains("VisitLogProcessorService", StringComparison.Ordinal)
-                => AuditSourceCatalog.Access,
-            var value when value.Contains("AuthController", StringComparison.Ordinal)
-                || value.Contains("AuthEndpoints", StringComparison.Ordinal)
-                => AuditSourceCatalog.Auth,
-            var value when value.Contains("UserService", StringComparison.Ordinal)
-                => AuditSourceCatalog.User,
-            var value when value.Contains("StatsController", StringComparison.Ordinal)
-                || value.Contains("StatsService", StringComparison.Ordinal)
-                => AuditSourceCatalog.Admin,
-            var value when value.Contains("ArticleController", StringComparison.Ordinal)
-                || value.Contains("ArticleService", StringComparison.Ordinal)
-                => AuditSourceCatalog.Article,
-            var value when value.Contains("CommentController", StringComparison.Ordinal)
-                || value.Contains("CommentService", StringComparison.Ordinal)
-                => AuditSourceCatalog.Comment,
-            var value when value.Contains("CategoryController", StringComparison.Ordinal)
-                => AuditSourceCatalog.Category,
-            var value when value.Contains("TagController", StringComparison.Ordinal)
-                => AuditSourceCatalog.Tag,
-            var value when value.Contains("SystemController", StringComparison.Ordinal)
-                || value.Contains("SystemService", StringComparison.Ordinal)
-                || value.Contains("SystemEndpoints", StringComparison.Ordinal)
-                => AuditSourceCatalog.System,
-            var value when value.Contains("FileService", StringComparison.Ordinal)
-                => AuditSourceCatalog.Storage,
-            var value when value.Contains(".Infrastructure.Cache.", StringComparison.Ordinal)
-                => AuditSourceCatalog.Cache,
-            var value when value.Contains("SqlSugar", StringComparison.Ordinal)
-                || value.Contains("DbConcurrencyGate", StringComparison.Ordinal)
-                || value.Contains("SchemaMigration", StringComparison.Ordinal)
-                => AuditSourceCatalog.Db,
-            var value when value.Contains(".Infrastructure.NotificationStream.", StringComparison.Ordinal)
-                || value.Contains(".Services.NotificationStream.", StringComparison.Ordinal)
-                => AuditSourceCatalog.NotificationStream,
-            var value when value.Contains("PublicAot", StringComparison.Ordinal)
-                => AuditSourceCatalog.PublicAot,
-            var value when value.Contains(".Services.Background.", StringComparison.Ordinal)
-                || value.Contains("BackgroundTaskExecutor", StringComparison.Ordinal)
-                => AuditSourceCatalog.Background,
-            var value when value.Contains(".Infrastructure.Filters.", StringComparison.Ordinal)
-                || value.Contains(".Infrastructure.Security.", StringComparison.Ordinal)
-                || value.Contains(".Services.Security.", StringComparison.Ordinal)
-                => AuditSourceCatalog.Security,
-            var value when value.Contains(".Modules.Controllers.", StringComparison.Ordinal)
-                || value.Contains(".Modules.Endpoints.", StringComparison.Ordinal)
-                => AuditSourceCatalog.Request,
-            _ when eventInfo.Contains("notification stream", StringComparison.OrdinalIgnoreCase)
-                => AuditSourceCatalog.NotificationStream,
-            _ => AuditSourceCatalog.Runtime
-        };
+            return exactCatalog;
+        }
+
+        foreach (SourceContextRule rule in SourceContextRules)
+        {
+            if (rule.IsMatch(sourceContext))
+            {
+                AddSourceContextCacheEntry(sourceContext, rule.Catalog);
+                return rule.Catalog;
+            }
+        }
+
+        if (eventInfo.Contains("notification stream", StringComparison.OrdinalIgnoreCase))
+        {
+            return AuditSourceCatalog.NotificationStream;
+        }
+
+        AddSourceContextCacheEntry(sourceContext, AuditSourceCatalog.Runtime);
+        return AuditSourceCatalog.Runtime;
+    }
+
+    private static void AddSourceContextCacheEntry(string sourceContext, string catalog)
+    {
+        if (SourceContextCatalogCache.Count < SourceContextCacheLimit)
+        {
+            _ = SourceContextCatalogCache.TryAdd(sourceContext, catalog);
+        }
+    }
+
+    private readonly record struct SourceContextRule(string[] Tokens, string Catalog)
+    {
+        public bool IsMatch(string sourceContext)
+        {
+            foreach (string token in Tokens)
+            {
+                if (sourceContext.Contains(token, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 
     private static string ClassifyType(string source, LogEvent logEvent, string eventInfo)

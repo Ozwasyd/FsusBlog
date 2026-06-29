@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Serilog.Events;
 using Serilog.Parsing;
@@ -188,6 +189,20 @@ public class AuditLogEventMapperTests
     }
 
     [Fact]
+    public void ClassifySource_SourceUsesPrecompiledLookupAndBoundedCache()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Audit/AuditLogEventMapper.cs");
+        string method = ExtractMethodBlock(source, "private static string ClassifySource");
+
+        Assert.Contains("FrozenDictionary", source, StringComparison.Ordinal);
+        Assert.Contains("ConcurrentDictionary<string, string>", source, StringComparison.Ordinal);
+        Assert.Contains("SourceContextCacheLimit", source, StringComparison.Ordinal);
+        Assert.Contains("TryGetValue(sourceContext", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("sourceContext switch", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("var value when value.Contains", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Map_NotificationStreamSource_ClassifiedAsNotificationStream()
     {
         var mapper = new AuditLogEventMapper();
@@ -273,5 +288,32 @@ public class AuditLogEventMapperTests
         Assert.NotNull(record.ContextPayload);
         Assert.True(PublicAotBinaryPayload.TryDecodeObject(record.ContextPayload, out Dictionary<string, object?> payload));
         return payload;
+    }
+
+    private static string ExtractMethodBlock(string source, string signature)
+    {
+        int start = source.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Unable to locate method signature: {signature}");
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart > start, $"Unable to locate method body: {signature}");
+
+        int depth = 0;
+        for (int i = braceStart; i < source.Length; i++)
+        {
+            if (source[i] == '{')
+            {
+                depth++;
+            }
+            else if (source[i] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[start..(i + 1)];
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
 }
