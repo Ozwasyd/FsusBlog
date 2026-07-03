@@ -168,6 +168,7 @@ FsusBlog.Server/wwwroot/index/
 src/backend/wwwroot/index/
 FsusBlog.Server/wwwroot/aot-cache/
 src/backend/wwwroot/aot-cache/
+src/backend/runtime-cache/
 FsusBlog.Server/LuceneIndex/
 src/backend/LuceneIndex/
 *.index
